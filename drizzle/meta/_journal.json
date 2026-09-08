@@ -1,0 +1,41 @@
+{
+  "version": "7",
+  "dialect": "mysql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "5",
+      "when": 1788651981970,
+      "tag": "0000_cooing_prima",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "5",
+      "when": 1788653105655,
+      "tag": "0001_colossal_naoko",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1788653129193,
+      "tag": "0002_calm_mentor",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "5",
+      "when": 1788653762483,
+      "tag": "0003_abandoned_lila_cheney",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "5",
+      "when": 1788654314370,
+      "tag": "0004_chubby_ser_duncan",
+      "breakpoints": true
+    }
+  ]
+}
