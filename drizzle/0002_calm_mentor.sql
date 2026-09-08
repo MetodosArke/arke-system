@@ -1,0 +1,1 @@
+ALTER TABLE `organizations` DROP INDEX `organizations_slug_idx`;

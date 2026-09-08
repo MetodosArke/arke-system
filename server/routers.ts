@@ -1,0 +1,59 @@
+import { z } from "zod";
+import { createHash, randomUUID } from "node:crypto";
+import { COOKIE_NAME } from "@shared/const";
+import { getSessionCookieOptions } from "./_core/cookies";
+import { systemRouter } from "./_core/systemRouter";
+import { protectedProcedure, publicProcedure, router } from "./_core/trpc";
+import { acceptOrganizationInvitation, archiveOrganizationUnit, auditLogsToCsv, auditLogsToPdfBase64, createOrganizationInvitation, createOrganizationUnit, createOrganizationWithOwner, getAuditLogs, getMembership, getOrganizationAccess, getOrganizationOnboarding, getOrganizationSubscription, getOrganizationsForUser, getPendingOrganizationInvitations, recordAuditLog, saveOrganizationOnboarding, updateModulePolicy } from "./db";
+
+const organizationIdInput = z.object({ organizationId: z.number().int().positive() });
+const moduleName = z.enum(["dashboard", "academias", "profissionais", "alunos", "agenda", "financeiro", "integracoes"]);
+const roleName = z.enum(["owner", "admin", "manager", "professional", "viewer"]);
+const auditFilterInput = z.object({ organizationId: z.number().int().positive(), from: z.string().optional(), to: z.string().optional(), userId: z.number().int().positive().optional(), entity: z.string().max(64).optional() });
+
+const auditFilters = (input: z.infer<typeof auditFilterInput>) => ({ from: input.from ? new Date(`${input.from}T00:00:00.000Z`) : undefined, to: input.to ? new Date(`${input.to}T23:59:59.999Z`) : undefined, userId: input.userId, entity: input.entity });
+
+const ownerOrAdmin = async (userId: number, organizationId: number) => {
+  const membership = await getMembership(userId, organizationId);
+  if (!membership || !["owner", "admin", "manager"].includes(membership.membership.role)) throw new Error("You do not have permission to manage this organization");
+  return membership;
+};
+
+const hasOrganizationAccess = async (userId: number, organizationId: number) => {
+  const membership = await getMembership(userId, organizationId);
+  if (!membership) throw new Error("Organization access denied");
+  return membership;
+};
+
+export const appRouter = router({
+  system: systemRouter,
+  auth: router({
+    me: publicProcedure.query(opts => opts.ctx.user),
+    logout: publicProcedure.mutation(({ ctx }) => {
+      const cookieOptions = getSessionCookieOptions(ctx.req);
+      ctx.res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });
+      return { success: true } as const;
+    }),
+  }),
+  saas: router({
+    organizations: router({
+      list: protectedProcedure.query(({ ctx }) => getOrganizationsForUser(ctx.user.id)),
+      create: protectedProcedure.input(z.object({ name: z.string().trim().min(2).max(160), slug: z.string().trim().toLowerCase().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/).max(120), plan: z.enum(["starter", "growth", "scale"]) })).mutation(({ ctx, input }) => createOrganizationWithOwner({ userId: ctx.user.id, ...input })),
+      access: protectedProcedure.input(organizationIdInput).query(({ ctx, input }) => getOrganizationAccess(ctx.user.id, input.organizationId)),
+      audit: protectedProcedure.input(auditFilterInput).query(async ({ ctx, input }) => { await hasOrganizationAccess(ctx.user.id, input.organizationId); return getAuditLogs(input.organizationId, 100, auditFilters(input)); }),
+      auditCsv: protectedProcedure.input(auditFilterInput).query(async ({ ctx, input }) => { await hasOrganizationAccess(ctx.user.id, input.organizationId); return { filename: `arke-auditoria-${input.organizationId}.csv`, content: auditLogsToCsv(await getAuditLogs(input.organizationId, 500, auditFilters(input))) }; }),
+      auditPdf: protectedProcedure.input(auditFilterInput).query(async ({ ctx, input }) => { await hasOrganizationAccess(ctx.user.id, input.organizationId); return { filename: `arke-auditoria-${input.organizationId}.pdf`, contentBase64: auditLogsToPdfBase64(await getAuditLogs(input.organizationId, 500, auditFilters(input))) }; }),
+      pendingInvitations: protectedProcedure.input(organizationIdInput).query(async ({ ctx, input }) => { await ownerOrAdmin(ctx.user.id, input.organizationId); return getPendingOrganizationInvitations(input.organizationId); }),
+      createUnit: protectedProcedure.input(z.object({ organizationId: z.number().int().positive(), name: z.string().trim().min(2).max(160), slug: z.string().trim().toLowerCase().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/).max(120), city: z.string().trim().max(120).optional() })).mutation(async ({ ctx, input }) => { await ownerOrAdmin(ctx.user.id, input.organizationId); const unit = await createOrganizationUnit(input); await recordAuditLog({ organizationId: input.organizationId, userId: ctx.user.id, unitId: unit.id, action: "created", entity: "organization_unit", entityId: unit.id, afterJson: input }); return unit; }),
+      archiveUnit: protectedProcedure.input(z.object({ organizationId: z.number().int().positive(), unitId: z.number().int().positive() })).mutation(async ({ ctx, input }) => { await ownerOrAdmin(ctx.user.id, input.organizationId); const result = await archiveOrganizationUnit(input.organizationId, input.unitId); await recordAuditLog({ organizationId: input.organizationId, userId: ctx.user.id, unitId: input.unitId, action: "archived", entity: "organization_unit", entityId: input.unitId, afterJson: result }); return result; }),
+      subscription: protectedProcedure.input(organizationIdInput).query(async ({ ctx, input }) => { await hasOrganizationAccess(ctx.user.id, input.organizationId); return getOrganizationSubscription(input.organizationId); }),
+      onboarding: protectedProcedure.input(organizationIdInput).query(async ({ ctx, input }) => { await hasOrganizationAccess(ctx.user.id, input.organizationId); return getOrganizationOnboarding(input.organizationId); }),
+      saveOnboarding: protectedProcedure.input(z.object({ organizationId: z.number().int().positive(), currentStep: z.number().int().min(1).max(4), status: z.enum(["not_started", "in_progress", "completed"]), city: z.string().trim().max(120).optional(), defaultUnitName: z.string().trim().min(2).max(160).optional(), inviteEmail: z.string().email().optional(), logoUrl: z.string().url().max(512).optional(), primaryColor: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional() })).mutation(async ({ ctx, input }) => { await ownerOrAdmin(ctx.user.id, input.organizationId); const result = await saveOrganizationOnboarding(input); await recordAuditLog({ organizationId: input.organizationId, userId: ctx.user.id, action: "updated", entity: "onboarding_branding", afterJson: input }); return result; }),
+      updatePolicy: protectedProcedure.input(z.object({ organizationId: z.number().int().positive(), unitId: z.number().int().positive(), role: roleName, module: moduleName, canView: z.number().int().min(0).max(1), canManage: z.number().int().min(0).max(1) })).mutation(async ({ ctx, input }) => { await ownerOrAdmin(ctx.user.id, input.organizationId); const result = await updateModulePolicy(input); await recordAuditLog({ organizationId: input.organizationId, userId: ctx.user.id, unitId: input.unitId, action: "updated", entity: "module_policy", afterJson: input }); return result; }),
+      invite: protectedProcedure.input(z.object({ organizationId: z.number().int().positive(), email: z.string().email(), role: z.enum(["admin", "manager", "professional", "viewer"]) })).mutation(async ({ ctx, input }) => { await ownerOrAdmin(ctx.user.id, input.organizationId); const rawToken = randomUUID(); const tokenHash = createHash("sha256").update(rawToken).digest("hex"); const invitation = await createOrganizationInvitation({ ...input, invitedByUserId: ctx.user.id, email: input.email.toLowerCase(), tokenHash, expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 72) }); await recordAuditLog({ organizationId: input.organizationId, userId: ctx.user.id, action: "created", entity: "invitation", entityId: invitation.id, afterJson: { email: input.email.toLowerCase(), role: input.role } }); return { invitationId: invitation.id, token: rawToken, status: "pending" as const }; }),
+      acceptInvite: protectedProcedure.input(z.object({ token: z.string().min(16).max(128) })).mutation(async ({ ctx, input }) => { if (!ctx.user.email) throw new Error("Authenticated user email is required"); const result = await acceptOrganizationInvitation({ tokenHash: createHash("sha256").update(input.token).digest("hex"), userId: ctx.user.id, email: ctx.user.email }); await recordAuditLog({ organizationId: result.organizationId, userId: ctx.user.id, action: "accepted", entity: "invitation", entityId: result.invitation.id, afterJson: { role: result.role, email: ctx.user.email } }); return { organizationId: result.organizationId, role: result.role, status: "accepted" as const }; }),
+    }),
+  }),
+});
+
+export type AppRouter = typeof appRouter;
