@@ -2,7 +2,7 @@
   "version": 2,
   "framework": "vite",
   "buildCommand": "pnpm build",
-  "outputDirectory": "dist/public",
+  "outputDirectory": "dist",
   "functions": {
     "api/[...path].ts": {
       "runtime": "nodejs22.x",
