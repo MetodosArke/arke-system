@@ -2,32 +2,32 @@ import { describe, expect, it } from "vitest";
 import { DEMO_CLIENTS, DEMO_MODULE_CLIENTS, DEMO_MODULE_USERS, DEMO_PASSWORD, DEMO_USERS, DEMO_TENANTS, MODULE_PERMISSIONS, SAAS_PLANS, getDemoUser, getModuleDemoUser, hasModuleDemoAccounts, hasTwoDemoClientsPerModule, hasValidSaaSDemoCatalog } from "../client/src/lib/arkeDemo";
 
 describe("Arke demo seed", () => {
-  it("accepts both requested super logins with the default password", () => {
+  it("defines both requested super logins as super admins with hashed credentials", () => {
     expect(DEMO_USERS).toHaveLength(2);
-    expect(getDemoUser("andre.alvesman@gmail.com", DEMO_PASSWORD)?.role).toBe("Super Admin");
-    expect(getDemoUser("COMERCIAL@METODOSARKE.COM.BR", DEMO_PASSWORD)?.name).toBe("Método Sarke");
+    expect(DEMO_USERS.every((user) => user.role === "Super Admin" && user.passwordHash?.length === 64)).toBe(true);
+    expect(DEMO_USERS.map((user) => user.email)).toEqual(["andre.alvesman@gmail.com", "comercial@metodosarke.com.br"]);
   });
 
-  it("rejects a wrong password without exposing a user", () => {
-    expect(getDemoUser("andre.alvesman@gmail.com", "senha-incorreta")).toBeUndefined();
+  it("rejects a wrong password without exposing a user", async () => {
+    expect(await getDemoUser("andre.alvesman@gmail.com", "senha-incorreta")).toBeUndefined();
   });
 
-  it("provides one named login for each requested module", () => {
+  it("provides one named login for each requested module", async () => {
     expect(DEMO_MODULE_USERS).toHaveLength(6);
     expect(hasModuleDemoAccounts()).toBe(true);
-    expect(getModuleDemoUser("academia", "academia", DEMO_PASSWORD)?.role).toBe("Gestor de Academia");
-    expect(getModuleDemoUser("studio", "studio", DEMO_PASSWORD)?.role).toBe("Gestor de Studio");
-    expect(getModuleDemoUser("profissional", "personal", DEMO_PASSWORD)?.name).toBe("Camila Rocha");
-    expect(getModuleDemoUser("profissional", "nutricionista", DEMO_PASSWORD)?.role).toBe("Nutricionista");
-    expect(getModuleDemoUser("aluno", "aluno", DEMO_PASSWORD)?.name).toBe("Marina Costa");
-    expect(getModuleDemoUser("administrador", "administrador", DEMO_PASSWORD)?.role).toBe("Administrador");
+    expect((await getModuleDemoUser("academia", "academia", DEMO_PASSWORD))?.role).toBe("Gestor de Academia");
+    expect((await getModuleDemoUser("studio", "studio", DEMO_PASSWORD))?.role).toBe("Gestor de Studio");
+    expect((await getModuleDemoUser("profissional", "personal", DEMO_PASSWORD))?.name).toBe("Camila Rocha");
+    expect((await getModuleDemoUser("profissional", "nutricionista", DEMO_PASSWORD))?.role).toBe("Nutricionista");
+    expect((await getModuleDemoUser("aluno", "aluno", DEMO_PASSWORD))?.name).toBe("Marina Costa");
+    expect((await getModuleDemoUser("administrador", "administrador", DEMO_PASSWORD))?.role).toBe("Administrador");
   });
 
-  it("defines least-privilege permissions for each module", () => {
+  it("defines least-privilege permissions for each module", async () => {
     expect(MODULE_PERMISSIONS.aluno).toEqual(["overview", "alunos", "agenda"]);
     expect(MODULE_PERMISSIONS.profissional).not.toContain("saas");
     expect(MODULE_PERMISSIONS.administrador).toContain("saas");
-    expect(getModuleDemoUser("aluno", "aluno", "senha-incorreta")).toBeUndefined();
+    expect(await getModuleDemoUser("aluno", "aluno", "senha-incorreta")).toBeUndefined();
   });
 
   it("isolates the Academy subsystem from SaaS administration", () => {

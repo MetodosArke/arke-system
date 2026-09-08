@@ -4,6 +4,7 @@ export type DemoUser = {
   name: string;
   email: string;
   username?: string;
+  passwordHash?: string;
   role: string;
   initials: string;
   module: ModuleKey;
@@ -44,8 +45,8 @@ export const DEMO_CLIENTS = [
 ] as const;
 
 export const DEMO_USERS: DemoUser[] = [
-  { name: "André Alves", email: "andre.alvesman@gmail.com", role: "Super Admin", initials: "AA", module: "administrador", workspace: "Rede Arke Demo" },
-  { name: "Método Sarke", email: "comercial@metodosarke.com.br", role: "Super Admin", initials: "MS", module: "administrador", workspace: "Rede Arke Demo" },
+  { name: "André Alves", email: "andre.alvesman@gmail.com", passwordHash: "dd95019ad2b55696d8bf1c7305d12cbd52d7b0a8ff7e2028836bc0330e2bb7ee", role: "Super Admin", initials: "AA", module: "administrador", workspace: "Rede Arke Demo" },
+  { name: "Método Sarke", email: "comercial@metodosarke.com.br", passwordHash: "738ed8ede20d0a74b7f5f43eca81755d3b07d17118f5743c31f1238434bc1a61", role: "Super Admin", initials: "MS", module: "administrador", workspace: "Rede Arke Demo" },
 ];
 
 export const DEMO_MODULE_USERS: DemoUser[] = [
@@ -73,12 +74,12 @@ export const DEMO_TENANTS = [
 
 export const SAAS_PLANS = ["Starter", "Growth", "Scale"] as const;
 
-export function getDemoUser(email: string, password: string): DemoUser | undefined {
+export async function getDemoUser(email: string, password: string): Promise<DemoUser | undefined> {
   const user = DEMO_USERS.find((candidate) => candidate.email.toLowerCase() === email.trim().toLowerCase());
-  return user && passwordMatches(user, password) ? user : undefined;
+  return user && await passwordMatches(user, password) ? user : undefined;
 }
 
-export function getModuleDemoUser(module: ModuleKey, identifier: string, password: string): DemoUser | undefined {
+export async function getModuleDemoUser(module: ModuleKey, identifier: string, password: string): Promise<DemoUser | undefined> {
   const normalized = identifier.trim().toLowerCase();
   let dynamicUser: DemoUser | undefined;
   if (typeof localStorage !== "undefined") {
@@ -89,12 +90,16 @@ export function getModuleDemoUser(module: ModuleKey, identifier: string, passwor
     } catch { dynamicUser = undefined; }
   }
   const user = dynamicUser ?? (module === "administrador" ? ALL_DEMO_USERS.find((candidate) => candidate.module === module && (candidate.username === normalized || candidate.email.toLowerCase() === normalized)) : DEMO_MODULE_USERS.find((candidate) => candidate.module === module && candidate.username === normalized));
-  return user && passwordMatches(user, password) ? user : undefined;
+  return user && await passwordMatches(user, password) ? user : undefined;
 }
 
-function passwordMatches(user: DemoUser, password: string) {
+async function passwordMatches(user: DemoUser, password: string) {
   const stored = typeof localStorage !== "undefined" ? localStorage.getItem(`arke-demo-password:${user.email}`) : null;
-  return password === (stored || DEMO_PASSWORD);
+  if (stored) return password === stored;
+  if (!user.passwordHash) return password === DEMO_PASSWORD;
+  const data = new TextEncoder().encode(`arke-demo-v1:${user.email.toLowerCase()}:${password}`);
+  const digest = await crypto.subtle.digest("SHA-256", data);
+  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("") === user.passwordHash;
 }
 
 export function hasModuleDemoAccounts() {
