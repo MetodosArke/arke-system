@@ -5,7 +5,7 @@
   "license": "MIT",
   "scripts": {
     "dev": "NODE_ENV=development tsx watch server/_core/index.ts",
-    "build": "vite build && cp -R dist/public/. dist/ && esbuild server/_core/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist/server",
+    "build": "vite build && cp -R dist/public/. dist/ && esbuild server/_core/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist/server && esbuild server/_core/index.ts --platform=node --packages=external --bundle --format=esm --outfile=api/arke-server.mjs",
     "start": "NODE_ENV=production node dist/server/index.js",
     "check": "tsc --noEmit",
     "format": "prettier --write .",
