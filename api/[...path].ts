@@ -1,4 +1,4 @@
-import { createApp } from "../server/_core/index.ts";
+import { createApp } from "./arke-server.mjs";
 
 const app = createApp();
 
