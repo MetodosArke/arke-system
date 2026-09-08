@@ -5,6 +5,9 @@ import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { protectedProcedure, publicProcedure, router } from "./_core/trpc";
 import { acceptOrganizationInvitation, archiveOrganizationUnit, auditLogsToCsv, auditLogsToPdfBase64, createOrganizationInvitation, createOrganizationUnit, createOrganizationWithOwner, getAuditLogs, getMembership, getOrganizationAccess, getOrganizationOnboarding, getOrganizationSubscription, getOrganizationsForUser, getPendingOrganizationInvitations, recordAuditLog, saveOrganizationOnboarding, updateModulePolicy } from "./db";
+import { createAppStudent, createAppUser, createPasswordRecovery, deleteAppStudent, deleteAppUser, hasSupabaseConfig, listAppStudents, listAppUsers, normalizeEmail, signInWithSupabase, updateAppStudent, updateAppUser } from "./supabaseAdmin";
+import { asaasSandboxConfigured, createAsaasCustomer, createAsaasPayment, createAsaasWebhook, getAsaasAccount, listAsaasPayments } from "./asaas";
+import { listStoredAsaasPayments } from "./asaasPersistence";
 
 const organizationIdInput = z.object({ organizationId: z.number().int().positive() });
 const moduleName = z.enum(["dashboard", "academias", "profissionais", "alunos", "agenda", "financeiro", "integracoes"]);
@@ -34,6 +37,32 @@ export const appRouter = router({
       ctx.res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });
       return { success: true } as const;
     }),
+    signIn: publicProcedure.input(z.object({ email: z.string().email(), password: z.string().min(8) })).mutation(({ input }) => signInWithSupabase(input.email, input.password)),
+    recoverPassword: publicProcedure.input(z.object({ email: z.string().email() })).mutation(({ input }) => createPasswordRecovery(normalizeEmail(input.email))),
+  }),
+  admin: router({
+    status: publicProcedure.query(() => ({ configured: hasSupabaseConfig() })),
+    users: router({
+      list: publicProcedure.query(() => listAppUsers()),
+      create: publicProcedure.input(z.object({ name: z.string().trim().min(2), email: z.string().email(), username: z.string().trim().min(2).max(80), module: z.enum(["academia", "studio", "profissional", "aluno", "administrador"]), role: z.string().trim().min(2), status: z.enum(["Ativo", "Suspenso"]) })).mutation(({ input }) => createAppUser({ ...input, email: normalizeEmail(input.email) })),
+      update: publicProcedure.input(z.object({ id: z.string().uuid(), data: z.object({ name: z.string().trim().min(2), email: z.string().email(), username: z.string().trim().min(2), module: z.enum(["academia", "studio", "profissional", "aluno", "administrador"]), role: z.string().trim().min(2), status: z.enum(["Ativo", "Suspenso"]) }) })).mutation(({ input }) => updateAppUser(input.id, { ...input.data, email: normalizeEmail(input.data.email) })),
+      delete: publicProcedure.input(z.object({ id: z.string().uuid() })).mutation(({ input }) => deleteAppUser(input.id)),
+    }),
+    students: router({
+      list: publicProcedure.query(() => listAppStudents()),
+      create: publicProcedure.input(z.object({ name: z.string().trim().min(2), academy: z.string().trim().min(2), plan: z.string().trim().min(2), status: z.enum(["Ativo", "Inativo"]) })).mutation(({ input }) => createAppStudent(input)),
+      update: publicProcedure.input(z.object({ id: z.string().uuid(), data: z.object({ name: z.string().trim().min(2), academy: z.string().trim().min(2), plan: z.string().trim().min(2), status: z.enum(["Ativo", "Inativo"]) }) })).mutation(({ input }) => updateAppStudent(input.id, input.data)),
+      delete: publicProcedure.input(z.object({ id: z.string().uuid() })).mutation(({ input }) => deleteAppStudent(input.id)),
+    }),
+  }),
+  billing: router({
+    asaasStatus: publicProcedure.query(() => ({ configured: asaasSandboxConfigured(), environment: "sandbox" as const })),
+    asaasAccount: publicProcedure.query(() => getAsaasAccount()),
+    asaasPayments: publicProcedure.input(z.object({ limit: z.number().int().min(1).max(100).optional() }).optional()).query(({ input }) => listAsaasPayments(input?.limit ?? 20)),
+    asaasStoredPayments: publicProcedure.input(z.object({ limit: z.number().int().min(1).max(100).optional() }).optional()).query(({ input }) => listStoredAsaasPayments(input?.limit ?? 20)),
+    createAsaasCustomer: publicProcedure.input(z.object({ name: z.string().trim().min(2), email: z.string().email(), cpfCnpj: z.string().trim().optional() })).mutation(({ input }) => createAsaasCustomer(input)),
+    createAsaasPayment: publicProcedure.input(z.object({ customer: z.string().min(2), value: z.number().positive(), dueDate: z.string(), billingType: z.enum(["PIX", "BOLETO", "CREDIT_CARD"]), description: z.string().trim().min(2) })).mutation(({ input }) => createAsaasPayment(input)),
+    createAsaasWebhook: publicProcedure.input(z.object({ url: z.string().url(), email: z.string().email() })).mutation(({ input }) => createAsaasWebhook(input)),
   }),
   saas: router({
     organizations: router({
