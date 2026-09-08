@@ -85,8 +85,11 @@ export async function getModuleDemoUser(module: ModuleKey, identifier: string, p
   if (typeof localStorage !== "undefined") {
     try {
       const clients = JSON.parse(localStorage.getItem("arke-admin-clients") || "[]") as Array<{ name: string; module: ModuleKey; username: string; logoUrl: string }>;
+      const managedUsers = JSON.parse(localStorage.getItem("arke-managed-users") || "[]") as Array<{ name: string; email: string; module: ModuleKey; username: string; role: string }>;
       const client = clients.find((candidate) => candidate.module === module && candidate.username === normalized);
-      if (client) dynamicUser = { name: client.name, email: `${client.username}@arke.demo`, username: client.username, role: `Gestor de ${MODULE_LABELS[module]}`, initials: client.name.slice(0, 2).toUpperCase(), module, workspace: client.name, logoUrl: client.logoUrl };
+      const managedUser = managedUsers.find((candidate) => candidate.module === module && candidate.username === normalized);
+      if (managedUser) dynamicUser = { name: managedUser.name, email: managedUser.email, username: managedUser.username, role: managedUser.role, initials: managedUser.name.slice(0, 2).toUpperCase(), module, workspace: managedUser.name };
+      else if (client) dynamicUser = { name: client.name, email: `${client.username}@arke.demo`, username: client.username, role: `Gestor de ${MODULE_LABELS[module]}`, initials: client.name.slice(0, 2).toUpperCase(), module, workspace: client.name, logoUrl: client.logoUrl };
     } catch { dynamicUser = undefined; }
   }
   const user = dynamicUser ?? (module === "administrador" ? ALL_DEMO_USERS.find((candidate) => candidate.module === module && (candidate.username === normalized || candidate.email.toLowerCase() === normalized)) : DEMO_MODULE_USERS.find((candidate) => candidate.module === module && candidate.username === normalized));
