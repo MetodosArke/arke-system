@@ -63,7 +63,7 @@ export const appRouter = router({
     asaasPayments: publicProcedure.input(z.object({ limit: z.number().int().min(1).max(100).optional() }).optional()).query(({ input }) => listAsaasPayments(input?.limit ?? 20)),
     asaasStoredPayments: publicProcedure.input(z.object({ limit: z.number().int().min(1).max(100).optional() }).optional()).query(({ input }) => listStoredAsaasPayments(input?.limit ?? 20)),
     createAsaasCustomer: publicProcedure.input(z.object({ name: z.string().trim().min(2), email: z.string().email(), cpfCnpj: z.string().trim().optional() })).mutation(({ input }) => createAsaasCustomer(input)),
-    createAsaasPayment: publicProcedure.input(z.object({ customer: z.string().min(2), value: z.number().positive(), dueDate: z.string(), billingType: z.enum(["PIX", "BOLETO", "CREDIT_CARD"]), description: z.string().trim().min(2) })).mutation(({ input }) => createAsaasPayment(input)),
+    createAsaasPayment: publicProcedure.input(z.object({ customer: z.string().min(2), value: z.number().positive(), dueDate: z.string(), billingType: z.enum(["UNDEFINED", "PIX", "BOLETO", "CREDIT_CARD", "DEBIT_CARD"]), description: z.string().trim().min(2) })).mutation(({ input }) => createAsaasPayment(input)),
     createAsaasWebhook: publicProcedure.input(z.object({ url: z.string().url(), email: z.string().email() })).mutation(({ input }) => createAsaasWebhook(input)),
   }),
   saas: router({

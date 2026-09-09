@@ -18,7 +18,7 @@ export type AsaasPayment = { id: string; customer: string; value: number; billin
 export function asaasSandboxConfigured() { return Boolean(process.env.ASAAS_API_KEY); }
 export async function getAsaasAccount() { return asaasRequest<{ name: string; email: string; walletId?: string }>("/myAccount"); }
 export async function createAsaasCustomer(input: { name: string; email: string; cpfCnpj?: string }) { return asaasRequest<AsaasCustomer>("/customers", { method: "POST", body: JSON.stringify(input) }); }
-export async function createAsaasPayment(input: { customer: string; value: number; dueDate: string; billingType: "PIX" | "BOLETO" | "CREDIT_CARD"; description: string }) { return asaasRequest<AsaasPayment>("/payments", { method: "POST", body: JSON.stringify(input) }); }
+export async function createAsaasPayment(input: { customer: string; value: number; dueDate: string; billingType: "UNDEFINED" | "PIX" | "BOLETO" | "CREDIT_CARD" | "DEBIT_CARD"; description: string }) { return asaasRequest<AsaasPayment>("/payments", { method: "POST", body: JSON.stringify(input) }); }
 export async function listAsaasPayments(limit = 20) { return asaasRequest<{ data: AsaasPayment[] }>(`/payments?limit=${limit}`); }
 export async function createAsaasWebhook(input: { url: string; email: string }) {
   const events = ["PAYMENT_CREATED", "PAYMENT_UPDATED", "PAYMENT_CONFIRMED", "PAYMENT_RECEIVED", "PAYMENT_OVERDUE", "PAYMENT_DELETED", "PAYMENT_RESTORED", "PAYMENT_REFUNDED", "PAYMENT_PARTIALLY_REFUNDED", "PAYMENT_CREDIT_CARD_CAPTURE_REFUSED"];
