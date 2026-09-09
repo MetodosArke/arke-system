@@ -24,7 +24,7 @@ async function request<T>(table: string, init: RequestInit = {}, query = "") {
 const id = () => randomUUID();
 const hash = (value: string) => createHash("sha256").update(value).digest("hex");
 
-export type AppUser = { id: string; name: string; email: string; username: string; module: string; role: string; status: string; logoUrl?: string | null; created_at: string; updated_at: string };
+export type AppUser = { id: string; name: string; email: string; username: string; module: string; role: string; status: string; logoUrl?: string | null; profile_data?: Record<string, string> | null; created_at: string; updated_at: string };
 export type AppStudent = { id: string; name: string; academy: string; plan: string; status: string; created_at: string; updated_at: string };
 
 export async function authenticateSupabaseAccessToken(accessToken: string) {
