@@ -75,8 +75,11 @@ function ReportActions({ title, filename, rows, onToast }: { title: string; file
 }
 
 const academyClients = [
-  { name: "Vértice Studio", city: "São Paulo, SP", plan: "Growth", students: 286, status: "Ativo", initials: "VS", color: "#dcf2d1", accent: "#3e8154" },
+  { name: "Vértice Academia", city: "São Paulo, SP", plan: "Growth", students: 286, status: "Ativo", initials: "VA", color: "#dcf2d1", accent: "#3e8154" },
   { name: "Box Norte 360", city: "Curitiba, PR", plan: "Scale", students: 412, status: "Ativo", initials: "BN", color: "#eee9da", accent: "#6d5abd" },
+];
+const studioClients = [
+  { name: "Studio Movimento", city: "São Paulo, SP", plan: "Growth", students: 96, status: "Ativo", initials: "SM", color: "#f5ead0", accent: "#a47b13" },
 ];
 const professionals = [
   { name: "Camila Rocha", specialty: "Personal trainer", clients: 34, complementary: "Nutrição ARKE", next: "Hoje, 16:30", initials: "CR", color: "#ffe6cb", accent: "#bd7040" },
@@ -159,7 +162,7 @@ function ClientWallet({ kind, onToast }: { kind: "academia" | "studio" | "profis
   const [revision, setRevision] = useState(0);
   const usersQuery = trpc.admin.users.list.useQuery();
   const overrides = (() => { try { return JSON.parse(localStorage.getItem("arke-client-overrides") || "{}"); } catch { return {}; } })();
-  const base = kind === "academia" || kind === "studio" ? academyClients.map((item) => ({ ...item, type: "Academia", health: "Operação saudável", service: "Gestão de alunos e unidades", next: "Agenda operacional" })) : professionals.map((item) => ({ ...item, type: item.specialty, city: "São Paulo, SP", status: "Ativo", students: item.clients, service: item.complementary, next: item.next, health: "Atendimento conectado" }));
+  const base = kind === "academia" || kind === "studio" ? (kind === "studio" ? studioClients : academyClients).map((item) => ({ ...item, type: kind === "studio" ? "Studio" : "Academia", health: "Operação saudável", service: kind === "studio" ? "Gestão de aulas e clientes" : "Gestão de alunos e unidades", next: "Agenda operacional" })) : professionals.map((item) => ({ ...item, type: item.specialty, city: "São Paulo, SP", status: "Ativo", students: item.clients, service: item.complementary, next: item.next, health: "Atendimento conectado" }));
   const created = (() => { try { return (JSON.parse(localStorage.getItem("arke-admin-clients") || "[]") as any[]).filter((item) => kind === "profissional" ? item.module === "profissional" : item.module === kind).map((item) => ({ ...item, type: MODULE_LABELS[item.module as ModuleKey], city: item.city || "Não informado", status: item.status || "Ativo", initials: item.name.slice(0, 2).toUpperCase(), color: "#f5ead0", accent: "#a47b13", health: "Operação saudável", service: "Operação conectada Arke", next: "A definir" })); } catch { return []; } })();
   const database = ((usersQuery.data ?? []) as any[]).filter((item) => kind === "profissional" ? item.module === "profissional" : item.module === kind).map((item) => ({ ...item, type: MODULE_LABELS[item.module as ModuleKey], city: item.profile_data?.city || "Não informado", status: item.status || "Ativo", initials: item.name.slice(0, 2).toUpperCase(), color: "#f5ead0", accent: "#a47b13", health: "Operação saudável", service: "Operação conectada Arke", next: "A definir" }));
   const items = [...base, ...created, ...database].filter((item, index, list) => list.findIndex((candidate) => candidate.name === item.name) === index).map((item) => ({ ...item, ...(overrides[item.name] || {}) }));
