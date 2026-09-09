@@ -50,7 +50,7 @@ describe("Arke demo seed", () => {
 
   it("provides a valid multi-tenant SaaS catalog", () => {
     expect(hasValidSaaSDemoCatalog()).toBe(true);
-    expect(DEMO_TENANTS.map((tenant) => tenant.name)).toEqual(["Rede Arke Demo", "Vértice Studio", "Box Norte 360"]);
+    expect(DEMO_TENANTS.map((tenant) => tenant.name)).toEqual(["Rede Arke", "Vértice Studio", "Box Norte 360"]);
     expect(SAAS_PLANS).toEqual(["Starter", "Growth", "Scale"]);
   });
 });
