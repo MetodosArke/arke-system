@@ -1191,7 +1191,7 @@ function registerAccessRoutes(app) {
       deviceId,
       provider,
       checkedAt: (/* @__PURE__ */ new Date()).toISOString(),
-      message: denied ? "Acesso bloqueado para demonstra\xE7\xE3o." : "Acesso liberado em modo demonstra\xE7\xE3o."
+      message: denied ? "Acesso bloqueado para esta credencial." : "Acesso liberado."
     });
   });
 }
