@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   Activity,
   ArrowDownRight,
@@ -333,8 +333,10 @@ function StudentSubsystemPage({ onToast }: { onToast: (toast: NonNullable<Toast>
 }
 
 function AdminPage({ onToast }: { onToast: (toast: NonNullable<Toast>) => void }) {
-  type Client = { name: string; module: ModuleKey; username: string; logoUrl: string; status: string };
+  type Client = { id?: string; name: string; email?: string; module: ModuleKey; username: string; logoUrl: string; status: string };
   const [clients, setClients] = useState<Client[]>(() => { try { return JSON.parse(localStorage.getItem("arke-admin-clients") || "null") || [...DEMO_CLIENTS]; } catch { return [...DEMO_CLIENTS]; } });
+  const persistedUsers = trpc.admin.users.list.useQuery();
+  useEffect(() => { if (!persistedUsers.data?.length) return; const records = persistedUsers.data.filter((item) => ["academia", "studio", "profissional"].includes(item.module)).map((item) => ({ id: item.id, name: item.name, email: item.email, module: item.module as ModuleKey, username: item.username, logoUrl: item.logoUrl || "/arke-logo.png", status: item.status })); if (records.length) setClients(records); }, [persistedUsers.data]);
   const [clientName, setClientName] = useState("");
   const [username, setUsername] = useState("");
   const [clientModule, setClientModule] = useState<ModuleKey>("academia");
