@@ -221,16 +221,19 @@ var users = mysqlTable("users", {
 });
 var organizations = mysqlTable("organizations", {
   id: int("id").autoincrement().primaryKey(),
+  clientId: varchar("clientId", { length: 64 }),
   name: varchar("name", { length: 160 }).notNull(),
   slug: varchar("slug", { length: 120 }).notNull().unique(),
   plan: mysqlEnum("plan", ["starter", "growth", "scale"]).default("starter").notNull(),
   status: mysqlEnum("status", ["trial", "active", "past_due", "canceled"]).default("trial").notNull(),
-  logoUrl: varchar("logoUrl", { length: 512 }),
+  logoUrl: text("logoUrl"),
   primaryColor: varchar("primaryColor", { length: 32 }).default("#c99518").notNull(),
   maxUnits: int("maxUnits").default(1).notNull(),
   maxUsers: int("maxUsers").default(12).notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
-  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull()
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  reconciliationStatus: mysqlEnum("reconciliationStatus", ["matched", "review"]).default("review").notNull(),
+  reconciliationNote: text("reconciliationNote")
 });
 var memberships = mysqlTable("memberships", {
   id: int("id").autoincrement().primaryKey(),
@@ -377,8 +380,11 @@ async function createOrganizationWithOwner(input) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
   return db.transaction(async (tx) => {
+    const existing = await tx.select({ id: organizations.id, name: organizations.name }).from(organizations).where(and(eq(organizations.clientId, input.clientId), eq(organizations.status, "active"))).limit(1);
+    const trial = await tx.select({ id: organizations.id, name: organizations.name }).from(organizations).where(and(eq(organizations.clientId, input.clientId), eq(organizations.status, "trial"))).limit(1);
+    if (existing[0] || trial[0]) throw new Error(`O cliente j\xE1 possui uma licen\xE7a ativa: ${(existing[0] ?? trial[0]).name}`);
     const limits = { starter: { maxUnits: 1, maxUsers: 12 }, growth: { maxUnits: 3, maxUsers: 32 }, scale: { maxUnits: 10, maxUsers: 100 } }[input.plan];
-    const [created] = await tx.insert(organizations).values({ name: input.name, slug: input.slug, plan: input.plan, status: "trial", ...limits }).$returningId();
+    const [created] = await tx.insert(organizations).values({ clientId: input.clientId, name: input.name, slug: input.slug, plan: input.plan, status: "trial", reconciliationStatus: "matched", reconciliationNote: "Vinculada ao cliente selecionado no onboarding", ...limits }).$returningId();
     const organizationId = created.id;
     const [unit] = await tx.insert(organizationUnits).values({ organizationId, name: input.name, slug: "sede-principal", status: "active" }).$returningId();
     await tx.insert(memberships).values({ organizationId, userId: input.userId, role: "owner", status: "active" });
@@ -421,6 +427,26 @@ async function getOrganizationSubscription(organizationId) {
   if (!db) return void 0;
   const result = await db.select().from(subscriptions).where(eq(subscriptions.organizationId, organizationId)).orderBy(desc(subscriptions.createdAt)).limit(1);
   return result[0];
+}
+async function updateOrganizationProfile(input) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.update(organizations).set({ name: input.name, ...input.logoUrl !== void 0 ? { logoUrl: input.logoUrl } : {}, ...input.primaryColor !== void 0 ? { primaryColor: input.primaryColor } : {} }).where(eq(organizations.id, input.organizationId));
+  return getMembership(await getMembershipByOrganizationOwner(input.organizationId) ?? 0, input.organizationId);
+}
+async function getMembershipByOrganizationOwner(organizationId) {
+  const db = await getDb();
+  if (!db) return void 0;
+  const result = await db.select({ userId: memberships.userId }).from(memberships).where(and(eq(memberships.organizationId, organizationId), eq(memberships.role, "owner"))).limit(1);
+  return result[0]?.userId;
+}
+async function updateOrganizationSubscription(input) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const amountCents = { starter: 39900, growth: 79900, scale: 149e3 }[input.plan];
+  await db.update(organizations).set({ plan: input.plan, maxUnits: { starter: 1, growth: 3, scale: 10 }[input.plan], maxUsers: { starter: 12, growth: 32, scale: 100 }[input.plan] }).where(eq(organizations.id, input.organizationId));
+  await db.update(subscriptions).set({ plan: input.plan, amountCents, ...input.status ? { status: input.status } : {} }).where(eq(subscriptions.organizationId, input.organizationId));
+  return getOrganizationSubscription(input.organizationId);
 }
 async function getOrganizationAccess(userId, organizationId) {
   const db = await getDb();
@@ -540,6 +566,12 @@ async function request(table, init = {}, query = "") {
 }
 var id = () => randomUUID();
 var hash = (value) => createHash("sha256").update(value).digest("hex");
+async function authenticateSupabaseAccessToken(accessToken) {
+  const { url, key } = config();
+  const response = await fetch(`${url}/auth/v1/user`, { headers: { apikey: key, Authorization: `Bearer ${accessToken}` } });
+  if (!response.ok) throw new Error("Supabase access token inv\xE1lido");
+  return response.json();
+}
 async function signInWithSupabase(email, password) {
   const { url, key } = config();
   const response = await fetch(`${url}/auth/v1/token?grant_type=password`, { method: "POST", headers: { apikey: key, "Content-Type": "application/json" }, body: JSON.stringify({ email: normalizeEmail(email), password }) });
@@ -731,8 +763,8 @@ var appRouter = router({
     lookupCnpj: publicProcedure.input(z2.object({ cnpj: z2.string().min(14).max(18) })).mutation(({ input }) => lookupCnpj(input.cnpj)),
     users: router({
       list: publicProcedure.query(() => listAppUsers()),
-      create: publicProcedure.input(z2.object({ name: z2.string().trim().min(2), email: z2.string().email(), username: z2.string().trim().min(2).max(80), module: z2.enum(["academia", "studio", "profissional", "aluno", "administrador"]), role: z2.string().trim().min(2), status: z2.enum(["Ativo", "Suspenso"]), logoUrl: z2.string().max(1e6).optional().nullable() })).mutation(({ input }) => createAppUser({ ...input, email: normalizeEmail(input.email) })),
-      update: publicProcedure.input(z2.object({ id: z2.string().uuid(), data: z2.object({ name: z2.string().trim().min(2), email: z2.string().email(), username: z2.string().trim().min(2), module: z2.enum(["academia", "studio", "profissional", "aluno", "administrador"]), role: z2.string().trim().min(2), status: z2.enum(["Ativo", "Suspenso"]), logoUrl: z2.string().max(1e6).optional().nullable() }) })).mutation(({ input }) => updateAppUser(input.id, { ...input.data, email: normalizeEmail(input.data.email) })),
+      create: publicProcedure.input(z2.object({ name: z2.string().trim().min(2), email: z2.string().email(), username: z2.string().trim().min(2).max(80), module: z2.enum(["academia", "studio", "profissional", "aluno", "administrador"]), role: z2.string().trim().min(2), status: z2.enum(["Ativo", "Suspenso"]), logoUrl: z2.string().max(1e6).optional().nullable(), profileData: z2.record(z2.string(), z2.string()).optional() })).mutation(({ input }) => createAppUser({ ...input, profile_data: input.profileData, email: normalizeEmail(input.email) })),
+      update: publicProcedure.input(z2.object({ id: z2.string().uuid(), data: z2.object({ name: z2.string().trim().min(2), email: z2.string().email(), username: z2.string().trim().min(2), module: z2.enum(["academia", "studio", "profissional", "aluno", "administrador"]), role: z2.string().trim().min(2), status: z2.enum(["Ativo", "Suspenso"]), logoUrl: z2.string().max(1e6).optional().nullable(), profileData: z2.record(z2.string(), z2.string()).optional() }) })).mutation(({ input }) => updateAppUser(input.id, { ...input.data, profile_data: input.data.profileData, email: normalizeEmail(input.data.email) })),
       delete: publicProcedure.input(z2.object({ id: z2.string().uuid() })).mutation(({ input }) => deleteAppUser(input.id))
     }),
     students: router({
@@ -754,7 +786,7 @@ var appRouter = router({
   saas: router({
     organizations: router({
       list: protectedProcedure.query(({ ctx }) => getOrganizationsForUser(ctx.user.id)),
-      create: protectedProcedure.input(z2.object({ name: z2.string().trim().min(2).max(160), slug: z2.string().trim().toLowerCase().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/).max(120), plan: z2.enum(["starter", "growth", "scale"]) })).mutation(({ ctx, input }) => createOrganizationWithOwner({ userId: ctx.user.id, ...input })),
+      create: protectedProcedure.input(z2.object({ clientId: z2.string().uuid(), logoUrl: z2.string().max(1e6).optional(), primaryColor: z2.string().regex(/^#[0-9a-fA-F]{6}$/).optional(), name: z2.string().trim().min(2).max(160), slug: z2.string().trim().toLowerCase().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/).max(120), plan: z2.enum(["starter", "growth", "scale"]) })).mutation(({ ctx, input }) => createOrganizationWithOwner({ userId: ctx.user.id, ...input })),
       access: protectedProcedure.input(organizationIdInput).query(({ ctx, input }) => getOrganizationAccess(ctx.user.id, input.organizationId)),
       audit: protectedProcedure.input(auditFilterInput).query(async ({ ctx, input }) => {
         await hasOrganizationAccess(ctx.user.id, input.organizationId);
@@ -787,6 +819,16 @@ var appRouter = router({
       subscription: protectedProcedure.input(organizationIdInput).query(async ({ ctx, input }) => {
         await hasOrganizationAccess(ctx.user.id, input.organizationId);
         return getOrganizationSubscription(input.organizationId);
+      }),
+      updateProfile: protectedProcedure.input(z2.object({ organizationId: z2.number().int().positive(), name: z2.string().trim().min(2).max(160), logoUrl: z2.string().max(1e6).optional(), primaryColor: z2.string().regex(/^#[0-9a-fA-F]{6}$/).optional() })).mutation(async ({ ctx, input }) => {
+        await ownerOrAdmin(ctx.user.id, input.organizationId);
+        return updateOrganizationProfile(input);
+      }),
+      updateSubscription: protectedProcedure.input(z2.object({ organizationId: z2.number().int().positive(), plan: z2.enum(["starter", "growth", "scale"]), status: z2.enum(["trialing", "active", "past_due", "canceled"]).optional() })).mutation(async ({ ctx, input }) => {
+        await ownerOrAdmin(ctx.user.id, input.organizationId);
+        const result = await updateOrganizationSubscription(input);
+        await recordAuditLog({ organizationId: input.organizationId, userId: ctx.user.id, action: "updated", entity: "subscription", afterJson: input });
+        return result;
       }),
       onboarding: protectedProcedure.input(organizationIdInput).query(async ({ ctx, input }) => {
         await hasOrganizationAccess(ctx.user.id, input.organizationId);
@@ -1085,7 +1127,18 @@ async function createContext(opts) {
   try {
     user = await sdk.authenticateRequest(opts.req);
   } catch (error) {
-    user = null;
+    const authorization = opts.req.headers.authorization;
+    if (typeof authorization === "string" && authorization.startsWith("Bearer ")) {
+      try {
+        const supabaseUser = await authenticateSupabaseAccessToken(authorization.slice(7));
+        const email = supabaseUser.email ?? null;
+        const role = email && ["andre.alvesman@gmail.com", "comercial@metodosarke.com.br"].includes(email.toLowerCase()) ? "admin" : "user";
+        await upsertUser({ openId: `supabase:${supabaseUser.id}`, name: String(supabaseUser.user_metadata?.name ?? email ?? "Usu\xE1rio"), email, loginMethod: "supabase", role, lastSignedIn: /* @__PURE__ */ new Date() });
+        user = await getUserByOpenId(`supabase:${supabaseUser.id}`) ?? null;
+      } catch {
+        user = null;
+      }
+    }
   }
   return {
     req: opts.req,
