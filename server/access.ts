@@ -48,7 +48,7 @@ export function registerAccessRoutes(app: Express) {
       deviceId,
       provider,
       checkedAt: new Date().toISOString(),
-      message: denied ? "Acesso bloqueado para demonstração." : "Acesso liberado em modo demonstração."
+      message: denied ? "Acesso bloqueado para esta credencial." : "Acesso liberado."
     });
   });
 }
