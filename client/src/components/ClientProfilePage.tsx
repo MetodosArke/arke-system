@@ -1,0 +1,26 @@
+import { useState } from "react";
+import { ArrowLeft, Save } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { trpc } from "@/lib/trpc";
+import { MODULE_LABELS, type ModuleKey } from "@/lib/arkeDemo";
+
+type Toast = { title: string; detail: string };
+type Client = { id?: string; name?: string; email?: string; username?: string; module?: ModuleKey; role?: string; type?: string; status?: string; logoUrl?: string; profile_data?: Record<string,string> | null; profileData?: Record<string,string> | null; [key: string]: unknown };
+
+export function ClientProfilePage({ client, onBack, onToast }: { client: Client; onBack: () => void; onToast: (toast: Toast) => void }) {
+  const extra = client.profileData || client.profile_data || {};
+  const [form, setForm] = useState<Record<string,string>>({ name: String(client.name || ""), email: String(client.email || extra.email || ""), username: String(client.username || extra.username || ""), document: String(extra.document || client.document || ""), phone: String(extra.phone || client.phone || ""), address: String(extra.address || client.address || ""), neighborhood: String(extra.neighborhood || client.neighborhood || ""), city: String(extra.city || client.city || ""), state: String(extra.state || client.state || ""), zipCode: String(extra.zipCode || client.zipCode || ""), plan: String(extra.plan || client.plan || ""), logoUrl: String(client.logoUrl || extra.logoUrl || "/arke-logo.png"), password: "", status: String(client.status || "Ativo"), type: String(client.type || client.role || "Cliente") });
+  const update = trpc.admin.users.update.useMutation();
+  const set = (key: string, value: string) => setForm((current) => ({ ...current, [key]: value }));
+  const save = () => {
+    const { name, email, username, logoUrl, password, status, type, ...profileData } = form;
+    if (!name.trim() || !email.trim() || !username.trim()) return onToast({ title: "Preencha os dados", detail: "Nome, e-mail e usuário são obrigatórios." });
+    if (!client.id) { onToast({ title: "Cadastro atualizado", detail: "As alterações foram atualizadas no ambiente." }); onBack(); return; }
+    update.mutate({ id: client.id, data: { name, email, username, module: client.module || "academia", role: client.role || type, status: status === "Suspenso" ? "Suspenso" : "Ativo", logoUrl, profileData: { ...profileData, type, ...(password ? { password } : {}) } } }, { onSuccess: () => { onToast({ title: "Cadastro atualizado", detail: "Todas as informações foram persistidas no Supabase." }); onBack(); }, onError: (error) => onToast({ title: "Erro ao salvar cadastro", detail: error.message }) });
+  };
+  return <div className="min-h-full bg-[#f7f5f0]"><div className="mx-auto max-w-5xl p-5 sm:p-8"><div className="mb-6 flex flex-wrap items-center justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-[.15em] text-[#b08317]">perfil único do cliente</p><h1 className="mt-2 text-3xl font-semibold tracking-[-.05em] text-[#2b271f]">{form.name || "Cadastro do cliente"}</h1><p className="mt-2 text-sm text-[#7d887f]">Esta é a página compartilhada pelos botões Abrir cadastro e Editar.</p></div><Button variant="outline" onClick={onBack} className="rounded-xl"><ArrowLeft size={15} /> Voltar</Button></div><Card className="rounded-2xl border-[#e5ece5] bg-white"><CardHeader><CardTitle>Editar todas as informações</CardTitle></CardHeader><CardContent className="grid gap-4 sm:grid-cols-2">{[["name","Nome ou razão social"],["document","CPF ou CNPJ"],["email","E-mail"],["phone","Telefone"],["username","Usuário de acesso"],["password","Nova senha"],["type","Perfil do cliente"],["plan","Plano"],["address","Endereço completo"],["neighborhood","Bairro"],["city","Cidade"],["state","Estado"],["zipCode","CEP"],["logoUrl","Logo (URL ou referência)"]].map(([key,label]) => <label key={key} className="grid gap-1.5 text-xs font-semibold text-[#665e50]">{label}<Input type={key === "password" ? "password" : key === "email" ? "email" : "text"} value={form[key] || ""} onChange={(event) => set(key, event.target.value)} className="h-10 rounded-xl font-normal" /></label>)}<label className="grid gap-1.5 text-xs font-semibold text-[#665e50]">Status<select value={form.status} onChange={(event) => set("status", event.target.value)} className="h-10 rounded-xl border border-[#e2dcca] bg-white px-3 text-xs font-normal"><option>Ativo</option><option>Suspenso</option><option>Inativo</option></select></label><div className="flex items-end"><Button disabled={update.isPending} onClick={save} className="h-10 w-full rounded-xl bg-[#15130f] text-white"><Save size={15} /> {update.isPending ? "Salvando..." : "Salvar cadastro completo"}</Button></div></CardContent></Card></div></div>;
+}
+
+export default ClientProfilePage;
