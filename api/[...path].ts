@@ -1,5 +1,3 @@
-import { createApp } from "./arke-server.mjs";
-
+import { createApp } from "../serverless/arke-server.mjs";
 const app = createApp();
-
 export default app;
