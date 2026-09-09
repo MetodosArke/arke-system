@@ -42,7 +42,19 @@ export async function createSupabaseAuthUser(email: string, name: string) {
   return response.json() as Promise<{ action_link?: string; user?: { id: string; email?: string } }>;
 }
 
-export async function listAppUsers() { return request<AppUser[]>("app_users", {}, "?select=*&order=created_at.asc"); }
+const defaultClientUsers: Array<Omit<AppUser, "id" | "created_at" | "updated_at">> = [
+  { name: "Vértice Academia", email: "academia@arke.demo", username: "academia", module: "academia", role: "Gestor de Academia", status: "Ativo", logoUrl: "/arke-logo.png" },
+  { name: "Studio Movimento", email: "studio@arke.demo", username: "studio", module: "studio", role: "Gestor de Studio", status: "Ativo", logoUrl: "/arke-logo.png" },
+  { name: "Camila Rocha", email: "camila@arke.demo", username: "personal", module: "profissional", role: "Personal trainer", status: "Ativo", logoUrl: "/arke-logo.png" },
+  { name: "Rafael Mendes", email: "rafael@arke.demo", username: "nutricionista", module: "profissional", role: "Nutricionista", status: "Ativo", logoUrl: "/arke-logo.png" },
+];
+export async function syncDefaultClientUsers() {
+  const existing = await request<AppUser[]>("app_users", {}, "?select=*&order=created_at.asc");
+  const emails = new Set(existing.map((item) => item.email.toLowerCase()));
+  for (const client of defaultClientUsers) if (!emails.has(client.email)) { await request<AppUser[]>("app_users", { method: "POST", body: JSON.stringify({ id: id(), ...client }) }); emails.add(client.email); }
+  return request<AppUser[]>("app_users", {}, "?select=*&order=created_at.asc");
+}
+export async function listAppUsers() { return syncDefaultClientUsers(); }
 export async function createAppUser(input: Omit<AppUser, "id" | "created_at" | "updated_at">) { const authInvite = await createSupabaseAuthUser(input.email, input.name); const rows = await request<AppUser[]>("app_users", { method: "POST", body: JSON.stringify({ id: id(), ...input }) }); await sendInviteEmail(input.email, input.name, input.username, authInvite.action_link); await notifyAdmins("Novo cadastro no Arke", `<p>O cliente <strong>${input.name}</strong> foi cadastrado no módulo ${input.module}.</p><p>Usuário: ${input.username}</p>`); return rows[0]; }
 export async function updateAppUser(idValue: string, input: Partial<Omit<AppUser, "id" | "created_at" | "updated_at">>) { const rows = await request<AppUser[]>("app_users", { method: "PATCH", body: JSON.stringify({ ...input, updated_at: new Date().toISOString() }) }, `?id=eq.${encodeURIComponent(idValue)}`); await notifyAdmins("Cadastro atualizado no Arke", `<p>O cadastro <strong>${input.name ?? idValue}</strong> foi atualizado pela administração.</p>`); return rows[0]; }
 export async function deleteAppUser(idValue: string) { await request("app_users", { method: "DELETE" }, `?id=eq.${encodeURIComponent(idValue)}`); await notifyAdmins("Cadastro removido no Arke", `<p>O cadastro de usuário <strong>${idValue}</strong> foi removido pela administração.</p>`); return { id: idValue }; }
