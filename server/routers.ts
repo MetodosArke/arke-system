@@ -44,8 +44,8 @@ export const appRouter = router({
     status: publicProcedure.query(() => ({ configured: hasSupabaseConfig() })),
     users: router({
       list: publicProcedure.query(() => listAppUsers()),
-      create: publicProcedure.input(z.object({ name: z.string().trim().min(2), email: z.string().email(), username: z.string().trim().min(2).max(80), module: z.enum(["academia", "studio", "profissional", "aluno", "administrador"]), role: z.string().trim().min(2), status: z.enum(["Ativo", "Suspenso"]) })).mutation(({ input }) => createAppUser({ ...input, email: normalizeEmail(input.email) })),
-      update: publicProcedure.input(z.object({ id: z.string().uuid(), data: z.object({ name: z.string().trim().min(2), email: z.string().email(), username: z.string().trim().min(2), module: z.enum(["academia", "studio", "profissional", "aluno", "administrador"]), role: z.string().trim().min(2), status: z.enum(["Ativo", "Suspenso"]) }) })).mutation(({ input }) => updateAppUser(input.id, { ...input.data, email: normalizeEmail(input.data.email) })),
+      create: publicProcedure.input(z.object({ name: z.string().trim().min(2), email: z.string().email(), username: z.string().trim().min(2).max(80), module: z.enum(["academia", "studio", "profissional", "aluno", "administrador"]), role: z.string().trim().min(2), status: z.enum(["Ativo", "Suspenso"]), logoUrl: z.string().max(1000000).optional().nullable() })).mutation(({ input }) => createAppUser({ ...input, email: normalizeEmail(input.email) })),
+      update: publicProcedure.input(z.object({ id: z.string().uuid(), data: z.object({ name: z.string().trim().min(2), email: z.string().email(), username: z.string().trim().min(2), module: z.enum(["academia", "studio", "profissional", "aluno", "administrador"]), role: z.string().trim().min(2), status: z.enum(["Ativo", "Suspenso"]), logoUrl: z.string().max(1000000).optional().nullable() }) })).mutation(({ input }) => updateAppUser(input.id, { ...input.data, email: normalizeEmail(input.data.email) })),
       delete: publicProcedure.input(z.object({ id: z.string().uuid() })).mutation(({ input }) => deleteAppUser(input.id)),
     }),
     students: router({

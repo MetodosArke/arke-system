@@ -704,8 +704,8 @@ var appRouter = router({
     status: publicProcedure.query(() => ({ configured: hasSupabaseConfig() })),
     users: router({
       list: publicProcedure.query(() => listAppUsers()),
-      create: publicProcedure.input(z2.object({ name: z2.string().trim().min(2), email: z2.string().email(), username: z2.string().trim().min(2).max(80), module: z2.enum(["academia", "studio", "profissional", "aluno", "administrador"]), role: z2.string().trim().min(2), status: z2.enum(["Ativo", "Suspenso"]) })).mutation(({ input }) => createAppUser({ ...input, email: normalizeEmail(input.email) })),
-      update: publicProcedure.input(z2.object({ id: z2.string().uuid(), data: z2.object({ name: z2.string().trim().min(2), email: z2.string().email(), username: z2.string().trim().min(2), module: z2.enum(["academia", "studio", "profissional", "aluno", "administrador"]), role: z2.string().trim().min(2), status: z2.enum(["Ativo", "Suspenso"]) }) })).mutation(({ input }) => updateAppUser(input.id, { ...input.data, email: normalizeEmail(input.data.email) })),
+      create: publicProcedure.input(z2.object({ name: z2.string().trim().min(2), email: z2.string().email(), username: z2.string().trim().min(2).max(80), module: z2.enum(["academia", "studio", "profissional", "aluno", "administrador"]), role: z2.string().trim().min(2), status: z2.enum(["Ativo", "Suspenso"]), logoUrl: z2.string().max(1e6).optional().nullable() })).mutation(({ input }) => createAppUser({ ...input, email: normalizeEmail(input.email) })),
+      update: publicProcedure.input(z2.object({ id: z2.string().uuid(), data: z2.object({ name: z2.string().trim().min(2), email: z2.string().email(), username: z2.string().trim().min(2), module: z2.enum(["academia", "studio", "profissional", "aluno", "administrador"]), role: z2.string().trim().min(2), status: z2.enum(["Ativo", "Suspenso"]), logoUrl: z2.string().max(1e6).optional().nullable() }) })).mutation(({ input }) => updateAppUser(input.id, { ...input.data, email: normalizeEmail(input.data.email) })),
       delete: publicProcedure.input(z2.object({ id: z2.string().uuid() })).mutation(({ input }) => deleteAppUser(input.id))
     }),
     students: router({
