@@ -108,6 +108,20 @@ export async function getOrganizationSubscription(organizationId: number) {
   return result[0];
 }
 
+export async function updateOrganizationProfile(input: { organizationId: number; name: string; logoUrl?: string; primaryColor?: string }) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.update(organizations).set({ name: input.name, ...(input.logoUrl !== undefined ? { logoUrl: input.logoUrl } : {}), ...(input.primaryColor !== undefined ? { primaryColor: input.primaryColor } : {}) }).where(eq(organizations.id, input.organizationId));
+  return getMembership((await getMembershipByOrganizationOwner(input.organizationId)) ?? 0, input.organizationId);
+}
+
+async function getMembershipByOrganizationOwner(organizationId: number) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const result = await db.select({ userId: memberships.userId }).from(memberships).where(and(eq(memberships.organizationId, organizationId), eq(memberships.role, "owner"))).limit(1);
+  return result[0]?.userId;
+}
+
 export async function updateOrganizationSubscription(input: { organizationId: number; plan: "starter" | "growth" | "scale"; status?: "trialing" | "active" | "past_due" | "canceled" }) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");

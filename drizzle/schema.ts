@@ -19,7 +19,7 @@ export const organizations = mysqlTable("organizations", {
   slug: varchar("slug", { length: 120 }).notNull().unique(),
   plan: mysqlEnum("plan", ["starter", "growth", "scale"]).default("starter").notNull(),
   status: mysqlEnum("status", ["trial", "active", "past_due", "canceled"]).default("trial").notNull(),
-  logoUrl: varchar("logoUrl", { length: 512 }),
+  logoUrl: text("logoUrl"),
   primaryColor: varchar("primaryColor", { length: 32 }).default("#c99518").notNull(),
   maxUnits: int("maxUnits").default(1).notNull(),
   maxUsers: int("maxUsers").default(12).notNull(),
