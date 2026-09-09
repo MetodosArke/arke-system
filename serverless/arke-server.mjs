@@ -560,14 +560,17 @@ async function createAppUser(input) {
   const authInvite = await createSupabaseAuthUser(input.email, input.name);
   const rows = await request("app_users", { method: "POST", body: JSON.stringify({ id: id(), ...input }) });
   await sendInviteEmail(input.email, input.name, input.username, authInvite.action_link);
+  await notifyAdmins("Novo cadastro no Arke", `<p>O cliente <strong>${input.name}</strong> foi cadastrado no m\xF3dulo ${input.module}.</p><p>Usu\xE1rio: ${input.username}</p>`);
   return rows[0];
 }
 async function updateAppUser(idValue, input) {
   const rows = await request("app_users", { method: "PATCH", body: JSON.stringify({ ...input, updated_at: (/* @__PURE__ */ new Date()).toISOString() }) }, `?id=eq.${encodeURIComponent(idValue)}`);
+  await notifyAdmins("Cadastro atualizado no Arke", `<p>O cadastro <strong>${input.name ?? idValue}</strong> foi atualizado pela administra\xE7\xE3o.</p>`);
   return rows[0];
 }
 async function deleteAppUser(idValue) {
   await request("app_users", { method: "DELETE" }, `?id=eq.${encodeURIComponent(idValue)}`);
+  await notifyAdmins("Cadastro removido no Arke", `<p>O cadastro de usu\xE1rio <strong>${idValue}</strong> foi removido pela administra\xE7\xE3o.</p>`);
   return { id: idValue };
 }
 async function listAppStudents() {
@@ -600,6 +603,10 @@ async function sendEmail(to, subject, html) {
 }
 async function sendInviteEmail(to, name, username, actionLink) {
   return sendEmail(to, "Convite para acessar o Arke", `<p>Ol\xE1, ${name}.</p><p>Seu acesso ao Arke foi criado.</p><p>Usu\xE1rio: <strong>${username}</strong></p>${actionLink ? `<p><a href="${actionLink}">Aceitar convite e definir senha</a></p>` : ""}`);
+}
+async function notifyAdmins(subject, html) {
+  const recipients = ["andre.alvesman@gmail.com", "comercial@metodosarke.com.br"];
+  await Promise.allSettled(recipients.map((email) => sendEmail(email, subject, `<p>Ol\xE1, equipe Arke.</p>${html}<p>Mensagem autom\xE1tica do painel administrativo.</p>`)));
 }
 function hasSupabaseConfig() {
   return Boolean((process.env.SUPABASE_URL ?? "") && (process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.SUPABASE_KEY ?? ""));
