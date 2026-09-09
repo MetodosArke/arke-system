@@ -14,6 +14,7 @@ export const users = mysqlTable("users", {
 
 export const organizations = mysqlTable("organizations", {
   id: int("id").autoincrement().primaryKey(),
+  clientId: varchar("clientId", { length: 64 }),
   name: varchar("name", { length: 160 }).notNull(),
   slug: varchar("slug", { length: 120 }).notNull().unique(),
   plan: mysqlEnum("plan", ["starter", "growth", "scale"]).default("starter").notNull(),

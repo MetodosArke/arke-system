@@ -51,12 +51,15 @@ export async function getMembership(userId: number, organizationId: number) {
   return result[0];
 }
 
-export async function createOrganizationWithOwner(input: { userId: number; name: string; slug: string; plan: "starter" | "growth" | "scale" }) {
+export async function createOrganizationWithOwner(input: { userId: number; clientId: string; name: string; slug: string; plan: "starter" | "growth" | "scale" }) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
   return db.transaction(async (tx) => {
+    const existing = await tx.select({ id: organizations.id, name: organizations.name }).from(organizations).where(and(eq(organizations.clientId, input.clientId), eq(organizations.status, "active"))).limit(1);
+    const trial = await tx.select({ id: organizations.id, name: organizations.name }).from(organizations).where(and(eq(organizations.clientId, input.clientId), eq(organizations.status, "trial"))).limit(1);
+    if (existing[0] || trial[0]) throw new Error(`O cliente já possui uma licença ativa: ${(existing[0] ?? trial[0]).name}`);
     const limits = { starter: { maxUnits: 1, maxUsers: 12 }, growth: { maxUnits: 3, maxUsers: 32 }, scale: { maxUnits: 10, maxUsers: 100 } }[input.plan];
-    const [created] = await tx.insert(organizations).values({ name: input.name, slug: input.slug, plan: input.plan, status: "trial", ...limits }).$returningId();
+    const [created] = await tx.insert(organizations).values({ clientId: input.clientId, name: input.name, slug: input.slug, plan: input.plan, status: "trial", ...limits }).$returningId();
     const organizationId = created.id;
     const [unit] = await tx.insert(organizationUnits).values({ organizationId, name: input.name, slug: "sede-principal", status: "active" }).$returningId();
     await tx.insert(memberships).values({ organizationId, userId: input.userId, role: "owner", status: "active" });
