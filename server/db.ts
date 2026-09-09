@@ -108,6 +108,15 @@ export async function getOrganizationSubscription(organizationId: number) {
   return result[0];
 }
 
+export async function updateOrganizationSubscription(input: { organizationId: number; plan: "starter" | "growth" | "scale"; status?: "trialing" | "active" | "past_due" | "canceled" }) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const amountCents = { starter: 39900, growth: 79900, scale: 149000 }[input.plan];
+  await db.update(organizations).set({ plan: input.plan, maxUnits: { starter: 1, growth: 3, scale: 10 }[input.plan], maxUsers: { starter: 12, growth: 32, scale: 100 }[input.plan] }).where(eq(organizations.id, input.organizationId));
+  await db.update(subscriptions).set({ plan: input.plan, amountCents, ...(input.status ? { status: input.status } : {}) }).where(eq(subscriptions.organizationId, input.organizationId));
+  return getOrganizationSubscription(input.organizationId);
+}
+
 export async function getOrganizationAccess(userId: number, organizationId: number) {
   const db = await getDb();
   if (!db) return undefined;
