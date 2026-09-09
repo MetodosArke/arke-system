@@ -45,8 +45,8 @@ export const DEMO_CLIENTS = [
 ] as const;
 
 export const DEMO_USERS: DemoUser[] = [
-  { name: "André Alves", email: "andre.alvesman@gmail.com", passwordHash: "dd95019ad2b55696d8bf1c7305d12cbd52d7b0a8ff7e2028836bc0330e2bb7ee", role: "Super Admin", initials: "AA", module: "administrador", workspace: "Rede Arke Demo" },
-  { name: "Método Sarke", email: "comercial@metodosarke.com.br", passwordHash: "738ed8ede20d0a74b7f5f43eca81755d3b07d17118f5743c31f1238434bc1a61", role: "Super Admin", initials: "MS", module: "administrador", workspace: "Rede Arke Demo" },
+  { name: "André Alves", email: "andre.alvesman@gmail.com", passwordHash: "dd95019ad2b55696d8bf1c7305d12cbd52d7b0a8ff7e2028836bc0330e2bb7ee", role: "Super Admin", initials: "AA", module: "administrador", workspace: "Rede Arke" },
+  { name: "Método Sarke", email: "comercial@metodosarke.com.br", passwordHash: "738ed8ede20d0a74b7f5f43eca81755d3b07d17118f5743c31f1238434bc1a61", role: "Super Admin", initials: "MS", module: "administrador", workspace: "Rede Arke" },
 ];
 
 export const DEMO_MODULE_USERS: DemoUser[] = [
@@ -55,7 +55,7 @@ export const DEMO_MODULE_USERS: DemoUser[] = [
   { name: "Camila Rocha", email: "camila@arke.demo", username: "personal", role: "Personal trainer", initials: "CR", module: "profissional", workspace: "Camila Rocha • Consultório", logoUrl: DEMO_CLIENTS[2].logoUrl },
   { name: "Rafael Mendes", email: "rafael@arke.demo", username: "nutricionista", role: "Nutricionista", initials: "RM", module: "profissional", workspace: "Rafael Mendes • Consultório", logoUrl: DEMO_CLIENTS[2].logoUrl },
   { name: "Marina Costa", email: "marina@arke.demo", username: "aluno", role: "Aluno", initials: "MC", module: "aluno", workspace: "Marina Costa" },
-  { name: "Administrador Arke", email: "admin@arke.demo", username: "administrador", role: "Administrador", initials: "AD", module: "administrador", workspace: "Rede Arke Demo", logoUrl: "/arke-logo.png" },
+  { name: "Administrador Arke", email: "admin@arke.demo", username: "administrador", role: "Administrador", initials: "AD", module: "administrador", workspace: "Rede Arke", logoUrl: "/arke-logo.png" },
 ];
 
 export const ALL_DEMO_USERS = [...DEMO_USERS, ...DEMO_MODULE_USERS];
@@ -67,7 +67,7 @@ export const DEMO_MODULE_CLIENTS = {
 } as const;
 
 export const DEMO_TENANTS = [
-  { name: "Rede Arke Demo", plan: "Scale", status: "Ativa" },
+  { name: "Rede Arke", plan: "Scale", status: "Ativa" },
   { name: "Vértice Studio", plan: "Growth", status: "Ativa" },
   { name: "Box Norte 360", plan: "Scale", status: "Ativa" },
 ] as const;
