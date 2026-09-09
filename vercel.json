@@ -7,6 +7,14 @@
     "api/[...path].ts": {
       "maxDuration": 60,
       "includeFiles": "serverless/**"
+    },
+    "api/trpc/[...path].ts": {
+      "maxDuration": 60,
+      "includeFiles": "serverless/**"
+    },
+    "api/webhooks/asaas.ts": {
+      "maxDuration": 60,
+      "includeFiles": "serverless/**"
     }
   }
 }
