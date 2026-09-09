@@ -25,6 +25,8 @@ export const organizations = mysqlTable("organizations", {
   maxUsers: int("maxUsers").default(12).notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  reconciliationStatus: mysqlEnum("reconciliationStatus", ["matched", "review"]).default("review").notNull(),
+  reconciliationNote: text("reconciliationNote"),
 });
 
 export const memberships = mysqlTable("memberships", {
