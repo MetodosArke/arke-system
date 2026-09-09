@@ -32,10 +32,10 @@ export const MODULE_VIEWS: Record<ModuleKey, "overview" | "academias" | "profiss
 
 export const MODULE_PERMISSIONS: Record<ModuleKey, string[]> = {
   academia: ["overview", "academias", "alunos", "agenda", "financeiro", "integracoes"],
-  studio: ["overview", "academias", "alunos", "agenda", "financeiro", "integracoes"],
+  studio: ["overview", "studios", "academias", "alunos", "agenda", "financeiro", "integracoes"],
   profissional: ["overview", "profissionais", "agenda"],
   aluno: ["overview", "alunos", "agenda"],
-  administrador: ["overview", "academias", "profissionais", "alunos", "agenda", "financeiro", "integracoes", "saas", "admin", "configuracoes"],
+  administrador: ["overview", "academias", "studios", "profissionais", "alunos", "agenda", "financeiro", "integracoes", "saas", "admin", "configuracoes"],
 };
 
 export const DEMO_CLIENTS = [
