@@ -45,7 +45,7 @@ export async function createSupabaseAuthUser(email: string, name: string) {
 const defaultClientUsers: Array<Omit<AppUser, "id" | "created_at" | "updated_at">> = [
   { name: "Vértice Academia", email: "academia@arke.demo", username: "academia", module: "academia", role: "Gestor de Academia", status: "Ativo", logoUrl: "/arke-logo.png" },
   { name: "Box Norte 360", email: "boxnorte@arke.demo", username: "box-norte-360", module: "academia", role: "Gestor de Academia", status: "Ativo", logoUrl: "/arke-logo.png" },
-  { name: "FIT.ME", email: "fitme@arke.demo", username: "fit-me", module: "academia", role: "Gestor de Academia", status: "Ativo", logoUrl: "/arke-logo.png" },
+  { name: "FIT.ME", email: "contato.iconprime@gmail.com", username: "fit-me", module: "academia", role: "Gestor de Academia", status: "Ativo", logoUrl: "/arke-logo.png" },
   { name: "Studio Movimento", email: "studio@arke.demo", username: "studio", module: "studio", role: "Gestor de Studio", status: "Ativo", logoUrl: "/arke-logo.png" },
   { name: "Camila Rocha", email: "camila@arke.demo", username: "personal", module: "profissional", role: "Personal trainer", status: "Ativo", logoUrl: "/arke-logo.png" },
   { name: "Rafael Mendes", email: "rafael@arke.demo", username: "nutricionista", module: "profissional", role: "Nutricionista", status: "Ativo", logoUrl: "/arke-logo.png" },
