@@ -672,6 +672,25 @@ async function listStoredAsaasPayments(limit = 20) {
   return supabaseRequest("asaas_payments", {}, `?select=*&order=updated_at.desc&limit=${limit}`);
 }
 
+// server/cnpj.ts
+async function lookupCnpj(cnpj) {
+  const digits = cnpj.replace(/\D/g, "");
+  if (digits.length !== 14) throw new Error("Informe um CNPJ v\xE1lido com 14 d\xEDgitos.");
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 8e3);
+  try {
+    const response = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${digits}`, { signal: controller.signal, headers: { Accept: "application/json" } });
+    if (!response.ok) throw new Error("CNPJ n\xE3o encontrado ou servi\xE7o temporariamente indispon\xEDvel.");
+    const data = await response.json();
+    return { ...data, cnpj: digits };
+  } catch (error) {
+    if (error instanceof Error && error.message.includes("CNPJ")) throw error;
+    throw new Error("N\xE3o foi poss\xEDvel consultar o CNPJ agora. Voc\xEA pode preencher os dados manualmente.");
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 // server/routers.ts
 var organizationIdInput = z2.object({ organizationId: z2.number().int().positive() });
 var moduleName = z2.enum(["dashboard", "academias", "profissionais", "alunos", "agenda", "financeiro", "integracoes"]);
@@ -702,6 +721,7 @@ var appRouter = router({
   }),
   admin: router({
     status: publicProcedure.query(() => ({ configured: hasSupabaseConfig() })),
+    lookupCnpj: publicProcedure.input(z2.object({ cnpj: z2.string().min(14).max(18) })).mutation(({ input }) => lookupCnpj(input.cnpj)),
     users: router({
       list: publicProcedure.query(() => listAppUsers()),
       create: publicProcedure.input(z2.object({ name: z2.string().trim().min(2), email: z2.string().email(), username: z2.string().trim().min(2).max(80), module: z2.enum(["academia", "studio", "profissional", "aluno", "administrador"]), role: z2.string().trim().min(2), status: z2.enum(["Ativo", "Suspenso"]), logoUrl: z2.string().max(1e6).optional().nullable() })).mutation(({ input }) => createAppUser({ ...input, email: normalizeEmail(input.email) })),

@@ -8,6 +8,7 @@ import { acceptOrganizationInvitation, archiveOrganizationUnit, auditLogsToCsv, 
 import { createAppStudent, createAppUser, createPasswordRecovery, deleteAppStudent, deleteAppUser, hasSupabaseConfig, listAppStudents, listAppUsers, normalizeEmail, signInWithSupabase, updateAppStudent, updateAppUser } from "./supabaseAdmin";
 import { asaasSandboxConfigured, createAsaasCustomer, createAsaasPayment, createAsaasWebhook, getAsaasAccount, listAsaasPayments } from "./asaas";
 import { listStoredAsaasPayments } from "./asaasPersistence";
+import { lookupCnpj } from "./cnpj";
 
 const organizationIdInput = z.object({ organizationId: z.number().int().positive() });
 const moduleName = z.enum(["dashboard", "academias", "profissionais", "alunos", "agenda", "financeiro", "integracoes"]);
@@ -42,6 +43,7 @@ export const appRouter = router({
   }),
   admin: router({
     status: publicProcedure.query(() => ({ configured: hasSupabaseConfig() })),
+    lookupCnpj: publicProcedure.input(z.object({ cnpj: z.string().min(14).max(18) })).mutation(({ input }) => lookupCnpj(input.cnpj)),
     users: router({
       list: publicProcedure.query(() => listAppUsers()),
       create: publicProcedure.input(z.object({ name: z.string().trim().min(2), email: z.string().email(), username: z.string().trim().min(2).max(80), module: z.enum(["academia", "studio", "profissional", "aluno", "administrador"]), role: z.string().trim().min(2), status: z.enum(["Ativo", "Suspenso"]), logoUrl: z.string().max(1000000).optional().nullable() })).mutation(({ input }) => createAppUser({ ...input, email: normalizeEmail(input.email) })),
