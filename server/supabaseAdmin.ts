@@ -27,6 +27,13 @@ const hash = (value: string) => createHash("sha256").update(value).digest("hex")
 export type AppUser = { id: string; name: string; email: string; username: string; module: string; role: string; status: string; logoUrl?: string | null; created_at: string; updated_at: string };
 export type AppStudent = { id: string; name: string; academy: string; plan: string; status: string; created_at: string; updated_at: string };
 
+export async function authenticateSupabaseAccessToken(accessToken: string) {
+  const { url, key } = config();
+  const response = await fetch(`${url}/auth/v1/user`, { headers: { apikey: key, Authorization: `Bearer ${accessToken}` } });
+  if (!response.ok) throw new Error("Supabase access token inválido");
+  return response.json() as Promise<{ id: string; email?: string; user_metadata?: Record<string, unknown> }>;
+}
+
 export async function signInWithSupabase(email: string, password: string) {
   const { url, key } = config();
   const response = await fetch(`${url}/auth/v1/token?grant_type=password`, { method: "POST", headers: { apikey: key, "Content-Type": "application/json" }, body: JSON.stringify({ email: normalizeEmail(email), password }) });
