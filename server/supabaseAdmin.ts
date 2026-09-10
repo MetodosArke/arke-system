@@ -39,7 +39,8 @@ export async function signInWithSupabase(email: string, password: string) {
   const response = await fetch(`${url}/auth/v1/token?grant_type=password`, { method: "POST", headers: { apikey: key, "Content-Type": "application/json" }, body: JSON.stringify({ email: normalizeEmail(email), password }) });
   if (!response.ok) throw new Error("Usuário ou senha inválidos.");
   const data = await response.json() as { access_token: string; refresh_token: string; user: { id: string; email?: string; user_metadata?: Record<string, unknown> } };
-  return { accessToken: data.access_token, refreshToken: data.refresh_token, user: data.user };
+  const appUsers = await request<AppUser[]>("app_users", {}, `?select=*&email=eq.${encodeURIComponent(normalizeEmail(email))}&limit=1`);
+  return { accessToken: data.access_token, refreshToken: data.refresh_token, user: data.user, appUser: appUsers[0] ?? null };
 }
 
 export async function createSupabaseAuthUser(email: string, name: string) {
