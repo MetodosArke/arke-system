@@ -3,9 +3,9 @@ import { createHash, randomUUID } from "node:crypto";
 import { COOKIE_NAME } from "@shared/const";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
-import { protectedProcedure, publicProcedure, router } from "./_core/trpc";
+import { adminProcedure, protectedProcedure, publicProcedure, router } from "./_core/trpc";
 import { acceptOrganizationInvitation, archiveOrganizationUnit, auditLogsToCsv, auditLogsToPdfBase64, createOrganizationInvitation, createOrganizationUnit, createOrganizationWithOwner, getAuditLogs, getMembership, getOrganizationAccess, getOrganizationOnboarding, getOrganizationSubscription, getOrganizationsForUser, getPendingOrganizationInvitations, recordAuditLog, saveOrganizationOnboarding, updateModulePolicy, updateOrganizationProfile, updateOrganizationSubscription } from "./db";
-import { createAppStudent, createAppUser, createPasswordRecovery, deleteAppStudent, deleteAppUser, hasSupabaseConfig, listAppStudents, listAppUsers, normalizeEmail, signInWithSupabase, updateAppStudent, updateAppUser } from "./supabaseAdmin";
+import { createAppStudent, createAppUser, createGlobalExercise, createGlobalGroup, createGlobalNutritionPlan, createGlobalRoutine, createGlobalTemplate, createPasswordRecovery, deleteAppStudent, deleteAppUser, deleteGlobalExercise, deleteGlobalGroup, deleteGlobalNutritionPlan, deleteGlobalRoutine, deleteGlobalTemplate, deleteGlobalAccessRule, hasSupabaseConfig, listAppStudents, listAppUsers, listGlobalLibrary, normalizeEmail, signInWithSupabase, updateAppStudent, updateAppUser, updateGlobalExercise, updateGlobalGroup, updateGlobalNutritionPlan, updateGlobalRoutine, updateGlobalTemplate, upsertGlobalAccessRule } from "./supabaseAdmin";
 import { asaasSandboxConfigured, createAsaasCustomer, createAsaasPayment, createAsaasWebhook, getAsaasAccount, listAsaasPayments } from "./asaas";
 import { listStoredAsaasPayments } from "./asaasPersistence";
 import { lookupCnpj } from "./cnpj";
@@ -55,6 +55,38 @@ export const appRouter = router({
       create: publicProcedure.input(z.object({ name: z.string().trim().min(2), academy: z.string().trim().min(2), plan: z.string().trim().min(2), status: z.enum(["Ativo", "Inativo"]) })).mutation(({ input }) => createAppStudent(input)),
       update: publicProcedure.input(z.object({ id: z.string().uuid(), data: z.object({ name: z.string().trim().min(2), academy: z.string().trim().min(2), plan: z.string().trim().min(2), status: z.enum(["Ativo", "Inativo"]) }) })).mutation(({ input }) => updateAppStudent(input.id, input.data)),
       delete: publicProcedure.input(z.object({ id: z.string().uuid() })).mutation(({ input }) => deleteAppStudent(input.id)),
+    }),
+  }),
+  globalLibrary: router({
+    list: adminProcedure.query(() => listGlobalLibrary()),
+    exercises: router({
+      create: adminProcedure.input(z.object({ nome: z.string().trim().min(2), grupo_muscular: z.string().trim().min(2), descricao: z.string().trim().optional(), instrucoes: z.string().trim().optional(), video_url: z.string().url().optional(), imagem_url: z.string().url().optional(), equipamento: z.string().trim().optional() })).mutation(({ ctx, input }) => createGlobalExercise({ ...input, created_by: ctx.user.openId.replace(/^supabase:/, "") })),
+      update: adminProcedure.input(z.object({ id: z.string().uuid(), data: z.object({ nome: z.string().trim().min(2), grupo_muscular: z.string().trim().min(2), descricao: z.string().trim().optional().nullable(), instrucoes: z.string().trim().optional().nullable(), video_url: z.string().url().optional().nullable(), imagem_url: z.string().url().optional().nullable(), equipamento: z.string().trim().optional().nullable() }) })).mutation(({ input }) => updateGlobalExercise(input.id, input.data)),
+      delete: adminProcedure.input(z.object({ id: z.string().uuid() })).mutation(({ input }) => deleteGlobalExercise(input.id)),
+    }),
+    groups: router({
+      create: adminProcedure.input(z.object({ nome: z.string().trim().min(2), ordem: z.number().int().min(0).default(0) })).mutation(({ input }) => createGlobalGroup(input)),
+      update: adminProcedure.input(z.object({ id: z.string().uuid(), data: z.object({ nome: z.string().trim().min(2), ordem: z.number().int().min(0) }) })).mutation(({ input }) => updateGlobalGroup(input.id, input.data)),
+      delete: adminProcedure.input(z.object({ id: z.string().uuid() })).mutation(({ input }) => deleteGlobalGroup(input.id)),
+    }),
+    templates: router({
+      create: adminProcedure.input(z.object({ titulo: z.string().trim().min(2), categoria: z.string().trim().default(""), descricao: z.string().trim().optional(), divisoes: z.array(z.string().trim().min(1)).min(1) })).mutation(({ ctx, input }) => createGlobalTemplate({ ...input, criado_por: ctx.user.openId.replace(/^supabase:/, "") })),
+      update: adminProcedure.input(z.object({ id: z.string().uuid(), data: z.object({ titulo: z.string().trim().min(2), categoria: z.string().trim(), descricao: z.string().trim().optional().nullable(), divisoes: z.array(z.string().trim().min(1)).min(1) }) })).mutation(({ input }) => updateGlobalTemplate(input.id, input.data)),
+      delete: adminProcedure.input(z.object({ id: z.string().uuid() })).mutation(({ input }) => deleteGlobalTemplate(input.id)),
+    }),
+    nutritionPlans: router({
+      create: adminProcedure.input(z.object({ titulo: z.string().trim().min(2), categoria: z.string().trim().default(""), objetivo: z.string().trim().optional(), descricao: z.string().trim().optional(), instrucoes: z.string().trim().optional() })).mutation(({ ctx, input }) => createGlobalNutritionPlan({ ...input, criado_por: ctx.user.openId.replace(/^supabase:/, "") })),
+      update: adminProcedure.input(z.object({ id: z.string().uuid(), data: z.object({ titulo: z.string().trim().min(2), categoria: z.string().trim(), objetivo: z.string().trim().optional().nullable(), descricao: z.string().trim().optional().nullable(), instrucoes: z.string().trim().optional().nullable() }) })).mutation(({ input }) => updateGlobalNutritionPlan(input.id, input.data)),
+      delete: adminProcedure.input(z.object({ id: z.string().uuid() })).mutation(({ input }) => deleteGlobalNutritionPlan(input.id)),
+    }),
+    routines: router({
+      create: adminProcedure.input(z.object({ titulo: z.string().trim().min(2), categoria: z.string().trim().default(""), descricao: z.string().trim().optional(), rotina: z.string().trim().min(2) })).mutation(({ ctx, input }) => createGlobalRoutine({ ...input, criado_por: ctx.user.openId.replace(/^supabase:/, "") })),
+      update: adminProcedure.input(z.object({ id: z.string().uuid(), data: z.object({ titulo: z.string().trim().min(2), categoria: z.string().trim(), descricao: z.string().trim().optional().nullable(), rotina: z.string().trim().min(2) }) })).mutation(({ input }) => updateGlobalRoutine(input.id, input.data)),
+      delete: adminProcedure.input(z.object({ id: z.string().uuid() })).mutation(({ input }) => deleteGlobalRoutine(input.id)),
+    }),
+    accessRules: router({
+      upsert: adminProcedure.input(z.object({ modulo: z.enum(["academia", "studio", "profissional", "nutricionista"]), plano: z.string().trim().min(2), habilitado: z.boolean(), requer_consultoria: z.boolean().default(true) })).mutation(({ input }) => upsertGlobalAccessRule(input)),
+      delete: adminProcedure.input(z.object({ id: z.string().uuid() })).mutation(({ input }) => deleteGlobalAccessRule(input.id)),
     }),
   }),
   billing: router({
