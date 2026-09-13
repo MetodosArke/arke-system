@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { createHash, randomUUID } from "node:crypto";
-import { COOKIE_NAME } from "@shared/const";
+import { COOKIE_NAME, SUPABASE_ACCESS_COOKIE } from "@shared/const";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { adminProcedure, protectedProcedure, publicProcedure, router } from "./_core/trpc";
@@ -36,9 +36,14 @@ export const appRouter = router({
     logout: publicProcedure.mutation(({ ctx }) => {
       const cookieOptions = getSessionCookieOptions(ctx.req);
       ctx.res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });
+      ctx.res.clearCookie(SUPABASE_ACCESS_COOKIE, { ...cookieOptions, maxAge: -1 });
       return { success: true } as const;
     }),
-    signIn: publicProcedure.input(z.object({ email: z.string().email(), password: z.string().min(8) })).mutation(({ input }) => signInWithSupabase(input.email, input.password)),
+    signIn: publicProcedure.input(z.object({ email: z.string().email(), password: z.string().min(8) })).mutation(async ({ ctx, input }) => {
+      const result = await signInWithSupabase(input.email, input.password);
+      ctx.res.cookie(SUPABASE_ACCESS_COOKIE, result.accessToken, { ...getSessionCookieOptions(ctx.req), maxAge: 1000 * 60 * 60 * 24 * 30 });
+      return result;
+    }),
     recoverPassword: publicProcedure.input(z.object({ email: z.string().email() })).mutation(({ input }) => createPasswordRecovery(normalizeEmail(input.email))),
   }),
   admin: router({
@@ -101,7 +106,7 @@ export const appRouter = router({
   saas: router({
     organizations: router({
       list: protectedProcedure.query(({ ctx }) => getOrganizationsForUser(ctx.user.id)),
-      create: protectedProcedure.input(z.object({ clientId: z.string().uuid(), logoUrl: z.string().max(1000000).optional(), primaryColor: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(), name: z.string().trim().min(2).max(160), slug: z.string().trim().toLowerCase().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/).max(120), plan: z.enum(["starter", "growth", "scale"]) })).mutation(({ ctx, input }) => createOrganizationWithOwner({ userId: ctx.user.id, ...input })),
+      create: protectedProcedure.input(z.object({ clientId: z.string().uuid(), logoUrl: z.string().max(1000000).optional(), primaryColor: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(), name: z.string().trim().min(2).max(160), slug: z.string().trim().toLowerCase().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/).max(120), plan: z.enum(["starter", "growth", "scale", "unlimited", "essencial", "performance", "premium"]) })).mutation(({ ctx, input }) => createOrganizationWithOwner({ userId: ctx.user.id, ...input })),
       access: protectedProcedure.input(organizationIdInput).query(({ ctx, input }) => getOrganizationAccess(ctx.user.id, input.organizationId)),
       audit: protectedProcedure.input(auditFilterInput).query(async ({ ctx, input }) => { await hasOrganizationAccess(ctx.user.id, input.organizationId); return getAuditLogs(input.organizationId, 100, auditFilters(input)); }),
       auditCsv: protectedProcedure.input(auditFilterInput).query(async ({ ctx, input }) => { await hasOrganizationAccess(ctx.user.id, input.organizationId); return { filename: `arke-auditoria-${input.organizationId}.csv`, content: auditLogsToCsv(await getAuditLogs(input.organizationId, 500, auditFilters(input))) }; }),
@@ -111,7 +116,7 @@ export const appRouter = router({
       archiveUnit: protectedProcedure.input(z.object({ organizationId: z.number().int().positive(), unitId: z.number().int().positive() })).mutation(async ({ ctx, input }) => { await ownerOrAdmin(ctx.user.id, input.organizationId); const result = await archiveOrganizationUnit(input.organizationId, input.unitId); await recordAuditLog({ organizationId: input.organizationId, userId: ctx.user.id, unitId: input.unitId, action: "archived", entity: "organization_unit", entityId: input.unitId, afterJson: result }); return result; }),
       subscription: protectedProcedure.input(organizationIdInput).query(async ({ ctx, input }) => { await hasOrganizationAccess(ctx.user.id, input.organizationId); return getOrganizationSubscription(input.organizationId); }),
       updateProfile: protectedProcedure.input(z.object({ organizationId: z.number().int().positive(), name: z.string().trim().min(2).max(160), logoUrl: z.string().max(1000000).optional(), primaryColor: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional() })).mutation(async ({ ctx, input }) => { await ownerOrAdmin(ctx.user.id, input.organizationId); return updateOrganizationProfile(input); }),
-      updateSubscription: protectedProcedure.input(z.object({ organizationId: z.number().int().positive(), plan: z.enum(["starter", "growth", "scale"]), status: z.enum(["trialing", "active", "past_due", "canceled"]).optional() })).mutation(async ({ ctx, input }) => { await ownerOrAdmin(ctx.user.id, input.organizationId); const result = await updateOrganizationSubscription(input); await recordAuditLog({ organizationId: input.organizationId, userId: ctx.user.id, action: "updated", entity: "subscription", afterJson: input }); return result; }),
+      updateSubscription: protectedProcedure.input(z.object({ organizationId: z.number().int().positive(), plan: z.enum(["starter", "growth", "scale", "unlimited", "essencial", "performance", "premium"]), status: z.enum(["trialing", "active", "past_due", "canceled"]).optional() })).mutation(async ({ ctx, input }) => { await ownerOrAdmin(ctx.user.id, input.organizationId); const result = await updateOrganizationSubscription(input); await recordAuditLog({ organizationId: input.organizationId, userId: ctx.user.id, action: "updated", entity: "subscription", afterJson: input }); return result; }),
       onboarding: protectedProcedure.input(organizationIdInput).query(async ({ ctx, input }) => { await hasOrganizationAccess(ctx.user.id, input.organizationId); return getOrganizationOnboarding(input.organizationId); }),
       saveOnboarding: protectedProcedure.input(z.object({ organizationId: z.number().int().positive(), currentStep: z.number().int().min(1).max(4), status: z.enum(["not_started", "in_progress", "completed"]), city: z.string().trim().max(120).optional(), defaultUnitName: z.string().trim().min(2).max(160).optional(), inviteEmail: z.string().email().optional(), logoUrl: z.string().url().max(512).optional(), primaryColor: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional() })).mutation(async ({ ctx, input }) => { await ownerOrAdmin(ctx.user.id, input.organizationId); const result = await saveOrganizationOnboarding(input); await recordAuditLog({ organizationId: input.organizationId, userId: ctx.user.id, action: "updated", entity: "onboarding_branding", afterJson: input }); return result; }),
       updatePolicy: protectedProcedure.input(z.object({ organizationId: z.number().int().positive(), unitId: z.number().int().positive(), role: roleName, module: moduleName, canView: z.number().int().min(0).max(1), canManage: z.number().int().min(0).max(1) })).mutation(async ({ ctx, input }) => { await ownerOrAdmin(ctx.user.id, input.organizationId); const result = await updateModulePolicy(input); await recordAuditLog({ organizationId: input.organizationId, userId: ctx.user.id, unitId: input.unitId, action: "updated", entity: "module_policy", afterJson: input }); return result; }),

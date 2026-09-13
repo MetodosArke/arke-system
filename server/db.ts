@@ -51,19 +51,20 @@ export async function getMembership(userId: number, organizationId: number) {
   return result[0];
 }
 
-export async function createOrganizationWithOwner(input: { userId: number; clientId: string; name: string; slug: string; plan: "starter" | "growth" | "scale" }) {
+export async function createOrganizationWithOwner(input: { userId: number; clientId: string; name: string; slug: string; plan: "starter" | "growth" | "scale" | "unlimited" | "essencial" | "performance" | "premium" }) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
   return db.transaction(async (tx) => {
     const existing = await tx.select({ id: organizations.id, name: organizations.name }).from(organizations).where(and(eq(organizations.clientId, input.clientId), eq(organizations.status, "active"))).limit(1);
     const trial = await tx.select({ id: organizations.id, name: organizations.name }).from(organizations).where(and(eq(organizations.clientId, input.clientId), eq(organizations.status, "trial"))).limit(1);
     if (existing[0] || trial[0]) throw new Error(`O cliente já possui uma licença ativa: ${(existing[0] ?? trial[0]).name}`);
-    const limits = { starter: { maxUnits: 1, maxUsers: 12 }, growth: { maxUnits: 3, maxUsers: 32 }, scale: { maxUnits: 10, maxUsers: 100 } }[input.plan];
+    const limits = { starter: { maxUnits: 1, maxUsers: 12 }, growth: { maxUnits: 3, maxUsers: 32 }, scale: { maxUnits: 10, maxUsers: 100 }, unlimited: { maxUnits: 999, maxUsers: 99999 }, essencial: { maxUnits: 1, maxUsers: 3 }, performance: { maxUnits: 1, maxUsers: 8 }, premium: { maxUnits: 1, maxUsers: 20 } }[input.plan];
     const [created] = await tx.insert(organizations).values({ clientId: input.clientId, name: input.name, slug: input.slug, plan: input.plan, status: "trial", reconciliationStatus: "matched", reconciliationNote: "Vinculada ao cliente selecionado no onboarding", ...limits }).$returningId();
     const organizationId = created.id;
     const [unit] = await tx.insert(organizationUnits).values({ organizationId, name: input.name, slug: "sede-principal", status: "active" }).$returningId();
     await tx.insert(memberships).values({ organizationId, userId: input.userId, role: "owner", status: "active" });
-    await tx.insert(subscriptions).values({ organizationId, plan: input.plan, status: "trialing", billingCycle: "monthly", provider: "sandbox", amountCents: input.plan === "starter" ? 39900 : input.plan === "growth" ? 79900 : 149000 });
+    const amounts = { starter: 39900, growth: 79900, scale: 149000, unlimited: 349000, essencial: 14900, performance: 24900, premium: 19900 };
+    await tx.insert(subscriptions).values({ organizationId, plan: input.plan, status: "trialing", billingCycle: "monthly", provider: "sandbox", amountCents: amounts[input.plan] });
     await tx.insert(onboardingProgress).values({ organizationId, currentStep: 1, status: "in_progress", defaultUnitName: input.name });
     await tx.insert(modulePolicies).values(ROLES.flatMap((role) => MODULES.map((module) => ({ organizationId, unitId: unit.id, role, module, canView: role === "viewer" || role === "professional" || role === "manager" || role === "admin" || role === "owner" ? 1 : 0, canManage: role === "owner" || role === "admin" || (role === "manager" && ["dashboard", "academias", "profissionais", "alunos", "agenda"].includes(module)) ? 1 : 0 }))));
     return { organizationId, unitId: unit.id };
@@ -122,11 +123,12 @@ async function getMembershipByOrganizationOwner(organizationId: number) {
   return result[0]?.userId;
 }
 
-export async function updateOrganizationSubscription(input: { organizationId: number; plan: "starter" | "growth" | "scale"; status?: "trialing" | "active" | "past_due" | "canceled" }) {
+export async function updateOrganizationSubscription(input: { organizationId: number; plan: "starter" | "growth" | "scale" | "unlimited" | "essencial" | "performance" | "premium"; status?: "trialing" | "active" | "past_due" | "canceled" }) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  const amountCents = { starter: 39900, growth: 79900, scale: 149000 }[input.plan];
-  await db.update(organizations).set({ plan: input.plan, maxUnits: { starter: 1, growth: 3, scale: 10 }[input.plan], maxUsers: { starter: 12, growth: 32, scale: 100 }[input.plan] }).where(eq(organizations.id, input.organizationId));
+  const amountCents = { starter: 39900, growth: 79900, scale: 149000, unlimited: 349000, essencial: 14900, performance: 24900, premium: 19900 }[input.plan];
+  const limits = { starter: { maxUnits: 1, maxUsers: 12 }, growth: { maxUnits: 3, maxUsers: 32 }, scale: { maxUnits: 10, maxUsers: 100 }, unlimited: { maxUnits: 999, maxUsers: 99999 }, essencial: { maxUnits: 1, maxUsers: 3 }, performance: { maxUnits: 1, maxUsers: 8 }, premium: { maxUnits: 1, maxUsers: 20 } }[input.plan];
+  await db.update(organizations).set({ plan: input.plan, ...limits }).where(eq(organizations.id, input.organizationId));
   await db.update(subscriptions).set({ plan: input.plan, amountCents, ...(input.status ? { status: input.status } : {}) }).where(eq(subscriptions.organizationId, input.organizationId));
   return getOrganizationSubscription(input.organizationId);
 }

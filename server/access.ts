@@ -7,7 +7,7 @@ type AccessRequest = {
   studentId?: string;
   document?: string;
   deviceId?: string;
-  provider?: "topdata" | "madis" | "henry" | "control_id" | "arke_demo";
+  provider?: "topdata" | "madis" | "henry" | "control_id";
 };
 
 const normalize = (value: unknown) => typeof value === "string" ? value.trim() : "";
@@ -25,8 +25,8 @@ export function registerAccessRoutes(app: Express) {
     const unitId = normalize(body.unitId);
     const studentId = normalize(body.studentId);
     const document = normalize(body.document);
-    const deviceId = normalize(body.deviceId) || "demo-gate-01";
-    const provider = body.provider ?? "arke_demo";
+    const deviceId = normalize(body.deviceId);
+    const provider = body.provider;
 
     if (!academyId || (!studentId && !document)) {
       return res.status(400).json({ ok: false, code: "INVALID_PAYLOAD", message: "academyId e studentId ou document são obrigatórios." });
@@ -38,7 +38,7 @@ export function registerAccessRoutes(app: Express) {
     const eventId = `access_${randomUUID()}`;
     return res.status(200).json({
       ok: true,
-      mode: expectedKey ? "configured" : "demo",
+      mode: expectedKey ? "configured" : "unconfigured",
       eventId,
       decision: denied ? "denied" : "allowed",
       academyId,

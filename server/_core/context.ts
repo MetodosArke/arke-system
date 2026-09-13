@@ -4,6 +4,7 @@ import { sdk } from "./sdk";
 import { authenticateSupabaseAccessToken } from "../supabaseAdmin";
 import { getUserByOpenId, upsertUser } from "../db";
 import { ENV } from "./env";
+import { SUPABASE_ACCESS_COOKIE } from "@shared/const";
 
 export type TrpcContext = {
   req: CreateExpressContextOptions["req"];
@@ -20,9 +21,12 @@ export async function createContext(
     user = await sdk.authenticateRequest(opts.req);
   } catch (error) {
     const authorization = opts.req.headers.authorization;
-    if (typeof authorization === "string" && authorization.startsWith("Bearer ")) {
+    const cookieHeader = opts.req.headers.cookie ?? "";
+    const cookieToken = cookieHeader.split(";").map((part) => part.trim()).find((part) => part.startsWith(`${SUPABASE_ACCESS_COOKIE}=`))?.slice(SUPABASE_ACCESS_COOKIE.length + 1);
+    const bearer = typeof authorization === "string" && authorization.startsWith("Bearer ") ? authorization.slice(7) : cookieToken;
+    if (bearer) {
       try {
-        const supabaseUser = await authenticateSupabaseAccessToken(authorization.slice(7));
+        const supabaseUser = await authenticateSupabaseAccessToken(bearer);
         const email = supabaseUser.email ?? null;
         const role = email && ["andre.alvesman@gmail.com", "comercial@metodosarke.com.br"].includes(email.toLowerCase()) ? "admin" : "user";
         await upsertUser({ openId: `supabase:${supabaseUser.id}`, name: String(supabaseUser.user_metadata?.name ?? email ?? "Usuário"), email, loginMethod: "supabase", role, lastSignedIn: new Date() });

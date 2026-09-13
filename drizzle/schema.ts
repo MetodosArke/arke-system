@@ -17,7 +17,7 @@ export const organizations = mysqlTable("organizations", {
   clientId: varchar("clientId", { length: 64 }),
   name: varchar("name", { length: 160 }).notNull(),
   slug: varchar("slug", { length: 120 }).notNull().unique(),
-  plan: mysqlEnum("plan", ["starter", "growth", "scale"]).default("starter").notNull(),
+  plan: mysqlEnum("plan", ["starter", "growth", "scale", "unlimited", "essencial", "performance", "premium"]).default("starter").notNull(),
   status: mysqlEnum("status", ["trial", "active", "past_due", "canceled"]).default("trial").notNull(),
   logoUrl: text("logoUrl"),
   primaryColor: varchar("primaryColor", { length: 32 }).default("#c99518").notNull(),
@@ -65,7 +65,7 @@ export const modulePolicies = mysqlTable("modulePolicies", {
 export const subscriptions = mysqlTable("subscriptions", {
   id: int("id").autoincrement().primaryKey(),
   organizationId: int("organizationId").notNull(),
-  plan: mysqlEnum("plan", ["starter", "growth", "scale"]).notNull(),
+  plan: mysqlEnum("plan", ["starter", "growth", "scale", "unlimited", "essencial", "performance", "premium"]).notNull(),
   status: mysqlEnum("status", ["trialing", "active", "past_due", "canceled"]).default("trialing").notNull(),
   billingCycle: mysqlEnum("billingCycle", ["monthly", "yearly"]).default("monthly").notNull(),
   amountCents: int("amountCents").default(0).notNull(),

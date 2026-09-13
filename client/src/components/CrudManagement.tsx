@@ -5,8 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { trpc } from "@/lib/trpc";
-import type { ModuleKey } from "@/lib/arkeDemo";
-import { MODULE_LABELS } from "@/lib/arkeDemo";
+import type { ModuleKey } from "@/lib/appCatalog";
+import { MODULE_LABELS } from "@/lib/appCatalog";
 import { ClientProfilePage } from "@/components/ClientProfilePage";
 import { GlobalLibraryAdmin } from "@/components/GlobalLibraryAdmin";
 
