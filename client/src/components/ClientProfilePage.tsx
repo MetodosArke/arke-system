@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { trpc } from "@/lib/trpc";
-import { MODULE_LABELS, type ModuleKey } from "@/lib/arkeDemo";
+import { MODULE_LABELS, type ModuleKey } from "@/lib/appCatalog";
 
 type Toast = { title: string; detail: string };
 type Client = { id?: string; name?: string; email?: string; username?: string; module?: ModuleKey; role?: string; type?: string; status?: string; logoUrl?: string; profile_data?: Record<string,string> | null; profileData?: Record<string,string> | null; [key: string]: unknown };
