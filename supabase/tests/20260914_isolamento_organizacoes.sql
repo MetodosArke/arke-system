@@ -3,7 +3,12 @@
 --
 -- Como rodar: SQL Editor do Supabase (como postgres/owner), DEPOIS de
 -- aplicar, nesta ordem: Arke-Supabase-Setup.sql, 20260912_portal_unified.sql,
--- 20260914_core_schema_target.sql, 20260914_core_rls_policies.sql.
+-- 20260914_core_schema_target.sql, 20260914_core_rls_policies.sql,
+-- 20260914_super_admin_full_service_access.sql.
+--
+-- Cobre também a regra comercial de que super_admin (Administrador Arke)
+-- só acessa os dados de uma organização quando ela contratou o serviço
+-- completo (full_service_enabled = true).
 --
 -- O teste roda inteiro dentro de uma transação com ROLLBACK no final: não
 -- deixa nenhum dado no banco e pode ser executado quantas vezes for
@@ -108,6 +113,60 @@ begin
     null; -- esperado: RLS bloqueou antes mesmo de tentar
   end;
   raise notice 'OK: usuário A não conseguiu escrever na organização B.';
+end $$;
+
+-- ---------------------------------------------------------------------
+-- super_admin (Administrador Arke) sem serviço completo contratado por
+-- nenhuma das duas organizações: não deve enxergar nenhuma delas
+-- (supabase/20260914_super_admin_full_service_access.sql)
+-- ---------------------------------------------------------------------
+reset role;
+
+insert into auth.users (id, instance_id, aud, role, email, encrypted_password, email_confirmed_at, created_at, updated_at)
+values ('00000000-0000-0000-0000-00000000c001', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'teste-isolamento-super@arkefit.com.br', '', now(), now(), now());
+
+insert into public.user_roles (user_id, role) values ('00000000-0000-0000-0000-00000000c001', 'super_admin');
+
+set local role authenticated;
+set local request.jwt.claim.sub = '00000000-0000-0000-0000-00000000c001';
+set local request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000c001","role":"authenticated"}';
+
+do $$
+declare visible_orgs int;
+begin
+  select count(*) into visible_orgs from public.saas_organizations;
+  if visible_orgs <> 0 then
+    raise exception 'FALHA: super_admin sem serviço completo contratado não deveria ver nenhuma organização, viu %', visible_orgs;
+  end if;
+  raise notice 'OK: super_admin sem serviço completo contratado não vê nenhuma organização.';
+end $$;
+
+-- ---------------------------------------------------------------------
+-- Organização A contrata o serviço completo: super_admin passa a
+-- enxergar A, mas continua sem acesso a B
+-- ---------------------------------------------------------------------
+reset role;
+update public.saas_organizations set full_service_enabled = true where id = '00000000-0000-0000-0000-0000000a0001';
+
+set local role authenticated;
+set local request.jwt.claim.sub = '00000000-0000-0000-0000-00000000c001';
+set local request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000c001","role":"authenticated"}';
+
+do $$
+declare visible_orgs int; leaked boolean;
+begin
+  select count(*) into visible_orgs from public.saas_organizations;
+  if visible_orgs <> 1 then
+    raise exception 'FALHA: super_admin deveria ver exatamente 1 organização (A, com serviço completo ativo), viu %', visible_orgs;
+  end if;
+
+  select exists(select 1 from public.saas_organizations where id = '00000000-0000-0000-0000-0000000a0001') into leaked;
+  if not leaked then raise exception 'FALHA: super_admin deveria enxergar a organização A, que tem serviço completo ativo'; end if;
+
+  select exists(select 1 from public.saas_organizations where id = '00000000-0000-0000-0000-0000000b0001') into leaked;
+  if leaked then raise exception 'FALHA: super_admin viu a organização B, que não contratou o serviço completo'; end if;
+
+  raise notice 'OK: super_admin só enxerga a organização que contratou o serviço completo.';
 end $$;
 
 reset role;
