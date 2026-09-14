@@ -4,7 +4,7 @@ import { createExpressMiddleware } from "@trpc/server/adapters/express";
 
 // server/routers.ts
 import { z as z2 } from "zod";
-import { createHash as createHash2, randomUUID as randomUUID2 } from "node:crypto";
+import { createHash, randomUUID as randomUUID2 } from "node:crypto";
 
 // shared/const.ts
 var COOKIE_NAME = "app_session_id";
@@ -382,7 +382,7 @@ ${xref}
 }
 
 // server/supabaseAdmin.ts
-import { randomUUID, createHash } from "node:crypto";
+import { randomUUID } from "node:crypto";
 function config2() {
   const url = process.env.SUPABASE_URL ?? "";
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.SUPABASE_KEY ?? "";
@@ -400,12 +400,21 @@ async function request2(table, init = {}, query = "") {
   return text ? JSON.parse(text) : [];
 }
 var id = () => randomUUID();
-var hash = (value) => createHash("sha256").update(value).digest("hex");
 async function authenticateSupabaseAccessToken(accessToken) {
   const { url, key } = config2();
   const response = await fetch(`${url}/auth/v1/user`, { headers: { apikey: key, Authorization: `Bearer ${accessToken}` } });
   if (!response.ok) throw new Error("Supabase access token inv\xE1lido");
   return response.json();
+}
+async function updateSupabaseUserPassword(accessToken, password) {
+  const { url, key } = config2();
+  const response = await fetch(`${url}/auth/v1/user`, { method: "PUT", headers: { apikey: key, Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" }, body: JSON.stringify({ password }) });
+  if (!response.ok) throw new Error("N\xE3o foi poss\xEDvel definir a nova senha. O link pode ter expirado \u2014 solicite a recupera\xE7\xE3o novamente.");
+  return response.json();
+}
+async function findAppUserByEmail(email) {
+  const rows = await request2("app_users", {}, `?select=*&email=eq.${encodeURIComponent(email)}&limit=1`);
+  return rows[0] ?? null;
 }
 async function signInWithSupabase(email, password) {
   const { url, key } = config2();
@@ -456,11 +465,20 @@ async function deleteAppStudent(idValue) {
   await request2("app_students", { method: "DELETE" }, `?id=eq.${encodeURIComponent(idValue)}`);
   return { id: idValue };
 }
-async function createPasswordRecovery(email) {
-  const token = id();
-  await request2("app_password_resets", { method: "POST", body: JSON.stringify({ id: id(), email: email.toLowerCase(), token_hash: hash(token), expires_at: new Date(Date.now() + 36e5).toISOString() }) });
-  await sendEmail(email, "Recupera\xE7\xE3o de senha \u2014 Arke", `<p>Recebemos uma solicita\xE7\xE3o de recupera\xE7\xE3o de senha.</p><p>Use este c\xF3digo tempor\xE1rio no portal Arke:</p><h2>${token}</h2><p>Este c\xF3digo expira em 1 hora.</p>`);
+async function createPasswordRecoveryCode(email) {
+  const { url, key } = config2();
+  const response = await fetch(`${url}/auth/v1/admin/generate_link`, { method: "POST", headers: { apikey: key, Authorization: `Bearer ${key}`, "Content-Type": "application/json" }, body: JSON.stringify({ type: "recovery", email: normalizeEmail(email) }) });
+  if (!response.ok) return { sent: true };
+  const data = await response.json();
+  const code = data.email_otp ?? data.token;
+  if (code) await sendEmail(normalizeEmail(email), "Recupera\xE7\xE3o de senha \u2014 Arke", `<p>Recebemos uma solicita\xE7\xE3o de recupera\xE7\xE3o de senha.</p><p>Use este c\xF3digo no portal Arke para definir uma nova senha:</p><h2>${code}</h2><p>Este c\xF3digo expira em 1 hora e s\xF3 pode ser usado uma vez. Se voc\xEA n\xE3o fez essa solicita\xE7\xE3o, ignore este e-mail.</p>`);
   return { sent: true };
+}
+async function verifyPasswordRecoveryCode(email, code) {
+  const { url, key } = config2();
+  const response = await fetch(`${url}/auth/v1/verify`, { method: "POST", headers: { apikey: key, "Content-Type": "application/json" }, body: JSON.stringify({ type: "recovery", email: normalizeEmail(email), token: code }) });
+  if (!response.ok) throw new Error("C\xF3digo inv\xE1lido ou expirado. Solicite um novo.");
+  return response.json();
 }
 async function sendEmail(to, subject, html) {
   const apiKey = process.env.RESEND_API_KEY;
@@ -689,7 +707,21 @@ var appRouter = router({
       ctx.res.cookie(SUPABASE_ACCESS_COOKIE, result.accessToken, { ...getSessionCookieOptions(ctx.req), maxAge: 1e3 * 60 * 60 * 24 * 30 });
       return result;
     }),
-    recoverPassword: publicProcedure.input(z2.object({ email: z2.string().email() })).mutation(({ input }) => createPasswordRecovery(normalizeEmail(input.email)))
+    recoverPassword: publicProcedure.input(z2.object({ email: z2.string().email() })).mutation(({ input }) => createPasswordRecoveryCode(normalizeEmail(input.email))),
+    setPassword: publicProcedure.input(z2.object({ email: z2.string().email(), code: z2.string().trim().min(4), password: z2.string().min(8) })).mutation(async ({ ctx, input }) => {
+      const session = await verifyPasswordRecoveryCode(input.email, input.code);
+      const supabaseUser = await updateSupabaseUserPassword(session.access_token, input.password);
+      const appUser = supabaseUser.email ? await findAppUserByEmail(normalizeEmail(supabaseUser.email)) : null;
+      ctx.res.cookie(SUPABASE_ACCESS_COOKIE, session.access_token, { ...getSessionCookieOptions(ctx.req), maxAge: 1e3 * 60 * 60 * 24 * 30 });
+      return { accessToken: session.access_token, user: supabaseUser, appUser };
+    }),
+    changePassword: protectedProcedure.input(z2.object({ currentPassword: z2.string().min(8), newPassword: z2.string().min(8) })).mutation(async ({ ctx, input }) => {
+      if (!ctx.user.email) throw new Error("Conta sem e-mail associado.");
+      if (!ctx.accessToken) throw new Error("Sess\xE3o inv\xE1lida. Fa\xE7a login novamente.");
+      await signInWithSupabase(ctx.user.email, input.currentPassword);
+      await updateSupabaseUserPassword(ctx.accessToken, input.newPassword);
+      return { success: true };
+    })
   }),
   admin: router({
     status: publicProcedure.query(() => ({ configured: hasSupabaseConfig() })),
@@ -819,14 +851,14 @@ var appRouter = router({
       invite: protectedProcedure.input(z2.object({ organizationId: z2.string().uuid(), email: z2.string().email(), role: z2.enum(["admin", "manager", "professional", "viewer"]) })).mutation(async ({ ctx, input }) => {
         await ownerOrAdmin(ctx.user.id, input.organizationId);
         const rawToken = randomUUID2();
-        const tokenHash = createHash2("sha256").update(rawToken).digest("hex");
+        const tokenHash = createHash("sha256").update(rawToken).digest("hex");
         const invitation = await createOrganizationInvitation({ ...input, invitedByUserId: ctx.user.id, email: input.email.toLowerCase(), tokenHash, expiresAt: new Date(Date.now() + 1e3 * 60 * 60 * 72) });
         await recordAuditLog({ organizationId: input.organizationId, userId: ctx.user.id, action: "created", entity: "invitation", entityId: invitation.id, afterJson: { email: input.email.toLowerCase(), role: input.role } });
         return { invitationId: invitation.id, token: rawToken, status: "pending" };
       }),
       acceptInvite: protectedProcedure.input(z2.object({ token: z2.string().min(16).max(128) })).mutation(async ({ ctx, input }) => {
         if (!ctx.user.email) throw new Error("Authenticated user email is required");
-        const result = await acceptOrganizationInvitation({ tokenHash: createHash2("sha256").update(input.token).digest("hex"), userId: ctx.user.id, email: ctx.user.email });
+        const result = await acceptOrganizationInvitation({ tokenHash: createHash("sha256").update(input.token).digest("hex"), userId: ctx.user.id, email: ctx.user.email });
         await recordAuditLog({ organizationId: result.organizationId, userId: ctx.user.id, action: "accepted", entity: "invitation", entityId: result.invitation.id, afterJson: { role: result.role, email: ctx.user.email } });
         return { organizationId: result.organizationId, role: result.role, status: "accepted" };
       })
@@ -859,7 +891,8 @@ async function createContext(opts) {
   return {
     req: opts.req,
     res: opts.res,
-    user
+    user,
+    accessToken: bearer ?? null
   };
 }
 
