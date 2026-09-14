@@ -1,15 +1,18 @@
 import { trpc } from "@/lib/trpc";
-import { COOKIE_NAME, UNAUTHED_ERR_MSG } from '@shared/const';
+import { UNAUTHED_ERR_MSG } from '@shared/const';
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { httpBatchLink, TRPCClientError } from "@trpc/client";
 import { createRoot } from "react-dom/client";
 import superjson from "superjson";
 import App from "./App";
-import { startLogin } from "./const";
 import "./index.css";
 
 const queryClient = new QueryClient();
 
+// A tela de login (App.tsx) já é renderizada sozinha sempre que não há
+// usuário autenticado em memória; aqui só recarregamos a página para que
+// esse estado seja reavaliado quando uma chamada tRPC volta 401 (sessão
+// Supabase expirada em outra aba, por exemplo).
 const redirectToLoginIfUnauthorized = (error: unknown) => {
   if (!(error instanceof TRPCClientError)) return;
   if (typeof window === "undefined") return;
@@ -18,7 +21,7 @@ const redirectToLoginIfUnauthorized = (error: unknown) => {
 
   if (!isUnauthorized) return;
 
-  startLogin();
+  window.location.reload();
 };
 
 queryClient.getQueryCache().subscribe(event => {
