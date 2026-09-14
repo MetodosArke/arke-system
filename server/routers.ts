@@ -5,7 +5,7 @@ import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { adminProcedure, protectedProcedure, publicProcedure, router } from "./_core/trpc";
 import { acceptOrganizationInvitation, archiveOrganizationUnit, auditLogsToCsv, auditLogsToPdfBase64, createOrganizationInvitation, createOrganizationUnit, createOrganizationWithOwner, getAuditLogs, getMembership, getOrganizationAccess, getOrganizationOnboarding, getOrganizationSubscription, getOrganizationsForUser, getPendingOrganizationInvitations, recordAuditLog, saveOrganizationOnboarding, updateModulePolicy, updateOrganizationProfile, updateOrganizationSubscription } from "./db";
-import { createAppStudent, createAppUser, createGlobalExercise, createGlobalGroup, createGlobalNutritionPlan, createGlobalRoutine, createGlobalTemplate, createGlobalTemplateExercise, createPasswordRecovery, deleteAppStudent, deleteAppUser, deleteGlobalExercise, deleteGlobalGroup, deleteGlobalNutritionPlan, deleteGlobalRoutine, deleteGlobalTemplate, deleteGlobalTemplateExercise, deleteGlobalAccessRule, hasSupabaseConfig, listAppStudents, listAppUsers, listGlobalLibrary, normalizeEmail, signInWithSupabase, updateAppStudent, updateAppUser, updateGlobalExercise, updateGlobalGroup, updateGlobalNutritionPlan, updateGlobalRoutine, updateGlobalTemplate, updateGlobalTemplateExercise, upsertGlobalAccessRule } from "./supabaseAdmin";
+import { createAppStudent, createAppUser, createGlobalExercise, createGlobalGroup, createGlobalNutritionPlan, createGlobalRoutine, createGlobalTemplate, createGlobalTemplateExercise, createPasswordRecoveryCode, deleteAppStudent, deleteAppUser, deleteGlobalExercise, deleteGlobalGroup, deleteGlobalNutritionPlan, deleteGlobalRoutine, deleteGlobalTemplate, deleteGlobalTemplateExercise, deleteGlobalAccessRule, findAppUserByEmail, hasSupabaseConfig, listAppStudents, listAppUsers, listGlobalLibrary, normalizeEmail, signInWithSupabase, updateAppStudent, updateAppUser, updateGlobalExercise, updateGlobalGroup, updateGlobalNutritionPlan, updateGlobalRoutine, updateGlobalTemplate, updateGlobalTemplateExercise, updateSupabaseUserPassword, upsertGlobalAccessRule, verifyPasswordRecoveryCode } from "./supabaseAdmin";
 import { asaasSandboxConfigured, createAsaasCustomer, createAsaasPayment, createAsaasWebhook, getAsaasAccount, listAsaasPayments } from "./asaas";
 import { listStoredAsaasPayments } from "./asaasPersistence";
 import { lookupCnpj } from "./cnpj";
@@ -44,7 +44,21 @@ export const appRouter = router({
       ctx.res.cookie(SUPABASE_ACCESS_COOKIE, result.accessToken, { ...getSessionCookieOptions(ctx.req), maxAge: 1000 * 60 * 60 * 24 * 30 });
       return result;
     }),
-    recoverPassword: publicProcedure.input(z.object({ email: z.string().email() })).mutation(({ input }) => createPasswordRecovery(normalizeEmail(input.email))),
+    recoverPassword: publicProcedure.input(z.object({ email: z.string().email() })).mutation(({ input }) => createPasswordRecoveryCode(normalizeEmail(input.email))),
+    setPassword: publicProcedure.input(z.object({ email: z.string().email(), code: z.string().trim().min(4), password: z.string().min(8) })).mutation(async ({ ctx, input }) => {
+      const session = await verifyPasswordRecoveryCode(input.email, input.code);
+      const supabaseUser = await updateSupabaseUserPassword(session.access_token, input.password);
+      const appUser = supabaseUser.email ? await findAppUserByEmail(normalizeEmail(supabaseUser.email)) : null;
+      ctx.res.cookie(SUPABASE_ACCESS_COOKIE, session.access_token, { ...getSessionCookieOptions(ctx.req), maxAge: 1000 * 60 * 60 * 24 * 30 });
+      return { accessToken: session.access_token, user: supabaseUser, appUser };
+    }),
+    changePassword: protectedProcedure.input(z.object({ currentPassword: z.string().min(8), newPassword: z.string().min(8) })).mutation(async ({ ctx, input }) => {
+      if (!ctx.user.email) throw new Error("Conta sem e-mail associado.");
+      if (!ctx.accessToken) throw new Error("Sessão inválida. Faça login novamente.");
+      await signInWithSupabase(ctx.user.email, input.currentPassword);
+      await updateSupabaseUserPassword(ctx.accessToken, input.newPassword);
+      return { success: true } as const;
+    }),
   }),
   admin: router({
     status: publicProcedure.query(() => ({ configured: hasSupabaseConfig() })),

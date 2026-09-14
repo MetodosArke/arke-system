@@ -1,4 +1,4 @@
-import { randomUUID, createHash } from "node:crypto";
+import { randomUUID } from "node:crypto";
 import { ENV } from "./_core/env";
 
 type Row = Record<string, unknown>;
@@ -22,7 +22,6 @@ async function request<T>(table: string, init: RequestInit = {}, query = "") {
 }
 
 const id = () => randomUUID();
-const hash = (value: string) => createHash("sha256").update(value).digest("hex");
 
 export type AppUser = { id: string; name: string; email: string; username: string; module: string; role: string; status: string; logoUrl?: string | null; profile_data?: Record<string, string> | null; created_at: string; updated_at: string };
 export type AppStudent = { id: string; name: string; academy: string; plan: string; status: string; created_at: string; updated_at: string };
@@ -32,6 +31,18 @@ export async function authenticateSupabaseAccessToken(accessToken: string) {
   const response = await fetch(`${url}/auth/v1/user`, { headers: { apikey: key, Authorization: `Bearer ${accessToken}` } });
   if (!response.ok) throw new Error("Supabase access token inválido");
   return response.json() as Promise<{ id: string; email?: string; user_metadata?: Record<string, unknown> }>;
+}
+
+export async function updateSupabaseUserPassword(accessToken: string, password: string) {
+  const { url, key } = config();
+  const response = await fetch(`${url}/auth/v1/user`, { method: "PUT", headers: { apikey: key, Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" }, body: JSON.stringify({ password }) });
+  if (!response.ok) throw new Error("Não foi possível definir a nova senha. O link pode ter expirado — solicite a recuperação novamente.");
+  return response.json() as Promise<{ id: string; email?: string; user_metadata?: Record<string, unknown> }>;
+}
+
+export async function findAppUserByEmail(email: string) {
+  const rows = await request<AppUser[]>("app_users", {}, `?select=*&email=eq.${encodeURIComponent(email)}&limit=1`);
+  return rows[0] ?? null;
 }
 
 export async function signInWithSupabase(email: string, password: string) {
@@ -60,11 +71,21 @@ export async function createAppStudent(input: Omit<AppStudent, "id" | "created_a
 export async function updateAppStudent(idValue: string, input: Partial<Omit<AppStudent, "id" | "created_at" | "updated_at">>) { const rows = await request<AppStudent[]>("app_students", { method: "PATCH", body: JSON.stringify({ ...input, updated_at: new Date().toISOString() }) }, `?id=eq.${encodeURIComponent(idValue)}`); return rows[0]; }
 export async function deleteAppStudent(idValue: string) { await request("app_students", { method: "DELETE" }, `?id=eq.${encodeURIComponent(idValue)}`); return { id: idValue }; }
 
-export async function createPasswordRecovery(email: string) {
-  const token = id();
-  await request("app_password_resets", { method: "POST", body: JSON.stringify({ id: id(), email: email.toLowerCase(), token_hash: hash(token), expires_at: new Date(Date.now() + 3600000).toISOString() }) });
-  await sendEmail(email, "Recuperação de senha — Arke", `<p>Recebemos uma solicitação de recuperação de senha.</p><p>Use este código temporário no portal Arke:</p><h2>${token}</h2><p>Este código expira em 1 hora.</p>`);
+export async function createPasswordRecoveryCode(email: string) {
+  const { url, key } = config();
+  const response = await fetch(`${url}/auth/v1/admin/generate_link`, { method: "POST", headers: { apikey: key, Authorization: `Bearer ${key}`, "Content-Type": "application/json" }, body: JSON.stringify({ type: "recovery", email: normalizeEmail(email) }) });
+  if (!response.ok) return { sent: true }; // não revela se o e-mail existe
+  const data = await response.json() as { email_otp?: string; token?: string };
+  const code = data.email_otp ?? data.token;
+  if (code) await sendEmail(normalizeEmail(email), "Recuperação de senha — Arke", `<p>Recebemos uma solicitação de recuperação de senha.</p><p>Use este código no portal Arke para definir uma nova senha:</p><h2>${code}</h2><p>Este código expira em 1 hora e só pode ser usado uma vez. Se você não fez essa solicitação, ignore este e-mail.</p>`);
   return { sent: true };
+}
+
+export async function verifyPasswordRecoveryCode(email: string, code: string) {
+  const { url, key } = config();
+  const response = await fetch(`${url}/auth/v1/verify`, { method: "POST", headers: { apikey: key, "Content-Type": "application/json" }, body: JSON.stringify({ type: "recovery", email: normalizeEmail(email), token: code }) });
+  if (!response.ok) throw new Error("Código inválido ou expirado. Solicite um novo.");
+  return response.json() as Promise<{ access_token: string; refresh_token: string; user: { id: string; email?: string; user_metadata?: Record<string, unknown> } }>;
 }
 
 async function sendEmail(to: string, subject: string, html: string) {
