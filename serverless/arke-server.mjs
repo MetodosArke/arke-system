@@ -482,15 +482,16 @@ function hasSupabaseConfig() {
 var normalizeEmail = (value) => value.trim().toLowerCase();
 var ENV_REFERENCE = ENV.isProduction;
 async function listGlobalLibrary() {
-  const [exercises, groups, templates, nutritionPlans, routines, accessRules] = await Promise.all([
+  const [exercises, groups, templates, templateExercises, nutritionPlans, routines, accessRules] = await Promise.all([
     request2("exercicios", {}, "?select=*&order=created_at.desc"),
     request2("grupos_musculares", {}, "?select=*&order=ordem.asc,nome.asc"),
     request2("treino_templates", {}, "?select=*&order=created_at.desc"),
+    request2("treino_template_exercicios", {}, "?select=*&order=divisao.asc,ordem.asc"),
     request2("acervo_planos_alimentares", {}, "?select=*&order=created_at.desc"),
     request2("acervo_rotinas", {}, "?select=*&order=created_at.desc"),
     request2("acervo_acesso_regras", {}, "?select=*&order=modulo.asc,plano.asc")
   ]);
-  return { exercises, groups, templates, nutritionPlans, routines, accessRules };
+  return { exercises, groups, templates, templateExercises, nutritionPlans, routines, accessRules };
 }
 async function createGlobalExercise(input) {
   const rows = await request2("exercicios", { method: "POST", body: JSON.stringify(input) });
@@ -526,6 +527,18 @@ async function updateGlobalTemplate(idValue, input) {
 }
 async function deleteGlobalTemplate(idValue) {
   await request2("treino_templates", { method: "DELETE" }, `?id=eq.${encodeURIComponent(idValue)}`);
+  return { id: idValue };
+}
+async function createGlobalTemplateExercise(input) {
+  const rows = await request2("treino_template_exercicios", { method: "POST", body: JSON.stringify(input) });
+  return rows[0];
+}
+async function updateGlobalTemplateExercise(idValue, input) {
+  const rows = await request2("treino_template_exercicios", { method: "PATCH", body: JSON.stringify(input) }, `?id=eq.${encodeURIComponent(idValue)}`);
+  return rows[0];
+}
+async function deleteGlobalTemplateExercise(idValue) {
+  await request2("treino_template_exercicios", { method: "DELETE" }, `?id=eq.${encodeURIComponent(idValue)}`);
   return { id: idValue };
 }
 async function createGlobalNutritionPlan(input) {
@@ -710,6 +723,11 @@ var appRouter = router({
       create: adminProcedure.input(z2.object({ titulo: z2.string().trim().min(2), categoria: z2.string().trim().default(""), descricao: z2.string().trim().optional(), divisoes: z2.array(z2.string().trim().min(1)).min(1) })).mutation(({ ctx, input }) => createGlobalTemplate({ ...input, criado_por: ctx.user.id })),
       update: adminProcedure.input(z2.object({ id: z2.string().uuid(), data: z2.object({ titulo: z2.string().trim().min(2), categoria: z2.string().trim(), descricao: z2.string().trim().optional().nullable(), divisoes: z2.array(z2.string().trim().min(1)).min(1) }) })).mutation(({ input }) => updateGlobalTemplate(input.id, input.data)),
       delete: adminProcedure.input(z2.object({ id: z2.string().uuid() })).mutation(({ input }) => deleteGlobalTemplate(input.id))
+    }),
+    templateExercises: router({
+      create: adminProcedure.input(z2.object({ template_id: z2.string().uuid(), divisao: z2.string().trim().min(1), exercicio_id: z2.string().uuid(), ordem: z2.number().int().min(0).default(0), series: z2.number().int().min(1).default(3), repeticoes: z2.string().trim().min(1).default("12"), descanso_seg: z2.number().int().min(0).default(60), descanso_por_serie: z2.string().trim().optional(), observacoes: z2.string().trim().optional() })).mutation(({ input }) => createGlobalTemplateExercise(input)),
+      update: adminProcedure.input(z2.object({ id: z2.string().uuid(), data: z2.object({ divisao: z2.string().trim().min(1), exercicio_id: z2.string().uuid(), ordem: z2.number().int().min(0), series: z2.number().int().min(1), repeticoes: z2.string().trim().min(1), descanso_seg: z2.number().int().min(0), descanso_por_serie: z2.string().trim().optional().nullable(), observacoes: z2.string().trim().optional().nullable() }) })).mutation(({ input }) => updateGlobalTemplateExercise(input.id, input.data)),
+      delete: adminProcedure.input(z2.object({ id: z2.string().uuid() })).mutation(({ input }) => deleteGlobalTemplateExercise(input.id))
     }),
     nutritionPlans: router({
       create: adminProcedure.input(z2.object({ titulo: z2.string().trim().min(2), categoria: z2.string().trim().default(""), objetivo: z2.string().trim().optional(), descricao: z2.string().trim().optional(), instrucoes: z2.string().trim().optional() })).mutation(({ ctx, input }) => createGlobalNutritionPlan({ ...input, criado_por: ctx.user.id })),

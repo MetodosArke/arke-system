@@ -94,20 +94,22 @@ export type GlobalLibraryExercise = {
 };
 export type GlobalLibraryGroup = { id: string; nome: string; ordem: number; created_at: string };
 export type GlobalLibraryTemplate = { id: string; titulo: string; categoria: string; descricao?: string | null; divisoes: string[]; created_at: string; updated_at?: string | null };
+export type GlobalTemplateExercise = { id: string; template_id: string; divisao: string; exercicio_id: string; ordem: number; series: number; repeticoes: string; descanso_seg: number; descanso_por_serie?: string | null; observacoes?: string | null; created_at: string };
 export type GlobalNutritionPlan = { id: string; titulo: string; categoria: string; objetivo?: string | null; descricao?: string | null; instrucoes?: string | null; created_at: string; updated_at?: string | null };
 export type GlobalRoutine = { id: string; titulo: string; categoria: string; descricao?: string | null; rotina: string; created_at: string; updated_at?: string | null };
 export type GlobalAccessRule = { id: string; modulo: string; plano: string; habilitado: boolean; requer_consultoria: boolean; created_at: string; updated_at: string };
 
 export async function listGlobalLibrary() {
-  const [exercises, groups, templates, nutritionPlans, routines, accessRules] = await Promise.all([
+  const [exercises, groups, templates, templateExercises, nutritionPlans, routines, accessRules] = await Promise.all([
     request<GlobalLibraryExercise[]>("exercicios", {}, "?select=*&order=created_at.desc"),
     request<GlobalLibraryGroup[]>("grupos_musculares", {}, "?select=*&order=ordem.asc,nome.asc"),
     request<GlobalLibraryTemplate[]>("treino_templates", {}, "?select=*&order=created_at.desc"),
+    request<GlobalTemplateExercise[]>("treino_template_exercicios", {}, "?select=*&order=divisao.asc,ordem.asc"),
     request<GlobalNutritionPlan[]>("acervo_planos_alimentares", {}, "?select=*&order=created_at.desc"),
     request<GlobalRoutine[]>("acervo_rotinas", {}, "?select=*&order=created_at.desc"),
     request<GlobalAccessRule[]>("acervo_acesso_regras", {}, "?select=*&order=modulo.asc,plano.asc"),
   ]);
-  return { exercises, groups, templates, nutritionPlans, routines, accessRules };
+  return { exercises, groups, templates, templateExercises, nutritionPlans, routines, accessRules };
 }
 
 export async function createGlobalExercise(input: Record<string, unknown>) { const rows = await request<GlobalLibraryExercise[]>("exercicios", { method: "POST", body: JSON.stringify(input) }); return rows[0]; }
@@ -121,6 +123,10 @@ export async function deleteGlobalGroup(idValue: string) { await request("grupos
 export async function createGlobalTemplate(input: Record<string, unknown>) { const rows = await request<GlobalLibraryTemplate[]>("treino_templates", { method: "POST", body: JSON.stringify(input) }); return rows[0]; }
 export async function updateGlobalTemplate(idValue: string, input: Record<string, unknown>) { const rows = await request<GlobalLibraryTemplate[]>("treino_templates", { method: "PATCH", body: JSON.stringify(input) }, `?id=eq.${encodeURIComponent(idValue)}`); return rows[0]; }
 export async function deleteGlobalTemplate(idValue: string) { await request("treino_templates", { method: "DELETE" }, `?id=eq.${encodeURIComponent(idValue)}`); return { id: idValue }; }
+
+export async function createGlobalTemplateExercise(input: Record<string, unknown>) { const rows = await request<GlobalTemplateExercise[]>("treino_template_exercicios", { method: "POST", body: JSON.stringify(input) }); return rows[0]; }
+export async function updateGlobalTemplateExercise(idValue: string, input: Record<string, unknown>) { const rows = await request<GlobalTemplateExercise[]>("treino_template_exercicios", { method: "PATCH", body: JSON.stringify(input) }, `?id=eq.${encodeURIComponent(idValue)}`); return rows[0]; }
+export async function deleteGlobalTemplateExercise(idValue: string) { await request("treino_template_exercicios", { method: "DELETE" }, `?id=eq.${encodeURIComponent(idValue)}`); return { id: idValue }; }
 
 export async function createGlobalNutritionPlan(input: Record<string, unknown>) { const rows = await request<GlobalNutritionPlan[]>("acervo_planos_alimentares", { method: "POST", body: JSON.stringify(input) }); return rows[0]; }
 export async function updateGlobalNutritionPlan(idValue: string, input: Record<string, unknown>) { const rows = await request<GlobalNutritionPlan[]>("acervo_planos_alimentares", { method: "PATCH", body: JSON.stringify(input) }, `?id=eq.${encodeURIComponent(idValue)}`); return rows[0]; }
