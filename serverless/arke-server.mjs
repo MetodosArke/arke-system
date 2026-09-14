@@ -8,25 +8,10 @@ import { createHash as createHash2, randomUUID as randomUUID2 } from "node:crypt
 
 // shared/const.ts
 var COOKIE_NAME = "app_session_id";
+var SUPABASE_ACCESS_COOKIE = "arke_supabase_access";
 var ONE_YEAR_MS = 1e3 * 60 * 60 * 24 * 365;
-var AXIOS_TIMEOUT_MS = 3e4;
 var UNAUTHED_ERR_MSG = "Please login (10001)";
 var NOT_ADMIN_ERR_MSG = "You do not have required permission (10002)";
-var OAUTH_STATE_COOKIE = "__Host-oauth_state";
-var decodeOAuthState = (state) => {
-  let decoded;
-  try {
-    decoded = atob(state);
-  } catch {
-    return { redirectUri: "" };
-  }
-  try {
-    const parsed = JSON.parse(decoded);
-    if (parsed && typeof parsed.redirectUri === "string") return parsed;
-  } catch {
-  }
-  return { redirectUri: decoded };
-};
 
 // server/_core/cookies.ts
 function isSecureRequest(req) {
@@ -53,11 +38,6 @@ import { TRPCError } from "@trpc/server";
 
 // server/_core/env.ts
 var ENV = {
-  appId: process.env.VITE_APP_ID ?? "",
-  cookieSecret: process.env.JWT_SECRET ?? "",
-  databaseUrl: process.env.DATABASE_URL ?? "",
-  oAuthServerUrl: process.env.OAUTH_SERVER_URL ?? "",
-  ownerOpenId: process.env.OWNER_OPEN_ID ?? "",
   isProduction: process.env.NODE_ENV === "production",
   forgeApiUrl: process.env.BUILT_IN_FORGE_API_URL ?? "",
   forgeApiKey: process.env.BUILT_IN_FORGE_API_KEY ?? ""
@@ -203,321 +183,176 @@ var systemRouter = router({
 });
 
 // server/db.ts
-import { and, desc, eq, gte, lte } from "drizzle-orm";
-import { drizzle } from "drizzle-orm/mysql2";
-
-// drizzle/schema.ts
-import { int, mysqlEnum, mysqlTable, text, timestamp, uniqueIndex, varchar } from "drizzle-orm/mysql-core";
-var users = mysqlTable("users", {
-  id: int("id").autoincrement().primaryKey(),
-  openId: varchar("openId", { length: 64 }).notNull().unique(),
-  name: text("name"),
-  email: varchar("email", { length: 320 }),
-  loginMethod: varchar("loginMethod", { length: 64 }),
-  role: mysqlEnum("role", ["user", "admin"]).default("user").notNull(),
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
-  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
-  lastSignedIn: timestamp("lastSignedIn").defaultNow().notNull()
-});
-var organizations = mysqlTable("organizations", {
-  id: int("id").autoincrement().primaryKey(),
-  clientId: varchar("clientId", { length: 64 }),
-  name: varchar("name", { length: 160 }).notNull(),
-  slug: varchar("slug", { length: 120 }).notNull().unique(),
-  plan: mysqlEnum("plan", ["starter", "growth", "scale"]).default("starter").notNull(),
-  status: mysqlEnum("status", ["trial", "active", "past_due", "canceled"]).default("trial").notNull(),
-  logoUrl: text("logoUrl"),
-  primaryColor: varchar("primaryColor", { length: 32 }).default("#c99518").notNull(),
-  maxUnits: int("maxUnits").default(1).notNull(),
-  maxUsers: int("maxUsers").default(12).notNull(),
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
-  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
-  reconciliationStatus: mysqlEnum("reconciliationStatus", ["matched", "review"]).default("review").notNull(),
-  reconciliationNote: text("reconciliationNote")
-});
-var memberships = mysqlTable("memberships", {
-  id: int("id").autoincrement().primaryKey(),
-  organizationId: int("organizationId").notNull(),
-  userId: int("userId").notNull(),
-  role: mysqlEnum("role", ["owner", "admin", "manager", "professional", "viewer"]).default("viewer").notNull(),
-  status: mysqlEnum("status", ["active", "invited", "suspended"]).default("active").notNull(),
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
-  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull()
-}, (table) => ({ membershipIdx: uniqueIndex("memberships_org_user_idx").on(table.organizationId, table.userId) }));
-var organizationUnits = mysqlTable("organizationUnits", {
-  id: int("id").autoincrement().primaryKey(),
-  organizationId: int("organizationId").notNull(),
-  name: varchar("name", { length: 160 }).notNull(),
-  slug: varchar("slug", { length: 120 }).notNull(),
-  city: varchar("city", { length: 120 }),
-  status: mysqlEnum("status", ["active", "archived"]).default("active").notNull(),
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
-  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull()
-}, (table) => ({ unitSlugIdx: uniqueIndex("organization_units_org_slug_idx").on(table.organizationId, table.slug) }));
-var modulePolicies = mysqlTable("modulePolicies", {
-  id: int("id").autoincrement().primaryKey(),
-  organizationId: int("organizationId").notNull(),
-  unitId: int("unitId").notNull(),
-  role: mysqlEnum("role", ["owner", "admin", "manager", "professional", "viewer"]).notNull(),
-  module: varchar("module", { length: 64 }).notNull(),
-  canView: int("canView").default(1).notNull(),
-  canManage: int("canManage").default(0).notNull(),
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
-  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull()
-}, (table) => ({ policyIdx: uniqueIndex("module_policies_scope_idx").on(table.organizationId, table.unitId, table.role, table.module) }));
-var subscriptions = mysqlTable("subscriptions", {
-  id: int("id").autoincrement().primaryKey(),
-  organizationId: int("organizationId").notNull(),
-  plan: mysqlEnum("plan", ["starter", "growth", "scale"]).notNull(),
-  status: mysqlEnum("status", ["trialing", "active", "past_due", "canceled"]).default("trialing").notNull(),
-  billingCycle: mysqlEnum("billingCycle", ["monthly", "yearly"]).default("monthly").notNull(),
-  amountCents: int("amountCents").default(0).notNull(),
-  provider: varchar("provider", { length: 32 }).default("sandbox").notNull(),
-  externalRef: varchar("externalRef", { length: 180 }),
-  renewsAt: timestamp("renewsAt"),
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
-  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull()
-});
-var invitations = mysqlTable("invitations", {
-  id: int("id").autoincrement().primaryKey(),
-  organizationId: int("organizationId").notNull(),
-  invitedByUserId: int("invitedByUserId").notNull(),
-  email: varchar("email", { length: 320 }).notNull(),
-  role: mysqlEnum("role", ["admin", "manager", "professional", "viewer"]).default("viewer").notNull(),
-  status: mysqlEnum("status", ["pending", "accepted", "expired", "revoked"]).default("pending").notNull(),
-  tokenHash: varchar("tokenHash", { length: 128 }).notNull().unique(),
-  expiresAt: timestamp("expiresAt").notNull(),
-  createdAt: timestamp("createdAt").defaultNow().notNull()
-});
-var onboardingProgress = mysqlTable("onboardingProgress", {
-  id: int("id").autoincrement().primaryKey(),
-  organizationId: int("organizationId").notNull().unique(),
-  currentStep: int("currentStep").default(1).notNull(),
-  status: mysqlEnum("status", ["not_started", "in_progress", "completed"]).default("not_started").notNull(),
-  city: varchar("city", { length: 120 }),
-  defaultUnitName: varchar("defaultUnitName", { length: 160 }),
-  inviteEmail: varchar("inviteEmail", { length: 320 }),
-  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
-  createdAt: timestamp("createdAt").defaultNow().notNull()
-});
-var auditLogs = mysqlTable("auditLogs", {
-  id: int("id").autoincrement().primaryKey(),
-  organizationId: int("organizationId").notNull(),
-  userId: int("userId").notNull(),
-  unitId: int("unitId"),
-  action: varchar("action", { length: 64 }).notNull(),
-  entity: varchar("entity", { length: 64 }).notNull(),
-  entityId: int("entityId"),
-  beforeJson: text("beforeJson"),
-  afterJson: text("afterJson"),
-  createdAt: timestamp("createdAt").defaultNow().notNull()
-});
-
-// server/db.ts
-var _db = null;
-var MODULES = ["dashboard", "academias", "profissionais", "alunos", "agenda", "financeiro", "integracoes"];
-var ROLES = ["owner", "admin", "manager", "professional", "viewer"];
-async function getDb() {
-  if (!_db && process.env.DATABASE_URL) {
-    try {
-      _db = drizzle(process.env.DATABASE_URL);
-    } catch (error) {
-      console.warn("[Database] Failed to connect:", error);
-      _db = null;
-    }
-  }
-  return _db;
+function isConfigured() {
+  return Boolean((process.env.SUPABASE_URL ?? "") && (process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.SUPABASE_KEY ?? ""));
 }
-async function upsertUser(user) {
-  if (!user.openId) throw new Error("User openId is required for upsert");
-  const db = await getDb();
-  if (!db) {
-    console.warn("[Database] Cannot upsert user: database not available");
-    return;
-  }
-  const values = { openId: user.openId };
-  const updateSet = {};
-  const textFields = ["name", "email", "loginMethod"];
-  textFields.forEach((field) => {
-    if (user[field] !== void 0) {
-      values[field] = user[field] ?? null;
-      updateSet[field] = user[field] ?? null;
-    }
+function config() {
+  const url = process.env.SUPABASE_URL ?? "";
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.SUPABASE_KEY ?? "";
+  if (!url || !key) throw new Error("Supabase n\xE3o configurado. Defina SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY.");
+  return { url: url.replace(/\/$/, ""), key };
+}
+async function request(table, init = {}, query = "") {
+  const { url, key } = config();
+  const response = await fetch(`${url}/rest/v1/${table}${query}`, {
+    ...init,
+    headers: { apikey: key, Authorization: `Bearer ${key}`, "Content-Type": "application/json", Prefer: "return=representation", ...init.headers ?? {} }
   });
-  if (user.lastSignedIn !== void 0) {
-    values.lastSignedIn = user.lastSignedIn;
-    updateSet.lastSignedIn = user.lastSignedIn;
-  }
-  if (user.role !== void 0) {
-    values.role = user.role;
-    updateSet.role = user.role;
-  } else if (user.openId === ENV.ownerOpenId) {
-    values.role = "admin";
-    updateSet.role = "admin";
-  }
-  values.lastSignedIn ??= /* @__PURE__ */ new Date();
-  if (Object.keys(updateSet).length === 0) updateSet.lastSignedIn = /* @__PURE__ */ new Date();
-  await db.insert(users).values(values).onDuplicateKeyUpdate({ set: updateSet });
+  if (!response.ok) throw new Error(`Supabase ${response.status}: ${await response.text()}`);
+  const text = await response.text();
+  return text ? JSON.parse(text) : [];
 }
-async function getUserByOpenId(openId) {
-  const db = await getDb();
-  if (!db) return void 0;
-  const result = await db.select().from(users).where(eq(users.openId, openId)).limit(1);
-  return result[0];
+async function rpc(fn, args) {
+  const { url, key } = config();
+  const response = await fetch(`${url}/rest/v1/rpc/${fn}`, {
+    method: "POST",
+    headers: { apikey: key, Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+    body: JSON.stringify(args)
+  });
+  if (!response.ok) throw new Error(`Supabase RPC ${fn} ${response.status}: ${await response.text()}`);
+  return await response.json();
 }
+var PLAN_LIMITS = { starter: { maxUnits: 1, maxUsers: 12 }, growth: { maxUnits: 3, maxUsers: 32 }, scale: { maxUnits: 10, maxUsers: 100 }, unlimited: { maxUnits: 999, maxUsers: 99999 }, essencial: { maxUnits: 1, maxUsers: 3 }, performance: { maxUnits: 1, maxUsers: 8 }, premium: { maxUnits: 1, maxUsers: 20 } };
+var PLAN_AMOUNTS = { starter: 39900, growth: 79900, scale: 149e3, unlimited: 349e3, essencial: 14900, performance: 24900, premium: 19900 };
 async function getOrganizationsForUser(userId) {
-  const db = await getDb();
-  if (!db) return [];
-  return db.select({ organization: organizations, membership: memberships }).from(memberships).innerJoin(organizations, eq(memberships.organizationId, organizations.id)).where(and(eq(memberships.userId, userId), eq(memberships.status, "active"))).orderBy(desc(organizations.updatedAt));
+  if (!isConfigured()) return [];
+  const rows = await request(
+    "saas_memberships",
+    {},
+    `?select=*,saas_organizations(*)&auth_user_id=eq.${encodeURIComponent(userId)}&status=eq.active`
+  );
+  return rows.map(({ saas_organizations, ...membership }) => ({ membership, organization: saas_organizations })).sort((a, b) => b.organization.updated_at.localeCompare(a.organization.updated_at));
 }
 async function getMembership(userId, organizationId) {
-  const db = await getDb();
-  if (!db) return void 0;
-  const result = await db.select({ membership: memberships, organization: organizations }).from(memberships).innerJoin(organizations, eq(memberships.organizationId, organizations.id)).where(and(eq(memberships.userId, userId), eq(memberships.organizationId, organizationId))).limit(1);
-  return result[0];
+  if (!isConfigured()) return void 0;
+  const rows = await request(
+    "saas_memberships",
+    {},
+    `?select=*,saas_organizations(*)&auth_user_id=eq.${encodeURIComponent(userId)}&organization_id=eq.${encodeURIComponent(organizationId)}&limit=1`
+  );
+  const row = rows[0];
+  if (!row) return void 0;
+  const { saas_organizations, ...membership } = row;
+  return { membership, organization: saas_organizations };
 }
 async function createOrganizationWithOwner(input) {
-  const db = await getDb();
-  if (!db) throw new Error("Database not available");
-  return db.transaction(async (tx) => {
-    const existing = await tx.select({ id: organizations.id, name: organizations.name }).from(organizations).where(and(eq(organizations.clientId, input.clientId), eq(organizations.status, "active"))).limit(1);
-    const trial = await tx.select({ id: organizations.id, name: organizations.name }).from(organizations).where(and(eq(organizations.clientId, input.clientId), eq(organizations.status, "trial"))).limit(1);
-    if (existing[0] || trial[0]) throw new Error(`O cliente j\xE1 possui uma licen\xE7a ativa: ${(existing[0] ?? trial[0]).name}`);
-    const limits = { starter: { maxUnits: 1, maxUsers: 12 }, growth: { maxUnits: 3, maxUsers: 32 }, scale: { maxUnits: 10, maxUsers: 100 } }[input.plan];
-    const [created] = await tx.insert(organizations).values({ clientId: input.clientId, name: input.name, slug: input.slug, plan: input.plan, status: "trial", reconciliationStatus: "matched", reconciliationNote: "Vinculada ao cliente selecionado no onboarding", ...limits }).$returningId();
-    const organizationId = created.id;
-    const [unit] = await tx.insert(organizationUnits).values({ organizationId, name: input.name, slug: "sede-principal", status: "active" }).$returningId();
-    await tx.insert(memberships).values({ organizationId, userId: input.userId, role: "owner", status: "active" });
-    await tx.insert(subscriptions).values({ organizationId, plan: input.plan, status: "trialing", billingCycle: "monthly", provider: "sandbox", amountCents: input.plan === "starter" ? 39900 : input.plan === "growth" ? 79900 : 149e3 });
-    await tx.insert(onboardingProgress).values({ organizationId, currentStep: 1, status: "in_progress", defaultUnitName: input.name });
-    await tx.insert(modulePolicies).values(ROLES.flatMap((role) => MODULES.map((module) => ({ organizationId, unitId: unit.id, role, module, canView: role === "viewer" || role === "professional" || role === "manager" || role === "admin" || role === "owner" ? 1 : 0, canManage: role === "owner" || role === "admin" || role === "manager" && ["dashboard", "academias", "profissionais", "alunos", "agenda"].includes(module) ? 1 : 0 }))));
-    return { organizationId, unitId: unit.id };
+  if (!isConfigured()) throw new Error("Database not available");
+  const [result] = await rpc("create_organization_with_owner", {
+    p_user_id: input.userId,
+    p_client_id: input.clientId,
+    p_name: input.name,
+    p_slug: input.slug,
+    p_plan: input.plan,
+    p_module: input.module ?? "academia",
+    p_logo_url: input.logoUrl ?? null,
+    p_primary_color: input.primaryColor ?? null
   });
+  if (!result) throw new Error("Falha ao criar organiza\xE7\xE3o");
+  return { organizationId: result.organization_id, unitId: result.unit_id };
 }
 async function createOrganizationInvitation(input) {
-  const db = await getDb();
-  if (!db) throw new Error("Database not available");
-  const [created] = await db.insert(invitations).values(input).$returningId();
+  if (!isConfigured()) throw new Error("Database not available");
+  const [created] = await request("saas_invitations", { method: "POST", body: JSON.stringify({ organization_id: input.organizationId, invited_by_user_id: input.invitedByUserId, email: input.email, role: input.role, token_hash: input.tokenHash, expires_at: input.expiresAt.toISOString() }) });
   return created;
 }
 async function getPendingOrganizationInvitations(organizationId) {
-  const db = await getDb();
-  if (!db) return [];
-  return db.select().from(invitations).where(and(eq(invitations.organizationId, organizationId), eq(invitations.status, "pending"))).orderBy(desc(invitations.createdAt));
+  if (!isConfigured()) return [];
+  return request("saas_invitations", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}&status=eq.pending&order=created_at.desc`);
 }
 async function acceptOrganizationInvitation(input) {
-  const db = await getDb();
-  if (!db) throw new Error("Database not available");
-  return db.transaction(async (tx) => {
-    const result = await tx.select().from(invitations).where(and(eq(invitations.tokenHash, input.tokenHash), eq(invitations.status, "pending"))).limit(1);
-    const invitation = result[0];
-    if (!invitation) throw new Error("Invitation not found or already used");
-    if (invitation.expiresAt < /* @__PURE__ */ new Date()) {
-      await tx.update(invitations).set({ status: "expired" }).where(eq(invitations.id, invitation.id));
-      throw new Error("Invitation expired");
-    }
-    if (invitation.email.toLowerCase() !== input.email.toLowerCase()) throw new Error("Invitation email does not match the authenticated user");
-    await tx.insert(memberships).values({ organizationId: invitation.organizationId, userId: input.userId, role: invitation.role, status: "active" }).onDuplicateKeyUpdate({ set: { role: invitation.role, status: "active" } });
-    await tx.update(invitations).set({ status: "accepted" }).where(eq(invitations.id, invitation.id));
-    return { invitation, organizationId: invitation.organizationId, role: invitation.role };
+  if (!isConfigured()) throw new Error("Database not available");
+  const [result] = await rpc("accept_organization_invitation", {
+    p_token_hash: input.tokenHash,
+    p_user_id: input.userId,
+    p_email: input.email
   });
+  if (!result) throw new Error("Invitation not found or already used");
+  return { invitation: { id: result.invitation_id }, organizationId: result.organization_id, role: result.role };
 }
 async function getOrganizationSubscription(organizationId) {
-  const db = await getDb();
-  if (!db) return void 0;
-  const result = await db.select().from(subscriptions).where(eq(subscriptions.organizationId, organizationId)).orderBy(desc(subscriptions.createdAt)).limit(1);
-  return result[0];
+  if (!isConfigured()) return void 0;
+  const rows = await request("saas_subscriptions", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}&order=created_at.desc&limit=1`);
+  return rows[0];
 }
 async function updateOrganizationProfile(input) {
-  const db = await getDb();
-  if (!db) throw new Error("Database not available");
-  await db.update(organizations).set({ name: input.name, ...input.logoUrl !== void 0 ? { logoUrl: input.logoUrl } : {}, ...input.primaryColor !== void 0 ? { primaryColor: input.primaryColor } : {} }).where(eq(organizations.id, input.organizationId));
-  return getMembership(await getMembershipByOrganizationOwner(input.organizationId) ?? 0, input.organizationId);
-}
-async function getMembershipByOrganizationOwner(organizationId) {
-  const db = await getDb();
-  if (!db) return void 0;
-  const result = await db.select({ userId: memberships.userId }).from(memberships).where(and(eq(memberships.organizationId, organizationId), eq(memberships.role, "owner"))).limit(1);
-  return result[0]?.userId;
+  if (!isConfigured()) throw new Error("Database not available");
+  const [updated] = await request("saas_organizations", { method: "PATCH", body: JSON.stringify({ name: input.name, ...input.logoUrl !== void 0 ? { logo_url: input.logoUrl } : {}, ...input.primaryColor !== void 0 ? { primary_color: input.primaryColor } : {} }) }, `?id=eq.${encodeURIComponent(input.organizationId)}`);
+  return updated;
 }
 async function updateOrganizationSubscription(input) {
-  const db = await getDb();
-  if (!db) throw new Error("Database not available");
-  const amountCents = { starter: 39900, growth: 79900, scale: 149e3 }[input.plan];
-  await db.update(organizations).set({ plan: input.plan, maxUnits: { starter: 1, growth: 3, scale: 10 }[input.plan], maxUsers: { starter: 12, growth: 32, scale: 100 }[input.plan] }).where(eq(organizations.id, input.organizationId));
-  await db.update(subscriptions).set({ plan: input.plan, amountCents, ...input.status ? { status: input.status } : {} }).where(eq(subscriptions.organizationId, input.organizationId));
+  if (!isConfigured()) throw new Error("Database not available");
+  const amountCents = PLAN_AMOUNTS[input.plan];
+  const limits = PLAN_LIMITS[input.plan];
+  await request("saas_organizations", { method: "PATCH", body: JSON.stringify({ plan: input.plan, max_units: limits.maxUnits, max_users: limits.maxUsers }) }, `?id=eq.${encodeURIComponent(input.organizationId)}`);
+  await request("saas_subscriptions", { method: "PATCH", body: JSON.stringify({ plan: input.plan, amount_cents: amountCents, ...input.status ? { status: input.status } : {} }) }, `?organization_id=eq.${encodeURIComponent(input.organizationId)}`);
   return getOrganizationSubscription(input.organizationId);
 }
 async function getOrganizationAccess(userId, organizationId) {
-  const db = await getDb();
-  if (!db) return void 0;
+  if (!isConfigured()) return void 0;
   const membership = await getMembership(userId, organizationId);
   if (!membership) return void 0;
-  const units = await db.select().from(organizationUnits).where(and(eq(organizationUnits.organizationId, organizationId), eq(organizationUnits.status, "active")));
-  const policies = await db.select().from(modulePolicies).where(eq(modulePolicies.organizationId, organizationId));
+  const [units, policies] = await Promise.all([
+    request("saas_units", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}&status=eq.active`),
+    request("saas_module_policies", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}`)
+  ]);
   return { organization: membership.organization, membership: membership.membership, units, policies };
 }
 async function saveOrganizationOnboarding(input) {
-  const db = await getDb();
-  if (!db) throw new Error("Database not available");
-  return db.transaction(async (tx) => {
-    if (input.logoUrl !== void 0 || input.primaryColor !== void 0 || input.defaultUnitName !== void 0) {
-      await tx.update(organizations).set({ ...input.logoUrl !== void 0 ? { logoUrl: input.logoUrl } : {}, ...input.primaryColor !== void 0 ? { primaryColor: input.primaryColor } : {}, ...input.defaultUnitName !== void 0 ? { name: input.defaultUnitName } : {} }).where(eq(organizations.id, input.organizationId));
-    }
-    await tx.insert(onboardingProgress).values({ organizationId: input.organizationId, currentStep: input.currentStep, status: input.status, city: input.city, defaultUnitName: input.defaultUnitName, inviteEmail: input.inviteEmail }).onDuplicateKeyUpdate({ set: { currentStep: input.currentStep, status: input.status, city: input.city, defaultUnitName: input.defaultUnitName, inviteEmail: input.inviteEmail } });
-    return { organizationId: input.organizationId, saved: true };
-  });
+  if (!isConfigured()) throw new Error("Database not available");
+  if (input.logoUrl !== void 0 || input.primaryColor !== void 0 || input.defaultUnitName !== void 0) {
+    await request("saas_organizations", { method: "PATCH", body: JSON.stringify({ ...input.logoUrl !== void 0 ? { logo_url: input.logoUrl } : {}, ...input.primaryColor !== void 0 ? { primary_color: input.primaryColor } : {}, ...input.defaultUnitName !== void 0 ? { name: input.defaultUnitName } : {} }) }, `?id=eq.${encodeURIComponent(input.organizationId)}`);
+  }
+  await request("saas_onboarding", { method: "POST", headers: { Prefer: "resolution=merge-duplicates,return=representation" }, body: JSON.stringify({ organization_id: input.organizationId, current_step: input.currentStep, status: input.status, city: input.city ?? null, default_unit_name: input.defaultUnitName ?? null, invite_email: input.inviteEmail ?? null }) }, "?on_conflict=organization_id");
+  return { organizationId: input.organizationId, saved: true };
 }
 async function updateModulePolicy(input) {
-  const db = await getDb();
-  if (!db) throw new Error("Database not available");
-  await db.insert(modulePolicies).values(input).onDuplicateKeyUpdate({ set: { canView: input.canView, canManage: input.canManage } });
+  if (!isConfigured()) throw new Error("Database not available");
+  await request("saas_module_policies", { method: "POST", headers: { Prefer: "resolution=merge-duplicates,return=representation" }, body: JSON.stringify({ organization_id: input.organizationId, unit_id: input.unitId, role: input.role, module: input.module, can_view: input.canView, can_manage: input.canManage }) }, "?on_conflict=organization_id,unit_id,role,module");
   return { saved: true };
 }
 async function getOrganizationOnboarding(organizationId) {
-  const db = await getDb();
-  if (!db) return void 0;
-  const result = await db.select().from(onboardingProgress).where(eq(onboardingProgress.organizationId, organizationId)).limit(1);
-  return result[0];
+  if (!isConfigured()) return void 0;
+  const rows = await request("saas_onboarding", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}&limit=1`);
+  return rows[0];
 }
 async function createOrganizationUnit(input) {
-  const db = await getDb();
-  if (!db) throw new Error("Database not available");
-  const [created] = await db.insert(organizationUnits).values({ ...input, status: "active" }).$returningId();
+  if (!isConfigured()) throw new Error("Database not available");
+  const [created] = await request("saas_units", { method: "POST", body: JSON.stringify({ organization_id: input.organizationId, name: input.name, slug: input.slug, city: input.city ?? null, status: "active" }) });
   return created;
 }
 async function archiveOrganizationUnit(organizationId, unitId) {
-  const db = await getDb();
-  if (!db) throw new Error("Database not available");
-  await db.update(organizationUnits).set({ status: "archived" }).where(and(eq(organizationUnits.organizationId, organizationId), eq(organizationUnits.id, unitId)));
+  if (!isConfigured()) throw new Error("Database not available");
+  await request("saas_units", { method: "PATCH", body: JSON.stringify({ status: "archived" }) }, `?organization_id=eq.${encodeURIComponent(organizationId)}&id=eq.${encodeURIComponent(unitId)}`);
   return { organizationId, unitId, status: "archived" };
 }
 async function recordAuditLog(input) {
-  const db = await getDb();
-  if (!db) return void 0;
-  const [created] = await db.insert(auditLogs).values({ organizationId: input.organizationId, userId: input.userId, unitId: input.unitId, action: input.action, entity: input.entity, entityId: input.entityId, beforeJson: input.beforeJson === void 0 ? void 0 : JSON.stringify(input.beforeJson), afterJson: input.afterJson === void 0 ? void 0 : JSON.stringify(input.afterJson) });
+  if (!isConfigured()) return void 0;
+  const [created] = await request("saas_audit_logs", { method: "POST", body: JSON.stringify({ organization_id: input.organizationId, auth_user_id: input.userId, action: input.action, entity: input.entity, entity_id: input.entityId ?? null, before_json: input.beforeJson ?? null, after_json: input.afterJson ?? null }) });
   return created;
 }
 async function getAuditLogs(organizationId, limit = 50, filters) {
-  const db = await getDb();
-  if (!db) return [];
-  const conditions = [eq(auditLogs.organizationId, organizationId)];
-  if (filters?.from) conditions.push(gte(auditLogs.createdAt, filters.from));
-  if (filters?.to) conditions.push(lte(auditLogs.createdAt, filters.to));
-  if (filters?.userId) conditions.push(eq(auditLogs.userId, filters.userId));
-  if (filters?.entity && filters.entity !== "all") conditions.push(eq(auditLogs.entity, filters.entity));
-  return db.select().from(auditLogs).where(and(...conditions)).orderBy(desc(auditLogs.createdAt)).limit(limit);
+  if (!isConfigured()) return [];
+  const params = new URLSearchParams();
+  params.set("select", "*");
+  params.set("organization_id", `eq.${organizationId}`);
+  params.set("order", "created_at.desc");
+  params.set("limit", String(limit));
+  if (filters?.from) params.append("created_at", `gte.${filters.from.toISOString()}`);
+  if (filters?.to) params.append("created_at", `lte.${filters.to.toISOString()}`);
+  if (filters?.userId) params.set("auth_user_id", `eq.${filters.userId}`);
+  if (filters?.entity && filters.entity !== "all") params.set("entity", `eq.${filters.entity}`);
+  return request("saas_audit_logs", {}, `?${params.toString()}`);
 }
 function auditLogsToCsv(rows) {
   const escape = (value) => `"${String(value ?? "").replaceAll('"', '""')}"`;
   return [
-    ["id", "action", "entity", "entityId", "userId", "unitId", "createdAt"].join(","),
-    ...rows.map((row) => [row.id, row.action, row.entity, row.entityId, row.userId, row.unitId, row.createdAt.toISOString()].map(escape).join(","))
+    ["id", "action", "entity", "entityId", "userId", "createdAt"].join(","),
+    ...rows.map((row) => [row.id, row.action, row.entity, row.entity_id, row.auth_user_id, row.created_at].map(escape).join(","))
   ].join("\n");
 }
 function auditLogsToPdfBase64(rows) {
   const sanitize = (value) => value.replaceAll("\\", "\\\\").replaceAll("(", "\\(").replaceAll(")", "\\)");
-  const lines = ["ARKE - Auditoria do tenant", "", ...rows.slice(0, 35).map((row) => `${row.createdAt.toISOString()} | ${row.action} | ${row.entity} | usu\xE1rio ${row.userId}`)];
+  const lines = ["ARKE - Auditoria do tenant", "", ...rows.slice(0, 35).map((row) => `${row.created_at} | ${row.action} | ${row.entity} | usu\xE1rio ${row.auth_user_id ?? "-"}`)];
   const content = ["BT", "/F1 9 Tf", "50 800 Td", ...lines.flatMap((line, index) => [index === 0 ? `(${sanitize(line)}) Tj` : "0 -18 Td", index === 0 ? "" : `(${sanitize(line)}) Tj`]), "ET"].join("\n");
   const objects = ["<< /Type /Catalog /Pages 2 0 R >>", "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>", "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>", `<< /Length ${Buffer.byteLength(content, "utf8")} >>
 stream
@@ -548,81 +383,82 @@ ${xref}
 
 // server/supabaseAdmin.ts
 import { randomUUID, createHash } from "node:crypto";
-function config() {
+function config2() {
   const url = process.env.SUPABASE_URL ?? "";
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.SUPABASE_KEY ?? "";
   if (!url || !key) throw new Error("Supabase n\xE3o configurado. Defina SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY.");
   return { url: url.replace(/\/$/, ""), key };
 }
-async function request(table, init = {}, query = "") {
-  const { url, key } = config();
+async function request2(table, init = {}, query = "") {
+  const { url, key } = config2();
   const response = await fetch(`${url}/rest/v1/${table}${query}`, {
     ...init,
     headers: { apikey: key, Authorization: `Bearer ${key}`, "Content-Type": "application/json", Prefer: "return=representation", ...init.headers ?? {} }
   });
   if (!response.ok) throw new Error(`Supabase ${response.status}: ${await response.text()}`);
-  const text2 = await response.text();
-  return text2 ? JSON.parse(text2) : [];
+  const text = await response.text();
+  return text ? JSON.parse(text) : [];
 }
 var id = () => randomUUID();
 var hash = (value) => createHash("sha256").update(value).digest("hex");
 async function authenticateSupabaseAccessToken(accessToken) {
-  const { url, key } = config();
+  const { url, key } = config2();
   const response = await fetch(`${url}/auth/v1/user`, { headers: { apikey: key, Authorization: `Bearer ${accessToken}` } });
   if (!response.ok) throw new Error("Supabase access token inv\xE1lido");
   return response.json();
 }
 async function signInWithSupabase(email, password) {
-  const { url, key } = config();
+  const { url, key } = config2();
   const response = await fetch(`${url}/auth/v1/token?grant_type=password`, { method: "POST", headers: { apikey: key, "Content-Type": "application/json" }, body: JSON.stringify({ email: normalizeEmail(email), password }) });
   if (!response.ok) throw new Error("Usu\xE1rio ou senha inv\xE1lidos.");
   const data = await response.json();
-  return { accessToken: data.access_token, refreshToken: data.refresh_token, user: data.user };
+  const appUsers = await request2("app_users", {}, `?select=*&email=eq.${encodeURIComponent(normalizeEmail(email))}&limit=1`);
+  return { accessToken: data.access_token, refreshToken: data.refresh_token, user: data.user, appUser: appUsers[0] ?? null };
 }
 async function createSupabaseAuthUser(email, name) {
-  const { url, key } = config();
+  const { url, key } = config2();
   const response = await fetch(`${url}/auth/v1/admin/generate_link`, { method: "POST", headers: { apikey: key, Authorization: `Bearer ${key}`, "Content-Type": "application/json" }, body: JSON.stringify({ type: "invite", email: normalizeEmail(email), data: { name } }) });
   if (!response.ok) throw new Error(`Falha ao gerar convite Supabase: ${await response.text()}`);
   return response.json();
 }
 async function listAppUsers() {
-  return request("app_users", {}, "?select=*&order=created_at.asc");
+  return request2("app_users", {}, "?select=*&order=created_at.asc");
 }
 async function createAppUser(input) {
   const authInvite = await createSupabaseAuthUser(input.email, input.name);
-  const rows = await request("app_users", { method: "POST", body: JSON.stringify({ id: id(), ...input }) });
+  const rows = await request2("app_users", { method: "POST", body: JSON.stringify({ id: id(), ...input }) });
   await sendInviteEmail(input.email, input.name, input.username, authInvite.action_link);
   await notifyAdmins("Novo cadastro no Arke", `<p>O cliente <strong>${input.name}</strong> foi cadastrado no m\xF3dulo ${input.module}.</p><p>Usu\xE1rio: ${input.username}</p>`);
   return rows[0];
 }
 async function updateAppUser(idValue, input) {
-  const rows = await request("app_users", { method: "PATCH", body: JSON.stringify({ ...input, updated_at: (/* @__PURE__ */ new Date()).toISOString() }) }, `?id=eq.${encodeURIComponent(idValue)}`);
+  const rows = await request2("app_users", { method: "PATCH", body: JSON.stringify({ ...input, updated_at: (/* @__PURE__ */ new Date()).toISOString() }) }, `?id=eq.${encodeURIComponent(idValue)}`);
   await notifyAdmins("Cadastro atualizado no Arke", `<p>O cadastro <strong>${input.name ?? idValue}</strong> foi atualizado pela administra\xE7\xE3o.</p>`);
   return rows[0];
 }
 async function deleteAppUser(idValue) {
-  await request("app_users", { method: "DELETE" }, `?id=eq.${encodeURIComponent(idValue)}`);
+  await request2("app_users", { method: "DELETE" }, `?id=eq.${encodeURIComponent(idValue)}`);
   await notifyAdmins("Cadastro removido no Arke", `<p>O cadastro de usu\xE1rio <strong>${idValue}</strong> foi removido pela administra\xE7\xE3o.</p>`);
   return { id: idValue };
 }
 async function listAppStudents() {
-  return request("app_students", {}, "?select=*&order=created_at.asc");
+  return request2("app_students", {}, "?select=*&order=created_at.asc");
 }
 async function createAppStudent(input) {
-  const rows = await request("app_students", { method: "POST", body: JSON.stringify({ id: id(), ...input }) });
+  const rows = await request2("app_students", { method: "POST", body: JSON.stringify({ id: id(), ...input }) });
   return rows[0];
 }
 async function updateAppStudent(idValue, input) {
-  const rows = await request("app_students", { method: "PATCH", body: JSON.stringify({ ...input, updated_at: (/* @__PURE__ */ new Date()).toISOString() }) }, `?id=eq.${encodeURIComponent(idValue)}`);
+  const rows = await request2("app_students", { method: "PATCH", body: JSON.stringify({ ...input, updated_at: (/* @__PURE__ */ new Date()).toISOString() }) }, `?id=eq.${encodeURIComponent(idValue)}`);
   return rows[0];
 }
 async function deleteAppStudent(idValue) {
-  await request("app_students", { method: "DELETE" }, `?id=eq.${encodeURIComponent(idValue)}`);
+  await request2("app_students", { method: "DELETE" }, `?id=eq.${encodeURIComponent(idValue)}`);
   return { id: idValue };
 }
 async function createPasswordRecovery(email) {
   const token = id();
-  await request("app_password_resets", { method: "POST", body: JSON.stringify({ id: id(), email: email.toLowerCase(), token_hash: hash(token), expires_at: new Date(Date.now() + 36e5).toISOString() }) });
+  await request2("app_password_resets", { method: "POST", body: JSON.stringify({ id: id(), email: email.toLowerCase(), token_hash: hash(token), expires_at: new Date(Date.now() + 36e5).toISOString() }) });
   await sendEmail(email, "Recupera\xE7\xE3o de senha \u2014 Arke", `<p>Recebemos uma solicita\xE7\xE3o de recupera\xE7\xE3o de senha.</p><p>Use este c\xF3digo tempor\xE1rio no portal Arke:</p><h2>${token}</h2><p>Este c\xF3digo expira em 1 hora.</p>`);
   return { sent: true };
 }
@@ -645,6 +481,85 @@ function hasSupabaseConfig() {
 }
 var normalizeEmail = (value) => value.trim().toLowerCase();
 var ENV_REFERENCE = ENV.isProduction;
+async function listGlobalLibrary() {
+  const [exercises, groups, templates, nutritionPlans, routines, accessRules] = await Promise.all([
+    request2("exercicios", {}, "?select=*&order=created_at.desc"),
+    request2("grupos_musculares", {}, "?select=*&order=ordem.asc,nome.asc"),
+    request2("treino_templates", {}, "?select=*&order=created_at.desc"),
+    request2("acervo_planos_alimentares", {}, "?select=*&order=created_at.desc"),
+    request2("acervo_rotinas", {}, "?select=*&order=created_at.desc"),
+    request2("acervo_acesso_regras", {}, "?select=*&order=modulo.asc,plano.asc")
+  ]);
+  return { exercises, groups, templates, nutritionPlans, routines, accessRules };
+}
+async function createGlobalExercise(input) {
+  const rows = await request2("exercicios", { method: "POST", body: JSON.stringify(input) });
+  return rows[0];
+}
+async function updateGlobalExercise(idValue, input) {
+  const rows = await request2("exercicios", { method: "PATCH", body: JSON.stringify(input) }, `?id=eq.${encodeURIComponent(idValue)}`);
+  return rows[0];
+}
+async function deleteGlobalExercise(idValue) {
+  await request2("exercicios", { method: "DELETE" }, `?id=eq.${encodeURIComponent(idValue)}`);
+  return { id: idValue };
+}
+async function createGlobalGroup(input) {
+  const rows = await request2("grupos_musculares", { method: "POST", body: JSON.stringify(input) });
+  return rows[0];
+}
+async function updateGlobalGroup(idValue, input) {
+  const rows = await request2("grupos_musculares", { method: "PATCH", body: JSON.stringify(input) }, `?id=eq.${encodeURIComponent(idValue)}`);
+  return rows[0];
+}
+async function deleteGlobalGroup(idValue) {
+  await request2("grupos_musculares", { method: "DELETE" }, `?id=eq.${encodeURIComponent(idValue)}`);
+  return { id: idValue };
+}
+async function createGlobalTemplate(input) {
+  const rows = await request2("treino_templates", { method: "POST", body: JSON.stringify(input) });
+  return rows[0];
+}
+async function updateGlobalTemplate(idValue, input) {
+  const rows = await request2("treino_templates", { method: "PATCH", body: JSON.stringify(input) }, `?id=eq.${encodeURIComponent(idValue)}`);
+  return rows[0];
+}
+async function deleteGlobalTemplate(idValue) {
+  await request2("treino_templates", { method: "DELETE" }, `?id=eq.${encodeURIComponent(idValue)}`);
+  return { id: idValue };
+}
+async function createGlobalNutritionPlan(input) {
+  const rows = await request2("acervo_planos_alimentares", { method: "POST", body: JSON.stringify(input) });
+  return rows[0];
+}
+async function updateGlobalNutritionPlan(idValue, input) {
+  const rows = await request2("acervo_planos_alimentares", { method: "PATCH", body: JSON.stringify(input) }, `?id=eq.${encodeURIComponent(idValue)}`);
+  return rows[0];
+}
+async function deleteGlobalNutritionPlan(idValue) {
+  await request2("acervo_planos_alimentares", { method: "DELETE" }, `?id=eq.${encodeURIComponent(idValue)}`);
+  return { id: idValue };
+}
+async function createGlobalRoutine(input) {
+  const rows = await request2("acervo_rotinas", { method: "POST", body: JSON.stringify(input) });
+  return rows[0];
+}
+async function updateGlobalRoutine(idValue, input) {
+  const rows = await request2("acervo_rotinas", { method: "PATCH", body: JSON.stringify(input) }, `?id=eq.${encodeURIComponent(idValue)}`);
+  return rows[0];
+}
+async function deleteGlobalRoutine(idValue) {
+  await request2("acervo_rotinas", { method: "DELETE" }, `?id=eq.${encodeURIComponent(idValue)}`);
+  return { id: idValue };
+}
+async function upsertGlobalAccessRule(input) {
+  const rows = await request2("acervo_acesso_regras", { method: "POST", body: JSON.stringify(input), headers: { Prefer: "resolution=merge-duplicates,return=representation" } });
+  return rows[0];
+}
+async function deleteGlobalAccessRule(idValue) {
+  await request2("acervo_acesso_regras", { method: "DELETE" }, `?id=eq.${encodeURIComponent(idValue)}`);
+  return { id: idValue };
+}
 
 // server/asaas.ts
 function asaasConfig() {
@@ -690,8 +605,8 @@ async function supabaseRequest(table, init = {}, query = "") {
   const { url, key } = supabaseConfig();
   const response = await fetch(`${url}/rest/v1/${table}${query}`, { ...init, headers: { apikey: key, Authorization: `Bearer ${key}`, "Content-Type": "application/json", Prefer: "return=representation", ...init.headers ?? {} } });
   if (!response.ok) throw new Error(`Supabase ${response.status}: ${await response.text()}`);
-  const text2 = await response.text();
-  return text2 ? JSON.parse(text2) : [];
+  const text = await response.text();
+  return text ? JSON.parse(text) : [];
 }
 async function persistAsaasEvent(input) {
   try {
@@ -731,10 +646,10 @@ async function lookupCnpj(cnpj) {
 }
 
 // server/routers.ts
-var organizationIdInput = z2.object({ organizationId: z2.number().int().positive() });
+var organizationIdInput = z2.object({ organizationId: z2.string().uuid() });
 var moduleName = z2.enum(["dashboard", "academias", "profissionais", "alunos", "agenda", "financeiro", "integracoes"]);
 var roleName = z2.enum(["owner", "admin", "manager", "professional", "viewer"]);
-var auditFilterInput = z2.object({ organizationId: z2.number().int().positive(), from: z2.string().optional(), to: z2.string().optional(), userId: z2.number().int().positive().optional(), entity: z2.string().max(64).optional() });
+var auditFilterInput = z2.object({ organizationId: z2.string().uuid(), from: z2.string().optional(), to: z2.string().optional(), userId: z2.string().uuid().optional(), entity: z2.string().max(64).optional() });
 var auditFilters = (input) => ({ from: input.from ? /* @__PURE__ */ new Date(`${input.from}T00:00:00.000Z`) : void 0, to: input.to ? /* @__PURE__ */ new Date(`${input.to}T23:59:59.999Z`) : void 0, userId: input.userId, entity: input.entity });
 var ownerOrAdmin = async (userId, organizationId) => {
   const membership = await getMembership(userId, organizationId);
@@ -753,9 +668,14 @@ var appRouter = router({
     logout: publicProcedure.mutation(({ ctx }) => {
       const cookieOptions = getSessionCookieOptions(ctx.req);
       ctx.res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });
+      ctx.res.clearCookie(SUPABASE_ACCESS_COOKIE, { ...cookieOptions, maxAge: -1 });
       return { success: true };
     }),
-    signIn: publicProcedure.input(z2.object({ email: z2.string().email(), password: z2.string().min(8) })).mutation(({ input }) => signInWithSupabase(input.email, input.password)),
+    signIn: publicProcedure.input(z2.object({ email: z2.string().email(), password: z2.string().min(8) })).mutation(async ({ ctx, input }) => {
+      const result = await signInWithSupabase(input.email, input.password);
+      ctx.res.cookie(SUPABASE_ACCESS_COOKIE, result.accessToken, { ...getSessionCookieOptions(ctx.req), maxAge: 1e3 * 60 * 60 * 24 * 30 });
+      return result;
+    }),
     recoverPassword: publicProcedure.input(z2.object({ email: z2.string().email() })).mutation(({ input }) => createPasswordRecovery(normalizeEmail(input.email)))
   }),
   admin: router({
@@ -774,6 +694,38 @@ var appRouter = router({
       delete: publicProcedure.input(z2.object({ id: z2.string().uuid() })).mutation(({ input }) => deleteAppStudent(input.id))
     })
   }),
+  globalLibrary: router({
+    list: adminProcedure.query(() => listGlobalLibrary()),
+    exercises: router({
+      create: adminProcedure.input(z2.object({ nome: z2.string().trim().min(2), grupo_muscular: z2.string().trim().min(2), descricao: z2.string().trim().optional(), instrucoes: z2.string().trim().optional(), video_url: z2.string().url().optional(), imagem_url: z2.string().url().optional(), equipamento: z2.string().trim().optional() })).mutation(({ ctx, input }) => createGlobalExercise({ ...input, created_by: ctx.user.id })),
+      update: adminProcedure.input(z2.object({ id: z2.string().uuid(), data: z2.object({ nome: z2.string().trim().min(2), grupo_muscular: z2.string().trim().min(2), descricao: z2.string().trim().optional().nullable(), instrucoes: z2.string().trim().optional().nullable(), video_url: z2.string().url().optional().nullable(), imagem_url: z2.string().url().optional().nullable(), equipamento: z2.string().trim().optional().nullable() }) })).mutation(({ input }) => updateGlobalExercise(input.id, input.data)),
+      delete: adminProcedure.input(z2.object({ id: z2.string().uuid() })).mutation(({ input }) => deleteGlobalExercise(input.id))
+    }),
+    groups: router({
+      create: adminProcedure.input(z2.object({ nome: z2.string().trim().min(2), ordem: z2.number().int().min(0).default(0) })).mutation(({ input }) => createGlobalGroup(input)),
+      update: adminProcedure.input(z2.object({ id: z2.string().uuid(), data: z2.object({ nome: z2.string().trim().min(2), ordem: z2.number().int().min(0) }) })).mutation(({ input }) => updateGlobalGroup(input.id, input.data)),
+      delete: adminProcedure.input(z2.object({ id: z2.string().uuid() })).mutation(({ input }) => deleteGlobalGroup(input.id))
+    }),
+    templates: router({
+      create: adminProcedure.input(z2.object({ titulo: z2.string().trim().min(2), categoria: z2.string().trim().default(""), descricao: z2.string().trim().optional(), divisoes: z2.array(z2.string().trim().min(1)).min(1) })).mutation(({ ctx, input }) => createGlobalTemplate({ ...input, criado_por: ctx.user.id })),
+      update: adminProcedure.input(z2.object({ id: z2.string().uuid(), data: z2.object({ titulo: z2.string().trim().min(2), categoria: z2.string().trim(), descricao: z2.string().trim().optional().nullable(), divisoes: z2.array(z2.string().trim().min(1)).min(1) }) })).mutation(({ input }) => updateGlobalTemplate(input.id, input.data)),
+      delete: adminProcedure.input(z2.object({ id: z2.string().uuid() })).mutation(({ input }) => deleteGlobalTemplate(input.id))
+    }),
+    nutritionPlans: router({
+      create: adminProcedure.input(z2.object({ titulo: z2.string().trim().min(2), categoria: z2.string().trim().default(""), objetivo: z2.string().trim().optional(), descricao: z2.string().trim().optional(), instrucoes: z2.string().trim().optional() })).mutation(({ ctx, input }) => createGlobalNutritionPlan({ ...input, criado_por: ctx.user.id })),
+      update: adminProcedure.input(z2.object({ id: z2.string().uuid(), data: z2.object({ titulo: z2.string().trim().min(2), categoria: z2.string().trim(), objetivo: z2.string().trim().optional().nullable(), descricao: z2.string().trim().optional().nullable(), instrucoes: z2.string().trim().optional().nullable() }) })).mutation(({ input }) => updateGlobalNutritionPlan(input.id, input.data)),
+      delete: adminProcedure.input(z2.object({ id: z2.string().uuid() })).mutation(({ input }) => deleteGlobalNutritionPlan(input.id))
+    }),
+    routines: router({
+      create: adminProcedure.input(z2.object({ titulo: z2.string().trim().min(2), categoria: z2.string().trim().default(""), descricao: z2.string().trim().optional(), rotina: z2.string().trim().min(2) })).mutation(({ ctx, input }) => createGlobalRoutine({ ...input, criado_por: ctx.user.id })),
+      update: adminProcedure.input(z2.object({ id: z2.string().uuid(), data: z2.object({ titulo: z2.string().trim().min(2), categoria: z2.string().trim(), descricao: z2.string().trim().optional().nullable(), rotina: z2.string().trim().min(2) }) })).mutation(({ input }) => updateGlobalRoutine(input.id, input.data)),
+      delete: adminProcedure.input(z2.object({ id: z2.string().uuid() })).mutation(({ input }) => deleteGlobalRoutine(input.id))
+    }),
+    accessRules: router({
+      upsert: adminProcedure.input(z2.object({ modulo: z2.enum(["academia", "studio", "profissional", "nutricionista"]), plano: z2.string().trim().min(2), habilitado: z2.boolean(), requer_consultoria: z2.boolean().default(true) })).mutation(({ input }) => upsertGlobalAccessRule(input)),
+      delete: adminProcedure.input(z2.object({ id: z2.string().uuid() })).mutation(({ input }) => deleteGlobalAccessRule(input.id))
+    })
+  }),
   billing: router({
     asaasStatus: publicProcedure.query(() => ({ configured: asaasSandboxConfigured(), environment: "sandbox" })),
     asaasAccount: publicProcedure.query(() => getAsaasAccount()),
@@ -786,7 +738,7 @@ var appRouter = router({
   saas: router({
     organizations: router({
       list: protectedProcedure.query(({ ctx }) => getOrganizationsForUser(ctx.user.id)),
-      create: protectedProcedure.input(z2.object({ clientId: z2.string().uuid(), logoUrl: z2.string().max(1e6).optional(), primaryColor: z2.string().regex(/^#[0-9a-fA-F]{6}$/).optional(), name: z2.string().trim().min(2).max(160), slug: z2.string().trim().toLowerCase().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/).max(120), plan: z2.enum(["starter", "growth", "scale"]) })).mutation(({ ctx, input }) => createOrganizationWithOwner({ userId: ctx.user.id, ...input })),
+      create: protectedProcedure.input(z2.object({ clientId: z2.string().uuid(), module: z2.string().trim().min(2).optional(), logoUrl: z2.string().max(1e6).optional(), primaryColor: z2.string().regex(/^#[0-9a-fA-F]{6}$/).optional(), name: z2.string().trim().min(2).max(160), slug: z2.string().trim().toLowerCase().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/).max(120), plan: z2.enum(["starter", "growth", "scale", "unlimited", "essencial", "performance", "premium"]) })).mutation(({ ctx, input }) => createOrganizationWithOwner({ userId: ctx.user.id, ...input })),
       access: protectedProcedure.input(organizationIdInput).query(({ ctx, input }) => getOrganizationAccess(ctx.user.id, input.organizationId)),
       audit: protectedProcedure.input(auditFilterInput).query(async ({ ctx, input }) => {
         await hasOrganizationAccess(ctx.user.id, input.organizationId);
@@ -804,13 +756,13 @@ var appRouter = router({
         await ownerOrAdmin(ctx.user.id, input.organizationId);
         return getPendingOrganizationInvitations(input.organizationId);
       }),
-      createUnit: protectedProcedure.input(z2.object({ organizationId: z2.number().int().positive(), name: z2.string().trim().min(2).max(160), slug: z2.string().trim().toLowerCase().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/).max(120), city: z2.string().trim().max(120).optional() })).mutation(async ({ ctx, input }) => {
+      createUnit: protectedProcedure.input(z2.object({ organizationId: z2.string().uuid(), name: z2.string().trim().min(2).max(160), slug: z2.string().trim().toLowerCase().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/).max(120), city: z2.string().trim().max(120).optional() })).mutation(async ({ ctx, input }) => {
         await ownerOrAdmin(ctx.user.id, input.organizationId);
         const unit = await createOrganizationUnit(input);
         await recordAuditLog({ organizationId: input.organizationId, userId: ctx.user.id, unitId: unit.id, action: "created", entity: "organization_unit", entityId: unit.id, afterJson: input });
         return unit;
       }),
-      archiveUnit: protectedProcedure.input(z2.object({ organizationId: z2.number().int().positive(), unitId: z2.number().int().positive() })).mutation(async ({ ctx, input }) => {
+      archiveUnit: protectedProcedure.input(z2.object({ organizationId: z2.string().uuid(), unitId: z2.string().uuid() })).mutation(async ({ ctx, input }) => {
         await ownerOrAdmin(ctx.user.id, input.organizationId);
         const result = await archiveOrganizationUnit(input.organizationId, input.unitId);
         await recordAuditLog({ organizationId: input.organizationId, userId: ctx.user.id, unitId: input.unitId, action: "archived", entity: "organization_unit", entityId: input.unitId, afterJson: result });
@@ -820,11 +772,11 @@ var appRouter = router({
         await hasOrganizationAccess(ctx.user.id, input.organizationId);
         return getOrganizationSubscription(input.organizationId);
       }),
-      updateProfile: protectedProcedure.input(z2.object({ organizationId: z2.number().int().positive(), name: z2.string().trim().min(2).max(160), logoUrl: z2.string().max(1e6).optional(), primaryColor: z2.string().regex(/^#[0-9a-fA-F]{6}$/).optional() })).mutation(async ({ ctx, input }) => {
+      updateProfile: protectedProcedure.input(z2.object({ organizationId: z2.string().uuid(), name: z2.string().trim().min(2).max(160), logoUrl: z2.string().max(1e6).optional(), primaryColor: z2.string().regex(/^#[0-9a-fA-F]{6}$/).optional() })).mutation(async ({ ctx, input }) => {
         await ownerOrAdmin(ctx.user.id, input.organizationId);
         return updateOrganizationProfile(input);
       }),
-      updateSubscription: protectedProcedure.input(z2.object({ organizationId: z2.number().int().positive(), plan: z2.enum(["starter", "growth", "scale"]), status: z2.enum(["trialing", "active", "past_due", "canceled"]).optional() })).mutation(async ({ ctx, input }) => {
+      updateSubscription: protectedProcedure.input(z2.object({ organizationId: z2.string().uuid(), plan: z2.enum(["starter", "growth", "scale", "unlimited", "essencial", "performance", "premium"]), status: z2.enum(["trialing", "active", "past_due", "canceled"]).optional() })).mutation(async ({ ctx, input }) => {
         await ownerOrAdmin(ctx.user.id, input.organizationId);
         const result = await updateOrganizationSubscription(input);
         await recordAuditLog({ organizationId: input.organizationId, userId: ctx.user.id, action: "updated", entity: "subscription", afterJson: input });
@@ -834,19 +786,19 @@ var appRouter = router({
         await hasOrganizationAccess(ctx.user.id, input.organizationId);
         return getOrganizationOnboarding(input.organizationId);
       }),
-      saveOnboarding: protectedProcedure.input(z2.object({ organizationId: z2.number().int().positive(), currentStep: z2.number().int().min(1).max(4), status: z2.enum(["not_started", "in_progress", "completed"]), city: z2.string().trim().max(120).optional(), defaultUnitName: z2.string().trim().min(2).max(160).optional(), inviteEmail: z2.string().email().optional(), logoUrl: z2.string().url().max(512).optional(), primaryColor: z2.string().regex(/^#[0-9a-fA-F]{6}$/).optional() })).mutation(async ({ ctx, input }) => {
+      saveOnboarding: protectedProcedure.input(z2.object({ organizationId: z2.string().uuid(), currentStep: z2.number().int().min(1).max(4), status: z2.enum(["not_started", "in_progress", "completed"]), city: z2.string().trim().max(120).optional(), defaultUnitName: z2.string().trim().min(2).max(160).optional(), inviteEmail: z2.string().email().optional(), logoUrl: z2.string().url().max(512).optional(), primaryColor: z2.string().regex(/^#[0-9a-fA-F]{6}$/).optional() })).mutation(async ({ ctx, input }) => {
         await ownerOrAdmin(ctx.user.id, input.organizationId);
         const result = await saveOrganizationOnboarding(input);
         await recordAuditLog({ organizationId: input.organizationId, userId: ctx.user.id, action: "updated", entity: "onboarding_branding", afterJson: input });
         return result;
       }),
-      updatePolicy: protectedProcedure.input(z2.object({ organizationId: z2.number().int().positive(), unitId: z2.number().int().positive(), role: roleName, module: moduleName, canView: z2.number().int().min(0).max(1), canManage: z2.number().int().min(0).max(1) })).mutation(async ({ ctx, input }) => {
+      updatePolicy: protectedProcedure.input(z2.object({ organizationId: z2.string().uuid(), unitId: z2.string().uuid(), role: roleName, module: moduleName, canView: z2.boolean(), canManage: z2.boolean() })).mutation(async ({ ctx, input }) => {
         await ownerOrAdmin(ctx.user.id, input.organizationId);
         const result = await updateModulePolicy(input);
         await recordAuditLog({ organizationId: input.organizationId, userId: ctx.user.id, unitId: input.unitId, action: "updated", entity: "module_policy", afterJson: input });
         return result;
       }),
-      invite: protectedProcedure.input(z2.object({ organizationId: z2.number().int().positive(), email: z2.string().email(), role: z2.enum(["admin", "manager", "professional", "viewer"]) })).mutation(async ({ ctx, input }) => {
+      invite: protectedProcedure.input(z2.object({ organizationId: z2.string().uuid(), email: z2.string().email(), role: z2.enum(["admin", "manager", "professional", "viewer"]) })).mutation(async ({ ctx, input }) => {
         await ownerOrAdmin(ctx.user.id, input.organizationId);
         const rawToken = randomUUID2();
         const tokenHash = createHash2("sha256").update(rawToken).digest("hex");
@@ -864,280 +816,26 @@ var appRouter = router({
   })
 });
 
-// shared/_core/errors.ts
-var HttpError = class extends Error {
-  constructor(statusCode, message) {
-    super(message);
-    this.statusCode = statusCode;
-    this.name = "HttpError";
-  }
-};
-var ForbiddenError = (msg) => new HttpError(403, msg);
-
-// server/_core/sdk.ts
-import axios from "axios";
-import { parse as parseCookieHeader } from "cookie";
-import { SignJWT, jwtVerify } from "jose";
-var isNonEmptyString2 = (value) => typeof value === "string" && value.length > 0;
-var EXCHANGE_TOKEN_PATH = `/webdev.v1.WebDevAuthPublicService/ExchangeToken`;
-var GET_USER_INFO_PATH = `/webdev.v1.WebDevAuthPublicService/GetUserInfo`;
-var GET_USER_INFO_WITH_JWT_PATH = `/webdev.v1.WebDevAuthPublicService/GetUserInfoWithJwt`;
-var OAuthService = class {
-  constructor(client) {
-    this.client = client;
-    console.log("[OAuth] Initialized with baseURL:", ENV.oAuthServerUrl);
-    if (!ENV.oAuthServerUrl) {
-      console.error(
-        "[OAuth] ERROR: OAUTH_SERVER_URL is not configured! Set OAUTH_SERVER_URL environment variable."
-      );
-    }
-  }
-  decodeState(state) {
-    return decodeOAuthState(state).redirectUri;
-  }
-  async getTokenByCode(code, state) {
-    const payload = {
-      clientId: ENV.appId,
-      grantType: "authorization_code",
-      code,
-      redirectUri: this.decodeState(state)
-    };
-    const { data } = await this.client.post(
-      EXCHANGE_TOKEN_PATH,
-      payload
-    );
-    return data;
-  }
-  async getUserInfoByToken(token) {
-    const { data } = await this.client.post(
-      GET_USER_INFO_PATH,
-      {
-        accessToken: token.accessToken
-      }
-    );
-    return data;
-  }
-};
-var createOAuthHttpClient = () => axios.create({
-  baseURL: ENV.oAuthServerUrl,
-  timeout: AXIOS_TIMEOUT_MS
-});
-var SDKServer = class {
-  client;
-  oauthService;
-  constructor(client = createOAuthHttpClient()) {
-    this.client = client;
-    this.oauthService = new OAuthService(this.client);
-  }
-  deriveLoginMethod(platforms, fallback) {
-    if (fallback && fallback.length > 0) return fallback;
-    if (!Array.isArray(platforms) || platforms.length === 0) return null;
-    const set = new Set(
-      platforms.filter((p) => typeof p === "string")
-    );
-    if (set.has("REGISTERED_PLATFORM_EMAIL")) return "email";
-    if (set.has("REGISTERED_PLATFORM_GOOGLE")) return "google";
-    if (set.has("REGISTERED_PLATFORM_APPLE")) return "apple";
-    if (set.has("REGISTERED_PLATFORM_MICROSOFT") || set.has("REGISTERED_PLATFORM_AZURE"))
-      return "microsoft";
-    if (set.has("REGISTERED_PLATFORM_GITHUB")) return "github";
-    const first = Array.from(set)[0];
-    return first ? first.toLowerCase() : null;
-  }
-  /**
-   * Exchange OAuth authorization code for access token
-   * @example
-   * const tokenResponse = await sdk.exchangeCodeForToken(code, state);
-   */
-  async exchangeCodeForToken(code, state) {
-    return this.oauthService.getTokenByCode(code, state);
-  }
-  /**
-   * Get user information using access token
-   * @example
-   * const userInfo = await sdk.getUserInfo(tokenResponse.accessToken);
-   */
-  async getUserInfo(accessToken) {
-    const data = await this.oauthService.getUserInfoByToken({
-      accessToken
-    });
-    const loginMethod = this.deriveLoginMethod(
-      data?.platforms,
-      data?.platform ?? data.platform ?? null
-    );
-    return {
-      ...data,
-      platform: loginMethod,
-      loginMethod
-    };
-  }
-  parseCookies(cookieHeader) {
-    if (!cookieHeader) {
-      return /* @__PURE__ */ new Map();
-    }
-    const parsed = parseCookieHeader(cookieHeader);
-    return new Map(Object.entries(parsed));
-  }
-  getSessionSecret() {
-    const secret = ENV.cookieSecret;
-    return new TextEncoder().encode(secret);
-  }
-  /**
-   * Create a session token for a Manus user openId
-   * @example
-   * const sessionToken = await sdk.createSessionToken(userInfo.openId);
-   */
-  async createSessionToken(openId, options = {}) {
-    return this.signSession(
-      {
-        openId,
-        appId: ENV.appId,
-        name: options.name || ""
-      },
-      options
-    );
-  }
-  async signSession(payload, options = {}) {
-    const issuedAt = Date.now();
-    const expiresInMs = options.expiresInMs ?? ONE_YEAR_MS;
-    const expirationSeconds = Math.floor((issuedAt + expiresInMs) / 1e3);
-    const secretKey = this.getSessionSecret();
-    return new SignJWT({
-      openId: payload.openId,
-      appId: payload.appId,
-      name: payload.name
-    }).setProtectedHeader({ alg: "HS256", typ: "JWT" }).setExpirationTime(expirationSeconds).sign(secretKey);
-  }
-  async verifySession(cookieValue) {
-    if (!cookieValue) {
-      console.warn("[Auth] Missing session cookie");
-      return null;
-    }
-    try {
-      const secretKey = this.getSessionSecret();
-      const { payload } = await jwtVerify(cookieValue, secretKey, {
-        algorithms: ["HS256"]
-      });
-      const { openId, appId, name } = payload;
-      if (!isNonEmptyString2(openId) || !isNonEmptyString2(appId) || !isNonEmptyString2(name)) {
-        console.warn("[Auth] Session payload missing required fields");
-        return null;
-      }
-      return {
-        openId,
-        appId,
-        name
-      };
-    } catch (error) {
-      console.warn("[Auth] Session verification failed", String(error));
-      return null;
-    }
-  }
-  async getUserInfoWithJwt(jwtToken) {
-    const payload = {
-      jwtToken,
-      projectId: ENV.appId
-    };
-    const { data } = await this.client.post(
-      GET_USER_INFO_WITH_JWT_PATH,
-      payload
-    );
-    const loginMethod = this.deriveLoginMethod(
-      data?.platforms,
-      data?.platform ?? data.platform ?? null
-    );
-    return {
-      ...data,
-      platform: loginMethod,
-      loginMethod
-    };
-  }
-  async authenticateRequest(req) {
-    const cookies = this.parseCookies(req.headers.cookie);
-    let sessionToken = cookies.get(COOKIE_NAME);
-    if (!sessionToken) {
-      const authHeader = req.headers.authorization;
-      if (typeof authHeader === "string" && authHeader.startsWith("Bearer ")) {
-        sessionToken = authHeader.slice(7);
-      }
-    }
-    const session = await this.verifySession(sessionToken);
-    if (!session) {
-      throw ForbiddenError("Invalid session cookie");
-    }
-    if (session.openId.startsWith(CRON_OPEN_ID_PREFIX)) {
-      const userInfo = await this.getUserInfoWithJwt(sessionToken ?? "");
-      const taskUid = userInfo.taskUid ?? null;
-      if (!taskUid) {
-        throw ForbiddenError("Cron session missing task_uid");
-      }
-      return buildCronUser(userInfo);
-    }
-    const sessionUserId = session.openId;
-    const signedInAt = /* @__PURE__ */ new Date();
-    let user = await getUserByOpenId(sessionUserId);
-    if (!user) {
-      try {
-        const userInfo = await this.getUserInfoWithJwt(sessionToken ?? "");
-        await upsertUser({
-          openId: userInfo.openId,
-          name: userInfo.name || null,
-          email: userInfo.email ?? null,
-          loginMethod: userInfo.loginMethod ?? userInfo.platform ?? null,
-          lastSignedIn: signedInAt
-        });
-        user = await getUserByOpenId(userInfo.openId);
-      } catch (error) {
-        console.error("[Auth] Failed to sync user from OAuth:", error);
-        throw ForbiddenError("Failed to sync user info");
-      }
-    }
-    if (!user) {
-      throw ForbiddenError("User not found");
-    }
-    await upsertUser({
-      openId: user.openId,
-      lastSignedIn: signedInAt
-    });
-    return user;
-  }
-};
-var CRON_OPEN_ID_PREFIX = "cron_";
-function buildCronUser(userInfo) {
-  const now = /* @__PURE__ */ new Date();
-  return {
-    id: -1,
-    openId: userInfo.openId,
-    name: userInfo.name || "Manus Scheduled Task",
-    email: null,
-    loginMethod: null,
-    role: "user",
-    createdAt: now,
-    updatedAt: now,
-    lastSignedIn: now,
-    taskUid: userInfo.taskUid ?? void 0,
-    isCron: true
-  };
-}
-var sdk = new SDKServer();
-
 // server/_core/context.ts
+var PLATFORM_ADMIN_EMAILS = ["andre.alvesman@gmail.com", "comercial@metodosarke.com.br"];
 async function createContext(opts) {
   let user = null;
-  try {
-    user = await sdk.authenticateRequest(opts.req);
-  } catch (error) {
-    const authorization = opts.req.headers.authorization;
-    if (typeof authorization === "string" && authorization.startsWith("Bearer ")) {
-      try {
-        const supabaseUser = await authenticateSupabaseAccessToken(authorization.slice(7));
-        const email = supabaseUser.email ?? null;
-        const role = email && ["andre.alvesman@gmail.com", "comercial@metodosarke.com.br"].includes(email.toLowerCase()) ? "admin" : "user";
-        await upsertUser({ openId: `supabase:${supabaseUser.id}`, name: String(supabaseUser.user_metadata?.name ?? email ?? "Usu\xE1rio"), email, loginMethod: "supabase", role, lastSignedIn: /* @__PURE__ */ new Date() });
-        user = await getUserByOpenId(`supabase:${supabaseUser.id}`) ?? null;
-      } catch {
-        user = null;
-      }
+  const authorization = opts.req.headers.authorization;
+  const cookieHeader = opts.req.headers.cookie ?? "";
+  const cookieToken = cookieHeader.split(";").map((part) => part.trim()).find((part) => part.startsWith(`${SUPABASE_ACCESS_COOKIE}=`))?.slice(SUPABASE_ACCESS_COOKIE.length + 1);
+  const bearer = typeof authorization === "string" && authorization.startsWith("Bearer ") ? authorization.slice(7) : cookieToken;
+  if (bearer) {
+    try {
+      const supabaseUser = await authenticateSupabaseAccessToken(bearer);
+      const email = supabaseUser.email ?? null;
+      user = {
+        id: supabaseUser.id,
+        email,
+        name: String(supabaseUser.user_metadata?.name ?? email ?? "Usu\xE1rio"),
+        role: email && PLATFORM_ADMIN_EMAILS.includes(email.toLowerCase()) ? "admin" : "user"
+      };
+    } catch {
+      user = null;
     }
   }
   return {
@@ -1145,55 +843,6 @@ async function createContext(opts) {
     res: opts.res,
     user
   };
-}
-
-// server/_core/oauth.ts
-import { parse as parseCookieHeader2 } from "cookie";
-function getQueryParam(req, key) {
-  const value = req.query[key];
-  return typeof value === "string" ? value : void 0;
-}
-function registerOAuthRoutes(app) {
-  app.get("/api/oauth/callback", async (req, res) => {
-    const code = getQueryParam(req, "code");
-    const state = getQueryParam(req, "state");
-    if (!code || !state) {
-      res.status(400).json({ error: "code and state are required" });
-      return;
-    }
-    const { nonce } = decodeOAuthState(state);
-    const expectedNonce = parseCookieHeader2(req.headers.cookie ?? "")[OAUTH_STATE_COOKIE];
-    if (!nonce || nonce !== expectedNonce) {
-      res.status(403).json({ error: "invalid oauth state" });
-      return;
-    }
-    res.clearCookie(OAUTH_STATE_COOKIE, { path: "/", secure: true, sameSite: "none" });
-    try {
-      const tokenResponse = await sdk.exchangeCodeForToken(code, state);
-      const userInfo = await sdk.getUserInfo(tokenResponse.accessToken);
-      if (!userInfo.openId) {
-        res.status(400).json({ error: "openId missing from user info" });
-        return;
-      }
-      await upsertUser({
-        openId: userInfo.openId,
-        name: userInfo.name || null,
-        email: userInfo.email ?? null,
-        loginMethod: userInfo.loginMethod ?? userInfo.platform ?? null,
-        lastSignedIn: /* @__PURE__ */ new Date()
-      });
-      const sessionToken = await sdk.createSessionToken(userInfo.openId, {
-        name: userInfo.name || "",
-        expiresInMs: ONE_YEAR_MS
-      });
-      const cookieOptions = getSessionCookieOptions(req);
-      res.cookie(COOKIE_NAME, sessionToken, { ...cookieOptions, maxAge: ONE_YEAR_MS });
-      res.redirect(302, "/");
-    } catch (error) {
-      console.error("[OAuth] Callback failed", error);
-      res.status(500).json({ error: "OAuth callback failed" });
-    }
-  });
 }
 
 // server/_core/storageProxy.ts
@@ -1252,8 +901,8 @@ function registerAccessRoutes(app) {
     const unitId = normalize(body.unitId);
     const studentId = normalize(body.studentId);
     const document = normalize(body.document);
-    const deviceId = normalize(body.deviceId) || "demo-gate-01";
-    const provider = body.provider ?? "arke_demo";
+    const deviceId = normalize(body.deviceId);
+    const provider = body.provider;
     if (!academyId || !studentId && !document) {
       return res.status(400).json({ ok: false, code: "INVALID_PAYLOAD", message: "academyId e studentId ou document s\xE3o obrigat\xF3rios." });
     }
@@ -1261,7 +910,7 @@ function registerAccessRoutes(app) {
     const eventId = `access_${randomUUID3()}`;
     return res.status(200).json({
       ok: true,
-      mode: expectedKey ? "configured" : "demo",
+      mode: expectedKey ? "configured" : "unconfigured",
       eventId,
       decision: denied ? "denied" : "allowed",
       academyId,
@@ -1307,7 +956,6 @@ function createApp() {
   app.use(express.json({ limit: "50mb" }));
   app.use(express.urlencoded({ limit: "50mb", extended: true }));
   registerStorageProxy(app);
-  registerOAuthRoutes(app);
   registerAccessRoutes(app);
   registerAsaasWebhook(app);
   app.use(
