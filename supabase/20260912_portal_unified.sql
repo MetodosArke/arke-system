@@ -38,15 +38,15 @@ create table if not exists public.app_password_resets (
   id uuid primary key default gen_random_uuid(), email text not null, token_hash text not null,
   expires_at timestamptz not null, used_at timestamptz, created_at timestamptz not null default now()
 );
-create table if not exists public.asaas_webhook_events (
-  id uuid primary key default gen_random_uuid(), external_id text not null unique,
-  event text not null, payload jsonb not null, received_at timestamptz not null default now()
-);
-create table if not exists public.asaas_payments (
-  id uuid primary key default gen_random_uuid(), external_id text not null unique,
-  customer_id text, status text, value numeric(12,2), due_date date, description text,
-  payload jsonb not null default '{}'::jsonb, created_at timestamptz not null default now(), updated_at timestamptz not null default now()
-);
+-- asaas_webhook_events e asaas_payments NÃO são redefinidas aqui: o schema
+-- real dessas duas tabelas (e o que server/asaasPersistence.ts efetivamente
+-- usa: event_id/occurred_at, asaas_id/billing_type/invoice_url/bank_slip_url/
+-- raw_payload) é o de 20260908_asaas_webhooks.sql. Fase 6 do plano de
+-- migração: este arquivo chegou a redefinir as duas tabelas com colunas
+-- diferentes (external_id/description/payload) via "create table if not
+-- exists" — como 20260908 roda antes (ordem alfabética/data), essas
+-- definições divergentes nunca chegavam a ser aplicadas de fato, mas
+-- induziam a erro qualquer leitura isolada deste arquivo. Removidas.
 
 create table if not exists public.acervo_exercicios (
   id uuid primary key default gen_random_uuid(), nome text not null, grupo_muscular text not null,
