@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { appRouter } from "./routers";
-import { COOKIE_NAME } from "../shared/const";
+import { COOKIE_NAME, SUPABASE_ACCESS_COOKIE } from "../shared/const";
 import type { TrpcContext } from "./_core/context";
 
 type CookieCall = {
@@ -14,15 +14,10 @@ function createAuthContext(): { ctx: TrpcContext; clearedCookies: CookieCall[] }
   const clearedCookies: CookieCall[] = [];
 
   const user: AuthenticatedUser = {
-    id: 1,
-    openId: "sample-user",
+    id: "00000000-0000-4000-8000-0000000000d1",
     email: "sample@example.com",
     name: "Sample User",
-    loginMethod: "manus",
     role: "user",
-    createdAt: new Date(),
-    updatedAt: new Date(),
-    lastSignedIn: new Date(),
   };
 
   const ctx: TrpcContext = {
@@ -49,14 +44,18 @@ describe("auth.logout", () => {
     const result = await caller.auth.logout();
 
     expect(result).toEqual({ success: true });
-    expect(clearedCookies).toHaveLength(1);
-    expect(clearedCookies[0]?.name).toBe(COOKIE_NAME);
-    expect(clearedCookies[0]?.options).toMatchObject({
-      maxAge: -1,
-      secure: true,
-      sameSite: "none",
-      httpOnly: true,
-      path: "/",
-    });
+    // Logout limpa o cookie legado da Manus (para desconectar sessões
+    // criadas antes desta migração) e o cookie de acesso do Supabase Auth.
+    expect(clearedCookies).toHaveLength(2);
+    expect(clearedCookies.map((cookie) => cookie.name)).toEqual([COOKIE_NAME, SUPABASE_ACCESS_COOKIE]);
+    for (const cookie of clearedCookies) {
+      expect(cookie.options).toMatchObject({
+        maxAge: -1,
+        secure: true,
+        sameSite: "none",
+        httpOnly: true,
+        path: "/",
+      });
+    }
   });
 });
