@@ -26,10 +26,18 @@ values
   ('00000000-0000-0000-0000-00000000a001', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'teste-isolamento-a@arkefit.com.br', '', now(), now(), now()),
   ('00000000-0000-0000-0000-00000000b001', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'teste-isolamento-b@arkefit.com.br', '', now(), now(), now());
 
-insert into public.saas_organizations (id, name, slug, module, plan, status)
+-- saas_organizations.client_id é obrigatório (referencia app_users, o
+-- cadastro administrativo do cliente pagante) — precisa de uma linha aqui
+-- antes de criar a organização.
+insert into public.app_users (id, name, email, username, module, role, status)
 values
-  ('00000000-0000-0000-0000-0000000a0001', 'Academia Teste A', 'academia-teste-a-isolamento', 'academia', 'starter', 'active'),
-  ('00000000-0000-0000-0000-0000000b0001', 'Academia Teste B', 'academia-teste-b-isolamento', 'academia', 'starter', 'active');
+  ('00000000-0000-0000-0000-0000000ac001', 'Cliente Teste A', 'cliente-isolamento-a@arkefit.com.br', 'cliente-isolamento-a', 'academia', 'admin', 'Ativo'),
+  ('00000000-0000-0000-0000-0000000bc001', 'Cliente Teste B', 'cliente-isolamento-b@arkefit.com.br', 'cliente-isolamento-b', 'academia', 'admin', 'Ativo');
+
+insert into public.saas_organizations (id, client_id, name, slug, module, plan, status)
+values
+  ('00000000-0000-0000-0000-0000000a0001', '00000000-0000-0000-0000-0000000ac001', 'Academia Teste A', 'academia-teste-a-isolamento', 'academia', 'starter', 'active'),
+  ('00000000-0000-0000-0000-0000000b0001', '00000000-0000-0000-0000-0000000bc001', 'Academia Teste B', 'academia-teste-b-isolamento', 'academia', 'starter', 'active');
 
 insert into public.saas_memberships (organization_id, auth_user_id, role, status)
 values
