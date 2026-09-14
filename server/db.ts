@@ -1,217 +1,233 @@
-import { and, desc, eq, gte, lte } from "drizzle-orm";
-import { drizzle } from "drizzle-orm/mysql2";
-import { ENV } from "./_core/env";
-import { InsertUser, auditLogs, invitations, memberships, modulePolicies, onboardingProgress, organizationUnits, organizations, subscriptions, users } from "../drizzle/schema";
+// Núcleo SaaS (organizations/units/memberships/subscriptions/module_policies/
+// onboarding/audit_logs) falando com Supabase via REST + service_role, no
+// mesmo padrão de server/supabaseAdmin.ts. As tabelas-alvo (saas_*) e a RLS
+// que as protege estão em supabase/20260914_core_schema_target.sql,
+// supabase/20260914_core_rls_policies.sql e supabase/20260914_organization_rpcs.sql.
+//
+// Identidade: userId é o uuid de auth.users (Supabase Auth), não mais o
+// inteiro espelhado do antigo `users` do Drizzle/TiDB — não há mais tabela
+// de usuário própria aqui, auth.users já é a fonte de verdade.
 
-let _db: ReturnType<typeof drizzle> | null = null;
-const MODULES = ["dashboard", "academias", "profissionais", "alunos", "agenda", "financeiro", "integracoes"] as const;
-const ROLES = ["owner", "admin", "manager", "professional", "viewer"] as const;
+type Json = Record<string, unknown>;
 
-export async function getDb() {
-  if (!_db && process.env.DATABASE_URL) {
-    try { _db = drizzle(process.env.DATABASE_URL); }
-    catch (error) { console.warn("[Database] Failed to connect:", error); _db = null; }
-  }
-  return _db;
+function isConfigured() {
+  return Boolean((process.env.SUPABASE_URL ?? "") && (process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.SUPABASE_KEY ?? ""));
 }
 
-export async function upsertUser(user: InsertUser): Promise<void> {
-  if (!user.openId) throw new Error("User openId is required for upsert");
-  const db = await getDb();
-  if (!db) { console.warn("[Database] Cannot upsert user: database not available"); return; }
-  const values: InsertUser = { openId: user.openId };
-  const updateSet: Record<string, unknown> = {};
-  const textFields = ["name", "email", "loginMethod"] as const;
-  textFields.forEach((field) => { if (user[field] !== undefined) { values[field] = user[field] ?? null; updateSet[field] = user[field] ?? null; } });
-  if (user.lastSignedIn !== undefined) { values.lastSignedIn = user.lastSignedIn; updateSet.lastSignedIn = user.lastSignedIn; }
-  if (user.role !== undefined) { values.role = user.role; updateSet.role = user.role; }
-  else if (user.openId === ENV.ownerOpenId) { values.role = "admin"; updateSet.role = "admin"; }
-  values.lastSignedIn ??= new Date();
-  if (Object.keys(updateSet).length === 0) updateSet.lastSignedIn = new Date();
-  await db.insert(users).values(values).onDuplicateKeyUpdate({ set: updateSet });
+function config() {
+  const url = process.env.SUPABASE_URL ?? "";
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.SUPABASE_KEY ?? "";
+  if (!url || !key) throw new Error("Supabase não configurado. Defina SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY.");
+  return { url: url.replace(/\/$/, ""), key };
 }
 
-export async function getUserByOpenId(openId: string) {
-  const db = await getDb();
-  if (!db) return undefined;
-  const result = await db.select().from(users).where(eq(users.openId, openId)).limit(1);
-  return result[0];
-}
-
-export async function getOrganizationsForUser(userId: number) {
-  const db = await getDb();
-  if (!db) return [];
-  return db.select({ organization: organizations, membership: memberships }).from(memberships).innerJoin(organizations, eq(memberships.organizationId, organizations.id)).where(and(eq(memberships.userId, userId), eq(memberships.status, "active"))).orderBy(desc(organizations.updatedAt));
-}
-
-export async function getMembership(userId: number, organizationId: number) {
-  const db = await getDb();
-  if (!db) return undefined;
-  const result = await db.select({ membership: memberships, organization: organizations }).from(memberships).innerJoin(organizations, eq(memberships.organizationId, organizations.id)).where(and(eq(memberships.userId, userId), eq(memberships.organizationId, organizationId))).limit(1);
-  return result[0];
-}
-
-export async function createOrganizationWithOwner(input: { userId: number; clientId: string; name: string; slug: string; plan: "starter" | "growth" | "scale" | "unlimited" | "essencial" | "performance" | "premium" }) {
-  const db = await getDb();
-  if (!db) throw new Error("Database not available");
-  return db.transaction(async (tx) => {
-    const existing = await tx.select({ id: organizations.id, name: organizations.name }).from(organizations).where(and(eq(organizations.clientId, input.clientId), eq(organizations.status, "active"))).limit(1);
-    const trial = await tx.select({ id: organizations.id, name: organizations.name }).from(organizations).where(and(eq(organizations.clientId, input.clientId), eq(organizations.status, "trial"))).limit(1);
-    if (existing[0] || trial[0]) throw new Error(`O cliente já possui uma licença ativa: ${(existing[0] ?? trial[0]).name}`);
-    const limits = { starter: { maxUnits: 1, maxUsers: 12 }, growth: { maxUnits: 3, maxUsers: 32 }, scale: { maxUnits: 10, maxUsers: 100 }, unlimited: { maxUnits: 999, maxUsers: 99999 }, essencial: { maxUnits: 1, maxUsers: 3 }, performance: { maxUnits: 1, maxUsers: 8 }, premium: { maxUnits: 1, maxUsers: 20 } }[input.plan];
-    const [created] = await tx.insert(organizations).values({ clientId: input.clientId, name: input.name, slug: input.slug, plan: input.plan, status: "trial", reconciliationStatus: "matched", reconciliationNote: "Vinculada ao cliente selecionado no onboarding", ...limits }).$returningId();
-    const organizationId = created.id;
-    const [unit] = await tx.insert(organizationUnits).values({ organizationId, name: input.name, slug: "sede-principal", status: "active" }).$returningId();
-    await tx.insert(memberships).values({ organizationId, userId: input.userId, role: "owner", status: "active" });
-    const amounts = { starter: 39900, growth: 79900, scale: 149000, unlimited: 349000, essencial: 14900, performance: 24900, premium: 19900 };
-    await tx.insert(subscriptions).values({ organizationId, plan: input.plan, status: "trialing", billingCycle: "monthly", provider: "sandbox", amountCents: amounts[input.plan] });
-    await tx.insert(onboardingProgress).values({ organizationId, currentStep: 1, status: "in_progress", defaultUnitName: input.name });
-    await tx.insert(modulePolicies).values(ROLES.flatMap((role) => MODULES.map((module) => ({ organizationId, unitId: unit.id, role, module, canView: role === "viewer" || role === "professional" || role === "manager" || role === "admin" || role === "owner" ? 1 : 0, canManage: role === "owner" || role === "admin" || (role === "manager" && ["dashboard", "academias", "profissionais", "alunos", "agenda"].includes(module)) ? 1 : 0 }))));
-    return { organizationId, unitId: unit.id };
+async function request<T>(table: string, init: RequestInit = {}, query = "") {
+  const { url, key } = config();
+  const response = await fetch(`${url}/rest/v1/${table}${query}`, {
+    ...init,
+    headers: { apikey: key, Authorization: `Bearer ${key}`, "Content-Type": "application/json", Prefer: "return=representation", ...(init.headers ?? {}) },
   });
+  if (!response.ok) throw new Error(`Supabase ${response.status}: ${await response.text()}`);
+  const text = await response.text();
+  return (text ? JSON.parse(text) : []) as T;
 }
 
-export async function createOrganizationInvitation(input: { organizationId: number; invitedByUserId: number; email: string; role: "admin" | "manager" | "professional" | "viewer"; tokenHash: string; expiresAt: Date }) {
-  const db = await getDb();
-  if (!db) throw new Error("Database not available");
-  const [created] = await db.insert(invitations).values(input).$returningId();
+async function rpc<T>(fn: string, args: Json) {
+  const { url, key } = config();
+  const response = await fetch(`${url}/rest/v1/rpc/${fn}`, {
+    method: "POST",
+    headers: { apikey: key, Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+    body: JSON.stringify(args),
+  });
+  if (!response.ok) throw new Error(`Supabase RPC ${fn} ${response.status}: ${await response.text()}`);
+  return (await response.json()) as T;
+}
+
+export type Organization = {
+  id: string; client_id: string; name: string; slug: string;
+  plan: "starter" | "growth" | "scale" | "unlimited" | "essencial" | "performance" | "premium";
+  status: "trial" | "active" | "past_due" | "canceled";
+  module: string; logo_url: string | null; primary_color: string | null;
+  max_units: number; max_users: number;
+  reconciliation_status: "matched" | "review"; reconciliation_note: string | null;
+  full_service_enabled: boolean;
+  created_at: string; updated_at: string;
+};
+export type Membership = {
+  id: string; organization_id: string; auth_user_id: string;
+  role: "owner" | "admin" | "manager" | "professional" | "viewer";
+  status: "active" | "invited" | "suspended";
+  created_at: string;
+};
+export type OrganizationUnit = { id: string; organization_id: string; name: string; slug: string; city: string | null; status: "active" | "archived"; created_at: string };
+export type ModulePolicy = { id: string; organization_id: string; unit_id: string; role: Membership["role"]; module: string; can_view: boolean; can_manage: boolean };
+export type Subscription = { id: string; organization_id: string; plan: Organization["plan"]; status: "trialing" | "active" | "past_due" | "canceled"; billing_cycle: "monthly" | "yearly"; amount_cents: number; provider: string; external_id: string | null; created_at: string; updated_at: string };
+export type Invitation = { id: string; organization_id: string; invited_by_user_id: string; email: string; role: "admin" | "manager" | "professional" | "viewer"; status: "pending" | "accepted" | "expired" | "revoked"; token_hash: string; expires_at: string; created_at: string };
+export type OnboardingProgress = { id: string; organization_id: string; current_step: number; status: "not_started" | "in_progress" | "completed"; city: string | null; default_unit_name: string | null; invite_email: string | null; created_at: string; updated_at: string };
+export type AuditLog = { id: string; organization_id: string; auth_user_id: string | null; action: string; entity: string; entity_id: string | null; before_json: unknown; after_json: unknown; created_at: string };
+
+const PLAN_LIMITS = { starter: { maxUnits: 1, maxUsers: 12 }, growth: { maxUnits: 3, maxUsers: 32 }, scale: { maxUnits: 10, maxUsers: 100 }, unlimited: { maxUnits: 999, maxUsers: 99999 }, essencial: { maxUnits: 1, maxUsers: 3 }, performance: { maxUnits: 1, maxUsers: 8 }, premium: { maxUnits: 1, maxUsers: 20 } } as const;
+const PLAN_AMOUNTS = { starter: 39900, growth: 79900, scale: 149000, unlimited: 349000, essencial: 14900, performance: 24900, premium: 19900 } as const;
+
+export async function getOrganizationsForUser(userId: string) {
+  if (!isConfigured()) return [];
+  const rows = await request<Array<Membership & { saas_organizations: Organization }>>(
+    "saas_memberships",
+    {},
+    `?select=*,saas_organizations(*)&auth_user_id=eq.${encodeURIComponent(userId)}&status=eq.active`,
+  );
+  return rows
+    .map(({ saas_organizations, ...membership }) => ({ membership, organization: saas_organizations }))
+    .sort((a, b) => b.organization.updated_at.localeCompare(a.organization.updated_at));
+}
+
+export async function getMembership(userId: string, organizationId: string) {
+  if (!isConfigured()) return undefined;
+  const rows = await request<Array<Membership & { saas_organizations: Organization }>>(
+    "saas_memberships",
+    {},
+    `?select=*,saas_organizations(*)&auth_user_id=eq.${encodeURIComponent(userId)}&organization_id=eq.${encodeURIComponent(organizationId)}&limit=1`,
+  );
+  const row = rows[0];
+  if (!row) return undefined;
+  const { saas_organizations, ...membership } = row;
+  return { membership, organization: saas_organizations };
+}
+
+export async function createOrganizationWithOwner(input: { userId: string; clientId: string; name: string; slug: string; plan: Organization["plan"]; module?: string; logoUrl?: string; primaryColor?: string }) {
+  if (!isConfigured()) throw new Error("Database not available");
+  const [result] = await rpc<Array<{ organization_id: string; unit_id: string }>>("create_organization_with_owner", {
+    p_user_id: input.userId,
+    p_client_id: input.clientId,
+    p_name: input.name,
+    p_slug: input.slug,
+    p_plan: input.plan,
+    p_module: input.module ?? "academia",
+    p_logo_url: input.logoUrl ?? null,
+    p_primary_color: input.primaryColor ?? null,
+  });
+  if (!result) throw new Error("Falha ao criar organização");
+  return { organizationId: result.organization_id, unitId: result.unit_id };
+}
+
+export async function createOrganizationInvitation(input: { organizationId: string; invitedByUserId: string; email: string; role: Invitation["role"]; tokenHash: string; expiresAt: Date }) {
+  if (!isConfigured()) throw new Error("Database not available");
+  const [created] = await request<Invitation[]>("saas_invitations", { method: "POST", body: JSON.stringify({ organization_id: input.organizationId, invited_by_user_id: input.invitedByUserId, email: input.email, role: input.role, token_hash: input.tokenHash, expires_at: input.expiresAt.toISOString() }) });
   return created;
 }
 
-export async function getPendingOrganizationInvitations(organizationId: number) {
-  const db = await getDb();
-  if (!db) return [];
-  return db.select().from(invitations).where(and(eq(invitations.organizationId, organizationId), eq(invitations.status, "pending"))).orderBy(desc(invitations.createdAt));
+export async function getPendingOrganizationInvitations(organizationId: string) {
+  if (!isConfigured()) return [];
+  return request<Invitation[]>("saas_invitations", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}&status=eq.pending&order=created_at.desc`);
 }
 
-export async function acceptOrganizationInvitation(input: { tokenHash: string; userId: number; email: string }) {
-  const db = await getDb();
-  if (!db) throw new Error("Database not available");
-  return db.transaction(async (tx) => {
-    const result = await tx.select().from(invitations).where(and(eq(invitations.tokenHash, input.tokenHash), eq(invitations.status, "pending"))).limit(1);
-    const invitation = result[0];
-    if (!invitation) throw new Error("Invitation not found or already used");
-    if (invitation.expiresAt < new Date()) {
-      await tx.update(invitations).set({ status: "expired" }).where(eq(invitations.id, invitation.id));
-      throw new Error("Invitation expired");
-    }
-    if (invitation.email.toLowerCase() !== input.email.toLowerCase()) throw new Error("Invitation email does not match the authenticated user");
-    await tx.insert(memberships).values({ organizationId: invitation.organizationId, userId: input.userId, role: invitation.role, status: "active" }).onDuplicateKeyUpdate({ set: { role: invitation.role, status: "active" } });
-    await tx.update(invitations).set({ status: "accepted" }).where(eq(invitations.id, invitation.id));
-    return { invitation, organizationId: invitation.organizationId, role: invitation.role };
+export async function acceptOrganizationInvitation(input: { tokenHash: string; userId: string; email: string }) {
+  if (!isConfigured()) throw new Error("Database not available");
+  const [result] = await rpc<Array<{ organization_id: string; role: Invitation["role"]; invitation_id: string }>>("accept_organization_invitation", {
+    p_token_hash: input.tokenHash,
+    p_user_id: input.userId,
+    p_email: input.email,
   });
+  if (!result) throw new Error("Invitation not found or already used");
+  return { invitation: { id: result.invitation_id }, organizationId: result.organization_id, role: result.role };
 }
 
-export async function getOrganizationSubscription(organizationId: number) {
-  const db = await getDb();
-  if (!db) return undefined;
-  const result = await db.select().from(subscriptions).where(eq(subscriptions.organizationId, organizationId)).orderBy(desc(subscriptions.createdAt)).limit(1);
-  return result[0];
+export async function getOrganizationSubscription(organizationId: string) {
+  if (!isConfigured()) return undefined;
+  const rows = await request<Subscription[]>("saas_subscriptions", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}&order=created_at.desc&limit=1`);
+  return rows[0];
 }
 
-export async function updateOrganizationProfile(input: { organizationId: number; name: string; logoUrl?: string; primaryColor?: string }) {
-  const db = await getDb();
-  if (!db) throw new Error("Database not available");
-  await db.update(organizations).set({ name: input.name, ...(input.logoUrl !== undefined ? { logoUrl: input.logoUrl } : {}), ...(input.primaryColor !== undefined ? { primaryColor: input.primaryColor } : {}) }).where(eq(organizations.id, input.organizationId));
-  return getMembership((await getMembershipByOrganizationOwner(input.organizationId)) ?? 0, input.organizationId);
+export async function updateOrganizationProfile(input: { organizationId: string; name: string; logoUrl?: string; primaryColor?: string }) {
+  if (!isConfigured()) throw new Error("Database not available");
+  const [updated] = await request<Organization[]>("saas_organizations", { method: "PATCH", body: JSON.stringify({ name: input.name, ...(input.logoUrl !== undefined ? { logo_url: input.logoUrl } : {}), ...(input.primaryColor !== undefined ? { primary_color: input.primaryColor } : {}) }) }, `?id=eq.${encodeURIComponent(input.organizationId)}`);
+  return updated;
 }
 
-async function getMembershipByOrganizationOwner(organizationId: number) {
-  const db = await getDb();
-  if (!db) return undefined;
-  const result = await db.select({ userId: memberships.userId }).from(memberships).where(and(eq(memberships.organizationId, organizationId), eq(memberships.role, "owner"))).limit(1);
-  return result[0]?.userId;
-}
-
-export async function updateOrganizationSubscription(input: { organizationId: number; plan: "starter" | "growth" | "scale" | "unlimited" | "essencial" | "performance" | "premium"; status?: "trialing" | "active" | "past_due" | "canceled" }) {
-  const db = await getDb();
-  if (!db) throw new Error("Database not available");
-  const amountCents = { starter: 39900, growth: 79900, scale: 149000, unlimited: 349000, essencial: 14900, performance: 24900, premium: 19900 }[input.plan];
-  const limits = { starter: { maxUnits: 1, maxUsers: 12 }, growth: { maxUnits: 3, maxUsers: 32 }, scale: { maxUnits: 10, maxUsers: 100 }, unlimited: { maxUnits: 999, maxUsers: 99999 }, essencial: { maxUnits: 1, maxUsers: 3 }, performance: { maxUnits: 1, maxUsers: 8 }, premium: { maxUnits: 1, maxUsers: 20 } }[input.plan];
-  await db.update(organizations).set({ plan: input.plan, ...limits }).where(eq(organizations.id, input.organizationId));
-  await db.update(subscriptions).set({ plan: input.plan, amountCents, ...(input.status ? { status: input.status } : {}) }).where(eq(subscriptions.organizationId, input.organizationId));
+export async function updateOrganizationSubscription(input: { organizationId: string; plan: Organization["plan"]; status?: Subscription["status"] }) {
+  if (!isConfigured()) throw new Error("Database not available");
+  const amountCents = PLAN_AMOUNTS[input.plan];
+  const limits = PLAN_LIMITS[input.plan];
+  await request("saas_organizations", { method: "PATCH", body: JSON.stringify({ plan: input.plan, max_units: limits.maxUnits, max_users: limits.maxUsers }) }, `?id=eq.${encodeURIComponent(input.organizationId)}`);
+  await request("saas_subscriptions", { method: "PATCH", body: JSON.stringify({ plan: input.plan, amount_cents: amountCents, ...(input.status ? { status: input.status } : {}) }) }, `?organization_id=eq.${encodeURIComponent(input.organizationId)}`);
   return getOrganizationSubscription(input.organizationId);
 }
 
-export async function getOrganizationAccess(userId: number, organizationId: number) {
-  const db = await getDb();
-  if (!db) return undefined;
+export async function getOrganizationAccess(userId: string, organizationId: string) {
+  if (!isConfigured()) return undefined;
   const membership = await getMembership(userId, organizationId);
   if (!membership) return undefined;
-  const units = await db.select().from(organizationUnits).where(and(eq(organizationUnits.organizationId, organizationId), eq(organizationUnits.status, "active")));
-  const policies = await db.select().from(modulePolicies).where(eq(modulePolicies.organizationId, organizationId));
+  const [units, policies] = await Promise.all([
+    request<OrganizationUnit[]>("saas_units", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}&status=eq.active`),
+    request<ModulePolicy[]>("saas_module_policies", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}`),
+  ]);
   return { organization: membership.organization, membership: membership.membership, units, policies };
 }
 
-export async function saveOrganizationOnboarding(input: { organizationId: number; currentStep: number; status: "not_started" | "in_progress" | "completed"; city?: string; defaultUnitName?: string; inviteEmail?: string; logoUrl?: string; primaryColor?: string; }) {
-  const db = await getDb();
-  if (!db) throw new Error("Database not available");
-  return db.transaction(async (tx) => {
-    if (input.logoUrl !== undefined || input.primaryColor !== undefined || input.defaultUnitName !== undefined) {
-      await tx.update(organizations).set({ ...(input.logoUrl !== undefined ? { logoUrl: input.logoUrl } : {}), ...(input.primaryColor !== undefined ? { primaryColor: input.primaryColor } : {}), ...(input.defaultUnitName !== undefined ? { name: input.defaultUnitName } : {}) }).where(eq(organizations.id, input.organizationId));
-    }
-    await tx.insert(onboardingProgress).values({ organizationId: input.organizationId, currentStep: input.currentStep, status: input.status, city: input.city, defaultUnitName: input.defaultUnitName, inviteEmail: input.inviteEmail }).onDuplicateKeyUpdate({ set: { currentStep: input.currentStep, status: input.status, city: input.city, defaultUnitName: input.defaultUnitName, inviteEmail: input.inviteEmail } });
-    return { organizationId: input.organizationId, saved: true };
-  });
+export async function saveOrganizationOnboarding(input: { organizationId: string; currentStep: number; status: OnboardingProgress["status"]; city?: string; defaultUnitName?: string; inviteEmail?: string; logoUrl?: string; primaryColor?: string }) {
+  if (!isConfigured()) throw new Error("Database not available");
+  if (input.logoUrl !== undefined || input.primaryColor !== undefined || input.defaultUnitName !== undefined) {
+    await request("saas_organizations", { method: "PATCH", body: JSON.stringify({ ...(input.logoUrl !== undefined ? { logo_url: input.logoUrl } : {}), ...(input.primaryColor !== undefined ? { primary_color: input.primaryColor } : {}), ...(input.defaultUnitName !== undefined ? { name: input.defaultUnitName } : {}) }) }, `?id=eq.${encodeURIComponent(input.organizationId)}`);
+  }
+  await request("saas_onboarding", { method: "POST", headers: { Prefer: "resolution=merge-duplicates,return=representation" }, body: JSON.stringify({ organization_id: input.organizationId, current_step: input.currentStep, status: input.status, city: input.city ?? null, default_unit_name: input.defaultUnitName ?? null, invite_email: input.inviteEmail ?? null }) }, "?on_conflict=organization_id");
+  return { organizationId: input.organizationId, saved: true };
 }
 
-export async function updateModulePolicy(input: { organizationId: number; unitId: number; role: "owner" | "admin" | "manager" | "professional" | "viewer"; module: string; canView: number; canManage: number; }) {
-  const db = await getDb();
-  if (!db) throw new Error("Database not available");
-  await db.insert(modulePolicies).values(input).onDuplicateKeyUpdate({ set: { canView: input.canView, canManage: input.canManage } });
+export async function updateModulePolicy(input: { organizationId: string; unitId: string; role: Membership["role"]; module: string; canView: boolean; canManage: boolean }) {
+  if (!isConfigured()) throw new Error("Database not available");
+  await request("saas_module_policies", { method: "POST", headers: { Prefer: "resolution=merge-duplicates,return=representation" }, body: JSON.stringify({ organization_id: input.organizationId, unit_id: input.unitId, role: input.role, module: input.module, can_view: input.canView, can_manage: input.canManage }) }, "?on_conflict=organization_id,unit_id,role,module");
   return { saved: true };
 }
 
-export async function getOrganizationOnboarding(organizationId: number) {
-  const db = await getDb();
-  if (!db) return undefined;
-  const result = await db.select().from(onboardingProgress).where(eq(onboardingProgress.organizationId, organizationId)).limit(1);
-  return result[0];
+export async function getOrganizationOnboarding(organizationId: string) {
+  if (!isConfigured()) return undefined;
+  const rows = await request<OnboardingProgress[]>("saas_onboarding", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}&limit=1`);
+  return rows[0];
 }
 
-export async function createOrganizationUnit(input: { organizationId: number; name: string; slug: string; city?: string }) {
-  const db = await getDb();
-  if (!db) throw new Error("Database not available");
-  const [created] = await db.insert(organizationUnits).values({ ...input, status: "active" }).$returningId();
+export async function createOrganizationUnit(input: { organizationId: string; name: string; slug: string; city?: string }) {
+  if (!isConfigured()) throw new Error("Database not available");
+  const [created] = await request<OrganizationUnit[]>("saas_units", { method: "POST", body: JSON.stringify({ organization_id: input.organizationId, name: input.name, slug: input.slug, city: input.city ?? null, status: "active" }) });
   return created;
 }
 
-export async function archiveOrganizationUnit(organizationId: number, unitId: number) {
-  const db = await getDb();
-  if (!db) throw new Error("Database not available");
-  await db.update(organizationUnits).set({ status: "archived" }).where(and(eq(organizationUnits.organizationId, organizationId), eq(organizationUnits.id, unitId)));
+export async function archiveOrganizationUnit(organizationId: string, unitId: string) {
+  if (!isConfigured()) throw new Error("Database not available");
+  await request("saas_units", { method: "PATCH", body: JSON.stringify({ status: "archived" }) }, `?organization_id=eq.${encodeURIComponent(organizationId)}&id=eq.${encodeURIComponent(unitId)}`);
   return { organizationId, unitId, status: "archived" as const };
 }
 
-export async function recordAuditLog(input: { organizationId: number; userId: number; unitId?: number; action: string; entity: string; entityId?: number; beforeJson?: unknown; afterJson?: unknown }) {
-  const db = await getDb();
-  if (!db) return undefined;
-  const [created] = await db.insert(auditLogs).values({ organizationId: input.organizationId, userId: input.userId, unitId: input.unitId, action: input.action, entity: input.entity, entityId: input.entityId, beforeJson: input.beforeJson === undefined ? undefined : JSON.stringify(input.beforeJson), afterJson: input.afterJson === undefined ? undefined : JSON.stringify(input.afterJson) });
+export async function recordAuditLog(input: { organizationId: string; userId: string; unitId?: string; action: string; entity: string; entityId?: string; beforeJson?: unknown; afterJson?: unknown }) {
+  if (!isConfigured()) return undefined;
+  const [created] = await request<AuditLog[]>("saas_audit_logs", { method: "POST", body: JSON.stringify({ organization_id: input.organizationId, auth_user_id: input.userId, action: input.action, entity: input.entity, entity_id: input.entityId ?? null, before_json: input.beforeJson ?? null, after_json: input.afterJson ?? null }) });
   return created;
 }
 
-export async function getAuditLogs(organizationId: number, limit = 50, filters?: { from?: Date; to?: Date; userId?: number; entity?: string }) {
-  const db = await getDb();
-  if (!db) return [];
-  const conditions = [eq(auditLogs.organizationId, organizationId)];
-  if (filters?.from) conditions.push(gte(auditLogs.createdAt, filters.from));
-  if (filters?.to) conditions.push(lte(auditLogs.createdAt, filters.to));
-  if (filters?.userId) conditions.push(eq(auditLogs.userId, filters.userId));
-  if (filters?.entity && filters.entity !== "all") conditions.push(eq(auditLogs.entity, filters.entity));
-  return db.select().from(auditLogs).where(and(...conditions)).orderBy(desc(auditLogs.createdAt)).limit(limit);
+export async function getAuditLogs(organizationId: string, limit = 50, filters?: { from?: Date; to?: Date; userId?: string; entity?: string }) {
+  if (!isConfigured()) return [];
+  const params = new URLSearchParams();
+  params.set("select", "*");
+  params.set("organization_id", `eq.${organizationId}`);
+  params.set("order", "created_at.desc");
+  params.set("limit", String(limit));
+  if (filters?.from) params.append("created_at", `gte.${filters.from.toISOString()}`);
+  if (filters?.to) params.append("created_at", `lte.${filters.to.toISOString()}`);
+  if (filters?.userId) params.set("auth_user_id", `eq.${filters.userId}`);
+  if (filters?.entity && filters.entity !== "all") params.set("entity", `eq.${filters.entity}`);
+  return request<AuditLog[]>("saas_audit_logs", {}, `?${params.toString()}`);
 }
 
-export function auditLogsToCsv(rows: Array<{ id: number; action: string; entity: string; entityId: number | null; userId: number; unitId: number | null; createdAt: Date }>) {
+export function auditLogsToCsv(rows: Array<{ id: string; action: string; entity: string; entity_id: string | null; auth_user_id: string | null; created_at: string }>) {
   const escape = (value: unknown) => `"${String(value ?? "").replaceAll('"', '""')}"`;
   return [
-    ["id", "action", "entity", "entityId", "userId", "unitId", "createdAt"].join(","),
-    ...rows.map((row) => [row.id, row.action, row.entity, row.entityId, row.userId, row.unitId, row.createdAt.toISOString()].map(escape).join(",")),
+    ["id", "action", "entity", "entityId", "userId", "createdAt"].join(","),
+    ...rows.map((row) => [row.id, row.action, row.entity, row.entity_id, row.auth_user_id, row.created_at].map(escape).join(",")),
   ].join("\n");
 }
 
-export function auditLogsToPdfBase64(rows: Array<{ id: number; action: string; entity: string; entityId: number | null; userId: number; unitId: number | null; createdAt: Date }>) {
+export function auditLogsToPdfBase64(rows: Array<{ id: string; action: string; entity: string; auth_user_id: string | null; created_at: string }>) {
   const sanitize = (value: string) => value.replaceAll("\\", "\\\\").replaceAll("(", "\\(").replaceAll(")", "\\)");
-  const lines = ["ARKE - Auditoria do tenant", "", ...rows.slice(0, 35).map((row) => `${row.createdAt.toISOString()} | ${row.action} | ${row.entity} | usuário ${row.userId}`)];
+  const lines = ["ARKE - Auditoria do tenant", "", ...rows.slice(0, 35).map((row) => `${row.created_at} | ${row.action} | ${row.entity} | usuário ${row.auth_user_id ?? "-"}`)];
   const content = ["BT", "/F1 9 Tf", "50 800 Td", ...lines.flatMap((line, index) => [index === 0 ? `(${sanitize(line)}) Tj` : "0 -18 Td", index === 0 ? "" : `(${sanitize(line)}) Tj`]), "ET"].join("\n");
   const objects = ["<< /Type /Catalog /Pages 2 0 R >>", "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>", "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>", `<< /Length ${Buffer.byteLength(content, "utf8")} >>\nstream\n${content}\nendstream`];
   let pdf = "%PDF-1.4\n";
