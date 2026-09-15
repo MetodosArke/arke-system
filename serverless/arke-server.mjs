@@ -264,6 +264,12 @@ async function getPendingOrganizationInvitations(organizationId) {
   if (!isConfigured()) return [];
   return request("saas_invitations", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}&status=eq.pending&order=created_at.desc`);
 }
+async function revokeOrganizationInvitation(id2, organizationId) {
+  if (!isConfigured()) throw new Error("Database not available");
+  const rows = await request("saas_invitations", { method: "PATCH", body: JSON.stringify({ status: "revoked" }) }, `?id=eq.${encodeURIComponent(id2)}&organization_id=eq.${encodeURIComponent(organizationId)}&status=eq.pending`);
+  if (!rows[0]) throw new Error("Convite n\xE3o encontrado ou j\xE1 utilizado.");
+  return rows[0];
+}
 async function acceptOrganizationInvitation(input) {
   if (!isConfigured()) throw new Error("Database not available");
   const [result] = await rpc("accept_organization_invitation", {
@@ -272,7 +278,7 @@ async function acceptOrganizationInvitation(input) {
     p_email: input.email
   });
   if (!result) throw new Error("Invitation not found or already used");
-  return { invitation: { id: result.invitation_id }, organizationId: result.organization_id, role: result.role };
+  return { invitation: { id: result.invitation_id }, organizationId: result.org_id, role: result.role };
 }
 async function getOrganizationSubscription(organizationId) {
   if (!isConfigured()) return void 0;
@@ -1155,7 +1161,7 @@ async function lookupCnpj(cnpj) {
 // server/routers.ts
 var organizationIdInput = z2.object({ organizationId: z2.string().uuid() });
 var moduleName = z2.enum(["dashboard", "academias", "profissionais", "alunos", "agenda", "financeiro", "integracoes"]);
-var roleName = z2.enum(["owner", "admin", "manager", "professional", "viewer"]);
+var roleName = z2.enum(["owner", "admin", "manager", "professional", "nutricionista", "viewer"]);
 var auditFilterInput = z2.object({ organizationId: z2.string().uuid(), from: z2.string().optional(), to: z2.string().optional(), userId: z2.string().uuid().optional(), entity: z2.string().max(64).optional() });
 var auditFilters = (input) => ({ from: input.from ? /* @__PURE__ */ new Date(`${input.from}T00:00:00.000Z`) : void 0, to: input.to ? /* @__PURE__ */ new Date(`${input.to}T23:59:59.999Z`) : void 0, userId: input.userId, entity: input.entity });
 var ownerOrAdmin = async (userId, organizationId) => {
@@ -1168,31 +1174,34 @@ var hasOrganizationAccess = async (userId, organizationId) => {
   if (!membership) throw new Error("Organization access denied");
   return membership;
 };
-var STAFF_ROLES = ["owner", "admin", "manager", "professional"];
+var STAFF_ROLES = ["owner", "admin", "manager", "professional", "nutricionista"];
 var MANAGER_ROLES = ["owner", "admin", "manager"];
-var assertStaffOfOrganization = async (userId, organizationId) => {
+var TREINO_BLOCKED_ROLES = ["nutricionista"];
+var DIETA_BLOCKED_ROLES = ["professional"];
+var assertStaffOfOrganization = async (userId, organizationId, blockedRoles = []) => {
   const membership = await getMembership(userId, organizationId);
   if (!membership || membership.membership.status !== "active" || !STAFF_ROLES.includes(membership.membership.role)) throw new Error("Voc\xEA n\xE3o tem acesso a esta organiza\xE7\xE3o.");
+  if (blockedRoles.includes(membership.membership.role)) throw new Error("Seu papel de equipe n\xE3o tem permiss\xE3o para esta a\xE7\xE3o.");
   return membership;
 };
-var assertStaffForAluno = async (userId, alunoId) => {
+var assertStaffForAluno = async (userId, alunoId, blockedRoles = []) => {
   const profile = await getProfileByUserId(alunoId);
   if (!profile?.organization_id) throw new Error("Aluno sem organiza\xE7\xE3o vinculada.");
-  await assertStaffOfOrganization(userId, profile.organization_id);
+  await assertStaffOfOrganization(userId, profile.organization_id, blockedRoles);
   return profile;
 };
-var assertStaffForTreino = async (userId, treinoId) => {
+var assertStaffForTreino = async (userId, treinoId, blockedRoles = []) => {
   const treino = await getTreino(treinoId);
   if (!treino) throw new Error("Treino n\xE3o encontrado.");
   if (!treino.organization_id) throw new Error("Treino sem organiza\xE7\xE3o vinculada.");
-  await assertStaffOfOrganization(userId, treino.organization_id);
+  await assertStaffOfOrganization(userId, treino.organization_id, blockedRoles);
   return treino;
 };
-var assertStaffForDieta = async (userId, dietaId) => {
+var assertStaffForDieta = async (userId, dietaId, blockedRoles = []) => {
   const dieta = await getDieta(dietaId);
   if (!dieta) throw new Error("Plano alimentar n\xE3o encontrado.");
   if (!dieta.organization_id) throw new Error("Plano alimentar sem organiza\xE7\xE3o vinculada.");
-  await assertStaffOfOrganization(userId, dieta.organization_id);
+  await assertStaffOfOrganization(userId, dieta.organization_id, blockedRoles);
   return dieta;
 };
 var assertStaffForAtendimento = async (userId, atendimentoId) => {
@@ -1386,13 +1395,19 @@ var appRouter = router({
         await recordAuditLog({ organizationId: input.organizationId, userId: ctx.user.id, unitId: input.unitId, action: "updated", entity: "module_policy", afterJson: input });
         return result;
       }),
-      invite: protectedProcedure.input(z2.object({ organizationId: z2.string().uuid(), email: z2.string().email(), role: z2.enum(["admin", "manager", "professional", "viewer"]) })).mutation(async ({ ctx, input }) => {
+      invite: protectedProcedure.input(z2.object({ organizationId: z2.string().uuid(), email: z2.string().email(), role: z2.enum(["admin", "manager", "professional", "nutricionista", "viewer"]) })).mutation(async ({ ctx, input }) => {
         await ownerOrAdmin(ctx.user.id, input.organizationId);
         const rawToken = randomUUID2();
         const tokenHash = createHash2("sha256").update(rawToken).digest("hex");
         const invitation = await createOrganizationInvitation({ ...input, invitedByUserId: ctx.user.id, email: input.email.toLowerCase(), tokenHash, expiresAt: new Date(Date.now() + 1e3 * 60 * 60 * 72) });
         await recordAuditLog({ organizationId: input.organizationId, userId: ctx.user.id, action: "created", entity: "invitation", entityId: invitation.id, afterJson: { email: input.email.toLowerCase(), role: input.role } });
         return { invitationId: invitation.id, token: rawToken, status: "pending" };
+      }),
+      revokeInvitation: protectedProcedure.input(z2.object({ organizationId: z2.string().uuid(), invitationId: z2.string().uuid() })).mutation(async ({ ctx, input }) => {
+        await ownerOrAdmin(ctx.user.id, input.organizationId);
+        const result = await revokeOrganizationInvitation(input.invitationId, input.organizationId);
+        await recordAuditLog({ organizationId: input.organizationId, userId: ctx.user.id, action: "revoked", entity: "invitation", entityId: input.invitationId });
+        return result;
       }),
       acceptInvite: protectedProcedure.input(z2.object({ token: z2.string().min(16).max(128) })).mutation(async ({ ctx, input }) => {
         if (!ctx.user.email) throw new Error("Authenticated user email is required");
@@ -1423,23 +1438,23 @@ var appRouter = router({
         return listTreinoExercicios(input.treinoId);
       }),
       create: protectedProcedure.input(z2.object({ alunoId: z2.string().uuid(), titulo: z2.string().trim().min(2), tipo: z2.string().trim().min(1).default("A"), descricao: z2.string().trim().optional() })).mutation(async ({ ctx, input }) => {
-        const profile = await assertStaffForAluno(ctx.user.id, input.alunoId);
+        const profile = await assertStaffForAluno(ctx.user.id, input.alunoId, TREINO_BLOCKED_ROLES);
         return createTreino({ aluno_id: input.alunoId, titulo: input.titulo, tipo: input.tipo, descricao: input.descricao || void 0, organization_id: profile.organization_id, criado_por: ctx.user.id });
       }),
       update: protectedProcedure.input(z2.object({ id: z2.string().uuid(), data: z2.object({ titulo: z2.string().trim().min(2), tipo: z2.string().trim().min(1), descricao: z2.string().trim().optional().nullable() }) })).mutation(async ({ ctx, input }) => {
-        await assertStaffForTreino(ctx.user.id, input.id);
+        await assertStaffForTreino(ctx.user.id, input.id, TREINO_BLOCKED_ROLES);
         return updateTreino(input.id, input.data);
       }),
       saveExercicios: protectedProcedure.input(z2.object({ treinoId: z2.string().uuid(), items: z2.array(treinoExercicioItem) })).mutation(async ({ ctx, input }) => {
-        await assertStaffForTreino(ctx.user.id, input.treinoId);
+        await assertStaffForTreino(ctx.user.id, input.treinoId, TREINO_BLOCKED_ROLES);
         return replaceTreinoExercicios(input.treinoId, input.items);
       }),
       publish: protectedProcedure.input(z2.object({ id: z2.string().uuid() })).mutation(async ({ ctx, input }) => {
-        await assertStaffForTreino(ctx.user.id, input.id);
+        await assertStaffForTreino(ctx.user.id, input.id, TREINO_BLOCKED_ROLES);
         return publishTreino(input.id, ctx.user.id);
       }),
       delete: protectedProcedure.input(z2.object({ id: z2.string().uuid() })).mutation(async ({ ctx, input }) => {
-        await assertStaffForTreino(ctx.user.id, input.id);
+        await assertStaffForTreino(ctx.user.id, input.id, TREINO_BLOCKED_ROLES);
         return deleteTreino(input.id);
       }),
       fichaPdf: protectedProcedure.input(z2.object({ id: z2.string().uuid() })).query(async ({ ctx, input }) => {
@@ -1453,19 +1468,19 @@ var appRouter = router({
         return listDietasForAluno(input.alunoId);
       }),
       create: protectedProcedure.input(z2.object({ alunoId: z2.string().uuid(), titulo: z2.string().trim().min(2), descricao: z2.string().trim().optional(), arquivoUrl: z2.string().url().optional() })).mutation(async ({ ctx, input }) => {
-        const profile = await assertStaffForAluno(ctx.user.id, input.alunoId);
+        const profile = await assertStaffForAluno(ctx.user.id, input.alunoId, DIETA_BLOCKED_ROLES);
         return createDieta({ aluno_id: input.alunoId, titulo: input.titulo, descricao: input.descricao || void 0, arquivo_url: input.arquivoUrl || void 0, organization_id: profile.organization_id, criado_por: ctx.user.id });
       }),
       update: protectedProcedure.input(z2.object({ id: z2.string().uuid(), data: z2.object({ titulo: z2.string().trim().min(2), descricao: z2.string().trim().optional().nullable(), arquivo_url: z2.string().url().optional().nullable() }) })).mutation(async ({ ctx, input }) => {
-        await assertStaffForDieta(ctx.user.id, input.id);
+        await assertStaffForDieta(ctx.user.id, input.id, DIETA_BLOCKED_ROLES);
         return updateDieta(input.id, input.data);
       }),
       publish: protectedProcedure.input(z2.object({ id: z2.string().uuid() })).mutation(async ({ ctx, input }) => {
-        await assertStaffForDieta(ctx.user.id, input.id);
+        await assertStaffForDieta(ctx.user.id, input.id, DIETA_BLOCKED_ROLES);
         return publishDieta(input.id, ctx.user.id);
       }),
       delete: protectedProcedure.input(z2.object({ id: z2.string().uuid() })).mutation(async ({ ctx, input }) => {
-        await assertStaffForDieta(ctx.user.id, input.id);
+        await assertStaffForDieta(ctx.user.id, input.id, DIETA_BLOCKED_ROLES);
         return deleteDieta(input.id);
       })
     }),
