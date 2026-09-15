@@ -1,26 +1,39 @@
 import type { Express, Request, Response } from "express";
 import { randomUUID } from "node:crypto";
-import { registrarFrequencia } from "./supabaseAdmin";
+import { getProfileByUserId, registrarFrequencia } from "./supabaseAdmin";
+import { captureException } from "./_core/errorMonitoring";
+
+// Camada genérica de catraca (CLAUDE.md §8.4/§4): nenhuma marca
+// (Control iD, Topdata, Henry, Dimep) tem API de nuvem pública documentada
+// o suficiente para implementar o protocolo com segurança hoje — pesquisa
+// feita antes deste código confirma que as quatro são hardware de rede
+// local (LAN), sem webhook de nuvem oficial. Controle iD é a mais próxima
+// disso (notifica um endpoint HTTP local configurado no próprio
+// equipamento, ex. .../api/notifications/catra_event, com eventos como
+// EVENT_TURN_LEFT/EVENT_TURN_RIGHT), mas ainda assim só na rede local do
+// equipamento — nunca alcança a Vercel diretamente.
+//
+// Por isso o desenho aqui é: cada academia roda um agente/middleware local
+// (fora deste repositório, específico da marca dela) que fala o protocolo
+// nativo do fabricante e traduz o evento para ESTE contrato HTTP genérico,
+// autenticado por `CATRACA_API_KEY`. Trocar de marca não deveria exigir
+// tocar em nenhuma linha deste arquivo — só o agente local muda.
+type CatracaProvider = "control_id" | "topdata" | "henry" | "dimep";
 
 type AccessRequest = {
   academyId?: string;
-  // organizationId é o id real da organização (saas_organizations) — o
-  // adaptador de catraca por marca ainda não existe (CLAUDE.md §8.4),
-  // então isto só é usado para registrar frequência quando o payload
-  // já vem de um vínculo real; sem ele, o contrato de sandbox continua
-  // igual (academyId sozinho, sem persistir nada).
   organizationId?: string;
   unitId?: string;
   studentId?: string;
   document?: string;
   deviceId?: string;
-  provider?: "topdata" | "madis" | "henry" | "control_id";
+  provider?: CatracaProvider;
 };
 
 const normalize = (value: unknown) => typeof value === "string" ? value.trim() : "";
 
 export function registerAccessRoutes(app: Express) {
-  app.post("/api/v1/access/check-in", (req: Request, res: Response) => {
+  app.post("/api/v1/access/check-in", async (req: Request, res: Response) => {
     const expectedKey = process.env.CATRACA_API_KEY;
     const providedKey = normalize(req.header("x-arke-device-key"));
     if (expectedKey && providedKey !== expectedKey) {
@@ -40,22 +53,54 @@ export function registerAccessRoutes(app: Express) {
       return res.status(400).json({ ok: false, code: "INVALID_PAYLOAD", message: "academyId e studentId ou document são obrigatórios." });
     }
 
-    // Sandbox behavior: this is deliberately deterministic and does not unlock physical hardware.
-    // Production adapters can map the same contract to Topdata, Madis, Henry or Control iD.
-    const denied = studentId.toLowerCase().includes("blocked") || document.endsWith("0000");
+    const configured = Boolean(expectedKey);
     const eventId = `access_${randomUUID()}`;
+    let decision: "allowed" | "denied";
+    let message: string;
+
+    if (!configured) {
+      // Sandbox: sem CATRACA_API_KEY configurada, ninguém autenticou um
+      // dispositivo de verdade — mantém o comportamento determinístico de
+      // demonstração (não decide nada real, não abre catraca física).
+      const denied = studentId.toLowerCase().includes("blocked") || document.endsWith("0000");
+      decision = denied ? "denied" : "allowed";
+      message = denied ? "Acesso bloqueado para esta credencial." : "Acesso liberado.";
+    } else {
+      // Dispositivo/agente autenticado de verdade: decisão real, baseada em
+      // matrícula ativa — não em documento (CPF), porque `profiles` ainda
+      // não tem esse campo indexado; o agente local precisa mandar o
+      // studentId (uuid do Arke) hoje. Falha de verificação nega por
+      // padrão (fail closed) — nunca libera catraca física por incerteza.
+      try {
+        const profile = studentId ? await getProfileByUserId(studentId) : null;
+        if (!profile || profile.organization_id !== organizationId) {
+          decision = "denied";
+          message = "Aluno não encontrado nesta organização.";
+        } else if (profile.status !== "active") {
+          decision = "denied";
+          message = "Matrícula não está ativa.";
+        } else {
+          decision = "allowed";
+          message = "Acesso liberado.";
+        }
+      } catch (error) {
+        captureException(error, { route: "access.check-in", organizationId, studentId });
+        decision = "denied";
+        message = "Não foi possível verificar a matrícula no momento.";
+      }
+    }
 
     // Registro de frequência é best-effort e nunca atrasa a resposta:
     // a catraca física não pode esperar uma volta ao banco para abrir.
-    if (!denied && organizationId && studentId) {
+    if (decision === "allowed" && organizationId && studentId) {
       registrarFrequencia({ alunoId: studentId, organizationId, unitId: unitId || undefined, origem: "catraca" }).catch(() => {});
     }
 
     return res.status(200).json({
       ok: true,
-      mode: expectedKey ? "configured" : "demo",
+      mode: configured ? "configured" : "demo",
       eventId,
-      decision: denied ? "denied" : "allowed",
+      decision,
       academyId,
       unitId: unitId || null,
       studentId: studentId || null,
@@ -63,7 +108,7 @@ export function registerAccessRoutes(app: Express) {
       deviceId,
       provider,
       checkedAt: new Date().toISOString(),
-      message: denied ? "Acesso bloqueado para esta credencial." : "Acesso liberado."
+      message,
     });
   });
 }
