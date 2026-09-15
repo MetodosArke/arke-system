@@ -328,6 +328,11 @@ export async function acceptMemberInvitation(token: string, password: string) {
   const accepted = await request<MemberInvitation[]>("member_invitations", { method: "PATCH", body: JSON.stringify({ status: "accepted" }) }, `?id=eq.${encodeURIComponent(invitation.id)}&status=eq.pending`);
   if (!accepted[0]) throw new Error("Este convite já foi utilizado.");
 
+  // Se este convite veio de uma conversão de lead (CRM), o aceite real é o
+  // momento certo de contar a matrícula — não o envio do convite (ver
+  // converterLead). Best-effort: não afeta nada se não houver lead vinculado.
+  await request("leads", { method: "PATCH", body: JSON.stringify({ estagio: "matriculado", convertido_em: new Date().toISOString() }) }, `?member_invitation_id=eq.${encodeURIComponent(invitation.id)}&estagio=eq.convite_enviado`);
+
   const session = await signInWithSupabase(invitation.email, password);
   return { accessToken: session.accessToken, refreshToken: session.refreshToken, user: session.user, organizationId: invitation.organization_id };
 }
@@ -760,8 +765,8 @@ export async function cancelarReservaStaff(idValue: string) {
 // --- Fase 12: CRM de vendas (funil de leads, follow-up, fechamento) ---
 
 export type Lead = {
-  id: string; organization_id: string; nome: string; telefone: string | null; email: string | null; origem: string | null;
-  estagio: "novo" | "contato_feito" | "visita_agendada" | "matriculado" | "perdido";
+  id: string; organization_id: string; unit_id: string | null; nome: string; telefone: string | null; email: string | null; origem: string | null; interesse: string | null;
+  estagio: "novo" | "contato_feito" | "visita_agendada" | "convite_enviado" | "matriculado" | "perdido";
   responsavel_id: string | null; notas: string | null; motivo_perda: string | null;
   member_invitation_id: string | null; convertido_em: string | null; criado_por: string | null;
   created_at: string; updated_at: string;
@@ -783,13 +788,13 @@ export async function getLead(idValue: string) {
   return rows[0] ?? null;
 }
 
-export async function createLead(input: { organizationId: string; nome: string; telefone?: string; email?: string; origem?: string; responsavelId?: string; notas?: string; criadoPor?: string }) {
-  const rows = await request<Lead[]>("leads", { method: "POST", body: JSON.stringify({ organization_id: input.organizationId, nome: input.nome, telefone: input.telefone || undefined, email: input.email || undefined, origem: input.origem || undefined, responsavel_id: input.responsavelId || undefined, notas: input.notas || undefined, criado_por: input.criadoPor || undefined }) });
+export async function createLead(input: { organizationId: string; unitId?: string; nome: string; telefone?: string; email?: string; origem?: string; interesse?: string; responsavelId?: string; notas?: string; criadoPor?: string }) {
+  const rows = await request<Lead[]>("leads", { method: "POST", body: JSON.stringify({ organization_id: input.organizationId, unit_id: input.unitId || undefined, nome: input.nome, telefone: input.telefone || undefined, email: input.email || undefined, origem: input.origem || undefined, interesse: input.interesse || undefined, responsavel_id: input.responsavelId || undefined, notas: input.notas || undefined, criado_por: input.criadoPor || undefined }) });
   return rows[0];
 }
 
-export async function updateLead(idValue: string, data: { nome?: string; telefone?: string | null; email?: string | null; origem?: string | null; responsavelId?: string | null; notas?: string | null }) {
-  const rows = await request<Lead[]>("leads", { method: "PATCH", body: JSON.stringify({ nome: data.nome, telefone: data.telefone, email: data.email, origem: data.origem, responsavel_id: data.responsavelId, notas: data.notas }) }, `?id=eq.${encodeURIComponent(idValue)}`);
+export async function updateLead(idValue: string, data: { nome?: string; telefone?: string | null; email?: string | null; origem?: string | null; interesse?: string | null; unitId?: string | null; responsavelId?: string | null; notas?: string | null }) {
+  const rows = await request<Lead[]>("leads", { method: "PATCH", body: JSON.stringify({ nome: data.nome, telefone: data.telefone, email: data.email, origem: data.origem, interesse: data.interesse, unit_id: data.unitId, responsavel_id: data.responsavelId, notas: data.notas }) }, `?id=eq.${encodeURIComponent(idValue)}`);
   if (!rows[0]) throw new Error("Lead não encontrado.");
   return rows[0];
 }
@@ -817,14 +822,20 @@ export async function marcarLeadPerdido(idValue: string, motivoPerda: string) {
   return rows[0];
 }
 
+// Conversão em duas etapas: aqui só marca que o convite foi ENVIADO
+// ("convite_enviado") — "matriculado" e convertido_em só são gravados
+// quando o convite é de fato ACEITO (ver acceptMemberInvitation abaixo).
+// Antes disso, a métrica de conversão contava convite enviado como
+// matrícula, mesmo que o aluno nunca tivesse aberto o e-mail.
 export async function converterLead(idValue: string, invitedByUserId: string) {
   const lead = await getLead(idValue);
   if (!lead) throw new Error("Lead não encontrado.");
   if (lead.estagio === "matriculado") throw new Error("Este lead já foi convertido.");
+  if (lead.estagio === "convite_enviado") throw new Error("O convite já foi enviado a este lead — aguarde o aceite ou reenvie pelo painel de convites pendentes.");
   if (lead.estagio === "perdido") throw new Error("Este lead está marcado como perdido.");
   if (!lead.email) throw new Error("Informe o e-mail do lead antes de converter — o convite de aluno exige e-mail.");
   const invitation = await inviteMember({ organizationId: lead.organization_id, invitedByUserId, email: lead.email, fullName: lead.nome });
-  const rows = await request<Lead[]>("leads", { method: "PATCH", body: JSON.stringify({ estagio: "matriculado", convertido_em: new Date().toISOString(), member_invitation_id: invitation.id }) }, `?id=eq.${encodeURIComponent(idValue)}`);
+  const rows = await request<Lead[]>("leads", { method: "PATCH", body: JSON.stringify({ estagio: "convite_enviado", member_invitation_id: invitation.id }) }, `?id=eq.${encodeURIComponent(idValue)}`);
   await closeOpenFollowUps(idValue);
   return { lead: rows[0], invitation };
 }
@@ -863,6 +874,77 @@ export async function createFollowUpLeadIfNeeded(leadId: string, organizationId:
   } catch {
     return null; // já existe um follow-up aberto para este lead — nunca duplicar.
   }
+}
+
+// Indicadores do CRM — tudo calculado a partir de leads/lead_atividades já
+// existentes, sem tabela nova (CLAUDE.md: nunca fingir uma análise que não
+// foi feita). Prioridade/estágio continuam sem falsa precisão (§6): os
+// indicadores mostram contagens e médias explicáveis, nunca uma nota
+// sintética de "propensão à compra".
+export type CrmIndicadores = {
+  porEstagio: Record<Lead["estagio"], number>;
+  taxaConversao: number | null;
+  porOrigem: Array<{ origem: string; total: number }>;
+  motivosPerda: Array<{ motivo: string; total: number }>;
+  followUps: { abertos: number; atrasados: number };
+  tempoMedioPrimeiraRespostaHoras: number | null;
+  novosPorDia: Array<{ data: string; total: number }>;
+};
+
+const FOLLOW_UP_ATRASADO_HORAS = 48;
+
+export async function getCrmIndicadores(organizationId: string, unitId?: string): Promise<CrmIndicadores> {
+  const filtroUnidade = unitId ? `&unit_id=eq.${encodeURIComponent(unitId)}` : "";
+  const trintaDiasAtras = new Date(Date.now() - 1000 * 60 * 60 * 24 * 30).toISOString();
+
+  const [leads, atividadesOrg] = await Promise.all([
+    request<Lead[]>("leads", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}${filtroUnidade}`),
+    request<LeadAtividade[]>("lead_atividades", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}&order=created_at.asc`),
+  ]);
+
+  const leadIds = new Set(leads.map((lead) => lead.id));
+  const atividades = atividadesOrg.filter((atividade) => leadIds.has(atividade.lead_id));
+
+  const porEstagio: CrmIndicadores["porEstagio"] = { novo: 0, contato_feito: 0, visita_agendada: 0, convite_enviado: 0, matriculado: 0, perdido: 0 };
+  for (const lead of leads) porEstagio[lead.estagio] += 1;
+
+  const totalConsiderado = leads.length - porEstagio.perdido;
+  const taxaConversao = totalConsiderado > 0 ? porEstagio.matriculado / totalConsiderado : null;
+
+  const origemMap = new Map<string, number>();
+  for (const lead of leads) { const chave = lead.origem?.trim() || "Não informado"; origemMap.set(chave, (origemMap.get(chave) ?? 0) + 1); }
+  const porOrigem = Array.from(origemMap.entries()).map(([origem, total]) => ({ origem, total })).sort((a, b) => b.total - a.total);
+
+  const motivoMap = new Map<string, number>();
+  for (const lead of leads) { if (lead.estagio !== "perdido" || !lead.motivo_perda) continue; const chave = lead.motivo_perda.trim(); motivoMap.set(chave, (motivoMap.get(chave) ?? 0) + 1); }
+  const motivosPerda = Array.from(motivoMap.entries()).map(([motivo, total]) => ({ motivo, total })).sort((a, b) => b.total - a.total).slice(0, 8);
+
+  const followUpsAbertos = atividades.filter((atividade) => atividade.tipo === "follow_up_automatico" && atividade.status === "aberta");
+  const agora = Date.now();
+  const followUpsAtrasados = followUpsAbertos.filter((atividade) => (agora - new Date(atividade.created_at).getTime()) / (1000 * 60 * 60) > FOLLOW_UP_ATRASADO_HORAS);
+
+  const primeiraNotaPorLead = new Map<string, string>();
+  for (const atividade of atividades) {
+    if (atividade.tipo !== "nota") continue;
+    if (!primeiraNotaPorLead.has(atividade.lead_id)) primeiraNotaPorLead.set(atividade.lead_id, atividade.created_at);
+  }
+  const temposResposta: number[] = [];
+  for (const lead of leads) {
+    const primeiraNota = primeiraNotaPorLead.get(lead.id);
+    if (!primeiraNota) continue;
+    temposResposta.push((new Date(primeiraNota).getTime() - new Date(lead.created_at).getTime()) / (1000 * 60 * 60));
+  }
+  const tempoMedioPrimeiraRespostaHoras = temposResposta.length ? temposResposta.reduce((soma, valor) => soma + valor, 0) / temposResposta.length : null;
+
+  const novosPorDiaMap = new Map<string, number>();
+  for (const lead of leads) {
+    if (lead.created_at < trintaDiasAtras) continue;
+    const dia = lead.created_at.slice(0, 10);
+    novosPorDiaMap.set(dia, (novosPorDiaMap.get(dia) ?? 0) + 1);
+  }
+  const novosPorDia = Array.from(novosPorDiaMap.entries()).map(([data, total]) => ({ data, total })).sort((a, b) => a.data.localeCompare(b.data));
+
+  return { porEstagio, taxaConversao, porOrigem, motivosPerda, followUps: { abertos: followUpsAbertos.length, atrasados: followUpsAtrasados.length }, tempoMedioPrimeiraRespostaHoras, novosPorDia };
 }
 
 // --- LGPD: consentimento versionado e direito de exclusão ---

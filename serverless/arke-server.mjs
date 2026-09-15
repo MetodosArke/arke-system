@@ -751,6 +751,7 @@ async function acceptMemberInvitation(token, password) {
   await request2("profiles", { method: "PATCH", body: JSON.stringify({ full_name: invitation.full_name, organization_id: invitation.organization_id, status: "active", matricula_em: (/* @__PURE__ */ new Date()).toISOString() }) }, `?user_id=eq.${encodeURIComponent(authUser.id)}`);
   const accepted = await request2("member_invitations", { method: "PATCH", body: JSON.stringify({ status: "accepted" }) }, `?id=eq.${encodeURIComponent(invitation.id)}&status=eq.pending`);
   if (!accepted[0]) throw new Error("Este convite j\xE1 foi utilizado.");
+  await request2("leads", { method: "PATCH", body: JSON.stringify({ estagio: "matriculado", convertido_em: (/* @__PURE__ */ new Date()).toISOString() }) }, `?member_invitation_id=eq.${encodeURIComponent(invitation.id)}&estagio=eq.convite_enviado`);
   const session = await signInWithSupabase(invitation.email, password);
   return { accessToken: session.accessToken, refreshToken: session.refreshToken, user: session.user, organizationId: invitation.organization_id };
 }
@@ -1105,11 +1106,11 @@ async function getLead(idValue) {
   return rows[0] ?? null;
 }
 async function createLead(input) {
-  const rows = await request2("leads", { method: "POST", body: JSON.stringify({ organization_id: input.organizationId, nome: input.nome, telefone: input.telefone || void 0, email: input.email || void 0, origem: input.origem || void 0, responsavel_id: input.responsavelId || void 0, notas: input.notas || void 0, criado_por: input.criadoPor || void 0 }) });
+  const rows = await request2("leads", { method: "POST", body: JSON.stringify({ organization_id: input.organizationId, unit_id: input.unitId || void 0, nome: input.nome, telefone: input.telefone || void 0, email: input.email || void 0, origem: input.origem || void 0, interesse: input.interesse || void 0, responsavel_id: input.responsavelId || void 0, notas: input.notas || void 0, criado_por: input.criadoPor || void 0 }) });
   return rows[0];
 }
 async function updateLead(idValue, data) {
-  const rows = await request2("leads", { method: "PATCH", body: JSON.stringify({ nome: data.nome, telefone: data.telefone, email: data.email, origem: data.origem, responsavel_id: data.responsavelId, notas: data.notas }) }, `?id=eq.${encodeURIComponent(idValue)}`);
+  const rows = await request2("leads", { method: "PATCH", body: JSON.stringify({ nome: data.nome, telefone: data.telefone, email: data.email, origem: data.origem, interesse: data.interesse, unit_id: data.unitId, responsavel_id: data.responsavelId, notas: data.notas }) }, `?id=eq.${encodeURIComponent(idValue)}`);
   if (!rows[0]) throw new Error("Lead n\xE3o encontrado.");
   return rows[0];
 }
@@ -1136,10 +1137,11 @@ async function converterLead(idValue, invitedByUserId) {
   const lead = await getLead(idValue);
   if (!lead) throw new Error("Lead n\xE3o encontrado.");
   if (lead.estagio === "matriculado") throw new Error("Este lead j\xE1 foi convertido.");
+  if (lead.estagio === "convite_enviado") throw new Error("O convite j\xE1 foi enviado a este lead \u2014 aguarde o aceite ou reenvie pelo painel de convites pendentes.");
   if (lead.estagio === "perdido") throw new Error("Este lead est\xE1 marcado como perdido.");
   if (!lead.email) throw new Error("Informe o e-mail do lead antes de converter \u2014 o convite de aluno exige e-mail.");
   const invitation = await inviteMember({ organizationId: lead.organization_id, invitedByUserId, email: lead.email, fullName: lead.nome });
-  const rows = await request2("leads", { method: "PATCH", body: JSON.stringify({ estagio: "matriculado", convertido_em: (/* @__PURE__ */ new Date()).toISOString(), member_invitation_id: invitation.id }) }, `?id=eq.${encodeURIComponent(idValue)}`);
+  const rows = await request2("leads", { method: "PATCH", body: JSON.stringify({ estagio: "convite_enviado", member_invitation_id: invitation.id }) }, `?id=eq.${encodeURIComponent(idValue)}`);
   await closeOpenFollowUps(idValue);
   return { lead: rows[0], invitation };
 }
@@ -1167,6 +1169,57 @@ async function createFollowUpLeadIfNeeded(leadId, organizationId, dias) {
   } catch {
     return null;
   }
+}
+var FOLLOW_UP_ATRASADO_HORAS = 48;
+async function getCrmIndicadores(organizationId, unitId) {
+  const filtroUnidade = unitId ? `&unit_id=eq.${encodeURIComponent(unitId)}` : "";
+  const trintaDiasAtras = new Date(Date.now() - 1e3 * 60 * 60 * 24 * 30).toISOString();
+  const [leads, atividadesOrg] = await Promise.all([
+    request2("leads", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}${filtroUnidade}`),
+    request2("lead_atividades", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}&order=created_at.asc`)
+  ]);
+  const leadIds = new Set(leads.map((lead) => lead.id));
+  const atividades = atividadesOrg.filter((atividade) => leadIds.has(atividade.lead_id));
+  const porEstagio = { novo: 0, contato_feito: 0, visita_agendada: 0, convite_enviado: 0, matriculado: 0, perdido: 0 };
+  for (const lead of leads) porEstagio[lead.estagio] += 1;
+  const totalConsiderado = leads.length - porEstagio.perdido;
+  const taxaConversao = totalConsiderado > 0 ? porEstagio.matriculado / totalConsiderado : null;
+  const origemMap = /* @__PURE__ */ new Map();
+  for (const lead of leads) {
+    const chave = lead.origem?.trim() || "N\xE3o informado";
+    origemMap.set(chave, (origemMap.get(chave) ?? 0) + 1);
+  }
+  const porOrigem = Array.from(origemMap.entries()).map(([origem, total]) => ({ origem, total })).sort((a, b) => b.total - a.total);
+  const motivoMap = /* @__PURE__ */ new Map();
+  for (const lead of leads) {
+    if (lead.estagio !== "perdido" || !lead.motivo_perda) continue;
+    const chave = lead.motivo_perda.trim();
+    motivoMap.set(chave, (motivoMap.get(chave) ?? 0) + 1);
+  }
+  const motivosPerda = Array.from(motivoMap.entries()).map(([motivo, total]) => ({ motivo, total })).sort((a, b) => b.total - a.total).slice(0, 8);
+  const followUpsAbertos = atividades.filter((atividade) => atividade.tipo === "follow_up_automatico" && atividade.status === "aberta");
+  const agora = Date.now();
+  const followUpsAtrasados = followUpsAbertos.filter((atividade) => (agora - new Date(atividade.created_at).getTime()) / (1e3 * 60 * 60) > FOLLOW_UP_ATRASADO_HORAS);
+  const primeiraNotaPorLead = /* @__PURE__ */ new Map();
+  for (const atividade of atividades) {
+    if (atividade.tipo !== "nota") continue;
+    if (!primeiraNotaPorLead.has(atividade.lead_id)) primeiraNotaPorLead.set(atividade.lead_id, atividade.created_at);
+  }
+  const temposResposta = [];
+  for (const lead of leads) {
+    const primeiraNota = primeiraNotaPorLead.get(lead.id);
+    if (!primeiraNota) continue;
+    temposResposta.push((new Date(primeiraNota).getTime() - new Date(lead.created_at).getTime()) / (1e3 * 60 * 60));
+  }
+  const tempoMedioPrimeiraRespostaHoras = temposResposta.length ? temposResposta.reduce((soma, valor) => soma + valor, 0) / temposResposta.length : null;
+  const novosPorDiaMap = /* @__PURE__ */ new Map();
+  for (const lead of leads) {
+    if (lead.created_at < trintaDiasAtras) continue;
+    const dia = lead.created_at.slice(0, 10);
+    novosPorDiaMap.set(dia, (novosPorDiaMap.get(dia) ?? 0) + 1);
+  }
+  const novosPorDia = Array.from(novosPorDiaMap.entries()).map(([data, total]) => ({ data, total })).sort((a, b) => a.data.localeCompare(b.data));
+  return { porEstagio, taxaConversao, porOrigem, motivosPerda, followUps: { abertos: followUpsAbertos.length, atrasados: followUpsAtrasados.length }, tempoMedioPrimeiraRespostaHoras, novosPorDia };
 }
 async function rpc2(fn, args) {
   const { url, key } = config2();
@@ -1503,10 +1556,15 @@ var assertStaffForAtendimento = async (userId, atendimentoId) => {
   await assertStaffOfOrganization(userId, atendimento.organization_id);
   return atendimento;
 };
-var assertStaffForLead = async (userId, leadId) => {
+var assertManagerOfOrganization = async (userId, organizationId) => {
+  const membership = await getMembership(userId, organizationId);
+  if (!membership || membership.membership.status !== "active" || !MANAGER_ROLES.includes(membership.membership.role)) throw new Error("Voc\xEA n\xE3o tem acesso ao CRM desta organiza\xE7\xE3o.");
+  return membership;
+};
+var assertManagerForLead = async (userId, leadId) => {
   const lead = await getLead(leadId);
   if (!lead) throw new Error("Lead n\xE3o encontrado.");
-  await assertStaffOfOrganization(userId, lead.organization_id);
+  await assertManagerOfOrganization(userId, lead.organization_id);
   return lead;
 };
 var assertStaffForTurma = async (userId, turmaId) => {
@@ -2009,42 +2067,46 @@ var appRouter = router({
     })
   }),
   crm: router({
-    myOrganizations: protectedProcedure.query(async ({ ctx }) => (await getOrganizationsForUser(ctx.user.id)).filter((item) => STAFF_ROLES.includes(item.membership.role))),
+    myOrganizations: protectedProcedure.query(async ({ ctx }) => (await getOrganizationsForUser(ctx.user.id)).filter((item) => MANAGER_ROLES.includes(item.membership.role))),
+    indicadores: protectedProcedure.input(z2.object({ organizationId: z2.string().uuid(), unitId: z2.string().uuid().optional() })).query(async ({ ctx, input }) => {
+      await assertManagerOfOrganization(ctx.user.id, input.organizationId);
+      return getCrmIndicadores(input.organizationId, input.unitId);
+    }),
     leads: router({
       list: protectedProcedure.input(organizationIdInput).query(async ({ ctx, input }) => {
-        await assertStaffOfOrganization(ctx.user.id, input.organizationId);
+        await assertManagerOfOrganization(ctx.user.id, input.organizationId);
         return listLeadsForOrganization(input.organizationId);
       }),
-      create: protectedProcedure.input(z2.object({ organizationId: z2.string().uuid(), nome: z2.string().trim().min(2).max(160), telefone: z2.string().trim().max(40).optional(), email: z2.string().email().optional(), origem: z2.string().trim().max(80).optional(), notas: z2.string().trim().max(4e3).optional() })).mutation(async ({ ctx, input }) => {
-        await assertStaffOfOrganization(ctx.user.id, input.organizationId);
-        return createLead({ organizationId: input.organizationId, nome: input.nome, telefone: input.telefone, email: input.email, origem: input.origem, notas: input.notas, criadoPor: ctx.user.id });
+      create: protectedProcedure.input(z2.object({ organizationId: z2.string().uuid(), unitId: z2.string().uuid().optional(), nome: z2.string().trim().min(2).max(160), telefone: z2.string().trim().max(40).optional(), email: z2.string().email().optional(), origem: z2.string().trim().max(80).optional(), interesse: z2.string().trim().max(160).optional(), responsavelId: z2.string().uuid().optional(), notas: z2.string().trim().max(4e3).optional() })).mutation(async ({ ctx, input }) => {
+        await assertManagerOfOrganization(ctx.user.id, input.organizationId);
+        return createLead({ organizationId: input.organizationId, unitId: input.unitId, nome: input.nome, telefone: input.telefone, email: input.email, origem: input.origem, interesse: input.interesse, responsavelId: input.responsavelId ?? ctx.user.id, notas: input.notas, criadoPor: ctx.user.id });
       }),
-      update: protectedProcedure.input(z2.object({ id: z2.string().uuid(), data: z2.object({ nome: z2.string().trim().min(2).max(160).optional(), telefone: z2.string().trim().max(40).optional().nullable(), email: z2.string().email().optional().nullable(), origem: z2.string().trim().max(80).optional().nullable(), responsavelId: z2.string().uuid().optional().nullable(), notas: z2.string().trim().max(4e3).optional().nullable() }) })).mutation(async ({ ctx, input }) => {
-        await assertStaffForLead(ctx.user.id, input.id);
+      update: protectedProcedure.input(z2.object({ id: z2.string().uuid(), data: z2.object({ nome: z2.string().trim().min(2).max(160).optional(), telefone: z2.string().trim().max(40).optional().nullable(), email: z2.string().email().optional().nullable(), origem: z2.string().trim().max(80).optional().nullable(), interesse: z2.string().trim().max(160).optional().nullable(), unitId: z2.string().uuid().optional().nullable(), responsavelId: z2.string().uuid().optional().nullable(), notas: z2.string().trim().max(4e3).optional().nullable() }) })).mutation(async ({ ctx, input }) => {
+        await assertManagerForLead(ctx.user.id, input.id);
         return updateLead(input.id, input.data);
       }),
       delete: protectedProcedure.input(z2.object({ id: z2.string().uuid() })).mutation(async ({ ctx, input }) => {
-        await assertStaffForLead(ctx.user.id, input.id);
+        await assertManagerForLead(ctx.user.id, input.id);
         return deleteLead(input.id);
       }),
       moverEstagio: protectedProcedure.input(z2.object({ id: z2.string().uuid(), estagio: z2.enum(["novo", "contato_feito", "visita_agendada"]) })).mutation(async ({ ctx, input }) => {
-        await assertStaffForLead(ctx.user.id, input.id);
+        await assertManagerForLead(ctx.user.id, input.id);
         return moverEstagioLead(input.id, input.estagio);
       }),
       marcarPerdido: protectedProcedure.input(z2.object({ id: z2.string().uuid(), motivo: z2.string().trim().min(2).max(500) })).mutation(async ({ ctx, input }) => {
-        await assertStaffForLead(ctx.user.id, input.id);
+        await assertManagerForLead(ctx.user.id, input.id);
         return marcarLeadPerdido(input.id, input.motivo);
       }),
       converter: protectedProcedure.input(z2.object({ id: z2.string().uuid() })).mutation(async ({ ctx, input }) => {
-        await assertStaffForLead(ctx.user.id, input.id);
+        await assertManagerForLead(ctx.user.id, input.id);
         return converterLead(input.id, ctx.user.id);
       }),
       atividades: protectedProcedure.input(z2.object({ leadId: z2.string().uuid() })).query(async ({ ctx, input }) => {
-        await assertStaffForLead(ctx.user.id, input.leadId);
+        await assertManagerForLead(ctx.user.id, input.leadId);
         return listLeadAtividades(input.leadId);
       }),
       criarNota: protectedProcedure.input(z2.object({ leadId: z2.string().uuid(), descricao: z2.string().trim().min(2).max(4e3) })).mutation(async ({ ctx, input }) => {
-        const lead = await assertStaffForLead(ctx.user.id, input.leadId);
+        const lead = await assertManagerForLead(ctx.user.id, input.leadId);
         return createLeadNota({ leadId: input.leadId, organizationId: lead.organization_id, descricao: input.descricao, criadoPor: ctx.user.id });
       })
     })
