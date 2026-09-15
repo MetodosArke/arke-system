@@ -5,7 +5,7 @@ import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { adminProcedure, protectedProcedure, publicProcedure, router } from "./_core/trpc";
 import { acceptOrganizationInvitation, archiveOrganizationUnit, auditLogsToCsv, auditLogsToPdfBase64, createOrganizationInvitation, createOrganizationUnit, createOrganizationWithOwner, getAuditLogs, getMembership, getOrganizationAccess, getOrganizationBySlug, getOrganizationOnboarding, getOrganizationSubscription, getOrganizationsForUser, getPendingOrganizationInvitations, recordAuditLog, saveOrganizationOnboarding, updateModulePolicy, updateOrganizationProfile, updateOrganizationSubscription } from "./db";
-import { acceptMemberInvitation, createAppStudent, createAppUser, createDieta, createGlobalExercise, createGlobalGroup, createGlobalNutritionPlan, createGlobalRoutine, createGlobalTemplate, createGlobalTemplateExercise, createPasswordRecoveryCode, createTreino, deleteAppStudent, deleteAppUser, deleteDieta, deleteGlobalExercise, deleteGlobalGroup, deleteGlobalNutritionPlan, deleteGlobalRoutine, deleteGlobalTemplate, deleteGlobalTemplateExercise, deleteGlobalAccessRule, deleteTreino, findAppUserByEmail, getAcolhimento, getDieta, getProfileByUserId, getTreino, hasSupabaseConfig, inviteMember, listAppStudents, listAppUsers, listDietasForAluno, listExercisesCatalog, listGlobalLibrary, listPendingMemberInvitations, listStudentsInOrganization, listTreinoExercicios, listTreinosForAluno, normalizeEmail, publishDieta, publishTreino, replaceTreinoExercicios, revokeMemberInvitation, signInWithSupabase, updateAppStudent, updateAppUser, updateDieta, updateGlobalExercise, updateGlobalGroup, updateGlobalNutritionPlan, updateGlobalRoutine, updateGlobalTemplate, updateGlobalTemplateExercise, updateSupabaseUserPassword, updateTreino, upsertAcolhimento, upsertGlobalAccessRule, verifyPasswordRecoveryCode } from "./supabaseAdmin";
+import { acceptMemberInvitation, assignAtendimento, createAppStudent, createAppUser, createAtendimento, createDieta, createGlobalExercise, createGlobalGroup, createGlobalNutritionPlan, createGlobalRoutine, createGlobalTemplate, createGlobalTemplateExercise, createPasswordRecoveryCode, createTreino, deleteAppStudent, deleteAppUser, deleteDieta, deleteGlobalExercise, deleteGlobalGroup, deleteGlobalNutritionPlan, deleteGlobalRoutine, deleteGlobalTemplate, deleteGlobalTemplateExercise, deleteGlobalAccessRule, deleteTreino, findAppUserByEmail, getAcolhimento, getAtendimento, getDieta, getProfileByUserId, getTreino, hasSupabaseConfig, inviteMember, listAppStudents, listAppUsers, listAtendimentosForOrganization, listDietasForAluno, listExercisesCatalog, listGlobalLibrary, listMyAtendimentos, listMyCheckIns, listPendingMemberInvitations, listStudentsInOrganization, listTreinoExercicios, listTreinosForAluno, normalizeEmail, publishDieta, publishTreino, replaceTreinoExercicios, requestHelp, resolveAtendimento, revokeMemberInvitation, signInWithSupabase, submitCheckIn, updateAppStudent, updateAppUser, updateDieta, updateGlobalExercise, updateGlobalGroup, updateGlobalNutritionPlan, updateGlobalRoutine, updateGlobalTemplate, updateGlobalTemplateExercise, updateSupabaseUserPassword, updateTreino, upsertAcolhimento, upsertGlobalAccessRule, verifyPasswordRecoveryCode } from "./supabaseAdmin";
 import { asaasSandboxConfigured, createAsaasCustomer, createAsaasPayment, createAsaasWebhook, getAsaasAccount, listAsaasPayments } from "./asaas";
 import { listStoredAsaasPayments } from "./asaasPersistence";
 import { lookupCnpj } from "./cnpj";
@@ -58,6 +58,13 @@ const assertStaffForDieta = async (userId: string, dietaId: string) => {
   if (!dieta.organization_id) throw new Error("Plano alimentar sem organização vinculada.");
   await assertStaffOfOrganization(userId, dieta.organization_id);
   return dieta;
+};
+
+const assertStaffForAtendimento = async (userId: string, atendimentoId: string) => {
+  const atendimento = await getAtendimento(atendimentoId);
+  if (!atendimento) throw new Error("Atendimento não encontrado.");
+  await assertStaffOfOrganization(userId, atendimento.organization_id);
+  return atendimento;
 };
 
 const treinoExercicioItem = z.object({ exercicio_id: z.string().uuid(), series: z.number().int().min(1).default(3), repeticoes: z.string().trim().min(1).default("12"), descanso_seg: z.number().int().min(0).default(60), descanso_por_serie: z.string().trim().optional(), observacoes: z.string().trim().optional() });
@@ -230,6 +237,29 @@ export const appRouter = router({
     myAcolhimento: protectedProcedure.query(({ ctx }) => getAcolhimento(ctx.user.id)),
     submitAcolhimento: protectedProcedure.input(acolhimentoInput).mutation(({ ctx, input }) => upsertAcolhimento(ctx.user.id, input)),
     staffAcolhimento: protectedProcedure.input(z.object({ alunoId: z.string().uuid() })).query(async ({ ctx, input }) => { await assertStaffForAluno(ctx.user.id, input.alunoId); return getAcolhimento(input.alunoId); }),
+  }),
+  atendimento: router({
+    checkIn: protectedProcedure.input(z.object({ status: z.enum(["indo_bem", "com_dificuldade", "quero_ajuda"]), observacao: z.string().trim().max(2000).optional() })).mutation(async ({ ctx, input }) => {
+      const profile = await getProfileByUserId(ctx.user.id);
+      if (!profile?.organization_id) throw new Error("Você ainda não está vinculado a uma organização.");
+      return submitCheckIn({ alunoId: ctx.user.id, organizationId: profile.organization_id, status: input.status, observacao: input.observacao });
+    }),
+    meusCheckIns: protectedProcedure.query(({ ctx }) => listMyCheckIns(ctx.user.id)),
+    pedirAjuda: protectedProcedure.input(z.object({ descricao: z.string().trim().max(2000).optional() })).mutation(async ({ ctx, input }) => {
+      const profile = await getProfileByUserId(ctx.user.id);
+      if (!profile?.organization_id) throw new Error("Você ainda não está vinculado a uma organização.");
+      return requestHelp({ alunoId: ctx.user.id, organizationId: profile.organization_id, descricao: input.descricao });
+    }),
+    meusAtendimentos: protectedProcedure.query(({ ctx }) => listMyAtendimentos(ctx.user.id)),
+    fila: router({
+      list: protectedProcedure.input(z.object({ organizationId: z.string().uuid(), status: z.enum(["aberta", "em_andamento", "resolvida"]).optional() })).query(async ({ ctx, input }) => { await assertStaffOfOrganization(ctx.user.id, input.organizationId); return listAtendimentosForOrganization(input.organizationId, input.status); }),
+      create: protectedProcedure.input(z.object({ organizationId: z.string().uuid(), alunoId: z.string().uuid(), prioridade: z.enum(["rotina", "atencao", "prioritario", "encaminhamento_profissional"]), descricao: z.string().trim().max(2000).optional(), prazo: z.string().datetime().optional() })).mutation(async ({ ctx, input }) => {
+        await assertStaffOfOrganization(ctx.user.id, input.organizationId);
+        return createAtendimento({ organizationId: input.organizationId, alunoId: input.alunoId, origem: "manual", prioridade: input.prioridade, descricao: input.descricao, criadoPor: ctx.user.id, prazo: input.prazo });
+      }),
+      assign: protectedProcedure.input(z.object({ id: z.string().uuid() })).mutation(async ({ ctx, input }) => { await assertStaffForAtendimento(ctx.user.id, input.id); return assignAtendimento(input.id, ctx.user.id); }),
+      resolve: protectedProcedure.input(z.object({ id: z.string().uuid(), resultado: z.string().trim().min(2).max(4000) })).mutation(async ({ ctx, input }) => { await assertStaffForAtendimento(ctx.user.id, input.id); return resolveAtendimento(input.id, ctx.user.id, input.resultado); }),
+    }),
   }),
 });
 

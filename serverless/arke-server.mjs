@@ -737,6 +737,56 @@ async function upsertAcolhimento(alunoId, data) {
   const rows = await request2("reuniao_acolhimento", { method: "POST", headers: { Prefer: "resolution=merge-duplicates,return=representation" }, body: JSON.stringify({ ...data, aluno_id: alunoId, criado_por: alunoId, updated_at: (/* @__PURE__ */ new Date()).toISOString() }) }, "?on_conflict=aluno_id");
   return rows[0];
 }
+var CHECKIN_PRIORIDADE = {
+  com_dificuldade: "atencao",
+  quero_ajuda: "prioritario"
+};
+async function createCheckIn(input) {
+  const rows = await request2("check_ins", { method: "POST", body: JSON.stringify({ aluno_id: input.alunoId, organization_id: input.organizationId, status: input.status, observacao: input.observacao || void 0 }) });
+  return rows[0];
+}
+async function listMyCheckIns(alunoId) {
+  return request2("check_ins", {}, `?select=*&aluno_id=eq.${encodeURIComponent(alunoId)}&order=created_at.desc&limit=20`);
+}
+async function findOpenAtendimento(alunoId, origem) {
+  const rows = await request2("atendimentos", {}, `?select=*&aluno_id=eq.${encodeURIComponent(alunoId)}&origem=eq.${origem}&status=in.(aberta,em_andamento)&limit=1`);
+  return rows[0] ?? null;
+}
+async function createAtendimento(input) {
+  const rows = await request2("atendimentos", { method: "POST", body: JSON.stringify({ organization_id: input.organizationId, aluno_id: input.alunoId, origem: input.origem, origem_check_in_id: input.origemCheckInId || void 0, prioridade: input.prioridade, descricao: input.descricao || void 0, criado_por: input.criadoPor || void 0, prazo: input.prazo || void 0 }) });
+  return rows[0];
+}
+async function submitCheckIn(input) {
+  const checkIn = await createCheckIn(input);
+  if (input.status !== "indo_bem") {
+    const existing = await findOpenAtendimento(input.alunoId, "check_in");
+    if (!existing) await createAtendimento({ organizationId: input.organizationId, alunoId: input.alunoId, origem: "check_in", origemCheckInId: checkIn.id, prioridade: CHECKIN_PRIORIDADE[input.status], descricao: input.observacao });
+  }
+  return checkIn;
+}
+async function requestHelp(input) {
+  const existing = await findOpenAtendimento(input.alunoId, "pedido_direto");
+  if (existing) return existing;
+  return createAtendimento({ organizationId: input.organizationId, alunoId: input.alunoId, origem: "pedido_direto", prioridade: "prioritario", descricao: input.descricao, criadoPor: input.alunoId });
+}
+async function listMyAtendimentos(alunoId) {
+  return request2("atendimentos", {}, `?select=*&aluno_id=eq.${encodeURIComponent(alunoId)}&order=created_at.desc&limit=20`);
+}
+async function listAtendimentosForOrganization(organizationId, status) {
+  return request2("atendimentos", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}${status ? `&status=eq.${status}` : ""}&order=created_at.asc`);
+}
+async function getAtendimento(idValue) {
+  const rows = await request2("atendimentos", {}, `?select=*&id=eq.${encodeURIComponent(idValue)}&limit=1`);
+  return rows[0] ?? null;
+}
+async function assignAtendimento(idValue, responsavelId) {
+  const rows = await request2("atendimentos", { method: "PATCH", body: JSON.stringify({ responsavel_id: responsavelId, status: "em_andamento" }) }, `?id=eq.${encodeURIComponent(idValue)}`);
+  return rows[0];
+}
+async function resolveAtendimento(idValue, resolvidoPor, resultado) {
+  const rows = await request2("atendimentos", { method: "PATCH", body: JSON.stringify({ status: "resolvida", resultado, resolvido_por: resolvidoPor, resolvido_em: (/* @__PURE__ */ new Date()).toISOString() }) }, `?id=eq.${encodeURIComponent(idValue)}`);
+  return rows[0];
+}
 
 // server/asaas.ts
 function asaasConfig() {
@@ -863,6 +913,12 @@ var assertStaffForDieta = async (userId, dietaId) => {
   if (!dieta.organization_id) throw new Error("Plano alimentar sem organiza\xE7\xE3o vinculada.");
   await assertStaffOfOrganization(userId, dieta.organization_id);
   return dieta;
+};
+var assertStaffForAtendimento = async (userId, atendimentoId) => {
+  const atendimento = await getAtendimento(atendimentoId);
+  if (!atendimento) throw new Error("Atendimento n\xE3o encontrado.");
+  await assertStaffOfOrganization(userId, atendimento.organization_id);
+  return atendimento;
 };
 var treinoExercicioItem = z2.object({ exercicio_id: z2.string().uuid(), series: z2.number().int().min(1).default(3), repeticoes: z2.string().trim().min(1).default("12"), descanso_seg: z2.number().int().min(0).default(60), descanso_por_serie: z2.string().trim().optional(), observacoes: z2.string().trim().optional() });
 var acolhimentoInput = z2.object({
@@ -1144,6 +1200,38 @@ var appRouter = router({
     staffAcolhimento: protectedProcedure.input(z2.object({ alunoId: z2.string().uuid() })).query(async ({ ctx, input }) => {
       await assertStaffForAluno(ctx.user.id, input.alunoId);
       return getAcolhimento(input.alunoId);
+    })
+  }),
+  atendimento: router({
+    checkIn: protectedProcedure.input(z2.object({ status: z2.enum(["indo_bem", "com_dificuldade", "quero_ajuda"]), observacao: z2.string().trim().max(2e3).optional() })).mutation(async ({ ctx, input }) => {
+      const profile = await getProfileByUserId(ctx.user.id);
+      if (!profile?.organization_id) throw new Error("Voc\xEA ainda n\xE3o est\xE1 vinculado a uma organiza\xE7\xE3o.");
+      return submitCheckIn({ alunoId: ctx.user.id, organizationId: profile.organization_id, status: input.status, observacao: input.observacao });
+    }),
+    meusCheckIns: protectedProcedure.query(({ ctx }) => listMyCheckIns(ctx.user.id)),
+    pedirAjuda: protectedProcedure.input(z2.object({ descricao: z2.string().trim().max(2e3).optional() })).mutation(async ({ ctx, input }) => {
+      const profile = await getProfileByUserId(ctx.user.id);
+      if (!profile?.organization_id) throw new Error("Voc\xEA ainda n\xE3o est\xE1 vinculado a uma organiza\xE7\xE3o.");
+      return requestHelp({ alunoId: ctx.user.id, organizationId: profile.organization_id, descricao: input.descricao });
+    }),
+    meusAtendimentos: protectedProcedure.query(({ ctx }) => listMyAtendimentos(ctx.user.id)),
+    fila: router({
+      list: protectedProcedure.input(z2.object({ organizationId: z2.string().uuid(), status: z2.enum(["aberta", "em_andamento", "resolvida"]).optional() })).query(async ({ ctx, input }) => {
+        await assertStaffOfOrganization(ctx.user.id, input.organizationId);
+        return listAtendimentosForOrganization(input.organizationId, input.status);
+      }),
+      create: protectedProcedure.input(z2.object({ organizationId: z2.string().uuid(), alunoId: z2.string().uuid(), prioridade: z2.enum(["rotina", "atencao", "prioritario", "encaminhamento_profissional"]), descricao: z2.string().trim().max(2e3).optional(), prazo: z2.string().datetime().optional() })).mutation(async ({ ctx, input }) => {
+        await assertStaffOfOrganization(ctx.user.id, input.organizationId);
+        return createAtendimento({ organizationId: input.organizationId, alunoId: input.alunoId, origem: "manual", prioridade: input.prioridade, descricao: input.descricao, criadoPor: ctx.user.id, prazo: input.prazo });
+      }),
+      assign: protectedProcedure.input(z2.object({ id: z2.string().uuid() })).mutation(async ({ ctx, input }) => {
+        await assertStaffForAtendimento(ctx.user.id, input.id);
+        return assignAtendimento(input.id, ctx.user.id);
+      }),
+      resolve: protectedProcedure.input(z2.object({ id: z2.string().uuid(), resultado: z2.string().trim().min(2).max(4e3) })).mutation(async ({ ctx, input }) => {
+        await assertStaffForAtendimento(ctx.user.id, input.id);
+        return resolveAtendimento(input.id, ctx.user.id, input.resultado);
+      })
     })
   })
 });
