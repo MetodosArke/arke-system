@@ -13,6 +13,7 @@ import { StudentManagementPage, UserManagementPage } from "@/components/CrudMana
 import { GlobalLibraryAdmin } from "@/components/GlobalLibraryAdmin";
 import { ProfessionalDashboard } from "@/components/ProfessionalDashboard";
 import { StudentDashboard } from "@/components/StudentDashboard";
+import { MinhaFila } from "@/components/MinhaFila";
 
 type Toast = { title: string; detail: string } | null;
 type User = { name: string; username?: string; role?: string };
@@ -70,7 +71,7 @@ function SettingsPage({ tenantName }: { tenantName: string }) {
 export function Home({ view, setView, user, module, tenantName, onTenantChange }: HomeProps) {
   const [toast, setToast] = useState<Toast>(null);
   const onToast = (next: NonNullable<Toast>) => { setToast(next); window.setTimeout(() => setToast(null), 3800); };
-  const page = useMemo(() => { switch (view) { case "academias": return <UserManagementPage onToast={onToast} />; case "profissionais": return <UserManagementPage onToast={onToast} />; case "alunos": return <StudentManagementPage onToast={onToast} />; case "agenda": return <AgendaPage setView={setView} />; case "financeiro": return <FinancePage onToast={onToast} />; case "integracoes": return <IntegrationsPage />; case "saas": return <SaasPage tenantName={tenantName} onTenantChange={onTenantChange} onToast={onToast} />; case "admin": return <UserManagementPage onToast={onToast} />; case "acervo": return <GlobalLibraryAdmin onToast={onToast} />; case "meus-alunos": return <ProfessionalDashboard onToast={onToast} />; case "meu-treino": return <StudentDashboard />; case "configuracoes": return <SettingsPage tenantName={tenantName} />; default: return <Dashboard module={module} user={user} tenantName={tenantName} setView={setView} />; } }, [view, setView, user, module, tenantName, onTenantChange]);
+  const page = useMemo(() => { switch (view) { case "academias": return <UserManagementPage onToast={onToast} />; case "profissionais": return <UserManagementPage onToast={onToast} />; case "alunos": return <StudentManagementPage onToast={onToast} />; case "agenda": return <AgendaPage setView={setView} />; case "financeiro": return <FinancePage onToast={onToast} />; case "integracoes": return <IntegrationsPage />; case "saas": return <SaasPage tenantName={tenantName} onTenantChange={onTenantChange} onToast={onToast} />; case "admin": return <UserManagementPage onToast={onToast} />; case "acervo": return <GlobalLibraryAdmin onToast={onToast} />; case "meus-alunos": return <ProfessionalDashboard onToast={onToast} />; case "minha-fila": return <MinhaFila onToast={onToast} />; case "meu-treino": return <StudentDashboard />; case "configuracoes": return <SettingsPage tenantName={tenantName} />; default: return <Dashboard module={module} user={user} tenantName={tenantName} setView={setView} />; } }, [view, setView, user, module, tenantName, onTenantChange]);
   return <><div className="min-h-full">{page}</div><ToastMessage toast={toast} onClose={() => setToast(null)} /></>;
 }
 
