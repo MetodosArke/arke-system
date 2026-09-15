@@ -298,3 +298,70 @@ export async function upsertAcolhimento(alunoId: string, data: Record<string, un
   const rows = await request<Acolhimento[]>("reuniao_acolhimento", { method: "POST", headers: { Prefer: "resolution=merge-duplicates,return=representation" }, body: JSON.stringify({ ...data, aluno_id: alunoId, criado_por: alunoId, updated_at: new Date().toISOString() }) }, "?on_conflict=aluno_id");
   return rows[0];
 }
+
+// --- Fase 6: Acompanhamento (check-in e central de atendimento) ---
+
+export type CheckIn = { id: string; aluno_id: string; organization_id: string; status: "indo_bem" | "com_dificuldade" | "quero_ajuda"; observacao?: string | null; created_at: string };
+export type Atendimento = { id: string; organization_id: string; aluno_id: string; origem: "check_in" | "pedido_direto" | "manual"; origem_check_in_id?: string | null; prioridade: "rotina" | "atencao" | "prioritario" | "encaminhamento_profissional"; descricao?: string | null; status: "aberta" | "em_andamento" | "resolvida"; responsavel_id?: string | null; prazo?: string | null; resultado?: string | null; resolvido_por?: string | null; resolvido_em?: string | null; criado_por?: string | null; created_at: string; updated_at: string };
+
+const CHECKIN_PRIORIDADE: Record<"com_dificuldade" | "quero_ajuda", Atendimento["prioridade"]> = {
+  com_dificuldade: "atencao",
+  quero_ajuda: "prioritario",
+};
+
+export async function createCheckIn(input: { alunoId: string; organizationId: string; status: CheckIn["status"]; observacao?: string }) {
+  const rows = await request<CheckIn[]>("check_ins", { method: "POST", body: JSON.stringify({ aluno_id: input.alunoId, organization_id: input.organizationId, status: input.status, observacao: input.observacao || undefined }) });
+  return rows[0];
+}
+
+export async function listMyCheckIns(alunoId: string) {
+  return request<CheckIn[]>("check_ins", {}, `?select=*&aluno_id=eq.${encodeURIComponent(alunoId)}&order=created_at.desc&limit=20`);
+}
+
+async function findOpenAtendimento(alunoId: string, origem: Atendimento["origem"]) {
+  const rows = await request<Atendimento[]>("atendimentos", {}, `?select=*&aluno_id=eq.${encodeURIComponent(alunoId)}&origem=eq.${origem}&status=in.(aberta,em_andamento)&limit=1`);
+  return rows[0] ?? null;
+}
+
+export async function createAtendimento(input: { organizationId: string; alunoId: string; origem: Atendimento["origem"]; origemCheckInId?: string; prioridade: Atendimento["prioridade"]; descricao?: string; criadoPor?: string; prazo?: string }) {
+  const rows = await request<Atendimento[]>("atendimentos", { method: "POST", body: JSON.stringify({ organization_id: input.organizationId, aluno_id: input.alunoId, origem: input.origem, origem_check_in_id: input.origemCheckInId || undefined, prioridade: input.prioridade, descricao: input.descricao || undefined, criado_por: input.criadoPor || undefined, prazo: input.prazo || undefined }) });
+  return rows[0];
+}
+
+export async function submitCheckIn(input: { alunoId: string; organizationId: string; status: CheckIn["status"]; observacao?: string }) {
+  const checkIn = await createCheckIn(input);
+  if (input.status !== "indo_bem") {
+    const existing = await findOpenAtendimento(input.alunoId, "check_in");
+    if (!existing) await createAtendimento({ organizationId: input.organizationId, alunoId: input.alunoId, origem: "check_in", origemCheckInId: checkIn.id, prioridade: CHECKIN_PRIORIDADE[input.status], descricao: input.observacao });
+  }
+  return checkIn;
+}
+
+export async function requestHelp(input: { alunoId: string; organizationId: string; descricao?: string }) {
+  const existing = await findOpenAtendimento(input.alunoId, "pedido_direto");
+  if (existing) return existing;
+  return createAtendimento({ organizationId: input.organizationId, alunoId: input.alunoId, origem: "pedido_direto", prioridade: "prioritario", descricao: input.descricao, criadoPor: input.alunoId });
+}
+
+export async function listMyAtendimentos(alunoId: string) {
+  return request<Atendimento[]>("atendimentos", {}, `?select=*&aluno_id=eq.${encodeURIComponent(alunoId)}&order=created_at.desc&limit=20`);
+}
+
+export async function listAtendimentosForOrganization(organizationId: string, status?: Atendimento["status"]) {
+  return request<Atendimento[]>("atendimentos", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}${status ? `&status=eq.${status}` : ""}&order=created_at.asc`);
+}
+
+export async function getAtendimento(idValue: string) {
+  const rows = await request<Atendimento[]>("atendimentos", {}, `?select=*&id=eq.${encodeURIComponent(idValue)}&limit=1`);
+  return rows[0] ?? null;
+}
+
+export async function assignAtendimento(idValue: string, responsavelId: string) {
+  const rows = await request<Atendimento[]>("atendimentos", { method: "PATCH", body: JSON.stringify({ responsavel_id: responsavelId, status: "em_andamento" }) }, `?id=eq.${encodeURIComponent(idValue)}`);
+  return rows[0];
+}
+
+export async function resolveAtendimento(idValue: string, resolvidoPor: string, resultado: string) {
+  const rows = await request<Atendimento[]>("atendimentos", { method: "PATCH", body: JSON.stringify({ status: "resolvida", resultado, resolvido_por: resolvidoPor, resolvido_em: new Date().toISOString() }) }, `?id=eq.${encodeURIComponent(idValue)}`);
+  return rows[0];
+}
