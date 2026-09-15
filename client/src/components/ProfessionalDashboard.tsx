@@ -6,11 +6,27 @@ import { Input } from "@/components/ui/input";
 import { trpc } from "@/lib/trpc";
 
 type Toast = { title: string; detail: string };
-type Tab = "treinos" | "dieta";
+type Tab = "treinos" | "dieta" | "acolhimento";
 
 const emptyTreino = { titulo: "", tipo: "A", descricao: "" };
 const emptyExercicio = { exercicioId: "", series: "3", repeticoes: "12", descansoSeg: "60", observacoes: "" };
 const emptyDieta = { titulo: "", descricao: "", arquivoUrl: "" };
+const emptyInvite = { fullName: "", email: "" };
+
+const ACOLHIMENTO_FIELDS: Array<[string, "rotina_diaria" | "experiencias_exercicio" | "experiencias_gostou" | "experiencias_nao_gostou" | "dores_lesoes" | "medicamentos" | "tempo_disponivel" | "estilo_treino" | "exercicios_nao_gosta" | "alimentos_gosta" | "alimentos_nao_gosta" | "alimentacao_rotina"]> = [
+  ["Rotina diária", "rotina_diaria"],
+  ["Experiência prévia com exercício", "experiencias_exercicio"],
+  ["O que gostou em experiências anteriores", "experiencias_gostou"],
+  ["O que não gostou em experiências anteriores", "experiencias_nao_gostou"],
+  ["Dores ou lesões", "dores_lesoes"],
+  ["Medicamentos em uso", "medicamentos"],
+  ["Tempo disponível para treinar", "tempo_disponivel"],
+  ["Estilo de treino preferido", "estilo_treino"],
+  ["Exercícios que não gosta", "exercicios_nao_gosta"],
+  ["Alimentos que gosta", "alimentos_gosta"],
+  ["Alimentos que não gosta", "alimentos_nao_gosta"],
+  ["Rotina alimentar", "alimentacao_rotina"],
+];
 
 export function ProfessionalDashboard({ onToast }: { onToast: (toast: Toast) => void }) {
   const orgsQuery = trpc.prescricao.myOrganizations.useQuery();
@@ -74,6 +90,18 @@ export function ProfessionalDashboard({ onToast }: { onToast: (toast: Toast) => 
   const beginDieta = (id: string) => { const dieta = dietas.find((item) => item.id === id); setDietaId(id); setDietaForm({ titulo: dieta?.titulo ?? "", descricao: dieta?.descricao ?? "", arquivoUrl: dieta?.arquivo_url ?? "" }); };
   const saveDietaHeader = () => { if (!dietaId) return; updateDieta.mutate({ id: dietaId, data: { titulo: dietaForm.titulo || selectedDieta?.titulo || "Plano alimentar", descricao: dietaForm.descricao || null, arquivo_url: dietaForm.arquivoUrl || null } }); };
 
+  // Convite de aluno
+  const invitesQuery = trpc.journey.pendingInvitations.useQuery({ organizationId: activeOrgId }, { enabled: Boolean(activeOrgId) });
+  const invites = invitesQuery.data ?? [];
+  const [inviteForm, setInviteForm] = useState(emptyInvite);
+  const refreshInvites = () => utils.journey.pendingInvitations.invalidate({ organizationId: activeOrgId });
+  const inviteMember = trpc.journey.inviteMember.useMutation({ onSuccess: () => { success("Convite enviado por e-mail"); setInviteForm(emptyInvite); refreshInvites(); }, onError: (e) => fail("Erro ao convidar aluno", e) });
+  const revokeInvite = trpc.journey.revokeInvitation.useMutation({ onSuccess: () => { success("Convite revogado"); refreshInvites(); }, onError: (e) => fail("Erro ao revogar convite", e) });
+
+  // Acolhimento (somente leitura para o profissional)
+  const acolhimentoQuery = trpc.journey.staffAcolhimento.useQuery({ alunoId }, { enabled: Boolean(alunoId) && tab === "acolhimento" });
+  const acolhimento = acolhimentoQuery.data;
+
   const selectAluno = (id: string) => { setAlunoId(id); setTreinoId(null); setDietaId(null); setTab("treinos"); };
 
   if (orgsQuery.isLoading) return <div className="p-8 text-sm text-[#918a7d]">Carregando organizações...</div>;
@@ -89,12 +117,28 @@ export function ProfessionalDashboard({ onToast }: { onToast: (toast: Toast) => 
         {studentsQuery.isLoading && <p className="text-xs text-[#918a7d]">Carregando alunos...</p>}
         {!studentsQuery.isLoading && students.length === 0 && <p className="text-xs text-[#918a7d]">Nenhum aluno cadastrado nesta organização ainda.</p>}
         {students.map((student) => <button key={student.user_id} onClick={() => selectAluno(student.user_id)} className={`w-full rounded-xl px-3 py-2.5 text-left text-sm ${alunoId === student.user_id ? "bg-[#15130f] font-semibold text-white" : "text-[#4b4438] hover:bg-[#faf7ef]"}`}>{student.full_name || "Aluno sem nome"}</button>)}
+        <div className="mt-3 space-y-2 rounded-xl bg-[#faf7ef] p-3">
+          <p className="text-xs font-semibold text-[#4b4438]">Convidar aluno</p>
+          <Input value={inviteForm.fullName} onChange={(e) => setInviteForm({ ...inviteForm, fullName: e.target.value })} placeholder="Nome completo" className="h-9 rounded-lg text-xs" />
+          <Input value={inviteForm.email} onChange={(e) => setInviteForm({ ...inviteForm, email: e.target.value })} placeholder="E-mail" type="email" className="h-9 rounded-lg text-xs" />
+          <Button onClick={() => inviteMember.mutate({ organizationId: activeOrgId, email: inviteForm.email, fullName: inviteForm.fullName })} disabled={!inviteForm.fullName || !inviteForm.email || inviteMember.isPending} className="h-9 w-full rounded-lg bg-[#15130f] text-xs text-white"><Plus size={14} /> Enviar convite</Button>
+          {invites.length > 0 && <div className="mt-2 space-y-1.5">
+            <p className="text-[10px] font-semibold uppercase tracking-[.1em] text-[#9b9488]">Convites pendentes</p>
+            {invites.map((invite) => <div key={invite.id} className="flex items-center justify-between rounded-lg border border-[#eee9df] bg-white p-2"><div className="min-w-0 flex-1"><p className="truncate text-xs font-semibold text-[#4b4438]">{invite.full_name}</p><p className="truncate text-[10px] text-[#9b9488]">{invite.email}</p></div><Button variant="ghost" onClick={() => revokeInvite.mutate({ id: invite.id, organizationId: activeOrgId })} className="h-7 w-7 p-0 text-[#b65c4d]"><Trash2 size={13} /></Button></div>)}
+          </div>}
+        </div>
       </CardContent></Card>
 
       <div>
         {!selectedAluno && <Card className="rounded-2xl border-[#e5ece5] bg-white shadow-sm"><CardContent className="p-8 text-center text-sm text-[#918a7d]">Selecione um aluno para gerenciar treino e plano alimentar.</CardContent></Card>}
         {selectedAluno && <>
-          <div className="mb-4 flex gap-2"><Button variant={tab === "treinos" ? "default" : "outline"} onClick={() => setTab("treinos")} className="h-9 rounded-xl text-xs">Treinos</Button><Button variant={tab === "dieta" ? "default" : "outline"} onClick={() => setTab("dieta")} className="h-9 rounded-xl text-xs">Plano alimentar</Button></div>
+          <div className="mb-4 flex gap-2"><Button variant={tab === "treinos" ? "default" : "outline"} onClick={() => setTab("treinos")} className="h-9 rounded-xl text-xs">Treinos</Button><Button variant={tab === "dieta" ? "default" : "outline"} onClick={() => setTab("dieta")} className="h-9 rounded-xl text-xs">Plano alimentar</Button><Button variant={tab === "acolhimento" ? "default" : "outline"} onClick={() => setTab("acolhimento")} className="h-9 rounded-xl text-xs">Acolhimento</Button></div>
+
+          {tab === "acolhimento" && <Card className="rounded-2xl border-[#e5ece5] bg-white shadow-sm"><CardHeader><CardTitle className="text-sm text-[#2b271f]">Acolhimento de {selectedAluno.full_name}</CardTitle></CardHeader><CardContent className="space-y-3 text-xs">
+            {acolhimentoQuery.isLoading && <p className="text-[#918a7d]">Carregando...</p>}
+            {!acolhimentoQuery.isLoading && !acolhimento && <p className="text-[#918a7d]">Este aluno ainda não preencheu o acolhimento.</p>}
+            {acolhimento && ACOLHIMENTO_FIELDS.map(([label, field]) => acolhimento[field] ? <div key={field}><p className="font-semibold text-[#2b271f]">{label}</p><p className="mt-0.5 whitespace-pre-wrap text-[#5c5445]">{acolhimento[field]}</p></div> : null)}
+          </CardContent></Card>}
 
           {tab === "treinos" && <div className="grid gap-4 lg:grid-cols-[.9fr_1.1fr]">
             <Card className="rounded-2xl border-[#e5ece5] bg-white shadow-sm"><CardHeader><CardTitle className="text-sm text-[#2b271f]">Treinos de {selectedAluno.full_name}</CardTitle></CardHeader><CardContent className="space-y-2">
