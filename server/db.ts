@@ -55,14 +55,14 @@ export type Organization = {
 };
 export type Membership = {
   id: string; organization_id: string; auth_user_id: string;
-  role: "owner" | "admin" | "manager" | "professional" | "viewer";
+  role: "owner" | "admin" | "manager" | "professional" | "nutricionista" | "viewer";
   status: "active" | "invited" | "suspended";
   created_at: string;
 };
 export type OrganizationUnit = { id: string; organization_id: string; name: string; slug: string; city: string | null; status: "active" | "archived"; created_at: string };
 export type ModulePolicy = { id: string; organization_id: string; unit_id: string; role: Membership["role"]; module: string; can_view: boolean; can_manage: boolean };
 export type Subscription = { id: string; organization_id: string; plan: Organization["plan"]; status: "trialing" | "active" | "past_due" | "canceled"; billing_cycle: "monthly" | "yearly"; amount_cents: number; provider: string; external_id: string | null; created_at: string; updated_at: string };
-export type Invitation = { id: string; organization_id: string; invited_by_user_id: string; email: string; role: "admin" | "manager" | "professional" | "viewer"; status: "pending" | "accepted" | "expired" | "revoked"; token_hash: string; expires_at: string; created_at: string };
+export type Invitation = { id: string; organization_id: string; invited_by_user_id: string; email: string; role: "admin" | "manager" | "professional" | "nutricionista" | "viewer"; status: "pending" | "accepted" | "expired" | "revoked"; token_hash: string; expires_at: string; created_at: string };
 export type OnboardingProgress = { id: string; organization_id: string; current_step: number; status: "not_started" | "in_progress" | "completed"; city: string | null; default_unit_name: string | null; invite_email: string | null; created_at: string; updated_at: string };
 export type AuditLog = { id: string; organization_id: string; auth_user_id: string | null; action: string; entity: string; entity_id: string | null; before_json: unknown; after_json: unknown; created_at: string };
 
@@ -129,15 +129,22 @@ export async function getPendingOrganizationInvitations(organizationId: string) 
   return request<Invitation[]>("saas_invitations", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}&status=eq.pending&order=created_at.desc`);
 }
 
+export async function revokeOrganizationInvitation(id: string, organizationId: string) {
+  if (!isConfigured()) throw new Error("Database not available");
+  const rows = await request<Invitation[]>("saas_invitations", { method: "PATCH", body: JSON.stringify({ status: "revoked" }) }, `?id=eq.${encodeURIComponent(id)}&organization_id=eq.${encodeURIComponent(organizationId)}&status=eq.pending`);
+  if (!rows[0]) throw new Error("Convite não encontrado ou já utilizado.");
+  return rows[0];
+}
+
 export async function acceptOrganizationInvitation(input: { tokenHash: string; userId: string; email: string }) {
   if (!isConfigured()) throw new Error("Database not available");
-  const [result] = await rpc<Array<{ organization_id: string; role: Invitation["role"]; invitation_id: string }>>("accept_organization_invitation", {
+  const [result] = await rpc<Array<{ org_id: string; role: Invitation["role"]; invitation_id: string }>>("accept_organization_invitation", {
     p_token_hash: input.tokenHash,
     p_user_id: input.userId,
     p_email: input.email,
   });
   if (!result) throw new Error("Invitation not found or already used");
-  return { invitation: { id: result.invitation_id }, organizationId: result.organization_id, role: result.role };
+  return { invitation: { id: result.invitation_id }, organizationId: result.org_id, role: result.role };
 }
 
 export async function getOrganizationSubscription(organizationId: string) {
