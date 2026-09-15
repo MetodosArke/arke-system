@@ -1,8 +1,21 @@
 import { useMemo, useState } from "react";
-import { ClipboardList, Dumbbell, HeartHandshake, Utensils } from "lucide-react";
+import { ClipboardList, Download, Dumbbell, HeartHandshake, Utensils } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { trpc } from "@/lib/trpc";
+
+function downloadBase64Pdf(filename: string, contentBase64: string) {
+  const binary = atob(contentBase64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+  const blob = new Blob([bytes], { type: "application/pdf" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  link.click();
+  URL.revokeObjectURL(url);
+}
 
 const CHECKIN_OPTIONS: Array<{ value: "indo_bem" | "com_dificuldade" | "quero_ajuda"; label: string }> = [
   { value: "indo_bem", label: "Indo bem" },
@@ -67,11 +80,23 @@ function TreinoCard({ treino }: { treino: { id: string; titulo: string; tipo: st
   const exercicios = exerciciosQuery.data ?? [];
   const exercisesQuery = trpc.prescricao.exercises.useQuery();
   const exercises = exercisesQuery.data ?? [];
+  const utils = trpc.useUtils();
+  const [downloading, setDownloading] = useState(false);
+  const downloadFicha = async () => {
+    setDownloading(true);
+    try {
+      const ficha = await utils.prescricao.meu.fichaPdf.fetch({ treinoId: treino.id });
+      downloadBase64Pdf(ficha.filename, ficha.contentBase64);
+    } finally {
+      setDownloading(false);
+    }
+  };
   return <Card className="rounded-2xl border-[#e5ece5] bg-white shadow-sm"><CardHeader><CardTitle className="text-base text-[#2b271f]">{treino.titulo} · {treino.tipo}</CardTitle><p className="text-xs text-[#918a7d]">Versão {treino.versao}</p></CardHeader><CardContent>
     {treino.descricao && <p className="mb-3 text-sm text-[#5c5445]">{treino.descricao}</p>}
     {exerciciosQuery.isLoading && <p className="text-xs text-[#918a7d]">Carregando exercícios...</p>}
     {!exerciciosQuery.isLoading && exercicios.length === 0 && <p className="text-xs text-[#918a7d]">Nenhum exercício cadastrado neste treino ainda.</p>}
     <div className="space-y-2">{exercicios.map((item) => { const exercicio = exercises.find((ex) => ex.id === item.exercicio_id); return <div key={item.id} className="rounded-xl border border-[#eee9df] p-3"><p className="text-sm font-semibold text-[#4b4438]">{exercicio?.nome ?? "Exercício"}</p><p className="mt-1 text-xs text-[#9b9488]">{item.series} séries x {item.repeticoes} repetições · descanso {item.descanso_seg}s{item.observacoes ? ` · ${item.observacoes}` : ""}</p></div>; })}</div>
+    <Button variant="outline" onClick={downloadFicha} disabled={downloading} className="mt-3 h-9 w-full rounded-xl text-xs"><Download size={14} /> Baixar ficha (impressora térmica)</Button>
   </CardContent></Card>;
 }
 

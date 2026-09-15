@@ -1,8 +1,15 @@
 import type { Express, Request, Response } from "express";
 import { randomUUID } from "node:crypto";
+import { registrarFrequencia } from "./supabaseAdmin";
 
 type AccessRequest = {
   academyId?: string;
+  // organizationId é o id real da organização (saas_organizations) — o
+  // adaptador de catraca por marca ainda não existe (CLAUDE.md §8.4),
+  // então isto só é usado para registrar frequência quando o payload
+  // já vem de um vínculo real; sem ele, o contrato de sandbox continua
+  // igual (academyId sozinho, sem persistir nada).
+  organizationId?: string;
   unitId?: string;
   studentId?: string;
   document?: string;
@@ -22,6 +29,7 @@ export function registerAccessRoutes(app: Express) {
 
     const body = (req.body ?? {}) as AccessRequest;
     const academyId = normalize(body.academyId);
+    const organizationId = normalize(body.organizationId);
     const unitId = normalize(body.unitId);
     const studentId = normalize(body.studentId);
     const document = normalize(body.document);
@@ -36,9 +44,16 @@ export function registerAccessRoutes(app: Express) {
     // Production adapters can map the same contract to Topdata, Madis, Henry or Control iD.
     const denied = studentId.toLowerCase().includes("blocked") || document.endsWith("0000");
     const eventId = `access_${randomUUID()}`;
+
+    // Registro de frequência é best-effort e nunca atrasa a resposta:
+    // a catraca física não pode esperar uma volta ao banco para abrir.
+    if (!denied && organizationId && studentId) {
+      registrarFrequencia({ alunoId: studentId, organizationId, unitId: unitId || undefined, origem: "catraca" }).catch(() => {});
+    }
+
     return res.status(200).json({
       ok: true,
-      mode: expectedKey ? "configured" : "unconfigured",
+      mode: expectedKey ? "configured" : "demo",
       eventId,
       decision: denied ? "denied" : "allowed",
       academyId,
