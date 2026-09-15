@@ -606,7 +606,7 @@ async function deleteGlobalNutritionPlan(idValue) {
   await request2("acervo_planos_alimentares", { method: "DELETE" }, `?id=eq.${encodeURIComponent(idValue)}`);
   return { id: idValue };
 }
-var inFilter = (ids) => `id.in.(${ids.map(encodeURIComponent).join(",")})`;
+var inFilter = (ids) => `id=in.(${ids.map(encodeURIComponent).join(",")})`;
 async function publishGlobalExercises(ids, userId) {
   if (!ids.length) return [];
   return request2("exercicios", { method: "PATCH", body: JSON.stringify({ estado_publicacao: "publicado", publicado_por: userId, publicado_em: (/* @__PURE__ */ new Date()).toISOString() }) }, `?${inFilter(ids)}`);

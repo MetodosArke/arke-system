@@ -176,7 +176,7 @@ export async function deleteGlobalNutritionPlan(idValue: string) { await request
 
 // Aprovação em lote de rascunhos gerados por IA (scripts/seed-acervo.ts):
 // o Admin Arke revisa e decide publicar — a IA nunca publica nada sozinha.
-const inFilter = (ids: string[]) => `id.in.(${ids.map(encodeURIComponent).join(",")})`;
+const inFilter = (ids: string[]) => `id=in.(${ids.map(encodeURIComponent).join(",")})`;
 
 export async function publishGlobalExercises(ids: string[], userId: string) {
   if (!ids.length) return [];
