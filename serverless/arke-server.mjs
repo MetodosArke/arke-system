@@ -2261,9 +2261,28 @@ async function createContext(opts) {
 
 // server/access.ts
 import { randomUUID as randomUUID3 } from "node:crypto";
+
+// server/_core/errorMonitoring.ts
+import * as Sentry from "@sentry/node";
+var initialized = false;
+function initErrorMonitoring() {
+  const dsn = process.env.SENTRY_DSN;
+  if (!dsn || initialized) return;
+  Sentry.init({ dsn, environment: process.env.NODE_ENV ?? "development", tracesSampleRate: 0 });
+  initialized = true;
+  process.on("unhandledRejection", (reason) => captureException2(reason));
+  process.on("uncaughtException", (error) => captureException2(error));
+}
+function captureException2(error, extra) {
+  console.error(error);
+  if (!initialized) return;
+  Sentry.captureException(error, extra ? { extra } : void 0);
+}
+
+// server/access.ts
 var normalize = (value) => typeof value === "string" ? value.trim() : "";
 function registerAccessRoutes(app) {
-  app.post("/api/v1/access/check-in", (req, res) => {
+  app.post("/api/v1/access/check-in", async (req, res) => {
     const expectedKey = process.env.CATRACA_API_KEY;
     const providedKey = normalize(req.header("x-arke-device-key"));
     if (expectedKey && providedKey !== expectedKey) {
@@ -2280,17 +2299,42 @@ function registerAccessRoutes(app) {
     if (!academyId || !studentId && !document) {
       return res.status(400).json({ ok: false, code: "INVALID_PAYLOAD", message: "academyId e studentId ou document s\xE3o obrigat\xF3rios." });
     }
-    const denied = studentId.toLowerCase().includes("blocked") || document.endsWith("0000");
+    const configured = Boolean(expectedKey);
     const eventId = `access_${randomUUID3()}`;
-    if (!denied && organizationId && studentId) {
+    let decision;
+    let message;
+    if (!configured) {
+      const denied = studentId.toLowerCase().includes("blocked") || document.endsWith("0000");
+      decision = denied ? "denied" : "allowed";
+      message = denied ? "Acesso bloqueado para esta credencial." : "Acesso liberado.";
+    } else {
+      try {
+        const profile = studentId ? await getProfileByUserId(studentId) : null;
+        if (!profile || profile.organization_id !== organizationId) {
+          decision = "denied";
+          message = "Aluno n\xE3o encontrado nesta organiza\xE7\xE3o.";
+        } else if (profile.status !== "active") {
+          decision = "denied";
+          message = "Matr\xEDcula n\xE3o est\xE1 ativa.";
+        } else {
+          decision = "allowed";
+          message = "Acesso liberado.";
+        }
+      } catch (error) {
+        captureException2(error, { route: "access.check-in", organizationId, studentId });
+        decision = "denied";
+        message = "N\xE3o foi poss\xEDvel verificar a matr\xEDcula no momento.";
+      }
+    }
+    if (decision === "allowed" && organizationId && studentId) {
       registrarFrequencia({ alunoId: studentId, organizationId, unitId: unitId || void 0, origem: "catraca" }).catch(() => {
       });
     }
     return res.status(200).json({
       ok: true,
-      mode: expectedKey ? "configured" : "demo",
+      mode: configured ? "configured" : "demo",
       eventId,
-      decision: denied ? "denied" : "allowed",
+      decision,
       academyId,
       unitId: unitId || null,
       studentId: studentId || null,
@@ -2298,7 +2342,7 @@ function registerAccessRoutes(app) {
       deviceId,
       provider,
       checkedAt: (/* @__PURE__ */ new Date()).toISOString(),
-      message: denied ? "Acesso bloqueado para esta credencial." : "Acesso liberado."
+      message
     });
   });
 }
@@ -2330,25 +2374,6 @@ function registerAsaasWebhook(app) {
 
 // server/automacaoCron.ts
 import { timingSafeEqual as timingSafeEqual2 } from "node:crypto";
-
-// server/_core/errorMonitoring.ts
-import * as Sentry from "@sentry/node";
-var initialized = false;
-function initErrorMonitoring() {
-  const dsn = process.env.SENTRY_DSN;
-  if (!dsn || initialized) return;
-  Sentry.init({ dsn, environment: process.env.NODE_ENV ?? "development", tracesSampleRate: 0 });
-  initialized = true;
-  process.on("unhandledRejection", (reason) => captureException2(reason));
-  process.on("uncaughtException", (error) => captureException2(error));
-}
-function captureException2(error, extra) {
-  console.error(error);
-  if (!initialized) return;
-  Sentry.captureException(error, extra ? { extra } : void 0);
-}
-
-// server/automacaoCron.ts
 function tokenMatches2(received, expected) {
   const receivedBuffer = Buffer.from(received);
   const expectedBuffer = Buffer.from(expected);
