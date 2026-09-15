@@ -1269,6 +1269,58 @@ async function lookupCnpj(cnpj) {
   }
 }
 
+// server/integrations.ts
+function config3() {
+  const url = process.env.SUPABASE_URL ?? "";
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.SUPABASE_KEY ?? "";
+  if (!url || !key) throw new Error("Supabase n\xE3o configurado.");
+  return { url: url.replace(/\/$/, ""), key };
+}
+async function request3(table, init = {}, query = "") {
+  const { url, key } = config3();
+  const response = await fetch(`${url}/rest/v1/${table}${query}`, { ...init, headers: { apikey: key, Authorization: `Bearer ${key}`, "Content-Type": "application/json", Prefer: "return=representation", ...init.headers ?? {} } });
+  if (!response.ok) throw new Error(`Supabase ${response.status}: ${await response.text()}`);
+  const text = await response.text();
+  return text ? JSON.parse(text) : [];
+}
+var BENEFIT_SECRET_FIELD = { wellhub: "client_secret", totalpass: "app_secret" };
+var BENEFIT_PUBLIC_FIELDS = { wellhub: ["client_id", "partner_id"], totalpass: ["app_key", "gym_id"] };
+async function getRawBenefitIntegration(organizationId, provider) {
+  const rows = await request3("saas_benefit_integrations", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}&provider=eq.${provider}&limit=1`);
+  return rows[0] ?? null;
+}
+async function getBenefitIntegration(organizationId, provider) {
+  const row = await getRawBenefitIntegration(organizationId, provider);
+  const credentials = row?.credentials ?? {};
+  const publicFields = Object.fromEntries(BENEFIT_PUBLIC_FIELDS[provider].map((field) => [field, credentials[field] ?? ""]));
+  return { provider, enabled: row?.enabled ?? false, configured: Boolean(credentials[BENEFIT_SECRET_FIELD[provider]]), publicFields, updatedAt: row?.updated_at ?? null };
+}
+async function listBenefitIntegrations(organizationId) {
+  const [wellhub, totalpass] = await Promise.all([getBenefitIntegration(organizationId, "wellhub"), getBenefitIntegration(organizationId, "totalpass")]);
+  return [wellhub, totalpass];
+}
+async function saveBenefitIntegration(input) {
+  const existing = await getRawBenefitIntegration(input.organizationId, input.provider);
+  const secretField = BENEFIT_SECRET_FIELD[input.provider];
+  const merged = { ...existing?.credentials ?? {}, ...input.fields };
+  if (!input.fields[secretField]) merged[secretField] = existing?.credentials?.[secretField] ?? "";
+  await request3("saas_benefit_integrations", { method: "POST", headers: { Prefer: "resolution=merge-duplicates,return=representation" }, body: JSON.stringify({ organization_id: input.organizationId, provider: input.provider, enabled: input.enabled, credentials: merged }) }, "?on_conflict=organization_id,provider");
+  return getBenefitIntegration(input.organizationId, input.provider);
+}
+async function listTurnstileIntegrationsForOrganization(organizationId) {
+  const rows = await request3("saas_turnstile_integrations", {}, `?select=*,saas_units(name)&organization_id=eq.${encodeURIComponent(organizationId)}`);
+  return rows.map((row) => ({ unitId: row.unit_id, unitName: row.saas_units?.name ?? "Unidade", brand: row.brand, model: row.model, enabled: row.enabled, configured: Object.keys(row.config ?? {}).length > 0, updatedAt: row.updated_at }));
+}
+async function saveTurnstileIntegration(input) {
+  await request3("saas_turnstile_integrations", { method: "POST", headers: { Prefer: "resolution=merge-duplicates,return=representation" }, body: JSON.stringify({ unit_id: input.unitId, organization_id: input.organizationId, brand: input.brand, model: input.model || null, config: input.config, enabled: input.enabled }) }, "?on_conflict=unit_id");
+  const rows = await listTurnstileIntegrationsForOrganization(input.organizationId);
+  return rows.find((row) => row.unitId === input.unitId);
+}
+async function deleteTurnstileIntegration(unitId, organizationId) {
+  await request3("saas_turnstile_integrations", { method: "DELETE" }, `?unit_id=eq.${encodeURIComponent(unitId)}&organization_id=eq.${encodeURIComponent(organizationId)}`);
+  return { success: true };
+}
+
 // server/routers.ts
 var organizationIdInput = z2.object({ organizationId: z2.string().uuid() });
 var moduleName = z2.enum(["dashboard", "academias", "profissionais", "alunos", "agenda", "financeiro", "integracoes"]);
@@ -1466,6 +1518,42 @@ var appRouter = router({
         const payment = await createSubscriptionCharge({ organizationId: input.organizationId, billingType: input.billingType });
         await recordAuditLog({ organizationId: input.organizationId, userId: ctx.user.id, action: "created", entity: "asaas_payment", entityId: payment.id, afterJson: { billingType: input.billingType, value: payment.value } });
         return payment;
+      })
+    })
+  }),
+  // Fases 14/15 (CLAUDE.md §9): benefícios (Wellhub/TotalPass) e catraca —
+  // credenciais que a própria organização informa (o parceiro real é a
+  // academia/studio, não a Arke). Restrito a owner/admin, nunca devolve
+  // segredo em claro (ver server/integrations.ts).
+  integracoes: router({
+    beneficios: router({
+      list: protectedProcedure.input(organizationIdInput).query(async ({ ctx, input }) => {
+        await ownerOrAdmin(ctx.user.id, input.organizationId);
+        return listBenefitIntegrations(input.organizationId);
+      }),
+      save: protectedProcedure.input(z2.object({ organizationId: z2.string().uuid(), provider: z2.enum(["wellhub", "totalpass"]), enabled: z2.boolean().default(true), fields: z2.record(z2.string(), z2.string()) })).mutation(async ({ ctx, input }) => {
+        await ownerOrAdmin(ctx.user.id, input.organizationId);
+        const result = await saveBenefitIntegration({ organizationId: input.organizationId, provider: input.provider, fields: input.fields, enabled: input.enabled });
+        await recordAuditLog({ organizationId: input.organizationId, userId: ctx.user.id, action: "updated", entity: "benefit_integration", afterJson: { provider: input.provider, enabled: input.enabled } });
+        return result;
+      })
+    }),
+    catraca: router({
+      list: protectedProcedure.input(organizationIdInput).query(async ({ ctx, input }) => {
+        await ownerOrAdmin(ctx.user.id, input.organizationId);
+        return listTurnstileIntegrationsForOrganization(input.organizationId);
+      }),
+      save: protectedProcedure.input(z2.object({ organizationId: z2.string().uuid(), unitId: z2.string().uuid(), brand: z2.enum(["control_id", "topdata", "henry", "dimep", "outra"]), model: z2.string().trim().max(120).optional(), config: z2.record(z2.string(), z2.string()), enabled: z2.boolean().default(true) })).mutation(async ({ ctx, input }) => {
+        await ownerOrAdmin(ctx.user.id, input.organizationId);
+        const result = await saveTurnstileIntegration(input);
+        await recordAuditLog({ organizationId: input.organizationId, userId: ctx.user.id, unitId: input.unitId, action: "updated", entity: "turnstile_integration", afterJson: { brand: input.brand, model: input.model } });
+        return result;
+      }),
+      delete: protectedProcedure.input(z2.object({ organizationId: z2.string().uuid(), unitId: z2.string().uuid() })).mutation(async ({ ctx, input }) => {
+        await ownerOrAdmin(ctx.user.id, input.organizationId);
+        const result = await deleteTurnstileIntegration(input.unitId, input.organizationId);
+        await recordAuditLog({ organizationId: input.organizationId, userId: ctx.user.id, unitId: input.unitId, action: "deleted", entity: "turnstile_integration" });
+        return result;
       })
     })
   }),

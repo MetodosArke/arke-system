@@ -93,12 +93,80 @@ function FinancePage({ onToast }: { onToast: (toast: NonNullable<Toast>) => void
   </div>;
 }
 
+const BENEFIT_LABEL: Record<"wellhub" | "totalpass", string> = { wellhub: "Wellhub", totalpass: "TotalPass" };
+const BENEFIT_FIELDS: Record<"wellhub" | "totalpass", Array<{ key: string; label: string; secret?: boolean }>> = {
+  wellhub: [{ key: "client_id", label: "Client ID" }, { key: "client_secret", label: "Client Secret", secret: true }, { key: "partner_id", label: "Partner ID" }],
+  totalpass: [{ key: "app_key", label: "App Key" }, { key: "app_secret", label: "App Secret", secret: true }, { key: "gym_id", label: "Gym ID" }],
+};
+
+function BenefitProviderCard({ organizationId, provider, data, onToast }: { organizationId: string; provider: "wellhub" | "totalpass"; data: { enabled: boolean; configured: boolean; publicFields: Record<string, string> }; onToast: (toast: NonNullable<Toast>) => void }) {
+  const utils = trpc.useUtils();
+  const [form, setForm] = useState<Record<string, string>>({});
+  const save = trpc.integracoes.beneficios.save.useMutation({ onSuccess: () => { onToast({ title: `${BENEFIT_LABEL[provider]} salvo`, detail: "Credenciais persistidas para esta organização." }); setForm({}); utils.integracoes.beneficios.list.invalidate({ organizationId }); }, onError: (error) => onToast({ title: `Erro ao salvar ${BENEFIT_LABEL[provider]}`, detail: error.message }) });
+  const fieldValue = (key: string) => form[key] ?? data.publicFields[key] ?? "";
+  return <Card className="rounded-2xl border-[#e5ece5] bg-white shadow-sm"><CardHeader><CardTitle className="flex items-center justify-between text-sm text-[#2b271f]"><span>{BENEFIT_LABEL[provider]}</span><Badge className={cn("border-0 text-[10px]", data.configured ? "bg-[#e5f2df] text-[#4e8b5b]" : "bg-[#f8e6df] text-[#b65c4d]")}>{data.configured ? "Vinculado" : "Não vinculado"}</Badge></CardTitle></CardHeader><CardContent className="space-y-2">
+    {BENEFIT_FIELDS[provider].map((field) => <Input key={field.key} value={fieldValue(field.key)} onChange={(e) => setForm({ ...form, [field.key]: e.target.value })} placeholder={field.secret && data.configured ? `${field.label} (deixe em branco para manter)` : field.label} type={field.secret ? "password" : "text"} className="h-9 rounded-lg text-xs" />)}
+    <Button onClick={() => save.mutate({ organizationId, provider, enabled: true, fields: form })} disabled={save.isPending} className="h-9 w-full rounded-lg bg-[#15130f] text-xs text-white">Salvar vínculo</Button>
+  </CardContent></Card>;
+}
+
+const TURNSTILE_BRAND_LABEL: Record<string, string> = { control_id: "Control iD", topdata: "Topdata", henry: "Henry", dimep: "Dimep", outra: "Outra" };
+const TURNSTILE_CONFIG_FIELDS = [{ key: "host", label: "IP/host do equipamento" }, { key: "usuario", label: "Usuário" }, { key: "senha", label: "Senha", secret: true }, { key: "api_key", label: "API key (se houver)", secret: true }];
+
+function TurnstileUnitCard({ organizationId, unit, onToast }: { organizationId: string; unit: { unitId: string; unitName: string; brand: string; model: string | null; enabled: boolean; configured: boolean }; onToast: (toast: NonNullable<Toast>) => void }) {
+  const utils = trpc.useUtils();
+  const [brand, setBrand] = useState(unit.brand);
+  const [model, setModel] = useState(unit.model ?? "");
+  const [config, setConfig] = useState<Record<string, string>>({});
+  const save = trpc.integracoes.catraca.save.useMutation({ onSuccess: () => { onToast({ title: "Catraca configurada", detail: `${unit.unitName} vinculada ao adaptador certo.` }); setConfig({}); utils.integracoes.catraca.list.invalidate({ organizationId }); }, onError: (error) => onToast({ title: "Erro ao configurar catraca", detail: error.message }) });
+  return <Card className="rounded-2xl border-[#e5ece5] bg-white shadow-sm"><CardHeader><CardTitle className="flex items-center justify-between text-sm text-[#2b271f]"><span>{unit.unitName}</span><Badge className={cn("border-0 text-[10px]", unit.configured ? "bg-[#e5f2df] text-[#4e8b5b]" : "bg-[#f8e6df] text-[#b65c4d]")}>{unit.configured ? "Configurada" : "Não configurada"}</Badge></CardTitle></CardHeader><CardContent className="space-y-2">
+    <select value={brand} onChange={(e) => setBrand(e.target.value)} className="h-9 w-full rounded-lg border bg-white px-2 text-xs">{Object.entries(TURNSTILE_BRAND_LABEL).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select>
+    <Input value={model} onChange={(e) => setModel(e.target.value)} placeholder="Modelo (opcional)" className="h-9 rounded-lg text-xs" />
+    {TURNSTILE_CONFIG_FIELDS.map((field) => <Input key={field.key} value={config[field.key] ?? ""} onChange={(e) => setConfig({ ...config, [field.key]: e.target.value })} placeholder={unit.configured && field.secret ? `${field.label} (deixe em branco para manter)` : field.label} type={field.secret ? "password" : "text"} className="h-9 rounded-lg text-xs" />)}
+    <Button onClick={() => save.mutate({ organizationId, unitId: unit.unitId, brand: brand as "control_id" | "topdata" | "henry" | "dimep" | "outra", model: model || undefined, config, enabled: true })} disabled={save.isPending} className="h-9 w-full rounded-lg bg-[#15130f] text-xs text-white">Salvar catraca</Button>
+  </CardContent></Card>;
+}
+
 function IntegrationsPage({ module, onToast }: { module: ModuleKey; onToast: (toast: NonNullable<Toast>) => void }) {
   const status = trpc.billing.asaasStatus.useQuery();
   const [webhookUrl, setWebhookUrl] = useState("");
   const [webhookEmail, setWebhookEmail] = useState("");
   const createWebhook = trpc.billing.admin.createWebhook.useMutation({ onSuccess: () => onToast({ title: "Webhook registrado no Asaas", detail: "Os eventos de pagamento passam a chegar em /api/webhooks/asaas." }), onError: (error) => onToast({ title: "Erro ao registrar webhook", detail: error.message }) });
-  return <div className="mx-auto max-w-[1100px] p-5 sm:p-8"><PageIntro eyebrow="integrações" title="Integrações" detail="Status exibido a partir da configuração real do servidor." /><Card className="rounded-2xl border-[#e5ece5] bg-white shadow-sm"><CardHeader><CardTitle className="text-base text-[#2b271f]">Conectores configurados</CardTitle></CardHeader><CardContent className="space-y-3"><div className="flex items-center justify-between rounded-xl bg-[#faf7ef] p-4"><div className="flex items-center gap-3"><Link2 size={17} className="text-[#a47b13]" /><span className="text-xs font-semibold text-[#4b4438]">Asaas</span></div><Badge className={cn("border-0 text-[10px]", status.data?.configured ? "bg-[#e5f2df] text-[#4e8b5b]" : "bg-[#f8e6df] text-[#b65c4d]")}>{status.data?.configured ? `Configurado · ${status.data.environment === "production" ? "produção" : "sandbox"}` : "Não configurado"}</Badge></div><p className="text-xs leading-5 text-[#918a7d]">Nenhuma integração externa é simulada nesta tela. Sem configuração, o estado permanece vazio.</p></CardContent></Card>{module === "administrador" && <Card className="mt-5 rounded-2xl border-[#e5ece5] bg-white shadow-sm"><CardHeader><CardTitle className="text-base text-[#2b271f]">Registrar webhook de produção</CardTitle></CardHeader><CardContent className="space-y-2"><p className="text-xs leading-5 text-[#918a7d]">Chama a API do Asaas para criar o webhook apontando para <code>/api/webhooks/asaas</code> deste deploy. Cole a URL completa do domínio de produção.</p><Input value={webhookUrl} onChange={(e) => setWebhookUrl(e.target.value)} placeholder="https://arkefit.com.br/api/webhooks/asaas" className="h-9 rounded-lg text-xs" /><Input value={webhookEmail} onChange={(e) => setWebhookEmail(e.target.value)} placeholder="E-mail para notificação de falhas" type="email" className="h-9 rounded-lg text-xs" /><Button onClick={() => createWebhook.mutate({ url: webhookUrl, email: webhookEmail })} disabled={!webhookUrl || !webhookEmail || createWebhook.isPending} className="h-9 rounded-lg bg-[#15130f] text-xs text-white">Registrar webhook</Button></CardContent></Card>}</div>;
+
+  const orgsQuery = trpc.saas.organizations.list.useQuery();
+  const organizations = useMemo(() => (orgsQuery.data ?? []).filter((item) => BILLING_MANAGER_ROLES.includes(item.membership.role)), [orgsQuery.data]);
+  const [organizationId, setOrganizationId] = useState("");
+  const activeOrgId = organizationId || organizations[0]?.membership.organization_id || "";
+
+  const benefitsQuery = trpc.integracoes.beneficios.list.useQuery({ organizationId: activeOrgId }, { enabled: Boolean(activeOrgId) });
+  const benefits = benefitsQuery.data ?? [];
+  const accessQuery = trpc.saas.organizations.access.useQuery({ organizationId: activeOrgId }, { enabled: Boolean(activeOrgId) });
+  const units = accessQuery.data?.units ?? [];
+  const turnstilesQuery = trpc.integracoes.catraca.list.useQuery({ organizationId: activeOrgId }, { enabled: Boolean(activeOrgId) });
+  const turnstiles = turnstilesQuery.data ?? [];
+  const turnstileForUnit = (unitId: string) => turnstiles.find((t) => t.unitId === unitId) ?? { unitId, unitName: units.find((u) => u.id === unitId)?.name ?? "Unidade", brand: "outra", model: null, enabled: false, configured: false };
+
+  return <div className="mx-auto max-w-[1100px] p-5 sm:p-8">
+    <div className="mb-5 flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
+      <PageIntro eyebrow="integrações" title="Integrações" detail="Status exibido a partir da configuração real do servidor. Cada organização vincula suas próprias credenciais — o parceiro é a academia, não a Arke." />
+      {organizations.length > 1 && <select value={activeOrgId} onChange={(e) => setOrganizationId(e.target.value)} className="h-10 rounded-xl border bg-white px-3 text-xs"><option value="">Selecione a organização</option>{organizations.map((org) => <option key={org.membership.organization_id} value={org.membership.organization_id}>{org.organization.name}</option>)}</select>}
+    </div>
+
+    <Card className="rounded-2xl border-[#e5ece5] bg-white shadow-sm"><CardHeader><CardTitle className="text-base text-[#2b271f]">Conectores configurados</CardTitle></CardHeader><CardContent className="space-y-3"><div className="flex items-center justify-between rounded-xl bg-[#faf7ef] p-4"><div className="flex items-center gap-3"><Link2 size={17} className="text-[#a47b13]" /><span className="text-xs font-semibold text-[#4b4438]">Asaas</span></div><Badge className={cn("border-0 text-[10px]", status.data?.configured ? "bg-[#e5f2df] text-[#4e8b5b]" : "bg-[#f8e6df] text-[#b65c4d]")}>{status.data?.configured ? `Configurado · ${status.data.environment === "production" ? "produção" : "sandbox"}` : "Não configurado"}</Badge></div><p className="text-xs leading-5 text-[#918a7d]">Nenhuma integração externa é simulada nesta tela. Sem configuração, o estado permanece vazio.</p></CardContent></Card>
+
+    {module === "administrador" && <Card className="mt-5 rounded-2xl border-[#e5ece5] bg-white shadow-sm"><CardHeader><CardTitle className="text-base text-[#2b271f]">Registrar webhook de produção</CardTitle></CardHeader><CardContent className="space-y-2"><p className="text-xs leading-5 text-[#918a7d]">Chama a API do Asaas para criar o webhook apontando para <code>/api/webhooks/asaas</code> deste deploy. Cole a URL completa do domínio de produção.</p><Input value={webhookUrl} onChange={(e) => setWebhookUrl(e.target.value)} placeholder="https://arkefit.com.br/api/webhooks/asaas" className="h-9 rounded-lg text-xs" /><Input value={webhookEmail} onChange={(e) => setWebhookEmail(e.target.value)} placeholder="E-mail para notificação de falhas" type="email" className="h-9 rounded-lg text-xs" /><Button onClick={() => createWebhook.mutate({ url: webhookUrl, email: webhookEmail })} disabled={!webhookUrl || !webhookEmail || createWebhook.isPending} className="h-9 rounded-lg bg-[#15130f] text-xs text-white">Registrar webhook</Button></CardContent></Card>}
+
+    {!organizations.length && <p className="mt-5 text-xs text-[#918a7d]">Sua conta não é owner/admin/manager de nenhuma organização — benefícios e catraca são vinculados por organização.</p>}
+
+    {Boolean(activeOrgId) && <>
+      <div className="mb-3 mt-6 text-xs font-semibold uppercase tracking-[.14em] text-[#a47b13]">Benefícios (Wellhub / TotalPass)</div>
+      <div className="grid gap-4 sm:grid-cols-2">{benefits.map((benefit) => <BenefitProviderCard key={benefit.provider} organizationId={activeOrgId} provider={benefit.provider} data={benefit} onToast={onToast} />)}</div>
+
+      <div className="mb-3 mt-6 text-xs font-semibold uppercase tracking-[.14em] text-[#a47b13]">Catraca por unidade</div>
+      {!units.length && <p className="text-xs text-[#918a7d]">Nenhuma unidade cadastrada para esta organização ainda.</p>}
+      <div className="grid gap-4 sm:grid-cols-2">{units.map((unit) => <TurnstileUnitCard key={unit.id} organizationId={activeOrgId} unit={turnstileForUnit(unit.id)} onToast={onToast} />)}</div>
+    </>}
+  </div>;
 }
 
 function SettingsPage({ tenantName }: { tenantName: string }) {
