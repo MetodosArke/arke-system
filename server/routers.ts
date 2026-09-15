@@ -5,7 +5,7 @@ import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { adminProcedure, protectedProcedure, publicProcedure, router } from "./_core/trpc";
 import { acceptOrganizationInvitation, archiveOrganizationUnit, auditLogsToCsv, auditLogsToPdfBase64, createOrganizationInvitation, createOrganizationUnit, createOrganizationWithOwner, createSubscriptionCharge, getAuditLogs, getMembership, getOrganizationAccess, getOrganizationBySlug, getOrganizationOnboarding, getOrganizationSubscription, getOrganizationsForUser, getPendingOrganizationInvitations, recordAuditLog, revokeOrganizationInvitation, saveOrganizationOnboarding, updateModulePolicy, updateOrganizationProfile, updateOrganizationSubscription } from "./db";
-import { acceptMemberInvitation, assignAtendimento, cancelarReserva, cancelarReservaStaff, converterLead, createAppStudent, createAppUser, createAtendimento, createDieta, createGlobalExercise, createGlobalGroup, createGlobalNutritionPlan, createGlobalRoutine, createGlobalTemplate, createGlobalTemplateExercise, createLead, createLeadNota, createPasswordRecoveryCode, createTreino, createTurma, deleteAppStudent, deleteAppUser, deleteDieta, deleteGlobalExercise, deleteGlobalGroup, deleteGlobalNutritionPlan, deleteGlobalRoutine, deleteGlobalTemplate, deleteGlobalTemplateExercise, deleteGlobalAccessRule, deleteLead, deleteTreino, deleteTurma, findAppUserByEmail, gerarFichaTreinoPdf, getAcolhimento, getAtendimento, getDieta, getGestaoIndicadores, getLead, getProfileByUserId, getReserva, getTreino, getTurma, getVagasDisponiveis, hasSupabaseConfig, inviteMember, listAppStudents, listAppUsers, listAtendimentosForOrganization, listDietasForAluno, listExercisesCatalog, listFrequenciaForAluno, listFrequenciaForOrganization, listGlobalLibrary, listLeadAtividades, listLeadsForOrganization, listMinhasReservas, listMyAtendimentos, listMyCheckIns, listPendingMemberInvitations, listReservasForTurmaData, listStudentsInOrganization, listTreinoExercicios, listTreinosForAluno, listTurmaHorarios, listTurmasAtivas, listTurmasForOrganization, marcarLeadPerdido, moverEstagioLead, normalizeEmail, publishDieta, publishGlobalExercises, publishGlobalNutritionPlans, publishGlobalTemplates, publishTreino, registrarFrequencia, replaceTreinoExercicios, replaceTurmaHorarios, requestHelp, reservarVaga, resolveAtendimento, revokeMemberInvitation, signInWithSupabase, submitCheckIn, updateAppStudent, updateAppUser, updateDieta, updateGlobalExercise, updateGlobalGroup, updateGlobalNutritionPlan, updateGlobalRoutine, updateGlobalTemplate, updateGlobalTemplateExercise, updateLead, updateStudentMatricula, updateSupabaseUserPassword, updateTreino, updateTurma, upsertAcolhimento, upsertGlobalAccessRule, verifyPasswordRecoveryCode } from "./supabaseAdmin";
+import { acceptMemberInvitation, assignAtendimento, cancelarReserva, cancelarReservaStaff, converterLead, createAppStudent, createAppUser, createAtendimento, createDeletionRequest, createDieta, createGlobalExercise, createGlobalGroup, createGlobalNutritionPlan, createGlobalRoutine, createGlobalTemplate, createGlobalTemplateExercise, createLead, createLeadNota, createPasswordRecoveryCode, createTreino, createTurma, deleteAppStudent, deleteAppUser, deleteDieta, deleteGlobalExercise, deleteGlobalGroup, deleteGlobalNutritionPlan, deleteGlobalRoutine, deleteGlobalTemplate, deleteGlobalTemplateExercise, deleteGlobalAccessRule, deleteLead, deleteTreino, deleteTurma, findAppUserByEmail, fulfillDeletionRequest, gerarFichaTreinoPdf, getAcolhimento, getAtendimento, getCurrentPrivacyPolicy, getDeletionRequest, getDieta, getGestaoIndicadores, getLead, getMyDeletionRequest, getProfileByUserId, getReserva, getTreino, getTurma, getVagasDisponiveis, hasConsent, hasSupabaseConfig, inviteMember, listAppStudents, listAppUsers, listAtendimentosForOrganization, listDeletionRequests, listDietasForAluno, listExercisesCatalog, listFrequenciaForAluno, listFrequenciaForOrganization, listGlobalLibrary, listLeadAtividades, listLeadsForOrganization, listMinhasReservas, listMyAtendimentos, listMyCheckIns, listPendingMemberInvitations, listReservasForTurmaData, listStudentsInOrganization, listTreinoExercicios, listTreinosForAluno, listTurmaHorarios, listTurmasAtivas, listTurmasForOrganization, marcarLeadPerdido, moverEstagioLead, normalizeEmail, publishDieta, publishGlobalExercises, publishGlobalNutritionPlans, publishGlobalTemplates, publishTreino, recordConsent, registrarFrequencia, rejectDeletionRequest, replaceTreinoExercicios, replaceTurmaHorarios, requestHelp, reservarVaga, resolveAtendimento, revokeMemberInvitation, signInWithSupabase, submitCheckIn, updateAppStudent, updateAppUser, updateDieta, updateGlobalExercise, updateGlobalGroup, updateGlobalNutritionPlan, updateGlobalRoutine, updateGlobalTemplate, updateGlobalTemplateExercise, updateLead, updateStudentMatricula, updateSupabaseUserPassword, updateTreino, updateTurma, upsertAcolhimento, upsertGlobalAccessRule, verifyPasswordRecoveryCode } from "./supabaseAdmin";
 import { asaasConfigured, asaasEnvironment, createAsaasWebhook, getAsaasAccount, listAsaasPayments } from "./asaas";
 import { listAsaasPaymentsForOrganization } from "./asaasPersistence";
 import { lookupCnpj } from "./cnpj";
@@ -113,6 +113,11 @@ const acolhimentoInput = z.object({
   alimentos_nao_gosta: z.string().trim().max(4000).optional(),
   alimentacao_rotina: z.string().trim().max(4000).optional(),
 });
+
+// LGPD art. 11: dado de saúde exige consentimento específico e destacado —
+// nunca o mesmo "aceito os termos" genérico usado para o resto do cadastro.
+const HEALTH_DATA_FIELDS = ["dores_lesoes", "medicamentos"] as const;
+const requestMeta = (req: { ip?: string; headers: Record<string, unknown> }) => ({ ipAddress: req.ip, userAgent: typeof req.headers["user-agent"] === "string" ? req.headers["user-agent"] : undefined });
 
 export const appRouter = router({
   system: systemRouter,
@@ -305,7 +310,31 @@ export const appRouter = router({
       updatePolicy: protectedProcedure.input(z.object({ organizationId: z.string().uuid(), unitId: z.string().uuid(), role: roleName, module: moduleName, canView: z.boolean(), canManage: z.boolean() })).mutation(async ({ ctx, input }) => { await ownerOrAdmin(ctx.user.id, input.organizationId); const result = await updateModulePolicy(input); await recordAuditLog({ organizationId: input.organizationId, userId: ctx.user.id, unitId: input.unitId, action: "updated", entity: "module_policy", afterJson: input }); return result; }),
       invite: protectedProcedure.input(z.object({ organizationId: z.string().uuid(), email: z.string().email(), role: z.enum(["admin", "manager", "professional", "nutricionista", "viewer"]) })).mutation(async ({ ctx, input }) => { await ownerOrAdmin(ctx.user.id, input.organizationId); const rawToken = randomUUID(); const tokenHash = createHash("sha256").update(rawToken).digest("hex"); const invitation = await createOrganizationInvitation({ ...input, invitedByUserId: ctx.user.id, email: input.email.toLowerCase(), tokenHash, expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 72) }); await recordAuditLog({ organizationId: input.organizationId, userId: ctx.user.id, action: "created", entity: "invitation", entityId: invitation.id, afterJson: { email: input.email.toLowerCase(), role: input.role } }); return { invitationId: invitation.id, token: rawToken, status: "pending" as const }; }),
       revokeInvitation: protectedProcedure.input(z.object({ organizationId: z.string().uuid(), invitationId: z.string().uuid() })).mutation(async ({ ctx, input }) => { await ownerOrAdmin(ctx.user.id, input.organizationId); const result = await revokeOrganizationInvitation(input.invitationId, input.organizationId); await recordAuditLog({ organizationId: input.organizationId, userId: ctx.user.id, action: "revoked", entity: "invitation", entityId: input.invitationId }); return result; }),
-      acceptInvite: protectedProcedure.input(z.object({ token: z.string().min(16).max(128) })).mutation(async ({ ctx, input }) => { if (!ctx.user.email) throw new Error("Authenticated user email is required"); const result = await acceptOrganizationInvitation({ tokenHash: createHash("sha256").update(input.token).digest("hex"), userId: ctx.user.id, email: ctx.user.email }); await recordAuditLog({ organizationId: result.organizationId, userId: ctx.user.id, action: "accepted", entity: "invitation", entityId: result.invitation.id, afterJson: { role: result.role, email: ctx.user.email } }); return { organizationId: result.organizationId, role: result.role, status: "accepted" as const }; }),
+      acceptInvite: protectedProcedure.input(z.object({ token: z.string().min(16).max(128), consentTermos: z.literal(true) })).mutation(async ({ ctx, input }) => {
+        if (!ctx.user.email) throw new Error("Authenticated user email is required");
+        const result = await acceptOrganizationInvitation({ tokenHash: createHash("sha256").update(input.token).digest("hex"), userId: ctx.user.id, email: ctx.user.email });
+        if (!(await hasConsent(ctx.user.id, "termos_uso_privacidade"))) {
+          const policy = await getCurrentPrivacyPolicy();
+          await recordConsent({ userId: ctx.user.id, consentType: "termos_uso_privacidade", policyVersionId: policy?.id ?? null, ...requestMeta(ctx.req) });
+        }
+        await recordAuditLog({ organizationId: result.organizationId, userId: ctx.user.id, action: "accepted", entity: "invitation", entityId: result.invitation.id, afterJson: { role: result.role, email: ctx.user.email } });
+        return { organizationId: result.organizationId, role: result.role, status: "accepted" as const };
+      }),
+      listDeletionRequests: protectedProcedure.input(organizationIdInput).query(async ({ ctx, input }) => { await ownerOrAdmin(ctx.user.id, input.organizationId); return listDeletionRequests(input.organizationId); }),
+      fulfillDeletionRequest: protectedProcedure.input(z.object({ organizationId: z.string().uuid(), requestId: z.string().uuid(), note: z.string().trim().max(2000).optional() })).mutation(async ({ ctx, input }) => {
+        await ownerOrAdmin(ctx.user.id, input.organizationId);
+        const deletionRequest = await getDeletionRequest(input.requestId);
+        if (!deletionRequest || deletionRequest.organization_id !== input.organizationId || deletionRequest.status !== "pending" || !deletionRequest.user_id) throw new Error("Solicitação não encontrada ou já resolvida.");
+        await fulfillDeletionRequest({ requestId: input.requestId, alunoId: deletionRequest.user_id, resolvedBy: ctx.user.id, note: input.note });
+        await recordAuditLog({ organizationId: input.organizationId, userId: ctx.user.id, action: "completed", entity: "data_deletion_request", entityId: input.requestId });
+        return { requestId: input.requestId, status: "completed" as const };
+      }),
+      rejectDeletionRequest: protectedProcedure.input(z.object({ organizationId: z.string().uuid(), requestId: z.string().uuid(), note: z.string().trim().max(2000).optional() })).mutation(async ({ ctx, input }) => {
+        await ownerOrAdmin(ctx.user.id, input.organizationId);
+        const rejected = await rejectDeletionRequest({ requestId: input.requestId, organizationId: input.organizationId, resolvedBy: ctx.user.id, note: input.note });
+        await recordAuditLog({ organizationId: input.organizationId, userId: ctx.user.id, action: "rejected", entity: "data_deletion_request", entityId: input.requestId });
+        return rejected;
+      }),
     }),
   }),
   prescricao: router({
@@ -316,19 +345,59 @@ export const appRouter = router({
     treinos: router({
       list: protectedProcedure.input(z.object({ alunoId: z.string().uuid() })).query(async ({ ctx, input }) => { await assertStaffForAluno(ctx.user.id, input.alunoId); return listTreinosForAluno(input.alunoId); }),
       exercicios: protectedProcedure.input(z.object({ treinoId: z.string().uuid() })).query(async ({ ctx, input }) => { await assertStaffForTreino(ctx.user.id, input.treinoId); return listTreinoExercicios(input.treinoId); }),
-      create: protectedProcedure.input(z.object({ alunoId: z.string().uuid(), titulo: z.string().trim().min(2), tipo: z.string().trim().min(1).default("A"), descricao: z.string().trim().optional() })).mutation(async ({ ctx, input }) => { const profile = await assertStaffForAluno(ctx.user.id, input.alunoId, TREINO_BLOCKED_ROLES); return createTreino({ aluno_id: input.alunoId, titulo: input.titulo, tipo: input.tipo, descricao: input.descricao || undefined, organization_id: profile.organization_id, criado_por: ctx.user.id }); }),
-      update: protectedProcedure.input(z.object({ id: z.string().uuid(), data: z.object({ titulo: z.string().trim().min(2), tipo: z.string().trim().min(1), descricao: z.string().trim().optional().nullable() }) })).mutation(async ({ ctx, input }) => { await assertStaffForTreino(ctx.user.id, input.id, TREINO_BLOCKED_ROLES); return updateTreino(input.id, input.data); }),
+      create: protectedProcedure.input(z.object({ alunoId: z.string().uuid(), titulo: z.string().trim().min(2), tipo: z.string().trim().min(1).default("A"), descricao: z.string().trim().optional() })).mutation(async ({ ctx, input }) => {
+        const profile = await assertStaffForAluno(ctx.user.id, input.alunoId, TREINO_BLOCKED_ROLES);
+        const treino = await createTreino({ aluno_id: input.alunoId, titulo: input.titulo, tipo: input.tipo, descricao: input.descricao || undefined, organization_id: profile.organization_id, criado_por: ctx.user.id });
+        if (profile.organization_id) await recordAuditLog({ organizationId: profile.organization_id, userId: ctx.user.id, action: "created", entity: "treino", entityId: treino.id, afterJson: input });
+        return treino;
+      }),
+      update: protectedProcedure.input(z.object({ id: z.string().uuid(), data: z.object({ titulo: z.string().trim().min(2), tipo: z.string().trim().min(1), descricao: z.string().trim().optional().nullable() }) })).mutation(async ({ ctx, input }) => {
+        const treino = await assertStaffForTreino(ctx.user.id, input.id, TREINO_BLOCKED_ROLES);
+        const updated = await updateTreino(input.id, input.data);
+        if (treino.organization_id) await recordAuditLog({ organizationId: treino.organization_id, userId: ctx.user.id, action: "updated", entity: "treino", entityId: input.id, beforeJson: treino, afterJson: input.data });
+        return updated;
+      }),
       saveExercicios: protectedProcedure.input(z.object({ treinoId: z.string().uuid(), items: z.array(treinoExercicioItem) })).mutation(async ({ ctx, input }) => { await assertStaffForTreino(ctx.user.id, input.treinoId, TREINO_BLOCKED_ROLES); return replaceTreinoExercicios(input.treinoId, input.items); }),
-      publish: protectedProcedure.input(z.object({ id: z.string().uuid() })).mutation(async ({ ctx, input }) => { await assertStaffForTreino(ctx.user.id, input.id, TREINO_BLOCKED_ROLES); return publishTreino(input.id, ctx.user.id); }),
-      delete: protectedProcedure.input(z.object({ id: z.string().uuid() })).mutation(async ({ ctx, input }) => { await assertStaffForTreino(ctx.user.id, input.id, TREINO_BLOCKED_ROLES); return deleteTreino(input.id); }),
+      publish: protectedProcedure.input(z.object({ id: z.string().uuid() })).mutation(async ({ ctx, input }) => {
+        const treino = await assertStaffForTreino(ctx.user.id, input.id, TREINO_BLOCKED_ROLES);
+        const published = await publishTreino(input.id, ctx.user.id);
+        if (treino.organization_id) await recordAuditLog({ organizationId: treino.organization_id, userId: ctx.user.id, action: "published", entity: "treino", entityId: input.id, afterJson: { versao: published.versao } });
+        return published;
+      }),
+      delete: protectedProcedure.input(z.object({ id: z.string().uuid() })).mutation(async ({ ctx, input }) => {
+        const treino = await assertStaffForTreino(ctx.user.id, input.id, TREINO_BLOCKED_ROLES);
+        const result = await deleteTreino(input.id);
+        if (treino.organization_id) await recordAuditLog({ organizationId: treino.organization_id, userId: ctx.user.id, action: "deleted", entity: "treino", entityId: input.id, beforeJson: treino });
+        return result;
+      }),
       fichaPdf: protectedProcedure.input(z.object({ id: z.string().uuid() })).query(async ({ ctx, input }) => { await assertStaffForTreino(ctx.user.id, input.id); return gerarFichaTreinoPdf(input.id); }),
     }),
     dietas: router({
       list: protectedProcedure.input(z.object({ alunoId: z.string().uuid() })).query(async ({ ctx, input }) => { await assertStaffForAluno(ctx.user.id, input.alunoId); return listDietasForAluno(input.alunoId); }),
-      create: protectedProcedure.input(z.object({ alunoId: z.string().uuid(), titulo: z.string().trim().min(2), descricao: z.string().trim().optional(), arquivoUrl: z.string().url().optional() })).mutation(async ({ ctx, input }) => { const profile = await assertStaffForAluno(ctx.user.id, input.alunoId, DIETA_BLOCKED_ROLES); return createDieta({ aluno_id: input.alunoId, titulo: input.titulo, descricao: input.descricao || undefined, arquivo_url: input.arquivoUrl || undefined, organization_id: profile.organization_id, criado_por: ctx.user.id }); }),
-      update: protectedProcedure.input(z.object({ id: z.string().uuid(), data: z.object({ titulo: z.string().trim().min(2), descricao: z.string().trim().optional().nullable(), arquivo_url: z.string().url().optional().nullable() }) })).mutation(async ({ ctx, input }) => { await assertStaffForDieta(ctx.user.id, input.id, DIETA_BLOCKED_ROLES); return updateDieta(input.id, input.data); }),
-      publish: protectedProcedure.input(z.object({ id: z.string().uuid() })).mutation(async ({ ctx, input }) => { await assertStaffForDieta(ctx.user.id, input.id, DIETA_BLOCKED_ROLES); return publishDieta(input.id, ctx.user.id); }),
-      delete: protectedProcedure.input(z.object({ id: z.string().uuid() })).mutation(async ({ ctx, input }) => { await assertStaffForDieta(ctx.user.id, input.id, DIETA_BLOCKED_ROLES); return deleteDieta(input.id); }),
+      create: protectedProcedure.input(z.object({ alunoId: z.string().uuid(), titulo: z.string().trim().min(2), descricao: z.string().trim().optional(), arquivoUrl: z.string().url().optional() })).mutation(async ({ ctx, input }) => {
+        const profile = await assertStaffForAluno(ctx.user.id, input.alunoId, DIETA_BLOCKED_ROLES);
+        const dieta = await createDieta({ aluno_id: input.alunoId, titulo: input.titulo, descricao: input.descricao || undefined, arquivo_url: input.arquivoUrl || undefined, organization_id: profile.organization_id, criado_por: ctx.user.id });
+        if (profile.organization_id) await recordAuditLog({ organizationId: profile.organization_id, userId: ctx.user.id, action: "created", entity: "dieta", entityId: dieta.id, afterJson: input });
+        return dieta;
+      }),
+      update: protectedProcedure.input(z.object({ id: z.string().uuid(), data: z.object({ titulo: z.string().trim().min(2), descricao: z.string().trim().optional().nullable(), arquivo_url: z.string().url().optional().nullable() }) })).mutation(async ({ ctx, input }) => {
+        const dieta = await assertStaffForDieta(ctx.user.id, input.id, DIETA_BLOCKED_ROLES);
+        const updated = await updateDieta(input.id, input.data);
+        if (dieta.organization_id) await recordAuditLog({ organizationId: dieta.organization_id, userId: ctx.user.id, action: "updated", entity: "dieta", entityId: input.id, beforeJson: dieta, afterJson: input.data });
+        return updated;
+      }),
+      publish: protectedProcedure.input(z.object({ id: z.string().uuid() })).mutation(async ({ ctx, input }) => {
+        const dieta = await assertStaffForDieta(ctx.user.id, input.id, DIETA_BLOCKED_ROLES);
+        const published = await publishDieta(input.id, ctx.user.id);
+        if (dieta.organization_id) await recordAuditLog({ organizationId: dieta.organization_id, userId: ctx.user.id, action: "published", entity: "dieta", entityId: input.id, afterJson: { versao: published.versao } });
+        return published;
+      }),
+      delete: protectedProcedure.input(z.object({ id: z.string().uuid() })).mutation(async ({ ctx, input }) => {
+        const dieta = await assertStaffForDieta(ctx.user.id, input.id, DIETA_BLOCKED_ROLES);
+        const result = await deleteDieta(input.id);
+        if (dieta.organization_id) await recordAuditLog({ organizationId: dieta.organization_id, userId: ctx.user.id, action: "deleted", entity: "dieta", entityId: input.id, beforeJson: dieta });
+        return result;
+      }),
     }),
     meu: router({
       treinos: protectedProcedure.query(({ ctx }) => listTreinosForAluno(ctx.user.id, true)),
@@ -341,14 +410,43 @@ export const appRouter = router({
     inviteMember: protectedProcedure.input(z.object({ organizationId: z.string().uuid(), email: z.string().email(), fullName: z.string().trim().min(2) })).mutation(async ({ ctx, input }) => { await assertStaffOfOrganization(ctx.user.id, input.organizationId); return inviteMember({ organizationId: input.organizationId, invitedByUserId: ctx.user.id, email: input.email, fullName: input.fullName }); }),
     pendingInvitations: protectedProcedure.input(organizationIdInput).query(async ({ ctx, input }) => { await assertStaffOfOrganization(ctx.user.id, input.organizationId); return listPendingMemberInvitations(input.organizationId); }),
     revokeInvitation: protectedProcedure.input(z.object({ id: z.string().uuid(), organizationId: z.string().uuid() })).mutation(async ({ ctx, input }) => { await assertStaffOfOrganization(ctx.user.id, input.organizationId); return revokeMemberInvitation(input.id, input.organizationId); }),
-    acceptInvite: publicProcedure.input(z.object({ token: z.string().trim().min(10), password: z.string().min(8) })).mutation(async ({ ctx, input }) => {
+    acceptInvite: publicProcedure.input(z.object({ token: z.string().trim().min(10), password: z.string().min(8), consentTermos: z.literal(true) })).mutation(async ({ ctx, input }) => {
       const result = await acceptMemberInvitation(input.token, input.password);
+      const policy = await getCurrentPrivacyPolicy();
+      await recordConsent({ userId: result.user.id, consentType: "termos_uso_privacidade", policyVersionId: policy?.id ?? null, ...requestMeta(ctx.req) });
       ctx.res.cookie(SUPABASE_ACCESS_COOKIE, result.accessToken, { ...getSessionCookieOptions(ctx.req), maxAge: 1000 * 60 * 60 * 24 * 30 });
       return { accessToken: result.accessToken, user: result.user, organizationId: result.organizationId };
     }),
+    getCurrentPrivacyPolicy: publicProcedure.query(() => getCurrentPrivacyPolicy()),
+    getConsentStatus: protectedProcedure.query(async ({ ctx }) => ({
+      termosUsoPrivacidade: await hasConsent(ctx.user.id, "termos_uso_privacidade"),
+      dadosSaude: await hasConsent(ctx.user.id, "dados_saude"),
+    })),
     myAcolhimento: protectedProcedure.query(({ ctx }) => getAcolhimento(ctx.user.id)),
-    submitAcolhimento: protectedProcedure.input(acolhimentoInput).mutation(({ ctx, input }) => upsertAcolhimento(ctx.user.id, input)),
-    staffAcolhimento: protectedProcedure.input(z.object({ alunoId: z.string().uuid() })).query(async ({ ctx, input }) => { await assertStaffForAluno(ctx.user.id, input.alunoId); return getAcolhimento(input.alunoId); }),
+    submitAcolhimento: protectedProcedure.input(acolhimentoInput.extend({ consentDadosSaude: z.literal(true).optional() })).mutation(async ({ ctx, input }) => {
+      const { consentDadosSaude, ...data } = input;
+      const touchesHealthData = HEALTH_DATA_FIELDS.some((field) => data[field] !== undefined);
+      if (touchesHealthData && !(await hasConsent(ctx.user.id, "dados_saude"))) {
+        if (!consentDadosSaude) throw new Error("É necessário consentir com o uso dos seus dados de saúde antes de informar dores, lesões ou medicamentos.");
+        const policy = await getCurrentPrivacyPolicy();
+        await recordConsent({ userId: ctx.user.id, consentType: "dados_saude", policyVersionId: policy?.id ?? null, ...requestMeta(ctx.req) });
+      }
+      const saved = await upsertAcolhimento(ctx.user.id, data);
+      const profile = await getProfileByUserId(ctx.user.id);
+      if (profile?.organization_id) await recordAuditLog({ organizationId: profile.organization_id, userId: ctx.user.id, action: "updated", entity: "acolhimento", entityId: ctx.user.id });
+      return saved;
+    }),
+    staffAcolhimento: protectedProcedure.input(z.object({ alunoId: z.string().uuid() })).query(async ({ ctx, input }) => {
+      const profile = await assertStaffForAluno(ctx.user.id, input.alunoId);
+      const acolhimento = await getAcolhimento(input.alunoId);
+      if (profile.organization_id) await recordAuditLog({ organizationId: profile.organization_id, userId: ctx.user.id, action: "viewed", entity: "acolhimento", entityId: input.alunoId });
+      return acolhimento;
+    }),
+    requestAccountDeletion: protectedProcedure.input(z.object({ reason: z.string().trim().max(2000).optional() })).mutation(async ({ ctx, input }) => {
+      const profile = await getProfileByUserId(ctx.user.id);
+      return createDeletionRequest({ userId: ctx.user.id, organizationId: profile?.organization_id ?? null, reason: input.reason });
+    }),
+    myDeletionRequest: protectedProcedure.query(({ ctx }) => getMyDeletionRequest(ctx.user.id)),
   }),
   atendimento: router({
     checkIn: protectedProcedure.input(z.object({ status: z.enum(["indo_bem", "com_dificuldade", "quero_ajuda"]), observacao: z.string().trim().max(2000).optional() })).mutation(async ({ ctx, input }) => {

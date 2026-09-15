@@ -864,3 +864,79 @@ export async function createFollowUpLeadIfNeeded(leadId: string, organizationId:
     return null; // já existe um follow-up aberto para este lead — nunca duplicar.
   }
 }
+
+// --- LGPD: consentimento versionado e direito de exclusão ---
+//
+// As funções aqui usam o service_role (contorna RLS, como todo o resto
+// deste arquivo) — por isso o escopo por organização é feito explicitamente
+// nos filtros abaixo, nunca deixado só para a policy do banco.
+
+async function rpc<T>(fn: string, args: Record<string, unknown>) {
+  const { url, key } = config();
+  const response = await fetch(`${url}/rest/v1/rpc/${fn}`, {
+    method: "POST",
+    headers: { apikey: key, Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+    body: JSON.stringify(args),
+  });
+  if (!response.ok) throw new Error(`Supabase RPC ${fn} ${response.status}: ${await response.text()}`);
+  const text = await response.text();
+  return (text ? JSON.parse(text) : null) as T;
+}
+
+export type PrivacyPolicyVersion = { id: string; version: string; title: string; content: string; effective_at: string; created_at: string };
+export type ConsentType = "termos_uso_privacidade" | "dados_saude";
+export type UserConsent = { id: string; user_id: string | null; consent_type: ConsentType; policy_version_id: string | null; granted: boolean; created_at: string };
+export type DataDeletionRequest = { id: string; user_id: string | null; organization_id: string | null; status: "pending" | "completed" | "rejected"; reason: string | null; requested_at: string; resolved_at: string | null; resolved_by: string | null; resolution_note: string | null };
+
+export async function getCurrentPrivacyPolicy() {
+  const rows = await request<PrivacyPolicyVersion[]>("privacy_policy_versions", {}, "?select=*&order=effective_at.desc&limit=1");
+  return rows[0] ?? null;
+}
+
+export async function hasConsent(userId: string, consentType: ConsentType) {
+  const rows = await request<{ id: string }[]>("user_consents", {}, `?select=id&user_id=eq.${encodeURIComponent(userId)}&consent_type=eq.${consentType}&granted=eq.true&limit=1`);
+  return rows.length > 0;
+}
+
+export async function recordConsent(input: { userId: string; consentType: ConsentType; policyVersionId?: string | null; ipAddress?: string; userAgent?: string }) {
+  const rows = await request<UserConsent[]>("user_consents", { method: "POST", body: JSON.stringify({ user_id: input.userId, consent_type: input.consentType, policy_version_id: input.policyVersionId ?? null, granted: true, ip_address: input.ipAddress ?? null, user_agent: input.userAgent ?? null }) });
+  return rows[0];
+}
+
+// Um pedido pendente por vez — o próprio aluno vê o status do que já
+// solicitou em vez de acumular pedidos duplicados.
+export async function createDeletionRequest(input: { userId: string; organizationId: string | null; reason?: string }) {
+  const existing = await request<{ id: string }[]>("data_deletion_requests", {}, `?select=id&user_id=eq.${encodeURIComponent(input.userId)}&status=eq.pending&limit=1`);
+  if (existing.length) throw new Error("Você já tem uma solicitação de exclusão pendente.");
+  const rows = await request<DataDeletionRequest[]>("data_deletion_requests", { method: "POST", body: JSON.stringify({ user_id: input.userId, organization_id: input.organizationId, reason: input.reason || undefined }) });
+  return rows[0];
+}
+
+export async function getMyDeletionRequest(userId: string) {
+  const rows = await request<DataDeletionRequest[]>("data_deletion_requests", {}, `?select=*&user_id=eq.${encodeURIComponent(userId)}&order=requested_at.desc&limit=1`);
+  return rows[0] ?? null;
+}
+
+export async function getDeletionRequest(idValue: string) {
+  const rows = await request<DataDeletionRequest[]>("data_deletion_requests", {}, `?select=*&id=eq.${encodeURIComponent(idValue)}&limit=1`);
+  return rows[0] ?? null;
+}
+
+export async function listDeletionRequests(organizationId: string, status?: DataDeletionRequest["status"]) {
+  return request<DataDeletionRequest[]>("data_deletion_requests", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}${status ? `&status=eq.${status}` : ""}&order=requested_at.asc`);
+}
+
+// A purga em si é feita por delete_member_data (security definer no banco —
+// ver supabase/20260915_lgpd_consentimento_exclusao.sql), não aqui: o
+// service_role não tem permissão de execução revogada, mas o corpo da
+// função continua sendo a única coisa que sabe apagar de cada tabela.
+export async function fulfillDeletionRequest(input: { requestId: string; alunoId: string; resolvedBy: string; note?: string }) {
+  await rpc("delete_member_data", { p_aluno_id: input.alunoId, p_resolved_by: input.resolvedBy, p_request_id: input.requestId, p_note: input.note || null });
+  return { requestId: input.requestId, status: "completed" as const };
+}
+
+export async function rejectDeletionRequest(input: { requestId: string; organizationId: string; resolvedBy: string; note?: string }) {
+  const rows = await request<DataDeletionRequest[]>("data_deletion_requests", { method: "PATCH", body: JSON.stringify({ status: "rejected", resolved_at: new Date().toISOString(), resolved_by: input.resolvedBy, resolution_note: input.note || null }) }, `?id=eq.${encodeURIComponent(input.requestId)}&organization_id=eq.${encodeURIComponent(input.organizationId)}&status=eq.pending`);
+  if (!rows[0]) throw new Error("Solicitação não encontrada ou já resolvida.");
+  return rows[0];
+}

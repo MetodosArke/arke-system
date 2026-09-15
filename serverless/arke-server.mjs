@@ -1168,6 +1168,55 @@ async function createFollowUpLeadIfNeeded(leadId, organizationId, dias) {
     return null;
   }
 }
+async function rpc2(fn, args) {
+  const { url, key } = config2();
+  const response = await fetch(`${url}/rest/v1/rpc/${fn}`, {
+    method: "POST",
+    headers: { apikey: key, Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+    body: JSON.stringify(args)
+  });
+  if (!response.ok) throw new Error(`Supabase RPC ${fn} ${response.status}: ${await response.text()}`);
+  const text = await response.text();
+  return text ? JSON.parse(text) : null;
+}
+async function getCurrentPrivacyPolicy() {
+  const rows = await request2("privacy_policy_versions", {}, "?select=*&order=effective_at.desc&limit=1");
+  return rows[0] ?? null;
+}
+async function hasConsent(userId, consentType) {
+  const rows = await request2("user_consents", {}, `?select=id&user_id=eq.${encodeURIComponent(userId)}&consent_type=eq.${consentType}&granted=eq.true&limit=1`);
+  return rows.length > 0;
+}
+async function recordConsent(input) {
+  const rows = await request2("user_consents", { method: "POST", body: JSON.stringify({ user_id: input.userId, consent_type: input.consentType, policy_version_id: input.policyVersionId ?? null, granted: true, ip_address: input.ipAddress ?? null, user_agent: input.userAgent ?? null }) });
+  return rows[0];
+}
+async function createDeletionRequest(input) {
+  const existing = await request2("data_deletion_requests", {}, `?select=id&user_id=eq.${encodeURIComponent(input.userId)}&status=eq.pending&limit=1`);
+  if (existing.length) throw new Error("Voc\xEA j\xE1 tem uma solicita\xE7\xE3o de exclus\xE3o pendente.");
+  const rows = await request2("data_deletion_requests", { method: "POST", body: JSON.stringify({ user_id: input.userId, organization_id: input.organizationId, reason: input.reason || void 0 }) });
+  return rows[0];
+}
+async function getMyDeletionRequest(userId) {
+  const rows = await request2("data_deletion_requests", {}, `?select=*&user_id=eq.${encodeURIComponent(userId)}&order=requested_at.desc&limit=1`);
+  return rows[0] ?? null;
+}
+async function getDeletionRequest(idValue) {
+  const rows = await request2("data_deletion_requests", {}, `?select=*&id=eq.${encodeURIComponent(idValue)}&limit=1`);
+  return rows[0] ?? null;
+}
+async function listDeletionRequests(organizationId, status) {
+  return request2("data_deletion_requests", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}${status ? `&status=eq.${status}` : ""}&order=requested_at.asc`);
+}
+async function fulfillDeletionRequest(input) {
+  await rpc2("delete_member_data", { p_aluno_id: input.alunoId, p_resolved_by: input.resolvedBy, p_request_id: input.requestId, p_note: input.note || null });
+  return { requestId: input.requestId, status: "completed" };
+}
+async function rejectDeletionRequest(input) {
+  const rows = await request2("data_deletion_requests", { method: "PATCH", body: JSON.stringify({ status: "rejected", resolved_at: (/* @__PURE__ */ new Date()).toISOString(), resolved_by: input.resolvedBy, resolution_note: input.note || null }) }, `?id=eq.${encodeURIComponent(input.requestId)}&organization_id=eq.${encodeURIComponent(input.organizationId)}&status=eq.pending`);
+  if (!rows[0]) throw new Error("Solicita\xE7\xE3o n\xE3o encontrada ou j\xE1 resolvida.");
+  return rows[0];
+}
 
 // server/cnpj.ts
 async function lookupCnpj(cnpj) {
@@ -1488,6 +1537,8 @@ var acolhimentoInput = z2.object({
   alimentos_nao_gosta: z2.string().trim().max(4e3).optional(),
   alimentacao_rotina: z2.string().trim().max(4e3).optional()
 });
+var HEALTH_DATA_FIELDS = ["dores_lesoes", "medicamentos"];
+var requestMeta = (req) => ({ ipAddress: req.ip, userAgent: typeof req.headers["user-agent"] === "string" ? req.headers["user-agent"] : void 0 });
 var appRouter = router({
   system: systemRouter,
   auth: router({
@@ -1746,11 +1797,33 @@ var appRouter = router({
         await recordAuditLog({ organizationId: input.organizationId, userId: ctx.user.id, action: "revoked", entity: "invitation", entityId: input.invitationId });
         return result;
       }),
-      acceptInvite: protectedProcedure.input(z2.object({ token: z2.string().min(16).max(128) })).mutation(async ({ ctx, input }) => {
+      acceptInvite: protectedProcedure.input(z2.object({ token: z2.string().min(16).max(128), consentTermos: z2.literal(true) })).mutation(async ({ ctx, input }) => {
         if (!ctx.user.email) throw new Error("Authenticated user email is required");
         const result = await acceptOrganizationInvitation({ tokenHash: createHash2("sha256").update(input.token).digest("hex"), userId: ctx.user.id, email: ctx.user.email });
+        if (!await hasConsent(ctx.user.id, "termos_uso_privacidade")) {
+          const policy = await getCurrentPrivacyPolicy();
+          await recordConsent({ userId: ctx.user.id, consentType: "termos_uso_privacidade", policyVersionId: policy?.id ?? null, ...requestMeta(ctx.req) });
+        }
         await recordAuditLog({ organizationId: result.organizationId, userId: ctx.user.id, action: "accepted", entity: "invitation", entityId: result.invitation.id, afterJson: { role: result.role, email: ctx.user.email } });
         return { organizationId: result.organizationId, role: result.role, status: "accepted" };
+      }),
+      listDeletionRequests: protectedProcedure.input(organizationIdInput).query(async ({ ctx, input }) => {
+        await ownerOrAdmin(ctx.user.id, input.organizationId);
+        return listDeletionRequests(input.organizationId);
+      }),
+      fulfillDeletionRequest: protectedProcedure.input(z2.object({ organizationId: z2.string().uuid(), requestId: z2.string().uuid(), note: z2.string().trim().max(2e3).optional() })).mutation(async ({ ctx, input }) => {
+        await ownerOrAdmin(ctx.user.id, input.organizationId);
+        const deletionRequest = await getDeletionRequest(input.requestId);
+        if (!deletionRequest || deletionRequest.organization_id !== input.organizationId || deletionRequest.status !== "pending" || !deletionRequest.user_id) throw new Error("Solicita\xE7\xE3o n\xE3o encontrada ou j\xE1 resolvida.");
+        await fulfillDeletionRequest({ requestId: input.requestId, alunoId: deletionRequest.user_id, resolvedBy: ctx.user.id, note: input.note });
+        await recordAuditLog({ organizationId: input.organizationId, userId: ctx.user.id, action: "completed", entity: "data_deletion_request", entityId: input.requestId });
+        return { requestId: input.requestId, status: "completed" };
+      }),
+      rejectDeletionRequest: protectedProcedure.input(z2.object({ organizationId: z2.string().uuid(), requestId: z2.string().uuid(), note: z2.string().trim().max(2e3).optional() })).mutation(async ({ ctx, input }) => {
+        await ownerOrAdmin(ctx.user.id, input.organizationId);
+        const rejected = await rejectDeletionRequest({ requestId: input.requestId, organizationId: input.organizationId, resolvedBy: ctx.user.id, note: input.note });
+        await recordAuditLog({ organizationId: input.organizationId, userId: ctx.user.id, action: "rejected", entity: "data_deletion_request", entityId: input.requestId });
+        return rejected;
       })
     })
   }),
@@ -1776,23 +1849,31 @@ var appRouter = router({
       }),
       create: protectedProcedure.input(z2.object({ alunoId: z2.string().uuid(), titulo: z2.string().trim().min(2), tipo: z2.string().trim().min(1).default("A"), descricao: z2.string().trim().optional() })).mutation(async ({ ctx, input }) => {
         const profile = await assertStaffForAluno(ctx.user.id, input.alunoId, TREINO_BLOCKED_ROLES);
-        return createTreino({ aluno_id: input.alunoId, titulo: input.titulo, tipo: input.tipo, descricao: input.descricao || void 0, organization_id: profile.organization_id, criado_por: ctx.user.id });
+        const treino = await createTreino({ aluno_id: input.alunoId, titulo: input.titulo, tipo: input.tipo, descricao: input.descricao || void 0, organization_id: profile.organization_id, criado_por: ctx.user.id });
+        if (profile.organization_id) await recordAuditLog({ organizationId: profile.organization_id, userId: ctx.user.id, action: "created", entity: "treino", entityId: treino.id, afterJson: input });
+        return treino;
       }),
       update: protectedProcedure.input(z2.object({ id: z2.string().uuid(), data: z2.object({ titulo: z2.string().trim().min(2), tipo: z2.string().trim().min(1), descricao: z2.string().trim().optional().nullable() }) })).mutation(async ({ ctx, input }) => {
-        await assertStaffForTreino(ctx.user.id, input.id, TREINO_BLOCKED_ROLES);
-        return updateTreino(input.id, input.data);
+        const treino = await assertStaffForTreino(ctx.user.id, input.id, TREINO_BLOCKED_ROLES);
+        const updated = await updateTreino(input.id, input.data);
+        if (treino.organization_id) await recordAuditLog({ organizationId: treino.organization_id, userId: ctx.user.id, action: "updated", entity: "treino", entityId: input.id, beforeJson: treino, afterJson: input.data });
+        return updated;
       }),
       saveExercicios: protectedProcedure.input(z2.object({ treinoId: z2.string().uuid(), items: z2.array(treinoExercicioItem) })).mutation(async ({ ctx, input }) => {
         await assertStaffForTreino(ctx.user.id, input.treinoId, TREINO_BLOCKED_ROLES);
         return replaceTreinoExercicios(input.treinoId, input.items);
       }),
       publish: protectedProcedure.input(z2.object({ id: z2.string().uuid() })).mutation(async ({ ctx, input }) => {
-        await assertStaffForTreino(ctx.user.id, input.id, TREINO_BLOCKED_ROLES);
-        return publishTreino(input.id, ctx.user.id);
+        const treino = await assertStaffForTreino(ctx.user.id, input.id, TREINO_BLOCKED_ROLES);
+        const published = await publishTreino(input.id, ctx.user.id);
+        if (treino.organization_id) await recordAuditLog({ organizationId: treino.organization_id, userId: ctx.user.id, action: "published", entity: "treino", entityId: input.id, afterJson: { versao: published.versao } });
+        return published;
       }),
       delete: protectedProcedure.input(z2.object({ id: z2.string().uuid() })).mutation(async ({ ctx, input }) => {
-        await assertStaffForTreino(ctx.user.id, input.id, TREINO_BLOCKED_ROLES);
-        return deleteTreino(input.id);
+        const treino = await assertStaffForTreino(ctx.user.id, input.id, TREINO_BLOCKED_ROLES);
+        const result = await deleteTreino(input.id);
+        if (treino.organization_id) await recordAuditLog({ organizationId: treino.organization_id, userId: ctx.user.id, action: "deleted", entity: "treino", entityId: input.id, beforeJson: treino });
+        return result;
       }),
       fichaPdf: protectedProcedure.input(z2.object({ id: z2.string().uuid() })).query(async ({ ctx, input }) => {
         await assertStaffForTreino(ctx.user.id, input.id);
@@ -1806,19 +1887,27 @@ var appRouter = router({
       }),
       create: protectedProcedure.input(z2.object({ alunoId: z2.string().uuid(), titulo: z2.string().trim().min(2), descricao: z2.string().trim().optional(), arquivoUrl: z2.string().url().optional() })).mutation(async ({ ctx, input }) => {
         const profile = await assertStaffForAluno(ctx.user.id, input.alunoId, DIETA_BLOCKED_ROLES);
-        return createDieta({ aluno_id: input.alunoId, titulo: input.titulo, descricao: input.descricao || void 0, arquivo_url: input.arquivoUrl || void 0, organization_id: profile.organization_id, criado_por: ctx.user.id });
+        const dieta = await createDieta({ aluno_id: input.alunoId, titulo: input.titulo, descricao: input.descricao || void 0, arquivo_url: input.arquivoUrl || void 0, organization_id: profile.organization_id, criado_por: ctx.user.id });
+        if (profile.organization_id) await recordAuditLog({ organizationId: profile.organization_id, userId: ctx.user.id, action: "created", entity: "dieta", entityId: dieta.id, afterJson: input });
+        return dieta;
       }),
       update: protectedProcedure.input(z2.object({ id: z2.string().uuid(), data: z2.object({ titulo: z2.string().trim().min(2), descricao: z2.string().trim().optional().nullable(), arquivo_url: z2.string().url().optional().nullable() }) })).mutation(async ({ ctx, input }) => {
-        await assertStaffForDieta(ctx.user.id, input.id, DIETA_BLOCKED_ROLES);
-        return updateDieta(input.id, input.data);
+        const dieta = await assertStaffForDieta(ctx.user.id, input.id, DIETA_BLOCKED_ROLES);
+        const updated = await updateDieta(input.id, input.data);
+        if (dieta.organization_id) await recordAuditLog({ organizationId: dieta.organization_id, userId: ctx.user.id, action: "updated", entity: "dieta", entityId: input.id, beforeJson: dieta, afterJson: input.data });
+        return updated;
       }),
       publish: protectedProcedure.input(z2.object({ id: z2.string().uuid() })).mutation(async ({ ctx, input }) => {
-        await assertStaffForDieta(ctx.user.id, input.id, DIETA_BLOCKED_ROLES);
-        return publishDieta(input.id, ctx.user.id);
+        const dieta = await assertStaffForDieta(ctx.user.id, input.id, DIETA_BLOCKED_ROLES);
+        const published = await publishDieta(input.id, ctx.user.id);
+        if (dieta.organization_id) await recordAuditLog({ organizationId: dieta.organization_id, userId: ctx.user.id, action: "published", entity: "dieta", entityId: input.id, afterJson: { versao: published.versao } });
+        return published;
       }),
       delete: protectedProcedure.input(z2.object({ id: z2.string().uuid() })).mutation(async ({ ctx, input }) => {
-        await assertStaffForDieta(ctx.user.id, input.id, DIETA_BLOCKED_ROLES);
-        return deleteDieta(input.id);
+        const dieta = await assertStaffForDieta(ctx.user.id, input.id, DIETA_BLOCKED_ROLES);
+        const result = await deleteDieta(input.id);
+        if (dieta.organization_id) await recordAuditLog({ organizationId: dieta.organization_id, userId: ctx.user.id, action: "deleted", entity: "dieta", entityId: input.id, beforeJson: dieta });
+        return result;
       })
     }),
     meu: router({
@@ -1849,17 +1938,43 @@ var appRouter = router({
       await assertStaffOfOrganization(ctx.user.id, input.organizationId);
       return revokeMemberInvitation(input.id, input.organizationId);
     }),
-    acceptInvite: publicProcedure.input(z2.object({ token: z2.string().trim().min(10), password: z2.string().min(8) })).mutation(async ({ ctx, input }) => {
+    acceptInvite: publicProcedure.input(z2.object({ token: z2.string().trim().min(10), password: z2.string().min(8), consentTermos: z2.literal(true) })).mutation(async ({ ctx, input }) => {
       const result = await acceptMemberInvitation(input.token, input.password);
+      const policy = await getCurrentPrivacyPolicy();
+      await recordConsent({ userId: result.user.id, consentType: "termos_uso_privacidade", policyVersionId: policy?.id ?? null, ...requestMeta(ctx.req) });
       ctx.res.cookie(SUPABASE_ACCESS_COOKIE, result.accessToken, { ...getSessionCookieOptions(ctx.req), maxAge: 1e3 * 60 * 60 * 24 * 30 });
       return { accessToken: result.accessToken, user: result.user, organizationId: result.organizationId };
     }),
+    getCurrentPrivacyPolicy: publicProcedure.query(() => getCurrentPrivacyPolicy()),
+    getConsentStatus: protectedProcedure.query(async ({ ctx }) => ({
+      termosUsoPrivacidade: await hasConsent(ctx.user.id, "termos_uso_privacidade"),
+      dadosSaude: await hasConsent(ctx.user.id, "dados_saude")
+    })),
     myAcolhimento: protectedProcedure.query(({ ctx }) => getAcolhimento(ctx.user.id)),
-    submitAcolhimento: protectedProcedure.input(acolhimentoInput).mutation(({ ctx, input }) => upsertAcolhimento(ctx.user.id, input)),
+    submitAcolhimento: protectedProcedure.input(acolhimentoInput.extend({ consentDadosSaude: z2.literal(true).optional() })).mutation(async ({ ctx, input }) => {
+      const { consentDadosSaude, ...data } = input;
+      const touchesHealthData = HEALTH_DATA_FIELDS.some((field) => data[field] !== void 0);
+      if (touchesHealthData && !await hasConsent(ctx.user.id, "dados_saude")) {
+        if (!consentDadosSaude) throw new Error("\xC9 necess\xE1rio consentir com o uso dos seus dados de sa\xFAde antes de informar dores, les\xF5es ou medicamentos.");
+        const policy = await getCurrentPrivacyPolicy();
+        await recordConsent({ userId: ctx.user.id, consentType: "dados_saude", policyVersionId: policy?.id ?? null, ...requestMeta(ctx.req) });
+      }
+      const saved = await upsertAcolhimento(ctx.user.id, data);
+      const profile = await getProfileByUserId(ctx.user.id);
+      if (profile?.organization_id) await recordAuditLog({ organizationId: profile.organization_id, userId: ctx.user.id, action: "updated", entity: "acolhimento", entityId: ctx.user.id });
+      return saved;
+    }),
     staffAcolhimento: protectedProcedure.input(z2.object({ alunoId: z2.string().uuid() })).query(async ({ ctx, input }) => {
-      await assertStaffForAluno(ctx.user.id, input.alunoId);
-      return getAcolhimento(input.alunoId);
-    })
+      const profile = await assertStaffForAluno(ctx.user.id, input.alunoId);
+      const acolhimento = await getAcolhimento(input.alunoId);
+      if (profile.organization_id) await recordAuditLog({ organizationId: profile.organization_id, userId: ctx.user.id, action: "viewed", entity: "acolhimento", entityId: input.alunoId });
+      return acolhimento;
+    }),
+    requestAccountDeletion: protectedProcedure.input(z2.object({ reason: z2.string().trim().max(2e3).optional() })).mutation(async ({ ctx, input }) => {
+      const profile = await getProfileByUserId(ctx.user.id);
+      return createDeletionRequest({ userId: ctx.user.id, organizationId: profile?.organization_id ?? null, reason: input.reason });
+    }),
+    myDeletionRequest: protectedProcedure.query(({ ctx }) => getMyDeletionRequest(ctx.user.id))
   }),
   atendimento: router({
     checkIn: protectedProcedure.input(z2.object({ status: z2.enum(["indo_bem", "com_dificuldade", "quero_ajuda"]), observacao: z2.string().trim().max(2e3).optional() })).mutation(async ({ ctx, input }) => {

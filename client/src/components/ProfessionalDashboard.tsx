@@ -128,7 +128,11 @@ export function ProfessionalDashboard({ onToast }: { onToast: (toast: Toast) => 
   const inviteTeam = trpc.saas.organizations.invite.useMutation({ onSuccess: () => { success("Convite de equipe enviado"); setTeamInviteForm(emptyTeamInvite); refreshTeamInvites(); }, onError: (e) => fail("Erro ao convidar colega de equipe", e) });
   const revokeTeamInvite = trpc.saas.organizations.revokeInvitation.useMutation({ onSuccess: () => { success("Convite de equipe revogado"); refreshTeamInvites(); }, onError: (e) => fail("Erro ao revogar convite de equipe", e) });
   const [acceptTeamToken, setAcceptTeamToken] = useState("");
-  const acceptTeamInvite = trpc.saas.organizations.acceptInvite.useMutation({ onSuccess: () => { success("Convite de equipe aceito"); setAcceptTeamToken(""); utils.prescricao.myOrganizations.invalidate(); }, onError: (e) => fail("Erro ao aceitar convite de equipe", e) });
+  const [acceptTeamConsent, setAcceptTeamConsent] = useState(false);
+  const consentStatusQuery = trpc.journey.getConsentStatus.useQuery();
+  const privacyPolicyQuery = trpc.journey.getCurrentPrivacyPolicy.useQuery();
+  const needsTermsConsent = consentStatusQuery.data ? !consentStatusQuery.data.termosUsoPrivacidade : true;
+  const acceptTeamInvite = trpc.saas.organizations.acceptInvite.useMutation({ onSuccess: () => { success("Convite de equipe aceito"); setAcceptTeamToken(""); setAcceptTeamConsent(false); utils.prescricao.myOrganizations.invalidate(); utils.journey.getConsentStatus.invalidate(); }, onError: (e) => fail("Erro ao aceitar convite de equipe", e) });
 
   // Acolhimento (somente leitura para o profissional)
   const acolhimentoQuery = trpc.journey.staffAcolhimento.useQuery({ alunoId }, { enabled: Boolean(alunoId) && tab === "acolhimento" });
@@ -196,7 +200,11 @@ export function ProfessionalDashboard({ onToast }: { onToast: (toast: Toast) => 
         <div className="space-y-2 rounded-xl bg-[#faf7ef] p-3">
           <p className="text-xs font-semibold text-[#4b4438]">Tenho um convite de equipe</p>
           <Input value={acceptTeamToken} onChange={(e) => setAcceptTeamToken(e.target.value)} placeholder="Código de convite" className="h-9 rounded-lg text-xs" />
-          <Button onClick={() => acceptTeamInvite.mutate({ token: acceptTeamToken.trim() })} disabled={!acceptTeamToken.trim() || acceptTeamInvite.isPending} className="h-9 w-full rounded-lg bg-[#15130f] text-xs text-white"><UserPlus size={14} /> Aceitar convite</Button>
+          {needsTermsConsent && <>
+            {privacyPolicyQuery.data && <div className="max-h-24 overflow-y-auto rounded-lg border border-[#e5ece5] bg-white p-2 text-[11px] leading-4 text-[#766f62]">{privacyPolicyQuery.data.content}</div>}
+            <label className="flex items-start gap-2 text-xs text-[#766f62]"><input type="checkbox" checked={acceptTeamConsent} onChange={(e) => setAcceptTeamConsent(e.target.checked)} className="mt-0.5 h-4 w-4 accent-[#4c9a6a]" /> Li e aceito os Termos de Uso e a Política de Privacidade{privacyPolicyQuery.data ? ` (versão ${privacyPolicyQuery.data.version})` : ""}.</label>
+          </>}
+          <Button onClick={() => acceptTeamInvite.mutate({ token: acceptTeamToken.trim(), consentTermos: true })} disabled={!acceptTeamToken.trim() || acceptTeamInvite.isPending || (needsTermsConsent && !acceptTeamConsent)} className="h-9 w-full rounded-lg bg-[#15130f] text-xs text-white"><UserPlus size={14} /> Aceitar convite</Button>
         </div>
         {canManageTeam && <div className="space-y-2 rounded-xl bg-[#faf7ef] p-3">
           <p className="text-xs font-semibold text-[#4b4438]">Convidar profissional ou nutricionista</p>
