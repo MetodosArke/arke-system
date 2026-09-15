@@ -5,7 +5,7 @@ import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { adminProcedure, protectedProcedure, publicProcedure, router } from "./_core/trpc";
 import { acceptOrganizationInvitation, archiveOrganizationUnit, auditLogsToCsv, auditLogsToPdfBase64, createOrganizationInvitation, createOrganizationUnit, createOrganizationWithOwner, getAuditLogs, getMembership, getOrganizationAccess, getOrganizationOnboarding, getOrganizationSubscription, getOrganizationsForUser, getPendingOrganizationInvitations, recordAuditLog, saveOrganizationOnboarding, updateModulePolicy, updateOrganizationProfile, updateOrganizationSubscription } from "./db";
-import { createAppStudent, createAppUser, createDieta, createGlobalExercise, createGlobalGroup, createGlobalNutritionPlan, createGlobalRoutine, createGlobalTemplate, createGlobalTemplateExercise, createPasswordRecoveryCode, createTreino, deleteAppStudent, deleteAppUser, deleteDieta, deleteGlobalExercise, deleteGlobalGroup, deleteGlobalNutritionPlan, deleteGlobalRoutine, deleteGlobalTemplate, deleteGlobalTemplateExercise, deleteGlobalAccessRule, deleteTreino, findAppUserByEmail, getDieta, getProfileByUserId, getTreino, hasSupabaseConfig, listAppStudents, listAppUsers, listDietasForAluno, listExercisesCatalog, listGlobalLibrary, listStudentsInOrganization, listTreinoExercicios, listTreinosForAluno, normalizeEmail, publishDieta, publishTreino, replaceTreinoExercicios, signInWithSupabase, updateAppStudent, updateAppUser, updateDieta, updateGlobalExercise, updateGlobalGroup, updateGlobalNutritionPlan, updateGlobalRoutine, updateGlobalTemplate, updateGlobalTemplateExercise, updateSupabaseUserPassword, updateTreino, upsertGlobalAccessRule, verifyPasswordRecoveryCode } from "./supabaseAdmin";
+import { acceptMemberInvitation, createAppStudent, createAppUser, createDieta, createGlobalExercise, createGlobalGroup, createGlobalNutritionPlan, createGlobalRoutine, createGlobalTemplate, createGlobalTemplateExercise, createPasswordRecoveryCode, createTreino, deleteAppStudent, deleteAppUser, deleteDieta, deleteGlobalExercise, deleteGlobalGroup, deleteGlobalNutritionPlan, deleteGlobalRoutine, deleteGlobalTemplate, deleteGlobalTemplateExercise, deleteGlobalAccessRule, deleteTreino, findAppUserByEmail, getAcolhimento, getDieta, getProfileByUserId, getTreino, hasSupabaseConfig, inviteMember, listAppStudents, listAppUsers, listDietasForAluno, listExercisesCatalog, listGlobalLibrary, listPendingMemberInvitations, listStudentsInOrganization, listTreinoExercicios, listTreinosForAluno, normalizeEmail, publishDieta, publishTreino, replaceTreinoExercicios, revokeMemberInvitation, signInWithSupabase, updateAppStudent, updateAppUser, updateDieta, updateGlobalExercise, updateGlobalGroup, updateGlobalNutritionPlan, updateGlobalRoutine, updateGlobalTemplate, updateGlobalTemplateExercise, updateSupabaseUserPassword, updateTreino, upsertAcolhimento, upsertGlobalAccessRule, verifyPasswordRecoveryCode } from "./supabaseAdmin";
 import { asaasSandboxConfigured, createAsaasCustomer, createAsaasPayment, createAsaasWebhook, getAsaasAccount, listAsaasPayments } from "./asaas";
 import { listStoredAsaasPayments } from "./asaasPersistence";
 import { lookupCnpj } from "./cnpj";
@@ -61,6 +61,21 @@ const assertStaffForDieta = async (userId: string, dietaId: string) => {
 };
 
 const treinoExercicioItem = z.object({ exercicio_id: z.string().uuid(), series: z.number().int().min(1).default(3), repeticoes: z.string().trim().min(1).default("12"), descanso_seg: z.number().int().min(0).default(60), descanso_por_serie: z.string().trim().optional(), observacoes: z.string().trim().optional() });
+
+const acolhimentoInput = z.object({
+  rotina_diaria: z.string().trim().max(4000).optional(),
+  experiencias_exercicio: z.string().trim().max(4000).optional(),
+  experiencias_gostou: z.string().trim().max(4000).optional(),
+  experiencias_nao_gostou: z.string().trim().max(4000).optional(),
+  dores_lesoes: z.string().trim().max(4000).optional(),
+  medicamentos: z.string().trim().max(4000).optional(),
+  tempo_disponivel: z.string().trim().max(4000).optional(),
+  estilo_treino: z.string().trim().max(4000).optional(),
+  exercicios_nao_gosta: z.string().trim().max(4000).optional(),
+  alimentos_gosta: z.string().trim().max(4000).optional(),
+  alimentos_nao_gosta: z.string().trim().max(4000).optional(),
+  alimentacao_rotina: z.string().trim().max(4000).optional(),
+});
 
 export const appRouter = router({
   system: systemRouter,
@@ -201,6 +216,19 @@ export const appRouter = router({
       treinoExercicios: protectedProcedure.input(z.object({ treinoId: z.string().uuid() })).query(async ({ ctx, input }) => { const treino = await getTreino(input.treinoId); if (!treino || treino.aluno_id !== ctx.user.id || treino.estado_publicacao !== "publicado") throw new Error("Treino não encontrado."); return listTreinoExercicios(input.treinoId); }),
       dietas: protectedProcedure.query(({ ctx }) => listDietasForAluno(ctx.user.id, true)),
     }),
+  }),
+  journey: router({
+    inviteMember: protectedProcedure.input(z.object({ organizationId: z.string().uuid(), email: z.string().email(), fullName: z.string().trim().min(2) })).mutation(async ({ ctx, input }) => { await assertStaffOfOrganization(ctx.user.id, input.organizationId); return inviteMember({ organizationId: input.organizationId, invitedByUserId: ctx.user.id, email: input.email, fullName: input.fullName }); }),
+    pendingInvitations: protectedProcedure.input(organizationIdInput).query(async ({ ctx, input }) => { await assertStaffOfOrganization(ctx.user.id, input.organizationId); return listPendingMemberInvitations(input.organizationId); }),
+    revokeInvitation: protectedProcedure.input(z.object({ id: z.string().uuid(), organizationId: z.string().uuid() })).mutation(async ({ ctx, input }) => { await assertStaffOfOrganization(ctx.user.id, input.organizationId); return revokeMemberInvitation(input.id, input.organizationId); }),
+    acceptInvite: publicProcedure.input(z.object({ token: z.string().trim().min(10), password: z.string().min(8) })).mutation(async ({ ctx, input }) => {
+      const result = await acceptMemberInvitation(input.token, input.password);
+      ctx.res.cookie(SUPABASE_ACCESS_COOKIE, result.accessToken, { ...getSessionCookieOptions(ctx.req), maxAge: 1000 * 60 * 60 * 24 * 30 });
+      return { accessToken: result.accessToken, user: result.user, organizationId: result.organizationId };
+    }),
+    myAcolhimento: protectedProcedure.query(({ ctx }) => getAcolhimento(ctx.user.id)),
+    submitAcolhimento: protectedProcedure.input(acolhimentoInput).mutation(({ ctx, input }) => upsertAcolhimento(ctx.user.id, input)),
+    staffAcolhimento: protectedProcedure.input(z.object({ alunoId: z.string().uuid() })).query(async ({ ctx, input }) => { await assertStaffForAluno(ctx.user.id, input.alunoId); return getAcolhimento(input.alunoId); }),
   }),
 });
 

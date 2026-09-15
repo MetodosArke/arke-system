@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { ENV } from "./_core/env";
 
 type Row = Record<string, unknown>;
@@ -207,4 +207,94 @@ export async function publishDieta(dietaId: string, autorId: string) {
   const atualizado = await updateDieta(dietaId, { estado_publicacao: "publicado", versao, publicado_por: autorId, publicado_em });
   await request("dieta_revisoes", { method: "POST", body: JSON.stringify({ dieta_id: dietaId, versao, conteudo: dieta, autor_id: autorId, organization_id: dieta.organization_id }) });
   return atualizado;
+}
+
+// --- Fase 3: Jornada inicial (convite de aluno, cadastro, acolhimento) ---
+
+export type MemberInvitation = { id: string; organization_id: string; invited_by_user_id: string | null; email: string; full_name: string; token_hash: string; status: "pending" | "accepted" | "expired" | "revoked"; expires_at: string; created_at: string };
+export type Acolhimento = { id: string; aluno_id: string; rotina_diaria?: string | null; experiencias_exercicio?: string | null; experiencias_gostou?: string | null; experiencias_nao_gostou?: string | null; dores_lesoes?: string | null; medicamentos?: string | null; tempo_disponivel?: string | null; estilo_treino?: string | null; exercicios_nao_gosta?: string | null; alimentos_gosta?: string | null; alimentos_nao_gosta?: string | null; alimentacao_rotina?: string | null; created_at: string; updated_at: string };
+
+async function getOrganizationName(organizationId: string) {
+  const rows = await request<{ id: string; name: string }[]>("saas_organizations", {}, `?select=id,name&id=eq.${encodeURIComponent(organizationId)}&limit=1`);
+  return rows[0]?.name ?? "sua academia";
+}
+
+export async function findPendingMemberInvitation(organizationId: string, email: string) {
+  const rows = await request<MemberInvitation[]>("member_invitations", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}&email=eq.${encodeURIComponent(normalizeEmail(email))}&status=eq.pending&limit=1`);
+  return rows[0] ?? null;
+}
+
+export async function listPendingMemberInvitations(organizationId: string) {
+  return request<MemberInvitation[]>("member_invitations", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}&status=eq.pending&order=created_at.desc`);
+}
+
+export async function inviteMember(input: { organizationId: string; invitedByUserId: string; email: string; fullName: string }) {
+  const email = normalizeEmail(input.email);
+  const existing = await findPendingMemberInvitation(input.organizationId, email);
+  if (existing) throw new Error("Já existe um convite pendente para este e-mail nesta organização.");
+
+  const rawToken = randomUUID();
+  const tokenHash = createHash("sha256").update(rawToken).digest("hex");
+  const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24 * 7);
+
+  const rows = await request<MemberInvitation[]>("member_invitations", { method: "POST", body: JSON.stringify({
+    organization_id: input.organizationId,
+    invited_by_user_id: input.invitedByUserId,
+    email,
+    full_name: input.fullName,
+    token_hash: tokenHash,
+    expires_at: expiresAt.toISOString(),
+  }) });
+  const invitation = rows[0];
+
+  const orgName = await getOrganizationName(input.organizationId);
+  await sendEmail(email, `Convite para o Arke — ${orgName}`, `<p>Olá, ${input.fullName}.</p><p>Você foi convidado(a) a fazer parte de <strong>${orgName}</strong> no Arke.</p><p>Para concluir seu cadastro, acesse o portal, clique em "Tenho um convite" na tela de login e use o código abaixo:</p><h2 style="letter-spacing:1px">${rawToken}</h2><p>Este convite expira em 7 dias.</p>`);
+  return invitation;
+}
+
+export async function revokeMemberInvitation(id: string, organizationId: string) {
+  const rows = await request<MemberInvitation[]>("member_invitations", { method: "PATCH", body: JSON.stringify({ status: "revoked" }) }, `?id=eq.${encodeURIComponent(id)}&organization_id=eq.${encodeURIComponent(organizationId)}&status=eq.pending`);
+  if (!rows[0]) throw new Error("Convite não encontrado ou já utilizado.");
+  return rows[0];
+}
+
+async function findMemberInvitationByToken(token: string) {
+  const tokenHash = createHash("sha256").update(token).digest("hex");
+  const rows = await request<MemberInvitation[]>("member_invitations", {}, `?select=*&token_hash=eq.${encodeURIComponent(tokenHash)}&status=eq.pending&limit=1`);
+  return rows[0] ?? null;
+}
+
+async function createSupabaseUserWithPassword(email: string, password: string, fullName: string) {
+  const { url, key } = config();
+  const response = await fetch(`${url}/auth/v1/admin/users`, { method: "POST", headers: { apikey: key, Authorization: `Bearer ${key}`, "Content-Type": "application/json" }, body: JSON.stringify({ email: normalizeEmail(email), password, email_confirm: true, user_metadata: { full_name: fullName } }) });
+  if (!response.ok) throw new Error("Não foi possível criar sua conta. Verifique se este e-mail já não está cadastrado.");
+  return response.json() as Promise<{ id: string; email?: string }>;
+}
+
+export async function acceptMemberInvitation(token: string, password: string) {
+  const invitation = await findMemberInvitationByToken(token);
+  if (!invitation) throw new Error("Código de convite inválido ou já utilizado.");
+  if (new Date(invitation.expires_at).getTime() < Date.now()) throw new Error("Este convite expirou. Peça para reenviarem o convite.");
+
+  const authUser = await createSupabaseUserWithPassword(invitation.email, password, invitation.full_name);
+
+  // O gatilho on_auth_user_created (Supabase) já cria a linha em profiles
+  // com organization_id nulo; aqui só vinculamos à organização do convite.
+  await request("profiles", { method: "PATCH", body: JSON.stringify({ full_name: invitation.full_name, organization_id: invitation.organization_id, status: "active" }) }, `?user_id=eq.${encodeURIComponent(authUser.id)}`);
+
+  const accepted = await request<MemberInvitation[]>("member_invitations", { method: "PATCH", body: JSON.stringify({ status: "accepted" }) }, `?id=eq.${encodeURIComponent(invitation.id)}&status=eq.pending`);
+  if (!accepted[0]) throw new Error("Este convite já foi utilizado.");
+
+  const session = await signInWithSupabase(invitation.email, password);
+  return { accessToken: session.accessToken, refreshToken: session.refreshToken, user: session.user, organizationId: invitation.organization_id };
+}
+
+export async function getAcolhimento(alunoId: string) {
+  const rows = await request<Acolhimento[]>("reuniao_acolhimento", {}, `?select=*&aluno_id=eq.${encodeURIComponent(alunoId)}&limit=1`);
+  return rows[0] ?? null;
+}
+
+export async function upsertAcolhimento(alunoId: string, data: Record<string, unknown>) {
+  const rows = await request<Acolhimento[]>("reuniao_acolhimento", { method: "POST", headers: { Prefer: "resolution=merge-duplicates,return=representation" }, body: JSON.stringify({ ...data, aluno_id: alunoId, criado_por: alunoId, updated_at: new Date().toISOString() }) }, "?on_conflict=aluno_id");
+  return rows[0];
 }
