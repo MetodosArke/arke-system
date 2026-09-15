@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Download, IdCard, Plus, Save, Send, Trash2 } from "lucide-react";
+import { Download, IdCard, Plus, Save, Send, Trash2, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -27,6 +27,8 @@ const emptyTreino = { titulo: "", tipo: "A", descricao: "" };
 const emptyExercicio = { exercicioId: "", series: "3", repeticoes: "12", descansoSeg: "60", observacoes: "" };
 const emptyDieta = { titulo: "", descricao: "", arquivoUrl: "" };
 const emptyInvite = { fullName: "", email: "" };
+const emptyTeamInvite = { email: "", role: "professional" as const };
+const TEAM_ROLE_LABELS: Record<string, string> = { admin: "Administrador", manager: "Gerente", professional: "Profissional de treino", nutricionista: "Nutricionista", viewer: "Visualizador" };
 
 const ACOLHIMENTO_FIELDS: Array<[string, "rotina_diaria" | "experiencias_exercicio" | "experiencias_gostou" | "experiencias_nao_gostou" | "dores_lesoes" | "medicamentos" | "tempo_disponivel" | "estilo_treino" | "exercicios_nao_gosta" | "alimentos_gosta" | "alimentos_nao_gosta" | "alimentacao_rotina"]> = [
   ["Rotina diária", "rotina_diaria"],
@@ -48,6 +50,11 @@ export function ProfessionalDashboard({ onToast }: { onToast: (toast: Toast) => 
   const organizations = useMemo(() => orgsQuery.data ?? [], [orgsQuery.data]);
   const [organizationId, setOrganizationId] = useState("");
   const activeOrgId = organizationId || organizations[0]?.membership.organization_id || "";
+  const activeRole = organizations.find((org) => org.membership.organization_id === activeOrgId)?.membership.role;
+  // CLAUDE.md §2: "Profissional de treino" não publica plano alimentar; "Nutricionista" não publica prescrição de treino.
+  const canManageTreino = activeRole !== "nutricionista";
+  const canManageDieta = activeRole !== "professional";
+  const canManageTeam = activeRole === "owner" || activeRole === "admin" || activeRole === "manager";
 
   const studentsQuery = trpc.prescricao.students.useQuery({ organizationId: activeOrgId }, { enabled: Boolean(activeOrgId) });
   const students = studentsQuery.data ?? [];
@@ -113,6 +120,16 @@ export function ProfessionalDashboard({ onToast }: { onToast: (toast: Toast) => 
   const inviteMember = trpc.journey.inviteMember.useMutation({ onSuccess: () => { success("Convite enviado por e-mail"); setInviteForm(emptyInvite); refreshInvites(); }, onError: (e) => fail("Erro ao convidar aluno", e) });
   const revokeInvite = trpc.journey.revokeInvitation.useMutation({ onSuccess: () => { success("Convite revogado"); refreshInvites(); }, onError: (e) => fail("Erro ao revogar convite", e) });
 
+  // Convite de equipe (profissional/nutricionista/gerente) — vínculo por convite (Fase 11)
+  const teamInvitesQuery = trpc.saas.organizations.pendingInvitations.useQuery({ organizationId: activeOrgId }, { enabled: Boolean(activeOrgId) && canManageTeam });
+  const teamInvites = teamInvitesQuery.data ?? [];
+  const [teamInviteForm, setTeamInviteForm] = useState<{ email: string; role: "admin" | "manager" | "professional" | "nutricionista" | "viewer" }>(emptyTeamInvite);
+  const refreshTeamInvites = () => utils.saas.organizations.pendingInvitations.invalidate({ organizationId: activeOrgId });
+  const inviteTeam = trpc.saas.organizations.invite.useMutation({ onSuccess: () => { success("Convite de equipe enviado"); setTeamInviteForm(emptyTeamInvite); refreshTeamInvites(); }, onError: (e) => fail("Erro ao convidar colega de equipe", e) });
+  const revokeTeamInvite = trpc.saas.organizations.revokeInvitation.useMutation({ onSuccess: () => { success("Convite de equipe revogado"); refreshTeamInvites(); }, onError: (e) => fail("Erro ao revogar convite de equipe", e) });
+  const [acceptTeamToken, setAcceptTeamToken] = useState("");
+  const acceptTeamInvite = trpc.saas.organizations.acceptInvite.useMutation({ onSuccess: () => { success("Convite de equipe aceito"); setAcceptTeamToken(""); utils.prescricao.myOrganizations.invalidate(); }, onError: (e) => fail("Erro ao aceitar convite de equipe", e) });
+
   // Acolhimento (somente leitura para o profissional)
   const acolhimentoQuery = trpc.journey.staffAcolhimento.useQuery({ alunoId }, { enabled: Boolean(alunoId) && tab === "acolhimento" });
   const acolhimento = acolhimentoQuery.data;
@@ -144,7 +161,7 @@ export function ProfessionalDashboard({ onToast }: { onToast: (toast: Toast) => 
     setAlunoId(id);
     setTreinoId(null);
     setDietaId(null);
-    setTab("treinos");
+    setTab(canManageTreino ? "treinos" : canManageDieta ? "dieta" : "acolhimento");
     const aluno = students.find((student) => student.user_id === id);
     setMatriculaForm({ unitId: aluno?.unit_id ?? "", matriculaEm: toDateInputValue(aluno?.matricula_em) });
   };
@@ -158,6 +175,7 @@ export function ProfessionalDashboard({ onToast }: { onToast: (toast: Toast) => 
       {organizations.length > 1 && <select value={activeOrgId} onChange={(e) => { setOrganizationId(e.target.value); setAlunoId(""); }} className="h-10 rounded-xl border bg-white px-3 text-xs"><option value="">Selecione a organização</option>{organizations.map((org) => <option key={org.membership.organization_id} value={org.membership.organization_id}>{org.organization.name}</option>)}</select>}
     </div>
     <div className="grid gap-5 lg:grid-cols-[.7fr_1.3fr]">
+      <div className="space-y-5">
       <Card className="rounded-2xl border-[#e5ece5] bg-white shadow-sm"><CardHeader><CardTitle className="text-base text-[#2b271f]">Alunos</CardTitle></CardHeader><CardContent className="space-y-1">
         {studentsQuery.isLoading && <p className="text-xs text-[#918a7d]">Carregando alunos...</p>}
         {!studentsQuery.isLoading && students.length === 0 && <p className="text-xs text-[#918a7d]">Nenhum aluno cadastrado nesta organização ainda.</p>}
@@ -174,10 +192,29 @@ export function ProfessionalDashboard({ onToast }: { onToast: (toast: Toast) => 
         </div>
       </CardContent></Card>
 
+      <Card className="rounded-2xl border-[#e5ece5] bg-white shadow-sm"><CardHeader><CardTitle className="text-base text-[#2b271f]">Equipe</CardTitle></CardHeader><CardContent className="space-y-3">
+        <div className="space-y-2 rounded-xl bg-[#faf7ef] p-3">
+          <p className="text-xs font-semibold text-[#4b4438]">Tenho um convite de equipe</p>
+          <Input value={acceptTeamToken} onChange={(e) => setAcceptTeamToken(e.target.value)} placeholder="Código de convite" className="h-9 rounded-lg text-xs" />
+          <Button onClick={() => acceptTeamInvite.mutate({ token: acceptTeamToken.trim() })} disabled={!acceptTeamToken.trim() || acceptTeamInvite.isPending} className="h-9 w-full rounded-lg bg-[#15130f] text-xs text-white"><UserPlus size={14} /> Aceitar convite</Button>
+        </div>
+        {canManageTeam && <div className="space-y-2 rounded-xl bg-[#faf7ef] p-3">
+          <p className="text-xs font-semibold text-[#4b4438]">Convidar profissional ou nutricionista</p>
+          <Input value={teamInviteForm.email} onChange={(e) => setTeamInviteForm({ ...teamInviteForm, email: e.target.value })} placeholder="E-mail" type="email" className="h-9 rounded-lg text-xs" />
+          <select value={teamInviteForm.role} onChange={(e) => setTeamInviteForm({ ...teamInviteForm, role: e.target.value as typeof teamInviteForm.role })} className="h-9 w-full rounded-lg border bg-white px-2 text-xs">{Object.entries(TEAM_ROLE_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select>
+          <Button onClick={() => inviteTeam.mutate({ organizationId: activeOrgId, email: teamInviteForm.email, role: teamInviteForm.role })} disabled={!teamInviteForm.email || inviteTeam.isPending} className="h-9 w-full rounded-lg bg-[#15130f] text-xs text-white"><Plus size={14} /> Enviar convite</Button>
+          {teamInvites.length > 0 && <div className="mt-2 space-y-1.5">
+            <p className="text-[10px] font-semibold uppercase tracking-[.1em] text-[#9b9488]">Convites pendentes</p>
+            {teamInvites.map((invite) => <div key={invite.id} className="flex items-center justify-between rounded-lg border border-[#eee9df] bg-white p-2"><div className="min-w-0 flex-1"><p className="truncate text-xs font-semibold text-[#4b4438]">{invite.email}</p><p className="truncate text-[10px] text-[#9b9488]">{TEAM_ROLE_LABELS[invite.role] ?? invite.role}</p></div><Button variant="ghost" onClick={() => revokeTeamInvite.mutate({ organizationId: activeOrgId, invitationId: invite.id })} className="h-7 w-7 p-0 text-[#b65c4d]"><Trash2 size={13} /></Button></div>)}
+          </div>}
+        </div>}
+      </CardContent></Card>
+      </div>
+
       <div>
         {!selectedAluno && <Card className="rounded-2xl border-[#e5ece5] bg-white shadow-sm"><CardContent className="p-8 text-center text-sm text-[#918a7d]">Selecione um aluno para gerenciar treino e plano alimentar.</CardContent></Card>}
         {selectedAluno && <>
-          <div className="mb-4 flex gap-2"><Button variant={tab === "treinos" ? "default" : "outline"} onClick={() => setTab("treinos")} className="h-9 rounded-xl text-xs">Treinos</Button><Button variant={tab === "dieta" ? "default" : "outline"} onClick={() => setTab("dieta")} className="h-9 rounded-xl text-xs">Plano alimentar</Button><Button variant={tab === "acolhimento" ? "default" : "outline"} onClick={() => setTab("acolhimento")} className="h-9 rounded-xl text-xs">Acolhimento</Button><Button variant={tab === "matricula" ? "default" : "outline"} onClick={() => setTab("matricula")} className="h-9 rounded-xl text-xs">Matrícula</Button></div>
+          <div className="mb-4 flex gap-2">{canManageTreino && <Button variant={tab === "treinos" ? "default" : "outline"} onClick={() => setTab("treinos")} className="h-9 rounded-xl text-xs">Treinos</Button>}{canManageDieta && <Button variant={tab === "dieta" ? "default" : "outline"} onClick={() => setTab("dieta")} className="h-9 rounded-xl text-xs">Plano alimentar</Button>}<Button variant={tab === "acolhimento" ? "default" : "outline"} onClick={() => setTab("acolhimento")} className="h-9 rounded-xl text-xs">Acolhimento</Button><Button variant={tab === "matricula" ? "default" : "outline"} onClick={() => setTab("matricula")} className="h-9 rounded-xl text-xs">Matrícula</Button></div>
 
           {tab === "matricula" && <div className="grid gap-4 lg:grid-cols-2">
             <Card className="rounded-2xl border-[#e5ece5] bg-white shadow-sm"><CardHeader><CardTitle className="text-sm text-[#2b271f]">Matrícula de {selectedAluno.full_name}</CardTitle></CardHeader><CardContent className="space-y-3">
@@ -201,7 +238,7 @@ export function ProfessionalDashboard({ onToast }: { onToast: (toast: Toast) => 
             {acolhimento && ACOLHIMENTO_FIELDS.map(([label, field]) => acolhimento[field] ? <div key={field}><p className="font-semibold text-[#2b271f]">{label}</p><p className="mt-0.5 whitespace-pre-wrap text-[#5c5445]">{acolhimento[field]}</p></div> : null)}
           </CardContent></Card>}
 
-          {tab === "treinos" && <div className="grid gap-4 lg:grid-cols-[.9fr_1.1fr]">
+          {tab === "treinos" && canManageTreino && <div className="grid gap-4 lg:grid-cols-[.9fr_1.1fr]">
             <Card className="rounded-2xl border-[#e5ece5] bg-white shadow-sm"><CardHeader><CardTitle className="text-sm text-[#2b271f]">Treinos de {selectedAluno.full_name}</CardTitle></CardHeader><CardContent className="space-y-2">
               {treinos.map((treino) => <div key={treino.id} className={`flex items-center justify-between rounded-xl border p-2.5 ${treinoId === treino.id ? "border-[#15130f]" : "border-[#eee9df]"}`}><button onClick={() => beginTreino(treino.id)} className="min-w-0 flex-1 text-left"><p className="truncate text-xs font-semibold text-[#4b4438]">{treino.titulo} · {treino.tipo}</p><p className="text-[10px] text-[#9b9488]">{treino.estado_publicacao} · v{treino.versao}</p></button><Button variant="ghost" onClick={() => { if (window.confirm("Remover este treino?")) deleteTreino.mutate({ id: treino.id }); }} className="h-7 w-7 p-0 text-[#b65c4d]"><Trash2 size={13} /></Button></div>)}
               {treinos.length === 0 && <p className="text-xs text-[#918a7d]">Nenhum treino criado ainda.</p>}
@@ -224,7 +261,7 @@ export function ProfessionalDashboard({ onToast }: { onToast: (toast: Toast) => 
             </CardContent></Card>}
           </div>}
 
-          {tab === "dieta" && <div className="grid gap-4 lg:grid-cols-[.9fr_1.1fr]">
+          {tab === "dieta" && canManageDieta && <div className="grid gap-4 lg:grid-cols-[.9fr_1.1fr]">
             <Card className="rounded-2xl border-[#e5ece5] bg-white shadow-sm"><CardHeader><CardTitle className="text-sm text-[#2b271f]">Planos de {selectedAluno.full_name}</CardTitle></CardHeader><CardContent className="space-y-2">
               {dietas.map((dieta) => <div key={dieta.id} className={`flex items-center justify-between rounded-xl border p-2.5 ${dietaId === dieta.id ? "border-[#15130f]" : "border-[#eee9df]"}`}><button onClick={() => beginDieta(dieta.id)} className="min-w-0 flex-1 text-left"><p className="truncate text-xs font-semibold text-[#4b4438]">{dieta.titulo}</p><p className="text-[10px] text-[#9b9488]">{dieta.estado_publicacao} · v{dieta.versao}</p></button><Button variant="ghost" onClick={() => { if (window.confirm("Remover este plano alimentar?")) deleteDieta.mutate({ id: dieta.id }); }} className="h-7 w-7 p-0 text-[#b65c4d]"><Trash2 size={13} /></Button></div>)}
               {dietas.length === 0 && <p className="text-xs text-[#918a7d]">Nenhum plano alimentar criado ainda.</p>}
