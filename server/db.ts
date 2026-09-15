@@ -94,6 +94,14 @@ export async function getMembership(userId: string, organizationId: string) {
   return { membership, organization: saas_organizations };
 }
 
+export type OrganizationBranding = { id: string; name: string; slug: string; module: string; logo_url: string | null; primary_color: string | null };
+
+export async function getOrganizationBySlug(slug: string) {
+  if (!isConfigured()) return undefined;
+  const rows = await request<OrganizationBranding[]>("saas_organizations", {}, `?select=id,name,slug,module,logo_url,primary_color&slug=eq.${encodeURIComponent(slug)}&limit=1`);
+  return rows[0];
+}
+
 export async function createOrganizationWithOwner(input: { userId: string; clientId: string; name: string; slug: string; plan: Organization["plan"]; module?: string; logoUrl?: string; primaryColor?: string }) {
   if (!isConfigured()) throw new Error("Database not available");
   const [result] = await rpc<Array<{ organization_id: string; unit_id: string }>>("create_organization_with_owner", {
