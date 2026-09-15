@@ -159,3 +159,52 @@ export async function deleteGlobalRoutine(idValue: string) { await request("acer
 
 export async function upsertGlobalAccessRule(input: Record<string, unknown>) { const rows = await request<GlobalAccessRule[]>("acervo_acesso_regras", { method: "POST", body: JSON.stringify(input), headers: { Prefer: "resolution=merge-duplicates,return=representation" } }); return rows[0]; }
 export async function deleteGlobalAccessRule(idValue: string) { await request("acervo_acesso_regras", { method: "DELETE" }, `?id=eq.${encodeURIComponent(idValue)}`); return { id: idValue }; }
+
+export type StudentProfile = { user_id: string; full_name: string | null; organization_id: string | null; status: string };
+export type Treino = { id: string; aluno_id: string; titulo: string; descricao?: string | null; tipo: string; status: string; estado_publicacao: "rascunho" | "publicado" | "arquivado"; versao: number; organization_id: string | null; criado_por?: string | null; publicado_por?: string | null; publicado_em?: string | null; created_at: string; updated_at: string };
+export type TreinoExercicio = { id: string; treino_id: string; exercicio_id: string; ordem: number; series: number; repeticoes: string; descanso_seg: number; descanso_por_serie?: string | null; observacoes?: string | null };
+export type Dieta = { id: string; aluno_id: string; titulo: string; descricao?: string | null; arquivo_url?: string | null; estado_publicacao: "rascunho" | "publicado" | "arquivado"; versao: number; organization_id: string | null; criado_por?: string | null; publicado_por?: string | null; publicado_em?: string | null; created_at: string; updated_at: string };
+
+export async function getProfileByUserId(userId: string) { const rows = await request<StudentProfile[]>("profiles", {}, `?select=user_id,full_name,organization_id,status&user_id=eq.${encodeURIComponent(userId)}&limit=1`); return rows[0] ?? null; }
+export async function listStudentsInOrganization(organizationId: string) { return request<StudentProfile[]>("profiles", {}, `?select=user_id,full_name,organization_id,status&organization_id=eq.${encodeURIComponent(organizationId)}&order=full_name.asc`); }
+export async function listExercisesCatalog() { return request<GlobalLibraryExercise[]>("exercicios", {}, "?select=id,nome,grupo_muscular&order=nome.asc"); }
+
+export async function listTreinosForAluno(alunoId: string, publishedOnly = false) { return request<Treino[]>("treinos", {}, `?select=*&aluno_id=eq.${encodeURIComponent(alunoId)}${publishedOnly ? "&estado_publicacao=eq.publicado" : ""}&order=created_at.desc`); }
+export async function getTreino(idValue: string) { const rows = await request<Treino[]>("treinos", {}, `?select=*&id=eq.${encodeURIComponent(idValue)}&limit=1`); return rows[0] ?? null; }
+export async function createTreino(input: Record<string, unknown>) { const rows = await request<Treino[]>("treinos", { method: "POST", body: JSON.stringify(input) }); return rows[0]; }
+export async function updateTreino(idValue: string, input: Record<string, unknown>) { const rows = await request<Treino[]>("treinos", { method: "PATCH", body: JSON.stringify({ ...input, updated_at: new Date().toISOString() }) }, `?id=eq.${encodeURIComponent(idValue)}`); return rows[0]; }
+export async function deleteTreino(idValue: string) { await request("treinos", { method: "DELETE" }, `?id=eq.${encodeURIComponent(idValue)}`); return { id: idValue }; }
+
+export async function listTreinoExercicios(treinoId: string) { return request<TreinoExercicio[]>("treino_exercicios", {}, `?select=*&treino_id=eq.${encodeURIComponent(treinoId)}&order=ordem.asc`); }
+export async function replaceTreinoExercicios(treinoId: string, items: Array<Record<string, unknown>>) {
+  await request("treino_exercicios", { method: "DELETE" }, `?treino_id=eq.${encodeURIComponent(treinoId)}`);
+  if (!items.length) return [];
+  return request<TreinoExercicio[]>("treino_exercicios", { method: "POST", body: JSON.stringify(items.map((item, index) => ({ ...item, treino_id: treinoId, ordem: index }))) });
+}
+
+export async function publishTreino(treinoId: string, autorId: string) {
+  const treino = await getTreino(treinoId);
+  if (!treino) throw new Error("Treino não encontrado.");
+  const exercicios = await listTreinoExercicios(treinoId);
+  const versao = treino.estado_publicacao === "rascunho" ? treino.versao : treino.versao + 1;
+  const publicado_em = new Date().toISOString();
+  const atualizado = await updateTreino(treinoId, { estado_publicacao: "publicado", versao, publicado_por: autorId, publicado_em });
+  await request("treino_revisoes", { method: "POST", body: JSON.stringify({ treino_id: treinoId, versao, conteudo: { treino, exercicios }, autor_id: autorId, organization_id: treino.organization_id }) });
+  return atualizado;
+}
+
+export async function listDietasForAluno(alunoId: string, publishedOnly = false) { return request<Dieta[]>("dietas", {}, `?select=*&aluno_id=eq.${encodeURIComponent(alunoId)}${publishedOnly ? "&estado_publicacao=eq.publicado" : ""}&order=created_at.desc`); }
+export async function getDieta(idValue: string) { const rows = await request<Dieta[]>("dietas", {}, `?select=*&id=eq.${encodeURIComponent(idValue)}&limit=1`); return rows[0] ?? null; }
+export async function createDieta(input: Record<string, unknown>) { const rows = await request<Dieta[]>("dietas", { method: "POST", body: JSON.stringify(input) }); return rows[0]; }
+export async function updateDieta(idValue: string, input: Record<string, unknown>) { const rows = await request<Dieta[]>("dietas", { method: "PATCH", body: JSON.stringify({ ...input, updated_at: new Date().toISOString() }) }, `?id=eq.${encodeURIComponent(idValue)}`); return rows[0]; }
+export async function deleteDieta(idValue: string) { await request("dietas", { method: "DELETE" }, `?id=eq.${encodeURIComponent(idValue)}`); return { id: idValue }; }
+
+export async function publishDieta(dietaId: string, autorId: string) {
+  const dieta = await getDieta(dietaId);
+  if (!dieta) throw new Error("Plano alimentar não encontrado.");
+  const versao = dieta.estado_publicacao === "rascunho" ? dieta.versao : dieta.versao + 1;
+  const publicado_em = new Date().toISOString();
+  const atualizado = await updateDieta(dietaId, { estado_publicacao: "publicado", versao, publicado_por: autorId, publicado_em });
+  await request("dieta_revisoes", { method: "POST", body: JSON.stringify({ dieta_id: dietaId, versao, conteudo: dieta, autor_id: autorId, organization_id: dieta.organization_id }) });
+  return atualizado;
+}
