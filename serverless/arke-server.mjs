@@ -4,7 +4,7 @@ import { createExpressMiddleware } from "@trpc/server/adapters/express";
 
 // server/routers.ts
 import { z as z2 } from "zod";
-import { createHash, randomUUID as randomUUID2 } from "node:crypto";
+import { createHash as createHash2, randomUUID as randomUUID2 } from "node:crypto";
 
 // shared/const.ts
 var COOKIE_NAME = "app_session_id";
@@ -382,7 +382,7 @@ ${xref}
 }
 
 // server/supabaseAdmin.ts
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 function config2() {
   const url = process.env.SUPABASE_URL ?? "";
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.SUPABASE_KEY ?? "";
@@ -666,6 +666,72 @@ async function publishDieta(dietaId, autorId) {
   await request2("dieta_revisoes", { method: "POST", body: JSON.stringify({ dieta_id: dietaId, versao, conteudo: dieta, autor_id: autorId, organization_id: dieta.organization_id }) });
   return atualizado;
 }
+async function getOrganizationName(organizationId) {
+  const rows = await request2("saas_organizations", {}, `?select=id,name&id=eq.${encodeURIComponent(organizationId)}&limit=1`);
+  return rows[0]?.name ?? "sua academia";
+}
+async function findPendingMemberInvitation(organizationId, email) {
+  const rows = await request2("member_invitations", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}&email=eq.${encodeURIComponent(normalizeEmail(email))}&status=eq.pending&limit=1`);
+  return rows[0] ?? null;
+}
+async function listPendingMemberInvitations(organizationId) {
+  return request2("member_invitations", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}&status=eq.pending&order=created_at.desc`);
+}
+async function inviteMember(input) {
+  const email = normalizeEmail(input.email);
+  const existing = await findPendingMemberInvitation(input.organizationId, email);
+  if (existing) throw new Error("J\xE1 existe um convite pendente para este e-mail nesta organiza\xE7\xE3o.");
+  const rawToken = randomUUID();
+  const tokenHash = createHash("sha256").update(rawToken).digest("hex");
+  const expiresAt = new Date(Date.now() + 1e3 * 60 * 60 * 24 * 7);
+  const rows = await request2("member_invitations", { method: "POST", body: JSON.stringify({
+    organization_id: input.organizationId,
+    invited_by_user_id: input.invitedByUserId,
+    email,
+    full_name: input.fullName,
+    token_hash: tokenHash,
+    expires_at: expiresAt.toISOString()
+  }) });
+  const invitation = rows[0];
+  const orgName = await getOrganizationName(input.organizationId);
+  await sendEmail(email, `Convite para o Arke \u2014 ${orgName}`, `<p>Ol\xE1, ${input.fullName}.</p><p>Voc\xEA foi convidado(a) a fazer parte de <strong>${orgName}</strong> no Arke.</p><p>Para concluir seu cadastro, acesse o portal, clique em "Tenho um convite" na tela de login e use o c\xF3digo abaixo:</p><h2 style="letter-spacing:1px">${rawToken}</h2><p>Este convite expira em 7 dias.</p>`);
+  return invitation;
+}
+async function revokeMemberInvitation(id2, organizationId) {
+  const rows = await request2("member_invitations", { method: "PATCH", body: JSON.stringify({ status: "revoked" }) }, `?id=eq.${encodeURIComponent(id2)}&organization_id=eq.${encodeURIComponent(organizationId)}&status=eq.pending`);
+  if (!rows[0]) throw new Error("Convite n\xE3o encontrado ou j\xE1 utilizado.");
+  return rows[0];
+}
+async function findMemberInvitationByToken(token) {
+  const tokenHash = createHash("sha256").update(token).digest("hex");
+  const rows = await request2("member_invitations", {}, `?select=*&token_hash=eq.${encodeURIComponent(tokenHash)}&status=eq.pending&limit=1`);
+  return rows[0] ?? null;
+}
+async function createSupabaseUserWithPassword(email, password, fullName) {
+  const { url, key } = config2();
+  const response = await fetch(`${url}/auth/v1/admin/users`, { method: "POST", headers: { apikey: key, Authorization: `Bearer ${key}`, "Content-Type": "application/json" }, body: JSON.stringify({ email: normalizeEmail(email), password, email_confirm: true, user_metadata: { full_name: fullName } }) });
+  if (!response.ok) throw new Error("N\xE3o foi poss\xEDvel criar sua conta. Verifique se este e-mail j\xE1 n\xE3o est\xE1 cadastrado.");
+  return response.json();
+}
+async function acceptMemberInvitation(token, password) {
+  const invitation = await findMemberInvitationByToken(token);
+  if (!invitation) throw new Error("C\xF3digo de convite inv\xE1lido ou j\xE1 utilizado.");
+  if (new Date(invitation.expires_at).getTime() < Date.now()) throw new Error("Este convite expirou. Pe\xE7a para reenviarem o convite.");
+  const authUser = await createSupabaseUserWithPassword(invitation.email, password, invitation.full_name);
+  await request2("profiles", { method: "PATCH", body: JSON.stringify({ full_name: invitation.full_name, organization_id: invitation.organization_id, status: "active" }) }, `?user_id=eq.${encodeURIComponent(authUser.id)}`);
+  const accepted = await request2("member_invitations", { method: "PATCH", body: JSON.stringify({ status: "accepted" }) }, `?id=eq.${encodeURIComponent(invitation.id)}&status=eq.pending`);
+  if (!accepted[0]) throw new Error("Este convite j\xE1 foi utilizado.");
+  const session = await signInWithSupabase(invitation.email, password);
+  return { accessToken: session.accessToken, refreshToken: session.refreshToken, user: session.user, organizationId: invitation.organization_id };
+}
+async function getAcolhimento(alunoId) {
+  const rows = await request2("reuniao_acolhimento", {}, `?select=*&aluno_id=eq.${encodeURIComponent(alunoId)}&limit=1`);
+  return rows[0] ?? null;
+}
+async function upsertAcolhimento(alunoId, data) {
+  const rows = await request2("reuniao_acolhimento", { method: "POST", headers: { Prefer: "resolution=merge-duplicates,return=representation" }, body: JSON.stringify({ ...data, aluno_id: alunoId, criado_por: alunoId, updated_at: (/* @__PURE__ */ new Date()).toISOString() }) }, "?on_conflict=aluno_id");
+  return rows[0];
+}
 
 // server/asaas.ts
 function asaasConfig() {
@@ -794,6 +860,20 @@ var assertStaffForDieta = async (userId, dietaId) => {
   return dieta;
 };
 var treinoExercicioItem = z2.object({ exercicio_id: z2.string().uuid(), series: z2.number().int().min(1).default(3), repeticoes: z2.string().trim().min(1).default("12"), descanso_seg: z2.number().int().min(0).default(60), descanso_por_serie: z2.string().trim().optional(), observacoes: z2.string().trim().optional() });
+var acolhimentoInput = z2.object({
+  rotina_diaria: z2.string().trim().max(4e3).optional(),
+  experiencias_exercicio: z2.string().trim().max(4e3).optional(),
+  experiencias_gostou: z2.string().trim().max(4e3).optional(),
+  experiencias_nao_gostou: z2.string().trim().max(4e3).optional(),
+  dores_lesoes: z2.string().trim().max(4e3).optional(),
+  medicamentos: z2.string().trim().max(4e3).optional(),
+  tempo_disponivel: z2.string().trim().max(4e3).optional(),
+  estilo_treino: z2.string().trim().max(4e3).optional(),
+  exercicios_nao_gosta: z2.string().trim().max(4e3).optional(),
+  alimentos_gosta: z2.string().trim().max(4e3).optional(),
+  alimentos_nao_gosta: z2.string().trim().max(4e3).optional(),
+  alimentacao_rotina: z2.string().trim().max(4e3).optional()
+});
 var appRouter = router({
   system: systemRouter,
   auth: router({
@@ -953,14 +1033,14 @@ var appRouter = router({
       invite: protectedProcedure.input(z2.object({ organizationId: z2.string().uuid(), email: z2.string().email(), role: z2.enum(["admin", "manager", "professional", "viewer"]) })).mutation(async ({ ctx, input }) => {
         await ownerOrAdmin(ctx.user.id, input.organizationId);
         const rawToken = randomUUID2();
-        const tokenHash = createHash("sha256").update(rawToken).digest("hex");
+        const tokenHash = createHash2("sha256").update(rawToken).digest("hex");
         const invitation = await createOrganizationInvitation({ ...input, invitedByUserId: ctx.user.id, email: input.email.toLowerCase(), tokenHash, expiresAt: new Date(Date.now() + 1e3 * 60 * 60 * 72) });
         await recordAuditLog({ organizationId: input.organizationId, userId: ctx.user.id, action: "created", entity: "invitation", entityId: invitation.id, afterJson: { email: input.email.toLowerCase(), role: input.role } });
         return { invitationId: invitation.id, token: rawToken, status: "pending" };
       }),
       acceptInvite: protectedProcedure.input(z2.object({ token: z2.string().min(16).max(128) })).mutation(async ({ ctx, input }) => {
         if (!ctx.user.email) throw new Error("Authenticated user email is required");
-        const result = await acceptOrganizationInvitation({ tokenHash: createHash("sha256").update(input.token).digest("hex"), userId: ctx.user.id, email: ctx.user.email });
+        const result = await acceptOrganizationInvitation({ tokenHash: createHash2("sha256").update(input.token).digest("hex"), userId: ctx.user.id, email: ctx.user.email });
         await recordAuditLog({ organizationId: result.organizationId, userId: ctx.user.id, action: "accepted", entity: "invitation", entityId: result.invitation.id, afterJson: { role: result.role, email: ctx.user.email } });
         return { organizationId: result.organizationId, role: result.role, status: "accepted" };
       })
@@ -1033,6 +1113,31 @@ var appRouter = router({
         return listTreinoExercicios(input.treinoId);
       }),
       dietas: protectedProcedure.query(({ ctx }) => listDietasForAluno(ctx.user.id, true))
+    })
+  }),
+  journey: router({
+    inviteMember: protectedProcedure.input(z2.object({ organizationId: z2.string().uuid(), email: z2.string().email(), fullName: z2.string().trim().min(2) })).mutation(async ({ ctx, input }) => {
+      await assertStaffOfOrganization(ctx.user.id, input.organizationId);
+      return inviteMember({ organizationId: input.organizationId, invitedByUserId: ctx.user.id, email: input.email, fullName: input.fullName });
+    }),
+    pendingInvitations: protectedProcedure.input(organizationIdInput).query(async ({ ctx, input }) => {
+      await assertStaffOfOrganization(ctx.user.id, input.organizationId);
+      return listPendingMemberInvitations(input.organizationId);
+    }),
+    revokeInvitation: protectedProcedure.input(z2.object({ id: z2.string().uuid(), organizationId: z2.string().uuid() })).mutation(async ({ ctx, input }) => {
+      await assertStaffOfOrganization(ctx.user.id, input.organizationId);
+      return revokeMemberInvitation(input.id, input.organizationId);
+    }),
+    acceptInvite: publicProcedure.input(z2.object({ token: z2.string().trim().min(10), password: z2.string().min(8) })).mutation(async ({ ctx, input }) => {
+      const result = await acceptMemberInvitation(input.token, input.password);
+      ctx.res.cookie(SUPABASE_ACCESS_COOKIE, result.accessToken, { ...getSessionCookieOptions(ctx.req), maxAge: 1e3 * 60 * 60 * 24 * 30 });
+      return { accessToken: result.accessToken, user: result.user, organizationId: result.organizationId };
+    }),
+    myAcolhimento: protectedProcedure.query(({ ctx }) => getAcolhimento(ctx.user.id)),
+    submitAcolhimento: protectedProcedure.input(acolhimentoInput).mutation(({ ctx, input }) => upsertAcolhimento(ctx.user.id, input)),
+    staffAcolhimento: protectedProcedure.input(z2.object({ alunoId: z2.string().uuid() })).query(async ({ ctx, input }) => {
+      await assertStaffForAluno(ctx.user.id, input.alunoId);
+      return getAcolhimento(input.alunoId);
     })
   })
 });
