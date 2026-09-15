@@ -147,18 +147,21 @@ export const appRouter = router({
   }),
   admin: router({
     status: publicProcedure.query(() => ({ configured: hasSupabaseConfig() })),
-    lookupCnpj: publicProcedure.input(z.object({ cnpj: z.string().min(14).max(18) })).mutation(({ input }) => lookupCnpj(input.cnpj)),
+    // admin.users/students/lookupCnpj cadastram, editam e excluem clientes
+    // do SaaS (inclusive outros Super Admins) — restrito a adminProcedure.
+    // Estavam em publicProcedure (sem login nenhum) até esta auditoria.
+    lookupCnpj: adminProcedure.input(z.object({ cnpj: z.string().min(14).max(18) })).mutation(({ input }) => lookupCnpj(input.cnpj)),
     users: router({
-      list: publicProcedure.query(() => listAppUsers()),
-      create: publicProcedure.input(z.object({ name: z.string().trim().min(2), email: z.string().email(), username: z.string().trim().min(2).max(80), module: z.enum(["academia", "studio", "profissional", "aluno", "administrador"]), role: z.string().trim().min(2), status: z.enum(["Ativo", "Suspenso"]), logoUrl: z.string().max(1000000).optional().nullable(), profileData: z.record(z.string(), z.string()).optional() })).mutation(({ input }) => createAppUser({ ...input, profile_data: input.profileData, email: normalizeEmail(input.email) })),
-      update: publicProcedure.input(z.object({ id: z.string().uuid(), data: z.object({ name: z.string().trim().min(2), email: z.string().email(), username: z.string().trim().min(2), module: z.enum(["academia", "studio", "profissional", "aluno", "administrador"]), role: z.string().trim().min(2), status: z.enum(["Ativo", "Suspenso"]), logoUrl: z.string().max(1000000).optional().nullable(), profileData: z.record(z.string(), z.string()).optional() }) })).mutation(({ input }) => updateAppUser(input.id, { ...input.data, profile_data: input.data.profileData, email: normalizeEmail(input.data.email) })),
-      delete: publicProcedure.input(z.object({ id: z.string().uuid() })).mutation(({ input }) => deleteAppUser(input.id)),
+      list: adminProcedure.query(() => listAppUsers()),
+      create: adminProcedure.input(z.object({ name: z.string().trim().min(2), email: z.string().email(), username: z.string().trim().min(2).max(80), module: z.enum(["academia", "studio", "profissional", "aluno", "administrador"]), role: z.string().trim().min(2), status: z.enum(["Ativo", "Suspenso"]), logoUrl: z.string().max(1000000).optional().nullable(), profileData: z.record(z.string(), z.string()).optional() })).mutation(({ input }) => createAppUser({ ...input, profile_data: input.profileData, email: normalizeEmail(input.email) })),
+      update: adminProcedure.input(z.object({ id: z.string().uuid(), data: z.object({ name: z.string().trim().min(2), email: z.string().email(), username: z.string().trim().min(2), module: z.enum(["academia", "studio", "profissional", "aluno", "administrador"]), role: z.string().trim().min(2), status: z.enum(["Ativo", "Suspenso"]), logoUrl: z.string().max(1000000).optional().nullable(), profileData: z.record(z.string(), z.string()).optional() }) })).mutation(({ input }) => updateAppUser(input.id, { ...input.data, profile_data: input.data.profileData, email: normalizeEmail(input.data.email) })),
+      delete: adminProcedure.input(z.object({ id: z.string().uuid() })).mutation(({ input }) => deleteAppUser(input.id)),
     }),
     students: router({
-      list: publicProcedure.query(() => listAppStudents()),
-      create: publicProcedure.input(z.object({ name: z.string().trim().min(2), academy: z.string().trim().min(2), plan: z.string().trim().min(2), status: z.enum(["Ativo", "Inativo"]) })).mutation(({ input }) => createAppStudent(input)),
-      update: publicProcedure.input(z.object({ id: z.string().uuid(), data: z.object({ name: z.string().trim().min(2), academy: z.string().trim().min(2), plan: z.string().trim().min(2), status: z.enum(["Ativo", "Inativo"]) }) })).mutation(({ input }) => updateAppStudent(input.id, input.data)),
-      delete: publicProcedure.input(z.object({ id: z.string().uuid() })).mutation(({ input }) => deleteAppStudent(input.id)),
+      list: adminProcedure.query(() => listAppStudents()),
+      create: adminProcedure.input(z.object({ name: z.string().trim().min(2), academy: z.string().trim().min(2), plan: z.string().trim().min(2), status: z.enum(["Ativo", "Inativo"]) })).mutation(({ input }) => createAppStudent(input)),
+      update: adminProcedure.input(z.object({ id: z.string().uuid(), data: z.object({ name: z.string().trim().min(2), academy: z.string().trim().min(2), plan: z.string().trim().min(2), status: z.enum(["Ativo", "Inativo"]) }) })).mutation(({ input }) => updateAppStudent(input.id, input.data)),
+      delete: adminProcedure.input(z.object({ id: z.string().uuid() })).mutation(({ input }) => deleteAppStudent(input.id)),
     }),
   }),
   globalLibrary: router({
@@ -267,7 +270,14 @@ export const appRouter = router({
     organizations: router({
       bySlug: publicProcedure.input(z.object({ slug: z.string().trim().toLowerCase().min(1).max(120) })).query(({ input }) => getOrganizationBySlug(input.slug)),
       list: protectedProcedure.query(({ ctx }) => getOrganizationsForUser(ctx.user.id)),
-      create: protectedProcedure.input(z.object({ clientId: z.string().uuid(), module: z.string().trim().min(2).optional(), logoUrl: z.string().max(1000000).optional(), primaryColor: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(), name: z.string().trim().min(2).max(160), slug: z.string().trim().toLowerCase().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/).max(120), plan: z.enum(["starter", "growth", "scale", "unlimited", "essencial", "performance", "premium"]) })).mutation(({ ctx, input }) => createOrganizationWithOwner({ userId: ctx.user.id, ...input })),
+      // create_organization_with_owner (security definer) dá ao p_user_id
+      // membership 'owner' de uma organização nova para qualquer client_id
+      // que o chamador escolher. Isso é o próprio onboarding (só o Admin
+      // Arke implanta um cliente novo) — nunca uma ação de usuário comum.
+      // Estava em protectedProcedure: qualquer aluno/profissional logado
+      // podia criar organização para o client_id de outra pessoa e virar
+      // owner dela. Restrito a adminProcedure nesta auditoria.
+      create: adminProcedure.input(z.object({ clientId: z.string().uuid(), module: z.string().trim().min(2).optional(), logoUrl: z.string().max(1000000).optional(), primaryColor: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(), name: z.string().trim().min(2).max(160), slug: z.string().trim().toLowerCase().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/).max(120), plan: z.enum(["starter", "growth", "scale", "unlimited", "essencial", "performance", "premium"]) })).mutation(({ ctx, input }) => createOrganizationWithOwner({ userId: ctx.user.id, ...input })),
       access: protectedProcedure.input(organizationIdInput).query(({ ctx, input }) => getOrganizationAccess(ctx.user.id, input.organizationId)),
       audit: protectedProcedure.input(auditFilterInput).query(async ({ ctx, input }) => { await hasOrganizationAccess(ctx.user.id, input.organizationId); return getAuditLogs(input.organizationId, 100, auditFilters(input)); }),
       auditCsv: protectedProcedure.input(auditFilterInput).query(async ({ ctx, input }) => { await hasOrganizationAccess(ctx.user.id, input.organizationId); return { filename: `arke-auditoria-${input.organizationId}.csv`, content: auditLogsToCsv(await getAuditLogs(input.organizationId, 500, auditFilters(input))) }; }),

@@ -64,7 +64,19 @@ export async function createSupabaseAuthUser(email: string, name: string) {
 export async function listAppUsers() { return request<AppUser[]>("app_users", {}, "?select=*&order=created_at.asc"); }
 export async function createAppUser(input: Omit<AppUser, "id" | "created_at" | "updated_at">) { const authInvite = await createSupabaseAuthUser(input.email, input.name); const rows = await request<AppUser[]>("app_users", { method: "POST", body: JSON.stringify({ id: id(), ...input }) }); await sendInviteEmail(input.email, input.name, input.username, authInvite.action_link); await notifyAdmins("Novo cadastro no Arke", `<p>O cliente <strong>${input.name}</strong> foi cadastrado no módulo ${input.module}.</p><p>Usuário: ${input.username}</p>`); return rows[0]; }
 export async function updateAppUser(idValue: string, input: Partial<Omit<AppUser, "id" | "created_at" | "updated_at">>) { const rows = await request<AppUser[]>("app_users", { method: "PATCH", body: JSON.stringify({ ...input, updated_at: new Date().toISOString() }) }, `?id=eq.${encodeURIComponent(idValue)}`); await notifyAdmins("Cadastro atualizado no Arke", `<p>O cadastro <strong>${input.name ?? idValue}</strong> foi atualizado pela administração.</p>`); return rows[0]; }
-export async function deleteAppUser(idValue: string) { await request("app_users", { method: "DELETE" }, `?id=eq.${encodeURIComponent(idValue)}`); await notifyAdmins("Cadastro removido no Arke", `<p>O cadastro de usuário <strong>${idValue}</strong> foi removido pela administração.</p>`); return { id: idValue }; }
+export async function deleteAppUser(idValue: string) {
+  // saas_organizations.client_id -> app_users(id) é ON DELETE RESTRICT (o
+  // cliente é o "pai" da organização, nunca deve desaparecer sozinho por
+  // engano). Para excluir o cadastro por completo (ex.: recomeçar o
+  // onboarding do zero), a organização e tudo que depende dela via
+  // organization_id (unidades, memberships, assinatura, leads,
+  // atendimentos, integrações etc. — todas já com ON DELETE CASCADE)
+  // precisam ser removidas primeiro.
+  await request("saas_organizations", { method: "DELETE" }, `?client_id=eq.${encodeURIComponent(idValue)}`);
+  await request("app_users", { method: "DELETE" }, `?id=eq.${encodeURIComponent(idValue)}`);
+  await notifyAdmins("Cadastro removido no Arke", `<p>O cadastro de usuário <strong>${idValue}</strong> foi removido pela administração, junto com qualquer organização vinculada.</p>`);
+  return { id: idValue };
+}
 
 export async function listAppStudents() { return request<AppStudent[]>("app_students", {}, "?select=*&order=created_at.asc"); }
 export async function createAppStudent(input: Omit<AppStudent, "id" | "created_at" | "updated_at">) { const rows = await request<AppStudent[]>("app_students", { method: "POST", body: JSON.stringify({ id: id(), ...input }) }); return rows[0]; }
