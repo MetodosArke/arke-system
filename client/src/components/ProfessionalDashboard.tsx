@@ -1,12 +1,27 @@
 import { useMemo, useState } from "react";
-import { Plus, Save, Send, Trash2 } from "lucide-react";
+import { Download, IdCard, Plus, Save, Send, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { trpc } from "@/lib/trpc";
 
 type Toast = { title: string; detail: string };
-type Tab = "treinos" | "dieta" | "acolhimento";
+type Tab = "treinos" | "dieta" | "acolhimento" | "matricula";
+
+function downloadBase64Pdf(filename: string, contentBase64: string) {
+  const binary = atob(contentBase64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+  const blob = new Blob([bytes], { type: "application/pdf" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
+const toDateInputValue = (iso?: string | null) => (iso ? iso.slice(0, 10) : "");
 
 const emptyTreino = { titulo: "", tipo: "A", descricao: "" };
 const emptyExercicio = { exercicioId: "", series: "3", repeticoes: "12", descansoSeg: "60", observacoes: "" };
@@ -102,7 +117,37 @@ export function ProfessionalDashboard({ onToast }: { onToast: (toast: Toast) => 
   const acolhimentoQuery = trpc.journey.staffAcolhimento.useQuery({ alunoId }, { enabled: Boolean(alunoId) && tab === "acolhimento" });
   const acolhimento = acolhimentoQuery.data;
 
-  const selectAluno = (id: string) => { setAlunoId(id); setTreinoId(null); setDietaId(null); setTab("treinos"); };
+  // Matrícula e frequência
+  const accessQuery = trpc.saas.organizations.access.useQuery({ organizationId: activeOrgId }, { enabled: Boolean(activeOrgId) && tab === "matricula" });
+  const units = accessQuery.data?.units ?? [];
+  const [matriculaForm, setMatriculaForm] = useState({ unitId: "", matriculaEm: "" });
+  const updateMatricula = trpc.prescricao.updateMatricula.useMutation({ onSuccess: () => { success("Matrícula atualizada"); utils.prescricao.students.invalidate({ organizationId: activeOrgId }); }, onError: (e) => fail("Erro ao atualizar matrícula", e) });
+  const frequenciaQuery = trpc.academia.frequencia.listAluno.useQuery({ alunoId }, { enabled: Boolean(alunoId) && tab === "matricula" });
+  const frequencia = frequenciaQuery.data ?? [];
+  const registrarFrequencia = trpc.academia.frequencia.registrar.useMutation({ onSuccess: () => { success("Frequência registrada"); utils.academia.frequencia.listAluno.invalidate({ alunoId }); }, onError: (e) => fail("Erro ao registrar frequência", e) });
+  const saveMatricula = () => updateMatricula.mutate({ alunoId, unitId: matriculaForm.unitId || null, matriculaEm: matriculaForm.matriculaEm ? new Date(matriculaForm.matriculaEm).toISOString() : null });
+
+  const [downloadingFichaId, setDownloadingFichaId] = useState<string | null>(null);
+  const downloadFicha = async (treino: { id: string; titulo: string }) => {
+    setDownloadingFichaId(treino.id);
+    try {
+      const ficha = await utils.prescricao.treinos.fichaPdf.fetch({ id: treino.id });
+      downloadBase64Pdf(ficha.filename, ficha.contentBase64);
+    } catch (error) {
+      fail("Erro ao gerar ficha em PDF", error as { message: string });
+    } finally {
+      setDownloadingFichaId(null);
+    }
+  };
+
+  const selectAluno = (id: string) => {
+    setAlunoId(id);
+    setTreinoId(null);
+    setDietaId(null);
+    setTab("treinos");
+    const aluno = students.find((student) => student.user_id === id);
+    setMatriculaForm({ unitId: aluno?.unit_id ?? "", matriculaEm: toDateInputValue(aluno?.matricula_em) });
+  };
 
   if (orgsQuery.isLoading) return <div className="p-8 text-sm text-[#918a7d]">Carregando organizações...</div>;
   if (!organizations.length) return <div className="mx-auto max-w-lg p-8 text-center text-sm text-[#918a7d]">Sua conta não está vinculada a nenhuma organização como profissional. Peça para o administrador te convidar.</div>;
@@ -132,7 +177,23 @@ export function ProfessionalDashboard({ onToast }: { onToast: (toast: Toast) => 
       <div>
         {!selectedAluno && <Card className="rounded-2xl border-[#e5ece5] bg-white shadow-sm"><CardContent className="p-8 text-center text-sm text-[#918a7d]">Selecione um aluno para gerenciar treino e plano alimentar.</CardContent></Card>}
         {selectedAluno && <>
-          <div className="mb-4 flex gap-2"><Button variant={tab === "treinos" ? "default" : "outline"} onClick={() => setTab("treinos")} className="h-9 rounded-xl text-xs">Treinos</Button><Button variant={tab === "dieta" ? "default" : "outline"} onClick={() => setTab("dieta")} className="h-9 rounded-xl text-xs">Plano alimentar</Button><Button variant={tab === "acolhimento" ? "default" : "outline"} onClick={() => setTab("acolhimento")} className="h-9 rounded-xl text-xs">Acolhimento</Button></div>
+          <div className="mb-4 flex gap-2"><Button variant={tab === "treinos" ? "default" : "outline"} onClick={() => setTab("treinos")} className="h-9 rounded-xl text-xs">Treinos</Button><Button variant={tab === "dieta" ? "default" : "outline"} onClick={() => setTab("dieta")} className="h-9 rounded-xl text-xs">Plano alimentar</Button><Button variant={tab === "acolhimento" ? "default" : "outline"} onClick={() => setTab("acolhimento")} className="h-9 rounded-xl text-xs">Acolhimento</Button><Button variant={tab === "matricula" ? "default" : "outline"} onClick={() => setTab("matricula")} className="h-9 rounded-xl text-xs">Matrícula</Button></div>
+
+          {tab === "matricula" && <div className="grid gap-4 lg:grid-cols-2">
+            <Card className="rounded-2xl border-[#e5ece5] bg-white shadow-sm"><CardHeader><CardTitle className="text-sm text-[#2b271f]">Matrícula de {selectedAluno.full_name}</CardTitle></CardHeader><CardContent className="space-y-3">
+              <div><label className="mb-1 block text-xs font-semibold text-[#4b4438]">Unidade</label><select value={matriculaForm.unitId} onChange={(e) => setMatriculaForm({ ...matriculaForm, unitId: e.target.value })} className="h-9 w-full rounded-lg border bg-white px-2 text-xs"><option value="">Sem unidade definida</option>{units.map((unit) => <option key={unit.id} value={unit.id}>{unit.name}</option>)}</select></div>
+              <div><label className="mb-1 block text-xs font-semibold text-[#4b4438]">Data de matrícula</label><Input value={matriculaForm.matriculaEm} onChange={(e) => setMatriculaForm({ ...matriculaForm, matriculaEm: e.target.value })} type="date" className="h-9 rounded-lg text-xs" /></div>
+              <Button onClick={saveMatricula} disabled={updateMatricula.isPending} className="h-9 w-full rounded-lg bg-[#15130f] text-xs text-white"><Save size={14} /> Salvar matrícula</Button>
+            </CardContent></Card>
+            <Card className="rounded-2xl border-[#e5ece5] bg-white shadow-sm"><CardHeader><CardTitle className="text-sm text-[#2b271f]">Frequência</CardTitle></CardHeader><CardContent className="space-y-3">
+              <Button onClick={() => registrarFrequencia.mutate({ alunoId })} disabled={registrarFrequencia.isPending} className="h-9 w-full rounded-lg bg-[#15130f] text-xs text-white"><IdCard size={14} /> Registrar visita agora</Button>
+              <div className="space-y-1.5">
+                {frequenciaQuery.isLoading && <p className="text-xs text-[#918a7d]">Carregando...</p>}
+                {!frequenciaQuery.isLoading && frequencia.length === 0 && <p className="text-xs text-[#918a7d]">Nenhuma frequência registrada ainda.</p>}
+                {frequencia.slice(0, 10).map((registro) => <div key={registro.id} className="flex items-center justify-between rounded-lg bg-[#faf7ef] px-3 py-2 text-xs text-[#5c5445]"><span>{new Date(registro.registrado_em).toLocaleString("pt-BR")}</span><span className="text-[10px] uppercase tracking-wide text-[#9b9488]">{registro.origem === "catraca" ? "Catraca" : "Manual"}</span></div>)}
+              </div>
+            </CardContent></Card>
+          </div>}
 
           {tab === "acolhimento" && <Card className="rounded-2xl border-[#e5ece5] bg-white shadow-sm"><CardHeader><CardTitle className="text-sm text-[#2b271f]">Acolhimento de {selectedAluno.full_name}</CardTitle></CardHeader><CardContent className="space-y-3 text-xs">
             {acolhimentoQuery.isLoading && <p className="text-[#918a7d]">Carregando...</p>}
@@ -151,6 +212,7 @@ export function ProfessionalDashboard({ onToast }: { onToast: (toast: Toast) => 
               <div className="grid grid-cols-[1fr_80px] gap-2"><Input defaultValue={selectedTreino.titulo} onChange={(e) => setTreinoForm({ ...treinoForm, titulo: e.target.value })} placeholder="Título" className="h-9 rounded-lg text-xs" /><Input defaultValue={selectedTreino.tipo} onChange={(e) => setTreinoForm({ ...treinoForm, tipo: e.target.value })} placeholder="Tipo" className="h-9 rounded-lg text-xs" /></div>
               <textarea defaultValue={selectedTreino.descricao ?? ""} onChange={(e) => setTreinoForm({ ...treinoForm, descricao: e.target.value })} placeholder="Descrição" className="min-h-16 w-full rounded-lg border bg-white p-2 text-xs" />
               <div className="flex gap-2"><Button variant="outline" onClick={saveTreinoHeader} className="h-9 flex-1 rounded-lg text-xs"><Save size={14} /> Salvar</Button><Button onClick={() => publishTreino.mutate({ id: selectedTreino.id })} disabled={publishTreino.isPending} className="h-9 flex-1 rounded-lg bg-[#15130f] text-xs text-white"><Send size={14} /> Publicar</Button></div>
+              <Button variant="outline" onClick={() => downloadFicha(selectedTreino)} disabled={downloadingFichaId === selectedTreino.id} className="h-9 w-full rounded-lg text-xs"><Download size={14} /> Baixar ficha (impressora térmica)</Button>
 
               <div className="rounded-xl border border-[#eee9df] p-3"><p className="mb-2 text-xs font-semibold text-[#4b4438]">Exercícios</p>
                 <div className="mb-3 space-y-2">{treinoExercicios.map((item) => { const exercicio = exercises.find((ex) => ex.id === item.exercicio_id); return <div key={item.id} className="flex items-center gap-2 rounded-lg border border-[#eee9df] p-2"><div className="min-w-0 flex-1"><p className="truncate text-xs font-semibold text-[#4b4438]">{exercicio?.nome ?? "Exercício removido"}</p><p className="text-[10px] text-[#9b9488]">{item.series}x{item.repeticoes} · descanso {item.descanso_seg}s{item.observacoes ? ` · ${item.observacoes}` : ""}</p></div><Button variant="ghost" onClick={() => removeExercicio(item.id)} className="h-7 w-7 p-0 text-[#b65c4d]"><Trash2 size={13} /></Button></div>; })}

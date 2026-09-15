@@ -597,11 +597,18 @@ async function deleteGlobalAccessRule(idValue) {
   return { id: idValue };
 }
 async function getProfileByUserId(userId) {
-  const rows = await request2("profiles", {}, `?select=user_id,full_name,organization_id,status&user_id=eq.${encodeURIComponent(userId)}&limit=1`);
+  const rows = await request2("profiles", {}, `?select=user_id,full_name,organization_id,status,unit_id,matricula_em&user_id=eq.${encodeURIComponent(userId)}&limit=1`);
   return rows[0] ?? null;
 }
 async function listStudentsInOrganization(organizationId) {
-  return request2("profiles", {}, `?select=user_id,full_name,organization_id,status&organization_id=eq.${encodeURIComponent(organizationId)}&order=full_name.asc`);
+  return request2("profiles", {}, `?select=user_id,full_name,organization_id,status,unit_id,matricula_em&organization_id=eq.${encodeURIComponent(organizationId)}&order=full_name.asc`);
+}
+async function updateStudentMatricula(alunoId, input) {
+  const body = {};
+  if (input.unitId !== void 0) body.unit_id = input.unitId;
+  if (input.matriculaEm !== void 0) body.matricula_em = input.matriculaEm;
+  const rows = await request2("profiles", { method: "PATCH", body: JSON.stringify(body) }, `?user_id=eq.${encodeURIComponent(alunoId)}`);
+  return rows[0];
 }
 async function listExercisesCatalog() {
   return request2("exercicios", {}, "?select=id,nome,grupo_muscular&order=nome.asc");
@@ -723,7 +730,7 @@ async function acceptMemberInvitation(token, password) {
   if (!invitation) throw new Error("C\xF3digo de convite inv\xE1lido ou j\xE1 utilizado.");
   if (new Date(invitation.expires_at).getTime() < Date.now()) throw new Error("Este convite expirou. Pe\xE7a para reenviarem o convite.");
   const authUser = await createSupabaseUserWithPassword(invitation.email, password, invitation.full_name);
-  await request2("profiles", { method: "PATCH", body: JSON.stringify({ full_name: invitation.full_name, organization_id: invitation.organization_id, status: "active" }) }, `?user_id=eq.${encodeURIComponent(authUser.id)}`);
+  await request2("profiles", { method: "PATCH", body: JSON.stringify({ full_name: invitation.full_name, organization_id: invitation.organization_id, status: "active", matricula_em: (/* @__PURE__ */ new Date()).toISOString() }) }, `?user_id=eq.${encodeURIComponent(authUser.id)}`);
   const accepted = await request2("member_invitations", { method: "PATCH", body: JSON.stringify({ status: "accepted" }) }, `?id=eq.${encodeURIComponent(invitation.id)}&status=eq.pending`);
   if (!accepted[0]) throw new Error("Este convite j\xE1 foi utilizado.");
   const session = await signInWithSupabase(invitation.email, password);
@@ -910,6 +917,86 @@ async function getGestaoIndicadores(organizationId) {
       porPrioridade
     }
   };
+}
+async function registrarFrequencia(input) {
+  const rows = await request2("frequencia_registros", { method: "POST", body: JSON.stringify({ aluno_id: input.alunoId, organization_id: input.organizationId, unit_id: input.unitId || void 0, origem: input.origem, registrado_por: input.registradoPor || void 0 }) });
+  return rows[0];
+}
+async function listFrequenciaForAluno(alunoId, limit = 30) {
+  return request2("frequencia_registros", {}, `?select=*&aluno_id=eq.${encodeURIComponent(alunoId)}&order=registrado_em.desc&limit=${limit}`);
+}
+async function listFrequenciaForOrganization(organizationId, limit = 100) {
+  return request2("frequencia_registros", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}&order=registrado_em.desc&limit=${limit}`);
+}
+function sanitizePdfText(value) {
+  return value.replaceAll("\\", "\\\\").replaceAll("(", "\\(").replaceAll(")", "\\)");
+}
+function buildThermalPdfBase64(lines) {
+  const widthPt = 80 * 2.8346;
+  const lineHeight = 12;
+  const marginTop = 16;
+  const heightPt = Math.max(140, marginTop + lineHeight * (lines.length + 1));
+  const contentLines = lines.map((line, index) => index === 0 ? `(${sanitizePdfText(line)}) Tj` : `0 -${lineHeight} Td
+(${sanitizePdfText(line)}) Tj`);
+  const content = ["BT", "/F1 8 Tf", `8 ${(heightPt - marginTop).toFixed(2)} Td`, ...contentLines, "ET"].join("\n");
+  const objects = [
+    "<< /Type /Catalog /Pages 2 0 R >>",
+    "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+    `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${widthPt.toFixed(2)} ${heightPt.toFixed(2)}] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>`,
+    "<< /Type /Font /Subtype /Type1 /BaseFont /Courier >>",
+    `<< /Length ${Buffer.byteLength(content, "utf8")} >>
+stream
+${content}
+endstream`
+  ];
+  let pdf = "%PDF-1.4\n";
+  const offsets = [0];
+  objects.forEach((object, index) => {
+    offsets[index + 1] = Buffer.byteLength(pdf, "utf8");
+    pdf += `${index + 1} 0 obj
+${object}
+endobj
+`;
+  });
+  const xref = Buffer.byteLength(pdf, "utf8");
+  const entries = offsets.slice(1).map((offset) => String(offset).padStart(10, "0") + " 00000 n ").join("\n");
+  pdf += `xref
+0 ${objects.length + 1}
+0000000000 65535 f 
+${entries}
+trailer
+<< /Size ${objects.length + 1} /Root 1 0 R >>
+startxref
+${xref}
+%%EOF`;
+  return Buffer.from(pdf, "utf8").toString("base64");
+}
+async function gerarFichaTreinoPdf(treinoId) {
+  const treino = await getTreino(treinoId);
+  if (!treino) throw new Error("Treino n\xE3o encontrado.");
+  const [exercicios, catalogo, aluno] = await Promise.all([
+    listTreinoExercicios(treinoId),
+    listExercisesCatalog(),
+    getProfileByUserId(treino.aluno_id)
+  ]);
+  const nomeExercicio = (idValue) => catalogo.find((exercicio) => exercicio.id === idValue)?.nome ?? "Exerc\xEDcio";
+  const orgNome = treino.organization_id ? await getOrganizationName(treino.organization_id) : "Arke";
+  const lines = [
+    orgNome,
+    `Ficha: ${treino.titulo} (${treino.tipo})`,
+    `Aluno: ${aluno?.full_name ?? "-"}`,
+    `Versao ${treino.versao} - ${(/* @__PURE__ */ new Date()).toLocaleDateString("pt-BR")}`,
+    "-".repeat(30)
+  ];
+  if (!exercicios.length) lines.push("Nenhum exercicio cadastrado.");
+  exercicios.forEach((exercicio, index) => {
+    lines.push(`${index + 1}. ${nomeExercicio(exercicio.exercicio_id)}`);
+    lines.push(`   ${exercicio.series}x${exercicio.repeticoes}  descanso ${exercicio.descanso_seg}s`);
+    if (exercicio.observacoes) lines.push(`   Obs: ${exercicio.observacoes}`);
+  });
+  lines.push("-".repeat(30));
+  lines.push("Bom treino!");
+  return { filename: `ficha-${treino.titulo.replace(/[^a-z0-9]+/gi, "-").toLowerCase()}-v${treino.versao}.pdf`, contentBase64: buildThermalPdfBase64(lines) };
 }
 
 // server/asaas.ts
@@ -1239,6 +1326,10 @@ var appRouter = router({
       await assertStaffOfOrganization(ctx.user.id, input.organizationId);
       return listStudentsInOrganization(input.organizationId);
     }),
+    updateMatricula: protectedProcedure.input(z2.object({ alunoId: z2.string().uuid(), unitId: z2.string().uuid().nullable().optional(), matriculaEm: z2.string().datetime().nullable().optional() })).mutation(async ({ ctx, input }) => {
+      await assertStaffForAluno(ctx.user.id, input.alunoId);
+      return updateStudentMatricula(input.alunoId, { unitId: input.unitId, matriculaEm: input.matriculaEm });
+    }),
     exercises: protectedProcedure.query(() => listExercisesCatalog()),
     treinos: router({
       list: protectedProcedure.input(z2.object({ alunoId: z2.string().uuid() })).query(async ({ ctx, input }) => {
@@ -1268,6 +1359,10 @@ var appRouter = router({
       delete: protectedProcedure.input(z2.object({ id: z2.string().uuid() })).mutation(async ({ ctx, input }) => {
         await assertStaffForTreino(ctx.user.id, input.id);
         return deleteTreino(input.id);
+      }),
+      fichaPdf: protectedProcedure.input(z2.object({ id: z2.string().uuid() })).query(async ({ ctx, input }) => {
+        await assertStaffForTreino(ctx.user.id, input.id);
+        return gerarFichaTreinoPdf(input.id);
       })
     }),
     dietas: router({
@@ -1299,7 +1394,12 @@ var appRouter = router({
         if (!treino || treino.aluno_id !== ctx.user.id || treino.estado_publicacao !== "publicado") throw new Error("Treino n\xE3o encontrado.");
         return listTreinoExercicios(input.treinoId);
       }),
-      dietas: protectedProcedure.query(({ ctx }) => listDietasForAluno(ctx.user.id, true))
+      dietas: protectedProcedure.query(({ ctx }) => listDietasForAluno(ctx.user.id, true)),
+      fichaPdf: protectedProcedure.input(z2.object({ treinoId: z2.string().uuid() })).query(async ({ ctx, input }) => {
+        const treino = await getTreino(input.treinoId);
+        if (!treino || treino.aluno_id !== ctx.user.id || treino.estado_publicacao !== "publicado") throw new Error("Treino n\xE3o encontrado.");
+        return gerarFichaTreinoPdf(input.treinoId);
+      })
     })
   }),
   journey: router({
@@ -1364,6 +1464,24 @@ var appRouter = router({
     indicadores: protectedProcedure.input(organizationIdInput).query(async ({ ctx, input }) => {
       await ownerOrAdmin(ctx.user.id, input.organizationId);
       return getGestaoIndicadores(input.organizationId);
+    })
+  }),
+  academia: router({
+    frequencia: router({
+      registrar: protectedProcedure.input(z2.object({ alunoId: z2.string().uuid() })).mutation(async ({ ctx, input }) => {
+        const profile = await assertStaffForAluno(ctx.user.id, input.alunoId);
+        if (!profile.organization_id) throw new Error("Aluno sem organiza\xE7\xE3o vinculada.");
+        return registrarFrequencia({ alunoId: input.alunoId, organizationId: profile.organization_id, unitId: profile.unit_id ?? void 0, origem: "manual", registradoPor: ctx.user.id });
+      }),
+      listOrganization: protectedProcedure.input(organizationIdInput).query(async ({ ctx, input }) => {
+        await assertStaffOfOrganization(ctx.user.id, input.organizationId);
+        return listFrequenciaForOrganization(input.organizationId);
+      }),
+      listAluno: protectedProcedure.input(z2.object({ alunoId: z2.string().uuid() })).query(async ({ ctx, input }) => {
+        await assertStaffForAluno(ctx.user.id, input.alunoId);
+        return listFrequenciaForAluno(input.alunoId);
+      }),
+      minhas: protectedProcedure.query(({ ctx }) => listFrequenciaForAluno(ctx.user.id))
     })
   })
 });
@@ -1451,6 +1569,7 @@ function registerAccessRoutes(app) {
     }
     const body = req.body ?? {};
     const academyId = normalize(body.academyId);
+    const organizationId = normalize(body.organizationId);
     const unitId = normalize(body.unitId);
     const studentId = normalize(body.studentId);
     const document = normalize(body.document);
@@ -1461,9 +1580,13 @@ function registerAccessRoutes(app) {
     }
     const denied = studentId.toLowerCase().includes("blocked") || document.endsWith("0000");
     const eventId = `access_${randomUUID3()}`;
+    if (!denied && organizationId && studentId) {
+      registrarFrequencia({ alunoId: studentId, organizationId, unitId: unitId || void 0, origem: "catraca" }).catch(() => {
+      });
+    }
     return res.status(200).json({
       ok: true,
-      mode: expectedKey ? "configured" : "unconfigured",
+      mode: expectedKey ? "configured" : "demo",
       eventId,
       decision: denied ? "denied" : "allowed",
       academyId,
