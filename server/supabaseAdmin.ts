@@ -122,13 +122,15 @@ export const normalizeEmail = (value: string) => value.trim().toLowerCase();
 export const ENV_REFERENCE = ENV.isProduction;
 
 
+export type EstadoPublicacaoAcervo = "rascunho" | "publicado" | "arquivado";
+
 export type GlobalLibraryExercise = {
-  id: string; nome: string; grupo_muscular: string; descricao?: string | null; instrucoes?: string | null; video_url?: string | null; imagem_url?: string | null; equipamento?: string | null; created_at: string; updated_at?: string | null;
+  id: string; nome: string; grupo_muscular: string; descricao?: string | null; instrucoes?: string | null; video_url?: string | null; imagem_url?: string | null; equipamento?: string | null; estado_publicacao: EstadoPublicacaoAcervo; publicado_por?: string | null; publicado_em?: string | null; created_at: string; updated_at?: string | null;
 };
 export type GlobalLibraryGroup = { id: string; nome: string; ordem: number; created_at: string };
-export type GlobalLibraryTemplate = { id: string; titulo: string; categoria: string; descricao?: string | null; divisoes: string[]; created_at: string; updated_at?: string | null };
+export type GlobalLibraryTemplate = { id: string; titulo: string; categoria: string; descricao?: string | null; divisoes: string[]; estado_publicacao: EstadoPublicacaoAcervo; publicado_por?: string | null; publicado_em?: string | null; created_at: string; updated_at?: string | null };
 export type GlobalTemplateExercise = { id: string; template_id: string; divisao: string; exercicio_id: string; ordem: number; series: number; repeticoes: string; descanso_seg: number; descanso_por_serie?: string | null; observacoes?: string | null; created_at: string };
-export type GlobalNutritionPlan = { id: string; titulo: string; categoria: string; objetivo?: string | null; descricao?: string | null; instrucoes?: string | null; created_at: string; updated_at?: string | null };
+export type GlobalNutritionPlan = { id: string; titulo: string; categoria: string; objetivo?: string | null; descricao?: string | null; instrucoes?: string | null; estado_publicacao: EstadoPublicacaoAcervo; publicado_por?: string | null; publicado_em?: string | null; created_at: string; updated_at?: string | null };
 export type GlobalRoutine = { id: string; titulo: string; categoria: string; descricao?: string | null; rotina: string; created_at: string; updated_at?: string | null };
 export type GlobalAccessRule = { id: string; modulo: string; plano: string; habilitado: boolean; requer_consultoria: boolean; created_at: string; updated_at: string };
 
@@ -165,6 +167,23 @@ export async function createGlobalNutritionPlan(input: Record<string, unknown>) 
 export async function updateGlobalNutritionPlan(idValue: string, input: Record<string, unknown>) { const rows = await request<GlobalNutritionPlan[]>("acervo_planos_alimentares", { method: "PATCH", body: JSON.stringify(input) }, `?id=eq.${encodeURIComponent(idValue)}`); return rows[0]; }
 export async function deleteGlobalNutritionPlan(idValue: string) { await request("acervo_planos_alimentares", { method: "DELETE" }, `?id=eq.${encodeURIComponent(idValue)}`); return { id: idValue }; }
 
+// Aprovação em lote de rascunhos gerados por IA (scripts/seed-acervo.ts):
+// o Admin Arke revisa e decide publicar — a IA nunca publica nada sozinha.
+const inFilter = (ids: string[]) => `id.in.(${ids.map(encodeURIComponent).join(",")})`;
+
+export async function publishGlobalExercises(ids: string[], userId: string) {
+  if (!ids.length) return [];
+  return request<GlobalLibraryExercise[]>("exercicios", { method: "PATCH", body: JSON.stringify({ estado_publicacao: "publicado", publicado_por: userId, publicado_em: new Date().toISOString() }) }, `?${inFilter(ids)}`);
+}
+export async function publishGlobalTemplates(ids: string[], userId: string) {
+  if (!ids.length) return [];
+  return request<GlobalLibraryTemplate[]>("treino_templates", { method: "PATCH", body: JSON.stringify({ estado_publicacao: "publicado", publicado_por: userId, publicado_em: new Date().toISOString() }) }, `?${inFilter(ids)}`);
+}
+export async function publishGlobalNutritionPlans(ids: string[], userId: string) {
+  if (!ids.length) return [];
+  return request<GlobalNutritionPlan[]>("acervo_planos_alimentares", { method: "PATCH", body: JSON.stringify({ estado_publicacao: "publicado", publicado_por: userId, publicado_em: new Date().toISOString() }) }, `?${inFilter(ids)}`);
+}
+
 export async function createGlobalRoutine(input: Record<string, unknown>) { const rows = await request<GlobalRoutine[]>("acervo_rotinas", { method: "POST", body: JSON.stringify(input) }); return rows[0]; }
 export async function updateGlobalRoutine(idValue: string, input: Record<string, unknown>) { const rows = await request<GlobalRoutine[]>("acervo_rotinas", { method: "PATCH", body: JSON.stringify(input) }, `?id=eq.${encodeURIComponent(idValue)}`); return rows[0]; }
 export async function deleteGlobalRoutine(idValue: string) { await request("acervo_rotinas", { method: "DELETE" }, `?id=eq.${encodeURIComponent(idValue)}`); return { id: idValue }; }
@@ -187,7 +206,10 @@ export async function updateStudentMatricula(alunoId: string, input: { unitId?: 
   const rows = await request<StudentProfile[]>("profiles", { method: "PATCH", body: JSON.stringify(body) }, `?user_id=eq.${encodeURIComponent(alunoId)}`);
   return rows[0];
 }
-export async function listExercisesCatalog() { return request<GlobalLibraryExercise[]>("exercicios", {}, "?select=id,nome,grupo_muscular&order=nome.asc"); }
+// Prescrição real de treino nunca pode puxar um exercício ainda em
+// rascunho (não revisado pelo Admin Arke) — só o acervo publicado entra
+// aqui.
+export async function listExercisesCatalog() { return request<GlobalLibraryExercise[]>("exercicios", {}, "?select=id,nome,grupo_muscular&estado_publicacao=eq.publicado&order=nome.asc"); }
 
 export async function listTreinosForAluno(alunoId: string, publishedOnly = false) { return request<Treino[]>("treinos", {}, `?select=*&aluno_id=eq.${encodeURIComponent(alunoId)}${publishedOnly ? "&estado_publicacao=eq.publicado" : ""}&order=created_at.desc`); }
 export async function getTreino(idValue: string) { const rows = await request<Treino[]>("treinos", {}, `?select=*&id=eq.${encodeURIComponent(idValue)}&limit=1`); return rows[0] ?? null; }
