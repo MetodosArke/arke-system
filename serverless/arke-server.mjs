@@ -33,99 +33,8 @@ function getSessionCookieOptions(req) {
 // server/_core/systemRouter.ts
 import { z } from "zod";
 
-// server/_core/notification.ts
-import { TRPCError } from "@trpc/server";
-
-// server/_core/env.ts
-var ENV = {
-  isProduction: process.env.NODE_ENV === "production",
-  forgeApiUrl: process.env.BUILT_IN_FORGE_API_URL ?? "",
-  forgeApiKey: process.env.BUILT_IN_FORGE_API_KEY ?? ""
-};
-
-// server/_core/notification.ts
-var TITLE_MAX_LENGTH = 1200;
-var CONTENT_MAX_LENGTH = 2e4;
-var trimValue = (value) => value.trim();
-var isNonEmptyString = (value) => typeof value === "string" && value.trim().length > 0;
-var buildEndpointUrl = (baseUrl) => {
-  const normalizedBase = baseUrl.endsWith("/") ? baseUrl : `${baseUrl}/`;
-  return new URL(
-    "webdevtoken.v1.WebDevService/SendNotification",
-    normalizedBase
-  ).toString();
-};
-var validatePayload = (input) => {
-  if (!isNonEmptyString(input.title)) {
-    throw new TRPCError({
-      code: "BAD_REQUEST",
-      message: "Notification title is required."
-    });
-  }
-  if (!isNonEmptyString(input.content)) {
-    throw new TRPCError({
-      code: "BAD_REQUEST",
-      message: "Notification content is required."
-    });
-  }
-  const title = trimValue(input.title);
-  const content = trimValue(input.content);
-  if (title.length > TITLE_MAX_LENGTH) {
-    throw new TRPCError({
-      code: "BAD_REQUEST",
-      message: `Notification title must be at most ${TITLE_MAX_LENGTH} characters.`
-    });
-  }
-  if (content.length > CONTENT_MAX_LENGTH) {
-    throw new TRPCError({
-      code: "BAD_REQUEST",
-      message: `Notification content must be at most ${CONTENT_MAX_LENGTH} characters.`
-    });
-  }
-  return { title, content };
-};
-async function notifyOwner(payload) {
-  const { title, content } = validatePayload(payload);
-  if (!ENV.forgeApiUrl) {
-    throw new TRPCError({
-      code: "INTERNAL_SERVER_ERROR",
-      message: "Notification service URL is not configured."
-    });
-  }
-  if (!ENV.forgeApiKey) {
-    throw new TRPCError({
-      code: "INTERNAL_SERVER_ERROR",
-      message: "Notification service API key is not configured."
-    });
-  }
-  const endpoint = buildEndpointUrl(ENV.forgeApiUrl);
-  try {
-    const response = await fetch(endpoint, {
-      method: "POST",
-      headers: {
-        accept: "application/json",
-        authorization: `Bearer ${ENV.forgeApiKey}`,
-        "content-type": "application/json",
-        "connect-protocol-version": "1"
-      },
-      body: JSON.stringify({ title, content })
-    });
-    if (!response.ok) {
-      const detail = await response.text().catch(() => "");
-      console.warn(
-        `[Notification] Failed to notify owner (${response.status} ${response.statusText})${detail ? `: ${detail}` : ""}`
-      );
-      return false;
-    }
-    return true;
-  } catch (error) {
-    console.warn("[Notification] Error calling notification service:", error);
-    return false;
-  }
-}
-
 // server/_core/trpc.ts
-import { initTRPC, TRPCError as TRPCError2 } from "@trpc/server";
+import { initTRPC, TRPCError } from "@trpc/server";
 import superjson from "superjson";
 var t = initTRPC.context().create({
   transformer: superjson
@@ -135,7 +44,7 @@ var publicProcedure = t.procedure;
 var requireUser = t.middleware(async (opts) => {
   const { ctx, next } = opts;
   if (!ctx.user) {
-    throw new TRPCError2({ code: "UNAUTHORIZED", message: UNAUTHED_ERR_MSG });
+    throw new TRPCError({ code: "UNAUTHORIZED", message: UNAUTHED_ERR_MSG });
   }
   return next({
     ctx: {
@@ -149,7 +58,7 @@ var adminProcedure = t.procedure.use(
   t.middleware(async (opts) => {
     const { ctx, next } = opts;
     if (!ctx.user || ctx.user.role !== "admin") {
-      throw new TRPCError2({ code: "FORBIDDEN", message: NOT_ADMIN_ERR_MSG });
+      throw new TRPCError({ code: "FORBIDDEN", message: NOT_ADMIN_ERR_MSG });
     }
     return next({
       ctx: {
@@ -168,18 +77,7 @@ var systemRouter = router({
     })
   ).query(() => ({
     ok: true
-  })),
-  notifyOwner: adminProcedure.input(
-    z.object({
-      title: z.string().min(1, "title is required"),
-      content: z.string().min(1, "content is required")
-    })
-  ).mutation(async ({ input }) => {
-    const delivered = await notifyOwner(input);
-    return {
-      success: delivered
-    };
-  })
+  }))
 });
 
 // server/asaas.ts
@@ -487,6 +385,13 @@ ${xref}
 
 // server/supabaseAdmin.ts
 import { createHash, randomUUID } from "node:crypto";
+
+// server/_core/env.ts
+var ENV = {
+  isProduction: process.env.NODE_ENV === "production"
+};
+
+// server/supabaseAdmin.ts
 function config2() {
   const url = process.env.SUPABASE_URL ?? "";
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.SUPABASE_KEY ?? "";
@@ -846,6 +751,7 @@ async function acceptMemberInvitation(token, password) {
   await request2("profiles", { method: "PATCH", body: JSON.stringify({ full_name: invitation.full_name, organization_id: invitation.organization_id, status: "active", matricula_em: (/* @__PURE__ */ new Date()).toISOString() }) }, `?user_id=eq.${encodeURIComponent(authUser.id)}`);
   const accepted = await request2("member_invitations", { method: "PATCH", body: JSON.stringify({ status: "accepted" }) }, `?id=eq.${encodeURIComponent(invitation.id)}&status=eq.pending`);
   if (!accepted[0]) throw new Error("Este convite j\xE1 foi utilizado.");
+  await request2("leads", { method: "PATCH", body: JSON.stringify({ estagio: "matriculado", convertido_em: (/* @__PURE__ */ new Date()).toISOString() }) }, `?member_invitation_id=eq.${encodeURIComponent(invitation.id)}&estagio=eq.convite_enviado`);
   const session = await signInWithSupabase(invitation.email, password);
   return { accessToken: session.accessToken, refreshToken: session.refreshToken, user: session.user, organizationId: invitation.organization_id };
 }
@@ -1200,11 +1106,11 @@ async function getLead(idValue) {
   return rows[0] ?? null;
 }
 async function createLead(input) {
-  const rows = await request2("leads", { method: "POST", body: JSON.stringify({ organization_id: input.organizationId, nome: input.nome, telefone: input.telefone || void 0, email: input.email || void 0, origem: input.origem || void 0, responsavel_id: input.responsavelId || void 0, notas: input.notas || void 0, criado_por: input.criadoPor || void 0 }) });
+  const rows = await request2("leads", { method: "POST", body: JSON.stringify({ organization_id: input.organizationId, unit_id: input.unitId || void 0, nome: input.nome, telefone: input.telefone || void 0, email: input.email || void 0, origem: input.origem || void 0, interesse: input.interesse || void 0, responsavel_id: input.responsavelId || void 0, notas: input.notas || void 0, criado_por: input.criadoPor || void 0 }) });
   return rows[0];
 }
 async function updateLead(idValue, data) {
-  const rows = await request2("leads", { method: "PATCH", body: JSON.stringify({ nome: data.nome, telefone: data.telefone, email: data.email, origem: data.origem, responsavel_id: data.responsavelId, notas: data.notas }) }, `?id=eq.${encodeURIComponent(idValue)}`);
+  const rows = await request2("leads", { method: "PATCH", body: JSON.stringify({ nome: data.nome, telefone: data.telefone, email: data.email, origem: data.origem, interesse: data.interesse, unit_id: data.unitId, responsavel_id: data.responsavelId, notas: data.notas }) }, `?id=eq.${encodeURIComponent(idValue)}`);
   if (!rows[0]) throw new Error("Lead n\xE3o encontrado.");
   return rows[0];
 }
@@ -1231,10 +1137,11 @@ async function converterLead(idValue, invitedByUserId) {
   const lead = await getLead(idValue);
   if (!lead) throw new Error("Lead n\xE3o encontrado.");
   if (lead.estagio === "matriculado") throw new Error("Este lead j\xE1 foi convertido.");
+  if (lead.estagio === "convite_enviado") throw new Error("O convite j\xE1 foi enviado a este lead \u2014 aguarde o aceite ou reenvie pelo painel de convites pendentes.");
   if (lead.estagio === "perdido") throw new Error("Este lead est\xE1 marcado como perdido.");
   if (!lead.email) throw new Error("Informe o e-mail do lead antes de converter \u2014 o convite de aluno exige e-mail.");
   const invitation = await inviteMember({ organizationId: lead.organization_id, invitedByUserId, email: lead.email, fullName: lead.nome });
-  const rows = await request2("leads", { method: "PATCH", body: JSON.stringify({ estagio: "matriculado", convertido_em: (/* @__PURE__ */ new Date()).toISOString(), member_invitation_id: invitation.id }) }, `?id=eq.${encodeURIComponent(idValue)}`);
+  const rows = await request2("leads", { method: "PATCH", body: JSON.stringify({ estagio: "convite_enviado", member_invitation_id: invitation.id }) }, `?id=eq.${encodeURIComponent(idValue)}`);
   await closeOpenFollowUps(idValue);
   return { lead: rows[0], invitation };
 }
@@ -1262,6 +1169,106 @@ async function createFollowUpLeadIfNeeded(leadId, organizationId, dias) {
   } catch {
     return null;
   }
+}
+var FOLLOW_UP_ATRASADO_HORAS = 48;
+async function getCrmIndicadores(organizationId, unitId) {
+  const filtroUnidade = unitId ? `&unit_id=eq.${encodeURIComponent(unitId)}` : "";
+  const trintaDiasAtras = new Date(Date.now() - 1e3 * 60 * 60 * 24 * 30).toISOString();
+  const [leads, atividadesOrg] = await Promise.all([
+    request2("leads", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}${filtroUnidade}`),
+    request2("lead_atividades", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}&order=created_at.asc`)
+  ]);
+  const leadIds = new Set(leads.map((lead) => lead.id));
+  const atividades = atividadesOrg.filter((atividade) => leadIds.has(atividade.lead_id));
+  const porEstagio = { novo: 0, contato_feito: 0, visita_agendada: 0, convite_enviado: 0, matriculado: 0, perdido: 0 };
+  for (const lead of leads) porEstagio[lead.estagio] += 1;
+  const totalConsiderado = leads.length - porEstagio.perdido;
+  const taxaConversao = totalConsiderado > 0 ? porEstagio.matriculado / totalConsiderado : null;
+  const origemMap = /* @__PURE__ */ new Map();
+  for (const lead of leads) {
+    const chave = lead.origem?.trim() || "N\xE3o informado";
+    origemMap.set(chave, (origemMap.get(chave) ?? 0) + 1);
+  }
+  const porOrigem = Array.from(origemMap.entries()).map(([origem, total]) => ({ origem, total })).sort((a, b) => b.total - a.total);
+  const motivoMap = /* @__PURE__ */ new Map();
+  for (const lead of leads) {
+    if (lead.estagio !== "perdido" || !lead.motivo_perda) continue;
+    const chave = lead.motivo_perda.trim();
+    motivoMap.set(chave, (motivoMap.get(chave) ?? 0) + 1);
+  }
+  const motivosPerda = Array.from(motivoMap.entries()).map(([motivo, total]) => ({ motivo, total })).sort((a, b) => b.total - a.total).slice(0, 8);
+  const followUpsAbertos = atividades.filter((atividade) => atividade.tipo === "follow_up_automatico" && atividade.status === "aberta");
+  const agora = Date.now();
+  const followUpsAtrasados = followUpsAbertos.filter((atividade) => (agora - new Date(atividade.created_at).getTime()) / (1e3 * 60 * 60) > FOLLOW_UP_ATRASADO_HORAS);
+  const primeiraNotaPorLead = /* @__PURE__ */ new Map();
+  for (const atividade of atividades) {
+    if (atividade.tipo !== "nota") continue;
+    if (!primeiraNotaPorLead.has(atividade.lead_id)) primeiraNotaPorLead.set(atividade.lead_id, atividade.created_at);
+  }
+  const temposResposta = [];
+  for (const lead of leads) {
+    const primeiraNota = primeiraNotaPorLead.get(lead.id);
+    if (!primeiraNota) continue;
+    temposResposta.push((new Date(primeiraNota).getTime() - new Date(lead.created_at).getTime()) / (1e3 * 60 * 60));
+  }
+  const tempoMedioPrimeiraRespostaHoras = temposResposta.length ? temposResposta.reduce((soma, valor) => soma + valor, 0) / temposResposta.length : null;
+  const novosPorDiaMap = /* @__PURE__ */ new Map();
+  for (const lead of leads) {
+    if (lead.created_at < trintaDiasAtras) continue;
+    const dia = lead.created_at.slice(0, 10);
+    novosPorDiaMap.set(dia, (novosPorDiaMap.get(dia) ?? 0) + 1);
+  }
+  const novosPorDia = Array.from(novosPorDiaMap.entries()).map(([data, total]) => ({ data, total })).sort((a, b) => a.data.localeCompare(b.data));
+  return { porEstagio, taxaConversao, porOrigem, motivosPerda, followUps: { abertos: followUpsAbertos.length, atrasados: followUpsAtrasados.length }, tempoMedioPrimeiraRespostaHoras, novosPorDia };
+}
+async function rpc2(fn, args) {
+  const { url, key } = config2();
+  const response = await fetch(`${url}/rest/v1/rpc/${fn}`, {
+    method: "POST",
+    headers: { apikey: key, Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+    body: JSON.stringify(args)
+  });
+  if (!response.ok) throw new Error(`Supabase RPC ${fn} ${response.status}: ${await response.text()}`);
+  const text = await response.text();
+  return text ? JSON.parse(text) : null;
+}
+async function getCurrentPrivacyPolicy() {
+  const rows = await request2("privacy_policy_versions", {}, "?select=*&order=effective_at.desc&limit=1");
+  return rows[0] ?? null;
+}
+async function hasConsent(userId, consentType) {
+  const rows = await request2("user_consents", {}, `?select=id&user_id=eq.${encodeURIComponent(userId)}&consent_type=eq.${consentType}&granted=eq.true&limit=1`);
+  return rows.length > 0;
+}
+async function recordConsent(input) {
+  const rows = await request2("user_consents", { method: "POST", body: JSON.stringify({ user_id: input.userId, consent_type: input.consentType, policy_version_id: input.policyVersionId ?? null, granted: true, ip_address: input.ipAddress ?? null, user_agent: input.userAgent ?? null }) });
+  return rows[0];
+}
+async function createDeletionRequest(input) {
+  const existing = await request2("data_deletion_requests", {}, `?select=id&user_id=eq.${encodeURIComponent(input.userId)}&status=eq.pending&limit=1`);
+  if (existing.length) throw new Error("Voc\xEA j\xE1 tem uma solicita\xE7\xE3o de exclus\xE3o pendente.");
+  const rows = await request2("data_deletion_requests", { method: "POST", body: JSON.stringify({ user_id: input.userId, organization_id: input.organizationId, reason: input.reason || void 0 }) });
+  return rows[0];
+}
+async function getMyDeletionRequest(userId) {
+  const rows = await request2("data_deletion_requests", {}, `?select=*&user_id=eq.${encodeURIComponent(userId)}&order=requested_at.desc&limit=1`);
+  return rows[0] ?? null;
+}
+async function getDeletionRequest(idValue) {
+  const rows = await request2("data_deletion_requests", {}, `?select=*&id=eq.${encodeURIComponent(idValue)}&limit=1`);
+  return rows[0] ?? null;
+}
+async function listDeletionRequests(organizationId, status) {
+  return request2("data_deletion_requests", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}${status ? `&status=eq.${status}` : ""}&order=requested_at.asc`);
+}
+async function fulfillDeletionRequest(input) {
+  await rpc2("delete_member_data", { p_aluno_id: input.alunoId, p_resolved_by: input.resolvedBy, p_request_id: input.requestId, p_note: input.note || null });
+  return { requestId: input.requestId, status: "completed" };
+}
+async function rejectDeletionRequest(input) {
+  const rows = await request2("data_deletion_requests", { method: "PATCH", body: JSON.stringify({ status: "rejected", resolved_at: (/* @__PURE__ */ new Date()).toISOString(), resolved_by: input.resolvedBy, resolution_note: input.note || null }) }, `?id=eq.${encodeURIComponent(input.requestId)}&organization_id=eq.${encodeURIComponent(input.organizationId)}&status=eq.pending`);
+  if (!rows[0]) throw new Error("Solicita\xE7\xE3o n\xE3o encontrada ou j\xE1 resolvida.");
+  return rows[0];
 }
 
 // server/cnpj.ts
@@ -1549,10 +1556,15 @@ var assertStaffForAtendimento = async (userId, atendimentoId) => {
   await assertStaffOfOrganization(userId, atendimento.organization_id);
   return atendimento;
 };
-var assertStaffForLead = async (userId, leadId) => {
+var assertManagerOfOrganization = async (userId, organizationId) => {
+  const membership = await getMembership(userId, organizationId);
+  if (!membership || membership.membership.status !== "active" || !MANAGER_ROLES.includes(membership.membership.role)) throw new Error("Voc\xEA n\xE3o tem acesso ao CRM desta organiza\xE7\xE3o.");
+  return membership;
+};
+var assertManagerForLead = async (userId, leadId) => {
   const lead = await getLead(leadId);
   if (!lead) throw new Error("Lead n\xE3o encontrado.");
-  await assertStaffOfOrganization(userId, lead.organization_id);
+  await assertManagerOfOrganization(userId, lead.organization_id);
   return lead;
 };
 var assertStaffForTurma = async (userId, turmaId) => {
@@ -1583,6 +1595,8 @@ var acolhimentoInput = z2.object({
   alimentos_nao_gosta: z2.string().trim().max(4e3).optional(),
   alimentacao_rotina: z2.string().trim().max(4e3).optional()
 });
+var HEALTH_DATA_FIELDS = ["dores_lesoes", "medicamentos"];
+var requestMeta = (req) => ({ ipAddress: req.ip, userAgent: typeof req.headers["user-agent"] === "string" ? req.headers["user-agent"] : void 0 });
 var appRouter = router({
   system: systemRouter,
   auth: router({
@@ -1841,11 +1855,33 @@ var appRouter = router({
         await recordAuditLog({ organizationId: input.organizationId, userId: ctx.user.id, action: "revoked", entity: "invitation", entityId: input.invitationId });
         return result;
       }),
-      acceptInvite: protectedProcedure.input(z2.object({ token: z2.string().min(16).max(128) })).mutation(async ({ ctx, input }) => {
+      acceptInvite: protectedProcedure.input(z2.object({ token: z2.string().min(16).max(128), consentTermos: z2.literal(true) })).mutation(async ({ ctx, input }) => {
         if (!ctx.user.email) throw new Error("Authenticated user email is required");
         const result = await acceptOrganizationInvitation({ tokenHash: createHash2("sha256").update(input.token).digest("hex"), userId: ctx.user.id, email: ctx.user.email });
+        if (!await hasConsent(ctx.user.id, "termos_uso_privacidade")) {
+          const policy = await getCurrentPrivacyPolicy();
+          await recordConsent({ userId: ctx.user.id, consentType: "termos_uso_privacidade", policyVersionId: policy?.id ?? null, ...requestMeta(ctx.req) });
+        }
         await recordAuditLog({ organizationId: result.organizationId, userId: ctx.user.id, action: "accepted", entity: "invitation", entityId: result.invitation.id, afterJson: { role: result.role, email: ctx.user.email } });
         return { organizationId: result.organizationId, role: result.role, status: "accepted" };
+      }),
+      listDeletionRequests: protectedProcedure.input(organizationIdInput).query(async ({ ctx, input }) => {
+        await ownerOrAdmin(ctx.user.id, input.organizationId);
+        return listDeletionRequests(input.organizationId);
+      }),
+      fulfillDeletionRequest: protectedProcedure.input(z2.object({ organizationId: z2.string().uuid(), requestId: z2.string().uuid(), note: z2.string().trim().max(2e3).optional() })).mutation(async ({ ctx, input }) => {
+        await ownerOrAdmin(ctx.user.id, input.organizationId);
+        const deletionRequest = await getDeletionRequest(input.requestId);
+        if (!deletionRequest || deletionRequest.organization_id !== input.organizationId || deletionRequest.status !== "pending" || !deletionRequest.user_id) throw new Error("Solicita\xE7\xE3o n\xE3o encontrada ou j\xE1 resolvida.");
+        await fulfillDeletionRequest({ requestId: input.requestId, alunoId: deletionRequest.user_id, resolvedBy: ctx.user.id, note: input.note });
+        await recordAuditLog({ organizationId: input.organizationId, userId: ctx.user.id, action: "completed", entity: "data_deletion_request", entityId: input.requestId });
+        return { requestId: input.requestId, status: "completed" };
+      }),
+      rejectDeletionRequest: protectedProcedure.input(z2.object({ organizationId: z2.string().uuid(), requestId: z2.string().uuid(), note: z2.string().trim().max(2e3).optional() })).mutation(async ({ ctx, input }) => {
+        await ownerOrAdmin(ctx.user.id, input.organizationId);
+        const rejected = await rejectDeletionRequest({ requestId: input.requestId, organizationId: input.organizationId, resolvedBy: ctx.user.id, note: input.note });
+        await recordAuditLog({ organizationId: input.organizationId, userId: ctx.user.id, action: "rejected", entity: "data_deletion_request", entityId: input.requestId });
+        return rejected;
       })
     })
   }),
@@ -1871,23 +1907,31 @@ var appRouter = router({
       }),
       create: protectedProcedure.input(z2.object({ alunoId: z2.string().uuid(), titulo: z2.string().trim().min(2), tipo: z2.string().trim().min(1).default("A"), descricao: z2.string().trim().optional() })).mutation(async ({ ctx, input }) => {
         const profile = await assertStaffForAluno(ctx.user.id, input.alunoId, TREINO_BLOCKED_ROLES);
-        return createTreino({ aluno_id: input.alunoId, titulo: input.titulo, tipo: input.tipo, descricao: input.descricao || void 0, organization_id: profile.organization_id, criado_por: ctx.user.id });
+        const treino = await createTreino({ aluno_id: input.alunoId, titulo: input.titulo, tipo: input.tipo, descricao: input.descricao || void 0, organization_id: profile.organization_id, criado_por: ctx.user.id });
+        if (profile.organization_id) await recordAuditLog({ organizationId: profile.organization_id, userId: ctx.user.id, action: "created", entity: "treino", entityId: treino.id, afterJson: input });
+        return treino;
       }),
       update: protectedProcedure.input(z2.object({ id: z2.string().uuid(), data: z2.object({ titulo: z2.string().trim().min(2), tipo: z2.string().trim().min(1), descricao: z2.string().trim().optional().nullable() }) })).mutation(async ({ ctx, input }) => {
-        await assertStaffForTreino(ctx.user.id, input.id, TREINO_BLOCKED_ROLES);
-        return updateTreino(input.id, input.data);
+        const treino = await assertStaffForTreino(ctx.user.id, input.id, TREINO_BLOCKED_ROLES);
+        const updated = await updateTreino(input.id, input.data);
+        if (treino.organization_id) await recordAuditLog({ organizationId: treino.organization_id, userId: ctx.user.id, action: "updated", entity: "treino", entityId: input.id, beforeJson: treino, afterJson: input.data });
+        return updated;
       }),
       saveExercicios: protectedProcedure.input(z2.object({ treinoId: z2.string().uuid(), items: z2.array(treinoExercicioItem) })).mutation(async ({ ctx, input }) => {
         await assertStaffForTreino(ctx.user.id, input.treinoId, TREINO_BLOCKED_ROLES);
         return replaceTreinoExercicios(input.treinoId, input.items);
       }),
       publish: protectedProcedure.input(z2.object({ id: z2.string().uuid() })).mutation(async ({ ctx, input }) => {
-        await assertStaffForTreino(ctx.user.id, input.id, TREINO_BLOCKED_ROLES);
-        return publishTreino(input.id, ctx.user.id);
+        const treino = await assertStaffForTreino(ctx.user.id, input.id, TREINO_BLOCKED_ROLES);
+        const published = await publishTreino(input.id, ctx.user.id);
+        if (treino.organization_id) await recordAuditLog({ organizationId: treino.organization_id, userId: ctx.user.id, action: "published", entity: "treino", entityId: input.id, afterJson: { versao: published.versao } });
+        return published;
       }),
       delete: protectedProcedure.input(z2.object({ id: z2.string().uuid() })).mutation(async ({ ctx, input }) => {
-        await assertStaffForTreino(ctx.user.id, input.id, TREINO_BLOCKED_ROLES);
-        return deleteTreino(input.id);
+        const treino = await assertStaffForTreino(ctx.user.id, input.id, TREINO_BLOCKED_ROLES);
+        const result = await deleteTreino(input.id);
+        if (treino.organization_id) await recordAuditLog({ organizationId: treino.organization_id, userId: ctx.user.id, action: "deleted", entity: "treino", entityId: input.id, beforeJson: treino });
+        return result;
       }),
       fichaPdf: protectedProcedure.input(z2.object({ id: z2.string().uuid() })).query(async ({ ctx, input }) => {
         await assertStaffForTreino(ctx.user.id, input.id);
@@ -1901,19 +1945,27 @@ var appRouter = router({
       }),
       create: protectedProcedure.input(z2.object({ alunoId: z2.string().uuid(), titulo: z2.string().trim().min(2), descricao: z2.string().trim().optional(), arquivoUrl: z2.string().url().optional() })).mutation(async ({ ctx, input }) => {
         const profile = await assertStaffForAluno(ctx.user.id, input.alunoId, DIETA_BLOCKED_ROLES);
-        return createDieta({ aluno_id: input.alunoId, titulo: input.titulo, descricao: input.descricao || void 0, arquivo_url: input.arquivoUrl || void 0, organization_id: profile.organization_id, criado_por: ctx.user.id });
+        const dieta = await createDieta({ aluno_id: input.alunoId, titulo: input.titulo, descricao: input.descricao || void 0, arquivo_url: input.arquivoUrl || void 0, organization_id: profile.organization_id, criado_por: ctx.user.id });
+        if (profile.organization_id) await recordAuditLog({ organizationId: profile.organization_id, userId: ctx.user.id, action: "created", entity: "dieta", entityId: dieta.id, afterJson: input });
+        return dieta;
       }),
       update: protectedProcedure.input(z2.object({ id: z2.string().uuid(), data: z2.object({ titulo: z2.string().trim().min(2), descricao: z2.string().trim().optional().nullable(), arquivo_url: z2.string().url().optional().nullable() }) })).mutation(async ({ ctx, input }) => {
-        await assertStaffForDieta(ctx.user.id, input.id, DIETA_BLOCKED_ROLES);
-        return updateDieta(input.id, input.data);
+        const dieta = await assertStaffForDieta(ctx.user.id, input.id, DIETA_BLOCKED_ROLES);
+        const updated = await updateDieta(input.id, input.data);
+        if (dieta.organization_id) await recordAuditLog({ organizationId: dieta.organization_id, userId: ctx.user.id, action: "updated", entity: "dieta", entityId: input.id, beforeJson: dieta, afterJson: input.data });
+        return updated;
       }),
       publish: protectedProcedure.input(z2.object({ id: z2.string().uuid() })).mutation(async ({ ctx, input }) => {
-        await assertStaffForDieta(ctx.user.id, input.id, DIETA_BLOCKED_ROLES);
-        return publishDieta(input.id, ctx.user.id);
+        const dieta = await assertStaffForDieta(ctx.user.id, input.id, DIETA_BLOCKED_ROLES);
+        const published = await publishDieta(input.id, ctx.user.id);
+        if (dieta.organization_id) await recordAuditLog({ organizationId: dieta.organization_id, userId: ctx.user.id, action: "published", entity: "dieta", entityId: input.id, afterJson: { versao: published.versao } });
+        return published;
       }),
       delete: protectedProcedure.input(z2.object({ id: z2.string().uuid() })).mutation(async ({ ctx, input }) => {
-        await assertStaffForDieta(ctx.user.id, input.id, DIETA_BLOCKED_ROLES);
-        return deleteDieta(input.id);
+        const dieta = await assertStaffForDieta(ctx.user.id, input.id, DIETA_BLOCKED_ROLES);
+        const result = await deleteDieta(input.id);
+        if (dieta.organization_id) await recordAuditLog({ organizationId: dieta.organization_id, userId: ctx.user.id, action: "deleted", entity: "dieta", entityId: input.id, beforeJson: dieta });
+        return result;
       })
     }),
     meu: router({
@@ -1944,17 +1996,43 @@ var appRouter = router({
       await assertStaffOfOrganization(ctx.user.id, input.organizationId);
       return revokeMemberInvitation(input.id, input.organizationId);
     }),
-    acceptInvite: publicProcedure.input(z2.object({ token: z2.string().trim().min(10), password: z2.string().min(8) })).mutation(async ({ ctx, input }) => {
+    acceptInvite: publicProcedure.input(z2.object({ token: z2.string().trim().min(10), password: z2.string().min(8), consentTermos: z2.literal(true) })).mutation(async ({ ctx, input }) => {
       const result = await acceptMemberInvitation(input.token, input.password);
+      const policy = await getCurrentPrivacyPolicy();
+      await recordConsent({ userId: result.user.id, consentType: "termos_uso_privacidade", policyVersionId: policy?.id ?? null, ...requestMeta(ctx.req) });
       ctx.res.cookie(SUPABASE_ACCESS_COOKIE, result.accessToken, { ...getSessionCookieOptions(ctx.req), maxAge: 1e3 * 60 * 60 * 24 * 30 });
       return { accessToken: result.accessToken, user: result.user, organizationId: result.organizationId };
     }),
+    getCurrentPrivacyPolicy: publicProcedure.query(() => getCurrentPrivacyPolicy()),
+    getConsentStatus: protectedProcedure.query(async ({ ctx }) => ({
+      termosUsoPrivacidade: await hasConsent(ctx.user.id, "termos_uso_privacidade"),
+      dadosSaude: await hasConsent(ctx.user.id, "dados_saude")
+    })),
     myAcolhimento: protectedProcedure.query(({ ctx }) => getAcolhimento(ctx.user.id)),
-    submitAcolhimento: protectedProcedure.input(acolhimentoInput).mutation(({ ctx, input }) => upsertAcolhimento(ctx.user.id, input)),
+    submitAcolhimento: protectedProcedure.input(acolhimentoInput.extend({ consentDadosSaude: z2.literal(true).optional() })).mutation(async ({ ctx, input }) => {
+      const { consentDadosSaude, ...data } = input;
+      const touchesHealthData = HEALTH_DATA_FIELDS.some((field) => data[field] !== void 0);
+      if (touchesHealthData && !await hasConsent(ctx.user.id, "dados_saude")) {
+        if (!consentDadosSaude) throw new Error("\xC9 necess\xE1rio consentir com o uso dos seus dados de sa\xFAde antes de informar dores, les\xF5es ou medicamentos.");
+        const policy = await getCurrentPrivacyPolicy();
+        await recordConsent({ userId: ctx.user.id, consentType: "dados_saude", policyVersionId: policy?.id ?? null, ...requestMeta(ctx.req) });
+      }
+      const saved = await upsertAcolhimento(ctx.user.id, data);
+      const profile = await getProfileByUserId(ctx.user.id);
+      if (profile?.organization_id) await recordAuditLog({ organizationId: profile.organization_id, userId: ctx.user.id, action: "updated", entity: "acolhimento", entityId: ctx.user.id });
+      return saved;
+    }),
     staffAcolhimento: protectedProcedure.input(z2.object({ alunoId: z2.string().uuid() })).query(async ({ ctx, input }) => {
-      await assertStaffForAluno(ctx.user.id, input.alunoId);
-      return getAcolhimento(input.alunoId);
-    })
+      const profile = await assertStaffForAluno(ctx.user.id, input.alunoId);
+      const acolhimento = await getAcolhimento(input.alunoId);
+      if (profile.organization_id) await recordAuditLog({ organizationId: profile.organization_id, userId: ctx.user.id, action: "viewed", entity: "acolhimento", entityId: input.alunoId });
+      return acolhimento;
+    }),
+    requestAccountDeletion: protectedProcedure.input(z2.object({ reason: z2.string().trim().max(2e3).optional() })).mutation(async ({ ctx, input }) => {
+      const profile = await getProfileByUserId(ctx.user.id);
+      return createDeletionRequest({ userId: ctx.user.id, organizationId: profile?.organization_id ?? null, reason: input.reason });
+    }),
+    myDeletionRequest: protectedProcedure.query(({ ctx }) => getMyDeletionRequest(ctx.user.id))
   }),
   atendimento: router({
     checkIn: protectedProcedure.input(z2.object({ status: z2.enum(["indo_bem", "com_dificuldade", "quero_ajuda"]), observacao: z2.string().trim().max(2e3).optional() })).mutation(async ({ ctx, input }) => {
@@ -1989,42 +2067,46 @@ var appRouter = router({
     })
   }),
   crm: router({
-    myOrganizations: protectedProcedure.query(async ({ ctx }) => (await getOrganizationsForUser(ctx.user.id)).filter((item) => STAFF_ROLES.includes(item.membership.role))),
+    myOrganizations: protectedProcedure.query(async ({ ctx }) => (await getOrganizationsForUser(ctx.user.id)).filter((item) => MANAGER_ROLES.includes(item.membership.role))),
+    indicadores: protectedProcedure.input(z2.object({ organizationId: z2.string().uuid(), unitId: z2.string().uuid().optional() })).query(async ({ ctx, input }) => {
+      await assertManagerOfOrganization(ctx.user.id, input.organizationId);
+      return getCrmIndicadores(input.organizationId, input.unitId);
+    }),
     leads: router({
       list: protectedProcedure.input(organizationIdInput).query(async ({ ctx, input }) => {
-        await assertStaffOfOrganization(ctx.user.id, input.organizationId);
+        await assertManagerOfOrganization(ctx.user.id, input.organizationId);
         return listLeadsForOrganization(input.organizationId);
       }),
-      create: protectedProcedure.input(z2.object({ organizationId: z2.string().uuid(), nome: z2.string().trim().min(2).max(160), telefone: z2.string().trim().max(40).optional(), email: z2.string().email().optional(), origem: z2.string().trim().max(80).optional(), notas: z2.string().trim().max(4e3).optional() })).mutation(async ({ ctx, input }) => {
-        await assertStaffOfOrganization(ctx.user.id, input.organizationId);
-        return createLead({ organizationId: input.organizationId, nome: input.nome, telefone: input.telefone, email: input.email, origem: input.origem, notas: input.notas, criadoPor: ctx.user.id });
+      create: protectedProcedure.input(z2.object({ organizationId: z2.string().uuid(), unitId: z2.string().uuid().optional(), nome: z2.string().trim().min(2).max(160), telefone: z2.string().trim().max(40).optional(), email: z2.string().email().optional(), origem: z2.string().trim().max(80).optional(), interesse: z2.string().trim().max(160).optional(), responsavelId: z2.string().uuid().optional(), notas: z2.string().trim().max(4e3).optional() })).mutation(async ({ ctx, input }) => {
+        await assertManagerOfOrganization(ctx.user.id, input.organizationId);
+        return createLead({ organizationId: input.organizationId, unitId: input.unitId, nome: input.nome, telefone: input.telefone, email: input.email, origem: input.origem, interesse: input.interesse, responsavelId: input.responsavelId ?? ctx.user.id, notas: input.notas, criadoPor: ctx.user.id });
       }),
-      update: protectedProcedure.input(z2.object({ id: z2.string().uuid(), data: z2.object({ nome: z2.string().trim().min(2).max(160).optional(), telefone: z2.string().trim().max(40).optional().nullable(), email: z2.string().email().optional().nullable(), origem: z2.string().trim().max(80).optional().nullable(), responsavelId: z2.string().uuid().optional().nullable(), notas: z2.string().trim().max(4e3).optional().nullable() }) })).mutation(async ({ ctx, input }) => {
-        await assertStaffForLead(ctx.user.id, input.id);
+      update: protectedProcedure.input(z2.object({ id: z2.string().uuid(), data: z2.object({ nome: z2.string().trim().min(2).max(160).optional(), telefone: z2.string().trim().max(40).optional().nullable(), email: z2.string().email().optional().nullable(), origem: z2.string().trim().max(80).optional().nullable(), interesse: z2.string().trim().max(160).optional().nullable(), unitId: z2.string().uuid().optional().nullable(), responsavelId: z2.string().uuid().optional().nullable(), notas: z2.string().trim().max(4e3).optional().nullable() }) })).mutation(async ({ ctx, input }) => {
+        await assertManagerForLead(ctx.user.id, input.id);
         return updateLead(input.id, input.data);
       }),
       delete: protectedProcedure.input(z2.object({ id: z2.string().uuid() })).mutation(async ({ ctx, input }) => {
-        await assertStaffForLead(ctx.user.id, input.id);
+        await assertManagerForLead(ctx.user.id, input.id);
         return deleteLead(input.id);
       }),
       moverEstagio: protectedProcedure.input(z2.object({ id: z2.string().uuid(), estagio: z2.enum(["novo", "contato_feito", "visita_agendada"]) })).mutation(async ({ ctx, input }) => {
-        await assertStaffForLead(ctx.user.id, input.id);
+        await assertManagerForLead(ctx.user.id, input.id);
         return moverEstagioLead(input.id, input.estagio);
       }),
       marcarPerdido: protectedProcedure.input(z2.object({ id: z2.string().uuid(), motivo: z2.string().trim().min(2).max(500) })).mutation(async ({ ctx, input }) => {
-        await assertStaffForLead(ctx.user.id, input.id);
+        await assertManagerForLead(ctx.user.id, input.id);
         return marcarLeadPerdido(input.id, input.motivo);
       }),
       converter: protectedProcedure.input(z2.object({ id: z2.string().uuid() })).mutation(async ({ ctx, input }) => {
-        await assertStaffForLead(ctx.user.id, input.id);
+        await assertManagerForLead(ctx.user.id, input.id);
         return converterLead(input.id, ctx.user.id);
       }),
       atividades: protectedProcedure.input(z2.object({ leadId: z2.string().uuid() })).query(async ({ ctx, input }) => {
-        await assertStaffForLead(ctx.user.id, input.leadId);
+        await assertManagerForLead(ctx.user.id, input.leadId);
         return listLeadAtividades(input.leadId);
       }),
       criarNota: protectedProcedure.input(z2.object({ leadId: z2.string().uuid(), descricao: z2.string().trim().min(2).max(4e3) })).mutation(async ({ ctx, input }) => {
-        const lead = await assertStaffForLead(ctx.user.id, input.leadId);
+        const lead = await assertManagerForLead(ctx.user.id, input.leadId);
         return createLeadNota({ leadId: input.leadId, organizationId: lead.organization_id, descricao: input.descricao, criadoPor: ctx.user.id });
       })
     })
@@ -2145,47 +2227,6 @@ async function createContext(opts) {
   };
 }
 
-// server/_core/storageProxy.ts
-function registerStorageProxy(app) {
-  app.get("/manus-storage/*", async (req, res) => {
-    const key = req.params[0];
-    if (!key) {
-      res.status(400).send("Missing storage key");
-      return;
-    }
-    if (!ENV.forgeApiUrl || !ENV.forgeApiKey) {
-      res.status(500).send("Storage proxy not configured");
-      return;
-    }
-    try {
-      const forgeUrl = new URL(
-        "v1/storage/presign/get",
-        ENV.forgeApiUrl.replace(/\/+$/, "") + "/"
-      );
-      forgeUrl.searchParams.set("path", key);
-      const forgeResp = await fetch(forgeUrl, {
-        headers: { Authorization: `Bearer ${ENV.forgeApiKey}` }
-      });
-      if (!forgeResp.ok) {
-        const body = await forgeResp.text().catch(() => "");
-        console.error(`[StorageProxy] forge error: ${forgeResp.status} ${body}`);
-        res.status(502).send("Storage backend error");
-        return;
-      }
-      const { url } = await forgeResp.json();
-      if (!url) {
-        res.status(502).send("Empty signed URL from backend");
-        return;
-      }
-      res.set("Cache-Control", "no-store");
-      res.redirect(307, url);
-    } catch (err) {
-      console.error("[StorageProxy] failed:", err);
-      res.status(502).send("Storage proxy error");
-    }
-  });
-}
-
 // server/access.ts
 import { randomUUID as randomUUID3 } from "node:crypto";
 var normalize = (value) => typeof value === "string" ? value.trim() : "";
@@ -2282,7 +2323,6 @@ function createApp() {
   const app = express();
   app.use(express.json({ limit: "50mb" }));
   app.use(express.urlencoded({ limit: "50mb", extended: true }));
-  registerStorageProxy(app);
   registerAccessRoutes(app);
   registerAsaasWebhook(app);
   registerAutomacaoCron(app);

@@ -62,15 +62,33 @@ const ACOLHIMENTO_QUESTIONS: Array<[string, keyof typeof emptyAcolhimento]> = [
   ["Como é sua alimentação no dia a dia?", "alimentacao_rotina"],
 ];
 
+const HEALTH_DATA_FIELDS: Array<keyof typeof emptyAcolhimento> = ["dores_lesoes", "medicamentos"];
+
 function AcolhimentoForm({ initial, onSaved }: { initial?: Partial<typeof emptyAcolhimento>; onSaved: () => void }) {
   const [form, setForm] = useState({ ...emptyAcolhimento, ...initial });
-  const submit = trpc.journey.submitAcolhimento.useMutation({ onSuccess: onSaved });
+  const [healthConsent, setHealthConsent] = useState(false);
+  const utils = trpc.useUtils();
+  const consentStatusQuery = trpc.journey.getConsentStatus.useQuery();
+  const submit = trpc.journey.submitAcolhimento.useMutation({ onSuccess: () => { utils.journey.getConsentStatus.invalidate(); onSaved(); } });
+
+  const touchesHealthData = HEALTH_DATA_FIELDS.some((field) => form[field].trim().length > 0);
+  const needsHealthConsent = touchesHealthData && (consentStatusQuery.data ? !consentStatusQuery.data.dadosSaude : true);
+
+  const submitForm = () => {
+    const payload = Object.fromEntries(Object.entries(form).filter(([, value]) => value.trim().length > 0));
+    submit.mutate(needsHealthConsent ? { ...payload, consentDadosSaude: true } : payload);
+  };
+
   return <Card className="rounded-2xl border-[#e5ece5] bg-white shadow-sm">
     <CardHeader><CardTitle className="text-base text-[#2b271f]">Vamos te conhecer melhor</CardTitle><p className="text-xs text-[#918a7d]">Essas respostas ajudam seu profissional a montar um plano sob medida para você.</p></CardHeader>
     <CardContent className="space-y-4">
-      {ACOLHIMENTO_QUESTIONS.map(([question, field]) => <div key={field}><label className="mb-1 block text-xs font-semibold text-[#4b4438]">{question}</label><textarea value={form[field]} onChange={(e) => setForm({ ...form, [field]: e.target.value })} className="min-h-16 w-full rounded-lg border border-[#e2dcca] bg-white p-2 text-xs" /></div>)}
+      {ACOLHIMENTO_QUESTIONS.map(([question, field]) => <div key={field}>
+        <label className="mb-1 block text-xs font-semibold text-[#4b4438]">{question}</label>
+        <textarea value={form[field]} onChange={(e) => setForm({ ...form, [field]: e.target.value })} className="min-h-16 w-full rounded-lg border border-[#e2dcca] bg-white p-2 text-xs" />
+        {field === "medicamentos" && needsHealthConsent && <label className="mt-2 flex items-start gap-2 text-xs text-[#766f62]"><input type="checkbox" checked={healthConsent} onChange={(e) => setHealthConsent(e.target.checked)} className="mt-0.5 h-4 w-4 accent-[#4c9a6a]" /> Autorizo o uso destas informações de saúde (dores, lesões e medicamentos) pela equipe responsável pelo meu acompanhamento, conforme a Política de Privacidade.</label>}
+      </div>)}
       {submit.error && <p className="rounded-xl bg-[#f8e6df] px-3 py-2 text-xs text-[#b65343]">{submit.error.message}</p>}
-      <Button onClick={() => submit.mutate(Object.fromEntries(Object.entries(form).filter(([, value]) => value.trim().length > 0)))} disabled={submit.isPending} className="h-11 w-full rounded-xl bg-[#15130f] text-sm font-semibold text-white">Enviar respostas</Button>
+      <Button onClick={submitForm} disabled={submit.isPending || (needsHealthConsent && !healthConsent)} className="h-11 w-full rounded-xl bg-[#15130f] text-sm font-semibold text-white">Enviar respostas</Button>
     </CardContent>
   </Card>;
 }
@@ -98,6 +116,36 @@ function TreinoCard({ treino }: { treino: { id: string; titulo: string; tipo: st
     <div className="space-y-2">{exercicios.map((item) => { const exercicio = exercises.find((ex) => ex.id === item.exercicio_id); return <div key={item.id} className="rounded-xl border border-[#eee9df] p-3"><p className="text-sm font-semibold text-[#4b4438]">{exercicio?.nome ?? "Exercício"}</p><p className="mt-1 text-xs text-[#9b9488]">{item.series} séries x {item.repeticoes} repetições · descanso {item.descanso_seg}s{item.observacoes ? ` · ${item.observacoes}` : ""}</p></div>; })}</div>
     <Button variant="outline" onClick={downloadFicha} disabled={downloading} className="mt-3 h-9 w-full rounded-xl text-xs"><Download size={14} /> Baixar ficha (impressora térmica)</Button>
   </CardContent></Card>;
+}
+
+function MinhaPrivacidadeCard() {
+  const utils = trpc.useUtils();
+  const [reason, setReason] = useState("");
+  const [confirming, setConfirming] = useState(false);
+  const requestQuery = trpc.journey.myDeletionRequest.useQuery();
+  const requestDeletion = trpc.journey.requestAccountDeletion.useMutation({ onSuccess: () => { utils.journey.myDeletionRequest.invalidate(); setReason(""); setConfirming(false); } });
+  const pending = requestQuery.data?.status === "pending";
+
+  return <Card className="mt-8 rounded-2xl border-[#e5ece5] bg-white shadow-sm">
+    <CardHeader><CardTitle className="text-base text-[#2b271f]">Privacidade e meus dados</CardTitle><p className="text-xs text-[#918a7d]">Você pode solicitar a exclusão dos seus dados pessoais a qualquer momento.</p></CardHeader>
+    <CardContent className="space-y-3">
+      {requestQuery.data?.status === "pending" && <div className="rounded-xl bg-[#faf3df] p-3 text-xs text-[#80641f]">Sua solicitação de exclusão está pendente de aprovação pela equipe.</div>}
+      {requestQuery.data?.status === "completed" && <div className="rounded-xl bg-[#eef4ee] p-3 text-xs text-[#3e8254]">Sua solicitação de exclusão foi concluída.</div>}
+      {requestQuery.data?.status === "rejected" && <div className="rounded-xl bg-[#f8e6df] p-3 text-xs text-[#b65343]">Sua solicitação de exclusão foi recusada{requestQuery.data.resolution_note ? `: ${requestQuery.data.resolution_note}` : "."}</div>}
+      {!pending && <>
+        {!confirming && <Button variant="outline" onClick={() => setConfirming(true)} className="h-9 rounded-xl text-xs text-[#b65343]">Solicitar exclusão da minha conta</Button>}
+        {confirming && <div className="space-y-2 rounded-xl bg-[#faf7ef] p-3">
+          <p className="text-xs leading-5 text-[#766f62]">Isso vai apagar seu cadastro, treinos, planos alimentares, check-ins e acolhimento depois que sua academia aprovar o pedido. Essa ação não pode ser desfeita.</p>
+          <textarea value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Motivo (opcional)" className="min-h-16 w-full rounded-lg border border-[#e2dcca] bg-white p-2 text-xs" />
+          {requestDeletion.error && <p className="rounded-xl bg-[#f8e6df] px-3 py-2 text-xs text-[#b65343]">{requestDeletion.error.message}</p>}
+          <div className="flex gap-2">
+            <Button onClick={() => requestDeletion.mutate({ reason: reason || undefined })} disabled={requestDeletion.isPending} className="h-9 rounded-xl bg-[#b65343] text-xs text-white">Confirmar solicitação</Button>
+            <Button variant="outline" onClick={() => setConfirming(false)} className="h-9 rounded-xl text-xs">Cancelar</Button>
+          </div>
+        </div>}
+      </>}
+    </CardContent>
+  </Card>;
 }
 
 export function StudentDashboard() {
@@ -131,6 +179,8 @@ export function StudentDashboard() {
     {dietasQuery.isLoading && <p className="text-sm text-[#918a7d]">Carregando...</p>}
     {!dietasQuery.isLoading && dietas.length === 0 && <div className="rounded-2xl border border-dashed border-[#dfd8c8] bg-[#fffdf9] p-8 text-center text-sm text-[#918a7d]">Nenhum plano alimentar publicado ainda.</div>}
     <div className="grid gap-4 sm:grid-cols-2">{dietas.map((dieta) => <Card key={dieta.id} className="rounded-2xl border-[#e5ece5] bg-white shadow-sm"><CardHeader><CardTitle className="text-base text-[#2b271f]">{dieta.titulo}</CardTitle><p className="text-xs text-[#918a7d]">Versão {dieta.versao}</p></CardHeader><CardContent>{dieta.descricao && <p className="text-sm text-[#5c5445]">{dieta.descricao}</p>}{dieta.arquivo_url && <a href={dieta.arquivo_url} target="_blank" rel="noreferrer" className="mt-2 inline-block text-xs font-semibold text-[#a47b13] underline">Abrir arquivo</a>}</CardContent></Card>)}</div>
+
+    <MinhaPrivacidadeCard />
   </div>;
 }
 

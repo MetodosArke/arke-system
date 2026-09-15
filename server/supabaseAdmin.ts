@@ -328,6 +328,11 @@ export async function acceptMemberInvitation(token: string, password: string) {
   const accepted = await request<MemberInvitation[]>("member_invitations", { method: "PATCH", body: JSON.stringify({ status: "accepted" }) }, `?id=eq.${encodeURIComponent(invitation.id)}&status=eq.pending`);
   if (!accepted[0]) throw new Error("Este convite já foi utilizado.");
 
+  // Se este convite veio de uma conversão de lead (CRM), o aceite real é o
+  // momento certo de contar a matrícula — não o envio do convite (ver
+  // converterLead). Best-effort: não afeta nada se não houver lead vinculado.
+  await request("leads", { method: "PATCH", body: JSON.stringify({ estagio: "matriculado", convertido_em: new Date().toISOString() }) }, `?member_invitation_id=eq.${encodeURIComponent(invitation.id)}&estagio=eq.convite_enviado`);
+
   const session = await signInWithSupabase(invitation.email, password);
   return { accessToken: session.accessToken, refreshToken: session.refreshToken, user: session.user, organizationId: invitation.organization_id };
 }
@@ -760,8 +765,8 @@ export async function cancelarReservaStaff(idValue: string) {
 // --- Fase 12: CRM de vendas (funil de leads, follow-up, fechamento) ---
 
 export type Lead = {
-  id: string; organization_id: string; nome: string; telefone: string | null; email: string | null; origem: string | null;
-  estagio: "novo" | "contato_feito" | "visita_agendada" | "matriculado" | "perdido";
+  id: string; organization_id: string; unit_id: string | null; nome: string; telefone: string | null; email: string | null; origem: string | null; interesse: string | null;
+  estagio: "novo" | "contato_feito" | "visita_agendada" | "convite_enviado" | "matriculado" | "perdido";
   responsavel_id: string | null; notas: string | null; motivo_perda: string | null;
   member_invitation_id: string | null; convertido_em: string | null; criado_por: string | null;
   created_at: string; updated_at: string;
@@ -783,13 +788,13 @@ export async function getLead(idValue: string) {
   return rows[0] ?? null;
 }
 
-export async function createLead(input: { organizationId: string; nome: string; telefone?: string; email?: string; origem?: string; responsavelId?: string; notas?: string; criadoPor?: string }) {
-  const rows = await request<Lead[]>("leads", { method: "POST", body: JSON.stringify({ organization_id: input.organizationId, nome: input.nome, telefone: input.telefone || undefined, email: input.email || undefined, origem: input.origem || undefined, responsavel_id: input.responsavelId || undefined, notas: input.notas || undefined, criado_por: input.criadoPor || undefined }) });
+export async function createLead(input: { organizationId: string; unitId?: string; nome: string; telefone?: string; email?: string; origem?: string; interesse?: string; responsavelId?: string; notas?: string; criadoPor?: string }) {
+  const rows = await request<Lead[]>("leads", { method: "POST", body: JSON.stringify({ organization_id: input.organizationId, unit_id: input.unitId || undefined, nome: input.nome, telefone: input.telefone || undefined, email: input.email || undefined, origem: input.origem || undefined, interesse: input.interesse || undefined, responsavel_id: input.responsavelId || undefined, notas: input.notas || undefined, criado_por: input.criadoPor || undefined }) });
   return rows[0];
 }
 
-export async function updateLead(idValue: string, data: { nome?: string; telefone?: string | null; email?: string | null; origem?: string | null; responsavelId?: string | null; notas?: string | null }) {
-  const rows = await request<Lead[]>("leads", { method: "PATCH", body: JSON.stringify({ nome: data.nome, telefone: data.telefone, email: data.email, origem: data.origem, responsavel_id: data.responsavelId, notas: data.notas }) }, `?id=eq.${encodeURIComponent(idValue)}`);
+export async function updateLead(idValue: string, data: { nome?: string; telefone?: string | null; email?: string | null; origem?: string | null; interesse?: string | null; unitId?: string | null; responsavelId?: string | null; notas?: string | null }) {
+  const rows = await request<Lead[]>("leads", { method: "PATCH", body: JSON.stringify({ nome: data.nome, telefone: data.telefone, email: data.email, origem: data.origem, interesse: data.interesse, unit_id: data.unitId, responsavel_id: data.responsavelId, notas: data.notas }) }, `?id=eq.${encodeURIComponent(idValue)}`);
   if (!rows[0]) throw new Error("Lead não encontrado.");
   return rows[0];
 }
@@ -817,14 +822,20 @@ export async function marcarLeadPerdido(idValue: string, motivoPerda: string) {
   return rows[0];
 }
 
+// Conversão em duas etapas: aqui só marca que o convite foi ENVIADO
+// ("convite_enviado") — "matriculado" e convertido_em só são gravados
+// quando o convite é de fato ACEITO (ver acceptMemberInvitation abaixo).
+// Antes disso, a métrica de conversão contava convite enviado como
+// matrícula, mesmo que o aluno nunca tivesse aberto o e-mail.
 export async function converterLead(idValue: string, invitedByUserId: string) {
   const lead = await getLead(idValue);
   if (!lead) throw new Error("Lead não encontrado.");
   if (lead.estagio === "matriculado") throw new Error("Este lead já foi convertido.");
+  if (lead.estagio === "convite_enviado") throw new Error("O convite já foi enviado a este lead — aguarde o aceite ou reenvie pelo painel de convites pendentes.");
   if (lead.estagio === "perdido") throw new Error("Este lead está marcado como perdido.");
   if (!lead.email) throw new Error("Informe o e-mail do lead antes de converter — o convite de aluno exige e-mail.");
   const invitation = await inviteMember({ organizationId: lead.organization_id, invitedByUserId, email: lead.email, fullName: lead.nome });
-  const rows = await request<Lead[]>("leads", { method: "PATCH", body: JSON.stringify({ estagio: "matriculado", convertido_em: new Date().toISOString(), member_invitation_id: invitation.id }) }, `?id=eq.${encodeURIComponent(idValue)}`);
+  const rows = await request<Lead[]>("leads", { method: "PATCH", body: JSON.stringify({ estagio: "convite_enviado", member_invitation_id: invitation.id }) }, `?id=eq.${encodeURIComponent(idValue)}`);
   await closeOpenFollowUps(idValue);
   return { lead: rows[0], invitation };
 }
@@ -863,4 +874,151 @@ export async function createFollowUpLeadIfNeeded(leadId: string, organizationId:
   } catch {
     return null; // já existe um follow-up aberto para este lead — nunca duplicar.
   }
+}
+
+// Indicadores do CRM — tudo calculado a partir de leads/lead_atividades já
+// existentes, sem tabela nova (CLAUDE.md: nunca fingir uma análise que não
+// foi feita). Prioridade/estágio continuam sem falsa precisão (§6): os
+// indicadores mostram contagens e médias explicáveis, nunca uma nota
+// sintética de "propensão à compra".
+export type CrmIndicadores = {
+  porEstagio: Record<Lead["estagio"], number>;
+  taxaConversao: number | null;
+  porOrigem: Array<{ origem: string; total: number }>;
+  motivosPerda: Array<{ motivo: string; total: number }>;
+  followUps: { abertos: number; atrasados: number };
+  tempoMedioPrimeiraRespostaHoras: number | null;
+  novosPorDia: Array<{ data: string; total: number }>;
+};
+
+const FOLLOW_UP_ATRASADO_HORAS = 48;
+
+export async function getCrmIndicadores(organizationId: string, unitId?: string): Promise<CrmIndicadores> {
+  const filtroUnidade = unitId ? `&unit_id=eq.${encodeURIComponent(unitId)}` : "";
+  const trintaDiasAtras = new Date(Date.now() - 1000 * 60 * 60 * 24 * 30).toISOString();
+
+  const [leads, atividadesOrg] = await Promise.all([
+    request<Lead[]>("leads", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}${filtroUnidade}`),
+    request<LeadAtividade[]>("lead_atividades", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}&order=created_at.asc`),
+  ]);
+
+  const leadIds = new Set(leads.map((lead) => lead.id));
+  const atividades = atividadesOrg.filter((atividade) => leadIds.has(atividade.lead_id));
+
+  const porEstagio: CrmIndicadores["porEstagio"] = { novo: 0, contato_feito: 0, visita_agendada: 0, convite_enviado: 0, matriculado: 0, perdido: 0 };
+  for (const lead of leads) porEstagio[lead.estagio] += 1;
+
+  const totalConsiderado = leads.length - porEstagio.perdido;
+  const taxaConversao = totalConsiderado > 0 ? porEstagio.matriculado / totalConsiderado : null;
+
+  const origemMap = new Map<string, number>();
+  for (const lead of leads) { const chave = lead.origem?.trim() || "Não informado"; origemMap.set(chave, (origemMap.get(chave) ?? 0) + 1); }
+  const porOrigem = Array.from(origemMap.entries()).map(([origem, total]) => ({ origem, total })).sort((a, b) => b.total - a.total);
+
+  const motivoMap = new Map<string, number>();
+  for (const lead of leads) { if (lead.estagio !== "perdido" || !lead.motivo_perda) continue; const chave = lead.motivo_perda.trim(); motivoMap.set(chave, (motivoMap.get(chave) ?? 0) + 1); }
+  const motivosPerda = Array.from(motivoMap.entries()).map(([motivo, total]) => ({ motivo, total })).sort((a, b) => b.total - a.total).slice(0, 8);
+
+  const followUpsAbertos = atividades.filter((atividade) => atividade.tipo === "follow_up_automatico" && atividade.status === "aberta");
+  const agora = Date.now();
+  const followUpsAtrasados = followUpsAbertos.filter((atividade) => (agora - new Date(atividade.created_at).getTime()) / (1000 * 60 * 60) > FOLLOW_UP_ATRASADO_HORAS);
+
+  const primeiraNotaPorLead = new Map<string, string>();
+  for (const atividade of atividades) {
+    if (atividade.tipo !== "nota") continue;
+    if (!primeiraNotaPorLead.has(atividade.lead_id)) primeiraNotaPorLead.set(atividade.lead_id, atividade.created_at);
+  }
+  const temposResposta: number[] = [];
+  for (const lead of leads) {
+    const primeiraNota = primeiraNotaPorLead.get(lead.id);
+    if (!primeiraNota) continue;
+    temposResposta.push((new Date(primeiraNota).getTime() - new Date(lead.created_at).getTime()) / (1000 * 60 * 60));
+  }
+  const tempoMedioPrimeiraRespostaHoras = temposResposta.length ? temposResposta.reduce((soma, valor) => soma + valor, 0) / temposResposta.length : null;
+
+  const novosPorDiaMap = new Map<string, number>();
+  for (const lead of leads) {
+    if (lead.created_at < trintaDiasAtras) continue;
+    const dia = lead.created_at.slice(0, 10);
+    novosPorDiaMap.set(dia, (novosPorDiaMap.get(dia) ?? 0) + 1);
+  }
+  const novosPorDia = Array.from(novosPorDiaMap.entries()).map(([data, total]) => ({ data, total })).sort((a, b) => a.data.localeCompare(b.data));
+
+  return { porEstagio, taxaConversao, porOrigem, motivosPerda, followUps: { abertos: followUpsAbertos.length, atrasados: followUpsAtrasados.length }, tempoMedioPrimeiraRespostaHoras, novosPorDia };
+}
+
+// --- LGPD: consentimento versionado e direito de exclusão ---
+//
+// As funções aqui usam o service_role (contorna RLS, como todo o resto
+// deste arquivo) — por isso o escopo por organização é feito explicitamente
+// nos filtros abaixo, nunca deixado só para a policy do banco.
+
+async function rpc<T>(fn: string, args: Record<string, unknown>) {
+  const { url, key } = config();
+  const response = await fetch(`${url}/rest/v1/rpc/${fn}`, {
+    method: "POST",
+    headers: { apikey: key, Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+    body: JSON.stringify(args),
+  });
+  if (!response.ok) throw new Error(`Supabase RPC ${fn} ${response.status}: ${await response.text()}`);
+  const text = await response.text();
+  return (text ? JSON.parse(text) : null) as T;
+}
+
+export type PrivacyPolicyVersion = { id: string; version: string; title: string; content: string; effective_at: string; created_at: string };
+export type ConsentType = "termos_uso_privacidade" | "dados_saude";
+export type UserConsent = { id: string; user_id: string | null; consent_type: ConsentType; policy_version_id: string | null; granted: boolean; created_at: string };
+export type DataDeletionRequest = { id: string; user_id: string | null; organization_id: string | null; status: "pending" | "completed" | "rejected"; reason: string | null; requested_at: string; resolved_at: string | null; resolved_by: string | null; resolution_note: string | null };
+
+export async function getCurrentPrivacyPolicy() {
+  const rows = await request<PrivacyPolicyVersion[]>("privacy_policy_versions", {}, "?select=*&order=effective_at.desc&limit=1");
+  return rows[0] ?? null;
+}
+
+export async function hasConsent(userId: string, consentType: ConsentType) {
+  const rows = await request<{ id: string }[]>("user_consents", {}, `?select=id&user_id=eq.${encodeURIComponent(userId)}&consent_type=eq.${consentType}&granted=eq.true&limit=1`);
+  return rows.length > 0;
+}
+
+export async function recordConsent(input: { userId: string; consentType: ConsentType; policyVersionId?: string | null; ipAddress?: string; userAgent?: string }) {
+  const rows = await request<UserConsent[]>("user_consents", { method: "POST", body: JSON.stringify({ user_id: input.userId, consent_type: input.consentType, policy_version_id: input.policyVersionId ?? null, granted: true, ip_address: input.ipAddress ?? null, user_agent: input.userAgent ?? null }) });
+  return rows[0];
+}
+
+// Um pedido pendente por vez — o próprio aluno vê o status do que já
+// solicitou em vez de acumular pedidos duplicados.
+export async function createDeletionRequest(input: { userId: string; organizationId: string | null; reason?: string }) {
+  const existing = await request<{ id: string }[]>("data_deletion_requests", {}, `?select=id&user_id=eq.${encodeURIComponent(input.userId)}&status=eq.pending&limit=1`);
+  if (existing.length) throw new Error("Você já tem uma solicitação de exclusão pendente.");
+  const rows = await request<DataDeletionRequest[]>("data_deletion_requests", { method: "POST", body: JSON.stringify({ user_id: input.userId, organization_id: input.organizationId, reason: input.reason || undefined }) });
+  return rows[0];
+}
+
+export async function getMyDeletionRequest(userId: string) {
+  const rows = await request<DataDeletionRequest[]>("data_deletion_requests", {}, `?select=*&user_id=eq.${encodeURIComponent(userId)}&order=requested_at.desc&limit=1`);
+  return rows[0] ?? null;
+}
+
+export async function getDeletionRequest(idValue: string) {
+  const rows = await request<DataDeletionRequest[]>("data_deletion_requests", {}, `?select=*&id=eq.${encodeURIComponent(idValue)}&limit=1`);
+  return rows[0] ?? null;
+}
+
+export async function listDeletionRequests(organizationId: string, status?: DataDeletionRequest["status"]) {
+  return request<DataDeletionRequest[]>("data_deletion_requests", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}${status ? `&status=eq.${status}` : ""}&order=requested_at.asc`);
+}
+
+// A purga em si é feita por delete_member_data (security definer no banco —
+// ver supabase/20260915_lgpd_consentimento_exclusao.sql), não aqui: o
+// service_role não tem permissão de execução revogada, mas o corpo da
+// função continua sendo a única coisa que sabe apagar de cada tabela.
+export async function fulfillDeletionRequest(input: { requestId: string; alunoId: string; resolvedBy: string; note?: string }) {
+  await rpc("delete_member_data", { p_aluno_id: input.alunoId, p_resolved_by: input.resolvedBy, p_request_id: input.requestId, p_note: input.note || null });
+  return { requestId: input.requestId, status: "completed" as const };
+}
+
+export async function rejectDeletionRequest(input: { requestId: string; organizationId: string; resolvedBy: string; note?: string }) {
+  const rows = await request<DataDeletionRequest[]>("data_deletion_requests", { method: "PATCH", body: JSON.stringify({ status: "rejected", resolved_at: new Date().toISOString(), resolved_by: input.resolvedBy, resolution_note: input.note || null }) }, `?id=eq.${encodeURIComponent(input.requestId)}&organization_id=eq.${encodeURIComponent(input.organizationId)}&status=eq.pending`);
+  if (!rows[0]) throw new Error("Solicitação não encontrada ou já resolvida.");
+  return rows[0];
 }
