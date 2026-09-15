@@ -5,7 +5,7 @@ import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { adminProcedure, protectedProcedure, publicProcedure, router } from "./_core/trpc";
 import { acceptOrganizationInvitation, archiveOrganizationUnit, auditLogsToCsv, auditLogsToPdfBase64, createOrganizationInvitation, createOrganizationUnit, createOrganizationWithOwner, getAuditLogs, getMembership, getOrganizationAccess, getOrganizationBySlug, getOrganizationOnboarding, getOrganizationSubscription, getOrganizationsForUser, getPendingOrganizationInvitations, recordAuditLog, saveOrganizationOnboarding, updateModulePolicy, updateOrganizationProfile, updateOrganizationSubscription } from "./db";
-import { acceptMemberInvitation, assignAtendimento, createAppStudent, createAppUser, createAtendimento, createDieta, createGlobalExercise, createGlobalGroup, createGlobalNutritionPlan, createGlobalRoutine, createGlobalTemplate, createGlobalTemplateExercise, createPasswordRecoveryCode, createTreino, deleteAppStudent, deleteAppUser, deleteDieta, deleteGlobalExercise, deleteGlobalGroup, deleteGlobalNutritionPlan, deleteGlobalRoutine, deleteGlobalTemplate, deleteGlobalTemplateExercise, deleteGlobalAccessRule, deleteTreino, findAppUserByEmail, getAcolhimento, getAtendimento, getDieta, getGestaoIndicadores, getProfileByUserId, getTreino, hasSupabaseConfig, inviteMember, listAppStudents, listAppUsers, listAtendimentosForOrganization, listDietasForAluno, listExercisesCatalog, listGlobalLibrary, listMyAtendimentos, listMyCheckIns, listPendingMemberInvitations, listStudentsInOrganization, listTreinoExercicios, listTreinosForAluno, normalizeEmail, publishDieta, publishTreino, replaceTreinoExercicios, requestHelp, resolveAtendimento, revokeMemberInvitation, signInWithSupabase, submitCheckIn, updateAppStudent, updateAppUser, updateDieta, updateGlobalExercise, updateGlobalGroup, updateGlobalNutritionPlan, updateGlobalRoutine, updateGlobalTemplate, updateGlobalTemplateExercise, updateSupabaseUserPassword, updateTreino, upsertAcolhimento, upsertGlobalAccessRule, verifyPasswordRecoveryCode } from "./supabaseAdmin";
+import { acceptMemberInvitation, assignAtendimento, createAppStudent, createAppUser, createAtendimento, createDieta, createGlobalExercise, createGlobalGroup, createGlobalNutritionPlan, createGlobalRoutine, createGlobalTemplate, createGlobalTemplateExercise, createPasswordRecoveryCode, createTreino, deleteAppStudent, deleteAppUser, deleteDieta, deleteGlobalExercise, deleteGlobalGroup, deleteGlobalNutritionPlan, deleteGlobalRoutine, deleteGlobalTemplate, deleteGlobalTemplateExercise, deleteGlobalAccessRule, deleteTreino, findAppUserByEmail, gerarFichaTreinoPdf, getAcolhimento, getAtendimento, getDieta, getGestaoIndicadores, getProfileByUserId, getTreino, hasSupabaseConfig, inviteMember, listAppStudents, listAppUsers, listAtendimentosForOrganization, listDietasForAluno, listExercisesCatalog, listFrequenciaForAluno, listFrequenciaForOrganization, listGlobalLibrary, listMyAtendimentos, listMyCheckIns, listPendingMemberInvitations, listStudentsInOrganization, listTreinoExercicios, listTreinosForAluno, normalizeEmail, publishDieta, publishTreino, registrarFrequencia, replaceTreinoExercicios, requestHelp, resolveAtendimento, revokeMemberInvitation, signInWithSupabase, submitCheckIn, updateAppStudent, updateAppUser, updateDieta, updateGlobalExercise, updateGlobalGroup, updateGlobalNutritionPlan, updateGlobalRoutine, updateGlobalTemplate, updateGlobalTemplateExercise, updateStudentMatricula, updateSupabaseUserPassword, updateTreino, upsertAcolhimento, upsertGlobalAccessRule, verifyPasswordRecoveryCode } from "./supabaseAdmin";
 import { asaasSandboxConfigured, createAsaasCustomer, createAsaasPayment, createAsaasWebhook, getAsaasAccount, listAsaasPayments } from "./asaas";
 import { listStoredAsaasPayments } from "./asaasPersistence";
 import { lookupCnpj } from "./cnpj";
@@ -203,6 +203,7 @@ export const appRouter = router({
   prescricao: router({
     myOrganizations: protectedProcedure.query(async ({ ctx }) => (await getOrganizationsForUser(ctx.user.id)).filter((item) => STAFF_ROLES.includes(item.membership.role))),
     students: protectedProcedure.input(organizationIdInput).query(async ({ ctx, input }) => { await assertStaffOfOrganization(ctx.user.id, input.organizationId); return listStudentsInOrganization(input.organizationId); }),
+    updateMatricula: protectedProcedure.input(z.object({ alunoId: z.string().uuid(), unitId: z.string().uuid().nullable().optional(), matriculaEm: z.string().datetime().nullable().optional() })).mutation(async ({ ctx, input }) => { await assertStaffForAluno(ctx.user.id, input.alunoId); return updateStudentMatricula(input.alunoId, { unitId: input.unitId, matriculaEm: input.matriculaEm }); }),
     exercises: protectedProcedure.query(() => listExercisesCatalog()),
     treinos: router({
       list: protectedProcedure.input(z.object({ alunoId: z.string().uuid() })).query(async ({ ctx, input }) => { await assertStaffForAluno(ctx.user.id, input.alunoId); return listTreinosForAluno(input.alunoId); }),
@@ -212,6 +213,7 @@ export const appRouter = router({
       saveExercicios: protectedProcedure.input(z.object({ treinoId: z.string().uuid(), items: z.array(treinoExercicioItem) })).mutation(async ({ ctx, input }) => { await assertStaffForTreino(ctx.user.id, input.treinoId); return replaceTreinoExercicios(input.treinoId, input.items); }),
       publish: protectedProcedure.input(z.object({ id: z.string().uuid() })).mutation(async ({ ctx, input }) => { await assertStaffForTreino(ctx.user.id, input.id); return publishTreino(input.id, ctx.user.id); }),
       delete: protectedProcedure.input(z.object({ id: z.string().uuid() })).mutation(async ({ ctx, input }) => { await assertStaffForTreino(ctx.user.id, input.id); return deleteTreino(input.id); }),
+      fichaPdf: protectedProcedure.input(z.object({ id: z.string().uuid() })).query(async ({ ctx, input }) => { await assertStaffForTreino(ctx.user.id, input.id); return gerarFichaTreinoPdf(input.id); }),
     }),
     dietas: router({
       list: protectedProcedure.input(z.object({ alunoId: z.string().uuid() })).query(async ({ ctx, input }) => { await assertStaffForAluno(ctx.user.id, input.alunoId); return listDietasForAluno(input.alunoId); }),
@@ -224,6 +226,7 @@ export const appRouter = router({
       treinos: protectedProcedure.query(({ ctx }) => listTreinosForAluno(ctx.user.id, true)),
       treinoExercicios: protectedProcedure.input(z.object({ treinoId: z.string().uuid() })).query(async ({ ctx, input }) => { const treino = await getTreino(input.treinoId); if (!treino || treino.aluno_id !== ctx.user.id || treino.estado_publicacao !== "publicado") throw new Error("Treino não encontrado."); return listTreinoExercicios(input.treinoId); }),
       dietas: protectedProcedure.query(({ ctx }) => listDietasForAluno(ctx.user.id, true)),
+      fichaPdf: protectedProcedure.input(z.object({ treinoId: z.string().uuid() })).query(async ({ ctx, input }) => { const treino = await getTreino(input.treinoId); if (!treino || treino.aluno_id !== ctx.user.id || treino.estado_publicacao !== "publicado") throw new Error("Treino não encontrado."); return gerarFichaTreinoPdf(input.treinoId); }),
     }),
   }),
   journey: router({
@@ -265,6 +268,18 @@ export const appRouter = router({
   gestao: router({
     myOrganizations: protectedProcedure.query(async ({ ctx }) => (await getOrganizationsForUser(ctx.user.id)).filter((item) => MANAGER_ROLES.includes(item.membership.role))),
     indicadores: protectedProcedure.input(organizationIdInput).query(async ({ ctx, input }) => { await ownerOrAdmin(ctx.user.id, input.organizationId); return getGestaoIndicadores(input.organizationId); }),
+  }),
+  academia: router({
+    frequencia: router({
+      registrar: protectedProcedure.input(z.object({ alunoId: z.string().uuid() })).mutation(async ({ ctx, input }) => {
+        const profile = await assertStaffForAluno(ctx.user.id, input.alunoId);
+        if (!profile.organization_id) throw new Error("Aluno sem organização vinculada.");
+        return registrarFrequencia({ alunoId: input.alunoId, organizationId: profile.organization_id, unitId: profile.unit_id ?? undefined, origem: "manual", registradoPor: ctx.user.id });
+      }),
+      listOrganization: protectedProcedure.input(organizationIdInput).query(async ({ ctx, input }) => { await assertStaffOfOrganization(ctx.user.id, input.organizationId); return listFrequenciaForOrganization(input.organizationId); }),
+      listAluno: protectedProcedure.input(z.object({ alunoId: z.string().uuid() })).query(async ({ ctx, input }) => { await assertStaffForAluno(ctx.user.id, input.alunoId); return listFrequenciaForAluno(input.alunoId); }),
+      minhas: protectedProcedure.query(({ ctx }) => listFrequenciaForAluno(ctx.user.id)),
+    }),
   }),
 });
 
