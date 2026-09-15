@@ -1,8 +1,36 @@
 import { useMemo, useState } from "react";
-import { ClipboardList, Dumbbell, Utensils } from "lucide-react";
+import { ClipboardList, Dumbbell, HeartHandshake, Utensils } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { trpc } from "@/lib/trpc";
+
+const CHECKIN_OPTIONS: Array<{ value: "indo_bem" | "com_dificuldade" | "quero_ajuda"; label: string }> = [
+  { value: "indo_bem", label: "Indo bem" },
+  { value: "com_dificuldade", label: "Com dificuldade" },
+  { value: "quero_ajuda", label: "Quero ajuda" },
+];
+
+function CheckInWidget({ onToast }: { onToast: (title: string, detail: string) => void }) {
+  const [status, setStatus] = useState<typeof CHECKIN_OPTIONS[number]["value"] | null>(null);
+  const [observacao, setObservacao] = useState("");
+  const atendimentosQuery = trpc.atendimento.meusAtendimentos.useQuery();
+  const atendimentoAberto = (atendimentosQuery.data ?? []).find((item) => item.status !== "resolvida");
+  const checkIn = trpc.atendimento.checkIn.useMutation({ onSuccess: () => { onToast("Check-in enviado", "Obrigado por compartilhar como você está."); setStatus(null); setObservacao(""); atendimentosQuery.refetch(); } });
+  const pedirAjuda = trpc.atendimento.pedirAjuda.useMutation({ onSuccess: () => { onToast("Pedido enviado", "Sua equipe foi avisada e vai te procurar em breve."); atendimentosQuery.refetch(); } });
+
+  return <Card className="mb-8 rounded-2xl border-[#e5ece5] bg-white shadow-sm">
+    <CardHeader><CardTitle className="text-base text-[#2b271f]">Como você está?</CardTitle><p className="text-xs text-[#918a7d]">Um check-in rápido ajuda seu profissional a acompanhar sua adaptação.</p></CardHeader>
+    <CardContent className="space-y-3">
+      {atendimentoAberto && <div className="rounded-xl bg-[#faf3df] p-3 text-xs text-[#80641f]">Sua solicitação está sendo atendida pela equipe.</div>}
+      <div className="flex flex-wrap gap-2">{CHECKIN_OPTIONS.map((option) => <Button key={option.value} variant={status === option.value ? "default" : "outline"} onClick={() => setStatus(option.value)} className="h-9 rounded-xl text-xs">{option.label}</Button>)}</div>
+      {status && status !== "indo_bem" && <textarea value={observacao} onChange={(e) => setObservacao(e.target.value)} placeholder="Quer contar mais alguma coisa? (opcional)" className="min-h-16 w-full rounded-lg border border-[#e2dcca] bg-white p-2 text-xs" />}
+      <div className="flex flex-wrap gap-2">
+        <Button onClick={() => status && checkIn.mutate({ status, observacao: observacao || undefined })} disabled={!status || checkIn.isPending} className="h-9 rounded-xl bg-[#15130f] text-xs text-white">Enviar check-in</Button>
+        <Button variant="outline" onClick={() => pedirAjuda.mutate({})} disabled={pedirAjuda.isPending} className="h-9 rounded-xl text-xs"><HeartHandshake size={14} /> Pedir ajuda agora</Button>
+      </div>
+    </CardContent>
+  </Card>;
+}
 
 const emptyAcolhimento = { rotina_diaria: "", experiencias_exercicio: "", experiencias_gostou: "", experiencias_nao_gostou: "", dores_lesoes: "", medicamentos: "", tempo_disponivel: "", estilo_treino: "", exercicios_nao_gosta: "", alimentos_gosta: "", alimentos_nao_gosta: "", alimentacao_rotina: "" };
 
@@ -48,6 +76,8 @@ function TreinoCard({ treino }: { treino: { id: string; titulo: string; tipo: st
 }
 
 export function StudentDashboard() {
+  const [toast, setToast] = useState<{ title: string; detail: string } | null>(null);
+  const onToast = (title: string, detail: string) => { setToast({ title, detail }); window.setTimeout(() => setToast(null), 3800); };
   const treinosQuery = trpc.prescricao.meu.treinos.useQuery();
   const dietasQuery = trpc.prescricao.meu.dietas.useQuery();
   const treinos = useMemo(() => treinosQuery.data ?? [], [treinosQuery.data]);
@@ -57,6 +87,10 @@ export function StudentDashboard() {
 
   return <div className="mx-auto max-w-[1100px] p-5 sm:p-8">
     <div className="mb-6"><h2 className="text-3xl font-semibold tracking-[-.05em] text-[#2b271f]">Meu treino</h2><p className="mt-1 text-sm text-[#77877d]">Seu treino e plano alimentar publicados pelo seu profissional.</p></div>
+
+    {toast && <div className="mb-6 rounded-xl bg-[#eef4ee] px-4 py-3 text-sm text-[#3e8254]"><strong>{toast.title}</strong> — {toast.detail}</div>}
+
+    <CheckInWidget onToast={onToast} />
 
     <div className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-[.14em] text-[#a47b13]"><ClipboardList size={14} /> Acolhimento</div>
     {!acolhimentoQuery.isLoading && !acolhimentoQuery.data && <div className="mb-8"><AcolhimentoForm onSaved={() => acolhimentoQuery.refetch()} /></div>}
