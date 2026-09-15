@@ -9,6 +9,7 @@ import { createContext } from "./context";
 import { serveStatic } from "./static";
 import { registerAccessRoutes } from "../access";
 import { registerAsaasWebhook } from "../asaasWebhook";
+import { registerAutomacaoCron } from "../automacaoCron";
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise(resolve => {
@@ -37,6 +38,7 @@ export function createApp(): Express {
   registerStorageProxy(app);
   registerAccessRoutes(app);
   registerAsaasWebhook(app);
+  registerAutomacaoCron(app);
   app.use(
     "/api/trpc",
     createExpressMiddleware({

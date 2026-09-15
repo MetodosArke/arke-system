@@ -5,6 +5,7 @@ import { createContext } from "../server/_core/context";
 import { registerStorageProxy } from "../server/_core/storageProxy";
 import { registerAccessRoutes } from "../server/access";
 import { registerAsaasWebhook } from "../server/asaasWebhook";
+import { registerAutomacaoCron } from "../server/automacaoCron";
 
 export function createApp() {
   const app = express();
@@ -13,6 +14,7 @@ export function createApp() {
   registerStorageProxy(app);
   registerAccessRoutes(app);
   registerAsaasWebhook(app);
+  registerAutomacaoCron(app);
   app.use(
     "/api/trpc",
     createExpressMiddleware({
