@@ -9,6 +9,7 @@ import { acceptMemberInvitation, assignAtendimento, cancelarReserva, cancelarRes
 import { asaasConfigured, asaasEnvironment, createAsaasWebhook, getAsaasAccount, listAsaasPayments } from "./asaas";
 import { listAsaasPaymentsForOrganization } from "./asaasPersistence";
 import { lookupCnpj } from "./cnpj";
+import { deleteTurnstileIntegration, listBenefitIntegrations, listTurnstileIntegrationsForOrganization, saveBenefitIntegration, saveTurnstileIntegration } from "./integrations";
 
 const organizationIdInput = z.object({ organizationId: z.string().uuid() });
 const moduleName = z.enum(["dashboard", "academias", "profissionais", "alunos", "agenda", "financeiro", "integracoes"]);
@@ -219,6 +220,36 @@ export const appRouter = router({
         const payment = await createSubscriptionCharge({ organizationId: input.organizationId, billingType: input.billingType });
         await recordAuditLog({ organizationId: input.organizationId, userId: ctx.user.id, action: "created", entity: "asaas_payment", entityId: payment.id, afterJson: { billingType: input.billingType, value: payment.value } });
         return payment;
+      }),
+    }),
+  }),
+  // Fases 14/15 (CLAUDE.md §9): benefícios (Wellhub/TotalPass) e catraca —
+  // credenciais que a própria organização informa (o parceiro real é a
+  // academia/studio, não a Arke). Restrito a owner/admin, nunca devolve
+  // segredo em claro (ver server/integrations.ts).
+  integracoes: router({
+    beneficios: router({
+      list: protectedProcedure.input(organizationIdInput).query(async ({ ctx, input }) => { await ownerOrAdmin(ctx.user.id, input.organizationId); return listBenefitIntegrations(input.organizationId); }),
+      save: protectedProcedure.input(z.object({ organizationId: z.string().uuid(), provider: z.enum(["wellhub", "totalpass"]), enabled: z.boolean().default(true), fields: z.record(z.string(), z.string()) })).mutation(async ({ ctx, input }) => {
+        await ownerOrAdmin(ctx.user.id, input.organizationId);
+        const result = await saveBenefitIntegration({ organizationId: input.organizationId, provider: input.provider, fields: input.fields, enabled: input.enabled });
+        await recordAuditLog({ organizationId: input.organizationId, userId: ctx.user.id, action: "updated", entity: "benefit_integration", afterJson: { provider: input.provider, enabled: input.enabled } });
+        return result;
+      }),
+    }),
+    catraca: router({
+      list: protectedProcedure.input(organizationIdInput).query(async ({ ctx, input }) => { await ownerOrAdmin(ctx.user.id, input.organizationId); return listTurnstileIntegrationsForOrganization(input.organizationId); }),
+      save: protectedProcedure.input(z.object({ organizationId: z.string().uuid(), unitId: z.string().uuid(), brand: z.enum(["control_id", "topdata", "henry", "dimep", "outra"]), model: z.string().trim().max(120).optional(), config: z.record(z.string(), z.string()), enabled: z.boolean().default(true) })).mutation(async ({ ctx, input }) => {
+        await ownerOrAdmin(ctx.user.id, input.organizationId);
+        const result = await saveTurnstileIntegration(input);
+        await recordAuditLog({ organizationId: input.organizationId, userId: ctx.user.id, unitId: input.unitId, action: "updated", entity: "turnstile_integration", afterJson: { brand: input.brand, model: input.model } });
+        return result;
+      }),
+      delete: protectedProcedure.input(z.object({ organizationId: z.string().uuid(), unitId: z.string().uuid() })).mutation(async ({ ctx, input }) => {
+        await ownerOrAdmin(ctx.user.id, input.organizationId);
+        const result = await deleteTurnstileIntegration(input.unitId, input.organizationId);
+        await recordAuditLog({ organizationId: input.organizationId, userId: ctx.user.id, unitId: input.unitId, action: "deleted", entity: "turnstile_integration" });
+        return result;
       }),
     }),
   }),
