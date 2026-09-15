@@ -454,10 +454,10 @@ export async function resendInvitationReminder(invitation: MemberInvitation) {
   await sendEmail(invitation.email, `Lembrete: convite para o Arke — ${orgName}`, `<p>Olá, ${invitation.full_name}.</p><p>Você ainda não concluiu seu cadastro em <strong>${orgName}</strong> no Arke.</p><p>Acesse o portal, clique em "Tenho um convite" na tela de login e use o novo código abaixo:</p><h2 style="letter-spacing:1px">${rawToken}</h2><p>Este convite expira em 7 dias.</p>`);
 }
 
-export type AutomacaoResultado = { tarefasEscaladas: number; lembretesCheckIn: number; lembretesConvite: number; erros: string[] };
+export type AutomacaoResultado = { tarefasEscaladas: number; lembretesCheckIn: number; lembretesConvite: number; followUpsLeads: number; erros: string[] };
 
 export async function runAutomacaoDiaria(): Promise<AutomacaoResultado> {
-  const resultado: AutomacaoResultado = { tarefasEscaladas: 0, lembretesCheckIn: 0, lembretesConvite: 0, erros: [] };
+  const resultado: AutomacaoResultado = { tarefasEscaladas: 0, lembretesCheckIn: 0, lembretesConvite: 0, followUpsLeads: 0, erros: [] };
 
   try {
     for (const atendimento of await listAtendimentosVencidos()) {
@@ -495,6 +495,18 @@ export async function runAutomacaoDiaria(): Promise<AutomacaoResultado> {
     }
   } catch (error) {
     resultado.erros.push(`listar convites pendentes: ${(error as Error).message}`);
+  }
+
+  try {
+    for (const lead of await listLeadsSemContato()) {
+      try {
+        if (await createFollowUpLeadIfNeeded(lead.id, lead.organization_id, DIAS_LEAD_SEM_CONTATO)) resultado.followUpsLeads += 1;
+      } catch (error) {
+        resultado.erros.push(`follow-up lead ${lead.id}: ${(error as Error).message}`);
+      }
+    }
+  } catch (error) {
+    resultado.erros.push(`listar leads sem contato: ${(error as Error).message}`);
   }
 
   return resultado;
@@ -709,4 +721,112 @@ export async function cancelarReservaStaff(idValue: string) {
   const rows = await request<TurmaReserva[]>("turma_reservas", { method: "PATCH", body: JSON.stringify({ status: "cancelada" }) }, `?id=eq.${encodeURIComponent(idValue)}`);
   if (!rows[0]) throw new Error("Reserva não encontrada.");
   return rows[0];
+}
+
+// --- Fase 12: CRM de vendas (funil de leads, follow-up, fechamento) ---
+
+export type Lead = {
+  id: string; organization_id: string; nome: string; telefone: string | null; email: string | null; origem: string | null;
+  estagio: "novo" | "contato_feito" | "visita_agendada" | "matriculado" | "perdido";
+  responsavel_id: string | null; notas: string | null; motivo_perda: string | null;
+  member_invitation_id: string | null; convertido_em: string | null; criado_por: string | null;
+  created_at: string; updated_at: string;
+};
+
+export type LeadAtividade = {
+  id: string; lead_id: string; organization_id: string; tipo: "nota" | "follow_up_automatico";
+  descricao: string | null; status: "aberta" | "concluida"; responsavel_id: string | null; criado_por: string | null; created_at: string;
+};
+
+const DIAS_LEAD_SEM_CONTATO = 3;
+
+export async function listLeadsForOrganization(organizationId: string) {
+  return request<Lead[]>("leads", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}&order=created_at.desc`);
+}
+
+export async function getLead(idValue: string) {
+  const rows = await request<Lead[]>("leads", {}, `?select=*&id=eq.${encodeURIComponent(idValue)}&limit=1`);
+  return rows[0] ?? null;
+}
+
+export async function createLead(input: { organizationId: string; nome: string; telefone?: string; email?: string; origem?: string; responsavelId?: string; notas?: string; criadoPor?: string }) {
+  const rows = await request<Lead[]>("leads", { method: "POST", body: JSON.stringify({ organization_id: input.organizationId, nome: input.nome, telefone: input.telefone || undefined, email: input.email || undefined, origem: input.origem || undefined, responsavel_id: input.responsavelId || undefined, notas: input.notas || undefined, criado_por: input.criadoPor || undefined }) });
+  return rows[0];
+}
+
+export async function updateLead(idValue: string, data: { nome?: string; telefone?: string | null; email?: string | null; origem?: string | null; responsavelId?: string | null; notas?: string | null }) {
+  const rows = await request<Lead[]>("leads", { method: "PATCH", body: JSON.stringify({ nome: data.nome, telefone: data.telefone, email: data.email, origem: data.origem, responsavel_id: data.responsavelId, notas: data.notas }) }, `?id=eq.${encodeURIComponent(idValue)}`);
+  if (!rows[0]) throw new Error("Lead não encontrado.");
+  return rows[0];
+}
+
+export async function deleteLead(idValue: string) {
+  await request("leads", { method: "DELETE" }, `?id=eq.${encodeURIComponent(idValue)}`);
+  return { success: true } as const;
+}
+
+async function closeOpenFollowUps(leadId: string) {
+  await request("lead_atividades", { method: "PATCH", body: JSON.stringify({ status: "concluida" }) }, `?lead_id=eq.${encodeURIComponent(leadId)}&tipo=eq.follow_up_automatico&status=eq.aberta`);
+}
+
+export async function moverEstagioLead(idValue: string, estagio: "novo" | "contato_feito" | "visita_agendada") {
+  const rows = await request<Lead[]>("leads", { method: "PATCH", body: JSON.stringify({ estagio }) }, `?id=eq.${encodeURIComponent(idValue)}`);
+  if (!rows[0]) throw new Error("Lead não encontrado.");
+  await closeOpenFollowUps(idValue); // mudou de estágio: houve avanço, a tarefa de follow-up perde o sentido.
+  return rows[0];
+}
+
+export async function marcarLeadPerdido(idValue: string, motivoPerda: string) {
+  const rows = await request<Lead[]>("leads", { method: "PATCH", body: JSON.stringify({ estagio: "perdido", motivo_perda: motivoPerda }) }, `?id=eq.${encodeURIComponent(idValue)}`);
+  if (!rows[0]) throw new Error("Lead não encontrado.");
+  await closeOpenFollowUps(idValue);
+  return rows[0];
+}
+
+export async function converterLead(idValue: string, invitedByUserId: string) {
+  const lead = await getLead(idValue);
+  if (!lead) throw new Error("Lead não encontrado.");
+  if (lead.estagio === "matriculado") throw new Error("Este lead já foi convertido.");
+  if (lead.estagio === "perdido") throw new Error("Este lead está marcado como perdido.");
+  if (!lead.email) throw new Error("Informe o e-mail do lead antes de converter — o convite de aluno exige e-mail.");
+  const invitation = await inviteMember({ organizationId: lead.organization_id, invitedByUserId, email: lead.email, fullName: lead.nome });
+  const rows = await request<Lead[]>("leads", { method: "PATCH", body: JSON.stringify({ estagio: "matriculado", convertido_em: new Date().toISOString(), member_invitation_id: invitation.id }) }, `?id=eq.${encodeURIComponent(idValue)}`);
+  await closeOpenFollowUps(idValue);
+  return { lead: rows[0], invitation };
+}
+
+export async function listLeadAtividades(leadId: string) {
+  return request<LeadAtividade[]>("lead_atividades", {}, `?select=*&lead_id=eq.${encodeURIComponent(leadId)}&order=created_at.desc`);
+}
+
+export async function createLeadNota(input: { leadId: string; organizationId: string; descricao: string; criadoPor: string; responsavelId?: string }) {
+  const rows = await request<LeadAtividade[]>("lead_atividades", { method: "POST", body: JSON.stringify({ lead_id: input.leadId, organization_id: input.organizationId, tipo: "nota", status: "concluida", descricao: input.descricao, criado_por: input.criadoPor, responsavel_id: input.responsavelId || undefined }) });
+  await closeOpenFollowUps(input.leadId); // registrar contato resolve a pendência de follow-up.
+  return rows[0];
+}
+
+// Regra de automação — evento: lead ativo (não matriculado, não perdido)
+// sem nenhum contato registrado (nota ou follow-up) há N dias no mesmo
+// estágio. condição: nenhum follow-up automático já aberto para o lead
+// (índice único garante isso). ação: cria tarefa de follow-up para o
+// responsável. limite de repetição: 1 por vez — a próxima só é criada
+// depois que a anterior for resolvida (mudança de estágio, perda ou
+// conversão fecha o follow-up aberto).
+export async function listLeadsSemContato(dias = DIAS_LEAD_SEM_CONTATO) {
+  const cutoff = new Date(Date.now() - dias * 24 * 60 * 60 * 1000).toISOString();
+  const candidatos = await request<Lead[]>("leads", {}, `?select=id,organization_id,created_at&estagio=not.in.(matriculado,perdido)&created_at=lt.${encodeURIComponent(cutoff)}`);
+  if (!candidatos.length) return [];
+  const ids = candidatos.map((c) => c.id).join(",");
+  const atividades = await request<{ lead_id: string; created_at: string }[]>("lead_atividades", {}, `?select=lead_id,created_at&lead_id=in.(${ids})&order=created_at.desc`);
+  const ultimaAtividade = new Map<string, string>();
+  for (const atividade of atividades) if (!ultimaAtividade.has(atividade.lead_id)) ultimaAtividade.set(atividade.lead_id, atividade.created_at);
+  return candidatos.filter((lead) => (ultimaAtividade.get(lead.id) ?? lead.created_at) < cutoff);
+}
+
+export async function createFollowUpLeadIfNeeded(leadId: string, organizationId: string, dias: number) {
+  try {
+    return await request<LeadAtividade[]>("lead_atividades", { method: "POST", body: JSON.stringify({ lead_id: leadId, organization_id: organizationId, tipo: "follow_up_automatico", status: "aberta", descricao: `Sem contato registrado há mais de ${dias} dias.` }) }).then((rows) => rows[0]);
+  } catch {
+    return null; // já existe um follow-up aberto para este lead — nunca duplicar.
+  }
 }
