@@ -644,3 +644,69 @@ export async function gerarFichaTreinoPdf(treinoId: string) {
 
   return { filename: `ficha-${treino.titulo.replace(/[^a-z0-9]+/gi, "-").toLowerCase()}-v${treino.versao}.pdf`, contentBase64: buildThermalPdfBase64(lines) };
 }
+
+// --- Fase 10: Módulo Studio (turmas, horários fixos, limite de vagas, agenda) ---
+
+export type Turma = { id: string; organization_id: string; unit_id?: string | null; nome: string; descricao?: string | null; professor_id?: string | null; limite_vagas: number; duracao_min: number; status: "ativa" | "inativa"; criado_por?: string | null; created_at: string; updated_at: string };
+export type TurmaHorario = { id: string; turma_id: string; dia_semana: number; hora_inicio: string; created_at: string };
+export type TurmaReserva = { id: string; turma_id: string; aluno_id: string; organization_id: string; data: string; status: "confirmada" | "cancelada"; criado_em: string };
+
+export async function listTurmasForOrganization(organizationId: string) { return request<Turma[]>("turmas", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}&order=nome.asc`); }
+export async function listTurmasAtivas(organizationId: string) { return request<Turma[]>("turmas", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}&status=eq.ativa&order=nome.asc`); }
+export async function getTurma(idValue: string) { const rows = await request<Turma[]>("turmas", {}, `?select=*&id=eq.${encodeURIComponent(idValue)}&limit=1`); return rows[0] ?? null; }
+export async function createTurma(input: Record<string, unknown>) { const rows = await request<Turma[]>("turmas", { method: "POST", body: JSON.stringify(input) }); return rows[0]; }
+export async function updateTurma(idValue: string, input: Record<string, unknown>) { const rows = await request<Turma[]>("turmas", { method: "PATCH", body: JSON.stringify(input) }, `?id=eq.${encodeURIComponent(idValue)}`); return rows[0]; }
+export async function deleteTurma(idValue: string) { await request("turmas", { method: "DELETE" }, `?id=eq.${encodeURIComponent(idValue)}`); return { id: idValue }; }
+
+export async function listTurmaHorarios(turmaId: string) { return request<TurmaHorario[]>("turma_horarios", {}, `?select=*&turma_id=eq.${encodeURIComponent(turmaId)}&order=dia_semana.asc,hora_inicio.asc`); }
+export async function replaceTurmaHorarios(turmaId: string, items: Array<{ dia_semana: number; hora_inicio: string }>) {
+  await request("turma_horarios", { method: "DELETE" }, `?turma_id=eq.${encodeURIComponent(turmaId)}`);
+  if (!items.length) return [];
+  return request<TurmaHorario[]>("turma_horarios", { method: "POST", body: JSON.stringify(items.map((item) => ({ ...item, turma_id: turmaId }))) });
+}
+
+export async function listReservasForTurmaData(turmaId: string, data: string) {
+  return request<TurmaReserva[]>("turma_reservas", {}, `?select=*&turma_id=eq.${encodeURIComponent(turmaId)}&data=eq.${encodeURIComponent(data)}&status=eq.confirmada`);
+}
+
+export async function getReserva(idValue: string) {
+  const rows = await request<TurmaReserva[]>("turma_reservas", {}, `?select=*&id=eq.${encodeURIComponent(idValue)}&limit=1`);
+  return rows[0] ?? null;
+}
+
+export async function listMinhasReservas(alunoId: string) {
+  const hoje = new Date().toISOString().slice(0, 10);
+  return request<TurmaReserva[]>("turma_reservas", {}, `?select=*&aluno_id=eq.${encodeURIComponent(alunoId)}&status=eq.confirmada&data=gte.${encodeURIComponent(hoje)}&order=data.asc`);
+}
+
+export async function getVagasDisponiveis(turmaId: string, data: string) {
+  const turma = await getTurma(turmaId);
+  if (!turma) throw new Error("Turma não encontrada.");
+  const reservas = await listReservasForTurmaData(turmaId, data);
+  return { limite: turma.limite_vagas, ocupadas: reservas.length, disponiveis: Math.max(0, turma.limite_vagas - reservas.length) };
+}
+
+export async function reservarVaga(input: { turmaId: string; alunoId: string; organizationId: string; data: string }) {
+  const turma = await getTurma(input.turmaId);
+  if (!turma || turma.status !== "ativa" || turma.organization_id !== input.organizationId) throw new Error("Turma não encontrada ou inativa.");
+  const horarios = await listTurmaHorarios(input.turmaId);
+  const diaSemana = new Date(`${input.data}T00:00:00Z`).getUTCDay();
+  if (!horarios.some((horario) => horario.dia_semana === diaSemana)) throw new Error("Esta turma não tem horário nesse dia da semana.");
+  const existentes = await listReservasForTurmaData(input.turmaId, input.data);
+  if (existentes.some((reserva) => reserva.aluno_id === input.alunoId)) throw new Error("Você já reservou vaga nesta sessão.");
+  if (existentes.length >= turma.limite_vagas) throw new Error("Não há vagas disponíveis para esta sessão.");
+  const rows = await request<TurmaReserva[]>("turma_reservas", { method: "POST", body: JSON.stringify({ turma_id: input.turmaId, aluno_id: input.alunoId, organization_id: input.organizationId, data: input.data }) });
+  return rows[0];
+}
+
+export async function cancelarReserva(idValue: string, alunoId: string) {
+  const rows = await request<TurmaReserva[]>("turma_reservas", { method: "PATCH", body: JSON.stringify({ status: "cancelada" }) }, `?id=eq.${encodeURIComponent(idValue)}&aluno_id=eq.${encodeURIComponent(alunoId)}`);
+  if (!rows[0]) throw new Error("Reserva não encontrada.");
+  return rows[0];
+}
+
+export async function cancelarReservaStaff(idValue: string) {
+  const rows = await request<TurmaReserva[]>("turma_reservas", { method: "PATCH", body: JSON.stringify({ status: "cancelada" }) }, `?id=eq.${encodeURIComponent(idValue)}`);
+  if (!rows[0]) throw new Error("Reserva não encontrada.");
+  return rows[0];
+}
