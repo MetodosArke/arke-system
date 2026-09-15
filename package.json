@@ -8,6 +8,7 @@
     "build": "vite build && cp -R dist/public/. dist/ && esbuild server/_core/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist/server && cp dist/server/index.js dist/index.js && esbuild serverless/entry.ts --platform=node --packages=external --bundle --format=esm --outfile=serverless/arke-server.mjs",
     "start": "NODE_ENV=production node dist/server/index.js",
     "check": "tsc --noEmit",
+    "seed:acervo": "tsx scripts/seed-acervo.ts",
     "format": "prettier --write .",
     "test": "vitest run"
   },

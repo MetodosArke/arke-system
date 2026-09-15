@@ -676,6 +676,19 @@ async function deleteGlobalNutritionPlan(idValue) {
   await request2("acervo_planos_alimentares", { method: "DELETE" }, `?id=eq.${encodeURIComponent(idValue)}`);
   return { id: idValue };
 }
+var inFilter = (ids) => `id.in.(${ids.map(encodeURIComponent).join(",")})`;
+async function publishGlobalExercises(ids, userId) {
+  if (!ids.length) return [];
+  return request2("exercicios", { method: "PATCH", body: JSON.stringify({ estado_publicacao: "publicado", publicado_por: userId, publicado_em: (/* @__PURE__ */ new Date()).toISOString() }) }, `?${inFilter(ids)}`);
+}
+async function publishGlobalTemplates(ids, userId) {
+  if (!ids.length) return [];
+  return request2("treino_templates", { method: "PATCH", body: JSON.stringify({ estado_publicacao: "publicado", publicado_por: userId, publicado_em: (/* @__PURE__ */ new Date()).toISOString() }) }, `?${inFilter(ids)}`);
+}
+async function publishGlobalNutritionPlans(ids, userId) {
+  if (!ids.length) return [];
+  return request2("acervo_planos_alimentares", { method: "PATCH", body: JSON.stringify({ estado_publicacao: "publicado", publicado_por: userId, publicado_em: (/* @__PURE__ */ new Date()).toISOString() }) }, `?${inFilter(ids)}`);
+}
 async function createGlobalRoutine(input) {
   const rows = await request2("acervo_rotinas", { method: "POST", body: JSON.stringify(input) });
   return rows[0];
@@ -711,7 +724,7 @@ async function updateStudentMatricula(alunoId, input) {
   return rows[0];
 }
 async function listExercisesCatalog() {
-  return request2("exercicios", {}, "?select=id,nome,grupo_muscular&order=nome.asc");
+  return request2("exercicios", {}, "?select=id,nome,grupo_muscular&estado_publicacao=eq.publicado&order=nome.asc");
 }
 async function listTreinosForAluno(alunoId, publishedOnly = false) {
   return request2("treinos", {}, `?select=*&aluno_id=eq.${encodeURIComponent(alunoId)}${publishedOnly ? "&estado_publicacao=eq.publicado" : ""}&order=created_at.desc`);
@@ -1622,6 +1635,18 @@ var appRouter = router({
   }),
   globalLibrary: router({
     list: adminProcedure.query(() => listGlobalLibrary()),
+    // Aprovação em lote dos rascunhos gerados por scripts/seed-acervo.ts
+    // (ou por qualquer cadastro manual futuro que nasça como rascunho):
+    // o Admin Arke revisa e decide o que publica — a IA nunca publica
+    // nada por conta própria.
+    publish: adminProcedure.input(z2.object({ exerciseIds: z2.array(z2.string().uuid()).default([]), templateIds: z2.array(z2.string().uuid()).default([]), nutritionPlanIds: z2.array(z2.string().uuid()).default([]) })).mutation(async ({ ctx, input }) => {
+      const [exercises, templates, nutritionPlans] = await Promise.all([
+        publishGlobalExercises(input.exerciseIds, ctx.user.id),
+        publishGlobalTemplates(input.templateIds, ctx.user.id),
+        publishGlobalNutritionPlans(input.nutritionPlanIds, ctx.user.id)
+      ]);
+      return { exercises, templates, nutritionPlans };
+    }),
     exercises: router({
       create: adminProcedure.input(z2.object({ nome: z2.string().trim().min(2), grupo_muscular: z2.string().trim().min(2), descricao: z2.string().trim().optional(), instrucoes: z2.string().trim().optional(), video_url: z2.string().url().optional(), imagem_url: z2.string().url().optional(), equipamento: z2.string().trim().optional() })).mutation(({ ctx, input }) => createGlobalExercise({ ...input, created_by: ctx.user.id })),
       update: adminProcedure.input(z2.object({ id: z2.string().uuid(), data: z2.object({ nome: z2.string().trim().min(2), grupo_muscular: z2.string().trim().min(2), descricao: z2.string().trim().optional().nullable(), instrucoes: z2.string().trim().optional().nullable(), video_url: z2.string().url().optional().nullable(), imagem_url: z2.string().url().optional().nullable(), equipamento: z2.string().trim().optional().nullable() }) })).mutation(({ input }) => updateGlobalExercise(input.id, input.data)),
