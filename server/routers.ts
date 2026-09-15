@@ -4,10 +4,10 @@ import { COOKIE_NAME, SUPABASE_ACCESS_COOKIE } from "@shared/const";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { adminProcedure, protectedProcedure, publicProcedure, router } from "./_core/trpc";
-import { acceptOrganizationInvitation, archiveOrganizationUnit, auditLogsToCsv, auditLogsToPdfBase64, createOrganizationInvitation, createOrganizationUnit, createOrganizationWithOwner, getAuditLogs, getMembership, getOrganizationAccess, getOrganizationBySlug, getOrganizationOnboarding, getOrganizationSubscription, getOrganizationsForUser, getPendingOrganizationInvitations, recordAuditLog, revokeOrganizationInvitation, saveOrganizationOnboarding, updateModulePolicy, updateOrganizationProfile, updateOrganizationSubscription } from "./db";
+import { acceptOrganizationInvitation, archiveOrganizationUnit, auditLogsToCsv, auditLogsToPdfBase64, createOrganizationInvitation, createOrganizationUnit, createOrganizationWithOwner, createSubscriptionCharge, getAuditLogs, getMembership, getOrganizationAccess, getOrganizationBySlug, getOrganizationOnboarding, getOrganizationSubscription, getOrganizationsForUser, getPendingOrganizationInvitations, recordAuditLog, revokeOrganizationInvitation, saveOrganizationOnboarding, updateModulePolicy, updateOrganizationProfile, updateOrganizationSubscription } from "./db";
 import { acceptMemberInvitation, assignAtendimento, cancelarReserva, cancelarReservaStaff, converterLead, createAppStudent, createAppUser, createAtendimento, createDieta, createGlobalExercise, createGlobalGroup, createGlobalNutritionPlan, createGlobalRoutine, createGlobalTemplate, createGlobalTemplateExercise, createLead, createLeadNota, createPasswordRecoveryCode, createTreino, createTurma, deleteAppStudent, deleteAppUser, deleteDieta, deleteGlobalExercise, deleteGlobalGroup, deleteGlobalNutritionPlan, deleteGlobalRoutine, deleteGlobalTemplate, deleteGlobalTemplateExercise, deleteGlobalAccessRule, deleteLead, deleteTreino, deleteTurma, findAppUserByEmail, gerarFichaTreinoPdf, getAcolhimento, getAtendimento, getDieta, getGestaoIndicadores, getLead, getProfileByUserId, getReserva, getTreino, getTurma, getVagasDisponiveis, hasSupabaseConfig, inviteMember, listAppStudents, listAppUsers, listAtendimentosForOrganization, listDietasForAluno, listExercisesCatalog, listFrequenciaForAluno, listFrequenciaForOrganization, listGlobalLibrary, listLeadAtividades, listLeadsForOrganization, listMinhasReservas, listMyAtendimentos, listMyCheckIns, listPendingMemberInvitations, listReservasForTurmaData, listStudentsInOrganization, listTreinoExercicios, listTreinosForAluno, listTurmaHorarios, listTurmasAtivas, listTurmasForOrganization, marcarLeadPerdido, moverEstagioLead, normalizeEmail, publishDieta, publishTreino, registrarFrequencia, replaceTreinoExercicios, replaceTurmaHorarios, requestHelp, reservarVaga, resolveAtendimento, revokeMemberInvitation, signInWithSupabase, submitCheckIn, updateAppStudent, updateAppUser, updateDieta, updateGlobalExercise, updateGlobalGroup, updateGlobalNutritionPlan, updateGlobalRoutine, updateGlobalTemplate, updateGlobalTemplateExercise, updateLead, updateStudentMatricula, updateSupabaseUserPassword, updateTreino, updateTurma, upsertAcolhimento, upsertGlobalAccessRule, verifyPasswordRecoveryCode } from "./supabaseAdmin";
-import { asaasSandboxConfigured, createAsaasCustomer, createAsaasPayment, createAsaasWebhook, getAsaasAccount, listAsaasPayments } from "./asaas";
-import { listStoredAsaasPayments } from "./asaasPersistence";
+import { asaasConfigured, asaasEnvironment, createAsaasWebhook, getAsaasAccount, listAsaasPayments } from "./asaas";
+import { listAsaasPaymentsForOrganization } from "./asaasPersistence";
 import { lookupCnpj } from "./cnpj";
 
 const organizationIdInput = z.object({ organizationId: z.string().uuid() });
@@ -196,13 +196,31 @@ export const appRouter = router({
     }),
   }),
   billing: router({
-    asaasStatus: publicProcedure.query(() => ({ configured: asaasSandboxConfigured(), environment: "sandbox" as const })),
-    asaasAccount: publicProcedure.query(() => getAsaasAccount()),
-    asaasPayments: publicProcedure.input(z.object({ limit: z.number().int().min(1).max(100).optional() }).optional()).query(({ input }) => listAsaasPayments(input?.limit ?? 20)),
-    asaasStoredPayments: publicProcedure.input(z.object({ limit: z.number().int().min(1).max(100).optional() }).optional()).query(({ input }) => listStoredAsaasPayments(input?.limit ?? 20)),
-    createAsaasCustomer: publicProcedure.input(z.object({ name: z.string().trim().min(2), email: z.string().email(), cpfCnpj: z.string().trim().optional() })).mutation(({ input }) => createAsaasCustomer(input)),
-    createAsaasPayment: publicProcedure.input(z.object({ customer: z.string().min(2), value: z.number().positive(), dueDate: z.string(), billingType: z.enum(["UNDEFINED", "PIX", "BOLETO", "CREDIT_CARD", "DEBIT_CARD"]), description: z.string().trim().min(2) })).mutation(({ input }) => createAsaasPayment(input)),
-    createAsaasWebhook: publicProcedure.input(z.object({ url: z.string().url(), email: z.string().email() })).mutation(({ input }) => createAsaasWebhook(input)),
+    // Sem dado sensível — só diz se a chave está configurada e se aponta
+    // para sandbox ou produção. Mantido público para a tela de
+    // Integrações mostrar o status sem exigir login.
+    asaasStatus: publicProcedure.query(() => ({ configured: asaasConfigured(), environment: asaasEnvironment() })),
+    // Dados da conta Asaas real e ações que criam cobrança/reconfiguram o
+    // webhook: restrito ao Administrador Arke (adminProcedure). Antes
+    // disso eram publicProcedure — qualquer pessoa sem login podia criar
+    // cobrança arbitrária na conta Asaas real ou trocar o webhook.
+    admin: router({
+      account: adminProcedure.query(() => getAsaasAccount()),
+      payments: adminProcedure.input(z.object({ limit: z.number().int().min(1).max(100).optional() }).optional()).query(({ input }) => listAsaasPayments(input?.limit ?? 20)),
+      createWebhook: adminProcedure.input(z.object({ url: z.string().url(), email: z.string().email() })).mutation(({ input }) => createAsaasWebhook(input)),
+    }),
+    // Cobrança real por organização — isolada: cada organização só vê e
+    // gera cobrança para si mesma (verificado no servidor, não só
+    // escondido na tela).
+    organization: router({
+      payments: protectedProcedure.input(organizationIdInput).query(async ({ ctx, input }) => { await ownerOrAdmin(ctx.user.id, input.organizationId); return listAsaasPaymentsForOrganization(input.organizationId); }),
+      gerarCobranca: protectedProcedure.input(z.object({ organizationId: z.string().uuid(), billingType: z.enum(["PIX", "BOLETO", "CREDIT_CARD"]) })).mutation(async ({ ctx, input }) => {
+        await ownerOrAdmin(ctx.user.id, input.organizationId);
+        const payment = await createSubscriptionCharge({ organizationId: input.organizationId, billingType: input.billingType });
+        await recordAuditLog({ organizationId: input.organizationId, userId: ctx.user.id, action: "created", entity: "asaas_payment", entityId: payment.id, afterJson: { billingType: input.billingType, value: payment.value } });
+        return payment;
+      }),
+    }),
   }),
   saas: router({
     organizations: router({

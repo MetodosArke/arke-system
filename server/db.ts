@@ -8,6 +8,9 @@
 // inteiro espelhado do antigo `users` do Drizzle/TiDB — não há mais tabela
 // de usuário própria aqui, auth.users já é a fonte de verdade.
 
+import { createAsaasCustomer, createAsaasPayment } from "./asaas";
+import { upsertAsaasPayment } from "./asaasPersistence";
+
 type Json = Record<string, unknown>;
 
 function isConfigured() {
@@ -51,6 +54,7 @@ export type Organization = {
   max_units: number; max_users: number;
   reconciliation_status: "matched" | "review"; reconciliation_note: string | null;
   full_service_enabled: boolean;
+  asaas_customer_id: string | null;
   created_at: string; updated_at: string;
 };
 export type Membership = {
@@ -166,6 +170,41 @@ export async function updateOrganizationSubscription(input: { organizationId: st
   await request("saas_organizations", { method: "PATCH", body: JSON.stringify({ plan: input.plan, max_units: limits.maxUnits, max_users: limits.maxUsers }) }, `?id=eq.${encodeURIComponent(input.organizationId)}`);
   await request("saas_subscriptions", { method: "PATCH", body: JSON.stringify({ plan: input.plan, amount_cents: amountCents, ...(input.status ? { status: input.status } : {}) }) }, `?organization_id=eq.${encodeURIComponent(input.organizationId)}`);
   return getOrganizationSubscription(input.organizationId);
+}
+
+async function getOrganization(organizationId: string) {
+  const rows = await request<Organization[]>("saas_organizations", {}, `?select=*&id=eq.${encodeURIComponent(organizationId)}&limit=1`);
+  return rows[0];
+}
+
+// Fase 13 (Pagamentos Asaas em produção): cobrança real vinculada à
+// organização SaaS, reaproveitando o cliente Asaas já criado para ela
+// (um cliente por organização, não um por cobrança).
+export async function getOrCreateAsaasCustomerForOrganization(organizationId: string) {
+  const organization = await getOrganization(organizationId);
+  if (!organization) throw new Error("Organização não encontrada.");
+  if (organization.asaas_customer_id) return organization.asaas_customer_id;
+
+  const [client] = await request<Array<{ name: string; email: string }>>("app_users", {}, `?select=name,email&id=eq.${encodeURIComponent(organization.client_id)}&limit=1`);
+  if (!client) throw new Error("Cliente responsável pela organização não encontrado.");
+
+  const customer = await createAsaasCustomer({ name: organization.name, email: client.email });
+  await request("saas_organizations", { method: "PATCH", body: JSON.stringify({ asaas_customer_id: customer.id }) }, `?id=eq.${encodeURIComponent(organizationId)}`);
+  return customer.id;
+}
+
+export async function createSubscriptionCharge(input: { organizationId: string; billingType: "PIX" | "BOLETO" | "CREDIT_CARD"; dueDate?: string }) {
+  if (!isConfigured()) throw new Error("Database not available");
+  const subscription = await getOrganizationSubscription(input.organizationId);
+  if (!subscription) throw new Error("Esta organização não tem assinatura ativa.");
+
+  const customerId = await getOrCreateAsaasCustomerForOrganization(input.organizationId);
+  const dueDate = input.dueDate ?? new Date(Date.now() + 1000 * 60 * 60 * 24 * 3).toISOString().slice(0, 10);
+  const payment = await createAsaasPayment({ customer: customerId, value: subscription.amount_cents / 100, dueDate, billingType: input.billingType, description: `Mensalidade Arke — plano ${subscription.plan}` });
+
+  await upsertAsaasPayment(payment as unknown as Json, "PAYMENT_CREATED", input.organizationId);
+  await request("saas_subscriptions", { method: "PATCH", body: JSON.stringify({ provider: "asaas", external_id: payment.id }) }, `?organization_id=eq.${encodeURIComponent(input.organizationId)}`);
+  return payment;
 }
 
 export async function getOrganizationAccess(userId: string, organizationId: string) {
