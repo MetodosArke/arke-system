@@ -4,6 +4,7 @@ import { COOKIE_NAME, SUPABASE_ACCESS_COOKIE } from "@shared/const";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { adminProcedure, protectedProcedure, publicProcedure, router } from "./_core/trpc";
+import { assertRateLimit, rateLimitKey } from "./_core/rateLimit";
 import { acceptOrganizationInvitation, archiveOrganizationUnit, auditLogsToCsv, auditLogsToPdfBase64, createOrganizationInvitation, createOrganizationUnit, createOrganizationWithOwner, createSubscriptionCharge, getAuditLogs, getMembership, getOrganizationAccess, getOrganizationBySlug, getOrganizationOnboarding, getOrganizationSubscription, getOrganizationsForUser, getPendingOrganizationInvitations, recordAuditLog, revokeOrganizationInvitation, saveOrganizationOnboarding, updateModulePolicy, updateOrganizationProfile, updateOrganizationSubscription } from "./db";
 import { acceptMemberInvitation, assignAtendimento, cancelarReserva, cancelarReservaStaff, converterLead, createAppStudent, createAppUser, createAtendimento, createDeletionRequest, createDieta, createGlobalExercise, createGlobalGroup, createGlobalNutritionPlan, createGlobalRoutine, createGlobalTemplate, createGlobalTemplateExercise, createLead, createLeadNota, createPasswordRecoveryCode, createTreino, createTurma, deleteAppStudent, deleteAppUser, deleteDieta, deleteGlobalExercise, deleteGlobalGroup, deleteGlobalNutritionPlan, deleteGlobalRoutine, deleteGlobalTemplate, deleteGlobalTemplateExercise, deleteGlobalAccessRule, deleteLead, deleteTreino, deleteTurma, findAppUserByEmail, fulfillDeletionRequest, gerarFichaTreinoPdf, getAcolhimento, getAtendimento, getCrmIndicadores, getCurrentPrivacyPolicy, getDeletionRequest, getDieta, getGestaoIndicadores, getLead, getMyDeletionRequest, getProfileByUserId, getReserva, getTreino, getTurma, getVagasDisponiveis, hasConsent, hasSupabaseConfig, inviteMember, listAppStudents, listAppUsers, listAtendimentosForOrganization, listDeletionRequests, listDietasForAluno, listExercisesCatalog, listFrequenciaForAluno, listFrequenciaForOrganization, listGlobalLibrary, listLeadAtividades, listLeadsForOrganization, listMinhasReservas, listMyAtendimentos, listMyCheckIns, listPendingMemberInvitations, listReservasForTurmaData, listStudentsInOrganization, listTreinoExercicios, listTreinosForAluno, listTurmaHorarios, listTurmasAtivas, listTurmasForOrganization, marcarLeadPerdido, moverEstagioLead, normalizeEmail, publishDieta, publishGlobalExercises, publishGlobalNutritionPlans, publishGlobalTemplates, publishTreino, recordConsent, registrarFrequencia, rejectDeletionRequest, replaceTreinoExercicios, replaceTurmaHorarios, requestHelp, reservarVaga, resolveAtendimento, revokeMemberInvitation, signInWithSupabase, submitCheckIn, updateAppStudent, updateAppUser, updateDieta, updateGlobalExercise, updateGlobalGroup, updateGlobalNutritionPlan, updateGlobalRoutine, updateGlobalTemplate, updateGlobalTemplateExercise, updateLead, updateStudentMatricula, updateSupabaseUserPassword, updateTreino, updateTurma, upsertAcolhimento, upsertGlobalAccessRule, verifyPasswordRecoveryCode } from "./supabaseAdmin";
 import { asaasConfigured, asaasEnvironment, createAsaasWebhook, getAsaasAccount, listAsaasPayments } from "./asaas";
@@ -141,12 +142,17 @@ export const appRouter = router({
       return { success: true } as const;
     }),
     signIn: publicProcedure.input(z.object({ email: z.string().email(), password: z.string().min(8) })).mutation(async ({ ctx, input }) => {
+      assertRateLimit(rateLimitKey(ctx.req, "signin"), 10, 5 * 60 * 1000);
       const result = await signInWithSupabase(input.email, input.password);
       ctx.res.cookie(SUPABASE_ACCESS_COOKIE, result.accessToken, { ...getSessionCookieOptions(ctx.req), maxAge: 1000 * 60 * 60 * 24 * 30 });
       return result;
     }),
-    recoverPassword: publicProcedure.input(z.object({ email: z.string().email() })).mutation(({ input }) => createPasswordRecoveryCode(normalizeEmail(input.email))),
+    recoverPassword: publicProcedure.input(z.object({ email: z.string().email() })).mutation(({ ctx, input }) => {
+      assertRateLimit(rateLimitKey(ctx.req, "recover-password"), 5, 15 * 60 * 1000);
+      return createPasswordRecoveryCode(normalizeEmail(input.email));
+    }),
     setPassword: publicProcedure.input(z.object({ email: z.string().email(), code: z.string().trim().min(4), password: z.string().min(8) })).mutation(async ({ ctx, input }) => {
+      assertRateLimit(rateLimitKey(ctx.req, "set-password"), 10, 15 * 60 * 1000);
       const session = await verifyPasswordRecoveryCode(input.email, input.code);
       const supabaseUser = await updateSupabaseUserPassword(session.access_token, input.password);
       const appUser = supabaseUser.email ? await findAppUserByEmail(normalizeEmail(supabaseUser.email)) : null;
@@ -322,6 +328,7 @@ export const appRouter = router({
       invite: protectedProcedure.input(z.object({ organizationId: z.string().uuid(), email: z.string().email(), role: z.enum(["admin", "manager", "professional", "nutricionista", "viewer"]) })).mutation(async ({ ctx, input }) => { await ownerOrAdmin(ctx.user.id, input.organizationId); const rawToken = randomUUID(); const tokenHash = createHash("sha256").update(rawToken).digest("hex"); const invitation = await createOrganizationInvitation({ ...input, invitedByUserId: ctx.user.id, email: input.email.toLowerCase(), tokenHash, expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 72) }); await recordAuditLog({ organizationId: input.organizationId, userId: ctx.user.id, action: "created", entity: "invitation", entityId: invitation.id, afterJson: { email: input.email.toLowerCase(), role: input.role } }); return { invitationId: invitation.id, token: rawToken, status: "pending" as const }; }),
       revokeInvitation: protectedProcedure.input(z.object({ organizationId: z.string().uuid(), invitationId: z.string().uuid() })).mutation(async ({ ctx, input }) => { await ownerOrAdmin(ctx.user.id, input.organizationId); const result = await revokeOrganizationInvitation(input.invitationId, input.organizationId); await recordAuditLog({ organizationId: input.organizationId, userId: ctx.user.id, action: "revoked", entity: "invitation", entityId: input.invitationId }); return result; }),
       acceptInvite: protectedProcedure.input(z.object({ token: z.string().min(16).max(128), consentTermos: z.literal(true) })).mutation(async ({ ctx, input }) => {
+        assertRateLimit(rateLimitKey(ctx.req, "accept-team-invite"), 10, 15 * 60 * 1000);
         if (!ctx.user.email) throw new Error("Authenticated user email is required");
         const result = await acceptOrganizationInvitation({ tokenHash: createHash("sha256").update(input.token).digest("hex"), userId: ctx.user.id, email: ctx.user.email });
         if (!(await hasConsent(ctx.user.id, "termos_uso_privacidade"))) {
@@ -422,6 +429,7 @@ export const appRouter = router({
     pendingInvitations: protectedProcedure.input(organizationIdInput).query(async ({ ctx, input }) => { await assertStaffOfOrganization(ctx.user.id, input.organizationId); return listPendingMemberInvitations(input.organizationId); }),
     revokeInvitation: protectedProcedure.input(z.object({ id: z.string().uuid(), organizationId: z.string().uuid() })).mutation(async ({ ctx, input }) => { await assertStaffOfOrganization(ctx.user.id, input.organizationId); return revokeMemberInvitation(input.id, input.organizationId); }),
     acceptInvite: publicProcedure.input(z.object({ token: z.string().trim().min(10), password: z.string().min(8), consentTermos: z.literal(true) })).mutation(async ({ ctx, input }) => {
+      assertRateLimit(rateLimitKey(ctx.req, "accept-member-invite"), 10, 15 * 60 * 1000);
       const result = await acceptMemberInvitation(input.token, input.password);
       const policy = await getCurrentPrivacyPolicy();
       await recordConsent({ userId: result.user.id, consentType: "termos_uso_privacidade", policyVersionId: policy?.id ?? null, ...requestMeta(ctx.req) });

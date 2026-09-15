@@ -1,6 +1,7 @@
 import { timingSafeEqual } from "node:crypto";
 import type { Express, Request, Response } from "express";
 import { runAutomacaoDiaria } from "./supabaseAdmin";
+import { captureException } from "./_core/errorMonitoring";
 
 function tokenMatches(received: string, expected: string) {
   const receivedBuffer = Buffer.from(received);
@@ -17,7 +18,7 @@ export function registerAutomacaoCron(app: Express) {
       const resultado = await runAutomacaoDiaria();
       return res.status(200).json({ ok: true, ...resultado });
     } catch (error) {
-      console.error("[Automação cron] failed", error);
+      captureException(error, { job: "automacao_diaria" });
       return res.status(500).json({ ok: false });
     }
   });

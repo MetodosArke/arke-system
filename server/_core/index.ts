@@ -9,6 +9,9 @@ import { serveStatic } from "./static";
 import { registerAccessRoutes } from "../access";
 import { registerAsaasWebhook } from "../asaasWebhook";
 import { registerAutomacaoCron } from "../automacaoCron";
+import { captureException, initErrorMonitoring } from "./errorMonitoring";
+
+initErrorMonitoring();
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise(resolve => {
@@ -42,6 +45,9 @@ export function createApp(): Express {
     createExpressMiddleware({
       router: appRouter,
       createContext,
+      onError({ error, path }) {
+        captureException(error, { path });
+      },
     })
   );
   return app;

@@ -102,7 +102,14 @@ export async function verifyPasswordRecoveryCode(email: string, code: string) {
 
 async function sendEmail(to: string, subject: string, html: string) {
   const apiKey = process.env.RESEND_API_KEY;
-  if (!apiKey) return { simulated: true };
+  if (!apiKey) {
+    // Em produção, uma chave ausente não pode virar sucesso silencioso —
+    // quem convida um aluno/colega de equipe precisa saber que o e-mail
+    // não foi enviado, não receber um "convite enviado" falso. Em
+    // desenvolvimento local sem a chave configurada, mantém a simulação.
+    if (ENV.isProduction) throw new Error("RESEND_API_KEY não configurada — não é possível enviar e-mail em produção.");
+    return { simulated: true };
+  }
   const response = await fetch("https://api.resend.com/emails", { method: "POST", headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" }, body: JSON.stringify({ from: process.env.RESEND_FROM_EMAIL ?? "Arke <onboarding@resend.dev>", to: [to], subject, html }) });
   if (!response.ok) throw new Error(`Falha no envio de e-mail: ${await response.text()}`);
   return { simulated: false };
