@@ -160,13 +160,21 @@ export async function deleteGlobalRoutine(idValue: string) { await request("acer
 export async function upsertGlobalAccessRule(input: Record<string, unknown>) { const rows = await request<GlobalAccessRule[]>("acervo_acesso_regras", { method: "POST", body: JSON.stringify(input), headers: { Prefer: "resolution=merge-duplicates,return=representation" } }); return rows[0]; }
 export async function deleteGlobalAccessRule(idValue: string) { await request("acervo_acesso_regras", { method: "DELETE" }, `?id=eq.${encodeURIComponent(idValue)}`); return { id: idValue }; }
 
-export type StudentProfile = { user_id: string; full_name: string | null; organization_id: string | null; status: string };
+export type StudentProfile = { user_id: string; full_name: string | null; organization_id: string | null; status: string; unit_id?: string | null; matricula_em?: string | null };
 export type Treino = { id: string; aluno_id: string; titulo: string; descricao?: string | null; tipo: string; status: string; estado_publicacao: "rascunho" | "publicado" | "arquivado"; versao: number; organization_id: string | null; criado_por?: string | null; publicado_por?: string | null; publicado_em?: string | null; created_at: string; updated_at: string };
 export type TreinoExercicio = { id: string; treino_id: string; exercicio_id: string; ordem: number; series: number; repeticoes: string; descanso_seg: number; descanso_por_serie?: string | null; observacoes?: string | null };
 export type Dieta = { id: string; aluno_id: string; titulo: string; descricao?: string | null; arquivo_url?: string | null; estado_publicacao: "rascunho" | "publicado" | "arquivado"; versao: number; organization_id: string | null; criado_por?: string | null; publicado_por?: string | null; publicado_em?: string | null; created_at: string; updated_at: string };
 
-export async function getProfileByUserId(userId: string) { const rows = await request<StudentProfile[]>("profiles", {}, `?select=user_id,full_name,organization_id,status&user_id=eq.${encodeURIComponent(userId)}&limit=1`); return rows[0] ?? null; }
-export async function listStudentsInOrganization(organizationId: string) { return request<StudentProfile[]>("profiles", {}, `?select=user_id,full_name,organization_id,status&organization_id=eq.${encodeURIComponent(organizationId)}&order=full_name.asc`); }
+export async function getProfileByUserId(userId: string) { const rows = await request<StudentProfile[]>("profiles", {}, `?select=user_id,full_name,organization_id,status,unit_id,matricula_em&user_id=eq.${encodeURIComponent(userId)}&limit=1`); return rows[0] ?? null; }
+export async function listStudentsInOrganization(organizationId: string) { return request<StudentProfile[]>("profiles", {}, `?select=user_id,full_name,organization_id,status,unit_id,matricula_em&organization_id=eq.${encodeURIComponent(organizationId)}&order=full_name.asc`); }
+
+export async function updateStudentMatricula(alunoId: string, input: { unitId?: string | null; matriculaEm?: string | null }) {
+  const body: Record<string, unknown> = {};
+  if (input.unitId !== undefined) body.unit_id = input.unitId;
+  if (input.matriculaEm !== undefined) body.matricula_em = input.matriculaEm;
+  const rows = await request<StudentProfile[]>("profiles", { method: "PATCH", body: JSON.stringify(body) }, `?user_id=eq.${encodeURIComponent(alunoId)}`);
+  return rows[0];
+}
 export async function listExercisesCatalog() { return request<GlobalLibraryExercise[]>("exercicios", {}, "?select=id,nome,grupo_muscular&order=nome.asc"); }
 
 export async function listTreinosForAluno(alunoId: string, publishedOnly = false) { return request<Treino[]>("treinos", {}, `?select=*&aluno_id=eq.${encodeURIComponent(alunoId)}${publishedOnly ? "&estado_publicacao=eq.publicado" : ""}&order=created_at.desc`); }
@@ -280,7 +288,8 @@ export async function acceptMemberInvitation(token: string, password: string) {
 
   // O gatilho on_auth_user_created (Supabase) já cria a linha em profiles
   // com organization_id nulo; aqui só vinculamos à organização do convite.
-  await request("profiles", { method: "PATCH", body: JSON.stringify({ full_name: invitation.full_name, organization_id: invitation.organization_id, status: "active" }) }, `?user_id=eq.${encodeURIComponent(authUser.id)}`);
+  // matricula_em marca o momento real da ativação (Módulo Academia).
+  await request("profiles", { method: "PATCH", body: JSON.stringify({ full_name: invitation.full_name, organization_id: invitation.organization_id, status: "active", matricula_em: new Date().toISOString() }) }, `?user_id=eq.${encodeURIComponent(authUser.id)}`);
 
   const accepted = await request<MemberInvitation[]>("member_invitations", { method: "PATCH", body: JSON.stringify({ status: "accepted" }) }, `?id=eq.${encodeURIComponent(invitation.id)}&status=eq.pending`);
   if (!accepted[0]) throw new Error("Este convite já foi utilizado.");
@@ -557,4 +566,81 @@ export async function getGestaoIndicadores(organizationId: string): Promise<Gest
       porPrioridade,
     },
   };
+}
+
+// --- Fase 9: Módulo Academia (matrícula, frequência, ficha em PDF) ---
+
+export type FrequenciaRegistro = { id: string; aluno_id: string; organization_id: string; unit_id?: string | null; origem: "catraca" | "manual"; registrado_por?: string | null; registrado_em: string; created_at: string };
+
+export async function registrarFrequencia(input: { alunoId: string; organizationId: string; unitId?: string | null; origem: FrequenciaRegistro["origem"]; registradoPor?: string }) {
+  const rows = await request<FrequenciaRegistro[]>("frequencia_registros", { method: "POST", body: JSON.stringify({ aluno_id: input.alunoId, organization_id: input.organizationId, unit_id: input.unitId || undefined, origem: input.origem, registrado_por: input.registradoPor || undefined }) });
+  return rows[0];
+}
+
+export async function listFrequenciaForAluno(alunoId: string, limit = 30) {
+  return request<FrequenciaRegistro[]>("frequencia_registros", {}, `?select=*&aluno_id=eq.${encodeURIComponent(alunoId)}&order=registrado_em.desc&limit=${limit}`);
+}
+
+export async function listFrequenciaForOrganization(organizationId: string, limit = 100) {
+  return request<FrequenciaRegistro[]>("frequencia_registros", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}&order=registrado_em.desc&limit=${limit}`);
+}
+
+// Ficha de treino em PDF, dimensionada para bobina de impressora
+// térmica de 80mm — não integra com impressora nenhuma, só gera o PDF
+// no tamanho certo para imprimir direto numa térmica USB/rede comum.
+function sanitizePdfText(value: string) {
+  return value.replaceAll("\\", "\\\\").replaceAll("(", "\\(").replaceAll(")", "\\)");
+}
+
+function buildThermalPdfBase64(lines: string[]) {
+  const widthPt = 80 * 2.8346; // 80mm em pontos (1mm = 2.8346pt)
+  const lineHeight = 12;
+  const marginTop = 16;
+  const heightPt = Math.max(140, marginTop + lineHeight * (lines.length + 1));
+  const contentLines = lines.map((line, index) => index === 0 ? `(${sanitizePdfText(line)}) Tj` : `0 -${lineHeight} Td\n(${sanitizePdfText(line)}) Tj`);
+  const content = ["BT", "/F1 8 Tf", `8 ${(heightPt - marginTop).toFixed(2)} Td`, ...contentLines, "ET"].join("\n");
+  const objects = [
+    "<< /Type /Catalog /Pages 2 0 R >>",
+    "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+    `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${widthPt.toFixed(2)} ${heightPt.toFixed(2)}] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>`,
+    "<< /Type /Font /Subtype /Type1 /BaseFont /Courier >>",
+    `<< /Length ${Buffer.byteLength(content, "utf8")} >>\nstream\n${content}\nendstream`,
+  ];
+  let pdf = "%PDF-1.4\n";
+  const offsets = [0];
+  objects.forEach((object, index) => { offsets[index + 1] = Buffer.byteLength(pdf, "utf8"); pdf += `${index + 1} 0 obj\n${object}\nendobj\n`; });
+  const xref = Buffer.byteLength(pdf, "utf8");
+  const entries = offsets.slice(1).map((offset) => String(offset).padStart(10, "0") + " 00000 n ").join("\n");
+  pdf += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n${entries}\ntrailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF`;
+  return Buffer.from(pdf, "utf8").toString("base64");
+}
+
+export async function gerarFichaTreinoPdf(treinoId: string) {
+  const treino = await getTreino(treinoId);
+  if (!treino) throw new Error("Treino não encontrado.");
+  const [exercicios, catalogo, aluno] = await Promise.all([
+    listTreinoExercicios(treinoId),
+    listExercisesCatalog(),
+    getProfileByUserId(treino.aluno_id),
+  ]);
+  const nomeExercicio = (idValue: string) => catalogo.find((exercicio) => exercicio.id === idValue)?.nome ?? "Exercício";
+  const orgNome = treino.organization_id ? await getOrganizationName(treino.organization_id) : "Arke";
+
+  const lines: string[] = [
+    orgNome,
+    `Ficha: ${treino.titulo} (${treino.tipo})`,
+    `Aluno: ${aluno?.full_name ?? "-"}`,
+    `Versao ${treino.versao} - ${new Date().toLocaleDateString("pt-BR")}`,
+    "-".repeat(30),
+  ];
+  if (!exercicios.length) lines.push("Nenhum exercicio cadastrado.");
+  exercicios.forEach((exercicio, index) => {
+    lines.push(`${index + 1}. ${nomeExercicio(exercicio.exercicio_id)}`);
+    lines.push(`   ${exercicio.series}x${exercicio.repeticoes}  descanso ${exercicio.descanso_seg}s`);
+    if (exercicio.observacoes) lines.push(`   Obs: ${exercicio.observacoes}`);
+  });
+  lines.push("-".repeat(30));
+  lines.push("Bom treino!");
+
+  return { filename: `ficha-${treino.titulo.replace(/[^a-z0-9]+/gi, "-").toLowerCase()}-v${treino.versao}.pdf`, contentBase64: buildThermalPdfBase64(lines) };
 }
