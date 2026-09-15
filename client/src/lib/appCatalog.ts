@@ -19,19 +19,19 @@ export const MODULE_LABELS: Record<ModuleKey, string> = {
   administrador: "Administrador",
 };
 
-export const MODULE_VIEWS: Record<ModuleKey, "overview" | "academias" | "profissionais" | "alunos"> = {
+export const MODULE_VIEWS: Record<ModuleKey, "overview" | "academias" | "profissionais" | "alunos" | "meus-alunos" | "meu-treino"> = {
   academia: "academias",
   studio: "academias",
-  profissional: "profissionais",
-  aluno: "alunos",
+  profissional: "meus-alunos",
+  aluno: "meu-treino",
   administrador: "overview",
 };
 
 export const MODULE_PERMISSIONS: Record<ModuleKey, string[]> = {
   academia: ["overview", "academias", "alunos", "agenda", "financeiro", "integracoes"],
   studio: ["overview", "studios", "academias", "alunos", "agenda", "financeiro", "integracoes"],
-  profissional: ["overview", "profissionais", "agenda"],
-  aluno: ["overview", "alunos", "agenda"],
+  profissional: ["overview", "meus-alunos", "agenda"],
+  aluno: ["overview", "meu-treino", "agenda"],
   administrador: ["overview", "academias", "studios", "profissionais", "alunos", "agenda", "financeiro", "integracoes", "saas", "admin", "acervo", "configuracoes"],
 };
 
