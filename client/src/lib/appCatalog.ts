@@ -28,11 +28,11 @@ export const MODULE_VIEWS: Record<ModuleKey, "overview" | "academias" | "profiss
 };
 
 export const MODULE_PERMISSIONS: Record<ModuleKey, string[]> = {
-  academia: ["overview", "academias", "alunos", "agenda", "financeiro", "integracoes"],
-  studio: ["overview", "studios", "academias", "alunos", "agenda", "financeiro", "integracoes"],
+  academia: ["overview", "academias", "alunos", "gestao", "agenda", "financeiro", "integracoes"],
+  studio: ["overview", "studios", "academias", "alunos", "gestao", "agenda", "financeiro", "integracoes"],
   profissional: ["overview", "meus-alunos", "minha-fila", "agenda"],
   aluno: ["overview", "meu-treino", "agenda"],
-  administrador: ["overview", "academias", "studios", "profissionais", "alunos", "agenda", "financeiro", "integracoes", "saas", "admin", "acervo", "configuracoes"],
+  administrador: ["overview", "academias", "studios", "profissionais", "alunos", "gestao", "agenda", "financeiro", "integracoes", "saas", "admin", "acervo", "configuracoes"],
 };
 
 export const SAAS_PLANS = ["Starter", "Growth", "Scale", "Unlimited", "Essencial", "Performance", "Premium"] as const;
