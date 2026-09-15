@@ -998,6 +998,75 @@ async function gerarFichaTreinoPdf(treinoId) {
   lines.push("Bom treino!");
   return { filename: `ficha-${treino.titulo.replace(/[^a-z0-9]+/gi, "-").toLowerCase()}-v${treino.versao}.pdf`, contentBase64: buildThermalPdfBase64(lines) };
 }
+async function listTurmasForOrganization(organizationId) {
+  return request2("turmas", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}&order=nome.asc`);
+}
+async function listTurmasAtivas(organizationId) {
+  return request2("turmas", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}&status=eq.ativa&order=nome.asc`);
+}
+async function getTurma(idValue) {
+  const rows = await request2("turmas", {}, `?select=*&id=eq.${encodeURIComponent(idValue)}&limit=1`);
+  return rows[0] ?? null;
+}
+async function createTurma(input) {
+  const rows = await request2("turmas", { method: "POST", body: JSON.stringify(input) });
+  return rows[0];
+}
+async function updateTurma(idValue, input) {
+  const rows = await request2("turmas", { method: "PATCH", body: JSON.stringify(input) }, `?id=eq.${encodeURIComponent(idValue)}`);
+  return rows[0];
+}
+async function deleteTurma(idValue) {
+  await request2("turmas", { method: "DELETE" }, `?id=eq.${encodeURIComponent(idValue)}`);
+  return { id: idValue };
+}
+async function listTurmaHorarios(turmaId) {
+  return request2("turma_horarios", {}, `?select=*&turma_id=eq.${encodeURIComponent(turmaId)}&order=dia_semana.asc,hora_inicio.asc`);
+}
+async function replaceTurmaHorarios(turmaId, items) {
+  await request2("turma_horarios", { method: "DELETE" }, `?turma_id=eq.${encodeURIComponent(turmaId)}`);
+  if (!items.length) return [];
+  return request2("turma_horarios", { method: "POST", body: JSON.stringify(items.map((item) => ({ ...item, turma_id: turmaId }))) });
+}
+async function listReservasForTurmaData(turmaId, data) {
+  return request2("turma_reservas", {}, `?select=*&turma_id=eq.${encodeURIComponent(turmaId)}&data=eq.${encodeURIComponent(data)}&status=eq.confirmada`);
+}
+async function getReserva(idValue) {
+  const rows = await request2("turma_reservas", {}, `?select=*&id=eq.${encodeURIComponent(idValue)}&limit=1`);
+  return rows[0] ?? null;
+}
+async function listMinhasReservas(alunoId) {
+  const hoje = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
+  return request2("turma_reservas", {}, `?select=*&aluno_id=eq.${encodeURIComponent(alunoId)}&status=eq.confirmada&data=gte.${encodeURIComponent(hoje)}&order=data.asc`);
+}
+async function getVagasDisponiveis(turmaId, data) {
+  const turma = await getTurma(turmaId);
+  if (!turma) throw new Error("Turma n\xE3o encontrada.");
+  const reservas = await listReservasForTurmaData(turmaId, data);
+  return { limite: turma.limite_vagas, ocupadas: reservas.length, disponiveis: Math.max(0, turma.limite_vagas - reservas.length) };
+}
+async function reservarVaga(input) {
+  const turma = await getTurma(input.turmaId);
+  if (!turma || turma.status !== "ativa" || turma.organization_id !== input.organizationId) throw new Error("Turma n\xE3o encontrada ou inativa.");
+  const horarios = await listTurmaHorarios(input.turmaId);
+  const diaSemana = (/* @__PURE__ */ new Date(`${input.data}T00:00:00Z`)).getUTCDay();
+  if (!horarios.some((horario) => horario.dia_semana === diaSemana)) throw new Error("Esta turma n\xE3o tem hor\xE1rio nesse dia da semana.");
+  const existentes = await listReservasForTurmaData(input.turmaId, input.data);
+  if (existentes.some((reserva) => reserva.aluno_id === input.alunoId)) throw new Error("Voc\xEA j\xE1 reservou vaga nesta sess\xE3o.");
+  if (existentes.length >= turma.limite_vagas) throw new Error("N\xE3o h\xE1 vagas dispon\xEDveis para esta sess\xE3o.");
+  const rows = await request2("turma_reservas", { method: "POST", body: JSON.stringify({ turma_id: input.turmaId, aluno_id: input.alunoId, organization_id: input.organizationId, data: input.data }) });
+  return rows[0];
+}
+async function cancelarReserva(idValue, alunoId) {
+  const rows = await request2("turma_reservas", { method: "PATCH", body: JSON.stringify({ status: "cancelada" }) }, `?id=eq.${encodeURIComponent(idValue)}&aluno_id=eq.${encodeURIComponent(alunoId)}`);
+  if (!rows[0]) throw new Error("Reserva n\xE3o encontrada.");
+  return rows[0];
+}
+async function cancelarReservaStaff(idValue) {
+  const rows = await request2("turma_reservas", { method: "PATCH", body: JSON.stringify({ status: "cancelada" }) }, `?id=eq.${encodeURIComponent(idValue)}`);
+  if (!rows[0]) throw new Error("Reserva n\xE3o encontrada.");
+  return rows[0];
+}
 
 // server/asaas.ts
 function asaasConfig() {
@@ -1131,6 +1200,19 @@ var assertStaffForAtendimento = async (userId, atendimentoId) => {
   if (!atendimento) throw new Error("Atendimento n\xE3o encontrado.");
   await assertStaffOfOrganization(userId, atendimento.organization_id);
   return atendimento;
+};
+var assertStaffForTurma = async (userId, turmaId) => {
+  const turma = await getTurma(turmaId);
+  if (!turma) throw new Error("Turma n\xE3o encontrada.");
+  await assertStaffOfOrganization(userId, turma.organization_id);
+  return turma;
+};
+var assertAlunoSameOrgAsTurma = async (userId, turmaId) => {
+  const turma = await getTurma(turmaId);
+  if (!turma) throw new Error("Turma n\xE3o encontrada.");
+  const profile = await getProfileByUserId(userId);
+  if (!profile?.organization_id || profile.organization_id !== turma.organization_id) throw new Error("Turma n\xE3o encontrada.");
+  return turma;
 };
 var treinoExercicioItem = z2.object({ exercicio_id: z2.string().uuid(), series: z2.number().int().min(1).default(3), repeticoes: z2.string().trim().min(1).default("12"), descanso_seg: z2.number().int().min(0).default(60), descanso_por_serie: z2.string().trim().optional(), observacoes: z2.string().trim().optional() });
 var acolhimentoInput = z2.object({
@@ -1483,6 +1565,65 @@ var appRouter = router({
       }),
       minhas: protectedProcedure.query(({ ctx }) => listFrequenciaForAluno(ctx.user.id))
     })
+  }),
+  studio: router({
+    myOrganizations: protectedProcedure.query(async ({ ctx }) => (await getOrganizationsForUser(ctx.user.id)).filter((item) => STAFF_ROLES.includes(item.membership.role))),
+    turmas: router({
+      list: protectedProcedure.input(organizationIdInput).query(async ({ ctx, input }) => {
+        await assertStaffOfOrganization(ctx.user.id, input.organizationId);
+        return listTurmasForOrganization(input.organizationId);
+      }),
+      create: protectedProcedure.input(z2.object({ organizationId: z2.string().uuid(), unitId: z2.string().uuid().optional(), nome: z2.string().trim().min(2), descricao: z2.string().trim().optional(), professorId: z2.string().uuid().optional(), limiteVagas: z2.number().int().min(1).max(500), duracaoMin: z2.number().int().min(15).max(480).default(60) })).mutation(async ({ ctx, input }) => {
+        await assertStaffOfOrganization(ctx.user.id, input.organizationId);
+        return createTurma({ organization_id: input.organizationId, unit_id: input.unitId || void 0, nome: input.nome, descricao: input.descricao || void 0, professor_id: input.professorId || void 0, limite_vagas: input.limiteVagas, duracao_min: input.duracaoMin, criado_por: ctx.user.id });
+      }),
+      update: protectedProcedure.input(z2.object({ id: z2.string().uuid(), data: z2.object({ nome: z2.string().trim().min(2), descricao: z2.string().trim().optional().nullable(), professorId: z2.string().uuid().optional().nullable(), limiteVagas: z2.number().int().min(1).max(500), duracaoMin: z2.number().int().min(15).max(480), status: z2.enum(["ativa", "inativa"]) }) })).mutation(async ({ ctx, input }) => {
+        await assertStaffForTurma(ctx.user.id, input.id);
+        return updateTurma(input.id, { nome: input.data.nome, descricao: input.data.descricao, professor_id: input.data.professorId, limite_vagas: input.data.limiteVagas, duracao_min: input.data.duracaoMin, status: input.data.status });
+      }),
+      delete: protectedProcedure.input(z2.object({ id: z2.string().uuid() })).mutation(async ({ ctx, input }) => {
+        await assertStaffForTurma(ctx.user.id, input.id);
+        return deleteTurma(input.id);
+      }),
+      horarios: protectedProcedure.input(z2.object({ turmaId: z2.string().uuid() })).query(async ({ ctx, input }) => {
+        await assertStaffForTurma(ctx.user.id, input.turmaId);
+        return listTurmaHorarios(input.turmaId);
+      }),
+      saveHorarios: protectedProcedure.input(z2.object({ turmaId: z2.string().uuid(), items: z2.array(z2.object({ diaSemana: z2.number().int().min(0).max(6), horaInicio: z2.string().regex(/^\d{2}:\d{2}$/) })) })).mutation(async ({ ctx, input }) => {
+        await assertStaffForTurma(ctx.user.id, input.turmaId);
+        return replaceTurmaHorarios(input.turmaId, input.items.map((item) => ({ dia_semana: item.diaSemana, hora_inicio: item.horaInicio })));
+      }),
+      reservas: protectedProcedure.input(z2.object({ turmaId: z2.string().uuid(), data: z2.string().regex(/^\d{4}-\d{2}-\d{2}$/) })).query(async ({ ctx, input }) => {
+        await assertStaffForTurma(ctx.user.id, input.turmaId);
+        return listReservasForTurmaData(input.turmaId, input.data);
+      }),
+      cancelarReserva: protectedProcedure.input(z2.object({ id: z2.string().uuid() })).mutation(async ({ ctx, input }) => {
+        const reserva = await getReserva(input.id);
+        if (!reserva) throw new Error("Reserva n\xE3o encontrada.");
+        await assertStaffOfOrganization(ctx.user.id, reserva.organization_id);
+        return cancelarReservaStaff(input.id);
+      })
+    }),
+    turmasDisponiveis: protectedProcedure.query(async ({ ctx }) => {
+      const profile = await getProfileByUserId(ctx.user.id);
+      if (!profile?.organization_id) return [];
+      return listTurmasAtivas(profile.organization_id);
+    }),
+    horariosDaTurma: protectedProcedure.input(z2.object({ turmaId: z2.string().uuid() })).query(async ({ ctx, input }) => {
+      await assertAlunoSameOrgAsTurma(ctx.user.id, input.turmaId);
+      return listTurmaHorarios(input.turmaId);
+    }),
+    vagasDisponiveis: protectedProcedure.input(z2.object({ turmaId: z2.string().uuid(), data: z2.string().regex(/^\d{4}-\d{2}-\d{2}$/) })).query(async ({ ctx, input }) => {
+      await assertAlunoSameOrgAsTurma(ctx.user.id, input.turmaId);
+      return getVagasDisponiveis(input.turmaId, input.data);
+    }),
+    reservar: protectedProcedure.input(z2.object({ turmaId: z2.string().uuid(), data: z2.string().regex(/^\d{4}-\d{2}-\d{2}$/) })).mutation(async ({ ctx, input }) => {
+      const profile = await getProfileByUserId(ctx.user.id);
+      if (!profile?.organization_id) throw new Error("Voc\xEA ainda n\xE3o est\xE1 vinculado a uma organiza\xE7\xE3o.");
+      return reservarVaga({ turmaId: input.turmaId, alunoId: ctx.user.id, organizationId: profile.organization_id, data: input.data });
+    }),
+    minhasReservas: protectedProcedure.query(({ ctx }) => listMinhasReservas(ctx.user.id)),
+    cancelarMinhaReserva: protectedProcedure.input(z2.object({ id: z2.string().uuid() })).mutation(({ ctx, input }) => cancelarReserva(input.id, ctx.user.id))
   })
 });
 

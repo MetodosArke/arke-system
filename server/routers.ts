@@ -5,7 +5,7 @@ import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { adminProcedure, protectedProcedure, publicProcedure, router } from "./_core/trpc";
 import { acceptOrganizationInvitation, archiveOrganizationUnit, auditLogsToCsv, auditLogsToPdfBase64, createOrganizationInvitation, createOrganizationUnit, createOrganizationWithOwner, getAuditLogs, getMembership, getOrganizationAccess, getOrganizationBySlug, getOrganizationOnboarding, getOrganizationSubscription, getOrganizationsForUser, getPendingOrganizationInvitations, recordAuditLog, saveOrganizationOnboarding, updateModulePolicy, updateOrganizationProfile, updateOrganizationSubscription } from "./db";
-import { acceptMemberInvitation, assignAtendimento, createAppStudent, createAppUser, createAtendimento, createDieta, createGlobalExercise, createGlobalGroup, createGlobalNutritionPlan, createGlobalRoutine, createGlobalTemplate, createGlobalTemplateExercise, createPasswordRecoveryCode, createTreino, deleteAppStudent, deleteAppUser, deleteDieta, deleteGlobalExercise, deleteGlobalGroup, deleteGlobalNutritionPlan, deleteGlobalRoutine, deleteGlobalTemplate, deleteGlobalTemplateExercise, deleteGlobalAccessRule, deleteTreino, findAppUserByEmail, gerarFichaTreinoPdf, getAcolhimento, getAtendimento, getDieta, getGestaoIndicadores, getProfileByUserId, getTreino, hasSupabaseConfig, inviteMember, listAppStudents, listAppUsers, listAtendimentosForOrganization, listDietasForAluno, listExercisesCatalog, listFrequenciaForAluno, listFrequenciaForOrganization, listGlobalLibrary, listMyAtendimentos, listMyCheckIns, listPendingMemberInvitations, listStudentsInOrganization, listTreinoExercicios, listTreinosForAluno, normalizeEmail, publishDieta, publishTreino, registrarFrequencia, replaceTreinoExercicios, requestHelp, resolveAtendimento, revokeMemberInvitation, signInWithSupabase, submitCheckIn, updateAppStudent, updateAppUser, updateDieta, updateGlobalExercise, updateGlobalGroup, updateGlobalNutritionPlan, updateGlobalRoutine, updateGlobalTemplate, updateGlobalTemplateExercise, updateStudentMatricula, updateSupabaseUserPassword, updateTreino, upsertAcolhimento, upsertGlobalAccessRule, verifyPasswordRecoveryCode } from "./supabaseAdmin";
+import { acceptMemberInvitation, assignAtendimento, cancelarReserva, cancelarReservaStaff, createAppStudent, createAppUser, createAtendimento, createDieta, createGlobalExercise, createGlobalGroup, createGlobalNutritionPlan, createGlobalRoutine, createGlobalTemplate, createGlobalTemplateExercise, createPasswordRecoveryCode, createTreino, createTurma, deleteAppStudent, deleteAppUser, deleteDieta, deleteGlobalExercise, deleteGlobalGroup, deleteGlobalNutritionPlan, deleteGlobalRoutine, deleteGlobalTemplate, deleteGlobalTemplateExercise, deleteGlobalAccessRule, deleteTreino, deleteTurma, findAppUserByEmail, gerarFichaTreinoPdf, getAcolhimento, getAtendimento, getDieta, getGestaoIndicadores, getProfileByUserId, getReserva, getTreino, getTurma, getVagasDisponiveis, hasSupabaseConfig, inviteMember, listAppStudents, listAppUsers, listAtendimentosForOrganization, listDietasForAluno, listExercisesCatalog, listFrequenciaForAluno, listFrequenciaForOrganization, listGlobalLibrary, listMinhasReservas, listMyAtendimentos, listMyCheckIns, listPendingMemberInvitations, listReservasForTurmaData, listStudentsInOrganization, listTreinoExercicios, listTreinosForAluno, listTurmaHorarios, listTurmasAtivas, listTurmasForOrganization, normalizeEmail, publishDieta, publishTreino, registrarFrequencia, replaceTreinoExercicios, replaceTurmaHorarios, requestHelp, reservarVaga, resolveAtendimento, revokeMemberInvitation, signInWithSupabase, submitCheckIn, updateAppStudent, updateAppUser, updateDieta, updateGlobalExercise, updateGlobalGroup, updateGlobalNutritionPlan, updateGlobalRoutine, updateGlobalTemplate, updateGlobalTemplateExercise, updateStudentMatricula, updateSupabaseUserPassword, updateTreino, updateTurma, upsertAcolhimento, upsertGlobalAccessRule, verifyPasswordRecoveryCode } from "./supabaseAdmin";
 import { asaasSandboxConfigured, createAsaasCustomer, createAsaasPayment, createAsaasWebhook, getAsaasAccount, listAsaasPayments } from "./asaas";
 import { listStoredAsaasPayments } from "./asaasPersistence";
 import { lookupCnpj } from "./cnpj";
@@ -66,6 +66,21 @@ const assertStaffForAtendimento = async (userId: string, atendimentoId: string) 
   if (!atendimento) throw new Error("Atendimento não encontrado.");
   await assertStaffOfOrganization(userId, atendimento.organization_id);
   return atendimento;
+};
+
+const assertStaffForTurma = async (userId: string, turmaId: string) => {
+  const turma = await getTurma(turmaId);
+  if (!turma) throw new Error("Turma não encontrada.");
+  await assertStaffOfOrganization(userId, turma.organization_id);
+  return turma;
+};
+
+const assertAlunoSameOrgAsTurma = async (userId: string, turmaId: string) => {
+  const turma = await getTurma(turmaId);
+  if (!turma) throw new Error("Turma não encontrada.");
+  const profile = await getProfileByUserId(userId);
+  if (!profile?.organization_id || profile.organization_id !== turma.organization_id) throw new Error("Turma não encontrada.");
+  return turma;
 };
 
 const treinoExercicioItem = z.object({ exercicio_id: z.string().uuid(), series: z.number().int().min(1).default(3), repeticoes: z.string().trim().min(1).default("12"), descanso_seg: z.number().int().min(0).default(60), descanso_por_serie: z.string().trim().optional(), observacoes: z.string().trim().optional() });
@@ -280,6 +295,47 @@ export const appRouter = router({
       listAluno: protectedProcedure.input(z.object({ alunoId: z.string().uuid() })).query(async ({ ctx, input }) => { await assertStaffForAluno(ctx.user.id, input.alunoId); return listFrequenciaForAluno(input.alunoId); }),
       minhas: protectedProcedure.query(({ ctx }) => listFrequenciaForAluno(ctx.user.id)),
     }),
+  }),
+  studio: router({
+    myOrganizations: protectedProcedure.query(async ({ ctx }) => (await getOrganizationsForUser(ctx.user.id)).filter((item) => STAFF_ROLES.includes(item.membership.role))),
+    turmas: router({
+      list: protectedProcedure.input(organizationIdInput).query(async ({ ctx, input }) => { await assertStaffOfOrganization(ctx.user.id, input.organizationId); return listTurmasForOrganization(input.organizationId); }),
+      create: protectedProcedure.input(z.object({ organizationId: z.string().uuid(), unitId: z.string().uuid().optional(), nome: z.string().trim().min(2), descricao: z.string().trim().optional(), professorId: z.string().uuid().optional(), limiteVagas: z.number().int().min(1).max(500), duracaoMin: z.number().int().min(15).max(480).default(60) })).mutation(async ({ ctx, input }) => {
+        await assertStaffOfOrganization(ctx.user.id, input.organizationId);
+        return createTurma({ organization_id: input.organizationId, unit_id: input.unitId || undefined, nome: input.nome, descricao: input.descricao || undefined, professor_id: input.professorId || undefined, limite_vagas: input.limiteVagas, duracao_min: input.duracaoMin, criado_por: ctx.user.id });
+      }),
+      update: protectedProcedure.input(z.object({ id: z.string().uuid(), data: z.object({ nome: z.string().trim().min(2), descricao: z.string().trim().optional().nullable(), professorId: z.string().uuid().optional().nullable(), limiteVagas: z.number().int().min(1).max(500), duracaoMin: z.number().int().min(15).max(480), status: z.enum(["ativa", "inativa"]) }) })).mutation(async ({ ctx, input }) => {
+        await assertStaffForTurma(ctx.user.id, input.id);
+        return updateTurma(input.id, { nome: input.data.nome, descricao: input.data.descricao, professor_id: input.data.professorId, limite_vagas: input.data.limiteVagas, duracao_min: input.data.duracaoMin, status: input.data.status });
+      }),
+      delete: protectedProcedure.input(z.object({ id: z.string().uuid() })).mutation(async ({ ctx, input }) => { await assertStaffForTurma(ctx.user.id, input.id); return deleteTurma(input.id); }),
+      horarios: protectedProcedure.input(z.object({ turmaId: z.string().uuid() })).query(async ({ ctx, input }) => { await assertStaffForTurma(ctx.user.id, input.turmaId); return listTurmaHorarios(input.turmaId); }),
+      saveHorarios: protectedProcedure.input(z.object({ turmaId: z.string().uuid(), items: z.array(z.object({ diaSemana: z.number().int().min(0).max(6), horaInicio: z.string().regex(/^\d{2}:\d{2}$/) })) })).mutation(async ({ ctx, input }) => {
+        await assertStaffForTurma(ctx.user.id, input.turmaId);
+        return replaceTurmaHorarios(input.turmaId, input.items.map((item) => ({ dia_semana: item.diaSemana, hora_inicio: item.horaInicio })));
+      }),
+      reservas: protectedProcedure.input(z.object({ turmaId: z.string().uuid(), data: z.string().regex(/^\d{4}-\d{2}-\d{2}$/) })).query(async ({ ctx, input }) => { await assertStaffForTurma(ctx.user.id, input.turmaId); return listReservasForTurmaData(input.turmaId, input.data); }),
+      cancelarReserva: protectedProcedure.input(z.object({ id: z.string().uuid() })).mutation(async ({ ctx, input }) => {
+        const reserva = await getReserva(input.id);
+        if (!reserva) throw new Error("Reserva não encontrada.");
+        await assertStaffOfOrganization(ctx.user.id, reserva.organization_id);
+        return cancelarReservaStaff(input.id);
+      }),
+    }),
+    turmasDisponiveis: protectedProcedure.query(async ({ ctx }) => {
+      const profile = await getProfileByUserId(ctx.user.id);
+      if (!profile?.organization_id) return [];
+      return listTurmasAtivas(profile.organization_id);
+    }),
+    horariosDaTurma: protectedProcedure.input(z.object({ turmaId: z.string().uuid() })).query(async ({ ctx, input }) => { await assertAlunoSameOrgAsTurma(ctx.user.id, input.turmaId); return listTurmaHorarios(input.turmaId); }),
+    vagasDisponiveis: protectedProcedure.input(z.object({ turmaId: z.string().uuid(), data: z.string().regex(/^\d{4}-\d{2}-\d{2}$/) })).query(async ({ ctx, input }) => { await assertAlunoSameOrgAsTurma(ctx.user.id, input.turmaId); return getVagasDisponiveis(input.turmaId, input.data); }),
+    reservar: protectedProcedure.input(z.object({ turmaId: z.string().uuid(), data: z.string().regex(/^\d{4}-\d{2}-\d{2}$/) })).mutation(async ({ ctx, input }) => {
+      const profile = await getProfileByUserId(ctx.user.id);
+      if (!profile?.organization_id) throw new Error("Você ainda não está vinculado a uma organização.");
+      return reservarVaga({ turmaId: input.turmaId, alunoId: ctx.user.id, organizationId: profile.organization_id, data: input.data });
+    }),
+    minhasReservas: protectedProcedure.query(({ ctx }) => listMinhasReservas(ctx.user.id)),
+    cancelarMinhaReserva: protectedProcedure.input(z.object({ id: z.string().uuid() })).mutation(({ ctx, input }) => cancelarReserva(input.id, ctx.user.id)),
   }),
 });
 
