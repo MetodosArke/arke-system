@@ -15,7 +15,8 @@ async function asaasRequest<T>(path: string, init: RequestInit = {}) {
 export type AsaasCustomer = { id: string; name: string; email?: string; cpfCnpj?: string };
 export type AsaasPayment = { id: string; customer: string; value: number; billingType: string; status: string; dueDate: string; invoiceUrl?: string; bankSlipUrl?: string; pixQrCodeId?: string };
 
-export function asaasSandboxConfigured() { return Boolean(process.env.ASAAS_API_KEY); }
+export function asaasConfigured() { return Boolean(process.env.ASAAS_API_KEY); }
+export function asaasEnvironment(): "sandbox" | "production" { return (process.env.ASAAS_API_URL ?? "").includes("api-sandbox") || !process.env.ASAAS_API_URL ? "sandbox" : "production"; }
 export async function getAsaasAccount() { return asaasRequest<{ name: string; email: string; walletId?: string }>("/myAccount"); }
 export async function createAsaasCustomer(input: { name: string; email: string; cpfCnpj?: string }) { return asaasRequest<AsaasCustomer>("/customers", { method: "POST", body: JSON.stringify(input) }); }
 export async function createAsaasPayment(input: { customer: string; value: number; dueDate: string; billingType: "UNDEFINED" | "PIX" | "BOLETO" | "CREDIT_CARD" | "DEBIT_CARD"; description: string }) { return asaasRequest<AsaasPayment>("/payments", { method: "POST", body: JSON.stringify(input) }); }

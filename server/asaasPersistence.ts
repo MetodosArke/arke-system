@@ -25,12 +25,16 @@ export async function persistAsaasEvent(input: { eventId: string; event: string;
   }
 }
 
-export async function upsertAsaasPayment(payment: Json, event: string) {
+export async function upsertAsaasPayment(payment: Json, event: string, organizationId?: string) {
   const asaasId = String(payment.id ?? "");
   if (!asaasId) return;
-  await supabaseRequest("asaas_payments", { method: "POST", headers: { Prefer: "resolution=merge-duplicates,return=representation" }, body: JSON.stringify({ asaas_id: asaasId, customer_id: payment.customer ?? null, value: payment.value ?? null, billing_type: payment.billingType ?? null, due_date: payment.dueDate ?? null, status: payment.status ?? event, invoice_url: payment.invoiceUrl ?? null, bank_slip_url: payment.bankSlipUrl ?? null, raw_payload: payment, updated_at: new Date().toISOString() }) }, "?on_conflict=asaas_id");
+  // organizationId só é enviado na criação (via createSubscriptionCharge). Uma
+  // atualização vinda do webhook não inclui essa coluna no body, então o
+  // merge-duplicates preserva o organization_id já persistido em vez de
+  // sobrescrevê-lo com null.
+  await supabaseRequest("asaas_payments", { method: "POST", headers: { Prefer: "resolution=merge-duplicates,return=representation" }, body: JSON.stringify({ asaas_id: asaasId, ...(organizationId ? { organization_id: organizationId } : {}), customer_id: payment.customer ?? null, value: payment.value ?? null, billing_type: payment.billingType ?? null, due_date: payment.dueDate ?? null, status: payment.status ?? event, invoice_url: payment.invoiceUrl ?? null, bank_slip_url: payment.bankSlipUrl ?? null, raw_payload: payment, updated_at: new Date().toISOString() }) }, "?on_conflict=asaas_id");
 }
 
-export async function listStoredAsaasPayments(limit = 20) {
-  return supabaseRequest<Array<Json>>("asaas_payments", {}, `?select=*&order=updated_at.desc&limit=${limit}`);
+export async function listAsaasPaymentsForOrganization(organizationId: string, limit = 20) {
+  return supabaseRequest<Array<Json>>("asaas_payments", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}&order=updated_at.desc&limit=${limit}`);
 }

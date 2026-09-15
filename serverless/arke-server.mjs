@@ -182,6 +182,74 @@ var systemRouter = router({
   })
 });
 
+// server/asaas.ts
+function asaasConfig() {
+  const apiKey = process.env.ASAAS_API_KEY ?? "";
+  const baseUrl = (process.env.ASAAS_API_URL ?? "https://api-sandbox.asaas.com/v3").replace(/\/$/, "");
+  if (!apiKey) throw new Error("ASAAS_API_KEY n\xE3o configurada.");
+  return { apiKey, baseUrl };
+}
+async function asaasRequest(path, init = {}) {
+  const { apiKey, baseUrl } = asaasConfig();
+  const response = await fetch(`${baseUrl}${path}`, { ...init, headers: { access_token: apiKey, "Content-Type": "application/json", ...init.headers ?? {} } });
+  if (!response.ok) throw new Error(`Asaas ${response.status}: ${await response.text()}`);
+  return response.json();
+}
+function asaasConfigured() {
+  return Boolean(process.env.ASAAS_API_KEY);
+}
+function asaasEnvironment() {
+  return (process.env.ASAAS_API_URL ?? "").includes("api-sandbox") || !process.env.ASAAS_API_URL ? "sandbox" : "production";
+}
+async function getAsaasAccount() {
+  return asaasRequest("/myAccount");
+}
+async function createAsaasCustomer(input) {
+  return asaasRequest("/customers", { method: "POST", body: JSON.stringify(input) });
+}
+async function createAsaasPayment(input) {
+  return asaasRequest("/payments", { method: "POST", body: JSON.stringify(input) });
+}
+async function listAsaasPayments(limit = 20) {
+  return asaasRequest(`/payments?limit=${limit}`);
+}
+async function createAsaasWebhook(input) {
+  const events = ["PAYMENT_CREATED", "PAYMENT_UPDATED", "PAYMENT_CONFIRMED", "PAYMENT_RECEIVED", "PAYMENT_OVERDUE", "PAYMENT_DELETED", "PAYMENT_RESTORED", "PAYMENT_REFUNDED", "PAYMENT_PARTIALLY_REFUNDED", "PAYMENT_CREDIT_CARD_CAPTURE_REFUSED"];
+  return asaasRequest("/webhooks", { method: "POST", body: JSON.stringify({ name: "Arke pagamentos", url: input.url, email: input.email, enabled: true, interrupted: false, authToken: process.env.ASAAS_WEBHOOK_TOKEN, sendType: "SEQUENTIALLY", events }) });
+}
+
+// server/asaasPersistence.ts
+function supabaseConfig() {
+  const url = (process.env.SUPABASE_URL ?? "").replace(/\/$/, "");
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.SUPABASE_KEY ?? "";
+  if (!url || !key) throw new Error("Supabase n\xE3o configurado.");
+  return { url, key };
+}
+async function supabaseRequest(table, init = {}, query = "") {
+  const { url, key } = supabaseConfig();
+  const response = await fetch(`${url}/rest/v1/${table}${query}`, { ...init, headers: { apikey: key, Authorization: `Bearer ${key}`, "Content-Type": "application/json", Prefer: "return=representation", ...init.headers ?? {} } });
+  if (!response.ok) throw new Error(`Supabase ${response.status}: ${await response.text()}`);
+  const text = await response.text();
+  return text ? JSON.parse(text) : [];
+}
+async function persistAsaasEvent(input) {
+  try {
+    await supabaseRequest("asaas_webhook_events", { method: "POST", body: JSON.stringify({ event_id: input.eventId, event: input.event, occurred_at: input.occurredAt ?? (/* @__PURE__ */ new Date()).toISOString(), payload: input.payload }) });
+    return { duplicate: false };
+  } catch (error) {
+    if (String(error).includes("409") || String(error).includes("23505")) return { duplicate: true };
+    throw error;
+  }
+}
+async function upsertAsaasPayment(payment, event, organizationId) {
+  const asaasId = String(payment.id ?? "");
+  if (!asaasId) return;
+  await supabaseRequest("asaas_payments", { method: "POST", headers: { Prefer: "resolution=merge-duplicates,return=representation" }, body: JSON.stringify({ asaas_id: asaasId, ...organizationId ? { organization_id: organizationId } : {}, customer_id: payment.customer ?? null, value: payment.value ?? null, billing_type: payment.billingType ?? null, due_date: payment.dueDate ?? null, status: payment.status ?? event, invoice_url: payment.invoiceUrl ?? null, bank_slip_url: payment.bankSlipUrl ?? null, raw_payload: payment, updated_at: (/* @__PURE__ */ new Date()).toISOString() }) }, "?on_conflict=asaas_id");
+}
+async function listAsaasPaymentsForOrganization(organizationId, limit = 20) {
+  return supabaseRequest("asaas_payments", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}&order=updated_at.desc&limit=${limit}`);
+}
+
 // server/db.ts
 function isConfigured() {
   return Boolean((process.env.SUPABASE_URL ?? "") && (process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.SUPABASE_KEY ?? ""));
@@ -297,6 +365,31 @@ async function updateOrganizationSubscription(input) {
   await request("saas_organizations", { method: "PATCH", body: JSON.stringify({ plan: input.plan, max_units: limits.maxUnits, max_users: limits.maxUsers }) }, `?id=eq.${encodeURIComponent(input.organizationId)}`);
   await request("saas_subscriptions", { method: "PATCH", body: JSON.stringify({ plan: input.plan, amount_cents: amountCents, ...input.status ? { status: input.status } : {} }) }, `?organization_id=eq.${encodeURIComponent(input.organizationId)}`);
   return getOrganizationSubscription(input.organizationId);
+}
+async function getOrganization(organizationId) {
+  const rows = await request("saas_organizations", {}, `?select=*&id=eq.${encodeURIComponent(organizationId)}&limit=1`);
+  return rows[0];
+}
+async function getOrCreateAsaasCustomerForOrganization(organizationId) {
+  const organization = await getOrganization(organizationId);
+  if (!organization) throw new Error("Organiza\xE7\xE3o n\xE3o encontrada.");
+  if (organization.asaas_customer_id) return organization.asaas_customer_id;
+  const [client] = await request("app_users", {}, `?select=name,email&id=eq.${encodeURIComponent(organization.client_id)}&limit=1`);
+  if (!client) throw new Error("Cliente respons\xE1vel pela organiza\xE7\xE3o n\xE3o encontrado.");
+  const customer = await createAsaasCustomer({ name: organization.name, email: client.email });
+  await request("saas_organizations", { method: "PATCH", body: JSON.stringify({ asaas_customer_id: customer.id }) }, `?id=eq.${encodeURIComponent(organizationId)}`);
+  return customer.id;
+}
+async function createSubscriptionCharge(input) {
+  if (!isConfigured()) throw new Error("Database not available");
+  const subscription = await getOrganizationSubscription(input.organizationId);
+  if (!subscription) throw new Error("Esta organiza\xE7\xE3o n\xE3o tem assinatura ativa.");
+  const customerId = await getOrCreateAsaasCustomerForOrganization(input.organizationId);
+  const dueDate = input.dueDate ?? new Date(Date.now() + 1e3 * 60 * 60 * 24 * 3).toISOString().slice(0, 10);
+  const payment = await createAsaasPayment({ customer: customerId, value: subscription.amount_cents / 100, dueDate, billingType: input.billingType, description: `Mensalidade Arke \u2014 plano ${subscription.plan}` });
+  await upsertAsaasPayment(payment, "PAYMENT_CREATED", input.organizationId);
+  await request("saas_subscriptions", { method: "PATCH", body: JSON.stringify({ provider: "asaas", external_id: payment.id }) }, `?organization_id=eq.${encodeURIComponent(input.organizationId)}`);
+  return payment;
 }
 async function getOrganizationAccess(userId, organizationId) {
   if (!isConfigured()) return void 0;
@@ -1157,71 +1250,6 @@ async function createFollowUpLeadIfNeeded(leadId, organizationId, dias) {
   }
 }
 
-// server/asaas.ts
-function asaasConfig() {
-  const apiKey = process.env.ASAAS_API_KEY ?? "";
-  const baseUrl = (process.env.ASAAS_API_URL ?? "https://api-sandbox.asaas.com/v3").replace(/\/$/, "");
-  if (!apiKey) throw new Error("ASAAS_API_KEY n\xE3o configurada.");
-  return { apiKey, baseUrl };
-}
-async function asaasRequest(path, init = {}) {
-  const { apiKey, baseUrl } = asaasConfig();
-  const response = await fetch(`${baseUrl}${path}`, { ...init, headers: { access_token: apiKey, "Content-Type": "application/json", ...init.headers ?? {} } });
-  if (!response.ok) throw new Error(`Asaas ${response.status}: ${await response.text()}`);
-  return response.json();
-}
-function asaasSandboxConfigured() {
-  return Boolean(process.env.ASAAS_API_KEY);
-}
-async function getAsaasAccount() {
-  return asaasRequest("/myAccount");
-}
-async function createAsaasCustomer(input) {
-  return asaasRequest("/customers", { method: "POST", body: JSON.stringify(input) });
-}
-async function createAsaasPayment(input) {
-  return asaasRequest("/payments", { method: "POST", body: JSON.stringify(input) });
-}
-async function listAsaasPayments(limit = 20) {
-  return asaasRequest(`/payments?limit=${limit}`);
-}
-async function createAsaasWebhook(input) {
-  const events = ["PAYMENT_CREATED", "PAYMENT_UPDATED", "PAYMENT_CONFIRMED", "PAYMENT_RECEIVED", "PAYMENT_OVERDUE", "PAYMENT_DELETED", "PAYMENT_RESTORED", "PAYMENT_REFUNDED", "PAYMENT_PARTIALLY_REFUNDED", "PAYMENT_CREDIT_CARD_CAPTURE_REFUSED"];
-  return asaasRequest("/webhooks", { method: "POST", body: JSON.stringify({ name: "Arke pagamentos", url: input.url, email: input.email, enabled: true, interrupted: false, authToken: process.env.ASAAS_WEBHOOK_TOKEN, sendType: "SEQUENTIALLY", events }) });
-}
-
-// server/asaasPersistence.ts
-function supabaseConfig() {
-  const url = (process.env.SUPABASE_URL ?? "").replace(/\/$/, "");
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.SUPABASE_KEY ?? "";
-  if (!url || !key) throw new Error("Supabase n\xE3o configurado.");
-  return { url, key };
-}
-async function supabaseRequest(table, init = {}, query = "") {
-  const { url, key } = supabaseConfig();
-  const response = await fetch(`${url}/rest/v1/${table}${query}`, { ...init, headers: { apikey: key, Authorization: `Bearer ${key}`, "Content-Type": "application/json", Prefer: "return=representation", ...init.headers ?? {} } });
-  if (!response.ok) throw new Error(`Supabase ${response.status}: ${await response.text()}`);
-  const text = await response.text();
-  return text ? JSON.parse(text) : [];
-}
-async function persistAsaasEvent(input) {
-  try {
-    await supabaseRequest("asaas_webhook_events", { method: "POST", body: JSON.stringify({ event_id: input.eventId, event: input.event, occurred_at: input.occurredAt ?? (/* @__PURE__ */ new Date()).toISOString(), payload: input.payload }) });
-    return { duplicate: false };
-  } catch (error) {
-    if (String(error).includes("409") || String(error).includes("23505")) return { duplicate: true };
-    throw error;
-  }
-}
-async function upsertAsaasPayment(payment, event) {
-  const asaasId = String(payment.id ?? "");
-  if (!asaasId) return;
-  await supabaseRequest("asaas_payments", { method: "POST", headers: { Prefer: "resolution=merge-duplicates,return=representation" }, body: JSON.stringify({ asaas_id: asaasId, customer_id: payment.customer ?? null, value: payment.value ?? null, billing_type: payment.billingType ?? null, due_date: payment.dueDate ?? null, status: payment.status ?? event, invoice_url: payment.invoiceUrl ?? null, bank_slip_url: payment.bankSlipUrl ?? null, raw_payload: payment, updated_at: (/* @__PURE__ */ new Date()).toISOString() }) }, "?on_conflict=asaas_id");
-}
-async function listStoredAsaasPayments(limit = 20) {
-  return supabaseRequest("asaas_payments", {}, `?select=*&order=updated_at.desc&limit=${limit}`);
-}
-
 // server/cnpj.ts
 async function lookupCnpj(cnpj) {
   const digits = cnpj.replace(/\D/g, "");
@@ -1412,13 +1440,34 @@ var appRouter = router({
     })
   }),
   billing: router({
-    asaasStatus: publicProcedure.query(() => ({ configured: asaasSandboxConfigured(), environment: "sandbox" })),
-    asaasAccount: publicProcedure.query(() => getAsaasAccount()),
-    asaasPayments: publicProcedure.input(z2.object({ limit: z2.number().int().min(1).max(100).optional() }).optional()).query(({ input }) => listAsaasPayments(input?.limit ?? 20)),
-    asaasStoredPayments: publicProcedure.input(z2.object({ limit: z2.number().int().min(1).max(100).optional() }).optional()).query(({ input }) => listStoredAsaasPayments(input?.limit ?? 20)),
-    createAsaasCustomer: publicProcedure.input(z2.object({ name: z2.string().trim().min(2), email: z2.string().email(), cpfCnpj: z2.string().trim().optional() })).mutation(({ input }) => createAsaasCustomer(input)),
-    createAsaasPayment: publicProcedure.input(z2.object({ customer: z2.string().min(2), value: z2.number().positive(), dueDate: z2.string(), billingType: z2.enum(["UNDEFINED", "PIX", "BOLETO", "CREDIT_CARD", "DEBIT_CARD"]), description: z2.string().trim().min(2) })).mutation(({ input }) => createAsaasPayment(input)),
-    createAsaasWebhook: publicProcedure.input(z2.object({ url: z2.string().url(), email: z2.string().email() })).mutation(({ input }) => createAsaasWebhook(input))
+    // Sem dado sensível — só diz se a chave está configurada e se aponta
+    // para sandbox ou produção. Mantido público para a tela de
+    // Integrações mostrar o status sem exigir login.
+    asaasStatus: publicProcedure.query(() => ({ configured: asaasConfigured(), environment: asaasEnvironment() })),
+    // Dados da conta Asaas real e ações que criam cobrança/reconfiguram o
+    // webhook: restrito ao Administrador Arke (adminProcedure). Antes
+    // disso eram publicProcedure — qualquer pessoa sem login podia criar
+    // cobrança arbitrária na conta Asaas real ou trocar o webhook.
+    admin: router({
+      account: adminProcedure.query(() => getAsaasAccount()),
+      payments: adminProcedure.input(z2.object({ limit: z2.number().int().min(1).max(100).optional() }).optional()).query(({ input }) => listAsaasPayments(input?.limit ?? 20)),
+      createWebhook: adminProcedure.input(z2.object({ url: z2.string().url(), email: z2.string().email() })).mutation(({ input }) => createAsaasWebhook(input))
+    }),
+    // Cobrança real por organização — isolada: cada organização só vê e
+    // gera cobrança para si mesma (verificado no servidor, não só
+    // escondido na tela).
+    organization: router({
+      payments: protectedProcedure.input(organizationIdInput).query(async ({ ctx, input }) => {
+        await ownerOrAdmin(ctx.user.id, input.organizationId);
+        return listAsaasPaymentsForOrganization(input.organizationId);
+      }),
+      gerarCobranca: protectedProcedure.input(z2.object({ organizationId: z2.string().uuid(), billingType: z2.enum(["PIX", "BOLETO", "CREDIT_CARD"]) })).mutation(async ({ ctx, input }) => {
+        await ownerOrAdmin(ctx.user.id, input.organizationId);
+        const payment = await createSubscriptionCharge({ organizationId: input.organizationId, billingType: input.billingType });
+        await recordAuditLog({ organizationId: input.organizationId, userId: ctx.user.id, action: "created", entity: "asaas_payment", entityId: payment.id, afterJson: { billingType: input.billingType, value: payment.value } });
+        return payment;
+      })
+    })
   }),
   saas: router({
     organizations: router({
