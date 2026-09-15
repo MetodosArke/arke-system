@@ -5,6 +5,9 @@ import { createContext } from "../server/_core/context";
 import { registerAccessRoutes } from "../server/access";
 import { registerAsaasWebhook } from "../server/asaasWebhook";
 import { registerAutomacaoCron } from "../server/automacaoCron";
+import { captureException, initErrorMonitoring } from "../server/_core/errorMonitoring";
+
+initErrorMonitoring();
 
 export function createApp() {
   const app = express();
@@ -18,6 +21,9 @@ export function createApp() {
     createExpressMiddleware({
       router: appRouter,
       createContext,
+      onError({ error, path }) {
+        captureException(error, { path });
+      },
     })
   );
   return app;

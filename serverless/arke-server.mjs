@@ -80,6 +80,28 @@ var systemRouter = router({
   }))
 });
 
+// server/_core/rateLimit.ts
+import { TRPCError as TRPCError2 } from "@trpc/server";
+var buckets = /* @__PURE__ */ new Map();
+var MAX_BUCKETS = 5e3;
+function assertRateLimit(key, max, windowMs) {
+  const now = Date.now();
+  const bucket = buckets.get(key);
+  if (!bucket || bucket.resetAt <= now) {
+    if (buckets.size >= MAX_BUCKETS) buckets.clear();
+    buckets.set(key, { count: 1, resetAt: now + windowMs });
+    return;
+  }
+  bucket.count += 1;
+  if (bucket.count > max) {
+    throw new TRPCError2({ code: "TOO_MANY_REQUESTS", message: "Muitas tentativas. Aguarde alguns minutos e tente novamente." });
+  }
+}
+function rateLimitKey(req, bucket) {
+  const forwardedFor = typeof req.headers["x-forwarded-for"] === "string" ? req.headers["x-forwarded-for"].split(",")[0]?.trim() : void 0;
+  return `${bucket}:${forwardedFor || req.ip || "unknown"}`;
+}
+
 // server/asaas.ts
 function asaasConfig() {
   const apiKey = process.env.ASAAS_API_KEY ?? "";
@@ -87,9 +109,9 @@ function asaasConfig() {
   if (!apiKey) throw new Error("ASAAS_API_KEY n\xE3o configurada.");
   return { apiKey, baseUrl };
 }
-async function asaasRequest(path, init = {}) {
+async function asaasRequest(path, init2 = {}) {
   const { apiKey, baseUrl } = asaasConfig();
-  const response = await fetch(`${baseUrl}${path}`, { ...init, headers: { access_token: apiKey, "Content-Type": "application/json", ...init.headers ?? {} } });
+  const response = await fetch(`${baseUrl}${path}`, { ...init2, headers: { access_token: apiKey, "Content-Type": "application/json", ...init2.headers ?? {} } });
   if (!response.ok) throw new Error(`Asaas ${response.status}: ${await response.text()}`);
   return response.json();
 }
@@ -123,9 +145,9 @@ function supabaseConfig() {
   if (!url || !key) throw new Error("Supabase n\xE3o configurado.");
   return { url, key };
 }
-async function supabaseRequest(table, init = {}, query = "") {
+async function supabaseRequest(table, init2 = {}, query = "") {
   const { url, key } = supabaseConfig();
-  const response = await fetch(`${url}/rest/v1/${table}${query}`, { ...init, headers: { apikey: key, Authorization: `Bearer ${key}`, "Content-Type": "application/json", Prefer: "return=representation", ...init.headers ?? {} } });
+  const response = await fetch(`${url}/rest/v1/${table}${query}`, { ...init2, headers: { apikey: key, Authorization: `Bearer ${key}`, "Content-Type": "application/json", Prefer: "return=representation", ...init2.headers ?? {} } });
   if (!response.ok) throw new Error(`Supabase ${response.status}: ${await response.text()}`);
   const text = await response.text();
   return text ? JSON.parse(text) : [];
@@ -158,11 +180,11 @@ function config() {
   if (!url || !key) throw new Error("Supabase n\xE3o configurado. Defina SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY.");
   return { url: url.replace(/\/$/, ""), key };
 }
-async function request(table, init = {}, query = "") {
+async function request(table, init2 = {}, query = "") {
   const { url, key } = config();
   const response = await fetch(`${url}/rest/v1/${table}${query}`, {
-    ...init,
-    headers: { apikey: key, Authorization: `Bearer ${key}`, "Content-Type": "application/json", Prefer: "return=representation", ...init.headers ?? {} }
+    ...init2,
+    headers: { apikey: key, Authorization: `Bearer ${key}`, "Content-Type": "application/json", Prefer: "return=representation", ...init2.headers ?? {} }
   });
   if (!response.ok) throw new Error(`Supabase ${response.status}: ${await response.text()}`);
   const text = await response.text();
@@ -398,11 +420,11 @@ function config2() {
   if (!url || !key) throw new Error("Supabase n\xE3o configurado. Defina SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY.");
   return { url: url.replace(/\/$/, ""), key };
 }
-async function request2(table, init = {}, query = "") {
+async function request2(table, init2 = {}, query = "") {
   const { url, key } = config2();
   const response = await fetch(`${url}/rest/v1/${table}${query}`, {
-    ...init,
-    headers: { apikey: key, Authorization: `Bearer ${key}`, "Content-Type": "application/json", Prefer: "return=representation", ...init.headers ?? {} }
+    ...init2,
+    headers: { apikey: key, Authorization: `Bearer ${key}`, "Content-Type": "application/json", Prefer: "return=representation", ...init2.headers ?? {} }
   });
   if (!response.ok) throw new Error(`Supabase ${response.status}: ${await response.text()}`);
   const text = await response.text();
@@ -492,7 +514,10 @@ async function verifyPasswordRecoveryCode(email, code) {
 }
 async function sendEmail(to, subject, html) {
   const apiKey = process.env.RESEND_API_KEY;
-  if (!apiKey) return { simulated: true };
+  if (!apiKey) {
+    if (ENV.isProduction) throw new Error("RESEND_API_KEY n\xE3o configurada \u2014 n\xE3o \xE9 poss\xEDvel enviar e-mail em produ\xE7\xE3o.");
+    return { simulated: true };
+  }
   const response = await fetch("https://api.resend.com/emails", { method: "POST", headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" }, body: JSON.stringify({ from: process.env.RESEND_FROM_EMAIL ?? "Arke <onboarding@resend.dev>", to: [to], subject, html }) });
   if (!response.ok) throw new Error(`Falha no envio de e-mail: ${await response.text()}`);
   return { simulated: false };
@@ -581,7 +606,7 @@ async function deleteGlobalNutritionPlan(idValue) {
   await request2("acervo_planos_alimentares", { method: "DELETE" }, `?id=eq.${encodeURIComponent(idValue)}`);
   return { id: idValue };
 }
-var inFilter = (ids) => `id.in.(${ids.map(encodeURIComponent).join(",")})`;
+var inFilter = (ids) => `id=in.(${ids.map(encodeURIComponent).join(",")})`;
 async function publishGlobalExercises(ids, userId) {
   if (!ids.length) return [];
   return request2("exercicios", { method: "PATCH", body: JSON.stringify({ estado_publicacao: "publicado", publicado_por: userId, publicado_em: (/* @__PURE__ */ new Date()).toISOString() }) }, `?${inFilter(ids)}`);
@@ -1297,9 +1322,9 @@ function config3() {
   if (!url || !key) throw new Error("Supabase n\xE3o configurado.");
   return { url: url.replace(/\/$/, ""), key };
 }
-async function request3(table, init = {}, query = "") {
+async function request3(table, init2 = {}, query = "") {
   const { url, key } = config3();
-  const response = await fetch(`${url}/rest/v1/${table}${query}`, { ...init, headers: { apikey: key, Authorization: `Bearer ${key}`, "Content-Type": "application/json", Prefer: "return=representation", ...init.headers ?? {} } });
+  const response = await fetch(`${url}/rest/v1/${table}${query}`, { ...init2, headers: { apikey: key, Authorization: `Bearer ${key}`, "Content-Type": "application/json", Prefer: "return=representation", ...init2.headers ?? {} } });
   if (!response.ok) throw new Error(`Supabase ${response.status}: ${await response.text()}`);
   const text = await response.text();
   return text ? JSON.parse(text) : [];
@@ -1371,11 +1396,11 @@ function openaiConfigured() {
 function assertApiKey() {
   if (!openaiConfigured()) throw new Error("OPENAI_API_KEY n\xE3o configurada.");
 }
-async function fetchWithBackoff(url, init) {
+async function fetchWithBackoff(url, init2) {
   let lastError;
   for (let attempt = 0; attempt <= RETRY_MAX_RETRIES; attempt++) {
     try {
-      const response = await fetch(url, init);
+      const response = await fetch(url, init2);
       if (response.ok || attempt === RETRY_MAX_RETRIES) return response;
       try {
         await response.body?.cancel();
@@ -1608,12 +1633,17 @@ var appRouter = router({
       return { success: true };
     }),
     signIn: publicProcedure.input(z2.object({ email: z2.string().email(), password: z2.string().min(8) })).mutation(async ({ ctx, input }) => {
+      assertRateLimit(rateLimitKey(ctx.req, "signin"), 10, 5 * 60 * 1e3);
       const result = await signInWithSupabase(input.email, input.password);
       ctx.res.cookie(SUPABASE_ACCESS_COOKIE, result.accessToken, { ...getSessionCookieOptions(ctx.req), maxAge: 1e3 * 60 * 60 * 24 * 30 });
       return result;
     }),
-    recoverPassword: publicProcedure.input(z2.object({ email: z2.string().email() })).mutation(({ input }) => createPasswordRecoveryCode(normalizeEmail(input.email))),
+    recoverPassword: publicProcedure.input(z2.object({ email: z2.string().email() })).mutation(({ ctx, input }) => {
+      assertRateLimit(rateLimitKey(ctx.req, "recover-password"), 5, 15 * 60 * 1e3);
+      return createPasswordRecoveryCode(normalizeEmail(input.email));
+    }),
     setPassword: publicProcedure.input(z2.object({ email: z2.string().email(), code: z2.string().trim().min(4), password: z2.string().min(8) })).mutation(async ({ ctx, input }) => {
+      assertRateLimit(rateLimitKey(ctx.req, "set-password"), 10, 15 * 60 * 1e3);
       const session = await verifyPasswordRecoveryCode(input.email, input.code);
       const supabaseUser = await updateSupabaseUserPassword(session.access_token, input.password);
       const appUser = supabaseUser.email ? await findAppUserByEmail(normalizeEmail(supabaseUser.email)) : null;
@@ -1856,6 +1886,7 @@ var appRouter = router({
         return result;
       }),
       acceptInvite: protectedProcedure.input(z2.object({ token: z2.string().min(16).max(128), consentTermos: z2.literal(true) })).mutation(async ({ ctx, input }) => {
+        assertRateLimit(rateLimitKey(ctx.req, "accept-team-invite"), 10, 15 * 60 * 1e3);
         if (!ctx.user.email) throw new Error("Authenticated user email is required");
         const result = await acceptOrganizationInvitation({ tokenHash: createHash2("sha256").update(input.token).digest("hex"), userId: ctx.user.id, email: ctx.user.email });
         if (!await hasConsent(ctx.user.id, "termos_uso_privacidade")) {
@@ -1997,6 +2028,7 @@ var appRouter = router({
       return revokeMemberInvitation(input.id, input.organizationId);
     }),
     acceptInvite: publicProcedure.input(z2.object({ token: z2.string().trim().min(10), password: z2.string().min(8), consentTermos: z2.literal(true) })).mutation(async ({ ctx, input }) => {
+      assertRateLimit(rateLimitKey(ctx.req, "accept-member-invite"), 10, 15 * 60 * 1e3);
       const result = await acceptMemberInvitation(input.token, input.password);
       const policy = await getCurrentPrivacyPolicy();
       await recordConsent({ userId: result.user.id, consentType: "termos_uso_privacidade", policyVersionId: policy?.id ?? null, ...requestMeta(ctx.req) });
@@ -2298,6 +2330,25 @@ function registerAsaasWebhook(app) {
 
 // server/automacaoCron.ts
 import { timingSafeEqual as timingSafeEqual2 } from "node:crypto";
+
+// server/_core/errorMonitoring.ts
+import * as Sentry from "@sentry/node";
+var initialized = false;
+function initErrorMonitoring() {
+  const dsn = process.env.SENTRY_DSN;
+  if (!dsn || initialized) return;
+  Sentry.init({ dsn, environment: process.env.NODE_ENV ?? "development", tracesSampleRate: 0 });
+  initialized = true;
+  process.on("unhandledRejection", (reason) => captureException2(reason));
+  process.on("uncaughtException", (error) => captureException2(error));
+}
+function captureException2(error, extra) {
+  console.error(error);
+  if (!initialized) return;
+  Sentry.captureException(error, extra ? { extra } : void 0);
+}
+
+// server/automacaoCron.ts
 function tokenMatches2(received, expected) {
   const receivedBuffer = Buffer.from(received);
   const expectedBuffer = Buffer.from(expected);
@@ -2312,13 +2363,14 @@ function registerAutomacaoCron(app) {
       const resultado = await runAutomacaoDiaria();
       return res.status(200).json({ ok: true, ...resultado });
     } catch (error) {
-      console.error("[Automa\xE7\xE3o cron] failed", error);
+      captureException2(error, { job: "automacao_diaria" });
       return res.status(500).json({ ok: false });
     }
   });
 }
 
 // serverless/entry.ts
+initErrorMonitoring();
 function createApp() {
   const app = express();
   app.use(express.json({ limit: "50mb" }));
@@ -2330,7 +2382,10 @@ function createApp() {
     "/api/trpc",
     createExpressMiddleware({
       router: appRouter,
-      createContext
+      createContext,
+      onError({ error, path }) {
+        captureException2(error, { path });
+      }
     })
   );
   return app;
