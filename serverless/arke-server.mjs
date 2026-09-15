@@ -591,6 +591,81 @@ async function deleteGlobalAccessRule(idValue) {
   await request2("acervo_acesso_regras", { method: "DELETE" }, `?id=eq.${encodeURIComponent(idValue)}`);
   return { id: idValue };
 }
+async function getProfileByUserId(userId) {
+  const rows = await request2("profiles", {}, `?select=user_id,full_name,organization_id,status&user_id=eq.${encodeURIComponent(userId)}&limit=1`);
+  return rows[0] ?? null;
+}
+async function listStudentsInOrganization(organizationId) {
+  return request2("profiles", {}, `?select=user_id,full_name,organization_id,status&organization_id=eq.${encodeURIComponent(organizationId)}&order=full_name.asc`);
+}
+async function listExercisesCatalog() {
+  return request2("exercicios", {}, "?select=id,nome,grupo_muscular&order=nome.asc");
+}
+async function listTreinosForAluno(alunoId, publishedOnly = false) {
+  return request2("treinos", {}, `?select=*&aluno_id=eq.${encodeURIComponent(alunoId)}${publishedOnly ? "&estado_publicacao=eq.publicado" : ""}&order=created_at.desc`);
+}
+async function getTreino(idValue) {
+  const rows = await request2("treinos", {}, `?select=*&id=eq.${encodeURIComponent(idValue)}&limit=1`);
+  return rows[0] ?? null;
+}
+async function createTreino(input) {
+  const rows = await request2("treinos", { method: "POST", body: JSON.stringify(input) });
+  return rows[0];
+}
+async function updateTreino(idValue, input) {
+  const rows = await request2("treinos", { method: "PATCH", body: JSON.stringify({ ...input, updated_at: (/* @__PURE__ */ new Date()).toISOString() }) }, `?id=eq.${encodeURIComponent(idValue)}`);
+  return rows[0];
+}
+async function deleteTreino(idValue) {
+  await request2("treinos", { method: "DELETE" }, `?id=eq.${encodeURIComponent(idValue)}`);
+  return { id: idValue };
+}
+async function listTreinoExercicios(treinoId) {
+  return request2("treino_exercicios", {}, `?select=*&treino_id=eq.${encodeURIComponent(treinoId)}&order=ordem.asc`);
+}
+async function replaceTreinoExercicios(treinoId, items) {
+  await request2("treino_exercicios", { method: "DELETE" }, `?treino_id=eq.${encodeURIComponent(treinoId)}`);
+  if (!items.length) return [];
+  return request2("treino_exercicios", { method: "POST", body: JSON.stringify(items.map((item, index) => ({ ...item, treino_id: treinoId, ordem: index }))) });
+}
+async function publishTreino(treinoId, autorId) {
+  const treino = await getTreino(treinoId);
+  if (!treino) throw new Error("Treino n\xE3o encontrado.");
+  const exercicios = await listTreinoExercicios(treinoId);
+  const versao = treino.estado_publicacao === "rascunho" ? treino.versao : treino.versao + 1;
+  const publicado_em = (/* @__PURE__ */ new Date()).toISOString();
+  const atualizado = await updateTreino(treinoId, { estado_publicacao: "publicado", versao, publicado_por: autorId, publicado_em });
+  await request2("treino_revisoes", { method: "POST", body: JSON.stringify({ treino_id: treinoId, versao, conteudo: { treino, exercicios }, autor_id: autorId, organization_id: treino.organization_id }) });
+  return atualizado;
+}
+async function listDietasForAluno(alunoId, publishedOnly = false) {
+  return request2("dietas", {}, `?select=*&aluno_id=eq.${encodeURIComponent(alunoId)}${publishedOnly ? "&estado_publicacao=eq.publicado" : ""}&order=created_at.desc`);
+}
+async function getDieta(idValue) {
+  const rows = await request2("dietas", {}, `?select=*&id=eq.${encodeURIComponent(idValue)}&limit=1`);
+  return rows[0] ?? null;
+}
+async function createDieta(input) {
+  const rows = await request2("dietas", { method: "POST", body: JSON.stringify(input) });
+  return rows[0];
+}
+async function updateDieta(idValue, input) {
+  const rows = await request2("dietas", { method: "PATCH", body: JSON.stringify({ ...input, updated_at: (/* @__PURE__ */ new Date()).toISOString() }) }, `?id=eq.${encodeURIComponent(idValue)}`);
+  return rows[0];
+}
+async function deleteDieta(idValue) {
+  await request2("dietas", { method: "DELETE" }, `?id=eq.${encodeURIComponent(idValue)}`);
+  return { id: idValue };
+}
+async function publishDieta(dietaId, autorId) {
+  const dieta = await getDieta(dietaId);
+  if (!dieta) throw new Error("Plano alimentar n\xE3o encontrado.");
+  const versao = dieta.estado_publicacao === "rascunho" ? dieta.versao : dieta.versao + 1;
+  const publicado_em = (/* @__PURE__ */ new Date()).toISOString();
+  const atualizado = await updateDieta(dietaId, { estado_publicacao: "publicado", versao, publicado_por: autorId, publicado_em });
+  await request2("dieta_revisoes", { method: "POST", body: JSON.stringify({ dieta_id: dietaId, versao, conteudo: dieta, autor_id: autorId, organization_id: dieta.organization_id }) });
+  return atualizado;
+}
 
 // server/asaas.ts
 function asaasConfig() {
@@ -692,6 +767,33 @@ var hasOrganizationAccess = async (userId, organizationId) => {
   if (!membership) throw new Error("Organization access denied");
   return membership;
 };
+var STAFF_ROLES = ["owner", "admin", "manager", "professional"];
+var assertStaffOfOrganization = async (userId, organizationId) => {
+  const membership = await getMembership(userId, organizationId);
+  if (!membership || membership.membership.status !== "active" || !STAFF_ROLES.includes(membership.membership.role)) throw new Error("Voc\xEA n\xE3o tem acesso a esta organiza\xE7\xE3o.");
+  return membership;
+};
+var assertStaffForAluno = async (userId, alunoId) => {
+  const profile = await getProfileByUserId(alunoId);
+  if (!profile?.organization_id) throw new Error("Aluno sem organiza\xE7\xE3o vinculada.");
+  await assertStaffOfOrganization(userId, profile.organization_id);
+  return profile;
+};
+var assertStaffForTreino = async (userId, treinoId) => {
+  const treino = await getTreino(treinoId);
+  if (!treino) throw new Error("Treino n\xE3o encontrado.");
+  if (!treino.organization_id) throw new Error("Treino sem organiza\xE7\xE3o vinculada.");
+  await assertStaffOfOrganization(userId, treino.organization_id);
+  return treino;
+};
+var assertStaffForDieta = async (userId, dietaId) => {
+  const dieta = await getDieta(dietaId);
+  if (!dieta) throw new Error("Plano alimentar n\xE3o encontrado.");
+  if (!dieta.organization_id) throw new Error("Plano alimentar sem organiza\xE7\xE3o vinculada.");
+  await assertStaffOfOrganization(userId, dieta.organization_id);
+  return dieta;
+};
+var treinoExercicioItem = z2.object({ exercicio_id: z2.string().uuid(), series: z2.number().int().min(1).default(3), repeticoes: z2.string().trim().min(1).default("12"), descanso_seg: z2.number().int().min(0).default(60), descanso_por_serie: z2.string().trim().optional(), observacoes: z2.string().trim().optional() });
 var appRouter = router({
   system: systemRouter,
   auth: router({
@@ -862,6 +964,75 @@ var appRouter = router({
         await recordAuditLog({ organizationId: result.organizationId, userId: ctx.user.id, action: "accepted", entity: "invitation", entityId: result.invitation.id, afterJson: { role: result.role, email: ctx.user.email } });
         return { organizationId: result.organizationId, role: result.role, status: "accepted" };
       })
+    })
+  }),
+  prescricao: router({
+    myOrganizations: protectedProcedure.query(async ({ ctx }) => (await getOrganizationsForUser(ctx.user.id)).filter((item) => STAFF_ROLES.includes(item.membership.role))),
+    students: protectedProcedure.input(organizationIdInput).query(async ({ ctx, input }) => {
+      await assertStaffOfOrganization(ctx.user.id, input.organizationId);
+      return listStudentsInOrganization(input.organizationId);
+    }),
+    exercises: protectedProcedure.query(() => listExercisesCatalog()),
+    treinos: router({
+      list: protectedProcedure.input(z2.object({ alunoId: z2.string().uuid() })).query(async ({ ctx, input }) => {
+        await assertStaffForAluno(ctx.user.id, input.alunoId);
+        return listTreinosForAluno(input.alunoId);
+      }),
+      exercicios: protectedProcedure.input(z2.object({ treinoId: z2.string().uuid() })).query(async ({ ctx, input }) => {
+        await assertStaffForTreino(ctx.user.id, input.treinoId);
+        return listTreinoExercicios(input.treinoId);
+      }),
+      create: protectedProcedure.input(z2.object({ alunoId: z2.string().uuid(), titulo: z2.string().trim().min(2), tipo: z2.string().trim().min(1).default("A"), descricao: z2.string().trim().optional() })).mutation(async ({ ctx, input }) => {
+        const profile = await assertStaffForAluno(ctx.user.id, input.alunoId);
+        return createTreino({ aluno_id: input.alunoId, titulo: input.titulo, tipo: input.tipo, descricao: input.descricao || void 0, organization_id: profile.organization_id, criado_por: ctx.user.id });
+      }),
+      update: protectedProcedure.input(z2.object({ id: z2.string().uuid(), data: z2.object({ titulo: z2.string().trim().min(2), tipo: z2.string().trim().min(1), descricao: z2.string().trim().optional().nullable() }) })).mutation(async ({ ctx, input }) => {
+        await assertStaffForTreino(ctx.user.id, input.id);
+        return updateTreino(input.id, input.data);
+      }),
+      saveExercicios: protectedProcedure.input(z2.object({ treinoId: z2.string().uuid(), items: z2.array(treinoExercicioItem) })).mutation(async ({ ctx, input }) => {
+        await assertStaffForTreino(ctx.user.id, input.treinoId);
+        return replaceTreinoExercicios(input.treinoId, input.items);
+      }),
+      publish: protectedProcedure.input(z2.object({ id: z2.string().uuid() })).mutation(async ({ ctx, input }) => {
+        await assertStaffForTreino(ctx.user.id, input.id);
+        return publishTreino(input.id, ctx.user.id);
+      }),
+      delete: protectedProcedure.input(z2.object({ id: z2.string().uuid() })).mutation(async ({ ctx, input }) => {
+        await assertStaffForTreino(ctx.user.id, input.id);
+        return deleteTreino(input.id);
+      })
+    }),
+    dietas: router({
+      list: protectedProcedure.input(z2.object({ alunoId: z2.string().uuid() })).query(async ({ ctx, input }) => {
+        await assertStaffForAluno(ctx.user.id, input.alunoId);
+        return listDietasForAluno(input.alunoId);
+      }),
+      create: protectedProcedure.input(z2.object({ alunoId: z2.string().uuid(), titulo: z2.string().trim().min(2), descricao: z2.string().trim().optional(), arquivoUrl: z2.string().url().optional() })).mutation(async ({ ctx, input }) => {
+        const profile = await assertStaffForAluno(ctx.user.id, input.alunoId);
+        return createDieta({ aluno_id: input.alunoId, titulo: input.titulo, descricao: input.descricao || void 0, arquivo_url: input.arquivoUrl || void 0, organization_id: profile.organization_id, criado_por: ctx.user.id });
+      }),
+      update: protectedProcedure.input(z2.object({ id: z2.string().uuid(), data: z2.object({ titulo: z2.string().trim().min(2), descricao: z2.string().trim().optional().nullable(), arquivo_url: z2.string().url().optional().nullable() }) })).mutation(async ({ ctx, input }) => {
+        await assertStaffForDieta(ctx.user.id, input.id);
+        return updateDieta(input.id, input.data);
+      }),
+      publish: protectedProcedure.input(z2.object({ id: z2.string().uuid() })).mutation(async ({ ctx, input }) => {
+        await assertStaffForDieta(ctx.user.id, input.id);
+        return publishDieta(input.id, ctx.user.id);
+      }),
+      delete: protectedProcedure.input(z2.object({ id: z2.string().uuid() })).mutation(async ({ ctx, input }) => {
+        await assertStaffForDieta(ctx.user.id, input.id);
+        return deleteDieta(input.id);
+      })
+    }),
+    meu: router({
+      treinos: protectedProcedure.query(({ ctx }) => listTreinosForAluno(ctx.user.id, true)),
+      treinoExercicios: protectedProcedure.input(z2.object({ treinoId: z2.string().uuid() })).query(async ({ ctx, input }) => {
+        const treino = await getTreino(input.treinoId);
+        if (!treino || treino.aluno_id !== ctx.user.id || treino.estado_publicacao !== "publicado") throw new Error("Treino n\xE3o encontrado.");
+        return listTreinoExercicios(input.treinoId);
+      }),
+      dietas: protectedProcedure.query(({ ctx }) => listDietasForAluno(ctx.user.id, true))
     })
   })
 });
