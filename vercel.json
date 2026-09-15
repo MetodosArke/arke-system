@@ -16,5 +16,8 @@
       "maxDuration": 60,
       "includeFiles": "serverless/**"
     }
-  }
+  },
+  "rewrites": [
+    { "source": "/((?!api/).*)", "destination": "/index.html" }
+  ]
 }

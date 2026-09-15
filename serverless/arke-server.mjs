@@ -235,6 +235,11 @@ async function getMembership(userId, organizationId) {
   const { saas_organizations, ...membership } = row;
   return { membership, organization: saas_organizations };
 }
+async function getOrganizationBySlug(slug) {
+  if (!isConfigured()) return void 0;
+  const rows = await request("saas_organizations", {}, `?select=id,name,slug,module,logo_url,primary_color&slug=eq.${encodeURIComponent(slug)}&limit=1`);
+  return rows[0];
+}
 async function createOrganizationWithOwner(input) {
   if (!isConfigured()) throw new Error("Database not available");
   const [result] = await rpc("create_organization_with_owner", {
@@ -969,6 +974,7 @@ var appRouter = router({
   }),
   saas: router({
     organizations: router({
+      bySlug: publicProcedure.input(z2.object({ slug: z2.string().trim().toLowerCase().min(1).max(120) })).query(({ input }) => getOrganizationBySlug(input.slug)),
       list: protectedProcedure.query(({ ctx }) => getOrganizationsForUser(ctx.user.id)),
       create: protectedProcedure.input(z2.object({ clientId: z2.string().uuid(), module: z2.string().trim().min(2).optional(), logoUrl: z2.string().max(1e6).optional(), primaryColor: z2.string().regex(/^#[0-9a-fA-F]{6}$/).optional(), name: z2.string().trim().min(2).max(160), slug: z2.string().trim().toLowerCase().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/).max(120), plan: z2.enum(["starter", "growth", "scale", "unlimited", "essencial", "performance", "premium"]) })).mutation(({ ctx, input }) => createOrganizationWithOwner({ userId: ctx.user.id, ...input })),
       access: protectedProcedure.input(organizationIdInput).query(({ ctx, input }) => getOrganizationAccess(ctx.user.id, input.organizationId)),
