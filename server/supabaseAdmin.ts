@@ -211,7 +211,7 @@ export async function publishDieta(dietaId: string, autorId: string) {
 
 // --- Fase 3: Jornada inicial (convite de aluno, cadastro, acolhimento) ---
 
-export type MemberInvitation = { id: string; organization_id: string; invited_by_user_id: string | null; email: string; full_name: string; token_hash: string; status: "pending" | "accepted" | "expired" | "revoked"; expires_at: string; created_at: string };
+export type MemberInvitation = { id: string; organization_id: string; invited_by_user_id: string | null; email: string; full_name: string; token_hash: string; status: "pending" | "accepted" | "expired" | "revoked"; expires_at: string; created_at: string; lembrete_enviado_em?: string | null };
 export type Acolhimento = { id: string; aluno_id: string; rotina_diaria?: string | null; experiencias_exercicio?: string | null; experiencias_gostou?: string | null; experiencias_nao_gostou?: string | null; dores_lesoes?: string | null; medicamentos?: string | null; tempo_disponivel?: string | null; estilo_treino?: string | null; exercicios_nao_gosta?: string | null; alimentos_gosta?: string | null; alimentos_nao_gosta?: string | null; alimentacao_rotina?: string | null; created_at: string; updated_at: string };
 
 async function getOrganizationName(organizationId: string) {
@@ -302,7 +302,7 @@ export async function upsertAcolhimento(alunoId: string, data: Record<string, un
 // --- Fase 6: Acompanhamento (check-in e central de atendimento) ---
 
 export type CheckIn = { id: string; aluno_id: string; organization_id: string; status: "indo_bem" | "com_dificuldade" | "quero_ajuda"; observacao?: string | null; created_at: string };
-export type Atendimento = { id: string; organization_id: string; aluno_id: string; origem: "check_in" | "pedido_direto" | "manual"; origem_check_in_id?: string | null; prioridade: "rotina" | "atencao" | "prioritario" | "encaminhamento_profissional"; descricao?: string | null; status: "aberta" | "em_andamento" | "resolvida"; responsavel_id?: string | null; prazo?: string | null; resultado?: string | null; resolvido_por?: string | null; resolvido_em?: string | null; criado_por?: string | null; created_at: string; updated_at: string };
+export type Atendimento = { id: string; organization_id: string; aluno_id: string; origem: "check_in" | "pedido_direto" | "manual" | "sem_checkin"; origem_check_in_id?: string | null; prioridade: "rotina" | "atencao" | "prioritario" | "encaminhamento_profissional"; descricao?: string | null; status: "aberta" | "em_andamento" | "resolvida"; responsavel_id?: string | null; prazo?: string | null; resultado?: string | null; resolvido_por?: string | null; resolvido_em?: string | null; criado_por?: string | null; escalonamentos_count: number; created_at: string; updated_at: string };
 
 const CHECKIN_PRIORIDADE: Record<"com_dificuldade" | "quero_ajuda", Atendimento["prioridade"]> = {
   com_dificuldade: "atencao",
@@ -364,4 +364,129 @@ export async function assignAtendimento(idValue: string, responsavelId: string) 
 export async function resolveAtendimento(idValue: string, resolvidoPor: string, resultado: string) {
   const rows = await request<Atendimento[]>("atendimentos", { method: "PATCH", body: JSON.stringify({ status: "resolvida", resultado, resolvido_por: resolvidoPor, resolvido_em: new Date().toISOString() }) }, `?id=eq.${encodeURIComponent(idValue)}`);
   return rows[0];
+}
+
+// --- Fase 7: Automação (escalonamento, lembretes, sem duplicação) ---
+//
+// Cada regra abaixo declara evento de origem, condições, ação,
+// prioridade, responsável, prazo, limite de repetição e condição de
+// encerramento (CLAUDE.md §6), só que como código — não como linhas
+// configuráveis por um painel, que fica para uma etapa futura.
+
+const PRIORIDADE_ORDEM: Atendimento["prioridade"][] = ["rotina", "atencao", "prioritario", "encaminhamento_profissional"];
+const MAX_ESCALONAMENTOS = 3;
+const PRAZO_APOS_ESCALONAMENTO_MS = 1000 * 60 * 60 * 24 * 2;
+const DIAS_SEM_CHECKIN = 7;
+const DIAS_CONVITE_PENDENTE = 3;
+
+// Regra 1 — evento: prazo de um atendimento aberto/em andamento vence.
+// condição: ainda não atingiu o limite de repetição (3 escalonamentos).
+// ação: sobe um nível de prioridade e dá um novo prazo.
+// condição de encerramento: a tarefa é resolvida (para de aparecer aqui).
+export async function listAtendimentosVencidos() {
+  const now = new Date().toISOString();
+  return request<Atendimento[]>("atendimentos", {}, `?select=*&status=in.(aberta,em_andamento)&prazo=lt.${encodeURIComponent(now)}&escalonamentos_count=lt.${MAX_ESCALONAMENTOS}`);
+}
+
+export async function escalateAtendimento(atendimento: Atendimento) {
+  const proximoIndex = Math.min(PRIORIDADE_ORDEM.indexOf(atendimento.prioridade) + 1, PRIORIDADE_ORDEM.length - 1);
+  const rows = await request<Atendimento[]>("atendimentos", { method: "PATCH", body: JSON.stringify({
+    prioridade: PRIORIDADE_ORDEM[proximoIndex],
+    escalonamentos_count: atendimento.escalonamentos_count + 1,
+    prazo: new Date(Date.now() + PRAZO_APOS_ESCALONAMENTO_MS).toISOString(),
+  }) }, `?id=eq.${encodeURIComponent(atendimento.id)}`);
+  return rows[0];
+}
+
+// Regra 2 — evento: nenhum check-in registrado nos últimos N dias.
+// condição: aluno ativo (uma pausa — status diferente de "active" —
+// interrompe esta regra) e vinculado a uma organização.
+// ação: cria um atendimento de prioridade "rotina" com um texto neutro
+// (nunca afirma que o aluno não treinou — só que não há check-in).
+// limite de repetição / encerramento: o índice único de atendimentos
+// (aluno_id, origem) já impede duplicar enquanto a tarefa não é
+// resolvida (CLAUDE.md §6).
+type ProfileActivity = { user_id: string; organization_id: string; created_at: string };
+
+export async function listAlunosSemCheckIn(dias = DIAS_SEM_CHECKIN) {
+  const cutoff = new Date(Date.now() - dias * 24 * 60 * 60 * 1000).toISOString();
+  const candidatos = await request<ProfileActivity[]>("profiles", {}, `?select=user_id,organization_id,created_at&status=eq.active&organization_id=not.is.null&created_at=lt.${encodeURIComponent(cutoff)}`);
+  if (!candidatos.length) return [];
+  const ids = candidatos.map((c) => c.user_id).join(",");
+  const recentes = await request<{ aluno_id: string }[]>("check_ins", {}, `?select=aluno_id&aluno_id=in.(${ids})&created_at=gte.${encodeURIComponent(cutoff)}`);
+  const comCheckInRecente = new Set(recentes.map((r) => r.aluno_id));
+  return candidatos.filter((c) => !comCheckInRecente.has(c.user_id));
+}
+
+export async function createSemCheckInAtendimentoIfNeeded(alunoId: string, organizationId: string, dias: number) {
+  try {
+    return await createAtendimento({ organizationId, alunoId, origem: "sem_checkin", prioridade: "rotina", descricao: `Sem registro de check-in há mais de ${dias} dias.` });
+  } catch {
+    return null; // já existe uma tarefa aberta da mesma origem para este aluno — nunca duplicar.
+  }
+}
+
+// Regra 3 — evento: convite de aluno pendente há mais de N dias.
+// condição: ainda não expirou e nenhum lembrete foi enviado antes.
+// ação: gera um novo código, estende o prazo e reenvia o e-mail.
+// limite de repetição: 1 (lembrete_enviado_em marca que já foi usado).
+export async function listInvitationsForReminder(dias = DIAS_CONVITE_PENDENTE) {
+  const cutoff = new Date(Date.now() - dias * 24 * 60 * 60 * 1000).toISOString();
+  const now = new Date().toISOString();
+  return request<MemberInvitation[]>("member_invitations", {}, `?select=*&status=eq.pending&lembrete_enviado_em=is.null&created_at=lt.${encodeURIComponent(cutoff)}&expires_at=gt.${encodeURIComponent(now)}`);
+}
+
+export async function resendInvitationReminder(invitation: MemberInvitation) {
+  const rawToken = randomUUID();
+  const tokenHash = createHash("sha256").update(rawToken).digest("hex");
+  const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24 * 7).toISOString();
+  await request("member_invitations", { method: "PATCH", body: JSON.stringify({ token_hash: tokenHash, expires_at: expiresAt, lembrete_enviado_em: new Date().toISOString() }) }, `?id=eq.${encodeURIComponent(invitation.id)}`);
+  const orgName = await getOrganizationName(invitation.organization_id);
+  await sendEmail(invitation.email, `Lembrete: convite para o Arke — ${orgName}`, `<p>Olá, ${invitation.full_name}.</p><p>Você ainda não concluiu seu cadastro em <strong>${orgName}</strong> no Arke.</p><p>Acesse o portal, clique em "Tenho um convite" na tela de login e use o novo código abaixo:</p><h2 style="letter-spacing:1px">${rawToken}</h2><p>Este convite expira em 7 dias.</p>`);
+}
+
+export type AutomacaoResultado = { tarefasEscaladas: number; lembretesCheckIn: number; lembretesConvite: number; erros: string[] };
+
+export async function runAutomacaoDiaria(): Promise<AutomacaoResultado> {
+  const resultado: AutomacaoResultado = { tarefasEscaladas: 0, lembretesCheckIn: 0, lembretesConvite: 0, erros: [] };
+
+  try {
+    for (const atendimento of await listAtendimentosVencidos()) {
+      try {
+        await escalateAtendimento(atendimento);
+        resultado.tarefasEscaladas += 1;
+      } catch (error) {
+        resultado.erros.push(`escalonamento ${atendimento.id}: ${(error as Error).message}`);
+      }
+    }
+  } catch (error) {
+    resultado.erros.push(`listar tarefas vencidas: ${(error as Error).message}`);
+  }
+
+  try {
+    for (const perfil of await listAlunosSemCheckIn()) {
+      try {
+        if (await createSemCheckInAtendimentoIfNeeded(perfil.user_id, perfil.organization_id, DIAS_SEM_CHECKIN)) resultado.lembretesCheckIn += 1;
+      } catch (error) {
+        resultado.erros.push(`sem-checkin ${perfil.user_id}: ${(error as Error).message}`);
+      }
+    }
+  } catch (error) {
+    resultado.erros.push(`listar alunos sem check-in: ${(error as Error).message}`);
+  }
+
+  try {
+    for (const invitation of await listInvitationsForReminder()) {
+      try {
+        await resendInvitationReminder(invitation);
+        resultado.lembretesConvite += 1;
+      } catch (error) {
+        resultado.erros.push(`lembrete convite ${invitation.id}: ${(error as Error).message}`);
+      }
+    }
+  } catch (error) {
+    resultado.erros.push(`listar convites pendentes: ${(error as Error).message}`);
+  }
+
+  return resultado;
 }

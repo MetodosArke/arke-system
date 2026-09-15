@@ -1,0 +1,24 @@
+import { timingSafeEqual } from "node:crypto";
+import type { Express, Request, Response } from "express";
+import { runAutomacaoDiaria } from "./supabaseAdmin";
+
+function tokenMatches(received: string, expected: string) {
+  const receivedBuffer = Buffer.from(received);
+  const expectedBuffer = Buffer.from(expected);
+  return receivedBuffer.length === expectedBuffer.length && timingSafeEqual(receivedBuffer, expectedBuffer);
+}
+
+export function registerAutomacaoCron(app: Express) {
+  app.get("/api/cron/automacao", async (req: Request, res: Response) => {
+    const expectedToken = process.env.CRON_SECRET ?? "";
+    const receivedToken = String(req.header("authorization") ?? "").replace(/^Bearer\s+/i, "");
+    if (!expectedToken || !tokenMatches(receivedToken, expectedToken)) return res.status(401).json({ ok: false, error: "unauthorized" });
+    try {
+      const resultado = await runAutomacaoDiaria();
+      return res.status(200).json({ ok: true, ...resultado });
+    } catch (error) {
+      console.error("[Automação cron] failed", error);
+      return res.status(500).json({ ok: false });
+    }
+  });
+}

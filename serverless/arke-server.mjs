@@ -787,6 +787,92 @@ async function resolveAtendimento(idValue, resolvidoPor, resultado) {
   const rows = await request2("atendimentos", { method: "PATCH", body: JSON.stringify({ status: "resolvida", resultado, resolvido_por: resolvidoPor, resolvido_em: (/* @__PURE__ */ new Date()).toISOString() }) }, `?id=eq.${encodeURIComponent(idValue)}`);
   return rows[0];
 }
+var PRIORIDADE_ORDEM = ["rotina", "atencao", "prioritario", "encaminhamento_profissional"];
+var MAX_ESCALONAMENTOS = 3;
+var PRAZO_APOS_ESCALONAMENTO_MS = 1e3 * 60 * 60 * 24 * 2;
+var DIAS_SEM_CHECKIN = 7;
+var DIAS_CONVITE_PENDENTE = 3;
+async function listAtendimentosVencidos() {
+  const now = (/* @__PURE__ */ new Date()).toISOString();
+  return request2("atendimentos", {}, `?select=*&status=in.(aberta,em_andamento)&prazo=lt.${encodeURIComponent(now)}&escalonamentos_count=lt.${MAX_ESCALONAMENTOS}`);
+}
+async function escalateAtendimento(atendimento) {
+  const proximoIndex = Math.min(PRIORIDADE_ORDEM.indexOf(atendimento.prioridade) + 1, PRIORIDADE_ORDEM.length - 1);
+  const rows = await request2("atendimentos", { method: "PATCH", body: JSON.stringify({
+    prioridade: PRIORIDADE_ORDEM[proximoIndex],
+    escalonamentos_count: atendimento.escalonamentos_count + 1,
+    prazo: new Date(Date.now() + PRAZO_APOS_ESCALONAMENTO_MS).toISOString()
+  }) }, `?id=eq.${encodeURIComponent(atendimento.id)}`);
+  return rows[0];
+}
+async function listAlunosSemCheckIn(dias = DIAS_SEM_CHECKIN) {
+  const cutoff = new Date(Date.now() - dias * 24 * 60 * 60 * 1e3).toISOString();
+  const candidatos = await request2("profiles", {}, `?select=user_id,organization_id,created_at&status=eq.active&organization_id=not.is.null&created_at=lt.${encodeURIComponent(cutoff)}`);
+  if (!candidatos.length) return [];
+  const ids = candidatos.map((c) => c.user_id).join(",");
+  const recentes = await request2("check_ins", {}, `?select=aluno_id&aluno_id=in.(${ids})&created_at=gte.${encodeURIComponent(cutoff)}`);
+  const comCheckInRecente = new Set(recentes.map((r) => r.aluno_id));
+  return candidatos.filter((c) => !comCheckInRecente.has(c.user_id));
+}
+async function createSemCheckInAtendimentoIfNeeded(alunoId, organizationId, dias) {
+  try {
+    return await createAtendimento({ organizationId, alunoId, origem: "sem_checkin", prioridade: "rotina", descricao: `Sem registro de check-in h\xE1 mais de ${dias} dias.` });
+  } catch {
+    return null;
+  }
+}
+async function listInvitationsForReminder(dias = DIAS_CONVITE_PENDENTE) {
+  const cutoff = new Date(Date.now() - dias * 24 * 60 * 60 * 1e3).toISOString();
+  const now = (/* @__PURE__ */ new Date()).toISOString();
+  return request2("member_invitations", {}, `?select=*&status=eq.pending&lembrete_enviado_em=is.null&created_at=lt.${encodeURIComponent(cutoff)}&expires_at=gt.${encodeURIComponent(now)}`);
+}
+async function resendInvitationReminder(invitation) {
+  const rawToken = randomUUID();
+  const tokenHash = createHash("sha256").update(rawToken).digest("hex");
+  const expiresAt = new Date(Date.now() + 1e3 * 60 * 60 * 24 * 7).toISOString();
+  await request2("member_invitations", { method: "PATCH", body: JSON.stringify({ token_hash: tokenHash, expires_at: expiresAt, lembrete_enviado_em: (/* @__PURE__ */ new Date()).toISOString() }) }, `?id=eq.${encodeURIComponent(invitation.id)}`);
+  const orgName = await getOrganizationName(invitation.organization_id);
+  await sendEmail(invitation.email, `Lembrete: convite para o Arke \u2014 ${orgName}`, `<p>Ol\xE1, ${invitation.full_name}.</p><p>Voc\xEA ainda n\xE3o concluiu seu cadastro em <strong>${orgName}</strong> no Arke.</p><p>Acesse o portal, clique em "Tenho um convite" na tela de login e use o novo c\xF3digo abaixo:</p><h2 style="letter-spacing:1px">${rawToken}</h2><p>Este convite expira em 7 dias.</p>`);
+}
+async function runAutomacaoDiaria() {
+  const resultado = { tarefasEscaladas: 0, lembretesCheckIn: 0, lembretesConvite: 0, erros: [] };
+  try {
+    for (const atendimento of await listAtendimentosVencidos()) {
+      try {
+        await escalateAtendimento(atendimento);
+        resultado.tarefasEscaladas += 1;
+      } catch (error) {
+        resultado.erros.push(`escalonamento ${atendimento.id}: ${error.message}`);
+      }
+    }
+  } catch (error) {
+    resultado.erros.push(`listar tarefas vencidas: ${error.message}`);
+  }
+  try {
+    for (const perfil of await listAlunosSemCheckIn()) {
+      try {
+        if (await createSemCheckInAtendimentoIfNeeded(perfil.user_id, perfil.organization_id, DIAS_SEM_CHECKIN)) resultado.lembretesCheckIn += 1;
+      } catch (error) {
+        resultado.erros.push(`sem-checkin ${perfil.user_id}: ${error.message}`);
+      }
+    }
+  } catch (error) {
+    resultado.erros.push(`listar alunos sem check-in: ${error.message}`);
+  }
+  try {
+    for (const invitation of await listInvitationsForReminder()) {
+      try {
+        await resendInvitationReminder(invitation);
+        resultado.lembretesConvite += 1;
+      } catch (error) {
+        resultado.erros.push(`lembrete convite ${invitation.id}: ${error.message}`);
+      }
+    }
+  } catch (error) {
+    resultado.erros.push(`listar convites pendentes: ${error.message}`);
+  }
+  return resultado;
+}
 
 // server/asaas.ts
 function asaasConfig() {
@@ -1371,6 +1457,28 @@ function registerAsaasWebhook(app) {
   });
 }
 
+// server/automacaoCron.ts
+import { timingSafeEqual as timingSafeEqual2 } from "node:crypto";
+function tokenMatches2(received, expected) {
+  const receivedBuffer = Buffer.from(received);
+  const expectedBuffer = Buffer.from(expected);
+  return receivedBuffer.length === expectedBuffer.length && timingSafeEqual2(receivedBuffer, expectedBuffer);
+}
+function registerAutomacaoCron(app) {
+  app.get("/api/cron/automacao", async (req, res) => {
+    const expectedToken = process.env.CRON_SECRET ?? "";
+    const receivedToken = String(req.header("authorization") ?? "").replace(/^Bearer\s+/i, "");
+    if (!expectedToken || !tokenMatches2(receivedToken, expectedToken)) return res.status(401).json({ ok: false, error: "unauthorized" });
+    try {
+      const resultado = await runAutomacaoDiaria();
+      return res.status(200).json({ ok: true, ...resultado });
+    } catch (error) {
+      console.error("[Automa\xE7\xE3o cron] failed", error);
+      return res.status(500).json({ ok: false });
+    }
+  });
+}
+
 // serverless/entry.ts
 function createApp() {
   const app = express();
@@ -1379,6 +1487,7 @@ function createApp() {
   registerStorageProxy(app);
   registerAccessRoutes(app);
   registerAsaasWebhook(app);
+  registerAutomacaoCron(app);
   app.use(
     "/api/trpc",
     createExpressMiddleware({
