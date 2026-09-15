@@ -5,7 +5,7 @@ import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { adminProcedure, protectedProcedure, publicProcedure, router } from "./_core/trpc";
 import { acceptOrganizationInvitation, archiveOrganizationUnit, auditLogsToCsv, auditLogsToPdfBase64, createOrganizationInvitation, createOrganizationUnit, createOrganizationWithOwner, getAuditLogs, getMembership, getOrganizationAccess, getOrganizationOnboarding, getOrganizationSubscription, getOrganizationsForUser, getPendingOrganizationInvitations, recordAuditLog, saveOrganizationOnboarding, updateModulePolicy, updateOrganizationProfile, updateOrganizationSubscription } from "./db";
-import { createAppStudent, createAppUser, createGlobalExercise, createGlobalGroup, createGlobalNutritionPlan, createGlobalRoutine, createGlobalTemplate, createGlobalTemplateExercise, createPasswordRecoveryCode, deleteAppStudent, deleteAppUser, deleteGlobalExercise, deleteGlobalGroup, deleteGlobalNutritionPlan, deleteGlobalRoutine, deleteGlobalTemplate, deleteGlobalTemplateExercise, deleteGlobalAccessRule, findAppUserByEmail, hasSupabaseConfig, listAppStudents, listAppUsers, listGlobalLibrary, normalizeEmail, signInWithSupabase, updateAppStudent, updateAppUser, updateGlobalExercise, updateGlobalGroup, updateGlobalNutritionPlan, updateGlobalRoutine, updateGlobalTemplate, updateGlobalTemplateExercise, updateSupabaseUserPassword, upsertGlobalAccessRule, verifyPasswordRecoveryCode } from "./supabaseAdmin";
+import { createAppStudent, createAppUser, createDieta, createGlobalExercise, createGlobalGroup, createGlobalNutritionPlan, createGlobalRoutine, createGlobalTemplate, createGlobalTemplateExercise, createPasswordRecoveryCode, createTreino, deleteAppStudent, deleteAppUser, deleteDieta, deleteGlobalExercise, deleteGlobalGroup, deleteGlobalNutritionPlan, deleteGlobalRoutine, deleteGlobalTemplate, deleteGlobalTemplateExercise, deleteGlobalAccessRule, deleteTreino, findAppUserByEmail, getDieta, getProfileByUserId, getTreino, hasSupabaseConfig, listAppStudents, listAppUsers, listDietasForAluno, listExercisesCatalog, listGlobalLibrary, listStudentsInOrganization, listTreinoExercicios, listTreinosForAluno, normalizeEmail, publishDieta, publishTreino, replaceTreinoExercicios, signInWithSupabase, updateAppStudent, updateAppUser, updateDieta, updateGlobalExercise, updateGlobalGroup, updateGlobalNutritionPlan, updateGlobalRoutine, updateGlobalTemplate, updateGlobalTemplateExercise, updateSupabaseUserPassword, updateTreino, upsertGlobalAccessRule, verifyPasswordRecoveryCode } from "./supabaseAdmin";
 import { asaasSandboxConfigured, createAsaasCustomer, createAsaasPayment, createAsaasWebhook, getAsaasAccount, listAsaasPayments } from "./asaas";
 import { listStoredAsaasPayments } from "./asaasPersistence";
 import { lookupCnpj } from "./cnpj";
@@ -28,6 +28,39 @@ const hasOrganizationAccess = async (userId: string, organizationId: string) => 
   if (!membership) throw new Error("Organization access denied");
   return membership;
 };
+
+const STAFF_ROLES: readonly string[] = ["owner", "admin", "manager", "professional"];
+
+const assertStaffOfOrganization = async (userId: string, organizationId: string) => {
+  const membership = await getMembership(userId, organizationId);
+  if (!membership || membership.membership.status !== "active" || !STAFF_ROLES.includes(membership.membership.role)) throw new Error("Você não tem acesso a esta organização.");
+  return membership;
+};
+
+const assertStaffForAluno = async (userId: string, alunoId: string) => {
+  const profile = await getProfileByUserId(alunoId);
+  if (!profile?.organization_id) throw new Error("Aluno sem organização vinculada.");
+  await assertStaffOfOrganization(userId, profile.organization_id);
+  return profile;
+};
+
+const assertStaffForTreino = async (userId: string, treinoId: string) => {
+  const treino = await getTreino(treinoId);
+  if (!treino) throw new Error("Treino não encontrado.");
+  if (!treino.organization_id) throw new Error("Treino sem organização vinculada.");
+  await assertStaffOfOrganization(userId, treino.organization_id);
+  return treino;
+};
+
+const assertStaffForDieta = async (userId: string, dietaId: string) => {
+  const dieta = await getDieta(dietaId);
+  if (!dieta) throw new Error("Plano alimentar não encontrado.");
+  if (!dieta.organization_id) throw new Error("Plano alimentar sem organização vinculada.");
+  await assertStaffOfOrganization(userId, dieta.organization_id);
+  return dieta;
+};
+
+const treinoExercicioItem = z.object({ exercicio_id: z.string().uuid(), series: z.number().int().min(1).default(3), repeticoes: z.string().trim().min(1).default("12"), descanso_seg: z.number().int().min(0).default(60), descanso_por_serie: z.string().trim().optional(), observacoes: z.string().trim().optional() });
 
 export const appRouter = router({
   system: systemRouter,
@@ -141,6 +174,32 @@ export const appRouter = router({
       updatePolicy: protectedProcedure.input(z.object({ organizationId: z.string().uuid(), unitId: z.string().uuid(), role: roleName, module: moduleName, canView: z.boolean(), canManage: z.boolean() })).mutation(async ({ ctx, input }) => { await ownerOrAdmin(ctx.user.id, input.organizationId); const result = await updateModulePolicy(input); await recordAuditLog({ organizationId: input.organizationId, userId: ctx.user.id, unitId: input.unitId, action: "updated", entity: "module_policy", afterJson: input }); return result; }),
       invite: protectedProcedure.input(z.object({ organizationId: z.string().uuid(), email: z.string().email(), role: z.enum(["admin", "manager", "professional", "viewer"]) })).mutation(async ({ ctx, input }) => { await ownerOrAdmin(ctx.user.id, input.organizationId); const rawToken = randomUUID(); const tokenHash = createHash("sha256").update(rawToken).digest("hex"); const invitation = await createOrganizationInvitation({ ...input, invitedByUserId: ctx.user.id, email: input.email.toLowerCase(), tokenHash, expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 72) }); await recordAuditLog({ organizationId: input.organizationId, userId: ctx.user.id, action: "created", entity: "invitation", entityId: invitation.id, afterJson: { email: input.email.toLowerCase(), role: input.role } }); return { invitationId: invitation.id, token: rawToken, status: "pending" as const }; }),
       acceptInvite: protectedProcedure.input(z.object({ token: z.string().min(16).max(128) })).mutation(async ({ ctx, input }) => { if (!ctx.user.email) throw new Error("Authenticated user email is required"); const result = await acceptOrganizationInvitation({ tokenHash: createHash("sha256").update(input.token).digest("hex"), userId: ctx.user.id, email: ctx.user.email }); await recordAuditLog({ organizationId: result.organizationId, userId: ctx.user.id, action: "accepted", entity: "invitation", entityId: result.invitation.id, afterJson: { role: result.role, email: ctx.user.email } }); return { organizationId: result.organizationId, role: result.role, status: "accepted" as const }; }),
+    }),
+  }),
+  prescricao: router({
+    myOrganizations: protectedProcedure.query(async ({ ctx }) => (await getOrganizationsForUser(ctx.user.id)).filter((item) => STAFF_ROLES.includes(item.membership.role))),
+    students: protectedProcedure.input(organizationIdInput).query(async ({ ctx, input }) => { await assertStaffOfOrganization(ctx.user.id, input.organizationId); return listStudentsInOrganization(input.organizationId); }),
+    exercises: protectedProcedure.query(() => listExercisesCatalog()),
+    treinos: router({
+      list: protectedProcedure.input(z.object({ alunoId: z.string().uuid() })).query(async ({ ctx, input }) => { await assertStaffForAluno(ctx.user.id, input.alunoId); return listTreinosForAluno(input.alunoId); }),
+      exercicios: protectedProcedure.input(z.object({ treinoId: z.string().uuid() })).query(async ({ ctx, input }) => { await assertStaffForTreino(ctx.user.id, input.treinoId); return listTreinoExercicios(input.treinoId); }),
+      create: protectedProcedure.input(z.object({ alunoId: z.string().uuid(), titulo: z.string().trim().min(2), tipo: z.string().trim().min(1).default("A"), descricao: z.string().trim().optional() })).mutation(async ({ ctx, input }) => { const profile = await assertStaffForAluno(ctx.user.id, input.alunoId); return createTreino({ aluno_id: input.alunoId, titulo: input.titulo, tipo: input.tipo, descricao: input.descricao || undefined, organization_id: profile.organization_id, criado_por: ctx.user.id }); }),
+      update: protectedProcedure.input(z.object({ id: z.string().uuid(), data: z.object({ titulo: z.string().trim().min(2), tipo: z.string().trim().min(1), descricao: z.string().trim().optional().nullable() }) })).mutation(async ({ ctx, input }) => { await assertStaffForTreino(ctx.user.id, input.id); return updateTreino(input.id, input.data); }),
+      saveExercicios: protectedProcedure.input(z.object({ treinoId: z.string().uuid(), items: z.array(treinoExercicioItem) })).mutation(async ({ ctx, input }) => { await assertStaffForTreino(ctx.user.id, input.treinoId); return replaceTreinoExercicios(input.treinoId, input.items); }),
+      publish: protectedProcedure.input(z.object({ id: z.string().uuid() })).mutation(async ({ ctx, input }) => { await assertStaffForTreino(ctx.user.id, input.id); return publishTreino(input.id, ctx.user.id); }),
+      delete: protectedProcedure.input(z.object({ id: z.string().uuid() })).mutation(async ({ ctx, input }) => { await assertStaffForTreino(ctx.user.id, input.id); return deleteTreino(input.id); }),
+    }),
+    dietas: router({
+      list: protectedProcedure.input(z.object({ alunoId: z.string().uuid() })).query(async ({ ctx, input }) => { await assertStaffForAluno(ctx.user.id, input.alunoId); return listDietasForAluno(input.alunoId); }),
+      create: protectedProcedure.input(z.object({ alunoId: z.string().uuid(), titulo: z.string().trim().min(2), descricao: z.string().trim().optional(), arquivoUrl: z.string().url().optional() })).mutation(async ({ ctx, input }) => { const profile = await assertStaffForAluno(ctx.user.id, input.alunoId); return createDieta({ aluno_id: input.alunoId, titulo: input.titulo, descricao: input.descricao || undefined, arquivo_url: input.arquivoUrl || undefined, organization_id: profile.organization_id, criado_por: ctx.user.id }); }),
+      update: protectedProcedure.input(z.object({ id: z.string().uuid(), data: z.object({ titulo: z.string().trim().min(2), descricao: z.string().trim().optional().nullable(), arquivo_url: z.string().url().optional().nullable() }) })).mutation(async ({ ctx, input }) => { await assertStaffForDieta(ctx.user.id, input.id); return updateDieta(input.id, input.data); }),
+      publish: protectedProcedure.input(z.object({ id: z.string().uuid() })).mutation(async ({ ctx, input }) => { await assertStaffForDieta(ctx.user.id, input.id); return publishDieta(input.id, ctx.user.id); }),
+      delete: protectedProcedure.input(z.object({ id: z.string().uuid() })).mutation(async ({ ctx, input }) => { await assertStaffForDieta(ctx.user.id, input.id); return deleteDieta(input.id); }),
+    }),
+    meu: router({
+      treinos: protectedProcedure.query(({ ctx }) => listTreinosForAluno(ctx.user.id, true)),
+      treinoExercicios: protectedProcedure.input(z.object({ treinoId: z.string().uuid() })).query(async ({ ctx, input }) => { const treino = await getTreino(input.treinoId); if (!treino || treino.aluno_id !== ctx.user.id || treino.estado_publicacao !== "publicado") throw new Error("Treino não encontrado."); return listTreinoExercicios(input.treinoId); }),
+      dietas: protectedProcedure.query(({ ctx }) => listDietasForAluno(ctx.user.id, true)),
     }),
   }),
 });
