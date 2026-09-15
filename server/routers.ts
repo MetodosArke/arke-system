@@ -10,6 +10,8 @@ import { asaasConfigured, asaasEnvironment, createAsaasWebhook, getAsaasAccount,
 import { listAsaasPaymentsForOrganization } from "./asaasPersistence";
 import { lookupCnpj } from "./cnpj";
 import { deleteTurnstileIntegration, listBenefitIntegrations, listTurnstileIntegrationsForOrganization, saveBenefitIntegration, saveTurnstileIntegration } from "./integrations";
+import { openaiConfigured } from "./_core/llm";
+import { sugerirExercicio, sugerirModeloTreino } from "./acervoAi";
 
 const organizationIdInput = z.object({ organizationId: z.string().uuid() });
 const moduleName = z.enum(["dashboard", "academias", "profissionais", "alunos", "agenda", "financeiro", "integracoes"]);
@@ -190,6 +192,14 @@ export const appRouter = router({
       create: adminProcedure.input(z.object({ titulo: z.string().trim().min(2), categoria: z.string().trim().default(""), descricao: z.string().trim().optional(), rotina: z.string().trim().min(2) })).mutation(({ ctx, input }) => createGlobalRoutine({ ...input, criado_por: ctx.user.id })),
       update: adminProcedure.input(z.object({ id: z.string().uuid(), data: z.object({ titulo: z.string().trim().min(2), categoria: z.string().trim(), descricao: z.string().trim().optional().nullable(), rotina: z.string().trim().min(2) }) })).mutation(({ input }) => updateGlobalRoutine(input.id, input.data)),
       delete: adminProcedure.input(z.object({ id: z.string().uuid() })).mutation(({ input }) => deleteGlobalRoutine(input.id)),
+    }),
+    // Fase 16 (CLAUDE.md §9): agente de IA curador do acervo. Só produz
+    // rascunhos — o Admin revisa no formulário e decide se cadastra; nunca
+    // grava direto no acervo.
+    ai: router({
+      status: adminProcedure.query(() => ({ configured: openaiConfigured() })),
+      sugerirExercicio: adminProcedure.input(z.object({ nome: z.string().trim().min(2), grupoMuscular: z.string().trim().min(2), equipamento: z.string().trim().optional() })).mutation(({ input }) => sugerirExercicio(input)),
+      sugerirModeloTreino: adminProcedure.input(z.object({ objetivo: z.string().trim().min(2), categoria: z.string().trim().min(1), divisoes: z.array(z.string().trim().min(1)).min(1) })).mutation(({ input }) => sugerirModeloTreino(input)),
     }),
     accessRules: router({
       upsert: adminProcedure.input(z.object({ modulo: z.enum(["academia", "studio", "profissional", "nutricionista"]), plano: z.string().trim().min(2), habilitado: z.boolean(), requer_consultoria: z.boolean().default(true) })).mutation(({ input }) => upsertGlobalAccessRule(input)),
