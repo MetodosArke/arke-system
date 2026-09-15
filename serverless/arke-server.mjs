@@ -1321,6 +1321,168 @@ async function deleteTurnstileIntegration(unitId, organizationId) {
   return { success: true };
 }
 
+// server/_core/llm.ts
+var ensureArray = (value) => Array.isArray(value) ? value : [value];
+var normalizeContentPart = (part) => {
+  if (typeof part === "string") return { type: "text", text: part };
+  return part;
+};
+var normalizeMessage = (message) => {
+  const contentParts = ensureArray(message.content).map(normalizeContentPart);
+  if (contentParts.length === 1 && contentParts[0].type === "text") {
+    return { role: message.role, name: message.name, content: contentParts[0].text };
+  }
+  return { role: message.role, name: message.name, content: contentParts };
+};
+var normalizeResponseFormat = ({ responseFormat, outputSchema }) => {
+  if (responseFormat) return responseFormat;
+  if (!outputSchema) return void 0;
+  if (!outputSchema.name || !outputSchema.schema) throw new Error("outputSchema requires both name and schema");
+  return { type: "json_schema", json_schema: { name: outputSchema.name, schema: outputSchema.schema, strict: outputSchema.strict ?? true } };
+};
+var DEFAULT_MODEL = "gpt-4o-mini";
+var RETRY_MAX_RETRIES = 3;
+var RETRY_BASE_DELAY_MS = 500;
+var sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+function openaiConfigured() {
+  return Boolean(process.env.OPENAI_API_KEY);
+}
+function assertApiKey() {
+  if (!openaiConfigured()) throw new Error("OPENAI_API_KEY n\xE3o configurada.");
+}
+async function fetchWithBackoff(url, init) {
+  let lastError;
+  for (let attempt = 0; attempt <= RETRY_MAX_RETRIES; attempt++) {
+    try {
+      const response = await fetch(url, init);
+      if (response.ok || attempt === RETRY_MAX_RETRIES) return response;
+      try {
+        await response.body?.cancel();
+      } catch {
+      }
+      await sleep(RETRY_BASE_DELAY_MS * 2 ** attempt);
+    } catch (error) {
+      lastError = error;
+      if (attempt === RETRY_MAX_RETRIES) throw error;
+      await sleep(RETRY_BASE_DELAY_MS * 2 ** attempt);
+    }
+  }
+  throw lastError instanceof Error ? lastError : new Error("Falha ao chamar a OpenAI ap\xF3s esgotar as tentativas.");
+}
+async function invokeLLM(params) {
+  assertApiKey();
+  const payload = {
+    model: params.model ?? DEFAULT_MODEL,
+    messages: params.messages.map(normalizeMessage)
+  };
+  const responseFormat = normalizeResponseFormat(params);
+  if (responseFormat) payload.response_format = responseFormat;
+  if (typeof params.maxTokens === "number") payload.max_tokens = params.maxTokens;
+  const response = await fetchWithBackoff("https://api.openai.com/v1/chat/completions", {
+    method: "POST",
+    headers: { "content-type": "application/json", authorization: `Bearer ${process.env.OPENAI_API_KEY}` },
+    body: JSON.stringify(payload)
+  });
+  if (!response.ok) throw new Error(`OpenAI invoke failed: ${response.status} ${response.statusText} \u2013 ${await response.text()}`);
+  return await response.json();
+}
+
+// server/acervoAi.ts
+var MODEL = "gpt-4o-mini";
+async function sugerirExercicio(input) {
+  const result = await invokeLLM({
+    model: MODEL,
+    messages: [
+      { role: "system", content: "Voc\xEA \xE9 um assistente de curadoria de exerc\xEDcios de muscula\xE7\xE3o/treino f\xEDsico para uma plataforma de academias no Brasil. Responda em portugu\xEAs do Brasil, com linguagem curta, segura e profissional. Nunca invente contraindica\xE7\xE3o m\xE9dica espec\xEDfica \u2014 oriente apenas boa execu\xE7\xE3o geral." },
+      { role: "user", content: `Exerc\xEDcio: ${input.nome}
+Grupo muscular: ${input.grupoMuscular}
+Equipamento informado pelo cadastrador: ${input.equipamento || "n\xE3o informado"}
+
+Sugira uma descri\xE7\xE3o curta (1-2 frases), instru\xE7\xF5es de execu\xE7\xE3o (passo a passo, at\xE9 5 passos, separados por quebra de linha) e o equipamento necess\xE1rio (se n\xE3o informado, sugira o mais prov\xE1vel).` }
+    ],
+    outputSchema: {
+      name: "sugestao_exercicio",
+      schema: {
+        type: "object",
+        properties: {
+          descricao: { type: "string" },
+          instrucoes: { type: "string" },
+          equipamento: { type: "string" }
+        },
+        required: ["descricao", "instrucoes", "equipamento"],
+        additionalProperties: false
+      },
+      strict: true
+    }
+  });
+  const content = result.choices[0]?.message.content;
+  if (!content) throw new Error("A IA n\xE3o retornou sugest\xE3o.");
+  return JSON.parse(content);
+}
+async function sugerirModeloTreino(input) {
+  const { exercises } = await listGlobalLibrary();
+  if (!exercises.length) throw new Error("Cadastre exerc\xEDcios no acervo antes de gerar um modelo com IA.");
+  const catalogo = exercises.map((ex) => `${ex.id}::${ex.nome} (${ex.grupo_muscular})`).join("\n");
+  const result = await invokeLLM({
+    model: MODEL,
+    messages: [
+      { role: "system", content: "Voc\xEA \xE9 um assistente de curadoria de modelos de treino (fichas) para uma plataforma de academias no Brasil. Monte a ficha usando SOMENTE exerc\xEDcios da lista fornecida, referenciando pelo id exato. Nunca invente um exerc\xEDcio que n\xE3o est\xE1 na lista \u2014 se a lista n\xE3o cobrir bem alguma divis\xE3o, use os exerc\xEDcios mais pr\xF3ximos dispon\xEDveis. Responda em portugu\xEAs do Brasil." },
+      { role: "user", content: `Objetivo do modelo: ${input.objetivo}
+Categoria: ${input.categoria}
+Divis\xF5es desejadas: ${input.divisoes.join(", ")}
+
+Exerc\xEDcios dispon\xEDveis no acervo (id::nome (grupo muscular)):
+${catalogo}
+
+Monte, para cada divis\xE3o, de 2 a 6 exerc\xEDcios com id do exerc\xEDcio (copiado exatamente da lista), s\xE9ries, repeti\xE7\xF5es (ex.: "12" ou "8-12") e descanso em segundos. Inclua tamb\xE9m uma descri\xE7\xE3o curta do modelo.` }
+    ],
+    outputSchema: {
+      name: "sugestao_modelo_treino",
+      schema: {
+        type: "object",
+        properties: {
+          descricao: { type: "string" },
+          divisoes: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                divisao: { type: "string" },
+                exercicios: {
+                  type: "array",
+                  items: {
+                    type: "object",
+                    properties: {
+                      exercicio_id: { type: "string" },
+                      series: { type: "integer" },
+                      repeticoes: { type: "string" },
+                      descanso_seg: { type: "integer" }
+                    },
+                    required: ["exercicio_id", "series", "repeticoes", "descanso_seg"],
+                    additionalProperties: false
+                  }
+                }
+              },
+              required: ["divisao", "exercicios"],
+              additionalProperties: false
+            }
+          }
+        },
+        required: ["descricao", "divisoes"],
+        additionalProperties: false
+      },
+      strict: true
+    }
+  });
+  const content = result.choices[0]?.message.content;
+  if (!content) throw new Error("A IA n\xE3o retornou sugest\xE3o.");
+  const parsed = JSON.parse(content);
+  const validIds = new Set(exercises.map((ex) => ex.id));
+  const divisoesValidadas = parsed.divisoes.map((divisao) => ({ divisao: divisao.divisao, exercicios: divisao.exercicios.filter((ex) => validIds.has(ex.exercicio_id)) })).filter((divisao) => divisao.exercicios.length > 0);
+  if (!divisoesValidadas.length) throw new Error("A IA n\xE3o conseguiu montar um modelo v\xE1lido com os exerc\xEDcios j\xE1 cadastrados.");
+  return { titulo: `${input.categoria} \u2014 ${input.objetivo}`.slice(0, 160), categoria: input.categoria, descricao: parsed.descricao, divisoes: divisoesValidadas };
+}
+
 // server/routers.ts
 var organizationIdInput = z2.object({ organizationId: z2.string().uuid() });
 var moduleName = z2.enum(["dashboard", "academias", "profissionais", "alunos", "agenda", "financeiro", "integracoes"]);
@@ -1485,6 +1647,14 @@ var appRouter = router({
       create: adminProcedure.input(z2.object({ titulo: z2.string().trim().min(2), categoria: z2.string().trim().default(""), descricao: z2.string().trim().optional(), rotina: z2.string().trim().min(2) })).mutation(({ ctx, input }) => createGlobalRoutine({ ...input, criado_por: ctx.user.id })),
       update: adminProcedure.input(z2.object({ id: z2.string().uuid(), data: z2.object({ titulo: z2.string().trim().min(2), categoria: z2.string().trim(), descricao: z2.string().trim().optional().nullable(), rotina: z2.string().trim().min(2) }) })).mutation(({ input }) => updateGlobalRoutine(input.id, input.data)),
       delete: adminProcedure.input(z2.object({ id: z2.string().uuid() })).mutation(({ input }) => deleteGlobalRoutine(input.id))
+    }),
+    // Fase 16 (CLAUDE.md §9): agente de IA curador do acervo. Só produz
+    // rascunhos — o Admin revisa no formulário e decide se cadastra; nunca
+    // grava direto no acervo.
+    ai: router({
+      status: adminProcedure.query(() => ({ configured: openaiConfigured() })),
+      sugerirExercicio: adminProcedure.input(z2.object({ nome: z2.string().trim().min(2), grupoMuscular: z2.string().trim().min(2), equipamento: z2.string().trim().optional() })).mutation(({ input }) => sugerirExercicio(input)),
+      sugerirModeloTreino: adminProcedure.input(z2.object({ objetivo: z2.string().trim().min(2), categoria: z2.string().trim().min(1), divisoes: z2.array(z2.string().trim().min(1)).min(1) })).mutation(({ input }) => sugerirModeloTreino(input))
     }),
     accessRules: router({
       upsert: adminProcedure.input(z2.object({ modulo: z2.enum(["academia", "studio", "profissional", "nutricionista"]), plano: z2.string().trim().min(2), habilitado: z2.boolean(), requer_consultoria: z2.boolean().default(true) })).mutation(({ input }) => upsertGlobalAccessRule(input)),
