@@ -490,3 +490,71 @@ export async function runAutomacaoDiaria(): Promise<AutomacaoResultado> {
 
   return resultado;
 }
+
+// --- Fase 8: Gestão (prazos, capacidade, indicadores) ---
+//
+// Indicadores agregados a partir de dados que já existem — nenhuma
+// tabela nova. Fica só no nível da organização (não por profissional):
+// não há um relacionamento real de "aluno atribuído a profissional"
+// no modelo hoje, então inventar essa quebra seria fingir uma análise
+// que não foi feita (CLAUDE.md "princípio central").
+
+export type GestaoIndicadores = {
+  capacidade: { totalAlunos: number; totalStaff: number; mediaAlunosPorStaff: number | null };
+  entrega: {
+    treino: { semRegistro: number; rascunho: number; publicado: number };
+    dieta: { semRegistro: number; rascunho: number; publicado: number };
+  };
+  atendimento: {
+    abertos: number;
+    emAndamento: number;
+    vencidos: number;
+    resolvidosUltimos30Dias: number;
+    tempoMedioResolucaoHoras: number | null;
+    porPrioridade: Record<Atendimento["prioridade"], number>;
+  };
+};
+
+function resumoEntrega(alunoIds: Set<string>, registros: Array<{ aluno_id: string; estado_publicacao: string }>) {
+  const temRegistro = new Set<string>();
+  const temPublicado = new Set<string>();
+  for (const registro of registros) {
+    if (!alunoIds.has(registro.aluno_id)) continue;
+    temRegistro.add(registro.aluno_id);
+    if (registro.estado_publicacao === "publicado") temPublicado.add(registro.aluno_id);
+  }
+  return { semRegistro: alunoIds.size - temRegistro.size, rascunho: temRegistro.size - temPublicado.size, publicado: temPublicado.size };
+}
+
+export async function getGestaoIndicadores(organizationId: string): Promise<GestaoIndicadores> {
+  const trintaDiasAtras = new Date(Date.now() - 1000 * 60 * 60 * 24 * 30).toISOString();
+
+  const [alunos, staff, treinos, dietas, abertos, resolvidosRecentes] = await Promise.all([
+    request<{ user_id: string }[]>("profiles", {}, `?select=user_id&organization_id=eq.${encodeURIComponent(organizationId)}&status=eq.active`),
+    request<{ id: string }[]>("saas_memberships", {}, `?select=id&organization_id=eq.${encodeURIComponent(organizationId)}&status=eq.active`),
+    request<{ aluno_id: string; estado_publicacao: string }[]>("treinos", {}, `?select=aluno_id,estado_publicacao&organization_id=eq.${encodeURIComponent(organizationId)}`),
+    request<{ aluno_id: string; estado_publicacao: string }[]>("dietas", {}, `?select=aluno_id,estado_publicacao&organization_id=eq.${encodeURIComponent(organizationId)}`),
+    request<{ status: Atendimento["status"]; prioridade: Atendimento["prioridade"]; prazo: string | null }[]>("atendimentos", {}, `?select=status,prioridade,prazo&organization_id=eq.${encodeURIComponent(organizationId)}&status=in.(aberta,em_andamento)`),
+    request<{ created_at: string; resolvido_em: string | null }[]>("atendimentos", {}, `?select=created_at,resolvido_em&organization_id=eq.${encodeURIComponent(organizationId)}&status=eq.resolvida&resolvido_em=gte.${encodeURIComponent(trintaDiasAtras)}`),
+  ]);
+
+  const alunoIds = new Set(alunos.map((a) => a.user_id));
+  const now = Date.now();
+  const porPrioridade: GestaoIndicadores["atendimento"]["porPrioridade"] = { rotina: 0, atencao: 0, prioritario: 0, encaminhamento_profissional: 0 };
+  for (const item of abertos) porPrioridade[item.prioridade] += 1;
+
+  const temposResolucaoHoras = resolvidosRecentes.filter((item) => item.resolvido_em).map((item) => (new Date(item.resolvido_em as string).getTime() - new Date(item.created_at).getTime()) / (1000 * 60 * 60));
+
+  return {
+    capacidade: { totalAlunos: alunoIds.size, totalStaff: staff.length, mediaAlunosPorStaff: staff.length ? alunoIds.size / staff.length : null },
+    entrega: { treino: resumoEntrega(alunoIds, treinos), dieta: resumoEntrega(alunoIds, dietas) },
+    atendimento: {
+      abertos: abertos.filter((item) => item.status === "aberta").length,
+      emAndamento: abertos.filter((item) => item.status === "em_andamento").length,
+      vencidos: abertos.filter((item) => item.prazo && new Date(item.prazo).getTime() < now).length,
+      resolvidosUltimos30Dias: resolvidosRecentes.length,
+      tempoMedioResolucaoHoras: temposResolucaoHoras.length ? temposResolucaoHoras.reduce((sum, horas) => sum + horas, 0) / temposResolucaoHoras.length : null,
+      porPrioridade,
+    },
+  };
+}

@@ -5,7 +5,7 @@ import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { adminProcedure, protectedProcedure, publicProcedure, router } from "./_core/trpc";
 import { acceptOrganizationInvitation, archiveOrganizationUnit, auditLogsToCsv, auditLogsToPdfBase64, createOrganizationInvitation, createOrganizationUnit, createOrganizationWithOwner, getAuditLogs, getMembership, getOrganizationAccess, getOrganizationBySlug, getOrganizationOnboarding, getOrganizationSubscription, getOrganizationsForUser, getPendingOrganizationInvitations, recordAuditLog, saveOrganizationOnboarding, updateModulePolicy, updateOrganizationProfile, updateOrganizationSubscription } from "./db";
-import { acceptMemberInvitation, assignAtendimento, createAppStudent, createAppUser, createAtendimento, createDieta, createGlobalExercise, createGlobalGroup, createGlobalNutritionPlan, createGlobalRoutine, createGlobalTemplate, createGlobalTemplateExercise, createPasswordRecoveryCode, createTreino, deleteAppStudent, deleteAppUser, deleteDieta, deleteGlobalExercise, deleteGlobalGroup, deleteGlobalNutritionPlan, deleteGlobalRoutine, deleteGlobalTemplate, deleteGlobalTemplateExercise, deleteGlobalAccessRule, deleteTreino, findAppUserByEmail, getAcolhimento, getAtendimento, getDieta, getProfileByUserId, getTreino, hasSupabaseConfig, inviteMember, listAppStudents, listAppUsers, listAtendimentosForOrganization, listDietasForAluno, listExercisesCatalog, listGlobalLibrary, listMyAtendimentos, listMyCheckIns, listPendingMemberInvitations, listStudentsInOrganization, listTreinoExercicios, listTreinosForAluno, normalizeEmail, publishDieta, publishTreino, replaceTreinoExercicios, requestHelp, resolveAtendimento, revokeMemberInvitation, signInWithSupabase, submitCheckIn, updateAppStudent, updateAppUser, updateDieta, updateGlobalExercise, updateGlobalGroup, updateGlobalNutritionPlan, updateGlobalRoutine, updateGlobalTemplate, updateGlobalTemplateExercise, updateSupabaseUserPassword, updateTreino, upsertAcolhimento, upsertGlobalAccessRule, verifyPasswordRecoveryCode } from "./supabaseAdmin";
+import { acceptMemberInvitation, assignAtendimento, createAppStudent, createAppUser, createAtendimento, createDieta, createGlobalExercise, createGlobalGroup, createGlobalNutritionPlan, createGlobalRoutine, createGlobalTemplate, createGlobalTemplateExercise, createPasswordRecoveryCode, createTreino, deleteAppStudent, deleteAppUser, deleteDieta, deleteGlobalExercise, deleteGlobalGroup, deleteGlobalNutritionPlan, deleteGlobalRoutine, deleteGlobalTemplate, deleteGlobalTemplateExercise, deleteGlobalAccessRule, deleteTreino, findAppUserByEmail, getAcolhimento, getAtendimento, getDieta, getGestaoIndicadores, getProfileByUserId, getTreino, hasSupabaseConfig, inviteMember, listAppStudents, listAppUsers, listAtendimentosForOrganization, listDietasForAluno, listExercisesCatalog, listGlobalLibrary, listMyAtendimentos, listMyCheckIns, listPendingMemberInvitations, listStudentsInOrganization, listTreinoExercicios, listTreinosForAluno, normalizeEmail, publishDieta, publishTreino, replaceTreinoExercicios, requestHelp, resolveAtendimento, revokeMemberInvitation, signInWithSupabase, submitCheckIn, updateAppStudent, updateAppUser, updateDieta, updateGlobalExercise, updateGlobalGroup, updateGlobalNutritionPlan, updateGlobalRoutine, updateGlobalTemplate, updateGlobalTemplateExercise, updateSupabaseUserPassword, updateTreino, upsertAcolhimento, upsertGlobalAccessRule, verifyPasswordRecoveryCode } from "./supabaseAdmin";
 import { asaasSandboxConfigured, createAsaasCustomer, createAsaasPayment, createAsaasWebhook, getAsaasAccount, listAsaasPayments } from "./asaas";
 import { listStoredAsaasPayments } from "./asaasPersistence";
 import { lookupCnpj } from "./cnpj";
@@ -30,6 +30,7 @@ const hasOrganizationAccess = async (userId: string, organizationId: string) => 
 };
 
 const STAFF_ROLES: readonly string[] = ["owner", "admin", "manager", "professional"];
+const MANAGER_ROLES: readonly string[] = ["owner", "admin", "manager"];
 
 const assertStaffOfOrganization = async (userId: string, organizationId: string) => {
   const membership = await getMembership(userId, organizationId);
@@ -260,6 +261,10 @@ export const appRouter = router({
       assign: protectedProcedure.input(z.object({ id: z.string().uuid() })).mutation(async ({ ctx, input }) => { await assertStaffForAtendimento(ctx.user.id, input.id); return assignAtendimento(input.id, ctx.user.id); }),
       resolve: protectedProcedure.input(z.object({ id: z.string().uuid(), resultado: z.string().trim().min(2).max(4000) })).mutation(async ({ ctx, input }) => { await assertStaffForAtendimento(ctx.user.id, input.id); return resolveAtendimento(input.id, ctx.user.id, input.resultado); }),
     }),
+  }),
+  gestao: router({
+    myOrganizations: protectedProcedure.query(async ({ ctx }) => (await getOrganizationsForUser(ctx.user.id)).filter((item) => MANAGER_ROLES.includes(item.membership.role))),
+    indicadores: protectedProcedure.input(organizationIdInput).query(async ({ ctx, input }) => { await ownerOrAdmin(ctx.user.id, input.organizationId); return getGestaoIndicadores(input.organizationId); }),
   }),
 });
 

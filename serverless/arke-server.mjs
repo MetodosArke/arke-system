@@ -873,6 +873,44 @@ async function runAutomacaoDiaria() {
   }
   return resultado;
 }
+function resumoEntrega(alunoIds, registros) {
+  const temRegistro = /* @__PURE__ */ new Set();
+  const temPublicado = /* @__PURE__ */ new Set();
+  for (const registro of registros) {
+    if (!alunoIds.has(registro.aluno_id)) continue;
+    temRegistro.add(registro.aluno_id);
+    if (registro.estado_publicacao === "publicado") temPublicado.add(registro.aluno_id);
+  }
+  return { semRegistro: alunoIds.size - temRegistro.size, rascunho: temRegistro.size - temPublicado.size, publicado: temPublicado.size };
+}
+async function getGestaoIndicadores(organizationId) {
+  const trintaDiasAtras = new Date(Date.now() - 1e3 * 60 * 60 * 24 * 30).toISOString();
+  const [alunos, staff, treinos, dietas, abertos, resolvidosRecentes] = await Promise.all([
+    request2("profiles", {}, `?select=user_id&organization_id=eq.${encodeURIComponent(organizationId)}&status=eq.active`),
+    request2("saas_memberships", {}, `?select=id&organization_id=eq.${encodeURIComponent(organizationId)}&status=eq.active`),
+    request2("treinos", {}, `?select=aluno_id,estado_publicacao&organization_id=eq.${encodeURIComponent(organizationId)}`),
+    request2("dietas", {}, `?select=aluno_id,estado_publicacao&organization_id=eq.${encodeURIComponent(organizationId)}`),
+    request2("atendimentos", {}, `?select=status,prioridade,prazo&organization_id=eq.${encodeURIComponent(organizationId)}&status=in.(aberta,em_andamento)`),
+    request2("atendimentos", {}, `?select=created_at,resolvido_em&organization_id=eq.${encodeURIComponent(organizationId)}&status=eq.resolvida&resolvido_em=gte.${encodeURIComponent(trintaDiasAtras)}`)
+  ]);
+  const alunoIds = new Set(alunos.map((a) => a.user_id));
+  const now = Date.now();
+  const porPrioridade = { rotina: 0, atencao: 0, prioritario: 0, encaminhamento_profissional: 0 };
+  for (const item of abertos) porPrioridade[item.prioridade] += 1;
+  const temposResolucaoHoras = resolvidosRecentes.filter((item) => item.resolvido_em).map((item) => (new Date(item.resolvido_em).getTime() - new Date(item.created_at).getTime()) / (1e3 * 60 * 60));
+  return {
+    capacidade: { totalAlunos: alunoIds.size, totalStaff: staff.length, mediaAlunosPorStaff: staff.length ? alunoIds.size / staff.length : null },
+    entrega: { treino: resumoEntrega(alunoIds, treinos), dieta: resumoEntrega(alunoIds, dietas) },
+    atendimento: {
+      abertos: abertos.filter((item) => item.status === "aberta").length,
+      emAndamento: abertos.filter((item) => item.status === "em_andamento").length,
+      vencidos: abertos.filter((item) => item.prazo && new Date(item.prazo).getTime() < now).length,
+      resolvidosUltimos30Dias: resolvidosRecentes.length,
+      tempoMedioResolucaoHoras: temposResolucaoHoras.length ? temposResolucaoHoras.reduce((sum, horas) => sum + horas, 0) / temposResolucaoHoras.length : null,
+      porPrioridade
+    }
+  };
+}
 
 // server/asaas.ts
 function asaasConfig() {
@@ -975,6 +1013,7 @@ var hasOrganizationAccess = async (userId, organizationId) => {
   return membership;
 };
 var STAFF_ROLES = ["owner", "admin", "manager", "professional"];
+var MANAGER_ROLES = ["owner", "admin", "manager"];
 var assertStaffOfOrganization = async (userId, organizationId) => {
   const membership = await getMembership(userId, organizationId);
   if (!membership || membership.membership.status !== "active" || !STAFF_ROLES.includes(membership.membership.role)) throw new Error("Voc\xEA n\xE3o tem acesso a esta organiza\xE7\xE3o.");
@@ -1318,6 +1357,13 @@ var appRouter = router({
         await assertStaffForAtendimento(ctx.user.id, input.id);
         return resolveAtendimento(input.id, ctx.user.id, input.resultado);
       })
+    })
+  }),
+  gestao: router({
+    myOrganizations: protectedProcedure.query(async ({ ctx }) => (await getOrganizationsForUser(ctx.user.id)).filter((item) => MANAGER_ROLES.includes(item.membership.role))),
+    indicadores: protectedProcedure.input(organizationIdInput).query(async ({ ctx, input }) => {
+      await ownerOrAdmin(ctx.user.id, input.organizationId);
+      return getGestaoIndicadores(input.organizationId);
     })
   })
 });
