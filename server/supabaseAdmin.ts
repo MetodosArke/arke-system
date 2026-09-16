@@ -258,6 +258,9 @@ export async function hasCheckinDesde(userId: string, desde: string) {
   const rows = await request<Array<{ data: string }>>("checkin_diario", {}, `?select=data&user_id=eq.${encodeURIComponent(userId)}&data=gte.${encodeURIComponent(desde)}&limit=1`);
   return rows.length > 0;
 }
+export async function listCheckinsPeriodo(userId: string, desde: string, ate: string) {
+  return request<CheckinDiario[]>("checkin_diario", {}, `?select=*&user_id=eq.${encodeURIComponent(userId)}&data=gte.${encodeURIComponent(desde)}&data=lte.${encodeURIComponent(ate)}&order=data.asc`);
+}
 
 export type AvaliacaoSemanal = { id: string; user_id: string; organization_id: string; semana: string; sono: number; produtividade: number; humor: number; conquista: string | null; created_at: string; updated_at: string };
 export async function getAvaliacaoSemanal(userId: string, semana: string) { const rows = await request<AvaliacaoSemanal[]>("avaliacao_semanal", {}, `?select=*&user_id=eq.${encodeURIComponent(userId)}&semana=eq.${encodeURIComponent(semana)}&limit=1`); return rows[0] ?? null; }
@@ -265,6 +268,9 @@ export async function upsertAvaliacaoSemanal(input: { userId: string; organizati
   const body = { user_id: input.userId, organization_id: input.organizationId, semana: input.semana, sono: input.sono, produtividade: input.produtividade, humor: input.humor, conquista: input.conquista ?? null, updated_at: new Date().toISOString() };
   const rows = await request<AvaliacaoSemanal[]>("avaliacao_semanal", { method: "POST", body: JSON.stringify(body), headers: { Prefer: "return=representation,resolution=merge-duplicates" } }, "?on_conflict=user_id,semana");
   return rows[0];
+}
+export async function listAvaliacoesSemanaisPeriodo(userId: string, desde: string, ate: string) {
+  return request<AvaliacaoSemanal[]>("avaliacao_semanal", {}, `?select=*&user_id=eq.${encodeURIComponent(userId)}&semana=gte.${encodeURIComponent(desde)}&semana=lte.${encodeURIComponent(ate)}&order=semana.asc`);
 }
 
 export type PlanoTreinoSemanal = { id: string; user_id: string; organization_id: string; dias_treino: string[]; horario_preferido: string | null; local_treino: string | null; created_at: string; updated_at: string };
@@ -325,6 +331,13 @@ export async function setCompromissoMetaConcluida(id: string, concluida: boolean
 export async function getCompromissoMetaComDono(id: string) {
   const rows = await request<Array<CompromissoMeta & { compromisso_semanal: { user_id: string } | null }>>("compromisso_metas", {}, `?select=*,compromisso_semanal(user_id)&id=eq.${encodeURIComponent(id)}&limit=1`);
   return rows[0] ?? null;
+}
+// Motor de pontuação (Sessão A, fatia 2): metas concluídas no período,
+// filtrado pela semana do compromisso (não por created_at — a semana é o
+// período a que a meta se refere). !inner é necessário para o PostgREST
+// aceitar filtro numa coluna da tabela embutida.
+export async function listCompromissoMetasConcluidasPeriodo(userId: string, desde: string, ate: string) {
+  return request<Array<CompromissoMeta & { compromisso_semanal: { semana: string } }>>("compromisso_metas", {}, `?select=*,compromisso_semanal!inner(semana,user_id)&compromisso_semanal.user_id=eq.${encodeURIComponent(userId)}&concluida=eq.true&compromisso_semanal.semana=gte.${encodeURIComponent(desde)}&compromisso_semanal.semana=lte.${encodeURIComponent(ate)}`);
 }
 
 // Evolução (progresso_semanal): cada chamada de create insere um novo

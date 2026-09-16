@@ -808,6 +808,9 @@ async function hasCheckinDesde(userId, desde) {
   const rows = await request2("checkin_diario", {}, `?select=data&user_id=eq.${encodeURIComponent(userId)}&data=gte.${encodeURIComponent(desde)}&limit=1`);
   return rows.length > 0;
 }
+async function listCheckinsPeriodo(userId, desde, ate) {
+  return request2("checkin_diario", {}, `?select=*&user_id=eq.${encodeURIComponent(userId)}&data=gte.${encodeURIComponent(desde)}&data=lte.${encodeURIComponent(ate)}&order=data.asc`);
+}
 async function getAvaliacaoSemanal(userId, semana) {
   const rows = await request2("avaliacao_semanal", {}, `?select=*&user_id=eq.${encodeURIComponent(userId)}&semana=eq.${encodeURIComponent(semana)}&limit=1`);
   return rows[0] ?? null;
@@ -816,6 +819,9 @@ async function upsertAvaliacaoSemanal(input) {
   const body = { user_id: input.userId, organization_id: input.organizationId, semana: input.semana, sono: input.sono, produtividade: input.produtividade, humor: input.humor, conquista: input.conquista ?? null, updated_at: (/* @__PURE__ */ new Date()).toISOString() };
   const rows = await request2("avaliacao_semanal", { method: "POST", body: JSON.stringify(body), headers: { Prefer: "return=representation,resolution=merge-duplicates" } }, "?on_conflict=user_id,semana");
   return rows[0];
+}
+async function listAvaliacoesSemanaisPeriodo(userId, desde, ate) {
+  return request2("avaliacao_semanal", {}, `?select=*&user_id=eq.${encodeURIComponent(userId)}&semana=gte.${encodeURIComponent(desde)}&semana=lte.${encodeURIComponent(ate)}&order=semana.asc`);
 }
 async function getPlanoTreinoSemanal(userId) {
   const rows = await request2("plano_treino_semanal", {}, `?select=*&user_id=eq.${encodeURIComponent(userId)}&limit=1`);
@@ -864,6 +870,9 @@ async function setCompromissoMetaConcluida(id2, concluida) {
 async function getCompromissoMetaComDono(id2) {
   const rows = await request2("compromisso_metas", {}, `?select=*,compromisso_semanal(user_id)&id=eq.${encodeURIComponent(id2)}&limit=1`);
   return rows[0] ?? null;
+}
+async function listCompromissoMetasConcluidasPeriodo(userId, desde, ate) {
+  return request2("compromisso_metas", {}, `?select=*,compromisso_semanal!inner(semana,user_id)&compromisso_semanal.user_id=eq.${encodeURIComponent(userId)}&concluida=eq.true&compromisso_semanal.semana=gte.${encodeURIComponent(desde)}&compromisso_semanal.semana=lte.${encodeURIComponent(ate)}`);
 }
 var PROGRESSO_SEMANAL_SELECT = "id,aluno_id,organization_id,data,peso_kg,gordura_percentual,musculo_percentual,cintura_cm,quadril_cm,braco_cm,perna_cm,bem_estar,observacoes,meta_peso_kg,created_at";
 async function listProgressoSemanal(alunoId) {
@@ -1732,6 +1741,74 @@ async function assertAlunoTemArke(userId) {
   if (!await alunoTemArke(userId)) throw new Error("Este conte\xFAdo faz parte do m\xE9todo Arke, que ainda n\xE3o est\xE1 ativo para voc\xEA. Fale com seu profissional.");
 }
 
+// server/arkeGamification.ts
+var PONTOS_POR_EVENTO_ENGAJAMENTO = 5;
+var PONTOS_META_PESO_ATINGIDA = 20;
+var TOLERANCIA_META_PESO_KG = 1;
+var PONTOS_META_TREINOS_SEMANA = 15;
+function weekKeyFor(dateStr) {
+  const d = /* @__PURE__ */ new Date(`${dateStr}T00:00:00.000Z`);
+  const diffToMonday = (d.getUTCDay() + 6) % 7;
+  d.setUTCDate(d.getUTCDate() - diffToMonday);
+  return d.toISOString().slice(0, 10);
+}
+async function pontosEngajamento(alunoId, desde, ate) {
+  const [checkins, avaliacoes, treinos, dietaAdesoes, metasConcluidas] = await Promise.all([
+    listCheckinsPeriodo(alunoId, desde, ate),
+    listAvaliacoesSemanaisPeriodo(alunoId, desde, ate),
+    listTreinoCalendarioPeriodo(alunoId, desde, ate),
+    listDietaAdesaoPeriodo(alunoId, desde, ate),
+    listCompromissoMetasConcluidasPeriodo(alunoId, desde, ate)
+  ]);
+  const eventos = [];
+  for (const checkin of checkins) eventos.push({ origem: "engajamento", descricao: "Check-in di\xE1rio", pontos: PONTOS_POR_EVENTO_ENGAJAMENTO, data: checkin.data });
+  for (const avaliacao of avaliacoes) eventos.push({ origem: "engajamento", descricao: "Avalia\xE7\xE3o semanal", pontos: PONTOS_POR_EVENTO_ENGAJAMENTO, data: avaliacao.semana });
+  for (const treino of treinos) eventos.push({ origem: "engajamento", descricao: `Treino registrado (${treino.tipos.join(", ")})`, pontos: PONTOS_POR_EVENTO_ENGAJAMENTO, data: treino.data });
+  for (const dieta of dietaAdesoes) eventos.push({ origem: "engajamento", descricao: "Ades\xE3o \xE0 dieta registrada", pontos: PONTOS_POR_EVENTO_ENGAJAMENTO, data: dieta.data });
+  for (const meta of metasConcluidas) eventos.push({ origem: "engajamento", descricao: `Micrometa conclu\xEDda: ${meta.texto}`, pontos: PONTOS_POR_EVENTO_ENGAJAMENTO, data: meta.compromisso_semanal.semana });
+  return eventos;
+}
+async function pontosMetas(alunoId, desde, ate) {
+  const eventos = [];
+  const [progresso, plano, treinos] = await Promise.all([listProgressoSemanal(alunoId), getPlanoTreinoSemanal(alunoId), listTreinoCalendarioPeriodo(alunoId, desde, ate)]);
+  const progressoNoPeriodo = progresso.filter((registro) => registro.data >= desde && registro.data <= ate);
+  const maisRecente = progressoNoPeriodo[progressoNoPeriodo.length - 1];
+  if (maisRecente?.meta_peso_kg != null && maisRecente.peso_kg != null && Math.abs(maisRecente.peso_kg - maisRecente.meta_peso_kg) <= TOLERANCIA_META_PESO_KG) {
+    eventos.push({ origem: "meta", descricao: `Meta de peso atingida (${maisRecente.peso_kg}kg, meta ${maisRecente.meta_peso_kg}kg)`, pontos: PONTOS_META_PESO_ATINGIDA, data: maisRecente.data });
+  }
+  if (plano?.dias_treino?.length) {
+    const diasPorSemana = /* @__PURE__ */ new Map();
+    for (const treino of treinos) {
+      const semana = weekKeyFor(treino.data);
+      if (!diasPorSemana.has(semana)) diasPorSemana.set(semana, /* @__PURE__ */ new Set());
+      diasPorSemana.get(semana)?.add(treino.data);
+    }
+    const metaDiasPorSemana = plano.dias_treino.length;
+    diasPorSemana.forEach((dias, semana) => {
+      if (dias.size >= metaDiasPorSemana) eventos.push({ origem: "meta", descricao: `Meta semanal de treinos atingida (${dias.size}/${metaDiasPorSemana})`, pontos: PONTOS_META_TREINOS_SEMANA, data: semana });
+    });
+  }
+  return eventos;
+}
+async function pontosDesafios(alunoId, desde, ate) {
+  const progresso = await listDesafioProgressoForAluno(alunoId);
+  const eventos = [];
+  for (const item of progresso) {
+    if (!item.concluido || !item.concluido_em) continue;
+    const data = item.concluido_em.slice(0, 10);
+    if (data < desde || data > ate) continue;
+    const desafio = await getDesafio(item.desafio_id);
+    if (desafio) eventos.push({ origem: "desafio", descricao: `Desafio conclu\xEDdo: ${desafio.titulo}`, pontos: desafio.pontos, data });
+  }
+  return eventos;
+}
+async function computeScoreAluno(alunoId, _organizationId, desde, ate) {
+  const [engajamento, metas, desafios] = await Promise.all([pontosEngajamento(alunoId, desde, ate), pontosMetas(alunoId, desde, ate), pontosDesafios(alunoId, desde, ate)]);
+  const eventos = [...engajamento, ...metas, ...desafios].sort((a, b) => a.data.localeCompare(b.data));
+  const total = eventos.reduce((soma, evento) => soma + evento.pontos, 0);
+  return { eventos, total };
+}
+
 // server/cnpj.ts
 async function lookupCnpj(cnpj) {
   const digits = cnpj.replace(/\D/g, "");
@@ -2051,6 +2128,7 @@ var TURNSTILE_BRAND_KEYS = ["control_id", "topdata", "henry", "dimep", "intelbra
 
 // server/routers.ts
 var organizationIdInput = z2.object({ organizationId: z2.string().uuid() });
+var periodoInput = z2.object({ desde: z2.string().regex(/^\d{4}-\d{2}-\d{2}$/), ate: z2.string().regex(/^\d{4}-\d{2}-\d{2}$/) });
 var moduleName = z2.enum(["dashboard", "academias", "profissionais", "alunos", "agenda", "financeiro", "integracoes"]);
 var roleName = z2.enum(["owner", "admin", "manager", "professional", "nutricionista", "viewer"]);
 var auditFilterInput = z2.object({ organizationId: z2.string().uuid(), from: z2.string().optional(), to: z2.string().optional(), userId: z2.string().uuid().optional(), entity: z2.string().max(64).optional() });
@@ -2826,6 +2904,16 @@ var appRouter = router({
         return result;
       })
     }),
+    // Motor de pontuação (Sessão A, fatia 2) — staff acompanha o extrato
+    // de qualquer aluno da própria organização, mesmo cálculo que o aluno
+    // vê de si mesmo em arke.meu.minhaPontuacao.
+    pontuacao: router({
+      deAluno: protectedProcedure.input(periodoInput.extend({ alunoId: z2.string().uuid() })).query(async ({ ctx, input }) => {
+        const profile = await assertStaffForAluno(ctx.user.id, input.alunoId);
+        if (!profile.organization_id) throw new Error("Aluno sem organiza\xE7\xE3o vinculada.");
+        return computeScoreAluno(input.alunoId, profile.organization_id, input.desde, input.ate);
+      })
+    }),
     // Desafios (Fase 2 — engajamento): a equipe cria e acompanha, o aluno só
     // lê (mesma divisão de acesso do arke-app original). `concluido`/
     // `valorAtual` são sempre digitados pela equipe — não há rastreamento
@@ -3046,6 +3134,14 @@ var appRouter = router({
         const meta = await getCompromissoMetaComDono(input.metaId);
         if (!meta || meta.compromisso_semanal?.user_id !== ctx.user.id) throw new Error("Meta n\xE3o encontrada.");
         return setCompromissoMetaConcluida(input.metaId, input.concluida);
+      }),
+      // Motor de pontuação (Sessão A, fatia 2) — só leitura por enquanto,
+      // checkpoint antes de alimentar desafios/competições automáticos.
+      minhaPontuacao: protectedProcedure.input(periodoInput).query(async ({ ctx, input }) => {
+        await assertAlunoTemArke(ctx.user.id);
+        const profile = await getProfileByUserId(ctx.user.id);
+        if (!profile?.organization_id) throw new Error("Aluno sem organiza\xE7\xE3o vinculada.");
+        return computeScoreAluno(ctx.user.id, profile.organization_id, input.desde, input.ate);
       })
     }),
     // Feed (Fase 2 — engajamento): mural da comunidade da organização,

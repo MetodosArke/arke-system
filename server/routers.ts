@@ -8,6 +8,7 @@ import { assertRateLimit, rateLimitKey } from "./_core/rateLimit";
 import { acceptOrganizationInvitation, archiveOrganizationUnit, auditLogsToCsv, auditLogsToPdfBase64, createOrganizationInvitation, createOrganizationUnit, createOrganizationWithOwner, createPlatformAppointment, createSubscriptionCharge, deletePlatformAppointment, getAuditLogs, getMembership, getOrganization, getOrganizationAccess, getOrganizationBySlug, getOrganizationOnboarding, getOrganizationSubscription, getOrganizationsForUser, getPendingOrganizationInvitations, listActiveStaffUserIds, listAllOrganizationsForPlatform, listPlatformAppointments, recordAuditLog, revokeOrganizationInvitation, saveOrganizationOnboarding, updateModulePolicy, updateOrganizationProfile, updateOrganizationSubscription, updatePlatformAppointment, type Membership } from "./db";
 import { acceptMemberInvitation, assignAtendimento, cancelarReserva, cancelarReservaStaff, converterLead, countAllAlunosComArkeAtivo, countAlunosComArkeAtivo, createAppStudent, createAppUser, createAtendimento, createDeletionRequest, addCompeticaoParticipante, addDesafioParticipante, createCompeticao, createDesafio, createDieta, createFeedComment, createFeedLike, createFeedPost, createGlobalExercise, createGlobalGroup, createGlobalNutritionPlan, createGlobalRoutine, createGlobalTemplate, createGlobalTemplateExercise, createLead, createLeadNota, createMensagemDieta, createMensagemTreino, createNotificacao, createPasswordRecoveryCode, createProgressoSemanal, createTreino, createTurma, deleteAppStudent, deleteAppUser, deleteCompeticao, deleteDesafio, deleteDieta, deletePushSubscription, deleteFeedComment, deleteFeedLike, deleteFeedPost, deleteProgressoSemanal, deleteGlobalExercise, deleteGlobalGroup, deleteGlobalNutritionPlan, deleteGlobalRoutine, deleteGlobalTemplate, deleteGlobalTemplateExercise, deleteGlobalAccessRule, deleteLead, deleteTreino, deleteTurma, findAppUserByEmail, fulfillDeletionRequest, gerarFichaTreinoPdf, getAcolhimento, getAlunoArkeLicenca, getArkeModule, getAtendimento, getAvaliacaoSemanal, getCheckinDoDia, getCrmIndicadores, getCurrentPrivacyPolicy, getDeletionRequest, getDieta, getGestaoIndicadores, getLead, getCompeticao, getDesafio, getFeedComment, getFeedLike, getFeedPost, getMyDeletionRequest, getPlanoTreinoSemanal, getProfileByUserId, getProgressoSemanal, getReserva, getTreino, getTurma, getVagasDisponiveis, hasConsent, hasSupabaseConfig, inviteMember, listAppStudents, listAppUsers, listAtendimentosForOrganization, listCompeticaoParticipantes, listCompeticaoParticipantesForAluno, listCompeticaoPontuacaoForCompeticao, listCompeticoes, listDeletionRequests, listDesafioParticipantes, listDesafioParticipantesForAluno, listDesafioProgressoForAluno, listDesafioProgressoForDesafio, listDesafios, listDietasForAluno, listMensagensDieta, listMensagensTreino, listNotificacoes, listProntuarioObservacoes, listExercisesCatalog, listFeedCommentsForPosts, listFeedLikesForPosts, listFeedPosts, listFrequenciaForAluno, listFrequenciaForOrganization, listGlobalLibrary, listLeadAtividades, listLeadsForOrganization, listMinhasReservas, listMyAtendimentos, listMyCheckIns, listPendingMemberInvitations, listProfileNames, listProgressoSemanal, listReservasForTurmaData, listStudentsInOrganization, listTreinoExercicios, listTreinosForAluno, listTurmaHorarios, listTurmasAtivas, listTurmasForOrganization, marcarLeadPerdido, moverEstagioLead, normalizeEmail, publishDieta, publishGlobalExercises, publishGlobalNutritionPlans, publishGlobalTemplates, publishTreino, countNotificacoesNaoLidas, createCompromissoMeta, createTreinoCalendario, getCompromissoMetaComDono, getDietaAdesaoDoDia, getOrCreateCompromissoSemanal, listCompromissoMetas, listDietaAdesaoPeriodo, listTreinoCalendarioPeriodo, markAllNotificacoesLidas, markMensagensDietaLidas, markMensagensTreinoLidas, markNotificacaoLida, recordConsent, registrarFrequencia, rejectDeletionRequest, removeCompeticaoParticipante, removeDesafioParticipante, replaceTreinoExercicios, replaceTurmaHorarios, requestHelp, reservarVaga, resolveAtendimento, revokeMemberInvitation, setCompeticaoPontuacao, setCompromissoMetaConcluida, setDesafioProgresso, signInWithSupabase, submitCheckIn, toggleAlunoArkeLicenca, updateAppStudent, updateAppUser, updateCompeticao, updateDesafio, updateDieta, upsertProntuarioObservacao, upsertPushSubscription, upsertDietaAdesao, updateGlobalExercise, updateGlobalGroup, updateGlobalNutritionPlan, updateGlobalRoutine, updateGlobalTemplate, updateGlobalTemplateExercise, updateLead, updateStudentMatricula, updateSupabaseUserPassword, updateTreino, updateTurma, upsertAcolhimento, upsertArkeModule, upsertAvaliacaoSemanal, upsertCheckinDiario, upsertGlobalAccessRule, upsertPlanoTreinoSemanal, verifyPasswordRecoveryCode } from "./supabaseAdmin";
 import { alunoTemArke, assertAlunoTemArke } from "./arkeEntitlement";
+import { computeScoreAluno } from "./arkeGamification";
 import { asaasConfigured, asaasEnvironment, createAsaasWebhook, getAsaasAccount, listAsaasPayments } from "./asaas";
 import { listAllAsaasPayments, listAsaasPaymentsForOrganization } from "./asaasPersistence";
 import { lookupCnpj } from "./cnpj";
@@ -20,6 +21,8 @@ import { ARKE_MODULE_PACKAGE_AMOUNTS_CENTS, ORG_PLAN_KEYS, SAAS_PLAN_KEYS, type 
 import { TURNSTILE_BRAND_KEYS } from "@shared/turnstile";
 
 const organizationIdInput = z.object({ organizationId: z.string().uuid() });
+// Motor de pontuação (Sessão A): janela de datas YYYY-MM-DD para consultas de pontuação.
+const periodoInput = z.object({ desde: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), ate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/) });
 const moduleName = z.enum(["dashboard", "academias", "profissionais", "alunos", "agenda", "financeiro", "integracoes"]);
 const roleName = z.enum(["owner", "admin", "manager", "professional", "nutricionista", "viewer"]);
 const auditFilterInput = z.object({ organizationId: z.string().uuid(), from: z.string().optional(), to: z.string().optional(), userId: z.string().uuid().optional(), entity: z.string().max(64).optional() });
@@ -716,6 +719,16 @@ export const appRouter = router({
         return result;
       }),
     }),
+    // Motor de pontuação (Sessão A, fatia 2) — staff acompanha o extrato
+    // de qualquer aluno da própria organização, mesmo cálculo que o aluno
+    // vê de si mesmo em arke.meu.minhaPontuacao.
+    pontuacao: router({
+      deAluno: protectedProcedure.input(periodoInput.extend({ alunoId: z.string().uuid() })).query(async ({ ctx, input }) => {
+        const profile = await assertStaffForAluno(ctx.user.id, input.alunoId);
+        if (!profile.organization_id) throw new Error("Aluno sem organização vinculada.");
+        return computeScoreAluno(input.alunoId, profile.organization_id, input.desde, input.ate);
+      }),
+    }),
     // Desafios (Fase 2 — engajamento): a equipe cria e acompanha, o aluno só
     // lê (mesma divisão de acesso do arke-app original). `concluido`/
     // `valorAtual` são sempre digitados pela equipe — não há rastreamento
@@ -897,6 +910,14 @@ export const appRouter = router({
         const meta = await getCompromissoMetaComDono(input.metaId);
         if (!meta || meta.compromisso_semanal?.user_id !== ctx.user.id) throw new Error("Meta não encontrada.");
         return setCompromissoMetaConcluida(input.metaId, input.concluida);
+      }),
+      // Motor de pontuação (Sessão A, fatia 2) — só leitura por enquanto,
+      // checkpoint antes de alimentar desafios/competições automáticos.
+      minhaPontuacao: protectedProcedure.input(periodoInput).query(async ({ ctx, input }) => {
+        await assertAlunoTemArke(ctx.user.id);
+        const profile = await getProfileByUserId(ctx.user.id);
+        if (!profile?.organization_id) throw new Error("Aluno sem organização vinculada.");
+        return computeScoreAluno(ctx.user.id, profile.organization_id, input.desde, input.ate);
       }),
     }),
     // Feed (Fase 2 — engajamento): mural da comunidade da organização,
