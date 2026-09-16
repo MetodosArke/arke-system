@@ -118,4 +118,26 @@ describe("arke.meu (conteúdo do método)", () => {
   it("cannot save a plano de treino semanal without a configured Supabase profile lookup", async () => {
     await expect(appRouter.createCaller(createContext()).arke.meu.salvarPlanoTreinoSemanal({ diasTreino: ["segunda"] })).rejects.toThrow();
   });
+
+  it("cannot read evolução (progresso) without a configured Supabase profile lookup", async () => {
+    await expect(appRouter.createCaller(createContext()).arke.meu.progresso()).rejects.toThrow();
+  });
+});
+
+describe("prescricao.progresso (evolução)", () => {
+  it("requires staff access to the aluno's organization to list", async () => {
+    await expect(appRouter.createCaller(createContext()).prescricao.progresso.list({ alunoId: TEST_USER_ID })).rejects.toThrow();
+  });
+
+  it("requires staff access to the aluno's organization to create a measurement", async () => {
+    await expect(appRouter.createCaller(createContext()).prescricao.progresso.create({ alunoId: TEST_USER_ID, pesoKg: 80 })).rejects.toThrow();
+  });
+
+  it("rejects a bem-estar value outside the accepted 1-5 range", async () => {
+    await expect(appRouter.createCaller(createContext()).prescricao.progresso.create({ alunoId: TEST_USER_ID, bemEstar: 9 })).rejects.toThrow();
+  });
+
+  it("requires staff access to delete a measurement", async () => {
+    await expect(appRouter.createCaller(createContext()).prescricao.progresso.delete({ id: "00000000-0000-0000-0000-0000000000d1" })).rejects.toThrow();
+  });
 });

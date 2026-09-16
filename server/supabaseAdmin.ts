@@ -264,6 +264,16 @@ export async function upsertPlanoTreinoSemanal(input: { userId: string; organiza
   return rows[0];
 }
 
+// Evolução (progresso_semanal): cada chamada de create insere um novo
+// registro histórico (não é upsert por chave natural como check-in/avaliação
+// — o aluno pode registrar medidas quantas vezes o profissional quiser).
+const PROGRESSO_SEMANAL_SELECT = "id,aluno_id,organization_id,data,peso_kg,gordura_percentual,musculo_percentual,cintura_cm,quadril_cm,braco_cm,perna_cm,bem_estar,observacoes,meta_peso_kg,created_at";
+export type ProgressoSemanal = { id: string; aluno_id: string; organization_id: string; data: string; peso_kg: number | null; gordura_percentual: number | null; musculo_percentual: number | null; cintura_cm: number | null; quadril_cm: number | null; braco_cm: number | null; perna_cm: number | null; bem_estar: number | null; observacoes: string | null; meta_peso_kg: number | null; created_at: string };
+export async function listProgressoSemanal(alunoId: string) { return request<ProgressoSemanal[]>("progresso_semanal", {}, `?select=${PROGRESSO_SEMANAL_SELECT}&aluno_id=eq.${encodeURIComponent(alunoId)}&order=data.asc`); }
+export async function getProgressoSemanal(idValue: string) { const rows = await request<ProgressoSemanal[]>("progresso_semanal", {}, `?select=${PROGRESSO_SEMANAL_SELECT}&id=eq.${encodeURIComponent(idValue)}&limit=1`); return rows[0] ?? null; }
+export async function createProgressoSemanal(input: Record<string, unknown>) { const rows = await request<ProgressoSemanal[]>("progresso_semanal", { method: "POST", body: JSON.stringify(input) }); return rows[0]; }
+export async function deleteProgressoSemanal(idValue: string) { await request("progresso_semanal", { method: "DELETE" }, `?id=eq.${encodeURIComponent(idValue)}`); return { id: idValue }; }
+
 // Prescrição real de treino nunca pode puxar um exercício ainda em
 // rascunho (não revisado pelo Admin Arke) — só o acervo publicado entra
 // aqui.

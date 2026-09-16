@@ -763,6 +763,22 @@ async function upsertPlanoTreinoSemanal(input) {
   const rows = await request2("plano_treino_semanal", { method: "POST", body: JSON.stringify(body), headers: { Prefer: "return=representation,resolution=merge-duplicates" } }, "?on_conflict=user_id");
   return rows[0];
 }
+var PROGRESSO_SEMANAL_SELECT = "id,aluno_id,organization_id,data,peso_kg,gordura_percentual,musculo_percentual,cintura_cm,quadril_cm,braco_cm,perna_cm,bem_estar,observacoes,meta_peso_kg,created_at";
+async function listProgressoSemanal(alunoId) {
+  return request2("progresso_semanal", {}, `?select=${PROGRESSO_SEMANAL_SELECT}&aluno_id=eq.${encodeURIComponent(alunoId)}&order=data.asc`);
+}
+async function getProgressoSemanal(idValue) {
+  const rows = await request2("progresso_semanal", {}, `?select=${PROGRESSO_SEMANAL_SELECT}&id=eq.${encodeURIComponent(idValue)}&limit=1`);
+  return rows[0] ?? null;
+}
+async function createProgressoSemanal(input) {
+  const rows = await request2("progresso_semanal", { method: "POST", body: JSON.stringify(input) });
+  return rows[0];
+}
+async function deleteProgressoSemanal(idValue) {
+  await request2("progresso_semanal", { method: "DELETE" }, `?id=eq.${encodeURIComponent(idValue)}`);
+  return { id: idValue };
+}
 async function listExercisesCatalog() {
   return request2("exercicios", {}, "?select=id,nome,grupo_muscular,video_url&estado_publicacao=eq.publicado&order=nome.asc");
 }
@@ -1749,6 +1765,13 @@ var assertStaffForDieta = async (userId, dietaId, blockedRoles = []) => {
   await assertStaffOfOrganization(userId, dieta.organization_id, blockedRoles);
   return dieta;
 };
+var assertStaffForProgresso = async (userId, progressoId, blockedRoles = []) => {
+  const registro = await getProgressoSemanal(progressoId);
+  if (!registro) throw new Error("Registro de progresso n\xE3o encontrado.");
+  if (!registro.organization_id) throw new Error("Registro sem organiza\xE7\xE3o vinculada.");
+  await assertStaffOfOrganization(userId, registro.organization_id, blockedRoles);
+  return registro;
+};
 var assertStaffForAtendimento = async (userId, atendimentoId) => {
   const atendimento = await getAtendimento(atendimentoId);
   if (!atendimento) throw new Error("Atendimento n\xE3o encontrado.");
@@ -2222,6 +2245,53 @@ var appRouter = router({
         if (!treino || treino.aluno_id !== ctx.user.id || treino.estado_publicacao !== "publicado") throw new Error("Treino n\xE3o encontrado.");
         return gerarFichaTreinoPdf(input.treinoId);
       })
+    }),
+    // Evolução (medidas corporais) é histórico, não upsert — qualquer
+    // profissional da equipe pode registrar/remover; sem bloqueio por papel.
+    progresso: router({
+      list: protectedProcedure.input(z2.object({ alunoId: z2.string().uuid() })).query(async ({ ctx, input }) => {
+        await assertStaffForAluno(ctx.user.id, input.alunoId);
+        return listProgressoSemanal(input.alunoId);
+      }),
+      create: protectedProcedure.input(z2.object({
+        alunoId: z2.string().uuid(),
+        data: z2.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+        pesoKg: z2.number().positive().max(500).optional(),
+        gorduraPercentual: z2.number().min(0).max(100).optional(),
+        musculoPercentual: z2.number().min(0).max(100).optional(),
+        cinturaCm: z2.number().positive().max(300).optional(),
+        quadrilCm: z2.number().positive().max(300).optional(),
+        bracoCm: z2.number().positive().max(100).optional(),
+        pernaCm: z2.number().positive().max(150).optional(),
+        bemEstar: z2.number().int().min(1).max(5).optional(),
+        observacoes: z2.string().trim().max(1e3).optional(),
+        metaPesoKg: z2.number().positive().max(500).optional()
+      })).mutation(async ({ ctx, input }) => {
+        const profile = await assertStaffForAluno(ctx.user.id, input.alunoId);
+        const registro = await createProgressoSemanal({
+          aluno_id: input.alunoId,
+          organization_id: profile.organization_id,
+          ...input.data ? { data: input.data } : {},
+          peso_kg: input.pesoKg ?? null,
+          gordura_percentual: input.gorduraPercentual ?? null,
+          musculo_percentual: input.musculoPercentual ?? null,
+          cintura_cm: input.cinturaCm ?? null,
+          quadril_cm: input.quadrilCm ?? null,
+          braco_cm: input.bracoCm ?? null,
+          perna_cm: input.pernaCm ?? null,
+          bem_estar: input.bemEstar ?? null,
+          observacoes: input.observacoes ?? null,
+          meta_peso_kg: input.metaPesoKg ?? null
+        });
+        if (profile.organization_id) await recordAuditLog({ organizationId: profile.organization_id, userId: ctx.user.id, action: "created", entity: "progresso_semanal", entityId: registro.id, afterJson: input });
+        return registro;
+      }),
+      delete: protectedProcedure.input(z2.object({ id: z2.string().uuid() })).mutation(async ({ ctx, input }) => {
+        const registro = await assertStaffForProgresso(ctx.user.id, input.id);
+        const result = await deleteProgressoSemanal(input.id);
+        await recordAuditLog({ organizationId: registro.organization_id, userId: ctx.user.id, action: "deleted", entity: "progresso_semanal", entityId: input.id, beforeJson: registro });
+        return result;
+      })
     })
   }),
   arke: router({
@@ -2278,6 +2348,10 @@ var appRouter = router({
         const profile = await getProfileByUserId(ctx.user.id);
         if (!profile?.organization_id) throw new Error("Aluno sem organiza\xE7\xE3o vinculada.");
         return upsertPlanoTreinoSemanal({ userId: ctx.user.id, organizationId: profile.organization_id, diasTreino: input.diasTreino, horarioPreferido: input.horarioPreferido, localTreino: input.localTreino });
+      }),
+      progresso: protectedProcedure.query(async ({ ctx }) => {
+        await assertAlunoTemArke(ctx.user.id);
+        return listProgressoSemanal(ctx.user.id);
       })
     })
   }),
