@@ -1529,6 +1529,46 @@ Monte, para cada divis\xE3o, de 2 a 6 exerc\xEDcios com id do exerc\xEDcio (copi
   return { titulo: `${input.categoria} \u2014 ${input.objetivo}`.slice(0, 160), categoria: input.categoria, descricao: parsed.descricao, divisoes: divisoesValidadas };
 }
 
+// server/storage.ts
+var IMAGE_MIME_TYPES = ["image/png", "image/jpeg", "image/webp", "image/svg+xml"];
+var LOGO_MIME_TYPES = IMAGE_MIME_TYPES;
+var DIETA_MIME_TYPES = [...IMAGE_MIME_TYPES, "application/pdf"];
+var LOGO_MAX_BYTES = 1.5 * 1024 * 1024;
+var DIETA_MAX_BYTES = 3 * 1024 * 1024;
+var EXTENSION_BY_MIME = {
+  "image/png": "png",
+  "image/jpeg": "jpg",
+  "image/webp": "webp",
+  "image/svg+xml": "svg",
+  "application/pdf": "pdf"
+};
+function extensionFor(contentType) {
+  return EXTENSION_BY_MIME[contentType] ?? "bin";
+}
+function decodeUpload(dataBase64, contentType, allowed, maxBytes) {
+  if (!allowed.includes(contentType)) throw new Error("Tipo de arquivo n\xE3o suportado.");
+  const buffer = Buffer.from(dataBase64, "base64");
+  if (buffer.byteLength === 0) throw new Error("Arquivo vazio.");
+  if (buffer.byteLength > maxBytes) throw new Error(`Arquivo muito grande (m\xE1ximo ${(maxBytes / (1024 * 1024)).toFixed(1)}MB).`);
+  return buffer;
+}
+function storageConfig() {
+  const url = process.env.SUPABASE_URL ?? "";
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.SUPABASE_KEY ?? "";
+  if (!url || !key) throw new Error("Supabase n\xE3o configurado. Defina SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY.");
+  return { url: url.replace(/\/$/, ""), key };
+}
+async function uploadPublicFile(bucket, path, data, contentType) {
+  const { url, key } = storageConfig();
+  const response = await fetch(`${url}/storage/v1/object/${bucket}/${path}`, {
+    method: "POST",
+    headers: { apikey: key, Authorization: `Bearer ${key}`, "Content-Type": contentType, "x-upsert": "true" },
+    body: new Uint8Array(data)
+  });
+  if (!response.ok) throw new Error(`Supabase Storage ${response.status}: ${await response.text()}`);
+  return `${url}/storage/v1/object/public/${bucket}/${path}`;
+}
+
 // server/routers.ts
 var organizationIdInput = z2.object({ organizationId: z2.string().uuid() });
 var moduleName = z2.enum(["dashboard", "academias", "profissionais", "alunos", "agenda", "financeiro", "integracoes"]);
@@ -1668,7 +1708,12 @@ var appRouter = router({
       list: adminProcedure.query(() => listAppUsers()),
       create: adminProcedure.input(z2.object({ name: z2.string().trim().min(2), email: z2.string().email(), username: z2.string().trim().min(2).max(80), module: z2.enum(["academia", "studio", "profissional", "aluno", "administrador"]), role: z2.string().trim().min(2), status: z2.enum(["Ativo", "Suspenso"]), logoUrl: z2.string().max(1e6).optional().nullable(), profileData: z2.record(z2.string(), z2.string()).optional() })).mutation(({ input }) => createAppUser({ ...input, profile_data: input.profileData, email: normalizeEmail(input.email) })),
       update: adminProcedure.input(z2.object({ id: z2.string().uuid(), data: z2.object({ name: z2.string().trim().min(2), email: z2.string().email(), username: z2.string().trim().min(2), module: z2.enum(["academia", "studio", "profissional", "aluno", "administrador"]), role: z2.string().trim().min(2), status: z2.enum(["Ativo", "Suspenso"]), logoUrl: z2.string().max(1e6).optional().nullable(), profileData: z2.record(z2.string(), z2.string()).optional() }) })).mutation(({ input }) => updateAppUser(input.id, { ...input.data, profile_data: input.data.profileData, email: normalizeEmail(input.data.email) })),
-      delete: adminProcedure.input(z2.object({ id: z2.string().uuid() })).mutation(({ input }) => deleteAppUser(input.id))
+      delete: adminProcedure.input(z2.object({ id: z2.string().uuid() })).mutation(({ input }) => deleteAppUser(input.id)),
+      uploadLogo: adminProcedure.input(z2.object({ contentType: z2.string(), dataBase64: z2.string() })).mutation(async ({ input }) => {
+        const buffer = decodeUpload(input.dataBase64, input.contentType, LOGO_MIME_TYPES, LOGO_MAX_BYTES);
+        const url = await uploadPublicFile("avatars", `logos/${randomUUID2()}.${extensionFor(input.contentType)}`, buffer, input.contentType);
+        return { url };
+      })
     }),
     students: router({
       list: adminProcedure.query(() => listAppStudents()),
@@ -1979,6 +2024,12 @@ var appRouter = router({
         const dieta = await createDieta({ aluno_id: input.alunoId, titulo: input.titulo, descricao: input.descricao || void 0, arquivo_url: input.arquivoUrl || void 0, organization_id: profile.organization_id, criado_por: ctx.user.id });
         if (profile.organization_id) await recordAuditLog({ organizationId: profile.organization_id, userId: ctx.user.id, action: "created", entity: "dieta", entityId: dieta.id, afterJson: input });
         return dieta;
+      }),
+      uploadArquivo: protectedProcedure.input(z2.object({ alunoId: z2.string().uuid(), contentType: z2.string(), dataBase64: z2.string() })).mutation(async ({ ctx, input }) => {
+        await assertStaffForAluno(ctx.user.id, input.alunoId, DIETA_BLOCKED_ROLES);
+        const buffer = decodeUpload(input.dataBase64, input.contentType, DIETA_MIME_TYPES, DIETA_MAX_BYTES);
+        const url = await uploadPublicFile("dietas", `${input.alunoId}/${randomUUID2()}.${extensionFor(input.contentType)}`, buffer, input.contentType);
+        return { url };
       }),
       update: protectedProcedure.input(z2.object({ id: z2.string().uuid(), data: z2.object({ titulo: z2.string().trim().min(2), descricao: z2.string().trim().optional().nullable(), arquivo_url: z2.string().url().optional().nullable() }) })).mutation(async ({ ctx, input }) => {
         const dieta = await assertStaffForDieta(ctx.user.id, input.id, DIETA_BLOCKED_ROLES);

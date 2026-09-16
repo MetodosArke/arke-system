@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { trpc } from "@/lib/trpc";
+import { readFileAsBase64 } from "@/lib/upload";
 
 type Toast = { title: string; detail: string };
 type Tab = "treinos" | "dieta" | "acolhimento" | "matricula";
@@ -111,6 +112,22 @@ export function ProfessionalDashboard({ onToast }: { onToast: (toast: Toast) => 
   const selectedDieta = dietas.find((dieta) => dieta.id === dietaId);
   const beginDieta = (id: string) => { const dieta = dietas.find((item) => item.id === id); setDietaId(id); setDietaForm({ titulo: dieta?.titulo ?? "", descricao: dieta?.descricao ?? "", arquivoUrl: dieta?.arquivo_url ?? "" }); };
   const saveDietaHeader = () => { if (!dietaId) return; updateDieta.mutate({ id: dietaId, data: { titulo: dietaForm.titulo || selectedDieta?.titulo || "Plano alimentar", descricao: dietaForm.descricao || null, arquivo_url: dietaForm.arquivoUrl || null } }); };
+  const uploadDietaArquivo = trpc.prescricao.dietas.uploadArquivo.useMutation();
+  const [uploadingArquivo, setUploadingArquivo] = useState(false);
+  const handleDietaArquivo = async (file?: File) => {
+    if (!file || !alunoId) return;
+    setUploadingArquivo(true);
+    try {
+      const { base64, contentType } = await readFileAsBase64(file);
+      const { url } = await uploadDietaArquivo.mutateAsync({ alunoId, contentType, dataBase64: base64 });
+      setDietaForm((current) => ({ ...current, arquivoUrl: url }));
+      success("Arquivo enviado");
+    } catch (error) {
+      fail("Erro ao enviar arquivo", error instanceof Error ? error : new Error("Tente novamente."));
+    } finally {
+      setUploadingArquivo(false);
+    }
+  };
 
   // Convite de aluno
   const invitesQuery = trpc.journey.pendingInvitations.useQuery({ organizationId: activeOrgId }, { enabled: Boolean(activeOrgId) });
@@ -273,13 +290,14 @@ export function ProfessionalDashboard({ onToast }: { onToast: (toast: Toast) => 
             <Card className="rounded-2xl border-[#e5ece5] bg-white shadow-sm"><CardHeader><CardTitle className="text-sm text-[#2b271f]">Planos de {selectedAluno.full_name}</CardTitle></CardHeader><CardContent className="space-y-2">
               {dietas.map((dieta) => <div key={dieta.id} className={`flex items-center justify-between rounded-xl border p-2.5 ${dietaId === dieta.id ? "border-[#15130f]" : "border-[#eee9df]"}`}><button onClick={() => beginDieta(dieta.id)} className="min-w-0 flex-1 text-left"><p className="truncate text-xs font-semibold text-[#4b4438]">{dieta.titulo}</p><p className="text-[10px] text-[#9b9488]">{dieta.estado_publicacao} · v{dieta.versao}</p></button><Button variant="ghost" onClick={() => { if (window.confirm("Remover este plano alimentar?")) deleteDieta.mutate({ id: dieta.id }); }} className="h-7 w-7 p-0 text-[#b65c4d]"><Trash2 size={13} /></Button></div>)}
               {dietas.length === 0 && <p className="text-xs text-[#918a7d]">Nenhum plano alimentar criado ainda.</p>}
-              <div className="mt-3 space-y-2 rounded-xl bg-[#faf7ef] p-3"><p className="text-xs font-semibold text-[#4b4438]">Novo plano alimentar</p><Input value={dietaForm.titulo} onChange={(e) => setDietaForm({ ...dietaForm, titulo: e.target.value })} placeholder="Título" className="h-9 rounded-lg text-xs" /><textarea value={dietaForm.descricao} onChange={(e) => setDietaForm({ ...dietaForm, descricao: e.target.value })} placeholder="Descrição (opcional)" className="min-h-16 w-full rounded-lg border bg-white p-2 text-xs" /><Input value={dietaForm.arquivoUrl} onChange={(e) => setDietaForm({ ...dietaForm, arquivoUrl: e.target.value })} placeholder="Link do arquivo (opcional)" className="h-9 rounded-lg text-xs" /><Button onClick={() => createDieta.mutate({ alunoId, titulo: dietaForm.titulo, descricao: dietaForm.descricao || undefined, arquivoUrl: dietaForm.arquivoUrl || undefined })} disabled={!dietaForm.titulo} className="h-9 w-full rounded-lg bg-[#15130f] text-xs text-white"><Plus size={14} /> Criar rascunho</Button></div>
+              <div className="mt-3 space-y-2 rounded-xl bg-[#faf7ef] p-3"><p className="text-xs font-semibold text-[#4b4438]">Novo plano alimentar</p><Input value={dietaForm.titulo} onChange={(e) => setDietaForm({ ...dietaForm, titulo: e.target.value })} placeholder="Título" className="h-9 rounded-lg text-xs" /><textarea value={dietaForm.descricao} onChange={(e) => setDietaForm({ ...dietaForm, descricao: e.target.value })} placeholder="Descrição (opcional)" className="min-h-16 w-full rounded-lg border bg-white p-2 text-xs" />{dietaForm.arquivoUrl && <a href={dietaForm.arquivoUrl} target="_blank" rel="noreferrer" className="block text-[10px] font-semibold text-[#a47b13] underline">Arquivo anexado</a>}<label className={`flex h-9 w-full cursor-pointer items-center justify-center rounded-lg text-xs font-semibold text-white ${uploadingArquivo ? "bg-[#8b8579]" : "bg-[#4b4438]"}`}>{uploadingArquivo ? "Enviando..." : dietaForm.arquivoUrl ? "Trocar arquivo (opcional)" : "Anexar arquivo (opcional, até 3MB)"}<input type="file" accept="application/pdf,image/png,image/jpeg,image/webp" disabled={uploadingArquivo} className="hidden" onChange={(e) => handleDietaArquivo(e.target.files?.[0])} /></label><Button onClick={() => createDieta.mutate({ alunoId, titulo: dietaForm.titulo, descricao: dietaForm.descricao || undefined, arquivoUrl: dietaForm.arquivoUrl || undefined })} disabled={!dietaForm.titulo} className="h-9 w-full rounded-lg bg-[#15130f] text-xs text-white"><Plus size={14} /> Criar rascunho</Button></div>
             </CardContent></Card>
 
             {selectedDieta && <Card className="rounded-2xl border-[#e5ece5] bg-white shadow-sm"><CardHeader><CardTitle className="text-sm text-[#2b271f]">{selectedDieta.titulo}</CardTitle><p className="text-[10px] text-[#9b9488]">{selectedDieta.estado_publicacao} · versão {selectedDieta.versao}</p></CardHeader><CardContent className="space-y-3">
               <Input value={dietaForm.titulo} onChange={(e) => setDietaForm({ ...dietaForm, titulo: e.target.value })} placeholder="Título" className="h-9 rounded-lg text-xs" />
               <textarea value={dietaForm.descricao} onChange={(e) => setDietaForm({ ...dietaForm, descricao: e.target.value })} placeholder="Descrição" className="min-h-24 w-full rounded-lg border bg-white p-2 text-xs" />
-              <Input value={dietaForm.arquivoUrl} onChange={(e) => setDietaForm({ ...dietaForm, arquivoUrl: e.target.value })} placeholder="Link do arquivo" className="h-9 rounded-lg text-xs" />
+              {dietaForm.arquivoUrl && <a href={dietaForm.arquivoUrl} target="_blank" rel="noreferrer" className="block text-[10px] font-semibold text-[#a47b13] underline">Arquivo anexado</a>}
+              <label className={`flex h-9 w-full cursor-pointer items-center justify-center rounded-lg text-xs font-semibold text-white ${uploadingArquivo ? "bg-[#8b8579]" : "bg-[#4b4438]"}`}>{uploadingArquivo ? "Enviando..." : dietaForm.arquivoUrl ? "Trocar arquivo" : "Anexar arquivo (até 3MB)"}<input type="file" accept="application/pdf,image/png,image/jpeg,image/webp" disabled={uploadingArquivo} className="hidden" onChange={(e) => handleDietaArquivo(e.target.files?.[0])} /></label>
               <div className="flex gap-2"><Button variant="outline" onClick={saveDietaHeader} className="h-9 flex-1 rounded-lg text-xs"><Save size={14} /> Salvar</Button><Button onClick={() => publishDieta.mutate({ id: selectedDieta.id })} disabled={publishDieta.isPending} className="h-9 flex-1 rounded-lg bg-[#15130f] text-xs text-white"><Send size={14} /> Publicar</Button></div>
             </CardContent></Card>}
           </div>}
