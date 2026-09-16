@@ -2077,15 +2077,46 @@ async function lookupCnpj(cnpj) {
   }
 }
 
-// server/integrations.ts
+// server/turnstileAdapters.ts
+var genericAdapter = {
+  buildTestConnectionCommand: () => ({ action: "test_connection", requestedAt: (/* @__PURE__ */ new Date()).toISOString() })
+};
+var adapters = {};
+var TurnstileAdapterFactory = {
+  forBrand(brand) {
+    return adapters[brand] ?? genericAdapter;
+  }
+};
+
+// server/turnstileRealtime.ts
 function config3() {
   const url = process.env.SUPABASE_URL ?? "";
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.SUPABASE_KEY ?? "";
   if (!url || !key) throw new Error("Supabase n\xE3o configurado.");
   return { url: url.replace(/\/$/, ""), key };
 }
-async function request3(table, init2 = {}, query = "") {
+function turnstileChannel(deviceId) {
+  return `turnstile:${deviceId}`;
+}
+async function publishTurnstileBroadcast(deviceId, event, payload) {
   const { url, key } = config3();
+  const response = await fetch(`${url}/realtime/v1/api/broadcast`, {
+    method: "POST",
+    headers: { apikey: key, Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ messages: [{ topic: turnstileChannel(deviceId), event, payload }] })
+  });
+  if (!response.ok) throw new Error(`Supabase Realtime ${response.status}: ${await response.text()}`);
+}
+
+// server/integrations.ts
+function config4() {
+  const url = process.env.SUPABASE_URL ?? "";
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.SUPABASE_KEY ?? "";
+  if (!url || !key) throw new Error("Supabase n\xE3o configurado.");
+  return { url: url.replace(/\/$/, ""), key };
+}
+async function request3(table, init2 = {}, query = "") {
+  const { url, key } = config4();
   const response = await fetch(`${url}/rest/v1/${table}${query}`, { ...init2, headers: { apikey: key, Authorization: `Bearer ${key}`, "Content-Type": "application/json", Prefer: "return=representation", ...init2.headers ?? {} } });
   if (!response.ok) throw new Error(`Supabase ${response.status}: ${await response.text()}`);
   const text = await response.text();
@@ -2115,9 +2146,14 @@ async function saveBenefitIntegration(input) {
   await request3("saas_benefit_integrations", { method: "POST", headers: { Prefer: "resolution=merge-duplicates,return=representation" }, body: JSON.stringify({ organization_id: input.organizationId, provider: input.provider, enabled: input.enabled, credentials: merged }) }, "?on_conflict=organization_id,provider");
   return getBenefitIntegration(input.organizationId, input.provider);
 }
-async function listTurnstileIntegrationsForOrganization(organizationId) {
-  const rows = await request3("turnstile_devices", {}, `?select=*,saas_units(name)&organization_id=eq.${encodeURIComponent(organizationId)}`);
-  return rows.map((row) => ({
+var HEARTBEAT_STALE_MS = 5 * 60 * 1e3;
+function computeStatus(lastPingAt) {
+  if (!lastPingAt) return "unknown";
+  return Date.now() - new Date(lastPingAt).getTime() <= HEARTBEAT_STALE_MS ? "online" : "offline";
+}
+function mapTurnstileRow(row) {
+  return {
+    id: row.id,
     unitId: row.unit_id,
     unitName: row.saas_units?.name ?? "Unidade",
     brand: row.brand,
@@ -2126,12 +2162,20 @@ async function listTurnstileIntegrationsForOrganization(organizationId) {
     communicationMode: row.communication_mode,
     port: row.port,
     serialOrKey: row.serial_or_key,
-    status: row.status,
+    status: computeStatus(row.last_ping_at),
     lastPingAt: row.last_ping_at,
     enabled: row.enabled,
     configured: Object.keys(row.config ?? {}).length > 0,
-    updatedAt: row.updated_at
-  }));
+    updatedAt: row.updated_at,
+    lastTestRequestedAt: row.last_test_requested_at,
+    lastTestAt: row.last_test_at,
+    lastTestResult: row.last_test_result,
+    lastTestMessage: row.last_test_message
+  };
+}
+async function listTurnstileIntegrationsForOrganization(organizationId) {
+  const rows = await request3("turnstile_devices", {}, `?select=*,saas_units(name)&organization_id=eq.${encodeURIComponent(organizationId)}`);
+  return rows.map(mapTurnstileRow);
 }
 async function saveTurnstileIntegration(input) {
   await request3("turnstile_devices", { method: "POST", headers: { Prefer: "resolution=merge-duplicates,return=representation" }, body: JSON.stringify({
@@ -2151,6 +2195,38 @@ async function saveTurnstileIntegration(input) {
 }
 async function deleteTurnstileIntegration(unitId, organizationId) {
   await request3("turnstile_devices", { method: "DELETE" }, `?unit_id=eq.${encodeURIComponent(unitId)}&organization_id=eq.${encodeURIComponent(organizationId)}`);
+  return { success: true };
+}
+async function requestTurnstileTestConnection(unitId, organizationId) {
+  const rows = await request3("turnstile_devices", {}, `?select=*,saas_units(name)&unit_id=eq.${encodeURIComponent(unitId)}&organization_id=eq.${encodeURIComponent(organizationId)}&limit=1`);
+  const device = rows[0];
+  if (!device) throw new Error("Catraca n\xE3o configurada para esta unidade.");
+  const command = TurnstileAdapterFactory.forBrand(device.brand).buildTestConnectionCommand();
+  await publishTurnstileBroadcast(device.id, "command", command);
+  const requestedAt = (/* @__PURE__ */ new Date()).toISOString();
+  await request3("turnstile_devices", { method: "PATCH", body: JSON.stringify({ last_test_requested_at: requestedAt }) }, `?id=eq.${encodeURIComponent(device.id)}`);
+  return mapTurnstileRow({ ...device, last_test_requested_at: requestedAt });
+}
+async function getTurnstileDeviceById(deviceId) {
+  const rows = await request3("turnstile_devices", {}, `?select=*,saas_units(name)&id=eq.${encodeURIComponent(deviceId)}&limit=1`);
+  return rows[0] ?? null;
+}
+async function recordTurnstileHeartbeat(deviceId) {
+  const device = await getTurnstileDeviceById(deviceId);
+  if (!device) return { success: false };
+  await request3("turnstile_devices", { method: "PATCH", body: JSON.stringify({ status: "online", last_ping_at: (/* @__PURE__ */ new Date()).toISOString() }) }, `?id=eq.${encodeURIComponent(deviceId)}`);
+  return { success: true };
+}
+async function reportTurnstileTestResult(deviceId, result, message) {
+  const device = await getTurnstileDeviceById(deviceId);
+  if (!device) return { success: false };
+  const now = (/* @__PURE__ */ new Date()).toISOString();
+  const patch = { last_test_at: now, last_test_result: result, last_test_message: message ?? null };
+  if (result === "success") {
+    patch.status = "online";
+    patch.last_ping_at = now;
+  }
+  await request3("turnstile_devices", { method: "PATCH", body: JSON.stringify(patch) }, `?id=eq.${encodeURIComponent(deviceId)}`);
   return { success: true };
 }
 async function listTurnstileCatalog() {
@@ -2818,6 +2894,17 @@ var appRouter = router({
         await ownerOrAdmin(ctx.user.id, input.organizationId);
         const result = await deleteTurnstileIntegration(input.unitId, input.organizationId);
         await recordAuditLog({ organizationId: input.organizationId, userId: ctx.user.id, unitId: input.unitId, action: "deleted", entity: "turnstile_integration" });
+        return result;
+      }),
+      // B2 (D-B1): publica o comando "testar conexão" no canal Realtime do
+      // dispositivo — a nuvem não espera aqui pela resposta (não há
+      // WebSocket persistente em função serverless); o agente reporta o
+      // resultado via POST /api/v1/access/test-result e o front revalida
+      // `list` para ver lastTestAt/lastTestResult atualizados.
+      testConnection: protectedProcedure.input(z2.object({ organizationId: z2.string().uuid(), unitId: z2.string().uuid() })).mutation(async ({ ctx, input }) => {
+        await ownerOrAdmin(ctx.user.id, input.organizationId);
+        const result = await requestTurnstileTestConnection(input.unitId, input.organizationId);
+        await recordAuditLog({ organizationId: input.organizationId, userId: ctx.user.id, unitId: input.unitId, action: "requested", entity: "turnstile_test_connection" });
         return result;
       })
     })
@@ -3914,6 +4001,45 @@ function registerAccessRoutes(app) {
       checkedAt: (/* @__PURE__ */ new Date()).toISOString(),
       message
     });
+  });
+  const requireDeviceKey = (req, res) => {
+    const expectedKey = process.env.CATRACA_API_KEY;
+    const providedKey = normalize(req.header("x-arke-device-key"));
+    if (expectedKey && providedKey !== expectedKey) {
+      res.status(401).json({ ok: false, code: "INVALID_DEVICE_KEY", message: "Dispositivo n\xE3o autorizado." });
+      return false;
+    }
+    return true;
+  };
+  app.post("/api/v1/access/heartbeat", async (req, res) => {
+    if (!requireDeviceKey(req, res)) return;
+    const deviceId = normalize((req.body ?? {}).deviceId);
+    if (!deviceId) return res.status(400).json({ ok: false, code: "INVALID_PAYLOAD", message: "deviceId \xE9 obrigat\xF3rio." });
+    try {
+      const result = await recordTurnstileHeartbeat(deviceId);
+      if (!result.success) return res.status(404).json({ ok: false, code: "DEVICE_NOT_FOUND", message: "Catraca n\xE3o encontrada." });
+      return res.status(200).json({ ok: true });
+    } catch (error) {
+      captureException2(error, { route: "access.heartbeat", deviceId });
+      return res.status(502).json({ ok: false, code: "HEARTBEAT_FAILED", message: "N\xE3o foi poss\xEDvel registrar o heartbeat." });
+    }
+  });
+  app.post("/api/v1/access/test-result", async (req, res) => {
+    if (!requireDeviceKey(req, res)) return;
+    const body = req.body ?? {};
+    const deviceId = normalize(body.deviceId);
+    const result = body.result;
+    if (!deviceId || result !== "success" && result !== "failed") {
+      return res.status(400).json({ ok: false, code: "INVALID_PAYLOAD", message: "deviceId e result ('success'|'failed') s\xE3o obrigat\xF3rios." });
+    }
+    try {
+      const outcome = await reportTurnstileTestResult(deviceId, result, normalize(body.message) || void 0);
+      if (!outcome.success) return res.status(404).json({ ok: false, code: "DEVICE_NOT_FOUND", message: "Catraca n\xE3o encontrada." });
+      return res.status(200).json({ ok: true });
+    } catch (error) {
+      captureException2(error, { route: "access.test-result", deviceId });
+      return res.status(502).json({ ok: false, code: "TEST_RESULT_FAILED", message: "N\xE3o foi poss\xEDvel registrar o resultado do teste." });
+    }
   });
 }
 

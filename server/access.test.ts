@@ -1,14 +1,18 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { registerAccessRoutes } from "./access";
 import * as supabaseAdmin from "./supabaseAdmin";
+import * as integrations from "./integrations";
 
 type Handler = (req: any, res: any) => unknown;
 
+function makeRoutes() {
+  const routes: Record<string, Handler> = {};
+  registerAccessRoutes({ post: (path: string, next: Handler) => { routes[path] = next; } } as any);
+  return routes;
+}
+
 function makeRoute() {
-  let handler: Handler | undefined;
-  registerAccessRoutes({ post: (_path: string, next: Handler) => { handler = next; } } as any);
-  if (!handler) throw new Error("route not registered");
-  return handler;
+  return makeRoutes()["/api/v1/access/check-in"];
 }
 
 function response() {
@@ -108,5 +112,70 @@ describe("access.check-in (configured — dispositivo autenticado)", () => {
     await handler({ body: { academyId: "vertice", organizationId: "org-1", studentId: "aluno-1" }, header: () => "device-secret" }, res);
 
     expect(state.body).toMatchObject({ ok: true, decision: "denied" });
+  });
+});
+
+// B2 (D-B1): o agente local reporta de volta por HTTP autenticado — mesmo
+// contrato de device key do check-in — já que a nuvem nunca fica esperando
+// uma conexão WebSocket aberta dentro da função serverless.
+describe("access.heartbeat / access.test-result", () => {
+  const originalEnv = process.env.CATRACA_API_KEY;
+
+  beforeEach(() => {
+    process.env.CATRACA_API_KEY = "device-secret";
+  });
+
+  afterEach(() => {
+    process.env.CATRACA_API_KEY = originalEnv;
+    vi.restoreAllMocks();
+  });
+
+  it("rejects heartbeat with a missing or wrong device key", async () => {
+    const routes = makeRoutes();
+    const { state, res } = response();
+    await routes["/api/v1/access/heartbeat"]({ body: { deviceId: "device-1" }, header: () => "wrong-key" }, res);
+    expect(state.status).toBe(401);
+  });
+
+  it("records a heartbeat for a known device", async () => {
+    const heartbeatSpy = vi.spyOn(integrations, "recordTurnstileHeartbeat").mockResolvedValue({ success: true });
+    const routes = makeRoutes();
+    const { state, res } = response();
+    await routes["/api/v1/access/heartbeat"]({ body: { deviceId: "device-1" }, header: () => "device-secret" }, res);
+    expect(state.status).toBe(200);
+    expect(state.body).toMatchObject({ ok: true });
+    expect(heartbeatSpy).toHaveBeenCalledWith("device-1");
+  });
+
+  it("returns 404 for a heartbeat from an unknown device", async () => {
+    vi.spyOn(integrations, "recordTurnstileHeartbeat").mockResolvedValue({ success: false });
+    const routes = makeRoutes();
+    const { state, res } = response();
+    await routes["/api/v1/access/heartbeat"]({ body: { deviceId: "device-x" }, header: () => "device-secret" }, res);
+    expect(state.status).toBe(404);
+  });
+
+  it("rejects test-result with an invalid result value", async () => {
+    const routes = makeRoutes();
+    const { state, res } = response();
+    await routes["/api/v1/access/test-result"]({ body: { deviceId: "device-1", result: "maybe" }, header: () => "device-secret" }, res);
+    expect(state.status).toBe(400);
+  });
+
+  it("records a successful test-result", async () => {
+    const resultSpy = vi.spyOn(integrations, "reportTurnstileTestResult").mockResolvedValue({ success: true });
+    const routes = makeRoutes();
+    const { state, res } = response();
+    await routes["/api/v1/access/test-result"]({ body: { deviceId: "device-1", result: "success" }, header: () => "device-secret" }, res);
+    expect(state.status).toBe(200);
+    expect(resultSpy).toHaveBeenCalledWith("device-1", "success", undefined);
+  });
+
+  it("fails with 502 when reporting the test-result errors out", async () => {
+    vi.spyOn(integrations, "reportTurnstileTestResult").mockRejectedValue(new Error("Supabase indisponível"));
+    const routes = makeRoutes();
+    const { state, res } = response();
+    await routes["/api/v1/access/test-result"]({ body: { deviceId: "device-1", result: "failed", message: "timeout" }, header: () => "device-secret" }, res);
+    expect(state.status).toBe(502);
   });
 });

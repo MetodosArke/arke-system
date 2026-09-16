@@ -1,6 +1,7 @@
 import type { Express, Request, Response } from "express";
 import { randomUUID } from "node:crypto";
 import { getProfileByUserId, registrarFrequencia } from "./supabaseAdmin";
+import { recordTurnstileHeartbeat, reportTurnstileTestResult } from "./integrations";
 import { captureException } from "./_core/errorMonitoring";
 import type { TurnstileBrand } from "@shared/turnstile";
 
@@ -113,5 +114,53 @@ export function registerAccessRoutes(app: Express) {
       checkedAt: new Date().toISOString(),
       message,
     });
+  });
+
+  const requireDeviceKey = (req: Request, res: Response): boolean => {
+    const expectedKey = process.env.CATRACA_API_KEY;
+    const providedKey = normalize(req.header("x-arke-device-key"));
+    if (expectedKey && providedKey !== expectedKey) {
+      res.status(401).json({ ok: false, code: "INVALID_DEVICE_KEY", message: "Dispositivo não autorizado." });
+      return false;
+    }
+    return true;
+  };
+
+  // Heartbeat (B2, D-B1): o agente local chama periodicamente para provar
+  // que ainda está de pé — sem isso o status exibido cai para "offline"
+  // depois de alguns minutos sem sinal (ver computeStatus em integrations.ts).
+  app.post("/api/v1/access/heartbeat", async (req: Request, res: Response) => {
+    if (!requireDeviceKey(req, res)) return;
+    const deviceId = normalize((req.body ?? {}).deviceId);
+    if (!deviceId) return res.status(400).json({ ok: false, code: "INVALID_PAYLOAD", message: "deviceId é obrigatório." });
+    try {
+      const result = await recordTurnstileHeartbeat(deviceId);
+      if (!result.success) return res.status(404).json({ ok: false, code: "DEVICE_NOT_FOUND", message: "Catraca não encontrada." });
+      return res.status(200).json({ ok: true });
+    } catch (error) {
+      captureException(error, { route: "access.heartbeat", deviceId });
+      return res.status(502).json({ ok: false, code: "HEARTBEAT_FAILED", message: "Não foi possível registrar o heartbeat." });
+    }
+  });
+
+  // Resultado do "testar conexão" (B2): a nuvem só publica o sinal via
+  // Supabase Realtime (server/turnstileRealtime.ts) — quem testa de
+  // verdade a rede local e reporta o resultado é o agente, aqui.
+  app.post("/api/v1/access/test-result", async (req: Request, res: Response) => {
+    if (!requireDeviceKey(req, res)) return;
+    const body = (req.body ?? {}) as { deviceId?: string; result?: string; message?: string };
+    const deviceId = normalize(body.deviceId);
+    const result = body.result;
+    if (!deviceId || (result !== "success" && result !== "failed")) {
+      return res.status(400).json({ ok: false, code: "INVALID_PAYLOAD", message: "deviceId e result ('success'|'failed') são obrigatórios." });
+    }
+    try {
+      const outcome = await reportTurnstileTestResult(deviceId, result, normalize(body.message) || undefined);
+      if (!outcome.success) return res.status(404).json({ ok: false, code: "DEVICE_NOT_FOUND", message: "Catraca não encontrada." });
+      return res.status(200).json({ ok: true });
+    } catch (error) {
+      captureException(error, { route: "access.test-result", deviceId });
+      return res.status(502).json({ ok: false, code: "TEST_RESULT_FAILED", message: "Não foi possível registrar o resultado do teste." });
+    }
   });
 }

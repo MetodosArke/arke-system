@@ -11,6 +11,8 @@
 // para trocar só um campo público).
 
 import type { TurnstileBrand } from "@shared/turnstile";
+import { TurnstileAdapterFactory } from "./turnstileAdapters";
+import { publishTurnstileBroadcast } from "./turnstileRealtime";
 
 type Json = Record<string, unknown>;
 
@@ -64,20 +66,37 @@ export async function saveBenefitIntegration(input: { organizationId: string; pr
 export type { TurnstileBrand };
 export type TurnstileCommunicationMode = "cloud_webhook" | "local_agent";
 export type TurnstileDeviceStatus = "online" | "offline" | "unknown";
+export type TurnstileTestResult = "success" | "failed";
 type TurnstileRow = {
   id: string; unit_id: string; organization_id: string; brand: TurnstileBrand; model: string | null;
   model_id: string | null; communication_mode: TurnstileCommunicationMode | null; port: number | null; serial_or_key: string | null;
   status: TurnstileDeviceStatus; last_ping_at: string | null; config: Record<string, string>; enabled: boolean; updated_at: string;
+  last_test_requested_at: string | null; last_test_at: string | null; last_test_result: TurnstileTestResult | null; last_test_message: string | null;
   saas_units: { name: string } | null;
 };
 
+// Um heartbeat antigo não prova que o equipamento está online agora
+// (CLAUDE.md — nunca tratar ausência de sinal recente como se fosse sinal
+// positivo): o status exibido é sempre recalculado a partir de
+// last_ping_at, nunca só o que ficou gravado na última escrita.
+const HEARTBEAT_STALE_MS = 5 * 60 * 1000;
+function computeStatus(lastPingAt: string | null): TurnstileDeviceStatus {
+  if (!lastPingAt) return "unknown";
+  return Date.now() - new Date(lastPingAt).getTime() <= HEARTBEAT_STALE_MS ? "online" : "offline";
+}
+
+function mapTurnstileRow(row: TurnstileRow) {
+  return {
+    id: row.id, unitId: row.unit_id, unitName: row.saas_units?.name ?? "Unidade", brand: row.brand, model: row.model,
+    modelId: row.model_id, communicationMode: row.communication_mode, port: row.port, serialOrKey: row.serial_or_key,
+    status: computeStatus(row.last_ping_at), lastPingAt: row.last_ping_at, enabled: row.enabled, configured: Object.keys(row.config ?? {}).length > 0, updatedAt: row.updated_at,
+    lastTestRequestedAt: row.last_test_requested_at, lastTestAt: row.last_test_at, lastTestResult: row.last_test_result, lastTestMessage: row.last_test_message,
+  };
+}
+
 export async function listTurnstileIntegrationsForOrganization(organizationId: string) {
   const rows = await request<TurnstileRow[]>("turnstile_devices", {}, `?select=*,saas_units(name)&organization_id=eq.${encodeURIComponent(organizationId)}`);
-  return rows.map((row) => ({
-    unitId: row.unit_id, unitName: row.saas_units?.name ?? "Unidade", brand: row.brand, model: row.model,
-    modelId: row.model_id, communicationMode: row.communication_mode, port: row.port, serialOrKey: row.serial_or_key,
-    status: row.status, lastPingAt: row.last_ping_at, enabled: row.enabled, configured: Object.keys(row.config ?? {}).length > 0, updatedAt: row.updated_at,
-  }));
+  return rows.map(mapTurnstileRow);
 }
 
 export async function saveTurnstileIntegration(input: {
@@ -95,6 +114,53 @@ export async function saveTurnstileIntegration(input: {
 
 export async function deleteTurnstileIntegration(unitId: string, organizationId: string) {
   await request("turnstile_devices", { method: "DELETE" }, `?unit_id=eq.${encodeURIComponent(unitId)}&organization_id=eq.${encodeURIComponent(organizationId)}`);
+  return { success: true } as const;
+}
+
+// Comando "testar conexão" (B2, D-B1): a nuvem nunca alcança o IP local do
+// equipamento (Vercel não tem rota para a rede da academia) — só publica o
+// sinal no canal Realtime do dispositivo; quem testa de verdade e reporta
+// o resultado é o agente local, via POST /api/v1/access/test-result
+// (mesmo contrato de autenticação do heartbeat/check-in).
+export async function requestTurnstileTestConnection(unitId: string, organizationId: string) {
+  const rows = await request<TurnstileRow[]>("turnstile_devices", {}, `?select=*,saas_units(name)&unit_id=eq.${encodeURIComponent(unitId)}&organization_id=eq.${encodeURIComponent(organizationId)}&limit=1`);
+  const device = rows[0];
+  if (!device) throw new Error("Catraca não configurada para esta unidade.");
+  const command = TurnstileAdapterFactory.forBrand(device.brand).buildTestConnectionCommand();
+  await publishTurnstileBroadcast(device.id, "command", command);
+  const requestedAt = new Date().toISOString();
+  await request("turnstile_devices", { method: "PATCH", body: JSON.stringify({ last_test_requested_at: requestedAt }) }, `?id=eq.${encodeURIComponent(device.id)}`);
+  return mapTurnstileRow({ ...device, last_test_requested_at: requestedAt });
+}
+
+async function getTurnstileDeviceById(deviceId: string) {
+  const rows = await request<TurnstileRow[]>("turnstile_devices", {}, `?select=*,saas_units(name)&id=eq.${encodeURIComponent(deviceId)}&limit=1`);
+  return rows[0] ?? null;
+}
+
+// Heartbeat (B2): o agente local chama periodicamente para provar que
+// ainda está de pé — sem isso, o status exibido cai para "offline" depois
+// de HEARTBEAT_STALE_MS (ver computeStatus acima).
+export async function recordTurnstileHeartbeat(deviceId: string) {
+  const device = await getTurnstileDeviceById(deviceId);
+  if (!device) return { success: false } as const;
+  await request("turnstile_devices", { method: "PATCH", body: JSON.stringify({ status: "online", last_ping_at: new Date().toISOString() }) }, `?id=eq.${encodeURIComponent(deviceId)}`);
+  return { success: true } as const;
+}
+
+// Resultado do teste de conexão (B2): o agente reporta de volta o que
+// encontrou ao testar a rede local dele mesmo — nunca uma inferência da
+// nuvem. Sucesso também conta como heartbeat (prova que o agente está
+// ativo agora); falha não mexe em status/last_ping_at (são fatos
+// diferentes: "não consegui falar com o equipamento agora" não é o mesmo
+// que "o agente está offline").
+export async function reportTurnstileTestResult(deviceId: string, result: TurnstileTestResult, message?: string) {
+  const device = await getTurnstileDeviceById(deviceId);
+  if (!device) return { success: false } as const;
+  const now = new Date().toISOString();
+  const patch: Json = { last_test_at: now, last_test_result: result, last_test_message: message ?? null };
+  if (result === "success") { patch.status = "online"; patch.last_ping_at = now; }
+  await request("turnstile_devices", { method: "PATCH", body: JSON.stringify(patch) }, `?id=eq.${encodeURIComponent(deviceId)}`);
   return { success: true } as const;
 }
 
