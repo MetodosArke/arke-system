@@ -311,6 +311,18 @@ describe("prescricao.prontuario", () => {
   });
 });
 
+describe("plataforma (painel de negócio ArkeFit)", () => {
+  it("blocks a non-admin caller from the cross-organization dashboard", async () => {
+    const nonAdminContext: TrpcContext = { ...createContext(), user: { ...createContext().user, role: "user" } };
+    await expect(appRouter.createCaller(nonAdminContext).plataforma.dashboard()).rejects.toThrow();
+  });
+
+  it("returns zeroed indicators instead of throwing when Supabase isn't configured", async () => {
+    const result = await appRouter.createCaller(createContext()).plataforma.dashboard();
+    expect(result).toEqual({ totalOrganizacoes: 0, porStatus: { trial: 0, active: 0, past_due: 0, canceled: 0 }, mrrCents: 0, novasEsteMes: 0, canceladasEsteMes: 0, alunosArkeAtivos: 0 });
+  });
+});
+
 describe("push (Fase 3 — comunicação)", () => {
   it("returns a null public key when VAPID is not configured (never throws)", async () => {
     await expect(appRouter.createCaller(createContext()).push.publicKey()).resolves.toEqual({ publicKey: null });

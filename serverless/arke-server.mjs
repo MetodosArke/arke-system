@@ -318,6 +318,16 @@ async function getOrganizationSubscription(organizationId) {
   const rows = await request("saas_subscriptions", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}&order=created_at.desc&limit=1`);
   return rows[0];
 }
+async function listAllOrganizationsForPlatform() {
+  if (!isConfigured()) return [];
+  const [orgs, subs] = await Promise.all([
+    request("saas_organizations", {}, "?select=*&order=created_at.desc"),
+    request("saas_subscriptions", {}, "?select=*&order=created_at.desc")
+  ]);
+  const subByOrg = /* @__PURE__ */ new Map();
+  for (const sub of subs) if (!subByOrg.has(sub.organization_id)) subByOrg.set(sub.organization_id, sub);
+  return orgs.map((org) => ({ ...org, subscription: subByOrg.get(org.id) ?? null }));
+}
 async function updateOrganizationProfile(input) {
   if (!isConfigured()) throw new Error("Database not available");
   const [updated] = await request("saas_organizations", { method: "PATCH", body: JSON.stringify({ name: input.name, ...input.logoUrl !== void 0 ? { logo_url: input.logoUrl } : {}, ...input.primaryColor !== void 0 ? { primary_color: input.primaryColor } : {} }) }, `?id=eq.${encodeURIComponent(input.organizationId)}`);
@@ -734,6 +744,11 @@ async function getAlunoArkeLicenca(userId, organizationId) {
 }
 async function countAlunosComArkeAtivo(organizationId) {
   const rows = await request2("aluno_arke_licenca", { headers: { Prefer: "count=exact" } }, `?select=id&organization_id=eq.${encodeURIComponent(organizationId)}&ativo=eq.true`);
+  return rows.length;
+}
+async function countAllAlunosComArkeAtivo() {
+  if (!hasSupabaseConfig()) return 0;
+  const rows = await request2("aluno_arke_licenca", {}, "?select=id&ativo=eq.true");
   return rows.length;
 }
 async function toggleAlunoArkeLicenca(input) {
@@ -2168,6 +2183,29 @@ var appRouter = router({
       create: adminProcedure.input(z2.object({ name: z2.string().trim().min(2), academy: z2.string().trim().min(2), plan: z2.string().trim().min(2), status: z2.enum(["Ativo", "Inativo"]) })).mutation(({ input }) => createAppStudent(input)),
       update: adminProcedure.input(z2.object({ id: z2.string().uuid(), data: z2.object({ name: z2.string().trim().min(2), academy: z2.string().trim().min(2), plan: z2.string().trim().min(2), status: z2.enum(["Ativo", "Inativo"]) }) })).mutation(({ input }) => updateAppStudent(input.id, input.data)),
       delete: adminProcedure.input(z2.object({ id: z2.string().uuid() })).mutation(({ input }) => deleteAppStudent(input.id))
+    })
+  }),
+  // Painel de negócio ArkeFit (Sessão C do plano de Sept/2026): operação
+  // interna da própria Metodos Arke — nunca uma tela de organização
+  // cliente. Restrito a adminProcedure (mesmo allowlist de e-mail que já
+  // protege admin.*/globalLibrary.*), com consultas cross-organização
+  // (as primeiras do projeto sem filtro de organization_id — ver a nota em
+  // listAllOrganizationsForPlatform em server/db.ts).
+  plataforma: router({
+    dashboard: adminProcedure.query(async () => {
+      const [organizacoes, alunosArkeAtivos] = await Promise.all([listAllOrganizationsForPlatform(), countAllAlunosComArkeAtivo()]);
+      const inicioMes = new Date(Date.UTC((/* @__PURE__ */ new Date()).getUTCFullYear(), (/* @__PURE__ */ new Date()).getUTCMonth(), 1)).toISOString();
+      const porStatus = { trial: 0, active: 0, past_due: 0, canceled: 0 };
+      let mrrCents = 0;
+      let novasEsteMes = 0;
+      let canceladasEsteMes = 0;
+      for (const organizacao of organizacoes) {
+        porStatus[organizacao.status] += 1;
+        if (organizacao.subscription?.status === "active") mrrCents += organizacao.subscription.amount_cents;
+        if (organizacao.created_at >= inicioMes) novasEsteMes += 1;
+        if (organizacao.status === "canceled" && organizacao.updated_at >= inicioMes) canceladasEsteMes += 1;
+      }
+      return { totalOrganizacoes: organizacoes.length, porStatus, mrrCents, novasEsteMes, canceladasEsteMes, alunosArkeAtivos };
     })
   }),
   globalLibrary: router({
