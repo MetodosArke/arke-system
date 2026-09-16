@@ -787,7 +787,9 @@ export const appRouter = router({
         list: protectedProcedure.input(z.object({ desafioId: z.string().uuid() })).query(async ({ ctx, input }) => { await assertStaffForDesafio(ctx.user.id, input.desafioId); return listDesafioProgressoForDesafio(input.desafioId); }),
         set: protectedProcedure.input(z.object({ desafioId: z.string().uuid(), alunoId: z.string().uuid(), concluido: z.boolean(), valorAtual: z.number().optional() })).mutation(async ({ ctx, input }) => {
           const desafio = await assertStaffForDesafio(ctx.user.id, input.desafioId);
-          return setDesafioProgresso({ desafioId: input.desafioId, alunoId: input.alunoId, organizationId: desafio.organization_id, concluido: input.concluido, valorAtual: input.valorAtual, concluidoPor: ctx.user.id });
+          // Ajuste manual da equipe: origem='manual' preserva esta linha
+          // contra sobrescrita do cron de desafios automáticos (A4).
+          return setDesafioProgresso({ desafioId: input.desafioId, alunoId: input.alunoId, organizationId: desafio.organization_id, concluido: input.concluido, valorAtual: input.valorAtual, concluidoPor: ctx.user.id, origem: "manual" });
         }),
       }),
     }),
@@ -797,15 +799,15 @@ export const appRouter = router({
     // competicao_pontuacao.valor — não é mais calculada automaticamente.
     competicoes: router({
       list: protectedProcedure.input(organizationIdInput).query(async ({ ctx, input }) => { await assertStaffOfOrganization(ctx.user.id, input.organizationId); return listCompeticoes(input.organizationId); }),
-      create: protectedProcedure.input(z.object({ organizationId: z.string().uuid(), titulo: z.string().trim().min(2), descricao: z.string().trim().optional(), metrica: z.string().trim().min(1).max(60).default("Pontuação geral"), dataInicio: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), dataFim: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), paraTodos: z.boolean().default(true) })).mutation(async ({ ctx, input }) => {
+      create: protectedProcedure.input(z.object({ organizationId: z.string().uuid(), titulo: z.string().trim().min(2), descricao: z.string().trim().optional(), metrica: z.string().trim().min(1).max(60).default("Pontuação geral"), dataInicio: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), dataFim: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), paraTodos: z.boolean().default(true), modoPontuacao: z.enum(["manual", "automatica"]).default("manual") })).mutation(async ({ ctx, input }) => {
         await assertStaffOfOrganization(ctx.user.id, input.organizationId);
-        const competicao = await createCompeticao({ organization_id: input.organizationId, titulo: input.titulo, descricao: input.descricao || null, metrica: input.metrica, data_inicio: input.dataInicio, data_fim: input.dataFim, para_todos: input.paraTodos, criado_por: ctx.user.id });
+        const competicao = await createCompeticao({ organization_id: input.organizationId, titulo: input.titulo, descricao: input.descricao || null, metrica: input.metrica, data_inicio: input.dataInicio, data_fim: input.dataFim, para_todos: input.paraTodos, modo_pontuacao: input.modoPontuacao, criado_por: ctx.user.id });
         await recordAuditLog({ organizationId: input.organizationId, userId: ctx.user.id, action: "created", entity: "competicao", entityId: competicao.id, afterJson: input });
         return competicao;
       }),
-      update: protectedProcedure.input(z.object({ id: z.string().uuid(), titulo: z.string().trim().min(2), descricao: z.string().trim().optional(), metrica: z.string().trim().min(1).max(60), dataInicio: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), dataFim: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), paraTodos: z.boolean() })).mutation(async ({ ctx, input }) => {
+      update: protectedProcedure.input(z.object({ id: z.string().uuid(), titulo: z.string().trim().min(2), descricao: z.string().trim().optional(), metrica: z.string().trim().min(1).max(60), dataInicio: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), dataFim: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), paraTodos: z.boolean(), modoPontuacao: z.enum(["manual", "automatica"]) })).mutation(async ({ ctx, input }) => {
         const competicao = await assertStaffForCompeticao(ctx.user.id, input.id);
-        const updated = await updateCompeticao(input.id, { titulo: input.titulo, descricao: input.descricao || null, metrica: input.metrica, data_inicio: input.dataInicio, data_fim: input.dataFim, para_todos: input.paraTodos });
+        const updated = await updateCompeticao(input.id, { titulo: input.titulo, descricao: input.descricao || null, metrica: input.metrica, data_inicio: input.dataInicio, data_fim: input.dataFim, para_todos: input.paraTodos, modo_pontuacao: input.modoPontuacao });
         await recordAuditLog({ organizationId: competicao.organization_id, userId: ctx.user.id, action: "updated", entity: "competicao", entityId: input.id, beforeJson: competicao, afterJson: input });
         return updated;
       }),
@@ -830,7 +832,9 @@ export const appRouter = router({
         list: protectedProcedure.input(z.object({ competicaoId: z.string().uuid() })).query(async ({ ctx, input }) => { await assertStaffForCompeticao(ctx.user.id, input.competicaoId); return listCompeticaoPontuacaoForCompeticao(input.competicaoId); }),
         set: protectedProcedure.input(z.object({ competicaoId: z.string().uuid(), alunoId: z.string().uuid(), valor: z.number() })).mutation(async ({ ctx, input }) => {
           const competicao = await assertStaffForCompeticao(ctx.user.id, input.competicaoId);
-          return setCompeticaoPontuacao({ competicaoId: input.competicaoId, alunoId: input.alunoId, organizationId: competicao.organization_id, valor: input.valor, atualizadoPor: ctx.user.id });
+          // Ajuste manual da equipe: origem='manual' preserva esta linha
+          // contra sobrescrita do cron de competições automáticas (A5).
+          return setCompeticaoPontuacao({ competicaoId: input.competicaoId, alunoId: input.alunoId, organizationId: competicao.organization_id, valor: input.valor, atualizadoPor: ctx.user.id, origem: "manual" });
         }),
       }),
     }),
@@ -1061,6 +1065,7 @@ export const appRouter = router({
           pontos: desafio.pontos,
           concluido: progressoByDesafio.get(desafio.id)?.concluido ?? false,
           valorAtual: progressoByDesafio.get(desafio.id)?.valor_atual ?? null,
+          origem: progressoByDesafio.get(desafio.id)?.origem ?? null,
         }));
       }),
     }),
@@ -1083,11 +1088,12 @@ export const appRouter = router({
             listCompeticaoPontuacaoForCompeticao(competicao.id),
           ]);
           const valorByAluno = new Map(pontuacoes.map((item) => [item.aluno_id, item.valor]));
+          const origemByAluno = new Map(pontuacoes.map((item) => [item.aluno_id, item.origem]));
           const ranking = participantes
-            .map((participante) => ({ alunoId: participante.aluno_id, nome: nameByAluno.get(participante.aluno_id) ?? "Aluno", valor: valorByAluno.get(participante.aluno_id) ?? 0 }))
+            .map((participante) => ({ alunoId: participante.aluno_id, nome: nameByAluno.get(participante.aluno_id) ?? "Aluno", valor: valorByAluno.get(participante.aluno_id) ?? 0, origem: origemByAluno.get(participante.aluno_id) ?? null }))
             .sort((a, b) => b.valor - a.valor)
             .map((entry, index) => ({ ...entry, posicao: index + 1 }));
-          return { id: competicao.id, titulo: competicao.titulo, descricao: competicao.descricao, metrica: competicao.metrica, dataInicio: competicao.data_inicio, dataFim: competicao.data_fim, ranking };
+          return { id: competicao.id, titulo: competicao.titulo, descricao: competicao.descricao, metrica: competicao.metrica, dataInicio: competicao.data_inicio, dataFim: competicao.data_fim, modoPontuacao: competicao.modo_pontuacao, ranking };
         }));
       }),
     }),

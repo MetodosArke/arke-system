@@ -1079,7 +1079,7 @@ async function listDesafioProgressoForAluno(alunoId) {
   return request2("desafio_progresso", {}, `?select=*&aluno_id=eq.${encodeURIComponent(alunoId)}`);
 }
 async function setDesafioProgresso(input) {
-  const body = { desafio_id: input.desafioId, aluno_id: input.alunoId, organization_id: input.organizationId, concluido: input.concluido, valor_atual: input.valorAtual ?? null, concluido_por: input.concluido ? input.concluidoPor : null, concluido_em: input.concluido ? (/* @__PURE__ */ new Date()).toISOString() : null, updated_at: (/* @__PURE__ */ new Date()).toISOString() };
+  const body = { desafio_id: input.desafioId, aluno_id: input.alunoId, organization_id: input.organizationId, concluido: input.concluido, valor_atual: input.valorAtual ?? null, concluido_por: input.concluido ? input.concluidoPor ?? null : null, concluido_em: input.concluido ? (/* @__PURE__ */ new Date()).toISOString() : null, origem: input.origem, updated_at: (/* @__PURE__ */ new Date()).toISOString() };
   const rows = await request2("desafio_progresso", { method: "POST", body: JSON.stringify(body), headers: { Prefer: "return=representation,resolution=merge-duplicates" } }, "?on_conflict=desafio_id,aluno_id");
   return rows[0];
 }
@@ -1120,7 +1120,7 @@ async function listCompeticaoPontuacaoForCompeticao(competicaoId) {
   return request2("competicao_pontuacao", {}, `?select=*&competicao_id=eq.${encodeURIComponent(competicaoId)}`);
 }
 async function setCompeticaoPontuacao(input) {
-  const body = { competicao_id: input.competicaoId, aluno_id: input.alunoId, organization_id: input.organizationId, valor: input.valor, atualizado_por: input.atualizadoPor, updated_at: (/* @__PURE__ */ new Date()).toISOString() };
+  const body = { competicao_id: input.competicaoId, aluno_id: input.alunoId, organization_id: input.organizationId, valor: input.valor, atualizado_por: input.atualizadoPor ?? null, origem: input.origem, updated_at: (/* @__PURE__ */ new Date()).toISOString() };
   const rows = await request2("competicao_pontuacao", { method: "POST", body: JSON.stringify(body), headers: { Prefer: "return=representation,resolution=merge-duplicates" } }, "?on_conflict=competicao_id,aluno_id");
   return rows[0];
 }
@@ -3349,7 +3349,7 @@ var appRouter = router({
         }),
         set: protectedProcedure.input(z2.object({ desafioId: z2.string().uuid(), alunoId: z2.string().uuid(), concluido: z2.boolean(), valorAtual: z2.number().optional() })).mutation(async ({ ctx, input }) => {
           const desafio = await assertStaffForDesafio(ctx.user.id, input.desafioId);
-          return setDesafioProgresso({ desafioId: input.desafioId, alunoId: input.alunoId, organizationId: desafio.organization_id, concluido: input.concluido, valorAtual: input.valorAtual, concluidoPor: ctx.user.id });
+          return setDesafioProgresso({ desafioId: input.desafioId, alunoId: input.alunoId, organizationId: desafio.organization_id, concluido: input.concluido, valorAtual: input.valorAtual, concluidoPor: ctx.user.id, origem: "manual" });
         })
       })
     }),
@@ -3362,15 +3362,15 @@ var appRouter = router({
         await assertStaffOfOrganization(ctx.user.id, input.organizationId);
         return listCompeticoes(input.organizationId);
       }),
-      create: protectedProcedure.input(z2.object({ organizationId: z2.string().uuid(), titulo: z2.string().trim().min(2), descricao: z2.string().trim().optional(), metrica: z2.string().trim().min(1).max(60).default("Pontua\xE7\xE3o geral"), dataInicio: z2.string().regex(/^\d{4}-\d{2}-\d{2}$/), dataFim: z2.string().regex(/^\d{4}-\d{2}-\d{2}$/), paraTodos: z2.boolean().default(true) })).mutation(async ({ ctx, input }) => {
+      create: protectedProcedure.input(z2.object({ organizationId: z2.string().uuid(), titulo: z2.string().trim().min(2), descricao: z2.string().trim().optional(), metrica: z2.string().trim().min(1).max(60).default("Pontua\xE7\xE3o geral"), dataInicio: z2.string().regex(/^\d{4}-\d{2}-\d{2}$/), dataFim: z2.string().regex(/^\d{4}-\d{2}-\d{2}$/), paraTodos: z2.boolean().default(true), modoPontuacao: z2.enum(["manual", "automatica"]).default("manual") })).mutation(async ({ ctx, input }) => {
         await assertStaffOfOrganization(ctx.user.id, input.organizationId);
-        const competicao = await createCompeticao({ organization_id: input.organizationId, titulo: input.titulo, descricao: input.descricao || null, metrica: input.metrica, data_inicio: input.dataInicio, data_fim: input.dataFim, para_todos: input.paraTodos, criado_por: ctx.user.id });
+        const competicao = await createCompeticao({ organization_id: input.organizationId, titulo: input.titulo, descricao: input.descricao || null, metrica: input.metrica, data_inicio: input.dataInicio, data_fim: input.dataFim, para_todos: input.paraTodos, modo_pontuacao: input.modoPontuacao, criado_por: ctx.user.id });
         await recordAuditLog({ organizationId: input.organizationId, userId: ctx.user.id, action: "created", entity: "competicao", entityId: competicao.id, afterJson: input });
         return competicao;
       }),
-      update: protectedProcedure.input(z2.object({ id: z2.string().uuid(), titulo: z2.string().trim().min(2), descricao: z2.string().trim().optional(), metrica: z2.string().trim().min(1).max(60), dataInicio: z2.string().regex(/^\d{4}-\d{2}-\d{2}$/), dataFim: z2.string().regex(/^\d{4}-\d{2}-\d{2}$/), paraTodos: z2.boolean() })).mutation(async ({ ctx, input }) => {
+      update: protectedProcedure.input(z2.object({ id: z2.string().uuid(), titulo: z2.string().trim().min(2), descricao: z2.string().trim().optional(), metrica: z2.string().trim().min(1).max(60), dataInicio: z2.string().regex(/^\d{4}-\d{2}-\d{2}$/), dataFim: z2.string().regex(/^\d{4}-\d{2}-\d{2}$/), paraTodos: z2.boolean(), modoPontuacao: z2.enum(["manual", "automatica"]) })).mutation(async ({ ctx, input }) => {
         const competicao = await assertStaffForCompeticao(ctx.user.id, input.id);
-        const updated = await updateCompeticao(input.id, { titulo: input.titulo, descricao: input.descricao || null, metrica: input.metrica, data_inicio: input.dataInicio, data_fim: input.dataFim, para_todos: input.paraTodos });
+        const updated = await updateCompeticao(input.id, { titulo: input.titulo, descricao: input.descricao || null, metrica: input.metrica, data_inicio: input.dataInicio, data_fim: input.dataFim, para_todos: input.paraTodos, modo_pontuacao: input.modoPontuacao });
         await recordAuditLog({ organizationId: competicao.organization_id, userId: ctx.user.id, action: "updated", entity: "competicao", entityId: input.id, beforeJson: competicao, afterJson: input });
         return updated;
       }),
@@ -3401,7 +3401,7 @@ var appRouter = router({
         }),
         set: protectedProcedure.input(z2.object({ competicaoId: z2.string().uuid(), alunoId: z2.string().uuid(), valor: z2.number() })).mutation(async ({ ctx, input }) => {
           const competicao = await assertStaffForCompeticao(ctx.user.id, input.competicaoId);
-          return setCompeticaoPontuacao({ competicaoId: input.competicaoId, alunoId: input.alunoId, organizationId: competicao.organization_id, valor: input.valor, atualizadoPor: ctx.user.id });
+          return setCompeticaoPontuacao({ competicaoId: input.competicaoId, alunoId: input.alunoId, organizationId: competicao.organization_id, valor: input.valor, atualizadoPor: ctx.user.id, origem: "manual" });
         })
       })
     })
@@ -3661,7 +3661,8 @@ var appRouter = router({
           dataFim: desafio.data_fim,
           pontos: desafio.pontos,
           concluido: progressoByDesafio.get(desafio.id)?.concluido ?? false,
-          valorAtual: progressoByDesafio.get(desafio.id)?.valor_atual ?? null
+          valorAtual: progressoByDesafio.get(desafio.id)?.valor_atual ?? null,
+          origem: progressoByDesafio.get(desafio.id)?.origem ?? null
         }));
       })
     }),
@@ -3684,8 +3685,9 @@ var appRouter = router({
             listCompeticaoPontuacaoForCompeticao(competicao.id)
           ]);
           const valorByAluno = new Map(pontuacoes.map((item) => [item.aluno_id, item.valor]));
-          const ranking = participantes.map((participante) => ({ alunoId: participante.aluno_id, nome: nameByAluno.get(participante.aluno_id) ?? "Aluno", valor: valorByAluno.get(participante.aluno_id) ?? 0 })).sort((a, b) => b.valor - a.valor).map((entry, index) => ({ ...entry, posicao: index + 1 }));
-          return { id: competicao.id, titulo: competicao.titulo, descricao: competicao.descricao, metrica: competicao.metrica, dataInicio: competicao.data_inicio, dataFim: competicao.data_fim, ranking };
+          const origemByAluno = new Map(pontuacoes.map((item) => [item.aluno_id, item.origem]));
+          const ranking = participantes.map((participante) => ({ alunoId: participante.aluno_id, nome: nameByAluno.get(participante.aluno_id) ?? "Aluno", valor: valorByAluno.get(participante.aluno_id) ?? 0, origem: origemByAluno.get(participante.aluno_id) ?? null })).sort((a, b) => b.valor - a.valor).map((entry, index) => ({ ...entry, posicao: index + 1 }));
+          return { id: competicao.id, titulo: competicao.titulo, descricao: competicao.descricao, metrica: competicao.metrica, dataInicio: competicao.data_inicio, dataFim: competicao.data_fim, modoPontuacao: competicao.modo_pontuacao, ranking };
         }));
       })
     })
@@ -4148,6 +4150,111 @@ async function runArkeLembretesDiarios() {
   return resultado;
 }
 
+// server/arkeDesafiosAutomaticos.ts
+var STAFF_ROLES2 = ["owner", "admin", "manager", "professional", "nutricionista"];
+async function participantesDoDesafio(desafio, alunosComArkeAtivo) {
+  if (desafio.para_todos) return alunosComArkeAtivo;
+  const participantes = await listDesafioParticipantes(desafio.id);
+  return participantes.map((p) => p.aluno_id);
+}
+async function runArkeDesafiosAutomaticos() {
+  const resultado = { desafiosProcessados: 0, progressosAtualizados: 0, concluidosAgora: 0, falhas: 0 };
+  const hoje = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
+  for (const arkeModule of await listArkeModulesEnabled()) {
+    const organizationId = arkeModule.organization_id;
+    let alunosComArkeAtivo = null;
+    let staffNotificado = null;
+    let studentsNameById = null;
+    const desafios = (await listDesafios(organizationId)).filter((d) => d.tipo !== "livre" && d.data_inicio <= hoje);
+    for (const desafio of desafios) {
+      resultado.desafiosProcessados += 1;
+      if (!alunosComArkeAtivo) alunosComArkeAtivo = await listAlunosComArkeAtivoIds(organizationId);
+      let participantes;
+      let progressoExistente;
+      try {
+        [participantes, progressoExistente] = await Promise.all([
+          participantesDoDesafio(desafio, alunosComArkeAtivo),
+          listDesafioProgressoForDesafio(desafio.id)
+        ]);
+      } catch (error) {
+        captureException2(error, { job: "arke_desafios_automaticos", organizationId, desafioId: desafio.id });
+        resultado.falhas += 1;
+        continue;
+      }
+      const progressoByAluno = new Map(progressoExistente.map((p) => [p.aluno_id, p]));
+      const encerrado = desafio.data_fim < hoje;
+      for (const alunoId of participantes) {
+        const existente = progressoByAluno.get(alunoId);
+        if (existente?.origem === "manual") continue;
+        try {
+          const auto = await calcAuto(alunoId, desafio);
+          if (!auto) continue;
+          const concluido = auto.isInverse ? auto.valor <= auto.meta && encerrado : auto.meta > 0 && auto.valor >= auto.meta;
+          const jaEstavaConcluido = existente?.concluido ?? false;
+          await setDesafioProgresso({ desafioId: desafio.id, alunoId, organizationId, concluido, valorAtual: auto.valor, origem: "automatico" });
+          resultado.progressosAtualizados += 1;
+          if (concluido && !jaEstavaConcluido) {
+            resultado.concluidosAgora += 1;
+            if (!studentsNameById) studentsNameById = new Map((await listStudentsInOrganization(organizationId)).map((s) => [s.user_id, s.full_name || "Aluno"]));
+            if (!staffNotificado) staffNotificado = await listActiveStaffUserIds(organizationId, STAFF_ROLES2);
+            const nome = studentsNameById.get(alunoId) ?? "Aluno";
+            const titulo = "\u{1F3C6} Desafio conclu\xEDdo";
+            const mensagem = `${nome} concluiu automaticamente "${desafio.titulo}".`;
+            await Promise.all(staffNotificado.map(async (userId) => {
+              await createNotificacao({ userId, titulo, mensagem, tipo: "desafio" });
+              sendPushToUser(userId, { title: titulo, body: mensagem, url: "/" }).catch(() => {
+              });
+            }));
+          }
+        } catch (error) {
+          captureException2(error, { job: "arke_desafios_automaticos", organizationId, desafioId: desafio.id, alunoId });
+          resultado.falhas += 1;
+        }
+      }
+    }
+  }
+  return resultado;
+}
+
+// server/arkeCompeticoesAutomaticas.ts
+async function runArkeCompeticoesAutomaticas() {
+  const resultado = { competicoesProcessadas: 0, pontuacoesAtualizadas: 0, falhas: 0 };
+  for (const arkeModule of await listArkeModulesEnabled()) {
+    const organizationId = arkeModule.organization_id;
+    let alunosComArkeAtivo = null;
+    const competicoes = (await listCompeticoes(organizationId)).filter((c) => c.modo_pontuacao === "automatica");
+    for (const competicao of competicoes) {
+      resultado.competicoesProcessadas += 1;
+      if (!alunosComArkeAtivo) alunosComArkeAtivo = await listAlunosComArkeAtivoIds(organizationId);
+      let participantes;
+      let pontuacaoExistente;
+      try {
+        [participantes, pontuacaoExistente] = await Promise.all([
+          competicao.para_todos ? Promise.resolve(alunosComArkeAtivo) : listCompeticaoParticipantes(competicao.id).then((rows) => rows.map((row) => row.aluno_id)),
+          listCompeticaoPontuacaoForCompeticao(competicao.id)
+        ]);
+      } catch (error) {
+        captureException2(error, { job: "arke_competicoes_automaticas", organizationId, competicaoId: competicao.id });
+        resultado.falhas += 1;
+        continue;
+      }
+      const origemByAluno = new Map(pontuacaoExistente.map((item) => [item.aluno_id, item.origem]));
+      for (const alunoId of participantes) {
+        if (origemByAluno.get(alunoId) === "manual") continue;
+        try {
+          const score = await computeScoreAluno(alunoId, organizationId, competicao.data_inicio, competicao.data_fim);
+          await setCompeticaoPontuacao({ competicaoId: competicao.id, alunoId, organizationId, valor: score.total, origem: "automatico" });
+          resultado.pontuacoesAtualizadas += 1;
+        } catch (error) {
+          captureException2(error, { job: "arke_competicoes_automaticas", organizationId, competicaoId: competicao.id, alunoId });
+          resultado.falhas += 1;
+        }
+      }
+    }
+  }
+  return resultado;
+}
+
 // server/automacaoCron.ts
 function tokenMatches2(received, expected) {
   const receivedBuffer = Buffer.from(received);
@@ -4160,8 +4267,8 @@ function registerAutomacaoCron(app) {
     const receivedToken = String(req.header("authorization") ?? "").replace(/^Bearer\s+/i, "");
     if (!expectedToken || !tokenMatches2(receivedToken, expectedToken)) return res.status(401).json({ ok: false, error: "unauthorized" });
     try {
-      const [resultado, arkeRepasse, arkeLembretes] = await Promise.all([runAutomacaoDiaria(), runArkeRepasseMensal(), runArkeLembretesDiarios()]);
-      return res.status(200).json({ ok: true, ...resultado, arkeRepasse, arkeLembretes });
+      const [resultado, arkeRepasse, arkeLembretes, arkeDesafios, arkeCompeticoes] = await Promise.all([runAutomacaoDiaria(), runArkeRepasseMensal(), runArkeLembretesDiarios(), runArkeDesafiosAutomaticos(), runArkeCompeticoesAutomaticas()]);
+      return res.status(200).json({ ok: true, ...resultado, arkeRepasse, arkeLembretes, arkeDesafios, arkeCompeticoes });
     } catch (error) {
       captureException2(error, { job: "automacao_diaria" });
       return res.status(500).json({ ok: false });

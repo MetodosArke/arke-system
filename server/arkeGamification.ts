@@ -108,7 +108,8 @@ export type PontuacaoDetalhada = {
 // registrado pelo aluno (sem_doce/sem_alcool são invertidos: quanto menos
 // dias com o hábito, melhor). "livre" nunca é automático — só a equipe
 // valida (comportamento preservado, mesma regra de prescricao.desafios).
-async function calcAuto(alunoId: string, desafio: Desafio): Promise<{ valor: number; meta: number; isInverse: boolean } | null> {
+export type CalcAutoResultado = { valor: number; meta: number; isInverse: boolean };
+export async function calcAuto(alunoId: string, desafio: Desafio): Promise<CalcAutoResultado | null> {
   const meta = desafio.meta_valor ?? 0;
   switch (desafio.tipo) {
     case "sem_doce": {

@@ -3,6 +3,8 @@ import type { Express, Request, Response } from "express";
 import { runAutomacaoDiaria } from "./supabaseAdmin";
 import { runArkeRepasseMensal } from "./arkeBilling";
 import { runArkeLembretesDiarios } from "./arkeLembretes";
+import { runArkeDesafiosAutomaticos } from "./arkeDesafiosAutomaticos";
+import { runArkeCompeticoesAutomaticas } from "./arkeCompeticoesAutomaticas";
 import { captureException } from "./_core/errorMonitoring";
 
 function tokenMatches(received: string, expected: string) {
@@ -17,8 +19,8 @@ export function registerAutomacaoCron(app: Express) {
     const receivedToken = String(req.header("authorization") ?? "").replace(/^Bearer\s+/i, "");
     if (!expectedToken || !tokenMatches(receivedToken, expectedToken)) return res.status(401).json({ ok: false, error: "unauthorized" });
     try {
-      const [resultado, arkeRepasse, arkeLembretes] = await Promise.all([runAutomacaoDiaria(), runArkeRepasseMensal(), runArkeLembretesDiarios()]);
-      return res.status(200).json({ ok: true, ...resultado, arkeRepasse, arkeLembretes });
+      const [resultado, arkeRepasse, arkeLembretes, arkeDesafios, arkeCompeticoes] = await Promise.all([runAutomacaoDiaria(), runArkeRepasseMensal(), runArkeLembretesDiarios(), runArkeDesafiosAutomaticos(), runArkeCompeticoesAutomaticas()]);
+      return res.status(200).json({ ok: true, ...resultado, arkeRepasse, arkeLembretes, arkeDesafios, arkeCompeticoes });
     } catch (error) {
       captureException(error, { job: "automacao_diaria" });
       return res.status(500).json({ ok: false });
