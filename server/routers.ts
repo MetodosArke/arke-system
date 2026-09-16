@@ -6,7 +6,7 @@ import { systemRouter } from "./_core/systemRouter";
 import { adminProcedure, protectedProcedure, publicProcedure, router } from "./_core/trpc";
 import { assertRateLimit, rateLimitKey } from "./_core/rateLimit";
 import { acceptOrganizationInvitation, archiveOrganizationUnit, auditLogsToCsv, auditLogsToPdfBase64, createOrganizationInvitation, createOrganizationUnit, createOrganizationWithOwner, createSubscriptionCharge, getAuditLogs, getMembership, getOrganization, getOrganizationAccess, getOrganizationBySlug, getOrganizationOnboarding, getOrganizationSubscription, getOrganizationsForUser, getPendingOrganizationInvitations, recordAuditLog, revokeOrganizationInvitation, saveOrganizationOnboarding, updateModulePolicy, updateOrganizationProfile, updateOrganizationSubscription } from "./db";
-import { acceptMemberInvitation, assignAtendimento, cancelarReserva, cancelarReservaStaff, converterLead, countAlunosComArkeAtivo, createAppStudent, createAppUser, createAtendimento, createDeletionRequest, createDieta, createGlobalExercise, createGlobalGroup, createGlobalNutritionPlan, createGlobalRoutine, createGlobalTemplate, createGlobalTemplateExercise, createLead, createLeadNota, createPasswordRecoveryCode, createProgressoSemanal, createTreino, createTurma, deleteAppStudent, deleteAppUser, deleteDieta, deleteProgressoSemanal, deleteGlobalExercise, deleteGlobalGroup, deleteGlobalNutritionPlan, deleteGlobalRoutine, deleteGlobalTemplate, deleteGlobalTemplateExercise, deleteGlobalAccessRule, deleteLead, deleteTreino, deleteTurma, findAppUserByEmail, fulfillDeletionRequest, gerarFichaTreinoPdf, getAcolhimento, getAlunoArkeLicenca, getArkeModule, getAtendimento, getAvaliacaoSemanal, getCheckinDoDia, getCrmIndicadores, getCurrentPrivacyPolicy, getDeletionRequest, getDieta, getGestaoIndicadores, getLead, getMyDeletionRequest, getPlanoTreinoSemanal, getProfileByUserId, getProgressoSemanal, getReserva, getTreino, getTurma, getVagasDisponiveis, hasConsent, hasSupabaseConfig, inviteMember, listAppStudents, listAppUsers, listAtendimentosForOrganization, listDeletionRequests, listDietasForAluno, listExercisesCatalog, listFrequenciaForAluno, listFrequenciaForOrganization, listGlobalLibrary, listLeadAtividades, listLeadsForOrganization, listMinhasReservas, listMyAtendimentos, listMyCheckIns, listPendingMemberInvitations, listProgressoSemanal, listReservasForTurmaData, listStudentsInOrganization, listTreinoExercicios, listTreinosForAluno, listTurmaHorarios, listTurmasAtivas, listTurmasForOrganization, marcarLeadPerdido, moverEstagioLead, normalizeEmail, publishDieta, publishGlobalExercises, publishGlobalNutritionPlans, publishGlobalTemplates, publishTreino, recordConsent, registrarFrequencia, rejectDeletionRequest, replaceTreinoExercicios, replaceTurmaHorarios, requestHelp, reservarVaga, resolveAtendimento, revokeMemberInvitation, signInWithSupabase, submitCheckIn, toggleAlunoArkeLicenca, updateAppStudent, updateAppUser, updateDieta, updateGlobalExercise, updateGlobalGroup, updateGlobalNutritionPlan, updateGlobalRoutine, updateGlobalTemplate, updateGlobalTemplateExercise, updateLead, updateStudentMatricula, updateSupabaseUserPassword, updateTreino, updateTurma, upsertAcolhimento, upsertArkeModule, upsertAvaliacaoSemanal, upsertCheckinDiario, upsertGlobalAccessRule, upsertPlanoTreinoSemanal, verifyPasswordRecoveryCode } from "./supabaseAdmin";
+import { acceptMemberInvitation, assignAtendimento, cancelarReserva, cancelarReservaStaff, converterLead, countAlunosComArkeAtivo, createAppStudent, createAppUser, createAtendimento, createDeletionRequest, createDieta, createFeedComment, createFeedLike, createFeedPost, createGlobalExercise, createGlobalGroup, createGlobalNutritionPlan, createGlobalRoutine, createGlobalTemplate, createGlobalTemplateExercise, createLead, createLeadNota, createPasswordRecoveryCode, createProgressoSemanal, createTreino, createTurma, deleteAppStudent, deleteAppUser, deleteDieta, deleteFeedComment, deleteFeedLike, deleteFeedPost, deleteProgressoSemanal, deleteGlobalExercise, deleteGlobalGroup, deleteGlobalNutritionPlan, deleteGlobalRoutine, deleteGlobalTemplate, deleteGlobalTemplateExercise, deleteGlobalAccessRule, deleteLead, deleteTreino, deleteTurma, findAppUserByEmail, fulfillDeletionRequest, gerarFichaTreinoPdf, getAcolhimento, getAlunoArkeLicenca, getArkeModule, getAtendimento, getAvaliacaoSemanal, getCheckinDoDia, getCrmIndicadores, getCurrentPrivacyPolicy, getDeletionRequest, getDieta, getGestaoIndicadores, getLead, getFeedComment, getFeedLike, getFeedPost, getMyDeletionRequest, getPlanoTreinoSemanal, getProfileByUserId, getProgressoSemanal, getReserva, getTreino, getTurma, getVagasDisponiveis, hasConsent, hasSupabaseConfig, inviteMember, listAppStudents, listAppUsers, listAtendimentosForOrganization, listDeletionRequests, listDietasForAluno, listExercisesCatalog, listFeedCommentsForPosts, listFeedLikesForPosts, listFeedPosts, listFrequenciaForAluno, listFrequenciaForOrganization, listGlobalLibrary, listLeadAtividades, listLeadsForOrganization, listMinhasReservas, listMyAtendimentos, listMyCheckIns, listPendingMemberInvitations, listProfileNames, listProgressoSemanal, listReservasForTurmaData, listStudentsInOrganization, listTreinoExercicios, listTreinosForAluno, listTurmaHorarios, listTurmasAtivas, listTurmasForOrganization, marcarLeadPerdido, moverEstagioLead, normalizeEmail, publishDieta, publishGlobalExercises, publishGlobalNutritionPlans, publishGlobalTemplates, publishTreino, recordConsent, registrarFrequencia, rejectDeletionRequest, replaceTreinoExercicios, replaceTurmaHorarios, requestHelp, reservarVaga, resolveAtendimento, revokeMemberInvitation, signInWithSupabase, submitCheckIn, toggleAlunoArkeLicenca, updateAppStudent, updateAppUser, updateDieta, updateGlobalExercise, updateGlobalGroup, updateGlobalNutritionPlan, updateGlobalRoutine, updateGlobalTemplate, updateGlobalTemplateExercise, updateLead, updateStudentMatricula, updateSupabaseUserPassword, updateTreino, updateTurma, upsertAcolhimento, upsertArkeModule, upsertAvaliacaoSemanal, upsertCheckinDiario, upsertGlobalAccessRule, upsertPlanoTreinoSemanal, verifyPasswordRecoveryCode } from "./supabaseAdmin";
 import { alunoTemArke, assertAlunoTemArke } from "./arkeEntitlement";
 import { asaasConfigured, asaasEnvironment, createAsaasWebhook, getAsaasAccount, listAsaasPayments } from "./asaas";
 import { listAsaasPaymentsForOrganization } from "./asaasPersistence";
@@ -14,7 +14,7 @@ import { lookupCnpj } from "./cnpj";
 import { deleteTurnstileIntegration, listBenefitIntegrations, listTurnstileIntegrationsForOrganization, saveBenefitIntegration, saveTurnstileIntegration } from "./integrations";
 import { openaiConfigured } from "./_core/llm";
 import { sugerirExercicio, sugerirModeloTreino } from "./acervoAi";
-import { DIETA_MAX_BYTES, DIETA_MIME_TYPES, EXERCICIO_VIDEO_MAX_BYTES, EXERCICIO_VIDEO_MIME_TYPES, LOGO_MAX_BYTES, LOGO_MIME_TYPES, decodeUpload, extensionFor, uploadPublicFile } from "./storage";
+import { DIETA_MAX_BYTES, DIETA_MIME_TYPES, EXERCICIO_VIDEO_MAX_BYTES, EXERCICIO_VIDEO_MIME_TYPES, FEED_IMAGE_MAX_BYTES, FEED_IMAGE_MIME_TYPES, LOGO_MAX_BYTES, LOGO_MIME_TYPES, decodeUpload, extensionFor, uploadPublicFile } from "./storage";
 import { ARKE_MODULE_PACKAGE_AMOUNTS_CENTS, ORG_PLAN_KEYS, SAAS_PLAN_KEYS, type OrgPlan } from "@shared/pricing";
 
 const organizationIdInput = z.object({ organizationId: z.string().uuid() });
@@ -574,6 +574,77 @@ export const appRouter = router({
         return upsertPlanoTreinoSemanal({ userId: ctx.user.id, organizationId: profile.organization_id, diasTreino: input.diasTreino, horarioPreferido: input.horarioPreferido, localTreino: input.localTreino });
       }),
       progresso: protectedProcedure.query(async ({ ctx }) => { await assertAlunoTemArke(ctx.user.id); return listProgressoSemanal(ctx.user.id); }),
+    }),
+    // Feed (Fase 2 — engajamento): mural da comunidade da organização,
+    // visível só para quem tem o método Arke ativo. Curtida/comentário
+    // exigem o mesmo entitlement; remover o próprio post/comentário não
+    // reexige (evita conteúdo órfão que ninguém mais consegue apagar se o
+    // aluno for desativado depois).
+    feed: router({
+      list: protectedProcedure.query(async ({ ctx }) => {
+        await assertAlunoTemArke(ctx.user.id);
+        const profile = await getProfileByUserId(ctx.user.id);
+        if (!profile?.organization_id) throw new Error("Aluno sem organização vinculada.");
+        const posts = await listFeedPosts(profile.organization_id);
+        const postIds = posts.map((post) => post.id);
+        const [likes, comments] = await Promise.all([listFeedLikesForPosts(postIds), listFeedCommentsForPosts(postIds)]);
+        const authorIds = Array.from(new Set([...posts.map((post) => post.user_id), ...comments.map((comment) => comment.user_id)]));
+        const profiles = await listProfileNames(authorIds);
+        const nameByUserId = new Map(profiles.map((item) => [item.user_id, item.full_name || "Membro"]));
+        const commentsByPost = new Map<string, typeof comments>();
+        for (const comment of comments) commentsByPost.set(comment.post_id, [...(commentsByPost.get(comment.post_id) ?? []), comment]);
+        return posts.map((post) => ({
+          id: post.id,
+          userId: post.user_id,
+          authorName: nameByUserId.get(post.user_id) ?? "Membro",
+          content: post.content,
+          imageUrl: post.image_url,
+          createdAt: post.created_at,
+          likesCount: likes.filter((like) => like.post_id === post.id).length,
+          likedByMe: likes.some((like) => like.post_id === post.id && like.user_id === ctx.user.id),
+          comments: (commentsByPost.get(post.id) ?? []).map((comment) => ({ id: comment.id, userId: comment.user_id, authorName: nameByUserId.get(comment.user_id) ?? "Membro", content: comment.content, createdAt: comment.created_at })),
+        }));
+      }),
+      create: protectedProcedure.input(z.object({ content: z.string().trim().max(2000).default(""), imageUrl: z.string().url().optional() })).mutation(async ({ ctx, input }) => {
+        if (!input.content.trim() && !input.imageUrl) throw new Error("Escreva algo ou adicione uma imagem para publicar.");
+        await assertAlunoTemArke(ctx.user.id);
+        const profile = await getProfileByUserId(ctx.user.id);
+        if (!profile?.organization_id) throw new Error("Aluno sem organização vinculada.");
+        return createFeedPost({ user_id: ctx.user.id, organization_id: profile.organization_id, content: input.content.trim(), image_url: input.imageUrl ?? null });
+      }),
+      uploadImage: protectedProcedure.input(z.object({ contentType: z.string(), dataBase64: z.string() })).mutation(async ({ ctx, input }) => {
+        await assertAlunoTemArke(ctx.user.id);
+        const buffer = decodeUpload(input.dataBase64, input.contentType, FEED_IMAGE_MIME_TYPES, FEED_IMAGE_MAX_BYTES);
+        const url = await uploadPublicFile("feed-images", `${ctx.user.id}/${randomUUID()}.${extensionFor(input.contentType)}`, buffer, input.contentType);
+        return { url };
+      }),
+      delete: protectedProcedure.input(z.object({ id: z.string().uuid() })).mutation(async ({ ctx, input }) => {
+        const post = await getFeedPost(input.id);
+        if (!post || post.user_id !== ctx.user.id) throw new Error("Publicação não encontrada.");
+        return deleteFeedPost(input.id);
+      }),
+      toggleLike: protectedProcedure.input(z.object({ postId: z.string().uuid() })).mutation(async ({ ctx, input }) => {
+        await assertAlunoTemArke(ctx.user.id);
+        const profile = await getProfileByUserId(ctx.user.id);
+        if (!profile?.organization_id) throw new Error("Aluno sem organização vinculada.");
+        const existing = await getFeedLike(input.postId, ctx.user.id);
+        if (existing) { await deleteFeedLike(input.postId, ctx.user.id); return { liked: false }; }
+        await createFeedLike({ postId: input.postId, userId: ctx.user.id, organizationId: profile.organization_id });
+        return { liked: true };
+      }),
+      comments: router({
+        create: protectedProcedure.input(z.object({ postId: z.string().uuid(), content: z.string().trim().min(1).max(1000) })).mutation(async ({ ctx, input }) => {
+          await assertAlunoTemArke(ctx.user.id);
+          const profile = await getProfileByUserId(ctx.user.id);
+          if (!profile?.organization_id) throw new Error("Aluno sem organização vinculada.");
+          return createFeedComment({ post_id: input.postId, user_id: ctx.user.id, organization_id: profile.organization_id, content: input.content });
+        }),
+        delete: protectedProcedure.input(z.object({ id: z.string().uuid() })).mutation(async ({ ctx, input }) => {
+          const comment = await getFeedComment(input.id);
+          if (!comment || comment.user_id !== ctx.user.id) throw new Error("Comentário não encontrado.");
+          return deleteFeedComment(input.id);
+        }),
+      }),
     }),
   }),
   journey: router({

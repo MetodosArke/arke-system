@@ -274,6 +274,33 @@ export async function getProgressoSemanal(idValue: string) { const rows = await 
 export async function createProgressoSemanal(input: Record<string, unknown>) { const rows = await request<ProgressoSemanal[]>("progresso_semanal", { method: "POST", body: JSON.stringify(input) }); return rows[0]; }
 export async function deleteProgressoSemanal(idValue: string) { await request("progresso_semanal", { method: "DELETE" }, `?id=eq.${encodeURIComponent(idValue)}`); return { id: idValue }; }
 
+// Feed (Fase 2 — engajamento): posts, curtidas e comentários da comunidade
+// da organização. Autor resolvido via profiles.full_name (staff e aluno
+// compartilham a mesma tabela de perfil, então um join in-memory por
+// user_id basta — sem embed do PostgREST, seguindo o padrão do resto do
+// arquivo).
+export type FeedPost = { id: string; user_id: string; organization_id: string; content: string; image_url: string | null; created_at: string };
+export type FeedLike = { id: string; post_id: string; user_id: string; organization_id: string; created_at: string };
+export type FeedComment = { id: string; post_id: string; user_id: string; organization_id: string; content: string; created_at: string };
+const idsInFilter = (column: string, ids: string[]) => `${column}=in.(${ids.map(encodeURIComponent).join(",")})`;
+
+export async function listFeedPosts(organizationId: string, limit = 50) { return request<FeedPost[]>("feed_posts", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}&order=created_at.desc&limit=${limit}`); }
+export async function getFeedPost(idValue: string) { const rows = await request<FeedPost[]>("feed_posts", {}, `?select=*&id=eq.${encodeURIComponent(idValue)}&limit=1`); return rows[0] ?? null; }
+export async function createFeedPost(input: Record<string, unknown>) { const rows = await request<FeedPost[]>("feed_posts", { method: "POST", body: JSON.stringify(input) }); return rows[0]; }
+export async function deleteFeedPost(idValue: string) { await request("feed_posts", { method: "DELETE" }, `?id=eq.${encodeURIComponent(idValue)}`); return { id: idValue }; }
+
+export async function listFeedLikesForPosts(postIds: string[]) { if (!postIds.length) return []; return request<FeedLike[]>("feed_likes", {}, `?select=*&${idsInFilter("post_id", postIds)}`); }
+export async function getFeedLike(postId: string, userId: string) { const rows = await request<FeedLike[]>("feed_likes", {}, `?select=*&post_id=eq.${encodeURIComponent(postId)}&user_id=eq.${encodeURIComponent(userId)}&limit=1`); return rows[0] ?? null; }
+export async function createFeedLike(input: { postId: string; userId: string; organizationId: string }) { const rows = await request<FeedLike[]>("feed_likes", { method: "POST", body: JSON.stringify({ post_id: input.postId, user_id: input.userId, organization_id: input.organizationId }) }); return rows[0]; }
+export async function deleteFeedLike(postId: string, userId: string) { await request("feed_likes", { method: "DELETE" }, `?post_id=eq.${encodeURIComponent(postId)}&user_id=eq.${encodeURIComponent(userId)}`); return { postId, userId }; }
+
+export async function listFeedCommentsForPosts(postIds: string[]) { if (!postIds.length) return []; return request<FeedComment[]>("feed_comments", {}, `?select=*&${idsInFilter("post_id", postIds)}&order=created_at.asc`); }
+export async function getFeedComment(idValue: string) { const rows = await request<FeedComment[]>("feed_comments", {}, `?select=*&id=eq.${encodeURIComponent(idValue)}&limit=1`); return rows[0] ?? null; }
+export async function createFeedComment(input: Record<string, unknown>) { const rows = await request<FeedComment[]>("feed_comments", { method: "POST", body: JSON.stringify(input) }); return rows[0]; }
+export async function deleteFeedComment(idValue: string) { await request("feed_comments", { method: "DELETE" }, `?id=eq.${encodeURIComponent(idValue)}`); return { id: idValue }; }
+
+export async function listProfileNames(userIds: string[]) { if (!userIds.length) return []; return request<Array<{ user_id: string; full_name: string | null }>>("profiles", {}, `?select=user_id,full_name&${idsInFilter("user_id", userIds)}`); }
+
 // Prescrição real de treino nunca pode puxar um exercício ainda em
 // rascunho (não revisado pelo Admin Arke) — só o acervo publicado entra
 // aqui.
