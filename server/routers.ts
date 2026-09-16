@@ -6,7 +6,7 @@ import { systemRouter } from "./_core/systemRouter";
 import { adminProcedure, protectedProcedure, publicProcedure, router } from "./_core/trpc";
 import { assertRateLimit, rateLimitKey } from "./_core/rateLimit";
 import { acceptOrganizationInvitation, archiveOrganizationUnit, auditLogsToCsv, auditLogsToPdfBase64, createOrganizationInvitation, createOrganizationUnit, createOrganizationWithOwner, createSubscriptionCharge, getAuditLogs, getMembership, getOrganization, getOrganizationAccess, getOrganizationBySlug, getOrganizationOnboarding, getOrganizationSubscription, getOrganizationsForUser, getPendingOrganizationInvitations, recordAuditLog, revokeOrganizationInvitation, saveOrganizationOnboarding, updateModulePolicy, updateOrganizationProfile, updateOrganizationSubscription } from "./db";
-import { acceptMemberInvitation, assignAtendimento, cancelarReserva, cancelarReservaStaff, converterLead, countAlunosComArkeAtivo, createAppStudent, createAppUser, createAtendimento, createDeletionRequest, addDesafioParticipante, createDesafio, createDieta, createFeedComment, createFeedLike, createFeedPost, createGlobalExercise, createGlobalGroup, createGlobalNutritionPlan, createGlobalRoutine, createGlobalTemplate, createGlobalTemplateExercise, createLead, createLeadNota, createPasswordRecoveryCode, createProgressoSemanal, createTreino, createTurma, deleteAppStudent, deleteAppUser, deleteDesafio, deleteDieta, deleteFeedComment, deleteFeedLike, deleteFeedPost, deleteProgressoSemanal, deleteGlobalExercise, deleteGlobalGroup, deleteGlobalNutritionPlan, deleteGlobalRoutine, deleteGlobalTemplate, deleteGlobalTemplateExercise, deleteGlobalAccessRule, deleteLead, deleteTreino, deleteTurma, findAppUserByEmail, fulfillDeletionRequest, gerarFichaTreinoPdf, getAcolhimento, getAlunoArkeLicenca, getArkeModule, getAtendimento, getAvaliacaoSemanal, getCheckinDoDia, getCrmIndicadores, getCurrentPrivacyPolicy, getDeletionRequest, getDieta, getGestaoIndicadores, getLead, getDesafio, getFeedComment, getFeedLike, getFeedPost, getMyDeletionRequest, getPlanoTreinoSemanal, getProfileByUserId, getProgressoSemanal, getReserva, getTreino, getTurma, getVagasDisponiveis, hasConsent, hasSupabaseConfig, inviteMember, listAppStudents, listAppUsers, listAtendimentosForOrganization, listDeletionRequests, listDesafioParticipantes, listDesafioParticipantesForAluno, listDesafioProgressoForAluno, listDesafioProgressoForDesafio, listDesafios, listDietasForAluno, listExercisesCatalog, listFeedCommentsForPosts, listFeedLikesForPosts, listFeedPosts, listFrequenciaForAluno, listFrequenciaForOrganization, listGlobalLibrary, listLeadAtividades, listLeadsForOrganization, listMinhasReservas, listMyAtendimentos, listMyCheckIns, listPendingMemberInvitations, listProfileNames, listProgressoSemanal, listReservasForTurmaData, listStudentsInOrganization, listTreinoExercicios, listTreinosForAluno, listTurmaHorarios, listTurmasAtivas, listTurmasForOrganization, marcarLeadPerdido, moverEstagioLead, normalizeEmail, publishDieta, publishGlobalExercises, publishGlobalNutritionPlans, publishGlobalTemplates, publishTreino, recordConsent, registrarFrequencia, rejectDeletionRequest, removeDesafioParticipante, replaceTreinoExercicios, replaceTurmaHorarios, requestHelp, reservarVaga, resolveAtendimento, revokeMemberInvitation, setDesafioProgresso, signInWithSupabase, submitCheckIn, toggleAlunoArkeLicenca, updateAppStudent, updateAppUser, updateDesafio, updateDieta, updateGlobalExercise, updateGlobalGroup, updateGlobalNutritionPlan, updateGlobalRoutine, updateGlobalTemplate, updateGlobalTemplateExercise, updateLead, updateStudentMatricula, updateSupabaseUserPassword, updateTreino, updateTurma, upsertAcolhimento, upsertArkeModule, upsertAvaliacaoSemanal, upsertCheckinDiario, upsertGlobalAccessRule, upsertPlanoTreinoSemanal, verifyPasswordRecoveryCode } from "./supabaseAdmin";
+import { acceptMemberInvitation, assignAtendimento, cancelarReserva, cancelarReservaStaff, converterLead, countAlunosComArkeAtivo, createAppStudent, createAppUser, createAtendimento, createDeletionRequest, addCompeticaoParticipante, addDesafioParticipante, createCompeticao, createDesafio, createDieta, createFeedComment, createFeedLike, createFeedPost, createGlobalExercise, createGlobalGroup, createGlobalNutritionPlan, createGlobalRoutine, createGlobalTemplate, createGlobalTemplateExercise, createLead, createLeadNota, createPasswordRecoveryCode, createProgressoSemanal, createTreino, createTurma, deleteAppStudent, deleteAppUser, deleteCompeticao, deleteDesafio, deleteDieta, deleteFeedComment, deleteFeedLike, deleteFeedPost, deleteProgressoSemanal, deleteGlobalExercise, deleteGlobalGroup, deleteGlobalNutritionPlan, deleteGlobalRoutine, deleteGlobalTemplate, deleteGlobalTemplateExercise, deleteGlobalAccessRule, deleteLead, deleteTreino, deleteTurma, findAppUserByEmail, fulfillDeletionRequest, gerarFichaTreinoPdf, getAcolhimento, getAlunoArkeLicenca, getArkeModule, getAtendimento, getAvaliacaoSemanal, getCheckinDoDia, getCrmIndicadores, getCurrentPrivacyPolicy, getDeletionRequest, getDieta, getGestaoIndicadores, getLead, getCompeticao, getDesafio, getFeedComment, getFeedLike, getFeedPost, getMyDeletionRequest, getPlanoTreinoSemanal, getProfileByUserId, getProgressoSemanal, getReserva, getTreino, getTurma, getVagasDisponiveis, hasConsent, hasSupabaseConfig, inviteMember, listAppStudents, listAppUsers, listAtendimentosForOrganization, listCompeticaoParticipantes, listCompeticaoParticipantesForAluno, listCompeticaoPontuacaoForCompeticao, listCompeticoes, listDeletionRequests, listDesafioParticipantes, listDesafioParticipantesForAluno, listDesafioProgressoForAluno, listDesafioProgressoForDesafio, listDesafios, listDietasForAluno, listExercisesCatalog, listFeedCommentsForPosts, listFeedLikesForPosts, listFeedPosts, listFrequenciaForAluno, listFrequenciaForOrganization, listGlobalLibrary, listLeadAtividades, listLeadsForOrganization, listMinhasReservas, listMyAtendimentos, listMyCheckIns, listPendingMemberInvitations, listProfileNames, listProgressoSemanal, listReservasForTurmaData, listStudentsInOrganization, listTreinoExercicios, listTreinosForAluno, listTurmaHorarios, listTurmasAtivas, listTurmasForOrganization, marcarLeadPerdido, moverEstagioLead, normalizeEmail, publishDieta, publishGlobalExercises, publishGlobalNutritionPlans, publishGlobalTemplates, publishTreino, recordConsent, registrarFrequencia, rejectDeletionRequest, removeCompeticaoParticipante, removeDesafioParticipante, replaceTreinoExercicios, replaceTurmaHorarios, requestHelp, reservarVaga, resolveAtendimento, revokeMemberInvitation, setCompeticaoPontuacao, setDesafioProgresso, signInWithSupabase, submitCheckIn, toggleAlunoArkeLicenca, updateAppStudent, updateAppUser, updateCompeticao, updateDesafio, updateDieta, updateGlobalExercise, updateGlobalGroup, updateGlobalNutritionPlan, updateGlobalRoutine, updateGlobalTemplate, updateGlobalTemplateExercise, updateLead, updateStudentMatricula, updateSupabaseUserPassword, updateTreino, updateTurma, upsertAcolhimento, upsertArkeModule, upsertAvaliacaoSemanal, upsertCheckinDiario, upsertGlobalAccessRule, upsertPlanoTreinoSemanal, verifyPasswordRecoveryCode } from "./supabaseAdmin";
 import { alunoTemArke, assertAlunoTemArke } from "./arkeEntitlement";
 import { asaasConfigured, asaasEnvironment, createAsaasWebhook, getAsaasAccount, listAsaasPayments } from "./asaas";
 import { listAsaasPaymentsForOrganization } from "./asaasPersistence";
@@ -91,6 +91,13 @@ const assertStaffForDesafio = async (userId: string, desafioId: string, blockedR
   if (!desafio) throw new Error("Desafio não encontrado.");
   await assertStaffOfOrganization(userId, desafio.organization_id, blockedRoles);
   return desafio;
+};
+
+const assertStaffForCompeticao = async (userId: string, competicaoId: string, blockedRoles: readonly string[] = []) => {
+  const competicao = await getCompeticao(competicaoId);
+  if (!competicao) throw new Error("Competição não encontrada.");
+  await assertStaffOfOrganization(userId, competicao.organization_id, blockedRoles);
+  return competicao;
 };
 
 const assertStaffForProgresso = async (userId: string, progressoId: string, blockedRoles: readonly string[] = []) => {
@@ -578,6 +585,49 @@ export const appRouter = router({
         }),
       }),
     }),
+    // Competições (Fase 2): mesma divisão de acesso de desafios — equipe
+    // gerencia, aluno só lê. `metrica` aqui é só um rótulo livre (ex.:
+    // "Quilômetros corridos") para o que a equipe está digitando em
+    // competicao_pontuacao.valor — não é mais calculada automaticamente.
+    competicoes: router({
+      list: protectedProcedure.input(organizationIdInput).query(async ({ ctx, input }) => { await assertStaffOfOrganization(ctx.user.id, input.organizationId); return listCompeticoes(input.organizationId); }),
+      create: protectedProcedure.input(z.object({ organizationId: z.string().uuid(), titulo: z.string().trim().min(2), descricao: z.string().trim().optional(), metrica: z.string().trim().min(1).max(60).default("Pontuação geral"), dataInicio: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), dataFim: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), paraTodos: z.boolean().default(true) })).mutation(async ({ ctx, input }) => {
+        await assertStaffOfOrganization(ctx.user.id, input.organizationId);
+        const competicao = await createCompeticao({ organization_id: input.organizationId, titulo: input.titulo, descricao: input.descricao || null, metrica: input.metrica, data_inicio: input.dataInicio, data_fim: input.dataFim, para_todos: input.paraTodos, criado_por: ctx.user.id });
+        await recordAuditLog({ organizationId: input.organizationId, userId: ctx.user.id, action: "created", entity: "competicao", entityId: competicao.id, afterJson: input });
+        return competicao;
+      }),
+      update: protectedProcedure.input(z.object({ id: z.string().uuid(), titulo: z.string().trim().min(2), descricao: z.string().trim().optional(), metrica: z.string().trim().min(1).max(60), dataInicio: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), dataFim: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), paraTodos: z.boolean() })).mutation(async ({ ctx, input }) => {
+        const competicao = await assertStaffForCompeticao(ctx.user.id, input.id);
+        const updated = await updateCompeticao(input.id, { titulo: input.titulo, descricao: input.descricao || null, metrica: input.metrica, data_inicio: input.dataInicio, data_fim: input.dataFim, para_todos: input.paraTodos });
+        await recordAuditLog({ organizationId: competicao.organization_id, userId: ctx.user.id, action: "updated", entity: "competicao", entityId: input.id, beforeJson: competicao, afterJson: input });
+        return updated;
+      }),
+      delete: protectedProcedure.input(z.object({ id: z.string().uuid() })).mutation(async ({ ctx, input }) => {
+        const competicao = await assertStaffForCompeticao(ctx.user.id, input.id);
+        const result = await deleteCompeticao(input.id);
+        await recordAuditLog({ organizationId: competicao.organization_id, userId: ctx.user.id, action: "deleted", entity: "competicao", entityId: input.id, beforeJson: competicao });
+        return result;
+      }),
+      participantes: router({
+        list: protectedProcedure.input(z.object({ competicaoId: z.string().uuid() })).query(async ({ ctx, input }) => { await assertStaffForCompeticao(ctx.user.id, input.competicaoId); return listCompeticaoParticipantes(input.competicaoId); }),
+        add: protectedProcedure.input(z.object({ competicaoId: z.string().uuid(), alunoId: z.string().uuid() })).mutation(async ({ ctx, input }) => {
+          const competicao = await assertStaffForCompeticao(ctx.user.id, input.competicaoId);
+          return addCompeticaoParticipante({ competicaoId: input.competicaoId, alunoId: input.alunoId, organizationId: competicao.organization_id });
+        }),
+        remove: protectedProcedure.input(z.object({ competicaoId: z.string().uuid(), alunoId: z.string().uuid() })).mutation(async ({ ctx, input }) => {
+          await assertStaffForCompeticao(ctx.user.id, input.competicaoId);
+          return removeCompeticaoParticipante(input.competicaoId, input.alunoId);
+        }),
+      }),
+      pontuacao: router({
+        list: protectedProcedure.input(z.object({ competicaoId: z.string().uuid() })).query(async ({ ctx, input }) => { await assertStaffForCompeticao(ctx.user.id, input.competicaoId); return listCompeticaoPontuacaoForCompeticao(input.competicaoId); }),
+        set: protectedProcedure.input(z.object({ competicaoId: z.string().uuid(), alunoId: z.string().uuid(), valor: z.number() })).mutation(async ({ ctx, input }) => {
+          const competicao = await assertStaffForCompeticao(ctx.user.id, input.competicaoId);
+          return setCompeticaoPontuacao({ competicaoId: input.competicaoId, alunoId: input.alunoId, organizationId: competicao.organization_id, valor: input.valor, atualizadoPor: ctx.user.id });
+        }),
+      }),
+    }),
   }),
   arke: router({
     membership: router({
@@ -721,6 +771,33 @@ export const appRouter = router({
           pontos: desafio.pontos,
           concluido: progressoByDesafio.get(desafio.id)?.concluido ?? false,
           valorAtual: progressoByDesafio.get(desafio.id)?.valor_atual ?? null,
+        }));
+      }),
+    }),
+    // Ranking calculado no servidor a partir de valores digitados pela
+    // equipe (competicao_pontuacao.valor) — nunca de dados de treino/dieta
+    // auto-registrados, que ainda não existem no SaaS novo.
+    competicoes: router({
+      meus: protectedProcedure.query(async ({ ctx }) => {
+        await assertAlunoTemArke(ctx.user.id);
+        const profile = await getProfileByUserId(ctx.user.id);
+        if (!profile?.organization_id) throw new Error("Aluno sem organização vinculada.");
+        const organizationId = profile.organization_id;
+        const [competicoes, participacoes, students] = await Promise.all([listCompeticoes(organizationId), listCompeticaoParticipantesForAluno(ctx.user.id), listStudentsInOrganization(organizationId)]);
+        const participandoIds = new Set(participacoes.map((participante) => participante.competicao_id));
+        const nameByAluno = new Map(students.map((student) => [student.user_id, student.full_name || "Aluno"]));
+        const minhas = competicoes.filter((competicao) => competicao.para_todos || participandoIds.has(competicao.id));
+        return Promise.all(minhas.map(async (competicao) => {
+          const [participantes, pontuacoes] = await Promise.all([
+            competicao.para_todos ? Promise.resolve(students.map((student) => ({ aluno_id: student.user_id }))) : listCompeticaoParticipantes(competicao.id),
+            listCompeticaoPontuacaoForCompeticao(competicao.id),
+          ]);
+          const valorByAluno = new Map(pontuacoes.map((item) => [item.aluno_id, item.valor]));
+          const ranking = participantes
+            .map((participante) => ({ alunoId: participante.aluno_id, nome: nameByAluno.get(participante.aluno_id) ?? "Aluno", valor: valorByAluno.get(participante.aluno_id) ?? 0 }))
+            .sort((a, b) => b.valor - a.valor)
+            .map((entry, index) => ({ ...entry, posicao: index + 1 }));
+          return { id: competicao.id, titulo: competicao.titulo, descricao: competicao.descricao, metrica: competicao.metrica, dataInicio: competicao.data_inicio, dataFim: competicao.data_fim, ranking };
         }));
       }),
     }),
