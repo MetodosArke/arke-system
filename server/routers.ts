@@ -17,6 +17,7 @@ import { sugerirExercicio, sugerirModeloTreino } from "./acervoAi";
 import { getVapidPublicKey, sendPushToUser } from "./push";
 import { CHAT_VIDEO_MAX_BYTES, CHAT_VIDEO_MIME_TYPES, DIETA_MAX_BYTES, DIETA_MIME_TYPES, EXERCICIO_VIDEO_MAX_BYTES, EXERCICIO_VIDEO_MIME_TYPES, FEED_IMAGE_MAX_BYTES, FEED_IMAGE_MIME_TYPES, LOGO_MAX_BYTES, LOGO_MIME_TYPES, decodeUpload, extensionFor, uploadPublicFile } from "./storage";
 import { ARKE_MODULE_PACKAGE_AMOUNTS_CENTS, ORG_PLAN_KEYS, SAAS_PLAN_KEYS, type OrgPlan } from "@shared/pricing";
+import { TURNSTILE_BRAND_KEYS } from "@shared/turnstile";
 
 const organizationIdInput = z.object({ organizationId: z.string().uuid() });
 const moduleName = z.enum(["dashboard", "academias", "profissionais", "alunos", "agenda", "financeiro", "integracoes"]);
@@ -372,7 +373,7 @@ export const appRouter = router({
     }),
     catraca: router({
       list: protectedProcedure.input(organizationIdInput).query(async ({ ctx, input }) => { await ownerOrAdmin(ctx.user.id, input.organizationId); return listTurnstileIntegrationsForOrganization(input.organizationId); }),
-      save: protectedProcedure.input(z.object({ organizationId: z.string().uuid(), unitId: z.string().uuid(), brand: z.enum(["control_id", "topdata", "henry", "dimep", "outra"]), model: z.string().trim().max(120).optional(), config: z.record(z.string(), z.string()), enabled: z.boolean().default(true) })).mutation(async ({ ctx, input }) => {
+      save: protectedProcedure.input(z.object({ organizationId: z.string().uuid(), unitId: z.string().uuid(), brand: z.enum(TURNSTILE_BRAND_KEYS), model: z.string().trim().max(120).optional(), config: z.record(z.string(), z.string()), enabled: z.boolean().default(true) })).mutation(async ({ ctx, input }) => {
         await ownerOrAdmin(ctx.user.id, input.organizationId);
         const result = await saveTurnstileIntegration(input);
         await recordAuditLog({ organizationId: input.organizationId, userId: ctx.user.id, unitId: input.unitId, action: "updated", entity: "turnstile_integration", afterJson: { brand: input.brand, model: input.model } });

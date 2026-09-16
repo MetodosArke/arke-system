@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { trpc } from "@/lib/trpc";
 import { ARKE_MODULE_PACKAGE_AMOUNTS_CENTS, ORG_PLAN_AMOUNTS_CENTS, ORG_PLAN_KEYS, ORG_PLAN_LABELS, PLAN_AMOUNTS_CENTS, PROFISSIONAL_PLAN_AMOUNTS_CENTS, PROFISSIONAL_PLAN_KEYS, PROFISSIONAL_PLAN_LABELS, formatBRL, type OrgPlan, type SaasPlan } from "@shared/pricing";
+import { TURNSTILE_BRAND_LABEL, type TurnstileBrand } from "@shared/turnstile";
 
 const plans = [
   ...ORG_PLAN_KEYS.map((id) => ({ id, name: ORG_PLAN_LABELS[id], price: `${formatBRL(ORG_PLAN_AMOUNTS_CENTS[id])}/mês`, profile: "Academia/Studio" as const })),
@@ -17,7 +18,6 @@ type Props = { tenantName: string; onTenantChange: (name: string) => void; onToa
 
 const emptyOnboardingBenefits = { wellhubClientId: "", wellhubClientSecret: "", wellhubPartnerId: "", totalpassAppKey: "", totalpassAppSecret: "", totalpassGymId: "" };
 const emptyOnboardingTurnstile = { brand: "", model: "", host: "", usuario: "", senha: "", apiKey: "" };
-const TURNSTILE_BRAND_LABEL: Record<string, string> = { control_id: "Control iD", topdata: "Topdata", henry: "Henry", dimep: "Dimep", outra: "Outra" };
 
 export default function SaasPage({ tenantName, onTenantChange, onToast }: Props) {
   const [selectedClientId, setSelectedClientId] = useState("");
@@ -65,7 +65,7 @@ export default function SaasPage({ tenantName, onTenantChange, onToast }: Props)
         await saveBenefitOnboarding.mutateAsync({ organizationId: result.organizationId, provider: "totalpass", enabled: true, fields: { app_key: onboardingBenefits.totalpassAppKey, app_secret: onboardingBenefits.totalpassAppSecret, gym_id: onboardingBenefits.totalpassGymId } });
       }
       if (onboardingTurnstile.brand) {
-        await saveTurnstileOnboarding.mutateAsync({ organizationId: result.organizationId, unitId: result.unitId, brand: onboardingTurnstile.brand as "control_id" | "topdata" | "henry" | "dimep" | "outra", model: onboardingTurnstile.model || undefined, config: { host: onboardingTurnstile.host, usuario: onboardingTurnstile.usuario, senha: onboardingTurnstile.senha, api_key: onboardingTurnstile.apiKey }, enabled: true });
+        await saveTurnstileOnboarding.mutateAsync({ organizationId: result.organizationId, unitId: result.unitId, brand: onboardingTurnstile.brand as TurnstileBrand, model: onboardingTurnstile.model || undefined, config: { host: onboardingTurnstile.host, usuario: onboardingTurnstile.usuario, senha: onboardingTurnstile.senha, api_key: onboardingTurnstile.apiKey }, enabled: true });
       }
       setShowCreate(false);
       setOnboardingBenefits(emptyOnboardingBenefits);

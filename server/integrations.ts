@@ -10,6 +10,8 @@
 // preserva o valor já salvo (o formulário não obriga redigitar o segredo
 // para trocar só um campo público).
 
+import type { TurnstileBrand } from "@shared/turnstile";
+
 type Json = Record<string, unknown>;
 
 function config() {
@@ -59,7 +61,7 @@ export async function saveBenefitIntegration(input: { organizationId: string; pr
   return getBenefitIntegration(input.organizationId, input.provider);
 }
 
-export type TurnstileBrand = "control_id" | "topdata" | "henry" | "dimep" | "outra";
+export type { TurnstileBrand };
 type TurnstileRow = { id: string; unit_id: string; organization_id: string; brand: TurnstileBrand; model: string | null; config: Record<string, string>; enabled: boolean; updated_at: string; saas_units: { name: string } | null };
 
 export async function listTurnstileIntegrationsForOrganization(organizationId: string) {
