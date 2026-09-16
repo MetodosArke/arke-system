@@ -7,7 +7,9 @@ import { trpc } from "@/lib/trpc";
 import { readFileAsBase64 } from "@/lib/upload";
 
 type Toast = { title: string; detail: string };
-type Tab = "treinos" | "dieta" | "acolhimento" | "matricula";
+type Tab = "treinos" | "dieta" | "acolhimento" | "matricula" | "evolucao";
+
+const emptyProgressoForm = { pesoKg: "", gorduraPercentual: "", musculoPercentual: "", cinturaCm: "", quadrilCm: "", bracoCm: "", pernaCm: "", bemEstar: "", observacoes: "" };
 
 function downloadBase64Pdf(filename: string, contentBase64: string) {
   const binary = atob(contentBase64);
@@ -168,6 +170,28 @@ export function ProfessionalDashboard({ onToast }: { onToast: (toast: Toast) => 
   const arkeStatusQuery = trpc.arke.membership.status.useQuery({ alunoId }, { enabled: Boolean(alunoId) && tab === "matricula" });
   const toggleArke = trpc.arke.membership.toggle.useMutation({ onSuccess: (_, variables) => { success(variables.ativo ? "Método Arke ativado para o aluno" : "Método Arke desativado para o aluno"); utils.arke.membership.status.invalidate({ alunoId }); }, onError: (e) => fail("Erro ao atualizar o método Arke", e) });
 
+  // Evolução (medidas corporais) — histórico do aluno, qualquer profissional da equipe pode registrar
+  const progressoQuery = trpc.prescricao.progresso.list.useQuery({ alunoId }, { enabled: Boolean(alunoId) && tab === "evolucao" });
+  const progressoHistorico = progressoQuery.data ?? [];
+  const [progressoForm, setProgressoForm] = useState(emptyProgressoForm);
+  const createProgresso = trpc.prescricao.progresso.create.useMutation({ onSuccess: () => { success("Medida registrada"); setProgressoForm(emptyProgressoForm); utils.prescricao.progresso.list.invalidate({ alunoId }); }, onError: (e) => fail("Erro ao registrar medida", e) });
+  const deleteProgresso = trpc.prescricao.progresso.delete.useMutation({ onSuccess: () => { success("Registro removido"); utils.prescricao.progresso.list.invalidate({ alunoId }); }, onError: (e) => fail("Erro ao remover registro", e) });
+  const submitProgresso = () => {
+    const toNumber = (value: string) => (value.trim() === "" ? undefined : Number(value));
+    createProgresso.mutate({
+      alunoId,
+      pesoKg: toNumber(progressoForm.pesoKg),
+      gorduraPercentual: toNumber(progressoForm.gorduraPercentual),
+      musculoPercentual: toNumber(progressoForm.musculoPercentual),
+      cinturaCm: toNumber(progressoForm.cinturaCm),
+      quadrilCm: toNumber(progressoForm.quadrilCm),
+      bracoCm: toNumber(progressoForm.bracoCm),
+      pernaCm: toNumber(progressoForm.pernaCm),
+      bemEstar: progressoForm.bemEstar.trim() === "" ? undefined : Number(progressoForm.bemEstar),
+      observacoes: progressoForm.observacoes.trim() || undefined,
+    });
+  };
+
   const [downloadingFichaId, setDownloadingFichaId] = useState<string | null>(null);
   const downloadFicha = async (treino: { id: string; titulo: string }) => {
     setDownloadingFichaId(treino.id);
@@ -242,7 +266,35 @@ export function ProfessionalDashboard({ onToast }: { onToast: (toast: Toast) => 
       <div>
         {!selectedAluno && <Card className="rounded-2xl border-[#e5ece5] bg-white shadow-sm"><CardContent className="p-8 text-center text-sm text-[#918a7d]">Selecione um aluno para gerenciar treino e plano alimentar.</CardContent></Card>}
         {selectedAluno && <>
-          <div className="mb-4 flex gap-2">{canManageTreino && <Button variant={tab === "treinos" ? "default" : "outline"} onClick={() => setTab("treinos")} className="h-9 rounded-xl text-xs">Treinos</Button>}{canManageDieta && <Button variant={tab === "dieta" ? "default" : "outline"} onClick={() => setTab("dieta")} className="h-9 rounded-xl text-xs">Plano alimentar</Button>}<Button variant={tab === "acolhimento" ? "default" : "outline"} onClick={() => setTab("acolhimento")} className="h-9 rounded-xl text-xs">Acolhimento</Button><Button variant={tab === "matricula" ? "default" : "outline"} onClick={() => setTab("matricula")} className="h-9 rounded-xl text-xs">Matrícula</Button></div>
+          <div className="mb-4 flex gap-2">{canManageTreino && <Button variant={tab === "treinos" ? "default" : "outline"} onClick={() => setTab("treinos")} className="h-9 rounded-xl text-xs">Treinos</Button>}{canManageDieta && <Button variant={tab === "dieta" ? "default" : "outline"} onClick={() => setTab("dieta")} className="h-9 rounded-xl text-xs">Plano alimentar</Button>}<Button variant={tab === "acolhimento" ? "default" : "outline"} onClick={() => setTab("acolhimento")} className="h-9 rounded-xl text-xs">Acolhimento</Button><Button variant={tab === "evolucao" ? "default" : "outline"} onClick={() => setTab("evolucao")} className="h-9 rounded-xl text-xs">Evolução</Button><Button variant={tab === "matricula" ? "default" : "outline"} onClick={() => setTab("matricula")} className="h-9 rounded-xl text-xs">Matrícula</Button></div>
+
+          {tab === "evolucao" && <div className="grid gap-4 lg:grid-cols-[1fr_1.2fr]">
+            <Card className="rounded-2xl border-[#e5ece5] bg-white shadow-sm"><CardHeader><CardTitle className="text-sm text-[#2b271f]">Nova medida de {selectedAluno.full_name}</CardTitle></CardHeader><CardContent className="space-y-2">
+              <div className="grid grid-cols-2 gap-2">
+                <Input value={progressoForm.pesoKg} onChange={(e) => setProgressoForm({ ...progressoForm, pesoKg: e.target.value })} placeholder="Peso (kg)" type="number" className="h-9 rounded-lg text-xs" />
+                <Input value={progressoForm.gorduraPercentual} onChange={(e) => setProgressoForm({ ...progressoForm, gorduraPercentual: e.target.value })} placeholder="Gordura (%)" type="number" className="h-9 rounded-lg text-xs" />
+                <Input value={progressoForm.musculoPercentual} onChange={(e) => setProgressoForm({ ...progressoForm, musculoPercentual: e.target.value })} placeholder="Músculo (%)" type="number" className="h-9 rounded-lg text-xs" />
+                <Input value={progressoForm.cinturaCm} onChange={(e) => setProgressoForm({ ...progressoForm, cinturaCm: e.target.value })} placeholder="Cintura (cm)" type="number" className="h-9 rounded-lg text-xs" />
+                <Input value={progressoForm.quadrilCm} onChange={(e) => setProgressoForm({ ...progressoForm, quadrilCm: e.target.value })} placeholder="Quadril (cm)" type="number" className="h-9 rounded-lg text-xs" />
+                <Input value={progressoForm.bracoCm} onChange={(e) => setProgressoForm({ ...progressoForm, bracoCm: e.target.value })} placeholder="Braço (cm)" type="number" className="h-9 rounded-lg text-xs" />
+                <Input value={progressoForm.pernaCm} onChange={(e) => setProgressoForm({ ...progressoForm, pernaCm: e.target.value })} placeholder="Perna (cm)" type="number" className="h-9 rounded-lg text-xs" />
+                <Input value={progressoForm.bemEstar} onChange={(e) => setProgressoForm({ ...progressoForm, bemEstar: e.target.value })} placeholder="Bem-estar (1-5)" type="number" min={1} max={5} className="h-9 rounded-lg text-xs" />
+              </div>
+              <textarea value={progressoForm.observacoes} onChange={(e) => setProgressoForm({ ...progressoForm, observacoes: e.target.value })} placeholder="Observações (opcional)" className="min-h-16 w-full rounded-lg border bg-white p-2 text-xs" />
+              <Button onClick={submitProgresso} disabled={createProgresso.isPending} className="h-9 w-full rounded-lg bg-[#15130f] text-xs text-white"><Plus size={14} /> Registrar medida</Button>
+            </CardContent></Card>
+            <Card className="rounded-2xl border-[#e5ece5] bg-white shadow-sm"><CardHeader><CardTitle className="text-sm text-[#2b271f]">Histórico</CardTitle></CardHeader><CardContent className="space-y-2">
+              {progressoQuery.isLoading && <p className="text-xs text-[#918a7d]">Carregando...</p>}
+              {!progressoQuery.isLoading && progressoHistorico.length === 0 && <p className="text-xs text-[#918a7d]">Nenhuma medida registrada ainda.</p>}
+              {[...progressoHistorico].reverse().map((registro) => <div key={registro.id} className="flex items-start justify-between gap-2 rounded-lg bg-[#faf7ef] px-3 py-2 text-xs text-[#5c5445]">
+                <div><p className="font-semibold text-[#4b4438]">{new Date(`${registro.data}T00:00:00`).toLocaleDateString("pt-BR")}</p>
+                  <p>{[registro.peso_kg != null ? `${registro.peso_kg}kg` : null, registro.gordura_percentual != null ? `${registro.gordura_percentual}% gordura` : null, registro.musculo_percentual != null ? `${registro.musculo_percentual}% músculo` : null, registro.cintura_cm != null ? `cintura ${registro.cintura_cm}cm` : null, registro.quadril_cm != null ? `quadril ${registro.quadril_cm}cm` : null, registro.braco_cm != null ? `braço ${registro.braco_cm}cm` : null, registro.perna_cm != null ? `perna ${registro.perna_cm}cm` : null].filter(Boolean).join(" · ") || "Sem medidas numéricas"}</p>
+                  {registro.observacoes && <p className="mt-0.5 text-[#918a7d]">"{registro.observacoes}"</p>}
+                </div>
+                <Button variant="ghost" onClick={() => { if (window.confirm("Remover este registro?")) deleteProgresso.mutate({ id: registro.id }); }} className="h-7 w-7 shrink-0 p-0 text-[#b65c4d]"><Trash2 size={13} /></Button>
+              </div>)}
+            </CardContent></Card>
+          </div>}
 
           {tab === "matricula" && <div className="grid gap-4 lg:grid-cols-2">
             <Card className="rounded-2xl border-[#e5ece5] bg-white shadow-sm"><CardHeader><CardTitle className="text-sm text-[#2b271f]">Matrícula de {selectedAluno.full_name}</CardTitle></CardHeader><CardContent className="space-y-3">

@@ -6,7 +6,7 @@ import { systemRouter } from "./_core/systemRouter";
 import { adminProcedure, protectedProcedure, publicProcedure, router } from "./_core/trpc";
 import { assertRateLimit, rateLimitKey } from "./_core/rateLimit";
 import { acceptOrganizationInvitation, archiveOrganizationUnit, auditLogsToCsv, auditLogsToPdfBase64, createOrganizationInvitation, createOrganizationUnit, createOrganizationWithOwner, createSubscriptionCharge, getAuditLogs, getMembership, getOrganization, getOrganizationAccess, getOrganizationBySlug, getOrganizationOnboarding, getOrganizationSubscription, getOrganizationsForUser, getPendingOrganizationInvitations, recordAuditLog, revokeOrganizationInvitation, saveOrganizationOnboarding, updateModulePolicy, updateOrganizationProfile, updateOrganizationSubscription } from "./db";
-import { acceptMemberInvitation, assignAtendimento, cancelarReserva, cancelarReservaStaff, converterLead, countAlunosComArkeAtivo, createAppStudent, createAppUser, createAtendimento, createDeletionRequest, createDieta, createGlobalExercise, createGlobalGroup, createGlobalNutritionPlan, createGlobalRoutine, createGlobalTemplate, createGlobalTemplateExercise, createLead, createLeadNota, createPasswordRecoveryCode, createTreino, createTurma, deleteAppStudent, deleteAppUser, deleteDieta, deleteGlobalExercise, deleteGlobalGroup, deleteGlobalNutritionPlan, deleteGlobalRoutine, deleteGlobalTemplate, deleteGlobalTemplateExercise, deleteGlobalAccessRule, deleteLead, deleteTreino, deleteTurma, findAppUserByEmail, fulfillDeletionRequest, gerarFichaTreinoPdf, getAcolhimento, getAlunoArkeLicenca, getArkeModule, getAtendimento, getAvaliacaoSemanal, getCheckinDoDia, getCrmIndicadores, getCurrentPrivacyPolicy, getDeletionRequest, getDieta, getGestaoIndicadores, getLead, getMyDeletionRequest, getPlanoTreinoSemanal, getProfileByUserId, getReserva, getTreino, getTurma, getVagasDisponiveis, hasConsent, hasSupabaseConfig, inviteMember, listAppStudents, listAppUsers, listAtendimentosForOrganization, listDeletionRequests, listDietasForAluno, listExercisesCatalog, listFrequenciaForAluno, listFrequenciaForOrganization, listGlobalLibrary, listLeadAtividades, listLeadsForOrganization, listMinhasReservas, listMyAtendimentos, listMyCheckIns, listPendingMemberInvitations, listReservasForTurmaData, listStudentsInOrganization, listTreinoExercicios, listTreinosForAluno, listTurmaHorarios, listTurmasAtivas, listTurmasForOrganization, marcarLeadPerdido, moverEstagioLead, normalizeEmail, publishDieta, publishGlobalExercises, publishGlobalNutritionPlans, publishGlobalTemplates, publishTreino, recordConsent, registrarFrequencia, rejectDeletionRequest, replaceTreinoExercicios, replaceTurmaHorarios, requestHelp, reservarVaga, resolveAtendimento, revokeMemberInvitation, signInWithSupabase, submitCheckIn, toggleAlunoArkeLicenca, updateAppStudent, updateAppUser, updateDieta, updateGlobalExercise, updateGlobalGroup, updateGlobalNutritionPlan, updateGlobalRoutine, updateGlobalTemplate, updateGlobalTemplateExercise, updateLead, updateStudentMatricula, updateSupabaseUserPassword, updateTreino, updateTurma, upsertAcolhimento, upsertArkeModule, upsertAvaliacaoSemanal, upsertCheckinDiario, upsertGlobalAccessRule, upsertPlanoTreinoSemanal, verifyPasswordRecoveryCode } from "./supabaseAdmin";
+import { acceptMemberInvitation, assignAtendimento, cancelarReserva, cancelarReservaStaff, converterLead, countAlunosComArkeAtivo, createAppStudent, createAppUser, createAtendimento, createDeletionRequest, createDieta, createGlobalExercise, createGlobalGroup, createGlobalNutritionPlan, createGlobalRoutine, createGlobalTemplate, createGlobalTemplateExercise, createLead, createLeadNota, createPasswordRecoveryCode, createProgressoSemanal, createTreino, createTurma, deleteAppStudent, deleteAppUser, deleteDieta, deleteProgressoSemanal, deleteGlobalExercise, deleteGlobalGroup, deleteGlobalNutritionPlan, deleteGlobalRoutine, deleteGlobalTemplate, deleteGlobalTemplateExercise, deleteGlobalAccessRule, deleteLead, deleteTreino, deleteTurma, findAppUserByEmail, fulfillDeletionRequest, gerarFichaTreinoPdf, getAcolhimento, getAlunoArkeLicenca, getArkeModule, getAtendimento, getAvaliacaoSemanal, getCheckinDoDia, getCrmIndicadores, getCurrentPrivacyPolicy, getDeletionRequest, getDieta, getGestaoIndicadores, getLead, getMyDeletionRequest, getPlanoTreinoSemanal, getProfileByUserId, getProgressoSemanal, getReserva, getTreino, getTurma, getVagasDisponiveis, hasConsent, hasSupabaseConfig, inviteMember, listAppStudents, listAppUsers, listAtendimentosForOrganization, listDeletionRequests, listDietasForAluno, listExercisesCatalog, listFrequenciaForAluno, listFrequenciaForOrganization, listGlobalLibrary, listLeadAtividades, listLeadsForOrganization, listMinhasReservas, listMyAtendimentos, listMyCheckIns, listPendingMemberInvitations, listProgressoSemanal, listReservasForTurmaData, listStudentsInOrganization, listTreinoExercicios, listTreinosForAluno, listTurmaHorarios, listTurmasAtivas, listTurmasForOrganization, marcarLeadPerdido, moverEstagioLead, normalizeEmail, publishDieta, publishGlobalExercises, publishGlobalNutritionPlans, publishGlobalTemplates, publishTreino, recordConsent, registrarFrequencia, rejectDeletionRequest, replaceTreinoExercicios, replaceTurmaHorarios, requestHelp, reservarVaga, resolveAtendimento, revokeMemberInvitation, signInWithSupabase, submitCheckIn, toggleAlunoArkeLicenca, updateAppStudent, updateAppUser, updateDieta, updateGlobalExercise, updateGlobalGroup, updateGlobalNutritionPlan, updateGlobalRoutine, updateGlobalTemplate, updateGlobalTemplateExercise, updateLead, updateStudentMatricula, updateSupabaseUserPassword, updateTreino, updateTurma, upsertAcolhimento, upsertArkeModule, upsertAvaliacaoSemanal, upsertCheckinDiario, upsertGlobalAccessRule, upsertPlanoTreinoSemanal, verifyPasswordRecoveryCode } from "./supabaseAdmin";
 import { alunoTemArke, assertAlunoTemArke } from "./arkeEntitlement";
 import { asaasConfigured, asaasEnvironment, createAsaasWebhook, getAsaasAccount, listAsaasPayments } from "./asaas";
 import { listAsaasPaymentsForOrganization } from "./asaasPersistence";
@@ -82,6 +82,14 @@ const assertStaffForDieta = async (userId: string, dietaId: string, blockedRoles
   if (!dieta.organization_id) throw new Error("Plano alimentar sem organização vinculada.");
   await assertStaffOfOrganization(userId, dieta.organization_id, blockedRoles);
   return dieta;
+};
+
+const assertStaffForProgresso = async (userId: string, progressoId: string, blockedRoles: readonly string[] = []) => {
+  const registro = await getProgressoSemanal(progressoId);
+  if (!registro) throw new Error("Registro de progresso não encontrado.");
+  if (!registro.organization_id) throw new Error("Registro sem organização vinculada.");
+  await assertStaffOfOrganization(userId, registro.organization_id, blockedRoles);
+  return registro;
 };
 
 const assertStaffForAtendimento = async (userId: string, atendimentoId: string) => {
@@ -474,6 +482,50 @@ export const appRouter = router({
       dietas: protectedProcedure.query(({ ctx }) => listDietasForAluno(ctx.user.id, true)),
       fichaPdf: protectedProcedure.input(z.object({ treinoId: z.string().uuid() })).query(async ({ ctx, input }) => { const treino = await getTreino(input.treinoId); if (!treino || treino.aluno_id !== ctx.user.id || treino.estado_publicacao !== "publicado") throw new Error("Treino não encontrado."); return gerarFichaTreinoPdf(input.treinoId); }),
     }),
+    // Evolução (medidas corporais) é histórico, não upsert — qualquer
+    // profissional da equipe pode registrar/remover; sem bloqueio por papel.
+    progresso: router({
+      list: protectedProcedure.input(z.object({ alunoId: z.string().uuid() })).query(async ({ ctx, input }) => { await assertStaffForAluno(ctx.user.id, input.alunoId); return listProgressoSemanal(input.alunoId); }),
+      create: protectedProcedure.input(z.object({
+        alunoId: z.string().uuid(),
+        data: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+        pesoKg: z.number().positive().max(500).optional(),
+        gorduraPercentual: z.number().min(0).max(100).optional(),
+        musculoPercentual: z.number().min(0).max(100).optional(),
+        cinturaCm: z.number().positive().max(300).optional(),
+        quadrilCm: z.number().positive().max(300).optional(),
+        bracoCm: z.number().positive().max(100).optional(),
+        pernaCm: z.number().positive().max(150).optional(),
+        bemEstar: z.number().int().min(1).max(5).optional(),
+        observacoes: z.string().trim().max(1000).optional(),
+        metaPesoKg: z.number().positive().max(500).optional(),
+      })).mutation(async ({ ctx, input }) => {
+        const profile = await assertStaffForAluno(ctx.user.id, input.alunoId);
+        const registro = await createProgressoSemanal({
+          aluno_id: input.alunoId,
+          organization_id: profile.organization_id,
+          ...(input.data ? { data: input.data } : {}),
+          peso_kg: input.pesoKg ?? null,
+          gordura_percentual: input.gorduraPercentual ?? null,
+          musculo_percentual: input.musculoPercentual ?? null,
+          cintura_cm: input.cinturaCm ?? null,
+          quadril_cm: input.quadrilCm ?? null,
+          braco_cm: input.bracoCm ?? null,
+          perna_cm: input.pernaCm ?? null,
+          bem_estar: input.bemEstar ?? null,
+          observacoes: input.observacoes ?? null,
+          meta_peso_kg: input.metaPesoKg ?? null,
+        });
+        if (profile.organization_id) await recordAuditLog({ organizationId: profile.organization_id, userId: ctx.user.id, action: "created", entity: "progresso_semanal", entityId: registro.id, afterJson: input });
+        return registro;
+      }),
+      delete: protectedProcedure.input(z.object({ id: z.string().uuid() })).mutation(async ({ ctx, input }) => {
+        const registro = await assertStaffForProgresso(ctx.user.id, input.id);
+        const result = await deleteProgressoSemanal(input.id);
+        await recordAuditLog({ organizationId: registro.organization_id, userId: ctx.user.id, action: "deleted", entity: "progresso_semanal", entityId: input.id, beforeJson: registro });
+        return result;
+      }),
+    }),
   }),
   arke: router({
     membership: router({
@@ -521,6 +573,7 @@ export const appRouter = router({
         if (!profile?.organization_id) throw new Error("Aluno sem organização vinculada.");
         return upsertPlanoTreinoSemanal({ userId: ctx.user.id, organizationId: profile.organization_id, diasTreino: input.diasTreino, horarioPreferido: input.horarioPreferido, localTreino: input.localTreino });
       }),
+      progresso: protectedProcedure.query(async ({ ctx }) => { await assertAlunoTemArke(ctx.user.id); return listProgressoSemanal(ctx.user.id); }),
     }),
   }),
   journey: router({

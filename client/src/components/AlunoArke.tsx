@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { CalendarClock, Sparkles } from "lucide-react";
+import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -80,6 +81,32 @@ function PlanoTreinoSemanalCard() {
   </CardContent></Card>;
 }
 
+function EvolucaoCard() {
+  const progressoQuery = trpc.arke.meu.progresso.useQuery();
+  const historico = progressoQuery.data ?? [];
+  if (progressoQuery.isLoading) return null;
+  const chartData = historico.filter((registro) => registro.peso_kg != null).map((registro) => ({ data: registro.data, peso: registro.peso_kg }));
+  return <Card className="rounded-2xl border-[#e5ece5] bg-white shadow-sm sm:col-span-2"><CardHeader><CardTitle className="text-sm text-[#2b271f]">Evolução</CardTitle><p className="text-xs text-[#918a7d]">Medidas registradas pelo seu profissional.</p></CardHeader><CardContent>
+    {historico.length === 0 && <p className="text-sm text-[#5c5445]">Nenhuma medida registrada ainda. Fale com seu profissional na próxima avaliação.</p>}
+    {chartData.length >= 2 && <ResponsiveContainer width="100%" height={180}>
+      <AreaChart data={chartData}>
+        <defs><linearGradient id="evolucaoPesoGradient" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#a47b13" stopOpacity={0.4} /><stop offset="100%" stopColor="#a47b13" stopOpacity={0.02} /></linearGradient></defs>
+        <CartesianGrid strokeDasharray="3 3" stroke="#eee9df" vertical={false} />
+        <XAxis dataKey="data" tick={{ fontSize: 10, fill: "#9b9488" }} tickFormatter={(value: string) => value.slice(5)} />
+        <YAxis tick={{ fontSize: 10, fill: "#9b9488" }} width={32} domain={["auto", "auto"]} />
+        <Tooltip contentStyle={{ fontSize: 11, borderRadius: 8 }} />
+        <Area type="monotone" dataKey="peso" name="Peso (kg)" stroke="#a47b13" fill="url(#evolucaoPesoGradient)" strokeWidth={2} />
+      </AreaChart>
+    </ResponsiveContainer>}
+    {historico.length > 0 && <div className="mt-3 space-y-1.5">
+      {[...historico].reverse().slice(0, 5).map((registro) => <div key={registro.id} className="flex items-center justify-between rounded-lg bg-[#faf7ef] px-3 py-2 text-xs text-[#5c5445]">
+        <span>{new Date(`${registro.data}T00:00:00`).toLocaleDateString("pt-BR")}</span>
+        <span className="text-[#4b4438]">{[registro.peso_kg != null ? `${registro.peso_kg}kg` : null, registro.gordura_percentual != null ? `${registro.gordura_percentual}% gordura` : null].filter(Boolean).join(" · ") || "—"}</span>
+      </div>)}
+    </div>}
+  </CardContent></Card>;
+}
+
 export function AlunoArke() {
   const temArkeQuery = trpc.arke.meu.temArke.useQuery();
   if (temArkeQuery.isLoading) return null;
@@ -90,6 +117,7 @@ export function AlunoArke() {
       <CheckinDiarioCard />
       <AvaliacaoSemanalCard />
       <PlanoTreinoSemanalCard />
+      <EvolucaoCard />
     </div>
   </div>;
 }
