@@ -10,6 +10,8 @@
 
 import { createAsaasCustomer, createAsaasPayment } from "./asaas";
 import { upsertAsaasPayment } from "./asaasPersistence";
+import { captureException } from "./_core/errorMonitoring";
+import { PLAN_AMOUNTS_CENTS, PLAN_LIMITS, SETUP_FEE_CENTS, type SaasPlan } from "@shared/pricing";
 
 type Json = Record<string, unknown>;
 
@@ -48,13 +50,14 @@ async function rpc<T>(fn: string, args: Json) {
 
 export type Organization = {
   id: string; client_id: string; name: string; slug: string;
-  plan: "starter" | "growth" | "scale" | "unlimited" | "essencial" | "performance" | "premium";
+  plan: SaasPlan;
   status: "trial" | "active" | "past_due" | "canceled";
   module: string; logo_url: string | null; primary_color: string | null;
   max_units: number; max_users: number;
   reconciliation_status: "matched" | "review"; reconciliation_note: string | null;
   full_service_enabled: boolean;
   asaas_customer_id: string | null;
+  setup_fee_charged_at: string | null;
   created_at: string; updated_at: string;
 };
 export type Membership = {
@@ -70,8 +73,6 @@ export type Invitation = { id: string; organization_id: string; invited_by_user_
 export type OnboardingProgress = { id: string; organization_id: string; current_step: number; status: "not_started" | "in_progress" | "completed"; city: string | null; default_unit_name: string | null; invite_email: string | null; created_at: string; updated_at: string };
 export type AuditLog = { id: string; organization_id: string; auth_user_id: string | null; action: string; entity: string; entity_id: string | null; before_json: unknown; after_json: unknown; created_at: string };
 
-const PLAN_LIMITS = { starter: { maxUnits: 1, maxUsers: 12 }, growth: { maxUnits: 3, maxUsers: 32 }, scale: { maxUnits: 10, maxUsers: 100 }, unlimited: { maxUnits: 999, maxUsers: 99999 }, essencial: { maxUnits: 1, maxUsers: 3 }, performance: { maxUnits: 1, maxUsers: 8 }, premium: { maxUnits: 1, maxUsers: 20 } } as const;
-const PLAN_AMOUNTS = { starter: 39900, growth: 79900, scale: 149000, unlimited: 349000, essencial: 14900, performance: 24900, premium: 19900 } as const;
 
 export async function getOrganizationsForUser(userId: string) {
   if (!isConfigured()) return [];
@@ -165,7 +166,7 @@ export async function updateOrganizationProfile(input: { organizationId: string;
 
 export async function updateOrganizationSubscription(input: { organizationId: string; plan: Organization["plan"]; status?: Subscription["status"] }) {
   if (!isConfigured()) throw new Error("Database not available");
-  const amountCents = PLAN_AMOUNTS[input.plan];
+  const amountCents = PLAN_AMOUNTS_CENTS[input.plan];
   const limits = PLAN_LIMITS[input.plan];
   await request("saas_organizations", { method: "PATCH", body: JSON.stringify({ plan: input.plan, max_units: limits.maxUnits, max_users: limits.maxUsers }) }, `?id=eq.${encodeURIComponent(input.organizationId)}`);
   await request("saas_subscriptions", { method: "PATCH", body: JSON.stringify({ plan: input.plan, amount_cents: amountCents, ...(input.status ? { status: input.status } : {}) }) }, `?organization_id=eq.${encodeURIComponent(input.organizationId)}`);
@@ -207,6 +208,28 @@ export async function createSubscriptionCharge(input: { organizationId: string; 
   return payment;
 }
 
+// Taxa de setup (regras comerciais): cobrança única no fechamento do
+// onboarding. Idempotente via saas_organizations.setup_fee_charged_at —
+// saveOrganizationOnboarding pode ser chamado mais de uma vez com
+// status="completed" (o dono revisita o passo), e isso nunca deve cobrar
+// duas vezes. Falha aqui nunca derruba o salvamento do onboarding em si —
+// só fica registrada para a equipe investigar (CLAUDE.md §"falha de envio
+// não pode ser mascarada").
+export async function chargeSetupFeeIfNeeded(organizationId: string) {
+  if (!isConfigured()) return;
+  const organization = await getOrganization(organizationId);
+  if (!organization || organization.setup_fee_charged_at) return;
+  try {
+    const customerId = await getOrCreateAsaasCustomerForOrganization(organizationId);
+    const dueDate = new Date(Date.now() + 1000 * 60 * 60 * 24 * 3).toISOString().slice(0, 10);
+    const payment = await createAsaasPayment({ customer: customerId, value: SETUP_FEE_CENTS / 100, dueDate, billingType: "UNDEFINED", description: "Taxa de setup Arke" });
+    await upsertAsaasPayment(payment as unknown as Json, "PAYMENT_CREATED", organizationId);
+    await request("saas_organizations", { method: "PATCH", body: JSON.stringify({ setup_fee_charged_at: new Date().toISOString() }) }, `?id=eq.${encodeURIComponent(organizationId)}`);
+  } catch (error) {
+    captureException(error, { route: "onboarding.setupFee", organizationId });
+  }
+}
+
 export async function getOrganizationAccess(userId: string, organizationId: string) {
   if (!isConfigured()) return undefined;
   const membership = await getMembership(userId, organizationId);
@@ -224,6 +247,7 @@ export async function saveOrganizationOnboarding(input: { organizationId: string
     await request("saas_organizations", { method: "PATCH", body: JSON.stringify({ ...(input.logoUrl !== undefined ? { logo_url: input.logoUrl } : {}), ...(input.primaryColor !== undefined ? { primary_color: input.primaryColor } : {}), ...(input.defaultUnitName !== undefined ? { name: input.defaultUnitName } : {}) }) }, `?id=eq.${encodeURIComponent(input.organizationId)}`);
   }
   await request("saas_onboarding", { method: "POST", headers: { Prefer: "resolution=merge-duplicates,return=representation" }, body: JSON.stringify({ organization_id: input.organizationId, current_step: input.currentStep, status: input.status, city: input.city ?? null, default_unit_name: input.defaultUnitName ?? null, invite_email: input.inviteEmail ?? null }) }, "?on_conflict=organization_id");
+  if (input.status === "completed") await chargeSetupFeeIfNeeded(input.organizationId);
   return { organizationId: input.organizationId, saved: true };
 }
 

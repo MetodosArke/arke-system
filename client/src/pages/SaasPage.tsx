@@ -5,17 +5,13 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { trpc } from "@/lib/trpc";
+import { ORG_PLAN_AMOUNTS_CENTS, ORG_PLAN_KEYS, ORG_PLAN_LABELS, PLAN_AMOUNTS_CENTS, PROFISSIONAL_PLAN_AMOUNTS_CENTS, PROFISSIONAL_PLAN_KEYS, PROFISSIONAL_PLAN_LABELS, formatBRL, type SaasPlan } from "@shared/pricing";
 
 const plans = [
-  { id: "starter", name: "Starter", price: "R$ 399/mês", profile: "Academia/Studio" },
-  { id: "growth", name: "Growth", price: "R$ 799/mês", profile: "Academia/Studio" },
-  { id: "scale", name: "Scale", price: "R$ 1.490/mês", profile: "Academia/Studio" },
-  { id: "unlimited", name: "Unlimited", price: "R$ 3.490/mês", profile: "Academia/Studio" },
-  { id: "essencial", name: "Essencial", price: "R$ 149/mês", profile: "Profissional" },
-  { id: "performance", name: "Performance", price: "R$ 249/mês", profile: "Profissional" },
-  { id: "premium", name: "Premium", price: "R$ 199/mês", profile: "Profissional" },
-] as const;
-type PlanId = "starter" | "growth" | "scale" | "unlimited" | "essencial" | "performance" | "premium";
+  ...ORG_PLAN_KEYS.map((id) => ({ id, name: ORG_PLAN_LABELS[id], price: `${formatBRL(ORG_PLAN_AMOUNTS_CENTS[id])}/mês`, profile: "Academia/Studio" as const })),
+  ...PROFISSIONAL_PLAN_KEYS.map((id) => ({ id, name: PROFISSIONAL_PLAN_LABELS[id], price: `${formatBRL(PROFISSIONAL_PLAN_AMOUNTS_CENTS[id])}/mês`, profile: "Profissional" as const })),
+];
+type PlanId = SaasPlan;
 type Toast = { title: string; detail: string };
 type Props = { tenantName: string; onTenantChange: (name: string) => void; onToast: (toast: Toast) => void };
 
@@ -51,7 +47,7 @@ export default function SaasPage({ tenantName, onTenantChange, onToast }: Props)
   const rejectDeletion = trpc.saas.organizations.rejectDeletionRequest.useMutation({ onSuccess: () => { onToast({ title: "Solicitação recusada", detail: "O aluno foi mantido no sistema." }); if (realOrganizationId) utils.saas.organizations.listDeletionRequests.invalidate({ organizationId: realOrganizationId }); }, onError: (error) => onToast({ title: "Erro ao recusar solicitação", detail: error.message }) });
   const confirmFulfillDeletion = (requestId: string) => { if (!realOrganizationId) return; if (!window.confirm("Isso vai apagar de forma permanente o cadastro, treinos, planos alimentares, check-ins e acolhimento deste aluno. Continuar?")) return; fulfillDeletion.mutate({ organizationId: realOrganizationId, requestId }); };
   const confirmRejectDeletion = (requestId: string) => { if (!realOrganizationId) return; const note = window.prompt("Motivo da recusa (opcional)") ?? undefined; rejectDeletion.mutate({ organizationId: realOrganizationId, requestId, note: note || undefined }); };
-  const mrr = (organizations.data ?? []).reduce((total, row) => total + (plans.find((plan) => plan.id === row.organization.plan)?.id ? ({ starter: 399, growth: 799, scale: 1490, unlimited: 3490, essencial: 149, performance: 249, premium: 199 }[row.organization.plan] ?? 0) : 0), 0);
+  const mrr = (organizations.data ?? []).reduce((total, row) => total + (PLAN_AMOUNTS_CENTS[row.organization.plan] ?? 0) / 100, 0);
   const compatiblePlans = useMemo(() => { const module = clients.data?.find((item) => item.id === selectedClientId)?.module; return plans.filter((plan) => module === "profissional" ? plan.profile === "Profissional" : plan.profile === "Academia/Studio"); }, [clients.data, selectedClientId]);
   const submitCreate = async () => {
     const client = clients.data?.find((item) => item.id === selectedClientId);
