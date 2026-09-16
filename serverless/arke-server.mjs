@@ -862,6 +862,31 @@ async function upsertPushSubscription(input) {
 async function deletePushSubscription(userId, endpoint) {
   await request2("push_subscriptions", { method: "DELETE" }, `?user_id=eq.${encodeURIComponent(userId)}&endpoint=eq.${encodeURIComponent(endpoint)}`);
 }
+async function listNotificacoes(userId, limit = 30) {
+  return request2("notificacoes", {}, `?select=*&user_id=eq.${encodeURIComponent(userId)}&order=created_at.desc&limit=${limit}`);
+}
+async function countNotificacoesNaoLidas(userId) {
+  const rows = await request2("notificacoes", {}, `?select=id&user_id=eq.${encodeURIComponent(userId)}&lida=eq.false`);
+  return rows.length;
+}
+async function createNotificacao(input) {
+  const rows = await request2("notificacoes", { method: "POST", body: JSON.stringify({ user_id: input.userId, titulo: input.titulo, mensagem: input.mensagem ?? null, tipo: input.tipo ?? "info" }) });
+  return rows[0];
+}
+async function markNotificacaoLida(id2, userId) {
+  await request2("notificacoes", { method: "PATCH", body: JSON.stringify({ lida: true }) }, `?id=eq.${encodeURIComponent(id2)}&user_id=eq.${encodeURIComponent(userId)}`);
+}
+async function markAllNotificacoesLidas(userId) {
+  await request2("notificacoes", { method: "PATCH", body: JSON.stringify({ lida: true }) }, `?user_id=eq.${encodeURIComponent(userId)}&lida=eq.false`);
+}
+async function listProntuarioObservacoes(alunoId) {
+  return request2("prontuario_observacoes", {}, `?select=*&aluno_id=eq.${encodeURIComponent(alunoId)}&order=ano.desc,mes.desc`);
+}
+async function upsertProntuarioObservacao(input) {
+  const body = { aluno_id: input.alunoId, organization_id: input.organizationId, mes: input.mes, ano: input.ano, observacao: input.observacao, criado_por: input.criadoPor, updated_at: (/* @__PURE__ */ new Date()).toISOString() };
+  const rows = await request2("prontuario_observacoes", { method: "POST", body: JSON.stringify(body), headers: { Prefer: "return=representation,resolution=merge-duplicates" } }, "?on_conflict=aluno_id,mes,ano");
+  return rows[0];
+}
 async function listDesafios(organizationId) {
   return request2("desafios", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}&order=data_fim.desc`);
 }
@@ -1929,6 +1954,11 @@ var currentWeekKey = () => {
   d.setUTCDate(d.getUTCDate() - diffToMonday);
   return d.toISOString().slice(0, 10);
 };
+var notifyAluno = async (userId, titulo, mensagem) => {
+  await createNotificacao({ userId, titulo, mensagem, tipo: "chat" });
+  sendPushToUser(userId, { title: titulo, body: mensagem, url: "/" }).catch(() => {
+  });
+};
 var ownerOrAdmin = async (userId, organizationId) => {
   const membership = await getMembership(userId, organizationId);
   if (!membership || !["owner", "admin", "manager"].includes(membership.membership.role)) throw new Error("You do not have permission to manage this organization");
@@ -2080,6 +2110,14 @@ var appRouter = router({
     publicKey: publicProcedure.query(() => ({ publicKey: getVapidPublicKey() })),
     subscribe: protectedProcedure.input(z2.object({ endpoint: z2.string().url(), keys: z2.object({ p256dh: z2.string(), auth: z2.string() }) })).mutation(({ ctx, input }) => upsertPushSubscription({ userId: ctx.user.id, endpoint: input.endpoint, p256dh: input.keys.p256dh, auth: input.keys.auth })),
     unsubscribe: protectedProcedure.input(z2.object({ endpoint: z2.string().url() })).mutation(({ ctx, input }) => deletePushSubscription(ctx.user.id, input.endpoint))
+  }),
+  // Inbox in-app (Fase 3): histórico confiável de notificações — existe
+  // mesmo para quem nunca ativou push no navegador.
+  notificacoes: router({
+    minhas: protectedProcedure.query(({ ctx }) => listNotificacoes(ctx.user.id)),
+    naoLidas: protectedProcedure.query(async ({ ctx }) => ({ count: await countNotificacoesNaoLidas(ctx.user.id) })),
+    marcarLida: protectedProcedure.input(z2.object({ id: z2.string().uuid() })).mutation(({ ctx, input }) => markNotificacaoLida(input.id, ctx.user.id)),
+    marcarTodasLidas: protectedProcedure.mutation(({ ctx }) => markAllNotificacoesLidas(ctx.user.id))
   }),
   admin: router({
     status: publicProcedure.query(() => ({ configured: hasSupabaseConfig() })),
@@ -2470,8 +2508,7 @@ var appRouter = router({
         send: protectedProcedure.input(z2.object({ alunoId: z2.string().uuid(), mensagem: z2.string().trim().min(1).max(2e3) })).mutation(async ({ ctx, input }) => {
           const profile = await assertStaffForAluno(ctx.user.id, input.alunoId, TREINO_BLOCKED_ROLES);
           const mensagem = await createMensagemTreino({ aluno_id: input.alunoId, organization_id: profile.organization_id, remetente_id: ctx.user.id, remetente_tipo: "treinador", mensagem: input.mensagem });
-          sendPushToUser(input.alunoId, { title: "Nova mensagem do seu treinador", body: input.mensagem.slice(0, 140), url: "/" }).catch(() => {
-          });
+          await notifyAluno(input.alunoId, "Nova mensagem do seu treinador", input.mensagem.slice(0, 140));
           return mensagem;
         }),
         sendVideo: protectedProcedure.input(z2.object({ alunoId: z2.string().uuid(), contentType: z2.string(), dataBase64: z2.string() })).mutation(async ({ ctx, input }) => {
@@ -2479,8 +2516,7 @@ var appRouter = router({
           const buffer = decodeUpload(input.dataBase64, input.contentType, CHAT_VIDEO_MIME_TYPES, CHAT_VIDEO_MAX_BYTES);
           const url = await uploadPublicFile("chat-videos", `${input.alunoId}/${randomUUID2()}.${extensionFor(input.contentType)}`, buffer, input.contentType);
           const mensagem = await createMensagemTreino({ aluno_id: input.alunoId, organization_id: profile.organization_id, remetente_id: ctx.user.id, remetente_tipo: "treinador", mensagem: "V\xEDdeo", video_url: url });
-          sendPushToUser(input.alunoId, { title: "Nova mensagem do seu treinador", body: "V\xEDdeo enviado", url: "/" }).catch(() => {
-          });
+          await notifyAluno(input.alunoId, "Nova mensagem do seu treinador", "V\xEDdeo enviado");
           return mensagem;
         }),
         markRead: protectedProcedure.input(z2.object({ alunoId: z2.string().uuid() })).mutation(async ({ ctx, input }) => {
@@ -2496,14 +2532,26 @@ var appRouter = router({
         send: protectedProcedure.input(z2.object({ dietaId: z2.string().uuid(), mensagem: z2.string().trim().min(1).max(2e3) })).mutation(async ({ ctx, input }) => {
           const dieta = await assertStaffForDieta(ctx.user.id, input.dietaId, DIETA_BLOCKED_ROLES);
           const mensagem = await createMensagemDieta({ dieta_id: input.dietaId, aluno_id: dieta.aluno_id, organization_id: dieta.organization_id, remetente_id: ctx.user.id, remetente_tipo: "nutricionista", mensagem: input.mensagem });
-          sendPushToUser(dieta.aluno_id, { title: "Nova mensagem da nutri\xE7\xE3o", body: input.mensagem.slice(0, 140), url: "/" }).catch(() => {
-          });
+          await notifyAluno(dieta.aluno_id, "Nova mensagem da nutri\xE7\xE3o", input.mensagem.slice(0, 140));
           return mensagem;
         }),
         markRead: protectedProcedure.input(z2.object({ dietaId: z2.string().uuid() })).mutation(async ({ ctx, input }) => {
           await assertStaffForDieta(ctx.user.id, input.dietaId, DIETA_BLOCKED_ROLES);
           return markMensagensDietaLidas(input.dietaId, "aluno");
         })
+      })
+    }),
+    // Prontuário privado (Fase 3): notas internas da equipe sobre o aluno,
+    // nunca expostas a ele — sem procedure nenhuma em `meu`.
+    prontuario: router({
+      list: protectedProcedure.input(z2.object({ alunoId: z2.string().uuid() })).query(async ({ ctx, input }) => {
+        await assertStaffForAluno(ctx.user.id, input.alunoId);
+        return listProntuarioObservacoes(input.alunoId);
+      }),
+      upsert: protectedProcedure.input(z2.object({ alunoId: z2.string().uuid(), mes: z2.number().int().min(1).max(12), ano: z2.number().int().min(2020).max(2100), observacao: z2.string().trim().max(4e3) })).mutation(async ({ ctx, input }) => {
+        const profile = await assertStaffForAluno(ctx.user.id, input.alunoId);
+        if (!profile.organization_id) throw new Error("Aluno sem organiza\xE7\xE3o vinculada.");
+        return upsertProntuarioObservacao({ alunoId: input.alunoId, organizationId: profile.organization_id, mes: input.mes, ano: input.ano, observacao: input.observacao, criadoPor: ctx.user.id });
       })
     }),
     meu: router({

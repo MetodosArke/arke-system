@@ -325,6 +325,26 @@ export async function upsertPushSubscription(input: { userId: string; endpoint: 
 }
 export async function deletePushSubscription(userId: string, endpoint: string) { await request("push_subscriptions", { method: "DELETE" }, `?user_id=eq.${encodeURIComponent(userId)}&endpoint=eq.${encodeURIComponent(endpoint)}`); }
 
+// Notificações in-app (Fase 3): inbox pessoal, não escopado por
+// organização (mesmo padrão de push_subscriptions — user_id já basta).
+export type Notificacao = { id: string; user_id: string; titulo: string; mensagem: string | null; tipo: string; lida: boolean; created_at: string };
+export async function listNotificacoes(userId: string, limit = 30) { return request<Notificacao[]>("notificacoes", {}, `?select=*&user_id=eq.${encodeURIComponent(userId)}&order=created_at.desc&limit=${limit}`); }
+export async function countNotificacoesNaoLidas(userId: string) { const rows = await request<Array<{ id: string }>>("notificacoes", {}, `?select=id&user_id=eq.${encodeURIComponent(userId)}&lida=eq.false`); return rows.length; }
+export async function createNotificacao(input: { userId: string; titulo: string; mensagem?: string; tipo?: string }) { const rows = await request<Notificacao[]>("notificacoes", { method: "POST", body: JSON.stringify({ user_id: input.userId, titulo: input.titulo, mensagem: input.mensagem ?? null, tipo: input.tipo ?? "info" }) }); return rows[0]; }
+export async function markNotificacaoLida(id: string, userId: string) { await request("notificacoes", { method: "PATCH", body: JSON.stringify({ lida: true }) }, `?id=eq.${encodeURIComponent(id)}&user_id=eq.${encodeURIComponent(userId)}`); }
+export async function markAllNotificacoesLidas(userId: string) { await request("notificacoes", { method: "PATCH", body: JSON.stringify({ lida: true }) }, `?user_id=eq.${encodeURIComponent(userId)}&lida=eq.false`); }
+
+// Prontuário privado (Fase 3): notas mensais da equipe, nunca visível ao
+// aluno — mesmo "Admins can manage" do app original, só que aberto a todo
+// STAFF_ROLES (o modelo multi-tenant não tem um admin único por conta).
+export type ProntuarioObservacao = { id: string; aluno_id: string; organization_id: string; mes: number; ano: number; observacao: string; criado_por: string | null; created_at: string; updated_at: string };
+export async function listProntuarioObservacoes(alunoId: string) { return request<ProntuarioObservacao[]>("prontuario_observacoes", {}, `?select=*&aluno_id=eq.${encodeURIComponent(alunoId)}&order=ano.desc,mes.desc`); }
+export async function upsertProntuarioObservacao(input: { alunoId: string; organizationId: string; mes: number; ano: number; observacao: string; criadoPor: string }) {
+  const body = { aluno_id: input.alunoId, organization_id: input.organizationId, mes: input.mes, ano: input.ano, observacao: input.observacao, criado_por: input.criadoPor, updated_at: new Date().toISOString() };
+  const rows = await request<ProntuarioObservacao[]>("prontuario_observacoes", { method: "POST", body: JSON.stringify(body), headers: { Prefer: "return=representation,resolution=merge-duplicates" } }, "?on_conflict=aluno_id,mes,ano");
+  return rows[0];
+}
+
 // Desafios (Fase 2 — engajamento): sempre criados/geridos pela equipe, o
 // aluno só lê. O `tipo`/`meta_valor` reaproveita o vocabulário do arke-app
 // original, mas o rastreamento automático por dieta/treino registrado
