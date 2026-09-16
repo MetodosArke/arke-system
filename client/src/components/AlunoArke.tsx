@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { CalendarClock, CheckCircle2, Heart, ImageIcon, MessageCircle, Rss, Send, Sparkles, Star, Trash2, Trophy, X } from "lucide-react";
+import { CalendarClock, CheckCircle2, Heart, ImageIcon, MessageCircle, Rss, Send, Sparkles, Star, Target, Trash2, Trophy, X } from "lucide-react";
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -13,6 +13,9 @@ const DEDICACAO_OPTIONS: Array<{ value: "baixa" | "media" | "boa" | "excelente";
   { value: "boa", label: "🙂 Boa" },
   { value: "excelente", label: "🤩 Excelente" },
 ];
+
+const OBJETIVOS_DISPONIVEIS = ["Emagrecer", "Ganhar massa muscular", "Melhorar condicionamento físico", "Reduzir estresse e ansiedade", "Aumentar energia e disposição", "Melhorar postura", "Ganhar força", "Melhorar qualidade do sono", "Aumentar autoestima", "Ter um estilo de vida mais ativo"];
+const VALORES_DISPONIVEIS = ["Saúde", "Família", "Amizade", "Liberdade", "Honestidade", "Respeito", "Gratidão", "Disciplina", "Crescimento", "Equilíbrio"];
 
 const DIAS_SEMANA = [
   { value: "segunda", label: "Seg" },
@@ -179,7 +182,81 @@ function EvolucaoCard() {
   </CardContent></Card>;
 }
 
-const ORIGEM_PONTO_LABEL: Record<string, string> = { engajamento: "Engajamento", meta: "Meta atingida", desafio: "Desafio" };
+function ObjetivosCard() {
+  const utils = trpc.useUtils();
+  const objetivosQuery = trpc.arke.meu.objetivos.useQuery();
+  const [editing, setEditing] = useState(false);
+  const [selecionados, setSelecionados] = useState<string[]>([]);
+  const [visao3Meses, setVisao3Meses] = useState("");
+  const [visao3Anos, setVisao3Anos] = useState("");
+  const salvar = trpc.arke.meu.salvarObjetivos.useMutation({ onSuccess: () => { utils.arke.meu.objetivos.invalidate(); setEditing(false); } });
+  if (objetivosQuery.isLoading) return null;
+  const atual = objetivosQuery.data;
+  const toggle = (obj: string) => setSelecionados((current) => current.includes(obj) ? current.filter((o) => o !== obj) : current.length < 3 ? [...current, obj] : current);
+  const beginEdit = () => { setSelecionados(atual?.objetivos ?? []); setVisao3Meses(atual?.visao_3_meses ?? ""); setVisao3Anos(atual?.visao_3_anos ?? ""); setEditing(true); };
+  return <Card className="rounded-2xl border-[#e5ece5] bg-white shadow-sm"><CardHeader><CardTitle className="flex items-center gap-2 text-sm text-[#2b271f]"><Target size={15} className="text-[#a47b13]" /> Meus objetivos</CardTitle></CardHeader><CardContent className="space-y-2">
+    {atual && !editing ? <>
+      <div className="space-y-1">{atual.objetivos.map((obj) => <p key={obj} className="text-xs text-[#4b4438]">✓ {obj}</p>)}</div>
+      {atual.visao_3_meses && <p className="text-xs text-[#918a7d]">Em 3 meses: {atual.visao_3_meses}</p>}
+      <Button variant="outline" onClick={beginEdit} className="h-8 rounded-lg text-xs">Revisar objetivos</Button>
+    </> : <>
+      <p className="text-xs text-[#918a7d]">Escolha até 3 objetivos principais.</p>
+      <div className="flex flex-wrap gap-1.5">{OBJETIVOS_DISPONIVEIS.map((obj) => <button key={obj} type="button" onClick={() => toggle(obj)} className={`rounded-full border px-2.5 py-1 text-[11px] ${selecionados.includes(obj) ? "border-[#a47b13] bg-[#f5ead0] font-semibold text-[#4b4438]" : "border-[#e2dcca] text-[#5c5445]"}`}>{obj}</button>)}</div>
+      <textarea value={visao3Meses} onChange={(e) => setVisao3Meses(e.target.value)} placeholder="Como você se imagina em 3 meses? (opcional)" className="min-h-14 w-full rounded-lg border border-[#e2dcca] bg-white p-2 text-xs" />
+      <textarea value={visao3Anos} onChange={(e) => setVisao3Anos(e.target.value)} placeholder="Como você se imagina em 3 anos? (opcional)" className="min-h-14 w-full rounded-lg border border-[#e2dcca] bg-white p-2 text-xs" />
+      <Button onClick={() => selecionados.length && salvar.mutate({ objetivos: selecionados, visao3Meses: visao3Meses || undefined, visao3Anos: visao3Anos || undefined })} disabled={salvar.isPending || !selecionados.length} className="h-9 w-full rounded-xl bg-[#15130f] text-xs text-white">Salvar objetivos</Button>
+    </>}
+  </CardContent></Card>;
+}
+
+function ValoresCard() {
+  const utils = trpc.useUtils();
+  const valoresQuery = trpc.arke.meu.valores.useQuery();
+  const [editing, setEditing] = useState(false);
+  const [selecionados, setSelecionados] = useState<string[]>([]);
+  const salvar = trpc.arke.meu.salvarValores.useMutation({ onSuccess: () => { utils.arke.meu.valores.invalidate(); setEditing(false); } });
+  if (valoresQuery.isLoading) return null;
+  const atual = valoresQuery.data;
+  const toggle = (valor: string) => setSelecionados((current) => current.includes(valor) ? current.filter((v) => v !== valor) : current.length < 3 ? [...current, valor] : current);
+  return <Card className="rounded-2xl border-[#e5ece5] bg-white shadow-sm"><CardHeader><CardTitle className="flex items-center gap-2 text-sm text-[#2b271f]"><Heart size={15} className="text-[#a47b13]" /> Meus valores-guia</CardTitle></CardHeader><CardContent className="space-y-2">
+    {atual && !editing ? <>
+      <div className="flex flex-wrap gap-1.5">{atual.valores.map((valor) => <span key={valor} className="rounded-full bg-[#f5ead0] px-2.5 py-1 text-[11px] font-semibold text-[#4b4438]">{valor}</span>)}</div>
+      <Button variant="outline" onClick={() => { setSelecionados(atual.valores); setEditing(true); }} className="h-8 rounded-lg text-xs">Revisar valores</Button>
+    </> : <>
+      <p className="text-xs text-[#918a7d]">Escolha exatamente 3 valores que guiam suas decisões.</p>
+      <div className="flex flex-wrap gap-1.5">{VALORES_DISPONIVEIS.map((valor) => <button key={valor} type="button" onClick={() => toggle(valor)} className={`rounded-full border px-2.5 py-1 text-[11px] ${selecionados.includes(valor) ? "border-[#a47b13] bg-[#f5ead0] font-semibold text-[#4b4438]" : "border-[#e2dcca] text-[#5c5445]"}`}>{valor}</button>)}</div>
+      <Button onClick={() => selecionados.length === 3 && salvar.mutate({ valores: selecionados })} disabled={salvar.isPending || selecionados.length !== 3} className="h-9 w-full rounded-xl bg-[#15130f] text-xs text-white">Salvar valores ({selecionados.length}/3)</Button>
+    </>}
+  </CardContent></Card>;
+}
+
+const ENGAJAMENTO_LABELS: Array<[string, string]> = [
+  ["dedicacaoDiaria", "Dedicação diária"],
+  ["progressoSemanal", "Progresso semanal"],
+  ["objetivos", "Objetivos"],
+  ["valores", "Valores-guia"],
+  ["compromissosCriados", "Micrometas criadas"],
+  ["feed", "Feed"],
+  ["calendarioDieta", "Calendário da dieta"],
+];
+const PERFORMANCE_LABELS: Array<[string, string]> = [
+  ["metaTreino", "Meta de treinos"],
+  ["modalidades", "Modalidades"],
+  ["dietaSemanal", "Dieta ≥80%"],
+  ["metasMes", "Metas do mês"],
+  ["conquistaSemanal", "Conquista semanal"],
+  ["compromissoCumprido", "Micrometas cumpridas"],
+  ["agua", "Água"],
+  ["desafios", "Desafios"],
+];
+
+function BarraSubMetrica({ label, total, max }: { label: string; total: number; max: number }) {
+  const percent = max > 0 ? Math.min(100, Math.round((total / max) * 100)) : 0;
+  return <div className="space-y-0.5">
+    <div className="flex items-center justify-between text-[11px] text-[#5c5445]"><span>{label}</span><span className="font-semibold text-[#4b4438]">{total}/{max}</span></div>
+    <div className="h-1.5 w-full overflow-hidden rounded-full bg-[#eee9df]"><div className="h-full rounded-full bg-[#a47b13]" style={{ width: `${percent}%` }} /></div>
+  </div>;
+}
 
 function PontuacaoCard() {
   const { desde, ate } = useMemo(() => {
@@ -192,10 +269,20 @@ function PontuacaoCard() {
   if (pontuacaoQuery.isLoading) return null;
   const dados = pontuacaoQuery.data;
   const comparativo = comparativoQuery.data;
-  return <Card className="rounded-2xl border-[#e5ece5] bg-white shadow-sm"><CardHeader><CardTitle className="flex items-center gap-2 text-sm text-[#2b271f]"><Star size={15} className="text-[#a47b13]" /> Sua pontuação (últimos 30 dias)</CardTitle></CardHeader><CardContent>
-    <p className="text-2xl font-semibold tracking-[-.05em] text-[#2b271f]">{dados?.total ?? 0} pts</p>
+  return <Card className="rounded-2xl border-[#e5ece5] bg-white shadow-sm sm:col-span-2"><CardHeader><CardTitle className="flex items-center gap-2 text-sm text-[#2b271f]"><Star size={15} className="text-[#a47b13]" /> Sua pontuação (últimos 30 dias)</CardTitle></CardHeader><CardContent>
+    <p className="text-2xl font-semibold tracking-[-.05em] text-[#2b271f]">{dados?.total ?? 0} <span className="text-sm font-normal text-[#918a7d]">/ 200 pts</span></p>
     {comparativo && comparativo.tamanhoGrupo > 1 && <p className="mt-1 text-xs text-[#918a7d]">Média da turma ({comparativo.tamanhoGrupo} alunos): {comparativo.mediaGrupo.toFixed(1)} pts</p>}
-    {dados && dados.eventos.length > 0 ? <div className="mt-3 space-y-1.5">{[...dados.eventos].reverse().slice(0, 8).map((evento, index) => <div key={index} className="flex items-center justify-between rounded-lg bg-[#faf7ef] px-3 py-1.5 text-xs"><div className="min-w-0"><span className="text-[#4b4438]">{evento.descricao}</span><span className="ml-1.5 text-[10px] text-[#9b9488]">{ORIGEM_PONTO_LABEL[evento.origem]}</span></div><span className="shrink-0 font-semibold text-[#a47b13]">+{evento.pontos}</span></div>)}</div> : <p className="mt-2 text-xs text-[#918a7d]">Preencha check-ins, avaliações e treinos para somar pontos.</p>}
+    {dados && <div className="mt-3 grid gap-4 sm:grid-cols-2">
+      <div className="space-y-2">
+        <p className="text-xs font-semibold text-[#a47b13]">Engajamento — {dados.engajamento.total}/100</p>
+        {ENGAJAMENTO_LABELS.map(([campo, label]) => { const valor = dados.engajamento[campo as keyof typeof dados.engajamento] as { total: number; max: number }; return <BarraSubMetrica key={campo} label={label} total={valor.total} max={valor.max} />; })}
+      </div>
+      <div className="space-y-2">
+        <p className="text-xs font-semibold text-[#a47b13]">Performance — {dados.performance.total}/100</p>
+        {PERFORMANCE_LABELS.map(([campo, label]) => { const valor = dados.performance[campo as keyof typeof dados.performance] as { total: number; max: number }; return <BarraSubMetrica key={campo} label={label} total={valor.total} max={valor.max} />; })}
+        {dados.performance.penalidade.total > 0 && <p className="text-[11px] text-[#b65c4d]">-{dados.performance.penalidade.total} pts por {dados.performance.penalidade.diasAlcool} dia(s) com álcool</p>}
+      </div>
+    </div>}
   </CardContent></Card>;
 }
 
@@ -359,6 +446,8 @@ export function AlunoArke() {
       <TreinoDiaCard />
       <DietaAdesaoCard />
       <CompromissoSemanalCard />
+      <ObjetivosCard />
+      <ValoresCard />
       <PontuacaoCard />
       <EvolucaoCard />
     </div>

@@ -339,12 +339,17 @@ export async function getCompromissoMetaComDono(id: string) {
 export async function listCompromissoMetasConcluidasPeriodo(userId: string, desde: string, ate: string) {
   return request<Array<CompromissoMeta & { compromisso_semanal: { semana: string } }>>("compromisso_metas", {}, `?select=*,compromisso_semanal!inner(semana,user_id)&compromisso_semanal.user_id=eq.${encodeURIComponent(userId)}&concluida=eq.true&compromisso_semanal.semana=gte.${encodeURIComponent(desde)}&compromisso_semanal.semana=lte.${encodeURIComponent(ate)}`);
 }
+// Motor de pontuação (porte fiel): "compromissosCriados" pontua a criação
+// da meta em si (concluída ou não) — variante sem o filtro concluida=true.
+export async function listCompromissoMetasPeriodo(userId: string, desde: string, ate: string) {
+  return request<Array<CompromissoMeta & { compromisso_semanal: { semana: string } }>>("compromisso_metas", {}, `?select=*,compromisso_semanal!inner(semana,user_id)&compromisso_semanal.user_id=eq.${encodeURIComponent(userId)}&compromisso_semanal.semana=gte.${encodeURIComponent(desde)}&compromisso_semanal.semana=lte.${encodeURIComponent(ate)}`);
+}
 
 // Evolução (progresso_semanal): cada chamada de create insere um novo
 // registro histórico (não é upsert por chave natural como check-in/avaliação
 // — o aluno pode registrar medidas quantas vezes o profissional quiser).
-const PROGRESSO_SEMANAL_SELECT = "id,aluno_id,organization_id,data,peso_kg,gordura_percentual,musculo_percentual,cintura_cm,quadril_cm,braco_cm,perna_cm,bem_estar,observacoes,meta_peso_kg,created_at";
-export type ProgressoSemanal = { id: string; aluno_id: string; organization_id: string; data: string; peso_kg: number | null; gordura_percentual: number | null; musculo_percentual: number | null; cintura_cm: number | null; quadril_cm: number | null; braco_cm: number | null; perna_cm: number | null; bem_estar: number | null; observacoes: string | null; meta_peso_kg: number | null; created_at: string };
+const PROGRESSO_SEMANAL_SELECT = "id,aluno_id,organization_id,data,peso_kg,gordura_percentual,musculo_percentual,cintura_cm,quadril_cm,braco_cm,perna_cm,bem_estar,observacoes,meta_peso_kg,meta,meta_gordura,meta_gordura_valor,meta_musculo,meta_musculo_valor,created_at";
+export type ProgressoSemanal = { id: string; aluno_id: string; organization_id: string; data: string; peso_kg: number | null; gordura_percentual: number | null; musculo_percentual: number | null; cintura_cm: number | null; quadril_cm: number | null; braco_cm: number | null; perna_cm: number | null; bem_estar: number | null; observacoes: string | null; meta_peso_kg: number | null; meta: string | null; meta_gordura: string | null; meta_gordura_valor: number | null; meta_musculo: string | null; meta_musculo_valor: number | null; created_at: string };
 export async function listProgressoSemanal(alunoId: string) { return request<ProgressoSemanal[]>("progresso_semanal", {}, `?select=${PROGRESSO_SEMANAL_SELECT}&aluno_id=eq.${encodeURIComponent(alunoId)}&order=data.asc`); }
 export async function hasProgressoSemanalDesde(alunoId: string, desde: string) {
   const rows = await request<Array<{ id: string }>>("progresso_semanal", {}, `?select=id&aluno_id=eq.${encodeURIComponent(alunoId)}&data=gte.${encodeURIComponent(desde)}&limit=1`);
@@ -353,6 +358,37 @@ export async function hasProgressoSemanalDesde(alunoId: string, desde: string) {
 export async function getProgressoSemanal(idValue: string) { const rows = await request<ProgressoSemanal[]>("progresso_semanal", {}, `?select=${PROGRESSO_SEMANAL_SELECT}&id=eq.${encodeURIComponent(idValue)}&limit=1`); return rows[0] ?? null; }
 export async function createProgressoSemanal(input: Record<string, unknown>) { const rows = await request<ProgressoSemanal[]>("progresso_semanal", { method: "POST", body: JSON.stringify(input) }); return rows[0]; }
 export async function deleteProgressoSemanal(idValue: string) { await request("progresso_semanal", { method: "DELETE" }, `?id=eq.${encodeURIComponent(idValue)}`); return { id: idValue }; }
+// Motor de pontuação (porte fiel da fórmula original): metasMes usa o
+// registro mais recente dentro do período, não o histórico inteiro.
+export async function listProgressoSemanalPeriodo(alunoId: string, desde: string, ate: string) {
+  return request<ProgressoSemanal[]>("progresso_semanal", {}, `?select=${PROGRESSO_SEMANAL_SELECT}&aluno_id=eq.${encodeURIComponent(alunoId)}&data=gte.${encodeURIComponent(desde)}&data=lte.${encodeURIComponent(ate)}&order=data.desc`);
+}
+
+// Meta operacional de treinos/semana (aluno_perfil.meta_semanal_dias) —
+// mesma tabela já usada pelo acolhimento, só um campo a mais lido aqui.
+export type AlunoPerfil = { id: string; user_id: string; organization_id: string; meta_semanal_dias: number | null };
+export async function getAlunoPerfil(userId: string) { const rows = await request<AlunoPerfil[]>("aluno_perfil", {}, `?select=id,user_id,organization_id,meta_semanal_dias&user_id=eq.${encodeURIComponent(userId)}&limit=1`); return rows[0] ?? null; }
+
+// Objetivos e valores-guia (religa aluno_objetivos/aluno_valores — já
+// tinham organization_id/RLS desde a Fase 0, mas nenhuma linha de código
+// as usava até aqui). Cada revisão insere uma linha nova (histórico), o
+// mais recente por created_at é o vigente — mesmo padrão do arke-app
+// original (ObjetivosTab/ValoresTab fazem insert, nunca update).
+export type AlunoObjetivos = { id: string; user_id: string; organization_id: string; objetivos: string[]; conquistas: string | null; dificuldades: string | null; visao_3_meses: string | null; visao_3_anos: string | null; proxima_revisao: string | null; created_at: string };
+export async function getAlunoObjetivosRecente(userId: string) { const rows = await request<AlunoObjetivos[]>("aluno_objetivos", {}, `?select=*&user_id=eq.${encodeURIComponent(userId)}&order=created_at.desc&limit=1`); return rows[0] ?? null; }
+export async function createAlunoObjetivos(input: { userId: string; organizationId: string; objetivos: string[]; conquistas?: string | null; dificuldades?: string | null; visao3Meses?: string | null; visao3Anos?: string | null; proximaRevisao?: string | null }) {
+  const body = { user_id: input.userId, organization_id: input.organizationId, objetivos: input.objetivos, conquistas: input.conquistas ?? null, dificuldades: input.dificuldades ?? null, visao_3_meses: input.visao3Meses ?? null, visao_3_anos: input.visao3Anos ?? null, proxima_revisao: input.proximaRevisao ?? null };
+  const [row] = await request<AlunoObjetivos[]>("aluno_objetivos", { method: "POST", body: JSON.stringify(body) });
+  return row;
+}
+
+export type AlunoValores = { id: string; user_id: string; organization_id: string; valores: string[]; validade: string | null; created_at: string };
+export async function getAlunoValoresRecente(userId: string) { const rows = await request<AlunoValores[]>("aluno_valores", {}, `?select=*&user_id=eq.${encodeURIComponent(userId)}&order=created_at.desc&limit=1`); return rows[0] ?? null; }
+export async function createAlunoValores(input: { userId: string; organizationId: string; valores: string[]; validade?: string | null }) {
+  const body = { user_id: input.userId, organization_id: input.organizationId, valores: input.valores, validade: input.validade ?? null };
+  const [row] = await request<AlunoValores[]>("aluno_valores", { method: "POST", body: JSON.stringify(body) });
+  return row;
+}
 
 // Feed (Fase 2 — engajamento): posts, curtidas e comentários da comunidade
 // da organização. Autor resolvido via profiles.full_name (staff e aluno
@@ -378,6 +414,21 @@ export async function listFeedCommentsForPosts(postIds: string[]) { if (!postIds
 export async function getFeedComment(idValue: string) { const rows = await request<FeedComment[]>("feed_comments", {}, `?select=*&id=eq.${encodeURIComponent(idValue)}&limit=1`); return rows[0] ?? null; }
 export async function createFeedComment(input: Record<string, unknown>) { const rows = await request<FeedComment[]>("feed_comments", { method: "POST", body: JSON.stringify(input) }); return rows[0]; }
 export async function deleteFeedComment(idValue: string) { await request("feed_comments", { method: "DELETE" }, `?id=eq.${encodeURIComponent(idValue)}`); return { id: idValue }; }
+
+// Motor de pontuação (porte fiel): sub-métrica "feed" conta semanas com
+// pelo menos 1 post/curtida/comentário do próprio aluno — datas em
+// timestamptz, por isso o filtro usa o intervalo do dia (não a coluna
+// `data`, que essas tabelas não têm).
+function periodoTimestamp(desde: string, ate: string) { return `created_at=gte.${encodeURIComponent(`${desde}T00:00:00`)}&created_at=lte.${encodeURIComponent(`${ate}T23:59:59`)}`; }
+export async function listFeedPostsPeriodoAluno(userId: string, desde: string, ate: string) {
+  return request<Array<{ created_at: string }>>("feed_posts", {}, `?select=created_at&user_id=eq.${encodeURIComponent(userId)}&${periodoTimestamp(desde, ate)}`);
+}
+export async function listFeedLikesPeriodoAluno(userId: string, desde: string, ate: string) {
+  return request<Array<{ created_at: string }>>("feed_likes", {}, `?select=created_at&user_id=eq.${encodeURIComponent(userId)}&${periodoTimestamp(desde, ate)}`);
+}
+export async function listFeedCommentsPeriodoAluno(userId: string, desde: string, ate: string) {
+  return request<Array<{ created_at: string }>>("feed_comments", {}, `?select=created_at&user_id=eq.${encodeURIComponent(userId)}&${periodoTimestamp(desde, ate)}`);
+}
 
 export async function listProfileNames(userIds: string[]) { if (!userIds.length) return []; return request<Array<{ user_id: string; full_name: string | null }>>("profiles", {}, `?select=user_id,full_name&${idsInFilter("user_id", userIds)}`); }
 
