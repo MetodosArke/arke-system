@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { appRouter } from "./routers";
 import type { TrpcContext } from "./_core/context";
-import { auditLogsToCsv, auditLogsToPdfBase64, getAuditLogs } from "./db";
+import { auditLogsToCsv, auditLogsToPdfBase64, chargeSetupFeeIfNeeded, getAuditLogs } from "./db";
 
 type AuthenticatedUser = NonNullable<TrpcContext["user"]>;
 
@@ -62,5 +62,9 @@ describe("saas.organizations", () => {
   it("accepts the combined audit filter shape", async () => {
     const result = await getAuditLogs(TEST_ORG_ID, 10, { from: new Date("2026-01-01T00:00:00Z"), to: new Date("2026-12-31T23:59:59Z"), userId: TEST_USER_ID, entity: "module_policy" });
     expect(Array.isArray(result)).toBe(true);
+  });
+
+  it("never throws when charging the setup fee (no-ops without Supabase configured)", async () => {
+    await expect(chargeSetupFeeIfNeeded(TEST_ORG_ID)).resolves.toBeUndefined();
   });
 });

@@ -170,6 +170,45 @@ async function listAsaasPaymentsForOrganization(organizationId, limit = 20) {
   return supabaseRequest("asaas_payments", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}&order=updated_at.desc&limit=${limit}`);
 }
 
+// server/_core/errorMonitoring.ts
+import * as Sentry from "@sentry/node";
+var initialized = false;
+function initErrorMonitoring() {
+  const dsn = process.env.SENTRY_DSN;
+  if (!dsn || initialized) return;
+  Sentry.init({ dsn, environment: process.env.NODE_ENV ?? "development", tracesSampleRate: 0 });
+  initialized = true;
+  process.on("unhandledRejection", (reason) => captureException2(reason));
+  process.on("uncaughtException", (error) => captureException2(error));
+}
+function captureException2(error, extra) {
+  console.error(error);
+  if (!initialized) return;
+  Sentry.captureException(error, extra ? { extra } : void 0);
+}
+
+// shared/pricing.ts
+var ORG_PLAN_KEYS = ["starter", "growth", "scale"];
+var PROFISSIONAL_PLAN_KEYS = ["essencial", "performance", "ilimitado"];
+var SAAS_PLAN_KEYS = [...ORG_PLAN_KEYS, ...PROFISSIONAL_PLAN_KEYS];
+var ORG_PLAN_LABELS = { starter: "Starter", growth: "Growth", scale: "Scale" };
+var PROFISSIONAL_PLAN_LABELS = { essencial: "Essencial", performance: "Performance", ilimitado: "Ilimitado" };
+var ORG_PLAN_AMOUNTS_CENTS = { starter: 29900, growth: 69900, scale: 149e3 };
+var PROFISSIONAL_PLAN_AMOUNTS_CENTS = { essencial: 7900, performance: 14900, ilimitado: 24900 };
+var PLAN_LIMITS = {
+  starter: { maxUnits: 1, maxUsers: 12 },
+  growth: { maxUnits: 3, maxUsers: 32 },
+  scale: { maxUnits: 10, maxUsers: 100 },
+  essencial: { maxUnits: 1, maxUsers: 3 },
+  performance: { maxUnits: 1, maxUsers: 8 },
+  ilimitado: { maxUnits: 1, maxUsers: 999 }
+};
+var PLAN_AMOUNTS_CENTS = { ...ORG_PLAN_AMOUNTS_CENTS, ...PROFISSIONAL_PLAN_AMOUNTS_CENTS };
+var formatBRL = (cents) => (cents / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+var orgPlanOptions = ORG_PLAN_KEYS.map((key) => ({ value: key, label: `${ORG_PLAN_LABELS[key]} \u2014 ${formatBRL(ORG_PLAN_AMOUNTS_CENTS[key])}/m\xEAs` }));
+var profissionalPlanOptions = PROFISSIONAL_PLAN_KEYS.map((key) => ({ value: key, label: `${PROFISSIONAL_PLAN_LABELS[key]} \u2014 ${formatBRL(PROFISSIONAL_PLAN_AMOUNTS_CENTS[key])}/m\xEAs` }));
+var SETUP_FEE_CENTS = 149e3;
+
 // server/db.ts
 function isConfigured() {
   return Boolean((process.env.SUPABASE_URL ?? "") && (process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.SUPABASE_KEY ?? ""));
@@ -200,8 +239,6 @@ async function rpc(fn, args) {
   if (!response.ok) throw new Error(`Supabase RPC ${fn} ${response.status}: ${await response.text()}`);
   return await response.json();
 }
-var PLAN_LIMITS = { starter: { maxUnits: 1, maxUsers: 12 }, growth: { maxUnits: 3, maxUsers: 32 }, scale: { maxUnits: 10, maxUsers: 100 }, unlimited: { maxUnits: 999, maxUsers: 99999 }, essencial: { maxUnits: 1, maxUsers: 3 }, performance: { maxUnits: 1, maxUsers: 8 }, premium: { maxUnits: 1, maxUsers: 20 } };
-var PLAN_AMOUNTS = { starter: 39900, growth: 79900, scale: 149e3, unlimited: 349e3, essencial: 14900, performance: 24900, premium: 19900 };
 async function getOrganizationsForUser(userId) {
   if (!isConfigured()) return [];
   const rows = await request(
@@ -280,7 +317,7 @@ async function updateOrganizationProfile(input) {
 }
 async function updateOrganizationSubscription(input) {
   if (!isConfigured()) throw new Error("Database not available");
-  const amountCents = PLAN_AMOUNTS[input.plan];
+  const amountCents = PLAN_AMOUNTS_CENTS[input.plan];
   const limits = PLAN_LIMITS[input.plan];
   await request("saas_organizations", { method: "PATCH", body: JSON.stringify({ plan: input.plan, max_units: limits.maxUnits, max_users: limits.maxUsers }) }, `?id=eq.${encodeURIComponent(input.organizationId)}`);
   await request("saas_subscriptions", { method: "PATCH", body: JSON.stringify({ plan: input.plan, amount_cents: amountCents, ...input.status ? { status: input.status } : {} }) }, `?organization_id=eq.${encodeURIComponent(input.organizationId)}`);
@@ -311,6 +348,20 @@ async function createSubscriptionCharge(input) {
   await request("saas_subscriptions", { method: "PATCH", body: JSON.stringify({ provider: "asaas", external_id: payment.id }) }, `?organization_id=eq.${encodeURIComponent(input.organizationId)}`);
   return payment;
 }
+async function chargeSetupFeeIfNeeded(organizationId) {
+  if (!isConfigured()) return;
+  const organization = await getOrganization(organizationId);
+  if (!organization || organization.setup_fee_charged_at) return;
+  try {
+    const customerId = await getOrCreateAsaasCustomerForOrganization(organizationId);
+    const dueDate = new Date(Date.now() + 1e3 * 60 * 60 * 24 * 3).toISOString().slice(0, 10);
+    const payment = await createAsaasPayment({ customer: customerId, value: SETUP_FEE_CENTS / 100, dueDate, billingType: "UNDEFINED", description: "Taxa de setup Arke" });
+    await upsertAsaasPayment(payment, "PAYMENT_CREATED", organizationId);
+    await request("saas_organizations", { method: "PATCH", body: JSON.stringify({ setup_fee_charged_at: (/* @__PURE__ */ new Date()).toISOString() }) }, `?id=eq.${encodeURIComponent(organizationId)}`);
+  } catch (error) {
+    captureException2(error, { route: "onboarding.setupFee", organizationId });
+  }
+}
 async function getOrganizationAccess(userId, organizationId) {
   if (!isConfigured()) return void 0;
   const membership = await getMembership(userId, organizationId);
@@ -327,6 +378,7 @@ async function saveOrganizationOnboarding(input) {
     await request("saas_organizations", { method: "PATCH", body: JSON.stringify({ ...input.logoUrl !== void 0 ? { logo_url: input.logoUrl } : {}, ...input.primaryColor !== void 0 ? { primary_color: input.primaryColor } : {}, ...input.defaultUnitName !== void 0 ? { name: input.defaultUnitName } : {} }) }, `?id=eq.${encodeURIComponent(input.organizationId)}`);
   }
   await request("saas_onboarding", { method: "POST", headers: { Prefer: "resolution=merge-duplicates,return=representation" }, body: JSON.stringify({ organization_id: input.organizationId, current_step: input.currentStep, status: input.status, city: input.city ?? null, default_unit_name: input.defaultUnitName ?? null, invite_email: input.inviteEmail ?? null }) }, "?on_conflict=organization_id");
+  if (input.status === "completed") await chargeSetupFeeIfNeeded(input.organizationId);
   return { organizationId: input.organizationId, saved: true };
 }
 async function updateModulePolicy(input) {
@@ -1866,7 +1918,7 @@ var appRouter = router({
       // Estava em protectedProcedure: qualquer aluno/profissional logado
       // podia criar organização para o client_id de outra pessoa e virar
       // owner dela. Restrito a adminProcedure nesta auditoria.
-      create: adminProcedure.input(z2.object({ clientId: z2.string().uuid(), module: z2.string().trim().min(2).optional(), logoUrl: z2.string().max(1e6).optional(), primaryColor: z2.string().regex(/^#[0-9a-fA-F]{6}$/).optional(), name: z2.string().trim().min(2).max(160), slug: z2.string().trim().toLowerCase().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/).max(120), plan: z2.enum(["starter", "growth", "scale", "unlimited", "essencial", "performance", "premium"]) })).mutation(({ ctx, input }) => createOrganizationWithOwner({ userId: ctx.user.id, ...input })),
+      create: adminProcedure.input(z2.object({ clientId: z2.string().uuid(), module: z2.string().trim().min(2).optional(), logoUrl: z2.string().max(1e6).optional(), primaryColor: z2.string().regex(/^#[0-9a-fA-F]{6}$/).optional(), name: z2.string().trim().min(2).max(160), slug: z2.string().trim().toLowerCase().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/).max(120), plan: z2.enum(SAAS_PLAN_KEYS) })).mutation(({ ctx, input }) => createOrganizationWithOwner({ userId: ctx.user.id, ...input })),
       access: protectedProcedure.input(organizationIdInput).query(({ ctx, input }) => getOrganizationAccess(ctx.user.id, input.organizationId)),
       audit: protectedProcedure.input(auditFilterInput).query(async ({ ctx, input }) => {
         await hasOrganizationAccess(ctx.user.id, input.organizationId);
@@ -1904,7 +1956,7 @@ var appRouter = router({
         await ownerOrAdmin(ctx.user.id, input.organizationId);
         return updateOrganizationProfile(input);
       }),
-      updateSubscription: protectedProcedure.input(z2.object({ organizationId: z2.string().uuid(), plan: z2.enum(["starter", "growth", "scale", "unlimited", "essencial", "performance", "premium"]), status: z2.enum(["trialing", "active", "past_due", "canceled"]).optional() })).mutation(async ({ ctx, input }) => {
+      updateSubscription: protectedProcedure.input(z2.object({ organizationId: z2.string().uuid(), plan: z2.enum(SAAS_PLAN_KEYS), status: z2.enum(["trialing", "active", "past_due", "canceled"]).optional() })).mutation(async ({ ctx, input }) => {
         await ownerOrAdmin(ctx.user.id, input.organizationId);
         const result = await updateOrganizationSubscription(input);
         await recordAuditLog({ organizationId: input.organizationId, userId: ctx.user.id, action: "updated", entity: "subscription", afterJson: input });
@@ -2322,25 +2374,6 @@ async function createContext(opts) {
 
 // server/access.ts
 import { randomUUID as randomUUID3 } from "node:crypto";
-
-// server/_core/errorMonitoring.ts
-import * as Sentry from "@sentry/node";
-var initialized = false;
-function initErrorMonitoring() {
-  const dsn = process.env.SENTRY_DSN;
-  if (!dsn || initialized) return;
-  Sentry.init({ dsn, environment: process.env.NODE_ENV ?? "development", tracesSampleRate: 0 });
-  initialized = true;
-  process.on("unhandledRejection", (reason) => captureException2(reason));
-  process.on("uncaughtException", (error) => captureException2(error));
-}
-function captureException2(error, extra) {
-  console.error(error);
-  if (!initialized) return;
-  Sentry.captureException(error, extra ? { extra } : void 0);
-}
-
-// server/access.ts
 var normalize = (value) => typeof value === "string" ? value.trim() : "";
 function registerAccessRoutes(app) {
   app.post("/api/v1/access/check-in", async (req, res) => {

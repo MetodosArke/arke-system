@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { trpc } from "@/lib/trpc";
 import { MODULE_LABELS, type ModuleKey } from "@/lib/appCatalog";
 import { readFileAsBase64 } from "@/lib/upload";
+import { orgPlanOptions, profissionalPlanOptions } from "@shared/pricing";
 
 type Toast = { title: string; detail: string };
 type Client = { id?: string; name?: string; email?: string; username?: string; module?: ModuleKey; role?: string; type?: string; status?: string; logoUrl?: string; profile_data?: Record<string,string> | null; profileData?: Record<string,string> | null; [key: string]: unknown };
@@ -16,7 +17,7 @@ export function ClientProfilePage({ client, onBack, onToast }: { client: Client;
   const update = trpc.admin.users.update.useMutation();
   const uploadLogo = trpc.admin.users.uploadLogo.useMutation();
   const [uploadingLogo, setUploadingLogo] = useState(false);
-  const planOptions = ["academia", "studio"].includes(String(client.module)) ? ["Starter — R$ 399/mês", "Growth — R$ 799/mês", "Scale — R$ 1.490/mês", "Unlimited — R$ 3.490/mês"] : String(client.module) === "profissional" ? ["Essencial — R$ 149/mês", "Performance — R$ 249/mês", "Premium — R$ 199/mês"] : [];
+  const planOptions = ["academia", "studio"].includes(String(client.module)) ? orgPlanOptions.map((option) => option.label) : String(client.module) === "profissional" ? profissionalPlanOptions.map((option) => option.label) : [];
   const set = (key: string, value: string) => setForm((current) => ({ ...current, [key]: value }));
   const readLogo = async (file?: File) => {
     if (!file) return;

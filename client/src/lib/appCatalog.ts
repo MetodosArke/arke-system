@@ -35,5 +35,5 @@ export const MODULE_PERMISSIONS: Record<ModuleKey, string[]> = {
   administrador: ["overview", "academias", "studios", "profissionais", "alunos", "gestao", "turmas", "crm", "agenda", "financeiro", "integracoes", "saas", "admin", "acervo", "configuracoes"],
 };
 
-export const SAAS_PLANS = ["Starter", "Growth", "Scale", "Unlimited", "Essencial", "Performance", "Premium"] as const;
+export const SAAS_PLANS = ["Starter", "Growth", "Scale", "Essencial", "Performance", "Ilimitado"] as const;
 export const MODULE_KEYS: ModuleKey[] = ["academia", "studio", "profissional", "aluno", "administrador"];
