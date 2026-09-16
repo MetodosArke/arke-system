@@ -1,10 +1,11 @@
-import { useEffect, useState } from "react";
-import { CalendarClock, Sparkles } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { CalendarClock, Heart, ImageIcon, MessageCircle, Rss, Send, Sparkles, Trash2, X } from "lucide-react";
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { trpc } from "@/lib/trpc";
+import { readFileAsBase64 } from "@/lib/upload";
 
 const DEDICACAO_OPTIONS: Array<{ value: "baixa" | "media" | "boa" | "excelente"; label: string }> = [
   { value: "baixa", label: "😞 Baixa" },
@@ -107,6 +108,89 @@ function EvolucaoCard() {
   </CardContent></Card>;
 }
 
+function FeedSection() {
+  const utils = trpc.useUtils();
+  const meQuery = trpc.auth.me.useQuery();
+  const feedQuery = trpc.arke.feed.list.useQuery();
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [content, setContent] = useState("");
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [posting, setPosting] = useState(false);
+  const [openComments, setOpenComments] = useState<Record<string, boolean>>({});
+  const [commentDrafts, setCommentDrafts] = useState<Record<string, string>>({});
+
+  const invalidateFeed = () => utils.arke.feed.list.invalidate();
+  const uploadImage = trpc.arke.feed.uploadImage.useMutation();
+  const createPost = trpc.arke.feed.create.useMutation({ onSuccess: () => { setContent(""); setImageFile(null); setImagePreview(null); invalidateFeed(); } });
+  const deletePost = trpc.arke.feed.delete.useMutation({ onSuccess: invalidateFeed });
+  const toggleLike = trpc.arke.feed.toggleLike.useMutation({ onSuccess: invalidateFeed });
+  const addComment = trpc.arke.feed.comments.create.useMutation({ onSuccess: (_, variables) => { setCommentDrafts((prev) => ({ ...prev, [variables.postId]: "" })); invalidateFeed(); } });
+  const deleteComment = trpc.arke.feed.comments.delete.useMutation({ onSuccess: invalidateFeed });
+
+  const handleImageSelect = (file?: File) => {
+    if (!file) return;
+    setImageFile(file);
+    setImagePreview(URL.createObjectURL(file));
+  };
+
+  const submitPost = async () => {
+    if (!content.trim() && !imageFile) return;
+    setPosting(true);
+    try {
+      let imageUrl: string | undefined;
+      if (imageFile) {
+        const { base64, contentType } = await readFileAsBase64(imageFile);
+        const { url } = await uploadImage.mutateAsync({ contentType, dataBase64: base64 });
+        imageUrl = url;
+      }
+      await createPost.mutateAsync({ content, imageUrl });
+    } finally {
+      setPosting(false);
+    }
+  };
+
+  if (feedQuery.isLoading) return null;
+  const posts = feedQuery.data ?? [];
+  const myUserId = meQuery.data?.id;
+
+  return <div className="space-y-3">
+    <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[.14em] text-[#a47b13]"><Rss size={14} /> Feed da comunidade</div>
+    <Card className="rounded-2xl border-[#e5ece5] bg-white shadow-sm"><CardContent className="space-y-2 p-4">
+      <textarea value={content} onChange={(e) => setContent(e.target.value)} placeholder="O que você está pensando?" className="min-h-16 w-full rounded-lg border border-[#e2dcca] bg-white p-2 text-xs" />
+      {imagePreview && <div className="relative inline-block"><img src={imagePreview} alt="" className="max-h-32 rounded-lg" /><button onClick={() => { setImageFile(null); setImagePreview(null); }} className="absolute -right-2 -top-2 rounded-full bg-[#b65c4d] p-1 text-white"><X size={11} /></button></div>}
+      <div className="flex items-center justify-between">
+        <Button variant="ghost" onClick={() => fileRef.current?.click()} className="h-8 rounded-lg text-xs"><ImageIcon size={14} /> Foto</Button>
+        <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={(e) => handleImageSelect(e.target.files?.[0])} />
+        <Button onClick={submitPost} disabled={posting || (!content.trim() && !imageFile)} className="h-8 rounded-lg bg-[#15130f] text-xs text-white"><Send size={14} /> Publicar</Button>
+      </div>
+    </CardContent></Card>
+    {posts.length === 0 && <p className="text-sm text-[#5c5445]">Nenhuma publicação ainda. Seja o primeiro!</p>}
+    {posts.map((post) => <Card key={post.id} className="rounded-2xl border-[#e5ece5] bg-white shadow-sm"><CardContent className="space-y-2 p-4">
+      <div className="flex items-start justify-between gap-2">
+        <div><p className="text-xs font-semibold text-[#2b271f]">{post.authorName}</p><p className="text-[10px] text-[#9b9488]">{new Date(post.createdAt).toLocaleString("pt-BR")}</p></div>
+        {post.userId === myUserId && <Button variant="ghost" onClick={() => { if (window.confirm("Remover esta publicação?")) deletePost.mutate({ id: post.id }); }} className="h-7 w-7 shrink-0 p-0 text-[#b65c4d]"><Trash2 size={13} /></Button>}
+      </div>
+      {post.content && <p className="whitespace-pre-wrap text-sm text-[#4b4438]">{post.content}</p>}
+      {post.imageUrl && <img src={post.imageUrl} alt="" className="max-h-80 w-full rounded-lg object-cover" />}
+      <div className="flex items-center gap-4 border-t border-[#eee9df] pt-2">
+        <button onClick={() => toggleLike.mutate({ postId: post.id })} className={`flex items-center gap-1.5 text-xs ${post.likedByMe ? "text-[#a47b13]" : "text-[#918a7d]"}`}><Heart size={14} className={post.likedByMe ? "fill-current" : ""} /> {post.likesCount}</button>
+        <button onClick={() => setOpenComments((prev) => ({ ...prev, [post.id]: !prev[post.id] }))} className="flex items-center gap-1.5 text-xs text-[#918a7d]"><MessageCircle size={14} /> {post.comments.length}</button>
+      </div>
+      {openComments[post.id] && <div className="space-y-2 pt-1">
+        {post.comments.map((comment) => <div key={comment.id} className="flex items-start justify-between gap-2 rounded-lg bg-[#faf7ef] px-3 py-1.5 text-xs">
+          <div><span className="font-semibold text-[#4b4438]">{comment.authorName}</span> <span className="text-[#5c5445]">{comment.content}</span></div>
+          {comment.userId === myUserId && <button onClick={() => deleteComment.mutate({ id: comment.id })} className="shrink-0 text-[#9b9488]"><X size={12} /></button>}
+        </div>)}
+        <div className="flex gap-2">
+          <Input value={commentDrafts[post.id] ?? ""} onChange={(e) => setCommentDrafts((prev) => ({ ...prev, [post.id]: e.target.value }))} placeholder="Escreva um comentário..." className="h-8 rounded-lg text-xs" onKeyDown={(e) => { if (e.key === "Enter" && commentDrafts[post.id]?.trim()) addComment.mutate({ postId: post.id, content: commentDrafts[post.id].trim() }); }} />
+          <Button variant="ghost" onClick={() => { if (commentDrafts[post.id]?.trim()) addComment.mutate({ postId: post.id, content: commentDrafts[post.id].trim() }); }} className="h-8 w-8 shrink-0 p-0"><Send size={13} /></Button>
+        </div>
+      </div>}
+    </CardContent></Card>)}
+  </div>;
+}
+
 export function AlunoArke() {
   const temArkeQuery = trpc.arke.meu.temArke.useQuery();
   if (temArkeQuery.isLoading) return null;
@@ -119,6 +203,7 @@ export function AlunoArke() {
       <PlanoTreinoSemanalCard />
       <EvolucaoCard />
     </div>
+    <FeedSection />
   </div>;
 }
 

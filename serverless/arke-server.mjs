@@ -779,6 +779,58 @@ async function deleteProgressoSemanal(idValue) {
   await request2("progresso_semanal", { method: "DELETE" }, `?id=eq.${encodeURIComponent(idValue)}`);
   return { id: idValue };
 }
+var idsInFilter = (column, ids) => `${column}=in.(${ids.map(encodeURIComponent).join(",")})`;
+async function listFeedPosts(organizationId, limit = 50) {
+  return request2("feed_posts", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}&order=created_at.desc&limit=${limit}`);
+}
+async function getFeedPost(idValue) {
+  const rows = await request2("feed_posts", {}, `?select=*&id=eq.${encodeURIComponent(idValue)}&limit=1`);
+  return rows[0] ?? null;
+}
+async function createFeedPost(input) {
+  const rows = await request2("feed_posts", { method: "POST", body: JSON.stringify(input) });
+  return rows[0];
+}
+async function deleteFeedPost(idValue) {
+  await request2("feed_posts", { method: "DELETE" }, `?id=eq.${encodeURIComponent(idValue)}`);
+  return { id: idValue };
+}
+async function listFeedLikesForPosts(postIds) {
+  if (!postIds.length) return [];
+  return request2("feed_likes", {}, `?select=*&${idsInFilter("post_id", postIds)}`);
+}
+async function getFeedLike(postId, userId) {
+  const rows = await request2("feed_likes", {}, `?select=*&post_id=eq.${encodeURIComponent(postId)}&user_id=eq.${encodeURIComponent(userId)}&limit=1`);
+  return rows[0] ?? null;
+}
+async function createFeedLike(input) {
+  const rows = await request2("feed_likes", { method: "POST", body: JSON.stringify({ post_id: input.postId, user_id: input.userId, organization_id: input.organizationId }) });
+  return rows[0];
+}
+async function deleteFeedLike(postId, userId) {
+  await request2("feed_likes", { method: "DELETE" }, `?post_id=eq.${encodeURIComponent(postId)}&user_id=eq.${encodeURIComponent(userId)}`);
+  return { postId, userId };
+}
+async function listFeedCommentsForPosts(postIds) {
+  if (!postIds.length) return [];
+  return request2("feed_comments", {}, `?select=*&${idsInFilter("post_id", postIds)}&order=created_at.asc`);
+}
+async function getFeedComment(idValue) {
+  const rows = await request2("feed_comments", {}, `?select=*&id=eq.${encodeURIComponent(idValue)}&limit=1`);
+  return rows[0] ?? null;
+}
+async function createFeedComment(input) {
+  const rows = await request2("feed_comments", { method: "POST", body: JSON.stringify(input) });
+  return rows[0];
+}
+async function deleteFeedComment(idValue) {
+  await request2("feed_comments", { method: "DELETE" }, `?id=eq.${encodeURIComponent(idValue)}`);
+  return { id: idValue };
+}
+async function listProfileNames(userIds) {
+  if (!userIds.length) return [];
+  return request2("profiles", {}, `?select=user_id,full_name&${idsInFilter("user_id", userIds)}`);
+}
 async function listExercisesCatalog() {
   return request2("exercicios", {}, "?select=id,nome,grupo_muscular,video_url&estado_publicacao=eq.publicado&order=nome.asc");
 }
@@ -1671,9 +1723,11 @@ var IMAGE_MIME_TYPES = ["image/png", "image/jpeg", "image/webp", "image/svg+xml"
 var LOGO_MIME_TYPES = IMAGE_MIME_TYPES;
 var DIETA_MIME_TYPES = [...IMAGE_MIME_TYPES, "application/pdf"];
 var EXERCICIO_VIDEO_MIME_TYPES = ["video/mp4", "video/webm", "video/quicktime"];
+var FEED_IMAGE_MIME_TYPES = IMAGE_MIME_TYPES;
 var LOGO_MAX_BYTES = 1.5 * 1024 * 1024;
 var DIETA_MAX_BYTES = 3 * 1024 * 1024;
 var EXERCICIO_VIDEO_MAX_BYTES = 3 * 1024 * 1024;
+var FEED_IMAGE_MAX_BYTES = 3 * 1024 * 1024;
 var EXTENSION_BY_MIME = {
   "image/png": "png",
   "image/jpeg": "jpg",
@@ -2352,6 +2406,80 @@ var appRouter = router({
       progresso: protectedProcedure.query(async ({ ctx }) => {
         await assertAlunoTemArke(ctx.user.id);
         return listProgressoSemanal(ctx.user.id);
+      })
+    }),
+    // Feed (Fase 2 — engajamento): mural da comunidade da organização,
+    // visível só para quem tem o método Arke ativo. Curtida/comentário
+    // exigem o mesmo entitlement; remover o próprio post/comentário não
+    // reexige (evita conteúdo órfão que ninguém mais consegue apagar se o
+    // aluno for desativado depois).
+    feed: router({
+      list: protectedProcedure.query(async ({ ctx }) => {
+        await assertAlunoTemArke(ctx.user.id);
+        const profile = await getProfileByUserId(ctx.user.id);
+        if (!profile?.organization_id) throw new Error("Aluno sem organiza\xE7\xE3o vinculada.");
+        const posts = await listFeedPosts(profile.organization_id);
+        const postIds = posts.map((post) => post.id);
+        const [likes, comments] = await Promise.all([listFeedLikesForPosts(postIds), listFeedCommentsForPosts(postIds)]);
+        const authorIds = Array.from(/* @__PURE__ */ new Set([...posts.map((post) => post.user_id), ...comments.map((comment) => comment.user_id)]));
+        const profiles = await listProfileNames(authorIds);
+        const nameByUserId = new Map(profiles.map((item) => [item.user_id, item.full_name || "Membro"]));
+        const commentsByPost = /* @__PURE__ */ new Map();
+        for (const comment of comments) commentsByPost.set(comment.post_id, [...commentsByPost.get(comment.post_id) ?? [], comment]);
+        return posts.map((post) => ({
+          id: post.id,
+          userId: post.user_id,
+          authorName: nameByUserId.get(post.user_id) ?? "Membro",
+          content: post.content,
+          imageUrl: post.image_url,
+          createdAt: post.created_at,
+          likesCount: likes.filter((like) => like.post_id === post.id).length,
+          likedByMe: likes.some((like) => like.post_id === post.id && like.user_id === ctx.user.id),
+          comments: (commentsByPost.get(post.id) ?? []).map((comment) => ({ id: comment.id, userId: comment.user_id, authorName: nameByUserId.get(comment.user_id) ?? "Membro", content: comment.content, createdAt: comment.created_at }))
+        }));
+      }),
+      create: protectedProcedure.input(z2.object({ content: z2.string().trim().max(2e3).default(""), imageUrl: z2.string().url().optional() })).mutation(async ({ ctx, input }) => {
+        if (!input.content.trim() && !input.imageUrl) throw new Error("Escreva algo ou adicione uma imagem para publicar.");
+        await assertAlunoTemArke(ctx.user.id);
+        const profile = await getProfileByUserId(ctx.user.id);
+        if (!profile?.organization_id) throw new Error("Aluno sem organiza\xE7\xE3o vinculada.");
+        return createFeedPost({ user_id: ctx.user.id, organization_id: profile.organization_id, content: input.content.trim(), image_url: input.imageUrl ?? null });
+      }),
+      uploadImage: protectedProcedure.input(z2.object({ contentType: z2.string(), dataBase64: z2.string() })).mutation(async ({ ctx, input }) => {
+        await assertAlunoTemArke(ctx.user.id);
+        const buffer = decodeUpload(input.dataBase64, input.contentType, FEED_IMAGE_MIME_TYPES, FEED_IMAGE_MAX_BYTES);
+        const url = await uploadPublicFile("feed-images", `${ctx.user.id}/${randomUUID2()}.${extensionFor(input.contentType)}`, buffer, input.contentType);
+        return { url };
+      }),
+      delete: protectedProcedure.input(z2.object({ id: z2.string().uuid() })).mutation(async ({ ctx, input }) => {
+        const post = await getFeedPost(input.id);
+        if (!post || post.user_id !== ctx.user.id) throw new Error("Publica\xE7\xE3o n\xE3o encontrada.");
+        return deleteFeedPost(input.id);
+      }),
+      toggleLike: protectedProcedure.input(z2.object({ postId: z2.string().uuid() })).mutation(async ({ ctx, input }) => {
+        await assertAlunoTemArke(ctx.user.id);
+        const profile = await getProfileByUserId(ctx.user.id);
+        if (!profile?.organization_id) throw new Error("Aluno sem organiza\xE7\xE3o vinculada.");
+        const existing = await getFeedLike(input.postId, ctx.user.id);
+        if (existing) {
+          await deleteFeedLike(input.postId, ctx.user.id);
+          return { liked: false };
+        }
+        await createFeedLike({ postId: input.postId, userId: ctx.user.id, organizationId: profile.organization_id });
+        return { liked: true };
+      }),
+      comments: router({
+        create: protectedProcedure.input(z2.object({ postId: z2.string().uuid(), content: z2.string().trim().min(1).max(1e3) })).mutation(async ({ ctx, input }) => {
+          await assertAlunoTemArke(ctx.user.id);
+          const profile = await getProfileByUserId(ctx.user.id);
+          if (!profile?.organization_id) throw new Error("Aluno sem organiza\xE7\xE3o vinculada.");
+          return createFeedComment({ post_id: input.postId, user_id: ctx.user.id, organization_id: profile.organization_id, content: input.content });
+        }),
+        delete: protectedProcedure.input(z2.object({ id: z2.string().uuid() })).mutation(async ({ ctx, input }) => {
+          const comment = await getFeedComment(input.id);
+          if (!comment || comment.user_id !== ctx.user.id) throw new Error("Coment\xE1rio n\xE3o encontrado.");
+          return deleteFeedComment(input.id);
+        })
       })
     })
   }),

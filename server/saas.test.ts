@@ -124,6 +124,36 @@ describe("arke.meu (conteúdo do método)", () => {
   });
 });
 
+describe("arke.feed (Fase 2 — engajamento)", () => {
+  it("cannot list the feed without a configured Supabase profile lookup", async () => {
+    await expect(appRouter.createCaller(createContext()).arke.feed.list()).rejects.toThrow();
+  });
+
+  it("rejects an empty post with no content and no image", async () => {
+    await expect(appRouter.createCaller(createContext()).arke.feed.create({ content: "" })).rejects.toThrow("Escreva algo ou adicione uma imagem para publicar.");
+  });
+
+  it("cannot create a post without a configured Supabase profile lookup", async () => {
+    await expect(appRouter.createCaller(createContext()).arke.feed.create({ content: "Bora treinar!" })).rejects.toThrow();
+  });
+
+  it("cannot toggle a like without a configured Supabase profile lookup", async () => {
+    await expect(appRouter.createCaller(createContext()).arke.feed.toggleLike({ postId: "00000000-0000-4000-8000-0000000000e1" })).rejects.toThrow();
+  });
+
+  it("cannot delete a post without a configured Supabase profile lookup", async () => {
+    await expect(appRouter.createCaller(createContext()).arke.feed.delete({ id: "00000000-0000-4000-8000-0000000000e1" })).rejects.toThrow();
+  });
+
+  it("cannot comment on a post without a configured Supabase profile lookup", async () => {
+    await expect(appRouter.createCaller(createContext()).arke.feed.comments.create({ postId: "00000000-0000-4000-8000-0000000000e1", content: "Boa!" })).rejects.toThrow();
+  });
+
+  it("cannot delete a comment without a configured Supabase profile lookup", async () => {
+    await expect(appRouter.createCaller(createContext()).arke.feed.comments.delete({ id: "00000000-0000-4000-8000-0000000000e2" })).rejects.toThrow();
+  });
+});
+
 describe("prescricao.progresso (evolução)", () => {
   it("requires staff access to the aluno's organization to list", async () => {
     await expect(appRouter.createCaller(createContext()).prescricao.progresso.list({ alunoId: TEST_USER_ID })).rejects.toThrow();
