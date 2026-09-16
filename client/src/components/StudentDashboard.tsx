@@ -3,6 +3,7 @@ import { ClipboardList, Download, Dumbbell, Film, HeartHandshake, Utensils } fro
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { trpc } from "@/lib/trpc";
+import { AlunoArke } from "@/components/AlunoArke";
 
 function downloadBase64Pdf(filename: string, contentBase64: string) {
   const binary = atob(contentBase64);
@@ -164,6 +165,8 @@ export function StudentDashboard() {
     {toast && <div className="mb-6 rounded-xl bg-[#eef4ee] px-4 py-3 text-sm text-[#3e8254]"><strong>{toast.title}</strong> — {toast.detail}</div>}
 
     <CheckInWidget onToast={onToast} />
+
+    <AlunoArke />
 
     <div className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-[.14em] text-[#a47b13]"><ClipboardList size={14} /> Acolhimento</div>
     {!acolhimentoQuery.isLoading && !acolhimentoQuery.data && <div className="mb-8"><AcolhimentoForm onSaved={() => acolhimentoQuery.refetch()} /></div>}

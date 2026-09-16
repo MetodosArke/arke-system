@@ -236,6 +236,34 @@ export async function toggleAlunoArkeLicenca(input: { userId: string; organizati
   return rows[0];
 }
 
+// Núcleo do método Arke (Fase 1c): check-in diário, avaliação semanal e
+// plano de horários — porta o mesmo padrão upsert-on-natural-key do
+// arke-app original (checkin_diario/avaliacao_semanal por user_id+data ou
+// user_id+semana; plano_treino_semanal é 1 linha por aluno).
+export type CheckinDiario = { id: string; user_id: string; organization_id: string; data: string; dedicacao: "baixa" | "media" | "boa" | "excelente"; created_at: string };
+export async function getCheckinDoDia(userId: string, data: string) { const rows = await request<CheckinDiario[]>("checkin_diario", {}, `?select=*&user_id=eq.${encodeURIComponent(userId)}&data=eq.${encodeURIComponent(data)}&limit=1`); return rows[0] ?? null; }
+export async function upsertCheckinDiario(input: { userId: string; organizationId: string; data: string; dedicacao: string }) {
+  const body = { user_id: input.userId, organization_id: input.organizationId, data: input.data, dedicacao: input.dedicacao };
+  const rows = await request<CheckinDiario[]>("checkin_diario", { method: "POST", body: JSON.stringify(body), headers: { Prefer: "return=representation,resolution=merge-duplicates" } }, "?on_conflict=user_id,data");
+  return rows[0];
+}
+
+export type AvaliacaoSemanal = { id: string; user_id: string; organization_id: string; semana: string; sono: number; produtividade: number; humor: number; conquista: string | null; created_at: string; updated_at: string };
+export async function getAvaliacaoSemanal(userId: string, semana: string) { const rows = await request<AvaliacaoSemanal[]>("avaliacao_semanal", {}, `?select=*&user_id=eq.${encodeURIComponent(userId)}&semana=eq.${encodeURIComponent(semana)}&limit=1`); return rows[0] ?? null; }
+export async function upsertAvaliacaoSemanal(input: { userId: string; organizationId: string; semana: string; sono: number; produtividade: number; humor: number; conquista?: string }) {
+  const body = { user_id: input.userId, organization_id: input.organizationId, semana: input.semana, sono: input.sono, produtividade: input.produtividade, humor: input.humor, conquista: input.conquista ?? null, updated_at: new Date().toISOString() };
+  const rows = await request<AvaliacaoSemanal[]>("avaliacao_semanal", { method: "POST", body: JSON.stringify(body), headers: { Prefer: "return=representation,resolution=merge-duplicates" } }, "?on_conflict=user_id,semana");
+  return rows[0];
+}
+
+export type PlanoTreinoSemanal = { id: string; user_id: string; organization_id: string; dias_treino: string[]; horario_preferido: string | null; local_treino: string | null; created_at: string; updated_at: string };
+export async function getPlanoTreinoSemanal(userId: string) { const rows = await request<PlanoTreinoSemanal[]>("plano_treino_semanal", {}, `?select=*&user_id=eq.${encodeURIComponent(userId)}&limit=1`); return rows[0] ?? null; }
+export async function upsertPlanoTreinoSemanal(input: { userId: string; organizationId: string; diasTreino: string[]; horarioPreferido?: string | null; localTreino?: string | null }) {
+  const body = { user_id: input.userId, organization_id: input.organizationId, dias_treino: input.diasTreino, horario_preferido: input.horarioPreferido ?? null, local_treino: input.localTreino ?? null, updated_at: new Date().toISOString() };
+  const rows = await request<PlanoTreinoSemanal[]>("plano_treino_semanal", { method: "POST", body: JSON.stringify(body), headers: { Prefer: "return=representation,resolution=merge-duplicates" } }, "?on_conflict=user_id");
+  return rows[0];
+}
+
 // Prescrição real de treino nunca pode puxar um exercício ainda em
 // rascunho (não revisado pelo Admin Arke) — só o acervo publicado entra
 // aqui.

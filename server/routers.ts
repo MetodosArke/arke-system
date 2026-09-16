@@ -6,7 +6,8 @@ import { systemRouter } from "./_core/systemRouter";
 import { adminProcedure, protectedProcedure, publicProcedure, router } from "./_core/trpc";
 import { assertRateLimit, rateLimitKey } from "./_core/rateLimit";
 import { acceptOrganizationInvitation, archiveOrganizationUnit, auditLogsToCsv, auditLogsToPdfBase64, createOrganizationInvitation, createOrganizationUnit, createOrganizationWithOwner, createSubscriptionCharge, getAuditLogs, getMembership, getOrganization, getOrganizationAccess, getOrganizationBySlug, getOrganizationOnboarding, getOrganizationSubscription, getOrganizationsForUser, getPendingOrganizationInvitations, recordAuditLog, revokeOrganizationInvitation, saveOrganizationOnboarding, updateModulePolicy, updateOrganizationProfile, updateOrganizationSubscription } from "./db";
-import { acceptMemberInvitation, assignAtendimento, cancelarReserva, cancelarReservaStaff, converterLead, countAlunosComArkeAtivo, createAppStudent, createAppUser, createAtendimento, createDeletionRequest, createDieta, createGlobalExercise, createGlobalGroup, createGlobalNutritionPlan, createGlobalRoutine, createGlobalTemplate, createGlobalTemplateExercise, createLead, createLeadNota, createPasswordRecoveryCode, createTreino, createTurma, deleteAppStudent, deleteAppUser, deleteDieta, deleteGlobalExercise, deleteGlobalGroup, deleteGlobalNutritionPlan, deleteGlobalRoutine, deleteGlobalTemplate, deleteGlobalTemplateExercise, deleteGlobalAccessRule, deleteLead, deleteTreino, deleteTurma, findAppUserByEmail, fulfillDeletionRequest, gerarFichaTreinoPdf, getAcolhimento, getAlunoArkeLicenca, getArkeModule, getAtendimento, getCrmIndicadores, getCurrentPrivacyPolicy, getDeletionRequest, getDieta, getGestaoIndicadores, getLead, getMyDeletionRequest, getProfileByUserId, getReserva, getTreino, getTurma, getVagasDisponiveis, hasConsent, hasSupabaseConfig, inviteMember, listAppStudents, listAppUsers, listAtendimentosForOrganization, listDeletionRequests, listDietasForAluno, listExercisesCatalog, listFrequenciaForAluno, listFrequenciaForOrganization, listGlobalLibrary, listLeadAtividades, listLeadsForOrganization, listMinhasReservas, listMyAtendimentos, listMyCheckIns, listPendingMemberInvitations, listReservasForTurmaData, listStudentsInOrganization, listTreinoExercicios, listTreinosForAluno, listTurmaHorarios, listTurmasAtivas, listTurmasForOrganization, marcarLeadPerdido, moverEstagioLead, normalizeEmail, publishDieta, publishGlobalExercises, publishGlobalNutritionPlans, publishGlobalTemplates, publishTreino, recordConsent, registrarFrequencia, rejectDeletionRequest, replaceTreinoExercicios, replaceTurmaHorarios, requestHelp, reservarVaga, resolveAtendimento, revokeMemberInvitation, signInWithSupabase, submitCheckIn, toggleAlunoArkeLicenca, updateAppStudent, updateAppUser, updateDieta, updateGlobalExercise, updateGlobalGroup, updateGlobalNutritionPlan, updateGlobalRoutine, updateGlobalTemplate, updateGlobalTemplateExercise, updateLead, updateStudentMatricula, updateSupabaseUserPassword, updateTreino, updateTurma, upsertAcolhimento, upsertArkeModule, upsertGlobalAccessRule, verifyPasswordRecoveryCode } from "./supabaseAdmin";
+import { acceptMemberInvitation, assignAtendimento, cancelarReserva, cancelarReservaStaff, converterLead, countAlunosComArkeAtivo, createAppStudent, createAppUser, createAtendimento, createDeletionRequest, createDieta, createGlobalExercise, createGlobalGroup, createGlobalNutritionPlan, createGlobalRoutine, createGlobalTemplate, createGlobalTemplateExercise, createLead, createLeadNota, createPasswordRecoveryCode, createTreino, createTurma, deleteAppStudent, deleteAppUser, deleteDieta, deleteGlobalExercise, deleteGlobalGroup, deleteGlobalNutritionPlan, deleteGlobalRoutine, deleteGlobalTemplate, deleteGlobalTemplateExercise, deleteGlobalAccessRule, deleteLead, deleteTreino, deleteTurma, findAppUserByEmail, fulfillDeletionRequest, gerarFichaTreinoPdf, getAcolhimento, getAlunoArkeLicenca, getArkeModule, getAtendimento, getAvaliacaoSemanal, getCheckinDoDia, getCrmIndicadores, getCurrentPrivacyPolicy, getDeletionRequest, getDieta, getGestaoIndicadores, getLead, getMyDeletionRequest, getPlanoTreinoSemanal, getProfileByUserId, getReserva, getTreino, getTurma, getVagasDisponiveis, hasConsent, hasSupabaseConfig, inviteMember, listAppStudents, listAppUsers, listAtendimentosForOrganization, listDeletionRequests, listDietasForAluno, listExercisesCatalog, listFrequenciaForAluno, listFrequenciaForOrganization, listGlobalLibrary, listLeadAtividades, listLeadsForOrganization, listMinhasReservas, listMyAtendimentos, listMyCheckIns, listPendingMemberInvitations, listReservasForTurmaData, listStudentsInOrganization, listTreinoExercicios, listTreinosForAluno, listTurmaHorarios, listTurmasAtivas, listTurmasForOrganization, marcarLeadPerdido, moverEstagioLead, normalizeEmail, publishDieta, publishGlobalExercises, publishGlobalNutritionPlans, publishGlobalTemplates, publishTreino, recordConsent, registrarFrequencia, rejectDeletionRequest, replaceTreinoExercicios, replaceTurmaHorarios, requestHelp, reservarVaga, resolveAtendimento, revokeMemberInvitation, signInWithSupabase, submitCheckIn, toggleAlunoArkeLicenca, updateAppStudent, updateAppUser, updateDieta, updateGlobalExercise, updateGlobalGroup, updateGlobalNutritionPlan, updateGlobalRoutine, updateGlobalTemplate, updateGlobalTemplateExercise, updateLead, updateStudentMatricula, updateSupabaseUserPassword, updateTreino, updateTurma, upsertAcolhimento, upsertArkeModule, upsertAvaliacaoSemanal, upsertCheckinDiario, upsertGlobalAccessRule, upsertPlanoTreinoSemanal, verifyPasswordRecoveryCode } from "./supabaseAdmin";
+import { alunoTemArke, assertAlunoTemArke } from "./arkeEntitlement";
 import { asaasConfigured, asaasEnvironment, createAsaasWebhook, getAsaasAccount, listAsaasPayments } from "./asaas";
 import { listAsaasPaymentsForOrganization } from "./asaasPersistence";
 import { lookupCnpj } from "./cnpj";
@@ -22,6 +23,18 @@ const roleName = z.enum(["owner", "admin", "manager", "professional", "nutricion
 const auditFilterInput = z.object({ organizationId: z.string().uuid(), from: z.string().optional(), to: z.string().optional(), userId: z.string().uuid().optional(), entity: z.string().max(64).optional() });
 
 const auditFilters = (input: z.infer<typeof auditFilterInput>) => ({ from: input.from ? new Date(`${input.from}T00:00:00.000Z`) : undefined, to: input.to ? new Date(`${input.to}T23:59:59.999Z`) : undefined, userId: input.userId, entity: input.entity });
+
+// Fase 1c: chave de dia/semana calculada no servidor (nunca aceita do
+// cliente) para check-in diário e avaliação semanal — evita que um aluno
+// registre "hoje"/"esta semana" fora da data real.
+const todayKey = () => new Date().toISOString().slice(0, 10);
+const currentWeekKey = () => {
+  const now = new Date();
+  const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+  const diffToMonday = (d.getUTCDay() + 6) % 7;
+  d.setUTCDate(d.getUTCDate() - diffToMonday);
+  return d.toISOString().slice(0, 10);
+};
 
 const ownerOrAdmin = async (userId: string, organizationId: string) => {
   const membership = await getMembership(userId, organizationId);
@@ -480,6 +493,33 @@ export const appRouter = router({
         const result = await toggleAlunoArkeLicenca({ userId: input.alunoId, organizationId: profile.organization_id, ativo: input.ativo, ativadoPor: ctx.user.id });
         await recordAuditLog({ organizationId: profile.organization_id, userId: ctx.user.id, action: input.ativo ? "activated" : "deactivated", entity: "aluno_arke_licenca", entityId: input.alunoId });
         return result;
+      }),
+    }),
+    // Conteúdo do método propriamente dito (Fase 1c) — cada procedure exige
+    // assertAlunoTemArke antes de ler/escrever, então nunca vaza pra quem
+    // não tem o módulo ativo, mesmo se a UI esconder a seção.
+    meu: router({
+      temArke: protectedProcedure.query(({ ctx }) => alunoTemArke(ctx.user.id)),
+      checkinHoje: protectedProcedure.query(async ({ ctx }) => { await assertAlunoTemArke(ctx.user.id); return getCheckinDoDia(ctx.user.id, todayKey()); }),
+      registrarCheckin: protectedProcedure.input(z.object({ dedicacao: z.enum(["baixa", "media", "boa", "excelente"]) })).mutation(async ({ ctx, input }) => {
+        await assertAlunoTemArke(ctx.user.id);
+        const profile = await getProfileByUserId(ctx.user.id);
+        if (!profile?.organization_id) throw new Error("Aluno sem organização vinculada.");
+        return upsertCheckinDiario({ userId: ctx.user.id, organizationId: profile.organization_id, data: todayKey(), dedicacao: input.dedicacao });
+      }),
+      avaliacaoSemanaAtual: protectedProcedure.query(async ({ ctx }) => { await assertAlunoTemArke(ctx.user.id); return getAvaliacaoSemanal(ctx.user.id, currentWeekKey()); }),
+      registrarAvaliacaoSemanal: protectedProcedure.input(z.object({ sono: z.number().int().min(1).max(10), produtividade: z.number().int().min(1).max(10), humor: z.number().int().min(1).max(10), conquista: z.string().trim().max(1000).optional() })).mutation(async ({ ctx, input }) => {
+        await assertAlunoTemArke(ctx.user.id);
+        const profile = await getProfileByUserId(ctx.user.id);
+        if (!profile?.organization_id) throw new Error("Aluno sem organização vinculada.");
+        return upsertAvaliacaoSemanal({ userId: ctx.user.id, organizationId: profile.organization_id, semana: currentWeekKey(), ...input });
+      }),
+      planoTreinoSemanal: protectedProcedure.query(async ({ ctx }) => { await assertAlunoTemArke(ctx.user.id); return getPlanoTreinoSemanal(ctx.user.id); }),
+      salvarPlanoTreinoSemanal: protectedProcedure.input(z.object({ diasTreino: z.array(z.string().trim().min(1)).max(7), horarioPreferido: z.string().trim().max(60).optional(), localTreino: z.string().trim().max(160).optional() })).mutation(async ({ ctx, input }) => {
+        await assertAlunoTemArke(ctx.user.id);
+        const profile = await getProfileByUserId(ctx.user.id);
+        if (!profile?.organization_id) throw new Error("Aluno sem organização vinculada.");
+        return upsertPlanoTreinoSemanal({ userId: ctx.user.id, organizationId: profile.organization_id, diasTreino: input.diasTreino, horarioPreferido: input.horarioPreferido, localTreino: input.localTreino });
       }),
     }),
   }),
