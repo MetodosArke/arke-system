@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
-import { ClipboardList, Download, Dumbbell, Film, HeartHandshake, MessageCircle, Send, Utensils, Video } from "lucide-react";
+import { Bell, ClipboardList, Download, Dumbbell, Film, HeartHandshake, MessageCircle, Send, Utensils, Video } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { trpc } from "@/lib/trpc";
 import { readFileAsBase64 } from "@/lib/upload";
+import { subscribeToPush } from "@/lib/push";
 import { AlunoArke } from "@/components/AlunoArke";
 
 function downloadBase64Pdf(filename: string, contentBase64: string) {
@@ -188,6 +189,34 @@ function ChatDietaCard({ dietaId }: { dietaId: string }) {
   </CardContent></Card>;
 }
 
+function PushNotificationButton() {
+  const publicKeyQuery = trpc.push.publicKey.useQuery();
+  const subscribe = trpc.push.subscribe.useMutation();
+  const [status, setStatus] = useState<"idle" | "loading" | "done" | "error">("idle");
+  const [errorMessage, setErrorMessage] = useState("");
+
+  const activate = async () => {
+    if (!publicKeyQuery.data?.publicKey) return;
+    setStatus("loading");
+    try {
+      const subscription = await subscribeToPush(publicKeyQuery.data.publicKey);
+      await subscribe.mutateAsync(subscription);
+      setStatus("done");
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "Não foi possível ativar as notificações.");
+      setStatus("error");
+    }
+  };
+
+  if (!publicKeyQuery.data?.publicKey || status === "done") return null;
+  return <div className="mb-6 flex flex-wrap items-center gap-3 rounded-2xl border border-dashed border-[#dfd8c8] bg-[#fffdf9] px-4 py-3">
+    <Bell size={16} className="shrink-0 text-[#a47b13]" />
+    <p className="flex-1 text-xs text-[#77877d]">Ative as notificações para saber na hora quando seu treinador ou nutricionista te responder.</p>
+    <Button variant="outline" onClick={activate} disabled={status === "loading"} className="h-9 shrink-0 rounded-xl text-xs">{status === "loading" ? "Ativando..." : "Ativar notificações"}</Button>
+    {status === "error" && <p className="w-full text-[11px] text-[#b65343]">{errorMessage}</p>}
+  </div>;
+}
+
 function MinhaPrivacidadeCard() {
   const utils = trpc.useUtils();
   const [reason, setReason] = useState("");
@@ -232,6 +261,8 @@ export function StudentDashboard() {
     <div className="mb-6"><h2 className="text-3xl font-semibold tracking-[-.05em] text-[#2b271f]">Meu treino</h2><p className="mt-1 text-sm text-[#77877d]">Seu treino e plano alimentar publicados pelo seu profissional.</p></div>
 
     {toast && <div className="mb-6 rounded-xl bg-[#eef4ee] px-4 py-3 text-sm text-[#3e8254]"><strong>{toast.title}</strong> — {toast.detail}</div>}
+
+    <PushNotificationButton />
 
     <CheckInWidget onToast={onToast} />
 

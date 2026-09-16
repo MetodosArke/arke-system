@@ -851,6 +851,17 @@ async function createMensagemDieta(input) {
 async function markMensagensDietaLidas(dietaId, remetenteTipo) {
   await request2("mensagens_dieta", { method: "PATCH", body: JSON.stringify({ lida: true }) }, `?dieta_id=eq.${encodeURIComponent(dietaId)}&remetente_tipo=eq.${remetenteTipo}&lida=eq.false`);
 }
+async function getPushSubscriptionsForUser(userId) {
+  return request2("push_subscriptions", {}, `?select=*&user_id=eq.${encodeURIComponent(userId)}`);
+}
+async function upsertPushSubscription(input) {
+  const body = { user_id: input.userId, endpoint: input.endpoint, p256dh: input.p256dh, auth: input.auth };
+  const rows = await request2("push_subscriptions", { method: "POST", body: JSON.stringify(body), headers: { Prefer: "return=representation,resolution=merge-duplicates" } }, "?on_conflict=user_id,endpoint");
+  return rows[0];
+}
+async function deletePushSubscription(userId, endpoint) {
+  await request2("push_subscriptions", { method: "DELETE" }, `?user_id=eq.${encodeURIComponent(userId)}&endpoint=eq.${encodeURIComponent(endpoint)}`);
+}
 async function listDesafios(organizationId) {
   return request2("desafios", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}&order=data_fim.desc`);
 }
@@ -1823,6 +1834,38 @@ Monte, para cada divis\xE3o, de 2 a 6 exerc\xEDcios com id do exerc\xEDcio (copi
   return { titulo: `${input.categoria} \u2014 ${input.objetivo}`.slice(0, 160), categoria: input.categoria, descricao: parsed.descricao, divisoes: divisoesValidadas };
 }
 
+// server/push.ts
+import webpush from "web-push";
+var VAPID_PUBLIC_KEY = process.env.VAPID_PUBLIC_KEY;
+var VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY;
+var VAPID_SUBJECT = process.env.VAPID_SUBJECT || "mailto:noreply@arkefit.com.br";
+function pushConfigured() {
+  return Boolean(VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY);
+}
+function getVapidPublicKey() {
+  return pushConfigured() ? VAPID_PUBLIC_KEY : null;
+}
+if (pushConfigured()) {
+  webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
+}
+async function sendPushToUser(userId, payload) {
+  if (!pushConfigured()) return { sent: 0 };
+  const subscriptions = await getPushSubscriptionsForUser(userId);
+  if (!subscriptions.length) return { sent: 0 };
+  const payloadStr = JSON.stringify({ title: payload.title, body: payload.body, url: payload.url || "/" });
+  let sent = 0;
+  for (const subscription of subscriptions) {
+    try {
+      await webpush.sendNotification({ endpoint: subscription.endpoint, keys: { p256dh: subscription.p256dh, auth: subscription.auth } }, payloadStr);
+      sent++;
+    } catch (error) {
+      const statusCode = error.statusCode;
+      if (statusCode === 404 || statusCode === 410) await deletePushSubscription(subscription.user_id, subscription.endpoint);
+    }
+  }
+  return { sent };
+}
+
 // server/storage.ts
 var IMAGE_MIME_TYPES = ["image/png", "image/jpeg", "image/webp", "image/svg+xml"];
 var LOGO_MIME_TYPES = IMAGE_MIME_TYPES;
@@ -2028,6 +2071,15 @@ var appRouter = router({
       await updateSupabaseUserPassword(ctx.accessToken, input.newPassword);
       return { success: true };
     })
+  }),
+  // Push (Fase 3 — comunicação): substitui as edge functions Deno
+  // "vapid-public-key"/"send-chat-push" do arke-app original. Inerte sem
+  // VAPID_PUBLIC_KEY/VAPID_PRIVATE_KEY configuradas (mesmo padrão de
+  // Sentry/Asaas neste projeto — nunca quebra por falta de credencial).
+  push: router({
+    publicKey: publicProcedure.query(() => ({ publicKey: getVapidPublicKey() })),
+    subscribe: protectedProcedure.input(z2.object({ endpoint: z2.string().url(), keys: z2.object({ p256dh: z2.string(), auth: z2.string() }) })).mutation(({ ctx, input }) => upsertPushSubscription({ userId: ctx.user.id, endpoint: input.endpoint, p256dh: input.keys.p256dh, auth: input.keys.auth })),
+    unsubscribe: protectedProcedure.input(z2.object({ endpoint: z2.string().url() })).mutation(({ ctx, input }) => deletePushSubscription(ctx.user.id, input.endpoint))
   }),
   admin: router({
     status: publicProcedure.query(() => ({ configured: hasSupabaseConfig() })),
@@ -2417,13 +2469,19 @@ var appRouter = router({
         }),
         send: protectedProcedure.input(z2.object({ alunoId: z2.string().uuid(), mensagem: z2.string().trim().min(1).max(2e3) })).mutation(async ({ ctx, input }) => {
           const profile = await assertStaffForAluno(ctx.user.id, input.alunoId, TREINO_BLOCKED_ROLES);
-          return createMensagemTreino({ aluno_id: input.alunoId, organization_id: profile.organization_id, remetente_id: ctx.user.id, remetente_tipo: "treinador", mensagem: input.mensagem });
+          const mensagem = await createMensagemTreino({ aluno_id: input.alunoId, organization_id: profile.organization_id, remetente_id: ctx.user.id, remetente_tipo: "treinador", mensagem: input.mensagem });
+          sendPushToUser(input.alunoId, { title: "Nova mensagem do seu treinador", body: input.mensagem.slice(0, 140), url: "/" }).catch(() => {
+          });
+          return mensagem;
         }),
         sendVideo: protectedProcedure.input(z2.object({ alunoId: z2.string().uuid(), contentType: z2.string(), dataBase64: z2.string() })).mutation(async ({ ctx, input }) => {
           const profile = await assertStaffForAluno(ctx.user.id, input.alunoId, TREINO_BLOCKED_ROLES);
           const buffer = decodeUpload(input.dataBase64, input.contentType, CHAT_VIDEO_MIME_TYPES, CHAT_VIDEO_MAX_BYTES);
           const url = await uploadPublicFile("chat-videos", `${input.alunoId}/${randomUUID2()}.${extensionFor(input.contentType)}`, buffer, input.contentType);
-          return createMensagemTreino({ aluno_id: input.alunoId, organization_id: profile.organization_id, remetente_id: ctx.user.id, remetente_tipo: "treinador", mensagem: "V\xEDdeo", video_url: url });
+          const mensagem = await createMensagemTreino({ aluno_id: input.alunoId, organization_id: profile.organization_id, remetente_id: ctx.user.id, remetente_tipo: "treinador", mensagem: "V\xEDdeo", video_url: url });
+          sendPushToUser(input.alunoId, { title: "Nova mensagem do seu treinador", body: "V\xEDdeo enviado", url: "/" }).catch(() => {
+          });
+          return mensagem;
         }),
         markRead: protectedProcedure.input(z2.object({ alunoId: z2.string().uuid() })).mutation(async ({ ctx, input }) => {
           await assertStaffForAluno(ctx.user.id, input.alunoId, TREINO_BLOCKED_ROLES);
@@ -2437,7 +2495,10 @@ var appRouter = router({
         }),
         send: protectedProcedure.input(z2.object({ dietaId: z2.string().uuid(), mensagem: z2.string().trim().min(1).max(2e3) })).mutation(async ({ ctx, input }) => {
           const dieta = await assertStaffForDieta(ctx.user.id, input.dietaId, DIETA_BLOCKED_ROLES);
-          return createMensagemDieta({ dieta_id: input.dietaId, aluno_id: dieta.aluno_id, organization_id: dieta.organization_id, remetente_id: ctx.user.id, remetente_tipo: "nutricionista", mensagem: input.mensagem });
+          const mensagem = await createMensagemDieta({ dieta_id: input.dietaId, aluno_id: dieta.aluno_id, organization_id: dieta.organization_id, remetente_id: ctx.user.id, remetente_tipo: "nutricionista", mensagem: input.mensagem });
+          sendPushToUser(dieta.aluno_id, { title: "Nova mensagem da nutri\xE7\xE3o", body: input.mensagem.slice(0, 140), url: "/" }).catch(() => {
+          });
+          return mensagem;
         }),
         markRead: protectedProcedure.input(z2.object({ dietaId: z2.string().uuid() })).mutation(async ({ ctx, input }) => {
           await assertStaffForDieta(ctx.user.id, input.dietaId, DIETA_BLOCKED_ROLES);

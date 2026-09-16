@@ -316,6 +316,15 @@ export async function listMensagensDieta(dietaId: string) { return request<Mensa
 export async function createMensagemDieta(input: Record<string, unknown>) { const rows = await request<MensagemDieta[]>("mensagens_dieta", { method: "POST", body: JSON.stringify(input) }); return rows[0]; }
 export async function markMensagensDietaLidas(dietaId: string, remetenteTipo: "aluno" | "nutricionista") { await request("mensagens_dieta", { method: "PATCH", body: JSON.stringify({ lida: true }) }, `?dieta_id=eq.${encodeURIComponent(dietaId)}&remetente_tipo=eq.${remetenteTipo}&lida=eq.false`); }
 
+export type PushSubscription = { id: string; user_id: string; endpoint: string; p256dh: string; auth: string; created_at: string };
+export async function getPushSubscriptionsForUser(userId: string) { return request<PushSubscription[]>("push_subscriptions", {}, `?select=*&user_id=eq.${encodeURIComponent(userId)}`); }
+export async function upsertPushSubscription(input: { userId: string; endpoint: string; p256dh: string; auth: string }) {
+  const body = { user_id: input.userId, endpoint: input.endpoint, p256dh: input.p256dh, auth: input.auth };
+  const rows = await request<PushSubscription[]>("push_subscriptions", { method: "POST", body: JSON.stringify(body), headers: { Prefer: "return=representation,resolution=merge-duplicates" } }, "?on_conflict=user_id,endpoint");
+  return rows[0];
+}
+export async function deletePushSubscription(userId: string, endpoint: string) { await request("push_subscriptions", { method: "DELETE" }, `?user_id=eq.${encodeURIComponent(userId)}&endpoint=eq.${encodeURIComponent(endpoint)}`); }
+
 // Desafios (Fase 2 — engajamento): sempre criados/geridos pela equipe, o
 // aluno só lê. O `tipo`/`meta_valor` reaproveita o vocabulário do arke-app
 // original, mas o rastreamento automático por dieta/treino registrado
