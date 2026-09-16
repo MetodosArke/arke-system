@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from "react";
+import { lazy, Suspense, useMemo, useState, type ReactNode } from "react";
 import { ArrowUpRight, BarChart3, Building2, CalendarDays, Check, ChevronRight, CircleDollarSign, FileCheck2, Link2, Plus, RefreshCw, ShieldCheck, Users, WalletCards, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -8,16 +8,18 @@ import { cn } from "@/lib/utils";
 import { trpc } from "@/lib/trpc";
 import type { ViewKey } from "@/App";
 import { MODULE_LABELS, type ModuleKey } from "@/lib/appCatalog";
-import SaasPage from "@/pages/SaasPage";
-import { StudentManagementPage, UserManagementPage } from "@/components/CrudManagement";
-import { GlobalLibraryAdmin } from "@/components/GlobalLibraryAdmin";
-import { ProfessionalDashboard } from "@/components/ProfessionalDashboard";
-import { StudentDashboard } from "@/components/StudentDashboard";
-import { MinhaFila } from "@/components/MinhaFila";
-import { Gestao } from "@/components/Gestao";
-import { Studio } from "@/components/Studio";
-import { MinhasTurmas } from "@/components/MinhasTurmas";
-import { Crm } from "@/components/Crm";
+
+const SaasPage = lazy(() => import("@/pages/SaasPage"));
+const UserManagementPage = lazy(() => import("@/components/CrudManagement").then((m) => ({ default: m.UserManagementPage })));
+const StudentManagementPage = lazy(() => import("@/components/CrudManagement").then((m) => ({ default: m.StudentManagementPage })));
+const GlobalLibraryAdmin = lazy(() => import("@/components/GlobalLibraryAdmin").then((m) => ({ default: m.GlobalLibraryAdmin })));
+const ProfessionalDashboard = lazy(() => import("@/components/ProfessionalDashboard"));
+const StudentDashboard = lazy(() => import("@/components/StudentDashboard"));
+const MinhaFila = lazy(() => import("@/components/MinhaFila"));
+const Gestao = lazy(() => import("@/components/Gestao"));
+const Studio = lazy(() => import("@/components/Studio"));
+const MinhasTurmas = lazy(() => import("@/components/MinhasTurmas"));
+const Crm = lazy(() => import("@/components/Crm"));
 
 type Toast = { title: string; detail: string } | null;
 type User = { name: string; username?: string; role?: string };
@@ -177,7 +179,7 @@ export function Home({ view, setView, user, module, tenantName, onTenantChange }
   const [toast, setToast] = useState<Toast>(null);
   const onToast = (next: NonNullable<Toast>) => { setToast(next); window.setTimeout(() => setToast(null), 3800); };
   const page = useMemo(() => { switch (view) { case "academias": return <UserManagementPage onToast={onToast} moduleFilter="academia" />; case "studios": return <UserManagementPage onToast={onToast} moduleFilter="studio" />; case "profissionais": return <UserManagementPage onToast={onToast} moduleFilter="profissional" />; case "alunos": return <StudentManagementPage onToast={onToast} />; case "agenda": return <AgendaPage setView={setView} />; case "financeiro": return <FinancePage onToast={onToast} />; case "integracoes": return <IntegrationsPage module={module} onToast={onToast} />; case "saas": return <SaasPage tenantName={tenantName} onTenantChange={onTenantChange} onToast={onToast} />; case "admin": return <UserManagementPage onToast={onToast} />; case "acervo": return <GlobalLibraryAdmin onToast={onToast} />; case "meus-alunos": return <ProfessionalDashboard onToast={onToast} />; case "minha-fila": return <MinhaFila onToast={onToast} />; case "meu-treino": return <StudentDashboard />; case "gestao": return <Gestao />; case "turmas": return <Studio onToast={onToast} />; case "minhas-turmas": return <MinhasTurmas />; case "crm": return <Crm onToast={onToast} />; case "configuracoes": return <SettingsPage tenantName={tenantName} />; default: return <Dashboard module={module} user={user} tenantName={tenantName} setView={setView} />; } }, [view, setView, user, module, tenantName, onTenantChange]);
-  return <><div className="min-h-full">{page}</div><ToastMessage toast={toast} onClose={() => setToast(null)} /></>;
+  return <><div className="min-h-full"><Suspense fallback={<p className="p-8 text-sm text-[#918a7d]">Carregando...</p>}>{page}</Suspense></div><ToastMessage toast={toast} onClose={() => setToast(null)} /></>;
 }
 
 export default Home;
