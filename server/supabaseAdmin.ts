@@ -235,6 +235,10 @@ export async function toggleAlunoArkeLicenca(input: { userId: string; organizati
   const rows = await request<AlunoArkeLicenca[]>("aluno_arke_licenca", { method: "POST", body: JSON.stringify(body), headers: { Prefer: "return=representation,resolution=merge-duplicates" } }, "?on_conflict=organization_id,user_id");
   return rows[0];
 }
+export async function listAlunosComArkeAtivoIds(organizationId: string) {
+  const rows = await request<Array<{ user_id: string }>>("aluno_arke_licenca", {}, `?select=user_id&organization_id=eq.${encodeURIComponent(organizationId)}&ativo=eq.true`);
+  return rows.map((row) => row.user_id);
+}
 
 // Núcleo do método Arke (Fase 1c): check-in diário, avaliação semanal e
 // plano de horários — porta o mesmo padrão upsert-on-natural-key do
@@ -246,6 +250,10 @@ export async function upsertCheckinDiario(input: { userId: string; organizationI
   const body = { user_id: input.userId, organization_id: input.organizationId, data: input.data, dedicacao: input.dedicacao };
   const rows = await request<CheckinDiario[]>("checkin_diario", { method: "POST", body: JSON.stringify(body), headers: { Prefer: "return=representation,resolution=merge-duplicates" } }, "?on_conflict=user_id,data");
   return rows[0];
+}
+export async function hasCheckinDesde(userId: string, desde: string) {
+  const rows = await request<Array<{ data: string }>>("checkin_diario", {}, `?select=data&user_id=eq.${encodeURIComponent(userId)}&data=gte.${encodeURIComponent(desde)}&limit=1`);
+  return rows.length > 0;
 }
 
 export type AvaliacaoSemanal = { id: string; user_id: string; organization_id: string; semana: string; sono: number; produtividade: number; humor: number; conquista: string | null; created_at: string; updated_at: string };
@@ -270,6 +278,10 @@ export async function upsertPlanoTreinoSemanal(input: { userId: string; organiza
 const PROGRESSO_SEMANAL_SELECT = "id,aluno_id,organization_id,data,peso_kg,gordura_percentual,musculo_percentual,cintura_cm,quadril_cm,braco_cm,perna_cm,bem_estar,observacoes,meta_peso_kg,created_at";
 export type ProgressoSemanal = { id: string; aluno_id: string; organization_id: string; data: string; peso_kg: number | null; gordura_percentual: number | null; musculo_percentual: number | null; cintura_cm: number | null; quadril_cm: number | null; braco_cm: number | null; perna_cm: number | null; bem_estar: number | null; observacoes: string | null; meta_peso_kg: number | null; created_at: string };
 export async function listProgressoSemanal(alunoId: string) { return request<ProgressoSemanal[]>("progresso_semanal", {}, `?select=${PROGRESSO_SEMANAL_SELECT}&aluno_id=eq.${encodeURIComponent(alunoId)}&order=data.asc`); }
+export async function hasProgressoSemanalDesde(alunoId: string, desde: string) {
+  const rows = await request<Array<{ id: string }>>("progresso_semanal", {}, `?select=id&aluno_id=eq.${encodeURIComponent(alunoId)}&data=gte.${encodeURIComponent(desde)}&limit=1`);
+  return rows.length > 0;
+}
 export async function getProgressoSemanal(idValue: string) { const rows = await request<ProgressoSemanal[]>("progresso_semanal", {}, `?select=${PROGRESSO_SEMANAL_SELECT}&id=eq.${encodeURIComponent(idValue)}&limit=1`); return rows[0] ?? null; }
 export async function createProgressoSemanal(input: Record<string, unknown>) { const rows = await request<ProgressoSemanal[]>("progresso_semanal", { method: "POST", body: JSON.stringify(input) }); return rows[0]; }
 export async function deleteProgressoSemanal(idValue: string) { await request("progresso_semanal", { method: "DELETE" }, `?id=eq.${encodeURIComponent(idValue)}`); return { id: idValue }; }

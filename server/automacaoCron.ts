@@ -2,6 +2,7 @@ import { timingSafeEqual } from "node:crypto";
 import type { Express, Request, Response } from "express";
 import { runAutomacaoDiaria } from "./supabaseAdmin";
 import { runArkeRepasseMensal } from "./arkeBilling";
+import { runArkeLembretesDiarios } from "./arkeLembretes";
 import { captureException } from "./_core/errorMonitoring";
 
 function tokenMatches(received: string, expected: string) {
@@ -16,8 +17,8 @@ export function registerAutomacaoCron(app: Express) {
     const receivedToken = String(req.header("authorization") ?? "").replace(/^Bearer\s+/i, "");
     if (!expectedToken || !tokenMatches(receivedToken, expectedToken)) return res.status(401).json({ ok: false, error: "unauthorized" });
     try {
-      const [resultado, arkeRepasse] = await Promise.all([runAutomacaoDiaria(), runArkeRepasseMensal()]);
-      return res.status(200).json({ ok: true, ...resultado, arkeRepasse });
+      const [resultado, arkeRepasse, arkeLembretes] = await Promise.all([runAutomacaoDiaria(), runArkeRepasseMensal(), runArkeLembretesDiarios()]);
+      return res.status(200).json({ ok: true, ...resultado, arkeRepasse, arkeLembretes });
     } catch (error) {
       captureException(error, { job: "automacao_diaria" });
       return res.status(500).json({ ok: false });
