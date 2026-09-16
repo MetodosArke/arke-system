@@ -742,6 +742,10 @@ async function toggleAlunoArkeLicenca(input) {
   const rows = await request2("aluno_arke_licenca", { method: "POST", body: JSON.stringify(body), headers: { Prefer: "return=representation,resolution=merge-duplicates" } }, "?on_conflict=organization_id,user_id");
   return rows[0];
 }
+async function listAlunosComArkeAtivoIds(organizationId) {
+  const rows = await request2("aluno_arke_licenca", {}, `?select=user_id&organization_id=eq.${encodeURIComponent(organizationId)}&ativo=eq.true`);
+  return rows.map((row) => row.user_id);
+}
 async function getCheckinDoDia(userId, data) {
   const rows = await request2("checkin_diario", {}, `?select=*&user_id=eq.${encodeURIComponent(userId)}&data=eq.${encodeURIComponent(data)}&limit=1`);
   return rows[0] ?? null;
@@ -750,6 +754,10 @@ async function upsertCheckinDiario(input) {
   const body = { user_id: input.userId, organization_id: input.organizationId, data: input.data, dedicacao: input.dedicacao };
   const rows = await request2("checkin_diario", { method: "POST", body: JSON.stringify(body), headers: { Prefer: "return=representation,resolution=merge-duplicates" } }, "?on_conflict=user_id,data");
   return rows[0];
+}
+async function hasCheckinDesde(userId, desde) {
+  const rows = await request2("checkin_diario", {}, `?select=data&user_id=eq.${encodeURIComponent(userId)}&data=gte.${encodeURIComponent(desde)}&limit=1`);
+  return rows.length > 0;
 }
 async function getAvaliacaoSemanal(userId, semana) {
   const rows = await request2("avaliacao_semanal", {}, `?select=*&user_id=eq.${encodeURIComponent(userId)}&semana=eq.${encodeURIComponent(semana)}&limit=1`);
@@ -772,6 +780,10 @@ async function upsertPlanoTreinoSemanal(input) {
 var PROGRESSO_SEMANAL_SELECT = "id,aluno_id,organization_id,data,peso_kg,gordura_percentual,musculo_percentual,cintura_cm,quadril_cm,braco_cm,perna_cm,bem_estar,observacoes,meta_peso_kg,created_at";
 async function listProgressoSemanal(alunoId) {
   return request2("progresso_semanal", {}, `?select=${PROGRESSO_SEMANAL_SELECT}&aluno_id=eq.${encodeURIComponent(alunoId)}&order=data.asc`);
+}
+async function hasProgressoSemanalDesde(alunoId, desde) {
+  const rows = await request2("progresso_semanal", {}, `?select=id&aluno_id=eq.${encodeURIComponent(alunoId)}&data=gte.${encodeURIComponent(desde)}&limit=1`);
+  return rows.length > 0;
 }
 async function getProgressoSemanal(idValue) {
   const rows = await request2("progresso_semanal", {}, `?select=${PROGRESSO_SEMANAL_SELECT}&id=eq.${encodeURIComponent(idValue)}&limit=1`);
@@ -3330,6 +3342,50 @@ async function runArkeRepasseMensal() {
   return resultado;
 }
 
+// server/arkeLembretes.ts
+var diasAtras = (dias) => {
+  const data = /* @__PURE__ */ new Date();
+  data.setUTCDate(data.getUTCDate() - dias);
+  return data.toISOString().slice(0, 10);
+};
+async function lembretesParaAluno(userId, hoje) {
+  const lembretes = [];
+  const diaSemana = hoje.getUTCDay();
+  if (diaSemana === 0 && !await hasProgressoSemanalDesde(userId, diasAtras(7))) {
+    lembretes.push({ titulo: "\u{1F4CA} Hora do progresso semanal!", mensagem: "Domingo \xE9 dia de registrar sua evolu\xE7\xE3o. Atualize suas medidas no app." });
+  }
+  if (diaSemana === 1) {
+    lembretes.push({ titulo: "\u{1F525} Nova semana, novos objetivos!", mensagem: "Comece a semana com o p\xE9 direito. Bora treinar?" });
+  }
+  if (!await hasCheckinDesde(userId, diasAtras(7))) {
+    lembretes.push({ titulo: "\u26A0\uFE0F Revis\xE3o de rotina", mensagem: "Faz uma semana sem check-in. Que tal revisar sua rotina com seu profissional?" });
+  } else if (!await hasCheckinDesde(userId, diasAtras(3))) {
+    lembretes.push({ titulo: "\u{1F4AA} Bora treinar!", mensagem: "J\xE1 fazem 3 dias sem check-in. Const\xE2ncia \xE9 o que mais importa \u2014 vamos l\xE1!" });
+  }
+  return lembretes;
+}
+async function runArkeLembretesDiarios() {
+  const resultado = { alunosProcessados: 0, lembretesEnviados: 0, falhas: 0 };
+  const hoje = /* @__PURE__ */ new Date();
+  for (const arkeModule of await listArkeModulesEnabled()) {
+    for (const userId of await listAlunosComArkeAtivoIds(arkeModule.organization_id)) {
+      resultado.alunosProcessados += 1;
+      try {
+        for (const lembrete of await lembretesParaAluno(userId, hoje)) {
+          await createNotificacao({ userId, titulo: lembrete.titulo, mensagem: lembrete.mensagem, tipo: "lembrete" });
+          sendPushToUser(userId, { title: lembrete.titulo, body: lembrete.mensagem, url: "/" }).catch(() => {
+          });
+          resultado.lembretesEnviados += 1;
+        }
+      } catch (error) {
+        captureException2(error, { job: "arke_lembretes_diarios", userId });
+        resultado.falhas += 1;
+      }
+    }
+  }
+  return resultado;
+}
+
 // server/automacaoCron.ts
 function tokenMatches2(received, expected) {
   const receivedBuffer = Buffer.from(received);
@@ -3342,8 +3398,8 @@ function registerAutomacaoCron(app) {
     const receivedToken = String(req.header("authorization") ?? "").replace(/^Bearer\s+/i, "");
     if (!expectedToken || !tokenMatches2(receivedToken, expectedToken)) return res.status(401).json({ ok: false, error: "unauthorized" });
     try {
-      const [resultado, arkeRepasse] = await Promise.all([runAutomacaoDiaria(), runArkeRepasseMensal()]);
-      return res.status(200).json({ ok: true, ...resultado, arkeRepasse });
+      const [resultado, arkeRepasse, arkeLembretes] = await Promise.all([runAutomacaoDiaria(), runArkeRepasseMensal(), runArkeLembretesDiarios()]);
+      return res.status(200).json({ ok: true, ...resultado, arkeRepasse, arkeLembretes });
     } catch (error) {
       captureException2(error, { job: "automacao_diaria" });
       return res.status(500).json({ ok: false });
