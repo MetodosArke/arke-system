@@ -875,6 +875,47 @@ async function setDesafioProgresso(input) {
   const rows = await request2("desafio_progresso", { method: "POST", body: JSON.stringify(body), headers: { Prefer: "return=representation,resolution=merge-duplicates" } }, "?on_conflict=desafio_id,aluno_id");
   return rows[0];
 }
+async function listCompeticoes(organizationId) {
+  return request2("competicoes", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}&order=data_inicio.desc`);
+}
+async function getCompeticao(idValue) {
+  const rows = await request2("competicoes", {}, `?select=*&id=eq.${encodeURIComponent(idValue)}&limit=1`);
+  return rows[0] ?? null;
+}
+async function createCompeticao(input) {
+  const rows = await request2("competicoes", { method: "POST", body: JSON.stringify(input) });
+  return rows[0];
+}
+async function updateCompeticao(idValue, input) {
+  const rows = await request2("competicoes", { method: "PATCH", body: JSON.stringify({ ...input, updated_at: (/* @__PURE__ */ new Date()).toISOString() }) }, `?id=eq.${encodeURIComponent(idValue)}`);
+  return rows[0];
+}
+async function deleteCompeticao(idValue) {
+  await request2("competicoes", { method: "DELETE" }, `?id=eq.${encodeURIComponent(idValue)}`);
+  return { id: idValue };
+}
+async function listCompeticaoParticipantes(competicaoId) {
+  return request2("competicao_participantes", {}, `?select=*&competicao_id=eq.${encodeURIComponent(competicaoId)}`);
+}
+async function listCompeticaoParticipantesForAluno(alunoId) {
+  return request2("competicao_participantes", {}, `?select=competicao_id&aluno_id=eq.${encodeURIComponent(alunoId)}`);
+}
+async function addCompeticaoParticipante(input) {
+  const rows = await request2("competicao_participantes", { method: "POST", body: JSON.stringify({ competicao_id: input.competicaoId, aluno_id: input.alunoId, organization_id: input.organizationId }), headers: { Prefer: "return=representation,resolution=merge-duplicates" } }, "?on_conflict=competicao_id,aluno_id");
+  return rows[0];
+}
+async function removeCompeticaoParticipante(competicaoId, alunoId) {
+  await request2("competicao_participantes", { method: "DELETE" }, `?competicao_id=eq.${encodeURIComponent(competicaoId)}&aluno_id=eq.${encodeURIComponent(alunoId)}`);
+  return { competicaoId, alunoId };
+}
+async function listCompeticaoPontuacaoForCompeticao(competicaoId) {
+  return request2("competicao_pontuacao", {}, `?select=*&competicao_id=eq.${encodeURIComponent(competicaoId)}`);
+}
+async function setCompeticaoPontuacao(input) {
+  const body = { competicao_id: input.competicaoId, aluno_id: input.alunoId, organization_id: input.organizationId, valor: input.valor, atualizado_por: input.atualizadoPor, updated_at: (/* @__PURE__ */ new Date()).toISOString() };
+  const rows = await request2("competicao_pontuacao", { method: "POST", body: JSON.stringify(body), headers: { Prefer: "return=representation,resolution=merge-duplicates" } }, "?on_conflict=competicao_id,aluno_id");
+  return rows[0];
+}
 async function listExercisesCatalog() {
   return request2("exercicios", {}, "?select=id,nome,grupo_muscular,video_url&estado_publicacao=eq.publicado&order=nome.asc");
 }
@@ -1870,6 +1911,12 @@ var assertStaffForDesafio = async (userId, desafioId, blockedRoles = []) => {
   await assertStaffOfOrganization(userId, desafio.organization_id, blockedRoles);
   return desafio;
 };
+var assertStaffForCompeticao = async (userId, competicaoId, blockedRoles = []) => {
+  const competicao = await getCompeticao(competicaoId);
+  if (!competicao) throw new Error("Competi\xE7\xE3o n\xE3o encontrada.");
+  await assertStaffOfOrganization(userId, competicao.organization_id, blockedRoles);
+  return competicao;
+};
 var assertStaffForProgresso = async (userId, progressoId, blockedRoles = []) => {
   const registro = await getProgressoSemanal(progressoId);
   if (!registro) throw new Error("Registro de progresso n\xE3o encontrado.");
@@ -2449,6 +2496,58 @@ var appRouter = router({
           return setDesafioProgresso({ desafioId: input.desafioId, alunoId: input.alunoId, organizationId: desafio.organization_id, concluido: input.concluido, valorAtual: input.valorAtual, concluidoPor: ctx.user.id });
         })
       })
+    }),
+    // Competições (Fase 2): mesma divisão de acesso de desafios — equipe
+    // gerencia, aluno só lê. `metrica` aqui é só um rótulo livre (ex.:
+    // "Quilômetros corridos") para o que a equipe está digitando em
+    // competicao_pontuacao.valor — não é mais calculada automaticamente.
+    competicoes: router({
+      list: protectedProcedure.input(organizationIdInput).query(async ({ ctx, input }) => {
+        await assertStaffOfOrganization(ctx.user.id, input.organizationId);
+        return listCompeticoes(input.organizationId);
+      }),
+      create: protectedProcedure.input(z2.object({ organizationId: z2.string().uuid(), titulo: z2.string().trim().min(2), descricao: z2.string().trim().optional(), metrica: z2.string().trim().min(1).max(60).default("Pontua\xE7\xE3o geral"), dataInicio: z2.string().regex(/^\d{4}-\d{2}-\d{2}$/), dataFim: z2.string().regex(/^\d{4}-\d{2}-\d{2}$/), paraTodos: z2.boolean().default(true) })).mutation(async ({ ctx, input }) => {
+        await assertStaffOfOrganization(ctx.user.id, input.organizationId);
+        const competicao = await createCompeticao({ organization_id: input.organizationId, titulo: input.titulo, descricao: input.descricao || null, metrica: input.metrica, data_inicio: input.dataInicio, data_fim: input.dataFim, para_todos: input.paraTodos, criado_por: ctx.user.id });
+        await recordAuditLog({ organizationId: input.organizationId, userId: ctx.user.id, action: "created", entity: "competicao", entityId: competicao.id, afterJson: input });
+        return competicao;
+      }),
+      update: protectedProcedure.input(z2.object({ id: z2.string().uuid(), titulo: z2.string().trim().min(2), descricao: z2.string().trim().optional(), metrica: z2.string().trim().min(1).max(60), dataInicio: z2.string().regex(/^\d{4}-\d{2}-\d{2}$/), dataFim: z2.string().regex(/^\d{4}-\d{2}-\d{2}$/), paraTodos: z2.boolean() })).mutation(async ({ ctx, input }) => {
+        const competicao = await assertStaffForCompeticao(ctx.user.id, input.id);
+        const updated = await updateCompeticao(input.id, { titulo: input.titulo, descricao: input.descricao || null, metrica: input.metrica, data_inicio: input.dataInicio, data_fim: input.dataFim, para_todos: input.paraTodos });
+        await recordAuditLog({ organizationId: competicao.organization_id, userId: ctx.user.id, action: "updated", entity: "competicao", entityId: input.id, beforeJson: competicao, afterJson: input });
+        return updated;
+      }),
+      delete: protectedProcedure.input(z2.object({ id: z2.string().uuid() })).mutation(async ({ ctx, input }) => {
+        const competicao = await assertStaffForCompeticao(ctx.user.id, input.id);
+        const result = await deleteCompeticao(input.id);
+        await recordAuditLog({ organizationId: competicao.organization_id, userId: ctx.user.id, action: "deleted", entity: "competicao", entityId: input.id, beforeJson: competicao });
+        return result;
+      }),
+      participantes: router({
+        list: protectedProcedure.input(z2.object({ competicaoId: z2.string().uuid() })).query(async ({ ctx, input }) => {
+          await assertStaffForCompeticao(ctx.user.id, input.competicaoId);
+          return listCompeticaoParticipantes(input.competicaoId);
+        }),
+        add: protectedProcedure.input(z2.object({ competicaoId: z2.string().uuid(), alunoId: z2.string().uuid() })).mutation(async ({ ctx, input }) => {
+          const competicao = await assertStaffForCompeticao(ctx.user.id, input.competicaoId);
+          return addCompeticaoParticipante({ competicaoId: input.competicaoId, alunoId: input.alunoId, organizationId: competicao.organization_id });
+        }),
+        remove: protectedProcedure.input(z2.object({ competicaoId: z2.string().uuid(), alunoId: z2.string().uuid() })).mutation(async ({ ctx, input }) => {
+          await assertStaffForCompeticao(ctx.user.id, input.competicaoId);
+          return removeCompeticaoParticipante(input.competicaoId, input.alunoId);
+        })
+      }),
+      pontuacao: router({
+        list: protectedProcedure.input(z2.object({ competicaoId: z2.string().uuid() })).query(async ({ ctx, input }) => {
+          await assertStaffForCompeticao(ctx.user.id, input.competicaoId);
+          return listCompeticaoPontuacaoForCompeticao(input.competicaoId);
+        }),
+        set: protectedProcedure.input(z2.object({ competicaoId: z2.string().uuid(), alunoId: z2.string().uuid(), valor: z2.number() })).mutation(async ({ ctx, input }) => {
+          const competicao = await assertStaffForCompeticao(ctx.user.id, input.competicaoId);
+          return setCompeticaoPontuacao({ competicaoId: input.competicaoId, alunoId: input.alunoId, organizationId: competicao.organization_id, valor: input.valor, atualizadoPor: ctx.user.id });
+        })
+      })
     })
   }),
   arke: router({
@@ -2608,6 +2707,30 @@ var appRouter = router({
           pontos: desafio.pontos,
           concluido: progressoByDesafio.get(desafio.id)?.concluido ?? false,
           valorAtual: progressoByDesafio.get(desafio.id)?.valor_atual ?? null
+        }));
+      })
+    }),
+    // Ranking calculado no servidor a partir de valores digitados pela
+    // equipe (competicao_pontuacao.valor) — nunca de dados de treino/dieta
+    // auto-registrados, que ainda não existem no SaaS novo.
+    competicoes: router({
+      meus: protectedProcedure.query(async ({ ctx }) => {
+        await assertAlunoTemArke(ctx.user.id);
+        const profile = await getProfileByUserId(ctx.user.id);
+        if (!profile?.organization_id) throw new Error("Aluno sem organiza\xE7\xE3o vinculada.");
+        const organizationId = profile.organization_id;
+        const [competicoes, participacoes, students] = await Promise.all([listCompeticoes(organizationId), listCompeticaoParticipantesForAluno(ctx.user.id), listStudentsInOrganization(organizationId)]);
+        const participandoIds = new Set(participacoes.map((participante) => participante.competicao_id));
+        const nameByAluno = new Map(students.map((student) => [student.user_id, student.full_name || "Aluno"]));
+        const minhas = competicoes.filter((competicao) => competicao.para_todos || participandoIds.has(competicao.id));
+        return Promise.all(minhas.map(async (competicao) => {
+          const [participantes, pontuacoes] = await Promise.all([
+            competicao.para_todos ? Promise.resolve(students.map((student) => ({ aluno_id: student.user_id }))) : listCompeticaoParticipantes(competicao.id),
+            listCompeticaoPontuacaoForCompeticao(competicao.id)
+          ]);
+          const valorByAluno = new Map(pontuacoes.map((item) => [item.aluno_id, item.valor]));
+          const ranking = participantes.map((participante) => ({ alunoId: participante.aluno_id, nome: nameByAluno.get(participante.aluno_id) ?? "Aluno", valor: valorByAluno.get(participante.aluno_id) ?? 0 })).sort((a, b) => b.valor - a.valor).map((entry, index) => ({ ...entry, posicao: index + 1 }));
+          return { id: competicao.id, titulo: competicao.titulo, descricao: competicao.descricao, metrica: competicao.metrica, dataInicio: competicao.data_inicio, dataFim: competicao.data_fim, ranking };
         }));
       })
     })

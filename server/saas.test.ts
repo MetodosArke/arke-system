@@ -197,6 +197,38 @@ describe("arke.desafios.meus", () => {
   });
 });
 
+describe("prescricao.competicoes", () => {
+  it("requires staff access to the organization to list", async () => {
+    await expect(appRouter.createCaller(createContext()).prescricao.competicoes.list({ organizationId: TEST_ORG_ID })).rejects.toThrow();
+  });
+
+  it("requires staff access to the organization to create", async () => {
+    await expect(appRouter.createCaller(createContext()).prescricao.competicoes.create({ organizationId: TEST_ORG_ID, titulo: "Competição de setembro", dataInicio: "2026-09-01", dataFim: "2026-09-30" })).rejects.toThrow();
+  });
+
+  it("requires staff access to update a competição", async () => {
+    await expect(appRouter.createCaller(createContext()).prescricao.competicoes.update({ id: "00000000-0000-4000-8000-0000000000f2", titulo: "Novo título", metrica: "Km corridos", dataInicio: "2026-09-01", dataFim: "2026-09-30", paraTodos: true })).rejects.toThrow();
+  });
+
+  it("requires staff access to delete a competição", async () => {
+    await expect(appRouter.createCaller(createContext()).prescricao.competicoes.delete({ id: "00000000-0000-4000-8000-0000000000f2" })).rejects.toThrow();
+  });
+
+  it("requires staff access to manage participantes", async () => {
+    await expect(appRouter.createCaller(createContext()).prescricao.competicoes.participantes.add({ competicaoId: "00000000-0000-4000-8000-0000000000f2", alunoId: TEST_USER_ID })).rejects.toThrow();
+  });
+
+  it("requires staff access to set pontuacao", async () => {
+    await expect(appRouter.createCaller(createContext()).prescricao.competicoes.pontuacao.set({ competicaoId: "00000000-0000-4000-8000-0000000000f2", alunoId: TEST_USER_ID, valor: 42 })).rejects.toThrow();
+  });
+});
+
+describe("arke.competicoes.meus", () => {
+  it("cannot list without a configured Supabase profile lookup", async () => {
+    await expect(appRouter.createCaller(createContext()).arke.competicoes.meus()).rejects.toThrow();
+  });
+});
+
 describe("prescricao.progresso (evolução)", () => {
   it("requires staff access to the aluno's organization to list", async () => {
     await expect(appRouter.createCaller(createContext()).prescricao.progresso.list({ alunoId: TEST_USER_ID })).rejects.toThrow();

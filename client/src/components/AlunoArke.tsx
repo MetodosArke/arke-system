@@ -150,6 +150,28 @@ function DesafiosSection() {
   </div>;
 }
 
+function CompeticoesSection() {
+  const meQuery = trpc.auth.me.useQuery();
+  const competicoesQuery = trpc.arke.competicoes.meus.useQuery();
+  if (competicoesQuery.isLoading) return null;
+  const competicoes = competicoesQuery.data ?? [];
+  if (competicoes.length === 0) return null;
+  const myUserId = meQuery.data?.id;
+
+  return <div className="space-y-3">
+    <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[.14em] text-[#a47b13]"><Trophy size={14} /> Competições</div>
+    {competicoes.map((competicao) => <Card key={competicao.id} className="rounded-2xl border-[#e5ece5] bg-white shadow-sm"><CardHeader><CardTitle className="text-sm text-[#2b271f]">{competicao.titulo}</CardTitle><p className="text-xs text-[#918a7d]">{competicao.metrica} · {competicao.dataInicio} — {competicao.dataFim}</p></CardHeader><CardContent className="space-y-1.5">
+      {competicao.descricao && <p className="mb-2 text-xs text-[#5c5445]">{competicao.descricao}</p>}
+      {competicao.ranking.slice(0, 10).map((entry) => <div key={entry.alunoId} className={`flex items-center gap-2.5 rounded-lg px-3 py-1.5 text-xs ${entry.alunoId === myUserId ? "bg-[#f5ead0] font-semibold text-[#4b4438]" : "bg-[#faf7ef] text-[#5c5445]"}`}>
+        <span className="w-5 shrink-0 text-center font-semibold text-[#a47b13]">{entry.posicao}º</span>
+        <span className="min-w-0 flex-1 truncate">{entry.nome}{entry.alunoId === myUserId ? " (você)" : ""}</span>
+        <span className="shrink-0 font-semibold text-[#4b4438]">{entry.valor}</span>
+      </div>)}
+      {competicao.ranking.length === 0 && <p className="text-xs text-[#918a7d]">Nenhum participante ainda.</p>}
+    </CardContent></Card>)}
+  </div>;
+}
+
 function FeedSection() {
   const utils = trpc.useUtils();
   const meQuery = trpc.auth.me.useQuery();
@@ -246,6 +268,7 @@ export function AlunoArke() {
       <EvolucaoCard />
     </div>
     <DesafiosSection />
+    <CompeticoesSection />
     <FeedSection />
   </div>;
 }

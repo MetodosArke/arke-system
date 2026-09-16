@@ -334,6 +334,34 @@ export async function setDesafioProgresso(input: { desafioId: string; alunoId: s
   return rows[0];
 }
 
+// Competições (Fase 2): o ranking do arke-app original vinha do motor de
+// pontuação automático (que não existe aqui ainda) — `valor` em
+// competicao_pontuacao é sempre digitado pela equipe, nunca calculado.
+export type Competicao = { id: string; organization_id: string; titulo: string; descricao: string | null; data_inicio: string; data_fim: string; metrica: string; status: string; para_todos: boolean; criado_por: string | null; created_at: string; updated_at: string };
+export type CompeticaoParticipante = { id: string; competicao_id: string; aluno_id: string; organization_id: string; created_at: string };
+export type CompeticaoPontuacao = { id: string; competicao_id: string; aluno_id: string; organization_id: string; valor: number; atualizado_por: string | null; created_at: string; updated_at: string };
+
+export async function listCompeticoes(organizationId: string) { return request<Competicao[]>("competicoes", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}&order=data_inicio.desc`); }
+export async function getCompeticao(idValue: string) { const rows = await request<Competicao[]>("competicoes", {}, `?select=*&id=eq.${encodeURIComponent(idValue)}&limit=1`); return rows[0] ?? null; }
+export async function createCompeticao(input: Record<string, unknown>) { const rows = await request<Competicao[]>("competicoes", { method: "POST", body: JSON.stringify(input) }); return rows[0]; }
+export async function updateCompeticao(idValue: string, input: Record<string, unknown>) { const rows = await request<Competicao[]>("competicoes", { method: "PATCH", body: JSON.stringify({ ...input, updated_at: new Date().toISOString() }) }, `?id=eq.${encodeURIComponent(idValue)}`); return rows[0]; }
+export async function deleteCompeticao(idValue: string) { await request("competicoes", { method: "DELETE" }, `?id=eq.${encodeURIComponent(idValue)}`); return { id: idValue }; }
+
+export async function listCompeticaoParticipantes(competicaoId: string) { return request<CompeticaoParticipante[]>("competicao_participantes", {}, `?select=*&competicao_id=eq.${encodeURIComponent(competicaoId)}`); }
+export async function listCompeticaoParticipantesForAluno(alunoId: string) { return request<CompeticaoParticipante[]>("competicao_participantes", {}, `?select=competicao_id&aluno_id=eq.${encodeURIComponent(alunoId)}`); }
+export async function addCompeticaoParticipante(input: { competicaoId: string; alunoId: string; organizationId: string }) {
+  const rows = await request<CompeticaoParticipante[]>("competicao_participantes", { method: "POST", body: JSON.stringify({ competicao_id: input.competicaoId, aluno_id: input.alunoId, organization_id: input.organizationId }), headers: { Prefer: "return=representation,resolution=merge-duplicates" } }, "?on_conflict=competicao_id,aluno_id");
+  return rows[0];
+}
+export async function removeCompeticaoParticipante(competicaoId: string, alunoId: string) { await request("competicao_participantes", { method: "DELETE" }, `?competicao_id=eq.${encodeURIComponent(competicaoId)}&aluno_id=eq.${encodeURIComponent(alunoId)}`); return { competicaoId, alunoId }; }
+
+export async function listCompeticaoPontuacaoForCompeticao(competicaoId: string) { return request<CompeticaoPontuacao[]>("competicao_pontuacao", {}, `?select=*&competicao_id=eq.${encodeURIComponent(competicaoId)}`); }
+export async function setCompeticaoPontuacao(input: { competicaoId: string; alunoId: string; organizationId: string; valor: number; atualizadoPor: string }) {
+  const body = { competicao_id: input.competicaoId, aluno_id: input.alunoId, organization_id: input.organizationId, valor: input.valor, atualizado_por: input.atualizadoPor, updated_at: new Date().toISOString() };
+  const rows = await request<CompeticaoPontuacao[]>("competicao_pontuacao", { method: "POST", body: JSON.stringify(body), headers: { Prefer: "return=representation,resolution=merge-duplicates" } }, "?on_conflict=competicao_id,aluno_id");
+  return rows[0];
+}
+
 // Prescrição real de treino nunca pode puxar um exercício ainda em
 // rascunho (não revisado pelo Admin Arke) — só o acervo publicado entra
 // aqui.
