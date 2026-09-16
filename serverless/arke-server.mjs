@@ -736,6 +736,33 @@ async function toggleAlunoArkeLicenca(input) {
   const rows = await request2("aluno_arke_licenca", { method: "POST", body: JSON.stringify(body), headers: { Prefer: "return=representation,resolution=merge-duplicates" } }, "?on_conflict=organization_id,user_id");
   return rows[0];
 }
+async function getCheckinDoDia(userId, data) {
+  const rows = await request2("checkin_diario", {}, `?select=*&user_id=eq.${encodeURIComponent(userId)}&data=eq.${encodeURIComponent(data)}&limit=1`);
+  return rows[0] ?? null;
+}
+async function upsertCheckinDiario(input) {
+  const body = { user_id: input.userId, organization_id: input.organizationId, data: input.data, dedicacao: input.dedicacao };
+  const rows = await request2("checkin_diario", { method: "POST", body: JSON.stringify(body), headers: { Prefer: "return=representation,resolution=merge-duplicates" } }, "?on_conflict=user_id,data");
+  return rows[0];
+}
+async function getAvaliacaoSemanal(userId, semana) {
+  const rows = await request2("avaliacao_semanal", {}, `?select=*&user_id=eq.${encodeURIComponent(userId)}&semana=eq.${encodeURIComponent(semana)}&limit=1`);
+  return rows[0] ?? null;
+}
+async function upsertAvaliacaoSemanal(input) {
+  const body = { user_id: input.userId, organization_id: input.organizationId, semana: input.semana, sono: input.sono, produtividade: input.produtividade, humor: input.humor, conquista: input.conquista ?? null, updated_at: (/* @__PURE__ */ new Date()).toISOString() };
+  const rows = await request2("avaliacao_semanal", { method: "POST", body: JSON.stringify(body), headers: { Prefer: "return=representation,resolution=merge-duplicates" } }, "?on_conflict=user_id,semana");
+  return rows[0];
+}
+async function getPlanoTreinoSemanal(userId) {
+  const rows = await request2("plano_treino_semanal", {}, `?select=*&user_id=eq.${encodeURIComponent(userId)}&limit=1`);
+  return rows[0] ?? null;
+}
+async function upsertPlanoTreinoSemanal(input) {
+  const body = { user_id: input.userId, organization_id: input.organizationId, dias_treino: input.diasTreino, horario_preferido: input.horarioPreferido ?? null, local_treino: input.localTreino ?? null, updated_at: (/* @__PURE__ */ new Date()).toISOString() };
+  const rows = await request2("plano_treino_semanal", { method: "POST", body: JSON.stringify(body), headers: { Prefer: "return=representation,resolution=merge-duplicates" } }, "?on_conflict=user_id");
+  return rows[0];
+}
 async function listExercisesCatalog() {
   return request2("exercicios", {}, "?select=id,nome,grupo_muscular,video_url&estado_publicacao=eq.publicado&order=nome.asc");
 }
@@ -1379,6 +1406,17 @@ async function rejectDeletionRequest(input) {
   return rows[0];
 }
 
+// server/arkeEntitlement.ts
+async function alunoTemArke(userId) {
+  const profile = await getProfileByUserId(userId);
+  if (!profile?.organization_id) return false;
+  const licenca = await getAlunoArkeLicenca(userId, profile.organization_id);
+  return licenca?.ativo ?? false;
+}
+async function assertAlunoTemArke(userId) {
+  if (!await alunoTemArke(userId)) throw new Error("Este conte\xFAdo faz parte do m\xE9todo Arke, que ainda n\xE3o est\xE1 ativo para voc\xEA. Fale com seu profissional.");
+}
+
 // server/cnpj.ts
 async function lookupCnpj(cnpj) {
   const digits = cnpj.replace(/\D/g, "");
@@ -1663,6 +1701,14 @@ var moduleName = z2.enum(["dashboard", "academias", "profissionais", "alunos", "
 var roleName = z2.enum(["owner", "admin", "manager", "professional", "nutricionista", "viewer"]);
 var auditFilterInput = z2.object({ organizationId: z2.string().uuid(), from: z2.string().optional(), to: z2.string().optional(), userId: z2.string().uuid().optional(), entity: z2.string().max(64).optional() });
 var auditFilters = (input) => ({ from: input.from ? /* @__PURE__ */ new Date(`${input.from}T00:00:00.000Z`) : void 0, to: input.to ? /* @__PURE__ */ new Date(`${input.to}T23:59:59.999Z`) : void 0, userId: input.userId, entity: input.entity });
+var todayKey = () => (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
+var currentWeekKey = () => {
+  const now = /* @__PURE__ */ new Date();
+  const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+  const diffToMonday = (d.getUTCDay() + 6) % 7;
+  d.setUTCDate(d.getUTCDate() - diffToMonday);
+  return d.toISOString().slice(0, 10);
+};
 var ownerOrAdmin = async (userId, organizationId) => {
   const membership = await getMembership(userId, organizationId);
   if (!membership || !["owner", "admin", "manager"].includes(membership.membership.role)) throw new Error("You do not have permission to manage this organization");
@@ -2196,6 +2242,42 @@ var appRouter = router({
         const result = await toggleAlunoArkeLicenca({ userId: input.alunoId, organizationId: profile.organization_id, ativo: input.ativo, ativadoPor: ctx.user.id });
         await recordAuditLog({ organizationId: profile.organization_id, userId: ctx.user.id, action: input.ativo ? "activated" : "deactivated", entity: "aluno_arke_licenca", entityId: input.alunoId });
         return result;
+      })
+    }),
+    // Conteúdo do método propriamente dito (Fase 1c) — cada procedure exige
+    // assertAlunoTemArke antes de ler/escrever, então nunca vaza pra quem
+    // não tem o módulo ativo, mesmo se a UI esconder a seção.
+    meu: router({
+      temArke: protectedProcedure.query(({ ctx }) => alunoTemArke(ctx.user.id)),
+      checkinHoje: protectedProcedure.query(async ({ ctx }) => {
+        await assertAlunoTemArke(ctx.user.id);
+        return getCheckinDoDia(ctx.user.id, todayKey());
+      }),
+      registrarCheckin: protectedProcedure.input(z2.object({ dedicacao: z2.enum(["baixa", "media", "boa", "excelente"]) })).mutation(async ({ ctx, input }) => {
+        await assertAlunoTemArke(ctx.user.id);
+        const profile = await getProfileByUserId(ctx.user.id);
+        if (!profile?.organization_id) throw new Error("Aluno sem organiza\xE7\xE3o vinculada.");
+        return upsertCheckinDiario({ userId: ctx.user.id, organizationId: profile.organization_id, data: todayKey(), dedicacao: input.dedicacao });
+      }),
+      avaliacaoSemanaAtual: protectedProcedure.query(async ({ ctx }) => {
+        await assertAlunoTemArke(ctx.user.id);
+        return getAvaliacaoSemanal(ctx.user.id, currentWeekKey());
+      }),
+      registrarAvaliacaoSemanal: protectedProcedure.input(z2.object({ sono: z2.number().int().min(1).max(10), produtividade: z2.number().int().min(1).max(10), humor: z2.number().int().min(1).max(10), conquista: z2.string().trim().max(1e3).optional() })).mutation(async ({ ctx, input }) => {
+        await assertAlunoTemArke(ctx.user.id);
+        const profile = await getProfileByUserId(ctx.user.id);
+        if (!profile?.organization_id) throw new Error("Aluno sem organiza\xE7\xE3o vinculada.");
+        return upsertAvaliacaoSemanal({ userId: ctx.user.id, organizationId: profile.organization_id, semana: currentWeekKey(), ...input });
+      }),
+      planoTreinoSemanal: protectedProcedure.query(async ({ ctx }) => {
+        await assertAlunoTemArke(ctx.user.id);
+        return getPlanoTreinoSemanal(ctx.user.id);
+      }),
+      salvarPlanoTreinoSemanal: protectedProcedure.input(z2.object({ diasTreino: z2.array(z2.string().trim().min(1)).max(7), horarioPreferido: z2.string().trim().max(60).optional(), localTreino: z2.string().trim().max(160).optional() })).mutation(async ({ ctx, input }) => {
+        await assertAlunoTemArke(ctx.user.id);
+        const profile = await getProfileByUserId(ctx.user.id);
+        if (!profile?.organization_id) throw new Error("Aluno sem organiza\xE7\xE3o vinculada.");
+        return upsertPlanoTreinoSemanal({ userId: ctx.user.id, organizationId: profile.organization_id, diasTreino: input.diasTreino, horarioPreferido: input.horarioPreferido, localTreino: input.localTreino });
       })
     })
   }),

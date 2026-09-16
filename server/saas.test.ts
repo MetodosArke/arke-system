@@ -97,3 +97,25 @@ describe("arke.membership", () => {
     await expect(appRouter.createCaller(createContext()).arke.membership.toggle({ alunoId: TEST_USER_ID, ativo: true })).rejects.toThrow();
   });
 });
+
+describe("arke.meu (conteúdo do método)", () => {
+  it("cannot check temArke without a configured Supabase profile lookup", async () => {
+    await expect(appRouter.createCaller(createContext()).arke.meu.temArke()).rejects.toThrow();
+  });
+
+  it("cannot register a check-in without a configured Supabase profile lookup", async () => {
+    await expect(appRouter.createCaller(createContext()).arke.meu.registrarCheckin({ dedicacao: "boa" })).rejects.toThrow();
+  });
+
+  it("cannot register an avaliação semanal without a configured Supabase profile lookup", async () => {
+    await expect(appRouter.createCaller(createContext()).arke.meu.registrarAvaliacaoSemanal({ sono: 5, produtividade: 5, humor: 5 })).rejects.toThrow();
+  });
+
+  it("rejects an avaliação semanal value outside the accepted 1-10 range", async () => {
+    await expect(appRouter.createCaller(createContext()).arke.meu.registrarAvaliacaoSemanal({ sono: 11, produtividade: 5, humor: 5 })).rejects.toThrow();
+  });
+
+  it("cannot save a plano de treino semanal without a configured Supabase profile lookup", async () => {
+    await expect(appRouter.createCaller(createContext()).arke.meu.salvarPlanoTreinoSemanal({ diasTreino: ["segunda"] })).rejects.toThrow();
+  });
+});
