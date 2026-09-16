@@ -7,6 +7,7 @@ const IMAGE_MIME_TYPES = ["image/png", "image/jpeg", "image/webp", "image/svg+xm
 export const LOGO_MIME_TYPES = IMAGE_MIME_TYPES;
 export const DIETA_MIME_TYPES = [...IMAGE_MIME_TYPES, "application/pdf"];
 export const EXERCICIO_VIDEO_MIME_TYPES = ["video/mp4", "video/webm", "video/quicktime"];
+export const CHAT_VIDEO_MIME_TYPES = ["video/mp4", "video/webm", "video/quicktime"];
 export const FEED_IMAGE_MIME_TYPES = IMAGE_MIME_TYPES;
 
 // Limites pensados para o corpo de requisição do Vercel (~4.5MB): base64
@@ -18,6 +19,7 @@ export const FEED_IMAGE_MIME_TYPES = IMAGE_MIME_TYPES;
 export const LOGO_MAX_BYTES = 1.5 * 1024 * 1024;
 export const DIETA_MAX_BYTES = 3 * 1024 * 1024;
 export const EXERCICIO_VIDEO_MAX_BYTES = 3 * 1024 * 1024;
+export const CHAT_VIDEO_MAX_BYTES = 3 * 1024 * 1024;
 export const FEED_IMAGE_MAX_BYTES = 3 * 1024 * 1024;
 
 const EXTENSION_BY_MIME: Record<string, string> = {

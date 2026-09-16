@@ -154,6 +154,38 @@ describe("arke.feed (Fase 2 — engajamento)", () => {
   });
 });
 
+describe("prescricao.chat", () => {
+  it("requires staff access to the aluno's organization to list treino messages", async () => {
+    await expect(appRouter.createCaller(createContext()).prescricao.chat.treino.list({ alunoId: TEST_USER_ID })).rejects.toThrow();
+  });
+
+  it("requires staff access to send a treino message", async () => {
+    await expect(appRouter.createCaller(createContext()).prescricao.chat.treino.send({ alunoId: TEST_USER_ID, mensagem: "Olá!" })).rejects.toThrow();
+  });
+
+  it("requires staff access to the dieta's organization to list dieta messages", async () => {
+    await expect(appRouter.createCaller(createContext()).prescricao.chat.dieta.list({ dietaId: "00000000-0000-4000-8000-0000000000f3" })).rejects.toThrow();
+  });
+
+  it("requires staff access to send a dieta message", async () => {
+    await expect(appRouter.createCaller(createContext()).prescricao.chat.dieta.send({ dietaId: "00000000-0000-4000-8000-0000000000f3", mensagem: "Olá!" })).rejects.toThrow();
+  });
+});
+
+describe("prescricao.meu (chat do aluno)", () => {
+  it("cannot read chat de treino without a configured Supabase profile lookup", async () => {
+    await expect(appRouter.createCaller(createContext()).prescricao.meu.chatTreino()).rejects.toThrow();
+  });
+
+  it("cannot send a chat de treino message without a configured Supabase profile lookup", async () => {
+    await expect(appRouter.createCaller(createContext()).prescricao.meu.sendChatTreino({ mensagem: "Oi!" })).rejects.toThrow();
+  });
+
+  it("cannot read chat de dieta for a plano alimentar that is not the caller's", async () => {
+    await expect(appRouter.createCaller(createContext()).prescricao.meu.chatDieta({ dietaId: "00000000-0000-4000-8000-0000000000f3" })).rejects.toThrow();
+  });
+});
+
 describe("prescricao.desafios", () => {
   it("requires staff access to the organization to list", async () => {
     await expect(appRouter.createCaller(createContext()).prescricao.desafios.list({ organizationId: TEST_ORG_ID })).rejects.toThrow();
