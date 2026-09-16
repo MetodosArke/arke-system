@@ -9,7 +9,7 @@ import { acceptOrganizationInvitation, archiveOrganizationUnit, auditLogsToCsv, 
 import { acceptMemberInvitation, assignAtendimento, cancelarReserva, cancelarReservaStaff, converterLead, countAllAlunosComArkeAtivo, countAlunosComArkeAtivo, createAppStudent, createAppUser, createAtendimento, createDeletionRequest, addCompeticaoParticipante, addDesafioParticipante, createCompeticao, createDesafio, createDieta, createFeedComment, createFeedLike, createFeedPost, createGlobalExercise, createGlobalGroup, createGlobalNutritionPlan, createGlobalRoutine, createGlobalTemplate, createGlobalTemplateExercise, createLead, createLeadNota, createMensagemDieta, createMensagemTreino, createNotificacao, createPasswordRecoveryCode, createProgressoSemanal, createTreino, createTurma, deleteAppStudent, deleteAppUser, deleteCompeticao, deleteDesafio, deleteDieta, deletePushSubscription, deleteFeedComment, deleteFeedLike, deleteFeedPost, deleteProgressoSemanal, deleteGlobalExercise, deleteGlobalGroup, deleteGlobalNutritionPlan, deleteGlobalRoutine, deleteGlobalTemplate, deleteGlobalTemplateExercise, deleteGlobalAccessRule, deleteLead, deleteTreino, deleteTurma, findAppUserByEmail, fulfillDeletionRequest, gerarFichaTreinoPdf, getAcolhimento, getAlunoArkeLicenca, getArkeModule, getAtendimento, getAvaliacaoSemanal, getCheckinDoDia, getCrmIndicadores, getCurrentPrivacyPolicy, getDeletionRequest, getDieta, getGestaoIndicadores, getLead, getCompeticao, getDesafio, getFeedComment, getFeedLike, getFeedPost, getMyDeletionRequest, getPlanoTreinoSemanal, getProfileByUserId, getProgressoSemanal, getReserva, getTreino, getTurma, getVagasDisponiveis, hasConsent, hasSupabaseConfig, inviteMember, listAppStudents, listAppUsers, listAtendimentosForOrganization, listCompeticaoParticipantes, listCompeticaoParticipantesForAluno, listCompeticaoPontuacaoForCompeticao, listCompeticoes, listDeletionRequests, listDesafioParticipantes, listDesafioParticipantesForAluno, listDesafioProgressoForAluno, listDesafioProgressoForDesafio, listDesafios, listDietasForAluno, listMensagensDieta, listMensagensTreino, listNotificacoes, listProntuarioObservacoes, listExercisesCatalog, listFeedCommentsForPosts, listFeedLikesForPosts, listFeedPosts, listFrequenciaForAluno, listFrequenciaForOrganization, listGlobalLibrary, listLeadAtividades, listLeadsForOrganization, listMinhasReservas, listMyAtendimentos, listMyCheckIns, listPendingMemberInvitations, listProfileNames, listProgressoSemanal, listReservasForTurmaData, listStudentsInOrganization, listTreinoExercicios, listTreinosForAluno, listTurmaHorarios, listTurmasAtivas, listTurmasForOrganization, marcarLeadPerdido, moverEstagioLead, normalizeEmail, publishDieta, publishGlobalExercises, publishGlobalNutritionPlans, publishGlobalTemplates, publishTreino, countNotificacoesNaoLidas, markAllNotificacoesLidas, markMensagensDietaLidas, markMensagensTreinoLidas, markNotificacaoLida, recordConsent, registrarFrequencia, rejectDeletionRequest, removeCompeticaoParticipante, removeDesafioParticipante, replaceTreinoExercicios, replaceTurmaHorarios, requestHelp, reservarVaga, resolveAtendimento, revokeMemberInvitation, setCompeticaoPontuacao, setDesafioProgresso, signInWithSupabase, submitCheckIn, toggleAlunoArkeLicenca, updateAppStudent, updateAppUser, updateCompeticao, updateDesafio, updateDieta, upsertProntuarioObservacao, upsertPushSubscription, updateGlobalExercise, updateGlobalGroup, updateGlobalNutritionPlan, updateGlobalRoutine, updateGlobalTemplate, updateGlobalTemplateExercise, updateLead, updateStudentMatricula, updateSupabaseUserPassword, updateTreino, updateTurma, upsertAcolhimento, upsertArkeModule, upsertAvaliacaoSemanal, upsertCheckinDiario, upsertGlobalAccessRule, upsertPlanoTreinoSemanal, verifyPasswordRecoveryCode } from "./supabaseAdmin";
 import { alunoTemArke, assertAlunoTemArke } from "./arkeEntitlement";
 import { asaasConfigured, asaasEnvironment, createAsaasWebhook, getAsaasAccount, listAsaasPayments } from "./asaas";
-import { listAsaasPaymentsForOrganization } from "./asaasPersistence";
+import { listAllAsaasPayments, listAsaasPaymentsForOrganization } from "./asaasPersistence";
 import { lookupCnpj } from "./cnpj";
 import { deleteTurnstileIntegration, listBenefitIntegrations, listTurnstileIntegrationsForOrganization, saveBenefitIntegration, saveTurnstileIntegration } from "./integrations";
 import { openaiConfigured } from "./_core/llm";
@@ -289,6 +289,29 @@ export const appRouter = router({
         if (organizacao.status === "canceled" && organizacao.updated_at >= inicioMes) canceladasEsteMes += 1;
       }
       return { totalOrganizacoes: organizacoes.length, porStatus, mrrCents, novasEsteMes, canceladasEsteMes, alunosArkeAtivos };
+    }),
+    // Financeiro ArkeFit: o que cada cliente deve à Arke (mensalidade,
+    // módulo Arke, taxa de setup) — todos já são cobranças Asaas reais
+    // persistidas em asaas_payments (createSubscriptionCharge,
+    // runArkeRepasseMensal, chargeSetupFeeIfNeeded), nunca um valor
+    // estimado. `status` aqui é o status bruto do Asaas (RECEIVED,
+    // CONFIRMED, PENDING, OVERDUE...), não traduzido no servidor — o
+    // cliente decide o rótulo em pt-BR.
+    financeiro: adminProcedure.input(z.object({ status: z.string().trim().max(40).optional() }).optional()).query(async ({ input }) => {
+      const [pagamentos, organizacoes] = await Promise.all([listAllAsaasPayments({ status: input?.status }), listAllOrganizationsForPlatform()]);
+      const nomePorOrg = new Map(organizacoes.map((org) => [org.id, org.name]));
+      let totalRecebidoReais = 0;
+      let totalPendenteReais = 0;
+      for (const pagamento of pagamentos) {
+        const valor = Number(pagamento.value ?? 0);
+        if (pagamento.status === "RECEIVED" || pagamento.status === "CONFIRMED") totalRecebidoReais += valor;
+        else if (pagamento.status === "PENDING" || pagamento.status === "OVERDUE") totalPendenteReais += valor;
+      }
+      return {
+        pagamentos: pagamentos.map((pagamento) => ({ ...pagamento, organizationName: pagamento.organization_id ? (nomePorOrg.get(pagamento.organization_id) ?? null) : null })),
+        totalRecebidoReais,
+        totalPendenteReais,
+      };
     }),
   }),
   globalLibrary: router({

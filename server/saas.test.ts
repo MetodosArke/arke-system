@@ -321,6 +321,16 @@ describe("plataforma (painel de negócio ArkeFit)", () => {
     const result = await appRouter.createCaller(createContext()).plataforma.dashboard();
     expect(result).toEqual({ totalOrganizacoes: 0, porStatus: { trial: 0, active: 0, past_due: 0, canceled: 0 }, mrrCents: 0, novasEsteMes: 0, canceladasEsteMes: 0, alunosArkeAtivos: 0 });
   });
+
+  it("blocks a non-admin caller from the cross-organization financeiro", async () => {
+    const nonAdminContext: TrpcContext = { ...createContext(), user: { ...createContext().user, role: "user" } };
+    await expect(appRouter.createCaller(nonAdminContext).plataforma.financeiro()).rejects.toThrow();
+  });
+
+  it("returns empty financeiro instead of throwing when Supabase isn't configured", async () => {
+    const result = await appRouter.createCaller(createContext()).plataforma.financeiro();
+    expect(result).toEqual({ pagamentos: [], totalRecebidoReais: 0, totalPendenteReais: 0 });
+  });
 });
 
 describe("push (Fase 3 — comunicação)", () => {

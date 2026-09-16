@@ -169,6 +169,12 @@ async function upsertAsaasPayment(payment, event, organizationId) {
 async function listAsaasPaymentsForOrganization(organizationId, limit = 20) {
   return supabaseRequest("asaas_payments", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}&order=updated_at.desc&limit=${limit}`);
 }
+async function listAllAsaasPayments(input = {}) {
+  if (!(process.env.SUPABASE_URL && (process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_KEY))) return [];
+  const limit = input.limit ?? 200;
+  const statusFilter = input.status ? `&status=eq.${encodeURIComponent(input.status)}` : "";
+  return supabaseRequest("asaas_payments", {}, `?select=*&order=updated_at.desc&limit=${limit}${statusFilter}`);
+}
 
 // server/_core/errorMonitoring.ts
 import * as Sentry from "@sentry/node";
@@ -2206,6 +2212,29 @@ var appRouter = router({
         if (organizacao.status === "canceled" && organizacao.updated_at >= inicioMes) canceladasEsteMes += 1;
       }
       return { totalOrganizacoes: organizacoes.length, porStatus, mrrCents, novasEsteMes, canceladasEsteMes, alunosArkeAtivos };
+    }),
+    // Financeiro ArkeFit: o que cada cliente deve à Arke (mensalidade,
+    // módulo Arke, taxa de setup) — todos já são cobranças Asaas reais
+    // persistidas em asaas_payments (createSubscriptionCharge,
+    // runArkeRepasseMensal, chargeSetupFeeIfNeeded), nunca um valor
+    // estimado. `status` aqui é o status bruto do Asaas (RECEIVED,
+    // CONFIRMED, PENDING, OVERDUE...), não traduzido no servidor — o
+    // cliente decide o rótulo em pt-BR.
+    financeiro: adminProcedure.input(z2.object({ status: z2.string().trim().max(40).optional() }).optional()).query(async ({ input }) => {
+      const [pagamentos, organizacoes] = await Promise.all([listAllAsaasPayments({ status: input?.status }), listAllOrganizationsForPlatform()]);
+      const nomePorOrg = new Map(organizacoes.map((org) => [org.id, org.name]));
+      let totalRecebidoReais = 0;
+      let totalPendenteReais = 0;
+      for (const pagamento of pagamentos) {
+        const valor = Number(pagamento.value ?? 0);
+        if (pagamento.status === "RECEIVED" || pagamento.status === "CONFIRMED") totalRecebidoReais += valor;
+        else if (pagamento.status === "PENDING" || pagamento.status === "OVERDUE") totalPendenteReais += valor;
+      }
+      return {
+        pagamentos: pagamentos.map((pagamento) => ({ ...pagamento, organizationName: pagamento.organization_id ? nomePorOrg.get(pagamento.organization_id) ?? null : null })),
+        totalRecebidoReais,
+        totalPendenteReais
+      };
     })
   }),
   globalLibrary: router({

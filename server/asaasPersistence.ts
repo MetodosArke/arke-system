@@ -1,5 +1,7 @@
 type Json = Record<string, unknown>;
 
+export type AsaasPaymentRow = { id: string; asaas_id: string; organization_id: string | null; customer_id: string | null; value: number | null; billing_type: string | null; due_date: string | null; status: string | null; invoice_url: string | null; bank_slip_url: string | null; created_at: string; updated_at: string };
+
 function supabaseConfig() {
   const url = (process.env.SUPABASE_URL ?? "").replace(/\/$/, "");
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.SUPABASE_KEY ?? "";
@@ -36,5 +38,17 @@ export async function upsertAsaasPayment(payment: Json, event: string, organizat
 }
 
 export async function listAsaasPaymentsForOrganization(organizationId: string, limit = 20) {
-  return supabaseRequest<Array<Json>>("asaas_payments", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}&order=updated_at.desc&limit=${limit}`);
+  return supabaseRequest<AsaasPaymentRow[]>("asaas_payments", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}&order=updated_at.desc&limit=${limit}`);
+}
+
+// Painel de negócio ArkeFit (Sessão C): financeiro cross-organização — o
+// que cada cliente deve à Arke (mensalidade, módulo Arke, taxa de setup),
+// todos já registrados em asaas_payments via upsertAsaasPayment. Mesma
+// ressalva de listAllOrganizationsForPlatform em server/db.ts: só para uso
+// atrás de adminProcedure.
+export async function listAllAsaasPayments(input: { status?: string; limit?: number } = {}) {
+  if (!(process.env.SUPABASE_URL && (process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_KEY))) return [];
+  const limit = input.limit ?? 200;
+  const statusFilter = input.status ? `&status=eq.${encodeURIComponent(input.status)}` : "";
+  return supabaseRequest<AsaasPaymentRow[]>("asaas_payments", {}, `?select=*&order=updated_at.desc&limit=${limit}${statusFilter}`);
 }
