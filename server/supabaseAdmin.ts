@@ -301,6 +301,39 @@ export async function deleteFeedComment(idValue: string) { await request("feed_c
 
 export async function listProfileNames(userIds: string[]) { if (!userIds.length) return []; return request<Array<{ user_id: string; full_name: string | null }>>("profiles", {}, `?select=user_id,full_name&${idsInFilter("user_id", userIds)}`); }
 
+// Desafios (Fase 2 — engajamento): sempre criados/geridos pela equipe, o
+// aluno só lê. O `tipo`/`meta_valor` reaproveita o vocabulário do arke-app
+// original, mas o rastreamento automático por dieta/treino registrado
+// (dieta_adesao, registro_treino, treino_calendario) ainda não existe no
+// SaaS novo — por isso `desafio_progresso.valor_atual`/`concluido` são
+// atualizados manualmente pela equipe aqui, nunca calculados, para não
+// fingir uma análise que o sistema não fez (CLAUDE.md).
+export type Desafio = { id: string; organization_id: string; titulo: string; descricao: string | null; tipo: string; meta_valor: number | null; data_inicio: string; data_fim: string; pontos: number; criado_por: string | null; para_todos: boolean; created_at: string; updated_at: string };
+export type DesafioParticipante = { id: string; desafio_id: string; aluno_id: string; organization_id: string; created_at: string };
+export type DesafioProgresso = { id: string; desafio_id: string; aluno_id: string; organization_id: string; concluido: boolean; valor_atual: number | null; concluido_por: string | null; concluido_em: string | null; created_at: string; updated_at: string };
+
+export async function listDesafios(organizationId: string) { return request<Desafio[]>("desafios", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}&order=data_fim.desc`); }
+export async function getDesafio(idValue: string) { const rows = await request<Desafio[]>("desafios", {}, `?select=*&id=eq.${encodeURIComponent(idValue)}&limit=1`); return rows[0] ?? null; }
+export async function createDesafio(input: Record<string, unknown>) { const rows = await request<Desafio[]>("desafios", { method: "POST", body: JSON.stringify(input) }); return rows[0]; }
+export async function updateDesafio(idValue: string, input: Record<string, unknown>) { const rows = await request<Desafio[]>("desafios", { method: "PATCH", body: JSON.stringify({ ...input, updated_at: new Date().toISOString() }) }, `?id=eq.${encodeURIComponent(idValue)}`); return rows[0]; }
+export async function deleteDesafio(idValue: string) { await request("desafios", { method: "DELETE" }, `?id=eq.${encodeURIComponent(idValue)}`); return { id: idValue }; }
+
+export async function listDesafioParticipantes(desafioId: string) { return request<DesafioParticipante[]>("desafio_participantes", {}, `?select=*&desafio_id=eq.${encodeURIComponent(desafioId)}`); }
+export async function listDesafioParticipantesForAluno(alunoId: string) { return request<DesafioParticipante[]>("desafio_participantes", {}, `?select=desafio_id&aluno_id=eq.${encodeURIComponent(alunoId)}`); }
+export async function addDesafioParticipante(input: { desafioId: string; alunoId: string; organizationId: string }) {
+  const rows = await request<DesafioParticipante[]>("desafio_participantes", { method: "POST", body: JSON.stringify({ desafio_id: input.desafioId, aluno_id: input.alunoId, organization_id: input.organizationId }), headers: { Prefer: "return=representation,resolution=merge-duplicates" } }, "?on_conflict=desafio_id,aluno_id");
+  return rows[0];
+}
+export async function removeDesafioParticipante(desafioId: string, alunoId: string) { await request("desafio_participantes", { method: "DELETE" }, `?desafio_id=eq.${encodeURIComponent(desafioId)}&aluno_id=eq.${encodeURIComponent(alunoId)}`); return { desafioId, alunoId }; }
+
+export async function listDesafioProgressoForDesafio(desafioId: string) { return request<DesafioProgresso[]>("desafio_progresso", {}, `?select=*&desafio_id=eq.${encodeURIComponent(desafioId)}`); }
+export async function listDesafioProgressoForAluno(alunoId: string) { return request<DesafioProgresso[]>("desafio_progresso", {}, `?select=*&aluno_id=eq.${encodeURIComponent(alunoId)}`); }
+export async function setDesafioProgresso(input: { desafioId: string; alunoId: string; organizationId: string; concluido: boolean; valorAtual?: number | null; concluidoPor: string }) {
+  const body = { desafio_id: input.desafioId, aluno_id: input.alunoId, organization_id: input.organizationId, concluido: input.concluido, valor_atual: input.valorAtual ?? null, concluido_por: input.concluido ? input.concluidoPor : null, concluido_em: input.concluido ? new Date().toISOString() : null, updated_at: new Date().toISOString() };
+  const rows = await request<DesafioProgresso[]>("desafio_progresso", { method: "POST", body: JSON.stringify(body), headers: { Prefer: "return=representation,resolution=merge-duplicates" } }, "?on_conflict=desafio_id,aluno_id");
+  return rows[0];
+}
+
 // Prescrição real de treino nunca pode puxar um exercício ainda em
 // rascunho (não revisado pelo Admin Arke) — só o acervo publicado entra
 // aqui.

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { CalendarClock, Heart, ImageIcon, MessageCircle, Rss, Send, Sparkles, Trash2, X } from "lucide-react";
+import { CalendarClock, CheckCircle2, Heart, ImageIcon, MessageCircle, Rss, Send, Sparkles, Trash2, Trophy, X } from "lucide-react";
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -108,6 +108,48 @@ function EvolucaoCard() {
   </CardContent></Card>;
 }
 
+const TIPO_DESAFIO_LABEL: Record<string, string> = {
+  livre: "Desafio livre",
+  sem_doce: "Sem doce",
+  sem_alcool: "Sem álcool",
+  consumo_agua: "Consumo de água",
+  numero_treinos: "Número de treinos",
+  quilometros: "Quilômetros",
+  modalidades: "Modalidades",
+  desempenho_dieta: "Desempenho na dieta",
+};
+
+function DesafiosSection() {
+  const desafiosQuery = trpc.arke.desafios.meus.useQuery();
+  if (desafiosQuery.isLoading) return null;
+  const desafios = desafiosQuery.data ?? [];
+  const now = new Date();
+  const ativos = desafios.filter((desafio) => new Date(desafio.dataFim) >= now);
+  const encerrados = desafios.filter((desafio) => new Date(desafio.dataFim) < now);
+
+  const renderDesafio = (desafio: (typeof desafios)[number]) => {
+    const percent = desafio.metaValor && desafio.metaValor > 0 && desafio.valorAtual != null ? Math.min(100, Math.round((desafio.valorAtual / desafio.metaValor) * 100)) : desafio.concluido ? 100 : 0;
+    return <div key={desafio.id} className="rounded-xl border border-[#eee9df] bg-[#faf7ef] p-3">
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0"><p className="truncate text-xs font-semibold text-[#2b271f]">{desafio.titulo}</p><p className="text-[10px] text-[#9b9488]">{TIPO_DESAFIO_LABEL[desafio.tipo] ?? desafio.tipo} · {desafio.pontos} pts</p></div>
+        {desafio.concluido && <span className="flex shrink-0 items-center gap-1 rounded-full bg-[#e4f2e8] px-2 py-0.5 text-[10px] font-semibold text-[#3e8254]"><CheckCircle2 size={11} /> Concluído</span>}
+      </div>
+      {desafio.descricao && <p className="mt-1.5 text-xs text-[#5c5445]">{desafio.descricao}</p>}
+      <div className="mt-2 space-y-1">
+        <div className="flex items-center justify-between text-[10px] text-[#9b9488]"><span>{desafio.dataInicio} — {desafio.dataFim}</span>{desafio.metaValor != null && desafio.valorAtual != null && <span>{desafio.valorAtual} / {desafio.metaValor}</span>}</div>
+        <div className="h-1.5 w-full overflow-hidden rounded-full bg-[#eee9df]"><div className="h-full rounded-full bg-[#a47b13]" style={{ width: `${percent}%` }} /></div>
+      </div>
+    </div>;
+  };
+
+  return <div className="space-y-3">
+    <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[.14em] text-[#a47b13]"><Trophy size={14} /> Desafios</div>
+    {desafios.length === 0 && <p className="text-sm text-[#5c5445]">Nenhum desafio disponível no momento.</p>}
+    {ativos.length > 0 && <div className="space-y-2">{ativos.map(renderDesafio)}</div>}
+    {encerrados.length > 0 && <div className="space-y-2 opacity-70">{encerrados.map(renderDesafio)}</div>}
+  </div>;
+}
+
 function FeedSection() {
   const utils = trpc.useUtils();
   const meQuery = trpc.auth.me.useQuery();
@@ -203,6 +245,7 @@ export function AlunoArke() {
       <PlanoTreinoSemanalCard />
       <EvolucaoCard />
     </div>
+    <DesafiosSection />
     <FeedSection />
   </div>;
 }
