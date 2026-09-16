@@ -1,8 +1,10 @@
-import { useMemo, useState } from "react";
-import { ClipboardList, Download, Dumbbell, Film, HeartHandshake, Utensils } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { ClipboardList, Download, Dumbbell, Film, HeartHandshake, MessageCircle, Send, Utensils, Video } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { trpc } from "@/lib/trpc";
+import { readFileAsBase64 } from "@/lib/upload";
 import { AlunoArke } from "@/components/AlunoArke";
 
 function downloadBase64Pdf(filename: string, contentBase64: string) {
@@ -119,6 +121,73 @@ function TreinoCard({ treino }: { treino: { id: string; titulo: string; tipo: st
   </CardContent></Card>;
 }
 
+function ChatTreinoCard() {
+  const utils = trpc.useUtils();
+  const mensagensQuery = trpc.prescricao.meu.chatTreino.useQuery();
+  const mensagens = mensagensQuery.data ?? [];
+  const [texto, setTexto] = useState("");
+  const [uploadingVideo, setUploadingVideo] = useState(false);
+  const send = trpc.prescricao.meu.sendChatTreino.useMutation({ onSuccess: () => { setTexto(""); utils.prescricao.meu.chatTreino.invalidate(); } });
+  const sendVideo = trpc.prescricao.meu.sendChatTreinoVideo.useMutation({ onSuccess: () => utils.prescricao.meu.chatTreino.invalidate() });
+  const markRead = trpc.prescricao.meu.markChatTreinoLido.useMutation();
+  const hasUnread = mensagens.some((msg) => msg.remetente_tipo === "treinador" && !msg.lida);
+  useEffect(() => { if (hasUnread) markRead.mutate(); }, [hasUnread]);
+
+  const handleVideo = async (file?: File) => {
+    if (!file) return;
+    setUploadingVideo(true);
+    try {
+      const { base64, contentType } = await readFileAsBase64(file);
+      await sendVideo.mutateAsync({ contentType, dataBase64: base64 });
+    } finally {
+      setUploadingVideo(false);
+    }
+  };
+
+  return <Card className="rounded-2xl border-[#e5ece5] bg-white shadow-sm"><CardHeader><CardTitle className="text-sm text-[#2b271f]">Chat com o treinador</CardTitle></CardHeader><CardContent className="space-y-2">
+    <div className="max-h-72 space-y-2 overflow-y-auto rounded-lg bg-[#faf7ef] p-2">
+      {mensagensQuery.isLoading && <p className="p-2 text-xs text-[#918a7d]">Carregando...</p>}
+      {!mensagensQuery.isLoading && mensagens.length === 0 && <p className="p-2 text-xs text-[#918a7d]">Nenhuma mensagem ainda.</p>}
+      {mensagens.map((msg) => <div key={msg.id} className={`max-w-[85%] rounded-xl px-3 py-1.5 text-xs ${msg.remetente_tipo === "aluno" ? "ml-auto bg-[#15130f] text-white" : "bg-white text-[#4b4438]"}`}>
+        {msg.video_url ? <video src={msg.video_url} controls preload="metadata" className="max-h-40 max-w-full rounded-lg" /> : <p className="whitespace-pre-wrap">{msg.mensagem}</p>}
+        <p className={`mt-0.5 text-[9px] ${msg.remetente_tipo === "aluno" ? "text-white/60" : "text-[#9b9488]"}`}>{new Date(msg.created_at).toLocaleString("pt-BR")}</p>
+      </div>)}
+    </div>
+    <div className="flex items-center gap-2">
+      <Button variant="ghost" onClick={() => document.getElementById("chat-treino-aluno-video")?.click()} disabled={uploadingVideo} className="h-9 w-9 shrink-0 p-0"><Video size={16} /></Button>
+      <input id="chat-treino-aluno-video" type="file" accept="video/mp4,video/quicktime,video/webm" className="hidden" onChange={(e) => handleVideo(e.target.files?.[0])} />
+      <Input value={texto} onChange={(e) => setTexto(e.target.value)} placeholder="Escreva uma mensagem..." className="h-9 flex-1 rounded-lg text-xs" onKeyDown={(e) => { if (e.key === "Enter" && texto.trim()) send.mutate({ mensagem: texto.trim() }); }} />
+      <Button onClick={() => texto.trim() && send.mutate({ mensagem: texto.trim() })} disabled={!texto.trim() || send.isPending} className="h-9 w-9 shrink-0 rounded-lg bg-[#15130f] p-0 text-white"><Send size={14} /></Button>
+    </div>
+  </CardContent></Card>;
+}
+
+function ChatDietaCard({ dietaId }: { dietaId: string }) {
+  const utils = trpc.useUtils();
+  const mensagensQuery = trpc.prescricao.meu.chatDieta.useQuery({ dietaId });
+  const mensagens = mensagensQuery.data ?? [];
+  const [texto, setTexto] = useState("");
+  const send = trpc.prescricao.meu.sendChatDieta.useMutation({ onSuccess: () => { setTexto(""); utils.prescricao.meu.chatDieta.invalidate({ dietaId }); } });
+  const markRead = trpc.prescricao.meu.markChatDietaLido.useMutation();
+  const hasUnread = mensagens.some((msg) => msg.remetente_tipo === "nutricionista" && !msg.lida);
+  useEffect(() => { if (hasUnread) markRead.mutate({ dietaId }); }, [hasUnread, dietaId]);
+
+  return <Card className="rounded-2xl border-[#e5ece5] bg-white shadow-sm"><CardHeader><CardTitle className="text-sm text-[#2b271f]">Chat com a nutrição</CardTitle></CardHeader><CardContent className="space-y-2">
+    <div className="max-h-72 space-y-2 overflow-y-auto rounded-lg bg-[#faf7ef] p-2">
+      {mensagensQuery.isLoading && <p className="p-2 text-xs text-[#918a7d]">Carregando...</p>}
+      {!mensagensQuery.isLoading && mensagens.length === 0 && <p className="p-2 text-xs text-[#918a7d]">Nenhuma mensagem ainda.</p>}
+      {mensagens.map((msg) => <div key={msg.id} className={`max-w-[85%] rounded-xl px-3 py-1.5 text-xs ${msg.remetente_tipo === "aluno" ? "ml-auto bg-[#15130f] text-white" : "bg-white text-[#4b4438]"}`}>
+        <p className="whitespace-pre-wrap">{msg.mensagem}</p>
+        <p className={`mt-0.5 text-[9px] ${msg.remetente_tipo === "aluno" ? "text-white/60" : "text-[#9b9488]"}`}>{new Date(msg.created_at).toLocaleString("pt-BR")}</p>
+      </div>)}
+    </div>
+    <div className="flex items-center gap-2">
+      <Input value={texto} onChange={(e) => setTexto(e.target.value)} placeholder="Escreva uma mensagem..." className="h-9 flex-1 rounded-lg text-xs" onKeyDown={(e) => { if (e.key === "Enter" && texto.trim()) send.mutate({ dietaId, mensagem: texto.trim() }); }} />
+      <Button onClick={() => texto.trim() && send.mutate({ dietaId, mensagem: texto.trim() })} disabled={!texto.trim() || send.isPending} className="h-9 w-9 shrink-0 rounded-lg bg-[#15130f] p-0 text-white"><Send size={14} /></Button>
+    </div>
+  </CardContent></Card>;
+}
+
 function MinhaPrivacidadeCard() {
   const utils = trpc.useUtils();
   const [reason, setReason] = useState("");
@@ -182,6 +251,13 @@ export function StudentDashboard() {
     {dietasQuery.isLoading && <p className="text-sm text-[#918a7d]">Carregando...</p>}
     {!dietasQuery.isLoading && dietas.length === 0 && <div className="rounded-2xl border border-dashed border-[#dfd8c8] bg-[#fffdf9] p-8 text-center text-sm text-[#918a7d]">Nenhum plano alimentar publicado ainda.</div>}
     <div className="grid gap-4 sm:grid-cols-2">{dietas.map((dieta) => <Card key={dieta.id} className="rounded-2xl border-[#e5ece5] bg-white shadow-sm"><CardHeader><CardTitle className="text-base text-[#2b271f]">{dieta.titulo}</CardTitle><p className="text-xs text-[#918a7d]">Versão {dieta.versao}</p></CardHeader><CardContent>{dieta.descricao && <p className="text-sm text-[#5c5445]">{dieta.descricao}</p>}{dieta.arquivo_url && <a href={dieta.arquivo_url} target="_blank" rel="noreferrer" className="mt-2 inline-block text-xs font-semibold text-[#a47b13] underline">Abrir arquivo</a>}</CardContent></Card>)}</div>
+
+    <div className="mb-3 mt-8 flex items-center gap-2 text-xs font-semibold uppercase tracking-[.14em] text-[#a47b13]"><MessageCircle size={14} /> Comunicação</div>
+    <div className="mb-8 grid gap-4 sm:grid-cols-2">
+      {treinos.length > 0 && <ChatTreinoCard />}
+      {dietas.length > 0 && <ChatDietaCard dietaId={dietas[0].id} />}
+      {treinos.length === 0 && dietas.length === 0 && <p className="text-sm text-[#918a7d]">O chat com sua equipe abre assim que você tiver um treino ou plano alimentar publicado.</p>}
+    </div>
 
     <MinhaPrivacidadeCard />
   </div>;

@@ -301,6 +301,21 @@ export async function deleteFeedComment(idValue: string) { await request("feed_c
 
 export async function listProfileNames(userIds: string[]) { if (!userIds.length) return []; return request<Array<{ user_id: string; full_name: string | null }>>("profiles", {}, `?select=user_id,full_name&${idsInFilter("user_id", userIds)}`); }
 
+// Chat (Fase 3 — comunicação): fica na base do SaaS, não atrás do
+// entitlement Arke — é o mesmo espírito de "Central de atendimento" do
+// CLAUDE.md §4, uma extensão natural da prescrição de treino/dieta que já
+// é a entrega padrão para todo aluno.
+export type MensagemTreino = { id: string; aluno_id: string; organization_id: string; remetente_id: string; remetente_tipo: "aluno" | "treinador"; mensagem: string; video_url: string | null; lida: boolean; created_at: string };
+export type MensagemDieta = { id: string; dieta_id: string; aluno_id: string; organization_id: string; remetente_id: string; remetente_tipo: "aluno" | "nutricionista"; mensagem: string; lida: boolean; created_at: string };
+
+export async function listMensagensTreino(alunoId: string) { return request<MensagemTreino[]>("mensagens_treino", {}, `?select=*&aluno_id=eq.${encodeURIComponent(alunoId)}&order=created_at.asc`); }
+export async function createMensagemTreino(input: Record<string, unknown>) { const rows = await request<MensagemTreino[]>("mensagens_treino", { method: "POST", body: JSON.stringify(input) }); return rows[0]; }
+export async function markMensagensTreinoLidas(alunoId: string, remetenteTipo: "aluno" | "treinador") { await request("mensagens_treino", { method: "PATCH", body: JSON.stringify({ lida: true }) }, `?aluno_id=eq.${encodeURIComponent(alunoId)}&remetente_tipo=eq.${remetenteTipo}&lida=eq.false`); }
+
+export async function listMensagensDieta(dietaId: string) { return request<MensagemDieta[]>("mensagens_dieta", {}, `?select=*&dieta_id=eq.${encodeURIComponent(dietaId)}&order=created_at.asc`); }
+export async function createMensagemDieta(input: Record<string, unknown>) { const rows = await request<MensagemDieta[]>("mensagens_dieta", { method: "POST", body: JSON.stringify(input) }); return rows[0]; }
+export async function markMensagensDietaLidas(dietaId: string, remetenteTipo: "aluno" | "nutricionista") { await request("mensagens_dieta", { method: "PATCH", body: JSON.stringify({ lida: true }) }, `?dieta_id=eq.${encodeURIComponent(dietaId)}&remetente_tipo=eq.${remetenteTipo}&lida=eq.false`); }
+
 // Desafios (Fase 2 — engajamento): sempre criados/geridos pela equipe, o
 // aluno só lê. O `tipo`/`meta_valor` reaproveita o vocabulário do arke-app
 // original, mas o rastreamento automático por dieta/treino registrado

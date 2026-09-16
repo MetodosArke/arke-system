@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Download, IdCard, Plus, Save, Send, Trash2, UserPlus } from "lucide-react";
+import { Download, IdCard, Plus, Save, Send, Trash2, UserPlus, Video } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -7,7 +7,7 @@ import { trpc } from "@/lib/trpc";
 import { readFileAsBase64 } from "@/lib/upload";
 
 type Toast = { title: string; detail: string };
-type Tab = "treinos" | "dieta" | "acolhimento" | "matricula" | "evolucao";
+type Tab = "treinos" | "dieta" | "acolhimento" | "matricula" | "evolucao" | "chat";
 
 const emptyProgressoForm = { pesoKg: "", gorduraPercentual: "", musculoPercentual: "", cinturaCm: "", quadrilCm: "", bracoCm: "", pernaCm: "", bemEstar: "", observacoes: "" };
 
@@ -192,6 +192,35 @@ export function ProfessionalDashboard({ onToast }: { onToast: (toast: Toast) => 
     });
   };
 
+  // Chat (Fase 3) — treino é 1 thread por aluno; dieta é por plano
+  // alimentar, então usamos o mais recente (mesma resolução do app original).
+  const latestDietaId = dietas[0]?.id ?? null;
+  const chatTreinoQuery = trpc.prescricao.chat.treino.list.useQuery({ alunoId }, { enabled: Boolean(alunoId) && tab === "chat" && canManageTreino });
+  const chatTreinoMensagens = chatTreinoQuery.data ?? [];
+  const [chatTreinoTexto, setChatTreinoTexto] = useState("");
+  const sendChatTreino = trpc.prescricao.chat.treino.send.useMutation({ onSuccess: () => { setChatTreinoTexto(""); utils.prescricao.chat.treino.list.invalidate({ alunoId }); }, onError: (e) => fail("Erro ao enviar mensagem", e) });
+  const sendChatTreinoVideo = trpc.prescricao.chat.treino.sendVideo.useMutation({ onSuccess: () => utils.prescricao.chat.treino.list.invalidate({ alunoId }), onError: (e) => fail("Erro ao enviar vídeo", e) });
+  const [uploadingChatVideo, setUploadingChatVideo] = useState(false);
+  const handleChatTreinoVideo = async (file?: File) => {
+    if (!file) return;
+    setUploadingChatVideo(true);
+    try {
+      const { base64, contentType } = await readFileAsBase64(file);
+      await sendChatTreinoVideo.mutateAsync({ alunoId, contentType, dataBase64: base64 });
+    } catch (error) {
+      fail("Erro ao enviar vídeo", error instanceof Error ? error : new Error("Tente novamente."));
+    } finally {
+      setUploadingChatVideo(false);
+    }
+  };
+  const markChatTreinoRead = trpc.prescricao.chat.treino.markRead.useMutation();
+
+  const chatDietaQuery = trpc.prescricao.chat.dieta.list.useQuery({ dietaId: latestDietaId ?? "" }, { enabled: Boolean(latestDietaId) && tab === "chat" && canManageDieta });
+  const chatDietaMensagens = chatDietaQuery.data ?? [];
+  const [chatDietaTexto, setChatDietaTexto] = useState("");
+  const sendChatDieta = trpc.prescricao.chat.dieta.send.useMutation({ onSuccess: () => { setChatDietaTexto(""); utils.prescricao.chat.dieta.list.invalidate({ dietaId: latestDietaId ?? "" }); }, onError: (e) => fail("Erro ao enviar mensagem", e) });
+  const markChatDietaRead = trpc.prescricao.chat.dieta.markRead.useMutation();
+
   const [downloadingFichaId, setDownloadingFichaId] = useState<string | null>(null);
   const downloadFicha = async (treino: { id: string; titulo: string }) => {
     setDownloadingFichaId(treino.id);
@@ -266,7 +295,7 @@ export function ProfessionalDashboard({ onToast }: { onToast: (toast: Toast) => 
       <div>
         {!selectedAluno && <Card className="rounded-2xl border-[#e5ece5] bg-white shadow-sm"><CardContent className="p-8 text-center text-sm text-[#918a7d]">Selecione um aluno para gerenciar treino e plano alimentar.</CardContent></Card>}
         {selectedAluno && <>
-          <div className="mb-4 flex gap-2">{canManageTreino && <Button variant={tab === "treinos" ? "default" : "outline"} onClick={() => setTab("treinos")} className="h-9 rounded-xl text-xs">Treinos</Button>}{canManageDieta && <Button variant={tab === "dieta" ? "default" : "outline"} onClick={() => setTab("dieta")} className="h-9 rounded-xl text-xs">Plano alimentar</Button>}<Button variant={tab === "acolhimento" ? "default" : "outline"} onClick={() => setTab("acolhimento")} className="h-9 rounded-xl text-xs">Acolhimento</Button><Button variant={tab === "evolucao" ? "default" : "outline"} onClick={() => setTab("evolucao")} className="h-9 rounded-xl text-xs">Evolução</Button><Button variant={tab === "matricula" ? "default" : "outline"} onClick={() => setTab("matricula")} className="h-9 rounded-xl text-xs">Matrícula</Button></div>
+          <div className="mb-4 flex gap-2">{canManageTreino && <Button variant={tab === "treinos" ? "default" : "outline"} onClick={() => setTab("treinos")} className="h-9 rounded-xl text-xs">Treinos</Button>}{canManageDieta && <Button variant={tab === "dieta" ? "default" : "outline"} onClick={() => setTab("dieta")} className="h-9 rounded-xl text-xs">Plano alimentar</Button>}<Button variant={tab === "acolhimento" ? "default" : "outline"} onClick={() => setTab("acolhimento")} className="h-9 rounded-xl text-xs">Acolhimento</Button><Button variant={tab === "evolucao" ? "default" : "outline"} onClick={() => setTab("evolucao")} className="h-9 rounded-xl text-xs">Evolução</Button><Button variant={tab === "chat" ? "default" : "outline"} onClick={() => { setTab("chat"); if (canManageTreino) markChatTreinoRead.mutate({ alunoId }); if (canManageDieta && latestDietaId) markChatDietaRead.mutate({ dietaId: latestDietaId }); }} className="h-9 rounded-xl text-xs">Chat</Button><Button variant={tab === "matricula" ? "default" : "outline"} onClick={() => setTab("matricula")} className="h-9 rounded-xl text-xs">Matrícula</Button></div>
 
           {tab === "evolucao" && <div className="grid gap-4 lg:grid-cols-[1fr_1.2fr]">
             <Card className="rounded-2xl border-[#e5ece5] bg-white shadow-sm"><CardHeader><CardTitle className="text-sm text-[#2b271f]">Nova medida de {selectedAluno.full_name}</CardTitle></CardHeader><CardContent className="space-y-2">
@@ -294,6 +323,42 @@ export function ProfessionalDashboard({ onToast }: { onToast: (toast: Toast) => 
                 <Button variant="ghost" onClick={() => { if (window.confirm("Remover este registro?")) deleteProgresso.mutate({ id: registro.id }); }} className="h-7 w-7 shrink-0 p-0 text-[#b65c4d]"><Trash2 size={13} /></Button>
               </div>)}
             </CardContent></Card>
+          </div>}
+
+          {tab === "chat" && <div className="grid gap-4 lg:grid-cols-2">
+            {canManageTreino && <Card className="rounded-2xl border-[#e5ece5] bg-white shadow-sm"><CardHeader><CardTitle className="text-sm text-[#2b271f]">Chat de treino</CardTitle></CardHeader><CardContent className="space-y-2">
+              <div className="max-h-80 space-y-2 overflow-y-auto rounded-lg bg-[#faf7ef] p-2">
+                {chatTreinoQuery.isLoading && <p className="p-2 text-xs text-[#918a7d]">Carregando...</p>}
+                {!chatTreinoQuery.isLoading && chatTreinoMensagens.length === 0 && <p className="p-2 text-xs text-[#918a7d]">Nenhuma mensagem ainda.</p>}
+                {chatTreinoMensagens.map((msg) => <div key={msg.id} className={`max-w-[85%] rounded-xl px-3 py-1.5 text-xs ${msg.remetente_tipo === "treinador" ? "ml-auto bg-[#15130f] text-white" : "bg-white text-[#4b4438]"}`}>
+                  {msg.video_url ? <video src={msg.video_url} controls preload="metadata" className="max-h-40 max-w-full rounded-lg" /> : <p className="whitespace-pre-wrap">{msg.mensagem}</p>}
+                  <p className={`mt-0.5 text-[9px] ${msg.remetente_tipo === "treinador" ? "text-white/60" : "text-[#9b9488]"}`}>{new Date(msg.created_at).toLocaleString("pt-BR")}</p>
+                </div>)}
+              </div>
+              <div className="flex items-center gap-2">
+                <Button variant="ghost" onClick={() => document.getElementById("chat-treino-video-input")?.click()} disabled={uploadingChatVideo} className="h-9 w-9 shrink-0 p-0"><Video size={16} /></Button>
+                <input id="chat-treino-video-input" type="file" accept="video/mp4,video/quicktime,video/webm" className="hidden" onChange={(e) => handleChatTreinoVideo(e.target.files?.[0])} />
+                <Input value={chatTreinoTexto} onChange={(e) => setChatTreinoTexto(e.target.value)} placeholder="Responder..." className="h-9 flex-1 rounded-lg text-xs" onKeyDown={(e) => { if (e.key === "Enter" && chatTreinoTexto.trim()) sendChatTreino.mutate({ alunoId, mensagem: chatTreinoTexto.trim() }); }} />
+                <Button onClick={() => chatTreinoTexto.trim() && sendChatTreino.mutate({ alunoId, mensagem: chatTreinoTexto.trim() })} disabled={!chatTreinoTexto.trim() || sendChatTreino.isPending} className="h-9 w-9 shrink-0 rounded-lg bg-[#15130f] p-0 text-white"><Send size={14} /></Button>
+              </div>
+            </CardContent></Card>}
+            {canManageDieta && <Card className="rounded-2xl border-[#e5ece5] bg-white shadow-sm"><CardHeader><CardTitle className="text-sm text-[#2b271f]">Chat de nutrição</CardTitle></CardHeader><CardContent className="space-y-2">
+              {!latestDietaId && <p className="text-xs text-[#918a7d]">Nenhum plano alimentar cadastrado para este aluno.</p>}
+              {latestDietaId && <>
+                <div className="max-h-80 space-y-2 overflow-y-auto rounded-lg bg-[#faf7ef] p-2">
+                  {chatDietaQuery.isLoading && <p className="p-2 text-xs text-[#918a7d]">Carregando...</p>}
+                  {!chatDietaQuery.isLoading && chatDietaMensagens.length === 0 && <p className="p-2 text-xs text-[#918a7d]">Nenhuma mensagem ainda.</p>}
+                  {chatDietaMensagens.map((msg) => <div key={msg.id} className={`max-w-[85%] rounded-xl px-3 py-1.5 text-xs ${msg.remetente_tipo === "nutricionista" ? "ml-auto bg-[#15130f] text-white" : "bg-white text-[#4b4438]"}`}>
+                    <p className="whitespace-pre-wrap">{msg.mensagem}</p>
+                    <p className={`mt-0.5 text-[9px] ${msg.remetente_tipo === "nutricionista" ? "text-white/60" : "text-[#9b9488]"}`}>{new Date(msg.created_at).toLocaleString("pt-BR")}</p>
+                  </div>)}
+                </div>
+                <div className="flex items-center gap-2">
+                  <Input value={chatDietaTexto} onChange={(e) => setChatDietaTexto(e.target.value)} placeholder="Responder..." className="h-9 flex-1 rounded-lg text-xs" onKeyDown={(e) => { if (e.key === "Enter" && chatDietaTexto.trim()) sendChatDieta.mutate({ dietaId: latestDietaId, mensagem: chatDietaTexto.trim() }); }} />
+                  <Button onClick={() => chatDietaTexto.trim() && sendChatDieta.mutate({ dietaId: latestDietaId, mensagem: chatDietaTexto.trim() })} disabled={!chatDietaTexto.trim() || sendChatDieta.isPending} className="h-9 w-9 shrink-0 rounded-lg bg-[#15130f] p-0 text-white"><Send size={14} /></Button>
+                </div>
+              </>}
+            </CardContent></Card>}
           </div>}
 
           {tab === "matricula" && <div className="grid gap-4 lg:grid-cols-2">

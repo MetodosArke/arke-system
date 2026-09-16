@@ -831,6 +831,26 @@ async function listProfileNames(userIds) {
   if (!userIds.length) return [];
   return request2("profiles", {}, `?select=user_id,full_name&${idsInFilter("user_id", userIds)}`);
 }
+async function listMensagensTreino(alunoId) {
+  return request2("mensagens_treino", {}, `?select=*&aluno_id=eq.${encodeURIComponent(alunoId)}&order=created_at.asc`);
+}
+async function createMensagemTreino(input) {
+  const rows = await request2("mensagens_treino", { method: "POST", body: JSON.stringify(input) });
+  return rows[0];
+}
+async function markMensagensTreinoLidas(alunoId, remetenteTipo) {
+  await request2("mensagens_treino", { method: "PATCH", body: JSON.stringify({ lida: true }) }, `?aluno_id=eq.${encodeURIComponent(alunoId)}&remetente_tipo=eq.${remetenteTipo}&lida=eq.false`);
+}
+async function listMensagensDieta(dietaId) {
+  return request2("mensagens_dieta", {}, `?select=*&dieta_id=eq.${encodeURIComponent(dietaId)}&order=created_at.asc`);
+}
+async function createMensagemDieta(input) {
+  const rows = await request2("mensagens_dieta", { method: "POST", body: JSON.stringify(input) });
+  return rows[0];
+}
+async function markMensagensDietaLidas(dietaId, remetenteTipo) {
+  await request2("mensagens_dieta", { method: "PATCH", body: JSON.stringify({ lida: true }) }, `?dieta_id=eq.${encodeURIComponent(dietaId)}&remetente_tipo=eq.${remetenteTipo}&lida=eq.false`);
+}
 async function listDesafios(organizationId) {
   return request2("desafios", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}&order=data_fim.desc`);
 }
@@ -1808,10 +1828,12 @@ var IMAGE_MIME_TYPES = ["image/png", "image/jpeg", "image/webp", "image/svg+xml"
 var LOGO_MIME_TYPES = IMAGE_MIME_TYPES;
 var DIETA_MIME_TYPES = [...IMAGE_MIME_TYPES, "application/pdf"];
 var EXERCICIO_VIDEO_MIME_TYPES = ["video/mp4", "video/webm", "video/quicktime"];
+var CHAT_VIDEO_MIME_TYPES = ["video/mp4", "video/webm", "video/quicktime"];
 var FEED_IMAGE_MIME_TYPES = IMAGE_MIME_TYPES;
 var LOGO_MAX_BYTES = 1.5 * 1024 * 1024;
 var DIETA_MAX_BYTES = 3 * 1024 * 1024;
 var EXERCICIO_VIDEO_MAX_BYTES = 3 * 1024 * 1024;
+var CHAT_VIDEO_MAX_BYTES = 3 * 1024 * 1024;
 var FEED_IMAGE_MAX_BYTES = 3 * 1024 * 1024;
 var EXTENSION_BY_MIME = {
   "image/png": "png",
@@ -2384,6 +2406,45 @@ var appRouter = router({
         return result;
       })
     }),
+    // Chat (Fase 3 — comunicação): não é conteúdo do método Arke, é a
+    // mesma prescrição de treino/dieta que já é entrega padrão do SaaS —
+    // por isso vive fora do router `arke`, sem exigir assertAlunoTemArke.
+    chat: router({
+      treino: router({
+        list: protectedProcedure.input(z2.object({ alunoId: z2.string().uuid() })).query(async ({ ctx, input }) => {
+          await assertStaffForAluno(ctx.user.id, input.alunoId, TREINO_BLOCKED_ROLES);
+          return listMensagensTreino(input.alunoId);
+        }),
+        send: protectedProcedure.input(z2.object({ alunoId: z2.string().uuid(), mensagem: z2.string().trim().min(1).max(2e3) })).mutation(async ({ ctx, input }) => {
+          const profile = await assertStaffForAluno(ctx.user.id, input.alunoId, TREINO_BLOCKED_ROLES);
+          return createMensagemTreino({ aluno_id: input.alunoId, organization_id: profile.organization_id, remetente_id: ctx.user.id, remetente_tipo: "treinador", mensagem: input.mensagem });
+        }),
+        sendVideo: protectedProcedure.input(z2.object({ alunoId: z2.string().uuid(), contentType: z2.string(), dataBase64: z2.string() })).mutation(async ({ ctx, input }) => {
+          const profile = await assertStaffForAluno(ctx.user.id, input.alunoId, TREINO_BLOCKED_ROLES);
+          const buffer = decodeUpload(input.dataBase64, input.contentType, CHAT_VIDEO_MIME_TYPES, CHAT_VIDEO_MAX_BYTES);
+          const url = await uploadPublicFile("chat-videos", `${input.alunoId}/${randomUUID2()}.${extensionFor(input.contentType)}`, buffer, input.contentType);
+          return createMensagemTreino({ aluno_id: input.alunoId, organization_id: profile.organization_id, remetente_id: ctx.user.id, remetente_tipo: "treinador", mensagem: "V\xEDdeo", video_url: url });
+        }),
+        markRead: protectedProcedure.input(z2.object({ alunoId: z2.string().uuid() })).mutation(async ({ ctx, input }) => {
+          await assertStaffForAluno(ctx.user.id, input.alunoId, TREINO_BLOCKED_ROLES);
+          return markMensagensTreinoLidas(input.alunoId, "aluno");
+        })
+      }),
+      dieta: router({
+        list: protectedProcedure.input(z2.object({ dietaId: z2.string().uuid() })).query(async ({ ctx, input }) => {
+          await assertStaffForDieta(ctx.user.id, input.dietaId, DIETA_BLOCKED_ROLES);
+          return listMensagensDieta(input.dietaId);
+        }),
+        send: protectedProcedure.input(z2.object({ dietaId: z2.string().uuid(), mensagem: z2.string().trim().min(1).max(2e3) })).mutation(async ({ ctx, input }) => {
+          const dieta = await assertStaffForDieta(ctx.user.id, input.dietaId, DIETA_BLOCKED_ROLES);
+          return createMensagemDieta({ dieta_id: input.dietaId, aluno_id: dieta.aluno_id, organization_id: dieta.organization_id, remetente_id: ctx.user.id, remetente_tipo: "nutricionista", mensagem: input.mensagem });
+        }),
+        markRead: protectedProcedure.input(z2.object({ dietaId: z2.string().uuid() })).mutation(async ({ ctx, input }) => {
+          await assertStaffForDieta(ctx.user.id, input.dietaId, DIETA_BLOCKED_ROLES);
+          return markMensagensDietaLidas(input.dietaId, "aluno");
+        })
+      })
+    }),
     meu: router({
       treinos: protectedProcedure.query(({ ctx }) => listTreinosForAluno(ctx.user.id, true)),
       treinoExercicios: protectedProcedure.input(z2.object({ treinoId: z2.string().uuid() })).query(async ({ ctx, input }) => {
@@ -2396,6 +2457,35 @@ var appRouter = router({
         const treino = await getTreino(input.treinoId);
         if (!treino || treino.aluno_id !== ctx.user.id || treino.estado_publicacao !== "publicado") throw new Error("Treino n\xE3o encontrado.");
         return gerarFichaTreinoPdf(input.treinoId);
+      }),
+      chatTreino: protectedProcedure.query(({ ctx }) => listMensagensTreino(ctx.user.id)),
+      sendChatTreino: protectedProcedure.input(z2.object({ mensagem: z2.string().trim().min(1).max(2e3) })).mutation(async ({ ctx, input }) => {
+        const profile = await getProfileByUserId(ctx.user.id);
+        if (!profile?.organization_id) throw new Error("Aluno sem organiza\xE7\xE3o vinculada.");
+        return createMensagemTreino({ aluno_id: ctx.user.id, organization_id: profile.organization_id, remetente_id: ctx.user.id, remetente_tipo: "aluno", mensagem: input.mensagem });
+      }),
+      sendChatTreinoVideo: protectedProcedure.input(z2.object({ contentType: z2.string(), dataBase64: z2.string() })).mutation(async ({ ctx, input }) => {
+        const profile = await getProfileByUserId(ctx.user.id);
+        if (!profile?.organization_id) throw new Error("Aluno sem organiza\xE7\xE3o vinculada.");
+        const buffer = decodeUpload(input.dataBase64, input.contentType, CHAT_VIDEO_MIME_TYPES, CHAT_VIDEO_MAX_BYTES);
+        const url = await uploadPublicFile("chat-videos", `${ctx.user.id}/${randomUUID2()}.${extensionFor(input.contentType)}`, buffer, input.contentType);
+        return createMensagemTreino({ aluno_id: ctx.user.id, organization_id: profile.organization_id, remetente_id: ctx.user.id, remetente_tipo: "aluno", mensagem: "V\xEDdeo", video_url: url });
+      }),
+      markChatTreinoLido: protectedProcedure.mutation(({ ctx }) => markMensagensTreinoLidas(ctx.user.id, "treinador")),
+      chatDieta: protectedProcedure.input(z2.object({ dietaId: z2.string().uuid() })).query(async ({ ctx, input }) => {
+        const dieta = await getDieta(input.dietaId);
+        if (!dieta || dieta.aluno_id !== ctx.user.id) throw new Error("Plano alimentar n\xE3o encontrado.");
+        return listMensagensDieta(input.dietaId);
+      }),
+      sendChatDieta: protectedProcedure.input(z2.object({ dietaId: z2.string().uuid(), mensagem: z2.string().trim().min(1).max(2e3) })).mutation(async ({ ctx, input }) => {
+        const dieta = await getDieta(input.dietaId);
+        if (!dieta || dieta.aluno_id !== ctx.user.id) throw new Error("Plano alimentar n\xE3o encontrado.");
+        return createMensagemDieta({ dieta_id: input.dietaId, aluno_id: ctx.user.id, organization_id: dieta.organization_id, remetente_id: ctx.user.id, remetente_tipo: "aluno", mensagem: input.mensagem });
+      }),
+      markChatDietaLido: protectedProcedure.input(z2.object({ dietaId: z2.string().uuid() })).mutation(async ({ ctx, input }) => {
+        const dieta = await getDieta(input.dietaId);
+        if (!dieta || dieta.aluno_id !== ctx.user.id) throw new Error("Plano alimentar n\xE3o encontrado.");
+        return markMensagensDietaLidas(input.dietaId, "nutricionista");
       })
     }),
     // Evolução (medidas corporais) é histórico, não upsert — qualquer
