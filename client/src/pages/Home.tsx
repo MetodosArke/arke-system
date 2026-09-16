@@ -115,19 +115,31 @@ function BenefitProviderCard({ organizationId, provider, data, onToast }: { orga
   </CardContent></Card>;
 }
 
-const TURNSTILE_CONFIG_FIELDS = [{ key: "host", label: "IP/host do equipamento" }, { key: "usuario", label: "Usuário" }, { key: "senha", label: "Senha", secret: true }, { key: "api_key", label: "API key (se houver)", secret: true }];
+const TURNSTILE_CONFIG_FIELDS = [{ key: "host", label: "IP local do equipamento" }, { key: "usuario", label: "Usuário" }, { key: "senha", label: "Senha", secret: true }, { key: "api_key", label: "API key (se houver)", secret: true }];
+const TURNSTILE_MODE_LABEL: Record<string, string> = { cloud_webhook: "Nuvem (webhook direto)", local_agent: "Agente local" };
 
-function TurnstileUnitCard({ organizationId, unit, onToast }: { organizationId: string; unit: { unitId: string; unitName: string; brand: string; model: string | null; enabled: boolean; configured: boolean }; onToast: (toast: NonNullable<Toast>) => void }) {
+type TurnstileCatalogModel = { id: string; name: string; communicationModes: string[]; defaultPort: number | null };
+type TurnstileCatalogBrand = { id: string; slug: string; name: string; models: TurnstileCatalogModel[] };
+
+function TurnstileUnitCard({ organizationId, unit, catalog, onToast }: { organizationId: string; unit: { unitId: string; unitName: string; brand: string; model: string | null; modelId: string | null; communicationMode: string | null; port: number | null; serialOrKey: string | null; status: string; enabled: boolean; configured: boolean }; catalog: TurnstileCatalogBrand[]; onToast: (toast: NonNullable<Toast>) => void }) {
   const utils = trpc.useUtils();
   const [brand, setBrand] = useState(unit.brand);
-  const [model, setModel] = useState(unit.model ?? "");
+  const [modelId, setModelId] = useState(unit.modelId ?? "");
+  const [communicationMode, setCommunicationMode] = useState(unit.communicationMode ?? "");
+  const [port, setPort] = useState(unit.port ? String(unit.port) : "");
+  const [serialOrKey, setSerialOrKey] = useState(unit.serialOrKey ?? "");
   const [config, setConfig] = useState<Record<string, string>>({});
+  const selectedBrand = catalog.find((b) => b.slug === brand);
+  const selectedModel = selectedBrand?.models.find((m) => m.id === modelId);
   const save = trpc.integracoes.catraca.save.useMutation({ onSuccess: () => { onToast({ title: "Catraca configurada", detail: `${unit.unitName} vinculada ao adaptador certo.` }); setConfig({}); utils.integracoes.catraca.list.invalidate({ organizationId }); }, onError: (error) => onToast({ title: "Erro ao configurar catraca", detail: error.message }) });
-  return <Card className="rounded-2xl border-[#e5ece5] bg-white shadow-sm"><CardHeader><CardTitle className="flex items-center justify-between text-sm text-[#2b271f]"><span>{unit.unitName}</span><Badge className={cn("border-0 text-[10px]", unit.configured ? "bg-[#e5f2df] text-[#4e8b5b]" : "bg-[#f8e6df] text-[#b65c4d]")}>{unit.configured ? "Configurada" : "Não configurada"}</Badge></CardTitle></CardHeader><CardContent className="space-y-2">
-    <select value={brand} onChange={(e) => setBrand(e.target.value)} className="h-9 w-full rounded-lg border bg-white px-2 text-xs">{Object.entries(TURNSTILE_BRAND_LABEL).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select>
-    <Input value={model} onChange={(e) => setModel(e.target.value)} placeholder="Modelo (opcional)" className="h-9 rounded-lg text-xs" />
+  const statusLabel: Record<string, string> = { online: "Online", offline: "Offline", unknown: "Sem heartbeat ainda" };
+  return <Card className="rounded-2xl border-[#e5ece5] bg-white shadow-sm"><CardHeader><CardTitle className="flex items-center justify-between text-sm text-[#2b271f]"><span>{unit.unitName}</span><div className="flex gap-1.5"><Badge className={cn("border-0 text-[10px]", unit.configured ? "bg-[#e5f2df] text-[#4e8b5b]" : "bg-[#f8e6df] text-[#b65c4d]")}>{unit.configured ? "Configurada" : "Não configurada"}</Badge>{unit.configured && <Badge className={cn("border-0 text-[10px]", unit.status === "online" ? "bg-[#e5f2df] text-[#4e8b5b]" : "bg-[#f1ede2] text-[#918a7d]")}>{statusLabel[unit.status] ?? unit.status}</Badge>}</div></CardTitle></CardHeader><CardContent className="space-y-2">
+    <select value={brand} onChange={(e) => { setBrand(e.target.value); setModelId(""); setCommunicationMode(""); }} className="h-9 w-full rounded-lg border bg-white px-2 text-xs">{Object.entries(TURNSTILE_BRAND_LABEL).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select>
+    <select value={modelId} onChange={(e) => { const model = selectedBrand?.models.find((m) => m.id === e.target.value); setModelId(e.target.value); setCommunicationMode(model?.communicationModes[0] ?? ""); }} className="h-9 w-full rounded-lg border bg-white px-2 text-xs" disabled={!selectedBrand?.models.length}><option value="">Selecione o modelo</option>{selectedBrand?.models.map((model) => <option key={model.id} value={model.id}>{model.name}</option>)}</select>
+    {Boolean(selectedModel) && <select value={communicationMode} onChange={(e) => setCommunicationMode(e.target.value)} className="h-9 w-full rounded-lg border bg-white px-2 text-xs">{selectedModel!.communicationModes.map((mode) => <option key={mode} value={mode}>{TURNSTILE_MODE_LABEL[mode] ?? mode}</option>)}</select>}
     {TURNSTILE_CONFIG_FIELDS.map((field) => <Input key={field.key} value={config[field.key] ?? ""} onChange={(e) => setConfig({ ...config, [field.key]: e.target.value })} placeholder={unit.configured && field.secret ? `${field.label} (deixe em branco para manter)` : field.label} type={field.secret ? "password" : "text"} className="h-9 rounded-lg text-xs" />)}
-    <Button onClick={() => save.mutate({ organizationId, unitId: unit.unitId, brand: brand as TurnstileBrand, model: model || undefined, config, enabled: true })} disabled={save.isPending} className="h-9 w-full rounded-lg bg-[#15130f] text-xs text-white">Salvar catraca</Button>
+    <div className="grid grid-cols-2 gap-2"><Input value={port} onChange={(e) => setPort(e.target.value)} placeholder={selectedModel?.defaultPort ? `Porta (padrão ${selectedModel.defaultPort})` : "Porta"} type="number" className="h-9 rounded-lg text-xs" /><Input value={serialOrKey} onChange={(e) => setSerialOrKey(e.target.value)} placeholder="Serial ou chave" className="h-9 rounded-lg text-xs" /></div>
+    <Button onClick={() => save.mutate({ organizationId, unitId: unit.unitId, brand: brand as TurnstileBrand, modelId: modelId || undefined, communicationMode: (communicationMode || undefined) as "cloud_webhook" | "local_agent" | undefined, port: port ? Number(port) : undefined, serialOrKey: serialOrKey || undefined, config, enabled: true })} disabled={save.isPending} className="h-9 w-full rounded-lg bg-[#15130f] text-xs text-white">Salvar catraca</Button>
   </CardContent></Card>;
 }
 
@@ -148,7 +160,9 @@ function IntegrationsPage({ module, onToast }: { module: ModuleKey; onToast: (to
   const units = accessQuery.data?.units ?? [];
   const turnstilesQuery = trpc.integracoes.catraca.list.useQuery({ organizationId: activeOrgId }, { enabled: Boolean(activeOrgId) });
   const turnstiles = turnstilesQuery.data ?? [];
-  const turnstileForUnit = (unitId: string) => turnstiles.find((t) => t.unitId === unitId) ?? { unitId, unitName: units.find((u) => u.id === unitId)?.name ?? "Unidade", brand: "outra", model: null, enabled: false, configured: false };
+  const turnstileCatalogQuery = trpc.integracoes.catraca.catalogo.useQuery();
+  const turnstileCatalog = turnstileCatalogQuery.data ?? [];
+  const turnstileForUnit = (unitId: string) => turnstiles.find((t) => t.unitId === unitId) ?? { unitId, unitName: units.find((u) => u.id === unitId)?.name ?? "Unidade", brand: "outra", model: null, modelId: null, communicationMode: null, port: null, serialOrKey: null, status: "unknown", enabled: false, configured: false };
 
   return <div className="mx-auto max-w-[1100px] p-5 sm:p-8">
     <div className="mb-5 flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
@@ -168,7 +182,7 @@ function IntegrationsPage({ module, onToast }: { module: ModuleKey; onToast: (to
 
       <div className="mb-3 mt-6 text-xs font-semibold uppercase tracking-[.14em] text-[#a47b13]">Catraca por unidade</div>
       {!units.length && <p className="text-xs text-[#918a7d]">Nenhuma unidade cadastrada para esta organização ainda.</p>}
-      <div className="grid gap-4 sm:grid-cols-2">{units.map((unit) => <TurnstileUnitCard key={unit.id} organizationId={activeOrgId} unit={turnstileForUnit(unit.id)} onToast={onToast} />)}</div>
+      <div className="grid gap-4 sm:grid-cols-2">{units.map((unit) => <TurnstileUnitCard key={unit.id} organizationId={activeOrgId} unit={turnstileForUnit(unit.id)} catalog={turnstileCatalog} onToast={onToast} />)}</div>
     </>}
   </div>;
 }

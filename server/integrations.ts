@@ -62,20 +62,56 @@ export async function saveBenefitIntegration(input: { organizationId: string; pr
 }
 
 export type { TurnstileBrand };
-type TurnstileRow = { id: string; unit_id: string; organization_id: string; brand: TurnstileBrand; model: string | null; config: Record<string, string>; enabled: boolean; updated_at: string; saas_units: { name: string } | null };
+export type TurnstileCommunicationMode = "cloud_webhook" | "local_agent";
+export type TurnstileDeviceStatus = "online" | "offline" | "unknown";
+type TurnstileRow = {
+  id: string; unit_id: string; organization_id: string; brand: TurnstileBrand; model: string | null;
+  model_id: string | null; communication_mode: TurnstileCommunicationMode | null; port: number | null; serial_or_key: string | null;
+  status: TurnstileDeviceStatus; last_ping_at: string | null; config: Record<string, string>; enabled: boolean; updated_at: string;
+  saas_units: { name: string } | null;
+};
 
 export async function listTurnstileIntegrationsForOrganization(organizationId: string) {
-  const rows = await request<TurnstileRow[]>("saas_turnstile_integrations", {}, `?select=*,saas_units(name)&organization_id=eq.${encodeURIComponent(organizationId)}`);
-  return rows.map((row) => ({ unitId: row.unit_id, unitName: row.saas_units?.name ?? "Unidade", brand: row.brand, model: row.model, enabled: row.enabled, configured: Object.keys(row.config ?? {}).length > 0, updatedAt: row.updated_at }));
+  const rows = await request<TurnstileRow[]>("turnstile_devices", {}, `?select=*,saas_units(name)&organization_id=eq.${encodeURIComponent(organizationId)}`);
+  return rows.map((row) => ({
+    unitId: row.unit_id, unitName: row.saas_units?.name ?? "Unidade", brand: row.brand, model: row.model,
+    modelId: row.model_id, communicationMode: row.communication_mode, port: row.port, serialOrKey: row.serial_or_key,
+    status: row.status, lastPingAt: row.last_ping_at, enabled: row.enabled, configured: Object.keys(row.config ?? {}).length > 0, updatedAt: row.updated_at,
+  }));
 }
 
-export async function saveTurnstileIntegration(input: { unitId: string; organizationId: string; brand: TurnstileBrand; model?: string; config: Record<string, string>; enabled: boolean }) {
-  await request("saas_turnstile_integrations", { method: "POST", headers: { Prefer: "resolution=merge-duplicates,return=representation" }, body: JSON.stringify({ unit_id: input.unitId, organization_id: input.organizationId, brand: input.brand, model: input.model || null, config: input.config, enabled: input.enabled }) }, "?on_conflict=unit_id");
+export async function saveTurnstileIntegration(input: {
+  unitId: string; organizationId: string; brand: TurnstileBrand; model?: string; modelId?: string;
+  communicationMode?: TurnstileCommunicationMode; port?: number; serialOrKey?: string; config: Record<string, string>; enabled: boolean;
+}) {
+  await request("turnstile_devices", { method: "POST", headers: { Prefer: "resolution=merge-duplicates,return=representation" }, body: JSON.stringify({
+    unit_id: input.unitId, organization_id: input.organizationId, brand: input.brand, model: input.model || null,
+    model_id: input.modelId || null, communication_mode: input.communicationMode || null, port: input.port ?? null,
+    serial_or_key: input.serialOrKey || null, config: input.config, enabled: input.enabled,
+  }) }, "?on_conflict=unit_id");
   const rows = await listTurnstileIntegrationsForOrganization(input.organizationId);
   return rows.find((row) => row.unitId === input.unitId);
 }
 
 export async function deleteTurnstileIntegration(unitId: string, organizationId: string) {
-  await request("saas_turnstile_integrations", { method: "DELETE" }, `?unit_id=eq.${encodeURIComponent(unitId)}&organization_id=eq.${encodeURIComponent(organizationId)}`);
+  await request("turnstile_devices", { method: "DELETE" }, `?unit_id=eq.${encodeURIComponent(unitId)}&organization_id=eq.${encodeURIComponent(organizationId)}`);
   return { success: true } as const;
+}
+
+// Catálogo global marca/modelo (CLAUDE.md §8.4) — qualquer organização lê
+// para escolher marca → modelo no onboarding/configuração; só admin/super_admin
+// escreve (RLS espelha isso, service_role passa por cima como defesa em
+// profundidade de qualquer forma).
+type TurnstileBrandRow = { id: string; slug: TurnstileBrand; name: string };
+type TurnstileModelRow = { id: string; brand_id: string; name: string; communication_modes: TurnstileCommunicationMode[]; default_port: number | null; protocol_notes: string | null };
+
+export async function listTurnstileCatalog() {
+  const [brands, models] = await Promise.all([
+    request<TurnstileBrandRow[]>("turnstile_brands", {}, "?select=*&order=name"),
+    request<TurnstileModelRow[]>("turnstile_models", {}, "?select=*&order=name"),
+  ]);
+  return brands.map((brand) => ({
+    id: brand.id, slug: brand.slug, name: brand.name,
+    models: models.filter((model) => model.brand_id === brand.id).map((model) => ({ id: model.id, name: model.name, communicationModes: model.communication_modes, defaultPort: model.default_port, protocolNotes: model.protocol_notes })),
+  }));
 }

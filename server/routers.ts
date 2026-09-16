@@ -12,7 +12,7 @@ import { computeComparativoAluno, computeScoreAluno } from "./arkeGamification";
 import { asaasConfigured, asaasEnvironment, createAsaasWebhook, getAsaasAccount, listAsaasPayments } from "./asaas";
 import { listAllAsaasPayments, listAsaasPaymentsForOrganization } from "./asaasPersistence";
 import { lookupCnpj } from "./cnpj";
-import { deleteTurnstileIntegration, listBenefitIntegrations, listTurnstileIntegrationsForOrganization, saveBenefitIntegration, saveTurnstileIntegration } from "./integrations";
+import { deleteTurnstileIntegration, listBenefitIntegrations, listTurnstileCatalog, listTurnstileIntegrationsForOrganization, saveBenefitIntegration, saveTurnstileIntegration } from "./integrations";
 import { openaiConfigured } from "./_core/llm";
 import { sugerirExercicio, sugerirModeloTreino } from "./acervoAi";
 import { getVapidPublicKey, sendPushToUser } from "./push";
@@ -430,11 +430,19 @@ export const appRouter = router({
       }),
     }),
     catraca: router({
+      // Catálogo global marca→modelo (B1): qualquer usuário autenticado lê,
+      // precisa dele para configurar a catraca da própria unidade.
+      catalogo: protectedProcedure.query(() => listTurnstileCatalog()),
       list: protectedProcedure.input(organizationIdInput).query(async ({ ctx, input }) => { await ownerOrAdmin(ctx.user.id, input.organizationId); return listTurnstileIntegrationsForOrganization(input.organizationId); }),
-      save: protectedProcedure.input(z.object({ organizationId: z.string().uuid(), unitId: z.string().uuid(), brand: z.enum(TURNSTILE_BRAND_KEYS), model: z.string().trim().max(120).optional(), config: z.record(z.string(), z.string()), enabled: z.boolean().default(true) })).mutation(async ({ ctx, input }) => {
+      save: protectedProcedure.input(z.object({
+        organizationId: z.string().uuid(), unitId: z.string().uuid(), brand: z.enum(TURNSTILE_BRAND_KEYS), model: z.string().trim().max(120).optional(),
+        modelId: z.string().uuid().optional(), communicationMode: z.enum(["cloud_webhook", "local_agent"]).optional(),
+        port: z.number().int().min(1).max(65535).optional(), serialOrKey: z.string().trim().max(200).optional(),
+        config: z.record(z.string(), z.string()), enabled: z.boolean().default(true),
+      })).mutation(async ({ ctx, input }) => {
         await ownerOrAdmin(ctx.user.id, input.organizationId);
         const result = await saveTurnstileIntegration(input);
-        await recordAuditLog({ organizationId: input.organizationId, userId: ctx.user.id, unitId: input.unitId, action: "updated", entity: "turnstile_integration", afterJson: { brand: input.brand, model: input.model } });
+        await recordAuditLog({ organizationId: input.organizationId, userId: ctx.user.id, unitId: input.unitId, action: "updated", entity: "turnstile_integration", afterJson: { brand: input.brand, model: input.model, communicationMode: input.communicationMode } });
         return result;
       }),
       delete: protectedProcedure.input(z.object({ organizationId: z.string().uuid(), unitId: z.string().uuid() })).mutation(async ({ ctx, input }) => {
