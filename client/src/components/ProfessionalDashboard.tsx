@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Download, IdCard, Plus, Save, Send, Trash2, UserPlus, Video } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -7,9 +7,10 @@ import { trpc } from "@/lib/trpc";
 import { readFileAsBase64 } from "@/lib/upload";
 
 type Toast = { title: string; detail: string };
-type Tab = "treinos" | "dieta" | "acolhimento" | "matricula" | "evolucao" | "chat";
+type Tab = "treinos" | "dieta" | "acolhimento" | "matricula" | "evolucao" | "chat" | "prontuario";
 
 const emptyProgressoForm = { pesoKg: "", gorduraPercentual: "", musculoPercentual: "", cinturaCm: "", quadrilCm: "", bracoCm: "", pernaCm: "", bemEstar: "", observacoes: "" };
+const MESES_LABEL = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
 
 function downloadBase64Pdf(filename: string, contentBase64: string) {
   const binary = atob(contentBase64);
@@ -221,6 +222,17 @@ export function ProfessionalDashboard({ onToast }: { onToast: (toast: Toast) => 
   const sendChatDieta = trpc.prescricao.chat.dieta.send.useMutation({ onSuccess: () => { setChatDietaTexto(""); utils.prescricao.chat.dieta.list.invalidate({ dietaId: latestDietaId ?? "" }); }, onError: (e) => fail("Erro ao enviar mensagem", e) });
   const markChatDietaRead = trpc.prescricao.chat.dieta.markRead.useMutation();
 
+  // Prontuário (Fase 3) — notas privadas da equipe por mês/ano, nunca visíveis ao aluno.
+  const now = new Date();
+  const [prontuarioMes, setProntuarioMes] = useState(now.getMonth() + 1);
+  const [prontuarioAno, setProntuarioAno] = useState(now.getFullYear());
+  const prontuarioQuery = trpc.prescricao.prontuario.list.useQuery({ alunoId }, { enabled: Boolean(alunoId) && tab === "prontuario" });
+  const prontuarioHistorico = prontuarioQuery.data ?? [];
+  const prontuarioAtual = prontuarioHistorico.find((item) => item.mes === prontuarioMes && item.ano === prontuarioAno);
+  const [prontuarioTexto, setProntuarioTexto] = useState("");
+  useEffect(() => { if (!prontuarioQuery.isLoading) setProntuarioTexto(prontuarioAtual?.observacao ?? ""); }, [prontuarioMes, prontuarioAno, prontuarioQuery.isLoading, prontuarioAtual?.observacao]);
+  const saveProntuario = trpc.prescricao.prontuario.upsert.useMutation({ onSuccess: () => { success("Nota salva"); utils.prescricao.prontuario.list.invalidate({ alunoId }); }, onError: (e) => fail("Erro ao salvar nota", e) });
+
   const [downloadingFichaId, setDownloadingFichaId] = useState<string | null>(null);
   const downloadFicha = async (treino: { id: string; titulo: string }) => {
     setDownloadingFichaId(treino.id);
@@ -295,7 +307,7 @@ export function ProfessionalDashboard({ onToast }: { onToast: (toast: Toast) => 
       <div>
         {!selectedAluno && <Card className="rounded-2xl border-[#e5ece5] bg-white shadow-sm"><CardContent className="p-8 text-center text-sm text-[#918a7d]">Selecione um aluno para gerenciar treino e plano alimentar.</CardContent></Card>}
         {selectedAluno && <>
-          <div className="mb-4 flex gap-2">{canManageTreino && <Button variant={tab === "treinos" ? "default" : "outline"} onClick={() => setTab("treinos")} className="h-9 rounded-xl text-xs">Treinos</Button>}{canManageDieta && <Button variant={tab === "dieta" ? "default" : "outline"} onClick={() => setTab("dieta")} className="h-9 rounded-xl text-xs">Plano alimentar</Button>}<Button variant={tab === "acolhimento" ? "default" : "outline"} onClick={() => setTab("acolhimento")} className="h-9 rounded-xl text-xs">Acolhimento</Button><Button variant={tab === "evolucao" ? "default" : "outline"} onClick={() => setTab("evolucao")} className="h-9 rounded-xl text-xs">Evolução</Button><Button variant={tab === "chat" ? "default" : "outline"} onClick={() => { setTab("chat"); if (canManageTreino) markChatTreinoRead.mutate({ alunoId }); if (canManageDieta && latestDietaId) markChatDietaRead.mutate({ dietaId: latestDietaId }); }} className="h-9 rounded-xl text-xs">Chat</Button><Button variant={tab === "matricula" ? "default" : "outline"} onClick={() => setTab("matricula")} className="h-9 rounded-xl text-xs">Matrícula</Button></div>
+          <div className="mb-4 flex gap-2">{canManageTreino && <Button variant={tab === "treinos" ? "default" : "outline"} onClick={() => setTab("treinos")} className="h-9 rounded-xl text-xs">Treinos</Button>}{canManageDieta && <Button variant={tab === "dieta" ? "default" : "outline"} onClick={() => setTab("dieta")} className="h-9 rounded-xl text-xs">Plano alimentar</Button>}<Button variant={tab === "acolhimento" ? "default" : "outline"} onClick={() => setTab("acolhimento")} className="h-9 rounded-xl text-xs">Acolhimento</Button><Button variant={tab === "evolucao" ? "default" : "outline"} onClick={() => setTab("evolucao")} className="h-9 rounded-xl text-xs">Evolução</Button><Button variant={tab === "chat" ? "default" : "outline"} onClick={() => { setTab("chat"); if (canManageTreino) markChatTreinoRead.mutate({ alunoId }); if (canManageDieta && latestDietaId) markChatDietaRead.mutate({ dietaId: latestDietaId }); }} className="h-9 rounded-xl text-xs">Chat</Button><Button variant={tab === "prontuario" ? "default" : "outline"} onClick={() => setTab("prontuario")} className="h-9 rounded-xl text-xs">Prontuário</Button><Button variant={tab === "matricula" ? "default" : "outline"} onClick={() => setTab("matricula")} className="h-9 rounded-xl text-xs">Matrícula</Button></div>
 
           {tab === "evolucao" && <div className="grid gap-4 lg:grid-cols-[1fr_1.2fr]">
             <Card className="rounded-2xl border-[#e5ece5] bg-white shadow-sm"><CardHeader><CardTitle className="text-sm text-[#2b271f]">Nova medida de {selectedAluno.full_name}</CardTitle></CardHeader><CardContent className="space-y-2">
@@ -359,6 +371,22 @@ export function ProfessionalDashboard({ onToast }: { onToast: (toast: Toast) => 
                 </div>
               </>}
             </CardContent></Card>}
+          </div>}
+
+          {tab === "prontuario" && <div className="grid gap-4 lg:grid-cols-2">
+            <Card className="rounded-2xl border-[#e5ece5] bg-white shadow-sm"><CardHeader><CardTitle className="text-sm text-[#2b271f]">Nota do mês</CardTitle><p className="text-xs text-[#918a7d]">Visível só para a equipe — nunca para o aluno.</p></CardHeader><CardContent className="space-y-2">
+              <div className="grid grid-cols-2 gap-2">
+                <select value={prontuarioMes} onChange={(e) => setProntuarioMes(Number(e.target.value))} className="h-9 rounded-lg border bg-white px-2 text-xs">{MESES_LABEL.map((label, index) => <option key={label} value={index + 1}>{label}</option>)}</select>
+                <Input value={prontuarioAno} onChange={(e) => setProntuarioAno(Number(e.target.value) || now.getFullYear())} type="number" className="h-9 rounded-lg text-xs" />
+              </div>
+              <textarea value={prontuarioTexto} onChange={(e) => setProntuarioTexto(e.target.value)} placeholder="Observações da equipe sobre este aluno neste mês..." className="min-h-32 w-full rounded-lg border bg-white p-2 text-xs" />
+              <Button onClick={() => saveProntuario.mutate({ alunoId, mes: prontuarioMes, ano: prontuarioAno, observacao: prontuarioTexto })} disabled={saveProntuario.isPending} className="h-9 w-full rounded-lg bg-[#15130f] text-xs text-white"><Save size={14} /> Salvar nota</Button>
+            </CardContent></Card>
+            <Card className="rounded-2xl border-[#e5ece5] bg-white shadow-sm"><CardHeader><CardTitle className="text-sm text-[#2b271f]">Histórico</CardTitle></CardHeader><CardContent className="space-y-2">
+              {prontuarioQuery.isLoading && <p className="text-xs text-[#918a7d]">Carregando...</p>}
+              {!prontuarioQuery.isLoading && prontuarioHistorico.length === 0 && <p className="text-xs text-[#918a7d]">Nenhuma nota registrada ainda.</p>}
+              {prontuarioHistorico.map((item) => <div key={item.id} className="rounded-lg bg-[#faf7ef] p-3 text-xs text-[#5c5445]"><p className="font-semibold text-[#4b4438]">{MESES_LABEL[item.mes - 1]} de {item.ano}</p><p className="mt-1 whitespace-pre-wrap">{item.observacao}</p></div>)}
+            </CardContent></Card>
           </div>}
 
           {tab === "matricula" && <div className="grid gap-4 lg:grid-cols-2">

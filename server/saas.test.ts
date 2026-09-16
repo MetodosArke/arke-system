@@ -279,6 +279,34 @@ describe("prescricao.progresso (evolução)", () => {
   });
 });
 
+describe("notificacoes (inbox in-app)", () => {
+  it("cannot list without a configured Supabase profile lookup", async () => {
+    await expect(appRouter.createCaller(createContext()).notificacoes.minhas()).rejects.toThrow();
+  });
+
+  it("cannot count unread without a configured Supabase profile lookup", async () => {
+    await expect(appRouter.createCaller(createContext()).notificacoes.naoLidas()).rejects.toThrow();
+  });
+
+  it("cannot mark as read without a configured Supabase profile lookup", async () => {
+    await expect(appRouter.createCaller(createContext()).notificacoes.marcarLida({ id: "00000000-0000-4000-8000-0000000000f4" })).rejects.toThrow();
+  });
+});
+
+describe("prescricao.prontuario", () => {
+  it("requires staff access to the aluno's organization to list", async () => {
+    await expect(appRouter.createCaller(createContext()).prescricao.prontuario.list({ alunoId: TEST_USER_ID })).rejects.toThrow();
+  });
+
+  it("requires staff access to save a note", async () => {
+    await expect(appRouter.createCaller(createContext()).prescricao.prontuario.upsert({ alunoId: TEST_USER_ID, mes: 9, ano: 2026, observacao: "Nota de teste" })).rejects.toThrow();
+  });
+
+  it("rejects a mes value outside the accepted 1-12 range", async () => {
+    await expect(appRouter.createCaller(createContext()).prescricao.prontuario.upsert({ alunoId: TEST_USER_ID, mes: 13, ano: 2026, observacao: "Nota de teste" })).rejects.toThrow();
+  });
+});
+
 describe("push (Fase 3 — comunicação)", () => {
   it("returns a null public key when VAPID is not configured (never throws)", async () => {
     await expect(appRouter.createCaller(createContext()).push.publicKey()).resolves.toEqual({ publicKey: null });

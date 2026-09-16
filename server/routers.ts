@@ -6,7 +6,7 @@ import { systemRouter } from "./_core/systemRouter";
 import { adminProcedure, protectedProcedure, publicProcedure, router } from "./_core/trpc";
 import { assertRateLimit, rateLimitKey } from "./_core/rateLimit";
 import { acceptOrganizationInvitation, archiveOrganizationUnit, auditLogsToCsv, auditLogsToPdfBase64, createOrganizationInvitation, createOrganizationUnit, createOrganizationWithOwner, createSubscriptionCharge, getAuditLogs, getMembership, getOrganization, getOrganizationAccess, getOrganizationBySlug, getOrganizationOnboarding, getOrganizationSubscription, getOrganizationsForUser, getPendingOrganizationInvitations, recordAuditLog, revokeOrganizationInvitation, saveOrganizationOnboarding, updateModulePolicy, updateOrganizationProfile, updateOrganizationSubscription } from "./db";
-import { acceptMemberInvitation, assignAtendimento, cancelarReserva, cancelarReservaStaff, converterLead, countAlunosComArkeAtivo, createAppStudent, createAppUser, createAtendimento, createDeletionRequest, addCompeticaoParticipante, addDesafioParticipante, createCompeticao, createDesafio, createDieta, createFeedComment, createFeedLike, createFeedPost, createGlobalExercise, createGlobalGroup, createGlobalNutritionPlan, createGlobalRoutine, createGlobalTemplate, createGlobalTemplateExercise, createLead, createLeadNota, createMensagemDieta, createMensagemTreino, createPasswordRecoveryCode, createProgressoSemanal, createTreino, createTurma, deleteAppStudent, deleteAppUser, deleteCompeticao, deleteDesafio, deleteDieta, deletePushSubscription, deleteFeedComment, deleteFeedLike, deleteFeedPost, deleteProgressoSemanal, deleteGlobalExercise, deleteGlobalGroup, deleteGlobalNutritionPlan, deleteGlobalRoutine, deleteGlobalTemplate, deleteGlobalTemplateExercise, deleteGlobalAccessRule, deleteLead, deleteTreino, deleteTurma, findAppUserByEmail, fulfillDeletionRequest, gerarFichaTreinoPdf, getAcolhimento, getAlunoArkeLicenca, getArkeModule, getAtendimento, getAvaliacaoSemanal, getCheckinDoDia, getCrmIndicadores, getCurrentPrivacyPolicy, getDeletionRequest, getDieta, getGestaoIndicadores, getLead, getCompeticao, getDesafio, getFeedComment, getFeedLike, getFeedPost, getMyDeletionRequest, getPlanoTreinoSemanal, getProfileByUserId, getProgressoSemanal, getReserva, getTreino, getTurma, getVagasDisponiveis, hasConsent, hasSupabaseConfig, inviteMember, listAppStudents, listAppUsers, listAtendimentosForOrganization, listCompeticaoParticipantes, listCompeticaoParticipantesForAluno, listCompeticaoPontuacaoForCompeticao, listCompeticoes, listDeletionRequests, listDesafioParticipantes, listDesafioParticipantesForAluno, listDesafioProgressoForAluno, listDesafioProgressoForDesafio, listDesafios, listDietasForAluno, listMensagensDieta, listMensagensTreino, listExercisesCatalog, listFeedCommentsForPosts, listFeedLikesForPosts, listFeedPosts, listFrequenciaForAluno, listFrequenciaForOrganization, listGlobalLibrary, listLeadAtividades, listLeadsForOrganization, listMinhasReservas, listMyAtendimentos, listMyCheckIns, listPendingMemberInvitations, listProfileNames, listProgressoSemanal, listReservasForTurmaData, listStudentsInOrganization, listTreinoExercicios, listTreinosForAluno, listTurmaHorarios, listTurmasAtivas, listTurmasForOrganization, marcarLeadPerdido, moverEstagioLead, normalizeEmail, publishDieta, publishGlobalExercises, publishGlobalNutritionPlans, publishGlobalTemplates, publishTreino, markMensagensDietaLidas, markMensagensTreinoLidas, recordConsent, registrarFrequencia, rejectDeletionRequest, removeCompeticaoParticipante, removeDesafioParticipante, replaceTreinoExercicios, replaceTurmaHorarios, requestHelp, reservarVaga, resolveAtendimento, revokeMemberInvitation, setCompeticaoPontuacao, setDesafioProgresso, signInWithSupabase, submitCheckIn, toggleAlunoArkeLicenca, updateAppStudent, updateAppUser, updateCompeticao, updateDesafio, updateDieta, upsertPushSubscription, updateGlobalExercise, updateGlobalGroup, updateGlobalNutritionPlan, updateGlobalRoutine, updateGlobalTemplate, updateGlobalTemplateExercise, updateLead, updateStudentMatricula, updateSupabaseUserPassword, updateTreino, updateTurma, upsertAcolhimento, upsertArkeModule, upsertAvaliacaoSemanal, upsertCheckinDiario, upsertGlobalAccessRule, upsertPlanoTreinoSemanal, verifyPasswordRecoveryCode } from "./supabaseAdmin";
+import { acceptMemberInvitation, assignAtendimento, cancelarReserva, cancelarReservaStaff, converterLead, countAlunosComArkeAtivo, createAppStudent, createAppUser, createAtendimento, createDeletionRequest, addCompeticaoParticipante, addDesafioParticipante, createCompeticao, createDesafio, createDieta, createFeedComment, createFeedLike, createFeedPost, createGlobalExercise, createGlobalGroup, createGlobalNutritionPlan, createGlobalRoutine, createGlobalTemplate, createGlobalTemplateExercise, createLead, createLeadNota, createMensagemDieta, createMensagemTreino, createNotificacao, createPasswordRecoveryCode, createProgressoSemanal, createTreino, createTurma, deleteAppStudent, deleteAppUser, deleteCompeticao, deleteDesafio, deleteDieta, deletePushSubscription, deleteFeedComment, deleteFeedLike, deleteFeedPost, deleteProgressoSemanal, deleteGlobalExercise, deleteGlobalGroup, deleteGlobalNutritionPlan, deleteGlobalRoutine, deleteGlobalTemplate, deleteGlobalTemplateExercise, deleteGlobalAccessRule, deleteLead, deleteTreino, deleteTurma, findAppUserByEmail, fulfillDeletionRequest, gerarFichaTreinoPdf, getAcolhimento, getAlunoArkeLicenca, getArkeModule, getAtendimento, getAvaliacaoSemanal, getCheckinDoDia, getCrmIndicadores, getCurrentPrivacyPolicy, getDeletionRequest, getDieta, getGestaoIndicadores, getLead, getCompeticao, getDesafio, getFeedComment, getFeedLike, getFeedPost, getMyDeletionRequest, getPlanoTreinoSemanal, getProfileByUserId, getProgressoSemanal, getReserva, getTreino, getTurma, getVagasDisponiveis, hasConsent, hasSupabaseConfig, inviteMember, listAppStudents, listAppUsers, listAtendimentosForOrganization, listCompeticaoParticipantes, listCompeticaoParticipantesForAluno, listCompeticaoPontuacaoForCompeticao, listCompeticoes, listDeletionRequests, listDesafioParticipantes, listDesafioParticipantesForAluno, listDesafioProgressoForAluno, listDesafioProgressoForDesafio, listDesafios, listDietasForAluno, listMensagensDieta, listMensagensTreino, listNotificacoes, listProntuarioObservacoes, listExercisesCatalog, listFeedCommentsForPosts, listFeedLikesForPosts, listFeedPosts, listFrequenciaForAluno, listFrequenciaForOrganization, listGlobalLibrary, listLeadAtividades, listLeadsForOrganization, listMinhasReservas, listMyAtendimentos, listMyCheckIns, listPendingMemberInvitations, listProfileNames, listProgressoSemanal, listReservasForTurmaData, listStudentsInOrganization, listTreinoExercicios, listTreinosForAluno, listTurmaHorarios, listTurmasAtivas, listTurmasForOrganization, marcarLeadPerdido, moverEstagioLead, normalizeEmail, publishDieta, publishGlobalExercises, publishGlobalNutritionPlans, publishGlobalTemplates, publishTreino, countNotificacoesNaoLidas, markAllNotificacoesLidas, markMensagensDietaLidas, markMensagensTreinoLidas, markNotificacaoLida, recordConsent, registrarFrequencia, rejectDeletionRequest, removeCompeticaoParticipante, removeDesafioParticipante, replaceTreinoExercicios, replaceTurmaHorarios, requestHelp, reservarVaga, resolveAtendimento, revokeMemberInvitation, setCompeticaoPontuacao, setDesafioProgresso, signInWithSupabase, submitCheckIn, toggleAlunoArkeLicenca, updateAppStudent, updateAppUser, updateCompeticao, updateDesafio, updateDieta, upsertProntuarioObservacao, upsertPushSubscription, updateGlobalExercise, updateGlobalGroup, updateGlobalNutritionPlan, updateGlobalRoutine, updateGlobalTemplate, updateGlobalTemplateExercise, updateLead, updateStudentMatricula, updateSupabaseUserPassword, updateTreino, updateTurma, upsertAcolhimento, upsertArkeModule, upsertAvaliacaoSemanal, upsertCheckinDiario, upsertGlobalAccessRule, upsertPlanoTreinoSemanal, verifyPasswordRecoveryCode } from "./supabaseAdmin";
 import { alunoTemArke, assertAlunoTemArke } from "./arkeEntitlement";
 import { asaasConfigured, asaasEnvironment, createAsaasWebhook, getAsaasAccount, listAsaasPayments } from "./asaas";
 import { listAsaasPaymentsForOrganization } from "./asaasPersistence";
@@ -35,6 +35,14 @@ const currentWeekKey = () => {
   const diffToMonday = (d.getUTCDay() + 6) % 7;
   d.setUTCDate(d.getUTCDate() - diffToMonday);
   return d.toISOString().slice(0, 10);
+};
+
+// Toda notificação de chat cria um registro no inbox in-app (histórico
+// confiável, sempre disponível) e dispara push em paralelo (best-effort,
+// falha silenciosa — mesmo espírito do sendChatPush original).
+const notifyAluno = async (userId: string, titulo: string, mensagem: string) => {
+  await createNotificacao({ userId, titulo, mensagem, tipo: "chat" });
+  sendPushToUser(userId, { title: titulo, body: mensagem, url: "/" }).catch(() => {});
 };
 
 const ownerOrAdmin = async (userId: string, organizationId: string) => {
@@ -215,6 +223,14 @@ export const appRouter = router({
     publicKey: publicProcedure.query(() => ({ publicKey: getVapidPublicKey() })),
     subscribe: protectedProcedure.input(z.object({ endpoint: z.string().url(), keys: z.object({ p256dh: z.string(), auth: z.string() }) })).mutation(({ ctx, input }) => upsertPushSubscription({ userId: ctx.user.id, endpoint: input.endpoint, p256dh: input.keys.p256dh, auth: input.keys.auth })),
     unsubscribe: protectedProcedure.input(z.object({ endpoint: z.string().url() })).mutation(({ ctx, input }) => deletePushSubscription(ctx.user.id, input.endpoint)),
+  }),
+  // Inbox in-app (Fase 3): histórico confiável de notificações — existe
+  // mesmo para quem nunca ativou push no navegador.
+  notificacoes: router({
+    minhas: protectedProcedure.query(({ ctx }) => listNotificacoes(ctx.user.id)),
+    naoLidas: protectedProcedure.query(async ({ ctx }) => ({ count: await countNotificacoesNaoLidas(ctx.user.id) })),
+    marcarLida: protectedProcedure.input(z.object({ id: z.string().uuid() })).mutation(({ ctx, input }) => markNotificacaoLida(input.id, ctx.user.id)),
+    marcarTodasLidas: protectedProcedure.mutation(({ ctx }) => markAllNotificacoesLidas(ctx.user.id)),
   }),
   admin: router({
     status: publicProcedure.query(() => ({ configured: hasSupabaseConfig() })),
@@ -511,7 +527,7 @@ export const appRouter = router({
         send: protectedProcedure.input(z.object({ alunoId: z.string().uuid(), mensagem: z.string().trim().min(1).max(2000) })).mutation(async ({ ctx, input }) => {
           const profile = await assertStaffForAluno(ctx.user.id, input.alunoId, TREINO_BLOCKED_ROLES);
           const mensagem = await createMensagemTreino({ aluno_id: input.alunoId, organization_id: profile.organization_id, remetente_id: ctx.user.id, remetente_tipo: "treinador", mensagem: input.mensagem });
-          sendPushToUser(input.alunoId, { title: "Nova mensagem do seu treinador", body: input.mensagem.slice(0, 140), url: "/" }).catch(() => {});
+          await notifyAluno(input.alunoId, "Nova mensagem do seu treinador", input.mensagem.slice(0, 140));
           return mensagem;
         }),
         sendVideo: protectedProcedure.input(z.object({ alunoId: z.string().uuid(), contentType: z.string(), dataBase64: z.string() })).mutation(async ({ ctx, input }) => {
@@ -519,7 +535,7 @@ export const appRouter = router({
           const buffer = decodeUpload(input.dataBase64, input.contentType, CHAT_VIDEO_MIME_TYPES, CHAT_VIDEO_MAX_BYTES);
           const url = await uploadPublicFile("chat-videos", `${input.alunoId}/${randomUUID()}.${extensionFor(input.contentType)}`, buffer, input.contentType);
           const mensagem = await createMensagemTreino({ aluno_id: input.alunoId, organization_id: profile.organization_id, remetente_id: ctx.user.id, remetente_tipo: "treinador", mensagem: "Vídeo", video_url: url });
-          sendPushToUser(input.alunoId, { title: "Nova mensagem do seu treinador", body: "Vídeo enviado", url: "/" }).catch(() => {});
+          await notifyAluno(input.alunoId, "Nova mensagem do seu treinador", "Vídeo enviado");
           return mensagem;
         }),
         markRead: protectedProcedure.input(z.object({ alunoId: z.string().uuid() })).mutation(async ({ ctx, input }) => { await assertStaffForAluno(ctx.user.id, input.alunoId, TREINO_BLOCKED_ROLES); return markMensagensTreinoLidas(input.alunoId, "aluno"); }),
@@ -529,10 +545,20 @@ export const appRouter = router({
         send: protectedProcedure.input(z.object({ dietaId: z.string().uuid(), mensagem: z.string().trim().min(1).max(2000) })).mutation(async ({ ctx, input }) => {
           const dieta = await assertStaffForDieta(ctx.user.id, input.dietaId, DIETA_BLOCKED_ROLES);
           const mensagem = await createMensagemDieta({ dieta_id: input.dietaId, aluno_id: dieta.aluno_id, organization_id: dieta.organization_id, remetente_id: ctx.user.id, remetente_tipo: "nutricionista", mensagem: input.mensagem });
-          sendPushToUser(dieta.aluno_id, { title: "Nova mensagem da nutrição", body: input.mensagem.slice(0, 140), url: "/" }).catch(() => {});
+          await notifyAluno(dieta.aluno_id, "Nova mensagem da nutrição", input.mensagem.slice(0, 140));
           return mensagem;
         }),
         markRead: protectedProcedure.input(z.object({ dietaId: z.string().uuid() })).mutation(async ({ ctx, input }) => { await assertStaffForDieta(ctx.user.id, input.dietaId, DIETA_BLOCKED_ROLES); return markMensagensDietaLidas(input.dietaId, "aluno"); }),
+      }),
+    }),
+    // Prontuário privado (Fase 3): notas internas da equipe sobre o aluno,
+    // nunca expostas a ele — sem procedure nenhuma em `meu`.
+    prontuario: router({
+      list: protectedProcedure.input(z.object({ alunoId: z.string().uuid() })).query(async ({ ctx, input }) => { await assertStaffForAluno(ctx.user.id, input.alunoId); return listProntuarioObservacoes(input.alunoId); }),
+      upsert: protectedProcedure.input(z.object({ alunoId: z.string().uuid(), mes: z.number().int().min(1).max(12), ano: z.number().int().min(2020).max(2100), observacao: z.string().trim().max(4000) })).mutation(async ({ ctx, input }) => {
+        const profile = await assertStaffForAluno(ctx.user.id, input.alunoId);
+        if (!profile.organization_id) throw new Error("Aluno sem organização vinculada.");
+        return upsertProntuarioObservacao({ alunoId: input.alunoId, organizationId: profile.organization_id, mes: input.mes, ano: input.ano, observacao: input.observacao, criadoPor: ctx.user.id });
       }),
     }),
     meu: router({
