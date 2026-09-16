@@ -146,6 +146,20 @@ describe("arke.meu (conteúdo do método)", () => {
   it("fails closed on marcarMetaConcluida for a meta that cannot be found", async () => {
     await expect(appRouter.createCaller(createContext()).arke.meu.marcarMetaConcluida({ metaId: "00000000-0000-4000-8000-0000000000f1", concluida: true })).rejects.toThrow();
   });
+
+  it("cannot read minhaPontuacao without a configured Supabase profile lookup", async () => {
+    await expect(appRouter.createCaller(createContext()).arke.meu.minhaPontuacao({ desde: "2026-09-01", ate: "2026-09-30" })).rejects.toThrow();
+  });
+
+  it("rejects minhaPontuacao with a malformed date", async () => {
+    await expect(appRouter.createCaller(createContext()).arke.meu.minhaPontuacao({ desde: "01/09/2026", ate: "2026-09-30" })).rejects.toThrow();
+  });
+});
+
+describe("prescricao.pontuacao", () => {
+  it("requires staff access to the aluno's organization", async () => {
+    await expect(appRouter.createCaller(createContext()).prescricao.pontuacao.deAluno({ alunoId: TEST_USER_ID, desde: "2026-09-01", ate: "2026-09-30" })).rejects.toThrow();
+  });
 });
 
 describe("arke.feed (Fase 2 — engajamento)", () => {
