@@ -5,7 +5,7 @@ import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { adminProcedure, protectedProcedure, publicProcedure, router } from "./_core/trpc";
 import { assertRateLimit, rateLimitKey } from "./_core/rateLimit";
-import { acceptOrganizationInvitation, archiveOrganizationUnit, auditLogsToCsv, auditLogsToPdfBase64, createOrganizationInvitation, createOrganizationUnit, createOrganizationWithOwner, createSubscriptionCharge, getAuditLogs, getMembership, getOrganization, getOrganizationAccess, getOrganizationBySlug, getOrganizationOnboarding, getOrganizationSubscription, getOrganizationsForUser, getPendingOrganizationInvitations, recordAuditLog, revokeOrganizationInvitation, saveOrganizationOnboarding, updateModulePolicy, updateOrganizationProfile, updateOrganizationSubscription } from "./db";
+import { acceptOrganizationInvitation, archiveOrganizationUnit, auditLogsToCsv, auditLogsToPdfBase64, createOrganizationInvitation, createOrganizationUnit, createOrganizationWithOwner, createSubscriptionCharge, getAuditLogs, getMembership, getOrganization, getOrganizationAccess, getOrganizationBySlug, getOrganizationOnboarding, getOrganizationSubscription, getOrganizationsForUser, getPendingOrganizationInvitations, listActiveStaffUserIds, recordAuditLog, revokeOrganizationInvitation, saveOrganizationOnboarding, updateModulePolicy, updateOrganizationProfile, updateOrganizationSubscription, type Membership } from "./db";
 import { acceptMemberInvitation, assignAtendimento, cancelarReserva, cancelarReservaStaff, converterLead, countAlunosComArkeAtivo, createAppStudent, createAppUser, createAtendimento, createDeletionRequest, addCompeticaoParticipante, addDesafioParticipante, createCompeticao, createDesafio, createDieta, createFeedComment, createFeedLike, createFeedPost, createGlobalExercise, createGlobalGroup, createGlobalNutritionPlan, createGlobalRoutine, createGlobalTemplate, createGlobalTemplateExercise, createLead, createLeadNota, createMensagemDieta, createMensagemTreino, createNotificacao, createPasswordRecoveryCode, createProgressoSemanal, createTreino, createTurma, deleteAppStudent, deleteAppUser, deleteCompeticao, deleteDesafio, deleteDieta, deletePushSubscription, deleteFeedComment, deleteFeedLike, deleteFeedPost, deleteProgressoSemanal, deleteGlobalExercise, deleteGlobalGroup, deleteGlobalNutritionPlan, deleteGlobalRoutine, deleteGlobalTemplate, deleteGlobalTemplateExercise, deleteGlobalAccessRule, deleteLead, deleteTreino, deleteTurma, findAppUserByEmail, fulfillDeletionRequest, gerarFichaTreinoPdf, getAcolhimento, getAlunoArkeLicenca, getArkeModule, getAtendimento, getAvaliacaoSemanal, getCheckinDoDia, getCrmIndicadores, getCurrentPrivacyPolicy, getDeletionRequest, getDieta, getGestaoIndicadores, getLead, getCompeticao, getDesafio, getFeedComment, getFeedLike, getFeedPost, getMyDeletionRequest, getPlanoTreinoSemanal, getProfileByUserId, getProgressoSemanal, getReserva, getTreino, getTurma, getVagasDisponiveis, hasConsent, hasSupabaseConfig, inviteMember, listAppStudents, listAppUsers, listAtendimentosForOrganization, listCompeticaoParticipantes, listCompeticaoParticipantesForAluno, listCompeticaoPontuacaoForCompeticao, listCompeticoes, listDeletionRequests, listDesafioParticipantes, listDesafioParticipantesForAluno, listDesafioProgressoForAluno, listDesafioProgressoForDesafio, listDesafios, listDietasForAluno, listMensagensDieta, listMensagensTreino, listNotificacoes, listProntuarioObservacoes, listExercisesCatalog, listFeedCommentsForPosts, listFeedLikesForPosts, listFeedPosts, listFrequenciaForAluno, listFrequenciaForOrganization, listGlobalLibrary, listLeadAtividades, listLeadsForOrganization, listMinhasReservas, listMyAtendimentos, listMyCheckIns, listPendingMemberInvitations, listProfileNames, listProgressoSemanal, listReservasForTurmaData, listStudentsInOrganization, listTreinoExercicios, listTreinosForAluno, listTurmaHorarios, listTurmasAtivas, listTurmasForOrganization, marcarLeadPerdido, moverEstagioLead, normalizeEmail, publishDieta, publishGlobalExercises, publishGlobalNutritionPlans, publishGlobalTemplates, publishTreino, countNotificacoesNaoLidas, markAllNotificacoesLidas, markMensagensDietaLidas, markMensagensTreinoLidas, markNotificacaoLida, recordConsent, registrarFrequencia, rejectDeletionRequest, removeCompeticaoParticipante, removeDesafioParticipante, replaceTreinoExercicios, replaceTurmaHorarios, requestHelp, reservarVaga, resolveAtendimento, revokeMemberInvitation, setCompeticaoPontuacao, setDesafioProgresso, signInWithSupabase, submitCheckIn, toggleAlunoArkeLicenca, updateAppStudent, updateAppUser, updateCompeticao, updateDesafio, updateDieta, upsertProntuarioObservacao, upsertPushSubscription, updateGlobalExercise, updateGlobalGroup, updateGlobalNutritionPlan, updateGlobalRoutine, updateGlobalTemplate, updateGlobalTemplateExercise, updateLead, updateStudentMatricula, updateSupabaseUserPassword, updateTreino, updateTurma, upsertAcolhimento, upsertArkeModule, upsertAvaliacaoSemanal, upsertCheckinDiario, upsertGlobalAccessRule, upsertPlanoTreinoSemanal, verifyPasswordRecoveryCode } from "./supabaseAdmin";
 import { alunoTemArke, assertAlunoTemArke } from "./arkeEntitlement";
 import { asaasConfigured, asaasEnvironment, createAsaasWebhook, getAsaasAccount, listAsaasPayments } from "./asaas";
@@ -40,7 +40,7 @@ const currentWeekKey = () => {
 // Toda notificação de chat cria um registro no inbox in-app (histórico
 // confiável, sempre disponível) e dispara push em paralelo (best-effort,
 // falha silenciosa — mesmo espírito do sendChatPush original).
-const notifyAluno = async (userId: string, titulo: string, mensagem: string) => {
+const notifyUser = async (userId: string, titulo: string, mensagem: string) => {
   await createNotificacao({ userId, titulo, mensagem, tipo: "chat" });
   sendPushToUser(userId, { title: titulo, body: mensagem, url: "/" }).catch(() => {});
 };
@@ -62,6 +62,17 @@ const MANAGER_ROLES: readonly string[] = ["owner", "admin", "manager"];
 // CLAUDE.md §2: "Profissional de treino" não publica plano alimentar; "Nutricionista" não publica prescrição de treino.
 const TREINO_BLOCKED_ROLES: readonly string[] = ["nutricionista"];
 const DIETA_BLOCKED_ROLES: readonly string[] = ["professional"];
+// Mesmo corte de papéis acima, só que na forma "quem pode ver" em vez de
+// "quem não pode" — usado para notificar a equipe quando o aluno responde
+// no chat, sem inventar um "treinador responsável" que o modelo de dados
+// não tem.
+const TREINO_STAFF_ROLES = ["owner", "admin", "manager", "professional"] as const;
+const DIETA_STAFF_ROLES = ["owner", "admin", "manager", "nutricionista"] as const;
+
+const notifyStaff = async (organizationId: string, allowedRoles: readonly Membership["role"][], titulo: string, mensagem: string) => {
+  const staffUserIds = await listActiveStaffUserIds(organizationId, allowedRoles);
+  await Promise.all(staffUserIds.map((userId) => notifyUser(userId, titulo, mensagem)));
+};
 
 const assertStaffOfOrganization = async (userId: string, organizationId: string, blockedRoles: readonly string[] = []) => {
   const membership = await getMembership(userId, organizationId);
@@ -527,7 +538,7 @@ export const appRouter = router({
         send: protectedProcedure.input(z.object({ alunoId: z.string().uuid(), mensagem: z.string().trim().min(1).max(2000) })).mutation(async ({ ctx, input }) => {
           const profile = await assertStaffForAluno(ctx.user.id, input.alunoId, TREINO_BLOCKED_ROLES);
           const mensagem = await createMensagemTreino({ aluno_id: input.alunoId, organization_id: profile.organization_id, remetente_id: ctx.user.id, remetente_tipo: "treinador", mensagem: input.mensagem });
-          await notifyAluno(input.alunoId, "Nova mensagem do seu treinador", input.mensagem.slice(0, 140));
+          await notifyUser(input.alunoId, "Nova mensagem do seu treinador", input.mensagem.slice(0, 140));
           return mensagem;
         }),
         sendVideo: protectedProcedure.input(z.object({ alunoId: z.string().uuid(), contentType: z.string(), dataBase64: z.string() })).mutation(async ({ ctx, input }) => {
@@ -535,7 +546,7 @@ export const appRouter = router({
           const buffer = decodeUpload(input.dataBase64, input.contentType, CHAT_VIDEO_MIME_TYPES, CHAT_VIDEO_MAX_BYTES);
           const url = await uploadPublicFile("chat-videos", `${input.alunoId}/${randomUUID()}.${extensionFor(input.contentType)}`, buffer, input.contentType);
           const mensagem = await createMensagemTreino({ aluno_id: input.alunoId, organization_id: profile.organization_id, remetente_id: ctx.user.id, remetente_tipo: "treinador", mensagem: "Vídeo", video_url: url });
-          await notifyAluno(input.alunoId, "Nova mensagem do seu treinador", "Vídeo enviado");
+          await notifyUser(input.alunoId, "Nova mensagem do seu treinador", "Vídeo enviado");
           return mensagem;
         }),
         markRead: protectedProcedure.input(z.object({ alunoId: z.string().uuid() })).mutation(async ({ ctx, input }) => { await assertStaffForAluno(ctx.user.id, input.alunoId, TREINO_BLOCKED_ROLES); return markMensagensTreinoLidas(input.alunoId, "aluno"); }),
@@ -545,7 +556,7 @@ export const appRouter = router({
         send: protectedProcedure.input(z.object({ dietaId: z.string().uuid(), mensagem: z.string().trim().min(1).max(2000) })).mutation(async ({ ctx, input }) => {
           const dieta = await assertStaffForDieta(ctx.user.id, input.dietaId, DIETA_BLOCKED_ROLES);
           const mensagem = await createMensagemDieta({ dieta_id: input.dietaId, aluno_id: dieta.aluno_id, organization_id: dieta.organization_id, remetente_id: ctx.user.id, remetente_tipo: "nutricionista", mensagem: input.mensagem });
-          await notifyAluno(dieta.aluno_id, "Nova mensagem da nutrição", input.mensagem.slice(0, 140));
+          await notifyUser(dieta.aluno_id, "Nova mensagem da nutrição", input.mensagem.slice(0, 140));
           return mensagem;
         }),
         markRead: protectedProcedure.input(z.object({ dietaId: z.string().uuid() })).mutation(async ({ ctx, input }) => { await assertStaffForDieta(ctx.user.id, input.dietaId, DIETA_BLOCKED_ROLES); return markMensagensDietaLidas(input.dietaId, "aluno"); }),
@@ -570,14 +581,18 @@ export const appRouter = router({
       sendChatTreino: protectedProcedure.input(z.object({ mensagem: z.string().trim().min(1).max(2000) })).mutation(async ({ ctx, input }) => {
         const profile = await getProfileByUserId(ctx.user.id);
         if (!profile?.organization_id) throw new Error("Aluno sem organização vinculada.");
-        return createMensagemTreino({ aluno_id: ctx.user.id, organization_id: profile.organization_id, remetente_id: ctx.user.id, remetente_tipo: "aluno", mensagem: input.mensagem });
+        const mensagem = await createMensagemTreino({ aluno_id: ctx.user.id, organization_id: profile.organization_id, remetente_id: ctx.user.id, remetente_tipo: "aluno", mensagem: input.mensagem });
+        await notifyStaff(profile.organization_id, TREINO_STAFF_ROLES, `Nova mensagem de ${profile.full_name || "aluno"} (treino)`, input.mensagem.slice(0, 140));
+        return mensagem;
       }),
       sendChatTreinoVideo: protectedProcedure.input(z.object({ contentType: z.string(), dataBase64: z.string() })).mutation(async ({ ctx, input }) => {
         const profile = await getProfileByUserId(ctx.user.id);
         if (!profile?.organization_id) throw new Error("Aluno sem organização vinculada.");
         const buffer = decodeUpload(input.dataBase64, input.contentType, CHAT_VIDEO_MIME_TYPES, CHAT_VIDEO_MAX_BYTES);
         const url = await uploadPublicFile("chat-videos", `${ctx.user.id}/${randomUUID()}.${extensionFor(input.contentType)}`, buffer, input.contentType);
-        return createMensagemTreino({ aluno_id: ctx.user.id, organization_id: profile.organization_id, remetente_id: ctx.user.id, remetente_tipo: "aluno", mensagem: "Vídeo", video_url: url });
+        const mensagem = await createMensagemTreino({ aluno_id: ctx.user.id, organization_id: profile.organization_id, remetente_id: ctx.user.id, remetente_tipo: "aluno", mensagem: "Vídeo", video_url: url });
+        await notifyStaff(profile.organization_id, TREINO_STAFF_ROLES, `Nova mensagem de ${profile.full_name || "aluno"} (treino)`, "Vídeo enviado");
+        return mensagem;
       }),
       markChatTreinoLido: protectedProcedure.mutation(({ ctx }) => markMensagensTreinoLidas(ctx.user.id, "treinador")),
       chatDieta: protectedProcedure.input(z.object({ dietaId: z.string().uuid() })).query(async ({ ctx, input }) => {
@@ -588,7 +603,12 @@ export const appRouter = router({
       sendChatDieta: protectedProcedure.input(z.object({ dietaId: z.string().uuid(), mensagem: z.string().trim().min(1).max(2000) })).mutation(async ({ ctx, input }) => {
         const dieta = await getDieta(input.dietaId);
         if (!dieta || dieta.aluno_id !== ctx.user.id) throw new Error("Plano alimentar não encontrado.");
-        return createMensagemDieta({ dieta_id: input.dietaId, aluno_id: ctx.user.id, organization_id: dieta.organization_id, remetente_id: ctx.user.id, remetente_tipo: "aluno", mensagem: input.mensagem });
+        const mensagem = await createMensagemDieta({ dieta_id: input.dietaId, aluno_id: ctx.user.id, organization_id: dieta.organization_id, remetente_id: ctx.user.id, remetente_tipo: "aluno", mensagem: input.mensagem });
+        if (dieta.organization_id) {
+          const profile = await getProfileByUserId(ctx.user.id);
+          await notifyStaff(dieta.organization_id, DIETA_STAFF_ROLES, `Nova mensagem de ${profile?.full_name || "aluno"} (nutrição)`, input.mensagem.slice(0, 140));
+        }
+        return mensagem;
       }),
       markChatDietaLido: protectedProcedure.input(z.object({ dietaId: z.string().uuid() })).mutation(async ({ ctx, input }) => {
         const dieta = await getDieta(input.dietaId);
