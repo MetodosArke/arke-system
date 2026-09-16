@@ -13,7 +13,7 @@ import { lookupCnpj } from "./cnpj";
 import { deleteTurnstileIntegration, listBenefitIntegrations, listTurnstileIntegrationsForOrganization, saveBenefitIntegration, saveTurnstileIntegration } from "./integrations";
 import { openaiConfigured } from "./_core/llm";
 import { sugerirExercicio, sugerirModeloTreino } from "./acervoAi";
-import { DIETA_MAX_BYTES, DIETA_MIME_TYPES, LOGO_MAX_BYTES, LOGO_MIME_TYPES, decodeUpload, extensionFor, uploadPublicFile } from "./storage";
+import { DIETA_MAX_BYTES, DIETA_MIME_TYPES, EXERCICIO_VIDEO_MAX_BYTES, EXERCICIO_VIDEO_MIME_TYPES, LOGO_MAX_BYTES, LOGO_MIME_TYPES, decodeUpload, extensionFor, uploadPublicFile } from "./storage";
 
 const organizationIdInput = z.object({ organizationId: z.string().uuid() });
 const moduleName = z.enum(["dashboard", "academias", "profissionais", "alunos", "agenda", "financeiro", "integracoes"]);
@@ -210,6 +210,11 @@ export const appRouter = router({
       create: adminProcedure.input(z.object({ nome: z.string().trim().min(2), grupo_muscular: z.string().trim().min(2), descricao: z.string().trim().optional(), instrucoes: z.string().trim().optional(), video_url: z.string().url().optional(), imagem_url: z.string().url().optional(), equipamento: z.string().trim().optional() })).mutation(({ ctx, input }) => createGlobalExercise({ ...input, created_by: ctx.user.id })),
       update: adminProcedure.input(z.object({ id: z.string().uuid(), data: z.object({ nome: z.string().trim().min(2), grupo_muscular: z.string().trim().min(2), descricao: z.string().trim().optional().nullable(), instrucoes: z.string().trim().optional().nullable(), video_url: z.string().url().optional().nullable(), imagem_url: z.string().url().optional().nullable(), equipamento: z.string().trim().optional().nullable() }) })).mutation(({ input }) => updateGlobalExercise(input.id, input.data)),
       delete: adminProcedure.input(z.object({ id: z.string().uuid() })).mutation(({ input }) => deleteGlobalExercise(input.id)),
+      uploadVideo: adminProcedure.input(z.object({ contentType: z.string(), dataBase64: z.string() })).mutation(async ({ input }) => {
+        const buffer = decodeUpload(input.dataBase64, input.contentType, EXERCICIO_VIDEO_MIME_TYPES, EXERCICIO_VIDEO_MAX_BYTES);
+        const url = await uploadPublicFile("exercicio-videos", `${randomUUID()}.${extensionFor(input.contentType)}`, buffer, input.contentType);
+        return { url };
+      }),
     }),
     groups: router({
       create: adminProcedure.input(z.object({ nome: z.string().trim().min(2), ordem: z.number().int().min(0).default(0) })).mutation(({ input }) => createGlobalGroup(input)),
