@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { computeScoreAluno } from "./arkeGamification";
+import { computeComparativoAluno, computeScoreAluno } from "./arkeGamification";
 import * as supabaseAdmin from "./supabaseAdmin";
 
 afterEach(() => vi.restoreAllMocks());
@@ -91,5 +91,25 @@ describe("computeScoreAluno", () => {
 
     expect(result.eventos).toEqual([{ origem: "desafio", descricao: "Desafio concluído: Desafio de setembro", pontos: 50, data: "2026-09-20" }]);
     expect(result.total).toBe(50);
+  });
+});
+
+describe("computeComparativoAluno", () => {
+  it("never compares the aluno to a single peer — only to the group average", async () => {
+    mockVazio();
+    vi.spyOn(supabaseAdmin, "listAlunosComArkeAtivoIds").mockResolvedValue([ALUNO_ID, "aluno-2", "aluno-3"]);
+    const scoreSpy = vi.spyOn(supabaseAdmin, "listCheckinsPeriodo");
+    scoreSpy.mockImplementation(async (userId: string) => (userId === ALUNO_ID ? [{ id: "c1", user_id: ALUNO_ID, organization_id: ORG_ID, data: "2026-09-05", dedicacao: "boa", horas_sono: null, created_at: "" }] : []));
+
+    const result = await computeComparativoAluno(ALUNO_ID, ORG_ID, DESDE, ATE);
+
+    expect(result).toEqual({ minhaPontuacao: 5, mediaGrupo: 5 / 3, tamanhoGrupo: 3 });
+  });
+
+  it("returns a zeroed comparativo when the organization has no aluno with Arke ativo", async () => {
+    mockVazio();
+    vi.spyOn(supabaseAdmin, "listAlunosComArkeAtivoIds").mockResolvedValue([]);
+    const result = await computeComparativoAluno(ALUNO_ID, ORG_ID, DESDE, ATE);
+    expect(result).toEqual({ minhaPontuacao: 0, mediaGrupo: 0, tamanhoGrupo: 0 });
   });
 });

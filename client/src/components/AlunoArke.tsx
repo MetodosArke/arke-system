@@ -188,10 +188,13 @@ function PontuacaoCard() {
     return { desde: trintaDiasAtras.toISOString().slice(0, 10), ate: hoje.toISOString().slice(0, 10) };
   }, []);
   const pontuacaoQuery = trpc.arke.meu.minhaPontuacao.useQuery({ desde, ate });
+  const comparativoQuery = trpc.arke.meu.comparativo.useQuery({ desde, ate });
   if (pontuacaoQuery.isLoading) return null;
   const dados = pontuacaoQuery.data;
+  const comparativo = comparativoQuery.data;
   return <Card className="rounded-2xl border-[#e5ece5] bg-white shadow-sm"><CardHeader><CardTitle className="flex items-center gap-2 text-sm text-[#2b271f]"><Star size={15} className="text-[#a47b13]" /> Sua pontuação (últimos 30 dias)</CardTitle></CardHeader><CardContent>
     <p className="text-2xl font-semibold tracking-[-.05em] text-[#2b271f]">{dados?.total ?? 0} pts</p>
+    {comparativo && comparativo.tamanhoGrupo > 1 && <p className="mt-1 text-xs text-[#918a7d]">Média da turma ({comparativo.tamanhoGrupo} alunos): {comparativo.mediaGrupo.toFixed(1)} pts</p>}
     {dados && dados.eventos.length > 0 ? <div className="mt-3 space-y-1.5">{[...dados.eventos].reverse().slice(0, 8).map((evento, index) => <div key={index} className="flex items-center justify-between rounded-lg bg-[#faf7ef] px-3 py-1.5 text-xs"><div className="min-w-0"><span className="text-[#4b4438]">{evento.descricao}</span><span className="ml-1.5 text-[10px] text-[#9b9488]">{ORIGEM_PONTO_LABEL[evento.origem]}</span></div><span className="shrink-0 font-semibold text-[#a47b13]">+{evento.pontos}</span></div>)}</div> : <p className="mt-2 text-xs text-[#918a7d]">Preencha check-ins, avaliações e treinos para somar pontos.</p>}
   </CardContent></Card>;
 }

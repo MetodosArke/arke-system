@@ -154,6 +154,10 @@ describe("arke.meu (conteúdo do método)", () => {
   it("rejects minhaPontuacao with a malformed date", async () => {
     await expect(appRouter.createCaller(createContext()).arke.meu.minhaPontuacao({ desde: "01/09/2026", ate: "2026-09-30" })).rejects.toThrow();
   });
+
+  it("cannot read comparativo without a configured Supabase profile lookup", async () => {
+    await expect(appRouter.createCaller(createContext()).arke.meu.comparativo({ desde: "2026-09-01", ate: "2026-09-30" })).rejects.toThrow();
+  });
 });
 
 describe("prescricao.pontuacao", () => {
