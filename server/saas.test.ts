@@ -278,3 +278,17 @@ describe("prescricao.progresso (evolução)", () => {
     await expect(appRouter.createCaller(createContext()).prescricao.progresso.delete({ id: "00000000-0000-0000-0000-0000000000d1" })).rejects.toThrow();
   });
 });
+
+describe("push (Fase 3 — comunicação)", () => {
+  it("returns a null public key when VAPID is not configured (never throws)", async () => {
+    await expect(appRouter.createCaller(createContext()).push.publicKey()).resolves.toEqual({ publicKey: null });
+  });
+
+  it("cannot subscribe without a configured Supabase profile lookup", async () => {
+    await expect(appRouter.createCaller(createContext()).push.subscribe({ endpoint: "https://push.example.com/abc", keys: { p256dh: "key", auth: "auth" } })).rejects.toThrow();
+  });
+
+  it("cannot unsubscribe without a configured Supabase profile lookup", async () => {
+    await expect(appRouter.createCaller(createContext()).push.unsubscribe({ endpoint: "https://push.example.com/abc" })).rejects.toThrow();
+  });
+});
