@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { appRouter } from "./routers";
 import type { TrpcContext } from "./_core/context";
-import { auditLogsToCsv, auditLogsToPdfBase64, chargeSetupFeeIfNeeded, getAuditLogs } from "./db";
+import { auditLogsToCsv, auditLogsToPdfBase64, chargeSetupFeeIfNeeded, getAuditLogs, listActiveStaffUserIds } from "./db";
 
 type AuthenticatedUser = NonNullable<TrpcContext["user"]>;
 
@@ -66,6 +66,10 @@ describe("saas.organizations", () => {
 
   it("never throws when charging the setup fee (no-ops without Supabase configured)", async () => {
     await expect(chargeSetupFeeIfNeeded(TEST_ORG_ID)).resolves.toBeUndefined();
+  });
+
+  it("returns an empty staff list instead of throwing without Supabase configured", async () => {
+    await expect(listActiveStaffUserIds(TEST_ORG_ID, ["owner", "admin"])).resolves.toEqual([]);
   });
 });
 

@@ -99,6 +99,17 @@ export async function getMembership(userId: string, organizationId: string) {
   return { membership, organization: saas_organizations };
 }
 
+// Usado para notificar a equipe de chat (Fase 3): a lista de destinatários
+// é sempre derivada do mesmo corte de papéis já usado para GATE de acesso
+// (TREINO_BLOCKED_ROLES/DIETA_BLOCKED_ROLES em routers.ts), nunca um "dono"
+// inventado — evita notificar quem nem enxerga aquele chat.
+export async function listActiveStaffUserIds(organizationId: string, allowedRoles: readonly Membership["role"][]) {
+  if (!isConfigured()) return [];
+  const rolesFilter = allowedRoles.map(encodeURIComponent).join(",");
+  const rows = await request<Array<{ auth_user_id: string }>>("saas_memberships", {}, `?select=auth_user_id&organization_id=eq.${encodeURIComponent(organizationId)}&status=eq.active&role=in.(${rolesFilter})`);
+  return rows.map((row) => row.auth_user_id);
+}
+
 export type OrganizationBranding = { id: string; name: string; slug: string; module: string; logo_url: string | null; primary_color: string | null };
 
 export async function getOrganizationBySlug(slug: string) {

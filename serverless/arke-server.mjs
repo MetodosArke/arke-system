@@ -262,6 +262,12 @@ async function getMembership(userId, organizationId) {
   const { saas_organizations, ...membership } = row;
   return { membership, organization: saas_organizations };
 }
+async function listActiveStaffUserIds(organizationId, allowedRoles) {
+  if (!isConfigured()) return [];
+  const rolesFilter = allowedRoles.map(encodeURIComponent).join(",");
+  const rows = await request("saas_memberships", {}, `?select=auth_user_id&organization_id=eq.${encodeURIComponent(organizationId)}&status=eq.active&role=in.(${rolesFilter})`);
+  return rows.map((row) => row.auth_user_id);
+}
 async function getOrganizationBySlug(slug) {
   if (!isConfigured()) return void 0;
   const rows = await request("saas_organizations", {}, `?select=id,name,slug,module,logo_url,primary_color&slug=eq.${encodeURIComponent(slug)}&limit=1`);
@@ -1954,7 +1960,7 @@ var currentWeekKey = () => {
   d.setUTCDate(d.getUTCDate() - diffToMonday);
   return d.toISOString().slice(0, 10);
 };
-var notifyAluno = async (userId, titulo, mensagem) => {
+var notifyUser = async (userId, titulo, mensagem) => {
   await createNotificacao({ userId, titulo, mensagem, tipo: "chat" });
   sendPushToUser(userId, { title: titulo, body: mensagem, url: "/" }).catch(() => {
   });
@@ -1973,6 +1979,12 @@ var STAFF_ROLES = ["owner", "admin", "manager", "professional", "nutricionista"]
 var MANAGER_ROLES = ["owner", "admin", "manager"];
 var TREINO_BLOCKED_ROLES = ["nutricionista"];
 var DIETA_BLOCKED_ROLES = ["professional"];
+var TREINO_STAFF_ROLES = ["owner", "admin", "manager", "professional"];
+var DIETA_STAFF_ROLES = ["owner", "admin", "manager", "nutricionista"];
+var notifyStaff = async (organizationId, allowedRoles, titulo, mensagem) => {
+  const staffUserIds = await listActiveStaffUserIds(organizationId, allowedRoles);
+  await Promise.all(staffUserIds.map((userId) => notifyUser(userId, titulo, mensagem)));
+};
 var assertStaffOfOrganization = async (userId, organizationId, blockedRoles = []) => {
   const membership = await getMembership(userId, organizationId);
   if (!membership || membership.membership.status !== "active" || !STAFF_ROLES.includes(membership.membership.role)) throw new Error("Voc\xEA n\xE3o tem acesso a esta organiza\xE7\xE3o.");
@@ -2508,7 +2520,7 @@ var appRouter = router({
         send: protectedProcedure.input(z2.object({ alunoId: z2.string().uuid(), mensagem: z2.string().trim().min(1).max(2e3) })).mutation(async ({ ctx, input }) => {
           const profile = await assertStaffForAluno(ctx.user.id, input.alunoId, TREINO_BLOCKED_ROLES);
           const mensagem = await createMensagemTreino({ aluno_id: input.alunoId, organization_id: profile.organization_id, remetente_id: ctx.user.id, remetente_tipo: "treinador", mensagem: input.mensagem });
-          await notifyAluno(input.alunoId, "Nova mensagem do seu treinador", input.mensagem.slice(0, 140));
+          await notifyUser(input.alunoId, "Nova mensagem do seu treinador", input.mensagem.slice(0, 140));
           return mensagem;
         }),
         sendVideo: protectedProcedure.input(z2.object({ alunoId: z2.string().uuid(), contentType: z2.string(), dataBase64: z2.string() })).mutation(async ({ ctx, input }) => {
@@ -2516,7 +2528,7 @@ var appRouter = router({
           const buffer = decodeUpload(input.dataBase64, input.contentType, CHAT_VIDEO_MIME_TYPES, CHAT_VIDEO_MAX_BYTES);
           const url = await uploadPublicFile("chat-videos", `${input.alunoId}/${randomUUID2()}.${extensionFor(input.contentType)}`, buffer, input.contentType);
           const mensagem = await createMensagemTreino({ aluno_id: input.alunoId, organization_id: profile.organization_id, remetente_id: ctx.user.id, remetente_tipo: "treinador", mensagem: "V\xEDdeo", video_url: url });
-          await notifyAluno(input.alunoId, "Nova mensagem do seu treinador", "V\xEDdeo enviado");
+          await notifyUser(input.alunoId, "Nova mensagem do seu treinador", "V\xEDdeo enviado");
           return mensagem;
         }),
         markRead: protectedProcedure.input(z2.object({ alunoId: z2.string().uuid() })).mutation(async ({ ctx, input }) => {
@@ -2532,7 +2544,7 @@ var appRouter = router({
         send: protectedProcedure.input(z2.object({ dietaId: z2.string().uuid(), mensagem: z2.string().trim().min(1).max(2e3) })).mutation(async ({ ctx, input }) => {
           const dieta = await assertStaffForDieta(ctx.user.id, input.dietaId, DIETA_BLOCKED_ROLES);
           const mensagem = await createMensagemDieta({ dieta_id: input.dietaId, aluno_id: dieta.aluno_id, organization_id: dieta.organization_id, remetente_id: ctx.user.id, remetente_tipo: "nutricionista", mensagem: input.mensagem });
-          await notifyAluno(dieta.aluno_id, "Nova mensagem da nutri\xE7\xE3o", input.mensagem.slice(0, 140));
+          await notifyUser(dieta.aluno_id, "Nova mensagem da nutri\xE7\xE3o", input.mensagem.slice(0, 140));
           return mensagem;
         }),
         markRead: protectedProcedure.input(z2.object({ dietaId: z2.string().uuid() })).mutation(async ({ ctx, input }) => {
@@ -2571,14 +2583,18 @@ var appRouter = router({
       sendChatTreino: protectedProcedure.input(z2.object({ mensagem: z2.string().trim().min(1).max(2e3) })).mutation(async ({ ctx, input }) => {
         const profile = await getProfileByUserId(ctx.user.id);
         if (!profile?.organization_id) throw new Error("Aluno sem organiza\xE7\xE3o vinculada.");
-        return createMensagemTreino({ aluno_id: ctx.user.id, organization_id: profile.organization_id, remetente_id: ctx.user.id, remetente_tipo: "aluno", mensagem: input.mensagem });
+        const mensagem = await createMensagemTreino({ aluno_id: ctx.user.id, organization_id: profile.organization_id, remetente_id: ctx.user.id, remetente_tipo: "aluno", mensagem: input.mensagem });
+        await notifyStaff(profile.organization_id, TREINO_STAFF_ROLES, `Nova mensagem de ${profile.full_name || "aluno"} (treino)`, input.mensagem.slice(0, 140));
+        return mensagem;
       }),
       sendChatTreinoVideo: protectedProcedure.input(z2.object({ contentType: z2.string(), dataBase64: z2.string() })).mutation(async ({ ctx, input }) => {
         const profile = await getProfileByUserId(ctx.user.id);
         if (!profile?.organization_id) throw new Error("Aluno sem organiza\xE7\xE3o vinculada.");
         const buffer = decodeUpload(input.dataBase64, input.contentType, CHAT_VIDEO_MIME_TYPES, CHAT_VIDEO_MAX_BYTES);
         const url = await uploadPublicFile("chat-videos", `${ctx.user.id}/${randomUUID2()}.${extensionFor(input.contentType)}`, buffer, input.contentType);
-        return createMensagemTreino({ aluno_id: ctx.user.id, organization_id: profile.organization_id, remetente_id: ctx.user.id, remetente_tipo: "aluno", mensagem: "V\xEDdeo", video_url: url });
+        const mensagem = await createMensagemTreino({ aluno_id: ctx.user.id, organization_id: profile.organization_id, remetente_id: ctx.user.id, remetente_tipo: "aluno", mensagem: "V\xEDdeo", video_url: url });
+        await notifyStaff(profile.organization_id, TREINO_STAFF_ROLES, `Nova mensagem de ${profile.full_name || "aluno"} (treino)`, "V\xEDdeo enviado");
+        return mensagem;
       }),
       markChatTreinoLido: protectedProcedure.mutation(({ ctx }) => markMensagensTreinoLidas(ctx.user.id, "treinador")),
       chatDieta: protectedProcedure.input(z2.object({ dietaId: z2.string().uuid() })).query(async ({ ctx, input }) => {
@@ -2589,7 +2605,12 @@ var appRouter = router({
       sendChatDieta: protectedProcedure.input(z2.object({ dietaId: z2.string().uuid(), mensagem: z2.string().trim().min(1).max(2e3) })).mutation(async ({ ctx, input }) => {
         const dieta = await getDieta(input.dietaId);
         if (!dieta || dieta.aluno_id !== ctx.user.id) throw new Error("Plano alimentar n\xE3o encontrado.");
-        return createMensagemDieta({ dieta_id: input.dietaId, aluno_id: ctx.user.id, organization_id: dieta.organization_id, remetente_id: ctx.user.id, remetente_tipo: "aluno", mensagem: input.mensagem });
+        const mensagem = await createMensagemDieta({ dieta_id: input.dietaId, aluno_id: ctx.user.id, organization_id: dieta.organization_id, remetente_id: ctx.user.id, remetente_tipo: "aluno", mensagem: input.mensagem });
+        if (dieta.organization_id) {
+          const profile = await getProfileByUserId(ctx.user.id);
+          await notifyStaff(dieta.organization_id, DIETA_STAFF_ROLES, `Nova mensagem de ${profile?.full_name || "aluno"} (nutri\xE7\xE3o)`, input.mensagem.slice(0, 140));
+        }
+        return mensagem;
       }),
       markChatDietaLido: protectedProcedure.input(z2.object({ dietaId: z2.string().uuid() })).mutation(async ({ ctx, input }) => {
         const dieta = await getDieta(input.dietaId);
