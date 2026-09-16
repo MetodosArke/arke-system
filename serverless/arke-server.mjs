@@ -1958,6 +1958,9 @@ async function uploadPublicFile(bucket, path, data, contentType) {
   return `${url}/storage/v1/object/public/${bucket}/${path}`;
 }
 
+// shared/turnstile.ts
+var TURNSTILE_BRAND_KEYS = ["control_id", "topdata", "henry", "dimep", "intelbras", "zkteco", "nitgen", "hikvision", "madis", "primme", "nedap", "suprema", "outra"];
+
 // server/routers.ts
 var organizationIdInput = z2.object({ organizationId: z2.string().uuid() });
 var moduleName = z2.enum(["dashboard", "academias", "profissionais", "alunos", "agenda", "financeiro", "integracoes"]);
@@ -2281,7 +2284,7 @@ var appRouter = router({
         await ownerOrAdmin(ctx.user.id, input.organizationId);
         return listTurnstileIntegrationsForOrganization(input.organizationId);
       }),
-      save: protectedProcedure.input(z2.object({ organizationId: z2.string().uuid(), unitId: z2.string().uuid(), brand: z2.enum(["control_id", "topdata", "henry", "dimep", "outra"]), model: z2.string().trim().max(120).optional(), config: z2.record(z2.string(), z2.string()), enabled: z2.boolean().default(true) })).mutation(async ({ ctx, input }) => {
+      save: protectedProcedure.input(z2.object({ organizationId: z2.string().uuid(), unitId: z2.string().uuid(), brand: z2.enum(TURNSTILE_BRAND_KEYS), model: z2.string().trim().max(120).optional(), config: z2.record(z2.string(), z2.string()), enabled: z2.boolean().default(true) })).mutation(async ({ ctx, input }) => {
         await ownerOrAdmin(ctx.user.id, input.organizationId);
         const result = await saveTurnstileIntegration(input);
         await recordAuditLog({ organizationId: input.organizationId, userId: ctx.user.id, unitId: input.unitId, action: "updated", entity: "turnstile_integration", afterJson: { brand: input.brand, model: input.model } });

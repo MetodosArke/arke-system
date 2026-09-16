@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import { trpc } from "@/lib/trpc";
 import type { ViewKey } from "@/App";
 import { MODULE_LABELS, type ModuleKey } from "@/lib/appCatalog";
+import { TURNSTILE_BRAND_LABEL, type TurnstileBrand } from "@shared/turnstile";
 
 const SaasPage = lazy(() => import("@/pages/SaasPage"));
 const UserManagementPage = lazy(() => import("@/components/CrudManagement").then((m) => ({ default: m.UserManagementPage })));
@@ -113,7 +114,6 @@ function BenefitProviderCard({ organizationId, provider, data, onToast }: { orga
   </CardContent></Card>;
 }
 
-const TURNSTILE_BRAND_LABEL: Record<string, string> = { control_id: "Control iD", topdata: "Topdata", henry: "Henry", dimep: "Dimep", outra: "Outra" };
 const TURNSTILE_CONFIG_FIELDS = [{ key: "host", label: "IP/host do equipamento" }, { key: "usuario", label: "Usuário" }, { key: "senha", label: "Senha", secret: true }, { key: "api_key", label: "API key (se houver)", secret: true }];
 
 function TurnstileUnitCard({ organizationId, unit, onToast }: { organizationId: string; unit: { unitId: string; unitName: string; brand: string; model: string | null; enabled: boolean; configured: boolean }; onToast: (toast: NonNullable<Toast>) => void }) {
@@ -126,7 +126,7 @@ function TurnstileUnitCard({ organizationId, unit, onToast }: { organizationId: 
     <select value={brand} onChange={(e) => setBrand(e.target.value)} className="h-9 w-full rounded-lg border bg-white px-2 text-xs">{Object.entries(TURNSTILE_BRAND_LABEL).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select>
     <Input value={model} onChange={(e) => setModel(e.target.value)} placeholder="Modelo (opcional)" className="h-9 rounded-lg text-xs" />
     {TURNSTILE_CONFIG_FIELDS.map((field) => <Input key={field.key} value={config[field.key] ?? ""} onChange={(e) => setConfig({ ...config, [field.key]: e.target.value })} placeholder={unit.configured && field.secret ? `${field.label} (deixe em branco para manter)` : field.label} type={field.secret ? "password" : "text"} className="h-9 rounded-lg text-xs" />)}
-    <Button onClick={() => save.mutate({ organizationId, unitId: unit.unitId, brand: brand as "control_id" | "topdata" | "henry" | "dimep" | "outra", model: model || undefined, config, enabled: true })} disabled={save.isPending} className="h-9 w-full rounded-lg bg-[#15130f] text-xs text-white">Salvar catraca</Button>
+    <Button onClick={() => save.mutate({ organizationId, unitId: unit.unitId, brand: brand as TurnstileBrand, model: model || undefined, config, enabled: true })} disabled={save.isPending} className="h-9 w-full rounded-lg bg-[#15130f] text-xs text-white">Salvar catraca</Button>
   </CardContent></Card>;
 }
 

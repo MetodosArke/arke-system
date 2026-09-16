@@ -2,23 +2,26 @@ import type { Express, Request, Response } from "express";
 import { randomUUID } from "node:crypto";
 import { getProfileByUserId, registrarFrequencia } from "./supabaseAdmin";
 import { captureException } from "./_core/errorMonitoring";
+import type { TurnstileBrand } from "@shared/turnstile";
 
-// Camada genérica de catraca (CLAUDE.md §8.4/§4): nenhuma marca
-// (Control iD, Topdata, Henry, Dimep) tem API de nuvem pública documentada
-// o suficiente para implementar o protocolo com segurança hoje — pesquisa
-// feita antes deste código confirma que as quatro são hardware de rede
-// local (LAN), sem webhook de nuvem oficial. Controle iD é a mais próxima
-// disso (notifica um endpoint HTTP local configurado no próprio
-// equipamento, ex. .../api/notifications/catra_event, com eventos como
-// EVENT_TURN_LEFT/EVENT_TURN_RIGHT), mas ainda assim só na rede local do
-// equipamento — nunca alcança a Vercel diretamente.
+// Camada genérica de catraca (CLAUDE.md §8.4/§4): nenhuma das marcas
+// mapeadas em @shared/turnstile tem API de nuvem pública documentada o
+// suficiente para implementar o protocolo com segurança hoje — as
+// primeiras quatro pesquisadas (Control iD, Topdata, Henry, Dimep) são
+// hardware de rede local (LAN), sem webhook de nuvem oficial. Controle iD
+// é a mais próxima disso (notifica um endpoint HTTP local configurado no
+// próprio equipamento, ex. .../api/notifications/catra_event, com eventos
+// como EVENT_TURN_LEFT/EVENT_TURN_RIGHT), mas ainda assim só na rede
+// local do equipamento — nunca alcança a Vercel diretamente.
 //
 // Por isso o desenho aqui é: cada academia roda um agente/middleware local
 // (fora deste repositório, específico da marca dela) que fala o protocolo
 // nativo do fabricante e traduz o evento para ESTE contrato HTTP genérico,
 // autenticado por `CATRACA_API_KEY`. Trocar de marca não deveria exigir
-// tocar em nenhuma linha deste arquivo — só o agente local muda.
-type CatracaProvider = "control_id" | "topdata" | "henry" | "dimep";
+// tocar em nenhuma linha deste arquivo — só o agente local muda. `brand`
+// aqui é só o identificador que a organização já escolheu ao configurar a
+// unidade (ver @shared/turnstile para a lista completa mapeada).
+type CatracaProvider = TurnstileBrand;
 
 type AccessRequest = {
   academyId?: string;
