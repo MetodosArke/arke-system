@@ -120,8 +120,30 @@ const TURNSTILE_MODE_LABEL: Record<string, string> = { cloud_webhook: "Nuvem (we
 
 type TurnstileCatalogModel = { id: string; name: string; communicationModes: string[]; defaultPort: number | null };
 type TurnstileCatalogBrand = { id: string; slug: string; name: string; models: TurnstileCatalogModel[] };
+type TurnstileUnit = { unitId: string; unitName: string; brand: string; model: string | null; modelId: string | null; communicationMode: string | null; port: number | null; serialOrKey: string | null; status: string; enabled: boolean; configured: boolean; lastTestRequestedAt?: string | null; lastTestAt?: string | null; lastTestResult?: string | null; lastTestMessage?: string | null };
 
-function TurnstileUnitCard({ organizationId, unit, catalog, onToast }: { organizationId: string; unit: { unitId: string; unitName: string; brand: string; model: string | null; modelId: string | null; communicationMode: string | null; port: number | null; serialOrKey: string | null; status: string; enabled: boolean; configured: boolean }; catalog: TurnstileCatalogBrand[]; onToast: (toast: NonNullable<Toast>) => void }) {
+const TEST_CONNECTION_TIMEOUT_MS = 20_000;
+
+// B2 entrega só a sinalização (a nuvem publica o comando e nunca espera
+// bloqueada pela resposta, já que roda como função serverless) — este
+// cálculo é puramente derivado dos timestamps que já vêm da query (sem
+// estado próprio) para não duplicar fonte de verdade com o servidor.
+function turnstileTestStatus(unit: TurnstileUnit): { label: string; tone: "idle" | "pending" | "success" | "failed" | "timeout" } {
+  if (!unit.lastTestRequestedAt) return { label: "", tone: "idle" };
+  const requestedAt = new Date(unit.lastTestRequestedAt).getTime();
+  const respondedAt = unit.lastTestAt ? new Date(unit.lastTestAt).getTime() : null;
+  const responded = respondedAt !== null && respondedAt >= requestedAt;
+  if (!responded) {
+    return Date.now() - requestedAt < TEST_CONNECTION_TIMEOUT_MS
+      ? { label: "Testando conexão...", tone: "pending" }
+      : { label: "Sem resposta do agente", tone: "timeout" };
+  }
+  return unit.lastTestResult === "success"
+    ? { label: unit.lastTestMessage || "Conectado", tone: "success" }
+    : { label: unit.lastTestMessage || "Falha na conexão", tone: "failed" };
+}
+
+function TurnstileUnitCard({ organizationId, unit, catalog, onToast }: { organizationId: string; unit: TurnstileUnit; catalog: TurnstileCatalogBrand[]; onToast: (toast: NonNullable<Toast>) => void }) {
   const utils = trpc.useUtils();
   const [brand, setBrand] = useState(unit.brand);
   const [modelId, setModelId] = useState(unit.modelId ?? "");
@@ -132,7 +154,10 @@ function TurnstileUnitCard({ organizationId, unit, catalog, onToast }: { organiz
   const selectedBrand = catalog.find((b) => b.slug === brand);
   const selectedModel = selectedBrand?.models.find((m) => m.id === modelId);
   const save = trpc.integracoes.catraca.save.useMutation({ onSuccess: () => { onToast({ title: "Catraca configurada", detail: `${unit.unitName} vinculada ao adaptador certo.` }); setConfig({}); utils.integracoes.catraca.list.invalidate({ organizationId }); }, onError: (error) => onToast({ title: "Erro ao configurar catraca", detail: error.message }) });
+  const testConnection = trpc.integracoes.catraca.testConnection.useMutation({ onSuccess: () => { onToast({ title: "Comando enviado", detail: "Aguardando o agente local testar a conexão..." }); utils.integracoes.catraca.list.invalidate({ organizationId }); }, onError: (error) => onToast({ title: "Erro ao testar conexão", detail: error.message }) });
   const statusLabel: Record<string, string> = { online: "Online", offline: "Offline", unknown: "Sem heartbeat ainda" };
+  const testStatus = turnstileTestStatus(unit);
+  const testToneClass: Record<string, string> = { pending: "bg-[#f4e8c9] text-[#946f14]", success: "bg-[#e5f2df] text-[#4e8b5b]", failed: "bg-[#f8e6df] text-[#b65c4d]", timeout: "bg-[#f1ede2] text-[#918a7d]", idle: "" };
   return <Card className="rounded-2xl border-[#e5ece5] bg-white shadow-sm"><CardHeader><CardTitle className="flex items-center justify-between text-sm text-[#2b271f]"><span>{unit.unitName}</span><div className="flex gap-1.5"><Badge className={cn("border-0 text-[10px]", unit.configured ? "bg-[#e5f2df] text-[#4e8b5b]" : "bg-[#f8e6df] text-[#b65c4d]")}>{unit.configured ? "Configurada" : "Não configurada"}</Badge>{unit.configured && <Badge className={cn("border-0 text-[10px]", unit.status === "online" ? "bg-[#e5f2df] text-[#4e8b5b]" : "bg-[#f1ede2] text-[#918a7d]")}>{statusLabel[unit.status] ?? unit.status}</Badge>}</div></CardTitle></CardHeader><CardContent className="space-y-2">
     <select value={brand} onChange={(e) => { setBrand(e.target.value); setModelId(""); setCommunicationMode(""); }} className="h-9 w-full rounded-lg border bg-white px-2 text-xs">{Object.entries(TURNSTILE_BRAND_LABEL).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select>
     <select value={modelId} onChange={(e) => { const model = selectedBrand?.models.find((m) => m.id === e.target.value); setModelId(e.target.value); setCommunicationMode(model?.communicationModes[0] ?? ""); }} className="h-9 w-full rounded-lg border bg-white px-2 text-xs" disabled={!selectedBrand?.models.length}><option value="">Selecione o modelo</option>{selectedBrand?.models.map((model) => <option key={model.id} value={model.id}>{model.name}</option>)}</select>
@@ -140,6 +165,10 @@ function TurnstileUnitCard({ organizationId, unit, catalog, onToast }: { organiz
     {TURNSTILE_CONFIG_FIELDS.map((field) => <Input key={field.key} value={config[field.key] ?? ""} onChange={(e) => setConfig({ ...config, [field.key]: e.target.value })} placeholder={unit.configured && field.secret ? `${field.label} (deixe em branco para manter)` : field.label} type={field.secret ? "password" : "text"} className="h-9 rounded-lg text-xs" />)}
     <div className="grid grid-cols-2 gap-2"><Input value={port} onChange={(e) => setPort(e.target.value)} placeholder={selectedModel?.defaultPort ? `Porta (padrão ${selectedModel.defaultPort})` : "Porta"} type="number" className="h-9 rounded-lg text-xs" /><Input value={serialOrKey} onChange={(e) => setSerialOrKey(e.target.value)} placeholder="Serial ou chave" className="h-9 rounded-lg text-xs" /></div>
     <Button onClick={() => save.mutate({ organizationId, unitId: unit.unitId, brand: brand as TurnstileBrand, modelId: modelId || undefined, communicationMode: (communicationMode || undefined) as "cloud_webhook" | "local_agent" | undefined, port: port ? Number(port) : undefined, serialOrKey: serialOrKey || undefined, config, enabled: true })} disabled={save.isPending} className="h-9 w-full rounded-lg bg-[#15130f] text-xs text-white">Salvar catraca</Button>
+    {unit.configured && <>
+      <Button onClick={() => testConnection.mutate({ organizationId, unitId: unit.unitId })} disabled={testConnection.isPending || testStatus.tone === "pending"} variant="outline" className="h-9 w-full rounded-lg text-xs">Testar conexão e parear</Button>
+      {testStatus.tone !== "idle" && <p className={cn("rounded-lg px-2.5 py-1.5 text-[11px] font-medium", testToneClass[testStatus.tone])}>{testStatus.label}</p>}
+    </>}
   </CardContent></Card>;
 }
 
@@ -158,7 +187,7 @@ function IntegrationsPage({ module, onToast }: { module: ModuleKey; onToast: (to
   const benefits = benefitsQuery.data ?? [];
   const accessQuery = trpc.saas.organizations.access.useQuery({ organizationId: activeOrgId }, { enabled: Boolean(activeOrgId) });
   const units = accessQuery.data?.units ?? [];
-  const turnstilesQuery = trpc.integracoes.catraca.list.useQuery({ organizationId: activeOrgId }, { enabled: Boolean(activeOrgId) });
+  const turnstilesQuery = trpc.integracoes.catraca.list.useQuery({ organizationId: activeOrgId }, { enabled: Boolean(activeOrgId), refetchInterval: (query) => (query.state.data ?? []).some((t) => turnstileTestStatus(t).tone === "pending") ? 2000 : false });
   const turnstiles = turnstilesQuery.data ?? [];
   const turnstileCatalogQuery = trpc.integracoes.catraca.catalogo.useQuery();
   const turnstileCatalog = turnstileCatalogQuery.data ?? [];
