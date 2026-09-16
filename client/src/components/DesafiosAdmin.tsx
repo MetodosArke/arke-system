@@ -20,7 +20,12 @@ const TIPOS_DESAFIO: Array<{ value: DesafioTipo; label: string }> = [
 ];
 
 const emptyDesafio: { titulo: string; descricao: string; tipo: DesafioTipo; metaValor: string; dataInicio: string; dataFim: string; pontos: string; paraTodos: boolean } = { titulo: "", descricao: "", tipo: "livre", metaValor: "", dataInicio: "", dataFim: "", pontos: "10", paraTodos: true };
-const emptyCompeticao = { titulo: "", descricao: "", metrica: "Pontuação geral", dataInicio: "", dataFim: "", paraTodos: true };
+const emptyCompeticao = { titulo: "", descricao: "", metrica: "Pontuação geral", dataInicio: "", dataFim: "", paraTodos: true, modoPontuacao: "manual" as "manual" | "automatica" };
+
+function OrigemBadge({ origem }: { origem: "automatico" | "manual" | null | undefined }) {
+  if (!origem) return null;
+  return <span className={`shrink-0 rounded-full px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide ${origem === "automatico" ? "bg-[#e5f2df] text-[#4e8b5b]" : "bg-[#f1ede2] text-[#918a7d]"}`}>{origem === "automatico" ? "Auto" : "Manual"}</span>;
+}
 
 export function DesafiosAdmin({ onToast }: { onToast: (toast: Toast) => void }) {
   const [section, setSection] = useState<"desafios" | "competicoes">("desafios");
@@ -89,6 +94,7 @@ export function DesafiosAdmin({ onToast }: { onToast: (toast: Toast) => void }) 
 
   const pontuacaoQuery = trpc.prescricao.competicoes.pontuacao.list.useQuery({ competicaoId: competicaoId ?? "" }, { enabled: Boolean(competicaoId) });
   const pontuacaoByAluno = new Map((pontuacaoQuery.data ?? []).map((item) => [item.aluno_id, item.valor]));
+  const pontuacaoOrigemByAluno = new Map((pontuacaoQuery.data ?? []).map((item) => [item.aluno_id, item.origem]));
   const setPontuacao = trpc.prescricao.competicoes.pontuacao.set.useMutation({ onSuccess: () => utils.prescricao.competicoes.pontuacao.list.invalidate({ competicaoId: competicaoId ?? "" }), onError: (e) => fail("Erro ao atualizar pontuação", e) });
   const [pontuacaoDrafts, setPontuacaoDrafts] = useState<Record<string, string>>({});
 
@@ -100,6 +106,7 @@ export function DesafiosAdmin({ onToast }: { onToast: (toast: Toast) => void }) 
     dataInicio: competicaoForm.dataInicio,
     dataFim: competicaoForm.dataFim,
     paraTodos: competicaoForm.paraTodos,
+    modoPontuacao: competicaoForm.modoPontuacao,
   });
 
   const compElegiveis = selectedCompeticao?.para_todos ? students : students.filter((student) => compParticipanteIds.has(student.user_id));
@@ -161,6 +168,7 @@ export function DesafiosAdmin({ onToast }: { onToast: (toast: Toast) => void }) 
               const valorDraft = valorDrafts[student.user_id] ?? (progresso?.valor_atual != null ? String(progresso.valor_atual) : "");
               return <div key={student.user_id} className="flex items-center justify-between gap-2 rounded-lg bg-[#faf7ef] px-3 py-2 text-xs">
                 <span className="min-w-0 flex-1 truncate text-[#4b4438]">{student.full_name || "Aluno sem nome"}</span>
+                <OrigemBadge origem={progresso?.origem} />
                 {selectedDesafio.tipo !== "livre" && <Input value={valorDraft} onChange={(e) => setValorDrafts((prev) => ({ ...prev, [student.user_id]: e.target.value }))} placeholder="Valor" type="number" className="h-7 w-20 rounded-lg text-[10px]" />}
                 <Button variant={isDone ? "default" : "outline"} onClick={() => setProgresso.mutate({ desafioId: selectedDesafio.id, alunoId: student.user_id, concluido: !isDone, valorAtual: valorDraft ? Number(valorDraft) : undefined })} disabled={setProgresso.isPending} className="h-7 shrink-0 rounded-lg text-[10px]"><CheckCircle2 size={12} /> {isDone ? "Concluído" : "Marcar"}</Button>
               </div>;
@@ -185,6 +193,7 @@ export function DesafiosAdmin({ onToast }: { onToast: (toast: Toast) => void }) 
             <Input value={competicaoForm.dataFim} onChange={(e) => setCompeticaoForm({ ...competicaoForm, dataFim: e.target.value })} type="date" className="h-9 rounded-lg text-xs" />
           </div>
           <label className="flex items-center gap-2 text-xs text-[#4b4438]"><input type="checkbox" checked={competicaoForm.paraTodos} onChange={(e) => setCompeticaoForm({ ...competicaoForm, paraTodos: e.target.checked })} className="h-4 w-4 accent-[#4c9a6a]" /> Para todos os alunos</label>
+          <label className="flex items-center gap-2 text-xs text-[#4b4438]"><input type="checkbox" checked={competicaoForm.modoPontuacao === "automatica"} onChange={(e) => setCompeticaoForm({ ...competicaoForm, modoPontuacao: e.target.checked ? "automatica" : "manual" })} className="h-4 w-4 accent-[#4c9a6a]" /> Cálculo automático (motor de pontuação Arke)</label>
           <Button onClick={submitCompeticao} disabled={!competicaoForm.titulo || !competicaoForm.dataInicio || !competicaoForm.dataFim || createCompeticao.isPending} className="h-9 w-full rounded-lg bg-[#15130f] text-xs text-white"><Plus size={14} /> Criar competição</Button>
         </div>
       </CardContent></Card>
@@ -194,7 +203,7 @@ export function DesafiosAdmin({ onToast }: { onToast: (toast: Toast) => void }) 
         {selectedCompeticao && <div className="space-y-4">
           <Card className="rounded-2xl border-[#e5ece5] bg-white shadow-sm"><CardHeader><CardTitle className="text-sm text-[#2b271f]">{selectedCompeticao.titulo}</CardTitle></CardHeader><CardContent className="space-y-2">
             {selectedCompeticao.descricao && <p className="text-xs text-[#5c5445]">{selectedCompeticao.descricao}</p>}
-            <p className="text-[10px] text-[#9b9488]">{selectedCompeticao.metrica} · {selectedCompeticao.para_todos ? "Para todos os alunos" : "Só para participantes selecionados"}</p>
+            <p className="text-[10px] text-[#9b9488]">{selectedCompeticao.metrica} · {selectedCompeticao.para_todos ? "Para todos os alunos" : "Só para participantes selecionados"} · {selectedCompeticao.modo_pontuacao === "automatica" ? "Pontuação automática (motor Arke)" : "Pontuação manual"}</p>
             <Button variant="outline" onClick={() => { if (window.confirm("Remover esta competição?")) deleteCompeticao.mutate({ id: selectedCompeticao.id }); }} className="h-9 w-full rounded-lg text-xs text-[#b65c4d]"><Trash2 size={14} /> Remover competição</Button>
           </CardContent></Card>
 
@@ -210,6 +219,7 @@ export function DesafiosAdmin({ onToast }: { onToast: (toast: Toast) => void }) 
               return <div key={student.user_id} className="flex items-center gap-2 rounded-lg bg-[#faf7ef] px-3 py-2 text-xs">
                 <span className="w-5 shrink-0 text-center font-semibold text-[#9b9488]">{index + 1}º</span>
                 <span className="min-w-0 flex-1 truncate text-[#4b4438]">{student.full_name || "Aluno sem nome"}</span>
+                <OrigemBadge origem={pontuacaoOrigemByAluno.get(student.user_id)} />
                 <Input value={draft} onChange={(e) => setPontuacaoDrafts((prev) => ({ ...prev, [student.user_id]: e.target.value }))} placeholder="Valor" type="number" className="h-7 w-24 rounded-lg text-[10px]" />
                 <Button variant="outline" onClick={() => setPontuacao.mutate({ competicaoId: selectedCompeticao.id, alunoId: student.user_id, valor: Number(draft || 0) })} disabled={setPontuacao.isPending} className="h-7 shrink-0 rounded-lg text-[10px]">Salvar</Button>
               </div>;

@@ -208,7 +208,7 @@ describe("computeScoreAluno — desafios", () => {
   it("conta pontos de um desafio concluído manualmente pela equipe", async () => {
     mockVazio();
     vi.spyOn(supabaseAdmin, "listDesafios").mockResolvedValue([{ ...desafioBase, tipo: "livre", meta_valor: null, data_inicio: "2020-09-01", data_fim: "2020-09-30", pontos: 15 }]);
-    vi.spyOn(supabaseAdmin, "listDesafioProgressoForAluno").mockResolvedValue([{ id: "dp1", desafio_id: "desafio-1", aluno_id: ALUNO_ID, organization_id: ORG_ID, concluido: true, valor_atual: null, concluido_por: "staff-1", concluido_em: "2020-09-20T00:00:00.000Z", created_at: "", updated_at: "" }]);
+    vi.spyOn(supabaseAdmin, "listDesafioProgressoForAluno").mockResolvedValue([{ id: "dp1", desafio_id: "desafio-1", aluno_id: ALUNO_ID, organization_id: ORG_ID, concluido: true, valor_atual: null, concluido_por: "staff-1", concluido_em: "2020-09-20T00:00:00.000Z", origem: "manual" as const, created_at: "", updated_at: "" }]);
     const result = await computeScoreAluno(ALUNO_ID, ORG_ID, DESDE, ATE);
     expect(result.performance.desafios).toEqual({ total: 15, max: 20 });
   });
@@ -256,7 +256,7 @@ describe("computeScoreAluno — desafios", () => {
   it("só considera desafios para_todos ou em que o aluno participa", async () => {
     mockVazio();
     vi.spyOn(supabaseAdmin, "listDesafios").mockResolvedValue([{ ...desafioBase, id: "desafio-2", para_todos: false, tipo: "livre", meta_valor: null, data_inicio: "2020-09-01", data_fim: "2020-09-30", pontos: 50 }]);
-    vi.spyOn(supabaseAdmin, "listDesafioProgressoForAluno").mockResolvedValue([{ id: "dp1", desafio_id: "desafio-2", aluno_id: ALUNO_ID, organization_id: ORG_ID, concluido: true, valor_atual: null, concluido_por: "staff-1", concluido_em: "2020-09-20T00:00:00.000Z", created_at: "", updated_at: "" }]);
+    vi.spyOn(supabaseAdmin, "listDesafioProgressoForAluno").mockResolvedValue([{ id: "dp1", desafio_id: "desafio-2", aluno_id: ALUNO_ID, organization_id: ORG_ID, concluido: true, valor_atual: null, concluido_por: "staff-1", concluido_em: "2020-09-20T00:00:00.000Z", origem: "manual" as const, created_at: "", updated_at: "" }]);
     const result = await computeScoreAluno(ALUNO_ID, ORG_ID, DESDE, ATE);
     // Não é para_todos e o aluno não está na lista de participantes.
     expect(result.performance.desafios.total).toBe(0);

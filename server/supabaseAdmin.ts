@@ -485,7 +485,7 @@ export async function upsertProntuarioObservacao(input: { alunoId: string; organ
 // fingir uma análise que o sistema não fez (CLAUDE.md).
 export type Desafio = { id: string; organization_id: string; titulo: string; descricao: string | null; tipo: string; meta_valor: number | null; data_inicio: string; data_fim: string; pontos: number; criado_por: string | null; para_todos: boolean; created_at: string; updated_at: string };
 export type DesafioParticipante = { id: string; desafio_id: string; aluno_id: string; organization_id: string; created_at: string };
-export type DesafioProgresso = { id: string; desafio_id: string; aluno_id: string; organization_id: string; concluido: boolean; valor_atual: number | null; concluido_por: string | null; concluido_em: string | null; created_at: string; updated_at: string };
+export type DesafioProgresso = { id: string; desafio_id: string; aluno_id: string; organization_id: string; concluido: boolean; valor_atual: number | null; concluido_por: string | null; concluido_em: string | null; origem: "automatico" | "manual"; created_at: string; updated_at: string };
 
 export async function listDesafios(organizationId: string) { return request<Desafio[]>("desafios", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}&order=data_fim.desc`); }
 export async function getDesafio(idValue: string) { const rows = await request<Desafio[]>("desafios", {}, `?select=*&id=eq.${encodeURIComponent(idValue)}&limit=1`); return rows[0] ?? null; }
@@ -503,8 +503,8 @@ export async function removeDesafioParticipante(desafioId: string, alunoId: stri
 
 export async function listDesafioProgressoForDesafio(desafioId: string) { return request<DesafioProgresso[]>("desafio_progresso", {}, `?select=*&desafio_id=eq.${encodeURIComponent(desafioId)}`); }
 export async function listDesafioProgressoForAluno(alunoId: string) { return request<DesafioProgresso[]>("desafio_progresso", {}, `?select=*&aluno_id=eq.${encodeURIComponent(alunoId)}`); }
-export async function setDesafioProgresso(input: { desafioId: string; alunoId: string; organizationId: string; concluido: boolean; valorAtual?: number | null; concluidoPor: string }) {
-  const body = { desafio_id: input.desafioId, aluno_id: input.alunoId, organization_id: input.organizationId, concluido: input.concluido, valor_atual: input.valorAtual ?? null, concluido_por: input.concluido ? input.concluidoPor : null, concluido_em: input.concluido ? new Date().toISOString() : null, updated_at: new Date().toISOString() };
+export async function setDesafioProgresso(input: { desafioId: string; alunoId: string; organizationId: string; concluido: boolean; valorAtual?: number | null; concluidoPor?: string; origem: "automatico" | "manual" }) {
+  const body = { desafio_id: input.desafioId, aluno_id: input.alunoId, organization_id: input.organizationId, concluido: input.concluido, valor_atual: input.valorAtual ?? null, concluido_por: input.concluido ? (input.concluidoPor ?? null) : null, concluido_em: input.concluido ? new Date().toISOString() : null, origem: input.origem, updated_at: new Date().toISOString() };
   const rows = await request<DesafioProgresso[]>("desafio_progresso", { method: "POST", body: JSON.stringify(body), headers: { Prefer: "return=representation,resolution=merge-duplicates" } }, "?on_conflict=desafio_id,aluno_id");
   return rows[0];
 }
@@ -512,9 +512,9 @@ export async function setDesafioProgresso(input: { desafioId: string; alunoId: s
 // Competições (Fase 2): o ranking do arke-app original vinha do motor de
 // pontuação automático (que não existe aqui ainda) — `valor` em
 // competicao_pontuacao é sempre digitado pela equipe, nunca calculado.
-export type Competicao = { id: string; organization_id: string; titulo: string; descricao: string | null; data_inicio: string; data_fim: string; metrica: string; status: string; para_todos: boolean; criado_por: string | null; created_at: string; updated_at: string };
+export type Competicao = { id: string; organization_id: string; titulo: string; descricao: string | null; data_inicio: string; data_fim: string; metrica: string; status: string; para_todos: boolean; modo_pontuacao: "manual" | "automatica"; criado_por: string | null; created_at: string; updated_at: string };
 export type CompeticaoParticipante = { id: string; competicao_id: string; aluno_id: string; organization_id: string; created_at: string };
-export type CompeticaoPontuacao = { id: string; competicao_id: string; aluno_id: string; organization_id: string; valor: number; atualizado_por: string | null; created_at: string; updated_at: string };
+export type CompeticaoPontuacao = { id: string; competicao_id: string; aluno_id: string; organization_id: string; valor: number; origem: "automatico" | "manual"; atualizado_por: string | null; created_at: string; updated_at: string };
 
 export async function listCompeticoes(organizationId: string) { return request<Competicao[]>("competicoes", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}&order=data_inicio.desc`); }
 export async function getCompeticao(idValue: string) { const rows = await request<Competicao[]>("competicoes", {}, `?select=*&id=eq.${encodeURIComponent(idValue)}&limit=1`); return rows[0] ?? null; }
@@ -531,8 +531,8 @@ export async function addCompeticaoParticipante(input: { competicaoId: string; a
 export async function removeCompeticaoParticipante(competicaoId: string, alunoId: string) { await request("competicao_participantes", { method: "DELETE" }, `?competicao_id=eq.${encodeURIComponent(competicaoId)}&aluno_id=eq.${encodeURIComponent(alunoId)}`); return { competicaoId, alunoId }; }
 
 export async function listCompeticaoPontuacaoForCompeticao(competicaoId: string) { return request<CompeticaoPontuacao[]>("competicao_pontuacao", {}, `?select=*&competicao_id=eq.${encodeURIComponent(competicaoId)}`); }
-export async function setCompeticaoPontuacao(input: { competicaoId: string; alunoId: string; organizationId: string; valor: number; atualizadoPor: string }) {
-  const body = { competicao_id: input.competicaoId, aluno_id: input.alunoId, organization_id: input.organizationId, valor: input.valor, atualizado_por: input.atualizadoPor, updated_at: new Date().toISOString() };
+export async function setCompeticaoPontuacao(input: { competicaoId: string; alunoId: string; organizationId: string; valor: number; atualizadoPor?: string; origem: "automatico" | "manual" }) {
+  const body = { competicao_id: input.competicaoId, aluno_id: input.alunoId, organization_id: input.organizationId, valor: input.valor, atualizado_por: input.atualizadoPor ?? null, origem: input.origem, updated_at: new Date().toISOString() };
   const rows = await request<CompeticaoPontuacao[]>("competicao_pontuacao", { method: "POST", body: JSON.stringify(body), headers: { Prefer: "return=representation,resolution=merge-duplicates" } }, "?on_conflict=competicao_id,aluno_id");
   return rows[0];
 }
