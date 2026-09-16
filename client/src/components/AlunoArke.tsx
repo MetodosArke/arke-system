@@ -27,10 +27,14 @@ const DIAS_SEMANA = [
 function CheckinDiarioCard() {
   const utils = trpc.useUtils();
   const checkinQuery = trpc.arke.meu.checkinHoje.useQuery();
+  const [horasSono, setHorasSono] = useState("");
   const registrar = trpc.arke.meu.registrarCheckin.useMutation({ onSuccess: () => utils.arke.meu.checkinHoje.invalidate() });
   if (checkinQuery.isLoading) return null;
   return <Card className="rounded-2xl border-[#e5ece5] bg-white shadow-sm"><CardHeader><CardTitle className="text-sm text-[#2b271f]">Check-in de hoje</CardTitle><p className="text-xs text-[#918a7d]">Como está sua dedicação hoje?</p></CardHeader><CardContent>
-    {checkinQuery.data ? <p className="text-sm text-[#5c5445]">Você já registrou sua dedicação de hoje. Até amanhã!</p> : <div className="flex flex-wrap gap-2">{DEDICACAO_OPTIONS.map((option) => <Button key={option.value} variant="outline" onClick={() => registrar.mutate({ dedicacao: option.value })} disabled={registrar.isPending} className="h-9 rounded-xl text-xs">{option.label}</Button>)}</div>}
+    {checkinQuery.data ? <p className="text-sm text-[#5c5445]">Você já registrou sua dedicação de hoje{checkinQuery.data.horas_sono != null ? ` (${checkinQuery.data.horas_sono}h de sono)` : ""}. Até amanhã!</p> : <div className="space-y-2">
+      <Input value={horasSono} onChange={(e) => setHorasSono(e.target.value)} type="number" min={0} max={24} step={0.5} placeholder="Horas de sono (opcional)" className="h-9 rounded-lg text-xs" />
+      <div className="flex flex-wrap gap-2">{DEDICACAO_OPTIONS.map((option) => <Button key={option.value} variant="outline" onClick={() => registrar.mutate({ dedicacao: option.value, horasSono: horasSono ? Number(horasSono) : undefined })} disabled={registrar.isPending} className="h-9 rounded-xl text-xs">{option.label}</Button>)}</div>
+    </div>}
   </CardContent></Card>;
 }
 
@@ -79,6 +83,73 @@ function PlanoTreinoSemanalCard() {
     <Input value={horario} onChange={(e) => setHorario(e.target.value)} placeholder="Horário preferido (ex.: 7h ou 19h)" className="h-9 rounded-lg text-xs" />
     <Input value={local} onChange={(e) => setLocal(e.target.value)} placeholder="Local de treino" className="h-9 rounded-lg text-xs" />
     <Button onClick={() => salvar.mutate({ diasTreino: dias, horarioPreferido: horario || undefined, localTreino: local || undefined })} disabled={salvar.isPending} className="h-9 w-full rounded-xl bg-[#15130f] text-xs text-white">Salvar planejamento</Button>
+  </CardContent></Card>;
+}
+
+function TreinoDiaCard() {
+  const utils = trpc.useUtils();
+  const today = new Date().toISOString().slice(0, 10);
+  const treinosQuery = trpc.arke.meu.treinosPeriodo.useQuery({ desde: today, ate: today });
+  const [tipos, setTipos] = useState("");
+  const [duracaoMin, setDuracaoMin] = useState("");
+  const [distanciaKm, setDistanciaKm] = useState("");
+  const registrar = trpc.arke.meu.registrarTreinoDia.useMutation({ onSuccess: () => { setTipos(""); setDuracaoMin(""); setDistanciaKm(""); utils.arke.meu.treinosPeriodo.invalidate(); } });
+  if (treinosQuery.isLoading) return null;
+  const registrosHoje = treinosQuery.data ?? [];
+  const submit = () => {
+    const tiposArray = tipos.split(",").map((tipo) => tipo.trim()).filter(Boolean);
+    if (!tiposArray.length) return;
+    registrar.mutate({ data: today, tipos: tiposArray, duracaoMin: duracaoMin ? Number(duracaoMin) : undefined, distanciaKm: distanciaKm ? Number(distanciaKm) : undefined });
+  };
+  return <Card className="rounded-2xl border-[#e5ece5] bg-white shadow-sm"><CardHeader><CardTitle className="text-sm text-[#2b271f]">Treino de hoje</CardTitle><p className="text-xs text-[#918a7d]">Registre o que você treinou hoje.</p></CardHeader><CardContent className="space-y-2">
+    {registrosHoje.length > 0 && <div className="space-y-1">{registrosHoje.map((registro) => <p key={registro.id} className="text-xs text-[#5c5445]">✓ {registro.tipos.join(", ")}{registro.duracao_min ? ` · ${registro.duracao_min}min` : ""}{registro.distancia_km ? ` · ${registro.distancia_km}km` : ""}</p>)}</div>}
+    <Input value={tipos} onChange={(e) => setTipos(e.target.value)} placeholder="Modalidades (ex.: Musculação, Corrida)" className="h-9 rounded-lg text-xs" />
+    <div className="grid grid-cols-2 gap-2">
+      <Input value={duracaoMin} onChange={(e) => setDuracaoMin(e.target.value)} type="number" min={1} placeholder="Duração (min)" className="h-9 rounded-lg text-xs" />
+      <Input value={distanciaKm} onChange={(e) => setDistanciaKm(e.target.value)} type="number" min={0} step={0.1} placeholder="Km (opcional)" className="h-9 rounded-lg text-xs" />
+    </div>
+    <Button onClick={submit} disabled={registrar.isPending || !tipos.trim()} className="h-9 w-full rounded-xl bg-[#15130f] text-xs text-white">Registrar treino</Button>
+  </CardContent></Card>;
+}
+
+function DietaAdesaoCard() {
+  const utils = trpc.useUtils();
+  const dietaAtivaQuery = trpc.arke.meu.dietaAtiva.useQuery();
+  const adesaoHojeQuery = trpc.arke.meu.dietaAdesaoHoje.useQuery(undefined, { enabled: Boolean(dietaAtivaQuery.data) });
+  const [adesao, setAdesao] = useState(80);
+  const [consumiuDoce, setConsumiuDoce] = useState(false);
+  const [consumiuAlcool, setConsumiuAlcool] = useState(false);
+  const [aguaMl, setAguaMl] = useState("");
+  const registrar = trpc.arke.meu.registrarDietaAdesao.useMutation({ onSuccess: () => utils.arke.meu.dietaAdesaoHoje.invalidate() });
+  if (dietaAtivaQuery.isLoading || (dietaAtivaQuery.data && adesaoHojeQuery.isLoading)) return null;
+  if (!dietaAtivaQuery.data) return null;
+  const adesaoHoje = adesaoHojeQuery.data;
+  return <Card className="rounded-2xl border-[#e5ece5] bg-white shadow-sm"><CardHeader><CardTitle className="text-sm text-[#2b271f]">Dieta de hoje</CardTitle></CardHeader><CardContent className="space-y-2">
+    {adesaoHoje ? <p className="text-sm text-[#5c5445]">Adesão de hoje registrada: {adesaoHoje.adesao_percentual}%{adesaoHoje.agua_ml ? ` · ${adesaoHoje.agua_ml}ml de água` : ""}.</p> : <>
+      <label className="flex items-center justify-between text-xs font-semibold text-[#4b4438]"><span>Adesão à dieta</span><span>{adesao}%</span></label>
+      <input type="range" min={0} max={100} value={adesao} onChange={(e) => setAdesao(Number(e.target.value))} className="w-full" />
+      <div className="flex gap-4 text-xs text-[#5c5445]">
+        <label className="flex items-center gap-1.5"><input type="checkbox" checked={consumiuDoce} onChange={(e) => setConsumiuDoce(e.target.checked)} /> Comi doce</label>
+        <label className="flex items-center gap-1.5"><input type="checkbox" checked={consumiuAlcool} onChange={(e) => setConsumiuAlcool(e.target.checked)} /> Bebi álcool</label>
+      </div>
+      <Input value={aguaMl} onChange={(e) => setAguaMl(e.target.value)} type="number" min={0} placeholder="Água (ml, opcional)" className="h-9 rounded-lg text-xs" />
+      <Button onClick={() => registrar.mutate({ adesaoPercentual: adesao, consumiuDoce, consumiuAlcool, aguaMl: aguaMl ? Number(aguaMl) : undefined })} disabled={registrar.isPending} className="h-9 w-full rounded-xl bg-[#15130f] text-xs text-white">Registrar dieta de hoje</Button>
+    </>}
+  </CardContent></Card>;
+}
+
+function CompromissoSemanalCard() {
+  const utils = trpc.useUtils();
+  const compromissoQuery = trpc.arke.meu.compromissoSemanaAtual.useQuery();
+  const [novaMeta, setNovaMeta] = useState("");
+  const invalidate = () => utils.arke.meu.compromissoSemanaAtual.invalidate();
+  const criar = trpc.arke.meu.criarMetaSemana.useMutation({ onSuccess: () => { setNovaMeta(""); invalidate(); } });
+  const marcar = trpc.arke.meu.marcarMetaConcluida.useMutation({ onSuccess: invalidate });
+  if (compromissoQuery.isLoading) return null;
+  const metas = compromissoQuery.data?.metas ?? [];
+  return <Card className="rounded-2xl border-[#e5ece5] bg-white shadow-sm"><CardHeader><CardTitle className="text-sm text-[#2b271f]">Micrometas da semana</CardTitle><p className="text-xs text-[#918a7d]">O que você se compromete a fazer esta semana?</p></CardHeader><CardContent className="space-y-2">
+    {metas.length > 0 && <div className="space-y-1.5">{metas.map((meta) => <label key={meta.id} className="flex items-center gap-2 rounded-lg bg-[#faf7ef] px-3 py-2 text-xs"><input type="checkbox" checked={meta.concluida} onChange={(e) => marcar.mutate({ metaId: meta.id, concluida: e.target.checked })} /><span className={meta.concluida ? "text-[#9b9488] line-through" : "text-[#4b4438]"}>{meta.texto}</span></label>)}</div>}
+    <div className="flex gap-2"><Input value={novaMeta} onChange={(e) => setNovaMeta(e.target.value)} placeholder="Nova meta (ex.: treinar 4x)" className="h-9 rounded-lg text-xs" onKeyDown={(e) => { if (e.key === "Enter" && novaMeta.trim()) criar.mutate({ texto: novaMeta.trim() }); }} /><Button onClick={() => novaMeta.trim() && criar.mutate({ texto: novaMeta.trim() })} disabled={criar.isPending || !novaMeta.trim()} className="h-9 shrink-0 rounded-lg bg-[#15130f] text-xs text-white">Adicionar</Button></div>
   </CardContent></Card>;
 }
 
@@ -265,6 +336,9 @@ export function AlunoArke() {
       <CheckinDiarioCard />
       <AvaliacaoSemanalCard />
       <PlanoTreinoSemanalCard />
+      <TreinoDiaCard />
+      <DietaAdesaoCard />
+      <CompromissoSemanalCard />
       <EvolucaoCard />
     </div>
     <DesafiosSection />

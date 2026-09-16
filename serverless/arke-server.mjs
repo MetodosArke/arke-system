@@ -800,7 +800,7 @@ async function getCheckinDoDia(userId, data) {
   return rows[0] ?? null;
 }
 async function upsertCheckinDiario(input) {
-  const body = { user_id: input.userId, organization_id: input.organizationId, data: input.data, dedicacao: input.dedicacao };
+  const body = { user_id: input.userId, organization_id: input.organizationId, data: input.data, dedicacao: input.dedicacao, ...input.horasSono !== void 0 ? { horas_sono: input.horasSono } : {} };
   const rows = await request2("checkin_diario", { method: "POST", body: JSON.stringify(body), headers: { Prefer: "return=representation,resolution=merge-duplicates" } }, "?on_conflict=user_id,data");
   return rows[0];
 }
@@ -825,6 +825,45 @@ async function upsertPlanoTreinoSemanal(input) {
   const body = { user_id: input.userId, organization_id: input.organizationId, dias_treino: input.diasTreino, horario_preferido: input.horarioPreferido ?? null, local_treino: input.localTreino ?? null, updated_at: (/* @__PURE__ */ new Date()).toISOString() };
   const rows = await request2("plano_treino_semanal", { method: "POST", body: JSON.stringify(body), headers: { Prefer: "return=representation,resolution=merge-duplicates" } }, "?on_conflict=user_id");
   return rows[0];
+}
+async function createTreinoCalendario(input) {
+  const body = { aluno_id: input.alunoId, organization_id: input.organizationId, data: input.data, tipos: input.tipos, duracao_min: input.duracaoMin ?? null, distancia_km: input.distanciaKm ?? null, intensidade: input.intensidade ?? "moderada", detalhes: input.detalhes ?? null, observacoes: input.observacoes ?? null };
+  const [row] = await request2("treino_calendario", { method: "POST", body: JSON.stringify(body) });
+  return row;
+}
+async function listTreinoCalendarioPeriodo(alunoId, desde, ate) {
+  return request2("treino_calendario", {}, `?select=*&aluno_id=eq.${encodeURIComponent(alunoId)}&data=gte.${encodeURIComponent(desde)}&data=lte.${encodeURIComponent(ate)}&order=data.desc`);
+}
+async function getDietaAdesaoDoDia(alunoId, data) {
+  const rows = await request2("dieta_adesao", {}, `?select=*&aluno_id=eq.${encodeURIComponent(alunoId)}&data=eq.${encodeURIComponent(data)}&limit=1`);
+  return rows[0] ?? null;
+}
+async function upsertDietaAdesao(input) {
+  const body = { aluno_id: input.alunoId, dieta_id: input.dietaId, organization_id: input.organizationId, data: input.data, adesao_percentual: input.adesaoPercentual, consumiu_doce: input.consumiuDoce, consumiu_alcool: input.consumiuAlcool, agua_ml: input.aguaMl ?? null, observacoes: input.observacoes ?? null };
+  const rows = await request2("dieta_adesao", { method: "POST", body: JSON.stringify(body), headers: { Prefer: "return=representation,resolution=merge-duplicates" } }, "?on_conflict=aluno_id,data");
+  return rows[0];
+}
+async function listDietaAdesaoPeriodo(alunoId, desde, ate) {
+  return request2("dieta_adesao", {}, `?select=*&aluno_id=eq.${encodeURIComponent(alunoId)}&data=gte.${encodeURIComponent(desde)}&data=lte.${encodeURIComponent(ate)}&order=data.desc`);
+}
+async function getOrCreateCompromissoSemanal(userId, organizationId, semana) {
+  const rows = await request2("compromisso_semanal", { method: "POST", body: JSON.stringify({ user_id: userId, organization_id: organizationId, semana }), headers: { Prefer: "return=representation,resolution=merge-duplicates" } }, "?on_conflict=user_id,semana");
+  return rows[0];
+}
+async function listCompromissoMetas(compromissoId) {
+  return request2("compromisso_metas", {}, `?select=*&compromisso_id=eq.${encodeURIComponent(compromissoId)}&order=created_at.asc`);
+}
+async function createCompromissoMeta(input) {
+  const [row] = await request2("compromisso_metas", { method: "POST", body: JSON.stringify({ compromisso_id: input.compromissoId, texto: input.texto }) });
+  return row;
+}
+async function setCompromissoMetaConcluida(id2, concluida) {
+  const rows = await request2("compromisso_metas", { method: "PATCH", body: JSON.stringify({ concluida }) }, `?id=eq.${encodeURIComponent(id2)}`);
+  return rows[0];
+}
+async function getCompromissoMetaComDono(id2) {
+  const rows = await request2("compromisso_metas", {}, `?select=*,compromisso_semanal(user_id)&id=eq.${encodeURIComponent(id2)}&limit=1`);
+  return rows[0] ?? null;
 }
 var PROGRESSO_SEMANAL_SELECT = "id,aluno_id,organization_id,data,peso_kg,gordura_percentual,musculo_percentual,cintura_cm,quadril_cm,braco_cm,perna_cm,bem_estar,observacoes,meta_peso_kg,created_at";
 async function listProgressoSemanal(alunoId) {
@@ -2921,11 +2960,11 @@ var appRouter = router({
         await assertAlunoTemArke(ctx.user.id);
         return getCheckinDoDia(ctx.user.id, todayKey());
       }),
-      registrarCheckin: protectedProcedure.input(z2.object({ dedicacao: z2.enum(["baixa", "media", "boa", "excelente"]) })).mutation(async ({ ctx, input }) => {
+      registrarCheckin: protectedProcedure.input(z2.object({ dedicacao: z2.enum(["baixa", "media", "boa", "excelente"]), horasSono: z2.number().min(0).max(24).optional() })).mutation(async ({ ctx, input }) => {
         await assertAlunoTemArke(ctx.user.id);
         const profile = await getProfileByUserId(ctx.user.id);
         if (!profile?.organization_id) throw new Error("Aluno sem organiza\xE7\xE3o vinculada.");
-        return upsertCheckinDiario({ userId: ctx.user.id, organizationId: profile.organization_id, data: todayKey(), dedicacao: input.dedicacao });
+        return upsertCheckinDiario({ userId: ctx.user.id, organizationId: profile.organization_id, data: todayKey(), dedicacao: input.dedicacao, horasSono: input.horasSono });
       }),
       avaliacaoSemanaAtual: protectedProcedure.query(async ({ ctx }) => {
         await assertAlunoTemArke(ctx.user.id);
@@ -2950,6 +2989,63 @@ var appRouter = router({
       progresso: protectedProcedure.query(async ({ ctx }) => {
         await assertAlunoTemArke(ctx.user.id);
         return listProgressoSemanal(ctx.user.id);
+      }),
+      // Auto-registro estendido (Sessão A, fatia 1): treino do dia,
+      // adesão à dieta do dia e micrometas semanais — religam
+      // treino_calendario/dieta_adesao/compromisso_semanal, que já
+      // tinham organization_id/RLS desde a Fase 0 mas nunca foram
+      // usadas pelo app. Sempre gerido pelo próprio aluno.
+      registrarTreinoDia: protectedProcedure.input(z2.object({ data: z2.string().regex(/^\d{4}-\d{2}-\d{2}$/), tipos: z2.array(z2.string().trim().min(1)).min(1).max(10), duracaoMin: z2.number().int().min(1).max(1e3).optional(), distanciaKm: z2.number().min(0).max(500).optional(), intensidade: z2.string().trim().max(40).optional(), detalhes: z2.string().trim().max(1e3).optional(), observacoes: z2.string().trim().max(1e3).optional() })).mutation(async ({ ctx, input }) => {
+        await assertAlunoTemArke(ctx.user.id);
+        const profile = await getProfileByUserId(ctx.user.id);
+        if (!profile?.organization_id) throw new Error("Aluno sem organiza\xE7\xE3o vinculada.");
+        return createTreinoCalendario({ alunoId: ctx.user.id, organizationId: profile.organization_id, data: input.data, tipos: input.tipos, duracaoMin: input.duracaoMin, distanciaKm: input.distanciaKm, intensidade: input.intensidade, detalhes: input.detalhes, observacoes: input.observacoes });
+      }),
+      treinosPeriodo: protectedProcedure.input(z2.object({ desde: z2.string(), ate: z2.string() })).query(async ({ ctx, input }) => {
+        await assertAlunoTemArke(ctx.user.id);
+        return listTreinoCalendarioPeriodo(ctx.user.id, input.desde, input.ate);
+      }),
+      dietaAtiva: protectedProcedure.query(async ({ ctx }) => {
+        await assertAlunoTemArke(ctx.user.id);
+        const [dieta] = await listDietasForAluno(ctx.user.id, true);
+        return dieta ?? null;
+      }),
+      dietaAdesaoHoje: protectedProcedure.query(async ({ ctx }) => {
+        await assertAlunoTemArke(ctx.user.id);
+        return getDietaAdesaoDoDia(ctx.user.id, todayKey());
+      }),
+      dietaAdesaoPeriodo: protectedProcedure.input(z2.object({ desde: z2.string(), ate: z2.string() })).query(async ({ ctx, input }) => {
+        await assertAlunoTemArke(ctx.user.id);
+        return listDietaAdesaoPeriodo(ctx.user.id, input.desde, input.ate);
+      }),
+      registrarDietaAdesao: protectedProcedure.input(z2.object({ adesaoPercentual: z2.number().int().min(0).max(100), consumiuDoce: z2.boolean(), consumiuAlcool: z2.boolean(), aguaMl: z2.number().int().min(0).max(2e4).optional(), observacoes: z2.string().trim().max(1e3).optional() })).mutation(async ({ ctx, input }) => {
+        await assertAlunoTemArke(ctx.user.id);
+        const profile = await getProfileByUserId(ctx.user.id);
+        if (!profile?.organization_id) throw new Error("Aluno sem organiza\xE7\xE3o vinculada.");
+        const [dieta] = await listDietasForAluno(ctx.user.id, true);
+        if (!dieta) throw new Error("Voc\xEA ainda n\xE3o tem um plano alimentar publicado para registrar ades\xE3o.");
+        return upsertDietaAdesao({ alunoId: ctx.user.id, dietaId: dieta.id, organizationId: profile.organization_id, data: todayKey(), adesaoPercentual: input.adesaoPercentual, consumiuDoce: input.consumiuDoce, consumiuAlcool: input.consumiuAlcool, aguaMl: input.aguaMl, observacoes: input.observacoes });
+      }),
+      compromissoSemanaAtual: protectedProcedure.query(async ({ ctx }) => {
+        await assertAlunoTemArke(ctx.user.id);
+        const profile = await getProfileByUserId(ctx.user.id);
+        if (!profile?.organization_id) throw new Error("Aluno sem organiza\xE7\xE3o vinculada.");
+        const compromisso = await getOrCreateCompromissoSemanal(ctx.user.id, profile.organization_id, currentWeekKey());
+        const metas = await listCompromissoMetas(compromisso.id);
+        return { compromisso, metas };
+      }),
+      criarMetaSemana: protectedProcedure.input(z2.object({ texto: z2.string().trim().min(2).max(300) })).mutation(async ({ ctx, input }) => {
+        await assertAlunoTemArke(ctx.user.id);
+        const profile = await getProfileByUserId(ctx.user.id);
+        if (!profile?.organization_id) throw new Error("Aluno sem organiza\xE7\xE3o vinculada.");
+        const compromisso = await getOrCreateCompromissoSemanal(ctx.user.id, profile.organization_id, currentWeekKey());
+        return createCompromissoMeta({ compromissoId: compromisso.id, texto: input.texto });
+      }),
+      marcarMetaConcluida: protectedProcedure.input(z2.object({ metaId: z2.string().uuid(), concluida: z2.boolean() })).mutation(async ({ ctx, input }) => {
+        await assertAlunoTemArke(ctx.user.id);
+        const meta = await getCompromissoMetaComDono(input.metaId);
+        if (!meta || meta.compromisso_semanal?.user_id !== ctx.user.id) throw new Error("Meta n\xE3o encontrada.");
+        return setCompromissoMetaConcluida(input.metaId, input.concluida);
       })
     }),
     // Feed (Fase 2 — engajamento): mural da comunidade da organização,

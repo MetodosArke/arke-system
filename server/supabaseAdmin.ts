@@ -247,10 +247,10 @@ export async function listAlunosComArkeAtivoIds(organizationId: string) {
 // plano de horários — porta o mesmo padrão upsert-on-natural-key do
 // arke-app original (checkin_diario/avaliacao_semanal por user_id+data ou
 // user_id+semana; plano_treino_semanal é 1 linha por aluno).
-export type CheckinDiario = { id: string; user_id: string; organization_id: string; data: string; dedicacao: "baixa" | "media" | "boa" | "excelente"; created_at: string };
+export type CheckinDiario = { id: string; user_id: string; organization_id: string; data: string; dedicacao: "baixa" | "media" | "boa" | "excelente"; horas_sono: number | null; created_at: string };
 export async function getCheckinDoDia(userId: string, data: string) { const rows = await request<CheckinDiario[]>("checkin_diario", {}, `?select=*&user_id=eq.${encodeURIComponent(userId)}&data=eq.${encodeURIComponent(data)}&limit=1`); return rows[0] ?? null; }
-export async function upsertCheckinDiario(input: { userId: string; organizationId: string; data: string; dedicacao: string }) {
-  const body = { user_id: input.userId, organization_id: input.organizationId, data: input.data, dedicacao: input.dedicacao };
+export async function upsertCheckinDiario(input: { userId: string; organizationId: string; data: string; dedicacao: string; horasSono?: number | null }) {
+  const body = { user_id: input.userId, organization_id: input.organizationId, data: input.data, dedicacao: input.dedicacao, ...(input.horasSono !== undefined ? { horas_sono: input.horasSono } : {}) };
   const rows = await request<CheckinDiario[]>("checkin_diario", { method: "POST", body: JSON.stringify(body), headers: { Prefer: "return=representation,resolution=merge-duplicates" } }, "?on_conflict=user_id,data");
   return rows[0];
 }
@@ -273,6 +273,58 @@ export async function upsertPlanoTreinoSemanal(input: { userId: string; organiza
   const body = { user_id: input.userId, organization_id: input.organizationId, dias_treino: input.diasTreino, horario_preferido: input.horarioPreferido ?? null, local_treino: input.localTreino ?? null, updated_at: new Date().toISOString() };
   const rows = await request<PlanoTreinoSemanal[]>("plano_treino_semanal", { method: "POST", body: JSON.stringify(body), headers: { Prefer: "return=representation,resolution=merge-duplicates" } }, "?on_conflict=user_id");
   return rows[0];
+}
+
+// Auto-registro estendido (Sessão A, fatia 1): religa treino_calendario,
+// dieta_adesao e compromisso_semanal/compromisso_metas — já tinham
+// organization_id/RLS desde a Fase 0, mas nenhuma linha de código do app
+// as usava até aqui. Cada uma é gerida só pelo próprio aluno (RLS já
+// restringe por aluno_id/user_id = auth.uid()), staff só lê.
+export type TreinoCalendario = { id: string; aluno_id: string; organization_id: string; data: string; tipos: string[]; duracao_min: number | null; distancia_km: number | null; intensidade: string | null; detalhes: string | null; observacoes: string | null; created_at: string };
+export async function createTreinoCalendario(input: { alunoId: string; organizationId: string; data: string; tipos: string[]; duracaoMin?: number | null; distanciaKm?: number | null; intensidade?: string; detalhes?: string; observacoes?: string }) {
+  const body = { aluno_id: input.alunoId, organization_id: input.organizationId, data: input.data, tipos: input.tipos, duracao_min: input.duracaoMin ?? null, distancia_km: input.distanciaKm ?? null, intensidade: input.intensidade ?? "moderada", detalhes: input.detalhes ?? null, observacoes: input.observacoes ?? null };
+  const [row] = await request<TreinoCalendario[]>("treino_calendario", { method: "POST", body: JSON.stringify(body) });
+  return row;
+}
+export async function listTreinoCalendarioPeriodo(alunoId: string, desde: string, ate: string) {
+  return request<TreinoCalendario[]>("treino_calendario", {}, `?select=*&aluno_id=eq.${encodeURIComponent(alunoId)}&data=gte.${encodeURIComponent(desde)}&data=lte.${encodeURIComponent(ate)}&order=data.desc`);
+}
+
+export type DietaAdesao = { id: string; aluno_id: string; dieta_id: string; organization_id: string; data: string; adesao_percentual: number; consumiu_doce: boolean; consumiu_alcool: boolean; agua_ml: number | null; observacoes: string | null; created_at: string };
+export async function getDietaAdesaoDoDia(alunoId: string, data: string) { const rows = await request<DietaAdesao[]>("dieta_adesao", {}, `?select=*&aluno_id=eq.${encodeURIComponent(alunoId)}&data=eq.${encodeURIComponent(data)}&limit=1`); return rows[0] ?? null; }
+export async function upsertDietaAdesao(input: { alunoId: string; dietaId: string; organizationId: string; data: string; adesaoPercentual: number; consumiuDoce: boolean; consumiuAlcool: boolean; aguaMl?: number | null; observacoes?: string }) {
+  const body = { aluno_id: input.alunoId, dieta_id: input.dietaId, organization_id: input.organizationId, data: input.data, adesao_percentual: input.adesaoPercentual, consumiu_doce: input.consumiuDoce, consumiu_alcool: input.consumiuAlcool, agua_ml: input.aguaMl ?? null, observacoes: input.observacoes ?? null };
+  const rows = await request<DietaAdesao[]>("dieta_adesao", { method: "POST", body: JSON.stringify(body), headers: { Prefer: "return=representation,resolution=merge-duplicates" } }, "?on_conflict=aluno_id,data");
+  return rows[0];
+}
+export async function listDietaAdesaoPeriodo(alunoId: string, desde: string, ate: string) {
+  return request<DietaAdesao[]>("dieta_adesao", {}, `?select=*&aluno_id=eq.${encodeURIComponent(alunoId)}&data=gte.${encodeURIComponent(desde)}&data=lte.${encodeURIComponent(ate)}&order=data.desc`);
+}
+
+// Micrometas semanais (compromisso_semanal 1 linha por user_id+semana,
+// compromisso_metas N linhas por compromisso) — o aluno cria a meta da
+// semana em texto livre e marca como concluída; nunca calculado.
+export type CompromissoSemanal = { id: string; user_id: string; organization_id: string; semana: string; created_at: string };
+export type CompromissoMeta = { id: string; compromisso_id: string; texto: string; objetivo_vinculado: string | null; valor_vinculado: string | null; concluida: boolean; created_at: string };
+export async function getOrCreateCompromissoSemanal(userId: string, organizationId: string, semana: string) {
+  const rows = await request<CompromissoSemanal[]>("compromisso_semanal", { method: "POST", body: JSON.stringify({ user_id: userId, organization_id: organizationId, semana }), headers: { Prefer: "return=representation,resolution=merge-duplicates" } }, "?on_conflict=user_id,semana");
+  return rows[0];
+}
+export async function listCompromissoMetas(compromissoId: string) { return request<CompromissoMeta[]>("compromisso_metas", {}, `?select=*&compromisso_id=eq.${encodeURIComponent(compromissoId)}&order=created_at.asc`); }
+export async function createCompromissoMeta(input: { compromissoId: string; texto: string }) {
+  const [row] = await request<CompromissoMeta[]>("compromisso_metas", { method: "POST", body: JSON.stringify({ compromisso_id: input.compromissoId, texto: input.texto }) });
+  return row;
+}
+export async function setCompromissoMetaConcluida(id: string, concluida: boolean) {
+  const rows = await request<CompromissoMeta[]>("compromisso_metas", { method: "PATCH", body: JSON.stringify({ concluida }) }, `?id=eq.${encodeURIComponent(id)}`);
+  return rows[0];
+}
+// Backend usa a service_role key (ignora RLS), então a checagem de dono
+// precisa acontecer aqui — embute compromisso_semanal.user_id para o
+// router confirmar que a meta pertence ao aluno chamador antes de mexer.
+export async function getCompromissoMetaComDono(id: string) {
+  const rows = await request<Array<CompromissoMeta & { compromisso_semanal: { user_id: string } | null }>>("compromisso_metas", {}, `?select=*,compromisso_semanal(user_id)&id=eq.${encodeURIComponent(id)}&limit=1`);
+  return rows[0] ?? null;
 }
 
 // Evolução (progresso_semanal): cada chamada de create insere um novo
