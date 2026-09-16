@@ -1808,6 +1808,15 @@ async function computeScoreAluno(alunoId, _organizationId, desde, ate) {
   const total = eventos.reduce((soma, evento) => soma + evento.pontos, 0);
   return { eventos, total };
 }
+async function computeComparativoAluno(alunoId, organizationId, desde, ate) {
+  const alunoIds = await listAlunosComArkeAtivoIds(organizationId);
+  const scores = await Promise.all(alunoIds.map((id2) => computeScoreAluno(id2, organizationId, desde, ate)));
+  const tamanhoGrupo = alunoIds.length;
+  const mediaGrupo = tamanhoGrupo ? scores.reduce((soma, score) => soma + score.total, 0) / tamanhoGrupo : 0;
+  const indiceAluno = alunoIds.indexOf(alunoId);
+  const minhaPontuacao = indiceAluno >= 0 ? scores[indiceAluno].total : (await computeScoreAluno(alunoId, organizationId, desde, ate)).total;
+  return { minhaPontuacao, mediaGrupo, tamanhoGrupo };
+}
 
 // server/cnpj.ts
 async function lookupCnpj(cnpj) {
@@ -3142,6 +3151,12 @@ var appRouter = router({
         const profile = await getProfileByUserId(ctx.user.id);
         if (!profile?.organization_id) throw new Error("Aluno sem organiza\xE7\xE3o vinculada.");
         return computeScoreAluno(ctx.user.id, profile.organization_id, input.desde, input.ate);
+      }),
+      comparativo: protectedProcedure.input(periodoInput).query(async ({ ctx, input }) => {
+        await assertAlunoTemArke(ctx.user.id);
+        const profile = await getProfileByUserId(ctx.user.id);
+        if (!profile?.organization_id) throw new Error("Aluno sem organiza\xE7\xE3o vinculada.");
+        return computeComparativoAluno(ctx.user.id, profile.organization_id, input.desde, input.ate);
       })
     }),
     // Feed (Fase 2 — engajamento): mural da comunidade da organização,

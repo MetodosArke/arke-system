@@ -1,4 +1,4 @@
-import { getDesafio, getPlanoTreinoSemanal, listAvaliacoesSemanaisPeriodo, listCheckinsPeriodo, listCompromissoMetasConcluidasPeriodo, listDesafioProgressoForAluno, listDietaAdesaoPeriodo, listProgressoSemanal, listTreinoCalendarioPeriodo } from "./supabaseAdmin";
+import { getDesafio, getPlanoTreinoSemanal, listAlunosComArkeAtivoIds, listAvaliacoesSemanaisPeriodo, listCheckinsPeriodo, listCompromissoMetasConcluidasPeriodo, listDesafioProgressoForAluno, listDietaAdesaoPeriodo, listProgressoSemanal, listTreinoCalendarioPeriodo } from "./supabaseAdmin";
 
 // Motor de pontuação do Módulo Arke (Sessão A, fatia 2 — checkpoint a
 // validar com o usuário antes de ligar em desafios/competições
@@ -91,4 +91,18 @@ export async function computeScoreAluno(alunoId: string, _organizationId: string
   const eventos = [...engajamento, ...metas, ...desafios].sort((a, b) => a.data.localeCompare(b.data));
   const total = eventos.reduce((soma, evento) => soma + evento.pontos, 0);
   return { eventos, total };
+}
+
+// Comparação relativa (Sessão A, fatia 3): a pontuação do aluno nunca é
+// comparada com a de um colega específico fora do contexto de competição
+// — só com a média do grupo (todos os alunos com Arke ativo da
+// organização), sem expor quem tem quanto.
+export async function computeComparativoAluno(alunoId: string, organizationId: string, desde: string, ate: string) {
+  const alunoIds = await listAlunosComArkeAtivoIds(organizationId);
+  const scores = await Promise.all(alunoIds.map((id) => computeScoreAluno(id, organizationId, desde, ate)));
+  const tamanhoGrupo = alunoIds.length;
+  const mediaGrupo = tamanhoGrupo ? scores.reduce((soma, score) => soma + score.total, 0) / tamanhoGrupo : 0;
+  const indiceAluno = alunoIds.indexOf(alunoId);
+  const minhaPontuacao = indiceAluno >= 0 ? scores[indiceAluno].total : (await computeScoreAluno(alunoId, organizationId, desde, ate)).total;
+  return { minhaPontuacao, mediaGrupo, tamanhoGrupo };
 }
