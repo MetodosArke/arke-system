@@ -165,6 +165,9 @@ export function ProfessionalDashboard({ onToast }: { onToast: (toast: Toast) => 
   const registrarFrequencia = trpc.academia.frequencia.registrar.useMutation({ onSuccess: () => { success("Frequência registrada"); utils.academia.frequencia.listAluno.invalidate({ alunoId }); }, onError: (e) => fail("Erro ao registrar frequência", e) });
   const saveMatricula = () => updateMatricula.mutate({ alunoId, unitId: matriculaForm.unitId || null, matriculaEm: matriculaForm.matriculaEm ? new Date(matriculaForm.matriculaEm).toISOString() : null });
 
+  const arkeStatusQuery = trpc.arke.membership.status.useQuery({ alunoId }, { enabled: Boolean(alunoId) && tab === "matricula" });
+  const toggleArke = trpc.arke.membership.toggle.useMutation({ onSuccess: (_, variables) => { success(variables.ativo ? "Método Arke ativado para o aluno" : "Método Arke desativado para o aluno"); utils.arke.membership.status.invalidate({ alunoId }); }, onError: (e) => fail("Erro ao atualizar o método Arke", e) });
+
   const [downloadingFichaId, setDownloadingFichaId] = useState<string | null>(null);
   const downloadFicha = async (treino: { id: string; titulo: string }) => {
     setDownloadingFichaId(treino.id);
@@ -254,6 +257,11 @@ export function ProfessionalDashboard({ onToast }: { onToast: (toast: Toast) => 
                 {!frequenciaQuery.isLoading && frequencia.length === 0 && <p className="text-xs text-[#918a7d]">Nenhuma frequência registrada ainda.</p>}
                 {frequencia.slice(0, 10).map((registro) => <div key={registro.id} className="flex items-center justify-between rounded-lg bg-[#faf7ef] px-3 py-2 text-xs text-[#5c5445]"><span>{new Date(registro.registrado_em).toLocaleString("pt-BR")}</span><span className="text-[10px] uppercase tracking-wide text-[#9b9488]">{registro.origem === "catraca" ? "Catraca" : "Manual"}</span></div>)}
               </div>
+            </CardContent></Card>
+            <Card className="rounded-2xl border-[#e5ece5] bg-white shadow-sm"><CardHeader><CardTitle className="text-sm text-[#2b271f]">Método Arke</CardTitle></CardHeader><CardContent className="space-y-3">
+              {arkeStatusQuery.isLoading && <p className="text-xs text-[#918a7d]">Carregando...</p>}
+              {!arkeStatusQuery.isLoading && !arkeStatusQuery.data?.moduleEnabled && <p className="text-xs text-[#918a7d]">Sua organização ainda não habilitou o módulo Arke (configurável em Licenças &amp; planos).</p>}
+              {!arkeStatusQuery.isLoading && arkeStatusQuery.data?.moduleEnabled && <><p className="text-xs text-[#5c5445]">{arkeStatusQuery.data.ativo ? `${selectedAluno.full_name} tem acesso ao conteúdo completo do método Arke.` : `${selectedAluno.full_name} ainda não tem o método Arke — vê só o treino/dieta padrão.`}</p><Button onClick={() => toggleArke.mutate({ alunoId, ativo: !arkeStatusQuery.data?.ativo })} disabled={toggleArke.isPending} className={`h-9 w-full rounded-lg text-xs text-white ${arkeStatusQuery.data.ativo ? "bg-[#b65c4d]" : "bg-[#15130f]"}`}>{arkeStatusQuery.data.ativo ? "Desativar método Arke" : "Ativar método Arke"}</Button></>}
             </CardContent></Card>
           </div>}
 

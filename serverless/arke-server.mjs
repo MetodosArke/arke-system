@@ -208,6 +208,7 @@ var formatBRL = (cents) => (cents / 100).toLocaleString("pt-BR", { style: "curre
 var orgPlanOptions = ORG_PLAN_KEYS.map((key) => ({ value: key, label: `${ORG_PLAN_LABELS[key]} \u2014 ${formatBRL(ORG_PLAN_AMOUNTS_CENTS[key])}/m\xEAs` }));
 var profissionalPlanOptions = PROFISSIONAL_PLAN_KEYS.map((key) => ({ value: key, label: `${PROFISSIONAL_PLAN_LABELS[key]} \u2014 ${formatBRL(PROFISSIONAL_PLAN_AMOUNTS_CENTS[key])}/m\xEAs` }));
 var SETUP_FEE_CENTS = 149e3;
+var ARKE_MODULE_PACKAGE_AMOUNTS_CENTS = { starter: 9900, growth: 24900, scale: 49900 };
 
 // server/db.ts
 function isConfigured() {
@@ -703,6 +704,29 @@ async function updateStudentMatricula(alunoId, input) {
   if (input.unitId !== void 0) body.unit_id = input.unitId;
   if (input.matriculaEm !== void 0) body.matricula_em = input.matriculaEm;
   const rows = await request2("profiles", { method: "PATCH", body: JSON.stringify(body) }, `?user_id=eq.${encodeURIComponent(alunoId)}`);
+  return rows[0];
+}
+async function getArkeModule(organizationId) {
+  const rows = await request2("saas_arke_module", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}&limit=1`);
+  return rows[0] ?? null;
+}
+async function upsertArkeModule(input) {
+  const body = { organization_id: input.organizationId, enabled: input.enabled, package_tier: input.packageTier ?? null, amount_cents: input.amountCents ?? null, enabled_at: input.enabled ? (/* @__PURE__ */ new Date()).toISOString() : null, updated_at: (/* @__PURE__ */ new Date()).toISOString() };
+  const rows = await request2("saas_arke_module", { method: "POST", body: JSON.stringify(body), headers: { Prefer: "return=representation,resolution=merge-duplicates" } }, "?on_conflict=organization_id");
+  return rows[0];
+}
+async function getAlunoArkeLicenca(userId, organizationId) {
+  const rows = await request2("aluno_arke_licenca", {}, `?select=*&user_id=eq.${encodeURIComponent(userId)}&organization_id=eq.${encodeURIComponent(organizationId)}&limit=1`);
+  return rows[0] ?? null;
+}
+async function countAlunosComArkeAtivo(organizationId) {
+  const rows = await request2("aluno_arke_licenca", { headers: { Prefer: "count=exact" } }, `?select=id&organization_id=eq.${encodeURIComponent(organizationId)}&ativo=eq.true`);
+  return rows.length;
+}
+async function toggleAlunoArkeLicenca(input) {
+  const now = (/* @__PURE__ */ new Date()).toISOString();
+  const body = { organization_id: input.organizationId, user_id: input.userId, ativo: input.ativo, ativado_em: input.ativo ? now : void 0, desativado_em: input.ativo ? void 0 : now, ativado_por: input.ativadoPor, updated_at: now };
+  const rows = await request2("aluno_arke_licenca", { method: "POST", body: JSON.stringify(body), headers: { Prefer: "return=representation,resolution=merge-duplicates" } }, "?on_conflict=organization_id,user_id");
   return rows[0];
 }
 async function listExercisesCatalog() {
@@ -2020,6 +2044,26 @@ var appRouter = router({
         const rejected = await rejectDeletionRequest({ requestId: input.requestId, organizationId: input.organizationId, resolvedBy: ctx.user.id, note: input.note });
         await recordAuditLog({ organizationId: input.organizationId, userId: ctx.user.id, action: "rejected", entity: "data_deletion_request", entityId: input.requestId });
         return rejected;
+      }),
+      // Módulo Arke (CLAUDE.md §3/§8): licença de organização — habilita a
+      // ACADEMIA a oferecer o método aos próprios alunos. O pacote (99/249/499)
+      // segue o mesmo tier do plano-base da organização; alunos individuais
+      // só ficam "com Arke" via arke.membership.toggle, e só se isto aqui
+      // estiver habilitado.
+      arkeModule: protectedProcedure.input(organizationIdInput).query(async ({ ctx, input }) => {
+        await hasOrganizationAccess(ctx.user.id, input.organizationId);
+        const [organization, arkeModule, alunosAtivos] = await Promise.all([getOrganization(input.organizationId), getArkeModule(input.organizationId), countAlunosComArkeAtivo(input.organizationId)]);
+        return { plan: organization?.plan ?? null, module: arkeModule, alunosAtivos };
+      }),
+      updateArkeModule: protectedProcedure.input(z2.object({ organizationId: z2.string().uuid(), enabled: z2.boolean() })).mutation(async ({ ctx, input }) => {
+        await ownerOrAdmin(ctx.user.id, input.organizationId);
+        const organization = await getOrganization(input.organizationId);
+        if (!organization) throw new Error("Organiza\xE7\xE3o n\xE3o encontrada.");
+        if (!ORG_PLAN_KEYS.includes(organization.plan)) throw new Error("M\xF3dulo Arke dispon\xEDvel apenas para planos de Academia/Studio.");
+        const packageTier = organization.plan;
+        const result = await upsertArkeModule({ organizationId: input.organizationId, enabled: input.enabled, packageTier, amountCents: input.enabled ? ARKE_MODULE_PACKAGE_AMOUNTS_CENTS[packageTier] : null });
+        await recordAuditLog({ organizationId: input.organizationId, userId: ctx.user.id, action: "updated", entity: "arke_module", afterJson: input });
+        return result;
       })
     })
   }),
@@ -2124,6 +2168,27 @@ var appRouter = router({
         const treino = await getTreino(input.treinoId);
         if (!treino || treino.aluno_id !== ctx.user.id || treino.estado_publicacao !== "publicado") throw new Error("Treino n\xE3o encontrado.");
         return gerarFichaTreinoPdf(input.treinoId);
+      })
+    })
+  }),
+  arke: router({
+    membership: router({
+      status: protectedProcedure.input(z2.object({ alunoId: z2.string().uuid() })).query(async ({ ctx, input }) => {
+        const profile = await assertStaffForAluno(ctx.user.id, input.alunoId);
+        if (!profile.organization_id) return { ativo: false, moduleEnabled: false };
+        const [licenca, arkeModule] = await Promise.all([getAlunoArkeLicenca(input.alunoId, profile.organization_id), getArkeModule(profile.organization_id)]);
+        return { ativo: licenca?.ativo ?? false, moduleEnabled: arkeModule?.enabled ?? false };
+      }),
+      toggle: protectedProcedure.input(z2.object({ alunoId: z2.string().uuid(), ativo: z2.boolean() })).mutation(async ({ ctx, input }) => {
+        const profile = await assertStaffForAluno(ctx.user.id, input.alunoId);
+        if (!profile.organization_id) throw new Error("Aluno sem organiza\xE7\xE3o vinculada.");
+        if (input.ativo) {
+          const arkeModule = await getArkeModule(profile.organization_id);
+          if (!arkeModule?.enabled) throw new Error("Sua organiza\xE7\xE3o ainda n\xE3o habilitou o m\xF3dulo Arke.");
+        }
+        const result = await toggleAlunoArkeLicenca({ userId: input.alunoId, organizationId: profile.organization_id, ativo: input.ativo, ativadoPor: ctx.user.id });
+        await recordAuditLog({ organizationId: profile.organization_id, userId: ctx.user.id, action: input.ativo ? "activated" : "deactivated", entity: "aluno_arke_licenca", entityId: input.alunoId });
+        return result;
       })
     })
   }),
