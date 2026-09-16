@@ -68,3 +68,32 @@ describe("saas.organizations", () => {
     await expect(chargeSetupFeeIfNeeded(TEST_ORG_ID)).resolves.toBeUndefined();
   });
 });
+
+describe("saas.organizations.arkeModule", () => {
+  it("rejects a plan value outside the accepted enum on organization creation", async () => {
+    await expect(appRouter.createCaller(createContext()).saas.organizations.create({
+      name: "Nova Academia",
+      slug: "nova-academia",
+      // @ts-expect-error plano antigo removido nas regras comerciais, exatamente o que este teste verifica
+      plan: "unlimited",
+    })).rejects.toThrow();
+  });
+
+  it("requires organization access to read the arke module status", async () => {
+    await expect(appRouter.createCaller(createContext()).saas.organizations.arkeModule({ organizationId: TEST_ORG_ID })).rejects.toThrow();
+  });
+
+  it("requires owner/admin to update the arke module", async () => {
+    await expect(appRouter.createCaller(createContext()).saas.organizations.updateArkeModule({ organizationId: TEST_ORG_ID, enabled: true })).rejects.toThrow();
+  });
+});
+
+describe("arke.membership", () => {
+  it("requires staff access to the aluno's organization to read status", async () => {
+    await expect(appRouter.createCaller(createContext()).arke.membership.status({ alunoId: TEST_USER_ID })).rejects.toThrow();
+  });
+
+  it("requires staff access to the aluno's organization to toggle", async () => {
+    await expect(appRouter.createCaller(createContext()).arke.membership.toggle({ alunoId: TEST_USER_ID, ativo: true })).rejects.toThrow();
+  });
+});

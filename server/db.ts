@@ -173,7 +173,7 @@ export async function updateOrganizationSubscription(input: { organizationId: st
   return getOrganizationSubscription(input.organizationId);
 }
 
-async function getOrganization(organizationId: string) {
+export async function getOrganization(organizationId: string) {
   const rows = await request<Organization[]>("saas_organizations", {}, `?select=*&id=eq.${encodeURIComponent(organizationId)}&limit=1`);
   return rows[0];
 }
