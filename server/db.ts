@@ -169,6 +169,45 @@ export async function getOrganizationSubscription(organizationId: string) {
   return rows[0];
 }
 
+// Painel de negócio ArkeFit (Sessão C, terceira fatia): agenda interna da
+// equipe Arke — implantação/onboarding e acompanhamento de clientes.
+// Tabela arke_internal_appointments (RLS habilitada sem política — só o
+// backend, atrás de adminProcedure, acessa). Nunca lida por organização
+// cliente nenhuma.
+export type PlatformAppointment = { id: string; staff_user_id: string; organization_id: string | null; tipo: "onboarding" | "implantacao" | "acompanhamento" | "outro"; titulo: string; descricao: string | null; scheduled_at: string; duracao_minutos: number; status: "agendado" | "concluido" | "cancelado"; criado_por: string; created_at: string; updated_at: string };
+
+export async function listPlatformAppointments(input: { desde?: string; ate?: string } = {}) {
+  if (!isConfigured()) return [];
+  const filters = [input.desde ? `&scheduled_at=gte.${encodeURIComponent(input.desde)}` : "", input.ate ? `&scheduled_at=lte.${encodeURIComponent(input.ate)}` : ""].join("");
+  return request<PlatformAppointment[]>("arke_internal_appointments", {}, `?select=*&order=scheduled_at.asc${filters}`);
+}
+
+export async function createPlatformAppointment(input: { staffUserId: string; organizationId?: string | null; tipo: PlatformAppointment["tipo"]; titulo: string; descricao?: string; scheduledAt: string; duracaoMinutos: number; criadoPor: string }) {
+  if (!isConfigured()) throw new Error("Database not available");
+  const [row] = await request<PlatformAppointment[]>("arke_internal_appointments", { method: "POST", body: JSON.stringify({ staff_user_id: input.staffUserId, organization_id: input.organizationId ?? null, tipo: input.tipo, titulo: input.titulo, descricao: input.descricao ?? null, scheduled_at: input.scheduledAt, duracao_minutos: input.duracaoMinutos, criado_por: input.criadoPor }) });
+  return row;
+}
+
+export async function updatePlatformAppointment(id: string, input: { titulo?: string; descricao?: string | null; scheduledAt?: string; duracaoMinutos?: number; status?: PlatformAppointment["status"]; tipo?: PlatformAppointment["tipo"]; organizationId?: string | null }) {
+  if (!isConfigured()) throw new Error("Database not available");
+  const body: Json = {};
+  if (input.titulo !== undefined) body.titulo = input.titulo;
+  if (input.descricao !== undefined) body.descricao = input.descricao;
+  if (input.scheduledAt !== undefined) body.scheduled_at = input.scheduledAt;
+  if (input.duracaoMinutos !== undefined) body.duracao_minutos = input.duracaoMinutos;
+  if (input.status !== undefined) body.status = input.status;
+  if (input.tipo !== undefined) body.tipo = input.tipo;
+  if (input.organizationId !== undefined) body.organization_id = input.organizationId;
+  const [row] = await request<PlatformAppointment[]>("arke_internal_appointments", { method: "PATCH", body: JSON.stringify(body) }, `?id=eq.${encodeURIComponent(id)}`);
+  return row;
+}
+
+export async function deletePlatformAppointment(id: string) {
+  if (!isConfigured()) throw new Error("Database not available");
+  await request("arke_internal_appointments", { method: "DELETE" }, `?id=eq.${encodeURIComponent(id)}`);
+  return { id };
+}
+
 // Painel de negócio ArkeFit (Sessão C): primeira consulta do projeto sem
 // filtro de organization_id — só pode ser chamada atrás de adminProcedure
 // (allowlist de e-mail da própria equipe Arke), nunca exposta a nenhuma

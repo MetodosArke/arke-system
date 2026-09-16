@@ -324,6 +324,34 @@ async function getOrganizationSubscription(organizationId) {
   const rows = await request("saas_subscriptions", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}&order=created_at.desc&limit=1`);
   return rows[0];
 }
+async function listPlatformAppointments(input = {}) {
+  if (!isConfigured()) return [];
+  const filters = [input.desde ? `&scheduled_at=gte.${encodeURIComponent(input.desde)}` : "", input.ate ? `&scheduled_at=lte.${encodeURIComponent(input.ate)}` : ""].join("");
+  return request("arke_internal_appointments", {}, `?select=*&order=scheduled_at.asc${filters}`);
+}
+async function createPlatformAppointment(input) {
+  if (!isConfigured()) throw new Error("Database not available");
+  const [row] = await request("arke_internal_appointments", { method: "POST", body: JSON.stringify({ staff_user_id: input.staffUserId, organization_id: input.organizationId ?? null, tipo: input.tipo, titulo: input.titulo, descricao: input.descricao ?? null, scheduled_at: input.scheduledAt, duracao_minutos: input.duracaoMinutos, criado_por: input.criadoPor }) });
+  return row;
+}
+async function updatePlatformAppointment(id2, input) {
+  if (!isConfigured()) throw new Error("Database not available");
+  const body = {};
+  if (input.titulo !== void 0) body.titulo = input.titulo;
+  if (input.descricao !== void 0) body.descricao = input.descricao;
+  if (input.scheduledAt !== void 0) body.scheduled_at = input.scheduledAt;
+  if (input.duracaoMinutos !== void 0) body.duracao_minutos = input.duracaoMinutos;
+  if (input.status !== void 0) body.status = input.status;
+  if (input.tipo !== void 0) body.tipo = input.tipo;
+  if (input.organizationId !== void 0) body.organization_id = input.organizationId;
+  const [row] = await request("arke_internal_appointments", { method: "PATCH", body: JSON.stringify(body) }, `?id=eq.${encodeURIComponent(id2)}`);
+  return row;
+}
+async function deletePlatformAppointment(id2) {
+  if (!isConfigured()) throw new Error("Database not available");
+  await request("arke_internal_appointments", { method: "DELETE" }, `?id=eq.${encodeURIComponent(id2)}`);
+  return { id: id2 };
+}
 async function listAllOrganizationsForPlatform() {
   if (!isConfigured()) return [];
   const [orgs, subs] = await Promise.all([
@@ -2235,6 +2263,18 @@ var appRouter = router({
         totalRecebidoReais,
         totalPendenteReais
       };
+    }),
+    // Agenda interna: implantação/onboarding e acompanhamento de clientes
+    // pela própria equipe Arke — nunca visível a nenhuma organização
+    // cliente (arke_internal_appointments, RLS sem política, só backend).
+    agenda: router({
+      list: adminProcedure.input(z2.object({ desde: z2.string().optional(), ate: z2.string().optional() }).optional()).query(({ input }) => listPlatformAppointments(input ?? {})),
+      create: adminProcedure.input(z2.object({ organizationId: z2.string().uuid().optional(), tipo: z2.enum(["onboarding", "implantacao", "acompanhamento", "outro"]).default("outro"), titulo: z2.string().trim().min(2).max(200), descricao: z2.string().trim().max(2e3).optional(), scheduledAt: z2.string().datetime(), duracaoMinutos: z2.number().int().min(5).max(480).default(30) })).mutation(({ ctx, input }) => createPlatformAppointment({ organizationId: input.organizationId, tipo: input.tipo, titulo: input.titulo, descricao: input.descricao, scheduledAt: input.scheduledAt, duracaoMinutos: input.duracaoMinutos, staffUserId: ctx.user.id, criadoPor: ctx.user.id })),
+      update: adminProcedure.input(z2.object({ id: z2.string().uuid(), organizationId: z2.string().uuid().optional(), tipo: z2.enum(["onboarding", "implantacao", "acompanhamento", "outro"]).optional(), titulo: z2.string().trim().min(2).max(200).optional(), descricao: z2.string().trim().max(2e3).optional(), scheduledAt: z2.string().datetime().optional(), duracaoMinutos: z2.number().int().min(5).max(480).optional(), status: z2.enum(["agendado", "concluido", "cancelado"]).optional() })).mutation(({ input }) => {
+        const { id: id2, ...changes } = input;
+        return updatePlatformAppointment(id2, changes);
+      }),
+      delete: adminProcedure.input(z2.object({ id: z2.string().uuid() })).mutation(({ input }) => deletePlatformAppointment(input.id))
     })
   }),
   globalLibrary: router({

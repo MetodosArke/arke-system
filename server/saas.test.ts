@@ -331,6 +331,20 @@ describe("plataforma (painel de negócio ArkeFit)", () => {
     const result = await appRouter.createCaller(createContext()).plataforma.financeiro();
     expect(result).toEqual({ pagamentos: [], totalRecebidoReais: 0, totalPendenteReais: 0 });
   });
+
+  it("blocks a non-admin caller from the internal agenda", async () => {
+    const nonAdminContext: TrpcContext = { ...createContext(), user: { ...createContext().user, role: "user" } };
+    await expect(appRouter.createCaller(nonAdminContext).plataforma.agenda.list({})).rejects.toThrow();
+  });
+
+  it("returns an empty agenda instead of throwing when Supabase isn't configured", async () => {
+    const result = await appRouter.createCaller(createContext()).plataforma.agenda.list({});
+    expect(result).toEqual([]);
+  });
+
+  it("fails closed on agenda.create without a configured database", async () => {
+    await expect(appRouter.createCaller(createContext()).plataforma.agenda.create({ titulo: "Onboarding Academia X", scheduledAt: new Date().toISOString() })).rejects.toThrow();
+  });
 });
 
 describe("push (Fase 3 — comunicação)", () => {
