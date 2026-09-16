@@ -2116,17 +2116,54 @@ async function saveBenefitIntegration(input) {
   return getBenefitIntegration(input.organizationId, input.provider);
 }
 async function listTurnstileIntegrationsForOrganization(organizationId) {
-  const rows = await request3("saas_turnstile_integrations", {}, `?select=*,saas_units(name)&organization_id=eq.${encodeURIComponent(organizationId)}`);
-  return rows.map((row) => ({ unitId: row.unit_id, unitName: row.saas_units?.name ?? "Unidade", brand: row.brand, model: row.model, enabled: row.enabled, configured: Object.keys(row.config ?? {}).length > 0, updatedAt: row.updated_at }));
+  const rows = await request3("turnstile_devices", {}, `?select=*,saas_units(name)&organization_id=eq.${encodeURIComponent(organizationId)}`);
+  return rows.map((row) => ({
+    unitId: row.unit_id,
+    unitName: row.saas_units?.name ?? "Unidade",
+    brand: row.brand,
+    model: row.model,
+    modelId: row.model_id,
+    communicationMode: row.communication_mode,
+    port: row.port,
+    serialOrKey: row.serial_or_key,
+    status: row.status,
+    lastPingAt: row.last_ping_at,
+    enabled: row.enabled,
+    configured: Object.keys(row.config ?? {}).length > 0,
+    updatedAt: row.updated_at
+  }));
 }
 async function saveTurnstileIntegration(input) {
-  await request3("saas_turnstile_integrations", { method: "POST", headers: { Prefer: "resolution=merge-duplicates,return=representation" }, body: JSON.stringify({ unit_id: input.unitId, organization_id: input.organizationId, brand: input.brand, model: input.model || null, config: input.config, enabled: input.enabled }) }, "?on_conflict=unit_id");
+  await request3("turnstile_devices", { method: "POST", headers: { Prefer: "resolution=merge-duplicates,return=representation" }, body: JSON.stringify({
+    unit_id: input.unitId,
+    organization_id: input.organizationId,
+    brand: input.brand,
+    model: input.model || null,
+    model_id: input.modelId || null,
+    communication_mode: input.communicationMode || null,
+    port: input.port ?? null,
+    serial_or_key: input.serialOrKey || null,
+    config: input.config,
+    enabled: input.enabled
+  }) }, "?on_conflict=unit_id");
   const rows = await listTurnstileIntegrationsForOrganization(input.organizationId);
   return rows.find((row) => row.unitId === input.unitId);
 }
 async function deleteTurnstileIntegration(unitId, organizationId) {
-  await request3("saas_turnstile_integrations", { method: "DELETE" }, `?unit_id=eq.${encodeURIComponent(unitId)}&organization_id=eq.${encodeURIComponent(organizationId)}`);
+  await request3("turnstile_devices", { method: "DELETE" }, `?unit_id=eq.${encodeURIComponent(unitId)}&organization_id=eq.${encodeURIComponent(organizationId)}`);
   return { success: true };
+}
+async function listTurnstileCatalog() {
+  const [brands, models] = await Promise.all([
+    request3("turnstile_brands", {}, "?select=*&order=name"),
+    request3("turnstile_models", {}, "?select=*&order=name")
+  ]);
+  return brands.map((brand) => ({
+    id: brand.id,
+    slug: brand.slug,
+    name: brand.name,
+    models: models.filter((model) => model.brand_id === brand.id).map((model) => ({ id: model.id, name: model.name, communicationModes: model.communication_modes, defaultPort: model.default_port, protocolNotes: model.protocol_notes }))
+  }));
 }
 
 // server/_core/llm.ts
@@ -2753,14 +2790,28 @@ var appRouter = router({
       })
     }),
     catraca: router({
+      // Catálogo global marca→modelo (B1): qualquer usuário autenticado lê,
+      // precisa dele para configurar a catraca da própria unidade.
+      catalogo: protectedProcedure.query(() => listTurnstileCatalog()),
       list: protectedProcedure.input(organizationIdInput).query(async ({ ctx, input }) => {
         await ownerOrAdmin(ctx.user.id, input.organizationId);
         return listTurnstileIntegrationsForOrganization(input.organizationId);
       }),
-      save: protectedProcedure.input(z2.object({ organizationId: z2.string().uuid(), unitId: z2.string().uuid(), brand: z2.enum(TURNSTILE_BRAND_KEYS), model: z2.string().trim().max(120).optional(), config: z2.record(z2.string(), z2.string()), enabled: z2.boolean().default(true) })).mutation(async ({ ctx, input }) => {
+      save: protectedProcedure.input(z2.object({
+        organizationId: z2.string().uuid(),
+        unitId: z2.string().uuid(),
+        brand: z2.enum(TURNSTILE_BRAND_KEYS),
+        model: z2.string().trim().max(120).optional(),
+        modelId: z2.string().uuid().optional(),
+        communicationMode: z2.enum(["cloud_webhook", "local_agent"]).optional(),
+        port: z2.number().int().min(1).max(65535).optional(),
+        serialOrKey: z2.string().trim().max(200).optional(),
+        config: z2.record(z2.string(), z2.string()),
+        enabled: z2.boolean().default(true)
+      })).mutation(async ({ ctx, input }) => {
         await ownerOrAdmin(ctx.user.id, input.organizationId);
         const result = await saveTurnstileIntegration(input);
-        await recordAuditLog({ organizationId: input.organizationId, userId: ctx.user.id, unitId: input.unitId, action: "updated", entity: "turnstile_integration", afterJson: { brand: input.brand, model: input.model } });
+        await recordAuditLog({ organizationId: input.organizationId, userId: ctx.user.id, unitId: input.unitId, action: "updated", entity: "turnstile_integration", afterJson: { brand: input.brand, model: input.model, communicationMode: input.communicationMode } });
         return result;
       }),
       delete: protectedProcedure.input(z2.object({ organizationId: z2.string().uuid(), unitId: z2.string().uuid() })).mutation(async ({ ctx, input }) => {
