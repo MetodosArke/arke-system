@@ -229,6 +229,9 @@ export async function markArkeRepasseCharged(organizationId: string, chargedOn: 
 
 export async function getAlunoArkeLicenca(userId: string, organizationId: string) { const rows = await request<AlunoArkeLicenca[]>("aluno_arke_licenca", {}, `?select=*&user_id=eq.${encodeURIComponent(userId)}&organization_id=eq.${encodeURIComponent(organizationId)}&limit=1`); return rows[0] ?? null; }
 export async function countAlunosComArkeAtivo(organizationId: string) { const rows = await request<Array<{ count: number }>>("aluno_arke_licenca", { headers: { Prefer: "count=exact" } }, `?select=id&organization_id=eq.${encodeURIComponent(organizationId)}&ativo=eq.true`); return rows.length; }
+// Painel de negócio ArkeFit (Sessão C): total cross-organização, só para uso
+// atrás de adminProcedure — mesma ressalva de listAllOrganizationsForPlatform em server/db.ts.
+export async function countAllAlunosComArkeAtivo() { if (!hasSupabaseConfig()) return 0; const rows = await request<Array<{ id: string }>>("aluno_arke_licenca", {}, "?select=id&ativo=eq.true"); return rows.length; }
 export async function toggleAlunoArkeLicenca(input: { userId: string; organizationId: string; ativo: boolean; ativadoPor: string }) {
   const now = new Date().toISOString();
   const body = { organization_id: input.organizationId, user_id: input.userId, ativo: input.ativo, ativado_em: input.ativo ? now : undefined, desativado_em: input.ativo ? undefined : now, ativado_por: input.ativadoPor, updated_at: now };

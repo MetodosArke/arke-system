@@ -169,6 +169,24 @@ export async function getOrganizationSubscription(organizationId: string) {
   return rows[0];
 }
 
+// Painel de negócio ArkeFit (Sessão C): primeira consulta do projeto sem
+// filtro de organization_id — só pode ser chamada atrás de adminProcedure
+// (allowlist de e-mail da própria equipe Arke), nunca exposta a nenhuma
+// organização cliente. Junta organizações + assinaturas em memória (em vez
+// de embed do PostgREST) para reaproveitar o mesmo critério de "assinatura
+// mais recente por organização" já usado em getOrganizationSubscription.
+export type PlatformOrganizationSummary = Organization & { subscription: Subscription | null };
+export async function listAllOrganizationsForPlatform(): Promise<PlatformOrganizationSummary[]> {
+  if (!isConfigured()) return [];
+  const [orgs, subs] = await Promise.all([
+    request<Organization[]>("saas_organizations", {}, "?select=*&order=created_at.desc"),
+    request<Subscription[]>("saas_subscriptions", {}, "?select=*&order=created_at.desc"),
+  ]);
+  const subByOrg = new Map<string, Subscription>();
+  for (const sub of subs) if (!subByOrg.has(sub.organization_id)) subByOrg.set(sub.organization_id, sub);
+  return orgs.map((org) => ({ ...org, subscription: subByOrg.get(org.id) ?? null }));
+}
+
 export async function updateOrganizationProfile(input: { organizationId: string; name: string; logoUrl?: string; primaryColor?: string }) {
   if (!isConfigured()) throw new Error("Database not available");
   const [updated] = await request<Organization[]>("saas_organizations", { method: "PATCH", body: JSON.stringify({ name: input.name, ...(input.logoUrl !== undefined ? { logo_url: input.logoUrl } : {}), ...(input.primaryColor !== undefined ? { primary_color: input.primaryColor } : {}) }) }, `?id=eq.${encodeURIComponent(input.organizationId)}`);
