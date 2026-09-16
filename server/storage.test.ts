@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { DIETA_MIME_TYPES, LOGO_MIME_TYPES, decodeUpload, extensionFor } from "./storage";
+import { DIETA_MIME_TYPES, EXERCICIO_VIDEO_MIME_TYPES, LOGO_MIME_TYPES, decodeUpload, extensionFor } from "./storage";
 
 describe("decodeUpload", () => {
   it("decodes a valid base64 payload of an allowed type", () => {
@@ -21,12 +21,19 @@ describe("decodeUpload", () => {
   it("rejects an empty payload", () => {
     expect(() => decodeUpload("", "image/png", LOGO_MIME_TYPES, 1024)).toThrow(/vazio/);
   });
+
+  it("accepts an mp4 video within the exercício video allow-list", () => {
+    const base64 = Buffer.from("video").toString("base64");
+    const buffer = decodeUpload(base64, "video/mp4", EXERCICIO_VIDEO_MIME_TYPES, 1024);
+    expect(buffer.toString()).toBe("video");
+  });
 });
 
 describe("extensionFor", () => {
   it("maps known mime types to their extension", () => {
     expect(extensionFor("image/png")).toBe("png");
     expect(extensionFor("application/pdf")).toBe("pdf");
+    expect(extensionFor("video/mp4")).toBe("mp4");
   });
 
   it("falls back to a generic extension for unknown types", () => {

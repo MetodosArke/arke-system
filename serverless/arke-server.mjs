@@ -654,7 +654,7 @@ async function updateStudentMatricula(alunoId, input) {
   return rows[0];
 }
 async function listExercisesCatalog() {
-  return request2("exercicios", {}, "?select=id,nome,grupo_muscular&estado_publicacao=eq.publicado&order=nome.asc");
+  return request2("exercicios", {}, "?select=id,nome,grupo_muscular,video_url&estado_publicacao=eq.publicado&order=nome.asc");
 }
 async function listTreinosForAluno(alunoId, publishedOnly = false) {
   return request2("treinos", {}, `?select=*&aluno_id=eq.${encodeURIComponent(alunoId)}${publishedOnly ? "&estado_publicacao=eq.publicado" : ""}&order=created_at.desc`);
@@ -1533,14 +1533,19 @@ Monte, para cada divis\xE3o, de 2 a 6 exerc\xEDcios com id do exerc\xEDcio (copi
 var IMAGE_MIME_TYPES = ["image/png", "image/jpeg", "image/webp", "image/svg+xml"];
 var LOGO_MIME_TYPES = IMAGE_MIME_TYPES;
 var DIETA_MIME_TYPES = [...IMAGE_MIME_TYPES, "application/pdf"];
+var EXERCICIO_VIDEO_MIME_TYPES = ["video/mp4", "video/webm", "video/quicktime"];
 var LOGO_MAX_BYTES = 1.5 * 1024 * 1024;
 var DIETA_MAX_BYTES = 3 * 1024 * 1024;
+var EXERCICIO_VIDEO_MAX_BYTES = 3 * 1024 * 1024;
 var EXTENSION_BY_MIME = {
   "image/png": "png",
   "image/jpeg": "jpg",
   "image/webp": "webp",
   "image/svg+xml": "svg",
-  "application/pdf": "pdf"
+  "application/pdf": "pdf",
+  "video/mp4": "mp4",
+  "video/webm": "webm",
+  "video/quicktime": "mov"
 };
 function extensionFor(contentType) {
   return EXTENSION_BY_MIME[contentType] ?? "bin";
@@ -1739,7 +1744,12 @@ var appRouter = router({
     exercises: router({
       create: adminProcedure.input(z2.object({ nome: z2.string().trim().min(2), grupo_muscular: z2.string().trim().min(2), descricao: z2.string().trim().optional(), instrucoes: z2.string().trim().optional(), video_url: z2.string().url().optional(), imagem_url: z2.string().url().optional(), equipamento: z2.string().trim().optional() })).mutation(({ ctx, input }) => createGlobalExercise({ ...input, created_by: ctx.user.id })),
       update: adminProcedure.input(z2.object({ id: z2.string().uuid(), data: z2.object({ nome: z2.string().trim().min(2), grupo_muscular: z2.string().trim().min(2), descricao: z2.string().trim().optional().nullable(), instrucoes: z2.string().trim().optional().nullable(), video_url: z2.string().url().optional().nullable(), imagem_url: z2.string().url().optional().nullable(), equipamento: z2.string().trim().optional().nullable() }) })).mutation(({ input }) => updateGlobalExercise(input.id, input.data)),
-      delete: adminProcedure.input(z2.object({ id: z2.string().uuid() })).mutation(({ input }) => deleteGlobalExercise(input.id))
+      delete: adminProcedure.input(z2.object({ id: z2.string().uuid() })).mutation(({ input }) => deleteGlobalExercise(input.id)),
+      uploadVideo: adminProcedure.input(z2.object({ contentType: z2.string(), dataBase64: z2.string() })).mutation(async ({ input }) => {
+        const buffer = decodeUpload(input.dataBase64, input.contentType, EXERCICIO_VIDEO_MIME_TYPES, EXERCICIO_VIDEO_MAX_BYTES);
+        const url = await uploadPublicFile("exercicio-videos", `${randomUUID2()}.${extensionFor(input.contentType)}`, buffer, input.contentType);
+        return { url };
+      })
     }),
     groups: router({
       create: adminProcedure.input(z2.object({ nome: z2.string().trim().min(2), ordem: z2.number().int().min(0).default(0) })).mutation(({ input }) => createGlobalGroup(input)),

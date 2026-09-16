@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { ClipboardList, Download, Dumbbell, HeartHandshake, Utensils } from "lucide-react";
+import { ClipboardList, Download, Dumbbell, Film, HeartHandshake, Utensils } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { trpc } from "@/lib/trpc";
@@ -113,7 +113,7 @@ function TreinoCard({ treino }: { treino: { id: string; titulo: string; tipo: st
     {treino.descricao && <p className="mb-3 text-sm text-[#5c5445]">{treino.descricao}</p>}
     {exerciciosQuery.isLoading && <p className="text-xs text-[#918a7d]">Carregando exercícios...</p>}
     {!exerciciosQuery.isLoading && exercicios.length === 0 && <p className="text-xs text-[#918a7d]">Nenhum exercício cadastrado neste treino ainda.</p>}
-    <div className="space-y-2">{exercicios.map((item) => { const exercicio = exercises.find((ex) => ex.id === item.exercicio_id); return <div key={item.id} className="rounded-xl border border-[#eee9df] p-3"><p className="text-sm font-semibold text-[#4b4438]">{exercicio?.nome ?? "Exercício"}</p><p className="mt-1 text-xs text-[#9b9488]">{item.series} séries x {item.repeticoes} repetições · descanso {item.descanso_seg}s{item.observacoes ? ` · ${item.observacoes}` : ""}</p></div>; })}</div>
+    <div className="space-y-2">{exercicios.map((item) => { const exercicio = exercises.find((ex) => ex.id === item.exercicio_id); const videoUrl = exercicio?.video_url; const isYoutube = videoUrl ? videoUrl.includes("youtube.com") || videoUrl.includes("youtu.be") : false; return <div key={item.id} className="rounded-xl border border-[#eee9df] p-3"><p className="text-sm font-semibold text-[#4b4438]">{exercicio?.nome ?? "Exercício"}</p><p className="mt-1 text-xs text-[#9b9488]">{item.series} séries x {item.repeticoes} repetições · descanso {item.descanso_seg}s{item.observacoes ? ` · ${item.observacoes}` : ""}</p>{videoUrl && (isYoutube ? <a href={videoUrl} target="_blank" rel="noreferrer" className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-[#a47b13] underline"><Film size={13} /> Ver vídeo no YouTube</a> : <video src={videoUrl} controls muted playsInline preload="metadata" onVolumeChange={(e) => { e.currentTarget.muted = true; }} className="mt-2 w-full rounded-lg" style={{ maxHeight: 220 }} />)}</div>; })}</div>
     <Button variant="outline" onClick={downloadFicha} disabled={downloading} className="mt-3 h-9 w-full rounded-xl text-xs"><Download size={14} /> Baixar ficha (impressora térmica)</Button>
   </CardContent></Card>;
 }

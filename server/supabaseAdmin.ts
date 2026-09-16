@@ -213,10 +213,30 @@ export async function updateStudentMatricula(alunoId: string, input: { unitId?: 
   const rows = await request<StudentProfile[]>("profiles", { method: "PATCH", body: JSON.stringify(body) }, `?user_id=eq.${encodeURIComponent(alunoId)}`);
   return rows[0];
 }
+
+export type ArkeModule = { organization_id: string; enabled: boolean; package_tier: "starter" | "growth" | "scale" | null; amount_cents: number | null; enabled_at: string | null; updated_at: string };
+export type AlunoArkeLicenca = { id: string; organization_id: string; user_id: string; ativo: boolean; ativado_em: string | null; desativado_em: string | null; ativado_por: string | null; created_at: string; updated_at: string };
+
+export async function getArkeModule(organizationId: string) { const rows = await request<ArkeModule[]>("saas_arke_module", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}&limit=1`); return rows[0] ?? null; }
+export async function upsertArkeModule(input: { organizationId: string; enabled: boolean; packageTier?: "starter" | "growth" | "scale" | null; amountCents?: number | null }) {
+  const body = { organization_id: input.organizationId, enabled: input.enabled, package_tier: input.packageTier ?? null, amount_cents: input.amountCents ?? null, enabled_at: input.enabled ? new Date().toISOString() : null, updated_at: new Date().toISOString() };
+  const rows = await request<ArkeModule[]>("saas_arke_module", { method: "POST", body: JSON.stringify(body), headers: { Prefer: "return=representation,resolution=merge-duplicates" } }, "?on_conflict=organization_id");
+  return rows[0];
+}
+
+export async function getAlunoArkeLicenca(userId: string, organizationId: string) { const rows = await request<AlunoArkeLicenca[]>("aluno_arke_licenca", {}, `?select=*&user_id=eq.${encodeURIComponent(userId)}&organization_id=eq.${encodeURIComponent(organizationId)}&limit=1`); return rows[0] ?? null; }
+export async function countAlunosComArkeAtivo(organizationId: string) { const rows = await request<Array<{ count: number }>>("aluno_arke_licenca", { headers: { Prefer: "count=exact" } }, `?select=id&organization_id=eq.${encodeURIComponent(organizationId)}&ativo=eq.true`); return rows.length; }
+export async function toggleAlunoArkeLicenca(input: { userId: string; organizationId: string; ativo: boolean; ativadoPor: string }) {
+  const now = new Date().toISOString();
+  const body = { organization_id: input.organizationId, user_id: input.userId, ativo: input.ativo, ativado_em: input.ativo ? now : undefined, desativado_em: input.ativo ? undefined : now, ativado_por: input.ativadoPor, updated_at: now };
+  const rows = await request<AlunoArkeLicenca[]>("aluno_arke_licenca", { method: "POST", body: JSON.stringify(body), headers: { Prefer: "return=representation,resolution=merge-duplicates" } }, "?on_conflict=organization_id,user_id");
+  return rows[0];
+}
+
 // Prescrição real de treino nunca pode puxar um exercício ainda em
 // rascunho (não revisado pelo Admin Arke) — só o acervo publicado entra
 // aqui.
-export async function listExercisesCatalog() { return request<GlobalLibraryExercise[]>("exercicios", {}, "?select=id,nome,grupo_muscular&estado_publicacao=eq.publicado&order=nome.asc"); }
+export async function listExercisesCatalog() { return request<GlobalLibraryExercise[]>("exercicios", {}, "?select=id,nome,grupo_muscular,video_url&estado_publicacao=eq.publicado&order=nome.asc"); }
 
 export async function listTreinosForAluno(alunoId: string, publishedOnly = false) { return request<Treino[]>("treinos", {}, `?select=*&aluno_id=eq.${encodeURIComponent(alunoId)}${publishedOnly ? "&estado_publicacao=eq.publicado" : ""}&order=created_at.desc`); }
 export async function getTreino(idValue: string) { const rows = await request<Treino[]>("treinos", {}, `?select=*&id=eq.${encodeURIComponent(idValue)}&limit=1`); return rows[0] ?? null; }

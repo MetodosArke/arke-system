@@ -6,11 +6,17 @@
 const IMAGE_MIME_TYPES = ["image/png", "image/jpeg", "image/webp", "image/svg+xml"];
 export const LOGO_MIME_TYPES = IMAGE_MIME_TYPES;
 export const DIETA_MIME_TYPES = [...IMAGE_MIME_TYPES, "application/pdf"];
+export const EXERCICIO_VIDEO_MIME_TYPES = ["video/mp4", "video/webm", "video/quicktime"];
 
 // Limites pensados para o corpo de requisição do Vercel (~4.5MB): base64
-// infla o arquivo original em ~33%, então o teto aqui deixa margem.
+// infla o arquivo original em ~33%, então o teto aqui deixa margem. O
+// bucket "exercicio-videos" aceita até 15MB (ver migração de Storage) para
+// já comportar um futuro upload direto-pro-Storage sem outra migração —
+// hoje, porém, o caminho é sempre via este relay pelo servidor, então o
+// limite aplicado aqui é o que realmente vale.
 export const LOGO_MAX_BYTES = 1.5 * 1024 * 1024;
 export const DIETA_MAX_BYTES = 3 * 1024 * 1024;
+export const EXERCICIO_VIDEO_MAX_BYTES = 3 * 1024 * 1024;
 
 const EXTENSION_BY_MIME: Record<string, string> = {
   "image/png": "png",
@@ -18,6 +24,9 @@ const EXTENSION_BY_MIME: Record<string, string> = {
   "image/webp": "webp",
   "image/svg+xml": "svg",
   "application/pdf": "pdf",
+  "video/mp4": "mp4",
+  "video/webm": "webm",
+  "video/quicktime": "mov",
 };
 
 export function extensionFor(contentType: string) {
