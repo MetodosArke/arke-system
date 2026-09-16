@@ -12,7 +12,7 @@ import { computeComparativoAluno, computeScoreAluno } from "./arkeGamification";
 import { asaasConfigured, asaasEnvironment, createAsaasWebhook, getAsaasAccount, listAsaasPayments } from "./asaas";
 import { listAllAsaasPayments, listAsaasPaymentsForOrganization } from "./asaasPersistence";
 import { lookupCnpj } from "./cnpj";
-import { deleteTurnstileIntegration, listBenefitIntegrations, listTurnstileCatalog, listTurnstileIntegrationsForOrganization, saveBenefitIntegration, saveTurnstileIntegration } from "./integrations";
+import { deleteTurnstileIntegration, listBenefitIntegrations, listTurnstileCatalog, listTurnstileIntegrationsForOrganization, requestTurnstileTestConnection, saveBenefitIntegration, saveTurnstileIntegration } from "./integrations";
 import { openaiConfigured } from "./_core/llm";
 import { sugerirExercicio, sugerirModeloTreino } from "./acervoAi";
 import { getVapidPublicKey, sendPushToUser } from "./push";
@@ -449,6 +449,17 @@ export const appRouter = router({
         await ownerOrAdmin(ctx.user.id, input.organizationId);
         const result = await deleteTurnstileIntegration(input.unitId, input.organizationId);
         await recordAuditLog({ organizationId: input.organizationId, userId: ctx.user.id, unitId: input.unitId, action: "deleted", entity: "turnstile_integration" });
+        return result;
+      }),
+      // B2 (D-B1): publica o comando "testar conexão" no canal Realtime do
+      // dispositivo — a nuvem não espera aqui pela resposta (não há
+      // WebSocket persistente em função serverless); o agente reporta o
+      // resultado via POST /api/v1/access/test-result e o front revalida
+      // `list` para ver lastTestAt/lastTestResult atualizados.
+      testConnection: protectedProcedure.input(z.object({ organizationId: z.string().uuid(), unitId: z.string().uuid() })).mutation(async ({ ctx, input }) => {
+        await ownerOrAdmin(ctx.user.id, input.organizationId);
+        const result = await requestTurnstileTestConnection(input.unitId, input.organizationId);
+        await recordAuditLog({ organizationId: input.organizationId, userId: ctx.user.id, unitId: input.unitId, action: "requested", entity: "turnstile_test_connection" });
         return result;
       }),
     }),
