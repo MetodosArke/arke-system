@@ -209,6 +209,7 @@ var orgPlanOptions = ORG_PLAN_KEYS.map((key) => ({ value: key, label: `${ORG_PLA
 var profissionalPlanOptions = PROFISSIONAL_PLAN_KEYS.map((key) => ({ value: key, label: `${PROFISSIONAL_PLAN_LABELS[key]} \u2014 ${formatBRL(PROFISSIONAL_PLAN_AMOUNTS_CENTS[key])}/m\xEAs` }));
 var SETUP_FEE_CENTS = 149e3;
 var ARKE_MODULE_PACKAGE_AMOUNTS_CENTS = { starter: 9900, growth: 24900, scale: 49900 };
+var ARKE_ALUNO_WHOLESALE_CENTS = 5990;
 
 // server/db.ts
 function isConfigured() {
@@ -714,6 +715,12 @@ async function upsertArkeModule(input) {
   const body = { organization_id: input.organizationId, enabled: input.enabled, package_tier: input.packageTier ?? null, amount_cents: input.amountCents ?? null, enabled_at: input.enabled ? (/* @__PURE__ */ new Date()).toISOString() : null, updated_at: (/* @__PURE__ */ new Date()).toISOString() };
   const rows = await request2("saas_arke_module", { method: "POST", body: JSON.stringify(body), headers: { Prefer: "return=representation,resolution=merge-duplicates" } }, "?on_conflict=organization_id");
   return rows[0];
+}
+async function listArkeModulesEnabled() {
+  return request2("saas_arke_module", {}, "?select=*&enabled=eq.true");
+}
+async function markArkeRepasseCharged(organizationId, chargedOn) {
+  await request2("saas_arke_module", { method: "PATCH", body: JSON.stringify({ last_repasse_charged_at: chargedOn }) }, `?organization_id=eq.${encodeURIComponent(organizationId)}`);
 }
 async function getAlunoArkeLicenca(userId, organizationId) {
   const rows = await request2("aluno_arke_licenca", {}, `?select=*&user_id=eq.${encodeURIComponent(userId)}&organization_id=eq.${encodeURIComponent(organizationId)}&limit=1`);
@@ -2533,6 +2540,41 @@ function registerAsaasWebhook(app) {
 
 // server/automacaoCron.ts
 import { timingSafeEqual as timingSafeEqual2 } from "node:crypto";
+
+// server/arkeBilling.ts
+async function runArkeRepasseMensal() {
+  const resultado = { organizacoesCobradas: 0, organizacoesSemAlunoAtivo: 0, falhas: 0 };
+  const hoje = /* @__PURE__ */ new Date();
+  const mesAtual = hoje.toISOString().slice(0, 7);
+  for (const arkeModule of await listArkeModulesEnabled()) {
+    if (arkeModule.last_repasse_charged_at?.slice(0, 7) === mesAtual) continue;
+    try {
+      const alunosAtivos = await countAlunosComArkeAtivo(arkeModule.organization_id);
+      if (alunosAtivos === 0) {
+        resultado.organizacoesSemAlunoAtivo += 1;
+        continue;
+      }
+      const customerId = await getOrCreateAsaasCustomerForOrganization(arkeModule.organization_id);
+      const dueDate = new Date(Date.now() + 1e3 * 60 * 60 * 24 * 5).toISOString().slice(0, 10);
+      const payment = await createAsaasPayment({
+        customer: customerId,
+        value: alunosAtivos * ARKE_ALUNO_WHOLESALE_CENTS / 100,
+        dueDate,
+        billingType: "UNDEFINED",
+        description: `Repasse M\xF3dulo Arke \u2014 ${alunosAtivos} aluno(s) com Arke x R$59,90`
+      });
+      await upsertAsaasPayment(payment, "PAYMENT_CREATED", arkeModule.organization_id);
+      await markArkeRepasseCharged(arkeModule.organization_id, hoje.toISOString().slice(0, 10));
+      resultado.organizacoesCobradas += 1;
+    } catch (error) {
+      captureException2(error, { job: "arke_repasse_mensal", organizationId: arkeModule.organization_id });
+      resultado.falhas += 1;
+    }
+  }
+  return resultado;
+}
+
+// server/automacaoCron.ts
 function tokenMatches2(received, expected) {
   const receivedBuffer = Buffer.from(received);
   const expectedBuffer = Buffer.from(expected);
@@ -2544,8 +2586,8 @@ function registerAutomacaoCron(app) {
     const receivedToken = String(req.header("authorization") ?? "").replace(/^Bearer\s+/i, "");
     if (!expectedToken || !tokenMatches2(receivedToken, expectedToken)) return res.status(401).json({ ok: false, error: "unauthorized" });
     try {
-      const resultado = await runAutomacaoDiaria();
-      return res.status(200).json({ ok: true, ...resultado });
+      const [resultado, arkeRepasse] = await Promise.all([runAutomacaoDiaria(), runArkeRepasseMensal()]);
+      return res.status(200).json({ ok: true, ...resultado, arkeRepasse });
     } catch (error) {
       captureException2(error, { job: "automacao_diaria" });
       return res.status(500).json({ ok: false });

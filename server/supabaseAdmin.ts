@@ -214,7 +214,7 @@ export async function updateStudentMatricula(alunoId: string, input: { unitId?: 
   return rows[0];
 }
 
-export type ArkeModule = { organization_id: string; enabled: boolean; package_tier: "starter" | "growth" | "scale" | null; amount_cents: number | null; enabled_at: string | null; updated_at: string };
+export type ArkeModule = { organization_id: string; enabled: boolean; package_tier: "starter" | "growth" | "scale" | null; amount_cents: number | null; enabled_at: string | null; last_repasse_charged_at: string | null; updated_at: string };
 export type AlunoArkeLicenca = { id: string; organization_id: string; user_id: string; ativo: boolean; ativado_em: string | null; desativado_em: string | null; ativado_por: string | null; created_at: string; updated_at: string };
 
 export async function getArkeModule(organizationId: string) { const rows = await request<ArkeModule[]>("saas_arke_module", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}&limit=1`); return rows[0] ?? null; }
@@ -223,6 +223,9 @@ export async function upsertArkeModule(input: { organizationId: string; enabled:
   const rows = await request<ArkeModule[]>("saas_arke_module", { method: "POST", body: JSON.stringify(body), headers: { Prefer: "return=representation,resolution=merge-duplicates" } }, "?on_conflict=organization_id");
   return rows[0];
 }
+
+export async function listArkeModulesEnabled() { return request<ArkeModule[]>("saas_arke_module", {}, "?select=*&enabled=eq.true"); }
+export async function markArkeRepasseCharged(organizationId: string, chargedOn: string) { await request("saas_arke_module", { method: "PATCH", body: JSON.stringify({ last_repasse_charged_at: chargedOn }) }, `?organization_id=eq.${encodeURIComponent(organizationId)}`); }
 
 export async function getAlunoArkeLicenca(userId: string, organizationId: string) { const rows = await request<AlunoArkeLicenca[]>("aluno_arke_licenca", {}, `?select=*&user_id=eq.${encodeURIComponent(userId)}&organization_id=eq.${encodeURIComponent(organizationId)}&limit=1`); return rows[0] ?? null; }
 export async function countAlunosComArkeAtivo(organizationId: string) { const rows = await request<Array<{ count: number }>>("aluno_arke_licenca", { headers: { Prefer: "count=exact" } }, `?select=id&organization_id=eq.${encodeURIComponent(organizationId)}&ativo=eq.true`); return rows.length; }
