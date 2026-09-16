@@ -6,7 +6,7 @@ import { systemRouter } from "./_core/systemRouter";
 import { adminProcedure, protectedProcedure, publicProcedure, router } from "./_core/trpc";
 import { assertRateLimit, rateLimitKey } from "./_core/rateLimit";
 import { acceptOrganizationInvitation, archiveOrganizationUnit, auditLogsToCsv, auditLogsToPdfBase64, createOrganizationInvitation, createOrganizationUnit, createOrganizationWithOwner, createSubscriptionCharge, getAuditLogs, getMembership, getOrganization, getOrganizationAccess, getOrganizationBySlug, getOrganizationOnboarding, getOrganizationSubscription, getOrganizationsForUser, getPendingOrganizationInvitations, recordAuditLog, revokeOrganizationInvitation, saveOrganizationOnboarding, updateModulePolicy, updateOrganizationProfile, updateOrganizationSubscription } from "./db";
-import { acceptMemberInvitation, assignAtendimento, cancelarReserva, cancelarReservaStaff, converterLead, countAlunosComArkeAtivo, createAppStudent, createAppUser, createAtendimento, createDeletionRequest, createDieta, createFeedComment, createFeedLike, createFeedPost, createGlobalExercise, createGlobalGroup, createGlobalNutritionPlan, createGlobalRoutine, createGlobalTemplate, createGlobalTemplateExercise, createLead, createLeadNota, createPasswordRecoveryCode, createProgressoSemanal, createTreino, createTurma, deleteAppStudent, deleteAppUser, deleteDieta, deleteFeedComment, deleteFeedLike, deleteFeedPost, deleteProgressoSemanal, deleteGlobalExercise, deleteGlobalGroup, deleteGlobalNutritionPlan, deleteGlobalRoutine, deleteGlobalTemplate, deleteGlobalTemplateExercise, deleteGlobalAccessRule, deleteLead, deleteTreino, deleteTurma, findAppUserByEmail, fulfillDeletionRequest, gerarFichaTreinoPdf, getAcolhimento, getAlunoArkeLicenca, getArkeModule, getAtendimento, getAvaliacaoSemanal, getCheckinDoDia, getCrmIndicadores, getCurrentPrivacyPolicy, getDeletionRequest, getDieta, getGestaoIndicadores, getLead, getFeedComment, getFeedLike, getFeedPost, getMyDeletionRequest, getPlanoTreinoSemanal, getProfileByUserId, getProgressoSemanal, getReserva, getTreino, getTurma, getVagasDisponiveis, hasConsent, hasSupabaseConfig, inviteMember, listAppStudents, listAppUsers, listAtendimentosForOrganization, listDeletionRequests, listDietasForAluno, listExercisesCatalog, listFeedCommentsForPosts, listFeedLikesForPosts, listFeedPosts, listFrequenciaForAluno, listFrequenciaForOrganization, listGlobalLibrary, listLeadAtividades, listLeadsForOrganization, listMinhasReservas, listMyAtendimentos, listMyCheckIns, listPendingMemberInvitations, listProfileNames, listProgressoSemanal, listReservasForTurmaData, listStudentsInOrganization, listTreinoExercicios, listTreinosForAluno, listTurmaHorarios, listTurmasAtivas, listTurmasForOrganization, marcarLeadPerdido, moverEstagioLead, normalizeEmail, publishDieta, publishGlobalExercises, publishGlobalNutritionPlans, publishGlobalTemplates, publishTreino, recordConsent, registrarFrequencia, rejectDeletionRequest, replaceTreinoExercicios, replaceTurmaHorarios, requestHelp, reservarVaga, resolveAtendimento, revokeMemberInvitation, signInWithSupabase, submitCheckIn, toggleAlunoArkeLicenca, updateAppStudent, updateAppUser, updateDieta, updateGlobalExercise, updateGlobalGroup, updateGlobalNutritionPlan, updateGlobalRoutine, updateGlobalTemplate, updateGlobalTemplateExercise, updateLead, updateStudentMatricula, updateSupabaseUserPassword, updateTreino, updateTurma, upsertAcolhimento, upsertArkeModule, upsertAvaliacaoSemanal, upsertCheckinDiario, upsertGlobalAccessRule, upsertPlanoTreinoSemanal, verifyPasswordRecoveryCode } from "./supabaseAdmin";
+import { acceptMemberInvitation, assignAtendimento, cancelarReserva, cancelarReservaStaff, converterLead, countAlunosComArkeAtivo, createAppStudent, createAppUser, createAtendimento, createDeletionRequest, addDesafioParticipante, createDesafio, createDieta, createFeedComment, createFeedLike, createFeedPost, createGlobalExercise, createGlobalGroup, createGlobalNutritionPlan, createGlobalRoutine, createGlobalTemplate, createGlobalTemplateExercise, createLead, createLeadNota, createPasswordRecoveryCode, createProgressoSemanal, createTreino, createTurma, deleteAppStudent, deleteAppUser, deleteDesafio, deleteDieta, deleteFeedComment, deleteFeedLike, deleteFeedPost, deleteProgressoSemanal, deleteGlobalExercise, deleteGlobalGroup, deleteGlobalNutritionPlan, deleteGlobalRoutine, deleteGlobalTemplate, deleteGlobalTemplateExercise, deleteGlobalAccessRule, deleteLead, deleteTreino, deleteTurma, findAppUserByEmail, fulfillDeletionRequest, gerarFichaTreinoPdf, getAcolhimento, getAlunoArkeLicenca, getArkeModule, getAtendimento, getAvaliacaoSemanal, getCheckinDoDia, getCrmIndicadores, getCurrentPrivacyPolicy, getDeletionRequest, getDieta, getGestaoIndicadores, getLead, getDesafio, getFeedComment, getFeedLike, getFeedPost, getMyDeletionRequest, getPlanoTreinoSemanal, getProfileByUserId, getProgressoSemanal, getReserva, getTreino, getTurma, getVagasDisponiveis, hasConsent, hasSupabaseConfig, inviteMember, listAppStudents, listAppUsers, listAtendimentosForOrganization, listDeletionRequests, listDesafioParticipantes, listDesafioParticipantesForAluno, listDesafioProgressoForAluno, listDesafioProgressoForDesafio, listDesafios, listDietasForAluno, listExercisesCatalog, listFeedCommentsForPosts, listFeedLikesForPosts, listFeedPosts, listFrequenciaForAluno, listFrequenciaForOrganization, listGlobalLibrary, listLeadAtividades, listLeadsForOrganization, listMinhasReservas, listMyAtendimentos, listMyCheckIns, listPendingMemberInvitations, listProfileNames, listProgressoSemanal, listReservasForTurmaData, listStudentsInOrganization, listTreinoExercicios, listTreinosForAluno, listTurmaHorarios, listTurmasAtivas, listTurmasForOrganization, marcarLeadPerdido, moverEstagioLead, normalizeEmail, publishDieta, publishGlobalExercises, publishGlobalNutritionPlans, publishGlobalTemplates, publishTreino, recordConsent, registrarFrequencia, rejectDeletionRequest, removeDesafioParticipante, replaceTreinoExercicios, replaceTurmaHorarios, requestHelp, reservarVaga, resolveAtendimento, revokeMemberInvitation, setDesafioProgresso, signInWithSupabase, submitCheckIn, toggleAlunoArkeLicenca, updateAppStudent, updateAppUser, updateDesafio, updateDieta, updateGlobalExercise, updateGlobalGroup, updateGlobalNutritionPlan, updateGlobalRoutine, updateGlobalTemplate, updateGlobalTemplateExercise, updateLead, updateStudentMatricula, updateSupabaseUserPassword, updateTreino, updateTurma, upsertAcolhimento, upsertArkeModule, upsertAvaliacaoSemanal, upsertCheckinDiario, upsertGlobalAccessRule, upsertPlanoTreinoSemanal, verifyPasswordRecoveryCode } from "./supabaseAdmin";
 import { alunoTemArke, assertAlunoTemArke } from "./arkeEntitlement";
 import { asaasConfigured, asaasEnvironment, createAsaasWebhook, getAsaasAccount, listAsaasPayments } from "./asaas";
 import { listAsaasPaymentsForOrganization } from "./asaasPersistence";
@@ -82,6 +82,15 @@ const assertStaffForDieta = async (userId: string, dietaId: string, blockedRoles
   if (!dieta.organization_id) throw new Error("Plano alimentar sem organização vinculada.");
   await assertStaffOfOrganization(userId, dieta.organization_id, blockedRoles);
   return dieta;
+};
+
+const DESAFIO_TIPOS = ["sem_doce", "sem_alcool", "consumo_agua", "numero_treinos", "quilometros", "modalidades", "desempenho_dieta", "livre"] as const;
+
+const assertStaffForDesafio = async (userId: string, desafioId: string, blockedRoles: readonly string[] = []) => {
+  const desafio = await getDesafio(desafioId);
+  if (!desafio) throw new Error("Desafio não encontrado.");
+  await assertStaffOfOrganization(userId, desafio.organization_id, blockedRoles);
+  return desafio;
 };
 
 const assertStaffForProgresso = async (userId: string, progressoId: string, blockedRoles: readonly string[] = []) => {
@@ -526,6 +535,49 @@ export const appRouter = router({
         return result;
       }),
     }),
+    // Desafios (Fase 2 — engajamento): a equipe cria e acompanha, o aluno só
+    // lê (mesma divisão de acesso do arke-app original). `concluido`/
+    // `valorAtual` são sempre digitados pela equipe — não há rastreamento
+    // automático por dieta/treino registrado ainda.
+    desafios: router({
+      list: protectedProcedure.input(organizationIdInput).query(async ({ ctx, input }) => { await assertStaffOfOrganization(ctx.user.id, input.organizationId); return listDesafios(input.organizationId); }),
+      create: protectedProcedure.input(z.object({ organizationId: z.string().uuid(), titulo: z.string().trim().min(2), descricao: z.string().trim().optional(), tipo: z.enum(DESAFIO_TIPOS).default("livre"), metaValor: z.number().optional(), dataInicio: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), dataFim: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), pontos: z.number().int().min(0).max(10000).default(10), paraTodos: z.boolean().default(true) })).mutation(async ({ ctx, input }) => {
+        await assertStaffOfOrganization(ctx.user.id, input.organizationId);
+        const desafio = await createDesafio({ organization_id: input.organizationId, titulo: input.titulo, descricao: input.descricao || null, tipo: input.tipo, meta_valor: input.metaValor ?? null, data_inicio: input.dataInicio, data_fim: input.dataFim, pontos: input.pontos, para_todos: input.paraTodos, criado_por: ctx.user.id });
+        await recordAuditLog({ organizationId: input.organizationId, userId: ctx.user.id, action: "created", entity: "desafio", entityId: desafio.id, afterJson: input });
+        return desafio;
+      }),
+      update: protectedProcedure.input(z.object({ id: z.string().uuid(), titulo: z.string().trim().min(2), descricao: z.string().trim().optional(), tipo: z.enum(DESAFIO_TIPOS), metaValor: z.number().optional(), dataInicio: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), dataFim: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), pontos: z.number().int().min(0).max(10000), paraTodos: z.boolean() })).mutation(async ({ ctx, input }) => {
+        const desafio = await assertStaffForDesafio(ctx.user.id, input.id);
+        const updated = await updateDesafio(input.id, { titulo: input.titulo, descricao: input.descricao || null, tipo: input.tipo, meta_valor: input.metaValor ?? null, data_inicio: input.dataInicio, data_fim: input.dataFim, pontos: input.pontos, para_todos: input.paraTodos });
+        await recordAuditLog({ organizationId: desafio.organization_id, userId: ctx.user.id, action: "updated", entity: "desafio", entityId: input.id, beforeJson: desafio, afterJson: input });
+        return updated;
+      }),
+      delete: protectedProcedure.input(z.object({ id: z.string().uuid() })).mutation(async ({ ctx, input }) => {
+        const desafio = await assertStaffForDesafio(ctx.user.id, input.id);
+        const result = await deleteDesafio(input.id);
+        await recordAuditLog({ organizationId: desafio.organization_id, userId: ctx.user.id, action: "deleted", entity: "desafio", entityId: input.id, beforeJson: desafio });
+        return result;
+      }),
+      participantes: router({
+        list: protectedProcedure.input(z.object({ desafioId: z.string().uuid() })).query(async ({ ctx, input }) => { await assertStaffForDesafio(ctx.user.id, input.desafioId); return listDesafioParticipantes(input.desafioId); }),
+        add: protectedProcedure.input(z.object({ desafioId: z.string().uuid(), alunoId: z.string().uuid() })).mutation(async ({ ctx, input }) => {
+          const desafio = await assertStaffForDesafio(ctx.user.id, input.desafioId);
+          return addDesafioParticipante({ desafioId: input.desafioId, alunoId: input.alunoId, organizationId: desafio.organization_id });
+        }),
+        remove: protectedProcedure.input(z.object({ desafioId: z.string().uuid(), alunoId: z.string().uuid() })).mutation(async ({ ctx, input }) => {
+          await assertStaffForDesafio(ctx.user.id, input.desafioId);
+          return removeDesafioParticipante(input.desafioId, input.alunoId);
+        }),
+      }),
+      progresso: router({
+        list: protectedProcedure.input(z.object({ desafioId: z.string().uuid() })).query(async ({ ctx, input }) => { await assertStaffForDesafio(ctx.user.id, input.desafioId); return listDesafioProgressoForDesafio(input.desafioId); }),
+        set: protectedProcedure.input(z.object({ desafioId: z.string().uuid(), alunoId: z.string().uuid(), concluido: z.boolean(), valorAtual: z.number().optional() })).mutation(async ({ ctx, input }) => {
+          const desafio = await assertStaffForDesafio(ctx.user.id, input.desafioId);
+          return setDesafioProgresso({ desafioId: input.desafioId, alunoId: input.alunoId, organizationId: desafio.organization_id, concluido: input.concluido, valorAtual: input.valorAtual, concluidoPor: ctx.user.id });
+        }),
+      }),
+    }),
   }),
   arke: router({
     membership: router({
@@ -644,6 +696,32 @@ export const appRouter = router({
           if (!comment || comment.user_id !== ctx.user.id) throw new Error("Comentário não encontrado.");
           return deleteFeedComment(input.id);
         }),
+      }),
+    }),
+    // Espelha a leitura do aluno em AlunoDesafios.tsx original: um desafio
+    // aparece se for para_todos ou se o aluno foi adicionado como
+    // participante; concluido/pontos vêm sempre de desafio_progresso, nunca
+    // calculados no cliente.
+    desafios: router({
+      meus: protectedProcedure.query(async ({ ctx }) => {
+        await assertAlunoTemArke(ctx.user.id);
+        const profile = await getProfileByUserId(ctx.user.id);
+        if (!profile?.organization_id) throw new Error("Aluno sem organização vinculada.");
+        const [desafios, participacoes, progresso] = await Promise.all([listDesafios(profile.organization_id), listDesafioParticipantesForAluno(ctx.user.id), listDesafioProgressoForAluno(ctx.user.id)]);
+        const participandoIds = new Set(participacoes.map((participante) => participante.desafio_id));
+        const progressoByDesafio = new Map(progresso.map((item) => [item.desafio_id, item]));
+        return desafios.filter((desafio) => desafio.para_todos || participandoIds.has(desafio.id)).map((desafio) => ({
+          id: desafio.id,
+          titulo: desafio.titulo,
+          descricao: desafio.descricao,
+          tipo: desafio.tipo,
+          metaValor: desafio.meta_valor,
+          dataInicio: desafio.data_inicio,
+          dataFim: desafio.data_fim,
+          pontos: desafio.pontos,
+          concluido: progressoByDesafio.get(desafio.id)?.concluido ?? false,
+          valorAtual: progressoByDesafio.get(desafio.id)?.valor_atual ?? null,
+        }));
       }),
     }),
   }),

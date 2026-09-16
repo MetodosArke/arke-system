@@ -154,6 +154,49 @@ describe("arke.feed (Fase 2 — engajamento)", () => {
   });
 });
 
+describe("prescricao.desafios", () => {
+  it("requires staff access to the organization to list", async () => {
+    await expect(appRouter.createCaller(createContext()).prescricao.desafios.list({ organizationId: TEST_ORG_ID })).rejects.toThrow();
+  });
+
+  it("requires staff access to the organization to create", async () => {
+    await expect(appRouter.createCaller(createContext()).prescricao.desafios.create({ organizationId: TEST_ORG_ID, titulo: "Desafio água", tipo: "consumo_agua", dataInicio: "2026-01-01", dataFim: "2026-01-31" })).rejects.toThrow();
+  });
+
+  it("rejects a tipo value outside the accepted enum", async () => {
+    await expect(appRouter.createCaller(createContext()).prescricao.desafios.create({
+      organizationId: TEST_ORG_ID,
+      titulo: "Desafio inválido",
+      // @ts-expect-error tipo fora do enum aceito, exatamente o que este teste verifica
+      tipo: "corrida_lunar",
+      dataInicio: "2026-01-01",
+      dataFim: "2026-01-31",
+    })).rejects.toThrow();
+  });
+
+  it("requires staff access to update a desafio", async () => {
+    await expect(appRouter.createCaller(createContext()).prescricao.desafios.update({ id: "00000000-0000-4000-8000-0000000000f1", titulo: "Novo título", tipo: "livre", dataInicio: "2026-01-01", dataFim: "2026-01-31", pontos: 10, paraTodos: true })).rejects.toThrow();
+  });
+
+  it("requires staff access to delete a desafio", async () => {
+    await expect(appRouter.createCaller(createContext()).prescricao.desafios.delete({ id: "00000000-0000-4000-8000-0000000000f1" })).rejects.toThrow();
+  });
+
+  it("requires staff access to manage participantes", async () => {
+    await expect(appRouter.createCaller(createContext()).prescricao.desafios.participantes.add({ desafioId: "00000000-0000-4000-8000-0000000000f1", alunoId: TEST_USER_ID })).rejects.toThrow();
+  });
+
+  it("requires staff access to set progresso", async () => {
+    await expect(appRouter.createCaller(createContext()).prescricao.desafios.progresso.set({ desafioId: "00000000-0000-4000-8000-0000000000f1", alunoId: TEST_USER_ID, concluido: true })).rejects.toThrow();
+  });
+});
+
+describe("arke.desafios.meus", () => {
+  it("cannot list without a configured Supabase profile lookup", async () => {
+    await expect(appRouter.createCaller(createContext()).arke.desafios.meus()).rejects.toThrow();
+  });
+});
+
 describe("prescricao.progresso (evolução)", () => {
   it("requires staff access to the aluno's organization to list", async () => {
     await expect(appRouter.createCaller(createContext()).prescricao.progresso.list({ alunoId: TEST_USER_ID })).rejects.toThrow();
