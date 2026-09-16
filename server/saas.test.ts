@@ -126,6 +126,26 @@ describe("arke.meu (conteúdo do método)", () => {
   it("cannot read evolução (progresso) without a configured Supabase profile lookup", async () => {
     await expect(appRouter.createCaller(createContext()).arke.meu.progresso()).rejects.toThrow();
   });
+
+  it("cannot register a treino do dia without a configured Supabase profile lookup", async () => {
+    await expect(appRouter.createCaller(createContext()).arke.meu.registrarTreinoDia({ data: "2026-09-16", tipos: ["Musculação"] })).rejects.toThrow();
+  });
+
+  it("rejects a treino do dia with no modalidade informada", async () => {
+    await expect(appRouter.createCaller(createContext()).arke.meu.registrarTreinoDia({ data: "2026-09-16", tipos: [] })).rejects.toThrow();
+  });
+
+  it("cannot check dieta ativa without a configured Supabase profile lookup", async () => {
+    await expect(appRouter.createCaller(createContext()).arke.meu.dietaAtiva()).rejects.toThrow();
+  });
+
+  it("cannot register a compromisso semanal meta without a configured Supabase profile lookup", async () => {
+    await expect(appRouter.createCaller(createContext()).arke.meu.criarMetaSemana({ texto: "Treinar 4x na semana" })).rejects.toThrow();
+  });
+
+  it("fails closed on marcarMetaConcluida for a meta that cannot be found", async () => {
+    await expect(appRouter.createCaller(createContext()).arke.meu.marcarMetaConcluida({ metaId: "00000000-0000-4000-8000-0000000000f1", concluida: true })).rejects.toThrow();
+  });
 });
 
 describe("arke.feed (Fase 2 — engajamento)", () => {
