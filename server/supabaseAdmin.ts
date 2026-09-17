@@ -326,13 +326,6 @@ export async function getCompromissoMetaComDono(id: string) {
   const rows = await request<Array<CompromissoMeta & { compromisso_semanal: { user_id: string } | null }>>("compromisso_metas", {}, `?select=*,compromisso_semanal(user_id)&id=eq.${encodeURIComponent(id)}&limit=1`);
   return rows[0] ?? null;
 }
-// Motor de pontuação (Sessão A, fatia 2): metas concluídas no período,
-// filtrado pela semana do compromisso (não por created_at — a semana é o
-// período a que a meta se refere). !inner é necessário para o PostgREST
-// aceitar filtro numa coluna da tabela embutida.
-export async function listCompromissoMetasConcluidasPeriodo(userId: string, desde: string, ate: string) {
-  return request<Array<CompromissoMeta & { compromisso_semanal: { semana: string } }>>("compromisso_metas", {}, `?select=*,compromisso_semanal!inner(semana,user_id)&compromisso_semanal.user_id=eq.${encodeURIComponent(userId)}&concluida=eq.true&compromisso_semanal.semana=gte.${encodeURIComponent(desde)}&compromisso_semanal.semana=lte.${encodeURIComponent(ate)}`);
-}
 // Motor de pontuação (porte fiel): "compromissosCriados" pontua a criação
 // da meta em si (concluída ou não) — variante sem o filtro concluida=true.
 export async function listCompromissoMetasPeriodo(userId: string, desde: string, ate: string) {
@@ -614,11 +607,6 @@ export async function listAlunos(organizationId: string) {
 
 export async function findAlunoByEmail(organizationId: string, email: string) {
   const rows = await request<Aluno[]>("alunos", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}&email=eq.${encodeURIComponent(normalizeEmail(email))}&limit=1`);
-  return rows[0] ?? null;
-}
-
-export async function findAlunoByCpf(organizationId: string, cpf: string) {
-  const rows = await request<Aluno[]>("alunos", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}&cpf=eq.${encodeURIComponent(cpf)}&limit=1`);
   return rows[0] ?? null;
 }
 
