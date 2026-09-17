@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="theme-color" content="#000000" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
+    <link rel="icon" type="image/png" sizes="256x256" href="/favicon.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/manifest.json" />
+
+    <title>Arke — Gestão de Treinos</title>
+    <meta name="description" content="Sistema inteligente de gestão de treinos e evolução de alunos — Arke." />
+
+    <meta property="og:title" content="Arke — Gestão de Treinos" />
+    <meta property="og:description" content="Sistema inteligente de gestão de treinos e evolução de alunos — Arke." />
+    <meta property="og:type" content="website" />
+
+    <meta name="twitter:card" content="summary_large_image" />
+  </head>
+
+  <body>
+    <div id="root"></div>
+    <script>
+      // Normalize Supabase recovery/verify links for HashRouter.
+      // Supabase appends "#access_token=...&type=recovery" to the redirectTo URL.
+      // With HashRouter, that produces a second "#" fragment that breaks routing.
+      (function () {
+        try {
+          var href = window.location.href;
+          var hasRecovery =
+            href.indexOf("type=recovery") !== -1 ||
+            href.indexOf("access_token=") !== -1 ||
+            href.indexOf("error_description=") !== -1;
+          if (!hasRecovery) return;
+
+          // Find the tokens fragment (last "#" that starts token params).
+          var markers = ["#access_token=", "#error=", "#error_description=", "#type=recovery"];
+          var tokenIdx = -1;
+          for (var i = 0; i < markers.length; i++) {
+            var idx = href.indexOf(markers[i]);
+            if (idx !== -1 && (tokenIdx === -1 || idx < tokenIdx)) tokenIdx = idx;
+          }
+          // Fallback: sometimes tokens arrive with "&" prefix after the route hash
+          if (tokenIdx === -1) {
+            var m = href.match(/[#&](access_token|type|error|error_description)=/);
+            if (m) tokenIdx = href.indexOf(m[0]);
+          }
+          if (tokenIdx === -1) return;
+
+          var tokens = href.slice(tokenIdx + 1); // strip leading # or &
+          // Route path to reset-password with tokens as a secondary hash-like query
+          var base = window.location.origin + window.location.pathname + window.location.search;
+          window.history.replaceState({}, document.title, base + "#/auth/reset-password?" + tokens);
+        } catch (e) {
+          console.error("recovery url normalize failed", e);
+        }
+      })();
+    </script>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
