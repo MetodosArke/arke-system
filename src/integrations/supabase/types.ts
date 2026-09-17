@@ -212,11 +212,11 @@ export type Database = {
         Row: {
           aluno_id: string
           arquivo_url: string | null
-          conteudo: Json
           created_at: string
           id: string
           organization_id: string
           publicado_por: string | null
+          snapshot_conteudo: Json
           status: string
           titulo: string
           updated_at: string
@@ -225,11 +225,11 @@ export type Database = {
         Insert: {
           aluno_id: string
           arquivo_url?: string | null
-          conteudo?: Json
           created_at?: string
           id?: string
           organization_id: string
           publicado_por?: string | null
+          snapshot_conteudo?: Json
           status?: string
           titulo: string
           updated_at?: string
@@ -238,11 +238,11 @@ export type Database = {
         Update: {
           aluno_id?: string
           arquivo_url?: string | null
-          conteudo?: Json
           created_at?: string
           id?: string
           organization_id?: string
           publicado_por?: string | null
+          snapshot_conteudo?: Json
           status?: string
           titulo?: string
           updated_at?: string
@@ -265,9 +265,131 @@ export type Database = {
           },
         ]
       }
+      modelo_dieta_refeicoes: {
+        Row: {
+          created_at: string
+          horario_sugerido: string | null
+          id: string
+          itens: string | null
+          modelo_id: string
+          nome_refeicao: string
+          ordem: number
+        }
+        Insert: {
+          created_at?: string
+          horario_sugerido?: string | null
+          id?: string
+          itens?: string | null
+          modelo_id: string
+          nome_refeicao: string
+          ordem?: number
+        }
+        Update: {
+          created_at?: string
+          horario_sugerido?: string | null
+          id?: string
+          itens?: string | null
+          modelo_id?: string
+          nome_refeicao?: string
+          ordem?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "modelo_dieta_refeicoes_modelo_id_fkey"
+            columns: ["modelo_id"]
+            isOneToOne: false
+            referencedRelation: "modelos_dieta"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      modelo_treino_exercicios: {
+        Row: {
+          created_at: string
+          descanso_seg: number
+          grupo_muscular: string[]
+          id: string
+          modelo_id: string
+          nome_exercicio: string
+          observacoes: string | null
+          ordem: number
+          repeticoes: string
+          series: number
+        }
+        Insert: {
+          created_at?: string
+          descanso_seg?: number
+          grupo_muscular?: string[]
+          id?: string
+          modelo_id: string
+          nome_exercicio: string
+          observacoes?: string | null
+          ordem?: number
+          repeticoes?: string
+          series?: number
+        }
+        Update: {
+          created_at?: string
+          descanso_seg?: number
+          grupo_muscular?: string[]
+          id?: string
+          modelo_id?: string
+          nome_exercicio?: string
+          observacoes?: string | null
+          ordem?: number
+          repeticoes?: string
+          series?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "modelo_treino_exercicios_modelo_id_fkey"
+            columns: ["modelo_id"]
+            isOneToOne: false
+            referencedRelation: "modelos_treino"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      modelos_dieta: {
+        Row: {
+          created_at: string
+          criado_por: string | null
+          id: string
+          organization_id: string
+          tipo: string | null
+          titulo: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          criado_por?: string | null
+          id?: string
+          organization_id: string
+          tipo?: string | null
+          titulo: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          criado_por?: string | null
+          id?: string
+          organization_id?: string
+          tipo?: string | null
+          titulo?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "modelos_dieta_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       modelos_treino: {
         Row: {
-          conteudo: Json
           created_at: string
           criado_por: string | null
           id: string
@@ -276,7 +398,6 @@ export type Database = {
           updated_at: string
         }
         Insert: {
-          conteudo?: Json
           created_at?: string
           criado_por?: string | null
           id?: string
@@ -285,7 +406,6 @@ export type Database = {
           updated_at?: string
         }
         Update: {
-          conteudo?: Json
           created_at?: string
           criado_por?: string | null
           id?: string
@@ -545,12 +665,12 @@ export type Database = {
       treinos: {
         Row: {
           aluno_id: string
-          conteudo: Json
           created_at: string
           id: string
           modelo_id: string | null
           organization_id: string
           publicado_por: string | null
+          snapshot_conteudo: Json
           status: string
           titulo: string
           updated_at: string
@@ -560,12 +680,12 @@ export type Database = {
         }
         Insert: {
           aluno_id: string
-          conteudo?: Json
           created_at?: string
           id?: string
           modelo_id?: string | null
           organization_id: string
           publicado_por?: string | null
+          snapshot_conteudo?: Json
           status?: string
           titulo: string
           updated_at?: string
@@ -575,12 +695,12 @@ export type Database = {
         }
         Update: {
           aluno_id?: string
-          conteudo?: Json
           created_at?: string
           id?: string
           modelo_id?: string | null
           organization_id?: string
           publicado_por?: string | null
+          snapshot_conteudo?: Json
           status?: string
           titulo?: string
           updated_at?: string
@@ -661,6 +781,20 @@ export type Database = {
       is_org_staff: {
         Args: { _organization_id: string; _user_id: string }
         Returns: boolean
+      }
+      publicar_dieta: {
+        Args: { _aluno_id: string; _modelo_id: string; _titulo: string }
+        Returns: string
+      }
+      publicar_treino: {
+        Args: {
+          _aluno_id: string
+          _modelo_id: string
+          _titulo: string
+          _validade_fim?: string
+          _validade_inicio?: string
+        }
+        Returns: string
       }
     }
     Enums: {

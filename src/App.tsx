@@ -21,12 +21,16 @@ import { AdminLayout } from "@/components/layout/AdminLayout";
 // Aluno pages
 import AlunoDashboard from "@/pages/app/AlunoDashboard";
 import AlunoPerfil from "@/pages/app/AlunoPerfil";
+import AlunoTreinos from "@/pages/app/AlunoTreinos";
+import AlunoDieta from "@/pages/app/AlunoDieta";
 import Onboarding from "@/pages/app/Onboarding";
 
 // Staff pages (gestor / professor / nutricionista / admin_arke)
 import AdminDashboard from "@/pages/admin/AdminDashboard";
 import AdminAlunos from "@/pages/admin/AdminAlunos";
 import AdminOrganizacao from "@/pages/admin/AdminOrganizacao";
+import AdminTreinos from "@/pages/admin/AdminTreinos";
+import AdminDietas from "@/pages/admin/AdminDietas";
 
 import NotFound from "./pages/NotFound";
 
@@ -113,6 +117,8 @@ const App = () => (
                 }
               >
                 <Route index element={<AlunoDashboard />} />
+                <Route path="treinos" element={<AlunoTreinos />} />
+                <Route path="dieta" element={<AlunoDieta />} />
                 <Route path="perfil" element={<AlunoPerfil />} />
               </Route>
 
@@ -127,6 +133,8 @@ const App = () => (
               >
                 <Route index element={<AdminDashboard />} />
                 <Route path="alunos" element={<AdminAlunos />} />
+                <Route path="treinos" element={<AdminTreinos />} />
+                <Route path="dietas" element={<AdminDietas />} />
                 <Route path="organizacao" element={<AdminOrganizacao />} />
               </Route>
 
