@@ -26,12 +26,28 @@ export function turnstileChannel(deviceId: string) {
   return `turnstile:${deviceId}`;
 }
 
+// Sem timeout, um travamento do endpoint de broadcast do Supabase Realtime
+// deixava a chamada de "testar conexão" pendurada indefinidamente até o
+// timeout da própria função serverless — a UI nunca mostrava um erro claro
+// antes disso.
+const BROADCAST_TIMEOUT_MS = 8000;
+
 export async function publishTurnstileBroadcast(deviceId: string, event: string, payload: Record<string, unknown>) {
   const { url, key } = config();
-  const response = await fetch(`${url}/realtime/v1/api/broadcast`, {
-    method: "POST",
-    headers: { apikey: key, Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ messages: [{ topic: turnstileChannel(deviceId), event, payload }] }),
-  });
-  if (!response.ok) throw new Error(`Supabase Realtime ${response.status}: ${await response.text()}`);
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), BROADCAST_TIMEOUT_MS);
+  try {
+    const response = await fetch(`${url}/realtime/v1/api/broadcast`, {
+      method: "POST",
+      headers: { apikey: key, Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ messages: [{ topic: turnstileChannel(deviceId), event, payload }] }),
+      signal: controller.signal,
+    });
+    if (!response.ok) throw new Error(`Supabase Realtime ${response.status}: ${await response.text()}`);
+  } catch (error) {
+    if (error instanceof Error && error.name === "AbortError") throw new Error("Supabase Realtime não respondeu a tempo.");
+    throw error;
+  } finally {
+    clearTimeout(timeout);
+  }
 }

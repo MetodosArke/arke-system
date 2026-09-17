@@ -1,5 +1,5 @@
 import type { Express, Request, Response } from "express";
-import { randomUUID } from "node:crypto";
+import { randomUUID, timingSafeEqual } from "node:crypto";
 import { getProfileByUserId, registrarFrequencia } from "./supabaseAdmin";
 import { recordTurnstileHeartbeat, reportTurnstileTestResult } from "./integrations";
 import { captureException } from "./_core/errorMonitoring";
@@ -36,13 +36,29 @@ type AccessRequest = {
 
 const normalize = (value: unknown) => typeof value === "string" ? value.trim() : "";
 
+// Comparação em tempo constante — a chave autentica um dispositivo físico
+// pela rede; comparar com !== normal vaza quantos caracteres iniciais
+// batem via timing, permitindo recuperar a chave aos poucos (CWE-208).
+function deviceKeyMatches(providedKey: string, expectedKey: string): boolean {
+  const providedBuffer = Buffer.from(providedKey);
+  const expectedBuffer = Buffer.from(expectedKey);
+  return providedBuffer.length === expectedBuffer.length && timingSafeEqual(providedBuffer, expectedBuffer);
+}
+
+function requireDeviceKey(req: Request, res: Response): boolean {
+  const expectedKey = process.env.CATRACA_API_KEY;
+  const providedKey = normalize(req.header("x-arke-device-key"));
+  if (expectedKey && !deviceKeyMatches(providedKey, expectedKey)) {
+    res.status(401).json({ ok: false, code: "INVALID_DEVICE_KEY", message: "Dispositivo não autorizado." });
+    return false;
+  }
+  return true;
+}
+
 export function registerAccessRoutes(app: Express) {
   app.post("/api/v1/access/check-in", async (req: Request, res: Response) => {
+    if (!requireDeviceKey(req, res)) return;
     const expectedKey = process.env.CATRACA_API_KEY;
-    const providedKey = normalize(req.header("x-arke-device-key"));
-    if (expectedKey && providedKey !== expectedKey) {
-      return res.status(401).json({ ok: false, code: "INVALID_DEVICE_KEY", message: "Dispositivo não autorizado." });
-    }
 
     const body = (req.body ?? {}) as AccessRequest;
     const academyId = normalize(body.academyId);
@@ -122,16 +138,6 @@ export function registerAccessRoutes(app: Express) {
     });
   });
 
-  const requireDeviceKey = (req: Request, res: Response): boolean => {
-    const expectedKey = process.env.CATRACA_API_KEY;
-    const providedKey = normalize(req.header("x-arke-device-key"));
-    if (expectedKey && providedKey !== expectedKey) {
-      res.status(401).json({ ok: false, code: "INVALID_DEVICE_KEY", message: "Dispositivo não autorizado." });
-      return false;
-    }
-    return true;
-  };
-
   // Heartbeat (B2, D-B1): o agente local chama periodicamente para provar
   // que ainda está de pé — sem isso o status exibido cai para "offline"
   // depois de alguns minutos sem sinal (ver computeStatus em integrations.ts).
@@ -155,7 +161,7 @@ export function registerAccessRoutes(app: Express) {
   // verdade a rede local e reporta o resultado é o agente, aqui.
   app.post("/api/v1/access/test-result", async (req: Request, res: Response) => {
     if (!requireDeviceKey(req, res)) return;
-    const body = (req.body ?? {}) as { deviceId?: string; organizationId?: string; result?: string; message?: string };
+    const body = (req.body ?? {}) as { deviceId?: string; organizationId?: string; result?: string; message?: string; requestedAt?: string };
     const deviceId = normalize(body.deviceId);
     const organizationId = normalize(body.organizationId);
     const result = body.result;
@@ -163,9 +169,9 @@ export function registerAccessRoutes(app: Express) {
       return res.status(400).json({ ok: false, code: "INVALID_PAYLOAD", message: "deviceId, organizationId e result ('success'|'failed') são obrigatórios." });
     }
     try {
-      const outcome = await reportTurnstileTestResult(deviceId, organizationId, result, normalize(body.message) || undefined);
+      const outcome = await reportTurnstileTestResult(deviceId, organizationId, result, normalize(body.message) || undefined, normalize(body.requestedAt) || undefined);
       if (!outcome.success) return res.status(404).json({ ok: false, code: "DEVICE_NOT_FOUND", message: "Catraca não encontrada." });
-      return res.status(200).json({ ok: true });
+      return res.status(200).json({ ok: true, stale: outcome.stale ?? false });
     } catch (error) {
       captureException(error, { route: "access.test-result", deviceId, organizationId });
       return res.status(502).json({ ok: false, code: "TEST_RESULT_FAILED", message: "Não foi possível registrar o resultado do teste." });

@@ -113,14 +113,24 @@ export function parseNumber(raw: string): number | null {
 
 type UnidadeInput = { name: string; slug: string; city?: string };
 
-function validateUnidades(rows: ImportRow[]): ValidationResult<UnidadeInput> {
+async function validateUnidades(rows: ImportRow[], organizationId: string): Promise<ValidationResult<UnidadeInput>> {
   const valid: ValidatedRow<UnidadeInput>[] = [];
   const errors: ImportRowError[] = [];
-  const seenSlugs = new Set<string>();
+  // Sem isso, o preview mostrava a linha como válida e o commit só
+  // descobria o conflito na hora de gravar, contra a constraint
+  // unique(organization_id, slug) — diferente de validatePlanos/
+  // validateTurmas, que já checam nome existente antes.
+  const existentes = await listOrganizationUnits(organizationId);
+  const nomesExistentes = new Set(existentes.map((u) => u.name.toLowerCase()));
+  const seenNomes = new Set<string>();
+  const seenSlugs = new Set(existentes.map((u) => u.slug));
   rows.forEach((row, index) => {
     const rowNumber = index + 2; // +1 cabeçalho, +1 índice 1-based
     const nome = cell(row, "nome", "unidade");
     if (!nome) return errors.push({ row: rowNumber, campo: "nome", motivo: "Nome da unidade é obrigatório." });
+    const nomeKey = nome.toLowerCase();
+    if (nomesExistentes.has(nomeKey) || seenNomes.has(nomeKey)) return errors.push({ row: rowNumber, campo: "nome", motivo: `Já existe uma unidade chamada "${nome}".` });
+    seenNomes.add(nomeKey);
     const slugBase = cell(row, "slug") ?? slugify(nome);
     let slug = slugBase;
     let attempt = 1;
@@ -368,7 +378,7 @@ export async function commitImport(entity: ImportEntity, rows: ImportRow[], orga
 
 async function runValidation(entity: ImportEntity, rows: ImportRow[], organizationId: string): Promise<ValidationResult<unknown>> {
   switch (entity) {
-    case "unidades": return validateUnidades(rows);
+    case "unidades": return validateUnidades(rows, organizationId);
     case "planos": {
       const existentes = new Set((await listMembershipPlans(organizationId)).map((p) => p.nome.toLowerCase()));
       return validatePlanos(rows, existentes);

@@ -1964,14 +1964,20 @@ function parseNumber(raw) {
   const value = Number(normalized);
   return Number.isFinite(value) ? value : null;
 }
-function validateUnidades(rows) {
+async function validateUnidades(rows, organizationId) {
   const valid = [];
   const errors = [];
-  const seenSlugs = /* @__PURE__ */ new Set();
+  const existentes = await listOrganizationUnits(organizationId);
+  const nomesExistentes = new Set(existentes.map((u) => u.name.toLowerCase()));
+  const seenNomes = /* @__PURE__ */ new Set();
+  const seenSlugs = new Set(existentes.map((u) => u.slug));
   rows.forEach((row, index) => {
     const rowNumber = index + 2;
     const nome = cell(row, "nome", "unidade");
     if (!nome) return errors.push({ row: rowNumber, campo: "nome", motivo: "Nome da unidade \xE9 obrigat\xF3rio." });
+    const nomeKey = nome.toLowerCase();
+    if (nomesExistentes.has(nomeKey) || seenNomes.has(nomeKey)) return errors.push({ row: rowNumber, campo: "nome", motivo: `J\xE1 existe uma unidade chamada "${nome}".` });
+    seenNomes.add(nomeKey);
     const slugBase = cell(row, "slug") ?? slugify(nome);
     let slug = slugBase;
     let attempt = 1;
@@ -2226,7 +2232,7 @@ async function commitImport(entity, rows, organizationId, actorUserId) {
 async function runValidation(entity, rows, organizationId) {
   switch (entity) {
     case "unidades":
-      return validateUnidades(rows);
+      return validateUnidades(rows, organizationId);
     case "planos": {
       const existentes = new Set((await listMembershipPlans(organizationId)).map((p) => p.nome.toLowerCase()));
       return validatePlanos(rows, existentes);
@@ -2254,6 +2260,9 @@ async function assertAlunoTemArke(userId) {
 }
 
 // server/arkeGamification.ts
+function hojeBrasilia() {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo", year: "numeric", month: "2-digit", day: "2-digit" }).format(/* @__PURE__ */ new Date());
+}
 function weekKeyFor(dateStr) {
   const d = /* @__PURE__ */ new Date(`${dateStr}T00:00:00.000Z`);
   const diffToMonday = (d.getUTCDay() + 6) % 7;
@@ -2359,7 +2368,7 @@ async function pontosDesafios(alunoId, organizationId, desde, ate, hoje) {
 }
 async function computeScoreAluno(alunoId, organizationId, desde, ate) {
   const semanas = getSemanasNoPeriodo(desde, ate);
-  const hoje = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
+  const hoje = hojeBrasilia();
   const [
     checkins,
     avaliacoes,
@@ -2574,14 +2583,25 @@ function config3() {
 function turnstileChannel(deviceId) {
   return `turnstile:${deviceId}`;
 }
+var BROADCAST_TIMEOUT_MS = 8e3;
 async function publishTurnstileBroadcast(deviceId, event, payload) {
   const { url, key } = config3();
-  const response = await fetch(`${url}/realtime/v1/api/broadcast`, {
-    method: "POST",
-    headers: { apikey: key, Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ messages: [{ topic: turnstileChannel(deviceId), event, payload }] })
-  });
-  if (!response.ok) throw new Error(`Supabase Realtime ${response.status}: ${await response.text()}`);
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), BROADCAST_TIMEOUT_MS);
+  try {
+    const response = await fetch(`${url}/realtime/v1/api/broadcast`, {
+      method: "POST",
+      headers: { apikey: key, Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ messages: [{ topic: turnstileChannel(deviceId), event, payload }] }),
+      signal: controller.signal
+    });
+    if (!response.ok) throw new Error(`Supabase Realtime ${response.status}: ${await response.text()}`);
+  } catch (error) {
+    if (error instanceof Error && error.name === "AbortError") throw new Error("Supabase Realtime n\xE3o respondeu a tempo.");
+    throw error;
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 // server/integrations.ts
@@ -2682,9 +2702,9 @@ async function requestTurnstileTestConnection(unitId, organizationId) {
   const rows = await request3("turnstile_devices", {}, `?select=*,saas_units(name)&unit_id=eq.${encodeURIComponent(unitId)}&organization_id=eq.${encodeURIComponent(organizationId)}&limit=1`);
   const device = rows[0];
   if (!device) throw new Error("Catraca n\xE3o configurada para esta unidade.");
-  const command = TurnstileAdapterFactory.forBrand(device.brand).buildTestConnectionCommand();
-  await publishTurnstileBroadcast(device.id, "command", command);
   const requestedAt = (/* @__PURE__ */ new Date()).toISOString();
+  const command = { ...TurnstileAdapterFactory.forBrand(device.brand).buildTestConnectionCommand(), requestedAt };
+  await publishTurnstileBroadcast(device.id, "command", command);
   await request3("turnstile_devices", { method: "PATCH", body: JSON.stringify({ last_test_requested_at: requestedAt }) }, `?id=eq.${encodeURIComponent(device.id)}`);
   return mapTurnstileRow({ ...device, last_test_requested_at: requestedAt });
 }
@@ -2698,9 +2718,12 @@ async function recordTurnstileHeartbeat(deviceId, organizationId) {
   await request3("turnstile_devices", { method: "PATCH", body: JSON.stringify({ status: "online", last_ping_at: (/* @__PURE__ */ new Date()).toISOString() }) }, `?id=eq.${encodeURIComponent(deviceId)}`);
   return { success: true };
 }
-async function reportTurnstileTestResult(deviceId, organizationId, result, message) {
+async function reportTurnstileTestResult(deviceId, organizationId, result, message, requestedAt) {
   const device = await getTurnstileDeviceById(deviceId);
   if (!device || device.organization_id !== organizationId) return { success: false };
+  if (requestedAt && device.last_test_requested_at && requestedAt !== device.last_test_requested_at) {
+    return { success: true, stale: true };
+  }
   const now = (/* @__PURE__ */ new Date()).toISOString();
   const patch = { last_test_at: now, last_test_result: result, last_test_message: message ?? null };
   if (result === "success") {
@@ -2708,7 +2731,7 @@ async function reportTurnstileTestResult(deviceId, organizationId, result, messa
     patch.last_ping_at = now;
   }
   await request3("turnstile_devices", { method: "PATCH", body: JSON.stringify(patch) }, `?id=eq.${encodeURIComponent(deviceId)}`);
-  return { success: true };
+  return { success: true, stale: false };
 }
 async function listTurnstileCatalog() {
   const [brands, models] = await Promise.all([
@@ -4554,15 +4577,26 @@ async function createContext(opts) {
 }
 
 // server/access.ts
-import { randomUUID as randomUUID3 } from "node:crypto";
+import { randomUUID as randomUUID3, timingSafeEqual } from "node:crypto";
 var normalize = (value) => typeof value === "string" ? value.trim() : "";
+function deviceKeyMatches(providedKey, expectedKey) {
+  const providedBuffer = Buffer.from(providedKey);
+  const expectedBuffer = Buffer.from(expectedKey);
+  return providedBuffer.length === expectedBuffer.length && timingSafeEqual(providedBuffer, expectedBuffer);
+}
+function requireDeviceKey(req, res) {
+  const expectedKey = process.env.CATRACA_API_KEY;
+  const providedKey = normalize(req.header("x-arke-device-key"));
+  if (expectedKey && !deviceKeyMatches(providedKey, expectedKey)) {
+    res.status(401).json({ ok: false, code: "INVALID_DEVICE_KEY", message: "Dispositivo n\xE3o autorizado." });
+    return false;
+  }
+  return true;
+}
 function registerAccessRoutes(app) {
   app.post("/api/v1/access/check-in", async (req, res) => {
+    if (!requireDeviceKey(req, res)) return;
     const expectedKey = process.env.CATRACA_API_KEY;
-    const providedKey = normalize(req.header("x-arke-device-key"));
-    if (expectedKey && providedKey !== expectedKey) {
-      return res.status(401).json({ ok: false, code: "INVALID_DEVICE_KEY", message: "Dispositivo n\xE3o autorizado." });
-    }
     const body = req.body ?? {};
     const academyId = normalize(body.academyId);
     const organizationId = normalize(body.organizationId);
@@ -4621,15 +4655,6 @@ function registerAccessRoutes(app) {
       message
     });
   });
-  const requireDeviceKey = (req, res) => {
-    const expectedKey = process.env.CATRACA_API_KEY;
-    const providedKey = normalize(req.header("x-arke-device-key"));
-    if (expectedKey && providedKey !== expectedKey) {
-      res.status(401).json({ ok: false, code: "INVALID_DEVICE_KEY", message: "Dispositivo n\xE3o autorizado." });
-      return false;
-    }
-    return true;
-  };
   app.post("/api/v1/access/heartbeat", async (req, res) => {
     if (!requireDeviceKey(req, res)) return;
     const deviceId = normalize((req.body ?? {}).deviceId);
@@ -4654,9 +4679,9 @@ function registerAccessRoutes(app) {
       return res.status(400).json({ ok: false, code: "INVALID_PAYLOAD", message: "deviceId, organizationId e result ('success'|'failed') s\xE3o obrigat\xF3rios." });
     }
     try {
-      const outcome = await reportTurnstileTestResult(deviceId, organizationId, result, normalize(body.message) || void 0);
+      const outcome = await reportTurnstileTestResult(deviceId, organizationId, result, normalize(body.message) || void 0, normalize(body.requestedAt) || void 0);
       if (!outcome.success) return res.status(404).json({ ok: false, code: "DEVICE_NOT_FOUND", message: "Catraca n\xE3o encontrada." });
-      return res.status(200).json({ ok: true });
+      return res.status(200).json({ ok: true, stale: outcome.stale ?? false });
     } catch (error) {
       captureException2(error, { route: "access.test-result", deviceId, organizationId });
       return res.status(502).json({ ok: false, code: "TEST_RESULT_FAILED", message: "N\xE3o foi poss\xEDvel registrar o resultado do teste." });
@@ -4665,11 +4690,11 @@ function registerAccessRoutes(app) {
 }
 
 // server/asaasWebhook.ts
-import { timingSafeEqual } from "node:crypto";
+import { timingSafeEqual as timingSafeEqual2 } from "node:crypto";
 function tokenMatches(received, expected) {
   const receivedBuffer = Buffer.from(received);
   const expectedBuffer = Buffer.from(expected);
-  return receivedBuffer.length === expectedBuffer.length && timingSafeEqual(receivedBuffer, expectedBuffer);
+  return receivedBuffer.length === expectedBuffer.length && timingSafeEqual2(receivedBuffer, expectedBuffer);
 }
 function registerAsaasWebhook(app) {
   app.post("/api/webhooks/asaas", async (req, res) => {
@@ -4690,7 +4715,7 @@ function registerAsaasWebhook(app) {
 }
 
 // server/automacaoCron.ts
-import { timingSafeEqual as timingSafeEqual2 } from "node:crypto";
+import { timingSafeEqual as timingSafeEqual3 } from "node:crypto";
 
 // server/arkeBilling.ts
 async function runArkeRepasseMensal() {
@@ -4889,7 +4914,7 @@ async function runArkeCompeticoesAutomaticas() {
 function tokenMatches2(received, expected) {
   const receivedBuffer = Buffer.from(received);
   const expectedBuffer = Buffer.from(expected);
-  return receivedBuffer.length === expectedBuffer.length && timingSafeEqual2(receivedBuffer, expectedBuffer);
+  return receivedBuffer.length === expectedBuffer.length && timingSafeEqual3(receivedBuffer, expectedBuffer);
 }
 var JOBS = [
   { key: "resultado", name: "automacao_diaria", run: runAutomacaoDiaria },

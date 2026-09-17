@@ -170,12 +170,12 @@ describe("access.heartbeat / access.test-result", () => {
   });
 
   it("records a successful test-result", async () => {
-    const resultSpy = vi.spyOn(integrations, "reportTurnstileTestResult").mockResolvedValue({ success: true });
+    const resultSpy = vi.spyOn(integrations, "reportTurnstileTestResult").mockResolvedValue({ success: true, stale: false });
     const routes = makeRoutes();
     const { state, res } = response();
     await routes["/api/v1/access/test-result"]({ body: { deviceId: "device-1", organizationId: "org-1", result: "success" }, header: () => "device-secret" }, res);
     expect(state.status).toBe(200);
-    expect(resultSpy).toHaveBeenCalledWith("device-1", "org-1", "success", undefined);
+    expect(resultSpy).toHaveBeenCalledWith("device-1", "org-1", "success", undefined, undefined);
   });
 
   it("fails with 502 when reporting the test-result errors out", async () => {
