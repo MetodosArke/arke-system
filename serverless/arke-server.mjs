@@ -888,6 +888,10 @@ async function findAlunoByEmail(organizationId, email) {
   const rows = await request("alunos", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}&email=eq.${encodeURIComponent(normalizeEmail(email))}&limit=1`);
   return rows[0] ?? null;
 }
+async function findAlunoByAuthUserId(authUserId) {
+  const rows = await request("alunos", {}, `?select=*&auth_user_id=eq.${encodeURIComponent(authUserId)}&limit=1`);
+  return rows[0] ?? null;
+}
 async function createAluno(input) {
   const rows = await request("alunos", { method: "POST", body: JSON.stringify({
     organization_id: input.organizationId,
@@ -1563,6 +1567,20 @@ async function getOrganizationsForUser(userId) {
     `?select=*,saas_organizations(*)&auth_user_id=eq.${encodeURIComponent(userId)}&status=eq.active`
   );
   return rows.map(({ saas_organizations, ...membership }) => ({ membership, organization: saas_organizations })).sort((a, b) => b.organization.updated_at.localeCompare(a.organization.updated_at));
+}
+var MEMBERSHIP_ROLE_TITLE = { owner: "Dono(a)", admin: "Administrador", manager: "Gerente", professional: "Profissional de treino", nutricionista: "Nutricionista", viewer: "Visualizador" };
+async function resolveOrgLoginProfile(authUserId, fallbackName) {
+  const memberships = await getOrganizationsForUser(authUserId);
+  if (memberships.length > 0) {
+    const primary = memberships[0];
+    return { module: "profissional", role: MEMBERSHIP_ROLE_TITLE[primary.membership.role] ?? "Equipe", workspace: primary.organization.name, name: fallbackName, logoUrl: primary.organization.logo_url };
+  }
+  const aluno = await findAlunoByAuthUserId(authUserId);
+  if (aluno) {
+    const organization = await getOrganization(aluno.organization_id);
+    return { module: "aluno", role: "Aluno", workspace: organization?.name ?? fallbackName, name: aluno.nome || fallbackName, logoUrl: organization?.logo_url ?? null };
+  }
+  return null;
 }
 async function getMembership(userId, organizationId) {
   if (!isConfigured()) return void 0;
@@ -3009,7 +3027,8 @@ var appRouter = router({
       assertRateLimit(rateLimitKey(ctx.req, "signin"), 10, 5 * 60 * 1e3);
       const result = await signInWithSupabase(input.email, input.password);
       ctx.res.cookie(SUPABASE_ACCESS_COOKIE, result.accessToken, { ...getSessionCookieOptions(ctx.req), maxAge: 1e3 * 60 * 60 * 24 * 30 });
-      return result;
+      const orgProfile = result.appUser ? null : await resolveOrgLoginProfile(result.user.id, String(result.user.user_metadata?.full_name ?? result.user.user_metadata?.name ?? result.user.email ?? ""));
+      return { ...result, orgProfile };
     }),
     recoverPassword: publicProcedure.input(z2.object({ email: z2.string().email() })).mutation(({ ctx, input }) => {
       assertRateLimit(rateLimitKey(ctx.req, "recover-password"), 5, 15 * 60 * 1e3);
@@ -3020,8 +3039,9 @@ var appRouter = router({
       const session = await verifyPasswordRecoveryCode(input.email, input.code);
       const supabaseUser = await updateSupabaseUserPassword(session.access_token, input.password);
       const appUser = supabaseUser.email ? await findAppUserByEmail(normalizeEmail(supabaseUser.email)) : null;
+      const orgProfile = appUser ? null : await resolveOrgLoginProfile(supabaseUser.id, String(supabaseUser.user_metadata?.full_name ?? supabaseUser.user_metadata?.name ?? supabaseUser.email ?? ""));
       ctx.res.cookie(SUPABASE_ACCESS_COOKIE, session.access_token, { ...getSessionCookieOptions(ctx.req), maxAge: 1e3 * 60 * 60 * 24 * 30 });
-      return { accessToken: session.access_token, user: supabaseUser, appUser };
+      return { accessToken: session.access_token, user: supabaseUser, appUser, orgProfile };
     }),
     changePassword: protectedProcedure.input(z2.object({ currentPassword: z2.string().min(8), newPassword: z2.string().min(8) })).mutation(async ({ ctx, input }) => {
       if (!ctx.user.email) throw new Error("Conta sem e-mail associado.");

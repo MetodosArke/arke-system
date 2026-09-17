@@ -12,7 +12,7 @@ import { createHash } from "node:crypto";
 import { createAsaasCustomer, createAsaasPayment } from "./asaas";
 import { upsertAsaasPayment } from "./asaasPersistence";
 import { captureException } from "./_core/errorMonitoring";
-import { createSupabaseUserWithPassword, sendEmail, signInWithSupabase } from "./supabaseAdmin";
+import { createSupabaseUserWithPassword, findAlunoByAuthUserId, sendEmail, signInWithSupabase } from "./supabaseAdmin";
 import { PLAN_AMOUNTS_CENTS, PLAN_LIMITS, SETUP_FEE_CENTS, type SaasPlan } from "@shared/pricing";
 
 type Json = Record<string, unknown>;
@@ -86,6 +86,30 @@ export async function getOrganizationsForUser(userId: string) {
   return rows
     .map(({ saas_organizations, ...membership }) => ({ membership, organization: saas_organizations }))
     .sort((a, b) => b.organization.updated_at.localeCompare(a.organization.updated_at));
+}
+
+const MEMBERSHIP_ROLE_TITLE: Record<Membership["role"], string> = { owner: "Dono(a)", admin: "Administrador", manager: "Gerente", professional: "Profissional de treino", nutricionista: "Nutricionista", viewer: "Visualizador" };
+
+export type ResolvedLoginProfile = { module: "profissional" | "aluno"; role: string; workspace: string; name: string; logoUrl: string | null };
+
+// Resolução de identidade para quem loga fora do cadastro genérico
+// app_users — equipe que aceitou convite (saas_memberships) ou aluno que
+// aceitou convite (alunos.auth_user_id), nenhum dos dois tem linha em
+// app_users. Sem isso, auth.signIn/setPassword caem no fallback
+// role:"Super Admin" para qualquer conta real dessas (bug encontrado ao
+// revisar o acesso por slug — ver client/src/App.tsx submit()).
+export async function resolveOrgLoginProfile(authUserId: string, fallbackName: string): Promise<ResolvedLoginProfile | null> {
+  const memberships = await getOrganizationsForUser(authUserId);
+  if (memberships.length > 0) {
+    const primary = memberships[0];
+    return { module: "profissional", role: MEMBERSHIP_ROLE_TITLE[primary.membership.role] ?? "Equipe", workspace: primary.organization.name, name: fallbackName, logoUrl: primary.organization.logo_url };
+  }
+  const aluno = await findAlunoByAuthUserId(authUserId);
+  if (aluno) {
+    const organization = await getOrganization(aluno.organization_id);
+    return { module: "aluno", role: "Aluno", workspace: organization?.name ?? fallbackName, name: aluno.nome || fallbackName, logoUrl: organization?.logo_url ?? null };
+  }
+  return null;
 }
 
 export async function getMembership(userId: string, organizationId: string) {

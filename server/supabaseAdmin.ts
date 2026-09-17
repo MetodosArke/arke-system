@@ -610,6 +610,14 @@ export async function findAlunoByEmail(organizationId: string, email: string) {
   return rows[0] ?? null;
 }
 
+// Resolução de identidade no login (ver resolveOrgLoginProfile em db.ts):
+// um aluno que aceitou convite não tem linha em app_users — é encontrado
+// aqui pelo auth_user_id do Supabase Auth.
+export async function findAlunoByAuthUserId(authUserId: string) {
+  const rows = await request<Aluno[]>("alunos", {}, `?select=*&auth_user_id=eq.${encodeURIComponent(authUserId)}&limit=1`);
+  return rows[0] ?? null;
+}
+
 export async function createAluno(input: { organizationId: string; unitId?: string; planoId?: string; nome: string; cpf?: string; email?: string; telefone?: string; dataNascimento?: string; responsavelNome?: string; responsavelCpf?: string; valorMensal?: number; diaVencimento?: number; origem?: Aluno["origem"]; criadoPor?: string }) {
   const rows = await request<Aluno[]>("alunos", { method: "POST", body: JSON.stringify({
     organization_id: input.organizationId,
