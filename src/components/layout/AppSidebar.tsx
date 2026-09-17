@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useAppSidebar } from "./AppLayout";
-import { Home, User, LogOut, ChevronLeft, Menu } from "lucide-react";
+import { Home, User, LogOut, ChevronLeft, Menu, Dumbbell, UtensilsCrossed } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
@@ -9,6 +9,8 @@ import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 
 const menuItems = [
   { icon: Home, label: "Início", path: "/app" },
+  { icon: Dumbbell, label: "Treino", path: "/app/treinos" },
+  { icon: UtensilsCrossed, label: "Dieta", path: "/app/dieta" },
   { icon: User, label: "Perfil", path: "/app/perfil" },
 ];
 

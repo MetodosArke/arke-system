@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { LayoutDashboard, Users, Building2, LogOut, ChevronLeft, Menu } from "lucide-react";
+import { LayoutDashboard, Users, Building2, LogOut, ChevronLeft, Menu, Dumbbell, UtensilsCrossed } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
@@ -10,6 +10,8 @@ import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 const menuItems = [
   { icon: LayoutDashboard, label: "Minha Fila", path: "/admin" },
   { icon: Users, label: "Alunos", path: "/admin/alunos" },
+  { icon: Dumbbell, label: "Treinos", path: "/admin/treinos" },
+  { icon: UtensilsCrossed, label: "Dietas", path: "/admin/dietas" },
   { icon: Building2, label: "Organização", path: "/admin/organizacao" },
 ];
 
