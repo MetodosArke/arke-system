@@ -28,6 +28,14 @@ import {
 // tela, e tratá-la como sempre vazia é honesto — treino_calendario já
 // cobre "o aluno registrou que treinou".
 
+// "Hoje" em UTC fica adiantado ~3h em relação a Brasília — no fim do dia
+// local, um desafio inverso (sem_doce/sem_alcool) podia fechar e pontuar
+// antes do dia local em que ele deveria valer terminar de fato. O cron
+// diário (09:00 UTC = 06:00 BRT) não sofre disso; só o cálculo ao vivo.
+function hojeBrasilia(): string {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
+}
+
 function weekKeyFor(dateStr: string) {
   const d = new Date(`${dateStr}T00:00:00.000Z`);
   const diffToMonday = (d.getUTCDay() + 6) % 7;
@@ -165,7 +173,12 @@ async function pontosDesafios(alunoId: string, organizationId: string, desde: st
   const noPeriodo = aplicaveis.filter((d) => d.data_fim >= desde && d.data_fim <= ate);
 
   const pontosPorDesafio = await Promise.all(noPeriodo.map(async (desafio) => {
-    if (progressoByDesafio.get(desafio.id)?.concluido) return desafio.pontos;
+    const manual = progressoByDesafio.get(desafio.id);
+    // origem='manual' é a equipe sobrescrevendo o valor calculado — vale
+    // mesmo quando concluido=false (ex.: negar crédito por autorrelato
+    // suspeito). Sem isso, o cron respeitava o override, mas o cálculo de
+    // pontuação exibido ao aluno recalculava automático por cima dele.
+    if (manual?.origem === "manual") return manual.concluido ? desafio.pontos : 0;
     const auto = await calcAuto(alunoId, desafio);
     if (!auto) return 0;
     const encerrado = desafio.data_fim < hoje;
@@ -177,7 +190,7 @@ async function pontosDesafios(alunoId: string, organizationId: string, desde: st
 
 export async function computeScoreAluno(alunoId: string, organizationId: string, desde: string, ate: string): Promise<PontuacaoDetalhada> {
   const semanas = getSemanasNoPeriodo(desde, ate);
-  const hoje = new Date().toISOString().slice(0, 10);
+  const hoje = hojeBrasilia();
 
   const [
     checkins, avaliacoes, objetivosRow, valoresRow, compromissoMetas,

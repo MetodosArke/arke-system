@@ -8,9 +8,11 @@
 // inteiro espelhado do antigo `users` do Drizzle/TiDB — não há mais tabela
 // de usuário própria aqui, auth.users já é a fonte de verdade.
 
+import { createHash } from "node:crypto";
 import { createAsaasCustomer, createAsaasPayment } from "./asaas";
 import { upsertAsaasPayment } from "./asaasPersistence";
 import { captureException } from "./_core/errorMonitoring";
+import { createSupabaseUserWithPassword, findAlunoByAuthUserId, sendEmail, signInWithSupabase } from "./supabaseAdmin";
 import { PLAN_AMOUNTS_CENTS, PLAN_LIMITS, SETUP_FEE_CENTS, type SaasPlan } from "@shared/pricing";
 
 type Json = Record<string, unknown>;
@@ -69,7 +71,7 @@ export type Membership = {
 export type OrganizationUnit = { id: string; organization_id: string; name: string; slug: string; city: string | null; status: "active" | "archived"; created_at: string };
 export type ModulePolicy = { id: string; organization_id: string; unit_id: string; role: Membership["role"]; module: string; can_view: boolean; can_manage: boolean };
 export type Subscription = { id: string; organization_id: string; plan: Organization["plan"]; status: "trialing" | "active" | "past_due" | "canceled"; billing_cycle: "monthly" | "yearly"; amount_cents: number; provider: string; external_id: string | null; created_at: string; updated_at: string };
-export type Invitation = { id: string; organization_id: string; invited_by_user_id: string; email: string; role: "admin" | "manager" | "professional" | "nutricionista" | "viewer"; status: "pending" | "accepted" | "expired" | "revoked"; token_hash: string; expires_at: string; created_at: string };
+export type Invitation = { id: string; organization_id: string; invited_by_user_id: string; email: string; full_name: string; role: "admin" | "manager" | "professional" | "nutricionista" | "viewer"; status: "pending" | "accepted" | "expired" | "revoked"; token_hash: string; expires_at: string; created_at: string };
 export type OnboardingProgress = { id: string; organization_id: string; current_step: number; status: "not_started" | "in_progress" | "completed"; city: string | null; default_unit_name: string | null; invite_email: string | null; created_at: string; updated_at: string };
 export type AuditLog = { id: string; organization_id: string; auth_user_id: string | null; action: string; entity: string; entity_id: string | null; before_json: unknown; after_json: unknown; created_at: string };
 
@@ -84,6 +86,30 @@ export async function getOrganizationsForUser(userId: string) {
   return rows
     .map(({ saas_organizations, ...membership }) => ({ membership, organization: saas_organizations }))
     .sort((a, b) => b.organization.updated_at.localeCompare(a.organization.updated_at));
+}
+
+const MEMBERSHIP_ROLE_TITLE: Record<Membership["role"], string> = { owner: "Dono(a)", admin: "Administrador", manager: "Gerente", professional: "Profissional de treino", nutricionista: "Nutricionista", viewer: "Visualizador" };
+
+export type ResolvedLoginProfile = { module: "profissional" | "aluno"; role: string; workspace: string; name: string; logoUrl: string | null };
+
+// Resolução de identidade para quem loga fora do cadastro genérico
+// app_users — equipe que aceitou convite (saas_memberships) ou aluno que
+// aceitou convite (alunos.auth_user_id), nenhum dos dois tem linha em
+// app_users. Sem isso, auth.signIn/setPassword caem no fallback
+// role:"Super Admin" para qualquer conta real dessas (bug encontrado ao
+// revisar o acesso por slug — ver client/src/App.tsx submit()).
+export async function resolveOrgLoginProfile(authUserId: string, fallbackName: string): Promise<ResolvedLoginProfile | null> {
+  const memberships = await getOrganizationsForUser(authUserId);
+  if (memberships.length > 0) {
+    const primary = memberships[0];
+    return { module: "profissional", role: MEMBERSHIP_ROLE_TITLE[primary.membership.role] ?? "Equipe", workspace: primary.organization.name, name: fallbackName, logoUrl: primary.organization.logo_url };
+  }
+  const aluno = await findAlunoByAuthUserId(authUserId);
+  if (aluno) {
+    const organization = await getOrganization(aluno.organization_id);
+    return { module: "aluno", role: "Aluno", workspace: organization?.name ?? fallbackName, name: aluno.nome || fallbackName, logoUrl: organization?.logo_url ?? null };
+  }
+  return null;
 }
 
 export async function getMembership(userId: string, organizationId: string) {
@@ -134,10 +160,50 @@ export async function createOrganizationWithOwner(input: { userId: string; clien
   return { organizationId: result.organization_id, unitId: result.unit_id };
 }
 
-export async function createOrganizationInvitation(input: { organizationId: string; invitedByUserId: string; email: string; role: Invitation["role"]; tokenHash: string; expiresAt: Date }) {
+const TEAM_ROLE_LABEL: Record<Invitation["role"], string> = { admin: "Administrador", manager: "Gerente", professional: "Profissional de treino", nutricionista: "Nutricionista", viewer: "Visualizador" };
+
+// Convite de equipe: cria o registro E envia o e-mail de verdade (o token
+// antes só voltava na resposta da API e nunca chegava a ninguém). Assume
+// que o convidado ainda não tem cadastro — a instrução no e-mail manda
+// para "Tenho um convite de equipe" na tela pública de login, que cria a
+// conta na hora (ver acceptOrganizationInvitationSignup), sem exigir
+// sessão prévia.
+export async function createOrganizationInvitation(input: { organizationId: string; invitedByUserId: string; email: string; fullName: string; role: Invitation["role"]; rawToken: string; tokenHash: string; expiresAt: Date }) {
   if (!isConfigured()) throw new Error("Database not available");
-  const [created] = await request<Invitation[]>("saas_invitations", { method: "POST", body: JSON.stringify({ organization_id: input.organizationId, invited_by_user_id: input.invitedByUserId, email: input.email, role: input.role, token_hash: input.tokenHash, expires_at: input.expiresAt.toISOString() }) });
+  const [created] = await request<Invitation[]>("saas_invitations", { method: "POST", body: JSON.stringify({ organization_id: input.organizationId, invited_by_user_id: input.invitedByUserId, email: input.email, full_name: input.fullName, role: input.role, token_hash: input.tokenHash, expires_at: input.expiresAt.toISOString() }) });
+  const organization = await getOrganization(input.organizationId);
+  const orgName = organization?.name ?? "sua organização";
+  await sendEmail(input.email, `Convite para a equipe de ${orgName} no Arke`, `<p>Olá, ${input.fullName}.</p><p>Você foi convidado(a) para fazer parte da equipe de <strong>${orgName}</strong> no Arke, com o papel de <strong>${TEAM_ROLE_LABEL[input.role]}</strong>.</p><p>Para aceitar, acesse o portal, clique em "Tenho um convite de equipe" na tela de login, crie sua senha e use o código abaixo:</p><h2 style="letter-spacing:1px">${input.rawToken}</h2><p>Este convite expira em 72 horas.</p>`);
   return created;
+}
+
+export async function findOrganizationInvitationByTokenHash(tokenHash: string) {
+  if (!isConfigured()) return null;
+  const rows = await request<Invitation[]>("saas_invitations", {}, `?select=*&token_hash=eq.${encodeURIComponent(tokenHash)}&status=eq.pending&limit=1`);
+  return rows[0] ?? null;
+}
+
+// Aceite de convite de equipe sem exigir conta prévia: cria o usuário no
+// Supabase Auth com a senha escolhida e só então chama a mesma RPC
+// accept_organization_invitation que o aceite "já autenticado" usa — ela
+// não distingue se o usuário acabou de ser criado ou já existia.
+export async function acceptOrganizationInvitationSignup(input: { token: string; password: string }) {
+  if (!isConfigured()) throw new Error("Database not available");
+  const tokenHash = createHash("sha256").update(input.token).digest("hex");
+  const invitation = await findOrganizationInvitationByTokenHash(tokenHash);
+  if (!invitation) throw new Error("Código de convite inválido ou já utilizado.");
+  if (new Date(invitation.expires_at).getTime() < Date.now()) throw new Error("Este convite expirou. Peça para reenviarem o convite.");
+
+  const authUser = await createSupabaseUserWithPassword(invitation.email, input.password, invitation.full_name);
+  const [result] = await rpc<Array<{ org_id: string; role: Invitation["role"]; invitation_id: string }>>("accept_organization_invitation", {
+    p_token_hash: tokenHash,
+    p_user_id: authUser.id,
+    p_email: invitation.email,
+  });
+  if (!result) throw new Error("Convite não encontrado ou já utilizado.");
+
+  const session = await signInWithSupabase(invitation.email, input.password);
+  return { accessToken: session.accessToken, refreshToken: session.refreshToken, user: session.user, organizationId: result.org_id, role: result.role, fullName: invitation.full_name, invitationId: result.invitation_id };
 }
 
 export async function getPendingOrganizationInvitations(organizationId: string) {
@@ -329,6 +395,11 @@ export async function getOrganizationOnboarding(organizationId: string) {
   if (!isConfigured()) return undefined;
   const rows = await request<OnboardingProgress[]>("saas_onboarding", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}&limit=1`);
   return rows[0];
+}
+
+export async function listOrganizationUnits(organizationId: string) {
+  if (!isConfigured()) return [];
+  return request<OrganizationUnit[]>("saas_units", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}&status=eq.active&order=name.asc`);
 }
 
 export async function createOrganizationUnit(input: { organizationId: string; name: string; slug: string; city?: string }) {

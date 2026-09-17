@@ -24,7 +24,6 @@ async function request<T>(table: string, init: RequestInit = {}, query = "") {
 const id = () => randomUUID();
 
 export type AppUser = { id: string; name: string; email: string; username: string; module: string; role: string; status: string; logoUrl?: string | null; profile_data?: Record<string, string> | null; created_at: string; updated_at: string };
-export type AppStudent = { id: string; name: string; academy: string; plan: string; status: string; created_at: string; updated_at: string };
 
 export async function authenticateSupabaseAccessToken(accessToken: string) {
   const { url, key } = config();
@@ -78,11 +77,6 @@ export async function deleteAppUser(idValue: string) {
   return { id: idValue };
 }
 
-export async function listAppStudents() { return request<AppStudent[]>("app_students", {}, "?select=*&order=created_at.asc"); }
-export async function createAppStudent(input: Omit<AppStudent, "id" | "created_at" | "updated_at">) { const rows = await request<AppStudent[]>("app_students", { method: "POST", body: JSON.stringify({ id: id(), ...input }) }); return rows[0]; }
-export async function updateAppStudent(idValue: string, input: Partial<Omit<AppStudent, "id" | "created_at" | "updated_at">>) { const rows = await request<AppStudent[]>("app_students", { method: "PATCH", body: JSON.stringify({ ...input, updated_at: new Date().toISOString() }) }, `?id=eq.${encodeURIComponent(idValue)}`); return rows[0]; }
-export async function deleteAppStudent(idValue: string) { await request("app_students", { method: "DELETE" }, `?id=eq.${encodeURIComponent(idValue)}`); return { id: idValue }; }
-
 export async function createPasswordRecoveryCode(email: string) {
   const { url, key } = config();
   const response = await fetch(`${url}/auth/v1/admin/generate_link`, { method: "POST", headers: { apikey: key, Authorization: `Bearer ${key}`, "Content-Type": "application/json" }, body: JSON.stringify({ type: "recovery", email: normalizeEmail(email) }) });
@@ -100,7 +94,7 @@ export async function verifyPasswordRecoveryCode(email: string, code: string) {
   return response.json() as Promise<{ access_token: string; refresh_token: string; user: { id: string; email?: string; user_metadata?: Record<string, unknown> } }>;
 }
 
-async function sendEmail(to: string, subject: string, html: string) {
+export async function sendEmail(to: string, subject: string, html: string) {
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) {
     // Em produção, uma chave ausente não pode virar sucesso silencioso —
@@ -196,6 +190,14 @@ export async function updateGlobalRoutine(idValue: string, input: Record<string,
 export async function deleteGlobalRoutine(idValue: string) { await request("acervo_rotinas", { method: "DELETE" }, `?id=eq.${encodeURIComponent(idValue)}`); return { id: idValue }; }
 
 export async function upsertGlobalAccessRule(input: Record<string, unknown>) { const rows = await request<GlobalAccessRule[]>("acervo_acesso_regras", { method: "POST", body: JSON.stringify(input), headers: { Prefer: "resolution=merge-duplicates,return=representation" } }); return rows[0]; }
+// Sem regra configurada para o par módulo+plano, o acervo fica liberado por
+// padrão (nenhuma linha cadastrada hoje bloquearia todo mundo de uma vez) —
+// a regra só passa a restringir quando o admin explicitamente desabilita
+// aquele par.
+export async function getGlobalAccessRule(modulo: string, plano: string) {
+  const rows = await request<GlobalAccessRule[]>("acervo_acesso_regras", {}, `?select=*&modulo=eq.${encodeURIComponent(modulo)}&plano=eq.${encodeURIComponent(plano)}&limit=1`);
+  return rows[0] ?? null;
+}
 export async function deleteGlobalAccessRule(idValue: string) { await request("acervo_acesso_regras", { method: "DELETE" }, `?id=eq.${encodeURIComponent(idValue)}`); return { id: idValue }; }
 
 export type StudentProfile = { user_id: string; full_name: string | null; organization_id: string | null; status: string; unit_id?: string | null; matricula_em?: string | null };
@@ -206,11 +208,19 @@ export type Dieta = { id: string; aluno_id: string; titulo: string; descricao?: 
 export async function getProfileByUserId(userId: string) { const rows = await request<StudentProfile[]>("profiles", {}, `?select=user_id,full_name,organization_id,status,unit_id,matricula_em&user_id=eq.${encodeURIComponent(userId)}&limit=1`); return rows[0] ?? null; }
 export async function listStudentsInOrganization(organizationId: string) { return request<StudentProfile[]>("profiles", {}, `?select=user_id,full_name,organization_id,status,unit_id,matricula_em&organization_id=eq.${encodeURIComponent(organizationId)}&order=full_name.asc`); }
 
-export async function updateStudentMatricula(alunoId: string, input: { unitId?: string | null; matriculaEm?: string | null }) {
+export async function updateStudentMatricula(alunoId: string, organizationId: string, input: { unitId?: string | null; matriculaEm?: string | null }) {
   const body: Record<string, unknown> = {};
-  if (input.unitId !== undefined) body.unit_id = input.unitId;
+  if (input.unitId !== undefined) {
+    if (input.unitId !== null) {
+      // A unidade precisa pertencer à mesma organização do aluno — sem
+      // isso, um valor de outra organização era gravado sem checagem.
+      const unit = await request<Array<{ id: string }>>("saas_units", {}, `?select=id&id=eq.${encodeURIComponent(input.unitId)}&organization_id=eq.${encodeURIComponent(organizationId)}&limit=1`);
+      if (!unit[0]) throw new Error("Unidade não encontrada nesta organização.");
+    }
+    body.unit_id = input.unitId;
+  }
   if (input.matriculaEm !== undefined) body.matricula_em = input.matriculaEm;
-  const rows = await request<StudentProfile[]>("profiles", { method: "PATCH", body: JSON.stringify(body) }, `?user_id=eq.${encodeURIComponent(alunoId)}`);
+  const rows = await request<StudentProfile[]>("profiles", { method: "PATCH", body: JSON.stringify(body) }, `?user_id=eq.${encodeURIComponent(alunoId)}&organization_id=eq.${encodeURIComponent(organizationId)}`);
   return rows[0];
 }
 
@@ -241,6 +251,16 @@ export async function toggleAlunoArkeLicenca(input: { userId: string; organizati
 export async function listAlunosComArkeAtivoIds(organizationId: string) {
   const rows = await request<Array<{ user_id: string }>>("aluno_arke_licenca", {}, `?select=user_id&organization_id=eq.${encodeURIComponent(organizationId)}&ativo=eq.true`);
   return rows.map((row) => row.user_id);
+}
+// Throttle do lembrete "sem check-in" (achado de revisão de código):
+// sem isso, arkeLembretes.ts repetia a mesma notificação todo dia
+// enquanto o aluno não fizesse check-in de novo.
+export async function getUltimoLembreteCheckin(userId: string, organizationId: string) {
+  const rows = await request<Array<{ ultimo_lembrete_checkin_em: string | null }>>("aluno_arke_licenca", {}, `?select=ultimo_lembrete_checkin_em&user_id=eq.${encodeURIComponent(userId)}&organization_id=eq.${encodeURIComponent(organizationId)}&limit=1`);
+  return rows[0]?.ultimo_lembrete_checkin_em ?? null;
+}
+export async function markLembreteCheckinEnviado(userId: string, organizationId: string) {
+  await request("aluno_arke_licenca", { method: "PATCH", body: JSON.stringify({ ultimo_lembrete_checkin_em: new Date().toISOString() }) }, `?user_id=eq.${encodeURIComponent(userId)}&organization_id=eq.${encodeURIComponent(organizationId)}`);
 }
 
 // Núcleo do método Arke (Fase 1c): check-in diário, avaliação semanal e
@@ -331,13 +351,6 @@ export async function setCompromissoMetaConcluida(id: string, concluida: boolean
 export async function getCompromissoMetaComDono(id: string) {
   const rows = await request<Array<CompromissoMeta & { compromisso_semanal: { user_id: string } | null }>>("compromisso_metas", {}, `?select=*,compromisso_semanal(user_id)&id=eq.${encodeURIComponent(id)}&limit=1`);
   return rows[0] ?? null;
-}
-// Motor de pontuação (Sessão A, fatia 2): metas concluídas no período,
-// filtrado pela semana do compromisso (não por created_at — a semana é o
-// período a que a meta se refere). !inner é necessário para o PostgREST
-// aceitar filtro numa coluna da tabela embutida.
-export async function listCompromissoMetasConcluidasPeriodo(userId: string, desde: string, ate: string) {
-  return request<Array<CompromissoMeta & { compromisso_semanal: { semana: string } }>>("compromisso_metas", {}, `?select=*,compromisso_semanal!inner(semana,user_id)&compromisso_semanal.user_id=eq.${encodeURIComponent(userId)}&concluida=eq.true&compromisso_semanal.semana=gte.${encodeURIComponent(desde)}&compromisso_semanal.semana=lte.${encodeURIComponent(ate)}`);
 }
 // Motor de pontuação (porte fiel): "compromissosCriados" pontua a criação
 // da meta em si (concluída ou não) — variante sem o filtro concluida=true.
@@ -584,7 +597,107 @@ export async function publishDieta(dietaId: string, autorId: string) {
 
 // --- Fase 3: Jornada inicial (convite de aluno, cadastro, acolhimento) ---
 
-export type MemberInvitation = { id: string; organization_id: string; invited_by_user_id: string | null; email: string; full_name: string; token_hash: string; status: "pending" | "accepted" | "expired" | "revoked"; expires_at: string; created_at: string; lembrete_enviado_em?: string | null };
+export type MemberInvitation = { id: string; organization_id: string; aluno_id: string; invited_by_user_id: string | null; email: string; full_name: string; token_hash: string; status: "pending" | "accepted" | "expired" | "revoked"; expires_at: string; created_at: string; lembrete_enviado_em?: string | null };
+
+export type MembershipPlan = { id: string; organization_id: string; nome: string; valor_mensal: number; periodicidade: "mensal" | "trimestral" | "semestral" | "anual"; ativo: boolean; created_at: string; updated_at: string };
+
+export async function listMembershipPlans(organizationId: string) {
+  return request<MembershipPlan[]>("org_membership_plans", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}&order=nome.asc`);
+}
+
+export async function createMembershipPlan(input: { organizationId: string; nome: string; valorMensal: number; periodicidade?: MembershipPlan["periodicidade"] }) {
+  const rows = await request<MembershipPlan[]>("org_membership_plans", { method: "POST", body: JSON.stringify({ organization_id: input.organizationId, nome: input.nome, valor_mensal: input.valorMensal, periodicidade: input.periodicidade ?? "mensal" }) });
+  return rows[0];
+}
+
+export async function updateMembershipPlan(id: string, organizationId: string, data: Partial<{ nome: string; valorMensal: number; periodicidade: MembershipPlan["periodicidade"]; ativo: boolean }>) {
+  const body: Row = {};
+  if (data.nome !== undefined) body.nome = data.nome;
+  if (data.valorMensal !== undefined) body.valor_mensal = data.valorMensal;
+  if (data.periodicidade !== undefined) body.periodicidade = data.periodicidade;
+  if (data.ativo !== undefined) body.ativo = data.ativo;
+  const rows = await request<MembershipPlan[]>("org_membership_plans", { method: "PATCH", body: JSON.stringify(body) }, `?id=eq.${encodeURIComponent(id)}&organization_id=eq.${encodeURIComponent(organizationId)}`);
+  if (!rows[0]) throw new Error("Plano não encontrado.");
+  return rows[0];
+}
+
+// `alunos` é a fonte de verdade do cadastro administrativo — existe
+// independente de login (ver 20260916_cadastro_direto_alunos_e_importacao.sql).
+// auth_user_id só é preenchido se/quando o aluno aceitar um convite para o
+// app (ver acceptMemberInvitation); até lá, tudo aqui funciona sem conta.
+export type Aluno = { id: string; organization_id: string; unit_id: string | null; plano_id: string | null; nome: string; cpf: string | null; email: string | null; telefone: string | null; data_nascimento: string | null; responsavel_nome: string | null; responsavel_cpf: string | null; valor_mensal: number | null; dia_vencimento: number | null; status: "ativo" | "inativo" | "trancado"; origem: "manual" | "importado"; auth_user_id: string | null; criado_por: string | null; created_at: string; updated_at: string };
+
+export async function listAlunos(organizationId: string) {
+  return request<Aluno[]>("alunos", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}&order=created_at.desc`);
+}
+
+export async function findAlunoByEmail(organizationId: string, email: string) {
+  const rows = await request<Aluno[]>("alunos", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}&email=eq.${encodeURIComponent(normalizeEmail(email))}&limit=1`);
+  return rows[0] ?? null;
+}
+
+// Resolução de identidade no login (ver resolveOrgLoginProfile em db.ts):
+// um aluno que aceitou convite não tem linha em app_users — é encontrado
+// aqui pelo auth_user_id do Supabase Auth.
+export async function findAlunoByAuthUserId(authUserId: string) {
+  const rows = await request<Aluno[]>("alunos", {}, `?select=*&auth_user_id=eq.${encodeURIComponent(authUserId)}&limit=1`);
+  return rows[0] ?? null;
+}
+
+export async function createAluno(input: { organizationId: string; unitId?: string; planoId?: string; nome: string; cpf?: string; email?: string; telefone?: string; dataNascimento?: string; responsavelNome?: string; responsavelCpf?: string; valorMensal?: number; diaVencimento?: number; origem?: Aluno["origem"]; criadoPor?: string }) {
+  const rows = await request<Aluno[]>("alunos", { method: "POST", body: JSON.stringify({
+    organization_id: input.organizationId,
+    unit_id: input.unitId || undefined,
+    plano_id: input.planoId || undefined,
+    nome: input.nome,
+    cpf: input.cpf || undefined,
+    email: input.email ? normalizeEmail(input.email) : undefined,
+    telefone: input.telefone || undefined,
+    data_nascimento: input.dataNascimento || undefined,
+    responsavel_nome: input.responsavelNome || undefined,
+    responsavel_cpf: input.responsavelCpf || undefined,
+    valor_mensal: input.valorMensal ?? undefined,
+    dia_vencimento: input.diaVencimento ?? undefined,
+    origem: input.origem ?? "manual",
+    criado_por: input.criadoPor || undefined,
+  }) });
+  return rows[0];
+}
+
+export async function updateAluno(id: string, organizationId: string, data: Record<string, unknown>) {
+  const rows = await request<Aluno[]>("alunos", { method: "PATCH", body: JSON.stringify(data) }, `?id=eq.${encodeURIComponent(id)}&organization_id=eq.${encodeURIComponent(organizationId)}`);
+  if (!rows[0]) throw new Error("Aluno não encontrado.");
+  return rows[0];
+}
+
+// Importação em lote na implantação de um cliente novo — guarda só
+// contagens e um resumo de erro por linha (campo + motivo), nunca o
+// conteúdo bruto da linha (evita duplicar PII fora das tabelas de destino).
+//
+// O router chama isto ANTES de rodar o loop de inserts (com validRows=0,
+// errorRows=0, status fica no default 'previewed') e só depois de todos os
+// inserts chama finalizeImportBatch — nessa ordem, um timeout da função
+// serverless no meio do loop ainda deixa um registro (mesmo que com
+// contagem zerada) mostrando que aquela importação foi tentada, em vez de
+// nenhum rastro do que foi gravado.
+export type ImportBatch = { id: string; organization_id: string; entity: "unidades" | "planos" | "alunos" | "profissionais" | "leads" | "turmas"; file_name: string; status: "previewed" | "committed" | "failed"; total_rows: number; valid_rows: number; error_rows: number; errors: { row: number; campo?: string; motivo: string }[]; uploaded_by: string; created_at: string; committed_at: string | null };
+
+export async function createImportBatch(input: { organizationId: string; entity: ImportBatch["entity"]; fileName: string; totalRows: number; validRows: number; errorRows: number; errors: { row: number; campo?: string; motivo: string }[]; uploadedBy: string }) {
+  const rows = await request<ImportBatch[]>("import_batches", { method: "POST", body: JSON.stringify({ organization_id: input.organizationId, entity: input.entity, file_name: input.fileName, total_rows: input.totalRows, valid_rows: input.validRows, error_rows: input.errorRows, errors: input.errors, uploaded_by: input.uploadedBy }) });
+  return rows[0];
+}
+
+// Grava as contagens finais e só então marca como "committed" — chamada
+// depois do loop de inserts, nunca antes (ver comentário em createImportBatch
+// sobre por que o registro em si precisa existir ANTES desse loop rodar).
+export async function finalizeImportBatch(id: string, organizationId: string, input: { validRows: number; errorRows: number; errors: { row: number; campo?: string; motivo: string }[] }) {
+  const rows = await request<ImportBatch[]>("import_batches", { method: "PATCH", body: JSON.stringify({ status: "committed", committed_at: new Date().toISOString(), valid_rows: input.validRows, error_rows: input.errorRows, errors: input.errors }) }, `?id=eq.${encodeURIComponent(id)}&organization_id=eq.${encodeURIComponent(organizationId)}`);
+  return rows[0];
+}
+
+export async function listImportBatches(organizationId: string) {
+  return request<ImportBatch[]>("import_batches", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}&order=created_at.desc&limit=50`);
+}
 export type Acolhimento = { id: string; aluno_id: string; rotina_diaria?: string | null; experiencias_exercicio?: string | null; experiencias_gostou?: string | null; experiencias_nao_gostou?: string | null; dores_lesoes?: string | null; medicamentos?: string | null; tempo_disponivel?: string | null; estilo_treino?: string | null; exercicios_nao_gosta?: string | null; alimentos_gosta?: string | null; alimentos_nao_gosta?: string | null; alimentacao_rotina?: string | null; created_at: string; updated_at: string };
 
 async function getOrganizationName(organizationId: string) {
@@ -606,12 +719,19 @@ export async function inviteMember(input: { organizationId: string; invitedByUse
   const existing = await findPendingMemberInvitation(input.organizationId, email);
   if (existing) throw new Error("Já existe um convite pendente para este e-mail nesta organização.");
 
+  // O convite aponta para um cadastro em `alunos`, nunca cria a pessoa
+  // sozinho — se ainda não existir um aluno com este e-mail na
+  // organização, cria um agora (cadastro sempre existe, convite ao app é
+  // uma ação opcional em cima dele; ver 20260916_cadastro_direto_alunos_e_importacao.sql).
+  const aluno = (await findAlunoByEmail(input.organizationId, email)) ?? (await createAluno({ organizationId: input.organizationId, nome: input.fullName, email, origem: "manual", criadoPor: input.invitedByUserId }));
+
   const rawToken = randomUUID();
   const tokenHash = createHash("sha256").update(rawToken).digest("hex");
   const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24 * 7);
 
   const rows = await request<MemberInvitation[]>("member_invitations", { method: "POST", body: JSON.stringify({
     organization_id: input.organizationId,
+    aluno_id: aluno.id,
     invited_by_user_id: input.invitedByUserId,
     email,
     full_name: input.fullName,
@@ -637,7 +757,7 @@ async function findMemberInvitationByToken(token: string) {
   return rows[0] ?? null;
 }
 
-async function createSupabaseUserWithPassword(email: string, password: string, fullName: string) {
+export async function createSupabaseUserWithPassword(email: string, password: string, fullName: string) {
   const { url, key } = config();
   const response = await fetch(`${url}/auth/v1/admin/users`, { method: "POST", headers: { apikey: key, Authorization: `Bearer ${key}`, "Content-Type": "application/json" }, body: JSON.stringify({ email: normalizeEmail(email), password, email_confirm: true, user_metadata: { full_name: fullName } }) });
   if (!response.ok) throw new Error("Não foi possível criar sua conta. Verifique se este e-mail já não está cadastrado.");
@@ -655,6 +775,11 @@ export async function acceptMemberInvitation(token: string, password: string) {
   // com organization_id nulo; aqui só vinculamos à organização do convite.
   // matricula_em marca o momento real da ativação (Módulo Academia).
   await request("profiles", { method: "PATCH", body: JSON.stringify({ full_name: invitation.full_name, organization_id: invitation.organization_id, status: "active", matricula_em: new Date().toISOString() }) }, `?user_id=eq.${encodeURIComponent(authUser.id)}`);
+
+  // O cadastro em `alunos` já existia desde o convite (ou de antes, se
+  // importado) — aceitar o convite só liga o login a ele, nunca cria o
+  // cadastro do zero.
+  await request("alunos", { method: "PATCH", body: JSON.stringify({ auth_user_id: authUser.id }) }, `?id=eq.${encodeURIComponent(invitation.aluno_id)}`);
 
   const accepted = await request<MemberInvitation[]>("member_invitations", { method: "PATCH", body: JSON.stringify({ status: "accepted" }) }, `?id=eq.${encodeURIComponent(invitation.id)}&status=eq.pending`);
   if (!accepted[0]) throw new Error("Este convite já foi utilizado.");
@@ -1069,16 +1194,12 @@ export async function getVagasDisponiveis(turmaId: string, data: string) {
 }
 
 export async function reservarVaga(input: { turmaId: string; alunoId: string; organizationId: string; data: string }) {
-  const turma = await getTurma(input.turmaId);
-  if (!turma || turma.status !== "ativa" || turma.organization_id !== input.organizationId) throw new Error("Turma não encontrada ou inativa.");
-  const horarios = await listTurmaHorarios(input.turmaId);
-  const diaSemana = new Date(`${input.data}T00:00:00Z`).getUTCDay();
-  if (!horarios.some((horario) => horario.dia_semana === diaSemana)) throw new Error("Esta turma não tem horário nesse dia da semana.");
-  const existentes = await listReservasForTurmaData(input.turmaId, input.data);
-  if (existentes.some((reserva) => reserva.aluno_id === input.alunoId)) throw new Error("Você já reservou vaga nesta sessão.");
-  if (existentes.length >= turma.limite_vagas) throw new Error("Não há vagas disponíveis para esta sessão.");
-  const rows = await request<TurmaReserva[]>("turma_reservas", { method: "POST", body: JSON.stringify({ turma_id: input.turmaId, aluno_id: input.alunoId, organization_id: input.organizationId, data: input.data }) });
-  return rows[0];
+  return rpc<TurmaReserva>("reservar_vaga_turma", {
+    p_turma_id: input.turmaId,
+    p_aluno_id: input.alunoId,
+    p_organization_id: input.organizationId,
+    p_data: input.data,
+  });
 }
 
 export async function cancelarReserva(idValue: string, alunoId: string) {
@@ -1119,12 +1240,30 @@ export async function getLead(idValue: string) {
   return rows[0] ?? null;
 }
 
+// unitId/responsavelId vêm de input do cliente — sem confirmar que os dois
+// pertencem à mesma organização do lead, um gestor da Organização A podia
+// gravar um lead apontando pra unidade/responsável reais da Organização B,
+// e os indicadores do CRM filtrados por unidade misturavam dados das duas.
+async function assertUnitBelongsToOrganization(unitId: string, organizationId: string) {
+  const rows = await request<Array<{ id: string }>>("saas_units", {}, `?select=id&id=eq.${encodeURIComponent(unitId)}&organization_id=eq.${encodeURIComponent(organizationId)}&limit=1`);
+  if (!rows[0]) throw new Error("Unidade não encontrada nesta organização.");
+}
+
+async function assertResponsavelBelongsToOrganization(userId: string, organizationId: string) {
+  const rows = await request<Array<{ id: string }>>("saas_memberships", {}, `?select=id&auth_user_id=eq.${encodeURIComponent(userId)}&organization_id=eq.${encodeURIComponent(organizationId)}&status=eq.active&limit=1`);
+  if (!rows[0]) throw new Error("Responsável não pertence a esta organização.");
+}
+
 export async function createLead(input: { organizationId: string; unitId?: string; nome: string; telefone?: string; email?: string; origem?: string; interesse?: string; responsavelId?: string; notas?: string; criadoPor?: string }) {
+  if (input.unitId) await assertUnitBelongsToOrganization(input.unitId, input.organizationId);
+  if (input.responsavelId) await assertResponsavelBelongsToOrganization(input.responsavelId, input.organizationId);
   const rows = await request<Lead[]>("leads", { method: "POST", body: JSON.stringify({ organization_id: input.organizationId, unit_id: input.unitId || undefined, nome: input.nome, telefone: input.telefone || undefined, email: input.email || undefined, origem: input.origem || undefined, interesse: input.interesse || undefined, responsavel_id: input.responsavelId || undefined, notas: input.notas || undefined, criado_por: input.criadoPor || undefined }) });
   return rows[0];
 }
 
-export async function updateLead(idValue: string, data: { nome?: string; telefone?: string | null; email?: string | null; origem?: string | null; interesse?: string | null; unitId?: string | null; responsavelId?: string | null; notas?: string | null }) {
+export async function updateLead(idValue: string, organizationId: string, data: { nome?: string; telefone?: string | null; email?: string | null; origem?: string | null; interesse?: string | null; unitId?: string | null; responsavelId?: string | null; notas?: string | null }) {
+  if (data.unitId) await assertUnitBelongsToOrganization(data.unitId, organizationId);
+  if (data.responsavelId) await assertResponsavelBelongsToOrganization(data.responsavelId, organizationId);
   const rows = await request<Lead[]>("leads", { method: "PATCH", body: JSON.stringify({ nome: data.nome, telefone: data.telefone, email: data.email, origem: data.origem, interesse: data.interesse, unit_id: data.unitId, responsavel_id: data.responsavelId, notas: data.notas }) }, `?id=eq.${encodeURIComponent(idValue)}`);
   if (!rows[0]) throw new Error("Lead não encontrado.");
   return rows[0];
@@ -1139,16 +1278,30 @@ async function closeOpenFollowUps(leadId: string) {
   await request("lead_atividades", { method: "PATCH", body: JSON.stringify({ status: "concluida" }) }, `?lead_id=eq.${encodeURIComponent(leadId)}&tipo=eq.follow_up_automatico&status=eq.aberta`);
 }
 
+// matriculado/convite_enviado/perdido só saem desses estágios pelo fluxo
+// próprio (converterLead/aceite de convite) — sem essa checagem, uma
+// requisição equivocada ou duplicada revertia um lead já convertido de
+// volta pra um estágio anterior, sem deixar rastro.
+function assertLeadEstagioMutavel(lead: Lead) {
+  if (lead.estagio === "matriculado") throw new Error("Este lead já foi matriculado — não é possível alterar o estágio.");
+  if (lead.estagio === "convite_enviado") throw new Error("O convite já foi enviado a este lead — aguarde o aceite ou reenvie pelo painel de convites pendentes.");
+  if (lead.estagio === "perdido") throw new Error("Este lead está marcado como perdido.");
+}
+
 export async function moverEstagioLead(idValue: string, estagio: "novo" | "contato_feito" | "visita_agendada") {
+  const lead = await getLead(idValue);
+  if (!lead) throw new Error("Lead não encontrado.");
+  assertLeadEstagioMutavel(lead);
   const rows = await request<Lead[]>("leads", { method: "PATCH", body: JSON.stringify({ estagio }) }, `?id=eq.${encodeURIComponent(idValue)}`);
-  if (!rows[0]) throw new Error("Lead não encontrado.");
   await closeOpenFollowUps(idValue); // mudou de estágio: houve avanço, a tarefa de follow-up perde o sentido.
   return rows[0];
 }
 
 export async function marcarLeadPerdido(idValue: string, motivoPerda: string) {
+  const lead = await getLead(idValue);
+  if (!lead) throw new Error("Lead não encontrado.");
+  assertLeadEstagioMutavel(lead);
   const rows = await request<Lead[]>("leads", { method: "PATCH", body: JSON.stringify({ estagio: "perdido", motivo_perda: motivoPerda }) }, `?id=eq.${encodeURIComponent(idValue)}`);
-  if (!rows[0]) throw new Error("Lead não encontrado.");
   await closeOpenFollowUps(idValue);
   return rows[0];
 }
@@ -1291,7 +1444,16 @@ async function rpc<T>(fn: string, args: Record<string, unknown>) {
     headers: { apikey: key, Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
     body: JSON.stringify(args),
   });
-  if (!response.ok) throw new Error(`Supabase RPC ${fn} ${response.status}: ${await response.text()}`);
+  if (!response.ok) {
+    const body = await response.text();
+    let message: string | undefined;
+    try {
+      message = (JSON.parse(body) as { message?: string }).message;
+    } catch {
+      // corpo não é JSON — usa o texto bruto abaixo
+    }
+    throw new Error(message || `Supabase RPC ${fn} ${response.status}: ${body}`);
+  }
   const text = await response.text();
   return (text ? JSON.parse(text) : null) as T;
 }

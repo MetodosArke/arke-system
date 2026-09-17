@@ -4,7 +4,7 @@ import { createExpressMiddleware } from "@trpc/server/adapters/express";
 
 // server/routers.ts
 import { z as z2 } from "zod";
-import { createHash as createHash2, randomUUID as randomUUID2 } from "node:crypto";
+import { createHash as createHash3, randomUUID as randomUUID2 } from "node:crypto";
 
 // shared/const.ts
 var COOKIE_NAME = "app_session_id";
@@ -98,9 +98,11 @@ function assertRateLimit(key, max, windowMs) {
   }
 }
 function rateLimitKey(req, bucket) {
-  const forwardedFor = typeof req.headers["x-forwarded-for"] === "string" ? req.headers["x-forwarded-for"].split(",")[0]?.trim() : void 0;
-  return `${bucket}:${forwardedFor || req.ip || "unknown"}`;
+  return `${bucket}:${req.ip || "unknown"}`;
 }
+
+// server/db.ts
+import { createHash as createHash2 } from "node:crypto";
 
 // server/asaas.ts
 function asaasConfig() {
@@ -157,14 +159,19 @@ async function persistAsaasEvent(input) {
     await supabaseRequest("asaas_webhook_events", { method: "POST", body: JSON.stringify({ event_id: input.eventId, event: input.event, occurred_at: input.occurredAt ?? (/* @__PURE__ */ new Date()).toISOString(), payload: input.payload }) });
     return { duplicate: false };
   } catch (error) {
-    if (String(error).includes("409") || String(error).includes("23505")) return { duplicate: true };
+    if (String(error).includes("asaas_webhook_events_event_id_key")) return { duplicate: true };
     throw error;
   }
 }
+var EVENT_STATUS_OVERRIDE = {
+  PAYMENT_DELETED: "DELETED",
+  PAYMENT_PARTIALLY_REFUNDED: "PARTIALLY_REFUNDED"
+};
 async function upsertAsaasPayment(payment, event, organizationId) {
   const asaasId = String(payment.id ?? "");
   if (!asaasId) return;
-  await supabaseRequest("asaas_payments", { method: "POST", headers: { Prefer: "resolution=merge-duplicates,return=representation" }, body: JSON.stringify({ asaas_id: asaasId, ...organizationId ? { organization_id: organizationId } : {}, customer_id: payment.customer ?? null, value: payment.value ?? null, billing_type: payment.billingType ?? null, due_date: payment.dueDate ?? null, status: payment.status ?? event, invoice_url: payment.invoiceUrl ?? null, bank_slip_url: payment.bankSlipUrl ?? null, raw_payload: payment, updated_at: (/* @__PURE__ */ new Date()).toISOString() }) }, "?on_conflict=asaas_id");
+  const status = EVENT_STATUS_OVERRIDE[event] ?? payment.status ?? event;
+  await supabaseRequest("asaas_payments", { method: "POST", headers: { Prefer: "resolution=merge-duplicates,return=representation" }, body: JSON.stringify({ asaas_id: asaasId, ...organizationId ? { organization_id: organizationId } : {}, customer_id: payment.customer ?? null, value: payment.value ?? null, billing_type: payment.billingType ?? null, due_date: payment.dueDate ?? null, status, invoice_url: payment.invoiceUrl ?? null, bank_slip_url: payment.bankSlipUrl ?? null, raw_payload: payment, updated_at: (/* @__PURE__ */ new Date()).toISOString() }) }, "?on_conflict=asaas_id");
 }
 async function listAsaasPaymentsForOrganization(organizationId, limit = 20) {
   return supabaseRequest("asaas_payments", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}&order=updated_at.desc&limit=${limit}`);
@@ -193,34 +200,15 @@ function captureException2(error, extra) {
   Sentry.captureException(error, extra ? { extra } : void 0);
 }
 
-// shared/pricing.ts
-var ORG_PLAN_KEYS = ["starter", "growth", "scale"];
-var PROFISSIONAL_PLAN_KEYS = ["essencial", "performance", "ilimitado"];
-var SAAS_PLAN_KEYS = [...ORG_PLAN_KEYS, ...PROFISSIONAL_PLAN_KEYS];
-var ORG_PLAN_LABELS = { starter: "Starter", growth: "Growth", scale: "Scale" };
-var PROFISSIONAL_PLAN_LABELS = { essencial: "Essencial", performance: "Performance", ilimitado: "Ilimitado" };
-var ORG_PLAN_AMOUNTS_CENTS = { starter: 29900, growth: 69900, scale: 149e3 };
-var PROFISSIONAL_PLAN_AMOUNTS_CENTS = { essencial: 7900, performance: 14900, ilimitado: 24900 };
-var PLAN_LIMITS = {
-  starter: { maxUnits: 1, maxUsers: 12 },
-  growth: { maxUnits: 3, maxUsers: 32 },
-  scale: { maxUnits: 10, maxUsers: 100 },
-  essencial: { maxUnits: 1, maxUsers: 3 },
-  performance: { maxUnits: 1, maxUsers: 8 },
-  ilimitado: { maxUnits: 1, maxUsers: 999 }
-};
-var PLAN_AMOUNTS_CENTS = { ...ORG_PLAN_AMOUNTS_CENTS, ...PROFISSIONAL_PLAN_AMOUNTS_CENTS };
-var formatBRL = (cents) => (cents / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
-var orgPlanOptions = ORG_PLAN_KEYS.map((key) => ({ value: key, label: `${ORG_PLAN_LABELS[key]} \u2014 ${formatBRL(ORG_PLAN_AMOUNTS_CENTS[key])}/m\xEAs` }));
-var profissionalPlanOptions = PROFISSIONAL_PLAN_KEYS.map((key) => ({ value: key, label: `${PROFISSIONAL_PLAN_LABELS[key]} \u2014 ${formatBRL(PROFISSIONAL_PLAN_AMOUNTS_CENTS[key])}/m\xEAs` }));
-var SETUP_FEE_CENTS = 149e3;
-var ARKE_MODULE_PACKAGE_AMOUNTS_CENTS = { starter: 9900, growth: 24900, scale: 49900 };
-var ARKE_ALUNO_WHOLESALE_CENTS = 5990;
+// server/supabaseAdmin.ts
+import { createHash, randomUUID } from "node:crypto";
 
-// server/db.ts
-function isConfigured() {
-  return Boolean((process.env.SUPABASE_URL ?? "") && (process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.SUPABASE_KEY ?? ""));
-}
+// server/_core/env.ts
+var ENV = {
+  isProduction: process.env.NODE_ENV === "production"
+};
+
+// server/supabaseAdmin.ts
 function config() {
   const url = process.env.SUPABASE_URL ?? "";
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.SUPABASE_KEY ?? "";
@@ -237,372 +225,60 @@ async function request(table, init2 = {}, query = "") {
   const text = await response.text();
   return text ? JSON.parse(text) : [];
 }
-async function rpc(fn, args) {
-  const { url, key } = config();
-  const response = await fetch(`${url}/rest/v1/rpc/${fn}`, {
-    method: "POST",
-    headers: { apikey: key, Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
-    body: JSON.stringify(args)
-  });
-  if (!response.ok) throw new Error(`Supabase RPC ${fn} ${response.status}: ${await response.text()}`);
-  return await response.json();
-}
-async function getOrganizationsForUser(userId) {
-  if (!isConfigured()) return [];
-  const rows = await request(
-    "saas_memberships",
-    {},
-    `?select=*,saas_organizations(*)&auth_user_id=eq.${encodeURIComponent(userId)}&status=eq.active`
-  );
-  return rows.map(({ saas_organizations, ...membership }) => ({ membership, organization: saas_organizations })).sort((a, b) => b.organization.updated_at.localeCompare(a.organization.updated_at));
-}
-async function getMembership(userId, organizationId) {
-  if (!isConfigured()) return void 0;
-  const rows = await request(
-    "saas_memberships",
-    {},
-    `?select=*,saas_organizations(*)&auth_user_id=eq.${encodeURIComponent(userId)}&organization_id=eq.${encodeURIComponent(organizationId)}&limit=1`
-  );
-  const row = rows[0];
-  if (!row) return void 0;
-  const { saas_organizations, ...membership } = row;
-  return { membership, organization: saas_organizations };
-}
-async function listActiveStaffUserIds(organizationId, allowedRoles) {
-  if (!isConfigured()) return [];
-  const rolesFilter = allowedRoles.map(encodeURIComponent).join(",");
-  const rows = await request("saas_memberships", {}, `?select=auth_user_id&organization_id=eq.${encodeURIComponent(organizationId)}&status=eq.active&role=in.(${rolesFilter})`);
-  return rows.map((row) => row.auth_user_id);
-}
-async function getOrganizationBySlug(slug) {
-  if (!isConfigured()) return void 0;
-  const rows = await request("saas_organizations", {}, `?select=id,name,slug,module,logo_url,primary_color&slug=eq.${encodeURIComponent(slug)}&limit=1`);
-  return rows[0];
-}
-async function createOrganizationWithOwner(input) {
-  if (!isConfigured()) throw new Error("Database not available");
-  const [result] = await rpc("create_organization_with_owner", {
-    p_user_id: input.userId,
-    p_client_id: input.clientId,
-    p_name: input.name,
-    p_slug: input.slug,
-    p_plan: input.plan,
-    p_module: input.module ?? "academia",
-    p_logo_url: input.logoUrl ?? null,
-    p_primary_color: input.primaryColor ?? null
-  });
-  if (!result) throw new Error("Falha ao criar organiza\xE7\xE3o");
-  return { organizationId: result.organization_id, unitId: result.unit_id };
-}
-async function createOrganizationInvitation(input) {
-  if (!isConfigured()) throw new Error("Database not available");
-  const [created] = await request("saas_invitations", { method: "POST", body: JSON.stringify({ organization_id: input.organizationId, invited_by_user_id: input.invitedByUserId, email: input.email, role: input.role, token_hash: input.tokenHash, expires_at: input.expiresAt.toISOString() }) });
-  return created;
-}
-async function getPendingOrganizationInvitations(organizationId) {
-  if (!isConfigured()) return [];
-  return request("saas_invitations", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}&status=eq.pending&order=created_at.desc`);
-}
-async function revokeOrganizationInvitation(id2, organizationId) {
-  if (!isConfigured()) throw new Error("Database not available");
-  const rows = await request("saas_invitations", { method: "PATCH", body: JSON.stringify({ status: "revoked" }) }, `?id=eq.${encodeURIComponent(id2)}&organization_id=eq.${encodeURIComponent(organizationId)}&status=eq.pending`);
-  if (!rows[0]) throw new Error("Convite n\xE3o encontrado ou j\xE1 utilizado.");
-  return rows[0];
-}
-async function acceptOrganizationInvitation(input) {
-  if (!isConfigured()) throw new Error("Database not available");
-  const [result] = await rpc("accept_organization_invitation", {
-    p_token_hash: input.tokenHash,
-    p_user_id: input.userId,
-    p_email: input.email
-  });
-  if (!result) throw new Error("Invitation not found or already used");
-  return { invitation: { id: result.invitation_id }, organizationId: result.org_id, role: result.role };
-}
-async function getOrganizationSubscription(organizationId) {
-  if (!isConfigured()) return void 0;
-  const rows = await request("saas_subscriptions", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}&order=created_at.desc&limit=1`);
-  return rows[0];
-}
-async function listPlatformAppointments(input = {}) {
-  if (!isConfigured()) return [];
-  const filters = [input.desde ? `&scheduled_at=gte.${encodeURIComponent(input.desde)}` : "", input.ate ? `&scheduled_at=lte.${encodeURIComponent(input.ate)}` : ""].join("");
-  return request("arke_internal_appointments", {}, `?select=*&order=scheduled_at.asc${filters}`);
-}
-async function createPlatformAppointment(input) {
-  if (!isConfigured()) throw new Error("Database not available");
-  const [row] = await request("arke_internal_appointments", { method: "POST", body: JSON.stringify({ staff_user_id: input.staffUserId, organization_id: input.organizationId ?? null, tipo: input.tipo, titulo: input.titulo, descricao: input.descricao ?? null, scheduled_at: input.scheduledAt, duracao_minutos: input.duracaoMinutos, criado_por: input.criadoPor }) });
-  return row;
-}
-async function updatePlatformAppointment(id2, input) {
-  if (!isConfigured()) throw new Error("Database not available");
-  const body = {};
-  if (input.titulo !== void 0) body.titulo = input.titulo;
-  if (input.descricao !== void 0) body.descricao = input.descricao;
-  if (input.scheduledAt !== void 0) body.scheduled_at = input.scheduledAt;
-  if (input.duracaoMinutos !== void 0) body.duracao_minutos = input.duracaoMinutos;
-  if (input.status !== void 0) body.status = input.status;
-  if (input.tipo !== void 0) body.tipo = input.tipo;
-  if (input.organizationId !== void 0) body.organization_id = input.organizationId;
-  const [row] = await request("arke_internal_appointments", { method: "PATCH", body: JSON.stringify(body) }, `?id=eq.${encodeURIComponent(id2)}`);
-  return row;
-}
-async function deletePlatformAppointment(id2) {
-  if (!isConfigured()) throw new Error("Database not available");
-  await request("arke_internal_appointments", { method: "DELETE" }, `?id=eq.${encodeURIComponent(id2)}`);
-  return { id: id2 };
-}
-async function listAllOrganizationsForPlatform() {
-  if (!isConfigured()) return [];
-  const [orgs, subs] = await Promise.all([
-    request("saas_organizations", {}, "?select=*&order=created_at.desc"),
-    request("saas_subscriptions", {}, "?select=*&order=created_at.desc")
-  ]);
-  const subByOrg = /* @__PURE__ */ new Map();
-  for (const sub of subs) if (!subByOrg.has(sub.organization_id)) subByOrg.set(sub.organization_id, sub);
-  return orgs.map((org) => ({ ...org, subscription: subByOrg.get(org.id) ?? null }));
-}
-async function updateOrganizationProfile(input) {
-  if (!isConfigured()) throw new Error("Database not available");
-  const [updated] = await request("saas_organizations", { method: "PATCH", body: JSON.stringify({ name: input.name, ...input.logoUrl !== void 0 ? { logo_url: input.logoUrl } : {}, ...input.primaryColor !== void 0 ? { primary_color: input.primaryColor } : {} }) }, `?id=eq.${encodeURIComponent(input.organizationId)}`);
-  return updated;
-}
-async function updateOrganizationSubscription(input) {
-  if (!isConfigured()) throw new Error("Database not available");
-  const amountCents = PLAN_AMOUNTS_CENTS[input.plan];
-  const limits = PLAN_LIMITS[input.plan];
-  await request("saas_organizations", { method: "PATCH", body: JSON.stringify({ plan: input.plan, max_units: limits.maxUnits, max_users: limits.maxUsers }) }, `?id=eq.${encodeURIComponent(input.organizationId)}`);
-  await request("saas_subscriptions", { method: "PATCH", body: JSON.stringify({ plan: input.plan, amount_cents: amountCents, ...input.status ? { status: input.status } : {} }) }, `?organization_id=eq.${encodeURIComponent(input.organizationId)}`);
-  return getOrganizationSubscription(input.organizationId);
-}
-async function getOrganization(organizationId) {
-  const rows = await request("saas_organizations", {}, `?select=*&id=eq.${encodeURIComponent(organizationId)}&limit=1`);
-  return rows[0];
-}
-async function getOrCreateAsaasCustomerForOrganization(organizationId) {
-  const organization = await getOrganization(organizationId);
-  if (!organization) throw new Error("Organiza\xE7\xE3o n\xE3o encontrada.");
-  if (organization.asaas_customer_id) return organization.asaas_customer_id;
-  const [client] = await request("app_users", {}, `?select=name,email&id=eq.${encodeURIComponent(organization.client_id)}&limit=1`);
-  if (!client) throw new Error("Cliente respons\xE1vel pela organiza\xE7\xE3o n\xE3o encontrado.");
-  const customer = await createAsaasCustomer({ name: organization.name, email: client.email });
-  await request("saas_organizations", { method: "PATCH", body: JSON.stringify({ asaas_customer_id: customer.id }) }, `?id=eq.${encodeURIComponent(organizationId)}`);
-  return customer.id;
-}
-async function createSubscriptionCharge(input) {
-  if (!isConfigured()) throw new Error("Database not available");
-  const subscription = await getOrganizationSubscription(input.organizationId);
-  if (!subscription) throw new Error("Esta organiza\xE7\xE3o n\xE3o tem assinatura ativa.");
-  const customerId = await getOrCreateAsaasCustomerForOrganization(input.organizationId);
-  const dueDate = input.dueDate ?? new Date(Date.now() + 1e3 * 60 * 60 * 24 * 3).toISOString().slice(0, 10);
-  const payment = await createAsaasPayment({ customer: customerId, value: subscription.amount_cents / 100, dueDate, billingType: input.billingType, description: `Mensalidade Arke \u2014 plano ${subscription.plan}` });
-  await upsertAsaasPayment(payment, "PAYMENT_CREATED", input.organizationId);
-  await request("saas_subscriptions", { method: "PATCH", body: JSON.stringify({ provider: "asaas", external_id: payment.id }) }, `?organization_id=eq.${encodeURIComponent(input.organizationId)}`);
-  return payment;
-}
-async function chargeSetupFeeIfNeeded(organizationId) {
-  if (!isConfigured()) return;
-  const organization = await getOrganization(organizationId);
-  if (!organization || organization.setup_fee_charged_at) return;
-  try {
-    const customerId = await getOrCreateAsaasCustomerForOrganization(organizationId);
-    const dueDate = new Date(Date.now() + 1e3 * 60 * 60 * 24 * 3).toISOString().slice(0, 10);
-    const payment = await createAsaasPayment({ customer: customerId, value: SETUP_FEE_CENTS / 100, dueDate, billingType: "UNDEFINED", description: "Taxa de setup Arke" });
-    await upsertAsaasPayment(payment, "PAYMENT_CREATED", organizationId);
-    await request("saas_organizations", { method: "PATCH", body: JSON.stringify({ setup_fee_charged_at: (/* @__PURE__ */ new Date()).toISOString() }) }, `?id=eq.${encodeURIComponent(organizationId)}`);
-  } catch (error) {
-    captureException2(error, { route: "onboarding.setupFee", organizationId });
-  }
-}
-async function getOrganizationAccess(userId, organizationId) {
-  if (!isConfigured()) return void 0;
-  const membership = await getMembership(userId, organizationId);
-  if (!membership) return void 0;
-  const [units, policies] = await Promise.all([
-    request("saas_units", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}&status=eq.active`),
-    request("saas_module_policies", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}`)
-  ]);
-  return { organization: membership.organization, membership: membership.membership, units, policies };
-}
-async function saveOrganizationOnboarding(input) {
-  if (!isConfigured()) throw new Error("Database not available");
-  if (input.logoUrl !== void 0 || input.primaryColor !== void 0 || input.defaultUnitName !== void 0) {
-    await request("saas_organizations", { method: "PATCH", body: JSON.stringify({ ...input.logoUrl !== void 0 ? { logo_url: input.logoUrl } : {}, ...input.primaryColor !== void 0 ? { primary_color: input.primaryColor } : {}, ...input.defaultUnitName !== void 0 ? { name: input.defaultUnitName } : {} }) }, `?id=eq.${encodeURIComponent(input.organizationId)}`);
-  }
-  await request("saas_onboarding", { method: "POST", headers: { Prefer: "resolution=merge-duplicates,return=representation" }, body: JSON.stringify({ organization_id: input.organizationId, current_step: input.currentStep, status: input.status, city: input.city ?? null, default_unit_name: input.defaultUnitName ?? null, invite_email: input.inviteEmail ?? null }) }, "?on_conflict=organization_id");
-  if (input.status === "completed") await chargeSetupFeeIfNeeded(input.organizationId);
-  return { organizationId: input.organizationId, saved: true };
-}
-async function updateModulePolicy(input) {
-  if (!isConfigured()) throw new Error("Database not available");
-  await request("saas_module_policies", { method: "POST", headers: { Prefer: "resolution=merge-duplicates,return=representation" }, body: JSON.stringify({ organization_id: input.organizationId, unit_id: input.unitId, role: input.role, module: input.module, can_view: input.canView, can_manage: input.canManage }) }, "?on_conflict=organization_id,unit_id,role,module");
-  return { saved: true };
-}
-async function getOrganizationOnboarding(organizationId) {
-  if (!isConfigured()) return void 0;
-  const rows = await request("saas_onboarding", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}&limit=1`);
-  return rows[0];
-}
-async function createOrganizationUnit(input) {
-  if (!isConfigured()) throw new Error("Database not available");
-  const [created] = await request("saas_units", { method: "POST", body: JSON.stringify({ organization_id: input.organizationId, name: input.name, slug: input.slug, city: input.city ?? null, status: "active" }) });
-  return created;
-}
-async function archiveOrganizationUnit(organizationId, unitId) {
-  if (!isConfigured()) throw new Error("Database not available");
-  await request("saas_units", { method: "PATCH", body: JSON.stringify({ status: "archived" }) }, `?organization_id=eq.${encodeURIComponent(organizationId)}&id=eq.${encodeURIComponent(unitId)}`);
-  return { organizationId, unitId, status: "archived" };
-}
-async function recordAuditLog(input) {
-  if (!isConfigured()) return void 0;
-  const [created] = await request("saas_audit_logs", { method: "POST", body: JSON.stringify({ organization_id: input.organizationId, auth_user_id: input.userId, action: input.action, entity: input.entity, entity_id: input.entityId ?? null, before_json: input.beforeJson ?? null, after_json: input.afterJson ?? null }) });
-  return created;
-}
-async function getAuditLogs(organizationId, limit = 50, filters) {
-  if (!isConfigured()) return [];
-  const params = new URLSearchParams();
-  params.set("select", "*");
-  params.set("organization_id", `eq.${organizationId}`);
-  params.set("order", "created_at.desc");
-  params.set("limit", String(limit));
-  if (filters?.from) params.append("created_at", `gte.${filters.from.toISOString()}`);
-  if (filters?.to) params.append("created_at", `lte.${filters.to.toISOString()}`);
-  if (filters?.userId) params.set("auth_user_id", `eq.${filters.userId}`);
-  if (filters?.entity && filters.entity !== "all") params.set("entity", `eq.${filters.entity}`);
-  return request("saas_audit_logs", {}, `?${params.toString()}`);
-}
-function auditLogsToCsv(rows) {
-  const escape = (value) => `"${String(value ?? "").replaceAll('"', '""')}"`;
-  return [
-    ["id", "action", "entity", "entityId", "userId", "createdAt"].join(","),
-    ...rows.map((row) => [row.id, row.action, row.entity, row.entity_id, row.auth_user_id, row.created_at].map(escape).join(","))
-  ].join("\n");
-}
-function auditLogsToPdfBase64(rows) {
-  const sanitize = (value) => value.replaceAll("\\", "\\\\").replaceAll("(", "\\(").replaceAll(")", "\\)");
-  const lines = ["ARKE - Auditoria do tenant", "", ...rows.slice(0, 35).map((row) => `${row.created_at} | ${row.action} | ${row.entity} | usu\xE1rio ${row.auth_user_id ?? "-"}`)];
-  const content = ["BT", "/F1 9 Tf", "50 800 Td", ...lines.flatMap((line, index) => [index === 0 ? `(${sanitize(line)}) Tj` : "0 -18 Td", index === 0 ? "" : `(${sanitize(line)}) Tj`]), "ET"].join("\n");
-  const objects = ["<< /Type /Catalog /Pages 2 0 R >>", "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>", "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>", `<< /Length ${Buffer.byteLength(content, "utf8")} >>
-stream
-${content}
-endstream`];
-  let pdf = "%PDF-1.4\n";
-  const offsets = [0];
-  objects.forEach((object, index) => {
-    offsets[index + 1] = Buffer.byteLength(pdf, "utf8");
-    pdf += `${index + 1} 0 obj
-${object}
-endobj
-`;
-  });
-  const xref = Buffer.byteLength(pdf, "utf8");
-  const entries = offsets.slice(1).map((offset) => String(offset).padStart(10, "0") + " 00000 n ").join("\n");
-  pdf += `xref
-0 ${objects.length + 1}
-0000000000 65535 f 
-${entries}
-trailer
-<< /Size ${objects.length + 1} /Root 1 0 R >>
-startxref
-${xref}
-%%EOF`;
-  return Buffer.from(pdf, "utf8").toString("base64");
-}
-
-// server/supabaseAdmin.ts
-import { createHash, randomUUID } from "node:crypto";
-
-// server/_core/env.ts
-var ENV = {
-  isProduction: process.env.NODE_ENV === "production"
-};
-
-// server/supabaseAdmin.ts
-function config2() {
-  const url = process.env.SUPABASE_URL ?? "";
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.SUPABASE_KEY ?? "";
-  if (!url || !key) throw new Error("Supabase n\xE3o configurado. Defina SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY.");
-  return { url: url.replace(/\/$/, ""), key };
-}
-async function request2(table, init2 = {}, query = "") {
-  const { url, key } = config2();
-  const response = await fetch(`${url}/rest/v1/${table}${query}`, {
-    ...init2,
-    headers: { apikey: key, Authorization: `Bearer ${key}`, "Content-Type": "application/json", Prefer: "return=representation", ...init2.headers ?? {} }
-  });
-  if (!response.ok) throw new Error(`Supabase ${response.status}: ${await response.text()}`);
-  const text = await response.text();
-  return text ? JSON.parse(text) : [];
-}
 var id = () => randomUUID();
 async function authenticateSupabaseAccessToken(accessToken) {
-  const { url, key } = config2();
+  const { url, key } = config();
   const response = await fetch(`${url}/auth/v1/user`, { headers: { apikey: key, Authorization: `Bearer ${accessToken}` } });
   if (!response.ok) throw new Error("Supabase access token inv\xE1lido");
   return response.json();
 }
 async function updateSupabaseUserPassword(accessToken, password) {
-  const { url, key } = config2();
+  const { url, key } = config();
   const response = await fetch(`${url}/auth/v1/user`, { method: "PUT", headers: { apikey: key, Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" }, body: JSON.stringify({ password }) });
   if (!response.ok) throw new Error("N\xE3o foi poss\xEDvel definir a nova senha. O link pode ter expirado \u2014 solicite a recupera\xE7\xE3o novamente.");
   return response.json();
 }
 async function findAppUserByEmail(email) {
-  const rows = await request2("app_users", {}, `?select=*&email=eq.${encodeURIComponent(email)}&limit=1`);
+  const rows = await request("app_users", {}, `?select=*&email=eq.${encodeURIComponent(email)}&limit=1`);
   return rows[0] ?? null;
 }
 async function signInWithSupabase(email, password) {
-  const { url, key } = config2();
+  const { url, key } = config();
   const response = await fetch(`${url}/auth/v1/token?grant_type=password`, { method: "POST", headers: { apikey: key, "Content-Type": "application/json" }, body: JSON.stringify({ email: normalizeEmail(email), password }) });
   if (!response.ok) throw new Error("Usu\xE1rio ou senha inv\xE1lidos.");
   const data = await response.json();
-  const appUsers = await request2("app_users", {}, `?select=*&email=eq.${encodeURIComponent(normalizeEmail(email))}&limit=1`);
+  const appUsers = await request("app_users", {}, `?select=*&email=eq.${encodeURIComponent(normalizeEmail(email))}&limit=1`);
   return { accessToken: data.access_token, refreshToken: data.refresh_token, user: data.user, appUser: appUsers[0] ?? null };
 }
 async function createSupabaseAuthUser(email, name) {
-  const { url, key } = config2();
+  const { url, key } = config();
   const response = await fetch(`${url}/auth/v1/admin/generate_link`, { method: "POST", headers: { apikey: key, Authorization: `Bearer ${key}`, "Content-Type": "application/json" }, body: JSON.stringify({ type: "invite", email: normalizeEmail(email), data: { name } }) });
   if (!response.ok) throw new Error(`Falha ao gerar convite Supabase: ${await response.text()}`);
   return response.json();
 }
 async function listAppUsers() {
-  return request2("app_users", {}, "?select=*&order=created_at.asc");
+  return request("app_users", {}, "?select=*&order=created_at.asc");
 }
 async function createAppUser(input) {
   const authInvite = await createSupabaseAuthUser(input.email, input.name);
-  const rows = await request2("app_users", { method: "POST", body: JSON.stringify({ id: id(), ...input }) });
+  const rows = await request("app_users", { method: "POST", body: JSON.stringify({ id: id(), ...input }) });
   await sendInviteEmail(input.email, input.name, input.username, authInvite.action_link);
   await notifyAdmins("Novo cadastro no Arke", `<p>O cliente <strong>${input.name}</strong> foi cadastrado no m\xF3dulo ${input.module}.</p><p>Usu\xE1rio: ${input.username}</p>`);
   return rows[0];
 }
 async function updateAppUser(idValue, input) {
-  const rows = await request2("app_users", { method: "PATCH", body: JSON.stringify({ ...input, updated_at: (/* @__PURE__ */ new Date()).toISOString() }) }, `?id=eq.${encodeURIComponent(idValue)}`);
+  const rows = await request("app_users", { method: "PATCH", body: JSON.stringify({ ...input, updated_at: (/* @__PURE__ */ new Date()).toISOString() }) }, `?id=eq.${encodeURIComponent(idValue)}`);
   await notifyAdmins("Cadastro atualizado no Arke", `<p>O cadastro <strong>${input.name ?? idValue}</strong> foi atualizado pela administra\xE7\xE3o.</p>`);
   return rows[0];
 }
 async function deleteAppUser(idValue) {
-  await request2("saas_organizations", { method: "DELETE" }, `?client_id=eq.${encodeURIComponent(idValue)}`);
-  await request2("app_users", { method: "DELETE" }, `?id=eq.${encodeURIComponent(idValue)}`);
+  await request("saas_organizations", { method: "DELETE" }, `?client_id=eq.${encodeURIComponent(idValue)}`);
+  await request("app_users", { method: "DELETE" }, `?id=eq.${encodeURIComponent(idValue)}`);
   await notifyAdmins("Cadastro removido no Arke", `<p>O cadastro de usu\xE1rio <strong>${idValue}</strong> foi removido pela administra\xE7\xE3o, junto com qualquer organiza\xE7\xE3o vinculada.</p>`);
   return { id: idValue };
 }
-async function listAppStudents() {
-  return request2("app_students", {}, "?select=*&order=created_at.asc");
-}
-async function createAppStudent(input) {
-  const rows = await request2("app_students", { method: "POST", body: JSON.stringify({ id: id(), ...input }) });
-  return rows[0];
-}
-async function updateAppStudent(idValue, input) {
-  const rows = await request2("app_students", { method: "PATCH", body: JSON.stringify({ ...input, updated_at: (/* @__PURE__ */ new Date()).toISOString() }) }, `?id=eq.${encodeURIComponent(idValue)}`);
-  return rows[0];
-}
-async function deleteAppStudent(idValue) {
-  await request2("app_students", { method: "DELETE" }, `?id=eq.${encodeURIComponent(idValue)}`);
-  return { id: idValue };
-}
 async function createPasswordRecoveryCode(email) {
-  const { url, key } = config2();
+  const { url, key } = config();
   const response = await fetch(`${url}/auth/v1/admin/generate_link`, { method: "POST", headers: { apikey: key, Authorization: `Bearer ${key}`, "Content-Type": "application/json" }, body: JSON.stringify({ type: "recovery", email: normalizeEmail(email) }) });
   if (!response.ok) return { sent: true };
   const data = await response.json();
@@ -611,7 +287,7 @@ async function createPasswordRecoveryCode(email) {
   return { sent: true };
 }
 async function verifyPasswordRecoveryCode(email, code) {
-  const { url, key } = config2();
+  const { url, key } = config();
   const response = await fetch(`${url}/auth/v1/verify`, { method: "POST", headers: { apikey: key, "Content-Type": "application/json" }, body: JSON.stringify({ type: "recovery", email: normalizeEmail(email), token: code }) });
   if (!response.ok) throw new Error("C\xF3digo inv\xE1lido ou expirado. Solicite um novo.");
   return response.json();
@@ -640,519 +316,536 @@ var normalizeEmail = (value) => value.trim().toLowerCase();
 var ENV_REFERENCE = ENV.isProduction;
 async function listGlobalLibrary() {
   const [exercises, groups, templates, templateExercises, nutritionPlans, routines, accessRules] = await Promise.all([
-    request2("exercicios", {}, "?select=*&order=created_at.desc"),
-    request2("grupos_musculares", {}, "?select=*&order=ordem.asc,nome.asc"),
-    request2("treino_templates", {}, "?select=*&order=created_at.desc"),
-    request2("treino_template_exercicios", {}, "?select=*&order=divisao.asc,ordem.asc"),
-    request2("acervo_planos_alimentares", {}, "?select=*&order=created_at.desc"),
-    request2("acervo_rotinas", {}, "?select=*&order=created_at.desc"),
-    request2("acervo_acesso_regras", {}, "?select=*&order=modulo.asc,plano.asc")
+    request("exercicios", {}, "?select=*&order=created_at.desc"),
+    request("grupos_musculares", {}, "?select=*&order=ordem.asc,nome.asc"),
+    request("treino_templates", {}, "?select=*&order=created_at.desc"),
+    request("treino_template_exercicios", {}, "?select=*&order=divisao.asc,ordem.asc"),
+    request("acervo_planos_alimentares", {}, "?select=*&order=created_at.desc"),
+    request("acervo_rotinas", {}, "?select=*&order=created_at.desc"),
+    request("acervo_acesso_regras", {}, "?select=*&order=modulo.asc,plano.asc")
   ]);
   return { exercises, groups, templates, templateExercises, nutritionPlans, routines, accessRules };
 }
 async function createGlobalExercise(input) {
-  const rows = await request2("exercicios", { method: "POST", body: JSON.stringify(input) });
+  const rows = await request("exercicios", { method: "POST", body: JSON.stringify(input) });
   return rows[0];
 }
 async function updateGlobalExercise(idValue, input) {
-  const rows = await request2("exercicios", { method: "PATCH", body: JSON.stringify(input) }, `?id=eq.${encodeURIComponent(idValue)}`);
+  const rows = await request("exercicios", { method: "PATCH", body: JSON.stringify(input) }, `?id=eq.${encodeURIComponent(idValue)}`);
   return rows[0];
 }
 async function deleteGlobalExercise(idValue) {
-  await request2("exercicios", { method: "DELETE" }, `?id=eq.${encodeURIComponent(idValue)}`);
+  await request("exercicios", { method: "DELETE" }, `?id=eq.${encodeURIComponent(idValue)}`);
   return { id: idValue };
 }
 async function createGlobalGroup(input) {
-  const rows = await request2("grupos_musculares", { method: "POST", body: JSON.stringify(input) });
+  const rows = await request("grupos_musculares", { method: "POST", body: JSON.stringify(input) });
   return rows[0];
 }
 async function updateGlobalGroup(idValue, input) {
-  const rows = await request2("grupos_musculares", { method: "PATCH", body: JSON.stringify(input) }, `?id=eq.${encodeURIComponent(idValue)}`);
+  const rows = await request("grupos_musculares", { method: "PATCH", body: JSON.stringify(input) }, `?id=eq.${encodeURIComponent(idValue)}`);
   return rows[0];
 }
 async function deleteGlobalGroup(idValue) {
-  await request2("grupos_musculares", { method: "DELETE" }, `?id=eq.${encodeURIComponent(idValue)}`);
+  await request("grupos_musculares", { method: "DELETE" }, `?id=eq.${encodeURIComponent(idValue)}`);
   return { id: idValue };
 }
 async function createGlobalTemplate(input) {
-  const rows = await request2("treino_templates", { method: "POST", body: JSON.stringify(input) });
+  const rows = await request("treino_templates", { method: "POST", body: JSON.stringify(input) });
   return rows[0];
 }
 async function updateGlobalTemplate(idValue, input) {
-  const rows = await request2("treino_templates", { method: "PATCH", body: JSON.stringify(input) }, `?id=eq.${encodeURIComponent(idValue)}`);
+  const rows = await request("treino_templates", { method: "PATCH", body: JSON.stringify(input) }, `?id=eq.${encodeURIComponent(idValue)}`);
   return rows[0];
 }
 async function deleteGlobalTemplate(idValue) {
-  await request2("treino_templates", { method: "DELETE" }, `?id=eq.${encodeURIComponent(idValue)}`);
+  await request("treino_templates", { method: "DELETE" }, `?id=eq.${encodeURIComponent(idValue)}`);
   return { id: idValue };
 }
 async function createGlobalTemplateExercise(input) {
-  const rows = await request2("treino_template_exercicios", { method: "POST", body: JSON.stringify(input) });
+  const rows = await request("treino_template_exercicios", { method: "POST", body: JSON.stringify(input) });
   return rows[0];
 }
 async function updateGlobalTemplateExercise(idValue, input) {
-  const rows = await request2("treino_template_exercicios", { method: "PATCH", body: JSON.stringify(input) }, `?id=eq.${encodeURIComponent(idValue)}`);
+  const rows = await request("treino_template_exercicios", { method: "PATCH", body: JSON.stringify(input) }, `?id=eq.${encodeURIComponent(idValue)}`);
   return rows[0];
 }
 async function deleteGlobalTemplateExercise(idValue) {
-  await request2("treino_template_exercicios", { method: "DELETE" }, `?id=eq.${encodeURIComponent(idValue)}`);
+  await request("treino_template_exercicios", { method: "DELETE" }, `?id=eq.${encodeURIComponent(idValue)}`);
   return { id: idValue };
 }
 async function createGlobalNutritionPlan(input) {
-  const rows = await request2("acervo_planos_alimentares", { method: "POST", body: JSON.stringify(input) });
+  const rows = await request("acervo_planos_alimentares", { method: "POST", body: JSON.stringify(input) });
   return rows[0];
 }
 async function updateGlobalNutritionPlan(idValue, input) {
-  const rows = await request2("acervo_planos_alimentares", { method: "PATCH", body: JSON.stringify(input) }, `?id=eq.${encodeURIComponent(idValue)}`);
+  const rows = await request("acervo_planos_alimentares", { method: "PATCH", body: JSON.stringify(input) }, `?id=eq.${encodeURIComponent(idValue)}`);
   return rows[0];
 }
 async function deleteGlobalNutritionPlan(idValue) {
-  await request2("acervo_planos_alimentares", { method: "DELETE" }, `?id=eq.${encodeURIComponent(idValue)}`);
+  await request("acervo_planos_alimentares", { method: "DELETE" }, `?id=eq.${encodeURIComponent(idValue)}`);
   return { id: idValue };
 }
 var inFilter = (ids) => `id=in.(${ids.map(encodeURIComponent).join(",")})`;
 async function publishGlobalExercises(ids, userId) {
   if (!ids.length) return [];
-  return request2("exercicios", { method: "PATCH", body: JSON.stringify({ estado_publicacao: "publicado", publicado_por: userId, publicado_em: (/* @__PURE__ */ new Date()).toISOString() }) }, `?${inFilter(ids)}`);
+  return request("exercicios", { method: "PATCH", body: JSON.stringify({ estado_publicacao: "publicado", publicado_por: userId, publicado_em: (/* @__PURE__ */ new Date()).toISOString() }) }, `?${inFilter(ids)}`);
 }
 async function publishGlobalTemplates(ids, userId) {
   if (!ids.length) return [];
-  return request2("treino_templates", { method: "PATCH", body: JSON.stringify({ estado_publicacao: "publicado", publicado_por: userId, publicado_em: (/* @__PURE__ */ new Date()).toISOString() }) }, `?${inFilter(ids)}`);
+  return request("treino_templates", { method: "PATCH", body: JSON.stringify({ estado_publicacao: "publicado", publicado_por: userId, publicado_em: (/* @__PURE__ */ new Date()).toISOString() }) }, `?${inFilter(ids)}`);
 }
 async function publishGlobalNutritionPlans(ids, userId) {
   if (!ids.length) return [];
-  return request2("acervo_planos_alimentares", { method: "PATCH", body: JSON.stringify({ estado_publicacao: "publicado", publicado_por: userId, publicado_em: (/* @__PURE__ */ new Date()).toISOString() }) }, `?${inFilter(ids)}`);
+  return request("acervo_planos_alimentares", { method: "PATCH", body: JSON.stringify({ estado_publicacao: "publicado", publicado_por: userId, publicado_em: (/* @__PURE__ */ new Date()).toISOString() }) }, `?${inFilter(ids)}`);
 }
 async function createGlobalRoutine(input) {
-  const rows = await request2("acervo_rotinas", { method: "POST", body: JSON.stringify(input) });
+  const rows = await request("acervo_rotinas", { method: "POST", body: JSON.stringify(input) });
   return rows[0];
 }
 async function updateGlobalRoutine(idValue, input) {
-  const rows = await request2("acervo_rotinas", { method: "PATCH", body: JSON.stringify(input) }, `?id=eq.${encodeURIComponent(idValue)}`);
+  const rows = await request("acervo_rotinas", { method: "PATCH", body: JSON.stringify(input) }, `?id=eq.${encodeURIComponent(idValue)}`);
   return rows[0];
 }
 async function deleteGlobalRoutine(idValue) {
-  await request2("acervo_rotinas", { method: "DELETE" }, `?id=eq.${encodeURIComponent(idValue)}`);
+  await request("acervo_rotinas", { method: "DELETE" }, `?id=eq.${encodeURIComponent(idValue)}`);
   return { id: idValue };
 }
 async function upsertGlobalAccessRule(input) {
-  const rows = await request2("acervo_acesso_regras", { method: "POST", body: JSON.stringify(input), headers: { Prefer: "resolution=merge-duplicates,return=representation" } });
+  const rows = await request("acervo_acesso_regras", { method: "POST", body: JSON.stringify(input), headers: { Prefer: "resolution=merge-duplicates,return=representation" } });
   return rows[0];
 }
+async function getGlobalAccessRule(modulo, plano) {
+  const rows = await request("acervo_acesso_regras", {}, `?select=*&modulo=eq.${encodeURIComponent(modulo)}&plano=eq.${encodeURIComponent(plano)}&limit=1`);
+  return rows[0] ?? null;
+}
 async function deleteGlobalAccessRule(idValue) {
-  await request2("acervo_acesso_regras", { method: "DELETE" }, `?id=eq.${encodeURIComponent(idValue)}`);
+  await request("acervo_acesso_regras", { method: "DELETE" }, `?id=eq.${encodeURIComponent(idValue)}`);
   return { id: idValue };
 }
 async function getProfileByUserId(userId) {
-  const rows = await request2("profiles", {}, `?select=user_id,full_name,organization_id,status,unit_id,matricula_em&user_id=eq.${encodeURIComponent(userId)}&limit=1`);
+  const rows = await request("profiles", {}, `?select=user_id,full_name,organization_id,status,unit_id,matricula_em&user_id=eq.${encodeURIComponent(userId)}&limit=1`);
   return rows[0] ?? null;
 }
 async function listStudentsInOrganization(organizationId) {
-  return request2("profiles", {}, `?select=user_id,full_name,organization_id,status,unit_id,matricula_em&organization_id=eq.${encodeURIComponent(organizationId)}&order=full_name.asc`);
+  return request("profiles", {}, `?select=user_id,full_name,organization_id,status,unit_id,matricula_em&organization_id=eq.${encodeURIComponent(organizationId)}&order=full_name.asc`);
 }
-async function updateStudentMatricula(alunoId, input) {
+async function updateStudentMatricula(alunoId, organizationId, input) {
   const body = {};
-  if (input.unitId !== void 0) body.unit_id = input.unitId;
+  if (input.unitId !== void 0) {
+    if (input.unitId !== null) {
+      const unit = await request("saas_units", {}, `?select=id&id=eq.${encodeURIComponent(input.unitId)}&organization_id=eq.${encodeURIComponent(organizationId)}&limit=1`);
+      if (!unit[0]) throw new Error("Unidade n\xE3o encontrada nesta organiza\xE7\xE3o.");
+    }
+    body.unit_id = input.unitId;
+  }
   if (input.matriculaEm !== void 0) body.matricula_em = input.matriculaEm;
-  const rows = await request2("profiles", { method: "PATCH", body: JSON.stringify(body) }, `?user_id=eq.${encodeURIComponent(alunoId)}`);
+  const rows = await request("profiles", { method: "PATCH", body: JSON.stringify(body) }, `?user_id=eq.${encodeURIComponent(alunoId)}&organization_id=eq.${encodeURIComponent(organizationId)}`);
   return rows[0];
 }
 async function getArkeModule(organizationId) {
-  const rows = await request2("saas_arke_module", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}&limit=1`);
+  const rows = await request("saas_arke_module", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}&limit=1`);
   return rows[0] ?? null;
 }
 async function upsertArkeModule(input) {
   const body = { organization_id: input.organizationId, enabled: input.enabled, package_tier: input.packageTier ?? null, amount_cents: input.amountCents ?? null, enabled_at: input.enabled ? (/* @__PURE__ */ new Date()).toISOString() : null, updated_at: (/* @__PURE__ */ new Date()).toISOString() };
-  const rows = await request2("saas_arke_module", { method: "POST", body: JSON.stringify(body), headers: { Prefer: "return=representation,resolution=merge-duplicates" } }, "?on_conflict=organization_id");
+  const rows = await request("saas_arke_module", { method: "POST", body: JSON.stringify(body), headers: { Prefer: "return=representation,resolution=merge-duplicates" } }, "?on_conflict=organization_id");
   return rows[0];
 }
 async function listArkeModulesEnabled() {
-  return request2("saas_arke_module", {}, "?select=*&enabled=eq.true");
+  return request("saas_arke_module", {}, "?select=*&enabled=eq.true");
 }
 async function markArkeRepasseCharged(organizationId, chargedOn) {
-  await request2("saas_arke_module", { method: "PATCH", body: JSON.stringify({ last_repasse_charged_at: chargedOn }) }, `?organization_id=eq.${encodeURIComponent(organizationId)}`);
+  await request("saas_arke_module", { method: "PATCH", body: JSON.stringify({ last_repasse_charged_at: chargedOn }) }, `?organization_id=eq.${encodeURIComponent(organizationId)}`);
 }
 async function getAlunoArkeLicenca(userId, organizationId) {
-  const rows = await request2("aluno_arke_licenca", {}, `?select=*&user_id=eq.${encodeURIComponent(userId)}&organization_id=eq.${encodeURIComponent(organizationId)}&limit=1`);
+  const rows = await request("aluno_arke_licenca", {}, `?select=*&user_id=eq.${encodeURIComponent(userId)}&organization_id=eq.${encodeURIComponent(organizationId)}&limit=1`);
   return rows[0] ?? null;
 }
 async function countAlunosComArkeAtivo(organizationId) {
-  const rows = await request2("aluno_arke_licenca", { headers: { Prefer: "count=exact" } }, `?select=id&organization_id=eq.${encodeURIComponent(organizationId)}&ativo=eq.true`);
+  const rows = await request("aluno_arke_licenca", { headers: { Prefer: "count=exact" } }, `?select=id&organization_id=eq.${encodeURIComponent(organizationId)}&ativo=eq.true`);
   return rows.length;
 }
 async function countAllAlunosComArkeAtivo() {
   if (!hasSupabaseConfig()) return 0;
-  const rows = await request2("aluno_arke_licenca", {}, "?select=id&ativo=eq.true");
+  const rows = await request("aluno_arke_licenca", {}, "?select=id&ativo=eq.true");
   return rows.length;
 }
 async function toggleAlunoArkeLicenca(input) {
   const now = (/* @__PURE__ */ new Date()).toISOString();
   const body = { organization_id: input.organizationId, user_id: input.userId, ativo: input.ativo, ativado_em: input.ativo ? now : void 0, desativado_em: input.ativo ? void 0 : now, ativado_por: input.ativadoPor, updated_at: now };
-  const rows = await request2("aluno_arke_licenca", { method: "POST", body: JSON.stringify(body), headers: { Prefer: "return=representation,resolution=merge-duplicates" } }, "?on_conflict=organization_id,user_id");
+  const rows = await request("aluno_arke_licenca", { method: "POST", body: JSON.stringify(body), headers: { Prefer: "return=representation,resolution=merge-duplicates" } }, "?on_conflict=organization_id,user_id");
   return rows[0];
 }
 async function listAlunosComArkeAtivoIds(organizationId) {
-  const rows = await request2("aluno_arke_licenca", {}, `?select=user_id&organization_id=eq.${encodeURIComponent(organizationId)}&ativo=eq.true`);
+  const rows = await request("aluno_arke_licenca", {}, `?select=user_id&organization_id=eq.${encodeURIComponent(organizationId)}&ativo=eq.true`);
   return rows.map((row) => row.user_id);
 }
+async function getUltimoLembreteCheckin(userId, organizationId) {
+  const rows = await request("aluno_arke_licenca", {}, `?select=ultimo_lembrete_checkin_em&user_id=eq.${encodeURIComponent(userId)}&organization_id=eq.${encodeURIComponent(organizationId)}&limit=1`);
+  return rows[0]?.ultimo_lembrete_checkin_em ?? null;
+}
+async function markLembreteCheckinEnviado(userId, organizationId) {
+  await request("aluno_arke_licenca", { method: "PATCH", body: JSON.stringify({ ultimo_lembrete_checkin_em: (/* @__PURE__ */ new Date()).toISOString() }) }, `?user_id=eq.${encodeURIComponent(userId)}&organization_id=eq.${encodeURIComponent(organizationId)}`);
+}
 async function getCheckinDoDia(userId, data) {
-  const rows = await request2("checkin_diario", {}, `?select=*&user_id=eq.${encodeURIComponent(userId)}&data=eq.${encodeURIComponent(data)}&limit=1`);
+  const rows = await request("checkin_diario", {}, `?select=*&user_id=eq.${encodeURIComponent(userId)}&data=eq.${encodeURIComponent(data)}&limit=1`);
   return rows[0] ?? null;
 }
 async function upsertCheckinDiario(input) {
   const body = { user_id: input.userId, organization_id: input.organizationId, data: input.data, dedicacao: input.dedicacao, ...input.horasSono !== void 0 ? { horas_sono: input.horasSono } : {} };
-  const rows = await request2("checkin_diario", { method: "POST", body: JSON.stringify(body), headers: { Prefer: "return=representation,resolution=merge-duplicates" } }, "?on_conflict=user_id,data");
+  const rows = await request("checkin_diario", { method: "POST", body: JSON.stringify(body), headers: { Prefer: "return=representation,resolution=merge-duplicates" } }, "?on_conflict=user_id,data");
   return rows[0];
 }
 async function hasCheckinDesde(userId, desde) {
-  const rows = await request2("checkin_diario", {}, `?select=data&user_id=eq.${encodeURIComponent(userId)}&data=gte.${encodeURIComponent(desde)}&limit=1`);
+  const rows = await request("checkin_diario", {}, `?select=data&user_id=eq.${encodeURIComponent(userId)}&data=gte.${encodeURIComponent(desde)}&limit=1`);
   return rows.length > 0;
 }
 async function listCheckinsPeriodo(userId, desde, ate) {
-  return request2("checkin_diario", {}, `?select=*&user_id=eq.${encodeURIComponent(userId)}&data=gte.${encodeURIComponent(desde)}&data=lte.${encodeURIComponent(ate)}&order=data.asc`);
+  return request("checkin_diario", {}, `?select=*&user_id=eq.${encodeURIComponent(userId)}&data=gte.${encodeURIComponent(desde)}&data=lte.${encodeURIComponent(ate)}&order=data.asc`);
 }
 async function getAvaliacaoSemanal(userId, semana) {
-  const rows = await request2("avaliacao_semanal", {}, `?select=*&user_id=eq.${encodeURIComponent(userId)}&semana=eq.${encodeURIComponent(semana)}&limit=1`);
+  const rows = await request("avaliacao_semanal", {}, `?select=*&user_id=eq.${encodeURIComponent(userId)}&semana=eq.${encodeURIComponent(semana)}&limit=1`);
   return rows[0] ?? null;
 }
 async function upsertAvaliacaoSemanal(input) {
   const body = { user_id: input.userId, organization_id: input.organizationId, semana: input.semana, sono: input.sono, produtividade: input.produtividade, humor: input.humor, conquista: input.conquista ?? null, updated_at: (/* @__PURE__ */ new Date()).toISOString() };
-  const rows = await request2("avaliacao_semanal", { method: "POST", body: JSON.stringify(body), headers: { Prefer: "return=representation,resolution=merge-duplicates" } }, "?on_conflict=user_id,semana");
+  const rows = await request("avaliacao_semanal", { method: "POST", body: JSON.stringify(body), headers: { Prefer: "return=representation,resolution=merge-duplicates" } }, "?on_conflict=user_id,semana");
   return rows[0];
 }
 async function listAvaliacoesSemanaisPeriodo(userId, desde, ate) {
-  return request2("avaliacao_semanal", {}, `?select=*&user_id=eq.${encodeURIComponent(userId)}&semana=gte.${encodeURIComponent(desde)}&semana=lte.${encodeURIComponent(ate)}&order=semana.asc`);
+  return request("avaliacao_semanal", {}, `?select=*&user_id=eq.${encodeURIComponent(userId)}&semana=gte.${encodeURIComponent(desde)}&semana=lte.${encodeURIComponent(ate)}&order=semana.asc`);
 }
 async function getPlanoTreinoSemanal(userId) {
-  const rows = await request2("plano_treino_semanal", {}, `?select=*&user_id=eq.${encodeURIComponent(userId)}&limit=1`);
+  const rows = await request("plano_treino_semanal", {}, `?select=*&user_id=eq.${encodeURIComponent(userId)}&limit=1`);
   return rows[0] ?? null;
 }
 async function upsertPlanoTreinoSemanal(input) {
   const body = { user_id: input.userId, organization_id: input.organizationId, dias_treino: input.diasTreino, horario_preferido: input.horarioPreferido ?? null, local_treino: input.localTreino ?? null, updated_at: (/* @__PURE__ */ new Date()).toISOString() };
-  const rows = await request2("plano_treino_semanal", { method: "POST", body: JSON.stringify(body), headers: { Prefer: "return=representation,resolution=merge-duplicates" } }, "?on_conflict=user_id");
+  const rows = await request("plano_treino_semanal", { method: "POST", body: JSON.stringify(body), headers: { Prefer: "return=representation,resolution=merge-duplicates" } }, "?on_conflict=user_id");
   return rows[0];
 }
 async function createTreinoCalendario(input) {
   const body = { aluno_id: input.alunoId, organization_id: input.organizationId, data: input.data, tipos: input.tipos, duracao_min: input.duracaoMin ?? null, distancia_km: input.distanciaKm ?? null, intensidade: input.intensidade ?? "moderada", detalhes: input.detalhes ?? null, observacoes: input.observacoes ?? null };
-  const [row] = await request2("treino_calendario", { method: "POST", body: JSON.stringify(body) });
+  const [row] = await request("treino_calendario", { method: "POST", body: JSON.stringify(body) });
   return row;
 }
 async function listTreinoCalendarioPeriodo(alunoId, desde, ate) {
-  return request2("treino_calendario", {}, `?select=*&aluno_id=eq.${encodeURIComponent(alunoId)}&data=gte.${encodeURIComponent(desde)}&data=lte.${encodeURIComponent(ate)}&order=data.desc`);
+  return request("treino_calendario", {}, `?select=*&aluno_id=eq.${encodeURIComponent(alunoId)}&data=gte.${encodeURIComponent(desde)}&data=lte.${encodeURIComponent(ate)}&order=data.desc`);
 }
 async function getDietaAdesaoDoDia(alunoId, data) {
-  const rows = await request2("dieta_adesao", {}, `?select=*&aluno_id=eq.${encodeURIComponent(alunoId)}&data=eq.${encodeURIComponent(data)}&limit=1`);
+  const rows = await request("dieta_adesao", {}, `?select=*&aluno_id=eq.${encodeURIComponent(alunoId)}&data=eq.${encodeURIComponent(data)}&limit=1`);
   return rows[0] ?? null;
 }
 async function upsertDietaAdesao(input) {
   const body = { aluno_id: input.alunoId, dieta_id: input.dietaId, organization_id: input.organizationId, data: input.data, adesao_percentual: input.adesaoPercentual, consumiu_doce: input.consumiuDoce, consumiu_alcool: input.consumiuAlcool, agua_ml: input.aguaMl ?? null, observacoes: input.observacoes ?? null };
-  const rows = await request2("dieta_adesao", { method: "POST", body: JSON.stringify(body), headers: { Prefer: "return=representation,resolution=merge-duplicates" } }, "?on_conflict=aluno_id,data");
+  const rows = await request("dieta_adesao", { method: "POST", body: JSON.stringify(body), headers: { Prefer: "return=representation,resolution=merge-duplicates" } }, "?on_conflict=aluno_id,data");
   return rows[0];
 }
 async function listDietaAdesaoPeriodo(alunoId, desde, ate) {
-  return request2("dieta_adesao", {}, `?select=*&aluno_id=eq.${encodeURIComponent(alunoId)}&data=gte.${encodeURIComponent(desde)}&data=lte.${encodeURIComponent(ate)}&order=data.desc`);
+  return request("dieta_adesao", {}, `?select=*&aluno_id=eq.${encodeURIComponent(alunoId)}&data=gte.${encodeURIComponent(desde)}&data=lte.${encodeURIComponent(ate)}&order=data.desc`);
 }
 async function getOrCreateCompromissoSemanal(userId, organizationId, semana) {
-  const rows = await request2("compromisso_semanal", { method: "POST", body: JSON.stringify({ user_id: userId, organization_id: organizationId, semana }), headers: { Prefer: "return=representation,resolution=merge-duplicates" } }, "?on_conflict=user_id,semana");
+  const rows = await request("compromisso_semanal", { method: "POST", body: JSON.stringify({ user_id: userId, organization_id: organizationId, semana }), headers: { Prefer: "return=representation,resolution=merge-duplicates" } }, "?on_conflict=user_id,semana");
   return rows[0];
 }
 async function listCompromissoMetas(compromissoId) {
-  return request2("compromisso_metas", {}, `?select=*&compromisso_id=eq.${encodeURIComponent(compromissoId)}&order=created_at.asc`);
+  return request("compromisso_metas", {}, `?select=*&compromisso_id=eq.${encodeURIComponent(compromissoId)}&order=created_at.asc`);
 }
 async function createCompromissoMeta(input) {
-  const [row] = await request2("compromisso_metas", { method: "POST", body: JSON.stringify({ compromisso_id: input.compromissoId, texto: input.texto }) });
+  const [row] = await request("compromisso_metas", { method: "POST", body: JSON.stringify({ compromisso_id: input.compromissoId, texto: input.texto }) });
   return row;
 }
 async function setCompromissoMetaConcluida(id2, concluida) {
-  const rows = await request2("compromisso_metas", { method: "PATCH", body: JSON.stringify({ concluida }) }, `?id=eq.${encodeURIComponent(id2)}`);
+  const rows = await request("compromisso_metas", { method: "PATCH", body: JSON.stringify({ concluida }) }, `?id=eq.${encodeURIComponent(id2)}`);
   return rows[0];
 }
 async function getCompromissoMetaComDono(id2) {
-  const rows = await request2("compromisso_metas", {}, `?select=*,compromisso_semanal(user_id)&id=eq.${encodeURIComponent(id2)}&limit=1`);
+  const rows = await request("compromisso_metas", {}, `?select=*,compromisso_semanal(user_id)&id=eq.${encodeURIComponent(id2)}&limit=1`);
   return rows[0] ?? null;
 }
 async function listCompromissoMetasPeriodo(userId, desde, ate) {
-  return request2("compromisso_metas", {}, `?select=*,compromisso_semanal!inner(semana,user_id)&compromisso_semanal.user_id=eq.${encodeURIComponent(userId)}&compromisso_semanal.semana=gte.${encodeURIComponent(desde)}&compromisso_semanal.semana=lte.${encodeURIComponent(ate)}`);
+  return request("compromisso_metas", {}, `?select=*,compromisso_semanal!inner(semana,user_id)&compromisso_semanal.user_id=eq.${encodeURIComponent(userId)}&compromisso_semanal.semana=gte.${encodeURIComponent(desde)}&compromisso_semanal.semana=lte.${encodeURIComponent(ate)}`);
 }
 var PROGRESSO_SEMANAL_SELECT = "id,aluno_id,organization_id,data,peso_kg,gordura_percentual,musculo_percentual,cintura_cm,quadril_cm,braco_cm,perna_cm,bem_estar,observacoes,meta_peso_kg,meta,meta_gordura,meta_gordura_valor,meta_musculo,meta_musculo_valor,created_at";
 async function listProgressoSemanal(alunoId) {
-  return request2("progresso_semanal", {}, `?select=${PROGRESSO_SEMANAL_SELECT}&aluno_id=eq.${encodeURIComponent(alunoId)}&order=data.asc`);
+  return request("progresso_semanal", {}, `?select=${PROGRESSO_SEMANAL_SELECT}&aluno_id=eq.${encodeURIComponent(alunoId)}&order=data.asc`);
 }
 async function hasProgressoSemanalDesde(alunoId, desde) {
-  const rows = await request2("progresso_semanal", {}, `?select=id&aluno_id=eq.${encodeURIComponent(alunoId)}&data=gte.${encodeURIComponent(desde)}&limit=1`);
+  const rows = await request("progresso_semanal", {}, `?select=id&aluno_id=eq.${encodeURIComponent(alunoId)}&data=gte.${encodeURIComponent(desde)}&limit=1`);
   return rows.length > 0;
 }
 async function getProgressoSemanal(idValue) {
-  const rows = await request2("progresso_semanal", {}, `?select=${PROGRESSO_SEMANAL_SELECT}&id=eq.${encodeURIComponent(idValue)}&limit=1`);
+  const rows = await request("progresso_semanal", {}, `?select=${PROGRESSO_SEMANAL_SELECT}&id=eq.${encodeURIComponent(idValue)}&limit=1`);
   return rows[0] ?? null;
 }
 async function createProgressoSemanal(input) {
-  const rows = await request2("progresso_semanal", { method: "POST", body: JSON.stringify(input) });
+  const rows = await request("progresso_semanal", { method: "POST", body: JSON.stringify(input) });
   return rows[0];
 }
 async function deleteProgressoSemanal(idValue) {
-  await request2("progresso_semanal", { method: "DELETE" }, `?id=eq.${encodeURIComponent(idValue)}`);
+  await request("progresso_semanal", { method: "DELETE" }, `?id=eq.${encodeURIComponent(idValue)}`);
   return { id: idValue };
 }
 async function listProgressoSemanalPeriodo(alunoId, desde, ate) {
-  return request2("progresso_semanal", {}, `?select=${PROGRESSO_SEMANAL_SELECT}&aluno_id=eq.${encodeURIComponent(alunoId)}&data=gte.${encodeURIComponent(desde)}&data=lte.${encodeURIComponent(ate)}&order=data.desc`);
+  return request("progresso_semanal", {}, `?select=${PROGRESSO_SEMANAL_SELECT}&aluno_id=eq.${encodeURIComponent(alunoId)}&data=gte.${encodeURIComponent(desde)}&data=lte.${encodeURIComponent(ate)}&order=data.desc`);
 }
 async function getAlunoPerfil(userId) {
-  const rows = await request2("aluno_perfil", {}, `?select=id,user_id,organization_id,meta_semanal_dias&user_id=eq.${encodeURIComponent(userId)}&limit=1`);
+  const rows = await request("aluno_perfil", {}, `?select=id,user_id,organization_id,meta_semanal_dias&user_id=eq.${encodeURIComponent(userId)}&limit=1`);
   return rows[0] ?? null;
 }
 async function getAlunoObjetivosRecente(userId) {
-  const rows = await request2("aluno_objetivos", {}, `?select=*&user_id=eq.${encodeURIComponent(userId)}&order=created_at.desc&limit=1`);
+  const rows = await request("aluno_objetivos", {}, `?select=*&user_id=eq.${encodeURIComponent(userId)}&order=created_at.desc&limit=1`);
   return rows[0] ?? null;
 }
 async function createAlunoObjetivos(input) {
   const body = { user_id: input.userId, organization_id: input.organizationId, objetivos: input.objetivos, conquistas: input.conquistas ?? null, dificuldades: input.dificuldades ?? null, visao_3_meses: input.visao3Meses ?? null, visao_3_anos: input.visao3Anos ?? null, proxima_revisao: input.proximaRevisao ?? null };
-  const [row] = await request2("aluno_objetivos", { method: "POST", body: JSON.stringify(body) });
+  const [row] = await request("aluno_objetivos", { method: "POST", body: JSON.stringify(body) });
   return row;
 }
 async function getAlunoValoresRecente(userId) {
-  const rows = await request2("aluno_valores", {}, `?select=*&user_id=eq.${encodeURIComponent(userId)}&order=created_at.desc&limit=1`);
+  const rows = await request("aluno_valores", {}, `?select=*&user_id=eq.${encodeURIComponent(userId)}&order=created_at.desc&limit=1`);
   return rows[0] ?? null;
 }
 async function createAlunoValores(input) {
   const body = { user_id: input.userId, organization_id: input.organizationId, valores: input.valores, validade: input.validade ?? null };
-  const [row] = await request2("aluno_valores", { method: "POST", body: JSON.stringify(body) });
+  const [row] = await request("aluno_valores", { method: "POST", body: JSON.stringify(body) });
   return row;
 }
 var idsInFilter = (column, ids) => `${column}=in.(${ids.map(encodeURIComponent).join(",")})`;
 async function listFeedPosts(organizationId, limit = 50) {
-  return request2("feed_posts", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}&order=created_at.desc&limit=${limit}`);
+  return request("feed_posts", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}&order=created_at.desc&limit=${limit}`);
 }
 async function getFeedPost(idValue) {
-  const rows = await request2("feed_posts", {}, `?select=*&id=eq.${encodeURIComponent(idValue)}&limit=1`);
+  const rows = await request("feed_posts", {}, `?select=*&id=eq.${encodeURIComponent(idValue)}&limit=1`);
   return rows[0] ?? null;
 }
 async function createFeedPost(input) {
-  const rows = await request2("feed_posts", { method: "POST", body: JSON.stringify(input) });
+  const rows = await request("feed_posts", { method: "POST", body: JSON.stringify(input) });
   return rows[0];
 }
 async function deleteFeedPost(idValue) {
-  await request2("feed_posts", { method: "DELETE" }, `?id=eq.${encodeURIComponent(idValue)}`);
+  await request("feed_posts", { method: "DELETE" }, `?id=eq.${encodeURIComponent(idValue)}`);
   return { id: idValue };
 }
 async function listFeedLikesForPosts(postIds) {
   if (!postIds.length) return [];
-  return request2("feed_likes", {}, `?select=*&${idsInFilter("post_id", postIds)}`);
+  return request("feed_likes", {}, `?select=*&${idsInFilter("post_id", postIds)}`);
 }
 async function getFeedLike(postId, userId) {
-  const rows = await request2("feed_likes", {}, `?select=*&post_id=eq.${encodeURIComponent(postId)}&user_id=eq.${encodeURIComponent(userId)}&limit=1`);
+  const rows = await request("feed_likes", {}, `?select=*&post_id=eq.${encodeURIComponent(postId)}&user_id=eq.${encodeURIComponent(userId)}&limit=1`);
   return rows[0] ?? null;
 }
 async function createFeedLike(input) {
-  const rows = await request2("feed_likes", { method: "POST", body: JSON.stringify({ post_id: input.postId, user_id: input.userId, organization_id: input.organizationId }) });
+  const rows = await request("feed_likes", { method: "POST", body: JSON.stringify({ post_id: input.postId, user_id: input.userId, organization_id: input.organizationId }) });
   return rows[0];
 }
 async function deleteFeedLike(postId, userId) {
-  await request2("feed_likes", { method: "DELETE" }, `?post_id=eq.${encodeURIComponent(postId)}&user_id=eq.${encodeURIComponent(userId)}`);
+  await request("feed_likes", { method: "DELETE" }, `?post_id=eq.${encodeURIComponent(postId)}&user_id=eq.${encodeURIComponent(userId)}`);
   return { postId, userId };
 }
 async function listFeedCommentsForPosts(postIds) {
   if (!postIds.length) return [];
-  return request2("feed_comments", {}, `?select=*&${idsInFilter("post_id", postIds)}&order=created_at.asc`);
+  return request("feed_comments", {}, `?select=*&${idsInFilter("post_id", postIds)}&order=created_at.asc`);
 }
 async function getFeedComment(idValue) {
-  const rows = await request2("feed_comments", {}, `?select=*&id=eq.${encodeURIComponent(idValue)}&limit=1`);
+  const rows = await request("feed_comments", {}, `?select=*&id=eq.${encodeURIComponent(idValue)}&limit=1`);
   return rows[0] ?? null;
 }
 async function createFeedComment(input) {
-  const rows = await request2("feed_comments", { method: "POST", body: JSON.stringify(input) });
+  const rows = await request("feed_comments", { method: "POST", body: JSON.stringify(input) });
   return rows[0];
 }
 async function deleteFeedComment(idValue) {
-  await request2("feed_comments", { method: "DELETE" }, `?id=eq.${encodeURIComponent(idValue)}`);
+  await request("feed_comments", { method: "DELETE" }, `?id=eq.${encodeURIComponent(idValue)}`);
   return { id: idValue };
 }
 function periodoTimestamp(desde, ate) {
   return `created_at=gte.${encodeURIComponent(`${desde}T00:00:00`)}&created_at=lte.${encodeURIComponent(`${ate}T23:59:59`)}`;
 }
 async function listFeedPostsPeriodoAluno(userId, desde, ate) {
-  return request2("feed_posts", {}, `?select=created_at&user_id=eq.${encodeURIComponent(userId)}&${periodoTimestamp(desde, ate)}`);
+  return request("feed_posts", {}, `?select=created_at&user_id=eq.${encodeURIComponent(userId)}&${periodoTimestamp(desde, ate)}`);
 }
 async function listFeedLikesPeriodoAluno(userId, desde, ate) {
-  return request2("feed_likes", {}, `?select=created_at&user_id=eq.${encodeURIComponent(userId)}&${periodoTimestamp(desde, ate)}`);
+  return request("feed_likes", {}, `?select=created_at&user_id=eq.${encodeURIComponent(userId)}&${periodoTimestamp(desde, ate)}`);
 }
 async function listFeedCommentsPeriodoAluno(userId, desde, ate) {
-  return request2("feed_comments", {}, `?select=created_at&user_id=eq.${encodeURIComponent(userId)}&${periodoTimestamp(desde, ate)}`);
+  return request("feed_comments", {}, `?select=created_at&user_id=eq.${encodeURIComponent(userId)}&${periodoTimestamp(desde, ate)}`);
 }
 async function listProfileNames(userIds) {
   if (!userIds.length) return [];
-  return request2("profiles", {}, `?select=user_id,full_name&${idsInFilter("user_id", userIds)}`);
+  return request("profiles", {}, `?select=user_id,full_name&${idsInFilter("user_id", userIds)}`);
 }
 async function listMensagensTreino(alunoId) {
-  return request2("mensagens_treino", {}, `?select=*&aluno_id=eq.${encodeURIComponent(alunoId)}&order=created_at.asc`);
+  return request("mensagens_treino", {}, `?select=*&aluno_id=eq.${encodeURIComponent(alunoId)}&order=created_at.asc`);
 }
 async function createMensagemTreino(input) {
-  const rows = await request2("mensagens_treino", { method: "POST", body: JSON.stringify(input) });
+  const rows = await request("mensagens_treino", { method: "POST", body: JSON.stringify(input) });
   return rows[0];
 }
 async function markMensagensTreinoLidas(alunoId, remetenteTipo) {
-  await request2("mensagens_treino", { method: "PATCH", body: JSON.stringify({ lida: true }) }, `?aluno_id=eq.${encodeURIComponent(alunoId)}&remetente_tipo=eq.${remetenteTipo}&lida=eq.false`);
+  await request("mensagens_treino", { method: "PATCH", body: JSON.stringify({ lida: true }) }, `?aluno_id=eq.${encodeURIComponent(alunoId)}&remetente_tipo=eq.${remetenteTipo}&lida=eq.false`);
 }
 async function listMensagensDieta(dietaId) {
-  return request2("mensagens_dieta", {}, `?select=*&dieta_id=eq.${encodeURIComponent(dietaId)}&order=created_at.asc`);
+  return request("mensagens_dieta", {}, `?select=*&dieta_id=eq.${encodeURIComponent(dietaId)}&order=created_at.asc`);
 }
 async function createMensagemDieta(input) {
-  const rows = await request2("mensagens_dieta", { method: "POST", body: JSON.stringify(input) });
+  const rows = await request("mensagens_dieta", { method: "POST", body: JSON.stringify(input) });
   return rows[0];
 }
 async function markMensagensDietaLidas(dietaId, remetenteTipo) {
-  await request2("mensagens_dieta", { method: "PATCH", body: JSON.stringify({ lida: true }) }, `?dieta_id=eq.${encodeURIComponent(dietaId)}&remetente_tipo=eq.${remetenteTipo}&lida=eq.false`);
+  await request("mensagens_dieta", { method: "PATCH", body: JSON.stringify({ lida: true }) }, `?dieta_id=eq.${encodeURIComponent(dietaId)}&remetente_tipo=eq.${remetenteTipo}&lida=eq.false`);
 }
 async function getPushSubscriptionsForUser(userId) {
-  return request2("push_subscriptions", {}, `?select=*&user_id=eq.${encodeURIComponent(userId)}`);
+  return request("push_subscriptions", {}, `?select=*&user_id=eq.${encodeURIComponent(userId)}`);
 }
 async function upsertPushSubscription(input) {
   const body = { user_id: input.userId, endpoint: input.endpoint, p256dh: input.p256dh, auth: input.auth };
-  const rows = await request2("push_subscriptions", { method: "POST", body: JSON.stringify(body), headers: { Prefer: "return=representation,resolution=merge-duplicates" } }, "?on_conflict=user_id,endpoint");
+  const rows = await request("push_subscriptions", { method: "POST", body: JSON.stringify(body), headers: { Prefer: "return=representation,resolution=merge-duplicates" } }, "?on_conflict=user_id,endpoint");
   return rows[0];
 }
 async function deletePushSubscription(userId, endpoint) {
-  await request2("push_subscriptions", { method: "DELETE" }, `?user_id=eq.${encodeURIComponent(userId)}&endpoint=eq.${encodeURIComponent(endpoint)}`);
+  await request("push_subscriptions", { method: "DELETE" }, `?user_id=eq.${encodeURIComponent(userId)}&endpoint=eq.${encodeURIComponent(endpoint)}`);
 }
 async function listNotificacoes(userId, limit = 30) {
-  return request2("notificacoes", {}, `?select=*&user_id=eq.${encodeURIComponent(userId)}&order=created_at.desc&limit=${limit}`);
+  return request("notificacoes", {}, `?select=*&user_id=eq.${encodeURIComponent(userId)}&order=created_at.desc&limit=${limit}`);
 }
 async function countNotificacoesNaoLidas(userId) {
-  const rows = await request2("notificacoes", {}, `?select=id&user_id=eq.${encodeURIComponent(userId)}&lida=eq.false`);
+  const rows = await request("notificacoes", {}, `?select=id&user_id=eq.${encodeURIComponent(userId)}&lida=eq.false`);
   return rows.length;
 }
 async function createNotificacao(input) {
-  const rows = await request2("notificacoes", { method: "POST", body: JSON.stringify({ user_id: input.userId, titulo: input.titulo, mensagem: input.mensagem ?? null, tipo: input.tipo ?? "info" }) });
+  const rows = await request("notificacoes", { method: "POST", body: JSON.stringify({ user_id: input.userId, titulo: input.titulo, mensagem: input.mensagem ?? null, tipo: input.tipo ?? "info" }) });
   return rows[0];
 }
 async function markNotificacaoLida(id2, userId) {
-  await request2("notificacoes", { method: "PATCH", body: JSON.stringify({ lida: true }) }, `?id=eq.${encodeURIComponent(id2)}&user_id=eq.${encodeURIComponent(userId)}`);
+  await request("notificacoes", { method: "PATCH", body: JSON.stringify({ lida: true }) }, `?id=eq.${encodeURIComponent(id2)}&user_id=eq.${encodeURIComponent(userId)}`);
 }
 async function markAllNotificacoesLidas(userId) {
-  await request2("notificacoes", { method: "PATCH", body: JSON.stringify({ lida: true }) }, `?user_id=eq.${encodeURIComponent(userId)}&lida=eq.false`);
+  await request("notificacoes", { method: "PATCH", body: JSON.stringify({ lida: true }) }, `?user_id=eq.${encodeURIComponent(userId)}&lida=eq.false`);
 }
 async function listProntuarioObservacoes(alunoId) {
-  return request2("prontuario_observacoes", {}, `?select=*&aluno_id=eq.${encodeURIComponent(alunoId)}&order=ano.desc,mes.desc`);
+  return request("prontuario_observacoes", {}, `?select=*&aluno_id=eq.${encodeURIComponent(alunoId)}&order=ano.desc,mes.desc`);
 }
 async function upsertProntuarioObservacao(input) {
   const body = { aluno_id: input.alunoId, organization_id: input.organizationId, mes: input.mes, ano: input.ano, observacao: input.observacao, criado_por: input.criadoPor, updated_at: (/* @__PURE__ */ new Date()).toISOString() };
-  const rows = await request2("prontuario_observacoes", { method: "POST", body: JSON.stringify(body), headers: { Prefer: "return=representation,resolution=merge-duplicates" } }, "?on_conflict=aluno_id,mes,ano");
+  const rows = await request("prontuario_observacoes", { method: "POST", body: JSON.stringify(body), headers: { Prefer: "return=representation,resolution=merge-duplicates" } }, "?on_conflict=aluno_id,mes,ano");
   return rows[0];
 }
 async function listDesafios(organizationId) {
-  return request2("desafios", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}&order=data_fim.desc`);
+  return request("desafios", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}&order=data_fim.desc`);
 }
 async function getDesafio(idValue) {
-  const rows = await request2("desafios", {}, `?select=*&id=eq.${encodeURIComponent(idValue)}&limit=1`);
+  const rows = await request("desafios", {}, `?select=*&id=eq.${encodeURIComponent(idValue)}&limit=1`);
   return rows[0] ?? null;
 }
 async function createDesafio(input) {
-  const rows = await request2("desafios", { method: "POST", body: JSON.stringify(input) });
+  const rows = await request("desafios", { method: "POST", body: JSON.stringify(input) });
   return rows[0];
 }
 async function updateDesafio(idValue, input) {
-  const rows = await request2("desafios", { method: "PATCH", body: JSON.stringify({ ...input, updated_at: (/* @__PURE__ */ new Date()).toISOString() }) }, `?id=eq.${encodeURIComponent(idValue)}`);
+  const rows = await request("desafios", { method: "PATCH", body: JSON.stringify({ ...input, updated_at: (/* @__PURE__ */ new Date()).toISOString() }) }, `?id=eq.${encodeURIComponent(idValue)}`);
   return rows[0];
 }
 async function deleteDesafio(idValue) {
-  await request2("desafios", { method: "DELETE" }, `?id=eq.${encodeURIComponent(idValue)}`);
+  await request("desafios", { method: "DELETE" }, `?id=eq.${encodeURIComponent(idValue)}`);
   return { id: idValue };
 }
 async function listDesafioParticipantes(desafioId) {
-  return request2("desafio_participantes", {}, `?select=*&desafio_id=eq.${encodeURIComponent(desafioId)}`);
+  return request("desafio_participantes", {}, `?select=*&desafio_id=eq.${encodeURIComponent(desafioId)}`);
 }
 async function listDesafioParticipantesForAluno(alunoId) {
-  return request2("desafio_participantes", {}, `?select=desafio_id&aluno_id=eq.${encodeURIComponent(alunoId)}`);
+  return request("desafio_participantes", {}, `?select=desafio_id&aluno_id=eq.${encodeURIComponent(alunoId)}`);
 }
 async function addDesafioParticipante(input) {
-  const rows = await request2("desafio_participantes", { method: "POST", body: JSON.stringify({ desafio_id: input.desafioId, aluno_id: input.alunoId, organization_id: input.organizationId }), headers: { Prefer: "return=representation,resolution=merge-duplicates" } }, "?on_conflict=desafio_id,aluno_id");
+  const rows = await request("desafio_participantes", { method: "POST", body: JSON.stringify({ desafio_id: input.desafioId, aluno_id: input.alunoId, organization_id: input.organizationId }), headers: { Prefer: "return=representation,resolution=merge-duplicates" } }, "?on_conflict=desafio_id,aluno_id");
   return rows[0];
 }
 async function removeDesafioParticipante(desafioId, alunoId) {
-  await request2("desafio_participantes", { method: "DELETE" }, `?desafio_id=eq.${encodeURIComponent(desafioId)}&aluno_id=eq.${encodeURIComponent(alunoId)}`);
+  await request("desafio_participantes", { method: "DELETE" }, `?desafio_id=eq.${encodeURIComponent(desafioId)}&aluno_id=eq.${encodeURIComponent(alunoId)}`);
   return { desafioId, alunoId };
 }
 async function listDesafioProgressoForDesafio(desafioId) {
-  return request2("desafio_progresso", {}, `?select=*&desafio_id=eq.${encodeURIComponent(desafioId)}`);
+  return request("desafio_progresso", {}, `?select=*&desafio_id=eq.${encodeURIComponent(desafioId)}`);
 }
 async function listDesafioProgressoForAluno(alunoId) {
-  return request2("desafio_progresso", {}, `?select=*&aluno_id=eq.${encodeURIComponent(alunoId)}`);
+  return request("desafio_progresso", {}, `?select=*&aluno_id=eq.${encodeURIComponent(alunoId)}`);
 }
 async function setDesafioProgresso(input) {
   const body = { desafio_id: input.desafioId, aluno_id: input.alunoId, organization_id: input.organizationId, concluido: input.concluido, valor_atual: input.valorAtual ?? null, concluido_por: input.concluido ? input.concluidoPor ?? null : null, concluido_em: input.concluido ? (/* @__PURE__ */ new Date()).toISOString() : null, origem: input.origem, updated_at: (/* @__PURE__ */ new Date()).toISOString() };
-  const rows = await request2("desafio_progresso", { method: "POST", body: JSON.stringify(body), headers: { Prefer: "return=representation,resolution=merge-duplicates" } }, "?on_conflict=desafio_id,aluno_id");
+  const rows = await request("desafio_progresso", { method: "POST", body: JSON.stringify(body), headers: { Prefer: "return=representation,resolution=merge-duplicates" } }, "?on_conflict=desafio_id,aluno_id");
   return rows[0];
 }
 async function listCompeticoes(organizationId) {
-  return request2("competicoes", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}&order=data_inicio.desc`);
+  return request("competicoes", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}&order=data_inicio.desc`);
 }
 async function getCompeticao(idValue) {
-  const rows = await request2("competicoes", {}, `?select=*&id=eq.${encodeURIComponent(idValue)}&limit=1`);
+  const rows = await request("competicoes", {}, `?select=*&id=eq.${encodeURIComponent(idValue)}&limit=1`);
   return rows[0] ?? null;
 }
 async function createCompeticao(input) {
-  const rows = await request2("competicoes", { method: "POST", body: JSON.stringify(input) });
+  const rows = await request("competicoes", { method: "POST", body: JSON.stringify(input) });
   return rows[0];
 }
 async function updateCompeticao(idValue, input) {
-  const rows = await request2("competicoes", { method: "PATCH", body: JSON.stringify({ ...input, updated_at: (/* @__PURE__ */ new Date()).toISOString() }) }, `?id=eq.${encodeURIComponent(idValue)}`);
+  const rows = await request("competicoes", { method: "PATCH", body: JSON.stringify({ ...input, updated_at: (/* @__PURE__ */ new Date()).toISOString() }) }, `?id=eq.${encodeURIComponent(idValue)}`);
   return rows[0];
 }
 async function deleteCompeticao(idValue) {
-  await request2("competicoes", { method: "DELETE" }, `?id=eq.${encodeURIComponent(idValue)}`);
+  await request("competicoes", { method: "DELETE" }, `?id=eq.${encodeURIComponent(idValue)}`);
   return { id: idValue };
 }
 async function listCompeticaoParticipantes(competicaoId) {
-  return request2("competicao_participantes", {}, `?select=*&competicao_id=eq.${encodeURIComponent(competicaoId)}`);
+  return request("competicao_participantes", {}, `?select=*&competicao_id=eq.${encodeURIComponent(competicaoId)}`);
 }
 async function listCompeticaoParticipantesForAluno(alunoId) {
-  return request2("competicao_participantes", {}, `?select=competicao_id&aluno_id=eq.${encodeURIComponent(alunoId)}`);
+  return request("competicao_participantes", {}, `?select=competicao_id&aluno_id=eq.${encodeURIComponent(alunoId)}`);
 }
 async function addCompeticaoParticipante(input) {
-  const rows = await request2("competicao_participantes", { method: "POST", body: JSON.stringify({ competicao_id: input.competicaoId, aluno_id: input.alunoId, organization_id: input.organizationId }), headers: { Prefer: "return=representation,resolution=merge-duplicates" } }, "?on_conflict=competicao_id,aluno_id");
+  const rows = await request("competicao_participantes", { method: "POST", body: JSON.stringify({ competicao_id: input.competicaoId, aluno_id: input.alunoId, organization_id: input.organizationId }), headers: { Prefer: "return=representation,resolution=merge-duplicates" } }, "?on_conflict=competicao_id,aluno_id");
   return rows[0];
 }
 async function removeCompeticaoParticipante(competicaoId, alunoId) {
-  await request2("competicao_participantes", { method: "DELETE" }, `?competicao_id=eq.${encodeURIComponent(competicaoId)}&aluno_id=eq.${encodeURIComponent(alunoId)}`);
+  await request("competicao_participantes", { method: "DELETE" }, `?competicao_id=eq.${encodeURIComponent(competicaoId)}&aluno_id=eq.${encodeURIComponent(alunoId)}`);
   return { competicaoId, alunoId };
 }
 async function listCompeticaoPontuacaoForCompeticao(competicaoId) {
-  return request2("competicao_pontuacao", {}, `?select=*&competicao_id=eq.${encodeURIComponent(competicaoId)}`);
+  return request("competicao_pontuacao", {}, `?select=*&competicao_id=eq.${encodeURIComponent(competicaoId)}`);
 }
 async function setCompeticaoPontuacao(input) {
   const body = { competicao_id: input.competicaoId, aluno_id: input.alunoId, organization_id: input.organizationId, valor: input.valor, atualizado_por: input.atualizadoPor ?? null, origem: input.origem, updated_at: (/* @__PURE__ */ new Date()).toISOString() };
-  const rows = await request2("competicao_pontuacao", { method: "POST", body: JSON.stringify(body), headers: { Prefer: "return=representation,resolution=merge-duplicates" } }, "?on_conflict=competicao_id,aluno_id");
+  const rows = await request("competicao_pontuacao", { method: "POST", body: JSON.stringify(body), headers: { Prefer: "return=representation,resolution=merge-duplicates" } }, "?on_conflict=competicao_id,aluno_id");
   return rows[0];
 }
 async function listExercisesCatalog() {
-  return request2("exercicios", {}, "?select=id,nome,grupo_muscular,video_url&estado_publicacao=eq.publicado&order=nome.asc");
+  return request("exercicios", {}, "?select=id,nome,grupo_muscular,video_url&estado_publicacao=eq.publicado&order=nome.asc");
 }
 async function listTreinosForAluno(alunoId, publishedOnly = false) {
-  return request2("treinos", {}, `?select=*&aluno_id=eq.${encodeURIComponent(alunoId)}${publishedOnly ? "&estado_publicacao=eq.publicado" : ""}&order=created_at.desc`);
+  return request("treinos", {}, `?select=*&aluno_id=eq.${encodeURIComponent(alunoId)}${publishedOnly ? "&estado_publicacao=eq.publicado" : ""}&order=created_at.desc`);
 }
 async function getTreino(idValue) {
-  const rows = await request2("treinos", {}, `?select=*&id=eq.${encodeURIComponent(idValue)}&limit=1`);
+  const rows = await request("treinos", {}, `?select=*&id=eq.${encodeURIComponent(idValue)}&limit=1`);
   return rows[0] ?? null;
 }
 async function createTreino(input) {
-  const rows = await request2("treinos", { method: "POST", body: JSON.stringify(input) });
+  const rows = await request("treinos", { method: "POST", body: JSON.stringify(input) });
   return rows[0];
 }
 async function updateTreino(idValue, input) {
-  const rows = await request2("treinos", { method: "PATCH", body: JSON.stringify({ ...input, updated_at: (/* @__PURE__ */ new Date()).toISOString() }) }, `?id=eq.${encodeURIComponent(idValue)}`);
+  const rows = await request("treinos", { method: "PATCH", body: JSON.stringify({ ...input, updated_at: (/* @__PURE__ */ new Date()).toISOString() }) }, `?id=eq.${encodeURIComponent(idValue)}`);
   return rows[0];
 }
 async function deleteTreino(idValue) {
-  await request2("treinos", { method: "DELETE" }, `?id=eq.${encodeURIComponent(idValue)}`);
+  await request("treinos", { method: "DELETE" }, `?id=eq.${encodeURIComponent(idValue)}`);
   return { id: idValue };
 }
 async function listTreinoExercicios(treinoId) {
-  return request2("treino_exercicios", {}, `?select=*&treino_id=eq.${encodeURIComponent(treinoId)}&order=ordem.asc`);
+  return request("treino_exercicios", {}, `?select=*&treino_id=eq.${encodeURIComponent(treinoId)}&order=ordem.asc`);
 }
 async function replaceTreinoExercicios(treinoId, items) {
-  await request2("treino_exercicios", { method: "DELETE" }, `?treino_id=eq.${encodeURIComponent(treinoId)}`);
+  await request("treino_exercicios", { method: "DELETE" }, `?treino_id=eq.${encodeURIComponent(treinoId)}`);
   if (!items.length) return [];
-  return request2("treino_exercicios", { method: "POST", body: JSON.stringify(items.map((item, index) => ({ ...item, treino_id: treinoId, ordem: index }))) });
+  return request("treino_exercicios", { method: "POST", body: JSON.stringify(items.map((item, index) => ({ ...item, treino_id: treinoId, ordem: index }))) });
 }
 async function publishTreino(treinoId, autorId) {
   const treino = await getTreino(treinoId);
@@ -1161,26 +854,26 @@ async function publishTreino(treinoId, autorId) {
   const versao = treino.estado_publicacao === "rascunho" ? treino.versao : treino.versao + 1;
   const publicado_em = (/* @__PURE__ */ new Date()).toISOString();
   const atualizado = await updateTreino(treinoId, { estado_publicacao: "publicado", versao, publicado_por: autorId, publicado_em });
-  await request2("treino_revisoes", { method: "POST", body: JSON.stringify({ treino_id: treinoId, versao, conteudo: { treino, exercicios }, autor_id: autorId, organization_id: treino.organization_id }) });
+  await request("treino_revisoes", { method: "POST", body: JSON.stringify({ treino_id: treinoId, versao, conteudo: { treino, exercicios }, autor_id: autorId, organization_id: treino.organization_id }) });
   return atualizado;
 }
 async function listDietasForAluno(alunoId, publishedOnly = false) {
-  return request2("dietas", {}, `?select=*&aluno_id=eq.${encodeURIComponent(alunoId)}${publishedOnly ? "&estado_publicacao=eq.publicado" : ""}&order=created_at.desc`);
+  return request("dietas", {}, `?select=*&aluno_id=eq.${encodeURIComponent(alunoId)}${publishedOnly ? "&estado_publicacao=eq.publicado" : ""}&order=created_at.desc`);
 }
 async function getDieta(idValue) {
-  const rows = await request2("dietas", {}, `?select=*&id=eq.${encodeURIComponent(idValue)}&limit=1`);
+  const rows = await request("dietas", {}, `?select=*&id=eq.${encodeURIComponent(idValue)}&limit=1`);
   return rows[0] ?? null;
 }
 async function createDieta(input) {
-  const rows = await request2("dietas", { method: "POST", body: JSON.stringify(input) });
+  const rows = await request("dietas", { method: "POST", body: JSON.stringify(input) });
   return rows[0];
 }
 async function updateDieta(idValue, input) {
-  const rows = await request2("dietas", { method: "PATCH", body: JSON.stringify({ ...input, updated_at: (/* @__PURE__ */ new Date()).toISOString() }) }, `?id=eq.${encodeURIComponent(idValue)}`);
+  const rows = await request("dietas", { method: "PATCH", body: JSON.stringify({ ...input, updated_at: (/* @__PURE__ */ new Date()).toISOString() }) }, `?id=eq.${encodeURIComponent(idValue)}`);
   return rows[0];
 }
 async function deleteDieta(idValue) {
-  await request2("dietas", { method: "DELETE" }, `?id=eq.${encodeURIComponent(idValue)}`);
+  await request("dietas", { method: "DELETE" }, `?id=eq.${encodeURIComponent(idValue)}`);
   return { id: idValue };
 }
 async function publishDieta(dietaId, autorId) {
@@ -1189,29 +882,94 @@ async function publishDieta(dietaId, autorId) {
   const versao = dieta.estado_publicacao === "rascunho" ? dieta.versao : dieta.versao + 1;
   const publicado_em = (/* @__PURE__ */ new Date()).toISOString();
   const atualizado = await updateDieta(dietaId, { estado_publicacao: "publicado", versao, publicado_por: autorId, publicado_em });
-  await request2("dieta_revisoes", { method: "POST", body: JSON.stringify({ dieta_id: dietaId, versao, conteudo: dieta, autor_id: autorId, organization_id: dieta.organization_id }) });
+  await request("dieta_revisoes", { method: "POST", body: JSON.stringify({ dieta_id: dietaId, versao, conteudo: dieta, autor_id: autorId, organization_id: dieta.organization_id }) });
   return atualizado;
 }
+async function listMembershipPlans(organizationId) {
+  return request("org_membership_plans", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}&order=nome.asc`);
+}
+async function createMembershipPlan(input) {
+  const rows = await request("org_membership_plans", { method: "POST", body: JSON.stringify({ organization_id: input.organizationId, nome: input.nome, valor_mensal: input.valorMensal, periodicidade: input.periodicidade ?? "mensal" }) });
+  return rows[0];
+}
+async function updateMembershipPlan(id2, organizationId, data) {
+  const body = {};
+  if (data.nome !== void 0) body.nome = data.nome;
+  if (data.valorMensal !== void 0) body.valor_mensal = data.valorMensal;
+  if (data.periodicidade !== void 0) body.periodicidade = data.periodicidade;
+  if (data.ativo !== void 0) body.ativo = data.ativo;
+  const rows = await request("org_membership_plans", { method: "PATCH", body: JSON.stringify(body) }, `?id=eq.${encodeURIComponent(id2)}&organization_id=eq.${encodeURIComponent(organizationId)}`);
+  if (!rows[0]) throw new Error("Plano n\xE3o encontrado.");
+  return rows[0];
+}
+async function listAlunos(organizationId) {
+  return request("alunos", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}&order=created_at.desc`);
+}
+async function findAlunoByEmail(organizationId, email) {
+  const rows = await request("alunos", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}&email=eq.${encodeURIComponent(normalizeEmail(email))}&limit=1`);
+  return rows[0] ?? null;
+}
+async function findAlunoByAuthUserId(authUserId) {
+  const rows = await request("alunos", {}, `?select=*&auth_user_id=eq.${encodeURIComponent(authUserId)}&limit=1`);
+  return rows[0] ?? null;
+}
+async function createAluno(input) {
+  const rows = await request("alunos", { method: "POST", body: JSON.stringify({
+    organization_id: input.organizationId,
+    unit_id: input.unitId || void 0,
+    plano_id: input.planoId || void 0,
+    nome: input.nome,
+    cpf: input.cpf || void 0,
+    email: input.email ? normalizeEmail(input.email) : void 0,
+    telefone: input.telefone || void 0,
+    data_nascimento: input.dataNascimento || void 0,
+    responsavel_nome: input.responsavelNome || void 0,
+    responsavel_cpf: input.responsavelCpf || void 0,
+    valor_mensal: input.valorMensal ?? void 0,
+    dia_vencimento: input.diaVencimento ?? void 0,
+    origem: input.origem ?? "manual",
+    criado_por: input.criadoPor || void 0
+  }) });
+  return rows[0];
+}
+async function updateAluno(id2, organizationId, data) {
+  const rows = await request("alunos", { method: "PATCH", body: JSON.stringify(data) }, `?id=eq.${encodeURIComponent(id2)}&organization_id=eq.${encodeURIComponent(organizationId)}`);
+  if (!rows[0]) throw new Error("Aluno n\xE3o encontrado.");
+  return rows[0];
+}
+async function createImportBatch(input) {
+  const rows = await request("import_batches", { method: "POST", body: JSON.stringify({ organization_id: input.organizationId, entity: input.entity, file_name: input.fileName, total_rows: input.totalRows, valid_rows: input.validRows, error_rows: input.errorRows, errors: input.errors, uploaded_by: input.uploadedBy }) });
+  return rows[0];
+}
+async function finalizeImportBatch(id2, organizationId, input) {
+  const rows = await request("import_batches", { method: "PATCH", body: JSON.stringify({ status: "committed", committed_at: (/* @__PURE__ */ new Date()).toISOString(), valid_rows: input.validRows, error_rows: input.errorRows, errors: input.errors }) }, `?id=eq.${encodeURIComponent(id2)}&organization_id=eq.${encodeURIComponent(organizationId)}`);
+  return rows[0];
+}
+async function listImportBatches(organizationId) {
+  return request("import_batches", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}&order=created_at.desc&limit=50`);
+}
 async function getOrganizationName(organizationId) {
-  const rows = await request2("saas_organizations", {}, `?select=id,name&id=eq.${encodeURIComponent(organizationId)}&limit=1`);
+  const rows = await request("saas_organizations", {}, `?select=id,name&id=eq.${encodeURIComponent(organizationId)}&limit=1`);
   return rows[0]?.name ?? "sua academia";
 }
 async function findPendingMemberInvitation(organizationId, email) {
-  const rows = await request2("member_invitations", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}&email=eq.${encodeURIComponent(normalizeEmail(email))}&status=eq.pending&limit=1`);
+  const rows = await request("member_invitations", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}&email=eq.${encodeURIComponent(normalizeEmail(email))}&status=eq.pending&limit=1`);
   return rows[0] ?? null;
 }
 async function listPendingMemberInvitations(organizationId) {
-  return request2("member_invitations", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}&status=eq.pending&order=created_at.desc`);
+  return request("member_invitations", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}&status=eq.pending&order=created_at.desc`);
 }
 async function inviteMember(input) {
   const email = normalizeEmail(input.email);
   const existing = await findPendingMemberInvitation(input.organizationId, email);
   if (existing) throw new Error("J\xE1 existe um convite pendente para este e-mail nesta organiza\xE7\xE3o.");
+  const aluno = await findAlunoByEmail(input.organizationId, email) ?? await createAluno({ organizationId: input.organizationId, nome: input.fullName, email, origem: "manual", criadoPor: input.invitedByUserId });
   const rawToken = randomUUID();
   const tokenHash = createHash("sha256").update(rawToken).digest("hex");
   const expiresAt = new Date(Date.now() + 1e3 * 60 * 60 * 24 * 7);
-  const rows = await request2("member_invitations", { method: "POST", body: JSON.stringify({
+  const rows = await request("member_invitations", { method: "POST", body: JSON.stringify({
     organization_id: input.organizationId,
+    aluno_id: aluno.id,
     invited_by_user_id: input.invitedByUserId,
     email,
     full_name: input.fullName,
@@ -1224,17 +982,17 @@ async function inviteMember(input) {
   return invitation;
 }
 async function revokeMemberInvitation(id2, organizationId) {
-  const rows = await request2("member_invitations", { method: "PATCH", body: JSON.stringify({ status: "revoked" }) }, `?id=eq.${encodeURIComponent(id2)}&organization_id=eq.${encodeURIComponent(organizationId)}&status=eq.pending`);
+  const rows = await request("member_invitations", { method: "PATCH", body: JSON.stringify({ status: "revoked" }) }, `?id=eq.${encodeURIComponent(id2)}&organization_id=eq.${encodeURIComponent(organizationId)}&status=eq.pending`);
   if (!rows[0]) throw new Error("Convite n\xE3o encontrado ou j\xE1 utilizado.");
   return rows[0];
 }
 async function findMemberInvitationByToken(token) {
   const tokenHash = createHash("sha256").update(token).digest("hex");
-  const rows = await request2("member_invitations", {}, `?select=*&token_hash=eq.${encodeURIComponent(tokenHash)}&status=eq.pending&limit=1`);
+  const rows = await request("member_invitations", {}, `?select=*&token_hash=eq.${encodeURIComponent(tokenHash)}&status=eq.pending&limit=1`);
   return rows[0] ?? null;
 }
 async function createSupabaseUserWithPassword(email, password, fullName) {
-  const { url, key } = config2();
+  const { url, key } = config();
   const response = await fetch(`${url}/auth/v1/admin/users`, { method: "POST", headers: { apikey: key, Authorization: `Bearer ${key}`, "Content-Type": "application/json" }, body: JSON.stringify({ email: normalizeEmail(email), password, email_confirm: true, user_metadata: { full_name: fullName } }) });
   if (!response.ok) throw new Error("N\xE3o foi poss\xEDvel criar sua conta. Verifique se este e-mail j\xE1 n\xE3o est\xE1 cadastrado.");
   return response.json();
@@ -1244,19 +1002,20 @@ async function acceptMemberInvitation(token, password) {
   if (!invitation) throw new Error("C\xF3digo de convite inv\xE1lido ou j\xE1 utilizado.");
   if (new Date(invitation.expires_at).getTime() < Date.now()) throw new Error("Este convite expirou. Pe\xE7a para reenviarem o convite.");
   const authUser = await createSupabaseUserWithPassword(invitation.email, password, invitation.full_name);
-  await request2("profiles", { method: "PATCH", body: JSON.stringify({ full_name: invitation.full_name, organization_id: invitation.organization_id, status: "active", matricula_em: (/* @__PURE__ */ new Date()).toISOString() }) }, `?user_id=eq.${encodeURIComponent(authUser.id)}`);
-  const accepted = await request2("member_invitations", { method: "PATCH", body: JSON.stringify({ status: "accepted" }) }, `?id=eq.${encodeURIComponent(invitation.id)}&status=eq.pending`);
+  await request("profiles", { method: "PATCH", body: JSON.stringify({ full_name: invitation.full_name, organization_id: invitation.organization_id, status: "active", matricula_em: (/* @__PURE__ */ new Date()).toISOString() }) }, `?user_id=eq.${encodeURIComponent(authUser.id)}`);
+  await request("alunos", { method: "PATCH", body: JSON.stringify({ auth_user_id: authUser.id }) }, `?id=eq.${encodeURIComponent(invitation.aluno_id)}`);
+  const accepted = await request("member_invitations", { method: "PATCH", body: JSON.stringify({ status: "accepted" }) }, `?id=eq.${encodeURIComponent(invitation.id)}&status=eq.pending`);
   if (!accepted[0]) throw new Error("Este convite j\xE1 foi utilizado.");
-  await request2("leads", { method: "PATCH", body: JSON.stringify({ estagio: "matriculado", convertido_em: (/* @__PURE__ */ new Date()).toISOString() }) }, `?member_invitation_id=eq.${encodeURIComponent(invitation.id)}&estagio=eq.convite_enviado`);
+  await request("leads", { method: "PATCH", body: JSON.stringify({ estagio: "matriculado", convertido_em: (/* @__PURE__ */ new Date()).toISOString() }) }, `?member_invitation_id=eq.${encodeURIComponent(invitation.id)}&estagio=eq.convite_enviado`);
   const session = await signInWithSupabase(invitation.email, password);
   return { accessToken: session.accessToken, refreshToken: session.refreshToken, user: session.user, organizationId: invitation.organization_id };
 }
 async function getAcolhimento(alunoId) {
-  const rows = await request2("reuniao_acolhimento", {}, `?select=*&aluno_id=eq.${encodeURIComponent(alunoId)}&limit=1`);
+  const rows = await request("reuniao_acolhimento", {}, `?select=*&aluno_id=eq.${encodeURIComponent(alunoId)}&limit=1`);
   return rows[0] ?? null;
 }
 async function upsertAcolhimento(alunoId, data) {
-  const rows = await request2("reuniao_acolhimento", { method: "POST", headers: { Prefer: "resolution=merge-duplicates,return=representation" }, body: JSON.stringify({ ...data, aluno_id: alunoId, criado_por: alunoId, updated_at: (/* @__PURE__ */ new Date()).toISOString() }) }, "?on_conflict=aluno_id");
+  const rows = await request("reuniao_acolhimento", { method: "POST", headers: { Prefer: "resolution=merge-duplicates,return=representation" }, body: JSON.stringify({ ...data, aluno_id: alunoId, criado_por: alunoId, updated_at: (/* @__PURE__ */ new Date()).toISOString() }) }, "?on_conflict=aluno_id");
   return rows[0];
 }
 var CHECKIN_PRIORIDADE = {
@@ -1264,18 +1023,18 @@ var CHECKIN_PRIORIDADE = {
   quero_ajuda: "prioritario"
 };
 async function createCheckIn(input) {
-  const rows = await request2("check_ins", { method: "POST", body: JSON.stringify({ aluno_id: input.alunoId, organization_id: input.organizationId, status: input.status, observacao: input.observacao || void 0 }) });
+  const rows = await request("check_ins", { method: "POST", body: JSON.stringify({ aluno_id: input.alunoId, organization_id: input.organizationId, status: input.status, observacao: input.observacao || void 0 }) });
   return rows[0];
 }
 async function listMyCheckIns(alunoId) {
-  return request2("check_ins", {}, `?select=*&aluno_id=eq.${encodeURIComponent(alunoId)}&order=created_at.desc&limit=20`);
+  return request("check_ins", {}, `?select=*&aluno_id=eq.${encodeURIComponent(alunoId)}&order=created_at.desc&limit=20`);
 }
 async function findOpenAtendimento(alunoId, origem) {
-  const rows = await request2("atendimentos", {}, `?select=*&aluno_id=eq.${encodeURIComponent(alunoId)}&origem=eq.${origem}&status=in.(aberta,em_andamento)&limit=1`);
+  const rows = await request("atendimentos", {}, `?select=*&aluno_id=eq.${encodeURIComponent(alunoId)}&origem=eq.${origem}&status=in.(aberta,em_andamento)&limit=1`);
   return rows[0] ?? null;
 }
 async function createAtendimento(input) {
-  const rows = await request2("atendimentos", { method: "POST", body: JSON.stringify({ organization_id: input.organizationId, aluno_id: input.alunoId, origem: input.origem, origem_check_in_id: input.origemCheckInId || void 0, prioridade: input.prioridade, descricao: input.descricao || void 0, criado_por: input.criadoPor || void 0, prazo: input.prazo || void 0 }) });
+  const rows = await request("atendimentos", { method: "POST", body: JSON.stringify({ organization_id: input.organizationId, aluno_id: input.alunoId, origem: input.origem, origem_check_in_id: input.origemCheckInId || void 0, prioridade: input.prioridade, descricao: input.descricao || void 0, criado_por: input.criadoPor || void 0, prazo: input.prazo || void 0 }) });
   return rows[0];
 }
 async function submitCheckIn(input) {
@@ -1292,21 +1051,21 @@ async function requestHelp(input) {
   return createAtendimento({ organizationId: input.organizationId, alunoId: input.alunoId, origem: "pedido_direto", prioridade: "prioritario", descricao: input.descricao, criadoPor: input.alunoId });
 }
 async function listMyAtendimentos(alunoId) {
-  return request2("atendimentos", {}, `?select=*&aluno_id=eq.${encodeURIComponent(alunoId)}&order=created_at.desc&limit=20`);
+  return request("atendimentos", {}, `?select=*&aluno_id=eq.${encodeURIComponent(alunoId)}&order=created_at.desc&limit=20`);
 }
 async function listAtendimentosForOrganization(organizationId, status) {
-  return request2("atendimentos", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}${status ? `&status=eq.${status}` : ""}&order=created_at.asc`);
+  return request("atendimentos", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}${status ? `&status=eq.${status}` : ""}&order=created_at.asc`);
 }
 async function getAtendimento(idValue) {
-  const rows = await request2("atendimentos", {}, `?select=*&id=eq.${encodeURIComponent(idValue)}&limit=1`);
+  const rows = await request("atendimentos", {}, `?select=*&id=eq.${encodeURIComponent(idValue)}&limit=1`);
   return rows[0] ?? null;
 }
 async function assignAtendimento(idValue, responsavelId) {
-  const rows = await request2("atendimentos", { method: "PATCH", body: JSON.stringify({ responsavel_id: responsavelId, status: "em_andamento" }) }, `?id=eq.${encodeURIComponent(idValue)}`);
+  const rows = await request("atendimentos", { method: "PATCH", body: JSON.stringify({ responsavel_id: responsavelId, status: "em_andamento" }) }, `?id=eq.${encodeURIComponent(idValue)}`);
   return rows[0];
 }
 async function resolveAtendimento(idValue, resolvidoPor, resultado) {
-  const rows = await request2("atendimentos", { method: "PATCH", body: JSON.stringify({ status: "resolvida", resultado, resolvido_por: resolvidoPor, resolvido_em: (/* @__PURE__ */ new Date()).toISOString() }) }, `?id=eq.${encodeURIComponent(idValue)}`);
+  const rows = await request("atendimentos", { method: "PATCH", body: JSON.stringify({ status: "resolvida", resultado, resolvido_por: resolvidoPor, resolvido_em: (/* @__PURE__ */ new Date()).toISOString() }) }, `?id=eq.${encodeURIComponent(idValue)}`);
   return rows[0];
 }
 var PRIORIDADE_ORDEM = ["rotina", "atencao", "prioritario", "encaminhamento_profissional"];
@@ -1316,11 +1075,11 @@ var DIAS_SEM_CHECKIN = 7;
 var DIAS_CONVITE_PENDENTE = 3;
 async function listAtendimentosVencidos() {
   const now = (/* @__PURE__ */ new Date()).toISOString();
-  return request2("atendimentos", {}, `?select=*&status=in.(aberta,em_andamento)&prazo=lt.${encodeURIComponent(now)}&escalonamentos_count=lt.${MAX_ESCALONAMENTOS}`);
+  return request("atendimentos", {}, `?select=*&status=in.(aberta,em_andamento)&prazo=lt.${encodeURIComponent(now)}&escalonamentos_count=lt.${MAX_ESCALONAMENTOS}`);
 }
 async function escalateAtendimento(atendimento) {
   const proximoIndex = Math.min(PRIORIDADE_ORDEM.indexOf(atendimento.prioridade) + 1, PRIORIDADE_ORDEM.length - 1);
-  const rows = await request2("atendimentos", { method: "PATCH", body: JSON.stringify({
+  const rows = await request("atendimentos", { method: "PATCH", body: JSON.stringify({
     prioridade: PRIORIDADE_ORDEM[proximoIndex],
     escalonamentos_count: atendimento.escalonamentos_count + 1,
     prazo: new Date(Date.now() + PRAZO_APOS_ESCALONAMENTO_MS).toISOString()
@@ -1329,10 +1088,10 @@ async function escalateAtendimento(atendimento) {
 }
 async function listAlunosSemCheckIn(dias = DIAS_SEM_CHECKIN) {
   const cutoff = new Date(Date.now() - dias * 24 * 60 * 60 * 1e3).toISOString();
-  const candidatos = await request2("profiles", {}, `?select=user_id,organization_id,created_at&status=eq.active&organization_id=not.is.null&created_at=lt.${encodeURIComponent(cutoff)}`);
+  const candidatos = await request("profiles", {}, `?select=user_id,organization_id,created_at&status=eq.active&organization_id=not.is.null&created_at=lt.${encodeURIComponent(cutoff)}`);
   if (!candidatos.length) return [];
   const ids = candidatos.map((c) => c.user_id).join(",");
-  const recentes = await request2("check_ins", {}, `?select=aluno_id&aluno_id=in.(${ids})&created_at=gte.${encodeURIComponent(cutoff)}`);
+  const recentes = await request("check_ins", {}, `?select=aluno_id&aluno_id=in.(${ids})&created_at=gte.${encodeURIComponent(cutoff)}`);
   const comCheckInRecente = new Set(recentes.map((r) => r.aluno_id));
   return candidatos.filter((c) => !comCheckInRecente.has(c.user_id));
 }
@@ -1346,13 +1105,13 @@ async function createSemCheckInAtendimentoIfNeeded(alunoId, organizationId, dias
 async function listInvitationsForReminder(dias = DIAS_CONVITE_PENDENTE) {
   const cutoff = new Date(Date.now() - dias * 24 * 60 * 60 * 1e3).toISOString();
   const now = (/* @__PURE__ */ new Date()).toISOString();
-  return request2("member_invitations", {}, `?select=*&status=eq.pending&lembrete_enviado_em=is.null&created_at=lt.${encodeURIComponent(cutoff)}&expires_at=gt.${encodeURIComponent(now)}`);
+  return request("member_invitations", {}, `?select=*&status=eq.pending&lembrete_enviado_em=is.null&created_at=lt.${encodeURIComponent(cutoff)}&expires_at=gt.${encodeURIComponent(now)}`);
 }
 async function resendInvitationReminder(invitation) {
   const rawToken = randomUUID();
   const tokenHash = createHash("sha256").update(rawToken).digest("hex");
   const expiresAt = new Date(Date.now() + 1e3 * 60 * 60 * 24 * 7).toISOString();
-  await request2("member_invitations", { method: "PATCH", body: JSON.stringify({ token_hash: tokenHash, expires_at: expiresAt, lembrete_enviado_em: (/* @__PURE__ */ new Date()).toISOString() }) }, `?id=eq.${encodeURIComponent(invitation.id)}`);
+  await request("member_invitations", { method: "PATCH", body: JSON.stringify({ token_hash: tokenHash, expires_at: expiresAt, lembrete_enviado_em: (/* @__PURE__ */ new Date()).toISOString() }) }, `?id=eq.${encodeURIComponent(invitation.id)}`);
   const orgName = await getOrganizationName(invitation.organization_id);
   await sendEmail(invitation.email, `Lembrete: convite para o Arke \u2014 ${orgName}`, `<p>Ol\xE1, ${invitation.full_name}.</p><p>Voc\xEA ainda n\xE3o concluiu seu cadastro em <strong>${orgName}</strong> no Arke.</p><p>Acesse o portal, clique em "Tenho um convite" na tela de login e use o novo c\xF3digo abaixo:</p><h2 style="letter-spacing:1px">${rawToken}</h2><p>Este convite expira em 7 dias.</p>`);
 }
@@ -1419,12 +1178,12 @@ function resumoEntrega(alunoIds, registros) {
 async function getGestaoIndicadores(organizationId) {
   const trintaDiasAtras = new Date(Date.now() - 1e3 * 60 * 60 * 24 * 30).toISOString();
   const [alunos, staff, treinos, dietas, abertos, resolvidosRecentes] = await Promise.all([
-    request2("profiles", {}, `?select=user_id&organization_id=eq.${encodeURIComponent(organizationId)}&status=eq.active`),
-    request2("saas_memberships", {}, `?select=id&organization_id=eq.${encodeURIComponent(organizationId)}&status=eq.active`),
-    request2("treinos", {}, `?select=aluno_id,estado_publicacao&organization_id=eq.${encodeURIComponent(organizationId)}`),
-    request2("dietas", {}, `?select=aluno_id,estado_publicacao&organization_id=eq.${encodeURIComponent(organizationId)}`),
-    request2("atendimentos", {}, `?select=status,prioridade,prazo&organization_id=eq.${encodeURIComponent(organizationId)}&status=in.(aberta,em_andamento)`),
-    request2("atendimentos", {}, `?select=created_at,resolvido_em&organization_id=eq.${encodeURIComponent(organizationId)}&status=eq.resolvida&resolvido_em=gte.${encodeURIComponent(trintaDiasAtras)}`)
+    request("profiles", {}, `?select=user_id&organization_id=eq.${encodeURIComponent(organizationId)}&status=eq.active`),
+    request("saas_memberships", {}, `?select=id&organization_id=eq.${encodeURIComponent(organizationId)}&status=eq.active`),
+    request("treinos", {}, `?select=aluno_id,estado_publicacao&organization_id=eq.${encodeURIComponent(organizationId)}`),
+    request("dietas", {}, `?select=aluno_id,estado_publicacao&organization_id=eq.${encodeURIComponent(organizationId)}`),
+    request("atendimentos", {}, `?select=status,prioridade,prazo&organization_id=eq.${encodeURIComponent(organizationId)}&status=in.(aberta,em_andamento)`),
+    request("atendimentos", {}, `?select=created_at,resolvido_em&organization_id=eq.${encodeURIComponent(organizationId)}&status=eq.resolvida&resolvido_em=gte.${encodeURIComponent(trintaDiasAtras)}`)
   ]);
   const alunoIds = new Set(alunos.map((a) => a.user_id));
   const now = Date.now();
@@ -1445,14 +1204,14 @@ async function getGestaoIndicadores(organizationId) {
   };
 }
 async function registrarFrequencia(input) {
-  const rows = await request2("frequencia_registros", { method: "POST", body: JSON.stringify({ aluno_id: input.alunoId, organization_id: input.organizationId, unit_id: input.unitId || void 0, origem: input.origem, registrado_por: input.registradoPor || void 0 }) });
+  const rows = await request("frequencia_registros", { method: "POST", body: JSON.stringify({ aluno_id: input.alunoId, organization_id: input.organizationId, unit_id: input.unitId || void 0, origem: input.origem, registrado_por: input.registradoPor || void 0 }) });
   return rows[0];
 }
 async function listFrequenciaForAluno(alunoId, limit = 30) {
-  return request2("frequencia_registros", {}, `?select=*&aluno_id=eq.${encodeURIComponent(alunoId)}&order=registrado_em.desc&limit=${limit}`);
+  return request("frequencia_registros", {}, `?select=*&aluno_id=eq.${encodeURIComponent(alunoId)}&order=registrado_em.desc&limit=${limit}`);
 }
 async function listFrequenciaForOrganization(organizationId, limit = 100) {
-  return request2("frequencia_registros", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}&order=registrado_em.desc&limit=${limit}`);
+  return request("frequencia_registros", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}&order=registrado_em.desc&limit=${limit}`);
 }
 function sanitizePdfText(value) {
   return value.replaceAll("\\", "\\\\").replaceAll("(", "\\(").replaceAll(")", "\\)");
@@ -1525,45 +1284,45 @@ async function gerarFichaTreinoPdf(treinoId) {
   return { filename: `ficha-${treino.titulo.replace(/[^a-z0-9]+/gi, "-").toLowerCase()}-v${treino.versao}.pdf`, contentBase64: buildThermalPdfBase64(lines) };
 }
 async function listTurmasForOrganization(organizationId) {
-  return request2("turmas", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}&order=nome.asc`);
+  return request("turmas", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}&order=nome.asc`);
 }
 async function listTurmasAtivas(organizationId) {
-  return request2("turmas", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}&status=eq.ativa&order=nome.asc`);
+  return request("turmas", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}&status=eq.ativa&order=nome.asc`);
 }
 async function getTurma(idValue) {
-  const rows = await request2("turmas", {}, `?select=*&id=eq.${encodeURIComponent(idValue)}&limit=1`);
+  const rows = await request("turmas", {}, `?select=*&id=eq.${encodeURIComponent(idValue)}&limit=1`);
   return rows[0] ?? null;
 }
 async function createTurma(input) {
-  const rows = await request2("turmas", { method: "POST", body: JSON.stringify(input) });
+  const rows = await request("turmas", { method: "POST", body: JSON.stringify(input) });
   return rows[0];
 }
 async function updateTurma(idValue, input) {
-  const rows = await request2("turmas", { method: "PATCH", body: JSON.stringify(input) }, `?id=eq.${encodeURIComponent(idValue)}`);
+  const rows = await request("turmas", { method: "PATCH", body: JSON.stringify(input) }, `?id=eq.${encodeURIComponent(idValue)}`);
   return rows[0];
 }
 async function deleteTurma(idValue) {
-  await request2("turmas", { method: "DELETE" }, `?id=eq.${encodeURIComponent(idValue)}`);
+  await request("turmas", { method: "DELETE" }, `?id=eq.${encodeURIComponent(idValue)}`);
   return { id: idValue };
 }
 async function listTurmaHorarios(turmaId) {
-  return request2("turma_horarios", {}, `?select=*&turma_id=eq.${encodeURIComponent(turmaId)}&order=dia_semana.asc,hora_inicio.asc`);
+  return request("turma_horarios", {}, `?select=*&turma_id=eq.${encodeURIComponent(turmaId)}&order=dia_semana.asc,hora_inicio.asc`);
 }
 async function replaceTurmaHorarios(turmaId, items) {
-  await request2("turma_horarios", { method: "DELETE" }, `?turma_id=eq.${encodeURIComponent(turmaId)}`);
+  await request("turma_horarios", { method: "DELETE" }, `?turma_id=eq.${encodeURIComponent(turmaId)}`);
   if (!items.length) return [];
-  return request2("turma_horarios", { method: "POST", body: JSON.stringify(items.map((item) => ({ ...item, turma_id: turmaId }))) });
+  return request("turma_horarios", { method: "POST", body: JSON.stringify(items.map((item) => ({ ...item, turma_id: turmaId }))) });
 }
 async function listReservasForTurmaData(turmaId, data) {
-  return request2("turma_reservas", {}, `?select=*&turma_id=eq.${encodeURIComponent(turmaId)}&data=eq.${encodeURIComponent(data)}&status=eq.confirmada`);
+  return request("turma_reservas", {}, `?select=*&turma_id=eq.${encodeURIComponent(turmaId)}&data=eq.${encodeURIComponent(data)}&status=eq.confirmada`);
 }
 async function getReserva(idValue) {
-  const rows = await request2("turma_reservas", {}, `?select=*&id=eq.${encodeURIComponent(idValue)}&limit=1`);
+  const rows = await request("turma_reservas", {}, `?select=*&id=eq.${encodeURIComponent(idValue)}&limit=1`);
   return rows[0] ?? null;
 }
 async function listMinhasReservas(alunoId) {
   const hoje = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
-  return request2("turma_reservas", {}, `?select=*&aluno_id=eq.${encodeURIComponent(alunoId)}&status=eq.confirmada&data=gte.${encodeURIComponent(hoje)}&order=data.asc`);
+  return request("turma_reservas", {}, `?select=*&aluno_id=eq.${encodeURIComponent(alunoId)}&status=eq.confirmada&data=gte.${encodeURIComponent(hoje)}&order=data.asc`);
 }
 async function getVagasDisponiveis(turmaId, data) {
   const turma = await getTurma(turmaId);
@@ -1572,60 +1331,77 @@ async function getVagasDisponiveis(turmaId, data) {
   return { limite: turma.limite_vagas, ocupadas: reservas.length, disponiveis: Math.max(0, turma.limite_vagas - reservas.length) };
 }
 async function reservarVaga(input) {
-  const turma = await getTurma(input.turmaId);
-  if (!turma || turma.status !== "ativa" || turma.organization_id !== input.organizationId) throw new Error("Turma n\xE3o encontrada ou inativa.");
-  const horarios = await listTurmaHorarios(input.turmaId);
-  const diaSemana = (/* @__PURE__ */ new Date(`${input.data}T00:00:00Z`)).getUTCDay();
-  if (!horarios.some((horario) => horario.dia_semana === diaSemana)) throw new Error("Esta turma n\xE3o tem hor\xE1rio nesse dia da semana.");
-  const existentes = await listReservasForTurmaData(input.turmaId, input.data);
-  if (existentes.some((reserva) => reserva.aluno_id === input.alunoId)) throw new Error("Voc\xEA j\xE1 reservou vaga nesta sess\xE3o.");
-  if (existentes.length >= turma.limite_vagas) throw new Error("N\xE3o h\xE1 vagas dispon\xEDveis para esta sess\xE3o.");
-  const rows = await request2("turma_reservas", { method: "POST", body: JSON.stringify({ turma_id: input.turmaId, aluno_id: input.alunoId, organization_id: input.organizationId, data: input.data }) });
-  return rows[0];
+  return rpc("reservar_vaga_turma", {
+    p_turma_id: input.turmaId,
+    p_aluno_id: input.alunoId,
+    p_organization_id: input.organizationId,
+    p_data: input.data
+  });
 }
 async function cancelarReserva(idValue, alunoId) {
-  const rows = await request2("turma_reservas", { method: "PATCH", body: JSON.stringify({ status: "cancelada" }) }, `?id=eq.${encodeURIComponent(idValue)}&aluno_id=eq.${encodeURIComponent(alunoId)}`);
+  const rows = await request("turma_reservas", { method: "PATCH", body: JSON.stringify({ status: "cancelada" }) }, `?id=eq.${encodeURIComponent(idValue)}&aluno_id=eq.${encodeURIComponent(alunoId)}`);
   if (!rows[0]) throw new Error("Reserva n\xE3o encontrada.");
   return rows[0];
 }
 async function cancelarReservaStaff(idValue) {
-  const rows = await request2("turma_reservas", { method: "PATCH", body: JSON.stringify({ status: "cancelada" }) }, `?id=eq.${encodeURIComponent(idValue)}`);
+  const rows = await request("turma_reservas", { method: "PATCH", body: JSON.stringify({ status: "cancelada" }) }, `?id=eq.${encodeURIComponent(idValue)}`);
   if (!rows[0]) throw new Error("Reserva n\xE3o encontrada.");
   return rows[0];
 }
 var DIAS_LEAD_SEM_CONTATO = 3;
 async function listLeadsForOrganization(organizationId) {
-  return request2("leads", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}&order=created_at.desc`);
+  return request("leads", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}&order=created_at.desc`);
 }
 async function getLead(idValue) {
-  const rows = await request2("leads", {}, `?select=*&id=eq.${encodeURIComponent(idValue)}&limit=1`);
+  const rows = await request("leads", {}, `?select=*&id=eq.${encodeURIComponent(idValue)}&limit=1`);
   return rows[0] ?? null;
 }
+async function assertUnitBelongsToOrganization(unitId, organizationId) {
+  const rows = await request("saas_units", {}, `?select=id&id=eq.${encodeURIComponent(unitId)}&organization_id=eq.${encodeURIComponent(organizationId)}&limit=1`);
+  if (!rows[0]) throw new Error("Unidade n\xE3o encontrada nesta organiza\xE7\xE3o.");
+}
+async function assertResponsavelBelongsToOrganization(userId, organizationId) {
+  const rows = await request("saas_memberships", {}, `?select=id&auth_user_id=eq.${encodeURIComponent(userId)}&organization_id=eq.${encodeURIComponent(organizationId)}&status=eq.active&limit=1`);
+  if (!rows[0]) throw new Error("Respons\xE1vel n\xE3o pertence a esta organiza\xE7\xE3o.");
+}
 async function createLead(input) {
-  const rows = await request2("leads", { method: "POST", body: JSON.stringify({ organization_id: input.organizationId, unit_id: input.unitId || void 0, nome: input.nome, telefone: input.telefone || void 0, email: input.email || void 0, origem: input.origem || void 0, interesse: input.interesse || void 0, responsavel_id: input.responsavelId || void 0, notas: input.notas || void 0, criado_por: input.criadoPor || void 0 }) });
+  if (input.unitId) await assertUnitBelongsToOrganization(input.unitId, input.organizationId);
+  if (input.responsavelId) await assertResponsavelBelongsToOrganization(input.responsavelId, input.organizationId);
+  const rows = await request("leads", { method: "POST", body: JSON.stringify({ organization_id: input.organizationId, unit_id: input.unitId || void 0, nome: input.nome, telefone: input.telefone || void 0, email: input.email || void 0, origem: input.origem || void 0, interesse: input.interesse || void 0, responsavel_id: input.responsavelId || void 0, notas: input.notas || void 0, criado_por: input.criadoPor || void 0 }) });
   return rows[0];
 }
-async function updateLead(idValue, data) {
-  const rows = await request2("leads", { method: "PATCH", body: JSON.stringify({ nome: data.nome, telefone: data.telefone, email: data.email, origem: data.origem, interesse: data.interesse, unit_id: data.unitId, responsavel_id: data.responsavelId, notas: data.notas }) }, `?id=eq.${encodeURIComponent(idValue)}`);
+async function updateLead(idValue, organizationId, data) {
+  if (data.unitId) await assertUnitBelongsToOrganization(data.unitId, organizationId);
+  if (data.responsavelId) await assertResponsavelBelongsToOrganization(data.responsavelId, organizationId);
+  const rows = await request("leads", { method: "PATCH", body: JSON.stringify({ nome: data.nome, telefone: data.telefone, email: data.email, origem: data.origem, interesse: data.interesse, unit_id: data.unitId, responsavel_id: data.responsavelId, notas: data.notas }) }, `?id=eq.${encodeURIComponent(idValue)}`);
   if (!rows[0]) throw new Error("Lead n\xE3o encontrado.");
   return rows[0];
 }
 async function deleteLead(idValue) {
-  await request2("leads", { method: "DELETE" }, `?id=eq.${encodeURIComponent(idValue)}`);
+  await request("leads", { method: "DELETE" }, `?id=eq.${encodeURIComponent(idValue)}`);
   return { success: true };
 }
 async function closeOpenFollowUps(leadId) {
-  await request2("lead_atividades", { method: "PATCH", body: JSON.stringify({ status: "concluida" }) }, `?lead_id=eq.${encodeURIComponent(leadId)}&tipo=eq.follow_up_automatico&status=eq.aberta`);
+  await request("lead_atividades", { method: "PATCH", body: JSON.stringify({ status: "concluida" }) }, `?lead_id=eq.${encodeURIComponent(leadId)}&tipo=eq.follow_up_automatico&status=eq.aberta`);
+}
+function assertLeadEstagioMutavel(lead) {
+  if (lead.estagio === "matriculado") throw new Error("Este lead j\xE1 foi matriculado \u2014 n\xE3o \xE9 poss\xEDvel alterar o est\xE1gio.");
+  if (lead.estagio === "convite_enviado") throw new Error("O convite j\xE1 foi enviado a este lead \u2014 aguarde o aceite ou reenvie pelo painel de convites pendentes.");
+  if (lead.estagio === "perdido") throw new Error("Este lead est\xE1 marcado como perdido.");
 }
 async function moverEstagioLead(idValue, estagio) {
-  const rows = await request2("leads", { method: "PATCH", body: JSON.stringify({ estagio }) }, `?id=eq.${encodeURIComponent(idValue)}`);
-  if (!rows[0]) throw new Error("Lead n\xE3o encontrado.");
+  const lead = await getLead(idValue);
+  if (!lead) throw new Error("Lead n\xE3o encontrado.");
+  assertLeadEstagioMutavel(lead);
+  const rows = await request("leads", { method: "PATCH", body: JSON.stringify({ estagio }) }, `?id=eq.${encodeURIComponent(idValue)}`);
   await closeOpenFollowUps(idValue);
   return rows[0];
 }
 async function marcarLeadPerdido(idValue, motivoPerda) {
-  const rows = await request2("leads", { method: "PATCH", body: JSON.stringify({ estagio: "perdido", motivo_perda: motivoPerda }) }, `?id=eq.${encodeURIComponent(idValue)}`);
-  if (!rows[0]) throw new Error("Lead n\xE3o encontrado.");
+  const lead = await getLead(idValue);
+  if (!lead) throw new Error("Lead n\xE3o encontrado.");
+  assertLeadEstagioMutavel(lead);
+  const rows = await request("leads", { method: "PATCH", body: JSON.stringify({ estagio: "perdido", motivo_perda: motivoPerda }) }, `?id=eq.${encodeURIComponent(idValue)}`);
   await closeOpenFollowUps(idValue);
   return rows[0];
 }
@@ -1637,31 +1413,31 @@ async function converterLead(idValue, invitedByUserId) {
   if (lead.estagio === "perdido") throw new Error("Este lead est\xE1 marcado como perdido.");
   if (!lead.email) throw new Error("Informe o e-mail do lead antes de converter \u2014 o convite de aluno exige e-mail.");
   const invitation = await inviteMember({ organizationId: lead.organization_id, invitedByUserId, email: lead.email, fullName: lead.nome });
-  const rows = await request2("leads", { method: "PATCH", body: JSON.stringify({ estagio: "convite_enviado", member_invitation_id: invitation.id }) }, `?id=eq.${encodeURIComponent(idValue)}`);
+  const rows = await request("leads", { method: "PATCH", body: JSON.stringify({ estagio: "convite_enviado", member_invitation_id: invitation.id }) }, `?id=eq.${encodeURIComponent(idValue)}`);
   await closeOpenFollowUps(idValue);
   return { lead: rows[0], invitation };
 }
 async function listLeadAtividades(leadId) {
-  return request2("lead_atividades", {}, `?select=*&lead_id=eq.${encodeURIComponent(leadId)}&order=created_at.desc`);
+  return request("lead_atividades", {}, `?select=*&lead_id=eq.${encodeURIComponent(leadId)}&order=created_at.desc`);
 }
 async function createLeadNota(input) {
-  const rows = await request2("lead_atividades", { method: "POST", body: JSON.stringify({ lead_id: input.leadId, organization_id: input.organizationId, tipo: "nota", status: "concluida", descricao: input.descricao, criado_por: input.criadoPor, responsavel_id: input.responsavelId || void 0 }) });
+  const rows = await request("lead_atividades", { method: "POST", body: JSON.stringify({ lead_id: input.leadId, organization_id: input.organizationId, tipo: "nota", status: "concluida", descricao: input.descricao, criado_por: input.criadoPor, responsavel_id: input.responsavelId || void 0 }) });
   await closeOpenFollowUps(input.leadId);
   return rows[0];
 }
 async function listLeadsSemContato(dias = DIAS_LEAD_SEM_CONTATO) {
   const cutoff = new Date(Date.now() - dias * 24 * 60 * 60 * 1e3).toISOString();
-  const candidatos = await request2("leads", {}, `?select=id,organization_id,created_at&estagio=not.in.(matriculado,perdido)&created_at=lt.${encodeURIComponent(cutoff)}`);
+  const candidatos = await request("leads", {}, `?select=id,organization_id,created_at&estagio=not.in.(matriculado,perdido)&created_at=lt.${encodeURIComponent(cutoff)}`);
   if (!candidatos.length) return [];
   const ids = candidatos.map((c) => c.id).join(",");
-  const atividades = await request2("lead_atividades", {}, `?select=lead_id,created_at&lead_id=in.(${ids})&order=created_at.desc`);
+  const atividades = await request("lead_atividades", {}, `?select=lead_id,created_at&lead_id=in.(${ids})&order=created_at.desc`);
   const ultimaAtividade = /* @__PURE__ */ new Map();
   for (const atividade of atividades) if (!ultimaAtividade.has(atividade.lead_id)) ultimaAtividade.set(atividade.lead_id, atividade.created_at);
   return candidatos.filter((lead) => (ultimaAtividade.get(lead.id) ?? lead.created_at) < cutoff);
 }
 async function createFollowUpLeadIfNeeded(leadId, organizationId, dias) {
   try {
-    return await request2("lead_atividades", { method: "POST", body: JSON.stringify({ lead_id: leadId, organization_id: organizationId, tipo: "follow_up_automatico", status: "aberta", descricao: `Sem contato registrado h\xE1 mais de ${dias} dias.` }) }).then((rows) => rows[0]);
+    return await request("lead_atividades", { method: "POST", body: JSON.stringify({ lead_id: leadId, organization_id: organizationId, tipo: "follow_up_automatico", status: "aberta", descricao: `Sem contato registrado h\xE1 mais de ${dias} dias.` }) }).then((rows) => rows[0]);
   } catch {
     return null;
   }
@@ -1671,8 +1447,8 @@ async function getCrmIndicadores(organizationId, unitId) {
   const filtroUnidade = unitId ? `&unit_id=eq.${encodeURIComponent(unitId)}` : "";
   const trintaDiasAtras = new Date(Date.now() - 1e3 * 60 * 60 * 24 * 30).toISOString();
   const [leads, atividadesOrg] = await Promise.all([
-    request2("leads", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}${filtroUnidade}`),
-    request2("lead_atividades", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}&order=created_at.asc`)
+    request("leads", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}${filtroUnidade}`),
+    request("lead_atividades", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}&order=created_at.asc`)
   ]);
   const leadIds = new Set(leads.map((lead) => lead.id));
   const atividades = atividadesOrg.filter((atividade) => leadIds.has(atividade.lead_id));
@@ -1717,6 +1493,108 @@ async function getCrmIndicadores(organizationId, unitId) {
   const novosPorDia = Array.from(novosPorDiaMap.entries()).map(([data, total]) => ({ data, total })).sort((a, b) => a.data.localeCompare(b.data));
   return { porEstagio, taxaConversao, porOrigem, motivosPerda, followUps: { abertos: followUpsAbertos.length, atrasados: followUpsAtrasados.length }, tempoMedioPrimeiraRespostaHoras, novosPorDia };
 }
+async function rpc(fn, args) {
+  const { url, key } = config();
+  const response = await fetch(`${url}/rest/v1/rpc/${fn}`, {
+    method: "POST",
+    headers: { apikey: key, Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+    body: JSON.stringify(args)
+  });
+  if (!response.ok) {
+    const body = await response.text();
+    let message;
+    try {
+      message = JSON.parse(body).message;
+    } catch {
+    }
+    throw new Error(message || `Supabase RPC ${fn} ${response.status}: ${body}`);
+  }
+  const text = await response.text();
+  return text ? JSON.parse(text) : null;
+}
+async function getCurrentPrivacyPolicy() {
+  const rows = await request("privacy_policy_versions", {}, "?select=*&order=effective_at.desc&limit=1");
+  return rows[0] ?? null;
+}
+async function hasConsent(userId, consentType) {
+  const rows = await request("user_consents", {}, `?select=id&user_id=eq.${encodeURIComponent(userId)}&consent_type=eq.${consentType}&granted=eq.true&limit=1`);
+  return rows.length > 0;
+}
+async function recordConsent(input) {
+  const rows = await request("user_consents", { method: "POST", body: JSON.stringify({ user_id: input.userId, consent_type: input.consentType, policy_version_id: input.policyVersionId ?? null, granted: true, ip_address: input.ipAddress ?? null, user_agent: input.userAgent ?? null }) });
+  return rows[0];
+}
+async function createDeletionRequest(input) {
+  const existing = await request("data_deletion_requests", {}, `?select=id&user_id=eq.${encodeURIComponent(input.userId)}&status=eq.pending&limit=1`);
+  if (existing.length) throw new Error("Voc\xEA j\xE1 tem uma solicita\xE7\xE3o de exclus\xE3o pendente.");
+  const rows = await request("data_deletion_requests", { method: "POST", body: JSON.stringify({ user_id: input.userId, organization_id: input.organizationId, reason: input.reason || void 0 }) });
+  return rows[0];
+}
+async function getMyDeletionRequest(userId) {
+  const rows = await request("data_deletion_requests", {}, `?select=*&user_id=eq.${encodeURIComponent(userId)}&order=requested_at.desc&limit=1`);
+  return rows[0] ?? null;
+}
+async function getDeletionRequest(idValue) {
+  const rows = await request("data_deletion_requests", {}, `?select=*&id=eq.${encodeURIComponent(idValue)}&limit=1`);
+  return rows[0] ?? null;
+}
+async function listDeletionRequests(organizationId, status) {
+  return request("data_deletion_requests", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}${status ? `&status=eq.${status}` : ""}&order=requested_at.asc`);
+}
+async function fulfillDeletionRequest(input) {
+  await rpc("delete_member_data", { p_aluno_id: input.alunoId, p_resolved_by: input.resolvedBy, p_request_id: input.requestId, p_note: input.note || null });
+  return { requestId: input.requestId, status: "completed" };
+}
+async function rejectDeletionRequest(input) {
+  const rows = await request("data_deletion_requests", { method: "PATCH", body: JSON.stringify({ status: "rejected", resolved_at: (/* @__PURE__ */ new Date()).toISOString(), resolved_by: input.resolvedBy, resolution_note: input.note || null }) }, `?id=eq.${encodeURIComponent(input.requestId)}&organization_id=eq.${encodeURIComponent(input.organizationId)}&status=eq.pending`);
+  if (!rows[0]) throw new Error("Solicita\xE7\xE3o n\xE3o encontrada ou j\xE1 resolvida.");
+  return rows[0];
+}
+
+// shared/pricing.ts
+var ORG_PLAN_KEYS = ["starter", "growth", "scale"];
+var PROFISSIONAL_PLAN_KEYS = ["essencial", "performance", "ilimitado"];
+var SAAS_PLAN_KEYS = [...ORG_PLAN_KEYS, ...PROFISSIONAL_PLAN_KEYS];
+var ORG_PLAN_LABELS = { starter: "Starter", growth: "Growth", scale: "Scale" };
+var PROFISSIONAL_PLAN_LABELS = { essencial: "Essencial", performance: "Performance", ilimitado: "Ilimitado" };
+var ORG_PLAN_AMOUNTS_CENTS = { starter: 29900, growth: 69900, scale: 149e3 };
+var PROFISSIONAL_PLAN_AMOUNTS_CENTS = { essencial: 7900, performance: 14900, ilimitado: 24900 };
+var PLAN_LIMITS = {
+  starter: { maxUnits: 1, maxUsers: 12 },
+  growth: { maxUnits: 3, maxUsers: 32 },
+  scale: { maxUnits: 10, maxUsers: 100 },
+  essencial: { maxUnits: 1, maxUsers: 3 },
+  performance: { maxUnits: 1, maxUsers: 8 },
+  ilimitado: { maxUnits: 1, maxUsers: 999 }
+};
+var PLAN_AMOUNTS_CENTS = { ...ORG_PLAN_AMOUNTS_CENTS, ...PROFISSIONAL_PLAN_AMOUNTS_CENTS };
+var formatBRL = (cents) => (cents / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+var orgPlanOptions = ORG_PLAN_KEYS.map((key) => ({ value: key, label: `${ORG_PLAN_LABELS[key]} \u2014 ${formatBRL(ORG_PLAN_AMOUNTS_CENTS[key])}/m\xEAs` }));
+var profissionalPlanOptions = PROFISSIONAL_PLAN_KEYS.map((key) => ({ value: key, label: `${PROFISSIONAL_PLAN_LABELS[key]} \u2014 ${formatBRL(PROFISSIONAL_PLAN_AMOUNTS_CENTS[key])}/m\xEAs` }));
+var SETUP_FEE_CENTS = 149e3;
+var ARKE_MODULE_PACKAGE_AMOUNTS_CENTS = { starter: 9900, growth: 24900, scale: 49900 };
+var ARKE_ALUNO_WHOLESALE_CENTS = 5990;
+
+// server/db.ts
+function isConfigured() {
+  return Boolean((process.env.SUPABASE_URL ?? "") && (process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.SUPABASE_KEY ?? ""));
+}
+function config2() {
+  const url = process.env.SUPABASE_URL ?? "";
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.SUPABASE_KEY ?? "";
+  if (!url || !key) throw new Error("Supabase n\xE3o configurado. Defina SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY.");
+  return { url: url.replace(/\/$/, ""), key };
+}
+async function request2(table, init2 = {}, query = "") {
+  const { url, key } = config2();
+  const response = await fetch(`${url}/rest/v1/${table}${query}`, {
+    ...init2,
+    headers: { apikey: key, Authorization: `Bearer ${key}`, "Content-Type": "application/json", Prefer: "return=representation", ...init2.headers ?? {} }
+  });
+  if (!response.ok) throw new Error(`Supabase ${response.status}: ${await response.text()}`);
+  const text = await response.text();
+  return text ? JSON.parse(text) : [];
+}
 async function rpc2(fn, args) {
   const { url, key } = config2();
   const response = await fetch(`${url}/rest/v1/rpc/${fn}`, {
@@ -1725,46 +1603,655 @@ async function rpc2(fn, args) {
     body: JSON.stringify(args)
   });
   if (!response.ok) throw new Error(`Supabase RPC ${fn} ${response.status}: ${await response.text()}`);
-  const text = await response.text();
-  return text ? JSON.parse(text) : null;
+  return await response.json();
 }
-async function getCurrentPrivacyPolicy() {
-  const rows = await request2("privacy_policy_versions", {}, "?select=*&order=effective_at.desc&limit=1");
-  return rows[0] ?? null;
+async function getOrganizationsForUser(userId) {
+  if (!isConfigured()) return [];
+  const rows = await request2(
+    "saas_memberships",
+    {},
+    `?select=*,saas_organizations(*)&auth_user_id=eq.${encodeURIComponent(userId)}&status=eq.active`
+  );
+  return rows.map(({ saas_organizations, ...membership }) => ({ membership, organization: saas_organizations })).sort((a, b) => b.organization.updated_at.localeCompare(a.organization.updated_at));
 }
-async function hasConsent(userId, consentType) {
-  const rows = await request2("user_consents", {}, `?select=id&user_id=eq.${encodeURIComponent(userId)}&consent_type=eq.${consentType}&granted=eq.true&limit=1`);
-  return rows.length > 0;
+var MEMBERSHIP_ROLE_TITLE = { owner: "Dono(a)", admin: "Administrador", manager: "Gerente", professional: "Profissional de treino", nutricionista: "Nutricionista", viewer: "Visualizador" };
+async function resolveOrgLoginProfile(authUserId, fallbackName) {
+  const memberships = await getOrganizationsForUser(authUserId);
+  if (memberships.length > 0) {
+    const primary = memberships[0];
+    return { module: "profissional", role: MEMBERSHIP_ROLE_TITLE[primary.membership.role] ?? "Equipe", workspace: primary.organization.name, name: fallbackName, logoUrl: primary.organization.logo_url };
+  }
+  const aluno = await findAlunoByAuthUserId(authUserId);
+  if (aluno) {
+    const organization = await getOrganization(aluno.organization_id);
+    return { module: "aluno", role: "Aluno", workspace: organization?.name ?? fallbackName, name: aluno.nome || fallbackName, logoUrl: organization?.logo_url ?? null };
+  }
+  return null;
 }
-async function recordConsent(input) {
-  const rows = await request2("user_consents", { method: "POST", body: JSON.stringify({ user_id: input.userId, consent_type: input.consentType, policy_version_id: input.policyVersionId ?? null, granted: true, ip_address: input.ipAddress ?? null, user_agent: input.userAgent ?? null }) });
+async function getMembership(userId, organizationId) {
+  if (!isConfigured()) return void 0;
+  const rows = await request2(
+    "saas_memberships",
+    {},
+    `?select=*,saas_organizations(*)&auth_user_id=eq.${encodeURIComponent(userId)}&organization_id=eq.${encodeURIComponent(organizationId)}&limit=1`
+  );
+  const row = rows[0];
+  if (!row) return void 0;
+  const { saas_organizations, ...membership } = row;
+  return { membership, organization: saas_organizations };
+}
+async function listActiveStaffUserIds(organizationId, allowedRoles) {
+  if (!isConfigured()) return [];
+  const rolesFilter = allowedRoles.map(encodeURIComponent).join(",");
+  const rows = await request2("saas_memberships", {}, `?select=auth_user_id&organization_id=eq.${encodeURIComponent(organizationId)}&status=eq.active&role=in.(${rolesFilter})`);
+  return rows.map((row) => row.auth_user_id);
+}
+async function getOrganizationBySlug(slug) {
+  if (!isConfigured()) return void 0;
+  const rows = await request2("saas_organizations", {}, `?select=id,name,slug,module,logo_url,primary_color&slug=eq.${encodeURIComponent(slug)}&limit=1`);
   return rows[0];
 }
-async function createDeletionRequest(input) {
-  const existing = await request2("data_deletion_requests", {}, `?select=id&user_id=eq.${encodeURIComponent(input.userId)}&status=eq.pending&limit=1`);
-  if (existing.length) throw new Error("Voc\xEA j\xE1 tem uma solicita\xE7\xE3o de exclus\xE3o pendente.");
-  const rows = await request2("data_deletion_requests", { method: "POST", body: JSON.stringify({ user_id: input.userId, organization_id: input.organizationId, reason: input.reason || void 0 }) });
-  return rows[0];
+async function createOrganizationWithOwner(input) {
+  if (!isConfigured()) throw new Error("Database not available");
+  const [result] = await rpc2("create_organization_with_owner", {
+    p_user_id: input.userId,
+    p_client_id: input.clientId,
+    p_name: input.name,
+    p_slug: input.slug,
+    p_plan: input.plan,
+    p_module: input.module ?? "academia",
+    p_logo_url: input.logoUrl ?? null,
+    p_primary_color: input.primaryColor ?? null
+  });
+  if (!result) throw new Error("Falha ao criar organiza\xE7\xE3o");
+  return { organizationId: result.organization_id, unitId: result.unit_id };
 }
-async function getMyDeletionRequest(userId) {
-  const rows = await request2("data_deletion_requests", {}, `?select=*&user_id=eq.${encodeURIComponent(userId)}&order=requested_at.desc&limit=1`);
+var TEAM_ROLE_LABEL = { admin: "Administrador", manager: "Gerente", professional: "Profissional de treino", nutricionista: "Nutricionista", viewer: "Visualizador" };
+async function createOrganizationInvitation(input) {
+  if (!isConfigured()) throw new Error("Database not available");
+  const [created] = await request2("saas_invitations", { method: "POST", body: JSON.stringify({ organization_id: input.organizationId, invited_by_user_id: input.invitedByUserId, email: input.email, full_name: input.fullName, role: input.role, token_hash: input.tokenHash, expires_at: input.expiresAt.toISOString() }) });
+  const organization = await getOrganization(input.organizationId);
+  const orgName = organization?.name ?? "sua organiza\xE7\xE3o";
+  await sendEmail(input.email, `Convite para a equipe de ${orgName} no Arke`, `<p>Ol\xE1, ${input.fullName}.</p><p>Voc\xEA foi convidado(a) para fazer parte da equipe de <strong>${orgName}</strong> no Arke, com o papel de <strong>${TEAM_ROLE_LABEL[input.role]}</strong>.</p><p>Para aceitar, acesse o portal, clique em "Tenho um convite de equipe" na tela de login, crie sua senha e use o c\xF3digo abaixo:</p><h2 style="letter-spacing:1px">${input.rawToken}</h2><p>Este convite expira em 72 horas.</p>`);
+  return created;
+}
+async function findOrganizationInvitationByTokenHash(tokenHash) {
+  if (!isConfigured()) return null;
+  const rows = await request2("saas_invitations", {}, `?select=*&token_hash=eq.${encodeURIComponent(tokenHash)}&status=eq.pending&limit=1`);
   return rows[0] ?? null;
 }
-async function getDeletionRequest(idValue) {
-  const rows = await request2("data_deletion_requests", {}, `?select=*&id=eq.${encodeURIComponent(idValue)}&limit=1`);
-  return rows[0] ?? null;
+async function acceptOrganizationInvitationSignup(input) {
+  if (!isConfigured()) throw new Error("Database not available");
+  const tokenHash = createHash2("sha256").update(input.token).digest("hex");
+  const invitation = await findOrganizationInvitationByTokenHash(tokenHash);
+  if (!invitation) throw new Error("C\xF3digo de convite inv\xE1lido ou j\xE1 utilizado.");
+  if (new Date(invitation.expires_at).getTime() < Date.now()) throw new Error("Este convite expirou. Pe\xE7a para reenviarem o convite.");
+  const authUser = await createSupabaseUserWithPassword(invitation.email, input.password, invitation.full_name);
+  const [result] = await rpc2("accept_organization_invitation", {
+    p_token_hash: tokenHash,
+    p_user_id: authUser.id,
+    p_email: invitation.email
+  });
+  if (!result) throw new Error("Convite n\xE3o encontrado ou j\xE1 utilizado.");
+  const session = await signInWithSupabase(invitation.email, input.password);
+  return { accessToken: session.accessToken, refreshToken: session.refreshToken, user: session.user, organizationId: result.org_id, role: result.role, fullName: invitation.full_name, invitationId: result.invitation_id };
 }
-async function listDeletionRequests(organizationId, status) {
-  return request2("data_deletion_requests", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}${status ? `&status=eq.${status}` : ""}&order=requested_at.asc`);
+async function getPendingOrganizationInvitations(organizationId) {
+  if (!isConfigured()) return [];
+  return request2("saas_invitations", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}&status=eq.pending&order=created_at.desc`);
 }
-async function fulfillDeletionRequest(input) {
-  await rpc2("delete_member_data", { p_aluno_id: input.alunoId, p_resolved_by: input.resolvedBy, p_request_id: input.requestId, p_note: input.note || null });
-  return { requestId: input.requestId, status: "completed" };
-}
-async function rejectDeletionRequest(input) {
-  const rows = await request2("data_deletion_requests", { method: "PATCH", body: JSON.stringify({ status: "rejected", resolved_at: (/* @__PURE__ */ new Date()).toISOString(), resolved_by: input.resolvedBy, resolution_note: input.note || null }) }, `?id=eq.${encodeURIComponent(input.requestId)}&organization_id=eq.${encodeURIComponent(input.organizationId)}&status=eq.pending`);
-  if (!rows[0]) throw new Error("Solicita\xE7\xE3o n\xE3o encontrada ou j\xE1 resolvida.");
+async function revokeOrganizationInvitation(id2, organizationId) {
+  if (!isConfigured()) throw new Error("Database not available");
+  const rows = await request2("saas_invitations", { method: "PATCH", body: JSON.stringify({ status: "revoked" }) }, `?id=eq.${encodeURIComponent(id2)}&organization_id=eq.${encodeURIComponent(organizationId)}&status=eq.pending`);
+  if (!rows[0]) throw new Error("Convite n\xE3o encontrado ou j\xE1 utilizado.");
   return rows[0];
+}
+async function acceptOrganizationInvitation(input) {
+  if (!isConfigured()) throw new Error("Database not available");
+  const [result] = await rpc2("accept_organization_invitation", {
+    p_token_hash: input.tokenHash,
+    p_user_id: input.userId,
+    p_email: input.email
+  });
+  if (!result) throw new Error("Invitation not found or already used");
+  return { invitation: { id: result.invitation_id }, organizationId: result.org_id, role: result.role };
+}
+async function getOrganizationSubscription(organizationId) {
+  if (!isConfigured()) return void 0;
+  const rows = await request2("saas_subscriptions", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}&order=created_at.desc&limit=1`);
+  return rows[0];
+}
+async function listPlatformAppointments(input = {}) {
+  if (!isConfigured()) return [];
+  const filters = [input.desde ? `&scheduled_at=gte.${encodeURIComponent(input.desde)}` : "", input.ate ? `&scheduled_at=lte.${encodeURIComponent(input.ate)}` : ""].join("");
+  return request2("arke_internal_appointments", {}, `?select=*&order=scheduled_at.asc${filters}`);
+}
+async function createPlatformAppointment(input) {
+  if (!isConfigured()) throw new Error("Database not available");
+  const [row] = await request2("arke_internal_appointments", { method: "POST", body: JSON.stringify({ staff_user_id: input.staffUserId, organization_id: input.organizationId ?? null, tipo: input.tipo, titulo: input.titulo, descricao: input.descricao ?? null, scheduled_at: input.scheduledAt, duracao_minutos: input.duracaoMinutos, criado_por: input.criadoPor }) });
+  return row;
+}
+async function updatePlatformAppointment(id2, input) {
+  if (!isConfigured()) throw new Error("Database not available");
+  const body = {};
+  if (input.titulo !== void 0) body.titulo = input.titulo;
+  if (input.descricao !== void 0) body.descricao = input.descricao;
+  if (input.scheduledAt !== void 0) body.scheduled_at = input.scheduledAt;
+  if (input.duracaoMinutos !== void 0) body.duracao_minutos = input.duracaoMinutos;
+  if (input.status !== void 0) body.status = input.status;
+  if (input.tipo !== void 0) body.tipo = input.tipo;
+  if (input.organizationId !== void 0) body.organization_id = input.organizationId;
+  const [row] = await request2("arke_internal_appointments", { method: "PATCH", body: JSON.stringify(body) }, `?id=eq.${encodeURIComponent(id2)}`);
+  return row;
+}
+async function deletePlatformAppointment(id2) {
+  if (!isConfigured()) throw new Error("Database not available");
+  await request2("arke_internal_appointments", { method: "DELETE" }, `?id=eq.${encodeURIComponent(id2)}`);
+  return { id: id2 };
+}
+async function listAllOrganizationsForPlatform() {
+  if (!isConfigured()) return [];
+  const [orgs, subs] = await Promise.all([
+    request2("saas_organizations", {}, "?select=*&order=created_at.desc"),
+    request2("saas_subscriptions", {}, "?select=*&order=created_at.desc")
+  ]);
+  const subByOrg = /* @__PURE__ */ new Map();
+  for (const sub of subs) if (!subByOrg.has(sub.organization_id)) subByOrg.set(sub.organization_id, sub);
+  return orgs.map((org) => ({ ...org, subscription: subByOrg.get(org.id) ?? null }));
+}
+async function updateOrganizationProfile(input) {
+  if (!isConfigured()) throw new Error("Database not available");
+  const [updated] = await request2("saas_organizations", { method: "PATCH", body: JSON.stringify({ name: input.name, ...input.logoUrl !== void 0 ? { logo_url: input.logoUrl } : {}, ...input.primaryColor !== void 0 ? { primary_color: input.primaryColor } : {} }) }, `?id=eq.${encodeURIComponent(input.organizationId)}`);
+  return updated;
+}
+async function updateOrganizationSubscription(input) {
+  if (!isConfigured()) throw new Error("Database not available");
+  const amountCents = PLAN_AMOUNTS_CENTS[input.plan];
+  const limits = PLAN_LIMITS[input.plan];
+  await request2("saas_organizations", { method: "PATCH", body: JSON.stringify({ plan: input.plan, max_units: limits.maxUnits, max_users: limits.maxUsers }) }, `?id=eq.${encodeURIComponent(input.organizationId)}`);
+  await request2("saas_subscriptions", { method: "PATCH", body: JSON.stringify({ plan: input.plan, amount_cents: amountCents, ...input.status ? { status: input.status } : {} }) }, `?organization_id=eq.${encodeURIComponent(input.organizationId)}`);
+  return getOrganizationSubscription(input.organizationId);
+}
+async function getOrganization(organizationId) {
+  const rows = await request2("saas_organizations", {}, `?select=*&id=eq.${encodeURIComponent(organizationId)}&limit=1`);
+  return rows[0];
+}
+async function getOrCreateAsaasCustomerForOrganization(organizationId) {
+  const organization = await getOrganization(organizationId);
+  if (!organization) throw new Error("Organiza\xE7\xE3o n\xE3o encontrada.");
+  if (organization.asaas_customer_id) return organization.asaas_customer_id;
+  const [client] = await request2("app_users", {}, `?select=name,email&id=eq.${encodeURIComponent(organization.client_id)}&limit=1`);
+  if (!client) throw new Error("Cliente respons\xE1vel pela organiza\xE7\xE3o n\xE3o encontrado.");
+  const customer = await createAsaasCustomer({ name: organization.name, email: client.email });
+  await request2("saas_organizations", { method: "PATCH", body: JSON.stringify({ asaas_customer_id: customer.id }) }, `?id=eq.${encodeURIComponent(organizationId)}`);
+  return customer.id;
+}
+async function createSubscriptionCharge(input) {
+  if (!isConfigured()) throw new Error("Database not available");
+  const subscription = await getOrganizationSubscription(input.organizationId);
+  if (!subscription) throw new Error("Esta organiza\xE7\xE3o n\xE3o tem assinatura ativa.");
+  const customerId = await getOrCreateAsaasCustomerForOrganization(input.organizationId);
+  const dueDate = input.dueDate ?? new Date(Date.now() + 1e3 * 60 * 60 * 24 * 3).toISOString().slice(0, 10);
+  const payment = await createAsaasPayment({ customer: customerId, value: subscription.amount_cents / 100, dueDate, billingType: input.billingType, description: `Mensalidade Arke \u2014 plano ${subscription.plan}` });
+  await upsertAsaasPayment(payment, "PAYMENT_CREATED", input.organizationId);
+  await request2("saas_subscriptions", { method: "PATCH", body: JSON.stringify({ provider: "asaas", external_id: payment.id }) }, `?organization_id=eq.${encodeURIComponent(input.organizationId)}`);
+  return payment;
+}
+async function chargeSetupFeeIfNeeded(organizationId) {
+  if (!isConfigured()) return;
+  const organization = await getOrganization(organizationId);
+  if (!organization || organization.setup_fee_charged_at) return;
+  try {
+    const customerId = await getOrCreateAsaasCustomerForOrganization(organizationId);
+    const dueDate = new Date(Date.now() + 1e3 * 60 * 60 * 24 * 3).toISOString().slice(0, 10);
+    const payment = await createAsaasPayment({ customer: customerId, value: SETUP_FEE_CENTS / 100, dueDate, billingType: "UNDEFINED", description: "Taxa de setup Arke" });
+    await upsertAsaasPayment(payment, "PAYMENT_CREATED", organizationId);
+    await request2("saas_organizations", { method: "PATCH", body: JSON.stringify({ setup_fee_charged_at: (/* @__PURE__ */ new Date()).toISOString() }) }, `?id=eq.${encodeURIComponent(organizationId)}`);
+  } catch (error) {
+    captureException2(error, { route: "onboarding.setupFee", organizationId });
+  }
+}
+async function getOrganizationAccess(userId, organizationId) {
+  if (!isConfigured()) return void 0;
+  const membership = await getMembership(userId, organizationId);
+  if (!membership) return void 0;
+  const [units, policies] = await Promise.all([
+    request2("saas_units", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}&status=eq.active`),
+    request2("saas_module_policies", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}`)
+  ]);
+  return { organization: membership.organization, membership: membership.membership, units, policies };
+}
+async function saveOrganizationOnboarding(input) {
+  if (!isConfigured()) throw new Error("Database not available");
+  if (input.logoUrl !== void 0 || input.primaryColor !== void 0 || input.defaultUnitName !== void 0) {
+    await request2("saas_organizations", { method: "PATCH", body: JSON.stringify({ ...input.logoUrl !== void 0 ? { logo_url: input.logoUrl } : {}, ...input.primaryColor !== void 0 ? { primary_color: input.primaryColor } : {}, ...input.defaultUnitName !== void 0 ? { name: input.defaultUnitName } : {} }) }, `?id=eq.${encodeURIComponent(input.organizationId)}`);
+  }
+  await request2("saas_onboarding", { method: "POST", headers: { Prefer: "resolution=merge-duplicates,return=representation" }, body: JSON.stringify({ organization_id: input.organizationId, current_step: input.currentStep, status: input.status, city: input.city ?? null, default_unit_name: input.defaultUnitName ?? null, invite_email: input.inviteEmail ?? null }) }, "?on_conflict=organization_id");
+  if (input.status === "completed") await chargeSetupFeeIfNeeded(input.organizationId);
+  return { organizationId: input.organizationId, saved: true };
+}
+async function updateModulePolicy(input) {
+  if (!isConfigured()) throw new Error("Database not available");
+  await request2("saas_module_policies", { method: "POST", headers: { Prefer: "resolution=merge-duplicates,return=representation" }, body: JSON.stringify({ organization_id: input.organizationId, unit_id: input.unitId, role: input.role, module: input.module, can_view: input.canView, can_manage: input.canManage }) }, "?on_conflict=organization_id,unit_id,role,module");
+  return { saved: true };
+}
+async function getOrganizationOnboarding(organizationId) {
+  if (!isConfigured()) return void 0;
+  const rows = await request2("saas_onboarding", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}&limit=1`);
+  return rows[0];
+}
+async function listOrganizationUnits(organizationId) {
+  if (!isConfigured()) return [];
+  return request2("saas_units", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}&status=eq.active&order=name.asc`);
+}
+async function createOrganizationUnit(input) {
+  if (!isConfigured()) throw new Error("Database not available");
+  const [created] = await request2("saas_units", { method: "POST", body: JSON.stringify({ organization_id: input.organizationId, name: input.name, slug: input.slug, city: input.city ?? null, status: "active" }) });
+  return created;
+}
+async function archiveOrganizationUnit(organizationId, unitId) {
+  if (!isConfigured()) throw new Error("Database not available");
+  await request2("saas_units", { method: "PATCH", body: JSON.stringify({ status: "archived" }) }, `?organization_id=eq.${encodeURIComponent(organizationId)}&id=eq.${encodeURIComponent(unitId)}`);
+  return { organizationId, unitId, status: "archived" };
+}
+async function recordAuditLog(input) {
+  if (!isConfigured()) return void 0;
+  const [created] = await request2("saas_audit_logs", { method: "POST", body: JSON.stringify({ organization_id: input.organizationId, auth_user_id: input.userId, action: input.action, entity: input.entity, entity_id: input.entityId ?? null, before_json: input.beforeJson ?? null, after_json: input.afterJson ?? null }) });
+  return created;
+}
+async function getAuditLogs(organizationId, limit = 50, filters) {
+  if (!isConfigured()) return [];
+  const params = new URLSearchParams();
+  params.set("select", "*");
+  params.set("organization_id", `eq.${organizationId}`);
+  params.set("order", "created_at.desc");
+  params.set("limit", String(limit));
+  if (filters?.from) params.append("created_at", `gte.${filters.from.toISOString()}`);
+  if (filters?.to) params.append("created_at", `lte.${filters.to.toISOString()}`);
+  if (filters?.userId) params.set("auth_user_id", `eq.${filters.userId}`);
+  if (filters?.entity && filters.entity !== "all") params.set("entity", `eq.${filters.entity}`);
+  return request2("saas_audit_logs", {}, `?${params.toString()}`);
+}
+function auditLogsToCsv(rows) {
+  const escape = (value) => `"${String(value ?? "").replaceAll('"', '""')}"`;
+  return [
+    ["id", "action", "entity", "entityId", "userId", "createdAt"].join(","),
+    ...rows.map((row) => [row.id, row.action, row.entity, row.entity_id, row.auth_user_id, row.created_at].map(escape).join(","))
+  ].join("\n");
+}
+function auditLogsToPdfBase64(rows) {
+  const sanitize = (value) => value.replaceAll("\\", "\\\\").replaceAll("(", "\\(").replaceAll(")", "\\)");
+  const lines = ["ARKE - Auditoria do tenant", "", ...rows.slice(0, 35).map((row) => `${row.created_at} | ${row.action} | ${row.entity} | usu\xE1rio ${row.auth_user_id ?? "-"}`)];
+  const content = ["BT", "/F1 9 Tf", "50 800 Td", ...lines.flatMap((line, index) => [index === 0 ? `(${sanitize(line)}) Tj` : "0 -18 Td", index === 0 ? "" : `(${sanitize(line)}) Tj`]), "ET"].join("\n");
+  const objects = ["<< /Type /Catalog /Pages 2 0 R >>", "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>", "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>", `<< /Length ${Buffer.byteLength(content, "utf8")} >>
+stream
+${content}
+endstream`];
+  let pdf = "%PDF-1.4\n";
+  const offsets = [0];
+  objects.forEach((object, index) => {
+    offsets[index + 1] = Buffer.byteLength(pdf, "utf8");
+    pdf += `${index + 1} 0 obj
+${object}
+endobj
+`;
+  });
+  const xref = Buffer.byteLength(pdf, "utf8");
+  const entries = offsets.slice(1).map((offset) => String(offset).padStart(10, "0") + " 00000 n ").join("\n");
+  pdf += `xref
+0 ${objects.length + 1}
+0000000000 65535 f 
+${entries}
+trailer
+<< /Size ${objects.length + 1} /Root 1 0 R >>
+startxref
+${xref}
+%%EOF`;
+  return Buffer.from(pdf, "utf8").toString("base64");
+}
+
+// server/importacao.ts
+var cell = (row, ...keys) => {
+  for (const key of keys) {
+    const value = row[key];
+    if (value !== void 0 && value !== null && String(value).trim() !== "") return String(value).trim();
+  }
+  return void 0;
+};
+var isBlankRow = (row) => Object.values(row).every((value) => !value || !value.trim());
+var DIACRITICS_RE = new RegExp("[\\u0300-\\u036f]", "g");
+var slugify = (value) => value.normalize("NFD").replace(DIACRITICS_RE, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "").slice(0, 60) || `unidade-${Date.now()}`;
+var EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+function isValidCpf(raw) {
+  const cpf = raw.replace(/\D/g, "");
+  if (cpf.length !== 11 || /^(\d)\1{10}$/.test(cpf)) return false;
+  const digits = cpf.split("").map(Number);
+  const calc = (len) => {
+    let sum = 0;
+    for (let i = 0; i < len; i++) sum += digits[i] * (len + 1 - i);
+    const result = sum * 10 % 11;
+    return result === 10 ? 0 : result;
+  };
+  return calc(9) === digits[9] && calc(10) === digits[10];
+}
+function parseDateBr(raw) {
+  const iso = /^(\d{4})-(\d{2})-(\d{2})$/.exec(raw);
+  const br = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(raw);
+  let year, month, day;
+  if (iso) {
+    [, year, month, day] = iso.map(Number);
+  } else if (br) {
+    [, day, month, year] = br.map(Number);
+  } else return null;
+  const date = new Date(Date.UTC(year, month - 1, day));
+  if (date.getUTCFullYear() !== year || date.getUTCMonth() !== month - 1 || date.getUTCDate() !== day) return null;
+  if (date.getTime() > Date.now()) return null;
+  return date.toISOString().slice(0, 10);
+}
+function parseNumber(raw) {
+  const cleaned = raw.trim().replace(/[^\d.,-]/g, "");
+  if (!cleaned) return null;
+  const hasComma = cleaned.includes(",");
+  const hasDot = cleaned.includes(".");
+  let normalized = cleaned;
+  if (hasComma && hasDot) {
+    normalized = cleaned.lastIndexOf(",") > cleaned.lastIndexOf(".") ? cleaned.replace(/\./g, "").replace(",", ".") : cleaned.replace(/,/g, "");
+  } else if (hasComma) {
+    normalized = cleaned.replace(",", ".");
+  } else if (hasDot) {
+    const parts = cleaned.split(".");
+    normalized = parts.length > 2 ? parts.join("") : cleaned;
+  }
+  const value = Number(normalized);
+  return Number.isFinite(value) ? value : null;
+}
+async function validateUnidades(rows, organizationId) {
+  const valid = [];
+  const errors = [];
+  const existentes = await listOrganizationUnits(organizationId);
+  const nomesExistentes = new Set(existentes.map((u) => u.name.toLowerCase()));
+  const seenNomes = /* @__PURE__ */ new Set();
+  const seenSlugs = new Set(existentes.map((u) => u.slug));
+  rows.forEach((row, index) => {
+    if (isBlankRow(row)) return;
+    const rowNumber = index + 2;
+    const nome = cell(row, "nome", "unidade");
+    if (!nome) return errors.push({ row: rowNumber, campo: "nome", motivo: "Nome da unidade \xE9 obrigat\xF3rio." });
+    const nomeKey = nome.toLowerCase();
+    if (nomesExistentes.has(nomeKey) || seenNomes.has(nomeKey)) return errors.push({ row: rowNumber, campo: "nome", motivo: `J\xE1 existe uma unidade chamada "${nome}".` });
+    seenNomes.add(nomeKey);
+    const slugBase = cell(row, "slug") ?? slugify(nome);
+    let slug = slugBase;
+    let attempt = 1;
+    while (seenSlugs.has(slug)) slug = `${slugBase}-${++attempt}`;
+    seenSlugs.add(slug);
+    valid.push({ row: rowNumber, data: { name: nome, slug, city: cell(row, "cidade", "city") } });
+  });
+  return { valid, errors };
+}
+var PERIODICIDADES = /* @__PURE__ */ new Set(["mensal", "trimestral", "semestral", "anual"]);
+function validatePlanos(rows, existentes) {
+  const valid = [];
+  const errors = [];
+  const seenNomes = /* @__PURE__ */ new Set();
+  rows.forEach((row, index) => {
+    if (isBlankRow(row)) return;
+    const rowNumber = index + 2;
+    const nome = cell(row, "nome", "plano");
+    if (!nome) return errors.push({ row: rowNumber, campo: "nome", motivo: "Nome do plano \xE9 obrigat\xF3rio." });
+    const nomeKey = nome.toLowerCase();
+    if (existentes.has(nomeKey)) return errors.push({ row: rowNumber, campo: "nome", motivo: `J\xE1 existe um plano chamado "${nome}" nesta organiza\xE7\xE3o.` });
+    if (seenNomes.has(nomeKey)) return errors.push({ row: rowNumber, campo: "nome", motivo: "Nome de plano duplicado neste arquivo." });
+    const valorRaw = cell(row, "valor_mensal", "valor");
+    const valor = valorRaw ? parseNumber(valorRaw) : null;
+    if (valor === null || valor < 0) return errors.push({ row: rowNumber, campo: "valor_mensal", motivo: "Valor mensal inv\xE1lido." });
+    const periodicidadeRaw = (cell(row, "periodicidade") ?? "mensal").toLowerCase();
+    if (!PERIODICIDADES.has(periodicidadeRaw)) return errors.push({ row: rowNumber, campo: "periodicidade", motivo: "Periodicidade deve ser mensal, trimestral, semestral ou anual." });
+    seenNomes.add(nomeKey);
+    valid.push({ row: rowNumber, data: { nome, valorMensal: valor, periodicidade: periodicidadeRaw } });
+  });
+  return { valid, errors };
+}
+async function validateAlunos(rows, organizationId) {
+  const valid = [];
+  const errors = [];
+  const [existentesAlunos, planos, unidades] = await Promise.all([listAlunos(organizationId), listMembershipPlans(organizationId), listOrganizationUnits(organizationId)]);
+  const cpfsExistentes = new Set(existentesAlunos.map((a) => a.cpf).filter(Boolean));
+  const emailsExistentes = new Set(existentesAlunos.map((a) => a.email).filter(Boolean));
+  const planoPorNome = new Map(planos.map((p) => [p.nome.toLowerCase(), p.id]));
+  const unidadePorNome = new Map(unidades.map((u) => [u.name.toLowerCase(), u.id]));
+  const seenCpfs = /* @__PURE__ */ new Set();
+  const seenEmails = /* @__PURE__ */ new Set();
+  const nomeDataExistentes = new Set(existentesAlunos.filter((a) => !a.cpf && !a.email).map((a) => `${a.nome.trim().toLowerCase()}|${a.data_nascimento ?? ""}`));
+  const seenNomeData = /* @__PURE__ */ new Set();
+  for (let index = 0; index < rows.length; index++) {
+    const row = rows[index];
+    if (isBlankRow(row)) continue;
+    const rowNumber = index + 2;
+    const nome = cell(row, "nome", "aluno");
+    if (!nome) {
+      errors.push({ row: rowNumber, campo: "nome", motivo: "Nome \xE9 obrigat\xF3rio." });
+      continue;
+    }
+    const cpfRaw = cell(row, "cpf");
+    let cpf;
+    if (cpfRaw) {
+      if (!isValidCpf(cpfRaw)) {
+        errors.push({ row: rowNumber, campo: "cpf", motivo: "CPF inv\xE1lido." });
+        continue;
+      }
+      cpf = cpfRaw.replace(/\D/g, "");
+      if (cpfsExistentes.has(cpf) || seenCpfs.has(cpf)) {
+        errors.push({ row: rowNumber, campo: "cpf", motivo: "CPF j\xE1 cadastrado nesta organiza\xE7\xE3o." });
+        continue;
+      }
+    }
+    const emailRaw = cell(row, "email");
+    let email;
+    if (emailRaw) {
+      if (!EMAIL_RE.test(emailRaw)) {
+        errors.push({ row: rowNumber, campo: "email", motivo: "E-mail inv\xE1lido." });
+        continue;
+      }
+      email = normalizeEmail(emailRaw);
+      if (emailsExistentes.has(email) || seenEmails.has(email)) {
+        errors.push({ row: rowNumber, campo: "email", motivo: "E-mail j\xE1 cadastrado nesta organiza\xE7\xE3o." });
+        continue;
+      }
+    }
+    const dataNascimentoRaw = cell(row, "data_nascimento", "nascimento");
+    let dataNascimento;
+    if (dataNascimentoRaw) {
+      const parsed = parseDateBr(dataNascimentoRaw);
+      if (!parsed) {
+        errors.push({ row: rowNumber, campo: "data_nascimento", motivo: "Data de nascimento inv\xE1lida (use DD/MM/AAAA)." });
+        continue;
+      }
+      dataNascimento = parsed;
+    }
+    const menorDeIdade = dataNascimento ? (/* @__PURE__ */ new Date()).getTime() - new Date(dataNascimento).getTime() < 1e3 * 60 * 60 * 24 * 365.25 * 18 : false;
+    const responsavelNome = cell(row, "responsavel_nome", "responsavel");
+    if (menorDeIdade && !responsavelNome) {
+      errors.push({ row: rowNumber, campo: "responsavel_nome", motivo: "Aluno menor de idade precisa de respons\xE1vel." });
+      continue;
+    }
+    const unidadeNome = cell(row, "unidade");
+    let unitId;
+    if (unidadeNome) {
+      const found = unidadePorNome.get(unidadeNome.toLowerCase());
+      if (!found) {
+        errors.push({ row: rowNumber, campo: "unidade", motivo: `Unidade "${unidadeNome}" n\xE3o encontrada \u2014 cadastre a unidade antes de importar os alunos.` });
+        continue;
+      }
+      unitId = found;
+    }
+    const planoNome = cell(row, "plano");
+    let planoId;
+    if (planoNome) {
+      const found = planoPorNome.get(planoNome.toLowerCase());
+      if (!found) {
+        errors.push({ row: rowNumber, campo: "plano", motivo: `Plano "${planoNome}" n\xE3o encontrado \u2014 cadastre o plano antes de importar os alunos.` });
+        continue;
+      }
+      planoId = found;
+    }
+    const valorMensalRaw = cell(row, "valor_mensal");
+    const valorMensal = valorMensalRaw ? parseNumber(valorMensalRaw) ?? void 0 : void 0;
+    if (valorMensalRaw && valorMensal === void 0) {
+      errors.push({ row: rowNumber, campo: "valor_mensal", motivo: "Valor mensal inv\xE1lido." });
+      continue;
+    }
+    const diaVencimentoRaw = cell(row, "dia_vencimento");
+    let diaVencimento;
+    if (diaVencimentoRaw) {
+      const parsed = Number(diaVencimentoRaw);
+      if (!Number.isInteger(parsed) || parsed < 1 || parsed > 31) {
+        errors.push({ row: rowNumber, campo: "dia_vencimento", motivo: "Dia de vencimento deve ser entre 1 e 31." });
+        continue;
+      }
+      diaVencimento = parsed;
+    }
+    if (cpf) seenCpfs.add(cpf);
+    if (email) seenEmails.add(email);
+    if (!cpf && !email) {
+      const nomeDataKey = `${nome.trim().toLowerCase()}|${dataNascimento ?? ""}`;
+      if (nomeDataExistentes.has(nomeDataKey) || seenNomeData.has(nomeDataKey)) {
+        errors.push({ row: rowNumber, campo: "nome", motivo: "Aluno com este nome (e data de nascimento) j\xE1 cadastrado \u2014 sem CPF/e-mail para confirmar que \xE9 outra pessoa." });
+        continue;
+      }
+      seenNomeData.add(nomeDataKey);
+    }
+    valid.push({ row: rowNumber, data: {
+      organizationId,
+      unitId,
+      nome,
+      cpf,
+      email,
+      telefone: cell(row, "telefone"),
+      dataNascimento,
+      responsavelNome,
+      responsavelCpf: cell(row, "responsavel_cpf"),
+      planoId,
+      valorMensal,
+      diaVencimento,
+      origem: "importado"
+    } });
+  }
+  return { valid, errors };
+}
+async function validateLeads(rows, organizationId) {
+  const valid = [];
+  const errors = [];
+  const existentes = await listLeadsForOrganization(organizationId);
+  const emailsExistentes = new Set(existentes.map((l) => l.email).filter(Boolean).map((e) => normalizeEmail(e)));
+  const telefonesExistentes = new Set(existentes.map((l) => l.telefone?.replace(/\D/g, "")).filter(Boolean));
+  const seenEmails = /* @__PURE__ */ new Set();
+  const seenTelefones = /* @__PURE__ */ new Set();
+  rows.forEach((row, index) => {
+    if (isBlankRow(row)) return;
+    const rowNumber = index + 2;
+    const nome = cell(row, "nome");
+    if (!nome) return errors.push({ row: rowNumber, campo: "nome", motivo: "Nome \xE9 obrigat\xF3rio." });
+    const emailRaw = cell(row, "email");
+    if (emailRaw && !EMAIL_RE.test(emailRaw)) return errors.push({ row: rowNumber, campo: "email", motivo: "E-mail inv\xE1lido." });
+    const email = emailRaw ? normalizeEmail(emailRaw) : void 0;
+    const telefoneRaw = cell(row, "telefone");
+    const telefone = telefoneRaw?.replace(/\D/g, "");
+    if (!email && !telefone) return errors.push({ row: rowNumber, campo: "telefone", motivo: "Informe e-mail ou telefone." });
+    if (email && (emailsExistentes.has(email) || seenEmails.has(email))) return errors.push({ row: rowNumber, campo: "email", motivo: "J\xE1 existe um lead com este e-mail nesta organiza\xE7\xE3o." });
+    if (!email && telefone && (telefonesExistentes.has(telefone) || seenTelefones.has(telefone))) return errors.push({ row: rowNumber, campo: "telefone", motivo: "J\xE1 existe um lead com este telefone nesta organiza\xE7\xE3o." });
+    if (email) seenEmails.add(email);
+    if (telefone) seenTelefones.add(telefone);
+    valid.push({ row: rowNumber, data: { organizationId, nome, telefone: telefoneRaw, email: emailRaw, origem: cell(row, "origem"), interesse: cell(row, "interesse"), notas: cell(row, "notas") } });
+  });
+  return { valid, errors };
+}
+function validateTurmas(rows, organizationId, existentes) {
+  const valid = [];
+  const errors = [];
+  const seenNomes = /* @__PURE__ */ new Set();
+  rows.forEach((row, index) => {
+    if (isBlankRow(row)) return;
+    const rowNumber = index + 2;
+    const nome = cell(row, "nome", "turma");
+    if (!nome) return errors.push({ row: rowNumber, campo: "nome", motivo: "Nome da turma \xE9 obrigat\xF3rio." });
+    const nomeKey = nome.toLowerCase();
+    if (existentes.has(nomeKey) || seenNomes.has(nomeKey)) return errors.push({ row: rowNumber, campo: "nome", motivo: `J\xE1 existe uma turma chamada "${nome}".` });
+    const limiteRaw = cell(row, "limite_vagas", "vagas");
+    const limite = limiteRaw ? Number(limiteRaw) : null;
+    if (!limite || !Number.isInteger(limite) || limite < 1) return errors.push({ row: rowNumber, campo: "limite_vagas", motivo: "Limite de vagas deve ser um n\xFAmero inteiro maior que zero." });
+    const duracaoRaw = cell(row, "duracao_min");
+    const duracao = duracaoRaw ? Number(duracaoRaw) : 60;
+    if (!Number.isInteger(duracao) || duracao < 15 || duracao > 480) return errors.push({ row: rowNumber, campo: "duracao_min", motivo: "Dura\xE7\xE3o deve ser entre 15 e 480 minutos." });
+    seenNomes.add(nomeKey);
+    valid.push({ row: rowNumber, data: { organization_id: organizationId, nome, descricao: cell(row, "descricao"), limite_vagas: limite, duracao_min: duracao } });
+  });
+  return { valid, errors };
+}
+async function previewImport(entity, rows, organizationId) {
+  const result = await runValidation(entity, rows, organizationId);
+  return { validRows: result.valid.length, errorRows: result.errors.length, errors: result.errors.slice(0, 200), amostra: result.valid.slice(0, 20).map((v) => v.data) };
+}
+var COMMIT_CONCURRENCY = 10;
+async function commitImport(entity, rows, organizationId, actorUserId) {
+  const result = await runValidation(entity, rows, organizationId);
+  let inserted = 0;
+  const insertOne = async (item) => {
+    try {
+      switch (entity) {
+        case "unidades": {
+          const data = item.data;
+          await createOrganizationUnit({ organizationId, name: data.name, slug: data.slug, city: data.city });
+          break;
+        }
+        case "planos": {
+          const data = item.data;
+          await createMembershipPlan({ organizationId, nome: data.nome, valorMensal: data.valorMensal, periodicidade: data.periodicidade });
+          break;
+        }
+        case "alunos": {
+          const data = item.data;
+          await createAluno({ ...data, criadoPor: actorUserId });
+          break;
+        }
+        case "leads": {
+          const data = item.data;
+          await createLead({ ...data, criadoPor: actorUserId });
+          break;
+        }
+        case "turmas": {
+          const data = item.data;
+          await createTurma({ ...data, criado_por: actorUserId });
+          break;
+        }
+      }
+      inserted++;
+    } catch (error) {
+      result.errors.push({ row: item.row, motivo: error instanceof Error ? error.message : "Falha ao gravar esta linha." });
+    }
+  };
+  for (let start = 0; start < result.valid.length; start += COMMIT_CONCURRENCY) {
+    await Promise.all(result.valid.slice(start, start + COMMIT_CONCURRENCY).map(insertOne));
+  }
+  return { inserted, errors: result.errors };
+}
+async function runValidation(entity, rows, organizationId) {
+  switch (entity) {
+    case "unidades":
+      return validateUnidades(rows, organizationId);
+    case "planos": {
+      const existentes = new Set((await listMembershipPlans(organizationId)).map((p) => p.nome.toLowerCase()));
+      return validatePlanos(rows, existentes);
+    }
+    case "alunos":
+      return validateAlunos(rows, organizationId);
+    case "leads":
+      return validateLeads(rows, organizationId);
+    case "turmas": {
+      const existentes = new Set((await listTurmasForOrganization(organizationId)).map((t2) => t2.nome.toLowerCase()));
+      return validateTurmas(rows, organizationId, existentes);
+    }
+  }
 }
 
 // server/arkeEntitlement.ts
@@ -1779,6 +2266,9 @@ async function assertAlunoTemArke(userId) {
 }
 
 // server/arkeGamification.ts
+function hojeBrasilia() {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo", year: "numeric", month: "2-digit", day: "2-digit" }).format(/* @__PURE__ */ new Date());
+}
 function weekKeyFor(dateStr) {
   const d = /* @__PURE__ */ new Date(`${dateStr}T00:00:00.000Z`);
   const diffToMonday = (d.getUTCDay() + 6) % 7;
@@ -1872,7 +2362,8 @@ async function pontosDesafios(alunoId, organizationId, desde, ate, hoje) {
   const aplicaveis = desafiosOrg.filter((d) => d.para_todos || participandoIds.has(d.id));
   const noPeriodo = aplicaveis.filter((d) => d.data_fim >= desde && d.data_fim <= ate);
   const pontosPorDesafio = await Promise.all(noPeriodo.map(async (desafio) => {
-    if (progressoByDesafio.get(desafio.id)?.concluido) return desafio.pontos;
+    const manual = progressoByDesafio.get(desafio.id);
+    if (manual?.origem === "manual") return manual.concluido ? desafio.pontos : 0;
     const auto = await calcAuto(alunoId, desafio);
     if (!auto) return 0;
     const encerrado = desafio.data_fim < hoje;
@@ -1883,7 +2374,7 @@ async function pontosDesafios(alunoId, organizationId, desde, ate, hoje) {
 }
 async function computeScoreAluno(alunoId, organizationId, desde, ate) {
   const semanas = getSemanasNoPeriodo(desde, ate);
-  const hoje = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
+  const hoje = hojeBrasilia();
   const [
     checkins,
     avaliacoes,
@@ -2098,14 +2589,25 @@ function config3() {
 function turnstileChannel(deviceId) {
   return `turnstile:${deviceId}`;
 }
+var BROADCAST_TIMEOUT_MS = 8e3;
 async function publishTurnstileBroadcast(deviceId, event, payload) {
   const { url, key } = config3();
-  const response = await fetch(`${url}/realtime/v1/api/broadcast`, {
-    method: "POST",
-    headers: { apikey: key, Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ messages: [{ topic: turnstileChannel(deviceId), event, payload }] })
-  });
-  if (!response.ok) throw new Error(`Supabase Realtime ${response.status}: ${await response.text()}`);
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), BROADCAST_TIMEOUT_MS);
+  try {
+    const response = await fetch(`${url}/realtime/v1/api/broadcast`, {
+      method: "POST",
+      headers: { apikey: key, Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ messages: [{ topic: turnstileChannel(deviceId), event, payload }] }),
+      signal: controller.signal
+    });
+    if (!response.ok) throw new Error(`Supabase Realtime ${response.status}: ${await response.text()}`);
+  } catch (error) {
+    if (error instanceof Error && error.name === "AbortError") throw new Error("Supabase Realtime n\xE3o respondeu a tempo.");
+    throw error;
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 // server/integrations.ts
@@ -2178,6 +2680,11 @@ async function listTurnstileIntegrationsForOrganization(organizationId) {
   return rows.map(mapTurnstileRow);
 }
 async function saveTurnstileIntegration(input) {
+  const unit = await request3("saas_units", {}, `?select=id&id=eq.${encodeURIComponent(input.unitId)}&organization_id=eq.${encodeURIComponent(input.organizationId)}&limit=1`);
+  if (!unit[0]) throw new Error("Unidade n\xE3o encontrada nesta organiza\xE7\xE3o.");
+  const existingRows = await request3("turnstile_devices", {}, `?select=config&unit_id=eq.${encodeURIComponent(input.unitId)}&organization_id=eq.${encodeURIComponent(input.organizationId)}&limit=1`);
+  const mergedConfig = { ...existingRows[0]?.config ?? {} };
+  for (const [key, value] of Object.entries(input.config)) if (value) mergedConfig[key] = value;
   await request3("turnstile_devices", { method: "POST", headers: { Prefer: "resolution=merge-duplicates,return=representation" }, body: JSON.stringify({
     unit_id: input.unitId,
     organization_id: input.organizationId,
@@ -2187,7 +2694,7 @@ async function saveTurnstileIntegration(input) {
     communication_mode: input.communicationMode || null,
     port: input.port ?? null,
     serial_or_key: input.serialOrKey || null,
-    config: input.config,
+    config: mergedConfig,
     enabled: input.enabled
   }) }, "?on_conflict=unit_id");
   const rows = await listTurnstileIntegrationsForOrganization(input.organizationId);
@@ -2201,9 +2708,9 @@ async function requestTurnstileTestConnection(unitId, organizationId) {
   const rows = await request3("turnstile_devices", {}, `?select=*,saas_units(name)&unit_id=eq.${encodeURIComponent(unitId)}&organization_id=eq.${encodeURIComponent(organizationId)}&limit=1`);
   const device = rows[0];
   if (!device) throw new Error("Catraca n\xE3o configurada para esta unidade.");
-  const command = TurnstileAdapterFactory.forBrand(device.brand).buildTestConnectionCommand();
-  await publishTurnstileBroadcast(device.id, "command", command);
   const requestedAt = (/* @__PURE__ */ new Date()).toISOString();
+  const command = { ...TurnstileAdapterFactory.forBrand(device.brand).buildTestConnectionCommand(), requestedAt };
+  await publishTurnstileBroadcast(device.id, "command", command);
   await request3("turnstile_devices", { method: "PATCH", body: JSON.stringify({ last_test_requested_at: requestedAt }) }, `?id=eq.${encodeURIComponent(device.id)}`);
   return mapTurnstileRow({ ...device, last_test_requested_at: requestedAt });
 }
@@ -2211,15 +2718,18 @@ async function getTurnstileDeviceById(deviceId) {
   const rows = await request3("turnstile_devices", {}, `?select=*,saas_units(name)&id=eq.${encodeURIComponent(deviceId)}&limit=1`);
   return rows[0] ?? null;
 }
-async function recordTurnstileHeartbeat(deviceId) {
+async function recordTurnstileHeartbeat(deviceId, organizationId) {
   const device = await getTurnstileDeviceById(deviceId);
-  if (!device) return { success: false };
+  if (!device || device.organization_id !== organizationId) return { success: false };
   await request3("turnstile_devices", { method: "PATCH", body: JSON.stringify({ status: "online", last_ping_at: (/* @__PURE__ */ new Date()).toISOString() }) }, `?id=eq.${encodeURIComponent(deviceId)}`);
   return { success: true };
 }
-async function reportTurnstileTestResult(deviceId, result, message) {
+async function reportTurnstileTestResult(deviceId, organizationId, result, message, requestedAt) {
   const device = await getTurnstileDeviceById(deviceId);
-  if (!device) return { success: false };
+  if (!device || device.organization_id !== organizationId) return { success: false };
+  if (requestedAt && device.last_test_requested_at && requestedAt !== device.last_test_requested_at) {
+    return { success: true, stale: true };
+  }
   const now = (/* @__PURE__ */ new Date()).toISOString();
   const patch = { last_test_at: now, last_test_result: result, last_test_message: message ?? null };
   if (result === "success") {
@@ -2227,7 +2737,7 @@ async function reportTurnstileTestResult(deviceId, result, message) {
     patch.last_ping_at = now;
   }
   await request3("turnstile_devices", { method: "PATCH", body: JSON.stringify(patch) }, `?id=eq.${encodeURIComponent(deviceId)}`);
-  return { success: true };
+  return { success: true, stale: false };
 }
 async function listTurnstileCatalog() {
   const [brands, models] = await Promise.all([
@@ -2430,7 +2940,11 @@ async function sendPushToUser(userId, payload) {
       sent++;
     } catch (error) {
       const statusCode = error.statusCode;
-      if (statusCode === 404 || statusCode === 410) await deletePushSubscription(subscription.user_id, subscription.endpoint);
+      if (statusCode === 404 || statusCode === 410) {
+        await deletePushSubscription(subscription.user_id, subscription.endpoint);
+      } else {
+        captureException2(error, { job: "sendPushToUser", userId, statusCode });
+      }
     }
   }
   return { sent };
@@ -2461,11 +2975,22 @@ var EXTENSION_BY_MIME = {
 function extensionFor(contentType) {
   return EXTENSION_BY_MIME[contentType] ?? "bin";
 }
+var MAGIC_VALIDATORS = {
+  "image/png": (b) => b.length >= 8 && b[0] === 137 && b[1] === 80 && b[2] === 78 && b[3] === 71,
+  "image/jpeg": (b) => b.length >= 3 && b[0] === 255 && b[1] === 216 && b[2] === 255,
+  "image/webp": (b) => b.length >= 12 && b.toString("ascii", 0, 4) === "RIFF" && b.toString("ascii", 8, 12) === "WEBP",
+  "image/svg+xml": (b) => /^\s*(<\?xml|<svg)/i.test(b.toString("utf8", 0, Math.min(b.length, 300))),
+  "application/pdf": (b) => b.length >= 4 && b.toString("ascii", 0, 4) === "%PDF",
+  "video/mp4": (b) => b.length >= 8 && b.toString("ascii", 4, 8) === "ftyp",
+  "video/quicktime": (b) => b.length >= 8 && b.toString("ascii", 4, 8) === "ftyp",
+  "video/webm": (b) => b.length >= 4 && b[0] === 26 && b[1] === 69 && b[2] === 223 && b[3] === 163
+};
 function decodeUpload(dataBase64, contentType, allowed, maxBytes) {
   if (!allowed.includes(contentType)) throw new Error("Tipo de arquivo n\xE3o suportado.");
   const buffer = Buffer.from(dataBase64, "base64");
   if (buffer.byteLength === 0) throw new Error("Arquivo vazio.");
   if (buffer.byteLength > maxBytes) throw new Error(`Arquivo muito grande (m\xE1ximo ${(maxBytes / (1024 * 1024)).toFixed(1)}MB).`);
+  if (MAGIC_VALIDATORS[contentType] && !MAGIC_VALIDATORS[contentType](buffer)) throw new Error("O conte\xFAdo do arquivo n\xE3o corresponde ao tipo declarado.");
   return buffer;
 }
 function storageConfig() {
@@ -2510,12 +3035,12 @@ var notifyUser = async (userId, titulo, mensagem) => {
 };
 var ownerOrAdmin = async (userId, organizationId) => {
   const membership = await getMembership(userId, organizationId);
-  if (!membership || !["owner", "admin", "manager"].includes(membership.membership.role)) throw new Error("You do not have permission to manage this organization");
+  if (!membership || membership.membership.status !== "active" || !["owner", "admin", "manager"].includes(membership.membership.role)) throw new Error("You do not have permission to manage this organization");
   return membership;
 };
 var hasOrganizationAccess = async (userId, organizationId) => {
   const membership = await getMembership(userId, organizationId);
-  if (!membership) throw new Error("Organization access denied");
+  if (!membership || membership.membership.status !== "active") throw new Error("Organization access denied");
   return membership;
 };
 var STAFF_ROLES = ["owner", "admin", "manager", "professional", "nutricionista"];
@@ -2635,7 +3160,8 @@ var appRouter = router({
       assertRateLimit(rateLimitKey(ctx.req, "signin"), 10, 5 * 60 * 1e3);
       const result = await signInWithSupabase(input.email, input.password);
       ctx.res.cookie(SUPABASE_ACCESS_COOKIE, result.accessToken, { ...getSessionCookieOptions(ctx.req), maxAge: 1e3 * 60 * 60 * 24 * 30 });
-      return result;
+      const orgProfile = result.appUser ? null : await resolveOrgLoginProfile(result.user.id, String(result.user.user_metadata?.full_name ?? result.user.user_metadata?.name ?? result.user.email ?? ""));
+      return { ...result, orgProfile };
     }),
     recoverPassword: publicProcedure.input(z2.object({ email: z2.string().email() })).mutation(({ ctx, input }) => {
       assertRateLimit(rateLimitKey(ctx.req, "recover-password"), 5, 15 * 60 * 1e3);
@@ -2646,8 +3172,9 @@ var appRouter = router({
       const session = await verifyPasswordRecoveryCode(input.email, input.code);
       const supabaseUser = await updateSupabaseUserPassword(session.access_token, input.password);
       const appUser = supabaseUser.email ? await findAppUserByEmail(normalizeEmail(supabaseUser.email)) : null;
+      const orgProfile = appUser ? null : await resolveOrgLoginProfile(supabaseUser.id, String(supabaseUser.user_metadata?.full_name ?? supabaseUser.user_metadata?.name ?? supabaseUser.email ?? ""));
       ctx.res.cookie(SUPABASE_ACCESS_COOKIE, session.access_token, { ...getSessionCookieOptions(ctx.req), maxAge: 1e3 * 60 * 60 * 24 * 30 });
-      return { accessToken: session.access_token, user: supabaseUser, appUser };
+      return { accessToken: session.access_token, user: supabaseUser, appUser, orgProfile };
     }),
     changePassword: protectedProcedure.input(z2.object({ currentPassword: z2.string().min(8), newPassword: z2.string().min(8) })).mutation(async ({ ctx, input }) => {
       if (!ctx.user.email) throw new Error("Conta sem e-mail associado.");
@@ -2676,7 +3203,7 @@ var appRouter = router({
   }),
   admin: router({
     status: publicProcedure.query(() => ({ configured: hasSupabaseConfig() })),
-    // admin.users/students/lookupCnpj cadastram, editam e excluem clientes
+    // admin.users/lookupCnpj cadastram, editam e excluem clientes
     // do SaaS (inclusive outros Super Admins) — restrito a adminProcedure.
     // Estavam em publicProcedure (sem login nenhum) até esta auditoria.
     lookupCnpj: adminProcedure.input(z2.object({ cnpj: z2.string().min(14).max(18) })).mutation(({ input }) => lookupCnpj(input.cnpj)),
@@ -2690,12 +3217,6 @@ var appRouter = router({
         const url = await uploadPublicFile("avatars", `logos/${randomUUID2()}.${extensionFor(input.contentType)}`, buffer, input.contentType);
         return { url };
       })
-    }),
-    students: router({
-      list: adminProcedure.query(() => listAppStudents()),
-      create: adminProcedure.input(z2.object({ name: z2.string().trim().min(2), academy: z2.string().trim().min(2), plan: z2.string().trim().min(2), status: z2.enum(["Ativo", "Inativo"]) })).mutation(({ input }) => createAppStudent(input)),
-      update: adminProcedure.input(z2.object({ id: z2.string().uuid(), data: z2.object({ name: z2.string().trim().min(2), academy: z2.string().trim().min(2), plan: z2.string().trim().min(2), status: z2.enum(["Ativo", "Inativo"]) }) })).mutation(({ input }) => updateAppStudent(input.id, input.data)),
-      delete: adminProcedure.input(z2.object({ id: z2.string().uuid() })).mutation(({ input }) => deleteAppStudent(input.id))
     })
   }),
   // Painel de negócio ArkeFit (Sessão C do plano de Sept/2026): operação
@@ -2980,13 +3501,13 @@ var appRouter = router({
         await recordAuditLog({ organizationId: input.organizationId, userId: ctx.user.id, unitId: input.unitId, action: "updated", entity: "module_policy", afterJson: input });
         return result;
       }),
-      invite: protectedProcedure.input(z2.object({ organizationId: z2.string().uuid(), email: z2.string().email(), role: z2.enum(["admin", "manager", "professional", "nutricionista", "viewer"]) })).mutation(async ({ ctx, input }) => {
+      invite: protectedProcedure.input(z2.object({ organizationId: z2.string().uuid(), email: z2.string().email(), fullName: z2.string().trim().min(2), role: z2.enum(["admin", "manager", "professional", "nutricionista", "viewer"]) })).mutation(async ({ ctx, input }) => {
         await ownerOrAdmin(ctx.user.id, input.organizationId);
         const rawToken = randomUUID2();
-        const tokenHash = createHash2("sha256").update(rawToken).digest("hex");
-        const invitation = await createOrganizationInvitation({ ...input, invitedByUserId: ctx.user.id, email: input.email.toLowerCase(), tokenHash, expiresAt: new Date(Date.now() + 1e3 * 60 * 60 * 72) });
+        const tokenHash = createHash3("sha256").update(rawToken).digest("hex");
+        const invitation = await createOrganizationInvitation({ ...input, invitedByUserId: ctx.user.id, email: input.email.toLowerCase(), rawToken, tokenHash, expiresAt: new Date(Date.now() + 1e3 * 60 * 60 * 72) });
         await recordAuditLog({ organizationId: input.organizationId, userId: ctx.user.id, action: "created", entity: "invitation", entityId: invitation.id, afterJson: { email: input.email.toLowerCase(), role: input.role } });
-        return { invitationId: invitation.id, token: rawToken, status: "pending" };
+        return { invitationId: invitation.id, status: "pending" };
       }),
       revokeInvitation: protectedProcedure.input(z2.object({ organizationId: z2.string().uuid(), invitationId: z2.string().uuid() })).mutation(async ({ ctx, input }) => {
         await ownerOrAdmin(ctx.user.id, input.organizationId);
@@ -2997,13 +3518,26 @@ var appRouter = router({
       acceptInvite: protectedProcedure.input(z2.object({ token: z2.string().min(16).max(128), consentTermos: z2.literal(true) })).mutation(async ({ ctx, input }) => {
         assertRateLimit(rateLimitKey(ctx.req, "accept-team-invite"), 10, 15 * 60 * 1e3);
         if (!ctx.user.email) throw new Error("Authenticated user email is required");
-        const result = await acceptOrganizationInvitation({ tokenHash: createHash2("sha256").update(input.token).digest("hex"), userId: ctx.user.id, email: ctx.user.email });
+        const result = await acceptOrganizationInvitation({ tokenHash: createHash3("sha256").update(input.token).digest("hex"), userId: ctx.user.id, email: ctx.user.email });
         if (!await hasConsent(ctx.user.id, "termos_uso_privacidade")) {
           const policy = await getCurrentPrivacyPolicy();
           await recordConsent({ userId: ctx.user.id, consentType: "termos_uso_privacidade", policyVersionId: policy?.id ?? null, ...requestMeta(ctx.req) });
         }
         await recordAuditLog({ organizationId: result.organizationId, userId: ctx.user.id, action: "accepted", entity: "invitation", entityId: result.invitation.id, afterJson: { role: result.role, email: ctx.user.email } });
         return { organizationId: result.organizationId, role: result.role, status: "accepted" };
+      }),
+      // Aceite de convite de equipe sem exigir conta prévia — assume que o
+      // convidado ainda não tem cadastro (ver createOrganizationInvitation):
+      // cria a conta Supabase e a vaga na organização em um único passo,
+      // no mesmo padrão de journey.acceptInvite (convite de aluno).
+      acceptInviteSignup: publicProcedure.input(z2.object({ token: z2.string().trim().min(10), password: z2.string().min(8), consentTermos: z2.literal(true) })).mutation(async ({ ctx, input }) => {
+        assertRateLimit(rateLimitKey(ctx.req, "accept-team-invite-signup"), 10, 15 * 60 * 1e3);
+        const result = await acceptOrganizationInvitationSignup({ token: input.token, password: input.password });
+        const policy = await getCurrentPrivacyPolicy();
+        await recordConsent({ userId: result.user.id, consentType: "termos_uso_privacidade", policyVersionId: policy?.id ?? null, ...requestMeta(ctx.req) });
+        await recordAuditLog({ organizationId: result.organizationId, userId: result.user.id, action: "accepted", entity: "invitation", entityId: result.invitationId, afterJson: { role: result.role, email: result.user.email } });
+        ctx.res.cookie(SUPABASE_ACCESS_COOKIE, result.accessToken, { ...getSessionCookieOptions(ctx.req), maxAge: 1e3 * 60 * 60 * 24 * 30 });
+        return { accessToken: result.accessToken, user: result.user, organizationId: result.organizationId, role: result.role, fullName: result.fullName };
       }),
       listDeletionRequests: protectedProcedure.input(organizationIdInput).query(async ({ ctx, input }) => {
         await ownerOrAdmin(ctx.user.id, input.organizationId);
@@ -3052,10 +3586,28 @@ var appRouter = router({
       return listStudentsInOrganization(input.organizationId);
     }),
     updateMatricula: protectedProcedure.input(z2.object({ alunoId: z2.string().uuid(), unitId: z2.string().uuid().nullable().optional(), matriculaEm: z2.string().datetime().nullable().optional() })).mutation(async ({ ctx, input }) => {
-      await assertStaffForAluno(ctx.user.id, input.alunoId);
-      return updateStudentMatricula(input.alunoId, { unitId: input.unitId, matriculaEm: input.matriculaEm });
+      const profile = await assertStaffForAluno(ctx.user.id, input.alunoId);
+      return updateStudentMatricula(input.alunoId, profile.organization_id, { unitId: input.unitId, matriculaEm: input.matriculaEm });
     }),
-    exercises: protectedProcedure.query(() => listExercisesCatalog()),
+    // Sem organizationId: aluno consultando seu próprio catálogo (para ler
+    // nome/vídeo de exercícios do treino publicado, nunca para editar).
+    // Com organizationId: staff montando prescrição — confirma que é da
+    // equipe da organização antes de qualquer coisa.
+    exercises: protectedProcedure.input(z2.object({ organizationId: z2.string().uuid().optional() }).optional()).query(async ({ ctx, input }) => {
+      let organizationId = input?.organizationId;
+      if (organizationId) {
+        await assertStaffOfOrganization(ctx.user.id, organizationId);
+      } else {
+        const profile = await getProfileByUserId(ctx.user.id);
+        organizationId = profile?.organization_id ?? void 0;
+      }
+      if (!organizationId) return [];
+      const organization = await getOrganization(organizationId);
+      if (!organization) return [];
+      const rule = await getGlobalAccessRule(organization.module, organization.plan);
+      if (rule && !rule.habilitado) return [];
+      return listExercisesCatalog();
+    }),
     treinos: router({
       list: protectedProcedure.input(z2.object({ alunoId: z2.string().uuid() })).query(async ({ ctx, input }) => {
         await assertStaffForAluno(ctx.user.id, input.alunoId);
@@ -3335,6 +3887,8 @@ var appRouter = router({
         }),
         add: protectedProcedure.input(z2.object({ desafioId: z2.string().uuid(), alunoId: z2.string().uuid() })).mutation(async ({ ctx, input }) => {
           const desafio = await assertStaffForDesafio(ctx.user.id, input.desafioId);
+          const aluno = await getProfileByUserId(input.alunoId);
+          if (aluno?.organization_id !== desafio.organization_id) throw new Error("Aluno n\xE3o pertence a esta organiza\xE7\xE3o.");
           return addDesafioParticipante({ desafioId: input.desafioId, alunoId: input.alunoId, organizationId: desafio.organization_id });
         }),
         remove: protectedProcedure.input(z2.object({ desafioId: z2.string().uuid(), alunoId: z2.string().uuid() })).mutation(async ({ ctx, input }) => {
@@ -3349,6 +3903,8 @@ var appRouter = router({
         }),
         set: protectedProcedure.input(z2.object({ desafioId: z2.string().uuid(), alunoId: z2.string().uuid(), concluido: z2.boolean(), valorAtual: z2.number().optional() })).mutation(async ({ ctx, input }) => {
           const desafio = await assertStaffForDesafio(ctx.user.id, input.desafioId);
+          const aluno = await getProfileByUserId(input.alunoId);
+          if (aluno?.organization_id !== desafio.organization_id) throw new Error("Aluno n\xE3o pertence a esta organiza\xE7\xE3o.");
           return setDesafioProgresso({ desafioId: input.desafioId, alunoId: input.alunoId, organizationId: desafio.organization_id, concluido: input.concluido, valorAtual: input.valorAtual, concluidoPor: ctx.user.id, origem: "manual" });
         })
       })
@@ -3387,6 +3943,8 @@ var appRouter = router({
         }),
         add: protectedProcedure.input(z2.object({ competicaoId: z2.string().uuid(), alunoId: z2.string().uuid() })).mutation(async ({ ctx, input }) => {
           const competicao = await assertStaffForCompeticao(ctx.user.id, input.competicaoId);
+          const aluno = await getProfileByUserId(input.alunoId);
+          if (aluno?.organization_id !== competicao.organization_id) throw new Error("Aluno n\xE3o pertence a esta organiza\xE7\xE3o.");
           return addCompeticaoParticipante({ competicaoId: input.competicaoId, alunoId: input.alunoId, organizationId: competicao.organization_id });
         }),
         remove: protectedProcedure.input(z2.object({ competicaoId: z2.string().uuid(), alunoId: z2.string().uuid() })).mutation(async ({ ctx, input }) => {
@@ -3401,6 +3959,8 @@ var appRouter = router({
         }),
         set: protectedProcedure.input(z2.object({ competicaoId: z2.string().uuid(), alunoId: z2.string().uuid(), valor: z2.number() })).mutation(async ({ ctx, input }) => {
           const competicao = await assertStaffForCompeticao(ctx.user.id, input.competicaoId);
+          const aluno = await getProfileByUserId(input.alunoId);
+          if (aluno?.organization_id !== competicao.organization_id) throw new Error("Aluno n\xE3o pertence a esta organiza\xE7\xE3o.");
           return setCompeticaoPontuacao({ competicaoId: input.competicaoId, alunoId: input.alunoId, organizationId: competicao.organization_id, valor: input.valor, atualizadoPor: ctx.user.id, origem: "manual" });
         })
       })
@@ -3617,6 +4177,8 @@ var appRouter = router({
         await assertAlunoTemArke(ctx.user.id);
         const profile = await getProfileByUserId(ctx.user.id);
         if (!profile?.organization_id) throw new Error("Aluno sem organiza\xE7\xE3o vinculada.");
+        const post = await getFeedPost(input.postId);
+        if (!post || post.organization_id !== profile.organization_id) throw new Error("Publica\xE7\xE3o n\xE3o encontrada.");
         const existing = await getFeedLike(input.postId, ctx.user.id);
         if (existing) {
           await deleteFeedLike(input.postId, ctx.user.id);
@@ -3630,6 +4192,8 @@ var appRouter = router({
           await assertAlunoTemArke(ctx.user.id);
           const profile = await getProfileByUserId(ctx.user.id);
           if (!profile?.organization_id) throw new Error("Aluno sem organiza\xE7\xE3o vinculada.");
+          const post = await getFeedPost(input.postId);
+          if (!post || post.organization_id !== profile.organization_id) throw new Error("Publica\xE7\xE3o n\xE3o encontrada.");
           return createFeedComment({ post_id: input.postId, user_id: ctx.user.id, organization_id: profile.organization_id, content: input.content });
         }),
         delete: protectedProcedure.input(z2.object({ id: z2.string().uuid() })).mutation(async ({ ctx, input }) => {
@@ -3764,6 +4328,8 @@ var appRouter = router({
       }),
       create: protectedProcedure.input(z2.object({ organizationId: z2.string().uuid(), alunoId: z2.string().uuid(), prioridade: z2.enum(["rotina", "atencao", "prioritario", "encaminhamento_profissional"]), descricao: z2.string().trim().max(2e3).optional(), prazo: z2.string().datetime().optional() })).mutation(async ({ ctx, input }) => {
         await assertStaffOfOrganization(ctx.user.id, input.organizationId);
+        const alunoProfile = await getProfileByUserId(input.alunoId);
+        if (alunoProfile?.organization_id !== input.organizationId) throw new Error("Aluno n\xE3o pertence a esta organiza\xE7\xE3o.");
         return createAtendimento({ organizationId: input.organizationId, alunoId: input.alunoId, origem: "manual", prioridade: input.prioridade, descricao: input.descricao, criadoPor: ctx.user.id, prazo: input.prazo });
       }),
       assign: protectedProcedure.input(z2.object({ id: z2.string().uuid() })).mutation(async ({ ctx, input }) => {
@@ -3792,8 +4358,8 @@ var appRouter = router({
         return createLead({ organizationId: input.organizationId, unitId: input.unitId, nome: input.nome, telefone: input.telefone, email: input.email, origem: input.origem, interesse: input.interesse, responsavelId: input.responsavelId ?? ctx.user.id, notas: input.notas, criadoPor: ctx.user.id });
       }),
       update: protectedProcedure.input(z2.object({ id: z2.string().uuid(), data: z2.object({ nome: z2.string().trim().min(2).max(160).optional(), telefone: z2.string().trim().max(40).optional().nullable(), email: z2.string().email().optional().nullable(), origem: z2.string().trim().max(80).optional().nullable(), interesse: z2.string().trim().max(160).optional().nullable(), unitId: z2.string().uuid().optional().nullable(), responsavelId: z2.string().uuid().optional().nullable(), notas: z2.string().trim().max(4e3).optional().nullable() }) })).mutation(async ({ ctx, input }) => {
-        await assertManagerForLead(ctx.user.id, input.id);
-        return updateLead(input.id, input.data);
+        const lead = await assertManagerForLead(ctx.user.id, input.id);
+        return updateLead(input.id, lead.organization_id, input.data);
       }),
       delete: protectedProcedure.input(z2.object({ id: z2.string().uuid() })).mutation(async ({ ctx, input }) => {
         await assertManagerForLead(ctx.user.id, input.id);
@@ -3904,6 +4470,85 @@ var appRouter = router({
     }),
     minhasReservas: protectedProcedure.query(({ ctx }) => listMinhasReservas(ctx.user.id)),
     cancelarMinhaReserva: protectedProcedure.input(z2.object({ id: z2.string().uuid() })).mutation(({ ctx, input }) => cancelarReserva(input.id, ctx.user.id))
+  }),
+  // Cadastro administrativo do aluno — existe independente de login (ver
+  // 20260916_cadastro_direto_alunos_e_importacao.sql). journey.inviteMember
+  // continua existindo à parte, como ação opcional em cima de um aluno já
+  // cadastrado aqui.
+  alunos: router({
+    list: protectedProcedure.input(organizationIdInput).query(async ({ ctx, input }) => {
+      await assertStaffOfOrganization(ctx.user.id, input.organizationId);
+      return listAlunos(input.organizationId);
+    }),
+    create: protectedProcedure.input(z2.object({
+      organizationId: z2.string().uuid(),
+      unitId: z2.string().uuid().optional(),
+      planoId: z2.string().uuid().optional(),
+      nome: z2.string().trim().min(2).max(160),
+      cpf: z2.string().trim().optional(),
+      email: z2.string().email().optional(),
+      telefone: z2.string().trim().max(40).optional(),
+      dataNascimento: z2.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+      responsavelNome: z2.string().trim().max(160).optional(),
+      responsavelCpf: z2.string().trim().optional(),
+      valorMensal: z2.number().min(0).optional(),
+      diaVencimento: z2.number().int().min(1).max(31).optional()
+    })).mutation(async ({ ctx, input }) => {
+      await ownerOrAdmin(ctx.user.id, input.organizationId);
+      return createAluno({ ...input, origem: "manual", criadoPor: ctx.user.id });
+    }),
+    update: protectedProcedure.input(z2.object({ id: z2.string().uuid(), organizationId: z2.string().uuid(), data: z2.object({
+      nome: z2.string().trim().min(2).max(160).optional(),
+      unitId: z2.string().uuid().optional().nullable(),
+      planoId: z2.string().uuid().optional().nullable(),
+      cpf: z2.string().trim().optional().nullable(),
+      email: z2.string().email().optional().nullable(),
+      telefone: z2.string().trim().max(40).optional().nullable(),
+      valorMensal: z2.number().min(0).optional().nullable(),
+      diaVencimento: z2.number().int().min(1).max(31).optional().nullable(),
+      status: z2.enum(["ativo", "inativo", "trancado"]).optional()
+    }) })).mutation(async ({ ctx, input }) => {
+      await ownerOrAdmin(ctx.user.id, input.organizationId);
+      const { unitId, planoId, diaVencimento, valorMensal, ...rest } = input.data;
+      return updateAluno(input.id, input.organizationId, { ...rest, unit_id: unitId, plano_id: planoId, dia_vencimento: diaVencimento, valor_mensal: valorMensal });
+    })
+  }),
+  // Planos de mensalidade da própria academia (não confundir com o plano
+  // da assinatura ArkeFit em saas.organizations — ver org_membership_plans).
+  planos: router({
+    list: protectedProcedure.input(organizationIdInput).query(async ({ ctx, input }) => {
+      await assertStaffOfOrganization(ctx.user.id, input.organizationId);
+      return listMembershipPlans(input.organizationId);
+    }),
+    create: protectedProcedure.input(z2.object({ organizationId: z2.string().uuid(), nome: z2.string().trim().min(2).max(120), valorMensal: z2.number().min(0), periodicidade: z2.enum(["mensal", "trimestral", "semestral", "anual"]).default("mensal") })).mutation(async ({ ctx, input }) => {
+      await ownerOrAdmin(ctx.user.id, input.organizationId);
+      return createMembershipPlan(input);
+    }),
+    update: protectedProcedure.input(z2.object({ id: z2.string().uuid(), organizationId: z2.string().uuid(), data: z2.object({ nome: z2.string().trim().min(2).max(120).optional(), valorMensal: z2.number().min(0).optional(), periodicidade: z2.enum(["mensal", "trimestral", "semestral", "anual"]).optional(), ativo: z2.boolean().optional() }) })).mutation(async ({ ctx, input }) => {
+      await ownerOrAdmin(ctx.user.id, input.organizationId);
+      return updateMembershipPlan(input.id, input.organizationId, input.data);
+    })
+  }),
+  // Importação de dados na implantação de um cliente novo. O cliente
+  // parseia o CSV/XLSX no navegador (papaparse/xlsx) e manda linhas já em
+  // JSON — sem upload multipart no servidor. preview nunca grava nada;
+  // commit reaproveita a mesma validação e sempre reenvia as mesmas linhas.
+  importacao: router({
+    history: protectedProcedure.input(organizationIdInput).query(async ({ ctx, input }) => {
+      await assertStaffOfOrganization(ctx.user.id, input.organizationId);
+      return listImportBatches(input.organizationId);
+    }),
+    preview: protectedProcedure.input(z2.object({ organizationId: z2.string().uuid(), entity: z2.enum(["unidades", "planos", "alunos", "leads", "turmas"]), rows: z2.array(z2.record(z2.string(), z2.string())).min(1).max(1e4) })).mutation(async ({ ctx, input }) => {
+      await ownerOrAdmin(ctx.user.id, input.organizationId);
+      return previewImport(input.entity, input.rows, input.organizationId);
+    }),
+    commit: protectedProcedure.input(z2.object({ organizationId: z2.string().uuid(), entity: z2.enum(["unidades", "planos", "alunos", "leads", "turmas"]), fileName: z2.string().trim().min(1).max(200), rows: z2.array(z2.record(z2.string(), z2.string())).min(1).max(1e4) })).mutation(async ({ ctx, input }) => {
+      await ownerOrAdmin(ctx.user.id, input.organizationId);
+      const batch = await createImportBatch({ organizationId: input.organizationId, entity: input.entity, fileName: input.fileName, totalRows: input.rows.length, validRows: 0, errorRows: 0, errors: [], uploadedBy: ctx.user.id });
+      const result = await commitImport(input.entity, input.rows, input.organizationId, ctx.user.id);
+      await finalizeImportBatch(batch.id, input.organizationId, { validRows: result.inserted, errorRows: result.errors.length, errors: result.errors });
+      return { batchId: batch.id, inserted: result.inserted, errors: result.errors };
+    })
   })
 });
 
@@ -3938,15 +4583,26 @@ async function createContext(opts) {
 }
 
 // server/access.ts
-import { randomUUID as randomUUID3 } from "node:crypto";
+import { randomUUID as randomUUID3, timingSafeEqual } from "node:crypto";
 var normalize = (value) => typeof value === "string" ? value.trim() : "";
+function deviceKeyMatches(providedKey, expectedKey) {
+  const providedBuffer = Buffer.from(providedKey);
+  const expectedBuffer = Buffer.from(expectedKey);
+  return providedBuffer.length === expectedBuffer.length && timingSafeEqual(providedBuffer, expectedBuffer);
+}
+function requireDeviceKey(req, res) {
+  const expectedKey = process.env.CATRACA_API_KEY;
+  const providedKey = normalize(req.header("x-arke-device-key"));
+  if (expectedKey && !deviceKeyMatches(providedKey, expectedKey)) {
+    res.status(401).json({ ok: false, code: "INVALID_DEVICE_KEY", message: "Dispositivo n\xE3o autorizado." });
+    return false;
+  }
+  return true;
+}
 function registerAccessRoutes(app) {
   app.post("/api/v1/access/check-in", async (req, res) => {
+    if (!requireDeviceKey(req, res)) return;
     const expectedKey = process.env.CATRACA_API_KEY;
-    const providedKey = normalize(req.header("x-arke-device-key"));
-    if (expectedKey && providedKey !== expectedKey) {
-      return res.status(401).json({ ok: false, code: "INVALID_DEVICE_KEY", message: "Dispositivo n\xE3o autorizado." });
-    }
     const body = req.body ?? {};
     const academyId = normalize(body.academyId);
     const organizationId = normalize(body.organizationId);
@@ -3985,8 +4641,9 @@ function registerAccessRoutes(app) {
         message = "N\xE3o foi poss\xEDvel verificar a matr\xEDcula no momento.";
       }
     }
-    if (decision === "allowed" && organizationId && studentId) {
-      registrarFrequencia({ alunoId: studentId, organizationId, unitId: unitId || void 0, origem: "catraca" }).catch(() => {
+    if (configured && decision === "allowed" && organizationId && studentId) {
+      registrarFrequencia({ alunoId: studentId, organizationId, unitId: unitId || void 0, origem: "catraca" }).catch((error) => {
+        captureException2(error, { route: "access.check-in.registrarFrequencia", organizationId, studentId });
       });
     }
     return res.status(200).json({
@@ -4004,25 +4661,17 @@ function registerAccessRoutes(app) {
       message
     });
   });
-  const requireDeviceKey = (req, res) => {
-    const expectedKey = process.env.CATRACA_API_KEY;
-    const providedKey = normalize(req.header("x-arke-device-key"));
-    if (expectedKey && providedKey !== expectedKey) {
-      res.status(401).json({ ok: false, code: "INVALID_DEVICE_KEY", message: "Dispositivo n\xE3o autorizado." });
-      return false;
-    }
-    return true;
-  };
   app.post("/api/v1/access/heartbeat", async (req, res) => {
     if (!requireDeviceKey(req, res)) return;
     const deviceId = normalize((req.body ?? {}).deviceId);
-    if (!deviceId) return res.status(400).json({ ok: false, code: "INVALID_PAYLOAD", message: "deviceId \xE9 obrigat\xF3rio." });
+    const organizationId = normalize((req.body ?? {}).organizationId);
+    if (!deviceId || !organizationId) return res.status(400).json({ ok: false, code: "INVALID_PAYLOAD", message: "deviceId e organizationId s\xE3o obrigat\xF3rios." });
     try {
-      const result = await recordTurnstileHeartbeat(deviceId);
+      const result = await recordTurnstileHeartbeat(deviceId, organizationId);
       if (!result.success) return res.status(404).json({ ok: false, code: "DEVICE_NOT_FOUND", message: "Catraca n\xE3o encontrada." });
       return res.status(200).json({ ok: true });
     } catch (error) {
-      captureException2(error, { route: "access.heartbeat", deviceId });
+      captureException2(error, { route: "access.heartbeat", deviceId, organizationId });
       return res.status(502).json({ ok: false, code: "HEARTBEAT_FAILED", message: "N\xE3o foi poss\xEDvel registrar o heartbeat." });
     }
   });
@@ -4030,27 +4679,28 @@ function registerAccessRoutes(app) {
     if (!requireDeviceKey(req, res)) return;
     const body = req.body ?? {};
     const deviceId = normalize(body.deviceId);
+    const organizationId = normalize(body.organizationId);
     const result = body.result;
-    if (!deviceId || result !== "success" && result !== "failed") {
-      return res.status(400).json({ ok: false, code: "INVALID_PAYLOAD", message: "deviceId e result ('success'|'failed') s\xE3o obrigat\xF3rios." });
+    if (!deviceId || !organizationId || result !== "success" && result !== "failed") {
+      return res.status(400).json({ ok: false, code: "INVALID_PAYLOAD", message: "deviceId, organizationId e result ('success'|'failed') s\xE3o obrigat\xF3rios." });
     }
     try {
-      const outcome = await reportTurnstileTestResult(deviceId, result, normalize(body.message) || void 0);
+      const outcome = await reportTurnstileTestResult(deviceId, organizationId, result, normalize(body.message) || void 0, normalize(body.requestedAt) || void 0);
       if (!outcome.success) return res.status(404).json({ ok: false, code: "DEVICE_NOT_FOUND", message: "Catraca n\xE3o encontrada." });
-      return res.status(200).json({ ok: true });
+      return res.status(200).json({ ok: true, stale: outcome.stale ?? false });
     } catch (error) {
-      captureException2(error, { route: "access.test-result", deviceId });
+      captureException2(error, { route: "access.test-result", deviceId, organizationId });
       return res.status(502).json({ ok: false, code: "TEST_RESULT_FAILED", message: "N\xE3o foi poss\xEDvel registrar o resultado do teste." });
     }
   });
 }
 
 // server/asaasWebhook.ts
-import { timingSafeEqual } from "node:crypto";
+import { timingSafeEqual as timingSafeEqual2 } from "node:crypto";
 function tokenMatches(received, expected) {
   const receivedBuffer = Buffer.from(received);
   const expectedBuffer = Buffer.from(expected);
-  return receivedBuffer.length === expectedBuffer.length && timingSafeEqual(receivedBuffer, expectedBuffer);
+  return receivedBuffer.length === expectedBuffer.length && timingSafeEqual2(receivedBuffer, expectedBuffer);
 }
 function registerAsaasWebhook(app) {
   app.post("/api/webhooks/asaas", async (req, res) => {
@@ -4060,8 +4710,8 @@ function registerAsaasWebhook(app) {
     const body = req.body;
     if (!body?.id || !body.event) return res.status(400).json({ received: false, error: "invalid event" });
     try {
+      if (body.payment) await upsertAsaasPayment(body.payment, body.event);
       const result = await persistAsaasEvent({ eventId: body.id, event: body.event, occurredAt: body.dateCreated, payload: body });
-      if (!result.duplicate && body.payment) await upsertAsaasPayment(body.payment, body.event);
       return res.status(200).json({ received: true, duplicate: result.duplicate });
     } catch (error) {
       console.error("[Asaas webhook] failed", error);
@@ -4071,7 +4721,7 @@ function registerAsaasWebhook(app) {
 }
 
 // server/automacaoCron.ts
-import { timingSafeEqual as timingSafeEqual2 } from "node:crypto";
+import { timingSafeEqual as timingSafeEqual3 } from "node:crypto";
 
 // server/arkeBilling.ts
 async function runArkeRepasseMensal() {
@@ -4093,11 +4743,15 @@ async function runArkeRepasseMensal() {
         value: alunosAtivos * ARKE_ALUNO_WHOLESALE_CENTS / 100,
         dueDate,
         billingType: "UNDEFINED",
-        description: `Repasse M\xF3dulo Arke \u2014 ${alunosAtivos} aluno(s) com Arke x R$59,90`
+        description: `Repasse M\xF3dulo Arke \u2014 ${alunosAtivos} aluno(s) com Arke x ${formatBRL(ARKE_ALUNO_WHOLESALE_CENTS)}`
       });
-      await upsertAsaasPayment(payment, "PAYMENT_CREATED", arkeModule.organization_id);
       await markArkeRepasseCharged(arkeModule.organization_id, hoje.toISOString().slice(0, 10));
       resultado.organizacoesCobradas += 1;
+      try {
+        await upsertAsaasPayment(payment, "PAYMENT_CREATED", arkeModule.organization_id);
+      } catch (persistError) {
+        captureException2(persistError, { job: "arke_repasse_mensal.upsertAsaasPayment", organizationId: arkeModule.organization_id, asaasPaymentId: payment?.id });
+      }
     } catch (error) {
       captureException2(error, { job: "arke_repasse_mensal", organizationId: arkeModule.organization_id });
       resultado.falhas += 1;
@@ -4112,7 +4766,8 @@ var diasAtras = (dias) => {
   data.setUTCDate(data.getUTCDate() - dias);
   return data.toISOString().slice(0, 10);
 };
-async function lembretesParaAluno(userId, hoje) {
+var THROTTLE_LEMBRETE_CHECKIN_DIAS = 6;
+async function lembretesParaAluno(userId, organizationId, hoje) {
   const lembretes = [];
   const diaSemana = hoje.getUTCDay();
   if (diaSemana === 0 && !await hasProgressoSemanalDesde(userId, diasAtras(7))) {
@@ -4121,10 +4776,16 @@ async function lembretesParaAluno(userId, hoje) {
   if (diaSemana === 1) {
     lembretes.push({ titulo: "\u{1F525} Nova semana, novos objetivos!", mensagem: "Comece a semana com o p\xE9 direito. Bora treinar?" });
   }
-  if (!await hasCheckinDesde(userId, diasAtras(7))) {
-    lembretes.push({ titulo: "\u26A0\uFE0F Revis\xE3o de rotina", mensagem: "Faz uma semana sem check-in. Que tal revisar sua rotina com seu profissional?" });
-  } else if (!await hasCheckinDesde(userId, diasAtras(3))) {
-    lembretes.push({ titulo: "\u{1F4AA} Bora treinar!", mensagem: "J\xE1 fazem 3 dias sem check-in. Const\xE2ncia \xE9 o que mais importa \u2014 vamos l\xE1!" });
+  const ultimoLembreteCheckin = await getUltimoLembreteCheckin(userId, organizationId);
+  const jaLembradoRecentemente = ultimoLembreteCheckin != null && new Date(ultimoLembreteCheckin) >= new Date(diasAtras(THROTTLE_LEMBRETE_CHECKIN_DIAS));
+  if (!jaLembradoRecentemente) {
+    if (!await hasCheckinDesde(userId, diasAtras(7))) {
+      lembretes.push({ titulo: "\u26A0\uFE0F Revis\xE3o de rotina", mensagem: "Faz uma semana sem check-in. Que tal revisar sua rotina com seu profissional?" });
+      await markLembreteCheckinEnviado(userId, organizationId);
+    } else if (!await hasCheckinDesde(userId, diasAtras(3))) {
+      lembretes.push({ titulo: "\u{1F4AA} Bora treinar!", mensagem: "J\xE1 fazem 3 dias sem check-in. Const\xE2ncia \xE9 o que mais importa \u2014 vamos l\xE1!" });
+      await markLembreteCheckinEnviado(userId, organizationId);
+    }
   }
   return lembretes;
 }
@@ -4135,7 +4796,7 @@ async function runArkeLembretesDiarios() {
     for (const userId of await listAlunosComArkeAtivoIds(arkeModule.organization_id)) {
       resultado.alunosProcessados += 1;
       try {
-        for (const lembrete of await lembretesParaAluno(userId, hoje)) {
+        for (const lembrete of await lembretesParaAluno(userId, arkeModule.organization_id, hoje)) {
           await createNotificacao({ userId, titulo: lembrete.titulo, mensagem: lembrete.mensagem, tipo: "lembrete" });
           sendPushToUser(userId, { title: lembrete.titulo, body: lembrete.mensagem, url: "/" }).catch(() => {
           });
@@ -4259,20 +4920,34 @@ async function runArkeCompeticoesAutomaticas() {
 function tokenMatches2(received, expected) {
   const receivedBuffer = Buffer.from(received);
   const expectedBuffer = Buffer.from(expected);
-  return receivedBuffer.length === expectedBuffer.length && timingSafeEqual2(receivedBuffer, expectedBuffer);
+  return receivedBuffer.length === expectedBuffer.length && timingSafeEqual3(receivedBuffer, expectedBuffer);
 }
+var JOBS = [
+  { key: "resultado", name: "automacao_diaria", run: runAutomacaoDiaria },
+  { key: "arkeRepasse", name: "arke_repasse_mensal", run: runArkeRepasseMensal },
+  { key: "arkeLembretes", name: "arke_lembretes_diarios", run: runArkeLembretesDiarios },
+  { key: "arkeDesafios", name: "arke_desafios_automaticos", run: runArkeDesafiosAutomaticos },
+  { key: "arkeCompeticoes", name: "arke_competicoes_automaticas", run: runArkeCompeticoesAutomaticas }
+];
 function registerAutomacaoCron(app) {
   app.get("/api/cron/automacao", async (req, res) => {
     const expectedToken = process.env.CRON_SECRET ?? "";
     const receivedToken = String(req.header("authorization") ?? "").replace(/^Bearer\s+/i, "");
     if (!expectedToken || !tokenMatches2(receivedToken, expectedToken)) return res.status(401).json({ ok: false, error: "unauthorized" });
-    try {
-      const [resultado, arkeRepasse, arkeLembretes, arkeDesafios, arkeCompeticoes] = await Promise.all([runAutomacaoDiaria(), runArkeRepasseMensal(), runArkeLembretesDiarios(), runArkeDesafiosAutomaticos(), runArkeCompeticoesAutomaticas()]);
-      return res.status(200).json({ ok: true, ...resultado, arkeRepasse, arkeLembretes, arkeDesafios, arkeCompeticoes });
-    } catch (error) {
-      captureException2(error, { job: "automacao_diaria" });
-      return res.status(500).json({ ok: false });
-    }
+    const settled = await Promise.allSettled(JOBS.map((job) => job.run()));
+    const body = {};
+    let anyFailed = false;
+    settled.forEach((outcome, index) => {
+      const job = JOBS[index];
+      if (outcome.status === "fulfilled") {
+        body[job.key] = outcome.value;
+      } else {
+        anyFailed = true;
+        captureException2(outcome.reason, { job: job.name });
+        body[job.key] = { ok: false, error: outcome.reason instanceof Error ? outcome.reason.message : "Falha desconhecida." };
+      }
+    });
+    return res.status(200).json({ ok: !anyFailed, ...body });
   });
 }
 

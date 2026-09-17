@@ -359,6 +359,7 @@ function FeedSection() {
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [posting, setPosting] = useState(false);
+  const [postError, setPostError] = useState("");
   const [openComments, setOpenComments] = useState<Record<string, boolean>>({});
   const [commentDrafts, setCommentDrafts] = useState<Record<string, string>>({});
 
@@ -379,6 +380,7 @@ function FeedSection() {
   const submitPost = async () => {
     if (!content.trim() && !imageFile) return;
     setPosting(true);
+    setPostError("");
     try {
       let imageUrl: string | undefined;
       if (imageFile) {
@@ -387,6 +389,8 @@ function FeedSection() {
         imageUrl = url;
       }
       await createPost.mutateAsync({ content, imageUrl });
+    } catch (error) {
+      setPostError(error instanceof Error ? error.message : "Não foi possível publicar agora.");
     } finally {
       setPosting(false);
     }
@@ -406,6 +410,7 @@ function FeedSection() {
         <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={(e) => handleImageSelect(e.target.files?.[0])} />
         <Button onClick={submitPost} disabled={posting || (!content.trim() && !imageFile)} className="h-8 rounded-lg bg-[#15130f] text-xs text-white"><Send size={14} /> Publicar</Button>
       </div>
+      {postError && <p className="rounded-xl bg-[#f8e6df] px-3 py-2 text-xs text-[#b65343]">{postError}</p>}
     </CardContent></Card>
     {posts.length === 0 && <p className="text-sm text-[#5c5445]">Nenhuma publicação ainda. Seja o primeiro!</p>}
     {posts.map((post) => <Card key={post.id} className="rounded-2xl border-[#e5ece5] bg-white shadow-sm"><CardContent className="space-y-2 p-4">

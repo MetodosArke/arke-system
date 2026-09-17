@@ -1,5 +1,6 @@
 import webpush from "web-push";
 import { deletePushSubscription, getPushSubscriptionsForUser } from "./supabaseAdmin";
+import { captureException } from "./_core/errorMonitoring";
 
 // Substitui a edge function Deno "send-chat-push" do arke-app original —
 // mesma lógica (VAPID, resolução de assinaturas por user_id, limpeza de
@@ -33,7 +34,14 @@ export async function sendPushToUser(userId: string, payload: { title: string; b
       sent++;
     } catch (error) {
       const statusCode = (error as { statusCode?: number }).statusCode;
-      if (statusCode === 404 || statusCode === 410) await deletePushSubscription(subscription.user_id, subscription.endpoint);
+      if (statusCode === 404 || statusCode === 410) {
+        await deletePushSubscription(subscription.user_id, subscription.endpoint);
+      } else {
+        // 404/410 é assinatura expirada (esperado, limpo acima); qualquer
+        // outra falha (payload malformado, rate limit, VAPID errado) ficava
+        // completamente invisível — nenhum log, nenhum alerta.
+        captureException(error, { job: "sendPushToUser", userId, statusCode });
+      }
     }
   }
   return { sent };

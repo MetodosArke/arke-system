@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { trpc } from "@/lib/trpc";
 import { readFileAsBase64 } from "@/lib/upload";
+import { ImportacaoDados } from "@/components/ImportacaoDados";
 
 type Toast = { title: string; detail: string };
 type Tab = "treinos" | "dieta" | "acolhimento" | "matricula" | "evolucao" | "chat" | "prontuario";
@@ -31,7 +32,8 @@ const emptyTreino = { titulo: "", tipo: "A", descricao: "" };
 const emptyExercicio = { exercicioId: "", series: "3", repeticoes: "12", descansoSeg: "60", observacoes: "" };
 const emptyDieta = { titulo: "", descricao: "", arquivoUrl: "" };
 const emptyInvite = { fullName: "", email: "" };
-const emptyTeamInvite = { email: "", role: "professional" as const };
+const emptyAlunoCadastro = { nome: "", cpf: "", email: "", telefone: "", dataNascimento: "", responsavelNome: "", responsavelCpf: "", unitId: "", planoId: "", valorMensal: "", diaVencimento: "" };
+const emptyTeamInvite = { fullName: "", email: "", role: "professional" as const };
 const TEAM_ROLE_LABELS: Record<string, string> = { admin: "Administrador", manager: "Gerente", professional: "Profissional de treino", nutricionista: "Nutricionista", viewer: "Visualizador" };
 
 const ACOLHIMENTO_FIELDS: Array<[string, "rotina_diaria" | "experiencias_exercicio" | "experiencias_gostou" | "experiencias_nao_gostou" | "dores_lesoes" | "medicamentos" | "tempo_disponivel" | "estilo_treino" | "exercicios_nao_gosta" | "alimentos_gosta" | "alimentos_nao_gosta" | "alimentacao_rotina"]> = [
@@ -75,10 +77,15 @@ export function ProfessionalDashboard({ onToast }: { onToast: (toast: Toast) => 
   const treinos = treinosQuery.data ?? [];
   const [treinoId, setTreinoId] = useState<string | null>(null);
   const [treinoForm, setTreinoForm] = useState(emptyTreino);
+  // Estado próprio da edição do treino selecionado, separado de treinoForm
+  // (que é o formulário de "Novo treino") — antes, trocar de treino
+  // selecionado sem editar os campos mantinha o valor digitado pro treino
+  // anterior, que era gravado por engano em cima do treino errado ao salvar.
+  const [editTreinoForm, setEditTreinoForm] = useState(emptyTreino);
   const selectedTreino = treinos.find((treino) => treino.id === treinoId);
   const treinoExerciciosQuery = trpc.prescricao.treinos.exercicios.useQuery({ treinoId: treinoId ?? "" }, { enabled: Boolean(treinoId) });
   const treinoExercicios = treinoExerciciosQuery.data ?? [];
-  const exercisesQuery = trpc.prescricao.exercises.useQuery();
+  const exercisesQuery = trpc.prescricao.exercises.useQuery({ organizationId: activeOrgId }, { enabled: Boolean(activeOrgId) });
   const exercises = exercisesQuery.data ?? [];
   const [exercicioForm, setExercicioForm] = useState(emptyExercicio);
   const refreshTreinos = () => { utils.prescricao.treinos.list.invalidate({ alunoId }); utils.prescricao.treinos.exercicios.invalidate({ treinoId: treinoId ?? "" }); };
@@ -89,8 +96,13 @@ export function ProfessionalDashboard({ onToast }: { onToast: (toast: Toast) => 
   const publishTreino = trpc.prescricao.treinos.publish.useMutation({ onSuccess: () => { success("Treino publicado"); refreshTreinos(); }, onError: (e) => fail("Erro ao publicar treino", e) });
   const deleteTreino = trpc.prescricao.treinos.delete.useMutation({ onSuccess: () => { success("Treino removido"); setTreinoId(null); refreshTreinos(); }, onError: (e) => fail("Erro ao remover treino", e) });
 
-  const beginTreino = (id: string) => { setTreinoId(id); setExercicioForm(emptyExercicio); };
-  const saveTreinoHeader = () => { if (!treinoId) return; updateTreino.mutate({ id: treinoId, data: { titulo: treinoForm.titulo || selectedTreino?.titulo || "Treino", tipo: treinoForm.tipo || selectedTreino?.tipo || "A", descricao: treinoForm.descricao || undefined } }); };
+  const beginTreino = (id: string) => {
+    setTreinoId(id);
+    setExercicioForm(emptyExercicio);
+    const treino = treinos.find((item) => item.id === id);
+    setEditTreinoForm({ titulo: treino?.titulo ?? "", tipo: treino?.tipo ?? "A", descricao: treino?.descricao ?? "" });
+  };
+  const saveTreinoHeader = () => { if (!treinoId) return; updateTreino.mutate({ id: treinoId, data: { titulo: editTreinoForm.titulo || selectedTreino?.titulo || "Treino", tipo: editTreinoForm.tipo || selectedTreino?.tipo || "A", descricao: editTreinoForm.descricao || undefined } }); };
   const addExercicio = () => {
     if (!treinoId || !exercicioForm.exercicioId) return;
     const items = [...treinoExercicios.map((item) => ({ exercicio_id: item.exercicio_id, series: item.series, repeticoes: item.repeticoes, descanso_seg: item.descanso_seg, observacoes: item.observacoes ?? undefined })), { exercicio_id: exercicioForm.exercicioId, series: Number(exercicioForm.series || 3), repeticoes: exercicioForm.repeticoes || "12", descanso_seg: Number(exercicioForm.descansoSeg || 60), observacoes: exercicioForm.observacoes || undefined }];
@@ -140,12 +152,44 @@ export function ProfessionalDashboard({ onToast }: { onToast: (toast: Toast) => 
   const inviteMember = trpc.journey.inviteMember.useMutation({ onSuccess: () => { success("Convite enviado por e-mail"); setInviteForm(emptyInvite); refreshInvites(); }, onError: (e) => fail("Erro ao convidar aluno", e) });
   const revokeInvite = trpc.journey.revokeInvitation.useMutation({ onSuccess: () => { success("Convite revogado"); refreshInvites(); }, onError: (e) => fail("Erro ao revogar convite", e) });
 
+  // Cadastro direto de aluno (sem convite) e importação em massa — o
+  // cadastro sempre existe na hora (manual ou importado); o convite acima
+  // continua existindo, mas como ação opcional em cima dele (ver
+  // 20260916_cadastro_direto_alunos_e_importacao.sql).
+  const [alunoPanelMode, setAlunoPanelMode] = useState<"convite" | "cadastro" | "importar">("convite");
+  const [alunoCadastroForm, setAlunoCadastroForm] = useState(emptyAlunoCadastro);
+  const planosQuery = trpc.planos.list.useQuery({ organizationId: activeOrgId }, { enabled: Boolean(activeOrgId) && canManageTeam });
+  const planos = planosQuery.data ?? [];
+  const alunosCadastradosQuery = trpc.alunos.list.useQuery({ organizationId: activeOrgId }, { enabled: Boolean(activeOrgId) && canManageTeam });
+  const alunosCadastrados = alunosCadastradosQuery.data ?? [];
+  const createAlunoCadastro = trpc.alunos.create.useMutation({
+    onSuccess: () => { success("Aluno cadastrado — sem convite enviado"); setAlunoCadastroForm(emptyAlunoCadastro); utils.alunos.list.invalidate({ organizationId: activeOrgId }); },
+    onError: (e) => fail("Erro ao cadastrar aluno", e),
+  });
+  const submitAlunoCadastro = () => {
+    if (!alunoCadastroForm.nome.trim()) return;
+    createAlunoCadastro.mutate({
+      organizationId: activeOrgId,
+      nome: alunoCadastroForm.nome.trim(),
+      cpf: alunoCadastroForm.cpf.trim() || undefined,
+      email: alunoCadastroForm.email.trim() || undefined,
+      telefone: alunoCadastroForm.telefone.trim() || undefined,
+      dataNascimento: alunoCadastroForm.dataNascimento || undefined,
+      responsavelNome: alunoCadastroForm.responsavelNome.trim() || undefined,
+      responsavelCpf: alunoCadastroForm.responsavelCpf.trim() || undefined,
+      unitId: alunoCadastroForm.unitId || undefined,
+      planoId: alunoCadastroForm.planoId || undefined,
+      valorMensal: alunoCadastroForm.valorMensal.trim() ? Number(alunoCadastroForm.valorMensal) : undefined,
+      diaVencimento: alunoCadastroForm.diaVencimento.trim() ? Number(alunoCadastroForm.diaVencimento) : undefined,
+    });
+  };
+
   // Convite de equipe (profissional/nutricionista/gerente) — vínculo por convite (Fase 11)
   const teamInvitesQuery = trpc.saas.organizations.pendingInvitations.useQuery({ organizationId: activeOrgId }, { enabled: Boolean(activeOrgId) && canManageTeam });
   const teamInvites = teamInvitesQuery.data ?? [];
-  const [teamInviteForm, setTeamInviteForm] = useState<{ email: string; role: "admin" | "manager" | "professional" | "nutricionista" | "viewer" }>(emptyTeamInvite);
+  const [teamInviteForm, setTeamInviteForm] = useState<{ fullName: string; email: string; role: "admin" | "manager" | "professional" | "nutricionista" | "viewer" }>(emptyTeamInvite);
   const refreshTeamInvites = () => utils.saas.organizations.pendingInvitations.invalidate({ organizationId: activeOrgId });
-  const inviteTeam = trpc.saas.organizations.invite.useMutation({ onSuccess: () => { success("Convite de equipe enviado"); setTeamInviteForm(emptyTeamInvite); refreshTeamInvites(); }, onError: (e) => fail("Erro ao convidar colega de equipe", e) });
+  const inviteTeam = trpc.saas.organizations.invite.useMutation({ onSuccess: () => { success("Convite de equipe enviado por e-mail"); setTeamInviteForm(emptyTeamInvite); refreshTeamInvites(); }, onError: (e) => fail("Erro ao convidar colega de equipe", e) });
   const revokeTeamInvite = trpc.saas.organizations.revokeInvitation.useMutation({ onSuccess: () => { success("Convite de equipe revogado"); refreshTeamInvites(); }, onError: (e) => fail("Erro ao revogar convite de equipe", e) });
   const [acceptTeamToken, setAcceptTeamToken] = useState("");
   const [acceptTeamConsent, setAcceptTeamConsent] = useState(false);
@@ -159,7 +203,7 @@ export function ProfessionalDashboard({ onToast }: { onToast: (toast: Toast) => 
   const acolhimento = acolhimentoQuery.data;
 
   // Matrícula e frequência
-  const accessQuery = trpc.saas.organizations.access.useQuery({ organizationId: activeOrgId }, { enabled: Boolean(activeOrgId) && tab === "matricula" });
+  const accessQuery = trpc.saas.organizations.access.useQuery({ organizationId: activeOrgId }, { enabled: Boolean(activeOrgId) && (tab === "matricula" || alunoPanelMode === "cadastro") });
   const units = accessQuery.data?.units ?? [];
   const [matriculaForm, setMatriculaForm] = useState({ unitId: "", matriculaEm: "" });
   const updateMatricula = trpc.prescricao.updateMatricula.useMutation({ onSuccess: () => { success("Matrícula atualizada"); utils.prescricao.students.invalidate({ organizationId: activeOrgId }); }, onError: (e) => fail("Erro ao atualizar matrícula", e) });
@@ -269,8 +313,16 @@ export function ProfessionalDashboard({ onToast }: { onToast: (toast: Toast) => 
         {studentsQuery.isLoading && <p className="text-xs text-[#918a7d]">Carregando alunos...</p>}
         {!studentsQuery.isLoading && students.length === 0 && <p className="text-xs text-[#918a7d]">Nenhum aluno cadastrado nesta organização ainda.</p>}
         {students.map((student) => <button key={student.user_id} onClick={() => selectAluno(student.user_id)} className={`w-full rounded-xl px-3 py-2.5 text-left text-sm ${alunoId === student.user_id ? "bg-[#15130f] font-semibold text-white" : "text-[#4b4438] hover:bg-[#faf7ef]"}`}>{student.full_name || "Aluno sem nome"}</button>)}
-        <div className="mt-3 space-y-2 rounded-xl bg-[#faf7ef] p-3">
+
+        <div className="mt-3 flex flex-wrap gap-1.5">
+          <button onClick={() => setAlunoPanelMode("convite")} className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${alunoPanelMode === "convite" ? "bg-[#15130f] text-white" : "bg-[#faf7ef] text-[#4b4438]"}`}>Convidar</button>
+          {canManageTeam && <button onClick={() => setAlunoPanelMode("cadastro")} className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${alunoPanelMode === "cadastro" ? "bg-[#15130f] text-white" : "bg-[#faf7ef] text-[#4b4438]"}`}>Cadastro direto</button>}
+          {canManageTeam && <button onClick={() => setAlunoPanelMode("importar")} className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${alunoPanelMode === "importar" ? "bg-[#15130f] text-white" : "bg-[#faf7ef] text-[#4b4438]"}`}>Importar</button>}
+        </div>
+
+        {alunoPanelMode === "convite" && <div className="mt-2 space-y-2 rounded-xl bg-[#faf7ef] p-3">
           <p className="text-xs font-semibold text-[#4b4438]">Convidar aluno</p>
+          <p className="text-[10px] text-[#9b9488]">Manda um convite por e-mail para o aluno criar a própria conta e acessar o app.</p>
           <Input value={inviteForm.fullName} onChange={(e) => setInviteForm({ ...inviteForm, fullName: e.target.value })} placeholder="Nome completo" className="h-9 rounded-lg text-xs" />
           <Input value={inviteForm.email} onChange={(e) => setInviteForm({ ...inviteForm, email: e.target.value })} placeholder="E-mail" type="email" className="h-9 rounded-lg text-xs" />
           <Button onClick={() => inviteMember.mutate({ organizationId: activeOrgId, email: inviteForm.email, fullName: inviteForm.fullName })} disabled={!inviteForm.fullName || !inviteForm.email || inviteMember.isPending} className="h-9 w-full rounded-lg bg-[#15130f] text-xs text-white"><Plus size={14} /> Enviar convite</Button>
@@ -278,7 +330,27 @@ export function ProfessionalDashboard({ onToast }: { onToast: (toast: Toast) => 
             <p className="text-[10px] font-semibold uppercase tracking-[.1em] text-[#9b9488]">Convites pendentes</p>
             {invites.map((invite) => <div key={invite.id} className="flex items-center justify-between rounded-lg border border-[#eee9df] bg-white p-2"><div className="min-w-0 flex-1"><p className="truncate text-xs font-semibold text-[#4b4438]">{invite.full_name}</p><p className="truncate text-[10px] text-[#9b9488]">{invite.email}</p></div><Button variant="ghost" onClick={() => revokeInvite.mutate({ id: invite.id, organizationId: activeOrgId })} className="h-7 w-7 p-0 text-[#b65c4d]"><Trash2 size={13} /></Button></div>)}
           </div>}
-        </div>
+        </div>}
+
+        {alunoPanelMode === "cadastro" && canManageTeam && <div className="mt-2 space-y-2 rounded-xl bg-[#faf7ef] p-3">
+          <p className="text-xs font-semibold text-[#4b4438]">Cadastro direto de aluno</p>
+          <p className="text-[10px] text-[#9b9488]">Cria o cadastro completo agora, sem enviar convite — o aluno pode ser convidado ao app depois, se quiser.</p>
+          <Input value={alunoCadastroForm.nome} onChange={(e) => setAlunoCadastroForm({ ...alunoCadastroForm, nome: e.target.value })} placeholder="Nome completo" className="h-9 rounded-lg text-xs" />
+          <div className="grid grid-cols-2 gap-2"><Input value={alunoCadastroForm.cpf} onChange={(e) => setAlunoCadastroForm({ ...alunoCadastroForm, cpf: e.target.value })} placeholder="CPF" className="h-9 rounded-lg text-xs" /><Input value={alunoCadastroForm.telefone} onChange={(e) => setAlunoCadastroForm({ ...alunoCadastroForm, telefone: e.target.value })} placeholder="Telefone" className="h-9 rounded-lg text-xs" /></div>
+          <Input value={alunoCadastroForm.email} onChange={(e) => setAlunoCadastroForm({ ...alunoCadastroForm, email: e.target.value })} placeholder="E-mail (opcional)" type="email" className="h-9 rounded-lg text-xs" />
+          <div><label className="mb-1 block text-[10px] font-semibold text-[#9b9488]">Data de nascimento</label><Input value={alunoCadastroForm.dataNascimento} onChange={(e) => setAlunoCadastroForm({ ...alunoCadastroForm, dataNascimento: e.target.value })} type="date" className="h-9 rounded-lg text-xs" /></div>
+          <div className="grid grid-cols-2 gap-2"><Input value={alunoCadastroForm.responsavelNome} onChange={(e) => setAlunoCadastroForm({ ...alunoCadastroForm, responsavelNome: e.target.value })} placeholder="Responsável (se menor)" className="h-9 rounded-lg text-xs" /><Input value={alunoCadastroForm.responsavelCpf} onChange={(e) => setAlunoCadastroForm({ ...alunoCadastroForm, responsavelCpf: e.target.value })} placeholder="CPF do responsável" className="h-9 rounded-lg text-xs" /></div>
+          <select value={alunoCadastroForm.unitId} onChange={(e) => setAlunoCadastroForm({ ...alunoCadastroForm, unitId: e.target.value })} className="h-9 w-full rounded-lg border bg-white px-2 text-xs"><option value="">Sem unidade definida</option>{units.map((unit) => <option key={unit.id} value={unit.id}>{unit.name}</option>)}</select>
+          <select value={alunoCadastroForm.planoId} onChange={(e) => { const plano = planos.find((p) => p.id === e.target.value); setAlunoCadastroForm({ ...alunoCadastroForm, planoId: e.target.value, valorMensal: plano ? String(plano.valor_mensal) : alunoCadastroForm.valorMensal }); }} className="h-9 w-full rounded-lg border bg-white px-2 text-xs"><option value="">Sem plano de mensalidade</option>{planos.map((plano) => <option key={plano.id} value={plano.id}>{plano.nome} · R$ {plano.valor_mensal}</option>)}</select>
+          <div className="grid grid-cols-2 gap-2"><Input value={alunoCadastroForm.valorMensal} onChange={(e) => setAlunoCadastroForm({ ...alunoCadastroForm, valorMensal: e.target.value })} placeholder="Valor mensal (R$)" type="number" className="h-9 rounded-lg text-xs" /><Input value={alunoCadastroForm.diaVencimento} onChange={(e) => setAlunoCadastroForm({ ...alunoCadastroForm, diaVencimento: e.target.value })} placeholder="Dia de vencimento" type="number" min={1} max={31} className="h-9 rounded-lg text-xs" /></div>
+          <Button onClick={submitAlunoCadastro} disabled={!alunoCadastroForm.nome.trim() || createAlunoCadastro.isPending} className="h-9 w-full rounded-lg bg-[#15130f] text-xs text-white"><Plus size={14} /> Cadastrar aluno</Button>
+          {alunosCadastrados.length > 0 && <div className="mt-2 space-y-1.5">
+            <p className="text-[10px] font-semibold uppercase tracking-[.1em] text-[#9b9488]">Cadastrados administrativamente ({alunosCadastrados.length})</p>
+            <div className="max-h-48 space-y-1 overflow-y-auto">{alunosCadastrados.map((aluno) => <div key={aluno.id} className="flex items-center justify-between rounded-lg border border-[#eee9df] bg-white p-2"><div className="min-w-0 flex-1"><p className="truncate text-xs font-semibold text-[#4b4438]">{aluno.nome}</p><p className="truncate text-[10px] text-[#9b9488]">{aluno.email || aluno.telefone || "sem contato"} · {aluno.origem === "importado" ? "importado" : "manual"}{aluno.auth_user_id ? " · com acesso ao app" : ""}</p></div></div>)}</div>
+          </div>}
+        </div>}
+
+        {alunoPanelMode === "importar" && canManageTeam && <div className="mt-2"><ImportacaoDados organizationId={activeOrgId} onToast={onToast} entities={["alunos", "planos", "unidades", "leads", "turmas"]} /></div>}
       </CardContent></Card>
 
       <Card className="rounded-2xl border-[#e5ece5] bg-white shadow-sm"><CardHeader><CardTitle className="text-base text-[#2b271f]">Equipe</CardTitle></CardHeader><CardContent className="space-y-3">
@@ -293,9 +365,10 @@ export function ProfessionalDashboard({ onToast }: { onToast: (toast: Toast) => 
         </div>
         {canManageTeam && <div className="space-y-2 rounded-xl bg-[#faf7ef] p-3">
           <p className="text-xs font-semibold text-[#4b4438]">Convidar profissional ou nutricionista</p>
+          <Input value={teamInviteForm.fullName} onChange={(e) => setTeamInviteForm({ ...teamInviteForm, fullName: e.target.value })} placeholder="Nome completo" className="h-9 rounded-lg text-xs" />
           <Input value={teamInviteForm.email} onChange={(e) => setTeamInviteForm({ ...teamInviteForm, email: e.target.value })} placeholder="E-mail" type="email" className="h-9 rounded-lg text-xs" />
           <select value={teamInviteForm.role} onChange={(e) => setTeamInviteForm({ ...teamInviteForm, role: e.target.value as typeof teamInviteForm.role })} className="h-9 w-full rounded-lg border bg-white px-2 text-xs">{Object.entries(TEAM_ROLE_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select>
-          <Button onClick={() => inviteTeam.mutate({ organizationId: activeOrgId, email: teamInviteForm.email, role: teamInviteForm.role })} disabled={!teamInviteForm.email || inviteTeam.isPending} className="h-9 w-full rounded-lg bg-[#15130f] text-xs text-white"><Plus size={14} /> Enviar convite</Button>
+          <Button onClick={() => inviteTeam.mutate({ organizationId: activeOrgId, email: teamInviteForm.email, fullName: teamInviteForm.fullName, role: teamInviteForm.role })} disabled={!teamInviteForm.email || !teamInviteForm.fullName.trim() || inviteTeam.isPending} className="h-9 w-full rounded-lg bg-[#15130f] text-xs text-white"><Plus size={14} /> Enviar convite</Button>
           {teamInvites.length > 0 && <div className="mt-2 space-y-1.5">
             <p className="text-[10px] font-semibold uppercase tracking-[.1em] text-[#9b9488]">Convites pendentes</p>
             {teamInvites.map((invite) => <div key={invite.id} className="flex items-center justify-between rounded-lg border border-[#eee9df] bg-white p-2"><div className="min-w-0 flex-1"><p className="truncate text-xs font-semibold text-[#4b4438]">{invite.email}</p><p className="truncate text-[10px] text-[#9b9488]">{TEAM_ROLE_LABELS[invite.role] ?? invite.role}</p></div><Button variant="ghost" onClick={() => revokeTeamInvite.mutate({ organizationId: activeOrgId, invitationId: invite.id })} className="h-7 w-7 p-0 text-[#b65c4d]"><Trash2 size={13} /></Button></div>)}
@@ -424,8 +497,8 @@ export function ProfessionalDashboard({ onToast }: { onToast: (toast: Toast) => 
             </CardContent></Card>
 
             {selectedTreino && <Card className="rounded-2xl border-[#e5ece5] bg-white shadow-sm"><CardHeader><CardTitle className="text-sm text-[#2b271f]">{selectedTreino.titulo} · {selectedTreino.tipo}</CardTitle><p className="text-[10px] text-[#9b9488]">{selectedTreino.estado_publicacao} · versão {selectedTreino.versao}</p></CardHeader><CardContent className="space-y-4">
-              <div className="grid grid-cols-[1fr_80px] gap-2"><Input defaultValue={selectedTreino.titulo} onChange={(e) => setTreinoForm({ ...treinoForm, titulo: e.target.value })} placeholder="Título" className="h-9 rounded-lg text-xs" /><Input defaultValue={selectedTreino.tipo} onChange={(e) => setTreinoForm({ ...treinoForm, tipo: e.target.value })} placeholder="Tipo" className="h-9 rounded-lg text-xs" /></div>
-              <textarea defaultValue={selectedTreino.descricao ?? ""} onChange={(e) => setTreinoForm({ ...treinoForm, descricao: e.target.value })} placeholder="Descrição" className="min-h-16 w-full rounded-lg border bg-white p-2 text-xs" />
+              <div className="grid grid-cols-[1fr_80px] gap-2"><Input value={editTreinoForm.titulo} onChange={(e) => setEditTreinoForm({ ...editTreinoForm, titulo: e.target.value })} placeholder="Título" className="h-9 rounded-lg text-xs" /><Input value={editTreinoForm.tipo} onChange={(e) => setEditTreinoForm({ ...editTreinoForm, tipo: e.target.value })} placeholder="Tipo" className="h-9 rounded-lg text-xs" /></div>
+              <textarea value={editTreinoForm.descricao} onChange={(e) => setEditTreinoForm({ ...editTreinoForm, descricao: e.target.value })} placeholder="Descrição" className="min-h-16 w-full rounded-lg border bg-white p-2 text-xs" />
               <div className="flex gap-2"><Button variant="outline" onClick={saveTreinoHeader} className="h-9 flex-1 rounded-lg text-xs"><Save size={14} /> Salvar</Button><Button onClick={() => publishTreino.mutate({ id: selectedTreino.id })} disabled={publishTreino.isPending} className="h-9 flex-1 rounded-lg bg-[#15130f] text-xs text-white"><Send size={14} /> Publicar</Button></div>
               <Button variant="outline" onClick={() => downloadFicha(selectedTreino)} disabled={downloadingFichaId === selectedTreino.id} className="h-9 w-full rounded-lg text-xs"><Download size={14} /> Baixar ficha (impressora térmica)</Button>
 

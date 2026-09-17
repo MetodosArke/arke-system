@@ -1,4 +1,4 @@
-import { ARKE_ALUNO_WHOLESALE_CENTS } from "@shared/pricing";
+import { ARKE_ALUNO_WHOLESALE_CENTS, formatBRL } from "@shared/pricing";
 import { createAsaasPayment } from "./asaas";
 import { upsertAsaasPayment } from "./asaasPersistence";
 import { getOrCreateAsaasCustomerForOrganization } from "./db";
@@ -39,11 +39,22 @@ export async function runArkeRepasseMensal(): Promise<ArkeRepasseResultado> {
         value: (alunosAtivos * ARKE_ALUNO_WHOLESALE_CENTS) / 100,
         dueDate,
         billingType: "UNDEFINED",
-        description: `Repasse Módulo Arke — ${alunosAtivos} aluno(s) com Arke x R$59,90`,
+        description: `Repasse Módulo Arke — ${alunosAtivos} aluno(s) com Arke x ${formatBRL(ARKE_ALUNO_WHOLESALE_CENTS)}`,
       });
-      await upsertAsaasPayment(payment as unknown as Record<string, unknown>, "PAYMENT_CREATED", arkeModule.organization_id);
+      // Marca como cobrado no mês IMEDIATAMENTE após a cobrança real ser
+      // criada no Asaas — antes de qualquer outra escrita. A cobrança em si
+      // já é dinheiro real e irreversível por este job; se qualquer coisa
+      // falhar depois disso, o próximo cron não pode tentar cobrar de novo.
       await markArkeRepasseCharged(arkeModule.organization_id, hoje.toISOString().slice(0, 10));
       resultado.organizacoesCobradas += 1;
+      try {
+        await upsertAsaasPayment(payment as unknown as Record<string, unknown>, "PAYMENT_CREATED", arkeModule.organization_id);
+      } catch (persistError) {
+        // Bookkeeping local, não a cobrança em si (já feita e já marcada
+        // acima) — não conta como falha do job; o webhook do Asaas para
+        // este mesmo pagamento reconcilia a linha depois.
+        captureException(persistError, { job: "arke_repasse_mensal.upsertAsaasPayment", organizationId: arkeModule.organization_id, asaasPaymentId: (payment as { id?: string })?.id });
+      }
     } catch (error) {
       captureException(error, { job: "arke_repasse_mensal", organizationId: arkeModule.organization_id });
       resultado.falhas += 1;

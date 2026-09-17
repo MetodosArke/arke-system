@@ -30,7 +30,13 @@ export function assertRateLimit(key: string, max: number, windowMs: number) {
   }
 }
 
-export function rateLimitKey(req: { ip?: string; headers: Record<string, unknown> }, bucket: string) {
-  const forwardedFor = typeof req.headers["x-forwarded-for"] === "string" ? req.headers["x-forwarded-for"].split(",")[0]?.trim() : undefined;
-  return `${bucket}:${forwardedFor || req.ip || "unknown"}`;
+// req.ip depende de `app.set("trust proxy", 1)` em _core/index.ts — com
+// isso, Express já resolve o IP real do cliente a partir de
+// X-Forwarded-For (o valor mais à direita, posto pela Vercel), ignorando
+// qualquer prefixo que o próprio cliente tenha forjado no header. Ler o
+// header aqui direto (como era antes) confiava no primeiro valor, que é
+// justamente o que o cliente controla — deixava o rate limit ser burlado
+// trocando o header a cada tentativa.
+export function rateLimitKey(req: { ip?: string }, bucket: string) {
+  return `${bucket}:${req.ip || "unknown"}`;
 }

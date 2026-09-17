@@ -1,11 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { DIETA_MIME_TYPES, EXERCICIO_VIDEO_MIME_TYPES, LOGO_MIME_TYPES, decodeUpload, extensionFor } from "./storage";
 
+const PNG_HEADER = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+const MP4_HEADER = Buffer.from([0x00, 0x00, 0x00, 0x18, 0x66, 0x74, 0x79, 0x70]); // tamanho + "ftyp"
+
 describe("decodeUpload", () => {
   it("decodes a valid base64 payload of an allowed type", () => {
-    const base64 = Buffer.from("conteudo do arquivo").toString("base64");
-    const buffer = decodeUpload(base64, "image/png", LOGO_MIME_TYPES, 1024);
-    expect(buffer.toString()).toBe("conteudo do arquivo");
+    const payload = Buffer.concat([PNG_HEADER, Buffer.from("resto do arquivo")]);
+    const buffer = decodeUpload(payload.toString("base64"), "image/png", LOGO_MIME_TYPES, 1024);
+    expect(buffer.equals(payload)).toBe(true);
   });
 
   it("rejects a mime type outside the allow-list", () => {
@@ -23,9 +26,15 @@ describe("decodeUpload", () => {
   });
 
   it("accepts an mp4 video within the exercício video allow-list", () => {
-    const base64 = Buffer.from("video").toString("base64");
-    const buffer = decodeUpload(base64, "video/mp4", EXERCICIO_VIDEO_MIME_TYPES, 1024);
-    expect(buffer.toString()).toBe("video");
+    const payload = Buffer.concat([MP4_HEADER, Buffer.from("resto do arquivo")]);
+    const buffer = decodeUpload(payload.toString("base64"), "video/mp4", EXERCICIO_VIDEO_MIME_TYPES, 1024);
+    expect(buffer.equals(payload)).toBe(true);
+  });
+
+  it("rejects a file whose bytes don't match the declared type (content-type spoofing)", () => {
+    const fakeVideo = Buffer.from("<html><script>alert(1)</script></html>");
+    const base64 = fakeVideo.toString("base64");
+    expect(() => decodeUpload(base64, "video/mp4", EXERCICIO_VIDEO_MIME_TYPES, 1024)).toThrow(/não corresponde ao tipo declarado/);
   });
 });
 

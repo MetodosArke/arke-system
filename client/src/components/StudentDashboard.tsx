@@ -45,6 +45,7 @@ function CheckInWidget({ onToast }: { onToast: (title: string, detail: string) =
         <Button onClick={() => status && checkIn.mutate({ status, observacao: observacao || undefined })} disabled={!status || checkIn.isPending} className="h-9 rounded-xl bg-[#15130f] text-xs text-white">Enviar check-in</Button>
         <Button variant="outline" onClick={() => pedirAjuda.mutate({})} disabled={pedirAjuda.isPending} className="h-9 rounded-xl text-xs"><HeartHandshake size={14} /> Pedir ajuda agora</Button>
       </div>
+      {(checkIn.error || pedirAjuda.error) && <p className="rounded-xl bg-[#f8e6df] px-3 py-2 text-xs text-[#b65343]">{(checkIn.error ?? pedirAjuda.error)?.message ?? "Não foi possível enviar agora. Tente de novo."}</p>}
     </CardContent>
   </Card>;
 }
@@ -104,11 +105,15 @@ function TreinoCard({ treino }: { treino: { id: string; titulo: string; tipo: st
   const exercises = exercisesQuery.data ?? [];
   const utils = trpc.useUtils();
   const [downloading, setDownloading] = useState(false);
+  const [downloadError, setDownloadError] = useState("");
   const downloadFicha = async () => {
     setDownloading(true);
+    setDownloadError("");
     try {
       const ficha = await utils.prescricao.meu.fichaPdf.fetch({ treinoId: treino.id });
       downloadBase64Pdf(ficha.filename, ficha.contentBase64);
+    } catch (error) {
+      setDownloadError(error instanceof Error ? error.message : "Não foi possível baixar a ficha agora.");
     } finally {
       setDownloading(false);
     }
@@ -119,6 +124,7 @@ function TreinoCard({ treino }: { treino: { id: string; titulo: string; tipo: st
     {!exerciciosQuery.isLoading && exercicios.length === 0 && <p className="text-xs text-[#918a7d]">Nenhum exercício cadastrado neste treino ainda.</p>}
     <div className="space-y-2">{exercicios.map((item) => { const exercicio = exercises.find((ex) => ex.id === item.exercicio_id); const videoUrl = exercicio?.video_url; const isYoutube = videoUrl ? videoUrl.includes("youtube.com") || videoUrl.includes("youtu.be") : false; return <div key={item.id} className="rounded-xl border border-[#eee9df] p-3"><p className="text-sm font-semibold text-[#4b4438]">{exercicio?.nome ?? "Exercício"}</p><p className="mt-1 text-xs text-[#9b9488]">{item.series} séries x {item.repeticoes} repetições · descanso {item.descanso_seg}s{item.observacoes ? ` · ${item.observacoes}` : ""}</p>{videoUrl && (isYoutube ? <a href={videoUrl} target="_blank" rel="noreferrer" className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-[#a47b13] underline"><Film size={13} /> Ver vídeo no YouTube</a> : <video src={videoUrl} controls muted playsInline preload="metadata" onVolumeChange={(e) => { e.currentTarget.muted = true; }} className="mt-2 w-full rounded-lg" style={{ maxHeight: 220 }} />)}</div>; })}</div>
     <Button variant="outline" onClick={downloadFicha} disabled={downloading} className="mt-3 h-9 w-full rounded-xl text-xs"><Download size={14} /> Baixar ficha (impressora térmica)</Button>
+    {downloadError && <p className="mt-2 rounded-xl bg-[#f8e6df] px-3 py-2 text-xs text-[#b65343]">{downloadError}</p>}
   </CardContent></Card>;
 }
 
@@ -134,12 +140,16 @@ function ChatTreinoCard() {
   const hasUnread = mensagens.some((msg) => msg.remetente_tipo === "treinador" && !msg.lida);
   useEffect(() => { if (hasUnread) markRead.mutate(); }, [hasUnread]);
 
+  const [videoError, setVideoError] = useState("");
   const handleVideo = async (file?: File) => {
     if (!file) return;
     setUploadingVideo(true);
+    setVideoError("");
     try {
       const { base64, contentType } = await readFileAsBase64(file);
       await sendVideo.mutateAsync({ contentType, dataBase64: base64 });
+    } catch (error) {
+      setVideoError(error instanceof Error ? error.message : "Não foi possível enviar o vídeo agora.");
     } finally {
       setUploadingVideo(false);
     }
@@ -160,6 +170,7 @@ function ChatTreinoCard() {
       <Input value={texto} onChange={(e) => setTexto(e.target.value)} placeholder="Escreva uma mensagem..." className="h-9 flex-1 rounded-lg text-xs" onKeyDown={(e) => { if (e.key === "Enter" && texto.trim()) send.mutate({ mensagem: texto.trim() }); }} />
       <Button onClick={() => texto.trim() && send.mutate({ mensagem: texto.trim() })} disabled={!texto.trim() || send.isPending} className="h-9 w-9 shrink-0 rounded-lg bg-[#15130f] p-0 text-white"><Send size={14} /></Button>
     </div>
+    {(videoError || send.error) && <p className="rounded-xl bg-[#f8e6df] px-3 py-2 text-xs text-[#b65343]">{videoError || send.error?.message}</p>}
   </CardContent></Card>;
 }
 
