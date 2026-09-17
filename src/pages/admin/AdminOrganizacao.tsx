@@ -133,12 +133,17 @@ export default function AdminOrganizacao() {
         </CardHeader>
         <CardContent className="space-y-4">
           {NIVEIS.map(({ value, label }) => {
-            const custo = planosAtacado.find((p) => p.id === value)?.custo_mensal;
+            const plano = planosAtacado.find((p) => p.id === value);
             return (
               <div key={value} className="flex items-end gap-3">
                 <div className="flex-1">
                   <Label htmlFor={`valor-${value}`}>
-                    {label} {custo != null && <span className="text-muted-foreground">(custo atacado R$ {custo})</span>}
+                    {label}{" "}
+                    {plano != null && (
+                      <span className="text-muted-foreground">
+                        (custo atacado R$ {plano.custo_mensal} · sugestão ARKE R$ {plano.valor_sugerido_varejo})
+                      </span>
+                    )}
                   </Label>
                   <Input
                     id={`valor-${value}`}

@@ -768,18 +768,21 @@ export type Database = {
           descricao: string | null
           id: Database["public"]["Enums"]["nivel_atacado"]
           nome: string
+          valor_sugerido_varejo: number
         }
         Insert: {
           custo_mensal: number
           descricao?: string | null
           id: Database["public"]["Enums"]["nivel_atacado"]
           nome: string
+          valor_sugerido_varejo: number
         }
         Update: {
           custo_mensal?: number
           descricao?: string | null
           id?: Database["public"]["Enums"]["nivel_atacado"]
           nome?: string
+          valor_sugerido_varejo?: number
         }
         Relationships: []
       }
