@@ -190,6 +190,14 @@ export async function updateGlobalRoutine(idValue: string, input: Record<string,
 export async function deleteGlobalRoutine(idValue: string) { await request("acervo_rotinas", { method: "DELETE" }, `?id=eq.${encodeURIComponent(idValue)}`); return { id: idValue }; }
 
 export async function upsertGlobalAccessRule(input: Record<string, unknown>) { const rows = await request<GlobalAccessRule[]>("acervo_acesso_regras", { method: "POST", body: JSON.stringify(input), headers: { Prefer: "resolution=merge-duplicates,return=representation" } }); return rows[0]; }
+// Sem regra configurada para o par módulo+plano, o acervo fica liberado por
+// padrão (nenhuma linha cadastrada hoje bloquearia todo mundo de uma vez) —
+// a regra só passa a restringir quando o admin explicitamente desabilita
+// aquele par.
+export async function getGlobalAccessRule(modulo: string, plano: string) {
+  const rows = await request<GlobalAccessRule[]>("acervo_acesso_regras", {}, `?select=*&modulo=eq.${encodeURIComponent(modulo)}&plano=eq.${encodeURIComponent(plano)}&limit=1`);
+  return rows[0] ?? null;
+}
 export async function deleteGlobalAccessRule(idValue: string) { await request("acervo_acesso_regras", { method: "DELETE" }, `?id=eq.${encodeURIComponent(idValue)}`); return { id: idValue }; }
 
 export type StudentProfile = { user_id: string; full_name: string | null; organization_id: string | null; status: string; unit_id?: string | null; matricula_em?: string | null };
@@ -655,6 +663,13 @@ export async function updateAluno(id: string, organizationId: string, data: Reco
 // Importação em lote na implantação de um cliente novo — guarda só
 // contagens e um resumo de erro por linha (campo + motivo), nunca o
 // conteúdo bruto da linha (evita duplicar PII fora das tabelas de destino).
+//
+// O router chama isto ANTES de rodar o loop de inserts (com validRows=0,
+// errorRows=0, status fica no default 'previewed') e só depois de todos os
+// inserts chama finalizeImportBatch — nessa ordem, um timeout da função
+// serverless no meio do loop ainda deixa um registro (mesmo que com
+// contagem zerada) mostrando que aquela importação foi tentada, em vez de
+// nenhum rastro do que foi gravado.
 export type ImportBatch = { id: string; organization_id: string; entity: "unidades" | "planos" | "alunos" | "profissionais" | "leads" | "turmas"; file_name: string; status: "previewed" | "committed" | "failed"; total_rows: number; valid_rows: number; error_rows: number; errors: { row: number; campo?: string; motivo: string }[]; uploaded_by: string; created_at: string; committed_at: string | null };
 
 export async function createImportBatch(input: { organizationId: string; entity: ImportBatch["entity"]; fileName: string; totalRows: number; validRows: number; errorRows: number; errors: { row: number; campo?: string; motivo: string }[]; uploadedBy: string }) {
@@ -662,8 +677,11 @@ export async function createImportBatch(input: { organizationId: string; entity:
   return rows[0];
 }
 
-export async function markImportBatchCommitted(id: string, organizationId: string) {
-  const rows = await request<ImportBatch[]>("import_batches", { method: "PATCH", body: JSON.stringify({ status: "committed", committed_at: new Date().toISOString() }) }, `?id=eq.${encodeURIComponent(id)}&organization_id=eq.${encodeURIComponent(organizationId)}`);
+// Grava as contagens finais e só então marca como "committed" — chamada
+// depois do loop de inserts, nunca antes (ver comentário em createImportBatch
+// sobre por que o registro em si precisa existir ANTES desse loop rodar).
+export async function finalizeImportBatch(id: string, organizationId: string, input: { validRows: number; errorRows: number; errors: { row: number; campo?: string; motivo: string }[] }) {
+  const rows = await request<ImportBatch[]>("import_batches", { method: "PATCH", body: JSON.stringify({ status: "committed", committed_at: new Date().toISOString(), valid_rows: input.validRows, error_rows: input.errorRows, errors: input.errors }) }, `?id=eq.${encodeURIComponent(id)}&organization_id=eq.${encodeURIComponent(organizationId)}`);
   return rows[0];
 }
 

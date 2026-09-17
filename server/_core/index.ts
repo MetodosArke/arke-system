@@ -35,6 +35,13 @@ async function findAvailablePort(startPort: number = 3000): Promise<number> {
 /** Creates the API application without opening a listening socket. */
 export function createApp(): Express {
   const app = express();
+  // Deploy é sempre atrás do proxy da Vercel (CLAUDE.md §3) — um único
+  // hop confiável. Sem isso, Express nunca confia em X-Forwarded-For e
+  // req.ip cai no socket da Vercel (o mesmo para todo mundo); com isso,
+  // Express usa o valor mais à direita do header como o IP real do
+  // cliente, ignorando qualquer prefixo forjado que o próprio cliente
+  // tenha enviado (base do rate limit em rateLimit.ts).
+  app.set("trust proxy", 1);
   app.use(express.json({ limit: "50mb" }));
   app.use(express.urlencoded({ limit: "50mb", extended: true }));
   registerAccessRoutes(app);

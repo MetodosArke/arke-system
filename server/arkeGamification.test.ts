@@ -246,6 +246,17 @@ describe("computeScoreAluno — desafios", () => {
     }
   });
 
+  it("respeita um override manual concluido=false mesmo quando o cálculo automático diria que sim", async () => {
+    mockVazio();
+    vi.spyOn(supabaseAdmin, "listDesafios").mockResolvedValue([{ ...desafioBase, tipo: "sem_alcool", meta_valor: 1, data_inicio: "2020-09-01", data_fim: "2020-09-15", pontos: 12 }]);
+    vi.spyOn(supabaseAdmin, "listDietaAdesaoPeriodo").mockResolvedValue([dieta("2020-09-05", { consumiu_alcool: false })]);
+    vi.spyOn(supabaseAdmin, "listDesafioProgressoForAluno").mockResolvedValue([{ id: "dp1", desafio_id: desafioBase.id, aluno_id: ALUNO_ID, organization_id: ORG_ID, concluido: false, valor_atual: null, concluido_por: "staff-1", concluido_em: "2020-09-20T00:00:00.000Z", origem: "manual" as const, created_at: "", updated_at: "" }]);
+    const result = await computeScoreAluno(ALUNO_ID, ORG_ID, DESDE, ATE);
+    // A equipe negou crédito manualmente (origem='manual', concluido=false):
+    // o cálculo automático não pode reverter esse override na pontuação exibida.
+    expect(result.performance.desafios.total).toBe(0);
+  });
+
   it("ignora um desafio do tipo 'livre' sem progresso manual (nunca calculado automaticamente)", async () => {
     mockVazio();
     vi.spyOn(supabaseAdmin, "listDesafios").mockResolvedValue([{ ...desafioBase, tipo: "livre", meta_valor: null, data_inicio: "2020-09-01", data_fim: "2020-09-30", pontos: 50 }]);

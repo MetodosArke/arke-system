@@ -15,6 +15,7 @@ import {
   createMembershipPlan,
   createTurma,
   listAlunos,
+  listLeadsForOrganization,
   listMembershipPlans,
   listTurmasForOrganization,
   normalizeEmail,
@@ -171,6 +172,12 @@ async function validateAlunos(rows: ImportRow[], organizationId: string): Promis
   const unidadePorNome = new Map(unidades.map((u) => [u.name.toLowerCase(), u.id]));
   const seenCpfs = new Set<string>();
   const seenEmails = new Set<string>();
+  // Sem CPF nem e-mail (aluno menor, estrangeiro etc.), nome+nascimento é o
+  // único sinal disponível para não duplicar ao reimportar o mesmo arquivo —
+  // os índices únicos do banco são parciais (só cpf/email não nulos) e não
+  // pegam esse caso.
+  const nomeDataExistentes = new Set(existentesAlunos.filter((a) => !a.cpf && !a.email).map((a) => `${a.nome.trim().toLowerCase()}|${a.data_nascimento ?? ""}`));
+  const seenNomeData = new Set<string>();
 
   for (let index = 0; index < rows.length; index++) {
     const row = rows[index];
@@ -236,6 +243,11 @@ async function validateAlunos(rows: ImportRow[], organizationId: string): Promis
 
     if (cpf) seenCpfs.add(cpf);
     if (email) seenEmails.add(email);
+    if (!cpf && !email) {
+      const nomeDataKey = `${nome.trim().toLowerCase()}|${dataNascimento ?? ""}`;
+      if (nomeDataExistentes.has(nomeDataKey) || seenNomeData.has(nomeDataKey)) { errors.push({ row: rowNumber, campo: "nome", motivo: "Aluno com este nome (e data de nascimento) já cadastrado — sem CPF/e-mail para confirmar que é outra pessoa." }); continue; }
+      seenNomeData.add(nomeDataKey);
+    }
     valid.push({ row: rowNumber, data: {
       organizationId,
       unitId,
@@ -259,18 +271,33 @@ async function validateAlunos(rows: ImportRow[], organizationId: string): Promis
 
 type LeadInput = Parameters<typeof createLead>[0];
 
-function validateLeads(rows: ImportRow[], organizationId: string): ValidationResult<LeadInput> {
+async function validateLeads(rows: ImportRow[], organizationId: string): Promise<ValidationResult<LeadInput>> {
   const valid: ValidatedRow<LeadInput>[] = [];
   const errors: ImportRowError[] = [];
+  const existentes = await listLeadsForOrganization(organizationId);
+  // Não há constraint único em `leads` — sem isso, reimportar o mesmo
+  // arquivo (ou um retry depois de falha de rede) duplica todo lead de
+  // novo. E-mail é o sinal mais forte; telefone (só dígitos) é o
+  // fallback quando não há e-mail.
+  const emailsExistentes = new Set(existentes.map((l) => l.email).filter(Boolean).map((e) => normalizeEmail(e as string)));
+  const telefonesExistentes = new Set(existentes.map((l) => l.telefone?.replace(/\D/g, "")).filter(Boolean) as string[]);
+  const seenEmails = new Set<string>();
+  const seenTelefones = new Set<string>();
   rows.forEach((row, index) => {
     const rowNumber = index + 2;
     const nome = cell(row, "nome");
     if (!nome) return errors.push({ row: rowNumber, campo: "nome", motivo: "Nome é obrigatório." });
-    const email = cell(row, "email");
-    if (email && !EMAIL_RE.test(email)) return errors.push({ row: rowNumber, campo: "email", motivo: "E-mail inválido." });
-    const telefone = cell(row, "telefone");
+    const emailRaw = cell(row, "email");
+    if (emailRaw && !EMAIL_RE.test(emailRaw)) return errors.push({ row: rowNumber, campo: "email", motivo: "E-mail inválido." });
+    const email = emailRaw ? normalizeEmail(emailRaw) : undefined;
+    const telefoneRaw = cell(row, "telefone");
+    const telefone = telefoneRaw?.replace(/\D/g, "");
     if (!email && !telefone) return errors.push({ row: rowNumber, campo: "telefone", motivo: "Informe e-mail ou telefone." });
-    valid.push({ row: rowNumber, data: { organizationId, nome, telefone, email, origem: cell(row, "origem"), interesse: cell(row, "interesse"), notas: cell(row, "notas") } });
+    if (email && (emailsExistentes.has(email) || seenEmails.has(email))) return errors.push({ row: rowNumber, campo: "email", motivo: "Já existe um lead com este e-mail nesta organização." });
+    if (!email && telefone && (telefonesExistentes.has(telefone) || seenTelefones.has(telefone))) return errors.push({ row: rowNumber, campo: "telefone", motivo: "Já existe um lead com este telefone nesta organização." });
+    if (email) seenEmails.add(email);
+    if (telefone) seenTelefones.add(telefone);
+    valid.push({ row: rowNumber, data: { organizationId, nome, telefone: telefoneRaw, email: emailRaw, origem: cell(row, "origem"), interesse: cell(row, "interesse"), notas: cell(row, "notas") } });
   });
   return { valid, errors };
 }
@@ -308,10 +335,18 @@ export async function previewImport(entity: ImportEntity, rows: ImportRow[], org
   return { validRows: result.valid.length, errorRows: result.errors.length, errors: result.errors.slice(0, 200), amostra: result.valid.slice(0, 20).map((v) => v.data) };
 }
 
+// Grava um lote de cada vez em paralelo em vez de 1 requisição HTTP ao
+// Supabase por linha, sequencialmente — com centenas/milhares de linhas
+// (implantação de um cliente novo), o custo sequencial se aproxima do
+// timeout de 60s da função serverless da Vercel (vercel.json). Cada linha
+// já foi deduplicada em memória durante a validação (antes deste loop
+// rodar), então inseri-las fora de ordem é seguro.
+const COMMIT_CONCURRENCY = 10;
+
 export async function commitImport(entity: ImportEntity, rows: ImportRow[], organizationId: string, actorUserId: string): Promise<{ inserted: number; errors: ImportRowError[] }> {
   const result = await runValidation(entity, rows, organizationId);
   let inserted = 0;
-  for (const item of result.valid) {
+  const insertOne = async (item: ValidatedRow<unknown>) => {
     try {
       switch (entity) {
         case "unidades": { const data = item.data as UnidadeInput; await createOrganizationUnit({ organizationId, name: data.name, slug: data.slug, city: data.city }); break; }
@@ -324,6 +359,9 @@ export async function commitImport(entity: ImportEntity, rows: ImportRow[], orga
     } catch (error) {
       result.errors.push({ row: item.row, motivo: error instanceof Error ? error.message : "Falha ao gravar esta linha." });
     }
+  };
+  for (let start = 0; start < result.valid.length; start += COMMIT_CONCURRENCY) {
+    await Promise.all(result.valid.slice(start, start + COMMIT_CONCURRENCY).map(insertOne));
   }
   return { inserted, errors: result.errors };
 }

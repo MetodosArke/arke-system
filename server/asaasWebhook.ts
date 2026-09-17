@@ -18,8 +18,14 @@ export function registerAsaasWebhook(app: Express) {
     const body = req.body as AsaasEvent;
     if (!body?.id || !body.event) return res.status(400).json({ received: false, error: "invalid event" });
     try {
+      // upsertAsaasPayment é idempotente (upsert por asaas_id) — roda antes
+      // do registro de dedup, não depois. Na ordem antiga, uma falha aqui
+      // depois do evento já marcado como processado fazia o retry do Asaas
+      // ser tratado como duplicado e o pagamento nunca era gravado. Nesta
+      // ordem, repetir esta chamada (retry ou reentrega) nunca tem efeito
+      // colateral ruim — só reescreve o mesmo estado.
+      if (body.payment) await upsertAsaasPayment(body.payment, body.event);
       const result = await persistAsaasEvent({ eventId: body.id, event: body.event, occurredAt: body.dateCreated, payload: body as Record<string, unknown> });
-      if (!result.duplicate && body.payment) await upsertAsaasPayment(body.payment, body.event);
       return res.status(200).json({ received: true, duplicate: result.duplicate });
     } catch (error) {
       console.error("[Asaas webhook] failed", error);

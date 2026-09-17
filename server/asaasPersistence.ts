@@ -22,10 +22,24 @@ export async function persistAsaasEvent(input: { eventId: string; event: string;
     await supabaseRequest("asaas_webhook_events", { method: "POST", body: JSON.stringify({ event_id: input.eventId, event: input.event, occurred_at: input.occurredAt ?? new Date().toISOString(), payload: input.payload }) });
     return { duplicate: false };
   } catch (error) {
-    if (String(error).includes("409") || String(error).includes("23505")) return { duplicate: true };
+    // Checa a constraint específica (não só "409"/"23505" genérico, que
+    // tratava qualquer outro conflito futuro como se já fosse este evento
+    // processado, pulando upsertAsaasPayment sem nunca ter persistido nada).
+    if (String(error).includes("asaas_webhook_events_event_id_key")) return { duplicate: true };
     throw error;
   }
 }
+
+// PAYMENT_DELETED e PAYMENT_PARTIALLY_REFUNDED são os dois eventos assinados
+// (ver createAsaasWebhook) em que o campo `payment.status` do Asaas não
+// necessariamente reflete essa mudança — sem isso, o financeiro continuava
+// contando uma cobrança estornada/apagada como pendente ou recebida.
+// PAYMENT_RESTORED (desfaz um delete) não precisa de override: o próprio
+// payment.status já volta a refletir o estado real quando isso acontece.
+const EVENT_STATUS_OVERRIDE: Record<string, string> = {
+  PAYMENT_DELETED: "DELETED",
+  PAYMENT_PARTIALLY_REFUNDED: "PARTIALLY_REFUNDED",
+};
 
 export async function upsertAsaasPayment(payment: Json, event: string, organizationId?: string) {
   const asaasId = String(payment.id ?? "");
@@ -34,7 +48,8 @@ export async function upsertAsaasPayment(payment: Json, event: string, organizat
   // atualização vinda do webhook não inclui essa coluna no body, então o
   // merge-duplicates preserva o organization_id já persistido em vez de
   // sobrescrevê-lo com null.
-  await supabaseRequest("asaas_payments", { method: "POST", headers: { Prefer: "resolution=merge-duplicates,return=representation" }, body: JSON.stringify({ asaas_id: asaasId, ...(organizationId ? { organization_id: organizationId } : {}), customer_id: payment.customer ?? null, value: payment.value ?? null, billing_type: payment.billingType ?? null, due_date: payment.dueDate ?? null, status: payment.status ?? event, invoice_url: payment.invoiceUrl ?? null, bank_slip_url: payment.bankSlipUrl ?? null, raw_payload: payment, updated_at: new Date().toISOString() }) }, "?on_conflict=asaas_id");
+  const status = EVENT_STATUS_OVERRIDE[event] ?? (payment.status as string | undefined) ?? event;
+  await supabaseRequest("asaas_payments", { method: "POST", headers: { Prefer: "resolution=merge-duplicates,return=representation" }, body: JSON.stringify({ asaas_id: asaasId, ...(organizationId ? { organization_id: organizationId } : {}), customer_id: payment.customer ?? null, value: payment.value ?? null, billing_type: payment.billingType ?? null, due_date: payment.dueDate ?? null, status, invoice_url: payment.invoiceUrl ?? null, bank_slip_url: payment.bankSlipUrl ?? null, raw_payload: payment, updated_at: new Date().toISOString() }) }, "?on_conflict=asaas_id");
 }
 
 export async function listAsaasPaymentsForOrganization(organizationId: string, limit = 20) {

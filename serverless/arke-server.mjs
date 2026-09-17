@@ -98,8 +98,7 @@ function assertRateLimit(key, max, windowMs) {
   }
 }
 function rateLimitKey(req, bucket) {
-  const forwardedFor = typeof req.headers["x-forwarded-for"] === "string" ? req.headers["x-forwarded-for"].split(",")[0]?.trim() : void 0;
-  return `${bucket}:${forwardedFor || req.ip || "unknown"}`;
+  return `${bucket}:${req.ip || "unknown"}`;
 }
 
 // server/db.ts
@@ -160,14 +159,19 @@ async function persistAsaasEvent(input) {
     await supabaseRequest("asaas_webhook_events", { method: "POST", body: JSON.stringify({ event_id: input.eventId, event: input.event, occurred_at: input.occurredAt ?? (/* @__PURE__ */ new Date()).toISOString(), payload: input.payload }) });
     return { duplicate: false };
   } catch (error) {
-    if (String(error).includes("409") || String(error).includes("23505")) return { duplicate: true };
+    if (String(error).includes("asaas_webhook_events_event_id_key")) return { duplicate: true };
     throw error;
   }
 }
+var EVENT_STATUS_OVERRIDE = {
+  PAYMENT_DELETED: "DELETED",
+  PAYMENT_PARTIALLY_REFUNDED: "PARTIALLY_REFUNDED"
+};
 async function upsertAsaasPayment(payment, event, organizationId) {
   const asaasId = String(payment.id ?? "");
   if (!asaasId) return;
-  await supabaseRequest("asaas_payments", { method: "POST", headers: { Prefer: "resolution=merge-duplicates,return=representation" }, body: JSON.stringify({ asaas_id: asaasId, ...organizationId ? { organization_id: organizationId } : {}, customer_id: payment.customer ?? null, value: payment.value ?? null, billing_type: payment.billingType ?? null, due_date: payment.dueDate ?? null, status: payment.status ?? event, invoice_url: payment.invoiceUrl ?? null, bank_slip_url: payment.bankSlipUrl ?? null, raw_payload: payment, updated_at: (/* @__PURE__ */ new Date()).toISOString() }) }, "?on_conflict=asaas_id");
+  const status = EVENT_STATUS_OVERRIDE[event] ?? payment.status ?? event;
+  await supabaseRequest("asaas_payments", { method: "POST", headers: { Prefer: "resolution=merge-duplicates,return=representation" }, body: JSON.stringify({ asaas_id: asaasId, ...organizationId ? { organization_id: organizationId } : {}, customer_id: payment.customer ?? null, value: payment.value ?? null, billing_type: payment.billingType ?? null, due_date: payment.dueDate ?? null, status, invoice_url: payment.invoiceUrl ?? null, bank_slip_url: payment.bankSlipUrl ?? null, raw_payload: payment, updated_at: (/* @__PURE__ */ new Date()).toISOString() }) }, "?on_conflict=asaas_id");
 }
 async function listAsaasPaymentsForOrganization(organizationId, limit = 20) {
   return supabaseRequest("asaas_payments", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}&order=updated_at.desc&limit=${limit}`);
@@ -410,6 +414,10 @@ async function deleteGlobalRoutine(idValue) {
 async function upsertGlobalAccessRule(input) {
   const rows = await request("acervo_acesso_regras", { method: "POST", body: JSON.stringify(input), headers: { Prefer: "resolution=merge-duplicates,return=representation" } });
   return rows[0];
+}
+async function getGlobalAccessRule(modulo, plano) {
+  const rows = await request("acervo_acesso_regras", {}, `?select=*&modulo=eq.${encodeURIComponent(modulo)}&plano=eq.${encodeURIComponent(plano)}&limit=1`);
+  return rows[0] ?? null;
 }
 async function deleteGlobalAccessRule(idValue) {
   await request("acervo_acesso_regras", { method: "DELETE" }, `?id=eq.${encodeURIComponent(idValue)}`);
@@ -926,8 +934,8 @@ async function createImportBatch(input) {
   const rows = await request("import_batches", { method: "POST", body: JSON.stringify({ organization_id: input.organizationId, entity: input.entity, file_name: input.fileName, total_rows: input.totalRows, valid_rows: input.validRows, error_rows: input.errorRows, errors: input.errors, uploaded_by: input.uploadedBy }) });
   return rows[0];
 }
-async function markImportBatchCommitted(id2, organizationId) {
-  const rows = await request("import_batches", { method: "PATCH", body: JSON.stringify({ status: "committed", committed_at: (/* @__PURE__ */ new Date()).toISOString() }) }, `?id=eq.${encodeURIComponent(id2)}&organization_id=eq.${encodeURIComponent(organizationId)}`);
+async function finalizeImportBatch(id2, organizationId, input) {
+  const rows = await request("import_batches", { method: "PATCH", body: JSON.stringify({ status: "committed", committed_at: (/* @__PURE__ */ new Date()).toISOString(), valid_rows: input.validRows, error_rows: input.errorRows, errors: input.errors }) }, `?id=eq.${encodeURIComponent(id2)}&organization_id=eq.${encodeURIComponent(organizationId)}`);
   return rows[0];
 }
 async function listImportBatches(organizationId) {
@@ -1977,6 +1985,8 @@ async function validateAlunos(rows, organizationId) {
   const unidadePorNome = new Map(unidades.map((u) => [u.name.toLowerCase(), u.id]));
   const seenCpfs = /* @__PURE__ */ new Set();
   const seenEmails = /* @__PURE__ */ new Set();
+  const nomeDataExistentes = new Set(existentesAlunos.filter((a) => !a.cpf && !a.email).map((a) => `${a.nome.trim().toLowerCase()}|${a.data_nascimento ?? ""}`));
+  const seenNomeData = /* @__PURE__ */ new Set();
   for (let index = 0; index < rows.length; index++) {
     const row = rows[index];
     const rowNumber = index + 2;
@@ -2065,6 +2075,14 @@ async function validateAlunos(rows, organizationId) {
     }
     if (cpf) seenCpfs.add(cpf);
     if (email) seenEmails.add(email);
+    if (!cpf && !email) {
+      const nomeDataKey = `${nome.trim().toLowerCase()}|${dataNascimento ?? ""}`;
+      if (nomeDataExistentes.has(nomeDataKey) || seenNomeData.has(nomeDataKey)) {
+        errors.push({ row: rowNumber, campo: "nome", motivo: "Aluno com este nome (e data de nascimento) j\xE1 cadastrado \u2014 sem CPF/e-mail para confirmar que \xE9 outra pessoa." });
+        continue;
+      }
+      seenNomeData.add(nomeDataKey);
+    }
     valid.push({ row: rowNumber, data: {
       organizationId,
       unitId,
@@ -2083,18 +2101,29 @@ async function validateAlunos(rows, organizationId) {
   }
   return { valid, errors };
 }
-function validateLeads(rows, organizationId) {
+async function validateLeads(rows, organizationId) {
   const valid = [];
   const errors = [];
+  const existentes = await listLeadsForOrganization(organizationId);
+  const emailsExistentes = new Set(existentes.map((l) => l.email).filter(Boolean).map((e) => normalizeEmail(e)));
+  const telefonesExistentes = new Set(existentes.map((l) => l.telefone?.replace(/\D/g, "")).filter(Boolean));
+  const seenEmails = /* @__PURE__ */ new Set();
+  const seenTelefones = /* @__PURE__ */ new Set();
   rows.forEach((row, index) => {
     const rowNumber = index + 2;
     const nome = cell(row, "nome");
     if (!nome) return errors.push({ row: rowNumber, campo: "nome", motivo: "Nome \xE9 obrigat\xF3rio." });
-    const email = cell(row, "email");
-    if (email && !EMAIL_RE.test(email)) return errors.push({ row: rowNumber, campo: "email", motivo: "E-mail inv\xE1lido." });
-    const telefone = cell(row, "telefone");
+    const emailRaw = cell(row, "email");
+    if (emailRaw && !EMAIL_RE.test(emailRaw)) return errors.push({ row: rowNumber, campo: "email", motivo: "E-mail inv\xE1lido." });
+    const email = emailRaw ? normalizeEmail(emailRaw) : void 0;
+    const telefoneRaw = cell(row, "telefone");
+    const telefone = telefoneRaw?.replace(/\D/g, "");
     if (!email && !telefone) return errors.push({ row: rowNumber, campo: "telefone", motivo: "Informe e-mail ou telefone." });
-    valid.push({ row: rowNumber, data: { organizationId, nome, telefone, email, origem: cell(row, "origem"), interesse: cell(row, "interesse"), notas: cell(row, "notas") } });
+    if (email && (emailsExistentes.has(email) || seenEmails.has(email))) return errors.push({ row: rowNumber, campo: "email", motivo: "J\xE1 existe um lead com este e-mail nesta organiza\xE7\xE3o." });
+    if (!email && telefone && (telefonesExistentes.has(telefone) || seenTelefones.has(telefone))) return errors.push({ row: rowNumber, campo: "telefone", motivo: "J\xE1 existe um lead com este telefone nesta organiza\xE7\xE3o." });
+    if (email) seenEmails.add(email);
+    if (telefone) seenTelefones.add(telefone);
+    valid.push({ row: rowNumber, data: { organizationId, nome, telefone: telefoneRaw, email: emailRaw, origem: cell(row, "origem"), interesse: cell(row, "interesse"), notas: cell(row, "notas") } });
   });
   return { valid, errors };
 }
@@ -2123,10 +2152,11 @@ async function previewImport(entity, rows, organizationId) {
   const result = await runValidation(entity, rows, organizationId);
   return { validRows: result.valid.length, errorRows: result.errors.length, errors: result.errors.slice(0, 200), amostra: result.valid.slice(0, 20).map((v) => v.data) };
 }
+var COMMIT_CONCURRENCY = 10;
 async function commitImport(entity, rows, organizationId, actorUserId) {
   const result = await runValidation(entity, rows, organizationId);
   let inserted = 0;
-  for (const item of result.valid) {
+  const insertOne = async (item) => {
     try {
       switch (entity) {
         case "unidades": {
@@ -2159,6 +2189,9 @@ async function commitImport(entity, rows, organizationId, actorUserId) {
     } catch (error) {
       result.errors.push({ row: item.row, motivo: error instanceof Error ? error.message : "Falha ao gravar esta linha." });
     }
+  };
+  for (let start = 0; start < result.valid.length; start += COMMIT_CONCURRENCY) {
+    await Promise.all(result.valid.slice(start, start + COMMIT_CONCURRENCY).map(insertOne));
   }
   return { inserted, errors: result.errors };
 }
@@ -2286,7 +2319,8 @@ async function pontosDesafios(alunoId, organizationId, desde, ate, hoje) {
   const aplicaveis = desafiosOrg.filter((d) => d.para_todos || participandoIds.has(d.id));
   const noPeriodo = aplicaveis.filter((d) => d.data_fim >= desde && d.data_fim <= ate);
   const pontosPorDesafio = await Promise.all(noPeriodo.map(async (desafio) => {
-    if (progressoByDesafio.get(desafio.id)?.concluido) return desafio.pontos;
+    const manual = progressoByDesafio.get(desafio.id);
+    if (manual?.origem === "manual") return manual.concluido ? desafio.pontos : 0;
     const auto = await calcAuto(alunoId, desafio);
     if (!auto) return 0;
     const encerrado = desafio.data_fim < hoje;
@@ -3483,7 +3517,25 @@ var appRouter = router({
       const profile = await assertStaffForAluno(ctx.user.id, input.alunoId);
       return updateStudentMatricula(input.alunoId, profile.organization_id, { unitId: input.unitId, matriculaEm: input.matriculaEm });
     }),
-    exercises: protectedProcedure.query(() => listExercisesCatalog()),
+    // Sem organizationId: aluno consultando seu próprio catálogo (para ler
+    // nome/vídeo de exercícios do treino publicado, nunca para editar).
+    // Com organizationId: staff montando prescrição — confirma que é da
+    // equipe da organização antes de qualquer coisa.
+    exercises: protectedProcedure.input(z2.object({ organizationId: z2.string().uuid().optional() }).optional()).query(async ({ ctx, input }) => {
+      let organizationId = input?.organizationId;
+      if (organizationId) {
+        await assertStaffOfOrganization(ctx.user.id, organizationId);
+      } else {
+        const profile = await getProfileByUserId(ctx.user.id);
+        organizationId = profile?.organization_id ?? void 0;
+      }
+      if (!organizationId) return [];
+      const organization = await getOrganization(organizationId);
+      if (!organization) return [];
+      const rule = await getGlobalAccessRule(organization.module, organization.plan);
+      if (rule && !rule.habilitado) return [];
+      return listExercisesCatalog();
+    }),
     treinos: router({
       list: protectedProcedure.input(z2.object({ alunoId: z2.string().uuid() })).query(async ({ ctx, input }) => {
         await assertStaffForAluno(ctx.user.id, input.alunoId);
@@ -4420,9 +4472,9 @@ var appRouter = router({
     }),
     commit: protectedProcedure.input(z2.object({ organizationId: z2.string().uuid(), entity: z2.enum(["unidades", "planos", "alunos", "leads", "turmas"]), fileName: z2.string().trim().min(1).max(200), rows: z2.array(z2.record(z2.string(), z2.string())).min(1).max(1e4) })).mutation(async ({ ctx, input }) => {
       await ownerOrAdmin(ctx.user.id, input.organizationId);
+      const batch = await createImportBatch({ organizationId: input.organizationId, entity: input.entity, fileName: input.fileName, totalRows: input.rows.length, validRows: 0, errorRows: 0, errors: [], uploadedBy: ctx.user.id });
       const result = await commitImport(input.entity, input.rows, input.organizationId, ctx.user.id);
-      const batch = await createImportBatch({ organizationId: input.organizationId, entity: input.entity, fileName: input.fileName, totalRows: input.rows.length, validRows: result.inserted, errorRows: result.errors.length, errors: result.errors, uploadedBy: ctx.user.id });
-      await markImportBatchCommitted(batch.id, input.organizationId);
+      await finalizeImportBatch(batch.id, input.organizationId, { validRows: result.inserted, errorRows: result.errors.length, errors: result.errors });
       return { batchId: batch.id, inserted: result.inserted, errors: result.errors };
     })
   })
@@ -4584,8 +4636,8 @@ function registerAsaasWebhook(app) {
     const body = req.body;
     if (!body?.id || !body.event) return res.status(400).json({ received: false, error: "invalid event" });
     try {
+      if (body.payment) await upsertAsaasPayment(body.payment, body.event);
       const result = await persistAsaasEvent({ eventId: body.id, event: body.event, occurredAt: body.dateCreated, payload: body });
-      if (!result.duplicate && body.payment) await upsertAsaasPayment(body.payment, body.event);
       return res.status(200).json({ received: true, duplicate: result.duplicate });
     } catch (error) {
       console.error("[Asaas webhook] failed", error);
@@ -4617,11 +4669,15 @@ async function runArkeRepasseMensal() {
         value: alunosAtivos * ARKE_ALUNO_WHOLESALE_CENTS / 100,
         dueDate,
         billingType: "UNDEFINED",
-        description: `Repasse M\xF3dulo Arke \u2014 ${alunosAtivos} aluno(s) com Arke x R$59,90`
+        description: `Repasse M\xF3dulo Arke \u2014 ${alunosAtivos} aluno(s) com Arke x ${formatBRL(ARKE_ALUNO_WHOLESALE_CENTS)}`
       });
-      await upsertAsaasPayment(payment, "PAYMENT_CREATED", arkeModule.organization_id);
       await markArkeRepasseCharged(arkeModule.organization_id, hoje.toISOString().slice(0, 10));
       resultado.organizacoesCobradas += 1;
+      try {
+        await upsertAsaasPayment(payment, "PAYMENT_CREATED", arkeModule.organization_id);
+      } catch (persistError) {
+        captureException2(persistError, { job: "arke_repasse_mensal.upsertAsaasPayment", organizationId: arkeModule.organization_id, asaasPaymentId: payment?.id });
+      }
     } catch (error) {
       captureException2(error, { job: "arke_repasse_mensal", organizationId: arkeModule.organization_id });
       resultado.falhas += 1;

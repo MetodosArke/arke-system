@@ -80,7 +80,7 @@ export function ProfessionalDashboard({ onToast }: { onToast: (toast: Toast) => 
   const selectedTreino = treinos.find((treino) => treino.id === treinoId);
   const treinoExerciciosQuery = trpc.prescricao.treinos.exercicios.useQuery({ treinoId: treinoId ?? "" }, { enabled: Boolean(treinoId) });
   const treinoExercicios = treinoExerciciosQuery.data ?? [];
-  const exercisesQuery = trpc.prescricao.exercises.useQuery();
+  const exercisesQuery = trpc.prescricao.exercises.useQuery({ organizationId: activeOrgId }, { enabled: Boolean(activeOrgId) });
   const exercises = exercisesQuery.data ?? [];
   const [exercicioForm, setExercicioForm] = useState(emptyExercicio);
   const refreshTreinos = () => { utils.prescricao.treinos.list.invalidate({ alunoId }); utils.prescricao.treinos.exercicios.invalidate({ treinoId: treinoId ?? "" }); };

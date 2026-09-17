@@ -165,7 +165,12 @@ async function pontosDesafios(alunoId: string, organizationId: string, desde: st
   const noPeriodo = aplicaveis.filter((d) => d.data_fim >= desde && d.data_fim <= ate);
 
   const pontosPorDesafio = await Promise.all(noPeriodo.map(async (desafio) => {
-    if (progressoByDesafio.get(desafio.id)?.concluido) return desafio.pontos;
+    const manual = progressoByDesafio.get(desafio.id);
+    // origem='manual' é a equipe sobrescrevendo o valor calculado — vale
+    // mesmo quando concluido=false (ex.: negar crédito por autorrelato
+    // suspeito). Sem isso, o cron respeitava o override, mas o cálculo de
+    // pontuação exibido ao aluno recalculava automático por cima dele.
+    if (manual?.origem === "manual") return manual.concluido ? desafio.pontos : 0;
     const auto = await calcAuto(alunoId, desafio);
     if (!auto) return 0;
     const encerrado = desafio.data_fim < hoje;
