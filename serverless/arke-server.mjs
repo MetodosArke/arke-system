@@ -1912,7 +1912,19 @@ function parseDateBr(raw) {
   return date.toISOString().slice(0, 10);
 }
 function parseNumber(raw) {
-  const normalized = raw.replace(/\./g, "").replace(",", ".").replace(/[^\d.-]/g, "");
+  const cleaned = raw.trim().replace(/[^\d.,-]/g, "");
+  if (!cleaned) return null;
+  const hasComma = cleaned.includes(",");
+  const hasDot = cleaned.includes(".");
+  let normalized = cleaned;
+  if (hasComma && hasDot) {
+    normalized = cleaned.lastIndexOf(",") > cleaned.lastIndexOf(".") ? cleaned.replace(/\./g, "").replace(",", ".") : cleaned.replace(/,/g, "");
+  } else if (hasComma) {
+    normalized = cleaned.replace(",", ".");
+  } else if (hasDot) {
+    const parts = cleaned.split(".");
+    normalized = parts.length > 2 ? parts.join("") : cleaned;
+  }
   const value = Number(normalized);
   return Number.isFinite(value) ? value : null;
 }
@@ -2580,7 +2592,9 @@ async function listTurnstileIntegrationsForOrganization(organizationId) {
   return rows.map(mapTurnstileRow);
 }
 async function saveTurnstileIntegration(input) {
-  const existingRows = await request3("turnstile_devices", {}, `?select=config&unit_id=eq.${encodeURIComponent(input.unitId)}&limit=1`);
+  const unit = await request3("saas_units", {}, `?select=id&id=eq.${encodeURIComponent(input.unitId)}&organization_id=eq.${encodeURIComponent(input.organizationId)}&limit=1`);
+  if (!unit[0]) throw new Error("Unidade n\xE3o encontrada nesta organiza\xE7\xE3o.");
+  const existingRows = await request3("turnstile_devices", {}, `?select=config&unit_id=eq.${encodeURIComponent(input.unitId)}&organization_id=eq.${encodeURIComponent(input.organizationId)}&limit=1`);
   const mergedConfig = { ...existingRows[0]?.config ?? {} };
   for (const [key, value] of Object.entries(input.config)) if (value) mergedConfig[key] = value;
   await request3("turnstile_devices", { method: "POST", headers: { Prefer: "resolution=merge-duplicates,return=representation" }, body: JSON.stringify({
@@ -2616,15 +2630,15 @@ async function getTurnstileDeviceById(deviceId) {
   const rows = await request3("turnstile_devices", {}, `?select=*,saas_units(name)&id=eq.${encodeURIComponent(deviceId)}&limit=1`);
   return rows[0] ?? null;
 }
-async function recordTurnstileHeartbeat(deviceId) {
+async function recordTurnstileHeartbeat(deviceId, organizationId) {
   const device = await getTurnstileDeviceById(deviceId);
-  if (!device) return { success: false };
+  if (!device || device.organization_id !== organizationId) return { success: false };
   await request3("turnstile_devices", { method: "PATCH", body: JSON.stringify({ status: "online", last_ping_at: (/* @__PURE__ */ new Date()).toISOString() }) }, `?id=eq.${encodeURIComponent(deviceId)}`);
   return { success: true };
 }
-async function reportTurnstileTestResult(deviceId, result, message) {
+async function reportTurnstileTestResult(deviceId, organizationId, result, message) {
   const device = await getTurnstileDeviceById(deviceId);
-  if (!device) return { success: false };
+  if (!device || device.organization_id !== organizationId) return { success: false };
   const now = (/* @__PURE__ */ new Date()).toISOString();
   const patch = { last_test_at: now, last_test_result: result, last_test_message: message ?? null };
   if (result === "success") {
@@ -3765,6 +3779,8 @@ var appRouter = router({
         }),
         set: protectedProcedure.input(z2.object({ desafioId: z2.string().uuid(), alunoId: z2.string().uuid(), concluido: z2.boolean(), valorAtual: z2.number().optional() })).mutation(async ({ ctx, input }) => {
           const desafio = await assertStaffForDesafio(ctx.user.id, input.desafioId);
+          const aluno = await getProfileByUserId(input.alunoId);
+          if (aluno?.organization_id !== desafio.organization_id) throw new Error("Aluno n\xE3o pertence a esta organiza\xE7\xE3o.");
           return setDesafioProgresso({ desafioId: input.desafioId, alunoId: input.alunoId, organizationId: desafio.organization_id, concluido: input.concluido, valorAtual: input.valorAtual, concluidoPor: ctx.user.id, origem: "manual" });
         })
       })
@@ -3819,6 +3835,8 @@ var appRouter = router({
         }),
         set: protectedProcedure.input(z2.object({ competicaoId: z2.string().uuid(), alunoId: z2.string().uuid(), valor: z2.number() })).mutation(async ({ ctx, input }) => {
           const competicao = await assertStaffForCompeticao(ctx.user.id, input.competicaoId);
+          const aluno = await getProfileByUserId(input.alunoId);
+          if (aluno?.organization_id !== competicao.organization_id) throw new Error("Aluno n\xE3o pertence a esta organiza\xE7\xE3o.");
           return setCompeticaoPontuacao({ competicaoId: input.competicaoId, alunoId: input.alunoId, organizationId: competicao.organization_id, valor: input.valor, atualizadoPor: ctx.user.id, origem: "manual" });
         })
       })
@@ -4035,6 +4053,8 @@ var appRouter = router({
         await assertAlunoTemArke(ctx.user.id);
         const profile = await getProfileByUserId(ctx.user.id);
         if (!profile?.organization_id) throw new Error("Aluno sem organiza\xE7\xE3o vinculada.");
+        const post = await getFeedPost(input.postId);
+        if (!post || post.organization_id !== profile.organization_id) throw new Error("Publica\xE7\xE3o n\xE3o encontrada.");
         const existing = await getFeedLike(input.postId, ctx.user.id);
         if (existing) {
           await deleteFeedLike(input.postId, ctx.user.id);
@@ -4048,6 +4068,8 @@ var appRouter = router({
           await assertAlunoTemArke(ctx.user.id);
           const profile = await getProfileByUserId(ctx.user.id);
           if (!profile?.organization_id) throw new Error("Aluno sem organiza\xE7\xE3o vinculada.");
+          const post = await getFeedPost(input.postId);
+          if (!post || post.organization_id !== profile.organization_id) throw new Error("Publica\xE7\xE3o n\xE3o encontrada.");
           return createFeedComment({ post_id: input.postId, user_id: ctx.user.id, organization_id: profile.organization_id, content: input.content });
         }),
         delete: protectedProcedure.input(z2.object({ id: z2.string().uuid() })).mutation(async ({ ctx, input }) => {
@@ -4182,6 +4204,8 @@ var appRouter = router({
       }),
       create: protectedProcedure.input(z2.object({ organizationId: z2.string().uuid(), alunoId: z2.string().uuid(), prioridade: z2.enum(["rotina", "atencao", "prioritario", "encaminhamento_profissional"]), descricao: z2.string().trim().max(2e3).optional(), prazo: z2.string().datetime().optional() })).mutation(async ({ ctx, input }) => {
         await assertStaffOfOrganization(ctx.user.id, input.organizationId);
+        const alunoProfile = await getProfileByUserId(input.alunoId);
+        if (alunoProfile?.organization_id !== input.organizationId) throw new Error("Aluno n\xE3o pertence a esta organiza\xE7\xE3o.");
         return createAtendimento({ organizationId: input.organizationId, alunoId: input.alunoId, origem: "manual", prioridade: input.prioridade, descricao: input.descricao, criadoPor: ctx.user.id, prazo: input.prazo });
       }),
       assign: protectedProcedure.input(z2.object({ id: z2.string().uuid() })).mutation(async ({ ctx, input }) => {
@@ -4482,8 +4506,9 @@ function registerAccessRoutes(app) {
         message = "N\xE3o foi poss\xEDvel verificar a matr\xEDcula no momento.";
       }
     }
-    if (decision === "allowed" && organizationId && studentId) {
-      registrarFrequencia({ alunoId: studentId, organizationId, unitId: unitId || void 0, origem: "catraca" }).catch(() => {
+    if (configured && decision === "allowed" && organizationId && studentId) {
+      registrarFrequencia({ alunoId: studentId, organizationId, unitId: unitId || void 0, origem: "catraca" }).catch((error) => {
+        captureException2(error, { route: "access.check-in.registrarFrequencia", organizationId, studentId });
       });
     }
     return res.status(200).json({
@@ -4513,13 +4538,14 @@ function registerAccessRoutes(app) {
   app.post("/api/v1/access/heartbeat", async (req, res) => {
     if (!requireDeviceKey(req, res)) return;
     const deviceId = normalize((req.body ?? {}).deviceId);
-    if (!deviceId) return res.status(400).json({ ok: false, code: "INVALID_PAYLOAD", message: "deviceId \xE9 obrigat\xF3rio." });
+    const organizationId = normalize((req.body ?? {}).organizationId);
+    if (!deviceId || !organizationId) return res.status(400).json({ ok: false, code: "INVALID_PAYLOAD", message: "deviceId e organizationId s\xE3o obrigat\xF3rios." });
     try {
-      const result = await recordTurnstileHeartbeat(deviceId);
+      const result = await recordTurnstileHeartbeat(deviceId, organizationId);
       if (!result.success) return res.status(404).json({ ok: false, code: "DEVICE_NOT_FOUND", message: "Catraca n\xE3o encontrada." });
       return res.status(200).json({ ok: true });
     } catch (error) {
-      captureException2(error, { route: "access.heartbeat", deviceId });
+      captureException2(error, { route: "access.heartbeat", deviceId, organizationId });
       return res.status(502).json({ ok: false, code: "HEARTBEAT_FAILED", message: "N\xE3o foi poss\xEDvel registrar o heartbeat." });
     }
   });
@@ -4527,16 +4553,17 @@ function registerAccessRoutes(app) {
     if (!requireDeviceKey(req, res)) return;
     const body = req.body ?? {};
     const deviceId = normalize(body.deviceId);
+    const organizationId = normalize(body.organizationId);
     const result = body.result;
-    if (!deviceId || result !== "success" && result !== "failed") {
-      return res.status(400).json({ ok: false, code: "INVALID_PAYLOAD", message: "deviceId e result ('success'|'failed') s\xE3o obrigat\xF3rios." });
+    if (!deviceId || !organizationId || result !== "success" && result !== "failed") {
+      return res.status(400).json({ ok: false, code: "INVALID_PAYLOAD", message: "deviceId, organizationId e result ('success'|'failed') s\xE3o obrigat\xF3rios." });
     }
     try {
-      const outcome = await reportTurnstileTestResult(deviceId, result, normalize(body.message) || void 0);
+      const outcome = await reportTurnstileTestResult(deviceId, organizationId, result, normalize(body.message) || void 0);
       if (!outcome.success) return res.status(404).json({ ok: false, code: "DEVICE_NOT_FOUND", message: "Catraca n\xE3o encontrada." });
       return res.status(200).json({ ok: true });
     } catch (error) {
-      captureException2(error, { route: "access.test-result", deviceId });
+      captureException2(error, { route: "access.test-result", deviceId, organizationId });
       return res.status(502).json({ ok: false, code: "TEST_RESULT_FAILED", message: "N\xE3o foi poss\xEDvel registrar o resultado do teste." });
     }
   });

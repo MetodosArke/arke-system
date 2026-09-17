@@ -103,10 +103,15 @@ export async function saveTurnstileIntegration(input: {
   unitId: string; organizationId: string; brand: TurnstileBrand; model?: string; modelId?: string;
   communicationMode?: TurnstileCommunicationMode; port?: number; serialOrKey?: string; config: Record<string, string>; enabled: boolean;
 }) {
+  // A unidade precisa pertencer à mesma organização de quem chama — sem
+  // isso, dava para reatribuir/sequestrar o device de outra organização
+  // (mesma classe de bug corrigida em updateStudentMatricula).
+  const unit = await request<Array<{ id: string }>>("saas_units", {}, `?select=id&id=eq.${encodeURIComponent(input.unitId)}&organization_id=eq.${encodeURIComponent(input.organizationId)}&limit=1`);
+  if (!unit[0]) throw new Error("Unidade não encontrada nesta organização.");
   // Mesma regra do topo do arquivo para os campos secretos da catraca
   // (senha, api_key): campo vazio preserva o valor já salvo, em vez de
   // sobrescrever o config inteiro e apagar a credencial.
-  const existingRows = await request<TurnstileRow[]>("turnstile_devices", {}, `?select=config&unit_id=eq.${encodeURIComponent(input.unitId)}&limit=1`);
+  const existingRows = await request<TurnstileRow[]>("turnstile_devices", {}, `?select=config&unit_id=eq.${encodeURIComponent(input.unitId)}&organization_id=eq.${encodeURIComponent(input.organizationId)}&limit=1`);
   const mergedConfig: Record<string, string> = { ...(existingRows[0]?.config ?? {}) };
   for (const [key, value] of Object.entries(input.config)) if (value) mergedConfig[key] = value;
   await request("turnstile_devices", { method: "POST", headers: { Prefer: "resolution=merge-duplicates,return=representation" }, body: JSON.stringify({
@@ -147,9 +152,13 @@ async function getTurnstileDeviceById(deviceId: string) {
 // Heartbeat (B2): o agente local chama periodicamente para provar que
 // ainda está de pé — sem isso, o status exibido cai para "offline" depois
 // de HEARTBEAT_STALE_MS (ver computeStatus acima).
-export async function recordTurnstileHeartbeat(deviceId: string) {
+export async function recordTurnstileHeartbeat(deviceId: string, organizationId: string) {
   const device = await getTurnstileDeviceById(deviceId);
-  if (!device) return { success: false } as const;
+  // CATRACA_API_KEY hoje é um segredo único compartilhado por todos os
+  // agentes locais (ver todo.md) — até existir chave por dispositivo,
+  // exigir e conferir organizationId aqui evita que um agente autenticado
+  // toque no device de outra organização.
+  if (!device || device.organization_id !== organizationId) return { success: false } as const;
   await request("turnstile_devices", { method: "PATCH", body: JSON.stringify({ status: "online", last_ping_at: new Date().toISOString() }) }, `?id=eq.${encodeURIComponent(deviceId)}`);
   return { success: true } as const;
 }
@@ -160,9 +169,9 @@ export async function recordTurnstileHeartbeat(deviceId: string) {
 // ativo agora); falha não mexe em status/last_ping_at (são fatos
 // diferentes: "não consegui falar com o equipamento agora" não é o mesmo
 // que "o agente está offline").
-export async function reportTurnstileTestResult(deviceId: string, result: TurnstileTestResult, message?: string) {
+export async function reportTurnstileTestResult(deviceId: string, organizationId: string, result: TurnstileTestResult, message?: string) {
   const device = await getTurnstileDeviceById(deviceId);
-  if (!device) return { success: false } as const;
+  if (!device || device.organization_id !== organizationId) return { success: false } as const;
   const now = new Date().toISOString();
   const patch: Json = { last_test_at: now, last_test_result: result, last_test_message: message ?? null };
   if (result === "success") { patch.status = "online"; patch.last_ping_at = now; }

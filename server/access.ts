@@ -96,8 +96,14 @@ export function registerAccessRoutes(app: Express) {
 
     // Registro de frequência é best-effort e nunca atrasa a resposta:
     // a catraca física não pode esperar uma volta ao banco para abrir.
-    if (decision === "allowed" && organizationId && studentId) {
-      registrarFrequencia({ alunoId: studentId, organizationId, unitId: unitId || undefined, origem: "catraca" }).catch(() => {});
+    // Só grava em modo configurado — sem CATRACA_API_KEY não há
+    // dispositivo autenticado nem matrícula verificada, então este bloco
+    // não pode gravar frequência real de aluno/organização nenhum
+    // (ver comentário do modo "demo" acima).
+    if (configured && decision === "allowed" && organizationId && studentId) {
+      registrarFrequencia({ alunoId: studentId, organizationId, unitId: unitId || undefined, origem: "catraca" }).catch((error) => {
+        captureException(error, { route: "access.check-in.registrarFrequencia", organizationId, studentId });
+      });
     }
 
     return res.status(200).json({
@@ -132,13 +138,14 @@ export function registerAccessRoutes(app: Express) {
   app.post("/api/v1/access/heartbeat", async (req: Request, res: Response) => {
     if (!requireDeviceKey(req, res)) return;
     const deviceId = normalize((req.body ?? {}).deviceId);
-    if (!deviceId) return res.status(400).json({ ok: false, code: "INVALID_PAYLOAD", message: "deviceId é obrigatório." });
+    const organizationId = normalize((req.body ?? {}).organizationId);
+    if (!deviceId || !organizationId) return res.status(400).json({ ok: false, code: "INVALID_PAYLOAD", message: "deviceId e organizationId são obrigatórios." });
     try {
-      const result = await recordTurnstileHeartbeat(deviceId);
+      const result = await recordTurnstileHeartbeat(deviceId, organizationId);
       if (!result.success) return res.status(404).json({ ok: false, code: "DEVICE_NOT_FOUND", message: "Catraca não encontrada." });
       return res.status(200).json({ ok: true });
     } catch (error) {
-      captureException(error, { route: "access.heartbeat", deviceId });
+      captureException(error, { route: "access.heartbeat", deviceId, organizationId });
       return res.status(502).json({ ok: false, code: "HEARTBEAT_FAILED", message: "Não foi possível registrar o heartbeat." });
     }
   });
@@ -148,18 +155,19 @@ export function registerAccessRoutes(app: Express) {
   // verdade a rede local e reporta o resultado é o agente, aqui.
   app.post("/api/v1/access/test-result", async (req: Request, res: Response) => {
     if (!requireDeviceKey(req, res)) return;
-    const body = (req.body ?? {}) as { deviceId?: string; result?: string; message?: string };
+    const body = (req.body ?? {}) as { deviceId?: string; organizationId?: string; result?: string; message?: string };
     const deviceId = normalize(body.deviceId);
+    const organizationId = normalize(body.organizationId);
     const result = body.result;
-    if (!deviceId || (result !== "success" && result !== "failed")) {
-      return res.status(400).json({ ok: false, code: "INVALID_PAYLOAD", message: "deviceId e result ('success'|'failed') são obrigatórios." });
+    if (!deviceId || !organizationId || (result !== "success" && result !== "failed")) {
+      return res.status(400).json({ ok: false, code: "INVALID_PAYLOAD", message: "deviceId, organizationId e result ('success'|'failed') são obrigatórios." });
     }
     try {
-      const outcome = await reportTurnstileTestResult(deviceId, result, normalize(body.message) || undefined);
+      const outcome = await reportTurnstileTestResult(deviceId, organizationId, result, normalize(body.message) || undefined);
       if (!outcome.success) return res.status(404).json({ ok: false, code: "DEVICE_NOT_FOUND", message: "Catraca não encontrada." });
       return res.status(200).json({ ok: true });
     } catch (error) {
-      captureException(error, { route: "access.test-result", deviceId });
+      captureException(error, { route: "access.test-result", deviceId, organizationId });
       return res.status(502).json({ ok: false, code: "TEST_RESULT_FAILED", message: "Não foi possível registrar o resultado do teste." });
     }
   });

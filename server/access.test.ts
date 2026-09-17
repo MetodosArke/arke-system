@@ -141,24 +141,31 @@ describe("access.heartbeat / access.test-result", () => {
     const heartbeatSpy = vi.spyOn(integrations, "recordTurnstileHeartbeat").mockResolvedValue({ success: true });
     const routes = makeRoutes();
     const { state, res } = response();
-    await routes["/api/v1/access/heartbeat"]({ body: { deviceId: "device-1" }, header: () => "device-secret" }, res);
+    await routes["/api/v1/access/heartbeat"]({ body: { deviceId: "device-1", organizationId: "org-1" }, header: () => "device-secret" }, res);
     expect(state.status).toBe(200);
     expect(state.body).toMatchObject({ ok: true });
-    expect(heartbeatSpy).toHaveBeenCalledWith("device-1");
+    expect(heartbeatSpy).toHaveBeenCalledWith("device-1", "org-1");
+  });
+
+  it("rejects heartbeat missing organizationId", async () => {
+    const routes = makeRoutes();
+    const { state, res } = response();
+    await routes["/api/v1/access/heartbeat"]({ body: { deviceId: "device-1" }, header: () => "device-secret" }, res);
+    expect(state.status).toBe(400);
   });
 
   it("returns 404 for a heartbeat from an unknown device", async () => {
     vi.spyOn(integrations, "recordTurnstileHeartbeat").mockResolvedValue({ success: false });
     const routes = makeRoutes();
     const { state, res } = response();
-    await routes["/api/v1/access/heartbeat"]({ body: { deviceId: "device-x" }, header: () => "device-secret" }, res);
+    await routes["/api/v1/access/heartbeat"]({ body: { deviceId: "device-x", organizationId: "org-1" }, header: () => "device-secret" }, res);
     expect(state.status).toBe(404);
   });
 
   it("rejects test-result with an invalid result value", async () => {
     const routes = makeRoutes();
     const { state, res } = response();
-    await routes["/api/v1/access/test-result"]({ body: { deviceId: "device-1", result: "maybe" }, header: () => "device-secret" }, res);
+    await routes["/api/v1/access/test-result"]({ body: { deviceId: "device-1", organizationId: "org-1", result: "maybe" }, header: () => "device-secret" }, res);
     expect(state.status).toBe(400);
   });
 
@@ -166,16 +173,16 @@ describe("access.heartbeat / access.test-result", () => {
     const resultSpy = vi.spyOn(integrations, "reportTurnstileTestResult").mockResolvedValue({ success: true });
     const routes = makeRoutes();
     const { state, res } = response();
-    await routes["/api/v1/access/test-result"]({ body: { deviceId: "device-1", result: "success" }, header: () => "device-secret" }, res);
+    await routes["/api/v1/access/test-result"]({ body: { deviceId: "device-1", organizationId: "org-1", result: "success" }, header: () => "device-secret" }, res);
     expect(state.status).toBe(200);
-    expect(resultSpy).toHaveBeenCalledWith("device-1", "success", undefined);
+    expect(resultSpy).toHaveBeenCalledWith("device-1", "org-1", "success", undefined);
   });
 
   it("fails with 502 when reporting the test-result errors out", async () => {
     vi.spyOn(integrations, "reportTurnstileTestResult").mockRejectedValue(new Error("Supabase indisponível"));
     const routes = makeRoutes();
     const { state, res } = response();
-    await routes["/api/v1/access/test-result"]({ body: { deviceId: "device-1", result: "failed", message: "timeout" }, header: () => "device-secret" }, res);
+    await routes["/api/v1/access/test-result"]({ body: { deviceId: "device-1", organizationId: "org-1", result: "failed", message: "timeout" }, header: () => "device-secret" }, res);
     expect(state.status).toBe(502);
   });
 });

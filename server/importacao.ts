@@ -75,8 +75,35 @@ function parseDateBr(raw: string): string | null {
   return date.toISOString().slice(0, 10);
 }
 
-function parseNumber(raw: string): number | null {
-  const normalized = raw.replace(/\./g, "").replace(",", ".").replace(/[^\d.-]/g, "");
+// Valores monetários chegam em dois formatos possíveis: digitados em CSV no
+// padrão BR ("149,90" ou "1.234,56") ou vindos de célula numérica de XLSX,
+// que a biblioteca stringifica sempre com "." decimal ("149.9"). Tratar "."
+// como separador de milhar incondicionalmente (como era antes) corrompe o
+// segundo caso silenciosamente (149.9 → 1499, 10x errado).
+export function parseNumber(raw: string): number | null {
+  const cleaned = raw.trim().replace(/[^\d.,-]/g, "");
+  if (!cleaned) return null;
+  const hasComma = cleaned.includes(",");
+  const hasDot = cleaned.includes(".");
+  let normalized = cleaned;
+  if (hasComma && hasDot) {
+    // O separador decimal é o que aparece por último (ex.: "1.234,56" é BR,
+    // "1,234.56" é US) — o outro é só agrupamento de milhar, descartado.
+    normalized = cleaned.lastIndexOf(",") > cleaned.lastIndexOf(".")
+      ? cleaned.replace(/\./g, "").replace(",", ".")
+      : cleaned.replace(/,/g, "");
+  } else if (hasComma) {
+    // Só vírgula: padrão BR ("149,90") — vírgula é o decimal.
+    normalized = cleaned.replace(",", ".");
+  } else if (hasDot) {
+    const parts = cleaned.split(".");
+    // Mais de um ponto só pode ser agrupamento de milhar (ex.: "1.234.567").
+    // Um único ponto é tratado como decimal — cobre tanto o valor vindo de
+    // XLSX ("149.9") quanto alguém digitando no padrão US; campos
+    // monetários deste import quase sempre têm centavos, então esse é o
+    // caso mais comum e o mais seguro para assumir por padrão.
+    normalized = parts.length > 2 ? parts.join("") : cleaned;
+  }
   const value = Number(normalized);
   return Number.isFinite(value) ? value : null;
 }

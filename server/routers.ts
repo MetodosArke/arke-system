@@ -803,6 +803,8 @@ export const appRouter = router({
         list: protectedProcedure.input(z.object({ desafioId: z.string().uuid() })).query(async ({ ctx, input }) => { await assertStaffForDesafio(ctx.user.id, input.desafioId); return listDesafioProgressoForDesafio(input.desafioId); }),
         set: protectedProcedure.input(z.object({ desafioId: z.string().uuid(), alunoId: z.string().uuid(), concluido: z.boolean(), valorAtual: z.number().optional() })).mutation(async ({ ctx, input }) => {
           const desafio = await assertStaffForDesafio(ctx.user.id, input.desafioId);
+          const aluno = await getProfileByUserId(input.alunoId);
+          if (aluno?.organization_id !== desafio.organization_id) throw new Error("Aluno não pertence a esta organização.");
           // Ajuste manual da equipe: origem='manual' preserva esta linha
           // contra sobrescrita do cron de desafios automáticos (A4).
           return setDesafioProgresso({ desafioId: input.desafioId, alunoId: input.alunoId, organizationId: desafio.organization_id, concluido: input.concluido, valorAtual: input.valorAtual, concluidoPor: ctx.user.id, origem: "manual" });
@@ -850,6 +852,8 @@ export const appRouter = router({
         list: protectedProcedure.input(z.object({ competicaoId: z.string().uuid() })).query(async ({ ctx, input }) => { await assertStaffForCompeticao(ctx.user.id, input.competicaoId); return listCompeticaoPontuacaoForCompeticao(input.competicaoId); }),
         set: protectedProcedure.input(z.object({ competicaoId: z.string().uuid(), alunoId: z.string().uuid(), valor: z.number() })).mutation(async ({ ctx, input }) => {
           const competicao = await assertStaffForCompeticao(ctx.user.id, input.competicaoId);
+          const aluno = await getProfileByUserId(input.alunoId);
+          if (aluno?.organization_id !== competicao.organization_id) throw new Error("Aluno não pertence a esta organização.");
           // Ajuste manual da equipe: origem='manual' preserva esta linha
           // contra sobrescrita do cron de competições automáticas (A5).
           return setCompeticaoPontuacao({ competicaoId: input.competicaoId, alunoId: input.alunoId, organizationId: competicao.organization_id, valor: input.valor, atualizadoPor: ctx.user.id, origem: "manual" });
@@ -1041,6 +1045,8 @@ export const appRouter = router({
         await assertAlunoTemArke(ctx.user.id);
         const profile = await getProfileByUserId(ctx.user.id);
         if (!profile?.organization_id) throw new Error("Aluno sem organização vinculada.");
+        const post = await getFeedPost(input.postId);
+        if (!post || post.organization_id !== profile.organization_id) throw new Error("Publicação não encontrada.");
         const existing = await getFeedLike(input.postId, ctx.user.id);
         if (existing) { await deleteFeedLike(input.postId, ctx.user.id); return { liked: false }; }
         await createFeedLike({ postId: input.postId, userId: ctx.user.id, organizationId: profile.organization_id });
@@ -1051,6 +1057,8 @@ export const appRouter = router({
           await assertAlunoTemArke(ctx.user.id);
           const profile = await getProfileByUserId(ctx.user.id);
           if (!profile?.organization_id) throw new Error("Aluno sem organização vinculada.");
+          const post = await getFeedPost(input.postId);
+          if (!post || post.organization_id !== profile.organization_id) throw new Error("Publicação não encontrada.");
           return createFeedComment({ post_id: input.postId, user_id: ctx.user.id, organization_id: profile.organization_id, content: input.content });
         }),
         delete: protectedProcedure.input(z.object({ id: z.string().uuid() })).mutation(async ({ ctx, input }) => {
@@ -1176,6 +1184,8 @@ export const appRouter = router({
       list: protectedProcedure.input(z.object({ organizationId: z.string().uuid(), status: z.enum(["aberta", "em_andamento", "resolvida"]).optional() })).query(async ({ ctx, input }) => { await assertStaffOfOrganization(ctx.user.id, input.organizationId); return listAtendimentosForOrganization(input.organizationId, input.status); }),
       create: protectedProcedure.input(z.object({ organizationId: z.string().uuid(), alunoId: z.string().uuid(), prioridade: z.enum(["rotina", "atencao", "prioritario", "encaminhamento_profissional"]), descricao: z.string().trim().max(2000).optional(), prazo: z.string().datetime().optional() })).mutation(async ({ ctx, input }) => {
         await assertStaffOfOrganization(ctx.user.id, input.organizationId);
+        const alunoProfile = await getProfileByUserId(input.alunoId);
+        if (alunoProfile?.organization_id !== input.organizationId) throw new Error("Aluno não pertence a esta organização.");
         return createAtendimento({ organizationId: input.organizationId, alunoId: input.alunoId, origem: "manual", prioridade: input.prioridade, descricao: input.descricao, criadoPor: ctx.user.id, prazo: input.prazo });
       }),
       assign: protectedProcedure.input(z.object({ id: z.string().uuid() })).mutation(async ({ ctx, input }) => { await assertStaffForAtendimento(ctx.user.id, input.id); return assignAtendimento(input.id, ctx.user.id); }),
