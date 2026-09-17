@@ -5,7 +5,7 @@ import { QueryClient, QueryClientProvider, QueryCache } from "@tanstack/react-qu
 import { toast } from "sonner";
 import { HashRouter, Routes, Route, Navigate } from "react-router-dom";
 import { ThemeProvider } from "@/contexts/ThemeContext";
-import { AuthProvider } from "@/contexts/AuthContext";
+import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { NetworkStatusBanner } from "@/components/NetworkStatusBanner";
 
@@ -21,6 +21,7 @@ import { AdminLayout } from "@/components/layout/AdminLayout";
 // Aluno pages
 import AlunoDashboard from "@/pages/app/AlunoDashboard";
 import AlunoPerfil from "@/pages/app/AlunoPerfil";
+import Onboarding from "@/pages/app/Onboarding";
 
 // Staff pages (gestor / professor / nutricionista / admin_arke)
 import AdminDashboard from "@/pages/admin/AdminDashboard";
@@ -63,6 +64,16 @@ const queryClient = new QueryClient({
 
 const STAFF_ROLES = ["admin_arke", "gestor", "professor", "nutricionista"] as const;
 
+// M.A.P.A.®: aluno sem anamnese de acolhimento concluída é levado ao onboarding
+// antes de acessar o restante do app.
+function AlunoOnboardingGate({ children }: { children: React.ReactNode }) {
+  const { alunoId, anamneseCompleta, rolesLoaded } = useAuth();
+  if (rolesLoaded && alunoId && !anamneseCompleta) {
+    return <Navigate to="/app/onboarding" replace />;
+  }
+  return <>{children}</>;
+}
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <ThemeProvider>
@@ -80,12 +91,24 @@ const App = () => (
               <Route path="/auth/register" element={<Register />} />
               <Route path="/auth/reset-password" element={<ResetPassword />} />
 
+              {/* Onboarding M.A.P.A.® (fora do AppLayout — fluxo em tela cheia) */}
+              <Route
+                path="/app/onboarding"
+                element={
+                  <ProtectedRoute>
+                    <Onboarding />
+                  </ProtectedRoute>
+                }
+              />
+
               {/* Aluno routes */}
               <Route
                 path="/app"
                 element={
                   <ProtectedRoute>
-                    <AppLayout />
+                    <AlunoOnboardingGate>
+                      <AppLayout />
+                    </AlunoOnboardingGate>
                   </ProtectedRoute>
                 }
               >

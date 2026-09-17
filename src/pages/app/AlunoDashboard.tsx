@@ -7,19 +7,40 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { LifeBuoy, Dumbbell, CalendarClock, TrendingUp } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import type { Enums } from "@/integrations/supabase/types";
 
-const CHECKIN_OPTIONS: { value: "funcionando_bem" | "preciso_ajuste" | "com_dificuldade" | "quero_falar_com_alguem"; label: string }[] = [
+type CheckinStatus = Enums<"checkin_status">;
+type MotivoDificuldade = Enums<"motivo_dificuldade">;
+
+const CHECKIN_OPTIONS: { value: CheckinStatus; label: string }[] = [
   { value: "funcionando_bem", label: "Funcionando bem" },
   { value: "preciso_ajuste", label: "Preciso de ajuste" },
   { value: "com_dificuldade", label: "Com dificuldade" },
   { value: "quero_falar_com_alguem", label: "Quero falar com alguém" },
 ];
 
+const MOTIVO_OPTIONS: { value: MotivoDificuldade; label: string }[] = [
+  { value: "tempo", label: "Tempo" },
+  { value: "execucao", label: "Execução" },
+  { value: "alimentacao", label: "Alimentação" },
+  { value: "desconforto_dor", label: "Desconforto/Dor" },
+  { value: "motivacao", label: "Motivação" },
+];
+
+const FASE_LABEL: Record<string, string> = {
+  mapa: "M.A.P.A.® — Descobrir",
+  base: "B.A.S.E.® — Estruturar",
+  rota: "R.O.T.A.® — Sustentar",
+  apex: "A.P.E.X.® — Expandir",
+  legado: "L.E.G.A.D.O.® — Perpetuar",
+};
+
 export default function AlunoDashboard() {
-  const { alunoId, organization } = useAuth();
+  const { alunoId, organization, faseJornada } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [askOpen, setAskOpen] = useState(false);
+  const [motivoPendente, setMotivoPendente] = useState<CheckinStatus | null>(null);
 
   const { data: treinoAtivo } = useQuery({
     queryKey: ["aluno-treino-ativo", alunoId],
@@ -54,18 +75,20 @@ export default function AlunoDashboard() {
   });
 
   const registrarCheckin = useMutation({
-    mutationFn: async (status: (typeof CHECKIN_OPTIONS)[number]["value"]) => {
+    mutationFn: async (params: { status: CheckinStatus; motivo?: MotivoDificuldade }) => {
       if (!alunoId || !organization) throw new Error("Cadastro de aluno não encontrado");
       const { error } = await supabase.from("checkins").insert({
         organization_id: organization.id,
         aluno_id: alunoId,
-        status,
+        status: params.status,
+        motivo_dificuldade: params.motivo ?? null,
       });
       if (error) throw error;
     },
     onSuccess: () => {
       toast({ title: "Registrado!", description: "Sua equipe foi avisada. Obrigado por compartilhar." });
       setAskOpen(false);
+      setMotivoPendente(null);
       void queryClient.invalidateQueries({ queryKey: ["aluno-checkins-semana", alunoId] });
     },
     onError: (error: Error) => {
@@ -73,8 +96,22 @@ export default function AlunoDashboard() {
     },
   });
 
+  const escolherStatus = (status: CheckinStatus) => {
+    if (status === "com_dificuldade") {
+      setMotivoPendente(status);
+      return;
+    }
+    registrarCheckin.mutate({ status });
+  };
+
   return (
     <div className="space-y-4 max-w-2xl mx-auto">
+      {faseJornada && (
+        <Badge variant="outline" className="text-xs">
+          {FASE_LABEL[faseJornada] ?? faseJornada}
+        </Badge>
+      )}
+
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="flex items-center gap-2 text-base">
@@ -135,6 +172,24 @@ export default function AlunoDashboard() {
         <Button className="w-full" size="lg" onClick={() => setAskOpen(true)}>
           <LifeBuoy className="mr-2 h-4 w-4" /> Como está sendo seguir seu plano?
         </Button>
+      ) : motivoPendente ? (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">O que está sendo mais difícil?</CardTitle>
+          </CardHeader>
+          <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            {MOTIVO_OPTIONS.map((option) => (
+              <Button
+                key={option.value}
+                variant="outline"
+                disabled={registrarCheckin.isPending}
+                onClick={() => registrarCheckin.mutate({ status: motivoPendente, motivo: option.value })}
+              >
+                {option.label}
+              </Button>
+            ))}
+          </CardContent>
+        </Card>
       ) : (
         <Card>
           <CardHeader className="pb-2">
@@ -146,7 +201,7 @@ export default function AlunoDashboard() {
                 key={option.value}
                 variant="outline"
                 disabled={registrarCheckin.isPending}
-                onClick={() => registrarCheckin.mutate(option.value)}
+                onClick={() => escolherStatus(option.value)}
               >
                 {option.label}
               </Button>

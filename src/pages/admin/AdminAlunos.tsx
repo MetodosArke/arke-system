@@ -12,6 +12,14 @@ const NIVEL_LABEL: Record<string, string> = {
   integral: "Integral",
 };
 
+const FASE_LABEL: Record<string, string> = {
+  mapa: "M.A.P.A.®",
+  base: "B.A.S.E.®",
+  rota: "R.O.T.A.®",
+  apex: "A.P.E.X.®",
+  legado: "L.E.G.A.D.O.®",
+};
+
 export default function AdminAlunos() {
   const { organization } = useAuth();
 
@@ -20,7 +28,7 @@ export default function AdminAlunos() {
     queryFn: async () => {
       const { data: alunosData, error } = await supabase
         .from("alunos")
-        .select("id, user_id, nivel_atacado, objetivo, data_inicio")
+        .select("id, user_id, nivel_atacado, objetivo, data_inicio, fase_jornada")
         .eq("organization_id", organization!.id)
         .order("data_inicio", { ascending: false });
       if (error) throw error;
@@ -55,6 +63,7 @@ export default function AdminAlunos() {
                 <TableRow>
                   <TableHead>Nome</TableHead>
                   <TableHead>Nível</TableHead>
+                  <TableHead>Fase</TableHead>
                   <TableHead>Objetivo</TableHead>
                   <TableHead>Desde</TableHead>
                 </TableRow>
@@ -65,6 +74,9 @@ export default function AdminAlunos() {
                     <TableCell className="font-medium">{aluno.full_name}</TableCell>
                     <TableCell>
                       <Badge variant="secondary">{NIVEL_LABEL[aluno.nivel_atacado] ?? aluno.nivel_atacado}</Badge>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="outline">{FASE_LABEL[aluno.fase_jornada] ?? aluno.fase_jornada}</Badge>
                     </TableCell>
                     <TableCell>{aluno.objetivo ?? "—"}</TableCell>
                     <TableCell>
