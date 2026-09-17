@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { Building2 } from "lucide-react";
+import { Building2, Wallet } from "lucide-react";
 import type { Enums } from "@/integrations/supabase/types";
 
 type Nivel = Enums<"nivel_atacado">;
@@ -54,6 +54,43 @@ export default function AdminOrganizacao() {
     });
     setValores((prev) => ({ ...prev, ...next }));
   }, [precificacao]);
+
+  const { data: orgDetalhes } = useQuery({
+    queryKey: ["organizacao-wallet", organization?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("organizations")
+        .select("asaas_wallet_id")
+        .eq("id", organization!.id)
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!organization?.id,
+  });
+
+  const [walletId, setWalletId] = useState("");
+
+  useEffect(() => {
+    setWalletId(orgDetalhes?.asaas_wallet_id ?? "");
+  }, [orgDetalhes]);
+
+  const salvarWallet = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase
+        .from("organizations")
+        .update({ asaas_wallet_id: walletId || null })
+        .eq("id", organization!.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast({ title: "Wallet do Asaas salva" });
+      void queryClient.invalidateQueries({ queryKey: ["organizacao-wallet", organization?.id] });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Não foi possível salvar", description: error.message, variant: "destructive" });
+    },
+  });
 
   const salvar = useMutation({
     mutationFn: async (nivel: Nivel) => {
@@ -119,6 +156,32 @@ export default function AdminOrganizacao() {
               </div>
             );
           })}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2">
+            <Wallet className="h-4 w-4" /> Split de Pagamento (Asaas)
+          </CardTitle>
+          <p className="text-xs text-muted-foreground">
+            Wallet ID da academia no Asaas — usada para receber automaticamente a parte líquida de cada
+            cobrança (o repasse de atacado à ARKE é retido na origem).
+          </p>
+        </CardHeader>
+        <CardContent className="flex items-end gap-3">
+          <div className="flex-1 space-y-1.5">
+            <Label htmlFor="wallet-id">Wallet ID do Asaas</Label>
+            <Input
+              id="wallet-id"
+              value={walletId}
+              onChange={(e) => setWalletId(e.target.value)}
+              placeholder="ex.: 22e49670-27e4-4579-a4f4-0dfd42b2e-000"
+            />
+          </div>
+          <Button onClick={() => salvarWallet.mutate()} disabled={salvarWallet.isPending}>
+            Salvar
+          </Button>
         </CardContent>
       </Card>
     </div>

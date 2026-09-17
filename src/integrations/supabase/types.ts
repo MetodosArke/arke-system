@@ -14,6 +14,67 @@ export type Database = {
   }
   public: {
     Tables: {
+      aluno_assinaturas: {
+        Row: {
+          aluno_id: string
+          asaas_subscription_id: string | null
+          created_at: string
+          id: string
+          nivel_atacado: Database["public"]["Enums"]["nivel_atacado"]
+          organization_id: string
+          proxima_cobranca: string | null
+          status: Database["public"]["Enums"]["assinatura_status"]
+          updated_at: string
+          valor_cobrado: number
+        }
+        Insert: {
+          aluno_id: string
+          asaas_subscription_id?: string | null
+          created_at?: string
+          id?: string
+          nivel_atacado: Database["public"]["Enums"]["nivel_atacado"]
+          organization_id: string
+          proxima_cobranca?: string | null
+          status?: Database["public"]["Enums"]["assinatura_status"]
+          updated_at?: string
+          valor_cobrado: number
+        }
+        Update: {
+          aluno_id?: string
+          asaas_subscription_id?: string | null
+          created_at?: string
+          id?: string
+          nivel_atacado?: Database["public"]["Enums"]["nivel_atacado"]
+          organization_id?: string
+          proxima_cobranca?: string | null
+          status?: Database["public"]["Enums"]["assinatura_status"]
+          updated_at?: string
+          valor_cobrado?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "aluno_assinaturas_aluno_id_fkey"
+            columns: ["aluno_id"]
+            isOneToOne: true
+            referencedRelation: "alunos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "aluno_assinaturas_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "org_churn_metrics"
+            referencedColumns: ["organization_id"]
+          },
+          {
+            foreignKeyName: "aluno_assinaturas_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       alunos: {
         Row: {
           altura_cm: number | null
@@ -76,6 +137,13 @@ export type Database = {
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "alunos_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "org_churn_metrics"
+            referencedColumns: ["organization_id"]
+          },
           {
             foreignKeyName: "alunos_organization_id_fkey"
             columns: ["organization_id"]
@@ -155,10 +223,53 @@ export type Database = {
             foreignKeyName: "anamnese_acolhimento_organization_id_fkey"
             columns: ["organization_id"]
             isOneToOne: false
+            referencedRelation: "org_churn_metrics"
+            referencedColumns: ["organization_id"]
+          },
+          {
+            foreignKeyName: "anamnese_acolhimento_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
         ]
+      }
+      asaas_webhook_events: {
+        Row: {
+          asaas_event_id: string | null
+          asaas_payment_id: string | null
+          created_at: string
+          erro: string | null
+          id: string
+          payload: Json
+          processado: boolean
+          processed_at: string | null
+          tipo_evento: string | null
+        }
+        Insert: {
+          asaas_event_id?: string | null
+          asaas_payment_id?: string | null
+          created_at?: string
+          erro?: string | null
+          id?: string
+          payload: Json
+          processado?: boolean
+          processed_at?: string | null
+          tipo_evento?: string | null
+        }
+        Update: {
+          asaas_event_id?: string | null
+          asaas_payment_id?: string | null
+          created_at?: string
+          erro?: string | null
+          id?: string
+          payload?: Json
+          processado?: boolean
+          processed_at?: string | null
+          tipo_evento?: string | null
+        }
+        Relationships: []
       }
       checkins: {
         Row: {
@@ -201,6 +312,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "alunos"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "checkins_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "org_churn_metrics"
+            referencedColumns: ["organization_id"]
           },
           {
             foreignKeyName: "checkins_organization_id_fkey"
@@ -258,6 +376,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "alunos"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dietas_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "org_churn_metrics"
+            referencedColumns: ["organization_id"]
           },
           {
             foreignKeyName: "dietas_organization_id_fkey"
@@ -386,6 +511,13 @@ export type Database = {
             foreignKeyName: "modelos_dieta_organization_id_fkey"
             columns: ["organization_id"]
             isOneToOne: false
+            referencedRelation: "org_churn_metrics"
+            referencedColumns: ["organization_id"]
+          },
+          {
+            foreignKeyName: "modelos_dieta_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
@@ -421,6 +553,13 @@ export type Database = {
             foreignKeyName: "modelos_treino_organization_id_fkey"
             columns: ["organization_id"]
             isOneToOne: false
+            referencedRelation: "org_churn_metrics"
+            referencedColumns: ["organization_id"]
+          },
+          {
+            foreignKeyName: "modelos_treino_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
@@ -452,6 +591,13 @@ export type Database = {
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "organization_members_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "org_churn_metrics"
+            referencedColumns: ["organization_id"]
+          },
           {
             foreignKeyName: "organization_members_organization_id_fkey"
             columns: ["organization_id"]
@@ -501,6 +647,13 @@ export type Database = {
             foreignKeyName: "organization_planos_precificacao_organization_id_fkey"
             columns: ["organization_id"]
             isOneToOne: false
+            referencedRelation: "org_churn_metrics"
+            referencedColumns: ["organization_id"]
+          },
+          {
+            foreignKeyName: "organization_planos_precificacao_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
@@ -544,6 +697,70 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      pagamentos: {
+        Row: {
+          aluno_assinatura_id: string
+          asaas_payment_id: string | null
+          created_at: string
+          data_pagamento: string | null
+          id: string
+          organization_id: string
+          status: Database["public"]["Enums"]["pagamento_status"]
+          updated_at: string
+          valor: number
+          valor_liquido_academia: number
+          valor_repasse_arke: number
+        }
+        Insert: {
+          aluno_assinatura_id: string
+          asaas_payment_id?: string | null
+          created_at?: string
+          data_pagamento?: string | null
+          id?: string
+          organization_id: string
+          status?: Database["public"]["Enums"]["pagamento_status"]
+          updated_at?: string
+          valor: number
+          valor_liquido_academia?: number
+          valor_repasse_arke?: number
+        }
+        Update: {
+          aluno_assinatura_id?: string
+          asaas_payment_id?: string | null
+          created_at?: string
+          data_pagamento?: string | null
+          id?: string
+          organization_id?: string
+          status?: Database["public"]["Enums"]["pagamento_status"]
+          updated_at?: string
+          valor?: number
+          valor_liquido_academia?: number
+          valor_repasse_arke?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pagamentos_aluno_assinatura_id_fkey"
+            columns: ["aluno_assinatura_id"]
+            isOneToOne: false
+            referencedRelation: "aluno_assinaturas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pagamentos_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "org_churn_metrics"
+            referencedColumns: ["organization_id"]
+          },
+          {
+            foreignKeyName: "pagamentos_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       planos_atacado: {
         Row: {
@@ -642,6 +859,13 @@ export type Database = {
             foreignKeyName: "registro_treino_organization_id_fkey"
             columns: ["organization_id"]
             isOneToOne: false
+            referencedRelation: "org_churn_metrics"
+            referencedColumns: ["organization_id"]
+          },
+          {
+            foreignKeyName: "registro_treino_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
@@ -718,6 +942,13 @@ export type Database = {
             foreignKeyName: "tarefas_organization_id_fkey"
             columns: ["organization_id"]
             isOneToOne: false
+            referencedRelation: "org_churn_metrics"
+            referencedColumns: ["organization_id"]
+          },
+          {
+            foreignKeyName: "tarefas_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
@@ -788,6 +1019,13 @@ export type Database = {
             foreignKeyName: "treinos_organization_id_fkey"
             columns: ["organization_id"]
             isOneToOne: false
+            referencedRelation: "org_churn_metrics"
+            referencedColumns: ["organization_id"]
+          },
+          {
+            foreignKeyName: "treinos_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
@@ -816,7 +1054,48 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      org_churn_metrics: {
+        Row: {
+          alunos_fase_apex: number | null
+          alunos_fase_base: number | null
+          alunos_fase_legado: number | null
+          alunos_fase_mapa: number | null
+          alunos_fase_rota: number | null
+          alunos_total: number | null
+          assinaturas_ativas: number | null
+          cancelamentos_mes_atual: number | null
+          constancia_pct_7d: number | null
+          organization_id: string | null
+          organization_nome: string | null
+        }
+        Insert: {
+          alunos_fase_apex?: never
+          alunos_fase_base?: never
+          alunos_fase_legado?: never
+          alunos_fase_mapa?: never
+          alunos_fase_rota?: never
+          alunos_total?: never
+          assinaturas_ativas?: never
+          cancelamentos_mes_atual?: never
+          constancia_pct_7d?: never
+          organization_id?: string | null
+          organization_nome?: string | null
+        }
+        Update: {
+          alunos_fase_apex?: never
+          alunos_fase_base?: never
+          alunos_fase_legado?: never
+          alunos_fase_mapa?: never
+          alunos_fase_rota?: never
+          alunos_total?: never
+          assinaturas_ativas?: never
+          cancelamentos_mes_atual?: never
+          constancia_pct_7d?: never
+          organization_id?: string | null
+          organization_nome?: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       escalar_tarefas_vencidas: { Args: never; Returns: undefined }
@@ -867,6 +1146,7 @@ export type Database = {
         | "professor"
         | "nutricionista"
         | "aluno"
+      assinatura_status: "ativa" | "atrasada" | "cancelada"
       checkin_status:
         | "funcionando_bem"
         | "preciso_ajuste"
@@ -881,6 +1161,7 @@ export type Database = {
         | "motivacao"
       nivel_atacado: "essencial" | "integrado" | "integral"
       org_status: "trial" | "ativo" | "inadimplente" | "suspenso" | "cancelado"
+      pagamento_status: "pendente" | "confirmado" | "atrasado" | "estornado"
       plano_b2b: "starter" | "growth" | "enterprise" | "custom"
       provedor_nutricao: "nenhum" | "nutricionista_academia" | "equipe_arke"
       provedor_treino: "academia_propria" | "personal_parceiro" | "equipe_arke"
@@ -1019,6 +1300,7 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin_arke", "gestor", "professor", "nutricionista", "aluno"],
+      assinatura_status: ["ativa", "atrasada", "cancelada"],
       checkin_status: [
         "funcionando_bem",
         "preciso_ajuste",
@@ -1035,6 +1317,7 @@ export const Constants = {
       ],
       nivel_atacado: ["essencial", "integrado", "integral"],
       org_status: ["trial", "ativo", "inadimplente", "suspenso", "cancelado"],
+      pagamento_status: ["pendente", "confirmado", "atrasado", "estornado"],
       plano_b2b: ["starter", "growth", "enterprise", "custom"],
       provedor_nutricao: ["nenhum", "nutricionista_academia", "equipe_arke"],
       provedor_treino: ["academia_propria", "personal_parceiro", "equipe_arke"],

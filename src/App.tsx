@@ -31,6 +31,7 @@ import AdminAlunos from "@/pages/admin/AdminAlunos";
 import AdminOrganizacao from "@/pages/admin/AdminOrganizacao";
 import AdminTreinos from "@/pages/admin/AdminTreinos";
 import AdminDietas from "@/pages/admin/AdminDietas";
+import AdminRetencao from "@/pages/admin/AdminRetencao";
 
 import NotFound from "./pages/NotFound";
 
@@ -135,6 +136,7 @@ const App = () => (
                 <Route path="alunos" element={<AdminAlunos />} />
                 <Route path="treinos" element={<AdminTreinos />} />
                 <Route path="dietas" element={<AdminDietas />} />
+                <Route path="retencao" element={<AdminRetencao />} />
                 <Route path="organizacao" element={<AdminOrganizacao />} />
               </Route>
 
