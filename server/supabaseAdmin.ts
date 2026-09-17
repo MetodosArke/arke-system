@@ -200,11 +200,19 @@ export type Dieta = { id: string; aluno_id: string; titulo: string; descricao?: 
 export async function getProfileByUserId(userId: string) { const rows = await request<StudentProfile[]>("profiles", {}, `?select=user_id,full_name,organization_id,status,unit_id,matricula_em&user_id=eq.${encodeURIComponent(userId)}&limit=1`); return rows[0] ?? null; }
 export async function listStudentsInOrganization(organizationId: string) { return request<StudentProfile[]>("profiles", {}, `?select=user_id,full_name,organization_id,status,unit_id,matricula_em&organization_id=eq.${encodeURIComponent(organizationId)}&order=full_name.asc`); }
 
-export async function updateStudentMatricula(alunoId: string, input: { unitId?: string | null; matriculaEm?: string | null }) {
+export async function updateStudentMatricula(alunoId: string, organizationId: string, input: { unitId?: string | null; matriculaEm?: string | null }) {
   const body: Record<string, unknown> = {};
-  if (input.unitId !== undefined) body.unit_id = input.unitId;
+  if (input.unitId !== undefined) {
+    if (input.unitId !== null) {
+      // A unidade precisa pertencer à mesma organização do aluno — sem
+      // isso, um valor de outra organização era gravado sem checagem.
+      const unit = await request<Array<{ id: string }>>("saas_units", {}, `?select=id&id=eq.${encodeURIComponent(input.unitId)}&organization_id=eq.${encodeURIComponent(organizationId)}&limit=1`);
+      if (!unit[0]) throw new Error("Unidade não encontrada nesta organização.");
+    }
+    body.unit_id = input.unitId;
+  }
   if (input.matriculaEm !== undefined) body.matricula_em = input.matriculaEm;
-  const rows = await request<StudentProfile[]>("profiles", { method: "PATCH", body: JSON.stringify(body) }, `?user_id=eq.${encodeURIComponent(alunoId)}`);
+  const rows = await request<StudentProfile[]>("profiles", { method: "PATCH", body: JSON.stringify(body) }, `?user_id=eq.${encodeURIComponent(alunoId)}&organization_id=eq.${encodeURIComponent(organizationId)}`);
   return rows[0];
 }
 
@@ -1158,16 +1166,12 @@ export async function getVagasDisponiveis(turmaId: string, data: string) {
 }
 
 export async function reservarVaga(input: { turmaId: string; alunoId: string; organizationId: string; data: string }) {
-  const turma = await getTurma(input.turmaId);
-  if (!turma || turma.status !== "ativa" || turma.organization_id !== input.organizationId) throw new Error("Turma não encontrada ou inativa.");
-  const horarios = await listTurmaHorarios(input.turmaId);
-  const diaSemana = new Date(`${input.data}T00:00:00Z`).getUTCDay();
-  if (!horarios.some((horario) => horario.dia_semana === diaSemana)) throw new Error("Esta turma não tem horário nesse dia da semana.");
-  const existentes = await listReservasForTurmaData(input.turmaId, input.data);
-  if (existentes.some((reserva) => reserva.aluno_id === input.alunoId)) throw new Error("Você já reservou vaga nesta sessão.");
-  if (existentes.length >= turma.limite_vagas) throw new Error("Não há vagas disponíveis para esta sessão.");
-  const rows = await request<TurmaReserva[]>("turma_reservas", { method: "POST", body: JSON.stringify({ turma_id: input.turmaId, aluno_id: input.alunoId, organization_id: input.organizationId, data: input.data }) });
-  return rows[0];
+  return rpc<TurmaReserva>("reservar_vaga_turma", {
+    p_turma_id: input.turmaId,
+    p_aluno_id: input.alunoId,
+    p_organization_id: input.organizationId,
+    p_data: input.data,
+  });
 }
 
 export async function cancelarReserva(idValue: string, alunoId: string) {
@@ -1380,7 +1384,16 @@ async function rpc<T>(fn: string, args: Record<string, unknown>) {
     headers: { apikey: key, Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
     body: JSON.stringify(args),
   });
-  if (!response.ok) throw new Error(`Supabase RPC ${fn} ${response.status}: ${await response.text()}`);
+  if (!response.ok) {
+    const body = await response.text();
+    let message: string | undefined;
+    try {
+      message = (JSON.parse(body) as { message?: string }).message;
+    } catch {
+      // corpo não é JSON — usa o texto bruto abaixo
+    }
+    throw new Error(message || `Supabase RPC ${fn} ${response.status}: ${body}`);
+  }
   const text = await response.text();
   return (text ? JSON.parse(text) : null) as T;
 }

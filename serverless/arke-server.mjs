@@ -422,11 +422,17 @@ async function getProfileByUserId(userId) {
 async function listStudentsInOrganization(organizationId) {
   return request("profiles", {}, `?select=user_id,full_name,organization_id,status,unit_id,matricula_em&organization_id=eq.${encodeURIComponent(organizationId)}&order=full_name.asc`);
 }
-async function updateStudentMatricula(alunoId, input) {
+async function updateStudentMatricula(alunoId, organizationId, input) {
   const body = {};
-  if (input.unitId !== void 0) body.unit_id = input.unitId;
+  if (input.unitId !== void 0) {
+    if (input.unitId !== null) {
+      const unit = await request("saas_units", {}, `?select=id&id=eq.${encodeURIComponent(input.unitId)}&organization_id=eq.${encodeURIComponent(organizationId)}&limit=1`);
+      if (!unit[0]) throw new Error("Unidade n\xE3o encontrada nesta organiza\xE7\xE3o.");
+    }
+    body.unit_id = input.unitId;
+  }
   if (input.matriculaEm !== void 0) body.matricula_em = input.matriculaEm;
-  const rows = await request("profiles", { method: "PATCH", body: JSON.stringify(body) }, `?user_id=eq.${encodeURIComponent(alunoId)}`);
+  const rows = await request("profiles", { method: "PATCH", body: JSON.stringify(body) }, `?user_id=eq.${encodeURIComponent(alunoId)}&organization_id=eq.${encodeURIComponent(organizationId)}`);
   return rows[0];
 }
 async function getArkeModule(organizationId) {
@@ -1310,16 +1316,12 @@ async function getVagasDisponiveis(turmaId, data) {
   return { limite: turma.limite_vagas, ocupadas: reservas.length, disponiveis: Math.max(0, turma.limite_vagas - reservas.length) };
 }
 async function reservarVaga(input) {
-  const turma = await getTurma(input.turmaId);
-  if (!turma || turma.status !== "ativa" || turma.organization_id !== input.organizationId) throw new Error("Turma n\xE3o encontrada ou inativa.");
-  const horarios = await listTurmaHorarios(input.turmaId);
-  const diaSemana = (/* @__PURE__ */ new Date(`${input.data}T00:00:00Z`)).getUTCDay();
-  if (!horarios.some((horario) => horario.dia_semana === diaSemana)) throw new Error("Esta turma n\xE3o tem hor\xE1rio nesse dia da semana.");
-  const existentes = await listReservasForTurmaData(input.turmaId, input.data);
-  if (existentes.some((reserva) => reserva.aluno_id === input.alunoId)) throw new Error("Voc\xEA j\xE1 reservou vaga nesta sess\xE3o.");
-  if (existentes.length >= turma.limite_vagas) throw new Error("N\xE3o h\xE1 vagas dispon\xEDveis para esta sess\xE3o.");
-  const rows = await request("turma_reservas", { method: "POST", body: JSON.stringify({ turma_id: input.turmaId, aluno_id: input.alunoId, organization_id: input.organizationId, data: input.data }) });
-  return rows[0];
+  return rpc("reservar_vaga_turma", {
+    p_turma_id: input.turmaId,
+    p_aluno_id: input.alunoId,
+    p_organization_id: input.organizationId,
+    p_data: input.data
+  });
 }
 async function cancelarReserva(idValue, alunoId) {
   const rows = await request("turma_reservas", { method: "PATCH", body: JSON.stringify({ status: "cancelada" }) }, `?id=eq.${encodeURIComponent(idValue)}&aluno_id=eq.${encodeURIComponent(alunoId)}`);
@@ -1462,7 +1464,15 @@ async function rpc(fn, args) {
     headers: { apikey: key, Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
     body: JSON.stringify(args)
   });
-  if (!response.ok) throw new Error(`Supabase RPC ${fn} ${response.status}: ${await response.text()}`);
+  if (!response.ok) {
+    const body = await response.text();
+    let message;
+    try {
+      message = JSON.parse(body).message;
+    } catch {
+    }
+    throw new Error(message || `Supabase RPC ${fn} ${response.status}: ${body}`);
+  }
   const text = await response.text();
   return text ? JSON.parse(text) : null;
 }
@@ -2570,6 +2580,9 @@ async function listTurnstileIntegrationsForOrganization(organizationId) {
   return rows.map(mapTurnstileRow);
 }
 async function saveTurnstileIntegration(input) {
+  const existingRows = await request3("turnstile_devices", {}, `?select=config&unit_id=eq.${encodeURIComponent(input.unitId)}&limit=1`);
+  const mergedConfig = { ...existingRows[0]?.config ?? {} };
+  for (const [key, value] of Object.entries(input.config)) if (value) mergedConfig[key] = value;
   await request3("turnstile_devices", { method: "POST", headers: { Prefer: "resolution=merge-duplicates,return=representation" }, body: JSON.stringify({
     unit_id: input.unitId,
     organization_id: input.organizationId,
@@ -2579,7 +2592,7 @@ async function saveTurnstileIntegration(input) {
     communication_mode: input.communicationMode || null,
     port: input.port ?? null,
     serial_or_key: input.serialOrKey || null,
-    config: input.config,
+    config: mergedConfig,
     enabled: input.enabled
   }) }, "?on_conflict=unit_id");
   const rows = await listTurnstileIntegrationsForOrganization(input.organizationId);
@@ -2902,12 +2915,12 @@ var notifyUser = async (userId, titulo, mensagem) => {
 };
 var ownerOrAdmin = async (userId, organizationId) => {
   const membership = await getMembership(userId, organizationId);
-  if (!membership || !["owner", "admin", "manager"].includes(membership.membership.role)) throw new Error("You do not have permission to manage this organization");
+  if (!membership || membership.membership.status !== "active" || !["owner", "admin", "manager"].includes(membership.membership.role)) throw new Error("You do not have permission to manage this organization");
   return membership;
 };
 var hasOrganizationAccess = async (userId, organizationId) => {
   const membership = await getMembership(userId, organizationId);
-  if (!membership) throw new Error("Organization access denied");
+  if (!membership || membership.membership.status !== "active") throw new Error("Organization access denied");
   return membership;
 };
 var STAFF_ROLES = ["owner", "admin", "manager", "professional", "nutricionista"];
@@ -3453,8 +3466,8 @@ var appRouter = router({
       return listStudentsInOrganization(input.organizationId);
     }),
     updateMatricula: protectedProcedure.input(z2.object({ alunoId: z2.string().uuid(), unitId: z2.string().uuid().nullable().optional(), matriculaEm: z2.string().datetime().nullable().optional() })).mutation(async ({ ctx, input }) => {
-      await assertStaffForAluno(ctx.user.id, input.alunoId);
-      return updateStudentMatricula(input.alunoId, { unitId: input.unitId, matriculaEm: input.matriculaEm });
+      const profile = await assertStaffForAluno(ctx.user.id, input.alunoId);
+      return updateStudentMatricula(input.alunoId, profile.organization_id, { unitId: input.unitId, matriculaEm: input.matriculaEm });
     }),
     exercises: protectedProcedure.query(() => listExercisesCatalog()),
     treinos: router({
@@ -3736,6 +3749,8 @@ var appRouter = router({
         }),
         add: protectedProcedure.input(z2.object({ desafioId: z2.string().uuid(), alunoId: z2.string().uuid() })).mutation(async ({ ctx, input }) => {
           const desafio = await assertStaffForDesafio(ctx.user.id, input.desafioId);
+          const aluno = await getProfileByUserId(input.alunoId);
+          if (aluno?.organization_id !== desafio.organization_id) throw new Error("Aluno n\xE3o pertence a esta organiza\xE7\xE3o.");
           return addDesafioParticipante({ desafioId: input.desafioId, alunoId: input.alunoId, organizationId: desafio.organization_id });
         }),
         remove: protectedProcedure.input(z2.object({ desafioId: z2.string().uuid(), alunoId: z2.string().uuid() })).mutation(async ({ ctx, input }) => {
@@ -3788,6 +3803,8 @@ var appRouter = router({
         }),
         add: protectedProcedure.input(z2.object({ competicaoId: z2.string().uuid(), alunoId: z2.string().uuid() })).mutation(async ({ ctx, input }) => {
           const competicao = await assertStaffForCompeticao(ctx.user.id, input.competicaoId);
+          const aluno = await getProfileByUserId(input.alunoId);
+          if (aluno?.organization_id !== competicao.organization_id) throw new Error("Aluno n\xE3o pertence a esta organiza\xE7\xE3o.");
           return addCompeticaoParticipante({ competicaoId: input.competicaoId, alunoId: input.alunoId, organizationId: competicao.organization_id });
         }),
         remove: protectedProcedure.input(z2.object({ competicaoId: z2.string().uuid(), alunoId: z2.string().uuid() })).mutation(async ({ ctx, input }) => {

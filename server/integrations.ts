@@ -103,10 +103,16 @@ export async function saveTurnstileIntegration(input: {
   unitId: string; organizationId: string; brand: TurnstileBrand; model?: string; modelId?: string;
   communicationMode?: TurnstileCommunicationMode; port?: number; serialOrKey?: string; config: Record<string, string>; enabled: boolean;
 }) {
+  // Mesma regra do topo do arquivo para os campos secretos da catraca
+  // (senha, api_key): campo vazio preserva o valor já salvo, em vez de
+  // sobrescrever o config inteiro e apagar a credencial.
+  const existingRows = await request<TurnstileRow[]>("turnstile_devices", {}, `?select=config&unit_id=eq.${encodeURIComponent(input.unitId)}&limit=1`);
+  const mergedConfig: Record<string, string> = { ...(existingRows[0]?.config ?? {}) };
+  for (const [key, value] of Object.entries(input.config)) if (value) mergedConfig[key] = value;
   await request("turnstile_devices", { method: "POST", headers: { Prefer: "resolution=merge-duplicates,return=representation" }, body: JSON.stringify({
     unit_id: input.unitId, organization_id: input.organizationId, brand: input.brand, model: input.model || null,
     model_id: input.modelId || null, communication_mode: input.communicationMode || null, port: input.port ?? null,
-    serial_or_key: input.serialOrKey || null, config: input.config, enabled: input.enabled,
+    serial_or_key: input.serialOrKey || null, config: mergedConfig, enabled: input.enabled,
   }) }, "?on_conflict=unit_id");
   const rows = await listTurnstileIntegrationsForOrganization(input.organizationId);
   return rows.find((row) => row.unitId === input.unitId);

@@ -53,13 +53,13 @@ const notifyUser = async (userId: string, titulo: string, mensagem: string) => {
 
 const ownerOrAdmin = async (userId: string, organizationId: string) => {
   const membership = await getMembership(userId, organizationId);
-  if (!membership || !["owner", "admin", "manager"].includes(membership.membership.role)) throw new Error("You do not have permission to manage this organization");
+  if (!membership || membership.membership.status !== "active" || !["owner", "admin", "manager"].includes(membership.membership.role)) throw new Error("You do not have permission to manage this organization");
   return membership;
 };
 
 const hasOrganizationAccess = async (userId: string, organizationId: string) => {
   const membership = await getMembership(userId, organizationId);
-  if (!membership) throw new Error("Organization access denied");
+  if (!membership || membership.membership.status !== "active") throw new Error("Organization access denied");
   return membership;
 };
 
@@ -556,7 +556,7 @@ export const appRouter = router({
   prescricao: router({
     myOrganizations: protectedProcedure.query(async ({ ctx }) => (await getOrganizationsForUser(ctx.user.id)).filter((item) => STAFF_ROLES.includes(item.membership.role))),
     students: protectedProcedure.input(organizationIdInput).query(async ({ ctx, input }) => { await assertStaffOfOrganization(ctx.user.id, input.organizationId); return listStudentsInOrganization(input.organizationId); }),
-    updateMatricula: protectedProcedure.input(z.object({ alunoId: z.string().uuid(), unitId: z.string().uuid().nullable().optional(), matriculaEm: z.string().datetime().nullable().optional() })).mutation(async ({ ctx, input }) => { await assertStaffForAluno(ctx.user.id, input.alunoId); return updateStudentMatricula(input.alunoId, { unitId: input.unitId, matriculaEm: input.matriculaEm }); }),
+    updateMatricula: protectedProcedure.input(z.object({ alunoId: z.string().uuid(), unitId: z.string().uuid().nullable().optional(), matriculaEm: z.string().datetime().nullable().optional() })).mutation(async ({ ctx, input }) => { const profile = await assertStaffForAluno(ctx.user.id, input.alunoId); return updateStudentMatricula(input.alunoId, profile.organization_id as string, { unitId: input.unitId, matriculaEm: input.matriculaEm }); }),
     exercises: protectedProcedure.query(() => listExercisesCatalog()),
     treinos: router({
       list: protectedProcedure.input(z.object({ alunoId: z.string().uuid() })).query(async ({ ctx, input }) => { await assertStaffForAluno(ctx.user.id, input.alunoId); return listTreinosForAluno(input.alunoId); }),
@@ -790,6 +790,8 @@ export const appRouter = router({
         list: protectedProcedure.input(z.object({ desafioId: z.string().uuid() })).query(async ({ ctx, input }) => { await assertStaffForDesafio(ctx.user.id, input.desafioId); return listDesafioParticipantes(input.desafioId); }),
         add: protectedProcedure.input(z.object({ desafioId: z.string().uuid(), alunoId: z.string().uuid() })).mutation(async ({ ctx, input }) => {
           const desafio = await assertStaffForDesafio(ctx.user.id, input.desafioId);
+          const aluno = await getProfileByUserId(input.alunoId);
+          if (aluno?.organization_id !== desafio.organization_id) throw new Error("Aluno não pertence a esta organização.");
           return addDesafioParticipante({ desafioId: input.desafioId, alunoId: input.alunoId, organizationId: desafio.organization_id });
         }),
         remove: protectedProcedure.input(z.object({ desafioId: z.string().uuid(), alunoId: z.string().uuid() })).mutation(async ({ ctx, input }) => {
@@ -835,6 +837,8 @@ export const appRouter = router({
         list: protectedProcedure.input(z.object({ competicaoId: z.string().uuid() })).query(async ({ ctx, input }) => { await assertStaffForCompeticao(ctx.user.id, input.competicaoId); return listCompeticaoParticipantes(input.competicaoId); }),
         add: protectedProcedure.input(z.object({ competicaoId: z.string().uuid(), alunoId: z.string().uuid() })).mutation(async ({ ctx, input }) => {
           const competicao = await assertStaffForCompeticao(ctx.user.id, input.competicaoId);
+          const aluno = await getProfileByUserId(input.alunoId);
+          if (aluno?.organization_id !== competicao.organization_id) throw new Error("Aluno não pertence a esta organização.");
           return addCompeticaoParticipante({ competicaoId: input.competicaoId, alunoId: input.alunoId, organizationId: competicao.organization_id });
         }),
         remove: protectedProcedure.input(z.object({ competicaoId: z.string().uuid(), alunoId: z.string().uuid() })).mutation(async ({ ctx, input }) => {
