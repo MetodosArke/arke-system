@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { trpc } from "@/lib/trpc";
 import { readFileAsBase64 } from "@/lib/upload";
+import { ImportacaoDados } from "@/components/ImportacaoDados";
 
 type Toast = { title: string; detail: string };
 type Tab = "treinos" | "dieta" | "acolhimento" | "matricula" | "evolucao" | "chat" | "prontuario";
@@ -31,6 +32,7 @@ const emptyTreino = { titulo: "", tipo: "A", descricao: "" };
 const emptyExercicio = { exercicioId: "", series: "3", repeticoes: "12", descansoSeg: "60", observacoes: "" };
 const emptyDieta = { titulo: "", descricao: "", arquivoUrl: "" };
 const emptyInvite = { fullName: "", email: "" };
+const emptyAlunoCadastro = { nome: "", cpf: "", email: "", telefone: "", dataNascimento: "", responsavelNome: "", responsavelCpf: "", unitId: "", planoId: "", valorMensal: "", diaVencimento: "" };
 const emptyTeamInvite = { email: "", role: "professional" as const };
 const TEAM_ROLE_LABELS: Record<string, string> = { admin: "Administrador", manager: "Gerente", professional: "Profissional de treino", nutricionista: "Nutricionista", viewer: "Visualizador" };
 
@@ -140,6 +142,38 @@ export function ProfessionalDashboard({ onToast }: { onToast: (toast: Toast) => 
   const inviteMember = trpc.journey.inviteMember.useMutation({ onSuccess: () => { success("Convite enviado por e-mail"); setInviteForm(emptyInvite); refreshInvites(); }, onError: (e) => fail("Erro ao convidar aluno", e) });
   const revokeInvite = trpc.journey.revokeInvitation.useMutation({ onSuccess: () => { success("Convite revogado"); refreshInvites(); }, onError: (e) => fail("Erro ao revogar convite", e) });
 
+  // Cadastro direto de aluno (sem convite) e importação em massa — o
+  // cadastro sempre existe na hora (manual ou importado); o convite acima
+  // continua existindo, mas como ação opcional em cima dele (ver
+  // 20260916_cadastro_direto_alunos_e_importacao.sql).
+  const [alunoPanelMode, setAlunoPanelMode] = useState<"convite" | "cadastro" | "importar">("convite");
+  const [alunoCadastroForm, setAlunoCadastroForm] = useState(emptyAlunoCadastro);
+  const planosQuery = trpc.planos.list.useQuery({ organizationId: activeOrgId }, { enabled: Boolean(activeOrgId) && canManageTeam });
+  const planos = planosQuery.data ?? [];
+  const alunosCadastradosQuery = trpc.alunos.list.useQuery({ organizationId: activeOrgId }, { enabled: Boolean(activeOrgId) && canManageTeam });
+  const alunosCadastrados = alunosCadastradosQuery.data ?? [];
+  const createAlunoCadastro = trpc.alunos.create.useMutation({
+    onSuccess: () => { success("Aluno cadastrado — sem convite enviado"); setAlunoCadastroForm(emptyAlunoCadastro); utils.alunos.list.invalidate({ organizationId: activeOrgId }); },
+    onError: (e) => fail("Erro ao cadastrar aluno", e),
+  });
+  const submitAlunoCadastro = () => {
+    if (!alunoCadastroForm.nome.trim()) return;
+    createAlunoCadastro.mutate({
+      organizationId: activeOrgId,
+      nome: alunoCadastroForm.nome.trim(),
+      cpf: alunoCadastroForm.cpf.trim() || undefined,
+      email: alunoCadastroForm.email.trim() || undefined,
+      telefone: alunoCadastroForm.telefone.trim() || undefined,
+      dataNascimento: alunoCadastroForm.dataNascimento || undefined,
+      responsavelNome: alunoCadastroForm.responsavelNome.trim() || undefined,
+      responsavelCpf: alunoCadastroForm.responsavelCpf.trim() || undefined,
+      unitId: alunoCadastroForm.unitId || undefined,
+      planoId: alunoCadastroForm.planoId || undefined,
+      valorMensal: alunoCadastroForm.valorMensal.trim() ? Number(alunoCadastroForm.valorMensal) : undefined,
+      diaVencimento: alunoCadastroForm.diaVencimento.trim() ? Number(alunoCadastroForm.diaVencimento) : undefined,
+    });
+  };
+
   // Convite de equipe (profissional/nutricionista/gerente) — vínculo por convite (Fase 11)
   const teamInvitesQuery = trpc.saas.organizations.pendingInvitations.useQuery({ organizationId: activeOrgId }, { enabled: Boolean(activeOrgId) && canManageTeam });
   const teamInvites = teamInvitesQuery.data ?? [];
@@ -159,7 +193,7 @@ export function ProfessionalDashboard({ onToast }: { onToast: (toast: Toast) => 
   const acolhimento = acolhimentoQuery.data;
 
   // Matrícula e frequência
-  const accessQuery = trpc.saas.organizations.access.useQuery({ organizationId: activeOrgId }, { enabled: Boolean(activeOrgId) && tab === "matricula" });
+  const accessQuery = trpc.saas.organizations.access.useQuery({ organizationId: activeOrgId }, { enabled: Boolean(activeOrgId) && (tab === "matricula" || alunoPanelMode === "cadastro") });
   const units = accessQuery.data?.units ?? [];
   const [matriculaForm, setMatriculaForm] = useState({ unitId: "", matriculaEm: "" });
   const updateMatricula = trpc.prescricao.updateMatricula.useMutation({ onSuccess: () => { success("Matrícula atualizada"); utils.prescricao.students.invalidate({ organizationId: activeOrgId }); }, onError: (e) => fail("Erro ao atualizar matrícula", e) });
@@ -269,8 +303,16 @@ export function ProfessionalDashboard({ onToast }: { onToast: (toast: Toast) => 
         {studentsQuery.isLoading && <p className="text-xs text-[#918a7d]">Carregando alunos...</p>}
         {!studentsQuery.isLoading && students.length === 0 && <p className="text-xs text-[#918a7d]">Nenhum aluno cadastrado nesta organização ainda.</p>}
         {students.map((student) => <button key={student.user_id} onClick={() => selectAluno(student.user_id)} className={`w-full rounded-xl px-3 py-2.5 text-left text-sm ${alunoId === student.user_id ? "bg-[#15130f] font-semibold text-white" : "text-[#4b4438] hover:bg-[#faf7ef]"}`}>{student.full_name || "Aluno sem nome"}</button>)}
-        <div className="mt-3 space-y-2 rounded-xl bg-[#faf7ef] p-3">
+
+        <div className="mt-3 flex flex-wrap gap-1.5">
+          <button onClick={() => setAlunoPanelMode("convite")} className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${alunoPanelMode === "convite" ? "bg-[#15130f] text-white" : "bg-[#faf7ef] text-[#4b4438]"}`}>Convidar</button>
+          {canManageTeam && <button onClick={() => setAlunoPanelMode("cadastro")} className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${alunoPanelMode === "cadastro" ? "bg-[#15130f] text-white" : "bg-[#faf7ef] text-[#4b4438]"}`}>Cadastro direto</button>}
+          {canManageTeam && <button onClick={() => setAlunoPanelMode("importar")} className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${alunoPanelMode === "importar" ? "bg-[#15130f] text-white" : "bg-[#faf7ef] text-[#4b4438]"}`}>Importar</button>}
+        </div>
+
+        {alunoPanelMode === "convite" && <div className="mt-2 space-y-2 rounded-xl bg-[#faf7ef] p-3">
           <p className="text-xs font-semibold text-[#4b4438]">Convidar aluno</p>
+          <p className="text-[10px] text-[#9b9488]">Manda um convite por e-mail para o aluno criar a própria conta e acessar o app.</p>
           <Input value={inviteForm.fullName} onChange={(e) => setInviteForm({ ...inviteForm, fullName: e.target.value })} placeholder="Nome completo" className="h-9 rounded-lg text-xs" />
           <Input value={inviteForm.email} onChange={(e) => setInviteForm({ ...inviteForm, email: e.target.value })} placeholder="E-mail" type="email" className="h-9 rounded-lg text-xs" />
           <Button onClick={() => inviteMember.mutate({ organizationId: activeOrgId, email: inviteForm.email, fullName: inviteForm.fullName })} disabled={!inviteForm.fullName || !inviteForm.email || inviteMember.isPending} className="h-9 w-full rounded-lg bg-[#15130f] text-xs text-white"><Plus size={14} /> Enviar convite</Button>
@@ -278,7 +320,27 @@ export function ProfessionalDashboard({ onToast }: { onToast: (toast: Toast) => 
             <p className="text-[10px] font-semibold uppercase tracking-[.1em] text-[#9b9488]">Convites pendentes</p>
             {invites.map((invite) => <div key={invite.id} className="flex items-center justify-between rounded-lg border border-[#eee9df] bg-white p-2"><div className="min-w-0 flex-1"><p className="truncate text-xs font-semibold text-[#4b4438]">{invite.full_name}</p><p className="truncate text-[10px] text-[#9b9488]">{invite.email}</p></div><Button variant="ghost" onClick={() => revokeInvite.mutate({ id: invite.id, organizationId: activeOrgId })} className="h-7 w-7 p-0 text-[#b65c4d]"><Trash2 size={13} /></Button></div>)}
           </div>}
-        </div>
+        </div>}
+
+        {alunoPanelMode === "cadastro" && canManageTeam && <div className="mt-2 space-y-2 rounded-xl bg-[#faf7ef] p-3">
+          <p className="text-xs font-semibold text-[#4b4438]">Cadastro direto de aluno</p>
+          <p className="text-[10px] text-[#9b9488]">Cria o cadastro completo agora, sem enviar convite — o aluno pode ser convidado ao app depois, se quiser.</p>
+          <Input value={alunoCadastroForm.nome} onChange={(e) => setAlunoCadastroForm({ ...alunoCadastroForm, nome: e.target.value })} placeholder="Nome completo" className="h-9 rounded-lg text-xs" />
+          <div className="grid grid-cols-2 gap-2"><Input value={alunoCadastroForm.cpf} onChange={(e) => setAlunoCadastroForm({ ...alunoCadastroForm, cpf: e.target.value })} placeholder="CPF" className="h-9 rounded-lg text-xs" /><Input value={alunoCadastroForm.telefone} onChange={(e) => setAlunoCadastroForm({ ...alunoCadastroForm, telefone: e.target.value })} placeholder="Telefone" className="h-9 rounded-lg text-xs" /></div>
+          <Input value={alunoCadastroForm.email} onChange={(e) => setAlunoCadastroForm({ ...alunoCadastroForm, email: e.target.value })} placeholder="E-mail (opcional)" type="email" className="h-9 rounded-lg text-xs" />
+          <div><label className="mb-1 block text-[10px] font-semibold text-[#9b9488]">Data de nascimento</label><Input value={alunoCadastroForm.dataNascimento} onChange={(e) => setAlunoCadastroForm({ ...alunoCadastroForm, dataNascimento: e.target.value })} type="date" className="h-9 rounded-lg text-xs" /></div>
+          <div className="grid grid-cols-2 gap-2"><Input value={alunoCadastroForm.responsavelNome} onChange={(e) => setAlunoCadastroForm({ ...alunoCadastroForm, responsavelNome: e.target.value })} placeholder="Responsável (se menor)" className="h-9 rounded-lg text-xs" /><Input value={alunoCadastroForm.responsavelCpf} onChange={(e) => setAlunoCadastroForm({ ...alunoCadastroForm, responsavelCpf: e.target.value })} placeholder="CPF do responsável" className="h-9 rounded-lg text-xs" /></div>
+          <select value={alunoCadastroForm.unitId} onChange={(e) => setAlunoCadastroForm({ ...alunoCadastroForm, unitId: e.target.value })} className="h-9 w-full rounded-lg border bg-white px-2 text-xs"><option value="">Sem unidade definida</option>{units.map((unit) => <option key={unit.id} value={unit.id}>{unit.name}</option>)}</select>
+          <select value={alunoCadastroForm.planoId} onChange={(e) => { const plano = planos.find((p) => p.id === e.target.value); setAlunoCadastroForm({ ...alunoCadastroForm, planoId: e.target.value, valorMensal: plano ? String(plano.valor_mensal) : alunoCadastroForm.valorMensal }); }} className="h-9 w-full rounded-lg border bg-white px-2 text-xs"><option value="">Sem plano de mensalidade</option>{planos.map((plano) => <option key={plano.id} value={plano.id}>{plano.nome} · R$ {plano.valor_mensal}</option>)}</select>
+          <div className="grid grid-cols-2 gap-2"><Input value={alunoCadastroForm.valorMensal} onChange={(e) => setAlunoCadastroForm({ ...alunoCadastroForm, valorMensal: e.target.value })} placeholder="Valor mensal (R$)" type="number" className="h-9 rounded-lg text-xs" /><Input value={alunoCadastroForm.diaVencimento} onChange={(e) => setAlunoCadastroForm({ ...alunoCadastroForm, diaVencimento: e.target.value })} placeholder="Dia de vencimento" type="number" min={1} max={31} className="h-9 rounded-lg text-xs" /></div>
+          <Button onClick={submitAlunoCadastro} disabled={!alunoCadastroForm.nome.trim() || createAlunoCadastro.isPending} className="h-9 w-full rounded-lg bg-[#15130f] text-xs text-white"><Plus size={14} /> Cadastrar aluno</Button>
+          {alunosCadastrados.length > 0 && <div className="mt-2 space-y-1.5">
+            <p className="text-[10px] font-semibold uppercase tracking-[.1em] text-[#9b9488]">Cadastrados administrativamente ({alunosCadastrados.length})</p>
+            <div className="max-h-48 space-y-1 overflow-y-auto">{alunosCadastrados.map((aluno) => <div key={aluno.id} className="flex items-center justify-between rounded-lg border border-[#eee9df] bg-white p-2"><div className="min-w-0 flex-1"><p className="truncate text-xs font-semibold text-[#4b4438]">{aluno.nome}</p><p className="truncate text-[10px] text-[#9b9488]">{aluno.email || aluno.telefone || "sem contato"} · {aluno.origem === "importado" ? "importado" : "manual"}{aluno.auth_user_id ? " · com acesso ao app" : ""}</p></div></div>)}</div>
+          </div>}
+        </div>}
+
+        {alunoPanelMode === "importar" && canManageTeam && <div className="mt-2"><ImportacaoDados organizationId={activeOrgId} onToast={onToast} entities={["alunos", "planos", "unidades", "leads", "turmas"]} /></div>}
       </CardContent></Card>
 
       <Card className="rounded-2xl border-[#e5ece5] bg-white shadow-sm"><CardHeader><CardTitle className="text-base text-[#2b271f]">Equipe</CardTitle></CardHeader><CardContent className="space-y-3">
