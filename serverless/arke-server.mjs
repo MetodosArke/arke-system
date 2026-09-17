@@ -4,7 +4,7 @@ import { createExpressMiddleware } from "@trpc/server/adapters/express";
 
 // server/routers.ts
 import { z as z2 } from "zod";
-import { createHash as createHash2, randomUUID as randomUUID2 } from "node:crypto";
+import { createHash as createHash3, randomUUID as randomUUID2 } from "node:crypto";
 
 // shared/const.ts
 var COOKIE_NAME = "app_session_id";
@@ -102,6 +102,9 @@ function rateLimitKey(req, bucket) {
   return `${bucket}:${forwardedFor || req.ip || "unknown"}`;
 }
 
+// server/db.ts
+import { createHash as createHash2 } from "node:crypto";
+
 // server/asaas.ts
 function asaasConfig() {
   const apiKey = process.env.ASAAS_API_KEY ?? "";
@@ -193,34 +196,15 @@ function captureException2(error, extra) {
   Sentry.captureException(error, extra ? { extra } : void 0);
 }
 
-// shared/pricing.ts
-var ORG_PLAN_KEYS = ["starter", "growth", "scale"];
-var PROFISSIONAL_PLAN_KEYS = ["essencial", "performance", "ilimitado"];
-var SAAS_PLAN_KEYS = [...ORG_PLAN_KEYS, ...PROFISSIONAL_PLAN_KEYS];
-var ORG_PLAN_LABELS = { starter: "Starter", growth: "Growth", scale: "Scale" };
-var PROFISSIONAL_PLAN_LABELS = { essencial: "Essencial", performance: "Performance", ilimitado: "Ilimitado" };
-var ORG_PLAN_AMOUNTS_CENTS = { starter: 29900, growth: 69900, scale: 149e3 };
-var PROFISSIONAL_PLAN_AMOUNTS_CENTS = { essencial: 7900, performance: 14900, ilimitado: 24900 };
-var PLAN_LIMITS = {
-  starter: { maxUnits: 1, maxUsers: 12 },
-  growth: { maxUnits: 3, maxUsers: 32 },
-  scale: { maxUnits: 10, maxUsers: 100 },
-  essencial: { maxUnits: 1, maxUsers: 3 },
-  performance: { maxUnits: 1, maxUsers: 8 },
-  ilimitado: { maxUnits: 1, maxUsers: 999 }
-};
-var PLAN_AMOUNTS_CENTS = { ...ORG_PLAN_AMOUNTS_CENTS, ...PROFISSIONAL_PLAN_AMOUNTS_CENTS };
-var formatBRL = (cents) => (cents / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
-var orgPlanOptions = ORG_PLAN_KEYS.map((key) => ({ value: key, label: `${ORG_PLAN_LABELS[key]} \u2014 ${formatBRL(ORG_PLAN_AMOUNTS_CENTS[key])}/m\xEAs` }));
-var profissionalPlanOptions = PROFISSIONAL_PLAN_KEYS.map((key) => ({ value: key, label: `${PROFISSIONAL_PLAN_LABELS[key]} \u2014 ${formatBRL(PROFISSIONAL_PLAN_AMOUNTS_CENTS[key])}/m\xEAs` }));
-var SETUP_FEE_CENTS = 149e3;
-var ARKE_MODULE_PACKAGE_AMOUNTS_CENTS = { starter: 9900, growth: 24900, scale: 49900 };
-var ARKE_ALUNO_WHOLESALE_CENTS = 5990;
+// server/supabaseAdmin.ts
+import { createHash, randomUUID } from "node:crypto";
 
-// server/db.ts
-function isConfigured() {
-  return Boolean((process.env.SUPABASE_URL ?? "") && (process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.SUPABASE_KEY ?? ""));
-}
+// server/_core/env.ts
+var ENV = {
+  isProduction: process.env.NODE_ENV === "production"
+};
+
+// server/supabaseAdmin.ts
 function config() {
   const url = process.env.SUPABASE_URL ?? "";
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.SUPABASE_KEY ?? "";
@@ -237,361 +221,60 @@ async function request(table, init2 = {}, query = "") {
   const text = await response.text();
   return text ? JSON.parse(text) : [];
 }
-async function rpc(fn, args) {
-  const { url, key } = config();
-  const response = await fetch(`${url}/rest/v1/rpc/${fn}`, {
-    method: "POST",
-    headers: { apikey: key, Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
-    body: JSON.stringify(args)
-  });
-  if (!response.ok) throw new Error(`Supabase RPC ${fn} ${response.status}: ${await response.text()}`);
-  return await response.json();
-}
-async function getOrganizationsForUser(userId) {
-  if (!isConfigured()) return [];
-  const rows = await request(
-    "saas_memberships",
-    {},
-    `?select=*,saas_organizations(*)&auth_user_id=eq.${encodeURIComponent(userId)}&status=eq.active`
-  );
-  return rows.map(({ saas_organizations, ...membership }) => ({ membership, organization: saas_organizations })).sort((a, b) => b.organization.updated_at.localeCompare(a.organization.updated_at));
-}
-async function getMembership(userId, organizationId) {
-  if (!isConfigured()) return void 0;
-  const rows = await request(
-    "saas_memberships",
-    {},
-    `?select=*,saas_organizations(*)&auth_user_id=eq.${encodeURIComponent(userId)}&organization_id=eq.${encodeURIComponent(organizationId)}&limit=1`
-  );
-  const row = rows[0];
-  if (!row) return void 0;
-  const { saas_organizations, ...membership } = row;
-  return { membership, organization: saas_organizations };
-}
-async function listActiveStaffUserIds(organizationId, allowedRoles) {
-  if (!isConfigured()) return [];
-  const rolesFilter = allowedRoles.map(encodeURIComponent).join(",");
-  const rows = await request("saas_memberships", {}, `?select=auth_user_id&organization_id=eq.${encodeURIComponent(organizationId)}&status=eq.active&role=in.(${rolesFilter})`);
-  return rows.map((row) => row.auth_user_id);
-}
-async function getOrganizationBySlug(slug) {
-  if (!isConfigured()) return void 0;
-  const rows = await request("saas_organizations", {}, `?select=id,name,slug,module,logo_url,primary_color&slug=eq.${encodeURIComponent(slug)}&limit=1`);
-  return rows[0];
-}
-async function createOrganizationWithOwner(input) {
-  if (!isConfigured()) throw new Error("Database not available");
-  const [result] = await rpc("create_organization_with_owner", {
-    p_user_id: input.userId,
-    p_client_id: input.clientId,
-    p_name: input.name,
-    p_slug: input.slug,
-    p_plan: input.plan,
-    p_module: input.module ?? "academia",
-    p_logo_url: input.logoUrl ?? null,
-    p_primary_color: input.primaryColor ?? null
-  });
-  if (!result) throw new Error("Falha ao criar organiza\xE7\xE3o");
-  return { organizationId: result.organization_id, unitId: result.unit_id };
-}
-async function createOrganizationInvitation(input) {
-  if (!isConfigured()) throw new Error("Database not available");
-  const [created] = await request("saas_invitations", { method: "POST", body: JSON.stringify({ organization_id: input.organizationId, invited_by_user_id: input.invitedByUserId, email: input.email, role: input.role, token_hash: input.tokenHash, expires_at: input.expiresAt.toISOString() }) });
-  return created;
-}
-async function getPendingOrganizationInvitations(organizationId) {
-  if (!isConfigured()) return [];
-  return request("saas_invitations", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}&status=eq.pending&order=created_at.desc`);
-}
-async function revokeOrganizationInvitation(id2, organizationId) {
-  if (!isConfigured()) throw new Error("Database not available");
-  const rows = await request("saas_invitations", { method: "PATCH", body: JSON.stringify({ status: "revoked" }) }, `?id=eq.${encodeURIComponent(id2)}&organization_id=eq.${encodeURIComponent(organizationId)}&status=eq.pending`);
-  if (!rows[0]) throw new Error("Convite n\xE3o encontrado ou j\xE1 utilizado.");
-  return rows[0];
-}
-async function acceptOrganizationInvitation(input) {
-  if (!isConfigured()) throw new Error("Database not available");
-  const [result] = await rpc("accept_organization_invitation", {
-    p_token_hash: input.tokenHash,
-    p_user_id: input.userId,
-    p_email: input.email
-  });
-  if (!result) throw new Error("Invitation not found or already used");
-  return { invitation: { id: result.invitation_id }, organizationId: result.org_id, role: result.role };
-}
-async function getOrganizationSubscription(organizationId) {
-  if (!isConfigured()) return void 0;
-  const rows = await request("saas_subscriptions", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}&order=created_at.desc&limit=1`);
-  return rows[0];
-}
-async function listPlatformAppointments(input = {}) {
-  if (!isConfigured()) return [];
-  const filters = [input.desde ? `&scheduled_at=gte.${encodeURIComponent(input.desde)}` : "", input.ate ? `&scheduled_at=lte.${encodeURIComponent(input.ate)}` : ""].join("");
-  return request("arke_internal_appointments", {}, `?select=*&order=scheduled_at.asc${filters}`);
-}
-async function createPlatformAppointment(input) {
-  if (!isConfigured()) throw new Error("Database not available");
-  const [row] = await request("arke_internal_appointments", { method: "POST", body: JSON.stringify({ staff_user_id: input.staffUserId, organization_id: input.organizationId ?? null, tipo: input.tipo, titulo: input.titulo, descricao: input.descricao ?? null, scheduled_at: input.scheduledAt, duracao_minutos: input.duracaoMinutos, criado_por: input.criadoPor }) });
-  return row;
-}
-async function updatePlatformAppointment(id2, input) {
-  if (!isConfigured()) throw new Error("Database not available");
-  const body = {};
-  if (input.titulo !== void 0) body.titulo = input.titulo;
-  if (input.descricao !== void 0) body.descricao = input.descricao;
-  if (input.scheduledAt !== void 0) body.scheduled_at = input.scheduledAt;
-  if (input.duracaoMinutos !== void 0) body.duracao_minutos = input.duracaoMinutos;
-  if (input.status !== void 0) body.status = input.status;
-  if (input.tipo !== void 0) body.tipo = input.tipo;
-  if (input.organizationId !== void 0) body.organization_id = input.organizationId;
-  const [row] = await request("arke_internal_appointments", { method: "PATCH", body: JSON.stringify(body) }, `?id=eq.${encodeURIComponent(id2)}`);
-  return row;
-}
-async function deletePlatformAppointment(id2) {
-  if (!isConfigured()) throw new Error("Database not available");
-  await request("arke_internal_appointments", { method: "DELETE" }, `?id=eq.${encodeURIComponent(id2)}`);
-  return { id: id2 };
-}
-async function listAllOrganizationsForPlatform() {
-  if (!isConfigured()) return [];
-  const [orgs, subs] = await Promise.all([
-    request("saas_organizations", {}, "?select=*&order=created_at.desc"),
-    request("saas_subscriptions", {}, "?select=*&order=created_at.desc")
-  ]);
-  const subByOrg = /* @__PURE__ */ new Map();
-  for (const sub of subs) if (!subByOrg.has(sub.organization_id)) subByOrg.set(sub.organization_id, sub);
-  return orgs.map((org) => ({ ...org, subscription: subByOrg.get(org.id) ?? null }));
-}
-async function updateOrganizationProfile(input) {
-  if (!isConfigured()) throw new Error("Database not available");
-  const [updated] = await request("saas_organizations", { method: "PATCH", body: JSON.stringify({ name: input.name, ...input.logoUrl !== void 0 ? { logo_url: input.logoUrl } : {}, ...input.primaryColor !== void 0 ? { primary_color: input.primaryColor } : {} }) }, `?id=eq.${encodeURIComponent(input.organizationId)}`);
-  return updated;
-}
-async function updateOrganizationSubscription(input) {
-  if (!isConfigured()) throw new Error("Database not available");
-  const amountCents = PLAN_AMOUNTS_CENTS[input.plan];
-  const limits = PLAN_LIMITS[input.plan];
-  await request("saas_organizations", { method: "PATCH", body: JSON.stringify({ plan: input.plan, max_units: limits.maxUnits, max_users: limits.maxUsers }) }, `?id=eq.${encodeURIComponent(input.organizationId)}`);
-  await request("saas_subscriptions", { method: "PATCH", body: JSON.stringify({ plan: input.plan, amount_cents: amountCents, ...input.status ? { status: input.status } : {} }) }, `?organization_id=eq.${encodeURIComponent(input.organizationId)}`);
-  return getOrganizationSubscription(input.organizationId);
-}
-async function getOrganization(organizationId) {
-  const rows = await request("saas_organizations", {}, `?select=*&id=eq.${encodeURIComponent(organizationId)}&limit=1`);
-  return rows[0];
-}
-async function getOrCreateAsaasCustomerForOrganization(organizationId) {
-  const organization = await getOrganization(organizationId);
-  if (!organization) throw new Error("Organiza\xE7\xE3o n\xE3o encontrada.");
-  if (organization.asaas_customer_id) return organization.asaas_customer_id;
-  const [client] = await request("app_users", {}, `?select=name,email&id=eq.${encodeURIComponent(organization.client_id)}&limit=1`);
-  if (!client) throw new Error("Cliente respons\xE1vel pela organiza\xE7\xE3o n\xE3o encontrado.");
-  const customer = await createAsaasCustomer({ name: organization.name, email: client.email });
-  await request("saas_organizations", { method: "PATCH", body: JSON.stringify({ asaas_customer_id: customer.id }) }, `?id=eq.${encodeURIComponent(organizationId)}`);
-  return customer.id;
-}
-async function createSubscriptionCharge(input) {
-  if (!isConfigured()) throw new Error("Database not available");
-  const subscription = await getOrganizationSubscription(input.organizationId);
-  if (!subscription) throw new Error("Esta organiza\xE7\xE3o n\xE3o tem assinatura ativa.");
-  const customerId = await getOrCreateAsaasCustomerForOrganization(input.organizationId);
-  const dueDate = input.dueDate ?? new Date(Date.now() + 1e3 * 60 * 60 * 24 * 3).toISOString().slice(0, 10);
-  const payment = await createAsaasPayment({ customer: customerId, value: subscription.amount_cents / 100, dueDate, billingType: input.billingType, description: `Mensalidade Arke \u2014 plano ${subscription.plan}` });
-  await upsertAsaasPayment(payment, "PAYMENT_CREATED", input.organizationId);
-  await request("saas_subscriptions", { method: "PATCH", body: JSON.stringify({ provider: "asaas", external_id: payment.id }) }, `?organization_id=eq.${encodeURIComponent(input.organizationId)}`);
-  return payment;
-}
-async function chargeSetupFeeIfNeeded(organizationId) {
-  if (!isConfigured()) return;
-  const organization = await getOrganization(organizationId);
-  if (!organization || organization.setup_fee_charged_at) return;
-  try {
-    const customerId = await getOrCreateAsaasCustomerForOrganization(organizationId);
-    const dueDate = new Date(Date.now() + 1e3 * 60 * 60 * 24 * 3).toISOString().slice(0, 10);
-    const payment = await createAsaasPayment({ customer: customerId, value: SETUP_FEE_CENTS / 100, dueDate, billingType: "UNDEFINED", description: "Taxa de setup Arke" });
-    await upsertAsaasPayment(payment, "PAYMENT_CREATED", organizationId);
-    await request("saas_organizations", { method: "PATCH", body: JSON.stringify({ setup_fee_charged_at: (/* @__PURE__ */ new Date()).toISOString() }) }, `?id=eq.${encodeURIComponent(organizationId)}`);
-  } catch (error) {
-    captureException2(error, { route: "onboarding.setupFee", organizationId });
-  }
-}
-async function getOrganizationAccess(userId, organizationId) {
-  if (!isConfigured()) return void 0;
-  const membership = await getMembership(userId, organizationId);
-  if (!membership) return void 0;
-  const [units, policies] = await Promise.all([
-    request("saas_units", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}&status=eq.active`),
-    request("saas_module_policies", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}`)
-  ]);
-  return { organization: membership.organization, membership: membership.membership, units, policies };
-}
-async function saveOrganizationOnboarding(input) {
-  if (!isConfigured()) throw new Error("Database not available");
-  if (input.logoUrl !== void 0 || input.primaryColor !== void 0 || input.defaultUnitName !== void 0) {
-    await request("saas_organizations", { method: "PATCH", body: JSON.stringify({ ...input.logoUrl !== void 0 ? { logo_url: input.logoUrl } : {}, ...input.primaryColor !== void 0 ? { primary_color: input.primaryColor } : {}, ...input.defaultUnitName !== void 0 ? { name: input.defaultUnitName } : {} }) }, `?id=eq.${encodeURIComponent(input.organizationId)}`);
-  }
-  await request("saas_onboarding", { method: "POST", headers: { Prefer: "resolution=merge-duplicates,return=representation" }, body: JSON.stringify({ organization_id: input.organizationId, current_step: input.currentStep, status: input.status, city: input.city ?? null, default_unit_name: input.defaultUnitName ?? null, invite_email: input.inviteEmail ?? null }) }, "?on_conflict=organization_id");
-  if (input.status === "completed") await chargeSetupFeeIfNeeded(input.organizationId);
-  return { organizationId: input.organizationId, saved: true };
-}
-async function updateModulePolicy(input) {
-  if (!isConfigured()) throw new Error("Database not available");
-  await request("saas_module_policies", { method: "POST", headers: { Prefer: "resolution=merge-duplicates,return=representation" }, body: JSON.stringify({ organization_id: input.organizationId, unit_id: input.unitId, role: input.role, module: input.module, can_view: input.canView, can_manage: input.canManage }) }, "?on_conflict=organization_id,unit_id,role,module");
-  return { saved: true };
-}
-async function getOrganizationOnboarding(organizationId) {
-  if (!isConfigured()) return void 0;
-  const rows = await request("saas_onboarding", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}&limit=1`);
-  return rows[0];
-}
-async function listOrganizationUnits(organizationId) {
-  if (!isConfigured()) return [];
-  return request("saas_units", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}&status=eq.active&order=name.asc`);
-}
-async function createOrganizationUnit(input) {
-  if (!isConfigured()) throw new Error("Database not available");
-  const [created] = await request("saas_units", { method: "POST", body: JSON.stringify({ organization_id: input.organizationId, name: input.name, slug: input.slug, city: input.city ?? null, status: "active" }) });
-  return created;
-}
-async function archiveOrganizationUnit(organizationId, unitId) {
-  if (!isConfigured()) throw new Error("Database not available");
-  await request("saas_units", { method: "PATCH", body: JSON.stringify({ status: "archived" }) }, `?organization_id=eq.${encodeURIComponent(organizationId)}&id=eq.${encodeURIComponent(unitId)}`);
-  return { organizationId, unitId, status: "archived" };
-}
-async function recordAuditLog(input) {
-  if (!isConfigured()) return void 0;
-  const [created] = await request("saas_audit_logs", { method: "POST", body: JSON.stringify({ organization_id: input.organizationId, auth_user_id: input.userId, action: input.action, entity: input.entity, entity_id: input.entityId ?? null, before_json: input.beforeJson ?? null, after_json: input.afterJson ?? null }) });
-  return created;
-}
-async function getAuditLogs(organizationId, limit = 50, filters) {
-  if (!isConfigured()) return [];
-  const params = new URLSearchParams();
-  params.set("select", "*");
-  params.set("organization_id", `eq.${organizationId}`);
-  params.set("order", "created_at.desc");
-  params.set("limit", String(limit));
-  if (filters?.from) params.append("created_at", `gte.${filters.from.toISOString()}`);
-  if (filters?.to) params.append("created_at", `lte.${filters.to.toISOString()}`);
-  if (filters?.userId) params.set("auth_user_id", `eq.${filters.userId}`);
-  if (filters?.entity && filters.entity !== "all") params.set("entity", `eq.${filters.entity}`);
-  return request("saas_audit_logs", {}, `?${params.toString()}`);
-}
-function auditLogsToCsv(rows) {
-  const escape = (value) => `"${String(value ?? "").replaceAll('"', '""')}"`;
-  return [
-    ["id", "action", "entity", "entityId", "userId", "createdAt"].join(","),
-    ...rows.map((row) => [row.id, row.action, row.entity, row.entity_id, row.auth_user_id, row.created_at].map(escape).join(","))
-  ].join("\n");
-}
-function auditLogsToPdfBase64(rows) {
-  const sanitize = (value) => value.replaceAll("\\", "\\\\").replaceAll("(", "\\(").replaceAll(")", "\\)");
-  const lines = ["ARKE - Auditoria do tenant", "", ...rows.slice(0, 35).map((row) => `${row.created_at} | ${row.action} | ${row.entity} | usu\xE1rio ${row.auth_user_id ?? "-"}`)];
-  const content = ["BT", "/F1 9 Tf", "50 800 Td", ...lines.flatMap((line, index) => [index === 0 ? `(${sanitize(line)}) Tj` : "0 -18 Td", index === 0 ? "" : `(${sanitize(line)}) Tj`]), "ET"].join("\n");
-  const objects = ["<< /Type /Catalog /Pages 2 0 R >>", "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>", "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>", `<< /Length ${Buffer.byteLength(content, "utf8")} >>
-stream
-${content}
-endstream`];
-  let pdf = "%PDF-1.4\n";
-  const offsets = [0];
-  objects.forEach((object, index) => {
-    offsets[index + 1] = Buffer.byteLength(pdf, "utf8");
-    pdf += `${index + 1} 0 obj
-${object}
-endobj
-`;
-  });
-  const xref = Buffer.byteLength(pdf, "utf8");
-  const entries = offsets.slice(1).map((offset) => String(offset).padStart(10, "0") + " 00000 n ").join("\n");
-  pdf += `xref
-0 ${objects.length + 1}
-0000000000 65535 f 
-${entries}
-trailer
-<< /Size ${objects.length + 1} /Root 1 0 R >>
-startxref
-${xref}
-%%EOF`;
-  return Buffer.from(pdf, "utf8").toString("base64");
-}
-
-// server/supabaseAdmin.ts
-import { createHash, randomUUID } from "node:crypto";
-
-// server/_core/env.ts
-var ENV = {
-  isProduction: process.env.NODE_ENV === "production"
-};
-
-// server/supabaseAdmin.ts
-function config2() {
-  const url = process.env.SUPABASE_URL ?? "";
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.SUPABASE_KEY ?? "";
-  if (!url || !key) throw new Error("Supabase n\xE3o configurado. Defina SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY.");
-  return { url: url.replace(/\/$/, ""), key };
-}
-async function request2(table, init2 = {}, query = "") {
-  const { url, key } = config2();
-  const response = await fetch(`${url}/rest/v1/${table}${query}`, {
-    ...init2,
-    headers: { apikey: key, Authorization: `Bearer ${key}`, "Content-Type": "application/json", Prefer: "return=representation", ...init2.headers ?? {} }
-  });
-  if (!response.ok) throw new Error(`Supabase ${response.status}: ${await response.text()}`);
-  const text = await response.text();
-  return text ? JSON.parse(text) : [];
-}
 var id = () => randomUUID();
 async function authenticateSupabaseAccessToken(accessToken) {
-  const { url, key } = config2();
+  const { url, key } = config();
   const response = await fetch(`${url}/auth/v1/user`, { headers: { apikey: key, Authorization: `Bearer ${accessToken}` } });
   if (!response.ok) throw new Error("Supabase access token inv\xE1lido");
   return response.json();
 }
 async function updateSupabaseUserPassword(accessToken, password) {
-  const { url, key } = config2();
+  const { url, key } = config();
   const response = await fetch(`${url}/auth/v1/user`, { method: "PUT", headers: { apikey: key, Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" }, body: JSON.stringify({ password }) });
   if (!response.ok) throw new Error("N\xE3o foi poss\xEDvel definir a nova senha. O link pode ter expirado \u2014 solicite a recupera\xE7\xE3o novamente.");
   return response.json();
 }
 async function findAppUserByEmail(email) {
-  const rows = await request2("app_users", {}, `?select=*&email=eq.${encodeURIComponent(email)}&limit=1`);
+  const rows = await request("app_users", {}, `?select=*&email=eq.${encodeURIComponent(email)}&limit=1`);
   return rows[0] ?? null;
 }
 async function signInWithSupabase(email, password) {
-  const { url, key } = config2();
+  const { url, key } = config();
   const response = await fetch(`${url}/auth/v1/token?grant_type=password`, { method: "POST", headers: { apikey: key, "Content-Type": "application/json" }, body: JSON.stringify({ email: normalizeEmail(email), password }) });
   if (!response.ok) throw new Error("Usu\xE1rio ou senha inv\xE1lidos.");
   const data = await response.json();
-  const appUsers = await request2("app_users", {}, `?select=*&email=eq.${encodeURIComponent(normalizeEmail(email))}&limit=1`);
+  const appUsers = await request("app_users", {}, `?select=*&email=eq.${encodeURIComponent(normalizeEmail(email))}&limit=1`);
   return { accessToken: data.access_token, refreshToken: data.refresh_token, user: data.user, appUser: appUsers[0] ?? null };
 }
 async function createSupabaseAuthUser(email, name) {
-  const { url, key } = config2();
+  const { url, key } = config();
   const response = await fetch(`${url}/auth/v1/admin/generate_link`, { method: "POST", headers: { apikey: key, Authorization: `Bearer ${key}`, "Content-Type": "application/json" }, body: JSON.stringify({ type: "invite", email: normalizeEmail(email), data: { name } }) });
   if (!response.ok) throw new Error(`Falha ao gerar convite Supabase: ${await response.text()}`);
   return response.json();
 }
 async function listAppUsers() {
-  return request2("app_users", {}, "?select=*&order=created_at.asc");
+  return request("app_users", {}, "?select=*&order=created_at.asc");
 }
 async function createAppUser(input) {
   const authInvite = await createSupabaseAuthUser(input.email, input.name);
-  const rows = await request2("app_users", { method: "POST", body: JSON.stringify({ id: id(), ...input }) });
+  const rows = await request("app_users", { method: "POST", body: JSON.stringify({ id: id(), ...input }) });
   await sendInviteEmail(input.email, input.name, input.username, authInvite.action_link);
   await notifyAdmins("Novo cadastro no Arke", `<p>O cliente <strong>${input.name}</strong> foi cadastrado no m\xF3dulo ${input.module}.</p><p>Usu\xE1rio: ${input.username}</p>`);
   return rows[0];
 }
 async function updateAppUser(idValue, input) {
-  const rows = await request2("app_users", { method: "PATCH", body: JSON.stringify({ ...input, updated_at: (/* @__PURE__ */ new Date()).toISOString() }) }, `?id=eq.${encodeURIComponent(idValue)}`);
+  const rows = await request("app_users", { method: "PATCH", body: JSON.stringify({ ...input, updated_at: (/* @__PURE__ */ new Date()).toISOString() }) }, `?id=eq.${encodeURIComponent(idValue)}`);
   await notifyAdmins("Cadastro atualizado no Arke", `<p>O cadastro <strong>${input.name ?? idValue}</strong> foi atualizado pela administra\xE7\xE3o.</p>`);
   return rows[0];
 }
 async function deleteAppUser(idValue) {
-  await request2("saas_organizations", { method: "DELETE" }, `?client_id=eq.${encodeURIComponent(idValue)}`);
-  await request2("app_users", { method: "DELETE" }, `?id=eq.${encodeURIComponent(idValue)}`);
+  await request("saas_organizations", { method: "DELETE" }, `?client_id=eq.${encodeURIComponent(idValue)}`);
+  await request("app_users", { method: "DELETE" }, `?id=eq.${encodeURIComponent(idValue)}`);
   await notifyAdmins("Cadastro removido no Arke", `<p>O cadastro de usu\xE1rio <strong>${idValue}</strong> foi removido pela administra\xE7\xE3o, junto com qualquer organiza\xE7\xE3o vinculada.</p>`);
   return { id: idValue };
 }
 async function createPasswordRecoveryCode(email) {
-  const { url, key } = config2();
+  const { url, key } = config();
   const response = await fetch(`${url}/auth/v1/admin/generate_link`, { method: "POST", headers: { apikey: key, Authorization: `Bearer ${key}`, "Content-Type": "application/json" }, body: JSON.stringify({ type: "recovery", email: normalizeEmail(email) }) });
   if (!response.ok) return { sent: true };
   const data = await response.json();
@@ -600,7 +283,7 @@ async function createPasswordRecoveryCode(email) {
   return { sent: true };
 }
 async function verifyPasswordRecoveryCode(email, code) {
-  const { url, key } = config2();
+  const { url, key } = config();
   const response = await fetch(`${url}/auth/v1/verify`, { method: "POST", headers: { apikey: key, "Content-Type": "application/json" }, body: JSON.stringify({ type: "recovery", email: normalizeEmail(email), token: code }) });
   if (!response.ok) throw new Error("C\xF3digo inv\xE1lido ou expirado. Solicite um novo.");
   return response.json();
@@ -629,519 +312,519 @@ var normalizeEmail = (value) => value.trim().toLowerCase();
 var ENV_REFERENCE = ENV.isProduction;
 async function listGlobalLibrary() {
   const [exercises, groups, templates, templateExercises, nutritionPlans, routines, accessRules] = await Promise.all([
-    request2("exercicios", {}, "?select=*&order=created_at.desc"),
-    request2("grupos_musculares", {}, "?select=*&order=ordem.asc,nome.asc"),
-    request2("treino_templates", {}, "?select=*&order=created_at.desc"),
-    request2("treino_template_exercicios", {}, "?select=*&order=divisao.asc,ordem.asc"),
-    request2("acervo_planos_alimentares", {}, "?select=*&order=created_at.desc"),
-    request2("acervo_rotinas", {}, "?select=*&order=created_at.desc"),
-    request2("acervo_acesso_regras", {}, "?select=*&order=modulo.asc,plano.asc")
+    request("exercicios", {}, "?select=*&order=created_at.desc"),
+    request("grupos_musculares", {}, "?select=*&order=ordem.asc,nome.asc"),
+    request("treino_templates", {}, "?select=*&order=created_at.desc"),
+    request("treino_template_exercicios", {}, "?select=*&order=divisao.asc,ordem.asc"),
+    request("acervo_planos_alimentares", {}, "?select=*&order=created_at.desc"),
+    request("acervo_rotinas", {}, "?select=*&order=created_at.desc"),
+    request("acervo_acesso_regras", {}, "?select=*&order=modulo.asc,plano.asc")
   ]);
   return { exercises, groups, templates, templateExercises, nutritionPlans, routines, accessRules };
 }
 async function createGlobalExercise(input) {
-  const rows = await request2("exercicios", { method: "POST", body: JSON.stringify(input) });
+  const rows = await request("exercicios", { method: "POST", body: JSON.stringify(input) });
   return rows[0];
 }
 async function updateGlobalExercise(idValue, input) {
-  const rows = await request2("exercicios", { method: "PATCH", body: JSON.stringify(input) }, `?id=eq.${encodeURIComponent(idValue)}`);
+  const rows = await request("exercicios", { method: "PATCH", body: JSON.stringify(input) }, `?id=eq.${encodeURIComponent(idValue)}`);
   return rows[0];
 }
 async function deleteGlobalExercise(idValue) {
-  await request2("exercicios", { method: "DELETE" }, `?id=eq.${encodeURIComponent(idValue)}`);
+  await request("exercicios", { method: "DELETE" }, `?id=eq.${encodeURIComponent(idValue)}`);
   return { id: idValue };
 }
 async function createGlobalGroup(input) {
-  const rows = await request2("grupos_musculares", { method: "POST", body: JSON.stringify(input) });
+  const rows = await request("grupos_musculares", { method: "POST", body: JSON.stringify(input) });
   return rows[0];
 }
 async function updateGlobalGroup(idValue, input) {
-  const rows = await request2("grupos_musculares", { method: "PATCH", body: JSON.stringify(input) }, `?id=eq.${encodeURIComponent(idValue)}`);
+  const rows = await request("grupos_musculares", { method: "PATCH", body: JSON.stringify(input) }, `?id=eq.${encodeURIComponent(idValue)}`);
   return rows[0];
 }
 async function deleteGlobalGroup(idValue) {
-  await request2("grupos_musculares", { method: "DELETE" }, `?id=eq.${encodeURIComponent(idValue)}`);
+  await request("grupos_musculares", { method: "DELETE" }, `?id=eq.${encodeURIComponent(idValue)}`);
   return { id: idValue };
 }
 async function createGlobalTemplate(input) {
-  const rows = await request2("treino_templates", { method: "POST", body: JSON.stringify(input) });
+  const rows = await request("treino_templates", { method: "POST", body: JSON.stringify(input) });
   return rows[0];
 }
 async function updateGlobalTemplate(idValue, input) {
-  const rows = await request2("treino_templates", { method: "PATCH", body: JSON.stringify(input) }, `?id=eq.${encodeURIComponent(idValue)}`);
+  const rows = await request("treino_templates", { method: "PATCH", body: JSON.stringify(input) }, `?id=eq.${encodeURIComponent(idValue)}`);
   return rows[0];
 }
 async function deleteGlobalTemplate(idValue) {
-  await request2("treino_templates", { method: "DELETE" }, `?id=eq.${encodeURIComponent(idValue)}`);
+  await request("treino_templates", { method: "DELETE" }, `?id=eq.${encodeURIComponent(idValue)}`);
   return { id: idValue };
 }
 async function createGlobalTemplateExercise(input) {
-  const rows = await request2("treino_template_exercicios", { method: "POST", body: JSON.stringify(input) });
+  const rows = await request("treino_template_exercicios", { method: "POST", body: JSON.stringify(input) });
   return rows[0];
 }
 async function updateGlobalTemplateExercise(idValue, input) {
-  const rows = await request2("treino_template_exercicios", { method: "PATCH", body: JSON.stringify(input) }, `?id=eq.${encodeURIComponent(idValue)}`);
+  const rows = await request("treino_template_exercicios", { method: "PATCH", body: JSON.stringify(input) }, `?id=eq.${encodeURIComponent(idValue)}`);
   return rows[0];
 }
 async function deleteGlobalTemplateExercise(idValue) {
-  await request2("treino_template_exercicios", { method: "DELETE" }, `?id=eq.${encodeURIComponent(idValue)}`);
+  await request("treino_template_exercicios", { method: "DELETE" }, `?id=eq.${encodeURIComponent(idValue)}`);
   return { id: idValue };
 }
 async function createGlobalNutritionPlan(input) {
-  const rows = await request2("acervo_planos_alimentares", { method: "POST", body: JSON.stringify(input) });
+  const rows = await request("acervo_planos_alimentares", { method: "POST", body: JSON.stringify(input) });
   return rows[0];
 }
 async function updateGlobalNutritionPlan(idValue, input) {
-  const rows = await request2("acervo_planos_alimentares", { method: "PATCH", body: JSON.stringify(input) }, `?id=eq.${encodeURIComponent(idValue)}`);
+  const rows = await request("acervo_planos_alimentares", { method: "PATCH", body: JSON.stringify(input) }, `?id=eq.${encodeURIComponent(idValue)}`);
   return rows[0];
 }
 async function deleteGlobalNutritionPlan(idValue) {
-  await request2("acervo_planos_alimentares", { method: "DELETE" }, `?id=eq.${encodeURIComponent(idValue)}`);
+  await request("acervo_planos_alimentares", { method: "DELETE" }, `?id=eq.${encodeURIComponent(idValue)}`);
   return { id: idValue };
 }
 var inFilter = (ids) => `id=in.(${ids.map(encodeURIComponent).join(",")})`;
 async function publishGlobalExercises(ids, userId) {
   if (!ids.length) return [];
-  return request2("exercicios", { method: "PATCH", body: JSON.stringify({ estado_publicacao: "publicado", publicado_por: userId, publicado_em: (/* @__PURE__ */ new Date()).toISOString() }) }, `?${inFilter(ids)}`);
+  return request("exercicios", { method: "PATCH", body: JSON.stringify({ estado_publicacao: "publicado", publicado_por: userId, publicado_em: (/* @__PURE__ */ new Date()).toISOString() }) }, `?${inFilter(ids)}`);
 }
 async function publishGlobalTemplates(ids, userId) {
   if (!ids.length) return [];
-  return request2("treino_templates", { method: "PATCH", body: JSON.stringify({ estado_publicacao: "publicado", publicado_por: userId, publicado_em: (/* @__PURE__ */ new Date()).toISOString() }) }, `?${inFilter(ids)}`);
+  return request("treino_templates", { method: "PATCH", body: JSON.stringify({ estado_publicacao: "publicado", publicado_por: userId, publicado_em: (/* @__PURE__ */ new Date()).toISOString() }) }, `?${inFilter(ids)}`);
 }
 async function publishGlobalNutritionPlans(ids, userId) {
   if (!ids.length) return [];
-  return request2("acervo_planos_alimentares", { method: "PATCH", body: JSON.stringify({ estado_publicacao: "publicado", publicado_por: userId, publicado_em: (/* @__PURE__ */ new Date()).toISOString() }) }, `?${inFilter(ids)}`);
+  return request("acervo_planos_alimentares", { method: "PATCH", body: JSON.stringify({ estado_publicacao: "publicado", publicado_por: userId, publicado_em: (/* @__PURE__ */ new Date()).toISOString() }) }, `?${inFilter(ids)}`);
 }
 async function createGlobalRoutine(input) {
-  const rows = await request2("acervo_rotinas", { method: "POST", body: JSON.stringify(input) });
+  const rows = await request("acervo_rotinas", { method: "POST", body: JSON.stringify(input) });
   return rows[0];
 }
 async function updateGlobalRoutine(idValue, input) {
-  const rows = await request2("acervo_rotinas", { method: "PATCH", body: JSON.stringify(input) }, `?id=eq.${encodeURIComponent(idValue)}`);
+  const rows = await request("acervo_rotinas", { method: "PATCH", body: JSON.stringify(input) }, `?id=eq.${encodeURIComponent(idValue)}`);
   return rows[0];
 }
 async function deleteGlobalRoutine(idValue) {
-  await request2("acervo_rotinas", { method: "DELETE" }, `?id=eq.${encodeURIComponent(idValue)}`);
+  await request("acervo_rotinas", { method: "DELETE" }, `?id=eq.${encodeURIComponent(idValue)}`);
   return { id: idValue };
 }
 async function upsertGlobalAccessRule(input) {
-  const rows = await request2("acervo_acesso_regras", { method: "POST", body: JSON.stringify(input), headers: { Prefer: "resolution=merge-duplicates,return=representation" } });
+  const rows = await request("acervo_acesso_regras", { method: "POST", body: JSON.stringify(input), headers: { Prefer: "resolution=merge-duplicates,return=representation" } });
   return rows[0];
 }
 async function deleteGlobalAccessRule(idValue) {
-  await request2("acervo_acesso_regras", { method: "DELETE" }, `?id=eq.${encodeURIComponent(idValue)}`);
+  await request("acervo_acesso_regras", { method: "DELETE" }, `?id=eq.${encodeURIComponent(idValue)}`);
   return { id: idValue };
 }
 async function getProfileByUserId(userId) {
-  const rows = await request2("profiles", {}, `?select=user_id,full_name,organization_id,status,unit_id,matricula_em&user_id=eq.${encodeURIComponent(userId)}&limit=1`);
+  const rows = await request("profiles", {}, `?select=user_id,full_name,organization_id,status,unit_id,matricula_em&user_id=eq.${encodeURIComponent(userId)}&limit=1`);
   return rows[0] ?? null;
 }
 async function listStudentsInOrganization(organizationId) {
-  return request2("profiles", {}, `?select=user_id,full_name,organization_id,status,unit_id,matricula_em&organization_id=eq.${encodeURIComponent(organizationId)}&order=full_name.asc`);
+  return request("profiles", {}, `?select=user_id,full_name,organization_id,status,unit_id,matricula_em&organization_id=eq.${encodeURIComponent(organizationId)}&order=full_name.asc`);
 }
 async function updateStudentMatricula(alunoId, input) {
   const body = {};
   if (input.unitId !== void 0) body.unit_id = input.unitId;
   if (input.matriculaEm !== void 0) body.matricula_em = input.matriculaEm;
-  const rows = await request2("profiles", { method: "PATCH", body: JSON.stringify(body) }, `?user_id=eq.${encodeURIComponent(alunoId)}`);
+  const rows = await request("profiles", { method: "PATCH", body: JSON.stringify(body) }, `?user_id=eq.${encodeURIComponent(alunoId)}`);
   return rows[0];
 }
 async function getArkeModule(organizationId) {
-  const rows = await request2("saas_arke_module", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}&limit=1`);
+  const rows = await request("saas_arke_module", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}&limit=1`);
   return rows[0] ?? null;
 }
 async function upsertArkeModule(input) {
   const body = { organization_id: input.organizationId, enabled: input.enabled, package_tier: input.packageTier ?? null, amount_cents: input.amountCents ?? null, enabled_at: input.enabled ? (/* @__PURE__ */ new Date()).toISOString() : null, updated_at: (/* @__PURE__ */ new Date()).toISOString() };
-  const rows = await request2("saas_arke_module", { method: "POST", body: JSON.stringify(body), headers: { Prefer: "return=representation,resolution=merge-duplicates" } }, "?on_conflict=organization_id");
+  const rows = await request("saas_arke_module", { method: "POST", body: JSON.stringify(body), headers: { Prefer: "return=representation,resolution=merge-duplicates" } }, "?on_conflict=organization_id");
   return rows[0];
 }
 async function listArkeModulesEnabled() {
-  return request2("saas_arke_module", {}, "?select=*&enabled=eq.true");
+  return request("saas_arke_module", {}, "?select=*&enabled=eq.true");
 }
 async function markArkeRepasseCharged(organizationId, chargedOn) {
-  await request2("saas_arke_module", { method: "PATCH", body: JSON.stringify({ last_repasse_charged_at: chargedOn }) }, `?organization_id=eq.${encodeURIComponent(organizationId)}`);
+  await request("saas_arke_module", { method: "PATCH", body: JSON.stringify({ last_repasse_charged_at: chargedOn }) }, `?organization_id=eq.${encodeURIComponent(organizationId)}`);
 }
 async function getAlunoArkeLicenca(userId, organizationId) {
-  const rows = await request2("aluno_arke_licenca", {}, `?select=*&user_id=eq.${encodeURIComponent(userId)}&organization_id=eq.${encodeURIComponent(organizationId)}&limit=1`);
+  const rows = await request("aluno_arke_licenca", {}, `?select=*&user_id=eq.${encodeURIComponent(userId)}&organization_id=eq.${encodeURIComponent(organizationId)}&limit=1`);
   return rows[0] ?? null;
 }
 async function countAlunosComArkeAtivo(organizationId) {
-  const rows = await request2("aluno_arke_licenca", { headers: { Prefer: "count=exact" } }, `?select=id&organization_id=eq.${encodeURIComponent(organizationId)}&ativo=eq.true`);
+  const rows = await request("aluno_arke_licenca", { headers: { Prefer: "count=exact" } }, `?select=id&organization_id=eq.${encodeURIComponent(organizationId)}&ativo=eq.true`);
   return rows.length;
 }
 async function countAllAlunosComArkeAtivo() {
   if (!hasSupabaseConfig()) return 0;
-  const rows = await request2("aluno_arke_licenca", {}, "?select=id&ativo=eq.true");
+  const rows = await request("aluno_arke_licenca", {}, "?select=id&ativo=eq.true");
   return rows.length;
 }
 async function toggleAlunoArkeLicenca(input) {
   const now = (/* @__PURE__ */ new Date()).toISOString();
   const body = { organization_id: input.organizationId, user_id: input.userId, ativo: input.ativo, ativado_em: input.ativo ? now : void 0, desativado_em: input.ativo ? void 0 : now, ativado_por: input.ativadoPor, updated_at: now };
-  const rows = await request2("aluno_arke_licenca", { method: "POST", body: JSON.stringify(body), headers: { Prefer: "return=representation,resolution=merge-duplicates" } }, "?on_conflict=organization_id,user_id");
+  const rows = await request("aluno_arke_licenca", { method: "POST", body: JSON.stringify(body), headers: { Prefer: "return=representation,resolution=merge-duplicates" } }, "?on_conflict=organization_id,user_id");
   return rows[0];
 }
 async function listAlunosComArkeAtivoIds(organizationId) {
-  const rows = await request2("aluno_arke_licenca", {}, `?select=user_id&organization_id=eq.${encodeURIComponent(organizationId)}&ativo=eq.true`);
+  const rows = await request("aluno_arke_licenca", {}, `?select=user_id&organization_id=eq.${encodeURIComponent(organizationId)}&ativo=eq.true`);
   return rows.map((row) => row.user_id);
 }
 async function getCheckinDoDia(userId, data) {
-  const rows = await request2("checkin_diario", {}, `?select=*&user_id=eq.${encodeURIComponent(userId)}&data=eq.${encodeURIComponent(data)}&limit=1`);
+  const rows = await request("checkin_diario", {}, `?select=*&user_id=eq.${encodeURIComponent(userId)}&data=eq.${encodeURIComponent(data)}&limit=1`);
   return rows[0] ?? null;
 }
 async function upsertCheckinDiario(input) {
   const body = { user_id: input.userId, organization_id: input.organizationId, data: input.data, dedicacao: input.dedicacao, ...input.horasSono !== void 0 ? { horas_sono: input.horasSono } : {} };
-  const rows = await request2("checkin_diario", { method: "POST", body: JSON.stringify(body), headers: { Prefer: "return=representation,resolution=merge-duplicates" } }, "?on_conflict=user_id,data");
+  const rows = await request("checkin_diario", { method: "POST", body: JSON.stringify(body), headers: { Prefer: "return=representation,resolution=merge-duplicates" } }, "?on_conflict=user_id,data");
   return rows[0];
 }
 async function hasCheckinDesde(userId, desde) {
-  const rows = await request2("checkin_diario", {}, `?select=data&user_id=eq.${encodeURIComponent(userId)}&data=gte.${encodeURIComponent(desde)}&limit=1`);
+  const rows = await request("checkin_diario", {}, `?select=data&user_id=eq.${encodeURIComponent(userId)}&data=gte.${encodeURIComponent(desde)}&limit=1`);
   return rows.length > 0;
 }
 async function listCheckinsPeriodo(userId, desde, ate) {
-  return request2("checkin_diario", {}, `?select=*&user_id=eq.${encodeURIComponent(userId)}&data=gte.${encodeURIComponent(desde)}&data=lte.${encodeURIComponent(ate)}&order=data.asc`);
+  return request("checkin_diario", {}, `?select=*&user_id=eq.${encodeURIComponent(userId)}&data=gte.${encodeURIComponent(desde)}&data=lte.${encodeURIComponent(ate)}&order=data.asc`);
 }
 async function getAvaliacaoSemanal(userId, semana) {
-  const rows = await request2("avaliacao_semanal", {}, `?select=*&user_id=eq.${encodeURIComponent(userId)}&semana=eq.${encodeURIComponent(semana)}&limit=1`);
+  const rows = await request("avaliacao_semanal", {}, `?select=*&user_id=eq.${encodeURIComponent(userId)}&semana=eq.${encodeURIComponent(semana)}&limit=1`);
   return rows[0] ?? null;
 }
 async function upsertAvaliacaoSemanal(input) {
   const body = { user_id: input.userId, organization_id: input.organizationId, semana: input.semana, sono: input.sono, produtividade: input.produtividade, humor: input.humor, conquista: input.conquista ?? null, updated_at: (/* @__PURE__ */ new Date()).toISOString() };
-  const rows = await request2("avaliacao_semanal", { method: "POST", body: JSON.stringify(body), headers: { Prefer: "return=representation,resolution=merge-duplicates" } }, "?on_conflict=user_id,semana");
+  const rows = await request("avaliacao_semanal", { method: "POST", body: JSON.stringify(body), headers: { Prefer: "return=representation,resolution=merge-duplicates" } }, "?on_conflict=user_id,semana");
   return rows[0];
 }
 async function listAvaliacoesSemanaisPeriodo(userId, desde, ate) {
-  return request2("avaliacao_semanal", {}, `?select=*&user_id=eq.${encodeURIComponent(userId)}&semana=gte.${encodeURIComponent(desde)}&semana=lte.${encodeURIComponent(ate)}&order=semana.asc`);
+  return request("avaliacao_semanal", {}, `?select=*&user_id=eq.${encodeURIComponent(userId)}&semana=gte.${encodeURIComponent(desde)}&semana=lte.${encodeURIComponent(ate)}&order=semana.asc`);
 }
 async function getPlanoTreinoSemanal(userId) {
-  const rows = await request2("plano_treino_semanal", {}, `?select=*&user_id=eq.${encodeURIComponent(userId)}&limit=1`);
+  const rows = await request("plano_treino_semanal", {}, `?select=*&user_id=eq.${encodeURIComponent(userId)}&limit=1`);
   return rows[0] ?? null;
 }
 async function upsertPlanoTreinoSemanal(input) {
   const body = { user_id: input.userId, organization_id: input.organizationId, dias_treino: input.diasTreino, horario_preferido: input.horarioPreferido ?? null, local_treino: input.localTreino ?? null, updated_at: (/* @__PURE__ */ new Date()).toISOString() };
-  const rows = await request2("plano_treino_semanal", { method: "POST", body: JSON.stringify(body), headers: { Prefer: "return=representation,resolution=merge-duplicates" } }, "?on_conflict=user_id");
+  const rows = await request("plano_treino_semanal", { method: "POST", body: JSON.stringify(body), headers: { Prefer: "return=representation,resolution=merge-duplicates" } }, "?on_conflict=user_id");
   return rows[0];
 }
 async function createTreinoCalendario(input) {
   const body = { aluno_id: input.alunoId, organization_id: input.organizationId, data: input.data, tipos: input.tipos, duracao_min: input.duracaoMin ?? null, distancia_km: input.distanciaKm ?? null, intensidade: input.intensidade ?? "moderada", detalhes: input.detalhes ?? null, observacoes: input.observacoes ?? null };
-  const [row] = await request2("treino_calendario", { method: "POST", body: JSON.stringify(body) });
+  const [row] = await request("treino_calendario", { method: "POST", body: JSON.stringify(body) });
   return row;
 }
 async function listTreinoCalendarioPeriodo(alunoId, desde, ate) {
-  return request2("treino_calendario", {}, `?select=*&aluno_id=eq.${encodeURIComponent(alunoId)}&data=gte.${encodeURIComponent(desde)}&data=lte.${encodeURIComponent(ate)}&order=data.desc`);
+  return request("treino_calendario", {}, `?select=*&aluno_id=eq.${encodeURIComponent(alunoId)}&data=gte.${encodeURIComponent(desde)}&data=lte.${encodeURIComponent(ate)}&order=data.desc`);
 }
 async function getDietaAdesaoDoDia(alunoId, data) {
-  const rows = await request2("dieta_adesao", {}, `?select=*&aluno_id=eq.${encodeURIComponent(alunoId)}&data=eq.${encodeURIComponent(data)}&limit=1`);
+  const rows = await request("dieta_adesao", {}, `?select=*&aluno_id=eq.${encodeURIComponent(alunoId)}&data=eq.${encodeURIComponent(data)}&limit=1`);
   return rows[0] ?? null;
 }
 async function upsertDietaAdesao(input) {
   const body = { aluno_id: input.alunoId, dieta_id: input.dietaId, organization_id: input.organizationId, data: input.data, adesao_percentual: input.adesaoPercentual, consumiu_doce: input.consumiuDoce, consumiu_alcool: input.consumiuAlcool, agua_ml: input.aguaMl ?? null, observacoes: input.observacoes ?? null };
-  const rows = await request2("dieta_adesao", { method: "POST", body: JSON.stringify(body), headers: { Prefer: "return=representation,resolution=merge-duplicates" } }, "?on_conflict=aluno_id,data");
+  const rows = await request("dieta_adesao", { method: "POST", body: JSON.stringify(body), headers: { Prefer: "return=representation,resolution=merge-duplicates" } }, "?on_conflict=aluno_id,data");
   return rows[0];
 }
 async function listDietaAdesaoPeriodo(alunoId, desde, ate) {
-  return request2("dieta_adesao", {}, `?select=*&aluno_id=eq.${encodeURIComponent(alunoId)}&data=gte.${encodeURIComponent(desde)}&data=lte.${encodeURIComponent(ate)}&order=data.desc`);
+  return request("dieta_adesao", {}, `?select=*&aluno_id=eq.${encodeURIComponent(alunoId)}&data=gte.${encodeURIComponent(desde)}&data=lte.${encodeURIComponent(ate)}&order=data.desc`);
 }
 async function getOrCreateCompromissoSemanal(userId, organizationId, semana) {
-  const rows = await request2("compromisso_semanal", { method: "POST", body: JSON.stringify({ user_id: userId, organization_id: organizationId, semana }), headers: { Prefer: "return=representation,resolution=merge-duplicates" } }, "?on_conflict=user_id,semana");
+  const rows = await request("compromisso_semanal", { method: "POST", body: JSON.stringify({ user_id: userId, organization_id: organizationId, semana }), headers: { Prefer: "return=representation,resolution=merge-duplicates" } }, "?on_conflict=user_id,semana");
   return rows[0];
 }
 async function listCompromissoMetas(compromissoId) {
-  return request2("compromisso_metas", {}, `?select=*&compromisso_id=eq.${encodeURIComponent(compromissoId)}&order=created_at.asc`);
+  return request("compromisso_metas", {}, `?select=*&compromisso_id=eq.${encodeURIComponent(compromissoId)}&order=created_at.asc`);
 }
 async function createCompromissoMeta(input) {
-  const [row] = await request2("compromisso_metas", { method: "POST", body: JSON.stringify({ compromisso_id: input.compromissoId, texto: input.texto }) });
+  const [row] = await request("compromisso_metas", { method: "POST", body: JSON.stringify({ compromisso_id: input.compromissoId, texto: input.texto }) });
   return row;
 }
 async function setCompromissoMetaConcluida(id2, concluida) {
-  const rows = await request2("compromisso_metas", { method: "PATCH", body: JSON.stringify({ concluida }) }, `?id=eq.${encodeURIComponent(id2)}`);
+  const rows = await request("compromisso_metas", { method: "PATCH", body: JSON.stringify({ concluida }) }, `?id=eq.${encodeURIComponent(id2)}`);
   return rows[0];
 }
 async function getCompromissoMetaComDono(id2) {
-  const rows = await request2("compromisso_metas", {}, `?select=*,compromisso_semanal(user_id)&id=eq.${encodeURIComponent(id2)}&limit=1`);
+  const rows = await request("compromisso_metas", {}, `?select=*,compromisso_semanal(user_id)&id=eq.${encodeURIComponent(id2)}&limit=1`);
   return rows[0] ?? null;
 }
 async function listCompromissoMetasPeriodo(userId, desde, ate) {
-  return request2("compromisso_metas", {}, `?select=*,compromisso_semanal!inner(semana,user_id)&compromisso_semanal.user_id=eq.${encodeURIComponent(userId)}&compromisso_semanal.semana=gte.${encodeURIComponent(desde)}&compromisso_semanal.semana=lte.${encodeURIComponent(ate)}`);
+  return request("compromisso_metas", {}, `?select=*,compromisso_semanal!inner(semana,user_id)&compromisso_semanal.user_id=eq.${encodeURIComponent(userId)}&compromisso_semanal.semana=gte.${encodeURIComponent(desde)}&compromisso_semanal.semana=lte.${encodeURIComponent(ate)}`);
 }
 var PROGRESSO_SEMANAL_SELECT = "id,aluno_id,organization_id,data,peso_kg,gordura_percentual,musculo_percentual,cintura_cm,quadril_cm,braco_cm,perna_cm,bem_estar,observacoes,meta_peso_kg,meta,meta_gordura,meta_gordura_valor,meta_musculo,meta_musculo_valor,created_at";
 async function listProgressoSemanal(alunoId) {
-  return request2("progresso_semanal", {}, `?select=${PROGRESSO_SEMANAL_SELECT}&aluno_id=eq.${encodeURIComponent(alunoId)}&order=data.asc`);
+  return request("progresso_semanal", {}, `?select=${PROGRESSO_SEMANAL_SELECT}&aluno_id=eq.${encodeURIComponent(alunoId)}&order=data.asc`);
 }
 async function hasProgressoSemanalDesde(alunoId, desde) {
-  const rows = await request2("progresso_semanal", {}, `?select=id&aluno_id=eq.${encodeURIComponent(alunoId)}&data=gte.${encodeURIComponent(desde)}&limit=1`);
+  const rows = await request("progresso_semanal", {}, `?select=id&aluno_id=eq.${encodeURIComponent(alunoId)}&data=gte.${encodeURIComponent(desde)}&limit=1`);
   return rows.length > 0;
 }
 async function getProgressoSemanal(idValue) {
-  const rows = await request2("progresso_semanal", {}, `?select=${PROGRESSO_SEMANAL_SELECT}&id=eq.${encodeURIComponent(idValue)}&limit=1`);
+  const rows = await request("progresso_semanal", {}, `?select=${PROGRESSO_SEMANAL_SELECT}&id=eq.${encodeURIComponent(idValue)}&limit=1`);
   return rows[0] ?? null;
 }
 async function createProgressoSemanal(input) {
-  const rows = await request2("progresso_semanal", { method: "POST", body: JSON.stringify(input) });
+  const rows = await request("progresso_semanal", { method: "POST", body: JSON.stringify(input) });
   return rows[0];
 }
 async function deleteProgressoSemanal(idValue) {
-  await request2("progresso_semanal", { method: "DELETE" }, `?id=eq.${encodeURIComponent(idValue)}`);
+  await request("progresso_semanal", { method: "DELETE" }, `?id=eq.${encodeURIComponent(idValue)}`);
   return { id: idValue };
 }
 async function listProgressoSemanalPeriodo(alunoId, desde, ate) {
-  return request2("progresso_semanal", {}, `?select=${PROGRESSO_SEMANAL_SELECT}&aluno_id=eq.${encodeURIComponent(alunoId)}&data=gte.${encodeURIComponent(desde)}&data=lte.${encodeURIComponent(ate)}&order=data.desc`);
+  return request("progresso_semanal", {}, `?select=${PROGRESSO_SEMANAL_SELECT}&aluno_id=eq.${encodeURIComponent(alunoId)}&data=gte.${encodeURIComponent(desde)}&data=lte.${encodeURIComponent(ate)}&order=data.desc`);
 }
 async function getAlunoPerfil(userId) {
-  const rows = await request2("aluno_perfil", {}, `?select=id,user_id,organization_id,meta_semanal_dias&user_id=eq.${encodeURIComponent(userId)}&limit=1`);
+  const rows = await request("aluno_perfil", {}, `?select=id,user_id,organization_id,meta_semanal_dias&user_id=eq.${encodeURIComponent(userId)}&limit=1`);
   return rows[0] ?? null;
 }
 async function getAlunoObjetivosRecente(userId) {
-  const rows = await request2("aluno_objetivos", {}, `?select=*&user_id=eq.${encodeURIComponent(userId)}&order=created_at.desc&limit=1`);
+  const rows = await request("aluno_objetivos", {}, `?select=*&user_id=eq.${encodeURIComponent(userId)}&order=created_at.desc&limit=1`);
   return rows[0] ?? null;
 }
 async function createAlunoObjetivos(input) {
   const body = { user_id: input.userId, organization_id: input.organizationId, objetivos: input.objetivos, conquistas: input.conquistas ?? null, dificuldades: input.dificuldades ?? null, visao_3_meses: input.visao3Meses ?? null, visao_3_anos: input.visao3Anos ?? null, proxima_revisao: input.proximaRevisao ?? null };
-  const [row] = await request2("aluno_objetivos", { method: "POST", body: JSON.stringify(body) });
+  const [row] = await request("aluno_objetivos", { method: "POST", body: JSON.stringify(body) });
   return row;
 }
 async function getAlunoValoresRecente(userId) {
-  const rows = await request2("aluno_valores", {}, `?select=*&user_id=eq.${encodeURIComponent(userId)}&order=created_at.desc&limit=1`);
+  const rows = await request("aluno_valores", {}, `?select=*&user_id=eq.${encodeURIComponent(userId)}&order=created_at.desc&limit=1`);
   return rows[0] ?? null;
 }
 async function createAlunoValores(input) {
   const body = { user_id: input.userId, organization_id: input.organizationId, valores: input.valores, validade: input.validade ?? null };
-  const [row] = await request2("aluno_valores", { method: "POST", body: JSON.stringify(body) });
+  const [row] = await request("aluno_valores", { method: "POST", body: JSON.stringify(body) });
   return row;
 }
 var idsInFilter = (column, ids) => `${column}=in.(${ids.map(encodeURIComponent).join(",")})`;
 async function listFeedPosts(organizationId, limit = 50) {
-  return request2("feed_posts", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}&order=created_at.desc&limit=${limit}`);
+  return request("feed_posts", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}&order=created_at.desc&limit=${limit}`);
 }
 async function getFeedPost(idValue) {
-  const rows = await request2("feed_posts", {}, `?select=*&id=eq.${encodeURIComponent(idValue)}&limit=1`);
+  const rows = await request("feed_posts", {}, `?select=*&id=eq.${encodeURIComponent(idValue)}&limit=1`);
   return rows[0] ?? null;
 }
 async function createFeedPost(input) {
-  const rows = await request2("feed_posts", { method: "POST", body: JSON.stringify(input) });
+  const rows = await request("feed_posts", { method: "POST", body: JSON.stringify(input) });
   return rows[0];
 }
 async function deleteFeedPost(idValue) {
-  await request2("feed_posts", { method: "DELETE" }, `?id=eq.${encodeURIComponent(idValue)}`);
+  await request("feed_posts", { method: "DELETE" }, `?id=eq.${encodeURIComponent(idValue)}`);
   return { id: idValue };
 }
 async function listFeedLikesForPosts(postIds) {
   if (!postIds.length) return [];
-  return request2("feed_likes", {}, `?select=*&${idsInFilter("post_id", postIds)}`);
+  return request("feed_likes", {}, `?select=*&${idsInFilter("post_id", postIds)}`);
 }
 async function getFeedLike(postId, userId) {
-  const rows = await request2("feed_likes", {}, `?select=*&post_id=eq.${encodeURIComponent(postId)}&user_id=eq.${encodeURIComponent(userId)}&limit=1`);
+  const rows = await request("feed_likes", {}, `?select=*&post_id=eq.${encodeURIComponent(postId)}&user_id=eq.${encodeURIComponent(userId)}&limit=1`);
   return rows[0] ?? null;
 }
 async function createFeedLike(input) {
-  const rows = await request2("feed_likes", { method: "POST", body: JSON.stringify({ post_id: input.postId, user_id: input.userId, organization_id: input.organizationId }) });
+  const rows = await request("feed_likes", { method: "POST", body: JSON.stringify({ post_id: input.postId, user_id: input.userId, organization_id: input.organizationId }) });
   return rows[0];
 }
 async function deleteFeedLike(postId, userId) {
-  await request2("feed_likes", { method: "DELETE" }, `?post_id=eq.${encodeURIComponent(postId)}&user_id=eq.${encodeURIComponent(userId)}`);
+  await request("feed_likes", { method: "DELETE" }, `?post_id=eq.${encodeURIComponent(postId)}&user_id=eq.${encodeURIComponent(userId)}`);
   return { postId, userId };
 }
 async function listFeedCommentsForPosts(postIds) {
   if (!postIds.length) return [];
-  return request2("feed_comments", {}, `?select=*&${idsInFilter("post_id", postIds)}&order=created_at.asc`);
+  return request("feed_comments", {}, `?select=*&${idsInFilter("post_id", postIds)}&order=created_at.asc`);
 }
 async function getFeedComment(idValue) {
-  const rows = await request2("feed_comments", {}, `?select=*&id=eq.${encodeURIComponent(idValue)}&limit=1`);
+  const rows = await request("feed_comments", {}, `?select=*&id=eq.${encodeURIComponent(idValue)}&limit=1`);
   return rows[0] ?? null;
 }
 async function createFeedComment(input) {
-  const rows = await request2("feed_comments", { method: "POST", body: JSON.stringify(input) });
+  const rows = await request("feed_comments", { method: "POST", body: JSON.stringify(input) });
   return rows[0];
 }
 async function deleteFeedComment(idValue) {
-  await request2("feed_comments", { method: "DELETE" }, `?id=eq.${encodeURIComponent(idValue)}`);
+  await request("feed_comments", { method: "DELETE" }, `?id=eq.${encodeURIComponent(idValue)}`);
   return { id: idValue };
 }
 function periodoTimestamp(desde, ate) {
   return `created_at=gte.${encodeURIComponent(`${desde}T00:00:00`)}&created_at=lte.${encodeURIComponent(`${ate}T23:59:59`)}`;
 }
 async function listFeedPostsPeriodoAluno(userId, desde, ate) {
-  return request2("feed_posts", {}, `?select=created_at&user_id=eq.${encodeURIComponent(userId)}&${periodoTimestamp(desde, ate)}`);
+  return request("feed_posts", {}, `?select=created_at&user_id=eq.${encodeURIComponent(userId)}&${periodoTimestamp(desde, ate)}`);
 }
 async function listFeedLikesPeriodoAluno(userId, desde, ate) {
-  return request2("feed_likes", {}, `?select=created_at&user_id=eq.${encodeURIComponent(userId)}&${periodoTimestamp(desde, ate)}`);
+  return request("feed_likes", {}, `?select=created_at&user_id=eq.${encodeURIComponent(userId)}&${periodoTimestamp(desde, ate)}`);
 }
 async function listFeedCommentsPeriodoAluno(userId, desde, ate) {
-  return request2("feed_comments", {}, `?select=created_at&user_id=eq.${encodeURIComponent(userId)}&${periodoTimestamp(desde, ate)}`);
+  return request("feed_comments", {}, `?select=created_at&user_id=eq.${encodeURIComponent(userId)}&${periodoTimestamp(desde, ate)}`);
 }
 async function listProfileNames(userIds) {
   if (!userIds.length) return [];
-  return request2("profiles", {}, `?select=user_id,full_name&${idsInFilter("user_id", userIds)}`);
+  return request("profiles", {}, `?select=user_id,full_name&${idsInFilter("user_id", userIds)}`);
 }
 async function listMensagensTreino(alunoId) {
-  return request2("mensagens_treino", {}, `?select=*&aluno_id=eq.${encodeURIComponent(alunoId)}&order=created_at.asc`);
+  return request("mensagens_treino", {}, `?select=*&aluno_id=eq.${encodeURIComponent(alunoId)}&order=created_at.asc`);
 }
 async function createMensagemTreino(input) {
-  const rows = await request2("mensagens_treino", { method: "POST", body: JSON.stringify(input) });
+  const rows = await request("mensagens_treino", { method: "POST", body: JSON.stringify(input) });
   return rows[0];
 }
 async function markMensagensTreinoLidas(alunoId, remetenteTipo) {
-  await request2("mensagens_treino", { method: "PATCH", body: JSON.stringify({ lida: true }) }, `?aluno_id=eq.${encodeURIComponent(alunoId)}&remetente_tipo=eq.${remetenteTipo}&lida=eq.false`);
+  await request("mensagens_treino", { method: "PATCH", body: JSON.stringify({ lida: true }) }, `?aluno_id=eq.${encodeURIComponent(alunoId)}&remetente_tipo=eq.${remetenteTipo}&lida=eq.false`);
 }
 async function listMensagensDieta(dietaId) {
-  return request2("mensagens_dieta", {}, `?select=*&dieta_id=eq.${encodeURIComponent(dietaId)}&order=created_at.asc`);
+  return request("mensagens_dieta", {}, `?select=*&dieta_id=eq.${encodeURIComponent(dietaId)}&order=created_at.asc`);
 }
 async function createMensagemDieta(input) {
-  const rows = await request2("mensagens_dieta", { method: "POST", body: JSON.stringify(input) });
+  const rows = await request("mensagens_dieta", { method: "POST", body: JSON.stringify(input) });
   return rows[0];
 }
 async function markMensagensDietaLidas(dietaId, remetenteTipo) {
-  await request2("mensagens_dieta", { method: "PATCH", body: JSON.stringify({ lida: true }) }, `?dieta_id=eq.${encodeURIComponent(dietaId)}&remetente_tipo=eq.${remetenteTipo}&lida=eq.false`);
+  await request("mensagens_dieta", { method: "PATCH", body: JSON.stringify({ lida: true }) }, `?dieta_id=eq.${encodeURIComponent(dietaId)}&remetente_tipo=eq.${remetenteTipo}&lida=eq.false`);
 }
 async function getPushSubscriptionsForUser(userId) {
-  return request2("push_subscriptions", {}, `?select=*&user_id=eq.${encodeURIComponent(userId)}`);
+  return request("push_subscriptions", {}, `?select=*&user_id=eq.${encodeURIComponent(userId)}`);
 }
 async function upsertPushSubscription(input) {
   const body = { user_id: input.userId, endpoint: input.endpoint, p256dh: input.p256dh, auth: input.auth };
-  const rows = await request2("push_subscriptions", { method: "POST", body: JSON.stringify(body), headers: { Prefer: "return=representation,resolution=merge-duplicates" } }, "?on_conflict=user_id,endpoint");
+  const rows = await request("push_subscriptions", { method: "POST", body: JSON.stringify(body), headers: { Prefer: "return=representation,resolution=merge-duplicates" } }, "?on_conflict=user_id,endpoint");
   return rows[0];
 }
 async function deletePushSubscription(userId, endpoint) {
-  await request2("push_subscriptions", { method: "DELETE" }, `?user_id=eq.${encodeURIComponent(userId)}&endpoint=eq.${encodeURIComponent(endpoint)}`);
+  await request("push_subscriptions", { method: "DELETE" }, `?user_id=eq.${encodeURIComponent(userId)}&endpoint=eq.${encodeURIComponent(endpoint)}`);
 }
 async function listNotificacoes(userId, limit = 30) {
-  return request2("notificacoes", {}, `?select=*&user_id=eq.${encodeURIComponent(userId)}&order=created_at.desc&limit=${limit}`);
+  return request("notificacoes", {}, `?select=*&user_id=eq.${encodeURIComponent(userId)}&order=created_at.desc&limit=${limit}`);
 }
 async function countNotificacoesNaoLidas(userId) {
-  const rows = await request2("notificacoes", {}, `?select=id&user_id=eq.${encodeURIComponent(userId)}&lida=eq.false`);
+  const rows = await request("notificacoes", {}, `?select=id&user_id=eq.${encodeURIComponent(userId)}&lida=eq.false`);
   return rows.length;
 }
 async function createNotificacao(input) {
-  const rows = await request2("notificacoes", { method: "POST", body: JSON.stringify({ user_id: input.userId, titulo: input.titulo, mensagem: input.mensagem ?? null, tipo: input.tipo ?? "info" }) });
+  const rows = await request("notificacoes", { method: "POST", body: JSON.stringify({ user_id: input.userId, titulo: input.titulo, mensagem: input.mensagem ?? null, tipo: input.tipo ?? "info" }) });
   return rows[0];
 }
 async function markNotificacaoLida(id2, userId) {
-  await request2("notificacoes", { method: "PATCH", body: JSON.stringify({ lida: true }) }, `?id=eq.${encodeURIComponent(id2)}&user_id=eq.${encodeURIComponent(userId)}`);
+  await request("notificacoes", { method: "PATCH", body: JSON.stringify({ lida: true }) }, `?id=eq.${encodeURIComponent(id2)}&user_id=eq.${encodeURIComponent(userId)}`);
 }
 async function markAllNotificacoesLidas(userId) {
-  await request2("notificacoes", { method: "PATCH", body: JSON.stringify({ lida: true }) }, `?user_id=eq.${encodeURIComponent(userId)}&lida=eq.false`);
+  await request("notificacoes", { method: "PATCH", body: JSON.stringify({ lida: true }) }, `?user_id=eq.${encodeURIComponent(userId)}&lida=eq.false`);
 }
 async function listProntuarioObservacoes(alunoId) {
-  return request2("prontuario_observacoes", {}, `?select=*&aluno_id=eq.${encodeURIComponent(alunoId)}&order=ano.desc,mes.desc`);
+  return request("prontuario_observacoes", {}, `?select=*&aluno_id=eq.${encodeURIComponent(alunoId)}&order=ano.desc,mes.desc`);
 }
 async function upsertProntuarioObservacao(input) {
   const body = { aluno_id: input.alunoId, organization_id: input.organizationId, mes: input.mes, ano: input.ano, observacao: input.observacao, criado_por: input.criadoPor, updated_at: (/* @__PURE__ */ new Date()).toISOString() };
-  const rows = await request2("prontuario_observacoes", { method: "POST", body: JSON.stringify(body), headers: { Prefer: "return=representation,resolution=merge-duplicates" } }, "?on_conflict=aluno_id,mes,ano");
+  const rows = await request("prontuario_observacoes", { method: "POST", body: JSON.stringify(body), headers: { Prefer: "return=representation,resolution=merge-duplicates" } }, "?on_conflict=aluno_id,mes,ano");
   return rows[0];
 }
 async function listDesafios(organizationId) {
-  return request2("desafios", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}&order=data_fim.desc`);
+  return request("desafios", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}&order=data_fim.desc`);
 }
 async function getDesafio(idValue) {
-  const rows = await request2("desafios", {}, `?select=*&id=eq.${encodeURIComponent(idValue)}&limit=1`);
+  const rows = await request("desafios", {}, `?select=*&id=eq.${encodeURIComponent(idValue)}&limit=1`);
   return rows[0] ?? null;
 }
 async function createDesafio(input) {
-  const rows = await request2("desafios", { method: "POST", body: JSON.stringify(input) });
+  const rows = await request("desafios", { method: "POST", body: JSON.stringify(input) });
   return rows[0];
 }
 async function updateDesafio(idValue, input) {
-  const rows = await request2("desafios", { method: "PATCH", body: JSON.stringify({ ...input, updated_at: (/* @__PURE__ */ new Date()).toISOString() }) }, `?id=eq.${encodeURIComponent(idValue)}`);
+  const rows = await request("desafios", { method: "PATCH", body: JSON.stringify({ ...input, updated_at: (/* @__PURE__ */ new Date()).toISOString() }) }, `?id=eq.${encodeURIComponent(idValue)}`);
   return rows[0];
 }
 async function deleteDesafio(idValue) {
-  await request2("desafios", { method: "DELETE" }, `?id=eq.${encodeURIComponent(idValue)}`);
+  await request("desafios", { method: "DELETE" }, `?id=eq.${encodeURIComponent(idValue)}`);
   return { id: idValue };
 }
 async function listDesafioParticipantes(desafioId) {
-  return request2("desafio_participantes", {}, `?select=*&desafio_id=eq.${encodeURIComponent(desafioId)}`);
+  return request("desafio_participantes", {}, `?select=*&desafio_id=eq.${encodeURIComponent(desafioId)}`);
 }
 async function listDesafioParticipantesForAluno(alunoId) {
-  return request2("desafio_participantes", {}, `?select=desafio_id&aluno_id=eq.${encodeURIComponent(alunoId)}`);
+  return request("desafio_participantes", {}, `?select=desafio_id&aluno_id=eq.${encodeURIComponent(alunoId)}`);
 }
 async function addDesafioParticipante(input) {
-  const rows = await request2("desafio_participantes", { method: "POST", body: JSON.stringify({ desafio_id: input.desafioId, aluno_id: input.alunoId, organization_id: input.organizationId }), headers: { Prefer: "return=representation,resolution=merge-duplicates" } }, "?on_conflict=desafio_id,aluno_id");
+  const rows = await request("desafio_participantes", { method: "POST", body: JSON.stringify({ desafio_id: input.desafioId, aluno_id: input.alunoId, organization_id: input.organizationId }), headers: { Prefer: "return=representation,resolution=merge-duplicates" } }, "?on_conflict=desafio_id,aluno_id");
   return rows[0];
 }
 async function removeDesafioParticipante(desafioId, alunoId) {
-  await request2("desafio_participantes", { method: "DELETE" }, `?desafio_id=eq.${encodeURIComponent(desafioId)}&aluno_id=eq.${encodeURIComponent(alunoId)}`);
+  await request("desafio_participantes", { method: "DELETE" }, `?desafio_id=eq.${encodeURIComponent(desafioId)}&aluno_id=eq.${encodeURIComponent(alunoId)}`);
   return { desafioId, alunoId };
 }
 async function listDesafioProgressoForDesafio(desafioId) {
-  return request2("desafio_progresso", {}, `?select=*&desafio_id=eq.${encodeURIComponent(desafioId)}`);
+  return request("desafio_progresso", {}, `?select=*&desafio_id=eq.${encodeURIComponent(desafioId)}`);
 }
 async function listDesafioProgressoForAluno(alunoId) {
-  return request2("desafio_progresso", {}, `?select=*&aluno_id=eq.${encodeURIComponent(alunoId)}`);
+  return request("desafio_progresso", {}, `?select=*&aluno_id=eq.${encodeURIComponent(alunoId)}`);
 }
 async function setDesafioProgresso(input) {
   const body = { desafio_id: input.desafioId, aluno_id: input.alunoId, organization_id: input.organizationId, concluido: input.concluido, valor_atual: input.valorAtual ?? null, concluido_por: input.concluido ? input.concluidoPor ?? null : null, concluido_em: input.concluido ? (/* @__PURE__ */ new Date()).toISOString() : null, origem: input.origem, updated_at: (/* @__PURE__ */ new Date()).toISOString() };
-  const rows = await request2("desafio_progresso", { method: "POST", body: JSON.stringify(body), headers: { Prefer: "return=representation,resolution=merge-duplicates" } }, "?on_conflict=desafio_id,aluno_id");
+  const rows = await request("desafio_progresso", { method: "POST", body: JSON.stringify(body), headers: { Prefer: "return=representation,resolution=merge-duplicates" } }, "?on_conflict=desafio_id,aluno_id");
   return rows[0];
 }
 async function listCompeticoes(organizationId) {
-  return request2("competicoes", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}&order=data_inicio.desc`);
+  return request("competicoes", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}&order=data_inicio.desc`);
 }
 async function getCompeticao(idValue) {
-  const rows = await request2("competicoes", {}, `?select=*&id=eq.${encodeURIComponent(idValue)}&limit=1`);
+  const rows = await request("competicoes", {}, `?select=*&id=eq.${encodeURIComponent(idValue)}&limit=1`);
   return rows[0] ?? null;
 }
 async function createCompeticao(input) {
-  const rows = await request2("competicoes", { method: "POST", body: JSON.stringify(input) });
+  const rows = await request("competicoes", { method: "POST", body: JSON.stringify(input) });
   return rows[0];
 }
 async function updateCompeticao(idValue, input) {
-  const rows = await request2("competicoes", { method: "PATCH", body: JSON.stringify({ ...input, updated_at: (/* @__PURE__ */ new Date()).toISOString() }) }, `?id=eq.${encodeURIComponent(idValue)}`);
+  const rows = await request("competicoes", { method: "PATCH", body: JSON.stringify({ ...input, updated_at: (/* @__PURE__ */ new Date()).toISOString() }) }, `?id=eq.${encodeURIComponent(idValue)}`);
   return rows[0];
 }
 async function deleteCompeticao(idValue) {
-  await request2("competicoes", { method: "DELETE" }, `?id=eq.${encodeURIComponent(idValue)}`);
+  await request("competicoes", { method: "DELETE" }, `?id=eq.${encodeURIComponent(idValue)}`);
   return { id: idValue };
 }
 async function listCompeticaoParticipantes(competicaoId) {
-  return request2("competicao_participantes", {}, `?select=*&competicao_id=eq.${encodeURIComponent(competicaoId)}`);
+  return request("competicao_participantes", {}, `?select=*&competicao_id=eq.${encodeURIComponent(competicaoId)}`);
 }
 async function listCompeticaoParticipantesForAluno(alunoId) {
-  return request2("competicao_participantes", {}, `?select=competicao_id&aluno_id=eq.${encodeURIComponent(alunoId)}`);
+  return request("competicao_participantes", {}, `?select=competicao_id&aluno_id=eq.${encodeURIComponent(alunoId)}`);
 }
 async function addCompeticaoParticipante(input) {
-  const rows = await request2("competicao_participantes", { method: "POST", body: JSON.stringify({ competicao_id: input.competicaoId, aluno_id: input.alunoId, organization_id: input.organizationId }), headers: { Prefer: "return=representation,resolution=merge-duplicates" } }, "?on_conflict=competicao_id,aluno_id");
+  const rows = await request("competicao_participantes", { method: "POST", body: JSON.stringify({ competicao_id: input.competicaoId, aluno_id: input.alunoId, organization_id: input.organizationId }), headers: { Prefer: "return=representation,resolution=merge-duplicates" } }, "?on_conflict=competicao_id,aluno_id");
   return rows[0];
 }
 async function removeCompeticaoParticipante(competicaoId, alunoId) {
-  await request2("competicao_participantes", { method: "DELETE" }, `?competicao_id=eq.${encodeURIComponent(competicaoId)}&aluno_id=eq.${encodeURIComponent(alunoId)}`);
+  await request("competicao_participantes", { method: "DELETE" }, `?competicao_id=eq.${encodeURIComponent(competicaoId)}&aluno_id=eq.${encodeURIComponent(alunoId)}`);
   return { competicaoId, alunoId };
 }
 async function listCompeticaoPontuacaoForCompeticao(competicaoId) {
-  return request2("competicao_pontuacao", {}, `?select=*&competicao_id=eq.${encodeURIComponent(competicaoId)}`);
+  return request("competicao_pontuacao", {}, `?select=*&competicao_id=eq.${encodeURIComponent(competicaoId)}`);
 }
 async function setCompeticaoPontuacao(input) {
   const body = { competicao_id: input.competicaoId, aluno_id: input.alunoId, organization_id: input.organizationId, valor: input.valor, atualizado_por: input.atualizadoPor ?? null, origem: input.origem, updated_at: (/* @__PURE__ */ new Date()).toISOString() };
-  const rows = await request2("competicao_pontuacao", { method: "POST", body: JSON.stringify(body), headers: { Prefer: "return=representation,resolution=merge-duplicates" } }, "?on_conflict=competicao_id,aluno_id");
+  const rows = await request("competicao_pontuacao", { method: "POST", body: JSON.stringify(body), headers: { Prefer: "return=representation,resolution=merge-duplicates" } }, "?on_conflict=competicao_id,aluno_id");
   return rows[0];
 }
 async function listExercisesCatalog() {
-  return request2("exercicios", {}, "?select=id,nome,grupo_muscular,video_url&estado_publicacao=eq.publicado&order=nome.asc");
+  return request("exercicios", {}, "?select=id,nome,grupo_muscular,video_url&estado_publicacao=eq.publicado&order=nome.asc");
 }
 async function listTreinosForAluno(alunoId, publishedOnly = false) {
-  return request2("treinos", {}, `?select=*&aluno_id=eq.${encodeURIComponent(alunoId)}${publishedOnly ? "&estado_publicacao=eq.publicado" : ""}&order=created_at.desc`);
+  return request("treinos", {}, `?select=*&aluno_id=eq.${encodeURIComponent(alunoId)}${publishedOnly ? "&estado_publicacao=eq.publicado" : ""}&order=created_at.desc`);
 }
 async function getTreino(idValue) {
-  const rows = await request2("treinos", {}, `?select=*&id=eq.${encodeURIComponent(idValue)}&limit=1`);
+  const rows = await request("treinos", {}, `?select=*&id=eq.${encodeURIComponent(idValue)}&limit=1`);
   return rows[0] ?? null;
 }
 async function createTreino(input) {
-  const rows = await request2("treinos", { method: "POST", body: JSON.stringify(input) });
+  const rows = await request("treinos", { method: "POST", body: JSON.stringify(input) });
   return rows[0];
 }
 async function updateTreino(idValue, input) {
-  const rows = await request2("treinos", { method: "PATCH", body: JSON.stringify({ ...input, updated_at: (/* @__PURE__ */ new Date()).toISOString() }) }, `?id=eq.${encodeURIComponent(idValue)}`);
+  const rows = await request("treinos", { method: "PATCH", body: JSON.stringify({ ...input, updated_at: (/* @__PURE__ */ new Date()).toISOString() }) }, `?id=eq.${encodeURIComponent(idValue)}`);
   return rows[0];
 }
 async function deleteTreino(idValue) {
-  await request2("treinos", { method: "DELETE" }, `?id=eq.${encodeURIComponent(idValue)}`);
+  await request("treinos", { method: "DELETE" }, `?id=eq.${encodeURIComponent(idValue)}`);
   return { id: idValue };
 }
 async function listTreinoExercicios(treinoId) {
-  return request2("treino_exercicios", {}, `?select=*&treino_id=eq.${encodeURIComponent(treinoId)}&order=ordem.asc`);
+  return request("treino_exercicios", {}, `?select=*&treino_id=eq.${encodeURIComponent(treinoId)}&order=ordem.asc`);
 }
 async function replaceTreinoExercicios(treinoId, items) {
-  await request2("treino_exercicios", { method: "DELETE" }, `?treino_id=eq.${encodeURIComponent(treinoId)}`);
+  await request("treino_exercicios", { method: "DELETE" }, `?treino_id=eq.${encodeURIComponent(treinoId)}`);
   if (!items.length) return [];
-  return request2("treino_exercicios", { method: "POST", body: JSON.stringify(items.map((item, index) => ({ ...item, treino_id: treinoId, ordem: index }))) });
+  return request("treino_exercicios", { method: "POST", body: JSON.stringify(items.map((item, index) => ({ ...item, treino_id: treinoId, ordem: index }))) });
 }
 async function publishTreino(treinoId, autorId) {
   const treino = await getTreino(treinoId);
@@ -1150,26 +833,26 @@ async function publishTreino(treinoId, autorId) {
   const versao = treino.estado_publicacao === "rascunho" ? treino.versao : treino.versao + 1;
   const publicado_em = (/* @__PURE__ */ new Date()).toISOString();
   const atualizado = await updateTreino(treinoId, { estado_publicacao: "publicado", versao, publicado_por: autorId, publicado_em });
-  await request2("treino_revisoes", { method: "POST", body: JSON.stringify({ treino_id: treinoId, versao, conteudo: { treino, exercicios }, autor_id: autorId, organization_id: treino.organization_id }) });
+  await request("treino_revisoes", { method: "POST", body: JSON.stringify({ treino_id: treinoId, versao, conteudo: { treino, exercicios }, autor_id: autorId, organization_id: treino.organization_id }) });
   return atualizado;
 }
 async function listDietasForAluno(alunoId, publishedOnly = false) {
-  return request2("dietas", {}, `?select=*&aluno_id=eq.${encodeURIComponent(alunoId)}${publishedOnly ? "&estado_publicacao=eq.publicado" : ""}&order=created_at.desc`);
+  return request("dietas", {}, `?select=*&aluno_id=eq.${encodeURIComponent(alunoId)}${publishedOnly ? "&estado_publicacao=eq.publicado" : ""}&order=created_at.desc`);
 }
 async function getDieta(idValue) {
-  const rows = await request2("dietas", {}, `?select=*&id=eq.${encodeURIComponent(idValue)}&limit=1`);
+  const rows = await request("dietas", {}, `?select=*&id=eq.${encodeURIComponent(idValue)}&limit=1`);
   return rows[0] ?? null;
 }
 async function createDieta(input) {
-  const rows = await request2("dietas", { method: "POST", body: JSON.stringify(input) });
+  const rows = await request("dietas", { method: "POST", body: JSON.stringify(input) });
   return rows[0];
 }
 async function updateDieta(idValue, input) {
-  const rows = await request2("dietas", { method: "PATCH", body: JSON.stringify({ ...input, updated_at: (/* @__PURE__ */ new Date()).toISOString() }) }, `?id=eq.${encodeURIComponent(idValue)}`);
+  const rows = await request("dietas", { method: "PATCH", body: JSON.stringify({ ...input, updated_at: (/* @__PURE__ */ new Date()).toISOString() }) }, `?id=eq.${encodeURIComponent(idValue)}`);
   return rows[0];
 }
 async function deleteDieta(idValue) {
-  await request2("dietas", { method: "DELETE" }, `?id=eq.${encodeURIComponent(idValue)}`);
+  await request("dietas", { method: "DELETE" }, `?id=eq.${encodeURIComponent(idValue)}`);
   return { id: idValue };
 }
 async function publishDieta(dietaId, autorId) {
@@ -1178,14 +861,14 @@ async function publishDieta(dietaId, autorId) {
   const versao = dieta.estado_publicacao === "rascunho" ? dieta.versao : dieta.versao + 1;
   const publicado_em = (/* @__PURE__ */ new Date()).toISOString();
   const atualizado = await updateDieta(dietaId, { estado_publicacao: "publicado", versao, publicado_por: autorId, publicado_em });
-  await request2("dieta_revisoes", { method: "POST", body: JSON.stringify({ dieta_id: dietaId, versao, conteudo: dieta, autor_id: autorId, organization_id: dieta.organization_id }) });
+  await request("dieta_revisoes", { method: "POST", body: JSON.stringify({ dieta_id: dietaId, versao, conteudo: dieta, autor_id: autorId, organization_id: dieta.organization_id }) });
   return atualizado;
 }
 async function listMembershipPlans(organizationId) {
-  return request2("org_membership_plans", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}&order=nome.asc`);
+  return request("org_membership_plans", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}&order=nome.asc`);
 }
 async function createMembershipPlan(input) {
-  const rows = await request2("org_membership_plans", { method: "POST", body: JSON.stringify({ organization_id: input.organizationId, nome: input.nome, valor_mensal: input.valorMensal, periodicidade: input.periodicidade ?? "mensal" }) });
+  const rows = await request("org_membership_plans", { method: "POST", body: JSON.stringify({ organization_id: input.organizationId, nome: input.nome, valor_mensal: input.valorMensal, periodicidade: input.periodicidade ?? "mensal" }) });
   return rows[0];
 }
 async function updateMembershipPlan(id2, organizationId, data) {
@@ -1194,19 +877,19 @@ async function updateMembershipPlan(id2, organizationId, data) {
   if (data.valorMensal !== void 0) body.valor_mensal = data.valorMensal;
   if (data.periodicidade !== void 0) body.periodicidade = data.periodicidade;
   if (data.ativo !== void 0) body.ativo = data.ativo;
-  const rows = await request2("org_membership_plans", { method: "PATCH", body: JSON.stringify(body) }, `?id=eq.${encodeURIComponent(id2)}&organization_id=eq.${encodeURIComponent(organizationId)}`);
+  const rows = await request("org_membership_plans", { method: "PATCH", body: JSON.stringify(body) }, `?id=eq.${encodeURIComponent(id2)}&organization_id=eq.${encodeURIComponent(organizationId)}`);
   if (!rows[0]) throw new Error("Plano n\xE3o encontrado.");
   return rows[0];
 }
 async function listAlunos(organizationId) {
-  return request2("alunos", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}&order=created_at.desc`);
+  return request("alunos", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}&order=created_at.desc`);
 }
 async function findAlunoByEmail(organizationId, email) {
-  const rows = await request2("alunos", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}&email=eq.${encodeURIComponent(normalizeEmail(email))}&limit=1`);
+  const rows = await request("alunos", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}&email=eq.${encodeURIComponent(normalizeEmail(email))}&limit=1`);
   return rows[0] ?? null;
 }
 async function createAluno(input) {
-  const rows = await request2("alunos", { method: "POST", body: JSON.stringify({
+  const rows = await request("alunos", { method: "POST", body: JSON.stringify({
     organization_id: input.organizationId,
     unit_id: input.unitId || void 0,
     plano_id: input.planoId || void 0,
@@ -1225,31 +908,31 @@ async function createAluno(input) {
   return rows[0];
 }
 async function updateAluno(id2, organizationId, data) {
-  const rows = await request2("alunos", { method: "PATCH", body: JSON.stringify(data) }, `?id=eq.${encodeURIComponent(id2)}&organization_id=eq.${encodeURIComponent(organizationId)}`);
+  const rows = await request("alunos", { method: "PATCH", body: JSON.stringify(data) }, `?id=eq.${encodeURIComponent(id2)}&organization_id=eq.${encodeURIComponent(organizationId)}`);
   if (!rows[0]) throw new Error("Aluno n\xE3o encontrado.");
   return rows[0];
 }
 async function createImportBatch(input) {
-  const rows = await request2("import_batches", { method: "POST", body: JSON.stringify({ organization_id: input.organizationId, entity: input.entity, file_name: input.fileName, total_rows: input.totalRows, valid_rows: input.validRows, error_rows: input.errorRows, errors: input.errors, uploaded_by: input.uploadedBy }) });
+  const rows = await request("import_batches", { method: "POST", body: JSON.stringify({ organization_id: input.organizationId, entity: input.entity, file_name: input.fileName, total_rows: input.totalRows, valid_rows: input.validRows, error_rows: input.errorRows, errors: input.errors, uploaded_by: input.uploadedBy }) });
   return rows[0];
 }
 async function markImportBatchCommitted(id2, organizationId) {
-  const rows = await request2("import_batches", { method: "PATCH", body: JSON.stringify({ status: "committed", committed_at: (/* @__PURE__ */ new Date()).toISOString() }) }, `?id=eq.${encodeURIComponent(id2)}&organization_id=eq.${encodeURIComponent(organizationId)}`);
+  const rows = await request("import_batches", { method: "PATCH", body: JSON.stringify({ status: "committed", committed_at: (/* @__PURE__ */ new Date()).toISOString() }) }, `?id=eq.${encodeURIComponent(id2)}&organization_id=eq.${encodeURIComponent(organizationId)}`);
   return rows[0];
 }
 async function listImportBatches(organizationId) {
-  return request2("import_batches", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}&order=created_at.desc&limit=50`);
+  return request("import_batches", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}&order=created_at.desc&limit=50`);
 }
 async function getOrganizationName(organizationId) {
-  const rows = await request2("saas_organizations", {}, `?select=id,name&id=eq.${encodeURIComponent(organizationId)}&limit=1`);
+  const rows = await request("saas_organizations", {}, `?select=id,name&id=eq.${encodeURIComponent(organizationId)}&limit=1`);
   return rows[0]?.name ?? "sua academia";
 }
 async function findPendingMemberInvitation(organizationId, email) {
-  const rows = await request2("member_invitations", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}&email=eq.${encodeURIComponent(normalizeEmail(email))}&status=eq.pending&limit=1`);
+  const rows = await request("member_invitations", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}&email=eq.${encodeURIComponent(normalizeEmail(email))}&status=eq.pending&limit=1`);
   return rows[0] ?? null;
 }
 async function listPendingMemberInvitations(organizationId) {
-  return request2("member_invitations", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}&status=eq.pending&order=created_at.desc`);
+  return request("member_invitations", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}&status=eq.pending&order=created_at.desc`);
 }
 async function inviteMember(input) {
   const email = normalizeEmail(input.email);
@@ -1259,7 +942,7 @@ async function inviteMember(input) {
   const rawToken = randomUUID();
   const tokenHash = createHash("sha256").update(rawToken).digest("hex");
   const expiresAt = new Date(Date.now() + 1e3 * 60 * 60 * 24 * 7);
-  const rows = await request2("member_invitations", { method: "POST", body: JSON.stringify({
+  const rows = await request("member_invitations", { method: "POST", body: JSON.stringify({
     organization_id: input.organizationId,
     aluno_id: aluno.id,
     invited_by_user_id: input.invitedByUserId,
@@ -1274,17 +957,17 @@ async function inviteMember(input) {
   return invitation;
 }
 async function revokeMemberInvitation(id2, organizationId) {
-  const rows = await request2("member_invitations", { method: "PATCH", body: JSON.stringify({ status: "revoked" }) }, `?id=eq.${encodeURIComponent(id2)}&organization_id=eq.${encodeURIComponent(organizationId)}&status=eq.pending`);
+  const rows = await request("member_invitations", { method: "PATCH", body: JSON.stringify({ status: "revoked" }) }, `?id=eq.${encodeURIComponent(id2)}&organization_id=eq.${encodeURIComponent(organizationId)}&status=eq.pending`);
   if (!rows[0]) throw new Error("Convite n\xE3o encontrado ou j\xE1 utilizado.");
   return rows[0];
 }
 async function findMemberInvitationByToken(token) {
   const tokenHash = createHash("sha256").update(token).digest("hex");
-  const rows = await request2("member_invitations", {}, `?select=*&token_hash=eq.${encodeURIComponent(tokenHash)}&status=eq.pending&limit=1`);
+  const rows = await request("member_invitations", {}, `?select=*&token_hash=eq.${encodeURIComponent(tokenHash)}&status=eq.pending&limit=1`);
   return rows[0] ?? null;
 }
 async function createSupabaseUserWithPassword(email, password, fullName) {
-  const { url, key } = config2();
+  const { url, key } = config();
   const response = await fetch(`${url}/auth/v1/admin/users`, { method: "POST", headers: { apikey: key, Authorization: `Bearer ${key}`, "Content-Type": "application/json" }, body: JSON.stringify({ email: normalizeEmail(email), password, email_confirm: true, user_metadata: { full_name: fullName } }) });
   if (!response.ok) throw new Error("N\xE3o foi poss\xEDvel criar sua conta. Verifique se este e-mail j\xE1 n\xE3o est\xE1 cadastrado.");
   return response.json();
@@ -1294,20 +977,20 @@ async function acceptMemberInvitation(token, password) {
   if (!invitation) throw new Error("C\xF3digo de convite inv\xE1lido ou j\xE1 utilizado.");
   if (new Date(invitation.expires_at).getTime() < Date.now()) throw new Error("Este convite expirou. Pe\xE7a para reenviarem o convite.");
   const authUser = await createSupabaseUserWithPassword(invitation.email, password, invitation.full_name);
-  await request2("profiles", { method: "PATCH", body: JSON.stringify({ full_name: invitation.full_name, organization_id: invitation.organization_id, status: "active", matricula_em: (/* @__PURE__ */ new Date()).toISOString() }) }, `?user_id=eq.${encodeURIComponent(authUser.id)}`);
-  await request2("alunos", { method: "PATCH", body: JSON.stringify({ auth_user_id: authUser.id }) }, `?id=eq.${encodeURIComponent(invitation.aluno_id)}`);
-  const accepted = await request2("member_invitations", { method: "PATCH", body: JSON.stringify({ status: "accepted" }) }, `?id=eq.${encodeURIComponent(invitation.id)}&status=eq.pending`);
+  await request("profiles", { method: "PATCH", body: JSON.stringify({ full_name: invitation.full_name, organization_id: invitation.organization_id, status: "active", matricula_em: (/* @__PURE__ */ new Date()).toISOString() }) }, `?user_id=eq.${encodeURIComponent(authUser.id)}`);
+  await request("alunos", { method: "PATCH", body: JSON.stringify({ auth_user_id: authUser.id }) }, `?id=eq.${encodeURIComponent(invitation.aluno_id)}`);
+  const accepted = await request("member_invitations", { method: "PATCH", body: JSON.stringify({ status: "accepted" }) }, `?id=eq.${encodeURIComponent(invitation.id)}&status=eq.pending`);
   if (!accepted[0]) throw new Error("Este convite j\xE1 foi utilizado.");
-  await request2("leads", { method: "PATCH", body: JSON.stringify({ estagio: "matriculado", convertido_em: (/* @__PURE__ */ new Date()).toISOString() }) }, `?member_invitation_id=eq.${encodeURIComponent(invitation.id)}&estagio=eq.convite_enviado`);
+  await request("leads", { method: "PATCH", body: JSON.stringify({ estagio: "matriculado", convertido_em: (/* @__PURE__ */ new Date()).toISOString() }) }, `?member_invitation_id=eq.${encodeURIComponent(invitation.id)}&estagio=eq.convite_enviado`);
   const session = await signInWithSupabase(invitation.email, password);
   return { accessToken: session.accessToken, refreshToken: session.refreshToken, user: session.user, organizationId: invitation.organization_id };
 }
 async function getAcolhimento(alunoId) {
-  const rows = await request2("reuniao_acolhimento", {}, `?select=*&aluno_id=eq.${encodeURIComponent(alunoId)}&limit=1`);
+  const rows = await request("reuniao_acolhimento", {}, `?select=*&aluno_id=eq.${encodeURIComponent(alunoId)}&limit=1`);
   return rows[0] ?? null;
 }
 async function upsertAcolhimento(alunoId, data) {
-  const rows = await request2("reuniao_acolhimento", { method: "POST", headers: { Prefer: "resolution=merge-duplicates,return=representation" }, body: JSON.stringify({ ...data, aluno_id: alunoId, criado_por: alunoId, updated_at: (/* @__PURE__ */ new Date()).toISOString() }) }, "?on_conflict=aluno_id");
+  const rows = await request("reuniao_acolhimento", { method: "POST", headers: { Prefer: "resolution=merge-duplicates,return=representation" }, body: JSON.stringify({ ...data, aluno_id: alunoId, criado_por: alunoId, updated_at: (/* @__PURE__ */ new Date()).toISOString() }) }, "?on_conflict=aluno_id");
   return rows[0];
 }
 var CHECKIN_PRIORIDADE = {
@@ -1315,18 +998,18 @@ var CHECKIN_PRIORIDADE = {
   quero_ajuda: "prioritario"
 };
 async function createCheckIn(input) {
-  const rows = await request2("check_ins", { method: "POST", body: JSON.stringify({ aluno_id: input.alunoId, organization_id: input.organizationId, status: input.status, observacao: input.observacao || void 0 }) });
+  const rows = await request("check_ins", { method: "POST", body: JSON.stringify({ aluno_id: input.alunoId, organization_id: input.organizationId, status: input.status, observacao: input.observacao || void 0 }) });
   return rows[0];
 }
 async function listMyCheckIns(alunoId) {
-  return request2("check_ins", {}, `?select=*&aluno_id=eq.${encodeURIComponent(alunoId)}&order=created_at.desc&limit=20`);
+  return request("check_ins", {}, `?select=*&aluno_id=eq.${encodeURIComponent(alunoId)}&order=created_at.desc&limit=20`);
 }
 async function findOpenAtendimento(alunoId, origem) {
-  const rows = await request2("atendimentos", {}, `?select=*&aluno_id=eq.${encodeURIComponent(alunoId)}&origem=eq.${origem}&status=in.(aberta,em_andamento)&limit=1`);
+  const rows = await request("atendimentos", {}, `?select=*&aluno_id=eq.${encodeURIComponent(alunoId)}&origem=eq.${origem}&status=in.(aberta,em_andamento)&limit=1`);
   return rows[0] ?? null;
 }
 async function createAtendimento(input) {
-  const rows = await request2("atendimentos", { method: "POST", body: JSON.stringify({ organization_id: input.organizationId, aluno_id: input.alunoId, origem: input.origem, origem_check_in_id: input.origemCheckInId || void 0, prioridade: input.prioridade, descricao: input.descricao || void 0, criado_por: input.criadoPor || void 0, prazo: input.prazo || void 0 }) });
+  const rows = await request("atendimentos", { method: "POST", body: JSON.stringify({ organization_id: input.organizationId, aluno_id: input.alunoId, origem: input.origem, origem_check_in_id: input.origemCheckInId || void 0, prioridade: input.prioridade, descricao: input.descricao || void 0, criado_por: input.criadoPor || void 0, prazo: input.prazo || void 0 }) });
   return rows[0];
 }
 async function submitCheckIn(input) {
@@ -1343,21 +1026,21 @@ async function requestHelp(input) {
   return createAtendimento({ organizationId: input.organizationId, alunoId: input.alunoId, origem: "pedido_direto", prioridade: "prioritario", descricao: input.descricao, criadoPor: input.alunoId });
 }
 async function listMyAtendimentos(alunoId) {
-  return request2("atendimentos", {}, `?select=*&aluno_id=eq.${encodeURIComponent(alunoId)}&order=created_at.desc&limit=20`);
+  return request("atendimentos", {}, `?select=*&aluno_id=eq.${encodeURIComponent(alunoId)}&order=created_at.desc&limit=20`);
 }
 async function listAtendimentosForOrganization(organizationId, status) {
-  return request2("atendimentos", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}${status ? `&status=eq.${status}` : ""}&order=created_at.asc`);
+  return request("atendimentos", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}${status ? `&status=eq.${status}` : ""}&order=created_at.asc`);
 }
 async function getAtendimento(idValue) {
-  const rows = await request2("atendimentos", {}, `?select=*&id=eq.${encodeURIComponent(idValue)}&limit=1`);
+  const rows = await request("atendimentos", {}, `?select=*&id=eq.${encodeURIComponent(idValue)}&limit=1`);
   return rows[0] ?? null;
 }
 async function assignAtendimento(idValue, responsavelId) {
-  const rows = await request2("atendimentos", { method: "PATCH", body: JSON.stringify({ responsavel_id: responsavelId, status: "em_andamento" }) }, `?id=eq.${encodeURIComponent(idValue)}`);
+  const rows = await request("atendimentos", { method: "PATCH", body: JSON.stringify({ responsavel_id: responsavelId, status: "em_andamento" }) }, `?id=eq.${encodeURIComponent(idValue)}`);
   return rows[0];
 }
 async function resolveAtendimento(idValue, resolvidoPor, resultado) {
-  const rows = await request2("atendimentos", { method: "PATCH", body: JSON.stringify({ status: "resolvida", resultado, resolvido_por: resolvidoPor, resolvido_em: (/* @__PURE__ */ new Date()).toISOString() }) }, `?id=eq.${encodeURIComponent(idValue)}`);
+  const rows = await request("atendimentos", { method: "PATCH", body: JSON.stringify({ status: "resolvida", resultado, resolvido_por: resolvidoPor, resolvido_em: (/* @__PURE__ */ new Date()).toISOString() }) }, `?id=eq.${encodeURIComponent(idValue)}`);
   return rows[0];
 }
 var PRIORIDADE_ORDEM = ["rotina", "atencao", "prioritario", "encaminhamento_profissional"];
@@ -1367,11 +1050,11 @@ var DIAS_SEM_CHECKIN = 7;
 var DIAS_CONVITE_PENDENTE = 3;
 async function listAtendimentosVencidos() {
   const now = (/* @__PURE__ */ new Date()).toISOString();
-  return request2("atendimentos", {}, `?select=*&status=in.(aberta,em_andamento)&prazo=lt.${encodeURIComponent(now)}&escalonamentos_count=lt.${MAX_ESCALONAMENTOS}`);
+  return request("atendimentos", {}, `?select=*&status=in.(aberta,em_andamento)&prazo=lt.${encodeURIComponent(now)}&escalonamentos_count=lt.${MAX_ESCALONAMENTOS}`);
 }
 async function escalateAtendimento(atendimento) {
   const proximoIndex = Math.min(PRIORIDADE_ORDEM.indexOf(atendimento.prioridade) + 1, PRIORIDADE_ORDEM.length - 1);
-  const rows = await request2("atendimentos", { method: "PATCH", body: JSON.stringify({
+  const rows = await request("atendimentos", { method: "PATCH", body: JSON.stringify({
     prioridade: PRIORIDADE_ORDEM[proximoIndex],
     escalonamentos_count: atendimento.escalonamentos_count + 1,
     prazo: new Date(Date.now() + PRAZO_APOS_ESCALONAMENTO_MS).toISOString()
@@ -1380,10 +1063,10 @@ async function escalateAtendimento(atendimento) {
 }
 async function listAlunosSemCheckIn(dias = DIAS_SEM_CHECKIN) {
   const cutoff = new Date(Date.now() - dias * 24 * 60 * 60 * 1e3).toISOString();
-  const candidatos = await request2("profiles", {}, `?select=user_id,organization_id,created_at&status=eq.active&organization_id=not.is.null&created_at=lt.${encodeURIComponent(cutoff)}`);
+  const candidatos = await request("profiles", {}, `?select=user_id,organization_id,created_at&status=eq.active&organization_id=not.is.null&created_at=lt.${encodeURIComponent(cutoff)}`);
   if (!candidatos.length) return [];
   const ids = candidatos.map((c) => c.user_id).join(",");
-  const recentes = await request2("check_ins", {}, `?select=aluno_id&aluno_id=in.(${ids})&created_at=gte.${encodeURIComponent(cutoff)}`);
+  const recentes = await request("check_ins", {}, `?select=aluno_id&aluno_id=in.(${ids})&created_at=gte.${encodeURIComponent(cutoff)}`);
   const comCheckInRecente = new Set(recentes.map((r) => r.aluno_id));
   return candidatos.filter((c) => !comCheckInRecente.has(c.user_id));
 }
@@ -1397,13 +1080,13 @@ async function createSemCheckInAtendimentoIfNeeded(alunoId, organizationId, dias
 async function listInvitationsForReminder(dias = DIAS_CONVITE_PENDENTE) {
   const cutoff = new Date(Date.now() - dias * 24 * 60 * 60 * 1e3).toISOString();
   const now = (/* @__PURE__ */ new Date()).toISOString();
-  return request2("member_invitations", {}, `?select=*&status=eq.pending&lembrete_enviado_em=is.null&created_at=lt.${encodeURIComponent(cutoff)}&expires_at=gt.${encodeURIComponent(now)}`);
+  return request("member_invitations", {}, `?select=*&status=eq.pending&lembrete_enviado_em=is.null&created_at=lt.${encodeURIComponent(cutoff)}&expires_at=gt.${encodeURIComponent(now)}`);
 }
 async function resendInvitationReminder(invitation) {
   const rawToken = randomUUID();
   const tokenHash = createHash("sha256").update(rawToken).digest("hex");
   const expiresAt = new Date(Date.now() + 1e3 * 60 * 60 * 24 * 7).toISOString();
-  await request2("member_invitations", { method: "PATCH", body: JSON.stringify({ token_hash: tokenHash, expires_at: expiresAt, lembrete_enviado_em: (/* @__PURE__ */ new Date()).toISOString() }) }, `?id=eq.${encodeURIComponent(invitation.id)}`);
+  await request("member_invitations", { method: "PATCH", body: JSON.stringify({ token_hash: tokenHash, expires_at: expiresAt, lembrete_enviado_em: (/* @__PURE__ */ new Date()).toISOString() }) }, `?id=eq.${encodeURIComponent(invitation.id)}`);
   const orgName = await getOrganizationName(invitation.organization_id);
   await sendEmail(invitation.email, `Lembrete: convite para o Arke \u2014 ${orgName}`, `<p>Ol\xE1, ${invitation.full_name}.</p><p>Voc\xEA ainda n\xE3o concluiu seu cadastro em <strong>${orgName}</strong> no Arke.</p><p>Acesse o portal, clique em "Tenho um convite" na tela de login e use o novo c\xF3digo abaixo:</p><h2 style="letter-spacing:1px">${rawToken}</h2><p>Este convite expira em 7 dias.</p>`);
 }
@@ -1470,12 +1153,12 @@ function resumoEntrega(alunoIds, registros) {
 async function getGestaoIndicadores(organizationId) {
   const trintaDiasAtras = new Date(Date.now() - 1e3 * 60 * 60 * 24 * 30).toISOString();
   const [alunos, staff, treinos, dietas, abertos, resolvidosRecentes] = await Promise.all([
-    request2("profiles", {}, `?select=user_id&organization_id=eq.${encodeURIComponent(organizationId)}&status=eq.active`),
-    request2("saas_memberships", {}, `?select=id&organization_id=eq.${encodeURIComponent(organizationId)}&status=eq.active`),
-    request2("treinos", {}, `?select=aluno_id,estado_publicacao&organization_id=eq.${encodeURIComponent(organizationId)}`),
-    request2("dietas", {}, `?select=aluno_id,estado_publicacao&organization_id=eq.${encodeURIComponent(organizationId)}`),
-    request2("atendimentos", {}, `?select=status,prioridade,prazo&organization_id=eq.${encodeURIComponent(organizationId)}&status=in.(aberta,em_andamento)`),
-    request2("atendimentos", {}, `?select=created_at,resolvido_em&organization_id=eq.${encodeURIComponent(organizationId)}&status=eq.resolvida&resolvido_em=gte.${encodeURIComponent(trintaDiasAtras)}`)
+    request("profiles", {}, `?select=user_id&organization_id=eq.${encodeURIComponent(organizationId)}&status=eq.active`),
+    request("saas_memberships", {}, `?select=id&organization_id=eq.${encodeURIComponent(organizationId)}&status=eq.active`),
+    request("treinos", {}, `?select=aluno_id,estado_publicacao&organization_id=eq.${encodeURIComponent(organizationId)}`),
+    request("dietas", {}, `?select=aluno_id,estado_publicacao&organization_id=eq.${encodeURIComponent(organizationId)}`),
+    request("atendimentos", {}, `?select=status,prioridade,prazo&organization_id=eq.${encodeURIComponent(organizationId)}&status=in.(aberta,em_andamento)`),
+    request("atendimentos", {}, `?select=created_at,resolvido_em&organization_id=eq.${encodeURIComponent(organizationId)}&status=eq.resolvida&resolvido_em=gte.${encodeURIComponent(trintaDiasAtras)}`)
   ]);
   const alunoIds = new Set(alunos.map((a) => a.user_id));
   const now = Date.now();
@@ -1496,14 +1179,14 @@ async function getGestaoIndicadores(organizationId) {
   };
 }
 async function registrarFrequencia(input) {
-  const rows = await request2("frequencia_registros", { method: "POST", body: JSON.stringify({ aluno_id: input.alunoId, organization_id: input.organizationId, unit_id: input.unitId || void 0, origem: input.origem, registrado_por: input.registradoPor || void 0 }) });
+  const rows = await request("frequencia_registros", { method: "POST", body: JSON.stringify({ aluno_id: input.alunoId, organization_id: input.organizationId, unit_id: input.unitId || void 0, origem: input.origem, registrado_por: input.registradoPor || void 0 }) });
   return rows[0];
 }
 async function listFrequenciaForAluno(alunoId, limit = 30) {
-  return request2("frequencia_registros", {}, `?select=*&aluno_id=eq.${encodeURIComponent(alunoId)}&order=registrado_em.desc&limit=${limit}`);
+  return request("frequencia_registros", {}, `?select=*&aluno_id=eq.${encodeURIComponent(alunoId)}&order=registrado_em.desc&limit=${limit}`);
 }
 async function listFrequenciaForOrganization(organizationId, limit = 100) {
-  return request2("frequencia_registros", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}&order=registrado_em.desc&limit=${limit}`);
+  return request("frequencia_registros", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}&order=registrado_em.desc&limit=${limit}`);
 }
 function sanitizePdfText(value) {
   return value.replaceAll("\\", "\\\\").replaceAll("(", "\\(").replaceAll(")", "\\)");
@@ -1576,45 +1259,45 @@ async function gerarFichaTreinoPdf(treinoId) {
   return { filename: `ficha-${treino.titulo.replace(/[^a-z0-9]+/gi, "-").toLowerCase()}-v${treino.versao}.pdf`, contentBase64: buildThermalPdfBase64(lines) };
 }
 async function listTurmasForOrganization(organizationId) {
-  return request2("turmas", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}&order=nome.asc`);
+  return request("turmas", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}&order=nome.asc`);
 }
 async function listTurmasAtivas(organizationId) {
-  return request2("turmas", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}&status=eq.ativa&order=nome.asc`);
+  return request("turmas", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}&status=eq.ativa&order=nome.asc`);
 }
 async function getTurma(idValue) {
-  const rows = await request2("turmas", {}, `?select=*&id=eq.${encodeURIComponent(idValue)}&limit=1`);
+  const rows = await request("turmas", {}, `?select=*&id=eq.${encodeURIComponent(idValue)}&limit=1`);
   return rows[0] ?? null;
 }
 async function createTurma(input) {
-  const rows = await request2("turmas", { method: "POST", body: JSON.stringify(input) });
+  const rows = await request("turmas", { method: "POST", body: JSON.stringify(input) });
   return rows[0];
 }
 async function updateTurma(idValue, input) {
-  const rows = await request2("turmas", { method: "PATCH", body: JSON.stringify(input) }, `?id=eq.${encodeURIComponent(idValue)}`);
+  const rows = await request("turmas", { method: "PATCH", body: JSON.stringify(input) }, `?id=eq.${encodeURIComponent(idValue)}`);
   return rows[0];
 }
 async function deleteTurma(idValue) {
-  await request2("turmas", { method: "DELETE" }, `?id=eq.${encodeURIComponent(idValue)}`);
+  await request("turmas", { method: "DELETE" }, `?id=eq.${encodeURIComponent(idValue)}`);
   return { id: idValue };
 }
 async function listTurmaHorarios(turmaId) {
-  return request2("turma_horarios", {}, `?select=*&turma_id=eq.${encodeURIComponent(turmaId)}&order=dia_semana.asc,hora_inicio.asc`);
+  return request("turma_horarios", {}, `?select=*&turma_id=eq.${encodeURIComponent(turmaId)}&order=dia_semana.asc,hora_inicio.asc`);
 }
 async function replaceTurmaHorarios(turmaId, items) {
-  await request2("turma_horarios", { method: "DELETE" }, `?turma_id=eq.${encodeURIComponent(turmaId)}`);
+  await request("turma_horarios", { method: "DELETE" }, `?turma_id=eq.${encodeURIComponent(turmaId)}`);
   if (!items.length) return [];
-  return request2("turma_horarios", { method: "POST", body: JSON.stringify(items.map((item) => ({ ...item, turma_id: turmaId }))) });
+  return request("turma_horarios", { method: "POST", body: JSON.stringify(items.map((item) => ({ ...item, turma_id: turmaId }))) });
 }
 async function listReservasForTurmaData(turmaId, data) {
-  return request2("turma_reservas", {}, `?select=*&turma_id=eq.${encodeURIComponent(turmaId)}&data=eq.${encodeURIComponent(data)}&status=eq.confirmada`);
+  return request("turma_reservas", {}, `?select=*&turma_id=eq.${encodeURIComponent(turmaId)}&data=eq.${encodeURIComponent(data)}&status=eq.confirmada`);
 }
 async function getReserva(idValue) {
-  const rows = await request2("turma_reservas", {}, `?select=*&id=eq.${encodeURIComponent(idValue)}&limit=1`);
+  const rows = await request("turma_reservas", {}, `?select=*&id=eq.${encodeURIComponent(idValue)}&limit=1`);
   return rows[0] ?? null;
 }
 async function listMinhasReservas(alunoId) {
   const hoje = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
-  return request2("turma_reservas", {}, `?select=*&aluno_id=eq.${encodeURIComponent(alunoId)}&status=eq.confirmada&data=gte.${encodeURIComponent(hoje)}&order=data.asc`);
+  return request("turma_reservas", {}, `?select=*&aluno_id=eq.${encodeURIComponent(alunoId)}&status=eq.confirmada&data=gte.${encodeURIComponent(hoje)}&order=data.asc`);
 }
 async function getVagasDisponiveis(turmaId, data) {
   const turma = await getTurma(turmaId);
@@ -1631,51 +1314,51 @@ async function reservarVaga(input) {
   const existentes = await listReservasForTurmaData(input.turmaId, input.data);
   if (existentes.some((reserva) => reserva.aluno_id === input.alunoId)) throw new Error("Voc\xEA j\xE1 reservou vaga nesta sess\xE3o.");
   if (existentes.length >= turma.limite_vagas) throw new Error("N\xE3o h\xE1 vagas dispon\xEDveis para esta sess\xE3o.");
-  const rows = await request2("turma_reservas", { method: "POST", body: JSON.stringify({ turma_id: input.turmaId, aluno_id: input.alunoId, organization_id: input.organizationId, data: input.data }) });
+  const rows = await request("turma_reservas", { method: "POST", body: JSON.stringify({ turma_id: input.turmaId, aluno_id: input.alunoId, organization_id: input.organizationId, data: input.data }) });
   return rows[0];
 }
 async function cancelarReserva(idValue, alunoId) {
-  const rows = await request2("turma_reservas", { method: "PATCH", body: JSON.stringify({ status: "cancelada" }) }, `?id=eq.${encodeURIComponent(idValue)}&aluno_id=eq.${encodeURIComponent(alunoId)}`);
+  const rows = await request("turma_reservas", { method: "PATCH", body: JSON.stringify({ status: "cancelada" }) }, `?id=eq.${encodeURIComponent(idValue)}&aluno_id=eq.${encodeURIComponent(alunoId)}`);
   if (!rows[0]) throw new Error("Reserva n\xE3o encontrada.");
   return rows[0];
 }
 async function cancelarReservaStaff(idValue) {
-  const rows = await request2("turma_reservas", { method: "PATCH", body: JSON.stringify({ status: "cancelada" }) }, `?id=eq.${encodeURIComponent(idValue)}`);
+  const rows = await request("turma_reservas", { method: "PATCH", body: JSON.stringify({ status: "cancelada" }) }, `?id=eq.${encodeURIComponent(idValue)}`);
   if (!rows[0]) throw new Error("Reserva n\xE3o encontrada.");
   return rows[0];
 }
 var DIAS_LEAD_SEM_CONTATO = 3;
 async function listLeadsForOrganization(organizationId) {
-  return request2("leads", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}&order=created_at.desc`);
+  return request("leads", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}&order=created_at.desc`);
 }
 async function getLead(idValue) {
-  const rows = await request2("leads", {}, `?select=*&id=eq.${encodeURIComponent(idValue)}&limit=1`);
+  const rows = await request("leads", {}, `?select=*&id=eq.${encodeURIComponent(idValue)}&limit=1`);
   return rows[0] ?? null;
 }
 async function createLead(input) {
-  const rows = await request2("leads", { method: "POST", body: JSON.stringify({ organization_id: input.organizationId, unit_id: input.unitId || void 0, nome: input.nome, telefone: input.telefone || void 0, email: input.email || void 0, origem: input.origem || void 0, interesse: input.interesse || void 0, responsavel_id: input.responsavelId || void 0, notas: input.notas || void 0, criado_por: input.criadoPor || void 0 }) });
+  const rows = await request("leads", { method: "POST", body: JSON.stringify({ organization_id: input.organizationId, unit_id: input.unitId || void 0, nome: input.nome, telefone: input.telefone || void 0, email: input.email || void 0, origem: input.origem || void 0, interesse: input.interesse || void 0, responsavel_id: input.responsavelId || void 0, notas: input.notas || void 0, criado_por: input.criadoPor || void 0 }) });
   return rows[0];
 }
 async function updateLead(idValue, data) {
-  const rows = await request2("leads", { method: "PATCH", body: JSON.stringify({ nome: data.nome, telefone: data.telefone, email: data.email, origem: data.origem, interesse: data.interesse, unit_id: data.unitId, responsavel_id: data.responsavelId, notas: data.notas }) }, `?id=eq.${encodeURIComponent(idValue)}`);
+  const rows = await request("leads", { method: "PATCH", body: JSON.stringify({ nome: data.nome, telefone: data.telefone, email: data.email, origem: data.origem, interesse: data.interesse, unit_id: data.unitId, responsavel_id: data.responsavelId, notas: data.notas }) }, `?id=eq.${encodeURIComponent(idValue)}`);
   if (!rows[0]) throw new Error("Lead n\xE3o encontrado.");
   return rows[0];
 }
 async function deleteLead(idValue) {
-  await request2("leads", { method: "DELETE" }, `?id=eq.${encodeURIComponent(idValue)}`);
+  await request("leads", { method: "DELETE" }, `?id=eq.${encodeURIComponent(idValue)}`);
   return { success: true };
 }
 async function closeOpenFollowUps(leadId) {
-  await request2("lead_atividades", { method: "PATCH", body: JSON.stringify({ status: "concluida" }) }, `?lead_id=eq.${encodeURIComponent(leadId)}&tipo=eq.follow_up_automatico&status=eq.aberta`);
+  await request("lead_atividades", { method: "PATCH", body: JSON.stringify({ status: "concluida" }) }, `?lead_id=eq.${encodeURIComponent(leadId)}&tipo=eq.follow_up_automatico&status=eq.aberta`);
 }
 async function moverEstagioLead(idValue, estagio) {
-  const rows = await request2("leads", { method: "PATCH", body: JSON.stringify({ estagio }) }, `?id=eq.${encodeURIComponent(idValue)}`);
+  const rows = await request("leads", { method: "PATCH", body: JSON.stringify({ estagio }) }, `?id=eq.${encodeURIComponent(idValue)}`);
   if (!rows[0]) throw new Error("Lead n\xE3o encontrado.");
   await closeOpenFollowUps(idValue);
   return rows[0];
 }
 async function marcarLeadPerdido(idValue, motivoPerda) {
-  const rows = await request2("leads", { method: "PATCH", body: JSON.stringify({ estagio: "perdido", motivo_perda: motivoPerda }) }, `?id=eq.${encodeURIComponent(idValue)}`);
+  const rows = await request("leads", { method: "PATCH", body: JSON.stringify({ estagio: "perdido", motivo_perda: motivoPerda }) }, `?id=eq.${encodeURIComponent(idValue)}`);
   if (!rows[0]) throw new Error("Lead n\xE3o encontrado.");
   await closeOpenFollowUps(idValue);
   return rows[0];
@@ -1688,31 +1371,31 @@ async function converterLead(idValue, invitedByUserId) {
   if (lead.estagio === "perdido") throw new Error("Este lead est\xE1 marcado como perdido.");
   if (!lead.email) throw new Error("Informe o e-mail do lead antes de converter \u2014 o convite de aluno exige e-mail.");
   const invitation = await inviteMember({ organizationId: lead.organization_id, invitedByUserId, email: lead.email, fullName: lead.nome });
-  const rows = await request2("leads", { method: "PATCH", body: JSON.stringify({ estagio: "convite_enviado", member_invitation_id: invitation.id }) }, `?id=eq.${encodeURIComponent(idValue)}`);
+  const rows = await request("leads", { method: "PATCH", body: JSON.stringify({ estagio: "convite_enviado", member_invitation_id: invitation.id }) }, `?id=eq.${encodeURIComponent(idValue)}`);
   await closeOpenFollowUps(idValue);
   return { lead: rows[0], invitation };
 }
 async function listLeadAtividades(leadId) {
-  return request2("lead_atividades", {}, `?select=*&lead_id=eq.${encodeURIComponent(leadId)}&order=created_at.desc`);
+  return request("lead_atividades", {}, `?select=*&lead_id=eq.${encodeURIComponent(leadId)}&order=created_at.desc`);
 }
 async function createLeadNota(input) {
-  const rows = await request2("lead_atividades", { method: "POST", body: JSON.stringify({ lead_id: input.leadId, organization_id: input.organizationId, tipo: "nota", status: "concluida", descricao: input.descricao, criado_por: input.criadoPor, responsavel_id: input.responsavelId || void 0 }) });
+  const rows = await request("lead_atividades", { method: "POST", body: JSON.stringify({ lead_id: input.leadId, organization_id: input.organizationId, tipo: "nota", status: "concluida", descricao: input.descricao, criado_por: input.criadoPor, responsavel_id: input.responsavelId || void 0 }) });
   await closeOpenFollowUps(input.leadId);
   return rows[0];
 }
 async function listLeadsSemContato(dias = DIAS_LEAD_SEM_CONTATO) {
   const cutoff = new Date(Date.now() - dias * 24 * 60 * 60 * 1e3).toISOString();
-  const candidatos = await request2("leads", {}, `?select=id,organization_id,created_at&estagio=not.in.(matriculado,perdido)&created_at=lt.${encodeURIComponent(cutoff)}`);
+  const candidatos = await request("leads", {}, `?select=id,organization_id,created_at&estagio=not.in.(matriculado,perdido)&created_at=lt.${encodeURIComponent(cutoff)}`);
   if (!candidatos.length) return [];
   const ids = candidatos.map((c) => c.id).join(",");
-  const atividades = await request2("lead_atividades", {}, `?select=lead_id,created_at&lead_id=in.(${ids})&order=created_at.desc`);
+  const atividades = await request("lead_atividades", {}, `?select=lead_id,created_at&lead_id=in.(${ids})&order=created_at.desc`);
   const ultimaAtividade = /* @__PURE__ */ new Map();
   for (const atividade of atividades) if (!ultimaAtividade.has(atividade.lead_id)) ultimaAtividade.set(atividade.lead_id, atividade.created_at);
   return candidatos.filter((lead) => (ultimaAtividade.get(lead.id) ?? lead.created_at) < cutoff);
 }
 async function createFollowUpLeadIfNeeded(leadId, organizationId, dias) {
   try {
-    return await request2("lead_atividades", { method: "POST", body: JSON.stringify({ lead_id: leadId, organization_id: organizationId, tipo: "follow_up_automatico", status: "aberta", descricao: `Sem contato registrado h\xE1 mais de ${dias} dias.` }) }).then((rows) => rows[0]);
+    return await request("lead_atividades", { method: "POST", body: JSON.stringify({ lead_id: leadId, organization_id: organizationId, tipo: "follow_up_automatico", status: "aberta", descricao: `Sem contato registrado h\xE1 mais de ${dias} dias.` }) }).then((rows) => rows[0]);
   } catch {
     return null;
   }
@@ -1722,8 +1405,8 @@ async function getCrmIndicadores(organizationId, unitId) {
   const filtroUnidade = unitId ? `&unit_id=eq.${encodeURIComponent(unitId)}` : "";
   const trintaDiasAtras = new Date(Date.now() - 1e3 * 60 * 60 * 24 * 30).toISOString();
   const [leads, atividadesOrg] = await Promise.all([
-    request2("leads", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}${filtroUnidade}`),
-    request2("lead_atividades", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}&order=created_at.asc`)
+    request("leads", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}${filtroUnidade}`),
+    request("lead_atividades", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}&order=created_at.asc`)
   ]);
   const leadIds = new Set(leads.map((lead) => lead.id));
   const atividades = atividadesOrg.filter((atividade) => leadIds.has(atividade.lead_id));
@@ -1768,8 +1451,8 @@ async function getCrmIndicadores(organizationId, unitId) {
   const novosPorDia = Array.from(novosPorDiaMap.entries()).map(([data, total]) => ({ data, total })).sort((a, b) => a.data.localeCompare(b.data));
   return { porEstagio, taxaConversao, porOrigem, motivosPerda, followUps: { abertos: followUpsAbertos.length, atrasados: followUpsAtrasados.length }, tempoMedioPrimeiraRespostaHoras, novosPorDia };
 }
-async function rpc2(fn, args) {
-  const { url, key } = config2();
+async function rpc(fn, args) {
+  const { url, key } = config();
   const response = await fetch(`${url}/rest/v1/rpc/${fn}`, {
     method: "POST",
     headers: { apikey: key, Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
@@ -1780,42 +1463,387 @@ async function rpc2(fn, args) {
   return text ? JSON.parse(text) : null;
 }
 async function getCurrentPrivacyPolicy() {
-  const rows = await request2("privacy_policy_versions", {}, "?select=*&order=effective_at.desc&limit=1");
+  const rows = await request("privacy_policy_versions", {}, "?select=*&order=effective_at.desc&limit=1");
   return rows[0] ?? null;
 }
 async function hasConsent(userId, consentType) {
-  const rows = await request2("user_consents", {}, `?select=id&user_id=eq.${encodeURIComponent(userId)}&consent_type=eq.${consentType}&granted=eq.true&limit=1`);
+  const rows = await request("user_consents", {}, `?select=id&user_id=eq.${encodeURIComponent(userId)}&consent_type=eq.${consentType}&granted=eq.true&limit=1`);
   return rows.length > 0;
 }
 async function recordConsent(input) {
-  const rows = await request2("user_consents", { method: "POST", body: JSON.stringify({ user_id: input.userId, consent_type: input.consentType, policy_version_id: input.policyVersionId ?? null, granted: true, ip_address: input.ipAddress ?? null, user_agent: input.userAgent ?? null }) });
+  const rows = await request("user_consents", { method: "POST", body: JSON.stringify({ user_id: input.userId, consent_type: input.consentType, policy_version_id: input.policyVersionId ?? null, granted: true, ip_address: input.ipAddress ?? null, user_agent: input.userAgent ?? null }) });
   return rows[0];
 }
 async function createDeletionRequest(input) {
-  const existing = await request2("data_deletion_requests", {}, `?select=id&user_id=eq.${encodeURIComponent(input.userId)}&status=eq.pending&limit=1`);
+  const existing = await request("data_deletion_requests", {}, `?select=id&user_id=eq.${encodeURIComponent(input.userId)}&status=eq.pending&limit=1`);
   if (existing.length) throw new Error("Voc\xEA j\xE1 tem uma solicita\xE7\xE3o de exclus\xE3o pendente.");
-  const rows = await request2("data_deletion_requests", { method: "POST", body: JSON.stringify({ user_id: input.userId, organization_id: input.organizationId, reason: input.reason || void 0 }) });
+  const rows = await request("data_deletion_requests", { method: "POST", body: JSON.stringify({ user_id: input.userId, organization_id: input.organizationId, reason: input.reason || void 0 }) });
   return rows[0];
 }
 async function getMyDeletionRequest(userId) {
-  const rows = await request2("data_deletion_requests", {}, `?select=*&user_id=eq.${encodeURIComponent(userId)}&order=requested_at.desc&limit=1`);
+  const rows = await request("data_deletion_requests", {}, `?select=*&user_id=eq.${encodeURIComponent(userId)}&order=requested_at.desc&limit=1`);
   return rows[0] ?? null;
 }
 async function getDeletionRequest(idValue) {
-  const rows = await request2("data_deletion_requests", {}, `?select=*&id=eq.${encodeURIComponent(idValue)}&limit=1`);
+  const rows = await request("data_deletion_requests", {}, `?select=*&id=eq.${encodeURIComponent(idValue)}&limit=1`);
   return rows[0] ?? null;
 }
 async function listDeletionRequests(organizationId, status) {
-  return request2("data_deletion_requests", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}${status ? `&status=eq.${status}` : ""}&order=requested_at.asc`);
+  return request("data_deletion_requests", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}${status ? `&status=eq.${status}` : ""}&order=requested_at.asc`);
 }
 async function fulfillDeletionRequest(input) {
-  await rpc2("delete_member_data", { p_aluno_id: input.alunoId, p_resolved_by: input.resolvedBy, p_request_id: input.requestId, p_note: input.note || null });
+  await rpc("delete_member_data", { p_aluno_id: input.alunoId, p_resolved_by: input.resolvedBy, p_request_id: input.requestId, p_note: input.note || null });
   return { requestId: input.requestId, status: "completed" };
 }
 async function rejectDeletionRequest(input) {
-  const rows = await request2("data_deletion_requests", { method: "PATCH", body: JSON.stringify({ status: "rejected", resolved_at: (/* @__PURE__ */ new Date()).toISOString(), resolved_by: input.resolvedBy, resolution_note: input.note || null }) }, `?id=eq.${encodeURIComponent(input.requestId)}&organization_id=eq.${encodeURIComponent(input.organizationId)}&status=eq.pending`);
+  const rows = await request("data_deletion_requests", { method: "PATCH", body: JSON.stringify({ status: "rejected", resolved_at: (/* @__PURE__ */ new Date()).toISOString(), resolved_by: input.resolvedBy, resolution_note: input.note || null }) }, `?id=eq.${encodeURIComponent(input.requestId)}&organization_id=eq.${encodeURIComponent(input.organizationId)}&status=eq.pending`);
   if (!rows[0]) throw new Error("Solicita\xE7\xE3o n\xE3o encontrada ou j\xE1 resolvida.");
   return rows[0];
+}
+
+// shared/pricing.ts
+var ORG_PLAN_KEYS = ["starter", "growth", "scale"];
+var PROFISSIONAL_PLAN_KEYS = ["essencial", "performance", "ilimitado"];
+var SAAS_PLAN_KEYS = [...ORG_PLAN_KEYS, ...PROFISSIONAL_PLAN_KEYS];
+var ORG_PLAN_LABELS = { starter: "Starter", growth: "Growth", scale: "Scale" };
+var PROFISSIONAL_PLAN_LABELS = { essencial: "Essencial", performance: "Performance", ilimitado: "Ilimitado" };
+var ORG_PLAN_AMOUNTS_CENTS = { starter: 29900, growth: 69900, scale: 149e3 };
+var PROFISSIONAL_PLAN_AMOUNTS_CENTS = { essencial: 7900, performance: 14900, ilimitado: 24900 };
+var PLAN_LIMITS = {
+  starter: { maxUnits: 1, maxUsers: 12 },
+  growth: { maxUnits: 3, maxUsers: 32 },
+  scale: { maxUnits: 10, maxUsers: 100 },
+  essencial: { maxUnits: 1, maxUsers: 3 },
+  performance: { maxUnits: 1, maxUsers: 8 },
+  ilimitado: { maxUnits: 1, maxUsers: 999 }
+};
+var PLAN_AMOUNTS_CENTS = { ...ORG_PLAN_AMOUNTS_CENTS, ...PROFISSIONAL_PLAN_AMOUNTS_CENTS };
+var formatBRL = (cents) => (cents / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+var orgPlanOptions = ORG_PLAN_KEYS.map((key) => ({ value: key, label: `${ORG_PLAN_LABELS[key]} \u2014 ${formatBRL(ORG_PLAN_AMOUNTS_CENTS[key])}/m\xEAs` }));
+var profissionalPlanOptions = PROFISSIONAL_PLAN_KEYS.map((key) => ({ value: key, label: `${PROFISSIONAL_PLAN_LABELS[key]} \u2014 ${formatBRL(PROFISSIONAL_PLAN_AMOUNTS_CENTS[key])}/m\xEAs` }));
+var SETUP_FEE_CENTS = 149e3;
+var ARKE_MODULE_PACKAGE_AMOUNTS_CENTS = { starter: 9900, growth: 24900, scale: 49900 };
+var ARKE_ALUNO_WHOLESALE_CENTS = 5990;
+
+// server/db.ts
+function isConfigured() {
+  return Boolean((process.env.SUPABASE_URL ?? "") && (process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.SUPABASE_KEY ?? ""));
+}
+function config2() {
+  const url = process.env.SUPABASE_URL ?? "";
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.SUPABASE_KEY ?? "";
+  if (!url || !key) throw new Error("Supabase n\xE3o configurado. Defina SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY.");
+  return { url: url.replace(/\/$/, ""), key };
+}
+async function request2(table, init2 = {}, query = "") {
+  const { url, key } = config2();
+  const response = await fetch(`${url}/rest/v1/${table}${query}`, {
+    ...init2,
+    headers: { apikey: key, Authorization: `Bearer ${key}`, "Content-Type": "application/json", Prefer: "return=representation", ...init2.headers ?? {} }
+  });
+  if (!response.ok) throw new Error(`Supabase ${response.status}: ${await response.text()}`);
+  const text = await response.text();
+  return text ? JSON.parse(text) : [];
+}
+async function rpc2(fn, args) {
+  const { url, key } = config2();
+  const response = await fetch(`${url}/rest/v1/rpc/${fn}`, {
+    method: "POST",
+    headers: { apikey: key, Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+    body: JSON.stringify(args)
+  });
+  if (!response.ok) throw new Error(`Supabase RPC ${fn} ${response.status}: ${await response.text()}`);
+  return await response.json();
+}
+async function getOrganizationsForUser(userId) {
+  if (!isConfigured()) return [];
+  const rows = await request2(
+    "saas_memberships",
+    {},
+    `?select=*,saas_organizations(*)&auth_user_id=eq.${encodeURIComponent(userId)}&status=eq.active`
+  );
+  return rows.map(({ saas_organizations, ...membership }) => ({ membership, organization: saas_organizations })).sort((a, b) => b.organization.updated_at.localeCompare(a.organization.updated_at));
+}
+async function getMembership(userId, organizationId) {
+  if (!isConfigured()) return void 0;
+  const rows = await request2(
+    "saas_memberships",
+    {},
+    `?select=*,saas_organizations(*)&auth_user_id=eq.${encodeURIComponent(userId)}&organization_id=eq.${encodeURIComponent(organizationId)}&limit=1`
+  );
+  const row = rows[0];
+  if (!row) return void 0;
+  const { saas_organizations, ...membership } = row;
+  return { membership, organization: saas_organizations };
+}
+async function listActiveStaffUserIds(organizationId, allowedRoles) {
+  if (!isConfigured()) return [];
+  const rolesFilter = allowedRoles.map(encodeURIComponent).join(",");
+  const rows = await request2("saas_memberships", {}, `?select=auth_user_id&organization_id=eq.${encodeURIComponent(organizationId)}&status=eq.active&role=in.(${rolesFilter})`);
+  return rows.map((row) => row.auth_user_id);
+}
+async function getOrganizationBySlug(slug) {
+  if (!isConfigured()) return void 0;
+  const rows = await request2("saas_organizations", {}, `?select=id,name,slug,module,logo_url,primary_color&slug=eq.${encodeURIComponent(slug)}&limit=1`);
+  return rows[0];
+}
+async function createOrganizationWithOwner(input) {
+  if (!isConfigured()) throw new Error("Database not available");
+  const [result] = await rpc2("create_organization_with_owner", {
+    p_user_id: input.userId,
+    p_client_id: input.clientId,
+    p_name: input.name,
+    p_slug: input.slug,
+    p_plan: input.plan,
+    p_module: input.module ?? "academia",
+    p_logo_url: input.logoUrl ?? null,
+    p_primary_color: input.primaryColor ?? null
+  });
+  if (!result) throw new Error("Falha ao criar organiza\xE7\xE3o");
+  return { organizationId: result.organization_id, unitId: result.unit_id };
+}
+var TEAM_ROLE_LABEL = { admin: "Administrador", manager: "Gerente", professional: "Profissional de treino", nutricionista: "Nutricionista", viewer: "Visualizador" };
+async function createOrganizationInvitation(input) {
+  if (!isConfigured()) throw new Error("Database not available");
+  const [created] = await request2("saas_invitations", { method: "POST", body: JSON.stringify({ organization_id: input.organizationId, invited_by_user_id: input.invitedByUserId, email: input.email, full_name: input.fullName, role: input.role, token_hash: input.tokenHash, expires_at: input.expiresAt.toISOString() }) });
+  const organization = await getOrganization(input.organizationId);
+  const orgName = organization?.name ?? "sua organiza\xE7\xE3o";
+  await sendEmail(input.email, `Convite para a equipe de ${orgName} no Arke`, `<p>Ol\xE1, ${input.fullName}.</p><p>Voc\xEA foi convidado(a) para fazer parte da equipe de <strong>${orgName}</strong> no Arke, com o papel de <strong>${TEAM_ROLE_LABEL[input.role]}</strong>.</p><p>Para aceitar, acesse o portal, clique em "Tenho um convite de equipe" na tela de login, crie sua senha e use o c\xF3digo abaixo:</p><h2 style="letter-spacing:1px">${input.rawToken}</h2><p>Este convite expira em 72 horas.</p>`);
+  return created;
+}
+async function findOrganizationInvitationByTokenHash(tokenHash) {
+  if (!isConfigured()) return null;
+  const rows = await request2("saas_invitations", {}, `?select=*&token_hash=eq.${encodeURIComponent(tokenHash)}&status=eq.pending&limit=1`);
+  return rows[0] ?? null;
+}
+async function acceptOrganizationInvitationSignup(input) {
+  if (!isConfigured()) throw new Error("Database not available");
+  const tokenHash = createHash2("sha256").update(input.token).digest("hex");
+  const invitation = await findOrganizationInvitationByTokenHash(tokenHash);
+  if (!invitation) throw new Error("C\xF3digo de convite inv\xE1lido ou j\xE1 utilizado.");
+  if (new Date(invitation.expires_at).getTime() < Date.now()) throw new Error("Este convite expirou. Pe\xE7a para reenviarem o convite.");
+  const authUser = await createSupabaseUserWithPassword(invitation.email, input.password, invitation.full_name);
+  const [result] = await rpc2("accept_organization_invitation", {
+    p_token_hash: tokenHash,
+    p_user_id: authUser.id,
+    p_email: invitation.email
+  });
+  if (!result) throw new Error("Convite n\xE3o encontrado ou j\xE1 utilizado.");
+  const session = await signInWithSupabase(invitation.email, input.password);
+  return { accessToken: session.accessToken, refreshToken: session.refreshToken, user: session.user, organizationId: result.org_id, role: result.role, fullName: invitation.full_name, invitationId: result.invitation_id };
+}
+async function getPendingOrganizationInvitations(organizationId) {
+  if (!isConfigured()) return [];
+  return request2("saas_invitations", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}&status=eq.pending&order=created_at.desc`);
+}
+async function revokeOrganizationInvitation(id2, organizationId) {
+  if (!isConfigured()) throw new Error("Database not available");
+  const rows = await request2("saas_invitations", { method: "PATCH", body: JSON.stringify({ status: "revoked" }) }, `?id=eq.${encodeURIComponent(id2)}&organization_id=eq.${encodeURIComponent(organizationId)}&status=eq.pending`);
+  if (!rows[0]) throw new Error("Convite n\xE3o encontrado ou j\xE1 utilizado.");
+  return rows[0];
+}
+async function acceptOrganizationInvitation(input) {
+  if (!isConfigured()) throw new Error("Database not available");
+  const [result] = await rpc2("accept_organization_invitation", {
+    p_token_hash: input.tokenHash,
+    p_user_id: input.userId,
+    p_email: input.email
+  });
+  if (!result) throw new Error("Invitation not found or already used");
+  return { invitation: { id: result.invitation_id }, organizationId: result.org_id, role: result.role };
+}
+async function getOrganizationSubscription(organizationId) {
+  if (!isConfigured()) return void 0;
+  const rows = await request2("saas_subscriptions", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}&order=created_at.desc&limit=1`);
+  return rows[0];
+}
+async function listPlatformAppointments(input = {}) {
+  if (!isConfigured()) return [];
+  const filters = [input.desde ? `&scheduled_at=gte.${encodeURIComponent(input.desde)}` : "", input.ate ? `&scheduled_at=lte.${encodeURIComponent(input.ate)}` : ""].join("");
+  return request2("arke_internal_appointments", {}, `?select=*&order=scheduled_at.asc${filters}`);
+}
+async function createPlatformAppointment(input) {
+  if (!isConfigured()) throw new Error("Database not available");
+  const [row] = await request2("arke_internal_appointments", { method: "POST", body: JSON.stringify({ staff_user_id: input.staffUserId, organization_id: input.organizationId ?? null, tipo: input.tipo, titulo: input.titulo, descricao: input.descricao ?? null, scheduled_at: input.scheduledAt, duracao_minutos: input.duracaoMinutos, criado_por: input.criadoPor }) });
+  return row;
+}
+async function updatePlatformAppointment(id2, input) {
+  if (!isConfigured()) throw new Error("Database not available");
+  const body = {};
+  if (input.titulo !== void 0) body.titulo = input.titulo;
+  if (input.descricao !== void 0) body.descricao = input.descricao;
+  if (input.scheduledAt !== void 0) body.scheduled_at = input.scheduledAt;
+  if (input.duracaoMinutos !== void 0) body.duracao_minutos = input.duracaoMinutos;
+  if (input.status !== void 0) body.status = input.status;
+  if (input.tipo !== void 0) body.tipo = input.tipo;
+  if (input.organizationId !== void 0) body.organization_id = input.organizationId;
+  const [row] = await request2("arke_internal_appointments", { method: "PATCH", body: JSON.stringify(body) }, `?id=eq.${encodeURIComponent(id2)}`);
+  return row;
+}
+async function deletePlatformAppointment(id2) {
+  if (!isConfigured()) throw new Error("Database not available");
+  await request2("arke_internal_appointments", { method: "DELETE" }, `?id=eq.${encodeURIComponent(id2)}`);
+  return { id: id2 };
+}
+async function listAllOrganizationsForPlatform() {
+  if (!isConfigured()) return [];
+  const [orgs, subs] = await Promise.all([
+    request2("saas_organizations", {}, "?select=*&order=created_at.desc"),
+    request2("saas_subscriptions", {}, "?select=*&order=created_at.desc")
+  ]);
+  const subByOrg = /* @__PURE__ */ new Map();
+  for (const sub of subs) if (!subByOrg.has(sub.organization_id)) subByOrg.set(sub.organization_id, sub);
+  return orgs.map((org) => ({ ...org, subscription: subByOrg.get(org.id) ?? null }));
+}
+async function updateOrganizationProfile(input) {
+  if (!isConfigured()) throw new Error("Database not available");
+  const [updated] = await request2("saas_organizations", { method: "PATCH", body: JSON.stringify({ name: input.name, ...input.logoUrl !== void 0 ? { logo_url: input.logoUrl } : {}, ...input.primaryColor !== void 0 ? { primary_color: input.primaryColor } : {} }) }, `?id=eq.${encodeURIComponent(input.organizationId)}`);
+  return updated;
+}
+async function updateOrganizationSubscription(input) {
+  if (!isConfigured()) throw new Error("Database not available");
+  const amountCents = PLAN_AMOUNTS_CENTS[input.plan];
+  const limits = PLAN_LIMITS[input.plan];
+  await request2("saas_organizations", { method: "PATCH", body: JSON.stringify({ plan: input.plan, max_units: limits.maxUnits, max_users: limits.maxUsers }) }, `?id=eq.${encodeURIComponent(input.organizationId)}`);
+  await request2("saas_subscriptions", { method: "PATCH", body: JSON.stringify({ plan: input.plan, amount_cents: amountCents, ...input.status ? { status: input.status } : {} }) }, `?organization_id=eq.${encodeURIComponent(input.organizationId)}`);
+  return getOrganizationSubscription(input.organizationId);
+}
+async function getOrganization(organizationId) {
+  const rows = await request2("saas_organizations", {}, `?select=*&id=eq.${encodeURIComponent(organizationId)}&limit=1`);
+  return rows[0];
+}
+async function getOrCreateAsaasCustomerForOrganization(organizationId) {
+  const organization = await getOrganization(organizationId);
+  if (!organization) throw new Error("Organiza\xE7\xE3o n\xE3o encontrada.");
+  if (organization.asaas_customer_id) return organization.asaas_customer_id;
+  const [client] = await request2("app_users", {}, `?select=name,email&id=eq.${encodeURIComponent(organization.client_id)}&limit=1`);
+  if (!client) throw new Error("Cliente respons\xE1vel pela organiza\xE7\xE3o n\xE3o encontrado.");
+  const customer = await createAsaasCustomer({ name: organization.name, email: client.email });
+  await request2("saas_organizations", { method: "PATCH", body: JSON.stringify({ asaas_customer_id: customer.id }) }, `?id=eq.${encodeURIComponent(organizationId)}`);
+  return customer.id;
+}
+async function createSubscriptionCharge(input) {
+  if (!isConfigured()) throw new Error("Database not available");
+  const subscription = await getOrganizationSubscription(input.organizationId);
+  if (!subscription) throw new Error("Esta organiza\xE7\xE3o n\xE3o tem assinatura ativa.");
+  const customerId = await getOrCreateAsaasCustomerForOrganization(input.organizationId);
+  const dueDate = input.dueDate ?? new Date(Date.now() + 1e3 * 60 * 60 * 24 * 3).toISOString().slice(0, 10);
+  const payment = await createAsaasPayment({ customer: customerId, value: subscription.amount_cents / 100, dueDate, billingType: input.billingType, description: `Mensalidade Arke \u2014 plano ${subscription.plan}` });
+  await upsertAsaasPayment(payment, "PAYMENT_CREATED", input.organizationId);
+  await request2("saas_subscriptions", { method: "PATCH", body: JSON.stringify({ provider: "asaas", external_id: payment.id }) }, `?organization_id=eq.${encodeURIComponent(input.organizationId)}`);
+  return payment;
+}
+async function chargeSetupFeeIfNeeded(organizationId) {
+  if (!isConfigured()) return;
+  const organization = await getOrganization(organizationId);
+  if (!organization || organization.setup_fee_charged_at) return;
+  try {
+    const customerId = await getOrCreateAsaasCustomerForOrganization(organizationId);
+    const dueDate = new Date(Date.now() + 1e3 * 60 * 60 * 24 * 3).toISOString().slice(0, 10);
+    const payment = await createAsaasPayment({ customer: customerId, value: SETUP_FEE_CENTS / 100, dueDate, billingType: "UNDEFINED", description: "Taxa de setup Arke" });
+    await upsertAsaasPayment(payment, "PAYMENT_CREATED", organizationId);
+    await request2("saas_organizations", { method: "PATCH", body: JSON.stringify({ setup_fee_charged_at: (/* @__PURE__ */ new Date()).toISOString() }) }, `?id=eq.${encodeURIComponent(organizationId)}`);
+  } catch (error) {
+    captureException2(error, { route: "onboarding.setupFee", organizationId });
+  }
+}
+async function getOrganizationAccess(userId, organizationId) {
+  if (!isConfigured()) return void 0;
+  const membership = await getMembership(userId, organizationId);
+  if (!membership) return void 0;
+  const [units, policies] = await Promise.all([
+    request2("saas_units", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}&status=eq.active`),
+    request2("saas_module_policies", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}`)
+  ]);
+  return { organization: membership.organization, membership: membership.membership, units, policies };
+}
+async function saveOrganizationOnboarding(input) {
+  if (!isConfigured()) throw new Error("Database not available");
+  if (input.logoUrl !== void 0 || input.primaryColor !== void 0 || input.defaultUnitName !== void 0) {
+    await request2("saas_organizations", { method: "PATCH", body: JSON.stringify({ ...input.logoUrl !== void 0 ? { logo_url: input.logoUrl } : {}, ...input.primaryColor !== void 0 ? { primary_color: input.primaryColor } : {}, ...input.defaultUnitName !== void 0 ? { name: input.defaultUnitName } : {} }) }, `?id=eq.${encodeURIComponent(input.organizationId)}`);
+  }
+  await request2("saas_onboarding", { method: "POST", headers: { Prefer: "resolution=merge-duplicates,return=representation" }, body: JSON.stringify({ organization_id: input.organizationId, current_step: input.currentStep, status: input.status, city: input.city ?? null, default_unit_name: input.defaultUnitName ?? null, invite_email: input.inviteEmail ?? null }) }, "?on_conflict=organization_id");
+  if (input.status === "completed") await chargeSetupFeeIfNeeded(input.organizationId);
+  return { organizationId: input.organizationId, saved: true };
+}
+async function updateModulePolicy(input) {
+  if (!isConfigured()) throw new Error("Database not available");
+  await request2("saas_module_policies", { method: "POST", headers: { Prefer: "resolution=merge-duplicates,return=representation" }, body: JSON.stringify({ organization_id: input.organizationId, unit_id: input.unitId, role: input.role, module: input.module, can_view: input.canView, can_manage: input.canManage }) }, "?on_conflict=organization_id,unit_id,role,module");
+  return { saved: true };
+}
+async function getOrganizationOnboarding(organizationId) {
+  if (!isConfigured()) return void 0;
+  const rows = await request2("saas_onboarding", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}&limit=1`);
+  return rows[0];
+}
+async function listOrganizationUnits(organizationId) {
+  if (!isConfigured()) return [];
+  return request2("saas_units", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}&status=eq.active&order=name.asc`);
+}
+async function createOrganizationUnit(input) {
+  if (!isConfigured()) throw new Error("Database not available");
+  const [created] = await request2("saas_units", { method: "POST", body: JSON.stringify({ organization_id: input.organizationId, name: input.name, slug: input.slug, city: input.city ?? null, status: "active" }) });
+  return created;
+}
+async function archiveOrganizationUnit(organizationId, unitId) {
+  if (!isConfigured()) throw new Error("Database not available");
+  await request2("saas_units", { method: "PATCH", body: JSON.stringify({ status: "archived" }) }, `?organization_id=eq.${encodeURIComponent(organizationId)}&id=eq.${encodeURIComponent(unitId)}`);
+  return { organizationId, unitId, status: "archived" };
+}
+async function recordAuditLog(input) {
+  if (!isConfigured()) return void 0;
+  const [created] = await request2("saas_audit_logs", { method: "POST", body: JSON.stringify({ organization_id: input.organizationId, auth_user_id: input.userId, action: input.action, entity: input.entity, entity_id: input.entityId ?? null, before_json: input.beforeJson ?? null, after_json: input.afterJson ?? null }) });
+  return created;
+}
+async function getAuditLogs(organizationId, limit = 50, filters) {
+  if (!isConfigured()) return [];
+  const params = new URLSearchParams();
+  params.set("select", "*");
+  params.set("organization_id", `eq.${organizationId}`);
+  params.set("order", "created_at.desc");
+  params.set("limit", String(limit));
+  if (filters?.from) params.append("created_at", `gte.${filters.from.toISOString()}`);
+  if (filters?.to) params.append("created_at", `lte.${filters.to.toISOString()}`);
+  if (filters?.userId) params.set("auth_user_id", `eq.${filters.userId}`);
+  if (filters?.entity && filters.entity !== "all") params.set("entity", `eq.${filters.entity}`);
+  return request2("saas_audit_logs", {}, `?${params.toString()}`);
+}
+function auditLogsToCsv(rows) {
+  const escape = (value) => `"${String(value ?? "").replaceAll('"', '""')}"`;
+  return [
+    ["id", "action", "entity", "entityId", "userId", "createdAt"].join(","),
+    ...rows.map((row) => [row.id, row.action, row.entity, row.entity_id, row.auth_user_id, row.created_at].map(escape).join(","))
+  ].join("\n");
+}
+function auditLogsToPdfBase64(rows) {
+  const sanitize = (value) => value.replaceAll("\\", "\\\\").replaceAll("(", "\\(").replaceAll(")", "\\)");
+  const lines = ["ARKE - Auditoria do tenant", "", ...rows.slice(0, 35).map((row) => `${row.created_at} | ${row.action} | ${row.entity} | usu\xE1rio ${row.auth_user_id ?? "-"}`)];
+  const content = ["BT", "/F1 9 Tf", "50 800 Td", ...lines.flatMap((line, index) => [index === 0 ? `(${sanitize(line)}) Tj` : "0 -18 Td", index === 0 ? "" : `(${sanitize(line)}) Tj`]), "ET"].join("\n");
+  const objects = ["<< /Type /Catalog /Pages 2 0 R >>", "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>", "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>", `<< /Length ${Buffer.byteLength(content, "utf8")} >>
+stream
+${content}
+endstream`];
+  let pdf = "%PDF-1.4\n";
+  const offsets = [0];
+  objects.forEach((object, index) => {
+    offsets[index + 1] = Buffer.byteLength(pdf, "utf8");
+    pdf += `${index + 1} 0 obj
+${object}
+endobj
+`;
+  });
+  const xref = Buffer.byteLength(pdf, "utf8");
+  const entries = offsets.slice(1).map((offset) => String(offset).padStart(10, "0") + " 00000 n ").join("\n");
+  pdf += `xref
+0 ${objects.length + 1}
+0000000000 65535 f 
+${entries}
+trailer
+<< /Size ${objects.length + 1} /Root 1 0 R >>
+startxref
+${xref}
+%%EOF`;
+  return Buffer.from(pdf, "utf8").toString("base64");
 }
 
 // server/importacao.ts
@@ -3320,13 +3348,13 @@ var appRouter = router({
         await recordAuditLog({ organizationId: input.organizationId, userId: ctx.user.id, unitId: input.unitId, action: "updated", entity: "module_policy", afterJson: input });
         return result;
       }),
-      invite: protectedProcedure.input(z2.object({ organizationId: z2.string().uuid(), email: z2.string().email(), role: z2.enum(["admin", "manager", "professional", "nutricionista", "viewer"]) })).mutation(async ({ ctx, input }) => {
+      invite: protectedProcedure.input(z2.object({ organizationId: z2.string().uuid(), email: z2.string().email(), fullName: z2.string().trim().min(2), role: z2.enum(["admin", "manager", "professional", "nutricionista", "viewer"]) })).mutation(async ({ ctx, input }) => {
         await ownerOrAdmin(ctx.user.id, input.organizationId);
         const rawToken = randomUUID2();
-        const tokenHash = createHash2("sha256").update(rawToken).digest("hex");
-        const invitation = await createOrganizationInvitation({ ...input, invitedByUserId: ctx.user.id, email: input.email.toLowerCase(), tokenHash, expiresAt: new Date(Date.now() + 1e3 * 60 * 60 * 72) });
+        const tokenHash = createHash3("sha256").update(rawToken).digest("hex");
+        const invitation = await createOrganizationInvitation({ ...input, invitedByUserId: ctx.user.id, email: input.email.toLowerCase(), rawToken, tokenHash, expiresAt: new Date(Date.now() + 1e3 * 60 * 60 * 72) });
         await recordAuditLog({ organizationId: input.organizationId, userId: ctx.user.id, action: "created", entity: "invitation", entityId: invitation.id, afterJson: { email: input.email.toLowerCase(), role: input.role } });
-        return { invitationId: invitation.id, token: rawToken, status: "pending" };
+        return { invitationId: invitation.id, status: "pending" };
       }),
       revokeInvitation: protectedProcedure.input(z2.object({ organizationId: z2.string().uuid(), invitationId: z2.string().uuid() })).mutation(async ({ ctx, input }) => {
         await ownerOrAdmin(ctx.user.id, input.organizationId);
@@ -3337,13 +3365,26 @@ var appRouter = router({
       acceptInvite: protectedProcedure.input(z2.object({ token: z2.string().min(16).max(128), consentTermos: z2.literal(true) })).mutation(async ({ ctx, input }) => {
         assertRateLimit(rateLimitKey(ctx.req, "accept-team-invite"), 10, 15 * 60 * 1e3);
         if (!ctx.user.email) throw new Error("Authenticated user email is required");
-        const result = await acceptOrganizationInvitation({ tokenHash: createHash2("sha256").update(input.token).digest("hex"), userId: ctx.user.id, email: ctx.user.email });
+        const result = await acceptOrganizationInvitation({ tokenHash: createHash3("sha256").update(input.token).digest("hex"), userId: ctx.user.id, email: ctx.user.email });
         if (!await hasConsent(ctx.user.id, "termos_uso_privacidade")) {
           const policy = await getCurrentPrivacyPolicy();
           await recordConsent({ userId: ctx.user.id, consentType: "termos_uso_privacidade", policyVersionId: policy?.id ?? null, ...requestMeta(ctx.req) });
         }
         await recordAuditLog({ organizationId: result.organizationId, userId: ctx.user.id, action: "accepted", entity: "invitation", entityId: result.invitation.id, afterJson: { role: result.role, email: ctx.user.email } });
         return { organizationId: result.organizationId, role: result.role, status: "accepted" };
+      }),
+      // Aceite de convite de equipe sem exigir conta prévia — assume que o
+      // convidado ainda não tem cadastro (ver createOrganizationInvitation):
+      // cria a conta Supabase e a vaga na organização em um único passo,
+      // no mesmo padrão de journey.acceptInvite (convite de aluno).
+      acceptInviteSignup: publicProcedure.input(z2.object({ token: z2.string().trim().min(10), password: z2.string().min(8), consentTermos: z2.literal(true) })).mutation(async ({ ctx, input }) => {
+        assertRateLimit(rateLimitKey(ctx.req, "accept-team-invite-signup"), 10, 15 * 60 * 1e3);
+        const result = await acceptOrganizationInvitationSignup({ token: input.token, password: input.password });
+        const policy = await getCurrentPrivacyPolicy();
+        await recordConsent({ userId: result.user.id, consentType: "termos_uso_privacidade", policyVersionId: policy?.id ?? null, ...requestMeta(ctx.req) });
+        await recordAuditLog({ organizationId: result.organizationId, userId: result.user.id, action: "accepted", entity: "invitation", entityId: result.invitationId, afterJson: { role: result.role, email: result.user.email } });
+        ctx.res.cookie(SUPABASE_ACCESS_COOKIE, result.accessToken, { ...getSessionCookieOptions(ctx.req), maxAge: 1e3 * 60 * 60 * 24 * 30 });
+        return { accessToken: result.accessToken, user: result.user, organizationId: result.organizationId, role: result.role, fullName: result.fullName };
       }),
       listDeletionRequests: protectedProcedure.input(organizationIdInput).query(async ({ ctx, input }) => {
         await ownerOrAdmin(ctx.user.id, input.organizationId);

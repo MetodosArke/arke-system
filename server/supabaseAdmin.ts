@@ -94,7 +94,7 @@ export async function verifyPasswordRecoveryCode(email: string, code: string) {
   return response.json() as Promise<{ access_token: string; refresh_token: string; user: { id: string; email?: string; user_metadata?: Record<string, unknown> } }>;
 }
 
-async function sendEmail(to: string, subject: string, html: string) {
+export async function sendEmail(to: string, subject: string, html: string) {
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) {
     // Em produção, uma chave ausente não pode virar sucesso silencioso —
@@ -725,7 +725,7 @@ async function findMemberInvitationByToken(token: string) {
   return rows[0] ?? null;
 }
 
-async function createSupabaseUserWithPassword(email: string, password: string, fullName: string) {
+export async function createSupabaseUserWithPassword(email: string, password: string, fullName: string) {
   const { url, key } = config();
   const response = await fetch(`${url}/auth/v1/admin/users`, { method: "POST", headers: { apikey: key, Authorization: `Bearer ${key}`, "Content-Type": "application/json" }, body: JSON.stringify({ email: normalizeEmail(email), password, email_confirm: true, user_metadata: { full_name: fullName } }) });
   if (!response.ok) throw new Error("Não foi possível criar sua conta. Verifique se este e-mail já não está cadastrado.");

@@ -33,7 +33,7 @@ const emptyExercicio = { exercicioId: "", series: "3", repeticoes: "12", descans
 const emptyDieta = { titulo: "", descricao: "", arquivoUrl: "" };
 const emptyInvite = { fullName: "", email: "" };
 const emptyAlunoCadastro = { nome: "", cpf: "", email: "", telefone: "", dataNascimento: "", responsavelNome: "", responsavelCpf: "", unitId: "", planoId: "", valorMensal: "", diaVencimento: "" };
-const emptyTeamInvite = { email: "", role: "professional" as const };
+const emptyTeamInvite = { fullName: "", email: "", role: "professional" as const };
 const TEAM_ROLE_LABELS: Record<string, string> = { admin: "Administrador", manager: "Gerente", professional: "Profissional de treino", nutricionista: "Nutricionista", viewer: "Visualizador" };
 
 const ACOLHIMENTO_FIELDS: Array<[string, "rotina_diaria" | "experiencias_exercicio" | "experiencias_gostou" | "experiencias_nao_gostou" | "dores_lesoes" | "medicamentos" | "tempo_disponivel" | "estilo_treino" | "exercicios_nao_gosta" | "alimentos_gosta" | "alimentos_nao_gosta" | "alimentacao_rotina"]> = [
@@ -177,9 +177,9 @@ export function ProfessionalDashboard({ onToast }: { onToast: (toast: Toast) => 
   // Convite de equipe (profissional/nutricionista/gerente) — vínculo por convite (Fase 11)
   const teamInvitesQuery = trpc.saas.organizations.pendingInvitations.useQuery({ organizationId: activeOrgId }, { enabled: Boolean(activeOrgId) && canManageTeam });
   const teamInvites = teamInvitesQuery.data ?? [];
-  const [teamInviteForm, setTeamInviteForm] = useState<{ email: string; role: "admin" | "manager" | "professional" | "nutricionista" | "viewer" }>(emptyTeamInvite);
+  const [teamInviteForm, setTeamInviteForm] = useState<{ fullName: string; email: string; role: "admin" | "manager" | "professional" | "nutricionista" | "viewer" }>(emptyTeamInvite);
   const refreshTeamInvites = () => utils.saas.organizations.pendingInvitations.invalidate({ organizationId: activeOrgId });
-  const inviteTeam = trpc.saas.organizations.invite.useMutation({ onSuccess: () => { success("Convite de equipe enviado"); setTeamInviteForm(emptyTeamInvite); refreshTeamInvites(); }, onError: (e) => fail("Erro ao convidar colega de equipe", e) });
+  const inviteTeam = trpc.saas.organizations.invite.useMutation({ onSuccess: () => { success("Convite de equipe enviado por e-mail"); setTeamInviteForm(emptyTeamInvite); refreshTeamInvites(); }, onError: (e) => fail("Erro ao convidar colega de equipe", e) });
   const revokeTeamInvite = trpc.saas.organizations.revokeInvitation.useMutation({ onSuccess: () => { success("Convite de equipe revogado"); refreshTeamInvites(); }, onError: (e) => fail("Erro ao revogar convite de equipe", e) });
   const [acceptTeamToken, setAcceptTeamToken] = useState("");
   const [acceptTeamConsent, setAcceptTeamConsent] = useState(false);
@@ -355,9 +355,10 @@ export function ProfessionalDashboard({ onToast }: { onToast: (toast: Toast) => 
         </div>
         {canManageTeam && <div className="space-y-2 rounded-xl bg-[#faf7ef] p-3">
           <p className="text-xs font-semibold text-[#4b4438]">Convidar profissional ou nutricionista</p>
+          <Input value={teamInviteForm.fullName} onChange={(e) => setTeamInviteForm({ ...teamInviteForm, fullName: e.target.value })} placeholder="Nome completo" className="h-9 rounded-lg text-xs" />
           <Input value={teamInviteForm.email} onChange={(e) => setTeamInviteForm({ ...teamInviteForm, email: e.target.value })} placeholder="E-mail" type="email" className="h-9 rounded-lg text-xs" />
           <select value={teamInviteForm.role} onChange={(e) => setTeamInviteForm({ ...teamInviteForm, role: e.target.value as typeof teamInviteForm.role })} className="h-9 w-full rounded-lg border bg-white px-2 text-xs">{Object.entries(TEAM_ROLE_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select>
-          <Button onClick={() => inviteTeam.mutate({ organizationId: activeOrgId, email: teamInviteForm.email, role: teamInviteForm.role })} disabled={!teamInviteForm.email || inviteTeam.isPending} className="h-9 w-full rounded-lg bg-[#15130f] text-xs text-white"><Plus size={14} /> Enviar convite</Button>
+          <Button onClick={() => inviteTeam.mutate({ organizationId: activeOrgId, email: teamInviteForm.email, fullName: teamInviteForm.fullName, role: teamInviteForm.role })} disabled={!teamInviteForm.email || !teamInviteForm.fullName.trim() || inviteTeam.isPending} className="h-9 w-full rounded-lg bg-[#15130f] text-xs text-white"><Plus size={14} /> Enviar convite</Button>
           {teamInvites.length > 0 && <div className="mt-2 space-y-1.5">
             <p className="text-[10px] font-semibold uppercase tracking-[.1em] text-[#9b9488]">Convites pendentes</p>
             {teamInvites.map((invite) => <div key={invite.id} className="flex items-center justify-between rounded-lg border border-[#eee9df] bg-white p-2"><div className="min-w-0 flex-1"><p className="truncate text-xs font-semibold text-[#4b4438]">{invite.email}</p><p className="truncate text-[10px] text-[#9b9488]">{TEAM_ROLE_LABELS[invite.role] ?? invite.role}</p></div><Button variant="ghost" onClick={() => revokeTeamInvite.mutate({ organizationId: activeOrgId, invitationId: invite.id })} className="h-7 w-7 p-0 text-[#b65c4d]"><Trash2 size={13} /></Button></div>)}
