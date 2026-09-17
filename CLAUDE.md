@@ -22,17 +22,37 @@ O ARKE é uma plataforma SaaS B2B/B2C para academias, studios e personal trainer
 
 ## Estrutura Comercial & Modelo de Atacado (Wholesale)
 
-### Planos B2B (Assinatura de Plataforma para Academias)
-- **Starter (Até 150 alunos ativos):** R$ 390/mês — Gestão operacional da metodologia, fila de atendimento básica, aplicativo da academia e treinamento da equipe local[span_65](start_span)[span_65](end_span)[span_66](start_span)[span_66](end_span).
-- **Growth (Até 500 alunos ativos):** R$ 790/mês — Módulo completo de retenção (R.O.T.A.), versionamento de fichas, acompanhamento de adesão e suporte prioritário[span_67](start_span)[span_67](end_span)[span_68](start_span)[span_68](end_span).
-- **Enterprise (Mais de 500 alunos ativos):** R$ 1.290/mês — Gestão multiunidade, relatórios avançados de churn e SLAs dedicados[span_69](start_span)[span_69](end_span)[span_70](start_span)[span_70](end_span).
-- **Custom (Rede de Academias):** Sob consulta — Estruturas com personalização avançada de branding, suporte presencial dedicado e integrações sob demanda[span_71](start_span)[span_71](end_span)[span_72](start_span)[span_72](end_span).
+### 1. Planos B2B (Assinatura de Plataforma para Academias)
+Valor mensal fixo pago pela academia para acesso à infraestrutura, isolamento por tenant, aplicativo com marca da academia e painel "Minha Fila" para a equipe local.
 
-### Licenças de Atacado / Níveis de Serviço do Aluno (Tabela Base ARKE)
-- **Essencial (Treino ARKE):** Custo Atacado ARKE = R$ 15/aluno/mês — Onboarding M.A.P.A.®, treino individualizado, registro de dificuldades e evolução[span_73](start_span)[span_73](end_span)[span_74](start_span)[span_74](end_span).
-- **Integrado (Treino + Nutrição):** Custo Atacado ARKE = R$ 45/aluno/mês — Tudo do Essencial + Plano alimentar individualizado, acompanhamento nutricional e revisão integrada[span_75](start_span)[span_75](end_span)[span_76](start_span)[span_76](end_span).
-- **Integral (Acompanhamento 360°):** Custo Atacado ARKE = R$ 85/aluno/mês — Tudo do Integrado + Acolhimento expandido, jornada de hábitos completa, encontros periódicos e acompanhamento humano proativo[span_77](start_span)[span_77](end_span)[span_78](start_span)[span_78](end_span).
-- *Nota de Negócio:* A academia define o valor final de varejo (markup) e o sistema realiza o Split Automático de Pagamento via gateway (Asaas)[span_79](start_span)[span_79](end_span)[span_80](start_span)[span_80](end_span).
+- **Starter (Até 150 alunos ativos):** R$ 390,00/mês — Gestão operacional da metodologia, fila de atendimento básica, aplicativo da academia e treinamento da equipe local.
+- **Growth (Até 500 alunos ativos):** R$ 790,00/mês — Módulo completo de retenção (R.O.T.A.®), versionamento de fichas, acompanhamento de adesão e suporte prioritário.
+- **Enterprise (Até 1.000 alunos ativos):** R$ 1.290,00/mês — Gestão multiunidade, relatórios avançados de churn e SLAs dedicados.
+- **Custom (Redes/Multiunidades):** Sob consulta — Estruturas com personalização avançada de branding, suporte presencial dedicado e integrações sob demanda.
+
+> Implementação: `organizations.plano_b2b` (enum) guarda o plano contratado; ainda não há tabela de preços B2B no banco (só documental aqui).
+
+### 2. Licenças de Atacado (Wholesale) vs. Sugestão de Varejo (por aluno/mês)
+A academia compra pelo custo de Atacado da ARKE e define o preço de Varejo (markup) cobrado do aluno. O Split Automático de Pagamento liquida os valores no checkout (Asaas).
+
+| Nível | Custo Atacado ARKE | Sugestão de Varejo | Margem Sugerida da Academia |
+|---|---|---|---|
+| **Essencial** (Treino ARKE) | R$ 15,00 | R$ 39,90 | R$ 24,90 |
+| **Integrado** (Treino + Nutrição) | R$ 45,00 | R$ 119,00 | R$ 74,00 |
+| **Integral** (Acompanhamento 360°) | R$ 85,00 | R$ 199,00 | R$ 114,00 |
+
+- **Essencial:** Onboarding M.A.P.A.®, prescrição de treino individualizada com snapshot imutável, aplicativo de treino/diário e suporte a dificuldades.
+- **Integrado:** Tudo do Essencial + plano alimentar individualizado, acompanhamento por Nutricionista ARKE, check-ins semanais (R.O.T.A.®) e revisão integrada.
+- **Integral:** Tudo do Integrado + acolhimento expandido, encontros periódicos de acompanhamento, relatórios de evolução corporal (A.P.E.X.®/L.E.G.A.D.O.®) e fila prioritária.
+
+> Implementação: `planos_atacado` (custo de atacado + `valor_sugerido_varejo`) e `organization_planos_precificacao` (valor de varejo e markup definidos por organização — pré-preenchido com a sugestão ARKE via trigger ao criar a organização, editável livremente depois pela academia).
+
+### 3. Matriz de Repasse Financeiro no Gateway (Split no Asaas)
+No momento da cobrança da assinatura do aluno:
+1. `valor_repasse_arke` = `planos_atacado.custo_mensal` (R$ 15/45/85) → direto para a conta da ARKE.
+2. `valor_liquido_academia` = `valor_total_cobrado - valor_repasse_arke` → direto para a conta/wallet da academia (`organizations.asaas_wallet_id`).
+
+> Implementação: `aluno_assinaturas` (assinatura recorrente) + `pagamentos` (registro de cada cobrança com o split já calculado) + `asaas_webhook_events` (log/auditoria idempotente dos eventos do gateway). Edge Functions `asaas-create-subscription` e `asaas-webhook`.
 
 ## Motor de Automações e Regras Operacionais
 - **Prevenção de Falha Humana:** Eventos da jornada viram tarefas automáticas com responsável, prazo (SLA) e prioridade[span_81](start_span)[span_81](end_span).
@@ -49,8 +69,10 @@ O ARKE é uma plataforma SaaS B2B/B2C para academias, studios e personal trainer
 - **Privacidade e LGPD:** Dados sensíveis (anamnese, fotos de avaliação corporal) possuem RLS estrito e acesso restrito ao profissional vinculado ao atendimento[span_89](start_span)[span_89](end_span).
 
 ## Sequência de Desenvolvimento (Phases)
-- **Fase 1:** Reset do repositório, Setup SQL Unificado com Multitenant estrito, Auth e RLS por Tenant[span_90](start_span)[span_90](end_span).
-- **Fase 2:** Onboarding M.A.P.A.® simplificado, UX de ajuda rápida e Anamnese de Acolhimento[span_91](start_span)[span_91](end_span)[span_92](start_span)[span_92](end_span).
-- **Fase 3:** Prescrição e Versionamento Imutável de Treinos/Dietas[span_93](start_span)[span_93](end_span).
-- **Fase 4:** Central de Atendimento "Minha Fila" (com registro obrigatorio de desfecho), Check-ins R.O.T.A.® e Automações de SLA[span_94](start_span)[span_94](end_span).
-- **Fase 5:** Modulo de Margens/Markup por Academia, Split de Pagamento (Asaas) e Dashboards de Retenção Comercial[span_95](start_span)[span_95](end_span)[span_96](start_span)[span_96](end_span).
+- **Fase 1 ✅:** Reset do repositório, Setup SQL Unificado com Multitenant estrito, Auth e RLS por Tenant.
+- **Fase 2 ✅:** Onboarding M.A.P.A.® simplificado, UX de ajuda rápida e Anamnese de Acolhimento.
+- **Fase 3 ✅:** Prescrição e Versionamento Imutável de Treinos/Dietas.
+- **Fase 4 ✅:** Central de Atendimento "Minha Fila" (com registro obrigatório de desfecho), Check-ins R.O.T.A.® e Automações de SLA.
+- **Fase 5 ✅:** Módulo de Margens/Markup por Academia, Split de Pagamento (Asaas) e Dashboards de Retenção Comercial.
+
+> As 5 fases do plano inicial estão implementadas. Pendências conhecidas: (1) secrets `ASAAS_API_KEY`/`ASAAS_WEBHOOK_SECRET` ainda não configurados no projeto Supabase — as Edge Functions do split retornam erro claro até isso ser feito; (2) diversas telas do protótipo original (gamificação, feed social, desafios, catracas, chat) foram movidas para `src/_legacy` e ficam fora do build até serem portadas ao schema multitenant, fase a fase, conforme necessidade do negócio.
