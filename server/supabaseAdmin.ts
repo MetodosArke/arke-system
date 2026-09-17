@@ -24,7 +24,6 @@ async function request<T>(table: string, init: RequestInit = {}, query = "") {
 const id = () => randomUUID();
 
 export type AppUser = { id: string; name: string; email: string; username: string; module: string; role: string; status: string; logoUrl?: string | null; profile_data?: Record<string, string> | null; created_at: string; updated_at: string };
-export type AppStudent = { id: string; name: string; academy: string; plan: string; status: string; created_at: string; updated_at: string };
 
 export async function authenticateSupabaseAccessToken(accessToken: string) {
   const { url, key } = config();
@@ -77,11 +76,6 @@ export async function deleteAppUser(idValue: string) {
   await notifyAdmins("Cadastro removido no Arke", `<p>O cadastro de usuário <strong>${idValue}</strong> foi removido pela administração, junto com qualquer organização vinculada.</p>`);
   return { id: idValue };
 }
-
-export async function listAppStudents() { return request<AppStudent[]>("app_students", {}, "?select=*&order=created_at.asc"); }
-export async function createAppStudent(input: Omit<AppStudent, "id" | "created_at" | "updated_at">) { const rows = await request<AppStudent[]>("app_students", { method: "POST", body: JSON.stringify({ id: id(), ...input }) }); return rows[0]; }
-export async function updateAppStudent(idValue: string, input: Partial<Omit<AppStudent, "id" | "created_at" | "updated_at">>) { const rows = await request<AppStudent[]>("app_students", { method: "PATCH", body: JSON.stringify({ ...input, updated_at: new Date().toISOString() }) }, `?id=eq.${encodeURIComponent(idValue)}`); return rows[0]; }
-export async function deleteAppStudent(idValue: string) { await request("app_students", { method: "DELETE" }, `?id=eq.${encodeURIComponent(idValue)}`); return { id: idValue }; }
 
 export async function createPasswordRecoveryCode(email: string) {
   const { url, key } = config();

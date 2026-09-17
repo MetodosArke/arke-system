@@ -443,6 +443,10 @@ async function getOrganizationOnboarding(organizationId) {
   const rows = await request("saas_onboarding", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}&limit=1`);
   return rows[0];
 }
+async function listOrganizationUnits(organizationId) {
+  if (!isConfigured()) return [];
+  return request("saas_units", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}&status=eq.active&order=name.asc`);
+}
 async function createOrganizationUnit(input) {
   if (!isConfigured()) throw new Error("Database not available");
   const [created] = await request("saas_units", { method: "POST", body: JSON.stringify({ organization_id: input.organizationId, name: input.name, slug: input.slug, city: input.city ?? null, status: "active" }) });
@@ -584,21 +588,6 @@ async function deleteAppUser(idValue) {
   await request2("saas_organizations", { method: "DELETE" }, `?client_id=eq.${encodeURIComponent(idValue)}`);
   await request2("app_users", { method: "DELETE" }, `?id=eq.${encodeURIComponent(idValue)}`);
   await notifyAdmins("Cadastro removido no Arke", `<p>O cadastro de usu\xE1rio <strong>${idValue}</strong> foi removido pela administra\xE7\xE3o, junto com qualquer organiza\xE7\xE3o vinculada.</p>`);
-  return { id: idValue };
-}
-async function listAppStudents() {
-  return request2("app_students", {}, "?select=*&order=created_at.asc");
-}
-async function createAppStudent(input) {
-  const rows = await request2("app_students", { method: "POST", body: JSON.stringify({ id: id(), ...input }) });
-  return rows[0];
-}
-async function updateAppStudent(idValue, input) {
-  const rows = await request2("app_students", { method: "PATCH", body: JSON.stringify({ ...input, updated_at: (/* @__PURE__ */ new Date()).toISOString() }) }, `?id=eq.${encodeURIComponent(idValue)}`);
-  return rows[0];
-}
-async function deleteAppStudent(idValue) {
-  await request2("app_students", { method: "DELETE" }, `?id=eq.${encodeURIComponent(idValue)}`);
   return { id: idValue };
 }
 async function createPasswordRecoveryCode(email) {
@@ -1192,6 +1181,65 @@ async function publishDieta(dietaId, autorId) {
   await request2("dieta_revisoes", { method: "POST", body: JSON.stringify({ dieta_id: dietaId, versao, conteudo: dieta, autor_id: autorId, organization_id: dieta.organization_id }) });
   return atualizado;
 }
+async function listMembershipPlans(organizationId) {
+  return request2("org_membership_plans", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}&order=nome.asc`);
+}
+async function createMembershipPlan(input) {
+  const rows = await request2("org_membership_plans", { method: "POST", body: JSON.stringify({ organization_id: input.organizationId, nome: input.nome, valor_mensal: input.valorMensal, periodicidade: input.periodicidade ?? "mensal" }) });
+  return rows[0];
+}
+async function updateMembershipPlan(id2, organizationId, data) {
+  const body = {};
+  if (data.nome !== void 0) body.nome = data.nome;
+  if (data.valorMensal !== void 0) body.valor_mensal = data.valorMensal;
+  if (data.periodicidade !== void 0) body.periodicidade = data.periodicidade;
+  if (data.ativo !== void 0) body.ativo = data.ativo;
+  const rows = await request2("org_membership_plans", { method: "PATCH", body: JSON.stringify(body) }, `?id=eq.${encodeURIComponent(id2)}&organization_id=eq.${encodeURIComponent(organizationId)}`);
+  if (!rows[0]) throw new Error("Plano n\xE3o encontrado.");
+  return rows[0];
+}
+async function listAlunos(organizationId) {
+  return request2("alunos", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}&order=created_at.desc`);
+}
+async function findAlunoByEmail(organizationId, email) {
+  const rows = await request2("alunos", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}&email=eq.${encodeURIComponent(normalizeEmail(email))}&limit=1`);
+  return rows[0] ?? null;
+}
+async function createAluno(input) {
+  const rows = await request2("alunos", { method: "POST", body: JSON.stringify({
+    organization_id: input.organizationId,
+    unit_id: input.unitId || void 0,
+    plano_id: input.planoId || void 0,
+    nome: input.nome,
+    cpf: input.cpf || void 0,
+    email: input.email ? normalizeEmail(input.email) : void 0,
+    telefone: input.telefone || void 0,
+    data_nascimento: input.dataNascimento || void 0,
+    responsavel_nome: input.responsavelNome || void 0,
+    responsavel_cpf: input.responsavelCpf || void 0,
+    valor_mensal: input.valorMensal ?? void 0,
+    dia_vencimento: input.diaVencimento ?? void 0,
+    origem: input.origem ?? "manual",
+    criado_por: input.criadoPor || void 0
+  }) });
+  return rows[0];
+}
+async function updateAluno(id2, organizationId, data) {
+  const rows = await request2("alunos", { method: "PATCH", body: JSON.stringify(data) }, `?id=eq.${encodeURIComponent(id2)}&organization_id=eq.${encodeURIComponent(organizationId)}`);
+  if (!rows[0]) throw new Error("Aluno n\xE3o encontrado.");
+  return rows[0];
+}
+async function createImportBatch(input) {
+  const rows = await request2("import_batches", { method: "POST", body: JSON.stringify({ organization_id: input.organizationId, entity: input.entity, file_name: input.fileName, total_rows: input.totalRows, valid_rows: input.validRows, error_rows: input.errorRows, errors: input.errors, uploaded_by: input.uploadedBy }) });
+  return rows[0];
+}
+async function markImportBatchCommitted(id2, organizationId) {
+  const rows = await request2("import_batches", { method: "PATCH", body: JSON.stringify({ status: "committed", committed_at: (/* @__PURE__ */ new Date()).toISOString() }) }, `?id=eq.${encodeURIComponent(id2)}&organization_id=eq.${encodeURIComponent(organizationId)}`);
+  return rows[0];
+}
+async function listImportBatches(organizationId) {
+  return request2("import_batches", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}&order=created_at.desc&limit=50`);
+}
 async function getOrganizationName(organizationId) {
   const rows = await request2("saas_organizations", {}, `?select=id,name&id=eq.${encodeURIComponent(organizationId)}&limit=1`);
   return rows[0]?.name ?? "sua academia";
@@ -1207,11 +1255,13 @@ async function inviteMember(input) {
   const email = normalizeEmail(input.email);
   const existing = await findPendingMemberInvitation(input.organizationId, email);
   if (existing) throw new Error("J\xE1 existe um convite pendente para este e-mail nesta organiza\xE7\xE3o.");
+  const aluno = await findAlunoByEmail(input.organizationId, email) ?? await createAluno({ organizationId: input.organizationId, nome: input.fullName, email, origem: "manual", criadoPor: input.invitedByUserId });
   const rawToken = randomUUID();
   const tokenHash = createHash("sha256").update(rawToken).digest("hex");
   const expiresAt = new Date(Date.now() + 1e3 * 60 * 60 * 24 * 7);
   const rows = await request2("member_invitations", { method: "POST", body: JSON.stringify({
     organization_id: input.organizationId,
+    aluno_id: aluno.id,
     invited_by_user_id: input.invitedByUserId,
     email,
     full_name: input.fullName,
@@ -1245,6 +1295,7 @@ async function acceptMemberInvitation(token, password) {
   if (new Date(invitation.expires_at).getTime() < Date.now()) throw new Error("Este convite expirou. Pe\xE7a para reenviarem o convite.");
   const authUser = await createSupabaseUserWithPassword(invitation.email, password, invitation.full_name);
   await request2("profiles", { method: "PATCH", body: JSON.stringify({ full_name: invitation.full_name, organization_id: invitation.organization_id, status: "active", matricula_em: (/* @__PURE__ */ new Date()).toISOString() }) }, `?user_id=eq.${encodeURIComponent(authUser.id)}`);
+  await request2("alunos", { method: "PATCH", body: JSON.stringify({ auth_user_id: authUser.id }) }, `?id=eq.${encodeURIComponent(invitation.aluno_id)}`);
   const accepted = await request2("member_invitations", { method: "PATCH", body: JSON.stringify({ status: "accepted" }) }, `?id=eq.${encodeURIComponent(invitation.id)}&status=eq.pending`);
   if (!accepted[0]) throw new Error("Este convite j\xE1 foi utilizado.");
   await request2("leads", { method: "PATCH", body: JSON.stringify({ estagio: "matriculado", convertido_em: (/* @__PURE__ */ new Date()).toISOString() }) }, `?member_invitation_id=eq.${encodeURIComponent(invitation.id)}&estagio=eq.convite_enviado`);
@@ -1765,6 +1816,301 @@ async function rejectDeletionRequest(input) {
   const rows = await request2("data_deletion_requests", { method: "PATCH", body: JSON.stringify({ status: "rejected", resolved_at: (/* @__PURE__ */ new Date()).toISOString(), resolved_by: input.resolvedBy, resolution_note: input.note || null }) }, `?id=eq.${encodeURIComponent(input.requestId)}&organization_id=eq.${encodeURIComponent(input.organizationId)}&status=eq.pending`);
   if (!rows[0]) throw new Error("Solicita\xE7\xE3o n\xE3o encontrada ou j\xE1 resolvida.");
   return rows[0];
+}
+
+// server/importacao.ts
+var cell = (row, ...keys) => {
+  for (const key of keys) {
+    const value = row[key];
+    if (value !== void 0 && value !== null && String(value).trim() !== "") return String(value).trim();
+  }
+  return void 0;
+};
+var DIACRITICS_RE = new RegExp("[\\u0300-\\u036f]", "g");
+var slugify = (value) => value.normalize("NFD").replace(DIACRITICS_RE, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "").slice(0, 60) || `unidade-${Date.now()}`;
+var EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+function isValidCpf(raw) {
+  const cpf = raw.replace(/\D/g, "");
+  if (cpf.length !== 11 || /^(\d)\1{10}$/.test(cpf)) return false;
+  const digits = cpf.split("").map(Number);
+  const calc = (len) => {
+    let sum = 0;
+    for (let i = 0; i < len; i++) sum += digits[i] * (len + 1 - i);
+    const result = sum * 10 % 11;
+    return result === 10 ? 0 : result;
+  };
+  return calc(9) === digits[9] && calc(10) === digits[10];
+}
+function parseDateBr(raw) {
+  const iso = /^(\d{4})-(\d{2})-(\d{2})$/.exec(raw);
+  const br = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(raw);
+  let year, month, day;
+  if (iso) {
+    [, year, month, day] = iso.map(Number);
+  } else if (br) {
+    [, day, month, year] = br.map(Number);
+  } else return null;
+  const date = new Date(Date.UTC(year, month - 1, day));
+  if (date.getUTCFullYear() !== year || date.getUTCMonth() !== month - 1 || date.getUTCDate() !== day) return null;
+  if (date.getTime() > Date.now()) return null;
+  return date.toISOString().slice(0, 10);
+}
+function parseNumber(raw) {
+  const normalized = raw.replace(/\./g, "").replace(",", ".").replace(/[^\d.-]/g, "");
+  const value = Number(normalized);
+  return Number.isFinite(value) ? value : null;
+}
+function validateUnidades(rows) {
+  const valid = [];
+  const errors = [];
+  const seenSlugs = /* @__PURE__ */ new Set();
+  rows.forEach((row, index) => {
+    const rowNumber = index + 2;
+    const nome = cell(row, "nome", "unidade");
+    if (!nome) return errors.push({ row: rowNumber, campo: "nome", motivo: "Nome da unidade \xE9 obrigat\xF3rio." });
+    const slugBase = cell(row, "slug") ?? slugify(nome);
+    let slug = slugBase;
+    let attempt = 1;
+    while (seenSlugs.has(slug)) slug = `${slugBase}-${++attempt}`;
+    seenSlugs.add(slug);
+    valid.push({ row: rowNumber, data: { name: nome, slug, city: cell(row, "cidade", "city") } });
+  });
+  return { valid, errors };
+}
+var PERIODICIDADES = /* @__PURE__ */ new Set(["mensal", "trimestral", "semestral", "anual"]);
+function validatePlanos(rows, existentes) {
+  const valid = [];
+  const errors = [];
+  const seenNomes = /* @__PURE__ */ new Set();
+  rows.forEach((row, index) => {
+    const rowNumber = index + 2;
+    const nome = cell(row, "nome", "plano");
+    if (!nome) return errors.push({ row: rowNumber, campo: "nome", motivo: "Nome do plano \xE9 obrigat\xF3rio." });
+    const nomeKey = nome.toLowerCase();
+    if (existentes.has(nomeKey)) return errors.push({ row: rowNumber, campo: "nome", motivo: `J\xE1 existe um plano chamado "${nome}" nesta organiza\xE7\xE3o.` });
+    if (seenNomes.has(nomeKey)) return errors.push({ row: rowNumber, campo: "nome", motivo: "Nome de plano duplicado neste arquivo." });
+    const valorRaw = cell(row, "valor_mensal", "valor");
+    const valor = valorRaw ? parseNumber(valorRaw) : null;
+    if (valor === null || valor < 0) return errors.push({ row: rowNumber, campo: "valor_mensal", motivo: "Valor mensal inv\xE1lido." });
+    const periodicidadeRaw = (cell(row, "periodicidade") ?? "mensal").toLowerCase();
+    if (!PERIODICIDADES.has(periodicidadeRaw)) return errors.push({ row: rowNumber, campo: "periodicidade", motivo: "Periodicidade deve ser mensal, trimestral, semestral ou anual." });
+    seenNomes.add(nomeKey);
+    valid.push({ row: rowNumber, data: { nome, valorMensal: valor, periodicidade: periodicidadeRaw } });
+  });
+  return { valid, errors };
+}
+async function validateAlunos(rows, organizationId) {
+  const valid = [];
+  const errors = [];
+  const [existentesAlunos, planos, unidades] = await Promise.all([listAlunos(organizationId), listMembershipPlans(organizationId), listOrganizationUnits(organizationId)]);
+  const cpfsExistentes = new Set(existentesAlunos.map((a) => a.cpf).filter(Boolean));
+  const emailsExistentes = new Set(existentesAlunos.map((a) => a.email).filter(Boolean));
+  const planoPorNome = new Map(planos.map((p) => [p.nome.toLowerCase(), p.id]));
+  const unidadePorNome = new Map(unidades.map((u) => [u.name.toLowerCase(), u.id]));
+  const seenCpfs = /* @__PURE__ */ new Set();
+  const seenEmails = /* @__PURE__ */ new Set();
+  for (let index = 0; index < rows.length; index++) {
+    const row = rows[index];
+    const rowNumber = index + 2;
+    const nome = cell(row, "nome", "aluno");
+    if (!nome) {
+      errors.push({ row: rowNumber, campo: "nome", motivo: "Nome \xE9 obrigat\xF3rio." });
+      continue;
+    }
+    const cpfRaw = cell(row, "cpf");
+    let cpf;
+    if (cpfRaw) {
+      if (!isValidCpf(cpfRaw)) {
+        errors.push({ row: rowNumber, campo: "cpf", motivo: "CPF inv\xE1lido." });
+        continue;
+      }
+      cpf = cpfRaw.replace(/\D/g, "");
+      if (cpfsExistentes.has(cpf) || seenCpfs.has(cpf)) {
+        errors.push({ row: rowNumber, campo: "cpf", motivo: "CPF j\xE1 cadastrado nesta organiza\xE7\xE3o." });
+        continue;
+      }
+    }
+    const emailRaw = cell(row, "email");
+    let email;
+    if (emailRaw) {
+      if (!EMAIL_RE.test(emailRaw)) {
+        errors.push({ row: rowNumber, campo: "email", motivo: "E-mail inv\xE1lido." });
+        continue;
+      }
+      email = normalizeEmail(emailRaw);
+      if (emailsExistentes.has(email) || seenEmails.has(email)) {
+        errors.push({ row: rowNumber, campo: "email", motivo: "E-mail j\xE1 cadastrado nesta organiza\xE7\xE3o." });
+        continue;
+      }
+    }
+    const dataNascimentoRaw = cell(row, "data_nascimento", "nascimento");
+    let dataNascimento;
+    if (dataNascimentoRaw) {
+      const parsed = parseDateBr(dataNascimentoRaw);
+      if (!parsed) {
+        errors.push({ row: rowNumber, campo: "data_nascimento", motivo: "Data de nascimento inv\xE1lida (use DD/MM/AAAA)." });
+        continue;
+      }
+      dataNascimento = parsed;
+    }
+    const menorDeIdade = dataNascimento ? (/* @__PURE__ */ new Date()).getTime() - new Date(dataNascimento).getTime() < 1e3 * 60 * 60 * 24 * 365.25 * 18 : false;
+    const responsavelNome = cell(row, "responsavel_nome", "responsavel");
+    if (menorDeIdade && !responsavelNome) {
+      errors.push({ row: rowNumber, campo: "responsavel_nome", motivo: "Aluno menor de idade precisa de respons\xE1vel." });
+      continue;
+    }
+    const unidadeNome = cell(row, "unidade");
+    let unitId;
+    if (unidadeNome) {
+      const found = unidadePorNome.get(unidadeNome.toLowerCase());
+      if (!found) {
+        errors.push({ row: rowNumber, campo: "unidade", motivo: `Unidade "${unidadeNome}" n\xE3o encontrada \u2014 cadastre a unidade antes de importar os alunos.` });
+        continue;
+      }
+      unitId = found;
+    }
+    const planoNome = cell(row, "plano");
+    let planoId;
+    if (planoNome) {
+      const found = planoPorNome.get(planoNome.toLowerCase());
+      if (!found) {
+        errors.push({ row: rowNumber, campo: "plano", motivo: `Plano "${planoNome}" n\xE3o encontrado \u2014 cadastre o plano antes de importar os alunos.` });
+        continue;
+      }
+      planoId = found;
+    }
+    const valorMensalRaw = cell(row, "valor_mensal");
+    const valorMensal = valorMensalRaw ? parseNumber(valorMensalRaw) ?? void 0 : void 0;
+    if (valorMensalRaw && valorMensal === void 0) {
+      errors.push({ row: rowNumber, campo: "valor_mensal", motivo: "Valor mensal inv\xE1lido." });
+      continue;
+    }
+    const diaVencimentoRaw = cell(row, "dia_vencimento");
+    let diaVencimento;
+    if (diaVencimentoRaw) {
+      const parsed = Number(diaVencimentoRaw);
+      if (!Number.isInteger(parsed) || parsed < 1 || parsed > 31) {
+        errors.push({ row: rowNumber, campo: "dia_vencimento", motivo: "Dia de vencimento deve ser entre 1 e 31." });
+        continue;
+      }
+      diaVencimento = parsed;
+    }
+    if (cpf) seenCpfs.add(cpf);
+    if (email) seenEmails.add(email);
+    valid.push({ row: rowNumber, data: {
+      organizationId,
+      unitId,
+      nome,
+      cpf,
+      email,
+      telefone: cell(row, "telefone"),
+      dataNascimento,
+      responsavelNome,
+      responsavelCpf: cell(row, "responsavel_cpf"),
+      planoId,
+      valorMensal,
+      diaVencimento,
+      origem: "importado"
+    } });
+  }
+  return { valid, errors };
+}
+function validateLeads(rows, organizationId) {
+  const valid = [];
+  const errors = [];
+  rows.forEach((row, index) => {
+    const rowNumber = index + 2;
+    const nome = cell(row, "nome");
+    if (!nome) return errors.push({ row: rowNumber, campo: "nome", motivo: "Nome \xE9 obrigat\xF3rio." });
+    const email = cell(row, "email");
+    if (email && !EMAIL_RE.test(email)) return errors.push({ row: rowNumber, campo: "email", motivo: "E-mail inv\xE1lido." });
+    const telefone = cell(row, "telefone");
+    if (!email && !telefone) return errors.push({ row: rowNumber, campo: "telefone", motivo: "Informe e-mail ou telefone." });
+    valid.push({ row: rowNumber, data: { organizationId, nome, telefone, email, origem: cell(row, "origem"), interesse: cell(row, "interesse"), notas: cell(row, "notas") } });
+  });
+  return { valid, errors };
+}
+function validateTurmas(rows, organizationId, existentes) {
+  const valid = [];
+  const errors = [];
+  const seenNomes = /* @__PURE__ */ new Set();
+  rows.forEach((row, index) => {
+    const rowNumber = index + 2;
+    const nome = cell(row, "nome", "turma");
+    if (!nome) return errors.push({ row: rowNumber, campo: "nome", motivo: "Nome da turma \xE9 obrigat\xF3rio." });
+    const nomeKey = nome.toLowerCase();
+    if (existentes.has(nomeKey) || seenNomes.has(nomeKey)) return errors.push({ row: rowNumber, campo: "nome", motivo: `J\xE1 existe uma turma chamada "${nome}".` });
+    const limiteRaw = cell(row, "limite_vagas", "vagas");
+    const limite = limiteRaw ? Number(limiteRaw) : null;
+    if (!limite || !Number.isInteger(limite) || limite < 1) return errors.push({ row: rowNumber, campo: "limite_vagas", motivo: "Limite de vagas deve ser um n\xFAmero inteiro maior que zero." });
+    const duracaoRaw = cell(row, "duracao_min");
+    const duracao = duracaoRaw ? Number(duracaoRaw) : 60;
+    if (!Number.isInteger(duracao) || duracao < 15 || duracao > 480) return errors.push({ row: rowNumber, campo: "duracao_min", motivo: "Dura\xE7\xE3o deve ser entre 15 e 480 minutos." });
+    seenNomes.add(nomeKey);
+    valid.push({ row: rowNumber, data: { organization_id: organizationId, nome, descricao: cell(row, "descricao"), limite_vagas: limite, duracao_min: duracao } });
+  });
+  return { valid, errors };
+}
+async function previewImport(entity, rows, organizationId) {
+  const result = await runValidation(entity, rows, organizationId);
+  return { validRows: result.valid.length, errorRows: result.errors.length, errors: result.errors.slice(0, 200), amostra: result.valid.slice(0, 20).map((v) => v.data) };
+}
+async function commitImport(entity, rows, organizationId, actorUserId) {
+  const result = await runValidation(entity, rows, organizationId);
+  let inserted = 0;
+  for (const item of result.valid) {
+    try {
+      switch (entity) {
+        case "unidades": {
+          const data = item.data;
+          await createOrganizationUnit({ organizationId, name: data.name, slug: data.slug, city: data.city });
+          break;
+        }
+        case "planos": {
+          const data = item.data;
+          await createMembershipPlan({ organizationId, nome: data.nome, valorMensal: data.valorMensal, periodicidade: data.periodicidade });
+          break;
+        }
+        case "alunos": {
+          const data = item.data;
+          await createAluno({ ...data, criadoPor: actorUserId });
+          break;
+        }
+        case "leads": {
+          const data = item.data;
+          await createLead({ ...data, criadoPor: actorUserId });
+          break;
+        }
+        case "turmas": {
+          const data = item.data;
+          await createTurma({ ...data, criado_por: actorUserId });
+          break;
+        }
+      }
+      inserted++;
+    } catch (error) {
+      result.errors.push({ row: item.row, motivo: error instanceof Error ? error.message : "Falha ao gravar esta linha." });
+    }
+  }
+  return { inserted, errors: result.errors };
+}
+async function runValidation(entity, rows, organizationId) {
+  switch (entity) {
+    case "unidades":
+      return validateUnidades(rows);
+    case "planos": {
+      const existentes = new Set((await listMembershipPlans(organizationId)).map((p) => p.nome.toLowerCase()));
+      return validatePlanos(rows, existentes);
+    }
+    case "alunos":
+      return validateAlunos(rows, organizationId);
+    case "leads":
+      return validateLeads(rows, organizationId);
+    case "turmas": {
+      const existentes = new Set((await listTurmasForOrganization(organizationId)).map((t2) => t2.nome.toLowerCase()));
+      return validateTurmas(rows, organizationId, existentes);
+    }
+  }
 }
 
 // server/arkeEntitlement.ts
@@ -2676,7 +3022,7 @@ var appRouter = router({
   }),
   admin: router({
     status: publicProcedure.query(() => ({ configured: hasSupabaseConfig() })),
-    // admin.users/students/lookupCnpj cadastram, editam e excluem clientes
+    // admin.users/lookupCnpj cadastram, editam e excluem clientes
     // do SaaS (inclusive outros Super Admins) — restrito a adminProcedure.
     // Estavam em publicProcedure (sem login nenhum) até esta auditoria.
     lookupCnpj: adminProcedure.input(z2.object({ cnpj: z2.string().min(14).max(18) })).mutation(({ input }) => lookupCnpj(input.cnpj)),
@@ -2690,12 +3036,6 @@ var appRouter = router({
         const url = await uploadPublicFile("avatars", `logos/${randomUUID2()}.${extensionFor(input.contentType)}`, buffer, input.contentType);
         return { url };
       })
-    }),
-    students: router({
-      list: adminProcedure.query(() => listAppStudents()),
-      create: adminProcedure.input(z2.object({ name: z2.string().trim().min(2), academy: z2.string().trim().min(2), plan: z2.string().trim().min(2), status: z2.enum(["Ativo", "Inativo"]) })).mutation(({ input }) => createAppStudent(input)),
-      update: adminProcedure.input(z2.object({ id: z2.string().uuid(), data: z2.object({ name: z2.string().trim().min(2), academy: z2.string().trim().min(2), plan: z2.string().trim().min(2), status: z2.enum(["Ativo", "Inativo"]) }) })).mutation(({ input }) => updateAppStudent(input.id, input.data)),
-      delete: adminProcedure.input(z2.object({ id: z2.string().uuid() })).mutation(({ input }) => deleteAppStudent(input.id))
     })
   }),
   // Painel de negócio ArkeFit (Sessão C do plano de Sept/2026): operação
@@ -3904,6 +4244,85 @@ var appRouter = router({
     }),
     minhasReservas: protectedProcedure.query(({ ctx }) => listMinhasReservas(ctx.user.id)),
     cancelarMinhaReserva: protectedProcedure.input(z2.object({ id: z2.string().uuid() })).mutation(({ ctx, input }) => cancelarReserva(input.id, ctx.user.id))
+  }),
+  // Cadastro administrativo do aluno — existe independente de login (ver
+  // 20260916_cadastro_direto_alunos_e_importacao.sql). journey.inviteMember
+  // continua existindo à parte, como ação opcional em cima de um aluno já
+  // cadastrado aqui.
+  alunos: router({
+    list: protectedProcedure.input(organizationIdInput).query(async ({ ctx, input }) => {
+      await assertStaffOfOrganization(ctx.user.id, input.organizationId);
+      return listAlunos(input.organizationId);
+    }),
+    create: protectedProcedure.input(z2.object({
+      organizationId: z2.string().uuid(),
+      unitId: z2.string().uuid().optional(),
+      planoId: z2.string().uuid().optional(),
+      nome: z2.string().trim().min(2).max(160),
+      cpf: z2.string().trim().optional(),
+      email: z2.string().email().optional(),
+      telefone: z2.string().trim().max(40).optional(),
+      dataNascimento: z2.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+      responsavelNome: z2.string().trim().max(160).optional(),
+      responsavelCpf: z2.string().trim().optional(),
+      valorMensal: z2.number().min(0).optional(),
+      diaVencimento: z2.number().int().min(1).max(31).optional()
+    })).mutation(async ({ ctx, input }) => {
+      await ownerOrAdmin(ctx.user.id, input.organizationId);
+      return createAluno({ ...input, origem: "manual", criadoPor: ctx.user.id });
+    }),
+    update: protectedProcedure.input(z2.object({ id: z2.string().uuid(), organizationId: z2.string().uuid(), data: z2.object({
+      nome: z2.string().trim().min(2).max(160).optional(),
+      unitId: z2.string().uuid().optional().nullable(),
+      planoId: z2.string().uuid().optional().nullable(),
+      cpf: z2.string().trim().optional().nullable(),
+      email: z2.string().email().optional().nullable(),
+      telefone: z2.string().trim().max(40).optional().nullable(),
+      valorMensal: z2.number().min(0).optional().nullable(),
+      diaVencimento: z2.number().int().min(1).max(31).optional().nullable(),
+      status: z2.enum(["ativo", "inativo", "trancado"]).optional()
+    }) })).mutation(async ({ ctx, input }) => {
+      await ownerOrAdmin(ctx.user.id, input.organizationId);
+      const { unitId, planoId, diaVencimento, valorMensal, ...rest } = input.data;
+      return updateAluno(input.id, input.organizationId, { ...rest, unit_id: unitId, plano_id: planoId, dia_vencimento: diaVencimento, valor_mensal: valorMensal });
+    })
+  }),
+  // Planos de mensalidade da própria academia (não confundir com o plano
+  // da assinatura ArkeFit em saas.organizations — ver org_membership_plans).
+  planos: router({
+    list: protectedProcedure.input(organizationIdInput).query(async ({ ctx, input }) => {
+      await assertStaffOfOrganization(ctx.user.id, input.organizationId);
+      return listMembershipPlans(input.organizationId);
+    }),
+    create: protectedProcedure.input(z2.object({ organizationId: z2.string().uuid(), nome: z2.string().trim().min(2).max(120), valorMensal: z2.number().min(0), periodicidade: z2.enum(["mensal", "trimestral", "semestral", "anual"]).default("mensal") })).mutation(async ({ ctx, input }) => {
+      await ownerOrAdmin(ctx.user.id, input.organizationId);
+      return createMembershipPlan(input);
+    }),
+    update: protectedProcedure.input(z2.object({ id: z2.string().uuid(), organizationId: z2.string().uuid(), data: z2.object({ nome: z2.string().trim().min(2).max(120).optional(), valorMensal: z2.number().min(0).optional(), periodicidade: z2.enum(["mensal", "trimestral", "semestral", "anual"]).optional(), ativo: z2.boolean().optional() }) })).mutation(async ({ ctx, input }) => {
+      await ownerOrAdmin(ctx.user.id, input.organizationId);
+      return updateMembershipPlan(input.id, input.organizationId, input.data);
+    })
+  }),
+  // Importação de dados na implantação de um cliente novo. O cliente
+  // parseia o CSV/XLSX no navegador (papaparse/xlsx) e manda linhas já em
+  // JSON — sem upload multipart no servidor. preview nunca grava nada;
+  // commit reaproveita a mesma validação e sempre reenvia as mesmas linhas.
+  importacao: router({
+    history: protectedProcedure.input(organizationIdInput).query(async ({ ctx, input }) => {
+      await assertStaffOfOrganization(ctx.user.id, input.organizationId);
+      return listImportBatches(input.organizationId);
+    }),
+    preview: protectedProcedure.input(z2.object({ organizationId: z2.string().uuid(), entity: z2.enum(["unidades", "planos", "alunos", "leads", "turmas"]), rows: z2.array(z2.record(z2.string(), z2.string())).min(1).max(1e4) })).mutation(async ({ ctx, input }) => {
+      await ownerOrAdmin(ctx.user.id, input.organizationId);
+      return previewImport(input.entity, input.rows, input.organizationId);
+    }),
+    commit: protectedProcedure.input(z2.object({ organizationId: z2.string().uuid(), entity: z2.enum(["unidades", "planos", "alunos", "leads", "turmas"]), fileName: z2.string().trim().min(1).max(200), rows: z2.array(z2.record(z2.string(), z2.string())).min(1).max(1e4) })).mutation(async ({ ctx, input }) => {
+      await ownerOrAdmin(ctx.user.id, input.organizationId);
+      const result = await commitImport(input.entity, input.rows, input.organizationId, ctx.user.id);
+      const batch = await createImportBatch({ organizationId: input.organizationId, entity: input.entity, fileName: input.fileName, totalRows: input.rows.length, validRows: result.inserted, errorRows: result.errors.length, errors: result.errors, uploadedBy: ctx.user.id });
+      await markImportBatchCommitted(batch.id, input.organizationId);
+      return { batchId: batch.id, inserted: result.inserted, errors: result.errors };
+    })
   })
 });
 

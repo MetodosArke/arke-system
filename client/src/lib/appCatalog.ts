@@ -19,7 +19,7 @@ export const MODULE_LABELS: Record<ModuleKey, string> = {
   administrador: "Administrador",
 };
 
-export const MODULE_VIEWS: Record<ModuleKey, "overview" | "academias" | "profissionais" | "alunos" | "meus-alunos" | "meu-treino"> = {
+export const MODULE_VIEWS: Record<ModuleKey, "overview" | "academias" | "profissionais" | "meus-alunos" | "meu-treino"> = {
   academia: "academias",
   studio: "academias",
   profissional: "meus-alunos",
@@ -28,11 +28,11 @@ export const MODULE_VIEWS: Record<ModuleKey, "overview" | "academias" | "profiss
 };
 
 export const MODULE_PERMISSIONS: Record<ModuleKey, string[]> = {
-  academia: ["overview", "academias", "alunos", "gestao", "crm", "desafios", "agenda", "financeiro", "integracoes"],
-  studio: ["overview", "studios", "academias", "alunos", "gestao", "turmas", "crm", "desafios", "agenda", "financeiro", "integracoes"],
+  academia: ["overview", "academias", "gestao", "crm", "desafios", "agenda", "financeiro", "integracoes"],
+  studio: ["overview", "studios", "academias", "gestao", "turmas", "crm", "desafios", "agenda", "financeiro", "integracoes"],
   profissional: ["overview", "meus-alunos", "minha-fila", "crm", "desafios", "agenda"],
   aluno: ["overview", "meu-treino", "minhas-turmas", "agenda"],
-  administrador: ["overview", "academias", "studios", "profissionais", "alunos", "gestao", "turmas", "crm", "desafios", "agenda", "financeiro", "integracoes", "saas", "admin", "acervo", "plataforma", "configuracoes"],
+  administrador: ["overview", "academias", "studios", "profissionais", "gestao", "turmas", "crm", "desafios", "agenda", "financeiro", "integracoes", "saas", "admin", "acervo", "plataforma", "configuracoes"],
 };
 
 export const SAAS_PLANS = ["Starter", "Growth", "Scale", "Essencial", "Performance", "Ilimitado"] as const;
