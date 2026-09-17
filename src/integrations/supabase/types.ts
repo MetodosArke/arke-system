@@ -20,6 +20,7 @@ export type Database = {
           created_at: string
           data_inicio: string | null
           data_nascimento: string | null
+          fase_jornada: Database["public"]["Enums"]["fase_jornada"]
           id: string
           meta_semanal_dias: number
           nivel_atacado: Database["public"]["Enums"]["nivel_atacado"]
@@ -27,6 +28,9 @@ export type Database = {
           observacoes: string | null
           organization_id: string
           peso_kg: number | null
+          primeiro_acesso_em: string | null
+          provedor_nutricao: Database["public"]["Enums"]["provedor_nutricao"]
+          provedor_treino: Database["public"]["Enums"]["provedor_treino"]
           updated_at: string
           user_id: string
         }
@@ -35,6 +39,7 @@ export type Database = {
           created_at?: string
           data_inicio?: string | null
           data_nascimento?: string | null
+          fase_jornada?: Database["public"]["Enums"]["fase_jornada"]
           id?: string
           meta_semanal_dias?: number
           nivel_atacado?: Database["public"]["Enums"]["nivel_atacado"]
@@ -42,6 +47,9 @@ export type Database = {
           observacoes?: string | null
           organization_id: string
           peso_kg?: number | null
+          primeiro_acesso_em?: string | null
+          provedor_nutricao?: Database["public"]["Enums"]["provedor_nutricao"]
+          provedor_treino?: Database["public"]["Enums"]["provedor_treino"]
           updated_at?: string
           user_id: string
         }
@@ -50,6 +58,7 @@ export type Database = {
           created_at?: string
           data_inicio?: string | null
           data_nascimento?: string | null
+          fase_jornada?: Database["public"]["Enums"]["fase_jornada"]
           id?: string
           meta_semanal_dias?: number
           nivel_atacado?: Database["public"]["Enums"]["nivel_atacado"]
@@ -57,6 +66,9 @@ export type Database = {
           observacoes?: string | null
           organization_id?: string
           peso_kg?: number | null
+          primeiro_acesso_em?: string | null
+          provedor_nutricao?: Database["public"]["Enums"]["provedor_nutricao"]
+          provedor_treino?: Database["public"]["Enums"]["provedor_treino"]
           updated_at?: string
           user_id?: string
         }
@@ -70,12 +82,90 @@ export type Database = {
           },
         ]
       }
+      anamnese_acolhimento: {
+        Row: {
+          alimentacao_rotina: string | null
+          alimentos_gosta: string | null
+          alimentos_nao_gosta: string | null
+          aluno_id: string
+          concluida_em: string | null
+          created_at: string
+          dores_lesoes: string | null
+          estilo_treino: string | null
+          expectativas: string | null
+          experiencias_exercicio: string | null
+          id: string
+          medicamentos: string | null
+          objetivo_principal: string | null
+          organization_id: string
+          rotina_diaria: string | null
+          tempo_disponivel: string | null
+          updated_at: string
+        }
+        Insert: {
+          alimentacao_rotina?: string | null
+          alimentos_gosta?: string | null
+          alimentos_nao_gosta?: string | null
+          aluno_id: string
+          concluida_em?: string | null
+          created_at?: string
+          dores_lesoes?: string | null
+          estilo_treino?: string | null
+          expectativas?: string | null
+          experiencias_exercicio?: string | null
+          id?: string
+          medicamentos?: string | null
+          objetivo_principal?: string | null
+          organization_id: string
+          rotina_diaria?: string | null
+          tempo_disponivel?: string | null
+          updated_at?: string
+        }
+        Update: {
+          alimentacao_rotina?: string | null
+          alimentos_gosta?: string | null
+          alimentos_nao_gosta?: string | null
+          aluno_id?: string
+          concluida_em?: string | null
+          created_at?: string
+          dores_lesoes?: string | null
+          estilo_treino?: string | null
+          expectativas?: string | null
+          experiencias_exercicio?: string | null
+          id?: string
+          medicamentos?: string | null
+          objetivo_principal?: string | null
+          organization_id?: string
+          rotina_diaria?: string | null
+          tempo_disponivel?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "anamnese_acolhimento_aluno_id_fkey"
+            columns: ["aluno_id"]
+            isOneToOne: true
+            referencedRelation: "alunos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "anamnese_acolhimento_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       checkins: {
         Row: {
           aluno_id: string
           comentario: string | null
           created_at: string
           id: string
+          motivo_dificuldade:
+            | Database["public"]["Enums"]["motivo_dificuldade"]
+            | null
           organization_id: string
           status: Database["public"]["Enums"]["checkin_status"]
         }
@@ -84,6 +174,9 @@ export type Database = {
           comentario?: string | null
           created_at?: string
           id?: string
+          motivo_dificuldade?:
+            | Database["public"]["Enums"]["motivo_dificuldade"]
+            | null
           organization_id: string
           status: Database["public"]["Enums"]["checkin_status"]
         }
@@ -92,6 +185,9 @@ export type Database = {
           comentario?: string | null
           created_at?: string
           id?: string
+          motivo_dificuldade?:
+            | Database["public"]["Enums"]["motivo_dificuldade"]
+            | null
           organization_id?: string
           status?: Database["public"]["Enums"]["checkin_status"]
         }
@@ -542,6 +638,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      gerar_tarefas_ativacao_pendente: { Args: never; Returns: undefined }
       has_org_role: {
         Args: {
           _organization_id: string
@@ -578,9 +675,18 @@ export type Database = {
         | "preciso_ajuste"
         | "com_dificuldade"
         | "quero_falar_com_alguem"
+      fase_jornada: "mapa" | "base" | "rota" | "apex" | "legado"
+      motivo_dificuldade:
+        | "tempo"
+        | "execucao"
+        | "alimentacao"
+        | "desconforto_dor"
+        | "motivacao"
       nivel_atacado: "essencial" | "integrado" | "integral"
       org_status: "trial" | "ativo" | "inadimplente" | "suspenso" | "cancelado"
       plano_b2b: "starter" | "growth" | "enterprise" | "custom"
+      provedor_nutricao: "nenhum" | "nutricionista_academia" | "equipe_arke"
+      provedor_treino: "academia_propria" | "personal_parceiro" | "equipe_arke"
       tarefa_prioridade: "baixa" | "media" | "alta" | "critica"
       tarefa_status:
         | "aberta"
@@ -722,9 +828,19 @@ export const Constants = {
         "com_dificuldade",
         "quero_falar_com_alguem",
       ],
+      fase_jornada: ["mapa", "base", "rota", "apex", "legado"],
+      motivo_dificuldade: [
+        "tempo",
+        "execucao",
+        "alimentacao",
+        "desconforto_dor",
+        "motivacao",
+      ],
       nivel_atacado: ["essencial", "integrado", "integral"],
       org_status: ["trial", "ativo", "inadimplente", "suspenso", "cancelado"],
       plano_b2b: ["starter", "growth", "enterprise", "custom"],
+      provedor_nutricao: ["nenhum", "nutricionista_academia", "equipe_arke"],
+      provedor_treino: ["academia_propria", "personal_parceiro", "equipe_arke"],
       tarefa_prioridade: ["baixa", "media", "alta", "critica"],
       tarefa_status: [
         "aberta",

@@ -17,6 +17,8 @@ interface Organization {
   slug: string;
 }
 
+type FaseJornada = Enums<"fase_jornada">;
+
 interface AuthContextType {
   user: SupabaseUser | null;
   session: Session | null;
@@ -25,10 +27,13 @@ interface AuthContextType {
   organization: Organization | null;
   organizationRole: AppRole | null; // papel do usuário dentro da organização atual
   alunoId: string | null; // id em `alunos`, quando o papel na org é "aluno"
+  faseJornada: FaseJornada | null; // M.A.P.A. → B.A.S.E. → R.O.T.A. → A.P.E.X. → L.E.G.A.D.O.
+  anamneseCompleta: boolean; // Anamnese de Acolhimento (M.A.P.A.®) já preenchida
   isAuthenticated: boolean;
   isLoading: boolean;
   rolesLoaded: boolean;
   hasRole: (role: AppRole) => boolean;
+  refreshAluno: () => Promise<void>;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signUp: (email: string, password: string, fullName: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
@@ -46,8 +51,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [organization, setOrganization] = useState<Organization | null>(null);
   const [organizationRole, setOrganizationRole] = useState<AppRole | null>(null);
   const [alunoId, setAlunoId] = useState<string | null>(null);
+  const [faseJornada, setFaseJornada] = useState<FaseJornada | null>(null);
+  const [anamneseCompleta, setAnamneseCompleta] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [rolesLoaded, setRolesLoaded] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
   const fetchProfile = async (userId: string) => {
     const { data } = await supabase
@@ -56,6 +64,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .eq("user_id", userId)
       .maybeSingle();
     if (data) setProfile(data as Profile);
+  };
+
+  const loadAlunoStatus = async (userId: string, organizationId: string) => {
+    const { data: aluno } = await supabase
+      .from("alunos")
+      .select("id, fase_jornada, primeiro_acesso_em")
+      .eq("user_id", userId)
+      .eq("organization_id", organizationId)
+      .maybeSingle();
+
+    if (!aluno) {
+      setAlunoId(null);
+      setFaseJornada(null);
+      setAnamneseCompleta(false);
+      return;
+    }
+
+    setAlunoId(aluno.id);
+    setFaseJornada(aluno.fase_jornada);
+
+    // M.A.P.A.®: registra o 1º acesso (dispara a automação de "48h sem 1º acesso" a não gerar tarefa)
+    if (!aluno.primeiro_acesso_em) {
+      void supabase.from("alunos").update({ primeiro_acesso_em: new Date().toISOString() }).eq("id", aluno.id);
+    }
+
+    const { data: anamnese } = await supabase
+      .from("anamnese_acolhimento")
+      .select("concluida_em")
+      .eq("aluno_id", aluno.id)
+      .maybeSingle();
+    setAnamneseCompleta(!!anamnese?.concluida_em);
   };
 
   const fetchRoles = async (userId: string) => {
@@ -77,23 +116,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setOrganization(org ? { id: org.id, nome: org.nome, slug: org.slug } : null);
 
       if (membership.role === "aluno") {
-        const { data: aluno } = await supabase
-          .from("alunos")
-          .select("id")
-          .eq("user_id", userId)
-          .eq("organization_id", membership.organization_id)
-          .maybeSingle();
-        setAlunoId(aluno?.id ?? null);
+        await loadAlunoStatus(userId, membership.organization_id);
       } else {
         setAlunoId(null);
+        setFaseJornada(null);
+        setAnamneseCompleta(false);
       }
     } else {
       setOrganizationRole(null);
       setOrganization(null);
       setAlunoId(null);
+      setFaseJornada(null);
+      setAnamneseCompleta(false);
     }
 
     setRolesLoaded(true);
+  };
+
+  const refreshAluno = async () => {
+    if (!currentUserId || !organization) return;
+    await loadAlunoStatus(currentUserId, organization.id);
   };
 
   useEffect(() => {
@@ -105,6 +147,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         if (nextSession?.user) {
           setRolesLoaded(false);
+          setCurrentUserId(nextSession.user.id);
 
           setTimeout(() => {
             void Promise.all([
@@ -123,6 +166,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setOrganization(null);
         setOrganizationRole(null);
         setAlunoId(null);
+        setFaseJornada(null);
+        setAnamneseCompleta(false);
+        setCurrentUserId(null);
         setRolesLoaded(true);
         setIsLoading(false);
       }
@@ -135,6 +181,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (initialSession?.user) {
         setRolesLoaded(false);
+        setCurrentUserId(initialSession.user.id);
         void Promise.all([
           fetchProfile(initialSession.user.id),
           fetchRoles(initialSession.user.id),
@@ -195,6 +242,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setOrganization(null);
     setOrganizationRole(null);
     setAlunoId(null);
+    setFaseJornada(null);
+    setAnamneseCompleta(false);
+    setCurrentUserId(null);
   };
 
   const resetPassword = async (email: string) => {
@@ -219,10 +269,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         organization,
         organizationRole,
         alunoId,
+        faseJornada,
+        anamneseCompleta,
         isAuthenticated: !!session,
         isLoading,
         rolesLoaded,
         hasRole,
+        refreshAluno,
         signIn,
         signUp,
         signOut,
