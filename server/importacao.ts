@@ -37,6 +37,12 @@ const cell = (row: ImportRow, ...keys: string[]) => {
   return undefined;
 };
 
+// client/src/lib/importFile.ts não descarta mais linha em branco antes de
+// mandar pro servidor (isso desalinhava o número de linha reportado nos
+// erros com o real número no arquivo) — cada validador ignora a linha
+// aqui, silenciosamente, antes de checar campo obrigatório nenhum.
+export const isBlankRow = (row: ImportRow) => Object.values(row).every((value) => !value || !value.trim());
+
 const DIACRITICS_RE = new RegExp("[\\u0300-\\u036f]", "g");
 
 const slugify = (value: string) =>
@@ -125,6 +131,7 @@ async function validateUnidades(rows: ImportRow[], organizationId: string): Prom
   const seenNomes = new Set<string>();
   const seenSlugs = new Set(existentes.map((u) => u.slug));
   rows.forEach((row, index) => {
+    if (isBlankRow(row)) return;
     const rowNumber = index + 2; // +1 cabeçalho, +1 índice 1-based
     const nome = cell(row, "nome", "unidade");
     if (!nome) return errors.push({ row: rowNumber, campo: "nome", motivo: "Nome da unidade é obrigatório." });
@@ -151,6 +158,7 @@ function validatePlanos(rows: ImportRow[], existentes: Set<string>): ValidationR
   const errors: ImportRowError[] = [];
   const seenNomes = new Set<string>();
   rows.forEach((row, index) => {
+    if (isBlankRow(row)) return;
     const rowNumber = index + 2;
     const nome = cell(row, "nome", "plano");
     if (!nome) return errors.push({ row: rowNumber, campo: "nome", motivo: "Nome do plano é obrigatório." });
@@ -191,6 +199,7 @@ async function validateAlunos(rows: ImportRow[], organizationId: string): Promis
 
   for (let index = 0; index < rows.length; index++) {
     const row = rows[index];
+    if (isBlankRow(row)) continue;
     const rowNumber = index + 2;
     const nome = cell(row, "nome", "aluno");
     if (!nome) { errors.push({ row: rowNumber, campo: "nome", motivo: "Nome é obrigatório." }); continue; }
@@ -294,6 +303,7 @@ async function validateLeads(rows: ImportRow[], organizationId: string): Promise
   const seenEmails = new Set<string>();
   const seenTelefones = new Set<string>();
   rows.forEach((row, index) => {
+    if (isBlankRow(row)) return;
     const rowNumber = index + 2;
     const nome = cell(row, "nome");
     if (!nome) return errors.push({ row: rowNumber, campo: "nome", motivo: "Nome é obrigatório." });
@@ -321,6 +331,7 @@ function validateTurmas(rows: ImportRow[], organizationId: string, existentes: S
   const errors: ImportRowError[] = [];
   const seenNomes = new Set<string>();
   rows.forEach((row, index) => {
+    if (isBlankRow(row)) return;
     const rowNumber = index + 2;
     const nome = cell(row, "nome", "turma");
     if (!nome) return errors.push({ row: rowNumber, campo: "nome", motivo: "Nome da turma é obrigatório." });

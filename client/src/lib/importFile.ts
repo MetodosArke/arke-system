@@ -37,20 +37,27 @@ function rowsFromMatrix(matrix: unknown[][]): ParsedImportFile {
   const seen = new Set<string>();
   const duplicated = headers.filter((header) => { if (!header) return false; if (seen.has(header)) return true; seen.add(header); return false; });
   if (duplicated.length > 0) throw new Error(`Colunas duplicadas no cabeçalho (mesma coluna após normalizar acentos/espaços): ${Array.from(new Set(duplicated)).join(", ")}.`);
-  const rows = dataRows
-    .filter((row) => row.some((cell) => String(cell ?? "").trim() !== ""))
-    .map((row) => {
-      const record: Record<string, string> = {};
-      headers.forEach((header, index) => { if (header) record[header] = sanitizeCellValue(String(row[index] ?? "").trim()); });
-      return record;
-    });
+  // Linhas em branco não são mais descartadas aqui — descartar antes de
+  // mapear desalinhava o índice de cada linha sobrevivente do número real
+  // dela no arquivo, e esse índice é o que server/importacao.ts usa para
+  // reportar "Linha N: ..." no preview de erro. Cada validador no servidor
+  // agora ignora silenciosamente uma linha inteiramente vazia, então o
+  // alinhamento pode ficar intacto até lá.
+  const rows = dataRows.map((row) => {
+    const record: Record<string, string> = {};
+    headers.forEach((header, index) => { if (header) record[header] = sanitizeCellValue(String(row[index] ?? "").trim()); });
+    return record;
+  });
   return { headers, rows };
 }
 
 function parseCsv(file: File): Promise<ParsedImportFile> {
   return new Promise((resolve, reject) => {
     Papa.parse<string[]>(file, {
-      skipEmptyLines: true,
+      // false (não pula linha em branco aqui): ver comentário em
+      // rowsFromMatrix sobre por que o alinhamento de linha precisa
+      // sobreviver até o servidor.
+      skipEmptyLines: false,
       complete: (result) => resolve(rowsFromMatrix(result.data)),
       error: (error) => reject(error),
     });
@@ -61,7 +68,7 @@ async function parseXlsx(file: File): Promise<ParsedImportFile> {
   const buffer = await file.arrayBuffer();
   const workbook = XLSX.read(buffer, { type: "array" });
   const sheet = workbook.Sheets[workbook.SheetNames[0]];
-  const matrix = XLSX.utils.sheet_to_json<unknown[]>(sheet, { header: 1, blankrows: false, defval: "" });
+  const matrix = XLSX.utils.sheet_to_json<unknown[]>(sheet, { header: 1, blankrows: true, defval: "" });
   return rowsFromMatrix(matrix);
 }
 

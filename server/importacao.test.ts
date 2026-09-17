@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseNumber } from "./importacao";
+import { isBlankRow, parseNumber } from "./importacao";
 
 describe("parseNumber", () => {
   it("interpreta padrão BR com centavos", () => {
@@ -28,5 +28,18 @@ describe("parseNumber", () => {
   it("retorna null para valor inválido", () => {
     expect(parseNumber("")).toBeNull();
     expect(parseNumber("abc")).toBeNull();
+  });
+});
+
+describe("isBlankRow", () => {
+  it("considera em branco uma linha sem nenhum valor", () => {
+    expect(isBlankRow({})).toBe(true);
+    expect(isBlankRow({ nome: "", email: "" })).toBe(true);
+    expect(isBlankRow({ nome: "   ", email: "\t" })).toBe(true);
+  });
+
+  it("não considera em branco uma linha com pelo menos um valor real", () => {
+    expect(isBlankRow({ nome: "Ana", email: "" })).toBe(false);
+    expect(isBlankRow({ nome: "", email: "ana@exemplo.com" })).toBe(false);
   });
 });

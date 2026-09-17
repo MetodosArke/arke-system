@@ -1918,6 +1918,7 @@ var cell = (row, ...keys) => {
   }
   return void 0;
 };
+var isBlankRow = (row) => Object.values(row).every((value) => !value || !value.trim());
 var DIACRITICS_RE = new RegExp("[\\u0300-\\u036f]", "g");
 var slugify = (value) => value.normalize("NFD").replace(DIACRITICS_RE, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "").slice(0, 60) || `unidade-${Date.now()}`;
 var EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -1972,6 +1973,7 @@ async function validateUnidades(rows, organizationId) {
   const seenNomes = /* @__PURE__ */ new Set();
   const seenSlugs = new Set(existentes.map((u) => u.slug));
   rows.forEach((row, index) => {
+    if (isBlankRow(row)) return;
     const rowNumber = index + 2;
     const nome = cell(row, "nome", "unidade");
     if (!nome) return errors.push({ row: rowNumber, campo: "nome", motivo: "Nome da unidade \xE9 obrigat\xF3rio." });
@@ -1993,6 +1995,7 @@ function validatePlanos(rows, existentes) {
   const errors = [];
   const seenNomes = /* @__PURE__ */ new Set();
   rows.forEach((row, index) => {
+    if (isBlankRow(row)) return;
     const rowNumber = index + 2;
     const nome = cell(row, "nome", "plano");
     if (!nome) return errors.push({ row: rowNumber, campo: "nome", motivo: "Nome do plano \xE9 obrigat\xF3rio." });
@@ -2023,6 +2026,7 @@ async function validateAlunos(rows, organizationId) {
   const seenNomeData = /* @__PURE__ */ new Set();
   for (let index = 0; index < rows.length; index++) {
     const row = rows[index];
+    if (isBlankRow(row)) continue;
     const rowNumber = index + 2;
     const nome = cell(row, "nome", "aluno");
     if (!nome) {
@@ -2144,6 +2148,7 @@ async function validateLeads(rows, organizationId) {
   const seenEmails = /* @__PURE__ */ new Set();
   const seenTelefones = /* @__PURE__ */ new Set();
   rows.forEach((row, index) => {
+    if (isBlankRow(row)) return;
     const rowNumber = index + 2;
     const nome = cell(row, "nome");
     if (!nome) return errors.push({ row: rowNumber, campo: "nome", motivo: "Nome \xE9 obrigat\xF3rio." });
@@ -2166,6 +2171,7 @@ function validateTurmas(rows, organizationId, existentes) {
   const errors = [];
   const seenNomes = /* @__PURE__ */ new Set();
   rows.forEach((row, index) => {
+    if (isBlankRow(row)) return;
     const rowNumber = index + 2;
     const nome = cell(row, "nome", "turma");
     if (!nome) return errors.push({ row: rowNumber, campo: "nome", motivo: "Nome da turma \xE9 obrigat\xF3rio." });
