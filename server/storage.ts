@@ -37,11 +37,28 @@ export function extensionFor(contentType: string) {
   return EXTENSION_BY_MIME[contentType] ?? "bin";
 }
 
+// contentType até aqui é só o que o cliente declarou — sem checar a
+// assinatura real dos bytes, um arquivo qualquer (ex. HTML/JS) disfarçado
+// de "video/mp4" seria publicado como se fosse vídeo, no content-type
+// declarado, num bucket público. SVG não tem assinatura binária fixa (é
+// texto), então a checagem ali é o começo do arquivo parecer XML/SVG.
+const MAGIC_VALIDATORS: Record<string, (buffer: Buffer) => boolean> = {
+  "image/png": (b) => b.length >= 8 && b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4e && b[3] === 0x47,
+  "image/jpeg": (b) => b.length >= 3 && b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff,
+  "image/webp": (b) => b.length >= 12 && b.toString("ascii", 0, 4) === "RIFF" && b.toString("ascii", 8, 12) === "WEBP",
+  "image/svg+xml": (b) => /^\s*(<\?xml|<svg)/i.test(b.toString("utf8", 0, Math.min(b.length, 300))),
+  "application/pdf": (b) => b.length >= 4 && b.toString("ascii", 0, 4) === "%PDF",
+  "video/mp4": (b) => b.length >= 8 && b.toString("ascii", 4, 8) === "ftyp",
+  "video/quicktime": (b) => b.length >= 8 && b.toString("ascii", 4, 8) === "ftyp",
+  "video/webm": (b) => b.length >= 4 && b[0] === 0x1a && b[1] === 0x45 && b[2] === 0xdf && b[3] === 0xa3,
+};
+
 export function decodeUpload(dataBase64: string, contentType: string, allowed: string[], maxBytes: number) {
   if (!allowed.includes(contentType)) throw new Error("Tipo de arquivo não suportado.");
   const buffer = Buffer.from(dataBase64, "base64");
   if (buffer.byteLength === 0) throw new Error("Arquivo vazio.");
   if (buffer.byteLength > maxBytes) throw new Error(`Arquivo muito grande (máximo ${(maxBytes / (1024 * 1024)).toFixed(1)}MB).`);
+  if (MAGIC_VALIDATORS[contentType] && !MAGIC_VALIDATORS[contentType](buffer)) throw new Error("O conteúdo do arquivo não corresponde ao tipo declarado.");
   return buffer;
 }
 

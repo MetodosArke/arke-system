@@ -1,4 +1,4 @@
-import { createNotificacao, hasCheckinDesde, hasProgressoSemanalDesde, listAlunosComArkeAtivoIds, listArkeModulesEnabled } from "./supabaseAdmin";
+import { createNotificacao, getUltimoLembreteCheckin, hasCheckinDesde, hasProgressoSemanalDesde, listAlunosComArkeAtivoIds, listArkeModulesEnabled, markLembreteCheckinEnviado } from "./supabaseAdmin";
 import { sendPushToUser } from "./push";
 import { captureException } from "./_core/errorMonitoring";
 
@@ -20,7 +20,13 @@ const diasAtras = (dias: number) => {
 
 type Lembrete = { titulo: string; mensagem: string };
 
-async function lembretesParaAluno(userId: string, hoje: Date): Promise<Lembrete[]> {
+// Repetir "sem check-in" todo dia enquanto a condição persistir gerava
+// dezenas de notificações pra uma situação só (achado de revisão de
+// código) — no máximo 1 destes por semana por aluno, marcado em
+// aluno_arke_licenca.ultimo_lembrete_checkin_em.
+const THROTTLE_LEMBRETE_CHECKIN_DIAS = 6;
+
+async function lembretesParaAluno(userId: string, organizationId: string, hoje: Date): Promise<Lembrete[]> {
   const lembretes: Lembrete[] = [];
   const diaSemana = hoje.getUTCDay();
 
@@ -32,10 +38,16 @@ async function lembretesParaAluno(userId: string, hoje: Date): Promise<Lembrete[
     lembretes.push({ titulo: "🔥 Nova semana, novos objetivos!", mensagem: "Comece a semana com o pé direito. Bora treinar?" });
   }
 
-  if (!(await hasCheckinDesde(userId, diasAtras(7)))) {
-    lembretes.push({ titulo: "⚠️ Revisão de rotina", mensagem: "Faz uma semana sem check-in. Que tal revisar sua rotina com seu profissional?" });
-  } else if (!(await hasCheckinDesde(userId, diasAtras(3)))) {
-    lembretes.push({ titulo: "💪 Bora treinar!", mensagem: "Já fazem 3 dias sem check-in. Constância é o que mais importa — vamos lá!" });
+  const ultimoLembreteCheckin = await getUltimoLembreteCheckin(userId, organizationId);
+  const jaLembradoRecentemente = ultimoLembreteCheckin != null && new Date(ultimoLembreteCheckin) >= new Date(diasAtras(THROTTLE_LEMBRETE_CHECKIN_DIAS));
+  if (!jaLembradoRecentemente) {
+    if (!(await hasCheckinDesde(userId, diasAtras(7)))) {
+      lembretes.push({ titulo: "⚠️ Revisão de rotina", mensagem: "Faz uma semana sem check-in. Que tal revisar sua rotina com seu profissional?" });
+      await markLembreteCheckinEnviado(userId, organizationId);
+    } else if (!(await hasCheckinDesde(userId, diasAtras(3)))) {
+      lembretes.push({ titulo: "💪 Bora treinar!", mensagem: "Já fazem 3 dias sem check-in. Constância é o que mais importa — vamos lá!" });
+      await markLembreteCheckinEnviado(userId, organizationId);
+    }
   }
 
   return lembretes;
@@ -51,7 +63,7 @@ export async function runArkeLembretesDiarios(): Promise<ArkeLembretesResultado>
     for (const userId of await listAlunosComArkeAtivoIds(arkeModule.organization_id)) {
       resultado.alunosProcessados += 1;
       try {
-        for (const lembrete of await lembretesParaAluno(userId, hoje)) {
+        for (const lembrete of await lembretesParaAluno(userId, arkeModule.organization_id, hoje)) {
           await createNotificacao({ userId, titulo: lembrete.titulo, mensagem: lembrete.mensagem, tipo: "lembrete" });
           sendPushToUser(userId, { title: lembrete.titulo, body: lembrete.mensagem, url: "/" }).catch(() => {});
           resultado.lembretesEnviados += 1;

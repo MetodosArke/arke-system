@@ -30,6 +30,7 @@ describe("runArkeLembretesDiarios", () => {
     vi.spyOn(supabaseAdmin, "listAlunosComArkeAtivoIds").mockResolvedValue(["aluno-1"]);
     vi.spyOn(supabaseAdmin, "hasCheckinDesde").mockResolvedValue(true);
     vi.spyOn(supabaseAdmin, "hasProgressoSemanalDesde").mockResolvedValue(true);
+    vi.spyOn(supabaseAdmin, "getUltimoLembreteCheckin").mockResolvedValue(null);
     const createSpy = vi.spyOn(supabaseAdmin, "createNotificacao").mockResolvedValue(undefined as any);
 
     const result = await runArkeLembretesDiarios();
@@ -47,6 +48,8 @@ describe("runArkeLembretesDiarios", () => {
     vi.spyOn(supabaseAdmin, "listAlunosComArkeAtivoIds").mockResolvedValue(["aluno-1"]);
     vi.spyOn(supabaseAdmin, "hasCheckinDesde").mockResolvedValue(false);
     vi.spyOn(supabaseAdmin, "hasProgressoSemanalDesde").mockResolvedValue(true);
+    vi.spyOn(supabaseAdmin, "getUltimoLembreteCheckin").mockResolvedValue(null);
+    const markSpy = vi.spyOn(supabaseAdmin, "markLembreteCheckinEnviado").mockResolvedValue(undefined);
     const createSpy = vi.spyOn(supabaseAdmin, "createNotificacao").mockResolvedValue(undefined as any);
 
     const result = await runArkeLembretesDiarios();
@@ -55,12 +58,33 @@ describe("runArkeLembretesDiarios", () => {
     expect(titulos).toContain("⚠️ Revisão de rotina");
     expect(titulos).not.toContain("💪 Bora treinar!");
     expect(result.lembretesEnviados).toBe(2); // início de semana + revisão de rotina
+    expect(markSpy).toHaveBeenCalledWith("aluno-1", "org-1");
+    vi.useRealTimers();
+  });
+
+  it("does not repeat the 'sem check-in' reminder within the throttle window", async () => {
+    vi.useFakeTimers().setSystemTime(SEGUNDA_FEIRA);
+    vi.spyOn(supabaseAdmin, "listArkeModulesEnabled").mockResolvedValue([baseModule]);
+    vi.spyOn(supabaseAdmin, "listAlunosComArkeAtivoIds").mockResolvedValue(["aluno-1"]);
+    vi.spyOn(supabaseAdmin, "hasCheckinDesde").mockResolvedValue(false);
+    vi.spyOn(supabaseAdmin, "hasProgressoSemanalDesde").mockResolvedValue(true);
+    vi.spyOn(supabaseAdmin, "getUltimoLembreteCheckin").mockResolvedValue(new Date(SEGUNDA_FEIRA.getTime() - 24 * 60 * 60 * 1000).toISOString());
+    const markSpy = vi.spyOn(supabaseAdmin, "markLembreteCheckinEnviado").mockResolvedValue(undefined);
+    const createSpy = vi.spyOn(supabaseAdmin, "createNotificacao").mockResolvedValue(undefined as any);
+
+    const result = await runArkeLembretesDiarios();
+
+    const titulos = createSpy.mock.calls.map((call) => call[0].titulo);
+    expect(titulos).not.toContain("⚠️ Revisão de rotina");
+    expect(result.lembretesEnviados).toBe(1); // só início de semana — sem-checkin está no throttle
+    expect(markSpy).not.toHaveBeenCalled();
     vi.useRealTimers();
   });
 
   it("counts a failure without throwing when notifying an aluno errors out", async () => {
     vi.spyOn(supabaseAdmin, "listArkeModulesEnabled").mockResolvedValue([baseModule]);
     vi.spyOn(supabaseAdmin, "listAlunosComArkeAtivoIds").mockResolvedValue(["aluno-1"]);
+    vi.spyOn(supabaseAdmin, "getUltimoLembreteCheckin").mockResolvedValue(null);
     vi.spyOn(supabaseAdmin, "hasCheckinDesde").mockRejectedValue(new Error("Supabase indisponível"));
     vi.spyOn(push, "sendPushToUser").mockResolvedValue({ sent: 0 });
 

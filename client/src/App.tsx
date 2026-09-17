@@ -71,7 +71,7 @@ function buildProfileFromLogin(result: LoginResultShape, fallbackModule: ModuleK
     name,
     email,
     username: appUser?.username ?? email.split("@")[0],
-    role: appUser?.role ?? orgProfile?.role ?? "Super Admin",
+    role: appUser?.role ?? orgProfile?.role ?? "Membro",
     initials: name.split(" ").map((part) => part[0]).join("").slice(0, 2).toUpperCase(),
     module,
     workspace,
@@ -82,8 +82,11 @@ function buildProfileFromLogin(result: LoginResultShape, fallbackModule: ModuleK
 // O login nunca envia módulo ao servidor (auth.signIn só recebe e-mail e
 // senha) — identidade real é sempre resolvida no servidor via appUser/
 // orgProfile (ver buildProfileFromLogin). Este valor só serve de último
-// recurso quando nenhum dos dois resolve (conta órfã/quebrada).
-const FALLBACK_MODULE: ModuleKey = "administrador";
+// recurso quando nenhum dos dois resolve (conta órfã/quebrada) — por isso
+// é o módulo de MENOR privilégio ("aluno"), não o de maior: o servidor já
+// rejeita qualquer chamada administrativa real dessa conta, mas a tela
+// não deveria aparentar um acesso que a conta não tem.
+const FALLBACK_MODULE: ModuleKey = "aluno";
 
 function LoginScreen({ onLogin, branding }: { onLogin: (user: UserProfile, remember: boolean) => void; branding?: OrganizationBranding }) {
   const [identifier, setIdentifier] = useState("");
@@ -116,7 +119,7 @@ function LoginScreen({ onLogin, branding }: { onLogin: (user: UserProfile, remem
   const setPasswordMutation = trpc.auth.setPassword.useMutation({ onError: (cause) => setRecoveryError(cause.message) });
   const acceptInviteMutation = trpc.journey.acceptInvite.useMutation({ onError: (cause) => setInviteError(cause.message) });
   const acceptTeamInviteMutation = trpc.saas.organizations.acceptInviteSignup.useMutation({ onError: (cause) => setTeamInviteError(cause.message) });
-  const submit = async (event: FormEvent) => { event.preventDefault(); setError(""); try { const result = await signInMutation.mutateAsync({ email: identifier, password }); onLogin(buildProfileFromLogin(result, FALLBACK_MODULE), remember); } catch { setError("Não foi possível autenticar. Confira o e-mail e a senha."); } };
+  const submit = async (event: FormEvent) => { event.preventDefault(); setError(""); try { const result = await signInMutation.mutateAsync({ email: identifier, password }); onLogin(buildProfileFromLogin(result, FALLBACK_MODULE), remember); } catch { /* mensagem específica já tratada em onError — sobrescrever aqui escondia a causa real (ex. conta suspensa, rate limit) */ } };
   const submitRecoveryPassword = async () => { setRecoveryError(""); if (recoveryPassword.length < 8 || recoveryPassword !== recoveryConfirm) { setRecoveryError("A senha deve ter ao menos 8 caracteres e a confirmação precisa ser igual."); return; } try { const result = await setPasswordMutation.mutateAsync({ email: recoveryIdentifier, code: recoveryCode, password: recoveryPassword }); onLogin(buildProfileFromLogin(result, FALLBACK_MODULE), remember); } catch { /* mensagem tratada em onError */ } };
   const submitInvite = async () => { setInviteError(""); if (invitePassword.length < 8 || invitePassword !== inviteConfirm) { setInviteError("A senha deve ter ao menos 8 caracteres e a confirmação precisa ser igual."); return; } if (!inviteConsent) { setInviteError("É necessário aceitar os Termos de Uso e a Política de Privacidade para concluir o cadastro."); return; } try { const result = await acceptInviteMutation.mutateAsync({ token: inviteToken.trim(), password: invitePassword, consentTermos: true }); const email = result.user.email ?? ""; const name = String(result.user.user_metadata?.full_name ?? email.split("@")[0] ?? "Aluno"); const profile: UserProfile = { name, email, username: email.split("@")[0], role: "Aluno", initials: name.split(" ").map((part) => part[0]).join("").slice(0, 2).toUpperCase(), module: "aluno", workspace: name, logoUrl: "/arke-logo.png" }; onLogin(profile, remember); } catch { /* mensagem tratada em onError */ } };
   // Convite de equipe pressupõe que o convidado ainda não tem cadastro

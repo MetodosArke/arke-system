@@ -481,6 +481,13 @@ async function listAlunosComArkeAtivoIds(organizationId) {
   const rows = await request("aluno_arke_licenca", {}, `?select=user_id&organization_id=eq.${encodeURIComponent(organizationId)}&ativo=eq.true`);
   return rows.map((row) => row.user_id);
 }
+async function getUltimoLembreteCheckin(userId, organizationId) {
+  const rows = await request("aluno_arke_licenca", {}, `?select=ultimo_lembrete_checkin_em&user_id=eq.${encodeURIComponent(userId)}&organization_id=eq.${encodeURIComponent(organizationId)}&limit=1`);
+  return rows[0]?.ultimo_lembrete_checkin_em ?? null;
+}
+async function markLembreteCheckinEnviado(userId, organizationId) {
+  await request("aluno_arke_licenca", { method: "PATCH", body: JSON.stringify({ ultimo_lembrete_checkin_em: (/* @__PURE__ */ new Date()).toISOString() }) }, `?user_id=eq.${encodeURIComponent(userId)}&organization_id=eq.${encodeURIComponent(organizationId)}`);
+}
 async function getCheckinDoDia(userId, data) {
   const rows = await request("checkin_diario", {}, `?select=*&user_id=eq.${encodeURIComponent(userId)}&data=eq.${encodeURIComponent(data)}&limit=1`);
   return rows[0] ?? null;
@@ -1349,11 +1356,23 @@ async function getLead(idValue) {
   const rows = await request("leads", {}, `?select=*&id=eq.${encodeURIComponent(idValue)}&limit=1`);
   return rows[0] ?? null;
 }
+async function assertUnitBelongsToOrganization(unitId, organizationId) {
+  const rows = await request("saas_units", {}, `?select=id&id=eq.${encodeURIComponent(unitId)}&organization_id=eq.${encodeURIComponent(organizationId)}&limit=1`);
+  if (!rows[0]) throw new Error("Unidade n\xE3o encontrada nesta organiza\xE7\xE3o.");
+}
+async function assertResponsavelBelongsToOrganization(userId, organizationId) {
+  const rows = await request("saas_memberships", {}, `?select=id&auth_user_id=eq.${encodeURIComponent(userId)}&organization_id=eq.${encodeURIComponent(organizationId)}&status=eq.active&limit=1`);
+  if (!rows[0]) throw new Error("Respons\xE1vel n\xE3o pertence a esta organiza\xE7\xE3o.");
+}
 async function createLead(input) {
+  if (input.unitId) await assertUnitBelongsToOrganization(input.unitId, input.organizationId);
+  if (input.responsavelId) await assertResponsavelBelongsToOrganization(input.responsavelId, input.organizationId);
   const rows = await request("leads", { method: "POST", body: JSON.stringify({ organization_id: input.organizationId, unit_id: input.unitId || void 0, nome: input.nome, telefone: input.telefone || void 0, email: input.email || void 0, origem: input.origem || void 0, interesse: input.interesse || void 0, responsavel_id: input.responsavelId || void 0, notas: input.notas || void 0, criado_por: input.criadoPor || void 0 }) });
   return rows[0];
 }
-async function updateLead(idValue, data) {
+async function updateLead(idValue, organizationId, data) {
+  if (data.unitId) await assertUnitBelongsToOrganization(data.unitId, organizationId);
+  if (data.responsavelId) await assertResponsavelBelongsToOrganization(data.responsavelId, organizationId);
   const rows = await request("leads", { method: "PATCH", body: JSON.stringify({ nome: data.nome, telefone: data.telefone, email: data.email, origem: data.origem, interesse: data.interesse, unit_id: data.unitId, responsavel_id: data.responsavelId, notas: data.notas }) }, `?id=eq.${encodeURIComponent(idValue)}`);
   if (!rows[0]) throw new Error("Lead n\xE3o encontrado.");
   return rows[0];
@@ -1365,15 +1384,24 @@ async function deleteLead(idValue) {
 async function closeOpenFollowUps(leadId) {
   await request("lead_atividades", { method: "PATCH", body: JSON.stringify({ status: "concluida" }) }, `?lead_id=eq.${encodeURIComponent(leadId)}&tipo=eq.follow_up_automatico&status=eq.aberta`);
 }
+function assertLeadEstagioMutavel(lead) {
+  if (lead.estagio === "matriculado") throw new Error("Este lead j\xE1 foi matriculado \u2014 n\xE3o \xE9 poss\xEDvel alterar o est\xE1gio.");
+  if (lead.estagio === "convite_enviado") throw new Error("O convite j\xE1 foi enviado a este lead \u2014 aguarde o aceite ou reenvie pelo painel de convites pendentes.");
+  if (lead.estagio === "perdido") throw new Error("Este lead est\xE1 marcado como perdido.");
+}
 async function moverEstagioLead(idValue, estagio) {
+  const lead = await getLead(idValue);
+  if (!lead) throw new Error("Lead n\xE3o encontrado.");
+  assertLeadEstagioMutavel(lead);
   const rows = await request("leads", { method: "PATCH", body: JSON.stringify({ estagio }) }, `?id=eq.${encodeURIComponent(idValue)}`);
-  if (!rows[0]) throw new Error("Lead n\xE3o encontrado.");
   await closeOpenFollowUps(idValue);
   return rows[0];
 }
 async function marcarLeadPerdido(idValue, motivoPerda) {
+  const lead = await getLead(idValue);
+  if (!lead) throw new Error("Lead n\xE3o encontrado.");
+  assertLeadEstagioMutavel(lead);
   const rows = await request("leads", { method: "PATCH", body: JSON.stringify({ estagio: "perdido", motivo_perda: motivoPerda }) }, `?id=eq.${encodeURIComponent(idValue)}`);
-  if (!rows[0]) throw new Error("Lead n\xE3o encontrado.");
   await closeOpenFollowUps(idValue);
   return rows[0];
 }
@@ -2883,7 +2911,11 @@ async function sendPushToUser(userId, payload) {
       sent++;
     } catch (error) {
       const statusCode = error.statusCode;
-      if (statusCode === 404 || statusCode === 410) await deletePushSubscription(subscription.user_id, subscription.endpoint);
+      if (statusCode === 404 || statusCode === 410) {
+        await deletePushSubscription(subscription.user_id, subscription.endpoint);
+      } else {
+        captureException2(error, { job: "sendPushToUser", userId, statusCode });
+      }
     }
   }
   return { sent };
@@ -2914,11 +2946,22 @@ var EXTENSION_BY_MIME = {
 function extensionFor(contentType) {
   return EXTENSION_BY_MIME[contentType] ?? "bin";
 }
+var MAGIC_VALIDATORS = {
+  "image/png": (b) => b.length >= 8 && b[0] === 137 && b[1] === 80 && b[2] === 78 && b[3] === 71,
+  "image/jpeg": (b) => b.length >= 3 && b[0] === 255 && b[1] === 216 && b[2] === 255,
+  "image/webp": (b) => b.length >= 12 && b.toString("ascii", 0, 4) === "RIFF" && b.toString("ascii", 8, 12) === "WEBP",
+  "image/svg+xml": (b) => /^\s*(<\?xml|<svg)/i.test(b.toString("utf8", 0, Math.min(b.length, 300))),
+  "application/pdf": (b) => b.length >= 4 && b.toString("ascii", 0, 4) === "%PDF",
+  "video/mp4": (b) => b.length >= 8 && b.toString("ascii", 4, 8) === "ftyp",
+  "video/quicktime": (b) => b.length >= 8 && b.toString("ascii", 4, 8) === "ftyp",
+  "video/webm": (b) => b.length >= 4 && b[0] === 26 && b[1] === 69 && b[2] === 223 && b[3] === 163
+};
 function decodeUpload(dataBase64, contentType, allowed, maxBytes) {
   if (!allowed.includes(contentType)) throw new Error("Tipo de arquivo n\xE3o suportado.");
   const buffer = Buffer.from(dataBase64, "base64");
   if (buffer.byteLength === 0) throw new Error("Arquivo vazio.");
   if (buffer.byteLength > maxBytes) throw new Error(`Arquivo muito grande (m\xE1ximo ${(maxBytes / (1024 * 1024)).toFixed(1)}MB).`);
+  if (MAGIC_VALIDATORS[contentType] && !MAGIC_VALIDATORS[contentType](buffer)) throw new Error("O conte\xFAdo do arquivo n\xE3o corresponde ao tipo declarado.");
   return buffer;
 }
 function storageConfig() {
@@ -4286,8 +4329,8 @@ var appRouter = router({
         return createLead({ organizationId: input.organizationId, unitId: input.unitId, nome: input.nome, telefone: input.telefone, email: input.email, origem: input.origem, interesse: input.interesse, responsavelId: input.responsavelId ?? ctx.user.id, notas: input.notas, criadoPor: ctx.user.id });
       }),
       update: protectedProcedure.input(z2.object({ id: z2.string().uuid(), data: z2.object({ nome: z2.string().trim().min(2).max(160).optional(), telefone: z2.string().trim().max(40).optional().nullable(), email: z2.string().email().optional().nullable(), origem: z2.string().trim().max(80).optional().nullable(), interesse: z2.string().trim().max(160).optional().nullable(), unitId: z2.string().uuid().optional().nullable(), responsavelId: z2.string().uuid().optional().nullable(), notas: z2.string().trim().max(4e3).optional().nullable() }) })).mutation(async ({ ctx, input }) => {
-        await assertManagerForLead(ctx.user.id, input.id);
-        return updateLead(input.id, input.data);
+        const lead = await assertManagerForLead(ctx.user.id, input.id);
+        return updateLead(input.id, lead.organization_id, input.data);
       }),
       delete: protectedProcedure.input(z2.object({ id: z2.string().uuid() })).mutation(async ({ ctx, input }) => {
         await assertManagerForLead(ctx.user.id, input.id);
@@ -4692,7 +4735,8 @@ var diasAtras = (dias) => {
   data.setUTCDate(data.getUTCDate() - dias);
   return data.toISOString().slice(0, 10);
 };
-async function lembretesParaAluno(userId, hoje) {
+var THROTTLE_LEMBRETE_CHECKIN_DIAS = 6;
+async function lembretesParaAluno(userId, organizationId, hoje) {
   const lembretes = [];
   const diaSemana = hoje.getUTCDay();
   if (diaSemana === 0 && !await hasProgressoSemanalDesde(userId, diasAtras(7))) {
@@ -4701,10 +4745,16 @@ async function lembretesParaAluno(userId, hoje) {
   if (diaSemana === 1) {
     lembretes.push({ titulo: "\u{1F525} Nova semana, novos objetivos!", mensagem: "Comece a semana com o p\xE9 direito. Bora treinar?" });
   }
-  if (!await hasCheckinDesde(userId, diasAtras(7))) {
-    lembretes.push({ titulo: "\u26A0\uFE0F Revis\xE3o de rotina", mensagem: "Faz uma semana sem check-in. Que tal revisar sua rotina com seu profissional?" });
-  } else if (!await hasCheckinDesde(userId, diasAtras(3))) {
-    lembretes.push({ titulo: "\u{1F4AA} Bora treinar!", mensagem: "J\xE1 fazem 3 dias sem check-in. Const\xE2ncia \xE9 o que mais importa \u2014 vamos l\xE1!" });
+  const ultimoLembreteCheckin = await getUltimoLembreteCheckin(userId, organizationId);
+  const jaLembradoRecentemente = ultimoLembreteCheckin != null && new Date(ultimoLembreteCheckin) >= new Date(diasAtras(THROTTLE_LEMBRETE_CHECKIN_DIAS));
+  if (!jaLembradoRecentemente) {
+    if (!await hasCheckinDesde(userId, diasAtras(7))) {
+      lembretes.push({ titulo: "\u26A0\uFE0F Revis\xE3o de rotina", mensagem: "Faz uma semana sem check-in. Que tal revisar sua rotina com seu profissional?" });
+      await markLembreteCheckinEnviado(userId, organizationId);
+    } else if (!await hasCheckinDesde(userId, diasAtras(3))) {
+      lembretes.push({ titulo: "\u{1F4AA} Bora treinar!", mensagem: "J\xE1 fazem 3 dias sem check-in. Const\xE2ncia \xE9 o que mais importa \u2014 vamos l\xE1!" });
+      await markLembreteCheckinEnviado(userId, organizationId);
+    }
   }
   return lembretes;
 }
@@ -4715,7 +4765,7 @@ async function runArkeLembretesDiarios() {
     for (const userId of await listAlunosComArkeAtivoIds(arkeModule.organization_id)) {
       resultado.alunosProcessados += 1;
       try {
-        for (const lembrete of await lembretesParaAluno(userId, hoje)) {
+        for (const lembrete of await lembretesParaAluno(userId, arkeModule.organization_id, hoje)) {
           await createNotificacao({ userId, titulo: lembrete.titulo, mensagem: lembrete.mensagem, tipo: "lembrete" });
           sendPushToUser(userId, { title: lembrete.titulo, body: lembrete.mensagem, url: "/" }).catch(() => {
           });
@@ -4841,18 +4891,32 @@ function tokenMatches2(received, expected) {
   const expectedBuffer = Buffer.from(expected);
   return receivedBuffer.length === expectedBuffer.length && timingSafeEqual2(receivedBuffer, expectedBuffer);
 }
+var JOBS = [
+  { key: "resultado", name: "automacao_diaria", run: runAutomacaoDiaria },
+  { key: "arkeRepasse", name: "arke_repasse_mensal", run: runArkeRepasseMensal },
+  { key: "arkeLembretes", name: "arke_lembretes_diarios", run: runArkeLembretesDiarios },
+  { key: "arkeDesafios", name: "arke_desafios_automaticos", run: runArkeDesafiosAutomaticos },
+  { key: "arkeCompeticoes", name: "arke_competicoes_automaticas", run: runArkeCompeticoesAutomaticas }
+];
 function registerAutomacaoCron(app) {
   app.get("/api/cron/automacao", async (req, res) => {
     const expectedToken = process.env.CRON_SECRET ?? "";
     const receivedToken = String(req.header("authorization") ?? "").replace(/^Bearer\s+/i, "");
     if (!expectedToken || !tokenMatches2(receivedToken, expectedToken)) return res.status(401).json({ ok: false, error: "unauthorized" });
-    try {
-      const [resultado, arkeRepasse, arkeLembretes, arkeDesafios, arkeCompeticoes] = await Promise.all([runAutomacaoDiaria(), runArkeRepasseMensal(), runArkeLembretesDiarios(), runArkeDesafiosAutomaticos(), runArkeCompeticoesAutomaticas()]);
-      return res.status(200).json({ ok: true, ...resultado, arkeRepasse, arkeLembretes, arkeDesafios, arkeCompeticoes });
-    } catch (error) {
-      captureException2(error, { job: "automacao_diaria" });
-      return res.status(500).json({ ok: false });
-    }
+    const settled = await Promise.allSettled(JOBS.map((job) => job.run()));
+    const body = {};
+    let anyFailed = false;
+    settled.forEach((outcome, index) => {
+      const job = JOBS[index];
+      if (outcome.status === "fulfilled") {
+        body[job.key] = outcome.value;
+      } else {
+        anyFailed = true;
+        captureException2(outcome.reason, { job: job.name });
+        body[job.key] = { ok: false, error: outcome.reason instanceof Error ? outcome.reason.message : "Falha desconhecida." };
+      }
+    });
+    return res.status(200).json({ ok: !anyFailed, ...body });
   });
 }
 

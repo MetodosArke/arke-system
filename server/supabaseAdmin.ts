@@ -252,6 +252,16 @@ export async function listAlunosComArkeAtivoIds(organizationId: string) {
   const rows = await request<Array<{ user_id: string }>>("aluno_arke_licenca", {}, `?select=user_id&organization_id=eq.${encodeURIComponent(organizationId)}&ativo=eq.true`);
   return rows.map((row) => row.user_id);
 }
+// Throttle do lembrete "sem check-in" (achado de revisão de código):
+// sem isso, arkeLembretes.ts repetia a mesma notificação todo dia
+// enquanto o aluno não fizesse check-in de novo.
+export async function getUltimoLembreteCheckin(userId: string, organizationId: string) {
+  const rows = await request<Array<{ ultimo_lembrete_checkin_em: string | null }>>("aluno_arke_licenca", {}, `?select=ultimo_lembrete_checkin_em&user_id=eq.${encodeURIComponent(userId)}&organization_id=eq.${encodeURIComponent(organizationId)}&limit=1`);
+  return rows[0]?.ultimo_lembrete_checkin_em ?? null;
+}
+export async function markLembreteCheckinEnviado(userId: string, organizationId: string) {
+  await request("aluno_arke_licenca", { method: "PATCH", body: JSON.stringify({ ultimo_lembrete_checkin_em: new Date().toISOString() }) }, `?user_id=eq.${encodeURIComponent(userId)}&organization_id=eq.${encodeURIComponent(organizationId)}`);
+}
 
 // Núcleo do método Arke (Fase 1c): check-in diário, avaliação semanal e
 // plano de horários — porta o mesmo padrão upsert-on-natural-key do
@@ -1230,12 +1240,30 @@ export async function getLead(idValue: string) {
   return rows[0] ?? null;
 }
 
+// unitId/responsavelId vêm de input do cliente — sem confirmar que os dois
+// pertencem à mesma organização do lead, um gestor da Organização A podia
+// gravar um lead apontando pra unidade/responsável reais da Organização B,
+// e os indicadores do CRM filtrados por unidade misturavam dados das duas.
+async function assertUnitBelongsToOrganization(unitId: string, organizationId: string) {
+  const rows = await request<Array<{ id: string }>>("saas_units", {}, `?select=id&id=eq.${encodeURIComponent(unitId)}&organization_id=eq.${encodeURIComponent(organizationId)}&limit=1`);
+  if (!rows[0]) throw new Error("Unidade não encontrada nesta organização.");
+}
+
+async function assertResponsavelBelongsToOrganization(userId: string, organizationId: string) {
+  const rows = await request<Array<{ id: string }>>("saas_memberships", {}, `?select=id&auth_user_id=eq.${encodeURIComponent(userId)}&organization_id=eq.${encodeURIComponent(organizationId)}&status=eq.active&limit=1`);
+  if (!rows[0]) throw new Error("Responsável não pertence a esta organização.");
+}
+
 export async function createLead(input: { organizationId: string; unitId?: string; nome: string; telefone?: string; email?: string; origem?: string; interesse?: string; responsavelId?: string; notas?: string; criadoPor?: string }) {
+  if (input.unitId) await assertUnitBelongsToOrganization(input.unitId, input.organizationId);
+  if (input.responsavelId) await assertResponsavelBelongsToOrganization(input.responsavelId, input.organizationId);
   const rows = await request<Lead[]>("leads", { method: "POST", body: JSON.stringify({ organization_id: input.organizationId, unit_id: input.unitId || undefined, nome: input.nome, telefone: input.telefone || undefined, email: input.email || undefined, origem: input.origem || undefined, interesse: input.interesse || undefined, responsavel_id: input.responsavelId || undefined, notas: input.notas || undefined, criado_por: input.criadoPor || undefined }) });
   return rows[0];
 }
 
-export async function updateLead(idValue: string, data: { nome?: string; telefone?: string | null; email?: string | null; origem?: string | null; interesse?: string | null; unitId?: string | null; responsavelId?: string | null; notas?: string | null }) {
+export async function updateLead(idValue: string, organizationId: string, data: { nome?: string; telefone?: string | null; email?: string | null; origem?: string | null; interesse?: string | null; unitId?: string | null; responsavelId?: string | null; notas?: string | null }) {
+  if (data.unitId) await assertUnitBelongsToOrganization(data.unitId, organizationId);
+  if (data.responsavelId) await assertResponsavelBelongsToOrganization(data.responsavelId, organizationId);
   const rows = await request<Lead[]>("leads", { method: "PATCH", body: JSON.stringify({ nome: data.nome, telefone: data.telefone, email: data.email, origem: data.origem, interesse: data.interesse, unit_id: data.unitId, responsavel_id: data.responsavelId, notas: data.notas }) }, `?id=eq.${encodeURIComponent(idValue)}`);
   if (!rows[0]) throw new Error("Lead não encontrado.");
   return rows[0];
@@ -1250,16 +1278,30 @@ async function closeOpenFollowUps(leadId: string) {
   await request("lead_atividades", { method: "PATCH", body: JSON.stringify({ status: "concluida" }) }, `?lead_id=eq.${encodeURIComponent(leadId)}&tipo=eq.follow_up_automatico&status=eq.aberta`);
 }
 
+// matriculado/convite_enviado/perdido só saem desses estágios pelo fluxo
+// próprio (converterLead/aceite de convite) — sem essa checagem, uma
+// requisição equivocada ou duplicada revertia um lead já convertido de
+// volta pra um estágio anterior, sem deixar rastro.
+function assertLeadEstagioMutavel(lead: Lead) {
+  if (lead.estagio === "matriculado") throw new Error("Este lead já foi matriculado — não é possível alterar o estágio.");
+  if (lead.estagio === "convite_enviado") throw new Error("O convite já foi enviado a este lead — aguarde o aceite ou reenvie pelo painel de convites pendentes.");
+  if (lead.estagio === "perdido") throw new Error("Este lead está marcado como perdido.");
+}
+
 export async function moverEstagioLead(idValue: string, estagio: "novo" | "contato_feito" | "visita_agendada") {
+  const lead = await getLead(idValue);
+  if (!lead) throw new Error("Lead não encontrado.");
+  assertLeadEstagioMutavel(lead);
   const rows = await request<Lead[]>("leads", { method: "PATCH", body: JSON.stringify({ estagio }) }, `?id=eq.${encodeURIComponent(idValue)}`);
-  if (!rows[0]) throw new Error("Lead não encontrado.");
   await closeOpenFollowUps(idValue); // mudou de estágio: houve avanço, a tarefa de follow-up perde o sentido.
   return rows[0];
 }
 
 export async function marcarLeadPerdido(idValue: string, motivoPerda: string) {
+  const lead = await getLead(idValue);
+  if (!lead) throw new Error("Lead não encontrado.");
+  assertLeadEstagioMutavel(lead);
   const rows = await request<Lead[]>("leads", { method: "PATCH", body: JSON.stringify({ estagio: "perdido", motivo_perda: motivoPerda }) }, `?id=eq.${encodeURIComponent(idValue)}`);
-  if (!rows[0]) throw new Error("Lead não encontrado.");
   await closeOpenFollowUps(idValue);
   return rows[0];
 }

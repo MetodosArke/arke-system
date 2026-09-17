@@ -18,14 +18,30 @@ function normalizeHeader(raw: string): string {
     .replace(/\s+/g, "_");
 }
 
+// Início clássico de injeção de fórmula CSV/Excel (OWASP) — prefixa com
+// aspas simples pra forçar texto se esse valor algum dia for reaberto numa
+// planilha (exportação, download futuro). Campos numéricos não são
+// afetados: o parseNumber do servidor já descarta qualquer caractere que
+// não seja dígito/./,/-  na limpeza, então a aspa simples não sobrevive lá.
+const FORMULA_TRIGGER_RE = /^[=+\-@\t\r]/;
+function sanitizeCellValue(value: string): string {
+  return FORMULA_TRIGGER_RE.test(value) ? `'${value}` : value;
+}
+
 function rowsFromMatrix(matrix: unknown[][]): ParsedImportFile {
   const [headerRow, ...dataRows] = matrix;
   const headers = (headerRow ?? []).map((cell) => normalizeHeader(String(cell ?? "")));
+  // Duas colunas que normalizam pro mesmo nome (acento/espaço/maiúscula
+  // diferentes) faziam a segunda sobrescrever a primeira silenciosamente
+  // em cada linha, sem nenhum aviso no preview ou no commit.
+  const seen = new Set<string>();
+  const duplicated = headers.filter((header) => { if (!header) return false; if (seen.has(header)) return true; seen.add(header); return false; });
+  if (duplicated.length > 0) throw new Error(`Colunas duplicadas no cabeçalho (mesma coluna após normalizar acentos/espaços): ${Array.from(new Set(duplicated)).join(", ")}.`);
   const rows = dataRows
     .filter((row) => row.some((cell) => String(cell ?? "").trim() !== ""))
     .map((row) => {
       const record: Record<string, string> = {};
-      headers.forEach((header, index) => { if (header) record[header] = String(row[index] ?? "").trim(); });
+      headers.forEach((header, index) => { if (header) record[header] = sanitizeCellValue(String(row[index] ?? "").trim()); });
       return record;
     });
   return { headers, rows };

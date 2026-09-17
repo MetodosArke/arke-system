@@ -77,6 +77,11 @@ export function ProfessionalDashboard({ onToast }: { onToast: (toast: Toast) => 
   const treinos = treinosQuery.data ?? [];
   const [treinoId, setTreinoId] = useState<string | null>(null);
   const [treinoForm, setTreinoForm] = useState(emptyTreino);
+  // Estado próprio da edição do treino selecionado, separado de treinoForm
+  // (que é o formulário de "Novo treino") — antes, trocar de treino
+  // selecionado sem editar os campos mantinha o valor digitado pro treino
+  // anterior, que era gravado por engano em cima do treino errado ao salvar.
+  const [editTreinoForm, setEditTreinoForm] = useState(emptyTreino);
   const selectedTreino = treinos.find((treino) => treino.id === treinoId);
   const treinoExerciciosQuery = trpc.prescricao.treinos.exercicios.useQuery({ treinoId: treinoId ?? "" }, { enabled: Boolean(treinoId) });
   const treinoExercicios = treinoExerciciosQuery.data ?? [];
@@ -91,8 +96,13 @@ export function ProfessionalDashboard({ onToast }: { onToast: (toast: Toast) => 
   const publishTreino = trpc.prescricao.treinos.publish.useMutation({ onSuccess: () => { success("Treino publicado"); refreshTreinos(); }, onError: (e) => fail("Erro ao publicar treino", e) });
   const deleteTreino = trpc.prescricao.treinos.delete.useMutation({ onSuccess: () => { success("Treino removido"); setTreinoId(null); refreshTreinos(); }, onError: (e) => fail("Erro ao remover treino", e) });
 
-  const beginTreino = (id: string) => { setTreinoId(id); setExercicioForm(emptyExercicio); };
-  const saveTreinoHeader = () => { if (!treinoId) return; updateTreino.mutate({ id: treinoId, data: { titulo: treinoForm.titulo || selectedTreino?.titulo || "Treino", tipo: treinoForm.tipo || selectedTreino?.tipo || "A", descricao: treinoForm.descricao || undefined } }); };
+  const beginTreino = (id: string) => {
+    setTreinoId(id);
+    setExercicioForm(emptyExercicio);
+    const treino = treinos.find((item) => item.id === id);
+    setEditTreinoForm({ titulo: treino?.titulo ?? "", tipo: treino?.tipo ?? "A", descricao: treino?.descricao ?? "" });
+  };
+  const saveTreinoHeader = () => { if (!treinoId) return; updateTreino.mutate({ id: treinoId, data: { titulo: editTreinoForm.titulo || selectedTreino?.titulo || "Treino", tipo: editTreinoForm.tipo || selectedTreino?.tipo || "A", descricao: editTreinoForm.descricao || undefined } }); };
   const addExercicio = () => {
     if (!treinoId || !exercicioForm.exercicioId) return;
     const items = [...treinoExercicios.map((item) => ({ exercicio_id: item.exercicio_id, series: item.series, repeticoes: item.repeticoes, descanso_seg: item.descanso_seg, observacoes: item.observacoes ?? undefined })), { exercicio_id: exercicioForm.exercicioId, series: Number(exercicioForm.series || 3), repeticoes: exercicioForm.repeticoes || "12", descanso_seg: Number(exercicioForm.descansoSeg || 60), observacoes: exercicioForm.observacoes || undefined }];
@@ -487,8 +497,8 @@ export function ProfessionalDashboard({ onToast }: { onToast: (toast: Toast) => 
             </CardContent></Card>
 
             {selectedTreino && <Card className="rounded-2xl border-[#e5ece5] bg-white shadow-sm"><CardHeader><CardTitle className="text-sm text-[#2b271f]">{selectedTreino.titulo} · {selectedTreino.tipo}</CardTitle><p className="text-[10px] text-[#9b9488]">{selectedTreino.estado_publicacao} · versão {selectedTreino.versao}</p></CardHeader><CardContent className="space-y-4">
-              <div className="grid grid-cols-[1fr_80px] gap-2"><Input defaultValue={selectedTreino.titulo} onChange={(e) => setTreinoForm({ ...treinoForm, titulo: e.target.value })} placeholder="Título" className="h-9 rounded-lg text-xs" /><Input defaultValue={selectedTreino.tipo} onChange={(e) => setTreinoForm({ ...treinoForm, tipo: e.target.value })} placeholder="Tipo" className="h-9 rounded-lg text-xs" /></div>
-              <textarea defaultValue={selectedTreino.descricao ?? ""} onChange={(e) => setTreinoForm({ ...treinoForm, descricao: e.target.value })} placeholder="Descrição" className="min-h-16 w-full rounded-lg border bg-white p-2 text-xs" />
+              <div className="grid grid-cols-[1fr_80px] gap-2"><Input value={editTreinoForm.titulo} onChange={(e) => setEditTreinoForm({ ...editTreinoForm, titulo: e.target.value })} placeholder="Título" className="h-9 rounded-lg text-xs" /><Input value={editTreinoForm.tipo} onChange={(e) => setEditTreinoForm({ ...editTreinoForm, tipo: e.target.value })} placeholder="Tipo" className="h-9 rounded-lg text-xs" /></div>
+              <textarea value={editTreinoForm.descricao} onChange={(e) => setEditTreinoForm({ ...editTreinoForm, descricao: e.target.value })} placeholder="Descrição" className="min-h-16 w-full rounded-lg border bg-white p-2 text-xs" />
               <div className="flex gap-2"><Button variant="outline" onClick={saveTreinoHeader} className="h-9 flex-1 rounded-lg text-xs"><Save size={14} /> Salvar</Button><Button onClick={() => publishTreino.mutate({ id: selectedTreino.id })} disabled={publishTreino.isPending} className="h-9 flex-1 rounded-lg bg-[#15130f] text-xs text-white"><Send size={14} /> Publicar</Button></div>
               <Button variant="outline" onClick={() => downloadFicha(selectedTreino)} disabled={downloadingFichaId === selectedTreino.id} className="h-9 w-full rounded-lg text-xs"><Download size={14} /> Baixar ficha (impressora térmica)</Button>
 
