@@ -7,6 +7,8 @@ import { adminProcedure, protectedProcedure, publicProcedure, router } from "./_
 import { assertRateLimit, rateLimitKey } from "./_core/rateLimit";
 import { acceptOrganizationInvitation, archiveOrganizationUnit, auditLogsToCsv, auditLogsToPdfBase64, createOrganizationInvitation, createOrganizationUnit, createOrganizationWithOwner, createPlatformAppointment, createSubscriptionCharge, deletePlatformAppointment, getAuditLogs, getMembership, getOrganization, getOrganizationAccess, getOrganizationBySlug, getOrganizationOnboarding, getOrganizationSubscription, getOrganizationsForUser, getPendingOrganizationInvitations, listActiveStaffUserIds, listAllOrganizationsForPlatform, listPlatformAppointments, recordAuditLog, revokeOrganizationInvitation, saveOrganizationOnboarding, updateModulePolicy, updateOrganizationProfile, updateOrganizationSubscription, updatePlatformAppointment, type Membership } from "./db";
 import { acceptMemberInvitation, assignAtendimento, cancelarReserva, cancelarReservaStaff, converterLead, countAllAlunosComArkeAtivo, countAlunosComArkeAtivo, createAppStudent, createAppUser, createAtendimento, createDeletionRequest, addCompeticaoParticipante, addDesafioParticipante, createAlunoObjetivos, createAlunoValores, createCompeticao, createDesafio, createDieta, createFeedComment, createFeedLike, createFeedPost, createGlobalExercise, createGlobalGroup, createGlobalNutritionPlan, createGlobalRoutine, createGlobalTemplate, createGlobalTemplateExercise, createLead, createLeadNota, createMensagemDieta, createMensagemTreino, createNotificacao, createPasswordRecoveryCode, createProgressoSemanal, createTreino, createTurma, deleteAppStudent, deleteAppUser, deleteCompeticao, deleteDesafio, deleteDieta, deletePushSubscription, deleteFeedComment, deleteFeedLike, deleteFeedPost, deleteProgressoSemanal, deleteGlobalExercise, deleteGlobalGroup, deleteGlobalNutritionPlan, deleteGlobalRoutine, deleteGlobalTemplate, deleteGlobalTemplateExercise, deleteGlobalAccessRule, deleteLead, deleteTreino, deleteTurma, findAppUserByEmail, fulfillDeletionRequest, gerarFichaTreinoPdf, getAcolhimento, getAlunoArkeLicenca, getAlunoObjetivosRecente, getAlunoValoresRecente, getArkeModule, getAtendimento, getAvaliacaoSemanal, getCheckinDoDia, getCrmIndicadores, getCurrentPrivacyPolicy, getDeletionRequest, getDieta, getGestaoIndicadores, getLead, getCompeticao, getDesafio, getFeedComment, getFeedLike, getFeedPost, getMyDeletionRequest, getPlanoTreinoSemanal, getProfileByUserId, getProgressoSemanal, getReserva, getTreino, getTurma, getVagasDisponiveis, hasConsent, hasSupabaseConfig, inviteMember, listAppStudents, listAppUsers, listAtendimentosForOrganization, listCompeticaoParticipantes, listCompeticaoParticipantesForAluno, listCompeticaoPontuacaoForCompeticao, listCompeticoes, listDeletionRequests, listDesafioParticipantes, listDesafioParticipantesForAluno, listDesafioProgressoForAluno, listDesafioProgressoForDesafio, listDesafios, listDietasForAluno, listMensagensDieta, listMensagensTreino, listNotificacoes, listProntuarioObservacoes, listExercisesCatalog, listFeedCommentsForPosts, listFeedLikesForPosts, listFeedPosts, listFrequenciaForAluno, listFrequenciaForOrganization, listGlobalLibrary, listLeadAtividades, listLeadsForOrganization, listMinhasReservas, listMyAtendimentos, listMyCheckIns, listPendingMemberInvitations, listProfileNames, listProgressoSemanal, listReservasForTurmaData, listStudentsInOrganization, listTreinoExercicios, listTreinosForAluno, listTurmaHorarios, listTurmasAtivas, listTurmasForOrganization, marcarLeadPerdido, moverEstagioLead, normalizeEmail, publishDieta, publishGlobalExercises, publishGlobalNutritionPlans, publishGlobalTemplates, publishTreino, countNotificacoesNaoLidas, createCompromissoMeta, createTreinoCalendario, getCompromissoMetaComDono, getDietaAdesaoDoDia, getOrCreateCompromissoSemanal, listCompromissoMetas, listDietaAdesaoPeriodo, listTreinoCalendarioPeriodo, markAllNotificacoesLidas, markMensagensDietaLidas, markMensagensTreinoLidas, markNotificacaoLida, recordConsent, registrarFrequencia, rejectDeletionRequest, removeCompeticaoParticipante, removeDesafioParticipante, replaceTreinoExercicios, replaceTurmaHorarios, requestHelp, reservarVaga, resolveAtendimento, revokeMemberInvitation, setCompeticaoPontuacao, setCompromissoMetaConcluida, setDesafioProgresso, signInWithSupabase, submitCheckIn, toggleAlunoArkeLicenca, updateAppStudent, updateAppUser, updateCompeticao, updateDesafio, updateDieta, upsertProntuarioObservacao, upsertPushSubscription, upsertDietaAdesao, updateGlobalExercise, updateGlobalGroup, updateGlobalNutritionPlan, updateGlobalRoutine, updateGlobalTemplate, updateGlobalTemplateExercise, updateLead, updateStudentMatricula, updateSupabaseUserPassword, updateTreino, updateTurma, upsertAcolhimento, upsertArkeModule, upsertAvaliacaoSemanal, upsertCheckinDiario, upsertGlobalAccessRule, upsertPlanoTreinoSemanal, verifyPasswordRecoveryCode } from "./supabaseAdmin";
+import { createAluno, createImportBatch, createMembershipPlan, listAlunos, listImportBatches, listMembershipPlans, markImportBatchCommitted, updateAluno, updateMembershipPlan } from "./supabaseAdmin";
+import { commitImport, previewImport, type ImportEntity, type ImportRow } from "./importacao";
 import { alunoTemArke, assertAlunoTemArke } from "./arkeEntitlement";
 import { computeComparativoAluno, computeScoreAluno } from "./arkeGamification";
 import { asaasConfigured, asaasEnvironment, createAsaasWebhook, getAsaasAccount, listAsaasPayments } from "./asaas";
@@ -1235,6 +1237,67 @@ export const appRouter = router({
     }),
     minhasReservas: protectedProcedure.query(({ ctx }) => listMinhasReservas(ctx.user.id)),
     cancelarMinhaReserva: protectedProcedure.input(z.object({ id: z.string().uuid() })).mutation(({ ctx, input }) => cancelarReserva(input.id, ctx.user.id)),
+  }),
+  // Cadastro administrativo do aluno — existe independente de login (ver
+  // 20260916_cadastro_direto_alunos_e_importacao.sql). journey.inviteMember
+  // continua existindo à parte, como ação opcional em cima de um aluno já
+  // cadastrado aqui.
+  alunos: router({
+    list: protectedProcedure.input(organizationIdInput).query(async ({ ctx, input }) => { await assertStaffOfOrganization(ctx.user.id, input.organizationId); return listAlunos(input.organizationId); }),
+    create: protectedProcedure.input(z.object({
+      organizationId: z.string().uuid(),
+      unitId: z.string().uuid().optional(),
+      planoId: z.string().uuid().optional(),
+      nome: z.string().trim().min(2).max(160),
+      cpf: z.string().trim().optional(),
+      email: z.string().email().optional(),
+      telefone: z.string().trim().max(40).optional(),
+      dataNascimento: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+      responsavelNome: z.string().trim().max(160).optional(),
+      responsavelCpf: z.string().trim().optional(),
+      valorMensal: z.number().min(0).optional(),
+      diaVencimento: z.number().int().min(1).max(31).optional(),
+    })).mutation(async ({ ctx, input }) => { await ownerOrAdmin(ctx.user.id, input.organizationId); return createAluno({ ...input, origem: "manual", criadoPor: ctx.user.id }); }),
+    update: protectedProcedure.input(z.object({ id: z.string().uuid(), organizationId: z.string().uuid(), data: z.object({
+      nome: z.string().trim().min(2).max(160).optional(),
+      unitId: z.string().uuid().optional().nullable(),
+      planoId: z.string().uuid().optional().nullable(),
+      cpf: z.string().trim().optional().nullable(),
+      email: z.string().email().optional().nullable(),
+      telefone: z.string().trim().max(40).optional().nullable(),
+      valorMensal: z.number().min(0).optional().nullable(),
+      diaVencimento: z.number().int().min(1).max(31).optional().nullable(),
+      status: z.enum(["ativo", "inativo", "trancado"]).optional(),
+    }) })).mutation(async ({ ctx, input }) => {
+      await ownerOrAdmin(ctx.user.id, input.organizationId);
+      const { unitId, planoId, diaVencimento, valorMensal, ...rest } = input.data;
+      return updateAluno(input.id, input.organizationId, { ...rest, unit_id: unitId, plano_id: planoId, dia_vencimento: diaVencimento, valor_mensal: valorMensal });
+    }),
+  }),
+  // Planos de mensalidade da própria academia (não confundir com o plano
+  // da assinatura ArkeFit em saas.organizations — ver org_membership_plans).
+  planos: router({
+    list: protectedProcedure.input(organizationIdInput).query(async ({ ctx, input }) => { await assertStaffOfOrganization(ctx.user.id, input.organizationId); return listMembershipPlans(input.organizationId); }),
+    create: protectedProcedure.input(z.object({ organizationId: z.string().uuid(), nome: z.string().trim().min(2).max(120), valorMensal: z.number().min(0), periodicidade: z.enum(["mensal", "trimestral", "semestral", "anual"]).default("mensal") })).mutation(async ({ ctx, input }) => { await ownerOrAdmin(ctx.user.id, input.organizationId); return createMembershipPlan(input); }),
+    update: protectedProcedure.input(z.object({ id: z.string().uuid(), organizationId: z.string().uuid(), data: z.object({ nome: z.string().trim().min(2).max(120).optional(), valorMensal: z.number().min(0).optional(), periodicidade: z.enum(["mensal", "trimestral", "semestral", "anual"]).optional(), ativo: z.boolean().optional() }) })).mutation(async ({ ctx, input }) => { await ownerOrAdmin(ctx.user.id, input.organizationId); return updateMembershipPlan(input.id, input.organizationId, input.data); }),
+  }),
+  // Importação de dados na implantação de um cliente novo. O cliente
+  // parseia o CSV/XLSX no navegador (papaparse/xlsx) e manda linhas já em
+  // JSON — sem upload multipart no servidor. preview nunca grava nada;
+  // commit reaproveita a mesma validação e sempre reenvia as mesmas linhas.
+  importacao: router({
+    history: protectedProcedure.input(organizationIdInput).query(async ({ ctx, input }) => { await assertStaffOfOrganization(ctx.user.id, input.organizationId); return listImportBatches(input.organizationId); }),
+    preview: protectedProcedure.input(z.object({ organizationId: z.string().uuid(), entity: z.enum(["unidades", "planos", "alunos", "leads", "turmas"]), rows: z.array(z.record(z.string(), z.string())).min(1).max(10000) })).mutation(async ({ ctx, input }) => {
+      await ownerOrAdmin(ctx.user.id, input.organizationId);
+      return previewImport(input.entity as ImportEntity, input.rows as ImportRow[], input.organizationId);
+    }),
+    commit: protectedProcedure.input(z.object({ organizationId: z.string().uuid(), entity: z.enum(["unidades", "planos", "alunos", "leads", "turmas"]), fileName: z.string().trim().min(1).max(200), rows: z.array(z.record(z.string(), z.string())).min(1).max(10000) })).mutation(async ({ ctx, input }) => {
+      await ownerOrAdmin(ctx.user.id, input.organizationId);
+      const result = await commitImport(input.entity as ImportEntity, input.rows as ImportRow[], input.organizationId, ctx.user.id);
+      const batch = await createImportBatch({ organizationId: input.organizationId, entity: input.entity as ImportEntity, fileName: input.fileName, totalRows: input.rows.length, validRows: result.inserted, errorRows: result.errors.length, errors: result.errors, uploadedBy: ctx.user.id });
+      await markImportBatchCommitted(batch.id, input.organizationId);
+      return { batchId: batch.id, inserted: result.inserted, errors: result.errors };
+    }),
   }),
 });
 

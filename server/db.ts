@@ -331,6 +331,11 @@ export async function getOrganizationOnboarding(organizationId: string) {
   return rows[0];
 }
 
+export async function listOrganizationUnits(organizationId: string) {
+  if (!isConfigured()) return [];
+  return request<OrganizationUnit[]>("saas_units", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}&status=eq.active&order=name.asc`);
+}
+
 export async function createOrganizationUnit(input: { organizationId: string; name: string; slug: string; city?: string }) {
   if (!isConfigured()) throw new Error("Database not available");
   const [created] = await request<OrganizationUnit[]>("saas_units", { method: "POST", body: JSON.stringify({ organization_id: input.organizationId, name: input.name, slug: input.slug, city: input.city ?? null, status: "active" }) });

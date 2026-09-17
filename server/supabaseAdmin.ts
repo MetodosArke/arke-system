@@ -584,7 +584,94 @@ export async function publishDieta(dietaId: string, autorId: string) {
 
 // --- Fase 3: Jornada inicial (convite de aluno, cadastro, acolhimento) ---
 
-export type MemberInvitation = { id: string; organization_id: string; invited_by_user_id: string | null; email: string; full_name: string; token_hash: string; status: "pending" | "accepted" | "expired" | "revoked"; expires_at: string; created_at: string; lembrete_enviado_em?: string | null };
+export type MemberInvitation = { id: string; organization_id: string; aluno_id: string; invited_by_user_id: string | null; email: string; full_name: string; token_hash: string; status: "pending" | "accepted" | "expired" | "revoked"; expires_at: string; created_at: string; lembrete_enviado_em?: string | null };
+
+export type MembershipPlan = { id: string; organization_id: string; nome: string; valor_mensal: number; periodicidade: "mensal" | "trimestral" | "semestral" | "anual"; ativo: boolean; created_at: string; updated_at: string };
+
+export async function listMembershipPlans(organizationId: string) {
+  return request<MembershipPlan[]>("org_membership_plans", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}&order=nome.asc`);
+}
+
+export async function createMembershipPlan(input: { organizationId: string; nome: string; valorMensal: number; periodicidade?: MembershipPlan["periodicidade"] }) {
+  const rows = await request<MembershipPlan[]>("org_membership_plans", { method: "POST", body: JSON.stringify({ organization_id: input.organizationId, nome: input.nome, valor_mensal: input.valorMensal, periodicidade: input.periodicidade ?? "mensal" }) });
+  return rows[0];
+}
+
+export async function updateMembershipPlan(id: string, organizationId: string, data: Partial<{ nome: string; valorMensal: number; periodicidade: MembershipPlan["periodicidade"]; ativo: boolean }>) {
+  const body: Row = {};
+  if (data.nome !== undefined) body.nome = data.nome;
+  if (data.valorMensal !== undefined) body.valor_mensal = data.valorMensal;
+  if (data.periodicidade !== undefined) body.periodicidade = data.periodicidade;
+  if (data.ativo !== undefined) body.ativo = data.ativo;
+  const rows = await request<MembershipPlan[]>("org_membership_plans", { method: "PATCH", body: JSON.stringify(body) }, `?id=eq.${encodeURIComponent(id)}&organization_id=eq.${encodeURIComponent(organizationId)}`);
+  if (!rows[0]) throw new Error("Plano não encontrado.");
+  return rows[0];
+}
+
+// `alunos` é a fonte de verdade do cadastro administrativo — existe
+// independente de login (ver 20260916_cadastro_direto_alunos_e_importacao.sql).
+// auth_user_id só é preenchido se/quando o aluno aceitar um convite para o
+// app (ver acceptMemberInvitation); até lá, tudo aqui funciona sem conta.
+export type Aluno = { id: string; organization_id: string; unit_id: string | null; plano_id: string | null; nome: string; cpf: string | null; email: string | null; telefone: string | null; data_nascimento: string | null; responsavel_nome: string | null; responsavel_cpf: string | null; valor_mensal: number | null; dia_vencimento: number | null; status: "ativo" | "inativo" | "trancado"; origem: "manual" | "importado"; auth_user_id: string | null; criado_por: string | null; created_at: string; updated_at: string };
+
+export async function listAlunos(organizationId: string) {
+  return request<Aluno[]>("alunos", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}&order=created_at.desc`);
+}
+
+export async function findAlunoByEmail(organizationId: string, email: string) {
+  const rows = await request<Aluno[]>("alunos", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}&email=eq.${encodeURIComponent(normalizeEmail(email))}&limit=1`);
+  return rows[0] ?? null;
+}
+
+export async function findAlunoByCpf(organizationId: string, cpf: string) {
+  const rows = await request<Aluno[]>("alunos", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}&cpf=eq.${encodeURIComponent(cpf)}&limit=1`);
+  return rows[0] ?? null;
+}
+
+export async function createAluno(input: { organizationId: string; unitId?: string; planoId?: string; nome: string; cpf?: string; email?: string; telefone?: string; dataNascimento?: string; responsavelNome?: string; responsavelCpf?: string; valorMensal?: number; diaVencimento?: number; origem?: Aluno["origem"]; criadoPor?: string }) {
+  const rows = await request<Aluno[]>("alunos", { method: "POST", body: JSON.stringify({
+    organization_id: input.organizationId,
+    unit_id: input.unitId || undefined,
+    plano_id: input.planoId || undefined,
+    nome: input.nome,
+    cpf: input.cpf || undefined,
+    email: input.email ? normalizeEmail(input.email) : undefined,
+    telefone: input.telefone || undefined,
+    data_nascimento: input.dataNascimento || undefined,
+    responsavel_nome: input.responsavelNome || undefined,
+    responsavel_cpf: input.responsavelCpf || undefined,
+    valor_mensal: input.valorMensal ?? undefined,
+    dia_vencimento: input.diaVencimento ?? undefined,
+    origem: input.origem ?? "manual",
+    criado_por: input.criadoPor || undefined,
+  }) });
+  return rows[0];
+}
+
+export async function updateAluno(id: string, organizationId: string, data: Record<string, unknown>) {
+  const rows = await request<Aluno[]>("alunos", { method: "PATCH", body: JSON.stringify(data) }, `?id=eq.${encodeURIComponent(id)}&organization_id=eq.${encodeURIComponent(organizationId)}`);
+  if (!rows[0]) throw new Error("Aluno não encontrado.");
+  return rows[0];
+}
+
+// Importação em lote na implantação de um cliente novo — guarda só
+// contagens e um resumo de erro por linha (campo + motivo), nunca o
+// conteúdo bruto da linha (evita duplicar PII fora das tabelas de destino).
+export type ImportBatch = { id: string; organization_id: string; entity: "unidades" | "planos" | "alunos" | "profissionais" | "leads" | "turmas"; file_name: string; status: "previewed" | "committed" | "failed"; total_rows: number; valid_rows: number; error_rows: number; errors: { row: number; campo?: string; motivo: string }[]; uploaded_by: string; created_at: string; committed_at: string | null };
+
+export async function createImportBatch(input: { organizationId: string; entity: ImportBatch["entity"]; fileName: string; totalRows: number; validRows: number; errorRows: number; errors: { row: number; campo?: string; motivo: string }[]; uploadedBy: string }) {
+  const rows = await request<ImportBatch[]>("import_batches", { method: "POST", body: JSON.stringify({ organization_id: input.organizationId, entity: input.entity, file_name: input.fileName, total_rows: input.totalRows, valid_rows: input.validRows, error_rows: input.errorRows, errors: input.errors, uploaded_by: input.uploadedBy }) });
+  return rows[0];
+}
+
+export async function markImportBatchCommitted(id: string, organizationId: string) {
+  const rows = await request<ImportBatch[]>("import_batches", { method: "PATCH", body: JSON.stringify({ status: "committed", committed_at: new Date().toISOString() }) }, `?id=eq.${encodeURIComponent(id)}&organization_id=eq.${encodeURIComponent(organizationId)}`);
+  return rows[0];
+}
+
+export async function listImportBatches(organizationId: string) {
+  return request<ImportBatch[]>("import_batches", {}, `?select=*&organization_id=eq.${encodeURIComponent(organizationId)}&order=created_at.desc&limit=50`);
+}
 export type Acolhimento = { id: string; aluno_id: string; rotina_diaria?: string | null; experiencias_exercicio?: string | null; experiencias_gostou?: string | null; experiencias_nao_gostou?: string | null; dores_lesoes?: string | null; medicamentos?: string | null; tempo_disponivel?: string | null; estilo_treino?: string | null; exercicios_nao_gosta?: string | null; alimentos_gosta?: string | null; alimentos_nao_gosta?: string | null; alimentacao_rotina?: string | null; created_at: string; updated_at: string };
 
 async function getOrganizationName(organizationId: string) {
@@ -606,12 +693,19 @@ export async function inviteMember(input: { organizationId: string; invitedByUse
   const existing = await findPendingMemberInvitation(input.organizationId, email);
   if (existing) throw new Error("Já existe um convite pendente para este e-mail nesta organização.");
 
+  // O convite aponta para um cadastro em `alunos`, nunca cria a pessoa
+  // sozinho — se ainda não existir um aluno com este e-mail na
+  // organização, cria um agora (cadastro sempre existe, convite ao app é
+  // uma ação opcional em cima dele; ver 20260916_cadastro_direto_alunos_e_importacao.sql).
+  const aluno = (await findAlunoByEmail(input.organizationId, email)) ?? (await createAluno({ organizationId: input.organizationId, nome: input.fullName, email, origem: "manual", criadoPor: input.invitedByUserId }));
+
   const rawToken = randomUUID();
   const tokenHash = createHash("sha256").update(rawToken).digest("hex");
   const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24 * 7);
 
   const rows = await request<MemberInvitation[]>("member_invitations", { method: "POST", body: JSON.stringify({
     organization_id: input.organizationId,
+    aluno_id: aluno.id,
     invited_by_user_id: input.invitedByUserId,
     email,
     full_name: input.fullName,
@@ -655,6 +749,11 @@ export async function acceptMemberInvitation(token: string, password: string) {
   // com organization_id nulo; aqui só vinculamos à organização do convite.
   // matricula_em marca o momento real da ativação (Módulo Academia).
   await request("profiles", { method: "PATCH", body: JSON.stringify({ full_name: invitation.full_name, organization_id: invitation.organization_id, status: "active", matricula_em: new Date().toISOString() }) }, `?user_id=eq.${encodeURIComponent(authUser.id)}`);
+
+  // O cadastro em `alunos` já existia desde o convite (ou de antes, se
+  // importado) — aceitar o convite só liga o login a ele, nunca cria o
+  // cadastro do zero.
+  await request("alunos", { method: "PATCH", body: JSON.stringify({ auth_user_id: authUser.id }) }, `?id=eq.${encodeURIComponent(invitation.aluno_id)}`);
 
   const accepted = await request<MemberInvitation[]>("member_invitations", { method: "PATCH", body: JSON.stringify({ status: "accepted" }) }, `?id=eq.${encodeURIComponent(invitation.id)}&status=eq.pending`);
   if (!accepted[0]) throw new Error("Este convite já foi utilizado.");
