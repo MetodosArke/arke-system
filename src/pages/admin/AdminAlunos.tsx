@@ -1,10 +1,15 @@
-import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Users } from "lucide-react";
+import { Users, CalendarOff } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 const NIVEL_LABEL: Record<string, string> = {
   essencial: "Essencial",
@@ -20,15 +25,39 @@ const FASE_LABEL: Record<string, string> = {
   legado: "L.E.G.A.D.O.®",
 };
 
+const DIAS_SEMANA = [
+  { valor: 1, label: "Seg" },
+  { valor: 2, label: "Ter" },
+  { valor: 3, label: "Qua" },
+  { valor: 4, label: "Qui" },
+  { valor: 5, label: "Sex" },
+  { valor: 6, label: "Sáb" },
+  { valor: 7, label: "Dom" },
+];
+
+interface AlunoRow {
+  id: string;
+  nivel_atacado: string;
+  fase_jornada: string;
+  objetivo: string | null;
+  data_inicio: string | null;
+  dias_descanso: number[];
+  full_name: string;
+}
+
 export default function AdminAlunos() {
   const { organization } = useAuth();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [alunoEditando, setAlunoEditando] = useState<AlunoRow | null>(null);
+  const [diasSelecionados, setDiasSelecionados] = useState<number[]>([]);
 
   const { data: alunos = [], isLoading } = useQuery({
     queryKey: ["admin-alunos", organization?.id],
     queryFn: async () => {
       const { data: alunosData, error } = await supabase
         .from("alunos")
-        .select("id, user_id, nivel_atacado, objetivo, data_inicio, fase_jornada")
+        .select("id, user_id, nivel_atacado, objetivo, data_inicio, fase_jornada, dias_descanso")
         .eq("organization_id", organization!.id)
         .order("data_inicio", { ascending: false });
       if (error) throw error;
@@ -43,6 +72,32 @@ export default function AdminAlunos() {
     },
     enabled: !!organization?.id,
   });
+
+  const salvarDiasDescanso = useMutation({
+    mutationFn: async () => {
+      if (!alunoEditando) return;
+      const { error } = await supabase
+        .from("alunos")
+        .update({ dias_descanso: diasSelecionados })
+        .eq("id", alunoEditando.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast({ title: "Dias de descanso atualizados" });
+      setAlunoEditando(null);
+      void queryClient.invalidateQueries({ queryKey: ["admin-alunos", organization?.id] });
+    },
+    onError: (error: Error) => toast({ title: "Erro ao salvar", description: error.message, variant: "destructive" }),
+  });
+
+  const abrirEdicao = (aluno: AlunoRow) => {
+    setAlunoEditando(aluno);
+    setDiasSelecionados(aluno.dias_descanso ?? []);
+  };
+
+  const toggleDia = (dia: number) => {
+    setDiasSelecionados((prev) => (prev.includes(dia) ? prev.filter((d) => d !== dia) : [...prev, dia]));
+  };
 
   return (
     <div className="space-y-4 max-w-4xl mx-auto">
@@ -66,6 +121,7 @@ export default function AdminAlunos() {
                   <TableHead>Fase</TableHead>
                   <TableHead>Objetivo</TableHead>
                   <TableHead>Desde</TableHead>
+                  <TableHead>Descanso</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -82,6 +138,12 @@ export default function AdminAlunos() {
                     <TableCell>
                       {aluno.data_inicio ? new Date(aluno.data_inicio).toLocaleDateString("pt-BR") : "—"}
                     </TableCell>
+                    <TableCell>
+                      <Button variant="ghost" size="sm" onClick={() => abrirEdicao(aluno)}>
+                        <CalendarOff className="h-3.5 w-3.5 mr-1" />
+                        {aluno.dias_descanso?.length ?? 0} dia(s)
+                      </Button>
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -89,6 +151,30 @@ export default function AdminAlunos() {
           )}
         </CardContent>
       </Card>
+
+      <Dialog open={!!alunoEditando} onOpenChange={(open) => !open && setAlunoEditando(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Dias de descanso — {alunoEditando?.full_name}</DialogTitle>
+          </DialogHeader>
+          <p className="text-xs text-muted-foreground">
+            Nesses dias, a automação de "treinos previstos sem registro" não considera falta.
+          </p>
+          <div className="grid grid-cols-4 gap-3 py-2">
+            {DIAS_SEMANA.map((d) => (
+              <label key={d.valor} className="flex items-center gap-2 text-sm">
+                <Checkbox checked={diasSelecionados.includes(d.valor)} onCheckedChange={() => toggleDia(d.valor)} />
+                {d.label}
+              </label>
+            ))}
+          </div>
+          <DialogFooter>
+            <Button disabled={salvarDiasDescanso.isPending} onClick={() => salvarDiasDescanso.mutate()}>
+              Salvar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

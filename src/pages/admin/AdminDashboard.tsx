@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -8,18 +8,38 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { ClipboardList } from "lucide-react";
-import type { Tables } from "@/integrations/supabase/types";
+import { ClipboardList, ArrowUpCircle } from "lucide-react";
+import type { Tables, Enums } from "@/integrations/supabase/types";
 
 type Tarefa = Tables<"tarefas">;
+type Prioridade = Enums<"tarefa_prioridade">;
+type Status = Enums<"tarefa_status">;
 
-const PRIORIDADE_VARIANT: Record<Tarefa["prioridade"], "default" | "secondary" | "destructive"> = {
+const PRIORIDADE_VARIANT: Record<Prioridade, "default" | "secondary" | "destructive"> = {
   baixa: "secondary",
   media: "default",
   alta: "default",
   critica: "destructive",
 };
+
+const PRIORIDADE_LABEL: Record<Prioridade, string> = {
+  baixa: "Baixa",
+  media: "Média",
+  alta: "Alta",
+  critica: "Crítica",
+};
+
+const STATUS_LABEL: Record<Status, string> = {
+  aberta: "Aberta",
+  em_andamento: "Em andamento",
+  aguardando: "Aguardando",
+  concluida: "Concluída",
+  cancelada: "Cancelada",
+};
+
+const FILTRO_STATUS_OPCOES: Status[] = ["aberta", "em_andamento", "aguardando"];
 
 export default function AdminDashboard() {
   const { organization } = useAuth();
@@ -27,6 +47,8 @@ export default function AdminDashboard() {
   const queryClient = useQueryClient();
   const [tarefaSelecionada, setTarefaSelecionada] = useState<Tarefa | null>(null);
   const [desfecho, setDesfecho] = useState("");
+  const [filtroPrioridade, setFiltroPrioridade] = useState<Prioridade | "todas">("todas");
+  const [filtroStatus, setFiltroStatus] = useState<Status | "todas">("todas");
 
   const { data: tarefas = [], isLoading } = useQuery({
     queryKey: ["tarefas-fila", organization?.id],
@@ -35,13 +57,21 @@ export default function AdminDashboard() {
         .from("tarefas")
         .select("*")
         .eq("organization_id", organization!.id)
-        .in("status", ["aberta", "em_andamento", "aguardando"])
+        .in("status", FILTRO_STATUS_OPCOES)
         .order("sla_prazo", { ascending: true });
       if (error) throw error;
       return data;
     },
     enabled: !!organization?.id,
   });
+
+  const tarefasFiltradas = useMemo(() => {
+    return tarefas.filter((t) => {
+      if (filtroPrioridade !== "todas" && t.prioridade !== filtroPrioridade) return false;
+      if (filtroStatus !== "todas" && t.status !== filtroStatus) return false;
+      return true;
+    });
+  }, [tarefas, filtroPrioridade, filtroStatus]);
 
   const concluirTarefa = useMutation({
     mutationFn: async () => {
@@ -70,28 +100,57 @@ export default function AdminDashboard() {
         <h1 className="text-xl font-bold">Minha Fila</h1>
       </div>
 
+      <div className="flex flex-wrap gap-2">
+        <Select value={filtroPrioridade} onValueChange={(v) => setFiltroPrioridade(v as Prioridade | "todas")}>
+          <SelectTrigger className="w-[160px]"><SelectValue placeholder="Prioridade" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="todas">Todas as prioridades</SelectItem>
+            {(Object.keys(PRIORIDADE_LABEL) as Prioridade[]).map((p) => (
+              <SelectItem key={p} value={p}>{PRIORIDADE_LABEL[p]}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        <Select value={filtroStatus} onValueChange={(v) => setFiltroStatus(v as Status | "todas")}>
+          <SelectTrigger className="w-[160px]"><SelectValue placeholder="Status" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="todas">Todos os status</SelectItem>
+            {FILTRO_STATUS_OPCOES.map((s) => (
+              <SelectItem key={s} value={s}>{STATUS_LABEL[s]}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
       {isLoading && <p className="text-sm text-muted-foreground">Carregando...</p>}
 
-      {!isLoading && tarefas.length === 0 && (
+      {!isLoading && tarefasFiltradas.length === 0 && (
         <Card>
           <CardContent className="py-8 text-center text-sm text-muted-foreground">
-            Nenhuma pendência em aberto. Tudo em dia!
+            Nenhuma pendência encontrada com esses filtros.
           </CardContent>
         </Card>
       )}
 
       <div className="space-y-3">
-        {tarefas.map((tarefa) => (
+        {tarefasFiltradas.map((tarefa) => (
           <Card key={tarefa.id}>
             <CardHeader className="pb-2">
               <div className="flex items-start justify-between gap-2">
                 <CardTitle className="text-sm font-semibold">{tarefa.motivo}</CardTitle>
-                <Badge variant={PRIORIDADE_VARIANT[tarefa.prioridade]}>{tarefa.prioridade}</Badge>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  {tarefa.escalada_em && (
+                    <Badge variant="outline" className="text-orange-600 dark:text-orange-400 border-orange-500/40">
+                      <ArrowUpCircle className="h-3 w-3 mr-1" /> Escalada
+                    </Badge>
+                  )}
+                  <Badge variant={PRIORIDADE_VARIANT[tarefa.prioridade]}>{PRIORIDADE_LABEL[tarefa.prioridade]}</Badge>
+                </div>
               </div>
             </CardHeader>
             <CardContent className="space-y-2">
               <p className="text-xs text-muted-foreground">
-                Prazo: {new Date(tarefa.sla_prazo).toLocaleString("pt-BR")}
+                Prazo: {new Date(tarefa.sla_prazo).toLocaleString("pt-BR")} · Status: {STATUS_LABEL[tarefa.status]}
               </p>
               {tarefa.acao && <p className="text-sm">{tarefa.acao}</p>}
               <Button

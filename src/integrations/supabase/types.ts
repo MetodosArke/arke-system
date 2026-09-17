@@ -20,6 +20,7 @@ export type Database = {
           created_at: string
           data_inicio: string | null
           data_nascimento: string | null
+          dias_descanso: number[]
           fase_jornada: Database["public"]["Enums"]["fase_jornada"]
           id: string
           meta_semanal_dias: number
@@ -39,6 +40,7 @@ export type Database = {
           created_at?: string
           data_inicio?: string | null
           data_nascimento?: string | null
+          dias_descanso?: number[]
           fase_jornada?: Database["public"]["Enums"]["fase_jornada"]
           id?: string
           meta_semanal_dias?: number
@@ -58,6 +60,7 @@ export type Database = {
           created_at?: string
           data_inicio?: string | null
           data_nascimento?: string | null
+          dias_descanso?: number[]
           fase_jornada?: Database["public"]["Enums"]["fase_jornada"]
           id?: string
           meta_semanal_dias?: number
@@ -596,12 +599,68 @@ export type Database = {
         }
         Relationships: []
       }
+      registro_treino: {
+        Row: {
+          aluno_id: string
+          concluido: boolean
+          created_at: string
+          data: string
+          id: string
+          observacao: string | null
+          organization_id: string
+          treino_id: string | null
+        }
+        Insert: {
+          aluno_id: string
+          concluido?: boolean
+          created_at?: string
+          data?: string
+          id?: string
+          observacao?: string | null
+          organization_id: string
+          treino_id?: string | null
+        }
+        Update: {
+          aluno_id?: string
+          concluido?: boolean
+          created_at?: string
+          data?: string
+          id?: string
+          observacao?: string | null
+          organization_id?: string
+          treino_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "registro_treino_aluno_id_fkey"
+            columns: ["aluno_id"]
+            isOneToOne: false
+            referencedRelation: "alunos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "registro_treino_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "registro_treino_treino_id_fkey"
+            columns: ["treino_id"]
+            isOneToOne: false
+            referencedRelation: "treinos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tarefas: {
         Row: {
           acao: string | null
           aluno_id: string | null
           created_at: string
           desfecho_acao: string | null
+          escalada_em: string | null
           id: string
           motivo: string
           organization_id: string
@@ -618,6 +677,7 @@ export type Database = {
           aluno_id?: string | null
           created_at?: string
           desfecho_acao?: string | null
+          escalada_em?: string | null
           id?: string
           motivo: string
           organization_id: string
@@ -634,6 +694,7 @@ export type Database = {
           aluno_id?: string | null
           created_at?: string
           desfecho_acao?: string | null
+          escalada_em?: string | null
           id?: string
           motivo?: string
           organization_id?: string
@@ -758,7 +819,9 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      escalar_tarefas_vencidas: { Args: never; Returns: undefined }
       gerar_tarefas_ativacao_pendente: { Args: never; Returns: undefined }
+      gerar_tarefas_barreira_rotina: { Args: never; Returns: undefined }
       has_org_role: {
         Args: {
           _organization_id: string
