@@ -17,7 +17,11 @@ export function ImpersonationBanner() {
 
   const handleVoltar = async () => {
     await stopImpersonation();
-    window.location.assign("/#/admin");
+    // "/" (não "/admin" fixo): a sessão original é restaurada e o
+    // RootRedirect decide a rota certa a partir dos papéis reais de quem
+    // voltou — inclusive superadmin, que precisa ir para /superadmin, não
+    // para /admin.
+    window.location.assign("/#/");
     window.location.reload();
   };
 
