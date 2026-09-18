@@ -110,19 +110,30 @@ Deno.serve(async (req: Request) => {
     // atual, senão a catraca libera gente fora do horário da turma dela.
     const organizacaoInfo = Array.isArray(catraca.organizations) ? catraca.organizations[0] : catraca.organizations;
     let semAgendamento = false;
+    let falhaAoVerificarAgendamento = false;
     if (!inadimplente && organizacaoInfo?.tipo === "studio") {
       const { data: possuiAgendamento, error: agendamentoError } = await admin.rpc(
         "aluno_possui_agendamento_ativo_agora",
         { _aluno_id: aluno.id }
       );
       if (agendamentoError) {
+        // Fail-closed: se a checagem de agendamento falhar, negar em vez
+        // de liberar silenciosamente — do contrário a redundância vira um
+        // no-op justamente quando ela deveria pegar o problema.
         console.error("Erro ao verificar agendamento do studio:", agendamentoError);
+        falhaAoVerificarAgendamento = true;
       } else {
         semAgendamento = !possuiAgendamento;
       }
     }
 
-    const resultado = inadimplente ? "negado_inadimplente" : semAgendamento ? "negado_sem_agendamento" : "liberado";
+    const resultado = inadimplente
+      ? "negado_inadimplente"
+      : falhaAoVerificarAgendamento
+        ? "negado_falha_verificacao_agendamento"
+        : semAgendamento
+          ? "negado_sem_agendamento"
+          : "liberado";
     await admin.from("acessos_catraca_logs").insert({
       organization_id: catraca.organization_id,
       catraca_id: catraca.id,
@@ -133,6 +144,13 @@ Deno.serve(async (req: Request) => {
 
     if (inadimplente) {
       return jsonResponse({ liberado: false, motivo: "Assinatura em atraso.", aluno_nome: profile.full_name });
+    }
+    if (falhaAoVerificarAgendamento) {
+      return jsonResponse({
+        liberado: false,
+        motivo: "Falha ao verificar agendamento. Tente novamente.",
+        aluno_nome: profile.full_name,
+      });
     }
     if (semAgendamento) {
       return jsonResponse({
