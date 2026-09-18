@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { LayoutDashboard, Users, UsersRound, Building2, LogOut, ChevronLeft, Menu, Dumbbell, UtensilsCrossed, TrendingUp, UserCircle, Rocket, BarChart3 } from "lucide-react";
+import { LayoutDashboard, Users, UsersRound, Building2, LogOut, ChevronLeft, Menu, Dumbbell, UtensilsCrossed, TrendingUp, UserCircle, Rocket, BarChart3, DoorOpen } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
@@ -13,6 +13,7 @@ const menuItems = [
   { icon: Dumbbell, label: "Treinos", path: "/admin/treinos" },
   { icon: UtensilsCrossed, label: "Dietas", path: "/admin/dietas" },
   { icon: TrendingUp, label: "Retenção", path: "/admin/retencao" },
+  { icon: DoorOpen, label: "Catracas", path: "/admin/catracas" },
   { icon: Building2, label: "Organização", path: "/admin/organizacao" },
 ];
 
