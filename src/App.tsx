@@ -34,6 +34,7 @@ import ConsentimentoLgpd from "@/pages/app/ConsentimentoLgpd";
 
 // Staff pages (gestor / professor / nutricionista / admin_arke)
 import AdminDashboard from "@/pages/admin/AdminDashboard";
+import DashboardHome from "@/pages/admin/DashboardHome";
 import AdminAlunos from "@/pages/admin/AdminAlunos";
 import AdminEquipe from "@/pages/admin/AdminEquipe";
 import AdminOrganizacao from "@/pages/admin/AdminOrganizacao";
@@ -195,6 +196,7 @@ const App = () => (
                 }
               >
                 <Route index element={<AdminDashboard />} />
+                <Route path="dashboard" element={<DashboardHome />} />
                 <Route path="onboarding" element={<AdminOnboarding />} />
                 <Route path="alunos" element={<AdminAlunos />} />
                 <Route path="alunos/importar" element={<AdminImportarAlunos />} />

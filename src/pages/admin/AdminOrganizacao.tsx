@@ -7,11 +7,27 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
 import { Building2, Wallet, Receipt, Printer } from "lucide-react";
 import type { Enums, Tables } from "@/integrations/supabase/types";
 import { ReciboComprovanteDialog, type ReciboData } from "@/components/admin/ReciboComprovanteDialog";
+
+type TipoNegocio = Extract<Enums<"organization_tipo">, "academia" | "studio">;
+const SLUG_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+
+function slugify(valor: string) {
+  return valor
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9\s-]/g, "")
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-");
+}
 
 const NIVEL_LABEL: Record<string, string> = { essencial: "Essencial", integrado: "Integrado", elite: "Elite" };
 const ASSINATURA_LABEL: Record<string, string> = { ativa: "Ativa", atrasada: "Atrasada", cancelada: "Cancelada" };
@@ -79,7 +95,7 @@ export default function AdminOrganizacao() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("organizations")
-        .select("asaas_wallet_id")
+        .select("asaas_wallet_id, nome, tipo, slug, logo_url, telefone, endereco")
         .eq("id", organization!.id)
         .single();
       if (error) throw error;
@@ -87,6 +103,73 @@ export default function AdminOrganizacao() {
     },
     enabled: !!organization?.id,
   });
+
+  const [perfil, setPerfil] = useState({
+    nome: "",
+    tipo: "academia" as TipoNegocio,
+    slug: "",
+    logoUrl: "",
+    telefone: "",
+    endereco: "",
+  });
+
+  useEffect(() => {
+    if (!orgDetalhes) return;
+    setPerfil({
+      nome: orgDetalhes.nome ?? "",
+      tipo: orgDetalhes.tipo === "studio" ? "studio" : "academia",
+      slug: orgDetalhes.slug ?? "",
+      logoUrl: orgDetalhes.logo_url ?? "",
+      telefone: orgDetalhes.telefone ?? "",
+      endereco: orgDetalhes.endereco ?? "",
+    });
+  }, [orgDetalhes]);
+
+  const podeEscolherTipo = orgDetalhes?.tipo === "academia" || orgDetalhes?.tipo === "studio";
+
+  const salvarPerfilEstabelecimento = useMutation({
+    mutationFn: async () => {
+      if (!organization) {
+        throw new Error("Nenhuma organização vinculada a este usuário. Entre com um usuário gestor/staff de uma academia.");
+      }
+      const slugNormalizado = slugify(perfil.slug);
+      if (!SLUG_RE.test(slugNormalizado)) {
+        throw new Error("Slug inválido. Use apenas letras minúsculas, números e hífens.");
+      }
+      const { error } = await supabase
+        .from("organizations")
+        .update({
+          nome: perfil.nome,
+          slug: slugNormalizado,
+          ...(podeEscolherTipo ? { tipo: perfil.tipo } : {}),
+          logo_url: perfil.logoUrl.trim() || null,
+          telefone: perfil.telefone.trim() || null,
+          endereco: perfil.endereco.trim() || null,
+        })
+        .eq("id", organization.id);
+      if (error) {
+        if (error.message.includes("duplicate") || error.code === "23505") {
+          throw new Error("Esse slug já está em uso por outra organização. Escolha outro.");
+        }
+        throw error;
+      }
+      setPerfil((prev) => ({ ...prev, slug: slugNormalizado }));
+    },
+    onSuccess: () => {
+      toast({ title: "Perfil do estabelecimento atualizado" });
+      void queryClient.invalidateQueries({ queryKey: ["organizacao-wallet", organization?.id] });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Não foi possível salvar", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const iniciais = perfil.nome
+    .split(" ")
+    .map((n) => n[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
 
   const { data: assinaturas = [] } = useQuery({
     queryKey: ["organizacao-assinaturas", organization?.id],
@@ -206,6 +289,104 @@ export default function AdminOrganizacao() {
           uma academia para editar esses dados.
         </div>
       )}
+
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base flex items-center gap-2">
+            <Building2 className="h-4 w-4" /> Perfil do Estabelecimento
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center gap-3">
+            <Avatar className="h-14 w-14">
+              <AvatarImage src={perfil.logoUrl || undefined} />
+              <AvatarFallback className="text-base">{iniciais || "AR"}</AvatarFallback>
+            </Avatar>
+            <div className="flex-1 space-y-1.5">
+              <Label htmlFor="org-logo">URL do logo</Label>
+              <Input
+                id="org-logo"
+                placeholder="https://..."
+                value={perfil.logoUrl}
+                onChange={(e) => setPerfil((p) => ({ ...p, logoUrl: e.target.value }))}
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="org-nome">Nome da Unidade</Label>
+              <Input
+                id="org-nome"
+                value={perfil.nome}
+                onChange={(e) => setPerfil((p) => ({ ...p, nome: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="org-tipo">Tipo de Negócio</Label>
+              <Select
+                value={perfil.tipo}
+                onValueChange={(v) => setPerfil((p) => ({ ...p, tipo: v as TipoNegocio }))}
+                disabled={!podeEscolherTipo}
+              >
+                <SelectTrigger id="org-tipo">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="academia">Academia</SelectItem>
+                  <SelectItem value="studio">Studio</SelectItem>
+                </SelectContent>
+              </Select>
+              {!podeEscolherTipo && (
+                <p className="text-[11px] text-muted-foreground">
+                  Profissional autônomo não altera o tipo de negócio por aqui.
+                </p>
+              )}
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="org-slug">Slug público</Label>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-muted-foreground whitespace-nowrap">arkefit.com.br/#/p/</span>
+              <Input
+                id="org-slug"
+                value={perfil.slug}
+                onChange={(e) => setPerfil((p) => ({ ...p, slug: slugify(e.target.value) }))}
+                placeholder="minha-academia"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="org-telefone">Telefone de contato</Label>
+              <Input
+                id="org-telefone"
+                value={perfil.telefone}
+                onChange={(e) => setPerfil((p) => ({ ...p, telefone: e.target.value }))}
+                placeholder="(11) 99999-9999"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="org-endereco">Endereço</Label>
+              <Input
+                id="org-endereco"
+                value={perfil.endereco}
+                onChange={(e) => setPerfil((p) => ({ ...p, endereco: e.target.value }))}
+                placeholder="Rua, número, bairro, cidade"
+              />
+            </div>
+          </div>
+
+          <Button
+            disabled={salvarPerfilEstabelecimento.isPending || !perfil.nome.trim() || !perfil.slug.trim() || !organization}
+            onClick={() => salvarPerfilEstabelecimento.mutate()}
+          >
+            {salvarPerfilEstabelecimento.isPending ? "Salvando..." : "Salvar perfil do estabelecimento"}
+          </Button>
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>

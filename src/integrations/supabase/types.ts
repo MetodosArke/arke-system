@@ -1052,48 +1052,60 @@ export type Database = {
         Row: {
           asaas_wallet_id: string | null
           created_at: string
+          endereco: string | null
           especialidade_profissional:
             | Database["public"]["Enums"]["app_role"]
             | null
           id: string
           limite_alunos: number
+          logo_url: string | null
           markup_padrao_pct: number
           nome: string
+          onboarding_completed: boolean
           plano_b2b: Database["public"]["Enums"]["plano_b2b"]
           slug: string
           status: Database["public"]["Enums"]["org_status"]
+          telefone: string | null
           tipo: Database["public"]["Enums"]["organization_tipo"]
           updated_at: string
         }
         Insert: {
           asaas_wallet_id?: string | null
           created_at?: string
+          endereco?: string | null
           especialidade_profissional?:
             | Database["public"]["Enums"]["app_role"]
             | null
           id?: string
           limite_alunos?: number
+          logo_url?: string | null
           markup_padrao_pct?: number
           nome: string
+          onboarding_completed?: boolean
           plano_b2b?: Database["public"]["Enums"]["plano_b2b"]
           slug: string
           status?: Database["public"]["Enums"]["org_status"]
+          telefone?: string | null
           tipo?: Database["public"]["Enums"]["organization_tipo"]
           updated_at?: string
         }
         Update: {
           asaas_wallet_id?: string | null
           created_at?: string
+          endereco?: string | null
           especialidade_profissional?:
             | Database["public"]["Enums"]["app_role"]
             | null
           id?: string
           limite_alunos?: number
+          logo_url?: string | null
           markup_padrao_pct?: number
           nome?: string
+          onboarding_completed?: boolean
           plano_b2b?: Database["public"]["Enums"]["plano_b2b"]
           slug?: string
           status?: Database["public"]["Enums"]["org_status"]
+          telefone?: string | null
           tipo?: Database["public"]["Enums"]["organization_tipo"]
           updated_at?: string
         }

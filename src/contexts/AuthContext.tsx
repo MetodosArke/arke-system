@@ -19,6 +19,7 @@ interface Organization {
   slug: string;
   tipo: OrganizationTipo;
   especialidadeProfissional: AppRole | null;
+  onboardingCompleted: boolean;
 }
 
 type FaseJornada = Enums<"fase_jornada">;
@@ -112,7 +113,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       supabase.from("user_roles").select("role").eq("user_id", userId),
       supabase
         .from("organization_members")
-        .select("role, organization_id, organizations ( id, nome, slug, tipo, especialidade_profissional )")
+        .select("role, organization_id, organizations ( id, nome, slug, tipo, especialidade_profissional, onboarding_completed )")
         .eq("user_id", userId)
         .eq("status", "active")
         .maybeSingle(),
@@ -128,6 +129,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         slug: string;
         tipo: OrganizationTipo;
         especialidade_profissional: AppRole | null;
+        onboarding_completed: boolean;
       } | null;
       setOrganization(
         org
@@ -137,6 +139,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               slug: org.slug,
               tipo: org.tipo,
               especialidadeProfissional: org.especialidade_profissional,
+              onboardingCompleted: org.onboarding_completed,
             }
           : null
       );

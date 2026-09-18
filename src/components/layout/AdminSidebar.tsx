@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { LayoutDashboard, Users, UsersRound, Building2, LogOut, ChevronLeft, Menu, Dumbbell, UtensilsCrossed, TrendingUp, UserCircle, Rocket, BarChart3, DoorOpen, CalendarDays } from "lucide-react";
+import { Home, Users, UsersRound, Building2, LogOut, ChevronLeft, Menu, ClipboardList, UserCircle, BarChart3, DoorOpen, CalendarDays } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
@@ -7,34 +7,69 @@ import { useAdminSidebar } from "@/contexts/AdminSidebarContext";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 
-const menuItems = [
-  { icon: LayoutDashboard, label: "Minha Fila", path: "/admin" },
-  { icon: Users, label: "Alunos", path: "/admin/alunos" },
-  { icon: Dumbbell, label: "Treinos", path: "/admin/treinos" },
-  { icon: UtensilsCrossed, label: "Dietas", path: "/admin/dietas" },
-  { icon: TrendingUp, label: "Retenção", path: "/admin/retencao" },
-  { icon: DoorOpen, label: "Catracas", path: "/admin/catracas" },
-  { icon: Building2, label: "Organização", path: "/admin/organizacao" },
-];
+type MenuItem = { icon: typeof Home; label: string; path: string };
+type MenuSection = { label: string; items: MenuItem[] };
+
+// Menu lateral reorganizado em 3 blocos claros. "Onboarding" não tem mais
+// item fixo — só é alcançado pelo banner na Home ou em Organização.
+// Studio: turmas de horário fixo e capacidade limitada — Agenda só faz
+// sentido para esse tipo de negócio.
+function buildSections({
+  ehStudio,
+  podeGerenciarEquipe,
+  alunosLabel,
+}: {
+  ehStudio: boolean;
+  podeGerenciarEquipe: boolean;
+  alunosLabel: string;
+}): MenuSection[] {
+  const operacao: MenuItem[] = [
+    { icon: Home, label: "Home (Início)", path: "/admin/dashboard" },
+    { icon: ClipboardList, label: "Atendimento (Fila)", path: "/admin" },
+    { icon: Users, label: alunosLabel, path: "/admin/alunos" },
+  ];
+  if (ehStudio) {
+    operacao.push({ icon: CalendarDays, label: "Agenda", path: "/admin/agenda" });
+  }
+
+  const sections: MenuSection[] = [{ label: "Operação", items: operacao }];
+
+  if (podeGerenciarEquipe) {
+    sections.push({
+      label: "Inteligência",
+      items: [
+        { icon: BarChart3, label: "Gestão 360°", path: "/admin/gestao-360" },
+        { icon: UsersRound, label: "Equipe", path: "/admin/equipe" },
+      ],
+    });
+  }
+
+  sections.push({
+    label: "Configurações",
+    items: [
+      { icon: Building2, label: "Organização", path: "/admin/organizacao" },
+      { icon: DoorOpen, label: "Catracas", path: "/admin/catracas" },
+    ],
+  });
+
+  return sections;
+}
 
 // Personal/nutricionista autônomo: carteira própria de alunos, sem
-// estrutura física de academia — menu simplificado, sem Catracas,
-// Organização (slug/split de academia) nem Onboarding B2B.
-const menuItemsProfissionalAutonomo = [
-  { icon: LayoutDashboard, label: "Minha Fila", path: "/admin" },
-  { icon: Users, label: "Meus Alunos", path: "/admin/alunos" },
-  { icon: Dumbbell, label: "Treinos", path: "/admin/treinos" },
-  { icon: UtensilsCrossed, label: "Dietas", path: "/admin/dietas" },
-];
-
-// Gestão de Equipe e Onboarding B2B são restritos a gestor/admin_arke —
-// professor e nutricionista não gerenciam quem entra na organização.
-const equipeItem = { icon: UsersRound, label: "Equipe", path: "/admin/equipe" };
-const onboardingItem = { icon: Rocket, label: "Onboarding", path: "/admin/onboarding" };
-const gestao360Item = { icon: BarChart3, label: "Gestão 360°", path: "/admin/gestao-360" };
-// Studio: turmas de horário fixo e capacidade limitada — grade semanal
-// própria, visível para todo o staff (não só gestor).
-const agendaItem = { icon: CalendarDays, label: "Agenda", path: "/admin/agenda" };
+// estrutura física de academia — sem Catracas, Organização (slug/split de
+// academia), Equipe nem Gestão 360°/Onboarding B2B.
+function buildSectionsProfissionalAutonomo(): MenuSection[] {
+  return [
+    {
+      label: "Operação",
+      items: [
+        { icon: Home, label: "Home (Início)", path: "/admin/dashboard" },
+        { icon: ClipboardList, label: "Atendimento (Fila)", path: "/admin" },
+        { icon: Users, label: "Meus Alunos", path: "/admin/alunos" },
+      ],
+    },
+  ];
+}
 
 function SidebarNav({
   collapsed,
@@ -52,14 +87,13 @@ function SidebarNav({
   const podeGerenciarEquipe = isAdminArke || organizationRole === "gestor";
   const ehProfissionalAutonomo = organization?.tipo === "profissional_autonomo";
   const ehStudio = organization?.tipo === "studio";
-  const base = podeGerenciarEquipe
-    ? [...menuItems.slice(0, 2), equipeItem, ...menuItems.slice(2), gestao360Item, onboardingItem]
-    : menuItems;
-  const items = ehProfissionalAutonomo
-    ? menuItemsProfissionalAutonomo
-    : ehStudio
-      ? [base[0], agendaItem, ...base.slice(1)]
-      : base;
+  const sections = ehProfissionalAutonomo
+    ? buildSectionsProfissionalAutonomo()
+    : buildSections({
+        ehStudio,
+        podeGerenciarEquipe,
+        alunosLabel: "Alunos & Prescrições",
+      });
 
   const handleNav = (path: string) => {
     navigate(path);
@@ -84,25 +118,35 @@ function SidebarNav({
         )}
       </div>
 
-      <nav className="flex-1 space-y-1 p-2 overflow-y-auto">
-        {items.map((item) => {
-          const isActive = location.pathname === item.path;
-          return (
-            <button
-              key={item.path}
-              onClick={() => handleNav(item.path)}
-              className={cn(
-                "flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all",
-                isActive
-                  ? "bg-primary text-primary-foreground"
-                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
-              )}
-            >
-              <item.icon className="h-5 w-5 shrink-0" />
-              {!collapsed && <span>{item.label}</span>}
-            </button>
-          );
-        })}
+      <nav className="flex-1 space-y-4 p-2 overflow-y-auto">
+        {sections.map((section) => (
+          <div key={section.label} className="space-y-1">
+            {!collapsed && (
+              <p className="px-3 pt-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70">
+                {section.label}
+              </p>
+            )}
+            {section.items.map((item) => {
+              const isActive = location.pathname === item.path;
+              return (
+                <button
+                  key={item.path}
+                  onClick={() => handleNav(item.path)}
+                  title={collapsed ? item.label : undefined}
+                  className={cn(
+                    "flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all",
+                    isActive
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                  )}
+                >
+                  <item.icon className="h-5 w-5 shrink-0" />
+                  {!collapsed && <span>{item.label}</span>}
+                </button>
+              );
+            })}
+          </div>
+        ))}
       </nav>
 
       <div className="border-t border-border p-2 space-y-1">
