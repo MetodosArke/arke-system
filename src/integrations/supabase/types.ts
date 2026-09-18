@@ -1783,6 +1783,7 @@ export type Database = {
           especialidade: Database["public"]["Enums"]["app_role"]
           nome: string
           organization_id: string
+          sem_gestor: boolean
           status: Database["public"]["Enums"]["org_status"]
           status_convite: string
         }[]
