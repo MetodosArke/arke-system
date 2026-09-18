@@ -1770,6 +1770,7 @@ export type Database = {
           email: string
           full_name: string
           organizacao_nome: string
+          organization_id: string
           user_id: string
         }[]
       }
