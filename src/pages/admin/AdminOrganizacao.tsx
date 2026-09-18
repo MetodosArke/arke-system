@@ -21,6 +21,12 @@ const NIVEIS: { value: Nivel; label: string }[] = [
 const EMPTY_PRECIFICACAO: Tables<"organization_planos_precificacao">[] = [];
 const EMPTY_PLANOS_ATACADO: Tables<"planos_atacado">[] = [];
 
+// Aceita tanto "39.90" quanto "39,90" digitado pelo usuário.
+function parseMoeda(valor: string): number {
+  const normalizado = Number(valor.trim().replace(",", "."));
+  return Number.isFinite(normalizado) ? normalizado : 0;
+}
+
 export default function AdminOrganizacao() {
   const { organization } = useAuth();
   const { toast } = useToast();
@@ -80,10 +86,13 @@ export default function AdminOrganizacao() {
 
   const salvarWallet = useMutation({
     mutationFn: async () => {
+      if (!organization) {
+        throw new Error("Nenhuma organização selecionada. Entre com um usuário vinculado a uma organização (gestor) para editar esses dados.");
+      }
       const { error } = await supabase
         .from("organizations")
         .update({ asaas_wallet_id: walletId || null })
-        .eq("id", organization!.id);
+        .eq("id", organization.id);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -97,15 +106,18 @@ export default function AdminOrganizacao() {
 
   const salvar = useMutation({
     mutationFn: async (nivel: Nivel) => {
+      if (!organization) {
+        throw new Error("Nenhuma organização selecionada. Entre com um usuário vinculado a uma organização (gestor) para editar a precificação.");
+      }
       const custo = planosAtacado.find((p) => p.id === nivel)?.custo_mensal ?? 0;
-      const valorVarejo = Number(valores[nivel] || 0);
+      const valorVarejo = parseMoeda(valores[nivel]);
       const markupPct = custo > 0 ? ((valorVarejo - custo) / custo) * 100 : 0;
 
       const { error } = await supabase
         .from("organization_planos_precificacao")
         .upsert(
           {
-            organization_id: organization!.id,
+            organization_id: organization.id,
             nivel_atacado: nivel,
             valor_varejo: valorVarejo,
             markup_pct: markupPct,
@@ -130,6 +142,15 @@ export default function AdminOrganizacao() {
         <h1 className="text-xl font-bold">{organization?.nome ?? "Organização"}</h1>
       </div>
 
+      {!organization && (
+        <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-600 dark:text-amber-400">
+          Nenhuma organização vinculada a este usuário. Esta tela edita a precificação e o split de
+          pagamento de uma organização específica — entre com um usuário gestor/staff vinculado a
+          uma academia (ou use o chaveador de visão para acessar como aluno de teste) para editar
+          esses dados.
+        </div>
+      )}
+
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Precificação de varejo (markup sobre o atacado ARKE)</CardTitle>
@@ -150,15 +171,14 @@ export default function AdminOrganizacao() {
                   </Label>
                   <Input
                     id={`valor-${value}`}
-                    type="number"
-                    min={0}
-                    step="0.01"
+                    type="text"
+                    inputMode="decimal"
                     value={valores[value]}
                     onChange={(e) => setValores((prev) => ({ ...prev, [value]: e.target.value }))}
-                    placeholder="Valor de varejo (R$)"
+                    placeholder="Valor de varejo (R$) — ex.: 39,90"
                   />
                 </div>
-                <Button onClick={() => salvar.mutate(value)} disabled={salvar.isPending}>
+                <Button onClick={() => salvar.mutate(value)} disabled={salvar.isPending || !organization}>
                   Salvar
                 </Button>
               </div>
@@ -187,7 +207,7 @@ export default function AdminOrganizacao() {
               placeholder="ex.: 22e49670-27e4-4579-a4f4-0dfd42b2e-000"
             />
           </div>
-          <Button onClick={() => salvarWallet.mutate()} disabled={salvarWallet.isPending}>
+          <Button onClick={() => salvarWallet.mutate()} disabled={salvarWallet.isPending || !organization}>
             Salvar
           </Button>
         </CardContent>
