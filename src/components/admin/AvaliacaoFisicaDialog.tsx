@@ -106,6 +106,7 @@ function CampoNumerico({
         type="number"
         inputMode="decimal"
         step="0.1"
+        min={0}
         value={valor}
         onChange={(e) => onChange(campo, e.target.value)}
       />
@@ -149,6 +150,13 @@ export function AvaliacaoFisicaDialog({ open, onOpenChange, alunoId, alunoNome }
     mutationFn: async () => {
       if (!alunoId || !organization) throw new Error("Aluno ou organização inválidos.");
       const numerico = (v: string) => (v.trim() ? Number(v) : null);
+      const valores = Object.values(form).map(numerico);
+      if (valores.some((v) => v != null && v < 0)) {
+        throw new Error("Nenhum valor pode ser negativo.");
+      }
+      if (form.percentual_gordura.trim() && Number(form.percentual_gordura) > 100) {
+        throw new Error("% de gordura não pode passar de 100.");
+      }
       const { error } = await supabase.from("avaliacoes_fisicas").insert({
         organization_id: organization.id,
         aluno_id: alunoId,

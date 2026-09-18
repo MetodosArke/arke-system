@@ -11,7 +11,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { CalendarDays, Plus, UserPlus, CheckCircle2, XCircle, Clock, Users } from "lucide-react";
+import { CalendarDays, Plus, UserPlus, CheckCircle2, XCircle, Clock, Users, ChevronLeft, ChevronRight } from "lucide-react";
 import type { Enums } from "@/integrations/supabase/types";
 
 type AgendamentoStatus = Enums<"agendamento_status">;
@@ -62,6 +62,13 @@ function hojeISO() {
   const hoje = new Date();
   const offset = hoje.getTimezoneOffset();
   return new Date(hoje.getTime() - offset * 60_000).toISOString().slice(0, 10);
+}
+
+function somarDias(dataISO: string, delta: number) {
+  const d = new Date(`${dataISO}T12:00:00`);
+  d.setDate(d.getDate() + delta);
+  const offset = d.getTimezoneOffset();
+  return new Date(d.getTime() - offset * 60_000).toISOString().slice(0, 10);
 }
 
 function weekdayISO(dataISO: string) {
@@ -166,6 +173,9 @@ export default function AdminAgenda() {
       if (!formTurma.nome.trim() || !capacidade || capacidade <= 0 || diasSelecionados.length === 0) {
         throw new Error("Preencha nome, capacidade e ao menos um dia da semana.");
       }
+      if (formTurma.horario_fim <= formTurma.horario_inicio) {
+        throw new Error("O horário de fim precisa ser depois do horário de início.");
+      }
       const { error } = await supabase.from("turmas").insert({
         organization_id: organization.id,
         nome: formTurma.nome.trim(),
@@ -239,12 +249,30 @@ export default function AdminAgenda() {
           <h1 className="text-xl font-bold">Agenda — Grade Semanal</h1>
         </div>
         <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="icon"
+            className="h-9 w-9"
+            title="Dia anterior"
+            onClick={() => setDataSelecionada((d) => somarDias(d, -1))}
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
           <Input
             type="date"
             value={dataSelecionada}
             onChange={(e) => setDataSelecionada(e.target.value)}
             className="w-40"
           />
+          <Button
+            variant="outline"
+            size="icon"
+            className="h-9 w-9"
+            title="Próximo dia"
+            onClick={() => setDataSelecionada((d) => somarDias(d, 1))}
+          >
+            <ChevronRight className="h-4 w-4" />
+          </Button>
           {podeGerenciar && (
             <Button size="sm" onClick={() => setNovaTurmaAberta(true)}>
               <Plus className="h-4 w-4 mr-1" /> Nova turma
@@ -310,6 +338,7 @@ export default function AdminAgenda() {
                         variant="ghost"
                         className="h-7 w-7"
                         title="Check-in"
+                        disabled={atualizarStatus.isPending && atualizarStatus.variables?.id === ag.id}
                         onClick={() => atualizarStatus.mutate({ id: ag.id, status: "presente" })}
                       >
                         <CheckCircle2 className="h-3.5 w-3.5" />
@@ -320,6 +349,7 @@ export default function AdminAgenda() {
                       variant="ghost"
                       className="h-7 w-7 text-destructive"
                       title="Cancelar"
+                      disabled={atualizarStatus.isPending && atualizarStatus.variables?.id === ag.id}
                       onClick={() => atualizarStatus.mutate({ id: ag.id, status: "cancelado" })}
                     >
                       <XCircle className="h-3.5 w-3.5" />
@@ -337,7 +367,10 @@ export default function AdminAgenda() {
                       <Button
                         size="sm"
                         variant="outline"
-                        disabled={ativos.length >= turma.capacidade_maxima}
+                        disabled={
+                          ativos.length >= turma.capacidade_maxima ||
+                          (atualizarStatus.isPending && atualizarStatus.variables?.id === ag.id)
+                        }
                         onClick={() => atualizarStatus.mutate({ id: ag.id, status: "agendado" })}
                       >
                         Promover
