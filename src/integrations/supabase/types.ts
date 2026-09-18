@@ -1189,6 +1189,35 @@ export type Database = {
       escalar_tarefas_vencidas: { Args: never; Returns: undefined }
       gerar_tarefas_ativacao_pendente: { Args: never; Returns: undefined }
       gerar_tarefas_barreira_rotina: { Args: never; Returns: undefined }
+      get_superadmin_overview: {
+        Args: never
+        Returns: {
+          academias_ativas: number
+          academias_total: number
+          alunos_ativos_global: number
+          arr_global: number
+          checkins_mapa_total: number
+          inadimplencia_pct: number
+          mrr_global: number
+          prescricoes_base_total: number
+          retencao_tenants_pct: number
+          take_rate_pct: number
+        }[]
+      }
+      get_superadmin_tenants: {
+        Args: never
+        Returns: {
+          alunos_total: number
+          assinaturas_atrasadas: number
+          created_at: string
+          mrr_organizacao: number
+          nome: string
+          organization_id: string
+          plano_b2b: Database["public"]["Enums"]["plano_b2b"]
+          slug: string
+          status: Database["public"]["Enums"]["org_status"]
+        }[]
+      }
       has_org_role: {
         Args: {
           _organization_id: string
@@ -1214,7 +1243,11 @@ export type Database = {
       }
       obter_organizacao_publica: {
         Args: { _slug: string }
-        Returns: { organization_id: string; nome: string; planos: Json }[]
+        Returns: {
+          nome: string
+          organization_id: string
+          planos: Json
+        }[]
       }
       provisionar_organizacao_padrao: { Args: never; Returns: string }
       publicar_dieta: {
@@ -1239,6 +1272,7 @@ export type Database = {
         | "professor"
         | "nutricionista"
         | "aluno"
+        | "superadmin"
       assinatura_status: "ativa" | "atrasada" | "cancelada"
       checkin_status:
         | "funcionando_bem"
@@ -1399,7 +1433,14 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["admin_arke", "gestor", "professor", "nutricionista", "aluno"],
+      app_role: [
+        "admin_arke",
+        "gestor",
+        "professor",
+        "nutricionista",
+        "aluno",
+        "superadmin",
+      ],
       assinatura_status: ["ativa", "atrasada", "cancelada"],
       checkin_status: [
         "funcionando_bem",
