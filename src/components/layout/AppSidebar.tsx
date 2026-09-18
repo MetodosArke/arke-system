@@ -41,7 +41,7 @@ function SidebarNav({
             className="text-lg font-bold tracking-wide text-primary"
             style={{ fontFamily: "'Cormorant Garamond', serif" }}
           >
-            ARKE
+            ArkeFit
           </h1>
         )}
         {onCollapse && (

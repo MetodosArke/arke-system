@@ -8,6 +8,7 @@ import { ThemeProvider } from "@/contexts/ThemeContext";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { NetworkStatusBanner } from "@/components/NetworkStatusBanner";
+import { ImpersonationBanner } from "@/components/ImpersonationBanner";
 import { resolveHomePath } from "@/lib/authRouting";
 
 // Auth pages
@@ -29,6 +30,7 @@ import Onboarding from "@/pages/app/Onboarding";
 // Staff pages (gestor / professor / nutricionista / admin_arke)
 import AdminDashboard from "@/pages/admin/AdminDashboard";
 import AdminAlunos from "@/pages/admin/AdminAlunos";
+import AdminEquipe from "@/pages/admin/AdminEquipe";
 import AdminOrganizacao from "@/pages/admin/AdminOrganizacao";
 import AdminTreinos from "@/pages/admin/AdminTreinos";
 import AdminDietas from "@/pages/admin/AdminDietas";
@@ -109,6 +111,7 @@ const App = () => (
           <Toaster />
           <Sonner />
           <NetworkStatusBanner />
+          <ImpersonationBanner />
           <HashRouter>
             <Routes>
               <Route path="/" element={<RootRedirect />} />
@@ -156,6 +159,7 @@ const App = () => (
               >
                 <Route index element={<AdminDashboard />} />
                 <Route path="alunos" element={<AdminAlunos />} />
+                <Route path="equipe" element={<AdminEquipe />} />
                 <Route path="treinos" element={<AdminTreinos />} />
                 <Route path="dietas" element={<AdminDietas />} />
                 <Route path="retencao" element={<AdminRetencao />} />

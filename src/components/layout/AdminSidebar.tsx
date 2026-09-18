@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { LayoutDashboard, Users, Building2, LogOut, ChevronLeft, Menu, Dumbbell, UtensilsCrossed, TrendingUp, UserCircle } from "lucide-react";
+import { LayoutDashboard, Users, UsersRound, Building2, LogOut, ChevronLeft, Menu, Dumbbell, UtensilsCrossed, TrendingUp, UserCircle } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
@@ -16,6 +16,10 @@ const menuItems = [
   { icon: Building2, label: "Organização", path: "/admin/organizacao" },
 ];
 
+// Gestão de Equipe é restrita a gestor/admin_arke — professor e
+// nutricionista não gerenciam quem entra na organização.
+const equipeItem = { icon: UsersRound, label: "Equipe", path: "/admin/equipe" };
+
 function SidebarNav({
   collapsed,
   onCollapse,
@@ -27,8 +31,10 @@ function SidebarNav({
 }) {
   const location = useLocation();
   const navigate = useNavigate();
-  const { signOut, hasRole } = useAuth();
+  const { signOut, hasRole, organizationRole } = useAuth();
   const isAdminArke = hasRole("admin_arke");
+  const podeGerenciarEquipe = isAdminArke || organizationRole === "gestor";
+  const items = podeGerenciarEquipe ? [...menuItems.slice(0, 2), equipeItem, ...menuItems.slice(2)] : menuItems;
 
   const handleNav = (path: string) => {
     navigate(path);
@@ -43,7 +49,7 @@ function SidebarNav({
             className="text-lg font-bold tracking-wide text-primary"
             style={{ fontFamily: "'Cormorant Garamond', serif" }}
           >
-            ARKE
+            ArkeFit
           </h1>
         )}
         {onCollapse && (
@@ -54,7 +60,7 @@ function SidebarNav({
       </div>
 
       <nav className="flex-1 space-y-1 p-2 overflow-y-auto">
-        {menuItems.map((item) => {
+        {items.map((item) => {
           const isActive = location.pathname === item.path;
           return (
             <button

@@ -28,44 +28,13 @@ function parseMoeda(valor: string): number {
 }
 
 export default function AdminOrganizacao() {
-  const { organization, rolesLoaded, hasRole, refreshOrganization } = useAuth();
+  // Provisionamento automático da organização padrão para admin_arke sem
+  // organização vinculada acontece em AdminLayout, compartilhado por todas
+  // as telas de /admin — aqui só resta tratar o caso (fora de homologação)
+  // de um usuário sem admin_arke e sem organização.
+  const { organization, hasRole } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-
-  // Super Admin (admin_arke) é um papel global, sem organização própria —
-  // mas esta tela edita precificação/split de UMA organização específica.
-  // Provisiona (de forma idempotente, no banco) uma organização padrão de
-  // homologação e vincula o admin_arke a ela como gestor, para que a
-  // homologação ponta a ponta não fique bloqueada por falta de organização.
-  const provisionarOrganizacao = useMutation({
-    mutationFn: async () => {
-      const { error } = await supabase.rpc("provisionar_organizacao_padrao");
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      void refreshOrganization();
-    },
-    onError: (error: Error) => {
-      toast({
-        title: "Não foi possível provisionar a organização padrão",
-        description: error.message,
-        variant: "destructive",
-      });
-    },
-  });
-
-  useEffect(() => {
-    if (
-      rolesLoaded &&
-      !organization &&
-      hasRole("admin_arke") &&
-      !provisionarOrganizacao.isPending &&
-      !provisionarOrganizacao.isSuccess
-    ) {
-      provisionarOrganizacao.mutate();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rolesLoaded, organization, hasRole]);
 
   const { data: planosAtacado = EMPTY_PLANOS_ATACADO } = useQuery({
     queryKey: ["planos-atacado"],
@@ -177,13 +146,7 @@ export default function AdminOrganizacao() {
         <h1 className="text-xl font-bold">{organization?.nome ?? "Organização"}</h1>
       </div>
 
-      {!organization && provisionarOrganizacao.isPending && (
-        <div className="rounded-lg border border-primary/30 bg-primary/10 px-4 py-3 text-sm text-primary">
-          Provisionando organização padrão de homologação ("Academia Piloto")...
-        </div>
-      )}
-
-      {!organization && !provisionarOrganizacao.isPending && !hasRole("admin_arke") && (
+      {!organization && !hasRole("admin_arke") && (
         <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-600 dark:text-amber-400">
           Nenhuma organização vinculada a este usuário. Esta tela edita a precificação e o split de
           pagamento de uma organização específica — entre com um usuário gestor/staff vinculado a
