@@ -6,6 +6,18 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+// Todo erro de negócio volta com HTTP 200 e `{ error }` no corpo, nunca um
+// status não-2xx: supabase-js `functions.invoke` só expõe o corpo em `data`
+// numa resposta 2xx — num não-2xx ele descarta o corpo e troca `error` por
+// um FunctionsHttpError genérico ("Edge Function returned a non-2xx status
+// code"), escondendo o motivo real (ex.: o bloqueio do trigger
+// prevent_remover_ultimo_gestor numa tentativa de excluir_organizacao).
+const errorResponse = (mensagem: string) =>
+  new Response(JSON.stringify({ error: mensagem }), {
+    status: 200,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+
 const jsonResponse = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
     status,
@@ -34,12 +46,12 @@ Deno.serve(async (req: Request) => {
     return new Response("ok", { headers: corsHeaders });
   }
   if (req.method !== "POST") {
-    return jsonResponse({ error: "Method not allowed" }, 405);
+    return errorResponse("Method not allowed");
   }
 
   const authHeader = req.headers.get("Authorization");
   if (!authHeader?.startsWith("Bearer ")) {
-    return jsonResponse({ error: "Sessão inválida. Faça login novamente." }, 401);
+    return errorResponse("Sessão inválida. Faça login novamente.");
   }
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
@@ -48,7 +60,7 @@ Deno.serve(async (req: Request) => {
 
   if (!supabaseUrl || !anonKey || !serviceRoleKey) {
     console.error("Missing required Supabase environment variables");
-    return jsonResponse({ error: "Configuração do servidor incompleta." }, 500);
+    return errorResponse("Configuração do servidor incompleta.");
   }
 
   try {
@@ -57,12 +69,12 @@ Deno.serve(async (req: Request) => {
     const acao = payload.acao;
     const novoEmail = payload.novo_email?.trim().toLowerCase();
 
-    if (!organizationId) return jsonResponse({ error: "organization_id é obrigatório." }, 400);
+    if (!organizationId) return errorResponse("organization_id é obrigatório.");
     if (!acao || !ACOES_VALIDAS.has(acao)) {
-      return jsonResponse({ error: "Ação inválida." }, 400);
+      return errorResponse("Ação inválida.");
     }
     if (acao === "alterar_email_gestor" && (!novoEmail || !EMAIL_RE.test(novoEmail))) {
-      return jsonResponse({ error: "Novo e-mail do gestor inválido." }, 400);
+      return errorResponse("Novo e-mail do gestor inválido.");
     }
 
     const asUser = createClient(supabaseUrl, anonKey, {
@@ -72,7 +84,7 @@ Deno.serve(async (req: Request) => {
     const { data: claimsData, error: claimsError } = await asUser.auth.getClaims(token);
     const callerId = typeof claimsData?.claims?.sub === "string" ? claimsData.claims.sub : null;
     if (claimsError || !callerId) {
-      return jsonResponse({ error: "Sessão inválida. Faça login novamente." }, 401);
+      return errorResponse("Sessão inválida. Faça login novamente.");
     }
 
     const adminClient = createClient(supabaseUrl, serviceRoleKey);
@@ -83,11 +95,11 @@ Deno.serve(async (req: Request) => {
       .eq("user_id", callerId);
     if (callerRolesError) {
       console.error("Error loading caller roles", callerRolesError);
-      return jsonResponse({ error: "Erro ao validar permissões." }, 500);
+      return errorResponse("Erro ao validar permissões.");
     }
     const callerIsSuperadmin = (callerRoles ?? []).some((r) => r.role === "superadmin");
     if (!callerIsSuperadmin) {
-      return jsonResponse({ error: "Apenas o Super Admin ArkeFit pode executar ações de suporte." }, 403);
+      return errorResponse("Apenas o Super Admin ArkeFit pode executar ações de suporte.");
     }
 
     if (acao === "resetar_token_gateway") {
@@ -96,7 +108,7 @@ Deno.serve(async (req: Request) => {
       });
       if (resetError) {
         console.error("Error resetting gateway tokens", resetError);
-        return jsonResponse({ error: "Erro ao resetar o token do gateway." }, 500);
+        return errorResponse("Erro ao resetar o token do gateway.");
       }
       return jsonResponse({ success: true, catracas_resetadas: qtd ?? 0 });
     }
@@ -118,10 +130,10 @@ Deno.serve(async (req: Request) => {
         .maybeSingle();
       if (deleteError) {
         console.error("Error deleting organization", deleteError);
-        return jsonResponse({ error: "Erro ao excluir a organização." }, 500);
+        return errorResponse(deleteError.message || "Erro ao excluir a organização.");
       }
       if (!deletada) {
-        return jsonResponse({ error: "Organização não encontrada." }, 404);
+        return errorResponse("Organização não encontrada.");
       }
       return jsonResponse({ success: true });
     }
@@ -138,10 +150,10 @@ Deno.serve(async (req: Request) => {
       .maybeSingle();
     if (gestorError) {
       console.error("Error loading gestor", gestorError);
-      return jsonResponse({ error: "Erro ao localizar o gestor da organização." }, 500);
+      return errorResponse("Erro ao localizar o gestor da organização.");
     }
     if (!gestorMembership) {
-      return jsonResponse({ error: "Nenhum gestor ativo encontrado nesta organização." }, 404);
+      return errorResponse("Nenhum gestor ativo encontrado nesta organização.");
     }
 
     const { error: emailError } = await adminClient.auth.admin.updateUserById(gestorMembership.user_id, {
@@ -151,15 +163,12 @@ Deno.serve(async (req: Request) => {
     if (emailError) {
       console.error("Error updating gestor email", emailError);
       const jaExiste = emailError.message?.toLowerCase().includes("already been registered");
-      return jsonResponse(
-        { error: jaExiste ? "Já existe um usuário cadastrado com esse e-mail." : emailError.message },
-        jaExiste ? 409 : 400
-      );
+      return errorResponse(jaExiste ? "Já existe um usuário cadastrado com esse e-mail." : emailError.message);
     }
 
     return jsonResponse({ success: true });
   } catch (error) {
     console.error("Unexpected error in superadmin-suporte-tenant", error);
-    return jsonResponse({ error: "Erro inesperado ao executar a ação de suporte." }, 500);
+    return errorResponse("Erro inesperado ao executar a ação de suporte.");
   }
 });
