@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useAppSidebar } from "./AppLayout";
-import { Home, User, LogOut, ChevronLeft, Menu, Dumbbell, UtensilsCrossed } from "lucide-react";
+import { Home, User, LogOut, ChevronLeft, Menu, Dumbbell, UtensilsCrossed, LayoutDashboard } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
@@ -25,7 +25,8 @@ function SidebarNav({
 }) {
   const location = useLocation();
   const navigate = useNavigate();
-  const { signOut } = useAuth();
+  const { signOut, hasRole } = useAuth();
+  const isAdminArke = hasRole("admin_arke");
 
   const handleNav = (path: string) => {
     navigate(path);
@@ -71,7 +72,17 @@ function SidebarNav({
         })}
       </nav>
 
-      <div className="border-t border-border p-2">
+      <div className="border-t border-border p-2 space-y-1">
+        {isAdminArke && (
+          <button
+            onClick={() => handleNav("/admin")}
+            className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+            title="Voltar ao painel de gestão"
+          >
+            <LayoutDashboard className="h-5 w-5 shrink-0" />
+            {!collapsed && <span>Painel de Gestão</span>}
+          </button>
+        )}
         <button
           onClick={signOut}
           className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors"

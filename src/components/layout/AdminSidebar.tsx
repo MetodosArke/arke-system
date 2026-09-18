@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { LayoutDashboard, Users, Building2, LogOut, ChevronLeft, Menu, Dumbbell, UtensilsCrossed, TrendingUp } from "lucide-react";
+import { LayoutDashboard, Users, Building2, LogOut, ChevronLeft, Menu, Dumbbell, UtensilsCrossed, TrendingUp, UserCircle } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
@@ -27,7 +27,8 @@ function SidebarNav({
 }) {
   const location = useLocation();
   const navigate = useNavigate();
-  const { signOut } = useAuth();
+  const { signOut, hasRole } = useAuth();
+  const isAdminArke = hasRole("admin_arke");
 
   const handleNav = (path: string) => {
     navigate(path);
@@ -73,7 +74,17 @@ function SidebarNav({
         })}
       </nav>
 
-      <div className="border-t border-border p-2">
+      <div className="border-t border-border p-2 space-y-1">
+        {isAdminArke && (
+          <button
+            onClick={() => handleNav("/app")}
+            className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+            title="Alternar para a visão do aluno (testes de homologação)"
+          >
+            <UserCircle className="h-5 w-5 shrink-0" />
+            {!collapsed && <span>Visão do Aluno</span>}
+          </button>
+        )}
         <button
           onClick={signOut}
           className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors"
