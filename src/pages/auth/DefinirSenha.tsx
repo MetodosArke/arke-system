@@ -35,7 +35,7 @@ export default function DefinirSenha() {
   const [showPassword, setShowPassword] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { updatePassword, refreshOrganization, roles, organizationRole, rolesLoaded } = useAuth();
+  const { updatePassword, refreshOrganization, roles, organizationRole, organization, rolesLoaded } = useAuth();
 
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
@@ -79,9 +79,9 @@ export default function DefinirSenha() {
 
   useEffect(() => {
     if (status === "concluido" && rolesLoaded) {
-      navigate(resolveHomePath(roles, organizationRole), { replace: true });
+      navigate(resolveHomePath(roles, organizationRole, organization?.tipo), { replace: true });
     }
-  }, [status, rolesLoaded, roles, organizationRole, navigate]);
+  }, [status, rolesLoaded, roles, organizationRole, organization, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
