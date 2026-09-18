@@ -36,9 +36,13 @@ export async function startImpersonation(targetUserId: string): Promise<{ error:
   };
   sessionStorage.setItem(STORAGE_KEY, JSON.stringify(backup));
 
+  // VerifyTokenHashParams aceita SOMENTE { type, token_hash } — incluir
+  // `email` junto (como este código fazia) faz o próprio servidor do
+  // Supabase Auth rejeitar com "Only the token_hash and type should be
+  // provided" (o TS não pega isso: excess-property-check em union types é
+  // permissivo o bastante para deixar passar uma combinação inválida).
   const { error: verifyError } = await supabase.auth.verifyOtp({
     type: "magiclink",
-    email: data.email,
     token_hash: data.token_hash,
   });
   if (verifyError) {

@@ -180,7 +180,11 @@ export default function SuperAdminDashboard() {
     },
   });
 
-  const { data: tenants = [], isLoading: isLoadingTenants } = useQuery({
+  const {
+    data: tenants = [],
+    isLoading: isLoadingTenants,
+    error: erroTenants,
+  } = useQuery({
     queryKey: ["superadmin-tenants"],
     queryFn: async () => {
       const { data, error } = await supabase.rpc("get_superadmin_tenants");
@@ -635,7 +639,14 @@ export default function SuperAdminDashboard() {
                 </tr>
               </thead>
               <tbody>
-                {!isLoadingTenants && tenantsFiltrados.length === 0 && (
+                {erroTenants && (
+                  <tr>
+                    <td colSpan={9} className="p-4 text-center text-destructive">
+                      Não foi possível carregar a lista de tenants: {(erroTenants as Error).message}
+                    </td>
+                  </tr>
+                )}
+                {!isLoadingTenants && !erroTenants && tenantsFiltrados.length === 0 && (
                   <tr>
                     <td colSpan={9} className="p-4 text-center text-muted-foreground">
                       {tenants.length === 0
