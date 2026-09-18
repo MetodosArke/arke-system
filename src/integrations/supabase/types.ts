@@ -23,6 +23,7 @@ export type Database = {
           id: string
           organization_id: string
           resultado: string
+          validado_offline: boolean
         }
         Insert: {
           aluno_id?: string | null
@@ -32,6 +33,7 @@ export type Database = {
           id?: string
           organization_id: string
           resultado: string
+          validado_offline?: boolean
         }
         Update: {
           aluno_id?: string | null
@@ -41,6 +43,7 @@ export type Database = {
           id?: string
           organization_id?: string
           resultado?: string
+          validado_offline?: boolean
         }
         Relationships: [
           {

@@ -45,7 +45,7 @@ export default function AdminCatracas() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("acessos_catraca_logs")
-        .select("id, resultado, cpf_consultado, created_at, organizacao_catracas(nome)")
+        .select("id, resultado, cpf_consultado, created_at, validado_offline, organizacao_catracas(nome)")
         .eq("organization_id", organization!.id)
         .order("created_at", { ascending: false })
         .limit(20);
@@ -260,7 +260,12 @@ export default function AdminCatracas() {
                     {new Date(log.created_at).toLocaleString("pt-BR")}
                   </p>
                 </div>
-                <Badge variant={info.variant}>{info.label}</Badge>
+                <div className="flex items-center gap-1.5">
+                  {log.validado_offline && (
+                    <Badge variant="outline" className="text-[10px]">Offline</Badge>
+                  )}
+                  <Badge variant={info.variant}>{info.label}</Badge>
+                </div>
               </div>
             );
           })}
