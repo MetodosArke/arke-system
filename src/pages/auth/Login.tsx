@@ -17,7 +17,7 @@ export default function Login() {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const { signIn, roles, organizationRole, isAuthenticated, rolesLoaded } = useAuth();
+  const { signIn, roles, organizationRole, organization, isAuthenticated, rolesLoaded } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -27,9 +27,9 @@ export default function Login() {
   // Redirect based on role after authentication
   useEffect(() => {
     if (isAuthenticated && rolesLoaded) {
-      navigate(resolveHomePath(roles, organizationRole), { replace: true });
+      navigate(resolveHomePath(roles, organizationRole, organization?.tipo), { replace: true });
     }
-  }, [isAuthenticated, rolesLoaded, roles, organizationRole, navigate]);
+  }, [isAuthenticated, rolesLoaded, roles, organizationRole, organization, navigate]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();

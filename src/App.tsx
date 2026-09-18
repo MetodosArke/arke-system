@@ -107,7 +107,7 @@ function AlunoOnboardingGate({ children }: { children: React.ReactNode }) {
 // painel correspondente ao seu papel (admin_arke/gestor/professor/
 // nutricionista → /admin, aluno → /app).
 function RootRedirect() {
-  const { isAuthenticated, isLoading, roles, organizationRole, rolesLoaded } = useAuth();
+  const { isAuthenticated, isLoading, roles, organizationRole, organization, rolesLoaded } = useAuth();
 
   if (isLoading || (isAuthenticated && !rolesLoaded)) {
     return (
@@ -121,7 +121,7 @@ function RootRedirect() {
     return <Navigate to="/auth/login" replace />;
   }
 
-  return <Navigate to={resolveHomePath(roles, organizationRole)} replace />;
+  return <Navigate to={resolveHomePath(roles, organizationRole, organization?.tipo)} replace />;
 }
 
 const App = () => (
