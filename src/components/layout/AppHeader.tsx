@@ -1,4 +1,4 @@
-import { Moon, Sun } from "lucide-react";
+import { LogOut, Moon, Sun } from "lucide-react";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -9,7 +9,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 
 export function AppHeader({ title }: { title?: string }) {
   const { theme, toggleTheme } = useTheme();
-  const { profile } = useAuth();
+  const { profile, signOut } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const isAdmin = location.pathname.startsWith("/admin");
@@ -54,9 +54,21 @@ export function AppHeader({ title }: { title?: string }) {
         </button>
       </div>
 
-      <Button variant="ghost" size="icon" onClick={toggleTheme} className="h-8 w-8 sm:h-9 sm:w-9">
-        {theme === "dark" ? <Sun className="h-4 w-4 sm:h-5 sm:w-5" /> : <Moon className="h-4 w-4 sm:h-5 sm:w-5" />}
-      </Button>
+      <div className="flex items-center gap-1">
+        <Button variant="ghost" size="icon" onClick={toggleTheme} className="h-8 w-8 sm:h-9 sm:w-9">
+          {theme === "dark" ? <Sun className="h-4 w-4 sm:h-5 sm:w-5" /> : <Moon className="h-4 w-4 sm:h-5 sm:w-5" />}
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={signOut}
+          aria-label="Sair"
+          title="Sair"
+          className="h-8 w-8 sm:h-9 sm:w-9 text-muted-foreground hover:text-destructive"
+        >
+          <LogOut className="h-4 w-4 sm:h-5 sm:w-5" />
+        </Button>
+      </div>
     </header>
   );
 }
