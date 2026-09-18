@@ -900,6 +900,7 @@ export type Database = {
           responsavel_id: string | null
           sla_prazo: string
           status: Database["public"]["Enums"]["tarefa_status"]
+          tipo: Database["public"]["Enums"]["tarefa_tipo"]
           updated_at: string
         }
         Insert: {
@@ -917,6 +918,7 @@ export type Database = {
           responsavel_id?: string | null
           sla_prazo: string
           status?: Database["public"]["Enums"]["tarefa_status"]
+          tipo?: Database["public"]["Enums"]["tarefa_tipo"]
           updated_at?: string
         }
         Update: {
@@ -934,6 +936,7 @@ export type Database = {
           responsavel_id?: string | null
           sla_prazo?: string
           status?: Database["public"]["Enums"]["tarefa_status"]
+          tipo?: Database["public"]["Enums"]["tarefa_tipo"]
           updated_at?: string
         }
         Relationships: [
@@ -1179,6 +1182,13 @@ export type Database = {
         | "aguardando"
         | "concluida"
         | "cancelada"
+      tarefa_tipo:
+        | "ativacao"
+        | "anamnese"
+        | "dor"
+        | "barreira"
+        | "ajuste"
+        | "outro"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1335,6 +1345,14 @@ export const Constants = {
         "aguardando",
         "concluida",
         "cancelada",
+      ],
+      tarefa_tipo: [
+        "ativacao",
+        "anamnese",
+        "dor",
+        "barreira",
+        "ajuste",
+        "outro",
       ],
     },
   },

@@ -10,8 +10,15 @@ import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
 import { UtensilsCrossed, Plus, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+
+const STATUS_DIETA_LABEL: Record<string, string> = {
+  ativo: "Ativo",
+  inativo: "Inativo",
+  concluido: "Concluído",
+};
 
 export default function AdminDietas() {
   const { organization } = useAuth();
@@ -73,6 +80,20 @@ export default function AdminDietas() {
     enabled: !!organization?.id,
   });
 
+  const { data: historico = [] } = useQuery({
+    queryKey: ["dietas-historico", alunoPublicar],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("dietas")
+        .select("id, titulo, status, versao_id, created_at")
+        .eq("aluno_id", alunoPublicar)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!alunoPublicar,
+  });
+
   const criarModelo = useMutation({
     mutationFn: async () => {
       if (!organization) throw new Error("Organização não encontrada");
@@ -132,6 +153,7 @@ export default function AdminDietas() {
     onSuccess: () => {
       toast({ title: "Dieta publicada!", description: "O snapshot foi congelado e já está disponível para o aluno." });
       setTituloPublicar("");
+      void queryClient.invalidateQueries({ queryKey: ["dietas-historico", alunoPublicar] });
     },
     onError: (error: Error) => toast({ title: "Erro ao publicar", description: error.message, variant: "destructive" }),
   });
@@ -279,6 +301,50 @@ export default function AdminDietas() {
               </Button>
             </CardContent>
           </Card>
+
+          {alunoPublicar && (
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base">Histórico de versões</CardTitle>
+                <p className="text-xs text-muted-foreground">
+                  Cada publicação gera uma versão travada (snapshot imutável) — o histórico abaixo é só
+                  para consulta e rastreabilidade; versões antigas não podem ser editadas.
+                </p>
+              </CardHeader>
+              <CardContent>
+                {historico.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">Nenhuma dieta publicada para este aluno ainda.</p>
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Título</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Publicado em</TableHead>
+                        <TableHead>Versão</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {historico.map((h) => (
+                        <TableRow key={h.id}>
+                          <TableCell>{h.titulo}</TableCell>
+                          <TableCell>
+                            <Badge variant={h.status === "ativo" ? "default" : "outline"}>
+                              {STATUS_DIETA_LABEL[h.status ?? ""] ?? h.status}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>{new Date(h.created_at).toLocaleDateString("pt-BR")}</TableCell>
+                          <TableCell className="font-mono text-xs text-muted-foreground">
+                            {h.versao_id.slice(0, 8)}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                )}
+              </CardContent>
+            </Card>
+          )}
         </TabsContent>
       </Tabs>
     </div>
