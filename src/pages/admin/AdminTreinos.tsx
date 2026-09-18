@@ -31,7 +31,7 @@ export default function AdminTreinos() {
 
   const [novoModeloTitulo, setNovoModeloTitulo] = useState("");
   const [modeloSelecionado, setModeloSelecionado] = useState<string | null>(null);
-  const [novoExercicio, setNovoExercicio] = useState({ nome_exercicio: "", series: "3", repeticoes: "12", descanso_seg: "60", observacoes: "" });
+  const [novoExercicio, setNovoExercicio] = useState({ nome_exercicio: "", series: "3", repeticoes: "12", descanso_seg: "60", observacoes: "", video_url: "" });
 
   const [abaAtiva, setAbaAtiva] = useState(alunoIdFromNav ? "publicar" : "biblioteca");
   const [alunoPublicar, setAlunoPublicar] = useState<string>(alunoIdFromNav ?? "");
@@ -190,11 +190,12 @@ export default function AdminTreinos() {
         repeticoes: novoExercicio.repeticoes,
         descanso_seg: Number(novoExercicio.descanso_seg) || 60,
         observacoes: novoExercicio.observacoes || null,
+        video_url: novoExercicio.video_url || null,
       });
       if (error) throw error;
     },
     onSuccess: () => {
-      setNovoExercicio({ nome_exercicio: "", series: "3", repeticoes: "12", descanso_seg: "60", observacoes: "" });
+      setNovoExercicio({ nome_exercicio: "", series: "3", repeticoes: "12", descanso_seg: "60", observacoes: "", video_url: "" });
       void queryClient.invalidateQueries({ queryKey: ["modelo-treino-exercicios", modeloSelecionado] });
     },
     onError: (error: Error) => toast({ title: "Erro ao adicionar exercício", description: error.message, variant: "destructive" }),
@@ -322,6 +323,12 @@ export default function AdminTreinos() {
                     placeholder="Descanso (s)"
                     value={novoExercicio.descanso_seg}
                     onChange={(e) => setNovoExercicio((p) => ({ ...p, descanso_seg: e.target.value }))}
+                  />
+                  <Input
+                    className="col-span-2 sm:col-span-4"
+                    placeholder="Link do vídeo de execução (opcional)"
+                    value={novoExercicio.video_url}
+                    onChange={(e) => setNovoExercicio((p) => ({ ...p, video_url: e.target.value }))}
                   />
                 </div>
                 <Button

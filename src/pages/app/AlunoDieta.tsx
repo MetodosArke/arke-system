@@ -1,18 +1,29 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { UtensilsCrossed } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Badge } from "@/components/ui/badge";
+import { UtensilsCrossed, Flame } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 interface RefeicaoSnapshot {
   ordem: number;
   nome_refeicao: string;
   horario_sugerido: string | null;
   itens: string | null;
+  calorias_kcal: number | null;
+  proteinas_g: number | null;
+  carboidratos_g: number | null;
+  gorduras_g: number | null;
 }
 
+const HOJE = new Date().toISOString().slice(0, 10);
+
 export default function AlunoDieta() {
-  const { alunoId } = useAuth();
+  const { alunoId, organization } = useAuth();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   const { data: aluno } = useQuery({
     queryKey: ["aluno-nivel", alunoId],
@@ -39,7 +50,58 @@ export default function AlunoDieta() {
     enabled: !!alunoId && aluno?.nivel_atacado !== "essencial",
   });
 
+  const { data: habitoHoje } = useQuery({
+    queryKey: ["aluno-habito-hoje", alunoId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("registro_habito")
+        .select("*")
+        .eq("aluno_id", alunoId!)
+        .eq("data", HOJE)
+        .maybeSingle();
+      return data;
+    },
+    enabled: !!alunoId,
+  });
+
+  const refeicoesConcluidas = habitoHoje?.refeicoes_concluidas ?? [];
+
+  const marcarRefeicao = useMutation({
+    mutationFn: async (ordem: number) => {
+      if (!alunoId || !organization) throw new Error("Cadastro de aluno não encontrado");
+      const jaMarcada = refeicoesConcluidas.includes(ordem);
+      const novaLista = jaMarcada
+        ? refeicoesConcluidas.filter((o) => o !== ordem)
+        : [...refeicoesConcluidas, ordem];
+      const { error } = await supabase.from("registro_habito").upsert(
+        {
+          organization_id: organization.id,
+          aluno_id: alunoId,
+          data: HOJE,
+          refeicoes_concluidas: novaLista,
+        },
+        { onConflict: "aluno_id,data" }
+      );
+      if (error) throw error;
+    },
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["aluno-habito-hoje", alunoId] }),
+    onError: (error: Error) => {
+      toast({ title: "Não foi possível atualizar", description: error.message, variant: "destructive" });
+    },
+  });
+
   const refeicoes = (dieta?.snapshot_conteudo as unknown as RefeicaoSnapshot[] | null) ?? [];
+
+  const totais = refeicoes.reduce(
+    (acc, r) => ({
+      kcal: acc.kcal + (r.calorias_kcal ?? 0),
+      proteina: acc.proteina + (r.proteinas_g ?? 0),
+      carbo: acc.carbo + (r.carboidratos_g ?? 0),
+      gordura: acc.gordura + (r.gorduras_g ?? 0),
+    }),
+    { kcal: 0, proteina: 0, carbo: 0, gordura: 0 }
+  );
+  const temMacros = refeicoes.some((r) => r.calorias_kcal || r.proteinas_g || r.carboidratos_g || r.gorduras_g);
 
   if (aluno?.nivel_atacado === "essencial") {
     return (
@@ -75,22 +137,74 @@ export default function AlunoDieta() {
       )}
 
       {dieta && (
-        <Card>
-          <CardHeader>
-            <CardTitle>{dieta.titulo}</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {refeicoes.map((r) => (
-              <div key={r.ordem} className="border-b border-border pb-3 last:border-0">
-                <div className="flex items-center justify-between">
-                  <p className="font-semibold">{r.nome_refeicao}</p>
-                  {r.horario_sugerido && <span className="text-xs text-muted-foreground">{r.horario_sugerido}</span>}
+        <>
+          {temMacros && (
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <Flame className="h-4 w-4 text-primary" /> Macronutrientes do dia
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="grid grid-cols-4 gap-2 text-center">
+                <div>
+                  <p className="text-lg font-bold">{Math.round(totais.kcal)}</p>
+                  <p className="text-xs text-muted-foreground">kcal</p>
                 </div>
-                {r.itens && <p className="text-sm text-muted-foreground mt-1 whitespace-pre-line">{r.itens}</p>}
-              </div>
-            ))}
-          </CardContent>
-        </Card>
+                <div>
+                  <p className="text-lg font-bold">{Math.round(totais.proteina)}g</p>
+                  <p className="text-xs text-muted-foreground">Proteína</p>
+                </div>
+                <div>
+                  <p className="text-lg font-bold">{Math.round(totais.carbo)}g</p>
+                  <p className="text-xs text-muted-foreground">Carbo</p>
+                </div>
+                <div>
+                  <p className="text-lg font-bold">{Math.round(totais.gordura)}g</p>
+                  <p className="text-xs text-muted-foreground">Gordura</p>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          <Card>
+            <CardHeader>
+              <CardTitle>{dieta.titulo}</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {refeicoes.map((r) => {
+                const marcada = refeicoesConcluidas.includes(r.ordem);
+                return (
+                  <div key={r.ordem} className="border-b border-border pb-3 last:border-0">
+                    <div className="flex items-start gap-2.5">
+                      <Checkbox
+                        checked={marcada}
+                        onCheckedChange={() => marcarRefeicao.mutate(r.ordem)}
+                        className="mt-1"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between">
+                          <p className={`font-semibold ${marcada ? "line-through text-muted-foreground" : ""}`}>
+                            {r.nome_refeicao}
+                          </p>
+                          {r.horario_sugerido && <span className="text-xs text-muted-foreground">{r.horario_sugerido}</span>}
+                        </div>
+                        {r.itens && <p className="text-sm text-muted-foreground mt-1 whitespace-pre-line">{r.itens}</p>}
+                        {(r.calorias_kcal || r.proteinas_g || r.carboidratos_g || r.gorduras_g) && (
+                          <div className="flex flex-wrap gap-1.5 mt-1.5">
+                            {r.calorias_kcal != null && <Badge variant="secondary">{r.calorias_kcal} kcal</Badge>}
+                            {r.proteinas_g != null && <Badge variant="secondary">{r.proteinas_g}g prot.</Badge>}
+                            {r.carboidratos_g != null && <Badge variant="secondary">{r.carboidratos_g}g carbo</Badge>}
+                            {r.gorduras_g != null && <Badge variant="secondary">{r.gorduras_g}g gord.</Badge>}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </CardContent>
+          </Card>
+        </>
       )}
     </div>
   );

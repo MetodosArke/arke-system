@@ -32,7 +32,15 @@ export default function AdminDietas() {
 
   const [novoModeloTitulo, setNovoModeloTitulo] = useState("");
   const [modeloSelecionado, setModeloSelecionado] = useState<string | null>(null);
-  const [novaRefeicao, setNovaRefeicao] = useState({ nome_refeicao: "", horario_sugerido: "", itens: "" });
+  const [novaRefeicao, setNovaRefeicao] = useState({
+    nome_refeicao: "",
+    horario_sugerido: "",
+    itens: "",
+    calorias_kcal: "",
+    proteinas_g: "",
+    carboidratos_g: "",
+    gorduras_g: "",
+  });
 
   const [abaAtiva, setAbaAtiva] = useState(alunoIdFromNav ? "publicar" : "biblioteca");
   const [alunoPublicar, setAlunoPublicar] = useState<string>(alunoIdFromNav ?? "");
@@ -188,11 +196,23 @@ export default function AdminDietas() {
         nome_refeicao: novaRefeicao.nome_refeicao,
         horario_sugerido: novaRefeicao.horario_sugerido || null,
         itens: novaRefeicao.itens || null,
+        calorias_kcal: novaRefeicao.calorias_kcal ? Number(novaRefeicao.calorias_kcal) : null,
+        proteinas_g: novaRefeicao.proteinas_g ? Number(novaRefeicao.proteinas_g) : null,
+        carboidratos_g: novaRefeicao.carboidratos_g ? Number(novaRefeicao.carboidratos_g) : null,
+        gorduras_g: novaRefeicao.gorduras_g ? Number(novaRefeicao.gorduras_g) : null,
       });
       if (error) throw error;
     },
     onSuccess: () => {
-      setNovaRefeicao({ nome_refeicao: "", horario_sugerido: "", itens: "" });
+      setNovaRefeicao({
+        nome_refeicao: "",
+        horario_sugerido: "",
+        itens: "",
+        calorias_kcal: "",
+        proteinas_g: "",
+        carboidratos_g: "",
+        gorduras_g: "",
+      });
       void queryClient.invalidateQueries({ queryKey: ["modelo-dieta-refeicoes", modeloSelecionado] });
     },
     onError: (error: Error) => toast({ title: "Erro ao adicionar refeição", description: error.message, variant: "destructive" }),
@@ -279,6 +299,7 @@ export default function AdminDietas() {
                       <TableHead>Refeição</TableHead>
                       <TableHead>Horário</TableHead>
                       <TableHead>Itens</TableHead>
+                      <TableHead>Macros</TableHead>
                       <TableHead />
                     </TableRow>
                   </TableHeader>
@@ -288,6 +309,13 @@ export default function AdminDietas() {
                         <TableCell>{r.nome_refeicao}</TableCell>
                         <TableCell>{r.horario_sugerido ?? "—"}</TableCell>
                         <TableCell className="max-w-xs truncate">{r.itens ?? "—"}</TableCell>
+                        <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
+                          {r.calorias_kcal ? `${r.calorias_kcal}kcal` : ""}
+                          {r.proteinas_g ? ` · ${r.proteinas_g}g P` : ""}
+                          {r.carboidratos_g ? ` · ${r.carboidratos_g}g C` : ""}
+                          {r.gorduras_g ? ` · ${r.gorduras_g}g G` : ""}
+                          {!r.calorias_kcal && !r.proteinas_g && !r.carboidratos_g && !r.gorduras_g && "—"}
+                        </TableCell>
                         <TableCell>
                           <Button variant="ghost" size="icon" onClick={() => removerRefeicao.mutate(r.id)}>
                             <Trash2 className="h-4 w-4" />
@@ -314,6 +342,34 @@ export default function AdminDietas() {
                     placeholder="Itens da refeição"
                     value={novaRefeicao.itens}
                     onChange={(e) => setNovaRefeicao((p) => ({ ...p, itens: e.target.value }))}
+                  />
+                  <Input
+                    type="number"
+                    inputMode="decimal"
+                    placeholder="Calorias (kcal)"
+                    value={novaRefeicao.calorias_kcal}
+                    onChange={(e) => setNovaRefeicao((p) => ({ ...p, calorias_kcal: e.target.value }))}
+                  />
+                  <Input
+                    type="number"
+                    inputMode="decimal"
+                    placeholder="Proteína (g)"
+                    value={novaRefeicao.proteinas_g}
+                    onChange={(e) => setNovaRefeicao((p) => ({ ...p, proteinas_g: e.target.value }))}
+                  />
+                  <Input
+                    type="number"
+                    inputMode="decimal"
+                    placeholder="Carboidrato (g)"
+                    value={novaRefeicao.carboidratos_g}
+                    onChange={(e) => setNovaRefeicao((p) => ({ ...p, carboidratos_g: e.target.value }))}
+                  />
+                  <Input
+                    type="number"
+                    inputMode="decimal"
+                    placeholder="Gordura (g)"
+                    value={novaRefeicao.gorduras_g}
+                    onChange={(e) => setNovaRefeicao((p) => ({ ...p, gorduras_g: e.target.value }))}
                   />
                 </div>
                 <Button
