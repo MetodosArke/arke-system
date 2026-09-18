@@ -619,6 +619,75 @@ export type Database = {
           },
         ]
       }
+      cobrancas_b2b: {
+        Row: {
+          asaas_customer_id: string | null
+          asaas_payment_id: string | null
+          created_at: string
+          criado_por: string | null
+          descricao: string
+          erro_detalhe: string | null
+          forma_pagamento: string
+          id: string
+          invoice_url: string | null
+          organization_id: string
+          pix_copia_cola: string | null
+          pix_qr_code_base64: string | null
+          status: string
+          updated_at: string
+          valor: number
+        }
+        Insert: {
+          asaas_customer_id?: string | null
+          asaas_payment_id?: string | null
+          created_at?: string
+          criado_por?: string | null
+          descricao: string
+          erro_detalhe?: string | null
+          forma_pagamento: string
+          id?: string
+          invoice_url?: string | null
+          organization_id: string
+          pix_copia_cola?: string | null
+          pix_qr_code_base64?: string | null
+          status?: string
+          updated_at?: string
+          valor: number
+        }
+        Update: {
+          asaas_customer_id?: string | null
+          asaas_payment_id?: string | null
+          created_at?: string
+          criado_por?: string | null
+          descricao?: string
+          erro_detalhe?: string | null
+          forma_pagamento?: string
+          id?: string
+          invoice_url?: string | null
+          organization_id?: string
+          pix_copia_cola?: string | null
+          pix_qr_code_base64?: string | null
+          status?: string
+          updated_at?: string
+          valor?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cobrancas_b2b_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "org_churn_metrics"
+            referencedColumns: ["organization_id"]
+          },
+          {
+            foreignKeyName: "cobrancas_b2b_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       dietas: {
         Row: {
           aluno_id: string
@@ -1050,7 +1119,9 @@ export type Database = {
       }
       organizations: {
         Row: {
+          asaas_customer_id_b2b: string | null
           asaas_wallet_id: string | null
+          cnpj_cpf: string | null
           created_at: string
           endereco: string | null
           especialidade_profissional:
@@ -1067,10 +1138,13 @@ export type Database = {
           status: Database["public"]["Enums"]["org_status"]
           telefone: string | null
           tipo: Database["public"]["Enums"]["organization_tipo"]
+          trial_vencimento: string | null
           updated_at: string
         }
         Insert: {
+          asaas_customer_id_b2b?: string | null
           asaas_wallet_id?: string | null
+          cnpj_cpf?: string | null
           created_at?: string
           endereco?: string | null
           especialidade_profissional?:
@@ -1087,10 +1161,13 @@ export type Database = {
           status?: Database["public"]["Enums"]["org_status"]
           telefone?: string | null
           tipo?: Database["public"]["Enums"]["organization_tipo"]
+          trial_vencimento?: string | null
           updated_at?: string
         }
         Update: {
+          asaas_customer_id_b2b?: string | null
           asaas_wallet_id?: string | null
+          cnpj_cpf?: string | null
           created_at?: string
           endereco?: string | null
           especialidade_profissional?:
@@ -1107,6 +1184,7 @@ export type Database = {
           status?: Database["public"]["Enums"]["org_status"]
           telefone?: string | null
           tipo?: Database["public"]["Enums"]["organization_tipo"]
+          trial_vencimento?: string | null
           updated_at?: string
         }
         Relationships: []
@@ -1712,7 +1790,9 @@ export type Database = {
         Returns: {
           alunos_total: number
           assinaturas_atrasadas: number
+          cnpj_cpf: string
           created_at: string
+          gestor_email: string
           mrr_organizacao: number
           nome: string
           organization_id: string
@@ -1720,6 +1800,7 @@ export type Database = {
           slug: string
           status: Database["public"]["Enums"]["org_status"]
           tipo: Database["public"]["Enums"]["organization_tipo"]
+          trial_vencimento: string
           ultima_atividade: string
         }[]
       }

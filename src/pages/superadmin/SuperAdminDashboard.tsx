@@ -13,6 +13,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Dialog,
   DialogContent,
@@ -54,6 +56,11 @@ import {
   Pencil,
   KeyRound,
   Mail,
+  Receipt,
+  QrCode,
+  CreditCard,
+  Copy,
+  ExternalLink,
 } from "lucide-react";
 import type { Tables, Enums } from "@/integrations/supabase/types";
 
@@ -148,6 +155,16 @@ type Tenant = {
   mrr_organizacao: number;
   assinaturas_atrasadas: number;
   ultima_atividade: string | null;
+  cnpj_cpf: string | null;
+  trial_vencimento: string | null;
+  gestor_email: string | null;
+};
+
+type CobrancaB2b = Tables<"cobrancas_b2b">;
+
+const FORMA_PAGAMENTO_LABEL: Record<"PIX" | "CREDIT_CARD", string> = {
+  PIX: "PIX",
+  CREDIT_CARD: "Cartão de Crédito",
 };
 
 export default function SuperAdminDashboard() {
@@ -179,12 +196,16 @@ export default function SuperAdminDashboard() {
       plano_b2b?: Enums<"plano_b2b">;
       nome?: string;
       tipo?: Enums<"organization_tipo">;
+      cnpj_cpf?: string | null;
+      trial_vencimento?: string | null;
     }) => {
       const update: Partial<Tables<"organizations">> = {};
       if (payload.status) update.status = payload.status;
       if (payload.plano_b2b) update.plano_b2b = payload.plano_b2b;
       if (payload.nome) update.nome = payload.nome;
       if (payload.tipo) update.tipo = payload.tipo;
+      if (payload.cnpj_cpf !== undefined) update.cnpj_cpf = payload.cnpj_cpf;
+      if (payload.trial_vencimento !== undefined) update.trial_vencimento = payload.trial_vencimento;
       const { error } = await supabase
         .from("organizations")
         .update(update)
@@ -260,26 +281,53 @@ export default function SuperAdminDashboard() {
       toast({ title: "Erro ao cadastrar organização", description: error.message, variant: "destructive" }),
   });
 
-  // ---- Editar Informações do Tenant ----
+  // ---- Editar Informações do Tenant (+ Faturamento B2B e Fiscal) ----
   const [tenantEditando, setTenantEditando] = useState<Tenant | null>(null);
-  const [edicao, setEdicao] = useState({ nome: "", tipo: "academia" as Enums<"organization_tipo">, plano_b2b: "starter" as Enums<"plano_b2b"> });
+  const [edicao, setEdicao] = useState({
+    nome: "",
+    tipo: "academia" as Enums<"organization_tipo">,
+    plano_b2b: "starter" as Enums<"plano_b2b">,
+    status: "trial" as Enums<"org_status">,
+    cnpjCpf: "",
+    trialVencimento: "",
+    gestorEmail: "",
+  });
 
-  const abrirEdicao = (tenant: Tenant) => {
+  const [abaEdicaoAtiva, setAbaEdicaoAtiva] = useState<"informacoes" | "faturamento">("informacoes");
+
+  const fecharEdicao = (open: boolean) => {
+    if (!open) {
+      setTenantEditando(null);
+      resetarCobranca();
+    }
+  };
+
+  const abrirEdicao = (tenant: Tenant, aba: "informacoes" | "faturamento" = "informacoes") => {
     setTenantEditando(tenant);
-    setEdicao({ nome: tenant.nome, tipo: tenant.tipo, plano_b2b: tenant.plano_b2b });
+    setEdicao({
+      nome: tenant.nome,
+      tipo: tenant.tipo,
+      plano_b2b: tenant.plano_b2b,
+      status: tenant.status,
+      cnpjCpf: tenant.cnpj_cpf ?? "",
+      trialVencimento: tenant.trial_vencimento ?? "",
+      gestorEmail: tenant.gestor_email ?? "",
+    });
+    setAbaEdicaoAtiva(aba);
+    resetarCobranca();
   };
 
   const salvarEdicao = () => {
     if (!tenantEditando) return;
-    atualizarOrganizacao.mutate(
-      {
-        organizationId: tenantEditando.organization_id,
-        nome: edicao.nome,
-        tipo: edicao.tipo,
-        plano_b2b: edicao.plano_b2b,
-      },
-      { onSuccess: () => setTenantEditando(null) }
-    );
+    atualizarOrganizacao.mutate({
+      organizationId: tenantEditando.organization_id,
+      nome: edicao.nome,
+      tipo: edicao.tipo,
+      plano_b2b: edicao.plano_b2b,
+      status: edicao.status,
+      cnpj_cpf: edicao.cnpjCpf.trim() || null,
+      trial_vencimento: edicao.trialVencimento || null,
+    });
   };
 
   // ---- Ações de Suporte: resetar token do gateway / alterar e-mail do gestor ----
@@ -298,16 +346,62 @@ export default function SuperAdminDashboard() {
         });
       } else {
         toast({ title: "E-mail do gestor alterado." });
-        setModalEmailGestorAberto(null);
-        setNovoEmailGestor("");
+        void queryClient.invalidateQueries({ queryKey: ["superadmin-tenants"] });
       }
     },
     onError: (error: Error) =>
       toast({ title: "Erro na ação de suporte", description: error.message, variant: "destructive" }),
   });
 
-  const [modalEmailGestorAberto, setModalEmailGestorAberto] = useState<Tenant | null>(null);
-  const [novoEmailGestor, setNovoEmailGestor] = useState("");
+  // ---- Faturamento B2B (Asaas): emissão de cobrança avulsa contra o tenant ----
+  const [cobranca, setCobranca] = useState({
+    valor: "",
+    descricao: "",
+    formaPagamento: "PIX" as "PIX" | "CREDIT_CARD",
+  });
+  const [cobrancaGerada, setCobrancaGerada] = useState<CobrancaB2b | null>(null);
+
+  const resetarCobranca = () => {
+    setCobranca({ valor: "", descricao: "", formaPagamento: "PIX" });
+    setCobrancaGerada(null);
+  };
+
+  const emitirCobranca = useMutation({
+    mutationFn: async () => {
+      if (!tenantEditando) throw new Error("Nenhum tenant selecionado.");
+      const valorNumerico = Number(cobranca.valor.replace(",", "."));
+      if (!Number.isFinite(valorNumerico) || valorNumerico <= 0) {
+        throw new Error("Informe um valor válido, maior que zero.");
+      }
+      const { data, error } = await supabase.functions.invoke("asaas-emitir-cobranca-b2b", {
+        body: {
+          organization_id: tenantEditando.organization_id,
+          valor: valorNumerico,
+          descricao: cobranca.descricao.trim(),
+          forma_pagamento: cobranca.formaPagamento,
+        },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      return data.cobranca as CobrancaB2b;
+    },
+    onSuccess: (data) => {
+      toast({ title: "Cobrança gerada no Asaas!" });
+      setCobrancaGerada(data);
+    },
+    onError: (error: Error) =>
+      toast({ title: "Não foi possível gerar a cobrança", description: error.message, variant: "destructive" }),
+  });
+
+  const copiarPixCopiaCola = async () => {
+    if (!cobrancaGerada?.pix_copia_cola) return;
+    try {
+      await navigator.clipboard.writeText(cobrancaGerada.pix_copia_cola);
+      toast({ title: "Código PIX copiado!" });
+    } catch {
+      toast({ title: "Não foi possível copiar", description: "Copie manualmente o código abaixo.", variant: "destructive" });
+    }
+  };
 
   // Ações sensíveis (afetam login de toda a academia/studio ou os leitores
   // físicos de catraca da unidade) exigem confirmação explícita — evita que
@@ -614,6 +708,9 @@ export default function SuperAdminDashboard() {
                           <DropdownMenuItem onClick={() => abrirEdicao(tenant)}>
                             <Pencil className="h-3.5 w-3.5 mr-2" /> Editar Informações
                           </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => abrirEdicao(tenant, "faturamento")}>
+                            <Receipt className="h-3.5 w-3.5 mr-2" /> Faturamento / Cobranças B2B
+                          </DropdownMenuItem>
                           <DropdownMenuSeparator />
                           <DropdownMenuItem
                             disabled={
@@ -623,14 +720,6 @@ export default function SuperAdminDashboard() {
                             onClick={() => setTenantResetandoToken(tenant)}
                           >
                             <KeyRound className="h-3.5 w-3.5 mr-2" /> Resetar Token do Gateway Local
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onClick={() => {
-                              setModalEmailGestorAberto(tenant);
-                              setNovoEmailGestor("");
-                            }}
-                          >
-                            <Mail className="h-3.5 w-3.5 mr-2" /> Alterar E-mail do Gestor Master
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
                           {tenant.status === "suspenso" ? (
@@ -793,105 +882,269 @@ export default function SuperAdminDashboard() {
         </DialogContent>
       </Dialog>
 
-      {/* Editar Informações do Tenant */}
-      <Dialog open={!!tenantEditando} onOpenChange={(open) => !open && setTenantEditando(null)}>
-        <DialogContent className="max-w-md">
+      {/* Editar Informações do Tenant — Informações + Faturamento/Cobranças B2B */}
+      <Dialog open={!!tenantEditando} onOpenChange={fecharEdicao}>
+        <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Editar Informações do Tenant</DialogTitle>
             <DialogDescription>{tenantEditando?.nome}</DialogDescription>
           </DialogHeader>
-          <div className="space-y-3">
-            <div className="space-y-1">
-              <Label htmlFor="edicao-nome">Nome</Label>
-              <Input
-                id="edicao-nome"
-                value={edicao.nome}
-                onChange={(e) => setEdicao((s) => ({ ...s, nome: e.target.value }))}
-              />
-            </div>
-            <div className="space-y-1">
-              <Label>Tipo de negócio</Label>
-              <Select
-                value={edicao.tipo}
-                onValueChange={(value) => setEdicao((s) => ({ ...s, tipo: value as Enums<"organization_tipo"> }))}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {Object.entries(TIPO_LABEL).map(([value, label]) => (
-                    <SelectItem key={value} value={value}>
-                      {label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1">
-              <Label>Plano master</Label>
-              <Select
-                value={edicao.plano_b2b}
-                onValueChange={(value) => setEdicao((s) => ({ ...s, plano_b2b: value as Enums<"plano_b2b"> }))}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {Object.entries(PLANO_LABEL).map(([value, label]) => (
-                    <SelectItem key={value} value={value}>
-                      {label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setTenantEditando(null)}>
-              Cancelar
-            </Button>
-            <Button disabled={atualizarOrganizacao.isPending || !edicao.nome.trim()} onClick={salvarEdicao}>
-              {atualizarOrganizacao.isPending ? "Salvando..." : "Salvar alterações"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
-      {/* Ação de Suporte: alterar e-mail do gestor master */}
-      <Dialog open={!!modalEmailGestorAberto} onOpenChange={(open) => !open && setModalEmailGestorAberto(null)}>
-        <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle>Alterar E-mail do Gestor Master</DialogTitle>
-            <DialogDescription>{modalEmailGestorAberto?.nome}</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-1">
-            <Label htmlFor="novo-email-gestor">Novo e-mail de login</Label>
-            <Input
-              id="novo-email-gestor"
-              type="email"
-              value={novoEmailGestor}
-              onChange={(e) => setNovoEmailGestor(e.target.value)}
-              placeholder="novo-email@academia.com"
-            />
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setModalEmailGestorAberto(null)}>
-              Cancelar
-            </Button>
-            <Button
-              disabled={acaoSuporte.isPending || !novoEmailGestor.trim()}
-              onClick={() =>
-                modalEmailGestorAberto &&
-                acaoSuporte.mutate({
-                  organization_id: modalEmailGestorAberto.organization_id,
-                  acao: "alterar_email_gestor",
-                  novo_email: novoEmailGestor.trim(),
-                })
-              }
-            >
-              {acaoSuporte.isPending ? "Salvando..." : "Alterar e-mail"}
-            </Button>
-          </DialogFooter>
+          <Tabs value={abaEdicaoAtiva} onValueChange={(v) => setAbaEdicaoAtiva(v as typeof abaEdicaoAtiva)}>
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="informacoes">Informações</TabsTrigger>
+              <TabsTrigger value="faturamento">Faturamento / Cobranças</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="informacoes" className="space-y-3 mt-3">
+              <div className="space-y-1">
+                <Label htmlFor="edicao-nome">Nome</Label>
+                <Input
+                  id="edicao-nome"
+                  value={edicao.nome}
+                  onChange={(e) => setEdicao((s) => ({ ...s, nome: e.target.value }))}
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-1">
+                  <Label>Tipo de negócio</Label>
+                  <Select
+                    value={edicao.tipo}
+                    onValueChange={(value) => setEdicao((s) => ({ ...s, tipo: value as Enums<"organization_tipo"> }))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Object.entries(TIPO_LABEL).map(([value, label]) => (
+                        <SelectItem key={value} value={value}>
+                          {label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <Label>Plano master</Label>
+                  <Select
+                    value={edicao.plano_b2b}
+                    onValueChange={(value) => setEdicao((s) => ({ ...s, plano_b2b: value as Enums<"plano_b2b"> }))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Object.entries(PLANO_LABEL).map(([value, label]) => (
+                        <SelectItem key={value} value={value}>
+                          {label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <Label>Status do Tenant</Label>
+                <Select
+                  value={edicao.status}
+                  onValueChange={(value) => setEdicao((s) => ({ ...s, status: value as Enums<"org_status"> }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Object.entries(STATUS_LABEL).map(([value, label]) => (
+                      <SelectItem key={value} value={value}>
+                        {label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-1">
+                  <Label htmlFor="edicao-cnpj">CNPJ / CPF da Organização</Label>
+                  <Input
+                    id="edicao-cnpj"
+                    value={edicao.cnpjCpf}
+                    onChange={(e) => setEdicao((s) => ({ ...s, cnpjCpf: e.target.value }))}
+                    placeholder="00.000.000/0001-00"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="edicao-trial">Data Limite do Trial / Vencimento</Label>
+                  <Input
+                    id="edicao-trial"
+                    type="date"
+                    value={edicao.trialVencimento}
+                    onChange={(e) => setEdicao((s) => ({ ...s, trialVencimento: e.target.value }))}
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <Label htmlFor="edicao-email-gestor">E-mail do Gestor Master</Label>
+                <div className="flex items-center gap-2">
+                  <Input
+                    id="edicao-email-gestor"
+                    type="email"
+                    value={edicao.gestorEmail}
+                    onChange={(e) => setEdicao((s) => ({ ...s, gestorEmail: e.target.value }))}
+                    placeholder="gestor@academia.com"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="shrink-0"
+                    disabled={
+                      acaoSuporte.isPending ||
+                      !edicao.gestorEmail.trim() ||
+                      edicao.gestorEmail.trim() === (tenantEditando?.gestor_email ?? "")
+                    }
+                    onClick={() =>
+                      tenantEditando &&
+                      acaoSuporte.mutate({
+                        organization_id: tenantEditando.organization_id,
+                        acao: "alterar_email_gestor",
+                        novo_email: edicao.gestorEmail.trim(),
+                      })
+                    }
+                  >
+                    <Mail className="h-3.5 w-3.5 mr-1.5" /> Atualizar
+                  </Button>
+                </div>
+                {!tenantEditando?.gestor_email && (
+                  <p className="text-[11px] text-muted-foreground">Nenhum gestor ativo encontrado nesta organização.</p>
+                )}
+              </div>
+
+              <DialogFooter className="!mt-4">
+                <Button variant="outline" onClick={() => fecharEdicao(false)}>
+                  Fechar
+                </Button>
+                <Button disabled={atualizarOrganizacao.isPending || !edicao.nome.trim()} onClick={salvarEdicao}>
+                  {atualizarOrganizacao.isPending ? "Salvando..." : "Salvar Informações"}
+                </Button>
+              </DialogFooter>
+            </TabsContent>
+
+            <TabsContent value="faturamento" className="space-y-3 mt-3">
+              {!edicao.cnpjCpf.trim() && (
+                <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-600 dark:text-amber-400">
+                  Cadastre o CNPJ/CPF na aba "Informações" e salve antes de emitir uma cobrança — o Asaas exige o
+                  documento fiscal do cliente.
+                </div>
+              )}
+
+              <div className="space-y-1">
+                <Label htmlFor="cobranca-valor">Valor (R$)</Label>
+                <Input
+                  id="cobranca-valor"
+                  type="text"
+                  inputMode="decimal"
+                  value={cobranca.valor}
+                  onChange={(e) => setCobranca((s) => ({ ...s, valor: e.target.value }))}
+                  placeholder="290.00"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="cobranca-descricao">Descrição / Motivo da Cobrança</Label>
+                <Input
+                  id="cobranca-descricao"
+                  value={cobranca.descricao}
+                  onChange={(e) => setCobranca((s) => ({ ...s, descricao: e.target.value }))}
+                  placeholder="Ex.: Mensalidade SaaS, Taxa de Implantação"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label>Forma de Pagamento</Label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setCobranca((s) => ({ ...s, formaPagamento: "PIX" }))}
+                    className={cn(
+                      "flex items-center justify-center gap-1.5 rounded-lg border-2 border-border py-2 text-sm font-medium transition-colors hover:border-primary hover:bg-primary/5",
+                      cobranca.formaPagamento === "PIX" && "border-primary bg-primary/5"
+                    )}
+                  >
+                    <QrCode className="h-4 w-4 text-primary" /> PIX
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCobranca((s) => ({ ...s, formaPagamento: "CREDIT_CARD" }))}
+                    className={cn(
+                      "flex items-center justify-center gap-1.5 rounded-lg border-2 border-border py-2 text-sm font-medium transition-colors hover:border-primary hover:bg-primary/5",
+                      cobranca.formaPagamento === "CREDIT_CARD" && "border-primary bg-primary/5"
+                    )}
+                  >
+                    <CreditCard className="h-4 w-4 text-primary" /> Cartão de Crédito
+                  </button>
+                </div>
+              </div>
+
+              <Button
+                className="w-full"
+                disabled={
+                  emitirCobranca.isPending ||
+                  !edicao.cnpjCpf.trim() ||
+                  !cobranca.valor.trim() ||
+                  !cobranca.descricao.trim()
+                }
+                onClick={() => emitirCobranca.mutate()}
+              >
+                <Receipt className="h-4 w-4 mr-1.5" />
+                {emitirCobranca.isPending ? "Gerando..." : "Gerar Cobrança no Asaas"}
+              </Button>
+
+              {cobrancaGerada && (
+                <div className="space-y-3 rounded-lg border border-border p-3">
+                  <p className="text-sm font-medium">
+                    Cobrança de {formatarMoeda(Number(cobrancaGerada.valor))} gerada —{" "}
+                    {FORMA_PAGAMENTO_LABEL[cobrancaGerada.forma_pagamento as "PIX" | "CREDIT_CARD"]}
+                  </p>
+
+                  {cobrancaGerada.pix_qr_code_base64 && (
+                    <div className="flex justify-center">
+                      <img
+                        src={`data:image/png;base64,${cobrancaGerada.pix_qr_code_base64}`}
+                        alt="QR Code PIX"
+                        className="h-40 w-40 rounded-md border border-border"
+                      />
+                    </div>
+                  )}
+
+                  {cobrancaGerada.pix_copia_cola && (
+                    <div className="space-y-1">
+                      <Label>PIX Copia e Cola</Label>
+                      <div className="flex items-start gap-2">
+                        <Textarea readOnly rows={3} value={cobrancaGerada.pix_copia_cola} className="text-xs font-mono" />
+                        <Button type="button" size="icon" variant="outline" className="shrink-0" onClick={() => void copiarPixCopiaCola()}>
+                          <Copy className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+
+                  {cobrancaGerada.invoice_url && (
+                    <Button variant="outline" className="w-full" asChild>
+                      <a href={cobrancaGerada.invoice_url} target="_blank" rel="noopener noreferrer">
+                        <ExternalLink className="h-3.5 w-3.5 mr-1.5" /> Abrir link de pagamento do Asaas
+                      </a>
+                    </Button>
+                  )}
+                </div>
+              )}
+
+              <DialogFooter className="!mt-4">
+                <Button variant="outline" onClick={() => fecharEdicao(false)}>
+                  Fechar
+                </Button>
+              </DialogFooter>
+            </TabsContent>
+          </Tabs>
         </DialogContent>
       </Dialog>
 
