@@ -265,18 +265,24 @@ export default function SuperAdminDashboard() {
 
   const criarOrganizacao = useMutation({
     mutationFn: async () => {
-      const { data, error } = await supabase.functions.invoke("criar-organizacao-superadmin", {
-        body: novaOrg,
-      });
+      const { data, error } = await supabase.functions.invoke<{
+        organization_id?: string;
+        gestor_user_id?: string;
+        gestor_ja_existia?: boolean;
+        aviso?: string | null;
+        error?: string;
+      }>("criar-organizacao-superadmin", { body: novaOrg });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
       return data;
     },
-    onSuccess: () => {
-      toast({
-        title: "Organização cadastrada!",
-        description: "Convite de ativação enviado ao e-mail do gestor.",
-      });
+    onSuccess: (data) => {
+      const descricao = data?.aviso
+        ? `(Aviso: ${data.aviso})`
+        : data?.gestor_ja_existia
+          ? "O gestor já tinha conta — ela foi vinculada à nova organização e avisada por e-mail."
+          : "Convite de ativação enviado ao e-mail do gestor.";
+      toast({ title: "Organização criada com sucesso!", description: descricao });
       setModalNovaOrgAberto(false);
       resetarNovaOrg();
       void queryClient.invalidateQueries({ queryKey: ["superadmin-tenants"] });
