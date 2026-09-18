@@ -34,6 +34,7 @@ interface AuthContextType {
   rolesLoaded: boolean;
   hasRole: (role: AppRole) => boolean;
   refreshAluno: () => Promise<void>;
+  refreshOrganization: () => Promise<void>;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signUp: (email: string, password: string, fullName: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
@@ -136,6 +137,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const refreshAluno = async () => {
     if (!currentUserId || !organization) return;
     await loadAlunoStatus(currentUserId, organization.id);
+  };
+
+  const refreshOrganization = async () => {
+    if (!currentUserId) return;
+    await fetchRoles(currentUserId);
   };
 
   useEffect(() => {
@@ -276,6 +282,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         rolesLoaded,
         hasRole,
         refreshAluno,
+        refreshOrganization,
         signIn,
         signUp,
         signOut,
