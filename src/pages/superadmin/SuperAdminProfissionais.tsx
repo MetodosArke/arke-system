@@ -19,10 +19,11 @@ type ProfissionalRow = {
   nome: string;
   especialidade: Especialidade;
   status: Enums<"org_status">;
-  email: string;
+  email: string | null;
   status_convite: string | null;
   alunos_total: number;
   created_at: string;
+  sem_gestor: boolean;
 };
 
 const ESPECIALIDADE_LABEL: Record<Especialidade, string> = {
@@ -45,7 +46,11 @@ export default function SuperAdminProfissionais() {
   const [especialidade, setEspecialidade] = useState<Especialidade | null>(null);
   const [form, setForm] = useState(CADASTRO_INICIAL);
 
-  const { data: profissionais = [], isLoading } = useQuery({
+  const {
+    data: profissionais = [],
+    isLoading,
+    error: erroProfissionais,
+  } = useQuery({
     queryKey: ["superadmin-profissionais-autonomos"],
     queryFn: async () => {
       const { data, error } = await supabase.rpc("get_superadmin_profissionais_autonomos");
@@ -105,6 +110,11 @@ export default function SuperAdminProfissionais() {
           <CardTitle className="text-base">Profissionais cadastrados</CardTitle>
         </CardHeader>
         <CardContent className="p-0">
+          {erroProfissionais && (
+            <div className="m-3 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+              Não foi possível carregar a lista: {(erroProfissionais as Error).message}
+            </div>
+          )}
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
@@ -118,7 +128,7 @@ export default function SuperAdminProfissionais() {
                 </tr>
               </thead>
               <tbody>
-                {!isLoading && profissionais.length === 0 && (
+                {!isLoading && !erroProfissionais && profissionais.length === 0 && (
                   <tr>
                     <td colSpan={6} className="p-4 text-center text-muted-foreground">
                       Nenhum profissional autônomo cadastrado ainda.
@@ -131,11 +141,17 @@ export default function SuperAdminProfissionais() {
                     <td className="p-3">
                       <Badge variant="secondary">{ESPECIALIDADE_LABEL[p.especialidade] ?? p.especialidade}</Badge>
                     </td>
-                    <td className="p-3 text-xs">{p.email}</td>
+                    <td className="p-3 text-xs">
+                      {p.sem_gestor ? (
+                        <Badge variant="destructive">Sem gestor vinculado</Badge>
+                      ) : (
+                        p.email
+                      )}
+                    </td>
                     <td className="p-3">{p.alunos_total}</td>
                     <td className="p-3">
                       <Badge variant={p.status_convite === "active" ? "default" : "outline"}>
-                        {STATUS_CONVITE_LABEL[p.status_convite ?? ""] ?? "—"}
+                        {p.sem_gestor ? "—" : STATUS_CONVITE_LABEL[p.status_convite ?? ""] ?? "—"}
                       </Badge>
                     </td>
                     <td className="p-3">
