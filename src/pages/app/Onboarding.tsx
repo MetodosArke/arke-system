@@ -6,10 +6,12 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
-import { Compass } from "lucide-react";
+import { Compass, ShieldCheck } from "lucide-react";
 
 interface AnamneseForm {
   objetivo_principal: string;
@@ -23,6 +25,9 @@ interface AnamneseForm {
   alimentos_nao_gosta: string;
   alimentacao_rotina: string;
   expectativas: string;
+  qualidade_sono: string;
+  nivel_estresse: string;
+  frequencia_semanal_desejada: string;
 }
 
 const EMPTY_FORM: AnamneseForm = {
@@ -37,9 +42,17 @@ const EMPTY_FORM: AnamneseForm = {
   alimentos_nao_gosta: "",
   alimentacao_rotina: "",
   expectativas: "",
+  qualidade_sono: "",
+  nivel_estresse: "",
+  frequencia_semanal_desejada: "",
 };
 
-type StepField = { key: keyof AnamneseForm; label: string; placeholder: string };
+type StepField = {
+  key: keyof AnamneseForm;
+  label: string;
+  placeholder: string;
+  type?: "text" | "number";
+};
 
 const STEPS: { title: string; description: string; fields: StepField[] }[] = [
   {
@@ -56,6 +69,9 @@ const STEPS: { title: string; description: string; fields: StepField[] }[] = [
     fields: [
       { key: "rotina_diaria", label: "Como é a sua rotina no dia a dia?", placeholder: "Trabalho, estudo, horários..." },
       { key: "tempo_disponivel", label: "Quanto tempo você tem disponível para treinar?", placeholder: "Ex.: 3x por semana, 40 minutos" },
+      { key: "frequencia_semanal_desejada", label: "Quantos dias por semana você quer treinar?", placeholder: "Ex.: 3", type: "number" },
+      { key: "qualidade_sono", label: "Como está a qualidade do seu sono?", placeholder: "Ex.: durmo bem, tenho insônia, durmo pouco..." },
+      { key: "nivel_estresse", label: "Como está seu nível de estresse hoje?", placeholder: "Ex.: baixo, moderado, alto" },
     ],
   },
   {
@@ -77,6 +93,11 @@ const STEPS: { title: string; description: string; fields: StepField[] }[] = [
       { key: "alimentos_nao_gosta", label: "Alimentos que você não gosta ou não pode comer", placeholder: "Opcional" },
     ],
   },
+  {
+    title: "Privacidade e Consentimento",
+    description: "Antes de liberar seu plano, precisamos do seu consentimento para tratar os dados de saúde que você compartilhou.",
+    fields: [],
+  },
 ];
 
 export default function Onboarding() {
@@ -85,20 +106,29 @@ export default function Onboarding() {
   const navigate = useNavigate();
   const [stepIndex, setStepIndex] = useState(0);
   const [form, setForm] = useState<AnamneseForm>(EMPTY_FORM);
+  const [consentimentoAceito, setConsentimentoAceito] = useState(false);
 
   const isLastStep = stepIndex === STEPS.length - 1;
   const step = STEPS[stepIndex];
+  const isConsentStep = step.fields.length === 0;
 
   const concluirOnboarding = useMutation({
     mutationFn: async () => {
       if (!alunoId || !organization) throw new Error("Cadastro de aluno não encontrado");
+      if (!consentimentoAceito) throw new Error("É necessário aceitar o termo de consentimento para continuar.");
+
+      const { frequencia_semanal_desejada, ...formTexto } = form;
 
       const { error: anamneseError } = await supabase.from("anamnese_acolhimento").upsert(
         {
           organization_id: organization.id,
           aluno_id: alunoId,
-          ...form,
+          ...formTexto,
+          frequencia_semanal_desejada: frequencia_semanal_desejada
+            ? parseInt(frequencia_semanal_desejada, 10)
+            : null,
           concluida_em: new Date().toISOString(),
+          consentimento_lgpd_aceito_em: new Date().toISOString(),
         },
         { onConflict: "aluno_id" }
       );
@@ -109,7 +139,7 @@ export default function Onboarding() {
         organization_id: organization.id,
         aluno_id: alunoId,
         motivo: "Agendar consulta de Acolhimento (M.A.P.A.®)",
-        prioridade: "alta",
+        prioridade: "media",
         sla_prazo: new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString(),
         origem_evento: `agendar_acolhimento:${alunoId}`,
         tipo: "anamnese",
@@ -143,17 +173,58 @@ export default function Onboarding() {
           <p className="text-sm text-muted-foreground">{step.description}</p>
         </CardHeader>
         <CardContent className="space-y-4">
-          {step.fields.map((field) => (
-            <div key={field.key} className="space-y-1.5">
-              <Label htmlFor={field.key}>{field.label}</Label>
-              <Textarea
-                id={field.key}
-                value={form[field.key]}
-                onChange={(e) => updateField(field.key, e.target.value)}
-                placeholder={field.placeholder}
-              />
+          {step.fields.map((field) =>
+            field.type === "number" ? (
+              <div key={field.key} className="space-y-1.5">
+                <Label htmlFor={field.key}>{field.label}</Label>
+                <Input
+                  id={field.key}
+                  type="number"
+                  min={0}
+                  max={7}
+                  value={form[field.key]}
+                  onChange={(e) => updateField(field.key, e.target.value)}
+                  placeholder={field.placeholder}
+                />
+              </div>
+            ) : (
+              <div key={field.key} className="space-y-1.5">
+                <Label htmlFor={field.key}>{field.label}</Label>
+                <Textarea
+                  id={field.key}
+                  value={form[field.key]}
+                  onChange={(e) => updateField(field.key, e.target.value)}
+                  placeholder={field.placeholder}
+                />
+              </div>
+            )
+          )}
+
+          {isConsentStep && (
+            <div className="space-y-3 rounded-lg border border-border bg-muted/40 p-3">
+              <div className="flex items-center gap-2 text-primary">
+                <ShieldCheck className="h-4 w-4" />
+                <span className="text-xs font-semibold uppercase tracking-wide">LGPD — Dados de Saúde</span>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                As informações que você compartilhou aqui (histórico de saúde, lesões, medicamentos, rotina e
+                objetivos) são dados sensíveis protegidos pela Lei Geral de Proteção de Dados (LGPD). Elas serão
+                usadas exclusivamente pela equipe da sua academia para personalizar seu acompanhamento (treino,
+                dieta e atendimento), com acesso restrito ao profissional responsável por você.
+              </p>
+              <div className="flex items-start gap-2 pt-1">
+                <Checkbox
+                  id="consentimento-lgpd"
+                  checked={consentimentoAceito}
+                  onCheckedChange={(checked) => setConsentimentoAceito(checked === true)}
+                />
+                <Label htmlFor="consentimento-lgpd" className="text-sm font-normal leading-snug">
+                  Li e autorizo o tratamento dos meus dados de saúde pela equipe da academia, conforme descrito
+                  acima, para fins de acompanhamento do meu treino e nutrição.
+                </Label>
+              </div>
             </div>
-          ))}
+          )}
 
           <div className="flex justify-between pt-2">
             <Button
@@ -164,7 +235,10 @@ export default function Onboarding() {
               Voltar
             </Button>
             {isLastStep ? (
-              <Button disabled={concluirOnboarding.isPending} onClick={() => concluirOnboarding.mutate()}>
+              <Button
+                disabled={concluirOnboarding.isPending || !consentimentoAceito}
+                onClick={() => concluirOnboarding.mutate()}
+              >
                 Concluir
               </Button>
             ) : (

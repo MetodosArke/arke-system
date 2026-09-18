@@ -30,6 +30,7 @@ import AlunoPerfil from "@/pages/app/AlunoPerfil";
 import AlunoTreinos from "@/pages/app/AlunoTreinos";
 import AlunoDieta from "@/pages/app/AlunoDieta";
 import Onboarding from "@/pages/app/Onboarding";
+import ConsentimentoLgpd from "@/pages/app/ConsentimentoLgpd";
 
 // Staff pages (gestor / professor / nutricionista / admin_arke)
 import AdminDashboard from "@/pages/admin/AdminDashboard";
@@ -87,9 +88,14 @@ const SUPERADMIN_ROLES = ["superadmin"] as const;
 // M.A.P.A.®: aluno sem anamnese de acolhimento concluída é levado ao onboarding
 // antes de acessar o restante do app.
 function AlunoOnboardingGate({ children }: { children: React.ReactNode }) {
-  const { alunoId, anamneseCompleta, rolesLoaded } = useAuth();
+  const { alunoId, anamneseCompleta, consentimentoLgpdAceito, rolesLoaded } = useAuth();
   if (rolesLoaded && alunoId && !anamneseCompleta) {
     return <Navigate to="/app/onboarding" replace />;
+  }
+  // Aluno com anamnese antiga (anterior ao termo LGPD) precisa registrar o
+  // consentimento antes de continuar, sem refazer a anamnese inteira.
+  if (rolesLoaded && alunoId && anamneseCompleta && !consentimentoLgpdAceito) {
+    return <Navigate to="/app/consentimento" replace />;
   }
   return <>{children}</>;
 }
@@ -143,6 +149,16 @@ const App = () => (
                 element={
                   <ProtectedRoute>
                     <Onboarding />
+                  </ProtectedRoute>
+                }
+              />
+
+              {/* Consentimento LGPD isolado, para alunos com anamnese anterior ao termo */}
+              <Route
+                path="/app/consentimento"
+                element={
+                  <ProtectedRoute>
+                    <ConsentimentoLgpd />
                   </ProtectedRoute>
                 }
               />

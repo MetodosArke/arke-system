@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -16,7 +16,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { DoorOpen, Plus, Copy, Power, PowerOff, ScrollText } from "lucide-react";
+import { DoorOpen, Plus, Copy, Power, PowerOff, ScrollText, Radio } from "lucide-react";
 
 export default function AdminCatracas() {
   const { organization } = useAuth();
@@ -54,6 +54,34 @@ export default function AdminCatracas() {
     },
     enabled: !!organization?.id,
   });
+
+  const [realtimeAtivo, setRealtimeAtivo] = useState(false);
+
+  // Monitoramento em tempo real: status do dispositivo e novos acessos
+  // chegam via Supabase Realtime em vez de depender só do polling do
+  // react-query, então a tela reflete liberações/bloqueios assim que
+  // acontecem na catraca física.
+  useEffect(() => {
+    if (!organization?.id) return;
+
+    const channel = supabase
+      .channel(`catracas-${organization.id}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "organizacao_catracas", filter: `organization_id=eq.${organization.id}` },
+        () => void queryClient.invalidateQueries({ queryKey: ["admin-catracas", organization.id] })
+      )
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "acessos_catraca_logs", filter: `organization_id=eq.${organization.id}` },
+        () => void queryClient.invalidateQueries({ queryKey: ["admin-catracas-logs", organization.id] })
+      )
+      .subscribe((status) => setRealtimeAtivo(status === "SUBSCRIBED"));
+
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [organization?.id, queryClient]);
 
   const criarCatraca = useMutation({
     mutationFn: async () => {
@@ -110,6 +138,11 @@ export default function AdminCatracas() {
         <div className="flex items-center gap-2">
           <DoorOpen className="h-5 w-5 text-primary" />
           <h1 className="text-xl font-bold">Catracas</h1>
+          {realtimeAtivo && (
+            <Badge variant="outline" className="gap-1 text-emerald-600 dark:text-emerald-400 border-emerald-600/30">
+              <Radio className="h-3 w-3 animate-pulse" /> Ao vivo
+            </Badge>
+          )}
         </div>
         <Dialog open={dialogAberto} onOpenChange={setDialogAberto}>
           <DialogTrigger asChild>

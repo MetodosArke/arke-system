@@ -73,6 +73,42 @@ export type Database = {
           },
         ]
       }
+      alimentos_biblioteca: {
+        Row: {
+          calorias_kcal: number
+          carboidratos_g: number
+          categoria: string | null
+          created_at: string
+          gorduras_g: number
+          id: string
+          nome: string
+          porcao_g: number
+          proteinas_g: number
+        }
+        Insert: {
+          calorias_kcal: number
+          carboidratos_g?: number
+          categoria?: string | null
+          created_at?: string
+          gorduras_g?: number
+          id?: string
+          nome: string
+          porcao_g?: number
+          proteinas_g?: number
+        }
+        Update: {
+          calorias_kcal?: number
+          carboidratos_g?: number
+          categoria?: string | null
+          created_at?: string
+          gorduras_g?: number
+          id?: string
+          nome?: string
+          porcao_g?: number
+          proteinas_g?: number
+        }
+        Relationships: []
+      }
       aluno_assinaturas: {
         Row: {
           aluno_id: string
@@ -222,15 +258,19 @@ export type Database = {
           alimentos_nao_gosta: string | null
           aluno_id: string
           concluida_em: string | null
+          consentimento_lgpd_aceito_em: string | null
           created_at: string
           dores_lesoes: string | null
           estilo_treino: string | null
           expectativas: string | null
           experiencias_exercicio: string | null
+          frequencia_semanal_desejada: number | null
           id: string
           medicamentos: string | null
+          nivel_estresse: string | null
           objetivo_principal: string | null
           organization_id: string
+          qualidade_sono: string | null
           rotina_diaria: string | null
           tempo_disponivel: string | null
           updated_at: string
@@ -241,15 +281,19 @@ export type Database = {
           alimentos_nao_gosta?: string | null
           aluno_id: string
           concluida_em?: string | null
+          consentimento_lgpd_aceito_em?: string | null
           created_at?: string
           dores_lesoes?: string | null
           estilo_treino?: string | null
           expectativas?: string | null
           experiencias_exercicio?: string | null
+          frequencia_semanal_desejada?: number | null
           id?: string
           medicamentos?: string | null
+          nivel_estresse?: string | null
           objetivo_principal?: string | null
           organization_id: string
+          qualidade_sono?: string | null
           rotina_diaria?: string | null
           tempo_disponivel?: string | null
           updated_at?: string
@@ -260,15 +304,19 @@ export type Database = {
           alimentos_nao_gosta?: string | null
           aluno_id?: string
           concluida_em?: string | null
+          consentimento_lgpd_aceito_em?: string | null
           created_at?: string
           dores_lesoes?: string | null
           estilo_treino?: string | null
           expectativas?: string | null
           experiencias_exercicio?: string | null
+          frequencia_semanal_desejada?: number | null
           id?: string
           medicamentos?: string | null
+          nivel_estresse?: string | null
           objetivo_principal?: string | null
           organization_id?: string
+          qualidade_sono?: string | null
           rotina_diaria?: string | null
           tempo_disponivel?: string | null
           updated_at?: string
@@ -454,6 +502,42 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      exercicios_biblioteca: {
+        Row: {
+          created_at: string
+          descanso_padrao_seg: number
+          grupo_muscular: string
+          id: string
+          nome: string
+          observacoes: string | null
+          repeticoes_padrao: string
+          series_padrao: number
+          video_url: string | null
+        }
+        Insert: {
+          created_at?: string
+          descanso_padrao_seg?: number
+          grupo_muscular: string
+          id?: string
+          nome: string
+          observacoes?: string | null
+          repeticoes_padrao?: string
+          series_padrao?: number
+          video_url?: string | null
+        }
+        Update: {
+          created_at?: string
+          descanso_padrao_seg?: number
+          grupo_muscular?: string
+          id?: string
+          nome?: string
+          observacoes?: string | null
+          repeticoes_padrao?: string
+          series_padrao?: number
+          video_url?: string | null
+        }
+        Relationships: []
       }
       modelo_dieta_refeicoes: {
         Row: {
@@ -1069,6 +1153,30 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      sla_config: {
+        Row: {
+          descricao: string | null
+          prazo_horas: number
+          prioridade: Database["public"]["Enums"]["tarefa_prioridade"]
+          tipo: Database["public"]["Enums"]["tarefa_tipo"]
+          updated_at: string
+        }
+        Insert: {
+          descricao?: string | null
+          prazo_horas: number
+          prioridade: Database["public"]["Enums"]["tarefa_prioridade"]
+          tipo: Database["public"]["Enums"]["tarefa_tipo"]
+          updated_at?: string
+        }
+        Update: {
+          descricao?: string | null
+          prazo_horas?: number
+          prioridade?: Database["public"]["Enums"]["tarefa_prioridade"]
+          tipo?: Database["public"]["Enums"]["tarefa_tipo"]
+          updated_at?: string
+        }
+        Relationships: []
       }
       tarefas: {
         Row: {

@@ -32,6 +32,33 @@ export default function AdminTreinos() {
   const [novoModeloTitulo, setNovoModeloTitulo] = useState("");
   const [modeloSelecionado, setModeloSelecionado] = useState<string | null>(null);
   const [novoExercicio, setNovoExercicio] = useState({ nome_exercicio: "", series: "3", repeticoes: "12", descanso_seg: "60", observacoes: "", video_url: "" });
+  const [exercicioBibliotecaId, setExercicioBibliotecaId] = useState("");
+
+  const { data: bibliotecaExercicios = [] } = useQuery({
+    queryKey: ["exercicios-biblioteca"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("exercicios_biblioteca")
+        .select("id, nome, grupo_muscular, series_padrao, repeticoes_padrao, descanso_padrao_seg")
+        .order("grupo_muscular")
+        .order("nome");
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const aplicarExercicioBiblioteca = (id: string) => {
+    setExercicioBibliotecaId(id);
+    const item = bibliotecaExercicios.find((e) => e.id === id);
+    if (!item) return;
+    setNovoExercicio((p) => ({
+      ...p,
+      nome_exercicio: item.nome,
+      series: String(item.series_padrao),
+      repeticoes: item.repeticoes_padrao,
+      descanso_seg: String(item.descanso_padrao_seg),
+    }));
+  };
 
   const [abaAtiva, setAbaAtiva] = useState(alunoIdFromNav ? "publicar" : "biblioteca");
   const [alunoPublicar, setAlunoPublicar] = useState<string>(alunoIdFromNav ?? "");
@@ -196,6 +223,7 @@ export default function AdminTreinos() {
     },
     onSuccess: () => {
       setNovoExercicio({ nome_exercicio: "", series: "3", repeticoes: "12", descanso_seg: "60", observacoes: "", video_url: "" });
+      setExercicioBibliotecaId("");
       void queryClient.invalidateQueries({ queryKey: ["modelo-treino-exercicios", modeloSelecionado] });
     },
     onError: (error: Error) => toast({ title: "Erro ao adicionar exercício", description: error.message, variant: "destructive" }),
@@ -302,7 +330,23 @@ export default function AdminTreinos() {
                   </TableBody>
                 </Table>
 
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-2 border-t border-border">
+                <div className="pt-2 border-t border-border space-y-1.5">
+                  <Label className="text-xs text-muted-foreground">Adicionar a partir da Biblioteca ARKE (opcional)</Label>
+                  <Select value={exercicioBibliotecaId} onValueChange={aplicarExercicioBiblioteca}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Buscar exercício na biblioteca..." />
+                    </SelectTrigger>
+                    <SelectContent className="max-h-72">
+                      {bibliotecaExercicios.map((ex) => (
+                        <SelectItem key={ex.id} value={ex.id}>
+                          {ex.grupo_muscular} — {ex.nome}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                   <Input
                     className="col-span-2 sm:col-span-1"
                     placeholder="Nome do exercício"
