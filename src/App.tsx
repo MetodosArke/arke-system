@@ -85,7 +85,7 @@ const queryClient = new QueryClient({
   }),
 });
 
-const STAFF_ROLES = ["admin_arke", "gestor", "professor", "nutricionista"] as const;
+const STAFF_ROLES = ["admin_arke", "gestor", "professor", "nutricionista", "recepcao"] as const;
 const SUPERADMIN_ROLES = ["superadmin"] as const;
 
 // M.A.P.A.®: aluno sem anamnese de acolhimento concluída é levado ao onboarding
