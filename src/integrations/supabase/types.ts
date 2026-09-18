@@ -1800,6 +1800,7 @@ export type Database = {
           plano_b2b: Database["public"]["Enums"]["plano_b2b"]
           slug: string
           status: Database["public"]["Enums"]["org_status"]
+          telefone: string
           tipo: Database["public"]["Enums"]["organization_tipo"]
           trial_vencimento: string
           ultima_atividade: string

@@ -156,6 +156,7 @@ type Tenant = {
   assinaturas_atrasadas: number;
   ultima_atividade: string | null;
   cnpj_cpf: string | null;
+  telefone: string | null;
   trial_vencimento: string | null;
   gestor_email: string | null;
 };
@@ -201,6 +202,7 @@ export default function SuperAdminDashboard() {
       nome?: string;
       tipo?: Enums<"organization_tipo">;
       cnpj_cpf?: string | null;
+      telefone?: string | null;
       trial_vencimento?: string | null;
     }) => {
       const update: Partial<Tables<"organizations">> = {};
@@ -209,6 +211,7 @@ export default function SuperAdminDashboard() {
       if (payload.nome) update.nome = payload.nome;
       if (payload.tipo) update.tipo = payload.tipo;
       if (payload.cnpj_cpf !== undefined) update.cnpj_cpf = payload.cnpj_cpf;
+      if (payload.telefone !== undefined) update.telefone = payload.telefone;
       if (payload.trial_vencimento !== undefined) update.trial_vencimento = payload.trial_vencimento;
       const { error } = await supabase
         .from("organizations")
@@ -299,6 +302,7 @@ export default function SuperAdminDashboard() {
     plano_b2b: "starter" as Enums<"plano_b2b">,
     status: "trial" as Enums<"org_status">,
     cnpjCpf: "",
+    telefone: "",
     trialVencimento: "",
     gestorEmail: "",
   });
@@ -320,6 +324,7 @@ export default function SuperAdminDashboard() {
       plano_b2b: tenant.plano_b2b,
       status: tenant.status,
       cnpjCpf: tenant.cnpj_cpf ?? "",
+      telefone: tenant.telefone ?? "",
       trialVencimento: tenant.trial_vencimento ?? "",
       gestorEmail: tenant.gestor_email ?? "",
     });
@@ -336,6 +341,7 @@ export default function SuperAdminDashboard() {
       plano_b2b: edicao.plano_b2b,
       status: edicao.status,
       cnpj_cpf: edicao.cnpjCpf.trim() || null,
+      telefone: edicao.telefone.trim() || null,
       trial_vencimento: edicao.trialVencimento || null,
     });
   };
@@ -991,6 +997,18 @@ export default function SuperAdminDashboard() {
                   />
                 </div>
                 <div className="space-y-1">
+                  <Label htmlFor="edicao-telefone">Telefone da Organização</Label>
+                  <Input
+                    id="edicao-telefone"
+                    value={edicao.telefone}
+                    onChange={(e) => setEdicao((s) => ({ ...s, telefone: e.target.value }))}
+                    placeholder="(11) 91234-5678"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-1">
                   <Label htmlFor="edicao-trial">Data Limite do Trial / Vencimento</Label>
                   <Input
                     id="edicao-trial"
@@ -1049,10 +1067,10 @@ export default function SuperAdminDashboard() {
             </TabsContent>
 
             <TabsContent value="faturamento" className="space-y-3 mt-3">
-              {!edicao.cnpjCpf.trim() && (
+              {(!edicao.cnpjCpf.trim() || !edicao.telefone.trim()) && (
                 <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-600 dark:text-amber-400">
-                  Cadastre o CNPJ/CPF na aba "Informações" e salve antes de emitir uma cobrança — o Asaas exige o
-                  documento fiscal do cliente.
+                  Cadastre o CNPJ/CPF e o telefone na aba "Informações" e salve antes de emitir uma cobrança — o
+                  Asaas exige o documento fiscal e um telefone de contato do cliente.
                 </div>
               )}
 
@@ -1107,6 +1125,7 @@ export default function SuperAdminDashboard() {
                 disabled={
                   emitirCobranca.isPending ||
                   !edicao.cnpjCpf.trim() ||
+                  !edicao.telefone.trim() ||
                   !cobranca.valor.trim() ||
                   !cobranca.descricao.trim()
                 }
