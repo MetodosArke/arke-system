@@ -6,6 +6,21 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+// Todo erro de negócio (validação, permissão, Asaas) volta com HTTP 200 e
+// `{ error }` no corpo — nunca um status não-2xx. supabase-js `functions.invoke`
+// só devolve o corpo em `data` numa resposta 2xx; num não-2xx ele descarta o
+// corpo e troca `error` por um FunctionsHttpError genérico ("Edge Function
+// returned a non-2xx status code"), que era exatamente a mensagem que a UI
+// mostrava em vez do motivo real recusado pelo Asaas (ex.: "CPF/CNPJ
+// inválido"). O frontend já trata `data.error` como falha (`if (data?.error)
+// throw new Error(data.error)`), então HTTP 200 com `error` no corpo é o
+// único jeito de a mensagem específica chegar ao toast.
+const errorResponse = (mensagem: string, detalhe?: unknown) =>
+  new Response(JSON.stringify(detalhe !== undefined ? { error: mensagem, detalhe } : { error: mensagem }), {
+    status: 200,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+
 const jsonResponse = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
     status,
@@ -35,9 +50,8 @@ type ChamadaAsaas<T> = { ok: true; data: T } | { ok: false; mensagem: string; co
 // erro) dentro de um try/catch — o Asaas normalmente devolve JSON mesmo em
 // erro (`{ errors: [{ description }] }`), mas uma falha de rede/gateway
 // pode devolver algo que não é JSON válido, e isso não pode derrubar a
-// função com uma exceção não tratada. Quando dá erro, devolve a mensagem
-// específica do Asaas (não um "falha genérica non-2xx") para a UI do
-// SuperAdmin mostrar exatamente por que a cobrança foi recusada.
+// função com uma exceção não tratada. Quando dá erro HTTP, prefixa "Asaas: "
+// para deixar claro na UI que a recusa veio do gateway, não do ARKE.
 async function chamarAsaas<T>(url: string, options: RequestInit): Promise<ChamadaAsaas<T>> {
   let resp: Response;
   try {
@@ -56,11 +70,11 @@ async function chamarAsaas<T>(url: string, options: RequestInit): Promise<Chamad
 
   if (!resp.ok) {
     const erros = (corpo as AsaasErrorBody | null)?.errors;
-    const mensagem =
+    const descricao =
       erros && erros.length > 0
         ? erros.map((e) => e.description).filter(Boolean).join(" ")
         : `O Asaas recusou a requisição (HTTP ${resp.status}).`;
-    return { ok: false, mensagem, corpo };
+    return { ok: false, mensagem: `Asaas: ${descricao}`, corpo };
   }
 
   return { ok: true, data: corpo as T };
@@ -75,12 +89,12 @@ Deno.serve(async (req: Request) => {
     return new Response("ok", { headers: corsHeaders });
   }
   if (req.method !== "POST") {
-    return jsonResponse({ error: "Method not allowed" }, 405);
+    return errorResponse("Method not allowed");
   }
 
   const authHeader = req.headers.get("Authorization");
   if (!authHeader?.startsWith("Bearer ")) {
-    return jsonResponse({ error: "Sessão inválida. Faça login novamente." }, 401);
+    return errorResponse("Sessão inválida. Faça login novamente.");
   }
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
@@ -91,13 +105,10 @@ Deno.serve(async (req: Request) => {
 
   if (!supabaseUrl || !anonKey || !serviceRoleKey) {
     console.error("Missing required Supabase environment variables");
-    return jsonResponse({ error: "Configuração do servidor incompleta." }, 500);
+    return errorResponse("Configuração do servidor incompleta.");
   }
   if (!asaasApiKey) {
-    return jsonResponse(
-      { error: "ASAAS_API_KEY não configurada. Configure o secret no projeto Supabase antes de emitir cobranças." },
-      500
-    );
+    return errorResponse("ASAAS_API_KEY não configurada. Configure o secret no projeto Supabase antes de emitir cobranças.");
   }
 
   try {
@@ -107,13 +118,13 @@ Deno.serve(async (req: Request) => {
     const descricao = payload.descricao?.trim();
     const formaPagamento = payload.forma_pagamento;
 
-    if (!organizationId) return jsonResponse({ error: "organization_id é obrigatório." }, 400);
+    if (!organizationId) return errorResponse("organization_id é obrigatório.");
     if (!Number.isFinite(valor) || valor <= 0) {
-      return jsonResponse({ error: "Valor inválido. Informe um valor maior que zero." }, 400);
+      return errorResponse("Valor inválido. Informe um valor maior que zero.");
     }
-    if (!descricao) return jsonResponse({ error: "Descrição / motivo da cobrança é obrigatório." }, 400);
+    if (!descricao) return errorResponse("Descrição / motivo da cobrança é obrigatório.");
     if (!formaPagamento || !FORMAS_VALIDAS.has(formaPagamento)) {
-      return jsonResponse({ error: "Forma de pagamento inválida. Use PIX ou CREDIT_CARD." }, 400);
+      return errorResponse("Forma de pagamento inválida. Use PIX ou CREDIT_CARD.");
     }
 
     const asUser = createClient(supabaseUrl, anonKey, {
@@ -123,7 +134,7 @@ Deno.serve(async (req: Request) => {
     const { data: claimsData, error: claimsError } = await asUser.auth.getClaims(token);
     const callerId = typeof claimsData?.claims?.sub === "string" ? claimsData.claims.sub : null;
     if (claimsError || !callerId) {
-      return jsonResponse({ error: "Sessão inválida. Faça login novamente." }, 401);
+      return errorResponse("Sessão inválida. Faça login novamente.");
     }
 
     const adminClient = createClient(supabaseUrl, serviceRoleKey);
@@ -134,32 +145,35 @@ Deno.serve(async (req: Request) => {
       .eq("user_id", callerId);
     if (callerRolesError) {
       console.error("Error loading caller roles", callerRolesError);
-      return jsonResponse({ error: "Erro ao validar permissões." }, 500);
+      return errorResponse("Erro ao validar permissões.");
     }
     const callerIsSuperadmin = (callerRoles ?? []).some((r) => r.role === "superadmin");
     if (!callerIsSuperadmin) {
-      return jsonResponse({ error: "Apenas o Super Admin ArkeFit pode emitir cobranças B2B." }, 403);
+      return errorResponse("Apenas o Super Admin ArkeFit pode emitir cobranças B2B.");
     }
 
     const { data: org, error: orgError } = await adminClient
       .from("organizations")
-      .select("id, nome, cnpj_cpf, asaas_customer_id_b2b")
+      .select("id, nome, cnpj_cpf, telefone, asaas_customer_id_b2b")
       .eq("id", organizationId)
       .maybeSingle();
     if (orgError) {
       console.error("Error loading organization", orgError);
-      return jsonResponse({ error: "Erro ao carregar a organização." }, 500);
+      return errorResponse("Erro ao carregar a organização.");
     }
-    if (!org) return jsonResponse({ error: "Organização não encontrada." }, 404);
+    if (!org) return errorResponse("Organização não encontrada.");
 
     const cnpjCpfLimpo = org.cnpj_cpf ? somenteDigitos(org.cnpj_cpf) : "";
     if (cnpjCpfLimpo.length !== 11 && cnpjCpfLimpo.length !== 14) {
-      return jsonResponse(
-        {
-          error:
-            "Cadastre o CNPJ/CPF da organização (aba Informações) antes de emitir uma cobrança — o Asaas exige o documento fiscal do cliente.",
-        },
-        422
+      return errorResponse(
+        "Cadastre o CNPJ/CPF da organização (aba Informações) antes de emitir uma cobrança — o Asaas exige o documento fiscal do cliente."
+      );
+    }
+
+    const telefoneLimpo = org.telefone ? somenteDigitos(org.telefone) : "";
+    if (telefoneLimpo.length < 10) {
+      return errorResponse(
+        "Cadastre um telefone válido da organização (aba Informações) antes de emitir uma cobrança — o Asaas exige um telefone de contato do cliente."
       );
     }
 
@@ -169,43 +183,68 @@ Deno.serve(async (req: Request) => {
     };
 
     // Reaproveita o customer Asaas já criado para essa organização (evita
-    // duplicar o mesmo cliente a cada cobrança) — só cria na primeira vez.
+    // duplicar o mesmo cliente a cada cobrança) — só busca/cria na primeira vez.
     let asaasCustomerId = org.asaas_customer_id_b2b;
     if (!asaasCustomerId) {
-      // E-mail do gestor master como e-mail de contato do customer no
-      // Asaas (a organização não tem um e-mail próprio cadastrado — o
-      // login do gestor ativo mais antigo é a melhor referência de
-      // contato, mesmo padrão já usado em get_superadmin_tenants).
-      const { data: gestorMembership } = await adminClient
-        .from("organization_members")
-        .select("user_id")
-        .eq("organization_id", org.id)
-        .eq("role", "gestor")
-        .eq("status", "active")
-        .order("created_at", { ascending: true })
-        .limit(1)
-        .maybeSingle();
-      let gestorEmail: string | undefined;
-      if (gestorMembership) {
-        const { data: gestorUser } = await adminClient.auth.admin.getUserById(gestorMembership.user_id);
-        gestorEmail = gestorUser?.user?.email;
+      // Antes de criar, busca por CPF/CNPJ — o customer pode já existir no
+      // Asaas (criado manualmente, ou por outro fluxo) sem estar salvo aqui;
+      // evita duplicar o cadastro do mesmo cliente fiscal.
+      const resultadoBusca = await chamarAsaas<{ data?: { id: string }[] }>(
+        `${asaasApiUrl}/customers?cpfCnpj=${cnpjCpfLimpo}`,
+        { method: "GET", headers: asaasHeaders }
+      );
+      if (!resultadoBusca.ok) {
+        console.error("Asaas customer search error", resultadoBusca.corpo);
+        return errorResponse(resultadoBusca.mensagem, resultadoBusca.corpo);
       }
 
-      const resultadoCustomer = await chamarAsaas<{ id: string }>(`${asaasApiUrl}/customers`, {
-        method: "POST",
-        headers: asaasHeaders,
-        body: JSON.stringify({
-          name: org.nome,
-          cpfCnpj: cnpjCpfLimpo,
-          email: gestorEmail,
-          externalReference: `org:${org.id}`,
-        }),
-      });
-      if (!resultadoCustomer.ok) {
-        console.error("Asaas customer error", resultadoCustomer.corpo);
-        return jsonResponse({ error: resultadoCustomer.mensagem, detalhe: resultadoCustomer.corpo }, 502);
+      const customerExistente = resultadoBusca.data.data?.[0];
+      if (customerExistente) {
+        asaasCustomerId = customerExistente.id;
+      } else {
+        // E-mail do gestor master como e-mail de contato do customer no
+        // Asaas (a organização não tem um e-mail próprio cadastrado — o
+        // login do gestor ativo mais antigo é a melhor referência de
+        // contato, mesmo padrão já usado em get_superadmin_tenants).
+        const { data: gestorMembership } = await adminClient
+          .from("organization_members")
+          .select("user_id")
+          .eq("organization_id", org.id)
+          .eq("role", "gestor")
+          .eq("status", "active")
+          .order("created_at", { ascending: true })
+          .limit(1)
+          .maybeSingle();
+        let gestorEmail: string | undefined;
+        if (gestorMembership) {
+          const { data: gestorUser } = await adminClient.auth.admin.getUserById(gestorMembership.user_id);
+          gestorEmail = gestorUser?.user?.email;
+        }
+        if (!gestorEmail) {
+          return errorResponse(
+            "Não foi possível localizar o e-mail do gestor dessa organização — cadastre um gestor ativo antes de emitir a primeira cobrança."
+          );
+        }
+
+        const resultadoCustomer = await chamarAsaas<{ id: string }>(`${asaasApiUrl}/customers`, {
+          method: "POST",
+          headers: asaasHeaders,
+          body: JSON.stringify({
+            name: org.nome,
+            cpfCnpj: cnpjCpfLimpo,
+            email: gestorEmail,
+            phone: telefoneLimpo,
+            mobilePhone: telefoneLimpo,
+            externalReference: `org:${org.id}`,
+          }),
+        });
+        if (!resultadoCustomer.ok) {
+          console.error("Asaas customer create error", resultadoCustomer.corpo);
+          return errorResponse(resultadoCustomer.mensagem, resultadoCustomer.corpo);
+        }
+        asaasCustomerId = resultadoCustomer.data.id;
       }
-      asaasCustomerId = resultadoCustomer.data.id;
+
       await adminClient.from("organizations").update({ asaas_customer_id_b2b: asaasCustomerId }).eq("id", org.id);
     }
 
@@ -223,7 +262,7 @@ Deno.serve(async (req: Request) => {
     });
     if (!resultadoPayment.ok) {
       console.error("Asaas payment error", resultadoPayment.corpo);
-      return jsonResponse({ error: resultadoPayment.mensagem, detalhe: resultadoPayment.corpo }, 502);
+      return errorResponse(resultadoPayment.mensagem, resultadoPayment.corpo);
     }
     const payment = resultadoPayment.data;
 
@@ -264,20 +303,17 @@ Deno.serve(async (req: Request) => {
 
     if (insertError) {
       console.error("Erro ao gravar cobranca_b2b", insertError);
-      return jsonResponse(
-        {
-          error: "Cobrança criada no Asaas, mas falhou ao gravar no banco.",
-          invoice_url: payment.invoiceUrl ?? null,
-          pix_copia_cola: pixCopiaCola,
-          pix_qr_code_base64: pixQrCodeBase64,
-        },
-        500
-      );
+      return jsonResponse({
+        error: "Cobrança criada no Asaas, mas falhou ao gravar no banco.",
+        invoice_url: payment.invoiceUrl ?? null,
+        pix_copia_cola: pixCopiaCola,
+        pix_qr_code_base64: pixQrCodeBase64,
+      });
     }
 
     return jsonResponse({ cobranca });
   } catch (error) {
     console.error("asaas-emitir-cobranca-b2b error", error);
-    return jsonResponse({ error: "Erro inesperado ao emitir a cobrança." }, 500);
+    return errorResponse("Erro inesperado ao emitir a cobrança.");
   }
 });
