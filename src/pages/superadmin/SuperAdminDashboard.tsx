@@ -69,6 +69,7 @@ const PLANO_LABEL: Record<Enums<"plano_b2b">, string> = {
   growth: "Growth",
   enterprise: "Enterprise",
   custom: "Custom",
+  autonomo: "Profissional Autônomo",
 };
 
 type Tenant = {

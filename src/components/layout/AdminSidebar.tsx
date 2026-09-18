@@ -17,6 +17,16 @@ const menuItems = [
   { icon: Building2, label: "Organização", path: "/admin/organizacao" },
 ];
 
+// Personal/nutricionista autônomo: carteira própria de alunos, sem
+// estrutura física de academia — menu simplificado, sem Catracas,
+// Organização (slug/split de academia) nem Onboarding B2B.
+const menuItemsProfissionalAutonomo = [
+  { icon: LayoutDashboard, label: "Minha Fila", path: "/admin" },
+  { icon: Users, label: "Meus Alunos", path: "/admin/alunos" },
+  { icon: Dumbbell, label: "Treinos", path: "/admin/treinos" },
+  { icon: UtensilsCrossed, label: "Dietas", path: "/admin/dietas" },
+];
+
 // Gestão de Equipe e Onboarding B2B são restritos a gestor/admin_arke —
 // professor e nutricionista não gerenciam quem entra na organização.
 const equipeItem = { icon: UsersRound, label: "Equipe", path: "/admin/equipe" };
@@ -34,12 +44,15 @@ function SidebarNav({
 }) {
   const location = useLocation();
   const navigate = useNavigate();
-  const { signOut, hasRole, organizationRole } = useAuth();
+  const { signOut, hasRole, organizationRole, organization } = useAuth();
   const isAdminArke = hasRole("admin_arke");
   const podeGerenciarEquipe = isAdminArke || organizationRole === "gestor";
-  const items = podeGerenciarEquipe
-    ? [...menuItems.slice(0, 2), equipeItem, ...menuItems.slice(2), gestao360Item, onboardingItem]
-    : menuItems;
+  const ehProfissionalAutonomo = organization?.tipo === "profissional_autonomo";
+  const items = ehProfissionalAutonomo
+    ? menuItemsProfissionalAutonomo
+    : podeGerenciarEquipe
+      ? [...menuItems.slice(0, 2), equipeItem, ...menuItems.slice(2), gestao360Item, onboardingItem]
+      : menuItems;
 
   const handleNav = (path: string) => {
     navigate(path);

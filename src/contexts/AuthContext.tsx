@@ -11,10 +11,14 @@ interface Profile {
   status: "active" | "pending" | "inactive";
 }
 
+type OrganizationTipo = Enums<"organization_tipo">;
+
 interface Organization {
   id: string;
   nome: string;
   slug: string;
+  tipo: OrganizationTipo;
+  especialidadeProfissional: AppRole | null;
 }
 
 type FaseJornada = Enums<"fase_jornada">;
@@ -108,7 +112,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       supabase.from("user_roles").select("role").eq("user_id", userId),
       supabase
         .from("organization_members")
-        .select("role, organization_id, organizations ( id, nome, slug )")
+        .select("role, organization_id, organizations ( id, nome, slug, tipo, especialidade_profissional )")
         .eq("user_id", userId)
         .eq("status", "active")
         .maybeSingle(),
@@ -118,8 +122,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     if (membership) {
       setOrganizationRole(membership.role);
-      const org = membership.organizations as unknown as Organization | null;
-      setOrganization(org ? { id: org.id, nome: org.nome, slug: org.slug } : null);
+      const org = membership.organizations as unknown as {
+        id: string;
+        nome: string;
+        slug: string;
+        tipo: OrganizationTipo;
+        especialidade_profissional: AppRole | null;
+      } | null;
+      setOrganization(
+        org
+          ? {
+              id: org.id,
+              nome: org.nome,
+              slug: org.slug,
+              tipo: org.tipo,
+              especialidadeProfissional: org.especialidade_profissional,
+            }
+          : null
+      );
 
       if (membership.role === "aluno") {
         await loadAlunoStatus(userId, membership.organization_id);
