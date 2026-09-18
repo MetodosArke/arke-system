@@ -92,18 +92,34 @@ export default function AdminOnboarding() {
     onError: (error: Error) => toast({ title: "Erro ao salvar", description: error.message, variant: "destructive" }),
   });
 
+  // Chegar ao passo 3 (via wallet salva ou "Configurar depois") já é o
+  // suficiente para considerar o onboarding concluído — encerra o banner
+  // que aparece nas Homes até aqui.
+  const concluirOnboarding = useMutation({
+    mutationFn: async () => {
+      if (!organization) return;
+      const { error } = await supabase
+        .from("organizations")
+        .update({ onboarding_completed: true })
+        .eq("id", organization.id);
+      if (error) throw error;
+    },
+    onSuccess: () => void refreshOrganization(),
+  });
+
   const salvarWallet = useMutation({
     mutationFn: async () => {
       if (!organization) throw new Error("Nenhuma organização vinculada.");
       const { error } = await supabase
         .from("organizations")
-        .update({ asaas_wallet_id: walletId || null })
+        .update({ asaas_wallet_id: walletId || null, onboarding_completed: true })
         .eq("id", organization.id);
       if (error) throw error;
     },
     onSuccess: () => {
       toast({ title: "Split de pagamento configurado!" });
       void queryClient.invalidateQueries({ queryKey: ["organizacao-onboarding", organization?.id] });
+      void refreshOrganization();
       setPasso(3);
     },
     onError: (error: Error) => toast({ title: "Erro ao salvar", description: error.message, variant: "destructive" }),
@@ -207,7 +223,15 @@ export default function AdminOnboarding() {
                 {salvarWallet.isPending ? "Salvando..." : "Salvar e continuar"}
               </Button>
               {!walletId && (
-                <Button variant="ghost" onClick={() => setPasso(3)}>Configurar depois</Button>
+                <Button
+                  variant="ghost"
+                  onClick={() => {
+                    concluirOnboarding.mutate();
+                    setPasso(3);
+                  }}
+                >
+                  Configurar depois
+                </Button>
               )}
             </div>
           </CardContent>
