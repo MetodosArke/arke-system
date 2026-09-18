@@ -61,6 +61,7 @@ import {
   CreditCard,
   Copy,
   ExternalLink,
+  Trash2,
 } from "lucide-react";
 import type { Tables, Enums } from "@/integrations/supabase/types";
 
@@ -124,6 +125,9 @@ const STATUS_LABEL: Record<Enums<"org_status">, string> = {
   suspenso: "Suspenso",
   cancelado: "Cancelado",
 };
+
+const STATUS_ATIVOS = new Set<Enums<"org_status">>(["ativo", "trial"]);
+const STATUS_INATIVOS = new Set<Enums<"org_status">>(["suspenso", "inadimplente", "cancelado"]);
 
 const PLANO_LABEL: Record<Enums<"plano_b2b">, string> = {
   starter: "Starter",
@@ -232,6 +236,21 @@ export default function SuperAdminDashboard() {
   const [filtroTipo, setFiltroTipo] = useState<Enums<"organization_tipo"> | "todos">("todos");
   const [filtroStatus, setFiltroStatus] = useState<Enums<"org_status"> | "todos">("todos");
 
+  // Carteira: separa de cara a visão do dia a dia (quem está pagando/em
+  // trial) da faxina de contas mortas (suspenso/inadimplente/cancelado) —
+  // numa base grande, misturar as duas na mesma tabela sem esse corte
+  // rápido torna a tela inútil para gestão de carteira em escala.
+  const [filtroCarteira, setFiltroCarteira] = useState<"ativos" | "inativos" | "todos">("ativos");
+
+  const contadoresCarteira = useMemo(
+    () => ({
+      ativos: tenants.filter((t) => STATUS_ATIVOS.has(t.status)).length,
+      inativos: tenants.filter((t) => STATUS_INATIVOS.has(t.status)).length,
+      todos: tenants.length,
+    }),
+    [tenants]
+  );
+
   const tenantsFiltrados = useMemo(() => {
     const termo = busca.trim().toLowerCase();
     return tenants.filter((t) => {
@@ -239,9 +258,13 @@ export default function SuperAdminDashboard() {
         !termo || t.nome.toLowerCase().includes(termo) || t.slug.toLowerCase().includes(termo);
       const bateTipo = filtroTipo === "todos" || t.tipo === filtroTipo;
       const bateStatus = filtroStatus === "todos" || t.status === filtroStatus;
-      return bateBusca && bateTipo && bateStatus;
+      const bateCarteira =
+        filtroCarteira === "todos" ||
+        (filtroCarteira === "ativos" && STATUS_ATIVOS.has(t.status)) ||
+        (filtroCarteira === "inativos" && STATUS_INATIVOS.has(t.status));
+      return bateBusca && bateTipo && bateStatus && bateCarteira;
     });
-  }, [tenants, busca, filtroTipo, filtroStatus]);
+  }, [tenants, busca, filtroTipo, filtroStatus, filtroCarteira]);
 
   // ---- Onboarding Assistido: "+ Nova Organização" ----
   const [modalNovaOrgAberto, setModalNovaOrgAberto] = useState(false);
@@ -346,9 +369,13 @@ export default function SuperAdminDashboard() {
     });
   };
 
-  // ---- Ações de Suporte: resetar token do gateway / alterar e-mail do gestor ----
+  // ---- Ações de Suporte: resetar token do gateway / alterar e-mail do gestor / excluir organização ----
   const acaoSuporte = useMutation({
-    mutationFn: async (payload: { organization_id: string; acao: "resetar_token_gateway" | "alterar_email_gestor"; novo_email?: string }) => {
+    mutationFn: async (payload: {
+      organization_id: string;
+      acao: "resetar_token_gateway" | "alterar_email_gestor" | "excluir_organizacao";
+      novo_email?: string;
+    }) => {
       const { data, error } = await supabase.functions.invoke("superadmin-suporte-tenant", { body: payload });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
@@ -360,6 +387,9 @@ export default function SuperAdminDashboard() {
           title: "Token do Gateway Local resetado.",
           description: `${data?.catracas_resetadas ?? 0} dispositivo(s) atualizado(s).`,
         });
+      } else if (variables.acao === "excluir_organizacao") {
+        toast({ title: "Organização excluída." });
+        void queryClient.invalidateQueries({ queryKey: ["superadmin-tenants"] });
       } else {
         toast({ title: "E-mail do gestor alterado." });
         void queryClient.invalidateQueries({ queryKey: ["superadmin-tenants"] });
@@ -425,6 +455,12 @@ export default function SuperAdminDashboard() {
   // o token do Gateway Local por engano.
   const [tenantSuspendendo, setTenantSuspendendo] = useState<Tenant | null>(null);
   const [tenantResetandoToken, setTenantResetandoToken] = useState<Tenant | null>(null);
+
+  // Exclusão é irreversível (apaga alunos, treinos, dietas, cobranças, etc.
+  // via cascade) — exige digitar o nome exato do tenant, não só um clique
+  // de confirmação, para reduzir a chance de apagar a organização errada.
+  const [tenantExcluindo, setTenantExcluindo] = useState<Tenant | null>(null);
+  const [confirmacaoExclusao, setConfirmacaoExclusao] = useState("");
 
   const [categoriaAtiva, setCategoriaAtiva] = useState<CategoriaSimulacao | null>(null);
   const [destinoAtivo, setDestinoAtivo] = useState<string | null>(null);
@@ -597,6 +633,33 @@ export default function SuperAdminDashboard() {
               <Plus className="h-4 w-4" /> Nova Organização
             </Button>
           </div>
+
+          <Tabs
+            value={filtroCarteira}
+            onValueChange={(v) => setFiltroCarteira(v as typeof filtroCarteira)}
+            className="pt-2"
+          >
+            <TabsList className="grid w-full grid-cols-3 sm:w-auto sm:inline-grid">
+              <TabsTrigger value="ativos" className="gap-1.5">
+                Ativos / Trial
+                <Badge variant="secondary" className="h-5 min-w-5 justify-center px-1 text-[10px]">
+                  {contadoresCarteira.ativos}
+                </Badge>
+              </TabsTrigger>
+              <TabsTrigger value="inativos" className="gap-1.5">
+                Inativos / Cancelados
+                <Badge variant="secondary" className="h-5 min-w-5 justify-center px-1 text-[10px]">
+                  {contadoresCarteira.inativos}
+                </Badge>
+              </TabsTrigger>
+              <TabsTrigger value="todos" className="gap-1.5">
+                Todos
+                <Badge variant="secondary" className="h-5 min-w-5 justify-center px-1 text-[10px]">
+                  {contadoresCarteira.todos}
+                </Badge>
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
 
           <div className="flex flex-col sm:flex-row gap-2 pt-2">
             <div className="relative flex-1">
@@ -772,6 +835,20 @@ export default function SuperAdminDashboard() {
                               <Lock className="h-3.5 w-3.5 mr-2" /> Suspender acesso do tenant
                             </DropdownMenuItem>
                           )}
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            className="text-destructive focus:text-destructive"
+                            disabled={
+                              acaoSuporte.isPending &&
+                              acaoSuporte.variables?.organization_id === tenant.organization_id
+                            }
+                            onClick={() => {
+                              setConfirmacaoExclusao("");
+                              setTenantExcluindo(tenant);
+                            }}
+                          >
+                            <Trash2 className="h-3.5 w-3.5 mr-2" /> Excluir Organização
+                          </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </td>
@@ -1242,6 +1319,58 @@ export default function SuperAdminDashboard() {
               }
             >
               {acaoSuporte.isPending ? "Resetando..." : "Resetar token"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Confirmação: exclusão permanente da organização (apaga alunos, equipe, treinos,
+          dietas, cobranças e todos os demais dados vinculados) */}
+      <Dialog
+        open={!!tenantExcluindo}
+        onOpenChange={(open) => {
+          if (!open) {
+            setTenantExcluindo(null);
+            setConfirmacaoExclusao("");
+          }
+        }}
+      >
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Excluir {tenantExcluindo?.nome}?</DialogTitle>
+            <DialogDescription>
+              Isso apaga <strong>permanentemente</strong> a organização e todos os dados vinculados —
+              alunos, equipe, treinos, dietas, check-ins, agendamentos e cobranças. Não pode ser
+              desfeito.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-1">
+            <Label htmlFor="confirmacao-exclusao">
+              Digite <strong>{tenantExcluindo?.nome}</strong> para confirmar
+            </Label>
+            <Input
+              id="confirmacao-exclusao"
+              value={confirmacaoExclusao}
+              onChange={(e) => setConfirmacaoExclusao(e.target.value)}
+              autoComplete="off"
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setTenantExcluindo(null)}>
+              Cancelar
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={acaoSuporte.isPending || confirmacaoExclusao.trim() !== tenantExcluindo?.nome}
+              onClick={() =>
+                tenantExcluindo &&
+                acaoSuporte.mutate(
+                  { organization_id: tenantExcluindo.organization_id, acao: "excluir_organizacao" },
+                  { onSuccess: () => setTenantExcluindo(null) }
+                )
+              }
+            >
+              {acaoSuporte.isPending ? "Excluindo..." : "Excluir Organização"}
             </Button>
           </DialogFooter>
         </DialogContent>
