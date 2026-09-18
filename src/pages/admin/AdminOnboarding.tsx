@@ -7,8 +7,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { Rocket, Building2, Wallet, Link2, Copy, CheckCircle2 } from "lucide-react";
+import type { Enums } from "@/integrations/supabase/types";
+
+type TipoNegocio = Extract<Enums<"organization_tipo">, "academia" | "studio">;
 
 const SLUG_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
@@ -36,7 +40,7 @@ export default function AdminOnboarding() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("organizations")
-        .select("nome, slug, asaas_wallet_id")
+        .select("nome, slug, asaas_wallet_id, tipo")
         .eq("id", organization!.id)
         .single();
       if (error) throw error;
@@ -48,12 +52,14 @@ export default function AdminOnboarding() {
   const [nome, setNome] = useState("");
   const [slug, setSlug] = useState("");
   const [walletId, setWalletId] = useState("");
+  const [tipoNegocio, setTipoNegocio] = useState<TipoNegocio>("academia");
 
   useEffect(() => {
     if (org) {
       setNome(org.nome ?? "");
       setSlug(org.slug ?? "");
       setWalletId(org.asaas_wallet_id ?? "");
+      if (org.tipo === "academia" || org.tipo === "studio") setTipoNegocio(org.tipo);
     }
   }, [org]);
 
@@ -64,9 +70,10 @@ export default function AdminOnboarding() {
       if (!SLUG_RE.test(slugNormalizado)) {
         throw new Error("Slug inválido. Use apenas letras minúsculas, números e hífens.");
       }
+      const podeEscolherTipo = org?.tipo === "academia" || org?.tipo === "studio";
       const { error } = await supabase
         .from("organizations")
-        .update({ nome, slug: slugNormalizado })
+        .update(podeEscolherTipo ? { nome, slug: slugNormalizado, tipo: tipoNegocio } : { nome, slug: slugNormalizado })
         .eq("id", organization.id);
       if (error) {
         if (error.message.includes("duplicate") || error.code === "23505") {
@@ -136,6 +143,24 @@ export default function AdminOnboarding() {
               <Label htmlFor="onboarding-nome">Nome da academia</Label>
               <Input id="onboarding-nome" value={nome} onChange={(e) => setNome(e.target.value)} />
             </div>
+            {(org?.tipo === "academia" || org?.tipo === "studio") && (
+              <div className="space-y-1.5">
+                <Label htmlFor="onboarding-tipo">Tipo de negócio</Label>
+                <Select value={tipoNegocio} onValueChange={(v) => setTipoNegocio(v as TipoNegocio)}>
+                  <SelectTrigger id="onboarding-tipo">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="academia">Academia (livre acesso)</SelectItem>
+                    <SelectItem value="studio">Studio (turmas fechadas com horário e capacidade)</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-[11px] text-muted-foreground">
+                  Studios ganham a Grade Semanal de turmas em Agenda e a catraca passa a exigir
+                  agendamento ativo, não só assinatura em dia.
+                </p>
+              </div>
+            )}
             <div className="space-y-1.5">
               <Label htmlFor="onboarding-slug">Slug (link amigável)</Label>
               <div className="flex items-center gap-2">

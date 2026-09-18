@@ -53,7 +53,7 @@ Deno.serve(async (req: Request) => {
 
     const { data: catraca, error: catracaError } = await admin
       .from("organizacao_catracas")
-      .select("id, organization_id, status")
+      .select("id, organization_id, status, organizations(tipo)")
       .eq("device_token", deviceToken)
       .maybeSingle();
 
@@ -104,7 +104,25 @@ Deno.serve(async (req: Request) => {
       : aluno.aluno_assinaturas;
     const inadimplente = assinatura?.status === "atrasada";
 
-    const resultado = inadimplente ? "negado_inadimplente" : "liberado";
+    // Redundância de turma: em Studios (turmas de horário fixo e
+    // capacidade limitada), assinatura em dia não basta — o aluno
+    // também precisa ter um agendamento ativo para o bloco de horário
+    // atual, senão a catraca libera gente fora do horário da turma dela.
+    const organizacaoInfo = Array.isArray(catraca.organizations) ? catraca.organizations[0] : catraca.organizations;
+    let semAgendamento = false;
+    if (!inadimplente && organizacaoInfo?.tipo === "studio") {
+      const { data: possuiAgendamento, error: agendamentoError } = await admin.rpc(
+        "aluno_possui_agendamento_ativo_agora",
+        { _aluno_id: aluno.id }
+      );
+      if (agendamentoError) {
+        console.error("Erro ao verificar agendamento do studio:", agendamentoError);
+      } else {
+        semAgendamento = !possuiAgendamento;
+      }
+    }
+
+    const resultado = inadimplente ? "negado_inadimplente" : semAgendamento ? "negado_sem_agendamento" : "liberado";
     await admin.from("acessos_catraca_logs").insert({
       organization_id: catraca.organization_id,
       catraca_id: catraca.id,
@@ -115,6 +133,13 @@ Deno.serve(async (req: Request) => {
 
     if (inadimplente) {
       return jsonResponse({ liberado: false, motivo: "Assinatura em atraso.", aluno_nome: profile.full_name });
+    }
+    if (semAgendamento) {
+      return jsonResponse({
+        liberado: false,
+        motivo: "Sem agendamento ativo para este horário.",
+        aluno_nome: profile.full_name,
+      });
     }
 
     return jsonResponse({ liberado: true, motivo: "Acesso liberado.", aluno_nome: profile.full_name });

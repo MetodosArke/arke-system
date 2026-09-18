@@ -33,7 +33,7 @@ import {
 } from "lucide-react";
 import type { Tables, Enums } from "@/integrations/supabase/types";
 
-type CategoriaSimulacao = "aluno" | "academia_studio" | "personal" | "nutricionista";
+type CategoriaSimulacao = "aluno" | "academia" | "studio" | "personal" | "nutricionista";
 
 type PerfilSimulavel = {
   user_id: string;
@@ -45,8 +45,8 @@ type PerfilSimulavel = {
 
 const CATEGORIAS_SIMULACAO: { categoria: CategoriaSimulacao; label: string; icon: typeof Users; destino: string }[] = [
   { categoria: "aluno", label: "Visão do Aluno", icon: UserCircle, destino: "/#/app" },
-  { categoria: "academia_studio", label: "Visão da Academia", icon: Building2, destino: "/#/admin" },
-  { categoria: "academia_studio", label: "Visão do Studio", icon: Store, destino: "/#/admin" },
+  { categoria: "academia", label: "Visão da Academia", icon: Building2, destino: "/#/admin" },
+  { categoria: "studio", label: "Visão do Studio", icon: Store, destino: "/#/admin/agenda" },
   { categoria: "personal", label: "Visão do Personal Trainer", icon: Dumbbell, destino: "/#/admin" },
   { categoria: "nutricionista", label: "Visão do Nutricionista", icon: Apple, destino: "/#/admin" },
 ];
@@ -224,11 +224,10 @@ export default function SuperAdminDashboard() {
             ))}
           </div>
 
-          {categoriaAtiva === "academia_studio" && (
+          {categoriaAtiva === "studio" && (
             <p className="text-[11px] text-muted-foreground">
-              Academia e Studio hoje compartilham exatamente a mesma tela no produto — não existe
-              ainda uma experiência de frontend distinta para studios, então as duas opções mostram
-              o mesmo painel de gestor.
+              Studios têm turmas de horário fixo e capacidade limitada — a simulação entra direto na
+              Agenda (Grade Semanal), a tela própria desse tipo de negócio.
             </p>
           )}
 

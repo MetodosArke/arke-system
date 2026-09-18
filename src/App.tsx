@@ -45,6 +45,7 @@ import AdminImportarAlunos from "@/pages/admin/AdminImportarAlunos";
 import AdminOnboarding from "@/pages/admin/AdminOnboarding";
 import AdminCatracas from "@/pages/admin/AdminCatracas";
 import AdminPerfil from "@/pages/admin/AdminPerfil";
+import AdminAgenda from "@/pages/admin/AdminAgenda";
 
 // Super Admin (Visão Master ArkeFit)
 import SuperAdminDashboard from "@/pages/superadmin/SuperAdminDashboard";
@@ -205,6 +206,7 @@ const App = () => (
                 <Route path="catracas" element={<AdminCatracas />} />
                 <Route path="organizacao" element={<AdminOrganizacao />} />
                 <Route path="perfil" element={<AdminPerfil />} />
+                <Route path="agenda" element={<AdminAgenda />} />
               </Route>
 
               {/* Super Admin — Visão Master ArkeFit, restrita ao papel global 'superadmin' */}

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { LayoutDashboard, Users, UsersRound, Building2, LogOut, ChevronLeft, Menu, Dumbbell, UtensilsCrossed, TrendingUp, UserCircle, Rocket, BarChart3, DoorOpen } from "lucide-react";
+import { LayoutDashboard, Users, UsersRound, Building2, LogOut, ChevronLeft, Menu, Dumbbell, UtensilsCrossed, TrendingUp, UserCircle, Rocket, BarChart3, DoorOpen, CalendarDays } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
@@ -32,6 +32,9 @@ const menuItemsProfissionalAutonomo = [
 const equipeItem = { icon: UsersRound, label: "Equipe", path: "/admin/equipe" };
 const onboardingItem = { icon: Rocket, label: "Onboarding", path: "/admin/onboarding" };
 const gestao360Item = { icon: BarChart3, label: "Gestão 360°", path: "/admin/gestao-360" };
+// Studio: turmas de horário fixo e capacidade limitada — grade semanal
+// própria, visível para todo o staff (não só gestor).
+const agendaItem = { icon: CalendarDays, label: "Agenda", path: "/admin/agenda" };
 
 function SidebarNav({
   collapsed,
@@ -48,11 +51,15 @@ function SidebarNav({
   const isAdminArke = hasRole("admin_arke");
   const podeGerenciarEquipe = isAdminArke || organizationRole === "gestor";
   const ehProfissionalAutonomo = organization?.tipo === "profissional_autonomo";
+  const ehStudio = organization?.tipo === "studio";
+  const base = podeGerenciarEquipe
+    ? [...menuItems.slice(0, 2), equipeItem, ...menuItems.slice(2), gestao360Item, onboardingItem]
+    : menuItems;
   const items = ehProfissionalAutonomo
     ? menuItemsProfissionalAutonomo
-    : podeGerenciarEquipe
-      ? [...menuItems.slice(0, 2), equipeItem, ...menuItems.slice(2), gestao360Item, onboardingItem]
-      : menuItems;
+    : ehStudio
+      ? [base[0], agendaItem, ...base.slice(1)]
+      : base;
 
   const handleNav = (path: string) => {
     navigate(path);

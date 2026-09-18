@@ -76,6 +76,68 @@ export type Database = {
           },
         ]
       }
+      agendamentos: {
+        Row: {
+          aluno_id: string
+          created_at: string
+          data: string
+          id: string
+          organization_id: string
+          status: Database["public"]["Enums"]["agendamento_status"]
+          turma_id: string
+          updated_at: string
+        }
+        Insert: {
+          aluno_id: string
+          created_at?: string
+          data: string
+          id?: string
+          organization_id: string
+          status?: Database["public"]["Enums"]["agendamento_status"]
+          turma_id: string
+          updated_at?: string
+        }
+        Update: {
+          aluno_id?: string
+          created_at?: string
+          data?: string
+          id?: string
+          organization_id?: string
+          status?: Database["public"]["Enums"]["agendamento_status"]
+          turma_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agendamentos_aluno_id_fkey"
+            columns: ["aluno_id"]
+            isOneToOne: false
+            referencedRelation: "alunos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agendamentos_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "org_churn_metrics"
+            referencedColumns: ["organization_id"]
+          },
+          {
+            foreignKeyName: "agendamentos_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agendamentos_turma_id_fkey"
+            columns: ["turma_id"]
+            isOneToOne: false
+            referencedRelation: "turmas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       alimentos_biblioteca: {
         Row: {
           calorias_kcal: number
@@ -1464,6 +1526,63 @@ export type Database = {
           },
         ]
       }
+      turmas: {
+        Row: {
+          ativa: boolean
+          capacidade_maxima: number
+          created_at: string
+          dias_semana: number[]
+          horario_fim: string
+          horario_inicio: string
+          id: string
+          nome: string
+          organization_id: string
+          profissional_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          ativa?: boolean
+          capacidade_maxima: number
+          created_at?: string
+          dias_semana?: number[]
+          horario_fim: string
+          horario_inicio: string
+          id?: string
+          nome: string
+          organization_id: string
+          profissional_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          ativa?: boolean
+          capacidade_maxima?: number
+          created_at?: string
+          dias_semana?: number[]
+          horario_fim?: string
+          horario_inicio?: string
+          id?: string
+          nome?: string
+          organization_id?: string
+          profissional_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "turmas_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "org_churn_metrics"
+            referencedColumns: ["organization_id"]
+          },
+          {
+            foreignKeyName: "turmas_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           created_at: string
@@ -1531,6 +1650,10 @@ export type Database = {
       }
     }
     Functions: {
+      aluno_possui_agendamento_ativo_agora: {
+        Args: { _aluno_id: string }
+        Returns: boolean
+      }
       escalar_tarefas_vencidas: { Args: never; Returns: undefined }
       gerar_tarefas_ativacao_pendente: { Args: never; Returns: undefined }
       gerar_tarefas_barreira_rotina: { Args: never; Returns: undefined }
@@ -1634,6 +1757,7 @@ export type Database = {
       }
     }
     Enums: {
+      agendamento_status: "agendado" | "presente" | "cancelado" | "lista_espera"
       app_role:
         | "admin_arke"
         | "gestor"
@@ -1656,7 +1780,7 @@ export type Database = {
         | "motivacao"
       nivel_atacado: "essencial" | "integrado" | "elite"
       org_status: "trial" | "ativo" | "inadimplente" | "suspenso" | "cancelado"
-      organization_tipo: "academia" | "profissional_autonomo"
+      organization_tipo: "academia" | "profissional_autonomo" | "studio"
       pagamento_status: "pendente" | "confirmado" | "atrasado" | "estornado"
       plano_b2b: "starter" | "growth" | "enterprise" | "custom" | "autonomo"
       provedor_nutricao: "nenhum" | "nutricionista_academia" | "equipe_arke"
@@ -1802,6 +1926,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      agendamento_status: ["agendado", "presente", "cancelado", "lista_espera"],
       app_role: [
         "admin_arke",
         "gestor",
@@ -1827,7 +1952,7 @@ export const Constants = {
       ],
       nivel_atacado: ["essencial", "integrado", "elite"],
       org_status: ["trial", "ativo", "inadimplente", "suspenso", "cancelado"],
-      organization_tipo: ["academia", "profissional_autonomo"],
+      organization_tipo: ["academia", "profissional_autonomo", "studio"],
       pagamento_status: ["pendente", "confirmado", "atrasado", "estornado"],
       plano_b2b: ["starter", "growth", "enterprise", "custom", "autonomo"],
       provedor_nutricao: ["nenhum", "nutricionista_academia", "equipe_arke"],
