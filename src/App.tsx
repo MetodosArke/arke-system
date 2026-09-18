@@ -21,6 +21,7 @@ import PublicMatricula from "@/pages/public/PublicMatricula";
 // Layouts
 import { AppLayout } from "@/components/layout/AppLayout";
 import { AdminLayout } from "@/components/layout/AdminLayout";
+import { SuperAdminLayout } from "@/components/layout/SuperAdminLayout";
 import { AlunoBillingGate } from "@/components/app/AlunoBillingGate";
 
 // Aluno pages
@@ -41,6 +42,9 @@ import AdminDietas from "@/pages/admin/AdminDietas";
 import AdminRetencao from "@/pages/admin/AdminRetencao";
 import AdminImportarAlunos from "@/pages/admin/AdminImportarAlunos";
 import AdminOnboarding from "@/pages/admin/AdminOnboarding";
+
+// Super Admin (Visão Master ArkeFit)
+import SuperAdminDashboard from "@/pages/superadmin/SuperAdminDashboard";
 
 import NotFound from "./pages/NotFound";
 
@@ -77,6 +81,7 @@ const queryClient = new QueryClient({
 });
 
 const STAFF_ROLES = ["admin_arke", "gestor", "professor", "nutricionista"] as const;
+const SUPERADMIN_ROLES = ["superadmin"] as const;
 
 // M.A.P.A.®: aluno sem anamnese de acolhimento concluída é levado ao onboarding
 // antes de acessar o restante do app.
@@ -179,6 +184,18 @@ const App = () => (
                 <Route path="retencao" element={<AdminRetencao />} />
                 <Route path="gestao-360" element={<AdminGestao360 />} />
                 <Route path="organizacao" element={<AdminOrganizacao />} />
+              </Route>
+
+              {/* Super Admin — Visão Master ArkeFit, restrita ao papel global 'superadmin' */}
+              <Route
+                path="/superadmin"
+                element={
+                  <ProtectedRoute requiredRoles={[...SUPERADMIN_ROLES]}>
+                    <SuperAdminLayout />
+                  </ProtectedRoute>
+                }
+              >
+                <Route index element={<SuperAdminDashboard />} />
               </Route>
 
               <Route path="*" element={<NotFound />} />
