@@ -61,7 +61,7 @@ export default function AdminDietas() {
         .from("alunos")
         .select("id, user_id, nivel_atacado")
         .eq("organization_id", organization!.id)
-        .in("nivel_atacado", ["integrado", "integral"]);
+        .in("nivel_atacado", ["integrado", "elite"]);
       if (error) throw error;
       const userIds = alunosData.map((a) => a.user_id);
       const { data: profiles } = userIds.length
@@ -143,7 +143,7 @@ export default function AdminDietas() {
         <h1 className="text-xl font-bold">Dietas</h1>
       </div>
       <p className="text-xs text-muted-foreground">
-        Disponível apenas para alunos nos níveis Integrado ou Integral (o nível Essencial não inclui nutrição).
+        Disponível apenas para alunos nos níveis Integrado ou Elite (o nível Essencial não inclui nutrição).
       </p>
 
       <Tabs defaultValue="biblioteca">
@@ -244,7 +244,7 @@ export default function AdminDietas() {
             <CardHeader className="pb-2">
               <CardTitle className="text-base">Publicar dieta</CardTitle>
               <p className="text-xs text-muted-foreground">
-                Cria uma cópia congelada (snapshot) do modelo para o aluno. Só aparecem alunos Integrado/Integral.
+                Cria uma cópia congelada (snapshot) do modelo para o aluno. Só aparecem alunos Integrado/Elite.
               </p>
             </CardHeader>
             <CardContent className="space-y-3">

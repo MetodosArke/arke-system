@@ -39,11 +39,11 @@ A academia compra pelo custo de Atacado da ARKE e define o preço de Varejo (mar
 |---|---|---|---|
 | **Essencial** (Treino ARKE) | R$ 15,00 | R$ 39,90 | R$ 24,90 |
 | **Integrado** (Treino + Nutrição) | R$ 45,00 | R$ 119,00 | R$ 74,00 |
-| **Integral** (Acompanhamento 360°) | R$ 85,00 | R$ 199,00 | R$ 114,00 |
+| **Elite** (Acompanhamento 360°) | R$ 85,00 | R$ 199,00 | R$ 114,00 |
 
 - **Essencial:** Onboarding M.A.P.A.®, prescrição de treino individualizada com snapshot imutável, aplicativo de treino/diário e suporte a dificuldades.
 - **Integrado:** Tudo do Essencial + plano alimentar individualizado, acompanhamento por Nutricionista ARKE, check-ins semanais (R.O.T.A.®) e revisão integrada.
-- **Integral:** Tudo do Integrado + acolhimento expandido, encontros periódicos de acompanhamento, relatórios de evolução corporal (A.P.E.X.®/L.E.G.A.D.O.®) e fila prioritária.
+- **Elite:** Tudo do Integrado + acolhimento expandido, encontros periódicos de acompanhamento, relatórios de evolução corporal (A.P.E.X.®/L.E.G.A.D.O.®) e fila prioritária.
 
 > Implementação: `planos_atacado` (custo de atacado + `valor_sugerido_varejo`) e `organization_planos_precificacao` (valor de varejo e markup definidos por organização — pré-preenchido com a sugestão ARKE via trigger ao criar a organização, editável livremente depois pela academia).
 

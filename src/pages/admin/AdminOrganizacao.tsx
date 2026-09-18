@@ -8,22 +8,25 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { Building2, Wallet } from "lucide-react";
-import type { Enums } from "@/integrations/supabase/types";
+import type { Enums, Tables } from "@/integrations/supabase/types";
 
 type Nivel = Enums<"nivel_atacado">;
 
 const NIVEIS: { value: Nivel; label: string }[] = [
   { value: "essencial", label: "Essencial" },
   { value: "integrado", label: "Integrado" },
-  { value: "integral", label: "Integral" },
+  { value: "elite", label: "Elite" },
 ];
+
+const EMPTY_PRECIFICACAO: Tables<"organization_planos_precificacao">[] = [];
+const EMPTY_PLANOS_ATACADO: Tables<"planos_atacado">[] = [];
 
 export default function AdminOrganizacao() {
   const { organization } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: planosAtacado = [] } = useQuery({
+  const { data: planosAtacado = EMPTY_PLANOS_ATACADO } = useQuery({
     queryKey: ["planos-atacado"],
     queryFn: async () => {
       const { data, error } = await supabase.from("planos_atacado").select("*");
@@ -32,7 +35,7 @@ export default function AdminOrganizacao() {
     },
   });
 
-  const { data: precificacao = [] } = useQuery({
+  const { data: precificacao = EMPTY_PRECIFICACAO } = useQuery({
     queryKey: ["precificacao", organization?.id],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -45,10 +48,10 @@ export default function AdminOrganizacao() {
     enabled: !!organization?.id,
   });
 
-  const [valores, setValores] = useState<Record<Nivel, string>>({ essencial: "", integrado: "", integral: "" });
+  const [valores, setValores] = useState<Record<Nivel, string>>({ essencial: "", integrado: "", elite: "" });
 
   useEffect(() => {
-    const next: Record<Nivel, string> = { essencial: "", integrado: "", integral: "" };
+    const next: Record<Nivel, string> = { essencial: "", integrado: "", elite: "" };
     precificacao.forEach((p) => {
       next[p.nivel_atacado] = String(p.valor_varejo);
     });

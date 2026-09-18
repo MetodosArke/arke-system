@@ -49,7 +49,7 @@ export default function AlunoDieta() {
             <UtensilsCrossed className="h-8 w-8 text-muted-foreground/40 mx-auto" />
             <p className="text-sm font-medium">Nutrição não incluída no seu plano</p>
             <p className="text-xs text-muted-foreground">
-              Fale com sua academia para migrar para o plano Integrado ou Integral e ter acesso ao acompanhamento nutricional.
+              Fale com sua academia para migrar para o plano Integrado ou Elite e ter acesso ao acompanhamento nutricional.
             </p>
           </CardContent>
         </Card>
