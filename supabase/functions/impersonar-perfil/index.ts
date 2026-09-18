@@ -74,6 +74,7 @@ Deno.serve(async (req: Request) => {
       return jsonResponse({ error: "Erro ao validar permissões." }, 500);
     }
     const callerIsAdminArke = (callerRoles ?? []).some((r) => r.role === "admin_arke");
+    const callerIsSuperadmin = (callerRoles ?? []).some((r) => r.role === "superadmin");
 
     const { data: targetMembership, error: targetMembershipError } = await adminClient
       .from("organization_members")
@@ -89,7 +90,7 @@ Deno.serve(async (req: Request) => {
       return jsonResponse({ error: "Perfil de destino não encontrado ou sem organização ativa." }, 404);
     }
 
-    let autorizado = callerIsAdminArke;
+    let autorizado = callerIsAdminArke || callerIsSuperadmin;
     if (!autorizado) {
       const { data: callerMembership, error: callerMembershipError } = await adminClient
         .from("organization_members")

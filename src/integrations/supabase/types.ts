@@ -1549,6 +1549,16 @@ export type Database = {
           take_rate_pct: number
         }[]
       }
+      get_superadmin_perfis_simulaveis: {
+        Args: never
+        Returns: {
+          categoria: string
+          email: string
+          full_name: string
+          organizacao_nome: string
+          user_id: string
+        }[]
+      }
       get_superadmin_profissionais_autonomos: {
         Args: never
         Returns: {

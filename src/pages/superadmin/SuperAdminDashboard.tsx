@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,6 +12,8 @@ import {
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
+import { startImpersonation } from "@/lib/impersonation";
+import { cn } from "@/lib/utils";
 import {
   Shield,
   TrendingUp,
@@ -23,8 +26,30 @@ import {
   Activity,
   Lock,
   Unlock,
+  UserCircle,
+  Store,
+  Apple,
+  UserCog,
 } from "lucide-react";
 import type { Tables, Enums } from "@/integrations/supabase/types";
+
+type CategoriaSimulacao = "aluno" | "academia_studio" | "personal" | "nutricionista";
+
+type PerfilSimulavel = {
+  user_id: string;
+  full_name: string | null;
+  email: string;
+  organizacao_nome: string;
+  categoria: CategoriaSimulacao | null;
+};
+
+const CATEGORIAS_SIMULACAO: { categoria: CategoriaSimulacao; label: string; icon: typeof Users; destino: string }[] = [
+  { categoria: "aluno", label: "Visão do Aluno", icon: UserCircle, destino: "/#/app" },
+  { categoria: "academia_studio", label: "Visão da Academia", icon: Building2, destino: "/#/admin" },
+  { categoria: "academia_studio", label: "Visão do Studio", icon: Store, destino: "/#/admin" },
+  { categoria: "personal", label: "Visão do Personal Trainer", icon: Dumbbell, destino: "/#/admin" },
+  { categoria: "nutricionista", label: "Visão do Nutricionista", icon: Apple, destino: "/#/admin" },
+];
 
 function StatTile({
   icon: Icon,
@@ -129,12 +154,110 @@ export default function SuperAdminDashboard() {
       toast({ title: "Erro ao atualizar", description: error.message, variant: "destructive" }),
   });
 
+  const [categoriaAtiva, setCategoriaAtiva] = useState<CategoriaSimulacao | null>(null);
+  const [destinoAtivo, setDestinoAtivo] = useState<string | null>(null);
+  const [userIdSelecionado, setUserIdSelecionado] = useState<string | null>(null);
+  const [simulando, setSimulando] = useState(false);
+
+  const { data: perfisSimulaveis = [] } = useQuery({
+    queryKey: ["superadmin-perfis-simulaveis"],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("get_superadmin_perfis_simulaveis");
+      if (error) throw error;
+      return (data ?? []) as PerfilSimulavel[];
+    },
+  });
+
+  const opcoesCategoria = perfisSimulaveis.filter((p) => p.categoria === categoriaAtiva);
+
+  const escolherCategoria = (categoria: CategoriaSimulacao, destino: string) => {
+    setCategoriaAtiva(categoria);
+    setDestinoAtivo(destino);
+    setUserIdSelecionado(null);
+  };
+
+  const simular = async () => {
+    if (!userIdSelecionado || !destinoAtivo) return;
+    setSimulando(true);
+    const { error } = await startImpersonation(userIdSelecionado);
+    setSimulando(false);
+    if (error) {
+      toast({ title: "Não foi possível simular este perfil", description: error.message, variant: "destructive" });
+      return;
+    }
+    window.location.assign(destinoAtivo);
+    window.location.reload();
+  };
+
   return (
     <div className="space-y-4 max-w-6xl mx-auto">
       <div className="flex items-center gap-2">
         <Shield className="h-5 w-5 text-primary" />
         <h1 className="text-xl font-bold">Super Admin — Visão Master ArkeFit</h1>
       </div>
+
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base flex items-center gap-2">
+            <UserCog className="h-4 w-4" /> Simulação de Visão de Perfil
+          </CardTitle>
+          <p className="text-xs text-muted-foreground">
+            Entre com a sessão de um usuário real já cadastrado para testar e validar o frontend
+            exatamente como cada perfil enxerga.
+          </p>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+            {CATEGORIAS_SIMULACAO.map((c) => (
+              <button
+                key={c.label}
+                type="button"
+                onClick={() => escolherCategoria(c.categoria, c.destino)}
+                className={cn(
+                  "flex flex-col items-center gap-1.5 rounded-lg border-2 border-border p-3 text-center text-xs font-medium transition-colors hover:border-primary hover:bg-primary/5",
+                  categoriaAtiva === c.categoria && destinoAtivo === c.destino && "border-primary bg-primary/5"
+                )}
+              >
+                <c.icon className="h-5 w-5 text-primary" />
+                {c.label}
+              </button>
+            ))}
+          </div>
+
+          {categoriaAtiva === "academia_studio" && (
+            <p className="text-[11px] text-muted-foreground">
+              Academia e Studio hoje compartilham exatamente a mesma tela no produto — não existe
+              ainda uma experiência de frontend distinta para studios, então as duas opções mostram
+              o mesmo painel de gestor.
+            </p>
+          )}
+
+          {categoriaAtiva && (
+            <div className="flex flex-col sm:flex-row gap-2">
+              <Select value={userIdSelecionado ?? undefined} onValueChange={setUserIdSelecionado}>
+                <SelectTrigger className="flex-1">
+                  <SelectValue placeholder="Selecione um usuário real para simular" />
+                </SelectTrigger>
+                <SelectContent>
+                  {opcoesCategoria.length === 0 && (
+                    <div className="px-3 py-2 text-xs text-muted-foreground">
+                      Nenhum usuário cadastrado nessa categoria ainda.
+                    </div>
+                  )}
+                  {opcoesCategoria.map((p) => (
+                    <SelectItem key={p.user_id} value={p.user_id}>
+                      {p.full_name || p.email} — {p.organizacao_nome}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button disabled={!userIdSelecionado || simulando} onClick={() => void simular()}>
+                {simulando ? "Entrando..." : "Simular"}
+              </Button>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
         <StatTile
