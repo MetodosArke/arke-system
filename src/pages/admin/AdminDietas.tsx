@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useLocation } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -24,14 +25,24 @@ export default function AdminDietas() {
   const { organization } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const location = useLocation();
+  const alunoIdFromNav = (location.state as { alunoId?: string } | null)?.alunoId;
 
   const [novoModeloTitulo, setNovoModeloTitulo] = useState("");
   const [modeloSelecionado, setModeloSelecionado] = useState<string | null>(null);
   const [novaRefeicao, setNovaRefeicao] = useState({ nome_refeicao: "", horario_sugerido: "", itens: "" });
 
-  const [alunoPublicar, setAlunoPublicar] = useState<string>("");
+  const [abaAtiva, setAbaAtiva] = useState(alunoIdFromNav ? "publicar" : "biblioteca");
+  const [alunoPublicar, setAlunoPublicar] = useState<string>(alunoIdFromNav ?? "");
   const [modeloPublicar, setModeloPublicar] = useState<string>("");
   const [tituloPublicar, setTituloPublicar] = useState("");
+
+  useEffect(() => {
+    if (alunoIdFromNav) {
+      setAlunoPublicar(alunoIdFromNav);
+      setAbaAtiva("publicar");
+    }
+  }, [alunoIdFromNav]);
 
   const { data: modelos = [] } = useQuery({
     queryKey: ["modelos-dieta", organization?.id],
@@ -168,7 +179,7 @@ export default function AdminDietas() {
         Disponível apenas para alunos nos níveis Integrado ou Elite (o nível Essencial não inclui nutrição).
       </p>
 
-      <Tabs defaultValue="biblioteca">
+      <Tabs value={abaAtiva} onValueChange={setAbaAtiva}>
         <TabsList>
           <TabsTrigger value="biblioteca">Biblioteca de Modelos</TabsTrigger>
           <TabsTrigger value="publicar">Publicar para Aluno</TabsTrigger>

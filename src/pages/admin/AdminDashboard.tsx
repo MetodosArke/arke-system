@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -21,13 +22,41 @@ import {
   MessageCircleWarning,
   LogIn,
   CircleHelp,
+  Dumbbell,
+  UtensilsCrossed,
+  FileText,
 } from "lucide-react";
 import type { Tables, Enums } from "@/integrations/supabase/types";
 
 type Tarefa = Tables<"tarefas">;
+type Anamnese = Tables<"anamnese_acolhimento">;
 type Prioridade = Enums<"tarefa_prioridade">;
 type Status = Enums<"tarefa_status">;
 type Tipo = Enums<"tarefa_tipo">;
+
+// Quais ações rápidas de prescrição fazem sentido para cada tipo de alerta.
+const ACOES_RAPIDAS: Record<Tipo, ("treino" | "dieta")[]> = {
+  ativacao: [],
+  anamnese: ["treino", "dieta"],
+  dor: ["treino"],
+  barreira: ["treino"],
+  ajuste: ["treino", "dieta"],
+  outro: [],
+};
+
+const ANAMNESE_CAMPOS: { key: keyof Anamnese; label: string }[] = [
+  { key: "objetivo_principal", label: "Objetivo principal" },
+  { key: "expectativas", label: "Expectativas com a ARKE" },
+  { key: "rotina_diaria", label: "Rotina diária" },
+  { key: "tempo_disponivel", label: "Tempo disponível para treinar" },
+  { key: "experiencias_exercicio", label: "Experiências anteriores com exercício" },
+  { key: "dores_lesoes", label: "Dores ou lesões" },
+  { key: "medicamentos", label: "Medicamentos" },
+  { key: "estilo_treino", label: "Estilo de treino preferido" },
+  { key: "alimentacao_rotina", label: "Rotina alimentar" },
+  { key: "alimentos_gosta", label: "Alimentos que gosta" },
+  { key: "alimentos_nao_gosta", label: "Alimentos que não gosta / não pode comer" },
+];
 
 const PRIORIDADE_VARIANT: Record<Prioridade, "default" | "secondary" | "destructive"> = {
   baixa: "secondary",
@@ -83,11 +112,13 @@ export default function AdminDashboard() {
   const { organization, user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const [tarefaSelecionada, setTarefaSelecionada] = useState<Tarefa | null>(null);
   const [desfecho, setDesfecho] = useState("");
   const [filtroPrioridade, setFiltroPrioridade] = useState<Prioridade | "todas">("todas");
   const [filtroStatus, setFiltroStatus] = useState<Status | "todas">("todas");
   const [escopo, setEscopo] = useState<"minha" | "organizacao">("minha");
+  const [anamneseAlunoId, setAnamneseAlunoId] = useState<string | null>(null);
 
   const { data: tarefas = [], isLoading } = useQuery({
     queryKey: ["tarefas-fila", organization?.id],
@@ -102,6 +133,24 @@ export default function AdminDashboard() {
     },
     enabled: !!organization?.id,
   });
+
+  const { data: anamnese, isLoading: isLoadingAnamnese } = useQuery({
+    queryKey: ["anamnese-aluno", anamneseAlunoId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("anamnese_acolhimento")
+        .select("*")
+        .eq("aluno_id", anamneseAlunoId!)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!anamneseAlunoId,
+  });
+
+  const prescrever = (tipo: "treino" | "dieta", alunoId: string) => {
+    navigate(tipo === "treino" ? "/admin/treinos" : "/admin/dietas", { state: { alunoId } });
+  };
 
   const tarefasOrdenadas = useMemo(
     () =>
@@ -254,6 +303,32 @@ export default function AdminDashboard() {
                           Assumir
                         </Button>
                       )}
+                      {tarefa.aluno_id && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => setAnamneseAlunoId(tarefa.aluno_id)}
+                        >
+                          <FileText className="h-3.5 w-3.5 mr-1" />
+                          Ver Anamnese
+                        </Button>
+                      )}
+                      {tarefa.aluno_id &&
+                        ACOES_RAPIDAS[tarefa.tipo].map((acao) => (
+                          <Button
+                            key={acao}
+                            size="sm"
+                            variant="outline"
+                            onClick={() => prescrever(acao, tarefa.aluno_id!)}
+                          >
+                            {acao === "treino" ? (
+                              <Dumbbell className="h-3.5 w-3.5 mr-1" />
+                            ) : (
+                              <UtensilsCrossed className="h-3.5 w-3.5 mr-1" />
+                            )}
+                            Prescrever {acao === "treino" ? "Treino" : "Dieta"}
+                          </Button>
+                        ))}
                       <Button
                         size="sm"
                         variant="outline"
@@ -276,15 +351,15 @@ export default function AdminDashboard() {
       <Dialog open={!!tarefaSelecionada} onOpenChange={(open) => !open && setTarefaSelecionada(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Encerrar pendência</DialogTitle>
+            <DialogTitle>Registrar parecer técnico e encerrar</DialogTitle>
           </DialogHeader>
           <div className="space-y-2">
-            <Label htmlFor="desfecho">Desfecho da ação (obrigatório)</Label>
+            <Label htmlFor="desfecho">Parecer técnico / desfecho da ação (obrigatório)</Label>
             <Textarea
               id="desfecho"
               value={desfecho}
               onChange={(e) => setDesfecho(e.target.value)}
-              placeholder="O que foi feito e qual foi o resultado?"
+              placeholder='Ex.: "Anamnese analisada e treino de acolhimento B.A.S.E.® montado."'
             />
           </div>
           <DialogFooter>
@@ -295,6 +370,30 @@ export default function AdminDashboard() {
               Encerrar com desfecho
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!anamneseAlunoId} onOpenChange={(open) => !open && setAnamneseAlunoId(null)}>
+        <DialogContent className="max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Anamnese de Acolhimento (M.A.P.A.®)</DialogTitle>
+          </DialogHeader>
+          {isLoadingAnamnese && <p className="text-sm text-muted-foreground">Carregando...</p>}
+          {!isLoadingAnamnese && !anamnese && (
+            <p className="text-sm text-muted-foreground">Este aluno ainda não concluiu a anamnese de acolhimento.</p>
+          )}
+          {anamnese && (
+            <div className="space-y-3">
+              {ANAMNESE_CAMPOS.map(({ key, label }) =>
+                anamnese[key] ? (
+                  <div key={key} className="space-y-0.5">
+                    <p className="text-xs font-semibold text-muted-foreground">{label}</p>
+                    <p className="text-sm whitespace-pre-wrap">{String(anamnese[key])}</p>
+                  </div>
+                ) : null
+              )}
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>

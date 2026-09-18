@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useLocation } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -23,15 +24,25 @@ export default function AdminTreinos() {
   const { organization } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const location = useLocation();
+  const alunoIdFromNav = (location.state as { alunoId?: string } | null)?.alunoId;
 
   const [novoModeloTitulo, setNovoModeloTitulo] = useState("");
   const [modeloSelecionado, setModeloSelecionado] = useState<string | null>(null);
   const [novoExercicio, setNovoExercicio] = useState({ nome_exercicio: "", series: "3", repeticoes: "12", descanso_seg: "60", observacoes: "" });
 
-  const [alunoPublicar, setAlunoPublicar] = useState<string>("");
+  const [abaAtiva, setAbaAtiva] = useState(alunoIdFromNav ? "publicar" : "biblioteca");
+  const [alunoPublicar, setAlunoPublicar] = useState<string>(alunoIdFromNav ?? "");
   const [modeloPublicar, setModeloPublicar] = useState<string>("");
   const [tituloPublicar, setTituloPublicar] = useState("");
   const [validadeFim, setValidadeFim] = useState("");
+
+  useEffect(() => {
+    if (alunoIdFromNav) {
+      setAlunoPublicar(alunoIdFromNav);
+      setAbaAtiva("publicar");
+    }
+  }, [alunoIdFromNav]);
 
   const { data: modelos = [] } = useQuery({
     queryKey: ["modelos-treino", organization?.id],
@@ -168,7 +179,7 @@ export default function AdminTreinos() {
         <h1 className="text-xl font-bold">Treinos</h1>
       </div>
 
-      <Tabs defaultValue="biblioteca">
+      <Tabs value={abaAtiva} onValueChange={setAbaAtiva}>
         <TabsList>
           <TabsTrigger value="biblioteca">Biblioteca de Modelos</TabsTrigger>
           <TabsTrigger value="publicar">Publicar para Aluno</TabsTrigger>
