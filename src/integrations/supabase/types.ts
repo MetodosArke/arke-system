@@ -1744,6 +1744,7 @@ export type Database = {
         Args: { _aluno_id: string }
         Returns: boolean
       }
+      buscar_user_id_por_email: { Args: { _email: string }; Returns: string }
       escalar_tarefas_vencidas: { Args: never; Returns: undefined }
       gerar_tarefas_ativacao_pendente: { Args: never; Returns: undefined }
       gerar_tarefas_barreira_rotina: { Args: never; Returns: undefined }

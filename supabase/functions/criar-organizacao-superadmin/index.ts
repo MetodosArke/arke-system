@@ -39,11 +39,23 @@ const slugify = (valor: string) =>
     .replace(/\s+/g, "-")
     .replace(/-+/g, "-");
 
+const mensagemIndicaEmailJaCadastrado = (mensagem: string | undefined | null) => {
+  const texto = (mensagem ?? "").toLowerCase();
+  return texto.includes("already been registered") || texto.includes("already registered") || texto.includes("already exists");
+};
+
 // Onboarding Assistido de Tenants: SuperAdmin cadastra uma nova academia
-// ou studio e já convida o gestor principal por e-mail — mesma família de
-// convites (inviteUserByEmail, sem senha temporária exposta) usada em
-// convidar-membro e convidar-profissional-autonomo, aqui restrita ao
-// papel global "superadmin".
+// ou studio. O gestor principal pode ser um e-mail totalmente novo (recebe
+// o convite padrão de primeiro acesso, com senha temporária nunca
+// exposta) ou um e-mail que já tem conta no Supabase Auth (ex.: já é
+// gestor de outra organização) — nesse caso a conta existente é vinculada
+// à organização nova como gestor, sem tentar convidar de novo (o que
+// sempre falharia com "already registered"), e recebe um e-mail avisando
+// do novo vínculo em vez do e-mail de convite. Se o envio do e-mail (em
+// qualquer um dos dois casos) falhar por qualquer motivo, a organização e
+// o vínculo do gestor são criados normalmente — só a UI é avisada de que
+// o e-mail não saiu, para o SuperAdmin repassar o acesso manualmente
+// (ex.: via /superadmin, ação equivalente à de "gerar-link-ativacao").
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -149,49 +161,113 @@ Deno.serve(async (req: Request) => {
       );
     };
 
+    // ---------------------------------------------------------------
+    // Resolve o gestor: conta nova (convite) ou conta já existente
+    // (vincula à organização nova). Qualquer problema no ENVIO do
+    // e-mail — em qualquer um dos dois caminhos — não derruba a criação
+    // da organização; só fica registrado em `aviso` para a UI mostrar.
+    // ---------------------------------------------------------------
+    let gestorUserId: string | null = null;
+    let gestorJaExistia = false;
+    let aviso: string | null = null;
+
     const { data: invited, error: inviteError } = await adminClient.auth.admin.inviteUserByEmail(gestorEmail, {
       data: { full_name: gestorNome },
       redirectTo: siteUrl,
     });
-    if (inviteError || !invited.user) {
-      console.error("Error inviting gestor", inviteError);
-      await rollbackOrganizacao();
-      const alreadyExists = inviteError?.message?.toLowerCase().includes("already been registered");
-      return jsonResponse(
-        {
-          error: alreadyExists
-            ? "Já existe um usuário cadastrado com esse e-mail."
-            : inviteError?.message ?? "Falha ao convidar o gestor.",
-        },
-        alreadyExists ? 409 : 400
-      );
+
+    if (!inviteError && invited?.user) {
+      gestorUserId = invited.user.id;
+    } else if (mensagemIndicaEmailJaCadastrado(inviteError?.message)) {
+      // Requisito 1: e-mail já tem conta — não tenta inviteUserByEmail de
+      // novo (sempre falharia), só localiza o user_id e vincula.
+      gestorJaExistia = true;
+      const { data: userIdExistente, error: buscaError } = await adminClient.rpc("buscar_user_id_por_email", {
+        _email: gestorEmail,
+      });
+      if (buscaError || !userIdExistente) {
+        console.error("Error looking up existing gestor by email", buscaError);
+        await rollbackOrganizacao();
+        return jsonResponse(
+          { error: "Já existe uma conta com esse e-mail, mas não foi possível localizá-la para vincular à organização." },
+          500
+        );
+      }
+      gestorUserId = userIdExistente as string;
+    } else {
+      // Requisito 3 (fallback): o convite falhou por outro motivo (ex.:
+      // SMTP indisponível) — cria a conta sem depender do envio de e-mail
+      // (generateLink nunca envia e-mail sozinho, só gera o link/token,
+      // mesmo mecanismo já usado em gerar-link-ativacao) em vez de abortar.
+      console.error("Error inviting gestor, falling back to silent account creation", inviteError);
+      const { data: linkData, error: linkError } = await adminClient.auth.admin.generateLink({
+        type: "invite",
+        email: gestorEmail,
+        options: { data: { full_name: gestorNome }, redirectTo: siteUrl },
+      });
+      if (linkError || !linkData?.user) {
+        console.error("Error creating gestor account via generateLink fallback", linkError);
+        await rollbackOrganizacao();
+        return jsonResponse({ error: inviteError?.message ?? "Falha ao convidar o gestor." }, 400);
+      }
+      gestorUserId = linkData.user.id;
+      aviso = "Não foi possível enviar o e-mail de convite automático.";
     }
-    const newUserId = invited.user.id;
 
     const rollback = async () => {
-      await adminClient.auth.admin.deleteUser(newUserId).catch((e) => console.error("rollback deleteUser", e));
+      if (!gestorJaExistia && gestorUserId) {
+        await adminClient.auth.admin.deleteUser(gestorUserId).catch((e) => console.error("rollback deleteUser", e));
+      }
       await rollbackOrganizacao();
     };
 
-    const { error: profileError } = await adminClient
-      .from("profiles")
-      .upsert({ user_id: newUserId, full_name: gestorNome, status: "active" }, { onConflict: "user_id" });
-    if (profileError) {
-      console.error("Error upserting profile", profileError);
-      await rollback();
-      return jsonResponse({ error: "Erro ao preparar o perfil do gestor." }, 500);
+    // Conta nova: prepara o perfil. Conta já existente mantém o perfil que
+    // já tinha (pode já ser gestora de outra organização, com nome/avatar
+    // próprios — não sobrescreve silenciosamente por causa desta org nova).
+    if (!gestorJaExistia) {
+      const { error: profileError } = await adminClient
+        .from("profiles")
+        .upsert({ user_id: gestorUserId, full_name: gestorNome, status: "active" }, { onConflict: "user_id" });
+      if (profileError) {
+        console.error("Error upserting profile", profileError);
+        await rollback();
+        return jsonResponse({ error: "Erro ao preparar o perfil do gestor." }, 500);
+      }
     }
 
     const { error: membershipError } = await adminClient
       .from("organization_members")
-      .insert({ organization_id: organizationId, user_id: newUserId, role: "gestor", status: "active" });
+      .insert({ organization_id: organizationId, user_id: gestorUserId, role: "gestor", status: "active" });
     if (membershipError) {
       console.error("Error inserting organization_members", membershipError);
       await rollback();
       return jsonResponse({ error: "Erro ao vincular o gestor à organização." }, 500);
     }
 
-    return jsonResponse({ organization_id: organizationId, gestor_user_id: newUserId });
+    // Requisito 1 (fim): avisa por e-mail o gestor já existente sobre o
+    // novo vínculo — via magic link (única forma nativa do Supabase Auth
+    // de mandar e-mail para uma conta já confirmada). Em try/catch isolado:
+    // se falhar, o vínculo já foi criado, só marca o aviso (Requisito 3).
+    if (gestorJaExistia) {
+      try {
+        const publicClient = createClient(supabaseUrl, anonKey);
+        const { error: notifyError } = await publicClient.auth.signInWithOtp({
+          email: gestorEmail,
+          options: { shouldCreateUser: false, emailRedirectTo: siteUrl },
+        });
+        if (notifyError) throw notifyError;
+      } catch (notifyErr) {
+        console.error("Error notifying existing gestor about new organization", notifyErr);
+        aviso = "Não foi possível enviar o e-mail avisando o gestor sobre a nova organização.";
+      }
+    }
+
+    return jsonResponse({
+      organization_id: organizationId,
+      gestor_user_id: gestorUserId,
+      gestor_ja_existia: gestorJaExistia,
+      aviso,
+    });
   } catch (error) {
     console.error("Unexpected error in criar-organizacao-superadmin", error);
     return jsonResponse({ error: "Erro inesperado ao criar a organização." }, 500);
