@@ -1,0 +1,130 @@
+import { createClient } from "npm:@supabase/supabase-js@2";
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+};
+
+const jsonResponse = (body: unknown, status = 200) =>
+  new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+
+type GerarLinkPayload = {
+  user_id: string;
+};
+
+// Gera um link de ativação/definição de senha tokenizado (via
+// supabase.auth.admin.generateLink, type "recovery") para o botão
+// "Enviar Ativação via WhatsApp" — não envia e-mail, apenas devolve o
+// link para o staff colar na mensagem do WhatsApp.
+Deno.serve(async (req: Request) => {
+  if (req.method === "OPTIONS") {
+    return new Response("ok", { headers: corsHeaders });
+  }
+  if (req.method !== "POST") {
+    return jsonResponse({ error: "Method not allowed" }, 405);
+  }
+
+  const authHeader = req.headers.get("Authorization");
+  if (!authHeader?.startsWith("Bearer ")) {
+    return jsonResponse({ error: "Sessão inválida. Faça login novamente." }, 401);
+  }
+
+  const supabaseUrl = Deno.env.get("SUPABASE_URL");
+  const anonKey = Deno.env.get("SUPABASE_ANON_KEY");
+  const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  const siteUrl = Deno.env.get("SITE_URL") ?? "https://arkefit.com.br";
+
+  if (!supabaseUrl || !anonKey || !serviceRoleKey) {
+    console.error("Missing required Supabase environment variables");
+    return jsonResponse({ error: "Configuração do servidor incompleta." }, 500);
+  }
+
+  try {
+    const payload: Partial<GerarLinkPayload> = await req.json();
+    const targetUserId = payload.user_id?.trim();
+    if (!targetUserId) {
+      return jsonResponse({ error: "user_id é obrigatório." }, 400);
+    }
+
+    const asUser = createClient(supabaseUrl, anonKey, {
+      global: { headers: { Authorization: authHeader } },
+    });
+    const token = authHeader.replace("Bearer ", "");
+    const { data: claimsData, error: claimsError } = await asUser.auth.getClaims(token);
+    const callerId = typeof claimsData?.claims?.sub === "string" ? claimsData.claims.sub : null;
+    if (claimsError || !callerId) {
+      return jsonResponse({ error: "Sessão inválida. Faça login novamente." }, 401);
+    }
+
+    const adminClient = createClient(supabaseUrl, serviceRoleKey);
+
+    const { data: callerRoles, error: callerRolesError } = await adminClient
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", callerId);
+    if (callerRolesError) {
+      console.error("Error loading caller roles", callerRolesError);
+      return jsonResponse({ error: "Erro ao validar permissões." }, 500);
+    }
+    const callerIsAdminArke = (callerRoles ?? []).some((r) => r.role === "admin_arke");
+
+    const { data: targetMembership, error: targetMembershipError } = await adminClient
+      .from("organization_members")
+      .select("organization_id, role")
+      .eq("user_id", targetUserId)
+      .maybeSingle();
+    if (targetMembershipError) {
+      console.error("Error loading target membership", targetMembershipError);
+      return jsonResponse({ error: "Erro ao validar o aluno." }, 500);
+    }
+    if (!targetMembership) {
+      return jsonResponse({ error: "Aluno não encontrado nesta organização." }, 404);
+    }
+
+    let autorizado = callerIsAdminArke;
+    if (!autorizado) {
+      const { data: callerMembership, error: callerMembershipError } = await adminClient
+        .from("organization_members")
+        .select("organization_id, role")
+        .eq("user_id", callerId)
+        .eq("status", "active")
+        .maybeSingle();
+      if (callerMembershipError) {
+        console.error("Error loading caller membership", callerMembershipError);
+        return jsonResponse({ error: "Erro ao validar permissões." }, 500);
+      }
+      autorizado =
+        !!callerMembership &&
+        callerMembership.organization_id === targetMembership.organization_id &&
+        ["gestor", "professor", "nutricionista"].includes(callerMembership.role);
+    }
+    if (!autorizado) {
+      return jsonResponse({ error: "Você não tem permissão para gerar este link." }, 403);
+    }
+
+    const { data: targetUser, error: targetUserError } = await adminClient.auth.admin.getUserById(targetUserId);
+    if (targetUserError || !targetUser.user?.email) {
+      console.error("Error loading target user", targetUserError);
+      return jsonResponse({ error: "Usuário de destino não encontrado." }, 404);
+    }
+
+    const { data: linkData, error: linkError } = await adminClient.auth.admin.generateLink({
+      type: "recovery",
+      email: targetUser.user.email,
+      options: { redirectTo: `${siteUrl}/#/auth/reset-password` },
+    });
+    if (linkError || !linkData) {
+      console.error("Error generating activation link", linkError);
+      return jsonResponse({ error: "Erro ao gerar o link de ativação." }, 500);
+    }
+
+    return jsonResponse({ action_link: linkData.properties.action_link });
+  } catch (error) {
+    console.error("Unexpected error in gerar-link-ativacao", error);
+    return jsonResponse({ error: "Erro inesperado ao gerar o link de ativação." }, 500);
+  }
+});

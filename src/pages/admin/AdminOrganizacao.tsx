@@ -6,9 +6,15 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
-import { Building2, Wallet } from "lucide-react";
+import { Building2, Wallet, Receipt, Printer } from "lucide-react";
 import type { Enums, Tables } from "@/integrations/supabase/types";
+import { ReciboComprovanteDialog, type ReciboData } from "@/components/admin/ReciboComprovanteDialog";
+
+const NIVEL_LABEL: Record<string, string> = { essencial: "Essencial", integrado: "Integrado", elite: "Elite" };
+const ASSINATURA_LABEL: Record<string, string> = { ativa: "Ativa", atrasada: "Atrasada", cancelada: "Cancelada" };
 
 type Nivel = Enums<"nivel_atacado">;
 
@@ -81,6 +87,53 @@ export default function AdminOrganizacao() {
     },
     enabled: !!organization?.id,
   });
+
+  const { data: assinaturas = [] } = useQuery({
+    queryKey: ["organizacao-assinaturas", organization?.id],
+    queryFn: async () => {
+      const { data: assinaturasData, error } = await supabase
+        .from("aluno_assinaturas")
+        .select("id, aluno_id, nivel_atacado, valor_cobrado, status, fatura_pendente_url, updated_at")
+        .eq("organization_id", organization!.id)
+        .order("updated_at", { ascending: false });
+      if (error) throw error;
+
+      const alunoIds = assinaturasData.map((a) => a.aluno_id);
+      const { data: alunosData } = alunoIds.length
+        ? await supabase.from("alunos").select("id, user_id").in("id", alunoIds)
+        : { data: [] as { id: string; user_id: string }[] };
+      const userIds = (alunosData ?? []).map((a) => a.user_id);
+      const { data: profiles } = userIds.length
+        ? await supabase.from("profiles").select("user_id, full_name").in("user_id", userIds)
+        : { data: [] as { user_id: string; full_name: string }[] };
+
+      const userIdByAlunoId = new Map((alunosData ?? []).map((a) => [a.id, a.user_id]));
+      const nomeByUserId = new Map((profiles ?? []).map((p) => [p.user_id, p.full_name]));
+
+      return assinaturasData.map((a) => ({
+        ...a,
+        aluno_nome: nomeByUserId.get(userIdByAlunoId.get(a.aluno_id) ?? "") ?? "—",
+      }));
+    },
+    enabled: !!organization?.id,
+  });
+
+  const [reciboAberto, setReciboAberto] = useState(false);
+  const [reciboSelecionado, setReciboSelecionado] = useState<ReciboData | null>(null);
+
+  const abrirRecibo = (assinatura: (typeof assinaturas)[number]) => {
+    setReciboSelecionado({
+      organizacaoNome: organization?.nome ?? "Academia",
+      alunoNome: assinatura.aluno_nome,
+      planoNome: NIVEL_LABEL[assinatura.nivel_atacado] ?? assinatura.nivel_atacado,
+      valor: Number(assinatura.valor_cobrado),
+      formaPagamento: "Asaas",
+      data: assinatura.updated_at,
+      statusPagamento: ASSINATURA_LABEL[assinatura.status] ?? assinatura.status,
+      invoiceUrl: assinatura.fatura_pendente_url,
+    });
+    setReciboAberto(true);
+  };
 
   const [walletId, setWalletId] = useState("");
 
@@ -244,6 +297,57 @@ export default function AdminOrganizacao() {
           })}
         </CardContent>
       </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2">
+            <Receipt className="h-4 w-4" /> Assinaturas da Academia
+          </CardTitle>
+          <p className="text-xs text-muted-foreground">
+            Emita o comprovante/recibo de qualquer assinatura para entregar ao aluno no balcão.
+          </p>
+        </CardHeader>
+        <CardContent className="p-0">
+          {assinaturas.length === 0 ? (
+            <p className="p-4 text-sm text-muted-foreground">Nenhuma assinatura registrada ainda.</p>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Aluno</TableHead>
+                  <TableHead>Plano</TableHead>
+                  <TableHead>Valor</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead />
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {assinaturas.map((a) => (
+                  <TableRow key={a.id}>
+                    <TableCell className="font-medium">{a.aluno_nome}</TableCell>
+                    <TableCell>
+                      <Badge variant="secondary">{NIVEL_LABEL[a.nivel_atacado] ?? a.nivel_atacado}</Badge>
+                    </TableCell>
+                    <TableCell>{Number(a.valor_cobrado).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</TableCell>
+                    <TableCell>
+                      <Badge variant={a.status === "ativa" ? "default" : "outline"}>
+                        {ASSINATURA_LABEL[a.status] ?? a.status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <Button variant="ghost" size="icon" className="h-7 w-7" title="Imprimir Recibo / Comprovante" onClick={() => abrirRecibo(a)}>
+                        <Printer className="h-3.5 w-3.5" />
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
+
+      <ReciboComprovanteDialog open={reciboAberto} onOpenChange={setReciboAberto} recibo={reciboSelecionado} />
     </div>
   );
 }
