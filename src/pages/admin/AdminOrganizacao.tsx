@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
@@ -54,7 +55,7 @@ export default function AdminOrganizacao() {
   // organização vinculada acontece em AdminLayout, compartilhado por todas
   // as telas de /admin — aqui só resta tratar o caso (fora de homologação)
   // de um usuário sem admin_arke e sem organização.
-  const { organization, hasRole } = useAuth();
+  const { organization, hasRole, refreshOrganization } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -158,11 +159,26 @@ export default function AdminOrganizacao() {
     onSuccess: () => {
       toast({ title: "Perfil do estabelecimento atualizado" });
       void queryClient.invalidateQueries({ queryKey: ["organizacao-wallet", organization?.id] });
+      // organization.tipo no AuthContext decide o que a Sidebar e a Home
+      // mostram (ex.: item "Agenda", visão de Studio) — sem isto o usuário
+      // só veria a mudança depois de deslogar e logar de novo.
+      void refreshOrganization();
     },
     onError: (error: Error) => {
       toast({ title: "Não foi possível salvar", description: error.message, variant: "destructive" });
     },
   });
+
+  const tipoMudou = podeEscolherTipo && orgDetalhes != null && perfil.tipo !== orgDetalhes.tipo;
+  const [confirmarMudancaTipoAberto, setConfirmarMudancaTipoAberto] = useState(false);
+
+  const salvarPerfil = () => {
+    if (tipoMudou) {
+      setConfirmarMudancaTipoAberto(true);
+      return;
+    }
+    salvarPerfilEstabelecimento.mutate();
+  };
 
   const iniciais = perfil.nome
     .split(" ")
@@ -381,12 +397,40 @@ export default function AdminOrganizacao() {
 
           <Button
             disabled={salvarPerfilEstabelecimento.isPending || !perfil.nome.trim() || !perfil.slug.trim() || !organization}
-            onClick={() => salvarPerfilEstabelecimento.mutate()}
+            onClick={salvarPerfil}
           >
             {salvarPerfilEstabelecimento.isPending ? "Salvando..." : "Salvar perfil do estabelecimento"}
           </Button>
         </CardContent>
       </Card>
+
+      <Dialog open={confirmarMudancaTipoAberto} onOpenChange={setConfirmarMudancaTipoAberto}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Mudar o tipo de negócio para {perfil.tipo === "studio" ? "Studio" : "Academia"}?</DialogTitle>
+            <DialogDescription>
+              Isso muda o que a equipe vê no painel — Studio ganha a Agenda de turmas e passa a exigir
+              agendamento ativo na catraca; Academia perde o acesso a essa tela. Dados já existentes
+              (turmas, agendamentos) não são migrados nem apagados.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConfirmarMudancaTipoAberto(false)}>
+              Cancelar
+            </Button>
+            <Button
+              disabled={salvarPerfilEstabelecimento.isPending}
+              onClick={() =>
+                salvarPerfilEstabelecimento.mutate(undefined, {
+                  onSuccess: () => setConfirmarMudancaTipoAberto(false),
+                })
+              }
+            >
+              {salvarPerfilEstabelecimento.isPending ? "Salvando..." : "Confirmar mudança"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Card>
         <CardHeader>

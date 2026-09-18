@@ -17,6 +17,7 @@ const PAPEIS_VALIDOS = new Set<Papel>(["gestor", "professor", "nutricionista", "
 
 type EditarMembroPayload = {
   user_id: string;
+  organization_id: string;
   full_name?: string;
   email?: string;
   role?: Papel;
@@ -55,12 +56,16 @@ Deno.serve(async (req: Request) => {
   try {
     const payload: Partial<EditarMembroPayload> = await req.json();
     const targetUserId = payload.user_id?.trim();
+    const organizationId = payload.organization_id?.trim();
     const fullName = payload.full_name?.trim();
     const email = payload.email?.trim().toLowerCase();
     const role = payload.role;
 
     if (!targetUserId) {
       return jsonResponse({ error: "user_id é obrigatório." }, 400);
+    }
+    if (!organizationId) {
+      return jsonResponse({ error: "organization_id é obrigatório." }, 400);
     }
     if (email && !EMAIL_RE.test(email)) {
       return jsonResponse({ error: "E-mail inválido." }, 400);
@@ -91,10 +96,36 @@ Deno.serve(async (req: Request) => {
     }
     const callerIsAdminArke = (callerRoles ?? []).some((r) => r.role === "admin_arke");
 
+    // Um mesmo user_id pode ter vínculos ativos em mais de uma organização
+    // (ex.: personal que também atende como recepção em outra unidade) —
+    // por isso a busca do membro-alvo é sempre escopada por organization_id
+    // (enviado pelo client, que já opera dentro de uma organização), nunca
+    // só por user_id+status (isso quebrava com "cannot coerce ... single
+    // JSON object" quando havia mais de uma linha ativa).
+    let autorizado = callerIsAdminArke;
+    if (!autorizado) {
+      const { data: callerMembership, error: callerMembershipError } = await adminClient
+        .from("organization_members")
+        .select("organization_id, role")
+        .eq("user_id", callerId)
+        .eq("organization_id", organizationId)
+        .eq("status", "active")
+        .maybeSingle();
+      if (callerMembershipError) {
+        console.error("Error loading caller membership", callerMembershipError);
+        return jsonResponse({ error: "Erro ao validar permissões." }, 500);
+      }
+      autorizado = callerMembership?.role === "gestor";
+    }
+    if (!autorizado) {
+      return jsonResponse({ error: "Apenas o gestor da organização pode editar membros da equipe." }, 403);
+    }
+
     const { data: targetMembership, error: targetMembershipError } = await adminClient
       .from("organization_members")
       .select("id, organization_id, role")
       .eq("user_id", targetUserId)
+      .eq("organization_id", organizationId)
       .eq("status", "active")
       .maybeSingle();
     if (targetMembershipError) {
@@ -103,26 +134,6 @@ Deno.serve(async (req: Request) => {
     }
     if (!targetMembership) {
       return jsonResponse({ error: "Membro não encontrado nesta organização." }, 404);
-    }
-
-    let autorizado = callerIsAdminArke;
-    if (!autorizado) {
-      const { data: callerMembership, error: callerMembershipError } = await adminClient
-        .from("organization_members")
-        .select("organization_id, role")
-        .eq("user_id", callerId)
-        .eq("status", "active")
-        .maybeSingle();
-      if (callerMembershipError) {
-        console.error("Error loading caller membership", callerMembershipError);
-        return jsonResponse({ error: "Erro ao validar permissões." }, 500);
-      }
-      autorizado =
-        callerMembership?.role === "gestor" &&
-        callerMembership.organization_id === targetMembership.organization_id;
-    }
-    if (!autorizado) {
-      return jsonResponse({ error: "Apenas o gestor da organização pode editar membros da equipe." }, 403);
     }
 
     if (email) {

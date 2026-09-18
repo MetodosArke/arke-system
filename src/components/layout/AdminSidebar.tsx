@@ -112,7 +112,14 @@ function SidebarNav({
           </h1>
         )}
         {onCollapse && (
-          <Button variant="ghost" size="icon" onClick={onCollapse} className="h-8 w-8">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={onCollapse}
+            className="h-8 w-8"
+            aria-label={collapsed ? "Expandir menu" : "Recolher menu"}
+            title={collapsed ? "Expandir menu" : "Recolher menu"}
+          >
             <ChevronLeft className={cn("h-4 w-4 transition-transform", collapsed && "rotate-180")} />
           </Button>
         )}
@@ -193,7 +200,7 @@ export function AdminSidebarMobile() {
   return (
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger asChild>
-        <Button variant="ghost" size="icon" className="md:hidden h-9 w-9 shrink-0">
+        <Button variant="ghost" size="icon" className="md:hidden h-9 w-9 shrink-0" aria-label="Abrir menu">
           <Menu className="h-5 w-5" />
         </Button>
       </SheetTrigger>

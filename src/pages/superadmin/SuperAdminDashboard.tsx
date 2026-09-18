@@ -309,6 +309,13 @@ export default function SuperAdminDashboard() {
   const [modalEmailGestorAberto, setModalEmailGestorAberto] = useState<Tenant | null>(null);
   const [novoEmailGestor, setNovoEmailGestor] = useState("");
 
+  // Ações sensíveis (afetam login de toda a academia/studio ou os leitores
+  // físicos de catraca da unidade) exigem confirmação explícita — evita que
+  // um clique errado no menu de 3 pontinhos suspenda um tenant ou invalide
+  // o token do Gateway Local por engano.
+  const [tenantSuspendendo, setTenantSuspendendo] = useState<Tenant | null>(null);
+  const [tenantResetandoToken, setTenantResetandoToken] = useState<Tenant | null>(null);
+
   const [categoriaAtiva, setCategoriaAtiva] = useState<CategoriaSimulacao | null>(null);
   const [destinoAtivo, setDestinoAtivo] = useState<string | null>(null);
   const [userIdSelecionado, setUserIdSelecionado] = useState<string | null>(null);
@@ -564,6 +571,10 @@ export default function SuperAdminDashboard() {
                     <td className="p-3">
                       <Select
                         value={tenant.plano_b2b}
+                        disabled={
+                          atualizarOrganizacao.isPending &&
+                          atualizarOrganizacao.variables?.organizationId === tenant.organization_id
+                        }
                         onValueChange={(value) =>
                           atualizarOrganizacao.mutate({
                             organizationId: tenant.organization_id,
@@ -594,7 +605,7 @@ export default function SuperAdminDashboard() {
                     <td className="p-3">
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button size="icon" variant="ghost" className="h-7 w-7">
+                          <Button size="icon" variant="ghost" className="h-7 w-7" title="Ações do tenant" aria-label="Ações do tenant">
                             <MoreVertical className="h-4 w-4" />
                           </Button>
                         </DropdownMenuTrigger>
@@ -605,12 +616,11 @@ export default function SuperAdminDashboard() {
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
                           <DropdownMenuItem
-                            onClick={() =>
-                              acaoSuporte.mutate({
-                                organization_id: tenant.organization_id,
-                                acao: "resetar_token_gateway",
-                              })
+                            disabled={
+                              acaoSuporte.isPending &&
+                              acaoSuporte.variables?.organization_id === tenant.organization_id
                             }
+                            onClick={() => setTenantResetandoToken(tenant)}
                           >
                             <KeyRound className="h-3.5 w-3.5 mr-2" /> Resetar Token do Gateway Local
                           </DropdownMenuItem>
@@ -625,6 +635,10 @@ export default function SuperAdminDashboard() {
                           <DropdownMenuSeparator />
                           {tenant.status === "suspenso" ? (
                             <DropdownMenuItem
+                              disabled={
+                                atualizarOrganizacao.isPending &&
+                                atualizarOrganizacao.variables?.organizationId === tenant.organization_id
+                              }
                               onClick={() =>
                                 atualizarOrganizacao.mutate({
                                   organizationId: tenant.organization_id,
@@ -637,12 +651,11 @@ export default function SuperAdminDashboard() {
                           ) : (
                             <DropdownMenuItem
                               className="text-destructive focus:text-destructive"
-                              onClick={() =>
-                                atualizarOrganizacao.mutate({
-                                  organizationId: tenant.organization_id,
-                                  status: "suspenso",
-                                })
+                              disabled={
+                                atualizarOrganizacao.isPending &&
+                                atualizarOrganizacao.variables?.organizationId === tenant.organization_id
                               }
+                              onClick={() => setTenantSuspendendo(tenant)}
                             >
                               <Lock className="h-3.5 w-3.5 mr-2" /> Suspender acesso do tenant
                             </DropdownMenuItem>
@@ -877,6 +890,69 @@ export default function SuperAdminDashboard() {
               }
             >
               {acaoSuporte.isPending ? "Salvando..." : "Alterar e-mail"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Confirmação: suspender acesso do tenant (bloqueia login de gestor, staff e alunos) */}
+      <Dialog open={!!tenantSuspendendo} onOpenChange={(open) => !open && setTenantSuspendendo(null)}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Suspender acesso de {tenantSuspendendo?.nome}?</DialogTitle>
+            <DialogDescription>
+              Isso bloqueia imediatamente o login do gestor, de toda a equipe e dos alunos dessa
+              organização. Pode ser revertido depois pelo mesmo menu.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setTenantSuspendendo(null)}>
+              Cancelar
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={atualizarOrganizacao.isPending}
+              onClick={() =>
+                tenantSuspendendo &&
+                atualizarOrganizacao.mutate(
+                  { organizationId: tenantSuspendendo.organization_id, status: "suspenso" },
+                  { onSuccess: () => setTenantSuspendendo(null) }
+                )
+              }
+            >
+              {atualizarOrganizacao.isPending ? "Suspendendo..." : "Suspender acesso"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Confirmação: resetar token do Gateway Local (invalida os leitores de catraca físicos da unidade) */}
+      <Dialog open={!!tenantResetandoToken} onOpenChange={(open) => !open && setTenantResetandoToken(null)}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Resetar token do Gateway Local de {tenantResetandoToken?.nome}?</DialogTitle>
+            <DialogDescription>
+              Isso invalida imediatamente o token de todas as catracas dessa organização — os leitores
+              físicos param de autenticar até alguém reconfigurar o Gateway Local no local com o novo
+              token.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setTenantResetandoToken(null)}>
+              Cancelar
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={acaoSuporte.isPending}
+              onClick={() =>
+                tenantResetandoToken &&
+                acaoSuporte.mutate(
+                  { organization_id: tenantResetandoToken.organization_id, acao: "resetar_token_gateway" },
+                  { onSuccess: () => setTenantResetandoToken(null) }
+                )
+              }
+            >
+              {acaoSuporte.isPending ? "Resetando..." : "Resetar token"}
             </Button>
           </DialogFooter>
         </DialogContent>

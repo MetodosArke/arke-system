@@ -213,7 +213,7 @@ export default function AdminAlunos() {
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <Users className="h-5 w-5 text-primary" />
-          <h1 className="text-xl font-bold">Alunos</h1>
+          <h1 className="text-xl font-bold">Alunos & Prescrições</h1>
         </div>
         <div className="flex items-center gap-2">
           <Button size="sm" variant="outline" onClick={() => navigate("/admin/alunos/importar")}>

@@ -35,12 +35,13 @@ interface MembroRow {
 const EMPTY_EQUIPE: MembroRow[] = [];
 
 export default function AdminEquipe() {
-  const { organization } = useAuth();
+  const { organization, user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [convidarAberto, setConvidarAberto] = useState(false);
   const [editando, setEditando] = useState<MembroRow | null>(null);
   const [removendo, setRemovendo] = useState<MembroRow | null>(null);
+  const [inativando, setInativando] = useState<MembroRow | null>(null);
 
   const { data: equipe = EMPTY_EQUIPE, isLoading } = useQuery({
     queryKey: ["admin-equipe", organization?.id],
@@ -79,6 +80,7 @@ export default function AdminEquipe() {
     onSuccess: () => {
       toast({ title: "Status atualizado." });
       invalidarEquipe();
+      setInativando(null);
     },
     onError: (error: Error) =>
       toast({ title: "Erro ao atualizar status", description: error.message, variant: "destructive" }),
@@ -144,36 +146,53 @@ export default function AdminEquipe() {
                       </Badge>
                     </TableCell>
                     <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-1">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-7 w-7"
-                          title="Editar"
-                          onClick={() => setEditando(membro)}
-                        >
-                          <Pencil className="h-3.5 w-3.5" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-7 w-7"
-                          title={membro.status === "active" ? "Inativar" : "Ativar"}
-                          disabled={alternarStatus.isPending && alternarStatus.variables?.user_id === membro.user_id}
-                          onClick={() => alternarStatus.mutate(membro)}
-                        >
-                          <Power className="h-3.5 w-3.5" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-7 w-7 text-destructive"
-                          title="Remover"
-                          onClick={() => setRemovendo(membro)}
-                        >
-                          <UserX className="h-3.5 w-3.5" />
-                        </Button>
-                      </div>
+                      {(() => {
+                        const ehVoceMesmo = membro.user_id === user?.id;
+                        return (
+                          <div className="flex items-center justify-end gap-1">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7"
+                              title="Editar"
+                              onClick={() => setEditando(membro)}
+                            >
+                              <Pencil className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7"
+                              title={
+                                ehVoceMesmo
+                                  ? "Você não pode inativar seu próprio acesso"
+                                  : membro.status === "active"
+                                    ? "Inativar"
+                                    : "Ativar"
+                              }
+                              disabled={
+                                ehVoceMesmo ||
+                                (alternarStatus.isPending && alternarStatus.variables?.user_id === membro.user_id)
+                              }
+                              onClick={() =>
+                                membro.status === "active" ? setInativando(membro) : alternarStatus.mutate(membro)
+                              }
+                            >
+                              <Power className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 text-destructive"
+                              title={ehVoceMesmo ? "Você não pode remover seu próprio acesso" : "Remover"}
+                              disabled={ehVoceMesmo}
+                              onClick={() => setRemovendo(membro)}
+                            >
+                              <UserX className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                        );
+                      })()}
                     </TableCell>
                   </TableRow>
                 ))}
@@ -190,6 +209,30 @@ export default function AdminEquipe() {
       />
 
       <EditarMembroDialog membro={editando} onOpenChange={(open) => !open && setEditando(null)} onSuccess={invalidarEquipe} />
+
+      <Dialog open={!!inativando} onOpenChange={(open) => !open && setInativando(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Inativar {inativando?.full_name}?</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            Isso bloqueia o login deste membro na organização até alguém reativá-lo. O acesso pode ser
+            restaurado a qualquer momento clicando em "Ativar".
+          </p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setInativando(null)}>
+              Cancelar
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={alternarStatus.isPending}
+              onClick={() => inativando && alternarStatus.mutate(inativando)}
+            >
+              {alternarStatus.isPending ? "Inativando..." : "Inativar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={!!removendo} onOpenChange={(open) => !open && setRemovendo(null)}>
         <DialogContent>
@@ -318,7 +361,7 @@ function ConvidarMembroDialog({
             </Select>
           </div>
           <DialogFooter>
-            <Button type="submit" disabled={convidar.isPending}>
+            <Button type="submit" disabled={convidar.isPending || !form.papel}>
               {convidar.isPending ? "Enviando..." : "Convidar"}
             </Button>
           </DialogFooter>
@@ -343,6 +386,7 @@ function EditarMembroDialog({
   onOpenChange: (open: boolean) => void;
   onSuccess: () => void;
 }) {
+  const { organization } = useAuth();
   const { toast } = useToast();
   const [form, setForm] = useState<EditForm | null>(null);
 
@@ -357,11 +401,13 @@ function EditarMembroDialog({
   const salvar = useMutation({
     mutationFn: async () => {
       if (!membro) throw new Error("Nenhum membro selecionado.");
+      if (!organization) throw new Error("Nenhuma organização vinculada.");
       const nomeMudou = formAtual.full_name.trim() && formAtual.full_name.trim() !== membro.full_name;
       const papelMudou = formAtual.papel !== membro.role;
       const { error } = await supabase.functions.invoke("editar-membro-equipe", {
         body: {
           user_id: membro.user_id,
+          organization_id: organization.id,
           full_name: nomeMudou ? formAtual.full_name.trim() : undefined,
           email: formAtual.email.trim() || undefined,
           role: papelMudou ? formAtual.papel : undefined,
