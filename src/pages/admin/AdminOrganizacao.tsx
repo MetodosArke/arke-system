@@ -215,6 +215,35 @@ export default function AdminOrganizacao() {
           </Button>
         </CardContent>
       </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Taxa de split aplicada por plano</CardTitle>
+          <p className="text-xs text-muted-foreground">
+            A cada cobrança confirmada no Asaas, o repasse de atacado é retido automaticamente para a
+            ARKE e o restante cai direto na Wallet ID da academia configurada acima.
+          </p>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {NIVEIS.map(({ value, label }) => {
+            const plano = planosAtacado.find((p) => p.id === value);
+            const valorVarejo = parseMoeda(valores[value] || "0");
+            const custoAtacado = Number(plano?.custo_mensal ?? 0);
+            const liquidoAcademia = valorVarejo - custoAtacado;
+            const pctAcademia = valorVarejo > 0 ? Math.round((liquidoAcademia / valorVarejo) * 100) : 0;
+            return (
+              <div key={value} className="flex items-center justify-between text-sm border-b border-border pb-2 last:border-0 last:pb-0">
+                <span className="font-medium">{label}</span>
+                <span className="text-xs text-muted-foreground text-right">
+                  Aluno paga R$ {valorVarejo.toFixed(2)} · ARKE retém R$ {custoAtacado.toFixed(2)} · Academia
+                  recebe R$ {liquidoAcademia.toFixed(2)}
+                  {valorVarejo > 0 && ` (${pctAcademia}%)`}
+                </span>
+              </div>
+            );
+          })}
+        </CardContent>
+      </Card>
     </div>
   );
 }

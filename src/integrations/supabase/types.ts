@@ -19,6 +19,7 @@ export type Database = {
           aluno_id: string
           asaas_subscription_id: string | null
           created_at: string
+          fatura_pendente_url: string | null
           id: string
           nivel_atacado: Database["public"]["Enums"]["nivel_atacado"]
           organization_id: string
@@ -31,6 +32,7 @@ export type Database = {
           aluno_id: string
           asaas_subscription_id?: string | null
           created_at?: string
+          fatura_pendente_url?: string | null
           id?: string
           nivel_atacado: Database["public"]["Enums"]["nivel_atacado"]
           organization_id: string
@@ -43,6 +45,7 @@ export type Database = {
           aluno_id?: string
           asaas_subscription_id?: string | null
           created_at?: string
+          fatura_pendente_url?: string | null
           id?: string
           nivel_atacado?: Database["public"]["Enums"]["nivel_atacado"]
           organization_id?: string
@@ -395,31 +398,43 @@ export type Database = {
       }
       modelo_dieta_refeicoes: {
         Row: {
+          calorias_kcal: number | null
+          carboidratos_g: number | null
           created_at: string
+          gorduras_g: number | null
           horario_sugerido: string | null
           id: string
           itens: string | null
           modelo_id: string
           nome_refeicao: string
           ordem: number
+          proteinas_g: number | null
         }
         Insert: {
+          calorias_kcal?: number | null
+          carboidratos_g?: number | null
           created_at?: string
+          gorduras_g?: number | null
           horario_sugerido?: string | null
           id?: string
           itens?: string | null
           modelo_id: string
           nome_refeicao: string
           ordem?: number
+          proteinas_g?: number | null
         }
         Update: {
+          calorias_kcal?: number | null
+          carboidratos_g?: number | null
           created_at?: string
+          gorduras_g?: number | null
           horario_sugerido?: string | null
           id?: string
           itens?: string | null
           modelo_id?: string
           nome_refeicao?: string
           ordem?: number
+          proteinas_g?: number | null
         }
         Relationships: [
           {
@@ -443,6 +458,7 @@ export type Database = {
           ordem: number
           repeticoes: string
           series: number
+          video_url: string | null
         }
         Insert: {
           created_at?: string
@@ -455,6 +471,7 @@ export type Database = {
           ordem?: number
           repeticoes?: string
           series?: number
+          video_url?: string | null
         }
         Update: {
           created_at?: string
@@ -467,6 +484,7 @@ export type Database = {
           ordem?: number
           repeticoes?: string
           series?: number
+          video_url?: string | null
         }
         Relationships: [
           {
@@ -705,6 +723,7 @@ export type Database = {
           created_at: string
           data_pagamento: string | null
           id: string
+          invoice_url: string | null
           organization_id: string
           status: Database["public"]["Enums"]["pagamento_status"]
           updated_at: string
@@ -718,6 +737,7 @@ export type Database = {
           created_at?: string
           data_pagamento?: string | null
           id?: string
+          invoice_url?: string | null
           organization_id: string
           status?: Database["public"]["Enums"]["pagamento_status"]
           updated_at?: string
@@ -731,6 +751,7 @@ export type Database = {
           created_at?: string
           data_pagamento?: string | null
           id?: string
+          invoice_url?: string | null
           organization_id?: string
           status?: Database["public"]["Enums"]["pagamento_status"]
           updated_at?: string
@@ -822,12 +843,68 @@ export type Database = {
         }
         Relationships: []
       }
+      registro_habito: {
+        Row: {
+          agua_ml: number
+          aluno_id: string
+          created_at: string
+          data: string
+          id: string
+          organization_id: string
+          refeicoes_concluidas: number[]
+          updated_at: string
+        }
+        Insert: {
+          agua_ml?: number
+          aluno_id: string
+          created_at?: string
+          data?: string
+          id?: string
+          organization_id: string
+          refeicoes_concluidas?: number[]
+          updated_at?: string
+        }
+        Update: {
+          agua_ml?: number
+          aluno_id?: string
+          created_at?: string
+          data?: string
+          id?: string
+          organization_id?: string
+          refeicoes_concluidas?: number[]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "registro_habito_aluno_id_fkey"
+            columns: ["aluno_id"]
+            isOneToOne: false
+            referencedRelation: "alunos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "registro_habito_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "org_churn_metrics"
+            referencedColumns: ["organization_id"]
+          },
+          {
+            foreignKeyName: "registro_habito_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       registro_treino: {
         Row: {
           aluno_id: string
           concluido: boolean
           created_at: string
           data: string
+          detalhes_execucao: Json
           id: string
           observacao: string | null
           organization_id: string
@@ -838,6 +915,7 @@ export type Database = {
           concluido?: boolean
           created_at?: string
           data?: string
+          detalhes_execucao?: Json
           id?: string
           observacao?: string | null
           organization_id: string
@@ -848,6 +926,7 @@ export type Database = {
           concluido?: boolean
           created_at?: string
           data?: string
+          detalhes_execucao?: Json
           id?: string
           observacao?: string | null
           organization_id?: string
@@ -900,6 +979,7 @@ export type Database = {
           responsavel_id: string | null
           sla_prazo: string
           status: Database["public"]["Enums"]["tarefa_status"]
+          tipo: Database["public"]["Enums"]["tarefa_tipo"]
           updated_at: string
         }
         Insert: {
@@ -917,6 +997,7 @@ export type Database = {
           responsavel_id?: string | null
           sla_prazo: string
           status?: Database["public"]["Enums"]["tarefa_status"]
+          tipo?: Database["public"]["Enums"]["tarefa_tipo"]
           updated_at?: string
         }
         Update: {
@@ -934,6 +1015,7 @@ export type Database = {
           responsavel_id?: string | null
           sla_prazo?: string
           status?: Database["public"]["Enums"]["tarefa_status"]
+          tipo?: Database["public"]["Enums"]["tarefa_tipo"]
           updated_at?: string
         }
         Relationships: [
@@ -1179,6 +1261,13 @@ export type Database = {
         | "aguardando"
         | "concluida"
         | "cancelada"
+      tarefa_tipo:
+        | "ativacao"
+        | "anamnese"
+        | "dor"
+        | "barreira"
+        | "ajuste"
+        | "outro"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1335,6 +1424,14 @@ export const Constants = {
         "aguardando",
         "concluida",
         "cancelada",
+      ],
+      tarefa_tipo: [
+        "ativacao",
+        "anamnese",
+        "dor",
+        "barreira",
+        "ajuste",
+        "outro",
       ],
     },
   },

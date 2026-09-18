@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -9,22 +10,64 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Dumbbell, Plus, Trash2 } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Dumbbell, Plus, Trash2, FolderOpen, UserRound } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+
+const STATUS_TREINO_LABEL: Record<string, string> = {
+  ativo: "Ativo",
+  inativo: "Inativo",
+  concluido: "Concluído",
+};
 
 export default function AdminTreinos() {
   const { organization } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const alunoIdFromNav = (location.state as { alunoId?: string } | null)?.alunoId;
 
   const [novoModeloTitulo, setNovoModeloTitulo] = useState("");
   const [modeloSelecionado, setModeloSelecionado] = useState<string | null>(null);
-  const [novoExercicio, setNovoExercicio] = useState({ nome_exercicio: "", series: "3", repeticoes: "12", descanso_seg: "60", observacoes: "" });
+  const [novoExercicio, setNovoExercicio] = useState({ nome_exercicio: "", series: "3", repeticoes: "12", descanso_seg: "60", observacoes: "", video_url: "" });
 
-  const [alunoPublicar, setAlunoPublicar] = useState<string>("");
+  const [abaAtiva, setAbaAtiva] = useState(alunoIdFromNav ? "publicar" : "biblioteca");
+  const [alunoPublicar, setAlunoPublicar] = useState<string>(alunoIdFromNav ?? "");
   const [modeloPublicar, setModeloPublicar] = useState<string>("");
   const [tituloPublicar, setTituloPublicar] = useState("");
   const [validadeFim, setValidadeFim] = useState("");
+  const [modeloCarregadoId, setModeloCarregadoId] = useState<string | null>(null);
+  const [perfilAberto, setPerfilAberto] = useState(false);
+
+  useEffect(() => {
+    if (alunoIdFromNav) {
+      setAlunoPublicar(alunoIdFromNav);
+      setAbaAtiva("publicar");
+    }
+  }, [alunoIdFromNav]);
+
+  // Alterações ainda não salvas: rascunho de modelo/exercício não confirmado
+  // ou seleção de publicação preenchida mas não enviada.
+  const temAlteracoesNaoSalvas = useMemo(
+    () =>
+      novoModeloTitulo.trim() !== "" ||
+      novoExercicio.nome_exercicio.trim() !== "" ||
+      tituloPublicar.trim() !== "" ||
+      validadeFim !== "",
+    [novoModeloTitulo, novoExercicio.nome_exercicio, tituloPublicar, validadeFim]
+  );
+
+  const cancelar = () => {
+    if (temAlteracoesNaoSalvas) {
+      const confirmar = window.confirm(
+        "Você tem alterações não salvas. Deseja realmente sair sem salvar?"
+      );
+      if (!confirmar) return;
+    }
+    navigate("/admin");
+  };
 
   const { data: modelos = [] } = useQuery({
     queryKey: ["modelos-treino", organization?.id],
@@ -72,6 +115,51 @@ export default function AdminTreinos() {
     enabled: !!organization?.id,
   });
 
+  const { data: historico = [] } = useQuery({
+    queryKey: ["treinos-historico", alunoPublicar],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("treinos")
+        .select("id, titulo, status, versao_id, validade_inicio, validade_fim, created_at")
+        .eq("aluno_id", alunoPublicar)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!alunoPublicar,
+  });
+
+  const { data: exerciciosModeloCarregado = [] } = useQuery({
+    queryKey: ["modelo-treino-exercicios-carregado", modeloCarregadoId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("modelo_treino_exercicios")
+        .select("*")
+        .eq("modelo_id", modeloCarregadoId!)
+        .order("ordem");
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!modeloCarregadoId,
+  });
+
+  const { data: perfilAluno } = useQuery({
+    queryKey: ["aluno-perfil-rapido", alunoPublicar],
+    queryFn: async () => {
+      const [{ data: alunoRow }, { data: anamneseRow }] = await Promise.all([
+        supabase.from("alunos").select("objetivo").eq("id", alunoPublicar).maybeSingle(),
+        supabase.from("anamnese_acolhimento").select("dores_lesoes").eq("aluno_id", alunoPublicar).maybeSingle(),
+      ]);
+      return {
+        objetivo: alunoRow?.objetivo ?? null,
+        doresLesoes: anamneseRow?.dores_lesoes ?? null,
+      };
+    },
+    enabled: !!alunoPublicar && perfilAberto,
+  });
+
+  const ultimaFichaAtiva = historico.find((h) => h.status === "ativo") ?? null;
+
   const criarModelo = useMutation({
     mutationFn: async () => {
       if (!organization) throw new Error("Organização não encontrada");
@@ -102,11 +190,12 @@ export default function AdminTreinos() {
         repeticoes: novoExercicio.repeticoes,
         descanso_seg: Number(novoExercicio.descanso_seg) || 60,
         observacoes: novoExercicio.observacoes || null,
+        video_url: novoExercicio.video_url || null,
       });
       if (error) throw error;
     },
     onSuccess: () => {
-      setNovoExercicio({ nome_exercicio: "", series: "3", repeticoes: "12", descanso_seg: "60", observacoes: "" });
+      setNovoExercicio({ nome_exercicio: "", series: "3", repeticoes: "12", descanso_seg: "60", observacoes: "", video_url: "" });
       void queryClient.invalidateQueries({ queryKey: ["modelo-treino-exercicios", modeloSelecionado] });
     },
     onError: (error: Error) => toast({ title: "Erro ao adicionar exercício", description: error.message, variant: "destructive" }),
@@ -135,18 +224,20 @@ export default function AdminTreinos() {
       toast({ title: "Treino publicado!", description: "O snapshot foi congelado e já está disponível para o aluno." });
       setTituloPublicar("");
       setValidadeFim("");
+      void queryClient.invalidateQueries({ queryKey: ["treinos-historico", alunoPublicar] });
+      navigate("/admin");
     },
     onError: (error: Error) => toast({ title: "Erro ao publicar", description: error.message, variant: "destructive" }),
   });
 
   return (
-    <div className="space-y-4 max-w-3xl mx-auto">
+    <div className="space-y-4 max-w-3xl mx-auto pb-20">
       <div className="flex items-center gap-2">
         <Dumbbell className="h-5 w-5 text-primary" />
         <h1 className="text-xl font-bold">Treinos</h1>
       </div>
 
-      <Tabs defaultValue="biblioteca">
+      <Tabs value={abaAtiva} onValueChange={setAbaAtiva}>
         <TabsList>
           <TabsTrigger value="biblioteca">Biblioteca de Modelos</TabsTrigger>
           <TabsTrigger value="publicar">Publicar para Aluno</TabsTrigger>
@@ -233,6 +324,12 @@ export default function AdminTreinos() {
                     value={novoExercicio.descanso_seg}
                     onChange={(e) => setNovoExercicio((p) => ({ ...p, descanso_seg: e.target.value }))}
                   />
+                  <Input
+                    className="col-span-2 sm:col-span-4"
+                    placeholder="Link do vídeo de execução (opcional)"
+                    value={novoExercicio.video_url}
+                    onChange={(e) => setNovoExercicio((p) => ({ ...p, video_url: e.target.value }))}
+                  />
                 </div>
                 <Button
                   size="sm"
@@ -256,7 +353,15 @@ export default function AdminTreinos() {
             </CardHeader>
             <CardContent className="space-y-3">
               <div className="space-y-1.5">
-                <Label>Aluno</Label>
+                <div className="flex items-center justify-between">
+                  <Label>Aluno</Label>
+                  {alunoPublicar && (
+                    <Button type="button" variant="ghost" size="sm" className="h-6 px-2" onClick={() => setPerfilAberto(true)}>
+                      <UserRound className="h-3.5 w-3.5 mr-1" />
+                      Perfil Rápido
+                    </Button>
+                  )}
+                </div>
                 <Select value={alunoPublicar} onValueChange={setAlunoPublicar}>
                   <SelectTrigger><SelectValue placeholder="Selecione o aluno" /></SelectTrigger>
                   <SelectContent>
@@ -268,15 +373,62 @@ export default function AdminTreinos() {
               </div>
               <div className="space-y-1.5">
                 <Label>Modelo</Label>
-                <Select value={modeloPublicar} onValueChange={setModeloPublicar}>
-                  <SelectTrigger><SelectValue placeholder="Selecione o modelo" /></SelectTrigger>
-                  <SelectContent>
-                    {modelos.map((m) => (
-                      <SelectItem key={m.id} value={m.id}>{m.titulo}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <div className="flex gap-2">
+                  <Select
+                    value={modeloPublicar}
+                    onValueChange={(v) => {
+                      setModeloPublicar(v);
+                      setModeloCarregadoId(null);
+                    }}
+                  >
+                    <SelectTrigger><SelectValue placeholder="Selecione o modelo" /></SelectTrigger>
+                    <SelectContent>
+                      {modelos.map((m) => (
+                        <SelectItem key={m.id} value={m.id}>{m.titulo}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={!modeloPublicar}
+                    onClick={() => setModeloCarregadoId(modeloPublicar)}
+                  >
+                    <FolderOpen className="h-4 w-4 mr-1" />
+                    Carregar Modelo
+                  </Button>
+                </div>
               </div>
+
+              {modeloCarregadoId && (
+                <div className="space-y-1.5 pt-1 border-t border-border">
+                  <p className="text-xs font-semibold text-muted-foreground pt-2">Ficha carregada</p>
+                  {exerciciosModeloCarregado.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">Este modelo ainda não tem exercícios cadastrados.</p>
+                  ) : (
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Exercício</TableHead>
+                          <TableHead>Séries</TableHead>
+                          <TableHead>Repetições</TableHead>
+                          <TableHead>Descanso (s)</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {exerciciosModeloCarregado.map((ex) => (
+                          <TableRow key={ex.id}>
+                            <TableCell>{ex.nome_exercicio}</TableCell>
+                            <TableCell>{ex.series}</TableCell>
+                            <TableCell>{ex.repeticoes}</TableCell>
+                            <TableCell>{ex.descanso_seg}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  )}
+                </div>
+              )}
               <div className="space-y-1.5">
                 <Label>Título do treino publicado</Label>
                 <Input value={tituloPublicar} onChange={(e) => setTituloPublicar(e.target.value)} placeholder="Ex.: Treino A — Adaptação" />
@@ -285,13 +437,103 @@ export default function AdminTreinos() {
                 <Label>Validade até (opcional)</Label>
                 <Input type="date" value={validadeFim} onChange={(e) => setValidadeFim(e.target.value)} />
               </div>
-              <Button disabled={publicar.isPending} onClick={() => publicar.mutate()}>
-                Publicar treino
-              </Button>
             </CardContent>
           </Card>
+
+          {alunoPublicar && (
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base">Histórico de versões</CardTitle>
+                <p className="text-xs text-muted-foreground">
+                  Cada publicação gera uma versão travada (snapshot imutável) — o histórico abaixo é só
+                  para consulta e rastreabilidade; versões antigas não podem ser editadas.
+                </p>
+              </CardHeader>
+              <CardContent>
+                {historico.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">Nenhum treino publicado para este aluno ainda.</p>
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Título</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Publicado em</TableHead>
+                        <TableHead>Validade</TableHead>
+                        <TableHead>Versão</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {historico.map((h) => (
+                        <TableRow key={h.id}>
+                          <TableCell>{h.titulo}</TableCell>
+                          <TableCell>
+                            <Badge variant={h.status === "ativo" ? "default" : "outline"}>
+                              {STATUS_TREINO_LABEL[h.status ?? ""] ?? h.status}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>{new Date(h.created_at).toLocaleDateString("pt-BR")}</TableCell>
+                          <TableCell>
+                            {h.validade_inicio ? new Date(h.validade_inicio).toLocaleDateString("pt-BR") : "—"}
+                            {h.validade_fim ? ` até ${new Date(h.validade_fim).toLocaleDateString("pt-BR")}` : ""}
+                          </TableCell>
+                          <TableCell className="font-mono text-xs text-muted-foreground">
+                            {h.versao_id.slice(0, 8)}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                )}
+              </CardContent>
+            </Card>
+          )}
         </TabsContent>
       </Tabs>
+
+      <div className="fixed bottom-0 left-0 right-0 z-20 border-t border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
+        <div className="max-w-3xl mx-auto flex items-center justify-end gap-2 px-4 py-3">
+          <Button variant="outline" onClick={cancelar}>
+            Cancelar
+          </Button>
+          <Button
+            className="gradient-primary text-primary-foreground font-semibold"
+            disabled={!alunoPublicar || !modeloPublicar || !tituloPublicar || publicar.isPending}
+            onClick={() => publicar.mutate()}
+          >
+            {publicar.isPending ? "Publicando..." : "Salvar e Publicar B.A.S.E.®"}
+          </Button>
+        </div>
+      </div>
+
+      <Sheet open={perfilAberto} onOpenChange={setPerfilAberto}>
+        <SheetContent>
+          <SheetHeader>
+            <SheetTitle>Perfil Rápido do Aluno</SheetTitle>
+          </SheetHeader>
+          <div className="space-y-4 mt-4">
+            <div className="space-y-1">
+              <p className="text-xs font-semibold text-muted-foreground">Objetivo</p>
+              <p className="text-sm">{perfilAluno?.objetivo || "Não informado"}</p>
+            </div>
+            <div className="space-y-1">
+              <p className="text-xs font-semibold text-muted-foreground">Lesões / Restrições</p>
+              <p className="text-sm whitespace-pre-wrap">{perfilAluno?.doresLesoes || "Nenhuma relatada"}</p>
+            </div>
+            <div className="space-y-1">
+              <p className="text-xs font-semibold text-muted-foreground">Última Ficha Ativa</p>
+              {ultimaFichaAtiva ? (
+                <p className="text-sm">
+                  {ultimaFichaAtiva.titulo} — publicada em{" "}
+                  {new Date(ultimaFichaAtiva.created_at).toLocaleDateString("pt-BR")}
+                </p>
+              ) : (
+                <p className="text-sm text-muted-foreground">Nenhum treino ativo publicado.</p>
+              )}
+            </div>
+          </div>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }

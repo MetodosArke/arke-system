@@ -112,6 +112,7 @@ export default function Onboarding() {
         prioridade: "alta",
         sla_prazo: new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString(),
         origem_evento: `agendar_acolhimento:${alunoId}`,
+        tipo: "anamnese",
       });
       if (tarefaError && !tarefaError.message.includes("duplicate")) throw tarefaError;
     },

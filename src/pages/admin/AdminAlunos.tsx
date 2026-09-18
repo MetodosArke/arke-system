@@ -11,9 +11,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Users, CalendarOff, UserPlus, UserCog } from "lucide-react";
+import { Users, CalendarOff, UserPlus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { startImpersonation } from "@/lib/impersonation";
 import type { Enums } from "@/integrations/supabase/types";
 
 type Nivel = Enums<"nivel_atacado">;
@@ -69,7 +68,6 @@ export default function AdminAlunos() {
   const [alunoEditando, setAlunoEditando] = useState<AlunoRow | null>(null);
   const [diasSelecionados, setDiasSelecionados] = useState<number[]>([]);
   const [cadastroAberto, setCadastroAberto] = useState(false);
-  const [simulandoUserId, setSimulandoUserId] = useState<string | null>(null);
 
   const { data: alunos = EMPTY_ALUNOS, isLoading } = useQuery({
     queryKey: ["admin-alunos", organization?.id],
@@ -130,18 +128,6 @@ export default function AdminAlunos() {
     setDiasSelecionados((prev) => (prev.includes(dia) ? prev.filter((d) => d !== dia) : [...prev, dia]));
   };
 
-  const simular = async (userId: string) => {
-    setSimulandoUserId(userId);
-    const { error } = await startImpersonation(userId);
-    setSimulandoUserId(null);
-    if (error) {
-      toast({ title: "Não foi possível simular este perfil", description: error.message, variant: "destructive" });
-      return;
-    }
-    window.location.assign("/#/app");
-    window.location.reload();
-  };
-
   return (
     <div className="space-y-4 max-w-4xl mx-auto">
       <div className="flex items-center justify-between gap-2">
@@ -171,7 +157,6 @@ export default function AdminAlunos() {
                   <TableHead>Fase</TableHead>
                   <TableHead>Desde</TableHead>
                   <TableHead>Descanso</TableHead>
-                  <TableHead className="text-right">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -200,18 +185,6 @@ export default function AdminAlunos() {
                       <Button variant="ghost" size="sm" onClick={() => abrirEdicao(aluno)}>
                         <CalendarOff className="h-3.5 w-3.5 mr-1" />
                         {aluno.dias_descanso?.length ?? 0} dia(s)
-                      </Button>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        disabled={simulandoUserId === aluno.user_id}
-                        onClick={() => void simular(aluno.user_id)}
-                        title="Simular este perfil (visão do aluno)"
-                      >
-                        <UserCog className="h-3.5 w-3.5 mr-1" />
-                        Simular
                       </Button>
                     </TableCell>
                   </TableRow>
