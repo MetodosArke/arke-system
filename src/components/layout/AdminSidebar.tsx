@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { LayoutDashboard, Users, UsersRound, Building2, LogOut, ChevronLeft, Menu, Dumbbell, UtensilsCrossed, TrendingUp, UserCircle, Rocket } from "lucide-react";
+import { LayoutDashboard, Users, UsersRound, Building2, LogOut, ChevronLeft, Menu, Dumbbell, UtensilsCrossed, TrendingUp, UserCircle, Rocket, BarChart3 } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
@@ -20,6 +20,7 @@ const menuItems = [
 // professor e nutricionista não gerenciam quem entra na organização.
 const equipeItem = { icon: UsersRound, label: "Equipe", path: "/admin/equipe" };
 const onboardingItem = { icon: Rocket, label: "Onboarding", path: "/admin/onboarding" };
+const gestao360Item = { icon: BarChart3, label: "Gestão 360°", path: "/admin/gestao-360" };
 
 function SidebarNav({
   collapsed,
@@ -36,7 +37,7 @@ function SidebarNav({
   const isAdminArke = hasRole("admin_arke");
   const podeGerenciarEquipe = isAdminArke || organizationRole === "gestor";
   const items = podeGerenciarEquipe
-    ? [...menuItems.slice(0, 2), equipeItem, ...menuItems.slice(2), onboardingItem]
+    ? [...menuItems.slice(0, 2), equipeItem, ...menuItems.slice(2), gestao360Item, onboardingItem]
     : menuItems;
 
   const handleNav = (path: string) => {
