@@ -534,6 +534,9 @@ function NovaAvaliacaoDialog({ open, onOpenChange }: { open: boolean; onOpenChan
             <Select value={alunoId} onValueChange={setAlunoId}>
               <SelectTrigger><SelectValue placeholder="Selecione o aluno" /></SelectTrigger>
               <SelectContent>
+                {alunos.length === 0 && (
+                  <div className="px-3 py-2 text-xs text-muted-foreground">Nenhum aluno cadastrado ainda.</div>
+                )}
                 {alunos.map((a) => (
                   <SelectItem key={a.id} value={a.id}>{a.nome}</SelectItem>
                 ))}
@@ -634,6 +637,9 @@ function AgendarRetornoDialog({ open, onOpenChange }: { open: boolean; onOpenCha
             <Select value={alunoId} onValueChange={setAlunoId}>
               <SelectTrigger><SelectValue placeholder="Selecione o aluno" /></SelectTrigger>
               <SelectContent>
+                {alunos.length === 0 && (
+                  <div className="px-3 py-2 text-xs text-muted-foreground">Nenhum aluno cadastrado ainda.</div>
+                )}
                 {alunos.map((a) => (
                   <SelectItem key={a.id} value={a.id}>{a.nome}</SelectItem>
                 ))}
