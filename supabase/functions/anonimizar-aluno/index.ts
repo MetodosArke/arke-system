@@ -120,7 +120,7 @@ Deno.serve(async (req: Request) => {
       .from("profiles")
       .update({
         full_name: `Aluno Anonimizado [${aluno.id}]`,
-        cpf: "000.000.000-00",
+        cpf: null,
         phone: null,
         status: "inactive",
       })

@@ -147,17 +147,26 @@ Deno.serve(async (req: Request) => {
             const valor = Number(payment.value ?? assinatura.valor_cobrado);
             const valorRepasseArke = Number(plano?.custo_mensal ?? 0);
 
-            await admin.from("pagamentos").insert({
-              organization_id: assinatura.organization_id,
-              aluno_assinatura_id: assinatura.id,
-              valor,
-              valor_repasse_arke: valorRepasseArke,
-              valor_liquido_academia: valor - valorRepasseArke,
-              status: novoStatus,
-              asaas_payment_id: asaasPaymentId,
-              data_pagamento: novoStatus === "confirmado" ? new Date().toISOString().slice(0, 10) : null,
-              invoice_url: invoiceUrl,
-            });
+            // upsert (não insert): duas entregas duplicadas do webhook podem
+            // passar pelo check de "processado" quase ao mesmo tempo (janela
+            // entre a leitura e a gravação da flag). Com insert puro, a
+            // segunda bateria na constraint única de asaas_payment_id e
+            // cairia no catch como erro; com upsert ela só sobrescreve com
+            // o mesmo resultado, mantendo a idempotência de fato.
+            await admin.from("pagamentos").upsert(
+              {
+                organization_id: assinatura.organization_id,
+                aluno_assinatura_id: assinatura.id,
+                valor,
+                valor_repasse_arke: valorRepasseArke,
+                valor_liquido_academia: valor - valorRepasseArke,
+                status: novoStatus,
+                asaas_payment_id: asaasPaymentId,
+                data_pagamento: novoStatus === "confirmado" ? new Date().toISOString().slice(0, 10) : null,
+                invoice_url: invoiceUrl,
+              },
+              { onConflict: "asaas_payment_id" }
+            );
 
             if (novoStatus === "atrasado" || novoStatus === "estornado") {
               await admin
