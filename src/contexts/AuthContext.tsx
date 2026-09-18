@@ -29,6 +29,7 @@ interface AuthContextType {
   alunoId: string | null; // id em `alunos`, quando o papel na org é "aluno"
   faseJornada: FaseJornada | null; // M.A.P.A. → B.A.S.E. → R.O.T.A. → A.P.E.X. → L.E.G.A.D.O.
   anamneseCompleta: boolean; // Anamnese de Acolhimento (M.A.P.A.®) já preenchida
+  consentimentoLgpdAceito: boolean; // Termo de consentimento (dados de saúde) já aceito
   isAuthenticated: boolean;
   isLoading: boolean;
   rolesLoaded: boolean;
@@ -54,6 +55,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [alunoId, setAlunoId] = useState<string | null>(null);
   const [faseJornada, setFaseJornada] = useState<FaseJornada | null>(null);
   const [anamneseCompleta, setAnamneseCompleta] = useState(false);
+  const [consentimentoLgpdAceito, setConsentimentoLgpdAceito] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [rolesLoaded, setRolesLoaded] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
@@ -79,6 +81,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setAlunoId(null);
       setFaseJornada(null);
       setAnamneseCompleta(false);
+      setConsentimentoLgpdAceito(false);
       return;
     }
 
@@ -92,10 +95,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const { data: anamnese } = await supabase
       .from("anamnese_acolhimento")
-      .select("concluida_em")
+      .select("concluida_em, consentimento_lgpd_aceito_em")
       .eq("aluno_id", aluno.id)
       .maybeSingle();
     setAnamneseCompleta(!!anamnese?.concluida_em);
+    setConsentimentoLgpdAceito(!!anamnese?.consentimento_lgpd_aceito_em);
   };
 
   const fetchRoles = async (userId: string) => {
@@ -277,6 +281,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         alunoId,
         faseJornada,
         anamneseCompleta,
+        consentimentoLgpdAceito,
         isAuthenticated: !!session,
         isLoading,
         rolesLoaded,

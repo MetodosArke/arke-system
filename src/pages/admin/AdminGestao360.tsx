@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { BarChart3, Download, TrendingUp, TrendingDown, Users, Activity } from "lucide-react";
+import { BarChart3, Download, FileText, FileSpreadsheet, TrendingUp, TrendingDown, Users, Activity } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 function StatTile({
@@ -134,9 +134,11 @@ export default function AdminGestao360() {
 
   const constanciaPct = metrics?.constancia_pct_7d ?? 0;
 
-  const exportarRelatorio = () => {
+  const nomeArquivoBase = `gestao-360-${organization?.slug ?? "academia"}-${new Date().toISOString().slice(0, 10)}`;
+
+  const montarLinhasRelatorio = () => {
     const hoje = new Date().toLocaleDateString("pt-BR");
-    baixarCsv(`gestao-360-${organization?.slug ?? "academia"}-${new Date().toISOString().slice(0, 10)}.csv`, [
+    return [
       ["Relatório de Gestão 360°", organization?.nome ?? "", `Gerado em ${hoje}`],
       [],
       ["DRE Simplificado (mês corrente)"],
@@ -153,8 +155,62 @@ export default function AdminGestao360() {
       ["Frequência (constância 7 dias)", `${constanciaPct}%`],
       ["Alunos ativos", alunosAtivos],
       ["Alunos totais na organização", totalAlunosOrg],
-    ]);
+    ] as (string | number)[][];
+  };
+
+  const exportarRelatorio = () => {
+    baixarCsv(`${nomeArquivoBase}.csv`, montarLinhasRelatorio());
     toast({ title: "Relatório exportado", description: "O arquivo CSV foi baixado." });
+  };
+
+  const exportarPdf = async () => {
+    const { jsPDF } = await import("jspdf");
+    const doc = new jsPDF();
+    const linhas = montarLinhasRelatorio();
+    let y = 18;
+    doc.setFontSize(14);
+    doc.text(`Gestão 360° — ${organization?.nome ?? "Academia"}`, 14, y);
+    doc.setFontSize(10);
+    y += 8;
+    for (const linha of linhas) {
+      if (linha.length === 0) {
+        y += 3;
+        continue;
+      }
+      if (linha.length === 1) {
+        y += 4;
+        doc.setFont("helvetica", "bold");
+        doc.text(String(linha[0]), 14, y);
+        doc.setFont("helvetica", "normal");
+        y += 2;
+        continue;
+      }
+      doc.text(String(linha[0]), 14, y);
+      doc.text(String(linha[1]), 120, y);
+      if (linha[2]) doc.text(String(linha[2]), 160, y);
+      y += 7;
+    }
+    doc.save(`${nomeArquivoBase}.pdf`);
+    toast({ title: "Relatório exportado", description: "O arquivo PDF foi baixado." });
+  };
+
+  const exportarExcel = async () => {
+    const { utils, write } = await import("xlsx");
+    const linhas = montarLinhasRelatorio();
+    const worksheet = utils.aoa_to_sheet(linhas);
+    const workbook = utils.book_new();
+    utils.book_append_sheet(workbook, worksheet, "Gestão 360°");
+    const buffer = write(workbook, { bookType: "xlsx", type: "array" }) as ArrayBuffer;
+    const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${nomeArquivoBase}.xlsx`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast({ title: "Relatório exportado", description: "O arquivo Excel foi baixado." });
   };
 
   return (
@@ -164,9 +220,17 @@ export default function AdminGestao360() {
           <BarChart3 className="h-5 w-5 text-primary" />
           <h1 className="text-xl font-bold">Gestão 360°</h1>
         </div>
-        <Button size="sm" variant="outline" onClick={exportarRelatorio} disabled={isLoadingAssinaturas}>
-          <Download className="h-4 w-4 mr-1.5" /> Exportar CSV
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button size="sm" variant="outline" onClick={exportarRelatorio} disabled={isLoadingAssinaturas}>
+            <Download className="h-4 w-4 mr-1.5" /> CSV
+          </Button>
+          <Button size="sm" variant="outline" onClick={() => void exportarPdf()} disabled={isLoadingAssinaturas}>
+            <FileText className="h-4 w-4 mr-1.5" /> PDF
+          </Button>
+          <Button size="sm" variant="outline" onClick={() => void exportarExcel()} disabled={isLoadingAssinaturas}>
+            <FileSpreadsheet className="h-4 w-4 mr-1.5" /> Excel
+          </Button>
+        </div>
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">

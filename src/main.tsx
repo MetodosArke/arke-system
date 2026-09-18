@@ -6,6 +6,16 @@ import "./index.css";
 
 const rootElement = document.getElementById("root")!;
 
+// PWA: registra o service worker (também usado para push notifications)
+// para que o app seja instalável na tela inicial, sobretudo em /app.
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("/sw.js").catch((error) => {
+      console.error("[pwa] Falha ao registrar o service worker:", error);
+    });
+  });
+}
+
 if (!isSupabaseConfigured) {
   rootElement.innerHTML = `
     <div style="display:flex;min-height:100vh;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:24px;text-align:center;font-family:system-ui,sans-serif;">

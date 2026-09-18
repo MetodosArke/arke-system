@@ -41,6 +41,34 @@ export default function AdminDietas() {
     carboidratos_g: "",
     gorduras_g: "",
   });
+  const [alimentoBibliotecaId, setAlimentoBibliotecaId] = useState("");
+
+  const { data: bibliotecaAlimentos = [] } = useQuery({
+    queryKey: ["alimentos-biblioteca"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("alimentos_biblioteca")
+        .select("id, nome, categoria, porcao_g, calorias_kcal, proteinas_g, carboidratos_g, gorduras_g")
+        .order("categoria")
+        .order("nome");
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const adicionarAlimentoDaBiblioteca = (id: string) => {
+    setAlimentoBibliotecaId(id);
+    const item = bibliotecaAlimentos.find((a) => a.id === id);
+    if (!item) return;
+    setNovaRefeicao((p) => ({
+      ...p,
+      itens: p.itens ? `${p.itens}, ${item.nome} (${item.porcao_g}g)` : `${item.nome} (${item.porcao_g}g)`,
+      calorias_kcal: String((Number(p.calorias_kcal) || 0) + Number(item.calorias_kcal)),
+      proteinas_g: String((Number(p.proteinas_g) || 0) + Number(item.proteinas_g)),
+      carboidratos_g: String((Number(p.carboidratos_g) || 0) + Number(item.carboidratos_g)),
+      gorduras_g: String((Number(p.gorduras_g) || 0) + Number(item.gorduras_g)),
+    }));
+  };
 
   const [abaAtiva, setAbaAtiva] = useState(alunoIdFromNav ? "publicar" : "biblioteca");
   const [alunoPublicar, setAlunoPublicar] = useState<string>(alunoIdFromNav ?? "");
@@ -213,6 +241,7 @@ export default function AdminDietas() {
         carboidratos_g: "",
         gorduras_g: "",
       });
+      setAlimentoBibliotecaId("");
       void queryClient.invalidateQueries({ queryKey: ["modelo-dieta-refeicoes", modeloSelecionado] });
     },
     onError: (error: Error) => toast({ title: "Erro ao adicionar refeição", description: error.message, variant: "destructive" }),
@@ -326,7 +355,23 @@ export default function AdminDietas() {
                   </TableBody>
                 </Table>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-2 border-t border-border">
+                <div className="pt-2 border-t border-border space-y-1.5">
+                  <Label className="text-xs text-muted-foreground">Adicionar alimento da Tabela B.A.S.E.® (opcional)</Label>
+                  <Select value={alimentoBibliotecaId} onValueChange={adicionarAlimentoDaBiblioteca}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Buscar alimento (soma calorias e macros automaticamente)..." />
+                    </SelectTrigger>
+                    <SelectContent className="max-h-72">
+                      {bibliotecaAlimentos.map((a) => (
+                        <SelectItem key={a.id} value={a.id}>
+                          {a.categoria} — {a.nome} ({a.porcao_g}g · {a.calorias_kcal}kcal)
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   <Input
                     placeholder="Nome da refeição (ex.: Café da manhã)"
                     value={novaRefeicao.nome_refeicao}

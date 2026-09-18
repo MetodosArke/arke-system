@@ -1,0 +1,42 @@
+-- ARKE — Seed / População Operacional Inicial
+--
+-- Este projeto Supabase é hospedado (não há workflow de `supabase start`
+-- + `db reset` local neste repositório) — todo o schema e os dados de
+-- referência abaixo já são entregues por migrations versionadas em
+-- supabase/migrations/, aplicadas diretamente contra o projeto remoto.
+-- Isso é proposital: `seed.sql` só roda em `supabase db reset` (ambiente
+-- local), enquanto migrations rodam tanto local quanto em produção — para
+-- dados que a plataforma precisa ter em produção (biblioteca de
+-- exercícios/alimentos, configuração de SLA, planos de atacado, templates
+-- de treino), a migration é o lugar correto, não o seed.
+--
+-- Para não duplicar ~200 linhas de dados entre dois arquivos (com risco
+-- real de os dois divergirem com o tempo), este seed.sql não repete o
+-- conteúdo — ele documenta onde cada bloco de população vive, todos já
+-- escritos com `on conflict ... do nothing` (ou `where not exists`, nas
+-- tabelas sem unique constraint), então rodar as migrations mais de uma
+-- vez — seja via `db reset` local, seja reaplicando em outro ambiente —
+-- nunca duplica dados:
+--
+--   * Biblioteca B.A.S.E.® — 105 exercícios (7 grupos musculares) e
+--     Tabela Nutricional B.A.S.E.® — 83 alimentos (base TACO/IBGE):
+--     supabase/migrations/20260919020000_selamento_biblioteca_exercicios_alimentos.sql
+--
+--   * 5 fichas/templates de treino modelo (Adaptação A/B, Hipertrofia
+--     A/B, Metabólico/Emagrecimento), aplicados a toda organização:
+--     supabase/migrations/20260919030000_selamento_templates_treino_padrao.sql
+--
+--   * Configuração de SLA padrão (dor=crítica/12h, barreira=média/24h,
+--     anamnese=média/48h) e descrição do plano Elite:
+--     supabase/migrations/20260919010000_selamento_sla_config.sql
+--
+--   * Planos B2B/Atacado (Essencial, Integrado, Elite) — seed original:
+--     supabase/migrations/20260917000000_fundacao_multitenant.sql
+--     (renomeação/ajustes posteriores em
+--     20260918020000_renomear_nivel_integral_para_elite.sql e
+--     20260919010000_selamento_sla_config.sql)
+--
+-- Se este projeto algum dia passar a usar o CLI localmente
+-- (`supabase start` + `supabase db reset`), basta que as migrations
+-- acima já entreguem o estado completo — nenhuma ação adicional é
+-- necessária aqui.
