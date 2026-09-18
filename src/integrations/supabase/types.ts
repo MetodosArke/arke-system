@@ -1162,7 +1162,7 @@ export type Database = {
         | "alimentacao"
         | "desconforto_dor"
         | "motivacao"
-      nivel_atacado: "essencial" | "integrado" | "integral"
+      nivel_atacado: "essencial" | "integrado" | "elite"
       org_status: "trial" | "ativo" | "inadimplente" | "suspenso" | "cancelado"
       pagamento_status: "pendente" | "confirmado" | "atrasado" | "estornado"
       plano_b2b: "starter" | "growth" | "enterprise" | "custom"
@@ -1318,7 +1318,7 @@ export const Constants = {
         "desconforto_dor",
         "motivacao",
       ],
-      nivel_atacado: ["essencial", "integrado", "integral"],
+      nivel_atacado: ["essencial", "integrado", "elite"],
       org_status: ["trial", "ativo", "inadimplente", "suspenso", "cancelado"],
       pagamento_status: ["pendente", "confirmado", "atrasado", "estornado"],
       plano_b2b: ["starter", "growth", "enterprise", "custom"],

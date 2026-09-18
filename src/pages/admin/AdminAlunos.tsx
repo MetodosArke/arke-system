@@ -14,7 +14,7 @@ import { useToast } from "@/hooks/use-toast";
 const NIVEL_LABEL: Record<string, string> = {
   essencial: "Essencial",
   integrado: "Integrado",
-  integral: "Integral",
+  elite: "Elite",
 };
 
 const FASE_LABEL: Record<string, string> = {
