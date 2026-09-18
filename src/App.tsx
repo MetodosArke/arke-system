@@ -48,6 +48,7 @@ import AdminPerfil from "@/pages/admin/AdminPerfil";
 
 // Super Admin (Visão Master ArkeFit)
 import SuperAdminDashboard from "@/pages/superadmin/SuperAdminDashboard";
+import SuperAdminProfissionais from "@/pages/superadmin/SuperAdminProfissionais";
 
 import NotFound from "./pages/NotFound";
 
@@ -216,6 +217,7 @@ const App = () => (
                 }
               >
                 <Route index element={<SuperAdminDashboard />} />
+                <Route path="profissionais" element={<SuperAdminProfissionais />} />
               </Route>
 
               <Route path="*" element={<NotFound />} />

@@ -387,6 +387,118 @@ export type Database = {
         }
         Relationships: []
       }
+      avaliacoes_fisicas: {
+        Row: {
+          altura_cm: number | null
+          aluno_id: string
+          avaliado_por: string | null
+          created_at: string
+          data_avaliacao: string
+          dc_abdominal: number | null
+          dc_axilar_media: number | null
+          dc_coxa: number | null
+          dc_peitoral: number | null
+          dc_subescapular: number | null
+          dc_suprailiaca: number | null
+          dc_triceps: number | null
+          dores_relatadas: string | null
+          historico_clinico: string | null
+          id: string
+          imc: number | null
+          observacoes: string | null
+          organization_id: string
+          percentual_gordura: number | null
+          perim_abdomen: number | null
+          perim_antebraco: number | null
+          perim_braco: number | null
+          perim_cintura: number | null
+          perim_coxa: number | null
+          perim_panturrilha: number | null
+          perim_quadril: number | null
+          peso_kg: number | null
+        }
+        Insert: {
+          altura_cm?: number | null
+          aluno_id: string
+          avaliado_por?: string | null
+          created_at?: string
+          data_avaliacao?: string
+          dc_abdominal?: number | null
+          dc_axilar_media?: number | null
+          dc_coxa?: number | null
+          dc_peitoral?: number | null
+          dc_subescapular?: number | null
+          dc_suprailiaca?: number | null
+          dc_triceps?: number | null
+          dores_relatadas?: string | null
+          historico_clinico?: string | null
+          id?: string
+          imc?: number | null
+          observacoes?: string | null
+          organization_id: string
+          percentual_gordura?: number | null
+          perim_abdomen?: number | null
+          perim_antebraco?: number | null
+          perim_braco?: number | null
+          perim_cintura?: number | null
+          perim_coxa?: number | null
+          perim_panturrilha?: number | null
+          perim_quadril?: number | null
+          peso_kg?: number | null
+        }
+        Update: {
+          altura_cm?: number | null
+          aluno_id?: string
+          avaliado_por?: string | null
+          created_at?: string
+          data_avaliacao?: string
+          dc_abdominal?: number | null
+          dc_axilar_media?: number | null
+          dc_coxa?: number | null
+          dc_peitoral?: number | null
+          dc_subescapular?: number | null
+          dc_suprailiaca?: number | null
+          dc_triceps?: number | null
+          dores_relatadas?: string | null
+          historico_clinico?: string | null
+          id?: string
+          imc?: number | null
+          observacoes?: string | null
+          organization_id?: string
+          percentual_gordura?: number | null
+          perim_abdomen?: number | null
+          perim_antebraco?: number | null
+          perim_braco?: number | null
+          perim_cintura?: number | null
+          perim_coxa?: number | null
+          perim_panturrilha?: number | null
+          perim_quadril?: number | null
+          peso_kg?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "avaliacoes_fisicas_aluno_id_fkey"
+            columns: ["aluno_id"]
+            isOneToOne: false
+            referencedRelation: "alunos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "avaliacoes_fisicas_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "org_churn_metrics"
+            referencedColumns: ["organization_id"]
+          },
+          {
+            foreignKeyName: "avaliacoes_fisicas_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       checkins: {
         Row: {
           aluno_id: string
@@ -878,6 +990,9 @@ export type Database = {
         Row: {
           asaas_wallet_id: string | null
           created_at: string
+          especialidade_profissional:
+            | Database["public"]["Enums"]["app_role"]
+            | null
           id: string
           limite_alunos: number
           markup_padrao_pct: number
@@ -885,11 +1000,15 @@ export type Database = {
           plano_b2b: Database["public"]["Enums"]["plano_b2b"]
           slug: string
           status: Database["public"]["Enums"]["org_status"]
+          tipo: Database["public"]["Enums"]["organization_tipo"]
           updated_at: string
         }
         Insert: {
           asaas_wallet_id?: string | null
           created_at?: string
+          especialidade_profissional?:
+            | Database["public"]["Enums"]["app_role"]
+            | null
           id?: string
           limite_alunos?: number
           markup_padrao_pct?: number
@@ -897,11 +1016,15 @@ export type Database = {
           plano_b2b?: Database["public"]["Enums"]["plano_b2b"]
           slug: string
           status?: Database["public"]["Enums"]["org_status"]
+          tipo?: Database["public"]["Enums"]["organization_tipo"]
           updated_at?: string
         }
         Update: {
           asaas_wallet_id?: string | null
           created_at?: string
+          especialidade_profissional?:
+            | Database["public"]["Enums"]["app_role"]
+            | null
           id?: string
           limite_alunos?: number
           markup_padrao_pct?: number
@@ -909,6 +1032,7 @@ export type Database = {
           plano_b2b?: Database["public"]["Enums"]["plano_b2b"]
           slug?: string
           status?: Database["public"]["Enums"]["org_status"]
+          tipo?: Database["public"]["Enums"]["organization_tipo"]
           updated_at?: string
         }
         Relationships: []
@@ -1425,6 +1549,19 @@ export type Database = {
           take_rate_pct: number
         }[]
       }
+      get_superadmin_profissionais_autonomos: {
+        Args: never
+        Returns: {
+          alunos_total: number
+          created_at: string
+          email: string
+          especialidade: Database["public"]["Enums"]["app_role"]
+          nome: string
+          organization_id: string
+          status: Database["public"]["Enums"]["org_status"]
+          status_convite: string
+        }[]
+      }
       get_superadmin_tenants: {
         Args: never
         Returns: {
@@ -1509,8 +1646,9 @@ export type Database = {
         | "motivacao"
       nivel_atacado: "essencial" | "integrado" | "elite"
       org_status: "trial" | "ativo" | "inadimplente" | "suspenso" | "cancelado"
+      organization_tipo: "academia" | "profissional_autonomo"
       pagamento_status: "pendente" | "confirmado" | "atrasado" | "estornado"
-      plano_b2b: "starter" | "growth" | "enterprise" | "custom"
+      plano_b2b: "starter" | "growth" | "enterprise" | "custom" | "autonomo"
       provedor_nutricao: "nenhum" | "nutricionista_academia" | "equipe_arke"
       provedor_treino: "academia_propria" | "personal_parceiro" | "equipe_arke"
       tarefa_prioridade: "baixa" | "media" | "alta" | "critica"
@@ -1679,8 +1817,9 @@ export const Constants = {
       ],
       nivel_atacado: ["essencial", "integrado", "elite"],
       org_status: ["trial", "ativo", "inadimplente", "suspenso", "cancelado"],
+      organization_tipo: ["academia", "profissional_autonomo"],
       pagamento_status: ["pendente", "confirmado", "atrasado", "estornado"],
-      plano_b2b: ["starter", "growth", "enterprise", "custom"],
+      plano_b2b: ["starter", "growth", "enterprise", "custom", "autonomo"],
       provedor_nutricao: ["nenhum", "nutricionista_academia", "equipe_arke"],
       provedor_treino: ["academia_propria", "personal_parceiro", "equipe_arke"],
       tarefa_prioridade: ["baixa", "media", "alta", "critica"],

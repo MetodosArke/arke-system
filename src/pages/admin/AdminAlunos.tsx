@@ -12,10 +12,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Users, CalendarOff, UserPlus, FileSpreadsheet, Printer, MessageCircle, UserX } from "lucide-react";
+import { Users, CalendarOff, UserPlus, FileSpreadsheet, Printer, MessageCircle, UserX, Ruler } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { Enums } from "@/integrations/supabase/types";
 import { ReciboComprovanteDialog, type ReciboData } from "@/components/admin/ReciboComprovanteDialog";
+import { AvaliacaoFisicaDialog } from "@/components/admin/AvaliacaoFisicaDialog";
 import { abrirWhatsAppAtivacao } from "@/lib/whatsappAtivacao";
 
 type Nivel = Enums<"nivel_atacado">;
@@ -81,6 +82,7 @@ export default function AdminAlunos() {
   const [reciboSelecionado, setReciboSelecionado] = useState<ReciboData | null>(null);
   const [alunoAnonimizar, setAlunoAnonimizar] = useState<AlunoRow | null>(null);
   const [enviandoWhatsApp, setEnviandoWhatsApp] = useState<string | null>(null);
+  const [alunoAvaliacao, setAlunoAvaliacao] = useState<AlunoRow | null>(null);
 
   const { data: alunos = EMPTY_ALUNOS, isLoading } = useQuery({
     queryKey: ["admin-alunos", organization?.id],
@@ -302,6 +304,16 @@ export default function AdminAlunos() {
                         <Button
                           variant="ghost"
                           size="icon"
+                          className="h-7 w-7"
+                          title="Avaliação Física"
+                          disabled={!!aluno.anonimizado_em}
+                          onClick={() => setAlunoAvaliacao(aluno)}
+                        >
+                          <Ruler className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
                           className="h-7 w-7 text-destructive"
                           title="Desativar / Anonimizar Aluno"
                           disabled={!!aluno.anonimizado_em}
@@ -320,6 +332,13 @@ export default function AdminAlunos() {
       </Card>
 
       <ReciboComprovanteDialog open={reciboAberto} onOpenChange={setReciboAberto} recibo={reciboSelecionado} />
+
+      <AvaliacaoFisicaDialog
+        open={!!alunoAvaliacao}
+        onOpenChange={(open) => !open && setAlunoAvaliacao(null)}
+        alunoId={alunoAvaliacao?.id ?? null}
+        alunoNome={alunoAvaliacao?.full_name}
+      />
 
       <Dialog open={!!alunoAnonimizar} onOpenChange={(open) => !open && setAlunoAnonimizar(null)}>
         <DialogContent>

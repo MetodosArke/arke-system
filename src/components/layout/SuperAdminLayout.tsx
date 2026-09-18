@@ -1,11 +1,18 @@
-import { Outlet, useNavigate } from "react-router-dom";
+import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
-import { LogOut, Shield } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { LogOut, Shield, LayoutDashboard, UserCog } from "lucide-react";
+
+const NAV_ITEMS = [
+  { icon: LayoutDashboard, label: "Visão Geral", path: "/superadmin" },
+  { icon: UserCog, label: "Profissionais", path: "/superadmin/profissionais" },
+];
 
 export function SuperAdminLayout() {
   const { signOut } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
 
   return (
     <div className="min-h-screen bg-background">
@@ -29,6 +36,26 @@ export function SuperAdminLayout() {
             </Button>
           </div>
         </div>
+        <nav className="mx-auto flex max-w-6xl gap-1 px-4">
+          {NAV_ITEMS.map((item) => {
+            const isActive = location.pathname === item.path;
+            return (
+              <button
+                key={item.path}
+                onClick={() => navigate(item.path)}
+                className={cn(
+                  "flex items-center gap-2 border-b-2 px-3 py-2 text-sm font-medium transition-colors",
+                  isActive
+                    ? "border-primary text-primary"
+                    : "border-transparent text-muted-foreground hover:text-foreground"
+                )}
+              >
+                <item.icon className="h-4 w-4" />
+                {item.label}
+              </button>
+            );
+          })}
+        </nav>
       </header>
       <main className="mx-auto max-w-6xl p-3 sm:p-4 md:p-6">
         <Outlet />
