@@ -19,6 +19,7 @@ export type Database = {
           aluno_id: string
           asaas_subscription_id: string | null
           created_at: string
+          fatura_pendente_url: string | null
           id: string
           nivel_atacado: Database["public"]["Enums"]["nivel_atacado"]
           organization_id: string
@@ -31,6 +32,7 @@ export type Database = {
           aluno_id: string
           asaas_subscription_id?: string | null
           created_at?: string
+          fatura_pendente_url?: string | null
           id?: string
           nivel_atacado: Database["public"]["Enums"]["nivel_atacado"]
           organization_id: string
@@ -43,6 +45,7 @@ export type Database = {
           aluno_id?: string
           asaas_subscription_id?: string | null
           created_at?: string
+          fatura_pendente_url?: string | null
           id?: string
           nivel_atacado?: Database["public"]["Enums"]["nivel_atacado"]
           organization_id?: string
@@ -720,6 +723,7 @@ export type Database = {
           created_at: string
           data_pagamento: string | null
           id: string
+          invoice_url: string | null
           organization_id: string
           status: Database["public"]["Enums"]["pagamento_status"]
           updated_at: string
@@ -733,6 +737,7 @@ export type Database = {
           created_at?: string
           data_pagamento?: string | null
           id?: string
+          invoice_url?: string | null
           organization_id: string
           status?: Database["public"]["Enums"]["pagamento_status"]
           updated_at?: string
@@ -746,6 +751,7 @@ export type Database = {
           created_at?: string
           data_pagamento?: string | null
           id?: string
+          invoice_url?: string | null
           organization_id?: string
           status?: Database["public"]["Enums"]["pagamento_status"]
           updated_at?: string

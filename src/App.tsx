@@ -20,6 +20,7 @@ import DefinirSenha from "@/pages/auth/DefinirSenha";
 // Layouts
 import { AppLayout } from "@/components/layout/AppLayout";
 import { AdminLayout } from "@/components/layout/AdminLayout";
+import { AlunoBillingGate } from "@/components/app/AlunoBillingGate";
 
 // Aluno pages
 import AlunoDashboard from "@/pages/app/AlunoDashboard";
@@ -139,7 +140,9 @@ const App = () => (
                 element={
                   <ProtectedRoute>
                     <AlunoOnboardingGate>
-                      <AppLayout />
+                      <AlunoBillingGate>
+                        <AppLayout />
+                      </AlunoBillingGate>
                     </AlunoOnboardingGate>
                   </ProtectedRoute>
                 }

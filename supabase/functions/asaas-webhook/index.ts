@@ -52,6 +52,7 @@ Deno.serve(async (req: Request) => {
   const tipoEvento = String(payload.event ?? "");
   const payment = (payload.payment ?? {}) as Record<string, unknown>;
   const asaasPaymentId = payment.id ? String(payment.id) : null;
+  const invoiceUrl = payment.invoiceUrl ? String(payment.invoiceUrl) : null;
   // Asaas não garante um id de evento estável em todos os planos; usamos
   // event+payment.id como chave de idempotência quando não houver um id próprio.
   const asaasEventId = payload.id ? String(payload.id) : `${tipoEvento}:${asaasPaymentId ?? "sem-payment"}`;
@@ -106,18 +107,23 @@ Deno.serve(async (req: Request) => {
           .update({
             status: novoStatus,
             data_pagamento: novoStatus === "confirmado" ? new Date().toISOString().slice(0, 10) : null,
+            invoice_url: invoiceUrl ?? undefined,
           })
           .eq("id", pagamentoExistente.id);
 
         if (novoStatus === "atrasado" || novoStatus === "estornado") {
+          // Guarda o link da fatura para o App do Aluno redirecionar à
+          // quitação (gate de inadimplência em /app).
           await admin
             .from("aluno_assinaturas")
-            .update({ status: "atrasada" })
+            .update({ status: "atrasada", fatura_pendente_url: invoiceUrl })
             .eq("id", pagamentoExistente.aluno_assinatura_id);
         } else if (novoStatus === "confirmado") {
+          // Pagamento confirmado: libera o acesso imediatamente, limpando
+          // a fatura pendente.
           await admin
             .from("aluno_assinaturas")
-            .update({ status: "ativa" })
+            .update({ status: "ativa", fatura_pendente_url: null })
             .eq("id", pagamentoExistente.aluno_assinatura_id);
         }
       } else if (!pagamentoExistente && novoStatus) {
@@ -150,7 +156,20 @@ Deno.serve(async (req: Request) => {
               status: novoStatus,
               asaas_payment_id: asaasPaymentId,
               data_pagamento: novoStatus === "confirmado" ? new Date().toISOString().slice(0, 10) : null,
+              invoice_url: invoiceUrl,
             });
+
+            if (novoStatus === "atrasado" || novoStatus === "estornado") {
+              await admin
+                .from("aluno_assinaturas")
+                .update({ status: "atrasada", fatura_pendente_url: invoiceUrl })
+                .eq("id", assinatura.id);
+            } else if (novoStatus === "confirmado") {
+              await admin
+                .from("aluno_assinaturas")
+                .update({ status: "ativa", fatura_pendente_url: null })
+                .eq("id", assinatura.id);
+            }
           }
         }
       }
