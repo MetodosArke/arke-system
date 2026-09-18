@@ -1,0 +1,227 @@
+import { createClient } from "npm:@supabase/supabase-js@2";
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+};
+
+const jsonResponse = (body: unknown, status = 200) =>
+  new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+
+type FormaPagamento = "PIX" | "CREDIT_CARD";
+const FORMAS_VALIDAS = new Set<FormaPagamento>(["PIX", "CREDIT_CARD"]);
+
+type EmitirCobrancaPayload = {
+  organization_id: string;
+  valor: number;
+  descricao: string;
+  forma_pagamento: FormaPagamento;
+};
+
+const somenteDigitos = (valor: string) => valor.replace(/\D/g, "");
+
+function hojeISO() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+// Módulo Definitivo de Cobrança B2B: a ARKE cobra a própria academia/studio
+// (mensalidade SaaS, taxa de implantação etc.) — direção oposta do split
+// de aluno em asaas-create-subscription (lá a academia recebe, aqui a
+// ARKE recebe o valor inteiro, sem split, na conta dona da ASAAS_API_KEY).
+Deno.serve(async (req: Request) => {
+  if (req.method === "OPTIONS") {
+    return new Response("ok", { headers: corsHeaders });
+  }
+  if (req.method !== "POST") {
+    return jsonResponse({ error: "Method not allowed" }, 405);
+  }
+
+  const authHeader = req.headers.get("Authorization");
+  if (!authHeader?.startsWith("Bearer ")) {
+    return jsonResponse({ error: "Sessão inválida. Faça login novamente." }, 401);
+  }
+
+  const supabaseUrl = Deno.env.get("SUPABASE_URL");
+  const anonKey = Deno.env.get("SUPABASE_ANON_KEY");
+  const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  const asaasApiKey = Deno.env.get("ASAAS_API_KEY");
+  const asaasApiUrl = Deno.env.get("ASAAS_API_URL") ?? "https://api.asaas.com/v3";
+
+  if (!supabaseUrl || !anonKey || !serviceRoleKey) {
+    console.error("Missing required Supabase environment variables");
+    return jsonResponse({ error: "Configuração do servidor incompleta." }, 500);
+  }
+  if (!asaasApiKey) {
+    return jsonResponse(
+      { error: "ASAAS_API_KEY não configurada. Configure o secret no projeto Supabase antes de emitir cobranças." },
+      500
+    );
+  }
+
+  try {
+    const payload: Partial<EmitirCobrancaPayload> = await req.json();
+    const organizationId = payload.organization_id?.trim();
+    const valor = Number(payload.valor);
+    const descricao = payload.descricao?.trim();
+    const formaPagamento = payload.forma_pagamento;
+
+    if (!organizationId) return jsonResponse({ error: "organization_id é obrigatório." }, 400);
+    if (!Number.isFinite(valor) || valor <= 0) {
+      return jsonResponse({ error: "Valor inválido. Informe um valor maior que zero." }, 400);
+    }
+    if (!descricao) return jsonResponse({ error: "Descrição / motivo da cobrança é obrigatório." }, 400);
+    if (!formaPagamento || !FORMAS_VALIDAS.has(formaPagamento)) {
+      return jsonResponse({ error: "Forma de pagamento inválida. Use PIX ou CREDIT_CARD." }, 400);
+    }
+
+    const asUser = createClient(supabaseUrl, anonKey, {
+      global: { headers: { Authorization: authHeader } },
+    });
+    const token = authHeader.replace("Bearer ", "");
+    const { data: claimsData, error: claimsError } = await asUser.auth.getClaims(token);
+    const callerId = typeof claimsData?.claims?.sub === "string" ? claimsData.claims.sub : null;
+    if (claimsError || !callerId) {
+      return jsonResponse({ error: "Sessão inválida. Faça login novamente." }, 401);
+    }
+
+    const adminClient = createClient(supabaseUrl, serviceRoleKey);
+
+    const { data: callerRoles, error: callerRolesError } = await adminClient
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", callerId);
+    if (callerRolesError) {
+      console.error("Error loading caller roles", callerRolesError);
+      return jsonResponse({ error: "Erro ao validar permissões." }, 500);
+    }
+    const callerIsSuperadmin = (callerRoles ?? []).some((r) => r.role === "superadmin");
+    if (!callerIsSuperadmin) {
+      return jsonResponse({ error: "Apenas o Super Admin ArkeFit pode emitir cobranças B2B." }, 403);
+    }
+
+    const { data: org, error: orgError } = await adminClient
+      .from("organizations")
+      .select("id, nome, cnpj_cpf, asaas_customer_id_b2b")
+      .eq("id", organizationId)
+      .maybeSingle();
+    if (orgError) {
+      console.error("Error loading organization", orgError);
+      return jsonResponse({ error: "Erro ao carregar a organização." }, 500);
+    }
+    if (!org) return jsonResponse({ error: "Organização não encontrada." }, 404);
+
+    const cnpjCpfLimpo = org.cnpj_cpf ? somenteDigitos(org.cnpj_cpf) : "";
+    if (cnpjCpfLimpo.length !== 11 && cnpjCpfLimpo.length !== 14) {
+      return jsonResponse(
+        {
+          error:
+            "Cadastre o CNPJ/CPF da organização (aba Informações) antes de emitir uma cobrança — o Asaas exige o documento fiscal do cliente.",
+        },
+        422
+      );
+    }
+
+    const asaasHeaders = {
+      "Content-Type": "application/json",
+      access_token: asaasApiKey,
+    };
+
+    // Reaproveita o customer Asaas já criado para essa organização (evita
+    // duplicar o mesmo cliente a cada cobrança) — só cria na primeira vez.
+    let asaasCustomerId = org.asaas_customer_id_b2b;
+    if (!asaasCustomerId) {
+      const customerResp = await fetch(`${asaasApiUrl}/customers`, {
+        method: "POST",
+        headers: asaasHeaders,
+        body: JSON.stringify({
+          name: org.nome,
+          cpfCnpj: cnpjCpfLimpo,
+          externalReference: `org:${org.id}`,
+        }),
+      });
+      const customer = await customerResp.json();
+      if (!customerResp.ok) {
+        console.error("Asaas customer error", customer);
+        return jsonResponse({ error: "Falha ao criar o cliente da organização no Asaas.", detalhe: customer }, 502);
+      }
+      asaasCustomerId = customer.id;
+      await adminClient.from("organizations").update({ asaas_customer_id_b2b: asaasCustomerId }).eq("id", org.id);
+    }
+
+    const paymentResp = await fetch(`${asaasApiUrl}/payments`, {
+      method: "POST",
+      headers: asaasHeaders,
+      body: JSON.stringify({
+        customer: asaasCustomerId,
+        billingType: formaPagamento,
+        value: valor,
+        dueDate: hojeISO(),
+        description: descricao,
+        externalReference: `b2b:${org.id}`,
+      }),
+    });
+    const payment = await paymentResp.json();
+    if (!paymentResp.ok) {
+      console.error("Asaas payment error", payment);
+      return jsonResponse({ error: "Falha ao gerar a cobrança no Asaas.", detalhe: payment }, 502);
+    }
+
+    let pixCopiaCola: string | null = null;
+    let pixQrCodeBase64: string | null = null;
+    if (formaPagamento === "PIX") {
+      const pixResp = await fetch(`${asaasApiUrl}/payments/${payment.id}/pixQrCode`, {
+        method: "GET",
+        headers: asaasHeaders,
+      });
+      const pix = await pixResp.json();
+      if (pixResp.ok) {
+        pixCopiaCola = pix.payload ?? null;
+        pixQrCodeBase64 = pix.encodedImage ?? null;
+      } else {
+        // Cobrança já foi criada no Asaas — não falha a operação inteira só
+        // porque o QR Code demorou/falhou; o link de pagamento ainda funciona.
+        console.error("Asaas pixQrCode error", pix);
+      }
+    }
+
+    const { data: cobranca, error: insertError } = await adminClient
+      .from("cobrancas_b2b")
+      .insert({
+        organization_id: org.id,
+        valor,
+        descricao,
+        forma_pagamento: formaPagamento,
+        status: "pendente",
+        asaas_customer_id: asaasCustomerId,
+        asaas_payment_id: payment.id,
+        invoice_url: payment.invoiceUrl ?? null,
+        pix_copia_cola: pixCopiaCola,
+        pix_qr_code_base64: pixQrCodeBase64,
+        criado_por: callerId,
+      })
+      .select()
+      .single();
+
+    if (insertError) {
+      console.error("Erro ao gravar cobranca_b2b", insertError);
+      return jsonResponse(
+        {
+          error: "Cobrança criada no Asaas, mas falhou ao gravar no banco.",
+          invoice_url: payment.invoiceUrl ?? null,
+          pix_copia_cola: pixCopiaCola,
+          pix_qr_code_base64: pixQrCodeBase64,
+        },
+        500
+      );
+    }
+
+    return jsonResponse({ cobranca });
+  } catch (error) {
+    console.error("asaas-emitir-cobranca-b2b error", error);
+    return jsonResponse({ error: "Erro inesperado ao emitir a cobrança." }, 500);
+  }
+});

@@ -90,16 +90,40 @@ Deno.serve(async (req: Request) => {
 
   try {
     if (asaasPaymentId) {
+      let novoStatus: "confirmado" | "atrasado" | "estornado" | null = null;
+      if (EVENTOS_CONFIRMADOS.has(tipoEvento)) novoStatus = "confirmado";
+      else if (EVENTOS_ATRASADOS.has(tipoEvento)) novoStatus = "atrasado";
+      else if (EVENTOS_ESTORNADOS.has(tipoEvento)) novoStatus = "estornado";
+
+      // Cobrança B2B (ARKE cobrando a própria academia/studio, emitida via
+      // asaas-emitir-cobranca-b2b) — id de pagamento nunca colide com o do
+      // fluxo B2C abaixo, então checar aqui primeiro e, se achar, não passa
+      // pelo restante do bloco (aluno_assinaturas não tem nada a ver com isso).
+      const { data: cobrancaB2bExistente } = await admin
+        .from("cobrancas_b2b")
+        .select("id")
+        .eq("asaas_payment_id", asaasPaymentId)
+        .maybeSingle();
+
+      if (cobrancaB2bExistente) {
+        if (novoStatus) {
+          await admin
+            .from("cobrancas_b2b")
+            .update({ status: novoStatus, invoice_url: invoiceUrl ?? undefined })
+            .eq("id", cobrancaB2bExistente.id);
+        }
+        await admin
+          .from("asaas_webhook_events")
+          .update({ processado: true, processed_at: new Date().toISOString() })
+          .eq("id", eventoRegistrado.id);
+        return jsonResponse({ ok: true });
+      }
+
       const { data: pagamentoExistente } = await admin
         .from("pagamentos")
         .select("id, aluno_assinatura_id")
         .eq("asaas_payment_id", asaasPaymentId)
         .maybeSingle();
-
-      let novoStatus: "confirmado" | "atrasado" | "estornado" | null = null;
-      if (EVENTOS_CONFIRMADOS.has(tipoEvento)) novoStatus = "confirmado";
-      else if (EVENTOS_ATRASADOS.has(tipoEvento)) novoStatus = "atrasado";
-      else if (EVENTOS_ESTORNADOS.has(tipoEvento)) novoStatus = "estornado";
 
       if (pagamentoExistente && novoStatus) {
         await admin
