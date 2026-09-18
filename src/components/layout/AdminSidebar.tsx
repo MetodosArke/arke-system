@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { LayoutDashboard, Users, UsersRound, Building2, LogOut, ChevronLeft, Menu, Dumbbell, UtensilsCrossed, TrendingUp, UserCircle } from "lucide-react";
+import { LayoutDashboard, Users, UsersRound, Building2, LogOut, ChevronLeft, Menu, Dumbbell, UtensilsCrossed, TrendingUp, UserCircle, Rocket } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
@@ -16,9 +16,10 @@ const menuItems = [
   { icon: Building2, label: "Organização", path: "/admin/organizacao" },
 ];
 
-// Gestão de Equipe é restrita a gestor/admin_arke — professor e
-// nutricionista não gerenciam quem entra na organização.
+// Gestão de Equipe e Onboarding B2B são restritos a gestor/admin_arke —
+// professor e nutricionista não gerenciam quem entra na organização.
 const equipeItem = { icon: UsersRound, label: "Equipe", path: "/admin/equipe" };
+const onboardingItem = { icon: Rocket, label: "Onboarding", path: "/admin/onboarding" };
 
 function SidebarNav({
   collapsed,
@@ -34,7 +35,9 @@ function SidebarNav({
   const { signOut, hasRole, organizationRole } = useAuth();
   const isAdminArke = hasRole("admin_arke");
   const podeGerenciarEquipe = isAdminArke || organizationRole === "gestor";
-  const items = podeGerenciarEquipe ? [...menuItems.slice(0, 2), equipeItem, ...menuItems.slice(2)] : menuItems;
+  const items = podeGerenciarEquipe
+    ? [...menuItems.slice(0, 2), equipeItem, ...menuItems.slice(2), onboardingItem]
+    : menuItems;
 
   const handleNav = (path: string) => {
     navigate(path);

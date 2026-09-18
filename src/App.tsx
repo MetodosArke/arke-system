@@ -16,6 +16,7 @@ import Login from "@/pages/auth/Login";
 import Register from "@/pages/auth/Register";
 import ResetPassword from "@/pages/auth/ResetPassword";
 import DefinirSenha from "@/pages/auth/DefinirSenha";
+import PublicMatricula from "@/pages/public/PublicMatricula";
 
 // Layouts
 import { AppLayout } from "@/components/layout/AppLayout";
@@ -37,6 +38,8 @@ import AdminOrganizacao from "@/pages/admin/AdminOrganizacao";
 import AdminTreinos from "@/pages/admin/AdminTreinos";
 import AdminDietas from "@/pages/admin/AdminDietas";
 import AdminRetencao from "@/pages/admin/AdminRetencao";
+import AdminImportarAlunos from "@/pages/admin/AdminImportarAlunos";
+import AdminOnboarding from "@/pages/admin/AdminOnboarding";
 
 import NotFound from "./pages/NotFound";
 
@@ -124,6 +127,9 @@ const App = () => (
               <Route path="/auth/reset-password" element={<ResetPassword />} />
               <Route path="/auth/definir-senha" element={<DefinirSenha />} />
 
+              {/* Auto-matrícula pública por slug da academia (sem login) */}
+              <Route path="/p/:slug" element={<PublicMatricula />} />
+
               {/* Onboarding M.A.P.A.® (fora do AppLayout — fluxo em tela cheia) */}
               <Route
                 path="/app/onboarding"
@@ -163,7 +169,9 @@ const App = () => (
                 }
               >
                 <Route index element={<AdminDashboard />} />
+                <Route path="onboarding" element={<AdminOnboarding />} />
                 <Route path="alunos" element={<AdminAlunos />} />
+                <Route path="alunos/importar" element={<AdminImportarAlunos />} />
                 <Route path="equipe" element={<AdminEquipe />} />
                 <Route path="treinos" element={<AdminTreinos />} />
                 <Route path="dietas" element={<AdminDietas />} />
