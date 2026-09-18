@@ -35,6 +35,7 @@ import AdminDashboard from "@/pages/admin/AdminDashboard";
 import AdminAlunos from "@/pages/admin/AdminAlunos";
 import AdminEquipe from "@/pages/admin/AdminEquipe";
 import AdminOrganizacao from "@/pages/admin/AdminOrganizacao";
+import AdminGestao360 from "@/pages/admin/AdminGestao360";
 import AdminTreinos from "@/pages/admin/AdminTreinos";
 import AdminDietas from "@/pages/admin/AdminDietas";
 import AdminRetencao from "@/pages/admin/AdminRetencao";
@@ -176,6 +177,7 @@ const App = () => (
                 <Route path="treinos" element={<AdminTreinos />} />
                 <Route path="dietas" element={<AdminDietas />} />
                 <Route path="retencao" element={<AdminRetencao />} />
+                <Route path="gestao-360" element={<AdminGestao360 />} />
                 <Route path="organizacao" element={<AdminOrganizacao />} />
               </Route>
 
