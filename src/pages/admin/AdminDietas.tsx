@@ -12,7 +12,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { UtensilsCrossed, Plus, Trash2 } from "lucide-react";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { UtensilsCrossed, Plus, Trash2, FolderOpen, UserRound } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 const STATUS_DIETA_LABEL: Record<string, string> = {
@@ -37,6 +38,8 @@ export default function AdminDietas() {
   const [alunoPublicar, setAlunoPublicar] = useState<string>(alunoIdFromNav ?? "");
   const [modeloPublicar, setModeloPublicar] = useState<string>("");
   const [tituloPublicar, setTituloPublicar] = useState("");
+  const [modeloCarregadoId, setModeloCarregadoId] = useState<string | null>(null);
+  const [perfilAberto, setPerfilAberto] = useState(false);
 
   useEffect(() => {
     if (alunoIdFromNav) {
@@ -125,6 +128,37 @@ export default function AdminDietas() {
     },
     enabled: !!alunoPublicar,
   });
+
+  const { data: refeicoesModeloCarregado = [] } = useQuery({
+    queryKey: ["modelo-dieta-refeicoes-carregado", modeloCarregadoId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("modelo_dieta_refeicoes")
+        .select("*")
+        .eq("modelo_id", modeloCarregadoId!)
+        .order("ordem");
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!modeloCarregadoId,
+  });
+
+  const { data: perfilAluno } = useQuery({
+    queryKey: ["aluno-perfil-rapido-dieta", alunoPublicar],
+    queryFn: async () => {
+      const [{ data: alunoRow }, { data: anamneseRow }] = await Promise.all([
+        supabase.from("alunos").select("objetivo").eq("id", alunoPublicar).maybeSingle(),
+        supabase.from("anamnese_acolhimento").select("dores_lesoes").eq("aluno_id", alunoPublicar).maybeSingle(),
+      ]);
+      return {
+        objetivo: alunoRow?.objetivo ?? null,
+        doresLesoes: anamneseRow?.dores_lesoes ?? null,
+      };
+    },
+    enabled: !!alunoPublicar && perfilAberto,
+  });
+
+  const ultimaFichaAtiva = historico.find((h) => h.status === "ativo") ?? null;
 
   const criarModelo = useMutation({
     mutationFn: async () => {
@@ -304,7 +338,15 @@ export default function AdminDietas() {
             </CardHeader>
             <CardContent className="space-y-3">
               <div className="space-y-1.5">
-                <Label>Aluno</Label>
+                <div className="flex items-center justify-between">
+                  <Label>Aluno</Label>
+                  {alunoPublicar && (
+                    <Button type="button" variant="ghost" size="sm" className="h-6 px-2" onClick={() => setPerfilAberto(true)}>
+                      <UserRound className="h-3.5 w-3.5 mr-1" />
+                      Perfil Rápido
+                    </Button>
+                  )}
+                </div>
                 <Select value={alunoPublicar} onValueChange={setAlunoPublicar}>
                   <SelectTrigger><SelectValue placeholder="Selecione o aluno" /></SelectTrigger>
                   <SelectContent>
@@ -316,15 +358,60 @@ export default function AdminDietas() {
               </div>
               <div className="space-y-1.5">
                 <Label>Modelo</Label>
-                <Select value={modeloPublicar} onValueChange={setModeloPublicar}>
-                  <SelectTrigger><SelectValue placeholder="Selecione o modelo" /></SelectTrigger>
-                  <SelectContent>
-                    {modelos.map((m) => (
-                      <SelectItem key={m.id} value={m.id}>{m.titulo}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <div className="flex gap-2">
+                  <Select
+                    value={modeloPublicar}
+                    onValueChange={(v) => {
+                      setModeloPublicar(v);
+                      setModeloCarregadoId(null);
+                    }}
+                  >
+                    <SelectTrigger><SelectValue placeholder="Selecione o modelo" /></SelectTrigger>
+                    <SelectContent>
+                      {modelos.map((m) => (
+                        <SelectItem key={m.id} value={m.id}>{m.titulo}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={!modeloPublicar}
+                    onClick={() => setModeloCarregadoId(modeloPublicar)}
+                  >
+                    <FolderOpen className="h-4 w-4 mr-1" />
+                    Carregar Modelo
+                  </Button>
+                </div>
               </div>
+
+              {modeloCarregadoId && (
+                <div className="space-y-1.5 pt-1 border-t border-border">
+                  <p className="text-xs font-semibold text-muted-foreground pt-2">Ficha carregada</p>
+                  {refeicoesModeloCarregado.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">Este modelo ainda não tem refeições cadastradas.</p>
+                  ) : (
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Refeição</TableHead>
+                          <TableHead>Horário</TableHead>
+                          <TableHead>Itens</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {refeicoesModeloCarregado.map((r) => (
+                          <TableRow key={r.id}>
+                            <TableCell>{r.nome_refeicao}</TableCell>
+                            <TableCell>{r.horario_sugerido ?? "—"}</TableCell>
+                            <TableCell className="max-w-xs truncate">{r.itens ?? "—"}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  )}
+                </div>
+              )}
               <div className="space-y-1.5">
                 <Label>Título da dieta publicada</Label>
                 <Input value={tituloPublicar} onChange={(e) => setTituloPublicar(e.target.value)} placeholder="Ex.: Plano Alimentar — Fase 1" />
@@ -392,6 +479,35 @@ export default function AdminDietas() {
           </Button>
         </div>
       </div>
+
+      <Sheet open={perfilAberto} onOpenChange={setPerfilAberto}>
+        <SheetContent>
+          <SheetHeader>
+            <SheetTitle>Perfil Rápido do Aluno</SheetTitle>
+          </SheetHeader>
+          <div className="space-y-4 mt-4">
+            <div className="space-y-1">
+              <p className="text-xs font-semibold text-muted-foreground">Objetivo</p>
+              <p className="text-sm">{perfilAluno?.objetivo || "Não informado"}</p>
+            </div>
+            <div className="space-y-1">
+              <p className="text-xs font-semibold text-muted-foreground">Lesões / Restrições</p>
+              <p className="text-sm whitespace-pre-wrap">{perfilAluno?.doresLesoes || "Nenhuma relatada"}</p>
+            </div>
+            <div className="space-y-1">
+              <p className="text-xs font-semibold text-muted-foreground">Última Ficha Ativa</p>
+              {ultimaFichaAtiva ? (
+                <p className="text-sm">
+                  {ultimaFichaAtiva.titulo} — publicada em{" "}
+                  {new Date(ultimaFichaAtiva.created_at).toLocaleDateString("pt-BR")}
+                </p>
+              ) : (
+                <p className="text-sm text-muted-foreground">Nenhuma dieta ativa publicada.</p>
+              )}
+            </div>
+          </div>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }

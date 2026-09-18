@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
+import { cn } from "@/lib/utils";
 import {
   ClipboardList,
   ArrowUpCircle,
@@ -25,6 +26,7 @@ import {
   Dumbbell,
   UtensilsCrossed,
   FileText,
+  Clock,
 } from "lucide-react";
 import type { Tables, Enums } from "@/integrations/supabase/types";
 
@@ -104,6 +106,17 @@ const TIPO_ICON: Record<Tipo, typeof HeartPulse> = {
   barreira: RouteOff,
   ajuste: MessageCircleWarning,
   outro: CircleHelp,
+};
+
+// Indicadores visuais de SLA: vermelho para dor/vencido, amarelo para
+// anamnese, verde para pedidos de ajuste. Demais tipos ficam neutros.
+const TIPO_COLOR_CLASS: Record<Tipo, string> = {
+  ativacao: "",
+  anamnese: "bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/40",
+  dor: "bg-red-500/15 text-red-700 dark:text-red-400 border-red-500/40",
+  barreira: "",
+  ajuste: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/40",
+  outro: "",
 };
 
 const FILTRO_STATUS_OPCOES: Status[] = ["aberta", "em_andamento", "aguardando"];
@@ -263,16 +276,25 @@ export default function AdminDashboard() {
               const TipoIcon = TIPO_ICON[tarefa.tipo];
               const semResponsavel = !tarefa.responsavel_id;
               const souResponsavel = tarefa.responsavel_id === user?.id;
+              const vencida = new Date(tarefa.sla_prazo).getTime() < Date.now();
               return (
                 <Card key={tarefa.id}>
                   <CardHeader className="pb-2">
                     <div className="flex items-start justify-between gap-2">
                       <div className="space-y-1">
                         <CardTitle className="text-sm font-semibold">{tarefa.motivo}</CardTitle>
-                        <Badge variant="outline" className="gap-1 font-normal">
-                          <TipoIcon className="h-3 w-3" />
-                          {TIPO_LABEL[tarefa.tipo]}
-                        </Badge>
+                        <div className="flex flex-wrap gap-1.5">
+                          <Badge variant="outline" className={cn("gap-1 font-normal", TIPO_COLOR_CLASS[tarefa.tipo])}>
+                            <TipoIcon className="h-3 w-3" />
+                            {TIPO_LABEL[tarefa.tipo]}
+                          </Badge>
+                          {vencida && (
+                            <Badge variant="outline" className="gap-1 font-normal bg-red-500/15 text-red-700 dark:text-red-400 border-red-500/40">
+                              <Clock className="h-3 w-3" />
+                              Vencido
+                            </Badge>
+                          )}
+                        </div>
                       </div>
                       <div className="flex items-center gap-1.5 shrink-0">
                         {tarefa.escalada_em && (
