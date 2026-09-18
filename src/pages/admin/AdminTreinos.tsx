@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { useLocation } from "react-router-dom";
+import { useEffect, useMemo, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -25,6 +25,7 @@ export default function AdminTreinos() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const location = useLocation();
+  const navigate = useNavigate();
   const alunoIdFromNav = (location.state as { alunoId?: string } | null)?.alunoId;
 
   const [novoModeloTitulo, setNovoModeloTitulo] = useState("");
@@ -43,6 +44,27 @@ export default function AdminTreinos() {
       setAbaAtiva("publicar");
     }
   }, [alunoIdFromNav]);
+
+  // Alterações ainda não salvas: rascunho de modelo/exercício não confirmado
+  // ou seleção de publicação preenchida mas não enviada.
+  const temAlteracoesNaoSalvas = useMemo(
+    () =>
+      novoModeloTitulo.trim() !== "" ||
+      novoExercicio.nome_exercicio.trim() !== "" ||
+      tituloPublicar.trim() !== "" ||
+      validadeFim !== "",
+    [novoModeloTitulo, novoExercicio.nome_exercicio, tituloPublicar, validadeFim]
+  );
+
+  const cancelar = () => {
+    if (temAlteracoesNaoSalvas) {
+      const confirmar = window.confirm(
+        "Você tem alterações não salvas. Deseja realmente sair sem salvar?"
+      );
+      if (!confirmar) return;
+    }
+    navigate("/admin");
+  };
 
   const { data: modelos = [] } = useQuery({
     queryKey: ["modelos-treino", organization?.id],
@@ -168,12 +190,13 @@ export default function AdminTreinos() {
       setTituloPublicar("");
       setValidadeFim("");
       void queryClient.invalidateQueries({ queryKey: ["treinos-historico", alunoPublicar] });
+      navigate("/admin");
     },
     onError: (error: Error) => toast({ title: "Erro ao publicar", description: error.message, variant: "destructive" }),
   });
 
   return (
-    <div className="space-y-4 max-w-3xl mx-auto">
+    <div className="space-y-4 max-w-3xl mx-auto pb-20">
       <div className="flex items-center gap-2">
         <Dumbbell className="h-5 w-5 text-primary" />
         <h1 className="text-xl font-bold">Treinos</h1>
@@ -318,9 +341,6 @@ export default function AdminTreinos() {
                 <Label>Validade até (opcional)</Label>
                 <Input type="date" value={validadeFim} onChange={(e) => setValidadeFim(e.target.value)} />
               </div>
-              <Button disabled={publicar.isPending} onClick={() => publicar.mutate()}>
-                Publicar treino
-              </Button>
             </CardContent>
           </Card>
 
@@ -374,6 +394,21 @@ export default function AdminTreinos() {
           )}
         </TabsContent>
       </Tabs>
+
+      <div className="fixed bottom-0 left-0 right-0 z-20 border-t border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
+        <div className="max-w-3xl mx-auto flex items-center justify-end gap-2 px-4 py-3">
+          <Button variant="outline" onClick={cancelar}>
+            Cancelar
+          </Button>
+          <Button
+            className="gradient-primary text-primary-foreground font-semibold"
+            disabled={!alunoPublicar || !modeloPublicar || !tituloPublicar || publicar.isPending}
+            onClick={() => publicar.mutate()}
+          >
+            {publicar.isPending ? "Publicando..." : "Salvar e Publicar B.A.S.E.®"}
+          </Button>
+        </div>
+      </div>
     </div>
   );
 }
