@@ -14,18 +14,25 @@ interface SessionBackup {
 // pela do usuário-alvo, via o Edge Function `impersonar-perfil` (que nunca
 // expõe nem altera a senha de ninguém). A sessão original fica guardada em
 // sessionStorage (por aba) até `stopImpersonation` restaurá-la.
-export async function startImpersonation(targetUserId: string): Promise<{ error: Error | null }> {
+export async function startImpersonation(
+  targetUserId: string,
+  organizationId: string
+): Promise<{ error: Error | null }> {
   const { data: currentSession } = await supabase.auth.getSession();
   if (!currentSession.session) {
     return { error: new Error("Sessão atual inválida.") };
   }
 
-  const { data, error } = await supabase.functions.invoke<{ email: string; token_hash: string }>(
-    "impersonar-perfil",
-    { body: { user_id: targetUserId } }
-  );
-  if (error || !data) {
+  const { data, error } = await supabase.functions.invoke<{
+    email?: string;
+    token_hash?: string;
+    error?: string;
+  }>("impersonar-perfil", { body: { user_id: targetUserId, organization_id: organizationId } });
+  if (error) {
     return { error: error instanceof Error ? error : new Error("Falha ao simular o perfil.") };
+  }
+  if (data?.error || !data?.email || !data?.token_hash) {
+    return { error: new Error(data?.error ?? "Falha ao simular o perfil.") };
   }
 
   const backup: SessionBackup = {

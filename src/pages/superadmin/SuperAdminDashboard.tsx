@@ -69,6 +69,7 @@ type CategoriaSimulacao = "aluno" | "academia" | "studio" | "personal" | "nutric
 
 type PerfilSimulavel = {
   user_id: string;
+  organization_id: string;
   full_name: string | null;
   email: string;
   organizacao_nome: string;
@@ -464,7 +465,10 @@ export default function SuperAdminDashboard() {
 
   const [categoriaAtiva, setCategoriaAtiva] = useState<CategoriaSimulacao | null>(null);
   const [destinoAtivo, setDestinoAtivo] = useState<string | null>(null);
-  const [userIdSelecionado, setUserIdSelecionado] = useState<string | null>(null);
+  // A mesma pessoa pode ter mais de um vínculo ativo simulável (ex.: gestor
+  // de mais de uma academia) — a chave precisa combinar user_id +
+  // organization_id, senão duas opções colidiriam no mesmo <Select>.
+  const [vinculoSelecionado, setVinculoSelecionado] = useState<string | null>(null);
   const [simulando, setSimulando] = useState(false);
 
   const { data: perfisSimulaveis = [] } = useQuery({
@@ -476,18 +480,20 @@ export default function SuperAdminDashboard() {
     },
   });
 
+  const chaveVinculo = (p: PerfilSimulavel) => `${p.user_id}:${p.organization_id}`;
   const opcoesCategoria = perfisSimulaveis.filter((p) => p.categoria === categoriaAtiva);
+  const perfilSelecionado = opcoesCategoria.find((p) => chaveVinculo(p) === vinculoSelecionado) ?? null;
 
   const escolherCategoria = (categoria: CategoriaSimulacao, destino: string) => {
     setCategoriaAtiva(categoria);
     setDestinoAtivo(destino);
-    setUserIdSelecionado(null);
+    setVinculoSelecionado(null);
   };
 
   const simular = async () => {
-    if (!userIdSelecionado || !destinoAtivo) return;
+    if (!perfilSelecionado || !destinoAtivo) return;
     setSimulando(true);
-    const { error } = await startImpersonation(userIdSelecionado);
+    const { error } = await startImpersonation(perfilSelecionado.user_id, perfilSelecionado.organization_id);
     setSimulando(false);
     if (error) {
       toast({ title: "Não foi possível simular este perfil", description: error.message, variant: "destructive" });
@@ -541,7 +547,7 @@ export default function SuperAdminDashboard() {
 
           {categoriaAtiva && (
             <div className="flex flex-col sm:flex-row gap-2">
-              <Select value={userIdSelecionado ?? undefined} onValueChange={setUserIdSelecionado}>
+              <Select value={vinculoSelecionado ?? undefined} onValueChange={setVinculoSelecionado}>
                 <SelectTrigger className="flex-1">
                   <SelectValue placeholder="Selecione um usuário real para simular" />
                 </SelectTrigger>
@@ -552,13 +558,13 @@ export default function SuperAdminDashboard() {
                     </div>
                   )}
                   {opcoesCategoria.map((p) => (
-                    <SelectItem key={p.user_id} value={p.user_id}>
+                    <SelectItem key={chaveVinculo(p)} value={chaveVinculo(p)}>
                       {p.full_name || p.email} — {p.organizacao_nome}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-              <Button disabled={!userIdSelecionado || simulando} onClick={() => void simular()}>
+              <Button disabled={!perfilSelecionado || simulando} onClick={() => void simular()}>
                 {simulando ? "Entrando..." : "Simular"}
               </Button>
             </div>

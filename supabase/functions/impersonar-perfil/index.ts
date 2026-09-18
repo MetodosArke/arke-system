@@ -6,6 +6,17 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+// Todo erro de negócio volta com HTTP 200 e `{ error }` no corpo, nunca um
+// status não-2xx: supabase-js `functions.invoke` só expõe o corpo em `data`
+// numa resposta 2xx — num não-2xx ele descarta o corpo e troca `error` por
+// um FunctionsHttpError genérico ("Edge Function returned a non-2xx status
+// code"), escondendo o motivo real (ex.: "Perfil de destino não encontrado").
+const errorResponse = (mensagem: string) =>
+  new Response(JSON.stringify({ error: mensagem }), {
+    status: 200,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+
 const jsonResponse = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
     status,
@@ -14,6 +25,7 @@ const jsonResponse = (body: unknown, status = 200) =>
 
 type ImpersonarPayload = {
   user_id: string;
+  organization_id: string;
 };
 
 // Gera um token de sessão (magic link) para o admin_arke/gestor "simular"
@@ -26,12 +38,12 @@ Deno.serve(async (req: Request) => {
     return new Response("ok", { headers: corsHeaders });
   }
   if (req.method !== "POST") {
-    return jsonResponse({ error: "Method not allowed" }, 405);
+    return errorResponse("Method not allowed");
   }
 
   const authHeader = req.headers.get("Authorization");
   if (!authHeader?.startsWith("Bearer ")) {
-    return jsonResponse({ error: "Sessão inválida. Faça login novamente." }, 401);
+    return errorResponse("Sessão inválida. Faça login novamente.");
   }
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
@@ -40,14 +52,18 @@ Deno.serve(async (req: Request) => {
 
   if (!supabaseUrl || !anonKey || !serviceRoleKey) {
     console.error("Missing required Supabase environment variables");
-    return jsonResponse({ error: "Configuração do servidor incompleta." }, 500);
+    return errorResponse("Configuração do servidor incompleta.");
   }
 
   try {
     const payload: Partial<ImpersonarPayload> = await req.json();
     const targetUserId = payload.user_id;
+    const organizationId = payload.organization_id;
     if (!targetUserId) {
-      return jsonResponse({ error: "user_id é obrigatório." }, 400);
+      return errorResponse("user_id é obrigatório.");
+    }
+    if (!organizationId) {
+      return errorResponse("organization_id é obrigatório.");
     }
 
     const asUser = createClient(supabaseUrl, anonKey, {
@@ -57,10 +73,10 @@ Deno.serve(async (req: Request) => {
     const { data: claimsData, error: claimsError } = await asUser.auth.getClaims(token);
     const callerId = typeof claimsData?.claims?.sub === "string" ? claimsData.claims.sub : null;
     if (claimsError || !callerId) {
-      return jsonResponse({ error: "Sessão inválida. Faça login novamente." }, 401);
+      return errorResponse("Sessão inválida. Faça login novamente.");
     }
     if (callerId === targetUserId) {
-      return jsonResponse({ error: "Você já está autenticado como este usuário." }, 400);
+      return errorResponse("Você já está autenticado como este usuário.");
     }
 
     const adminClient = createClient(supabaseUrl, serviceRoleKey);
@@ -71,23 +87,31 @@ Deno.serve(async (req: Request) => {
       .eq("user_id", callerId);
     if (callerRolesError) {
       console.error("Error loading caller roles", callerRolesError);
-      return jsonResponse({ error: "Erro ao validar permissões." }, 500);
+      return errorResponse("Erro ao validar permissões.");
     }
     const callerIsAdminArke = (callerRoles ?? []).some((r) => r.role === "admin_arke");
     const callerIsSuperadmin = (callerRoles ?? []).some((r) => r.role === "superadmin");
 
+    // organization_members tem unique(organization_id, user_id) — filtrar
+    // pelos dois garante no máximo uma linha. Filtrar só por user_id (como
+    // este código fazia antes) quebra com um erro genérico assim que a
+    // mesma pessoa tem mais de um vínculo ativo (ex.: aluno numa
+    // organização e gestor em outra), porque .maybeSingle() rejeita mais
+    // de uma linha — daí a UI do SuperAdmin já ter que mandar qual
+    // organização quer simular, não só o user_id.
     const { data: targetMembership, error: targetMembershipError } = await adminClient
       .from("organization_members")
       .select("organization_id, role")
       .eq("user_id", targetUserId)
+      .eq("organization_id", organizationId)
       .eq("status", "active")
       .maybeSingle();
     if (targetMembershipError) {
       console.error("Error loading target membership", targetMembershipError);
-      return jsonResponse({ error: "Erro ao validar o perfil de destino." }, 500);
+      return errorResponse("Erro ao validar o perfil de destino.");
     }
     if (!targetMembership) {
-      return jsonResponse({ error: "Perfil de destino não encontrado ou sem organização ativa." }, 404);
+      return errorResponse("Perfil de destino não encontrado ou sem organização ativa.");
     }
 
     let autorizado = callerIsAdminArke || callerIsSuperadmin;
@@ -96,25 +120,24 @@ Deno.serve(async (req: Request) => {
         .from("organization_members")
         .select("organization_id, role")
         .eq("user_id", callerId)
+        .eq("organization_id", organizationId)
         .eq("status", "active")
         .maybeSingle();
       if (callerMembershipError) {
         console.error("Error loading caller membership", callerMembershipError);
-        return jsonResponse({ error: "Erro ao validar permissões." }, 500);
+        return errorResponse("Erro ao validar permissões.");
       }
-      autorizado =
-        callerMembership?.role === "gestor" &&
-        callerMembership.organization_id === targetMembership.organization_id;
+      autorizado = callerMembership?.role === "gestor";
     }
 
     if (!autorizado) {
-      return jsonResponse({ error: "Você não tem permissão para simular este perfil." }, 403);
+      return errorResponse("Você não tem permissão para simular este perfil.");
     }
 
     const { data: targetUser, error: targetUserError } = await adminClient.auth.admin.getUserById(targetUserId);
     if (targetUserError || !targetUser.user?.email) {
       console.error("Error loading target user", targetUserError);
-      return jsonResponse({ error: "Usuário de destino não encontrado." }, 404);
+      return errorResponse("Usuário de destino não encontrado.");
     }
 
     const { data: linkData, error: linkError } = await adminClient.auth.admin.generateLink({
@@ -123,7 +146,7 @@ Deno.serve(async (req: Request) => {
     });
     if (linkError || !linkData) {
       console.error("Error generating impersonation link", linkError);
-      return jsonResponse({ error: "Erro ao gerar acesso de simulação." }, 500);
+      return errorResponse("Erro ao gerar acesso de simulação.");
     }
 
     return jsonResponse({
@@ -132,6 +155,6 @@ Deno.serve(async (req: Request) => {
     });
   } catch (error) {
     console.error("Unexpected error in impersonar-perfil", error);
-    return jsonResponse({ error: "Erro inesperado ao simular o perfil." }, 500);
+    return errorResponse("Erro inesperado ao simular o perfil.");
   }
 });
