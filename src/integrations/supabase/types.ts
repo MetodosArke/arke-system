@@ -1765,6 +1765,7 @@ export type Database = {
         | "nutricionista"
         | "aluno"
         | "superadmin"
+        | "recepcao"
       assinatura_status: "ativa" | "atrasada" | "cancelada"
       checkin_status:
         | "funcionando_bem"
@@ -1934,6 +1935,7 @@ export const Constants = {
         "nutricionista",
         "aluno",
         "superadmin",
+        "recepcao",
       ],
       assinatura_status: ["ativa", "atrasada", "cancelada"],
       checkin_status: [

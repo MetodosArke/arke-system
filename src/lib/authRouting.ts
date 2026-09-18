@@ -1,7 +1,7 @@
 import type { AppRole } from "@/contexts/AuthContext";
 import type { Enums } from "@/integrations/supabase/types";
 
-const STAFF_ROLES: AppRole[] = ["gestor", "professor", "nutricionista"];
+const STAFF_ROLES: AppRole[] = ["gestor", "professor", "nutricionista", "recepcao"];
 
 // Rota inicial após autenticação, 100% automática a partir do perfil —
 // ninguém precisa digitar a rota manualmente:

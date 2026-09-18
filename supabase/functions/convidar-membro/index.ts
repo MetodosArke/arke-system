@@ -12,8 +12,8 @@ const jsonResponse = (body: unknown, status = 200) =>
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
 
-type Papel = "aluno" | "professor" | "nutricionista";
-const PAPEIS_VALIDOS = new Set<Papel>(["aluno", "professor", "nutricionista"]);
+type Papel = "aluno" | "professor" | "nutricionista" | "recepcao";
+const PAPEIS_VALIDOS = new Set<Papel>(["aluno", "professor", "nutricionista", "recepcao"]);
 const NIVEIS_VALIDOS = new Set(["essencial", "integrado", "elite"]);
 
 type ConvidarMembroPayload = {
@@ -70,7 +70,7 @@ Deno.serve(async (req: Request) => {
       return jsonResponse({ error: "Nome completo é obrigatório." }, 400);
     }
     if (!papel || !PAPEIS_VALIDOS.has(papel)) {
-      return jsonResponse({ error: "Papel inválido. Use aluno, professor ou nutricionista." }, 400);
+      return jsonResponse({ error: "Papel inválido. Use aluno, professor, nutricionista ou recepcao." }, 400);
     }
     if (papel === "aluno" && (!nivelAtacado || !NIVEIS_VALIDOS.has(nivelAtacado))) {
       return jsonResponse({ error: "Selecione o plano do aluno (Essencial, Integrado ou Elite)." }, 400);

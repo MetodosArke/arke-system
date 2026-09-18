@@ -10,18 +10,20 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { UsersRound, UserPlus, UserCog } from "lucide-react";
+import { UsersRound, UserPlus, Pencil, Power, UserX } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { startImpersonation } from "@/lib/impersonation";
 import type { Enums } from "@/integrations/supabase/types";
 
-type PapelEquipe = Extract<Enums<"app_role">, "gestor" | "professor" | "nutricionista">;
+type PapelEquipe = Extract<Enums<"app_role">, "gestor" | "professor" | "nutricionista" | "recepcao">;
 
 const PAPEL_LABEL: Record<string, string> = {
   gestor: "Gestor",
   professor: "Personal",
   nutricionista: "Nutricionista",
+  recepcao: "Recepção",
 };
+
+const PAPEIS_EDITAVEIS: PapelEquipe[] = ["gestor", "recepcao", "professor", "nutricionista"];
 
 interface MembroRow {
   user_id: string;
@@ -37,7 +39,8 @@ export default function AdminEquipe() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [convidarAberto, setConvidarAberto] = useState(false);
-  const [simulandoUserId, setSimulandoUserId] = useState<string | null>(null);
+  const [editando, setEditando] = useState<MembroRow | null>(null);
+  const [removendo, setRemovendo] = useState<MembroRow | null>(null);
 
   const { data: equipe = EMPTY_EQUIPE, isLoading } = useQuery({
     queryKey: ["admin-equipe", organization?.id],
@@ -46,7 +49,7 @@ export default function AdminEquipe() {
         .from("organization_members")
         .select("user_id, role, status")
         .eq("organization_id", organization!.id)
-        .in("role", ["gestor", "professor", "nutricionista"])
+        .in("role", ["gestor", "professor", "nutricionista", "recepcao"])
         .order("role");
       if (error) throw error;
 
@@ -61,17 +64,43 @@ export default function AdminEquipe() {
     enabled: !!organization?.id,
   });
 
-  const simular = async (userId: string) => {
-    setSimulandoUserId(userId);
-    const { error } = await startImpersonation(userId);
-    setSimulandoUserId(null);
-    if (error) {
-      toast({ title: "Não foi possível simular este perfil", description: error.message, variant: "destructive" });
-      return;
-    }
-    window.location.assign("/#/admin");
-    window.location.reload();
-  };
+  const invalidarEquipe = () => queryClient.invalidateQueries({ queryKey: ["admin-equipe", organization?.id] });
+
+  const alternarStatus = useMutation({
+    mutationFn: async (membro: MembroRow) => {
+      const novoStatus = membro.status === "active" ? "inactive" : "active";
+      const { error } = await supabase
+        .from("organization_members")
+        .update({ status: novoStatus })
+        .eq("organization_id", organization!.id)
+        .eq("user_id", membro.user_id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast({ title: "Status atualizado." });
+      invalidarEquipe();
+    },
+    onError: (error: Error) =>
+      toast({ title: "Erro ao atualizar status", description: error.message, variant: "destructive" }),
+  });
+
+  const remover = useMutation({
+    mutationFn: async (membro: MembroRow) => {
+      const { error } = await supabase
+        .from("organization_members")
+        .delete()
+        .eq("organization_id", organization!.id)
+        .eq("user_id", membro.user_id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast({ title: "Acesso revogado." });
+      invalidarEquipe();
+      setRemovendo(null);
+    },
+    onError: (error: Error) =>
+      toast({ title: "Erro ao remover membro", description: error.message, variant: "destructive" }),
+  });
 
   return (
     <div className="space-y-4 max-w-3xl mx-auto">
@@ -111,20 +140,40 @@ export default function AdminEquipe() {
                     </TableCell>
                     <TableCell>
                       <Badge variant={membro.status === "active" ? "default" : "outline"}>
-                        {membro.status === "active" ? "Ativo" : membro.status}
+                        {membro.status === "active" ? "Ativo" : "Inativo"}
                       </Badge>
                     </TableCell>
                     <TableCell className="text-right">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        disabled={simulandoUserId === membro.user_id}
-                        onClick={() => void simular(membro.user_id)}
-                        title="Simular este perfil"
-                      >
-                        <UserCog className="h-3.5 w-3.5 mr-1" />
-                        Simular
-                      </Button>
+                      <div className="flex items-center justify-end gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7"
+                          title="Editar"
+                          onClick={() => setEditando(membro)}
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7"
+                          title={membro.status === "active" ? "Inativar" : "Ativar"}
+                          disabled={alternarStatus.isPending && alternarStatus.variables?.user_id === membro.user_id}
+                          onClick={() => alternarStatus.mutate(membro)}
+                        >
+                          <Power className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 text-destructive"
+                          title="Remover"
+                          onClick={() => setRemovendo(membro)}
+                        >
+                          <UserX className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -137,8 +186,34 @@ export default function AdminEquipe() {
       <ConvidarMembroDialog
         open={convidarAberto}
         onOpenChange={setConvidarAberto}
-        onSuccess={() => void queryClient.invalidateQueries({ queryKey: ["admin-equipe", organization?.id] })}
+        onSuccess={invalidarEquipe}
       />
+
+      <EditarMembroDialog membro={editando} onOpenChange={(open) => !open && setEditando(null)} onSuccess={invalidarEquipe} />
+
+      <Dialog open={!!removendo} onOpenChange={(open) => !open && setRemovendo(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Remover {removendo?.full_name} da equipe?</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            Isso revoga imediatamente o acesso deste membro a esta organização. O convite pode ser refeito depois,
+            se necessário.
+          </p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRemovendo(null)}>
+              Cancelar
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={remover.isPending}
+              onClick={() => removendo && remover.mutate(removendo)}
+            >
+              {remover.isPending ? "Removendo..." : "Remover"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -236,6 +311,7 @@ function ConvidarMembroDialog({
                 <SelectValue placeholder="Selecione o papel" />
               </SelectTrigger>
               <SelectContent>
+                <SelectItem value="recepcao">Recepção</SelectItem>
                 <SelectItem value="professor">Personal (Professor)</SelectItem>
                 <SelectItem value="nutricionista">Nutricionista</SelectItem>
               </SelectContent>
@@ -244,6 +320,122 @@ function ConvidarMembroDialog({
           <DialogFooter>
             <Button type="submit" disabled={convidar.isPending}>
               {convidar.isPending ? "Enviando..." : "Convidar"}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+interface EditForm {
+  full_name: string;
+  email: string;
+  papel: PapelEquipe;
+}
+
+function EditarMembroDialog({
+  membro,
+  onOpenChange,
+  onSuccess,
+}: {
+  membro: MembroRow | null;
+  onOpenChange: (open: boolean) => void;
+  onSuccess: () => void;
+}) {
+  const { toast } = useToast();
+  const [form, setForm] = useState<EditForm | null>(null);
+
+  // O e-mail atual não é buscado — trocá-lo exige a Admin API, então o
+  // campo começa vazio e só é enviado se preenchido.
+  const formAtual: EditForm = form ?? {
+    full_name: membro?.full_name ?? "",
+    email: "",
+    papel: (membro?.role as PapelEquipe) ?? "professor",
+  };
+
+  const salvar = useMutation({
+    mutationFn: async () => {
+      if (!membro) throw new Error("Nenhum membro selecionado.");
+      const nomeMudou = formAtual.full_name.trim() && formAtual.full_name.trim() !== membro.full_name;
+      const papelMudou = formAtual.papel !== membro.role;
+      const { error } = await supabase.functions.invoke("editar-membro-equipe", {
+        body: {
+          user_id: membro.user_id,
+          full_name: nomeMudou ? formAtual.full_name.trim() : undefined,
+          email: formAtual.email.trim() || undefined,
+          role: papelMudou ? formAtual.papel : undefined,
+        },
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast({ title: "Membro atualizado!" });
+      setForm(null);
+      onOpenChange(false);
+      onSuccess();
+    },
+    onError: (error: Error) =>
+      toast({ title: "Erro ao atualizar membro", description: error.message, variant: "destructive" }),
+  });
+
+  const fechar = (open: boolean) => {
+    if (!open) setForm(null);
+    onOpenChange(open);
+  };
+
+  return (
+    <Dialog open={!!membro} onOpenChange={fechar}>
+      <DialogContent key={membro?.user_id}>
+        <DialogHeader>
+          <DialogTitle>Editar {membro?.full_name}</DialogTitle>
+        </DialogHeader>
+        <form
+          className="space-y-3"
+          onSubmit={(e) => {
+            e.preventDefault();
+            salvar.mutate();
+          }}
+        >
+          <div className="space-y-1.5">
+            <Label htmlFor="editar-nome">Nome completo</Label>
+            <Input
+              id="editar-nome"
+              value={formAtual.full_name}
+              onChange={(e) => setForm({ ...formAtual, full_name: e.target.value })}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="editar-email">Novo e-mail (deixe em branco para manter o atual)</Label>
+            <Input
+              id="editar-email"
+              type="email"
+              value={formAtual.email}
+              onChange={(e) => setForm({ ...formAtual, email: e.target.value })}
+              placeholder="novo.email@exemplo.com"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Papel</Label>
+            <Select value={formAtual.papel} onValueChange={(v) => setForm({ ...formAtual, papel: v as PapelEquipe })}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {PAPEIS_EDITAVEIS.map((p) => (
+                  <SelectItem key={p} value={p}>
+                    {PAPEL_LABEL[p]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => fechar(false)}>
+              Cancelar
+            </Button>
+            <Button type="submit" disabled={salvar.isPending}>
+              {salvar.isPending ? "Salvando..." : "Salvar"}
             </Button>
           </DialogFooter>
         </form>
