@@ -99,7 +99,7 @@ export default function Login() {
         <div className="mb-8 flex flex-col items-center text-center">
           <img src={logo} alt="Arke" className="h-24 w-24 mb-4 rounded-xl" />
           <h1 className="text-2xl font-bold tracking-wide text-primary" style={{ fontFamily: "'Cormorant Garamond', serif" }}>
-            ARKE
+            ArkeFit
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
             Gestão inteligente de treinos

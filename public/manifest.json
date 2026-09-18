@@ -1,6 +1,6 @@
 {
-  "name": "Arke",
-  "short_name": "Arke",
+  "name": "ArkeFit",
+  "short_name": "ArkeFit",
   "description": "Sistema inteligente de gestão de treinos e evolução de alunos",
   "start_url": "/",
   "display": "standalone",

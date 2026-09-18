@@ -9,10 +9,17 @@ import { Mail, ArrowLeft, Dumbbell, Lock, Eye, EyeOff } from "lucide-react";
 import { motion } from "framer-motion";
 import { useToast } from "@/hooks/use-toast";
 
+// Links de convite (novo aluno/equipe) e de definição de senha após signup
+// chegam com type=invite/signup em vez de type=recovery, mas o fluxo de
+// "defina sua senha a partir deste link" é idêntico — tratados da mesma forma.
+const RECOVERY_LIKE_TYPES = new Set(["recovery", "invite", "signup"]);
+
 const getRecoveryParamsFromUrl = () => {
   const href = window.location.href;
   const startIndexes = [
     href.indexOf("type=recovery"),
+    href.indexOf("type=invite"),
+    href.indexOf("type=signup"),
     href.indexOf("access_token="),
     href.indexOf("refresh_token="),
   ].filter((index) => index >= 0);
@@ -50,7 +57,7 @@ export default function ResetPassword() {
       // would authenticate the user just by opening the recovery link, even if
       // they never actually set a new password. Only exchange the tokens when
       // the user submits the new password form.
-      if (accessToken && refreshToken && recoveryType === "recovery") {
+      if (accessToken && refreshToken && recoveryType && RECOVERY_LIKE_TYPES.has(recoveryType)) {
         // Ensure no stale session is left over from a previous user in this browser
         await supabase.auth.signOut().catch(() => {});
         if (!isMounted) return;
@@ -65,7 +72,7 @@ export default function ResetPassword() {
         return;
       }
 
-      if (recoveryType === "recovery" || window.location.href.includes("type=recovery")) {
+      if ((recoveryType && RECOVERY_LIKE_TYPES.has(recoveryType)) || window.location.href.includes("type=recovery")) {
         setIsRecovery(true);
       }
     };
