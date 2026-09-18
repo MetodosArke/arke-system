@@ -7,7 +7,7 @@ interface Props {
 }
 
 export function ProtectedRoute({ children, requiredRoles }: Props) {
-  const { isAuthenticated, isLoading, roles, rolesLoaded } = useAuth();
+  const { isAuthenticated, isLoading, roles, organizationRole, rolesLoaded } = useAuth();
 
   if (isLoading || (requiredRoles && requiredRoles.length > 0 && !rolesLoaded)) {
     return (
@@ -22,7 +22,11 @@ export function ProtectedRoute({ children, requiredRoles }: Props) {
   }
 
   if (requiredRoles && requiredRoles.length > 0) {
-    const hasAccess = requiredRoles.some((r) => roles.includes(r));
+    // `roles` são papéis globais de plataforma (ex.: admin_arke); gestor/
+    // professor/nutricionista são papéis da organização (organizationRole).
+    const hasAccess =
+      requiredRoles.some((r) => roles.includes(r)) ||
+      (organizationRole !== null && requiredRoles.includes(organizationRole));
     if (!hasAccess) {
       return <Navigate to="/app" replace />;
     }

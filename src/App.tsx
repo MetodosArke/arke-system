@@ -8,6 +8,7 @@ import { ThemeProvider } from "@/contexts/ThemeContext";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { NetworkStatusBanner } from "@/components/NetworkStatusBanner";
+import { resolveHomePath } from "@/lib/authRouting";
 
 // Auth pages
 import Login from "@/pages/auth/Login";
@@ -79,6 +80,27 @@ function AlunoOnboardingGate({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+// Rota raiz: sem sessão vai para o login; autenticado, vai direto para o
+// painel correspondente ao seu papel (admin_arke/gestor/professor/
+// nutricionista → /admin, aluno → /app).
+function RootRedirect() {
+  const { isAuthenticated, isLoading, roles, organizationRole, rolesLoaded } = useAuth();
+
+  if (isLoading || (isAuthenticated && !rolesLoaded)) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return <Navigate to="/auth/login" replace />;
+  }
+
+  return <Navigate to={resolveHomePath(roles, organizationRole)} replace />;
+}
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <ThemeProvider>
@@ -89,7 +111,7 @@ const App = () => (
           <NetworkStatusBanner />
           <HashRouter>
             <Routes>
-              <Route path="/" element={<Navigate to="/auth/login" replace />} />
+              <Route path="/" element={<RootRedirect />} />
 
               {/* Auth routes */}
               <Route path="/auth/login" element={<Login />} />

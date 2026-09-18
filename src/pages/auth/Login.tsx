@@ -9,6 +9,7 @@ import { Mail, Lock, Eye, EyeOff, Moon, Sun, Download, X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useToast } from "@/hooks/use-toast";
 import { useInstallPrompt } from "@/hooks/useInstallPrompt";
+import { resolveHomePath } from "@/lib/authRouting";
 import logo from "@/assets/logo.png";
 
 export default function Login() {
@@ -26,10 +27,7 @@ export default function Login() {
   // Redirect based on role after authentication
   useEffect(() => {
     if (isAuthenticated && rolesLoaded) {
-      const isStaff =
-        roles.includes("admin_arke") ||
-        ["gestor", "professor", "nutricionista"].includes(organizationRole ?? "");
-      navigate(isStaff ? "/admin" : "/app", { replace: true });
+      navigate(resolveHomePath(roles, organizationRole), { replace: true });
     }
   }, [isAuthenticated, rolesLoaded, roles, organizationRole, navigate]);
 
@@ -160,6 +158,14 @@ export default function Login() {
               </Button>
 
             </form>
+
+            <Button
+              variant="ghost"
+              className="mt-4 w-full"
+              onClick={() => navigate("/auth/register")}
+            >
+              Não tem conta? Cadastre-se
+            </Button>
           </CardContent>
         </Card>
       </motion.div>
