@@ -1212,6 +1212,10 @@ export type Database = {
         Args: { _organization_id: string; _user_id: string }
         Returns: boolean
       }
+      obter_organizacao_publica: {
+        Args: { _slug: string }
+        Returns: { organization_id: string; nome: string; planos: Json }[]
+      }
       provisionar_organizacao_padrao: { Args: never; Returns: string }
       publicar_dieta: {
         Args: { _aluno_id: string; _modelo_id: string; _titulo: string }

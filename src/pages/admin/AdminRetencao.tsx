@@ -1,8 +1,11 @@
+import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { TrendingUp, Users, UserMinus, Activity } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { TrendingUp, Users, UserMinus, Activity, AlertTriangle, HeartPulse, CalendarX2 } from "lucide-react";
 
 const FASES: { key: "alunos_fase_mapa" | "alunos_fase_base" | "alunos_fase_rota" | "alunos_fase_apex" | "alunos_fase_legado"; label: string }[] = [
   { key: "alunos_fase_mapa", label: "M.A.P.A.®" },
@@ -28,8 +31,64 @@ function StatTile({ icon: Icon, label, value }: { icon: typeof Users; label: str
   );
 }
 
+interface AlunoRisco {
+  aluno_id: string;
+  nome: string;
+  motivo: "sem_treino" | "dor";
+  detalhe: string;
+}
+
 export default function AdminRetencao() {
   const { organization } = useAuth();
+  const navigate = useNavigate();
+
+  const { data: alunosRisco = [], isLoading: isLoadingRisco } = useQuery({
+    queryKey: ["retencao-alunos-risco", organization?.id],
+    queryFn: async () => {
+      const cincoDiasAtras = new Date();
+      cincoDiasAtras.setDate(cincoDiasAtras.getDate() - 5);
+      const cincoDiasIso = cincoDiasAtras.toISOString().slice(0, 10);
+
+      const [{ data: alunosAtivos }, { data: registros }, { data: tarefasDor }] = await Promise.all([
+        supabase
+          .from("alunos")
+          .select("id, user_id")
+          .eq("organization_id", organization!.id),
+        supabase
+          .from("registro_treino")
+          .select("aluno_id, data")
+          .eq("organization_id", organization!.id)
+          .gte("data", cincoDiasIso),
+        supabase
+          .from("tarefas")
+          .select("aluno_id, motivo")
+          .eq("organization_id", organization!.id)
+          .eq("tipo", "dor")
+          .in("status", ["aberta", "em_andamento", "aguardando"]),
+      ]);
+
+      const userIds = (alunosAtivos ?? []).map((a) => a.user_id);
+      const { data: profiles } = userIds.length
+        ? await supabase.from("profiles").select("user_id, full_name").in("user_id", userIds)
+        : { data: [] as { user_id: string; full_name: string }[] };
+      const nomeByUserId = new Map((profiles ?? []).map((p) => [p.user_id, p.full_name]));
+
+      const treinouRecente = new Set((registros ?? []).map((r) => r.aluno_id));
+      const alunoIdComDor = new Map((tarefasDor ?? []).map((t) => [t.aluno_id, t.motivo]));
+
+      const risco: AlunoRisco[] = [];
+      for (const aluno of alunosAtivos ?? []) {
+        const nome = nomeByUserId.get(aluno.user_id) ?? "—";
+        if (alunoIdComDor.has(aluno.id)) {
+          risco.push({ aluno_id: aluno.id, nome, motivo: "dor", detalhe: alunoIdComDor.get(aluno.id)! });
+        } else if (!treinouRecente.has(aluno.id)) {
+          risco.push({ aluno_id: aluno.id, nome, motivo: "sem_treino", detalhe: "5+ dias sem registrar treino" });
+        }
+      }
+      return risco;
+    },
+    enabled: !!organization?.id,
+  });
 
   const { data: metrics, isLoading } = useQuery({
     queryKey: ["org-churn-metrics", organization?.id],
@@ -55,6 +114,46 @@ export default function AdminRetencao() {
       </div>
 
       {isLoading && <p className="text-sm text-muted-foreground">Carregando...</p>}
+
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base flex items-center gap-2">
+            <AlertTriangle className="h-4 w-4 text-amber-500" /> Alunos em risco (MQV)
+          </CardTitle>
+          <p className="text-xs text-muted-foreground">
+            Alunos com 5+ dias sem registrar treino ou com relato de dor/desconforto ainda em aberto.
+          </p>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          {isLoadingRisco && <p className="text-sm text-muted-foreground">Carregando...</p>}
+          {!isLoadingRisco && alunosRisco.length === 0 && (
+            <p className="text-sm text-muted-foreground">Nenhum aluno em risco no momento. 🎉</p>
+          )}
+          {alunosRisco.map((a) => (
+            <div key={`${a.aluno_id}-${a.motivo}`} className="flex items-center justify-between gap-2 border-b border-border pb-2 last:border-0 last:pb-0">
+              <div className="flex items-center gap-2 min-w-0">
+                {a.motivo === "dor" ? (
+                  <HeartPulse className="h-4 w-4 text-red-500 shrink-0" />
+                ) : (
+                  <CalendarX2 className="h-4 w-4 text-amber-500 shrink-0" />
+                )}
+                <div className="min-w-0">
+                  <p className="text-sm font-medium truncate">{a.nome}</p>
+                  <p className="text-xs text-muted-foreground truncate">{a.detalhe}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-1.5 shrink-0">
+                <Badge variant={a.motivo === "dor" ? "destructive" : "outline"}>
+                  {a.motivo === "dor" ? "Dor" : "Sem treino"}
+                </Badge>
+                <Button size="sm" variant="outline" onClick={() => navigate("/admin")}>
+                  Ver na Fila
+                </Button>
+              </div>
+            </div>
+          ))}
+        </CardContent>
+      </Card>
 
       {metrics && (
         <>

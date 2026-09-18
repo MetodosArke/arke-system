@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -11,7 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Users, CalendarOff, UserPlus } from "lucide-react";
+import { Users, CalendarOff, UserPlus, FileSpreadsheet } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { Enums } from "@/integrations/supabase/types";
 
@@ -63,6 +64,7 @@ const EMPTY_ALUNOS: AlunoRow[] = [];
 
 export default function AdminAlunos() {
   const { organization } = useAuth();
+  const navigate = useNavigate();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [alunoEditando, setAlunoEditando] = useState<AlunoRow | null>(null);
@@ -135,10 +137,16 @@ export default function AdminAlunos() {
           <Users className="h-5 w-5 text-primary" />
           <h1 className="text-xl font-bold">Alunos</h1>
         </div>
-        <Button size="sm" onClick={() => setCadastroAberto(true)} disabled={!organization}>
-          <UserPlus className="h-4 w-4 mr-1.5" />
-          Cadastrar Aluno
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button size="sm" variant="outline" onClick={() => navigate("/admin/alunos/importar")}>
+            <FileSpreadsheet className="h-4 w-4 mr-1.5" />
+            Importar em massa
+          </Button>
+          <Button size="sm" onClick={() => setCadastroAberto(true)} disabled={!organization}>
+            <UserPlus className="h-4 w-4 mr-1.5" />
+            Cadastrar Aluno
+          </Button>
+        </div>
       </div>
 
       <Card>
