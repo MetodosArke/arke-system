@@ -28,6 +28,44 @@ function hojeISO() {
   return new Date().toISOString().slice(0, 10);
 }
 
+type AsaasErrorBody = { errors?: { code?: string; description?: string }[] };
+type ChamadaAsaas<T> = { ok: true; data: T } | { ok: false; mensagem: string; corpo: unknown };
+
+// Faz a chamada ao Asaas e SEMPRE tenta extrair o corpo JSON (sucesso ou
+// erro) dentro de um try/catch — o Asaas normalmente devolve JSON mesmo em
+// erro (`{ errors: [{ description }] }`), mas uma falha de rede/gateway
+// pode devolver algo que não é JSON válido, e isso não pode derrubar a
+// função com uma exceção não tratada. Quando dá erro, devolve a mensagem
+// específica do Asaas (não um "falha genérica non-2xx") para a UI do
+// SuperAdmin mostrar exatamente por que a cobrança foi recusada.
+async function chamarAsaas<T>(url: string, options: RequestInit): Promise<ChamadaAsaas<T>> {
+  let resp: Response;
+  try {
+    resp = await fetch(url, options);
+  } catch (networkError) {
+    console.error("Falha de rede ao chamar o Asaas", networkError);
+    return { ok: false, mensagem: "Falha de rede ao comunicar com o Asaas. Tente novamente.", corpo: String(networkError) };
+  }
+
+  let corpo: unknown = null;
+  try {
+    corpo = await resp.json();
+  } catch (parseError) {
+    console.error("Resposta do Asaas não é JSON válido", parseError);
+  }
+
+  if (!resp.ok) {
+    const erros = (corpo as AsaasErrorBody | null)?.errors;
+    const mensagem =
+      erros && erros.length > 0
+        ? erros.map((e) => e.description).filter(Boolean).join(" ")
+        : `O Asaas recusou a requisição (HTTP ${resp.status}).`;
+    return { ok: false, mensagem, corpo };
+  }
+
+  return { ok: true, data: corpo as T };
+}
+
 // Módulo Definitivo de Cobrança B2B: a ARKE cobra a própria academia/studio
 // (mensalidade SaaS, taxa de implantação etc.) — direção oposta do split
 // de aluno em asaas-create-subscription (lá a academia recebe, aqui a
@@ -134,25 +172,44 @@ Deno.serve(async (req: Request) => {
     // duplicar o mesmo cliente a cada cobrança) — só cria na primeira vez.
     let asaasCustomerId = org.asaas_customer_id_b2b;
     if (!asaasCustomerId) {
-      const customerResp = await fetch(`${asaasApiUrl}/customers`, {
+      // E-mail do gestor master como e-mail de contato do customer no
+      // Asaas (a organização não tem um e-mail próprio cadastrado — o
+      // login do gestor ativo mais antigo é a melhor referência de
+      // contato, mesmo padrão já usado em get_superadmin_tenants).
+      const { data: gestorMembership } = await adminClient
+        .from("organization_members")
+        .select("user_id")
+        .eq("organization_id", org.id)
+        .eq("role", "gestor")
+        .eq("status", "active")
+        .order("created_at", { ascending: true })
+        .limit(1)
+        .maybeSingle();
+      let gestorEmail: string | undefined;
+      if (gestorMembership) {
+        const { data: gestorUser } = await adminClient.auth.admin.getUserById(gestorMembership.user_id);
+        gestorEmail = gestorUser?.user?.email;
+      }
+
+      const resultadoCustomer = await chamarAsaas<{ id: string }>(`${asaasApiUrl}/customers`, {
         method: "POST",
         headers: asaasHeaders,
         body: JSON.stringify({
           name: org.nome,
           cpfCnpj: cnpjCpfLimpo,
+          email: gestorEmail,
           externalReference: `org:${org.id}`,
         }),
       });
-      const customer = await customerResp.json();
-      if (!customerResp.ok) {
-        console.error("Asaas customer error", customer);
-        return jsonResponse({ error: "Falha ao criar o cliente da organização no Asaas.", detalhe: customer }, 502);
+      if (!resultadoCustomer.ok) {
+        console.error("Asaas customer error", resultadoCustomer.corpo);
+        return jsonResponse({ error: resultadoCustomer.mensagem, detalhe: resultadoCustomer.corpo }, 502);
       }
-      asaasCustomerId = customer.id;
+      asaasCustomerId = resultadoCustomer.data.id;
       await adminClient.from("organizations").update({ asaas_customer_id_b2b: asaasCustomerId }).eq("id", org.id);
     }
 
-    const paymentResp = await fetch(`${asaasApiUrl}/payments`, {
+    const resultadoPayment = await chamarAsaas<{ id: string; invoiceUrl?: string }>(`${asaasApiUrl}/payments`, {
       method: "POST",
       headers: asaasHeaders,
       body: JSON.stringify({
@@ -164,27 +221,26 @@ Deno.serve(async (req: Request) => {
         externalReference: `b2b:${org.id}`,
       }),
     });
-    const payment = await paymentResp.json();
-    if (!paymentResp.ok) {
-      console.error("Asaas payment error", payment);
-      return jsonResponse({ error: "Falha ao gerar a cobrança no Asaas.", detalhe: payment }, 502);
+    if (!resultadoPayment.ok) {
+      console.error("Asaas payment error", resultadoPayment.corpo);
+      return jsonResponse({ error: resultadoPayment.mensagem, detalhe: resultadoPayment.corpo }, 502);
     }
+    const payment = resultadoPayment.data;
 
     let pixCopiaCola: string | null = null;
     let pixQrCodeBase64: string | null = null;
     if (formaPagamento === "PIX") {
-      const pixResp = await fetch(`${asaasApiUrl}/payments/${payment.id}/pixQrCode`, {
-        method: "GET",
-        headers: asaasHeaders,
-      });
-      const pix = await pixResp.json();
-      if (pixResp.ok) {
-        pixCopiaCola = pix.payload ?? null;
-        pixQrCodeBase64 = pix.encodedImage ?? null;
+      const resultadoPix = await chamarAsaas<{ payload?: string; encodedImage?: string }>(
+        `${asaasApiUrl}/payments/${payment.id}/pixQrCode`,
+        { method: "GET", headers: asaasHeaders }
+      );
+      if (resultadoPix.ok) {
+        pixCopiaCola = resultadoPix.data.payload ?? null;
+        pixQrCodeBase64 = resultadoPix.data.encodedImage ?? null;
       } else {
         // Cobrança já foi criada no Asaas — não falha a operação inteira só
         // porque o QR Code demorou/falhou; o link de pagamento ainda funciona.
-        console.error("Asaas pixQrCode error", pix);
+        console.error("Asaas pixQrCode error", resultadoPix.corpo);
       }
     }
 
