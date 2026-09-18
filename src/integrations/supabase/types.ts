@@ -14,6 +14,65 @@ export type Database = {
   }
   public: {
     Tables: {
+      acessos_catraca_logs: {
+        Row: {
+          aluno_id: string | null
+          catraca_id: string
+          cpf_consultado: string | null
+          created_at: string
+          id: string
+          organization_id: string
+          resultado: string
+        }
+        Insert: {
+          aluno_id?: string | null
+          catraca_id: string
+          cpf_consultado?: string | null
+          created_at?: string
+          id?: string
+          organization_id: string
+          resultado: string
+        }
+        Update: {
+          aluno_id?: string | null
+          catraca_id?: string
+          cpf_consultado?: string | null
+          created_at?: string
+          id?: string
+          organization_id?: string
+          resultado?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "acessos_catraca_logs_aluno_id_fkey"
+            columns: ["aluno_id"]
+            isOneToOne: false
+            referencedRelation: "alunos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "acessos_catraca_logs_catraca_id_fkey"
+            columns: ["catraca_id"]
+            isOneToOne: false
+            referencedRelation: "organizacao_catracas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "acessos_catraca_logs_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "org_churn_metrics"
+            referencedColumns: ["organization_id"]
+          },
+          {
+            foreignKeyName: "acessos_catraca_logs_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       aluno_assinaturas: {
         Row: {
           aluno_id: string
@@ -576,6 +635,54 @@ export type Database = {
           },
           {
             foreignKeyName: "modelos_treino_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      organizacao_catracas: {
+        Row: {
+          created_at: string
+          device_token: string
+          id: string
+          localizacao: string | null
+          nome: string
+          organization_id: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          device_token?: string
+          id?: string
+          localizacao?: string | null
+          nome: string
+          organization_id: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          device_token?: string
+          id?: string
+          localizacao?: string | null
+          nome?: string
+          organization_id?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "organizacao_catracas_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "org_churn_metrics"
+            referencedColumns: ["organization_id"]
+          },
+          {
+            foreignKeyName: "organizacao_catracas_organization_id_fkey"
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
