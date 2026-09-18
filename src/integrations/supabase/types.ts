@@ -1127,6 +1127,7 @@ export type Database = {
         Args: { _organization_id: string; _user_id: string }
         Returns: boolean
       }
+      provisionar_organizacao_padrao: { Args: never; Returns: string }
       publicar_dieta: {
         Args: { _aluno_id: string; _modelo_id: string; _titulo: string }
         Returns: string

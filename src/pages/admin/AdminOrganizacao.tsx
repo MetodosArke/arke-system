@@ -28,9 +28,44 @@ function parseMoeda(valor: string): number {
 }
 
 export default function AdminOrganizacao() {
-  const { organization } = useAuth();
+  const { organization, rolesLoaded, hasRole, refreshOrganization } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+
+  // Super Admin (admin_arke) é um papel global, sem organização própria —
+  // mas esta tela edita precificação/split de UMA organização específica.
+  // Provisiona (de forma idempotente, no banco) uma organização padrão de
+  // homologação e vincula o admin_arke a ela como gestor, para que a
+  // homologação ponta a ponta não fique bloqueada por falta de organização.
+  const provisionarOrganizacao = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase.rpc("provisionar_organizacao_padrao");
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      void refreshOrganization();
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Não foi possível provisionar a organização padrão",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  useEffect(() => {
+    if (
+      rolesLoaded &&
+      !organization &&
+      hasRole("admin_arke") &&
+      !provisionarOrganizacao.isPending &&
+      !provisionarOrganizacao.isSuccess
+    ) {
+      provisionarOrganizacao.mutate();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rolesLoaded, organization, hasRole]);
 
   const { data: planosAtacado = EMPTY_PLANOS_ATACADO } = useQuery({
     queryKey: ["planos-atacado"],
@@ -142,12 +177,17 @@ export default function AdminOrganizacao() {
         <h1 className="text-xl font-bold">{organization?.nome ?? "Organização"}</h1>
       </div>
 
-      {!organization && (
+      {!organization && provisionarOrganizacao.isPending && (
+        <div className="rounded-lg border border-primary/30 bg-primary/10 px-4 py-3 text-sm text-primary">
+          Provisionando organização padrão de homologação ("Academia Piloto")...
+        </div>
+      )}
+
+      {!organization && !provisionarOrganizacao.isPending && !hasRole("admin_arke") && (
         <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-600 dark:text-amber-400">
           Nenhuma organização vinculada a este usuário. Esta tela edita a precificação e o split de
           pagamento de uma organização específica — entre com um usuário gestor/staff vinculado a
-          uma academia (ou use o chaveador de visão para acessar como aluno de teste) para editar
-          esses dados.
+          uma academia para editar esses dados.
         </div>
       )}
 
