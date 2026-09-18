@@ -1707,6 +1707,8 @@ export type Database = {
           plano_b2b: Database["public"]["Enums"]["plano_b2b"]
           slug: string
           status: Database["public"]["Enums"]["org_status"]
+          tipo: Database["public"]["Enums"]["organization_tipo"]
+          ultima_atividade: string
         }[]
       }
       has_org_role: {
@@ -1754,6 +1756,10 @@ export type Database = {
           _validade_inicio?: string
         }
         Returns: string
+      }
+      superadmin_resetar_tokens_gateway: {
+        Args: { _organization_id: string }
+        Returns: number
       }
     }
     Enums: {
