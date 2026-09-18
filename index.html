@@ -24,20 +24,33 @@
   <body>
     <div id="root"></div>
     <script>
-      // Normalize Supabase recovery/verify links for HashRouter.
-      // Supabase appends "#access_token=...&type=recovery" to the redirectTo URL.
-      // With HashRouter, that produces a second "#" fragment that breaks routing.
+      // Normalize Supabase recovery/invite/verify links for HashRouter.
+      // Supabase appends "#access_token=...&type=recovery|invite|signup" to the
+      // redirectTo URL. With HashRouter, that produces a second "#" fragment
+      // that breaks routing, so we move the tokens into a query string after
+      // our own route hash instead — and route by `type` to the page that
+      // owns that flow: convites (invite/signup) vão para /auth/definir-senha,
+      // recuperação de senha continua em /auth/reset-password.
       (function () {
         try {
           var href = window.location.href;
-          var hasRecovery =
+          var hasTokens =
             href.indexOf("type=recovery") !== -1 ||
+            href.indexOf("type=invite") !== -1 ||
+            href.indexOf("type=signup") !== -1 ||
             href.indexOf("access_token=") !== -1 ||
             href.indexOf("error_description=") !== -1;
-          if (!hasRecovery) return;
+          if (!hasTokens) return;
 
           // Find the tokens fragment (last "#" that starts token params).
-          var markers = ["#access_token=", "#error=", "#error_description=", "#type=recovery"];
+          var markers = [
+            "#access_token=",
+            "#error=",
+            "#error_description=",
+            "#type=recovery",
+            "#type=invite",
+            "#type=signup",
+          ];
           var tokenIdx = -1;
           for (var i = 0; i < markers.length; i++) {
             var idx = href.indexOf(markers[i]);
@@ -51,9 +64,10 @@
           if (tokenIdx === -1) return;
 
           var tokens = href.slice(tokenIdx + 1); // strip leading # or &
-          // Route path to reset-password with tokens as a secondary hash-like query
+          var isInvite = tokens.indexOf("type=invite") !== -1 || tokens.indexOf("type=signup") !== -1;
+          var targetPath = isInvite ? "/auth/definir-senha" : "/auth/reset-password";
           var base = window.location.origin + window.location.pathname + window.location.search;
-          window.history.replaceState({}, document.title, base + "#/auth/reset-password?" + tokens);
+          window.history.replaceState({}, document.title, base + "#" + targetPath + "?" + tokens);
         } catch (e) {
           console.error("recovery url normalize failed", e);
         }

@@ -15,6 +15,7 @@ import { resolveHomePath } from "@/lib/authRouting";
 import Login from "@/pages/auth/Login";
 import Register from "@/pages/auth/Register";
 import ResetPassword from "@/pages/auth/ResetPassword";
+import DefinirSenha from "@/pages/auth/DefinirSenha";
 
 // Layouts
 import { AppLayout } from "@/components/layout/AppLayout";
@@ -120,6 +121,7 @@ const App = () => (
               <Route path="/auth/login" element={<Login />} />
               <Route path="/auth/register" element={<Register />} />
               <Route path="/auth/reset-password" element={<ResetPassword />} />
+              <Route path="/auth/definir-senha" element={<DefinirSenha />} />
 
               {/* Onboarding M.A.P.A.® (fora do AppLayout — fluxo em tela cheia) */}
               <Route
