@@ -12,8 +12,8 @@ const jsonResponse = (body: unknown, status = 200) =>
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
 
-type Acao = "resetar_token_gateway" | "alterar_email_gestor";
-const ACOES_VALIDAS = new Set<Acao>(["resetar_token_gateway", "alterar_email_gestor"]);
+type Acao = "resetar_token_gateway" | "alterar_email_gestor" | "excluir_organizacao";
+const ACOES_VALIDAS = new Set<Acao>(["resetar_token_gateway", "alterar_email_gestor", "excluir_organizacao"]);
 
 type SuportePayload = {
   organization_id: string;
@@ -24,11 +24,11 @@ type SuportePayload = {
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 // Ações de suporte do SuperAdmin sobre um tenant específico: resetar o(s)
-// token(s) de dispositivo do Gateway Local (organizacao_catracas.device_token)
-// e trocar o e-mail de login do gestor principal (auth.users — por isso
-// exige Admin API/service_role, não dá para fazer via update direto do
-// client). As duas ficam na mesma função por reaproveitar a mesma
-// checagem de autorização (superadmin).
+// token(s) de dispositivo do Gateway Local (organizacao_catracas.device_token),
+// trocar o e-mail de login do gestor principal (auth.users — por isso exige
+// Admin API/service_role, não dá para fazer via update direto do client) e
+// excluir permanentemente a organização. Todas ficam na mesma função por
+// reaproveitar a mesma checagem de autorização (superadmin).
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -99,6 +99,31 @@ Deno.serve(async (req: Request) => {
         return jsonResponse({ error: "Erro ao resetar o token do gateway." }, 500);
       }
       return jsonResponse({ success: true, catracas_resetadas: qtd ?? 0 });
+    }
+
+    if (acao === "excluir_organizacao") {
+      // organizations é a "raiz" do multitenant: toda tabela filha
+      // (alunos, treinos, dietas, checkins, agendamentos, cobrancas_b2b,
+      // organization_members etc.) referencia organization_id com
+      // "on delete cascade" desde a fundação do schema — apagar a linha
+      // aqui já limpa membros, dados e vínculos em cascata no banco. Não
+      // apaga as contas em auth.users: o mesmo gestor pode ser dono de
+      // outra organização (ver criar-organizacao-superadmin), então a
+      // conta em si não pertence a uma organização específica.
+      const { data: deletada, error: deleteError } = await adminClient
+        .from("organizations")
+        .delete()
+        .eq("id", organizationId)
+        .select("id")
+        .maybeSingle();
+      if (deleteError) {
+        console.error("Error deleting organization", deleteError);
+        return jsonResponse({ error: "Erro ao excluir a organização." }, 500);
+      }
+      if (!deletada) {
+        return jsonResponse({ error: "Organização não encontrada." }, 404);
+      }
+      return jsonResponse({ success: true });
     }
 
     // alterar_email_gestor
