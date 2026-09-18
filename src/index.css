@@ -177,4 +177,21 @@
     background: white !important;
     color: black !important;
   }
+
+  /* Recibo/comprovante: some tudo, exceto o conteúdo marcado como
+     imprimível (o Dialog do Radix renderiza em um portal no body, então
+     isto funciona mesmo com o app inteiro por trás). */
+  body:has(.recibo-print-area) * {
+    visibility: hidden;
+  }
+  .recibo-print-area,
+  .recibo-print-area * {
+    visibility: visible;
+  }
+  .recibo-print-area {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+  }
 }

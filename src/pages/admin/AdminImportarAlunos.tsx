@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -8,7 +9,8 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Upload, FileSpreadsheet, ArrowLeft, CheckCircle2, XCircle } from "lucide-react";
+import { Upload, FileSpreadsheet, ArrowLeft, CheckCircle2, XCircle, MessageCircle } from "lucide-react";
+import { abrirWhatsAppAtivacao } from "@/lib/whatsappAtivacao";
 
 // Limites de sanidade: este importador roda inteiramente no navegador do
 // staff (nenhum arquivo é enviado a um servidor além das linhas já
@@ -32,11 +34,14 @@ interface LinhaResultado {
   linha: number;
   nome: string;
   email: string;
+  telefone?: string;
+  user_id?: string;
   status: "pendente" | "sucesso" | "erro";
   mensagem?: string;
 }
 
 export default function AdminImportarAlunos() {
+  const { organization } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -45,6 +50,22 @@ export default function AdminImportarAlunos() {
   const [mapeamento, setMapeamento] = useState<Record<string, CampoDestino>>({});
   const [resultados, setResultados] = useState<LinhaResultado[] | null>(null);
   const [importando, setImportando] = useState(false);
+  const [enviandoWhatsAppLinha, setEnviandoWhatsAppLinha] = useState<number | null>(null);
+
+  const enviarWhatsApp = async (r: LinhaResultado) => {
+    if (!r.user_id) return;
+    setEnviandoWhatsAppLinha(r.linha);
+    const resultado = await abrirWhatsAppAtivacao({
+      userId: r.user_id,
+      telefone: r.telefone,
+      alunoNome: r.nome,
+      organizacaoNome: organization?.nome ?? "sua academia",
+    });
+    setEnviandoWhatsAppLinha(null);
+    if (!resultado.ok) {
+      toast({ title: "Não foi possível gerar o link", description: resultado.erro, variant: "destructive" });
+    }
+  };
 
   const handleArquivo = async (file: File) => {
     if (file.size > TAMANHO_MAXIMO_BYTES) {
@@ -117,7 +138,7 @@ export default function AdminImportarAlunos() {
     setImportando(true);
     const inicial: LinhaResultado[] = linhas.map((linha, i) => {
       const reg = linhaParaRegistro(linha);
-      return { linha: i + 1, nome: reg.full_name, email: reg.email, status: "pendente" };
+      return { linha: i + 1, nome: reg.full_name, email: reg.email, telefone: reg.telefone, status: "pendente" };
     });
     setResultados(inicial);
 
@@ -136,7 +157,7 @@ export default function AdminImportarAlunos() {
       }
 
       try {
-        const { error } = await supabase.functions.invoke<{ user_id: string }>("convidar-membro", {
+        const { data, error } = await supabase.functions.invoke<{ user_id: string }>("convidar-membro", {
           body: {
             email: registro.email,
             full_name: registro.full_name,
@@ -147,7 +168,9 @@ export default function AdminImportarAlunos() {
           },
         });
         if (error) throw error;
-        setResultados((prev) => (prev ? prev.map((r, idx) => (idx === i ? { ...r, status: "sucesso" } : r)) : prev));
+        setResultados((prev) =>
+          prev ? prev.map((r, idx) => (idx === i ? { ...r, status: "sucesso", user_id: data?.user_id } : r)) : prev
+        );
       } catch (error) {
         const mensagem = error instanceof Error ? error.message : "Erro desconhecido";
         setResultados((prev) => (prev ? prev.map((r, idx) => (idx === i ? { ...r, status: "erro", mensagem } : r)) : prev));
@@ -247,6 +270,7 @@ export default function AdminImportarAlunos() {
                   <TableHead>Nome</TableHead>
                   <TableHead>E-mail</TableHead>
                   <TableHead>Status</TableHead>
+                  <TableHead />
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -264,6 +288,20 @@ export default function AdminImportarAlunos() {
                         <Badge variant="destructive" className="gap-1" title={r.mensagem}>
                           <XCircle className="h-3 w-3" /> {r.mensagem ?? "Erro"}
                         </Badge>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {r.status === "sucesso" && r.user_id && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7"
+                          title="Enviar Ativação via WhatsApp"
+                          disabled={enviandoWhatsAppLinha === r.linha}
+                          onClick={() => void enviarWhatsApp(r)}
+                        >
+                          <MessageCircle className="h-3.5 w-3.5" />
+                        </Button>
                       )}
                     </TableCell>
                   </TableRow>

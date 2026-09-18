@@ -176,6 +176,7 @@ export type Database = {
       alunos: {
         Row: {
           altura_cm: number | null
+          anonimizado_em: string | null
           created_at: string
           data_inicio: string | null
           data_nascimento: string | null
@@ -196,6 +197,7 @@ export type Database = {
         }
         Insert: {
           altura_cm?: number | null
+          anonimizado_em?: string | null
           created_at?: string
           data_inicio?: string | null
           data_nascimento?: string | null
@@ -216,6 +218,7 @@ export type Database = {
         }
         Update: {
           altura_cm?: number | null
+          anonimizado_em?: string | null
           created_at?: string
           data_inicio?: string | null
           data_nascimento?: string | null

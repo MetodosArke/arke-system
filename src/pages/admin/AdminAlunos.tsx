@@ -12,9 +12,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Users, CalendarOff, UserPlus, FileSpreadsheet } from "lucide-react";
+import { Users, CalendarOff, UserPlus, FileSpreadsheet, Printer, MessageCircle, UserX } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { Enums } from "@/integrations/supabase/types";
+import { ReciboComprovanteDialog, type ReciboData } from "@/components/admin/ReciboComprovanteDialog";
+import { abrirWhatsAppAtivacao } from "@/lib/whatsappAtivacao";
 
 type Nivel = Enums<"nivel_atacado">;
 
@@ -56,8 +58,13 @@ interface AlunoRow {
   objetivo: string | null;
   data_inicio: string | null;
   dias_descanso: number[];
+  anonimizado_em: string | null;
   full_name: string;
+  telefone: string | null;
   assinatura_status: string | null;
+  assinatura_valor: number | null;
+  assinatura_fatura_url: string | null;
+  assinatura_atualizada_em: string | null;
 }
 
 const EMPTY_ALUNOS: AlunoRow[] = [];
@@ -70,13 +77,17 @@ export default function AdminAlunos() {
   const [alunoEditando, setAlunoEditando] = useState<AlunoRow | null>(null);
   const [diasSelecionados, setDiasSelecionados] = useState<number[]>([]);
   const [cadastroAberto, setCadastroAberto] = useState(false);
+  const [reciboAberto, setReciboAberto] = useState(false);
+  const [reciboSelecionado, setReciboSelecionado] = useState<ReciboData | null>(null);
+  const [alunoAnonimizar, setAlunoAnonimizar] = useState<AlunoRow | null>(null);
+  const [enviandoWhatsApp, setEnviandoWhatsApp] = useState<string | null>(null);
 
   const { data: alunos = EMPTY_ALUNOS, isLoading } = useQuery({
     queryKey: ["admin-alunos", organization?.id],
     queryFn: async () => {
       const { data: alunosData, error } = await supabase
         .from("alunos")
-        .select("id, user_id, nivel_atacado, objetivo, data_inicio, fase_jornada, dias_descanso")
+        .select("id, user_id, nivel_atacado, objetivo, data_inicio, fase_jornada, dias_descanso, anonimizado_em")
         .eq("organization_id", organization!.id)
         .order("data_inicio", { ascending: false });
       if (error) throw error;
@@ -86,20 +97,39 @@ export default function AdminAlunos() {
 
       const [{ data: profiles }, { data: assinaturas }] = await Promise.all([
         userIds.length
-          ? supabase.from("profiles").select("user_id, full_name").in("user_id", userIds)
-          : Promise.resolve({ data: [] as { user_id: string; full_name: string }[] }),
+          ? supabase.from("profiles").select("user_id, full_name, phone").in("user_id", userIds)
+          : Promise.resolve({ data: [] as { user_id: string; full_name: string; phone: string | null }[] }),
         alunoIds.length
-          ? supabase.from("aluno_assinaturas").select("aluno_id, status").in("aluno_id", alunoIds)
-          : Promise.resolve({ data: [] as { aluno_id: string; status: string }[] }),
+          ? supabase
+              .from("aluno_assinaturas")
+              .select("aluno_id, status, valor_cobrado, fatura_pendente_url, updated_at")
+              .in("aluno_id", alunoIds)
+          : Promise.resolve({
+              data: [] as {
+                aluno_id: string;
+                status: string;
+                valor_cobrado: number;
+                fatura_pendente_url: string | null;
+                updated_at: string;
+              }[],
+            }),
       ]);
 
-      const nomeByUserId = new Map((profiles ?? []).map((p) => [p.user_id, p.full_name]));
-      const statusByAlunoId = new Map((assinaturas ?? []).map((a) => [a.aluno_id, a.status]));
-      return alunosData.map((a) => ({
-        ...a,
-        full_name: nomeByUserId.get(a.user_id) ?? "—",
-        assinatura_status: statusByAlunoId.get(a.id) ?? null,
-      }));
+      const profileByUserId = new Map((profiles ?? []).map((p) => [p.user_id, p]));
+      const assinaturaByAlunoId = new Map((assinaturas ?? []).map((a) => [a.aluno_id, a]));
+      return alunosData.map((a) => {
+        const profile = profileByUserId.get(a.user_id);
+        const assinatura = assinaturaByAlunoId.get(a.id);
+        return {
+          ...a,
+          full_name: profile?.full_name ?? "—",
+          telefone: profile?.phone ?? null,
+          assinatura_status: assinatura?.status ?? null,
+          assinatura_valor: assinatura?.valor_cobrado ?? null,
+          assinatura_fatura_url: assinatura?.fatura_pendente_url ?? null,
+          assinatura_atualizada_em: assinatura?.updated_at ?? null,
+        };
+      });
     },
     enabled: !!organization?.id,
   });
@@ -129,6 +159,52 @@ export default function AdminAlunos() {
   const toggleDia = (dia: number) => {
     setDiasSelecionados((prev) => (prev.includes(dia) ? prev.filter((d) => d !== dia) : [...prev, dia]));
   };
+
+  const abrirRecibo = (aluno: AlunoRow) => {
+    if (!aluno.assinatura_status || aluno.assinatura_valor == null) return;
+    setReciboSelecionado({
+      organizacaoNome: organization?.nome ?? "Academia",
+      alunoNome: aluno.full_name,
+      planoNome: NIVEL_LABEL[aluno.nivel_atacado] ?? aluno.nivel_atacado,
+      valor: aluno.assinatura_valor,
+      formaPagamento: "Asaas",
+      data: aluno.assinatura_atualizada_em ?? new Date().toISOString(),
+      statusPagamento: ASSINATURA_LABEL[aluno.assinatura_status] ?? aluno.assinatura_status,
+      invoiceUrl: aluno.assinatura_fatura_url,
+    });
+    setReciboAberto(true);
+  };
+
+  const enviarWhatsApp = async (aluno: AlunoRow) => {
+    setEnviandoWhatsApp(aluno.id);
+    const resultado = await abrirWhatsAppAtivacao({
+      userId: aluno.user_id,
+      telefone: aluno.telefone,
+      alunoNome: aluno.full_name,
+      organizacaoNome: organization?.nome ?? "sua academia",
+    });
+    setEnviandoWhatsApp(null);
+    if (!resultado.ok) {
+      toast({ title: "Não foi possível gerar o link", description: resultado.erro, variant: "destructive" });
+    }
+  };
+
+  const anonimizarAluno = useMutation({
+    mutationFn: async () => {
+      if (!alunoAnonimizar) return;
+      const { error } = await supabase.functions.invoke("anonimizar-aluno", {
+        body: { aluno_id: alunoAnonimizar.id },
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast({ title: "Aluno anonimizado", description: "Os dados pessoais foram removidos conforme a LGPD." });
+      setAlunoAnonimizar(null);
+      void queryClient.invalidateQueries({ queryKey: ["admin-alunos", organization?.id] });
+    },
+    onError: (error: Error) =>
+      toast({ title: "Erro ao anonimizar", description: error.message, variant: "destructive" }),
+  });
 
   return (
     <div className="space-y-4 max-w-4xl mx-auto">
@@ -165,12 +241,18 @@ export default function AdminAlunos() {
                   <TableHead>Fase</TableHead>
                   <TableHead>Desde</TableHead>
                   <TableHead>Descanso</TableHead>
+                  <TableHead>Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {alunos.map((aluno) => (
                   <TableRow key={aluno.id}>
-                    <TableCell className="font-medium">{aluno.full_name}</TableCell>
+                    <TableCell className="font-medium">
+                      {aluno.full_name}
+                      {aluno.anonimizado_em && (
+                        <Badge variant="secondary" className="ml-2 text-[10px]">Anonimizado</Badge>
+                      )}
+                    </TableCell>
                     <TableCell>
                       <Badge variant="secondary">{NIVEL_LABEL[aluno.nivel_atacado] ?? aluno.nivel_atacado}</Badge>
                     </TableCell>
@@ -190,10 +272,44 @@ export default function AdminAlunos() {
                       {aluno.data_inicio ? new Date(aluno.data_inicio).toLocaleDateString("pt-BR") : "—"}
                     </TableCell>
                     <TableCell>
-                      <Button variant="ghost" size="sm" onClick={() => abrirEdicao(aluno)}>
+                      <Button variant="ghost" size="sm" onClick={() => abrirEdicao(aluno)} disabled={!!aluno.anonimizado_em}>
                         <CalendarOff className="h-3.5 w-3.5 mr-1" />
                         {aluno.dias_descanso?.length ?? 0} dia(s)
                       </Button>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7"
+                          title="Imprimir Recibo / Comprovante"
+                          disabled={!aluno.assinatura_status || !!aluno.anonimizado_em}
+                          onClick={() => abrirRecibo(aluno)}
+                        >
+                          <Printer className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7"
+                          title="Enviar Ativação via WhatsApp"
+                          disabled={!!aluno.anonimizado_em || enviandoWhatsApp === aluno.id}
+                          onClick={() => void enviarWhatsApp(aluno)}
+                        >
+                          <MessageCircle className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 text-destructive"
+                          title="Desativar / Anonimizar Aluno"
+                          disabled={!!aluno.anonimizado_em}
+                          onClick={() => setAlunoAnonimizar(aluno)}
+                        >
+                          <UserX className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -202,6 +318,39 @@ export default function AdminAlunos() {
           )}
         </CardContent>
       </Card>
+
+      <ReciboComprovanteDialog open={reciboAberto} onOpenChange={setReciboAberto} recibo={reciboSelecionado} />
+
+      <Dialog open={!!alunoAnonimizar} onOpenChange={(open) => !open && setAlunoAnonimizar(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Desativar / Anonimizar Aluno — Protocolo LGPD</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2 text-sm text-muted-foreground">
+            <p>
+              Esta ação vai <strong>anonimizar permanentemente</strong> os dados pessoais de{" "}
+              <strong>{alunoAnonimizar?.full_name}</strong>: nome, CPF, e-mail e telefone serão substituídos por
+              placeholders, e o acesso do aluno à organização será desativado.
+            </p>
+            <p>
+              O histórico financeiro (assinaturas, pagamentos e IDs do Asaas) é preservado, para fins de
+              auditoria fiscal/contábil. <strong>Esta ação não pode ser desfeita.</strong>
+            </p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAlunoAnonimizar(null)}>
+              Cancelar
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={anonimizarAluno.isPending}
+              onClick={() => anonimizarAluno.mutate()}
+            >
+              {anonimizarAluno.isPending ? "Anonimizando..." : "Confirmar anonimização"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={!!alunoEditando} onOpenChange={(open) => !open && setAlunoEditando(null)}>
         <DialogContent>
@@ -246,6 +395,12 @@ interface CadastroForm {
 
 const CADASTRO_INICIAL: CadastroForm = { full_name: "", email: "", telefone: "", cpf: "", nivel_atacado: "" };
 
+interface AlunoRecemCriado {
+  user_id: string;
+  full_name: string;
+  telefone: string;
+}
+
 function CadastrarAlunoDialog({
   open,
   onOpenChange,
@@ -255,13 +410,16 @@ function CadastrarAlunoDialog({
   onOpenChange: (open: boolean) => void;
   onSuccess: () => void;
 }) {
+  const { organization } = useAuth();
   const { toast } = useToast();
   const [form, setForm] = useState<CadastroForm>(CADASTRO_INICIAL);
+  const [recemCriado, setRecemCriado] = useState<AlunoRecemCriado | null>(null);
+  const [enviandoWhatsApp, setEnviandoWhatsApp] = useState(false);
 
   const cadastrar = useMutation({
     mutationFn: async () => {
       if (!form.nivel_atacado) throw new Error("Selecione o plano do aluno.");
-      const { error } = await supabase.functions.invoke<{ user_id: string }>("convidar-membro", {
+      const { data, error } = await supabase.functions.invoke<{ user_id: string }>("convidar-membro", {
         body: {
           email: form.email,
           full_name: form.full_name,
@@ -272,17 +430,65 @@ function CadastrarAlunoDialog({
         },
       });
       if (error) throw error;
+      return data;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       toast({ title: "Aluno cadastrado", description: "Um e-mail de convite foi enviado para definir a senha." });
+      if (data?.user_id) {
+        setRecemCriado({ user_id: data.user_id, full_name: form.full_name, telefone: form.telefone });
+      }
       setForm(CADASTRO_INICIAL);
-      onOpenChange(false);
       onSuccess();
     },
     onError: (error: Error) => {
       toast({ title: "Não foi possível cadastrar o aluno", description: error.message, variant: "destructive" });
     },
   });
+
+  const fecharTudo = () => {
+    setRecemCriado(null);
+    onOpenChange(false);
+  };
+
+  const enviarWhatsApp = async () => {
+    if (!recemCriado) return;
+    setEnviandoWhatsApp(true);
+    const resultado = await abrirWhatsAppAtivacao({
+      userId: recemCriado.user_id,
+      telefone: recemCriado.telefone,
+      alunoNome: recemCriado.full_name,
+      organizacaoNome: organization?.nome ?? "sua academia",
+    });
+    setEnviandoWhatsApp(false);
+    if (!resultado.ok) {
+      toast({ title: "Não foi possível gerar o link", description: resultado.erro, variant: "destructive" });
+    }
+  };
+
+  if (recemCriado) {
+    return (
+      <Dialog open={open} onOpenChange={(o) => !o && fecharTudo()}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Aluno cadastrado!</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            {recemCriado.full_name} já recebeu o convite por e-mail. Se preferir, envie também a ativação pelo
+            WhatsApp.
+          </p>
+          <DialogFooter>
+            <Button variant="outline" onClick={fecharTudo}>
+              Fechar
+            </Button>
+            <Button disabled={enviandoWhatsApp} onClick={() => void enviarWhatsApp()}>
+              <MessageCircle className="h-4 w-4 mr-1.5" />
+              {enviandoWhatsApp ? "Gerando link..." : "Enviar Ativação via WhatsApp"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    );
+  }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
