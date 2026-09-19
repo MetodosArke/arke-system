@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Home, Users, UsersRound, Building2, LogOut, ChevronLeft, Menu, ClipboardList, UserCircle, BarChart3, DoorOpen, CalendarDays, Dumbbell, UtensilsCrossed } from "lucide-react";
+import { Home, Users, UsersRound, Building2, LogOut, ChevronLeft, Menu, ClipboardList, UserCircle, BarChart3, DoorOpen, CalendarDays, Dumbbell, UtensilsCrossed, Trophy, Medal } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
@@ -45,6 +45,8 @@ function buildSections({
   if (ehStudio) {
     operacao.push({ icon: CalendarDays, label: "Agenda", path: "/admin/agenda" });
   }
+  operacao.push({ icon: Trophy, label: "Desafios", path: "/admin/desafios" });
+  operacao.push({ icon: Medal, label: "Competições", path: "/admin/competicoes" });
 
   const sections: MenuSection[] = [{ label: "Operação", items: operacao }];
 

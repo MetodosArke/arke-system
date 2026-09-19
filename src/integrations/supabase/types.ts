@@ -831,6 +831,116 @@ export type Database = {
           },
         ]
       }
+      competicao_participantes: {
+        Row: {
+          aluno_id: string
+          competicao_id: string
+          created_at: string
+          id: string
+          organization_id: string
+        }
+        Insert: {
+          aluno_id: string
+          competicao_id: string
+          created_at?: string
+          id?: string
+          organization_id: string
+        }
+        Update: {
+          aluno_id?: string
+          competicao_id?: string
+          created_at?: string
+          id?: string
+          organization_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "competicao_participantes_aluno_id_fkey"
+            columns: ["aluno_id"]
+            isOneToOne: false
+            referencedRelation: "alunos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "competicao_participantes_competicao_id_fkey"
+            columns: ["competicao_id"]
+            isOneToOne: false
+            referencedRelation: "competicoes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "competicao_participantes_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "org_churn_metrics"
+            referencedColumns: ["organization_id"]
+          },
+          {
+            foreignKeyName: "competicao_participantes_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      competicoes: {
+        Row: {
+          created_at: string
+          criado_por: string | null
+          data_fim: string
+          data_inicio: string
+          descricao: string | null
+          id: string
+          metrica: Database["public"]["Enums"]["competicao_metrica"]
+          organization_id: string
+          para_todos: boolean
+          titulo: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          criado_por?: string | null
+          data_fim: string
+          data_inicio: string
+          descricao?: string | null
+          id?: string
+          metrica?: Database["public"]["Enums"]["competicao_metrica"]
+          organization_id: string
+          para_todos?: boolean
+          titulo: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          criado_por?: string | null
+          data_fim?: string
+          data_inicio?: string
+          descricao?: string | null
+          id?: string
+          metrica?: Database["public"]["Enums"]["competicao_metrica"]
+          organization_id?: string
+          para_todos?: boolean
+          titulo?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "competicoes_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "org_churn_metrics"
+            referencedColumns: ["organization_id"]
+          },
+          {
+            foreignKeyName: "competicoes_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       compromisso_metas: {
         Row: {
           compromisso_id: string
@@ -925,6 +1035,187 @@ export type Database = {
           },
           {
             foreignKeyName: "compromisso_semanal_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      desafio_participantes: {
+        Row: {
+          aluno_id: string
+          created_at: string
+          desafio_id: string
+          id: string
+          organization_id: string
+        }
+        Insert: {
+          aluno_id: string
+          created_at?: string
+          desafio_id: string
+          id?: string
+          organization_id: string
+        }
+        Update: {
+          aluno_id?: string
+          created_at?: string
+          desafio_id?: string
+          id?: string
+          organization_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "desafio_participantes_aluno_id_fkey"
+            columns: ["aluno_id"]
+            isOneToOne: false
+            referencedRelation: "alunos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "desafio_participantes_desafio_id_fkey"
+            columns: ["desafio_id"]
+            isOneToOne: false
+            referencedRelation: "desafios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "desafio_participantes_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "org_churn_metrics"
+            referencedColumns: ["organization_id"]
+          },
+          {
+            foreignKeyName: "desafio_participantes_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      desafio_progresso: {
+        Row: {
+          aluno_id: string
+          concluido: boolean
+          concluido_em: string | null
+          concluido_por: string | null
+          created_at: string
+          desafio_id: string
+          id: string
+          organization_id: string
+          updated_at: string
+        }
+        Insert: {
+          aluno_id: string
+          concluido?: boolean
+          concluido_em?: string | null
+          concluido_por?: string | null
+          created_at?: string
+          desafio_id: string
+          id?: string
+          organization_id: string
+          updated_at?: string
+        }
+        Update: {
+          aluno_id?: string
+          concluido?: boolean
+          concluido_em?: string | null
+          concluido_por?: string | null
+          created_at?: string
+          desafio_id?: string
+          id?: string
+          organization_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "desafio_progresso_aluno_id_fkey"
+            columns: ["aluno_id"]
+            isOneToOne: false
+            referencedRelation: "alunos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "desafio_progresso_desafio_id_fkey"
+            columns: ["desafio_id"]
+            isOneToOne: false
+            referencedRelation: "desafios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "desafio_progresso_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "org_churn_metrics"
+            referencedColumns: ["organization_id"]
+          },
+          {
+            foreignKeyName: "desafio_progresso_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      desafios: {
+        Row: {
+          created_at: string
+          criado_por: string | null
+          data_fim: string
+          data_inicio: string
+          descricao: string | null
+          id: string
+          meta_valor: number | null
+          organization_id: string
+          para_todos: boolean
+          pontos: number
+          tipo: Database["public"]["Enums"]["desafio_tipo"]
+          titulo: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          criado_por?: string | null
+          data_fim: string
+          data_inicio: string
+          descricao?: string | null
+          id?: string
+          meta_valor?: number | null
+          organization_id: string
+          para_todos?: boolean
+          pontos?: number
+          tipo?: Database["public"]["Enums"]["desafio_tipo"]
+          titulo: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          criado_por?: string | null
+          data_fim?: string
+          data_inicio?: string
+          descricao?: string | null
+          id?: string
+          meta_valor?: number | null
+          organization_id?: string
+          para_todos?: boolean
+          pontos?: number
+          tipo?: Database["public"]["Enums"]["desafio_tipo"]
+          titulo?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "desafios_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "org_churn_metrics"
+            referencedColumns: ["organization_id"]
+          },
+          {
+            foreignKeyName: "desafios_organization_id_fkey"
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
@@ -2534,6 +2825,14 @@ export type Database = {
           sla_prazo: string
         }[]
       }
+      obter_ranking_competicao: {
+        Args: { p_competicao_id: string }
+        Returns: {
+          aluno_id: string
+          nome: string
+          valor: number
+        }[]
+      }
       provisionar_organizacao_padrao: { Args: never; Returns: string }
       publicar_dieta: {
         Args: { _aluno_id: string; _modelo_id: string; _titulo: string }
@@ -2570,6 +2869,19 @@ export type Database = {
         | "preciso_ajuste"
         | "com_dificuldade"
         | "quero_falar_com_alguem"
+      competicao_metrica:
+        | "pontos_desafios"
+        | "treinos_concluidos"
+        | "km_total"
+        | "dieta_adesao_media"
+      desafio_tipo:
+        | "sem_doce"
+        | "sem_alcool"
+        | "consumo_agua"
+        | "numero_treinos"
+        | "modalidades"
+        | "desempenho_dieta"
+        | "livre"
       fase_jornada: "mapa" | "base" | "rota" | "apex" | "legado"
       metodo_arke_status: "sem_adesao" | "ativo" | "cancelado"
       motivo_dificuldade:
@@ -2744,6 +3056,21 @@ export const Constants = {
         "preciso_ajuste",
         "com_dificuldade",
         "quero_falar_com_alguem",
+      ],
+      competicao_metrica: [
+        "pontos_desafios",
+        "treinos_concluidos",
+        "km_total",
+        "dieta_adesao_media",
+      ],
+      desafio_tipo: [
+        "sem_doce",
+        "sem_alcool",
+        "consumo_agua",
+        "numero_treinos",
+        "modalidades",
+        "desempenho_dieta",
+        "livre",
       ],
       fase_jornada: ["mapa", "base", "rota", "apex", "legado"],
       metodo_arke_status: ["sem_adesao", "ativo", "cancelado"],
