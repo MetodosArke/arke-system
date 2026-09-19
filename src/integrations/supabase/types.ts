@@ -788,6 +788,30 @@ export type Database = {
         }
         Relationships: []
       }
+      links_ativacao: {
+        Row: {
+          action_link: string
+          code: string
+          created_at: string
+          expires_at: string
+          user_id: string | null
+        }
+        Insert: {
+          action_link: string
+          code: string
+          created_at?: string
+          expires_at: string
+          user_id?: string | null
+        }
+        Update: {
+          action_link?: string
+          code?: string
+          created_at?: string
+          expires_at?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       modelo_dieta_refeicoes: {
         Row: {
           calorias_kcal: number | null
@@ -1465,6 +1489,7 @@ export type Database = {
           acao: string | null
           aluno_id: string | null
           created_at: string
+          data_agendada: string | null
           desfecho_acao: string | null
           escalada_em: string | null
           id: string
@@ -1483,6 +1508,7 @@ export type Database = {
           acao?: string | null
           aluno_id?: string | null
           created_at?: string
+          data_agendada?: string | null
           desfecho_acao?: string | null
           escalada_em?: string | null
           id?: string
@@ -1501,6 +1527,7 @@ export type Database = {
           acao?: string | null
           aluno_id?: string | null
           created_at?: string
+          data_agendada?: string | null
           desfecho_acao?: string | null
           escalada_em?: string | null
           id?: string
@@ -1848,6 +1875,14 @@ export type Database = {
           nome: string
           organization_id: string
           planos: Json
+        }[]
+      }
+      obter_proximo_evento_aluno: {
+        Args: never
+        Returns: {
+          data_agendada: string
+          motivo: string
+          sla_prazo: string
         }[]
       }
       provisionar_organizacao_padrao: { Args: never; Returns: string }

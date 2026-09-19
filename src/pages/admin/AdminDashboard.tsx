@@ -13,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import { Input } from "@/components/ui/input";
 import {
   ClipboardList,
   ArrowUpCircle,
@@ -27,6 +28,7 @@ import {
   UtensilsCrossed,
   FileText,
   Clock,
+  CalendarClock,
 } from "lucide-react";
 import type { Tables, Enums } from "@/integrations/supabase/types";
 
@@ -138,6 +140,8 @@ export default function AdminDashboard() {
   const navigate = useNavigate();
   const [tarefaSelecionada, setTarefaSelecionada] = useState<Tarefa | null>(null);
   const [desfecho, setDesfecho] = useState("");
+  const [tarefaAgendar, setTarefaAgendar] = useState<Tarefa | null>(null);
+  const [dataAgendadaInput, setDataAgendadaInput] = useState("");
   const [filtroPrioridade, setFiltroPrioridade] = useState<Prioridade | "todas">("todas");
   const [filtroStatus, setFiltroStatus] = useState<Status | "todas">("todas");
   const [escopo, setEscopo] = useState<"minha" | "organizacao">("minha");
@@ -235,6 +239,30 @@ export default function AdminDashboard() {
     },
   });
 
+  // Marca a data combinada com o aluno (ex.: consulta de Acolhimento
+  // M.A.P.A.®) sem encerrar a tarefa — o desfecho só é registrado depois
+  // que o encontro realmente acontece. O aluno passa a ver essa data real
+  // no card "Próximo Evento" do dashboard dele.
+  const agendarTarefa = useMutation({
+    mutationFn: async () => {
+      if (!tarefaAgendar || !dataAgendadaInput) return;
+      const { error } = await supabase
+        .from("tarefas")
+        .update({ data_agendada: new Date(dataAgendadaInput).toISOString() })
+        .eq("id", tarefaAgendar.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast({ title: "Agendado!", description: "O aluno já vê essa data no app dele." });
+      setTarefaAgendar(null);
+      setDataAgendadaInput("");
+      void queryClient.invalidateQueries({ queryKey: ["tarefas-fila", organization?.id] });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Não foi possível agendar", description: error.message, variant: "destructive" });
+    },
+  });
+
   return (
     <div className="space-y-4 max-w-3xl mx-auto">
       <div className="flex items-center gap-2">
@@ -328,7 +356,33 @@ export default function AdminDashboard() {
                       {souResponsavel && " · Responsável: você"}
                     </p>
                     {tarefa.acao && <p className="text-sm">{tarefa.acao}</p>}
+                    {tarefa.data_agendada && (
+                      <p className="text-xs text-primary flex items-center gap-1">
+                        <CalendarClock className="h-3.5 w-3.5" />
+                        Agendado para {new Date(tarefa.data_agendada).toLocaleString("pt-BR", {
+                          day: "2-digit",
+                          month: "2-digit",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
+                      </p>
+                    )}
                     <div className="flex flex-wrap gap-2">
+                      {tarefa.tipo === "anamnese" && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            setTarefaAgendar(tarefa);
+                            setDataAgendadaInput(
+                              tarefa.data_agendada ? tarefa.data_agendada.slice(0, 16) : ""
+                            );
+                          }}
+                        >
+                          <CalendarClock className="h-3.5 w-3.5 mr-1" />
+                          {tarefa.data_agendada ? "Reagendar" : "Agendar"}
+                        </Button>
+                      )}
                       {semResponsavel && (
                         <Button
                           size="sm"
@@ -405,6 +459,34 @@ export default function AdminDashboard() {
               onClick={() => concluirTarefa.mutate()}
             >
               Encerrar com desfecho
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!tarefaAgendar} onOpenChange={(open) => !open && setTarefaAgendar(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Agendar — {tarefaAgendar?.motivo}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label htmlFor="data-agendada">Data e hora combinadas com o aluno</Label>
+            <Input
+              id="data-agendada"
+              type="datetime-local"
+              value={dataAgendadaInput}
+              onChange={(e) => setDataAgendadaInput(e.target.value)}
+            />
+            <p className="text-xs text-muted-foreground">
+              Essa data aparece direto no app do aluno, no card "Próximo Evento de Acompanhamento".
+            </p>
+          </div>
+          <DialogFooter>
+            <Button
+              disabled={!dataAgendadaInput || agendarTarefa.isPending}
+              onClick={() => agendarTarefa.mutate()}
+            >
+              Confirmar agendamento
             </Button>
           </DialogFooter>
         </DialogContent>

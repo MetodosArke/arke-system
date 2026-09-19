@@ -12,12 +12,24 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Users, CalendarOff, UserPlus, FileSpreadsheet, Printer, MessageCircle, UserX, Ruler, Trash2 } from "lucide-react";
+import {
+  Users,
+  CalendarOff,
+  UserPlus,
+  FileSpreadsheet,
+  Printer,
+  MessageCircle,
+  UserX,
+  Ruler,
+  Trash2,
+  ClipboardList,
+} from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { Enums } from "@/integrations/supabase/types";
 import { ReciboComprovanteDialog, type ReciboData } from "@/components/admin/ReciboComprovanteDialog";
 import { AvaliacaoFisicaDialog } from "@/components/admin/AvaliacaoFisicaDialog";
 import { AlunoPerfilSheet } from "@/components/admin/AlunoPerfilSheet";
+import { ImprimirTreinoDialog, type ExercicioSnapshotImpressao, type TreinoImpressao } from "@/components/admin/ImprimirTreinoDialog";
 import { abrirWhatsAppAtivacao } from "@/lib/whatsappAtivacao";
 
 type Nivel = Enums<"nivel_atacado">;
@@ -87,6 +99,8 @@ export default function AdminAlunos() {
   const [enviandoWhatsApp, setEnviandoWhatsApp] = useState<string | null>(null);
   const [alunoAvaliacao, setAlunoAvaliacao] = useState<AlunoRow | null>(null);
   const [alunoPerfilId, setAlunoPerfilId] = useState<string | null>(null);
+  const [impressaoTreino, setImpressaoTreino] = useState<{ alunoNome: string; treino: TreinoImpressao } | null>(null);
+  const [carregandoImpressao, setCarregandoImpressao] = useState<string | null>(null);
 
   const { data: alunos = EMPTY_ALUNOS, isLoading } = useQuery({
     queryKey: ["admin-alunos", organization?.id],
@@ -193,6 +207,39 @@ export default function AdminAlunos() {
     if (!resultado.ok) {
       toast({ title: "Não foi possível gerar o link", description: resultado.erro, variant: "destructive" });
     }
+  };
+
+  // Impressão rápida direto na listagem, sem abrir o perfil completo —
+  // pensado pra recepção/professor com o aluno na frente no balcão. Mesmo
+  // recibo térmico 80mm já usado no AlunoPerfilSheet.
+  const abrirImpressaoTreino = async (aluno: AlunoRow) => {
+    setCarregandoImpressao(aluno.id);
+    const { data: treino, error } = await supabase
+      .from("treinos")
+      .select("titulo, validade_inicio, validade_fim, snapshot_conteudo")
+      .eq("aluno_id", aluno.id)
+      .eq("status", "ativo")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    setCarregandoImpressao(null);
+    if (error) {
+      toast({ title: "Erro ao carregar o treino", description: error.message, variant: "destructive" });
+      return;
+    }
+    if (!treino) {
+      toast({ title: "Nenhum treino ativo", description: `${aluno.full_name} ainda não tem um treino publicado.` });
+      return;
+    }
+    setImpressaoTreino({
+      alunoNome: aluno.full_name,
+      treino: {
+        titulo: treino.titulo,
+        validade_inicio: treino.validade_inicio,
+        validade_fim: treino.validade_fim,
+        exercicios: (treino.snapshot_conteudo as unknown as ExercicioSnapshotImpressao[] | null) ?? [],
+      },
+    });
   };
 
   const anonimizarAluno = useMutation({
@@ -319,6 +366,16 @@ export default function AdminAlunos() {
                           onClick={() => abrirRecibo(aluno)}
                         >
                           <Printer className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7"
+                          title="Imprimir Treino (balcão)"
+                          disabled={!!aluno.anonimizado_em || carregandoImpressao === aluno.id}
+                          onClick={() => void abrirImpressaoTreino(aluno)}
+                        >
+                          <ClipboardList className="h-3.5 w-3.5" />
                         </Button>
                         <Button
                           variant="ghost"
@@ -468,6 +525,14 @@ export default function AdminAlunos() {
       />
 
       <AlunoPerfilSheet alunoId={alunoPerfilId} onOpenChange={(open) => !open && setAlunoPerfilId(null)} />
+
+      <ImprimirTreinoDialog
+        open={!!impressaoTreino}
+        onOpenChange={(open) => !open && setImpressaoTreino(null)}
+        organizacaoNome={organization?.nome ?? "Academia"}
+        alunoNome={impressaoTreino?.alunoNome ?? ""}
+        treino={impressaoTreino?.treino ?? null}
+      />
     </div>
   );
 }

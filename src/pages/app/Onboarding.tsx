@@ -145,6 +145,15 @@ export default function Onboarding() {
         tipo: "anamnese",
       });
       if (tarefaError && !tarefaError.message.includes("duplicate")) throw tarefaError;
+
+      // Nunca deixa o aluno cair num dashboard vazio: publica um treino
+      // de adaptação genérico agora, até o professor montar a ficha
+      // personalizada. Falha aqui não deve travar a conclusão do
+      // onboarding — só loga, o aluno ainda pode navegar normalmente.
+      const { error: treinoBoasVindasError } = await supabase.functions.invoke("publicar-treino-boas-vindas");
+      if (treinoBoasVindasError) {
+        console.error("Error publishing welcome treino", treinoBoasVindasError);
+      }
     },
     onSuccess: async () => {
       toast({ title: "Tudo pronto!", description: "Sua equipe já foi avisada para agendar seu acolhimento." });

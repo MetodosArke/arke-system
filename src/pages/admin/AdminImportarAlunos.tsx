@@ -11,6 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Upload, FileSpreadsheet, ArrowLeft, CheckCircle2, XCircle, MessageCircle } from "lucide-react";
 import { abrirWhatsAppAtivacao } from "@/lib/whatsappAtivacao";
+import type { TablesInsert } from "@/integrations/supabase/types";
 
 // Limites de sanidade: este importador roda inteiramente no navegador do
 // staff (nenhum arquivo é enviado a um servidor além das linhas já
@@ -25,10 +26,101 @@ const CAMPOS_DESTINO = [
   { value: "telefone", label: "Telefone" },
   { value: "cpf", label: "CPF" },
   { value: "nivel_atacado", label: "Plano (essencial/integrado/elite)" },
+  // Histórico de avaliação física — opcionais: preenchidos só se a academia
+  // de origem exportar esses dados (ex.: migrando de NextFit/Pacto). Vão
+  // direto para avaliacoes_fisicas, criando o primeiro registro do aluno
+  // no ArkeFit em vez de ele começar "do zero".
+  { value: "peso_kg", label: "Avaliação física — Peso (kg)" },
+  { value: "altura_cm", label: "Avaliação física — Altura (cm)" },
+  { value: "percentual_gordura", label: "Avaliação física — % Gordura" },
+  { value: "dc_triceps", label: "Dobra cutânea — Tríceps (mm)" },
+  { value: "dc_subescapular", label: "Dobra cutânea — Subescapular (mm)" },
+  { value: "dc_suprailiaca", label: "Dobra cutânea — Suprailíaca (mm)" },
+  { value: "dc_abdominal", label: "Dobra cutânea — Abdominal (mm)" },
+  { value: "dc_coxa", label: "Dobra cutânea — Coxa (mm)" },
+  { value: "dc_peitoral", label: "Dobra cutânea — Peitoral (mm)" },
+  { value: "dc_axilar_media", label: "Dobra cutânea — Axilar média (mm)" },
+  { value: "perim_braco", label: "Perimetria — Braço (cm)" },
+  { value: "perim_antebraco", label: "Perimetria — Antebraço (cm)" },
+  { value: "perim_cintura", label: "Perimetria — Cintura (cm)" },
+  { value: "perim_abdomen", label: "Perimetria — Abdômen (cm)" },
+  { value: "perim_quadril", label: "Perimetria — Quadril (cm)" },
+  { value: "perim_coxa", label: "Perimetria — Coxa (cm)" },
+  { value: "perim_panturrilha", label: "Perimetria — Panturrilha (cm)" },
+  { value: "historico_clinico", label: "Histórico clínico / observações da ficha antiga" },
   { value: "ignorar", label: "— Ignorar coluna —" },
 ] as const;
 
 type CampoDestino = (typeof CAMPOS_DESTINO)[number]["value"];
+
+// Colunas de avaliação física: se pelo menos uma vier preenchida numa
+// linha, criamos o registro inicial em avaliacoes_fisicas pro aluno
+// importado — dá continuidade ao histórico em vez de começar do zero.
+const CAMPOS_AVALIACAO_FISICA = [
+  "peso_kg",
+  "altura_cm",
+  "percentual_gordura",
+  "dc_triceps",
+  "dc_subescapular",
+  "dc_suprailiaca",
+  "dc_abdominal",
+  "dc_coxa",
+  "dc_peitoral",
+  "dc_axilar_media",
+  "perim_braco",
+  "perim_antebraco",
+  "perim_cintura",
+  "perim_abdomen",
+  "perim_quadril",
+  "perim_coxa",
+  "perim_panturrilha",
+] as const satisfies readonly CampoDestino[];
+
+// Planilhas brasileiras costumam usar vírgula decimal ("70,5") — aceita
+// os dois formatos.
+const paraNumero = (valor: string): number | null => {
+  if (!valor.trim()) return null;
+  const normalizado = valor.trim().replace(",", ".");
+  const numero = Number(normalizado);
+  return Number.isFinite(numero) ? numero : null;
+};
+
+// Cria o primeiro registro de avaliação física do aluno importado, a
+// partir das colunas históricas mapeadas na planilha (peso, dobras,
+// perimetria, histórico clínico). Não usa edge function: staff já tem
+// permissão de INSERT direto em avaliacoes_fisicas via RLS (mesma regra
+// usada pelo AvaliacaoFisicaDialog no cadastro manual).
+async function importarAvaliacaoFisica(params: {
+  organizationId: string;
+  userId: string;
+  registro: Record<CampoDestino, string>;
+}): Promise<{ error?: string }> {
+  const { data: aluno, error: erroAluno } = await supabase
+    .from("alunos")
+    .select("id")
+    .eq("user_id", params.userId)
+    .eq("organization_id", params.organizationId)
+    .maybeSingle();
+  if (erroAluno || !aluno) {
+    return { error: erroAluno?.message ?? "aluno não encontrado após o convite" };
+  }
+
+  const payload: Record<string, string | number> = {
+    organization_id: params.organizationId,
+    aluno_id: aluno.id,
+  };
+  for (const campo of CAMPOS_AVALIACAO_FISICA) {
+    const numero = paraNumero(params.registro[campo]);
+    if (numero !== null) payload[campo] = numero;
+  }
+  const historico = params.registro.historico_clinico.trim();
+  if (historico) payload.historico_clinico = historico;
+
+  const { error: erroInsert } = await supabase
+    .from("avaliacoes_fisicas")
+    .insert(payload as TablesInsert<"avaliacoes_fisicas">);
+  return erroInsert ? { error: erroInsert.message } : {};
+}
 
 interface LinhaResultado {
   linha: number;
@@ -118,14 +210,7 @@ export default function AdminImportarAlunos() {
   const mapeamentoValido = camposMapeados.has("full_name") && camposMapeados.has("email") && camposMapeados.has("nivel_atacado");
 
   const linhaParaRegistro = (linha: Record<string, string>) => {
-    const registro: Record<CampoDestino, string> = {
-      full_name: "",
-      email: "",
-      telefone: "",
-      cpf: "",
-      nivel_atacado: "",
-      ignorar: "",
-    };
+    const registro = Object.fromEntries(CAMPOS_DESTINO.map((c) => [c.value, ""])) as Record<CampoDestino, string>;
     for (const [coluna, campo] of Object.entries(mapeamento)) {
       if (campo === "ignorar") continue;
       registro[campo] = String(linha[coluna] ?? "").trim();
@@ -168,8 +253,28 @@ export default function AdminImportarAlunos() {
           },
         });
         if (error) throw error;
+
+        let mensagemAvaliacao: string | undefined;
+        const temHistorico = CAMPOS_AVALIACAO_FISICA.some((campo) => registro[campo].trim() !== "");
+        if (data?.user_id && temHistorico && organization?.id) {
+          const { error: erroAvaliacao } = await importarAvaliacaoFisica({
+            organizationId: organization.id,
+            userId: data.user_id,
+            registro,
+          });
+          if (erroAvaliacao) {
+            mensagemAvaliacao = `Aluno importado, mas a avaliação física antiga não foi salva: ${erroAvaliacao}`;
+          }
+        }
+
         setResultados((prev) =>
-          prev ? prev.map((r, idx) => (idx === i ? { ...r, status: "sucesso", user_id: data?.user_id } : r)) : prev
+          prev
+            ? prev.map((r, idx) =>
+                idx === i
+                  ? { ...r, status: "sucesso", user_id: data?.user_id, mensagem: mensagemAvaliacao }
+                  : r
+              )
+            : prev
         );
       } catch (error) {
         const mensagem = error instanceof Error ? error.message : "Erro desconhecido";
@@ -197,7 +302,11 @@ export default function AdminImportarAlunos() {
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-base">1. Selecione o arquivo</CardTitle>
-          <p className="text-xs text-muted-foreground">Formatos aceitos: .csv e .xlsx — até 5MB / 2000 linhas.</p>
+          <p className="text-xs text-muted-foreground">
+            Formatos aceitos: .csv e .xlsx — até 5MB / 2000 linhas. Se a planilha tiver dados de avaliação física
+            (peso, dobras, perimetria) de um sistema anterior, dá pra mapear essas colunas também — o histórico do
+            aluno já entra pronto no ArkeFit.
+          </p>
         </CardHeader>
         <CardContent>
           <label className="flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-border p-8 cursor-pointer hover:bg-accent/30 transition-colors">
@@ -281,8 +390,13 @@ export default function AdminImportarAlunos() {
                     <TableCell className="text-xs">{r.email || "—"}</TableCell>
                     <TableCell>
                       {r.status === "pendente" && <span className="text-xs text-muted-foreground">Aguardando...</span>}
-                      {r.status === "sucesso" && (
+                      {r.status === "sucesso" && !r.mensagem && (
                         <Badge variant="default" className="gap-1"><CheckCircle2 className="h-3 w-3" /> OK</Badge>
+                      )}
+                      {r.status === "sucesso" && r.mensagem && (
+                        <Badge variant="outline" className="gap-1 text-amber-600 dark:text-amber-400" title={r.mensagem}>
+                          <CheckCircle2 className="h-3 w-3" /> Importado, com aviso
+                        </Badge>
                       )}
                       {r.status === "erro" && (
                         <Badge variant="destructive" className="gap-1" title={r.mensagem}>
