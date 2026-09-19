@@ -70,7 +70,11 @@ Deno.serve(async (req: Request) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? ''
     // Mesmo formato de link que o Supabase Auth gera nativamente — o
     // index.html do app já sabe normalizar essa URL para o HashRouter.
-    const confirmationUrl = `${supabaseUrl}/auth/v1/verify?token=${emailData.token_hash}&type=${emailData.email_action_type}&redirect_to=${emailData.redirect_to}`
+    // redirect_to PRECISA ser url-encoded: como ele mesmo contém um "#"
+    // (ex.: .../#/auth/definir-senha), colar o valor cru na query string
+    // cortaria a URL bem ali — tudo depois do "#" vira fragmento do
+    // navegador e nunca chega no servidor de verificação.
+    const confirmationUrl = `${supabaseUrl}/auth/v1/verify?token=${emailData.token_hash}&type=${emailData.email_action_type}&redirect_to=${encodeURIComponent(emailData.redirect_to)}`
     const fullName = typeof user.user_metadata?.full_name === 'string' ? user.user_metadata.full_name : undefined
 
     let subject: string

@@ -113,7 +113,12 @@ Deno.serve(async (req: Request) => {
 
     const { data: invited, error: inviteError } = await adminClient.auth.admin.inviteUserByEmail(email, {
       data: { full_name: fullName },
-      redirectTo: siteUrl,
+      // Aponta direto pra tela de "defina sua senha e entre" (mesmo
+      // caminho usado em gerar-link-ativacao) — sem isso, o link cai na
+      // raiz do site e depende só da detecção de type=invite no index.html,
+      // que fica frágil se o domínio do e-mail (redirectTo) não bater
+      // exatamente com o domínio publicado.
+      redirectTo: `${siteUrl}/#/auth/definir-senha`,
     });
 
     if (inviteError || !invited.user) {
