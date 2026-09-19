@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { UsersRound, UserPlus, Pencil, Power, UserX } from "lucide-react";
+import { UsersRound, UserPlus, Pencil, Power, UserX, Copy, Check, KeyRound } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { Enums } from "@/integrations/supabase/types";
 
@@ -113,7 +113,7 @@ export default function AdminEquipe() {
         </div>
         <Button size="sm" onClick={() => setConvidarAberto(true)} disabled={!organization}>
           <UserPlus className="h-4 w-4 mr-1.5" />
-          Convidar
+          Cadastrar Funcionário
         </Button>
       </div>
 
@@ -202,7 +202,7 @@ export default function AdminEquipe() {
         </CardContent>
       </Card>
 
-      <ConvidarMembroDialog
+      <CadastrarMembroDialog
         open={convidarAberto}
         onOpenChange={setConvidarAberto}
         onSuccess={invalidarEquipe}
@@ -261,16 +261,23 @@ export default function AdminEquipe() {
   );
 }
 
-interface ConviteForm {
+interface CadastroForm {
   full_name: string;
   email: string;
   telefone: string;
+  cpf: string;
   papel: PapelEquipe | "";
 }
 
-const CONVITE_INICIAL: ConviteForm = { full_name: "", email: "", telefone: "", papel: "" };
+const CADASTRO_INICIAL: CadastroForm = { full_name: "", email: "", telefone: "", cpf: "", papel: "" };
 
-function ConvidarMembroDialog({
+interface CredenciaisGeradas {
+  full_name: string;
+  email: string;
+  senha_temporaria: string;
+}
+
+function CadastrarMembroDialog({
   open,
   onOpenChange,
   onSuccess,
@@ -280,92 +287,174 @@ function ConvidarMembroDialog({
   onSuccess: () => void;
 }) {
   const { toast } = useToast();
-  const [form, setForm] = useState<ConviteForm>(CONVITE_INICIAL);
+  const [form, setForm] = useState<CadastroForm>(CADASTRO_INICIAL);
+  const [credenciais, setCredenciais] = useState<CredenciaisGeradas | null>(null);
 
-  const convidar = useMutation({
+  const cadastrar = useMutation({
     mutationFn: async () => {
-      if (!form.papel) throw new Error("Selecione o papel do convidado.");
-      const { error } = await supabase.functions.invoke("convidar-membro", {
-        body: {
-          email: form.email,
-          full_name: form.full_name,
-          telefone: form.telefone,
-          papel: form.papel,
-        },
-      });
+      if (!form.papel) throw new Error("Selecione o papel do funcionário.");
+      const { data, error } = await supabase.functions.invoke<{ user_id: string; senha_temporaria: string }>(
+        "cadastrar-membro-equipe",
+        {
+          body: {
+            email: form.email,
+            full_name: form.full_name,
+            telefone: form.telefone,
+            cpf: form.cpf,
+            papel: form.papel,
+          },
+        }
+      );
       if (error) throw error;
+      if (!data) throw new Error("Resposta inesperada do servidor.");
+      return data;
     },
-    onSuccess: () => {
-      toast({ title: "Convite enviado", description: "Um e-mail foi enviado para definir a senha de acesso." });
-      setForm(CONVITE_INICIAL);
+    onSuccess: (data) => {
       onOpenChange(false);
       onSuccess();
+      setCredenciais({ full_name: form.full_name, email: form.email, senha_temporaria: data.senha_temporaria });
+      setForm(CADASTRO_INICIAL);
     },
     onError: (error: Error) => {
-      toast({ title: "Não foi possível enviar o convite", description: error.message, variant: "destructive" });
+      toast({ title: "Não foi possível cadastrar o funcionário", description: error.message, variant: "destructive" });
     },
   });
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <>
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Cadastrar Funcionário</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground -mt-2">
+            Cadastro direto — a conta é criada e liberada na hora, sem envio de e-mail de convite. Ao final, você
+            recebe a senha temporária para repassar ao funcionário.
+          </p>
+          <form
+            className="space-y-3"
+            onSubmit={(e) => {
+              e.preventDefault();
+              cadastrar.mutate();
+            }}
+          >
+            <div className="space-y-1.5">
+              <Label htmlFor="membro-nome">Nome completo</Label>
+              <Input
+                id="membro-nome"
+                value={form.full_name}
+                onChange={(e) => setForm((f) => ({ ...f, full_name: e.target.value }))}
+                required
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="membro-email">E-mail</Label>
+              <Input
+                id="membro-email"
+                type="email"
+                value={form.email}
+                onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
+                required
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="membro-telefone">Telefone</Label>
+              <Input
+                id="membro-telefone"
+                value={form.telefone}
+                onChange={(e) => setForm((f) => ({ ...f, telefone: e.target.value }))}
+                placeholder="(11) 91234-5678"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="membro-cpf">CPF</Label>
+              <Input
+                id="membro-cpf"
+                value={form.cpf}
+                onChange={(e) => setForm((f) => ({ ...f, cpf: e.target.value }))}
+                placeholder="000.000.000-00"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Papel</Label>
+              <Select value={form.papel} onValueChange={(v) => setForm((f) => ({ ...f, papel: v as PapelEquipe }))}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione o papel" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="recepcao">Recepção</SelectItem>
+                  <SelectItem value="professor">Personal (Professor)</SelectItem>
+                  <SelectItem value="nutricionista">Nutricionista</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <DialogFooter>
+              <Button type="submit" disabled={cadastrar.isPending || !form.papel}>
+                {cadastrar.isPending ? "Cadastrando..." : "Cadastrar"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      <CredenciaisGeradasDialog credenciais={credenciais} onOpenChange={(open) => !open && setCredenciais(null)} />
+    </>
+  );
+}
+
+function CredenciaisGeradasDialog({
+  credenciais,
+  onOpenChange,
+}: {
+  credenciais: CredenciaisGeradas | null;
+  onOpenChange: (open: boolean) => void;
+}) {
+  const { toast } = useToast();
+  const [copiado, setCopiado] = useState(false);
+
+  const copiar = async () => {
+    if (!credenciais) return;
+    const texto = `E-mail: ${credenciais.email}\nSenha temporária: ${credenciais.senha_temporaria}`;
+    try {
+      await navigator.clipboard.writeText(texto);
+      setCopiado(true);
+      setTimeout(() => setCopiado(false), 2000);
+    } catch {
+      toast({ title: "Não foi possível copiar", description: "Copie manualmente os dados abaixo.", variant: "destructive" });
+    }
+  };
+
+  return (
+    <Dialog open={!!credenciais} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Convidar para a equipe</DialogTitle>
+          <DialogTitle className="flex items-center gap-2">
+            <KeyRound className="h-4 w-4 text-primary" />
+            Funcionário cadastrado
+          </DialogTitle>
         </DialogHeader>
-        <form
-          className="space-y-3"
-          onSubmit={(e) => {
-            e.preventDefault();
-            convidar.mutate();
-          }}
-        >
-          <div className="space-y-1.5">
-            <Label htmlFor="membro-nome">Nome completo</Label>
-            <Input
-              id="membro-nome"
-              value={form.full_name}
-              onChange={(e) => setForm((f) => ({ ...f, full_name: e.target.value }))}
-              required
-            />
+        <p className="text-sm text-muted-foreground">
+          {credenciais?.full_name} já pode acessar o ArkeFit. Repasse os dados abaixo por WhatsApp ou verbalmente —
+          nenhum e-mail foi enviado. Esta senha só é exibida agora; se for perdida, o funcionário pode redefini-la
+          pelo "Esqueci minha senha" na tela de login.
+        </p>
+        <div className="rounded-md border bg-muted/40 p-3 space-y-1.5 font-mono text-sm">
+          <div>
+            <span className="text-muted-foreground">E-mail: </span>
+            {credenciais?.email}
           </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="membro-email">E-mail</Label>
-            <Input
-              id="membro-email"
-              type="email"
-              value={form.email}
-              onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
-              required
-            />
+          <div>
+            <span className="text-muted-foreground">Senha: </span>
+            {credenciais?.senha_temporaria}
           </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="membro-telefone">Telefone</Label>
-            <Input
-              id="membro-telefone"
-              value={form.telefone}
-              onChange={(e) => setForm((f) => ({ ...f, telefone: e.target.value }))}
-              placeholder="(11) 91234-5678"
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label>Papel</Label>
-            <Select value={form.papel} onValueChange={(v) => setForm((f) => ({ ...f, papel: v as PapelEquipe }))}>
-              <SelectTrigger>
-                <SelectValue placeholder="Selecione o papel" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="recepcao">Recepção</SelectItem>
-                <SelectItem value="professor">Personal (Professor)</SelectItem>
-                <SelectItem value="nutricionista">Nutricionista</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <DialogFooter>
-            <Button type="submit" disabled={convidar.isPending || !form.papel}>
-              {convidar.isPending ? "Enviando..." : "Convidar"}
-            </Button>
-          </DialogFooter>
-        </form>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={copiar}>
+            {copiado ? <Check className="h-4 w-4 mr-1.5" /> : <Copy className="h-4 w-4 mr-1.5" />}
+            {copiado ? "Copiado!" : "Copiar dados"}
+          </Button>
+          <Button onClick={() => onOpenChange(false)}>Fechar</Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );

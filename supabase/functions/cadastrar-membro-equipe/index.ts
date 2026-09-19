@@ -12,26 +12,34 @@ const jsonResponse = (body: unknown, status = 200) =>
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
 
-type Papel = "aluno";
-const PAPEIS_VALIDOS = new Set<Papel>(["aluno"]);
-const NIVEIS_VALIDOS = new Set(["essencial", "integrado", "elite"]);
+type Papel = "professor" | "nutricionista" | "recepcao";
+const PAPEIS_VALIDOS = new Set<Papel>(["professor", "nutricionista", "recepcao"]);
 
-type ConvidarMembroPayload = {
+type CadastrarMembroPayload = {
   email: string;
   full_name: string;
   telefone?: string;
   cpf?: string;
   papel: Papel;
-  nivel_atacado?: "essencial" | "integrado" | "elite"; // obrigatório quando papel === "aluno"
 };
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-// Convida (via e-mail do Supabase Auth, sem senha temporária exposta) um
-// novo aluno para a organização do gestor que chama esta função. O
-// cadastro de equipe (professor, nutricionista, recepção) não passa mais
-// por aqui — usa a Edge Function `cadastrar-membro-equipe`, que cria a
-// conta direto, com senha temporária, sem depender de entrega de e-mail.
+// Gera uma senha temporária aleatória (não previsível) para o cadastro
+// direto do funcionário — o gestor repassa esse valor por fora (WhatsApp,
+// verbal), e o próprio funcionário pode trocá-la depois via "Esqueci minha
+// senha" (fluxo de recovery, que já dispara o e-mail com layout ArkeFit).
+function gerarSenhaTemporaria(): string {
+  const bytes = new Uint8Array(12);
+  crypto.getRandomValues(bytes);
+  return btoa(String.fromCharCode(...bytes)).replace(/[+/=]/g, "").slice(0, 14) + "aA1!";
+}
+
+// Cadastro direto de um funcionário (professor, nutricionista ou recepção)
+// pela própria academia/studio — sem passar por convite por e-mail. A conta
+// já nasce com e-mail confirmado e uma senha temporária definida agora,
+// para o gestor poder colocar o funcionário para trabalhar imediatamente,
+// sem depender de entrega de e-mail.
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -48,7 +56,6 @@ Deno.serve(async (req: Request) => {
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
   const anonKey = Deno.env.get("SUPABASE_ANON_KEY");
   const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-  const siteUrl = Deno.env.get("SITE_URL") ?? "https://arkefit.com.br";
 
   if (!supabaseUrl || !anonKey || !serviceRoleKey) {
     console.error("Missing required Supabase environment variables");
@@ -56,13 +63,12 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
-    const payload: Partial<ConvidarMembroPayload> = await req.json();
+    const payload: Partial<CadastrarMembroPayload> = await req.json();
     const email = payload.email?.trim().toLowerCase();
     const fullName = payload.full_name?.trim();
     const telefone = payload.telefone?.trim() || null;
     const cpf = payload.cpf?.trim() || null;
     const papel = payload.papel;
-    const nivelAtacado = payload.nivel_atacado;
 
     if (!email || !EMAIL_RE.test(email)) {
       return jsonResponse({ error: "E-mail inválido." }, 400);
@@ -71,15 +77,9 @@ Deno.serve(async (req: Request) => {
       return jsonResponse({ error: "Nome completo é obrigatório." }, 400);
     }
     if (!papel || !PAPEIS_VALIDOS.has(papel)) {
-      return jsonResponse({ error: "Papel inválido. Use aluno, professor, nutricionista ou recepcao." }, 400);
-    }
-    if (papel === "aluno" && (!nivelAtacado || !NIVEIS_VALIDOS.has(nivelAtacado))) {
-      return jsonResponse({ error: "Selecione o plano do aluno (Essencial, Integrado ou Elite)." }, 400);
+      return jsonResponse({ error: "Papel inválido. Use professor, nutricionista ou recepcao." }, 400);
     }
 
-    // Cliente com o JWT do chamador: usado só para identificar quem está
-    // chamando (via getClaims). As checagens de autorização abaixo usam o
-    // client de service_role para ler o estado real sem depender de RLS.
     const asUser = createClient(supabaseUrl, anonKey, {
       global: { headers: { Authorization: authHeader } },
     });
@@ -104,34 +104,34 @@ Deno.serve(async (req: Request) => {
       return jsonResponse({ error: "Erro ao validar permissões." }, 500);
     }
     if (!callerMembership || callerMembership.role !== "gestor") {
-      return jsonResponse(
-        { error: "Apenas o gestor da organização pode cadastrar alunos ou convidar a equipe." },
-        403
-      );
+      return jsonResponse({ error: "Apenas o gestor da organização pode cadastrar a equipe." }, 403);
     }
     const organizationId = callerMembership.organization_id;
 
-    const { data: invited, error: inviteError } = await adminClient.auth.admin.inviteUserByEmail(email, {
-      data: { full_name: fullName },
-      redirectTo: siteUrl,
+    const senhaTemporaria = gerarSenhaTemporaria();
+
+    const { data: created, error: createError } = await adminClient.auth.admin.createUser({
+      email,
+      password: senhaTemporaria,
+      email_confirm: true,
+      user_metadata: { full_name: fullName },
     });
 
-    if (inviteError || !invited.user) {
-      console.error("Error inviting user", inviteError);
-      const alreadyExists = inviteError?.message?.toLowerCase().includes("already been registered");
+    if (createError || !created.user) {
+      console.error("Error creating user", createError);
+      const alreadyExists = createError?.message?.toLowerCase().includes("already been registered");
       return jsonResponse(
         {
           error: alreadyExists
             ? "Já existe um usuário cadastrado com esse e-mail."
-            : inviteError?.message ?? "Falha ao convidar o usuário.",
+            : createError?.message ?? "Falha ao cadastrar o funcionário.",
         },
         alreadyExists ? 409 : 400
       );
     }
 
-    const newUserId = invited.user.id;
+    const newUserId = created.user.id;
 
-    // rollback best-effort em qualquer etapa seguinte que falhar
     const rollback = async () => {
       await adminClient.auth.admin.deleteUser(newUserId).catch((e) => console.error("rollback deleteUser", e));
     };
@@ -157,21 +157,9 @@ Deno.serve(async (req: Request) => {
       return jsonResponse({ error: "Erro ao vincular o usuário à organização." }, 500);
     }
 
-    if (papel === "aluno") {
-      const { error: alunoError } = await adminClient
-        .from("alunos")
-        .insert({ organization_id: organizationId, user_id: newUserId, nivel_atacado: nivelAtacado });
-      if (alunoError) {
-        console.error("Error inserting aluno", alunoError);
-        await adminClient.from("organization_members").delete().eq("user_id", newUserId);
-        await rollback();
-        return jsonResponse({ error: "Erro ao criar o cadastro do aluno." }, 500);
-      }
-    }
-
-    return jsonResponse({ user_id: newUserId });
+    return jsonResponse({ user_id: newUserId, senha_temporaria: senhaTemporaria });
   } catch (error) {
-    console.error("Unexpected error in convidar-membro", error);
-    return jsonResponse({ error: "Erro inesperado ao processar o convite." }, 500);
+    console.error("Unexpected error in cadastrar-membro-equipe", error);
+    return jsonResponse({ error: "Erro inesperado ao cadastrar o funcionário." }, 500);
   }
 });
