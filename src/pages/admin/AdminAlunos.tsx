@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Users, CalendarOff, UserPlus, FileSpreadsheet, Printer, MessageCircle, UserX, Ruler } from "lucide-react";
+import { Users, CalendarOff, UserPlus, FileSpreadsheet, Printer, MessageCircle, UserX, Ruler, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { Enums } from "@/integrations/supabase/types";
 import { ReciboComprovanteDialog, type ReciboData } from "@/components/admin/ReciboComprovanteDialog";
@@ -83,6 +83,7 @@ export default function AdminAlunos() {
   const [reciboAberto, setReciboAberto] = useState(false);
   const [reciboSelecionado, setReciboSelecionado] = useState<ReciboData | null>(null);
   const [alunoAnonimizar, setAlunoAnonimizar] = useState<AlunoRow | null>(null);
+  const [alunoExcluir, setAlunoExcluir] = useState<AlunoRow | null>(null);
   const [enviandoWhatsApp, setEnviandoWhatsApp] = useState<string | null>(null);
   const [alunoAvaliacao, setAlunoAvaliacao] = useState<AlunoRow | null>(null);
   const [alunoPerfilId, setAlunoPerfilId] = useState<string | null>(null);
@@ -211,6 +212,23 @@ export default function AdminAlunos() {
       toast({ title: "Erro ao anonimizar", description: error.message, variant: "destructive" }),
   });
 
+  const excluirAluno = useMutation({
+    mutationFn: async () => {
+      if (!alunoExcluir) return;
+      const { error } = await supabase.functions.invoke("excluir-aluno", {
+        body: { aluno_id: alunoExcluir.id },
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast({ title: "Aluno excluído", description: "A conta e todos os dados vinculados foram apagados." });
+      setAlunoExcluir(null);
+      void queryClient.invalidateQueries({ queryKey: ["admin-alunos", organization?.id] });
+    },
+    onError: (error: Error) =>
+      toast({ title: "Erro ao excluir", description: error.message, variant: "destructive" }),
+  });
+
   return (
     <div className="space-y-4 max-w-4xl mx-auto">
       <div className="flex items-center justify-between gap-2">
@@ -332,6 +350,15 @@ export default function AdminAlunos() {
                         >
                           <UserX className="h-3.5 w-3.5" />
                         </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 text-destructive"
+                          title="Excluir Aluno (teste/homologação)"
+                          onClick={() => setAlunoExcluir(aluno)}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
                       </div>
                     </TableCell>
                   </TableRow>
@@ -377,6 +404,34 @@ export default function AdminAlunos() {
               onClick={() => anonimizarAluno.mutate()}
             >
               {anonimizarAluno.isPending ? "Anonimizando..." : "Confirmar anonimização"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!alunoExcluir} onOpenChange={(open) => !open && setAlunoExcluir(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Excluir Aluno — Teste/Homologação</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2 text-sm text-muted-foreground">
+            <p>
+              Esta ação vai <strong>apagar definitivamente</strong> a conta de{" "}
+              <strong>{alunoExcluir?.full_name}</strong>: login, perfil, treinos, dietas, check-ins, avaliações,
+              assinaturas e pagamentos — nada fica registrado.
+            </p>
+            <p>
+              Diferente da anonimização (que preserva o histórico financeiro para auditoria), aqui não sobra
+              rastro nenhum e o e-mail fica livre para um novo cadastro na hora. Use apenas para limpar contas de
+              teste. <strong>Esta ação não pode ser desfeita.</strong>
+            </p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAlunoExcluir(null)}>
+              Cancelar
+            </Button>
+            <Button variant="destructive" disabled={excluirAluno.isPending} onClick={() => excluirAluno.mutate()}>
+              {excluirAluno.isPending ? "Excluindo..." : "Confirmar exclusão"}
             </Button>
           </DialogFooter>
         </DialogContent>
