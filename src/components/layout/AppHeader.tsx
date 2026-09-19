@@ -23,7 +23,7 @@ export function AppHeader({ title }: { title?: string }) {
     .toUpperCase();
 
   return (
-    <header className="sticky top-0 z-30 flex items-center justify-between border-b border-border bg-card/95 backdrop-blur-xl px-3 sm:px-4 py-3 safe-top no-print">
+    <header className="sticky top-0 z-30 flex items-center justify-between border-b border-border bg-card/95 backdrop-blur-xl px-3 sm:px-4 py-3.5 sm:py-4 shadow-sm safe-top no-print">
       <div className="flex items-center gap-2 sm:gap-3 min-w-0">
         {isAdmin && <AdminSidebarMobile />}
         {isApp && <AppSidebarMobile />}

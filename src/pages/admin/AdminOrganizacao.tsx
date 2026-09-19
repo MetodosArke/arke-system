@@ -12,7 +12,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogD
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
-import { Building2, Wallet, Receipt, Printer } from "lucide-react";
+import { Building2, Wallet, Receipt, Printer, Upload } from "lucide-react";
 import type { Enums, Tables } from "@/integrations/supabase/types";
 import { ReciboComprovanteDialog, type ReciboData } from "@/components/admin/ReciboComprovanteDialog";
 
@@ -55,7 +55,7 @@ export default function AdminOrganizacao() {
   // organização vinculada acontece em AdminLayout, compartilhado por todas
   // as telas de /admin — aqui só resta tratar o caso (fora de homologação)
   // de um usuário sem admin_arke e sem organização.
-  const { organization, hasRole, refreshOrganization } = useAuth();
+  const { organization, user, hasRole, refreshOrganization } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -125,6 +125,48 @@ export default function AdminOrganizacao() {
       endereco: orgDetalhes.endereco ?? "",
     });
   }, [orgDetalhes]);
+
+  const [enviandoLogo, setEnviandoLogo] = useState(false);
+
+  const LOGO_TIPOS_ACEITOS = ["image/png", "image/jpeg", "image/webp", "image/svg+xml"];
+  const LOGO_TAMANHO_MAXIMO = 1.5 * 1024 * 1024; // mesmo limite configurado no bucket "avatars"
+
+  // Reaproveita o bucket "avatars" (já público, já com RLS liberando
+  // upload/troca/exclusão em uma pasta com o próprio user_id) para a logo
+  // da organização — evita criar bucket e política novos só para isso.
+  const enviarLogoDoComputador = async (file: File) => {
+    if (!user) return;
+    if (!LOGO_TIPOS_ACEITOS.includes(file.type)) {
+      toast({ title: "Formato não suportado", description: "Envie um PNG, JPEG, WEBP ou SVG.", variant: "destructive" });
+      return;
+    }
+    if (file.size > LOGO_TAMANHO_MAXIMO) {
+      toast({ title: "Arquivo muito grande", description: "O limite é 1,5 MB por imagem.", variant: "destructive" });
+      return;
+    }
+
+    setEnviandoLogo(true);
+    try {
+      const extensao = file.name.split(".").pop() || "png";
+      const caminho = `${user.id}/org-logo-${Date.now()}.${extensao}`;
+      const { error } = await supabase.storage
+        .from("avatars")
+        .upload(caminho, file, { upsert: true, contentType: file.type });
+      if (error) throw error;
+
+      const { data } = supabase.storage.from("avatars").getPublicUrl(caminho);
+      setPerfil((p) => ({ ...p, logoUrl: data.publicUrl }));
+      toast({ title: "Logo enviada", description: 'Clique em "Salvar Perfil" para aplicar às telas da organização.' });
+    } catch (error) {
+      toast({
+        title: "Não foi possível enviar a logo",
+        description: error instanceof Error ? error.message : "Erro inesperado.",
+        variant: "destructive",
+      });
+    } finally {
+      setEnviandoLogo(false);
+    }
+  };
 
   const podeEscolherTipo = orgDetalhes?.tipo === "academia" || orgDetalhes?.tipo === "studio";
 
@@ -313,19 +355,45 @@ export default function AdminOrganizacao() {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="flex items-center gap-3">
-            <Avatar className="h-14 w-14">
+          <div className="flex items-start gap-3">
+            <Avatar className="h-14 w-14 shrink-0">
               <AvatarImage src={perfil.logoUrl || undefined} />
               <AvatarFallback className="text-base">{iniciais || "AR"}</AvatarFallback>
             </Avatar>
             <div className="flex-1 space-y-1.5">
-              <Label htmlFor="org-logo">URL do logo</Label>
-              <Input
-                id="org-logo"
-                placeholder="https://..."
-                value={perfil.logoUrl}
-                onChange={(e) => setPerfil((p) => ({ ...p, logoUrl: e.target.value }))}
-              />
+              <Label htmlFor="org-logo">Logo da organização</Label>
+              <div className="flex flex-col sm:flex-row gap-1.5">
+                <Input
+                  id="org-logo"
+                  placeholder="Cole o link de uma imagem (https://...)"
+                  value={perfil.logoUrl}
+                  onChange={(e) => setPerfil((p) => ({ ...p, logoUrl: e.target.value }))}
+                  className="flex-1"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={enviandoLogo}
+                  onClick={() => document.getElementById("org-logo-arquivo")?.click()}
+                  className="shrink-0"
+                >
+                  <Upload className="h-3.5 w-3.5 mr-1.5" />
+                  {enviandoLogo ? "Enviando..." : "Enviar do computador"}
+                </Button>
+                <input
+                  id="org-logo-arquivo"
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) void enviarLogoDoComputador(file);
+                    e.target.value = "";
+                  }}
+                />
+              </div>
+              <p className="text-[11px] text-muted-foreground">PNG, JPEG, WEBP ou SVG, até 1,5 MB.</p>
             </div>
           </div>
 
