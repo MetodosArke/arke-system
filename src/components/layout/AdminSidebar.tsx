@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Home, Users, UsersRound, Building2, LogOut, ChevronLeft, Menu, ClipboardList, UserCircle, BarChart3, DoorOpen, CalendarDays } from "lucide-react";
+import { Home, Users, UsersRound, Building2, LogOut, ChevronLeft, Menu, ClipboardList, UserCircle, BarChart3, DoorOpen, CalendarDays, Dumbbell, UtensilsCrossed } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
@@ -13,14 +13,22 @@ type MenuSection = { label: string; items: MenuItem[] };
 // Menu lateral reorganizado em 3 blocos claros. "Onboarding" não tem mais
 // item fixo — só é alcançado pelo banner na Home ou em Organização.
 // Studio: turmas de horário fixo e capacidade limitada — Agenda só faz
-// sentido para esse tipo de negócio.
+// sentido para esse tipo de negócio. Configurações (Organização, Catracas)
+// e Inteligência (Gestão 360°, Equipe) são assuntos de gestão da unidade —
+// só aparecem para quem pode gerenciar a equipe (gestor/admin_arke); o
+// painel de professor e de nutricionista fica restrito ao escopo deles
+// (atendimento, alunos e a prescrição do que cada um prescreve).
 function buildSections({
   ehStudio,
   podeGerenciarEquipe,
+  podePrescreverTreino,
+  podePrescreverDieta,
   alunosLabel,
 }: {
   ehStudio: boolean;
   podeGerenciarEquipe: boolean;
+  podePrescreverTreino: boolean;
+  podePrescreverDieta: boolean;
   alunosLabel: string;
 }): MenuSection[] {
   const operacao: MenuItem[] = [
@@ -28,6 +36,12 @@ function buildSections({
     { icon: ClipboardList, label: "Atendimento (Fila)", path: "/admin" },
     { icon: Users, label: alunosLabel, path: "/admin/alunos" },
   ];
+  if (podePrescreverTreino) {
+    operacao.push({ icon: Dumbbell, label: "Prescrever Treinos", path: "/admin/treinos" });
+  }
+  if (podePrescreverDieta) {
+    operacao.push({ icon: UtensilsCrossed, label: "Prescrever Dietas", path: "/admin/dietas" });
+  }
   if (ehStudio) {
     operacao.push({ icon: CalendarDays, label: "Agenda", path: "/admin/agenda" });
   }
@@ -42,33 +56,41 @@ function buildSections({
         { icon: UsersRound, label: "Equipe", path: "/admin/equipe" },
       ],
     });
+    sections.push({
+      label: "Configurações",
+      items: [
+        { icon: Building2, label: "Organização", path: "/admin/organizacao" },
+        { icon: DoorOpen, label: "Catracas", path: "/admin/catracas" },
+      ],
+    });
   }
-
-  sections.push({
-    label: "Configurações",
-    items: [
-      { icon: Building2, label: "Organização", path: "/admin/organizacao" },
-      { icon: DoorOpen, label: "Catracas", path: "/admin/catracas" },
-    ],
-  });
 
   return sections;
 }
 
 // Personal/nutricionista autônomo: carteira própria de alunos, sem
 // estrutura física de academia — sem Catracas, Organização (slug/split de
-// academia), Equipe nem Gestão 360°/Onboarding B2B.
-function buildSectionsProfissionalAutonomo(): MenuSection[] {
-  return [
-    {
-      label: "Operação",
-      items: [
-        { icon: Home, label: "Home (Início)", path: "/admin/dashboard" },
-        { icon: ClipboardList, label: "Atendimento (Fila)", path: "/admin" },
-        { icon: Users, label: "Meus Alunos", path: "/admin/alunos" },
-      ],
-    },
+// academia), Equipe nem Gestão 360°/Onboarding B2B. A prescrição disponível
+// segue a especialidade de quem contratou (treino ou dieta, nunca as duas).
+function buildSectionsProfissionalAutonomo({
+  podePrescreverTreino,
+  podePrescreverDieta,
+}: {
+  podePrescreverTreino: boolean;
+  podePrescreverDieta: boolean;
+}): MenuSection[] {
+  const operacao: MenuItem[] = [
+    { icon: Home, label: "Home (Início)", path: "/admin/dashboard" },
+    { icon: ClipboardList, label: "Atendimento (Fila)", path: "/admin" },
+    { icon: Users, label: "Meus Alunos", path: "/admin/alunos" },
   ];
+  if (podePrescreverTreino) {
+    operacao.push({ icon: Dumbbell, label: "Prescrever Treinos", path: "/admin/treinos" });
+  }
+  if (podePrescreverDieta) {
+    operacao.push({ icon: UtensilsCrossed, label: "Prescrever Dietas", path: "/admin/dietas" });
+  }
+  return [{ label: "Operação", items: operacao }];
 }
 
 function SidebarNav({
@@ -87,11 +109,20 @@ function SidebarNav({
   const podeGerenciarEquipe = isAdminArke || organizationRole === "gestor";
   const ehProfissionalAutonomo = organization?.tipo === "profissional_autonomo";
   const ehStudio = organization?.tipo === "studio";
+  const especialidade = organization?.especialidadeProfissional;
+  const podePrescreverTreino = ehProfissionalAutonomo
+    ? especialidade !== "nutricionista"
+    : isAdminArke || organizationRole === "gestor" || organizationRole === "professor";
+  const podePrescreverDieta = ehProfissionalAutonomo
+    ? especialidade === "nutricionista"
+    : isAdminArke || organizationRole === "gestor" || organizationRole === "nutricionista";
   const sections = ehProfissionalAutonomo
-    ? buildSectionsProfissionalAutonomo()
+    ? buildSectionsProfissionalAutonomo({ podePrescreverTreino, podePrescreverDieta })
     : buildSections({
         ehStudio,
         podeGerenciarEquipe,
+        podePrescreverTreino,
+        podePrescreverDieta,
         alunosLabel: "Alunos & Prescrições",
       });
 
