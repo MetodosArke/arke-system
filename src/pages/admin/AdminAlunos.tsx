@@ -17,6 +17,7 @@ import { useToast } from "@/hooks/use-toast";
 import type { Enums } from "@/integrations/supabase/types";
 import { ReciboComprovanteDialog, type ReciboData } from "@/components/admin/ReciboComprovanteDialog";
 import { AvaliacaoFisicaDialog } from "@/components/admin/AvaliacaoFisicaDialog";
+import { AlunoPerfilSheet } from "@/components/admin/AlunoPerfilSheet";
 import { abrirWhatsAppAtivacao } from "@/lib/whatsappAtivacao";
 
 type Nivel = Enums<"nivel_atacado">;
@@ -84,6 +85,7 @@ export default function AdminAlunos() {
   const [alunoAnonimizar, setAlunoAnonimizar] = useState<AlunoRow | null>(null);
   const [enviandoWhatsApp, setEnviandoWhatsApp] = useState<string | null>(null);
   const [alunoAvaliacao, setAlunoAvaliacao] = useState<AlunoRow | null>(null);
+  const [alunoPerfilId, setAlunoPerfilId] = useState<string | null>(null);
 
   const { data: alunos = EMPTY_ALUNOS, isLoading } = useQuery({
     queryKey: ["admin-alunos", organization?.id],
@@ -253,7 +255,13 @@ export default function AdminAlunos() {
                 {alunos.map((aluno) => (
                   <TableRow key={aluno.id}>
                     <TableCell className="font-medium">
-                      {aluno.full_name}
+                      <button
+                        type="button"
+                        className="hover:underline underline-offset-2 text-left"
+                        onClick={() => setAlunoPerfilId(aluno.id)}
+                      >
+                        {aluno.full_name}
+                      </button>
                       {aluno.anonimizado_em && (
                         <Badge variant="secondary" className="ml-2 text-[10px]">Anonimizado</Badge>
                       )}
@@ -403,6 +411,8 @@ export default function AdminAlunos() {
         onOpenChange={setCadastroAberto}
         onSuccess={() => void queryClient.invalidateQueries({ queryKey: ["admin-alunos", organization?.id] })}
       />
+
+      <AlunoPerfilSheet alunoId={alunoPerfilId} onOpenChange={(open) => !open && setAlunoPerfilId(null)} />
     </div>
   );
 }
