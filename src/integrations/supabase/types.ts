@@ -1632,6 +1632,60 @@ export type Database = {
           },
         ]
       }
+      lancamentos_financeiros: {
+        Row: {
+          categoria: string
+          created_at: string
+          data: string
+          descricao: string | null
+          id: string
+          organization_id: string
+          registrado_por: string | null
+          tipo: Database["public"]["Enums"]["lancamento_financeiro_tipo"]
+          updated_at: string
+          valor: number
+        }
+        Insert: {
+          categoria: string
+          created_at?: string
+          data?: string
+          descricao?: string | null
+          id?: string
+          organization_id: string
+          registrado_por?: string | null
+          tipo: Database["public"]["Enums"]["lancamento_financeiro_tipo"]
+          updated_at?: string
+          valor: number
+        }
+        Update: {
+          categoria?: string
+          created_at?: string
+          data?: string
+          descricao?: string | null
+          id?: string
+          organization_id?: string
+          registrado_por?: string | null
+          tipo?: Database["public"]["Enums"]["lancamento_financeiro_tipo"]
+          updated_at?: string
+          valor?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lancamentos_financeiros_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "org_churn_metrics"
+            referencedColumns: ["organization_id"]
+          },
+          {
+            foreignKeyName: "lancamentos_financeiros_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       links_ativacao: {
         Row: {
           action_link: string
@@ -2877,6 +2931,114 @@ export type Database = {
           },
         ]
       }
+      staff_folha: {
+        Row: {
+          ativo: boolean
+          created_at: string
+          id: string
+          organization_id: string
+          tipo: Database["public"]["Enums"]["folha_tipo"]
+          updated_at: string
+          user_id: string
+          valor_base: number | null
+        }
+        Insert: {
+          ativo?: boolean
+          created_at?: string
+          id?: string
+          organization_id: string
+          tipo: Database["public"]["Enums"]["folha_tipo"]
+          updated_at?: string
+          user_id: string
+          valor_base?: number | null
+        }
+        Update: {
+          ativo?: boolean
+          created_at?: string
+          id?: string
+          organization_id?: string
+          tipo?: Database["public"]["Enums"]["folha_tipo"]
+          updated_at?: string
+          user_id?: string
+          valor_base?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_folha_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "org_churn_metrics"
+            referencedColumns: ["organization_id"]
+          },
+          {
+            foreignKeyName: "staff_folha_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      staff_folha_pagamentos: {
+        Row: {
+          competencia: string
+          created_at: string
+          data_pagamento: string | null
+          id: string
+          observacao: string | null
+          organization_id: string
+          status: Database["public"]["Enums"]["folha_pagamento_status"]
+          updated_at: string
+          user_id: string
+          valor_base: number
+          valor_comissoes: number
+          valor_total: number
+        }
+        Insert: {
+          competencia: string
+          created_at?: string
+          data_pagamento?: string | null
+          id?: string
+          observacao?: string | null
+          organization_id: string
+          status?: Database["public"]["Enums"]["folha_pagamento_status"]
+          updated_at?: string
+          user_id: string
+          valor_base?: number
+          valor_comissoes?: number
+          valor_total?: number
+        }
+        Update: {
+          competencia?: string
+          created_at?: string
+          data_pagamento?: string | null
+          id?: string
+          observacao?: string | null
+          organization_id?: string
+          status?: Database["public"]["Enums"]["folha_pagamento_status"]
+          updated_at?: string
+          user_id?: string
+          valor_base?: number
+          valor_comissoes?: number
+          valor_total?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_folha_pagamentos_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "org_churn_metrics"
+            referencedColumns: ["organization_id"]
+          },
+          {
+            foreignKeyName: "staff_folha_pagamentos_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       staff_horarios: {
         Row: {
           created_at: string
@@ -3290,6 +3452,29 @@ export type Database = {
         }
         Returns: undefined
       }
+      gerar_fechamento_folha: {
+        Args: { _competencia: string; _user_id: string }
+        Returns: {
+          competencia: string
+          created_at: string
+          data_pagamento: string | null
+          id: string
+          observacao: string | null
+          organization_id: string
+          status: Database["public"]["Enums"]["folha_pagamento_status"]
+          updated_at: string
+          user_id: string
+          valor_base: number
+          valor_comissoes: number
+          valor_total: number
+        }
+        SetofOptions: {
+          from: "*"
+          to: "staff_folha_pagamentos"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       gerar_tarefas_ativacao_pendente: { Args: never; Returns: undefined }
       gerar_tarefas_barreira_rotina: { Args: never; Returns: undefined }
       get_superadmin_organizacao_atividade: {
@@ -3470,6 +3655,8 @@ export type Database = {
         | "desempenho_dieta"
         | "livre"
       fase_jornada: "mapa" | "base" | "rota" | "apex" | "legado"
+      folha_pagamento_status: "pendente" | "pago"
+      folha_tipo: "salario_fixo" | "pro_labore" | "comissionado"
       forma_pagamento_mensalidade:
         | "dinheiro"
         | "pix"
@@ -3477,6 +3664,7 @@ export type Database = {
         | "boleto"
         | "transferencia"
         | "outro"
+      lancamento_financeiro_tipo: "receita" | "despesa"
       metodo_arke_status: "sem_adesao" | "ativo" | "cancelado"
       motivo_dificuldade:
         | "tempo"
@@ -3682,6 +3870,8 @@ export const Constants = {
         "livre",
       ],
       fase_jornada: ["mapa", "base", "rota", "apex", "legado"],
+      folha_pagamento_status: ["pendente", "pago"],
+      folha_tipo: ["salario_fixo", "pro_labore", "comissionado"],
       forma_pagamento_mensalidade: [
         "dinheiro",
         "pix",
@@ -3690,6 +3880,7 @@ export const Constants = {
         "transferencia",
         "outro",
       ],
+      lancamento_financeiro_tipo: ["receita", "despesa"],
       metodo_arke_status: ["sem_adesao", "ativo", "cancelado"],
       motivo_dificuldade: [
         "tempo",
