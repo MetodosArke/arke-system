@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Combobox } from "@/components/ui/combobox";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -332,18 +333,17 @@ export default function AdminTreinos() {
 
                 <div className="pt-2 border-t border-border space-y-1.5">
                   <Label className="text-xs text-muted-foreground">Adicionar a partir da Biblioteca ARKE (opcional)</Label>
-                  <Select value={exercicioBibliotecaId} onValueChange={aplicarExercicioBiblioteca}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Buscar exercício na biblioteca..." />
-                    </SelectTrigger>
-                    <SelectContent className="max-h-72">
-                      {bibliotecaExercicios.map((ex) => (
-                        <SelectItem key={ex.id} value={ex.id}>
-                          {ex.grupo_muscular} — {ex.nome}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <Combobox
+                    value={exercicioBibliotecaId}
+                    onValueChange={aplicarExercicioBiblioteca}
+                    placeholder="Buscar exercício na biblioteca..."
+                    searchPlaceholder="Digite o nome do exercício ou grupo muscular..."
+                    emptyText="Nenhum exercício encontrado."
+                    options={bibliotecaExercicios.map((ex) => ({
+                      value: ex.id,
+                      label: `${ex.grupo_muscular} — ${ex.nome}`,
+                    }))}
+                  />
                 </div>
 
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
