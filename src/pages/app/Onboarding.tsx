@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Navigate, useNavigate } from "react-router-dom";
 import { useMutation } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -101,12 +101,21 @@ const STEPS: { title: string; description: string; fields: StepField[] }[] = [
 ];
 
 export default function Onboarding() {
-  const { alunoId, organization, refreshAluno } = useAuth();
+  const { alunoId, organization, metodoArkeAtivo, rolesLoaded, anamneseCompleta, refreshAluno } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
   const [stepIndex, setStepIndex] = useState(0);
   const [form, setForm] = useState<AnamneseForm>(EMPTY_FORM);
   const [consentimentoAceito, setConsentimentoAceito] = useState(false);
+
+  // Este onboarding é a experiência do produto Método ARKE — não o
+  // cadastro básico de aluno matriculado na academia. Quem chegar aqui
+  // por link direto sem ter aderido ao método (ou já tiver concluído) é
+  // redirecionado de volta, sem disparar os efeitos colaterais da
+  // conclusão (treino de boas-vindas, tarefa de acolhimento).
+  if (rolesLoaded && alunoId && (!metodoArkeAtivo || anamneseCompleta)) {
+    return <Navigate to="/app" replace />;
+  }
 
   const isLastStep = stepIndex === STEPS.length - 1;
   const step = STEPS[stepIndex];
