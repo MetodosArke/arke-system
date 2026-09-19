@@ -1,20 +1,35 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { Phone, ClipboardList, AlertTriangle, Dumbbell, UtensilsCrossed, Ruler, Pencil, Power, UserX, CheckCircle2 } from "lucide-react";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Phone, ClipboardList, AlertTriangle, Dumbbell, UtensilsCrossed, Ruler, Pencil, Power, UserX, CheckCircle2, CalendarClock, Trash2, Plus } from "lucide-react";
 import { Bloco, formatarData } from "@/components/admin/perfilSheetHelpers";
 import { AlunoPerfilSheet } from "@/components/admin/AlunoPerfilSheet";
+import { useToast } from "@/hooks/use-toast";
 
 const PAPEL_LABEL: Record<string, string> = {
   gestor: "Gestor",
   professor: "Personal",
   nutricionista: "Nutricionista",
   recepcao: "Recepção",
+};
+
+const DIA_SEMANA_LABEL: Record<number, string> = {
+  1: "Segunda",
+  2: "Terça",
+  3: "Quarta",
+  4: "Quinta",
+  5: "Sexta",
+  6: "Sábado",
+  7: "Domingo",
 };
 
 const TAREFA_TIPO_LABEL: Record<string, string> = {
@@ -77,9 +92,16 @@ export function FuncionarioPerfilSheet({
   onInativar: (membro: MembroEquipe) => void;
   onRemover: (membro: MembroEquipe) => void;
 }) {
-  const { organization, user } = useAuth();
+  const { organization, user, hasRole, organizationRole } = useAuth();
+  const podeGerenciarEquipe = hasRole("admin_arke") || organizationRole === "gestor";
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
   const ehVoceMesmo = membro?.user_id === user?.id;
   const [alunoAbertoId, setAlunoAbertoId] = useState<string | null>(null);
+  const [horariosAberto, setHorariosAberto] = useState(false);
+  const [novoDia, setNovoDia] = useState("1");
+  const [novoInicio, setNovoInicio] = useState("08:00");
+  const [novoFim, setNovoFim] = useState("17:00");
 
   const { data: perfil, isLoading } = useQuery({
     queryKey: ["funcionario-perfil", membro?.user_id, organization?.id],
@@ -201,6 +223,48 @@ export function FuncionarioPerfilSheet({
     enabled: !!membro && !!organization?.id,
   });
 
+  const { data: horarios = [] } = useQuery({
+    queryKey: ["staff-horarios", membro?.user_id, organization?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("staff_horarios")
+        .select("id, dia_semana, hora_inicio, hora_fim")
+        .eq("user_id", membro!.user_id)
+        .eq("organization_id", organization!.id)
+        .order("dia_semana")
+        .order("hora_inicio");
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!membro && !!organization?.id,
+  });
+
+  const adicionarHorario = useMutation({
+    mutationFn: async () => {
+      if (!membro || !organization) return;
+      if (novoFim <= novoInicio) throw new Error("O horário final precisa ser depois do inicial.");
+      const { error } = await supabase.from("staff_horarios").insert({
+        organization_id: organization.id,
+        user_id: membro.user_id,
+        dia_semana: Number(novoDia),
+        hora_inicio: novoInicio,
+        hora_fim: novoFim,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["staff-horarios", membro?.user_id, organization?.id] }),
+    onError: (error: Error) => toast({ title: "Erro ao adicionar horário", description: error.message, variant: "destructive" }),
+  });
+
+  const removerHorario = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("staff_horarios").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["staff-horarios", membro?.user_id, organization?.id] }),
+    onError: (error: Error) => toast({ title: "Erro ao remover horário", description: error.message, variant: "destructive" }),
+  });
+
   const nomeAluno = (alunoId: string | null) =>
     alunoId ? perfil?.nomeByAlunoId.get(alunoId) ?? "Aluno" : null;
 
@@ -256,6 +320,28 @@ export function FuncionarioPerfilSheet({
               <Bloco titulo="Dados" icon={Phone}>
                 <p className="text-sm">{perfil.profile?.phone ?? "Telefone não informado"}</p>
                 {perfil.profile?.cpf && <p className="text-xs text-muted-foreground">CPF: {perfil.profile.cpf}</p>}
+              </Bloco>
+
+              <Bloco titulo="Horários / Escala" icon={CalendarClock}>
+                {horarios.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">Nenhum horário cadastrado.</p>
+                ) : (
+                  <ul className="space-y-1">
+                    {horarios.map((h) => (
+                      <li key={h.id} className="text-sm flex items-center justify-between">
+                        <span>
+                          {DIA_SEMANA_LABEL[h.dia_semana]} · {h.hora_inicio.slice(0, 5)}–{h.hora_fim.slice(0, 5)}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                {podeGerenciarEquipe && (
+                  <Button size="sm" variant="outline" className="mt-2" onClick={() => setHorariosAberto(true)}>
+                    <CalendarClock className="h-3.5 w-3.5 mr-1.5" />
+                    Gerenciar horários
+                  </Button>
+                )}
               </Bloco>
 
               {perfil.tarefasAbertas.length > 0 && (
@@ -335,6 +421,71 @@ export function FuncionarioPerfilSheet({
     </Sheet>
 
     <AlunoPerfilSheet alunoId={alunoAbertoId} onOpenChange={(open) => !open && setAlunoAbertoId(null)} />
+
+    <Dialog open={horariosAberto} onOpenChange={setHorariosAberto}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Horários — {membro?.full_name}</DialogTitle>
+          <DialogDescription>Escala semanal de atendimento.</DialogDescription>
+        </DialogHeader>
+        <div className="space-y-3">
+          {horarios.length > 0 && (
+            <ul className="space-y-1.5">
+              {horarios.map((h) => (
+                <li key={h.id} className="flex items-center justify-between text-sm border rounded-md px-3 py-1.5">
+                  <span>
+                    {DIA_SEMANA_LABEL[h.dia_semana]} · {h.hora_inicio.slice(0, 5)}–{h.hora_fim.slice(0, 5)}
+                  </span>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="h-6 w-6 text-destructive"
+                    onClick={() => removerHorario.mutate(h.id)}
+                    disabled={removerHorario.isPending}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </li>
+              ))}
+            </ul>
+          )}
+          <div className="grid grid-cols-3 gap-2 items-end">
+            <div className="space-y-1.5">
+              <Label>Dia</Label>
+              <Select value={novoDia} onValueChange={setNovoDia}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {Object.entries(DIA_SEMANA_LABEL).map(([valor, label]) => (
+                    <SelectItem key={valor} value={valor}>
+                      {label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Início</Label>
+              <Input type="time" value={novoInicio} onChange={(e) => setNovoInicio(e.target.value)} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Fim</Label>
+              <Input type="time" value={novoFim} onChange={(e) => setNovoFim(e.target.value)} />
+            </div>
+          </div>
+          <Button size="sm" onClick={() => adicionarHorario.mutate()} disabled={adicionarHorario.isPending}>
+            <Plus className="h-3.5 w-3.5 mr-1.5" />
+            Adicionar
+          </Button>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setHorariosAberto(false)}>
+            Fechar
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
     </>
   );
 }
