@@ -30,6 +30,7 @@ import AlunoDashboard from "@/pages/app/AlunoDashboard";
 import AlunoPerfil from "@/pages/app/AlunoPerfil";
 import AlunoTreinos from "@/pages/app/AlunoTreinos";
 import AlunoDieta from "@/pages/app/AlunoDieta";
+import AlunoAgenda from "@/pages/app/AlunoAgenda";
 import AlunoEvolucao from "@/pages/app/AlunoEvolucao";
 import AlunoJornada from "@/pages/app/AlunoJornada";
 import AlunoDesafios from "@/pages/app/AlunoDesafios";
@@ -206,6 +207,7 @@ const App = () => (
                 <Route path="desafios" element={<AlunoDesafios />} />
                 <Route path="competicoes" element={<AlunoCompeticoes />} />
                 <Route path="feed" element={<AlunoFeed />} />
+                <Route path="agenda" element={<AlunoAgenda />} />
                 <Route path="perfil" element={<AlunoPerfil />} />
               </Route>
 
