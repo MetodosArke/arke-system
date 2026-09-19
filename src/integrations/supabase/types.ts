@@ -443,6 +443,7 @@ export type Database = {
           id: string
           meta_semanal_dias: number
           metodo_arke_ativado_em: string | null
+          metodo_arke_ativado_por: string | null
           metodo_arke_status: Database["public"]["Enums"]["metodo_arke_status"]
           nivel_atacado: Database["public"]["Enums"]["nivel_atacado"] | null
           objetivo: string | null
@@ -466,6 +467,7 @@ export type Database = {
           id?: string
           meta_semanal_dias?: number
           metodo_arke_ativado_em?: string | null
+          metodo_arke_ativado_por?: string | null
           metodo_arke_status?: Database["public"]["Enums"]["metodo_arke_status"]
           nivel_atacado?: Database["public"]["Enums"]["nivel_atacado"] | null
           objetivo?: string | null
@@ -489,6 +491,7 @@ export type Database = {
           id?: string
           meta_semanal_dias?: number
           metodo_arke_ativado_em?: string | null
+          metodo_arke_ativado_por?: string | null
           metodo_arke_status?: Database["public"]["Enums"]["metodo_arke_status"]
           nivel_atacado?: Database["public"]["Enums"]["nivel_atacado"] | null
           objetivo?: string | null
@@ -2756,6 +2759,124 @@ export type Database = {
         }
         Relationships: []
       }
+      staff_comissoes_config: {
+        Row: {
+          ativo: boolean
+          created_at: string
+          id: string
+          organization_id: string
+          papel: Database["public"]["Enums"]["app_role"]
+          percentual: number | null
+          tipo_evento: Database["public"]["Enums"]["comissao_tipo_evento"]
+          updated_at: string
+          valor_fixo: number | null
+        }
+        Insert: {
+          ativo?: boolean
+          created_at?: string
+          id?: string
+          organization_id: string
+          papel: Database["public"]["Enums"]["app_role"]
+          percentual?: number | null
+          tipo_evento: Database["public"]["Enums"]["comissao_tipo_evento"]
+          updated_at?: string
+          valor_fixo?: number | null
+        }
+        Update: {
+          ativo?: boolean
+          created_at?: string
+          id?: string
+          organization_id?: string
+          papel?: Database["public"]["Enums"]["app_role"]
+          percentual?: number | null
+          tipo_evento?: Database["public"]["Enums"]["comissao_tipo_evento"]
+          updated_at?: string
+          valor_fixo?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_comissoes_config_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "org_churn_metrics"
+            referencedColumns: ["organization_id"]
+          },
+          {
+            foreignKeyName: "staff_comissoes_config_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      staff_comissoes_lancamentos: {
+        Row: {
+          aluno_id: string | null
+          competencia: string
+          created_at: string
+          id: string
+          organization_id: string
+          origem_evento: string
+          status: Database["public"]["Enums"]["comissao_status"]
+          tipo_evento: Database["public"]["Enums"]["comissao_tipo_evento"]
+          updated_at: string
+          user_id: string
+          valor_base: number
+          valor_comissao: number
+        }
+        Insert: {
+          aluno_id?: string | null
+          competencia: string
+          created_at?: string
+          id?: string
+          organization_id: string
+          origem_evento: string
+          status?: Database["public"]["Enums"]["comissao_status"]
+          tipo_evento: Database["public"]["Enums"]["comissao_tipo_evento"]
+          updated_at?: string
+          user_id: string
+          valor_base: number
+          valor_comissao: number
+        }
+        Update: {
+          aluno_id?: string | null
+          competencia?: string
+          created_at?: string
+          id?: string
+          organization_id?: string
+          origem_evento?: string
+          status?: Database["public"]["Enums"]["comissao_status"]
+          tipo_evento?: Database["public"]["Enums"]["comissao_tipo_evento"]
+          updated_at?: string
+          user_id?: string
+          valor_base?: number
+          valor_comissao?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_comissoes_lancamentos_aluno_id_fkey"
+            columns: ["aluno_id"]
+            isOneToOne: false
+            referencedRelation: "alunos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "staff_comissoes_lancamentos_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "org_churn_metrics"
+            referencedColumns: ["organization_id"]
+          },
+          {
+            foreignKeyName: "staff_comissoes_lancamentos_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       staff_horarios: {
         Row: {
           created_at: string
@@ -3158,6 +3279,17 @@ export type Database = {
       }
       buscar_user_id_por_email: { Args: { _email: string }; Returns: string }
       escalar_tarefas_vencidas: { Args: never; Returns: undefined }
+      gerar_comissao_se_configurada: {
+        Args: {
+          _aluno_id: string
+          _organization_id: string
+          _origem_evento: string
+          _tipo_evento: Database["public"]["Enums"]["comissao_tipo_evento"]
+          _user_id: string
+          _valor_base: number
+        }
+        Returns: undefined
+      }
       gerar_tarefas_ativacao_pendente: { Args: never; Returns: undefined }
       gerar_tarefas_barreira_rotina: { Args: never; Returns: undefined }
       get_superadmin_organizacao_atividade: {
@@ -3322,6 +3454,8 @@ export type Database = {
         | "preciso_ajuste"
         | "com_dificuldade"
         | "quero_falar_com_alguem"
+      comissao_status: "pendente" | "pago"
+      comissao_tipo_evento: "matricula_academia" | "adesao_metodo_arke"
       competicao_metrica:
         | "pontos_desafios"
         | "treinos_concluidos"
@@ -3530,6 +3664,8 @@ export const Constants = {
         "com_dificuldade",
         "quero_falar_com_alguem",
       ],
+      comissao_status: ["pendente", "pago"],
+      comissao_tipo_evento: ["matricula_academia", "adesao_metodo_arke"],
       competicao_metrica: [
         "pontos_desafios",
         "treinos_concluidos",
