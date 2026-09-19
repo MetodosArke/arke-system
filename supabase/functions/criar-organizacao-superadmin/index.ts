@@ -173,7 +173,7 @@ Deno.serve(async (req: Request) => {
 
     const { data: invited, error: inviteError } = await adminClient.auth.admin.inviteUserByEmail(gestorEmail, {
       data: { full_name: gestorNome },
-      redirectTo: siteUrl,
+      redirectTo: `${siteUrl}/#/auth/definir-senha`,
     });
 
     if (!inviteError && invited?.user) {
@@ -203,7 +203,7 @@ Deno.serve(async (req: Request) => {
       const { data: linkData, error: linkError } = await adminClient.auth.admin.generateLink({
         type: "invite",
         email: gestorEmail,
-        options: { data: { full_name: gestorNome }, redirectTo: siteUrl },
+        options: { data: { full_name: gestorNome }, redirectTo: `${siteUrl}/#/auth/definir-senha` },
       });
       if (linkError || !linkData?.user) {
         console.error("Error creating gestor account via generateLink fallback", linkError);

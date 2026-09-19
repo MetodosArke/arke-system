@@ -133,7 +133,7 @@ Deno.serve(async (req: Request) => {
 
     const { data: invited, error: inviteError } = await adminClient.auth.admin.inviteUserByEmail(email, {
       data: { full_name: fullName },
-      redirectTo: siteUrl,
+      redirectTo: `${siteUrl}/#/auth/definir-senha`,
     });
     if (inviteError || !invited.user) {
       console.error("Error inviting user", inviteError);
