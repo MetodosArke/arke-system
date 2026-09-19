@@ -238,6 +238,116 @@ export type Database = {
           },
         ]
       }
+      aluno_objetivos: {
+        Row: {
+          aluno_id: string
+          conquistas: string | null
+          created_at: string
+          dificuldades: string | null
+          id: string
+          objetivos: string[]
+          organization_id: string
+          proxima_revisao: string | null
+          visao_3_anos: string | null
+          visao_3_meses: string | null
+        }
+        Insert: {
+          aluno_id: string
+          conquistas?: string | null
+          created_at?: string
+          dificuldades?: string | null
+          id?: string
+          objetivos?: string[]
+          organization_id: string
+          proxima_revisao?: string | null
+          visao_3_anos?: string | null
+          visao_3_meses?: string | null
+        }
+        Update: {
+          aluno_id?: string
+          conquistas?: string | null
+          created_at?: string
+          dificuldades?: string | null
+          id?: string
+          objetivos?: string[]
+          organization_id?: string
+          proxima_revisao?: string | null
+          visao_3_anos?: string | null
+          visao_3_meses?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "aluno_objetivos_aluno_id_fkey"
+            columns: ["aluno_id"]
+            isOneToOne: false
+            referencedRelation: "alunos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "aluno_objetivos_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "org_churn_metrics"
+            referencedColumns: ["organization_id"]
+          },
+          {
+            foreignKeyName: "aluno_objetivos_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      aluno_valores: {
+        Row: {
+          aluno_id: string
+          created_at: string
+          id: string
+          organization_id: string
+          validade: string | null
+          valores: string[]
+        }
+        Insert: {
+          aluno_id: string
+          created_at?: string
+          id?: string
+          organization_id: string
+          validade?: string | null
+          valores?: string[]
+        }
+        Update: {
+          aluno_id?: string
+          created_at?: string
+          id?: string
+          organization_id?: string
+          validade?: string | null
+          valores?: string[]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "aluno_valores_aluno_id_fkey"
+            columns: ["aluno_id"]
+            isOneToOne: false
+            referencedRelation: "alunos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "aluno_valores_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "org_churn_metrics"
+            referencedColumns: ["organization_id"]
+          },
+          {
+            foreignKeyName: "aluno_valores_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       alunos: {
         Row: {
           altura_cm: number | null
@@ -462,6 +572,7 @@ export type Database = {
           avaliado_por: string | null
           created_at: string
           data_avaliacao: string
+          data_proxima_avaliacao: string | null
           dc_abdominal: number | null
           dc_axilar_media: number | null
           dc_coxa: number | null
@@ -473,6 +584,13 @@ export type Database = {
           historico_clinico: string | null
           id: string
           imc: number | null
+          meta_gordura_direcao: string | null
+          meta_gordura_valor: number | null
+          meta_musculo_direcao: string | null
+          meta_musculo_valor: number | null
+          meta_peso_direcao: string | null
+          meta_peso_kg: number | null
+          musculo_percentual: number | null
           observacoes: string | null
           organization_id: string
           percentual_gordura: number | null
@@ -484,6 +602,7 @@ export type Database = {
           perim_panturrilha: number | null
           perim_quadril: number | null
           peso_kg: number | null
+          pontos: number
         }
         Insert: {
           altura_cm?: number | null
@@ -491,6 +610,7 @@ export type Database = {
           avaliado_por?: string | null
           created_at?: string
           data_avaliacao?: string
+          data_proxima_avaliacao?: string | null
           dc_abdominal?: number | null
           dc_axilar_media?: number | null
           dc_coxa?: number | null
@@ -502,6 +622,13 @@ export type Database = {
           historico_clinico?: string | null
           id?: string
           imc?: number | null
+          meta_gordura_direcao?: string | null
+          meta_gordura_valor?: number | null
+          meta_musculo_direcao?: string | null
+          meta_musculo_valor?: number | null
+          meta_peso_direcao?: string | null
+          meta_peso_kg?: number | null
+          musculo_percentual?: number | null
           observacoes?: string | null
           organization_id: string
           percentual_gordura?: number | null
@@ -513,6 +640,7 @@ export type Database = {
           perim_panturrilha?: number | null
           perim_quadril?: number | null
           peso_kg?: number | null
+          pontos?: number
         }
         Update: {
           altura_cm?: number | null
@@ -520,6 +648,7 @@ export type Database = {
           avaliado_por?: string | null
           created_at?: string
           data_avaliacao?: string
+          data_proxima_avaliacao?: string | null
           dc_abdominal?: number | null
           dc_axilar_media?: number | null
           dc_coxa?: number | null
@@ -531,6 +660,13 @@ export type Database = {
           historico_clinico?: string | null
           id?: string
           imc?: number | null
+          meta_gordura_direcao?: string | null
+          meta_gordura_valor?: number | null
+          meta_musculo_direcao?: string | null
+          meta_musculo_valor?: number | null
+          meta_peso_direcao?: string | null
+          meta_peso_kg?: number | null
+          musculo_percentual?: number | null
           observacoes?: string | null
           organization_id?: string
           percentual_gordura?: number | null
@@ -542,6 +678,7 @@ export type Database = {
           perim_panturrilha?: number | null
           perim_quadril?: number | null
           peso_kg?: number | null
+          pontos?: number
         }
         Relationships: [
           {
@@ -687,6 +824,107 @@ export type Database = {
           },
           {
             foreignKeyName: "cobrancas_b2b_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      compromisso_metas: {
+        Row: {
+          compromisso_id: string
+          concluida: boolean
+          created_at: string
+          id: string
+          objetivo_vinculado: string | null
+          organization_id: string
+          texto: string
+          valor_vinculado: string | null
+        }
+        Insert: {
+          compromisso_id: string
+          concluida?: boolean
+          created_at?: string
+          id?: string
+          objetivo_vinculado?: string | null
+          organization_id: string
+          texto: string
+          valor_vinculado?: string | null
+        }
+        Update: {
+          compromisso_id?: string
+          concluida?: boolean
+          created_at?: string
+          id?: string
+          objetivo_vinculado?: string | null
+          organization_id?: string
+          texto?: string
+          valor_vinculado?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "compromisso_metas_compromisso_id_fkey"
+            columns: ["compromisso_id"]
+            isOneToOne: false
+            referencedRelation: "compromisso_semanal"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "compromisso_metas_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "org_churn_metrics"
+            referencedColumns: ["organization_id"]
+          },
+          {
+            foreignKeyName: "compromisso_metas_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      compromisso_semanal: {
+        Row: {
+          aluno_id: string
+          created_at: string
+          id: string
+          organization_id: string
+          semana: string
+        }
+        Insert: {
+          aluno_id: string
+          created_at?: string
+          id?: string
+          organization_id: string
+          semana: string
+        }
+        Update: {
+          aluno_id?: string
+          created_at?: string
+          id?: string
+          organization_id?: string
+          semana?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "compromisso_semanal_aluno_id_fkey"
+            columns: ["aluno_id"]
+            isOneToOne: false
+            referencedRelation: "alunos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "compromisso_semanal_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "org_churn_metrics"
+            referencedColumns: ["organization_id"]
+          },
+          {
+            foreignKeyName: "compromisso_semanal_organization_id_fkey"
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
@@ -1020,6 +1258,111 @@ export type Database = {
           },
           {
             foreignKeyName: "mensagens_treino_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      metrica_valores: {
+        Row: {
+          avaliacao_id: string
+          created_at: string
+          id: string
+          metrica_id: string
+          organization_id: string
+          valor: number
+        }
+        Insert: {
+          avaliacao_id: string
+          created_at?: string
+          id?: string
+          metrica_id: string
+          organization_id: string
+          valor?: number
+        }
+        Update: {
+          avaliacao_id?: string
+          created_at?: string
+          id?: string
+          metrica_id?: string
+          organization_id?: string
+          valor?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "metrica_valores_avaliacao_id_fkey"
+            columns: ["avaliacao_id"]
+            isOneToOne: false
+            referencedRelation: "avaliacoes_fisicas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "metrica_valores_metrica_id_fkey"
+            columns: ["metrica_id"]
+            isOneToOne: false
+            referencedRelation: "metricas_customizadas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "metrica_valores_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "org_churn_metrics"
+            referencedColumns: ["organization_id"]
+          },
+          {
+            foreignKeyName: "metrica_valores_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      metricas_customizadas: {
+        Row: {
+          aluno_id: string
+          created_at: string
+          criado_por: string | null
+          id: string
+          nome: string
+          organization_id: string
+        }
+        Insert: {
+          aluno_id: string
+          created_at?: string
+          criado_por?: string | null
+          id?: string
+          nome: string
+          organization_id: string
+        }
+        Update: {
+          aluno_id?: string
+          created_at?: string
+          criado_por?: string | null
+          id?: string
+          nome?: string
+          organization_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "metricas_customizadas_aluno_id_fkey"
+            columns: ["aluno_id"]
+            isOneToOne: false
+            referencedRelation: "alunos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "metricas_customizadas_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "org_churn_metrics"
+            referencedColumns: ["organization_id"]
+          },
+          {
+            foreignKeyName: "metricas_customizadas_organization_id_fkey"
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"

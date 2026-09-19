@@ -30,6 +30,8 @@ import AlunoDashboard from "@/pages/app/AlunoDashboard";
 import AlunoPerfil from "@/pages/app/AlunoPerfil";
 import AlunoTreinos from "@/pages/app/AlunoTreinos";
 import AlunoDieta from "@/pages/app/AlunoDieta";
+import AlunoEvolucao from "@/pages/app/AlunoEvolucao";
+import AlunoJornada from "@/pages/app/AlunoJornada";
 import Onboarding from "@/pages/app/Onboarding";
 import ConsentimentoLgpd from "@/pages/app/ConsentimentoLgpd";
 
@@ -189,6 +191,8 @@ const App = () => (
                 <Route index element={<AlunoDashboard />} />
                 <Route path="treinos" element={<AlunoTreinos />} />
                 <Route path="dieta" element={<AlunoDieta />} />
+                <Route path="evolucao" element={<AlunoEvolucao />} />
+                <Route path="jornada" element={<AlunoJornada />} />
                 <Route path="perfil" element={<AlunoPerfil />} />
               </Route>
 
