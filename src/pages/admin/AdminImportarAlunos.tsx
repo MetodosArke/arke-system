@@ -76,6 +76,58 @@ const CAMPOS_AVALIACAO_FISICA = [
   "perim_panturrilha",
 ] as const satisfies readonly CampoDestino[];
 
+// Remove acentos e baixa a caixa pra comparar nomes de coluna de forma
+// tolerante ("Tríceps", "triceps", "TRICEPS" todos batem).
+const normalizarTexto = (valor: string) =>
+  valor
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .toLowerCase();
+
+const temPerimetria = (t: string) => /circunferencia|perimetro|perimetria|circumference/.test(t);
+const temDobra = (t: string) => /dobra|prega\s*cutanea|skinfold|\bdc\b/.test(t);
+
+// De-para automático: reconhece nomes de coluna em variações de
+// português e inglês (planilhas de outros sistemas — NextFit, Pacto,
+// exportações internacionais — não usam sempre os mesmos nomes). Ordem
+// importa: regras mais específicas (que combinam uma palavra-chave de
+// dobra/perimetria com a parte do corpo) vêm antes das genéricas, pra
+// "Abdômen" isolado (ambíguo) não virar nem dobra nem perimetria
+// sozinho — melhor deixar sem mapear do que mapear errado.
+const REGRAS_AUTO_MAPA: { campo: CampoDestino; teste: (t: string) => boolean }[] = [
+  { campo: "full_name", teste: (t) => /\bnome\b|\bname\b/.test(t) },
+  { campo: "email", teste: (t) => /e-?mail/.test(t) },
+  { campo: "telefone", teste: (t) => /telefone|celular|\bfone\b|\bphone\b|whatsapp/.test(t) },
+  { campo: "cpf", teste: (t) => /\bcpf\b/.test(t) },
+  { campo: "nivel_atacado", teste: (t) => /\bplano\b|\bnivel\b|\blevel\b|\bplan\b/.test(t) },
+
+  { campo: "perim_braco", teste: (t) => temPerimetria(t) && /\bbraco\b|\barm\b/.test(t) && !/antebraco|forearm/.test(t) },
+  { campo: "perim_antebraco", teste: (t) => temPerimetria(t) && /antebraco|forearm/.test(t) },
+  { campo: "perim_cintura", teste: (t) => temPerimetria(t) && /cintura|waist/.test(t) },
+  { campo: "perim_abdomen", teste: (t) => temPerimetria(t) && /abdomen|abdominal/.test(t) },
+  { campo: "perim_quadril", teste: (t) => temPerimetria(t) && /quadril|\bhip\b/.test(t) },
+  { campo: "perim_coxa", teste: (t) => temPerimetria(t) && /coxa|thigh/.test(t) },
+  { campo: "perim_panturrilha", teste: (t) => temPerimetria(t) && /panturrilha|\bcalf\b/.test(t) },
+
+  { campo: "dc_triceps", teste: (t) => temDobra(t) && /triceps/.test(t) },
+  { campo: "dc_subescapular", teste: (t) => temDobra(t) && /subescapular|subscapular/.test(t) },
+  { campo: "dc_suprailiaca", teste: (t) => temDobra(t) && /supra.?ili/.test(t) },
+  { campo: "dc_abdominal", teste: (t) => temDobra(t) && /abdomen|abdominal/.test(t) },
+  { campo: "dc_coxa", teste: (t) => temDobra(t) && /coxa|thigh/.test(t) },
+  { campo: "dc_peitoral", teste: (t) => temDobra(t) && /peitoral|peito|chest/.test(t) },
+  { campo: "dc_axilar_media", teste: (t) => temDobra(t) && /axilar/.test(t) },
+
+  { campo: "peso_kg", teste: (t) => /\bpeso\b|\bweight\b/.test(t) },
+  { campo: "altura_cm", teste: (t) => /\baltura\b|\bheight\b|\bestatura\b/.test(t) },
+  { campo: "percentual_gordura", teste: (t) => /gordura|body\s*fat|\bbf%?\b/.test(t) },
+  { campo: "historico_clinico", teste: (t) => /historico|observa|\bobs\b|\bnota\b|\bnote\b/.test(t) },
+];
+
+const detectarCampo = (nomeColuna: string): CampoDestino => {
+  const normalizado = normalizarTexto(nomeColuna);
+  return REGRAS_AUTO_MAPA.find((regra) => regra.teste(normalizado))?.campo ?? "ignorar";
+};
+
 // Planilhas brasileiras costumam usar vírgula decimal ("70,5") — aceita
 // os dois formatos.
 const paraNumero = (valor: string): number | null => {
@@ -191,13 +243,7 @@ export default function AdminImportarAlunos() {
       // De-para automático por nome de coluna aproximado
       const autoMapa: Record<string, CampoDestino> = {};
       for (const col of colunasDetectadas) {
-        const normalizado = col.trim().toLowerCase();
-        if (/nome/.test(normalizado)) autoMapa[col] = "full_name";
-        else if (/e-?mail/.test(normalizado)) autoMapa[col] = "email";
-        else if (/telefone|celular|fone/.test(normalizado)) autoMapa[col] = "telefone";
-        else if (/cpf/.test(normalizado)) autoMapa[col] = "cpf";
-        else if (/plano|nivel|nível/.test(normalizado)) autoMapa[col] = "nivel_atacado";
-        else autoMapa[col] = "ignorar";
+        autoMapa[col] = detectarCampo(col);
       }
       setMapeamento(autoMapa);
     } catch (error) {
@@ -303,9 +349,11 @@ export default function AdminImportarAlunos() {
         <CardHeader className="pb-2">
           <CardTitle className="text-base">1. Selecione o arquivo</CardTitle>
           <p className="text-xs text-muted-foreground">
-            Formatos aceitos: .csv e .xlsx — até 5MB / 2000 linhas. Se a planilha tiver dados de avaliação física
-            (peso, dobras, perimetria) de um sistema anterior, dá pra mapear essas colunas também — o histórico do
-            aluno já entra pronto no ArkeFit.
+            Formatos aceitos: .csv e .xlsx — até 5MB / 2000 linhas. As colunas são reconhecidas automaticamente
+            mesmo com nomes diferentes ou em inglês (ex.: "weight" vira Peso, "waist circumference" vira
+            Perimetria — Cintura) — confira o de-para abaixo antes de importar. Se a planilha tiver dados de
+            avaliação física (peso, dobras, perimetria) de um sistema anterior, dá pra mapear essas colunas
+            também — o histórico do aluno já entra pronto no ArkeFit.
           </p>
         </CardHeader>
         <CardContent>
