@@ -64,6 +64,7 @@ import {
   Trash2,
 } from "lucide-react";
 import type { Tables, Enums } from "@/integrations/supabase/types";
+import { OrganizacaoPerfilSheet } from "@/components/superadmin/OrganizacaoPerfilSheet";
 
 type CategoriaSimulacao = "aluno" | "academia" | "studio" | "personal" | "nutricionista";
 
@@ -320,6 +321,7 @@ export default function SuperAdminDashboard() {
 
   // ---- Editar Informações do Tenant (+ Faturamento B2B e Fiscal) ----
   const [tenantEditando, setTenantEditando] = useState<Tenant | null>(null);
+  const [tenantPerfil, setTenantPerfil] = useState<Tenant | null>(null);
   const [edicao, setEdicao] = useState({
     nome: "",
     tipo: "academia" as Enums<"organization_tipo">,
@@ -739,7 +741,13 @@ export default function SuperAdminDashboard() {
                 {tenantsFiltrados.map((tenant) => (
                   <tr key={tenant.organization_id} className="border-b border-border last:border-0">
                     <td className="p-3">
-                      <p className="font-medium">{tenant.nome}</p>
+                      <button
+                        type="button"
+                        className="text-left hover:underline underline-offset-2"
+                        onClick={() => setTenantPerfil(tenant)}
+                      >
+                        <p className="font-medium">{tenant.nome}</p>
+                      </button>
                       <p className="text-xs text-muted-foreground">/{tenant.slug}</p>
                     </td>
                     <td className="p-3">
@@ -1388,6 +1396,19 @@ export default function SuperAdminDashboard() {
           "superadmin".
         </p>
       )}
+
+      <OrganizacaoPerfilSheet
+        tenant={tenantPerfil}
+        onOpenChange={(open) => !open && setTenantPerfil(null)}
+        onEditar={(tenant) => {
+          setTenantPerfil(null);
+          abrirEdicao(tenant);
+        }}
+        onFaturamento={(tenant) => {
+          setTenantPerfil(null);
+          abrirEdicao(tenant, "faturamento");
+        }}
+      />
     </div>
   );
 }
