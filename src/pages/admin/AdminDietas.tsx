@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Combobox } from "@/components/ui/combobox";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -357,18 +358,17 @@ export default function AdminDietas() {
 
                 <div className="pt-2 border-t border-border space-y-1.5">
                   <Label className="text-xs text-muted-foreground">Adicionar alimento da Tabela B.A.S.E.® (opcional)</Label>
-                  <Select value={alimentoBibliotecaId} onValueChange={adicionarAlimentoDaBiblioteca}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Buscar alimento (soma calorias e macros automaticamente)..." />
-                    </SelectTrigger>
-                    <SelectContent className="max-h-72">
-                      {bibliotecaAlimentos.map((a) => (
-                        <SelectItem key={a.id} value={a.id}>
-                          {a.categoria} — {a.nome} ({a.porcao_g}g · {a.calorias_kcal}kcal)
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <Combobox
+                    value={alimentoBibliotecaId}
+                    onValueChange={adicionarAlimentoDaBiblioteca}
+                    placeholder="Buscar alimento (soma calorias e macros automaticamente)..."
+                    searchPlaceholder="Digite o nome do alimento ou categoria..."
+                    emptyText="Nenhum alimento encontrado."
+                    options={bibliotecaAlimentos.map((a) => ({
+                      value: a.id,
+                      label: `${a.categoria} — ${a.nome} (${a.porcao_g}g · ${a.calorias_kcal}kcal)`,
+                    }))}
+                  />
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
