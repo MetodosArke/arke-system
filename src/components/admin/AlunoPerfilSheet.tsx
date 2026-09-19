@@ -184,7 +184,13 @@ export function AlunoPerfilSheet({
                 )}
               </SheetTitle>
               <div className="flex flex-wrap gap-1.5">
-                <Badge variant="secondary">{NIVEL_LABEL[perfil.aluno.nivel_atacado] ?? perfil.aluno.nivel_atacado}</Badge>
+                {perfil.aluno.nivel_atacado ? (
+                  <Badge variant="secondary">{NIVEL_LABEL[perfil.aluno.nivel_atacado] ?? perfil.aluno.nivel_atacado}</Badge>
+                ) : (
+                  <Badge variant="outline" className="text-muted-foreground">
+                    Sem método
+                  </Badge>
+                )}
                 <Badge variant="outline">{FASE_LABEL[perfil.aluno.fase_jornada] ?? perfil.aluno.fase_jornada}</Badge>
                 {perfil.assinatura?.status && (
                   <Badge variant={perfil.assinatura.status === "ativa" ? "default" : "outline"}>
@@ -221,12 +227,15 @@ export function AlunoPerfilSheet({
                 size="sm"
                 variant="outline"
                 className="flex-1"
-                disabled={perfil.aluno.metodo_arke_status !== "ativo" || perfil.aluno.nivel_atacado === "essencial"}
+                disabled={
+                  perfil.aluno.metodo_arke_status !== "ativo" ||
+                  (perfil.aluno.nivel_atacado !== "integrado" && perfil.aluno.nivel_atacado !== "elite")
+                }
                 title={
                   perfil.aluno.metodo_arke_status !== "ativo"
                     ? "Aluno ainda não aderiu ao Método ARKE"
-                    : perfil.aluno.nivel_atacado === "essencial"
-                      ? "Plano Essencial não inclui nutrição"
+                    : perfil.aluno.nivel_atacado !== "integrado" && perfil.aluno.nivel_atacado !== "elite"
+                      ? "Só os níveis Integrado e Elite incluem nutrição"
                       : undefined
                 }
                 onClick={() => setChatAberto("nutri")}

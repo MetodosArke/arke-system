@@ -49,7 +49,7 @@ export default function AlunoDieta() {
         .maybeSingle();
       return data;
     },
-    enabled: !!alunoId && aluno?.nivel_atacado !== "essencial",
+    enabled: !!alunoId && (aluno?.nivel_atacado === "integrado" || aluno?.nivel_atacado === "elite"),
   });
 
   const { data: habitoHoje } = useQuery({
@@ -105,15 +105,17 @@ export default function AlunoDieta() {
   );
   const temMacros = refeicoes.some((r) => r.calorias_kcal || r.proteinas_g || r.carboidratos_g || r.gorduras_g);
 
-  if (aluno?.nivel_atacado === "essencial") {
+  if (aluno && aluno.nivel_atacado !== "integrado" && aluno.nivel_atacado !== "elite") {
     return (
       <div className="max-w-2xl mx-auto">
         <Card>
           <CardContent className="py-8 text-center space-y-2">
             <UtensilsCrossed className="h-8 w-8 text-muted-foreground/40 mx-auto" />
-            <p className="text-sm font-medium">Nutrição não incluída no seu plano</p>
+            <p className="text-sm font-medium">
+              {aluno.nivel_atacado === "essencial" ? "Nutrição não incluída no seu plano" : "Acompanhamento nutricional do Método ARKE"}
+            </p>
             <p className="text-xs text-muted-foreground">
-              Fale com sua academia para migrar para o plano Integrado ou Elite e ter acesso ao acompanhamento nutricional.
+              Fale com sua academia sobre o Método ARKE nos níveis Integrado ou Elite para ter acesso ao acompanhamento nutricional.
             </p>
           </CardContent>
         </Card>

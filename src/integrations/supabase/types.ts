@@ -361,7 +361,7 @@ export type Database = {
           meta_semanal_dias: number
           metodo_arke_ativado_em: string | null
           metodo_arke_status: Database["public"]["Enums"]["metodo_arke_status"]
-          nivel_atacado: Database["public"]["Enums"]["nivel_atacado"]
+          nivel_atacado: Database["public"]["Enums"]["nivel_atacado"] | null
           objetivo: string | null
           observacoes: string | null
           organization_id: string
@@ -384,7 +384,7 @@ export type Database = {
           meta_semanal_dias?: number
           metodo_arke_ativado_em?: string | null
           metodo_arke_status?: Database["public"]["Enums"]["metodo_arke_status"]
-          nivel_atacado?: Database["public"]["Enums"]["nivel_atacado"]
+          nivel_atacado?: Database["public"]["Enums"]["nivel_atacado"] | null
           objetivo?: string | null
           observacoes?: string | null
           organization_id: string
@@ -407,7 +407,7 @@ export type Database = {
           meta_semanal_dias?: number
           metodo_arke_ativado_em?: string | null
           metodo_arke_status?: Database["public"]["Enums"]["metodo_arke_status"]
-          nivel_atacado?: Database["public"]["Enums"]["nivel_atacado"]
+          nivel_atacado?: Database["public"]["Enums"]["nivel_atacado"] | null
           objetivo?: string | null
           observacoes?: string | null
           organization_id?: string

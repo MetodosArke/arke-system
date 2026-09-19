@@ -68,7 +68,7 @@ const DIAS_SEMANA = [
 interface AlunoRow {
   id: string;
   user_id: string;
-  nivel_atacado: string;
+  nivel_atacado: string | null;
   fase_jornada: string;
   metodo_arke_status: string;
   objetivo: string | null;
@@ -97,6 +97,8 @@ export default function AdminAlunos() {
   const [reciboAberto, setReciboAberto] = useState(false);
   const [reciboSelecionado, setReciboSelecionado] = useState<ReciboData | null>(null);
   const [alunoAnonimizar, setAlunoAnonimizar] = useState<AlunoRow | null>(null);
+  const [alunoAdesao, setAlunoAdesao] = useState<AlunoRow | null>(null);
+  const [nivelAdesao, setNivelAdesao] = useState<Nivel | "">("");
   const [alunoExcluir, setAlunoExcluir] = useState<AlunoRow | null>(null);
   const [enviandoWhatsApp, setEnviandoWhatsApp] = useState<string | null>(null);
   const [alunoAvaliacao, setAlunoAvaliacao] = useState<AlunoRow | null>(null);
@@ -159,16 +161,17 @@ export default function AdminAlunos() {
   });
 
   const marcarAdesaoMetodoArke = useMutation({
-    mutationFn: async (aluno: AlunoRow) => {
+    mutationFn: async ({ aluno, nivel }: { aluno: AlunoRow; nivel: Nivel }) => {
       const { error } = await supabase
         .from("alunos")
-        .update({ metodo_arke_status: "ativo", metodo_arke_ativado_em: new Date().toISOString() })
+        .update({ metodo_arke_status: "ativo", metodo_arke_ativado_em: new Date().toISOString(), nivel_atacado: nivel })
         .eq("id", aluno.id);
       if (error) throw error;
     },
     onSuccess: () => {
       toast({ title: "Adesão registrada", description: "O aluno agora tem acesso ao Método ARKE." });
       void queryClient.invalidateQueries({ queryKey: ["admin-alunos", organization?.id] });
+      setAlunoAdesao(null);
     },
     onError: (error: Error) =>
       toast({ title: "Erro ao registrar adesão", description: error.message, variant: "destructive" }),
@@ -205,7 +208,7 @@ export default function AdminAlunos() {
     setReciboSelecionado({
       organizacaoNome: organization?.nome ?? "Academia",
       alunoNome: aluno.full_name,
-      planoNome: NIVEL_LABEL[aluno.nivel_atacado] ?? aluno.nivel_atacado,
+      planoNome: aluno.nivel_atacado ? NIVEL_LABEL[aluno.nivel_atacado] ?? aluno.nivel_atacado : "—",
       valor: aluno.assinatura_valor,
       formaPagamento: "Asaas",
       data: aluno.assinatura_atualizada_em ?? new Date().toISOString(),
@@ -353,7 +356,13 @@ export default function AdminAlunos() {
                       )}
                     </TableCell>
                     <TableCell>
-                      <Badge variant="secondary">{NIVEL_LABEL[aluno.nivel_atacado] ?? aluno.nivel_atacado}</Badge>
+                      {aluno.nivel_atacado ? (
+                        <Badge variant="secondary">{NIVEL_LABEL[aluno.nivel_atacado] ?? aluno.nivel_atacado}</Badge>
+                      ) : (
+                        <Badge variant="outline" className="text-muted-foreground">
+                          Sem método
+                        </Badge>
+                      )}
                     </TableCell>
                     <TableCell>
                       {aluno.metodo_arke_status === "ativo" ? (
@@ -365,8 +374,11 @@ export default function AdminAlunos() {
                           variant="outline"
                           size="sm"
                           className="h-7 text-xs"
-                          disabled={!!aluno.anonimizado_em || marcarAdesaoMetodoArke.isPending}
-                          onClick={() => marcarAdesaoMetodoArke.mutate(aluno)}
+                          disabled={!!aluno.anonimizado_em}
+                          onClick={() => {
+                            setAlunoAdesao(aluno);
+                            setNivelAdesao((aluno.nivel_atacado as Nivel) ?? "");
+                          }}
                         >
                           Marcar adesão
                         </Button>
@@ -472,6 +484,42 @@ export default function AdminAlunos() {
         alunoId={alunoAvaliacao?.id ?? null}
         alunoNome={alunoAvaliacao?.full_name}
       />
+
+      <Dialog open={!!alunoAdesao} onOpenChange={(open) => !open && setAlunoAdesao(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Registrar adesão ao Método ARKE — {alunoAdesao?.full_name}</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            Qual nível do Método ARKE esse aluno está contratando? É a partir daqui que ele passa a ter acesso ao
+            onboarding, chat com a equipe e todo o resto do produto.
+          </p>
+          <div className="space-y-1.5">
+            <Label>Nível</Label>
+            <Select value={nivelAdesao} onValueChange={(v) => setNivelAdesao(v as Nivel)}>
+              <SelectTrigger>
+                <SelectValue placeholder="Selecione o nível" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="essencial">Essencial</SelectItem>
+                <SelectItem value="integrado">Integrado</SelectItem>
+                <SelectItem value="elite">Elite</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAlunoAdesao(null)}>
+              Cancelar
+            </Button>
+            <Button
+              disabled={!nivelAdesao || marcarAdesaoMetodoArke.isPending}
+              onClick={() => alunoAdesao && marcarAdesaoMetodoArke.mutate({ aluno: alunoAdesao, nivel: nivelAdesao as Nivel })}
+            >
+              {marcarAdesaoMetodoArke.isPending ? "Registrando..." : "Confirmar adesão"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={!!alunoAnonimizar} onOpenChange={(open) => !open && setAlunoAnonimizar(null)}>
         <DialogContent>
@@ -608,7 +656,6 @@ function CadastrarAlunoDialog({
 
   const cadastrar = useMutation({
     mutationFn: async () => {
-      if (!form.nivel_atacado) throw new Error("Selecione o plano do aluno.");
       const { data, error } = await supabase.functions.invoke<{ user_id: string }>("convidar-membro", {
         body: {
           email: form.email,
@@ -616,7 +663,7 @@ function CadastrarAlunoDialog({
           telefone: form.telefone,
           cpf: form.cpf,
           papel: "aluno",
-          nivel_atacado: form.nivel_atacado,
+          nivel_atacado: form.nivel_atacado || undefined,
         },
       });
       if (error) throw error;
@@ -733,13 +780,13 @@ function CadastrarAlunoDialog({
             </div>
           </div>
           <div className="space-y-1.5">
-            <Label>Plano</Label>
+            <Label>Nível do Método ARKE (opcional)</Label>
             <Select
               value={form.nivel_atacado}
               onValueChange={(v) => setForm((f) => ({ ...f, nivel_atacado: v as Nivel }))}
             >
               <SelectTrigger>
-                <SelectValue placeholder="Selecione o plano" />
+                <SelectValue placeholder="Sem método por enquanto" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="essencial">Essencial</SelectItem>

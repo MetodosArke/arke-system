@@ -22,7 +22,7 @@ type ConvidarMembroPayload = {
   telefone?: string;
   cpf?: string;
   papel: Papel;
-  nivel_atacado?: "essencial" | "integrado" | "elite"; // opcional — default "essencial" quando omitido
+  nivel_atacado?: "essencial" | "integrado" | "elite"; // opcional — sem adesão ainda, fica null quando omitido
 };
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -62,11 +62,11 @@ Deno.serve(async (req: Request) => {
     const telefone = payload.telefone?.trim() || null;
     const cpf = payload.cpf?.trim() || null;
     const papel = payload.papel;
-    // Nível do Método ARKE: não é obrigatório. A academia ainda pode não ter
-    // decidido isso na hora do cadastro (ex.: importação em massa de alunos
-    // que ainda nem aderiram ao método) — nesse caso cai no default
-    // "essencial", igual o default da coluna no banco.
-    const nivelAtacado = payload.nivel_atacado && NIVEIS_VALIDOS.has(payload.nivel_atacado) ? payload.nivel_atacado : "essencial";
+    // Nível do Método ARKE: não é obrigatório. O aluno matriculado ainda nem
+    // foi apresentado ao método — isso é negociação pós-implantação. Sem
+    // valor válido, fica sem nível nenhum (null) até o staff registrar a
+    // adesão de verdade (é aí que o nível é escolhido).
+    const nivelAtacado = payload.nivel_atacado && NIVEIS_VALIDOS.has(payload.nivel_atacado) ? payload.nivel_atacado : null;
 
     if (!email || !EMAIL_RE.test(email)) {
       return jsonResponse({ error: "E-mail inválido." }, 400);

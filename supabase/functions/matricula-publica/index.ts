@@ -125,9 +125,17 @@ Deno.serve(async (req: Request) => {
       return jsonResponse({ error: "Erro ao vincular o usuário à academia." }, 500);
     }
 
-    const { error: alunoError } = await admin
-      .from("alunos")
-      .insert({ organization_id: org.id, user_id: newUserId, nivel_atacado: nivelAtacado });
+    // Matrícula pública já é a adesão de verdade ao Método ARKE (o
+    // aluno escolheu o nível e vai pagar por ele) — diferente do
+    // cadastro/importação feito pela academia, aqui não faz sentido
+    // nascer "sem_adesao".
+    const { error: alunoError } = await admin.from("alunos").insert({
+      organization_id: org.id,
+      user_id: newUserId,
+      nivel_atacado: nivelAtacado,
+      metodo_arke_status: "ativo",
+      metodo_arke_ativado_em: new Date().toISOString(),
+    });
     if (alunoError) {
       console.error("Error inserting aluno", alunoError);
       await admin.from("organization_members").delete().eq("user_id", newUserId);

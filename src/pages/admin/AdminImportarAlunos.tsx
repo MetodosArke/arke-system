@@ -276,15 +276,14 @@ export default function AdminImportarAlunos() {
     for (let i = 0; i < linhas.length; i++) {
       const registro = linhaParaRegistro(linhas[i]);
       // Nível do Método ARKE não trava a importação: a academia ainda não tem
-      // como importar seus próprios planos, e o aluno importado nasce sem
-      // adesão ao método mesmo — esse nível só passa a valer de verdade
-      // quando ele aderir. Sem valor válido na planilha, cai no default
-      // "essencial" do banco.
+      // como importar seus próprios planos, e o aluno importado nem foi
+      // apresentado ao método ainda — isso é negociação pós-implantação.
+      // Sem valor válido na planilha, o aluno fica sem nível nenhum (não
+      // "essencial" por padrão) até o staff registrar a adesão de verdade.
       const nivelBruto = registro.nivel_atacado.trim().toLowerCase();
-      const nivel = (["essencial", "integrado", "elite"].includes(nivelBruto) ? nivelBruto : "essencial") as
-        | "essencial"
-        | "integrado"
-        | "elite";
+      const nivel = ["essencial", "integrado", "elite"].includes(nivelBruto)
+        ? (nivelBruto as "essencial" | "integrado" | "elite")
+        : undefined;
 
       if (!registro.full_name || !registro.email) {
         setResultados((prev) =>
