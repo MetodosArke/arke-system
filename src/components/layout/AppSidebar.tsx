@@ -1,23 +1,31 @@
 import { useState } from "react";
 import { useAppSidebar } from "./AppLayout";
-import { Home, User, LogOut, ChevronLeft, Menu, Dumbbell, UtensilsCrossed, LayoutDashboard, Activity, Compass, Trophy, Medal, Users } from "lucide-react";
+import { Home, User, LogOut, ChevronLeft, Menu, Dumbbell, UtensilsCrossed, LayoutDashboard, Activity, Compass, Trophy, Medal, Users, CalendarDays } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 
-const menuItems = [
-  { icon: Home, label: "Início", path: "/app" },
-  { icon: Dumbbell, label: "Treino", path: "/app/treinos" },
-  { icon: UtensilsCrossed, label: "Dieta", path: "/app/dieta" },
-  { icon: Activity, label: "Evolução", path: "/app/evolucao" },
-  { icon: Compass, label: "Jornada", path: "/app/jornada" },
-  { icon: Trophy, label: "Desafios", path: "/app/desafios" },
-  { icon: Medal, label: "Competições", path: "/app/competicoes" },
-  { icon: Users, label: "Feed", path: "/app/feed" },
-  { icon: User, label: "Perfil", path: "/app/perfil" },
-];
+function buildMenuItems(ehStudio: boolean) {
+  const items = [
+    { icon: Home, label: "Início", path: "/app" },
+    { icon: Dumbbell, label: "Treino", path: "/app/treinos" },
+    { icon: UtensilsCrossed, label: "Dieta", path: "/app/dieta" },
+  ];
+  if (ehStudio) {
+    items.push({ icon: CalendarDays, label: "Agenda", path: "/app/agenda" });
+  }
+  items.push(
+    { icon: Activity, label: "Evolução", path: "/app/evolucao" },
+    { icon: Compass, label: "Jornada", path: "/app/jornada" },
+    { icon: Trophy, label: "Desafios", path: "/app/desafios" },
+    { icon: Medal, label: "Competições", path: "/app/competicoes" },
+    { icon: Users, label: "Feed", path: "/app/feed" },
+    { icon: User, label: "Perfil", path: "/app/perfil" }
+  );
+  return items;
+}
 
 function SidebarNav({
   collapsed,
@@ -30,8 +38,9 @@ function SidebarNav({
 }) {
   const location = useLocation();
   const navigate = useNavigate();
-  const { signOut, hasRole } = useAuth();
+  const { signOut, hasRole, organization } = useAuth();
   const isAdminArke = hasRole("admin_arke");
+  const menuItems = buildMenuItems(organization?.tipo === "studio");
 
   const handleNav = (path: string) => {
     navigate(path);
