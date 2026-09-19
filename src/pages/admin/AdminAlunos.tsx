@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Users, CalendarOff, UserPlus, FileSpreadsheet, Printer, MessageCircle, UserX, Ruler, Trash2 } from "lucide-react";
+import { Users, CalendarOff, UserPlus, FileSpreadsheet, Printer, MessageCircle, UserX, Ruler, Trash2, Sparkles } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { Enums } from "@/integrations/supabase/types";
 import { ReciboComprovanteDialog, type ReciboData } from "@/components/admin/ReciboComprovanteDialog";
@@ -57,6 +57,7 @@ interface AlunoRow {
   user_id: string;
   nivel_atacado: string;
   fase_jornada: string;
+  metodo_arke_status: string;
   objetivo: string | null;
   data_inicio: string | null;
   dias_descanso: number[];
@@ -93,7 +94,9 @@ export default function AdminAlunos() {
     queryFn: async () => {
       const { data: alunosData, error } = await supabase
         .from("alunos")
-        .select("id, user_id, nivel_atacado, objetivo, data_inicio, fase_jornada, dias_descanso, anonimizado_em")
+        .select(
+          "id, user_id, nivel_atacado, objetivo, data_inicio, fase_jornada, metodo_arke_status, dias_descanso, anonimizado_em"
+        )
         .eq("organization_id", organization!.id)
         .order("data_inicio", { ascending: false });
       if (error) throw error;
@@ -138,6 +141,22 @@ export default function AdminAlunos() {
       });
     },
     enabled: !!organization?.id,
+  });
+
+  const marcarAdesaoMetodoArke = useMutation({
+    mutationFn: async (aluno: AlunoRow) => {
+      const { error } = await supabase
+        .from("alunos")
+        .update({ metodo_arke_status: "ativo", metodo_arke_ativado_em: new Date().toISOString() })
+        .eq("id", aluno.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast({ title: "Adesão registrada", description: "O aluno agora tem acesso ao Método ARKE." });
+      void queryClient.invalidateQueries({ queryKey: ["admin-alunos", organization?.id] });
+    },
+    onError: (error: Error) =>
+      toast({ title: "Erro ao registrar adesão", description: error.message, variant: "destructive" }),
   });
 
   const salvarDiasDescanso = useMutation({
@@ -262,6 +281,7 @@ export default function AdminAlunos() {
                 <TableRow>
                   <TableHead>Nome</TableHead>
                   <TableHead>Plano</TableHead>
+                  <TableHead>Método ARKE</TableHead>
                   <TableHead>Assinatura</TableHead>
                   <TableHead>Fase</TableHead>
                   <TableHead>Desde</TableHead>
@@ -286,6 +306,23 @@ export default function AdminAlunos() {
                     </TableCell>
                     <TableCell>
                       <Badge variant="secondary">{NIVEL_LABEL[aluno.nivel_atacado] ?? aluno.nivel_atacado}</Badge>
+                    </TableCell>
+                    <TableCell>
+                      {aluno.metodo_arke_status === "ativo" ? (
+                        <Badge className="gap-1">
+                          <Sparkles className="h-3 w-3" /> Aderiu
+                        </Badge>
+                      ) : (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-7 text-xs"
+                          disabled={!!aluno.anonimizado_em || marcarAdesaoMetodoArke.isPending}
+                          onClick={() => marcarAdesaoMetodoArke.mutate(aluno)}
+                        >
+                          Marcar adesão
+                        </Button>
+                      )}
                     </TableCell>
                     <TableCell>
                       {aluno.assinatura_status ? (

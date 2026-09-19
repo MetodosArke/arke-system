@@ -33,6 +33,7 @@ interface AuthContextType {
   organizationRole: AppRole | null; // papel do usuário dentro da organização atual
   alunoId: string | null; // id em `alunos`, quando o papel na org é "aluno"
   faseJornada: FaseJornada | null; // M.A.P.A. → B.A.S.E. → R.O.T.A. → A.P.E.X. → L.E.G.A.D.O.
+  metodoArkeAtivo: boolean; // aderiu ao produto Método ARKE (além da matrícula normal na academia)
   anamneseCompleta: boolean; // Anamnese de Acolhimento (M.A.P.A.®) já preenchida
   consentimentoLgpdAceito: boolean; // Termo de consentimento (dados de saúde) já aceito
   isAuthenticated: boolean;
@@ -60,6 +61,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [organizationRole, setOrganizationRole] = useState<AppRole | null>(null);
   const [alunoId, setAlunoId] = useState<string | null>(null);
   const [faseJornada, setFaseJornada] = useState<FaseJornada | null>(null);
+  const [metodoArkeAtivo, setMetodoArkeAtivo] = useState(false);
   const [anamneseCompleta, setAnamneseCompleta] = useState(false);
   const [consentimentoLgpdAceito, setConsentimentoLgpdAceito] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -78,7 +80,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const loadAlunoStatus = async (userId: string, organizationId: string) => {
     const { data: aluno } = await supabase
       .from("alunos")
-      .select("id, fase_jornada, primeiro_acesso_em")
+      .select("id, fase_jornada, primeiro_acesso_em, metodo_arke_status")
       .eq("user_id", userId)
       .eq("organization_id", organizationId)
       .maybeSingle();
@@ -86,6 +88,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!aluno) {
       setAlunoId(null);
       setFaseJornada(null);
+      setMetodoArkeAtivo(false);
       setAnamneseCompleta(false);
       setConsentimentoLgpdAceito(false);
       return;
@@ -93,6 +96,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     setAlunoId(aluno.id);
     setFaseJornada(aluno.fase_jornada);
+    setMetodoArkeAtivo(aluno.metodo_arke_status === "ativo");
 
     // M.A.P.A.®: registra o 1º acesso (dispara a automação de "48h sem 1º acesso" a não gerar tarefa)
     if (!aluno.primeiro_acesso_em) {
@@ -149,6 +153,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } else {
         setAlunoId(null);
         setFaseJornada(null);
+        setMetodoArkeAtivo(false);
         setAnamneseCompleta(false);
       }
     } else {
@@ -156,6 +161,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setOrganization(null);
       setAlunoId(null);
       setFaseJornada(null);
+      setMetodoArkeAtivo(false);
       setAnamneseCompleta(false);
     }
 
@@ -206,6 +212,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setOrganizationRole(null);
         setAlunoId(null);
         setFaseJornada(null);
+        setMetodoArkeAtivo(false);
         setAnamneseCompleta(false);
         setCurrentUserId(null);
         setRolesLoaded(true);
@@ -282,6 +289,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setOrganizationRole(null);
     setAlunoId(null);
     setFaseJornada(null);
+    setMetodoArkeAtivo(false);
     setAnamneseCompleta(false);
     setCurrentUserId(null);
   };
@@ -309,6 +317,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         organizationRole,
         alunoId,
         faseJornada,
+        metodoArkeAtivo,
         anamneseCompleta,
         consentimentoLgpdAceito,
         isAuthenticated: !!session,

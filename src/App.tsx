@@ -89,16 +89,20 @@ const queryClient = new QueryClient({
 const STAFF_ROLES = ["admin_arke", "gestor", "professor", "nutricionista", "recepcao"] as const;
 const SUPERADMIN_ROLES = ["superadmin"] as const;
 
-// M.A.P.A.®: aluno sem anamnese de acolhimento concluída é levado ao onboarding
-// antes de acessar o restante do app.
+// M.A.P.A.®/onboarding é a experiência do produto Método ARKE — um
+// adicional que a academia vende à parte, não o cadastro básico de aluno
+// matriculado (que já vem pronto do sistema normal da academia). Só força
+// esse fluxo pra quem de fato aderiu ao método; aluno sem adesão segue
+// direto pro app, com acesso básico (treino, dieta) funcionando do jeito
+// que a equipe publicar pra ele.
 function AlunoOnboardingGate({ children }: { children: React.ReactNode }) {
-  const { alunoId, anamneseCompleta, consentimentoLgpdAceito, rolesLoaded } = useAuth();
-  if (rolesLoaded && alunoId && !anamneseCompleta) {
+  const { alunoId, metodoArkeAtivo, anamneseCompleta, consentimentoLgpdAceito, rolesLoaded } = useAuth();
+  if (rolesLoaded && alunoId && metodoArkeAtivo && !anamneseCompleta) {
     return <Navigate to="/app/onboarding" replace />;
   }
   // Aluno com anamnese antiga (anterior ao termo LGPD) precisa registrar o
   // consentimento antes de continuar, sem refazer a anamnese inteira.
-  if (rolesLoaded && alunoId && anamneseCompleta && !consentimentoLgpdAceito) {
+  if (rolesLoaded && alunoId && metodoArkeAtivo && anamneseCompleta && !consentimentoLgpdAceito) {
     return <Navigate to="/app/consentimento" replace />;
   }
   return <>{children}</>;
