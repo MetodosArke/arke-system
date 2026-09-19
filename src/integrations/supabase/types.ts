@@ -238,6 +238,89 @@ export type Database = {
           },
         ]
       }
+      aluno_matriculas_academia: {
+        Row: {
+          aluno_id: string
+          asaas_customer_id: string | null
+          asaas_subscription_id: string | null
+          created_at: string
+          data_inicio: string
+          dia_vencimento: number
+          id: string
+          organization_id: string
+          plano_id: string
+          registrado_por: string | null
+          status: Database["public"]["Enums"]["status_matricula_academia"]
+          updated_at: string
+          valor_cobrado: number
+          valor_liquido_academia: number
+          valor_repasse_arke: number
+        }
+        Insert: {
+          aluno_id: string
+          asaas_customer_id?: string | null
+          asaas_subscription_id?: string | null
+          created_at?: string
+          data_inicio?: string
+          dia_vencimento: number
+          id?: string
+          organization_id: string
+          plano_id: string
+          registrado_por?: string | null
+          status?: Database["public"]["Enums"]["status_matricula_academia"]
+          updated_at?: string
+          valor_cobrado: number
+          valor_liquido_academia?: number
+          valor_repasse_arke?: number
+        }
+        Update: {
+          aluno_id?: string
+          asaas_customer_id?: string | null
+          asaas_subscription_id?: string | null
+          created_at?: string
+          data_inicio?: string
+          dia_vencimento?: number
+          id?: string
+          organization_id?: string
+          plano_id?: string
+          registrado_por?: string | null
+          status?: Database["public"]["Enums"]["status_matricula_academia"]
+          updated_at?: string
+          valor_cobrado?: number
+          valor_liquido_academia?: number
+          valor_repasse_arke?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "aluno_matriculas_academia_aluno_id_fkey"
+            columns: ["aluno_id"]
+            isOneToOne: false
+            referencedRelation: "alunos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "aluno_matriculas_academia_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "org_churn_metrics"
+            referencedColumns: ["organization_id"]
+          },
+          {
+            foreignKeyName: "aluno_matriculas_academia_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "aluno_matriculas_academia_plano_id_fkey"
+            columns: ["plano_id"]
+            isOneToOne: false
+            referencedRelation: "planos_academia"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       aluno_objetivos: {
         Row: {
           aluno_id: string
@@ -1693,6 +1776,101 @@ export type Database = {
           },
         ]
       }
+      mensalidades: {
+        Row: {
+          aluno_id: string
+          asaas_payment_id: string | null
+          competencia: string
+          created_at: string
+          data_pagamento: string | null
+          forma_pagamento:
+            | Database["public"]["Enums"]["forma_pagamento_mensalidade"]
+            | null
+          id: string
+          invoice_url: string | null
+          matricula_id: string
+          observacao: string | null
+          organization_id: string
+          status: Database["public"]["Enums"]["status_mensalidade"]
+          updated_at: string
+          valor: number
+          valor_liquido_academia: number
+          valor_repasse_arke: number
+          vencimento: string
+        }
+        Insert: {
+          aluno_id: string
+          asaas_payment_id?: string | null
+          competencia: string
+          created_at?: string
+          data_pagamento?: string | null
+          forma_pagamento?:
+            | Database["public"]["Enums"]["forma_pagamento_mensalidade"]
+            | null
+          id?: string
+          invoice_url?: string | null
+          matricula_id: string
+          observacao?: string | null
+          organization_id: string
+          status?: Database["public"]["Enums"]["status_mensalidade"]
+          updated_at?: string
+          valor: number
+          valor_liquido_academia?: number
+          valor_repasse_arke?: number
+          vencimento: string
+        }
+        Update: {
+          aluno_id?: string
+          asaas_payment_id?: string | null
+          competencia?: string
+          created_at?: string
+          data_pagamento?: string | null
+          forma_pagamento?:
+            | Database["public"]["Enums"]["forma_pagamento_mensalidade"]
+            | null
+          id?: string
+          invoice_url?: string | null
+          matricula_id?: string
+          observacao?: string | null
+          organization_id?: string
+          status?: Database["public"]["Enums"]["status_mensalidade"]
+          updated_at?: string
+          valor?: number
+          valor_liquido_academia?: number
+          valor_repasse_arke?: number
+          vencimento?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mensalidades_aluno_id_fkey"
+            columns: ["aluno_id"]
+            isOneToOne: false
+            referencedRelation: "alunos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mensalidades_matricula_id_fkey"
+            columns: ["matricula_id"]
+            isOneToOne: false
+            referencedRelation: "aluno_matriculas_academia"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mensalidades_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "org_churn_metrics"
+            referencedColumns: ["organization_id"]
+          },
+          {
+            foreignKeyName: "mensalidades_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       metrica_valores: {
         Row: {
           avaliacao_id: string
@@ -2266,6 +2444,57 @@ export type Database = {
           },
         ]
       }
+      planos_academia: {
+        Row: {
+          ativo: boolean
+          created_at: string
+          descricao: string | null
+          id: string
+          nome: string
+          organization_id: string
+          periodicidade: Database["public"]["Enums"]["periodicidade_plano_academia"]
+          updated_at: string
+          valor: number
+        }
+        Insert: {
+          ativo?: boolean
+          created_at?: string
+          descricao?: string | null
+          id?: string
+          nome: string
+          organization_id: string
+          periodicidade: Database["public"]["Enums"]["periodicidade_plano_academia"]
+          updated_at?: string
+          valor: number
+        }
+        Update: {
+          ativo?: boolean
+          created_at?: string
+          descricao?: string | null
+          id?: string
+          nome?: string
+          organization_id?: string
+          periodicidade?: Database["public"]["Enums"]["periodicidade_plano_academia"]
+          updated_at?: string
+          valor?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "planos_academia_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "org_churn_metrics"
+            referencedColumns: ["organization_id"]
+          },
+          {
+            foreignKeyName: "planos_academia_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       planos_atacado: {
         Row: {
           custo_mensal: number
@@ -2287,6 +2516,36 @@ export type Database = {
           id?: Database["public"]["Enums"]["nivel_atacado"]
           nome?: string
           valor_sugerido_varejo?: number
+        }
+        Relationships: []
+      }
+      plataforma_config: {
+        Row: {
+          chave: string
+          created_at: string
+          descricao: string | null
+          id: string
+          updated_at: string
+          updated_by: string | null
+          valor: number
+        }
+        Insert: {
+          chave: string
+          created_at?: string
+          descricao?: string | null
+          id?: string
+          updated_at?: string
+          updated_by?: string | null
+          valor: number
+        }
+        Update: {
+          chave?: string
+          created_at?: string
+          descricao?: string | null
+          id?: string
+          updated_at?: string
+          updated_by?: string | null
+          valor?: number
         }
         Relationships: []
       }
@@ -2844,6 +3103,10 @@ export type Database = {
       }
     }
     Functions: {
+      abrir_tarefa_mensalidade_atrasada: {
+        Args: { _mensalidade_id: string }
+        Returns: undefined
+      }
       aluno_possui_agendamento_ativo_agora: {
         Args: { _aluno_id: string }
         Returns: boolean
@@ -3028,6 +3291,13 @@ export type Database = {
         | "desempenho_dieta"
         | "livre"
       fase_jornada: "mapa" | "base" | "rota" | "apex" | "legado"
+      forma_pagamento_mensalidade:
+        | "dinheiro"
+        | "pix"
+        | "cartao"
+        | "boleto"
+        | "transferencia"
+        | "outro"
       metodo_arke_status: "sem_adesao" | "ativo" | "cancelado"
       motivo_dificuldade:
         | "tempo"
@@ -3039,11 +3309,23 @@ export type Database = {
       org_status: "trial" | "ativo" | "inadimplente" | "suspenso" | "cancelado"
       organization_tipo: "academia" | "profissional_autonomo" | "studio"
       pagamento_status: "pendente" | "confirmado" | "atrasado" | "estornado"
+      periodicidade_plano_academia:
+        | "mensal"
+        | "trimestral"
+        | "semestral"
+        | "anual"
       plano_b2b: "starter" | "growth" | "enterprise" | "custom" | "autonomo"
       provedor_nutricao: "nenhum" | "nutricionista_academia" | "equipe_arke"
       provedor_treino: "academia_propria" | "personal_parceiro" | "equipe_arke"
       remetente_tipo_dieta: "aluno" | "nutricionista"
       remetente_tipo_treino: "aluno" | "treinador"
+      status_matricula_academia: "ativa" | "pausada" | "cancelada"
+      status_mensalidade:
+        | "pendente"
+        | "confirmado"
+        | "atrasado"
+        | "estornado"
+        | "cancelado"
       tarefa_prioridade: "baixa" | "media" | "alta" | "critica"
       tarefa_status:
         | "aberta"
@@ -3058,6 +3340,7 @@ export type Database = {
         | "barreira"
         | "ajuste"
         | "outro"
+        | "cobranca"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -3218,6 +3501,14 @@ export const Constants = {
         "livre",
       ],
       fase_jornada: ["mapa", "base", "rota", "apex", "legado"],
+      forma_pagamento_mensalidade: [
+        "dinheiro",
+        "pix",
+        "cartao",
+        "boleto",
+        "transferencia",
+        "outro",
+      ],
       metodo_arke_status: ["sem_adesao", "ativo", "cancelado"],
       motivo_dificuldade: [
         "tempo",
@@ -3230,11 +3521,25 @@ export const Constants = {
       org_status: ["trial", "ativo", "inadimplente", "suspenso", "cancelado"],
       organization_tipo: ["academia", "profissional_autonomo", "studio"],
       pagamento_status: ["pendente", "confirmado", "atrasado", "estornado"],
+      periodicidade_plano_academia: [
+        "mensal",
+        "trimestral",
+        "semestral",
+        "anual",
+      ],
       plano_b2b: ["starter", "growth", "enterprise", "custom", "autonomo"],
       provedor_nutricao: ["nenhum", "nutricionista_academia", "equipe_arke"],
       provedor_treino: ["academia_propria", "personal_parceiro", "equipe_arke"],
       remetente_tipo_dieta: ["aluno", "nutricionista"],
       remetente_tipo_treino: ["aluno", "treinador"],
+      status_matricula_academia: ["ativa", "pausada", "cancelada"],
+      status_mensalidade: [
+        "pendente",
+        "confirmado",
+        "atrasado",
+        "estornado",
+        "cancelado",
+      ],
       tarefa_prioridade: ["baixa", "media", "alta", "critica"],
       tarefa_status: [
         "aberta",
@@ -3250,6 +3555,7 @@ export const Constants = {
         "barreira",
         "ajuste",
         "outro",
+        "cobranca",
       ],
     },
   },

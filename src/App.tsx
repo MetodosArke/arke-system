@@ -42,6 +42,7 @@ import ConsentimentoLgpd from "@/pages/app/ConsentimentoLgpd";
 import AdminDashboard from "@/pages/admin/AdminDashboard";
 import DashboardHome from "@/pages/admin/DashboardHome";
 import AdminAlunos from "@/pages/admin/AdminAlunos";
+import AdminPlanosAcademia from "@/pages/admin/AdminPlanosAcademia";
 import AdminEquipe from "@/pages/admin/AdminEquipe";
 import AdminOrganizacao from "@/pages/admin/AdminOrganizacao";
 import AdminGestao360 from "@/pages/admin/AdminGestao360";
@@ -60,6 +61,7 @@ import AdminFeed from "@/pages/admin/AdminFeed";
 // Super Admin (Visão Master ArkeFit)
 import SuperAdminDashboard from "@/pages/superadmin/SuperAdminDashboard";
 import SuperAdminProfissionais from "@/pages/superadmin/SuperAdminProfissionais";
+import SuperAdminConfiguracoes from "@/pages/superadmin/SuperAdminConfiguracoes";
 
 import NotFound from "./pages/NotFound";
 
@@ -219,6 +221,7 @@ const App = () => (
                 <Route path="onboarding" element={<AdminOnboarding />} />
                 <Route path="alunos" element={<AdminAlunos />} />
                 <Route path="alunos/importar" element={<AdminImportarAlunos />} />
+                <Route path="planos" element={<AdminPlanosAcademia />} />
                 <Route path="equipe" element={<AdminEquipe />} />
                 <Route path="treinos" element={<AdminTreinos />} />
                 <Route path="dietas" element={<AdminDietas />} />
@@ -244,6 +247,7 @@ const App = () => (
               >
                 <Route index element={<SuperAdminDashboard />} />
                 <Route path="profissionais" element={<SuperAdminProfissionais />} />
+                <Route path="configuracoes" element={<SuperAdminConfiguracoes />} />
               </Route>
 
               <Route path="*" element={<NotFound />} />

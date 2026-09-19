@@ -29,6 +29,7 @@ import {
   FileText,
   Clock,
   CalendarClock,
+  Wallet,
 } from "lucide-react";
 import type { Tables, Enums } from "@/integrations/supabase/types";
 
@@ -46,6 +47,7 @@ const ACOES_RAPIDAS: Record<Tipo, ("treino" | "dieta")[]> = {
   barreira: ["treino"],
   ajuste: ["treino", "dieta"],
   outro: [],
+  cobranca: [],
 };
 
 const ANAMNESE_CAMPOS: { key: keyof Anamnese; label: string }[] = [
@@ -109,6 +111,7 @@ const TIPO_LABEL: Record<Tipo, string> = {
   barreira: "Barreira de rotina",
   ajuste: "Pedido de ajuste",
   outro: "Outro",
+  cobranca: "Mensalidade atrasada",
 };
 
 const TIPO_ICON: Record<Tipo, typeof HeartPulse> = {
@@ -118,6 +121,7 @@ const TIPO_ICON: Record<Tipo, typeof HeartPulse> = {
   barreira: RouteOff,
   ajuste: MessageCircleWarning,
   outro: CircleHelp,
+  cobranca: Wallet,
 };
 
 // Indicadores visuais de SLA: vermelho para dor/vencido, amarelo para
@@ -129,6 +133,7 @@ const TIPO_COLOR_CLASS: Record<Tipo, string> = {
   barreira: "",
   ajuste: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/40",
   outro: "",
+  cobranca: "bg-red-500/15 text-red-700 dark:text-red-400 border-red-500/40",
 };
 
 const FILTRO_STATUS_OPCOES: Status[] = ["aberta", "em_andamento", "aguardando"];

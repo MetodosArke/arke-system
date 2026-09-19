@@ -2,11 +2,12 @@ import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { LogOut, Shield, LayoutDashboard, UserCog } from "lucide-react";
+import { LogOut, Shield, LayoutDashboard, UserCog, Settings } from "lucide-react";
 
 const NAV_ITEMS = [
   { icon: LayoutDashboard, label: "Visão Geral", path: "/superadmin" },
   { icon: UserCog, label: "Profissionais", path: "/superadmin/profissionais" },
+  { icon: Settings, label: "Configurações", path: "/superadmin/configuracoes" },
 ];
 
 export function SuperAdminLayout() {

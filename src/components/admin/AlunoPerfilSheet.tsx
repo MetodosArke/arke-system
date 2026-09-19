@@ -1,17 +1,36 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { Dumbbell, UtensilsCrossed, Phone, Cake, Ruler, ClipboardList, AlertTriangle, Printer, MessageCircle } from "lucide-react";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dumbbell, UtensilsCrossed, Phone, Cake, Ruler, ClipboardList, AlertTriangle, Printer, MessageCircle, Wallet } from "lucide-react";
 import { ImprimirTreinoDialog, type ExercicioSnapshotImpressao } from "@/components/admin/ImprimirTreinoDialog";
 import { Bloco, formatarData } from "@/components/admin/perfilSheetHelpers";
 import { ChatPanel } from "@/components/chat/ChatPanel";
+import { useToast } from "@/hooks/use-toast";
+
+const PERIODICIDADE_LABEL: Record<string, string> = {
+  mensal: "Mensal",
+  trimestral: "Trimestral",
+  semestral: "Semestral",
+  anual: "Anual",
+};
+
+const MENSALIDADE_STATUS_LABEL: Record<string, string> = {
+  pendente: "Pendente",
+  confirmado: "Pago",
+  atrasado: "Atrasado",
+  estornado: "Estornado",
+  cancelado: "Cancelado",
+};
 
 const NIVEL_LABEL: Record<string, string> = {
   essencial: "Essencial",
@@ -73,8 +92,14 @@ export function AlunoPerfilSheet({
 }) {
   const navigate = useNavigate();
   const { organization } = useAuth();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [impressaoAberta, setImpressaoAberta] = useState(false);
   const [chatAberto, setChatAberto] = useState<"treino" | "nutri" | null>(null);
+  const [matriculaAberta, setMatriculaAberta] = useState(false);
+  const [planoEscolhido, setPlanoEscolhido] = useState("");
+  const [diaVencimento, setDiaVencimento] = useState("5");
+  const [valorOverride, setValorOverride] = useState("");
 
   const { data: perfil, isLoading } = useQuery({
     queryKey: ["aluno-perfil", alunoId],
@@ -145,6 +170,35 @@ export function AlunoPerfilSheet({
           .limit(3),
       ]);
 
+      const matricula = (
+        await supabase
+          .from("aluno_matriculas_academia")
+          .select("id, valor_cobrado, dia_vencimento, status, planos_academia(nome, periodicidade)")
+          .eq("aluno_id", aluno.id)
+          .eq("status", "ativa")
+          .maybeSingle()
+      ).data;
+
+      const mensalidades = matricula
+        ? (
+            await supabase
+              .from("mensalidades")
+              .select("id, competencia, valor, vencimento, status")
+              .eq("matricula_id", matricula.id)
+              .order("competencia", { ascending: false })
+              .limit(3)
+          ).data
+        : [];
+
+      // A relação vem como objeto (belongs-to), mas normaliza pra array
+      // aqui também por segurança — depende de como o PostgREST infere o
+      // relacionamento, e não vale a pena travar a tela por isso.
+      const planoInfo = matricula
+        ? Array.isArray(matricula.planos_academia)
+          ? matricula.planos_academia[0]
+          : matricula.planos_academia
+        : null;
+
       return {
         aluno,
         profile,
@@ -155,9 +209,50 @@ export function AlunoPerfilSheet({
         dietaAtiva,
         tarefasAbertas: tarefasAbertas ?? [],
         checkins: checkins ?? [],
+        matricula,
+        planoInfo,
+        mensalidades: mensalidades ?? [],
       };
     },
     enabled: !!alunoId,
+  });
+
+  const { data: planosAcademia = [] } = useQuery({
+    queryKey: ["planos-academia-ativos", organization?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("planos_academia")
+        .select("id, nome, periodicidade, valor")
+        .eq("organization_id", organization!.id)
+        .eq("ativo", true)
+        .order("nome");
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!organization?.id && matriculaAberta,
+  });
+
+  const matricular = useMutation({
+    mutationFn: async () => {
+      if (!alunoId || !planoEscolhido) throw new Error("Selecione um plano.");
+      const dia = Number(diaVencimento);
+      if (!dia || dia < 1 || dia > 28) throw new Error("Dia de vencimento deve estar entre 1 e 28.");
+      const body: Record<string, unknown> = { aluno_id: alunoId, plano_id: planoEscolhido, dia_vencimento: dia };
+      if (valorOverride.trim()) {
+        const valor = Number(valorOverride.trim().replace(",", "."));
+        if (Number.isFinite(valor) && valor > 0) body.valor_cobrado = valor;
+      }
+      const { error } = await supabase.functions.invoke("academia-criar-matricula", { body });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast({ title: "Matrícula criada", description: "A cobrança recorrente já foi configurada no Asaas." });
+      setMatriculaAberta(false);
+      setPlanoEscolhido("");
+      setValorOverride("");
+      void queryClient.invalidateQueries({ queryKey: ["aluno-perfil", alunoId] });
+    },
+    onError: (error: Error) => toast({ title: "Erro ao matricular", description: error.message, variant: "destructive" }),
   });
 
   const idade = perfil?.aluno.data_nascimento ? calcularIdade(perfil.aluno.data_nascimento) : null;
@@ -331,6 +426,45 @@ export function AlunoPerfilSheet({
                 </p>
               </Bloco>
 
+              <Bloco titulo="Plano da Academia" icon={Wallet}>
+                {perfil.matricula && perfil.planoInfo ? (
+                  <>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium">{perfil.planoInfo.nome}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {PERIODICIDADE_LABEL[perfil.planoInfo.periodicidade] ?? perfil.planoInfo.periodicidade} · R${" "}
+                          {Number(perfil.matricula.valor_cobrado).toFixed(2)} · vence dia {perfil.matricula.dia_vencimento}
+                        </p>
+                      </div>
+                    </div>
+                    {perfil.mensalidades.length > 0 && (
+                      <ul className="mt-2 space-y-1">
+                        {perfil.mensalidades.map((m) => (
+                          <li key={m.id} className="flex items-center justify-between text-xs">
+                            <span className="text-muted-foreground">{formatarData(m.competencia)}</span>
+                            <Badge
+                              variant={m.status === "confirmado" ? "default" : m.status === "atrasado" ? "destructive" : "outline"}
+                              className="text-[10px]"
+                            >
+                              {MENSALIDADE_STATUS_LABEL[m.status] ?? m.status}
+                            </Badge>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    <p className="text-sm text-muted-foreground mb-2">Aluno sem plano da academia.</p>
+                    <Button size="sm" variant="outline" onClick={() => setMatriculaAberta(true)}>
+                      <Wallet className="h-3.5 w-3.5 mr-1.5" />
+                      Matricular
+                    </Button>
+                  </>
+                )}
+              </Bloco>
+
               {perfil.tarefasAbertas.length > 0 && (
                 <Bloco titulo="Pendências na Fila de Atendimento" icon={AlertTriangle}>
                   <ul className="space-y-1">
@@ -394,6 +528,62 @@ export function AlunoPerfilSheet({
                     className="flex-1"
                   />
                 )}
+              </DialogContent>
+            </Dialog>
+
+            <Dialog open={matriculaAberta} onOpenChange={setMatriculaAberta}>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Matricular no plano da academia</DialogTitle>
+                  <DialogDescription>
+                    Cria a assinatura recorrente no Asaas — a cobrança acontece automaticamente todo período.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-3">
+                  <div className="space-y-1.5">
+                    <Label>Plano</Label>
+                    <Select value={planoEscolhido} onValueChange={setPlanoEscolhido}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione um plano" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {planosAcademia.map((p) => (
+                          <SelectItem key={p.id} value={p.id}>
+                            {p.nome} — R$ {Number(p.valor).toFixed(2)} ({PERIODICIDADE_LABEL[p.periodicidade] ?? p.periodicidade})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {planosAcademia.length === 0 && (
+                      <p className="text-xs text-muted-foreground">
+                        Nenhum plano cadastrado ainda — crie um em Configurações &gt; Planos da Academia.
+                      </p>
+                    )}
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1.5">
+                      <Label>Dia do vencimento</Label>
+                      <Input type="number" min={1} max={28} value={diaVencimento} onChange={(e) => setDiaVencimento(e.target.value)} />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label>Valor (opcional)</Label>
+                      <Input
+                        placeholder="usa o valor do plano"
+                        inputMode="decimal"
+                        value={valorOverride}
+                        onChange={(e) => setValorOverride(e.target.value)}
+                      />
+                    </div>
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setMatriculaAberta(false)}>
+                    Cancelar
+                  </Button>
+                  <Button onClick={() => matricular.mutate()} disabled={matricular.isPending || !planoEscolhido}>
+                    {matricular.isPending ? "Matriculando..." : "Confirmar matrícula"}
+                  </Button>
+                </DialogFooter>
               </DialogContent>
             </Dialog>
           </>

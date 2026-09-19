@@ -119,6 +119,38 @@ Deno.serve(async (req: Request) => {
         return jsonResponse({ ok: true });
       }
 
+      // Mensalidade da academia (plano próprio dela, ver
+      // academia-criar-matricula) — outro fluxo que não tem nada a ver com
+      // aluno_assinaturas/pagamentos (Método ARKE), checa aqui antes de
+      // cair no bloco de adesão ao método.
+      const { data: mensalidadeExistente } = await admin
+        .from("mensalidades")
+        .select("id, matricula_id")
+        .eq("asaas_payment_id", asaasPaymentId)
+        .maybeSingle();
+
+      if (mensalidadeExistente) {
+        if (novoStatus) {
+          await admin
+            .from("mensalidades")
+            .update({
+              status: novoStatus,
+              data_pagamento: novoStatus === "confirmado" ? new Date().toISOString().slice(0, 10) : null,
+              invoice_url: invoiceUrl ?? undefined,
+            })
+            .eq("id", mensalidadeExistente.id);
+
+          if (novoStatus === "atrasado") {
+            await admin.rpc("abrir_tarefa_mensalidade_atrasada", { _mensalidade_id: mensalidadeExistente.id });
+          }
+        }
+        await admin
+          .from("asaas_webhook_events")
+          .update({ processado: true, processed_at: new Date().toISOString() })
+          .eq("id", eventoRegistrado.id);
+        return jsonResponse({ ok: true });
+      }
+
       const { data: pagamentoExistente } = await admin
         .from("pagamentos")
         .select("id, aluno_assinatura_id")
@@ -152,7 +184,8 @@ Deno.serve(async (req: Request) => {
         }
       } else if (!pagamentoExistente && novoStatus) {
         // Primeira notificação desse pagamento: cria o registro a partir da
-        // assinatura já existente (criada por asaas-create-subscription).
+        // assinatura já existente (Método ARKE via asaas-create-subscription
+        // ou mensalidade da academia via academia-criar-matricula).
         const subscriptionId = payment.subscription ? String(payment.subscription) : null;
         if (subscriptionId) {
           const { data: assinatura } = await admin
@@ -202,6 +235,53 @@ Deno.serve(async (req: Request) => {
                 .from("aluno_assinaturas")
                 .update({ status: "ativa", fatura_pendente_url: null })
                 .eq("id", assinatura.id);
+            }
+          } else {
+            // Não é assinatura do Método ARKE — tenta como matrícula de
+            // plano próprio da academia.
+            const { data: matricula } = await admin
+              .from("aluno_matriculas_academia")
+              .select("id, organization_id, aluno_id, valor_repasse_arke, valor_liquido_academia")
+              .eq("asaas_subscription_id", subscriptionId)
+              .maybeSingle();
+
+            if (matricula) {
+              const valor = Number(payment.value ?? 0);
+              const vencimento = payment.dueDate ? String(payment.dueDate) : new Date().toISOString().slice(0, 10);
+              const competencia = `${vencimento.slice(0, 7)}-01`;
+
+              // upsert por (matricula_id, competencia): mesma janela de
+              // idempotência descrita acima, mas usando a chave natural da
+              // mensalidade em vez do asaas_payment_id (que só é
+              // preenchido aqui, pela primeira vez). O repasse/líquido vem
+              // do snapshot gravado na matrícula (é o que o split do Asaas
+              // já define desde a criação da assinatura, não recalcula a
+              // cada evento).
+              const { data: mensalidadeCriada } = await admin
+                .from("mensalidades")
+                .upsert(
+                  {
+                    organization_id: matricula.organization_id,
+                    matricula_id: matricula.id,
+                    aluno_id: matricula.aluno_id,
+                    competencia,
+                    valor,
+                    valor_repasse_arke: matricula.valor_repasse_arke,
+                    valor_liquido_academia: matricula.valor_liquido_academia,
+                    vencimento,
+                    status: novoStatus,
+                    asaas_payment_id: asaasPaymentId,
+                    data_pagamento: novoStatus === "confirmado" ? new Date().toISOString().slice(0, 10) : null,
+                    invoice_url: invoiceUrl,
+                  },
+                  { onConflict: "matricula_id,competencia" }
+                )
+                .select("id")
+                .single();
+
+              if (novoStatus === "atrasado" && mensalidadeCriada) {
+                await admin.rpc("abrir_tarefa_mensalidade_atrasada", { _mensalidade_id: mensalidadeCriada.id });
+              }
             }
           }
         }

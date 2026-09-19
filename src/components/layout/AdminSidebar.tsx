@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Home, Users, UsersRound, Building2, LogOut, ChevronLeft, Menu, ClipboardList, UserCircle, BarChart3, DoorOpen, CalendarDays, Dumbbell, UtensilsCrossed, Trophy, Medal, MessageSquare } from "lucide-react";
+import { Home, Users, UsersRound, Building2, LogOut, ChevronLeft, Menu, ClipboardList, UserCircle, BarChart3, DoorOpen, CalendarDays, Dumbbell, UtensilsCrossed, Trophy, Medal, MessageSquare, Wallet } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
@@ -63,6 +63,7 @@ function buildSections({
       label: "Configurações",
       items: [
         { icon: Building2, label: "Organização", path: "/admin/organizacao" },
+        { icon: Wallet, label: "Planos da Academia", path: "/admin/planos" },
         { icon: DoorOpen, label: "Catracas", path: "/admin/catracas" },
       ],
     });
