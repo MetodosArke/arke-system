@@ -28,9 +28,13 @@
       // Supabase appends "#access_token=...&type=recovery|invite|signup" to the
       // redirectTo URL. With HashRouter, that produces a second "#" fragment
       // that breaks routing, so we move the tokens into a query string after
-      // our own route hash instead — and route by `type` to the page that
-      // owns that flow: convites (invite/signup) vão para /auth/definir-senha,
-      // recuperação de senha continua em /auth/reset-password.
+      // our own route hash instead — and route to the page that owns that
+      // flow: convites (invite/signup) vão para /auth/definir-senha; links de
+      // ativação de cadastro (gerar-link-ativacao) também, mesmo usando
+      // type=recovery, porque o redirectTo original já apontava pra lá —
+      // detectamos isso pelo path que precede os tokens no link. Pedido de
+      // "esqueci minha senha" de conta já ativa continua em
+      // /auth/reset-password.
       (function () {
         try {
           var href = window.location.href;
@@ -64,7 +68,11 @@
           if (tokenIdx === -1) return;
 
           var tokens = href.slice(tokenIdx + 1); // strip leading # or &
-          var isInvite = tokens.indexOf("type=invite") !== -1 || tokens.indexOf("type=signup") !== -1;
+          var prefix = href.slice(0, tokenIdx);
+          var isInvite =
+            tokens.indexOf("type=invite") !== -1 ||
+            tokens.indexOf("type=signup") !== -1 ||
+            prefix.indexOf("/auth/definir-senha") !== -1;
           var targetPath = isInvite ? "/auth/definir-senha" : "/auth/reset-password";
           var base = window.location.origin + window.location.pathname + window.location.search;
           window.history.replaceState({}, document.title, base + "#" + targetPath + "?" + tokens);

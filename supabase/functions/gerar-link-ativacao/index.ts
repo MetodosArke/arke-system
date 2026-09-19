@@ -126,7 +126,12 @@ Deno.serve(async (req: Request) => {
     const { data: linkData, error: linkError } = await adminClient.auth.admin.generateLink({
       type: "recovery",
       email: targetUser.user.email,
-      options: { redirectTo: `${siteUrl}/#/auth/reset-password` },
+      // redirectTo aponta pra /auth/definir-senha (não /auth/reset-password):
+      // isto é uma ativação de cadastro, não uma recuperação de senha — o
+      // aluno deve cair direto na tela de "defina sua senha e entre", sem
+      // passar pela tela de recuperação. O index.html reconhece esse path
+      // no link (mesmo com type=recovery) e roteia pra lá.
+      options: { redirectTo: `${siteUrl}/#/auth/definir-senha` },
     });
     if (linkError || !linkData) {
       console.error("Error generating activation link", linkError);

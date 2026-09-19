@@ -9,9 +9,10 @@ import { Mail, ArrowLeft, Dumbbell, Lock, Eye, EyeOff } from "lucide-react";
 import { motion } from "framer-motion";
 import { useToast } from "@/hooks/use-toast";
 
-// Links de convite (novo aluno/equipe) chegam com type=invite/signup e são
-// tratados por /auth/definir-senha (ver index.html); esta página cuida
-// apenas da recuperação de senha (type=recovery) de contas já existentes.
+// Links de convite (novo aluno/equipe) e de ativação de cadastro chegam com
+// type=invite/signup, ou type=recovery redirecionado para /auth/definir-senha
+// (ver gerar-link-ativacao e index.html) — tratados por /auth/definir-senha;
+// esta página cuida apenas do "esqueci minha senha" de contas já ativas.
 const getRecoveryParamsFromUrl = () => {
   const href = window.location.href;
   const startIndexes = [

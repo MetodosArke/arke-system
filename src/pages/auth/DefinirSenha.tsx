@@ -12,8 +12,10 @@ import { useToast } from "@/hooks/use-toast";
 
 type Status = "carregando" | "pronto" | "enviando" | "concluido" | "invalido";
 
-// index.html normaliza o link de convite recebido por e-mail
-// (?access_token=...&refresh_token=...&type=invite|signup) para esta rota.
+// index.html normaliza o link de convite recebido por e-mail/WhatsApp
+// (?access_token=...&refresh_token=...&type=invite|signup, ou type=recovery
+// quando é um link de ativação de cadastro gerado por gerar-link-ativacao)
+// para esta rota.
 const getTokenParamsFromUrl = () => {
   const href = window.location.href;
   const startIndexes = [href.indexOf("access_token="), href.indexOf("refresh_token=")].filter(
