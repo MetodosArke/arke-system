@@ -14,6 +14,39 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 // user-agent "WhatsApp/x.x", não do navegador da pessoa). Por isso esta
 // página exige um toque humano real (link/botão) antes de seguir pro
 // action_link — bots de prévia buscam o HTML mas não clicam em nada.
+//
+// Estilos ficam num <style> no <head>, não em atributos style="" inline:
+// alguns proxies de compressão de dados (comuns em operadoras/planos com
+// "modo economia de dados") removem atributos style="" pra economizar
+// banda, mas preservam blocos <style> — foi exatamente isso que causou a
+// página aparecer sem nenhum estilo (só texto cru) num teste real.
+const ESTILO = `
+  * { box-sizing: border-box; }
+  body {
+    font-family: Arial, sans-serif;
+    background: #faf9f7;
+    color: #0d0d0d;
+    display: flex;
+    min-height: 100vh;
+    align-items: center;
+    justify-content: center;
+    margin: 0;
+    padding: 24px;
+    text-align: center;
+  }
+  h1 { font-size: 20px; margin: 0 0 12px; }
+  p { color: #55575d; margin: 0 0 20px; }
+  .botao {
+    display: inline-block;
+    background: #c9952b;
+    color: #0d0d0d;
+    font-weight: bold;
+    text-decoration: none;
+    padding: 12px 24px;
+    border-radius: 10px;
+  }
+`;
+
 Deno.serve(async (req: Request) => {
   const siteUrl = Deno.env.get("SITE_URL") ?? "https://arkefit.com.br";
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
@@ -26,13 +59,16 @@ Deno.serve(async (req: Request) => {
     new Response(
       `<!doctype html>
 <html lang="pt-BR">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Link expirado — ArkeFit</title></head>
-<body style="font-family:Arial,sans-serif;background:#faf9f7;color:#0d0d0d;display:flex;min-height:100vh;align-items:center;justify-content:center;margin:0;padding:24px;text-align:center;">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Link expirado — ArkeFit</title>
+<style>${ESTILO}</style>
+</head>
+<body>
   <div>
-    <h1 style="font-size:20px;margin:0 0 12px;">Este link expirou</h1>
-    <p style="color:#55575d;margin:0 0 20px;">Peça para a academia gerar um novo convite de ativação.</p>
-    <a href="${siteUrl}/#/auth/login" style="display:inline-block;background:#c9952b;color:#0d0d0d;font-weight:bold;text-decoration:none;padding:10px 20px;border-radius:10px;">Ir para o login</a>
+    <h1>Este link expirou</h1>
+    <p>Peça para a academia gerar um novo convite de ativação.</p>
+    <a class="botao" href="${siteUrl}/#/auth/login">Ir para o login</a>
   </div>
 </body>
 </html>`,
@@ -48,12 +84,13 @@ Deno.serve(async (req: Request) => {
 <title>Ativar cadastro — ArkeFit</title>
 <meta property="og:title" content="Ativar cadastro — ArkeFit">
 <meta property="og:description" content="Toque para definir sua senha e concluir o cadastro na ArkeFit.">
+<style>${ESTILO}</style>
 </head>
-<body style="font-family:Arial,sans-serif;background:#faf9f7;color:#0d0d0d;display:flex;min-height:100vh;align-items:center;justify-content:center;margin:0;padding:24px;text-align:center;">
+<body>
   <div>
-    <h1 style="font-size:20px;margin:0 0 12px;">Ativar meu cadastro</h1>
-    <p style="color:#55575d;margin:0 0 20px;">Toque no botão abaixo para definir sua senha e entrar na ArkeFit.</p>
-    <a href="${escapeHtml(actionLink)}" style="display:inline-block;background:#c9952b;color:#0d0d0d;font-weight:bold;text-decoration:none;padding:12px 24px;border-radius:10px;">Continuar</a>
+    <h1>Ativar meu cadastro</h1>
+    <p>Toque no botão abaixo para definir sua senha e entrar na ArkeFit.</p>
+    <a class="botao" href="${escapeHtml(actionLink)}">Continuar</a>
   </div>
 </body>
 </html>`,
