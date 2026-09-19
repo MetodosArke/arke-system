@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Home, Users, UsersRound, Building2, LogOut, ChevronLeft, Menu, ClipboardList, UserCircle, BarChart3, DoorOpen, CalendarDays, Dumbbell, UtensilsCrossed, Trophy, Medal, MessageSquare, Wallet } from "lucide-react";
+import { Home, Users, UsersRound, Building2, LogOut, ChevronLeft, Menu, ClipboardList, UserCircle, BarChart3, DoorOpen, CalendarDays, Dumbbell, UtensilsCrossed, Trophy, Medal, MessageSquare, Wallet, Percent } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
@@ -57,6 +57,7 @@ function buildSections({
       items: [
         { icon: BarChart3, label: "Gestão 360°", path: "/admin/gestao-360" },
         { icon: UsersRound, label: "Equipe", path: "/admin/equipe" },
+        { icon: Percent, label: "Comissões", path: "/admin/comissoes" },
       ],
     });
     sections.push({

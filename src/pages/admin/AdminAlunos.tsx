@@ -86,7 +86,7 @@ interface AlunoRow {
 const EMPTY_ALUNOS: AlunoRow[] = [];
 
 export default function AdminAlunos() {
-  const { organization, hasRole, organizationRole } = useAuth();
+  const { organization, hasRole, organizationRole, user } = useAuth();
   const podeGerenciarEquipe = hasRole("admin_arke") || organizationRole === "gestor";
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -164,7 +164,12 @@ export default function AdminAlunos() {
     mutationFn: async ({ aluno, nivel }: { aluno: AlunoRow; nivel: Nivel }) => {
       const { error } = await supabase
         .from("alunos")
-        .update({ metodo_arke_status: "ativo", metodo_arke_ativado_em: new Date().toISOString(), nivel_atacado: nivel })
+        .update({
+          metodo_arke_status: "ativo",
+          metodo_arke_ativado_em: new Date().toISOString(),
+          metodo_arke_ativado_por: user?.id,
+          nivel_atacado: nivel,
+        })
         .eq("id", aluno.id);
       if (error) throw error;
     },

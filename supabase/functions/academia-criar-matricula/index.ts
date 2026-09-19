@@ -78,6 +78,16 @@ Deno.serve(async (req: Request) => {
       global: { headers: { Authorization: authHeader } },
     });
 
+    // Quem está matriculando (pra comissão de venda — ver
+    // gerar_comissao_se_configurada) — mesmo padrão de extração de
+    // identidade usado em convidar-membro.
+    const token = authHeader.replace("Bearer ", "");
+    const { data: claimsData, error: claimsError } = await asUser.auth.getClaims(token);
+    const callerId = typeof claimsData?.claims?.sub === "string" ? claimsData.claims.sub : null;
+    if (claimsError || !callerId) {
+      return jsonResponse({ error: "Sessão inválida. Faça login novamente." }, 401);
+    }
+
     const { data: aluno, error: alunoError } = await asUser
       .from("alunos")
       .select("id, organization_id, user_id")
@@ -206,6 +216,7 @@ Deno.serve(async (req: Request) => {
         dia_vencimento: diaVencimento,
         asaas_customer_id: customer.id,
         asaas_subscription_id: subscription.id,
+        registrado_por: callerId,
       })
       .select()
       .single();
