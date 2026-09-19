@@ -25,7 +25,7 @@ const CAMPOS_DESTINO = [
   { value: "email", label: "E-mail" },
   { value: "telefone", label: "Telefone" },
   { value: "cpf", label: "CPF" },
-  { value: "nivel_atacado", label: "Plano (essencial/integrado/elite)" },
+  { value: "nivel_atacado", label: "Nível do Método ARKE (opcional — essencial/integrado/elite)" },
   // Histórico de avaliação física — opcionais: preenchidos só se a academia
   // de origem exportar esses dados (ex.: migrando de NextFit/Pacto). Vão
   // direto para avaliacoes_fisicas, criando o primeiro registro do aluno
@@ -253,7 +253,7 @@ export default function AdminImportarAlunos() {
   };
 
   const camposMapeados = new Set(Object.values(mapeamento));
-  const mapeamentoValido = camposMapeados.has("full_name") && camposMapeados.has("email") && camposMapeados.has("nivel_atacado");
+  const mapeamentoValido = camposMapeados.has("full_name") && camposMapeados.has("email");
 
   const linhaParaRegistro = (linha: Record<string, string>) => {
     const registro = Object.fromEntries(CAMPOS_DESTINO.map((c) => [c.value, ""])) as Record<CampoDestino, string>;
@@ -275,14 +275,19 @@ export default function AdminImportarAlunos() {
 
     for (let i = 0; i < linhas.length; i++) {
       const registro = linhaParaRegistro(linhas[i]);
-      const nivel = registro.nivel_atacado.trim().toLowerCase();
-      const nivelValido = ["essencial", "integrado", "elite"].includes(nivel);
+      // Nível do Método ARKE não trava a importação: a academia ainda não tem
+      // como importar seus próprios planos, e o aluno importado nem foi
+      // apresentado ao método ainda — isso é negociação pós-implantação.
+      // Sem valor válido na planilha, o aluno fica sem nível nenhum (não
+      // "essencial" por padrão) até o staff registrar a adesão de verdade.
+      const nivelBruto = registro.nivel_atacado.trim().toLowerCase();
+      const nivel = ["essencial", "integrado", "elite"].includes(nivelBruto)
+        ? (nivelBruto as "essencial" | "integrado" | "elite")
+        : undefined;
 
-      if (!registro.full_name || !registro.email || !nivelValido) {
+      if (!registro.full_name || !registro.email) {
         setResultados((prev) =>
-          prev!.map((r, idx) =>
-            idx === i ? { ...r, status: "erro", mensagem: "Nome, e-mail e plano válido são obrigatórios." } : r
-          )
+          prev!.map((r, idx) => (idx === i ? { ...r, status: "erro", mensagem: "Nome e e-mail são obrigatórios." } : r))
         );
         continue;
       }
@@ -400,7 +405,7 @@ export default function AdminImportarAlunos() {
             ))}
             {!mapeamentoValido && (
               <p className="text-xs text-amber-600 dark:text-amber-400">
-                Mapeie pelo menos Nome, E-mail e Plano para prosseguir.
+                Mapeie pelo menos Nome e E-mail para prosseguir.
               </p>
             )}
             <Button disabled={!mapeamentoValido || importando} onClick={() => void iniciarImportacao()}>

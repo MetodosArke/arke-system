@@ -22,7 +22,7 @@ type ConvidarMembroPayload = {
   telefone?: string;
   cpf?: string;
   papel: Papel;
-  nivel_atacado?: "essencial" | "integrado" | "elite"; // obrigatório quando papel === "aluno"
+  nivel_atacado?: "essencial" | "integrado" | "elite"; // opcional — sem adesão ainda, fica null quando omitido
 };
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -62,7 +62,11 @@ Deno.serve(async (req: Request) => {
     const telefone = payload.telefone?.trim() || null;
     const cpf = payload.cpf?.trim() || null;
     const papel = payload.papel;
-    const nivelAtacado = payload.nivel_atacado;
+    // Nível do Método ARKE: não é obrigatório. O aluno matriculado ainda nem
+    // foi apresentado ao método — isso é negociação pós-implantação. Sem
+    // valor válido, fica sem nível nenhum (null) até o staff registrar a
+    // adesão de verdade (é aí que o nível é escolhido).
+    const nivelAtacado = payload.nivel_atacado && NIVEIS_VALIDOS.has(payload.nivel_atacado) ? payload.nivel_atacado : null;
 
     if (!email || !EMAIL_RE.test(email)) {
       return jsonResponse({ error: "E-mail inválido." }, 400);
@@ -72,9 +76,6 @@ Deno.serve(async (req: Request) => {
     }
     if (!papel || !PAPEIS_VALIDOS.has(papel)) {
       return jsonResponse({ error: "Papel inválido. Use aluno, professor, nutricionista ou recepcao." }, 400);
-    }
-    if (papel === "aluno" && (!nivelAtacado || !NIVEIS_VALIDOS.has(nivelAtacado))) {
-      return jsonResponse({ error: "Selecione o plano do aluno (Essencial, Integrado ou Elite)." }, 400);
     }
 
     // Cliente com o JWT do chamador: usado só para identificar quem está

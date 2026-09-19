@@ -4,12 +4,14 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { Dumbbell, UtensilsCrossed, Phone, Cake, Ruler, ClipboardList, AlertTriangle, Printer } from "lucide-react";
+import { Dumbbell, UtensilsCrossed, Phone, Cake, Ruler, ClipboardList, AlertTriangle, Printer, MessageCircle } from "lucide-react";
 import { ImprimirTreinoDialog, type ExercicioSnapshotImpressao } from "@/components/admin/ImprimirTreinoDialog";
 import { Bloco, formatarData } from "@/components/admin/perfilSheetHelpers";
+import { ChatPanel } from "@/components/chat/ChatPanel";
 
 const NIVEL_LABEL: Record<string, string> = {
   essencial: "Essencial",
@@ -72,6 +74,7 @@ export function AlunoPerfilSheet({
   const navigate = useNavigate();
   const { organization } = useAuth();
   const [impressaoAberta, setImpressaoAberta] = useState(false);
+  const [chatAberto, setChatAberto] = useState<"treino" | "nutri" | null>(null);
 
   const { data: perfil, isLoading } = useQuery({
     queryKey: ["aluno-perfil", alunoId],
@@ -79,7 +82,7 @@ export function AlunoPerfilSheet({
       const { data: aluno, error: alunoError } = await supabase
         .from("alunos")
         .select(
-          "id, user_id, organization_id, nivel_atacado, fase_jornada, objetivo, data_inicio, data_nascimento, peso_kg, altura_cm, observacoes, anonimizado_em"
+          "id, user_id, organization_id, nivel_atacado, fase_jornada, metodo_arke_status, objetivo, data_inicio, data_nascimento, peso_kg, altura_cm, observacoes, anonimizado_em"
         )
         .eq("id", alunoId!)
         .single();
@@ -181,7 +184,13 @@ export function AlunoPerfilSheet({
                 )}
               </SheetTitle>
               <div className="flex flex-wrap gap-1.5">
-                <Badge variant="secondary">{NIVEL_LABEL[perfil.aluno.nivel_atacado] ?? perfil.aluno.nivel_atacado}</Badge>
+                {perfil.aluno.nivel_atacado ? (
+                  <Badge variant="secondary">{NIVEL_LABEL[perfil.aluno.nivel_atacado] ?? perfil.aluno.nivel_atacado}</Badge>
+                ) : (
+                  <Badge variant="outline" className="text-muted-foreground">
+                    Sem método
+                  </Badge>
+                )}
                 <Badge variant="outline">{FASE_LABEL[perfil.aluno.fase_jornada] ?? perfil.aluno.fase_jornada}</Badge>
                 {perfil.assinatura?.status && (
                   <Badge variant={perfil.assinatura.status === "ativa" ? "default" : "outline"}>
@@ -199,6 +208,40 @@ export function AlunoPerfilSheet({
               <Button size="sm" variant="outline" className="flex-1" onClick={() => irPrescrever("dietas")}>
                 <UtensilsCrossed className="h-4 w-4 mr-1.5" />
                 Prescrever Dieta
+              </Button>
+            </div>
+
+            <div className="flex gap-2 mt-2">
+              <Button
+                size="sm"
+                variant="outline"
+                className="flex-1"
+                disabled={perfil.aluno.metodo_arke_status !== "ativo"}
+                title={perfil.aluno.metodo_arke_status !== "ativo" ? "Aluno ainda não aderiu ao Método ARKE" : undefined}
+                onClick={() => setChatAberto("treino")}
+              >
+                <MessageCircle className="h-4 w-4 mr-1.5" />
+                Chat Treino
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                className="flex-1"
+                disabled={
+                  perfil.aluno.metodo_arke_status !== "ativo" ||
+                  (perfil.aluno.nivel_atacado !== "integrado" && perfil.aluno.nivel_atacado !== "elite")
+                }
+                title={
+                  perfil.aluno.metodo_arke_status !== "ativo"
+                    ? "Aluno ainda não aderiu ao Método ARKE"
+                    : perfil.aluno.nivel_atacado !== "integrado" && perfil.aluno.nivel_atacado !== "elite"
+                      ? "Só os níveis Integrado e Elite incluem nutrição"
+                      : undefined
+                }
+                onClick={() => setChatAberto("nutri")}
+              >
+                <MessageCircle className="h-4 w-4 mr-1.5" />
+                Chat Nutrição
               </Button>
             </div>
 
@@ -334,6 +377,25 @@ export function AlunoPerfilSheet({
                   : null
               }
             />
+
+            <Dialog open={!!chatAberto} onOpenChange={(open) => !open && setChatAberto(null)}>
+              <DialogContent className="max-w-md max-h-[80vh] flex flex-col">
+                <DialogHeader>
+                  <DialogTitle>
+                    {chatAberto === "treino" ? "Chat Treino" : "Chat Nutrição"} — {perfil.profile?.full_name ?? "Aluno"}
+                  </DialogTitle>
+                </DialogHeader>
+                {chatAberto && organization && (
+                  <ChatPanel
+                    organizationId={organization.id}
+                    alunoId={perfil.aluno.id}
+                    viewerType="staff"
+                    type={chatAberto}
+                    className="flex-1"
+                  />
+                )}
+              </DialogContent>
+            </Dialog>
           </>
         )}
       </SheetContent>

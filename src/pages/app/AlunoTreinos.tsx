@@ -8,9 +8,22 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Dumbbell, CheckCircle2, PlayCircle, Timer, Pause, RotateCcw } from "lucide-react";
+import {
+  Dumbbell,
+  CheckCircle2,
+  PlayCircle,
+  Timer,
+  Pause,
+  RotateCcw,
+  MessageCircle,
+  Lock,
+  Sparkles,
+  Calendar as CalendarIcon,
+} from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { RegistrarAlertaCard } from "@/components/aluno/RegistrarAlertaCard";
+import { ChatPanel } from "@/components/chat/ChatPanel";
+import CalendarioTreinos from "@/components/aluno/CalendarioTreinos";
 import type { Json } from "@/integrations/supabase/types";
 
 interface ExercicioSnapshot {
@@ -33,7 +46,7 @@ interface DetalheExecucao {
 const HOJE = new Date().toISOString().slice(0, 10);
 
 export default function AlunoTreinos() {
-  const { alunoId, organization } = useAuth();
+  const { alunoId, organization, metodoArkeAtivo } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [videoAberto, setVideoAberto] = useState<string | null>(null);
@@ -156,7 +169,7 @@ export default function AlunoTreinos() {
   const treinoConcluidoHoje = !!registroHoje?.concluido;
 
   return (
-    <div className="space-y-4 max-w-2xl mx-auto">
+    <div className="space-y-4 max-w-2xl lg:max-w-4xl mx-auto">
       <div className="flex items-center gap-2">
         <Dumbbell className="h-5 w-5 text-primary" />
         <h1 className="text-xl font-bold">Meu Treino</h1>
@@ -273,6 +286,37 @@ export default function AlunoTreinos() {
           </Card>
         </>
       )}
+
+      <div className="pt-2">
+        <div className="flex items-center gap-2 mb-3">
+          <CalendarIcon className="h-4 w-4 text-primary" />
+          <h2 className="text-base font-bold">Meu Calendário</h2>
+        </div>
+        <CalendarioTreinos />
+      </div>
+
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <MessageCircle className="h-4 w-4 text-primary" /> Chat com o Treinador
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {metodoArkeAtivo && alunoId && organization ? (
+            <ChatPanel organizationId={organization.id} alunoId={alunoId} viewerType="aluno" type="treino" />
+          ) : (
+            <div className="flex flex-col items-center gap-2 py-6 text-center">
+              <Lock className="h-6 w-6 text-muted-foreground/50" />
+              <p className="text-sm font-medium flex items-center gap-1.5">
+                <Sparkles className="h-3.5 w-3.5 text-primary" /> Exclusivo do Método ARKE
+              </p>
+              <p className="text-xs text-muted-foreground max-w-xs">
+                Fale direto com seu treinador pelo chat quando aderir ao Método ARKE. Pergunte à sua academia como aderir.
+              </p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       <RegistrarAlertaCard compact />
 

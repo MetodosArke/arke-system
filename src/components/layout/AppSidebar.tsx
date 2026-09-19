@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useAppSidebar } from "./AppLayout";
-import { Home, User, LogOut, ChevronLeft, Menu, Dumbbell, UtensilsCrossed, LayoutDashboard } from "lucide-react";
+import { Home, User, LogOut, ChevronLeft, Menu, Dumbbell, UtensilsCrossed, LayoutDashboard, Activity, Compass, Trophy, Medal, Users } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
@@ -11,6 +11,11 @@ const menuItems = [
   { icon: Home, label: "Início", path: "/app" },
   { icon: Dumbbell, label: "Treino", path: "/app/treinos" },
   { icon: UtensilsCrossed, label: "Dieta", path: "/app/dieta" },
+  { icon: Activity, label: "Evolução", path: "/app/evolucao" },
+  { icon: Compass, label: "Jornada", path: "/app/jornada" },
+  { icon: Trophy, label: "Desafios", path: "/app/desafios" },
+  { icon: Medal, label: "Competições", path: "/app/competicoes" },
+  { icon: Users, label: "Feed", path: "/app/feed" },
   { icon: User, label: "Perfil", path: "/app/perfil" },
 ];
 

@@ -14,7 +14,11 @@ const PUSH_EMAIL_WHITELIST = new Set<string>([]);
 
 interface Payload {
   recipientUserId?: string;
-  recipientRole?: "admin" | "super_admin";
+  // Em vez do "admin" global do app original (que não existe no sistema
+  // multitenant), o chamador resolve o destinatário por papel *dentro da
+  // organização* do aluno — ex.: professor/gestor da própria academia.
+  recipientOrgId?: string;
+  recipientOrgRoles?: string[];
   title: string;
   body: string;
   url?: string;
@@ -44,9 +48,9 @@ Deno.serve(async (req) => {
     );
 
     const body = (await req.json()) as Payload;
-    const { recipientUserId, recipientRole, title, body: msgBody, url } = body || ({} as Payload);
+    const { recipientUserId, recipientOrgId, recipientOrgRoles, title, body: msgBody, url } = body || ({} as Payload);
 
-    if ((!recipientUserId && !recipientRole) || !title || !msgBody) {
+    if ((!recipientUserId && !(recipientOrgId && recipientOrgRoles?.length)) || !title || !msgBody) {
       return new Response(JSON.stringify({ error: "missing fields" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -59,12 +63,14 @@ Deno.serve(async (req) => {
     let targetUserIds: string[] = [];
     if (recipientUserId) {
       targetUserIds = [recipientUserId];
-    } else if (recipientRole) {
-      const { data: roles } = await supabase
-        .from("user_roles")
+    } else if (recipientOrgId && recipientOrgRoles?.length) {
+      const { data: membros } = await supabase
+        .from("organization_members")
         .select("user_id")
-        .eq("role", recipientRole);
-      targetUserIds = (roles || []).map((r: any) => r.user_id);
+        .eq("organization_id", recipientOrgId)
+        .eq("status", "active")
+        .in("role", recipientOrgRoles);
+      targetUserIds = (membros || []).map((m: any) => m.user_id);
     }
 
     // Filtrar pela whitelist de email (modo teste).

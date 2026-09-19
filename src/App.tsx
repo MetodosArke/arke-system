@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { HashRouter, Routes, Route, Navigate } from "react-router-dom";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
+import { PushNotificationManager } from "@/components/PushNotificationManager";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { NetworkStatusBanner } from "@/components/NetworkStatusBanner";
 import { ImpersonationBanner } from "@/components/ImpersonationBanner";
@@ -29,6 +30,11 @@ import AlunoDashboard from "@/pages/app/AlunoDashboard";
 import AlunoPerfil from "@/pages/app/AlunoPerfil";
 import AlunoTreinos from "@/pages/app/AlunoTreinos";
 import AlunoDieta from "@/pages/app/AlunoDieta";
+import AlunoEvolucao from "@/pages/app/AlunoEvolucao";
+import AlunoJornada from "@/pages/app/AlunoJornada";
+import AlunoDesafios from "@/pages/app/AlunoDesafios";
+import AlunoCompeticoes from "@/pages/app/AlunoCompeticoes";
+import AlunoFeed from "@/pages/app/AlunoFeed";
 import Onboarding from "@/pages/app/Onboarding";
 import ConsentimentoLgpd from "@/pages/app/ConsentimentoLgpd";
 
@@ -47,6 +53,9 @@ import AdminOnboarding from "@/pages/admin/AdminOnboarding";
 import AdminCatracas from "@/pages/admin/AdminCatracas";
 import AdminPerfil from "@/pages/admin/AdminPerfil";
 import AdminAgenda from "@/pages/admin/AdminAgenda";
+import AdminDesafios from "@/pages/admin/AdminDesafios";
+import AdminCompeticoes from "@/pages/admin/AdminCompeticoes";
+import AdminFeed from "@/pages/admin/AdminFeed";
 
 // Super Admin (Visão Master ArkeFit)
 import SuperAdminDashboard from "@/pages/superadmin/SuperAdminDashboard";
@@ -133,6 +142,7 @@ const App = () => (
   <QueryClientProvider client={queryClient}>
     <ThemeProvider>
       <AuthProvider>
+        <PushNotificationManager>
         <TooltipProvider>
           <Toaster />
           <Sonner />
@@ -187,6 +197,11 @@ const App = () => (
                 <Route index element={<AlunoDashboard />} />
                 <Route path="treinos" element={<AlunoTreinos />} />
                 <Route path="dieta" element={<AlunoDieta />} />
+                <Route path="evolucao" element={<AlunoEvolucao />} />
+                <Route path="jornada" element={<AlunoJornada />} />
+                <Route path="desafios" element={<AlunoDesafios />} />
+                <Route path="competicoes" element={<AlunoCompeticoes />} />
+                <Route path="feed" element={<AlunoFeed />} />
                 <Route path="perfil" element={<AlunoPerfil />} />
               </Route>
 
@@ -213,6 +228,9 @@ const App = () => (
                 <Route path="organizacao" element={<AdminOrganizacao />} />
                 <Route path="perfil" element={<AdminPerfil />} />
                 <Route path="agenda" element={<AdminAgenda />} />
+                <Route path="desafios" element={<AdminDesafios />} />
+                <Route path="competicoes" element={<AdminCompeticoes />} />
+                <Route path="feed" element={<AdminFeed />} />
               </Route>
 
               {/* Super Admin — Visão Master ArkeFit, restrita ao papel global 'superadmin' */}
@@ -232,6 +250,7 @@ const App = () => (
             </Routes>
           </HashRouter>
         </TooltipProvider>
+        </PushNotificationManager>
       </AuthProvider>
     </ThemeProvider>
   </QueryClientProvider>

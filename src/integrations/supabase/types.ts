@@ -238,6 +238,116 @@ export type Database = {
           },
         ]
       }
+      aluno_objetivos: {
+        Row: {
+          aluno_id: string
+          conquistas: string | null
+          created_at: string
+          dificuldades: string | null
+          id: string
+          objetivos: string[]
+          organization_id: string
+          proxima_revisao: string | null
+          visao_3_anos: string | null
+          visao_3_meses: string | null
+        }
+        Insert: {
+          aluno_id: string
+          conquistas?: string | null
+          created_at?: string
+          dificuldades?: string | null
+          id?: string
+          objetivos?: string[]
+          organization_id: string
+          proxima_revisao?: string | null
+          visao_3_anos?: string | null
+          visao_3_meses?: string | null
+        }
+        Update: {
+          aluno_id?: string
+          conquistas?: string | null
+          created_at?: string
+          dificuldades?: string | null
+          id?: string
+          objetivos?: string[]
+          organization_id?: string
+          proxima_revisao?: string | null
+          visao_3_anos?: string | null
+          visao_3_meses?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "aluno_objetivos_aluno_id_fkey"
+            columns: ["aluno_id"]
+            isOneToOne: false
+            referencedRelation: "alunos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "aluno_objetivos_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "org_churn_metrics"
+            referencedColumns: ["organization_id"]
+          },
+          {
+            foreignKeyName: "aluno_objetivos_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      aluno_valores: {
+        Row: {
+          aluno_id: string
+          created_at: string
+          id: string
+          organization_id: string
+          validade: string | null
+          valores: string[]
+        }
+        Insert: {
+          aluno_id: string
+          created_at?: string
+          id?: string
+          organization_id: string
+          validade?: string | null
+          valores?: string[]
+        }
+        Update: {
+          aluno_id?: string
+          created_at?: string
+          id?: string
+          organization_id?: string
+          validade?: string | null
+          valores?: string[]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "aluno_valores_aluno_id_fkey"
+            columns: ["aluno_id"]
+            isOneToOne: false
+            referencedRelation: "alunos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "aluno_valores_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "org_churn_metrics"
+            referencedColumns: ["organization_id"]
+          },
+          {
+            foreignKeyName: "aluno_valores_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       alunos: {
         Row: {
           altura_cm: number | null
@@ -251,7 +361,7 @@ export type Database = {
           meta_semanal_dias: number
           metodo_arke_ativado_em: string | null
           metodo_arke_status: Database["public"]["Enums"]["metodo_arke_status"]
-          nivel_atacado: Database["public"]["Enums"]["nivel_atacado"]
+          nivel_atacado: Database["public"]["Enums"]["nivel_atacado"] | null
           objetivo: string | null
           observacoes: string | null
           organization_id: string
@@ -274,7 +384,7 @@ export type Database = {
           meta_semanal_dias?: number
           metodo_arke_ativado_em?: string | null
           metodo_arke_status?: Database["public"]["Enums"]["metodo_arke_status"]
-          nivel_atacado?: Database["public"]["Enums"]["nivel_atacado"]
+          nivel_atacado?: Database["public"]["Enums"]["nivel_atacado"] | null
           objetivo?: string | null
           observacoes?: string | null
           organization_id: string
@@ -297,7 +407,7 @@ export type Database = {
           meta_semanal_dias?: number
           metodo_arke_ativado_em?: string | null
           metodo_arke_status?: Database["public"]["Enums"]["metodo_arke_status"]
-          nivel_atacado?: Database["public"]["Enums"]["nivel_atacado"]
+          nivel_atacado?: Database["public"]["Enums"]["nivel_atacado"] | null
           objetivo?: string | null
           observacoes?: string | null
           organization_id?: string
@@ -462,6 +572,7 @@ export type Database = {
           avaliado_por: string | null
           created_at: string
           data_avaliacao: string
+          data_proxima_avaliacao: string | null
           dc_abdominal: number | null
           dc_axilar_media: number | null
           dc_coxa: number | null
@@ -473,6 +584,13 @@ export type Database = {
           historico_clinico: string | null
           id: string
           imc: number | null
+          meta_gordura_direcao: string | null
+          meta_gordura_valor: number | null
+          meta_musculo_direcao: string | null
+          meta_musculo_valor: number | null
+          meta_peso_direcao: string | null
+          meta_peso_kg: number | null
+          musculo_percentual: number | null
           observacoes: string | null
           organization_id: string
           percentual_gordura: number | null
@@ -484,6 +602,7 @@ export type Database = {
           perim_panturrilha: number | null
           perim_quadril: number | null
           peso_kg: number | null
+          pontos: number
         }
         Insert: {
           altura_cm?: number | null
@@ -491,6 +610,7 @@ export type Database = {
           avaliado_por?: string | null
           created_at?: string
           data_avaliacao?: string
+          data_proxima_avaliacao?: string | null
           dc_abdominal?: number | null
           dc_axilar_media?: number | null
           dc_coxa?: number | null
@@ -502,6 +622,13 @@ export type Database = {
           historico_clinico?: string | null
           id?: string
           imc?: number | null
+          meta_gordura_direcao?: string | null
+          meta_gordura_valor?: number | null
+          meta_musculo_direcao?: string | null
+          meta_musculo_valor?: number | null
+          meta_peso_direcao?: string | null
+          meta_peso_kg?: number | null
+          musculo_percentual?: number | null
           observacoes?: string | null
           organization_id: string
           percentual_gordura?: number | null
@@ -513,6 +640,7 @@ export type Database = {
           perim_panturrilha?: number | null
           perim_quadril?: number | null
           peso_kg?: number | null
+          pontos?: number
         }
         Update: {
           altura_cm?: number | null
@@ -520,6 +648,7 @@ export type Database = {
           avaliado_por?: string | null
           created_at?: string
           data_avaliacao?: string
+          data_proxima_avaliacao?: string | null
           dc_abdominal?: number | null
           dc_axilar_media?: number | null
           dc_coxa?: number | null
@@ -531,6 +660,13 @@ export type Database = {
           historico_clinico?: string | null
           id?: string
           imc?: number | null
+          meta_gordura_direcao?: string | null
+          meta_gordura_valor?: number | null
+          meta_musculo_direcao?: string | null
+          meta_musculo_valor?: number | null
+          meta_peso_direcao?: string | null
+          meta_peso_kg?: number | null
+          musculo_percentual?: number | null
           observacoes?: string | null
           organization_id?: string
           percentual_gordura?: number | null
@@ -542,6 +678,7 @@ export type Database = {
           perim_panturrilha?: number | null
           perim_quadril?: number | null
           peso_kg?: number | null
+          pontos?: number
         }
         Relationships: [
           {
@@ -694,6 +831,484 @@ export type Database = {
           },
         ]
       }
+      competicao_participantes: {
+        Row: {
+          aluno_id: string
+          competicao_id: string
+          created_at: string
+          id: string
+          organization_id: string
+        }
+        Insert: {
+          aluno_id: string
+          competicao_id: string
+          created_at?: string
+          id?: string
+          organization_id: string
+        }
+        Update: {
+          aluno_id?: string
+          competicao_id?: string
+          created_at?: string
+          id?: string
+          organization_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "competicao_participantes_aluno_id_fkey"
+            columns: ["aluno_id"]
+            isOneToOne: false
+            referencedRelation: "alunos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "competicao_participantes_competicao_id_fkey"
+            columns: ["competicao_id"]
+            isOneToOne: false
+            referencedRelation: "competicoes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "competicao_participantes_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "org_churn_metrics"
+            referencedColumns: ["organization_id"]
+          },
+          {
+            foreignKeyName: "competicao_participantes_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      competicoes: {
+        Row: {
+          created_at: string
+          criado_por: string | null
+          data_fim: string
+          data_inicio: string
+          descricao: string | null
+          id: string
+          metrica: Database["public"]["Enums"]["competicao_metrica"]
+          organization_id: string
+          para_todos: boolean
+          titulo: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          criado_por?: string | null
+          data_fim: string
+          data_inicio: string
+          descricao?: string | null
+          id?: string
+          metrica?: Database["public"]["Enums"]["competicao_metrica"]
+          organization_id: string
+          para_todos?: boolean
+          titulo: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          criado_por?: string | null
+          data_fim?: string
+          data_inicio?: string
+          descricao?: string | null
+          id?: string
+          metrica?: Database["public"]["Enums"]["competicao_metrica"]
+          organization_id?: string
+          para_todos?: boolean
+          titulo?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "competicoes_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "org_churn_metrics"
+            referencedColumns: ["organization_id"]
+          },
+          {
+            foreignKeyName: "competicoes_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      compromisso_metas: {
+        Row: {
+          compromisso_id: string
+          concluida: boolean
+          created_at: string
+          id: string
+          objetivo_vinculado: string | null
+          organization_id: string
+          texto: string
+          valor_vinculado: string | null
+        }
+        Insert: {
+          compromisso_id: string
+          concluida?: boolean
+          created_at?: string
+          id?: string
+          objetivo_vinculado?: string | null
+          organization_id: string
+          texto: string
+          valor_vinculado?: string | null
+        }
+        Update: {
+          compromisso_id?: string
+          concluida?: boolean
+          created_at?: string
+          id?: string
+          objetivo_vinculado?: string | null
+          organization_id?: string
+          texto?: string
+          valor_vinculado?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "compromisso_metas_compromisso_id_fkey"
+            columns: ["compromisso_id"]
+            isOneToOne: false
+            referencedRelation: "compromisso_semanal"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "compromisso_metas_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "org_churn_metrics"
+            referencedColumns: ["organization_id"]
+          },
+          {
+            foreignKeyName: "compromisso_metas_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      compromisso_semanal: {
+        Row: {
+          aluno_id: string
+          created_at: string
+          id: string
+          organization_id: string
+          semana: string
+        }
+        Insert: {
+          aluno_id: string
+          created_at?: string
+          id?: string
+          organization_id: string
+          semana: string
+        }
+        Update: {
+          aluno_id?: string
+          created_at?: string
+          id?: string
+          organization_id?: string
+          semana?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "compromisso_semanal_aluno_id_fkey"
+            columns: ["aluno_id"]
+            isOneToOne: false
+            referencedRelation: "alunos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "compromisso_semanal_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "org_churn_metrics"
+            referencedColumns: ["organization_id"]
+          },
+          {
+            foreignKeyName: "compromisso_semanal_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      desafio_participantes: {
+        Row: {
+          aluno_id: string
+          created_at: string
+          desafio_id: string
+          id: string
+          organization_id: string
+        }
+        Insert: {
+          aluno_id: string
+          created_at?: string
+          desafio_id: string
+          id?: string
+          organization_id: string
+        }
+        Update: {
+          aluno_id?: string
+          created_at?: string
+          desafio_id?: string
+          id?: string
+          organization_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "desafio_participantes_aluno_id_fkey"
+            columns: ["aluno_id"]
+            isOneToOne: false
+            referencedRelation: "alunos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "desafio_participantes_desafio_id_fkey"
+            columns: ["desafio_id"]
+            isOneToOne: false
+            referencedRelation: "desafios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "desafio_participantes_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "org_churn_metrics"
+            referencedColumns: ["organization_id"]
+          },
+          {
+            foreignKeyName: "desafio_participantes_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      desafio_progresso: {
+        Row: {
+          aluno_id: string
+          concluido: boolean
+          concluido_em: string | null
+          concluido_por: string | null
+          created_at: string
+          desafio_id: string
+          id: string
+          organization_id: string
+          updated_at: string
+        }
+        Insert: {
+          aluno_id: string
+          concluido?: boolean
+          concluido_em?: string | null
+          concluido_por?: string | null
+          created_at?: string
+          desafio_id: string
+          id?: string
+          organization_id: string
+          updated_at?: string
+        }
+        Update: {
+          aluno_id?: string
+          concluido?: boolean
+          concluido_em?: string | null
+          concluido_por?: string | null
+          created_at?: string
+          desafio_id?: string
+          id?: string
+          organization_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "desafio_progresso_aluno_id_fkey"
+            columns: ["aluno_id"]
+            isOneToOne: false
+            referencedRelation: "alunos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "desafio_progresso_desafio_id_fkey"
+            columns: ["desafio_id"]
+            isOneToOne: false
+            referencedRelation: "desafios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "desafio_progresso_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "org_churn_metrics"
+            referencedColumns: ["organization_id"]
+          },
+          {
+            foreignKeyName: "desafio_progresso_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      desafios: {
+        Row: {
+          created_at: string
+          criado_por: string | null
+          data_fim: string
+          data_inicio: string
+          descricao: string | null
+          id: string
+          meta_valor: number | null
+          organization_id: string
+          para_todos: boolean
+          pontos: number
+          tipo: Database["public"]["Enums"]["desafio_tipo"]
+          titulo: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          criado_por?: string | null
+          data_fim: string
+          data_inicio: string
+          descricao?: string | null
+          id?: string
+          meta_valor?: number | null
+          organization_id: string
+          para_todos?: boolean
+          pontos?: number
+          tipo?: Database["public"]["Enums"]["desafio_tipo"]
+          titulo: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          criado_por?: string | null
+          data_fim?: string
+          data_inicio?: string
+          descricao?: string | null
+          id?: string
+          meta_valor?: number | null
+          organization_id?: string
+          para_todos?: boolean
+          pontos?: number
+          tipo?: Database["public"]["Enums"]["desafio_tipo"]
+          titulo?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "desafios_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "org_churn_metrics"
+            referencedColumns: ["organization_id"]
+          },
+          {
+            foreignKeyName: "desafios_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      dieta_adesao: {
+        Row: {
+          adesao_percentual: number
+          agua_ml: number
+          aluno_id: string
+          consumiu_alcool: boolean
+          consumiu_doce: boolean
+          created_at: string
+          data: string
+          dieta_id: string
+          fome_manha: boolean
+          fome_noite: boolean
+          fome_tarde: boolean
+          id: string
+          nivel_saciedade: string | null
+          observacoes: string | null
+          organization_id: string
+          updated_at: string
+        }
+        Insert: {
+          adesao_percentual?: number
+          agua_ml?: number
+          aluno_id: string
+          consumiu_alcool?: boolean
+          consumiu_doce?: boolean
+          created_at?: string
+          data: string
+          dieta_id: string
+          fome_manha?: boolean
+          fome_noite?: boolean
+          fome_tarde?: boolean
+          id?: string
+          nivel_saciedade?: string | null
+          observacoes?: string | null
+          organization_id: string
+          updated_at?: string
+        }
+        Update: {
+          adesao_percentual?: number
+          agua_ml?: number
+          aluno_id?: string
+          consumiu_alcool?: boolean
+          consumiu_doce?: boolean
+          created_at?: string
+          data?: string
+          dieta_id?: string
+          fome_manha?: boolean
+          fome_noite?: boolean
+          fome_tarde?: boolean
+          id?: string
+          nivel_saciedade?: string | null
+          observacoes?: string | null
+          organization_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dieta_adesao_aluno_id_fkey"
+            columns: ["aluno_id"]
+            isOneToOne: false
+            referencedRelation: "alunos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dieta_adesao_dieta_id_fkey"
+            columns: ["dieta_id"]
+            isOneToOne: false
+            referencedRelation: "dietas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dieta_adesao_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "org_churn_metrics"
+            referencedColumns: ["organization_id"]
+          },
+          {
+            foreignKeyName: "dieta_adesao_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       dietas: {
         Row: {
           aluno_id: string
@@ -794,6 +1409,143 @@ export type Database = {
         }
         Relationships: []
       }
+      feed_comments: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          organization_id: string
+          post_id: string
+          user_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          organization_id: string
+          post_id: string
+          user_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          organization_id?: string
+          post_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "feed_comments_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "org_churn_metrics"
+            referencedColumns: ["organization_id"]
+          },
+          {
+            foreignKeyName: "feed_comments_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "feed_comments_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "feed_posts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      feed_likes: {
+        Row: {
+          created_at: string
+          id: string
+          organization_id: string
+          post_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          organization_id: string
+          post_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          organization_id?: string
+          post_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "feed_likes_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "org_churn_metrics"
+            referencedColumns: ["organization_id"]
+          },
+          {
+            foreignKeyName: "feed_likes_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "feed_likes_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "feed_posts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      feed_posts: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          image_url: string | null
+          organization_id: string
+          user_id: string
+        }
+        Insert: {
+          content?: string
+          created_at?: string
+          id?: string
+          image_url?: string | null
+          organization_id: string
+          user_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          image_url?: string | null
+          organization_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "feed_posts_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "org_churn_metrics"
+            referencedColumns: ["organization_id"]
+          },
+          {
+            foreignKeyName: "feed_posts_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       links_ativacao: {
         Row: {
           action_link: string
@@ -817,6 +1569,234 @@ export type Database = {
           user_id?: string | null
         }
         Relationships: []
+      }
+      mensagens_dieta: {
+        Row: {
+          aluno_id: string
+          created_at: string
+          dieta_id: string
+          id: string
+          lida: boolean
+          mensagem: string
+          organization_id: string
+          remetente_id: string
+          remetente_tipo: Database["public"]["Enums"]["remetente_tipo_dieta"]
+        }
+        Insert: {
+          aluno_id: string
+          created_at?: string
+          dieta_id: string
+          id?: string
+          lida?: boolean
+          mensagem: string
+          organization_id: string
+          remetente_id: string
+          remetente_tipo: Database["public"]["Enums"]["remetente_tipo_dieta"]
+        }
+        Update: {
+          aluno_id?: string
+          created_at?: string
+          dieta_id?: string
+          id?: string
+          lida?: boolean
+          mensagem?: string
+          organization_id?: string
+          remetente_id?: string
+          remetente_tipo?: Database["public"]["Enums"]["remetente_tipo_dieta"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mensagens_dieta_aluno_id_fkey"
+            columns: ["aluno_id"]
+            isOneToOne: false
+            referencedRelation: "alunos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mensagens_dieta_dieta_id_fkey"
+            columns: ["dieta_id"]
+            isOneToOne: false
+            referencedRelation: "dietas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mensagens_dieta_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "org_churn_metrics"
+            referencedColumns: ["organization_id"]
+          },
+          {
+            foreignKeyName: "mensagens_dieta_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      mensagens_treino: {
+        Row: {
+          aluno_id: string
+          created_at: string
+          id: string
+          lida: boolean
+          mensagem: string
+          organization_id: string
+          remetente_id: string
+          remetente_tipo: Database["public"]["Enums"]["remetente_tipo_treino"]
+          video_url: string | null
+        }
+        Insert: {
+          aluno_id: string
+          created_at?: string
+          id?: string
+          lida?: boolean
+          mensagem: string
+          organization_id: string
+          remetente_id: string
+          remetente_tipo: Database["public"]["Enums"]["remetente_tipo_treino"]
+          video_url?: string | null
+        }
+        Update: {
+          aluno_id?: string
+          created_at?: string
+          id?: string
+          lida?: boolean
+          mensagem?: string
+          organization_id?: string
+          remetente_id?: string
+          remetente_tipo?: Database["public"]["Enums"]["remetente_tipo_treino"]
+          video_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mensagens_treino_aluno_id_fkey"
+            columns: ["aluno_id"]
+            isOneToOne: false
+            referencedRelation: "alunos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mensagens_treino_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "org_churn_metrics"
+            referencedColumns: ["organization_id"]
+          },
+          {
+            foreignKeyName: "mensagens_treino_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      metrica_valores: {
+        Row: {
+          avaliacao_id: string
+          created_at: string
+          id: string
+          metrica_id: string
+          organization_id: string
+          valor: number
+        }
+        Insert: {
+          avaliacao_id: string
+          created_at?: string
+          id?: string
+          metrica_id: string
+          organization_id: string
+          valor?: number
+        }
+        Update: {
+          avaliacao_id?: string
+          created_at?: string
+          id?: string
+          metrica_id?: string
+          organization_id?: string
+          valor?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "metrica_valores_avaliacao_id_fkey"
+            columns: ["avaliacao_id"]
+            isOneToOne: false
+            referencedRelation: "avaliacoes_fisicas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "metrica_valores_metrica_id_fkey"
+            columns: ["metrica_id"]
+            isOneToOne: false
+            referencedRelation: "metricas_customizadas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "metrica_valores_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "org_churn_metrics"
+            referencedColumns: ["organization_id"]
+          },
+          {
+            foreignKeyName: "metrica_valores_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      metricas_customizadas: {
+        Row: {
+          aluno_id: string
+          created_at: string
+          criado_por: string | null
+          id: string
+          nome: string
+          organization_id: string
+        }
+        Insert: {
+          aluno_id: string
+          created_at?: string
+          criado_por?: string | null
+          id?: string
+          nome: string
+          organization_id: string
+        }
+        Update: {
+          aluno_id?: string
+          created_at?: string
+          criado_por?: string | null
+          id?: string
+          nome?: string
+          organization_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "metricas_customizadas_aluno_id_fkey"
+            columns: ["aluno_id"]
+            isOneToOne: false
+            referencedRelation: "alunos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "metricas_customizadas_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "org_churn_metrics"
+            referencedColumns: ["organization_id"]
+          },
+          {
+            foreignKeyName: "metricas_customizadas_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       modelo_dieta_refeicoes: {
         Row: {
@@ -1346,6 +2326,33 @@ export type Database = {
         }
         Relationships: []
       }
+      push_subscriptions: {
+        Row: {
+          auth: string
+          created_at: string
+          endpoint: string
+          id: string
+          p256dh: string
+          user_id: string
+        }
+        Insert: {
+          auth: string
+          created_at?: string
+          endpoint: string
+          id?: string
+          p256dh: string
+          user_id: string
+        }
+        Update: {
+          auth?: string
+          created_at?: string
+          endpoint?: string
+          id?: string
+          p256dh?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       registro_habito: {
         Row: {
           agua_ml: number
@@ -1565,6 +2572,70 @@ export type Database = {
           },
           {
             foreignKeyName: "tarefas_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      treino_calendario: {
+        Row: {
+          aluno_id: string
+          created_at: string
+          data: string
+          detalhes: string | null
+          distancia_km: number | null
+          duracao_min: number | null
+          id: string
+          intensidade: string
+          observacoes: string | null
+          organization_id: string
+          tipos: string[]
+        }
+        Insert: {
+          aluno_id: string
+          created_at?: string
+          data: string
+          detalhes?: string | null
+          distancia_km?: number | null
+          duracao_min?: number | null
+          id?: string
+          intensidade?: string
+          observacoes?: string | null
+          organization_id: string
+          tipos?: string[]
+        }
+        Update: {
+          aluno_id?: string
+          created_at?: string
+          data?: string
+          detalhes?: string | null
+          distancia_km?: number | null
+          duracao_min?: number | null
+          id?: string
+          intensidade?: string
+          observacoes?: string | null
+          organization_id?: string
+          tipos?: string[]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "treino_calendario_aluno_id_fkey"
+            columns: ["aluno_id"]
+            isOneToOne: false
+            referencedRelation: "alunos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "treino_calendario_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "org_churn_metrics"
+            referencedColumns: ["organization_id"]
+          },
+          {
+            foreignKeyName: "treino_calendario_organization_id_fkey"
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
@@ -1883,12 +2954,28 @@ export type Database = {
           planos: Json
         }[]
       }
+      obter_perfis_publicos_org: {
+        Args: never
+        Returns: {
+          avatar_url: string
+          full_name: string
+          user_id: string
+        }[]
+      }
       obter_proximo_evento_aluno: {
         Args: never
         Returns: {
           data_agendada: string
           motivo: string
           sla_prazo: string
+        }[]
+      }
+      obter_ranking_competicao: {
+        Args: { p_competicao_id: string }
+        Returns: {
+          aluno_id: string
+          nome: string
+          valor: number
         }[]
       }
       provisionar_organizacao_padrao: { Args: never; Returns: string }
@@ -1927,6 +3014,19 @@ export type Database = {
         | "preciso_ajuste"
         | "com_dificuldade"
         | "quero_falar_com_alguem"
+      competicao_metrica:
+        | "pontos_desafios"
+        | "treinos_concluidos"
+        | "km_total"
+        | "dieta_adesao_media"
+      desafio_tipo:
+        | "sem_doce"
+        | "sem_alcool"
+        | "consumo_agua"
+        | "numero_treinos"
+        | "modalidades"
+        | "desempenho_dieta"
+        | "livre"
       fase_jornada: "mapa" | "base" | "rota" | "apex" | "legado"
       metodo_arke_status: "sem_adesao" | "ativo" | "cancelado"
       motivo_dificuldade:
@@ -1942,6 +3042,8 @@ export type Database = {
       plano_b2b: "starter" | "growth" | "enterprise" | "custom" | "autonomo"
       provedor_nutricao: "nenhum" | "nutricionista_academia" | "equipe_arke"
       provedor_treino: "academia_propria" | "personal_parceiro" | "equipe_arke"
+      remetente_tipo_dieta: "aluno" | "nutricionista"
+      remetente_tipo_treino: "aluno" | "treinador"
       tarefa_prioridade: "baixa" | "media" | "alta" | "critica"
       tarefa_status:
         | "aberta"
@@ -2100,6 +3202,21 @@ export const Constants = {
         "com_dificuldade",
         "quero_falar_com_alguem",
       ],
+      competicao_metrica: [
+        "pontos_desafios",
+        "treinos_concluidos",
+        "km_total",
+        "dieta_adesao_media",
+      ],
+      desafio_tipo: [
+        "sem_doce",
+        "sem_alcool",
+        "consumo_agua",
+        "numero_treinos",
+        "modalidades",
+        "desempenho_dieta",
+        "livre",
+      ],
       fase_jornada: ["mapa", "base", "rota", "apex", "legado"],
       metodo_arke_status: ["sem_adesao", "ativo", "cancelado"],
       motivo_dificuldade: [
@@ -2116,6 +3233,8 @@ export const Constants = {
       plano_b2b: ["starter", "growth", "enterprise", "custom", "autonomo"],
       provedor_nutricao: ["nenhum", "nutricionista_academia", "equipe_arke"],
       provedor_treino: ["academia_propria", "personal_parceiro", "equipe_arke"],
+      remetente_tipo_dieta: ["aluno", "nutricionista"],
+      remetente_tipo_treino: ["aluno", "treinador"],
       tarefa_prioridade: ["baixa", "media", "alta", "critica"],
       tarefa_status: [
         "aberta",

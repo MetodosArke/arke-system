@@ -4,8 +4,10 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
-import { UtensilsCrossed, Flame } from "lucide-react";
+import { UtensilsCrossed, Flame, MessageCircle, Lock, Sparkles, CalendarDays } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { ChatPanel } from "@/components/chat/ChatPanel";
+import ControleDieta from "@/components/aluno/ControleDieta";
 
 interface RefeicaoSnapshot {
   ordem: number;
@@ -21,7 +23,7 @@ interface RefeicaoSnapshot {
 const HOJE = new Date().toISOString().slice(0, 10);
 
 export default function AlunoDieta() {
-  const { alunoId, organization } = useAuth();
+  const { alunoId, organization, metodoArkeAtivo } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -47,7 +49,7 @@ export default function AlunoDieta() {
         .maybeSingle();
       return data;
     },
-    enabled: !!alunoId && aluno?.nivel_atacado !== "essencial",
+    enabled: !!alunoId && (aluno?.nivel_atacado === "integrado" || aluno?.nivel_atacado === "elite"),
   });
 
   const { data: habitoHoje } = useQuery({
@@ -103,15 +105,17 @@ export default function AlunoDieta() {
   );
   const temMacros = refeicoes.some((r) => r.calorias_kcal || r.proteinas_g || r.carboidratos_g || r.gorduras_g);
 
-  if (aluno?.nivel_atacado === "essencial") {
+  if (aluno && aluno.nivel_atacado !== "integrado" && aluno.nivel_atacado !== "elite") {
     return (
       <div className="max-w-2xl mx-auto">
         <Card>
           <CardContent className="py-8 text-center space-y-2">
             <UtensilsCrossed className="h-8 w-8 text-muted-foreground/40 mx-auto" />
-            <p className="text-sm font-medium">Nutrição não incluída no seu plano</p>
+            <p className="text-sm font-medium">
+              {aluno.nivel_atacado === "essencial" ? "Nutrição não incluída no seu plano" : "Acompanhamento nutricional do Método ARKE"}
+            </p>
             <p className="text-xs text-muted-foreground">
-              Fale com sua academia para migrar para o plano Integrado ou Elite e ter acesso ao acompanhamento nutricional.
+              Fale com sua academia sobre o Método ARKE nos níveis Integrado ou Elite para ter acesso ao acompanhamento nutricional.
             </p>
           </CardContent>
         </Card>
@@ -120,7 +124,7 @@ export default function AlunoDieta() {
   }
 
   return (
-    <div className="space-y-4 max-w-2xl mx-auto">
+    <div className="space-y-4 max-w-2xl lg:max-w-4xl mx-auto">
       <div className="flex items-center gap-2">
         <UtensilsCrossed className="h-5 w-5 text-primary" />
         <h1 className="text-xl font-bold">Minha Dieta</h1>
@@ -204,8 +208,39 @@ export default function AlunoDieta() {
               })}
             </CardContent>
           </Card>
+
+          <div className="pt-2">
+            <div className="flex items-center gap-2 mb-3">
+              <CalendarDays className="h-4 w-4 text-primary" />
+              <h2 className="text-base font-bold">Controle da Dieta</h2>
+            </div>
+            <ControleDieta dietaId={dieta.id} />
+          </div>
         </>
       )}
+
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <MessageCircle className="h-4 w-4 text-primary" /> Chat com a Nutricionista
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {metodoArkeAtivo && alunoId && organization ? (
+            <ChatPanel organizationId={organization.id} alunoId={alunoId} viewerType="aluno" type="nutri" />
+          ) : (
+            <div className="flex flex-col items-center gap-2 py-6 text-center">
+              <Lock className="h-6 w-6 text-muted-foreground/50" />
+              <p className="text-sm font-medium flex items-center gap-1.5">
+                <Sparkles className="h-3.5 w-3.5 text-primary" /> Exclusivo do Método ARKE
+              </p>
+              <p className="text-xs text-muted-foreground max-w-xs">
+                Fale direto com sua nutricionista pelo chat quando aderir ao Método ARKE. Pergunte à sua academia como aderir.
+              </p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }
