@@ -17,6 +17,7 @@ import {
   CalendarClock,
   Minus,
   Plus,
+  Sparkles,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { RegistrarAlertaCard } from "@/components/aluno/RegistrarAlertaCard";
@@ -78,6 +79,16 @@ export default function AlunoDashboard() {
         .limit(1)
         .maybeSingle();
       return data;
+    },
+    enabled: !!alunoId,
+  });
+
+  const { data: proximoEvento } = useQuery({
+    queryKey: ["aluno-proximo-evento", alunoId],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("obter_proximo_evento_aluno");
+      if (error) throw error;
+      return data?.[0] ?? null;
     },
     enabled: !!alunoId,
   });
@@ -295,10 +306,40 @@ export default function AlunoDashboard() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-sm text-muted-foreground">Em breve — sua equipe vai agendar os próximos passos.</p>
+            {proximoEvento?.data_agendada ? (
+              <>
+                <p className="text-sm font-medium">{proximoEvento.motivo}</p>
+                <p className="text-sm text-primary">
+                  {new Date(proximoEvento.data_agendada).toLocaleString("pt-BR", {
+                    weekday: "long",
+                    day: "2-digit",
+                    month: "2-digit",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}
+                </p>
+              </>
+            ) : (
+              <p className="text-sm text-muted-foreground">Em breve — sua equipe vai agendar os próximos passos.</p>
+            )}
           </CardContent>
         </Card>
       </div>
+
+      {treinoAtivo?.titulo === "Treino de Boas-vindas — Adaptação" && (
+        <Card className="border-primary/30 bg-primary/5">
+          <CardContent className="flex gap-3 items-start pt-4">
+            <Sparkles className="h-5 w-5 text-primary shrink-0 mt-0.5" />
+            <div className="space-y-1">
+              <p className="text-sm font-semibold">Este é o seu treino de adaptação inicial</p>
+              <p className="text-xs text-muted-foreground">
+                Preparamos ele pra você já começar hoje. Seu professor vai montar sua ficha 100% personalizada em
+                breve — assim que isso acontecer, ela substitui automaticamente este treino provisório.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {!askOpen ? (
         <Button className="w-full" size="lg" onClick={() => setAskOpen(true)}>
