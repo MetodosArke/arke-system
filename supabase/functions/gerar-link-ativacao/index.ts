@@ -16,6 +16,17 @@ type GerarLinkPayload = {
   user_id: string;
 };
 
+// Sem 0/O/1/l/I para evitar confusão ao digitar/ler o código.
+const ALFABETO_CODIGO_CURTO = "23456789ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz";
+
+function gerarCodigoCurto(tamanho = 8): string {
+  let codigo = "";
+  for (let i = 0; i < tamanho; i++) {
+    codigo += ALFABETO_CODIGO_CURTO[Math.floor(Math.random() * ALFABETO_CODIGO_CURTO.length)];
+  }
+  return codigo;
+}
+
 // Gera um link de ativação/definição de senha tokenizado (via
 // supabase.auth.admin.generateLink, type "recovery") para o botão
 // "Enviar Ativação via WhatsApp" — não envia e-mail, apenas devolve o
@@ -122,7 +133,28 @@ Deno.serve(async (req: Request) => {
       return jsonResponse({ error: "Erro ao gerar o link de ativação." }, 500);
     }
 
-    return jsonResponse({ action_link: linkData.properties.action_link });
+    const expiresAt = new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString();
+    let code = "";
+    for (let tentativa = 0; tentativa < 5; tentativa++) {
+      code = gerarCodigoCurto();
+      const { error: insertError } = await adminClient.from("links_ativacao").insert({
+        code,
+        action_link: linkData.properties.action_link,
+        user_id: targetUserId,
+        expires_at: expiresAt,
+      });
+      if (!insertError) break;
+      if (insertError.code !== "23505") {
+        console.error("Error saving short link", insertError);
+        return jsonResponse({ error: "Erro ao gerar o link de ativação." }, 500);
+      }
+      if (tentativa === 4) {
+        console.error("Could not generate a unique short code after 5 attempts");
+        return jsonResponse({ error: "Erro ao gerar o link de ativação." }, 500);
+      }
+    }
+
+    return jsonResponse({ action_link: `${siteUrl}/cadastro/${code}` });
   } catch (error) {
     console.error("Unexpected error in gerar-link-ativacao", error);
     return jsonResponse({ error: "Erro inesperado ao gerar o link de ativação." }, 500);
