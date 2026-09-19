@@ -74,6 +74,16 @@ const PRIORIDADE_LABEL: Record<Prioridade, string> = {
   critica: "Crítica",
 };
 
+// Cores em gradiente de severidade — usadas na bolinha de cada aba de
+// prioridade, para o gestor identificar a urgência de relance, sem
+// precisar ler o texto.
+const PRIORIDADE_DOT_COLOR: Record<Prioridade, string> = {
+  baixa: "bg-slate-400",
+  media: "bg-blue-500",
+  alta: "bg-orange-500",
+  critica: "bg-red-500",
+};
+
 // Ordem de prioridade para o ordenamento da fila: crítica primeiro.
 const PRIORIDADE_PESO: Record<Prioridade, number> = {
   critica: 0,
@@ -239,16 +249,18 @@ export default function AdminDashboard() {
         </TabsList>
 
         <TabsContent value={escopo} className="space-y-4 mt-4">
-          <div className="flex flex-wrap gap-2">
-            <Select value={filtroPrioridade} onValueChange={(v) => setFiltroPrioridade(v as Prioridade | "todas")}>
-              <SelectTrigger className="w-[160px]"><SelectValue placeholder="Prioridade" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="todas">Todas as prioridades</SelectItem>
+          <div className="flex flex-wrap items-center gap-2">
+            <Tabs value={filtroPrioridade} onValueChange={(v) => setFiltroPrioridade(v as Prioridade | "todas")}>
+              <TabsList className="h-auto flex-wrap">
+                <TabsTrigger value="todas">Todas</TabsTrigger>
                 {(Object.keys(PRIORIDADE_LABEL) as Prioridade[]).map((p) => (
-                  <SelectItem key={p} value={p}>{PRIORIDADE_LABEL[p]}</SelectItem>
+                  <TabsTrigger key={p} value={p} className="gap-1.5">
+                    <span className={cn("h-2 w-2 rounded-full shrink-0", PRIORIDADE_DOT_COLOR[p])} />
+                    {PRIORIDADE_LABEL[p]}
+                  </TabsTrigger>
                 ))}
-              </SelectContent>
-            </Select>
+              </TabsList>
+            </Tabs>
 
             <Select value={filtroStatus} onValueChange={(v) => setFiltroStatus(v as Status | "todas")}>
               <SelectTrigger className="w-[160px]"><SelectValue placeholder="Status" /></SelectTrigger>
@@ -302,7 +314,10 @@ export default function AdminDashboard() {
                             <ArrowUpCircle className="h-3 w-3 mr-1" /> Escalada
                           </Badge>
                         )}
-                        <Badge variant={PRIORIDADE_VARIANT[tarefa.prioridade]}>{PRIORIDADE_LABEL[tarefa.prioridade]}</Badge>
+                        <Badge variant={PRIORIDADE_VARIANT[tarefa.prioridade]} className="gap-1.5">
+                          <span className={cn("h-1.5 w-1.5 rounded-full", PRIORIDADE_DOT_COLOR[tarefa.prioridade])} />
+                          {PRIORIDADE_LABEL[tarefa.prioridade]}
+                        </Badge>
                       </div>
                     </div>
                   </CardHeader>
