@@ -178,20 +178,31 @@
     color: black !important;
   }
 
-  /* Recibo/comprovante: some tudo, exceto o conteúdo marcado como
-     imprimível (o Dialog do Radix renderiza em um portal no body, então
-     isto funciona mesmo com o app inteiro por trás). */
-  body:has(.recibo-print-area) * {
+  /* Área imprimível genérica (recibo, treino, etc.): some tudo, exceto o
+     conteúdo marcado como imprimível (o Dialog do Radix renderiza em um
+     portal no body, então isto funciona mesmo com o app inteiro por trás). */
+  body:has(.print-area) * {
     visibility: hidden;
   }
-  .recibo-print-area,
-  .recibo-print-area * {
+  .print-area,
+  .print-area * {
     visibility: visible;
   }
-  .recibo-print-area {
+  .print-area {
     position: absolute;
     left: 0;
     top: 0;
     width: 100%;
+  }
+
+  /* Impressora térmica (bobina de recibo, 80mm) — usada quando a área
+     imprimível também carrega .print-area--termica. */
+  .print-area--termica {
+    width: 80mm;
+    font-family: "Courier New", monospace;
+  }
+  @page {
+    size: 80mm auto;
+    margin: 3mm;
   }
 }

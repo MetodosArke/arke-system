@@ -1,11 +1,14 @@
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { Dumbbell, UtensilsCrossed, Phone, Cake, Ruler, ClipboardList, AlertTriangle } from "lucide-react";
+import { Dumbbell, UtensilsCrossed, Phone, Cake, Ruler, ClipboardList, AlertTriangle, Printer } from "lucide-react";
+import { ImprimirTreinoDialog, type ExercicioSnapshotImpressao } from "@/components/admin/ImprimirTreinoDialog";
 
 const NIVEL_LABEL: Record<string, string> = {
   essencial: "Essencial",
@@ -82,6 +85,8 @@ export function AlunoPerfilSheet({
   onOpenChange: (open: boolean) => void;
 }) {
   const navigate = useNavigate();
+  const { organization } = useAuth();
+  const [impressaoAberta, setImpressaoAberta] = useState(false);
 
   const { data: perfil, isLoading } = useQuery({
     queryKey: ["aluno-perfil", alunoId],
@@ -124,7 +129,7 @@ export function AlunoPerfilSheet({
           .limit(1),
         supabase
           .from("treinos")
-          .select("titulo, validade_fim")
+          .select("titulo, validade_inicio, validade_fim, snapshot_conteudo")
           .eq("aluno_id", aluno.id)
           .eq("status", "ativo")
           .order("created_at", { ascending: false })
@@ -168,6 +173,8 @@ export function AlunoPerfilSheet({
   });
 
   const idade = perfil?.aluno.data_nascimento ? calcularIdade(perfil.aluno.data_nascimento) : null;
+  const exerciciosTreinoAtivo =
+    (perfil?.treinoAtivo?.snapshot_conteudo as unknown as ExercicioSnapshotImpressao[] | null) ?? [];
 
   const irPrescrever = (destino: "treinos" | "dietas") => {
     if (!alunoId) return;
@@ -254,12 +261,45 @@ export function AlunoPerfilSheet({
                 </Bloco>
               )}
 
-              <Bloco titulo="Prescrições Ativas" icon={Dumbbell}>
+              <Bloco titulo="Treino Ativo" icon={Dumbbell}>
+                {perfil.treinoAtivo ? (
+                  <>
+                    <div className="flex items-center justify-between gap-2">
+                      <div>
+                        <p className="text-sm font-medium">{perfil.treinoAtivo.titulo}</p>
+                        {perfil.treinoAtivo.validade_fim && (
+                          <p className="text-xs text-muted-foreground">
+                            Válido até {formatarData(perfil.treinoAtivo.validade_fim)}
+                          </p>
+                        )}
+                      </div>
+                      <Button size="sm" variant="outline" onClick={() => setImpressaoAberta(true)}>
+                        <Printer className="h-3.5 w-3.5 mr-1.5" />
+                        Imprimir
+                      </Button>
+                    </div>
+                    <ul className="mt-2 space-y-1.5">
+                      {exerciciosTreinoAtivo.map((ex) => (
+                        <li key={ex.ordem} className="text-sm">
+                          <span className="font-medium">
+                            {ex.ordem}. {ex.nome_exercicio}
+                          </span>
+                          <span className="text-xs text-muted-foreground">
+                            {" "}
+                            — {ex.series}x{ex.repeticoes} · descanso {ex.descanso_seg}s
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  </>
+                ) : (
+                  <p className="text-sm text-muted-foreground">Nenhum treino ativo</p>
+                )}
+              </Bloco>
+
+              <Bloco titulo="Dieta Ativa" icon={UtensilsCrossed}>
                 <p className="text-sm">
-                  Treino: {perfil.treinoAtivo ? perfil.treinoAtivo.titulo : <span className="text-muted-foreground">nenhum ativo</span>}
-                </p>
-                <p className="text-sm">
-                  Dieta: {perfil.dietaAtiva ? perfil.dietaAtiva.titulo : <span className="text-muted-foreground">nenhuma ativa</span>}
+                  {perfil.dietaAtiva ? perfil.dietaAtiva.titulo : <span className="text-muted-foreground">nenhuma ativa</span>}
                 </p>
               </Bloco>
 
@@ -292,6 +332,23 @@ export function AlunoPerfilSheet({
                 </Bloco>
               )}
             </div>
+
+            <ImprimirTreinoDialog
+              open={impressaoAberta}
+              onOpenChange={setImpressaoAberta}
+              organizacaoNome={organization?.nome ?? "Academia"}
+              alunoNome={perfil.profile?.full_name ?? "Aluno"}
+              treino={
+                perfil.treinoAtivo
+                  ? {
+                      titulo: perfil.treinoAtivo.titulo,
+                      validade_inicio: perfil.treinoAtivo.validade_inicio,
+                      validade_fim: perfil.treinoAtivo.validade_fim,
+                      exercicios: exerciciosTreinoAtivo,
+                    }
+                  : null
+              }
+            />
           </>
         )}
       </SheetContent>

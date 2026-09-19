@@ -51,7 +51,7 @@ export function ReciboComprovanteDialog({
           <DialogTitle>Comprovante de Matrícula</DialogTitle>
         </DialogHeader>
 
-        <div className="recibo-print-area space-y-3 text-sm">
+        <div className="print-area space-y-3 text-sm">
           <div className="text-center border-b border-border pb-3">
             <p className="text-lg font-bold">{recibo.organizacaoNome}</p>
             <p className="text-xs text-muted-foreground">Comprovante de Matrícula / Recibo</p>
