@@ -694,6 +694,92 @@ export type Database = {
           },
         ]
       }
+      dieta_adesao: {
+        Row: {
+          adesao_percentual: number
+          agua_ml: number
+          aluno_id: string
+          consumiu_alcool: boolean
+          consumiu_doce: boolean
+          created_at: string
+          data: string
+          dieta_id: string
+          fome_manha: boolean
+          fome_noite: boolean
+          fome_tarde: boolean
+          id: string
+          nivel_saciedade: string | null
+          observacoes: string | null
+          organization_id: string
+          updated_at: string
+        }
+        Insert: {
+          adesao_percentual?: number
+          agua_ml?: number
+          aluno_id: string
+          consumiu_alcool?: boolean
+          consumiu_doce?: boolean
+          created_at?: string
+          data: string
+          dieta_id: string
+          fome_manha?: boolean
+          fome_noite?: boolean
+          fome_tarde?: boolean
+          id?: string
+          nivel_saciedade?: string | null
+          observacoes?: string | null
+          organization_id: string
+          updated_at?: string
+        }
+        Update: {
+          adesao_percentual?: number
+          agua_ml?: number
+          aluno_id?: string
+          consumiu_alcool?: boolean
+          consumiu_doce?: boolean
+          created_at?: string
+          data?: string
+          dieta_id?: string
+          fome_manha?: boolean
+          fome_noite?: boolean
+          fome_tarde?: boolean
+          id?: string
+          nivel_saciedade?: string | null
+          observacoes?: string | null
+          organization_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dieta_adesao_aluno_id_fkey"
+            columns: ["aluno_id"]
+            isOneToOne: false
+            referencedRelation: "alunos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dieta_adesao_dieta_id_fkey"
+            columns: ["dieta_id"]
+            isOneToOne: false
+            referencedRelation: "dietas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dieta_adesao_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "org_churn_metrics"
+            referencedColumns: ["organization_id"]
+          },
+          {
+            foreignKeyName: "dieta_adesao_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       dietas: {
         Row: {
           aluno_id: string

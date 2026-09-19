@@ -390,7 +390,25 @@ export default function CalendarioTreinos() {
                     )}
                     onClick={() => setSelectedDate(dayItem)}
                   >
-                    <span className={cn("text-xs font-medium", isTodayDate && "text-primary font-bold")}>{format(dayItem, "d")}</span>
+                    <div className="flex items-center justify-between">
+                      <span className={cn("text-xs font-medium", isTodayDate && "text-primary font-bold")}>{format(dayItem, "d")}</span>
+                      {isCurrentMonth && (
+                        <button
+                          className={cn(
+                            "h-4 w-4 rounded-full flex items-center justify-center text-primary/60 hover:bg-primary/15 hover:text-primary transition-colors",
+                            isSelected && "bg-primary/10 text-primary"
+                          )}
+                          title="Adicionar treino neste dia"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedDate(dayItem);
+                            setShowAddDialog(true);
+                          }}
+                        >
+                          <Plus className="h-3 w-3" />
+                        </button>
+                      )}
+                    </div>
                     <div className="mt-1 space-y-0.5">
                       {entries.slice(0, 3).map((entry, eIdx) => (
                         <div
@@ -405,17 +423,6 @@ export default function CalendarioTreinos() {
                       ))}
                       {entries.length > 3 && <span className="text-[9px] text-muted-foreground">+{entries.length - 3}</span>}
                     </div>
-                    {isCurrentMonth && isSelected && (
-                      <button
-                        className="absolute bottom-1 right-1 text-[10px] text-primary hover:underline"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setShowAddDialog(true);
-                        }}
-                      >
-                        + Adicionar
-                      </button>
-                    )}
                   </div>
                 );
               })}

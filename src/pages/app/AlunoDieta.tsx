@@ -4,9 +4,10 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
-import { UtensilsCrossed, Flame, MessageCircle, Lock, Sparkles } from "lucide-react";
+import { UtensilsCrossed, Flame, MessageCircle, Lock, Sparkles, CalendarDays } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { ChatPanel } from "@/components/chat/ChatPanel";
+import ControleDieta from "@/components/aluno/ControleDieta";
 
 interface RefeicaoSnapshot {
   ordem: number;
@@ -121,7 +122,7 @@ export default function AlunoDieta() {
   }
 
   return (
-    <div className="space-y-4 max-w-2xl mx-auto">
+    <div className="space-y-4 max-w-2xl lg:max-w-4xl mx-auto">
       <div className="flex items-center gap-2">
         <UtensilsCrossed className="h-5 w-5 text-primary" />
         <h1 className="text-xl font-bold">Minha Dieta</h1>
@@ -205,6 +206,14 @@ export default function AlunoDieta() {
               })}
             </CardContent>
           </Card>
+
+          <div className="pt-2">
+            <div className="flex items-center gap-2 mb-3">
+              <CalendarDays className="h-4 w-4 text-primary" />
+              <h2 className="text-base font-bold">Controle da Dieta</h2>
+            </div>
+            <ControleDieta dietaId={dieta.id} />
+          </div>
         </>
       )}
 
