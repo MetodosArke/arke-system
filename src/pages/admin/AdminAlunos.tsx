@@ -71,7 +71,8 @@ interface AlunoRow {
 const EMPTY_ALUNOS: AlunoRow[] = [];
 
 export default function AdminAlunos() {
-  const { organization } = useAuth();
+  const { organization, hasRole, organizationRole } = useAuth();
+  const podeGerenciarEquipe = hasRole("admin_arke") || organizationRole === "gestor";
   const navigate = useNavigate();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -215,16 +216,18 @@ export default function AdminAlunos() {
           <Users className="h-5 w-5 text-primary" />
           <h1 className="text-xl font-bold">Alunos & Prescrições</h1>
         </div>
-        <div className="flex items-center gap-2">
-          <Button size="sm" variant="outline" onClick={() => navigate("/admin/alunos/importar")}>
-            <FileSpreadsheet className="h-4 w-4 mr-1.5" />
-            Importar em massa
-          </Button>
-          <Button size="sm" onClick={() => setCadastroAberto(true)} disabled={!organization}>
-            <UserPlus className="h-4 w-4 mr-1.5" />
-            Cadastrar Aluno
-          </Button>
-        </div>
+        {podeGerenciarEquipe && (
+          <div className="flex items-center gap-2">
+            <Button size="sm" variant="outline" onClick={() => navigate("/admin/alunos/importar")}>
+              <FileSpreadsheet className="h-4 w-4 mr-1.5" />
+              Importar em massa
+            </Button>
+            <Button size="sm" onClick={() => setCadastroAberto(true)} disabled={!organization}>
+              <UserPlus className="h-4 w-4 mr-1.5" />
+              Cadastrar Aluno
+            </Button>
+          </div>
+        )}
       </div>
 
       <Card>
