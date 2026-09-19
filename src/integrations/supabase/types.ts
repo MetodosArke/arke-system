@@ -249,6 +249,8 @@ export type Database = {
           fase_jornada: Database["public"]["Enums"]["fase_jornada"]
           id: string
           meta_semanal_dias: number
+          metodo_arke_ativado_em: string | null
+          metodo_arke_status: Database["public"]["Enums"]["metodo_arke_status"]
           nivel_atacado: Database["public"]["Enums"]["nivel_atacado"]
           objetivo: string | null
           observacoes: string | null
@@ -270,6 +272,8 @@ export type Database = {
           fase_jornada?: Database["public"]["Enums"]["fase_jornada"]
           id?: string
           meta_semanal_dias?: number
+          metodo_arke_ativado_em?: string | null
+          metodo_arke_status?: Database["public"]["Enums"]["metodo_arke_status"]
           nivel_atacado?: Database["public"]["Enums"]["nivel_atacado"]
           objetivo?: string | null
           observacoes?: string | null
@@ -291,6 +295,8 @@ export type Database = {
           fase_jornada?: Database["public"]["Enums"]["fase_jornada"]
           id?: string
           meta_semanal_dias?: number
+          metodo_arke_ativado_em?: string | null
+          metodo_arke_status?: Database["public"]["Enums"]["metodo_arke_status"]
           nivel_atacado?: Database["public"]["Enums"]["nivel_atacado"]
           objetivo?: string | null
           observacoes?: string | null
@@ -785,6 +791,30 @@ export type Database = {
           repeticoes_padrao?: string
           series_padrao?: number
           video_url?: string | null
+        }
+        Relationships: []
+      }
+      links_ativacao: {
+        Row: {
+          action_link: string
+          code: string
+          created_at: string
+          expires_at: string
+          user_id: string | null
+        }
+        Insert: {
+          action_link: string
+          code: string
+          created_at?: string
+          expires_at: string
+          user_id?: string | null
+        }
+        Update: {
+          action_link?: string
+          code?: string
+          created_at?: string
+          expires_at?: string
+          user_id?: string | null
         }
         Relationships: []
       }
@@ -1465,6 +1495,7 @@ export type Database = {
           acao: string | null
           aluno_id: string | null
           created_at: string
+          data_agendada: string | null
           desfecho_acao: string | null
           escalada_em: string | null
           id: string
@@ -1483,6 +1514,7 @@ export type Database = {
           acao?: string | null
           aluno_id?: string | null
           created_at?: string
+          data_agendada?: string | null
           desfecho_acao?: string | null
           escalada_em?: string | null
           id?: string
@@ -1501,6 +1533,7 @@ export type Database = {
           acao?: string | null
           aluno_id?: string | null
           created_at?: string
+          data_agendada?: string | null
           desfecho_acao?: string | null
           escalada_em?: string | null
           id?: string
@@ -1850,6 +1883,14 @@ export type Database = {
           planos: Json
         }[]
       }
+      obter_proximo_evento_aluno: {
+        Args: never
+        Returns: {
+          data_agendada: string
+          motivo: string
+          sla_prazo: string
+        }[]
+      }
       provisionar_organizacao_padrao: { Args: never; Returns: string }
       publicar_dieta: {
         Args: { _aluno_id: string; _modelo_id: string; _titulo: string }
@@ -1887,6 +1928,7 @@ export type Database = {
         | "com_dificuldade"
         | "quero_falar_com_alguem"
       fase_jornada: "mapa" | "base" | "rota" | "apex" | "legado"
+      metodo_arke_status: "sem_adesao" | "ativo" | "cancelado"
       motivo_dificuldade:
         | "tempo"
         | "execucao"
@@ -2059,6 +2101,7 @@ export const Constants = {
         "quero_falar_com_alguem",
       ],
       fase_jornada: ["mapa", "base", "rota", "apex", "legado"],
+      metodo_arke_status: ["sem_adesao", "ativo", "cancelado"],
       motivo_dificuldade: [
         "tempo",
         "execucao",

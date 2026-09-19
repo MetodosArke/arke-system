@@ -12,12 +12,25 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Users, CalendarOff, UserPlus, FileSpreadsheet, Printer, MessageCircle, UserX, Ruler, Trash2 } from "lucide-react";
+import {
+  Users,
+  CalendarOff,
+  UserPlus,
+  FileSpreadsheet,
+  Printer,
+  MessageCircle,
+  UserX,
+  Ruler,
+  Trash2,
+  ClipboardList,
+  Sparkles,
+} from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { Enums } from "@/integrations/supabase/types";
 import { ReciboComprovanteDialog, type ReciboData } from "@/components/admin/ReciboComprovanteDialog";
 import { AvaliacaoFisicaDialog } from "@/components/admin/AvaliacaoFisicaDialog";
 import { AlunoPerfilSheet } from "@/components/admin/AlunoPerfilSheet";
+import { ImprimirTreinoDialog, type ExercicioSnapshotImpressao, type TreinoImpressao } from "@/components/admin/ImprimirTreinoDialog";
 import { abrirWhatsAppAtivacao } from "@/lib/whatsappAtivacao";
 
 type Nivel = Enums<"nivel_atacado">;
@@ -57,6 +70,7 @@ interface AlunoRow {
   user_id: string;
   nivel_atacado: string;
   fase_jornada: string;
+  metodo_arke_status: string;
   objetivo: string | null;
   data_inicio: string | null;
   dias_descanso: number[];
@@ -87,13 +101,17 @@ export default function AdminAlunos() {
   const [enviandoWhatsApp, setEnviandoWhatsApp] = useState<string | null>(null);
   const [alunoAvaliacao, setAlunoAvaliacao] = useState<AlunoRow | null>(null);
   const [alunoPerfilId, setAlunoPerfilId] = useState<string | null>(null);
+  const [impressaoTreino, setImpressaoTreino] = useState<{ alunoNome: string; treino: TreinoImpressao } | null>(null);
+  const [carregandoImpressao, setCarregandoImpressao] = useState<string | null>(null);
 
   const { data: alunos = EMPTY_ALUNOS, isLoading } = useQuery({
     queryKey: ["admin-alunos", organization?.id],
     queryFn: async () => {
       const { data: alunosData, error } = await supabase
         .from("alunos")
-        .select("id, user_id, nivel_atacado, objetivo, data_inicio, fase_jornada, dias_descanso, anonimizado_em")
+        .select(
+          "id, user_id, nivel_atacado, objetivo, data_inicio, fase_jornada, metodo_arke_status, dias_descanso, anonimizado_em"
+        )
         .eq("organization_id", organization!.id)
         .order("data_inicio", { ascending: false });
       if (error) throw error;
@@ -138,6 +156,22 @@ export default function AdminAlunos() {
       });
     },
     enabled: !!organization?.id,
+  });
+
+  const marcarAdesaoMetodoArke = useMutation({
+    mutationFn: async (aluno: AlunoRow) => {
+      const { error } = await supabase
+        .from("alunos")
+        .update({ metodo_arke_status: "ativo", metodo_arke_ativado_em: new Date().toISOString() })
+        .eq("id", aluno.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast({ title: "Adesão registrada", description: "O aluno agora tem acesso ao Método ARKE." });
+      void queryClient.invalidateQueries({ queryKey: ["admin-alunos", organization?.id] });
+    },
+    onError: (error: Error) =>
+      toast({ title: "Erro ao registrar adesão", description: error.message, variant: "destructive" }),
   });
 
   const salvarDiasDescanso = useMutation({
@@ -193,6 +227,39 @@ export default function AdminAlunos() {
     if (!resultado.ok) {
       toast({ title: "Não foi possível gerar o link", description: resultado.erro, variant: "destructive" });
     }
+  };
+
+  // Impressão rápida direto na listagem, sem abrir o perfil completo —
+  // pensado pra recepção/professor com o aluno na frente no balcão. Mesmo
+  // recibo térmico 80mm já usado no AlunoPerfilSheet.
+  const abrirImpressaoTreino = async (aluno: AlunoRow) => {
+    setCarregandoImpressao(aluno.id);
+    const { data: treino, error } = await supabase
+      .from("treinos")
+      .select("titulo, validade_inicio, validade_fim, snapshot_conteudo")
+      .eq("aluno_id", aluno.id)
+      .eq("status", "ativo")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    setCarregandoImpressao(null);
+    if (error) {
+      toast({ title: "Erro ao carregar o treino", description: error.message, variant: "destructive" });
+      return;
+    }
+    if (!treino) {
+      toast({ title: "Nenhum treino ativo", description: `${aluno.full_name} ainda não tem um treino publicado.` });
+      return;
+    }
+    setImpressaoTreino({
+      alunoNome: aluno.full_name,
+      treino: {
+        titulo: treino.titulo,
+        validade_inicio: treino.validade_inicio,
+        validade_fim: treino.validade_fim,
+        exercicios: (treino.snapshot_conteudo as unknown as ExercicioSnapshotImpressao[] | null) ?? [],
+      },
+    });
   };
 
   const anonimizarAluno = useMutation({
@@ -262,6 +329,7 @@ export default function AdminAlunos() {
                 <TableRow>
                   <TableHead>Nome</TableHead>
                   <TableHead>Plano</TableHead>
+                  <TableHead>Método ARKE</TableHead>
                   <TableHead>Assinatura</TableHead>
                   <TableHead>Fase</TableHead>
                   <TableHead>Desde</TableHead>
@@ -286,6 +354,23 @@ export default function AdminAlunos() {
                     </TableCell>
                     <TableCell>
                       <Badge variant="secondary">{NIVEL_LABEL[aluno.nivel_atacado] ?? aluno.nivel_atacado}</Badge>
+                    </TableCell>
+                    <TableCell>
+                      {aluno.metodo_arke_status === "ativo" ? (
+                        <Badge className="gap-1">
+                          <Sparkles className="h-3 w-3" /> Aderiu
+                        </Badge>
+                      ) : (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-7 text-xs"
+                          disabled={!!aluno.anonimizado_em || marcarAdesaoMetodoArke.isPending}
+                          onClick={() => marcarAdesaoMetodoArke.mutate(aluno)}
+                        >
+                          Marcar adesão
+                        </Button>
+                      )}
                     </TableCell>
                     <TableCell>
                       {aluno.assinatura_status ? (
@@ -319,6 +404,16 @@ export default function AdminAlunos() {
                           onClick={() => abrirRecibo(aluno)}
                         >
                           <Printer className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7"
+                          title="Imprimir Treino (balcão)"
+                          disabled={!!aluno.anonimizado_em || carregandoImpressao === aluno.id}
+                          onClick={() => void abrirImpressaoTreino(aluno)}
+                        >
+                          <ClipboardList className="h-3.5 w-3.5" />
                         </Button>
                         <Button
                           variant="ghost"
@@ -468,6 +563,14 @@ export default function AdminAlunos() {
       />
 
       <AlunoPerfilSheet alunoId={alunoPerfilId} onOpenChange={(open) => !open && setAlunoPerfilId(null)} />
+
+      <ImprimirTreinoDialog
+        open={!!impressaoTreino}
+        onOpenChange={(open) => !open && setImpressaoTreino(null)}
+        organizacaoNome={organization?.nome ?? "Academia"}
+        alunoNome={impressaoTreino?.alunoNome ?? ""}
+        treino={impressaoTreino?.treino ?? null}
+      />
     </div>
   );
 }
