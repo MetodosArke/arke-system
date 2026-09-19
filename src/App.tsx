@@ -44,6 +44,7 @@ import DashboardHome from "@/pages/admin/DashboardHome";
 import AdminAlunos from "@/pages/admin/AdminAlunos";
 import AdminPlanosAcademia from "@/pages/admin/AdminPlanosAcademia";
 import AdminComissoes from "@/pages/admin/AdminComissoes";
+import AdminFinanceiro from "@/pages/admin/AdminFinanceiro";
 import AdminEquipe from "@/pages/admin/AdminEquipe";
 import AdminOrganizacao from "@/pages/admin/AdminOrganizacao";
 import AdminGestao360 from "@/pages/admin/AdminGestao360";
@@ -224,6 +225,7 @@ const App = () => (
                 <Route path="alunos/importar" element={<AdminImportarAlunos />} />
                 <Route path="planos" element={<AdminPlanosAcademia />} />
                 <Route path="comissoes" element={<AdminComissoes />} />
+                <Route path="financeiro" element={<AdminFinanceiro />} />
                 <Route path="equipe" element={<AdminEquipe />} />
                 <Route path="treinos" element={<AdminTreinos />} />
                 <Route path="dietas" element={<AdminDietas />} />
