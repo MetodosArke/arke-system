@@ -39,8 +39,6 @@ interface ChatPanelProps {
   className?: string;
 }
 
-const REMETENTE_MEU = { treino: { aluno: "aluno", staff: "treinador" }, nutri: { aluno: "aluno", staff: "nutricionista" } } as const;
-
 export function ChatPanel({ organizationId, alunoId, viewerType, type, dietaId, className }: ChatPanelProps) {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -50,7 +48,13 @@ export function ChatPanel({ organizationId, alunoId, viewerType, type, dietaId, 
   const videoInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  const myType = REMETENTE_MEU[type][viewerType];
+  // Tipado por chat: cada um só aceita os remetentes válidos da própria
+  // tabela (mensagens_treino: aluno/treinador; mensagens_dieta:
+  // aluno/nutricionista) — evita misturar os dois em `myType`, que faria o
+  // TS aceitar "nutricionista" num insert de mensagens_treino e vice-versa.
+  const myTypeTreino: "aluno" | "treinador" = viewerType === "aluno" ? "aluno" : "treinador";
+  const myTypeNutri: "aluno" | "nutricionista" = viewerType === "aluno" ? "aluno" : "nutricionista";
+  const myType: "aluno" | "treinador" | "nutricionista" = type === "treino" ? myTypeTreino : myTypeNutri;
 
   // Nutri: se não veio dietaId explícito (caso do aluno), resolve a dieta ativa mais recente.
   const { data: resolvedDietaId } = useQuery({
@@ -135,7 +139,7 @@ export function ChatPanel({ organizationId, alunoId, viewerType, type, dietaId, 
           organization_id: organizationId,
           aluno_id: alunoId,
           remetente_id: user.id,
-          remetente_tipo: myType,
+          remetente_tipo: myTypeTreino,
           mensagem: texto,
         });
         if (error) throw error;
@@ -146,7 +150,7 @@ export function ChatPanel({ organizationId, alunoId, viewerType, type, dietaId, 
           aluno_id: alunoId,
           dieta_id: activeDietaId,
           remetente_id: user.id,
-          remetente_tipo: myType,
+          remetente_tipo: myTypeNutri,
           mensagem: texto,
         });
         if (error) throw error;
@@ -184,7 +188,7 @@ export function ChatPanel({ organizationId, alunoId, viewerType, type, dietaId, 
         organization_id: organizationId,
         aluno_id: alunoId,
         remetente_id: user.id,
-        remetente_tipo: myType,
+        remetente_tipo: myTypeTreino,
         mensagem: "📹 Vídeo",
         video_url: urlData.publicUrl,
       });
@@ -212,14 +216,35 @@ export function ChatPanel({ organizationId, alunoId, viewerType, type, dietaId, 
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [mensagens]);
 
-  // Marca como lida as mensagens do outro lado ao abrir/visualizar o chat
+  // Marca como lida as mensagens do outro lado ao abrir/visualizar o chat.
+  // Ramifica cedo por `type` (em vez de misturar as duas tabelas numa
+  // query só) pra manter os tipos de remetente_tipo e das colunas
+  // estritos por tabela.
   useEffect(() => {
-    const outroTipo = type === "treino" ? (myType === "aluno" ? "treinador" : "aluno") : myType === "aluno" ? "nutricionista" : "aluno";
-    const table = type === "treino" ? "mensagens_treino" : "mensagens_dieta";
-    const hasUnread = mensagens.some((m) => m.remetente_tipo === outroTipo && !m.lida);
-    if (!hasUnread) return;
-    const query = supabase.from(table).update({ lida: true }).eq("remetente_tipo", outroTipo).eq("lida", false);
-    void (type === "treino" ? query.eq("aluno_id", alunoId) : activeDietaId ? query.eq("dieta_id", activeDietaId) : null)?.then(() => invalidar());
+    if (type === "treino") {
+      const outroTipo = myTypeTreino === "aluno" ? "treinador" : "aluno";
+      const hasUnread = mensagens.some((m) => m.remetente_tipo === outroTipo && !m.lida);
+      if (!hasUnread) return;
+      void supabase
+        .from("mensagens_treino")
+        .update({ lida: true })
+        .eq("remetente_tipo", outroTipo)
+        .eq("lida", false)
+        .eq("aluno_id", alunoId)
+        .then(() => invalidar());
+    } else {
+      if (!activeDietaId) return;
+      const outroTipo = myTypeNutri === "aluno" ? "nutricionista" : "aluno";
+      const hasUnread = mensagens.some((m) => m.remetente_tipo === outroTipo && !m.lida);
+      if (!hasUnread) return;
+      void supabase
+        .from("mensagens_dieta")
+        .update({ lida: true })
+        .eq("remetente_tipo", outroTipo)
+        .eq("lida", false)
+        .eq("dieta_id", activeDietaId)
+        .then(() => invalidar());
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mensagens]);
 
