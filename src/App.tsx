@@ -34,6 +34,7 @@ import AlunoEvolucao from "@/pages/app/AlunoEvolucao";
 import AlunoJornada from "@/pages/app/AlunoJornada";
 import AlunoDesafios from "@/pages/app/AlunoDesafios";
 import AlunoCompeticoes from "@/pages/app/AlunoCompeticoes";
+import AlunoFeed from "@/pages/app/AlunoFeed";
 import Onboarding from "@/pages/app/Onboarding";
 import ConsentimentoLgpd from "@/pages/app/ConsentimentoLgpd";
 
@@ -54,6 +55,7 @@ import AdminPerfil from "@/pages/admin/AdminPerfil";
 import AdminAgenda from "@/pages/admin/AdminAgenda";
 import AdminDesafios from "@/pages/admin/AdminDesafios";
 import AdminCompeticoes from "@/pages/admin/AdminCompeticoes";
+import AdminFeed from "@/pages/admin/AdminFeed";
 
 // Super Admin (Visão Master ArkeFit)
 import SuperAdminDashboard from "@/pages/superadmin/SuperAdminDashboard";
@@ -199,6 +201,7 @@ const App = () => (
                 <Route path="jornada" element={<AlunoJornada />} />
                 <Route path="desafios" element={<AlunoDesafios />} />
                 <Route path="competicoes" element={<AlunoCompeticoes />} />
+                <Route path="feed" element={<AlunoFeed />} />
                 <Route path="perfil" element={<AlunoPerfil />} />
               </Route>
 
@@ -227,6 +230,7 @@ const App = () => (
                 <Route path="agenda" element={<AdminAgenda />} />
                 <Route path="desafios" element={<AdminDesafios />} />
                 <Route path="competicoes" element={<AdminCompeticoes />} />
+                <Route path="feed" element={<AdminFeed />} />
               </Route>
 
               {/* Super Admin — Visão Master ArkeFit, restrita ao papel global 'superadmin' */}
