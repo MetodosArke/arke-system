@@ -13,6 +13,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { UsersRound, UserPlus, Pencil, Power, UserX, Copy, Check, KeyRound } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { Enums } from "@/integrations/supabase/types";
+import { FuncionarioPerfilSheet } from "@/components/admin/FuncionarioPerfilSheet";
 
 type PapelEquipe = Extract<Enums<"app_role">, "gestor" | "professor" | "nutricionista" | "recepcao">;
 
@@ -42,6 +43,7 @@ export default function AdminEquipe() {
   const [editando, setEditando] = useState<MembroRow | null>(null);
   const [removendo, setRemovendo] = useState<MembroRow | null>(null);
   const [inativando, setInativando] = useState<MembroRow | null>(null);
+  const [perfilAberto, setPerfilAberto] = useState<MembroRow | null>(null);
 
   const { data: equipe = EMPTY_EQUIPE, isLoading } = useQuery({
     queryKey: ["admin-equipe", organization?.id],
@@ -136,7 +138,15 @@ export default function AdminEquipe() {
               <TableBody>
                 {equipe.map((membro) => (
                   <TableRow key={membro.user_id}>
-                    <TableCell className="font-medium">{membro.full_name}</TableCell>
+                    <TableCell className="font-medium">
+                      <button
+                        type="button"
+                        className="hover:underline underline-offset-2 text-left"
+                        onClick={() => setPerfilAberto(membro)}
+                      >
+                        {membro.full_name}
+                      </button>
+                    </TableCell>
                     <TableCell>
                       <Badge variant="secondary">{PAPEL_LABEL[membro.role] ?? membro.role}</Badge>
                     </TableCell>
@@ -257,6 +267,27 @@ export default function AdminEquipe() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <FuncionarioPerfilSheet
+        membro={perfilAberto}
+        onOpenChange={(open) => !open && setPerfilAberto(null)}
+        onEditar={(membro) => {
+          setPerfilAberto(null);
+          setEditando(membro);
+        }}
+        onInativar={(membro) => {
+          setPerfilAberto(null);
+          if (membro.status === "active") {
+            setInativando(membro);
+          } else {
+            alternarStatus.mutate(membro);
+          }
+        }}
+        onRemover={(membro) => {
+          setPerfilAberto(null);
+          setRemovendo(membro);
+        }}
+      />
     </div>
   );
 }

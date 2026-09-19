@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Dumbbell, UtensilsCrossed, Phone, Cake, Ruler, ClipboardList, AlertTriangle, Printer } from "lucide-react";
 import { ImprimirTreinoDialog, type ExercicioSnapshotImpressao } from "@/components/admin/ImprimirTreinoDialog";
+import { Bloco, formatarData } from "@/components/admin/perfilSheetHelpers";
 
 const NIVEL_LABEL: Record<string, string> = {
   essencial: "Essencial",
@@ -46,10 +47,6 @@ const TAREFA_TIPO_LABEL: Record<string, string> = {
   outro: "Outro",
 };
 
-function formatarData(iso: string | null | undefined) {
-  return iso ? new Date(iso).toLocaleDateString("pt-BR") : "—";
-}
-
 function calcularIdade(dataNascimento: string | null) {
   if (!dataNascimento) return null;
   const nasc = new Date(dataNascimento);
@@ -59,18 +56,6 @@ function calcularIdade(dataNascimento: string | null) {
     hoje.getMonth() < nasc.getMonth() || (hoje.getMonth() === nasc.getMonth() && hoje.getDate() < nasc.getDate());
   if (aindaNaoFezAniversario) idade--;
   return idade;
-}
-
-function Bloco({ titulo, icon: Icon, children }: { titulo: string; icon: typeof Ruler; children: React.ReactNode }) {
-  return (
-    <div className="space-y-1.5">
-      <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-        <Icon className="h-3.5 w-3.5" />
-        {titulo}
-      </div>
-      {children}
-    </div>
-  );
 }
 
 // Painel lateral com o perfil completo do aluno — aberto clicando no nome
