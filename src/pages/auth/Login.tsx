@@ -5,11 +5,13 @@ import { useTheme } from "@/contexts/ThemeContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Mail, Lock, Eye, EyeOff, Moon, Sun, Download, X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useToast } from "@/hooks/use-toast";
 import { useInstallPrompt } from "@/hooks/useInstallPrompt";
 import { resolveHomePath } from "@/lib/authRouting";
+import { getManterConectado, setManterConectado } from "@/integrations/supabase/previewAuthStorage";
 import logo from "@/assets/logo.png";
 
 export default function Login() {
@@ -17,6 +19,7 @@ export default function Login() {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [manterConectado, setManterConectadoState] = useState(() => getManterConectado());
   const { signIn, roles, organizationRole, organization, isAuthenticated, rolesLoaded } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
@@ -34,6 +37,11 @@ export default function Login() {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
+    // Precisa ser setado ANTES do signIn: o storage adapter do Supabase
+    // Auth lê essa preferência na hora de salvar a sessão (localStorage se
+    // "manter conectado", senão sessionStorage — que não vaza pra
+    // abas/páginas novas do navegador).
+    setManterConectado(manterConectado);
     const { error } = await signIn(email, password);
     setIsLoading(false);
     if (error) {
@@ -139,7 +147,14 @@ export default function Login() {
                 </button>
               </div>
 
-              <div className="flex justify-end">
+              <div className="flex items-center justify-between gap-2">
+                <label className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <Checkbox
+                    checked={manterConectado}
+                    onCheckedChange={(checked) => setManterConectadoState(checked === true)}
+                  />
+                  Manter-me conectado
+                </label>
                 <button
                   type="button"
                   onClick={() => navigate("/auth/reset-password")}
