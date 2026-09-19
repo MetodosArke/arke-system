@@ -15,11 +15,15 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 // página exige um toque humano real (link/botão) antes de seguir pro
 // action_link — bots de prévia buscam o HTML mas não clicam em nada.
 //
-// Estilos ficam num <style> no <head>, não em atributos style="" inline:
-// alguns proxies de compressão de dados (comuns em operadoras/planos com
-// "modo economia de dados") removem atributos style="" pra economizar
-// banda, mas preservam blocos <style> — foi exatamente isso que causou a
-// página aparecer sem nenhum estilo (só texto cru) num teste real.
+// Content-Security-Policy: por padrão o gateway de Edge Functions do
+// Supabase aplica "default-src 'none'; sandbox" em qualquer resposta HTML
+// — isso bloqueia TODO CSS (inline style="" e bloco <style>, tanto faz) e
+// foi a causa real da página aparecer sem nenhum estilo em teste real
+// (confirmado inspecionando os headers da resposta). Precisa sobrescrever
+// explicitamente, permitindo <style> inline; sem "sandbox" aqui, o clique
+// no botão "Continuar" navega normalmente.
+const CSP = "default-src 'self'; style-src 'unsafe-inline'";
+
 const ESTILO = `
   * { box-sizing: border-box; }
   body {
@@ -72,7 +76,7 @@ Deno.serve(async (req: Request) => {
   </div>
 </body>
 </html>`,
-      { status: 404, headers: { "Content-Type": "text/html; charset=utf-8" } }
+      { status: 404, headers: { "Content-Type": "text/html; charset=utf-8", "Content-Security-Policy": CSP } }
     );
 
   const paginaContinuar = (actionLink: string) =>
@@ -94,7 +98,7 @@ Deno.serve(async (req: Request) => {
   </div>
 </body>
 </html>`,
-      { status: 200, headers: { "Content-Type": "text/html; charset=utf-8" } }
+      { status: 200, headers: { "Content-Type": "text/html; charset=utf-8", "Content-Security-Policy": CSP } }
     );
 
   if (!supabaseUrl || !serviceRoleKey) {
