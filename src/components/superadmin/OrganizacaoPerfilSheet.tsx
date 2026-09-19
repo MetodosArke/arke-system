@@ -1,10 +1,51 @@
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { Building2, Users, TrendingUp, AlertTriangle, Receipt, Pencil, Mail, Phone } from "lucide-react";
+import {
+  Building2,
+  Users,
+  TrendingUp,
+  AlertTriangle,
+  Receipt,
+  Pencil,
+  Mail,
+  Phone,
+  ClipboardList,
+  Dumbbell,
+  UtensilsCrossed,
+  Ruler,
+  CheckCircle2,
+} from "lucide-react";
 import { Bloco } from "@/components/admin/perfilSheetHelpers";
 import type { Enums } from "@/integrations/supabase/types";
+
+type AtividadeTipo = "treino" | "dieta" | "avaliacao" | "tarefa";
+
+interface AtividadeItem {
+  tipo: AtividadeTipo;
+  data: string;
+  descricao: string | null;
+  aluno_id: string | null;
+  aluno_nome: string | null;
+  responsavel_nome: string | null;
+}
+
+const ATIVIDADE_ICON: Record<AtividadeTipo, typeof Dumbbell> = {
+  treino: Dumbbell,
+  dieta: UtensilsCrossed,
+  avaliacao: Ruler,
+  tarefa: CheckCircle2,
+};
+
+const ATIVIDADE_LABEL: Record<AtividadeTipo, string> = {
+  treino: "Treino publicado",
+  dieta: "Dieta publicada",
+  avaliacao: "Avaliação física registrada",
+  tarefa: "Pendência resolvida",
+};
 
 export interface OrganizacaoPerfil {
   organization_id: string;
@@ -69,6 +110,18 @@ export function OrganizacaoPerfilSheet({
   onEditar: (tenant: OrganizacaoPerfil) => void;
   onFaturamento: (tenant: OrganizacaoPerfil) => void;
 }) {
+  const { data: atividade = [] } = useQuery({
+    queryKey: ["superadmin-organizacao-atividade", tenant?.organization_id],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("get_superadmin_organizacao_atividade", {
+        _organization_id: tenant!.organization_id,
+      });
+      if (error) throw error;
+      return (data ?? []) as AtividadeItem[];
+    },
+    enabled: !!tenant?.organization_id,
+  });
+
   return (
     <Sheet open={!!tenant} onOpenChange={onOpenChange}>
       <SheetContent className="w-full sm:max-w-md overflow-y-auto">
@@ -128,6 +181,36 @@ export function OrganizacaoPerfilSheet({
                 <p className="text-sm">{tenant.cnpj_cpf ?? "CNPJ/CPF não informado"}</p>
                 {tenant.status === "trial" && tenant.trial_vencimento && (
                   <p className="text-xs text-muted-foreground">Trial vence em {formatarData(tenant.trial_vencimento)}</p>
+                )}
+              </Bloco>
+
+              <Bloco titulo="Atividade Recente" icon={ClipboardList}>
+                {atividade.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">Sem atividade recente registrada.</p>
+                ) : (
+                  <ul className="space-y-2">
+                    {atividade.map((item, i) => {
+                      const Icon = ATIVIDADE_ICON[item.tipo];
+                      return (
+                        <li key={i} className="text-sm">
+                          <div className="flex items-start gap-2">
+                            <Icon className="h-3.5 w-3.5 text-muted-foreground mt-0.5 shrink-0" />
+                            <div className="min-w-0">
+                              <p>
+                                <span className="font-medium">{ATIVIDADE_LABEL[item.tipo]}</span>
+                                {item.descricao && <span className="text-muted-foreground"> — {item.descricao}</span>}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                Para {item.aluno_nome ?? "aluno sem vínculo"}
+                                {item.responsavel_nome && <> · por {item.responsavel_nome}</>} ·{" "}
+                                {formatarData(item.data)}
+                              </p>
+                            </div>
+                          </div>
+                        </li>
+                      );
+                    })}
+                  </ul>
                 )}
               </Bloco>
             </div>

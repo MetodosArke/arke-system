@@ -1748,6 +1748,17 @@ export type Database = {
       escalar_tarefas_vencidas: { Args: never; Returns: undefined }
       gerar_tarefas_ativacao_pendente: { Args: never; Returns: undefined }
       gerar_tarefas_barreira_rotina: { Args: never; Returns: undefined }
+      get_superadmin_organizacao_atividade: {
+        Args: { _organization_id: string }
+        Returns: {
+          aluno_id: string
+          aluno_nome: string
+          data: string
+          descricao: string
+          responsavel_nome: string
+          tipo: string
+        }[]
+      }
       get_superadmin_overview: {
         Args: never
         Returns: {
