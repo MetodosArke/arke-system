@@ -4,8 +4,9 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
-import { UtensilsCrossed, Flame } from "lucide-react";
+import { UtensilsCrossed, Flame, MessageCircle, Lock, Sparkles } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { ChatPanel } from "@/components/chat/ChatPanel";
 
 interface RefeicaoSnapshot {
   ordem: number;
@@ -21,7 +22,7 @@ interface RefeicaoSnapshot {
 const HOJE = new Date().toISOString().slice(0, 10);
 
 export default function AlunoDieta() {
-  const { alunoId, organization } = useAuth();
+  const { alunoId, organization, metodoArkeAtivo } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -206,6 +207,29 @@ export default function AlunoDieta() {
           </Card>
         </>
       )}
+
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <MessageCircle className="h-4 w-4 text-primary" /> Chat com a Nutricionista
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {metodoArkeAtivo && alunoId && organization ? (
+            <ChatPanel organizationId={organization.id} alunoId={alunoId} viewerType="aluno" type="nutri" />
+          ) : (
+            <div className="flex flex-col items-center gap-2 py-6 text-center">
+              <Lock className="h-6 w-6 text-muted-foreground/50" />
+              <p className="text-sm font-medium flex items-center gap-1.5">
+                <Sparkles className="h-3.5 w-3.5 text-primary" /> Exclusivo do Método ARKE
+              </p>
+              <p className="text-xs text-muted-foreground max-w-xs">
+                Fale direto com sua nutricionista pelo chat quando aderir ao Método ARKE. Pergunte à sua academia como aderir.
+              </p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

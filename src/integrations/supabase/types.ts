@@ -818,6 +818,129 @@ export type Database = {
         }
         Relationships: []
       }
+      mensagens_dieta: {
+        Row: {
+          aluno_id: string
+          created_at: string
+          dieta_id: string
+          id: string
+          lida: boolean
+          mensagem: string
+          organization_id: string
+          remetente_id: string
+          remetente_tipo: Database["public"]["Enums"]["remetente_tipo_dieta"]
+        }
+        Insert: {
+          aluno_id: string
+          created_at?: string
+          dieta_id: string
+          id?: string
+          lida?: boolean
+          mensagem: string
+          organization_id: string
+          remetente_id: string
+          remetente_tipo: Database["public"]["Enums"]["remetente_tipo_dieta"]
+        }
+        Update: {
+          aluno_id?: string
+          created_at?: string
+          dieta_id?: string
+          id?: string
+          lida?: boolean
+          mensagem?: string
+          organization_id?: string
+          remetente_id?: string
+          remetente_tipo?: Database["public"]["Enums"]["remetente_tipo_dieta"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mensagens_dieta_aluno_id_fkey"
+            columns: ["aluno_id"]
+            isOneToOne: false
+            referencedRelation: "alunos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mensagens_dieta_dieta_id_fkey"
+            columns: ["dieta_id"]
+            isOneToOne: false
+            referencedRelation: "dietas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mensagens_dieta_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "org_churn_metrics"
+            referencedColumns: ["organization_id"]
+          },
+          {
+            foreignKeyName: "mensagens_dieta_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      mensagens_treino: {
+        Row: {
+          aluno_id: string
+          created_at: string
+          id: string
+          lida: boolean
+          mensagem: string
+          organization_id: string
+          remetente_id: string
+          remetente_tipo: Database["public"]["Enums"]["remetente_tipo_treino"]
+          video_url: string | null
+        }
+        Insert: {
+          aluno_id: string
+          created_at?: string
+          id?: string
+          lida?: boolean
+          mensagem: string
+          organization_id: string
+          remetente_id: string
+          remetente_tipo: Database["public"]["Enums"]["remetente_tipo_treino"]
+          video_url?: string | null
+        }
+        Update: {
+          aluno_id?: string
+          created_at?: string
+          id?: string
+          lida?: boolean
+          mensagem?: string
+          organization_id?: string
+          remetente_id?: string
+          remetente_tipo?: Database["public"]["Enums"]["remetente_tipo_treino"]
+          video_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mensagens_treino_aluno_id_fkey"
+            columns: ["aluno_id"]
+            isOneToOne: false
+            referencedRelation: "alunos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mensagens_treino_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "org_churn_metrics"
+            referencedColumns: ["organization_id"]
+          },
+          {
+            foreignKeyName: "mensagens_treino_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       modelo_dieta_refeicoes: {
         Row: {
           calorias_kcal: number | null
@@ -1346,6 +1469,33 @@ export type Database = {
         }
         Relationships: []
       }
+      push_subscriptions: {
+        Row: {
+          auth: string
+          created_at: string
+          endpoint: string
+          id: string
+          p256dh: string
+          user_id: string
+        }
+        Insert: {
+          auth: string
+          created_at?: string
+          endpoint: string
+          id?: string
+          p256dh: string
+          user_id: string
+        }
+        Update: {
+          auth?: string
+          created_at?: string
+          endpoint?: string
+          id?: string
+          p256dh?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       registro_habito: {
         Row: {
           agua_ml: number
@@ -1565,6 +1715,70 @@ export type Database = {
           },
           {
             foreignKeyName: "tarefas_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      treino_calendario: {
+        Row: {
+          aluno_id: string
+          created_at: string
+          data: string
+          detalhes: string | null
+          distancia_km: number | null
+          duracao_min: number | null
+          id: string
+          intensidade: string
+          observacoes: string | null
+          organization_id: string
+          tipos: string[]
+        }
+        Insert: {
+          aluno_id: string
+          created_at?: string
+          data: string
+          detalhes?: string | null
+          distancia_km?: number | null
+          duracao_min?: number | null
+          id?: string
+          intensidade?: string
+          observacoes?: string | null
+          organization_id: string
+          tipos?: string[]
+        }
+        Update: {
+          aluno_id?: string
+          created_at?: string
+          data?: string
+          detalhes?: string | null
+          distancia_km?: number | null
+          duracao_min?: number | null
+          id?: string
+          intensidade?: string
+          observacoes?: string | null
+          organization_id?: string
+          tipos?: string[]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "treino_calendario_aluno_id_fkey"
+            columns: ["aluno_id"]
+            isOneToOne: false
+            referencedRelation: "alunos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "treino_calendario_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "org_churn_metrics"
+            referencedColumns: ["organization_id"]
+          },
+          {
+            foreignKeyName: "treino_calendario_organization_id_fkey"
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
@@ -1942,6 +2156,8 @@ export type Database = {
       plano_b2b: "starter" | "growth" | "enterprise" | "custom" | "autonomo"
       provedor_nutricao: "nenhum" | "nutricionista_academia" | "equipe_arke"
       provedor_treino: "academia_propria" | "personal_parceiro" | "equipe_arke"
+      remetente_tipo_dieta: "aluno" | "nutricionista"
+      remetente_tipo_treino: "aluno" | "treinador"
       tarefa_prioridade: "baixa" | "media" | "alta" | "critica"
       tarefa_status:
         | "aberta"
@@ -2116,6 +2332,8 @@ export const Constants = {
       plano_b2b: ["starter", "growth", "enterprise", "custom", "autonomo"],
       provedor_nutricao: ["nenhum", "nutricionista_academia", "equipe_arke"],
       provedor_treino: ["academia_propria", "personal_parceiro", "equipe_arke"],
+      remetente_tipo_dieta: ["aluno", "nutricionista"],
+      remetente_tipo_treino: ["aluno", "treinador"],
       tarefa_prioridade: ["baixa", "media", "alta", "critica"],
       tarefa_status: [
         "aberta",

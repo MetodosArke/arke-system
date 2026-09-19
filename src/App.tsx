@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { HashRouter, Routes, Route, Navigate } from "react-router-dom";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
+import { PushNotificationManager } from "@/components/PushNotificationManager";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { NetworkStatusBanner } from "@/components/NetworkStatusBanner";
 import { ImpersonationBanner } from "@/components/ImpersonationBanner";
@@ -133,6 +134,7 @@ const App = () => (
   <QueryClientProvider client={queryClient}>
     <ThemeProvider>
       <AuthProvider>
+        <PushNotificationManager>
         <TooltipProvider>
           <Toaster />
           <Sonner />
@@ -232,6 +234,7 @@ const App = () => (
             </Routes>
           </HashRouter>
         </TooltipProvider>
+        </PushNotificationManager>
       </AuthProvider>
     </ThemeProvider>
   </QueryClientProvider>
