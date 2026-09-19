@@ -1634,42 +1634,83 @@ export type Database = {
       }
       lancamentos_financeiros: {
         Row: {
-          categoria: string
+          categoria: string | null
+          categoria_id: string | null
+          contato: string | null
           created_at: string
           data: string
+          data_pagamento: string | null
           descricao: string | null
+          forma_pagamento: string | null
           id: string
+          lancamento_origem_id: string | null
           organization_id: string
+          origem_automatica: string | null
+          recorrencia: Database["public"]["Enums"]["recorrencia_tipo"]
           registrado_por: string | null
+          status: Database["public"]["Enums"]["lancamento_status"]
           tipo: Database["public"]["Enums"]["lancamento_financeiro_tipo"]
           updated_at: string
           valor: number
+          vencimento: string | null
         }
         Insert: {
-          categoria: string
+          categoria?: string | null
+          categoria_id?: string | null
+          contato?: string | null
           created_at?: string
           data?: string
+          data_pagamento?: string | null
           descricao?: string | null
+          forma_pagamento?: string | null
           id?: string
+          lancamento_origem_id?: string | null
           organization_id: string
+          origem_automatica?: string | null
+          recorrencia?: Database["public"]["Enums"]["recorrencia_tipo"]
           registrado_por?: string | null
+          status?: Database["public"]["Enums"]["lancamento_status"]
           tipo: Database["public"]["Enums"]["lancamento_financeiro_tipo"]
           updated_at?: string
           valor: number
+          vencimento?: string | null
         }
         Update: {
-          categoria?: string
+          categoria?: string | null
+          categoria_id?: string | null
+          contato?: string | null
           created_at?: string
           data?: string
+          data_pagamento?: string | null
           descricao?: string | null
+          forma_pagamento?: string | null
           id?: string
+          lancamento_origem_id?: string | null
           organization_id?: string
+          origem_automatica?: string | null
+          recorrencia?: Database["public"]["Enums"]["recorrencia_tipo"]
           registrado_por?: string | null
+          status?: Database["public"]["Enums"]["lancamento_status"]
           tipo?: Database["public"]["Enums"]["lancamento_financeiro_tipo"]
           updated_at?: string
           valor?: number
+          vencimento?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "lancamentos_financeiros_categoria_id_fkey"
+            columns: ["categoria_id"]
+            isOneToOne: false
+            referencedRelation: "plano_contas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lancamentos_financeiros_lancamento_origem_id_fkey"
+            columns: ["lancamento_origem_id"]
+            isOneToOne: false
+            referencedRelation: "lancamentos_financeiros"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "lancamentos_financeiros_organization_id_fkey"
             columns: ["organization_id"]
@@ -2494,6 +2535,58 @@ export type Database = {
           },
           {
             foreignKeyName: "pagamentos_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      plano_contas: {
+        Row: {
+          ativo: boolean
+          categoria_pai_id: string | null
+          created_at: string
+          id: string
+          nome: string
+          organization_id: string
+          tipo: Database["public"]["Enums"]["lancamento_financeiro_tipo"]
+        }
+        Insert: {
+          ativo?: boolean
+          categoria_pai_id?: string | null
+          created_at?: string
+          id?: string
+          nome: string
+          organization_id: string
+          tipo: Database["public"]["Enums"]["lancamento_financeiro_tipo"]
+        }
+        Update: {
+          ativo?: boolean
+          categoria_pai_id?: string | null
+          created_at?: string
+          id?: string
+          nome?: string
+          organization_id?: string
+          tipo?: Database["public"]["Enums"]["lancamento_financeiro_tipo"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "plano_contas_categoria_pai_id_fkey"
+            columns: ["categoria_pai_id"]
+            isOneToOne: false
+            referencedRelation: "plano_contas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "plano_contas_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "org_churn_metrics"
+            referencedColumns: ["organization_id"]
+          },
+          {
+            foreignKeyName: "plano_contas_organization_id_fkey"
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
@@ -3475,6 +3568,7 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      gerar_lancamentos_recorrentes: { Args: never; Returns: undefined }
       gerar_tarefas_ativacao_pendente: { Args: never; Returns: undefined }
       gerar_tarefas_barreira_rotina: { Args: never; Returns: undefined }
       get_superadmin_organizacao_atividade: {
@@ -3571,6 +3665,7 @@ export type Database = {
         Args: { _organization_id: string; _user_id: string }
         Returns: boolean
       }
+      marcar_lancamentos_atrasados: { Args: never; Returns: undefined }
       obter_organizacao_publica: {
         Args: { _slug: string }
         Returns: {
@@ -3665,6 +3760,7 @@ export type Database = {
         | "transferencia"
         | "outro"
       lancamento_financeiro_tipo: "receita" | "despesa"
+      lancamento_status: "pendente" | "pago" | "atrasado" | "cancelado"
       metodo_arke_status: "sem_adesao" | "ativo" | "cancelado"
       motivo_dificuldade:
         | "tempo"
@@ -3684,6 +3780,7 @@ export type Database = {
       plano_b2b: "starter" | "growth" | "enterprise" | "custom" | "autonomo"
       provedor_nutricao: "nenhum" | "nutricionista_academia" | "equipe_arke"
       provedor_treino: "academia_propria" | "personal_parceiro" | "equipe_arke"
+      recorrencia_tipo: "nenhuma" | "mensal"
       remetente_tipo_dieta: "aluno" | "nutricionista"
       remetente_tipo_treino: "aluno" | "treinador"
       status_matricula_academia: "ativa" | "pausada" | "cancelada"
@@ -3881,6 +3978,7 @@ export const Constants = {
         "outro",
       ],
       lancamento_financeiro_tipo: ["receita", "despesa"],
+      lancamento_status: ["pendente", "pago", "atrasado", "cancelado"],
       metodo_arke_status: ["sem_adesao", "ativo", "cancelado"],
       motivo_dificuldade: [
         "tempo",
@@ -3902,6 +4000,7 @@ export const Constants = {
       plano_b2b: ["starter", "growth", "enterprise", "custom", "autonomo"],
       provedor_nutricao: ["nenhum", "nutricionista_academia", "equipe_arke"],
       provedor_treino: ["academia_propria", "personal_parceiro", "equipe_arke"],
+      recorrencia_tipo: ["nenhuma", "mensal"],
       remetente_tipo_dieta: ["aluno", "nutricionista"],
       remetente_tipo_treino: ["aluno", "treinador"],
       status_matricula_academia: ["ativa", "pausada", "cancelada"],
