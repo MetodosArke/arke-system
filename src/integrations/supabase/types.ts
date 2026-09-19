@@ -2756,6 +2756,51 @@ export type Database = {
         }
         Relationships: []
       }
+      staff_horarios: {
+        Row: {
+          created_at: string
+          dia_semana: number
+          hora_fim: string
+          hora_inicio: string
+          id: string
+          organization_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          dia_semana: number
+          hora_fim: string
+          hora_inicio: string
+          id?: string
+          organization_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          dia_semana?: number
+          hora_fim?: string
+          hora_inicio?: string
+          id?: string
+          organization_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_horarios_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "org_churn_metrics"
+            referencedColumns: ["organization_id"]
+          },
+          {
+            foreignKeyName: "staff_horarios_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tarefas: {
         Row: {
           acao: string | null
