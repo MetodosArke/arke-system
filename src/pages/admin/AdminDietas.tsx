@@ -17,23 +17,30 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { UtensilsCrossed, Plus, Trash2, FolderOpen, UserRound, FileUp, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import type { Json } from "@/integrations/supabase/types";
 
-// Desabilitado por decisão de negócio: a extração via IA (edge function
-// parsear-dieta-pdf) tem custo por chamada (API da Anthropic) e a
-// organização ainda está na fase de homologação, sem orçamento aprovado
-// pra isso. Reativar assim que a ANTHROPIC_API_KEY for configurada e o
-// custo for aprovado — só trocar pra true, nenhuma outra mudança.
-const PARSER_DIETA_PDF_HABILITADO = false;
+// Extração via Google Gemini (gemini-1.5-flash, edge function
+// parse-dieta-pdf) — tem tier gratuito generoso, então fica habilitada por
+// padrão. Requer a secret GEMINI_API_KEY configurada no projeto Supabase;
+// sem ela a função retorna um erro claro em vez de falhar silenciosamente.
+const PARSER_DIETA_PDF_HABILITADO = true;
+
+interface ItemExtraidoPdf {
+  alimento: string;
+  quantidade: string;
+  substituicoes: string[];
+}
 
 interface RefeicaoExtraidaPdf {
-  ordem: number;
-  nome_refeicao: string;
-  horario_sugerido: string | null;
-  itens: string | null;
-  calorias_kcal: number | null;
-  proteinas_g: number | null;
-  carboidratos_g: number | null;
-  gorduras_g: number | null;
+  nome: string;
+  horario: string | null;
+  itens: ItemExtraidoPdf[];
+}
+
+interface DietaExtraidaPdf {
+  titulo_dieta: string;
+  observacoes_gerais: string | null;
+  refeicoes: RefeicaoExtraidaPdf[];
 }
 
 function arrayBufferToBase64(buffer: ArrayBuffer): string {
@@ -73,7 +80,7 @@ export default function AdminDietas() {
   });
   const [alimentoBibliotecaId, setAlimentoBibliotecaId] = useState("");
   const [importarPdfAberto, setImportarPdfAberto] = useState(false);
-  const [refeicoesExtraidas, setRefeicoesExtraidas] = useState<RefeicaoExtraidaPdf[] | null>(null);
+  const [dietaExtraida, setDietaExtraida] = useState<DietaExtraidaPdf | null>(null);
 
   const { data: bibliotecaAlimentos = [] } = useQuery({
     queryKey: ["alimentos-biblioteca"],
@@ -283,15 +290,17 @@ export default function AdminDietas() {
     mutationFn: async (file: File) => {
       const buffer = await file.arrayBuffer();
       const fileBase64 = arrayBufferToBase64(buffer);
-      const { data, error } = await supabase.functions.invoke("parsear-dieta-pdf", {
-        body: { file_base64: fileBase64 },
-      });
+      const { data, error } = await supabase.functions.invoke<DietaExtraidaPdf & { error?: string }>(
+        "parse-dieta-pdf",
+        { body: { file_base64: fileBase64 } }
+      );
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
-      return (data?.refeicoes ?? []) as RefeicaoExtraidaPdf[];
+      if (!data) throw new Error("Resposta vazia da extração.");
+      return data;
     },
-    onSuccess: (refeicoes) => {
-      if (refeicoes.length === 0) {
+    onSuccess: (dieta) => {
+      if (!dieta.refeicoes || dieta.refeicoes.length === 0) {
         toast({
           title: "Nenhuma refeição identificada",
           description: "Não encontramos refeições estruturadas neste PDF. Tente um arquivo mais legível ou preencha manualmente.",
@@ -299,7 +308,8 @@ export default function AdminDietas() {
         });
         return;
       }
-      setRefeicoesExtraidas(refeicoes);
+      setDietaExtraida(dieta);
+      setNovoModeloTitulo(dieta.titulo_dieta || "Dieta importada de PDF");
     },
     onError: (error: Error) =>
       toast({ title: "Erro ao importar PDF", description: error.message, variant: "destructive" }),
@@ -308,25 +318,26 @@ export default function AdminDietas() {
   const confirmarImportacaoPdf = useMutation({
     mutationFn: async () => {
       if (!organization) throw new Error("Organização não encontrada");
-      if (!refeicoesExtraidas || refeicoesExtraidas.length === 0) throw new Error("Nada para importar");
-      const titulo = novoModeloTitulo.trim() || "Dieta importada de PDF";
+      if (!dietaExtraida || dietaExtraida.refeicoes.length === 0) throw new Error("Nada para importar");
+      const titulo = novoModeloTitulo.trim() || dietaExtraida.titulo_dieta || "Dieta importada de PDF";
       const { data: modelo, error: modeloError } = await supabase
         .from("modelos_dieta")
-        .insert({ organization_id: organization.id, titulo })
+        .insert({
+          organization_id: organization.id,
+          titulo,
+          observacoes: dietaExtraida.observacoes_gerais || null,
+        })
         .select("id")
         .single();
       if (modeloError) throw modeloError;
       const { error: refeicoesError } = await supabase.from("modelo_dieta_refeicoes").insert(
-        refeicoesExtraidas.map((r, index) => ({
+        dietaExtraida.refeicoes.map((r, index) => ({
           modelo_id: modelo.id,
-          ordem: r.ordem ?? index + 1,
-          nome_refeicao: r.nome_refeicao || `Refeição ${index + 1}`,
-          horario_sugerido: r.horario_sugerido || null,
-          itens: r.itens || null,
-          calorias_kcal: r.calorias_kcal,
-          proteinas_g: r.proteinas_g,
-          carboidratos_g: r.carboidratos_g,
-          gorduras_g: r.gorduras_g,
+          ordem: index + 1,
+          nome_refeicao: r.nome || `Refeição ${index + 1}`,
+          horario_sugerido: r.horario || null,
+          itens: r.itens.map((i) => `${i.alimento} — ${i.quantidade}`).join("\n") || null,
+          itens_estruturados: r.itens as unknown as Json,
         }))
       );
       if (refeicoesError) throw refeicoesError;
@@ -335,7 +346,7 @@ export default function AdminDietas() {
     onSuccess: (id) => {
       toast({ title: "Modelo importado!", description: "Revise as refeições e ajuste o que for preciso antes de publicar." });
       setNovoModeloTitulo("");
-      setRefeicoesExtraidas(null);
+      setDietaExtraida(null);
       setImportarPdfAberto(false);
       setModeloSelecionado(id);
       void queryClient.invalidateQueries({ queryKey: ["modelos-dieta", organization?.id] });
@@ -714,7 +725,7 @@ export default function AdminDietas() {
         open={importarPdfAberto}
         onOpenChange={(open) => {
           setImportarPdfAberto(open);
-          if (!open) setRefeicoesExtraidas(null);
+          if (!open) setDietaExtraida(null);
         }}
       >
         <DialogContent className="max-w-lg">
@@ -722,11 +733,11 @@ export default function AdminDietas() {
             <DialogTitle>Importar dieta de PDF</DialogTitle>
           </DialogHeader>
 
-          {!refeicoesExtraidas ? (
+          {!dietaExtraida ? (
             <div className="space-y-3">
               <p className="text-sm text-muted-foreground">
                 Envie um PDF com um plano alimentar (de outro sistema ou digitado livremente). A extração
-                é automática — revise sempre as refeições antes de publicar para um aluno.
+                é automática (Google Gemini) — revise sempre as refeições antes de publicar para um aluno.
               </p>
               <Input
                 type="file"
@@ -740,7 +751,7 @@ export default function AdminDietas() {
               />
               {importarDietaPdf.isPending && (
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Loader2 className="h-4 w-4 animate-spin" /> Extraindo refeições do PDF...
+                  <Loader2 className="h-4 w-4 animate-spin" /> A extrair e estruturar dieta com IA...
                 </div>
               )}
             </div>
@@ -754,40 +765,48 @@ export default function AdminDietas() {
                   onChange={(e) => setNovoModeloTitulo(e.target.value)}
                 />
               </div>
+              {dietaExtraida.observacoes_gerais && (
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">Observações gerais</Label>
+                  <p className="text-sm whitespace-pre-line rounded-md border border-border p-2 bg-muted/30">
+                    {dietaExtraida.observacoes_gerais}
+                  </p>
+                </div>
+              )}
               <p className="text-xs text-muted-foreground">
-                {refeicoesExtraidas.length} refeiç{refeicoesExtraidas.length === 1 ? "ão encontrada" : "ões encontradas"}. Revise antes de salvar — você poderá editar cada refeição depois na Biblioteca.
+                {dietaExtraida.refeicoes.length} refeiç{dietaExtraida.refeicoes.length === 1 ? "ão encontrada" : "ões encontradas"}. Revise antes de salvar — você poderá editar cada refeição depois na Biblioteca.
               </p>
-              <div className="max-h-64 overflow-y-auto rounded-md border border-border">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Refeição</TableHead>
-                      <TableHead>Horário</TableHead>
-                      <TableHead>Itens</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {refeicoesExtraidas.map((r, i) => (
-                      <TableRow key={i}>
-                        <TableCell>{r.nome_refeicao}</TableCell>
-                        <TableCell>{r.horario_sugerido ?? "—"}</TableCell>
-                        <TableCell className="max-w-[200px] truncate">{r.itens ?? "—"}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+              <div className="max-h-72 overflow-y-auto rounded-md border border-border divide-y divide-border">
+                {dietaExtraida.refeicoes.map((r, i) => (
+                  <div key={i} className="p-2.5 text-sm">
+                    <div className="flex items-center justify-between">
+                      <p className="font-medium">{r.nome}</p>
+                      {r.horario && <span className="text-xs text-muted-foreground">{r.horario}</span>}
+                    </div>
+                    <ul className="mt-1 space-y-1">
+                      {r.itens.map((item, j) => (
+                        <li key={j} className="text-xs text-muted-foreground">
+                          {item.alimento} — {item.quantidade}
+                          {item.substituicoes.length > 0 && (
+                            <span className="italic"> (substituições: {item.substituicoes.join(", ")})</span>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ))}
               </div>
             </div>
           )}
 
           <DialogFooter>
-            {refeicoesExtraidas && (
-              <Button variant="outline" onClick={() => setRefeicoesExtraidas(null)}>
+            {dietaExtraida && (
+              <Button variant="outline" onClick={() => setDietaExtraida(null)}>
                 Voltar
               </Button>
             )}
             <Button
-              disabled={!refeicoesExtraidas || confirmarImportacaoPdf.isPending}
+              disabled={!dietaExtraida || confirmarImportacaoPdf.isPending}
               onClick={() => confirmarImportacaoPdf.mutate()}
             >
               {confirmarImportacaoPdf.isPending ? "Salvando..." : "Salvar modelo"}
