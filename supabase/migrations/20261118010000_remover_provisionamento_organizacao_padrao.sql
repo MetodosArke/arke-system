@@ -1,0 +1,13 @@
+-- `provisionar_organizacao_padrao()` era chamada pelo próprio AdminLayout:
+-- todo admin_arke sem organização fazia o layout criar a "Academia Piloto"
+-- e se vincular a ela como gestor, só por navegar até /admin. Um tenant
+-- nascia sem ninguém pedir — com seed de modelos e precificação, linha no
+-- funil de conversão e vínculo novo, que depois passava a decidir o
+-- contexto da pessoa no app.
+--
+-- O painel Super Admin já cria organização pelo caminho próprio
+-- ("+ Nova Organização" → edge function criar-organizacao-superadmin), com
+-- nome, slug e plano escolhidos e registro de auditoria. A função aqui era
+-- redundante e perigosa; a chamada saiu do frontend e ela fica sem nenhum
+-- chamador. O histórico do git preserva o código.
+drop function if exists public.provisionar_organizacao_padrao();

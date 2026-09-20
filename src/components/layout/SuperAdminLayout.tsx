@@ -32,9 +32,6 @@ export function SuperAdminLayout() {
             </span>
           </div>
           <div className="flex items-center gap-2">
-            <Button variant="ghost" size="sm" onClick={() => navigate("/app")}>
-              Sair do modo Super Admin
-            </Button>
             <Button variant="ghost" size="icon" className="h-8 w-8" onClick={signOut} title="Sair">
               <LogOut className="h-4 w-4" />
             </Button>

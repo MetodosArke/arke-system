@@ -195,16 +195,6 @@ function SidebarNav({
       </nav>
 
       <div className="border-t border-border p-2 space-y-1">
-        {isAdminArke && (
-          <button
-            onClick={() => handleNav("/app")}
-            className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-            title="Alternar para a visão do aluno (testes de homologação)"
-          >
-            <UserCircle className="h-5 w-5 shrink-0" />
-            {!collapsed && <span>Visão do Aluno</span>}
-          </button>
-        )}
         <button
           onClick={signOut}
           className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors"
