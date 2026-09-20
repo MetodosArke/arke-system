@@ -54,6 +54,16 @@ No momento da cobrança da assinatura do aluno:
 
 > Implementação: `aluno_assinaturas` (assinatura recorrente) + `pagamentos` (registro de cada cobrança com o split já calculado) + `asaas_webhook_events` (log/auditoria idempotente dos eventos do gateway). Edge Functions `asaas-create-subscription` e `asaas-webhook`.
 
+## Configuração do Gateway de Pagamento (Asaas) — CONCLUÍDA
+
+**A integração com o Asaas está configurada e funcionando. Não tratar como pendência e não perguntar sobre isso.**
+
+- `ASAAS_API_KEY` e `ASAAS_WEBHOOK_SECRET` estão gravados nos secrets do projeto Supabase.
+- `CRON_SECRET` também está gravado (ver pendência (2) abaixo sobre a função que ele protege).
+- O webhook do Asaas está apontado para a Edge Function `asaas-webhook`, que valida o header `asaas-access-token` contra o secret.
+
+Confirmado pelo responsável pelo projeto em 20/09/2026. As sessões do Claude Code não têm saída de rede para `*.supabase.co`, então isto não é verificável de dentro do agente — vale como configuração declarada, e o lugar para checar o funcionamento real é o painel **Visão Master → Webhooks** (`/superadmin/webhooks`), que mostra cada evento recebido e o que ele efetivamente fez no banco.
+
 ## Motor de Automações e Regras Operacionais
 - **Prevenção de Falha Humana:** Eventos da jornada viram tarefas automáticas com responsável, prazo (SLA) e prioridade[span_81](start_span)[span_81](end_span).
 - **Sinais de Atenção Automáticos:**
@@ -75,4 +85,4 @@ No momento da cobrança da assinatura do aluno:
 - **Fase 4 ✅:** Central de Atendimento "Minha Fila" (com registro obrigatório de desfecho), Check-ins R.O.T.A.® e Automações de SLA.
 - **Fase 5 ✅:** Módulo de Margens/Markup por Academia, Split de Pagamento (Asaas) e Dashboards de Retenção Comercial.
 
-> As 5 fases do plano inicial estão implementadas. Pendências conhecidas: (1) secrets `ASAAS_API_KEY`/`ASAAS_WEBHOOK_SECRET` ainda não configurados no projeto Supabase — as Edge Functions do split retornam erro claro até isso ser feito; (2) diversas telas do protótipo original (gamificação, feed social, desafios, catracas, chat) foram movidas para `src/_legacy` e ficam fora do build até serem portadas ao schema multitenant, fase a fase, conforme necessidade do negócio; (3) a Edge Function `check-notifications` é resquício do protótipo pré-reset e **não** foi portada: referencia tabelas que não existem no schema atual (`notificacao_preferencias`, `progresso_semanal`, `registro_serie`, `notificacoes`), consulta `dieta_adesao`/`registro_treino`/`compromisso_semanal` com `profiles.user_id` onde a coluna é `alunos.id`, varre perfis de todas as organizações sem nenhum filtro por `organization_id` e usa cópia punitiva ("não perca pontos") que a metodologia abandonou. Ela é fail-closed por `CRON_SECRET` — sem o header correto devolve 401 — e **não está em nenhum `cron.schedule`**. Não agendar antes de portar: como as buscas por id errado não retornam nada, ela dispararia lembrete de hidratação e de treino para todo perfil ativo, inclusive gestores e professores, todo dia.
+> As 5 fases do plano inicial estão implementadas. Pendências conhecidas: (1) diversas telas do protótipo original (gamificação, feed social, desafios, catracas, chat) foram movidas para `src/_legacy` e ficam fora do build até serem portadas ao schema multitenant, fase a fase, conforme necessidade do negócio; (2) a Edge Function `check-notifications` é resquício do protótipo pré-reset e **não** foi portada: referencia tabelas que não existem no schema atual (`notificacao_preferencias`, `progresso_semanal`, `registro_serie`, `notificacoes`), consulta `dieta_adesao`/`registro_treino`/`compromisso_semanal` com `profiles.user_id` onde a coluna é `alunos.id`, varre perfis de todas as organizações sem nenhum filtro por `organization_id` e usa cópia punitiva ("não perca pontos") que a metodologia abandonou. Ela é fail-closed por `CRON_SECRET` — sem o header correto devolve 401 — e **não está em nenhum `cron.schedule`**. Não agendar antes de portar: como as buscas por id errado não retornam nada, ela dispararia lembrete de hidratação e de treino para todo perfil ativo, inclusive gestores e professores, todo dia.
