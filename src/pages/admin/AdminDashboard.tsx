@@ -50,6 +50,8 @@ const ACOES_RAPIDAS: Record<Tipo, ("treino" | "dieta")[]> = {
   ajuste: ["treino", "dieta"],
   outro: [],
   cobranca: [],
+  acolhimento_elite: [],
+  engajamento_baixo: [],
 };
 
 const ANAMNESE_CAMPOS: { key: keyof Anamnese; label: string }[] = [

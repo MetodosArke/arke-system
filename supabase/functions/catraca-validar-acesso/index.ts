@@ -83,7 +83,7 @@ Deno.serve(async (req: Request) => {
     const { data: aluno } = profile
       ? await admin
           .from("alunos")
-          .select("id, aluno_assinaturas(status)")
+          .select("id")
           .eq("organization_id", catraca.organization_id)
           .eq("user_id", profile.user_id)
           .maybeSingle()
@@ -99,10 +99,29 @@ Deno.serve(async (req: Request) => {
       return jsonResponse({ liberado: false, motivo: "Aluno não encontrado nesta academia." });
     }
 
-    const assinatura = Array.isArray(aluno.aluno_assinaturas)
-      ? aluno.aluno_assinaturas[0]
-      : aluno.aluno_assinaturas;
-    const inadimplente = assinatura?.status === "atrasada";
+    // Controle de acesso físico é da academia — checa adimplência do
+    // Plano da Academia (aluno_matriculas_academia/mensalidades), não do
+    // Método ARKE (produto de coaching à parte, sem relação com entrar
+    // no prédio). Sem matrícula de academia cadastrada = libera (não
+    // bloqueia quem a academia ainda não migrou pro módulo de mensalidades).
+    const { data: matriculaAtiva } = await admin
+      .from("aluno_matriculas_academia")
+      .select("id")
+      .eq("aluno_id", aluno.id)
+      .eq("status", "ativa")
+      .maybeSingle();
+
+    let inadimplente = false;
+    if (matriculaAtiva) {
+      const { data: mensalidadeAtrasada } = await admin
+        .from("mensalidades")
+        .select("id")
+        .eq("matricula_id", matriculaAtiva.id)
+        .eq("status", "atrasado")
+        .limit(1)
+        .maybeSingle();
+      inadimplente = !!mensalidadeAtrasada;
+    }
 
     // Redundância de turma: em Studios (turmas de horário fixo e
     // capacidade limitada), assinatura em dia não basta — o aluno
@@ -143,7 +162,7 @@ Deno.serve(async (req: Request) => {
     });
 
     if (inadimplente) {
-      return jsonResponse({ liberado: false, motivo: "Assinatura em atraso.", aluno_nome: profile.full_name });
+      return jsonResponse({ liberado: false, motivo: "Mensalidade da academia em atraso.", aluno_nome: profile.full_name });
     }
     if (falhaAoVerificarAgendamento) {
       return jsonResponse({

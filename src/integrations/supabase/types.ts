@@ -18,30 +18,39 @@ export type Database = {
         Row: {
           aluno_id: string | null
           catraca_id: string
+          confirmado_por: string | null
           cpf_consultado: string | null
           created_at: string
           id: string
+          nome_visitante_externo: string | null
           organization_id: string
+          parceiro_externo: string | null
           resultado: string
           validado_offline: boolean
         }
         Insert: {
           aluno_id?: string | null
           catraca_id: string
+          confirmado_por?: string | null
           cpf_consultado?: string | null
           created_at?: string
           id?: string
+          nome_visitante_externo?: string | null
           organization_id: string
+          parceiro_externo?: string | null
           resultado: string
           validado_offline?: boolean
         }
         Update: {
           aluno_id?: string | null
           catraca_id?: string
+          confirmado_por?: string | null
           cpf_consultado?: string | null
           created_at?: string
           id?: string
+          nome_visitante_externo?: string | null
           organization_id?: string
+          parceiro_externo?: string | null
           resultado?: string
           validado_offline?: boolean
         }
@@ -2388,6 +2397,54 @@ export type Database = {
           },
         ]
       }
+      organizacao_credenciais_parceiro: {
+        Row: {
+          api_key: string | null
+          ativo: boolean
+          created_at: string
+          id: string
+          identificador: string | null
+          organization_id: string
+          parceiro: string
+          updated_at: string
+        }
+        Insert: {
+          api_key?: string | null
+          ativo?: boolean
+          created_at?: string
+          id?: string
+          identificador?: string | null
+          organization_id: string
+          parceiro: string
+          updated_at?: string
+        }
+        Update: {
+          api_key?: string | null
+          ativo?: boolean
+          created_at?: string
+          id?: string
+          identificador?: string | null
+          organization_id?: string
+          parceiro?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "organizacao_credenciais_parceiro_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "org_churn_metrics"
+            referencedColumns: ["organization_id"]
+          },
+          {
+            foreignKeyName: "organizacao_credenciais_parceiro_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       organization_members: {
         Row: {
           created_at: string
@@ -3741,6 +3798,12 @@ export type Database = {
       is_org_staff: {
         Args: { _organization_id: string; _user_id: string }
         Returns: boolean
+      }
+      listar_parceiros_externos_ativos: {
+        Args: { _organization_id: string }
+        Returns: {
+          parceiro: string
+        }[]
       }
       marcar_lancamentos_atrasados: { Args: never; Returns: undefined }
       obter_dias_previstos_semana: {

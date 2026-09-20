@@ -7,6 +7,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Dialog,
   DialogContent,
@@ -16,15 +24,23 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { DoorOpen, Plus, Copy, Power, PowerOff, ScrollText, Radio } from "lucide-react";
+import { DoorOpen, Plus, Copy, Power, PowerOff, ScrollText, Radio, Handshake, UserCheck } from "lucide-react";
+
+type Parceiro = "wellhub" | "totalpass";
+const PARCEIRO_LABEL: Record<Parceiro, string> = { wellhub: "Wellhub (Gympass)", totalpass: "TotalPass" };
 
 export default function AdminCatracas() {
-  const { organization } = useAuth();
+  const { organization, organizationRole } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [novoNome, setNovoNome] = useState("");
   const [novaLocalizacao, setNovaLocalizacao] = useState("");
   const [dialogAberto, setDialogAberto] = useState(false);
+  const ehGestor = organizationRole === "gestor";
+
+  const [checkinCatracaId, setCheckinCatracaId] = useState("");
+  const [checkinParceiro, setCheckinParceiro] = useState<Parceiro | "">("");
+  const [checkinNomeVisitante, setCheckinNomeVisitante] = useState("");
 
   const { data: catracas = [], isLoading } = useQuery({
     queryKey: ["admin-catracas", organization?.id],
@@ -45,7 +61,9 @@ export default function AdminCatracas() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("acessos_catraca_logs")
-        .select("id, resultado, cpf_consultado, created_at, validado_offline, organizacao_catracas(nome)")
+        .select(
+          "id, resultado, cpf_consultado, created_at, validado_offline, parceiro_externo, nome_visitante_externo, organizacao_catracas(nome)"
+        )
         .eq("organization_id", organization!.id)
         .order("created_at", { ascending: false })
         .limit(20);
@@ -125,11 +143,101 @@ export default function AdminCatracas() {
     }
   };
 
+  // Credenciais são dado sensível (api_key) — só o gestor as enxerga
+  // (mesma restrição do RLS). Para saber quais parceiros oferecer no
+  // check-in, qualquer staff usa a RPC listar_parceiros_externos_ativos,
+  // que não expõe api_key.
+  const { data: credenciaisParceiro = [] } = useQuery({
+    queryKey: ["admin-credenciais-parceiro", organization?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("organizacao_credenciais_parceiro")
+        .select("id, parceiro, identificador, ativo")
+        .eq("organization_id", organization!.id)
+        .order("parceiro");
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!organization?.id && ehGestor,
+  });
+
+  const { data: parceirosAtivos = [] } = useQuery({
+    queryKey: ["admin-parceiros-ativos", organization?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("listar_parceiros_externos_ativos", {
+        _organization_id: organization!.id,
+      });
+      if (error) throw error;
+      return (data ?? []).map((d) => d.parceiro as Parceiro);
+    },
+    enabled: !!organization?.id,
+  });
+
+  const salvarCredencial = useMutation({
+    mutationFn: async ({
+      parceiro,
+      identificador,
+      ativo,
+    }: {
+      parceiro: Parceiro;
+      identificador: string;
+      ativo: boolean;
+    }) => {
+      const { error } = await supabase.from("organizacao_credenciais_parceiro").upsert(
+        {
+          organization_id: organization!.id,
+          parceiro,
+          identificador: identificador.trim() || null,
+          ativo,
+        },
+        { onConflict: "organization_id,parceiro" }
+      );
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast({ title: "Parceiro atualizado!" });
+      void queryClient.invalidateQueries({ queryKey: ["admin-credenciais-parceiro", organization?.id] });
+      void queryClient.invalidateQueries({ queryKey: ["admin-parceiros-ativos", organization?.id] });
+    },
+    onError: (error: Error) =>
+      toast({ title: "Erro ao salvar parceiro", description: error.message, variant: "destructive" }),
+  });
+
+  const checkinParceiroExterno = useMutation({
+    mutationFn: async () => {
+      const { data, error } = await supabase.functions.invoke<{
+        liberado: boolean;
+        motivo: string;
+        error?: string;
+      }>("catraca-checkin-parceiro-externo", {
+        body: {
+          catraca_id: checkinCatracaId,
+          parceiro: checkinParceiro,
+          nome_visitante: checkinNomeVisitante.trim() || undefined,
+        },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      if (!data?.liberado) throw new Error(data?.motivo ?? "Acesso não liberado.");
+      return data;
+    },
+    onSuccess: () => {
+      toast({ title: "Catraca liberada!" });
+      setCheckinNomeVisitante("");
+      void queryClient.invalidateQueries({ queryKey: ["admin-catracas-logs", organization?.id] });
+    },
+    onError: (error: Error) =>
+      toast({ title: "Não foi possível liberar", description: error.message, variant: "destructive" }),
+  });
+
   const RESULTADO_LABEL: Record<string, { label: string; variant: "default" | "destructive" | "secondary" }> = {
     liberado: { label: "Liberado", variant: "default" },
+    liberado_parceiro_externo: { label: "Liberado (parceiro)", variant: "default" },
     negado_inadimplente: { label: "Inadimplente", variant: "destructive" },
     negado_nao_encontrado: { label: "Não encontrado", variant: "secondary" },
     negado_catraca_inativa: { label: "Dispositivo inativo", variant: "secondary" },
+    negado_sem_agendamento: { label: "Sem agendamento", variant: "secondary" },
+    negado_falha_verificacao_agendamento: { label: "Falha ao verificar agendamento", variant: "destructive" },
   };
 
   return (
@@ -243,6 +351,127 @@ export default function AdminCatracas() {
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-base flex items-center gap-2">
+            <UserCheck className="h-4 w-4" /> Check-in de visitante (Wellhub / TotalPass)
+          </CardTitle>
+          <p className="text-xs text-muted-foreground">
+            Confira o código mostrado no app do visitante e confirme aqui para liberar a catraca. A
+            validação automática com o parceiro ainda não está disponível — esta confirmação é manual.
+          </p>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {parceirosAtivos.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-2">
+              Nenhum parceiro habilitado ainda.{" "}
+              {ehGestor ? "Cadastre um abaixo." : "Peça ao gestor para cadastrar um parceiro."}
+            </p>
+          ) : (
+            <>
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-1.5">
+                  <Label>Catraca</Label>
+                  <Select value={checkinCatracaId} onValueChange={setCheckinCatracaId}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {catracas
+                        .filter((c) => c.status === "ativo")
+                        .map((c) => (
+                          <SelectItem key={c.id} value={c.id}>
+                            {c.nome}
+                          </SelectItem>
+                        ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Parceiro</Label>
+                  <Select value={checkinParceiro} onValueChange={(v) => setCheckinParceiro(v as Parceiro)}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {parceirosAtivos.map((p) => (
+                        <SelectItem key={p} value={p}>
+                          {PARCEIRO_LABEL[p]}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="checkin-visitante">Nome do visitante (opcional)</Label>
+                <Input
+                  id="checkin-visitante"
+                  value={checkinNomeVisitante}
+                  onChange={(e) => setCheckinNomeVisitante(e.target.value)}
+                  placeholder="Nome mostrado no app do parceiro"
+                />
+              </div>
+              <Button
+                className="w-full"
+                disabled={!checkinCatracaId || !checkinParceiro || checkinParceiroExterno.isPending}
+                onClick={() => checkinParceiroExterno.mutate()}
+              >
+                {checkinParceiroExterno.isPending ? "Liberando..." : "Confirmar e liberar catraca"}
+              </Button>
+            </>
+          )}
+        </CardContent>
+      </Card>
+
+      {ehGestor && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Handshake className="h-4 w-4" /> Parceiros (Wellhub / TotalPass)
+            </CardTitle>
+            <p className="text-xs text-muted-foreground">
+              Habilite os parceiros que a academia aceita. Sem integração automática com a API dos
+              parceiros ainda — a liberação é confirmada manualmente pela recepção a cada check-in.
+            </p>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {(["wellhub", "totalpass"] as const).map((parceiro) => {
+              const credencial = credenciaisParceiro.find((c) => c.parceiro === parceiro);
+              return (
+                <div key={parceiro} className="flex items-center justify-between gap-2 rounded-lg border border-border p-3">
+                  <div className="min-w-0 flex-1">
+                    <p className="font-medium">{PARCEIRO_LABEL[parceiro]}</p>
+                    <Input
+                      className="mt-1.5 h-8 text-sm"
+                      defaultValue={credencial?.identificador ?? ""}
+                      placeholder="Identificador do estabelecimento (opcional)"
+                      onBlur={(e) =>
+                        salvarCredencial.mutate({
+                          parceiro,
+                          identificador: e.target.value,
+                          ativo: credencial?.ativo ?? false,
+                        })
+                      }
+                    />
+                  </div>
+                  <Switch
+                    checked={credencial?.ativo ?? false}
+                    onCheckedChange={(ativo) =>
+                      salvarCredencial.mutate({
+                        parceiro,
+                        identificador: credencial?.identificador ?? "",
+                        ativo,
+                      })
+                    }
+                  />
+                </div>
+              );
+            })}
+          </CardContent>
+        </Card>
+      )}
+
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base flex items-center gap-2">
             <ScrollText className="h-4 w-4" /> Últimos acessos
           </CardTitle>
         </CardHeader>
@@ -255,7 +484,16 @@ export default function AdminCatracas() {
             return (
               <div key={log.id} className="flex items-center justify-between gap-2 text-sm border-b border-border last:border-0 py-1.5">
                 <div className="min-w-0">
-                  <p className="truncate">{log.organizacao_catracas?.nome ?? "Dispositivo removido"}</p>
+                  <p className="truncate">
+                    {log.organizacao_catracas?.nome ?? "Dispositivo removido"}
+                    {log.parceiro_externo && (
+                      <span className="text-muted-foreground">
+                        {" — "}
+                        {PARCEIRO_LABEL[log.parceiro_externo as Parceiro]}
+                        {log.nome_visitante_externo ? ` (${log.nome_visitante_externo})` : ""}
+                      </span>
+                    )}
+                  </p>
                   <p className="text-xs text-muted-foreground">
                     {new Date(log.created_at).toLocaleString("pt-BR")}
                   </p>

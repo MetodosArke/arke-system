@@ -60,12 +60,37 @@ Deno.serve(async (req: Request) => {
 
     const { data: alunos, error: alunosError } = await admin
       .from("alunos")
-      .select("id, user_id, aluno_assinaturas(status)")
+      .select("id, user_id")
       .eq("organization_id", catraca.organization_id);
     if (alunosError) {
       console.error("Erro ao listar alunos:", alunosError);
       return jsonResponse({ error: "Falha ao listar alunos." }, 500);
     }
+
+    // Controle de acesso físico é da academia — inadimplência aqui é do
+    // Plano da Academia (aluno_matriculas_academia/mensalidades), não do
+    // Método ARKE. Sem matrícula ativa cadastrada = libera (mesma regra
+    // do caminho online, catraca-validar-acesso).
+    const { data: matriculasAtivas, error: matriculasError } = await admin
+      .from("aluno_matriculas_academia")
+      .select("id, aluno_id")
+      .eq("organization_id", catraca.organization_id)
+      .eq("status", "ativa");
+    if (matriculasError) {
+      console.error("Erro ao listar matrículas:", matriculasError);
+      return jsonResponse({ error: "Falha ao listar matrículas." }, 500);
+    }
+
+    const matriculaIdPorAluno = new Map((matriculasAtivas ?? []).map((m) => [m.aluno_id, m.id]));
+    const matriculaIds = (matriculasAtivas ?? []).map((m) => m.id);
+    const { data: mensalidadesAtrasadas, error: mensalidadesError } = matriculaIds.length
+      ? await admin.from("mensalidades").select("matricula_id").in("matricula_id", matriculaIds).eq("status", "atrasado")
+      : { data: [] as { matricula_id: string }[], error: null };
+    if (mensalidadesError) {
+      console.error("Erro ao listar mensalidades:", mensalidadesError);
+      return jsonResponse({ error: "Falha ao listar mensalidades." }, 500);
+    }
+    const matriculasInadimplentes = new Set((mensalidadesAtrasadas ?? []).map((m) => m.matricula_id));
 
     const userIds = (alunos ?? []).map((a) => a.user_id);
     const { data: profiles, error: profilesError } = userIds.length
@@ -83,12 +108,12 @@ Deno.serve(async (req: Request) => {
         const profile = profileByUserId.get(a.user_id);
         const cpf = profile?.cpf?.replace(/\D/g, "") ?? "";
         if (!cpf) return null; // sem CPF cadastrado, não dá para validar offline por CPF
-        const assinatura = Array.isArray(a.aluno_assinaturas) ? a.aluno_assinaturas[0] : a.aluno_assinaturas;
+        const matriculaId = matriculaIdPorAluno.get(a.id);
         return {
           aluno_id: a.id,
           cpf,
           nome: profile?.full_name ?? "",
-          inadimplente: assinatura?.status === "atrasada",
+          inadimplente: matriculaId ? matriculasInadimplentes.has(matriculaId) : false,
         };
       })
       .filter((v): v is NonNullable<typeof v> => v !== null);
