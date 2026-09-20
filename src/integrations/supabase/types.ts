@@ -441,6 +441,7 @@ export type Database = {
           dias_descanso: number[]
           fase_jornada: Database["public"]["Enums"]["fase_jornada"]
           id: string
+          meta_agua_ml: number
           meta_semanal_dias: number
           metodo_arke_ativado_em: string | null
           metodo_arke_ativado_por: string | null
@@ -465,6 +466,7 @@ export type Database = {
           dias_descanso?: number[]
           fase_jornada?: Database["public"]["Enums"]["fase_jornada"]
           id?: string
+          meta_agua_ml?: number
           meta_semanal_dias?: number
           metodo_arke_ativado_em?: string | null
           metodo_arke_ativado_por?: string | null
@@ -489,6 +491,7 @@ export type Database = {
           dias_descanso?: number[]
           fase_jornada?: Database["public"]["Enums"]["fase_jornada"]
           id?: string
+          meta_agua_ml?: number
           meta_semanal_dias?: number
           metodo_arke_ativado_em?: string | null
           metodo_arke_ativado_por?: string | null
@@ -3555,6 +3558,10 @@ export type Database = {
       aluno_possui_agendamento_ativo_agora: {
         Args: { _aluno_id: string }
         Returns: boolean
+      }
+      atualizar_meta_agua_aluno: {
+        Args: { _meta_ml: number }
+        Returns: undefined
       }
       buscar_user_id_por_email: { Args: { _email: string }; Returns: string }
       escalar_tarefas_vencidas: { Args: never; Returns: undefined }
