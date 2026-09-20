@@ -3871,6 +3871,31 @@ export type Database = {
       gerar_tarefas_ativacao_pendente: { Args: never; Returns: undefined }
       gerar_tarefas_barreira_rotina: { Args: never; Returns: undefined }
       gerar_tarefas_engajamento_baixo: { Args: never; Returns: undefined }
+      get_superadmin_adocao_metodologia: {
+        Args: never
+        Returns: {
+          alunos_metodo_arke: number
+          alunos_total: number
+          anamnese_concluida: number
+          anamnese_pct: number
+          checkin_30d: number
+          checkin_pct: number
+          com_dieta_ativa: number
+          com_treino_ativo: number
+          desfecho_pct: number
+          nome: string
+          nutricao_contratada: number
+          nutricao_pct: number
+          organization_id: string
+          plano_b2b: Database["public"]["Enums"]["plano_b2b"]
+          score_adocao: number
+          status: Database["public"]["Enums"]["org_status"]
+          tarefas_com_desfecho_30d: number
+          tarefas_concluidas_30d: number
+          tarefas_vencidas_abertas: number
+          treino_pct: number
+        }[]
+      }
       get_superadmin_funil_conversao: {
         Args: { _meses?: number }
         Returns: {
