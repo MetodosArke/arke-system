@@ -798,6 +798,7 @@ export type Database = {
           aluno_id: string
           comentario: string | null
           created_at: string
+          data: string
           id: string
           motivo_dificuldade:
             | Database["public"]["Enums"]["motivo_dificuldade"]
@@ -809,6 +810,7 @@ export type Database = {
           aluno_id: string
           comentario?: string | null
           created_at?: string
+          data?: string
           id?: string
           motivo_dificuldade?:
             | Database["public"]["Enums"]["motivo_dificuldade"]
@@ -820,6 +822,7 @@ export type Database = {
           aluno_id?: string
           comentario?: string | null
           created_at?: string
+          data?: string
           id?: string
           motivo_dificuldade?:
             | Database["public"]["Enums"]["motivo_dificuldade"]

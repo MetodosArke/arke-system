@@ -125,7 +125,7 @@ export default function AlunoDashboard() {
       seteDiasAtras.setDate(seteDiasAtras.getDate() - 7);
       const { data } = await supabase
         .from("checkins")
-        .select("id, status, created_at")
+        .select("id, status, created_at, data")
         .eq("aluno_id", alunoId!)
         .gte("created_at", seteDiasAtras.toISOString())
         .order("created_at", { ascending: false });
@@ -165,7 +165,14 @@ export default function AlunoDashboard() {
       setMotivoPendente(null);
       void queryClient.invalidateQueries({ queryKey: ["aluno-checkins-semana", alunoId] });
     },
-    onError: (error: Error) => {
+    onError: (error: Error & { code?: string }) => {
+      if (error.code === "23505") {
+        toast({ title: "Você já registrou hoje", description: "Só é possível registrar uma vez por dia — volte amanhã." });
+        setAskOpen(false);
+        setMotivoPendente(null);
+        void queryClient.invalidateQueries({ queryKey: ["aluno-checkins-semana", alunoId] });
+        return;
+      }
       toast({ title: "Não foi possível registrar", description: error.message, variant: "destructive" });
     },
   });
@@ -198,6 +205,8 @@ export default function AlunoDashboard() {
     }
     registrarCheckin.mutate({ status });
   };
+
+  const checkinHoje = checkins.find((c) => c.data === HOJE);
 
   const aguaMl = habitoHoje?.agua_ml ?? 0;
   const aguaPct = Math.min(100, Math.round((aguaMl / metaAguaMl) * 100));
@@ -356,7 +365,17 @@ export default function AlunoDashboard() {
         </Card>
       )}
 
-      {!askOpen ? (
+      {checkinHoje ? (
+        <Card className="border-emerald-500/30 bg-emerald-500/5">
+          <CardContent className="flex items-center gap-3 pt-4">
+            <LifeBuoy className="h-5 w-5 text-emerald-600 shrink-0" />
+            <p className="text-sm">
+              Você já registrou hoje: <span className="font-semibold">{CHECKIN_LABEL[checkinHoje.status]}</span>.
+              Volte amanhã para registrar de novo.
+            </p>
+          </CardContent>
+        </Card>
+      ) : !askOpen ? (
         <Button className="w-full" size="lg" onClick={() => setAskOpen(true)}>
           <LifeBuoy className="mr-2 h-4 w-4" /> Como está sendo seguir seu plano?
         </Button>
