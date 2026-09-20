@@ -58,6 +58,22 @@ Deno.serve(async (req: Request) => {
       return jsonResponse({ error: "Dispositivo não autorizado." }, 401);
     }
 
+    // Heartbeat do Gateway Local. O gateway chama esta função num
+    // setInterval de 5 minutos, independente de ter movimento na catraca,
+    // então este carimbo é o único sinal de vida confiável do dispositivo:
+    // organizacao_catracas.status é cadastro manual e continua 'ativo'
+    // mesmo com a unidade desligada há semanas.
+    //
+    // Sem await e sem bloquear a resposta: se o carimbo falhar, a catraca
+    // não pode parar de sincronizar alunos por causa de telemetria.
+    void admin
+      .from("organizacao_catracas")
+      .update({ ultimo_heartbeat_em: new Date().toISOString() })
+      .eq("id", catraca.id)
+      .then(({ error }) => {
+        if (error) console.error("Falha ao registrar heartbeat da catraca", error);
+      });
+
     const { data: alunos, error: alunosError } = await admin
       .from("alunos")
       .select("id, user_id")
