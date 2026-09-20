@@ -24,6 +24,7 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { AdminLayout } from "@/components/layout/AdminLayout";
 import { SuperAdminLayout } from "@/components/layout/SuperAdminLayout";
 import { AlunoBillingGate } from "@/components/app/AlunoBillingGate";
+import { OrganizacaoBillingGate } from "@/components/admin/OrganizacaoBillingGate";
 
 // Aluno pages
 import AlunoDashboard from "@/pages/app/AlunoDashboard";
@@ -216,7 +217,9 @@ const App = () => (
                 path="/admin"
                 element={
                   <ProtectedRoute requiredRoles={[...STAFF_ROLES]}>
-                    <AdminLayout />
+                    <OrganizacaoBillingGate>
+                      <AdminLayout />
+                    </OrganizacaoBillingGate>
                   </ProtectedRoute>
                 }
               >
