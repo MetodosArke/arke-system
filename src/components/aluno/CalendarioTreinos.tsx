@@ -79,6 +79,38 @@ const TIPO_STORAGE_KEY = "arkefit-calendario-tipos-customizados";
 const QUICK_OPTIONS = ["Natação", "Ciclismo", "Corrida"];
 const MODALITY_EMOJI: Record<string, string> = { Natação: "🏊", Ciclismo: "🚴", Corrida: "🏃" };
 
+// Cor por modalidade (em vez de só manual/sistema) — cada tipo de treino
+// sempre cai na mesma cor, então o aluno reconhece o padrão de olho no mês
+// inteiro (ex.: todo treino de Yoga sempre laranja).
+const MODALITY_CHIP_COLORS = [
+  "bg-blue-500/20 text-blue-700 dark:text-blue-300",
+  "bg-emerald-500/20 text-emerald-700 dark:text-emerald-300",
+  "bg-amber-500/20 text-amber-700 dark:text-amber-300",
+  "bg-purple-500/20 text-purple-700 dark:text-purple-300",
+  "bg-pink-500/20 text-pink-700 dark:text-pink-300",
+  "bg-cyan-500/20 text-cyan-700 dark:text-cyan-300",
+  "bg-orange-500/20 text-orange-700 dark:text-orange-300",
+  "bg-red-500/20 text-red-700 dark:text-red-300",
+];
+const MODALITY_DOT_COLORS = [
+  "bg-blue-500",
+  "bg-emerald-500",
+  "bg-amber-500",
+  "bg-purple-500",
+  "bg-pink-500",
+  "bg-cyan-500",
+  "bg-orange-500",
+  "bg-red-500",
+];
+
+function indiceModalidade(label: string) {
+  let hash = 0;
+  for (let i = 0; i < label.length; i++) hash = (hash * 31 + label.charCodeAt(i)) >>> 0;
+  return hash % MODALITY_CHIP_COLORS.length;
+}
+const corChipModalidade = (label: string) => MODALITY_CHIP_COLORS[indiceModalidade(label)];
+const corDotModalidade = (label: string) => MODALITY_DOT_COLORS[indiceModalidade(label)];
+
 export default function CalendarioTreinos() {
   const { alunoId, organization } = useAuth();
   const { toast } = useToast();
@@ -413,10 +445,7 @@ export default function CalendarioTreinos() {
                       {entries.slice(0, 3).map((entry, eIdx) => (
                         <div
                           key={eIdx}
-                          className={cn(
-                            "text-[10px] px-1 py-0.5 rounded truncate",
-                            entry.source === "system" ? "bg-primary/20 text-primary" : "bg-accent/20 text-accent-foreground"
-                          )}
+                          className={cn("text-[10px] px-1 py-0.5 rounded truncate", corChipModalidade(entry.label))}
                         >
                           {entry.label}
                         </div>
@@ -434,7 +463,7 @@ export default function CalendarioTreinos() {
                 {entriesByDate[format(selectedDate, "yyyy-MM-dd")]?.map((entry, idx) => (
                   <div key={idx} className="flex items-center justify-between bg-muted/30 rounded-lg px-3 py-2">
                     <div className="flex items-center gap-2">
-                      <span className={cn("w-2 h-2 rounded-full", entry.source === "system" ? "bg-primary" : "bg-accent")} />
+                      <span className={cn("w-2 h-2 rounded-full", corDotModalidade(entry.label))} />
                       <span className="text-sm">{entry.label}</span>
                     </div>
                     {entry.source === "manual" && (
