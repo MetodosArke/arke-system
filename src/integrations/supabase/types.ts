@@ -1465,6 +1465,7 @@ export type Database = {
           arquivo_url: string | null
           created_at: string
           id: string
+          observacoes_gerais: string | null
           organization_id: string
           publicado_por: string | null
           snapshot_conteudo: Json
@@ -1478,6 +1479,7 @@ export type Database = {
           arquivo_url?: string | null
           created_at?: string
           id?: string
+          observacoes_gerais?: string | null
           organization_id: string
           publicado_por?: string | null
           snapshot_conteudo?: Json
@@ -1491,6 +1493,7 @@ export type Database = {
           arquivo_url?: string | null
           created_at?: string
           id?: string
+          observacoes_gerais?: string | null
           organization_id?: string
           publicado_por?: string | null
           snapshot_conteudo?: Json
@@ -2171,6 +2174,7 @@ export type Database = {
           horario_sugerido: string | null
           id: string
           itens: string | null
+          itens_estruturados: Json | null
           modelo_id: string
           nome_refeicao: string
           ordem: number
@@ -2184,6 +2188,7 @@ export type Database = {
           horario_sugerido?: string | null
           id?: string
           itens?: string | null
+          itens_estruturados?: Json | null
           modelo_id: string
           nome_refeicao: string
           ordem?: number
@@ -2197,6 +2202,7 @@ export type Database = {
           horario_sugerido?: string | null
           id?: string
           itens?: string | null
+          itens_estruturados?: Json | null
           modelo_id?: string
           nome_refeicao?: string
           ordem?: number
@@ -2267,6 +2273,7 @@ export type Database = {
           created_at: string
           criado_por: string | null
           id: string
+          observacoes: string | null
           organization_id: string
           tipo: string | null
           titulo: string
@@ -2276,6 +2283,7 @@ export type Database = {
           created_at?: string
           criado_por?: string | null
           id?: string
+          observacoes?: string | null
           organization_id: string
           tipo?: string | null
           titulo: string
@@ -2285,6 +2293,7 @@ export type Database = {
           created_at?: string
           criado_por?: string | null
           id?: string
+          observacoes?: string | null
           organization_id?: string
           tipo?: string | null
           titulo?: string
@@ -2905,6 +2914,7 @@ export type Database = {
           created_at: string
           data: string
           id: string
+          itens_consumidos: Json
           organization_id: string
           refeicoes_concluidas: number[]
           updated_at: string
@@ -2915,6 +2925,7 @@ export type Database = {
           created_at?: string
           data?: string
           id?: string
+          itens_consumidos?: Json
           organization_id: string
           refeicoes_concluidas?: number[]
           updated_at?: string
@@ -2925,6 +2936,7 @@ export type Database = {
           created_at?: string
           data?: string
           id?: string
+          itens_consumidos?: Json
           organization_id?: string
           refeicoes_concluidas?: number[]
           updated_at?: string

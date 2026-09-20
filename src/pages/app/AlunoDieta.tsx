@@ -4,16 +4,24 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
-import { UtensilsCrossed, Flame, MessageCircle, Lock, Sparkles, CalendarDays } from "lucide-react";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { UtensilsCrossed, Flame, MessageCircle, Lock, Sparkles, CalendarDays, ChevronDown, Repeat } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { ChatPanel } from "@/components/chat/ChatPanel";
 import ControleDieta from "@/components/aluno/ControleDieta";
+
+interface ItemSnapshot {
+  alimento: string;
+  quantidade: string;
+  substituicoes: string[];
+}
 
 interface RefeicaoSnapshot {
   ordem: number;
   nome_refeicao: string;
   horario_sugerido: string | null;
   itens: string | null;
+  itens_estruturados: ItemSnapshot[] | null;
   calorias_kcal: number | null;
   proteinas_g: number | null;
   carboidratos_g: number | null;
@@ -81,6 +89,33 @@ export default function AlunoDieta() {
           aluno_id: alunoId,
           data: HOJE,
           refeicoes_concluidas: novaLista,
+        },
+        { onConflict: "aluno_id,data" }
+      );
+      if (error) throw error;
+    },
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["aluno-habito-hoje", alunoId] }),
+    onError: (error: Error) => {
+      toast({ title: "Não foi possível atualizar", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const itensConsumidos = (habitoHoje?.itens_consumidos as Record<string, number[]> | null) ?? {};
+
+  const marcarItem = useMutation({
+    mutationFn: async ({ ordem, indiceItem }: { ordem: number; indiceItem: number }) => {
+      if (!alunoId || !organization) throw new Error("Cadastro de aluno não encontrado");
+      const chave = String(ordem);
+      const atuais = itensConsumidos[chave] ?? [];
+      const jaMarcado = atuais.includes(indiceItem);
+      const novaLista = jaMarcado ? atuais.filter((i) => i !== indiceItem) : [...atuais, indiceItem];
+      const novoMapa = { ...itensConsumidos, [chave]: novaLista };
+      const { error } = await supabase.from("registro_habito").upsert(
+        {
+          organization_id: organization.id,
+          aluno_id: alunoId,
+          data: HOJE,
+          itens_consumidos: novoMapa,
         },
         { onConflict: "aluno_id,data" }
       );
@@ -192,7 +227,46 @@ export default function AlunoDieta() {
                           </p>
                           {r.horario_sugerido && <span className="text-xs text-muted-foreground">{r.horario_sugerido}</span>}
                         </div>
-                        {r.itens && <p className="text-sm text-muted-foreground mt-1 whitespace-pre-line">{r.itens}</p>}
+                        {r.itens_estruturados && r.itens_estruturados.length > 0 ? (
+                          <ul className="mt-1.5 space-y-1.5">
+                            {r.itens_estruturados.map((item, i) => {
+                              const consumido = (itensConsumidos[String(r.ordem)] ?? []).includes(i);
+                              return (
+                                <li key={i} className="flex items-start gap-2">
+                                  <Checkbox
+                                    checked={consumido}
+                                    onCheckedChange={() => marcarItem.mutate({ ordem: r.ordem, indiceItem: i })}
+                                    className="mt-0.5"
+                                  />
+                                  <div className="flex-1 min-w-0">
+                                    <p className={`text-sm ${consumido ? "line-through text-muted-foreground" : ""}`}>
+                                      {item.alimento} — {item.quantidade}
+                                    </p>
+                                    {item.substituicoes.length > 0 && (
+                                      <Collapsible>
+                                        <CollapsibleTrigger className="flex items-center gap-1 text-xs text-primary mt-0.5">
+                                          <Repeat className="h-3 w-3" /> Substituições
+                                          <ChevronDown className="h-3 w-3" />
+                                        </CollapsibleTrigger>
+                                        <CollapsibleContent>
+                                          <ul className="mt-1 ml-1 space-y-0.5">
+                                            {item.substituicoes.map((sub, j) => (
+                                              <li key={j} className="text-xs text-muted-foreground">
+                                                • {sub}
+                                              </li>
+                                            ))}
+                                          </ul>
+                                        </CollapsibleContent>
+                                      </Collapsible>
+                                    )}
+                                  </div>
+                                </li>
+                              );
+                            })}
+                          </ul>
+                        ) : (
+                          r.itens && <p className="text-sm text-muted-foreground mt-1 whitespace-pre-line">{r.itens}</p>
+                        )}
                         {(r.calorias_kcal || r.proteinas_g || r.carboidratos_g || r.gorduras_g) && (
                           <div className="flex flex-wrap gap-1.5 mt-1.5">
                             {r.calorias_kcal != null && <Badge variant="secondary">{r.calorias_kcal} kcal</Badge>}
