@@ -63,6 +63,7 @@ import SuperAdminDashboard from "@/pages/superadmin/SuperAdminDashboard";
 import SuperAdminProfissionais from "@/pages/superadmin/SuperAdminProfissionais";
 import SuperAdminConfiguracoes from "@/pages/superadmin/SuperAdminConfiguracoes";
 import SuperAdminAcervo from "@/pages/superadmin/SuperAdminAcervo";
+import SuperAdminAuditoria from "@/pages/superadmin/SuperAdminAuditoria";
 
 import NotFound from "./pages/NotFound";
 
@@ -249,6 +250,7 @@ const App = () => (
                 <Route index element={<SuperAdminDashboard />} />
                 <Route path="profissionais" element={<SuperAdminProfissionais />} />
                 <Route path="acervo" element={<SuperAdminAcervo />} />
+                <Route path="auditoria" element={<SuperAdminAuditoria />} />
                 <Route path="configuracoes" element={<SuperAdminConfiguracoes />} />
               </Route>
 

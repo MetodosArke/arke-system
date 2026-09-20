@@ -712,6 +712,42 @@ export type Database = {
         }
         Relationships: []
       }
+      auditoria_acoes_sensiveis: {
+        Row: {
+          acao: string
+          ator_email: string | null
+          ator_user_id: string | null
+          created_at: string
+          detalhes: Json
+          entidade: string
+          entidade_id: string | null
+          id: string
+          organizacao_nome: string | null
+        }
+        Insert: {
+          acao: string
+          ator_email?: string | null
+          ator_user_id?: string | null
+          created_at?: string
+          detalhes?: Json
+          entidade: string
+          entidade_id?: string | null
+          id?: string
+          organizacao_nome?: string | null
+        }
+        Update: {
+          acao?: string
+          ator_email?: string | null
+          ator_user_id?: string | null
+          created_at?: string
+          detalhes?: Json
+          entidade?: string
+          entidade_id?: string | null
+          id?: string
+          organizacao_nome?: string | null
+        }
+        Relationships: []
+      }
       avaliacoes_fisicas: {
         Row: {
           altura_cm: number | null
@@ -4073,6 +4109,17 @@ export type Database = {
           _validade_inicio?: string
         }
         Returns: string
+      }
+      registrar_auditoria: {
+        Args: {
+          _acao: string
+          _ator_user_id: string
+          _detalhes?: Json
+          _entidade: string
+          _entidade_id: string
+          _organizacao_nome: string
+        }
+        Returns: undefined
       }
       superadmin_resetar_tokens_gateway: {
         Args: { _organization_id: string }

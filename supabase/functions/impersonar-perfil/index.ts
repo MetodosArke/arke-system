@@ -149,6 +149,30 @@ Deno.serve(async (req: Request) => {
       return errorResponse("Erro ao gerar acesso de simulação.");
     }
 
+    // Assumir a sessão de outra pessoa é a ação mais sensível do sistema, e
+    // é a única que não mexe em nenhuma tabela — nenhum trigger a veria.
+    // Registrar aqui é o único jeito de ela deixar rastro.
+    const { data: organizacao } = await adminClient
+      .from("organizations")
+      .select("nome")
+      .eq("id", organizationId)
+      .maybeSingle();
+
+    const { error: auditoriaError } = await adminClient.rpc("registrar_auditoria", {
+      _ator_user_id: callerId,
+      _acao: "perfil.simulado",
+      _entidade: "auth.users",
+      _entidade_id: targetUserId,
+      _organizacao_nome: organizacao?.nome ?? null,
+      _detalhes: {
+        papel_alvo: targetMembership.role,
+        email_alvo: targetUser.user.email,
+        ator_admin_arke: callerIsAdminArke,
+        ator_superadmin: callerIsSuperadmin,
+      },
+    });
+    if (auditoriaError) console.error("Falha ao registrar auditoria de simulação", auditoriaError);
+
     return jsonResponse({
       email: targetUser.user.email,
       token_hash: linkData.properties.hashed_token,

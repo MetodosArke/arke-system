@@ -102,6 +102,37 @@ Deno.serve(async (req: Request) => {
       return errorResponse("Apenas o Super Admin ArkeFit pode executar ações de suporte.");
     }
 
+    // Lido antes da exclusão: depois do cascade o nome já não existe mais, e
+    // um log que diz só "organização <uuid> excluída" não serve pra nada.
+    const { data: organizacao } = await adminClient
+      .from("organizations")
+      .select("nome")
+      .eq("id", organizationId)
+      .maybeSingle();
+    const nomeOrganizacao = organizacao?.nome ?? null;
+
+    // Estas ações rodam com service_role, então auth.uid() é nulo lá no
+    // banco e nenhum trigger conseguiria saber quem as disparou. Por isso o
+    // registro sai daqui, onde o callerId já foi validado.
+    const registrarAuditoria = async (
+      acaoLog: string,
+      entidade: string,
+      entidadeId: string | null,
+      detalhes: Record<string, unknown>,
+    ) => {
+      const { error } = await adminClient.rpc("registrar_auditoria", {
+        _ator_user_id: callerId,
+        _acao: acaoLog,
+        _entidade: entidade,
+        _entidade_id: entidadeId,
+        _organizacao_nome: nomeOrganizacao,
+        _detalhes: detalhes,
+      });
+      // Falha de auditoria não desfaz a ação já executada, mas não pode
+      // passar silenciosa: sem este log ninguém descobre depois quem agiu.
+      if (error) console.error("Falha ao registrar auditoria", acaoLog, error);
+    };
+
     if (acao === "resetar_token_gateway") {
       const { data: qtd, error: resetError } = await adminClient.rpc("superadmin_resetar_tokens_gateway", {
         _organization_id: organizationId,
@@ -110,6 +141,9 @@ Deno.serve(async (req: Request) => {
         console.error("Error resetting gateway tokens", resetError);
         return errorResponse("Erro ao resetar o token do gateway.");
       }
+      await registrarAuditoria("catraca.token_resetado", "organizacao_catracas", organizationId, {
+        catracas_resetadas: qtd ?? 0,
+      });
       return jsonResponse({ success: true, catracas_resetadas: qtd ?? 0 });
     }
 
@@ -135,6 +169,9 @@ Deno.serve(async (req: Request) => {
       if (!deletada) {
         return errorResponse("Organização não encontrada.");
       }
+      await registrarAuditoria("organizacao.excluida", "organizations", organizationId, {
+        cascade: "alunos, equipe, treinos, dietas, check-ins, agendamentos e cobranças",
+      });
       return jsonResponse({ success: true });
     }
 
@@ -165,6 +202,13 @@ Deno.serve(async (req: Request) => {
       const jaExiste = emailError.message?.toLowerCase().includes("already been registered");
       return errorResponse(jaExiste ? "Já existe um usuário cadastrado com esse e-mail." : emailError.message);
     }
+
+    // Guarda o user_id do gestor e o e-mail novo. O antigo não é registrado:
+    // trocar o login já é a informação relevante, e repetir o e-mail anterior
+    // só espalharia mais um dado pessoal por outra tabela.
+    await registrarAuditoria("gestor.email_alterado", "auth.users", gestorMembership.user_id, {
+      novo_email: novoEmail,
+    });
 
     return jsonResponse({ success: true });
   } catch (error) {
