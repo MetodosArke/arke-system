@@ -250,6 +250,64 @@ export type Database = {
           },
         ]
       }
+      aluno_fase_historico: {
+        Row: {
+          aluno_id: string
+          created_at: string
+          fase_anterior: Database["public"]["Enums"]["fase_jornada"] | null
+          fase_nova: Database["public"]["Enums"]["fase_jornada"]
+          id: string
+          movido_por: string | null
+          movido_por_nome: string | null
+          observacao: string | null
+          organization_id: string
+        }
+        Insert: {
+          aluno_id: string
+          created_at?: string
+          fase_anterior?: Database["public"]["Enums"]["fase_jornada"] | null
+          fase_nova: Database["public"]["Enums"]["fase_jornada"]
+          id?: string
+          movido_por?: string | null
+          movido_por_nome?: string | null
+          observacao?: string | null
+          organization_id: string
+        }
+        Update: {
+          aluno_id?: string
+          created_at?: string
+          fase_anterior?: Database["public"]["Enums"]["fase_jornada"] | null
+          fase_nova?: Database["public"]["Enums"]["fase_jornada"]
+          id?: string
+          movido_por?: string | null
+          movido_por_nome?: string | null
+          observacao?: string | null
+          organization_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "aluno_fase_historico_aluno_id_fkey"
+            columns: ["aluno_id"]
+            isOneToOne: false
+            referencedRelation: "alunos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "aluno_fase_historico_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "org_churn_metrics"
+            referencedColumns: ["organization_id"]
+          },
+          {
+            foreignKeyName: "aluno_fase_historico_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       aluno_matriculas_academia: {
         Row: {
           aluno_id: string
@@ -4150,6 +4208,14 @@ export type Database = {
         }[]
       }
       marcar_lancamentos_atrasados: { Args: never; Returns: undefined }
+      mover_fase_jornada: {
+        Args: {
+          _aluno_id: string
+          _fase: Database["public"]["Enums"]["fase_jornada"]
+          _observacao?: string
+        }
+        Returns: Database["public"]["Enums"]["fase_jornada"]
+      }
       obter_dias_previstos_semana: {
         Args: { _aluno_id: string; _meta_padrao: number }
         Returns: number
