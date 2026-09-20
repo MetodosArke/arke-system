@@ -56,7 +56,6 @@ const FASE_LABEL: Record<string, string> = {
   legado: "L.E.G.A.D.O.® — Perpetuar",
 };
 
-const META_AGUA_ML = 2000;
 const HOJE = new Date().toISOString().slice(0, 10);
 
 export default function AlunoDashboard() {
@@ -66,6 +65,16 @@ export default function AlunoDashboard() {
   const queryClient = useQueryClient();
   const [askOpen, setAskOpen] = useState(false);
   const [motivoPendente, setMotivoPendente] = useState<CheckinStatus | null>(null);
+
+  const { data: metaAguaMl = 2000 } = useQuery({
+    queryKey: ["aluno-meta-agua", alunoId],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("alunos").select("meta_agua_ml").eq("id", alunoId!).single();
+      if (error) throw error;
+      return data.meta_agua_ml;
+    },
+    enabled: !!alunoId,
+  });
 
   const { data: treinoAtivo } = useQuery({
     queryKey: ["aluno-treino-ativo", alunoId],
@@ -164,7 +173,7 @@ export default function AlunoDashboard() {
   const ajustarAgua = useMutation({
     mutationFn: async (deltaMl: number) => {
       if (!alunoId || !organization) throw new Error("Cadastro de aluno não encontrado");
-      const novoTotal = Math.max(0, (habitoHoje?.agua_ml ?? 0) + deltaMl);
+      const novoTotal = Math.max(0, Math.min(limiteAguaMl, (habitoHoje?.agua_ml ?? 0) + deltaMl));
       const { error } = await supabase.from("registro_habito").upsert(
         {
           organization_id: organization.id,
@@ -191,7 +200,10 @@ export default function AlunoDashboard() {
   };
 
   const aguaMl = habitoHoje?.agua_ml ?? 0;
-  const aguaPct = Math.min(100, Math.round((aguaMl / META_AGUA_ML) * 100));
+  const aguaPct = Math.min(100, Math.round((aguaMl / metaAguaMl) * 100));
+  // Além de 150% da meta o botão "+" some — evita um contador sem sentido
+  // (e qualquer uso futuro em gamificação virar alvo de "farm" de cliques).
+  const limiteAguaMl = metaAguaMl * 1.5;
 
   return (
     <div className="space-y-4 max-w-2xl mx-auto">
@@ -248,7 +260,7 @@ export default function AlunoDashboard() {
         </CardHeader>
         <CardContent className="space-y-2">
           <div className="flex items-center justify-between">
-            <p className="text-sm font-medium">{aguaMl} ml / {META_AGUA_ML} ml</p>
+            <p className="text-sm font-medium">{aguaMl} ml / {metaAguaMl} ml</p>
             <div className="flex items-center gap-1.5">
               <Button
                 size="icon"
@@ -263,7 +275,7 @@ export default function AlunoDashboard() {
                 size="icon"
                 variant="outline"
                 className="h-8 w-8"
-                disabled={ajustarAgua.isPending}
+                disabled={ajustarAgua.isPending || aguaMl >= limiteAguaMl}
                 onClick={() => ajustarAgua.mutate(250)}
               >
                 <Plus className="h-3.5 w-3.5" />
@@ -271,6 +283,9 @@ export default function AlunoDashboard() {
             </div>
           </div>
           <Progress value={aguaPct} />
+          {aguaMl >= metaAguaMl && (
+            <p className="text-xs font-medium text-emerald-600">🎉 Meta de água batida hoje!</p>
+          )}
         </CardContent>
       </Card>
 
