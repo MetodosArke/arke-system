@@ -11,10 +11,12 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { Building2, Wallet, Receipt, Printer, Upload } from "lucide-react";
 import type { Enums, Tables } from "@/integrations/supabase/types";
 import { ReciboComprovanteDialog, type ReciboData } from "@/components/admin/ReciboComprovanteDialog";
+import { PlanosAcademiaPainel } from "@/components/admin/PlanosAcademiaPainel";
 
 type TipoNegocio = Extract<Enums<"organization_tipo">, "academia" | "studio">;
 const SLUG_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
@@ -334,7 +336,7 @@ export default function AdminOrganizacao() {
   });
 
   return (
-    <div className="space-y-4 max-w-2xl mx-auto">
+    <div className="space-y-4 max-w-4xl mx-auto">
       <div className="flex items-center gap-2">
         <Building2 className="h-5 w-5 text-primary" />
         <h1 className="text-xl font-bold">{organization?.nome ?? "Organização"}</h1>
@@ -348,6 +350,16 @@ export default function AdminOrganizacao() {
         </div>
       )}
 
+      <Tabs defaultValue="perfil">
+        <TabsList className="flex-wrap h-auto">
+          <TabsTrigger value="perfil">Perfil</TabsTrigger>
+          <TabsTrigger value="precificacao">Precificação</TabsTrigger>
+          <TabsTrigger value="pagamentos">Pagamentos</TabsTrigger>
+          <TabsTrigger value="assinaturas">Assinaturas</TabsTrigger>
+          <TabsTrigger value="planos">Planos da Academia</TabsTrigger>
+        </TabsList>
+
+      <TabsContent value="perfil" className="space-y-4 pt-3">
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-base flex items-center gap-2">
@@ -471,6 +483,7 @@ export default function AdminOrganizacao() {
           </Button>
         </CardContent>
       </Card>
+      </TabsContent>
 
       <Dialog open={confirmarMudancaTipoAberto} onOpenChange={setConfirmarMudancaTipoAberto}>
         <DialogContent className="max-w-sm">
@@ -500,6 +513,7 @@ export default function AdminOrganizacao() {
         </DialogContent>
       </Dialog>
 
+      <TabsContent value="precificacao" className="pt-3">
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Precificação de varejo (markup sobre o atacado ARKE)</CardTitle>
@@ -535,7 +549,9 @@ export default function AdminOrganizacao() {
           })}
         </CardContent>
       </Card>
+      </TabsContent>
 
+      <TabsContent value="pagamentos" className="space-y-4 pt-3">
       <Card>
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">
@@ -590,7 +606,9 @@ export default function AdminOrganizacao() {
           })}
         </CardContent>
       </Card>
+      </TabsContent>
 
+      <TabsContent value="assinaturas" className="pt-3">
       <Card>
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">
@@ -639,6 +657,12 @@ export default function AdminOrganizacao() {
           )}
         </CardContent>
       </Card>
+      </TabsContent>
+
+      <TabsContent value="planos" className="pt-3">
+        <PlanosAcademiaPainel />
+      </TabsContent>
+      </Tabs>
 
       <ReciboComprovanteDialog open={reciboAberto} onOpenChange={setReciboAberto} recibo={reciboSelecionado} />
     </div>

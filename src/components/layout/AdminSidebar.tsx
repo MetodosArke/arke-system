@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Home, Users, UsersRound, Building2, LogOut, ChevronLeft, Menu, ClipboardList, UserCircle, BarChart3, DoorOpen, CalendarDays, Dumbbell, UtensilsCrossed, Trophy, Medal, MessageSquare, Wallet, Percent, DollarSign, LibraryBig, Plug } from "lucide-react";
+import { Home, Users, UsersRound, Building2, LogOut, ChevronLeft, Menu, ClipboardList, UserCircle, BarChart3, DoorOpen, CalendarDays, Dumbbell, UtensilsCrossed, Sparkles, DollarSign, Plug } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
@@ -37,8 +37,8 @@ function buildSections({
     { icon: Users, label: alunosLabel, path: "/admin/alunos" },
   ];
   if (podePrescreverTreino) {
+    // Acervo de Exercícios virou uma aba dentro de Prescrever Treinos.
     operacao.push({ icon: Dumbbell, label: "Prescrever Treinos", path: "/admin/treinos" });
-    operacao.push({ icon: LibraryBig, label: "Acervo de Exercícios", path: "/admin/acervo" });
   }
   if (podePrescreverDieta) {
     operacao.push({ icon: UtensilsCrossed, label: "Prescrever Dietas", path: "/admin/dietas" });
@@ -46,9 +46,8 @@ function buildSections({
   if (ehStudio) {
     operacao.push({ icon: CalendarDays, label: "Agenda", path: "/admin/agenda" });
   }
-  operacao.push({ icon: Trophy, label: "Desafios", path: "/admin/desafios" });
-  operacao.push({ icon: Medal, label: "Competições", path: "/admin/competicoes" });
-  operacao.push({ icon: MessageSquare, label: "Feed", path: "/admin/feed" });
+  // Desafios + Competições + Feed viraram abas dentro de Engajamento.
+  operacao.push({ icon: Sparkles, label: "Engajamento", path: "/admin/engajamento" });
 
   const sections: MenuSection[] = [{ label: "Operação", items: operacao }];
 
@@ -58,15 +57,15 @@ function buildSections({
       items: [
         { icon: BarChart3, label: "Gestão 360°", path: "/admin/gestao-360" },
         { icon: UsersRound, label: "Equipe", path: "/admin/equipe" },
-        { icon: Percent, label: "Comissões", path: "/admin/comissoes" },
+        // Comissões virou uma aba dentro de Financeiro.
         { icon: DollarSign, label: "Financeiro", path: "/admin/financeiro" },
       ],
     });
     sections.push({
       label: "Configurações",
       items: [
+        // Planos da Academia virou uma aba dentro de Organização.
         { icon: Building2, label: "Organização", path: "/admin/organizacao" },
-        { icon: Wallet, label: "Planos da Academia", path: "/admin/planos" },
         { icon: DoorOpen, label: "Catracas", path: "/admin/catracas" },
         { icon: Plug, label: "Integrações", path: "/admin/configuracoes/integracoes" },
       ],

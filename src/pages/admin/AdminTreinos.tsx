@@ -15,6 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Dumbbell, Plus, Trash2, FolderOpen, UserRound } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { AcervoPainel } from "@/components/admin/AcervoPainel";
 
 const STATUS_TREINO_LABEL: Record<string, string> = {
   ativo: "Ativo",
@@ -270,6 +271,7 @@ export default function AdminTreinos() {
         <TabsList>
           <TabsTrigger value="biblioteca">Biblioteca de Modelos</TabsTrigger>
           <TabsTrigger value="publicar">Publicar para Aluno</TabsTrigger>
+          <TabsTrigger value="acervo">Acervo de Exercícios</TabsTrigger>
         </TabsList>
 
         <TabsContent value="biblioteca" className="space-y-4">
@@ -532,6 +534,10 @@ export default function AdminTreinos() {
               </CardContent>
             </Card>
           )}
+        </TabsContent>
+
+        <TabsContent value="acervo">
+          <AcervoPainel />
         </TabsContent>
       </Tabs>
 

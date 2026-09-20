@@ -13,7 +13,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogD
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
-import { Wallet, Plus, Pencil } from "lucide-react";
+import { Plus, Pencil } from "lucide-react";
 import type { Enums, Tables } from "@/integrations/supabase/types";
 
 type Periodicidade = Enums<"periodicidade_plano_academia">;
@@ -33,7 +33,7 @@ function parseMoeda(valor: string): number {
 
 const FORM_VAZIO = { id: "", nome: "", periodicidade: "mensal" as Periodicidade, valor: "", descricao: "", ativo: true };
 
-export default function AdminPlanosAcademia() {
+export function PlanosAcademiaPainel() {
   const { organization } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -109,12 +109,8 @@ export default function AdminPlanosAcademia() {
   };
 
   return (
-    <div className="space-y-4 max-w-4xl">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Wallet className="h-5 w-5 text-primary" />
-          <h1 className="text-xl font-bold">Planos da Academia</h1>
-        </div>
+    <div className="space-y-4">
+      <div className="flex items-center justify-end">
         <Button
           size="sm"
           onClick={() => {

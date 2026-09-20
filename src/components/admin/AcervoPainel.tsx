@@ -11,9 +11,10 @@ import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { Dumbbell, Plus, Pencil, ArrowLeftRight, Lock } from "lucide-react";
+import { Plus, Pencil, Trash2, ArrowLeftRight, Lock, PlayCircle } from "lucide-react";
 import type { Tables } from "@/integrations/supabase/types";
 
 type ExercicioBiblioteca = Tables<"exercicios_biblioteca">;
@@ -30,12 +31,14 @@ const FORM_VAZIO = {
   video_url: "",
 };
 
-export default function AdminAcervo() {
+export function AcervoPainel() {
   const { organization } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [dialogAberto, setDialogAberto] = useState(false);
   const [form, setForm] = useState(FORM_VAZIO);
+  const [detalheId, setDetalheId] = useState<string | null>(null);
+  const [excluir, setExcluir] = useState<ExercicioBiblioteca | null>(null);
 
   const [nomeAntigo, setNomeAntigo] = useState("");
   const [novoExercicioId, setNovoExercicioId] = useState("");
@@ -96,6 +99,22 @@ export default function AdminAcervo() {
     onError: (error: Error) => toast({ title: "Erro ao atualizar", description: error.message, variant: "destructive" }),
   });
 
+  const excluirExercicio = useMutation({
+    mutationFn: async () => {
+      if (!excluir) return;
+      const { error } = await supabase.from("exercicios_biblioteca").delete().eq("id", excluir.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast({ title: "Exercício excluído" });
+      void queryClient.invalidateQueries({ queryKey: ["exercicios-biblioteca-acervo", organization?.id] });
+      void queryClient.invalidateQueries({ queryKey: ["exercicios-biblioteca"] });
+      setExcluir(null);
+      setDetalheId(null);
+    },
+    onError: (error: Error) => toast({ title: "Erro ao excluir", description: error.message, variant: "destructive" }),
+  });
+
   const abrirEdicao = (ex: ExercicioBiblioteca) => {
     setForm({
       id: ex.id,
@@ -111,6 +130,8 @@ export default function AdminAcervo() {
 
   const exerciciosDaOrg = exercicios.filter((e) => e.organization_id === organization?.id);
   const exerciciosPadrao = exercicios.filter((e) => e.organization_id === null);
+  const detalhe = exercicios.find((e) => e.id === detalheId) ?? null;
+  const detalheEhDaOrg = !!detalhe && detalhe.organization_id === organization?.id;
 
   const aplicarDePara = async () => {
     if (!organization || !nomeAntigo.trim() || !novoExercicioId) return;
@@ -186,11 +207,7 @@ export default function AdminAcervo() {
   };
 
   return (
-    <div className="space-y-4 max-w-4xl">
-      <div className="flex items-center gap-2">
-        <Dumbbell className="h-5 w-5 text-primary" />
-        <h1 className="text-xl font-bold">Acervo de Exercícios</h1>
-      </div>
+    <div className="space-y-4">
       <p className="text-sm text-muted-foreground">
         Biblioteca de exercícios usada nas fichas de treino — combina os padrões do ArkeFit (mantidos pela
         plataforma) com os exercícios próprios da academia (ex.: importados de um sistema antigo).
@@ -218,7 +235,7 @@ export default function AdminAcervo() {
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-base">Exercícios da academia ({exerciciosDaOrg.length})</CardTitle>
-              <CardDescription>Só você gerencia estes — específicos da sua organização.</CardDescription>
+              <CardDescription>Só você gerencia estes — específicos da sua organização. Clique no nome para ver o detalhe completo.</CardDescription>
             </CardHeader>
             <CardContent>
               {isLoading && <p className="text-sm text-muted-foreground">Carregando...</p>}
@@ -232,22 +249,15 @@ export default function AdminAcervo() {
                       <TableHead>Nome</TableHead>
                       <TableHead>Grupo</TableHead>
                       <TableHead>Status</TableHead>
-                      <TableHead className="text-right">Ações</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {exerciciosDaOrg.map((ex) => (
-                      <TableRow key={ex.id}>
-                        <TableCell className="font-medium">{ex.nome}</TableCell>
+                      <TableRow key={ex.id} className="cursor-pointer" onClick={() => setDetalheId(ex.id)}>
+                        <TableCell className="font-medium text-primary underline-offset-2 hover:underline">{ex.nome}</TableCell>
                         <TableCell>{ex.grupo_muscular}</TableCell>
                         <TableCell>
                           <Badge variant={ex.ativo ? "default" : "secondary"}>{ex.ativo ? "Ativo" : "Inativo"}</Badge>
-                        </TableCell>
-                        <TableCell className="text-right space-x-1">
-                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => abrirEdicao(ex)}>
-                            <Pencil className="h-3.5 w-3.5" />
-                          </Button>
-                          <Switch checked={ex.ativo} onCheckedChange={() => alternarAtivo.mutate(ex)} />
                         </TableCell>
                       </TableRow>
                     ))}
@@ -274,8 +284,8 @@ export default function AdminAcervo() {
                 </TableHeader>
                 <TableBody>
                   {exerciciosPadrao.map((ex) => (
-                    <TableRow key={ex.id}>
-                      <TableCell className="font-medium">{ex.nome}</TableCell>
+                    <TableRow key={ex.id} className="cursor-pointer" onClick={() => setDetalheId(ex.id)}>
+                      <TableCell className="font-medium text-primary underline-offset-2 hover:underline">{ex.nome}</TableCell>
                       <TableCell>{ex.grupo_muscular}</TableCell>
                     </TableRow>
                   ))}
@@ -326,6 +336,81 @@ export default function AdminAcervo() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Detalhe do exercício — clique no nome na lista abre este painel. */}
+      <Sheet open={!!detalheId} onOpenChange={(open) => !open && setDetalheId(null)}>
+        <SheetContent className="w-full sm:max-w-md overflow-y-auto">
+          {detalhe && (
+            <>
+              <SheetHeader className="text-left">
+                <div className="flex items-start justify-between gap-2">
+                  <SheetTitle>{detalhe.nome}</SheetTitle>
+                  {detalheEhDaOrg && (
+                    <div className="flex items-center gap-1 shrink-0">
+                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => abrirEdicao(detalhe)}>
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-destructive"
+                        onClick={() => setExcluir(detalhe)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              </SheetHeader>
+              <div className="mt-4 space-y-4">
+                <div className="flex flex-wrap gap-1.5">
+                  <Badge variant="outline">{detalhe.grupo_muscular}</Badge>
+                  {detalheEhDaOrg ? (
+                    <Badge variant={detalhe.ativo ? "default" : "secondary"}>{detalhe.ativo ? "Ativo" : "Inativo"}</Badge>
+                  ) : (
+                    <Badge variant="outline" className="gap-1">
+                      <Lock className="h-3 w-3" /> Padrão ArkeFit
+                    </Badge>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-3 gap-3 text-sm">
+                  <div>
+                    <p className="text-xs text-muted-foreground">Séries padrão</p>
+                    <p className="font-medium">{detalhe.series_padrao}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Repetições</p>
+                    <p className="font-medium">{detalhe.repeticoes_padrao}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Descanso</p>
+                    <p className="font-medium">{detalhe.descanso_padrao_seg}s</p>
+                  </div>
+                </div>
+
+                {detalhe.video_url && (
+                  <a
+                    href={detalhe.video_url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex items-center gap-1.5 text-sm text-primary hover:underline"
+                  >
+                    <PlayCircle className="h-4 w-4" /> Ver vídeo de execução
+                  </a>
+                )}
+
+                {detalheEhDaOrg && (
+                  <div className="flex items-center justify-between rounded-lg border border-border p-3">
+                    <Label className="text-sm">Disponível para novas fichas</Label>
+                    <Switch checked={detalhe.ativo} onCheckedChange={() => alternarAtivo.mutate(detalhe)} />
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+        </SheetContent>
+      </Sheet>
 
       <Dialog open={dialogAberto} onOpenChange={setDialogAberto}>
         <DialogContent>
@@ -380,6 +465,27 @@ export default function AdminAcervo() {
             </Button>
             <Button onClick={() => salvar.mutate()} disabled={salvar.isPending}>
               {salvar.isPending ? "Salvando..." : "Salvar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!excluir} onOpenChange={(open) => !open && setExcluir(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Excluir exercício?</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            Isso remove "{excluir?.nome}" da biblioteca. Fichas-modelo e treinos já publicados que citam esse
+            exercício continuam intactos (guardam o nome, não uma referência) — só deixa de aparecer nas
+            próximas prescrições. Não pode ser desfeito.
+          </p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setExcluir(null)}>
+              Cancelar
+            </Button>
+            <Button variant="destructive" disabled={excluirExercicio.isPending} onClick={() => excluirExercicio.mutate()}>
+              {excluirExercicio.isPending ? "Excluindo..." : "Excluir"}
             </Button>
           </DialogFooter>
         </DialogContent>

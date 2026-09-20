@@ -43,9 +43,6 @@ import ConsentimentoLgpd from "@/pages/app/ConsentimentoLgpd";
 import AdminDashboard from "@/pages/admin/AdminDashboard";
 import DashboardHome from "@/pages/admin/DashboardHome";
 import AdminAlunos from "@/pages/admin/AdminAlunos";
-import AdminPlanosAcademia from "@/pages/admin/AdminPlanosAcademia";
-import AdminAcervo from "@/pages/admin/AdminAcervo";
-import AdminComissoes from "@/pages/admin/AdminComissoes";
 import AdminFinanceiro from "@/pages/admin/AdminFinanceiro";
 import AdminEquipe from "@/pages/admin/AdminEquipe";
 import AdminOrganizacao from "@/pages/admin/AdminOrganizacao";
@@ -59,9 +56,7 @@ import AdminCatracas from "@/pages/admin/AdminCatracas";
 import AdminIntegracoes from "@/pages/admin/AdminIntegracoes";
 import AdminPerfil from "@/pages/admin/AdminPerfil";
 import AdminAgenda from "@/pages/admin/AdminAgenda";
-import AdminDesafios from "@/pages/admin/AdminDesafios";
-import AdminCompeticoes from "@/pages/admin/AdminCompeticoes";
-import AdminFeed from "@/pages/admin/AdminFeed";
+import AdminEngajamento from "@/pages/admin/AdminEngajamento";
 
 // Super Admin (Visão Master ArkeFit)
 import SuperAdminDashboard from "@/pages/superadmin/SuperAdminDashboard";
@@ -227,9 +222,6 @@ const App = () => (
                 <Route path="onboarding" element={<AdminOnboarding />} />
                 <Route path="alunos" element={<AdminAlunos />} />
                 <Route path="alunos/importar" element={<AdminImportarAlunos />} />
-                <Route path="planos" element={<AdminPlanosAcademia />} />
-                <Route path="acervo" element={<AdminAcervo />} />
-                <Route path="comissoes" element={<AdminComissoes />} />
                 <Route path="financeiro" element={<AdminFinanceiro />} />
                 <Route path="equipe" element={<AdminEquipe />} />
                 <Route path="treinos" element={<AdminTreinos />} />
@@ -241,9 +233,7 @@ const App = () => (
                 <Route path="organizacao" element={<AdminOrganizacao />} />
                 <Route path="perfil" element={<AdminPerfil />} />
                 <Route path="agenda" element={<AdminAgenda />} />
-                <Route path="desafios" element={<AdminDesafios />} />
-                <Route path="competicoes" element={<AdminCompeticoes />} />
-                <Route path="feed" element={<AdminFeed />} />
+                <Route path="engajamento" element={<AdminEngajamento />} />
               </Route>
 
               {/* Super Admin — Visão Master ArkeFit, restrita ao papel global 'superadmin' */}

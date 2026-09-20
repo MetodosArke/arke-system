@@ -12,14 +12,42 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
-import { DollarSign, TrendingUp, TrendingDown, Plus, Wallet, Repeat, Sparkles, BookOpen } from "lucide-react";
+import { DollarSign, TrendingUp, TrendingDown, Plus, Wallet, Repeat, Sparkles, BookOpen, Percent } from "lucide-react";
 import type { Enums, Tables } from "@/integrations/supabase/types";
 
 type FolhaTipo = Enums<"folha_tipo">;
 type LancamentoTipo = Enums<"lancamento_financeiro_tipo">;
 type LancamentoStatus = Enums<"lancamento_status">;
 type PlanoContas = Tables<"plano_contas">;
+type Papel = Extract<Enums<"app_role">, "gestor" | "professor" | "nutricionista" | "recepcao">;
+type TipoEventoComissao = Enums<"comissao_tipo_evento">;
+
+const PAPEL_LABEL: Record<Papel, string> = {
+  gestor: "Gestor",
+  professor: "Personal",
+  nutricionista: "Nutricionista",
+  recepcao: "Recepção",
+};
+
+const PAPEIS: Papel[] = ["gestor", "professor", "nutricionista", "recepcao"];
+
+const TIPO_EVENTO_COMISSAO_LABEL: Record<TipoEventoComissao, string> = {
+  matricula_academia: "Matrícula em plano da academia",
+  adesao_metodo_arke: "Adesão ao Método ARKE",
+};
+
+const TIPOS_EVENTO_COMISSAO: TipoEventoComissao[] = ["matricula_academia", "adesao_metodo_arke"];
+
+interface ComissaoConfigForm {
+  percentual: string;
+  valor_fixo: string;
+  ativo: boolean;
+  id: string | null;
+}
+
+const COMISSAO_FORM_VAZIO: ComissaoConfigForm = { percentual: "", valor_fixo: "", ativo: true, id: null };
 
 const FOLHA_TIPO_LABEL: Record<FolhaTipo, string> = {
   salario_fixo: "Salário fixo",
@@ -285,6 +313,97 @@ export default function AdminFinanceiro() {
     onError: (error: Error) => toast({ title: "Erro ao atualizar", description: error.message, variant: "destructive" }),
   });
 
+  const comissaoChave = (papel: Papel, tipo: TipoEventoComissao) => `${papel}:${tipo}`;
+
+  const { data: comissoesConfigs = [], isLoading: comissoesCarregando } = useQuery({
+    queryKey: ["staff-comissoes-config", organization?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("staff_comissoes_config").select("*").eq("organization_id", organization!.id);
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!organization?.id,
+  });
+
+  const { data: comissoesLancamentos = [] } = useQuery({
+    queryKey: ["staff-comissoes-lancamentos", organization?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("staff_comissoes_lancamentos")
+        .select("id, user_id, tipo_evento, valor_base, valor_comissao, status, competencia, created_at")
+        .eq("organization_id", organization!.id)
+        .order("created_at", { ascending: false })
+        .limit(30);
+      if (error) throw error;
+
+      const userIds = Array.from(new Set(data?.map((l) => l.user_id) ?? []));
+      const { data: profiles } = userIds.length
+        ? await supabase.from("profiles").select("user_id, full_name").in("user_id", userIds)
+        : { data: [] as { user_id: string; full_name: string }[] };
+      const nomeByUserId = new Map((profiles ?? []).map((p) => [p.user_id, p.full_name]));
+
+      return (data ?? []).map((l) => ({ ...l, nome: nomeByUserId.get(l.user_id) ?? "—" }));
+    },
+    enabled: !!organization?.id,
+  });
+
+  const [comissaoFormularios, setComissaoFormularios] = useState<Record<string, ComissaoConfigForm>>({});
+  const comissaoConfigByChave = new Map(comissoesConfigs.map((c) => [comissaoChave(c.papel as Papel, c.tipo_evento), c]));
+
+  const getComissaoForm = (papel: Papel, tipo: TipoEventoComissao): ComissaoConfigForm => {
+    const k = comissaoChave(papel, tipo);
+    if (comissaoFormularios[k]) return comissaoFormularios[k];
+    const existente = comissaoConfigByChave.get(k);
+    return existente
+      ? {
+          id: existente.id,
+          percentual: existente.percentual != null ? String(existente.percentual) : "",
+          valor_fixo: existente.valor_fixo != null ? String(existente.valor_fixo) : "",
+          ativo: existente.ativo,
+        }
+      : { ...COMISSAO_FORM_VAZIO };
+  };
+
+  const setComissaoForm = (papel: Papel, tipo: TipoEventoComissao, patch: Partial<ComissaoConfigForm>) => {
+    const k = comissaoChave(papel, tipo);
+    setComissaoFormularios((f) => ({ ...f, [k]: { ...getComissaoForm(papel, tipo), ...patch } }));
+  };
+
+  const salvarComissao = useMutation({
+    mutationFn: async ({ papel, tipo }: { papel: Papel; tipo: TipoEventoComissao }) => {
+      if (!organization) return;
+      const form = getComissaoForm(papel, tipo);
+      const percentual = form.percentual.trim() ? Number(form.percentual.replace(",", ".")) : null;
+      const valorFixo = form.valor_fixo.trim() ? Number(form.valor_fixo.replace(",", ".")) : null;
+      const { error } = await supabase.from("staff_comissoes_config").upsert(
+        {
+          organization_id: organization.id,
+          papel,
+          tipo_evento: tipo,
+          percentual,
+          valor_fixo: valorFixo,
+          ativo: form.ativo,
+        },
+        { onConflict: "organization_id,papel,tipo_evento" }
+      );
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast({ title: "Regra de comissão salva" });
+      void queryClient.invalidateQueries({ queryKey: ["staff-comissoes-config", organization?.id] });
+    },
+    onError: (error: Error) => toast({ title: "Erro ao salvar", description: error.message, variant: "destructive" }),
+  });
+
+  const marcarComissaoPaga = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("staff_comissoes_lancamentos").update({ status: "pago" }).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["staff-comissoes-lancamentos", organization?.id] }),
+    onError: (error: Error) => toast({ title: "Erro ao atualizar", description: error.message, variant: "destructive" }),
+  });
+
   const pagos = lancamentos.filter((l) => l.status === "pago");
   const totalReceitasPagas = pagos.filter((l) => l.tipo === "receita").reduce((s, l) => s + Number(l.valor), 0);
   const totalDespesasPagas = pagos.filter((l) => l.tipo === "despesa").reduce((s, l) => s + Number(l.valor), 0);
@@ -312,6 +431,7 @@ export default function AdminFinanceiro() {
         <TabsList>
           <TabsTrigger value="lancamentos">Lançamentos</TabsTrigger>
           <TabsTrigger value="folha">Folha</TabsTrigger>
+          <TabsTrigger value="comissoes">Comissões</TabsTrigger>
           <TabsTrigger value="plano-contas">Plano de Contas</TabsTrigger>
         </TabsList>
 
@@ -598,6 +718,109 @@ export default function AdminFinanceiro() {
                   })}
                 </TableBody>
               </Table>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="comissoes" className="space-y-4 pt-3">
+          <p className="text-sm text-muted-foreground">
+            Regra por papel — quando alguém desse papel registra uma matrícula ou uma adesão, o lançamento é
+            gerado automaticamente. Sem regra configurada (ou com percentual/valor em branco), nenhuma comissão
+            é gerada.
+          </p>
+
+          {TIPOS_EVENTO_COMISSAO.map((tipo) => (
+            <Card key={tipo}>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Percent className="h-4 w-4" /> {TIPO_EVENTO_COMISSAO_LABEL[tipo]}
+                </CardTitle>
+                <CardDescription>Comissão = (valor do evento × percentual) + valor fixo.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {comissoesCarregando && <p className="text-sm text-muted-foreground">Carregando...</p>}
+                {!comissoesCarregando &&
+                  PAPEIS.map((papel) => {
+                    const form = getComissaoForm(papel, tipo);
+                    return (
+                      <div key={papel} className="flex items-center gap-3 flex-wrap border-b border-border pb-3 last:border-0 last:pb-0">
+                        <span className="text-sm font-medium w-28 shrink-0">{PAPEL_LABEL[papel]}</span>
+                        <div className="flex items-center gap-1.5">
+                          <Input
+                            className="w-20 h-8"
+                            placeholder="%"
+                            inputMode="decimal"
+                            value={form.percentual}
+                            onChange={(e) => setComissaoForm(papel, tipo, { percentual: e.target.value })}
+                          />
+                          <span className="text-xs text-muted-foreground">%</span>
+                        </div>
+                        <span className="text-xs text-muted-foreground">+</span>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-xs text-muted-foreground">R$</span>
+                          <Input
+                            className="w-24 h-8"
+                            placeholder="0,00"
+                            inputMode="decimal"
+                            value={form.valor_fixo}
+                            onChange={(e) => setComissaoForm(papel, tipo, { valor_fixo: e.target.value })}
+                          />
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <Switch checked={form.ativo} onCheckedChange={(v) => setComissaoForm(papel, tipo, { ativo: v })} />
+                          <span className="text-xs text-muted-foreground">Ativa</span>
+                        </div>
+                        <Button size="sm" variant="outline" onClick={() => salvarComissao.mutate({ papel, tipo })} disabled={salvarComissao.isPending}>
+                          Salvar
+                        </Button>
+                      </div>
+                    );
+                  })}
+              </CardContent>
+            </Card>
+          ))}
+
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base">Lançamentos recentes</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {comissoesLancamentos.length === 0 ? (
+                <p className="text-sm text-muted-foreground py-6 text-center">Nenhuma comissão gerada ainda.</p>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Profissional</TableHead>
+                      <TableHead>Evento</TableHead>
+                      <TableHead>Valor</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead className="text-right">Ação</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {comissoesLancamentos.map((l) => (
+                      <TableRow key={l.id}>
+                        <TableCell>{l.nome}</TableCell>
+                        <TableCell className="text-xs">{TIPO_EVENTO_COMISSAO_LABEL[l.tipo_evento as TipoEventoComissao]}</TableCell>
+                        <TableCell>R$ {Number(l.valor_comissao).toFixed(2)}</TableCell>
+                        <TableCell>
+                          <Badge variant={l.status === "pago" ? "default" : "outline"}>
+                            {l.status === "pago" ? "Pago" : "Pendente"}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {l.status === "pendente" && (
+                            <Button size="sm" variant="ghost" onClick={() => marcarComissaoPaga.mutate(l.id)} disabled={marcarComissaoPaga.isPending}>
+                              Marcar pago
+                            </Button>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
             </CardContent>
           </Card>
         </TabsContent>

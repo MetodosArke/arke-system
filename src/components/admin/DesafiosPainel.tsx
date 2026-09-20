@@ -14,7 +14,7 @@ import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Trophy, Plus, Trash2, Pencil, Users } from "lucide-react";
+import { Plus, Trash2, Pencil, Users } from "lucide-react";
 import { DESAFIO_TIPO_LABEL, type DesafioTipo } from "@/lib/desafioProgresso";
 import type { Tables } from "@/integrations/supabase/types";
 
@@ -51,7 +51,7 @@ const FORM_INICIAL: FormState = {
   selecionados: [],
 };
 
-export default function AdminDesafios() {
+export function DesafiosPainel() {
   const { organization } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -244,12 +244,8 @@ export default function AdminDesafios() {
   const desafiosFiltrados = filtro === "manuais" ? desafios.filter((d) => d.tipo === "livre") : desafios;
 
   return (
-    <div className="space-y-4 max-w-3xl mx-auto">
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
-          <Trophy className="h-5 w-5 text-primary" />
-          <h1 className="text-xl font-bold">Desafios</h1>
-        </div>
+    <div className="space-y-4">
+      <div className="flex items-center justify-end gap-2">
         <Button size="sm" onClick={abrirNovo}>
           <Plus className="h-4 w-4 mr-1.5" /> Novo Desafio
         </Button>
