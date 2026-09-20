@@ -18,6 +18,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { UtensilsCrossed, Plus, Trash2, FolderOpen, UserRound, FileUp, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
+// Desabilitado por decisão de negócio: a extração via IA (edge function
+// parsear-dieta-pdf) tem custo por chamada (API da Anthropic) e a
+// organização ainda está na fase de homologação, sem orçamento aprovado
+// pra isso. Reativar assim que a ANTHROPIC_API_KEY for configurada e o
+// custo for aprovado — só trocar pra true, nenhuma outra mudança.
+const PARSER_DIETA_PDF_HABILITADO = false;
+
 interface RefeicaoExtraidaPdf {
   ordem: number;
   nome_refeicao: string;
@@ -389,9 +396,11 @@ export default function AdminDietas() {
               <Button disabled={!novoModeloTitulo.trim() || criarModelo.isPending} onClick={() => criarModelo.mutate()}>
                 <Plus className="h-4 w-4 mr-1" /> Criar
               </Button>
-              <Button variant="outline" onClick={() => setImportarPdfAberto(true)}>
-                <FileUp className="h-4 w-4 mr-1" /> Importar de PDF
-              </Button>
+              {PARSER_DIETA_PDF_HABILITADO && (
+                <Button variant="outline" onClick={() => setImportarPdfAberto(true)}>
+                  <FileUp className="h-4 w-4 mr-1" /> Importar de PDF
+                </Button>
+              )}
             </CardContent>
           </Card>
 
