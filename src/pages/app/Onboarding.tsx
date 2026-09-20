@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import { useMutation } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -100,6 +100,8 @@ const STEPS: { title: string; description: string; fields: StepField[] }[] = [
   },
 ];
 
+const draftKey = (alunoId: string) => `arke_onboarding_draft:${alunoId}`;
+
 export default function Onboarding() {
   const { alunoId, organization, metodoArkeAtivo, rolesLoaded, anamneseCompleta, refreshAluno } = useAuth();
   const { toast } = useToast();
@@ -107,6 +109,38 @@ export default function Onboarding() {
   const [stepIndex, setStepIndex] = useState(0);
   const [form, setForm] = useState<AnamneseForm>(EMPTY_FORM);
   const [consentimentoAceito, setConsentimentoAceito] = useState(false);
+  const [rascunhoRestaurado, setRascunhoRestaurado] = useState(false);
+
+  // Restaura o rascunho salvo (se houver) assim que soubermos quem é o
+  // aluno — evita perder respostas de um formulário de 5 etapas por causa
+  // de uma queda de conexão ou fechamento acidental da aba.
+  useEffect(() => {
+    if (!alunoId || rascunhoRestaurado) return;
+    try {
+      const raw = localStorage.getItem(draftKey(alunoId));
+      if (raw) {
+        const draft = JSON.parse(raw) as { form: AnamneseForm; stepIndex: number };
+        setForm((prev) => ({ ...prev, ...draft.form }));
+        if (typeof draft.stepIndex === "number") {
+          setStepIndex(Math.min(draft.stepIndex, STEPS.length - 1));
+        }
+      }
+    } catch {
+      // rascunho corrompido — ignora e segue com o formulário em branco.
+    }
+    setRascunhoRestaurado(true);
+  }, [alunoId, rascunhoRestaurado]);
+
+  // Salva o rascunho a cada mudança — nunca o consentimento LGPD, que
+  // precisa ser reafirmado explicitamente em cada sessão de preenchimento.
+  useEffect(() => {
+    if (!alunoId || !rascunhoRestaurado) return;
+    try {
+      localStorage.setItem(draftKey(alunoId), JSON.stringify({ form, stepIndex }));
+    } catch {
+      // localStorage indisponível (modo privado, cota cheia etc.) — segue sem autosave.
+    }
+  }, [alunoId, rascunhoRestaurado, form, stepIndex]);
 
   // Este onboarding é a experiência do produto Método ARKE — não o
   // cadastro básico de aluno matriculado na academia. Quem chegar aqui
@@ -166,6 +200,13 @@ export default function Onboarding() {
     },
     onSuccess: async () => {
       toast({ title: "Tudo pronto!", description: "Sua equipe já foi avisada para agendar seu acolhimento." });
+      if (alunoId) {
+        try {
+          localStorage.removeItem(draftKey(alunoId));
+        } catch {
+          // sem problema — o onboarding já foi concluído no banco.
+        }
+      }
       await refreshAluno();
       navigate("/app", { replace: true });
     },
