@@ -14,8 +14,30 @@ import { Combobox } from "@/components/ui/combobox";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { UtensilsCrossed, Plus, Trash2, FolderOpen, UserRound } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { UtensilsCrossed, Plus, Trash2, FolderOpen, UserRound, FileUp, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+
+interface RefeicaoExtraidaPdf {
+  ordem: number;
+  nome_refeicao: string;
+  horario_sugerido: string | null;
+  itens: string | null;
+  calorias_kcal: number | null;
+  proteinas_g: number | null;
+  carboidratos_g: number | null;
+  gorduras_g: number | null;
+}
+
+function arrayBufferToBase64(buffer: ArrayBuffer): string {
+  let binary = "";
+  const bytes = new Uint8Array(buffer);
+  const chunkSize = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
+  }
+  return btoa(binary);
+}
 
 const STATUS_DIETA_LABEL: Record<string, string> = {
   ativo: "Ativo",
@@ -43,6 +65,8 @@ export default function AdminDietas() {
     gorduras_g: "",
   });
   const [alimentoBibliotecaId, setAlimentoBibliotecaId] = useState("");
+  const [importarPdfAberto, setImportarPdfAberto] = useState(false);
+  const [refeicoesExtraidas, setRefeicoesExtraidas] = useState<RefeicaoExtraidaPdf[] | null>(null);
 
   const { data: bibliotecaAlimentos = [] } = useQuery({
     queryKey: ["alimentos-biblioteca"],
@@ -248,6 +272,70 @@ export default function AdminDietas() {
     onError: (error: Error) => toast({ title: "Erro ao adicionar refeição", description: error.message, variant: "destructive" }),
   });
 
+  const importarDietaPdf = useMutation({
+    mutationFn: async (file: File) => {
+      const buffer = await file.arrayBuffer();
+      const fileBase64 = arrayBufferToBase64(buffer);
+      const { data, error } = await supabase.functions.invoke("parsear-dieta-pdf", {
+        body: { file_base64: fileBase64 },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      return (data?.refeicoes ?? []) as RefeicaoExtraidaPdf[];
+    },
+    onSuccess: (refeicoes) => {
+      if (refeicoes.length === 0) {
+        toast({
+          title: "Nenhuma refeição identificada",
+          description: "Não encontramos refeições estruturadas neste PDF. Tente um arquivo mais legível ou preencha manualmente.",
+          variant: "destructive",
+        });
+        return;
+      }
+      setRefeicoesExtraidas(refeicoes);
+    },
+    onError: (error: Error) =>
+      toast({ title: "Erro ao importar PDF", description: error.message, variant: "destructive" }),
+  });
+
+  const confirmarImportacaoPdf = useMutation({
+    mutationFn: async () => {
+      if (!organization) throw new Error("Organização não encontrada");
+      if (!refeicoesExtraidas || refeicoesExtraidas.length === 0) throw new Error("Nada para importar");
+      const titulo = novoModeloTitulo.trim() || "Dieta importada de PDF";
+      const { data: modelo, error: modeloError } = await supabase
+        .from("modelos_dieta")
+        .insert({ organization_id: organization.id, titulo })
+        .select("id")
+        .single();
+      if (modeloError) throw modeloError;
+      const { error: refeicoesError } = await supabase.from("modelo_dieta_refeicoes").insert(
+        refeicoesExtraidas.map((r, index) => ({
+          modelo_id: modelo.id,
+          ordem: r.ordem ?? index + 1,
+          nome_refeicao: r.nome_refeicao || `Refeição ${index + 1}`,
+          horario_sugerido: r.horario_sugerido || null,
+          itens: r.itens || null,
+          calorias_kcal: r.calorias_kcal,
+          proteinas_g: r.proteinas_g,
+          carboidratos_g: r.carboidratos_g,
+          gorduras_g: r.gorduras_g,
+        }))
+      );
+      if (refeicoesError) throw refeicoesError;
+      return modelo.id;
+    },
+    onSuccess: (id) => {
+      toast({ title: "Modelo importado!", description: "Revise as refeições e ajuste o que for preciso antes de publicar." });
+      setNovoModeloTitulo("");
+      setRefeicoesExtraidas(null);
+      setImportarPdfAberto(false);
+      setModeloSelecionado(id);
+      void queryClient.invalidateQueries({ queryKey: ["modelos-dieta", organization?.id] });
+    },
+    onError: (error: Error) => toast({ title: "Erro ao salvar modelo importado", description: error.message, variant: "destructive" }),
+  });
+
   const removerRefeicao = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase.from("modelo_dieta_refeicoes").delete().eq("id", id);
@@ -296,10 +384,13 @@ export default function AdminDietas() {
             <CardHeader className="pb-2">
               <CardTitle className="text-base">Novo modelo</CardTitle>
             </CardHeader>
-            <CardContent className="flex gap-2">
+            <CardContent className="flex flex-wrap gap-2">
               <Input placeholder="Título do modelo" value={novoModeloTitulo} onChange={(e) => setNovoModeloTitulo(e.target.value)} />
               <Button disabled={!novoModeloTitulo.trim() || criarModelo.isPending} onClick={() => criarModelo.mutate()}>
                 <Plus className="h-4 w-4 mr-1" /> Criar
+              </Button>
+              <Button variant="outline" onClick={() => setImportarPdfAberto(true)}>
+                <FileUp className="h-4 w-4 mr-1" /> Importar de PDF
               </Button>
             </CardContent>
           </Card>
@@ -609,6 +700,92 @@ export default function AdminDietas() {
           </div>
         </SheetContent>
       </Sheet>
+
+      <Dialog
+        open={importarPdfAberto}
+        onOpenChange={(open) => {
+          setImportarPdfAberto(open);
+          if (!open) setRefeicoesExtraidas(null);
+        }}
+      >
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Importar dieta de PDF</DialogTitle>
+          </DialogHeader>
+
+          {!refeicoesExtraidas ? (
+            <div className="space-y-3">
+              <p className="text-sm text-muted-foreground">
+                Envie um PDF com um plano alimentar (de outro sistema ou digitado livremente). A extração
+                é automática — revise sempre as refeições antes de publicar para um aluno.
+              </p>
+              <Input
+                type="file"
+                accept="application/pdf"
+                disabled={importarDietaPdf.isPending}
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) importarDietaPdf.mutate(file);
+                  e.target.value = "";
+                }}
+              />
+              {importarDietaPdf.isPending && (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Loader2 className="h-4 w-4 animate-spin" /> Extraindo refeições do PDF...
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <div className="space-y-1.5">
+                <Label>Título do modelo</Label>
+                <Input
+                  placeholder="Ex.: Plano importado — Fase 1"
+                  value={novoModeloTitulo}
+                  onChange={(e) => setNovoModeloTitulo(e.target.value)}
+                />
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {refeicoesExtraidas.length} refeiç{refeicoesExtraidas.length === 1 ? "ão encontrada" : "ões encontradas"}. Revise antes de salvar — você poderá editar cada refeição depois na Biblioteca.
+              </p>
+              <div className="max-h-64 overflow-y-auto rounded-md border border-border">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Refeição</TableHead>
+                      <TableHead>Horário</TableHead>
+                      <TableHead>Itens</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {refeicoesExtraidas.map((r, i) => (
+                      <TableRow key={i}>
+                        <TableCell>{r.nome_refeicao}</TableCell>
+                        <TableCell>{r.horario_sugerido ?? "—"}</TableCell>
+                        <TableCell className="max-w-[200px] truncate">{r.itens ?? "—"}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter>
+            {refeicoesExtraidas && (
+              <Button variant="outline" onClick={() => setRefeicoesExtraidas(null)}>
+                Voltar
+              </Button>
+            )}
+            <Button
+              disabled={!refeicoesExtraidas || confirmarImportacaoPdf.isPending}
+              onClick={() => confirmarImportacaoPdf.mutate()}
+            >
+              {confirmarImportacaoPdf.isPending ? "Salvando..." : "Salvar modelo"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
