@@ -3,6 +3,8 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useRascunho } from "@/hooks/useRascunho";
+import { chaveRascunho } from "@/lib/rascunho";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -44,6 +46,32 @@ export default function AdminTreinos() {
     gif_url: "",
   });
   const [exercicioBibliotecaId, setExercicioBibliotecaId] = useState("");
+
+  // Rascunho do exercício em digitação.
+  //
+  // Os exercícios já adicionados estão no banco — só o que está sendo
+  // escrito agora corre risco. Parece pouco, mas `descricao_execucao` é
+  // onde o professor escreve a orientação de execução por extenso, e
+  // reescrever um parágrafo é o tipo de perda que faz a pessoa abreviar na
+  // segunda tentativa.
+  //
+  // A chave inclui o modelo: rascunho de uma ficha jamais aparece noutra.
+  const { rascunhoDisponivel: exercicioSalvo, descartar: descartarExercicio } = useRascunho(
+    modeloSelecionado ? chaveRascunho("treino-exercicio", modeloSelecionado) : null,
+    novoExercicio,
+    { ativo: !!novoExercicio.nome_exercicio || !!novoExercicio.descricao_execucao }
+  );
+
+  // Aqui restaurar é seguro sem perguntar: o campo está vazio, o rascunho é
+  // do mesmo modelo e da mesma sessão. Não há dado de outra intenção para
+  // sobrescrever.
+  useEffect(() => {
+    if (exercicioSalvo?.dados && !novoExercicio.nome_exercicio) {
+      setNovoExercicio(exercicioSalvo.dados);
+      descartarExercicio();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [exercicioSalvo]);
 
   const { data: bibliotecaExercicios = [] } = useQuery({
     queryKey: ["exercicios-biblioteca"],
@@ -249,6 +277,7 @@ export default function AdminTreinos() {
         gif_url: "",
       });
       setExercicioBibliotecaId("");
+      descartarExercicio();
       void queryClient.invalidateQueries({ queryKey: ["modelo-treino-exercicios", modeloSelecionado] });
     },
     onError: (error: Error) => toast({ title: "Erro ao adicionar exercício", description: error.message, variant: "destructive" }),

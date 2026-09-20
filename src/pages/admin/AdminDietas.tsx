@@ -3,6 +3,8 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useRascunho } from "@/hooks/useRascunho";
+import { chaveRascunho, descreverQuandoSalvou } from "@/lib/rascunho";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -96,6 +98,23 @@ export default function AdminDietas() {
     gorduras_g: "",
   });
   const [alimentoBibliotecaId, setAlimentoBibliotecaId] = useState("");
+
+  // Mesmo raciocínio do exercício: as refeições já adicionadas estão no
+  // banco, e o que corre risco é a que está sendo escrita — onde `itens`
+  // costuma ser uma lista digitada linha a linha.
+  const { rascunhoDisponivel: refeicaoSalva, descartar: descartarRefeicao } = useRascunho(
+    modeloSelecionado ? chaveRascunho("dieta-refeicao", modeloSelecionado) : null,
+    novaRefeicao,
+    { ativo: !!novaRefeicao.nome_refeicao || !!novaRefeicao.itens }
+  );
+
+  useEffect(() => {
+    if (refeicaoSalva?.dados && !novaRefeicao.nome_refeicao) {
+      setNovaRefeicao(refeicaoSalva.dados);
+      descartarRefeicao();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [refeicaoSalva]);
   const [importarPdfAberto, setImportarPdfAberto] = useState(false);
   const [dietaExtraida, setDietaExtraida] = useState<DietaExtraidaPdf | null>(null);
   // "modelo": salva na Biblioteca para reaproveitar depois; "aluno": publica
@@ -136,6 +155,32 @@ export default function AdminDietas() {
   const [tituloPublicar, setTituloPublicar] = useState("");
   const [modeloCarregadoId, setModeloCarregadoId] = useState<string | null>(null);
   const [perfilAberto, setPerfilAberto] = useState(false);
+
+  // Rascunho da extração de PDF.
+  //
+  // É o conteúdo mais caro da tela: custou uma chamada ao Gemini e uma
+  // revisão item a item. E até aqui ele era descartado por um clique —
+  // fechar o diálogo fazia `setDietaExtraida(null)`, jogando fora a
+  // extração inteira sem perguntar. Agora ela espera na sessão de
+  // trabalho, e a pessoa decide se retoma ou descarta.
+  const rascunhoPdf = { dietaExtraida, novoModeloTitulo, importarPdfModo, alunoPublicar };
+  type RascunhoPdf = typeof rascunhoPdf;
+
+  const { rascunhoDisponivel: pdfSalvo, descartar: descartarRascunhoPdf } = useRascunho<RascunhoPdf>(
+    organization?.id ? chaveRascunho("dieta-pdf", organization.id) : null,
+    rascunhoPdf,
+    { ativo: !!dietaExtraida }
+  );
+
+  const restaurarPdf = () => {
+    const d = pdfSalvo?.dados;
+    if (!d?.dietaExtraida) return;
+    setDietaExtraida(d.dietaExtraida);
+    setNovoModeloTitulo(d.novoModeloTitulo ?? "");
+    setImportarPdfModo(d.importarPdfModo ?? "modelo");
+    if (d.alunoPublicar) setAlunoPublicar(d.alunoPublicar);
+    descartarRascunhoPdf();
+  };
 
   useEffect(() => {
     if (alunoIdFromNav) {
@@ -302,6 +347,7 @@ export default function AdminDietas() {
         gorduras_g: "",
       });
       setAlimentoBibliotecaId("");
+      descartarRefeicao();
       void queryClient.invalidateQueries({ queryKey: ["modelo-dieta-refeicoes", modeloSelecionado] });
     },
     onError: (error: Error) => toast({ title: "Erro ao adicionar refeição", description: error.message, variant: "destructive" }),
@@ -394,6 +440,9 @@ export default function AdminDietas() {
     onSuccess: (id) => {
       setNovoModeloTitulo("");
       setDietaExtraida(null);
+      // Importada de verdade: o rascunho perdeu a razão de existir e não
+      // pode ficar oferecendo restaurar o que já virou dieta.
+      descartarRascunhoPdf();
       setImportarPdfAberto(false);
       if (importarPdfModo === "aluno") {
         toast({ title: "Dieta publicada!", description: "O PDF foi importado e já está disponível para o aluno." });
@@ -810,6 +859,9 @@ export default function AdminDietas() {
         open={importarPdfAberto}
         onOpenChange={(open) => {
           setImportarPdfAberto(open);
+          // Antes, fechar o diálogo descartava a extração inteira sem
+          // perguntar. Ela agora fica no rascunho da sessão, e reabrir
+          // oferece retomar.
           if (!open) setDietaExtraida(null);
         }}
       >
@@ -823,6 +875,28 @@ export default function AdminDietas() {
               {importarPdfModo === "aluno" ? "Importar PDF direto para o aluno" : "Importar dieta de PDF"}
             </DialogTitle>
           </DialogHeader>
+
+          {!dietaExtraida && pdfSalvo?.dados?.dietaExtraida && (
+            // Retomar custa um clique; refazer custa outra extração paga e
+            // outra revisão item a item.
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-amber-500/40 bg-amber-500/5 p-3">
+              <p className="text-xs">
+                Há uma extração não finalizada desta sessão ({descreverQuandoSalvou(pdfSalvo.salvoEm)}):{" "}
+                <span className="font-medium">
+                  {pdfSalvo.dados.dietaExtraida.refeicoes?.length ?? 0} refeição(ões)
+                </span>
+                .
+              </p>
+              <div className="flex gap-2">
+                <Button size="sm" variant="outline" onClick={restaurarPdf}>
+                  Retomar
+                </Button>
+                <Button size="sm" variant="ghost" onClick={descartarRascunhoPdf}>
+                  Descartar
+                </Button>
+              </div>
+            </div>
+          )}
 
           {!dietaExtraida ? (
             <div className="space-y-3">
