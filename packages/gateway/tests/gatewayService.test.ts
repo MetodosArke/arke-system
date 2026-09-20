@@ -18,6 +18,8 @@ const CONFIG: GatewayConfig = {
   modelo_catraca: "mock",
   tempo_timeout_ms: 300,
   sincronizar_alunos_intervalo_ms: 300_000,
+  escuta_host: "127.0.0.1",
+  escuta_porta: 4571,
 };
 
 function criarAmbiente() {

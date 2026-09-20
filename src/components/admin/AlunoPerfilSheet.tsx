@@ -11,12 +11,13 @@ import { Separator } from "@/components/ui/separator";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dumbbell, UtensilsCrossed, Phone, Cake, Ruler, ClipboardList, AlertTriangle, Printer, MessageCircle, Wallet, FlaskConical, Route } from "lucide-react";
+import { Dumbbell, UtensilsCrossed, Phone, Cake, Ruler, ClipboardList, AlertTriangle, Printer, MessageCircle, Wallet, FlaskConical, Route, Fingerprint } from "lucide-react";
 import { ImprimirTreinoDialog, type ExercicioSnapshotImpressao } from "@/components/admin/ImprimirTreinoDialog";
 import { Bloco, formatarData } from "@/components/admin/perfilSheetHelpers";
 import { ChatPanel } from "@/components/chat/ChatPanel";
 import { TrialMetodoArke } from "@/components/admin/TrialMetodoArke";
 import { FaseJornada } from "@/components/admin/FaseJornada";
+import { AcessoCatraca } from "@/components/admin/AcessoCatraca";
 import { useToast } from "@/hooks/use-toast";
 
 const PERIODICIDADE_LABEL: Record<string, string> = {
@@ -110,7 +111,7 @@ export function AlunoPerfilSheet({
       const { data: aluno, error: alunoError } = await supabase
         .from("alunos")
         .select(
-          "id, user_id, organization_id, nivel_atacado, fase_jornada, metodo_arke_status, objetivo, data_inicio, data_nascimento, peso_kg, altura_cm, observacoes, anonimizado_em"
+          "id, user_id, organization_id, nivel_atacado, fase_jornada, metodo_arke_status, objetivo, data_inicio, data_nascimento, peso_kg, altura_cm, observacoes, anonimizado_em, identificador_catraca"
         )
         .eq("id", alunoId!)
         .single();
@@ -439,6 +440,14 @@ export function AlunoPerfilSheet({
                   emTrial={perfil.assinatura?.status === "trial"}
                   trialFim={perfil.assinatura?.trial_fim ?? null}
                   nivelAtual={perfil.aluno.nivel_atacado}
+                />
+              </Bloco>
+
+              <Bloco titulo="Acesso por Catraca" icon={Fingerprint}>
+                <AcessoCatraca
+                  alunoId={perfil.aluno.id}
+                  organizationId={perfil.aluno.organization_id}
+                  identificadorAtual={perfil.aluno.identificador_catraca}
                 />
               </Bloco>
 

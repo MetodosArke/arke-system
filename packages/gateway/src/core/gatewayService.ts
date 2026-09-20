@@ -3,7 +3,14 @@ import type { ICloudClient } from "../cloud/client";
 import type { AlunosCache } from "../offline/alunosCache";
 import type { LogsQueue } from "../offline/logsQueue";
 import type { CatracaDriver } from "../drivers/CatracaDriver";
-import type { GatewayConfig, LeituraCredencial, ResultadoLog, ResultadoValidacao, StatusGateway } from "../types";
+import type {
+  Credencial,
+  GatewayConfig,
+  LeituraCredencial,
+  ResultadoLog,
+  ResultadoValidacao,
+  StatusGateway,
+} from "../types";
 import { logger } from "../logger";
 
 const INTERVALO_FLUSH_LOGS_MS = 30_000;
@@ -89,8 +96,19 @@ export class GatewayService extends EventEmitter {
 
   /** Exposto para os testes e para o servidor local de diagnóstico. */
   async validarAcesso(cpf: string): Promise<ResultadoValidacao> {
+    return this.validarCredencial({ tipo: "cpf", valor: cpf });
+  }
+
+  /**
+   * Caminho único de decisão, seja CPF digitado ou usuário identificado
+   * por biometria no equipamento. Tenta a nuvem dentro do timeout e cai
+   * para o cache local se ela falhar ou demorar.
+   */
+  async validarCredencial(credencial: Credencial): Promise<ResultadoValidacao> {
     try {
-      const resposta = await this.cloud.validarAcesso(cpf);
+      const resposta = this.cloud.validarCredencial
+        ? await this.cloud.validarCredencial(credencial)
+        : await this.cloud.validarAcesso(credencial.valor);
       if (resposta.error) throw new Error(resposta.error);
       this.setStatus("online");
       return {
@@ -101,14 +119,14 @@ export class GatewayService extends EventEmitter {
       };
     } catch (err) {
       logger.warn(
-        { err: (err as Error).message, cpf },
+        { err: (err as Error).message, credencial: credencial.tipo },
         "Falha ou timeout ao validar na nuvem — acionando contingência offline"
       );
-      return this.validarOffline(cpf);
+      return this.validarOffline(credencial);
     }
   }
 
-  private async validarOffline(cpf: string): Promise<ResultadoValidacao> {
+  private async validarOffline(credencial: Credencial): Promise<ResultadoValidacao> {
     const total = await this.alunosCache.contar();
     if (total === 0) {
       this.setStatus("offline");
@@ -120,7 +138,10 @@ export class GatewayService extends EventEmitter {
     }
 
     this.setStatus("contingencia");
-    const aluno = await this.alunosCache.buscarPorCpf(cpf);
+    const aluno =
+      credencial.tipo === "cpf"
+        ? await this.alunosCache.buscarPorCpf(credencial.valor)
+        : await this.alunosCache.buscarPorIdentificador(credencial.valor);
     if (!aluno) {
       return { liberado: false, mensagem: "Aluno não encontrado no cache local.", validadoOffline: true };
     }

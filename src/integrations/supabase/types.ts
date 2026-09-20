@@ -250,6 +250,70 @@ export type Database = {
           },
         ]
       }
+      aluno_consentimento_biometrico: {
+        Row: {
+          aceito_em: string
+          aluno_id: string
+          created_at: string
+          excluido_do_equipamento_em: string | null
+          finalidade: string
+          id: string
+          organization_id: string
+          retencao_descricao: string
+          revogado_em: string | null
+          revogado_por: string | null
+          template_no_servidor: boolean
+        }
+        Insert: {
+          aceito_em?: string
+          aluno_id: string
+          created_at?: string
+          excluido_do_equipamento_em?: string | null
+          finalidade?: string
+          id?: string
+          organization_id: string
+          retencao_descricao?: string
+          revogado_em?: string | null
+          revogado_por?: string | null
+          template_no_servidor?: boolean
+        }
+        Update: {
+          aceito_em?: string
+          aluno_id?: string
+          created_at?: string
+          excluido_do_equipamento_em?: string | null
+          finalidade?: string
+          id?: string
+          organization_id?: string
+          retencao_descricao?: string
+          revogado_em?: string | null
+          revogado_por?: string | null
+          template_no_servidor?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "aluno_consentimento_biometrico_aluno_id_fkey"
+            columns: ["aluno_id"]
+            isOneToOne: false
+            referencedRelation: "alunos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "aluno_consentimento_biometrico_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "org_churn_metrics"
+            referencedColumns: ["organization_id"]
+          },
+          {
+            foreignKeyName: "aluno_consentimento_biometrico_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       aluno_fase_historico: {
         Row: {
           aluno_id: string
@@ -560,6 +624,7 @@ export type Database = {
           dias_descanso: number[]
           fase_jornada: Database["public"]["Enums"]["fase_jornada"]
           id: string
+          identificador_catraca: string | null
           meta_agua_ml: number
           meta_semanal_dias: number
           metodo_arke_ativado_em: string | null
@@ -585,6 +650,7 @@ export type Database = {
           dias_descanso?: number[]
           fase_jornada?: Database["public"]["Enums"]["fase_jornada"]
           id?: string
+          identificador_catraca?: string | null
           meta_agua_ml?: number
           meta_semanal_dias?: number
           metodo_arke_ativado_em?: string | null
@@ -610,6 +676,7 @@ export type Database = {
           dias_descanso?: number[]
           fase_jornada?: Database["public"]["Enums"]["fase_jornada"]
           id?: string
+          identificador_catraca?: string | null
           meta_agua_ml?: number
           meta_semanal_dias?: number
           metodo_arke_ativado_em?: string | null
@@ -4331,6 +4398,13 @@ export type Database = {
         Returns: undefined
       }
       registrar_primeiro_acesso_aluno: { Args: never; Returns: undefined }
+      revogar_consentimento_biometrico: {
+        Args: { _aluno_id: string }
+        Returns: {
+          identificador_catraca: string
+          organization_id: string
+        }[]
+      }
       superadmin_resetar_tokens_gateway: {
         Args: { _organization_id: string }
         Returns: number

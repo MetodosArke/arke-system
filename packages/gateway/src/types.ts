@@ -17,6 +17,14 @@ export interface GatewayConfig {
   modelo_catraca: ModeloCatraca;
   tempo_timeout_ms: number;
   sincronizar_alunos_intervalo_ms: number;
+  /**
+   * Interface onde o gateway ESCUTA o equipamento. Control iD e Topdata
+   * discam para fora: quem abre a conexão é a catraca, não nós. Por isso
+   * o padrão é 0.0.0.0 — 127.0.0.1 deixaria o aparelho sem conseguir
+   * alcançar o gateway pela rede da academia.
+   */
+  escuta_host: string;
+  escuta_porta: number;
 }
 
 /** Status operacional exibido no ícone da bandeja do sistema. */
@@ -28,6 +36,24 @@ export interface LeituraCredencial {
   valor: string;
   lidoEm: Date;
 }
+
+/**
+ * Como o aluno chega identificado até a nuvem.
+ *
+ * `cpf` é o caminho de quem digita o documento no teclado da catraca.
+ * `identificador_catraca` é o caminho da biometria: a digital é comparada
+ * DENTRO do equipamento (1:N local, em milissegundos) e o que sai de lá não
+ * é a digital nem o CPF — é o número do usuário no próprio aparelho. Esse
+ * número vive em `alunos.identificador_catraca`, gravado no cadastro da
+ * biometria.
+ *
+ * Nenhum dado biométrico trafega para decidir acesso, e isso não é só
+ * privacidade: mandar template pela rede a cada giro não fecha no tempo de
+ * uma catraca em horário de pico.
+ */
+export type Credencial =
+  | { tipo: "cpf"; valor: string }
+  | { tipo: "identificador_catraca"; valor: string };
 
 /** Resultado — já traduzido para o vocabulário do gateway — de uma validação de acesso. */
 export interface ResultadoValidacao {
@@ -52,6 +78,8 @@ export interface AlunoCache {
   cpf: string;
   nome: string;
   inadimplente: boolean;
+  /** Número do usuário dentro do equipamento; ausente para quem não tem biometria cadastrada. */
+  identificador_catraca?: string | null;
 }
 
 export interface RespostaSincronizarAlunosCloud {
