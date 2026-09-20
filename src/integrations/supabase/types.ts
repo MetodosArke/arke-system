@@ -1461,39 +1461,63 @@ export type Database = {
       }
       exercicios_biblioteca: {
         Row: {
+          ativo: boolean
           created_at: string
           descanso_padrao_seg: number
           grupo_muscular: string
           id: string
           nome: string
           observacoes: string | null
+          organization_id: string | null
+          origem: string
           repeticoes_padrao: string
           series_padrao: number
           video_url: string | null
         }
         Insert: {
+          ativo?: boolean
           created_at?: string
           descanso_padrao_seg?: number
           grupo_muscular: string
           id?: string
           nome: string
           observacoes?: string | null
+          organization_id?: string | null
+          origem?: string
           repeticoes_padrao?: string
           series_padrao?: number
           video_url?: string | null
         }
         Update: {
+          ativo?: boolean
           created_at?: string
           descanso_padrao_seg?: number
           grupo_muscular?: string
           id?: string
           nome?: string
           observacoes?: string | null
+          organization_id?: string | null
+          origem?: string
           repeticoes_padrao?: string
           series_padrao?: number
           video_url?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "exercicios_biblioteca_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "org_churn_metrics"
+            referencedColumns: ["organization_id"]
+          },
+          {
+            foreignKeyName: "exercicios_biblioteca_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       feed_comments: {
         Row: {

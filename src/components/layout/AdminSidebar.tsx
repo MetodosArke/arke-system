@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Home, Users, UsersRound, Building2, LogOut, ChevronLeft, Menu, ClipboardList, UserCircle, BarChart3, DoorOpen, CalendarDays, Dumbbell, UtensilsCrossed, Trophy, Medal, MessageSquare, Wallet, Percent, DollarSign } from "lucide-react";
+import { Home, Users, UsersRound, Building2, LogOut, ChevronLeft, Menu, ClipboardList, UserCircle, BarChart3, DoorOpen, CalendarDays, Dumbbell, UtensilsCrossed, Trophy, Medal, MessageSquare, Wallet, Percent, DollarSign, LibraryBig } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
@@ -38,6 +38,7 @@ function buildSections({
   ];
   if (podePrescreverTreino) {
     operacao.push({ icon: Dumbbell, label: "Prescrever Treinos", path: "/admin/treinos" });
+    operacao.push({ icon: LibraryBig, label: "Acervo de Exercícios", path: "/admin/acervo" });
   }
   if (podePrescreverDieta) {
     operacao.push({ icon: UtensilsCrossed, label: "Prescrever Dietas", path: "/admin/dietas" });
