@@ -794,7 +794,11 @@ export default function AdminDietas() {
           if (!open) setDietaExtraida(null);
         }}
       >
-        <DialogContent className="max-w-lg">
+        <DialogContent
+          className="max-w-lg"
+          onPointerDownOutside={(e) => e.preventDefault()}
+          onInteractOutside={(e) => e.preventDefault()}
+        >
           <DialogHeader>
             <DialogTitle>
               {importarPdfModo === "aluno" ? "Importar PDF direto para o aluno" : "Importar dieta de PDF"}
