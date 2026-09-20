@@ -3,12 +3,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { CalendarDays, ChevronLeft, ChevronRight, Droplets, TrendingUp, Candy, Wine } from "lucide-react";
+import { Progress } from "@/components/ui/progress";
+import { CalendarDays, ChevronLeft, ChevronRight, Droplets, TrendingUp, Candy, Wine, PartyPopper } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -27,6 +27,8 @@ import {
 } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
+
+const INCREMENTOS_AGUA_ML = [200, 300, 500];
 
 interface DietaAdesao {
   id: string;
@@ -76,6 +78,16 @@ export default function ControleDieta({ dietaId }: { dietaId: string }) {
 
   const monthStart = format(startOfMonth(currentMonth), "yyyy-MM-dd");
   const monthEnd = format(endOfMonth(currentMonth), "yyyy-MM-dd");
+
+  const { data: metaAguaMl = 2000 } = useQuery({
+    queryKey: ["aluno-meta-agua", alunoId],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("alunos").select("meta_agua_ml").eq("id", alunoId!).single();
+      if (error) throw error;
+      return data.meta_agua_ml;
+    },
+    enabled: !!alunoId,
+  });
 
   const { data: adesoes = [] } = useQuery({
     queryKey: ["dieta-adesao", alunoId, monthStart, monthEnd],
@@ -369,13 +381,47 @@ export default function ControleDieta({ dietaId }: { dietaId: string }) {
             </div>
 
             <div className="space-y-2">
-              <Label>Consumo de Água (ml)</Label>
-              <div className="flex items-center gap-2">
-                <Droplets className="h-5 w-5 text-blue-500 shrink-0" />
-                <Input type="number" value={aguaMl || ""} onChange={(e) => setAguaMl(Number(e.target.value))} placeholder="0" className="flex-1" />
-                <span className="text-sm text-muted-foreground">ml</span>
+              <div className="flex items-center justify-between">
+                <Label>Consumo de Água</Label>
+                <span className="text-sm font-semibold text-blue-500">
+                  {aguaMl}ml <span className="text-muted-foreground font-normal">/ {metaAguaMl}ml</span>
+                </span>
               </div>
-              <p className="text-xs text-muted-foreground">💡 Meta recomendada: 2000-3000ml por dia</p>
+              <Progress value={Math.min(100, (aguaMl / metaAguaMl) * 100)} className="h-2" />
+              {aguaMl >= metaAguaMl ? (
+                <p className="flex items-center gap-1 text-xs font-medium text-emerald-600">
+                  <PartyPopper className="h-3.5 w-3.5" /> Meta batida! Ainda dá pra registrar um pouco mais, se beber.
+                </p>
+              ) : (
+                <p className="text-xs text-muted-foreground">💡 Meta de hoje: {metaAguaMl}ml — ajuste em Perfil.</p>
+              )}
+              <div className="flex flex-wrap items-center gap-2">
+                <Droplets className="h-5 w-5 text-blue-500 shrink-0" />
+                {INCREMENTOS_AGUA_ML.map((incremento) => {
+                  // Limite de incremento: além de 150% da meta, os botões somem —
+                  // evita um contador sem sentido (e qualquer futuro uso em
+                  // pontuação/gamificação não vira alvo de "farm" de cliques).
+                  const limite = metaAguaMl * 1.5;
+                  const desabilitado = aguaMl >= limite;
+                  return (
+                    <Button
+                      key={incremento}
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      disabled={desabilitado}
+                      onClick={() => setAguaMl((v) => Math.min(limite, v + incremento))}
+                    >
+                      +{incremento}ml
+                    </Button>
+                  );
+                })}
+                {aguaMl > 0 && (
+                  <Button type="button" variant="ghost" size="sm" className="text-muted-foreground" onClick={() => setAguaMl(0)}>
+                    Zerar
+                  </Button>
+                )}
+              </div>
             </div>
 
             <div className="space-y-2">

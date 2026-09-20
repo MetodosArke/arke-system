@@ -1,14 +1,51 @@
-import { useQuery } from "@tanstack/react-query";
+import { useEffect, useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { LogOut, Ruler } from "lucide-react";
+import { LogOut, Ruler, Droplets } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 import type { Tables } from "@/integrations/supabase/types";
 
 export default function AlunoPerfil() {
   const { user, profile, organization, alunoId, signOut } = useAuth();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [metaAguaInput, setMetaAguaInput] = useState("2000");
+
+  const { data: metaAguaMl } = useQuery({
+    queryKey: ["aluno-meta-agua", alunoId],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("alunos").select("meta_agua_ml").eq("id", alunoId!).single();
+      if (error) throw error;
+      return data.meta_agua_ml;
+    },
+    enabled: !!alunoId,
+  });
+
+  useEffect(() => {
+    if (metaAguaMl != null) setMetaAguaInput(String(metaAguaMl));
+  }, [metaAguaMl]);
+
+  const salvarMetaAgua = useMutation({
+    mutationFn: async () => {
+      const valor = Number(metaAguaInput);
+      if (!Number.isFinite(valor) || valor < 500 || valor > 8000) {
+        throw new Error("Informe um valor entre 500ml e 8000ml.");
+      }
+      const { error } = await supabase.rpc("atualizar_meta_agua_aluno", { _meta_ml: valor });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast({ title: "Meta de água atualizada!" });
+      void queryClient.invalidateQueries({ queryKey: ["aluno-meta-agua", alunoId] });
+    },
+    onError: (error: Error) => toast({ title: "Erro ao salvar meta", description: error.message, variant: "destructive" }),
+  });
 
   const { data: avaliacoes = [] } = useQuery({
     queryKey: ["minhas-avaliacoes-fisicas", alunoId],
@@ -54,6 +91,33 @@ export default function AlunoPerfil() {
           </div>
           <Button variant="destructive" className="w-full" onClick={signOut}>
             <LogOut className="mr-2 h-4 w-4" /> Sair
+          </Button>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base flex items-center gap-2">
+            <Droplets className="h-4 w-4 text-blue-500" /> Meta de Água Diária
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="flex items-center gap-2">
+          <Input
+            type="number"
+            min={500}
+            max={8000}
+            step={100}
+            value={metaAguaInput}
+            onChange={(e) => setMetaAguaInput(e.target.value)}
+            className="flex-1"
+          />
+          <span className="text-sm text-muted-foreground">ml</span>
+          <Button
+            size="sm"
+            disabled={salvarMetaAgua.isPending || metaAguaInput === String(metaAguaMl ?? "")}
+            onClick={() => salvarMetaAgua.mutate()}
+          >
+            {salvarMetaAgua.isPending ? "Salvando..." : "Salvar"}
           </Button>
         </CardContent>
       </Card>
