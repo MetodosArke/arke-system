@@ -108,10 +108,16 @@ Deno.serve(async (req: Request) => {
         console.error("Error loading caller membership", callerMembershipError);
         return jsonResponse({ error: "Erro ao validar permissões." }, 500);
       }
+      // Professor/nutricionista só geram link de ativação para ALUNO — sem
+      // isso, qualquer um dos dois conseguiria gerar um link de recovery
+      // válido para a conta de outro membro da equipe (inclusive o gestor)
+      // e assumir esse acesso. Gestor da mesma org pode gerar para
+      // qualquer papel (já é o nível de permissão mais alto dentro da org).
       autorizado =
         !!callerMembership &&
         callerMembership.organization_id === targetMembership.organization_id &&
-        ["gestor", "professor", "nutricionista"].includes(callerMembership.role);
+        (callerMembership.role === "gestor" ||
+          (["professor", "nutricionista"].includes(callerMembership.role) && targetMembership.role === "aluno"));
     }
     if (!autorizado) {
       return jsonResponse({ error: "Você não tem permissão para gerar este link." }, 403);
