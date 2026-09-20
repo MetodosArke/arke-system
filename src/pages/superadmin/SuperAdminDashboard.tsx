@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useTrialDias } from "@/lib/trial";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -274,6 +275,7 @@ export default function SuperAdminDashboard() {
 
   // ---- Onboarding Assistido: "+ Nova Organização" ----
   const [modalNovaOrgAberto, setModalNovaOrgAberto] = useState(false);
+  const trialDias = useTrialDias();
   const [novaOrg, setNovaOrg] = useState({
     tipo: "academia" as TipoOnboarding,
     nome: "",
@@ -986,6 +988,12 @@ export default function SuperAdminDashboard() {
                     <SelectItem value="ativo">Ativo</SelectItem>
                   </SelectContent>
                 </Select>
+                {novaOrg.status === "trial" && (
+                  <p className="text-[11px] text-muted-foreground">
+                    O prazo é preenchido automaticamente com {trialDias} dias a partir de hoje; dá para alterar
+                    depois no perfil da organização.
+                  </p>
+                )}
               </div>
             </div>
           </div>
@@ -1113,6 +1121,8 @@ export default function SuperAdminDashboard() {
               <div className="grid grid-cols-2 gap-2">
                 <div className="space-y-1">
                   <Label htmlFor="edicao-trial">Data Limite do Trial / Vencimento</Label>
+                  {/* Padrão de arke_trial_dias() vem do banco;
+                      aqui é a exceção negociada caso a caso. */}
                   <Input
                     id="edicao-trial"
                     type="date"

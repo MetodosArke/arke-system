@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { descreverPrazoTrial } from "@/lib/trial";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -180,7 +181,9 @@ export function OrganizacaoPerfilSheet({
               <Bloco titulo="Dados Fiscais" icon={Building2}>
                 <p className="text-sm">{tenant.cnpj_cpf ?? "CNPJ/CPF não informado"}</p>
                 {tenant.status === "trial" && tenant.trial_vencimento && (
-                  <p className="text-xs text-muted-foreground">Trial vence em {formatarData(tenant.trial_vencimento)}</p>
+                  <p className="text-xs text-muted-foreground">
+                    Trial vence em {formatarData(tenant.trial_vencimento)} ({descreverPrazoTrial(tenant.trial_vencimento)})
+                  </p>
                 )}
               </Bloco>
 

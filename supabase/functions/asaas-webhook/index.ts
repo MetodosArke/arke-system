@@ -102,7 +102,22 @@ Deno.serve(async (req: Request) => {
     return jsonResponse({ error: "Falha ao registrar evento." }, 500);
   }
 
+  // Desfecho do evento, gravado junto com `processado`. Sem isto,
+  // "processado" só quer dizer "a função terminou sem exceção": um evento
+  // cujo payment_id não casa com nenhuma cobrança do banco percorre todos
+  // os ramos, não atualiza nada e fica marcado igual a um que funcionou.
+  // O painel de webhooks da Visão Master lê esta coluna para separar os dois.
+  const concluir = async (resultado: string) => {
+    await admin
+      .from("asaas_webhook_events")
+      .update({ processado: true, processed_at: new Date().toISOString(), resultado })
+      .eq("id", eventoRegistrado.id);
+  };
+
   try {
+    // Sem payment.id não há o que casar; o evento fica registrado só como log.
+    let resultado = "sem_payment_id";
+
     if (asaasPaymentId) {
       let novoStatus: "confirmado" | "atrasado" | "estornado" | null = null;
       if (EVENTOS_CONFIRMADOS.has(tipoEvento)) novoStatus = "confirmado";
@@ -133,10 +148,7 @@ Deno.serve(async (req: Request) => {
             })
             .eq("id", cobrancaB2bExistente.id);
         }
-        await admin
-          .from("asaas_webhook_events")
-          .update({ processado: true, processed_at: new Date().toISOString() })
-          .eq("id", eventoRegistrado.id);
+        await concluir(novoStatus ? "cobranca_b2b_atualizada" : "evento_ignorado");
         return jsonResponse({ ok: true });
       }
 
@@ -165,10 +177,7 @@ Deno.serve(async (req: Request) => {
             await admin.rpc("abrir_tarefa_mensalidade_atrasada", { _mensalidade_id: mensalidadeExistente.id });
           }
         }
-        await admin
-          .from("asaas_webhook_events")
-          .update({ processado: true, processed_at: new Date().toISOString() })
-          .eq("id", eventoRegistrado.id);
+        await concluir(novoStatus ? "mensalidade_atualizada" : "evento_ignorado");
         return jsonResponse({ ok: true });
       }
 
@@ -203,6 +212,7 @@ Deno.serve(async (req: Request) => {
             .update({ status: "ativa", fatura_pendente_url: null })
             .eq("id", pagamentoExistente.aluno_assinatura_id);
         }
+        resultado = "pagamento_arke_atualizado";
       } else if (!pagamentoExistente && novoStatus) {
         // Primeira notificação desse pagamento: cria o registro a partir da
         // assinatura já existente (Método ARKE via asaas-create-subscription
@@ -257,6 +267,7 @@ Deno.serve(async (req: Request) => {
                 .update({ status: "ativa", fatura_pendente_url: null })
                 .eq("id", assinatura.id);
             }
+            resultado = "pagamento_arke_criado";
           } else {
             // Não é assinatura do Método ARKE — tenta como matrícula de
             // plano próprio da academia.
@@ -303,18 +314,29 @@ Deno.serve(async (req: Request) => {
               if (novoStatus === "atrasado" && mensalidadeCriada) {
                 await admin.rpc("abrir_tarefa_mensalidade_atrasada", { _mensalidade_id: mensalidadeCriada.id });
               }
+              resultado = "mensalidade_criada";
+            } else {
+              // Nem assinatura do Método ARKE nem matrícula de plano da
+              // academia. Sintoma clássico de wallet/subscription apontando
+              // para outro ambiente do Asaas — o evento chega, é aceito e
+              // não muda nada.
+              resultado = "sem_correspondencia";
             }
           }
+        } else {
+          // Cobrança avulsa, sem assinatura por trás: nada para vincular.
+          resultado = "sem_correspondencia";
         }
+      } else {
+        // Tipo de evento fora das listas acima (PAYMENT_CREATED,
+        // PAYMENT_UPDATED...): registrado no log, sem efeito por definição.
+        resultado = "evento_ignorado";
       }
     }
 
-    await admin
-      .from("asaas_webhook_events")
-      .update({ processado: true, processed_at: new Date().toISOString() })
-      .eq("id", eventoRegistrado.id);
+    await concluir(resultado);
 
-    return jsonResponse({ ok: true });
+    return jsonResponse({ ok: true, resultado });
   } catch (error) {
     console.error("Erro ao processar webhook do Asaas", error);
     await admin

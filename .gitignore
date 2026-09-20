@@ -5,3 +5,6 @@ dist-ssr
 *.local
 .DS_Store
 *.tsbuildinfo
+
+# Artefatos locais do Supabase CLI (versão baixada em cache), não versionar
+supabase/.temp/

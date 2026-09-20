@@ -194,6 +194,7 @@ export type Database = {
           organization_id: string
           proxima_cobranca: string | null
           status: Database["public"]["Enums"]["assinatura_status"]
+          trial_fim: string | null
           updated_at: string
           valor_cobrado: number
         }
@@ -207,6 +208,7 @@ export type Database = {
           organization_id: string
           proxima_cobranca?: string | null
           status?: Database["public"]["Enums"]["assinatura_status"]
+          trial_fim?: string | null
           updated_at?: string
           valor_cobrado: number
         }
@@ -220,6 +222,7 @@ export type Database = {
           organization_id?: string
           proxima_cobranca?: string | null
           status?: Database["public"]["Enums"]["assinatura_status"]
+          trial_fim?: string | null
           updated_at?: string
           valor_cobrado?: number
         }
@@ -686,6 +689,7 @@ export type Database = {
           payload: Json
           processado: boolean
           processed_at: string | null
+          resultado: string | null
           tipo_evento: string | null
         }
         Insert: {
@@ -697,6 +701,7 @@ export type Database = {
           payload: Json
           processado?: boolean
           processed_at?: string | null
+          resultado?: string | null
           tipo_evento?: string | null
         }
         Update: {
@@ -708,6 +713,7 @@ export type Database = {
           payload?: Json
           processado?: boolean
           processed_at?: string | null
+          resultado?: string | null
           tipo_evento?: string | null
         }
         Relationships: []
@@ -3813,6 +3819,7 @@ export type Database = {
         Args: { _aluno_id: string }
         Returns: boolean
       }
+      arke_trial_dias: { Args: never; Returns: number }
       atualizar_meta_agua_aluno: {
         Args: { _meta_ml: number }
         Returns: undefined
@@ -4037,6 +4044,35 @@ export type Database = {
           tipo: Database["public"]["Enums"]["organization_tipo"]
           trial_vencimento: string
           ultima_atividade: string
+        }[]
+      }
+      get_superadmin_webhooks_asaas: {
+        Args: { _limite?: number }
+        Returns: {
+          asaas_event_id: string
+          asaas_payment_id: string
+          created_at: string
+          erro: string
+          id: string
+          payload: Json
+          processado: boolean
+          processed_at: string
+          resultado: string
+          situacao: string
+          tipo_evento: string
+        }[]
+      }
+      get_superadmin_webhooks_asaas_resumo: {
+        Args: never
+        Returns: {
+          erros: number
+          horas_desde_ultimo: number
+          pendentes: number
+          primeiro_evento_em: string
+          sem_efeito: number
+          total: number
+          ultimas_24h: number
+          ultimo_evento_em: string
         }[]
       }
       has_org_role: {

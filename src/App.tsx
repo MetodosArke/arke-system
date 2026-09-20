@@ -64,6 +64,7 @@ import SuperAdminProfissionais from "@/pages/superadmin/SuperAdminProfissionais"
 import SuperAdminConfiguracoes from "@/pages/superadmin/SuperAdminConfiguracoes";
 import SuperAdminAcervo from "@/pages/superadmin/SuperAdminAcervo";
 import SuperAdminAuditoria from "@/pages/superadmin/SuperAdminAuditoria";
+import SuperAdminWebhooks from "@/pages/superadmin/SuperAdminWebhooks";
 
 import NotFound from "./pages/NotFound";
 
@@ -251,6 +252,7 @@ const App = () => (
                 <Route path="profissionais" element={<SuperAdminProfissionais />} />
                 <Route path="acervo" element={<SuperAdminAcervo />} />
                 <Route path="auditoria" element={<SuperAdminAuditoria />} />
+                <Route path="webhooks" element={<SuperAdminWebhooks />} />
                 <Route path="configuracoes" element={<SuperAdminConfiguracoes />} />
               </Route>
 
