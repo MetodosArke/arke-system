@@ -3652,6 +3652,7 @@ export type Database = {
         }
       }
       gerar_lancamentos_recorrentes: { Args: never; Returns: undefined }
+      gerar_tarefas_acolhimento_elite: { Args: never; Returns: undefined }
       gerar_tarefas_ativacao_pendente: { Args: never; Returns: undefined }
       gerar_tarefas_barreira_rotina: { Args: never; Returns: undefined }
       get_superadmin_organizacao_atividade: {
@@ -3900,6 +3901,7 @@ export type Database = {
         | "ajuste"
         | "outro"
         | "cobranca"
+        | "acolhimento_elite"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -4122,6 +4124,7 @@ export const Constants = {
         "ajuste",
         "outro",
         "cobranca",
+        "acolhimento_elite",
       ],
     },
   },

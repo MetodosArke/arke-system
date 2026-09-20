@@ -99,6 +99,7 @@ export default function AdminAlunos() {
   const [alunoAnonimizar, setAlunoAnonimizar] = useState<AlunoRow | null>(null);
   const [alunoAdesao, setAlunoAdesao] = useState<AlunoRow | null>(null);
   const [nivelAdesao, setNivelAdesao] = useState<Nivel | "">("");
+  const [valorAdesao, setValorAdesao] = useState("");
   const [alunoExcluir, setAlunoExcluir] = useState<AlunoRow | null>(null);
   const [enviandoWhatsApp, setEnviandoWhatsApp] = useState<string | null>(null);
   const [alunoAvaliacao, setAlunoAvaliacao] = useState<AlunoRow | null>(null);
@@ -160,8 +161,21 @@ export default function AdminAlunos() {
     enabled: !!organization?.id,
   });
 
+  const { data: precificacaoAtacado = [] } = useQuery({
+    queryKey: ["org-precificacao-atacado", organization?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("organization_planos_precificacao")
+        .select("nivel_atacado, valor_varejo")
+        .eq("organization_id", organization!.id);
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!organization?.id,
+  });
+
   const marcarAdesaoMetodoArke = useMutation({
-    mutationFn: async ({ aluno, nivel }: { aluno: AlunoRow; nivel: Nivel }) => {
+    mutationFn: async ({ aluno, nivel, valorCobrado }: { aluno: AlunoRow; nivel: Nivel; valorCobrado: number }) => {
       const { error } = await supabase
         .from("alunos")
         .update({
@@ -172,14 +186,56 @@ export default function AdminAlunos() {
         })
         .eq("id", aluno.id);
       if (error) throw error;
+
+      // A adesão em si já vale — se a cobrança falhar (ex.: wallet do Asaas
+      // ainda não configurada), não desfaz o que já foi salvo, só avisa o
+      // staff pra tentar de novo depois (o botão "Marcar adesão" some assim
+      // que metodo_arke_status vira 'ativo', então a cobrança fica pendente
+      // de retentativa manual via essa mesma tela, na coluna Assinatura).
+      const { data, error: billingError } = await supabase.functions.invoke("asaas-create-subscription", {
+        body: { aluno_id: aluno.id, valor_cobrado: valorCobrado },
+      });
+      if (billingError || data?.error) {
+        return { billingOk: false, billingMessage: data?.error ?? billingError?.message };
+      }
+      return { billingOk: true };
     },
-    onSuccess: () => {
-      toast({ title: "Adesão registrada", description: "O aluno agora tem acesso ao Método ARKE." });
+    onSuccess: (resultado) => {
+      if (resultado.billingOk) {
+        toast({ title: "Adesão registrada", description: "Assinatura criada no Asaas com split automático." });
+      } else {
+        toast({
+          title: "Adesão registrada, mas a cobrança falhou",
+          description: resultado.billingMessage ?? "Configure a wallet do Asaas em Organização e tente novamente.",
+          variant: "destructive",
+        });
+      }
       void queryClient.invalidateQueries({ queryKey: ["admin-alunos", organization?.id] });
       setAlunoAdesao(null);
+      setValorAdesao("");
     },
     onError: (error: Error) =>
       toast({ title: "Erro ao registrar adesão", description: error.message, variant: "destructive" }),
+  });
+
+  // Retentativa manual de cobrança — para quando "Marcar adesão" salvou o
+  // status mas a criação da assinatura no Asaas falhou (ex.: wallet ainda
+  // não configurada na hora). Usa o valor de varejo já configurado pra esse
+  // nível, sem precisar reabrir o dialog inteiro de adesão.
+  const cobrarNovamente = useMutation({
+    mutationFn: async ({ aluno }: { aluno: AlunoRow }) => {
+      const valor = precificacaoAtacado.find((p) => p.nivel_atacado === aluno.nivel_atacado)?.valor_varejo;
+      if (!valor) throw new Error("Configure o valor de varejo desse nível em Planos da Academia antes de cobrar.");
+      const { data, error } = await supabase.functions.invoke("asaas-create-subscription", {
+        body: { aluno_id: aluno.id, valor_cobrado: valor },
+      });
+      if (error || data?.error) throw new Error(data?.error ?? error?.message ?? "Falha ao criar cobrança.");
+    },
+    onSuccess: () => {
+      toast({ title: "Assinatura criada!", description: "Cobrança do Método ARKE ativada com split automático." });
+      void queryClient.invalidateQueries({ queryKey: ["admin-alunos", organization?.id] });
+    },
+    onError: (error: Error) => toast({ title: "Erro ao cobrar", description: error.message, variant: "destructive" }),
   });
 
   const salvarDiasDescanso = useMutation({
@@ -394,6 +450,18 @@ export default function AdminAlunos() {
                         <Badge variant={aluno.assinatura_status === "ativa" ? "default" : "outline"}>
                           {ASSINATURA_LABEL[aluno.assinatura_status] ?? aluno.assinatura_status}
                         </Badge>
+                      ) : aluno.metodo_arke_status === "ativo" ? (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-7 text-xs"
+                          disabled={cobrarNovamente.isPending && cobrarNovamente.variables?.aluno.id === aluno.id}
+                          onClick={() => cobrarNovamente.mutate({ aluno })}
+                        >
+                          {cobrarNovamente.isPending && cobrarNovamente.variables?.aluno.id === aluno.id
+                            ? "Criando..."
+                            : "Tentar cobrar"}
+                        </Button>
                       ) : (
                         <span className="text-xs text-muted-foreground">Sem assinatura</span>
                       )}
@@ -501,7 +569,14 @@ export default function AdminAlunos() {
           </p>
           <div className="space-y-1.5">
             <Label>Nível</Label>
-            <Select value={nivelAdesao} onValueChange={(v) => setNivelAdesao(v as Nivel)}>
+            <Select
+              value={nivelAdesao}
+              onValueChange={(v) => {
+                setNivelAdesao(v as Nivel);
+                const sugestao = precificacaoAtacado.find((p) => p.nivel_atacado === v)?.valor_varejo;
+                setValorAdesao(sugestao != null ? String(sugestao) : "");
+              }}
+            >
               <SelectTrigger>
                 <SelectValue placeholder="Selecione o nível" />
               </SelectTrigger>
@@ -512,15 +587,32 @@ export default function AdminAlunos() {
               </SelectContent>
             </Select>
           </div>
+          <div className="space-y-1.5">
+            <Label>Valor cobrado do aluno (mensal)</Label>
+            <Input
+              type="number"
+              inputMode="decimal"
+              step="0.01"
+              placeholder="Ex.: 119.00"
+              value={valorAdesao}
+              onChange={(e) => setValorAdesao(e.target.value)}
+            />
+            <p className="text-xs text-muted-foreground">
+              Pré-preenchido com o valor de varejo configurado em Planos da Academia — ajuste se for negociar diferente.
+            </p>
+          </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setAlunoAdesao(null)}>
               Cancelar
             </Button>
             <Button
-              disabled={!nivelAdesao || marcarAdesaoMetodoArke.isPending}
-              onClick={() => alunoAdesao && marcarAdesaoMetodoArke.mutate({ aluno: alunoAdesao, nivel: nivelAdesao as Nivel })}
+              disabled={!nivelAdesao || !valorAdesao || Number(valorAdesao) <= 0 || marcarAdesaoMetodoArke.isPending}
+              onClick={() =>
+                alunoAdesao &&
+                marcarAdesaoMetodoArke.mutate({ aluno: alunoAdesao, nivel: nivelAdesao as Nivel, valorCobrado: Number(valorAdesao) })
+              }
             >
-              {marcarAdesaoMetodoArke.isPending ? "Registrando..." : "Confirmar adesão"}
+              {marcarAdesaoMetodoArke.isPending ? "Registrando..." : "Confirmar adesão e criar cobrança"}
             </Button>
           </DialogFooter>
         </DialogContent>

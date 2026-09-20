@@ -5,9 +5,10 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { TrendingUp, TrendingDown, Minus, Trophy, CalendarClock, Activity } from "lucide-react";
+import { TrendingUp, TrendingDown, Minus, Trophy, CalendarClock, Activity, Crown, Lock } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { calcularStatusMetas, type StatusMeta } from "@/lib/evolucaoPontos";
+import PontuacaoEngajamento from "@/components/aluno/PontuacaoEngajamento";
 import type { Tables } from "@/integrations/supabase/types";
 
 type Avaliacao = Tables<"avaliacoes_fisicas">;
@@ -49,6 +50,17 @@ function Delta({ atual, anterior, quantoMenorMelhor }: { atual: number | null; a
 export default function AlunoEvolucao() {
   const { alunoId } = useAuth();
   const [chartMetric, setChartMetric] = useState<"peso_kg" | "percentual_gordura" | "musculo_percentual">("peso_kg");
+
+  const { data: nivelAtacado } = useQuery({
+    queryKey: ["aluno-nivel-atacado", alunoId],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("alunos").select("nivel_atacado").eq("id", alunoId!).single();
+      if (error) throw error;
+      return data.nivel_atacado;
+    },
+    enabled: !!alunoId,
+  });
+  const ehElite = nivelAtacado === "elite";
 
   const { data: avaliacoes = [], isLoading } = useQuery({
     queryKey: ["aluno-evolucao", alunoId],
@@ -124,6 +136,36 @@ export default function AlunoEvolucao() {
         <Activity className="h-5 w-5 text-primary" />
         <h1 className="text-xl font-bold">Minha Evolução</h1>
       </div>
+
+      {ehElite ? (
+        <Card className="border-primary/30 bg-primary/5">
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Crown className="h-4 w-4 text-primary" /> Relatório A.P.E.X.®/L.E.G.A.D.O.® — Exclusivo Elite
+            </CardTitle>
+            <p className="text-xs text-muted-foreground">
+              Visão consolidada da sua evolução física e do seu engajamento no mês, num só lugar.
+            </p>
+          </CardHeader>
+          <CardContent>
+            <PontuacaoEngajamento />
+          </CardContent>
+        </Card>
+      ) : (
+        <Card>
+          <CardContent className="flex items-center gap-3 py-4">
+            <Lock className="h-5 w-5 text-muted-foreground/60 shrink-0" />
+            <div>
+              <p className="text-sm font-medium flex items-center gap-1.5">
+                <Crown className="h-3.5 w-3.5 text-primary" /> Relatório A.P.E.X.®/L.E.G.A.D.O.® — Exclusivo Elite
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Disponível para alunos no nível Elite. Pergunte à sua academia como fazer upgrade.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {isLoading && <p className="text-sm text-muted-foreground">Carregando...</p>}
 

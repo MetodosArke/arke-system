@@ -30,6 +30,7 @@ import {
   Clock,
   CalendarClock,
   Wallet,
+  Sparkles,
 } from "lucide-react";
 import type { Tables, Enums } from "@/integrations/supabase/types";
 
@@ -112,6 +113,7 @@ const TIPO_LABEL: Record<Tipo, string> = {
   ajuste: "Pedido de ajuste",
   outro: "Outro",
   cobranca: "Mensalidade atrasada",
+  acolhimento_elite: "Acolhimento expandido (Elite)",
 };
 
 const TIPO_ICON: Record<Tipo, typeof HeartPulse> = {
@@ -122,6 +124,7 @@ const TIPO_ICON: Record<Tipo, typeof HeartPulse> = {
   ajuste: MessageCircleWarning,
   outro: CircleHelp,
   cobranca: Wallet,
+  acolhimento_elite: Sparkles,
 };
 
 // Indicadores visuais de SLA: vermelho para dor/vencido, amarelo para
@@ -134,6 +137,7 @@ const TIPO_COLOR_CLASS: Record<Tipo, string> = {
   ajuste: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/40",
   outro: "",
   cobranca: "bg-red-500/15 text-red-700 dark:text-red-400 border-red-500/40",
+  acolhimento_elite: "bg-violet-500/15 text-violet-700 dark:text-violet-400 border-violet-500/40",
 };
 
 const FILTRO_STATUS_OPCOES: Status[] = ["aberta", "em_andamento", "aguardando"];
