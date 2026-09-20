@@ -2361,31 +2361,43 @@ export type Database = {
       organizacao_catracas: {
         Row: {
           created_at: string
+          delay_liberacao_seg: number
           device_token: string
+          driver: string | null
           id: string
+          ip_address: string | null
           localizacao: string | null
           nome: string
           organization_id: string
+          porta: number | null
           status: string
           updated_at: string
         }
         Insert: {
           created_at?: string
+          delay_liberacao_seg?: number
           device_token?: string
+          driver?: string | null
           id?: string
+          ip_address?: string | null
           localizacao?: string | null
           nome: string
           organization_id: string
+          porta?: number | null
           status?: string
           updated_at?: string
         }
         Update: {
           created_at?: string
+          delay_liberacao_seg?: number
           device_token?: string
+          driver?: string | null
           id?: string
+          ip_address?: string | null
           localizacao?: string | null
           nome?: string
           organization_id?: string
+          porta?: number | null
           status?: string
           updated_at?: string
         }
@@ -2410,32 +2422,38 @@ export type Database = {
         Row: {
           api_key: string | null
           ativo: boolean
+          client_secret: string | null
           created_at: string
           id: string
           identificador: string | null
           organization_id: string
           parceiro: string
           updated_at: string
+          webhook_secret: string | null
         }
         Insert: {
           api_key?: string | null
           ativo?: boolean
+          client_secret?: string | null
           created_at?: string
           id?: string
           identificador?: string | null
           organization_id: string
           parceiro: string
           updated_at?: string
+          webhook_secret?: string | null
         }
         Update: {
           api_key?: string | null
           ativo?: boolean
+          client_secret?: string | null
           created_at?: string
           id?: string
           identificador?: string | null
           organization_id?: string
           parceiro?: string
           updated_at?: string
+          webhook_secret?: string | null
         }
         Relationships: [
           {
