@@ -5,7 +5,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { TrendingUp, Users, UserMinus, Activity, AlertTriangle, HeartPulse, CalendarX2 } from "lucide-react";
+import { TrendingUp, Users, UserMinus, Activity, AlertTriangle, HeartPulse, CalendarX2, Trophy } from "lucide-react";
 
 const FASES: { key: "alunos_fase_mapa" | "alunos_fase_base" | "alunos_fase_rota" | "alunos_fase_apex" | "alunos_fase_legado"; label: string }[] = [
   { key: "alunos_fase_mapa", label: "M.A.P.A.®" },
@@ -36,6 +36,18 @@ interface AlunoRisco {
   nome: string;
   motivo: "sem_treino" | "dor";
   detalhe: string;
+}
+
+interface AlunoEngajamento {
+  aluno_id: string;
+  nome: string;
+  pontuacao: number;
+}
+
+function corPontuacao(pontuacao: number) {
+  if (pontuacao >= 70) return "text-emerald-600";
+  if (pontuacao >= 40) return "text-amber-500";
+  return "text-red-500";
 }
 
 export default function AdminRetencao() {
@@ -86,6 +98,36 @@ export default function AdminRetencao() {
         }
       }
       return risco;
+    },
+    enabled: !!organization?.id,
+  });
+
+  // Pontuação de engajamento (Etapa K/M) — mesma fórmula do card que o
+  // aluno vê no próprio app, aqui por aluno, pra equipe agir antes de
+  // virar cancelamento. Ordenado do mais baixo pro mais alto: quem
+  // precisa de atenção aparece primeiro.
+  const { data: engajamento = [], isLoading: isLoadingEngajamento } = useQuery({
+    queryKey: ["retencao-engajamento-alunos", organization?.id],
+    queryFn: async () => {
+      const [{ data: pontuacoes, error }, { data: alunosData }] = await Promise.all([
+        supabase.rpc("obter_engajamento_alunos_organizacao"),
+        supabase.from("alunos").select("id, user_id").eq("organization_id", organization!.id),
+      ]);
+      if (error) throw error;
+
+      const userIdByAlunoId = new Map((alunosData ?? []).map((a) => [a.id, a.user_id]));
+      const userIds = Array.from(userIdByAlunoId.values());
+      const { data: profiles } = userIds.length
+        ? await supabase.from("profiles").select("user_id, full_name").in("user_id", userIds)
+        : { data: [] as { user_id: string; full_name: string }[] };
+      const nomeByUserId = new Map((profiles ?? []).map((p) => [p.user_id, p.full_name]));
+
+      const lista: AlunoEngajamento[] = (pontuacoes ?? []).map((p) => ({
+        aluno_id: p.aluno_id,
+        nome: nomeByUserId.get(userIdByAlunoId.get(p.aluno_id) ?? "") ?? "—",
+        pontuacao: Math.round(Number(p.pontuacao ?? 0)),
+      }));
+      return lista.sort((a, b) => a.pontuacao - b.pontuacao);
     },
     enabled: !!organization?.id,
   });
@@ -152,6 +194,35 @@ export default function AdminRetencao() {
               </div>
             </div>
           ))}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base flex items-center gap-2">
+            <Trophy className="h-4 w-4 text-primary" /> Engajamento do Mês por Aluno
+          </CardTitle>
+          <p className="text-xs text-muted-foreground">
+            Mesma pontuação (treino, check-in, adesão à dieta e água) que o aluno vê no próprio app — aqui pra
+            equipe identificar quem está caindo antes de virar cancelamento.
+          </p>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          {isLoadingEngajamento && <p className="text-sm text-muted-foreground">Carregando...</p>}
+          {!isLoadingEngajamento && engajamento.length === 0 && (
+            <p className="text-sm text-muted-foreground">Nenhum aluno cadastrado ainda.</p>
+          )}
+          {engajamento.slice(0, 10).map((a) => (
+            <div key={a.aluno_id} className="flex items-center justify-between gap-2 border-b border-border pb-2 last:border-0 last:pb-0">
+              <span className="text-sm font-medium truncate">{a.nome}</span>
+              <span className={`text-sm font-bold ${corPontuacao(a.pontuacao)}`}>{a.pontuacao}/100</span>
+            </div>
+          ))}
+          {engajamento.length > 10 && (
+            <p className="text-xs text-muted-foreground pt-1">
+              Mostrando os 10 alunos com menor engajamento, de {engajamento.length} no total.
+            </p>
+          )}
         </CardContent>
       </Card>
 
