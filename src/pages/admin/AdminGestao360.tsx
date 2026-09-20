@@ -146,6 +146,43 @@ export default function AdminGestao360() {
     enabled: !!organization?.id,
   });
 
+  // Receita de mensalidade da academia confirmada no mês (fora do
+  // Método ARKE) — o DRE simplificado só olhava `pagamentos` (split
+  // ARKE), mesmo furo do MRR: mensalidade paga direto pela academia
+  // nunca entrava na receita bruta do mês.
+  const { data: mensalidadesMes = [] } = useQuery({
+    queryKey: ["gestao360-mensalidades-mes", organization?.id, inicioMes],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("mensalidades")
+        .select("valor, status, data_pagamento")
+        .eq("organization_id", organization!.id)
+        .eq("status", "confirmado")
+        .gte("data_pagamento", inicioMes);
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!organization?.id,
+  });
+
+  // Custo de equipe (folha, já com comissões somadas em valor_total) —
+  // a "receita líquida" do DRE só descontava o repasse de atacado ARKE,
+  // nunca o custo de equipe, então o número mostrado como "líquido" era
+  // enganoso: ainda tinha o maior custo variável por descontar.
+  const { data: folhaMes = [] } = useQuery({
+    queryKey: ["gestao360-folha-mes", organization?.id, inicioMes],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("staff_folha_pagamentos")
+        .select("valor_total, competencia")
+        .eq("organization_id", organization!.id)
+        .gte("competencia", inicioMes);
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!organization?.id,
+  });
+
   // MRR em risco — conecta a pontuação de engajamento (Etapa K/M) com a
   // receita: quanto de MRR está em assinaturas de alunos com engajamento
   // baixo, que sem intervenção tendem a virar cancelamento. Antes desta
@@ -179,9 +216,12 @@ export default function AdminGestao360() {
   const churnPct = totalAlunosOrg > 0 ? (cancelamentosMes / totalAlunosOrg) * 100 : 0;
   const ltv = churnPct > 0 ? arpu / (churnPct / 100) : null;
 
-  const receitaBrutaMes = pagamentosMes.reduce((acc, p) => acc + Number(p.valor), 0);
+  const receitaArkeMes = pagamentosMes.reduce((acc, p) => acc + Number(p.valor), 0);
+  const receitaAcademiaMes = mensalidadesMes.reduce((acc, m) => acc + Number(m.valor), 0);
+  const receitaBrutaMes = receitaArkeMes + receitaAcademiaMes;
   const repasseArkeMes = pagamentosMes.reduce((acc, p) => acc + Number(p.valor_repasse_arke), 0);
-  const receitaLiquidaMes = pagamentosMes.reduce((acc, p) => acc + Number(p.valor_liquido_academia), 0);
+  const custoEquipeMes = folhaMes.reduce((acc, f) => acc + Number(f.valor_total), 0);
+  const receitaLiquidaMes = receitaBrutaMes - repasseArkeMes - custoEquipeMes;
 
   const constanciaPct = metrics?.constancia_pct_7d ?? 0;
 
@@ -209,9 +249,12 @@ export default function AdminGestao360() {
       ["Relatório de Gestão 360°", organization?.nome ?? "", `Gerado em ${hoje}`],
       [],
       ["DRE Simplificado (mês corrente)"],
-      ["Receita bruta", formatarMoeda(receitaBrutaMes)],
-      ["Repasse de atacado ARKE", formatarMoeda(repasseArkeMes)],
-      ["Receita líquida da academia", formatarMoeda(receitaLiquidaMes)],
+      ["Receita bruta — Método ARKE", formatarMoeda(receitaArkeMes)],
+      ["Receita bruta — Planos da Academia", formatarMoeda(receitaAcademiaMes)],
+      ["Receita bruta total", formatarMoeda(receitaBrutaMes)],
+      ["(–) Repasse de atacado ARKE", formatarMoeda(repasseArkeMes)],
+      ["(–) Custo de equipe (folha + comissões)", formatarMoeda(custoEquipeMes)],
+      ["(=) Receita líquida da academia", formatarMoeda(receitaLiquidaMes)],
       [],
       ["Indicadores"],
       ["MRR bruto — Método ARKE", formatarMoeda(mrrArke)],
@@ -327,16 +370,31 @@ export default function AdminGestao360() {
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-base">DRE Simplificado — mês corrente</CardTitle>
-          <p className="text-xs text-muted-foreground">Considera apenas pagamentos já confirmados no Asaas.</p>
+          <p className="text-xs text-muted-foreground">
+            Receita: pagamentos confirmados no Asaas (ARKE e mensalidade da academia). Custo de equipe: folhas de
+            pagamento já fechadas no mês (Financeiro), com comissões já somadas.
+          </p>
         </CardHeader>
         <CardContent className="space-y-2 text-sm">
+          <div className="flex items-center justify-between text-xs text-muted-foreground">
+            <span>Receita — Método ARKE</span>
+            <span>{formatarMoeda(receitaArkeMes)}</span>
+          </div>
+          <div className="flex items-center justify-between border-b border-border pb-2 text-xs text-muted-foreground">
+            <span>Receita — Planos da Academia</span>
+            <span>{formatarMoeda(receitaAcademiaMes)}</span>
+          </div>
           <div className="flex items-center justify-between border-b border-border pb-2">
-            <span>Receita bruta</span>
+            <span>Receita bruta total</span>
             <span className="font-semibold">{formatarMoeda(receitaBrutaMes)}</span>
           </div>
           <div className="flex items-center justify-between border-b border-border pb-2 text-red-600 dark:text-red-400">
             <span>(–) Repasse de atacado ARKE</span>
             <span className="font-semibold">{formatarMoeda(repasseArkeMes)}</span>
+          </div>
+          <div className="flex items-center justify-between border-b border-border pb-2 text-red-600 dark:text-red-400">
+            <span>(–) Custo de equipe (folha + comissões)</span>
+            <span className="font-semibold">{formatarMoeda(custoEquipeMes)}</span>
           </div>
           <div className="flex items-center justify-between pt-1 text-base font-bold text-emerald-600 dark:text-emerald-400">
             <span>(=) Receita líquida da academia</span>

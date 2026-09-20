@@ -169,7 +169,7 @@ function VisaoGestorAcademia() {
         .from("tarefas")
         .select("id", { count: "exact", head: true })
         .eq("organization_id", organization!.id)
-        .in("tipo", ["barreira", "ativacao"])
+        .in("tipo", ["barreira", "ativacao", "engajamento_baixo", "cobranca"])
         .in("status", ["aberta", "em_andamento"]);
       if (error) throw error;
       return count ?? 0;
