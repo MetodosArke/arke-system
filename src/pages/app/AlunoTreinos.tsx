@@ -24,6 +24,7 @@ import { useToast } from "@/hooks/use-toast";
 import { RegistrarAlertaCard } from "@/components/aluno/RegistrarAlertaCard";
 import { ChatPanel } from "@/components/chat/ChatPanel";
 import CalendarioTreinos from "@/components/aluno/CalendarioTreinos";
+import RotinaSemanal from "@/components/aluno/RotinaSemanal";
 import type { Json } from "@/integrations/supabase/types";
 
 interface ExercicioSnapshot {
@@ -296,7 +297,8 @@ export default function AlunoTreinos() {
       )}
         </TabsContent>
 
-        <TabsContent value="calendario">
+        <TabsContent value="calendario" className="space-y-4">
+          <RotinaSemanal />
           <CalendarioTreinos />
         </TabsContent>
       </Tabs>
