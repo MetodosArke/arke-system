@@ -100,6 +100,20 @@ Uma pessoa pode ter vínculo ativo em mais de uma organização — gestor de um
 
 `escolherVinculo()` (`src/lib/vinculos.ts`) resolve a escolha por hierarquia — gestor → professor → nutricionista → aluno — e desempata pelo vínculo mais antigo. O critério é o do dano: quem administra precisa do painel, e entrar como aluno tranca. Papel desconhecido vai para o fim da fila em vez de derrubar a escolha. Trocar de organização na sessão ainda não existe; quando existir, é aqui que entra.
 
+## Limpeza do Ambiente de Homologação (20/09/2026)
+
+Os dados de teste acumulados na homologação foram removidos do projeto Supabase. Ficou **uma** organização real — Tietê Fitness — e nenhuma linha apontando para organização ou usuário inexistente. Cada exclusão tem registro em `auditoria_acoes_sensiveis` (visível em **Visão Master → Auditoria**) com motivo e inventário do que caiu por cascata, porque `organizations` só dispara auditoria em UPDATE: sem a linha gravada à mão, a exclusão sumiria sem rastro.
+
+- **Org `Teste Jean`** (1 membro, 0 alunos) — criada por engano durante os testes e responsável pelo vínculo duplo do usuário `ramos.jean1417@gmail.com`, que era gestor dela e aluno de Tietê ao mesmo tempo. Removida; ele voltou a ter um vínculo só. Nenhum email foi alterado: trocar o endereço não separaria nada, já que era **um usuário com dois vínculos**, e o endereço novo levaria os dois junto.
+- **Org `teste`** e as duas contas dela (`jean.ramos@blips.com.br`, `metodosvitae@gmail.com`) — continha a única jornada completa do banco (anamnese → 2 treinos → dieta → check-in → registro, Método ativo). Excluída a pedido, com a jornada junto; homologar de novo exige refazê-la.
+- **18 linhas órfãs** de um tenant que não existia mais (1 aluno, 2 vínculos, 5 modelos de treino, 5 de dieta, 3 de precificação, 2 profiles), resíduo do bootstrap de QA de 19/09 20:59. Os deletes usaram o predicado de orfandade (`not exists … organizations`), não o id fixo — assim a limpeza é auto-limitada e pega qualquer resíduo do mesmo tipo.
+- **Edge Function `qa-bootstrap-temp`** — já estava neutralizada (stub `410 disabled`) e nunca teve código no repositório. Excluída do painel em 20/09/2026; não resta nada dela no ambiente.
+
+Duas pontas ficaram em aberto e não são fechadas por essa limpeza:
+
+1. **O mecanismo da orfandade não foi explicado.** `alunos_organization_id_fkey`, `organization_members_user_id_fkey` e `profiles_user_id_fkey` são `ON DELETE CASCADE` e estão validadas, e ainda assim aquelas linhas sobreviveram à exclusão dos pais. A hipótese é limpeza rodada com `session_replication_role = 'replica'`, que desliga os triggers de FK — mas não foi confirmada. Enquanto não for, apagar tenant por fora do produto pode deixar o mesmo rastro. O sintoma foi tratado; a causa, não.
+2. **`create-user`, `delete-user` e `update-user`** existem em `supabase/functions/` mas **não estão publicadas**. Ou são resquício para remover, ou falta deploy — a divergência entre repositório e ambiente segue por decidir.
+
 ## Progressão da Jornada do Aluno
 
 As cinco fases — M.A.P.A.® → B.A.S.E.® → R.O.T.A.® → A.P.E.X.® → L.E.G.A.D.O.® — **são movidas pela equipe**, manualmente, no bloco *Fase da Jornada* da ficha do aluno. A decisão foi não automatizar: quem convive com o aluno é quem sabe se ele mudou de fase, e um gatilho erraria justamente nos casos que mais importam.
