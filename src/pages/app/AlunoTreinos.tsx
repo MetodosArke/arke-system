@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   Dumbbell,
@@ -18,7 +19,6 @@ import {
   MessageCircle,
   Lock,
   Sparkles,
-  Calendar as CalendarIcon,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { RegistrarAlertaCard } from "@/components/aluno/RegistrarAlertaCard";
@@ -176,6 +176,13 @@ export default function AlunoTreinos() {
         <h1 className="text-xl font-bold">Meu Treino</h1>
       </div>
 
+      <Tabs defaultValue="treino">
+        <TabsList>
+          <TabsTrigger value="treino">Treino</TabsTrigger>
+          <TabsTrigger value="calendario">Calendário</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="treino" className="space-y-4">
       {isLoading && <p className="text-sm text-muted-foreground">Carregando...</p>}
 
       {!isLoading && !treino && (
@@ -287,14 +294,12 @@ export default function AlunoTreinos() {
           </Card>
         </>
       )}
+        </TabsContent>
 
-      <div className="pt-2">
-        <div className="flex items-center gap-2 mb-3">
-          <CalendarIcon className="h-4 w-4 text-primary" />
-          <h2 className="text-base font-bold">Meu Calendário</h2>
-        </div>
-        <CalendarioTreinos />
-      </div>
+        <TabsContent value="calendario">
+          <CalendarioTreinos />
+        </TabsContent>
+      </Tabs>
 
       <Card>
         <CardHeader className="pb-2">
