@@ -68,6 +68,7 @@ import { OrganizacaoPerfilSheet } from "@/components/superadmin/OrganizacaoPerfi
 import { ReceitaHistoricoCard } from "@/components/superadmin/ReceitaHistoricoCard";
 import { FunilConversaoCard } from "@/components/superadmin/FunilConversaoCard";
 import { AdocaoMetodologiaCard } from "@/components/superadmin/AdocaoMetodologiaCard";
+import { OperacaoGlobalCard } from "@/components/superadmin/OperacaoGlobalCard";
 
 type CategoriaSimulacao = "aluno" | "academia" | "studio" | "personal" | "nutricionista";
 
@@ -636,6 +637,8 @@ export default function SuperAdminDashboard() {
       <FunilConversaoCard />
 
       <AdocaoMetodologiaCard />
+
+      <OperacaoGlobalCard />
 
       <Card>
         <CardHeader className="pb-2">

@@ -2461,6 +2461,7 @@ export type Database = {
           organization_id: string
           porta: number | null
           status: string
+          ultimo_heartbeat_em: string | null
           updated_at: string
         }
         Insert: {
@@ -2475,6 +2476,7 @@ export type Database = {
           organization_id: string
           porta?: number | null
           status?: string
+          ultimo_heartbeat_em?: string | null
           updated_at?: string
         }
         Update: {
@@ -2489,6 +2491,7 @@ export type Database = {
           organization_id?: string
           porta?: number | null
           status?: string
+          ultimo_heartbeat_em?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -3896,6 +3899,21 @@ export type Database = {
           treino_pct: number
         }[]
       }
+      get_superadmin_fila_global: {
+        Args: never
+        Returns: {
+          abertas: number
+          concluidas_7d: number
+          criticas_abertas: number
+          escaladas: number
+          horas_pendencia_mais_antiga: number
+          organizacao_nome: string
+          organization_id: string
+          sem_responsavel: number
+          status_org: Database["public"]["Enums"]["org_status"]
+          vencidas: number
+        }[]
+      }
       get_superadmin_funil_conversao: {
         Args: { _meses?: number }
         Returns: {
@@ -3919,6 +3937,22 @@ export type Database = {
           trials_sem_prazo: number
           trials_total: number
           trials_vencidos: number
+        }[]
+      }
+      get_superadmin_gateways: {
+        Args: never
+        Returns: {
+          acessos_24h: number
+          catraca_id: string
+          driver: string
+          localizacao: string
+          minutos_sem_heartbeat: number
+          nome: string
+          organizacao_nome: string
+          organization_id: string
+          situacao: string
+          status: string
+          ultimo_heartbeat_em: string
         }[]
       }
       get_superadmin_organizacao_atividade: {
