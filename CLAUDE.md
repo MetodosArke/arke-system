@@ -64,6 +64,23 @@ No momento da cobrança da assinatura do aluno:
 
 Confirmado pelo responsável pelo projeto em 20/09/2026. As sessões do Claude Code não têm saída de rede para `*.supabase.co`, então isto não é verificável de dentro do agente — vale como configuração declarada, e o lugar para checar o funcionamento real é o painel **Visão Master → Webhooks** (`/superadmin/webhooks`), que mostra cada evento recebido e o que ele efetivamente fez no banco.
 
+## Trial e Bloqueio por Pagamento
+
+### Trial não é oferta comercial
+O status `trial` de `organizations` existe **apenas como ferramenta de homologação do Super Admin**. Não há período de testes comercial para ninguém — nem B2B, nem planos ARKE do aluno. Organização em `trial` nunca é bloqueada por pendência financeira, justamente por não ser cliente. `public.arke_trial_dias()` (15) segue definindo o prazo dessas organizações de teste.
+
+### Gatilho do bloqueio: emitida e vencida
+O acesso é cortado quando existe cobrança **emitida cujo vencimento passou sem confirmação de pagamento** — não por "nunca pagou". Cliente que ainda não foi cobrado continua acessando: bloquear quem nunca recebeu cobrança seria defeito, não política.
+
+A regra B2B mora em `public.organizacao_inadimplente_b2b()` e é servida ao frontend por `public.get_bloqueio_organizacao()`. Ela considera atrasada a cobrança com `status = 'atrasado'` (webhook `PAYMENT_OVERDUE` do Asaas) **ou** com `vencimento < current_date` e sem confirmação — a segunda condição é a rede de segurança para webhook perdido, que de outro modo viraria acesso liberado indefinidamente.
+
+### Quem é bloqueado
+- **B2B (`OrganizacaoBillingGate`, rotas `/admin`):** apenas a **equipe** da academia — gestor, professor, nutricionista. Os alunos dela **seguem treinando**: o contrato B2B é com a academia, e o aluno que pagou a mensalidade não deu causa ao atraso.
+- **B2C (`AlunoBillingGate`, rotas `/app`):** o aluno cuja assinatura do Método ARKE está `atrasada`.
+- **Nunca bloqueados:** Super Admin e Admin ARKE (são eles que resolvem a cobrança; trancá-los tornaria o problema insolúvel pelo produto) e organizações em `trial`.
+
+> Os dois gates são de experiência, não fronteiras de segurança — o que protege os dados continua sendo o RLS de cada tabela.
+
 ## Motor de Automações e Regras Operacionais
 - **Prevenção de Falha Humana:** Eventos da jornada viram tarefas automáticas com responsável, prazo (SLA) e prioridade[span_81](start_span)[span_81](end_span).
 - **Sinais de Atenção Automáticos:**

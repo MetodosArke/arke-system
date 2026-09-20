@@ -972,6 +972,7 @@ export type Database = {
           status: string
           updated_at: string
           valor: number
+          vencimento: string | null
         }
         Insert: {
           asaas_customer_id?: string | null
@@ -990,6 +991,7 @@ export type Database = {
           status?: string
           updated_at?: string
           valor: number
+          vencimento?: string | null
         }
         Update: {
           asaas_customer_id?: string | null
@@ -1008,6 +1010,7 @@ export type Database = {
           status?: string
           updated_at?: string
           valor?: number
+          vencimento?: string | null
         }
         Relationships: [
           {
@@ -3881,6 +3884,18 @@ export type Database = {
       gerar_tarefas_ativacao_pendente: { Args: never; Returns: undefined }
       gerar_tarefas_barreira_rotina: { Args: never; Returns: undefined }
       gerar_tarefas_engajamento_baixo: { Args: never; Returns: undefined }
+      get_bloqueio_organizacao: {
+        Args: never
+        Returns: {
+          bloqueada: boolean
+          cobrancas_vencidas: number
+          invoice_url: string
+          organizacao_nome: string
+          organization_id: string
+          valor_em_aberto: number
+          vencimento_mais_antigo: string
+        }[]
+      }
       get_superadmin_adocao_metodologia: {
         Args: never
         Returns: {
@@ -4189,6 +4204,10 @@ export type Database = {
           nome: string
           valor: number
         }[]
+      }
+      organizacao_inadimplente_b2b: {
+        Args: { _organization_id: string }
+        Returns: boolean
       }
       provisionar_organizacao_padrao: { Args: never; Returns: string }
       publicar_dieta: {
