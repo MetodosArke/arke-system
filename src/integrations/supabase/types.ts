@@ -3616,6 +3616,21 @@ export type Database = {
         Returns: undefined
       }
       buscar_user_id_por_email: { Args: { _email: string }; Returns: string }
+      calcular_pontuacoes_engajamento_mes: {
+        Args: { _org_id: string }
+        Returns: {
+          adesao_dieta_media: number
+          aluno_id: string
+          checkins_registrados: number
+          dias_meta_agua_batida: number
+          pontuacao: number
+          treinos_concluidos: number
+        }[]
+      }
+      dia_e_esperado_treino: {
+        Args: { _aluno_id: string; _dias_descanso: number[]; _isodow: number }
+        Returns: boolean
+      }
       escalar_tarefas_vencidas: { Args: never; Returns: undefined }
       gerar_comissao_se_configurada: {
         Args: {
@@ -3750,6 +3765,21 @@ export type Database = {
         Returns: boolean
       }
       marcar_lancamentos_atrasados: { Args: never; Returns: undefined }
+      obter_dias_previstos_semana: {
+        Args: { _aluno_id: string; _meta_padrao: number }
+        Returns: number
+      }
+      obter_engajamento_alunos_organizacao: {
+        Args: never
+        Returns: {
+          adesao_dieta_media: number
+          aluno_id: string
+          checkins_registrados: number
+          dias_meta_agua_batida: number
+          pontuacao: number
+          treinos_concluidos: number
+        }[]
+      }
       obter_organizacao_publica: {
         Args: { _slug: string }
         Returns: {
