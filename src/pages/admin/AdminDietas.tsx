@@ -43,14 +43,31 @@ interface DietaExtraidaPdf {
   refeicoes: RefeicaoExtraidaPdf[];
 }
 
-function arrayBufferToBase64(buffer: ArrayBuffer): string {
-  let binary = "";
-  const bytes = new Uint8Array(buffer);
-  const chunkSize = 0x8000;
-  for (let i = 0; i < bytes.length; i += chunkSize) {
-    binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
-  }
-  return btoa(binary);
+// Espelha o limite da edge function, que recusa base64 acima de 20.000.000
+// de caracteres: 4 * ceil(n/3) <= 20.000.000 dá exatamente 15.000.000 bytes
+// de binário. Checar no cliente evita o usuário esperar o upload inteiro no
+// 4G só para receber o erro no final.
+const TAMANHO_MAXIMO_PDF_BYTES = 15_000_000;
+
+// Leitura via FileReader (nativo e assíncrono) em vez de percorrer o
+// ArrayBuffer manualmente: em celular, montar a string na main thread
+// congela a interface por segundos, e o spread de dezenas de milhares de
+// argumentos em String.fromCharCode estoura a pilha de chamadas.
+function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("Não foi possível ler o arquivo no dispositivo."));
+    reader.onload = () => {
+      const dataUrl = typeof reader.result === "string" ? reader.result : "";
+      const separador = dataUrl.indexOf(",");
+      if (separador < 0) {
+        reject(new Error("Não foi possível ler o arquivo no dispositivo."));
+        return;
+      }
+      resolve(dataUrl.slice(separador + 1));
+    };
+    reader.readAsDataURL(file);
+  });
 }
 
 const STATUS_DIETA_LABEL: Record<string, string> = {
@@ -292,8 +309,10 @@ export default function AdminDietas() {
 
   const importarDietaPdf = useMutation({
     mutationFn: async (file: File) => {
-      const buffer = await file.arrayBuffer();
-      const fileBase64 = arrayBufferToBase64(buffer);
+      if (file.size > TAMANHO_MAXIMO_PDF_BYTES) {
+        throw new Error("PDF muito grande (máximo 15MB). Envie um arquivo menor ou comprimido.");
+      }
+      const fileBase64 = await fileToBase64(file);
       const { data, error } = await supabase.functions.invoke<DietaExtraidaPdf & { error?: string }>(
         "parse-dieta-pdf",
         { body: { file_base64: fileBase64 } }
@@ -814,12 +833,20 @@ export default function AdminDietas() {
               </p>
               <Input
                 type="file"
-                accept="application/pdf"
+                accept="application/pdf,.pdf"
                 disabled={importarDietaPdf.isPending}
                 onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (file) importarDietaPdf.mutate(file);
-                  e.target.value = "";
+                  const input = e.target;
+                  const file = input.files?.[0];
+                  if (!file) return;
+                  // Só zera o input depois que a leitura terminar: em alguns
+                  // navegadores Android, limpar o value com o arquivo ainda
+                  // sendo lido invalida a referência e a leitura falha.
+                  importarDietaPdf.mutate(file, {
+                    onSettled: () => {
+                      input.value = "";
+                    },
+                  });
                 }}
               />
               {importarDietaPdf.isPending && (
