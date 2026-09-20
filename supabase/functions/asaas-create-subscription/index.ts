@@ -105,6 +105,17 @@ Deno.serve(async (req: Request) => {
       return jsonResponse({ error: "Nível de atacado do aluno inválido." }, 422);
     }
 
+    // Período de testes: o prazo mora no banco (public.arke_trial_dias),
+    // que também alimenta o trial das organizações e o default de
+    // aluno_assinaturas.trial_fim. Ler daqui evita que o gateway continue
+    // emitindo com 15 dias depois de alguém mudar a política no SQL.
+    const { data: trialDias, error: trialError } = await asUser.rpc("arke_trial_dias");
+    if (trialError || typeof trialDias !== "number") {
+      console.error("Falha ao ler o prazo de trial", trialError);
+      return jsonResponse({ error: "Não foi possível determinar o período de testes." }, 500);
+    }
+    const trialFim = new Date(Date.now() + trialDias * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+
     const valorRepasseArke = Number(planoAtacado.custo_mensal);
     const valorLiquidoAcademia = Number(valor_cobrado) - valorRepasseArke;
 
@@ -143,7 +154,11 @@ Deno.serve(async (req: Request) => {
         billingType: "UNDEFINED",
         value: valor_cobrado,
         cycle: "MONTHLY",
-        description: `ARKE — ${org.nome} — nível ${aluno.nivel_atacado}`,
+        // Sem nextDueDate o Asaas emite a primeira fatura para hoje e o
+        // trial não existe na prática. Vencendo no fim do trial, o aluno usa
+        // o período inteiro e só depois entra o ciclo mensal.
+        nextDueDate: trialFim,
+        description: `ARKE — ${org.nome} — nível ${aluno.nivel_atacado} (trial de ${trialDias} dias)`,
         externalReference: aluno.id,
         split: [
           {
@@ -169,9 +184,13 @@ Deno.serve(async (req: Request) => {
           aluno_id: aluno.id,
           nivel_atacado: aluno.nivel_atacado,
           valor_cobrado,
+          // 'ativa' durante o trial de propósito: o acesso do aluno precisa
+          // estar liberado justamente para ele testar. O que o trial adia é
+          // a cobrança, não o acesso.
           status: "ativa",
+          trial_fim: trialFim,
           asaas_subscription_id: subscription.id,
-          proxima_cobranca: subscription.nextDueDate ?? null,
+          proxima_cobranca: subscription.nextDueDate ?? trialFim,
         },
         { onConflict: "aluno_id" }
       )
