@@ -17,6 +17,7 @@
  */
 
 export type ChaveAcao =
+  | "carregando"
   | "aguardando_ficha"
   | "treinar_hoje"
   | "check_in"
@@ -35,7 +36,17 @@ export type ProximaAcao = {
 };
 
 export type EstadoAluno = {
-  temTreinoAtivo: boolean;
+  /**
+   * `undefined` enquanto a consulta não respondeu.
+   *
+   * O tipo distingue "ainda não sei" de "não tem ficha" porque confundir os
+   * dois foi um bug real: a home chamava esta função antes das queries
+   * resolverem, `undefined` virava `false` num `Boolean()`, e todo aluno
+   * via "Sua ficha está sendo preparada" em cada carregamento — inclusive
+   * quem treina há meses. Deixar o desconhecido representável no tipo torna
+   * essa classe de erro impossível de repetir em silêncio.
+   */
+  temTreinoAtivo: boolean | undefined;
   treinoDeHojeConcluido: boolean;
   respondeuCheckinHoje: boolean;
   aguaMl: number;
@@ -44,6 +55,16 @@ export type EstadoAluno = {
 };
 
 export function definirProximaAcao(estado: EstadoAluno): ProximaAcao {
+  // Ainda não sabemos. Devolver qualquer conselho aqui seria inventar: a
+  // tela mostra um esqueleto até haver resposta.
+  if (estado.temTreinoAtivo === undefined) {
+    return {
+      chave: "carregando",
+      titulo: "",
+      descricao: "",
+    };
+  }
+
   // A academia ainda não publicou a prescrição. O aluno não tem o que fazer, e
   // fingir que tem seria pior do que dizer a verdade.
   if (!estado.temTreinoAtivo) {

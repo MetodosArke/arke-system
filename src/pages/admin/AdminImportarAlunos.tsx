@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { erroCpf } from "@/lib/cpf";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -288,6 +289,19 @@ export default function AdminImportarAlunos() {
       if (!registro.full_name || !registro.email) {
         setResultados((prev) =>
           prev!.map((r, idx) => (idx === i ? { ...r, status: "erro", mensagem: "Nome e e-mail são obrigatórios." } : r))
+        );
+        continue;
+      }
+
+      // Barrado antes da chamada de rede: numa planilha de sistema antigo o
+      // CPF vem truncado, com dígito trocado ou com sequência de
+      // preenchimento. Gastar um round-trip por linha ruim atrasa a
+      // importação inteira, e o CPF é a chave de leitura da catraca — deixar
+      // passar vira aluno que não entra na academia meses depois.
+      const problemaCpf = registro.cpf ? erroCpf(registro.cpf) : null;
+      if (problemaCpf) {
+        setResultados((prev) =>
+          prev!.map((r, idx) => (idx === i ? { ...r, status: "erro", mensagem: problemaCpf } : r))
         );
         continue;
       }

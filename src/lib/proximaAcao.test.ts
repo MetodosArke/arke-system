@@ -11,6 +11,25 @@ const BASE: EstadoAluno = {
 };
 
 describe("definirProximaAcao", () => {
+  // Regressão real: a home chamava esta função antes das consultas
+  // responderem, `undefined` virava `false` num `Boolean()`, e todo aluno
+  // lia "Sua ficha está sendo preparada" a cada carregamento — inclusive
+  // quem treinava há meses. Os dois testes abaixo existem para que
+  // "ainda não sei" nunca mais seja confundido com "não tem".
+  it("devolve estado de carregando enquanto não sabe se há treino", () => {
+    const acao = definirProximaAcao({ ...BASE, temTreinoAtivo: undefined });
+    expect(acao.chave).toBe("carregando");
+    expect(acao.acao).toBeUndefined();
+  });
+
+  it("não confunde desconhecido com ausência de ficha", () => {
+    const desconhecido = definirProximaAcao({ ...BASE, temTreinoAtivo: undefined });
+    const semFicha = definirProximaAcao({ ...BASE, temTreinoAtivo: false });
+    expect(desconhecido.chave).not.toBe(semFicha.chave);
+    // Nada de conselho inventado enquanto a resposta não chegou.
+    expect(desconhecido.titulo).toBe("");
+  });
+
   it("diz que a ficha está sendo preparada quando não há treino publicado", () => {
     const acao = definirProximaAcao({ ...BASE, temTreinoAtivo: false });
     expect(acao.chave).toBe("aguardando_ficha");

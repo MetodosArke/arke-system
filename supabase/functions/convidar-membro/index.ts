@@ -27,6 +27,30 @@ type ConvidarMembroPayload = {
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+/**
+ * Validação de CPF pelo módulo 11.
+ *
+ * Duplicada de src/lib/cpf.ts de propósito: edge function roda em Deno e
+ * não importa do bundle do app. O banco tem a mesma regra em
+ * public.cpf_valido() e é ele quem garante — isto aqui existe para a
+ * importação em lote recusar a linha com mensagem útil, em vez de estourar
+ * um erro de constraint que ninguém na recepção sabe ler.
+ */
+function cpfValido(valor: string): boolean {
+  const c = valor.replace(/\D/g, "");
+  if (c.length !== 11) return false;
+  if (/^(\d)\1{10}$/.test(c)) return false;
+
+  const dv = (base: string, pesoInicial: number) => {
+    let soma = 0;
+    for (let i = 0; i < base.length; i++) soma += Number(base[i]) * (pesoInicial - i);
+    const resto = (soma * 10) % 11;
+    return resto >= 10 ? 0 : resto;
+  };
+
+  return dv(c.slice(0, 9), 10) === Number(c[9]) && dv(c.slice(0, 10), 11) === Number(c[10]);
+}
+
 // Convida (via e-mail do Supabase Auth, sem senha temporária exposta) um
 // novo aluno para a organização do gestor que chama esta função. O
 // cadastro de equipe (professor, nutricionista, recepção) não passa mais
@@ -68,6 +92,17 @@ Deno.serve(async (req: Request) => {
     // adesão de verdade (é aí que o nível é escolhido).
     const nivelAtacado = payload.nivel_atacado && NIVEIS_VALIDOS.has(payload.nivel_atacado) ? payload.nivel_atacado : null;
 
+    // CPF é opcional, mas se vier tem que ser real: ele é a chave de
+    // leitura da catraca e a chave de deduplicação da base. Recusar aqui
+    // custa uma linha de planilha; descobrir depois custa um aluno que não
+    // consegue entrar na academia.
+    if (cpf && !cpfValido(cpf)) {
+      return jsonResponse(
+        { error: `CPF inválido: "${cpf}". Confira os dígitos na planilha.` },
+        400
+      );
+    }
+
     if (!email || !EMAIL_RE.test(email)) {
       return jsonResponse({ error: "E-mail inválido." }, 400);
     }
@@ -93,12 +128,21 @@ Deno.serve(async (req: Request) => {
 
     const adminClient = createClient(supabaseUrl, serviceRoleKey);
 
-    const { data: callerMembership, error: callerMembershipError } = await adminClient
+    // Filtra por gestor e ordena, em vez de `.maybeSingle()` sobre todos os
+    // vínculos: quem é gestor de uma academia e aluno de outra tinha a
+    // consulta falhando e levava 403 no próprio painel. Mesma classe de
+    // defeito já corrigida no AuthContext e no parse-dieta-pdf; o
+    // desempate pelo vínculo mais antigo segue a regra de escolherVinculo.
+    const { data: vinculosGestor, error: callerMembershipError } = await adminClient
       .from("organization_members")
-      .select("organization_id, role")
+      .select("organization_id, role, created_at")
       .eq("user_id", callerId)
       .eq("status", "active")
-      .maybeSingle();
+      .eq("role", "gestor")
+      .order("created_at", { ascending: true })
+      .limit(1);
+
+    const callerMembership = vinculosGestor?.[0] ?? null;
 
     if (callerMembershipError) {
       console.error("Error loading caller membership", callerMembershipError);
