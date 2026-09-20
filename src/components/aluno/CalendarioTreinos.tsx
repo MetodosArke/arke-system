@@ -494,6 +494,9 @@ export default function CalendarioTreinos() {
                 {format(weekStart, "dd 'de' MMM", { locale: ptBR })} - {format(weekEnd, "dd 'de' MMM", { locale: ptBR })}
               </p>
 
+              <p className="text-[11px] text-muted-foreground -mt-2 mb-3">
+                Se você configurou a Rotina da Semana, o sistema usa ela pra saber quantos dias você planejou treinar. Esse número aqui só vale como meta manual enquanto a rotina não estiver preenchida.
+              </p>
               <div className="flex items-center justify-between mb-4">
                 <span className="text-sm font-medium">Meta Semanal (Dias)</span>
                 <div className="flex items-center gap-2">
