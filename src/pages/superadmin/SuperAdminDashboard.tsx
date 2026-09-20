@@ -66,6 +66,7 @@ import {
 import type { Tables, Enums } from "@/integrations/supabase/types";
 import { OrganizacaoPerfilSheet } from "@/components/superadmin/OrganizacaoPerfilSheet";
 import { ReceitaHistoricoCard } from "@/components/superadmin/ReceitaHistoricoCard";
+import { FunilConversaoCard } from "@/components/superadmin/FunilConversaoCard";
 
 type CategoriaSimulacao = "aluno" | "academia" | "studio" | "personal" | "nutricionista";
 
@@ -630,6 +631,8 @@ export default function SuperAdminDashboard() {
       </div>
 
       <ReceitaHistoricoCard />
+
+      <FunilConversaoCard />
 
       <Card>
         <CardHeader className="pb-2">
