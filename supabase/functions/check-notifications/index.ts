@@ -14,6 +14,22 @@ interface PushPayload {
   url?: string;
 }
 
+// ATENÇÃO — função NÃO portada para o schema multitenant. Ela é resquício do
+// protótipo pré-reset e hoje está fail-closed por CRON_SECRET, sem nenhum
+// cron.schedule apontando para ela. Antes de agendar, é preciso corrigir:
+//   - `notificacao_preferencias`, `progresso_semanal`, `registro_serie` e
+//     `notificacoes` não existem mais no banco (as leituras caem no default
+//     "tudo ligado" e o insert da caixa de entrada falha em silêncio);
+//   - `dieta_adesao`, `registro_treino` e `compromisso_semanal` são
+//     consultados com `profiles.user_id`, mas a chave dessas tabelas é
+//     `alunos.id` / `aluno_id` — nenhuma das buscas casa;
+//   - a varredura pega todo `profiles` ativo da plataforma, sem filtro por
+//     `organization_id` nem por "é aluno", então gestor e professor recebem
+//     lembrete de hidratação;
+//   - a cópia usa gamificação punitiva ("não perca pontos"), que a
+//     metodologia ARKE abandonou (ver CLAUDE.md).
+// Como as buscas por id errado retornam vazio, agendar sem corrigir dispara
+// lembrete diário para todo mundo. Ver CLAUDE.md, pendência (3).
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
