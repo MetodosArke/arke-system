@@ -13,13 +13,16 @@ const jsonResponse = (body: unknown, status = 200) =>
   });
 
 // Resolve o "app vazio" do primeiro acesso: chamada pelo próprio aluno
-// (Onboarding.tsx) logo após concluir a anamnese M.A.P.A.®. Publica um
-// treino inicial genérico (modelo "Adaptação A", já semeado em toda
-// organização — ver seed_templates_treino_padrao) pra ele nunca ver o
-// dashboard sem nenhum treino ativo enquanto o professor não monta a
-// ficha 100% personalizada. Usa service_role porque aluno não tem (e não
-// deve ter) permissão de INSERT direto em `treinos` — só assim, via
-// publicar_treino, que já resolve o snapshot imutável.
+// (Onboarding.tsx) logo após concluir a anamnese M.A.P.A.®, OU pelo
+// staff em lote logo após uma importação (AdminImportarAlunos.tsx,
+// payload { aluno_id }) — pra quem vem de um sistema antigo já ter uma
+// rotina no primeiro dia, sem depender do aluno passar pelo onboarding
+// sozinho. Publica um treino inicial genérico (modelo "Adaptação A",
+// já semeado em toda organização — ver seed_templates_treino_padrao).
+// Usa service_role porque nem aluno nem, no caso do import, o registro
+// em nome de outra pessoa tem (ou deve ter) permissão de INSERT direto
+// em `treinos` — só via publicar_treino, que já resolve o snapshot
+// imutável.
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -55,17 +58,57 @@ Deno.serve(async (req: Request) => {
 
     const adminClient = createClient(supabaseUrl, serviceRoleKey);
 
-    const { data: aluno, error: alunoError } = await adminClient
-      .from("alunos")
-      .select("id, organization_id")
-      .eq("user_id", callerId)
-      .maybeSingle();
-    if (alunoError) {
-      console.error("Error loading aluno", alunoError);
-      return jsonResponse({ error: "Erro ao carregar o cadastro do aluno." }, 500);
+    let alunoIdAlvo: string | null = null;
+    try {
+      const body = await req.json();
+      if (body && typeof body.aluno_id === "string") alunoIdAlvo = body.aluno_id;
+    } catch {
+      // sem body = chamada do aluno pra si mesmo (fluxo de onboarding), segue normal.
     }
-    if (!aluno) {
-      return jsonResponse({ error: "Cadastro de aluno não encontrado." }, 404);
+
+    let aluno: { id: string; organization_id: string } | null = null;
+
+    if (alunoIdAlvo) {
+      // Chamada em nome de outro aluno (import em massa) — só staff da
+      // organização dele pode disparar.
+      const { data: alunoAlvo, error: alunoAlvoError } = await adminClient
+        .from("alunos")
+        .select("id, organization_id")
+        .eq("id", alunoIdAlvo)
+        .maybeSingle();
+      if (alunoAlvoError) {
+        console.error("Error loading aluno alvo", alunoAlvoError);
+        return jsonResponse({ error: "Erro ao carregar o cadastro do aluno." }, 500);
+      }
+      if (!alunoAlvo) {
+        return jsonResponse({ error: "Aluno não encontrado." }, 404);
+      }
+      const { data: membership } = await adminClient
+        .from("organization_members")
+        .select("role")
+        .eq("user_id", callerId)
+        .eq("organization_id", alunoAlvo.organization_id)
+        .eq("status", "active")
+        .in("role", ["gestor", "professor", "recepcao", "nutricionista"])
+        .maybeSingle();
+      if (!membership) {
+        return jsonResponse({ error: "Sem permissão para publicar treino para este aluno." }, 403);
+      }
+      aluno = alunoAlvo;
+    } else {
+      const { data: alunoProprio, error: alunoError } = await adminClient
+        .from("alunos")
+        .select("id, organization_id")
+        .eq("user_id", callerId)
+        .maybeSingle();
+      if (alunoError) {
+        console.error("Error loading aluno", alunoError);
+        return jsonResponse({ error: "Erro ao carregar o cadastro do aluno." }, 500);
+      }
+      if (!alunoProprio) {
+        return jsonResponse({ error: "Cadastro de aluno não encontrado." }, 404);
+      }
+      aluno = alunoProprio;
     }
 
     // Idempotente: se já existe treino ativo (ex.: o professor já

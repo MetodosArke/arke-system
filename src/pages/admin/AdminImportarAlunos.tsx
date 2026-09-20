@@ -318,6 +318,26 @@ export default function AdminImportarAlunos() {
           }
         }
 
+        // Ficha genérica de transição: aluno migrado de outro sistema já
+        // vê um treino no app desde o primeiro dia, sem depender de
+        // passar pelo onboarding sozinho (a mesma function que resolve o
+        // "app vazio" no onboarding — aqui chamada pelo staff em nome do
+        // aluno recém-importado). Falha aqui não invalida a importação,
+        // só é reportada na linha.
+        if (data?.user_id) {
+          const { data: alunoRow } = await supabase.from("alunos").select("id").eq("user_id", data.user_id).maybeSingle();
+          if (alunoRow) {
+            const { error: erroTreino } = await supabase.functions.invoke("publicar-treino-boas-vindas", {
+              body: { aluno_id: alunoRow.id },
+            });
+            if (erroTreino) {
+              mensagemAvaliacao = mensagemAvaliacao
+                ? `${mensagemAvaliacao} | Treino de transição não publicado: ${erroTreino.message}`
+                : `Aluno importado, mas o treino de transição não foi publicado: ${erroTreino.message}`;
+            }
+          }
+        }
+
         setResultados((prev) =>
           prev
             ? prev.map((r, idx) =>
