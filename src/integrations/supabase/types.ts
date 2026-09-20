@@ -3570,6 +3570,9 @@ export type Database = {
           assinaturas_ativas: number | null
           cancelamentos_mes_atual: number | null
           constancia_pct_7d: number | null
+          mrr_academia: number | null
+          mrr_arke: number | null
+          mrr_total: number | null
           organization_id: string | null
           organization_nome: string | null
         }
