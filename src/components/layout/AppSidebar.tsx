@@ -87,7 +87,8 @@ function SidebarNav({
       </nav>
 
       <div className="border-t border-border p-2 space-y-1">
-        {isAdminArke && (
+        {/* Só com organização: sem ela, /admin não tem sobre o que operar. */}
+        {isAdminArke && organization && (
           <button
             onClick={() => handleNav("/admin")}
             className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
