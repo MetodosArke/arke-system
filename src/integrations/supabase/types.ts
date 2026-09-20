@@ -972,7 +972,7 @@ export type Database = {
           status: string
           updated_at: string
           valor: number
-          vencimento: string | null
+          vencimento: string
         }
         Insert: {
           asaas_customer_id?: string | null
@@ -991,7 +991,7 @@ export type Database = {
           status?: string
           updated_at?: string
           valor: number
-          vencimento?: string | null
+          vencimento?: string
         }
         Update: {
           asaas_customer_id?: string | null
@@ -1010,7 +1010,7 @@ export type Database = {
           status?: string
           updated_at?: string
           valor?: number
-          vencimento?: string | null
+          vencimento?: string
         }
         Relationships: [
           {
@@ -3844,6 +3844,10 @@ export type Database = {
         Args: { _aluno_id: string; _dias_descanso: number[]; _isodow: number }
         Returns: boolean
       }
+      encerrar_trial_metodo_arke: {
+        Args: { _aluno_id: string }
+        Returns: undefined
+      }
       escalar_tarefas_vencidas: { Args: never; Returns: undefined }
       gerar_comissao_se_configurada: {
         Args: {
@@ -4105,6 +4109,32 @@ export type Database = {
         }
         Returns: boolean
       }
+      iniciar_trial_metodo_arke: {
+        Args: {
+          _aluno_id: string
+          _nivel: Database["public"]["Enums"]["nivel_atacado"]
+        }
+        Returns: {
+          aluno_id: string
+          asaas_subscription_id: string | null
+          created_at: string
+          fatura_pendente_url: string | null
+          id: string
+          nivel_atacado: Database["public"]["Enums"]["nivel_atacado"]
+          organization_id: string
+          proxima_cobranca: string | null
+          status: Database["public"]["Enums"]["assinatura_status"]
+          trial_fim: string | null
+          updated_at: string
+          valor_cobrado: number
+        }
+        SetofOptions: {
+          from: "*"
+          to: "aluno_assinaturas"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       is_org_member: {
         Args: { _organization_id: string; _user_id: string }
         Returns: boolean
@@ -4235,6 +4265,7 @@ export type Database = {
         }
         Returns: undefined
       }
+      registrar_primeiro_acesso_aluno: { Args: never; Returns: undefined }
       superadmin_resetar_tokens_gateway: {
         Args: { _organization_id: string }
         Returns: number
@@ -4250,7 +4281,7 @@ export type Database = {
         | "aluno"
         | "superadmin"
         | "recepcao"
-      assinatura_status: "ativa" | "atrasada" | "cancelada"
+      assinatura_status: "ativa" | "atrasada" | "cancelada" | "trial"
       checkin_status:
         | "funcionando_bem"
         | "preciso_ajuste"
@@ -4466,7 +4497,7 @@ export const Constants = {
         "superadmin",
         "recepcao",
       ],
-      assinatura_status: ["ativa", "atrasada", "cancelada"],
+      assinatura_status: ["ativa", "atrasada", "cancelada", "trial"],
       checkin_status: [
         "funcionando_bem",
         "preciso_ajuste",

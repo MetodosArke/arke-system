@@ -65,12 +65,31 @@ Deno.serve(async (req: Request) => {
 
     const { data: aluno, error: alunoError } = await asUser
       .from("alunos")
-      .select("id, organization_id, nivel_atacado, user_id")
+      .select("id, organization_id, nivel_atacado, user_id, metodo_arke_status")
       .eq("id", aluno_id)
       .single();
 
     if (alunoError || !aluno) {
       return jsonResponse({ error: "Aluno não encontrado ou sem permissão de acesso." }, 404);
+    }
+
+    // A adesão ao Método é o que autoriza a cobrança. `nivel_atacado` fica
+    // preenchido mesmo em aluno `sem_adesao`, então usá-lo sozinho permitia
+    // emitir assinatura — e liquidar o repasse de atacado à ARKE — de um
+    // produto não contratado.
+    //
+    // A checagem vem antes de qualquer chamada ao Asaas de propósito: existe
+    // a mesma guarda no banco (trigger trg_assinatura_exige_adesao), mas ela
+    // só dispararia depois da assinatura já ter sido criada lá, deixando
+    // órfão no gateway.
+    if (aluno.metodo_arke_status !== "ativo") {
+      return jsonResponse(
+        {
+          error:
+            "Este aluno não tem adesão ativa ao Método ARKE. Ative a adesão (ou inicie um trial) antes de gerar a cobrança.",
+        },
+        422
+      );
     }
 
     const { data: org, error: orgError } = await asUser
