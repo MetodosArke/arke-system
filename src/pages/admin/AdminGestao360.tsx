@@ -100,6 +100,37 @@ export default function AdminGestao360() {
     },
   });
 
+  // Receita da academia (mensalidade própria, fora do Método ARKE) — até
+  // aqui Gestão 360° só enxergava aluno_assinaturas (ARKE); pra academia
+  // com baixa adesão ao Método, o "MRR" podia mostrar uma fração da
+  // receita real. Normaliza planos não-mensais pro equivalente mensal.
+  const { data: matriculasAcademiaAtivas = [] } = useQuery({
+    queryKey: ["gestao360-matriculas-academia", organization?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("aluno_matriculas_academia")
+        .select("aluno_id, valor_cobrado, planos_academia(periodicidade)")
+        .eq("organization_id", organization!.id)
+        .eq("status", "ativa");
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!organization?.id,
+  });
+
+  const valorMensalEquivalente = (valorCobrado: number, periodicidade: string | undefined) => {
+    switch (periodicidade) {
+      case "trimestral":
+        return valorCobrado / 3;
+      case "semestral":
+        return valorCobrado / 6;
+      case "anual":
+        return valorCobrado / 12;
+      default:
+        return valorCobrado;
+    }
+  };
+
   const { data: pagamentosMes = [] } = useQuery({
     queryKey: ["gestao360-pagamentos-mes", organization?.id, inicioMes],
     queryFn: async () => {
@@ -131,10 +162,16 @@ export default function AdminGestao360() {
 
   const custoPorNivel = new Map(planosAtacado.map((p) => [p.id, Number(p.custo_mensal)]));
 
-  const mrrBruto = assinaturasAtivas.reduce((acc, a) => acc + Number(a.valor_cobrado), 0);
+  const mrrArke = Number(metrics?.mrr_arke ?? 0);
+  const mrrAcademia = Number(metrics?.mrr_academia ?? 0);
+  const mrrBruto = Number(metrics?.mrr_total ?? mrrArke + mrrAcademia);
+  // Repasse de atacado ARKE só existe na trilha do Método — mensalidade
+  // pura da academia não tem esse custo, então não desconta do MRR líquido.
   const custoArkeMrr = assinaturasAtivas.reduce((acc, a) => acc + (custoPorNivel.get(a.nivel_atacado) ?? 0), 0);
   const mrrLiquido = mrrBruto - custoArkeMrr;
-  const alunosAtivos = assinaturasAtivas.length;
+  const alunosComAssinaturaArke = new Set(assinaturasAtivas.map((a) => a.aluno_id));
+  const alunosComMatriculaAcademia = new Set(matriculasAcademiaAtivas.map((m) => m.aluno_id));
+  const alunosAtivos = new Set([...alunosComAssinaturaArke, ...alunosComMatriculaAcademia]).size;
   const arpu = alunosAtivos > 0 ? mrrLiquido / alunosAtivos : 0;
 
   const totalAlunosOrg = metrics?.alunos_total ?? 0;
@@ -150,10 +187,19 @@ export default function AdminGestao360() {
 
   const LIMITE_ENGAJAMENTO_BAIXO = 40;
   const pontuacaoPorAluno = new Map(engajamentoAlunos.map((e) => [e.aluno_id, Number(e.pontuacao ?? 0)]));
-  const assinaturasEmRisco = assinaturasAtivas.filter(
-    (a) => (pontuacaoPorAluno.get(a.aluno_id) ?? 100) < LIMITE_ENGAJAMENTO_BAIXO
-  );
-  const mrrEmRisco = assinaturasEmRisco.reduce((acc, a) => acc + Number(a.valor_cobrado), 0);
+  const baixoEngajamento = (alunoId: string) => (pontuacaoPorAluno.get(alunoId) ?? 100) < LIMITE_ENGAJAMENTO_BAIXO;
+  const assinaturasArkeEmRisco = assinaturasAtivas.filter((a) => baixoEngajamento(a.aluno_id));
+  const matriculasAcademiaEmRisco = matriculasAcademiaAtivas.filter((m) => baixoEngajamento(m.aluno_id));
+  const mrrEmRisco =
+    assinaturasArkeEmRisco.reduce((acc, a) => acc + Number(a.valor_cobrado), 0) +
+    matriculasAcademiaEmRisco.reduce(
+      (acc, m) => acc + valorMensalEquivalente(Number(m.valor_cobrado), m.planos_academia?.periodicidade),
+      0
+    );
+  const alunosEmRisco = new Set([
+    ...assinaturasArkeEmRisco.map((a) => a.aluno_id),
+    ...matriculasAcademiaEmRisco.map((m) => m.aluno_id),
+  ]).size;
 
   const nomeArquivoBase = `gestao-360-${organization?.slug ?? "academia"}-${new Date().toISOString().slice(0, 10)}`;
 
@@ -168,14 +214,16 @@ export default function AdminGestao360() {
       ["Receita líquida da academia", formatarMoeda(receitaLiquidaMes)],
       [],
       ["Indicadores"],
-      ["MRR bruto", formatarMoeda(mrrBruto)],
+      ["MRR bruto — Método ARKE", formatarMoeda(mrrArke)],
+      ["MRR bruto — Planos da Academia", formatarMoeda(mrrAcademia)],
+      ["MRR bruto total", formatarMoeda(mrrBruto)],
       ["MRR líquido (academia)", formatarMoeda(mrrLiquido)],
       ["ARPU (líquido/aluno)", formatarMoeda(arpu)],
       ["LTV estimado", ltv != null ? formatarMoeda(ltv) : "N/D (sem churn no período)"],
       ["Churn do mês", `${churnPct.toFixed(1)}%`],
       ["Frequência (constância 7 dias)", `${constanciaPct}%`],
       ["MRR em risco (engajamento < 40)", formatarMoeda(mrrEmRisco)],
-      ["Assinaturas em risco", assinaturasEmRisco.length],
+      ["Alunos em risco", alunosEmRisco],
       ["Alunos ativos", alunosAtivos],
       ["Alunos totais na organização", totalAlunosOrg],
     ] as (string | number)[][];
@@ -257,8 +305,13 @@ export default function AdminGestao360() {
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-        <StatTile icon={TrendingUp} label="MRR bruto" value={formatarMoeda(mrrBruto)} />
-        <StatTile icon={TrendingUp} label="MRR líquido" value={formatarMoeda(mrrLiquido)} sublabel="Sua parte, após repasse ARKE" />
+        <StatTile
+          icon={TrendingUp}
+          label="MRR bruto total"
+          value={formatarMoeda(mrrBruto)}
+          sublabel={`ARKE ${formatarMoeda(mrrArke)} + Academia ${formatarMoeda(mrrAcademia)}`}
+        />
+        <StatTile icon={TrendingUp} label="MRR líquido" value={formatarMoeda(mrrLiquido)} sublabel="Após repasse ARKE (só na trilha do Método)" />
         <StatTile icon={Users} label="ARPU líquido" value={formatarMoeda(arpu)} sublabel="Por aluno ativo/mês" />
         <StatTile icon={TrendingUp} label="LTV estimado" value={ltv != null ? formatarMoeda(ltv) : "N/D"} sublabel="Baseado no churn do mês" />
         <StatTile icon={TrendingDown} label="Churn do mês" value={`${churnPct.toFixed(1)}%`} sublabel={`${cancelamentosMes} cancelamento(s)`} />
@@ -267,7 +320,7 @@ export default function AdminGestao360() {
           icon={AlertTriangle}
           label="MRR em risco"
           value={formatarMoeda(mrrEmRisco)}
-          sublabel={`${assinaturasEmRisco.length} assinatura(s) com engajamento baixo`}
+          sublabel={`${alunosEmRisco} aluno(s) com engajamento baixo`}
         />
       </div>
 
