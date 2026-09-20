@@ -1531,6 +1531,8 @@ export type Database = {
           ativo: boolean
           created_at: string
           descanso_padrao_seg: number
+          descricao_execucao: string | null
+          gif_url: string | null
           grupo_muscular: string
           id: string
           nome: string
@@ -1545,6 +1547,8 @@ export type Database = {
           ativo?: boolean
           created_at?: string
           descanso_padrao_seg?: number
+          descricao_execucao?: string | null
+          gif_url?: string | null
           grupo_muscular: string
           id?: string
           nome: string
@@ -1559,6 +1563,8 @@ export type Database = {
           ativo?: boolean
           created_at?: string
           descanso_padrao_seg?: number
+          descricao_execucao?: string | null
+          gif_url?: string | null
           grupo_muscular?: string
           id?: string
           nome?: string
@@ -2222,6 +2228,8 @@ export type Database = {
         Row: {
           created_at: string
           descanso_seg: number
+          descricao_execucao: string | null
+          gif_url: string | null
           grupo_muscular: string[]
           id: string
           modelo_id: string
@@ -2235,6 +2243,8 @@ export type Database = {
         Insert: {
           created_at?: string
           descanso_seg?: number
+          descricao_execucao?: string | null
+          gif_url?: string | null
           grupo_muscular?: string[]
           id?: string
           modelo_id: string
@@ -2248,6 +2258,8 @@ export type Database = {
         Update: {
           created_at?: string
           descanso_seg?: number
+          descricao_execucao?: string | null
+          gif_url?: string | null
           grupo_muscular?: string[]
           id?: string
           modelo_id?: string

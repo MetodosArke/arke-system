@@ -33,7 +33,16 @@ export default function AdminTreinos() {
 
   const [novoModeloTitulo, setNovoModeloTitulo] = useState("");
   const [modeloSelecionado, setModeloSelecionado] = useState<string | null>(null);
-  const [novoExercicio, setNovoExercicio] = useState({ nome_exercicio: "", series: "3", repeticoes: "12", descanso_seg: "60", observacoes: "", video_url: "" });
+  const [novoExercicio, setNovoExercicio] = useState({
+    nome_exercicio: "",
+    series: "3",
+    repeticoes: "12",
+    descanso_seg: "60",
+    observacoes: "",
+    video_url: "",
+    descricao_execucao: "",
+    gif_url: "",
+  });
   const [exercicioBibliotecaId, setExercicioBibliotecaId] = useState("");
 
   const { data: bibliotecaExercicios = [] } = useQuery({
@@ -41,7 +50,7 @@ export default function AdminTreinos() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("exercicios_biblioteca")
-        .select("id, nome, grupo_muscular, series_padrao, repeticoes_padrao, descanso_padrao_seg")
+        .select("id, nome, grupo_muscular, series_padrao, repeticoes_padrao, descanso_padrao_seg, video_url, descricao_execucao, gif_url")
         .order("grupo_muscular")
         .order("nome");
       if (error) throw error;
@@ -59,6 +68,9 @@ export default function AdminTreinos() {
       series: String(item.series_padrao),
       repeticoes: item.repeticoes_padrao,
       descanso_seg: String(item.descanso_padrao_seg),
+      video_url: item.video_url ?? "",
+      descricao_execucao: item.descricao_execucao ?? "",
+      gif_url: item.gif_url ?? "",
     }));
   };
 
@@ -220,11 +232,22 @@ export default function AdminTreinos() {
         descanso_seg: Number(novoExercicio.descanso_seg) || 60,
         observacoes: novoExercicio.observacoes || null,
         video_url: novoExercicio.video_url || null,
+        descricao_execucao: novoExercicio.descricao_execucao || null,
+        gif_url: novoExercicio.gif_url || null,
       });
       if (error) throw error;
     },
     onSuccess: () => {
-      setNovoExercicio({ nome_exercicio: "", series: "3", repeticoes: "12", descanso_seg: "60", observacoes: "", video_url: "" });
+      setNovoExercicio({
+        nome_exercicio: "",
+        series: "3",
+        repeticoes: "12",
+        descanso_seg: "60",
+        observacoes: "",
+        video_url: "",
+        descricao_execucao: "",
+        gif_url: "",
+      });
       setExercicioBibliotecaId("");
       void queryClient.invalidateQueries({ queryKey: ["modelo-treino-exercicios", modeloSelecionado] });
     },
@@ -371,10 +394,22 @@ export default function AdminTreinos() {
                     onChange={(e) => setNovoExercicio((p) => ({ ...p, descanso_seg: e.target.value }))}
                   />
                   <Input
-                    className="col-span-2 sm:col-span-4"
-                    placeholder="Link do vídeo de execução (opcional)"
+                    className="col-span-2 sm:col-span-2"
+                    placeholder="Vídeo ou link do YouTube (opcional)"
                     value={novoExercicio.video_url}
                     onChange={(e) => setNovoExercicio((p) => ({ ...p, video_url: e.target.value }))}
+                  />
+                  <Input
+                    className="col-span-2 sm:col-span-2"
+                    placeholder="GIF de execução (opcional)"
+                    value={novoExercicio.gif_url}
+                    onChange={(e) => setNovoExercicio((p) => ({ ...p, gif_url: e.target.value }))}
+                  />
+                  <Input
+                    className="col-span-2 sm:col-span-4"
+                    placeholder="Como executar (opcional)"
+                    value={novoExercicio.descricao_execucao}
+                    onChange={(e) => setNovoExercicio((p) => ({ ...p, descricao_execucao: e.target.value }))}
                   />
                 </div>
                 <Button

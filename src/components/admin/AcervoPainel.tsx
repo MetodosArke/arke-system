@@ -13,8 +13,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Pencil, Trash2, ArrowLeftRight, Lock, PlayCircle } from "lucide-react";
+import { Plus, Pencil, Trash2, ArrowLeftRight, Globe, PlayCircle, Copy } from "lucide-react";
 import type { Tables } from "@/integrations/supabase/types";
 
 type ExercicioBiblioteca = Tables<"exercicios_biblioteca">;
@@ -23,12 +24,15 @@ const GRUPOS_MUSCULARES = ["Peito", "Costas", "Quadríceps", "Isquiotibiais", "O
 
 const FORM_VAZIO = {
   id: "",
+  origemPadraoId: "", // quando preenchido, salvar cria uma cópia da academia em vez de editar o padrão ArkeFit
   nome: "",
   grupo_muscular: "Peito" as (typeof GRUPOS_MUSCULARES)[number],
   series_padrao: "3",
   repeticoes_padrao: "12",
   descanso_padrao_seg: "60",
   video_url: "",
+  descricao_execucao: "",
+  gif_url: "",
 };
 
 export function AcervoPainel() {
@@ -69,23 +73,30 @@ export function AcervoPainel() {
         repeticoes_padrao: form.repeticoes_padrao.trim() || "12",
         descanso_padrao_seg: Number(form.descanso_padrao_seg) || 60,
         video_url: form.video_url.trim() || null,
+        descricao_execucao: form.descricao_execucao.trim() || null,
+        gif_url: form.gif_url.trim() || null,
       };
-      if (form.id) {
+      // Editando um exercício próprio da academia: atualiza no lugar.
+      // Editando (ou clonando) um Padrão ArkeFit: nunca altera a linha
+      // global compartilhada com as outras academias — sempre cria uma
+      // cópia da própria organização, já com as mudanças aplicadas.
+      if (form.id && !form.origemPadraoId) {
         const { error } = await supabase.from("exercicios_biblioteca").update(payload).eq("id", form.id);
         if (error) throw error;
       } else {
         const { error } = await supabase
           .from("exercicios_biblioteca")
-          .insert({ ...payload, organization_id: organization.id, origem: "importado" });
+          .insert({ ...payload, organization_id: organization.id, origem: form.origemPadraoId ? "copiado_do_padrao" : "importado" });
         if (error) throw error;
       }
     },
     onSuccess: () => {
-      toast({ title: form.id ? "Exercício atualizado" : "Exercício adicionado" });
+      toast({ title: form.origemPadraoId ? "Cópia da academia criada" : form.id ? "Exercício atualizado" : "Exercício adicionado" });
       void queryClient.invalidateQueries({ queryKey: ["exercicios-biblioteca-acervo", organization?.id] });
       void queryClient.invalidateQueries({ queryKey: ["exercicios-biblioteca"] });
       setDialogAberto(false);
       setForm(FORM_VAZIO);
+      setDetalheId(null);
     },
     onError: (error: Error) => toast({ title: "Erro ao salvar", description: error.message, variant: "destructive" }),
   });
@@ -119,14 +130,18 @@ export function AcervoPainel() {
   });
 
   const abrirEdicao = (ex: ExercicioBiblioteca) => {
+    const ehPadrao = ex.organization_id === null;
     setForm({
       id: ex.id,
+      origemPadraoId: ehPadrao ? ex.id : "",
       nome: ex.nome,
       grupo_muscular: ex.grupo_muscular as (typeof GRUPOS_MUSCULARES)[number],
       series_padrao: String(ex.series_padrao),
       repeticoes_padrao: ex.repeticoes_padrao,
       descanso_padrao_seg: String(ex.descanso_padrao_seg),
       video_url: ex.video_url ?? "",
+      descricao_execucao: ex.descricao_execucao ?? "",
+      gif_url: ex.gif_url ?? "",
     });
     setDialogAberto(true);
   };
@@ -212,8 +227,9 @@ export function AcervoPainel() {
   return (
     <div className="space-y-4">
       <p className="text-sm text-muted-foreground">
-        Biblioteca de exercícios usada nas fichas de treino — combina os padrões do ArkeFit (mantidos pela
-        plataforma) com os exercícios próprios da academia (ex.: importados de um sistema antigo).
+        Biblioteca de exercícios usada nas fichas de treino — combina os padrões do ArkeFit (compartilhados com
+        todas as academias) com os exercícios próprios da academia. Clique em qualquer exercício para editar, adicionar
+        vídeo/GIF de execução e descrição — as mudanças aparecem para os alunos no app.
       </p>
 
       <Tabs defaultValue="biblioteca">
@@ -273,9 +289,12 @@ export function AcervoPainel() {
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-base flex items-center gap-1.5">
-                <Lock className="h-3.5 w-3.5" /> Padrão ArkeFit ({exerciciosPadrao.length})
+                <Globe className="h-3.5 w-3.5" /> Padrão ArkeFit ({exerciciosPadrao.length})
               </CardTitle>
-              <CardDescription>Mantidos pela plataforma, disponíveis pra todas as academias.</CardDescription>
+              <CardDescription>
+                Compartilhados com todas as academias. Clique para ver o detalhe — editar cria uma cópia só da sua
+                academia, sem afetar as outras.
+              </CardDescription>
             </CardHeader>
             <CardContent>
               <Table>
@@ -348,11 +367,11 @@ export function AcervoPainel() {
               <SheetHeader className="text-left">
                 <div className="flex items-start justify-between gap-2">
                   <SheetTitle>{detalhe.nome}</SheetTitle>
-                  {detalheEhDaOrg && (
-                    <div className="flex items-center gap-1 shrink-0">
-                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => abrirEdicao(detalhe)}>
-                        <Pencil className="h-4 w-4" />
-                      </Button>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => abrirEdicao(detalhe)} title={detalheEhDaOrg ? "Editar" : "Editar (cria cópia da academia)"}>
+                      {detalheEhDaOrg ? <Pencil className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                    </Button>
+                    {detalheEhDaOrg && (
                       <Button
                         variant="ghost"
                         size="icon"
@@ -361,8 +380,8 @@ export function AcervoPainel() {
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>
-                    </div>
-                  )}
+                    )}
+                  </div>
                 </div>
               </SheetHeader>
               <div className="mt-4 space-y-4">
@@ -372,7 +391,7 @@ export function AcervoPainel() {
                     <Badge variant={detalhe.ativo ? "default" : "secondary"}>{detalhe.ativo ? "Ativo" : "Inativo"}</Badge>
                   ) : (
                     <Badge variant="outline" className="gap-1">
-                      <Lock className="h-3 w-3" /> Padrão ArkeFit
+                      <Globe className="h-3 w-3" /> Padrão ArkeFit
                     </Badge>
                   )}
                 </div>
@@ -392,6 +411,21 @@ export function AcervoPainel() {
                   </div>
                 </div>
 
+                {detalhe.descricao_execucao && (
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-1">Como executar</p>
+                    <p className="text-sm whitespace-pre-wrap">{detalhe.descricao_execucao}</p>
+                  </div>
+                )}
+
+                {detalhe.gif_url && (
+                  <img
+                    src={detalhe.gif_url}
+                    alt={`Demonstração de execução: ${detalhe.nome}`}
+                    className="w-full rounded-lg border border-border"
+                  />
+                )}
+
                 {detalhe.video_url && (
                   <a
                     href={detalhe.video_url}
@@ -401,6 +435,13 @@ export function AcervoPainel() {
                   >
                     <PlayCircle className="h-4 w-4" /> Ver vídeo de execução
                   </a>
+                )}
+
+                {!detalheEhDaOrg && (
+                  <p className="text-xs text-muted-foreground">
+                    Este é um exercício padrão ArkeFit, compartilhado com todas as academias. Para editar, clique no
+                    ícone de cópia acima — isso cria uma versão só da sua academia, já com suas mudanças.
+                  </p>
                 )}
 
                 {detalheEhDaOrg && (
@@ -416,10 +457,16 @@ export function AcervoPainel() {
       </Sheet>
 
       <Dialog open={dialogAberto} onOpenChange={setDialogAberto}>
-        <DialogContent>
+        <DialogContent className="max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{form.id ? "Editar exercício" : "Novo exercício da academia"}</DialogTitle>
-            <DialogDescription>Fica disponível só na sua organização.</DialogDescription>
+            <DialogTitle>
+              {form.origemPadraoId ? "Criar cópia da academia" : form.id ? "Editar exercício" : "Novo exercício da academia"}
+            </DialogTitle>
+            <DialogDescription>
+              {form.origemPadraoId
+                ? "Este é um Padrão ArkeFit — salvar cria uma cópia editável só da sua academia, sem alterar o exercício das outras."
+                : "Fica disponível só na sua organização."}
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
             <div className="space-y-1.5">
@@ -443,9 +490,22 @@ export function AcervoPainel() {
                 </Select>
               </div>
               <div className="space-y-1.5">
-                <Label>Vídeo (opcional)</Label>
+                <Label>Vídeo ou link do YouTube (opcional)</Label>
                 <Input value={form.video_url} onChange={(e) => setForm((f) => ({ ...f, video_url: e.target.value }))} placeholder="https://..." />
               </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label>GIF de execução (opcional)</Label>
+              <Input value={form.gif_url} onChange={(e) => setForm((f) => ({ ...f, gif_url: e.target.value }))} placeholder="https://..." />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Descrição de como executar (opcional)</Label>
+              <Textarea
+                value={form.descricao_execucao}
+                onChange={(e) => setForm((f) => ({ ...f, descricao_execucao: e.target.value }))}
+                placeholder="Ex.: Mantenha as costas retas, desça até 90 graus e evite travar os joelhos no topo do movimento."
+                rows={3}
+              />
             </div>
             <div className="grid grid-cols-3 gap-3">
               <div className="space-y-1.5">
@@ -467,7 +527,7 @@ export function AcervoPainel() {
               Cancelar
             </Button>
             <Button onClick={() => salvar.mutate()} disabled={salvar.isPending}>
-              {salvar.isPending ? "Salvando..." : "Salvar"}
+              {salvar.isPending ? "Salvando..." : form.origemPadraoId ? "Criar cópia" : "Salvar"}
             </Button>
           </DialogFooter>
         </DialogContent>
