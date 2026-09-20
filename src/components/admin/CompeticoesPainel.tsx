@@ -13,7 +13,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Medal, Plus, Trash2, Pencil, Users, Crown } from "lucide-react";
+import { Plus, Trash2, Pencil, Users, Crown } from "lucide-react";
 import type { Tables } from "@/integrations/supabase/types";
 
 type Competicao = Tables<"competicoes">;
@@ -82,7 +82,7 @@ function RankingCompeticao({ competicaoId }: { competicaoId: string }) {
   );
 }
 
-export default function AdminCompeticoes() {
+export function CompeticoesPainel() {
   const { organization } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -232,12 +232,8 @@ export default function AdminCompeticoes() {
   const statusDe = (c: Competicao) => (c.data_inicio > hoje ? "Pendente" : c.data_fim < hoje ? "Encerrada" : "Ativa");
 
   return (
-    <div className="space-y-4 max-w-3xl mx-auto">
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
-          <Medal className="h-5 w-5 text-primary" />
-          <h1 className="text-xl font-bold">Competições</h1>
-        </div>
+    <div className="space-y-4">
+      <div className="flex items-center justify-end gap-2">
         <Button size="sm" onClick={abrirNovo}>
           <Plus className="h-4 w-4 mr-1.5" /> Nova Competição
         </Button>
