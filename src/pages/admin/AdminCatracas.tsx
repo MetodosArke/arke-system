@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -7,7 +8,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Switch } from "@/components/ui/switch";
 import {
   Select,
   SelectContent,
@@ -24,7 +24,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { DoorOpen, Plus, Copy, Power, PowerOff, ScrollText, Radio, Handshake, UserCheck } from "lucide-react";
+import { DoorOpen, Plus, Copy, Power, PowerOff, ScrollText, Radio, UserCheck, Settings } from "lucide-react";
 
 type Parceiro = "wellhub" | "totalpass";
 const PARCEIRO_LABEL: Record<Parceiro, string> = { wellhub: "Wellhub (Gympass)", totalpass: "TotalPass" };
@@ -143,24 +143,10 @@ export default function AdminCatracas() {
     }
   };
 
-  // Credenciais são dado sensível (api_key) — só o gestor as enxerga
-  // (mesma restrição do RLS). Para saber quais parceiros oferecer no
-  // check-in, qualquer staff usa a RPC listar_parceiros_externos_ativos,
-  // que não expõe api_key.
-  const { data: credenciaisParceiro = [] } = useQuery({
-    queryKey: ["admin-credenciais-parceiro", organization?.id],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("organizacao_credenciais_parceiro")
-        .select("id, parceiro, identificador, ativo")
-        .eq("organization_id", organization!.id)
-        .order("parceiro");
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!organization?.id && ehGestor,
-  });
-
+  // Para saber quais parceiros oferecer no check-in, qualquer staff usa a
+  // RPC listar_parceiros_externos_ativos (não expõe credenciais). O
+  // cadastro das credenciais em si fica em /admin/configuracoes/integracoes
+  // (restrito a gestor, mesma regra do RLS).
   const { data: parceirosAtivos = [] } = useQuery({
     queryKey: ["admin-parceiros-ativos", organization?.id],
     queryFn: async () => {
@@ -171,36 +157,6 @@ export default function AdminCatracas() {
       return (data ?? []).map((d) => d.parceiro as Parceiro);
     },
     enabled: !!organization?.id,
-  });
-
-  const salvarCredencial = useMutation({
-    mutationFn: async ({
-      parceiro,
-      identificador,
-      ativo,
-    }: {
-      parceiro: Parceiro;
-      identificador: string;
-      ativo: boolean;
-    }) => {
-      const { error } = await supabase.from("organizacao_credenciais_parceiro").upsert(
-        {
-          organization_id: organization!.id,
-          parceiro,
-          identificador: identificador.trim() || null,
-          ativo,
-        },
-        { onConflict: "organization_id,parceiro" }
-      );
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      toast({ title: "Parceiro atualizado!" });
-      void queryClient.invalidateQueries({ queryKey: ["admin-credenciais-parceiro", organization?.id] });
-      void queryClient.invalidateQueries({ queryKey: ["admin-parceiros-ativos", organization?.id] });
-    },
-    onError: (error: Error) =>
-      toast({ title: "Erro ao salvar parceiro", description: error.message, variant: "destructive" }),
   });
 
   const checkinParceiroExterno = useMutation({
@@ -360,10 +316,18 @@ export default function AdminCatracas() {
         </CardHeader>
         <CardContent className="space-y-3">
           {parceirosAtivos.length === 0 ? (
-            <p className="text-sm text-muted-foreground text-center py-2">
-              Nenhum parceiro habilitado ainda.{" "}
-              {ehGestor ? "Cadastre um abaixo." : "Peça ao gestor para cadastrar um parceiro."}
-            </p>
+            <div className="text-sm text-muted-foreground text-center py-2 space-y-2">
+              <p>Nenhum parceiro habilitado ainda.</p>
+              {ehGestor ? (
+                <Button asChild size="sm" variant="outline">
+                  <Link to="/admin/configuracoes/integracoes">
+                    <Settings className="h-3.5 w-3.5 mr-1.5" /> Cadastrar credenciais em Integrações
+                  </Link>
+                </Button>
+              ) : (
+                <p>Peça ao gestor para cadastrar um parceiro em Integrações.</p>
+              )}
+            </div>
           ) : (
             <>
               <div className="grid grid-cols-2 gap-2">
@@ -420,54 +384,6 @@ export default function AdminCatracas() {
           )}
         </CardContent>
       </Card>
-
-      {ehGestor && (
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base flex items-center gap-2">
-              <Handshake className="h-4 w-4" /> Parceiros (Wellhub / TotalPass)
-            </CardTitle>
-            <p className="text-xs text-muted-foreground">
-              Habilite os parceiros que a academia aceita. Sem integração automática com a API dos
-              parceiros ainda — a liberação é confirmada manualmente pela recepção a cada check-in.
-            </p>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            {(["wellhub", "totalpass"] as const).map((parceiro) => {
-              const credencial = credenciaisParceiro.find((c) => c.parceiro === parceiro);
-              return (
-                <div key={parceiro} className="flex items-center justify-between gap-2 rounded-lg border border-border p-3">
-                  <div className="min-w-0 flex-1">
-                    <p className="font-medium">{PARCEIRO_LABEL[parceiro]}</p>
-                    <Input
-                      className="mt-1.5 h-8 text-sm"
-                      defaultValue={credencial?.identificador ?? ""}
-                      placeholder="Identificador do estabelecimento (opcional)"
-                      onBlur={(e) =>
-                        salvarCredencial.mutate({
-                          parceiro,
-                          identificador: e.target.value,
-                          ativo: credencial?.ativo ?? false,
-                        })
-                      }
-                    />
-                  </div>
-                  <Switch
-                    checked={credencial?.ativo ?? false}
-                    onCheckedChange={(ativo) =>
-                      salvarCredencial.mutate({
-                        parceiro,
-                        identificador: credencial?.identificador ?? "",
-                        ativo,
-                      })
-                    }
-                  />
-                </div>
-              );
-            })}
-          </CardContent>
-        </Card>
-      )}
 
       <Card>
         <CardHeader className="pb-2">

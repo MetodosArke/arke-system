@@ -56,6 +56,7 @@ import AdminRetencao from "@/pages/admin/AdminRetencao";
 import AdminImportarAlunos from "@/pages/admin/AdminImportarAlunos";
 import AdminOnboarding from "@/pages/admin/AdminOnboarding";
 import AdminCatracas from "@/pages/admin/AdminCatracas";
+import AdminIntegracoes from "@/pages/admin/AdminIntegracoes";
 import AdminPerfil from "@/pages/admin/AdminPerfil";
 import AdminAgenda from "@/pages/admin/AdminAgenda";
 import AdminDesafios from "@/pages/admin/AdminDesafios";
@@ -236,6 +237,7 @@ const App = () => (
                 <Route path="retencao" element={<AdminRetencao />} />
                 <Route path="gestao-360" element={<AdminGestao360 />} />
                 <Route path="catracas" element={<AdminCatracas />} />
+                <Route path="configuracoes/integracoes" element={<AdminIntegracoes />} />
                 <Route path="organizacao" element={<AdminOrganizacao />} />
                 <Route path="perfil" element={<AdminPerfil />} />
                 <Route path="agenda" element={<AdminAgenda />} />
