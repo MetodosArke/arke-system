@@ -1902,6 +1902,112 @@ export type Database = {
           },
         ]
       }
+      importacoes_alunos: {
+        Row: {
+          arquivo_nome: string | null
+          created_at: string
+          criado_por: string | null
+          id: string
+          organization_id: string
+          status: string
+          total_linhas: number
+          updated_at: string
+        }
+        Insert: {
+          arquivo_nome?: string | null
+          created_at?: string
+          criado_por?: string | null
+          id?: string
+          organization_id: string
+          status?: string
+          total_linhas: number
+          updated_at?: string
+        }
+        Update: {
+          arquivo_nome?: string | null
+          created_at?: string
+          criado_por?: string | null
+          id?: string
+          organization_id?: string
+          status?: string
+          total_linhas?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "importacoes_alunos_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "org_churn_metrics"
+            referencedColumns: ["organization_id"]
+          },
+          {
+            foreignKeyName: "importacoes_alunos_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      importacoes_alunos_linhas: {
+        Row: {
+          dados: Json
+          id: string
+          importacao_id: string
+          mensagem: string | null
+          numero: number
+          organization_id: string
+          processado_em: string | null
+          status: string
+          user_id_criado: string | null
+        }
+        Insert: {
+          dados: Json
+          id?: string
+          importacao_id: string
+          mensagem?: string | null
+          numero: number
+          organization_id: string
+          processado_em?: string | null
+          status?: string
+          user_id_criado?: string | null
+        }
+        Update: {
+          dados?: Json
+          id?: string
+          importacao_id?: string
+          mensagem?: string | null
+          numero?: number
+          organization_id?: string
+          processado_em?: string | null
+          status?: string
+          user_id_criado?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "importacoes_alunos_linhas_importacao_id_fkey"
+            columns: ["importacao_id"]
+            isOneToOne: false
+            referencedRelation: "importacoes_alunos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "importacoes_alunos_linhas_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "org_churn_metrics"
+            referencedColumns: ["organization_id"]
+          },
+          {
+            foreignKeyName: "importacoes_alunos_linhas_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       lancamentos_financeiros: {
         Row: {
           categoria: string | null
@@ -3965,6 +4071,7 @@ export type Database = {
         }[]
       }
       capturar_snapshot_mrr: { Args: never; Returns: undefined }
+      cpf_valido: { Args: { _cpf: string }; Returns: boolean }
       dia_e_esperado_treino: {
         Args: { _aluno_id: string; _dias_descanso: number[]; _isodow: number }
         Returns: boolean
