@@ -1,6 +1,7 @@
 import Fastify from "fastify";
 import type { GatewayService } from "../core/gatewayService";
 import { registrarReceptorControlId, type OpcoesReceptorControlId } from "../receptores/controlid";
+import { registrarReceptorTopdata, type OpcoesReceptorTopdata } from "../receptores/topdata";
 import { logger } from "../logger";
 
 /**
@@ -41,13 +42,19 @@ export function criarServidorLocal(gateway: GatewayService, porta = 4570) {
  */
 export function criarServidorReceptor(
   gateway: GatewayService,
-  opcoes: { host?: string; porta?: number } & OpcoesReceptorControlId = {}
+  opcoes: { host?: string; porta?: number; modelo?: string } & OpcoesReceptorControlId &
+    OpcoesReceptorTopdata = {}
 ) {
   const host = opcoes.host ?? "0.0.0.0";
   const porta = opcoes.porta ?? 4571;
   const app = Fastify({ logger: false });
 
+  // As rotas dos dois fabricantes não colidem — Control iD usa os
+  // caminhos .fcgi que o próprio equipamento chama, e a ponte Topdata usa
+  // /topdata/*. Registrar ambas evita um segundo servidor e deixa uma
+  // academia com catracas de marcas diferentes funcionar sem ajuste.
   registrarReceptorControlId(app, gateway, opcoes);
+  registrarReceptorTopdata(app, gateway, opcoes);
 
   // Sonda de vida da própria porta do receptor: o técnico de instalação
   // precisa confirmar da rede que o gateway está alcançável, sem depender

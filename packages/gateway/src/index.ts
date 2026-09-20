@@ -38,11 +38,15 @@ async function main() {
   // na rede da academia a catraca não tem como validar nada, então uma
   // falha aqui derruba a inicialização em vez de virar aviso — subir o
   // gateway "quase funcionando" seria pior do que não subir.
-  const MODELOS_RECEPTOR = ["controlid"];
+  // Topdata entra aqui apesar de a DLL ser da ponte .NET: o que o gateway
+  // precisa abrir é a mesma porta de escuta, só que o cliente passa a ser
+  // a ponte em vez do equipamento.
+  const MODELOS_RECEPTOR = ["controlid", "topdata"];
   if (MODELOS_RECEPTOR.includes(config.modelo_catraca)) {
     const receptor = criarServidorReceptor(gateway, {
       host: config.escuta_host,
       porta: config.escuta_porta,
+      modelo: config.modelo_catraca,
     });
     await receptor.iniciar();
   }

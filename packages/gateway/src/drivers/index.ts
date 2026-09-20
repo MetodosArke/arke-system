@@ -3,7 +3,6 @@ import type { CatracaDriver } from "./CatracaDriver";
 import { MockDriver } from "./MockDriver";
 import { ReceptorDriver } from "./ReceptorDriver";
 import { HenryDriver } from "./HenryDriver";
-import { TopdataDriver } from "./TopdataDriver";
 import { DimepDriver } from "./DimepDriver";
 
 export type { CatracaDriver } from "./CatracaDriver";
@@ -18,10 +17,15 @@ export function criarDriver(config: Pick<GatewayConfig, "modelo_catraca" | "catr
     // foi removido em vez de mantido como stub que nunca funcionaria.
     case "controlid":
       return new ReceptorDriver("controlid");
+
+    // Topdata também é modelo de escuta, com uma camada a mais: quem fala
+    // com a catraca é a ponte .NET que possui a EasyInner.dll, porque a
+    // DLL é 32 bits, bloqueante e não thread-safe — incompatível com o
+    // event loop do Node. Ver src/receptores/topdata.ts.
+    case "topdata":
+      return new ReceptorDriver("topdata");
     case "henry":
       return new HenryDriver(config.catraca_ip, config.catraca_porta);
-    case "topdata":
-      return new TopdataDriver(config.catraca_ip, config.catraca_porta);
     case "dimep":
       return new DimepDriver(config.catraca_ip, config.catraca_porta);
     default: {
