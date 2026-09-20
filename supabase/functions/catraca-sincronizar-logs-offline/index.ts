@@ -17,6 +17,8 @@ const RESULTADOS_VALIDOS = new Set([
   "negado_inadimplente",
   "negado_nao_encontrado",
   "negado_catraca_inativa",
+  "negado_sem_agendamento",
+  "negado_falha_verificacao_agendamento",
 ]);
 
 type LogOffline = {
