@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { BarChart3, Download, FileText, FileSpreadsheet, TrendingUp, TrendingDown, Users, Activity } from "lucide-react";
+import { BarChart3, Download, FileText, FileSpreadsheet, TrendingUp, TrendingDown, Users, Activity, AlertTriangle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 function StatTile({
@@ -115,6 +115,20 @@ export default function AdminGestao360() {
     enabled: !!organization?.id,
   });
 
+  // MRR em risco — conecta a pontuação de engajamento (Etapa K/M) com a
+  // receita: quanto de MRR está em assinaturas de alunos com engajamento
+  // baixo, que sem intervenção tendem a virar cancelamento. Antes desta
+  // seção, Gestão 360° só olhava dinheiro, nunca engajamento.
+  const { data: engajamentoAlunos = [] } = useQuery({
+    queryKey: ["gestao360-engajamento", organization?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("obter_engajamento_alunos_organizacao");
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!organization?.id,
+  });
+
   const custoPorNivel = new Map(planosAtacado.map((p) => [p.id, Number(p.custo_mensal)]));
 
   const mrrBruto = assinaturasAtivas.reduce((acc, a) => acc + Number(a.valor_cobrado), 0);
@@ -133,6 +147,13 @@ export default function AdminGestao360() {
   const receitaLiquidaMes = pagamentosMes.reduce((acc, p) => acc + Number(p.valor_liquido_academia), 0);
 
   const constanciaPct = metrics?.constancia_pct_7d ?? 0;
+
+  const LIMITE_ENGAJAMENTO_BAIXO = 40;
+  const pontuacaoPorAluno = new Map(engajamentoAlunos.map((e) => [e.aluno_id, Number(e.pontuacao ?? 0)]));
+  const assinaturasEmRisco = assinaturasAtivas.filter(
+    (a) => (pontuacaoPorAluno.get(a.aluno_id) ?? 100) < LIMITE_ENGAJAMENTO_BAIXO
+  );
+  const mrrEmRisco = assinaturasEmRisco.reduce((acc, a) => acc + Number(a.valor_cobrado), 0);
 
   const nomeArquivoBase = `gestao-360-${organization?.slug ?? "academia"}-${new Date().toISOString().slice(0, 10)}`;
 
@@ -153,6 +174,8 @@ export default function AdminGestao360() {
       ["LTV estimado", ltv != null ? formatarMoeda(ltv) : "N/D (sem churn no período)"],
       ["Churn do mês", `${churnPct.toFixed(1)}%`],
       ["Frequência (constância 7 dias)", `${constanciaPct}%`],
+      ["MRR em risco (engajamento < 40)", formatarMoeda(mrrEmRisco)],
+      ["Assinaturas em risco", assinaturasEmRisco.length],
       ["Alunos ativos", alunosAtivos],
       ["Alunos totais na organização", totalAlunosOrg],
     ] as (string | number)[][];
@@ -240,6 +263,12 @@ export default function AdminGestao360() {
         <StatTile icon={TrendingUp} label="LTV estimado" value={ltv != null ? formatarMoeda(ltv) : "N/D"} sublabel="Baseado no churn do mês" />
         <StatTile icon={TrendingDown} label="Churn do mês" value={`${churnPct.toFixed(1)}%`} sublabel={`${cancelamentosMes} cancelamento(s)`} />
         <StatTile icon={Activity} label="Frequência (7 dias)" value={`${constanciaPct}%`} sublabel="Constância de treino" />
+        <StatTile
+          icon={AlertTriangle}
+          label="MRR em risco"
+          value={formatarMoeda(mrrEmRisco)}
+          sublabel={`${assinaturasEmRisco.length} assinatura(s) com engajamento baixo`}
+        />
       </div>
 
       <Card>

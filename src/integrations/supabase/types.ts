@@ -3573,32 +3573,6 @@ export type Database = {
           organization_id: string | null
           organization_nome: string | null
         }
-        Insert: {
-          alunos_fase_apex?: never
-          alunos_fase_base?: never
-          alunos_fase_legado?: never
-          alunos_fase_mapa?: never
-          alunos_fase_rota?: never
-          alunos_total?: never
-          assinaturas_ativas?: never
-          cancelamentos_mes_atual?: never
-          constancia_pct_7d?: never
-          organization_id?: string | null
-          organization_nome?: string | null
-        }
-        Update: {
-          alunos_fase_apex?: never
-          alunos_fase_base?: never
-          alunos_fase_legado?: never
-          alunos_fase_mapa?: never
-          alunos_fase_rota?: never
-          alunos_total?: never
-          assinaturas_ativas?: never
-          cancelamentos_mes_atual?: never
-          constancia_pct_7d?: never
-          organization_id?: string | null
-          organization_nome?: string | null
-        }
         Relationships: []
       }
     }
@@ -3670,6 +3644,7 @@ export type Database = {
       gerar_tarefas_acolhimento_elite: { Args: never; Returns: undefined }
       gerar_tarefas_ativacao_pendente: { Args: never; Returns: undefined }
       gerar_tarefas_barreira_rotina: { Args: never; Returns: undefined }
+      gerar_tarefas_engajamento_baixo: { Args: never; Returns: undefined }
       get_superadmin_organizacao_atividade: {
         Args: { _organization_id: string }
         Returns: {
@@ -3932,6 +3907,7 @@ export type Database = {
         | "outro"
         | "cobranca"
         | "acolhimento_elite"
+        | "engajamento_baixo"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -4155,6 +4131,7 @@ export const Constants = {
         "outro",
         "cobranca",
         "acolhimento_elite",
+        "engajamento_baixo",
       ],
     },
   },
