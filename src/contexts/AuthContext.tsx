@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { escolherVinculo } from "@/lib/vinculos";
 import type { User as SupabaseUser, Session } from "@supabase/supabase-js";
 import type { Enums } from "@/integrations/supabase/types";
 
@@ -122,15 +123,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const fetchRoles = async (userId: string) => {
-    const [{ data: globalRoles }, { data: membership }] = await Promise.all([
+    // Lista, não `.maybeSingle()`: quem tem vínculo ativo em duas organizações
+    // — gestor de uma academia e aluno de outra, professor em duas unidades —
+    // fazia a consulta falhar, e o app ficava sem organização nenhuma para
+    // essa pessoa. Cenário legítimo tratado como impossível.
+    const [{ data: globalRoles }, { data: vinculos }] = await Promise.all([
       supabase.from("user_roles").select("role").eq("user_id", userId),
       supabase
         .from("organization_members")
-        .select("role, organization_id, organizations ( id, nome, slug, tipo, especialidade_profissional, onboarding_completed )")
+        .select("role, organization_id, created_at, organizations ( id, nome, slug, tipo, especialidade_profissional, onboarding_completed )")
         .eq("user_id", userId)
-        .eq("status", "active")
-        .maybeSingle(),
+        .eq("status", "active"),
     ]);
+
+    const membership = escolherVinculo(vinculos ?? []);
 
     setRoles((globalRoles || []).map((r) => r.role));
 
