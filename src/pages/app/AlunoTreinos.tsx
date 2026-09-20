@@ -135,6 +135,7 @@ export default function AlunoTreinos() {
     },
     onSuccess: (todosConcluidos) => {
       void queryClient.invalidateQueries({ queryKey: ["aluno-registro-hoje", alunoId] });
+      void queryClient.invalidateQueries({ queryKey: ["aluno-treino-streak", alunoId] });
       if (todosConcluidos) {
         toast({ title: "Treino concluído!", description: "Bom trabalho hoje." });
       }

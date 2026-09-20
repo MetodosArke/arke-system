@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -18,6 +18,8 @@ import {
   Minus,
   Plus,
   Sparkles,
+  CheckCircle2,
+  Flame,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { RegistrarAlertaCard } from "@/components/aluno/RegistrarAlertaCard";
@@ -101,6 +103,55 @@ export default function AlunoDashboard() {
     },
     enabled: !!alunoId,
   });
+
+  // Mesma queryKey usada em AlunoTreinos.tsx — ao concluir o treino lá, a
+  // invalidação dessa key já atualiza este card na volta pro dashboard,
+  // sem precisar de nenhum mecanismo extra de sincronização.
+  const { data: registroTreinoHoje } = useQuery({
+    queryKey: ["aluno-registro-hoje", alunoId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("registro_treino")
+        .select("id, concluido")
+        .eq("aluno_id", alunoId!)
+        .eq("data", HOJE)
+        .maybeSingle();
+      return data;
+    },
+    enabled: !!alunoId,
+  });
+
+  const { data: diasTreinoConcluido = [] } = useQuery({
+    queryKey: ["aluno-treino-streak", alunoId],
+    queryFn: async () => {
+      const desde = new Date();
+      desde.setDate(desde.getDate() - 90);
+      const { data, error } = await supabase
+        .from("registro_treino")
+        .select("data")
+        .eq("aluno_id", alunoId!)
+        .eq("concluido", true)
+        .gte("data", desde.toISOString().slice(0, 10))
+        .order("data", { ascending: false });
+      if (error) throw error;
+      return (data ?? []).map((r) => r.data);
+    },
+    enabled: !!alunoId,
+  });
+
+  // Sequência de dias com treino concluído. Se hoje ainda não foi
+  // concluído, conta a partir de ontem — não zera o streak no meio do dia.
+  const treinoStreak = useMemo(() => {
+    const dias = new Set(diasTreinoConcluido);
+    const cursor = new Date();
+    if (!dias.has(HOJE)) cursor.setDate(cursor.getDate() - 1);
+    let streak = 0;
+    while (dias.has(cursor.toISOString().slice(0, 10))) {
+      streak += 1;
+      cursor.setDate(cursor.getDate() - 1);
+    }
+    return streak;
+  }, [diasTreinoConcluido]);
 
   const { data: dietaAtiva } = useQuery({
     queryKey: ["aluno-dieta-ativa", alunoId],
@@ -228,9 +279,17 @@ export default function AlunoDashboard() {
           onClick={() => navigate("/app/treinos")}
           className="text-left rounded-xl border border-border bg-card p-3 sm:p-4 hover:bg-accent/50 transition-colors"
         >
-          <Dumbbell className="h-5 w-5 text-primary mb-1.5" />
+          <div className="flex items-center justify-between mb-1.5">
+            <Dumbbell className="h-5 w-5 text-primary" />
+            {registroTreinoHoje?.concluido && <CheckCircle2 className="h-4 w-4 text-emerald-500" />}
+          </div>
           <p className="text-sm font-semibold">Treino de Hoje</p>
           <p className="text-xs text-muted-foreground truncate">{treinoAtivo?.titulo ?? "Nenhum treino ativo"}</p>
+          {treinoStreak > 0 && (
+            <p className="flex items-center gap-1 text-xs font-medium text-orange-500 mt-1">
+              <Flame className="h-3.5 w-3.5" /> {treinoStreak} dia{treinoStreak > 1 ? "s" : ""} seguido{treinoStreak > 1 ? "s" : ""}
+            </p>
+          )}
         </button>
 
         <button
