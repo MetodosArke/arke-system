@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { BarChart3, Download, FileText, FileSpreadsheet, TrendingUp, TrendingDown, Users, Activity, AlertTriangle } from "lucide-react";
+import { BarChart3, Download, FileText, FileSpreadsheet, TrendingUp, TrendingDown, Users, Activity, AlertTriangle, Filter, CalendarDays, DoorOpen } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 function StatTile({
@@ -197,6 +197,43 @@ export default function AdminGestao360() {
     enabled: !!organization?.id,
   });
 
+  // Funil de conversão — topo de funil do cross-sell do Método ARKE,
+  // ainda sem nenhuma tela antes desta seção.
+  const { data: funilConversao } = useQuery({
+    queryKey: ["gestao360-funil", organization?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("obter_funil_conversao_organizacao");
+      if (error) throw error;
+      return data?.[0] ?? null;
+    },
+    enabled: !!organization?.id,
+  });
+
+  // Ocupação de turmas — só relevante pra Studio (capacidade fixa por sessão).
+  const ehStudio = organization?.tipo === "studio";
+  const { data: ocupacaoTurmas } = useQuery({
+    queryKey: ["gestao360-ocupacao-turmas", organization?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("obter_ocupacao_turmas_organizacao");
+      if (error) throw error;
+      return data?.[0] ?? null;
+    },
+    enabled: !!organization?.id && ehStudio,
+  });
+
+  // Frequência real via catraca — mais confiável que auto-registro de
+  // treino quando a academia tem controle de acesso; só aparece se
+  // houver catraca ativa configurada.
+  const { data: frequenciaCatraca } = useQuery({
+    queryKey: ["gestao360-frequencia-catraca", organization?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("obter_frequencia_catraca_organizacao");
+      if (error) throw error;
+      return data?.[0] ?? null;
+    },
+    enabled: !!organization?.id,
+  });
+
   const custoPorNivel = new Map(planosAtacado.map((p) => [p.id, Number(p.custo_mensal)]));
 
   const mrrArke = Number(metrics?.mrr_arke ?? 0);
@@ -269,6 +306,29 @@ export default function AdminGestao360() {
       ["Alunos em risco", alunosEmRisco],
       ["Alunos ativos", alunosAtivos],
       ["Alunos totais na organização", totalAlunosOrg],
+      [],
+      ["Funil de Conversão"],
+      ["Alunos matriculados", funilConversao?.alunos_matriculados ?? 0],
+      ["Aderiram ao Método ARKE", funilConversao?.alunos_aderiram_metodo ?? 0],
+      ["Completaram a anamnese M.A.P.A.®", funilConversao?.alunos_anamnese_completa ?? 0],
+      ["Avançaram além de M.A.P.A.®", funilConversao?.alunos_pos_mapa ?? 0],
+      [],
+      ["Frequência Real (Catraca)"],
+      [
+        "Frequência via catraca (7 dias)",
+        frequenciaCatraca?.tem_catraca_ativa ? `${frequenciaCatraca.frequencia_catraca_pct_7d}%` : "Sem catraca ativa",
+      ],
+      ...(ehStudio
+        ? ([
+            [],
+            ["Ocupação de Turmas (mês)"],
+            ["Turmas ativas", ocupacaoTurmas?.turmas_ativas ?? 0],
+            ["Vagas ofertadas", ocupacaoTurmas?.vagas_ofertadas_mes ?? 0],
+            ["Agendamentos confirmados", ocupacaoTurmas?.agendamentos_mes ?? 0],
+            ["Taxa de ocupação", `${ocupacaoTurmas?.taxa_ocupacao_pct ?? 0}%`],
+            ["Em lista de espera", ocupacaoTurmas?.lista_espera_mes ?? 0],
+          ] as (string | number)[][])
+        : []),
     ] as (string | number)[][];
   };
 
@@ -365,6 +425,14 @@ export default function AdminGestao360() {
           value={formatarMoeda(mrrEmRisco)}
           sublabel={`${alunosEmRisco} aluno(s) com engajamento baixo`}
         />
+        {frequenciaCatraca?.tem_catraca_ativa && (
+          <StatTile
+            icon={DoorOpen}
+            label="Frequência (catraca, 7 dias)"
+            value={`${frequenciaCatraca.frequencia_catraca_pct_7d}%`}
+            sublabel="Mais confiável que auto-registro"
+          />
+        )}
       </div>
 
       <Card>
@@ -402,6 +470,60 @@ export default function AdminGestao360() {
           </div>
         </CardContent>
       </Card>
+
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base flex items-center gap-2">
+            <Filter className="h-4 w-4 text-primary" /> Funil de Conversão
+          </CardTitle>
+          <p className="text-xs text-muted-foreground">Do matriculado na academia até avançar na jornada do Método ARKE.</p>
+        </CardHeader>
+        <CardContent className="space-y-2 text-sm">
+          <div className="flex items-center justify-between border-b border-border pb-2">
+            <span>Alunos matriculados</span>
+            <span className="font-semibold">{funilConversao?.alunos_matriculados ?? 0}</span>
+          </div>
+          <div className="flex items-center justify-between border-b border-border pb-2">
+            <span>Aderiram ao Método ARKE</span>
+            <span className="font-semibold">{funilConversao?.alunos_aderiram_metodo ?? 0}</span>
+          </div>
+          <div className="flex items-center justify-between border-b border-border pb-2">
+            <span>Completaram a anamnese M.A.P.A.®</span>
+            <span className="font-semibold">{funilConversao?.alunos_anamnese_completa ?? 0}</span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span>Avançaram além de M.A.P.A.®</span>
+            <span className="font-semibold">{funilConversao?.alunos_pos_mapa ?? 0}</span>
+          </div>
+        </CardContent>
+      </Card>
+
+      {ehStudio && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base flex items-center gap-2">
+              <CalendarDays className="h-4 w-4 text-primary" /> Ocupação de Turmas — mês corrente
+            </CardTitle>
+            <p className="text-xs text-muted-foreground">
+              Taxa sobre as sessões (turma + data) que tiveram ao menos um agendamento no mês.
+            </p>
+          </CardHeader>
+          <CardContent className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-sm">
+            <div className="rounded-lg bg-muted/40 p-3">
+              <p className="text-xs text-muted-foreground">Turmas ativas</p>
+              <p className="text-lg font-bold">{ocupacaoTurmas?.turmas_ativas ?? 0}</p>
+            </div>
+            <div className="rounded-lg bg-muted/40 p-3">
+              <p className="text-xs text-muted-foreground">Taxa de ocupação</p>
+              <p className="text-lg font-bold">{ocupacaoTurmas?.taxa_ocupacao_pct ?? 0}%</p>
+            </div>
+            <div className="rounded-lg bg-muted/40 p-3">
+              <p className="text-xs text-muted-foreground">Em lista de espera</p>
+              <p className="text-lg font-bold">{ocupacaoTurmas?.lista_espera_mes ?? 0}</p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

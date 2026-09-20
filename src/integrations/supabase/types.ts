@@ -3758,6 +3758,32 @@ export type Database = {
           treinos_concluidos: number
         }[]
       }
+      obter_frequencia_catraca_organizacao: {
+        Args: never
+        Returns: {
+          frequencia_catraca_pct_7d: number
+          tem_catraca_ativa: boolean
+        }[]
+      }
+      obter_funil_conversao_organizacao: {
+        Args: never
+        Returns: {
+          alunos_aderiram_metodo: number
+          alunos_anamnese_completa: number
+          alunos_matriculados: number
+          alunos_pos_mapa: number
+        }[]
+      }
+      obter_ocupacao_turmas_organizacao: {
+        Args: never
+        Returns: {
+          agendamentos_mes: number
+          lista_espera_mes: number
+          taxa_ocupacao_pct: number
+          turmas_ativas: number
+          vagas_ofertadas_mes: number
+        }[]
+      }
       obter_organizacao_publica: {
         Args: { _slug: string }
         Returns: {
