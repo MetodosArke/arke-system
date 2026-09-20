@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { RegistrarAlertaCard } from "@/components/aluno/RegistrarAlertaCard";
+import PontuacaoEngajamento from "@/components/aluno/PontuacaoEngajamento";
 import type { Enums } from "@/integrations/supabase/types";
 
 type CheckinStatus = Enums<"checkin_status">;
@@ -319,6 +320,8 @@ export default function AlunoDashboard() {
           <p className="text-xs text-muted-foreground">Dor ou problema de rotina</p>
         </button>
       </div>
+
+      <PontuacaoEngajamento />
 
       <Card>
         <CardHeader className="pb-2">

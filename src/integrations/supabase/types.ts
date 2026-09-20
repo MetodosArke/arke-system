@@ -382,6 +382,55 @@ export type Database = {
           },
         ]
       }
+      aluno_rotina_semanal: {
+        Row: {
+          aluno_id: string
+          dia_semana: number
+          id: string
+          modalidade: string | null
+          organization_id: string
+          updated_at: string
+        }
+        Insert: {
+          aluno_id: string
+          dia_semana: number
+          id?: string
+          modalidade?: string | null
+          organization_id: string
+          updated_at?: string
+        }
+        Update: {
+          aluno_id?: string
+          dia_semana?: number
+          id?: string
+          modalidade?: string | null
+          organization_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "aluno_rotina_semanal_aluno_id_fkey"
+            columns: ["aluno_id"]
+            isOneToOne: false
+            referencedRelation: "alunos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "aluno_rotina_semanal_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "org_churn_metrics"
+            referencedColumns: ["organization_id"]
+          },
+          {
+            foreignKeyName: "aluno_rotina_semanal_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       aluno_valores: {
         Row: {
           aluno_id: string
@@ -3714,6 +3763,18 @@ export type Database = {
           avatar_url: string
           full_name: string
           user_id: string
+        }[]
+      }
+      obter_pontuacao_engajamento_mensal: {
+        Args: never
+        Returns: {
+          adesao_dieta_media: number
+          checkins_registrados: number
+          dias_meta_agua_batida: number
+          dias_no_mes: number
+          media_organizacao: number
+          pontuacao_propria: number
+          treinos_concluidos: number
         }[]
       }
       obter_proximo_evento_aluno: {
