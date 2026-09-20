@@ -81,6 +81,10 @@ export default function AdminDietas() {
   const [alimentoBibliotecaId, setAlimentoBibliotecaId] = useState("");
   const [importarPdfAberto, setImportarPdfAberto] = useState(false);
   const [dietaExtraida, setDietaExtraida] = useState<DietaExtraidaPdf | null>(null);
+  // "modelo": salva na Biblioteca para reaproveitar depois; "aluno": publica
+  // direto no prontuário do aluno já selecionado na aba "Publicar para
+  // Aluno", sem passar pela Biblioteca.
+  const [importarPdfModo, setImportarPdfModo] = useState<"modelo" | "aluno">("modelo");
 
   const { data: bibliotecaAlimentos = [] } = useQuery({
     queryKey: ["alimentos-biblioteca"],
@@ -320,6 +324,31 @@ export default function AdminDietas() {
       if (!organization) throw new Error("Organização não encontrada");
       if (!dietaExtraida || dietaExtraida.refeicoes.length === 0) throw new Error("Nada para importar");
       const titulo = novoModeloTitulo.trim() || dietaExtraida.titulo_dieta || "Dieta importada de PDF";
+
+      if (importarPdfModo === "aluno") {
+        if (!alunoPublicar) throw new Error("Selecione o aluno antes de importar.");
+        const snapshot = dietaExtraida.refeicoes.map((r, index) => ({
+          ordem: index + 1,
+          nome_refeicao: r.nome || `Refeição ${index + 1}`,
+          horario_sugerido: r.horario || null,
+          itens: r.itens.map((i) => `${i.alimento} — ${i.quantidade}`).join("\n") || null,
+          itens_estruturados: r.itens,
+          calorias_kcal: null,
+          proteinas_g: null,
+          carboidratos_g: null,
+          gorduras_g: null,
+        }));
+        const { error } = await supabase.from("dietas").insert({
+          organization_id: organization.id,
+          aluno_id: alunoPublicar,
+          titulo,
+          snapshot_conteudo: snapshot as unknown as Json,
+          observacoes_gerais: dietaExtraida.observacoes_gerais || null,
+        });
+        if (error) throw error;
+        return null;
+      }
+
       const { data: modelo, error: modeloError } = await supabase
         .from("modelos_dieta")
         .insert({
@@ -344,14 +373,25 @@ export default function AdminDietas() {
       return modelo.id;
     },
     onSuccess: (id) => {
-      toast({ title: "Modelo importado!", description: "Revise as refeições e ajuste o que for preciso antes de publicar." });
       setNovoModeloTitulo("");
       setDietaExtraida(null);
       setImportarPdfAberto(false);
+      if (importarPdfModo === "aluno") {
+        toast({ title: "Dieta publicada!", description: "O PDF foi importado e já está disponível para o aluno." });
+        void queryClient.invalidateQueries({ queryKey: ["dietas-historico", alunoPublicar] });
+        navigate("/admin");
+        return;
+      }
+      toast({ title: "Modelo importado!", description: "Revise as refeições e ajuste o que for preciso antes de publicar." });
       setModeloSelecionado(id);
       void queryClient.invalidateQueries({ queryKey: ["modelos-dieta", organization?.id] });
     },
-    onError: (error: Error) => toast({ title: "Erro ao salvar modelo importado", description: error.message, variant: "destructive" }),
+    onError: (error: Error) =>
+      toast({
+        title: importarPdfModo === "aluno" ? "Erro ao publicar dieta" : "Erro ao salvar modelo importado",
+        description: error.message,
+        variant: "destructive",
+      }),
   });
 
   const removerRefeicao = useMutation({
@@ -408,7 +448,13 @@ export default function AdminDietas() {
                 <Plus className="h-4 w-4 mr-1" /> Criar
               </Button>
               {PARSER_DIETA_PDF_HABILITADO && (
-                <Button variant="outline" onClick={() => setImportarPdfAberto(true)}>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setImportarPdfModo("modelo");
+                    setImportarPdfAberto(true);
+                  }}
+                >
                   <FileUp className="h-4 w-4 mr-1" /> Importar de PDF
                 </Button>
               )}
@@ -597,6 +643,26 @@ export default function AdminDietas() {
                 </div>
               </div>
 
+              {PARSER_DIETA_PDF_HABILITADO && (
+                <div className="pt-1">
+                  <p className="text-xs text-muted-foreground mb-1.5">
+                    Ou pule o modelo e publique um PDF direto para este aluno:
+                  </p>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={!alunoPublicar}
+                    onClick={() => {
+                      setImportarPdfModo("aluno");
+                      setImportarPdfAberto(true);
+                    }}
+                  >
+                    <FileUp className="h-4 w-4 mr-1" /> Importar de PDF para este aluno
+                  </Button>
+                </div>
+              )}
+
               {modeloCarregadoId && (
                 <div className="space-y-1.5 pt-1 border-t border-border">
                   <p className="text-xs font-semibold text-muted-foreground pt-2">Ficha carregada</p>
@@ -730,14 +796,17 @@ export default function AdminDietas() {
       >
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>Importar dieta de PDF</DialogTitle>
+            <DialogTitle>
+              {importarPdfModo === "aluno" ? "Importar PDF direto para o aluno" : "Importar dieta de PDF"}
+            </DialogTitle>
           </DialogHeader>
 
           {!dietaExtraida ? (
             <div className="space-y-3">
               <p className="text-sm text-muted-foreground">
-                Envie um PDF com um plano alimentar (de outro sistema ou digitado livremente). A extração
-                é automática (Google Gemini) — revise sempre as refeições antes de publicar para um aluno.
+                {importarPdfModo === "aluno"
+                  ? "Envie um PDF com um plano alimentar — ele será publicado direto no prontuário do aluno selecionado, sem passar pela Biblioteca de Modelos."
+                  : "Envie um PDF com um plano alimentar (de outro sistema ou digitado livremente). A extração é automática (Google Gemini) — revise sempre as refeições antes de publicar para um aluno."}
               </p>
               <Input
                 type="file"
@@ -758,7 +827,7 @@ export default function AdminDietas() {
           ) : (
             <div className="space-y-3">
               <div className="space-y-1.5">
-                <Label>Título do modelo</Label>
+                <Label>{importarPdfModo === "aluno" ? "Título da dieta" : "Título do modelo"}</Label>
                 <Input
                   placeholder="Ex.: Plano importado — Fase 1"
                   value={novoModeloTitulo}
@@ -774,7 +843,10 @@ export default function AdminDietas() {
                 </div>
               )}
               <p className="text-xs text-muted-foreground">
-                {dietaExtraida.refeicoes.length} refeiç{dietaExtraida.refeicoes.length === 1 ? "ão encontrada" : "ões encontradas"}. Revise antes de salvar — você poderá editar cada refeição depois na Biblioteca.
+                {dietaExtraida.refeicoes.length} refeiç{dietaExtraida.refeicoes.length === 1 ? "ão encontrada" : "ões encontradas"}.{" "}
+                {importarPdfModo === "aluno"
+                  ? "Revise antes de publicar — a dieta publicada é uma versão travada (snapshot), não editável depois."
+                  : "Revise antes de salvar — você poderá editar cada refeição depois na Biblioteca."}
               </p>
               <div className="max-h-72 overflow-y-auto rounded-md border border-border divide-y divide-border">
                 {dietaExtraida.refeicoes.map((r, i) => (
@@ -809,7 +881,11 @@ export default function AdminDietas() {
               disabled={!dietaExtraida || confirmarImportacaoPdf.isPending}
               onClick={() => confirmarImportacaoPdf.mutate()}
             >
-              {confirmarImportacaoPdf.isPending ? "Salvando..." : "Salvar modelo"}
+              {confirmarImportacaoPdf.isPending
+                ? "Salvando..."
+                : importarPdfModo === "aluno"
+                  ? "Publicar para o aluno"
+                  : "Salvar modelo"}
             </Button>
           </DialogFooter>
         </DialogContent>
