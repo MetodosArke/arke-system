@@ -98,9 +98,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setFaseJornada(aluno.fase_jornada);
     setMetodoArkeAtivo(aluno.metodo_arke_status === "ativo");
 
-    // M.A.P.A.®: registra o 1º acesso (dispara a automação de "48h sem 1º acesso" a não gerar tarefa)
+    // M.A.P.A.®: registra o 1º acesso, para a automação de "48h sem 1º
+    // acesso" não abrir tarefa de ativação para quem já entrou.
+    //
+    // Via RPC, e não UPDATE direto: o aluno tem apenas SELECT na policy de
+    // `alunos` (escrita é da equipe), então o update daqui era silenciosamente
+    // descartado pelo RLS e o campo nunca era gravado. O erro é checado —
+    // era justamente o descarte que escondia o defeito.
     if (!aluno.primeiro_acesso_em) {
-      void supabase.from("alunos").update({ primeiro_acesso_em: new Date().toISOString() }).eq("id", aluno.id);
+      const { error: primeiroAcessoError } = await supabase.rpc("registrar_primeiro_acesso_aluno");
+      if (primeiroAcessoError) {
+        console.error("Falha ao registrar o primeiro acesso do aluno", primeiroAcessoError);
+      }
     }
 
     const { data: anamnese } = await supabase

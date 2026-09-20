@@ -11,10 +11,11 @@ import { Separator } from "@/components/ui/separator";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dumbbell, UtensilsCrossed, Phone, Cake, Ruler, ClipboardList, AlertTriangle, Printer, MessageCircle, Wallet } from "lucide-react";
+import { Dumbbell, UtensilsCrossed, Phone, Cake, Ruler, ClipboardList, AlertTriangle, Printer, MessageCircle, Wallet, FlaskConical } from "lucide-react";
 import { ImprimirTreinoDialog, type ExercicioSnapshotImpressao } from "@/components/admin/ImprimirTreinoDialog";
 import { Bloco, formatarData } from "@/components/admin/perfilSheetHelpers";
 import { ChatPanel } from "@/components/chat/ChatPanel";
+import { TrialMetodoArke } from "@/components/admin/TrialMetodoArke";
 import { useToast } from "@/hooks/use-toast";
 
 const PERIODICIDADE_LABEL: Record<string, string> = {
@@ -50,6 +51,7 @@ const ASSINATURA_LABEL: Record<string, string> = {
   ativa: "Ativa",
   atrasada: "Atrasada",
   cancelada: "Cancelada",
+  trial: "Trial",
 };
 
 const CHECKIN_LABEL: Record<string, string> = {
@@ -126,7 +128,7 @@ export function AlunoPerfilSheet({
         supabase.from("profiles").select("full_name, phone").eq("user_id", aluno.user_id).maybeSingle(),
         supabase
           .from("aluno_assinaturas")
-          .select("status, valor_cobrado, fatura_pendente_url")
+          .select("status, valor_cobrado, fatura_pendente_url, trial_fim")
           .eq("aluno_id", aluno.id)
           .maybeSingle(),
         supabase
@@ -424,6 +426,15 @@ export function AlunoPerfilSheet({
                 <p className="text-sm">
                   {perfil.dietaAtiva ? perfil.dietaAtiva.titulo : <span className="text-muted-foreground">nenhuma ativa</span>}
                 </p>
+              </Bloco>
+
+              <Bloco titulo="Método ARKE" icon={FlaskConical}>
+                <TrialMetodoArke
+                  alunoId={perfil.aluno.id}
+                  emTrial={perfil.assinatura?.status === "trial"}
+                  trialFim={perfil.assinatura?.trial_fim ?? null}
+                  nivelAtual={perfil.aluno.nivel_atacado}
+                />
               </Bloco>
 
               <Bloco titulo="Plano da Academia" icon={Wallet}>
