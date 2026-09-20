@@ -36,6 +36,8 @@ interface ExercicioSnapshot {
   descanso_seg: number;
   observacoes: string | null;
   video_url: string | null;
+  descricao_execucao: string | null;
+  gif_url: string | null;
 }
 
 interface DetalheExecucao {
@@ -263,6 +265,16 @@ export default function AlunoTreinos() {
                           <Badge variant="secondary">{ex.descanso_seg}s descanso</Badge>
                         </div>
                         {ex.observacoes && <p className="text-xs text-muted-foreground mt-1">{ex.observacoes}</p>}
+                        {ex.descricao_execucao && (
+                          <p className="text-xs text-muted-foreground mt-1 whitespace-pre-wrap">{ex.descricao_execucao}</p>
+                        )}
+                        {ex.gif_url && (
+                          <img
+                            src={ex.gif_url}
+                            alt={`Demonstração de execução: ${ex.nome_exercicio}`}
+                            className="w-full max-w-xs rounded-lg border border-border mt-2"
+                          />
+                        )}
 
                         <div className="flex items-center gap-2 mt-2">
                           <Input
