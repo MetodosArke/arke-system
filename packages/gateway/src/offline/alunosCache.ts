@@ -38,6 +38,15 @@ export class AlunosCache {
     return doc ?? null;
   }
 
+  /**
+   * Busca pelo número do usuário dentro do equipamento — o caminho da
+   * biometria, onde a catraca identifica localmente e informa só o id.
+   */
+  async buscarPorIdentificador(identificador: string): Promise<AlunoCache | null> {
+    const doc = await this.db.findOne({ identificador_catraca: identificador });
+    return doc ?? null;
+  }
+
   async contar(): Promise<number> {
     return this.db.count({});
   }

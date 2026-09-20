@@ -16,7 +16,14 @@ const somenteDigitos = (valor: string) => valor.replace(/\D/g, "");
 
 type ValidarAcessoPayload = {
   device_token: string;
-  cpf: string;
+  /** Caminho de quem digita o documento no teclado da catraca. */
+  cpf?: string;
+  /**
+   * Caminho da biometria. A digital é comparada DENTRO do equipamento
+   * (1:N local) e o que chega aqui é o número do usuário no aparelho —
+   * nenhum dado biométrico trafega para decidir acesso.
+   */
+  identificador_catraca?: string;
 };
 
 // ARKE® Gateway Local — validação de acesso de catracas.
@@ -47,9 +54,17 @@ Deno.serve(async (req: Request) => {
     const payload: Partial<ValidarAcessoPayload> = await req.json();
     const deviceToken = payload.device_token?.trim();
     const cpf = payload.cpf ? somenteDigitos(payload.cpf) : "";
+    const identificador = payload.identificador_catraca?.trim() ?? "";
 
     if (!deviceToken) return jsonResponse({ error: "device_token é obrigatório." }, 400);
-    if (!cpf) return jsonResponse({ error: "cpf é obrigatório." }, 400);
+    if (!cpf && !identificador) {
+      return jsonResponse({ error: "Informe cpf ou identificador_catraca." }, 400);
+    }
+
+    // Para os logs de acesso: quando a identificação veio da biometria não
+    // existe CPF vindo do equipamento. Guardar o identificador prefixado
+    // mantém a linha rastreável em vez de gravar string vazia.
+    const credencialParaLog = cpf || `id:${identificador}`;
 
     const { data: catraca, error: catracaError } = await admin
       .from("organizacao_catracas")
@@ -68,36 +83,60 @@ Deno.serve(async (req: Request) => {
       await admin.from("acessos_catraca_logs").insert({
         organization_id: catraca.organization_id,
         catraca_id: catraca.id,
-        cpf_consultado: cpf,
+        cpf_consultado: credencialParaLog,
         resultado: "negado_catraca_inativa",
       });
       return jsonResponse({ liberado: false, motivo: "Dispositivo inativo." });
     }
 
-    const { data: profile } = await admin
-      .from("profiles")
-      .select("user_id, full_name")
-      .eq("cpf", cpf)
-      .maybeSingle();
+    // Dois caminhos de identificação, sempre presos à organização da
+    // catraca: o identificador é único por organização, nunca global —
+    // equipamentos de academias diferentes numeram usuários a partir do 1
+    // e colidiriam entre si.
+    let aluno: { id: string; user_id: string | null } | null = null;
 
-    const { data: aluno } = profile
-      ? await admin
+    if (identificador) {
+      const { data } = await admin
+        .from("alunos")
+        .select("id, user_id")
+        .eq("organization_id", catraca.organization_id)
+        .eq("identificador_catraca", identificador)
+        .maybeSingle();
+      aluno = data ?? null;
+    } else {
+      const { data: profile } = await admin
+        .from("profiles")
+        .select("user_id")
+        .eq("cpf", cpf)
+        .maybeSingle();
+      if (profile) {
+        const { data } = await admin
           .from("alunos")
-          .select("id")
+          .select("id, user_id")
           .eq("organization_id", catraca.organization_id)
           .eq("user_id", profile.user_id)
-          .maybeSingle()
-      : { data: null };
+          .maybeSingle();
+        aluno = data ?? null;
+      }
+    }
 
-    if (!profile || !aluno) {
+    if (!aluno) {
       await admin.from("acessos_catraca_logs").insert({
         organization_id: catraca.organization_id,
         catraca_id: catraca.id,
-        cpf_consultado: cpf,
+        cpf_consultado: credencialParaLog,
         resultado: "negado_nao_encontrado",
       });
       return jsonResponse({ liberado: false, motivo: "Aluno não encontrado nesta academia." });
     }
+
+    // Nome vem do perfil, não do equipamento: é o que o display mostra, e
+    // vale tanto na liberação quanto na negativa para a recepção saber de
+    // quem se trata sem precisar consultar outra tela.
+    const { data: perfilAluno } = aluno.user_id
+      ? await admin.from("profiles").select("full_name").eq("user_id", aluno.user_id).maybeSingle()
+      : { data: null };
+    const nomeAluno = perfilAluno?.full_name ?? undefined;
 
     // Controle de acesso físico é da academia — checa adimplência do
     // Plano da Academia (aluno_matriculas_academia/mensalidades), não do
@@ -157,29 +196,29 @@ Deno.serve(async (req: Request) => {
       organization_id: catraca.organization_id,
       catraca_id: catraca.id,
       aluno_id: aluno.id,
-      cpf_consultado: cpf,
+      cpf_consultado: credencialParaLog,
       resultado,
     });
 
     if (inadimplente) {
-      return jsonResponse({ liberado: false, motivo: "Mensalidade da academia em atraso.", aluno_nome: profile.full_name });
+      return jsonResponse({ liberado: false, motivo: "Mensalidade da academia em atraso.", aluno_nome: nomeAluno });
     }
     if (falhaAoVerificarAgendamento) {
       return jsonResponse({
         liberado: false,
         motivo: "Falha ao verificar agendamento. Tente novamente.",
-        aluno_nome: profile.full_name,
+        aluno_nome: nomeAluno,
       });
     }
     if (semAgendamento) {
       return jsonResponse({
         liberado: false,
         motivo: "Sem agendamento ativo para este horário.",
-        aluno_nome: profile.full_name,
+        aluno_nome: nomeAluno,
       });
     }
 
-    return jsonResponse({ liberado: true, motivo: "Acesso liberado.", aluno_nome: profile.full_name });
+    return jsonResponse({ liberado: true, motivo: "Acesso liberado.", aluno_nome: nomeAluno });
   } catch (error) {
     console.error("Erro inesperado em catraca-validar-acesso:", error);
     return jsonResponse({ error: "Erro inesperado ao validar acesso." }, 500);

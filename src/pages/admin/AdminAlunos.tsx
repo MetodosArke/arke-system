@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { erroCpf } from "@/lib/cpf";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -751,8 +752,14 @@ function CadastrarAlunoDialog({
   const [recemCriado, setRecemCriado] = useState<AlunoRecemCriado | null>(null);
   const [enviandoWhatsApp, setEnviandoWhatsApp] = useState(false);
 
+  // CPF é opcional aqui, mas se preenchido tem que fechar o dígito
+  // verificador: ele é a chave de leitura da catraca e a de deduplicação da
+  // base. Avisar na tela evita a viagem até o servidor só para voltar erro.
+  const problemaCpf = erroCpf(form.cpf);
+
   const cadastrar = useMutation({
     mutationFn: async () => {
+      if (problemaCpf) throw new Error(problemaCpf);
       const { data, error } = await supabase.functions.invoke<{ user_id: string }>("convidar-membro", {
         body: {
           email: form.email,
@@ -873,7 +880,9 @@ function CadastrarAlunoDialog({
                 value={form.cpf}
                 onChange={(e) => setForm((f) => ({ ...f, cpf: e.target.value }))}
                 placeholder="000.000.000-00"
+                aria-invalid={!!problemaCpf}
               />
+              {problemaCpf && <p className="text-xs text-destructive">{problemaCpf}</p>}
             </div>
           </div>
           <div className="space-y-1.5">

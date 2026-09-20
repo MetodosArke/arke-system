@@ -2,6 +2,8 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useRascunho } from "@/hooks/useRascunho";
+import { chaveRascunho, descreverQuandoSalvou } from "@/lib/rascunho";
 import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -213,6 +215,54 @@ export function AvaliacaoFisicaDialog({ open, onOpenChange, alunoId, alunoNome }
 
   const ultimaAvaliacao = historico[0] ?? null;
 
+  // Rascunho da avaliação.
+  //
+  // Esta é a tela onde perder o trabalho dói mais: as medidas são tiradas
+  // com o aluno na frente, com fita e adipômetro. Um refresh acidental não
+  // custa digitação — custa refazer a medição inteira, ou pior, o
+  // profissional preenchendo "de memória" o que já mediu.
+  const valorRascunho = {
+    form,
+    proximaAvaliacao,
+    metaPesoDirecao,
+    metaPesoValor,
+    metaGorduraDirecao,
+    metaGorduraValor,
+    metaMusculoDirecao,
+    metaMusculoValor,
+    doresRelatadas,
+    historicoClinico,
+    observacoes,
+    valoresMetricas,
+  };
+  type ValorRascunho = typeof valorRascunho;
+
+  const chave = alunoId ? chaveRascunho("avaliacao-fisica", alunoId) : null;
+  // `ativo: open` para o diálogo fechado não continuar gravando.
+  const { rascunhoDisponivel, descartar: descartarRascunhoAvaliacao } = useRascunho<ValorRascunho>(
+    chave,
+    valorRascunho,
+    { ativo: open }
+  );
+
+  const restaurarRascunho = () => {
+    const d = rascunhoDisponivel?.dados;
+    if (!d) return;
+    setForm(d.form ?? FORM_INICIAL);
+    setProximaAvaliacao(d.proximaAvaliacao ?? "");
+    setMetaPesoDirecao(d.metaPesoDirecao ?? "");
+    setMetaPesoValor(d.metaPesoValor ?? "");
+    setMetaGorduraDirecao(d.metaGorduraDirecao ?? "");
+    setMetaGorduraValor(d.metaGorduraValor ?? "");
+    setMetaMusculoDirecao(d.metaMusculoDirecao ?? "");
+    setMetaMusculoValor(d.metaMusculoValor ?? "");
+    setDoresRelatadas(d.doresRelatadas ?? "");
+    setHistoricoClinico(d.historicoClinico ?? "");
+    setObservacoes(d.observacoes ?? "");
+    setValoresMetricas(d.valoresMetricas ?? {});
+    descartarRascunhoAvaliacao();
+  };
+
   const atualizarCampo = (campo: Campo, valor: string) => setForm((f) => ({ ...f, [campo]: valor }));
 
   const limpar = () => {
@@ -228,6 +278,10 @@ export function AvaliacaoFisicaDialog({ open, onOpenChange, alunoId, alunoNome }
     setHistoricoClinico("");
     setObservacoes("");
     setValoresMetricas({});
+    // Salvou ou descartou: o rascunho perdeu a razão de existir. Deixá-lo
+    // para trás faria a próxima avaliação abrir oferecendo restaurar o que
+    // já está gravado no histórico.
+    descartarRascunhoAvaliacao();
   };
 
   const criarMetrica = useMutation({
@@ -362,6 +416,24 @@ export function AvaliacaoFisicaDialog({ open, onOpenChange, alunoId, alunoNome }
           </TabsList>
 
           <TabsContent value="nova" className="space-y-4 pt-2">
+            {rascunhoDisponivel && (
+              // Oferece, não restaura sozinho: um formulário que se
+              // preenche com dados de antes faria o profissional salvar
+              // medição que não conferiu.
+              <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-amber-500/40 bg-amber-500/5 p-3">
+                <p className="text-xs">
+                  Há uma avaliação não finalizada desta sessão ({descreverQuandoSalvou(rascunhoDisponivel.salvoEm)}).
+                </p>
+                <div className="flex gap-2">
+                  <Button size="sm" variant="outline" onClick={restaurarRascunho}>
+                    Restaurar
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={descartarRascunhoAvaliacao}>
+                    Descartar
+                  </Button>
+                </div>
+              </div>
+            )}
             <div>
               <p className="text-xs font-semibold text-muted-foreground mb-2">Antropometria</p>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">

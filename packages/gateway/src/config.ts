@@ -12,6 +12,10 @@ const configSchema = z.object({
   modelo_catraca: z.enum(["controlid", "henry", "topdata", "dimep", "mock"]),
   tempo_timeout_ms: z.number().int().positive().default(300),
   sincronizar_alunos_intervalo_ms: z.number().int().positive().default(300_000),
+  // Onde o gateway escuta o equipamento. Ver comentário em types.ts: a
+  // catraca é quem disca, então isto precisa ser alcançável na LAN.
+  escuta_host: z.string().min(1).default("0.0.0.0"),
+  escuta_porta: z.number().int().positive().default(4571),
 });
 
 export class ConfigError extends Error {}

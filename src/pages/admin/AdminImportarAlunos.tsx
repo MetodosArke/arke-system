@@ -1,7 +1,9 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { erroCpf } from "@/lib/cpf";
+import { processarComLimite, CONCORRENCIA_IMPORTACAO } from "@/lib/lote";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -195,6 +197,50 @@ export default function AdminImportarAlunos() {
   const [resultados, setResultados] = useState<LinhaResultado[] | null>(null);
   const [importando, setImportando] = useState(false);
   const [enviandoWhatsAppLinha, setEnviandoWhatsAppLinha] = useState<number | null>(null);
+  // Identidade do lote no banco. É o que transforma a importação em algo
+  // que sobrevive a fechar a aba.
+  const [importacaoId, setImportacaoId] = useState<string | null>(null);
+  // Guardado para a tela de retomada dizer QUAL planilha ficou pela
+  // metade — "existe uma importação inacabada" sem nome não ajuda quem
+  // importou três arquivos na semana.
+  const [arquivoNome, setArquivoNome] = useState<string | null>(null);
+  const [loteRetomavel, setLoteRetomavel] = useState<{ id: string; arquivo: string | null; pendentes: number } | null>(null);
+
+  // Ao abrir a tela, procura lote inacabado da organização. Sem isto, quem
+  // teve a aba fechada no meio não tem como saber quais alunos entraram —
+  // e o único caminho seria reimportar tudo e ler centenas de erros de
+  // "já existe usuário com esse e-mail".
+  useEffect(() => {
+    if (!organization?.id) return;
+    let cancelado = false;
+
+    (async () => {
+      const { data: lote } = await supabase
+        .from("importacoes_alunos")
+        .select("id, arquivo_nome")
+        .eq("organization_id", organization.id)
+        .eq("status", "em_andamento")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (cancelado || !lote) return;
+
+      const { count } = await supabase
+        .from("importacoes_alunos_linhas")
+        .select("id", { count: "exact", head: true })
+        .eq("importacao_id", lote.id)
+        .eq("status", "pendente");
+
+      if (!cancelado && (count ?? 0) > 0) {
+        setLoteRetomavel({ id: lote.id, arquivo: lote.arquivo_nome, pendentes: count ?? 0 });
+      }
+    })();
+
+    return () => {
+      cancelado = true;
+    };
+  }, [organization?.id]);
 
   const enviarWhatsApp = async (r: LinhaResultado) => {
     if (!r.user_id) return;
@@ -212,6 +258,7 @@ export default function AdminImportarAlunos() {
   };
 
   const handleArquivo = async (file: File) => {
+    setArquivoNome(file.name);
     if (file.size > TAMANHO_MAXIMO_BYTES) {
       toast({ title: "Arquivo muito grande", description: "O limite é 5MB por importação.", variant: "destructive" });
       return;
@@ -264,97 +311,262 @@ export default function AdminImportarAlunos() {
     return registro;
   };
 
-  const iniciarImportacao = async () => {
-    if (!mapeamentoValido) return;
-    setImportando(true);
-    const inicial: LinhaResultado[] = linhas.map((linha, i) => {
-      const reg = linhaParaRegistro(linha);
-      return { linha: i + 1, nome: reg.full_name, email: reg.email, telefone: reg.telefone, status: "pendente" };
+  /**
+   * Trabalho de uma linha. Isolado de propósito: é a unidade que pode ser
+   * repetida sozinha quando o lote é retomado ou quando só as falhas são
+   * reprocessadas.
+   */
+  const processarRegistro = async (registro: Record<string, string>) => {
+    const nivelBruto = registro.nivel_atacado?.trim().toLowerCase() ?? "";
+    const nivel = ["essencial", "integrado", "elite"].includes(nivelBruto)
+      ? (nivelBruto as "essencial" | "integrado" | "elite")
+      : undefined;
+
+    if (!registro.full_name || !registro.email) {
+      throw new Error("Nome e e-mail são obrigatórios.");
+    }
+
+    // Barrado antes da chamada de rede: numa planilha de sistema antigo o
+    // CPF vem truncado, com dígito trocado ou com sequência de
+    // preenchimento. O CPF é a chave de leitura da catraca — deixar passar
+    // vira aluno que não entra na academia meses depois.
+    const problemaCpf = registro.cpf ? erroCpf(registro.cpf) : null;
+    if (problemaCpf) throw new Error(problemaCpf);
+
+    const { data, error } = await supabase.functions.invoke<{ user_id: string }>("convidar-membro", {
+      body: {
+        email: registro.email,
+        full_name: registro.full_name,
+        telefone: registro.telefone || undefined,
+        cpf: registro.cpf || undefined,
+        papel: "aluno",
+        nivel_atacado: nivel,
+      },
     });
-    setResultados(inicial);
+    if (error) throw error;
 
-    for (let i = 0; i < linhas.length; i++) {
-      const registro = linhaParaRegistro(linhas[i]);
-      // Nível do Método ARKE não trava a importação: a academia ainda não tem
-      // como importar seus próprios planos, e o aluno importado nem foi
-      // apresentado ao método ainda — isso é negociação pós-implantação.
-      // Sem valor válido na planilha, o aluno fica sem nível nenhum (não
-      // "essencial" por padrão) até o staff registrar a adesão de verdade.
-      const nivelBruto = registro.nivel_atacado.trim().toLowerCase();
-      const nivel = ["essencial", "integrado", "elite"].includes(nivelBruto)
-        ? (nivelBruto as "essencial" | "integrado" | "elite")
-        : undefined;
+    const avisos: string[] = [];
 
-      if (!registro.full_name || !registro.email) {
-        setResultados((prev) =>
-          prev!.map((r, idx) => (idx === i ? { ...r, status: "erro", mensagem: "Nome e e-mail são obrigatórios." } : r))
-        );
-        continue;
-      }
+    const temHistorico = CAMPOS_AVALIACAO_FISICA.some((campo) => (registro[campo] ?? "").trim() !== "");
+    if (data?.user_id && temHistorico && organization?.id) {
+      const { error: erroAvaliacao } = await importarAvaliacaoFisica({
+        organizationId: organization.id,
+        userId: data.user_id,
+        registro,
+      });
+      if (erroAvaliacao) avisos.push(`avaliação física antiga não salva: ${erroAvaliacao}`);
+    }
 
-      try {
-        const { data, error } = await supabase.functions.invoke<{ user_id: string }>("convidar-membro", {
-          body: {
-            email: registro.email,
-            full_name: registro.full_name,
-            telefone: registro.telefone || undefined,
-            cpf: registro.cpf || undefined,
-            papel: "aluno",
-            nivel_atacado: nivel,
-          },
-        });
-        if (error) throw error;
+    // Ficha genérica de transição: aluno migrado de outro sistema já vê um
+    // treino no app desde o primeiro dia. Falha aqui não invalida a
+    // importação, mas precisa aparecer.
+    if (data?.user_id) {
+      const { data: alunoRow } = await supabase.from("alunos").select("id").eq("user_id", data.user_id).maybeSingle();
+      if (alunoRow) {
+        const { data: resultadoTreino, error: erroTreino } = await supabase.functions.invoke<{
+          published?: boolean;
+          reason?: string;
+        }>("publicar-treino-boas-vindas", { body: { aluno_id: alunoRow.id } });
 
-        let mensagemAvaliacao: string | undefined;
-        const temHistorico = CAMPOS_AVALIACAO_FISICA.some((campo) => registro[campo].trim() !== "");
-        if (data?.user_id && temHistorico && organization?.id) {
-          const { error: erroAvaliacao } = await importarAvaliacaoFisica({
-            organizationId: organization.id,
-            userId: data.user_id,
-            registro,
-          });
-          if (erroAvaliacao) {
-            mensagemAvaliacao = `Aluno importado, mas a avaliação física antiga não foi salva: ${erroAvaliacao}`;
-          }
+        if (erroTreino) {
+          avisos.push(`treino de transição não publicado: ${erroTreino.message}`);
+        } else if (resultadoTreino && resultadoTreino.published === false) {
+          // A function devolve 200 com published:false quando a academia
+          // não tem o modelo padrão. Antes só `error` era olhado, então o
+          // aluno ficava sem ficha nenhuma e ninguém ficava sabendo.
+          avisos.push(
+            resultadoTreino.reason === "no_default_template"
+              ? "sem treino de transição: a academia não tem o modelo padrão cadastrado"
+              : "treino de transição não foi publicado"
+          );
         }
-
-        // Ficha genérica de transição: aluno migrado de outro sistema já
-        // vê um treino no app desde o primeiro dia, sem depender de
-        // passar pelo onboarding sozinho (a mesma function que resolve o
-        // "app vazio" no onboarding — aqui chamada pelo staff em nome do
-        // aluno recém-importado). Falha aqui não invalida a importação,
-        // só é reportada na linha.
-        if (data?.user_id) {
-          const { data: alunoRow } = await supabase.from("alunos").select("id").eq("user_id", data.user_id).maybeSingle();
-          if (alunoRow) {
-            const { error: erroTreino } = await supabase.functions.invoke("publicar-treino-boas-vindas", {
-              body: { aluno_id: alunoRow.id },
-            });
-            if (erroTreino) {
-              mensagemAvaliacao = mensagemAvaliacao
-                ? `${mensagemAvaliacao} | Treino de transição não publicado: ${erroTreino.message}`
-                : `Aluno importado, mas o treino de transição não foi publicado: ${erroTreino.message}`;
-            }
-          }
-        }
-
-        setResultados((prev) =>
-          prev
-            ? prev.map((r, idx) =>
-                idx === i
-                  ? { ...r, status: "sucesso", user_id: data?.user_id, mensagem: mensagemAvaliacao }
-                  : r
-              )
-            : prev
-        );
-      } catch (error) {
-        const mensagem = error instanceof Error ? error.message : "Erro desconhecido";
-        setResultados((prev) => (prev ? prev.map((r, idx) => (idx === i ? { ...r, status: "erro", mensagem } : r)) : prev));
       }
+    }
+
+    return {
+      user_id: data?.user_id,
+      mensagem: avisos.length ? `Aluno importado, mas ${avisos.join(" | ")}` : undefined,
+    };
+  };
+
+  /**
+   * Roda as linhas pendentes de um lote já gravado no banco.
+   *
+   * Cada linha é marcada no banco assim que termina — é isso que permite
+   * fechar a aba no meio e continuar depois sem reimportar quem já entrou.
+   */
+  const processarPendentes = async (idLote: string) => {
+    setImportando(true);
+
+    const { data: pendentes, error: erroBusca } = await supabase
+      .from("importacoes_alunos_linhas")
+      .select("id, numero, dados")
+      .eq("importacao_id", idLote)
+      .eq("status", "pendente")
+      .order("numero", { ascending: true });
+
+    if (erroBusca) {
+      toast({ title: "Não foi possível ler o lote", description: erroBusca.message, variant: "destructive" });
+      setImportando(false);
+      return;
+    }
+
+    await processarComLimite(
+      pendentes ?? [],
+      CONCORRENCIA_IMPORTACAO,
+      async (linha) => {
+        const registro = linha.dados as Record<string, string>;
+        try {
+          const { user_id, mensagem } = await processarRegistro(registro);
+          await supabase
+            .from("importacoes_alunos_linhas")
+            .update({ status: "sucesso", user_id_criado: user_id ?? null, mensagem: mensagem ?? null, processado_em: new Date().toISOString() })
+            .eq("id", linha.id);
+          setResultados((prev) =>
+            prev ? prev.map((r) => (r.linha === linha.numero ? { ...r, status: "sucesso", user_id, mensagem } : r)) : prev
+          );
+        } catch (erro) {
+          const mensagem = erro instanceof Error ? erro.message : "Erro desconhecido";
+          await supabase
+            .from("importacoes_alunos_linhas")
+            .update({ status: "erro", mensagem, processado_em: new Date().toISOString() })
+            .eq("id", linha.id);
+          setResultados((prev) =>
+            prev ? prev.map((r) => (r.linha === linha.numero ? { ...r, status: "erro", mensagem } : r)) : prev
+          );
+        }
+      }
+    );
+
+    const { count: aindaPendentes } = await supabase
+      .from("importacoes_alunos_linhas")
+      .select("id", { count: "exact", head: true })
+      .eq("importacao_id", idLote)
+      .eq("status", "pendente");
+
+    if ((aindaPendentes ?? 0) === 0) {
+      await supabase.from("importacoes_alunos").update({ status: "concluida" }).eq("id", idLote);
+      setLoteRetomavel(null);
     }
 
     setImportando(false);
     toast({ title: "Importação concluída", description: "Confira o resultado de cada linha abaixo." });
+  };
+
+  const iniciarImportacao = async () => {
+    if (!mapeamentoValido || !organization?.id) return;
+    setImportando(true);
+
+    const registros = linhas.map((linha) => linhaParaRegistro(linha));
+
+    // Conferido antes de gravar qualquer coisa: sem isto, uma academia no
+    // Starter começaria a importar 400 alunos e o banco barraria na linha
+    // 151, deixando 150 dentro e o resto num lote pela metade. Avisar antes
+    // é a diferença entre uma decisão e um estrago.
+    const { data: uso } = await supabase.rpc("obter_uso_limite_alunos");
+    const cota = uso?.find((u) => u.organization_id === organization.id);
+    if (cota?.limite != null) {
+      const disponivel = cota.limite - Number(cota.alunos_ativos);
+      if (registros.length > disponivel) {
+        toast({
+          title: "A planilha ultrapassa o limite do plano",
+          description:
+            disponivel > 0
+              ? `Seu plano permite ${cota.limite} alunos e você já tem ${cota.alunos_ativos}. Cabem mais ${disponivel}, e a planilha tem ${registros.length}.`
+              : `Seu plano permite ${cota.limite} alunos e a cota já está cheia. Fale com a ArkeFit sobre migrar de plano.`,
+          variant: "destructive",
+        });
+        setImportando(false);
+        return;
+      }
+    }
+
+    // O lote nasce no banco antes de qualquer chamada: se a aba morrer na
+    // linha 250 de 400, o que já entrou está registrado e o resto continua
+    // pendente, esperando ser retomado.
+    const { data: lote, error: erroLote } = await supabase
+      .from("importacoes_alunos")
+      .insert({ organization_id: organization.id, arquivo_nome: arquivoNome, total_linhas: registros.length })
+      .select("id")
+      .single();
+
+    if (erroLote || !lote) {
+      toast({ title: "Não foi possível iniciar", description: erroLote?.message, variant: "destructive" });
+      setImportando(false);
+      return;
+    }
+
+    const linhasParaGravar = registros.map((registro, i) => ({
+      importacao_id: lote.id,
+      organization_id: organization.id,
+      numero: i + 1,
+      dados: registro,
+    }));
+
+    // Em blocos: uma planilha de 500 alunos num insert só estoura limite de
+    // payload, e o erro apareceria sem nenhuma linha gravada.
+    for (let i = 0; i < linhasParaGravar.length; i += 200) {
+      const { error: erroLinhas } = await supabase
+        .from("importacoes_alunos_linhas")
+        .insert(linhasParaGravar.slice(i, i + 200));
+      if (erroLinhas) {
+        toast({ title: "Não foi possível preparar o lote", description: erroLinhas.message, variant: "destructive" });
+        setImportando(false);
+        return;
+      }
+    }
+
+    setImportacaoId(lote.id);
+    setResultados(
+      registros.map((reg, i) => ({
+        linha: i + 1,
+        nome: reg.full_name,
+        email: reg.email,
+        telefone: reg.telefone,
+        status: "pendente" as const,
+      }))
+    );
+
+    await processarPendentes(lote.id);
+  };
+
+  /** Retoma um lote deixado pela metade — sem precisar do arquivo original. */
+  const retomarLote = async (idLote: string) => {
+    const { data: todas } = await supabase
+      .from("importacoes_alunos_linhas")
+      .select("numero, dados, status, mensagem, user_id_criado")
+      .eq("importacao_id", idLote)
+      .order("numero", { ascending: true });
+
+    setImportacaoId(idLote);
+    setResultados(
+      (todas ?? []).map((l) => {
+        const reg = l.dados as Record<string, string>;
+        return {
+          linha: l.numero,
+          nome: reg.full_name ?? "",
+          email: reg.email ?? "",
+          telefone: reg.telefone,
+          status: l.status as "pendente" | "sucesso" | "erro",
+          mensagem: l.mensagem ?? undefined,
+          user_id: l.user_id_criado ?? undefined,
+        };
+      })
+    );
+    setLoteRetomavel(null);
+    await processarPendentes(idLote);
+  };
+
+  /** Reprocessa só o que falhou, sem tocar em quem já entrou. */
+  const reprocessarFalhas = async () => {
+    if (!importacaoId) return;
+    await supabase
+      .from("importacoes_alunos_linhas")
+      .update({ status: "pendente", mensagem: null })
+      .eq("importacao_id", importacaoId)
+      .eq("status", "erro");
+    setResultados((prev) => (prev ? prev.map((r) => (r.status === "erro" ? { ...r, status: "pendente", mensagem: undefined } : r)) : prev));
+    await processarPendentes(importacaoId);
   };
 
   const totalSucesso = resultados?.filter((r) => r.status === "sucesso").length ?? 0;
@@ -369,6 +581,24 @@ export default function AdminImportarAlunos() {
         <FileSpreadsheet className="h-5 w-5 text-primary" />
         <h1 className="text-xl font-bold">Importar Alunos em Massa</h1>
       </div>
+
+      {loteRetomavel && !importando && (
+        <Card className="border-amber-500/40 bg-amber-500/5">
+          <CardContent className="flex flex-wrap items-center justify-between gap-3 pt-4">
+            <div>
+              <p className="text-sm font-semibold">Existe uma importação inacabada</p>
+              <p className="text-xs text-muted-foreground">
+                {loteRetomavel.arquivo ? `Arquivo "${loteRetomavel.arquivo}" — ` : ""}
+                {loteRetomavel.pendentes} aluno(s) ainda não processado(s). Continuar de onde parou não
+                recria quem já entrou.
+              </p>
+            </div>
+            <Button size="sm" onClick={() => void retomarLote(loteRetomavel.id)}>
+              Retomar importação
+            </Button>
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader className="pb-2">
@@ -439,9 +669,17 @@ export default function AdminImportarAlunos() {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-base">3. Resultado</CardTitle>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <Badge variant="default">{totalSucesso} importado(s)</Badge>
               {totalErro > 0 && <Badge variant="destructive">{totalErro} com erro</Badge>}
+              {totalErro > 0 && importacaoId && !importando && (
+                // Só as falhas: reimportar a planilha inteira para pegar as
+                // que faltaram devolveria centenas de "já existe usuário
+                // com esse e-mail" e esconderia os erros de verdade.
+                <Button size="sm" variant="outline" onClick={() => void reprocessarFalhas()}>
+                  Tentar de novo só as que falharam
+                </Button>
+              )}
             </div>
           </CardHeader>
           <CardContent>

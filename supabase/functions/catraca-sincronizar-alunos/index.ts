@@ -76,7 +76,7 @@ Deno.serve(async (req: Request) => {
 
     const { data: alunos, error: alunosError } = await admin
       .from("alunos")
-      .select("id, user_id")
+      .select("id, user_id, identificador_catraca")
       .eq("organization_id", catraca.organization_id);
     if (alunosError) {
       console.error("Erro ao listar alunos:", alunosError);
@@ -123,11 +123,20 @@ Deno.serve(async (req: Request) => {
       .map((a) => {
         const profile = profileByUserId.get(a.user_id);
         const cpf = profile?.cpf?.replace(/\D/g, "") ?? "";
-        if (!cpf) return null; // sem CPF cadastrado, não dá para validar offline por CPF
+        const identificador = a.identificador_catraca ?? null;
+
+        // Antes isto exigia CPF e descartava o resto. Com liberação por
+        // digital o equipamento devolve o identificador dele, não um CPF —
+        // e o aluno que só tem biometria cadastrada é justamente quem não
+        // pode faltar no cache de contingência. Basta ter uma das duas
+        // chaves; sem nenhuma, não há como validar offline.
+        if (!cpf && !identificador) return null;
+
         const matriculaId = matriculaIdPorAluno.get(a.id);
         return {
           aluno_id: a.id,
           cpf,
+          identificador_catraca: identificador,
           nome: profile?.full_name ?? "",
           inadimplente: matriculaId ? matriculasInadimplentes.has(matriculaId) : false,
         };

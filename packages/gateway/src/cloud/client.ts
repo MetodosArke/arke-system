@@ -1,5 +1,6 @@
 import axios, { type AxiosInstance } from "axios";
 import type {
+  Credencial,
   GatewayConfig,
   RespostaSincronizarAlunosCloud,
   RespostaValidarAcessoCloud,
@@ -12,6 +13,8 @@ import type {
  */
 export interface ICloudClient {
   validarAcesso(cpf: string): Promise<RespostaValidarAcessoCloud>;
+  /** Validação por credencial tipada — o caminho da biometria passa por aqui. */
+  validarCredencial?(credencial: Credencial): Promise<RespostaValidarAcessoCloud>;
   sincronizarAlunos(): Promise<RespostaSincronizarAlunosCloud>;
   sincronizarLogsOffline(
     logs: { aluno_id: string | null; cpf_consultado: string; resultado: string; ocorrido_em: string }[]
@@ -45,9 +48,24 @@ export class CloudClient implements ICloudClient {
    * (GatewayService), não este cliente.
    */
   async validarAcesso(cpf: string): Promise<RespostaValidarAcessoCloud> {
+    return this.validarCredencial({ tipo: "cpf", valor: cpf });
+  }
+
+  /**
+   * Manda ou `cpf` ou `identificador_catraca` — nunca os dois. A Edge
+   * Function resolve o aluno pela chave que vier; mandar as duas abriria
+   * espaço para elas discordarem, e aí a catraca decide por desempate
+   * acidental em vez de por regra.
+   */
+  async validarCredencial(credencial: Credencial): Promise<RespostaValidarAcessoCloud> {
+    const corpo =
+      credencial.tipo === "cpf"
+        ? { cpf: credencial.valor }
+        : { identificador_catraca: credencial.valor };
+
     const { data } = await this.http.post<RespostaValidarAcessoCloud>("/catraca-validar-acesso", {
       device_token: this.token,
-      cpf,
+      ...corpo,
     });
     return data;
   }

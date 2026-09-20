@@ -1,7 +1,7 @@
 import type { GatewayConfig } from "../types";
 import type { CatracaDriver } from "./CatracaDriver";
 import { MockDriver } from "./MockDriver";
-import { ControlIdDriver } from "./ControlIdDriver";
+import { ReceptorDriver } from "./ReceptorDriver";
 import { HenryDriver } from "./HenryDriver";
 import { TopdataDriver } from "./TopdataDriver";
 import { DimepDriver } from "./DimepDriver";
@@ -12,8 +12,12 @@ export function criarDriver(config: Pick<GatewayConfig, "modelo_catraca" | "catr
   switch (config.modelo_catraca) {
     case "mock":
       return new MockDriver();
+    // Control iD fala HTTP e é ela quem disca para o gateway — ver
+    // src/receptores/controlid.ts. O antigo ControlIdDriver assumia socket
+    // TCP de saída, modelo errado segundo a documentação do fabricante, e
+    // foi removido em vez de mantido como stub que nunca funcionaria.
     case "controlid":
-      return new ControlIdDriver(config.catraca_ip, config.catraca_porta);
+      return new ReceptorDriver("controlid");
     case "henry":
       return new HenryDriver(config.catraca_ip, config.catraca_porta);
     case "topdata":

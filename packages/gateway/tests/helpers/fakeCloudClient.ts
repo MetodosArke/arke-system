@@ -1,5 +1,5 @@
 import type { ICloudClient } from "../../src/cloud/client";
-import type { RespostaSincronizarAlunosCloud, RespostaValidarAcessoCloud } from "../../src/types";
+import type { Credencial, RespostaSincronizarAlunosCloud, RespostaValidarAcessoCloud } from "../../src/types";
 
 /**
  * Fake do cliente da nuvem para os testes — sem axios, sem rede. Cada
@@ -14,7 +14,15 @@ export class FakeCloudClient implements ICloudClient {
   logsRecebidos: { aluno_id: string | null; cpf_consultado: string; resultado: string; ocorrido_em: string }[] = [];
   erroSincronizarLogs: Error | null = null;
 
-  async validarAcesso(_cpf: string): Promise<RespostaValidarAcessoCloud> {
+  /** Guarda o que foi pedido, para os testes afirmarem QUAL credencial chegou à nuvem. */
+  credenciaisRecebidas: Credencial[] = [];
+
+  async validarAcesso(cpf: string): Promise<RespostaValidarAcessoCloud> {
+    return this.validarCredencial({ tipo: "cpf", valor: cpf });
+  }
+
+  async validarCredencial(credencial: Credencial): Promise<RespostaValidarAcessoCloud> {
+    this.credenciaisRecebidas.push(credencial);
     if (this.erroValidarAcesso) throw this.erroValidarAcesso;
     if (!this.respostaValidarAcesso) throw new Error("FakeCloudClient: respostaValidarAcesso não configurada");
     return this.respostaValidarAcesso;

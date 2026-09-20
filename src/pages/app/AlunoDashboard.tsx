@@ -71,7 +71,7 @@ export default function AlunoDashboard() {
   const [askOpen, setAskOpen] = useState(false);
   const [motivoPendente, setMotivoPendente] = useState<CheckinStatus | null>(null);
 
-  const { data: metaAguaMl = 2000 } = useQuery({
+  const { data: metaAguaMl = 2000, isLoading: carregandoMeta } = useQuery({
     queryKey: ["aluno-meta-agua", alunoId],
     queryFn: async () => {
       const { data, error } = await supabase.from("alunos").select("meta_agua_ml").eq("id", alunoId!).single();
@@ -81,7 +81,7 @@ export default function AlunoDashboard() {
     enabled: !!alunoId,
   });
 
-  const { data: treinoAtivo } = useQuery({
+  const { data: treinoAtivo, isLoading: carregandoTreino } = useQuery({
     queryKey: ["aluno-treino-ativo", alunoId],
     queryFn: async () => {
       const { data } = await supabase
@@ -110,7 +110,7 @@ export default function AlunoDashboard() {
   // Mesma queryKey usada em AlunoTreinos.tsx — ao concluir o treino lá, a
   // invalidação dessa key já atualiza este card na volta pro dashboard,
   // sem precisar de nenhum mecanismo extra de sincronização.
-  const { data: registroTreinoHoje } = useQuery({
+  const { data: registroTreinoHoje, isLoading: carregandoRegistro } = useQuery({
     queryKey: ["aluno-registro-hoje", alunoId],
     queryFn: async () => {
       const { data } = await supabase
@@ -172,7 +172,7 @@ export default function AlunoDashboard() {
     enabled: !!alunoId,
   });
 
-  const { data: checkins = [] } = useQuery({
+  const { data: checkins = [], isLoading: carregandoCheckins } = useQuery({
     queryKey: ["aluno-checkins-semana", alunoId],
     queryFn: async () => {
       const seteDiasAtras = new Date();
@@ -188,7 +188,7 @@ export default function AlunoDashboard() {
     enabled: !!alunoId,
   });
 
-  const { data: habitoHoje } = useQuery({
+  const { data: habitoHoje, isLoading: carregandoHabito } = useQuery({
     queryKey: ["aluno-habito-hoje", alunoId],
     queryFn: async () => {
       const { data } = await supabase
@@ -271,8 +271,19 @@ export default function AlunoDashboard() {
 
   // A home abre respondendo "o que eu faço agora". Tudo o mais — atalhos,
   // pontuação, água — é segundo plano por diretriz do projeto.
+  // Sem isto, `Boolean(undefined)` vira `false` e a home anuncia "sua ficha
+  // está sendo preparada" para todo mundo em todo carregamento. O estado
+  // desconhecido precisa chegar à função como desconhecido.
+  const carregandoProximaAcao =
+    !alunoId ||
+    carregandoMeta ||
+    carregandoTreino ||
+    carregandoRegistro ||
+    carregandoCheckins ||
+    carregandoHabito;
+
   const proximaAcao = definirProximaAcao({
-    temTreinoAtivo: Boolean(treinoAtivo),
+    temTreinoAtivo: carregandoProximaAcao ? undefined : Boolean(treinoAtivo),
     treinoDeHojeConcluido: Boolean(registroTreinoHoje?.concluido),
     respondeuCheckinHoje: Boolean(checkinHoje),
     aguaMl,
@@ -307,10 +318,17 @@ export default function AlunoDashboard() {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
-          <div className="space-y-1">
-            <p className="text-sm font-semibold">{proximaAcao.titulo}</p>
-            <p className="text-sm text-muted-foreground">{proximaAcao.descricao}</p>
-          </div>
+          {proximaAcao.chave === "carregando" ? (
+            <div className="space-y-2" aria-busy="true" aria-label="Carregando sua próxima ação">
+              <div className="h-4 w-2/5 animate-pulse rounded bg-muted" />
+              <div className="h-4 w-4/5 animate-pulse rounded bg-muted" />
+            </div>
+          ) : (
+            <div className="space-y-1">
+              <p className="text-sm font-semibold">{proximaAcao.titulo}</p>
+              <p className="text-sm text-muted-foreground">{proximaAcao.descricao}</p>
+            </div>
+          )}
           {proximaAcao.acao && (
             <Button className="w-full" size="lg" onClick={irParaProximaAcao}>
               {proximaAcao.acao}

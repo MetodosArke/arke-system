@@ -6,7 +6,7 @@ import { AlunosCache } from "./offline/alunosCache";
 import { LogsQueue } from "./offline/logsQueue";
 import { criarDriver } from "./drivers";
 import { GatewayService } from "./core/gatewayService";
-import { criarServidorLocal } from "./server/localServer";
+import { criarServidorLocal, criarServidorReceptor } from "./server/localServer";
 import { logger } from "./logger";
 
 async function main() {
@@ -33,6 +33,19 @@ async function main() {
 
   const servidorLocal = criarServidorLocal(gateway);
   await servidorLocal.iniciar();
+
+  // Modelos de escuta: o equipamento disca para nós. Sem esta porta aberta
+  // na rede da academia a catraca não tem como validar nada, então uma
+  // falha aqui derruba a inicialização em vez de virar aviso — subir o
+  // gateway "quase funcionando" seria pior do que não subir.
+  const MODELOS_RECEPTOR = ["controlid"];
+  if (MODELOS_RECEPTOR.includes(config.modelo_catraca)) {
+    const receptor = criarServidorReceptor(gateway, {
+      host: config.escuta_host,
+      porta: config.escuta_porta,
+    });
+    await receptor.iniciar();
+  }
 
   await gateway.iniciar();
   logger.info({ modelo: config.modelo_catraca, catraca: `${config.catraca_ip}:${config.catraca_porta}` }, "ARKE® Gateway Local iniciado");

@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -60,6 +61,20 @@ export default function AdminOrganizacao() {
   const { organization, user, hasRole, refreshOrganization } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+
+  // Consumo da cota de alunos do plano. Antes, o limite contratual só
+  // existia como número parado numa coluna: ninguém via quanto já tinha
+  // sido usado, e a primeira notícia de que ele existia era um cadastro
+  // sendo recusado.
+  const { data: cotaAlunos } = useQuery({
+    queryKey: ["uso-limite-alunos", organization?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("obter_uso_limite_alunos");
+      if (error) throw error;
+      return data?.find((u) => u.organization_id === organization?.id) ?? null;
+    },
+    enabled: !!organization?.id,
+  });
 
   const { data: planosAtacado = EMPTY_PLANOS_ATACADO } = useQuery({
     queryKey: ["planos-atacado"],
@@ -360,6 +375,45 @@ export default function AdminOrganizacao() {
         </TabsList>
 
       <TabsContent value="perfil" className="space-y-4 pt-3">
+      {cotaAlunos?.limite != null && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">Alunos do plano</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            <div className="flex items-baseline justify-between">
+              <p className="text-sm">
+                <span className="text-xl font-bold">{Number(cotaAlunos.alunos_ativos)}</span>
+                <span className="text-muted-foreground"> de {cotaAlunos.limite} alunos</span>
+              </p>
+              <Badge variant="outline" className="uppercase text-xs">{cotaAlunos.plano}</Badge>
+            </div>
+            <Progress
+              value={Math.min(100, (Number(cotaAlunos.alunos_ativos) / cotaAlunos.limite) * 100)}
+            />
+            {Number(cotaAlunos.alunos_ativos) >= cotaAlunos.limite ? (
+              <p className="text-xs text-destructive">
+                Cota cheia — novos cadastros serão recusados. Fale com a ArkeFit sobre migrar de plano.
+              </p>
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                Aluno anonimizado por LGPD não ocupa vaga.
+              </p>
+            )}
+            {cotaAlunos.limite_padrao_do_plano != null &&
+              cotaAlunos.limite !== cotaAlunos.limite_padrao_do_plano && (
+                // Divergência já aconteceu de verdade: a Tietê estava no
+                // Growth com o limite do Starter. Mostrar em vez de
+                // corrigir sozinho — pode ser acordo comercial legítimo.
+                <p className="text-xs text-amber-600">
+                  O plano {cotaAlunos.plano} prevê {cotaAlunos.limite_padrao_do_plano} alunos, mas o
+                  limite configurado é {cotaAlunos.limite}. Confirme com a ArkeFit se é intencional.
+                </p>
+              )}
+          </CardContent>
+        </Card>
+      )}
+
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-base flex items-center gap-2">
