@@ -29,8 +29,21 @@ Deno.serve(async (req) => {
     return new Response("ok", { headers: corsHeaders });
   }
 
+  // Sem isto, qualquer pessoa na internet (sem sessão nenhuma) conseguia
+  // mandar push com título/corpo/url arbitrários pra qualquer usuário ou
+  // pra toda a equipe de qualquer organização — relay de phishing/spam
+  // aberto, e um jeito grátis de gerar custo de envio no VAPID/web-push.
+  const authHeader = req.headers.get("Authorization");
+  if (!authHeader?.startsWith("Bearer ")) {
+    return new Response(JSON.stringify({ error: "Sessão inválida. Faça login novamente." }), {
+      status: 401,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const vapidPrivateKey = Deno.env.get("VAPID_PRIVATE_KEY");
 
@@ -57,7 +70,53 @@ Deno.serve(async (req) => {
       });
     }
 
+    const asUser = createClient(supabaseUrl, anonKey, {
+      global: { headers: { Authorization: authHeader } },
+    });
+    const token = authHeader.replace("Bearer ", "");
+    const { data: claimsData, error: claimsError } = await asUser.auth.getClaims(token);
+    const callerId = typeof claimsData?.claims?.sub === "string" ? claimsData.claims.sub : null;
+    if (claimsError || !callerId) {
+      return new Response(JSON.stringify({ error: "Sessão inválida. Faça login novamente." }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const supabase = createClient(supabaseUrl, serviceRoleKey);
+
+    // Quem manda o push precisa pertencer à MESMA organização do(s)
+    // destinatário(s) — mensagens de chat são sempre dentro de uma
+    // organização (aluno <-> staff da própria academia), então isto
+    // fecha o relay pra fora sem precisar validar cada conversa.
+    const { data: callerOrgs } = await supabase
+      .from("organization_members")
+      .select("organization_id")
+      .eq("user_id", callerId)
+      .eq("status", "active");
+    const callerOrgIds = new Set((callerOrgs ?? []).map((m) => m.organization_id));
+
+    let orgAutorizada: string | null = null;
+    if (recipientOrgId) {
+      orgAutorizada = callerOrgIds.has(recipientOrgId) ? recipientOrgId : null;
+    } else if (recipientUserId) {
+      const { data: targetMembership } = await supabase
+        .from("organization_members")
+        .select("organization_id")
+        .eq("user_id", recipientUserId)
+        .eq("status", "active")
+        .maybeSingle();
+      orgAutorizada =
+        targetMembership && callerOrgIds.has(targetMembership.organization_id)
+          ? targetMembership.organization_id
+          : null;
+    }
+    if (!orgAutorizada) {
+      return new Response(JSON.stringify({ error: "Você não tem permissão para notificar este destinatário." }), {
+        status: 403,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     // Resolver lista de user_ids destinatários
     let targetUserIds: string[] = [];

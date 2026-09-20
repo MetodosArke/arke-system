@@ -19,6 +19,21 @@ Deno.serve(async (req) => {
     return new Response("ok", { headers: corsHeaders });
   }
 
+  // Varre profiles ativos de TODAS as organizações e manda push — sem
+  // nenhum caller hoje (não está em nenhum cron.schedule nem chamada do
+  // frontend), então era invocável publicamente por qualquer um, o que
+  // vira spam pra plataforma inteira e custo de envio de graça. Exige um
+  // segredo compartilhado (o mesmo que o cron/scheduler deve enviar no
+  // header) em vez de abrir por padrão.
+  const cronSecret = Deno.env.get("CRON_SECRET");
+  const headerSecret = req.headers.get("x-cron-secret");
+  if (!cronSecret || headerSecret !== cronSecret) {
+    return new Response(JSON.stringify({ error: "Não autorizado." }), {
+      status: 401,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;

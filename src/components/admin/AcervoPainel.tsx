@@ -95,7 +95,10 @@ export function AcervoPainel() {
       const { error } = await supabase.from("exercicios_biblioteca").update({ ativo: !ex.ativo }).eq("id", ex.id);
       if (error) throw error;
     },
-    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["exercicios-biblioteca-acervo", organization?.id] }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["exercicios-biblioteca-acervo", organization?.id] });
+      void queryClient.invalidateQueries({ queryKey: ["exercicios-biblioteca"] });
+    },
     onError: (error: Error) => toast({ title: "Erro ao atualizar", description: error.message, variant: "destructive" }),
   });
 

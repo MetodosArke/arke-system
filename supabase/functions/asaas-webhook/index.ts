@@ -6,6 +6,20 @@ const jsonResponse = (body: unknown, status = 200) =>
     headers: { "Content-Type": "application/json" },
   });
 
+// Comparação em tempo constante — evita que diferenças no tempo de resposta
+// de uma comparação de string comum (que sai no primeiro byte diferente)
+// vazem informação sobre o ASAAS_WEBHOOK_SECRET byte a byte.
+function timingSafeEqual(a: string, b: string): boolean {
+  const bufA = new TextEncoder().encode(a);
+  const bufB = new TextEncoder().encode(b);
+  if (bufA.length !== bufB.length) return false;
+  let resultado = 0;
+  for (let i = 0; i < bufA.length; i++) {
+    resultado |= bufA[i] ^ bufB[i];
+  }
+  return resultado === 0;
+}
+
 // Eventos de pagamento do Asaas que efetivamente mudam o status da assinatura/pagamento.
 // https://docs.asaas.com/docs/webhook-events
 const EVENTOS_CONFIRMADOS = new Set(["PAYMENT_CONFIRMED", "PAYMENT_RECEIVED"]);
@@ -36,7 +50,7 @@ Deno.serve(async (req: Request) => {
   }
 
   const tokenRecebido = req.headers.get("asaas-access-token");
-  if (tokenRecebido !== webhookSecret) {
+  if (!tokenRecebido || !timingSafeEqual(tokenRecebido, webhookSecret)) {
     return jsonResponse({ error: "Assinatura do webhook inválida." }, 401);
   }
 
