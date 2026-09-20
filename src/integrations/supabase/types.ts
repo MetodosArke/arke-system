@@ -2526,6 +2526,51 @@ export type Database = {
           },
         ]
       }
+      organizacao_status_historico: {
+        Row: {
+          alterado_por: string | null
+          created_at: string
+          id: string
+          organization_id: string
+          plano_b2b: Database["public"]["Enums"]["plano_b2b"] | null
+          status_anterior: Database["public"]["Enums"]["org_status"] | null
+          status_novo: Database["public"]["Enums"]["org_status"]
+        }
+        Insert: {
+          alterado_por?: string | null
+          created_at?: string
+          id?: string
+          organization_id: string
+          plano_b2b?: Database["public"]["Enums"]["plano_b2b"] | null
+          status_anterior?: Database["public"]["Enums"]["org_status"] | null
+          status_novo: Database["public"]["Enums"]["org_status"]
+        }
+        Update: {
+          alterado_por?: string | null
+          created_at?: string
+          id?: string
+          organization_id?: string
+          plano_b2b?: Database["public"]["Enums"]["plano_b2b"] | null
+          status_anterior?: Database["public"]["Enums"]["org_status"] | null
+          status_novo?: Database["public"]["Enums"]["org_status"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "organizacao_status_historico_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "org_churn_metrics"
+            referencedColumns: ["organization_id"]
+          },
+          {
+            foreignKeyName: "organizacao_status_historico_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       organization_members: {
         Row: {
           created_at: string
@@ -3790,6 +3835,31 @@ export type Database = {
       gerar_tarefas_ativacao_pendente: { Args: never; Returns: undefined }
       gerar_tarefas_barreira_rotina: { Args: never; Returns: undefined }
       gerar_tarefas_engajamento_baixo: { Args: never; Returns: undefined }
+      get_superadmin_funil_conversao: {
+        Args: { _meses?: number }
+        Returns: {
+          ativos: number
+          cancelados: number
+          em_trial: number
+          inadimplentes: number
+          safra: string
+          suspensos: number
+          taxa_churn_pct: number
+          taxa_conversao_pct: number
+          total_entradas: number
+        }[]
+      }
+      get_superadmin_funil_sinais: {
+        Args: never
+        Returns: {
+          inadimplentes: number
+          suspensos: number
+          transicoes_30d: number
+          trials_sem_prazo: number
+          trials_total: number
+          trials_vencidos: number
+        }[]
+      }
       get_superadmin_organizacao_atividade: {
         Args: { _organization_id: string }
         Returns: {
