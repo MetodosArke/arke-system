@@ -918,6 +918,7 @@ export type Database = {
           asaas_payment_id: string | null
           created_at: string
           criado_por: string | null
+          data_pagamento: string | null
           descricao: string
           erro_detalhe: string | null
           forma_pagamento: string
@@ -935,6 +936,7 @@ export type Database = {
           asaas_payment_id?: string | null
           created_at?: string
           criado_por?: string | null
+          data_pagamento?: string | null
           descricao: string
           erro_detalhe?: string | null
           forma_pagamento: string
@@ -952,6 +954,7 @@ export type Database = {
           asaas_payment_id?: string | null
           created_at?: string
           criado_por?: string | null
+          data_pagamento?: string | null
           descricao?: string
           erro_detalhe?: string | null
           forma_pagamento?: string
@@ -2170,6 +2173,45 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      metricas_mrr_snapshot: {
+        Row: {
+          academias_ativas: number
+          alunos_total: number
+          arr_global: number
+          assinaturas_ativas: number
+          created_at: string
+          data: string
+          matriculas_ativas: number
+          mrr_academia: number
+          mrr_arke: number
+          mrr_global: number
+        }
+        Insert: {
+          academias_ativas?: number
+          alunos_total?: number
+          arr_global?: number
+          assinaturas_ativas?: number
+          created_at?: string
+          data: string
+          matriculas_ativas?: number
+          mrr_academia?: number
+          mrr_arke?: number
+          mrr_global?: number
+        }
+        Update: {
+          academias_ativas?: number
+          alunos_total?: number
+          arr_global?: number
+          assinaturas_ativas?: number
+          created_at?: string
+          data?: string
+          matriculas_ativas?: number
+          mrr_academia?: number
+          mrr_arke?: number
+          mrr_global?: number
+        }
+        Relationships: []
       }
       modelo_dieta_refeicoes: {
         Row: {
@@ -3703,6 +3745,7 @@ export type Database = {
           treinos_concluidos: number
         }[]
       }
+      capturar_snapshot_mrr: { Args: never; Returns: undefined }
       dia_e_esperado_treino: {
         Args: { _aluno_id: string; _dias_descanso: number[]; _isodow: number }
         Returns: boolean
@@ -3796,6 +3839,19 @@ export type Database = {
           sem_gestor: boolean
           status: Database["public"]["Enums"]["org_status"]
           status_convite: string
+        }[]
+      }
+      get_superadmin_receita_historica: {
+        Args: { _meses?: number }
+        Returns: {
+          arr_contratado: number
+          mes: string
+          mrr_contratado: number
+          receita_b2b: number
+          receita_mensalidades: number
+          receita_metodo_arke: number
+          receita_total: number
+          repasse_arke: number
         }[]
       }
       get_superadmin_tenants: {

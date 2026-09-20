@@ -123,7 +123,14 @@ Deno.serve(async (req: Request) => {
         if (novoStatus) {
           await admin
             .from("cobrancas_b2b")
-            .update({ status: novoStatus, invoice_url: invoiceUrl ?? undefined })
+            .update({
+              status: novoStatus,
+              invoice_url: invoiceUrl ?? undefined,
+              // Sem a data de liquidação, a série histórica de receita
+              // teria que cair no mês de emissão da cobrança, não no mês
+              // em que o dinheiro entrou.
+              data_pagamento: novoStatus === "confirmado" ? new Date().toISOString().slice(0, 10) : null,
+            })
             .eq("id", cobrancaB2bExistente.id);
         }
         await admin
