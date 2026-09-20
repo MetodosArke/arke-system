@@ -459,6 +459,28 @@ export default function AdminImportarAlunos() {
 
     const registros = linhas.map((linha) => linhaParaRegistro(linha));
 
+    // Conferido antes de gravar qualquer coisa: sem isto, uma academia no
+    // Starter começaria a importar 400 alunos e o banco barraria na linha
+    // 151, deixando 150 dentro e o resto num lote pela metade. Avisar antes
+    // é a diferença entre uma decisão e um estrago.
+    const { data: uso } = await supabase.rpc("obter_uso_limite_alunos");
+    const cota = uso?.find((u) => u.organization_id === organization.id);
+    if (cota?.limite != null) {
+      const disponivel = cota.limite - Number(cota.alunos_ativos);
+      if (registros.length > disponivel) {
+        toast({
+          title: "A planilha ultrapassa o limite do plano",
+          description:
+            disponivel > 0
+              ? `Seu plano permite ${cota.limite} alunos e você já tem ${cota.alunos_ativos}. Cabem mais ${disponivel}, e a planilha tem ${registros.length}.`
+              : `Seu plano permite ${cota.limite} alunos e a cota já está cheia. Fale com a ArkeFit sobre migrar de plano.`,
+          variant: "destructive",
+        });
+        setImportando(false);
+        return;
+      }
+    }
+
     // O lote nasce no banco antes de qualquer chamada: se a aba morrer na
     // linha 250 de 400, o que já entrou está registrado e o resto continua
     // pendente, esperando ser retomado.

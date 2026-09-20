@@ -4375,6 +4375,10 @@ export type Database = {
         Args: { _organization_id: string; _user_id: string }
         Returns: boolean
       }
+      limite_padrao_plano: {
+        Args: { _plano: Database["public"]["Enums"]["plano_b2b"] }
+        Returns: number
+      }
       listar_parceiros_externos_ativos: {
         Args: { _organization_id: string }
         Returns: {
@@ -4473,6 +4477,16 @@ export type Database = {
           aluno_id: string
           nome: string
           valor: number
+        }[]
+      }
+      obter_uso_limite_alunos: {
+        Args: never
+        Returns: {
+          alunos_ativos: number
+          limite: number
+          limite_padrao_do_plano: number
+          organization_id: string
+          plano: Database["public"]["Enums"]["plano_b2b"]
         }[]
       }
       organizacao_inadimplente_b2b: {
