@@ -90,6 +90,87 @@ Regras:
 - Se o documento não tiver nenhuma refeição identificável, devolva "refeicoes": [].
 - Responda só com o JSON, nada mais.`;
 
+// O modelo não fica cravado no código. Em 20/09/2026 a importação de dieta
+// estava quebrada em produção porque `gemini-1.5-flash` foi aposentado pelo
+// Google e a API passou a responder 404 NOT_FOUND — a função seguia pedindo
+// um modelo que não existe mais. Modelo de fornecedor é dado de ambiente,
+// não constante de código: some sem aviso e não dá para depender de um
+// deploy para reagir.
+//
+// GEMINI_MODEL, se definido, manda sozinho (controle explícito, sem sondagem).
+// Sem ele, tenta os candidatos em ordem e memoriza o primeiro que responder.
+const MODELOS_CANDIDATOS = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-flash-latest"];
+
+// Memória por isolate: uma vez descoberto o modelo vivo, as próximas
+// requisições vão direto nele, sem repetir a sondagem.
+let modeloResolvido: string | null = null;
+
+type RespostaGemini =
+  | { ok: true; dados: unknown }
+  | { ok: false; status: number; detalhe: string; modelo: string };
+
+async function chamarGemini(fileBase64: string, apiKey: string, modelo: string): Promise<Response> {
+  return await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/${modelo}:generateContent?key=${apiKey}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        contents: [
+          {
+            role: "user",
+            parts: [
+              { inline_data: { mime_type: "application/pdf", data: fileBase64 } },
+              { text: SYSTEM_INSTRUCTION },
+            ],
+          },
+        ],
+        generationConfig: {
+          responseMimeType: "application/json",
+          responseSchema: RESPONSE_SCHEMA,
+          temperature: 0.1,
+        },
+      }),
+    }
+  );
+}
+
+async function extrairComGemini(fileBase64: string, apiKey: string): Promise<RespostaGemini> {
+  const fixo = Deno.env.get("GEMINI_MODEL");
+  const candidatos = fixo ? [fixo] : modeloResolvido ? [modeloResolvido] : MODELOS_CANDIDATOS;
+
+  let ultimo: { status: number; detalhe: string; modelo: string } | null = null;
+
+  for (const modelo of candidatos) {
+    const resp = await chamarGemini(fileBase64, apiKey, modelo);
+
+    if (resp.ok) {
+      if (modeloResolvido !== modelo) {
+        modeloResolvido = modelo;
+        console.log(`Modelo Gemini em uso: ${modelo}`);
+      }
+      return { ok: true, dados: await resp.json() };
+    }
+
+    const detalhe = await resp.text();
+    ultimo = { status: resp.status, detalhe, modelo };
+    console.error(`Gemini recusou o modelo ${modelo}: ${resp.status} ${detalhe}`);
+
+    // Só faz sentido tentar outro modelo quando o erro é "esse modelo não
+    // existe". Chave inválida, cota estourada ou erro do Google não melhoram
+    // trocando de modelo — insistir só queima quota e atrasa a resposta.
+    if (resp.status !== 404) break;
+
+    // O modelo memorizado morreu: limpa para a próxima sondar do zero.
+    if (modeloResolvido === modelo) modeloResolvido = null;
+  }
+
+  return {
+    ok: false,
+    ...(ultimo ?? { status: 502, detalhe: "sem resposta do Gemini", modelo: "desconhecido" }),
+  };
+}
+
 function validarDietaExtraida(data: unknown): DietaExtraida {
   if (typeof data !== "object" || data === null) throw new Error("Resposta do modelo não é um objeto.");
   const d = data as Record<string, unknown>;
@@ -127,7 +208,8 @@ function validarDietaExtraida(data: unknown): DietaExtraida {
   };
 }
 
-// Importação de dieta em PDF via Google Gemini (gemini-1.5-flash). Chamada
+// Importação de dieta em PDF via Google Gemini (modelo resolvido em
+// tempo de execução, ver MODELOS_CANDIDATOS/GEMINI_MODEL acima). Chamada
 // autenticada pelo JWT do nutricionista/gestor — não grava nada no banco
 // (só extrai e devolve para revisão), mas ainda assim custa dinheiro (API
 // do Gemini), então fica restrita a staff qualificado da organização.
@@ -170,14 +252,16 @@ Deno.serve(async (req: Request) => {
       return jsonResponse({ error: "Sessão inválida. Faça login novamente." }, 401);
     }
 
-    const { data: membership } = await asUser
+    // Lista, não `.maybeSingle()`: quem tem vínculo ativo em duas
+    // organizações fazia a consulta falhar e levava 403 mesmo sendo
+    // nutricionista — mesma classe de defeito já corrigida no AuthContext.
+    const { data: vinculos } = await asUser
       .from("organization_members")
       .select("role")
       .eq("user_id", callerId)
       .eq("status", "active")
-      .in("role", ["gestor", "nutricionista", "admin_arke"])
-      .maybeSingle();
-    if (!membership) {
+      .in("role", ["gestor", "nutricionista", "admin_arke"]);
+    if (!vinculos?.length) {
       return jsonResponse({ error: "Só a nutricionista ou o gestor podem importar dieta de PDF." }, 403);
     }
 
@@ -193,37 +277,26 @@ Deno.serve(async (req: Request) => {
       return jsonResponse({ error: "PDF muito grande (máximo ~15MB)." }, 413);
     }
 
-    const geminiResp = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiApiKey}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [
-            {
-              role: "user",
-              parts: [
-                { inline_data: { mime_type: "application/pdf", data: fileBase64 } },
-                { text: SYSTEM_INSTRUCTION },
-              ],
-            },
-          ],
-          generationConfig: {
-            responseMimeType: "application/json",
-            responseSchema: RESPONSE_SCHEMA,
-            temperature: 0.1,
-          },
-        }),
-      }
-    );
+    const resultado = await extrairComGemini(fileBase64, geminiApiKey);
 
-    if (!geminiResp.ok) {
-      const detalhe = await geminiResp.text();
-      console.error("Gemini API error", geminiResp.status, detalhe);
-      return jsonResponse({ error: "Falha ao processar o PDF com o modelo de extração." }, 502);
+    if (!resultado.ok) {
+      // A mensagem genérica de antes ("Falha ao processar o PDF") escondeu
+      // que o modelo tinha sido aposentado. O motivo real vai para a tela:
+      // quem importa dieta é quem vai acionar o suporte.
+      const motivo =
+        resultado.status === 404
+          ? `O modelo de extração "${resultado.modelo}" não está mais disponível no Google. Configure GEMINI_MODEL no projeto Supabase com um modelo atual.`
+          : resultado.status === 429
+            ? "Cota da API do Gemini esgotada. Tente de novo em alguns minutos."
+            : resultado.status === 400 || resultado.status === 403
+              ? "A GEMINI_API_KEY foi recusada pelo Google. Verifique o secret no projeto Supabase."
+              : `O Gemini respondeu ${resultado.status} ao processar o PDF.`;
+      return jsonResponse({ error: motivo, gemini_status: resultado.status, modelo: resultado.modelo }, 502);
     }
 
-    const geminiData = await geminiResp.json();
+    const geminiData = resultado.dados as {
+      candidates?: { content?: { parts?: { text?: string }[] } }[];
+    };
     const textoResposta: string | undefined =
       geminiData?.candidates?.[0]?.content?.parts?.map((p: { text?: string }) => p.text ?? "").join("");
 
