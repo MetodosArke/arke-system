@@ -1,0 +1,763 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Manual da Jornada do Aluno — Método ARKE</title>
+<style>
+  @page { size: A4; margin: 18mm 16mm 20mm 16mm; }
+  @page { @bottom-center { content: counter(page); } }
+
+  :root {
+    --tinta: #16191d;
+    --suave: #5b636e;
+    --linha: #dfe3e8;
+    --fundo-suave: #f6f7f9;
+    --aluno: #1d6fd0;
+    --aluno-bg: #eaf2fd;
+    --equipe: #b4541a;
+    --equipe-bg: #fdf0e6;
+    --sistema: #4a4f57;
+    --sistema-bg: #eef0f2;
+    --alerta: #b3261e;
+    --alerta-bg: #fdecea;
+    --ok: #1d7a46;
+    --ok-bg: #e8f5ed;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    font-family: "DejaVu Sans", "Liberation Sans", Arial, sans-serif;
+    color: var(--tinta);
+    font-size: 10pt;
+    line-height: 1.55;
+    margin: 0;
+  }
+
+  h1, h2, h3, h4 { line-height: 1.25; margin: 0; }
+
+  /* ---------- Capa ---------- */
+  .capa {
+    height: 247mm;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    page-break-after: always;
+  }
+  .capa .selo {
+    font-size: 8.5pt; letter-spacing: .22em; text-transform: uppercase;
+    color: var(--suave); margin-bottom: 14mm;
+  }
+  .capa h1 { font-size: 30pt; letter-spacing: -.5pt; }
+  .capa .sub { font-size: 13pt; color: var(--suave); margin-top: 5mm; max-width: 130mm; }
+  .capa .regua { height: 3px; background: var(--tinta); width: 34mm; margin: 12mm 0; }
+  .capa dl { display: grid; grid-template-columns: 34mm 1fr; gap: 2.5mm 6mm; font-size: 9.5pt; margin: 0; }
+  .capa dt { color: var(--suave); }
+  .capa dd { margin: 0; }
+  .capa .nota {
+    margin-top: 16mm; padding: 5mm 6mm; background: var(--fundo-suave);
+    border-left: 3px solid var(--tinta); font-size: 9pt; color: var(--suave);
+  }
+
+  /* ---------- Estrutura ---------- */
+  .parte { page-break-before: always; }
+  h2.titulo-parte {
+    font-size: 17pt; padding-bottom: 3mm; margin-bottom: 6mm;
+    border-bottom: 2px solid var(--tinta);
+  }
+  h2.titulo-parte .num {
+    display: block; font-size: 8.5pt; letter-spacing: .18em;
+    text-transform: uppercase; color: var(--suave); margin-bottom: 2mm;
+  }
+  h3 { font-size: 12pt; margin: 7mm 0 3mm; }
+  h4 { font-size: 10pt; margin: 5mm 0 2mm; }
+  p { margin: 0 0 3mm; }
+  ul, ol { margin: 0 0 3mm; padding-left: 5.5mm; }
+  li { margin-bottom: 1.5mm; }
+  code {
+    font-family: "DejaVu Sans Mono", "Liberation Mono", monospace;
+    font-size: 8.5pt; background: var(--fundo-suave);
+    padding: .4mm 1.2mm; border-radius: 2px;
+  }
+
+  /* ---------- Etiquetas de ator ---------- */
+  .tag {
+    display: inline-block; font-size: 7.5pt; font-weight: bold;
+    letter-spacing: .08em; text-transform: uppercase;
+    padding: .8mm 2mm; border-radius: 2.5px; white-space: nowrap;
+  }
+  .t-aluno   { background: var(--aluno-bg);   color: var(--aluno); }
+  .t-equipe  { background: var(--equipe-bg);  color: var(--equipe); }
+  .t-sistema { background: var(--sistema-bg); color: var(--sistema); }
+
+  /* ---------- Passos ---------- */
+  .passo { page-break-inside: avoid; margin-bottom: 5mm; border-left: 2px solid var(--linha); padding-left: 5mm; }
+  .passo.a { border-left-color: var(--aluno); }
+  .passo.e { border-left-color: var(--equipe); }
+  .passo.s { border-left-color: var(--sistema); }
+  .passo .cabeca { display: flex; align-items: baseline; gap: 3mm; margin-bottom: 1.5mm; }
+  .passo .cabeca h4 { margin: 0; font-size: 10.5pt; }
+  .passo .quando {
+    font-size: 8.5pt; color: var(--suave); font-style: italic; margin-bottom: 2mm;
+  }
+
+  /* ---------- Tabelas ---------- */
+  table { width: 100%; border-collapse: collapse; margin: 3mm 0 5mm; font-size: 8.8pt; page-break-inside: avoid; }
+  th { text-align: left; background: var(--fundo-suave); font-size: 8pt;
+       text-transform: uppercase; letter-spacing: .06em; color: var(--suave);
+       padding: 2mm 2.5mm; border-bottom: 1.5px solid var(--linha); }
+  td { padding: 2mm 2.5mm; border-bottom: 1px solid var(--linha); vertical-align: top; }
+  tr:last-child td { border-bottom: none; }
+
+  /* ---------- Caixas ---------- */
+  .caixa { padding: 4mm 5mm; margin: 4mm 0; font-size: 9.2pt; page-break-inside: avoid; border-radius: 3px; }
+  .caixa .rotulo { font-weight: bold; font-size: 8pt; text-transform: uppercase; letter-spacing: .1em; display: block; margin-bottom: 1.5mm; }
+  .c-regra  { background: var(--fundo-suave); border-left: 3px solid var(--tinta); }
+  .c-alerta { background: var(--alerta-bg);   border-left: 3px solid var(--alerta); }
+  .c-alerta .rotulo { color: var(--alerta); }
+  .c-ok     { background: var(--ok-bg);       border-left: 3px solid var(--ok); }
+  .c-ok .rotulo { color: var(--ok); }
+
+  /* ---------- Diagrama ---------- */
+  .junto { page-break-inside: avoid; }
+  .fluxo { margin: 5mm 0; page-break-inside: avoid; }
+  .fase {
+    display: grid; grid-template-columns: 26mm 1fr; gap: 4mm;
+    border-top: 1px solid var(--linha); padding: 3mm 0;
+  }
+  .fase:last-child { border-bottom: 1px solid var(--linha); }
+  .fase .nome { font-weight: bold; font-size: 9.5pt; }
+  .fase .nome small { display: block; font-weight: normal; color: var(--suave); font-size: 8pt; }
+  .fase .trilhas { display: grid; gap: 1.5mm; }
+  .trilha { display: grid; grid-template-columns: 20mm 1fr; gap: 3mm; font-size: 8.8pt; align-items: start; }
+
+  .legenda { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 4mm; margin: 5mm 0; }
+  .legenda > div { padding: 3mm; background: var(--fundo-suave); border-radius: 3px; font-size: 8.5pt; }
+
+  .sumario ol { list-style: none; padding: 0; counter-reset: s; }
+  .sumario li { counter-increment: s; padding: 2mm 0; border-bottom: 1px dotted var(--linha); font-size: 10pt; }
+  .sumario li::before { content: counter(s) ". "; color: var(--suave); }
+  .sumario li span { color: var(--suave); font-size: 8.5pt; display: block; padding-left: 5mm; }
+
+  .checklist li { margin-bottom: 3mm; }
+  .checklist strong { display: block; }
+</style>
+</head>
+<body>
+
+<!-- ======================= CAPA ======================= -->
+<section class="capa">
+  <div class="selo">ArkeFit · Documentação de Produto</div>
+  <h1>Manual da Jornada<br>do Aluno</h1>
+  <div class="sub">Como o app do aluno funciona, passo a passo — o que é atividade do aluno, o que é atividade da equipe, e quando cada coisa acontece.</div>
+  <div class="regua"></div>
+  <dl>
+    <dt>Versão</dt><dd>1.0 — 20 de setembro de 2026</dd>
+    <dt>Escopo</dt><dd>Aplicativo do aluno (<code>/app</code>) e os pontos em que a equipe entra pelo painel (<code>/admin</code>)</dd>
+    <dt>Base</dt><dd>Código em produção e schema do banco na data acima</dd>
+    <dt>Finalidade</dt><dd>Validação — decidir o que se mantém e o que muda</dd>
+  </dl>
+  <div class="nota">
+    Este manual descreve o sistema <strong>como ele está hoje</strong>, não como foi idealizado.
+    Onde o comportamento atual diverge da intenção, ou onde existe lacuna, o texto aponta —
+    e a Parte 12 reúne esses pontos numa lista de decisão.
+  </div>
+</section>
+
+<!-- ======================= SUMÁRIO ======================= -->
+<section class="parte">
+  <h2 class="titulo-parte"><span class="num">Início</span>Como ler este manual</h2>
+
+  <p>Cada passo da jornada é marcado por <strong>quem age</strong>. Três atores:</p>
+
+  <div class="legenda">
+    <div><span class="tag t-aluno">Aluno</span><br><br>O aluno faz, pelo celular, em <code>/app</code>. Nada acontece sem ele.</div>
+    <div><span class="tag t-equipe">Equipe</span><br><br>Alguém da academia faz, em <code>/admin</code> — gestor, professor, nutricionista ou recepção.</div>
+    <div><span class="tag t-sistema">Sistema</span><br><br>Acontece sozinho: trigger no banco, rotina agendada ou regra de tela. Ninguém clica.</div>
+  </div>
+
+  <p>Cada passo traz também <strong>quando</strong> ele acontece — o gatilho, não o horário de relógio. Onde existe prazo (SLA), ele está escrito.</p>
+
+  <div class="caixa c-regra">
+    <span class="rotulo">Convenção de nomes</span>
+    As cinco fases da metodologia são <strong>M.A.P.A.®</strong> (descobrir), <strong>B.A.S.E.®</strong> (estruturar),
+    <strong>R.O.T.A.®</strong> (sustentar), <strong>A.P.E.X.®</strong> (expandir) e <strong>L.E.G.A.D.O.®</strong> (perpetuar).
+    No banco elas aparecem como <code>mapa</code>, <code>base</code>, <code>rota</code>, <code>apex</code> e <code>legado</code>.
+  </div>
+
+  <h3>Sumário</h3>
+  <div class="sumario">
+    <ol>
+      <li>Mapa geral do fluxo<span>A jornada inteira em uma página</span></li>
+      <li>Antes do app: como o aluno entra<span>Três portas de entrada, e o que cada uma já define</span></li>
+      <li>O divisor de águas: com ou sem adesão ao Método<span>O mesmo app se comporta de dois jeitos</span></li>
+      <li>M.A.P.A.® — o acolhimento<span>Onboarding em 5 passos, consentimento e o que dispara ao terminar</span></li>
+      <li>B.A.S.E.® — a prescrição<span>Como a ficha nasce, e por que ela é imutável</span></li>
+      <li>O dia a dia do aluno<span>A home, a Próxima Ação e os quatro registros diários</span></li>
+      <li>R.O.T.A.® — o check-in e o que ele dispara<span>Cada resposta gera (ou não) uma pendência para a equipe</span></li>
+      <li>A fila da equipe<span>Como a pendência é assumida, cumprida e encerrada</span></li>
+      <li>As automações, uma a uma<span>Gatilho, horário, prazo e prioridade de cada rotina</span></li>
+      <li>A.P.E.X.® e L.E.G.A.D.O.® — o que a equipe move à mão<span>E por que não é automático</span></li>
+      <li>Pagamento, bloqueio e pontuação<span>Quem é barrado, quando, e como o engajamento é medido</span></li>
+      <li>Pontos para validar<span>O que decidir: manter ou alterar</span></li>
+    </ol>
+  </div>
+</section>
+
+<!-- ======================= 1. MAPA ======================= -->
+<section class="parte">
+  <h2 class="titulo-parte"><span class="num">Parte 1</span>Mapa geral do fluxo</h2>
+
+  <p>A jornada inteira, do cadastro à fase final. Leia de cima para baixo; cada linha mostra o que cada ator faz naquela fase.</p>
+
+  <div class="fluxo">
+    <div class="fase">
+      <div class="nome">Entrada<small>antes do app</small></div>
+      <div class="trilhas">
+        <div class="trilha"><span class="tag t-aluno">Aluno</span><span>Auto-matrícula na página pública da academia, escolhendo o nível e a própria senha.</span></div>
+        <div class="trilha"><span class="tag t-equipe">Equipe</span><span>Ou cadastra o aluno pelo painel e envia o link de ativação por WhatsApp.</span></div>
+      </div>
+    </div>
+
+    <div class="fase">
+      <div class="nome">M.A.P.A.®<small>descobrir</small></div>
+      <div class="trilhas">
+        <div class="trilha"><span class="tag t-sistema">Sistema</span><span>Barra o app e leva ao onboarding — só para quem tem adesão ativa ao Método.</span></div>
+        <div class="trilha"><span class="tag t-aluno">Aluno</span><span>Responde a anamnese em 5 passos e aceita o termo de consentimento (LGPD).</span></div>
+        <div class="trilha"><span class="tag t-sistema">Sistema</span><span>Abre pendência de acolhimento (48h) e publica um treino de adaptação provisório.</span></div>
+        <div class="trilha"><span class="tag t-equipe">Equipe</span><span>Agenda e realiza a consulta de acolhimento.</span></div>
+      </div>
+    </div>
+
+    <div class="fase">
+      <div class="nome">B.A.S.E.®<small>estruturar</small></div>
+      <div class="trilhas">
+        <div class="trilha"><span class="tag t-equipe">Equipe</span><span>Publica a ficha de treino (e a dieta, se o nível incluir nutrição).</span></div>
+        <div class="trilha"><span class="tag t-sistema">Sistema</span><span>Move o aluno de M.A.P.A.® para B.A.S.E.® — a única transição automática.</span></div>
+      </div>
+    </div>
+
+    <div class="fase">
+      <div class="nome">R.O.T.A.®<small>sustentar</small></div>
+      <div class="trilhas">
+        <div class="trilha"><span class="tag t-aluno">Aluno</span><span>Treina, registra, marca a dieta, bebe água e responde ao check-in.</span></div>
+        <div class="trilha"><span class="tag t-sistema">Sistema</span><span>Transforma sinal de risco em pendência com prazo; escala ao gestor se vencer.</span></div>
+        <div class="trilha"><span class="tag t-equipe">Equipe</span><span>Atende a fila e encerra cada pendência com um desfecho escrito.</span></div>
+        <div class="trilha"><span class="tag t-equipe">Equipe</span><span>Move o aluno para R.O.T.A.® quando julga que ele sustentou a rotina.</span></div>
+      </div>
+    </div>
+
+    <div class="fase">
+      <div class="nome">A.P.E.X.®<small>expandir</small></div>
+      <div class="trilhas">
+        <div class="trilha"><span class="tag t-equipe">Equipe</span><span>Move à mão, com observação registrada. Não há gatilho automático.</span></div>
+      </div>
+    </div>
+
+    <div class="fase">
+      <div class="nome">L.E.G.A.D.O.®<small>perpetuar</small></div>
+      <div class="trilhas">
+        <div class="trilha"><span class="tag t-equipe">Equipe</span><span>Move à mão, com observação registrada. Não há gatilho automático.</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="caixa c-regra">
+    <span class="rotulo">Leitura em uma frase</span>
+    O sistema automatiza <strong>uma</strong> transição de fase (M.A.P.A.® → B.A.S.E.®, ao publicar a primeira prescrição).
+    Todas as outras são decisão da equipe. O que o sistema automatiza de verdade é <strong>a pendência</strong>:
+    ele vigia sinais e põe trabalho na fila de alguém, com prazo.
+  </div>
+</section>
+
+<!-- ======================= 2. ENTRADA ======================= -->
+<section class="parte">
+  <h2 class="titulo-parte"><span class="num">Parte 2</span>Antes do app: como o aluno entra</h2>
+
+  <p>Existem três portas. A porta escolhida define coisas que valem para o resto da jornada — principalmente <strong>se o aluno tem adesão ao Método</strong>, o que muda o app inteiro (Parte 3).</p>
+
+  <div class="passo a">
+    <div class="cabeca"><span class="tag t-aluno">Aluno</span><h4>Porta 1 — Auto-matrícula pela página pública</h4></div>
+    <div class="quando">Quando: o aluno acessa <code>/p/{slug-da-academia}</code>, sem login, por um link ou QR code.</div>
+    <p>O aluno escolhe o nível (Essencial, Integrado ou Elite), preenche os dados e <strong>define a própria senha</strong> — não há e-mail de convite nem senha temporária. A conta nasce já com <code>metodo_arke_status = 'ativo'</code> e o nível gravado.</p>
+    <p><strong>Consequência:</strong> quem entra por aqui cai direto no M.A.P.A.® no primeiro login.</p>
+  </div>
+
+  <div class="passo e">
+    <div class="cabeca"><span class="tag t-equipe">Equipe</span><h4>Porta 2 — Cadastro pelo painel + link de ativação</h4></div>
+    <div class="quando">Quando: a equipe cadastra o aluno em <code>/admin/alunos</code>, normalmente na recepção.</div>
+    <p>A equipe cria a matrícula e gera um <strong>link de ativação</strong> para enviar por WhatsApp. O aluno abre o link, define a senha e entra. Se o aluno foi cadastrado sem adesão ao Método, ele entra no app <strong>sem passar pelo M.A.P.A.®</strong>.</p>
+  </div>
+
+  <div class="passo e">
+    <div class="cabeca"><span class="tag t-equipe">Equipe</span><h4>Porta 3 — Importação em massa</h4></div>
+    <div class="quando">Quando: migração de base, em <code>/admin/alunos/importar</code>.</div>
+    <p>Planilha CSV com validação de e-mail, telefone e CPF. Serve para trazer a base existente da academia — que normalmente entra <strong>sem adesão ao Método</strong>, e só adere depois.</p>
+  </div>
+
+  <div class="caixa c-regra">
+    <span class="rotulo">O que a porta de entrada não muda</span>
+    Independente da porta, o aluno sempre pertence a <strong>uma organização</strong> e só enxerga dados dela.
+    O isolamento é garantido pelo RLS de cada tabela, não pela tela.
+  </div>
+</section>
+
+<!-- ======================= 3. DIVISOR ======================= -->
+<section class="parte">
+  <h2 class="titulo-parte"><span class="num">Parte 3</span>O divisor de águas: com ou sem adesão ao Método</h2>
+
+  <p>Esta é a distinção mais importante do produto, e a que mais confunde quem olha o app pela primeira vez. <strong>O mesmo aplicativo se comporta de dois jeitos</strong>, conforme o campo <code>alunos.metodo_arke_status</code>.</p>
+
+  <table>
+    <tr>
+      <th style="width:30%">&nbsp;</th>
+      <th style="width:35%">Aluno <strong>sem</strong> adesão<br><code>sem_adesao</code></th>
+      <th style="width:35%">Aluno <strong>com</strong> adesão<br><code>ativo</code></th>
+    </tr>
+    <tr><td>Quem é</td><td>Matriculado na academia pelo sistema comum. Não comprou o Método.</td><td>Comprou o Método ARKE (Essencial, Integrado ou Elite), ou está em trial de homologação.</td></tr>
+    <tr><td>Onboarding M.A.P.A.®</td><td><strong>Não passa.</strong> Entra direto no app.</td><td><strong>Obrigatório.</strong> Fica preso no onboarding até concluir.</td></tr>
+    <tr><td>O que vê no app</td><td>Treino e dieta que a equipe publicar, diário, evolução.</td><td>Tudo, mais a jornada da metodologia e os check-ins R.O.T.A.®</td></tr>
+    <tr><td>Automações de retenção</td><td>Só a de barreira de rotina, que olha treino ativo.</td><td>Todas — ativação, acolhimento Elite, engajamento baixo.</td></tr>
+    <tr><td>Pode ter assinatura do Método</td><td><strong>Não.</strong> Recusado na Edge Function e no banco.</td><td>Sim.</td></tr>
+  </table>
+
+  <div class="caixa c-regra">
+    <span class="rotulo">Por que é assim</span>
+    O M.A.P.A.® é a experiência do produto Método ARKE — um adicional que a academia vende à parte,
+    não o cadastro básico de quem já é matriculado. Forçar a anamnese em quem não comprou o Método
+    seria cobrar do aluno um esforço por algo que ele não contratou.
+  </div>
+
+  <div class="passo s">
+    <div class="cabeca"><span class="tag t-sistema">Sistema</span><h4>Como o app decide para onde mandar o aluno</h4></div>
+    <div class="quando">Quando: em toda entrada em qualquer tela de <code>/app</code>.</div>
+    <p>Dois portões, nesta ordem:</p>
+    <ol>
+      <li>Tem adesão ativa <strong>e</strong> não concluiu a anamnese → vai para o onboarding e não sai de lá.</li>
+      <li>Tem adesão ativa, concluiu a anamnese, mas nunca registrou o consentimento LGPD → vai para a tela de consentimento, <strong>sem refazer a anamnese inteira</strong> (caso de quem respondeu antes de o termo existir).</li>
+    </ol>
+    <p>Fora esses dois casos, o app abre normalmente.</p>
+  </div>
+
+  <div class="passo e">
+    <div class="cabeca"><span class="tag t-equipe">Equipe</span><h4>Como um aluno passa a ter adesão</h4></div>
+    <div class="quando">Quando: na ficha do aluno, bloco <strong>Método ARKE</strong>, em <code>/admin/alunos</code>.</div>
+    <p>Dois caminhos: a assinatura real (com cobrança no gateway) ou o <strong>trial de homologação</strong>, que ativa a adesão sem criar nada no Asaas e sem gerar cobrança.</p>
+    <div class="caixa c-alerta" style="margin-top:3mm">
+      <span class="rotulo">O trial não é oferta comercial</span>
+      Ele existe só para homologar a jornada. Não há período de testes comercial para ninguém.
+      Efeito colateral aceito: o aluno em trial conta como aderente nas métricas de adoção — o que é correto,
+      já que ele está de fato usando o Método — mas <strong>não entra na receita</strong>, que exige pagamento liquidado.
+    </div>
+  </div>
+</section>
+
+<!-- ======================= 4. MAPA ======================= -->
+<section class="parte">
+  <h2 class="titulo-parte"><span class="num">Parte 4</span>M.A.P.A.® — o acolhimento</h2>
+
+  <p>Primeira fase. O objetivo não é coletar dados: é o aluno se sentir ouvido antes de receber qualquer prescrição.</p>
+
+  <div class="passo a">
+    <div class="cabeca"><span class="tag t-aluno">Aluno</span><h4>Passo 1 — Responde a anamnese, em 5 telas</h4></div>
+    <div class="quando">Quando: no primeiro acesso, logo após o login. Leva menos de 3 minutos.</div>
+    <table>
+      <tr><th style="width:38%">Tela</th><th>O que pergunta</th></tr>
+      <tr><td><strong>1. Bem-vindo(a) à ARKE</strong></td><td>Objetivo principal e o que espera alcançar.</td></tr>
+      <tr><td><strong>2. Sua rotina</strong></td><td>Rotina diária, tempo disponível, quantos dias quer treinar, qualidade do sono, nível de estresse.</td></tr>
+      <tr><td><strong>3. Experiência e saúde</strong></td><td>Experiência anterior, dores e lesões, medicamentos, estilo de treino preferido.</td></tr>
+      <tr><td><strong>4. Alimentação</strong></td><td>Como come hoje, o que gosta, o que não gosta ou não pode comer.</td></tr>
+      <tr><td><strong>5. Privacidade e Consentimento</strong></td><td>Termo de consentimento para tratar dados de saúde. Sem aceite, não conclui.</td></tr>
+    </table>
+    <p>O rascunho fica salvo no próprio aparelho a cada passo: se o aluno fechar o app no meio, volta de onde parou.</p>
+  </div>
+
+  <div class="passo s">
+    <div class="cabeca"><span class="tag t-sistema">Sistema</span><h4>Passo 2 — Ao concluir, três coisas acontecem de uma vez</h4></div>
+    <div class="quando">Quando: no instante em que o aluno toca em concluir, na tela 5.</div>
+    <ol>
+      <li><strong>Grava a anamnese</strong> com data de conclusão e data do consentimento.</li>
+      <li><strong>Abre a pendência de acolhimento</strong> na fila da equipe: <em>"Agendar consulta de Acolhimento (M.A.P.A.®)"</em>, prioridade média, <strong>prazo de 48 horas</strong>.</li>
+      <li><strong>Publica um treino de adaptação provisório</strong>, para o aluno não cair num app vazio esperando a ficha. Se essa publicação falhar, o onboarding conclui do mesmo jeito — o aluno não fica preso por causa disso.</li>
+    </ol>
+  </div>
+
+  <div class="junto">
+  <div class="passo e">
+    <div class="cabeca"><span class="tag t-equipe">Equipe</span><h4>Passo 3 — Agenda e realiza o acolhimento</h4></div>
+    <div class="quando">Quando: a pendência aparece na fila imediatamente; o prazo é de 48h.</div>
+    <p>Na fila (<code>/admin</code>), quem atende lê a anamnese completa junto da pendência, combina a data com o aluno e <strong>marca a data agendada</strong>. Marcar a data <strong>não encerra</strong> a pendência: o desfecho só é registrado depois que o encontro realmente acontece.</p>
+    <p>A data marcada aparece para o aluno no card <em>Próximo Evento de Acompanhamento</em>, na home dele.</p>
+  </div>
+
+  <div class="caixa c-ok">
+    <span class="rotulo">Por que a data não encerra a tarefa</span>
+    Agendar não é atender. Se marcar a data já fechasse a pendência, um aluno cujo acolhimento foi desmarcado
+    sumiria da fila sem nunca ter sido atendido — que é exatamente o caso que a metodologia existe para evitar.
+  </div>
+  </div>
+</section>
+
+<!-- ======================= 5. BASE ======================= -->
+<section class="parte">
+  <h2 class="titulo-parte"><span class="num">Parte 5</span>B.A.S.E.® — a prescrição</h2>
+
+  <div class="passo e">
+    <div class="cabeca"><span class="tag t-equipe">Equipe</span><h4>Passo 1 — Publica a ficha de treino</h4></div>
+    <div class="quando">Quando: depois do acolhimento, em <code>/admin/treinos</code>.</div>
+    <p>O professor monta a ficha a partir da biblioteca de exercícios ou de um dos modelos da academia, e publica para aquele aluno. A dieta segue o mesmo caminho em <code>/admin/dietas</code>, com o nutricionista — <strong>mas só para quem tem nível Integrado ou Elite</strong>: o banco recusa publicar dieta para aluno do Essencial.</p>
+  </div>
+
+  <div class="passo s">
+    <div class="cabeca"><span class="tag t-sistema">Sistema</span><h4>Passo 2 — Move o aluno para B.A.S.E.®</h4></div>
+    <div class="quando">Quando: no instante da primeira publicação de treino ou dieta.</div>
+    <p>Esta é <strong>a única transição de fase automática do sistema</strong>. E ela tem uma condição: o aluno só avança se a <strong>anamnese estiver concluída</strong>. Sem isso, a fase não muda, por mais fichas que sejam publicadas.</p>
+    <div class="caixa c-regra" style="margin-top:3mm">
+      <span class="rotulo">Por que a condição existe</span>
+      Antes ela não existia, e o resultado era aluno marcado como tendo passado pelo M.A.P.A.® sem ter passado —
+      um número de adoção que media a diligência da equipe em publicar ficha, não o acolhimento do aluno.
+    </div>
+  </div>
+
+  <div class="passo s">
+    <div class="cabeca"><span class="tag t-sistema">Sistema</span><h4>Passo 3 — Trava o conteúdo publicado</h4></div>
+    <div class="quando">Quando: a partir da publicação, para sempre.</div>
+    <p>Treino e dieta publicados viram <strong>snapshot imutável</strong>: o banco recusa alterações no conteúdo. Mexer num modelo da biblioteca depois disso <strong>não muda</strong> o plano de nenhum aluno que já o recebeu. Para mudar o plano de alguém, publica-se uma nova versão.</p>
+    <div class="caixa c-ok" style="margin-top:3mm">
+      <span class="rotulo">O que isso protege</span>
+      Que o aluno abra o app no meio do treino e a ficha tenha mudado embaixo dele — e que a academia
+      consiga provar, meses depois, exatamente o que foi prescrito e quando.
+    </div>
+  </div>
+</section>
+
+<!-- ======================= 6. DIA A DIA ======================= -->
+<section class="parte">
+  <h2 class="titulo-parte"><span class="num">Parte 6</span>O dia a dia do aluno</h2>
+
+  <p>Passada a prescrição, o app vira rotina. A home é desenhada para responder uma única pergunta: <strong>o que eu faço agora?</strong></p>
+
+  <h3>A ordem da home</h3>
+  <p>De cima para baixo, o aluno vê:</p>
+  <table>
+    <tr><th style="width:8%">#</th><th style="width:34%">Bloco</th><th>Para que serve</th></tr>
+    <tr><td>1</td><td>Fase da jornada</td><td>Uma etiqueta discreta com a fase atual.</td></tr>
+    <tr><td>2</td><td><strong>Próxima Ação</strong></td><td>O único bloco com botão. Diz o que fazer agora e leva lá.</td></tr>
+    <tr><td>3</td><td>Progresso Semanal</td><td>Os check-ins da semana.</td></tr>
+    <tr><td>4</td><td>Próximo Evento</td><td>A data que a equipe combinou com ele.</td></tr>
+    <tr><td>5</td><td>Check-in do dia</td><td>"Como está sendo seguir seu plano?"</td></tr>
+    <tr><td>6</td><td>Registrar Alerta</td><td>O botão de ajuda: dor ou problema de rotina.</td></tr>
+    <tr><td>7+</td><td>Atalhos, água, pontuação</td><td>Segundo plano — navegação, hábitos e gamificação.</td></tr>
+  </table>
+
+  <h3>Como a Próxima Ação é escolhida</h3>
+  <p>O sistema percorre esta ordem e mostra <strong>a primeira que se aplicar</strong>:</p>
+  <table>
+    <tr><th style="width:30%">Situação</th><th style="width:40%">O que o aluno vê</th><th>Botão</th></tr>
+    <tr><td>Sem ficha publicada</td><td>"Sua ficha está sendo preparada"</td><td><em>Nenhum</em></td></tr>
+    <tr><td>Treino de hoje não registrado</td><td>"Treino de hoje"</td><td>Abrir treino</td></tr>
+    <tr><td>Treino feito, check-in pendente</td><td>"Como está sendo seguir seu plano?"</td><td>Responder</td></tr>
+    <tr><td>Meta de água em aberto</td><td>"Falta água para fechar o dia"</td><td>Registrar água</td></tr>
+    <tr><td>Tudo registrado</td><td>"Você está em dia"</td><td><em>Nenhum</em></td></tr>
+  </table>
+
+  <div class="caixa c-regra">
+    <span class="rotulo">Duas decisões deliberadas neste bloco</span>
+    <strong>Sem botão quando a bola está com a academia.</strong> Se a ficha não saiu, mandar o aluno procurar
+    algo que não existe é pior do que dizer a verdade.<br><br>
+    <strong>"Em dia" é um desfecho legítimo.</strong> Sem ele, a tela inventaria pendência só para ter o que mostrar.
+  </div>
+
+  <h3>Os quatro registros do aluno</h3>
+  <div class="passo a">
+    <div class="cabeca"><span class="tag t-aluno">Aluno</span><h4>Treino</h4></div>
+    <div class="quando">Quando: no dia do treino, em <code>/app/treinos</code>.</div>
+    <p>Marca a execução e conclui o treino do dia. É esse registro que alimenta a sequência de dias seguidos e a detecção de barreira de rotina.</p>
+  </div>
+  <div class="passo a">
+    <div class="cabeca"><span class="tag t-aluno">Aluno</span><h4>Dieta</h4></div>
+    <div class="quando">Quando: ao longo do dia, em <code>/app/dieta</code>. Só para Integrado e Elite.</div>
+    <p>Marca os itens consumidos, item a item, com substituições disponíveis. Gera o percentual de adesão do dia.</p>
+  </div>
+  <div class="passo a">
+    <div class="cabeca"><span class="tag t-aluno">Aluno</span><h4>Água</h4></div>
+    <div class="quando">Quando: ao longo do dia, na própria home.</div>
+    <p>Soma em passos de 250 ml contra a meta dele. O botão de somar desaparece acima de 150% da meta — um contador sem limite viraria alvo de cliques sem sentido.</p>
+  </div>
+  <div class="passo a">
+    <div class="cabeca"><span class="tag t-aluno">Aluno</span><h4>Check-in</h4></div>
+    <div class="quando">Quando: uma vez por dia. É o registro que mais importa para a retenção.</div>
+    <p>Detalhado na Parte 7.</p>
+  </div>
+</section>
+
+<!-- ======================= 7. ROTA ======================= -->
+<section class="parte">
+  <h2 class="titulo-parte"><span class="num">Parte 7</span>R.O.T.A.® — o check-in e o que ele dispara</h2>
+
+  <p>A pergunta é <strong>"Como está sendo seguir seu plano?"</strong> — e não "como está sua dedicação?". A diferença não é cosmética: a primeira pergunta sobre o plano, a segunda cobra o aluno.</p>
+
+  <p>Quatro respostas possíveis. Cada uma dispara uma coisa diferente na fila da equipe, <strong>no mesmo instante do registro</strong>:</p>
+
+  <table>
+    <tr><th style="width:26%">Resposta do aluno</th><th style="width:30%">Pendência gerada</th><th style="width:14%">Prioridade</th><th style="width:12%">Prazo</th><th>Quem resolve</th></tr>
+    <tr><td><strong>Funcionando bem</strong></td><td><em>Nenhuma</em></td><td>—</td><td>—</td><td>—</td></tr>
+    <tr><td><strong>Preciso de ajuste</strong></td><td>"Aluno sinalizou que precisa de ajuste no plano"</td><td>Média</td><td>48h</td><td>Professor ou nutricionista</td></tr>
+    <tr><td><strong>Com dificuldade</strong><br>+ motivo <em>Desconforto/Dor</em></td><td>"Aluno relatou desconforto/dor no check-in"</td><td><strong>Crítica</strong></td><td><strong>12h</strong></td><td>Profissional, antes do próximo treino</td></tr>
+    <tr><td><strong>Quero falar com alguém</strong></td><td>"Aluno pediu para falar com alguém no check-in"</td><td>Alta</td><td>24h</td><td>Quem estiver na fila</td></tr>
+  </table>
+
+  <div class="caixa c-alerta">
+    <span class="rotulo">Lacuna encontrada — decidir na Parte 12</span>
+    Quando o aluno responde <strong>"Com dificuldade"</strong> e escolhe um motivo que <strong>não</strong> é dor —
+    <em>tempo, execução, alimentação</em> ou <em>motivação</em> — <strong>nenhuma pendência é criada</strong>.
+    O relato fica registrado no histórico, mas ninguém é avisado.
+    São justamente os motivos mais associados a abandono silencioso.
+  </div>
+
+  <div class="caixa c-ok">
+    <span class="rotulo">Gamificação positiva — o que NÃO tira ponto</span>
+    Relato de dor, pedido de ajuda e falta justificada <strong>não descontam pontuação</strong>.
+    E a constância é medida contra a meta do próprio aluno: quem tem meta de 2 treinos por semana e cumpre os 2
+    tem 100% — não é penalizado por treinar menos que quem tem meta de 6.
+  </div>
+</section>
+
+<!-- ======================= 8. FILA ======================= -->
+<section class="parte">
+  <h2 class="titulo-parte"><span class="num">Parte 8</span>A fila da equipe</h2>
+
+  <p>Tudo que o sistema detecta vira <strong>uma linha na fila</strong>, em <code>/admin</code>. A fila tem duas abas: <em>Minha Fila</em> (o que está no meu nome) e <em>Fila da Organização</em> (tudo).</p>
+
+  <div class="passo e">
+    <div class="cabeca"><span class="tag t-equipe">Equipe</span><h4>Passo 1 — Assumir</h4></div>
+    <div class="quando">Quando: a pendência aparece sem responsável.</div>
+    <p>Quem vai atender clica em assumir e a pendência passa para a fila dele. Enquanto ninguém assume, ela fica visível para todos.</p>
+  </div>
+
+  <div class="passo e">
+    <div class="cabeca"><span class="tag t-equipe">Equipe</span><h4>Passo 2 — Agir</h4></div>
+    <div class="quando">Quando: dentro do prazo (SLA) daquele tipo.</div>
+    <p>Conforme o tipo da pendência, a própria fila oferece o atalho certo — prescrever treino, prescrever dieta, ou ambos:</p>
+    <table>
+      <tr><th style="width:34%">Tipo de pendência</th><th>Atalho oferecido na fila</th></tr>
+      <tr><td>Anamnese concluída</td><td>Prescrever treino · Prescrever dieta</td></tr>
+      <tr><td>Relato de dor</td><td>Prescrever treino (revisão)</td></tr>
+      <tr><td>Barreira de rotina</td><td>Prescrever treino</td></tr>
+      <tr><td>Pedido de ajuste</td><td>Prescrever treino · Prescrever dieta</td></tr>
+      <tr><td>Ativação, cobrança, acolhimento Elite, engajamento baixo</td><td>Nenhum — a ação é contato humano</td></tr>
+    </table>
+  </div>
+
+  <div class="passo e">
+    <div class="cabeca"><span class="tag t-equipe">Equipe</span><h4>Passo 3 — Encerrar com desfecho</h4></div>
+    <div class="quando">Quando: depois que a ação realmente aconteceu.</div>
+    <p>Para fechar, é obrigatório <strong>escrever o desfecho</strong>. Não existe encerrar sem dizer o que foi feito.</p>
+    <div class="caixa c-regra" style="margin-top:3mm">
+      <span class="rotulo">Ciclo completo de atendimento</span>
+      Motivo → Responsável → Prazo → Ação → <strong>Desfecho</strong> → Próxima checagem.
+      Uma pendência só é encerrada quando há desfecho registrado — é o que separa
+      "a fila esvaziou" de "o aluno foi atendido".
+    </div>
+  </div>
+
+  <div class="passo s">
+    <div class="cabeca"><span class="tag t-sistema">Sistema</span><h4>Passo 4 — Escalonamento automático ao gestor</h4></div>
+    <div class="quando">Quando: de hora em hora, o sistema varre as pendências vencidas.</div>
+    <p>Pendência que passou do prazo sem ser concluída é <strong>transferida para o gestor da unidade</strong> e marcada como escalada. Cada pendência escala <strong>uma única vez</strong> — não fica repicando.</p>
+  </div>
+</section>
+
+<!-- ======================= 9. AUTOMAÇÕES ======================= -->
+<section class="parte">
+  <h2 class="titulo-parte"><span class="num">Parte 9</span>As automações, uma a uma</h2>
+
+  <p>Sete rotinas vigiam a base. Quatro rodam em horário agendado; três disparam no instante do evento.</p>
+
+  <h3>Disparam no instante do evento</h3>
+  <table>
+    <tr><th style="width:24%">Automação</th><th style="width:34%">Gatilho exato</th><th style="width:14%">Prioridade</th><th>Prazo</th></tr>
+    <tr><td>Relato de dor</td><td>Check-in "com dificuldade" + motivo "desconforto/dor"</td><td>Crítica</td><td>12h</td></tr>
+    <tr><td>Pedido de contato</td><td>Check-in "quero falar com alguém"</td><td>Alta</td><td>24h</td></tr>
+    <tr><td>Pedido de ajuste</td><td>Check-in "preciso de ajuste"</td><td>Média</td><td>48h</td></tr>
+    <tr><td>Acolhimento M.A.P.A.®</td><td>Anamnese concluída pelo aluno</td><td>Média</td><td>48h</td></tr>
+  </table>
+
+  <h3>Rodam em horário agendado</h3>
+  <table>
+    <tr><th style="width:22%">Automação</th><th style="width:16%">Frequência</th><th style="width:34%">Condição para gerar pendência</th><th style="width:12%">Prioridade</th><th>Prazo</th></tr>
+    <tr>
+      <td>Ativação pendente</td>
+      <td>De hora em hora</td>
+      <td>Aluno <strong>com adesão ativa</strong>, cadastrado há mais de 48h, que <strong>nunca acessou</strong> o app</td>
+      <td>Alta</td><td>24h</td>
+    </tr>
+    <tr>
+      <td>Barreira de rotina</td>
+      <td>Diária, 06:00 UTC<br><small>(03:00 em Brasília)</small></td>
+      <td>Aluno com treino ativo e <strong>2 ou mais dias previstos</strong> de treino sem registro nos últimos 7 dias</td>
+      <td>Média</td><td>24h</td>
+    </tr>
+    <tr>
+      <td>Acolhimento Elite</td>
+      <td>Diária, 07:00 UTC<br><small>(04:00 em Brasília)</small></td>
+      <td>Aluno <strong>nível Elite</strong> com adesão ativa que não recebeu essa pendência nos últimos 30 dias</td>
+      <td>Baixa</td><td>7 dias</td>
+    </tr>
+    <tr>
+      <td>Engajamento baixo</td>
+      <td>Semanal, segunda 08:00 UTC<br><small>(05:00 em Brasília)</small></td>
+      <td>Aluno com adesão ativa e <strong>pontuação do mês abaixo de 30</strong></td>
+      <td>Média</td><td>72h</td>
+    </tr>
+    <tr>
+      <td>Escalonamento SLA</td>
+      <td>De hora em hora</td>
+      <td>Pendência vencida, ainda aberta, nunca escalada → passa para o gestor</td>
+      <td colspan="2">Não cria pendência; transfere a existente</td>
+    </tr>
+  </table>
+
+  <div class="junto">
+  <div class="caixa c-regra">
+    <span class="rotulo">Proteção anti-duplicação</span>
+    Cada automação grava uma <strong>chave de origem</strong> única. Ativação usa o aluno; barreira e acolhimento Elite
+    usam aluno + semana; engajamento usa aluno + mês. Rodar a mesma rotina dez vezes no mesmo dia
+    não gera dez pendências — gera uma.
+  </div>
+
+  <div class="caixa c-alerta">
+    <span class="rotulo">Ponto de atenção — decidir na Parte 12</span>
+    A <strong>barreira de rotina</strong> é a única automação que <strong>não filtra por adesão ao Método</strong>:
+    ela olha qualquer aluno com treino ativo. Na prática, alunos comuns da academia — que não compraram o Método —
+    também geram pendência na fila. Pode ser intencional (a academia quer reter todo mundo) ou não.
+  </div>
+  </div>
+</section>
+
+<!-- ======================= 10. APEX/LEGADO ======================= -->
+<section class="parte">
+  <h2 class="titulo-parte"><span class="num">Parte 10</span>A.P.E.X.® e L.E.G.A.D.O.® — o que a equipe move à mão</h2>
+
+  <div class="passo e">
+    <div class="cabeca"><span class="tag t-equipe">Equipe</span><h4>Mover o aluno de fase</h4></div>
+    <div class="quando">Quando: a equipe julgar. Não há prazo nem gatilho.</div>
+    <p>Na ficha do aluno, bloco <strong>Fase da Jornada</strong>, qualquer pessoa da equipe escolhe a nova fase e escreve uma observação. O sistema registra <strong>quem moveu, quando e por quê</strong>.</p>
+    <p>Mover para a fase em que o aluno já está é aceito, mas não gera linha no histórico. O próprio aluno nunca move a sua fase.</p>
+  </div>
+
+  <div class="caixa c-regra">
+    <span class="rotulo">Por que não é automático</span>
+    Quem convive com o aluno é quem sabe se ele mudou de fase. Um gatilho automático erraria justamente
+    nos casos que mais importam — o aluno que treina há seis meses sem ter mudado nada de verdade,
+    e o que mudou tudo em oito semanas.
+  </div>
+
+  <div class="caixa c-ok">
+    <span class="rotulo">Por que o histórico exige autor</span>
+    A fase orienta o atendimento. Uma mudança sem autor não se explica depois:
+    ninguém sabe se foi decisão clínica, engano ou clique perdido.
+  </div>
+
+  <table>
+    <tr><th style="width:24%">Fase</th><th style="width:28%">Como se chega nela</th><th>O que ela significa na prática</th></tr>
+    <tr><td><strong>M.A.P.A.®</strong></td><td>Automático, na criação</td><td>Está sendo conhecido. Ainda não tem plano definitivo.</td></tr>
+    <tr><td><strong>B.A.S.E.®</strong></td><td><strong>Automático</strong>, na 1ª prescrição (exige anamnese concluída)</td><td>Tem plano e está construindo rotina.</td></tr>
+    <tr><td><strong>R.O.T.A.®</strong></td><td>Manual, pela equipe</td><td>Sustenta a rotina; o trabalho agora é manter.</td></tr>
+    <tr><td><strong>A.P.E.X.®</strong></td><td>Manual, pela equipe</td><td>Está pronto para expandir objetivos.</td></tr>
+    <tr><td><strong>L.E.G.A.D.O.®</strong></td><td>Manual, pela equipe</td><td>Autonomia consolidada.</td></tr>
+  </table>
+</section>
+
+<!-- ======================= 11. PAGAMENTO ======================= -->
+<section class="parte">
+  <h2 class="titulo-parte"><span class="num">Parte 11</span>Pagamento, bloqueio e pontuação</h2>
+
+  <h3>Quando o acesso é cortado</h3>
+  <p>O gatilho do bloqueio é <strong>cobrança emitida cujo vencimento passou sem confirmação de pagamento</strong> — nunca "nunca pagou". Quem ainda não foi cobrado continua acessando: bloquear quem nunca recebeu cobrança seria defeito, não política.</p>
+
+  <table>
+    <tr><th style="width:26%">Quem</th><th style="width:22%">É bloqueado?</th><th>Detalhe</th></tr>
+    <tr><td><strong>Aluno</strong> com assinatura do Método atrasada</td><td>Sim, em <code>/app</code></td><td>Vê a tela de pendência com o link da fatura em aberto. Assim que o pagamento é confirmado, o acesso volta.</td></tr>
+    <tr><td><strong>Equipe</strong> de academia inadimplente</td><td>Sim, em <code>/admin</code></td><td>Gestor, professor e nutricionista.</td></tr>
+    <tr><td><strong>Alunos</strong> de academia inadimplente</td><td><strong>Não</strong></td><td>Seguem treinando. O contrato é com a academia, e o aluno que pagou não deu causa ao atraso.</td></tr>
+    <tr><td>Super Admin e Admin ARKE</td><td>Nunca</td><td>São eles que resolvem a cobrança.</td></tr>
+    <tr><td>Organização em trial</td><td>Nunca</td><td>Não é cliente ainda.</td></tr>
+  </table>
+
+  <div class="caixa c-regra">
+    <span class="rotulo">Os bloqueios são de experiência, não de segurança</span>
+    Eles decidem o que a pessoa vê, não o que ela pode ler no banco.
+    Quem protege os dados é o RLS de cada tabela.
+  </div>
+
+  <div class="junto">
+  <h3>Como a pontuação de engajamento é calculada</h3>
+  <p>Sempre no mês corrente, somando 100 pontos no total:</p>
+  <table>
+    <tr><th style="width:20%">Peso</th><th style="width:32%">Componente</th><th>Como é medido</th></tr>
+    <tr><td><strong>40 pontos</strong></td><td>Treinos concluídos</td><td>Contra os dias previstos da <strong>meta do próprio aluno</strong>, não um número fixo.</td></tr>
+    <tr><td><strong>20 pontos</strong></td><td>Check-ins registrados</td><td>Até 20 check-ins no mês.</td></tr>
+    <tr><td><strong>20 pontos</strong></td><td>Adesão à dieta</td><td>Média do percentual diário de itens marcados.</td></tr>
+    <tr><td><strong>20 pontos</strong></td><td>Dias com meta de água batida</td><td>Sobre os dias do mês.</td></tr>
+  </table>
+  <p>Abaixo de 30 pontos, a rotina semanal abre pendência de contato proativo.</p>
+
+  <div class="caixa c-alerta">
+    <span class="rotulo">Ponto de atenção — decidir na Parte 12</span>
+    Aluno do <strong>Essencial não tem dieta</strong>, e por isso perde os 20 pontos de adesão alimentar por construção.
+    O teto real dele é <strong>80 pontos</strong>, contra 100 do Integrado e do Elite.
+    Como o corte de "engajamento baixo" é o mesmo 30 para todos, o Essencial fica proporcionalmente
+    mais perto do corte do que os outros — sem ter feito nada de diferente.
+  </div>
+  </div>
+</section>
+
+<!-- ======================= 12. VALIDAR ======================= -->
+<section class="parte">
+  <h2 class="titulo-parte"><span class="num">Parte 12</span>Pontos para validar</h2>
+
+  <p>Os cinco pontos abaixo saíram da leitura do sistema como ele está. Nenhum é defeito de implementação — todos são <strong>decisões de produto</strong> que o código tomou por omissão ou por escolha antiga, e que merecem um sim ou um não explícito.</p>
+
+  <ol class="checklist">
+    <li>
+      <strong>1. "Com dificuldade" sem dor não avisa ninguém</strong>
+      Quando o aluno responde "com dificuldade" e aponta <em>tempo</em>, <em>execução</em>, <em>alimentação</em> ou <em>motivação</em>,
+      o relato é gravado mas nenhuma pendência é criada. São os motivos clássicos de abandono silencioso,
+      e hoje eles passam sem que ninguém seja acionado.
+      <br><em>Decidir:</em> criar pendência para esses motivos também? Com que prioridade e prazo?
+    </li>
+    <li>
+      <strong>2. Barreira de rotina alcança aluno sem adesão ao Método</strong>
+      É a única automação que não filtra por adesão. Alunos comuns da academia entram na fila de retenção.
+      <br><em>Decidir:</em> é intencional — a academia quer reter todo mundo — ou a fila deve conter só quem comprou o Método?
+    </li>
+    <li>
+      <strong>3. O teto de pontuação do Essencial é 80, não 100</strong>
+      Sem dieta, o aluno do Essencial perde 20 pontos por construção, mas é avaliado pelo mesmo corte de 30.
+      <br><em>Decidir:</em> normalizar a pontuação pelo que o nível oferece, ou usar cortes diferentes por nível?
+    </li>
+    <li>
+      <strong>4. A fase para depois de B.A.S.E.® se ninguém mover</strong>
+      Só M.A.P.A.® → B.A.S.E.® é automática. R.O.T.A.®, A.P.E.X.® e L.E.G.A.D.O.® dependem da equipe lembrar.
+      Não há lembrete, prazo nem sinal de "aluno parado na mesma fase há N meses".
+      <br><em>Decidir:</em> manter como está (decisão já tomada e deliberada), ou criar um lembrete — <strong>sem</strong> automatizar a decisão?
+    </li>
+    <li>
+      <strong>5. As rotinas rodam em UTC</strong>
+      Barreira às 06:00, Elite às 07:00 e engajamento segunda às 08:00 são horários <strong>UTC</strong> —
+      na prática 03:00, 04:00 e 05:00 no horário de Brasília. Para rotina de lote isso é bom
+      (a pendência já está na fila quando a equipe chega), mas convém ser uma escolha, não um efeito colateral.
+      <br><em>Decidir:</em> manter em UTC ou ancorar no fuso da operação?
+    </li>
+  </ol>
+
+  <div class="caixa c-regra">
+    <span class="rotulo">O que este manual não cobre</span>
+    Catracas e controle de acesso físico, o Gateway Local, desafios, competições e feed social,
+    e a operação do painel Visão Master. Cada um tem manual próprio em <code>docs/</code>.
+  </div>
+</section>
+
+</body>
+</html>
