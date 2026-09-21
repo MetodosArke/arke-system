@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { escolherVinculo } from "@/lib/vinculos";
+import { identificarSessao } from "@/lib/monitoramento";
 import type { User as SupabaseUser, Session } from "@supabase/supabase-js";
 import type { Enums } from "@/integrations/supabase/types";
 
@@ -257,6 +258,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     return () => subscription.unsubscribe();
   }, []);
+
+  // Carimba os erros com a academia e a pessoa da sessão. Sem isso não dá
+  // para separar "quebrou para uma academia" de "quebrou para todo mundo",
+  // que é a diferença entre dado ruim num tenant e defeito de produto.
+  // Só UUID viaja — ver src/lib/monitoramento.ts.
+  useEffect(() => {
+    identificarSessao({
+      userId: user?.id ?? null,
+      organizationId: organization?.id ?? null,
+      papel: organizationRole ?? roles[0] ?? null,
+    });
+  }, [user?.id, organization?.id, organizationRole, roles]);
 
   const hasRole = (role: AppRole) => roles.includes(role) || organizationRole === role;
 
