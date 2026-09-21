@@ -8,3 +8,8 @@ dist-ssr
 
 # Artefatos locais do Supabase CLI (versão baixada em cache), não versionar
 supabase/.temp/
+.vercel
+.env*
+# O .env.example é o modelo versionado das variáveis; o .env* acima não pode
+# escondê-lo (o vercel link acrescentou .vercel e .env* automaticamente).
+!.env.example

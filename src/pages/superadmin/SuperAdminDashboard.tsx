@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { mensagemDeErroEdge } from "@/lib/erroEdge";
 import { useTrialDias } from "@/lib/trial";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -306,7 +307,7 @@ export default function SuperAdminDashboard() {
         aviso?: string | null;
         error?: string;
       }>("criar-organizacao-superadmin", { body: novaOrg });
-      if (error) throw error;
+      if (error) throw new Error(await mensagemDeErroEdge(error, "Não foi possível criar a organização."));
       if (data?.error) throw new Error(data.error);
       return data;
     },
@@ -386,7 +387,7 @@ export default function SuperAdminDashboard() {
       novo_email?: string;
     }) => {
       const { data, error } = await supabase.functions.invoke("superadmin-suporte-tenant", { body: payload });
-      if (error) throw error;
+      if (error) throw new Error(await mensagemDeErroEdge(error, "Não foi possível concluir a ação de suporte."));
       if (data?.error) throw new Error(data.error);
       return data;
     },
@@ -436,7 +437,7 @@ export default function SuperAdminDashboard() {
           forma_pagamento: cobranca.formaPagamento,
         },
       });
-      if (error) throw error;
+      if (error) throw new Error(await mensagemDeErroEdge(error, "Não foi possível emitir a cobrança."));
       if (data?.error) throw new Error(data.error);
       return data.cobranca as CobrancaB2b;
     },

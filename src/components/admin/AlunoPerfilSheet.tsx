@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { mensagemDeErroEdge } from "@/lib/erroEdge";
 import { useAuth } from "@/contexts/AuthContext";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
@@ -247,7 +248,7 @@ export function AlunoPerfilSheet({
         if (Number.isFinite(valor) && valor > 0) body.valor_cobrado = valor;
       }
       const { error } = await supabase.functions.invoke("academia-criar-matricula", { body });
-      if (error) throw error;
+      if (error) throw new Error(await mensagemDeErroEdge(error, "Não foi possível criar a matrícula."));
     },
     onSuccess: () => {
       toast({ title: "Matrícula criada", description: "A cobrança recorrente já foi configurada no Asaas." });

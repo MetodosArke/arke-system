@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { mensagemDeErroEdge } from "@/lib/erroEdge";
 import { useAuth } from "@/contexts/AuthContext";
 import { erroCpf } from "@/lib/cpf";
 import { Card, CardContent } from "@/components/ui/card";
@@ -197,7 +198,10 @@ export default function AdminAlunos() {
         body: { aluno_id: aluno.id, valor_cobrado: valorCobrado },
       });
       if (billingError || data?.error) {
-        return { billingOk: false, billingMessage: data?.error ?? billingError?.message };
+        return {
+          billingOk: false,
+          billingMessage: data?.error ?? (await mensagemDeErroEdge(billingError, "Falha ao criar a assinatura.")),
+        };
       }
       return { billingOk: true };
     },
@@ -230,7 +234,8 @@ export default function AdminAlunos() {
       const { data, error } = await supabase.functions.invoke("asaas-create-subscription", {
         body: { aluno_id: aluno.id, valor_cobrado: valor },
       });
-      if (error || data?.error) throw new Error(data?.error ?? error?.message ?? "Falha ao criar cobrança.");
+      if (error) throw new Error(await mensagemDeErroEdge(error, "Falha ao criar cobrança."));
+      if (data?.error) throw new Error(data.error);
     },
     onSuccess: () => {
       toast({ title: "Assinatura criada!", description: "Cobrança do Método ARKE ativada com split automático." });
@@ -333,7 +338,7 @@ export default function AdminAlunos() {
       const { error } = await supabase.functions.invoke("anonimizar-aluno", {
         body: { aluno_id: alunoAnonimizar.id },
       });
-      if (error) throw error;
+      if (error) throw new Error(await mensagemDeErroEdge(error, "Não foi possível anonimizar o aluno."));
     },
     onSuccess: () => {
       toast({ title: "Aluno anonimizado", description: "Os dados pessoais foram removidos conforme a LGPD." });
@@ -350,7 +355,7 @@ export default function AdminAlunos() {
       const { error } = await supabase.functions.invoke("excluir-aluno", {
         body: { aluno_id: alunoExcluir.id },
       });
-      if (error) throw error;
+      if (error) throw new Error(await mensagemDeErroEdge(error, "Não foi possível excluir o aluno."));
     },
     onSuccess: () => {
       toast({ title: "Aluno excluído", description: "A conta e todos os dados vinculados foram apagados." });
@@ -770,7 +775,7 @@ function CadastrarAlunoDialog({
           nivel_atacado: form.nivel_atacado || undefined,
         },
       });
-      if (error) throw error;
+      if (error) throw new Error(await mensagemDeErroEdge(error, "Não foi possível cadastrar o aluno."));
       return data;
     },
     onSuccess: (data) => {
