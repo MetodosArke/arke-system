@@ -4530,6 +4530,14 @@ export type Database = {
         Args: { _organization_id: string }
         Returns: number
       }
+      verificar_orfaos: {
+        Args: never
+        Returns: {
+          coluna: string
+          orfaos: number
+          tabela: string
+        }[]
+      }
     }
     Enums: {
       agendamento_status: "agendado" | "presente" | "cancelado" | "lista_espera"

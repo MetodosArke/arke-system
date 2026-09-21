@@ -90,17 +90,25 @@ Deno.serve(async (req: Request) => {
 
     let autorizado = callerIsAdminArke;
     if (!autorizado) {
-      const { data: callerMembership, error: callerMembershipError } = await adminClient
+      // Pergunta direta: o chamador é gestor DESTA organização? Antes a
+      // consulta pegava "o vínculo" do chamador com .maybeSingle() e só
+      // depois comparava com a organização do aluno — então quem tem
+      // vínculo ativo em duas academias fazia a consulta falhar e levava
+      // 403 na própria academia. Fixar a organização elimina a
+      // ambiguidade em vez de desempatá-la.
+      const { data: vinculosGestor, error: callerMembershipError } = await adminClient
         .from("organization_members")
-        .select("organization_id, role")
+        .select("id")
         .eq("user_id", callerId)
+        .eq("organization_id", aluno.organization_id)
+        .eq("role", "gestor")
         .eq("status", "active")
-        .maybeSingle();
+        .limit(1);
       if (callerMembershipError) {
         console.error("Error loading caller membership", callerMembershipError);
         return jsonResponse({ error: "Erro ao validar permissões." }, 500);
       }
-      autorizado = callerMembership?.role === "gestor" && callerMembership.organization_id === aluno.organization_id;
+      autorizado = !!vinculosGestor?.length;
     }
     if (!autorizado) {
       return jsonResponse({ error: "Apenas o gestor da organização pode excluir um aluno." }, 403);

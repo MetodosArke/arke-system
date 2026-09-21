@@ -87,6 +87,19 @@
   .junto { break-inside: avoid; page-break-inside: avoid; }
   .nova-pagina { break-before: page; page-break-before: always; }
 
+  .selo {
+    display: inline-block;
+    background: #e7f5ec;
+    color: var(--ok);
+    border: 1px solid #b9e0c8;
+    border-radius: 3px;
+    padding: 1px 6px;
+    font-size: 8.4pt;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .selo.pendente { background: #fdf4f4; color: var(--alerta); border-color: #f1c4c6; }
+
   .rodape {
     margin-top: 26px;
     padding-top: 10px;
@@ -101,6 +114,13 @@
 <div class="capa">
   <h1>ARKE — Pente fino de prontidão</h1>
   <div class="sub">Varredura de 21 de setembro de 2026 · branch <code>claude/arke-multitenant-reset-8c8xw3</code></div>
+  <div class="caixa" style="border-color:#b9e0c8;background:#f2faf5;margin:14px 0 0">
+    <strong>Atualização da noite de 21/09.</strong> Depois que este relatório foi gerado, os itens do lado ARKE
+    foram executados: os cinco defeitos de vínculo duplo corrigidos e publicados, o gêmeo morto do parser
+    removido, os advisors fechados e a causa da orfandade <em>provada</em>. O documento foi atualizado para
+    mostrar o que caiu e o que sobrou — cada achado carrega seu estado.
+  </div>
+
   <div class="destinatario">
     <strong>Escopo desta varredura.</strong> Asaas/fintech tratado como evolução futura, catraca como dependente de
     bancada, e os cinco pontos do Método ARKE como regra comercial — conforme definido. O que sobra aqui é
@@ -114,17 +134,17 @@
 <table class="junto">
   <tr><th>Checagem</th><th>Resultado</th></tr>
   <tr><td>Tabelas sem RLS</td><td><span class="ok">zero</span> — a regra 1 do projeto está íntegra</td></tr>
-  <tr><td>Edge functions: repositório ↔ publicadas</td><td><span class="ok">26 = 26</span>, paridade mantida</td></tr>
+  <tr><td>Edge functions: repositório ↔ publicadas</td><td>eram <span class="ok">26 = 26</span>. Após a limpeza: <strong>25 no repositório, 26 publicadas</strong> — falta excluir <code>parsear-dieta-pdf</code> no painel (ação de vocês)</td></tr>
   <tr><td>Migrations no repositório</td><td>114</td></tr>
   <tr><td>Cron jobs ativos</td><td>8 (ativação, barreira de rotina, SLA, engajamento, acolhimento, financeiro, MRR)</td></tr>
-  <tr><td>Testes automatizados</td><td><span class="ok">152</span> — 116 no app, 36 no gateway</td></tr>
+  <tr><td>Testes automatizados</td><td><span class="ok">162</span> — 116 no app, 46 no gateway (14 de borda da catraca entraram depois)</td></tr>
   <tr><td>Funções <code>get_superadmin_*</code></td><td><span class="ok">13 de 13</span> checam o papel por dentro — sem escalada de privilégio</td></tr>
   <tr><td>Dados de homologação</td><td>1 organização, 10 alunos ativos, 0 CPFs sujos</td></tr>
 </table>
 
 <h2>2. Pontas soltas</h2>
 
-<h3 class="junto">2.1 &nbsp;O <code>.maybeSingle()</code> voltou — cinco vezes</h3>
+<h3 class="junto">2.1 &nbsp;O <code>.maybeSingle()</code> voltou — cinco vezes <span class="selo">RESOLVIDO</span></h3>
 <div class="caixa critica junto">
   Eu havia dito que esse padrão merecia uma varredura dedicada e não a tinha feito. Fiz agora.
   O defeito é sempre o mesmo: consultar <code>organization_members</code> por <code>user_id</code> sem fixar a
@@ -140,23 +160,26 @@
   <tr><td><code>send-chat-push</code></td><td>destinatário com 2 vínculos não recebe push</td><td class="num">Média</td></tr>
 </table>
 
-<p>E uma variante que eu não havia considerado — filtra a organização corretamente, mas assume <strong>um gestor só</strong>:</p>
+<p><strong>Correção deste relatório:</strong> a varredura inicial apontou mais duas funções como defeituosas
+(<code>asaas-emitir-cobranca-b2b</code> e <code>superadmin-suporte-tenant</code>). Ao abrir o código para
+   corrigir, as duas já estavam certas — têm <code>.order(...).limit(1)</code> antes do
+   <code>.maybeSingle()</code>, o que torna a consulta segura. O grep inicial mostrava só as linhas
+   <code>.eq</code> e escondeu o <code>.limit</code>. <strong>São 5 defeitos reais, não 7.</strong></p>
 
-<table class="junto">
-  <tr><th>Função</th><th>Quebra quando</th><th class="num">Gravidade</th></tr>
-  <tr><td><code>asaas-emitir-cobranca-b2b</code></td><td>academia com <strong>dois gestores</strong></td><td class="num alerta">Alta</td></tr>
-  <tr><td><code>superadmin-suporte-tenant</code></td><td>idem</td><td class="num">Média</td></tr>
-</table>
+<p>O pior da lista era o <code>anonimizar-aluno</code>: o defeito atingia justamente o caminho de
+conformidade. As cinco foram corrigidas com três receitas diferentes, conforme o que cada função sabe —
+quando a organização do alvo já é conhecida, o portão passa a perguntar direto por ela, o que elimina a
+ambiguidade em vez de desempatá-la. Todas publicadas.</p>
 
-<p>Dois gestores numa academia é o normal, não a exceção. O pior da lista é o <code>anonimizar-aluno</code>:
-o defeito atinge justamente o caminho de conformidade.</p>
-
-<h3 class="junto">2.2 &nbsp;O gêmeo morto do parser continua vivo</h3>
-<p><code>parsear-dieta-pdf</code> está <strong>publicado e no repositório</strong>, e <strong>nenhuma tela o chama</strong> —
+<h3 class="junto">2.2 &nbsp;O gêmeo morto do parser <span class="selo">RESOLVIDO NO REPO</span></h3>
+<p><code>parsear-dieta-pdf</code> estava publicado e versionado sem <strong>nenhum chamador</strong> —
 só <code>parse-dieta-pdf</code> é usado (<code>AdminDietas.tsx:363</code>). É exatamente o tipo de duplicata que
 atrasou o diagnóstico quando o parser quebrou em produção.</p>
+<p><strong>Removido do repositório.</strong> A exclusão da função publicada é feita pelo painel do Supabase e
+fica para vocês — é o mesmo caminho usado para a <code>qa-bootstrap-temp</code> em setembro. Enquanto não for
+feita, repositório e ambiente ficam com um de diferença.</p>
 
-<h3 class="junto">2.3 &nbsp;Higiene de segurança (Supabase advisors)</h3>
+<h3 class="junto">2.3 &nbsp;Higiene de segurança (Supabase advisors) <span class="selo">RESOLVIDO</span></h3>
 <table class="junto">
   <tr><th>Achado</th><th>Natureza</th></tr>
   <tr>
@@ -179,13 +202,20 @@ atrasou o diagnóstico quando o parser quebrou em produção.</p>
   </tr>
 </table>
 
-<h3 class="junto">2.4 &nbsp;Pendência antiga, ainda aberta</h3>
+<h3 class="junto">2.4 &nbsp;Pendência antiga <span class="selo">CAUSA PROVADA</span></h3>
 <div class="caixa junto">
-  <strong>A causa da orfandade nunca foi explicada.</strong> As chaves estrangeiras são
+  <strong>A causa da orfandade foi provada em 21/09.</strong> As chaves estrangeiras são
   <code>ON DELETE CASCADE</code> e estão validadas, e ainda assim 18 linhas sobreviveram à exclusão dos pais em
-  setembro. A hipótese — limpeza rodada com <code>session_replication_role = 'replica'</code>, que desliga os
-  triggers de FK — nunca foi confirmada. Tratamos o sintoma, não a causa: apagar tenant por fora do produto
-  pode repetir o rastro.
+  setembro. A hipótese era <code>session_replication_role = 'replica'</code>, que desliga os triggers de FK.
+  Testada em transação revertida: a mesma exclusão gera <strong>0 órfãos</strong> com os triggers ligados e
+  <strong>órfãos em 5 tabelas</strong> com eles desligados — <code>modelos_treino=5, modelos_dieta=5,
+  precificacao=3, alunos=1, status_historico=1</code>, que é o seed exato de uma organização nova e bate com o
+  inventário de setembro.
+  <br><br>
+  O cascade nunca esteve quebrado. Como a causa é operacional, a defesa também é:
+  <code>public.verificar_orfaos()</code> varre todas as FKs que apontam para <code>organizations</code> e conta
+  o que ficou apontando para o vazio, sem lista mantida à mão. <strong>Rodar depois de qualquer exclusão de
+  tenant feita fora do produto.</strong>
 </div>
 
 <div class="nova-pagina"></div>
@@ -193,56 +223,64 @@ atrasou o diagnóstico quando o parser quebrou em produção.</p>
 <h2>3. Placar</h2>
 
 <table class="junto">
-  <tr><th>Módulo</th><th class="num">Nota</th><th>O que segura</th></tr>
-  <tr><td>Núcleo — auth, RLS, multitenancy</td><td class="num">95%</td><td>causa da orfandade não explicada</td></tr>
-  <tr><td>App do aluno</td><td class="num">92%</td><td>—</td></tr>
-  <tr><td>Metodologia — prescrição, fases, check-in</td><td class="num">90%</td><td>os cinco pontos em decisão comercial</td></tr>
-  <tr><td>Nutrição / parser de PDF</td><td class="num">90%</td><td>gêmeo morto publicado</td></tr>
-  <tr><td>Onboarding &amp; importação</td><td class="num">88%</td><td>dois dos defeitos de vínculo duplo</td></tr>
-  <tr><td>LGPD</td><td class="num">85%</td><td><code>anonimizar-aluno</code> quebrado no vínculo duplo</td></tr>
-  <tr><td>Higiene de segurança</td><td class="num">80%</td><td>triggers expostas, RPCs abertas, senha vazada</td></tr>
-  <tr><td>Catraca</td><td class="num">75%</td><td>bancada (Control iD) · ponte .NET (Topdata)</td></tr>
-  <tr><td>Fintech</td><td class="num">—</td><td>fora de escopo por decisão</td></tr>
+  <tr><th>Módulo</th><th class="num">Antes</th><th class="num">Agora</th><th>O que segura</th></tr>
+  <tr><td>Núcleo — auth, RLS, multitenancy</td><td class="num">95%</td><td class="num ok">98%</td><td>causa da orfandade explicada e detectável</td></tr>
+  <tr><td>App do aluno</td><td class="num">92%</td><td class="num">92%</td><td>—</td></tr>
+  <tr><td>Metodologia — prescrição, fases, check-in</td><td class="num">90%</td><td class="num">90%</td><td>os cinco pontos em decisão comercial</td></tr>
+  <tr><td>Nutrição / parser de PDF</td><td class="num">90%</td><td class="num ok">95%</td><td>excluir o gêmeo no painel</td></tr>
+  <tr><td>Onboarding &amp; importação</td><td class="num">88%</td><td class="num ok">95%</td><td>—</td></tr>
+  <tr><td>LGPD</td><td class="num">85%</td><td class="num ok">95%</td><td>—</td></tr>
+  <tr><td>Higiene de segurança</td><td class="num">80%</td><td class="num ok">93%</td><td>toggle de senha vazada</td></tr>
+  <tr><td>Catraca</td><td class="num">75%</td><td class="num ok">80%</td><td>bancada · ponte .NET</td></tr>
+  <tr><td>Fintech</td><td class="num">—</td><td class="num">—</td><td>fora de escopo por decisão</td></tr>
 </table>
 
 <div class="placar-geral junto">
-  <div class="numero">~85%</div>
+  <div class="numero">~92%</div>
   <div class="rotulo">
-    Prontidão geral de código · era 58% (com catraca) / 72% (sem) na primeira auditoria<br>
+    Prontidão geral de código, depois da execução · era ~85% na varredura da manhã<br>
+    e 58% (com catraca) / 72% (sem) na primeira auditoria<br>
     Julgamento ponderado, não medição — o que é medido são os números da seção&nbsp;1.
   </div>
 </div>
 
-<h2>4. Plano de ação</h2>
+<h2>4. O que foi executado e o que sobrou</h2>
 
 <ol class="acoes">
   <li>
-    <strong>Varredura do <code>.maybeSingle()</code></strong> — 7 funções, correção mecânica com a regra de
-    desempate já estabelecida em <code>escolherVinculo()</code> (gestor → professor → nutricionista → aluno,
-    vínculo mais antigo). É <strong>P0</strong> porque uma delas é LGPD e outra é cobrança B2B.
+    <span class="selo">FEITO</span> <strong>Varredura do <code>.maybeSingle()</code></strong> — 5 funções
+    corrigidas e publicadas, com três receitas conforme o que cada uma sabe. Duas das sete apontadas já
+    estavam corretas. De quebra, <code>cadastrar-membro-equipe</code> passou a validar CPF como a
+    <code>convidar-membro</code> já fazia — antes o gestor veria o erro cru da constraint.
   </li>
   <li>
-    <strong>Encerrar o <code>parsear-dieta-pdf</code></strong> — remover do repositório e do ambiente, pelo mesmo
-    critério aplicado às três funções mortas de setembro. O histórico do git preserva o código.
+    <span class="selo">FEITO NO REPO</span> <strong>Encerrar o <code>parsear-dieta-pdf</code></strong> —
+    removido do repositório; a exclusão da função publicada é pelo painel e fica com vocês.
   </li>
   <li>
-    <strong>Fechar os advisors</strong> — <code>revoke execute</code> nas 14 triggers e nas 9 RPCs de superadmin,
-    <code>search_path</code> fixo em <code>limite_padrao_plano</code>. O toggle de senha vazada é ação sua no
-    painel.
+    <span class="selo">FEITO</span> <strong>Advisors fechados</strong> — 14 triggers e 9 RPCs de superadmin sem
+    EXECUTE para <code>anon</code>, <code>search_path</code> fixo. O revoke em bloco pega automaticamente as
+    próximas funções de trigger que alguém criar. Verificado contra o banco que revogar EXECUTE <strong>não</strong>
+    impede o disparo dos triggers. <span class="selo pendente">PENDENTE</span> o toggle de senha vazada, no
+    painel do Supabase — ação de vocês.
   </li>
   <li>
-    <strong>Testes de borda do receptor Control iD</strong> — payload malformado, <code>user_id</code> não
-    numérico, duas catracas simultâneas da mesma academia, nuvem estourando o timeout no meio de um giro.
-    Verificável sem hardware.
+    <span class="selo">FEITO</span> <strong>Testes de borda do receptor Control iD</strong> — 14 testes novos:
+    payload malformado, <code>user_id</code> não numérico ou zero, identificador de 5.000 caracteres, campos
+    desconhecidos de firmware novo, nuvem caindo no meio de uma sequência e rajada de 10 leituras simultâneas.
+    A regra que todos verificam é a mesma: <strong>na dúvida, trava</strong>.
   </li>
   <li>
-    <strong>Investigar a orfandade</strong> — a única forma honesta é reproduzir num branch do Supabase.
+    <span class="selo">FEITO</span> <strong>Orfandade explicada</strong> — reproduzida em transação revertida,
+    sem precisar de branch. A causa é <code>session_replication_role = 'replica'</code>, e agora existe
+    <code>verificar_orfaos()</code> para conferir depois de qualquer exclusão de tenant feita fora do produto.
   </li>
 </ol>
 
 <div class="caixa junto">
-  Os itens <strong>1 a 3</strong> são de baixo risco e alto retorno: levam o placar para perto de <strong>90%</strong>
-  sem depender de hardware, do Asaas nem de decisão comercial.
+  <strong>Sobrou para vocês, e é tudo de painel ou de terceiro:</strong> excluir a função
+  <code>parsear-dieta-pdf</code> publicada, ligar a proteção contra senha vazada no Auth, e — do lado da
+  catraca — baixar a SDK da Topdata, fazer o cadastro de integrador e pedir o Kit Integrador.
 </div>
 
 <h2>5. Fora do escopo desta varredura</h2>

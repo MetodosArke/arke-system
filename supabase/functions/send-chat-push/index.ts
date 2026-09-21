@@ -100,16 +100,18 @@ Deno.serve(async (req) => {
     if (recipientOrgId) {
       orgAutorizada = callerOrgIds.has(recipientOrgId) ? recipientOrgId : null;
     } else if (recipientUserId) {
-      const { data: targetMembership } = await supabase
+      // O destinatário pode ter vínculo ativo em mais de uma academia, e
+      // com .maybeSingle() a consulta falhava — a notificação simplesmente
+      // não saía. Buscar a lista e cruzar com as organizações do remetente
+      // não só conserta como responde melhor à pergunta real: qual é a
+      // academia que os dois têm em comum.
+      const { data: vinculosAlvo } = await supabase
         .from("organization_members")
         .select("organization_id")
         .eq("user_id", recipientUserId)
-        .eq("status", "active")
-        .maybeSingle();
+        .eq("status", "active");
       orgAutorizada =
-        targetMembership && callerOrgIds.has(targetMembership.organization_id)
-          ? targetMembership.organization_id
-          : null;
+        (vinculosAlvo ?? []).find((v) => callerOrgIds.has(v.organization_id))?.organization_id ?? null;
     }
     if (!orgAutorizada) {
       return new Response(JSON.stringify({ error: "Você não tem permissão para notificar este destinatário." }), {

@@ -102,6 +102,24 @@ Navegar **não cria vínculo**. Até 20/09/2026, `AdminLayout` chamava `provisio
 
 `escolherVinculo()` (`src/lib/vinculos.ts`) resolve a escolha por hierarquia — gestor → professor → nutricionista → aluno — e desempata pelo vínculo mais antigo. O critério é o do dano: quem administra precisa do painel, e entrar como aluno tranca. Papel desconhecido vai para o fim da fila em vez de derrubar a escolha. Trocar de organização na sessão ainda não existe; quando existir, é aqui que entra.
 
+## O Defeito do Vínculo Duplo (`.maybeSingle()` sobre `organization_members`)
+
+Esta classe de defeito reapareceu quatro vezes em arquivos diferentes, o que já a qualifica como armadilha estrutural e não descuido pontual. O padrão é sempre o mesmo: consultar `organization_members` filtrando por `user_id` sem fixar a organização, e fechar com `.maybeSingle()`. Quem tem vínculo ativo em duas academias faz a consulta devolver duas linhas, `.maybeSingle()` rejeita, e a pessoa leva 403 — muitas vezes na própria academia que administra.
+
+Uma varredura dedicada em 21/09/2026 encontrou mais cinco ocorrências, corrigidas com três receitas diferentes conforme o que a função sabe:
+
+- **A organização do alvo já é conhecida** (`anonimizar-aluno`, `excluir-aluno`): perguntar direto se o chamador é gestor DAQUELA organização. Elimina a ambiguidade em vez de desempatá-la, e é a correção preferida sempre que possível.
+- **A organização sai do vínculo do chamador** (`cadastrar-membro-equipe`): a escolha é genuinamente ambígua, então vale a regra de desempate de `escolherVinculo()` — vínculo de gestor mais antigo.
+- **Os dois lados podem ter vários vínculos** (`gerar-link-ativacao`, `send-chat-push`): buscar listas e cruzar. Aqui a correção deixa a função mais correta, não só menos quebrada: em `send-chat-push` a pergunta real passa a ser "qual academia os dois têm em comum", e em `gerar-link-ativacao` fecha um buraco sutil — a versão anterior comparava o papel do alvo num vínculo possivelmente de outra academia.
+
+`.eq("organization_id", ...)` junto de `.eq("user_id", ...)` é seguro: `organization_members` tem `unique(organization_id, user_id)`. `.order(...).limit(1)` antes do `.maybeSingle()` também é — foi por não ver o `.limit(1)` que a auditoria inicial reportou dois falsos positivos (`asaas-emitir-cobranca-b2b` e `superadmin-suporte-tenant` já estavam corretos).
+
+## Higiene de Superfície no PostgREST
+
+Toda função `returns trigger` herda EXECUTE do PUBLIC e aparece em `/rest/v1/rpc/<nome>`. Chamá-la fora do contexto de trigger só produz erro, mas não há razão para deixá-la alcançável: a migration `20261124010000` revoga EXECUTE de todas elas em bloco, e segue pegando as próximas automaticamente. As RPCs `get_superadmin_*` deixaram de aceitar chamada anônima pelo mesmo motivo — todas checam o papel por dentro, então não havia vazamento, mas 9 das 13 aceitavam sondagem sem login e 4 não, defesa em profundidade desigual sem motivo.
+
+Revogar EXECUTE **não** afeta o disparo de triggers — o PostgreSQL não checa esse privilégio ao dispará-los. Foi verificado contra o banco real, em transação revertida, com `exigir_limite_alunos` e `set_updated_at`.
+
 ## Limpeza do Ambiente de Homologação (20/09/2026)
 
 Os dados de teste acumulados na homologação foram removidos do projeto Supabase. Ficou **uma** organização real — Tietê Fitness — e nenhuma linha apontando para organização ou usuário inexistente. Cada exclusão tem registro em `auditoria_acoes_sensiveis` (visível em **Visão Master → Auditoria**) com motivo e inventário do que caiu por cascata, porque `organizations` só dispara auditoria em UPDATE: sem a linha gravada à mão, a exclusão sumiria sem rastro.
@@ -114,9 +132,11 @@ Os dados de teste acumulados na homologação foram removidos do projeto Supabas
 
 Com isso **repositório e ambiente passaram a bater exatamente**: 26 edge functions em `supabase/functions/`, as mesmas 26 publicadas, sem sobra de nenhum lado. Vale manter assim — função publicada sem código versionado não sobrevive a um `supabase functions deploy`, e código sem deploy vira exatamente a armadilha que estas três eram.
 
-Uma ponta ficou em aberto e não é fechada por essa limpeza:
+A ponta que ficava em aberto foi **fechada em 21/09/2026**:
 
-1. **O mecanismo da orfandade não foi explicado.** `alunos_organization_id_fkey`, `organization_members_user_id_fkey` e `profiles_user_id_fkey` são `ON DELETE CASCADE` e estão validadas, e ainda assim aquelas linhas sobreviveram à exclusão dos pais. A hipótese é limpeza rodada com `session_replication_role = 'replica'`, que desliga os triggers de FK — mas não foi confirmada. Enquanto não for, apagar tenant por fora do produto pode deixar o mesmo rastro. O sintoma foi tratado; a causa, não.
+**O mecanismo da orfandade é `session_replication_role = 'replica'`.** A hipótese foi testada em transação revertida e confirmada: a mesma exclusão de organização gera **0 órfãos** com os triggers de FK ligados e **linhas órfãs em 5 tabelas** com eles desligados — `modelos_treino=5, modelos_dieta=5, precificacao=3, alunos=1, status_historico=1`, que é exatamente o seed de uma organização nova e bate com o inventário de setembro. O cascade nunca esteve quebrado; o que quebra é excluir tenant por fora do produto com os triggers desligados, e isso não deixa erro, só rastro.
+
+Como a causa é operacional e não estrutural, a defesa também é. Impedir não dá — quem tem privilégio para trocar o modo tem privilégio para tudo —, então a resposta é tornar barato conferir: `public.verificar_orfaos()` varre todas as FKs que apontam para `organizations` e conta o que ficou apontando para o vazio, sem lista de tabelas mantida à mão (tabela nova entra na varredura sozinha). Restrita à ArkeFit. **Rodar depois de qualquer exclusão de tenant feita fora do produto.**
 
 ## Progressão da Jornada do Aluno
 
