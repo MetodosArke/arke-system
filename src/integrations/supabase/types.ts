@@ -185,6 +185,7 @@ export type Database = {
       }
       aluno_assinaturas: {
         Row: {
+          valor_repasse_arke: number | null
           aluno_id: string
           asaas_subscription_id: string | null
           cartao_atualizado_em: string | null
@@ -205,6 +206,7 @@ export type Database = {
           valor_cobrado: number
         }
         Insert: {
+          valor_repasse_arke?: number | null
           aluno_id: string
           asaas_subscription_id?: string | null
           cartao_atualizado_em?: string | null
@@ -225,6 +227,7 @@ export type Database = {
           valor_cobrado: number
         }
         Update: {
+          valor_repasse_arke?: number | null
           aluno_id?: string
           asaas_subscription_id?: string | null
           cartao_atualizado_em?: string | null
@@ -1099,6 +1102,7 @@ export type Database = {
       }
       cobrancas_b2b: {
         Row: {
+          taxa_gateway: number | null
           asaas_customer_id: string | null
           asaas_payment_id: string | null
           created_at: string
@@ -1118,6 +1122,7 @@ export type Database = {
           vencimento: string
         }
         Insert: {
+          taxa_gateway?: number | null
           asaas_customer_id?: string | null
           asaas_payment_id?: string | null
           created_at?: string
@@ -1137,6 +1142,7 @@ export type Database = {
           vencimento?: string
         }
         Update: {
+          taxa_gateway?: number | null
           asaas_customer_id?: string | null
           asaas_payment_id?: string | null
           created_at?: string
@@ -2270,6 +2276,7 @@ export type Database = {
       }
       mensalidades: {
         Row: {
+          taxa_gateway: number | null
           aluno_id: string
           asaas_payment_id: string | null
           competencia: string
@@ -2291,6 +2298,7 @@ export type Database = {
           vencimento: string
         }
         Insert: {
+          taxa_gateway?: number | null
           aluno_id: string
           asaas_payment_id?: string | null
           competencia: string
@@ -2312,6 +2320,7 @@ export type Database = {
           vencimento: string
         }
         Update: {
+          taxa_gateway?: number | null
           aluno_id?: string
           asaas_payment_id?: string | null
           competencia?: string
@@ -3036,6 +3045,7 @@ export type Database = {
       }
       pagamentos: {
         Row: {
+          taxa_gateway: number | null
           aluno_assinatura_id: string
           asaas_payment_id: string | null
           created_at: string
@@ -3051,6 +3061,7 @@ export type Database = {
           vencimento: string | null
         }
         Insert: {
+          taxa_gateway?: number | null
           aluno_assinatura_id: string
           asaas_payment_id?: string | null
           created_at?: string
@@ -3066,6 +3077,7 @@ export type Database = {
           vencimento?: string | null
         }
         Update: {
+          taxa_gateway?: number | null
           aluno_assinatura_id?: string
           asaas_payment_id?: string | null
           created_at?: string
@@ -4111,6 +4123,14 @@ export type Database = {
         Returns: boolean
       }
       arke_trial_dias: { Args: never; Returns: number }
+      arke_taxa_processamento: { Args: { _valor: number }; Returns: number }
+      arke_taxa_processamento_config: {
+        Args: never
+        Returns: {
+          fixa: number
+          percentual: number
+        }[]
+      }
       atualizar_meta_agua_aluno: {
         Args: { _meta_ml: number }
         Returns: undefined

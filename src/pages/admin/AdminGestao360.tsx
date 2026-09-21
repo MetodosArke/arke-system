@@ -82,7 +82,7 @@ export default function AdminGestao360() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("aluno_assinaturas")
-        .select("valor_cobrado, nivel_atacado, status, aluno_id")
+        .select("valor_cobrado, nivel_atacado, status, aluno_id, valor_repasse_arke")
         .eq("organization_id", organization!.id)
         .eq("status", "ativa");
       if (error) throw error;
@@ -109,7 +109,7 @@ export default function AdminGestao360() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("aluno_matriculas_academia")
-        .select("aluno_id, valor_cobrado, planos_academia(periodicidade)")
+        .select("aluno_id, valor_cobrado, valor_repasse_arke, planos_academia(periodicidade)")
         .eq("organization_id", organization!.id)
         .eq("status", "ativa");
       if (error) throw error;
@@ -155,7 +155,7 @@ export default function AdminGestao360() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("mensalidades")
-        .select("valor, status, data_pagamento")
+        .select("valor, valor_repasse_arke, status, data_pagamento")
         .eq("organization_id", organization!.id)
         .eq("status", "confirmado")
         .gte("data_pagamento", inicioMes);
@@ -239,9 +239,19 @@ export default function AdminGestao360() {
   const mrrArke = Number(metrics?.mrr_arke ?? 0);
   const mrrAcademia = Number(metrics?.mrr_academia ?? 0);
   const mrrBruto = Number(metrics?.mrr_total ?? mrrArke + mrrAcademia);
-  // Repasse de atacado ARKE só existe na trilha do Método — mensalidade
-  // pura da academia não tem esse custo, então não desconta do MRR líquido.
-  const custoArkeMrr = assinaturasAtivas.reduce((acc, a) => acc + (custoPorNivel.get(a.nivel_atacado) ?? 0), 0);
+  // O que a ArkeFit retém de cada trilha: no Método, atacado + taxa de
+  // processamento (travado na assinatura; as anteriores a esse registro caem
+  // no custo do nível); no plano próprio, só a taxa de processamento,
+  // travada na matrícula.
+  const custoArkeMrr =
+    assinaturasAtivas.reduce(
+      (acc, a) => acc + (a.valor_repasse_arke !== null ? Number(a.valor_repasse_arke) : custoPorNivel.get(a.nivel_atacado) ?? 0),
+      0
+    ) +
+    matriculasAcademiaAtivas.reduce(
+      (acc, m) => acc + valorMensalEquivalente(Number(m.valor_repasse_arke ?? 0), m.planos_academia?.periodicidade),
+      0
+    );
   const mrrLiquido = mrrBruto - custoArkeMrr;
   const alunosComAssinaturaArke = new Set(assinaturasAtivas.map((a) => a.aluno_id));
   const alunosComMatriculaAcademia = new Set(matriculasAcademiaAtivas.map((m) => m.aluno_id));
@@ -256,7 +266,9 @@ export default function AdminGestao360() {
   const receitaArkeMes = pagamentosMes.reduce((acc, p) => acc + Number(p.valor), 0);
   const receitaAcademiaMes = mensalidadesMes.reduce((acc, m) => acc + Number(m.valor), 0);
   const receitaBrutaMes = receitaArkeMes + receitaAcademiaMes;
-  const repasseArkeMes = pagamentosMes.reduce((acc, p) => acc + Number(p.valor_repasse_arke), 0);
+  const repasseArkeMes =
+    pagamentosMes.reduce((acc, p) => acc + Number(p.valor_repasse_arke), 0) +
+    mensalidadesMes.reduce((acc, m) => acc + Number(m.valor_repasse_arke ?? 0), 0);
   const custoEquipeMes = folhaMes.reduce((acc, f) => acc + Number(f.valor_total), 0);
   const receitaLiquidaMes = receitaBrutaMes - repasseArkeMes - custoEquipeMes;
 
@@ -289,7 +301,7 @@ export default function AdminGestao360() {
       ["Receita bruta — Método ARKE", formatarMoeda(receitaArkeMes)],
       ["Receita bruta — Planos da Academia", formatarMoeda(receitaAcademiaMes)],
       ["Receita bruta total", formatarMoeda(receitaBrutaMes)],
-      ["(–) Repasse de atacado ARKE", formatarMoeda(repasseArkeMes)],
+      ["(–) Repasse ARKE (atacado + taxa de processamento)", formatarMoeda(repasseArkeMes)],
       ["(–) Custo de equipe (folha + comissões)", formatarMoeda(custoEquipeMes)],
       ["(=) Receita líquida da academia", formatarMoeda(receitaLiquidaMes)],
       [],
@@ -414,7 +426,7 @@ export default function AdminGestao360() {
           value={formatarMoeda(mrrBruto)}
           sublabel={`ARKE ${formatarMoeda(mrrArke)} + Academia ${formatarMoeda(mrrAcademia)}`}
         />
-        <StatTile icon={TrendingUp} label="MRR líquido" value={formatarMoeda(mrrLiquido)} sublabel="Após repasse ARKE (só na trilha do Método)" />
+        <StatTile icon={TrendingUp} label="MRR líquido" value={formatarMoeda(mrrLiquido)} sublabel="Após repasse ARKE (atacado + taxa de processamento)" />
         <StatTile icon={Users} label="ARPU líquido" value={formatarMoeda(arpu)} sublabel="Por aluno ativo/mês" />
         <StatTile icon={TrendingUp} label="LTV estimado" value={ltv != null ? formatarMoeda(ltv) : "N/D"} sublabel="Baseado no churn do mês" />
         <StatTile icon={TrendingDown} label="Churn do mês" value={`${churnPct.toFixed(1)}%`} sublabel={`${cancelamentosMes} cancelamento(s)`} />
@@ -457,7 +469,7 @@ export default function AdminGestao360() {
             <span className="font-semibold">{formatarMoeda(receitaBrutaMes)}</span>
           </div>
           <div className="flex items-center justify-between border-b border-border pb-2 text-red-600 dark:text-red-400">
-            <span>(–) Repasse de atacado ARKE</span>
+            <span>(–) Repasse ARKE (atacado + taxa de processamento)</span>
             <span className="font-semibold">{formatarMoeda(repasseArkeMes)}</span>
           </div>
           <div className="flex items-center justify-between border-b border-border pb-2 text-red-600 dark:text-red-400">

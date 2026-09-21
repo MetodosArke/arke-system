@@ -26,9 +26,10 @@ type CreateSubscriptionPayload = {
 // Por que existe: as duas funções faziam POST /customers e POST /subscriptions
 // a cada chamada. Dois defeitos saíam daí.
 //
-//   1. O Asaas exige `cpfCnpj` para criar customer, e ele não era enviado — em
-//      produção a criação falharia antes de qualquer cobrança nascer. (Até
-//      21/09/2026 nenhuma assinatura de aluno tinha sido criada pelo ARKE.)
+//   1. O Asaas exige `cpfCnpj` para criar a assinatura (o customer nasce sem,
+//      visto no sandbox), e ele não era enviado — a criação falharia antes de
+//      qualquer cobrança nascer. (Até 21/09/2026 nenhuma assinatura de aluno
+//      tinha sido criada pelo ARKE.)
 //   2. Nada impedia duas assinaturas para o mesmo aluno. O caminho mais curto
 //      estava na própria função: criou no Asaas, falhou ao gravar no banco, a
 //      tela continua oferecendo "Tentar cobrar" — e a primeira assinatura fica
@@ -93,12 +94,23 @@ async function assinaturaAtivaNoAsaas(
   api: string,
   headers: Record<string, string>,
   referencia: string
-): Promise<{ id: string; value: number; nextDueDate?: string } | null> {
-  const busca = await chamarAsaas<{ data?: { id: string; value: number; nextDueDate?: string }[] }>(
+): Promise<{ id: string; value: number; nextDueDate?: string; split?: { fixedValue?: number | null }[] } | null> {
+  const busca = await chamarAsaas<{ data?: { id: string; value: number; nextDueDate?: string; split?: { fixedValue?: number | null }[] }[] }>(
     `${api}/subscriptions?externalReference=${encodeURIComponent(referencia)}&status=ACTIVE`,
     { headers }
   );
   return busca.ok ? busca.corpo.data?.[0] ?? null : null;
+}
+
+/**
+ * Parte da ArkeFit numa assinatura já existente no Asaas: o valor menos o split
+ * da academia. Sem split na resposta, nula — quem chama usa o calculado, em vez
+ * de contar o valor inteiro como repasse.
+ */
+function repasseDoSplit(assinatura: { value: number; split?: { fixedValue?: number | null }[] }): number | null {
+  if (!assinatura.split?.length) return null;
+  const academia = (assinatura.split ?? []).reduce((soma, s) => soma + Number(s.fixedValue ?? 0), 0);
+  return Math.round((Number(assinatura.value) - academia) * 100) / 100;
 }
 
 function somenteDigitos(texto: string | null | undefined): string {
@@ -107,7 +119,7 @@ function somenteDigitos(texto: string | null | undefined): string {
 
 // Cria a assinatura recorrente do aluno no Asaas, com split
 // automático: o valor cobrado do aluno é dividido entre o repasse de
-// atacado à ARKE (custo do nivel_atacado do aluno) e o valor líquido que
+// atacado à ARKE (custo do nivel_atacado + taxa de processamento) e o valor líquido que
 // fica com a academia, via wallet_id configurada em `organizations`.
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
@@ -256,12 +268,27 @@ Deno.serve(async (req: Request) => {
     }
     const trialFim = new Date(Date.now() + trialDias * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
 
-    const valorRepasseArke = Number(planoAtacado.custo_mensal);
-    const valorLiquidoAcademia = Number(valor_cobrado) - valorRepasseArke;
+    // A taxa do Asaas sai da parte da ArkeFit (a academia recebe o split em
+    // valor fixo), então ela entra no preço de atacado: custo do nível + taxa
+    // de processamento sobre o valor cobrado — a mesma taxa configurável que a
+    // mensalidade de plano próprio já usa. Sobre o valor cobrado, e não fixa,
+    // porque a academia define o varejo e a parte percentual acompanha.
+    const { data: taxaProcessamento, error: taxaError } = await admin.rpc("arke_taxa_processamento", {
+      _valor: Number(valor_cobrado),
+    });
+    if (taxaError || taxaProcessamento === null || Number.isNaN(Number(taxaProcessamento))) {
+      console.error("Falha ao calcular a taxa de processamento", taxaError);
+      return jsonResponse({ error: "Não foi possível calcular o repasse ARKE." }, 500);
+    }
+    const custoAtacado = Number(planoAtacado.custo_mensal);
+    const valorRepasseArke = Math.round((custoAtacado + Number(taxaProcessamento)) * 100) / 100;
+    const valorLiquidoAcademia = Math.round((Number(valor_cobrado) - valorRepasseArke) * 100) / 100;
 
     if (valorLiquidoAcademia < 0) {
       return jsonResponse(
-        { error: `O valor cobrado (R$ ${valor_cobrado}) é menor que o custo de atacado ARKE (R$ ${valorRepasseArke}).` },
+        {
+          error: `O valor cobrado (R$ ${valor_cobrado}) é menor que o repasse ARKE (R$ ${valorRepasseArke.toFixed(2)}: atacado R$ ${custoAtacado.toFixed(2)} + taxa de processamento R$ ${Number(taxaProcessamento).toFixed(2)}).`,
+        },
         422
       );
     }
@@ -335,6 +362,10 @@ Deno.serve(async (req: Request) => {
           aluno_id: aluno.id,
           nivel_atacado: aluno.nivel_atacado,
           valor_cobrado: jaExistente ? Number(jaExistente.value) : valor_cobrado,
+          // Travado aqui porque o split fica fixo no Asaas: o webhook usa este
+          // valor, não o custo ou a taxa do dia. Na adoção, vale o split que
+          // já está lá.
+          valor_repasse_arke: (jaExistente && repasseDoSplit(jaExistente)) ?? valorRepasseArke,
           // 'ativa' durante o trial de propósito: o acesso do aluno precisa
           // estar liberado justamente para ele testar. O que o trial adia é
           // a cobrança, não o acesso.

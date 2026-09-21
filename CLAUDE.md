@@ -37,11 +37,13 @@ Valor mensal fixo pago pela academia para acesso à infraestrutura, isolamento p
 ### 2. Licenças de Atacado (Wholesale) vs. Sugestão de Varejo (por aluno/mês)
 A academia compra pelo custo de Atacado da ARKE e define o preço de Varejo (markup) cobrado do aluno. O Split Automático de Pagamento liquida os valores no checkout (Asaas).
 
-| Nível | Custo Atacado ARKE | Sugestão de Varejo | Margem Sugerida da Academia |
-|---|---|---|---|
-| **Essencial** (Treino ARKE) | R$ 15,00 | R$ 39,90 | R$ 24,90 |
-| **Integrado** (Treino + Nutrição) | R$ 45,00 | R$ 119,00 | R$ 74,00 |
-| **Elite** (Acompanhamento 360°) | R$ 85,00 | R$ 199,00 | R$ 114,00 |
+| Nível | Custo Atacado ARKE | Taxa de processamento* | Sugestão de Varejo | Margem Sugerida da Academia |
+|---|---|---|---|---|
+| **Essencial** (Treino ARKE) | R$ 15,00 | R$ 1,68 | R$ 39,90 | R$ 23,22 |
+| **Integrado** (Treino + Nutrição) | R$ 45,00 | R$ 4,05 | R$ 119,00 | R$ 69,95 |
+| **Elite** (Acompanhamento 360°) | R$ 85,00 | R$ 6,44 | R$ 199,00 | R$ 107,56 |
+
+* Taxa do Asaas, somada ao atacado (decisão de 21/09/2026): 2,99% + R$ 0,49 sobre o valor cobrado, configurável em Visão Master → Configurações. Os valores acima são no preço sugerido; com outro varejo, a taxa acompanha.
 
 - **Essencial:** Onboarding M.A.P.A.®, prescrição de treino individualizada com snapshot imutável, aplicativo de treino/diário e suporte a dificuldades.
 - **Integrado:** Tudo do Essencial + plano alimentar individualizado, acompanhamento por Nutricionista ARKE, check-ins semanais (R.O.T.A.®) e revisão integrada.
@@ -51,7 +53,7 @@ A academia compra pelo custo de Atacado da ARKE e define o preço de Varejo (mar
 
 ### 3. Matriz de Repasse Financeiro no Gateway (Split no Asaas)
 No momento da cobrança da assinatura do aluno:
-1. `valor_repasse_arke` = `planos_atacado.custo_mensal` (R$ 15/45/85) → direto para a conta da ARKE.
+1. `valor_repasse_arke` = `planos_atacado.custo_mensal` + `arke_taxa_processamento(valor_total_cobrado)` → direto para a conta da ARKE, que é de onde o Asaas desconta a taxa. Travado em `aluno_assinaturas.valor_repasse_arke` na criação.
 2. `valor_liquido_academia` = `valor_total_cobrado - valor_repasse_arke` → direto para a conta/wallet da academia (`organizations.asaas_wallet_id`).
 
 > Implementação: `aluno_assinaturas` (assinatura recorrente) + `pagamentos` (registro de cada cobrança com o split já calculado) + `asaas_webhook_events` (log/auditoria idempotente dos eventos do gateway). Edge Functions `asaas-create-subscription` e `asaas-webhook`.
@@ -81,7 +83,9 @@ Corrigido junto, o defeito mais caro: nada impedia **duas assinaturas para o mes
 
 **Split conferido no sandbox com subconta (21/09/2026).** Uma subconta criada por `POST /accounts` fez o papel da academia. A assinatura saiu com o payload de `asaas-create-subscription` (Integrado: R$ 119, `fixedValue` 74 para a academia), e o split ficou registrado na assinatura e em cada cobrança. A academia enxerga os R$ 74 do lado dela. Uma cobrança no cartão com o mesmo split foi `CONFIRMED`, e o split passou a `AWAITING_CREDIT`: no cartão, a academia recebe no prazo de liquidação do cartão, não no ato. O Asaas também recusa split maior que o **valor líquido** ("excede o valor líquido da assinatura"); a função já barra antes, com o valor bruto.
 
-**A taxa do Asaas sai da parte da ArkeFit.** Com `fixedValue` para a academia, o Asaas desconta a taxa do que sobra. Dos R$ 119, o líquido foi R$ 116,15 (taxa de R$ 2,85 no sandbox): a academia recebe os R$ 74 inteiros e a ArkeFit fica com **R$ 42,15, não R$ 45**. `pagamentos.valor_repasse_arke` grava o custo de atacado bruto, então receita e MRR aparecem acima do que de fato entra. A decisão comercial de quem absorve a taxa está em aberto.
+**A taxa do Asaas sai da parte da ArkeFit.** Com `fixedValue` para a academia, o Asaas desconta a taxa do que sobra. Dos R$ 119, o líquido foi R$ 116,15 (taxa de R$ 2,85 no sandbox): a academia recebe os R$ 74 inteiros e a ArkeFit fica com **R$ 42,15, não R$ 45**. **Decisão (21/09/2026): a taxa entra no preço de atacado.** O repasse do Método passou a ser **custo do nível + taxa de processamento sobre o valor cobrado** — a mesma taxa configurável (`plataforma_config`, Visão Master → Configurações, hoje 2,99% + R$ 0,49) que a mensalidade de plano próprio já usava, calculada por `public.arke_taxa_processamento()`. Sobre o valor cobrado, e não somada a um custo fixo na tabela, porque a academia define o varejo livremente e a parte percentual acompanha: um custo fixo só acertaria no preço sugerido. No Integrado a R$ 119: ArkeFit R$ 49,05 (45 + 4,05), academia R$ 69,95. O repasse fica **travado em `aluno_assinaturas.valor_repasse_arke`** na criação, porque o split fica fixo no Asaas — o webhook usa esse valor, não o custo ou a taxa do dia. A tela de precificação mostra a divisão já com a taxa (`src/lib/repasse.ts`, testado contra a função do banco) e recusa varejo que não cubra o repasse.
+
+**E a receita passou a ser líquida.** Cada cobrança guarda a taxa que o Asaas de fato descontou (`taxa_gateway` = `value - netValue` do evento, em `pagamentos`, `mensalidades` e `cobrancas_b2b`); a estimativa configurada serve só para montar o split. Na Visão Master, *Repasse ARKE líquido no mês* e o *Take Rate* descontam essa taxa, inclusive da B2B, que antes entrava bruta. *MRR Global* continua sendo o volume cobrado na plataforma (academias + ArkeFit), não a receita da ArkeFit. No Gestão 360 da academia, o repasse do DRE e do MRR líquido passou a incluir a taxa — e o que a ArkeFit retém das mensalidades de plano próprio, que antes era ignorado e inflava o resultado da academia. A taxa configurada (2,99%) é a de tabela; no sandbox a conta está com 1,99% promocional até 08/12/2026, então por ora a ArkeFit fica com um pouco mais que o atacado (R$ 46,20 no Integrado). Se a taxa contratada em produção for outra, basta ajustar em Configurações — vale só para assinaturas novas.
 
 ### Cobrança automática no cartão (desligada até validar em sandbox)
 

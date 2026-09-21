@@ -596,7 +596,7 @@ export default function SuperAdminDashboard() {
           icon={Percent}
           label="Take Rate"
           value={overview ? `${Number(overview.take_rate_pct).toFixed(1)}%` : "—"}
-          sublabel="Repasse ARKE / receita bruta"
+          sublabel="Repasse ARKE líquido de taxa / receita bruta"
         />
         <StatTile
           icon={AlertTriangle}

@@ -82,7 +82,7 @@ export function ReceitaHistoricoCard() {
         "Método ARKE": Number(p.receita_metodo_arke),
         Mensalidades: Number(p.receita_mensalidades),
         "Assinatura B2B": Number(p.receita_b2b),
-        "Repasse ARKE": Number(p.repasse_arke),
+        "Repasse ARKE (líquido)": Number(p.repasse_arke),
         "MRR contratado": p.mrr_contratado === null ? null : Number(p.mrr_contratado),
       })),
     [serie]
@@ -139,7 +139,7 @@ export function ReceitaHistoricoCard() {
                   />
                 </div>
                 <div>
-                  <p className="text-xs text-muted-foreground">Repasse ARKE no mês</p>
+                  <p className="text-xs text-muted-foreground">Repasse ARKE líquido no mês</p>
                   <p className="text-lg font-bold">{formatarMoeda(Number(ultimo.repasse_arke))}</p>
                   <VariacaoBadge
                     atual={Number(ultimo.repasse_arke)}
