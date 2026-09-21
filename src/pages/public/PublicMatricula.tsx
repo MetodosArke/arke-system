@@ -34,7 +34,7 @@ export default function PublicMatricula() {
   const [nivelSelecionado, setNivelSelecionado] = useState<string>("");
   const [form, setForm] = useState({ full_name: "", email: "", telefone: "", cpf: "", password: "", confirmar: "" });
 
-  const { data: org, isLoading } = useQuery({
+  const { data: org, isLoading, isError, refetch, isFetching } = useQuery({
     queryKey: ["organizacao-publica", slug],
     queryFn: async () => {
       const { data, error } = await supabase.rpc("obter_organizacao_publica", { _slug: slug! });
@@ -86,7 +86,30 @@ export default function PublicMatricula() {
   if (isLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+        <div
+          role="status"
+          aria-label="Carregando"
+          className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent"
+        />
+      </div>
+    );
+  }
+
+  // Falha ao carregar não é academia inexistente. Antes as duas caíam na mesma
+  // tela, e um soluço de rede dizia a quem tinha o link certo que a academia
+  // não existe — o tipo de coisa que faz a pessoa desistir da matrícula.
+  if (isError) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background p-4">
+        <Card className="w-full max-w-md">
+          <CardContent className="py-8 text-center space-y-3">
+            <p className="font-medium">Não foi possível carregar a matrícula agora</p>
+            <p className="text-sm text-muted-foreground">A conexão falhou no meio do caminho. Tente de novo em instantes.</p>
+            <Button variant="outline" disabled={isFetching} onClick={() => void refetch()}>
+              {isFetching ? "Tentando..." : "Tentar de novo"}
+            </Button>
+          </CardContent>
+        </Card>
       </div>
     );
   }

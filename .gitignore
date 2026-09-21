@@ -13,3 +13,7 @@ supabase/.temp/
 # O .env.example é o modelo versionado das variáveis; o .env* acima não pode
 # escondê-lo (o vercel link acrescentou .vercel e .env* automaticamente).
 !.env.example
+
+# Artefatos do Playwright (e2e/)
+test-results/
+playwright-report/

@@ -1,0 +1,64 @@
+# PRONTO PARA USO, FORA DO LUGAR DE PROPÓSITO.
+#
+# O token que publica esta branch não tem o escopo `workflow`, e o GitHub recusa
+# criar arquivo em .github/workflows/ sem ele. Para ligar: mova este arquivo
+# para .github/workflows/e2e.yml (pelo site do GitHub ou com um token que tenha
+# o escopo). Nada mais precisa mudar.
+
+name: E2E
+
+# Roda contra o app publicado, depois que ele está no ar.
+#
+# A Vercel avisa o GitHub quando um deploy termina (deployment_status). Só o
+# de produção interessa aqui: é o que os alunos usam, e é o único cujo
+# endereço (www.arkefit.com.br) não fica atrás da proteção de preview.
+#
+# Não bloqueia merge — o código já está no ar quando isto roda. O que ele faz
+# é avisar cedo, pela aba Actions e pelo e-mail do GitHub, que o deploy que
+# acabou de sair quebrou uma tela pública, antes que um aluno descubra.
+#
+# A jornada autenticada (e2e/jornada-aluno.spec.ts) só roda se os secrets
+# E2E_EMAIL e E2E_SENHA existirem; sem eles aparece como "skipped".
+
+on:
+  deployment_status:
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: "Endereço a testar"
+        default: "https://www.arkefit.com.br"
+
+jobs:
+  e2e:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.deployment_status.state == 'success' &&
+       github.event.deployment.environment == 'Production')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      # O runner do GitHub já tem o Google Chrome; o Playwright usa esse
+      # (channel "chrome" no playwright.config.ts) em vez de baixar o próprio.
+      - run: npm ci
+        env:
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1"
+
+      - run: npx playwright test
+        env:
+          E2E_BASE_URL: ${{ github.event.inputs.base_url || 'https://www.arkefit.com.br' }}
+          E2E_EMAIL: ${{ secrets.E2E_EMAIL }}
+          E2E_SENHA: ${{ secrets.E2E_SENHA }}
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-traces
+          path: test-results/
+          retention-days: 7
