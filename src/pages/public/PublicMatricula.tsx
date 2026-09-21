@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dumbbell, CheckCircle2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { mensagemDeErroEdge } from "@/lib/erroEdge";
 import { cn } from "@/lib/utils";
 
 interface PlanoPublico {
@@ -64,7 +65,10 @@ export default function PublicMatricula() {
           },
         }
       );
-      if (error) throw error;
+      // Resposta de erro da função vem em error.context, não em data — sem
+      // isto, senha vazada, e-mail repetido e excesso de tentativas chegavam
+      // ao aluno como uma frase genérica em inglês.
+      if (error) throw new Error(await mensagemDeErroEdge(error, "Não foi possível concluir a matrícula."));
       if (data?.error) throw new Error(data.error);
 
       const { error: signInError } = await signIn(form.email, form.password);
