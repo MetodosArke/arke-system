@@ -16,8 +16,15 @@ type CreateMatriculaPayload = {
   aluno_id: string;
   plano_id: string;
   valor_cobrado?: number;
-  dia_vencimento: number;
 };
+
+/**
+ * Hoje no fuso de Brasília. Em UTC, depois das 21h a data já é a de amanhã, e
+ * a primeira mensalidade venceria um dia depois da matrícula.
+ */
+function hojeEmBrasilia(): string {
+  return new Date().toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" });
+}
 
 const CICLO_ASAAS: Record<string, string> = {
   mensal: "MONTHLY",
@@ -35,9 +42,10 @@ const CICLO_ASAAS: Record<string, string> = {
 // Por que existe: as duas funções faziam POST /customers e POST /subscriptions
 // a cada chamada. Dois defeitos saíam daí.
 //
-//   1. O Asaas exige `cpfCnpj` para criar customer, e ele não era enviado — em
-//      produção a criação falharia antes de qualquer cobrança nascer. (Até
-//      21/09/2026 nenhuma assinatura de aluno tinha sido criada pelo ARKE.)
+//   1. O Asaas exige `cpfCnpj` para criar a assinatura (o customer nasce sem,
+//      visto no sandbox), e ele não era enviado — a criação falharia antes de
+//      qualquer cobrança nascer. (Até 21/09/2026 nenhuma assinatura de aluno
+//      tinha sido criada pelo ARKE.)
 //   2. Nada impedia duas assinaturas para o mesmo aluno. O caminho mais curto
 //      estava na própria função: criou no Asaas, falhou ao gravar no banco, a
 //      tela continua oferecendo "Tentar cobrar" — e a primeira assinatura fica
@@ -152,13 +160,9 @@ Deno.serve(async (req: Request) => {
     const payload: Partial<CreateMatriculaPayload> = await req.json();
     const alunoId = payload.aluno_id;
     const planoId = payload.plano_id;
-    const diaVencimento = payload.dia_vencimento;
 
     if (!alunoId || !planoId) {
       return jsonResponse({ error: "aluno_id e plano_id são obrigatórios." }, 400);
-    }
-    if (!diaVencimento || diaVencimento < 1 || diaVencimento > 28) {
-      return jsonResponse({ error: "dia_vencimento deve estar entre 1 e 28." }, 400);
     }
 
     // Cliente com o JWT do chamador: só segue se o usuário for staff da
@@ -298,9 +302,12 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    const hoje = new Date();
-    const proximoVencimento = new Date(hoje.getFullYear(), hoje.getMonth(), diaVencimento);
-    if (proximoVencimento < hoje) proximoVencimento.setMonth(proximoVencimento.getMonth() + 1);
+    // A matrícula vale do dia em que é feita: a primeira mensalidade vence no
+    // ato e as seguintes no mesmo dia do mês (o Asaas ajusta 29–31 nos meses
+    // mais curtos). Antes a academia escolhia o dia e a primeira cobrança caía
+    // no próximo — até quatro semanas de plano sem cobrança.
+    const primeiroVencimento = hojeEmBrasilia();
+    const diaVencimento = Number(primeiroVencimento.slice(8, 10));
 
     const subscriptionResp = await fetch(`${asaasApiUrl}/subscriptions`, {
       method: "POST",
@@ -310,7 +317,7 @@ Deno.serve(async (req: Request) => {
         billingType: "UNDEFINED",
         value: valorCobrado,
         cycle: CICLO_ASAAS[plano.periodicidade] ?? "MONTHLY",
-        nextDueDate: proximoVencimento.toISOString().slice(0, 10),
+        nextDueDate: primeiroVencimento,
         description: `${org.nome} — ${plano.nome}`,
         externalReference: referencia,
         // A academia recebe o valor líquido (mensalidade menos a taxa de

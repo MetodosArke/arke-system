@@ -113,6 +113,14 @@ function repasseDoSplit(assinatura: { value: number; split?: { fixedValue?: numb
   return Math.round((Number(assinatura.value) - academia) * 100) / 100;
 }
 
+/**
+ * Hoje no fuso de Brasília. Em UTC, depois das 21h a data já é a de amanhã, e
+ * a primeira cobrança venceria um dia depois da matrícula.
+ */
+function hojeEmBrasilia(): string {
+  return new Date().toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" });
+}
+
 function somenteDigitos(texto: string | null | undefined): string {
   return (texto ?? "").replace(/\D/g, "");
 }
@@ -186,7 +194,7 @@ Deno.serve(async (req: Request) => {
       return jsonResponse(
         {
           error:
-            "Este aluno não tem adesão ativa ao Método ARKE. Ative a adesão (ou inicie um trial) antes de gerar a cobrança.",
+            "Este aluno não tem adesão ativa ao Método ARKE. Ative a adesão antes de gerar a cobrança.",
         },
         422
       );
@@ -257,16 +265,11 @@ Deno.serve(async (req: Request) => {
       return jsonResponse({ error: "Nível de atacado do aluno inválido." }, 422);
     }
 
-    // Período de testes: o prazo mora no banco (public.arke_trial_dias),
-    // que também alimenta o trial das organizações e o default de
-    // aluno_assinaturas.trial_fim. Ler daqui evita que o gateway continue
-    // emitindo com 15 dias depois de alguém mudar a política no SQL.
-    const { data: trialDias, error: trialError } = await asUser.rpc("arke_trial_dias");
-    if (trialError || typeof trialDias !== "number") {
-      console.error("Falha ao ler o prazo de trial", trialError);
-      return jsonResponse({ error: "Não foi possível determinar o período de testes." }, 500);
-    }
-    const trialFim = new Date(Date.now() + trialDias * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    // A assinatura vale do dia em que é criada: a primeira cobrança vence no
+    // ato. Até 21/09/2026 ela vencia no fim de um "trial" de 15 dias — um
+    // período grátis para todo aluno, quando trial é só ferramenta de teste
+    // atribuída pelo Super Admin (iniciar_trial_metodo_arke, sem Asaas).
+    const primeiroVencimento = hojeEmBrasilia();
 
     // A taxa do Asaas sai da parte da ArkeFit (a academia recebe o split em
     // valor fixo), então ela entra no preço de atacado: custo do nível + taxa
@@ -324,11 +327,8 @@ Deno.serve(async (req: Request) => {
         billingType: "UNDEFINED",
         value: valor_cobrado,
         cycle: "MONTHLY",
-        // Sem nextDueDate o Asaas emite a primeira fatura para hoje e o
-        // trial não existe na prática. Vencendo no fim do trial, o aluno usa
-        // o período inteiro e só depois entra o ciclo mensal.
-        nextDueDate: trialFim,
-        description: `ARKE — ${org.nome} — nível ${aluno.nivel_atacado} (trial de ${trialDias} dias)`,
+        nextDueDate: primeiroVencimento,
+        description: `ARKE — ${org.nome} — nível ${aluno.nivel_atacado}`,
         externalReference: referencia,
         split: [
           {
@@ -366,13 +366,11 @@ Deno.serve(async (req: Request) => {
           // valor, não o custo ou a taxa do dia. Na adoção, vale o split que
           // já está lá.
           valor_repasse_arke: (jaExistente && repasseDoSplit(jaExistente)) ?? valorRepasseArke,
-          // 'ativa' durante o trial de propósito: o acesso do aluno precisa
-          // estar liberado justamente para ele testar. O que o trial adia é
-          // a cobrança, não o acesso.
           status: "ativa",
-          trial_fim: trialFim,
+          // Convertendo um trial em assinatura paga, o prazo dele não vale mais.
+          trial_fim: null,
           asaas_subscription_id: subscription.id,
-          proxima_cobranca: subscription.nextDueDate ?? trialFim,
+          proxima_cobranca: subscription.nextDueDate ?? primeiroVencimento,
         },
         { onConflict: "aluno_id" }
       )
