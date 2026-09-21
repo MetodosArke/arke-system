@@ -1,0 +1,286 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>ARKE — Pente fino de prontidão · 21/09/2026</title>
+<style>
+  @page { size: A4; margin: 18mm 16mm 16mm 16mm; }
+
+  :root {
+    --tinta: #16202b;
+    --suave: #5b6b7c;
+    --linha: #dde4ea;
+    --marca: #1f6feb;
+    --alerta: #b4232b;
+    --ok: #1a7f4b;
+    --fundo-suave: #f6f8fa;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    font-family: "Segoe UI", Calibri, system-ui, sans-serif;
+    color: var(--tinta);
+    font-size: 10.2pt;
+    line-height: 1.5;
+    margin: 0;
+  }
+
+  h1 { font-size: 21pt; margin: 0 0 2px; letter-spacing: -0.3px; }
+  h2 {
+    font-size: 13pt;
+    margin: 22px 0 8px;
+    padding-bottom: 5px;
+    border-bottom: 2px solid var(--linha);
+  }
+  h3 { font-size: 11pt; margin: 16px 0 6px; }
+
+  .capa { border-bottom: 3px solid var(--marca); padding-bottom: 12px; margin-bottom: 18px; }
+  .sub { color: var(--suave); font-size: 10pt; }
+  .destinatario {
+    background: var(--fundo-suave);
+    border-left: 3px solid var(--marca);
+    padding: 8px 12px;
+    margin: 14px 0 0;
+    font-size: 9.4pt;
+    color: var(--suave);
+  }
+
+  table { width: 100%; border-collapse: collapse; margin: 10px 0 14px; font-size: 9.6pt; }
+  th, td { text-align: left; padding: 6px 9px; border-bottom: 1px solid var(--linha); vertical-align: top; }
+  th { background: var(--fundo-suave); font-weight: 600; }
+  td.num, th.num { text-align: right; white-space: nowrap; }
+
+  code {
+    font-family: Consolas, "Courier New", monospace;
+    font-size: 9pt;
+    background: var(--fundo-suave);
+    padding: 1px 4px;
+    border-radius: 3px;
+  }
+
+  .ok { color: var(--ok); font-weight: 600; }
+  .alerta { color: var(--alerta); font-weight: 600; }
+
+  .caixa {
+    border: 1px solid var(--linha);
+    border-radius: 5px;
+    padding: 11px 14px;
+    margin: 12px 0;
+    background: var(--fundo-suave);
+  }
+  .caixa.critica { border-color: #f1c4c6; background: #fdf4f4; }
+
+  .placar-geral {
+    text-align: center;
+    border: 2px solid var(--marca);
+    border-radius: 6px;
+    padding: 14px;
+    margin: 16px 0;
+  }
+  .placar-geral .numero { font-size: 30pt; font-weight: 700; color: var(--marca); line-height: 1; }
+  .placar-geral .rotulo { color: var(--suave); font-size: 9.4pt; margin-top: 4px; }
+
+  ol.acoes { padding-left: 18px; margin: 8px 0; }
+  ol.acoes li { margin-bottom: 9px; }
+
+  .junto { break-inside: avoid; page-break-inside: avoid; }
+  .nova-pagina { break-before: page; page-break-before: always; }
+
+  .rodape {
+    margin-top: 26px;
+    padding-top: 10px;
+    border-top: 1px solid var(--linha);
+    color: var(--suave);
+    font-size: 8.6pt;
+  }
+</style>
+</head>
+<body>
+
+<div class="capa">
+  <h1>ARKE — Pente fino de prontidão</h1>
+  <div class="sub">Varredura de 21 de setembro de 2026 · branch <code>claude/arke-multitenant-reset-8c8xw3</code></div>
+  <div class="destinatario">
+    <strong>Escopo desta varredura.</strong> Asaas/fintech tratado como evolução futura, catraca como dependente de
+    bancada, e os cinco pontos do Método ARKE como regra comercial — conforme definido. O que sobra aqui é
+    prontidão de <em>código</em>.
+  </div>
+</div>
+
+<h2>1. O que está íntegro</h2>
+<p class="sub" style="margin-top:-4px">Verificado na varredura, não de memória.</p>
+
+<table class="junto">
+  <tr><th>Checagem</th><th>Resultado</th></tr>
+  <tr><td>Tabelas sem RLS</td><td><span class="ok">zero</span> — a regra 1 do projeto está íntegra</td></tr>
+  <tr><td>Edge functions: repositório ↔ publicadas</td><td><span class="ok">26 = 26</span>, paridade mantida</td></tr>
+  <tr><td>Migrations no repositório</td><td>114</td></tr>
+  <tr><td>Cron jobs ativos</td><td>8 (ativação, barreira de rotina, SLA, engajamento, acolhimento, financeiro, MRR)</td></tr>
+  <tr><td>Testes automatizados</td><td><span class="ok">152</span> — 116 no app, 36 no gateway</td></tr>
+  <tr><td>Funções <code>get_superadmin_*</code></td><td><span class="ok">13 de 13</span> checam o papel por dentro — sem escalada de privilégio</td></tr>
+  <tr><td>Dados de homologação</td><td>1 organização, 10 alunos ativos, 0 CPFs sujos</td></tr>
+</table>
+
+<h2>2. Pontas soltas</h2>
+
+<h3 class="junto">2.1 &nbsp;O <code>.maybeSingle()</code> voltou — cinco vezes</h3>
+<div class="caixa critica junto">
+  Eu havia dito que esse padrão merecia uma varredura dedicada e não a tinha feito. Fiz agora.
+  O defeito é sempre o mesmo: consultar <code>organization_members</code> por <code>user_id</code> sem fixar a
+  organização. Quem tem vínculo ativo em duas academias faz a consulta falhar e leva 403.
+</div>
+
+<table class="junto">
+  <tr><th>Função</th><th>Quebra quando</th><th class="num">Gravidade</th></tr>
+  <tr><td><code>anonimizar-aluno</code></td><td>gestor com 2 vínculos — <strong>caminho de LGPD</strong></td><td class="num alerta">Alta</td></tr>
+  <tr><td><code>gerar-link-ativacao</code></td><td><strong>aluno</strong> com 2 vínculos não recebe o link de ativação</td><td class="num alerta">Alta</td></tr>
+  <tr><td><code>cadastrar-membro-equipe</code></td><td>gestor com 2 vínculos não consegue cadastrar equipe</td><td class="num">Média</td></tr>
+  <tr><td><code>excluir-aluno</code></td><td>gestor com 2 vínculos não consegue excluir</td><td class="num">Média</td></tr>
+  <tr><td><code>send-chat-push</code></td><td>destinatário com 2 vínculos não recebe push</td><td class="num">Média</td></tr>
+</table>
+
+<p>E uma variante que eu não havia considerado — filtra a organização corretamente, mas assume <strong>um gestor só</strong>:</p>
+
+<table class="junto">
+  <tr><th>Função</th><th>Quebra quando</th><th class="num">Gravidade</th></tr>
+  <tr><td><code>asaas-emitir-cobranca-b2b</code></td><td>academia com <strong>dois gestores</strong></td><td class="num alerta">Alta</td></tr>
+  <tr><td><code>superadmin-suporte-tenant</code></td><td>idem</td><td class="num">Média</td></tr>
+</table>
+
+<p>Dois gestores numa academia é o normal, não a exceção. O pior da lista é o <code>anonimizar-aluno</code>:
+o defeito atinge justamente o caminho de conformidade.</p>
+
+<h3 class="junto">2.2 &nbsp;O gêmeo morto do parser continua vivo</h3>
+<p><code>parsear-dieta-pdf</code> está <strong>publicado e no repositório</strong>, e <strong>nenhuma tela o chama</strong> —
+só <code>parse-dieta-pdf</code> é usado (<code>AdminDietas.tsx:363</code>). É exatamente o tipo de duplicata que
+atrasou o diagnóstico quando o parser quebrou em produção.</p>
+
+<h3 class="junto">2.3 &nbsp;Higiene de segurança (Supabase advisors)</h3>
+<table class="junto">
+  <tr><th>Achado</th><th>Natureza</th></tr>
+  <tr>
+    <td><strong>14 funções de trigger expostas como RPC</strong> para <code>anon</code> e <code>authenticated</code></td>
+    <td>Não é buraco — chamar fora do contexto de trigger dá erro — mas é superfície desnecessária. Uma delas
+    (<code>exigir_limite_alunos</code>) foi introduzida agora.</td>
+  </tr>
+  <tr>
+    <td><strong>9 de 13</strong> <code>get_superadmin_*</code> chamáveis por <code>anon</code></td>
+    <td>As outras 4 têm revoke. Todas se protegem por dentro, então não há vazamento — mas a defesa em
+    profundidade está desigual.</td>
+  </tr>
+  <tr>
+    <td><code>limite_padrao_plano</code> com <code>search_path</code> mutável</td>
+    <td>WARN do advisor. Função introduzida agora.</td>
+  </tr>
+  <tr>
+    <td>Proteção contra senha vazada desabilitada</td>
+    <td>Configuração do Auth. Um toggle no painel do Supabase — <strong>ação sua</strong>, não de código.</td>
+  </tr>
+</table>
+
+<h3 class="junto">2.4 &nbsp;Pendência antiga, ainda aberta</h3>
+<div class="caixa junto">
+  <strong>A causa da orfandade nunca foi explicada.</strong> As chaves estrangeiras são
+  <code>ON DELETE CASCADE</code> e estão validadas, e ainda assim 18 linhas sobreviveram à exclusão dos pais em
+  setembro. A hipótese — limpeza rodada com <code>session_replication_role = 'replica'</code>, que desliga os
+  triggers de FK — nunca foi confirmada. Tratamos o sintoma, não a causa: apagar tenant por fora do produto
+  pode repetir o rastro.
+</div>
+
+<div class="nova-pagina"></div>
+
+<h2>3. Placar</h2>
+
+<table class="junto">
+  <tr><th>Módulo</th><th class="num">Nota</th><th>O que segura</th></tr>
+  <tr><td>Núcleo — auth, RLS, multitenancy</td><td class="num">95%</td><td>causa da orfandade não explicada</td></tr>
+  <tr><td>App do aluno</td><td class="num">92%</td><td>—</td></tr>
+  <tr><td>Metodologia — prescrição, fases, check-in</td><td class="num">90%</td><td>os cinco pontos em decisão comercial</td></tr>
+  <tr><td>Nutrição / parser de PDF</td><td class="num">90%</td><td>gêmeo morto publicado</td></tr>
+  <tr><td>Onboarding &amp; importação</td><td class="num">88%</td><td>dois dos defeitos de vínculo duplo</td></tr>
+  <tr><td>LGPD</td><td class="num">85%</td><td><code>anonimizar-aluno</code> quebrado no vínculo duplo</td></tr>
+  <tr><td>Higiene de segurança</td><td class="num">80%</td><td>triggers expostas, RPCs abertas, senha vazada</td></tr>
+  <tr><td>Catraca</td><td class="num">75%</td><td>bancada (Control iD) · ponte .NET (Topdata)</td></tr>
+  <tr><td>Fintech</td><td class="num">—</td><td>fora de escopo por decisão</td></tr>
+</table>
+
+<div class="placar-geral junto">
+  <div class="numero">~85%</div>
+  <div class="rotulo">
+    Prontidão geral de código · era 58% (com catraca) / 72% (sem) na primeira auditoria<br>
+    Julgamento ponderado, não medição — o que é medido são os números da seção&nbsp;1.
+  </div>
+</div>
+
+<h2>4. Plano de ação</h2>
+
+<ol class="acoes">
+  <li>
+    <strong>Varredura do <code>.maybeSingle()</code></strong> — 7 funções, correção mecânica com a regra de
+    desempate já estabelecida em <code>escolherVinculo()</code> (gestor → professor → nutricionista → aluno,
+    vínculo mais antigo). É <strong>P0</strong> porque uma delas é LGPD e outra é cobrança B2B.
+  </li>
+  <li>
+    <strong>Encerrar o <code>parsear-dieta-pdf</code></strong> — remover do repositório e do ambiente, pelo mesmo
+    critério aplicado às três funções mortas de setembro. O histórico do git preserva o código.
+  </li>
+  <li>
+    <strong>Fechar os advisors</strong> — <code>revoke execute</code> nas 14 triggers e nas 9 RPCs de superadmin,
+    <code>search_path</code> fixo em <code>limite_padrao_plano</code>. O toggle de senha vazada é ação sua no
+    painel.
+  </li>
+  <li>
+    <strong>Testes de borda do receptor Control iD</strong> — payload malformado, <code>user_id</code> não
+    numérico, duas catracas simultâneas da mesma academia, nuvem estourando o timeout no meio de um giro.
+    Verificável sem hardware.
+  </li>
+  <li>
+    <strong>Investigar a orfandade</strong> — a única forma honesta é reproduzir num branch do Supabase.
+  </li>
+</ol>
+
+<div class="caixa junto">
+  Os itens <strong>1 a 3</strong> são de baixo risco e alto retorno: levam o placar para perto de <strong>90%</strong>
+  sem depender de hardware, do Asaas nem de decisão comercial.
+</div>
+
+<h2>5. Fora do escopo desta varredura</h2>
+<table class="junto">
+  <tr><th>Frente</th><th>Situação</th></tr>
+  <tr>
+    <td><strong>Fintech / Asaas</strong></td>
+    <td>Tratada como evolução futura. A integração está configurada e funcionando; o que ficou para depois é a
+    rede de segurança de inadimplência B2C e a reconciliação automática gateway ↔ banco.</td>
+  </tr>
+  <tr>
+    <td><strong>Catraca Control iD</strong></td>
+    <td>Implementada e testada com os payloads literais da documentação do fabricante. Falta bancada: timing do
+    giro, sentido de liberação, ergonomia do cadastro de digital e leitura em dedo de academia.</td>
+  </tr>
+  <tr>
+    <td><strong>Catraca Topdata</strong></td>
+    <td>Arquitetura fechada e lado do ARKE pronto. Falta a ponte <code>ArkeInnerBridge</code> em .NET —
+    especificação em <code>docs/PONTE_TOPDATA.md</code>. Destrava com SDK + Kit Integrador, sem precisar de
+    academia.</td>
+  </tr>
+  <tr>
+    <td><strong>Henry / Dimep</strong></td>
+    <td>Sem documentação de integração pública. Conexão vira parte do processo comercial na implantação.</td>
+  </tr>
+  <tr>
+    <td><strong>Cinco pontos do Método ARKE</strong></td>
+    <td>Check-in "com dificuldade" sem dor que não avisa ninguém · barreira de rotina que não filtra por adesão ·
+    teto de 80 pontos do Essencial · fase que trava em B.A.S.E.® sem lembrete · UTC das rotinas. São decisões de
+    regra interna, não defeitos.</td>
+  </tr>
+</table>
+
+<div class="rodape">
+  Gerado em 21/09/2026 a partir de varredura ao vivo do repositório e do projeto Supabase
+  <code>jbkrxrfdrmrkyldrrdpq</code>. Os números da seção 1 são medidos; as notas da seção 3 são julgamento
+  ponderado e devem ser lidas como tal.
+</div>
+
+</body>
+</html>
