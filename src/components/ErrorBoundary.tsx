@@ -1,4 +1,5 @@
 import { Component, type ErrorInfo, type ReactNode } from "react";
+import { reportarErro } from "@/lib/monitoramento";
 
 interface Props {
   children: ReactNode;
@@ -20,6 +21,9 @@ export class ErrorBoundary extends Component<Props, State> {
 
   componentDidCatch(error: Error, info: ErrorInfo) {
     console.error("[error-boundary]", error, info.componentStack);
+    // O console só ajuda quem está com o DevTools aberto — ou seja, nunca o
+    // aluno no vestiário, que é justamente quem encontra o defeito.
+    reportarErro(error, { componentStack: info.componentStack });
   }
 
   render() {

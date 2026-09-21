@@ -2,7 +2,12 @@ import { createRoot } from "react-dom/client";
 import App from "./App.tsx";
 import { ErrorBoundary } from "./components/ErrorBoundary.tsx";
 import { isSupabaseConfigured } from "./integrations/supabase/client.ts";
+import { iniciarMonitoramento } from "./lib/monitoramento.ts";
 import "./index.css";
+
+// Antes de qualquer render: erro na própria subida do app é o mais caro de
+// diagnosticar sem rastreamento, porque não sobra nem tela para reclamar.
+iniciarMonitoramento();
 
 const rootElement = document.getElementById("root")!;
 
