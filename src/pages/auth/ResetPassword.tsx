@@ -4,6 +4,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { Mail, ArrowLeft, Dumbbell, Lock, Eye, EyeOff } from "lucide-react";
 import { motion } from "framer-motion";
@@ -190,8 +191,13 @@ export default function ResetPassword() {
               <form onSubmit={handleUpdatePassword} className="space-y-4">
                 <div className="relative">
                   <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                  <Label htmlFor="redefinir-senha" className="sr-only">
+                    Nova senha (mínimo 6 caracteres)
+                  </Label>
                   <Input
                     type={showNewPassword ? "text" : "password"}
+                    id="redefinir-senha"
+                    autoComplete="new-password"
                     placeholder="Nova senha (mínimo 6 caracteres)"
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
@@ -210,8 +216,13 @@ export default function ResetPassword() {
                 </div>
                 <div className="relative">
                   <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                  <Label htmlFor="redefinir-confirmacao" className="sr-only">
+                    Confirmar nova senha
+                  </Label>
                   <Input
                     type={showConfirmPassword ? "text" : "password"}
+                    id="redefinir-confirmacao"
+                    autoComplete="new-password"
                     placeholder="Confirmar nova senha"
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
@@ -240,8 +251,13 @@ export default function ResetPassword() {
               <form onSubmit={handleReset} className="space-y-4">
                 <div className="relative">
                   <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                  <Label htmlFor="redefinir-email" className="sr-only">
+                    E-mail
+                  </Label>
                   <Input
                     type="email"
+                    id="redefinir-email"
+                    autoComplete="email"
                     placeholder="Email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}

@@ -104,6 +104,39 @@ async function hashDoIp(ip: string, pimenta: string): Promise<string> {
     .join("");
 }
 
+// --- Captcha (Cloudflare Turnstile) -----------------------------------------
+//
+// Segunda camada, por cima do limite por IP: o limite segura o script que sai
+// de um endereço só, o captcha segura o que se espalha por muitos. Ligado pelo
+// secret TURNSTILE_SECRET_KEY — sem ele a matrícula segue como antes, e a tela
+// só mostra o widget com VITE_TURNSTILE_SITE_KEY. Turnstile, e não reCAPTCHA:
+// não pede ao aluno para clicar em imagens e não usa cookie de rastreamento.
+//
+// Falha aberta quando a Cloudflare não responde, pelo mesmo motivo do limitador:
+// indisponibilidade de terceiro não pode fechar a matrícula no dia em que a
+// academia divulga o link. Token ausente ou recusado, esse sim, barra.
+type ResultadoCaptcha = "ok" | "recusado" | "indisponivel";
+
+async function verificarCaptcha(token: string | undefined, ip: string | null, segredo: string): Promise<ResultadoCaptcha> {
+  if (!token) return "recusado";
+  const corpo = new FormData();
+  corpo.append("secret", segredo);
+  corpo.append("response", token);
+  if (ip) corpo.append("remoteip", ip);
+  try {
+    const resp = await fetch("https://challenges.cloudflare.com/turnstile/v0/siteverify", {
+      method: "POST",
+      body: corpo,
+      signal: AbortSignal.timeout(5000),
+    });
+    if (!resp.ok) return "indisponivel";
+    const resultado = (await resp.json()) as { success?: boolean };
+    return resultado.success ? "ok" : "recusado";
+  } catch {
+    return "indisponivel";
+  }
+}
+
 type MatriculaPayload = {
   slug: string;
   nivel_atacado: "essencial" | "integrado" | "elite";
@@ -112,6 +145,7 @@ type MatriculaPayload = {
   telefone?: string;
   cpf?: string;
   password: string;
+  captcha_token?: string;
 };
 
 // Auto-matrícula pública (rota /p/:slug): qualquer visitante pode criar a
@@ -181,6 +215,15 @@ Deno.serve(async (req: Request) => {
     }
     if (!nivelAtacado || !NIVEIS_VALIDOS.has(nivelAtacado)) {
       return jsonResponse({ error: "Selecione um plano válido." }, 400);
+    }
+
+    const segredoCaptcha = Deno.env.get("TURNSTILE_SECRET_KEY");
+    if (segredoCaptcha) {
+      const captcha = await verificarCaptcha(payload.captcha_token, ip, segredoCaptcha);
+      if (captcha === "recusado") {
+        return jsonResponse({ error: "Não conseguimos confirmar a verificação de segurança. Recarregue a página e tente de novo." }, 400);
+      }
+      if (captcha === "indisponivel") console.error("Turnstile indisponível; seguindo sem captcha nesta matrícula.");
     }
 
     const vazamento = await senhaEstaVazada(password);
