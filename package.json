@@ -12,7 +12,8 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
-    "e2e": "playwright test"
+    "e2e": "playwright test",
+    "sandbox:cartao": "node scripts/asaas-sandbox-cartao.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
