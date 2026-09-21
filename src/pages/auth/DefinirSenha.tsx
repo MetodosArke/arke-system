@@ -5,6 +5,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { resolveHomePath } from "@/lib/authRouting";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { Dumbbell, Lock, Eye, EyeOff } from "lucide-react";
 import { motion } from "framer-motion";
@@ -171,8 +172,13 @@ export default function DefinirSenha() {
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="relative">
                   <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                  <Label htmlFor="definir-senha" className="sr-only">
+                    Nova senha (mínimo 6 caracteres)
+                  </Label>
                   <Input
                     type={showPassword ? "text" : "password"}
+                    id="definir-senha"
+                    autoComplete="new-password"
                     placeholder="Nova senha (mínimo 6 caracteres)"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
@@ -191,8 +197,13 @@ export default function DefinirSenha() {
                 </div>
                 <div className="relative">
                   <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                  <Label htmlFor="definir-confirmacao" className="sr-only">
+                    Confirmar nova senha
+                  </Label>
                   <Input
                     type={showPassword ? "text" : "password"}
+                    id="definir-confirmacao"
+                    autoComplete="new-password"
                     placeholder="Confirmar nova senha"
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}

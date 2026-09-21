@@ -11,6 +11,11 @@ import { Dumbbell, CheckCircle2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { mensagemDeErroEdge } from "@/lib/erroEdge";
 import { cn } from "@/lib/utils";
+import { Turnstile } from "@/components/public/Turnstile";
+
+// Sem a chave, a matrícula segue sem captcha (e o servidor não o exige sem
+// TURNSTILE_SECRET_KEY). Ver components/public/Turnstile.
+const TURNSTILE_SITE_KEY: string | undefined = import.meta.env.VITE_TURNSTILE_SITE_KEY || undefined;
 
 interface PlanoPublico {
   nivel_atacado: "essencial" | "integrado" | "elite";
@@ -32,6 +37,10 @@ export default function PublicMatricula() {
   const { signIn } = useAuth();
 
   const [nivelSelecionado, setNivelSelecionado] = useState<string>("");
+  // Captcha só quando configurado (ver components/public/Turnstile). O token é
+  // de uso único: a cada falha o widget é remontado para gerar outro.
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+  const [captchaVersao, setCaptchaVersao] = useState(0);
   const [form, setForm] = useState({ full_name: "", email: "", telefone: "", cpf: "", password: "", confirmar: "" });
 
   const { data: org, isLoading, isError, refetch, isFetching } = useQuery({
@@ -50,6 +59,7 @@ export default function PublicMatricula() {
       if (!nivelSelecionado) throw new Error("Selecione um plano.");
       if (form.password.length < 6) throw new Error("A senha deve ter no mínimo 6 caracteres.");
       if (form.password !== form.confirmar) throw new Error("As senhas não coincidem.");
+      if (TURNSTILE_SITE_KEY && !captchaToken) throw new Error("Aguarde a verificação de segurança terminar.");
 
       const { data, error } = await supabase.functions.invoke<{ user_id: string; error?: string }>(
         "matricula-publica",
@@ -62,6 +72,7 @@ export default function PublicMatricula() {
             telefone: form.telefone,
             cpf: form.cpf,
             password: form.password,
+            captcha_token: captchaToken ?? undefined,
           },
         }
       );
@@ -79,6 +90,10 @@ export default function PublicMatricula() {
       navigate("/app", { replace: true });
     },
     onError: (error: Error) => {
+      if (TURNSTILE_SITE_KEY) {
+        setCaptchaToken(null);
+        setCaptchaVersao((v) => v + 1);
+      }
       toast({ title: "Não foi possível concluir a matrícula", description: error.message, variant: "destructive" });
     },
   });
@@ -209,7 +224,14 @@ export default function PublicMatricula() {
                   <Input id="confirmar" type="password" required minLength={6} value={form.confirmar} onChange={(e) => setForm((f) => ({ ...f, confirmar: e.target.value }))} />
                 </div>
               </div>
-              <Button type="submit" className="w-full gradient-primary text-primary-foreground font-semibold" disabled={matricular.isPending || !nivelSelecionado}>
+              {TURNSTILE_SITE_KEY && (
+                <Turnstile key={captchaVersao} siteKey={TURNSTILE_SITE_KEY} onToken={setCaptchaToken} />
+              )}
+              <Button
+                type="submit"
+                className="w-full gradient-primary text-primary-foreground font-semibold"
+                disabled={matricular.isPending || !nivelSelecionado || (!!TURNSTILE_SITE_KEY && !captchaToken)}
+              >
                 {matricular.isPending ? "Criando sua conta..." : "Confirmar matrícula"}
               </Button>
             </form>

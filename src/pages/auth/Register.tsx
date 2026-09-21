@@ -4,6 +4,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useTheme } from "@/contexts/ThemeContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { Dumbbell, Mail, Lock, User, ArrowLeft, Moon, Sun } from "lucide-react";
 import { motion } from "framer-motion";
@@ -88,7 +89,12 @@ export default function Register() {
             <form onSubmit={handleRegister} className="space-y-4">
               <div className="relative">
                 <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                <Label htmlFor="cadastro-nome" className="sr-only">
+                  Nome completo
+                </Label>
                 <Input
+                  id="cadastro-nome"
+                  autoComplete="name"
                   placeholder="Nome completo"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
@@ -98,8 +104,13 @@ export default function Register() {
               </div>
               <div className="relative">
                 <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                <Label htmlFor="cadastro-email" className="sr-only">
+                  E-mail
+                </Label>
                 <Input
                   type="email"
+                  id="cadastro-email"
+                  autoComplete="email"
                   placeholder="Email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
@@ -109,8 +120,13 @@ export default function Register() {
               </div>
               <div className="relative">
                 <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                <Label htmlFor="cadastro-senha" className="sr-only">
+                  Senha (mínimo 6 caracteres)
+                </Label>
                 <Input
                   type="password"
+                  id="cadastro-senha"
+                  autoComplete="new-password"
                   placeholder="Senha (mínimo 6 caracteres)"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
