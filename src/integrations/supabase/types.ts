@@ -187,8 +187,14 @@ export type Database = {
         Row: {
           aluno_id: string
           asaas_subscription_id: string | null
+          cartao_atualizado_em: string | null
+          cartao_atualizado_por: string | null
+          cartao_bandeira: string | null
+          cartao_final: string | null
+          cartao_recusado_em: string | null
           created_at: string
           fatura_pendente_url: string | null
+          forma_pagamento: string
           id: string
           nivel_atacado: Database["public"]["Enums"]["nivel_atacado"]
           organization_id: string
@@ -201,8 +207,14 @@ export type Database = {
         Insert: {
           aluno_id: string
           asaas_subscription_id?: string | null
+          cartao_atualizado_em?: string | null
+          cartao_atualizado_por?: string | null
+          cartao_bandeira?: string | null
+          cartao_final?: string | null
+          cartao_recusado_em?: string | null
           created_at?: string
           fatura_pendente_url?: string | null
+          forma_pagamento?: string
           id?: string
           nivel_atacado: Database["public"]["Enums"]["nivel_atacado"]
           organization_id: string
@@ -215,8 +227,14 @@ export type Database = {
         Update: {
           aluno_id?: string
           asaas_subscription_id?: string | null
+          cartao_atualizado_em?: string | null
+          cartao_atualizado_por?: string | null
+          cartao_bandeira?: string | null
+          cartao_final?: string | null
+          cartao_recusado_em?: string | null
           created_at?: string
           fatura_pendente_url?: string | null
+          forma_pagamento?: string
           id?: string
           nivel_atacado?: Database["public"]["Enums"]["nivel_atacado"]
           organization_id?: string

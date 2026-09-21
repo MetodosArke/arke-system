@@ -79,6 +79,18 @@ Corrigido junto, o defeito mais caro: nada impedia **duas assinaturas para o mes
 
 Nada foi testado contra o Asaas: a chave é de produção e fica nos secrets. O teste de ponta a ponta pede uma conta sandbox (`ASAAS_API_URL` já é configurável).
 
+### Cobrança automática no cartão (desligada até validar em sandbox)
+
+A assinatura do Método nascia com `billingType: UNDEFINED`: todo mês o aluno recebia a fatura e tinha que lembrar de pagar — a porta de entrada da evasão involuntária. `asaas-cartao-assinatura` põe o cartão direto na assinatura (`PUT /v3/subscriptions/{id}/creditCard`) e liga `CREDIT_CARD`; o Asaas cobra os meses seguintes sozinho. **Tokenização não é necessária** para isso — ela serve para reusar um cartão em cobranças diferentes, e o ARKE tem uma assinatura por aluno —, então o caminho não depende da habilitação de tokenização em produção.
+
+**O cartão é só de passagem, e isso é o desenho, não um detalhe.** A API do Asaas exige a chave secreta, então o número atravessa a edge function — o ARKE entra no escopo do PCI DSS. Por isso: o corpo da requisição nunca vai para log (nem em erro; os logs trazem só status HTTP e códigos de erro do Asaas, porque a descrição pode ecoar dado do cartão); o banco guarda só `cartao_final` (4 dígitos, com `check` que recusa o número inteiro) e `cartao_bandeira`; o token do Asaas também não é guardado; o componente `CartaoAssinatura` mantém o cartão só no estado do diálogo, fora do `useRascunho`, e apaga ao fechar ou salvar; e o Sentry remove qualquer objeto sob as chaves `cartao`/`titular`.
+
+**Ordem das chamadas: cartão primeiro, tipo de cobrança depois.** Nessa ordem toda falha é segura — cartão recusado não muda nada; falha na troca de tipo deixa o cartão guardado e o aluno pagando pela fatura. Na ordem inversa a assinatura exigiria cartão sem ter nenhum.
+
+Quem cadastra: o próprio aluno (Perfil → Pagamento) ou gestor/recepção (ficha do aluno → Método ARKE); o papel é conferido com a organização fixada. **Recusa na cobrança recorrente** (`PAYMENT_CREDIT_CARD_CAPTURE_REFUSED`) não corta acesso — a cobrança ainda não venceu, e quem corta por vencimento é `aluno_inadimplente_b2c` —, mas marca `cartao_recusado_em`, guarda o link da fatura e abre tarefa `cobranca` de prioridade alta (`abrir_tarefa_cartao_recusado`, idempotente por pagamento). Pagamento confirmado limpa a marca.
+
+**Dois interruptores, os dois desligados:** o secret `CARTAO_RECORRENTE_ATIVO` na edge function (sem ele responde 503 sem tocar no Asaas — verificado contra a função publicada) e `VITE_CARTAO_RECORRENTE` no frontend (sem ele a tela mostra a forma de pagamento e não oferece cadastro). Só ligar depois do teste de ponta a ponta numa conta sandbox do Asaas: nada do fluxo de cartão foi exercitado contra o gateway real.
+
 ## Trial e Bloqueio por Pagamento
 
 ### Trial não é oferta comercial
