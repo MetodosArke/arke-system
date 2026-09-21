@@ -83,27 +83,31 @@ Deno.serve(async (req: Request) => {
     }
     const callerIsAdminArke = (callerRoles ?? []).some((r) => r.role === "admin_arke");
 
-    const { data: targetMembership, error: targetMembershipError } = await adminClient
+    // Listas, não .maybeSingle(): tanto o alvo quanto o chamador podem ter
+    // vínculo ativo em mais de uma academia, e nesse caso a consulta
+    // falhava — o aluno simplesmente não recebia o link de ativação. O
+    // filtro de status também faltava, então vínculo encerrado entrava na
+    // conta.
+    const { data: vinculosAlvo, error: targetMembershipError } = await adminClient
       .from("organization_members")
       .select("organization_id, role")
       .eq("user_id", targetUserId)
-      .maybeSingle();
+      .eq("status", "active");
     if (targetMembershipError) {
       console.error("Error loading target membership", targetMembershipError);
       return jsonResponse({ error: "Erro ao validar o aluno." }, 500);
     }
-    if (!targetMembership) {
+    if (!vinculosAlvo?.length) {
       return jsonResponse({ error: "Aluno não encontrado nesta organização." }, 404);
     }
 
     let autorizado = callerIsAdminArke;
     if (!autorizado) {
-      const { data: callerMembership, error: callerMembershipError } = await adminClient
+      const { data: vinculosChamador, error: callerMembershipError } = await adminClient
         .from("organization_members")
         .select("organization_id, role")
         .eq("user_id", callerId)
-        .eq("status", "active")
-        .maybeSingle();
+        .eq("status", "active");
       if (callerMembershipError) {
         console.error("Error loading caller membership", callerMembershipError);
         return jsonResponse({ error: "Erro ao validar permissões." }, 500);
@@ -113,11 +117,21 @@ Deno.serve(async (req: Request) => {
       // válido para a conta de outro membro da equipe (inclusive o gestor)
       // e assumir esse acesso. Gestor da mesma org pode gerar para
       // qualquer papel (já é o nível de permissão mais alto dentro da org).
-      autorizado =
-        !!callerMembership &&
-        callerMembership.organization_id === targetMembership.organization_id &&
-        (callerMembership.role === "gestor" ||
-          (["professor", "nutricionista"].includes(callerMembership.role) && targetMembership.role === "aluno"));
+      //
+      // Com listas dos dois lados, a regra passa a ser: existe alguma
+      // organização em comum onde o chamador tenha papel suficiente para o
+      // papel que o alvo tem ALI. Isso não afrouxa nada — continua exigindo
+      // organização compartilhada e o mesmo par de papéis —, e fecha um
+      // buraco sutil que a versão anterior tinha: ela comparava o papel do
+      // alvo num vínculo possivelmente de outra academia.
+      autorizado = (vinculosChamador ?? []).some((chamador) =>
+        (vinculosAlvo ?? []).some(
+          (alvo) =>
+            alvo.organization_id === chamador.organization_id &&
+            (chamador.role === "gestor" ||
+              (["professor", "nutricionista"].includes(chamador.role) && alvo.role === "aluno"))
+        )
+      );
     }
     if (!autorizado) {
       return jsonResponse({ error: "Você não tem permissão para gerar este link." }, 403);

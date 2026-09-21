@@ -25,6 +25,29 @@ type CadastrarMembroPayload = {
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+/**
+ * Validação de CPF pelo módulo 11.
+ *
+ * Duplicada de src/lib/cpf.ts de propósito: edge function roda em Deno e
+ * não importa do bundle do app. O banco tem a mesma regra em
+ * public.cpf_valido() e é ele quem garante — isto existe para o gestor ver
+ * uma mensagem que dá para entender, em vez de um erro de constraint.
+ */
+function cpfValido(valor: string): boolean {
+  const c = valor.replace(/\D/g, "");
+  if (c.length !== 11) return false;
+  if (/^(\d)\1{10}$/.test(c)) return false;
+
+  const dv = (base: string, pesoInicial: number) => {
+    let soma = 0;
+    for (let i = 0; i < base.length; i++) soma += Number(base[i]) * (pesoInicial - i);
+    const resto = (soma * 10) % 11;
+    return resto >= 10 ? 0 : resto;
+  };
+
+  return dv(c.slice(0, 9), 10) === Number(c[9]) && dv(c.slice(0, 10), 11) === Number(c[10]);
+}
+
 // Gera uma senha temporária aleatória (não previsível) para o cadastro
 // direto do funcionário — o gestor repassa esse valor por fora (WhatsApp,
 // verbal), e o próprio funcionário pode trocá-la depois via "Esqueci minha
@@ -70,6 +93,13 @@ Deno.serve(async (req: Request) => {
     const cpf = payload.cpf?.trim() || null;
     const papel = payload.papel;
 
+    // CPF é opcional, mas se vier tem que ser real: é a chave de leitura
+    // da catraca e a de deduplicação da base. Sem esta checagem o gestor
+    // receberia o erro cru da constraint do banco.
+    if (cpf && !cpfValido(cpf)) {
+      return jsonResponse({ error: `CPF inválido: "${cpf}". Confira os dígitos.` }, 400);
+    }
+
     if (!email || !EMAIL_RE.test(email)) {
       return jsonResponse({ error: "E-mail inválido." }, 400);
     }
@@ -92,12 +122,23 @@ Deno.serve(async (req: Request) => {
 
     const adminClient = createClient(supabaseUrl, serviceRoleKey);
 
-    const { data: callerMembership, error: callerMembershipError } = await adminClient
+    // A organização do novo membro sai do vínculo do chamador, então com
+    // dois vínculos a escolha é genuinamente ambígua — diferente de
+    // anonimizar/excluir, onde a organização do alvo já é conhecida. Aqui
+    // vale a regra de desempate já estabelecida em escolherVinculo():
+    // vínculo de gestor mais antigo. Antes, um .maybeSingle() sobre todos
+    // os vínculos fazia a consulta falhar e devolver 403 a quem é gestor
+    // de uma academia e aluno de outra.
+    const { data: vinculosGestor, error: callerMembershipError } = await adminClient
       .from("organization_members")
-      .select("organization_id, role")
+      .select("organization_id, role, created_at")
       .eq("user_id", callerId)
       .eq("status", "active")
-      .maybeSingle();
+      .eq("role", "gestor")
+      .order("created_at", { ascending: true })
+      .limit(1);
+
+    const callerMembership = vinculosGestor?.[0] ?? null;
 
     if (callerMembershipError) {
       console.error("Error loading caller membership", callerMembershipError);
