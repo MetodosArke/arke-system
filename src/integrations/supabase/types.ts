@@ -4145,6 +4145,20 @@ export type Database = {
         Args: { _aluno_id: string }
         Returns: boolean
       }
+      get_superadmin_rotinas: {
+        Args: never
+        Returns: {
+          agendamento: string
+          ativa: boolean
+          execucoes_7d: number
+          falhas_7d: number
+          intervalo_esperado: unknown
+          nome: string
+          situacao: string
+          ultima_execucao: string
+          ultimo_erro: string
+        }[]
+      }
       get_bloqueio_aluno: {
         Args: { _aluno_id: string }
         Returns: {

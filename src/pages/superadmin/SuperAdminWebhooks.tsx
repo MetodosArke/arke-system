@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { SaudeRotinas } from "@/components/superadmin/SaudeRotinas";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -149,6 +150,8 @@ export default function SuperAdminWebhooks() {
           Todo evento que o gateway entrega, com o que ele efetivamente fez no banco.
         </p>
       </div>
+
+      <SaudeRotinas />
 
       {erro && (
         <Card>
