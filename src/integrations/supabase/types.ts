@@ -4201,6 +4201,17 @@ export type Database = {
         Args: { _aluno_id: string }
         Returns: boolean
       }
+      get_superadmin_alunos_trial: {
+        Args: { _organization_id: string }
+        Returns: {
+          aluno_id: string
+          assinatura_status: string | null
+          metodo_arke_status: string
+          nivel_atacado: Database["public"]["Enums"]["nivel_atacado"] | null
+          nome: string
+          trial_fim: string | null
+        }[]
+      }
       get_superadmin_rotinas: {
         Args: never
         Returns: {

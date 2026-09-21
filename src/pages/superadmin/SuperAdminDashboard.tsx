@@ -284,7 +284,8 @@ export default function SuperAdminDashboard() {
     gestor_email: "",
     gestor_nome: "",
     plano_b2b: "starter" as Enums<"plano_b2b">,
-    status: "trial" as "trial" | "ativo",
+    // Plano B2B vale desde o primeiro dia; trial é só para testes.
+    status: "ativo" as "trial" | "ativo",
   });
 
   const resetarNovaOrg = () =>
@@ -295,7 +296,7 @@ export default function SuperAdminDashboard() {
       gestor_email: "",
       gestor_nome: "",
       plano_b2b: "starter",
-      status: "trial",
+      status: "ativo",
     });
 
   const criarOrganizacao = useMutation({
@@ -985,8 +986,8 @@ export default function SuperAdminDashboard() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="trial">Trial</SelectItem>
                     <SelectItem value="ativo">Ativo</SelectItem>
+                    <SelectItem value="trial">Trial (só para testes)</SelectItem>
                   </SelectContent>
                 </Select>
                 {novaOrg.status === "trial" && (

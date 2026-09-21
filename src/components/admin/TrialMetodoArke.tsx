@@ -21,16 +21,24 @@ const NIVEIS: { valor: Nivel; label: string }[] = [
 // Existe para homologação — é como se percorre a jornada dos três níveis sem
 // passar pelo Asaas. Por isso o nível é escolhido aqui: cada um entrega
 // coisas diferentes (nutrição, acolhimento expandido) e a jornada muda.
+//
+// Só o Super Admin atribui ou encerra (o banco recusa qualquer outro papel).
+// A academia vê o componente em `somenteLeitura`: fica sabendo que o aluno está
+// em trial, sem o botão que ela não pode usar.
 export function TrialMetodoArke({
   alunoId,
   emTrial,
   trialFim,
   nivelAtual,
+  somenteLeitura = false,
+  onAlterado,
 }: {
   alunoId: string;
   emTrial: boolean;
   trialFim: string | null;
   nivelAtual: Nivel | null;
+  somenteLeitura?: boolean;
+  onAlterado?: () => void;
 }) {
   const [nivel, setNivel] = useState<Nivel>(nivelAtual ?? "essencial");
   const { toast } = useToast();
@@ -39,6 +47,7 @@ export function TrialMetodoArke({
   const invalidar = () => {
     void queryClient.invalidateQueries({ queryKey: ["aluno-perfil"] });
     void queryClient.invalidateQueries({ queryKey: ["admin-alunos"] });
+    onAlterado?.();
   };
 
   const iniciar = useMutation({
@@ -83,13 +92,17 @@ export function TrialMetodoArke({
           <FlaskConical className="inline h-3.5 w-3.5 mr-1 text-amber-600 dark:text-amber-400" />
           Em trial de homologação{fim ? ` até ${fim}` : ""} — sem cobrança.
         </p>
-        <Button variant="outline" size="sm" disabled={ocupado} onClick={() => encerrar.mutate()}>
-          {encerrar.isPending && <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />}
-          Encerrar trial
-        </Button>
+        {!somenteLeitura && (
+          <Button variant="outline" size="sm" disabled={ocupado} onClick={() => encerrar.mutate()}>
+            {encerrar.isPending && <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />}
+            Encerrar trial
+          </Button>
+        )}
       </div>
     );
   }
+
+  if (somenteLeitura) return null;
 
   return (
     <div className="space-y-2">

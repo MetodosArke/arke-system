@@ -19,8 +19,10 @@ import {
   UtensilsCrossed,
   Ruler,
   CheckCircle2,
+  FlaskConical,
 } from "lucide-react";
 import { Bloco } from "@/components/admin/perfilSheetHelpers";
+import { TrialAlunosOrganizacao } from "@/components/superadmin/TrialAlunosOrganizacao";
 import type { Enums } from "@/integrations/supabase/types";
 
 type AtividadeTipo = "treino" | "dieta" | "avaliacao" | "tarefa";
@@ -185,6 +187,10 @@ export function OrganizacaoPerfilSheet({
                     Trial vence em {formatarData(tenant.trial_vencimento)} ({descreverPrazoTrial(tenant.trial_vencimento)})
                   </p>
                 )}
+              </Bloco>
+
+              <Bloco titulo="Trial do Método ARKE (testes)" icon={FlaskConical}>
+                <TrialAlunosOrganizacao organizationId={tenant.organization_id} />
               </Bloco>
 
               <Bloco titulo="Atividade Recente" icon={ClipboardList}>

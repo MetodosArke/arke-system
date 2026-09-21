@@ -104,7 +104,6 @@ export function AlunoPerfilSheet({
   const [chatAberto, setChatAberto] = useState<"treino" | "nutri" | null>(null);
   const [matriculaAberta, setMatriculaAberta] = useState(false);
   const [planoEscolhido, setPlanoEscolhido] = useState("");
-  const [diaVencimento, setDiaVencimento] = useState("5");
   const [valorOverride, setValorOverride] = useState("");
 
   const { data: perfil, isLoading } = useQuery({
@@ -243,9 +242,7 @@ export function AlunoPerfilSheet({
   const matricular = useMutation({
     mutationFn: async () => {
       if (!alunoId || !planoEscolhido) throw new Error("Selecione um plano.");
-      const dia = Number(diaVencimento);
-      if (!dia || dia < 1 || dia > 28) throw new Error("Dia de vencimento deve estar entre 1 e 28.");
-      const body: Record<string, unknown> = { aluno_id: alunoId, plano_id: planoEscolhido, dia_vencimento: dia };
+      const body: Record<string, unknown> = { aluno_id: alunoId, plano_id: planoEscolhido };
       if (valorOverride.trim()) {
         const valor = Number(valorOverride.trim().replace(",", "."));
         if (Number.isFinite(valor) && valor > 0) body.valor_cobrado = valor;
@@ -439,13 +436,15 @@ export function AlunoPerfilSheet({
               </Bloco>
 
               <Bloco titulo="Método ARKE" icon={FlaskConical}>
+                {/* Trial é atribuído só pelo Super Admin (Visão Master); aqui a academia só vê. */}
                 <TrialMetodoArke
                   alunoId={perfil.aluno.id}
                   emTrial={perfil.assinatura?.status === "trial"}
                   trialFim={perfil.assinatura?.trial_fim ?? null}
                   nivelAtual={perfil.aluno.nivel_atacado}
+                  somenteLeitura
                 />
-                <div className="mt-3 border-t pt-3">
+                <div className={perfil.assinatura?.status === "trial" ? "mt-3 border-t pt-3" : undefined}>
                   <CartaoAssinatura
                     alunoId={perfil.aluno.id}
                     assinatura={perfil.assinatura ?? null}
@@ -602,21 +601,19 @@ export function AlunoPerfilSheet({
                       </p>
                     )}
                   </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-1.5">
-                      <Label>Dia do vencimento</Label>
-                      <Input type="number" min={1} max={28} value={diaVencimento} onChange={(e) => setDiaVencimento(e.target.value)} />
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label>Valor (opcional)</Label>
-                      <Input
-                        placeholder="usa o valor do plano"
-                        inputMode="decimal"
-                        value={valorOverride}
-                        onChange={(e) => setValorOverride(e.target.value)}
-                      />
-                    </div>
+                  <div className="space-y-1.5">
+                    <Label>Valor (opcional)</Label>
+                    <Input
+                      placeholder="usa o valor do plano"
+                      inputMode="decimal"
+                      value={valorOverride}
+                      onChange={(e) => setValorOverride(e.target.value)}
+                    />
                   </div>
+                  <p className="text-xs text-muted-foreground">
+                    A matrícula vale a partir de hoje: a primeira mensalidade vence hoje e as seguintes no dia{" "}
+                    {new Date().getDate()} de cada mês.
+                  </p>
                 </div>
                 <DialogFooter>
                   <Button variant="outline" onClick={() => setMatriculaAberta(false)}>

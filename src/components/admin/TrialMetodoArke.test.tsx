@@ -101,4 +101,24 @@ describe("TrialMetodoArke", () => {
     renderizar();
     expect(document.body.textContent).toContain("sem passar pelo Asaas e sem gerar cobrança");
   });
+
+  // Trial é atribuído só pelo Super Admin: a academia vê a situação, sem botão.
+  it("somente leitura: aluno em trial aparece como tal, sem encerrar", () => {
+    renderizar({ somenteLeitura: true, emTrial: true, trialFim: "2026-10-06" });
+    expect(document.body.textContent).toContain("Em trial de homologação até 06/10/2026");
+    expect(screen.queryByRole("button")).toBeNull();
+  });
+
+  it("somente leitura: aluno fora de trial não mostra nada", () => {
+    const { container } = renderizar({ somenteLeitura: true });
+    expect(container.textContent).toBe("");
+  });
+
+  it("avisa quem abriu que o trial mudou", async () => {
+    rpc.mockResolvedValue({ error: null });
+    const onAlterado = vi.fn();
+    renderizar({ onAlterado });
+    fireEvent.click(screen.getByRole("button", { name: /Iniciar trial/ }));
+    await waitFor(() => expect(onAlterado).toHaveBeenCalled());
+  });
 });

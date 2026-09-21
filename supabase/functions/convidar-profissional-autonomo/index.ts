@@ -115,7 +115,9 @@ Deno.serve(async (req: Request) => {
         tipo: "profissional_autonomo",
         plano_b2b: "autonomo",
         especialidade_profissional: especialidade,
-        status: "trial",
+        // Plano B2B vale desde o primeiro dia; trial é ferramenta de teste que
+        // o Super Admin atribui à parte, na Visão Master.
+        status: "ativo",
       })
       .select("id")
       .single();
