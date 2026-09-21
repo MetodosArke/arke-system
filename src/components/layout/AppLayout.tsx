@@ -1,4 +1,5 @@
-import { useState, createContext, useContext, useCallback } from "react";
+import { CarregandoPagina } from "@/components/CarregandoPagina";
+import { Suspense, useState, createContext, useContext, useCallback } from "react";
 import { Outlet } from "react-router-dom";
 import { AppSidebarDesktop } from "./AppSidebar";
 import { AppHeader } from "./AppHeader";
@@ -29,7 +30,9 @@ export function AppLayout() {
         >
           <AppHeader />
           <main className="flex-1 p-3 sm:p-4 md:p-6 min-w-0 overflow-x-hidden">
-            <Outlet />
+            <Suspense fallback={<CarregandoPagina />}>
+              <Outlet />
+            </Suspense>
           </main>
         </div>
       </div>
