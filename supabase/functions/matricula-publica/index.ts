@@ -75,6 +75,35 @@ async function senhaEstaVazada(senha: string): Promise<{ vazada: boolean; ocorre
   }
 }
 
+const MUITAS_TENTATIVAS =
+  "Muitas tentativas de matrícula a partir desta rede. Aguarde alguns minutos e tente de novo — " +
+  "se estiver na academia, a recepção pode ajudar a concluir.";
+
+/**
+ * IP de quem chamou, para o limite de taxa. O Supabase entrega em
+ * `x-forwarded-for`, e o primeiro endereço da lista é o do cliente.
+ */
+function ipDoCliente(req: Request): string | null {
+  const encaminhado = req.headers.get("x-forwarded-for");
+  if (encaminhado) return encaminhado.split(",")[0].trim() || null;
+  return req.headers.get("cf-connecting-ip") ?? req.headers.get("x-real-ip");
+}
+
+/**
+ * IP é dado pessoal: o banco guarda só o hash, com uma pimenta que não sai
+ * daqui. Sem ela, o hash de IPv4 se reverte por força bruta em segundos —
+ * são só 4 bilhões de possibilidades. A service role key serve de pimenta
+ * porque já está no ambiente da função e nunca vai ao cliente; se ela for
+ * trocada, os hashes antigos perdem o sentido, o que numa janela de 24 h
+ * não custa nada.
+ */
+async function hashDoIp(ip: string, pimenta: string): Promise<string> {
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(`${pimenta}:${ip}`));
+  return Array.from(new Uint8Array(digest))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
+
 type MatriculaPayload = {
   slug: string;
   nivel_atacado: "essencial" | "integrado" | "elite";
@@ -104,6 +133,34 @@ Deno.serve(async (req: Request) => {
   if (!supabaseUrl || !serviceRoleKey) {
     console.error("Missing required Supabase environment variables");
     return jsonResponse({ error: "Configuração do servidor incompleta." }, 500);
+  }
+
+  const admin = createClient(supabaseUrl, serviceRoleKey);
+
+  // Limite por IP antes de qualquer validação: um script que martela o
+  // endpoint com lixo também precisa ser contido, não só o que acerta o
+  // formato. Os números e o porquê de serem folgados (Wi-Fi da academia sai
+  // todo pelo mesmo IP) estão na migration 20261127010000.
+  //
+  // Falha do limitador libera em vez de travar: se o banco estiver com
+  // problema, a matrícula falharia de qualquer jeito logo adiante, e travar
+  // aqui só trocaria uma mensagem honesta por uma falsa de "muitas
+  // tentativas".
+  let tentativaId: number | null = null;
+  const ip = ipDoCliente(req);
+  if (ip) {
+    const { data, error } = await admin.rpc("registrar_tentativa_matricula", {
+      _ip_hash: await hashDoIp(ip, serviceRoleKey),
+    });
+    if (error) {
+      console.error("Limitador da matrícula indisponível, seguindo sem limite:", error);
+    } else if (data === null) {
+      return jsonResponse({ error: MUITAS_TENTATIVAS }, 429);
+    } else {
+      tentativaId = Number(data);
+    }
+  } else {
+    console.error("Requisição sem IP identificável; limite por IP não aplicado.");
   }
 
   try {
@@ -140,8 +197,6 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    const admin = createClient(supabaseUrl, serviceRoleKey);
-
     const { data: org, error: orgError } = await admin
       .from("organizations")
       .select("id, status")
@@ -154,6 +209,21 @@ Deno.serve(async (req: Request) => {
     }
     if (!org || !["ativo", "trial"].includes(org.status)) {
       return jsonResponse({ error: "Academia não encontrada ou não está aceitando matrículas no momento." }, 404);
+    }
+
+    // Teto de volume por academia, que independe de quantos IPs o atacante
+    // tenha. Sem ele, cada conta falsa conta contra o `limite_alunos` do
+    // plano — o ataque trancaria a matrícula de quem é aluno de verdade.
+    const { data: orgPermitida, error: orgLimiteError } = await admin.rpc("matricula_publica_org_permitida", {
+      _organization_id: org.id,
+    });
+    if (orgLimiteError) {
+      console.error("Teto por organização indisponível, seguindo sem ele:", orgLimiteError);
+    } else if (orgPermitida === false) {
+      return jsonResponse(
+        { error: "Esta academia recebeu muitas matrículas na última hora. Tente de novo em alguns minutos." },
+        429
+      );
     }
 
     const { data: created, error: createError } = await admin.auth.admin.createUser({
@@ -215,6 +285,16 @@ Deno.serve(async (req: Request) => {
       await admin.from("organization_members").delete().eq("user_id", newUserId);
       await rollback();
       return jsonResponse({ error: "Erro ao criar o cadastro de aluno." }, 500);
+    }
+
+    if (tentativaId !== null) {
+      // Não bloqueia a resposta se falhar: a matrícula já existe, e perder
+      // uma marcação só afrouxa o limite em uma unidade.
+      const { error: conclusaoError } = await admin.rpc("concluir_tentativa_matricula", {
+        _id: tentativaId,
+        _organization_id: org.id,
+      });
+      if (conclusaoError) console.error("Falha ao marcar tentativa concluída:", conclusaoError);
     }
 
     return jsonResponse({ user_id: newUserId });
