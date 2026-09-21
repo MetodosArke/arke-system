@@ -1,3 +1,5 @@
+import { Suspense } from "react";
+import { CarregandoPagina } from "@/components/CarregandoPagina";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -59,7 +61,9 @@ export function SuperAdminLayout() {
         </nav>
       </header>
       <main className="mx-auto max-w-6xl p-3 sm:p-4 md:p-6">
-        <Outlet />
+        <Suspense fallback={<CarregandoPagina />}>
+          <Outlet />
+        </Suspense>
       </main>
     </div>
   );

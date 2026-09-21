@@ -11,13 +11,12 @@ import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { NetworkStatusBanner } from "@/components/NetworkStatusBanner";
 import { ImpersonationBanner } from "@/components/ImpersonationBanner";
 import { resolveHomePath } from "@/lib/authRouting";
+import { Suspense } from "react";
+import { paginaPreguicosa } from "@/lib/carregamentoPreguicoso";
+import { CarregandoPagina } from "@/components/CarregandoPagina";
 
 // Auth pages
 import Login from "@/pages/auth/Login";
-import Register from "@/pages/auth/Register";
-import ResetPassword from "@/pages/auth/ResetPassword";
-import DefinirSenha from "@/pages/auth/DefinirSenha";
-import PublicMatricula from "@/pages/public/PublicMatricula";
 
 // Layouts
 import { AppLayout } from "@/components/layout/AppLayout";
@@ -27,47 +26,56 @@ import { AlunoBillingGate } from "@/components/app/AlunoBillingGate";
 import { OrganizacaoBillingGate } from "@/components/admin/OrganizacaoBillingGate";
 
 // Aluno pages
-import AlunoDashboard from "@/pages/app/AlunoDashboard";
-import AlunoPerfil from "@/pages/app/AlunoPerfil";
-import AlunoTreinos from "@/pages/app/AlunoTreinos";
-import AlunoDieta from "@/pages/app/AlunoDieta";
-import AlunoAgenda from "@/pages/app/AlunoAgenda";
-import AlunoEvolucao from "@/pages/app/AlunoEvolucao";
-import AlunoJornada from "@/pages/app/AlunoJornada";
-import AlunoDesafios from "@/pages/app/AlunoDesafios";
-import AlunoCompeticoes from "@/pages/app/AlunoCompeticoes";
-import AlunoFeed from "@/pages/app/AlunoFeed";
-import Onboarding from "@/pages/app/Onboarding";
-import ConsentimentoLgpd from "@/pages/app/ConsentimentoLgpd";
 
 // Staff pages (gestor / professor / nutricionista / admin_arke)
-import AdminDashboard from "@/pages/admin/AdminDashboard";
-import DashboardHome from "@/pages/admin/DashboardHome";
-import AdminAlunos from "@/pages/admin/AdminAlunos";
-import AdminFinanceiro from "@/pages/admin/AdminFinanceiro";
-import AdminEquipe from "@/pages/admin/AdminEquipe";
-import AdminOrganizacao from "@/pages/admin/AdminOrganizacao";
-import AdminGestao360 from "@/pages/admin/AdminGestao360";
-import AdminTreinos from "@/pages/admin/AdminTreinos";
-import AdminDietas from "@/pages/admin/AdminDietas";
-import AdminRetencao from "@/pages/admin/AdminRetencao";
-import AdminImportarAlunos from "@/pages/admin/AdminImportarAlunos";
-import AdminOnboarding from "@/pages/admin/AdminOnboarding";
-import AdminCatracas from "@/pages/admin/AdminCatracas";
-import AdminIntegracoes from "@/pages/admin/AdminIntegracoes";
-import AdminPerfil from "@/pages/admin/AdminPerfil";
-import AdminAgenda from "@/pages/admin/AdminAgenda";
-import AdminEngajamento from "@/pages/admin/AdminEngajamento";
 
 // Super Admin (Visão Master ArkeFit)
-import SuperAdminDashboard from "@/pages/superadmin/SuperAdminDashboard";
-import SuperAdminProfissionais from "@/pages/superadmin/SuperAdminProfissionais";
-import SuperAdminConfiguracoes from "@/pages/superadmin/SuperAdminConfiguracoes";
-import SuperAdminAcervo from "@/pages/superadmin/SuperAdminAcervo";
-import SuperAdminAuditoria from "@/pages/superadmin/SuperAdminAuditoria";
-import SuperAdminWebhooks from "@/pages/superadmin/SuperAdminWebhooks";
 
 import NotFound from "./pages/NotFound";
+
+// Cada página vira um arquivo próprio, baixado quando a rota abre. Login e
+// NotFound ficam no pacote principal: o primeiro é a porta de entrada de
+// quase todo mundo, o segundo é mínimo. Ver src/lib/carregamentoPreguicoso.ts
+// para o que acontece quando um deploy troca os arquivos com a aba aberta.
+const Register = paginaPreguicosa(() => import("@/pages/auth/Register"));
+const ResetPassword = paginaPreguicosa(() => import("@/pages/auth/ResetPassword"));
+const DefinirSenha = paginaPreguicosa(() => import("@/pages/auth/DefinirSenha"));
+const PublicMatricula = paginaPreguicosa(() => import("@/pages/public/PublicMatricula"));
+const AlunoDashboard = paginaPreguicosa(() => import("@/pages/app/AlunoDashboard"));
+const AlunoPerfil = paginaPreguicosa(() => import("@/pages/app/AlunoPerfil"));
+const AlunoTreinos = paginaPreguicosa(() => import("@/pages/app/AlunoTreinos"));
+const AlunoDieta = paginaPreguicosa(() => import("@/pages/app/AlunoDieta"));
+const AlunoAgenda = paginaPreguicosa(() => import("@/pages/app/AlunoAgenda"));
+const AlunoEvolucao = paginaPreguicosa(() => import("@/pages/app/AlunoEvolucao"));
+const AlunoJornada = paginaPreguicosa(() => import("@/pages/app/AlunoJornada"));
+const AlunoDesafios = paginaPreguicosa(() => import("@/pages/app/AlunoDesafios"));
+const AlunoCompeticoes = paginaPreguicosa(() => import("@/pages/app/AlunoCompeticoes"));
+const AlunoFeed = paginaPreguicosa(() => import("@/pages/app/AlunoFeed"));
+const Onboarding = paginaPreguicosa(() => import("@/pages/app/Onboarding"));
+const ConsentimentoLgpd = paginaPreguicosa(() => import("@/pages/app/ConsentimentoLgpd"));
+const AdminDashboard = paginaPreguicosa(() => import("@/pages/admin/AdminDashboard"));
+const DashboardHome = paginaPreguicosa(() => import("@/pages/admin/DashboardHome"));
+const AdminAlunos = paginaPreguicosa(() => import("@/pages/admin/AdminAlunos"));
+const AdminFinanceiro = paginaPreguicosa(() => import("@/pages/admin/AdminFinanceiro"));
+const AdminEquipe = paginaPreguicosa(() => import("@/pages/admin/AdminEquipe"));
+const AdminOrganizacao = paginaPreguicosa(() => import("@/pages/admin/AdminOrganizacao"));
+const AdminGestao360 = paginaPreguicosa(() => import("@/pages/admin/AdminGestao360"));
+const AdminTreinos = paginaPreguicosa(() => import("@/pages/admin/AdminTreinos"));
+const AdminDietas = paginaPreguicosa(() => import("@/pages/admin/AdminDietas"));
+const AdminRetencao = paginaPreguicosa(() => import("@/pages/admin/AdminRetencao"));
+const AdminImportarAlunos = paginaPreguicosa(() => import("@/pages/admin/AdminImportarAlunos"));
+const AdminOnboarding = paginaPreguicosa(() => import("@/pages/admin/AdminOnboarding"));
+const AdminCatracas = paginaPreguicosa(() => import("@/pages/admin/AdminCatracas"));
+const AdminIntegracoes = paginaPreguicosa(() => import("@/pages/admin/AdminIntegracoes"));
+const AdminPerfil = paginaPreguicosa(() => import("@/pages/admin/AdminPerfil"));
+const AdminAgenda = paginaPreguicosa(() => import("@/pages/admin/AdminAgenda"));
+const AdminEngajamento = paginaPreguicosa(() => import("@/pages/admin/AdminEngajamento"));
+const SuperAdminDashboard = paginaPreguicosa(() => import("@/pages/superadmin/SuperAdminDashboard"));
+const SuperAdminProfissionais = paginaPreguicosa(() => import("@/pages/superadmin/SuperAdminProfissionais"));
+const SuperAdminConfiguracoes = paginaPreguicosa(() => import("@/pages/superadmin/SuperAdminConfiguracoes"));
+const SuperAdminAcervo = paginaPreguicosa(() => import("@/pages/superadmin/SuperAdminAcervo"));
+const SuperAdminAuditoria = paginaPreguicosa(() => import("@/pages/superadmin/SuperAdminAuditoria"));
+const SuperAdminWebhooks = paginaPreguicosa(() => import("@/pages/superadmin/SuperAdminWebhooks"));
 
 const isNetworkError = (error: unknown) => {
   const message = error instanceof Error ? error.message : String(error ?? "");
@@ -155,6 +163,7 @@ const App = () => (
           <NetworkStatusBanner />
           <ImpersonationBanner />
           <HashRouter>
+            <Suspense fallback={<CarregandoPagina />}>
             <Routes>
               <Route path="/" element={<RootRedirect />} />
 
@@ -261,6 +270,7 @@ const App = () => (
 
               <Route path="*" element={<NotFound />} />
             </Routes>
+            </Suspense>
           </HashRouter>
         </TooltipProvider>
         </PushNotificationManager>

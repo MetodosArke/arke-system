@@ -1,3 +1,5 @@
+import { Suspense } from "react";
+import { CarregandoPagina } from "@/components/CarregandoPagina";
 import { Outlet, useNavigate } from "react-router-dom";
 import { Building2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -51,7 +53,9 @@ function AdminLayoutInner() {
       >
         <AppHeader />
         <main className="flex-1 p-3 sm:p-4 md:p-6 min-w-0 overflow-x-hidden">
-          <Outlet />
+          <Suspense fallback={<CarregandoPagina />}>
+            <Outlet />
+          </Suspense>
         </main>
       </div>
     </div>
