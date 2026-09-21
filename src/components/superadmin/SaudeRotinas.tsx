@@ -1,8 +1,15 @@
 import { useNavigate } from "react-router-dom";
-import { PRECISA_ATENCAO, ROTULO, rotinasComProblema, useSaudeRotinas } from "@/lib/rotinas";
+import {
+  PRECISA_ATENCAO,
+  ROTULO,
+  problemaReconciliacao,
+  rotinasComProblema,
+  useSaudeRotinas,
+  useUltimaReconciliacao,
+} from "@/lib/rotinas";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { AlertTriangle, Clock } from "lucide-react";
+import { AlertTriangle, Clock, Scale } from "lucide-react";
 
 /**
  * Saúde das rotinas agendadas (pg_cron) na Visão Master.
@@ -21,9 +28,20 @@ function quando(iso: string | null): string {
 /** Faixa no topo da Visão Master — é a tela que se abre todo dia. */
 export function AvisoRotinas() {
   const { data } = useSaudeRotinas();
+  const { data: reconciliacao } = useUltimaReconciliacao();
   const navigate = useNavigate();
   const problemas = rotinasComProblema(data);
-  if (problemas.length === 0) return null;
+  const problemaFinanceiro = problemaReconciliacao(reconciliacao);
+  if (problemas.length === 0 && !problemaFinanceiro) return null;
+
+  const texto =
+    problemas.length === 0
+      ? problemaFinanceiro
+      : problemas.length === 1
+        ? `A rotina "${problemas[0].nome}" ${ROTULO[problemas[0].situacao]}`
+        : `${problemas.length} rotinas agendadas precisam de atenção`;
+  // Duas coisas ao mesmo tempo: a faixa mostra a de rotina e avisa que há mais.
+  const extra = problemas.length > 0 && problemaFinanceiro ? " · e há divergência na reconciliação" : "";
 
   return (
     <button
@@ -32,9 +50,8 @@ export function AvisoRotinas() {
       className="flex w-full items-center justify-center gap-2 bg-destructive px-4 py-2 text-sm font-medium text-destructive-foreground"
     >
       <AlertTriangle className="h-4 w-4" />
-      {problemas.length === 1
-        ? `A rotina "${problemas[0].nome}" ${ROTULO[problemas[0].situacao]} — ver detalhes`
-        : `${problemas.length} rotinas agendadas precisam de atenção — ver detalhes`}
+      {texto}
+      {extra} — ver detalhes
     </button>
   );
 }
@@ -77,6 +94,49 @@ export function SaudeRotinas() {
               </li>
             ))}
           </ul>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function valor(n: number, singular: string, plural: string) {
+  return `${n} ${n === 1 ? singular : plural}`;
+}
+
+/** Última varredura da reconciliação Asaas ↔ banco. */
+export function UltimaReconciliacao() {
+  const { data, isLoading, error } = useUltimaReconciliacao();
+  const problema = problemaReconciliacao(data);
+
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle className="text-base flex items-center gap-2">
+          <Scale className="h-4 w-4" /> Reconciliação com o Asaas
+        </CardTitle>
+        <p className="text-xs text-muted-foreground">
+          Uma vez por dia, cada cobrança em aberto é conferida com o Asaas. Divergência é corrigida reenviando o
+          evento ao webhook — aparece abaixo com o prefixo reconciliacao:.
+        </p>
+      </CardHeader>
+      <CardContent className="text-sm">
+        {isLoading ? (
+          <p className="text-muted-foreground">Carregando...</p>
+        ) : error ? (
+          <p className="text-destructive">Não foi possível ler a reconciliação: {(error as Error).message}</p>
+        ) : !data ? (
+          <p className="text-muted-foreground">Nenhuma varredura registrada ainda.</p>
+        ) : (
+          <div className="space-y-1">
+            <p>
+              {quando(data.executada_em)} · {valor(data.cobrancas_verificadas, "cobrança verificada", "cobranças verificadas")} ·{" "}
+              {valor(data.divergencias, "divergência", "divergências")} ({data.corrigidas} corrigidas) ·{" "}
+              {valor(data.assinaturas_orfas, "assinatura órfã", "assinaturas órfãs")}
+            </p>
+            {problema && <p className="text-destructive">{problema}</p>}
+            {data.erro && <p className="break-all text-xs text-destructive">{data.erro}</p>}
+          </div>
         )}
       </CardContent>
     </Card>

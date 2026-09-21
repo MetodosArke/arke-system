@@ -1,4 +1,6 @@
+import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { mensagemDeErroEdge } from "@/lib/erroEdge";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -20,6 +22,8 @@ import { AlertTriangle, ExternalLink, RefreshCw } from "lucide-react";
 export function AlunoBillingGate({ children }: { children: React.ReactNode }) {
   const { alunoId, rolesLoaded } = useAuth();
   const queryClient = useQueryClient();
+  const [verificando, setVerificando] = useState(false);
+  const [aviso, setAviso] = useState<string | null>(null);
 
   const { data: assinatura, isFetching } = useQuery({
     queryKey: ["aluno-bloqueio", alunoId],
@@ -34,6 +38,29 @@ export function AlunoBillingGate({ children }: { children: React.ReactNode }) {
     },
     enabled: !!alunoId && rolesLoaded,
   });
+
+  // "Já paguei" pergunta ao Asaas antes de reler o banco. Só reler não
+  // adiantava no caso que mais importa: se o PAYMENT_CONFIRMED se perdeu, o
+  // banco segue dizendo "vencida e não confirmada" e quem pagou continua
+  // bloqueado. A reconciliação reenvia o evento ao webhook e o banco se acerta.
+  async function verificarPagamento() {
+    setVerificando(true);
+    setAviso(null);
+    const { data, error } = await supabase.functions.invoke<{ corrigidas?: number; aguarde?: boolean; error?: string }>(
+      "asaas-reconciliar",
+      { body: { aluno_id: alunoId } }
+    );
+    if (error || data?.error) {
+      setAviso(data?.error ?? (await mensagemDeErroEdge(error, "Não foi possível verificar agora. Tente de novo em alguns minutos.")));
+    } else if (data?.aguarde) {
+      setAviso("Acabamos de verificar. Aguarde alguns segundos antes de tentar de novo.");
+    } else if (!data?.corrigidas) {
+      // Nada divergia: o Asaas também não tem o pagamento como confirmado.
+      setAviso("Ainda não encontramos a confirmação do pagamento. PIX e cartão costumam cair em minutos; boleto pode levar até 3 dias úteis.");
+    }
+    await queryClient.invalidateQueries({ queryKey: ["aluno-bloqueio", alunoId] });
+    setVerificando(false);
+  }
 
   if (!assinatura?.bloqueado) {
     return <>{children}</>;
@@ -65,11 +92,17 @@ export function AlunoBillingGate({ children }: { children: React.ReactNode }) {
           <Button
             variant="outline"
             className="w-full"
-            disabled={isFetching}
-            onClick={() => void queryClient.invalidateQueries({ queryKey: ["aluno-bloqueio", alunoId] })}
+            disabled={isFetching || verificando}
+            onClick={() => void verificarPagamento()}
           >
-            <RefreshCw className="mr-2 h-4 w-4" /> {isFetching ? "Verificando..." : "Já paguei, verificar novamente"}
+            <RefreshCw className="mr-2 h-4 w-4" />{" "}
+            {isFetching || verificando ? "Verificando..." : "Já paguei, verificar novamente"}
           </Button>
+          {aviso && (
+            <p role="status" className="text-xs text-muted-foreground">
+              {aviso}
+            </p>
+          )}
         </CardContent>
       </Card>
     </div>

@@ -1,12 +1,16 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { AlunoBillingGate } from "./AlunoBillingGate";
 
 const rpc = vi.fn();
+const invoke = vi.fn();
 
 vi.mock("@/integrations/supabase/client", () => ({
-  supabase: { rpc: (...args: unknown[]) => rpc(...args) },
+  supabase: {
+    rpc: (...args: unknown[]) => rpc(...args),
+    functions: { invoke: (...args: unknown[]) => invoke(...args) },
+  },
 }));
 
 vi.mock("@/contexts/AuthContext", () => ({
@@ -36,6 +40,7 @@ function montar() {
 
 beforeEach(() => {
   rpc.mockReset();
+  invoke.mockReset();
 });
 
 describe("AlunoBillingGate", () => {
@@ -96,5 +101,36 @@ describe("AlunoBillingGate", () => {
 
     expect(await screen.findByText(/fale com a sua academia/i)).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: /ir para pagamento/i })).not.toBeInTheDocument();
+  });
+
+  it("'Já paguei' pergunta ao Asaas antes de reler o banco", async () => {
+    // Só reler não adiantava: com o PAYMENT_CONFIRMED perdido, o banco segue
+    // dizendo que venceu, e quem pagou continua bloqueado.
+    rpc.mockResolvedValue({ data: [BLOQUEIO_BASE], error: null });
+    invoke.mockResolvedValue({ data: { divergencias: 1, corrigidas: 1 }, error: null });
+    montar();
+
+    fireEvent.click(await screen.findByRole("button", { name: /já paguei/i }));
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("asaas-reconciliar", { body: { aluno_id: "aluno-1" } }));
+    // E relê o banco depois de reconciliar.
+    await waitFor(() => expect(rpc).toHaveBeenCalledTimes(2));
+  });
+
+  it("diz a verdade quando o Asaas também não tem a confirmação", async () => {
+    rpc.mockResolvedValue({ data: [BLOQUEIO_BASE], error: null });
+    invoke.mockResolvedValue({ data: { divergencias: 0, corrigidas: 0 }, error: null });
+    montar();
+
+    fireEvent.click(await screen.findByRole("button", { name: /já paguei/i }));
+    expect(await screen.findByText(/ainda não encontramos a confirmação/i)).toBeInTheDocument();
+  });
+
+  it("não diz que está tudo certo quando não conseguiu consultar", async () => {
+    rpc.mockResolvedValue({ data: [BLOQUEIO_BASE], error: null });
+    invoke.mockResolvedValue({ data: { error: "Não foi possível consultar o pagamento agora." }, error: null });
+    montar();
+
+    fireEvent.click(await screen.findByRole("button", { name: /já paguei/i }));
+    expect(await screen.findByText(/não foi possível consultar/i)).toBeInTheDocument();
   });
 });
