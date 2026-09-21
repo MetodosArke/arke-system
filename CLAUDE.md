@@ -66,6 +66,19 @@ No momento da cobrança da assinatura do aluno:
 
 Confirmado pelo responsável pelo projeto em 20/09/2026. O funcionamento real se confere no painel **Visão Master → Webhooks** (`/superadmin/webhooks`), que mostra cada evento recebido e o que ele efetivamente fez no banco. Registro anterior dizia que as sessões do Claude Code não tinham rede para `*.supabase.co`; isso depende do ambiente — numa sessão local em 21/09/2026 as edge functions publicadas responderam normalmente a chamadas diretas.
 
+### Criação de assinatura: idempotente, e com CPF
+
+"Configurada e funcionando" vale para a **ligação** — secrets, webhook apontado, token validado; os eventos chegam e ficam no painel. Mas até 21/09/2026 **nenhuma assinatura de aluno tinha sido criada** pelo ARKE: `aluno_assinaturas` tinha uma única linha, em `trial`, sem id no Asaas. `asaas-create-subscription` e `academia-criar-matricula` criavam customer sem `cpfCnpj`, que o Asaas exige (`required: [name, cpfCnpj]` na referência de `POST /v3/customers`) — em produção a criação falharia antes de qualquer cobrança nascer. A B2B (`asaas-emitir-cobranca-b2b`) já fazia certo.
+
+Corrigido junto, o defeito mais caro: nada impedia **duas assinaturas para o mesmo aluno**. Criou no Asaas, falhou ao gravar no banco, a tela seguia oferecendo "Tentar cobrar" — e a primeira assinatura ficava órfã, cobrando o aluno todo mês sem ninguém ver. A de plano próprio era ainda mais direta: conferia a matrícula ativa **depois** de criar a assinatura, então o 409 deixava a recém-criada lá. Hoje as duas:
+
+- conferem o banco **antes** de tocar no gateway (assinatura ativa → 409);
+- exigem CPF com mensagem que diz à equipe onde resolver;
+- reaproveitam o customer (por `externalReference` do aluno, depois por CPF — a mesma pessoa em duas academias é um cliente só);
+- usam `externalReference` com prefixo na assinatura — `metodo:<aluno>` e `plano:<aluno>`, na mesma convenção dos `org:`/`b2b:` da B2B — e consultam o Asaas por ele antes de criar. No Método, assinatura ativa encontrada lá é **adotada** (é o caso de ter criado e falhado ao gravar); no plano próprio é **recusada** com o id, porque pode ser de outro plano ou valor e adotá-la esconderia o problema.
+
+Nada foi testado contra o Asaas: a chave é de produção e fica nos secrets. O teste de ponta a ponta pede uma conta sandbox (`ASAAS_API_URL` já é configurável).
+
 ## Trial e Bloqueio por Pagamento
 
 ### Trial não é oferta comercial
