@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { mensagemDeErroEdge } from "@/lib/erroEdge";
 
 // Normaliza um telefone digitado em qualquer formato (com ou sem DDI/
 // pontuação) para o formato exigido pelo wa.me: só dígitos, com DDI do
@@ -49,8 +50,11 @@ export async function abrirWhatsAppAtivacao(params: {
   const { data, error } = await supabase.functions.invoke<{ action_link: string }>("gerar-link-ativacao", {
     body: { user_id: params.userId },
   });
-  if (error || !data?.action_link) {
-    return { ok: false, erro: error?.message ?? "Erro ao gerar o link de ativação." };
+  if (error) {
+    return { ok: false, erro: await mensagemDeErroEdge(error, "Erro ao gerar o link de ativação.") };
+  }
+  if (!data?.action_link) {
+    return { ok: false, erro: "Erro ao gerar o link de ativação." };
   }
 
   const mensagem = montarMensagemAtivacao({

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { mensagemDeErroEdge } from "@/lib/erroEdge";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -172,7 +173,7 @@ export default function AdminCatracas() {
           nome_visitante: checkinNomeVisitante.trim() || undefined,
         },
       });
-      if (error) throw error;
+      if (error) throw new Error(await mensagemDeErroEdge(error, "Não foi possível registrar o check-in."));
       if (data?.error) throw new Error(data.error);
       if (!data?.liberado) throw new Error(data?.motivo ?? "Acesso não liberado.");
       return data;

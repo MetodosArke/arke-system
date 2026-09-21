@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { mensagemDeErroEdge } from "@/lib/erroEdge";
 import { useAuth } from "@/contexts/AuthContext";
 
 function urlBase64ToUint8Array(base64String: string) {
@@ -46,7 +47,7 @@ export function usePushNotifications() {
   const getVapidPublicKey = useCallback(async () => {
     if (vapidPublicKey) return vapidPublicKey;
     const { data, error } = await supabase.functions.invoke("vapid-public-key");
-    if (error) throw error;
+    if (error) throw new Error(await mensagemDeErroEdge(error, "Não foi possível preparar as notificações."));
     if (!data || typeof data.publicKey !== "string") {
       throw new Error("VAPID public key unavailable");
     }

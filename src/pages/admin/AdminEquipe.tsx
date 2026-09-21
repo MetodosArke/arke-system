@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { mensagemDeErroEdge } from "@/lib/erroEdge";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -336,7 +337,7 @@ function CadastrarMembroDialog({
           },
         }
       );
-      if (error) throw error;
+      if (error) throw new Error(await mensagemDeErroEdge(error, "Não foi possível cadastrar o membro da equipe."));
       if (!data) throw new Error("Resposta inesperada do servidor.");
       return data;
     },
@@ -533,7 +534,7 @@ function EditarMembroDialog({
           role: papelMudou ? formAtual.papel : undefined,
         },
       });
-      if (error) throw error;
+      if (error) throw new Error(await mensagemDeErroEdge(error, "Não foi possível salvar as alterações."));
     },
     onSuccess: () => {
       toast({ title: "Membro atualizado!" });

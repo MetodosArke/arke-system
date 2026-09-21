@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { mensagemDeErroEdge } from "@/lib/erroEdge";
 
 const STORAGE_KEY = "arke_admin_session_backup";
 
@@ -29,7 +30,7 @@ export async function startImpersonation(
     error?: string;
   }>("impersonar-perfil", { body: { user_id: targetUserId, organization_id: organizationId } });
   if (error) {
-    return { error: error instanceof Error ? error : new Error("Falha ao simular o perfil.") };
+    return { error: new Error(await mensagemDeErroEdge(error, "Falha ao simular o perfil.")) };
   }
   if (data?.error || !data?.email || !data?.token_hash) {
     return { error: new Error(data?.error ?? "Falha ao simular o perfil.") };

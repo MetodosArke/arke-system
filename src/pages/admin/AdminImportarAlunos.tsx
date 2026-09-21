@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { mensagemDeErroEdge } from "@/lib/erroEdge";
 import { useAuth } from "@/contexts/AuthContext";
 import { erroCpf } from "@/lib/cpf";
 import { processarComLimite, CONCORRENCIA_IMPORTACAO } from "@/lib/lote";
@@ -343,7 +344,7 @@ export default function AdminImportarAlunos() {
         nivel_atacado: nivel,
       },
     });
-    if (error) throw error;
+    if (error) throw new Error(await mensagemDeErroEdge(error, "Não foi possível importar esta linha."));
 
     const avisos: string[] = [];
 
@@ -369,7 +370,7 @@ export default function AdminImportarAlunos() {
         }>("publicar-treino-boas-vindas", { body: { aluno_id: alunoRow.id } });
 
         if (erroTreino) {
-          avisos.push(`treino de transição não publicado: ${erroTreino.message}`);
+          avisos.push(`treino de transição não publicado: ${await mensagemDeErroEdge(erroTreino, "erro desconhecido")}`);
         } else if (resultadoTreino && resultadoTreino.published === false) {
           // A function devolve 200 com published:false quando a academia
           // não tem o modelo padrão. Antes só `error` era olhado, então o

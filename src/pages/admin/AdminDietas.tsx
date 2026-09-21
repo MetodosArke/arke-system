@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { mensagemDeErroEdge } from "@/lib/erroEdge";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRascunho } from "@/hooks/useRascunho";
 import { chaveRascunho, descreverQuandoSalvou } from "@/lib/rascunho";
@@ -363,7 +364,7 @@ export default function AdminDietas() {
         "parse-dieta-pdf",
         { body: { file_base64: fileBase64 } }
       );
-      if (error) throw error;
+      if (error) throw new Error(await mensagemDeErroEdge(error, "Não foi possível ler o PDF da dieta."));
       if (data?.error) throw new Error(data.error);
       if (!data) throw new Error("Resposta vazia da extração.");
       return data;
