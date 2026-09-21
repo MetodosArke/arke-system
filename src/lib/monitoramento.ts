@@ -43,6 +43,9 @@ const CAMPOS_PROIBIDOS = [
   "senha", "password", "token", "access_token", "refresh_token", "apikey", "api_key",
   "cpf", "email", "telefone", "phone", "full_name", "nome",
   "anamnese", "dobras", "peso", "dor", "dores", "observacoes", "historico_clinico",
+  // Cartão de crédito (asaas-cartao-assinatura): o objeto inteiro sai, porque
+  // a chave-mãe já é sensível — número, validade e CVV vão junto.
+  "cartao", "card", "cvv", "ccv", "titular", "holder", "expiry", "validade",
 ];
 
 function pareceSensivel(chave: string): boolean {

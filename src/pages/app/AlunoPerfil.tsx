@@ -7,9 +7,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { LogOut, Ruler, Droplets } from "lucide-react";
+import { LogOut, Ruler, Droplets, Wallet } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { Tables } from "@/integrations/supabase/types";
+import { CartaoAssinatura } from "@/components/pagamento/CartaoAssinatura";
 
 export default function AlunoPerfil() {
   const { user, profile, organization, alunoId, signOut } = useAuth();
@@ -45,6 +46,24 @@ export default function AlunoPerfil() {
       void queryClient.invalidateQueries({ queryKey: ["aluno-meta-agua", alunoId] });
     },
     onError: (error: Error) => toast({ title: "Erro ao salvar meta", description: error.message, variant: "destructive" }),
+  });
+
+  // Forma de pagamento da assinatura do Método. O RLS de aluno_assinaturas
+  // deixa o aluno ler só a própria linha.
+  const { data: pagamento } = useQuery({
+    queryKey: ["aluno-pagamento", alunoId],
+    queryFn: async () => {
+      const [{ data: assinatura }, { data: dadosPessoais }] = await Promise.all([
+        supabase
+          .from("aluno_assinaturas")
+          .select("status, asaas_subscription_id, forma_pagamento, cartao_final, cartao_bandeira, cartao_recusado_em")
+          .eq("aluno_id", alunoId!)
+          .maybeSingle(),
+        supabase.from("profiles").select("cpf, phone").eq("user_id", user!.id).maybeSingle(),
+      ]);
+      return { assinatura, dadosPessoais };
+    },
+    enabled: !!alunoId && !!user?.id,
   });
 
   const { data: avaliacoes = [] } = useQuery({
@@ -94,6 +113,30 @@ export default function AlunoPerfil() {
           </Button>
         </CardContent>
       </Card>
+
+      {pagamento?.assinatura && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Wallet className="h-4 w-4 text-emerald-600" /> Pagamento
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <CartaoAssinatura
+              alunoId={alunoId!}
+              assinatura={pagamento.assinatura}
+              titularPadrao={{
+                nome: profile?.full_name ?? "",
+                email: user?.email ?? "",
+                cpf: pagamento.dadosPessoais?.cpf ?? "",
+                telefone: pagamento.dadosPessoais?.phone ?? "",
+              }}
+              onSalvo={() => void queryClient.invalidateQueries({ queryKey: ["aluno-pagamento", alunoId] })}
+              onSucesso={(m) => toast({ title: "Cartão cadastrado", description: m })}
+            />
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader className="pb-2">

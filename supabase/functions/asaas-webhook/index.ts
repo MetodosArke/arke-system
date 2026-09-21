@@ -212,6 +212,40 @@ Deno.serve(async (req: Request) => {
         .eq("asaas_payment_id", asaasPaymentId)
         .maybeSingle();
 
+      // Recusa na cobrança recorrente do cartão. Não muda o status da
+      // cobrança nem corta o acesso — ela ainda não venceu, e quem corta por
+      // vencimento é aluno_inadimplente_b2c. O que muda é que a academia
+      // precisa agir agora: o aluno quer continuar e o cartão falhou (venceu,
+      // estourou o limite, foi trocado). Vira tarefa na fila, e o link da
+      // fatura fica guardado para o aluno pagar pela página enquanto isso.
+      if (tipoEvento === "PAYMENT_CREDIT_CARD_CAPTURE_REFUSED") {
+        let assinaturaId: string | null = pagamentoExistente?.aluno_assinatura_id ?? null;
+        const subscriptionId = payment.subscription ? String(payment.subscription) : null;
+        if (!assinaturaId && subscriptionId) {
+          const { data: porAssinatura } = await admin
+            .from("aluno_assinaturas")
+            .select("id")
+            .eq("asaas_subscription_id", subscriptionId)
+            .maybeSingle();
+          assinaturaId = porAssinatura?.id ?? null;
+        }
+        if (assinaturaId) {
+          await admin
+            .from("aluno_assinaturas")
+            .update({
+              cartao_recusado_em: new Date().toISOString(),
+              ...(invoiceUrl ? { fatura_pendente_url: invoiceUrl } : {}),
+            })
+            .eq("id", assinaturaId);
+          await admin.rpc("abrir_tarefa_cartao_recusado", {
+            _aluno_assinatura_id: assinaturaId,
+            _asaas_payment_id: asaasPaymentId,
+          });
+        }
+        await concluir(assinaturaId ? "cartao_recusado" : "sem_correspondencia");
+        return jsonResponse({ ok: true });
+      }
+
       if (pagamentoExistente && statusArke) {
         // Um PAYMENT_UPDATED pode chegar depois da confirmação (e o Asaas não
         // garante ordem de entrega). Deixar a emissão sobrescrever o status
@@ -243,7 +277,7 @@ Deno.serve(async (req: Request) => {
           // a fatura pendente.
           await admin
             .from("aluno_assinaturas")
-            .update({ status: "ativa", fatura_pendente_url: null })
+            .update({ status: "ativa", fatura_pendente_url: null, cartao_recusado_em: null })
             .eq("id", pagamentoExistente.aluno_assinatura_id);
         }
         resultado = statusArke === "pendente" ? "pagamento_arke_emitido" : "pagamento_arke_atualizado";
@@ -299,7 +333,7 @@ Deno.serve(async (req: Request) => {
             } else if (novoStatus === "confirmado") {
               await admin
                 .from("aluno_assinaturas")
-                .update({ status: "ativa", fatura_pendente_url: null })
+                .update({ status: "ativa", fatura_pendente_url: null, cartao_recusado_em: null })
                 .eq("id", assinatura.id);
             }
             resultado = statusArke === "pendente" ? "pagamento_arke_emitido" : "pagamento_arke_criado";

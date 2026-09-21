@@ -19,6 +19,7 @@ import { ChatPanel } from "@/components/chat/ChatPanel";
 import { TrialMetodoArke } from "@/components/admin/TrialMetodoArke";
 import { FaseJornada } from "@/components/admin/FaseJornada";
 import { AcessoCatraca } from "@/components/admin/AcessoCatraca";
+import { CartaoAssinatura } from "@/components/pagamento/CartaoAssinatura";
 import { useToast } from "@/hooks/use-toast";
 
 const PERIODICIDADE_LABEL: Record<string, string> = {
@@ -128,10 +129,12 @@ export function AlunoPerfilSheet({
         { data: tarefasAbertas },
         { data: checkins },
       ] = await Promise.all([
-        supabase.from("profiles").select("full_name, phone").eq("user_id", aluno.user_id).maybeSingle(),
+        supabase.from("profiles").select("full_name, phone, cpf").eq("user_id", aluno.user_id).maybeSingle(),
         supabase
           .from("aluno_assinaturas")
-          .select("status, valor_cobrado, fatura_pendente_url, trial_fim")
+          .select(
+            "status, valor_cobrado, fatura_pendente_url, trial_fim, asaas_subscription_id, forma_pagamento, cartao_final, cartao_bandeira, cartao_recusado_em"
+          )
           .eq("aluno_id", aluno.id)
           .maybeSingle(),
         supabase
@@ -442,6 +445,19 @@ export function AlunoPerfilSheet({
                   trialFim={perfil.assinatura?.trial_fim ?? null}
                   nivelAtual={perfil.aluno.nivel_atacado}
                 />
+                <div className="mt-3 border-t pt-3">
+                  <CartaoAssinatura
+                    alunoId={perfil.aluno.id}
+                    assinatura={perfil.assinatura ?? null}
+                    titularPadrao={{
+                      nome: perfil.profile?.full_name ?? "",
+                      cpf: perfil.profile?.cpf ?? "",
+                      telefone: perfil.profile?.phone ?? "",
+                    }}
+                    onSalvo={() => void queryClient.invalidateQueries({ queryKey: ["aluno-perfil", alunoId] })}
+                    onSucesso={(m) => toast({ title: "Cartão cadastrado", description: m })}
+                  />
+                </div>
               </Bloco>
 
               <Bloco titulo="Acesso por Catraca" icon={Fingerprint}>

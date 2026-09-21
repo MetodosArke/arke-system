@@ -95,6 +95,33 @@ describe("limpeza do evento", () => {
     expect(evento.extra.aluno_id).toBe("uuid-que-pode-ficar");
   });
 
+  it("remove o objeto de cartão inteiro, com número, validade e CVV", async () => {
+    const limpar = await beforeSend();
+    const evento = limpar({
+      extra: {
+        body: {
+          aluno_id: "uuid-que-pode-ficar",
+          cartao: { titular: "MARIA", numero: "4111111111111111", mes: "12", ano: "2030", cvv: "123" },
+          titular: { nome: "Maria", cpf: "52998224725", cep: "01310100" },
+        },
+      },
+    });
+
+    expect(evento.extra.body.cartao).toBe("[removido]");
+    expect(evento.extra.body.titular).toBe("[removido]");
+    expect(JSON.stringify(evento)).not.toContain("4111111111111111");
+    expect(evento.extra.body.aluno_id).toBe("uuid-que-pode-ficar");
+  });
+
+  it("não apaga chaves inocentes que só contêm pedaços de palavras sensíveis", async () => {
+    // "exception" contém "cep"; por isso "cep" não está na lista — o CEP sai
+    // pela chave-mãe `titular`.
+    const limpar = await beforeSend();
+    const evento = limpar({ extra: { exceptionMechanism: "onerror", receptor: "controlid" } });
+    expect(evento.extra.exceptionMechanism).toBe("onerror");
+    expect(evento.extra.receptor).toBe("controlid");
+  });
+
   it("corta query string e descarta corpo, cookies e cabeçalhos", async () => {
     const limpar = await beforeSend();
     const evento = limpar({
