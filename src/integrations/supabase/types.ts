@@ -3030,6 +3030,7 @@ export type Database = {
           valor: number
           valor_liquido_academia: number
           valor_repasse_arke: number
+          vencimento: string | null
         }
         Insert: {
           aluno_assinatura_id: string
@@ -3044,6 +3045,7 @@ export type Database = {
           valor: number
           valor_liquido_academia?: number
           valor_repasse_arke?: number
+          vencimento?: string | null
         }
         Update: {
           aluno_assinatura_id?: string
@@ -3058,6 +3060,7 @@ export type Database = {
           valor?: number
           valor_liquido_academia?: number
           valor_repasse_arke?: number
+          vencimento?: string | null
         }
         Relationships: [
           {
@@ -4120,6 +4123,22 @@ export type Database = {
       gerar_tarefas_ativacao_pendente: { Args: never; Returns: undefined }
       gerar_tarefas_barreira_rotina: { Args: never; Returns: undefined }
       gerar_tarefas_engajamento_baixo: { Args: never; Returns: undefined }
+      aluno_inadimplente_b2c: {
+        Args: { _aluno_id: string }
+        Returns: boolean
+      }
+      get_bloqueio_aluno: {
+        Args: { _aluno_id: string }
+        Returns: {
+          aluno_id: string
+          assinatura_status: string
+          bloqueado: boolean
+          cobrancas_vencidas: number
+          invoice_url: string
+          valor_em_aberto: number
+          vencimento_mais_antigo: string
+        }[]
+      }
       get_bloqueio_organizacao: {
         Args: never
         Returns: {

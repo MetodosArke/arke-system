@@ -5,29 +5,37 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { AlertTriangle, ExternalLink, RefreshCw } from "lucide-react";
 
-// Gate de adimplência: bloqueia o acesso ao App do Aluno quando a
-// assinatura está `atrasada` (webhook do Asaas — PAYMENT_OVERDUE) e
-// direciona para a fatura pendente. Assim que o webhook confirma o
-// pagamento (PAYMENT_RECEIVED/CONFIRMED), o status volta para `ativa`
-// e o acesso é liberado no próximo refetch (foco da janela ou botão).
+// Gate de adimplência do App do Aluno. Pergunta a `get_bloqueio_aluno`, que
+// une dois sinais: o status que o webhook do Asaas gravou **e** a cobrança
+// emitida cujo vencimento passou sem confirmação.
+//
+// A segunda metade é a que importa e é nova. Antes isto lia
+// `aluno_assinaturas.status` direto, e esse campo só muda quando um webhook
+// chega — um PAYMENT_OVERDUE perdido deixava a assinatura `ativa` para
+// sempre e o aluno treinando de graça, sem ninguém notar. É o mesmo desenho
+// que o lado B2B já usava em `get_bloqueio_organizacao`.
+//
+// Continua sendo gate de experiência, não fronteira de segurança: o que
+// protege os dados é o RLS de cada tabela.
 export function AlunoBillingGate({ children }: { children: React.ReactNode }) {
   const { alunoId, rolesLoaded } = useAuth();
   const queryClient = useQueryClient();
 
   const { data: assinatura, isFetching } = useQuery({
-    queryKey: ["aluno-assinatura-status", alunoId],
+    queryKey: ["aluno-bloqueio", alunoId],
     queryFn: async () => {
-      const { data } = await supabase
-        .from("aluno_assinaturas")
-        .select("status, fatura_pendente_url")
-        .eq("aluno_id", alunoId!)
-        .maybeSingle();
-      return data;
+      // Passa o aluno que o AuthContext já resolveu em vez de deixar o banco
+      // redescobri-lo por user_id: quem é aluno de duas academias tem duas
+      // linhas legítimas, e escolher uma delas no escuro é a armadilha do
+      // vínculo duplo que já custou cinco defeitos neste projeto.
+      const { data, error } = await supabase.rpc("get_bloqueio_aluno", { _aluno_id: alunoId! });
+      if (error) throw error;
+      return data?.[0] ?? null;
     },
     enabled: !!alunoId && rolesLoaded,
   });
 
-  if (assinatura?.status !== "atrasada") {
+  if (!assinatura?.bloqueado) {
     return <>{children}</>;
   }
 
@@ -43,9 +51,9 @@ export function AlunoBillingGate({ children }: { children: React.ReactNode }) {
             Identificamos uma cobrança em atraso na sua assinatura. Regularize o pagamento para
             voltar a acessar seus treinos e sua dieta.
           </p>
-          {assinatura.fatura_pendente_url ? (
+          {assinatura.invoice_url ? (
             <Button className="w-full" size="lg" asChild>
-              <a href={assinatura.fatura_pendente_url} target="_blank" rel="noreferrer">
+              <a href={assinatura.invoice_url} target="_blank" rel="noreferrer">
                 <ExternalLink className="mr-2 h-4 w-4" /> Ir para pagamento
               </a>
             </Button>
@@ -58,7 +66,7 @@ export function AlunoBillingGate({ children }: { children: React.ReactNode }) {
             variant="outline"
             className="w-full"
             disabled={isFetching}
-            onClick={() => void queryClient.invalidateQueries({ queryKey: ["aluno-assinatura-status", alunoId] })}
+            onClick={() => void queryClient.invalidateQueries({ queryKey: ["aluno-bloqueio", alunoId] })}
           >
             <RefreshCw className="mr-2 h-4 w-4" /> {isFetching ? "Verificando..." : "Já paguei, verificar novamente"}
           </Button>

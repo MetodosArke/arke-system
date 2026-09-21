@@ -81,9 +81,22 @@ O acesso é cortado quando existe cobrança **emitida cujo vencimento passou sem
 
 A regra B2B mora em `public.organizacao_inadimplente_b2b()` e é servida ao frontend por `public.get_bloqueio_organizacao()`. Ela considera atrasada a cobrança com `status = 'atrasado'` (webhook `PAYMENT_OVERDUE` do Asaas) **ou** com `vencimento < current_date` e sem confirmação — a segunda condição é a rede de segurança para webhook perdido, que de outro modo viraria acesso liberado indefinidamente.
 
+O lado B2C tem o espelho disso desde 21/09/2026, em `public.aluno_inadimplente_b2c()` e `public.get_bloqueio_aluno(_aluno_id)`. Até então não tinha: o `AlunoBillingGate` lia `aluno_assinaturas.status` direto, e esse campo só muda quando um webhook chega — um `PAYMENT_OVERDUE` perdido deixava a assinatura `ativa` para sempre e o aluno treinando de graça, em silêncio. Com 10 alunos é ruído; com 2.000 é o negócio.
+
+Fechar isso exigiu duas coisas além da função. `pagamentos` não tinha coluna de **vencimento**, sem a qual não há como perguntar se a cobrança venceu; e o webhook **ignorava `PAYMENT_CREATED`**, então a linha em `pagamentos` só nascia no primeiro evento que mudasse status — ou seja, o `PAYMENT_OVERDUE` perdido não deixava linha nenhuma, e uma rede que olhasse só para `pagamentos` não teria o que pescar. Hoje a emissão é registrada como `pendente` com o `dueDate` do Asaas, e toda cobrança esperada tem registro.
+
+Duas armadilhas ficaram documentadas no código porque não são óbvias:
+
+- **Evento fora de ordem não pode rebaixar cobrança paga.** O Asaas não garante ordem de entrega, e um `PAYMENT_UPDATED` chegando depois da confirmação devolveria a cobrança a `pendente` — que, com vencimento no passado, bloquearia justamente quem pagou. O guard `soEmissao` faz a emissão atualizar vencimento e fatura, nunca o status.
+- **`proxima_cobranca` não serve como gatilho.** É gravada uma vez, na criação da assinatura, e nunca avançada por ninguém. Usá-la bloquearia todo aluno um mês depois da matrícula, inclusive quem paga em dia.
+
+A emissão ficou restrita ao Método ARKE de propósito. Mensalidade de plano próprio da academia (`mensalidades`) tem `status` `NOT NULL`, então criar a linha na emissão quebraria o upsert; estender a rede para lá é trabalho à parte, com status explícito.
+
+`get_bloqueio_aluno` recebe o `_aluno_id` que o `AuthContext` já resolveu em vez de redescobri-lo por `user_id`. Quem é aluno de duas academias tem duas linhas legítimas, e escolher uma no escuro seria reencenar a armadilha do vínculo duplo; o `user_id` entra só para autorizar, senão qualquer pessoa autenticada leria a situação financeira de qualquer outra.
+
 ### Quem é bloqueado
 - **B2B (`OrganizacaoBillingGate`, rotas `/admin`):** apenas a **equipe** da academia — gestor, professor, nutricionista. Os alunos dela **seguem treinando**: o contrato B2B é com a academia, e o aluno que pagou a mensalidade não deu causa ao atraso.
-- **B2C (`AlunoBillingGate`, rotas `/app`):** o aluno cuja assinatura do Método ARKE está `atrasada`.
+- **B2C (`AlunoBillingGate`, rotas `/app`):** o aluno cuja assinatura do Método ARKE está `atrasada` **ou** que tem cobrança emitida e vencida sem confirmação. Assinatura em `trial` ou `cancelada` nunca bloqueia.
 - **Nunca bloqueados:** Super Admin e Admin ARKE (são eles que resolvem a cobrança; trancá-los tornaria o problema insolúvel pelo produto) e organizações em `trial`.
 
 > Os dois gates são de experiência, não fronteiras de segurança — o que protege os dados continua sendo o RLS de cada tabela.
