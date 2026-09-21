@@ -3324,6 +3324,42 @@ export type Database = {
         }
         Relationships: []
       }
+      reconciliacoes_asaas: {
+        Row: {
+          assinaturas_orfas: number
+          cobrancas_verificadas: number
+          corrigidas: number
+          detalhes: Json
+          divergencias: number
+          erro: string | null
+          executada_em: string
+          id: number
+          modo: string
+        }
+        Insert: {
+          assinaturas_orfas?: number
+          cobrancas_verificadas?: number
+          corrigidas?: number
+          detalhes?: Json
+          divergencias?: number
+          erro?: string | null
+          executada_em?: string
+          id?: number
+          modo: string
+        }
+        Update: {
+          assinaturas_orfas?: number
+          cobrancas_verificadas?: number
+          corrigidas?: number
+          detalhes?: Json
+          divergencias?: number
+          erro?: string | null
+          executada_em?: string
+          id?: number
+          modo?: string
+        }
+        Relationships: []
+      }
       registro_habito: {
         Row: {
           agua_ml: number

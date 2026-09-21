@@ -119,6 +119,19 @@ A emissão ficou restrita ao Método ARKE de propósito. Mensalidade de plano pr
 
 `get_bloqueio_aluno` recebe o `_aluno_id` que o `AuthContext` já resolveu em vez de redescobri-lo por `user_id`. Quem é aluno de duas academias tem duas linhas legítimas, e escolher uma no escuro seria reencenar a armadilha do vínculo duplo; o `user_id` entra só para autorizar, senão qualquer pessoa autenticada leria a situação financeira de qualquer outra.
 
+### Reconciliação Asaas ↔ banco: o lado oposto da rede de segurança
+
+A rede de segurança acima fecha o `PAYMENT_OVERDUE` perdido, mas abre o lado oposto: se o que se perde é o `PAYMENT_CONFIRMED`, a cobrança fica "vencida e não confirmada" no banco e **quem pagou é bloqueado**. Vale para B2C e B2B. Só perguntar ao Asaas resolve.
+
+`asaas-reconciliar` confere cada cobrança em aberto com o Asaas e, quando diverge, **reenvia o evento ao próprio `asaas-webhook`** (id `reconciliacao:<pagamento>:<status>`). O efeito no banco sai do mesmo código dos webhooks de verdade — não há uma segunda implementação de "o que fazer quando confirma" para divergir da primeira —, a correção aparece no painel de webhooks com origem clara, e a mesma divergência reenviada duas vezes não repete efeito. Dois modos:
+
+- **Varredura diária** (`arke-reconciliacao-asaas`, 04:30 UTC, antes das rotinas que abrem tarefa pela manhã): Método, plano próprio e B2B, mais a lista de **assinaturas órfãs** — ativas no Asaas com `externalReference` `metodo:`/`plano:` que o banco não conhece, ou seja, alguém sendo cobrado sem registro. Órfã não se corrige sozinha (pode ser de outro plano ou valor); vai para `reconciliacoes_asaas` e para a faixa vermelha da Visão Master. O cron autentica com um token gerado pelo próprio banco e guardado no **Vault** (`reconciliacao_asaas_token`) — nenhum segredo novo para configurar, e ele não aparece escrito no comando do cron.
+- **Sob demanda, pelo aluno**: o botão "Já paguei, verificar novamente" da tela de bloqueio antes só relia o banco — o que, com o `PAYMENT_CONFIRMED` perdido, não mudava nada. Agora pergunta ao Asaas antes. Freio de 30 s por aluno.
+
+**Falha de consulta nunca vira "nada a corrigir".** A primeira versão devolvia nulo quando o Asaas não respondia, e uma chave inválida resultaria em "0 divergências, 0 órfãs, sem erro". Hoje consulta que falha vai para o campo `erro` da varredura (e para a faixa vermelha), e no modo aluno a resposta é 502 com mensagem, nunca um falso "tudo certo". A varredura rodada contra produção em 21/09/2026 terminou sem erro — o que, com essa regra, também confirma que a `ASAAS_API_KEY` dos secrets é válida.
+
+Tabelas com `bigserial` precisam de `grant usage` na sequência para a `service_role`: os privilégios padrão do projeto cobrem tabela, não sequência, e todas as tabelas antigas usam uuid. Foi assim que a primeira varredura respondeu 200 sem gravar o registro (403 no insert).
+
 ### Quem é bloqueado
 - **B2B (`OrganizacaoBillingGate`, rotas `/admin`):** apenas a **equipe** da academia — gestor, professor, nutricionista. Os alunos dela **seguem treinando**: o contrato B2B é com a academia, e o aluno que pagou a mensalidade não deu causa ao atraso.
 - **B2C (`AlunoBillingGate`, rotas `/app`):** o aluno cuja assinatura do Método ARKE está `atrasada` **ou** que tem cobrança emitida e vencida sem confirmação. Assinatura em `trial` ou `cancelada` nunca bloqueia.
