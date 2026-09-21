@@ -9,6 +9,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Dumbbell, Lock, Eye, EyeOff } from "lucide-react";
 import { motion } from "framer-motion";
 import { useToast } from "@/hooks/use-toast";
+import { verificarSenhaVazada, senhaDeveSerRecusada, mensagemSenhaVazada } from "@/lib/senhaVazada";
 
 type Status = "carregando" | "pronto" | "enviando" | "concluido" | "invalido";
 
@@ -97,6 +98,21 @@ export default function DefinirSenha() {
     }
 
     setStatus("enviando");
+    // Recusa senha que já aparece em vazamentos públicos. Substitui o
+    // recurso equivalente do Supabase, que só existe a partir do plano
+    // pago. A senha não sai do navegador: só os 5 primeiros caracteres
+    // do hash viajam (k-anonimato) — ver src/lib/senhaVazada.ts.
+    const vazamento = await verificarSenhaVazada(password);
+    if (senhaDeveSerRecusada(vazamento)) {
+      toast({
+        title: "Escolha outra senha",
+        description: mensagemSenhaVazada(vazamento.ocorrencias),
+        variant: "destructive",
+      });
+      setStatus("pronto");
+      return;
+    }
+
     const { error } = await updatePassword(password);
     if (error) {
       setStatus("pronto");

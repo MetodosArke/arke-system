@@ -15,6 +15,66 @@ const jsonResponse = (body: unknown, status = 200) =>
 const NIVEIS_VALIDOS = new Set(["essencial", "integrado", "elite"]);
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+/**
+ * Recusa senha que já aparece em vazamentos públicos, consultando o Pwned
+ * Passwords do HaveIBeenPwned.
+ *
+ * O Supabase tem isso embutido a partir do plano pago; enquanto o projeto
+ * está no free, esta é a substituta. A API não exige chave — diferente da
+ * API de vazamento de contas do mesmo serviço.
+ *
+ * Esta é a única entrada de senha do sistema que passa por código nosso:
+ * as outras telas falam direto com o GoTrue, e lá a checagem só pode ser
+ * no cliente. Aqui ela é **autoritativa** — não dá para contornar
+ * chamando a função na mão, porque a função é o caminho.
+ *
+ * A senha não trafega: manda-se só os 5 primeiros caracteres do SHA-1
+ * (k-anonimato) e a comparação do sufixo acontece aqui.
+ */
+async function senhaEstaVazada(senha: string): Promise<{ vazada: boolean; ocorrencias: number }> {
+  const limpo = { vazada: false, ocorrencias: 0 };
+  try {
+    const digest = await crypto.subtle.digest("SHA-1", new TextEncoder().encode(senha));
+    const hash = Array.from(new Uint8Array(digest))
+      .map((b) => b.toString(16).padStart(2, "0"))
+      .join("")
+      .toUpperCase();
+
+    const controlador = new AbortController();
+    const timer = setTimeout(() => controlador.abort(), 4000);
+    let corpo: string;
+    try {
+      const resposta = await fetch(`https://api.pwnedpasswords.com/range/${hash.slice(0, 5)}`, {
+        // Preenche a resposta com registros falsos para que o tamanho dela
+        // não entregue a faixa consultada.
+        headers: { "Add-Padding": "true" },
+        signal: controlador.signal,
+      });
+      if (!resposta.ok) return limpo;
+      corpo = await resposta.text();
+    } finally {
+      clearTimeout(timer);
+    }
+
+    const sufixo = hash.slice(5);
+    for (const linha of corpo.split("\n")) {
+      const [s, c] = linha.trim().split(":");
+      if (s?.toUpperCase() !== sufixo) continue;
+      const n = Number.parseInt(c ?? "0", 10);
+      // Contagem zero é registro de preenchimento, não senha vazada.
+      return Number.isFinite(n) && n > 0 ? { vazada: true, ocorrencias: n } : limpo;
+    }
+    return limpo;
+  } catch (erro) {
+    // Falha aberta: o HIBP fora do ar não pode impedir alguém de se
+    // matricular. Isto é trava de qualidade de senha, não fronteira de
+    // segurança — transformar indisponibilidade de terceiro em matrícula
+    // bloqueada troca um risco pequeno por uma falha certa.
+    console.error("Falha ao consultar Pwned Passwords, seguindo sem checar:", erro);
+    return limpo;
+  }
+}
+
 type MatriculaPayload = {
   slug: string;
   nivel_atacado: "essencial" | "integrado" | "elite";
@@ -64,6 +124,20 @@ Deno.serve(async (req: Request) => {
     }
     if (!nivelAtacado || !NIVEIS_VALIDOS.has(nivelAtacado)) {
       return jsonResponse({ error: "Selecione um plano válido." }, 400);
+    }
+
+    const vazamento = await senhaEstaVazada(password);
+    if (vazamento.vazada) {
+      const vezes = vazamento.ocorrencias.toLocaleString("pt-BR");
+      return jsonResponse(
+        {
+          error:
+            `Esta senha já apareceu ${vezes} ${vazamento.ocorrencias === 1 ? "vez" : "vezes"} em ` +
+            `vazamentos públicos de outros sites e é testada automaticamente por invasores. ` +
+            `Escolha outra — não precisa ser complicada, só precisa ser sua.`,
+        },
+        400
+      );
     }
 
     const admin = createClient(supabaseUrl, serviceRoleKey);

@@ -8,6 +8,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Dumbbell, Mail, Lock, User, ArrowLeft, Moon, Sun } from "lucide-react";
 import { motion } from "framer-motion";
 import { useToast } from "@/hooks/use-toast";
+import { verificarSenhaVazada, senhaDeveSerRecusada, mensagemSenhaVazada } from "@/lib/senhaVazada";
 
 export default function Register() {
   const [name, setName] = useState("");
@@ -22,6 +23,22 @@ export default function Register() {
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
+
+    // Recusa senha que já aparece em vazamentos públicos. Substitui o
+    // recurso equivalente do Supabase, que só existe a partir do plano
+    // pago. A senha não sai do navegador: só os 5 primeiros caracteres
+    // do hash viajam (k-anonimato) — ver src/lib/senhaVazada.ts.
+    const vazamento = await verificarSenhaVazada(password);
+    if (senhaDeveSerRecusada(vazamento)) {
+      toast({
+        title: "Escolha outra senha",
+        description: mensagemSenhaVazada(vazamento.ocorrencias),
+        variant: "destructive",
+      });
+      setIsLoading(false);
+      return;
+    }
+
     const { error } = await signUp(email, password, name);
     setIsLoading(false);
     if (error) {
