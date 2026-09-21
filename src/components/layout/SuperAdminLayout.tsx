@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import { CarregandoPagina } from "@/components/CarregandoPagina";
+import { AvisoRotinas } from "@/components/superadmin/SaudeRotinas";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -22,6 +23,7 @@ export function SuperAdminLayout() {
 
   return (
     <div className="min-h-screen bg-background">
+      <AvisoRotinas />
       <header className="border-b border-border bg-card">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-2 px-4 py-3">
           <div className="flex items-center gap-2">
