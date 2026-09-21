@@ -26,6 +26,19 @@ const EVENTOS_CONFIRMADOS = new Set(["PAYMENT_CONFIRMED", "PAYMENT_RECEIVED"]);
 const EVENTOS_ATRASADOS = new Set(["PAYMENT_OVERDUE"]);
 const EVENTOS_ESTORNADOS = new Set(["PAYMENT_REFUNDED", "PAYMENT_DELETED", "PAYMENT_CHARGEBACK_REQUESTED"]);
 
+// Eventos que apenas **emitem** a cobrança, sem mudar o status de quem já
+// pagou ou deixou de pagar. Não entram em EVENTOS_* acima de propósito: nada
+// neles muda a situação da assinatura.
+//
+// Eles eram ignorados por completo, e isso abria o buraco que a rede de
+// segurança B2C precisa fechar. Como a linha em `pagamentos` só nascia no
+// primeiro evento que mudava status, um PAYMENT_OVERDUE perdido deixava a
+// cobrança sem linha nenhuma — e uma verificação de "venceu e ninguém
+// confirmou" não tem o que verificar se a cobrança não existe no banco.
+// Registrando a emissão como `pendente` com o vencimento do Asaas, toda
+// cobrança esperada passa a ter registro, e o vencimento vencido fala por si.
+const EVENTOS_EMITIDOS = new Set(["PAYMENT_CREATED", "PAYMENT_UPDATED"]);
+
 // Webhook do Asaas: recebe eventos de pagamento, registra em log de auditoria
 // (idempotente por asaas_event_id/asaas_payment_id) e atualiza pagamentos e
 // o status da assinatura do aluno. Não usa o JWT do Supabase — a autenticação
@@ -67,6 +80,10 @@ Deno.serve(async (req: Request) => {
   const payment = (payload.payment ?? {}) as Record<string, unknown>;
   const asaasPaymentId = payment.id ? String(payment.id) : null;
   const invoiceUrl = payment.invoiceUrl ? String(payment.invoiceUrl) : null;
+  // Base da rede de segurança contra webhook perdido: sem a data de
+  // vencimento não há como perguntar "esta cobrança venceu e ninguém
+  // confirmou".
+  const vencimento = payment.dueDate ? String(payment.dueDate) : null;
   // Asaas não garante um id de evento estável em todos os planos; usamos
   // event+payment.id como chave de idempotência quando não houver um id próprio.
   const asaasEventId = payload.id ? String(payload.id) : `${tipoEvento}:${asaasPaymentId ?? "sem-payment"}`;
@@ -181,18 +198,35 @@ Deno.serve(async (req: Request) => {
         return jsonResponse({ ok: true });
       }
 
+      // Daqui para baixo é o Método ARKE (aluno_assinaturas/pagamentos), e só
+      // aqui a emissão importa: `statusArke` cobre um evento a mais que
+      // `novoStatus`. Os blocos B2B e de mensalidade acima seguem exatamente
+      // como estavam — cada um tem o próprio ciclo e não se ganha nada
+      // mexendo neles junto.
+      const statusArke: "confirmado" | "atrasado" | "estornado" | "pendente" | null =
+        novoStatus ?? (EVENTOS_EMITIDOS.has(tipoEvento) ? "pendente" : null);
+
       const { data: pagamentoExistente } = await admin
         .from("pagamentos")
         .select("id, aluno_assinatura_id")
         .eq("asaas_payment_id", asaasPaymentId)
         .maybeSingle();
 
-      if (pagamentoExistente && novoStatus) {
+      if (pagamentoExistente && statusArke) {
+        // Um PAYMENT_UPDATED pode chegar depois da confirmação (e o Asaas não
+        // garante ordem de entrega). Deixar a emissão sobrescrever o status
+        // devolveria a cobrança para `pendente` e, com o vencimento no
+        // passado, bloquearia um aluno que já pagou — o defeito oposto ao que
+        // este trabalho conserta, e pior, porque atinge quem está em dia.
+        const soEmissao = statusArke === "pendente";
         await admin
           .from("pagamentos")
           .update({
-            status: novoStatus,
-            data_pagamento: novoStatus === "confirmado" ? new Date().toISOString().slice(0, 10) : null,
+            ...(soEmissao ? {} : {
+              status: statusArke,
+              data_pagamento: statusArke === "confirmado" ? new Date().toISOString().slice(0, 10) : null,
+            }),
+            vencimento: vencimento ?? undefined,
             invoice_url: invoiceUrl ?? undefined,
           })
           .eq("id", pagamentoExistente.id);
@@ -212,8 +246,8 @@ Deno.serve(async (req: Request) => {
             .update({ status: "ativa", fatura_pendente_url: null })
             .eq("id", pagamentoExistente.aluno_assinatura_id);
         }
-        resultado = "pagamento_arke_atualizado";
-      } else if (!pagamentoExistente && novoStatus) {
+        resultado = statusArke === "pendente" ? "pagamento_arke_emitido" : "pagamento_arke_atualizado";
+      } else if (!pagamentoExistente && statusArke) {
         // Primeira notificação desse pagamento: cria o registro a partir da
         // assinatura já existente (Método ARKE via asaas-create-subscription
         // ou mensalidade da academia via academia-criar-matricula).
@@ -248,9 +282,10 @@ Deno.serve(async (req: Request) => {
                 valor,
                 valor_repasse_arke: valorRepasseArke,
                 valor_liquido_academia: valor - valorRepasseArke,
-                status: novoStatus,
+                status: statusArke,
                 asaas_payment_id: asaasPaymentId,
-                data_pagamento: novoStatus === "confirmado" ? new Date().toISOString().slice(0, 10) : null,
+                vencimento,
+                data_pagamento: statusArke === "confirmado" ? new Date().toISOString().slice(0, 10) : null,
                 invoice_url: invoiceUrl,
               },
               { onConflict: "asaas_payment_id" }
@@ -267,7 +302,7 @@ Deno.serve(async (req: Request) => {
                 .update({ status: "ativa", fatura_pendente_url: null })
                 .eq("id", assinatura.id);
             }
-            resultado = "pagamento_arke_criado";
+            resultado = statusArke === "pendente" ? "pagamento_arke_emitido" : "pagamento_arke_criado";
           } else {
             // Não é assinatura do Método ARKE — tenta como matrícula de
             // plano próprio da academia.
@@ -277,10 +312,18 @@ Deno.serve(async (req: Request) => {
               .eq("asaas_subscription_id", subscriptionId)
               .maybeSingle();
 
-            if (matricula) {
+            if (matricula && !novoStatus) {
+              // Emissão (PAYMENT_CREATED/UPDATED) de mensalidade de plano
+              // próprio da academia. Este fluxo ficou de fora da mudança de
+              // propósito — e precisa ficar: `mensalidades.status` é NOT NULL,
+              // então criar a linha aqui com `novoStatus` nulo quebraria o
+              // upsert. Se a rede de segurança for estendida ao plano próprio
+              // um dia, é aqui e com status explícito.
+              resultado = "evento_ignorado";
+            } else if (matricula) {
               const valor = Number(payment.value ?? 0);
-              const vencimento = payment.dueDate ? String(payment.dueDate) : new Date().toISOString().slice(0, 10);
-              const competencia = `${vencimento.slice(0, 7)}-01`;
+              const vencimentoMensalidade = vencimento ?? new Date().toISOString().slice(0, 10);
+              const competencia = `${vencimentoMensalidade.slice(0, 7)}-01`;
 
               // upsert por (matricula_id, competencia): mesma janela de
               // idempotência descrita acima, mas usando a chave natural da
@@ -300,7 +343,7 @@ Deno.serve(async (req: Request) => {
                     valor,
                     valor_repasse_arke: matricula.valor_repasse_arke,
                     valor_liquido_academia: matricula.valor_liquido_academia,
-                    vencimento,
+                    vencimento: vencimentoMensalidade,
                     status: novoStatus,
                     asaas_payment_id: asaasPaymentId,
                     data_pagamento: novoStatus === "confirmado" ? new Date().toISOString().slice(0, 10) : null,
@@ -328,8 +371,10 @@ Deno.serve(async (req: Request) => {
           resultado = "sem_correspondencia";
         }
       } else {
-        // Tipo de evento fora das listas acima (PAYMENT_CREATED,
-        // PAYMENT_UPDATED...): registrado no log, sem efeito por definição.
+        // Tipo de evento que não muda status nem emite cobrança (PAYMENT_
+        // ANTICIPATED, PAYMENT_RESTORED...): registrado no log, sem efeito por
+        // definição. PAYMENT_CREATED/PAYMENT_UPDATED saíram desta lista — hoje
+        // registram a cobrança emitida no fluxo do Método ARKE.
         resultado = "evento_ignorado";
       }
     }
