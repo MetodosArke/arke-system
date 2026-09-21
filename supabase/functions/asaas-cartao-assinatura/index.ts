@@ -1,4 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { ligarCartaoNaAssinatura } from "./fluxo.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -27,18 +28,14 @@ const jsonResponse = (body: unknown, status = 200) =>
 //
 // ## Ordem das chamadas
 //
-// Primeiro o cartão (`PUT /subscriptions/{id}/creditCard`), depois o tipo de
-// cobrança (`billingType: CREDIT_CARD`). Nessa ordem toda falha é segura: se o
-// cartão é recusado, nada mudou; se a troca de tipo falha, o cartão fica
-// guardado e o aluno segue pagando pela fatura como antes. Na ordem inversa, a
-// assinatura passaria a exigir cartão sem ter nenhum.
+// Tipo de cobrança primeiro, cartão depois, e a recusa desfaz a troca de tipo
+// só quando ela foi nossa. O porquê — e o que o sandbox mostrou — está em
+// fluxo.ts, que concentra as chamadas ao Asaas.
 //
 // ## Desligada por padrão
 //
-// Só responde com CARTAO_RECORRENTE_ATIVO = "true" nos secrets. Em produção a
-// captura de cartão pela API depende de habilitação do Asaas, e o fluxo precisa
-// ser validado de ponta a ponta numa conta sandbox antes de receber cartão de
-// aluno de verdade.
+// Só responde com CARTAO_RECORRENTE_ATIVO = "true" nos secrets — é o
+// interruptor para desligar sem deploy se algo der errado com cartão real.
 
 // --- Validação. Duplicada de src/lib/cartao.ts e src/lib/cpf.ts de propósito:
 // edge function roda em Deno e não importa do bundle do app.
@@ -99,24 +96,6 @@ function ipDoCliente(req: Request): string | null {
   const encaminhado = req.headers.get("x-forwarded-for");
   if (encaminhado) return encaminhado.split(",")[0].trim() || null;
   return req.headers.get("cf-connecting-ip") ?? req.headers.get("x-real-ip");
-}
-
-type ErrosAsaas = { errors?: { code?: string; description?: string }[] };
-
-async function chamarAsaas(url: string, init: RequestInit): Promise<{ ok: boolean; status: number; corpo: ErrosAsaas & Record<string, unknown> }> {
-  const resp = await fetch(url, init);
-  let corpo: ErrosAsaas & Record<string, unknown> = {};
-  try {
-    corpo = await resp.json();
-  } catch {
-    // sem corpo JSON
-  }
-  return { ok: resp.ok, status: resp.status, corpo };
-}
-
-/** Só status e códigos — a descrição do Asaas pode ecoar dado do cartão. */
-function logarFalha(etapa: string, status: number, corpo: ErrosAsaas) {
-  console.error(`Asaas: falha em ${etapa}`, status, corpo?.errors?.map((e) => e.code) ?? []);
 }
 
 type CorpoRequisicao = {
@@ -239,72 +218,35 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    const headers = { "Content-Type": "application/json", access_token: asaasApiKey };
-    const assinaturaUrl = `${asaasApiUrl}/subscriptions/${encodeURIComponent(assinatura.asaas_subscription_id)}`;
-
-    // 1) Cartão primeiro — ver "Ordem das chamadas" no topo.
-    const cartao = await chamarAsaas(`${assinaturaUrl}/creditCard`, {
-      method: "PUT",
-      headers,
-      body: JSON.stringify({
-        creditCard: {
-          holderName: titularCartao,
-          number: numero,
-          expiryMonth: val.mes,
-          expiryYear: val.ano,
-          ccv: cvv,
-        },
-        creditCardHolderInfo: {
-          name: nome,
-          email,
-          cpfCnpj: cpf,
-          postalCode: cep,
-          addressNumber: numeroEndereco,
-          addressComplement: t.complemento ? String(t.complemento) : undefined,
-          phone: telefone,
-          mobilePhone: telefone,
-        },
-        remoteIp,
-      }),
+    const resultado = await ligarCartaoNaAssinatura(asaasApiUrl, asaasApiKey, assinatura.asaas_subscription_id, {
+      creditCard: {
+        holderName: titularCartao,
+        number: numero,
+        expiryMonth: val.mes,
+        expiryYear: val.ano,
+        ccv: cvv,
+      },
+      creditCardHolderInfo: {
+        name: nome,
+        email,
+        cpfCnpj: cpf,
+        postalCode: cep,
+        addressNumber: numeroEndereco,
+        addressComplement: t.complemento ? String(t.complemento) : undefined,
+        phone: telefone,
+        mobilePhone: telefone,
+      },
+      remoteIp,
     });
-    if (!cartao.ok) {
-      logarFalha("cartão da assinatura", cartao.status, cartao.corpo);
-      // 4xx do Asaas aqui é recusa ou dado inválido — o aluno precisa ver o
-      // motivo. 5xx é problema do gateway, e aí a mensagem é outra.
-      if (cartao.status >= 500) {
-        return jsonResponse({ error: "O Asaas não respondeu. Tente de novo em alguns minutos." }, 502);
-      }
-      return jsonResponse(
-        { error: "Cartão não aceito. Confira os dados ou use outro cartão. Nada foi alterado na sua assinatura." },
-        422
-      );
-    }
+    if (!resultado.ok) return jsonResponse({ error: resultado.erro }, resultado.status);
 
-    // 2) Depois, liga a cobrança automática — inclusive das cobranças pendentes.
-    const tipo = await chamarAsaas(assinaturaUrl, {
-      method: "PUT",
-      headers,
-      body: JSON.stringify({ billingType: "CREDIT_CARD", updatePendingPayments: true }),
-    });
-    if (!tipo.ok) {
-      logarFalha("troca do tipo de cobrança", tipo.status, tipo.corpo);
-      return jsonResponse(
-        {
-          error:
-            "O cartão foi aceito, mas não foi possível ligar a cobrança automática. Tente de novo; enquanto isso, a mensalidade continua pela fatura.",
-        },
-        502
-      );
-    }
-
-    const bandeiraAsaas = (cartao.corpo?.creditCard as { creditCardBrand?: string } | undefined)?.creditCardBrand;
     const final = numero.slice(-4);
     const { error: gravacaoError } = await admin
       .from("aluno_assinaturas")
       .update({
         forma_pagamento: "cartao",
         cartao_final: final,
-        cartao_bandeira: bandeiraAsaas ? String(bandeiraAsaas).toLowerCase() : band,
+        cartao_bandeira: resultado.bandeira ?? band,
         cartao_atualizado_em: new Date().toISOString(),
         cartao_atualizado_por: callerId,
         cartao_recusado_em: null,
@@ -315,7 +257,7 @@ Deno.serve(async (req: Request) => {
       console.error("Cartão ativo no Asaas, mas falhou ao gravar o resumo", gravacaoError.code);
     }
 
-    return jsonResponse({ cartao_final: final, cartao_bandeira: bandeiraAsaas ?? band });
+    return jsonResponse({ cartao_final: final, cartao_bandeira: resultado.bandeira ?? band });
   } catch (erro) {
     // Só a classe do erro: a mensagem de uma exceção pode carregar trecho do corpo.
     console.error("asaas-cartao-assinatura: erro inesperado", erro instanceof Error ? erro.name : typeof erro);
