@@ -84,6 +84,16 @@ Deno.serve(async (req: Request) => {
   // vencimento não há como perguntar "esta cobrança venceu e ninguém
   // confirmou".
   const vencimento = payment.dueDate ? String(payment.dueDate) : null;
+  // Taxa que o Asaas descontou: sai da parte da ArkeFit (a academia recebe o
+  // split em valor fixo), e é o que separa receita bruta de líquida. Na
+  // emissão o netValue é estimado; na confirmação, definitivo — cada evento
+  // regrava. Sem os dois números, fica de fora em vez de virar zero.
+  const valorBruto = payment.value;
+  const valorLiquido = payment.netValue;
+  const taxaGateway =
+    typeof valorBruto === "number" && typeof valorLiquido === "number" && valorLiquido > 0
+      ? Math.max(0, Math.round((valorBruto - valorLiquido) * 100) / 100)
+      : undefined;
   // Asaas não garante um id de evento estável em todos os planos; usamos
   // event+payment.id como chave de idempotência quando não houver um id próprio.
   const asaasEventId = payload.id ? String(payload.id) : `${tipoEvento}:${asaasPaymentId ?? "sem-payment"}`;
@@ -158,6 +168,7 @@ Deno.serve(async (req: Request) => {
             .update({
               status: novoStatus,
               invoice_url: invoiceUrl ?? undefined,
+              taxa_gateway: taxaGateway,
               // Sem a data de liquidação, a série histórica de receita
               // teria que cair no mês de emissão da cobrança, não no mês
               // em que o dinheiro entrou.
@@ -187,6 +198,7 @@ Deno.serve(async (req: Request) => {
               status: novoStatus,
               data_pagamento: novoStatus === "confirmado" ? new Date().toISOString().slice(0, 10) : null,
               invoice_url: invoiceUrl ?? undefined,
+              taxa_gateway: taxaGateway,
             })
             .eq("id", mensalidadeExistente.id);
 
@@ -200,9 +212,9 @@ Deno.serve(async (req: Request) => {
 
       // Daqui para baixo é o Método ARKE (aluno_assinaturas/pagamentos), e só
       // aqui a emissão importa: `statusArke` cobre um evento a mais que
-      // `novoStatus`. Os blocos B2B e de mensalidade acima seguem exatamente
-      // como estavam — cada um tem o próprio ciclo e não se ganha nada
-      // mexendo neles junto.
+      // `novoStatus`. Os blocos B2B e de mensalidade acima não registram a
+      // emissão — cada um tem o próprio ciclo; em comum com este, só gravam
+      // a taxa do gateway.
       const statusArke: "confirmado" | "atrasado" | "estornado" | "pendente" | null =
         novoStatus ?? (EVENTOS_EMITIDOS.has(tipoEvento) ? "pendente" : null);
 
@@ -262,6 +274,7 @@ Deno.serve(async (req: Request) => {
             }),
             vencimento: vencimento ?? undefined,
             invoice_url: invoiceUrl ?? undefined,
+            taxa_gateway: taxaGateway,
           })
           .eq("id", pagamentoExistente.id);
 
@@ -289,19 +302,23 @@ Deno.serve(async (req: Request) => {
         if (subscriptionId) {
           const { data: assinatura } = await admin
             .from("aluno_assinaturas")
-            .select("id, organization_id, valor_cobrado, nivel_atacado")
+            .select("id, organization_id, valor_cobrado, nivel_atacado, valor_repasse_arke")
             .eq("asaas_subscription_id", subscriptionId)
             .maybeSingle();
 
           if (assinatura) {
-            const { data: plano } = await admin
-              .from("planos_atacado")
-              .select("custo_mensal")
-              .eq("id", assinatura.nivel_atacado)
-              .single();
-
             const valor = Number(payment.value ?? assinatura.valor_cobrado);
-            const valorRepasseArke = Number(plano?.custo_mensal ?? 0);
+            // O repasse travado na criação é o que o split do Asaas pratica.
+            // Assinatura anterior a esse registro cai no custo de atacado.
+            let valorRepasseArke = assinatura.valor_repasse_arke === null ? null : Number(assinatura.valor_repasse_arke);
+            if (valorRepasseArke === null) {
+              const { data: plano } = await admin
+                .from("planos_atacado")
+                .select("custo_mensal")
+                .eq("id", assinatura.nivel_atacado)
+                .single();
+              valorRepasseArke = Number(plano?.custo_mensal ?? 0);
+            }
 
             // upsert (não insert): duas entregas duplicadas do webhook podem
             // passar pelo check de "processado" quase ao mesmo tempo (janela
@@ -315,7 +332,8 @@ Deno.serve(async (req: Request) => {
                 aluno_assinatura_id: assinatura.id,
                 valor,
                 valor_repasse_arke: valorRepasseArke,
-                valor_liquido_academia: valor - valorRepasseArke,
+                valor_liquido_academia: Math.round((valor - valorRepasseArke) * 100) / 100,
+                taxa_gateway: taxaGateway,
                 status: statusArke,
                 asaas_payment_id: asaasPaymentId,
                 vencimento,
@@ -377,6 +395,7 @@ Deno.serve(async (req: Request) => {
                     valor,
                     valor_repasse_arke: matricula.valor_repasse_arke,
                     valor_liquido_academia: matricula.valor_liquido_academia,
+                    taxa_gateway: taxaGateway,
                     vencimento: vencimentoMensalidade,
                     status: novoStatus,
                     asaas_payment_id: asaasPaymentId,

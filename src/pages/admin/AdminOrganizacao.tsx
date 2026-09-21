@@ -18,6 +18,7 @@ import { Building2, Wallet, Receipt, Printer, Upload } from "lucide-react";
 import type { Enums, Tables } from "@/integrations/supabase/types";
 import { ReciboComprovanteDialog, type ReciboData } from "@/components/admin/ReciboComprovanteDialog";
 import { PlanosAcademiaPainel } from "@/components/admin/PlanosAcademiaPainel";
+import { dividirCobranca, type TaxaProcessamento } from "@/lib/repasse";
 
 type TipoNegocio = Extract<Enums<"organization_tipo">, "academia" | "studio">;
 const SLUG_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
@@ -82,6 +83,17 @@ export default function AdminOrganizacao() {
       const { data, error } = await supabase.from("planos_atacado").select("*");
       if (error) throw error;
       return data;
+    },
+  });
+
+  // A taxa do Asaas entra no repasse ARKE; a prévia do split precisa dela.
+  const { data: taxaConfig } = useQuery({
+    queryKey: ["taxa-processamento-config"],
+    queryFn: async (): Promise<TaxaProcessamento> => {
+      const { data, error } = await supabase.rpc("arke_taxa_processamento_config");
+      if (error) throw error;
+      const linha = data?.[0];
+      return { percentual: Number(linha?.percentual ?? 0), fixa: Number(linha?.fixa ?? 0) };
     },
   });
 
@@ -327,6 +339,14 @@ export default function AdminOrganizacao() {
       const custo = planosAtacado.find((p) => p.id === nivel)?.custo_mensal ?? 0;
       const valorVarejo = parseMoeda(valores[nivel]);
       const markupPct = custo > 0 ? ((valorVarejo - custo) / custo) * 100 : 0;
+      // Sem isto o erro só apareceria ao gerar a cobrança do aluno, que a
+      // função recusa pelo mesmo motivo.
+      const divisao = dividirCobranca(valorVarejo, Number(custo), taxaConfig ?? { percentual: 0, fixa: 0 });
+      if (!divisao.cobreORepasse) {
+        throw new Error(
+          `O valor precisa cobrir o repasse ARKE de R$ ${divisao.repasseArke.toFixed(2)} (atacado + taxa de processamento).`
+        );
+      }
 
       const { error } = await supabase
         .from("organization_planos_precificacao")
@@ -582,7 +602,8 @@ export default function AdminOrganizacao() {
                     {label}{" "}
                     {plano != null && (
                       <span className="text-muted-foreground">
-                        (custo atacado R$ {plano.custo_mensal} · sugestão ARKE R$ {plano.valor_sugerido_varejo})
+                        (custo atacado R$ {plano.custo_mensal} + taxa de processamento · sugestão ARKE R${" "}
+                        {plano.valor_sugerido_varejo})
                       </span>
                     )}
                   </Label>
@@ -636,8 +657,9 @@ export default function AdminOrganizacao() {
         <CardHeader>
           <CardTitle className="text-base">Taxa de split aplicada por plano</CardTitle>
           <p className="text-xs text-muted-foreground">
-            A cada cobrança confirmada no Asaas, o repasse de atacado é retido automaticamente para a
-            ARKE e o restante cai direto na Wallet ID da academia configurada acima.
+            A cada cobrança confirmada no Asaas, o repasse ARKE — custo de atacado mais a taxa de
+            processamento do pagamento — é retido automaticamente, e o restante cai direto na Wallet ID
+            da academia configurada acima. A taxa acompanha o valor cobrado.
           </p>
         </CardHeader>
         <CardContent className="space-y-3">
@@ -645,14 +667,19 @@ export default function AdminOrganizacao() {
             const plano = planosAtacado.find((p) => p.id === value);
             const valorVarejo = parseMoeda(valores[value] || "0");
             const custoAtacado = Number(plano?.custo_mensal ?? 0);
-            const liquidoAcademia = valorVarejo - custoAtacado;
+            const { taxaEstimada, repasseArke, liquidoAcademia } = dividirCobranca(
+              valorVarejo,
+              custoAtacado,
+              taxaConfig ?? { percentual: 0, fixa: 0 }
+            );
             const pctAcademia = valorVarejo > 0 ? Math.round((liquidoAcademia / valorVarejo) * 100) : 0;
             return (
               <div key={value} className="flex items-center justify-between text-sm border-b border-border pb-2 last:border-0 last:pb-0">
                 <span className="font-medium">{label}</span>
                 <span className="text-xs text-muted-foreground text-right">
-                  Aluno paga R$ {valorVarejo.toFixed(2)} · ARKE retém R$ {custoAtacado.toFixed(2)} · Academia
-                  recebe R$ {liquidoAcademia.toFixed(2)}
+                  Aluno paga R$ {valorVarejo.toFixed(2)} · ARKE retém R$ {repasseArke.toFixed(2)} (atacado R${" "}
+                  {custoAtacado.toFixed(2)} + taxa R$ {taxaEstimada.toFixed(2)}) · Academia recebe R${" "}
+                  {liquidoAcademia.toFixed(2)}
                   {valorVarejo > 0 && ` (${pctAcademia}%)`}
                 </span>
               </div>
