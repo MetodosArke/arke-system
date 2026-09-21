@@ -8,6 +8,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Mail, ArrowLeft, Dumbbell, Lock, Eye, EyeOff } from "lucide-react";
 import { motion } from "framer-motion";
 import { useToast } from "@/hooks/use-toast";
+import { verificarSenhaVazada, senhaDeveSerRecusada, mensagemSenhaVazada } from "@/lib/senhaVazada";
 
 // Links de convite (novo aluno/equipe) e de ativação de cadastro chegam com
 // type=invite/signup, ou type=recovery redirecionado para /auth/definir-senha
@@ -123,6 +124,21 @@ export default function ResetPassword() {
         });
         return;
       }
+    }
+
+    // Recusa senha que já aparece em vazamentos públicos. Substitui o
+    // recurso equivalente do Supabase, que só existe a partir do plano
+    // pago. A senha não sai do navegador: só os 5 primeiros caracteres
+    // do hash viajam (k-anonimato) — ver src/lib/senhaVazada.ts.
+    const vazamento = await verificarSenhaVazada(newPassword);
+    if (senhaDeveSerRecusada(vazamento)) {
+      toast({
+        title: "Escolha outra senha",
+        description: mensagemSenhaVazada(vazamento.ocorrencias),
+        variant: "destructive",
+      });
+      setIsLoading(false);
+      return;
     }
 
     const { error } = await supabase.auth.updateUser({ password: newPassword });
