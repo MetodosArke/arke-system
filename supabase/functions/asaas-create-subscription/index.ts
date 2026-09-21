@@ -17,7 +17,95 @@ type CreateSubscriptionPayload = {
   valor_cobrado: number;
 };
 
-// Cria (ou substitui) a assinatura recorrente do aluno no Asaas, com split
+// --- Asaas: customer e assinatura sem duplicar -------------------------------
+//
+// Duplicado de propósito em asaas-create-subscription e academia-criar-matricula:
+// edge function não compartilha código com as outras sem um _shared/ que o
+// deploy teria de carregar junto, e o projeto preferiu a cópia explícita.
+//
+// Por que existe: as duas funções faziam POST /customers e POST /subscriptions
+// a cada chamada. Dois defeitos saíam daí.
+//
+//   1. O Asaas exige `cpfCnpj` para criar customer, e ele não era enviado — em
+//      produção a criação falharia antes de qualquer cobrança nascer. (Até
+//      21/09/2026 nenhuma assinatura de aluno tinha sido criada pelo ARKE.)
+//   2. Nada impedia duas assinaturas para o mesmo aluno. O caminho mais curto
+//      estava na própria função: criou no Asaas, falhou ao gravar no banco, a
+//      tela continua oferecendo "Tentar cobrar" — e a primeira assinatura fica
+//      órfã, cobrando o aluno todo mês sem ninguém ver.
+//
+// A resposta é tornar a operação idempotente pelo `externalReference`.
+
+type RespostaAsaas<T> = { ok: boolean; status: number; corpo: T & { errors?: { code?: string; description?: string }[] } };
+
+async function chamarAsaas<T>(url: string, init: RequestInit): Promise<RespostaAsaas<T>> {
+  const resp = await fetch(url, init);
+  let corpo: unknown = {};
+  try {
+    corpo = await resp.json();
+  } catch {
+    // corpo vazio ou não-JSON: fica {}.
+  }
+  return { ok: resp.ok, status: resp.status, corpo: corpo as RespostaAsaas<T>["corpo"] };
+}
+
+function descricaoErroAsaas(corpo: { errors?: { description?: string }[] }): string | null {
+  return corpo?.errors?.map((e) => e.description).filter(Boolean).join(" ") || null;
+}
+
+/**
+ * Reaproveita o customer do aluno antes de criar outro: primeiro pelo id do
+ * aluno (`externalReference`), depois pelo CPF — a mesma pessoa pode ser aluna
+ * de duas academias, e para o Asaas ela é um cliente só.
+ */
+async function obterOuCriarCustomer(
+  api: string,
+  headers: Record<string, string>,
+  dados: { alunoId: string; nome: string; cpf: string; telefone: string | null }
+): Promise<{ id: string } | { erro: string }> {
+  for (const filtro of [`externalReference=${encodeURIComponent(dados.alunoId)}`, `cpfCnpj=${dados.cpf}`]) {
+    const busca = await chamarAsaas<{ data?: { id: string; deleted?: boolean }[] }>(`${api}/customers?${filtro}`, {
+      headers,
+    });
+    const existente = busca.ok ? busca.corpo.data?.find((c) => !c.deleted) : undefined;
+    if (existente) return { id: existente.id };
+  }
+
+  const criado = await chamarAsaas<{ id: string }>(`${api}/customers`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({
+      name: dados.nome,
+      cpfCnpj: dados.cpf,
+      mobilePhone: dados.telefone ?? undefined,
+      externalReference: dados.alunoId,
+    }),
+  });
+  if (!criado.ok) {
+    console.error("Asaas: falha ao criar customer", criado.status, criado.corpo?.errors);
+    return { erro: descricaoErroAsaas(criado.corpo) ?? "Falha ao criar o cliente no Asaas." };
+  }
+  return { id: criado.corpo.id };
+}
+
+/** Assinatura ativa com esta referência no Asaas, se houver. */
+async function assinaturaAtivaNoAsaas(
+  api: string,
+  headers: Record<string, string>,
+  referencia: string
+): Promise<{ id: string; value: number; nextDueDate?: string } | null> {
+  const busca = await chamarAsaas<{ data?: { id: string; value: number; nextDueDate?: string }[] }>(
+    `${api}/subscriptions?externalReference=${encodeURIComponent(referencia)}&status=ACTIVE`,
+    { headers }
+  );
+  return busca.ok ? busca.corpo.data?.[0] ?? null : null;
+}
+
+function somenteDigitos(texto: string | null | undefined): string {
+  return (texto ?? "").replace(/\D/g, "");
+}
+
+// Cria a assinatura recorrente do aluno no Asaas, com split
 // automático: o valor cobrado do aluno é dividido entre o repasse de
 // atacado à ARKE (custo do nivel_atacado do aluno) e o valor líquido que
 // fica com a academia, via wallet_id configurada em `organizations`.
@@ -92,6 +180,26 @@ Deno.serve(async (req: Request) => {
       );
     }
 
+    // Assinatura ativa já registrada: recusa antes de tocar no gateway. Sem
+    // isto, cada chamada criava uma assinatura nova e a anterior seguia
+    // cobrando no Asaas, órfã. Trial (sem id no Asaas) não conta: é
+    // justamente o caso de converter o trial em assinatura paga.
+    const admin = createClient(supabaseUrl, serviceRoleKey);
+    const { data: assinaturaAtual } = await admin
+      .from("aluno_assinaturas")
+      .select("status, asaas_subscription_id")
+      .eq("aluno_id", aluno.id)
+      .maybeSingle();
+    if (
+      assinaturaAtual?.asaas_subscription_id &&
+      ["ativa", "atrasada"].includes(assinaturaAtual.status)
+    ) {
+      return jsonResponse(
+        { error: "Este aluno já tem assinatura do Método ARKE ativa. Não é preciso gerar outra." },
+        409
+      );
+    }
+
     const { data: org, error: orgError } = await asUser
       .from("organizations")
       .select("id, nome, asaas_wallet_id")
@@ -110,9 +218,22 @@ Deno.serve(async (req: Request) => {
 
     const { data: profile } = await asUser
       .from("profiles")
-      .select("full_name")
+      .select("full_name, cpf, phone")
       .eq("user_id", aluno.user_id)
       .maybeSingle();
+
+    // O Asaas não cria cliente sem CPF. Melhor dizer isso agora, com o
+    // caminho para resolver, do que devolver o erro do gateway lá adiante.
+    const cpf = somenteDigitos(profile?.cpf);
+    if (cpf.length !== 11) {
+      return jsonResponse(
+        {
+          error:
+            "Cadastre o CPF do aluno (ficha do aluno) antes de gerar a cobrança — o Asaas exige CPF para emitir a assinatura.",
+        },
+        422
+      );
+    }
 
     const { data: planoAtacado, error: planoError } = await asUser
       .from("planos_atacado")
@@ -151,21 +272,24 @@ Deno.serve(async (req: Request) => {
       access_token: asaasApiKey,
     };
 
-    const customerResp = await fetch(`${asaasApiUrl}/customers`, {
-      method: "POST",
-      headers: asaasHeaders,
-      body: JSON.stringify({
-        name: profile?.full_name ?? "Aluno ARKE",
-        externalReference: aluno.id,
-      }),
+    const customer = await obterOuCriarCustomer(asaasApiUrl, asaasHeaders, {
+      alunoId: aluno.id,
+      nome: profile?.full_name ?? "Aluno ARKE",
+      cpf,
+      telefone: somenteDigitos(profile?.phone) || null,
     });
-    const customer = await customerResp.json();
-    if (!customerResp.ok) {
-      console.error("Asaas customer error", customer);
-      return jsonResponse({ error: "Falha ao criar cliente no Asaas.", detalhe: customer }, 502);
+    if ("erro" in customer) {
+      return jsonResponse({ error: customer.erro }, 502);
     }
 
-    const subscriptionResp = await fetch(`${asaasApiUrl}/subscriptions`, {
+    // Adota em vez de duplicar: se o Asaas já tem assinatura ativa do Método
+    // para este aluno — o caso de ter criado lá e falhado ao gravar aqui —,
+    // é ela que vale. O prefixo separa do plano próprio da academia, que usa
+    // `plano:` para o mesmo aluno.
+    const referencia = `metodo:${aluno.id}`;
+    const jaExistente = await assinaturaAtivaNoAsaas(asaasApiUrl, asaasHeaders, referencia);
+
+    const subscriptionResp = jaExistente ? null : await fetch(`${asaasApiUrl}/subscriptions`, {
       method: "POST",
       headers: asaasHeaders,
       body: JSON.stringify({
@@ -178,7 +302,7 @@ Deno.serve(async (req: Request) => {
         // o período inteiro e só depois entra o ciclo mensal.
         nextDueDate: trialFim,
         description: `ARKE — ${org.nome} — nível ${aluno.nivel_atacado} (trial de ${trialDias} dias)`,
-        externalReference: aluno.id,
+        externalReference: referencia,
         split: [
           {
             walletId: org.asaas_wallet_id,
@@ -187,14 +311,22 @@ Deno.serve(async (req: Request) => {
         ],
       }),
     });
-    const subscription = await subscriptionResp.json();
-    if (!subscriptionResp.ok) {
-      console.error("Asaas subscription error", subscription);
-      return jsonResponse({ error: "Falha ao criar assinatura no Asaas.", detalhe: subscription }, 502);
+    let subscription: { id: string; value?: number; nextDueDate?: string };
+    if (jaExistente) {
+      subscription = jaExistente;
+    } else {
+      const corpo = await subscriptionResp!.json();
+      if (!subscriptionResp!.ok) {
+        console.error("Asaas: falha ao criar assinatura", subscriptionResp!.status, corpo?.errors);
+        return jsonResponse(
+          { error: descricaoErroAsaas(corpo) ?? "Falha ao criar assinatura no Asaas." },
+          502
+        );
+      }
+      subscription = corpo;
     }
 
     // --- Persistência (service role: grava independente de RLS, já validamos acima) ---
-    const admin = createClient(supabaseUrl, serviceRoleKey);
     const { data: assinatura, error: upsertError } = await admin
       .from("aluno_assinaturas")
       .upsert(
@@ -202,7 +334,7 @@ Deno.serve(async (req: Request) => {
           organization_id: aluno.organization_id,
           aluno_id: aluno.id,
           nivel_atacado: aluno.nivel_atacado,
-          valor_cobrado,
+          valor_cobrado: jaExistente ? Number(jaExistente.value) : valor_cobrado,
           // 'ativa' durante o trial de propósito: o acesso do aluno precisa
           // estar liberado justamente para ele testar. O que o trial adia é
           // a cobrança, não o acesso.
@@ -218,7 +350,13 @@ Deno.serve(async (req: Request) => {
 
     if (upsertError) {
       console.error("Erro ao gravar assinatura", upsertError);
-      return jsonResponse({ error: "Assinatura criada no Asaas, mas falhou ao gravar no banco." }, 500);
+      return jsonResponse(
+        {
+          error:
+            "A assinatura foi criada no Asaas, mas não foi gravada aqui. Tente de novo: a assinatura já criada será reaproveitada, sem duplicar.",
+        },
+        500
+      );
     }
 
     return jsonResponse({ assinatura, asaas_subscription_id: subscription.id });
