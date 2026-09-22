@@ -81,13 +81,21 @@ const COMPARACOES = {
                   from information_schema.role_table_grants
                  where table_schema='public' and grantee in ('anon','authenticated','service_role')`,
 
-  execute_nas_funcoes: `select p.proname||'('||pg_get_function_identity_arguments(p.oid)||') '||a.grantee as chave
+  // EXECUTE por função e por papel.
+  //
+  // A primeira versão desta consulta tinha um furo que escondeu uma divergência
+  // real: em `aclexplode`, a concessão ao PUBLIC vem com `grantee = 0`, e
+  // `pg_get_userbyid(0)` não devolve 'public' — devolve um rótulo que o filtro
+  // `in ('anon','authenticated','service_role','public')` descartava. Resultado:
+  // toda concessão ao PUBLIC — justamente a que o projeto revoga de propósito —
+  // ficava fora da comparação, e os dois bancos pareciam iguais onde não eram.
+  execute_nas_funcoes: `select p.proname||'('||pg_get_function_identity_arguments(p.oid)||') '||
+                               case when a.grantee = 0 then 'PUBLIC' else pg_get_userbyid(a.grantee) end as chave
                           from pg_proc p
                           join pg_namespace n on n.oid=p.pronamespace
-                          cross join lateral aclexplode(coalesce(p.proacl, acldefault('f', p.proowner))) a_raw
-                          join lateral (select pg_get_userbyid(a_raw.grantee) as grantee, a_raw.privilege_type as priv) a on true
-                         where n.nspname='public' and a.priv='EXECUTE'
-                           and a.grantee in ('anon','authenticated','service_role','public')`,
+                          cross join lateral aclexplode(coalesce(p.proacl, acldefault('f', p.proowner))) a
+                         where n.nspname='public' and a.privilege_type='EXECUTE'
+                           and (a.grantee = 0 or pg_get_userbyid(a.grantee) in ('anon','authenticated','service_role'))`,
 
   buckets: `select id||' publico='||public||' limite='||coalesce(file_size_limit::text,'sem')||
                    ' tipos='||coalesce(array_to_string(allowed_mime_types,','),'todos') as chave
