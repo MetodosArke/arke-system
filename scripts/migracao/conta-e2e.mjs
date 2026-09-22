@@ -115,7 +115,16 @@ if (!aplicar) {
   // Vínculo e registro de aluno. Os valores que faltam vêm dos defaults da
   // tabela: plano Free (`sem_adesao`) e situação `em_dia`, que é o que o teste
   // precisa para passar pelos gates e cair na home.
+  //
+  // O CPF é obrigatório na matrícula desde 22/09/2026 (o gatilho
+  // `trg_exigir_cpf_na_matricula` recusa sem ele, inclusive pela service
+  // role). O valor abaixo fecha o dígito verificador e **não é de pessoa
+  // real** — é o CPF canônico de exemplo do próprio algoritmo, o mesmo usado
+  // nos testes de `src/lib/cpf.test.ts`.
   await sql(`
+    update public.profiles set cpf = '52998224725'
+     where user_id = ${aspas(userId)} and coalesce(btrim(cpf), '') = '';
+
     insert into public.organization_members (organization_id, user_id, role, status)
     values (${aspas(org[0].id)}, ${aspas(userId)}, 'aluno', 'active')
     on conflict (organization_id, user_id) do update set role = 'aluno', status = 'active';
@@ -124,7 +133,7 @@ if (!aplicar) {
     values (${aspas(org[0].id)}, ${aspas(userId)})
     on conflict do nothing;
   `);
-  console.log("  vínculo e registro de aluno prontos");
+  console.log("  CPF, vínculo e registro de aluno prontos");
 
   // `gh secret set` lê o valor da entrada padrão: ele não aparece na linha de
   // comando (e portanto nem no histórico do shell) nem na saída.

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { validarCpf, formatarCpf, erroCpf, somenteDigitos } from "./cpf";
+import { validarCpf, formatarCpf, erroCpf, somenteDigitos, erroCpfObrigatorio } from "./cpf";
 
 // CPFs válidos gerados pelo próprio algoritmo do módulo 11 — não são de
 // pessoas reais, só combinações que fecham o dígito verificador.
@@ -74,5 +74,20 @@ describe("erroCpf", () => {
 
   it("não reclama de CPF correto", () => {
     expect(erroCpf("529.982.247-25")).toBeNull();
+  });
+});
+
+describe("erroCpfObrigatorio", () => {
+  it("exige o campo — é o que separa matrícula de cadastro solto", () => {
+    // A matrícula gera cobrança, e o gateway não emite cobrança sem CPF.
+    expect(erroCpfObrigatorio("")).toContain("obrigatório");
+    expect(erroCpfObrigatorio(null)).toContain("obrigatório");
+    expect(erroCpfObrigatorio("   ")).toContain("obrigatório");
+  });
+
+  it("no resto, vale a mesma régua de erroCpf", () => {
+    expect(erroCpfObrigatorio("123")).toContain("11 dígitos");
+    expect(erroCpfObrigatorio("52998224726")).toContain("inválido");
+    expect(erroCpfObrigatorio("529.982.247-25")).toBeNull();
   });
 });

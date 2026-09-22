@@ -247,13 +247,17 @@ nenhum dos dois é trabalho de engenharia.</p>
   <tr><th>Item</th><th>Situação</th></tr>
   <tr>
     <td><strong>Cobrar o aluno pela plataforma</strong></td>
-    <td>Desligado por decisão, não por falta de código: depende do CPF, que se decidiu não coletar.
-    O caminho foi <strong>exercitado de ponta a ponta contra o sandbox do Asaas em 22/09/2026</strong> —
-    customer com CPF, assinatura com split (R$ 69,95 para a academia, R$ 49,05 para a ArkeFit no
-    Integrado), cobrança gerada vencendo no dia, fatura para o aluno e idempotência que não duplica
-    assinatura: 22 verificações, todas passando. <strong>Se a decisão do CPF mudar, não há
-    desenvolvimento pela frente.</strong> Enquanto não muda, a academia cobra fora do ARKE e marca a
-    situação do aluno à mão — o que o produto suporta, com a tela de situação e as tolerâncias.</td>
+    <td><span class="selo resolvido">CORRIGIDO APÓS A VARREDURA</span> Esta linha dizia que a cobrança
+    estava desligada "pela decisão de não coletar CPF". <strong>Era erro meu</strong>: o CPF sempre foi
+    obrigatório pela regra do produto — matrícula gera cobrança e o gateway não emite cobrança sem CPF.
+    O que existe é uma limitação de homologação (faltam números válidos para cadastrar dez ou mais
+    alunos de teste), e eu a registrei como decisão de produto.<br><br>
+    Pior: <strong>o código não implementava a regra</strong>. O CPF era opcional na constraint do banco,
+    na matrícula pública, na ficha do aluno e na importação. Corrigido nos cinco pontos em 22/09/2026,
+    com trava no banco ancorada em <code>alunos</code> — que é a matrícula, e por isso vale para todo
+    caminho de criação, inclusive <code>service_role</code>. O caminho de cobrança em si já estava
+    <strong>verificado no sandbox do Asaas</strong>: 22 verificações, split de R$ 69,95 para a academia
+    e R$ 49,05 para a ArkeFit no Integrado, cobrança vencendo no dia e idempotência sem duplicar.</td>
   </tr>
   <tr>
     <td><strong>Método ARKE (produto do aluno)</strong></td>
@@ -339,10 +343,11 @@ nenhum dos dois é trabalho de engenharia.</p>
 cliente pagante, e nenhuma das duas é trabalho de engenharia: uma é preencher um campo, a outra é
 subir material que já existe, pela estrutura que já está pronta. Vídeo é recurso a mais, não linha
 de base.</p>
-<p>O que sobra, portanto, não é defeito nem pendência técnica — são <em>decisões comerciais já tomadas
-e conscientes</em>: a cobrança do aluno pela plataforma (desligada pela decisão do CPF, com o caminho
-construído e verificado) e a venda do Método ARKE (adiada para depois do lançamento). O sistema não
-é o gargalo.</p>
+<p>Do que sobra, a venda do Método ARKE é decisão comercial já tomada — adiada para depois do
+lançamento. A cobrança do aluno <strong>não</strong> é: ela é obrigatória por desenho, o caminho está
+construído e verificado no sandbox, e o CPF passou a ser exigido em todos os pontos de entrada em
+22/09/2026. O que falta ali é dado de teste, não produto.</p>
+<p>O sistema não é o gargalo.</p>
 
 <div class="rodape">
   Varredura executada contra o projeto <code>lzyxqjibkfblrrjboylp</code> (ArkeFit PROD BR, sa-east-1) em
