@@ -23,6 +23,7 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { AdminLayout } from "@/components/layout/AdminLayout";
 import { SuperAdminLayout } from "@/components/layout/SuperAdminLayout";
 import { AlunoBillingGate } from "@/components/app/AlunoBillingGate";
+import { AlunoSituacaoGate } from "@/components/app/AlunoSituacaoGate";
 import { OrganizacaoBillingGate } from "@/components/admin/OrganizacaoBillingGate";
 
 // Aluno pages
@@ -207,7 +208,9 @@ const App = () => (
                   <ProtectedRoute>
                     <AlunoOnboardingGate>
                       <AlunoBillingGate>
-                        <AppLayout />
+                        <AlunoSituacaoGate>
+                          <AppLayout />
+                        </AlunoSituacaoGate>
                       </AlunoBillingGate>
                     </AlunoOnboardingGate>
                   </ProtectedRoute>

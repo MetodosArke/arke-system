@@ -17,8 +17,6 @@ import {
   Pause,
   RotateCcw,
   MessageCircle,
-  Lock,
-  Sparkles,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { RegistrarAlertaCard } from "@/components/aluno/RegistrarAlertaCard";
@@ -55,7 +53,7 @@ interface DetalheExecucao {
 const HOJE = new Date().toISOString().slice(0, 10);
 
 export default function AlunoTreinos() {
-  const { alunoId, organization, metodoArkeAtivo } = useAuth();
+  const { alunoId, organization } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [videoAberto, setVideoAberto] = useState<{ url: string; imagem: string | null; nome: string } | null>(null);
@@ -355,19 +353,10 @@ export default function AlunoTreinos() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          {metodoArkeAtivo && alunoId && organization ? (
+          {/* Chat com os professores da academia: parte do plano Free. */}
+          {alunoId && organization ? (
             <ChatPanel organizationId={organization.id} alunoId={alunoId} viewerType="aluno" type="treino" />
-          ) : (
-            <div className="flex flex-col items-center gap-2 py-6 text-center">
-              <Lock className="h-6 w-6 text-muted-foreground/50" />
-              <p className="text-sm font-medium flex items-center gap-1.5">
-                <Sparkles className="h-3.5 w-3.5 text-primary" /> Exclusivo do Método ARKE
-              </p>
-              <p className="text-xs text-muted-foreground max-w-xs">
-                Fale direto com seu treinador pelo chat quando aderir ao Método ARKE. Pergunte à sua academia como aderir.
-              </p>
-            </div>
-          )}
+          ) : null}
         </CardContent>
       </Card>
 

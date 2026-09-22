@@ -40,10 +40,11 @@ describe("TrialMetodoArke", () => {
 
     await waitFor(() => expect(rpc).toHaveBeenCalled());
     // Sem nível anterior, o padrão é o mais barato — começar pelo Elite
-    // ativaria nutrição e acolhimento que a academia pode não querer testar.
+    // ativaria o acolhimento expandido, que pode não ser o que se quer testar.
+    // O Essencial não existe mais: virou o plano Free.
     expect(rpc).toHaveBeenCalledWith("iniciar_trial_metodo_arke", {
       _aluno_id: "aluno-1",
-      _nivel: "essencial",
+      _nivel: "integrado",
     });
   });
 

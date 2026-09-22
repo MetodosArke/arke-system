@@ -5,7 +5,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { UtensilsCrossed, Flame, MessageCircle, Lock, Sparkles, CalendarDays, ChevronDown, Repeat } from "lucide-react";
+import { UtensilsCrossed, Flame, MessageCircle, CalendarDays, ChevronDown, Repeat } from "lucide-react";
+import { MetodoArkeEmBreve } from "@/components/aluno/MetodoArkeEmBreve";
+import { temNutricaoNoPlano } from "@/lib/planoAluno";
 import { useToast } from "@/hooks/use-toast";
 import { ChatPanel } from "@/components/chat/ChatPanel";
 import ControleDieta from "@/components/aluno/ControleDieta";
@@ -31,18 +33,9 @@ interface RefeicaoSnapshot {
 const HOJE = new Date().toISOString().slice(0, 10);
 
 export default function AlunoDieta() {
-  const { alunoId, organization, metodoArkeAtivo } = useAuth();
+  const { alunoId, organization, planoAluno } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-
-  const { data: aluno } = useQuery({
-    queryKey: ["aluno-nivel", alunoId],
-    queryFn: async () => {
-      const { data } = await supabase.from("alunos").select("nivel_atacado").eq("id", alunoId!).maybeSingle();
-      return data;
-    },
-    enabled: !!alunoId,
-  });
 
   const { data: dieta, isLoading } = useQuery({
     queryKey: ["aluno-dieta-atual", alunoId],
@@ -57,7 +50,7 @@ export default function AlunoDieta() {
         .maybeSingle();
       return data;
     },
-    enabled: !!alunoId && (aluno?.nivel_atacado === "integrado" || aluno?.nivel_atacado === "elite"),
+    enabled: !!alunoId,
   });
 
   const { data: habitoHoje } = useQuery({
@@ -140,23 +133,10 @@ export default function AlunoDieta() {
   );
   const temMacros = refeicoes.some((r) => r.calorias_kcal || r.proteinas_g || r.carboidratos_g || r.gorduras_g);
 
-  if (aluno && aluno.nivel_atacado !== "integrado" && aluno.nivel_atacado !== "elite") {
-    return (
-      <div className="max-w-2xl mx-auto">
-        <Card>
-          <CardContent className="py-8 text-center space-y-2">
-            <UtensilsCrossed className="h-8 w-8 text-muted-foreground/40 mx-auto" />
-            <p className="text-sm font-medium">
-              {aluno.nivel_atacado === "essencial" ? "Nutrição não incluída no seu plano" : "Acompanhamento nutricional do Método ARKE"}
-            </p>
-            <p className="text-xs text-muted-foreground">
-              Fale com sua academia sobre o Método ARKE nos níveis Integrado ou Elite para ter acesso ao acompanhamento nutricional.
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
+  // A dieta é do plano Free: vem da nutricionista da academia. Antes a tela
+  // inteira ficava trancada fora do Integrado e do Elite; do Método é só o
+  // chat com a nutricionista, lá embaixo.
+
 
   return (
     <div className="space-y-4 max-w-2xl lg:max-w-4xl mx-auto">
@@ -303,18 +283,10 @@ export default function AlunoDieta() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          {metodoArkeAtivo && alunoId && organization ? (
+          {temNutricaoNoPlano(planoAluno) && alunoId && organization ? (
             <ChatPanel organizationId={organization.id} alunoId={alunoId} viewerType="aluno" type="nutri" />
           ) : (
-            <div className="flex flex-col items-center gap-2 py-6 text-center">
-              <Lock className="h-6 w-6 text-muted-foreground/50" />
-              <p className="text-sm font-medium flex items-center gap-1.5">
-                <Sparkles className="h-3.5 w-3.5 text-primary" /> Exclusivo do Método ARKE
-              </p>
-              <p className="text-xs text-muted-foreground max-w-xs">
-                Fale direto com sua nutricionista pelo chat quando aderir ao Método ARKE. Pergunte à sua academia como aderir.
-              </p>
-            </div>
+            <MetodoArkeEmBreve recurso="O chat com a nutricionista" />
           )}
         </CardContent>
       </Card>

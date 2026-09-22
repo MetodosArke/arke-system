@@ -34,13 +34,13 @@ function slugify(valor: string) {
     .replace(/-+/g, "-");
 }
 
-const NIVEL_LABEL: Record<string, string> = { essencial: "Essencial", integrado: "Integrado", elite: "Elite" };
+const NIVEL_LABEL: Record<string, string> = { essencial: "Essencial (antigo)", integrado: "Integrado", elite: "Elite" };
 const ASSINATURA_LABEL: Record<string, string> = { ativa: "Ativa", atrasada: "Atrasada", cancelada: "Cancelada" };
 
 type Nivel = Enums<"nivel_atacado">;
 
+// O Essencial virou o plano Free (sem custo de atacado): a academia paga só o plano B2B.
 const NIVEIS: { value: Nivel; label: string }[] = [
-  { value: "essencial", label: "Essencial" },
   { value: "integrado", label: "Integrado" },
   { value: "elite", label: "Elite" },
 ];

@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { mensagemDeErroEdge } from "@/lib/erroEdge";
 import { useAuth } from "@/contexts/AuthContext";
 import { erroCpf } from "@/lib/cpf";
+import { situacaoDoTexto } from "@/lib/planoAluno";
 import { processarComLimite, CONCORRENCIA_IMPORTACAO } from "@/lib/lote";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -28,7 +29,7 @@ const CAMPOS_DESTINO = [
   { value: "email", label: "E-mail" },
   { value: "telefone", label: "Telefone" },
   { value: "cpf", label: "CPF" },
-  { value: "nivel_atacado", label: "Nível do Método ARKE (opcional — essencial/integrado/elite)" },
+  { value: "situacao", label: "Situação na academia (opcional — em dia, inadimplente, pausado)" },
   // Histórico de avaliação física — opcionais: preenchidos só se a academia
   // de origem exportar esses dados (ex.: migrando de NextFit/Pacto). Vão
   // direto para avaliacoes_fisicas, criando o primeiro registro do aluno
@@ -102,7 +103,7 @@ const REGRAS_AUTO_MAPA: { campo: CampoDestino; teste: (t: string) => boolean }[]
   { campo: "email", teste: (t) => /e-?mail/.test(t) },
   { campo: "telefone", teste: (t) => /telefone|celular|\bfone\b|\bphone\b|whatsapp/.test(t) },
   { campo: "cpf", teste: (t) => /\bcpf\b/.test(t) },
-  { campo: "nivel_atacado", teste: (t) => /\bplano\b|\bnivel\b|\blevel\b|\bplan\b/.test(t) },
+  { campo: "situacao", teste: (t) => /situacao|\bstatus\b|adimpl|inadimpl/.test(t) },
 
   { campo: "perim_braco", teste: (t) => temPerimetria(t) && /\bbraco\b|\barm\b/.test(t) && !/antebraco|forearm/.test(t) },
   { campo: "perim_antebraco", teste: (t) => temPerimetria(t) && /antebraco|forearm/.test(t) },
@@ -318,13 +319,18 @@ export default function AdminImportarAlunos() {
    * reprocessadas.
    */
   const processarRegistro = async (registro: Record<string, string>) => {
-    const nivelBruto = registro.nivel_atacado?.trim().toLowerCase() ?? "";
-    const nivel = ["essencial", "integrado", "elite"].includes(nivelBruto)
-      ? (nivelBruto as "essencial" | "integrado" | "elite")
-      : undefined;
-
     if (!registro.full_name || !registro.email) {
       throw new Error("Nome e e-mail são obrigatórios.");
+    }
+
+    // Todo aluno importado entra no plano Free; a situação diz se ele entra
+    // no app. Texto que não dá para interpretar falha a linha em vez de
+    // virar "em dia" por engano — e inativo ou cancelado não é importado.
+    const situacao = situacaoDoTexto(registro.situacao);
+    if (!situacao) {
+      throw new Error(
+        `Situação "${registro.situacao}" não reconhecida. Use em dia, inadimplente ou pausado (inativos e cancelados não são importados).`
+      );
     }
 
     // Barrado antes da chamada de rede: numa planilha de sistema antigo o
@@ -341,7 +347,7 @@ export default function AdminImportarAlunos() {
         telefone: registro.telefone || undefined,
         cpf: registro.cpf || undefined,
         papel: "aluno",
-        nivel_atacado: nivel,
+        situacao_academia: situacao,
       },
     });
     if (error) throw new Error(await mensagemDeErroEdge(error, "Não foi possível importar esta linha."));
@@ -361,8 +367,15 @@ export default function AdminImportarAlunos() {
     // Ficha genérica de transição: aluno migrado de outro sistema já vê um
     // treino no app desde o primeiro dia. Falha aqui não invalida a
     // importação, mas precisa aparecer.
-    if (data?.user_id) {
-      const { data: alunoRow } = await supabase.from("alunos").select("id").eq("user_id", data.user_id).maybeSingle();
+    if (data?.user_id && organization?.id) {
+      // Organização fixada: quem já é aluno de outra academia tem duas linhas,
+      // e o Admin ARKE enxerga as duas — o .maybeSingle() falharia calado.
+      const { data: alunoRow } = await supabase
+        .from("alunos")
+        .select("id")
+        .eq("user_id", data.user_id)
+        .eq("organization_id", organization.id)
+        .maybeSingle();
       if (alunoRow) {
         const { data: resultadoTreino, error: erroTreino } = await supabase.functions.invoke<{
           published?: boolean;

@@ -23,6 +23,8 @@ import { HistoricoAluno } from "@/components/admin/HistoricoAluno";
 import { AcessoCatraca } from "@/components/admin/AcessoCatraca";
 import { CartaoAssinatura } from "@/components/pagamento/CartaoAssinatura";
 import { useToast } from "@/hooks/use-toast";
+import { SituacaoAluno } from "@/components/admin/SituacaoAluno";
+import { planoDoAluno, ROTULO_PLANO, temNutricaoNoPlano } from "@/lib/planoAluno";
 
 const PERIODICIDADE_LABEL: Record<string, string> = {
   mensal: "Mensal",
@@ -37,12 +39,6 @@ const MENSALIDADE_STATUS_LABEL: Record<string, string> = {
   atrasado: "Atrasado",
   estornado: "Estornado",
   cancelado: "Cancelado",
-};
-
-const NIVEL_LABEL: Record<string, string> = {
-  essencial: "Essencial",
-  integrado: "Integrado",
-  elite: "Elite",
 };
 
 const FASE_LABEL: Record<string, string> = {
@@ -114,7 +110,7 @@ export function AlunoPerfilSheet({
       const { data: aluno, error: alunoError } = await supabase
         .from("alunos")
         .select(
-          "id, user_id, organization_id, nivel_atacado, fase_jornada, metodo_arke_status, objetivo, data_inicio, data_nascimento, peso_kg, altura_cm, observacoes, anonimizado_em, identificador_catraca, meta_agua_ml, meta_semanal_dias"
+          "id, user_id, organization_id, nivel_atacado, fase_jornada, metodo_arke_status, situacao_academia, objetivo, data_inicio, data_nascimento, peso_kg, altura_cm, observacoes, anonimizado_em, identificador_catraca, meta_agua_ml, meta_semanal_dias"
         )
         .eq("id", alunoId!)
         .single();
@@ -262,6 +258,7 @@ export function AlunoPerfilSheet({
     onError: (error: Error) => toast({ title: "Erro ao matricular", description: error.message, variant: "destructive" }),
   });
 
+  const plano = perfil ? planoDoAluno(perfil.aluno) : "free";
   const idade = perfil?.aluno.data_nascimento ? calcularIdade(perfil.aluno.data_nascimento) : null;
   const exerciciosTreinoAtivo =
     (perfil?.treinoAtivo?.snapshot_conteudo as unknown as ExercicioSnapshotImpressao[] | null) ?? [];
@@ -286,14 +283,15 @@ export function AlunoPerfilSheet({
                 )}
               </SheetTitle>
               <div className="flex flex-wrap gap-1.5">
-                {perfil.aluno.nivel_atacado ? (
-                  <Badge variant="secondary">{NIVEL_LABEL[perfil.aluno.nivel_atacado] ?? perfil.aluno.nivel_atacado}</Badge>
-                ) : (
-                  <Badge variant="outline" className="text-muted-foreground">
-                    Sem método
-                  </Badge>
+                <Badge variant={plano === "free" ? "outline" : "secondary"}>{ROTULO_PLANO[plano]}</Badge>
+                {plano !== "free" && (
+                  <Badge variant="outline">{FASE_LABEL[perfil.aluno.fase_jornada] ?? perfil.aluno.fase_jornada}</Badge>
                 )}
-                <Badge variant="outline">{FASE_LABEL[perfil.aluno.fase_jornada] ?? perfil.aluno.fase_jornada}</Badge>
+                <SituacaoAluno
+                  alunoId={perfil.aluno.id}
+                  situacao={perfil.aluno.situacao_academia}
+                  desabilitado={!!perfil.aluno.anonimizado_em}
+                />
                 {perfil.assinatura?.status && (
                   <Badge variant={perfil.assinatura.status === "ativa" ? "default" : "outline"}>
                     {ASSINATURA_LABEL[perfil.assinatura.status] ?? perfil.assinatura.status}
@@ -318,8 +316,6 @@ export function AlunoPerfilSheet({
                 size="sm"
                 variant="outline"
                 className="flex-1"
-                disabled={perfil.aluno.metodo_arke_status !== "ativo"}
-                title={perfil.aluno.metodo_arke_status !== "ativo" ? "Aluno ainda não aderiu ao Método ARKE" : undefined}
                 onClick={() => setChatAberto("treino")}
               >
                 <MessageCircle className="h-4 w-4 mr-1.5" />
@@ -329,17 +325,8 @@ export function AlunoPerfilSheet({
                 size="sm"
                 variant="outline"
                 className="flex-1"
-                disabled={
-                  perfil.aluno.metodo_arke_status !== "ativo" ||
-                  (perfil.aluno.nivel_atacado !== "integrado" && perfil.aluno.nivel_atacado !== "elite")
-                }
-                title={
-                  perfil.aluno.metodo_arke_status !== "ativo"
-                    ? "Aluno ainda não aderiu ao Método ARKE"
-                    : perfil.aluno.nivel_atacado !== "integrado" && perfil.aluno.nivel_atacado !== "elite"
-                      ? "Só os níveis Integrado e Elite incluem nutrição"
-                      : undefined
-                }
+                disabled={!temNutricaoNoPlano(plano)}
+                title={temNutricaoNoPlano(plano) ? undefined : "O chat com a nutricionista é do Método ARKE"}
                 onClick={() => setChatAberto("nutri")}
               >
                 <MessageCircle className="h-4 w-4 mr-1.5" />
@@ -442,9 +429,12 @@ export function AlunoPerfilSheet({
                 </p>
               </Bloco>
 
-              <Bloco titulo="Fase da Jornada" icon={Route}>
-                <FaseJornada alunoId={perfil.aluno.id} faseAtual={perfil.aluno.fase_jornada} />
-              </Bloco>
+              {/* Fases da jornada são do Método ARKE; no Free não há fase a mover. */}
+              {plano !== "free" && (
+                <Bloco titulo="Fase da Jornada" icon={Route}>
+                  <FaseJornada alunoId={perfil.aluno.id} faseAtual={perfil.aluno.fase_jornada} />
+                </Bloco>
+              )}
 
               <Bloco titulo="Método ARKE" icon={FlaskConical}>
                 {/* Trial é atribuído só pelo Super Admin (Visão Master); aqui a academia só vê. */}

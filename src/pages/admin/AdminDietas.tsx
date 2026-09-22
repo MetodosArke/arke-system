@@ -243,9 +243,9 @@ export default function AdminDietas() {
     queryFn: async () => {
       const { data: alunosData, error } = await supabase
         .from("alunos")
-        .select("id, user_id, nivel_atacado")
+        .select("id, user_id")
         .eq("organization_id", organization!.id)
-        .in("nivel_atacado", ["integrado", "elite"]);
+        .is("anonimizado_em", null);
       if (error) throw error;
       const userIds = alunosData.map((a) => a.user_id);
       const { data: profiles } = userIds.length
@@ -497,7 +497,7 @@ export default function AdminDietas() {
         <h1 className="text-xl font-bold">Dietas</h1>
       </div>
       <p className="text-xs text-muted-foreground">
-        Disponível apenas para alunos nos níveis Integrado ou Elite (o nível Essencial não inclui nutrição).
+        Para todos os alunos: no plano Free a dieta vem da nutricionista da academia. O chat com a nutricionista é do Método ARKE.
       </p>
 
       <Tabs value={abaAtiva} onValueChange={setAbaAtiva}>

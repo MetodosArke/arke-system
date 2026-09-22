@@ -14,7 +14,9 @@ const jsonResponse = (body: unknown, status = 200) =>
 
 type Papel = "aluno";
 const PAPEIS_VALIDOS = new Set<Papel>(["aluno"]);
-const NIVEIS_VALIDOS = new Set(["essencial", "integrado", "elite"]);
+// O Essencial virou o plano Free (22/09/2026): não é mais nível do Método.
+const NIVEIS_VALIDOS = new Set(["integrado", "elite"]);
+const SITUACOES_VALIDAS = new Set(["em_dia", "inadimplente", "pausado"]);
 
 type ConvidarMembroPayload = {
   email: string;
@@ -22,7 +24,9 @@ type ConvidarMembroPayload = {
   telefone?: string;
   cpf?: string;
   papel: Papel;
-  nivel_atacado?: "essencial" | "integrado" | "elite"; // opcional — sem adesão ainda, fica null quando omitido
+  nivel_atacado?: "integrado" | "elite"; // opcional — sem adesão ainda, fica null quando omitido
+  // Situação do aluno na academia (plano Free). Vem da importação; sem valor, em dia.
+  situacao_academia?: "em_dia" | "inadimplente" | "pausado";
 };
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -91,6 +95,10 @@ Deno.serve(async (req: Request) => {
     // valor válido, fica sem nível nenhum (null) até o staff registrar a
     // adesão de verdade (é aí que o nível é escolhido).
     const nivelAtacado = payload.nivel_atacado && NIVEIS_VALIDOS.has(payload.nivel_atacado) ? payload.nivel_atacado : null;
+    if (payload.situacao_academia && !SITUACOES_VALIDAS.has(payload.situacao_academia)) {
+      return jsonResponse({ error: "Situação inválida. Use em dia, inadimplente ou pausado." }, 400);
+    }
+    const situacaoAcademia = payload.situacao_academia ?? "em_dia";
 
     // CPF é opcional, mas se vier tem que ser real: ele é a chave de
     // leitura da catraca e a chave de deduplicação da base. Recusar aqui
@@ -210,7 +218,12 @@ Deno.serve(async (req: Request) => {
     if (papel === "aluno") {
       const { error: alunoError } = await adminClient
         .from("alunos")
-        .insert({ organization_id: organizationId, user_id: newUserId, nivel_atacado: nivelAtacado });
+        .insert({
+          organization_id: organizationId,
+          user_id: newUserId,
+          nivel_atacado: nivelAtacado,
+          situacao_academia: situacaoAcademia,
+        });
       if (alunoError) {
         console.error("Error inserting aluno", alunoError);
         await adminClient.from("organization_members").delete().eq("user_id", newUserId);
