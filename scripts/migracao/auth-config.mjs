@@ -14,7 +14,7 @@
 // Uso:  ARKE_CHAVES=... node scripts/migracao/auth-config.mjs [--aplicar]
 
 import { readFileSync, existsSync } from "node:fs";
-import { randomBytes } from "node:crypto";
+import { randomBytes, createHmac } from "node:crypto";
 
 const ORIGEM = process.env.ARKE_ORIGEM ?? "jbkrxrfdrmrkyldrrdpq";
 const DESTINO = process.env.ARKE_DESTINO ?? "lzyxqjibkfblrrjboylp";
@@ -95,3 +95,44 @@ console.log(`  hook ligado:  ${conferencia.hook_send_email_enabled}`);
 console.log(`  hook aponta:  ${conferencia.hook_send_email_uri}`);
 console.log(`  site_url:     ${conferencia.site_url}`);
 console.log(`  senha mínima: ${conferencia.password_min_length}`);
+
+// Prova que os dois lados do segredo batem, sem enviar e-mail nenhum.
+//
+// A função valida a assinatura ANTES de olhar o tipo de ação, e responde 200
+// sem enviar quando o tipo é desconhecido. Então um payload assinado com um
+// tipo inventado separa exatamente os dois casos: 401 é segredo diferente,
+// 200 é assinatura aceita. Sem isso, a única prova seria o primeiro e-mail de
+// verdade — que é justamente o que não se quer descobrir quebrado.
+function assinar(segredo, id, quando, corpo) {
+  const chave = Buffer.from(segredo.replace(/^v1,whsec_/, ""), "base64");
+  const assinatura = createHmac("sha256", chave)
+    .update(`${id}.${quando}.${corpo}`)
+    .digest("base64");
+  return `v1,${assinatura}`;
+}
+
+const corpo = JSON.stringify({
+  user: { email: "verificacao@exemplo.invalido", user_metadata: {} },
+  email_data: { email_action_type: "__verificacao_arke__" },
+});
+const id = `msg_${randomBytes(8).toString("hex")}`;
+const quando = Math.floor(Date.now() / 1000).toString();
+
+const teste = await fetch(conferencia.hook_send_email_uri, {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json",
+    "webhook-id": id,
+    "webhook-timestamp": quando,
+    "webhook-signature": assinar(segredoHook, id, quando, corpo),
+  },
+  body: corpo,
+});
+
+console.log(
+  teste.status === 200
+    ? "  assinatura:   aceita pela função — o segredo bate dos dois lados (nenhum e-mail enviado)"
+    : teste.status === 401
+      ? "  assinatura:   RECUSADA (401) — o segredo NÃO bate entre o Auth e a função"
+      : `  assinatura:   resposta inesperada (HTTP ${teste.status}); conferir a função`,
+);

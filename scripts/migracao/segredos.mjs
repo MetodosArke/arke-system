@@ -19,8 +19,19 @@
 import { readFileSync, existsSync } from "node:fs";
 import { randomBytes, createECDH } from "node:crypto";
 
+const ORIGEM = process.env.ARKE_ORIGEM ?? "jbkrxrfdrmrkyldrrdpq";
 const DESTINO = process.env.ARKE_DESTINO ?? "lzyxqjibkfblrrjboylp";
 const aplicar = process.argv.includes("--aplicar");
+
+// Grava também no projeto de ORIGEM o token do webhook do Asaas.
+//
+// Por que existe: gerar o token no painel do Asaas troca o que ele passa a
+// enviar no cabeçalho `asaas-access-token`. Enquanto a URL do webhook ainda
+// apontar para o projeto antigo, é ELE quem recebe — com o token novo, que não
+// bate com o secret de lá, e todo evento é recusado em silêncio. Sincronizar
+// os dois tira a ordem do caminho crítico: qualquer um dos projetos que esteja
+// recebendo aceita, antes e depois da virada.
+const tambemNaOrigem = process.argv.includes("--tambem-origem");
 
 const linhasDoArquivo = (() => {
   const a = process.env.ARKE_CHAVES;
@@ -71,13 +82,26 @@ function vapidPrivada() {
 // send-email tira o prefixo antes de validar a assinatura.
 const segredoDeHook = () => `v1,whsec_${randomBytes(24).toString("base64")}`;
 
+// `gerado: true` marca o que nasce aqui — e, por isso, o que NÃO pode ser
+// regerado numa segunda execução.
+//
+// A armadilha, vivida em 22/09/2026: rodar o script de novo trocava o
+// SEND_EMAIL_HOOK_SECRET, que precisa ser idêntico ao gravado na configuração
+// de Auth pelo auth-config.mjs. Nada falha na hora; falha dias depois, quando
+// um aluno pedir a senha e o e-mail não chegar. Vale igual para a chave VAPID
+// (trocá-la derruba as notificações já ativadas) e para o CRON_SECRET.
 const SEGREDOS = [
   { nome: "ASAAS_API_KEY", valor: () => porPrefixo("$aact_prod_"), fonte: "arquivo de chaves" },
   { nome: "RESEND_API_KEY", valor: () => porPrefixo("re_"), fonte: "arquivo de chaves" },
   { nome: "GEMINI_API_KEY", valor: () => process.env.GEMINI_API_KEY, fonte: "ambiente da máquina" },
-  { nome: "CRON_SECRET", valor: hex32, fonte: "gerado agora" },
-  { nome: "VAPID_PRIVATE_KEY", valor: vapidPrivada, fonte: "gerado agora (a pública é derivada)" },
-  { nome: "SEND_EMAIL_HOOK_SECRET", valor: segredoDeHook, fonte: "gerado agora" },
+  { nome: "CRON_SECRET", valor: hex32, fonte: "gerado agora", gerado: true },
+  {
+    nome: "VAPID_PRIVATE_KEY",
+    valor: vapidPrivada,
+    fonte: "gerado agora (a pública é derivada)",
+    gerado: true,
+  },
+  { nome: "SEND_EMAIL_HOOK_SECRET", valor: segredoDeHook, fonte: "gerado agora", gerado: true },
   {
     nome: "ASAAS_WEBHOOK_SECRET",
     valor: () => porRotulo("ASAAS_WEBHOOK_SECRET"),
@@ -102,34 +126,67 @@ const ONDE_BUSCAR = {
   TURNSTILE_SECRET_KEY: "copiar do painel da Cloudflare (Turnstile → o widget do arkefit.com.br)",
 };
 
+// Quais já existem no destino. A API devolve nome e SHA-256; o nome basta.
+const existentes = new Set(
+  (
+    await (
+      await fetch(`https://api.supabase.com/v1/projects/${DESTINO}/secrets`, {
+        headers: { Authorization: `Bearer ${TOKEN}` },
+      })
+    ).json()
+  ).map((s) => s.name),
+);
+
 const prontos = [];
 const faltando = [];
+const preservados = [];
 for (const s of SEGREDOS) {
+  if (s.gerado && existentes.has(s.nome)) {
+    preservados.push(s);
+    continue;
+  }
   const v = s.valor();
   if (v && String(v).length > 0) prontos.push({ ...s, v: String(v) });
   else faltando.push(s);
 }
 
 console.log(`destino ${DESTINO}\n`);
-for (const s of prontos) console.log(`  pronto   ${s.nome.padEnd(24)} ${s.fonte}`);
+for (const s of prontos) console.log(`  grava    ${s.nome.padEnd(24)} ${s.fonte}`);
+for (const s of preservados) console.log(`  mantém   ${s.nome.padEnd(24)} já existe; regerar quebraria o que depende dele`);
 for (const s of faltando) console.log(`  SEM FONTE ${s.nome.padEnd(23)} ${s.fonte}`);
 
-if (!aplicar) {
-  console.log("\nprévia: nada foi gravado. Rode com --aplicar.");
-  process.exit(0);
+// `process.exit()` com requisição ainda em andamento derruba o Node com uma
+// asserção do libuv no Windows — barulho que parece erro e não é. Aqui o fluxo
+// só desvia, e o processo termina sozinho.
+const vaiGravar = aplicar && prontos.length > 0;
+if (!prontos.length) console.log("\nnada a gravar.");
+else if (!aplicar) console.log("\nprévia: nada foi gravado. Rode com --aplicar.");
+
+async function gravar(projeto, lista) {
+  const r = await fetch(`https://api.supabase.com/v1/projects/${projeto}/secrets`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${TOKEN}`, "Content-Type": "application/json" },
+    body: JSON.stringify(lista.map((s) => ({ name: s.nome, value: s.v }))),
+  });
+  // A resposta de erro pode ecoar o corpo enviado, que tem os valores; por isso
+  // só o status é impresso.
+  if (!r.ok) throw new Error(`falhou ao gravar em ${projeto}: HTTP ${r.status}`);
 }
 
-const r = await fetch(`https://api.supabase.com/v1/projects/${DESTINO}/secrets`, {
-  method: "POST",
-  headers: { Authorization: `Bearer ${TOKEN}`, "Content-Type": "application/json" },
-  body: JSON.stringify(prontos.map((s) => ({ name: s.nome, value: s.v }))),
-});
-if (!r.ok) {
-  // A resposta de erro pode ecoar o corpo enviado, que tem os valores.
-  console.error(`\nfalhou ao gravar: HTTP ${r.status}`);
-  process.exit(1);
+if (vaiGravar) {
+  await gravar(DESTINO, prontos);
+  console.log(`\n${prontos.length} secrets gravados em ${DESTINO}.`);
+
+  if (tambemNaOrigem) {
+    const webhook = prontos.filter((s) => s.nome === "ASAAS_WEBHOOK_SECRET");
+    if (webhook.length) {
+      await gravar(ORIGEM, webhook);
+      console.log(`ASAAS_WEBHOOK_SECRET sincronizado em ${ORIGEM} (projeto antigo).`);
+    } else {
+      console.log("nada a sincronizar na origem: ASAAS_WEBHOOK_SECRET não foi encontrado.");
+    }
+  }
 }
-console.log(`\n${prontos.length} secrets gravados.`);
 
 if (faltando.length) {
   console.log("\nfaltam:");
