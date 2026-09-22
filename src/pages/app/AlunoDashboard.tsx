@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -27,6 +27,8 @@ import { RegistrarAlertaCard } from "@/components/aluno/RegistrarAlertaCard";
 import PontuacaoEngajamento from "@/components/aluno/PontuacaoEngajamento";
 import { MetodoArkeEmBreve } from "@/components/aluno/MetodoArkeEmBreve";
 import { DocumentosMatricula } from "@/components/aluno/DocumentosMatricula";
+import { ComunicadosAluno } from "@/components/aluno/ComunicadosAluno";
+import { CHAVE_CHECKIN_PENDENTE } from "@/lib/checkin";
 import { definirProximaAcao } from "@/lib/proximaAcao";
 import type { Enums } from "@/integrations/supabase/types";
 
@@ -69,6 +71,19 @@ export default function AlunoDashboard() {
   const { alunoId, organization, faseJornada, planoAluno } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
+
+  // Check-in por QR feito sem sessão: o código ficou guardado na aba até o
+  // login; retoma aqui, na primeira tela depois de entrar.
+  useEffect(() => {
+    let pendente: string | null = null;
+    try {
+      pendente = sessionStorage.getItem(CHAVE_CHECKIN_PENDENTE);
+      if (pendente) sessionStorage.removeItem(CHAVE_CHECKIN_PENDENTE);
+    } catch {
+      pendente = null;
+    }
+    if (pendente) navigate(`/checkin${pendente}`, { replace: true });
+  }, [navigate]);
   const queryClient = useQueryClient();
   const [askOpen, setAskOpen] = useState(false);
   const [motivoPendente, setMotivoPendente] = useState<CheckinStatus | null>(null);
@@ -449,6 +464,9 @@ export default function AlunoDashboard() {
       <div id="registrar-alerta" className="scroll-mt-4">
         <RegistrarAlertaCard />
       </div>
+
+      {/* Avisos da academia ainda não lidos. */}
+      <ComunicadosAluno />
 
       {/* Pendências da matrícula (contrato, PAR-Q, atestado): some quando não há nada a fazer. */}
       <DocumentosMatricula />
