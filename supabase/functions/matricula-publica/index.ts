@@ -236,7 +236,7 @@ Deno.serve(async (req: Request) => {
 
     const { data: org, error: orgError } = await admin
       .from("organizations")
-      .select("id, status")
+      .select("id, status, onboarding_completed")
       .eq("slug", slug)
       .maybeSingle();
 
@@ -246,6 +246,13 @@ Deno.serve(async (req: Request) => {
     }
     if (!org || !["ativo", "trial"].includes(org.status)) {
       return jsonResponse({ error: "Academia não encontrada ou não está aceitando matrículas no momento." }, 404);
+    }
+    // D5: aluno no app só depois do onboarding da academia concluído.
+    if (!org.onboarding_completed && org.status !== "trial") {
+      return jsonResponse(
+        { error: "A academia ainda está finalizando a configuração do app. As matrículas online abrem em breve." },
+        409
+      );
     }
 
     // Teto de volume por academia, que independe de quantos IPs o atacante

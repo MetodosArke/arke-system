@@ -41,6 +41,7 @@ describe("situacaoDoTexto", () => {
     ["Inadimplente", "inadimplente"],
     ["Atrasado", "inadimplente"],
     ["Em débito", "inadimplente"],
+    ["Bloqueado", "inadimplente"],
     ["Pausado", "pausado"],
     ["Trancado", "pausado"],
     ["Congelado", "pausado"],

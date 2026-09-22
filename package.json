@@ -13,7 +13,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "e2e": "playwright test",
-    "sandbox:cartao": "node scripts/asaas-sandbox-cartao.mjs"
+    "sandbox:cartao": "node scripts/asaas-sandbox-cartao.mjs",
+    "sandbox:conta": "node scripts/asaas-sandbox-conta.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",

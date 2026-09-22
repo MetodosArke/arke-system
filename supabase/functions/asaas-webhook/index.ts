@@ -175,9 +175,55 @@ Deno.serve(async (req: Request) => {
               data_pagamento: novoStatus === "confirmado" ? new Date().toISOString().slice(0, 10) : null,
             })
             .eq("id", cobrancaB2bExistente.id);
+        } else if (EVENTOS_EMITIDOS.has(tipoEvento)) {
+          // Emissão fora de ordem (chegou depois do status): atualiza
+          // vencimento e fatura, nunca o status — mesma regra do `soEmissao`
+          // do Método ARKE, pelo mesmo motivo.
+          await admin
+            .from("cobrancas_b2b")
+            .update({ vencimento: vencimento ?? undefined, invoice_url: invoiceUrl ?? undefined })
+            .eq("id", cobrancaB2bExistente.id);
         }
-        await concluir(novoStatus ? "cobranca_b2b_atualizada" : "evento_ignorado");
+        await concluir(novoStatus ? "cobranca_b2b_atualizada" : EVENTOS_EMITIDOS.has(tipoEvento) ? "cobranca_b2b_emitida" : "evento_ignorado");
         return jsonResponse({ ok: true });
+      }
+
+      // Mensalidade B2B recorrente (asaas-assinatura-b2b): as cobranças nascem
+      // no Asaas, não aqui, então a primeira notícia de cada uma é o webhook.
+      // A emissão vira linha `pendente` com o vencimento do Asaas — é o que
+      // permite a organizacao_inadimplente_b2b() enxergar a cobrança vencida
+      // mesmo que o PAYMENT_OVERDUE se perca.
+      const subscriptionB2b = payment.subscription ? String(payment.subscription) : null;
+      if (subscriptionB2b) {
+        const { data: orgB2b } = await admin
+          .from("organizations")
+          .select("id")
+          .eq("asaas_subscription_id_b2b", subscriptionB2b)
+          .maybeSingle();
+        if (orgB2b) {
+          const statusB2b = novoStatus ?? (EVENTOS_EMITIDOS.has(tipoEvento) ? "pendente" : null);
+          if (statusB2b) {
+            const tipo = String(payment.billingType ?? "UNDEFINED");
+            await admin.from("cobrancas_b2b").upsert(
+              {
+                organization_id: orgB2b.id,
+                valor: Number(payment.value ?? 0),
+                descricao: payment.description ? String(payment.description) : "Mensalidade ARKE",
+                forma_pagamento: ["PIX", "CREDIT_CARD", "BOLETO"].includes(tipo) ? tipo : "UNDEFINED",
+                status: statusB2b,
+                asaas_customer_id: payment.customer ? String(payment.customer) : null,
+                asaas_payment_id: asaasPaymentId,
+                invoice_url: invoiceUrl,
+                vencimento: vencimento ?? undefined,
+                taxa_gateway: taxaGateway,
+                data_pagamento: statusB2b === "confirmado" ? new Date().toISOString().slice(0, 10) : null,
+              },
+              { onConflict: "asaas_payment_id" }
+            );
+          }
+          await concluir(statusB2b === "pendente" ? "cobranca_b2b_emitida" : statusB2b ? "cobranca_b2b_criada" : "evento_ignorado");
+          return jsonResponse({ ok: true });
+        }
       }
 
       // Mensalidade da academia (plano próprio dela, ver

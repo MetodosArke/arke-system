@@ -58,7 +58,7 @@ export function situacaoDoTexto(texto: string | null | undefined): SituacaoAcade
     .toLowerCase()
     .trim();
   if (!t) return "em_dia";
-  if (/inadimpl|atras|devedor|vencid|debito|pendente/.test(t)) return "inadimplente";
+  if (/inadimpl|atras|devedor|vencid|debito|pendente|bloque/.test(t)) return "inadimplente";
   if (/paus|tranc|congel|suspen|ferias|licenca/.test(t)) return "pausado";
   // Inativo ou cancelado não é aluno da academia: não entra, nem como "em dia".
   if (/inativ|cancel|desist|encerr/.test(t)) return null;
