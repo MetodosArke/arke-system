@@ -2605,6 +2605,72 @@ export type Database = {
           },
         ]
       }
+      leads: {
+        Row: {
+          aula_experimental_em: string | null
+          created_at: string
+          criado_por: string | null
+          email: string | null
+          etapa: string
+          id: string
+          motivo_perda: string | null
+          nome: string
+          observacao: string | null
+          organization_id: string
+          origem: string | null
+          responsavel_id: string | null
+          telefone: string | null
+          updated_at: string
+        }
+        Insert: {
+          aula_experimental_em?: string | null
+          created_at?: string
+          criado_por?: string | null
+          email?: string | null
+          etapa?: string
+          id?: string
+          motivo_perda?: string | null
+          nome: string
+          observacao?: string | null
+          organization_id: string
+          origem?: string | null
+          responsavel_id?: string | null
+          telefone?: string | null
+          updated_at?: string
+        }
+        Update: {
+          aula_experimental_em?: string | null
+          created_at?: string
+          criado_por?: string | null
+          email?: string | null
+          etapa?: string
+          id?: string
+          motivo_perda?: string | null
+          nome?: string
+          observacao?: string | null
+          organization_id?: string
+          origem?: string | null
+          responsavel_id?: string | null
+          telefone?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "leads_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "org_churn_metrics"
+            referencedColumns: ["organization_id"]
+          },
+          {
+            foreignKeyName: "leads_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       links_ativacao: {
         Row: {
           action_link: string
@@ -4854,6 +4920,10 @@ export type Database = {
         Args: { _mensalidade_id: string }
         Returns: undefined
       }
+      academia_tem_nutricionista: {
+        Args: { _organization_id: string }
+        Returns: boolean
+      }
       aluno_inadimplente_b2c: { Args: { _aluno_id: string }; Returns: boolean }
       aluno_possui_agendamento_ativo_agora: {
         Args: { _aluno_id: string }
@@ -5573,6 +5643,13 @@ export type Database = {
           ultima_execucao: string
           ultimo_erro: string
         }[]
+      }
+      situacao_permite_app: {
+        Args: {
+          _desde: string
+          _situacao: Database["public"]["Enums"]["situacao_aluno_academia"]
+        }
+        Returns: boolean
       }
       superadmin_resetar_tokens_gateway: {
         Args: { _organization_id: string }

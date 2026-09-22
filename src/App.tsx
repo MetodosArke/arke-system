@@ -48,6 +48,7 @@ const DocumentoLegal = paginaPreguicosa(() => import("@/pages/public/DocumentoLe
 const AlunoCheckin = paginaPreguicosa(() => import("@/pages/app/AlunoCheckin"));
 const AdminCheckinQr = paginaPreguicosa(() => import("@/pages/admin/AdminCheckinQr"));
 const AdminComunicados = paginaPreguicosa(() => import("@/pages/admin/AdminComunicados"));
+const AdminFunil = paginaPreguicosa(() => import("@/pages/admin/AdminFunil"));
 const AlunoDashboard = paginaPreguicosa(() => import("@/pages/app/AlunoDashboard"));
 const AlunoPerfil = paginaPreguicosa(() => import("@/pages/app/AlunoPerfil"));
 const AlunoTreinos = paginaPreguicosa(() => import("@/pages/app/AlunoTreinos"));
@@ -261,6 +262,7 @@ const App = () => (
                 <Route path="onboarding" element={<AdminOnboarding />} />
                 <Route path="checkin-qr" element={<AdminCheckinQr />} />
                 <Route path="comunicados" element={<AdminComunicados />} />
+                <Route path="funil" element={<AdminFunil />} />
                 <Route path="alunos" element={<AdminAlunos />} />
                 <Route path="alunos/importar" element={<AdminImportarAlunos />} />
                 <Route path="financeiro" element={<AdminFinanceiro />} />

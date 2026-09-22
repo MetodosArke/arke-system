@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Home, Users, UsersRound, Building2, LogOut, ChevronLeft, Menu, ClipboardList, UserCircle, BarChart3, DoorOpen, CalendarDays, Dumbbell, UtensilsCrossed, Sparkles, DollarSign, Plug, MessageCircle, Megaphone, QrCode } from "lucide-react";
+import { Home, Users, UsersRound, Building2, LogOut, ChevronLeft, Menu, ClipboardList, UserCircle, BarChart3, DoorOpen, CalendarDays, Dumbbell, UtensilsCrossed, Sparkles, DollarSign, Plug, MessageCircle, Megaphone, QrCode, Filter } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
@@ -37,6 +37,7 @@ function buildSections({
     { icon: ClipboardList, label: "Atendimento (Fila)", path: "/admin" },
     { icon: MessageCircle, label: "Mensagens", path: "/admin/mensagens" },
     { icon: Users, label: alunosLabel, path: "/admin/alunos" },
+    { icon: Filter, label: "Funil de Vendas", path: "/admin/funil" },
   ];
   if (podePrescreverTreino) {
     // Acervo de Exercícios virou uma aba dentro de Prescrever Treinos.

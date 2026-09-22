@@ -36,7 +36,27 @@ export function OrganizacaoBillingGate({ children }: { children: React.ReactNode
     enabled: rolesLoaded,
   });
 
+  // Tolerância de 7 dias do contrato: com cobrança vencida mas ainda dentro do
+  // prazo, o painel segue aberto e avisa no topo.
   if (!bloqueio?.bloqueada) {
+    if (bloqueio && Number(bloqueio.cobrancas_vencidas) > 0 && bloqueio.vencimento_mais_antigo) {
+      const limite = new Date(`${bloqueio.vencimento_mais_antigo}T12:00:00`);
+      limite.setDate(limite.getDate() + 8);
+      return (
+        <>
+          <div role="status" className="bg-amber-500/15 text-amber-900 dark:text-amber-200 text-xs text-center px-3 py-2">
+            Mensalidade do ARKE em aberto. O painel da equipe é suspenso em {limite.toLocaleDateString("pt-BR")} se não houver
+            pagamento.{" "}
+            {bloqueio.invoice_url && (
+              <a href={bloqueio.invoice_url} target="_blank" rel="noreferrer" className="underline font-medium">
+                Pagar agora
+              </a>
+            )}
+          </div>
+          {children}
+        </>
+      );
+    }
     return <>{children}</>;
   }
 

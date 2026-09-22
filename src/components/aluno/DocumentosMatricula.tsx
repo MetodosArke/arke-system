@@ -16,8 +16,9 @@ import { PERGUNTAS_PARQ, situacaoAtestado } from "@/lib/parq";
 /**
  * Documentos da matrícula que dependem do aluno: assinar o contrato da
  * academia, responder o PAR-Q e, se alguma resposta for "sim", enviar o
- * atestado. Some quando não há nada pendente. Não trava o app — quem decide
- * liberar o treino sem atestado é a academia, que recebe a tarefa na fila.
+ * atestado. Some quando não há nada pendente. Não trava o app; o que trava é
+ * só o registro de treino, e só com PAR-Q com "sim" sem atestado conferido
+ * (trg_exigir_atestado_para_treinar, decisão de 22/09/2026).
  */
 export function DocumentosMatricula() {
   const { alunoId, organization, profile } = useAuth();
@@ -117,7 +118,8 @@ export function DocumentosMatricula() {
   const faltaParq = !data.parq;
   const atestado = situacaoAtestado(data.parq ?? null);
   const faltaAtestado = !faltaParq && (atestado === "falta" || atestado === "vencido") && !(atestado === "falta" && data.parq?.atestado_caminho);
-  if (!faltaContrato && !faltaParq && !faltaAtestado) return null;
+  const aguardandoConferencia = atestado === "falta" && !!data.parq?.atestado_caminho;
+  if (!faltaContrato && !faltaParq && !faltaAtestado && !aguardandoConferencia) return null;
 
   return (
     <Card>
@@ -138,7 +140,8 @@ export function DocumentosMatricula() {
         {faltaAtestado && (
           <div className="space-y-1">
             <p className="text-xs text-muted-foreground">
-              {atestado === "vencido" ? "Seu atestado médico venceu." : "Pelo questionário, você precisa de um atestado médico liberando a atividade física."}
+              {atestado === "vencido" ? "Seu atestado médico venceu." : "Pelo questionário, você precisa de um atestado médico liberando a atividade física."}{" "}
+              O registro dos treinos volta quando a academia conferir o atestado.
             </p>
             <Label htmlFor="enviar-atestado" className="flex">
               <span className="inline-flex items-center rounded-md border px-3 py-2 text-sm cursor-pointer hover:bg-muted">
@@ -154,6 +157,9 @@ export function DocumentosMatricula() {
               onChange={(e) => e.target.files?.[0] && void enviarAtestado(e.target.files[0])}
             />
           </div>
+        )}
+        {aguardandoConferencia && (
+          <p className="text-xs text-muted-foreground">Atestado enviado. Assim que a academia conferir, o registro dos treinos é liberado.</p>
         )}
       </CardContent>
 

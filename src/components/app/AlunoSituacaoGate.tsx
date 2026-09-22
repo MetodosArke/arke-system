@@ -3,6 +3,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { PauseCircle, RefreshCw } from "lucide-react";
+import { acessoPelaSituacao } from "@/lib/planoAluno";
 
 // Gate da situação do aluno na academia (plano Free). O app é para quem está
 // em dia; pausado ou inadimplente é a academia que marca, na ficha ou na
@@ -12,7 +13,7 @@ import { PauseCircle, RefreshCw } from "lucide-react";
 //
 // Gate de experiência, como o de cobrança: o que protege os dados é o RLS.
 export function AlunoSituacaoGate({ children }: { children: React.ReactNode }) {
-  const { alunoId, situacaoAcademia, organization, refreshAluno, signOut } = useAuth();
+  const { alunoId, situacaoAcademia, situacaoAcademiaDesde, organization, refreshAluno, signOut } = useAuth();
   const [verificando, setVerificando] = useState(false);
 
   // D5: aluno no app só depois de a academia concluir o onboarding. Quem cai
@@ -47,6 +48,20 @@ export function AlunoSituacaoGate({ children }: { children: React.ReactNode }) {
 
   if (!alunoId || !situacaoAcademia || situacaoAcademia === "em_dia") {
     return <>{children}</>;
+  }
+
+  // Inadimplente usa o app por 5 dias corridos, com aviso no topo.
+  const acesso = acessoPelaSituacao(situacaoAcademia, situacaoAcademiaDesde);
+  if (acesso.liberado) {
+    return (
+      <>
+        <div role="status" className="bg-amber-500/15 text-amber-900 dark:text-amber-200 text-xs text-center px-3 py-2">
+          A {organization?.nome ?? "academia"} registrou uma pendência na sua mensalidade. Seu acesso segue por mais{" "}
+          {acesso.diasRestantes} dia(s) — fale com a recepção para regularizar.
+        </div>
+        {children}
+      </>
+    );
   }
 
   const academia = organization?.nome ?? "sua academia";

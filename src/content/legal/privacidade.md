@@ -4,9 +4,9 @@ Esta Política explica como os dados pessoais são tratados na plataforma ARKE, 
 
 ## 1. Quem é responsável pelos seus dados
 
-- **Dados do aluno usados no atendimento da Academia** (cadastro, treinos, dietas, avaliações, check-ins, mensagens): a **Academia** é a **controladora** — é ela quem decide como atender você. A **ArkeFit** ([RAZÃO SOCIAL DA ARKEFIT], CNPJ [CNPJ]) é a **operadora**: trata esses dados em nome da Academia, seguindo as instruções dela e o contrato entre as duas.
+- **Dados do aluno usados no atendimento da Academia** (cadastro, treinos, dietas, avaliações, check-ins, mensagens): a **Academia** é a **controladora** — é ela quem decide como atender você. A **ArkeFit** (METODOS ARKE LTDA, CNPJ 68.456.606/0001-70) é a **operadora**: trata esses dados em nome da Academia, seguindo as instruções dela e o contrato entre as duas.
 - **Dados da conta da Academia e da sua equipe** (gestores, professores, nutricionistas, recepção) e **dados do Método ARKE**, quando contratado: a **ArkeFit** é controladora.
-- **Encarregado de dados (DPO) da ArkeFit:** [NOME], [E-MAIL DO ENCARREGADO].
+- **Encarregado de dados (DPO) da ArkeFit:** André Aquino, contato.iconprime@gmail.com.
 
 ## 2. Quais dados tratamos
 
@@ -32,7 +32,7 @@ A plataforma não vende dados pessoais, não faz publicidade com eles e não usa
 
 - **Com a sua Academia e a equipe dela**, na medida do atendimento de cada profissional.
 - **Com prestadores que operam a plataforma** (suboperadores), sob contrato e só para esta finalidade:
-  - Supabase — banco de dados, autenticação e armazenamento (servidores nos Estados Unidos);
+  - Supabase — banco de dados, autenticação e armazenamento (servidores no Brasil, em São Paulo, e, durante migrações de infraestrutura, nos Estados Unidos);
   - Vercel — hospedagem do aplicativo;
   - Asaas — processamento de pagamentos (Brasil);
   - Resend — envio de e-mails;
@@ -44,7 +44,7 @@ A plataforma não vende dados pessoais, não faz publicidade com eles e não usa
 
 ## 5. Transferência internacional
 
-Parte da infraestrutura (banco de dados, hospedagem e registro de erros) fica nos Estados Unidos. A transferência ocorre com base nas garantias contratuais oferecidas por esses provedores (art. 33, II, da LGPD), com criptografia em trânsito e controles de acesso.
+Parte da infraestrutura — a hospedagem do aplicativo, o registro de erros e alguns serviços de apoio — fica fora do Brasil, principalmente nos Estados Unidos. O banco de dados principal fica em São Paulo. A transferência ocorre com base nas garantias contratuais oferecidas por esses provedores (art. 33, II, da LGPD), com criptografia em trânsito e controles de acesso.
 
 ## 6. Por quanto tempo
 
