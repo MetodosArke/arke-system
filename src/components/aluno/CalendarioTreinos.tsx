@@ -50,6 +50,7 @@ interface CalendarioEntry {
 interface RegistroEntry {
   id: string;
   data: string;
+  divisao: string | null;
   treinos: { titulo: string } | null;
 }
 
@@ -197,7 +198,7 @@ export default function CalendarioTreinos({ rotina }: { rotina?: React.ReactNode
     queryFn: async () => {
       const { data, error } = await supabase
         .from("registro_treino")
-        .select("id, data, treinos(titulo)")
+        .select("id, data, divisao, treinos(titulo)")
         .eq("aluno_id", alunoId!)
         .eq("concluido", true)
         .gte("data", format(monthStart, "yyyy-MM-dd"))
@@ -314,7 +315,7 @@ export default function CalendarioTreinos({ rotina }: { rotina?: React.ReactNode
     });
     registroEntries.forEach((r) => {
       if (!map[r.data]) map[r.data] = [];
-      map[r.data].push({ id: r.id, label: r.treinos?.titulo ?? "Treino", source: "system" });
+      map[r.data].push({ id: r.id, label: r.divisao ? `Treino ${r.divisao}` : r.treinos?.titulo ?? "Treino", source: "system" });
     });
     return map;
   }, [calendarEntries, registroEntries]);

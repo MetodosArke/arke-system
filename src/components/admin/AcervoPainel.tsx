@@ -15,18 +15,21 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Pencil, Trash2, ArrowLeftRight, Globe, PlayCircle, Copy } from "lucide-react";
+import { Plus, Pencil, Trash2, ArrowLeftRight, Globe, Copy } from "lucide-react";
+import { useListasAcervo } from "@/hooks/useListasAcervo";
+import { SeletorGrupos } from "@/components/acervo/SeletorGrupos";
+import { CampoMidia } from "@/components/acervo/CampoMidia";
+import { MidiaExercicio, MiniaturaExercicio } from "@/components/acervo/MidiaExercicio";
 import type { Tables } from "@/integrations/supabase/types";
 
 type ExercicioBiblioteca = Tables<"exercicios_biblioteca">;
-
-const GRUPOS_MUSCULARES = ["Peito", "Costas", "Quadríceps", "Isquiotibiais", "Ombros", "Braços", "Core"] as const;
 
 const FORM_VAZIO = {
   id: "",
   origemPadraoId: "", // quando preenchido, salvar cria uma cópia da academia em vez de editar o padrão ArkeFit
   nome: "",
-  grupo_muscular: "Peito" as (typeof GRUPOS_MUSCULARES)[number],
+  grupos: [] as string[],
+  equipamento: "",
   series_padrao: "3",
   repeticoes_padrao: "12",
   descanso_padrao_seg: "60",
@@ -38,6 +41,10 @@ const FORM_VAZIO = {
 export function AcervoPainel() {
   const { organization } = useAuth();
   const { toast } = useToast();
+  const { grupos: gruposDisponiveis, equipamentos } = useListasAcervo();
+  const [busca, setBusca] = useState("");
+  const [filtroGrupo, setFiltroGrupo] = useState("todos");
+  const [filtroEquipamento, setFiltroEquipamento] = useState("todos");
   const queryClient = useQueryClient();
   const [dialogAberto, setDialogAberto] = useState(false);
   const [form, setForm] = useState(FORM_VAZIO);
@@ -66,9 +73,13 @@ export function AcervoPainel() {
     mutationFn: async () => {
       if (!organization) return;
       if (!form.nome.trim()) throw new Error("Informe o nome do exercício.");
+      if (form.grupos.length === 0) throw new Error("Marque pelo menos um grupo muscular.");
       const payload = {
         nome: form.nome.trim(),
-        grupo_muscular: form.grupo_muscular,
+        // O grupo principal é o primeiro da lista (o banco confere e mantém assim).
+        grupo_muscular: form.grupos[0],
+        grupos_musculares: form.grupos,
+        equipamento: form.equipamento || null,
         series_padrao: Number(form.series_padrao) || 3,
         repeticoes_padrao: form.repeticoes_padrao.trim() || "12",
         descanso_padrao_seg: Number(form.descanso_padrao_seg) || 60,
@@ -135,7 +146,8 @@ export function AcervoPainel() {
       id: ex.id,
       origemPadraoId: ehPadrao ? ex.id : "",
       nome: ex.nome,
-      grupo_muscular: ex.grupo_muscular as (typeof GRUPOS_MUSCULARES)[number],
+      grupos: ex.grupos_musculares?.length ? ex.grupos_musculares : ex.grupo_muscular ? [ex.grupo_muscular] : [],
+      equipamento: ex.equipamento ?? "",
       series_padrao: String(ex.series_padrao),
       repeticoes_padrao: ex.repeticoes_padrao,
       descanso_padrao_seg: String(ex.descanso_padrao_seg),
@@ -146,8 +158,14 @@ export function AcervoPainel() {
     setDialogAberto(true);
   };
 
-  const exerciciosDaOrg = exercicios.filter((e) => e.organization_id === organization?.id);
-  const exerciciosPadrao = exercicios.filter((e) => e.organization_id === null);
+  const termo = busca.trim().toLocaleLowerCase("pt-BR");
+  const passaFiltro = (e: ExercicioBiblioteca) =>
+    (!termo || e.nome.toLocaleLowerCase("pt-BR").includes(termo)) &&
+    (filtroGrupo === "todos" || (e.grupos_musculares?.length ? e.grupos_musculares : [e.grupo_muscular]).includes(filtroGrupo)) &&
+    (filtroEquipamento === "todos" || e.equipamento === filtroEquipamento);
+  const exerciciosDaOrg = exercicios.filter((e) => e.organization_id === organization?.id && passaFiltro(e));
+  const exerciciosPadrao = exercicios.filter((e) => e.organization_id === null && passaFiltro(e));
+  const gruposDoExercicio = (e: ExercicioBiblioteca) => (e.grupos_musculares?.length ? e.grupos_musculares : [e.grupo_muscular]).join(", ");
   const detalhe = exercicios.find((e) => e.id === detalheId) ?? null;
   const detalheEhDaOrg = !!detalhe && detalhe.organization_id === organization?.id;
 
@@ -239,7 +257,35 @@ export function AcervoPainel() {
         </TabsList>
 
         <TabsContent value="biblioteca" className="space-y-4 pt-3">
-          <div className="flex justify-end">
+          <div className="flex flex-wrap items-end gap-2">
+            <Input className="max-w-xs" placeholder="Buscar pelo nome" aria-label="Buscar exercício pelo nome" value={busca} onChange={(e) => setBusca(e.target.value)} />
+            <Select value={filtroGrupo} onValueChange={setFiltroGrupo}>
+              <SelectTrigger className="w-[170px]" aria-label="Filtrar por grupo muscular">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todos">Todos os grupos</SelectItem>
+                {gruposDisponiveis.map((g) => (
+                  <SelectItem key={g} value={g}>
+                    {g}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={filtroEquipamento} onValueChange={setFiltroEquipamento}>
+              <SelectTrigger className="w-[170px]" aria-label="Filtrar por equipamento">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todos">Todos os equipamentos</SelectItem>
+                {equipamentos.map((e) => (
+                  <SelectItem key={e} value={e}>
+                    {e}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <div className="flex-1" />
             <Button
               size="sm"
               onClick={() => {
@@ -265,16 +311,22 @@ export function AcervoPainel() {
                 <Table>
                   <TableHeader>
                     <TableRow>
+                      <TableHead className="w-14" />
                       <TableHead>Nome</TableHead>
                       <TableHead>Grupo</TableHead>
+                      <TableHead>Equipamento</TableHead>
                       <TableHead>Status</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {exerciciosDaOrg.map((ex) => (
                       <TableRow key={ex.id} className="cursor-pointer" onClick={() => setDetalheId(ex.id)}>
+                        <TableCell>
+                          <MiniaturaExercicio imagemUrl={ex.gif_url} videoUrl={ex.video_url} nome={ex.nome} />
+                        </TableCell>
                         <TableCell className="font-medium text-primary underline-offset-2 hover:underline">{ex.nome}</TableCell>
-                        <TableCell>{ex.grupo_muscular}</TableCell>
+                        <TableCell>{gruposDoExercicio(ex)}</TableCell>
+                        <TableCell>{ex.equipamento ?? "—"}</TableCell>
                         <TableCell>
                           <Badge variant={ex.ativo ? "default" : "secondary"}>{ex.ativo ? "Ativo" : "Inativo"}</Badge>
                         </TableCell>
@@ -300,15 +352,21 @@ export function AcervoPainel() {
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead className="w-14" />
                     <TableHead>Nome</TableHead>
                     <TableHead>Grupo</TableHead>
+                    <TableHead>Equipamento</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {exerciciosPadrao.map((ex) => (
                     <TableRow key={ex.id} className="cursor-pointer" onClick={() => setDetalheId(ex.id)}>
+                      <TableCell>
+                        <MiniaturaExercicio imagemUrl={ex.gif_url} videoUrl={ex.video_url} nome={ex.nome} />
+                      </TableCell>
                       <TableCell className="font-medium text-primary underline-offset-2 hover:underline">{ex.nome}</TableCell>
-                      <TableCell>{ex.grupo_muscular}</TableCell>
+                      <TableCell>{gruposDoExercicio(ex)}</TableCell>
+                      <TableCell>{ex.equipamento ?? "—"}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -386,7 +444,12 @@ export function AcervoPainel() {
               </SheetHeader>
               <div className="mt-4 space-y-4">
                 <div className="flex flex-wrap gap-1.5">
-                  <Badge variant="outline">{detalhe.grupo_muscular}</Badge>
+                  {(detalhe.grupos_musculares?.length ? detalhe.grupos_musculares : [detalhe.grupo_muscular]).map((g) => (
+                    <Badge key={g} variant="outline">
+                      {g}
+                    </Badge>
+                  ))}
+                  {detalhe.equipamento && <Badge variant="secondary">{detalhe.equipamento}</Badge>}
                   {detalheEhDaOrg ? (
                     <Badge variant={detalhe.ativo ? "default" : "secondary"}>{detalhe.ativo ? "Ativo" : "Inativo"}</Badge>
                   ) : (
@@ -418,24 +481,7 @@ export function AcervoPainel() {
                   </div>
                 )}
 
-                {detalhe.gif_url && (
-                  <img
-                    src={detalhe.gif_url}
-                    alt={`Demonstração de execução: ${detalhe.nome}`}
-                    className="w-full rounded-lg border border-border"
-                  />
-                )}
-
-                {detalhe.video_url && (
-                  <a
-                    href={detalhe.video_url}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="flex items-center gap-1.5 text-sm text-primary hover:underline"
-                  >
-                    <PlayCircle className="h-4 w-4" /> Ver vídeo de execução
-                  </a>
-                )}
+                <MidiaExercicio videoUrl={detalhe.video_url} imagemUrl={detalhe.gif_url} nome={detalhe.nome} />
 
                 {!detalheEhDaOrg && (
                   <p className="text-xs text-muted-foreground">
@@ -473,30 +519,37 @@ export function AcervoPainel() {
               <Label>Nome</Label>
               <Input value={form.nome} onChange={(e) => setForm((f) => ({ ...f, nome: e.target.value }))} />
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label>Grupo muscular</Label>
-                <Select value={form.grupo_muscular} onValueChange={(v) => setForm((f) => ({ ...f, grupo_muscular: v as (typeof GRUPOS_MUSCULARES)[number] }))}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {GRUPOS_MUSCULARES.map((g) => (
-                      <SelectItem key={g} value={g}>
-                        {g}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1.5">
-                <Label>Vídeo ou link do YouTube (opcional)</Label>
-                <Input value={form.video_url} onChange={(e) => setForm((f) => ({ ...f, video_url: e.target.value }))} placeholder="https://..." />
-              </div>
+            <div className="space-y-1.5">
+              <Label>Grupos musculares</Label>
+              <SeletorGrupos opcoes={gruposDisponiveis} valor={form.grupos} onChange={(grupos) => setForm((f) => ({ ...f, grupos }))} />
             </div>
             <div className="space-y-1.5">
-              <Label>GIF de execução (opcional)</Label>
-              <Input value={form.gif_url} onChange={(e) => setForm((f) => ({ ...f, gif_url: e.target.value }))} placeholder="https://..." />
+              <Label>Equipamento</Label>
+              <Select value={form.equipamento || "nenhum"} onValueChange={(v) => setForm((f) => ({ ...f, equipamento: v === "nenhum" ? "" : v }))}>
+                <SelectTrigger aria-label="Equipamento">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="nenhum">Sem equipamento definido</SelectItem>
+                  {equipamentos.map((e) => (
+                    <SelectItem key={e} value={e}>
+                      {e}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Vídeo e imagem de execução</Label>
+              {organization && (
+                <CampoMidia
+                  pasta={organization.id}
+                  videoUrl={form.video_url}
+                  imagemUrl={form.gif_url}
+                  nome={form.nome}
+                  onChange={(m) => setForm((f) => ({ ...f, ...m }))}
+                />
+              )}
             </div>
             <div className="space-y-1.5">
               <Label>Descrição de como executar (opcional)</Label>

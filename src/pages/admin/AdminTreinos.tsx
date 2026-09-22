@@ -11,13 +11,30 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Combobox } from "@/components/ui/combobox";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Dumbbell, Plus, Trash2, FolderOpen, UserRound } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { AcervoPainel } from "@/components/admin/AcervoPainel";
+import { SeletorExercicio } from "@/components/acervo/SeletorExercicio";
+import { EditorSeries } from "@/components/acervo/EditorSeries";
+import { MiniaturaExercicio } from "@/components/acervo/MidiaExercicio";
+import { DIVISOES, divisoesDoTreino, paraGravar, rotuloTecnica, seriesDoExercicio, type SerieDetalhe } from "@/lib/seriesTreino";
+
+const SERIES_PADRAO: SerieDetalhe[] = Array.from({ length: 3 }, () => ({ reps: "12", descanso_seg: 60, tecnica: null }));
+
+const EXERCICIO_VAZIO = {
+  nome_exercicio: "",
+  divisao: "A",
+  series_lista: SERIES_PADRAO,
+  observacoes: "",
+  video_url: "",
+  descricao_execucao: "",
+  gif_url: "",
+  equipamento: "",
+  exercicio_id: "",
+};
 
 const STATUS_TREINO_LABEL: Record<string, string> = {
   ativo: "Ativo",
@@ -35,16 +52,7 @@ export default function AdminTreinos() {
 
   const [novoModeloTitulo, setNovoModeloTitulo] = useState("");
   const [modeloSelecionado, setModeloSelecionado] = useState<string | null>(null);
-  const [novoExercicio, setNovoExercicio] = useState({
-    nome_exercicio: "",
-    series: "3",
-    repeticoes: "12",
-    descanso_seg: "60",
-    observacoes: "",
-    video_url: "",
-    descricao_execucao: "",
-    gif_url: "",
-  });
+  const [novoExercicio, setNovoExercicio] = useState(EXERCICIO_VAZIO);
   const [exercicioBibliotecaId, setExercicioBibliotecaId] = useState("");
 
   // Rascunho do exercício em digitação.
@@ -67,7 +75,8 @@ export default function AdminTreinos() {
   // sobrescrever.
   useEffect(() => {
     if (exercicioSalvo?.dados && !novoExercicio.nome_exercicio) {
-      setNovoExercicio(exercicioSalvo.dados);
+      // Completa com o padrão: rascunho de antes das séries individuais não tem series_lista.
+      setNovoExercicio({ ...EXERCICIO_VAZIO, ...exercicioSalvo.dados });
       descartarExercicio();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -78,7 +87,9 @@ export default function AdminTreinos() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("exercicios_biblioteca")
-        .select("id, nome, grupo_muscular, series_padrao, repeticoes_padrao, descanso_padrao_seg, video_url, descricao_execucao, gif_url")
+        .select(
+          "id, nome, grupo_muscular, grupos_musculares, equipamento, organization_id, ativo, series_padrao, repeticoes_padrao, descanso_padrao_seg, video_url, descricao_execucao, gif_url"
+        )
         .order("grupo_muscular")
         .order("nome");
       if (error) throw error;
@@ -93,12 +104,16 @@ export default function AdminTreinos() {
     setNovoExercicio((p) => ({
       ...p,
       nome_exercicio: item.nome,
-      series: String(item.series_padrao),
-      repeticoes: item.repeticoes_padrao,
-      descanso_seg: String(item.descanso_padrao_seg),
+      series_lista: seriesDoExercicio({
+        series: item.series_padrao,
+        repeticoes: item.repeticoes_padrao,
+        descanso_seg: item.descanso_padrao_seg,
+      }),
       video_url: item.video_url ?? "",
       descricao_execucao: item.descricao_execucao ?? "",
       gif_url: item.gif_url ?? "",
+      equipamento: item.equipamento ?? "",
+      exercicio_id: item.id,
     }));
   };
 
@@ -254,10 +269,12 @@ export default function AdminTreinos() {
       const { error } = await supabase.from("modelo_treino_exercicios").insert({
         modelo_id: modeloSelecionado,
         ordem: exercicios.length,
+        divisao: novoExercicio.divisao,
         nome_exercicio: novoExercicio.nome_exercicio,
-        series: Number(novoExercicio.series) || 3,
-        repeticoes: novoExercicio.repeticoes,
-        descanso_seg: Number(novoExercicio.descanso_seg) || 60,
+        // Resumo nos campos antigos + detalhe só quando as séries diferem.
+        ...paraGravar(novoExercicio.series_lista),
+        equipamento: novoExercicio.equipamento || null,
+        exercicio_id: novoExercicio.exercicio_id || null,
         observacoes: novoExercicio.observacoes || null,
         video_url: novoExercicio.video_url || null,
         descricao_execucao: novoExercicio.descricao_execucao || null,
@@ -266,16 +283,8 @@ export default function AdminTreinos() {
       if (error) throw error;
     },
     onSuccess: () => {
-      setNovoExercicio({
-        nome_exercicio: "",
-        series: "3",
-        repeticoes: "12",
-        descanso_seg: "60",
-        observacoes: "",
-        video_url: "",
-        descricao_execucao: "",
-        gif_url: "",
-      });
+      // A próxima entra na mesma divisão: normalmente se monta uma divisão inteira de cada vez.
+      setNovoExercicio((p) => ({ ...EXERCICIO_VAZIO, divisao: p.divisao }));
       setExercicioBibliotecaId("");
       descartarExercicio();
       void queryClient.invalidateQueries({ queryKey: ["modelo-treino-exercicios", modeloSelecionado] });
@@ -358,88 +367,106 @@ export default function AdminTreinos() {
                 <CardTitle className="text-base">Exercícios</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Exercício</TableHead>
-                      <TableHead>Séries</TableHead>
-                      <TableHead>Repetições</TableHead>
-                      <TableHead>Descanso (s)</TableHead>
-                      <TableHead />
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {exercicios.map((ex) => (
-                      <TableRow key={ex.id}>
-                        <TableCell>{ex.nome_exercicio}</TableCell>
-                        <TableCell>{ex.series}</TableCell>
-                        <TableCell>{ex.repeticoes}</TableCell>
-                        <TableCell>{ex.descanso_seg}</TableCell>
-                        <TableCell>
-                          <Button variant="ghost" size="icon" onClick={() => removerExercicio.mutate(ex.id)}>
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                {exercicios.length === 0 && <p className="text-sm text-muted-foreground">Nenhum exercício neste modelo ainda.</p>}
+                {divisoesDoTreino(exercicios).map((div) => (
+                  <div key={div} className="space-y-1">
+                    <p className="text-sm font-semibold">Treino {div}</p>
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Exercício</TableHead>
+                          <TableHead>Séries</TableHead>
+                          <TableHead />
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {exercicios
+                          .filter((ex) => (ex.divisao || "A") === div)
+                          .map((ex) => {
+                            const series = seriesDoExercicio(ex);
+                            const tecnicas = [...new Set(series.map((x) => rotuloTecnica(x.tecnica)).filter(Boolean))];
+                            return (
+                              <TableRow key={ex.id}>
+                                <TableCell>
+                                  <div className="flex items-center gap-2">
+                                    <MiniaturaExercicio imagemUrl={ex.gif_url} videoUrl={ex.video_url} nome={ex.nome_exercicio} />
+                                    <span>{ex.nome_exercicio}</span>
+                                  </div>
+                                </TableCell>
+                                <TableCell className="text-sm">
+                                  {series.length} × {ex.repeticoes}
+                                  <span className="text-muted-foreground"> · {ex.descanso_seg}s</span>
+                                  {tecnicas.map((t) => (
+                                    <Badge key={t} variant="outline" className="ml-1 text-[10px]">
+                                      {t}
+                                    </Badge>
+                                  ))}
+                                </TableCell>
+                                <TableCell className="w-10">
+                                  <Button variant="ghost" size="icon" aria-label={`Remover ${ex.nome_exercicio}`} onClick={() => removerExercicio.mutate(ex.id)}>
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                </TableCell>
+                              </TableRow>
+                            );
+                          })}
+                      </TableBody>
+                    </Table>
+                  </div>
+                ))}
 
-                <div className="pt-2 border-t border-border space-y-1.5">
-                  <Label className="text-xs text-muted-foreground">Adicionar a partir da Biblioteca ARKE (opcional)</Label>
-                  <Combobox
-                    value={exercicioBibliotecaId}
-                    onValueChange={aplicarExercicioBiblioteca}
-                    placeholder="Buscar exercício na biblioteca..."
-                    searchPlaceholder="Digite o nome do exercício ou grupo muscular..."
-                    emptyText="Nenhum exercício encontrado."
-                    options={bibliotecaExercicios.map((ex) => ({
-                      value: ex.id,
-                      label: `${ex.grupo_muscular} — ${ex.nome}`,
-                    }))}
-                  />
-                </div>
+                <div className="pt-3 border-t border-border space-y-3">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs text-muted-foreground">Divisão</Label>
+                    <div className="flex flex-wrap gap-1.5" role="group" aria-label="Divisão do treino">
+                      {DIVISOES.filter((d) => divisoesDoTreino(exercicios).includes(d) || d === DIVISOES[Math.min(DIVISOES.length - 1, divisoesDoTreino(exercicios).length)]).map((d) => (
+                        <Button
+                          key={d}
+                          type="button"
+                          size="sm"
+                          variant={novoExercicio.divisao === d ? "default" : "outline"}
+                          aria-pressed={novoExercicio.divisao === d}
+                          onClick={() => setNovoExercicio((p) => ({ ...p, divisao: d }))}
+                        >
+                          Treino {d}
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
 
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                  <Input
-                    className="col-span-2 sm:col-span-1"
-                    placeholder="Nome do exercício"
-                    value={novoExercicio.nome_exercicio}
-                    onChange={(e) => setNovoExercicio((p) => ({ ...p, nome_exercicio: e.target.value }))}
-                  />
-                  <Input
-                    placeholder="Séries"
-                    value={novoExercicio.series}
-                    onChange={(e) => setNovoExercicio((p) => ({ ...p, series: e.target.value }))}
-                  />
-                  <Input
-                    placeholder="Repetições"
-                    value={novoExercicio.repeticoes}
-                    onChange={(e) => setNovoExercicio((p) => ({ ...p, repeticoes: e.target.value }))}
-                  />
-                  <Input
-                    placeholder="Descanso (s)"
-                    value={novoExercicio.descanso_seg}
-                    onChange={(e) => setNovoExercicio((p) => ({ ...p, descanso_seg: e.target.value }))}
-                  />
-                  <Input
-                    className="col-span-2 sm:col-span-2"
-                    placeholder="Vídeo ou link do YouTube (opcional)"
-                    value={novoExercicio.video_url}
-                    onChange={(e) => setNovoExercicio((p) => ({ ...p, video_url: e.target.value }))}
-                  />
-                  <Input
-                    className="col-span-2 sm:col-span-2"
-                    placeholder="GIF de execução (opcional)"
-                    value={novoExercicio.gif_url}
-                    onChange={(e) => setNovoExercicio((p) => ({ ...p, gif_url: e.target.value }))}
-                  />
-                  <Input
-                    className="col-span-2 sm:col-span-4"
-                    placeholder="Como executar (opcional)"
-                    value={novoExercicio.descricao_execucao}
-                    onChange={(e) => setNovoExercicio((p) => ({ ...p, descricao_execucao: e.target.value }))}
-                  />
+                  <div className="space-y-1.5">
+                    <Label className="text-xs text-muted-foreground">Escolha no acervo (filtre por grupo e equipamento)</Label>
+                    <SeletorExercicio exercicios={bibliotecaExercicios} selecionadoId={exercicioBibliotecaId} onSelect={(ex) => aplicarExercicioBiblioteca(ex.id)} />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label htmlFor="novo-exercicio-nome" className="text-xs text-muted-foreground">
+                      Nome do exercício (vem do acervo; pode escrever um novo)
+                    </Label>
+                    <Input
+                      id="novo-exercicio-nome"
+                      placeholder="Nome do exercício"
+                      value={novoExercicio.nome_exercicio}
+                      onChange={(e) => setNovoExercicio((p) => ({ ...p, nome_exercicio: e.target.value, exercicio_id: "" }))}
+                    />
+                  </div>
+
+                  <EditorSeries series={novoExercicio.series_lista} onChange={(series_lista) => setNovoExercicio((p) => ({ ...p, series_lista }))} />
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <Input
+                      placeholder="Como executar (opcional)"
+                      aria-label="Como executar"
+                      value={novoExercicio.descricao_execucao}
+                      onChange={(e) => setNovoExercicio((p) => ({ ...p, descricao_execucao: e.target.value }))}
+                    />
+                    <Input
+                      placeholder="Observação para o aluno (opcional)"
+                      aria-label="Observação para o aluno"
+                      value={novoExercicio.observacoes}
+                      onChange={(e) => setNovoExercicio((p) => ({ ...p, observacoes: e.target.value }))}
+                    />
+                  </div>
                 </div>
                 <Button
                   size="sm"

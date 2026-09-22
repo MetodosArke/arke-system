@@ -26,6 +26,8 @@ import { ChatPanel } from "@/components/chat/ChatPanel";
 import CalendarioTreinos from "@/components/aluno/CalendarioTreinos";
 import RotinaSemanal from "@/components/aluno/RotinaSemanal";
 import type { Json } from "@/integrations/supabase/types";
+import { MidiaExercicio } from "@/components/acervo/MidiaExercicio";
+import { divisoesDoTreino, rotuloTecnica, seriesDoExercicio } from "@/lib/seriesTreino";
 
 interface ExercicioSnapshot {
   ordem: number;
@@ -38,6 +40,10 @@ interface ExercicioSnapshot {
   video_url: string | null;
   descricao_execucao: string | null;
   gif_url: string | null;
+  // Fichas publicadas antes das divisões e das séries individuais não têm estes.
+  divisao?: string | null;
+  series_detalhe?: unknown;
+  equipamento?: string | null;
 }
 
 interface DetalheExecucao {
@@ -52,7 +58,7 @@ export default function AlunoTreinos() {
   const { alunoId, organization, metodoArkeAtivo } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [videoAberto, setVideoAberto] = useState<string | null>(null);
+  const [videoAberto, setVideoAberto] = useState<{ url: string; imagem: string | null; nome: string } | null>(null);
   const [descansoOrdem, setDescansoOrdem] = useState<number | null>(null);
   const [segundosRestantes, setSegundosRestantes] = useState(0);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -78,7 +84,7 @@ export default function AlunoTreinos() {
     queryFn: async () => {
       const { data } = await supabase
         .from("registro_treino")
-        .select("id, concluido, detalhes_execucao")
+        .select("id, concluido, detalhes_execucao, divisao")
         .eq("aluno_id", alunoId!)
         .eq("data", HOJE)
         .maybeSingle();
@@ -87,7 +93,13 @@ export default function AlunoTreinos() {
     enabled: !!alunoId,
   });
 
-  const exercicios = (treino?.snapshot_conteudo as unknown as ExercicioSnapshot[] | null) ?? [];
+  const todosExercicios = (treino?.snapshot_conteudo as unknown as ExercicioSnapshot[] | null) ?? [];
+  // Divisões A, B, C... O aluno escolhe a do dia; se já treinou hoje, abre na que registrou.
+  const divisoes = divisoesDoTreino(todosExercicios);
+  const [divisaoEscolhida, setDivisaoEscolhida] = useState<string | null>(null);
+  const divisaoHoje =
+    divisaoEscolhida ?? (registroHoje?.divisao && divisoes.includes(registroHoje.divisao) ? registroHoje.divisao : divisoes[0] ?? "A");
+  const exercicios = todosExercicios.filter((e) => (e.divisao || "A") === divisaoHoje);
   const detalhes = ((registroHoje?.detalhes_execucao as unknown as DetalheExecucao[] | null) ?? []);
 
   const [progresso, setProgresso] = useState<Record<number, DetalheExecucao>>({});
@@ -121,13 +133,16 @@ export default function AlunoTreinos() {
     mutationFn: async (novoProgresso: Record<number, DetalheExecucao>) => {
       if (!alunoId || !organization) throw new Error("Cadastro de aluno não encontrado");
       const listaDetalhes = Object.values(novoProgresso);
-      const todosConcluidos = exercicios.length > 0 && listaDetalhes.every((d) => d.concluido);
+      const ordensDoDia = new Set(exercicios.map((e) => e.ordem));
+      const todosConcluidos =
+        exercicios.length > 0 && exercicios.every((e) => novoProgresso[e.ordem]?.concluido) && listaDetalhes.some((d) => ordensDoDia.has(d.ordem));
       const { error } = await supabase.from("registro_treino").upsert(
         {
           organization_id: organization.id,
           aluno_id: alunoId,
           treino_id: treino?.id ?? null,
           data: HOJE,
+          divisao: divisaoHoje,
           concluido: todosConcluidos,
           detalhes_execucao: listaDetalhes as unknown as Json,
         },
@@ -169,7 +184,7 @@ export default function AlunoTreinos() {
     void ordem;
   };
 
-  const totalConcluidos = Object.values(progresso).filter((d) => d.concluido).length;
+  const totalConcluidos = exercicios.filter((e) => progresso[e.ordem]?.concluido).length;
   const treinoConcluidoHoje = !!registroHoje?.concluido;
 
   return (
@@ -236,9 +251,22 @@ export default function AlunoTreinos() {
             </Card>
           )}
 
+          {divisoes.length > 1 && (
+            <div className="flex flex-wrap gap-2" role="group" aria-label="Qual treino hoje">
+              {divisoes.map((d) => (
+                <Button key={d} size="sm" variant={d === divisaoHoje ? "default" : "outline"} aria-pressed={d === divisaoHoje} onClick={() => setDivisaoEscolhida(d)}>
+                  Treino {d}
+                </Button>
+              ))}
+            </div>
+          )}
+
           <Card>
             <CardHeader>
-              <CardTitle>{treino.titulo}</CardTitle>
+              <CardTitle>
+                {treino.titulo}
+                {divisoes.length > 1 && <span className="text-muted-foreground font-normal"> · Treino {divisaoHoje}</span>}
+              </CardTitle>
               <p className="text-xs text-muted-foreground">
                 {totalConcluidos}/{exercicios.length} exercícios concluídos hoje
                 {treino.validade_fim && ` · Válido até ${new Date(treino.validade_fim).toLocaleDateString("pt-BR")}`}
@@ -259,21 +287,27 @@ export default function AlunoTreinos() {
                         <p className={`font-semibold ${estado.concluido ? "line-through text-muted-foreground" : ""}`}>
                           {ex.nome_exercicio}
                         </p>
-                        <div className="flex flex-wrap gap-1.5 mt-1">
-                          <Badge variant="secondary">{ex.series} séries</Badge>
-                          <Badge variant="secondary">{ex.repeticoes} reps</Badge>
-                          <Badge variant="secondary">{ex.descanso_seg}s descanso</Badge>
-                        </div>
+                        <ol className="mt-1.5 space-y-0.5" aria-label={`Séries de ${ex.nome_exercicio}`}>
+                          {seriesDoExercicio(ex).map((serie, i) => (
+                            <li key={i} className="text-xs flex items-center gap-1.5">
+                              <span className="text-muted-foreground w-12">Série {i + 1}</span>
+                              <span className="font-medium">{serie.reps} reps</span>
+                              <span className="text-muted-foreground">· {serie.descanso_seg}s</span>
+                              {serie.tecnica && (
+                                <Badge variant="outline" className="text-[10px] h-4 px-1">
+                                  {rotuloTecnica(serie.tecnica)}
+                                </Badge>
+                              )}
+                            </li>
+                          ))}
+                        </ol>
+                        {ex.equipamento && <p className="text-[11px] text-muted-foreground mt-1">Equipamento: {ex.equipamento}</p>}
                         {ex.observacoes && <p className="text-xs text-muted-foreground mt-1">{ex.observacoes}</p>}
                         {ex.descricao_execucao && (
                           <p className="text-xs text-muted-foreground mt-1 whitespace-pre-wrap">{ex.descricao_execucao}</p>
                         )}
-                        {ex.gif_url && (
-                          <img
-                            src={ex.gif_url}
-                            alt={`Demonstração de execução: ${ex.nome_exercicio}`}
-                            className="w-full max-w-xs rounded-lg border border-border mt-2"
-                          />
+                        {ex.gif_url && !ex.video_url && (
+                          <MidiaExercicio imagemUrl={ex.gif_url} nome={ex.nome_exercicio} className="max-w-xs mt-2" />
                         )}
 
                         <div className="flex items-center gap-2 mt-2">
@@ -291,7 +325,7 @@ export default function AlunoTreinos() {
                               size="sm"
                               variant="ghost"
                               className="h-8 px-2"
-                              onClick={() => setVideoAberto(ex.video_url)}
+                              onClick={() => setVideoAberto({ url: ex.video_url!, imagem: ex.gif_url, nome: ex.nome_exercicio })}
                             >
                               <PlayCircle className="h-3.5 w-3.5 mr-1" />
                               Ver execução
@@ -344,17 +378,9 @@ export default function AlunoTreinos() {
           <DialogHeader>
             <DialogTitle>Vídeo de execução</DialogTitle>
           </DialogHeader>
-          {videoAberto && (
-            <div className="aspect-video w-full overflow-hidden rounded-lg bg-black">
-              <iframe
-                src={videoAberto}
-                title="Execução do exercício"
-                className="h-full w-full"
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                allowFullScreen
-              />
-            </div>
-          )}
+          {/* Toca dentro do app: vídeo próprio no player nativo, YouTube embutido. Antes era um
+              iframe com o link cru — link comum do YouTube não abre em iframe, e a tela ficava em branco. */}
+          {videoAberto && <MidiaExercicio videoUrl={videoAberto.url} imagemUrl={videoAberto.imagem} nome={videoAberto.nome} />}
         </DialogContent>
       </Dialog>
     </div>

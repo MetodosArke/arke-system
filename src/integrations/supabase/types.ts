@@ -1753,8 +1753,31 @@ export type Database = {
           },
         ]
       }
+      equipamentos: {
+        Row: {
+          created_at: string
+          id: string
+          nome: string
+          ordem: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          nome: string
+          ordem?: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          nome?: string
+          ordem?: number
+        }
+        Relationships: []
+      }
       exercicios_biblioteca: {
         Row: {
+          equipamento: string | null
+          grupos_musculares: string[]
           ativo: boolean
           created_at: string
           descanso_padrao_seg: number
@@ -1771,6 +1794,8 @@ export type Database = {
           video_url: string | null
         }
         Insert: {
+          equipamento?: string | null
+          grupos_musculares?: string[]
           ativo?: boolean
           created_at?: string
           descanso_padrao_seg?: number
@@ -1787,6 +1812,8 @@ export type Database = {
           video_url?: string | null
         }
         Update: {
+          equipamento?: string | null
+          grupos_musculares?: string[]
           ativo?: boolean
           created_at?: string
           descanso_padrao_seg?: number
@@ -1955,6 +1982,27 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      grupos_musculares: {
+        Row: {
+          created_at: string
+          id: string
+          nome: string
+          ordem: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          nome: string
+          ordem?: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          nome?: string
+          ordem?: number
+        }
+        Relationships: []
       }
       importacoes_alunos: {
         Row: {
@@ -2601,6 +2649,10 @@ export type Database = {
       }
       modelo_treino_exercicios: {
         Row: {
+          divisao: string
+          equipamento: string | null
+          exercicio_id: string | null
+          series_detalhe: Json | null
           created_at: string
           descanso_seg: number
           descricao_execucao: string | null
@@ -2616,6 +2668,10 @@ export type Database = {
           video_url: string | null
         }
         Insert: {
+          divisao?: string
+          equipamento?: string | null
+          exercicio_id?: string | null
+          series_detalhe?: Json | null
           created_at?: string
           descanso_seg?: number
           descricao_execucao?: string | null
@@ -2631,6 +2687,10 @@ export type Database = {
           video_url?: string | null
         }
         Update: {
+          divisao?: string
+          equipamento?: string | null
+          exercicio_id?: string | null
+          series_detalhe?: Json | null
           created_at?: string
           descanso_seg?: number
           descricao_execucao?: string | null
@@ -3462,6 +3522,7 @@ export type Database = {
       }
       registro_treino: {
         Row: {
+          divisao: string | null
           aluno_id: string
           concluido: boolean
           created_at: string
@@ -3473,6 +3534,7 @@ export type Database = {
           treino_id: string | null
         }
         Insert: {
+          divisao?: string | null
           aluno_id: string
           concluido?: boolean
           created_at?: string
@@ -3484,6 +3546,7 @@ export type Database = {
           treino_id?: string | null
         }
         Update: {
+          divisao?: string | null
           aluno_id?: string
           concluido?: boolean
           created_at?: string
