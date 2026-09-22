@@ -24,7 +24,7 @@ Lista preenchida durante as rodadas de ajustes do app original e respondida pelo
 - **9. Venda do Método ARKE:** mantida desligada (`VITE_METODO_ARKE_VENDA`) até resolver a coleta de CPF.
 - **17. Infraestrutura paga** (Supabase, Vercel Pro, Resend, Sentry) e, depois, o teste de carga.
 - **18. Venda de produtos e estoque:** depois do lançamento.
-- **12. Tietê Fitness:** quando virar cliente, sair do trial e fazer o onboarding.
+- **12. Tietê Fitness:** organização só de testes; será excluída depois (decisão de 22/09/2026). **Antes de excluir:** mover a conta E2E (`e2e-jornada@arkefit.com.br`) para outra organização de homologação, senão o teste de ponta a ponta falha em todo deploy; e rodar `verificar_orfaos()` depois.
 
 ## Em andamento
 
