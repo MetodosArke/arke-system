@@ -2,7 +2,7 @@
   "rewrites": [
     {
       "source": "/cadastro/:code",
-      "destination": "https://jbkrxrfdrmrkyldrrdpq.supabase.co/functions/v1/ativar-cadastro/:code"
+      "destination": "https://lzyxqjibkfblrrjboylp.supabase.co/functions/v1/ativar-cadastro/:code"
     },
     { "source": "/(.*)", "destination": "/index.html" }
   ],

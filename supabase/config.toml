@@ -1,4 +1,4 @@
-project_id = "jbkrxrfdrmrkyldrrdpq"
+project_id = "lzyxqjibkfblrrjboylp"
 
 # Quais funções respondem sem JWT. Até aqui isso vivia só na flag
 # `--no-verify-jwt` da linha de comando: quem deployasse sem ela fechava um
