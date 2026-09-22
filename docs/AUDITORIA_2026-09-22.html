@@ -239,14 +239,20 @@ contrário a foto do QR mandada para casa funcionaria.</p>
 
 <h2>4. O que o primeiro cliente <em>não</em> vai ter</h2>
 <p>Isto não bloqueia a venda, mas precisa estar dito antes dela — é o que evita promessa que o
-produto não cumpre.</p>
+produto não cumpre. Os itens marcados como <span class="selo atencao">DÍVIDA ASSUMIDA</span> têm
+dono e prazo: o responsável se comprometeu a resolvê-los antes do primeiro cliente pagante, e
+nenhum dos dois é trabalho de engenharia.</p>
 
 <table>
   <tr><th>Item</th><th>Situação</th></tr>
   <tr>
     <td><strong>Cobrar o aluno pela plataforma</strong></td>
-    <td>Depende de CPF, que por decisão não é coletado. Vale tanto para o Método ARKE quanto para a
-    mensalidade do plano próprio da academia. Na prática: a academia cobra fora do ARKE e marca a
+    <td>Desligado por decisão, não por falta de código: depende do CPF, que se decidiu não coletar.
+    O caminho foi <strong>exercitado de ponta a ponta contra o sandbox do Asaas em 22/09/2026</strong> —
+    customer com CPF, assinatura com split (R$ 69,95 para a academia, R$ 49,05 para a ArkeFit no
+    Integrado), cobrança gerada vencendo no dia, fatura para o aluno e idempotência que não duplica
+    assinatura: 22 verificações, todas passando. <strong>Se a decisão do CPF mudar, não há
+    desenvolvimento pela frente.</strong> Enquanto não muda, a academia cobra fora do ARKE e marca a
     situação do aluno à mão — o que o produto suporta, com a tela de situação e as tolerâncias.</td>
   </tr>
   <tr>
@@ -260,9 +266,11 @@ produto não cumpre.</p>
     escolhido na hora), que funciona e está conferida em sandbox.</td>
   </tr>
   <tr>
-    <td><strong>Vídeos e GIFs dos exercícios</strong></td>
-    <td>Os 105 exercícios globais continuam sem mídia. A estrutura de envio existe; o material é
-    decisão de conteúdo. Para um aluno abrindo a ficha no celular, é a ausência mais visível.</td>
+    <td><strong>GIFs dos exercícios</strong></td>
+    <td><span class="selo atencao">DÍVIDA ASSUMIDA</span> Os 105 exercícios globais estão sem mídia
+    hoje. Os GIFs existem no banco do app original e serão carregados antes do primeiro cliente
+    pagante — a estrutura de envio já está pronta e testada. <strong>Vídeo é recurso a mais</strong>,
+    não linha de base: a ficha se explica com GIF.</td>
   </tr>
   <tr>
     <td><strong>Catraca</strong></td>
@@ -272,8 +280,10 @@ produto não cumpre.</p>
   </tr>
   <tr>
     <td><strong>Canal de suporte</strong></td>
-    <td>Vazio em Visão Master → Configurações, então o botão "falar com o suporte" não aparece em
-    nenhuma etapa do onboarding. Um cliente pagante trava e não tem para onde ligar dentro do produto.</td>
+    <td><span class="selo atencao">DÍVIDA ASSUMIDA</span> Vazio em Visão Master → Configurações, então
+    o botão "falar com o suporte" não aparece em nenhuma etapa do onboarding — um cliente pagante trava
+    e não tem para onde ligar de dentro do produto. É preencher um campo, e está no compromisso do
+    responsável para antes do primeiro cliente.</td>
   </tr>
   <tr>
     <td><strong>Ambiente de homologação</strong></td>
@@ -324,10 +334,15 @@ produto não cumpre.</p>
 </table>
 
 <h2>6. A recomendação, em uma frase</h2>
-<p><strong>Contrate Vercel Pro, Supabase Pro e o Resend pago, preencha o canal de suporte, rode o teste
-de carga — e venda.</strong> O que vai limitar o primeiro cliente não é a robustez do sistema; é o acervo
-de vídeos e a ausência de cobrança do aluno pela plataforma, que são decisões suas já tomadas e
-conscientes, não defeitos a corrigir.</p>
+<p><strong>Contrate Vercel Pro, Supabase Pro e o Resend pago, rode o teste de carga — e venda.</strong></p>
+<p>O canal de suporte e a carga dos GIFs são dívidas assumidas pelo responsável para antes do primeiro
+cliente pagante, e nenhuma das duas é trabalho de engenharia: uma é preencher um campo, a outra é
+subir material que já existe, pela estrutura que já está pronta. Vídeo é recurso a mais, não linha
+de base.</p>
+<p>O que sobra, portanto, não é defeito nem pendência técnica — são <em>decisões comerciais já tomadas
+e conscientes</em>: a cobrança do aluno pela plataforma (desligada pela decisão do CPF, com o caminho
+construído e verificado) e a venda do Método ARKE (adiada para depois do lançamento). O sistema não
+é o gargalo.</p>
 
 <div class="rodape">
   Varredura executada contra o projeto <code>lzyxqjibkfblrrjboylp</code> (ArkeFit PROD BR, sa-east-1) em

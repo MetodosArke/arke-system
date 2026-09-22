@@ -16,8 +16,8 @@ Lista preenchida durante as rodadas de ajustes do app original e respondida pelo
 
 ## Com o responsável (sem código)
 
-- **1. Canal de suporte:** preencher em Visão Master → Configurações → Canal de suporte quando o número e o e-mail existirem. Até lá o botão não aparece.
-- **2. Vídeos e GIFs dos exercícios:** material novo em preparação; a estrutura de envio já existe no acervo.
+- **1. Canal de suporte:** dívida assumida pelo responsável **para antes do primeiro cliente pagante** (22/09/2026). Preencher em Visão Master → Configurações → Canal de suporte. Até lá o botão "falar com o suporte" não aparece em nenhuma etapa do onboarding, e um gestor que travar não tem para onde ligar de dentro do produto.
+- **2. GIFs dos exercícios:** dívida assumida pelo responsável **para antes do primeiro cliente pagante** (22/09/2026). Os GIFs vêm do banco do app original; a estrutura de envio já existe e está testada. **Vídeo é recurso a mais, não linha de base** — a ficha se explica com GIF.
 - **3. Cabeçalhos de exportação (EVO, Tecnofit, Next Fit, Pacto):** o responsável vai tentar providenciar uma planilha real para conferir o reconhecimento das colunas.
 - **4. Preço do profissional autônomo:** pós-lançamento. Custom segue negociado caso a caso.
 - **5. Planos modelo:** mantidos inativos; os valores são conferidos no onboarding de cada academia.
