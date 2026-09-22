@@ -48,6 +48,14 @@ export async function garantirClienteB2b(
   chave: string,
   c: DadosClienteB2b
 ): Promise<{ ok: true; id: string } | { ok: false; erro: string }> {
+  // Filtro vazio no Asaas não filtra: `GET /customers?cpfCnpj=` devolve a
+  // lista inteira da conta, e a busca abaixo adota o primeiro resultado. Um
+  // documento em branco faria a mensalidade B2B nascer grudada no cliente de
+  // **outra academia**. O chamador já valida, mas isso depende de ele lembrar.
+  if (![11, 14].includes(c.cpfCnpj.length) || !c.orgId) {
+    return { ok: false, erro: "CNPJ/CPF da academia ausente ou inválido." };
+  }
+
   for (const filtro of [`externalReference=${encodeURIComponent(`org:${c.orgId}`)}`, `cpfCnpj=${c.cpfCnpj}`]) {
     const busca = await chamar<{ data?: { id: string; deleted?: boolean }[] }>(api, chave, "GET", `/customers?${filtro}`);
     if (!busca.ok) return { ok: false, erro: mensagem(busca.corpo, "Não foi possível consultar o Asaas agora.") };

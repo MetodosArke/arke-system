@@ -80,6 +80,14 @@ async function obterOuCriarCustomer(
   headers: Record<string, string>,
   dados: { alunoId: string; nome: string; cpf: string; telefone: string | null }
 ): Promise<{ id: string } | { erro: string }> {
+  // Filtro vazio no Asaas não filtra: `GET /customers?cpfCnpj=` devolve a
+  // lista inteira da conta, e a busca abaixo adota o primeiro resultado. Um
+  // CPF em branco faria a mensalidade nascer grudada no customer de **outra
+  // pessoa**. O chamador já exige CPF, mas isso depende de ele lembrar.
+  if (dados.cpf.length !== 11 || !dados.alunoId) {
+    return { erro: "CPF do aluno ausente ou inválido: o Asaas exige CPF para emitir a cobrança." };
+  }
+
   for (const filtro of [`externalReference=${encodeURIComponent(dados.alunoId)}`, `cpfCnpj=${dados.cpf}`]) {
     const busca = await chamarAsaas<{ data?: { id: string; deleted?: boolean }[] }>(`${api}/customers?${filtro}`, {
       headers,
