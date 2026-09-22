@@ -70,7 +70,7 @@ Todos os parâmetros vivem em `config.json`, na mesma pasta do executável (`%Pr
 |---|---|
 | `organization_id` | UUID da organização (informativo — a autenticação real é pelo `token_api_local`) |
 | `token_api_local` | **O `device_token`** copiado da tela `/admin/catracas` no painel web (botão "Copiar" ao lado do dispositivo cadastrado) |
-| `supabase_url` | URL do projeto Supabase (ex.: `https://jbkrxrfdrmrkyldrrdpq.supabase.co`) |
+| `supabase_url` | URL do projeto Supabase (ex.: `https://SEU-PROJETO.supabase.co`) |
 | `catraca_ip` / `catraca_porta` | Endereço IP e porta da catraca física na rede local |
 | `modelo_catraca` | `controlid` \| `henry` \| `topdata` \| `dimep` \| `mock` |
 | `tempo_timeout_ms` | Timeout da validação na nuvem antes de cair para o cache local (padrão `300`) |

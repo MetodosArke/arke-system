@@ -41,7 +41,7 @@ Edite `config.json`:
 |---|---|
 | `organization_id` | UUID da organização (informativo — a autenticação real é pelo token abaixo) |
 | `token_api_local` | **O `device_token`** copiado da tela `/admin/catracas` no painel web (botão "Copiar") |
-| `supabase_url` | URL do projeto Supabase (ex.: `https://jbkrxrfdrmrkyldrrdpq.supabase.co`) |
+| `supabase_url` | URL do projeto Supabase (ex.: `https://SEU-PROJETO.supabase.co`) |
 | `catraca_ip` / `catraca_porta` | Endereço da catraca na rede local |
 | `modelo_catraca` | `controlid` \| `henry` \| `topdata` \| `dimep` \| `mock` |
 | `tempo_timeout_ms` | Timeout da validação na nuvem antes de cair para o cache local (padrão `300`) |

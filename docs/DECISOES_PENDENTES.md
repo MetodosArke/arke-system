@@ -24,8 +24,10 @@ Lista preenchida durante as rodadas de ajustes do app original e respondida pelo
 - **9. Venda do Método ARKE:** mantida desligada (`VITE_METODO_ARKE_VENDA`) até resolver a coleta de CPF.
 - **17. Infraestrutura paga** (Supabase, Vercel Pro, Resend, Sentry) e, depois, o teste de carga.
 - **18. Venda de produtos e estoque:** depois do lançamento.
-- **12. Tietê Fitness:** organização só de testes; será excluída depois (decisão de 22/09/2026). **Antes de excluir:** mover a conta E2E (`e2e-jornada@arkefit.com.br`) para outra organização de homologação, senão o teste de ponta a ponta falha em todo deploy; e rodar `verificar_orfaos()` depois.
+## Resolvidas pela migração
+
+- **12. Tietê Fitness:** resolvida sem exclusão. A organização **não atravessou** para o projeto novo — só os dados globais da ArkeFit foram migrados —, então não há o que excluir nem órfão a varrer. A ressalva que travava o item (mover a conta E2E antes) virou outra coisa: a conta `e2e-jornada@arkefit.com.br` precisa ser **recriada** no projeto novo, numa organização de homologação nova, senão `jornada-aluno.spec.ts` falha em todo deploy.
 
 ## Em andamento
 
-- **15. Migração para o projeto `ArkeFit PROD BR` (sa-east-1, São Paulo):** projeto criado pelo responsável. Passo a passo da parte dele (ferramentas do Postgres, `C:\Users\andre\migracao.env`, segredos) entregue na conversa de 22/09/2026; depois disso, preparação do projeto novo e virada numa janela noturna. Os buckets `dietas` e `chat-videos` já são privados no projeto atual e serão copiados assim.
+- **15. Migração para o projeto `ArkeFit PROD BR` (sa-east-1, São Paulo):** **o projeto novo está pronto e conferido** (22/09/2026) — schema idêntico em 14 categorias de comparação, 33 edge functions, 12 rotinas, 8 buckets, Auth espelhado com o hook de e-mail ligado, segredos gravados e os dois Super Admins criados. A produção ainda aponta para o projeto antigo. Faltam três passos manuais, detalhados em `docs/MIGRACAO_SUPABASE.md`: copiar `ASAAS_WEBHOOK_SECRET` e `TURNSTILE_SECRET_KEY` do projeto antigo, trocar o ref em `vercel.json` e `supabase/config.toml`, e virar as variáveis da Vercel mais a URL do webhook no Asaas.
