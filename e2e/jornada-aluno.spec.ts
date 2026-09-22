@@ -5,11 +5,15 @@ import { test, expect } from "@playwright/test";
  *
  * Só roda com E2E_EMAIL e E2E_SENHA definidos: precisa de uma conta de aluno
  * de teste permanente, e como o projeto não tem homologação separada, essa
- * conta mora em produção (na academia de homologação) — hoje
- * e2e-jornada@arkefit.com.br, na Tietê Fitness, com o acolhimento M.A.P.A.®
- * já concluído (sem ele o app abre no acolhimento, não na home). Criar a conta e pôr as
- * credenciais nos secrets do GitHub é decisão da ArkeFit; sem elas estes
- * testes aparecem como "skipped", não como aprovados.
+ * conta mora em produção — e2e-jornada@arkefit.com.br, na organização
+ * "ARKE Homologação" (slug `homologacao`), no plano Free e com situação
+ * `em_dia`. Free não passa pelo acolhimento M.A.P.A.®, então o app abre
+ * direto na home, que é o que este teste confere.
+ *
+ * A conta é criada e a senha vai para os secrets do GitHub por
+ * `scripts/migracao/conta-e2e.mjs` — a senha não é impressa em lugar nenhum,
+ * porque quem a usa é o workflow. Sem os secrets, estes testes aparecem como
+ * "skipped", não como aprovados.
  *
  * Só lê telas: nada aqui registra treino, responde check-in ou altera dado,
  * para a conta de teste não virar ruído nas métricas da academia.

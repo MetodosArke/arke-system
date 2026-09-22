@@ -1,7 +1,7 @@
 {
   "organization_id": "00000000-0000-0000-0000-000000000000",
   "token_api_local": "COLE_AQUI_O_TOKEN_DO_DISPOSITIVO_GERADO_EM_/admin/catracas",
-  "supabase_url": "https://jbkrxrfdrmrkyldrrdpq.supabase.co",
+  "supabase_url": "https://SEU-PROJETO.supabase.co",
   "catraca_ip": "192.168.0.50",
   "catraca_porta": 3000,
   "modelo_catraca": "controlid",

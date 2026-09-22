@@ -63,10 +63,15 @@ test("matrícula pública de academia inexistente diz isso, sem quebrar", async 
   await semErros();
 });
 
+// A organização de homologação vive no banco de produção, em trial — é o
+// status que passa por `organizacao_liberada()` sem onboarding concluído, e é
+// por isso que a página mostra o formulário em vez do aviso de "matrículas em
+// breve". Antes da migração para o projeto brasileiro este teste usava a Tietê
+// Fitness, que era de testes e não atravessou.
 test("matrícula pública da academia de homologação mostra o formulário", async ({ page }) => {
   const semErros = vigiarErros(page);
-  await page.goto("/#/p/tiete-fitness");
-  await expect(page.getByText(/tietê fitness/i).first()).toBeVisible();
+  await page.goto("/#/p/homologacao");
+  await expect(page.getByText(/homologação/i).first()).toBeVisible();
   await expect(page.getByLabel(/senha/i).first()).toBeVisible();
   await semErros();
 });

@@ -1,1 +1,60 @@
-project_id = "jbkrxrfdrmrkyldrrdpq"
+project_id = "lzyxqjibkfblrrjboylp"
+
+# Quais funções respondem sem JWT. Até aqui isso vivia só na flag
+# `--no-verify-jwt` da linha de comando: quem deployasse sem ela fechava um
+# endpoint público em silêncio — o webhook do Asaas pararia de receber evento, a
+# matrícula pública responderia 401 a todo aluno. Declarado aqui, o
+# `supabase functions deploy` reproduz o ajuste sozinho, e a migração para o
+# projeto novo não depende de ninguém lembrar de 12 flags.
+#
+# Regra para acrescentar função nova: só entra aqui o que *precisa* ser
+# alcançável sem sessão, e cada uma carrega a própria trava (token, assinatura
+# do gateway, limite por IP). O padrão é exigir JWT.
+
+# Webhook do gateway de pagamento: quem chama é o Asaas, que não tem sessão.
+# Valida o header `asaas-access-token` contra o secret.
+[functions.asaas-webhook]
+verify_jwt = false
+
+# Entradas públicas do aluno. Ambas com limite por IP e Turnstile.
+[functions.matricula-publica]
+verify_jwt = false
+
+[functions.primeiro-acesso]
+verify_jwt = false
+
+# Link curto de ativação, aberto pelo e-mail antes de existir sessão.
+[functions.ativar-cadastro]
+verify_jwt = false
+
+# Chamadas pelo pg_cron, que autentica com token guardado no Vault.
+[functions.asaas-reconciliar]
+verify_jwt = false
+
+[functions.alertar-rotinas]
+verify_jwt = false
+
+[functions.lembrete-onboarding]
+verify_jwt = false
+
+# Chamadas por outras edge functions com a service role key, não pelo navegador.
+[functions.send-email]
+verify_jwt = false
+
+[functions.send-chat-push]
+verify_jwt = false
+
+# Chave pública de push: é pública por definição.
+[functions.vapid-public-key]
+verify_jwt = false
+
+# Gateway Local e catraca: quem chama é o equipamento na academia, que não tem
+# sessão de usuário. A trava é o segredo do gateway.
+[functions.catraca-validar-acesso]
+verify_jwt = false
+
+[functions.catraca-sincronizar-alunos]
+verify_jwt = false
+
+[functions.catraca-sincronizar-logs-offline]
+verify_jwt = false
