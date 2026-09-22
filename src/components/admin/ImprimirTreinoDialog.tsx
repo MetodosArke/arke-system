@@ -1,6 +1,7 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Printer } from "lucide-react";
+import { divisoesDoTreino, rotuloTecnica, seriesDoExercicio, seriesUniformes } from "@/lib/seriesTreino";
 
 export interface ExercicioSnapshotImpressao {
   ordem: number;
@@ -9,6 +10,8 @@ export interface ExercicioSnapshotImpressao {
   repeticoes: string;
   descanso_seg: number;
   observacoes: string | null;
+  divisao?: string | null;
+  series_detalhe?: unknown;
 }
 
 export interface TreinoImpressao {
@@ -64,15 +67,33 @@ export function ImprimirTreinoDialog({
             {treino.exercicios.length === 0 && (
               <p className="text-xs text-muted-foreground">Nenhum exercício cadastrado neste treino.</p>
             )}
-            {treino.exercicios.map((ex) => (
-              <div key={ex.ordem} className="text-xs">
-                <p className="font-semibold">
-                  {ex.ordem}. {ex.nome_exercicio}
-                </p>
-                <p className="text-muted-foreground">
-                  {ex.series}x{ex.repeticoes} · descanso {ex.descanso_seg}s
-                </p>
-                {ex.observacoes && <p className="text-muted-foreground italic">{ex.observacoes}</p>}
+            {divisoesDoTreino(treino.exercicios).map((div, _i, todas) => (
+              <div key={div} className="space-y-2">
+                {todas.length > 1 && <p className="text-xs font-bold uppercase tracking-wide">Treino {div}</p>}
+                {treino.exercicios
+                  .filter((ex) => (ex.divisao || "A") === div)
+                  .map((ex, i) => {
+                    const series = seriesDoExercicio(ex);
+                    return (
+                      <div key={ex.ordem} className="text-xs">
+                        <p className="font-semibold">
+                          {i + 1}. {ex.nome_exercicio}
+                        </p>
+                        {seriesUniformes(series) ? (
+                          <p className="text-muted-foreground">
+                            {series.length}x{series[0].reps} · descanso {series[0].descanso_seg}s
+                          </p>
+                        ) : (
+                          <p className="text-muted-foreground">
+                            {series
+                              .map((sr, n) => `S${n + 1}: ${sr.reps} (${sr.descanso_seg}s${sr.tecnica ? ", " + rotuloTecnica(sr.tecnica) : ""})`)
+                              .join(" · ")}
+                          </p>
+                        )}
+                        {ex.observacoes && <p className="text-muted-foreground italic">{ex.observacoes}</p>}
+                      </div>
+                    );
+                  })}
               </div>
             ))}
           </div>

@@ -13,17 +13,21 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogD
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Pencil, Trash2, Globe, PlayCircle, Dumbbell } from "lucide-react";
+import { Plus, Pencil, Trash2, Globe, Dumbbell } from "lucide-react";
+import { useListasAcervo } from "@/hooks/useListasAcervo";
+import { SeletorGrupos } from "@/components/acervo/SeletorGrupos";
+import { CampoMidia } from "@/components/acervo/CampoMidia";
+import { MidiaExercicio, MiniaturaExercicio } from "@/components/acervo/MidiaExercicio";
 import type { Tables } from "@/integrations/supabase/types";
 
 type ExercicioBiblioteca = Tables<"exercicios_biblioteca">;
 
-const GRUPOS_MUSCULARES = ["Peito", "Costas", "Quadríceps", "Isquiotibiais", "Ombros", "Braços", "Core"] as const;
 
 const FORM_VAZIO = {
   id: "",
   nome: "",
-  grupo_muscular: "Peito" as (typeof GRUPOS_MUSCULARES)[number],
+  grupos: [] as string[],
+  equipamento: "",
   series_padrao: "3",
   repeticoes_padrao: "12",
   descanso_padrao_seg: "60",
@@ -42,6 +46,7 @@ export default function SuperAdminAcervo() {
   const queryClient = useQueryClient();
   const [dialogAberto, setDialogAberto] = useState(false);
   const [form, setForm] = useState(FORM_VAZIO);
+  const { grupos: gruposDisponiveis, equipamentos } = useListasAcervo();
   const [detalheId, setDetalheId] = useState<string | null>(null);
   const [excluir, setExcluir] = useState<ExercicioBiblioteca | null>(null);
   const [busca, setBusca] = useState("");
@@ -63,9 +68,13 @@ export default function SuperAdminAcervo() {
   const salvar = useMutation({
     mutationFn: async () => {
       if (!form.nome.trim()) throw new Error("Informe o nome do exercício.");
+      if (form.grupos.length === 0) throw new Error("Marque pelo menos um grupo muscular.");
       const payload = {
         nome: form.nome.trim(),
-        grupo_muscular: form.grupo_muscular,
+        // O grupo principal é o primeiro da lista (o banco confere e mantém assim).
+        grupo_muscular: form.grupos[0],
+        grupos_musculares: form.grupos,
+        equipamento: form.equipamento || null,
         series_padrao: Number(form.series_padrao) || 3,
         repeticoes_padrao: form.repeticoes_padrao.trim() || "12",
         descanso_padrao_seg: Number(form.descanso_padrao_seg) || 60,
@@ -130,7 +139,8 @@ export default function SuperAdminAcervo() {
     setForm({
       id: ex.id,
       nome: ex.nome,
-      grupo_muscular: ex.grupo_muscular as (typeof GRUPOS_MUSCULARES)[number],
+      grupos: ex.grupos_musculares?.length ? ex.grupos_musculares : ex.grupo_muscular ? [ex.grupo_muscular] : [],
+      equipamento: ex.equipamento ?? "",
       series_padrao: String(ex.series_padrao),
       repeticoes_padrao: ex.repeticoes_padrao,
       descanso_padrao_seg: String(ex.descanso_padrao_seg),
@@ -144,7 +154,11 @@ export default function SuperAdminAcervo() {
   const detalhe = exercicios.find((e) => e.id === detalheId) ?? null;
   const termo = busca.trim().toLowerCase();
   const exerciciosFiltrados = exercicios.filter(
-    (e) => !termo || e.nome.toLowerCase().includes(termo) || e.grupo_muscular.toLowerCase().includes(termo)
+    (e) =>
+      !termo ||
+      e.nome.toLowerCase().includes(termo) ||
+      (e.grupos_musculares?.length ? e.grupos_musculares : [e.grupo_muscular]).some((g) => g.toLowerCase().includes(termo)) ||
+      (e.equipamento ?? "").toLowerCase().includes(termo)
   );
 
   return (
@@ -192,16 +206,22 @@ export default function SuperAdminAcervo() {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-14" />
                   <TableHead>Nome</TableHead>
                   <TableHead>Grupo</TableHead>
+                  <TableHead>Equipamento</TableHead>
                   <TableHead>Status</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {exerciciosFiltrados.map((ex) => (
                   <TableRow key={ex.id} className="cursor-pointer" onClick={() => setDetalheId(ex.id)}>
+                    <TableCell>
+                      <MiniaturaExercicio imagemUrl={ex.gif_url} videoUrl={ex.video_url} nome={ex.nome} />
+                    </TableCell>
                     <TableCell className="font-medium text-primary underline-offset-2 hover:underline">{ex.nome}</TableCell>
-                    <TableCell>{ex.grupo_muscular}</TableCell>
+                    <TableCell>{(ex.grupos_musculares?.length ? ex.grupos_musculares : [ex.grupo_muscular]).join(", ")}</TableCell>
+                    <TableCell>{ex.equipamento ?? "—"}</TableCell>
                     <TableCell>
                       <Badge variant={ex.ativo ? "default" : "secondary"}>{ex.ativo ? "Ativo" : "Inativo"}</Badge>
                     </TableCell>
@@ -238,7 +258,12 @@ export default function SuperAdminAcervo() {
               </SheetHeader>
               <div className="mt-4 space-y-4">
                 <div className="flex flex-wrap gap-1.5">
-                  <Badge variant="outline">{detalhe.grupo_muscular}</Badge>
+                  {(detalhe.grupos_musculares?.length ? detalhe.grupos_musculares : [detalhe.grupo_muscular]).map((g) => (
+                    <Badge key={g} variant="outline">
+                      {g}
+                    </Badge>
+                  ))}
+                  {detalhe.equipamento && <Badge variant="secondary">{detalhe.equipamento}</Badge>}
                   <Badge variant="outline" className="gap-1">
                     <Globe className="h-3 w-3" /> Padrão ArkeFit (todas as academias)
                   </Badge>
@@ -266,24 +291,7 @@ export default function SuperAdminAcervo() {
                   </div>
                 )}
 
-                {detalhe.gif_url && (
-                  <img
-                    src={detalhe.gif_url}
-                    alt={`Demonstração de execução: ${detalhe.nome}`}
-                    className="w-full rounded-lg border border-border"
-                  />
-                )}
-
-                {detalhe.video_url && (
-                  <a
-                    href={detalhe.video_url}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="flex items-center gap-1.5 text-sm text-primary hover:underline"
-                  >
-                    <PlayCircle className="h-4 w-4" /> Ver vídeo de execução
-                  </a>
-                )}
+                <MidiaExercicio videoUrl={detalhe.video_url} imagemUrl={detalhe.gif_url} nome={detalhe.nome} />
 
                 <div className="flex items-center justify-between rounded-lg border border-border p-3">
                   <Label className="text-sm">Disponível para novas fichas</Label>
@@ -308,30 +316,35 @@ export default function SuperAdminAcervo() {
               <Label>Nome</Label>
               <Input value={form.nome} onChange={(e) => setForm((f) => ({ ...f, nome: e.target.value }))} />
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label>Grupo muscular</Label>
-                <Select value={form.grupo_muscular} onValueChange={(v) => setForm((f) => ({ ...f, grupo_muscular: v as (typeof GRUPOS_MUSCULARES)[number] }))}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {GRUPOS_MUSCULARES.map((g) => (
-                      <SelectItem key={g} value={g}>
-                        {g}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1.5">
-                <Label>Vídeo ou link do YouTube (opcional)</Label>
-                <Input value={form.video_url} onChange={(e) => setForm((f) => ({ ...f, video_url: e.target.value }))} placeholder="https://..." />
-              </div>
+            <div className="space-y-1.5">
+              <Label>Grupos musculares</Label>
+              <SeletorGrupos opcoes={gruposDisponiveis} valor={form.grupos} onChange={(grupos) => setForm((f) => ({ ...f, grupos }))} />
             </div>
             <div className="space-y-1.5">
-              <Label>GIF de execução (opcional)</Label>
-              <Input value={form.gif_url} onChange={(e) => setForm((f) => ({ ...f, gif_url: e.target.value }))} placeholder="https://..." />
+              <Label>Equipamento</Label>
+              <Select value={form.equipamento || "nenhum"} onValueChange={(v) => setForm((f) => ({ ...f, equipamento: v === "nenhum" ? "" : v }))}>
+                <SelectTrigger aria-label="Equipamento">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="nenhum">Sem equipamento definido</SelectItem>
+                  {equipamentos.map((e) => (
+                    <SelectItem key={e} value={e}>
+                      {e}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Vídeo e imagem de execução</Label>
+              <CampoMidia
+                pasta="global"
+                videoUrl={form.video_url}
+                imagemUrl={form.gif_url}
+                nome={form.nome}
+                onChange={(m) => setForm((f) => ({ ...f, ...m }))}
+              />
             </div>
             <div className="space-y-1.5">
               <Label>Descrição de como executar (opcional)</Label>
