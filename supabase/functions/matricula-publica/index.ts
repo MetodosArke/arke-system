@@ -144,6 +144,7 @@ type MatriculaPayload = {
   cpf?: string;
   password: string;
   captcha_token?: string;
+  aceite_termos?: boolean;
 };
 
 // Auto-matrícula pública (rota /p/:slug): qualquer visitante pode criar a
@@ -209,6 +210,9 @@ Deno.serve(async (req: Request) => {
     if (!email || !EMAIL_RE.test(email)) return jsonResponse({ error: "E-mail inválido." }, 400);
     if (!password || password.length < 6) {
       return jsonResponse({ error: "A senha deve ter no mínimo 6 caracteres." }, 400);
+    }
+    if (payload.aceite_termos !== true) {
+      return jsonResponse({ error: "Aceite os Termos de Uso e a Política de Privacidade para continuar." }, 400);
     }
 
     const segredoCaptcha = Deno.env.get("TURNSTILE_SECRET_KEY");
@@ -326,6 +330,24 @@ Deno.serve(async (req: Request) => {
       await admin.from("organization_members").delete().eq("user_id", newUserId);
       await rollback();
       return jsonResponse({ error: "Erro ao criar o cadastro de aluno." }, 500);
+    }
+
+    // Aceite dos documentos vigentes, registrado com a matrícula. Falha aqui
+    // não desfaz a matrícula: o aceite é pedido de novo no primeiro login.
+    const { data: docs } = await admin
+      .from("documentos_legais")
+      .select("id, tipo, publicado_em")
+      .in("tipo", ["termos_uso", "privacidade"])
+      .order("publicado_em", { ascending: false });
+    const vigentes = ["termos_uso", "privacidade"]
+      .map((t) => docs?.find((d) => d.tipo === t)?.id)
+      .filter((id): id is string => !!id);
+    if (vigentes.length) {
+      const agente = req.headers.get("user-agent")?.slice(0, 300) ?? null;
+      const { error: aceiteError } = await admin
+        .from("aceites_documentos")
+        .insert(vigentes.map((documento_id) => ({ documento_id, user_id: newUserId, user_agent: agente })));
+      if (aceiteError) console.error("Falha ao registrar o aceite na matrícula:", aceiteError.code);
     }
 
     if (tentativaId !== null) {

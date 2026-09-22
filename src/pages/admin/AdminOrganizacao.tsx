@@ -19,6 +19,7 @@ import { Building2, Wallet, Receipt, Printer, Upload } from "lucide-react";
 import type { Enums, Tables } from "@/integrations/supabase/types";
 import { ReciboComprovanteDialog, type ReciboData } from "@/components/admin/ReciboComprovanteDialog";
 import { PlanosAcademiaPainel } from "@/components/admin/PlanosAcademiaPainel";
+import { ContratoMatriculaPainel } from "@/components/admin/ContratoMatriculaPainel";
 import { dividirCobranca, type TaxaProcessamento } from "@/lib/repasse";
 
 type TipoNegocio = Extract<Enums<"organization_tipo">, "academia" | "studio">;
@@ -368,6 +369,7 @@ export default function AdminOrganizacao() {
           <TabsTrigger value="pagamentos">Pagamentos</TabsTrigger>
           <TabsTrigger value="assinaturas">Assinaturas</TabsTrigger>
           <TabsTrigger value="planos">Planos da Academia</TabsTrigger>
+          <TabsTrigger value="contrato">Contrato de matrícula</TabsTrigger>
         </TabsList>
 
       <TabsContent value="perfil" className="space-y-4 pt-3">
@@ -719,6 +721,10 @@ export default function AdminOrganizacao() {
 
       <TabsContent value="planos" className="pt-3">
         <PlanosAcademiaPainel />
+      </TabsContent>
+
+      <TabsContent value="contrato" className="pt-3">
+        <ContratoMatriculaPainel />
       </TabsContent>
       </Tabs>
 

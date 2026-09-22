@@ -1,10 +1,11 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTheme } from "@/contexts/ThemeContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent } from "@/components/ui/card";
 import { Dumbbell, Mail, Lock, User, ArrowLeft, Moon, Sun } from "lucide-react";
 import { motion } from "framer-motion";
@@ -20,6 +21,8 @@ export default function Register() {
   const { theme, toggleTheme } = useTheme();
   const { toast } = useToast();
   const { signUp } = useAuth();
+  // Registrado de fato no primeiro login (AceiteDocumentosGate), quando já há sessão.
+  const [aceiteTermos, setAceiteTermos] = useState(false);
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -136,10 +139,24 @@ export default function Register() {
                 />
               </div>
 
+              <label className="flex items-start gap-2 text-xs text-muted-foreground">
+                <Checkbox checked={aceiteTermos} onCheckedChange={(v) => setAceiteTermos(v === true)} className="mt-0.5" />
+                <span>
+                  Li e aceito os{" "}
+                  <Link to="/termos" target="_blank" className="text-primary underline-offset-2 hover:underline">
+                    Termos de Uso
+                  </Link>{" "}
+                  e a{" "}
+                  <Link to="/privacidade" target="_blank" className="text-primary underline-offset-2 hover:underline">
+                    Política de Privacidade
+                  </Link>
+                  .
+                </span>
+              </label>
               <Button
                 type="submit"
                 className="w-full gradient-primary text-primary-foreground font-semibold"
-                disabled={isLoading}
+                disabled={isLoading || !aceiteTermos}
               >
                 {isLoading ? "Cadastrando..." : "Cadastrar"}
               </Button>

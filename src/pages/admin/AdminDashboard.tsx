@@ -32,6 +32,7 @@ import {
   Wallet,
   Sparkles,
   TrendingDown,
+  Stethoscope,
 } from "lucide-react";
 import type { Tables, Enums } from "@/integrations/supabase/types";
 
@@ -52,6 +53,7 @@ const ACOES_RAPIDAS: Record<Tipo, ("treino" | "dieta")[]> = {
   cobranca: [],
   acolhimento_elite: [],
   engajamento_baixo: [],
+  atestado: [],
 };
 
 const ANAMNESE_CAMPOS: { key: keyof Anamnese; label: string }[] = [
@@ -118,6 +120,7 @@ const TIPO_LABEL: Record<Tipo, string> = {
   cobranca: "Mensalidade atrasada",
   acolhimento_elite: "Acolhimento expandido (Elite)",
   engajamento_baixo: "Engajamento baixo no mês",
+  atestado: "Atestado médico",
 };
 
 const TIPO_ICON: Record<Tipo, typeof HeartPulse> = {
@@ -130,6 +133,7 @@ const TIPO_ICON: Record<Tipo, typeof HeartPulse> = {
   cobranca: Wallet,
   acolhimento_elite: Sparkles,
   engajamento_baixo: TrendingDown,
+  atestado: Stethoscope,
 };
 
 // Indicadores visuais de SLA: vermelho para dor/vencido, amarelo para
@@ -144,6 +148,7 @@ const TIPO_COLOR_CLASS: Record<Tipo, string> = {
   cobranca: "bg-red-500/15 text-red-700 dark:text-red-400 border-red-500/40",
   acolhimento_elite: "bg-violet-500/15 text-violet-700 dark:text-violet-400 border-violet-500/40",
   engajamento_baixo: "bg-orange-500/15 text-orange-700 dark:text-orange-400 border-orange-500/40",
+  atestado: "bg-rose-500/15 text-rose-700 dark:text-rose-400 border-rose-500/40",
 };
 
 const FILTRO_STATUS_OPCOES: Status[] = ["aberta", "em_andamento", "aguardando"];

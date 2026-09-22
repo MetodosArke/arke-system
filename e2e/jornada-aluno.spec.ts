@@ -27,6 +27,17 @@ test.describe("jornada do aluno", () => {
     await page.getByRole("textbox", { name: /^senha/i }).fill(senha!);
     await page.getByRole("button", { name: /entrar/i }).click();
     await expect(page).toHaveURL(/#\/app/);
+
+    // Aceite dos documentos legais: aparece na primeira entrada e a cada nova
+    // versão dos termos. É a única escrita que este teste faz — uma vez por
+    // versão, na conta de teste —, e é o que um aluno de verdade faria.
+    const aceite = page.getByText("Antes de continuar");
+    await expect(aceite.or(page.getByRole("heading", { name: /próxima ação/i }))).toBeVisible();
+    if (await aceite.isVisible()) {
+      await page.getByRole("checkbox").check();
+      await page.getByRole("button", { name: /aceitar e continuar/i }).click();
+      await expect(aceite).toHaveCount(0);
+    }
   });
 
   test("home abre com a próxima ação no topo", async ({ page }) => {

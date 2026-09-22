@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Dumbbell, MailCheck } from "lucide-react";
 import { mensagemDeErroEdge } from "@/lib/erroEdge";
 import { Turnstile } from "@/components/public/Turnstile";
+import { LinksLegais } from "@/components/legal/LinksLegais";
 
 const TURNSTILE_SITE_KEY: string | undefined = import.meta.env.VITE_TURNSTILE_SITE_KEY || undefined;
 
@@ -112,6 +113,7 @@ export default function PrimeiroAcesso() {
               Entrar
             </Link>
           </p>
+          <LinksLegais />
         </CardContent>
       </Card>
     </div>

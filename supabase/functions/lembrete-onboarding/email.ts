@@ -7,6 +7,7 @@ const ROTULO_ETAPA: Record<string, string> = {
   planos: "Planos e preços",
   equipe: "Equipe",
   alunos: "Alunos",
+  contrato: "Aceite do contrato",
 };
 
 function escapar(texto: string): string {
