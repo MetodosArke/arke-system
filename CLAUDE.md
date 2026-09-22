@@ -287,6 +287,19 @@ O escopo é **sessão, não disco**, e a razão principal não é ergonomia: o r
 
 **Rascunho não é para todo formulário.** Ressuscitar dados de ontem num "novo aluno" que alguém abandonou de propósito é pior que campo limpo: a pessoa não pediu aquilo de volta e descobre o engano depois de salvar. A regra é persistir onde perder o trabalho dói mais do que reencontrá-lo surpreende. Pela mesma razão o hook **não restaura sozinho** — devolve o que encontrou e a tela oferece; e rascunho com mais de 48h é descartado em vez de oferecido, porque provavelmente é de outra intenção.
 
+## Ajustes do App Original — Rodada 1 (app do aluno e comunicação)
+
+O sócio comparou esta versão com o app original (código e esquema em `C:\Users\andre\arke-original\`, fora do repositório; o esquema não tem dados). A rodada 1 cobre o que não dependia de decisão:
+
+- **Treino finalizado não ia para o calendário — era defeito, não layout.** A consulta do calendário pedia `registro_treino.duracao_min`, coluna que não existe; o PostgREST respondia erro, o código não conferia o erro e o resultado era convertido à força (`as unknown as`). Nenhum treino concluído aparecia. Corrigido, e **`src/lib/colunasConsultas.guarda.test.ts`** passa a ler o código e conferir cada coluna de cada `.from().select()` contra o `types.ts` — foi o único caso encontrado.
+- **Aba Calendário reorganizada:** Metas de Treino Semanal no topo (dias treinados/meta, editável, e os quatro números da semana num bloco só), Minha Rotina da Semana logo abaixo, calendário em largura total. Saiu o "Resumo da Semana", que repetia os mesmos números — a tela cabe num print.
+- **Hoje existe um treino ativo por aluno, sem divisões A/B/C.** As divisões eram do app original e entram na rodada 2 (prescrição).
+- **Metas pela equipe:** a ficha do aluno ganhou o bloco *Metas do Aluno* (água por dia e dias de treino por semana). A meta de água já era por aluno e editável pelo próprio aluno no Perfil. `atualizar_meta_agua_aluno` atualizava só **um** cadastro de quem é aluno de duas academias (select into sem critério — a armadilha do vínculo duplo); hoje vale para todos os cadastros da pessoa.
+- **Adesão à dieta por refeição:** o aluno marca Sim/Não em cada refeição do plano e o percentual sai disso (`src/lib/adesaoDieta.ts`; refeição sem resposta conta como não seguida), guardado em `dieta_adesao.refeicoes_marcadas` pela `ordem` da refeição. A régua de percentual ficou só para dieta sem refeições (só PDF). Saiu a pergunta de horário da fome; doce, álcool, saciedade, água e observação ficaram.
+- **Caixa de Mensagens** (`/admin/mensagens`, item no menu com contador de não lidas): todas as conversas de treino e dieta num lugar só, não lidas primeiro, respondidas pelo mesmo `ChatPanel` da ficha. Professor vê o canal de treino, nutricionista o de dieta, gestor e recepção os dois (`canaisDoPapel`). Dados por `get_caixa_mensagens(org)` — restrita à equipe da organização.
+- **Histórico e Observações na ficha:** linha do tempo com atendimento aberto e **resolvido com o desfecho**, check-ins, fase, agendamentos, publicações e observações da equipe (`get_historico_aluno`). As observações são o prontuário do original: tabela `aluno_observacoes`, só a equipe lê, sem edição depois de escrita; quem escreveu ou o gestor apaga.
+- **Achados de passagem:** o `Onboarding` do aluno chamava `useMutation` depois de um `return` antecipado (hook condicional — quebraria a tela se a adesão mudasse com ela aberta); corrigido. O interruptor do cartão virou função (`cartaoRecorrenteLigado()`), e o teste dele deixou de recarregar o módulo a cada caso — era o que falhava de forma intermitente na suíte completa.
+
 ## Motor de Automações e Regras Operacionais
 - **Prevenção de Falha Humana:** Eventos da jornada viram tarefas automáticas com responsável, prazo (SLA) e prioridade[span_81](start_span)[span_81](end_span).
 - **Sinais de Atenção Automáticos:**

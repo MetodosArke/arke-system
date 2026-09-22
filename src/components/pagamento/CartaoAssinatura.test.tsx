@@ -7,11 +7,13 @@ vi.mock("@/integrations/supabase/client", () => ({
   supabase: { functions: { invoke: (...args: unknown[]) => invoke(...args) } },
 }));
 
-// O interruptor é lido na carga do módulo; cada teste escolhe o estado dele.
+import { CartaoAssinatura as Componente } from "./CartaoAssinatura";
+
+// O interruptor é lido a cada renderização; cada teste escolhe o estado dele.
+// (Mantém a assinatura assíncrona de antes para não reescrever os testes.)
 async function carregar(ligado: boolean) {
-  vi.resetModules();
   vi.stubEnv("VITE_CARTAO_RECORRENTE", ligado ? "true" : "");
-  return (await import("./CartaoAssinatura")).CartaoAssinatura;
+  return Componente;
 }
 
 const ASSINATURA_EMITIDA = {

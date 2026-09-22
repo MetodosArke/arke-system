@@ -27,6 +27,7 @@ import {
 } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
+import { marcacoesDoPlano, percentualAdesao, respondidas, type Marcacoes, type RefeicaoPlano } from "@/lib/adesaoDieta";
 
 const INCREMENTOS_AGUA_ML = [200, 300, 500];
 
@@ -42,6 +43,7 @@ interface DietaAdesao {
   fome_tarde: boolean;
   fome_noite: boolean;
   observacoes: string | null;
+  refeicoes_marcadas: Marcacoes | null;
 }
 
 const SACIEDADE_OPTIONS = [
@@ -58,7 +60,7 @@ function getColorForAdesao(pct: number) {
   return "bg-red-400 text-white";
 }
 
-export default function ControleDieta({ dietaId }: { dietaId: string }) {
+export default function ControleDieta({ dietaId, refeicoes = [] }: { dietaId: string; refeicoes?: RefeicaoPlano[] }) {
   const { alunoId, organization } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -67,6 +69,11 @@ export default function ControleDieta({ dietaId }: { dietaId: string }) {
   const [dialogOpen, setDialogOpen] = useState(false);
 
   const [adesaoPercentual, setAdesaoPercentual] = useState(50);
+  const [marcacoes, setMarcacoes] = useState<Marcacoes>({});
+  // Com refeições no plano, o percentual sai das marcações; sem elas (dieta só
+  // em PDF), vale o informado na régua.
+  const porRefeicao = refeicoes.length > 0;
+  const percentualCalculado = porRefeicao ? percentualAdesao(refeicoes, marcacoes) ?? 0 : adesaoPercentual;
   const [consumiuDoce, setConsumiuDoce] = useState(false);
   const [consumiuAlcool, setConsumiuAlcool] = useState(false);
   const [aguaMl, setAguaMl] = useState(0);
@@ -94,12 +101,12 @@ export default function ControleDieta({ dietaId }: { dietaId: string }) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("dieta_adesao")
-        .select("id, data, adesao_percentual, consumiu_doce, consumiu_alcool, agua_ml, nivel_saciedade, fome_manha, fome_tarde, fome_noite, observacoes")
+        .select("id, data, adesao_percentual, consumiu_doce, consumiu_alcool, agua_ml, nivel_saciedade, fome_manha, fome_tarde, fome_noite, observacoes, refeicoes_marcadas")
         .eq("aluno_id", alunoId!)
         .gte("data", monthStart)
         .lte("data", monthEnd);
       if (error) throw error;
-      return (data ?? []) as DietaAdesao[];
+      return (data ?? []) as unknown as DietaAdesao[];
     },
     enabled: !!alunoId,
   });
@@ -138,6 +145,7 @@ export default function ControleDieta({ dietaId }: { dietaId: string }) {
     setSelectedDate(date);
     const existing = getAdesaoForDate(date);
     setAdesaoPercentual(existing?.adesao_percentual ?? 50);
+    setMarcacoes(marcacoesDoPlano(refeicoes, existing?.refeicoes_marcadas));
     setConsumiuDoce(existing?.consumiu_doce ?? false);
     setConsumiuAlcool(existing?.consumiu_alcool ?? false);
     setAguaMl(existing?.agua_ml ?? 0);
@@ -158,7 +166,8 @@ export default function ControleDieta({ dietaId }: { dietaId: string }) {
           aluno_id: alunoId,
           dieta_id: dietaId,
           data: format(selectedDate, "yyyy-MM-dd"),
-          adesao_percentual: adesaoPercentual,
+          adesao_percentual: percentualCalculado,
+          refeicoes_marcadas: porRefeicao ? marcacoesDoPlano(refeicoes, marcacoes) : {},
           consumiu_doce: consumiuDoce,
           consumiu_alcool: consumiuAlcool,
           agua_ml: aguaMl,
@@ -180,7 +189,6 @@ export default function ControleDieta({ dietaId }: { dietaId: string }) {
     onError: (error: Error) => toast({ title: "Erro ao salvar", description: error.message, variant: "destructive" }),
   });
 
-  const showFomeHorario = nivelSaciedade === "fome_moderada" || nivelSaciedade === "muita_fome";
 
   return (
     <div className="space-y-4">
@@ -354,6 +362,60 @@ export default function ControleDieta({ dietaId }: { dietaId: string }) {
           </DialogHeader>
 
           <div className="space-y-5 py-2">
+            {porRefeicao ? (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label>Seguiu cada refeição?</Label>
+                  <span
+                    className={cn(
+                      "text-lg font-bold",
+                      percentualCalculado >= 80 ? "text-emerald-500" : percentualCalculado >= 50 ? "text-primary" : "text-orange-500"
+                    )}
+                  >
+                    {percentualCalculado}%
+                  </span>
+                </div>
+                <div className="space-y-1.5">
+                  {refeicoes.map((r) => {
+                    const chave = String(r.ordem);
+                    const valor = marcacoes[chave];
+                    return (
+                      <div key={chave} className="flex items-center justify-between gap-2 rounded-lg border border-border px-3 py-2">
+                        <span className="text-sm min-w-0 truncate">
+                          {r.nome}
+                          {r.horario && <span className="text-xs text-muted-foreground ml-1">{r.horario.slice(0, 5)}</span>}
+                        </span>
+                        <div className="flex gap-1.5 shrink-0" role="group" aria-label={`Seguiu ${r.nome}?`}>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant={valor === true ? "default" : "outline"}
+                            className={cn("h-8 px-3", valor === true && "bg-emerald-600 hover:bg-emerald-600")}
+                            aria-pressed={valor === true}
+                            onClick={() => setMarcacoes((m) => ({ ...m, [chave]: true }))}
+                          >
+                            Sim
+                          </Button>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant={valor === false ? "default" : "outline"}
+                            className={cn("h-8 px-3", valor === false && "bg-orange-500 hover:bg-orange-500")}
+                            aria-pressed={valor === false}
+                            onClick={() => setMarcacoes((m) => ({ ...m, [chave]: false }))}
+                          >
+                            Não
+                          </Button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {respondidas(refeicoes, marcacoes)} de {refeicoes.length} respondidas — refeição sem resposta conta como não seguida.
+                </p>
+              </div>
+            ) : (
             <div className="space-y-3">
               <Label>Quanto você seguiu a dieta hoje?</Label>
               <div className="flex items-center gap-3">
@@ -368,6 +430,7 @@ export default function ControleDieta({ dietaId }: { dietaId: string }) {
                 </span>
               </div>
             </div>
+            )}
 
             <div className="grid grid-cols-2 gap-3">
               <label className="flex items-center gap-2 rounded-lg border border-border p-3 cursor-pointer hover:bg-muted/30 transition-colors">
@@ -439,26 +502,6 @@ export default function ControleDieta({ dietaId }: { dietaId: string }) {
                 </SelectContent>
               </Select>
             </div>
-
-            {showFomeHorario && (
-              <div className="space-y-2">
-                <Label>Quando sentiu fome?</Label>
-                <div className="grid grid-cols-3 gap-2">
-                  <label className="flex items-center gap-2 rounded-lg border border-border p-2.5 cursor-pointer hover:bg-muted/30 transition-colors">
-                    <Checkbox checked={fomeManha} onCheckedChange={(v) => setFomeManha(v === true)} />
-                    <span className="text-sm">Manhã</span>
-                  </label>
-                  <label className="flex items-center gap-2 rounded-lg border border-border p-2.5 cursor-pointer hover:bg-muted/30 transition-colors">
-                    <Checkbox checked={fomeTarde} onCheckedChange={(v) => setFomeTarde(v === true)} />
-                    <span className="text-sm">Tarde</span>
-                  </label>
-                  <label className="flex items-center gap-2 rounded-lg border border-border p-2.5 cursor-pointer hover:bg-muted/30 transition-colors">
-                    <Checkbox checked={fomeNoite} onCheckedChange={(v) => setFomeNoite(v === true)} />
-                    <span className="text-sm">Noite</span>
-                  </label>
-                </div>
-              </div>
-            )}
 
             <div className="space-y-2">
               <Label>Observações (opcional)</Label>

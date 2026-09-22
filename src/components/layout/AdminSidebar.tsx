@@ -1,11 +1,12 @@
 import { useState } from "react";
-import { Home, Users, UsersRound, Building2, LogOut, ChevronLeft, Menu, ClipboardList, UserCircle, BarChart3, DoorOpen, CalendarDays, Dumbbell, UtensilsCrossed, Sparkles, DollarSign, Plug } from "lucide-react";
+import { Home, Users, UsersRound, Building2, LogOut, ChevronLeft, Menu, ClipboardList, UserCircle, BarChart3, DoorOpen, CalendarDays, Dumbbell, UtensilsCrossed, Sparkles, DollarSign, Plug, MessageCircle } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAdminSidebar } from "@/contexts/AdminSidebarContext";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { useCaixaMensagens } from "@/hooks/useCaixaMensagens";
 
 type MenuItem = { icon: typeof Home; label: string; path: string };
 type MenuSection = { label: string; items: MenuItem[] };
@@ -34,6 +35,7 @@ function buildSections({
   const operacao: MenuItem[] = [
     { icon: Home, label: "Home (Início)", path: "/admin/dashboard" },
     { icon: ClipboardList, label: "Atendimento (Fila)", path: "/admin" },
+    { icon: MessageCircle, label: "Mensagens", path: "/admin/mensagens" },
     { icon: Users, label: alunosLabel, path: "/admin/alunos" },
   ];
   if (podePrescreverTreino) {
@@ -89,6 +91,7 @@ function buildSectionsProfissionalAutonomo({
   const operacao: MenuItem[] = [
     { icon: Home, label: "Home (Início)", path: "/admin/dashboard" },
     { icon: ClipboardList, label: "Atendimento (Fila)", path: "/admin" },
+    { icon: MessageCircle, label: "Mensagens", path: "/admin/mensagens" },
     { icon: Users, label: "Meus Alunos", path: "/admin/alunos" },
   ];
   if (podePrescreverTreino) {
@@ -112,6 +115,7 @@ function SidebarNav({
   const location = useLocation();
   const navigate = useNavigate();
   const { signOut, hasRole, organizationRole, organization } = useAuth();
+  const { naoLidas } = useCaixaMensagens();
   const isAdminArke = hasRole("admin_arke");
   const podeGerenciarEquipe = isAdminArke || organizationRole === "gestor";
   const ehProfissionalAutonomo = organization?.tipo === "profissional_autonomo";
@@ -185,8 +189,21 @@ function SidebarNav({
                       : "text-muted-foreground hover:bg-muted hover:text-foreground"
                   )}
                 >
-                  <item.icon className="h-5 w-5 shrink-0" />
-                  {!collapsed && <span>{item.label}</span>}
+                  <span className="relative shrink-0">
+                    <item.icon className="h-5 w-5" />
+                    {item.path === "/admin/mensagens" && naoLidas > 0 && collapsed && (
+                      <span className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-destructive" aria-hidden />
+                    )}
+                  </span>
+                  {!collapsed && <span className="flex-1 text-left">{item.label}</span>}
+                  {!collapsed && item.path === "/admin/mensagens" && naoLidas > 0 && (
+                    <span
+                      className="rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold px-1.5 min-w-[1.25rem] text-center"
+                      aria-label={`${naoLidas} mensagens não lidas`}
+                    >
+                      {naoLidas > 99 ? "99+" : naoLidas}
+                    </span>
+                  )}
                 </button>
               );
             })}

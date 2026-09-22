@@ -12,12 +12,14 @@ import { Separator } from "@/components/ui/separator";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dumbbell, UtensilsCrossed, Phone, Cake, Ruler, ClipboardList, AlertTriangle, Printer, MessageCircle, Wallet, FlaskConical, Route, Fingerprint } from "lucide-react";
+import { Dumbbell, UtensilsCrossed, Phone, Cake, Ruler, ClipboardList, AlertTriangle, Printer, MessageCircle, Wallet, FlaskConical, Route, Fingerprint, Target, History } from "lucide-react";
 import { ImprimirTreinoDialog, type ExercicioSnapshotImpressao } from "@/components/admin/ImprimirTreinoDialog";
 import { Bloco, formatarData } from "@/components/admin/perfilSheetHelpers";
 import { ChatPanel } from "@/components/chat/ChatPanel";
 import { TrialMetodoArke } from "@/components/admin/TrialMetodoArke";
 import { FaseJornada } from "@/components/admin/FaseJornada";
+import { MetasAluno } from "@/components/admin/MetasAluno";
+import { HistoricoAluno } from "@/components/admin/HistoricoAluno";
 import { AcessoCatraca } from "@/components/admin/AcessoCatraca";
 import { CartaoAssinatura } from "@/components/pagamento/CartaoAssinatura";
 import { useToast } from "@/hooks/use-toast";
@@ -112,7 +114,7 @@ export function AlunoPerfilSheet({
       const { data: aluno, error: alunoError } = await supabase
         .from("alunos")
         .select(
-          "id, user_id, organization_id, nivel_atacado, fase_jornada, metodo_arke_status, objetivo, data_inicio, data_nascimento, peso_kg, altura_cm, observacoes, anonimizado_em, identificador_catraca"
+          "id, user_id, organization_id, nivel_atacado, fase_jornada, metodo_arke_status, objetivo, data_inicio, data_nascimento, peso_kg, altura_cm, observacoes, anonimizado_em, identificador_catraca, meta_agua_ml, meta_semanal_dias"
         )
         .eq("id", alunoId!)
         .single();
@@ -358,6 +360,15 @@ export function AlunoPerfilSheet({
                 )}
               </Bloco>
 
+              <Bloco titulo="Metas do Aluno" icon={Target}>
+                <MetasAluno
+                  key={perfil.aluno.id}
+                  alunoId={perfil.aluno.id}
+                  metaAguaMl={perfil.aluno.meta_agua_ml}
+                  metaSemanalDias={perfil.aluno.meta_semanal_dias}
+                />
+              </Bloco>
+
               {perfil.avaliacao && (
                 <Bloco titulo="Última Avaliação Física" icon={Ruler}>
                   <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 text-sm">
@@ -520,6 +531,10 @@ export function AlunoPerfilSheet({
                   </ul>
                 </Bloco>
               )}
+
+              <Bloco titulo="Histórico e Observações" icon={History}>
+                <HistoricoAluno alunoId={perfil.aluno.id} organizationId={perfil.aluno.organization_id} />
+              </Bloco>
 
               {perfil.checkins.length > 0 && (
                 <Bloco titulo="Check-ins Recentes" icon={ClipboardList}>

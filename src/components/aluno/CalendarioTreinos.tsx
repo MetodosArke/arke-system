@@ -45,10 +45,11 @@ interface CalendarioEntry {
   distancia_km: number | null;
 }
 
+// Treino da ficha concluído no app. Não tem duração: quem registra minutos é o
+// lançamento manual do calendário.
 interface RegistroEntry {
   id: string;
   data: string;
-  duracao_min: number | null;
   treinos: { titulo: string } | null;
 }
 
@@ -111,7 +112,13 @@ function indiceModalidade(label: string) {
 const corChipModalidade = (label: string) => MODALITY_CHIP_COLORS[indiceModalidade(label)];
 const corDotModalidade = (label: string) => MODALITY_DOT_COLORS[indiceModalidade(label)];
 
-export default function CalendarioTreinos() {
+/**
+ * Aba Calendário do aluno, na ordem que se lê de cima para baixo: metas da
+ * semana, a rotina planejada (`rotina`, passada pela página) e o calendário
+ * com tudo o que foi treinado. Pensada para caber num print: um bloco de
+ * números só, sem o antigo "Resumo da Semana" que repetia os quatro de cima.
+ */
+export default function CalendarioTreinos({ rotina }: { rotina?: React.ReactNode }) {
   const { alunoId, organization } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -168,30 +175,36 @@ export default function CalendarioTreinos() {
   const { data: calendarEntries = [] } = useQuery({
     queryKey: ["treino-calendario", alunoId, format(monthStart, "yyyy-MM")],
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("treino_calendario")
         .select("id, data, tipos, duracao_min, distancia_km")
         .eq("aluno_id", alunoId!)
         .gte("data", format(monthStart, "yyyy-MM-dd"))
         .lte("data", format(monthEnd, "yyyy-MM-dd"))
         .order("data");
+      if (error) throw error;
       return (data ?? []) as CalendarioEntry[];
     },
     enabled: !!alunoId,
   });
 
+  // Treinos da ficha concluídos no app. Esta consulta pedia uma coluna que não
+  // existe (duracao_min) e não conferia o erro: nenhum treino concluído
+  // aparecia no calendário. Hoje o erro sobe, e o teste
+  // colunasConsultas.guarda confere as colunas pedidas.
   const { data: registroEntries = [] } = useQuery({
     queryKey: ["registro-calendario", alunoId, format(monthStart, "yyyy-MM")],
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("registro_treino")
-        .select("id, data, duracao_min, treinos(titulo)")
+        .select("id, data, treinos(titulo)")
         .eq("aluno_id", alunoId!)
         .eq("concluido", true)
         .gte("data", format(monthStart, "yyyy-MM-dd"))
         .lte("data", format(monthEnd, "yyyy-MM-dd"))
         .order("data");
-      return (data ?? []) as unknown as RegistroEntry[];
+      if (error) throw error;
+      return (data ?? []) as RegistroEntry[];
     },
     enabled: !!alunoId,
   });
@@ -328,7 +341,6 @@ export default function CalendarioTreinos() {
     registroEntries.forEach((r) => {
       if (r.data >= weekStartStr && r.data <= weekEndStr) {
         treinos++;
-        if (r.duracao_min) minutos += r.duracao_min;
         if (r.treinos?.titulo) modalidades.add(r.treinos.titulo);
       }
     });
@@ -362,30 +374,85 @@ export default function CalendarioTreinos() {
 
   const weekDays = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
 
+  const metaBatida = weekDaysWithWorkouts >= metaSemanalDias;
+  const progressoMeta = Math.min(100, Math.round((weekDaysWithWorkouts / Math.max(1, metaSemanalDias)) * 100));
+
   return (
     <div className="space-y-5">
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        {[
-          { icon: "🏋️", label: "Treinos na Semana", value: weeklyStats.treinos },
-          { icon: "⏱️", label: "Minutos Totais", value: weeklyStats.minutos },
-          { icon: "📍", label: "Distância (km)", value: weeklyStats.distancia.toFixed(1) },
-          { icon: "⚡", label: "Modalidades", value: weeklyStats.modalidades },
-        ].map((stat) => (
-          <Card key={stat.label} className="border-0 shadow-sm">
-            <CardContent className="p-4 flex items-center gap-3">
-              <div className="text-2xl">{stat.icon}</div>
-              <div>
-                <p className="text-xs text-muted-foreground">{stat.label}</p>
-                <p className="text-xl font-bold text-primary">{stat.value}</p>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+      <Card className="border-0 shadow-sm">
+        <CardContent className="p-4 space-y-4">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <h3 className="font-bold text-sm flex items-center gap-2">
+                <CalendarIcon className="h-4 w-4 text-primary" /> Metas de Treino Semanal
+              </h3>
+              <p className="text-xs text-muted-foreground">
+                {format(weekStart, "dd de MMM", { locale: ptBR })} – {format(weekEnd, "dd de MMM", { locale: ptBR })}
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              {editingGoal ? (
+                <>
+                  <Input
+                    type="number"
+                    min={1}
+                    max={7}
+                    value={goalValue}
+                    onChange={(e) => setGoalValue(parseInt(e.target.value, 10) || 1)}
+                    className="w-14 h-8 text-center text-sm"
+                    aria-label="Meta de dias por semana"
+                  />
+                  <Button size="sm" className="h-8 px-2 text-xs" onClick={() => updateMeta.mutate(goalValue)}>
+                    OK
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <span className={cn("font-bold text-2xl tabular-nums", metaBatida ? "text-green-600" : "text-primary")}>
+                    {weekDaysWithWorkouts}/{metaSemanalDias}
+                  </span>
+                  <span className="text-xs text-muted-foreground">dias</span>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7"
+                    aria-label="Editar meta semanal"
+                    onClick={() => {
+                      setGoalValue(metaSemanalDias);
+                      setEditingGoal(true);
+                    }}
+                  >
+                    <Pencil className="h-3.5 w-3.5" />
+                  </Button>
+                </>
+              )}
+            </div>
+          </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6">
-        <Card className="border-0 shadow-sm">
-          <CardContent className="p-4">
+          <div className="h-2 rounded-full bg-muted overflow-hidden" role="progressbar" aria-valuenow={progressoMeta} aria-valuemin={0} aria-valuemax={100}>
+            <div className={cn("h-full transition-all", metaBatida ? "bg-green-600" : "bg-primary")} style={{ width: `${progressoMeta}%` }} />
+          </div>
+
+          <div className="grid grid-cols-4 gap-2 text-center">
+            {[
+              { label: "Treinos", value: weeklyStats.treinos },
+              { label: "Minutos", value: weeklyStats.minutos },
+              { label: "Km", value: weeklyStats.distancia.toFixed(1) },
+              { label: "Modalidades", value: weeklyStats.modalidades },
+            ].map((stat) => (
+              <div key={stat.label}>
+                <p className="text-lg font-bold text-primary tabular-nums">{stat.value}</p>
+                <p className="text-[10px] text-muted-foreground">{stat.label}</p>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      {rotina}
+
+      <Card className="border-0 shadow-sm">
+        <CardContent className="p-4">
             <div className="flex items-center justify-between mb-4">
               <Button variant="ghost" size="icon" onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}>
                 <ChevronLeft className="h-5 w-5" />
@@ -481,114 +548,39 @@ export default function CalendarioTreinos() {
               </div>
             )}
           </CardContent>
-        </Card>
+      </Card>
 
-        <div className="space-y-4">
+        {modalityKm.length > 0 && (
           <Card className="border-0 shadow-sm">
             <CardContent className="p-4">
-              <div className="flex items-center gap-2 mb-2">
-                <CalendarIcon className="h-4 w-4 text-primary" />
-                <h4 className="font-bold text-sm">Resumo da Semana</h4>
+              <div className="flex items-center gap-2 mb-3">
+                <MapPin className="h-4 w-4 text-primary" />
+                <h4 className="font-bold text-sm">Kilometragem do Mês</h4>
               </div>
-              <p className="text-xs text-muted-foreground mb-4">
-                {format(weekStart, "dd 'de' MMM", { locale: ptBR })} - {format(weekEnd, "dd 'de' MMM", { locale: ptBR })}
-              </p>
-
-              <p className="text-[11px] text-muted-foreground -mt-2 mb-3">
-                Se você configurou a Rotina da Semana, o sistema usa ela pra saber quantos dias você planejou treinar. Esse número aqui só vale como meta manual enquanto a rotina não estiver preenchida.
-              </p>
-              <div className="flex items-center justify-between mb-4">
-                <span className="text-sm font-medium">Meta Semanal (Dias)</span>
-                <div className="flex items-center gap-2">
-                  {editingGoal ? (
-                    <>
-                      <Input
-                        type="number"
-                        min={1}
-                        max={7}
-                        value={goalValue}
-                        onChange={(e) => setGoalValue(parseInt(e.target.value, 10) || 1)}
-                        className="w-14 h-7 text-center text-sm"
-                      />
-                      <Button size="sm" className="h-7 px-2 text-xs" onClick={() => updateMeta.mutate(goalValue)}>
-                        OK
-                      </Button>
-                    </>
-                  ) : (
-                    <>
-                      <span className={cn("font-bold text-lg", weekDaysWithWorkouts >= metaSemanalDias ? "text-green-600" : "text-primary")}>
-                        {weekDaysWithWorkouts}/{metaSemanalDias}
-                      </span>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-6 w-6"
-                        onClick={() => {
-                          setGoalValue(metaSemanalDias);
-                          setEditingGoal(true);
-                        }}
-                      >
-                        <Pencil className="h-3 w-3" />
-                      </Button>
-                    </>
-                  )}
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div className="text-center">
-                  <p className="text-2xl font-bold text-primary">{weeklyStats.treinos}</p>
-                  <p className="text-[10px] text-muted-foreground">Treinos Totais</p>
-                </div>
-                <div className="text-center">
-                  <p className="text-2xl font-bold text-primary">{weeklyStats.minutos}</p>
-                  <p className="text-[10px] text-muted-foreground">Minutos</p>
-                </div>
-                <div className="text-center">
-                  <p className="text-2xl font-bold text-green-600">{weeklyStats.distancia.toFixed(1)}</p>
-                  <p className="text-[10px] text-muted-foreground">Distância (km)</p>
-                </div>
-                <div className="text-center">
-                  <p className="text-2xl font-bold text-primary">{weeklyStats.modalidades}</p>
-                  <p className="text-[10px] text-muted-foreground">Modalidades</p>
-                </div>
+              <div className="space-y-2">
+                {modalityKm.map((m) => (
+                  <div key={m.label} className="flex items-center justify-between rounded-lg bg-muted/30 px-3 py-2">
+                    <span className="text-sm font-medium flex items-center gap-2">
+                      {MODALITY_EMOJI[m.label]} {m.label}
+                    </span>
+                    <span className="text-sm font-bold text-primary">{m.km.toFixed(1)} km</span>
+                  </div>
+                ))}
               </div>
             </CardContent>
           </Card>
+        )}
 
-          {modalityKm.length > 0 && (
-            <Card className="border-0 shadow-sm">
-              <CardContent className="p-4">
-                <div className="flex items-center gap-2 mb-3">
-                  <MapPin className="h-4 w-4 text-primary" />
-                  <h4 className="font-bold text-sm">Kilometragem do Mês</h4>
-                </div>
-                <div className="space-y-2">
-                  {modalityKm.map((m) => (
-                    <div key={m.label} className="flex items-center justify-between rounded-lg bg-muted/30 px-3 py-2">
-                      <span className="text-sm font-medium flex items-center gap-2">
-                        {MODALITY_EMOJI[m.label]} {m.label}
-                      </span>
-                      <span className="text-sm font-bold text-primary">{m.km.toFixed(1)} km</span>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          <Button
-            className="w-full"
-            onClick={() => {
-              if (!selectedDate) setSelectedDate(new Date());
-              setShowAddDialog(true);
-            }}
-          >
-            <Plus className="mr-2 h-4 w-4" />
-            Adicionar Treino
-          </Button>
-        </div>
-      </div>
+      <Button
+        className="w-full"
+        onClick={() => {
+          if (!selectedDate) setSelectedDate(new Date());
+          setShowAddDialog(true);
+        }}
+      >
+        <Plus className="mr-2 h-4 w-4" />
+        Adicionar Treino
+      </Button>
 
       <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
         <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">

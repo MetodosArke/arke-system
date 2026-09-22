@@ -310,8 +310,7 @@ export default function AlunoTreinos() {
         </TabsContent>
 
         <TabsContent value="calendario" className="space-y-4">
-          <RotinaSemanal />
-          <CalendarioTreinos />
+          <CalendarioTreinos rotina={<RotinaSemanal />} />
         </TabsContent>
       </Tabs>
 

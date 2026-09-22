@@ -288,7 +288,10 @@ export default function AlunoDieta() {
               <CalendarDays className="h-4 w-4 text-primary" />
               <h2 className="text-base font-bold">Controle da Dieta</h2>
             </div>
-            <ControleDieta dietaId={dieta.id} />
+            <ControleDieta
+              dietaId={dieta.id}
+              refeicoes={refeicoes.map((r) => ({ ordem: r.ordem, nome: r.nome_refeicao, horario: r.horario_sugerido }))}
+            />
           </div>
         </>
       )}

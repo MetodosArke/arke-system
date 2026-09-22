@@ -142,15 +142,6 @@ export default function Onboarding() {
     }
   }, [alunoId, rascunhoRestaurado, form, stepIndex]);
 
-  // Este onboarding é a experiência do produto Método ARKE — não o
-  // cadastro básico de aluno matriculado na academia. Quem chegar aqui
-  // por link direto sem ter aderido ao método (ou já tiver concluído) é
-  // redirecionado de volta, sem disparar os efeitos colaterais da
-  // conclusão (treino de boas-vindas, tarefa de acolhimento).
-  if (rolesLoaded && alunoId && (!metodoArkeAtivo || anamneseCompleta)) {
-    return <Navigate to="/app" replace />;
-  }
-
   const isLastStep = stepIndex === STEPS.length - 1;
   const step = STEPS[stepIndex];
   const isConsentStep = step.fields.length === 0;
@@ -214,6 +205,19 @@ export default function Onboarding() {
       toast({ title: "Não foi possível enviar", description: error.message, variant: "destructive" });
     },
   });
+
+  // Este onboarding é a experiência do produto Método ARKE — não o
+  // cadastro básico de aluno matriculado na academia. Quem chegar aqui
+  // por link direto sem ter aderido ao método (ou já tiver concluído) é
+  // redirecionado de volta, sem disparar os efeitos colaterais da
+  // conclusão (treino de boas-vindas, tarefa de acolhimento).
+  // O redirecionamento vem depois de todos os hooks: antes ele ficava antes do
+  // useMutation, e o número de hooks mudava entre renderizações ("Rendered
+  // fewer hooks than expected") quando a adesão ou a anamnese mudavam com a
+  // tela aberta.
+  if (rolesLoaded && alunoId && (!metodoArkeAtivo || anamneseCompleta)) {
+    return <Navigate to="/app" replace />;
+  }
 
   const updateField = (key: keyof AnamneseForm, value: string) => {
     setForm((prev) => ({ ...prev, [key]: value }));
