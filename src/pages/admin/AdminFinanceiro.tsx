@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { ExportarContador } from "@/components/admin/ExportarContador";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -417,9 +418,12 @@ export default function AdminFinanceiro() {
 
   return (
     <div className="space-y-4 max-w-4xl">
-      <div className="flex items-center gap-2">
-        <DollarSign className="h-5 w-5 text-primary" />
-        <h1 className="text-xl font-bold">Financeiro</h1>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <DollarSign className="h-5 w-5 text-primary" />
+          <h1 className="text-xl font-bold">Financeiro</h1>
+        </div>
+        <ExportarContador />
       </div>
       <p className="text-sm text-muted-foreground">
         Controle interno — não substitui a contabilidade externa da academia, mas fica o mais completo possível

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Home, Users, UsersRound, Building2, LogOut, ChevronLeft, Menu, ClipboardList, UserCircle, BarChart3, DoorOpen, CalendarDays, Dumbbell, UtensilsCrossed, Sparkles, DollarSign, Plug, MessageCircle } from "lucide-react";
+import { Home, Users, UsersRound, Building2, LogOut, ChevronLeft, Menu, ClipboardList, UserCircle, BarChart3, DoorOpen, CalendarDays, Dumbbell, UtensilsCrossed, Sparkles, DollarSign, Plug, MessageCircle, Megaphone, QrCode } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
@@ -50,6 +50,8 @@ function buildSections({
   }
   // Desafios + Competições + Feed viraram abas dentro de Engajamento.
   operacao.push({ icon: Sparkles, label: "Engajamento", path: "/admin/engajamento" });
+  operacao.push({ icon: Megaphone, label: "Comunicados", path: "/admin/comunicados" });
+  operacao.push({ icon: QrCode, label: "Check-in QR", path: "/admin/checkin-qr" });
 
   const sections: MenuSection[] = [{ label: "Operação", items: operacao }];
 

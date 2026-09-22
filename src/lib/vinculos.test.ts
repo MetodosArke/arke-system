@@ -48,4 +48,17 @@ describe("escolherVinculo", () => {
     ]);
     expect(escolhido?.role).toBe("aluno");
   });
+
+  it("a unidade escolhida no seletor vence a hierarquia", () => {
+    const vinculos = [
+      { role: "gestor", created_at: "2025-01-01T00:00:00Z", organization_id: "org-a" },
+      { role: "professor", created_at: "2025-02-01T00:00:00Z", organization_id: "org-b" },
+    ];
+    expect(escolherVinculo(vinculos, "org-b")?.organization_id).toBe("org-b");
+  });
+
+  it("preferência de unidade sem vínculo ativo é ignorada", () => {
+    const vinculos = [{ role: "gestor", created_at: "2025-01-01T00:00:00Z", organization_id: "org-a" }];
+    expect(escolherVinculo(vinculos, "org-removida")?.organization_id).toBe("org-a");
+  });
 });

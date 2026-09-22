@@ -25,6 +25,7 @@ import { CartaoAssinatura } from "@/components/pagamento/CartaoAssinatura";
 import { useToast } from "@/hooks/use-toast";
 import { SituacaoAluno } from "@/components/admin/SituacaoAluno";
 import { DocumentosMatriculaAluno } from "@/components/admin/DocumentosMatriculaAluno";
+import { PresencasAluno } from "@/components/admin/PresencasAluno";
 import { planoDoAluno, ROTULO_PLANO, temNutricaoNoPlano } from "@/lib/planoAluno";
 
 const PERIODICIDADE_LABEL: Record<string, string> = {
@@ -358,6 +359,7 @@ export function AlunoPerfilSheet({
                 <p className="text-xs text-muted-foreground">
                   {idade != null ? `${idade} anos · ` : ""}Aluno desde {formatarData(perfil.aluno.data_inicio)}
                 </p>
+                <PresencasAluno alunoId={perfil.aluno.id} />
                 {perfil.aluno.objetivo && (
                   <p className="text-xs text-muted-foreground">Objetivo: {perfil.aluno.objetivo}</p>
                 )}

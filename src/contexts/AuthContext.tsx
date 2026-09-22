@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { escolherVinculo } from "@/lib/vinculos";
+import { escolherVinculo, gravarOrganizacaoPreferida, lerOrganizacaoPreferida } from "@/lib/vinculos";
 import { identificarSessao } from "@/lib/monitoramento";
 import type { User as SupabaseUser, Session } from "@supabase/supabase-js";
 import type { Enums } from "@/integrations/supabase/types";
@@ -51,6 +51,10 @@ interface AuthContextType {
   hasRole: (role: AppRole) => boolean;
   refreshAluno: () => Promise<void>;
   refreshOrganization: () => Promise<void>;
+  /** Unidades em que a pessoa tem vínculo ativo (multiunidade). */
+  vinculos: { organizationId: string; nome: string; role: AppRole }[];
+  /** Troca a unidade corrente e recarrega o app no contexto novo. */
+  trocarOrganizacao: (organizationId: string) => void;
   refreshProfile: () => Promise<void>;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signUp: (email: string, password: string, fullName: string) => Promise<{ error: Error | null }>;
@@ -78,6 +82,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const [rolesLoaded, setRolesLoaded] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [vinculosDisponiveis, setVinculosDisponiveis] = useState<{ organizationId: string; nome: string; role: AppRole }[]>([]);
 
   const fetchProfile = async (userId: string) => {
     const { data } = await supabase
@@ -150,7 +155,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .eq("status", "active"),
     ]);
 
-    const membership = escolherVinculo(vinculos ?? []);
+    const membership = escolherVinculo(vinculos ?? [], lerOrganizacaoPreferida(userId));
+    setVinculosDisponiveis(
+      (vinculos ?? [])
+        .map((v) => ({
+          organizationId: v.organization_id,
+          nome: (v.organizations as unknown as { nome: string } | null)?.nome ?? "Organização",
+          role: v.role,
+        }))
+        .sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"))
+    );
 
     setRoles((globalRoles || []).map((r) => r.role));
 
@@ -207,6 +221,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const refreshAluno = async () => {
     if (!currentUserId || !organization) return;
     await loadAlunoStatus(currentUserId, organization.id);
+  };
+
+  // Recarrega o app inteiro em vez de só trocar o estado: nenhum dado da
+  // unidade anterior (consultas em cache, rascunhos na tela) sobrevive à troca.
+  const trocarOrganizacao = (organizationId: string) => {
+    if (!currentUserId) return;
+    const destino = vinculosDisponiveis.find((v) => v.organizationId === organizationId);
+    if (!destino) return;
+    gravarOrganizacaoPreferida(currentUserId, organizationId);
+    window.location.hash = destino.role === "aluno" ? "#/app" : "#/admin";
+    window.location.reload();
   };
 
   const refreshOrganization = async () => {
@@ -379,6 +404,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         rolesLoaded,
         hasRole,
         refreshAluno,
+        vinculos: vinculosDisponiveis,
+        trocarOrganizacao,
         refreshOrganization,
         refreshProfile,
         signIn,

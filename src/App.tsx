@@ -45,6 +45,9 @@ const DefinirSenha = paginaPreguicosa(() => import("@/pages/auth/DefinirSenha"))
 const PublicMatricula = paginaPreguicosa(() => import("@/pages/public/PublicMatricula"));
 const PrimeiroAcesso = paginaPreguicosa(() => import("@/pages/public/PrimeiroAcesso"));
 const DocumentoLegal = paginaPreguicosa(() => import("@/pages/public/DocumentoLegal"));
+const AlunoCheckin = paginaPreguicosa(() => import("@/pages/app/AlunoCheckin"));
+const AdminCheckinQr = paginaPreguicosa(() => import("@/pages/admin/AdminCheckinQr"));
+const AdminComunicados = paginaPreguicosa(() => import("@/pages/admin/AdminComunicados"));
 const AlunoDashboard = paginaPreguicosa(() => import("@/pages/app/AlunoDashboard"));
 const AlunoPerfil = paginaPreguicosa(() => import("@/pages/app/AlunoPerfil"));
 const AlunoTreinos = paginaPreguicosa(() => import("@/pages/app/AlunoTreinos"));
@@ -188,6 +191,9 @@ const App = () => (
               <Route path="/privacidade" element={<DocumentoLegal tipo="privacidade" />} />
               <Route path="/contrato-academia" element={<DocumentoLegal tipo="contrato_academia" />} />
 
+              {/* Destino do QR de check-in da recepção: público, guarda o código e manda ao login se preciso */}
+              <Route path="/checkin" element={<AlunoCheckin />} />
+
               {/* Onboarding M.A.P.A.® (fora do AppLayout — fluxo em tela cheia) */}
               <Route
                 path="/app/onboarding"
@@ -253,6 +259,8 @@ const App = () => (
                 <Route index element={<AdminDashboard />} />
                 <Route path="dashboard" element={<DashboardHome />} />
                 <Route path="onboarding" element={<AdminOnboarding />} />
+                <Route path="checkin-qr" element={<AdminCheckinQr />} />
+                <Route path="comunicados" element={<AdminComunicados />} />
                 <Route path="alunos" element={<AdminAlunos />} />
                 <Route path="alunos/importar" element={<AdminImportarAlunos />} />
                 <Route path="financeiro" element={<AdminFinanceiro />} />

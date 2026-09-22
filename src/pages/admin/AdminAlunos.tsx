@@ -36,7 +36,8 @@ import { ImprimirTreinoDialog, type ExercicioSnapshotImpressao, type TreinoImpre
 import { abrirWhatsAppAtivacao } from "@/lib/whatsappAtivacao";
 import { ConvitePrimeiroAcesso } from "@/components/admin/ConvitePrimeiroAcesso";
 import { SituacaoAluno } from "@/components/admin/SituacaoAluno";
-import { planoDoAluno, ROTULO_PLANO, vendaMetodoArkeLiberada, type SituacaoAcademia } from "@/lib/planoAluno";
+import { planoDoAluno, ROTULO_PLANO, ROTULO_SITUACAO, vendaMetodoArkeLiberada, type SituacaoAcademia } from "@/lib/planoAluno";
+import { baixarPlanilha, dataBr } from "@/lib/exportarPlanilha";
 
 type Nivel = Enums<"nivel_atacado">;
 
@@ -382,6 +383,35 @@ export default function AdminAlunos() {
         </div>
         {podeGerenciarEquipe && (
           <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={!alunos.length}
+              onClick={() =>
+                void baixarPlanilha(`alunos-${organization?.slug ?? "academia"}`, [
+                  {
+                    nome: "Alunos",
+                    linhas: [
+                      ["Nome", "Telefone", "Plano", "Situação", "Motivo", "Volta prevista", "Aluno desde"],
+                      ...alunos
+                        .filter((a) => !a.anonimizado_em)
+                        .map((a) => [
+                          a.full_name,
+                          a.telefone,
+                          ROTULO_PLANO[planoDoAluno(a)],
+                          ROTULO_SITUACAO[a.situacao_academia],
+                          a.situacao_academia_motivo,
+                          dataBr(a.situacao_academia_retorno),
+                          dataBr(a.data_inicio),
+                        ]),
+                    ],
+                  },
+                ])
+              }
+            >
+              <FileSpreadsheet className="h-4 w-4 mr-1.5" />
+              Exportar
+            </Button>
             <Button size="sm" variant="outline" onClick={() => navigate("/admin/alunos/importar")}>
               <FileSpreadsheet className="h-4 w-4 mr-1.5" />
               Importar em massa

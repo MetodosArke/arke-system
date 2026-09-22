@@ -1646,6 +1646,97 @@ export type Database = {
           },
         ]
       }
+      comunicados: {
+        Row: {
+          criado_em: string
+          criado_por: string | null
+          expira_em: string | null
+          id: string
+          mensagem: string
+          organization_id: string
+          publico: string
+          titulo: string
+        }
+        Insert: {
+          criado_em?: string
+          criado_por?: string | null
+          expira_em?: string | null
+          id?: string
+          mensagem: string
+          organization_id: string
+          publico?: string
+          titulo: string
+        }
+        Update: {
+          criado_em?: string
+          criado_por?: string | null
+          expira_em?: string | null
+          id?: string
+          mensagem?: string
+          organization_id?: string
+          publico?: string
+          titulo?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "comunicados_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "org_churn_metrics"
+            referencedColumns: ["organization_id"]
+          },
+          {
+            foreignKeyName: "comunicados_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      comunicados_lidos: {
+        Row: {
+          comunicado_id: string
+          lido_em: string
+          organization_id: string
+          user_id: string
+        }
+        Insert: {
+          comunicado_id: string
+          lido_em?: string
+          organization_id: string
+          user_id: string
+        }
+        Update: {
+          comunicado_id?: string
+          lido_em?: string
+          organization_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "comunicados_lidos_comunicado_id_fkey"
+            columns: ["comunicado_id"]
+            isOneToOne: false
+            referencedRelation: "comunicados"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "comunicados_lidos_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "org_churn_metrics"
+            referencedColumns: ["organization_id"]
+          },
+          {
+            foreignKeyName: "comunicados_lidos_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       contratos_matricula: {
         Row: {
           ativo: boolean
@@ -3277,6 +3368,39 @@ export type Database = {
           },
         ]
       }
+      organizacao_segredo_checkin: {
+        Row: {
+          criado_em: string
+          organization_id: string
+          segredo: string
+        }
+        Insert: {
+          criado_em?: string
+          organization_id: string
+          segredo?: string
+        }
+        Update: {
+          criado_em?: string
+          organization_id?: string
+          segredo?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "organizacao_segredo_checkin_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: true
+            referencedRelation: "org_churn_metrics"
+            referencedColumns: ["organization_id"]
+          },
+          {
+            foreignKeyName: "organizacao_segredo_checkin_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: true
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       organizacao_status_historico: {
         Row: {
           alterado_por: string | null
@@ -3828,6 +3952,55 @@ export type Database = {
           valor?: string | null
         }
         Relationships: []
+      }
+      presencas: {
+        Row: {
+          aluno_id: string
+          dia: string
+          id: string
+          organization_id: string
+          origem: string
+          registrada_em: string
+        }
+        Insert: {
+          aluno_id: string
+          dia?: string
+          id?: string
+          organization_id: string
+          origem?: string
+          registrada_em?: string
+        }
+        Update: {
+          aluno_id?: string
+          dia?: string
+          id?: string
+          organization_id?: string
+          origem?: string
+          registrada_em?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "presencas_aluno_id_fkey"
+            columns: ["aluno_id"]
+            isOneToOne: false
+            referencedRelation: "alunos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "presencas_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "org_churn_metrics"
+            referencedColumns: ["organization_id"]
+          },
+          {
+            foreignKeyName: "presencas_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       profiles: {
         Row: {
@@ -4739,6 +4912,17 @@ export type Database = {
         }[]
       }
       capturar_snapshot_mrr: { Args: never; Returns: undefined }
+      codigo_checkin: {
+        Args: { _janela: number; _organization_id: string }
+        Returns: string
+      }
+      codigo_checkin_atual: {
+        Args: { _organization_id: string }
+        Returns: {
+          codigo: string
+          segundos_restantes: number
+        }[]
+      }
       concluir_onboarding_organizacao: {
         Args: { _organization_id: string }
         Returns: boolean
@@ -5363,6 +5547,10 @@ export type Database = {
       registrar_lembrete_onboarding: {
         Args: { _organization_id: string }
         Returns: undefined
+      }
+      registrar_presenca_qr: {
+        Args: { _codigo: string; _organization_id: string }
+        Returns: string
       }
       registrar_primeiro_acesso_aluno: { Args: never; Returns: undefined }
       registrar_tentativa_matricula: {

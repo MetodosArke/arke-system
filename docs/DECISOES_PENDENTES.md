@@ -42,8 +42,8 @@ Lista viva, preenchida durante as rodadas de ajustes do app original. Cada item 
 ### 9. Quando ligar a venda do Método ARKE
 - **No ar:** o app anuncia "Método ARKE — breve lançamento"; a adesão pela academia fica desligada (`VITE_METODO_ARKE_VENDA`). Ligar = pôr `true` na Vercel e fazer um deploy. Depende também da decisão sobre CPF dos alunos (hoje não coletado, e o Asaas exige CPF para cobrar).
 
-### 10. Ordem das próximas rodadas
-- **Proposta:** Rodada 5 = páginas legais (termos, privacidade, contrato de tratamento de dados) + contrato de matrícula e PAR-Q com assinatura digital. Rodada 6 = check-in por QR Code, comunicados em massa, exportação de relatórios e multiunidade.
+### 10. Rodadas 5 e 6
+- **Feitas** na ordem proposta (documentos legais, contrato de matrícula e PAR-Q; depois multiunidade, exportação, check-in por QR e comunicados). Nada a decidir aqui além dos itens jurídicos abaixo.
 
 ### 11. Funil de vendas, NFS-e e WhatsApp
 - **Contexto:** os três têm custo ou configuração por academia e aumentam o escopo. Nenhum foi iniciado.
@@ -70,6 +70,12 @@ Lista viva, preenchida durante as rodadas de ajustes do app original. Cada item 
 - **Confirmar**, ou definir o que deve travar (ex.: PAR-Q com "sim" sem atestado bloqueia o treino até a equipe registrar o atestado).
 
 ## Operação
+
+### 17. Plano de infraestrutura (do seu lado)
+- Supabase pago (backup com recuperação a ponto no tempo, sem pausa por inatividade), Vercel Pro (o Hobby proíbe uso comercial), Resend pago (o gratuito envia 100 e-mails/dia — uma importação grande estoura), Sentry conforme o volume. Depois do upgrade, eu rodo o **teste de carga** — antes, ele mediria os limites do plano gratuito, não o sistema.
+
+### 18. Venda de produtos e estoque
+- Ficou para depois do lançamento, como combinado.
 
 ### 12. Conta Asaas da Tietê Fitness
 - **No ar:** a Tietê é organização de homologação (trial), com carteira placeholder. Quando ela virar cliente de verdade: tirar do trial (Visão Master), fazer o onboarding (a conta Asaas pode ser aberta pelo próprio ARKE agora) e concluir — a mensalidade B2B nasce nessa hora.
