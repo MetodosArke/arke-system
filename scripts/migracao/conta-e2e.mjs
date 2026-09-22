@@ -21,12 +21,25 @@
 import { readFileSync, existsSync } from "node:fs";
 import { randomBytes } from "node:crypto";
 import { execFileSync } from "node:child_process";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+
+const RAIZ = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 
 const DESTINO = process.env.ARKE_DESTINO ?? "lzyxqjibkfblrrjboylp";
 const SLUG = process.env.ARKE_SLUG_HOMOLOGACAO ?? "homologacao";
 const EMAIL = process.env.ARKE_EMAIL_E2E ?? "e2e-jornada@arkefit.com.br";
 const REPO = process.env.ARKE_REPO ?? "MetodosArke/arke-system";
 const aplicar = process.argv.includes("--aplicar");
+
+// Roda a jornada autenticada logo depois de criar a conta, passando a senha
+// pelo ambiente do processo filho.
+//
+// Sem isto não há como rodar esse teste na mão: a senha é gerada aqui e vai
+// direto para o secret do GitHub, então ninguém a conhece para digitar num
+// `.env`. Escrevê-la em arquivo só para poder testar seria trocar o cuidado
+// todo por conveniência — o ambiente do filho morre com ele.
+const rodarE2e = process.argv.includes("--rodar-e2e");
 
 const linhas = (() => {
   const a = process.env.ARKE_CHAVES;
@@ -131,6 +144,23 @@ if (!aplicar) {
       ? "\n  login conferido: a conta entra com a senha que está no secret"
       : `\n  ATENÇÃO: o login falhou (HTTP ${login.status}) — o teste E2E vai falhar também`,
   );
+
+  if (rodarE2e) {
+    console.log("\nrodando a jornada do aluno contra o app publicado:\n");
+    try {
+      // O CLI do Playwright é chamado pelo próprio node, não por `npx`: no
+      // Windows o `npx.cmd` precisa de shell e, sem ele, a falha vem vazia —
+      // o que esconde justamente a saída do teste.
+      execFileSync(
+        process.execPath,
+        ["node_modules/@playwright/test/cli.js", "test", "e2e/jornada-aluno.spec.ts"],
+        { stdio: "inherit", cwd: RAIZ, env: { ...process.env, E2E_EMAIL: EMAIL, E2E_SENHA: senha } },
+      );
+    } catch {
+      console.error("\n  a jornada falhou — veja a saída acima.");
+      process.exitCode = 1;
+    }
+  }
 }
 
 const conferencia = await sql(`
