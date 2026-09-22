@@ -537,6 +537,33 @@ export type Database = {
           },
         ]
       }
+      aluno_observacoes: {
+        Row: {
+          aluno_id: string
+          autor_id: string | null
+          created_at: string
+          id: string
+          organization_id: string
+          texto: string
+        }
+        Insert: {
+          aluno_id: string
+          autor_id?: string | null
+          created_at?: string
+          id?: string
+          organization_id: string
+          texto: string
+        }
+        Update: {
+          aluno_id?: string
+          autor_id?: string | null
+          created_at?: string
+          id?: string
+          organization_id?: string
+          texto?: string
+        }
+        Relationships: []
+      }
       aluno_rotina_semanal: {
         Row: {
           aluno_id: string
@@ -1572,6 +1599,7 @@ export type Database = {
       }
       dieta_adesao: {
         Row: {
+          refeicoes_marcadas: Json
           adesao_percentual: number
           agua_ml: number
           aluno_id: string
@@ -1590,6 +1618,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          refeicoes_marcadas?: Json
           adesao_percentual?: number
           agua_ml?: number
           aluno_id: string
@@ -1608,6 +1637,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          refeicoes_marcadas?: Json
           adesao_percentual?: number
           agua_ml?: number
           aluno_id?: string
@@ -4200,6 +4230,29 @@ export type Database = {
       aluno_inadimplente_b2c: {
         Args: { _aluno_id: string }
         Returns: boolean
+      }
+      get_caixa_mensagens: {
+        Args: { _organization_id: string }
+        Returns: {
+          aluno_id: string
+          aluno_nome: string
+          canal: string
+          dieta_id: string | null
+          nao_lidas: number
+          ultima_em: string
+          ultima_mensagem: string
+          ultimo_remetente: string
+        }[]
+      }
+      get_historico_aluno: {
+        Args: { _aluno_id: string; _limite?: number }
+        Returns: {
+          autor: string | null
+          detalhe: string | null
+          ocorrido_em: string
+          tipo: string
+          titulo: string
+        }[]
       }
       get_superadmin_alunos_trial: {
         Args: { _organization_id: string }

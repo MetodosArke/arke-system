@@ -30,7 +30,13 @@ import { AlertTriangle, CreditCard, Lock } from "lucide-react";
  * ligados — ver a pendência de validação em sandbox no CLAUDE.md.
  */
 
-export const CARTAO_RECORRENTE_LIGADO = import.meta.env.VITE_CARTAO_RECORRENTE === "true";
+// Função, e não constante de módulo: lida a cada renderização. Em produção dá
+// no mesmo (o Vite fixa o valor no build); no teste, trocar a variável basta —
+// antes cada teste recarregava o módulo inteiro, e a carga lenta de um vazava
+// para o seguinte quando a máquina estava ocupada.
+export function cartaoRecorrenteLigado(): boolean {
+  return import.meta.env.VITE_CARTAO_RECORRENTE === "true";
+}
 
 export interface AssinaturaPagamento {
   status: string;
@@ -144,7 +150,7 @@ export function CartaoAssinatura({ alunoId, assinatura, titularPadrao, onSalvo, 
         </div>
       )}
 
-      {CARTAO_RECORRENTE_LIGADO && emitida && (
+      {cartaoRecorrenteLigado() && emitida && (
         <Button size="sm" variant="outline" onClick={abrir}>
           <CreditCard className="mr-1.5 h-3.5 w-3.5" />
           {noCartao ? "Trocar cartão" : "Pagar automático no cartão"}

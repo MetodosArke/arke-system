@@ -70,6 +70,7 @@ const AdminIntegracoes = paginaPreguicosa(() => import("@/pages/admin/AdminInteg
 const AdminPerfil = paginaPreguicosa(() => import("@/pages/admin/AdminPerfil"));
 const AdminAgenda = paginaPreguicosa(() => import("@/pages/admin/AdminAgenda"));
 const AdminEngajamento = paginaPreguicosa(() => import("@/pages/admin/AdminEngajamento"));
+const AdminMensagens = paginaPreguicosa(() => import("@/pages/admin/AdminMensagens"));
 const SuperAdminDashboard = paginaPreguicosa(() => import("@/pages/superadmin/SuperAdminDashboard"));
 const SuperAdminProfissionais = paginaPreguicosa(() => import("@/pages/superadmin/SuperAdminProfissionais"));
 const SuperAdminConfiguracoes = paginaPreguicosa(() => import("@/pages/superadmin/SuperAdminConfiguracoes"));
@@ -249,6 +250,7 @@ const App = () => (
                 <Route path="perfil" element={<AdminPerfil />} />
                 <Route path="agenda" element={<AdminAgenda />} />
                 <Route path="engajamento" element={<AdminEngajamento />} />
+                <Route path="mensagens" element={<AdminMensagens />} />
               </Route>
 
               {/* Super Admin — Visão Master ArkeFit, restrita ao papel global 'superadmin' */}
