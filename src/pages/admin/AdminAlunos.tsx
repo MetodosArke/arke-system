@@ -34,6 +34,7 @@ import { AvaliacaoFisicaDialog } from "@/components/admin/AvaliacaoFisicaDialog"
 import { AlunoPerfilSheet } from "@/components/admin/AlunoPerfilSheet";
 import { ImprimirTreinoDialog, type ExercicioSnapshotImpressao, type TreinoImpressao } from "@/components/admin/ImprimirTreinoDialog";
 import { abrirWhatsAppAtivacao } from "@/lib/whatsappAtivacao";
+import { ConvitePrimeiroAcesso } from "@/components/admin/ConvitePrimeiroAcesso";
 
 type Nivel = Enums<"nivel_atacado">;
 
@@ -386,6 +387,8 @@ export default function AdminAlunos() {
           </div>
         )}
       </div>
+
+      {podeGerenciarEquipe && <ConvitePrimeiroAcesso />}
 
       <Card>
         <CardContent className="p-0">

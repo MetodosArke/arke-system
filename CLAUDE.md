@@ -312,6 +312,12 @@ A estrutura do acervo do app original, trazida para o esquema multitenant:
 - **Aluno:** escolhe a divisão do dia (abre na que já registrou hoje), vê cada série, e o registro guarda a divisão (`registro_treino.divisao`) — o calendário mostra "Treino A". A impressão da ficha também sai por divisão e por série.
 - **Pendência de conteúdo:** os 105 exercícios globais continuam **sem vídeo nem imagem**. A estrutura está pronta; produzir ou licenciar o material é decisão de vocês (D7). Com vídeos, o armazenamento do plano gratuito (1 GB) acaba rápido — mais um motivo para o upgrade vir antes de popular o acervo.
 
+## Primeiro Acesso por QR Code (um link por academia)
+
+Ativar a base importada era aluno a aluno: o botão "Enviar Ativação via WhatsApp" da lista, centenas de vezes. Agora cada academia tem **um link e um QR Code só** — `/p/:slug/primeiro-acesso` —, para colar na recepção, no grupo e no Instagram. O aluno digita o e-mail ou o celular que a academia cadastrou e recebe no e-mail o próprio link para criar a senha (o mesmo `/auth/definir-senha` do link individual). O cartão **Convite de primeiro acesso** fica no topo de *Alunos & Prescrições*, com copiar, baixar o QR em PNG, enviar pelo WhatsApp e a contagem de quantos alunos já entraram no app (`primeiro_acesso_em`). O botão individual continua na lista para quem ficou para trás.
+
+`primeiro-acesso` (edge function, `verify_jwt = false`) tem as travas da matrícula pública — limite por IP em `matricula_publica_tentativas` e Turnstile — e **responde sempre a mesma frase**, exista ou não o cadastro: sem isso, o QR viraria um jeito de descobrir quem é aluno de qual academia digitando e-mails. A busca mora em `buscar_aluno_primeiro_acesso(_organization_id, _contato)`, só `service_role`: e-mail sem diferenciar maiúsculas, ou celular pelos **últimos 10 dígitos**, para "+55 (11) 9..." e "(11) 9..." baterem. O envio é `resetPasswordForEmail`; o Auth segura um envio por minuto por e-mail, e repetir cedo demais só não manda de novo.
+
 ## Motor de Automações e Regras Operacionais
 - **Prevenção de Falha Humana:** Eventos da jornada viram tarefas automáticas com responsável, prazo (SLA) e prioridade[span_81](start_span)[span_81](end_span).
 - **Sinais de Atenção Automáticos:**
