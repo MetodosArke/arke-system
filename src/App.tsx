@@ -41,6 +41,7 @@ const Register = paginaPreguicosa(() => import("@/pages/auth/Register"));
 const ResetPassword = paginaPreguicosa(() => import("@/pages/auth/ResetPassword"));
 const DefinirSenha = paginaPreguicosa(() => import("@/pages/auth/DefinirSenha"));
 const PublicMatricula = paginaPreguicosa(() => import("@/pages/public/PublicMatricula"));
+const PrimeiroAcesso = paginaPreguicosa(() => import("@/pages/public/PrimeiroAcesso"));
 const AlunoDashboard = paginaPreguicosa(() => import("@/pages/app/AlunoDashboard"));
 const AlunoPerfil = paginaPreguicosa(() => import("@/pages/app/AlunoPerfil"));
 const AlunoTreinos = paginaPreguicosa(() => import("@/pages/app/AlunoTreinos"));
@@ -176,6 +177,8 @@ const App = () => (
 
               {/* Auto-matrícula pública por slug da academia (sem login) */}
               <Route path="/p/:slug" element={<PublicMatricula />} />
+              {/* Primeiro acesso de quem a academia já cadastrou (QR Code da recepção) */}
+              <Route path="/p/:slug/primeiro-acesso" element={<PrimeiroAcesso />} />
 
               {/* Onboarding M.A.P.A.® (fora do AppLayout — fluxo em tela cheia) */}
               <Route
