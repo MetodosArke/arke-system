@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { planoDoAluno, prioridadeDoPlano, situacaoDoTexto, temNutricaoNoPlano, vendaMetodoArkeLiberada } from "./planoAluno";
+import { acessoPelaSituacao, planoDoAluno, prioridadeDoPlano, situacaoDoTexto, temNutricaoNoPlano, vendaMetodoArkeLiberada } from "./planoAluno";
 
 describe("planoDoAluno", () => {
   it("quem não está no Método é Free, mesmo com nível gravado", () => {
@@ -54,6 +54,19 @@ describe("situacaoDoTexto", () => {
     expect(situacaoDoTexto("xyz")).toBeNull();
     expect(situacaoDoTexto("Inativo")).toBeNull();
     expect(situacaoDoTexto("Cancelado")).toBeNull();
+  });
+});
+
+describe("acessoPelaSituacao", () => {
+  const agora = new Date("2026-09-22T12:00:00Z");
+  it("em dia entra; pausado sai na hora", () => {
+    expect(acessoPelaSituacao("em_dia", null, agora)).toEqual({ liberado: true, diasRestantes: null });
+    expect(acessoPelaSituacao("pausado", "2026-09-22T11:00:00Z", agora).liberado).toBe(false);
+  });
+  it("inadimplente usa por 5 dias corridos, com a contagem regressiva", () => {
+    expect(acessoPelaSituacao("inadimplente", "2026-09-22T11:00:00Z", agora)).toEqual({ liberado: true, diasRestantes: 5 });
+    expect(acessoPelaSituacao("inadimplente", "2026-09-18T13:00:00Z", agora)).toEqual({ liberado: true, diasRestantes: 2 });
+    expect(acessoPelaSituacao("inadimplente", "2026-09-17T11:00:00Z", agora).liberado).toBe(false);
   });
 });
 

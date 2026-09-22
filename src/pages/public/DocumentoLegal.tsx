@@ -20,7 +20,7 @@ export default function DocumentoLegal({ tipo }: { tipo: TipoDocumento }) {
           </p>
         )}
         <MarkdownSimples texto={doc.texto} />
-        <p className="text-xs text-muted-foreground pt-4 border-t">Versão de {new Date(`${doc.versao}T12:00:00`).toLocaleDateString("pt-BR")}.</p>
+        <p className="text-xs text-muted-foreground pt-4 border-t">Versão de {new Date(`${doc.versao.slice(0, 10)}T12:00:00`).toLocaleDateString("pt-BR")}.</p>
         <nav className="flex flex-wrap gap-4 text-xs">
           {Object.entries(DOCUMENTOS)
             .filter(([t]) => t !== tipo)

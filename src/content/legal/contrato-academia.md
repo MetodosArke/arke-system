@@ -1,6 +1,6 @@
 # Contrato de Licença de Uso e de Tratamento de Dados — Academia
 
-Este Contrato é celebrado entre **[RAZÃO SOCIAL DA ARKEFIT]**, CNPJ **[CNPJ]** ("ArkeFit"), e a academia, studio ou profissional que o aceita eletronicamente no painel da plataforma ("Academia"), representada pelo gestor que registra o aceite e declara ter poderes para isso.
+Este Contrato é celebrado entre **METODOS ARKE LTDA**, CNPJ **68.456.606/0001-70**, com sede na Rua José Antônio Valadares, 720, Vila Livieiro, São Paulo/SP ("ArkeFit"), e a academia, studio ou profissional que o aceita eletronicamente no painel da plataforma ("Academia"), representada pelo gestor que registra o aceite e declara ter poderes para isso.
 
 ## 1. Objeto
 
@@ -10,8 +10,8 @@ Licença de uso, não exclusiva e intransferível, da plataforma ARKE (painel da
 
 - O plano contratado e o limite de alunos ativos são os indicados no painel. A tabela vigente é: Starter R$ 390,00 (até 150 alunos), Growth R$ 790,00 (até 500), Enterprise R$ 1.290,00 (até 1.000); Custom sob consulta.
 - A mensalidade é cobrada por assinatura recorrente no Asaas, com vencimento no mesmo dia do mês em que o onboarding é concluído, e vale desde o primeiro dia.
-- Cobrança vencida e não paga suspende o acesso da **equipe** da Academia ao painel até a regularização. **Os alunos da Academia continuam usando o aplicativo**, porque não deram causa ao atraso.
-- Reajuste anual pelo **[ÍNDICE]**, com aviso prévio de 30 dias.
+- Cobrança não paga **7 (sete) dias corridos** após o vencimento suspende o acesso da **equipe** da Academia ao painel até a regularização. **Os alunos da Academia continuam usando o aplicativo**, porque não deram causa ao atraso.
+- Reajuste anual pelo **IPCA/IBGE** acumulado no período (ou pelo índice oficial que venha a substituí-lo), com aviso prévio de 30 dias.
 
 ## 3. Cobrança dos alunos pela plataforma (quando usada)
 
@@ -48,7 +48,7 @@ Os dados da conta da Academia e da sua equipe, e os do Método ARKE quando contr
 
 ## 7. Vigência e encerramento
 
-Prazo indeterminado, a partir do aceite. Qualquer das partes pode encerrá-lo com aviso de **[PRAZO]** dias pelo painel ou pelo canal de suporte. A ArkeFit pode encerrá-lo por inadimplência superior a **[PRAZO]** dias ou por violação grave dos Termos de Uso.
+Prazo indeterminado, a partir do aceite. Qualquer das partes pode encerrá-lo com aviso prévio de **30 (trinta) dias** pelo painel ou pelo canal de suporte. A ArkeFit pode encerrá-lo, com o mesmo aviso de 30 dias, por inadimplência não regularizada após a suspensão, ou de imediato por violação grave dos Termos de Uso.
 
 ## 8. Responsabilidade
 
@@ -56,4 +56,4 @@ Cada parte responde pelos danos que causar. A ArkeFit não responde pelo conteú
 
 ## 9. Disposições gerais
 
-O aceite eletrônico, registrado com data, hora, usuário e versão deste documento, é a manifestação de vontade da Academia. Alterações entram em vigor com o aceite da nova versão no painel. Fica eleito o foro de **[CIDADE/UF]**.
+O aceite eletrônico, registrado com data, hora, usuário e versão deste documento, é a manifestação de vontade da Academia. Alterações entram em vigor com o aceite da nova versão no painel. Fica eleito o foro da Comarca de **São Paulo/SP**.

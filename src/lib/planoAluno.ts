@@ -28,6 +28,28 @@ export const ROTULO_SITUACAO: Record<SituacaoAcademia, string> = {
 
 export const SITUACOES: SituacaoAcademia[] = ["em_dia", "inadimplente", "pausado"];
 
+/** Dias de tolerância do aluno marcado como inadimplente (decisão de 22/09/2026). */
+export const TOLERANCIA_INADIMPLENTE_DIAS = 5;
+
+/**
+ * Se a situação deixa o aluno usar o app — espelho de public.situacao_permite_app().
+ * Pausado sai na hora; inadimplente usa por 5 dias corridos a contar da marcação.
+ * Devolve também quantos dias de tolerância restam, para o aviso na tela.
+ */
+export function acessoPelaSituacao(
+  situacao: SituacaoAcademia | null,
+  desde: string | null,
+  agora = new Date()
+): { liberado: boolean; diasRestantes: number | null } {
+  if (!situacao || situacao === "em_dia") return { liberado: true, diasRestantes: null };
+  if (situacao === "pausado") return { liberado: false, diasRestantes: null };
+  const inicio = desde ? new Date(desde).getTime() : agora.getTime();
+  const restanteMs = inicio + TOLERANCIA_INADIMPLENTE_DIAS * 86_400_000 - agora.getTime();
+  return restanteMs > 0
+    ? { liberado: true, diasRestantes: Math.ceil(restanteMs / 86_400_000) }
+    : { liberado: false, diasRestantes: 0 };
+}
+
 export function planoDoAluno(aluno: { metodo_arke_status: string | null; nivel_atacado: string | null }): PlanoAluno {
   if (aluno.metodo_arke_status !== "ativo") return "free";
   if (aluno.nivel_atacado === "elite") return "elite";

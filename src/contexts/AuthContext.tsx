@@ -42,7 +42,8 @@ interface AuthContextType {
   faseJornada: FaseJornada | null; // M.A.P.A. → B.A.S.E. → R.O.T.A. → A.P.E.X. → L.E.G.A.D.O.
   metodoArkeAtivo: boolean; // aderiu ao produto Método ARKE (além da matrícula normal na academia)
   planoAluno: PlanoAluno; // Free, Método Integrado ou Método Elite (lib/planoAluno)
-  situacaoAcademia: SituacaoAcademia | null; // marcada pela academia; só "em_dia" entra no app
+  situacaoAcademia: SituacaoAcademia | null; // marcada pela academia; "em_dia" entra, inadimplente por 5 dias
+  situacaoAcademiaDesde: string | null; // quando a situação foi marcada (conta a tolerância)
   anamneseCompleta: boolean; // Anamnese de Acolhimento (M.A.P.A.®) já preenchida
   consentimentoLgpdAceito: boolean; // Termo de consentimento (dados de saúde) já aceito
   isAuthenticated: boolean;
@@ -77,6 +78,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [metodoArkeAtivo, setMetodoArkeAtivo] = useState(false);
   const [planoAluno, setPlanoAluno] = useState<PlanoAluno>("free");
   const [situacaoAcademia, setSituacaoAcademia] = useState<SituacaoAcademia | null>(null);
+  const [situacaoAcademiaDesde, setSituacaoAcademiaDesde] = useState<string | null>(null);
   const [anamneseCompleta, setAnamneseCompleta] = useState(false);
   const [consentimentoLgpdAceito, setConsentimentoLgpdAceito] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -96,7 +98,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const loadAlunoStatus = async (userId: string, organizationId: string) => {
     const { data: aluno } = await supabase
       .from("alunos")
-      .select("id, fase_jornada, primeiro_acesso_em, metodo_arke_status, nivel_atacado, situacao_academia")
+      .select("id, fase_jornada, primeiro_acesso_em, metodo_arke_status, nivel_atacado, situacao_academia, situacao_academia_em")
       .eq("user_id", userId)
       .eq("organization_id", organizationId)
       .maybeSingle();
@@ -117,6 +119,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setMetodoArkeAtivo(aluno.metodo_arke_status === "ativo");
     setPlanoAluno(planoDoAluno(aluno));
     setSituacaoAcademia(aluno.situacao_academia);
+    setSituacaoAcademiaDesde(aluno.situacao_academia_em);
 
     // M.A.P.A.®: registra o 1º acesso, para a automação de "48h sem 1º
     // acesso" não abrir tarefa de ativação para quem já entrou.
@@ -397,6 +400,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         metodoArkeAtivo,
         planoAluno,
         situacaoAcademia,
+        situacaoAcademiaDesde,
         anamneseCompleta,
         consentimentoLgpdAceito,
         isAuthenticated: !!session,

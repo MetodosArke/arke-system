@@ -1,6 +1,6 @@
 # Termos de Uso da Plataforma ARKE
 
-Estes Termos regulam o uso da plataforma ARKE — o aplicativo do aluno e o painel da academia — oferecida por **[RAZÃO SOCIAL DA ARKEFIT]**, CNPJ **[CNPJ]**, com sede em **[ENDEREÇO]** ("ArkeFit"). Ao criar uma conta ou usar a plataforma, você declara ter lido e concordado com estes Termos e com a Política de Privacidade.
+Estes Termos regulam o uso da plataforma ARKE — o aplicativo do aluno e o painel da academia — oferecida por **METODOS ARKE LTDA**, CNPJ **68.456.606/0001-70**, com sede na **Rua José Antônio Valadares, 720, Vila Livieiro, São Paulo/SP** ("ArkeFit"). Ao criar uma conta ou usar a plataforma, você declara ter lido e concordado com estes Termos e com a Política de Privacidade.
 
 ## 1. O que é a ARKE
 
@@ -48,4 +48,4 @@ Os Termos podem ser atualizados. Cada versão é identificada pela data. Quando 
 
 ## 10. Lei e foro
 
-Estes Termos seguem a lei brasileira, incluindo o Código de Defesa do Consumidor quando aplicável. Fica eleito o foro de **[CIDADE/UF]**, ressalvado o foro do domicílio do consumidor.
+Estes Termos seguem a lei brasileira, incluindo o Código de Defesa do Consumidor quando aplicável. Fica eleito o foro da Comarca de **São Paulo/SP**, ressalvado o foro do domicílio do consumidor.

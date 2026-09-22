@@ -25,6 +25,7 @@ import CalendarioTreinos from "@/components/aluno/CalendarioTreinos";
 import RotinaSemanal from "@/components/aluno/RotinaSemanal";
 import type { Json } from "@/integrations/supabase/types";
 import { MidiaExercicio } from "@/components/acervo/MidiaExercicio";
+import { situacaoAtestado } from "@/lib/parq";
 import { divisoesDoTreino, rotuloTecnica, seriesDoExercicio } from "@/lib/seriesTreino";
 
 interface ExercicioSnapshot {
@@ -54,6 +55,19 @@ const HOJE = new Date().toISOString().slice(0, 10);
 
 export default function AlunoTreinos() {
   const { alunoId, organization } = useAuth();
+
+  // PAR-Q com "sim" e sem atestado válido: o banco recusa o registro de
+  // treino (trg_exigir_atestado_para_treinar); aqui a tela explica o porquê.
+  const { data: parq } = useQuery({
+    queryKey: ["parq-treino", alunoId],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("aluno_parq").select("algum_sim, atestado_validade").eq("aluno_id", alunoId!).maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!alunoId,
+  });
+  const atestadoPendente = ["falta", "vencido"].includes(situacaoAtestado(parq ?? null));
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [videoAberto, setVideoAberto] = useState<{ url: string; imagem: string | null; nome: string } | null>(null);
@@ -191,6 +205,18 @@ export default function AlunoTreinos() {
         <Dumbbell className="h-5 w-5 text-primary" />
         <h1 className="text-xl font-bold">Meu Treino</h1>
       </div>
+
+      {atestadoPendente && (
+        <Card className="border-amber-500/40 bg-amber-500/10">
+          <CardContent className="py-3 text-sm space-y-1">
+            <p className="font-medium">Treino liberado depois do atestado médico</p>
+            <p className="text-muted-foreground text-xs">
+              Pelo questionário de saúde, você precisa de um atestado liberando a atividade física. Envie pela tela inicial
+              (Documentos da matrícula); o registro dos treinos volta assim que a academia conferir.
+            </p>
+          </CardContent>
+        </Card>
+      )}
 
       <Tabs defaultValue="treino">
         <TabsList>

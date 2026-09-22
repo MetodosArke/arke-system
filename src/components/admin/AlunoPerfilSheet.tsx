@@ -27,6 +27,7 @@ import { SituacaoAluno } from "@/components/admin/SituacaoAluno";
 import { DocumentosMatriculaAluno } from "@/components/admin/DocumentosMatriculaAluno";
 import { PresencasAluno } from "@/components/admin/PresencasAluno";
 import { planoDoAluno, ROTULO_PLANO, temNutricaoNoPlano } from "@/lib/planoAluno";
+import { useNutricionistaDaAcademia } from "@/hooks/useNutricionistaDaAcademia";
 
 const PERIODICIDADE_LABEL: Record<string, string> = {
   mensal: "Mensal",
@@ -265,6 +266,7 @@ export function AlunoPerfilSheet({
   });
 
   const plano = perfil ? planoDoAluno(perfil.aluno) : "free";
+  const academiaTemNutri = useNutricionistaDaAcademia(perfil?.aluno.organization_id);
   const idade = perfil?.aluno.data_nascimento ? calcularIdade(perfil.aluno.data_nascimento) : null;
   const exerciciosTreinoAtivo =
     (perfil?.treinoAtivo?.snapshot_conteudo as unknown as ExercicioSnapshotImpressao[] | null) ?? [];
@@ -342,8 +344,8 @@ export function AlunoPerfilSheet({
                 size="sm"
                 variant="outline"
                 className="flex-1"
-                disabled={!temNutricaoNoPlano(plano)}
-                title={temNutricaoNoPlano(plano) ? undefined : "O chat com a nutricionista é do Método ARKE"}
+                disabled={!temNutricaoNoPlano(plano) && !academiaTemNutri}
+                title={temNutricaoNoPlano(plano) || academiaTemNutri ? undefined : "Sem nutricionista na equipe: o chat com a nutricionista é do Método ARKE"}
                 onClick={() => setChatAberto("nutri")}
               >
                 <MessageCircle className="h-4 w-4 mr-1.5" />

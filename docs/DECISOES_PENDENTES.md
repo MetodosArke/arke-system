@@ -1,81 +1,31 @@
-# Decisões pendentes do responsável
+# Decisões do responsável — estado final das rodadas
 
-Lista viva, preenchida durante as rodadas de ajustes do app original. Cada item traz o contexto, o que ficou no ar enquanto a decisão não vem (sempre o padrão mais seguro, de preferência configurável sem deploy) e a recomendação. É entregue consolidada ao fim de todas as rodadas.
+Lista preenchida durante as rodadas de ajustes do app original e respondida pelo responsável em 22/09/2026. As respostas originais ficam registradas abaixo de cada item.
 
-## Conteúdo e configuração (sem código)
+## Resolvidas e no ar (rodada final)
 
-### 1. Canal de suporte do botão "falar com o suporte"
-- **Contexto:** o onboarding da academia tem o botão em cada etapa.
-- **No ar:** o botão só aparece com o canal preenchido em **Visão Master → Configurações → Canal de suporte**. Hoje está vazio, então não aparece.
-- **Preciso de:** WhatsApp (com DDI) e/ou e-mail de suporte da ArkeFit — ou você mesmo preenche na tela.
+| # | Assunto | Resposta | O que foi feito |
+|---|---|---|---|
+| 6 | Situação do aluno bloqueia o app | "5 dias corridos de tolerância" | Inadimplente usa o app por 5 dias a partir da marcação, com aviso; pausado sai na hora. |
+| 7 | Ativação 48h no Free | "Confirmado" | Mantido: vale para matrícula e cadastro, não para a base importada. |
+| 8 | Chat com a nutricionista no Free | "Sugestão de como tratar" | Liberado quando a academia tem nutricionista na equipe; sem ela, mostra o Método. |
+| 11 | Funil, NFS-e, WhatsApp | "Kanban simples / Asaas ou prefeitura / fora" | Funil em `/admin/funil`; NFS-e e WhatsApp fora do produto. |
+| 13 | Revisão jurídica | Revisão registrada | Documentos marcados como revisados, versão `2026-09-22.2`. |
+| 14 | Dados da ArkeFit | METODOS ARKE LTDA, CNPJ, endereço, DPO, foro, IPCA, 30 dias, 7 dias | Preenchidos; contrato com reajuste IPCA, aviso de 30 dias e suspensão após 7 dias (aplicada no bloqueio B2B). |
+| 16 | PAR-Q trava o treino? | "Sim sem atestado bloqueia o treino" | Registro de treino recusado até a equipe registrar o atestado. |
 
-### 2. GIFs dos exercícios do app original
-- **Contexto:** o pacote do banco original (`arke-banco-setup.zip`) só tem a estrutura; o próprio LEIA-ME diz "não há dados de usuários". Os GIFs, se existem, estão no **armazenamento** (bucket `exercicio-imagens`) do projeto Supabase antigo, não no SQL.
-- **Preciso de:** acesso ao projeto Supabase original (ou uma exportação da pasta `exercicio-imagens`). Com isso eu subo os arquivos e ligo cada GIF ao exercício pelo nome.
+## Com o responsável (sem código)
 
-### 3. Cabeçalhos de exportação dos sistemas anteriores (EVO, Tecnofit, Next Fit, Pacto)
-- **No ar:** a importação reconhece os nomes mais comuns desses sistemas (testado com nomes típicos, não com planilhas reais).
-- **Preciso de:** se houver, uma exportação (mesmo só a linha de cabeçalho) de algum deles, para conferir.
+- **1. Canal de suporte:** preencher em Visão Master → Configurações → Canal de suporte quando o número e o e-mail existirem. Até lá o botão não aparece.
+- **2. Vídeos e GIFs dos exercícios:** material novo em preparação; a estrutura de envio já existe no acervo.
+- **3. Cabeçalhos de exportação (EVO, Tecnofit, Next Fit, Pacto):** o responsável vai tentar providenciar uma planilha real para conferir o reconhecimento das colunas.
+- **4. Preço do profissional autônomo:** pós-lançamento. Custom segue negociado caso a caso.
+- **5. Planos modelo:** mantidos inativos; os valores são conferidos no onboarding de cada academia.
+- **9. Venda do Método ARKE:** mantida desligada (`VITE_METODO_ARKE_VENDA`) até resolver a coleta de CPF.
+- **17. Infraestrutura paga** (Supabase, Vercel Pro, Resend, Sentry) e, depois, o teste de carga.
+- **18. Venda de produtos e estoque:** depois do lançamento.
+- **12. Tietê Fitness:** quando virar cliente, sair do trial e fazer o onboarding.
 
-### 4. Preço da mensalidade B2B do plano Custom e do profissional autônomo
-- **No ar:** Starter R$ 390, Growth R$ 790, Enterprise R$ 1.290 (tabela editável em Visão Master → Configurações). Custom e autônomo **não têm preço de tabela**: a mensalidade só começa depois de a ArkeFit definir o valor na ficha da organização.
-- **Preciso de:** preço do autônomo (se houver tabela) — o Custom é negociado caso a caso.
+## Em andamento
 
-### 5. Valores dos planos modelo da academia
-- **No ar:** toda academia nova nasce com Mensal R$ 129,90, Trimestral R$ 359,90 e Anual R$ 1.199,90, **inativos** — a academia confere o valor e ativa.
-- **Preciso de:** outros valores de referência, se preferir.
-
-## Produto
-
-### 6. Situação do aluno bloqueia o app
-- **No ar (Rodada 3):** aluno marcado como **pausado** ou **inadimplente** pela academia não entra no app (vê uma tela pedindo para falar com a recepção). Só "em dia" entra.
-- **Confirmar:** se a academia deve poder deixar o inadimplente usar o app por um período de tolerância.
-
-### 7. Tarefa de ativação (48h sem primeiro acesso) no plano Free
-- **No ar:** vale para aluno do Free que entrou por matrícula ou cadastro manual; **não** vale para a base importada, que é ativada em bloco pelo QR Code (400 tarefas de uma vez afogariam a fila).
-- **Confirmar.**
-
-### 8. Chat com a nutricionista no Free
-- **No ar:** conforme D2, o chat do Free é só com os professores; o da nutricionista é do Método ("breve lançamento"). A dieta da nutricionista da academia aparece normalmente no Free.
-- **Confirmar** — é o ponto em que uma academia com nutricionista própria pode estranhar.
-
-### 9. Quando ligar a venda do Método ARKE
-- **No ar:** o app anuncia "Método ARKE — breve lançamento"; a adesão pela academia fica desligada (`VITE_METODO_ARKE_VENDA`). Ligar = pôr `true` na Vercel e fazer um deploy. Depende também da decisão sobre CPF dos alunos (hoje não coletado, e o Asaas exige CPF para cobrar).
-
-### 10. Rodadas 5 e 6
-- **Feitas** na ordem proposta (documentos legais, contrato de matrícula e PAR-Q; depois multiunidade, exportação, check-in por QR e comunicados). Nada a decidir aqui além dos itens jurídicos abaixo.
-
-### 11. Funil de vendas, NFS-e e WhatsApp
-- **Contexto:** os três têm custo ou configuração por academia e aumentam o escopo. Nenhum foi iniciado.
-- **Preciso de:** quais entram antes do lançamento.
-
-## Jurídico
-
-### 13. Revisão das minutas por advogado
-- **No ar:** Termos de Uso, Política de Privacidade e Contrato da Academia publicados como **minutas** (as páginas avisam), em `src/content/legal/`. O aceite já é registrado com versão e hash; quando o advogado revisar, a versão revisada vira uma nova versão e todos aceitam de novo.
-- **Preciso de:** revisão jurídica. Ao terminar, é trocar o texto, subir a versão e marcar `revisadoJuridico: true` (eu faço).
-
-### 14. Dados da ArkeFit nos documentos (marcados como [preencher])
-- Razão social, CNPJ e endereço da ArkeFit.
-- Encarregado de dados (DPO): nome e e-mail.
-- Foro (cidade/UF).
-- No contrato da academia: índice de reajuste anual, prazo de aviso para encerrar e prazo de inadimplência para encerramento.
-
-### 15. Região do banco (transferência internacional)
-- **No ar:** o banco está em us-west-2 (EUA), e a política declara a transferência internacional (LGPD art. 33).
-- **Recomendação:** na migração do Supabase planejada antes de escalar, criar o projeto novo em **sa-east-1 (São Paulo)** — a transferência passa a ser só de hospedagem e erros, e a latência cai para os alunos.
-
-### 16. Contrato de matrícula e PAR-Q: travar o treino?
-- **No ar:** contrato não assinado, PAR-Q não respondido ou atestado faltando **não travam** o app; a academia recebe a tarefa na fila e decide.
-- **Confirmar**, ou definir o que deve travar (ex.: PAR-Q com "sim" sem atestado bloqueia o treino até a equipe registrar o atestado).
-
-## Operação
-
-### 17. Plano de infraestrutura (do seu lado)
-- Supabase pago (backup com recuperação a ponto no tempo, sem pausa por inatividade), Vercel Pro (o Hobby proíbe uso comercial), Resend pago (o gratuito envia 100 e-mails/dia — uma importação grande estoura), Sentry conforme o volume. Depois do upgrade, eu rodo o **teste de carga** — antes, ele mediria os limites do plano gratuito, não o sistema.
-
-### 18. Venda de produtos e estoque
-- Ficou para depois do lançamento, como combinado.
-
-### 12. Conta Asaas da Tietê Fitness
-- **No ar:** a Tietê é organização de homologação (trial), com carteira placeholder. Quando ela virar cliente de verdade: tirar do trial (Visão Master), fazer o onboarding (a conta Asaas pode ser aberta pelo próprio ARKE agora) e concluir — a mensalidade B2B nasce nessa hora.
+- **15. Migração para o projeto `ArkeFit PROD BR` (sa-east-1, São Paulo):** projeto criado pelo responsável. Passo a passo da parte dele (ferramentas do Postgres, `C:\Users\andre\migracao.env`, segredos) entregue na conversa de 22/09/2026; depois disso, preparação do projeto novo e virada numa janela noturna. Os buckets `dietas` e `chat-videos` já são privados no projeto atual e serão copiados assim.

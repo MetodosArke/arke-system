@@ -8,6 +8,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { UtensilsCrossed, Flame, MessageCircle, CalendarDays, ChevronDown, Repeat } from "lucide-react";
 import { MetodoArkeEmBreve } from "@/components/aluno/MetodoArkeEmBreve";
 import { temNutricaoNoPlano } from "@/lib/planoAluno";
+import { useNutricionistaDaAcademia } from "@/hooks/useNutricionistaDaAcademia";
 import { useToast } from "@/hooks/use-toast";
 import { ChatPanel } from "@/components/chat/ChatPanel";
 import ControleDieta from "@/components/aluno/ControleDieta";
@@ -34,6 +35,8 @@ const HOJE = new Date().toISOString().slice(0, 10);
 
 export default function AlunoDieta() {
   const { alunoId, organization, planoAluno } = useAuth();
+  // Free com nutricionista na equipe da academia também conversa com ela.
+  const academiaTemNutri = useNutricionistaDaAcademia(organization?.id);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -283,7 +286,7 @@ export default function AlunoDieta() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          {temNutricaoNoPlano(planoAluno) && alunoId && organization ? (
+          {(temNutricaoNoPlano(planoAluno) || academiaTemNutri) && alunoId && organization ? (
             <ChatPanel organizationId={organization.id} alunoId={alunoId} viewerType="aluno" type="nutri" />
           ) : (
             <MetodoArkeEmBreve recurso="O chat com a nutricionista" />

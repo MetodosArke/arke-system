@@ -10,6 +10,7 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { sendChatPush } from "@/lib/sendChatPush";
+import { VideoChat } from "@/components/chat/VideoChat";
 
 interface MensagemTreino {
   id: string;
@@ -180,17 +181,17 @@ export function ChatPanel({ organizationId, alunoId, viewerType, type, dietaId, 
     setUploadingVideo(true);
     try {
       const ext = file.name.split(".").pop();
-      const path = `${user.id}/${Date.now()}.${ext}`;
+      // Pasta <organização>/<aluno>/: é o que as regras do bucket (privado) conferem.
+      const path = `${organizationId}/${alunoId}/${Date.now()}.${ext}`;
       const { error: uploadError } = await supabase.storage.from("chat-videos").upload(path, file);
       if (uploadError) throw uploadError;
-      const { data: urlData } = supabase.storage.from("chat-videos").getPublicUrl(path);
       const { error } = await supabase.from("mensagens_treino").insert({
         organization_id: organizationId,
         aluno_id: alunoId,
         remetente_id: user.id,
         remetente_tipo: myTypeTreino,
         mensagem: "📹 Vídeo",
-        video_url: urlData.publicUrl,
+        video_url: path,
       });
       if (error) throw error;
       void sendChatPush({
@@ -273,7 +274,7 @@ export function ChatPanel({ organizationId, alunoId, viewerType, type, dietaId, 
                   )}
                 >
                   {"video_url" in msg && msg.video_url ? (
-                    <video src={msg.video_url} controls preload="metadata" className="rounded-lg max-w-[220px] max-h-[160px]" />
+                    <VideoChat referencia={msg.video_url} />
                   ) : (
                     <p className="text-sm whitespace-pre-wrap">{msg.mensagem}</p>
                   )}
