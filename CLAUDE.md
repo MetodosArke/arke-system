@@ -62,7 +62,7 @@ No momento da cobrança da assinatura do aluno:
 
 **A integração com o Asaas está configurada e funcionando. Não tratar como pendência e não perguntar sobre isso.**
 
-- `ASAAS_API_KEY` e `ASAAS_WEBHOOK_SECRET` estão gravados nos secrets do projeto Supabase.
+- `ASAAS_API_KEY` e `ASAAS_WEBHOOK_SECRET` estão gravados nos secrets do projeto Supabase. O `ASAAS_WEBHOOK_SECRET` é o token gerado no painel do Asaas (Integrações → Webhooks) e **o Asaas não o mostra de novo depois de gerado** — como o Supabase também só devolve o SHA-256 dos secrets, um valor perdido não se recupera de lugar nenhum: gerar outro é o único caminho, e gerar troca o token que o Asaas passa a enviar. Por isso a rotação anda junto com qualquer mudança de URL do webhook, senão o projeto que ainda estiver recebendo passa a recusar todo evento.
 - `CRON_SECRET` também está gravado (ver pendência (2) abaixo sobre a função que ele protege).
 - O webhook do Asaas está apontado para a Edge Function `asaas-webhook`, que valida o header `asaas-access-token` contra o secret.
 

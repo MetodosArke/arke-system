@@ -30,6 +30,24 @@ const linhasDoArquivo = (() => {
 
 const porPrefixo = (prefixo) => linhasDoArquivo.find((l) => l.startsWith(prefixo));
 
+// Alguns valores não têm prefixo que os identifique — o token do webhook do
+// Asaas é uma cadeia qualquer gerada no painel dele. Para esses, a busca é
+// pelo rótulo: no arquivo de chaves o rótulo fica numa linha e o valor na
+// seguinte, às vezes com uma linha de descrição no meio (`SISTEMA_ARKE`).
+// Rótulos são MAIÚSCULAS_COM_UNDERSCORE, então qualquer linha nesse formato
+// depois do rótulo é pulada, e a primeira que não for é o valor.
+const pareceRotulo = (l) => /^[A-Z][A-Z0-9 _()-]*$/.test(l);
+
+function porRotulo(rotulo) {
+  const normalizar = (s) => s.replace(/\s+/g, "").toUpperCase();
+  const i = linhasDoArquivo.findIndex((l) => normalizar(l) === normalizar(rotulo));
+  if (i < 0) return undefined;
+  for (let j = i + 1; j < linhasDoArquivo.length; j++) {
+    if (!pareceRotulo(linhasDoArquivo[j])) return linhasDoArquivo[j];
+  }
+  return undefined;
+}
+
 function token() {
   const t = process.env.SUPABASE_ACCESS_TOKEN?.trim() || porPrefixo("sbp_");
   if (!t) throw new Error("Sem token de acesso (SUPABASE_ACCESS_TOKEN ou sbp_ no arquivo de chaves).");
@@ -60,13 +78,29 @@ const SEGREDOS = [
   { nome: "CRON_SECRET", valor: hex32, fonte: "gerado agora" },
   { nome: "VAPID_PRIVATE_KEY", valor: vapidPrivada, fonte: "gerado agora (a pública é derivada)" },
   { nome: "SEND_EMAIL_HOOK_SECRET", valor: segredoDeHook, fonte: "gerado agora" },
+  {
+    nome: "ASAAS_WEBHOOK_SECRET",
+    valor: () => porRotulo("ASAAS_WEBHOOK_SECRET"),
+    fonte: "arquivo de chaves, por rótulo",
+  },
+  {
+    nome: "TURNSTILE_SECRET_KEY",
+    valor: () => porRotulo("TURNSTILE_SECRET_KEY"),
+    fonte: "arquivo de chaves, por rótulo",
+  },
 ];
 
-// Só existem dentro do projeto antigo; a API devolve o hash, não o valor.
-const PENDENTES = [
-  ["ASAAS_WEBHOOK_SECRET", "copiar do projeto antigo (Settings → Edge Functions → Secrets)"],
-  ["TURNSTILE_SECRET_KEY", "copiar do painel da Cloudflare ou do projeto antigo"],
-];
+// Onde buscar o que o script não acha sozinho. A API do Supabase devolve o
+// SHA-256 dos secrets, nunca o valor, então nada disso se copia de projeto a
+// projeto por aqui.
+const ONDE_BUSCAR = {
+  ASAAS_WEBHOOK_SECRET:
+    "gerar no Asaas (Integrações → Webhooks → gerar token). O Asaas não mostra o " +
+    "token de novo depois, então o mesmo valor tem que ir para o arquivo de chaves. " +
+    "Gerar troca o token que o Asaas envia: fazer isso junto com a mudança da URL " +
+    "do webhook, senão o projeto que ainda estiver recebendo passa a recusar os eventos.",
+  TURNSTILE_SECRET_KEY: "copiar do painel da Cloudflare (Turnstile → o widget do arkefit.com.br)",
+};
 
 const prontos = [];
 const faltando = [];
@@ -97,7 +131,11 @@ if (!r.ok) {
 }
 console.log(`\n${prontos.length} secrets gravados.`);
 
-if (PENDENTES.length) {
-  console.log("\nfaltam, e só você consegue buscar:");
-  for (const [nome, onde] of PENDENTES) console.log(`  ${nome.padEnd(24)} ${onde}`);
+if (faltando.length) {
+  console.log("\nfaltam:");
+  for (const s of faltando) {
+    console.log(`  ${s.nome}`);
+    const onde = ONDE_BUSCAR[s.nome];
+    if (onde) console.log(`     ${onde}`);
+  }
 }

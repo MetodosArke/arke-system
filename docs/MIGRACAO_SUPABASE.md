@@ -158,21 +158,45 @@ perder, e quem usa o sistema hoje é só você.
 ### 1. Os dois segredos que só você consegue buscar
 
 A API do Supabase devolve o **SHA-256** dos segredos, nunca o valor — que é o
-comportamento correto. Então estes dois têm que ser copiados por você:
+comportamento correto. Então estes dois não se copiam de um projeto para o
+outro por aqui.
+
+**`ASAAS_WEBHOOK_SECRET` — é rotação, não cópia.** É o token que se gera no
+painel do Asaas, em Integrações → Webhooks, e **o Asaas não o mostra de novo
+depois**. Como o valor atual está perdido dos dois lados, o caminho é gerar um
+novo.
+
+Gerar troca o token que o Asaas passa a enviar no cabeçalho
+`asaas-access-token`, e a edge function recusa quem não bate. Por isso a ordem
+importa: **gere o token junto com a mudança da URL do webhook**, no passo 3. Se
+gerar antes, o Asaas continuará entregando na URL antiga com um token que o
+projeto antigo não conhece, e todo evento passa a ser recusado até você
+atualizar o secret de lá também. Fazendo os dois na mesma edição, só o projeto
+novo precisa do valor.
+
+Guarde o token no arquivo de chaves com o rótulo exato `ASAAS_WEBHOOK_SECRET`
+numa linha e o valor na seguinte — é assim que `segredos.mjs` o encontra.
+
+**`TURNSTILE_SECRET_KEY`** continua consultável no painel da Cloudflare
+(Turnstile → widget do `arkefit.com.br`), então basta copiar. Sem ele o captcha
+não é exigido — falha aberta, de propósito —, então isto não trava a virada,
+só deixa a matrícula pública com uma camada a menos.
+
+Com os dois no arquivo de chaves:
 
 ```powershell
 cd C:\Users\andre\arke-system
+$env:ARKE_CHAVES = 'C:\Users\andre\chaves.txt'
+node scripts/migracao/segredos.mjs            # confere as fontes, não grava
+node scripts/migracao/segredos.mjs --aplicar
+```
+
+O script é idempotente e não imprime valor nenhum. Se preferir na mão:
+
+```powershell
 npx supabase secrets set --project-ref lzyxqjibkfblrrjboylp 'ASAAS_WEBHOOK_SECRET=<valor>'
 npx supabase secrets set --project-ref lzyxqjibkfblrrjboylp 'TURNSTILE_SECRET_KEY=<valor>'
 ```
-
-- `ASAAS_WEBHOOK_SECRET`: está no painel do projeto **antigo**, em Settings →
-  Edge Functions → Secrets. Copiar o mesmo valor evita mexer no Asaas além da
-  URL.
-- `TURNSTILE_SECRET_KEY`: no painel da Cloudflare, ou no mesmo lugar do antigo.
-  Sem ele o captcha simplesmente não é exigido — é falha aberta de propósito —,
-  então isto não trava a virada, só deixa a matrícula pública com uma camada a
-  menos.
 
 ### 2. Duas linhas no repositório
 
@@ -192,8 +216,10 @@ quebraria o link de ativação da produção atual. As referências nos arquivos
    - `VITE_SUPABASE_PUBLISHABLE_KEY` = `sb_publishable_O6HzyGxNzQRvZHNgCk1MRQ_6jT5osSl`
    - Variável nova na Vercel só vale no **deploy seguinte**. Faça o deploy
      depois de salvar as duas.
-2. No Asaas, apontar o webhook para
-   `https://lzyxqjibkfblrrjboylp.supabase.co/functions/v1/asaas-webhook`.
+2. No Asaas, na mesma edição do webhook: apontar a URL para
+   `https://lzyxqjibkfblrrjboylp.supabase.co/functions/v1/asaas-webhook` **e**
+   gerar o token novo (passo 1). Copiar o token antes de sair da tela — o Asaas
+   não o mostra outra vez.
 3. Entrar no app pelo "esqueci minha senha" e conferir a Visão Master.
 4. Deixar o projeto antigo **pausado, não excluído**, por uma ou duas semanas.
 
