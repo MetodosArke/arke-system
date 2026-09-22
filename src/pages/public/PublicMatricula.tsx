@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { Link, useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Dumbbell } from "lucide-react";
 import { MetodoArkeEmBreve } from "@/components/aluno/MetodoArkeEmBreve";
 import { useToast } from "@/hooks/use-toast";
@@ -32,6 +33,7 @@ export default function PublicMatricula() {
   // de uso único: a cada falha o widget é remontado para gerar outro.
   const [captchaToken, setCaptchaToken] = useState<string | null>(null);
   const [captchaVersao, setCaptchaVersao] = useState(0);
+  const [aceiteTermos, setAceiteTermos] = useState(false);
   const [form, setForm] = useState({ full_name: "", email: "", telefone: "", cpf: "", password: "", confirmar: "" });
 
   const { data: org, isLoading, isError, refetch, isFetching } = useQuery({
@@ -49,6 +51,7 @@ export default function PublicMatricula() {
       if (!slug) throw new Error("Academia inválida.");
       if (form.password.length < 6) throw new Error("A senha deve ter no mínimo 6 caracteres.");
       if (form.password !== form.confirmar) throw new Error("As senhas não coincidem.");
+      if (!aceiteTermos) throw new Error("Aceite os Termos de Uso e a Política de Privacidade para continuar.");
       if (TURNSTILE_SITE_KEY && !captchaToken) throw new Error("Aguarde a verificação de segurança terminar.");
 
       const { data, error } = await supabase.functions.invoke<{ user_id: string; error?: string }>(
@@ -62,6 +65,7 @@ export default function PublicMatricula() {
             cpf: form.cpf,
             password: form.password,
             captcha_token: captchaToken ?? undefined,
+            aceite_termos: aceiteTermos,
           },
         }
       );
@@ -186,13 +190,27 @@ export default function PublicMatricula() {
                   <Input id="confirmar" type="password" required minLength={6} value={form.confirmar} onChange={(e) => setForm((f) => ({ ...f, confirmar: e.target.value }))} />
                 </div>
               </div>
+              <label className="flex items-start gap-2 text-xs text-muted-foreground">
+                <Checkbox checked={aceiteTermos} onCheckedChange={(v) => setAceiteTermos(v === true)} className="mt-0.5" />
+                <span>
+                  Li e aceito os{" "}
+                  <Link to="/termos" target="_blank" className="text-primary underline-offset-2 hover:underline">
+                    Termos de Uso
+                  </Link>{" "}
+                  e a{" "}
+                  <Link to="/privacidade" target="_blank" className="text-primary underline-offset-2 hover:underline">
+                    Política de Privacidade
+                  </Link>
+                  .
+                </span>
+              </label>
               {TURNSTILE_SITE_KEY && (
                 <Turnstile key={captchaVersao} siteKey={TURNSTILE_SITE_KEY} onToken={setCaptchaToken} />
               )}
               <Button
                 type="submit"
                 className="w-full gradient-primary text-primary-foreground font-semibold"
-                disabled={matricular.isPending || (!!TURNSTILE_SITE_KEY && !captchaToken)}
+                disabled={matricular.isPending || !aceiteTermos || (!!TURNSTILE_SITE_KEY && !captchaToken)}
               >
                 {matricular.isPending ? "Criando sua conta..." : "Confirmar matrícula"}
               </Button>

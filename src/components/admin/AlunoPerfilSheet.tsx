@@ -12,7 +12,7 @@ import { Separator } from "@/components/ui/separator";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dumbbell, UtensilsCrossed, Phone, Cake, Ruler, ClipboardList, AlertTriangle, Printer, MessageCircle, Wallet, FlaskConical, Route, Fingerprint, Target, History } from "lucide-react";
+import { Dumbbell, UtensilsCrossed, Phone, Cake, Ruler, ClipboardList, AlertTriangle, Printer, MessageCircle, Wallet, FlaskConical, Route, Fingerprint, Target, History, FileSignature } from "lucide-react";
 import { ImprimirTreinoDialog, type ExercicioSnapshotImpressao } from "@/components/admin/ImprimirTreinoDialog";
 import { Bloco, formatarData } from "@/components/admin/perfilSheetHelpers";
 import { ChatPanel } from "@/components/chat/ChatPanel";
@@ -24,6 +24,7 @@ import { AcessoCatraca } from "@/components/admin/AcessoCatraca";
 import { CartaoAssinatura } from "@/components/pagamento/CartaoAssinatura";
 import { useToast } from "@/hooks/use-toast";
 import { SituacaoAluno } from "@/components/admin/SituacaoAluno";
+import { DocumentosMatriculaAluno } from "@/components/admin/DocumentosMatriculaAluno";
 import { planoDoAluno, ROTULO_PLANO, temNutricaoNoPlano } from "@/lib/planoAluno";
 
 const PERIODICIDADE_LABEL: Record<string, string> = {
@@ -70,6 +71,10 @@ const TAREFA_TIPO_LABEL: Record<string, string> = {
   anamnese: "Anamnese pendente",
   ajuste: "Ajuste de prescrição",
   outro: "Outro",
+  cobranca: "Cobrança",
+  acolhimento_elite: "Acolhimento Elite",
+  engajamento_baixo: "Engajamento baixo",
+  atestado: "Atestado médico",
 };
 
 function calcularIdade(dataNascimento: string | null) {
@@ -469,6 +474,10 @@ export function AlunoPerfilSheet({
                     onSucesso={(m) => toast({ title: "Cartão cadastrado", description: m })}
                   />
                 </div>
+              </Bloco>
+
+              <Bloco titulo="Documentos da Matrícula" icon={FileSignature}>
+                <DocumentosMatriculaAluno alunoId={perfil.aluno.id} organizationId={perfil.aluno.organization_id} />
               </Bloco>
 
               <Bloco titulo="Acesso por Catraca" icon={Fingerprint}>

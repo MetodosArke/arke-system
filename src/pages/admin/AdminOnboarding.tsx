@@ -16,6 +16,7 @@ import { EtapaRecebimentos } from "@/components/admin/onboarding/EtapaRecebiment
 import { EtapaPlanos } from "@/components/admin/onboarding/EtapaPlanos";
 import { EtapaEquipe } from "@/components/admin/onboarding/EtapaEquipe";
 import { EtapaAlunos } from "@/components/admin/onboarding/EtapaAlunos";
+import { EtapaContrato } from "@/components/admin/onboarding/EtapaContrato";
 import { SuporteBotao } from "@/components/admin/onboarding/SuporteBotao";
 
 /**
@@ -74,6 +75,8 @@ export default function AdminOnboarding() {
         return <EtapaEquipe onSalvo={recarregar} />;
       case "alunos":
         return <EtapaAlunos />;
+      case "contrato":
+        return <EtapaContrato onSalvo={recarregar} />;
     }
   };
 

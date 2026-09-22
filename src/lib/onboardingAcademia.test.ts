@@ -3,7 +3,7 @@ import { minutosRestantes, percentualConcluido, proximaEtapa, type StatusEtapa }
 import { montarLembrete } from "../../supabase/functions/lembrete-onboarding/email";
 
 const status = (concluidas: string[]): StatusEtapa[] =>
-  (["dados", "recebimentos", "planos", "equipe", "alunos"] as const).map((etapa) => ({
+  (["dados", "recebimentos", "planos", "equipe", "alunos", "contrato"] as const).map((etapa) => ({
     etapa,
     concluida: concluidas.includes(etapa),
     detalhe: null,
@@ -12,19 +12,19 @@ const status = (concluidas: string[]): StatusEtapa[] =>
 describe("checklist do onboarding", () => {
   it("percentual pelo número de etapas concluídas", () => {
     expect(percentualConcluido(status([]))).toBe(0);
-    expect(percentualConcluido(status(["dados", "planos"]))).toBe(40);
-    expect(percentualConcluido(status(["dados", "recebimentos", "planos", "equipe", "alunos"]))).toBe(100);
+    expect(percentualConcluido(status(["dados", "planos", "contrato"]))).toBe(50);
+    expect(percentualConcluido(status(["dados", "recebimentos", "planos", "equipe", "alunos", "contrato"]))).toBe(100);
   });
 
   it("próxima etapa segue a ordem do checklist, não a do banco", () => {
     expect(proximaEtapa(status(["dados"]))).toBe("recebimentos");
     expect(proximaEtapa([...status(["dados", "recebimentos"])].reverse())).toBe("planos");
-    expect(proximaEtapa(status(["dados", "recebimentos", "planos", "equipe", "alunos"]))).toBeNull();
+    expect(proximaEtapa(status(["dados", "recebimentos", "planos", "equipe", "alunos", "contrato"]))).toBeNull();
   });
 
   it("tempo restante soma só o que falta", () => {
-    expect(minutosRestantes(status(["dados", "recebimentos", "planos", "equipe", "alunos"]))).toBe(0);
-    expect(minutosRestantes(status(["dados", "recebimentos", "planos", "equipe"]))).toBe(5);
+    expect(minutosRestantes(status(["dados", "recebimentos", "planos", "equipe", "alunos", "contrato"]))).toBe(0);
+    expect(minutosRestantes(status(["dados", "recebimentos", "planos", "equipe", "contrato"]))).toBe(5);
   });
 });
 

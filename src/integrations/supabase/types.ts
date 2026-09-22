@@ -14,6 +14,55 @@ export type Database = {
   }
   public: {
     Tables: {
+      aceites_documentos: {
+        Row: {
+          aceito_em: string
+          documento_id: string
+          id: string
+          organization_id: string | null
+          user_agent: string | null
+          user_id: string
+        }
+        Insert: {
+          aceito_em?: string
+          documento_id: string
+          id?: string
+          organization_id?: string | null
+          user_agent?: string | null
+          user_id: string
+        }
+        Update: {
+          aceito_em?: string
+          documento_id?: string
+          id?: string
+          organization_id?: string | null
+          user_agent?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "aceites_documentos_documento_id_fkey"
+            columns: ["documento_id"]
+            isOneToOne: false
+            referencedRelation: "documentos_legais"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "aceites_documentos_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "org_churn_metrics"
+            referencedColumns: ["organization_id"]
+          },
+          {
+            foreignKeyName: "aceites_documentos_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       acessos_catraca_logs: {
         Row: {
           aluno_id: string | null
@@ -285,6 +334,68 @@ export type Database = {
           },
           {
             foreignKeyName: "aluno_assinaturas_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      aluno_assinaturas_contrato: {
+        Row: {
+          aluno_id: string
+          assinado_em: string
+          contrato_id: string
+          id: string
+          nome_digitado: string
+          organization_id: string
+          sha256: string
+          user_agent: string | null
+        }
+        Insert: {
+          aluno_id: string
+          assinado_em?: string
+          contrato_id: string
+          id?: string
+          nome_digitado: string
+          organization_id: string
+          sha256: string
+          user_agent?: string | null
+        }
+        Update: {
+          aluno_id?: string
+          assinado_em?: string
+          contrato_id?: string
+          id?: string
+          nome_digitado?: string
+          organization_id?: string
+          sha256?: string
+          user_agent?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "aluno_assinaturas_contrato_aluno_id_fkey"
+            columns: ["aluno_id"]
+            isOneToOne: false
+            referencedRelation: "alunos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "aluno_assinaturas_contrato_contrato_id_fkey"
+            columns: ["contrato_id"]
+            isOneToOne: false
+            referencedRelation: "contratos_matricula"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "aluno_assinaturas_contrato_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "org_churn_metrics"
+            referencedColumns: ["organization_id"]
+          },
+          {
+            foreignKeyName: "aluno_assinaturas_contrato_organization_id_fkey"
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
@@ -600,6 +711,67 @@ export type Database = {
           },
           {
             foreignKeyName: "aluno_observacoes_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      aluno_parq: {
+        Row: {
+          algum_sim: boolean | null
+          aluno_id: string
+          atestado_caminho: string | null
+          atestado_registrado_em: string | null
+          atestado_registrado_por: string | null
+          atestado_validade: string | null
+          id: string
+          organization_id: string
+          respondido_em: string
+          respostas: Json
+        }
+        Insert: {
+          algum_sim?: boolean | null
+          aluno_id: string
+          atestado_caminho?: string | null
+          atestado_registrado_em?: string | null
+          atestado_registrado_por?: string | null
+          atestado_validade?: string | null
+          id?: string
+          organization_id: string
+          respondido_em?: string
+          respostas: Json
+        }
+        Update: {
+          algum_sim?: boolean | null
+          aluno_id?: string
+          atestado_caminho?: string | null
+          atestado_registrado_em?: string | null
+          atestado_registrado_por?: string | null
+          atestado_validade?: string | null
+          id?: string
+          organization_id?: string
+          respondido_em?: string
+          respostas?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "aluno_parq_aluno_id_fkey"
+            columns: ["aluno_id"]
+            isOneToOne: true
+            referencedRelation: "alunos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "aluno_parq_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "org_churn_metrics"
+            referencedColumns: ["organization_id"]
+          },
+          {
+            foreignKeyName: "aluno_parq_organization_id_fkey"
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
@@ -1474,6 +1646,54 @@ export type Database = {
           },
         ]
       }
+      contratos_matricula: {
+        Row: {
+          ativo: boolean
+          conteudo: string
+          criado_em: string
+          criado_por: string | null
+          id: string
+          organization_id: string
+          titulo: string
+          versao: number
+        }
+        Insert: {
+          ativo?: boolean
+          conteudo: string
+          criado_em?: string
+          criado_por?: string | null
+          id?: string
+          organization_id: string
+          titulo?: string
+          versao: number
+        }
+        Update: {
+          ativo?: boolean
+          conteudo?: string
+          criado_em?: string
+          criado_por?: string | null
+          id?: string
+          organization_id?: string
+          titulo?: string
+          versao?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contratos_matricula_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "org_churn_metrics"
+            referencedColumns: ["organization_id"]
+          },
+          {
+            foreignKeyName: "contratos_matricula_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       desafio_participantes: {
         Row: {
           aluno_id: string
@@ -1810,6 +2030,30 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      documentos_legais: {
+        Row: {
+          id: string
+          publicado_em: string
+          sha256: string
+          tipo: Database["public"]["Enums"]["tipo_documento_legal"]
+          versao: string
+        }
+        Insert: {
+          id?: string
+          publicado_em?: string
+          sha256: string
+          tipo: Database["public"]["Enums"]["tipo_documento_legal"]
+          versao: string
+        }
+        Update: {
+          id?: string
+          publicado_em?: string
+          sha256?: string
+          tipo?: Database["public"]["Enums"]["tipo_documento_legal"]
+          versao?: string
+        }
+        Relationships: []
       }
       equipamentos: {
         Row: {
@@ -4451,6 +4695,15 @@ export type Database = {
         }[]
       }
       arke_trial_dias: { Args: never; Returns: number }
+      assinar_contrato_matricula: {
+        Args: {
+          _aluno_id: string
+          _contrato_id: string
+          _nome: string
+          _user_agent?: string
+        }
+        Returns: string
+      }
       atualizar_meta_agua_aluno: {
         Args: { _meta_ml: number }
         Returns: undefined
@@ -4511,6 +4764,10 @@ export type Database = {
         Args: { _aluno_id: string; _dias_descanso: number[]; _isodow: number }
         Returns: boolean
       }
+      documento_legal_vigente: {
+        Args: { _tipo: Database["public"]["Enums"]["tipo_documento_legal"] }
+        Returns: string
+      }
       emails_superadmin: {
         Args: never
         Returns: {
@@ -4558,9 +4815,17 @@ export type Database = {
       }
       gerar_lancamentos_recorrentes: { Args: never; Returns: undefined }
       gerar_tarefas_acolhimento_elite: { Args: never; Returns: undefined }
+      gerar_tarefas_atestado: { Args: never; Returns: undefined }
       gerar_tarefas_ativacao_pendente: { Args: never; Returns: undefined }
       gerar_tarefas_barreira_rotina: { Args: never; Returns: undefined }
       gerar_tarefas_engajamento_baixo: { Args: never; Returns: undefined }
+      get_aceites_pendentes: {
+        Args: { _organization_id?: string }
+        Returns: {
+          tipo: string
+          versao: string
+        }[]
+      }
       get_bloqueio_aluno: {
         Args: { _aluno_id: string }
         Returns: {
@@ -5052,9 +5317,14 @@ export type Database = {
         }
         Returns: string
       }
+      pode_acessar_atestado: { Args: { _caminho: string }; Returns: boolean }
       pode_gravar_midia_exercicio: {
         Args: { _pasta: string }
         Returns: boolean
+      }
+      publicar_contrato_matricula: {
+        Args: { _conteudo: string; _organization_id: string; _titulo: string }
+        Returns: string
       }
       publicar_dieta: {
         Args: { _aluno_id: string; _modelo_id: string; _titulo: string }
@@ -5067,6 +5337,14 @@ export type Database = {
           _titulo: string
           _validade_fim?: string
           _validade_inicio?: string
+        }
+        Returns: string
+      }
+      registrar_aceite: {
+        Args: {
+          _organization_id?: string
+          _tipo: Database["public"]["Enums"]["tipo_documento_legal"]
+          _user_agent?: string
         }
         Returns: string
       }
@@ -5212,6 +5490,8 @@ export type Database = {
         | "cobranca"
         | "acolhimento_elite"
         | "engajamento_baixo"
+        | "atestado"
+      tipo_documento_legal: "termos_uso" | "privacidade" | "contrato_academia"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -5437,7 +5717,9 @@ export const Constants = {
         "cobranca",
         "acolhimento_elite",
         "engajamento_baixo",
+        "atestado",
       ],
+      tipo_documento_legal: ["termos_uso", "privacidade", "contrato_academia"],
     },
   },
 } as const

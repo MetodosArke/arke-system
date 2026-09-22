@@ -26,6 +26,7 @@ import { useToast } from "@/hooks/use-toast";
 import { RegistrarAlertaCard } from "@/components/aluno/RegistrarAlertaCard";
 import PontuacaoEngajamento from "@/components/aluno/PontuacaoEngajamento";
 import { MetodoArkeEmBreve } from "@/components/aluno/MetodoArkeEmBreve";
+import { DocumentosMatricula } from "@/components/aluno/DocumentosMatricula";
 import { definirProximaAcao } from "@/lib/proximaAcao";
 import type { Enums } from "@/integrations/supabase/types";
 
@@ -448,6 +449,9 @@ export default function AlunoDashboard() {
       <div id="registrar-alerta" className="scroll-mt-4">
         <RegistrarAlertaCard />
       </div>
+
+      {/* Pendências da matrícula (contrato, PAR-Q, atestado): some quando não há nada a fazer. */}
+      <DocumentosMatricula />
 
       {/* Segundo plano: navegação, hábitos e gamificação. */}
       <div className="grid grid-cols-2 gap-2 sm:gap-3">

@@ -5,6 +5,7 @@ import { useTheme } from "@/contexts/ThemeContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { LinksLegais } from "@/components/legal/LinksLegais";
 import { Card, CardContent } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Mail, Lock, Eye, EyeOff, Moon, Sun, Download, X } from "lucide-react";
@@ -193,6 +194,7 @@ export default function Login() {
             >
               Não tem conta? Cadastre-se
             </Button>
+            <LinksLegais className="mt-2 text-[11px] text-center text-muted-foreground space-x-3" />
           </CardContent>
         </Card>
       </motion.div>

@@ -24,6 +24,7 @@ import { AdminLayout } from "@/components/layout/AdminLayout";
 import { SuperAdminLayout } from "@/components/layout/SuperAdminLayout";
 import { AlunoBillingGate } from "@/components/app/AlunoBillingGate";
 import { AlunoSituacaoGate } from "@/components/app/AlunoSituacaoGate";
+import { AceiteDocumentosGate } from "@/components/legal/AceiteDocumentosGate";
 import { OrganizacaoBillingGate } from "@/components/admin/OrganizacaoBillingGate";
 
 // Aluno pages
@@ -43,6 +44,7 @@ const ResetPassword = paginaPreguicosa(() => import("@/pages/auth/ResetPassword"
 const DefinirSenha = paginaPreguicosa(() => import("@/pages/auth/DefinirSenha"));
 const PublicMatricula = paginaPreguicosa(() => import("@/pages/public/PublicMatricula"));
 const PrimeiroAcesso = paginaPreguicosa(() => import("@/pages/public/PrimeiroAcesso"));
+const DocumentoLegal = paginaPreguicosa(() => import("@/pages/public/DocumentoLegal"));
 const AlunoDashboard = paginaPreguicosa(() => import("@/pages/app/AlunoDashboard"));
 const AlunoPerfil = paginaPreguicosa(() => import("@/pages/app/AlunoPerfil"));
 const AlunoTreinos = paginaPreguicosa(() => import("@/pages/app/AlunoTreinos"));
@@ -181,6 +183,11 @@ const App = () => (
               {/* Primeiro acesso de quem a academia já cadastrou (QR Code da recepção) */}
               <Route path="/p/:slug/primeiro-acesso" element={<PrimeiroAcesso />} />
 
+              {/* Documentos legais, públicos */}
+              <Route path="/termos" element={<DocumentoLegal tipo="termos_uso" />} />
+              <Route path="/privacidade" element={<DocumentoLegal tipo="privacidade" />} />
+              <Route path="/contrato-academia" element={<DocumentoLegal tipo="contrato_academia" />} />
+
               {/* Onboarding M.A.P.A.® (fora do AppLayout — fluxo em tela cheia) */}
               <Route
                 path="/app/onboarding"
@@ -206,13 +213,15 @@ const App = () => (
                 path="/app"
                 element={
                   <ProtectedRoute>
-                    <AlunoOnboardingGate>
-                      <AlunoBillingGate>
-                        <AlunoSituacaoGate>
-                          <AppLayout />
-                        </AlunoSituacaoGate>
-                      </AlunoBillingGate>
-                    </AlunoOnboardingGate>
+                    <AceiteDocumentosGate>
+                      <AlunoOnboardingGate>
+                        <AlunoBillingGate>
+                          <AlunoSituacaoGate>
+                            <AppLayout />
+                          </AlunoSituacaoGate>
+                        </AlunoBillingGate>
+                      </AlunoOnboardingGate>
+                    </AceiteDocumentosGate>
                   </ProtectedRoute>
                 }
               >
@@ -233,9 +242,11 @@ const App = () => (
                 path="/admin"
                 element={
                   <ProtectedRoute requiredRoles={[...STAFF_ROLES]}>
-                    <OrganizacaoBillingGate>
-                      <AdminLayout />
-                    </OrganizacaoBillingGate>
+                    <AceiteDocumentosGate>
+                      <OrganizacaoBillingGate>
+                        <AdminLayout />
+                      </OrganizacaoBillingGate>
+                    </AceiteDocumentosGate>
                   </ProtectedRoute>
                 }
               >

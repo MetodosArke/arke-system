@@ -49,6 +49,26 @@ Lista viva, preenchida durante as rodadas de ajustes do app original. Cada item 
 - **Contexto:** os três têm custo ou configuração por academia e aumentam o escopo. Nenhum foi iniciado.
 - **Preciso de:** quais entram antes do lançamento.
 
+## Jurídico
+
+### 13. Revisão das minutas por advogado
+- **No ar:** Termos de Uso, Política de Privacidade e Contrato da Academia publicados como **minutas** (as páginas avisam), em `src/content/legal/`. O aceite já é registrado com versão e hash; quando o advogado revisar, a versão revisada vira uma nova versão e todos aceitam de novo.
+- **Preciso de:** revisão jurídica. Ao terminar, é trocar o texto, subir a versão e marcar `revisadoJuridico: true` (eu faço).
+
+### 14. Dados da ArkeFit nos documentos (marcados como [preencher])
+- Razão social, CNPJ e endereço da ArkeFit.
+- Encarregado de dados (DPO): nome e e-mail.
+- Foro (cidade/UF).
+- No contrato da academia: índice de reajuste anual, prazo de aviso para encerrar e prazo de inadimplência para encerramento.
+
+### 15. Região do banco (transferência internacional)
+- **No ar:** o banco está em us-west-2 (EUA), e a política declara a transferência internacional (LGPD art. 33).
+- **Recomendação:** na migração do Supabase planejada antes de escalar, criar o projeto novo em **sa-east-1 (São Paulo)** — a transferência passa a ser só de hospedagem e erros, e a latência cai para os alunos.
+
+### 16. Contrato de matrícula e PAR-Q: travar o treino?
+- **No ar:** contrato não assinado, PAR-Q não respondido ou atestado faltando **não travam** o app; a academia recebe a tarefa na fila e decide.
+- **Confirmar**, ou definir o que deve travar (ex.: PAR-Q com "sim" sem atestado bloqueia o treino até a equipe registrar o atestado).
+
 ## Operação
 
 ### 12. Conta Asaas da Tietê Fitness

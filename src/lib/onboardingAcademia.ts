@@ -7,7 +7,7 @@
  * cobranças só são liberados com todas as etapas concluídas.
  */
 
-export type EtapaOnboarding = "dados" | "recebimentos" | "planos" | "equipe" | "alunos";
+export type EtapaOnboarding = "dados" | "recebimentos" | "planos" | "equipe" | "alunos" | "contrato";
 
 export type StatusEtapa = { etapa: EtapaOnboarding; concluida: boolean; detalhe: string | null };
 
@@ -22,6 +22,7 @@ export const ETAPAS: { etapa: EtapaOnboarding; titulo: string; minutos: number; 
   { etapa: "planos", titulo: "Planos e preços", minutos: 2, resumo: "Mensal, trimestral e anual já vêm prontos para ajustar." },
   { etapa: "equipe", titulo: "Equipe", minutos: 3, resumo: "Professores, nutricionista e recepção — ou siga sozinho." },
   { etapa: "alunos", titulo: "Alunos", minutos: 5, resumo: "Importe a planilha do sistema anterior ou cadastre." },
+  { etapa: "contrato", titulo: "Contrato", minutos: 2, resumo: "Licença de uso e acordo de tratamento dos dados dos alunos." },
 ];
 
 export function percentualConcluido(status: StatusEtapa[]): number {
