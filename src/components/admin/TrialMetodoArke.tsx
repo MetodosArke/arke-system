@@ -10,7 +10,6 @@ import type { Enums } from "@/integrations/supabase/types";
 type Nivel = Enums<"nivel_atacado">;
 
 const NIVEIS: { valor: Nivel; label: string }[] = [
-  { valor: "essencial", label: "Essencial — Treino ARKE" },
   { valor: "integrado", label: "Integrado — Treino + Nutrição" },
   { valor: "elite", label: "Elite — Acompanhamento 360°" },
 ];
@@ -18,7 +17,7 @@ const NIVEIS: { valor: Nivel; label: string }[] = [
 // Trial do Método ARKE para o aluno, espelhando o trial B2B da organização:
 // libera o produto inteiro, tem prazo e não gera cobrança nenhuma.
 //
-// Existe para homologação — é como se percorre a jornada dos três níveis sem
+// Existe para homologação — é como se percorre a jornada dos dois níveis sem
 // passar pelo Asaas. Por isso o nível é escolhido aqui: cada um entrega
 // coisas diferentes (nutrição, acolhimento expandido) e a jornada muda.
 //
@@ -40,7 +39,8 @@ export function TrialMetodoArke({
   somenteLeitura?: boolean;
   onAlterado?: () => void;
 }) {
-  const [nivel, setNivel] = useState<Nivel>(nivelAtual ?? "essencial");
+  // O Essencial virou o plano Free: o trial é de Integrado ou Elite.
+  const [nivel, setNivel] = useState<Nivel>(nivelAtual === "elite" ? "elite" : "integrado");
   const { toast } = useToast();
   const queryClient = useQueryClient();
 

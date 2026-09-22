@@ -48,19 +48,11 @@ function Delta({ atual, anterior, quantoMenorMelhor }: { atual: number | null; a
 }
 
 export default function AlunoEvolucao() {
-  const { alunoId } = useAuth();
+  const { alunoId, planoAluno } = useAuth();
   const [chartMetric, setChartMetric] = useState<"peso_kg" | "percentual_gordura" | "musculo_percentual">("peso_kg");
 
-  const { data: nivelAtacado } = useQuery({
-    queryKey: ["aluno-nivel-atacado", alunoId],
-    queryFn: async () => {
-      const { data, error } = await supabase.from("alunos").select("nivel_atacado").eq("id", alunoId!).single();
-      if (error) throw error;
-      return data.nivel_atacado;
-    },
-    enabled: !!alunoId,
-  });
-  const ehElite = nivelAtacado === "elite";
+  // Pelo plano, não pelo nível gravado: nível em quem não está no Método é só intenção.
+  const ehElite = planoAluno === "elite";
 
   const { data: avaliacoes = [], isLoading } = useQuery({
     queryKey: ["aluno-evolucao", alunoId],

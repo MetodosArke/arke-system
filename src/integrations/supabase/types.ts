@@ -686,6 +686,9 @@ export type Database = {
           primeiro_acesso_em: string | null
           provedor_nutricao: Database["public"]["Enums"]["provedor_nutricao"]
           provedor_treino: Database["public"]["Enums"]["provedor_treino"]
+          situacao_academia: Database["public"]["Enums"]["situacao_aluno_academia"]
+          situacao_academia_em: string | null
+          situacao_academia_por: string | null
           updated_at: string
           user_id: string
         }
@@ -712,6 +715,9 @@ export type Database = {
           primeiro_acesso_em?: string | null
           provedor_nutricao?: Database["public"]["Enums"]["provedor_nutricao"]
           provedor_treino?: Database["public"]["Enums"]["provedor_treino"]
+          situacao_academia?: Database["public"]["Enums"]["situacao_aluno_academia"]
+          situacao_academia_em?: string | null
+          situacao_academia_por?: string | null
           updated_at?: string
           user_id: string
         }
@@ -738,6 +744,9 @@ export type Database = {
           primeiro_acesso_em?: string | null
           provedor_nutricao?: Database["public"]["Enums"]["provedor_nutricao"]
           provedor_treino?: Database["public"]["Enums"]["provedor_treino"]
+          situacao_academia?: Database["public"]["Enums"]["situacao_aluno_academia"]
+          situacao_academia_em?: string | null
+          situacao_academia_por?: string | null
           updated_at?: string
           user_id?: string
         }
@@ -3313,6 +3322,7 @@ export type Database = {
         Row: {
           custo_mensal: number
           descricao: string | null
+          disponivel: boolean
           id: Database["public"]["Enums"]["nivel_atacado"]
           nome: string
           valor_sugerido_varejo: number
@@ -3320,6 +3330,7 @@ export type Database = {
         Insert: {
           custo_mensal: number
           descricao?: string | null
+          disponivel?: boolean
           id: Database["public"]["Enums"]["nivel_atacado"]
           nome: string
           valor_sugerido_varejo: number
@@ -3327,6 +3338,7 @@ export type Database = {
         Update: {
           custo_mensal?: number
           descricao?: string | null
+          disponivel?: boolean
           id?: Database["public"]["Enums"]["nivel_atacado"]
           nome?: string
           valor_sugerido_varejo?: number
@@ -4294,6 +4306,13 @@ export type Database = {
         Args: { _aluno_id: string }
         Returns: boolean
       }
+      plano_do_aluno: {
+        Args: {
+          _metodo: Database["public"]["Enums"]["metodo_arke_status"]
+          _nivel: Database["public"]["Enums"]["nivel_atacado"]
+        }
+        Returns: string
+      }
       get_caixa_mensagens: {
         Args: { _organization_id: string }
         Returns: {
@@ -4302,6 +4321,7 @@ export type Database = {
           canal: string
           dieta_id: string | null
           nao_lidas: number
+          plano: string
           ultima_em: string
           ultima_mensagem: string
           ultimo_remetente: string
@@ -4827,6 +4847,7 @@ export type Database = {
       org_status: "trial" | "ativo" | "inadimplente" | "suspenso" | "cancelado"
       organization_tipo: "academia" | "profissional_autonomo" | "studio"
       pagamento_status: "pendente" | "confirmado" | "atrasado" | "estornado"
+      situacao_aluno_academia: "em_dia" | "inadimplente" | "pausado"
       periodicidade_plano_academia:
         | "mensal"
         | "trimestral"
@@ -5037,6 +5058,7 @@ export const Constants = {
       lancamento_financeiro_tipo: ["receita", "despesa"],
       lancamento_status: ["pendente", "pago", "atrasado", "cancelado"],
       metodo_arke_status: ["sem_adesao", "ativo", "cancelado"],
+      situacao_aluno_academia: ["em_dia", "inadimplente", "pausado"],
       motivo_dificuldade: [
         "tempo",
         "execucao",

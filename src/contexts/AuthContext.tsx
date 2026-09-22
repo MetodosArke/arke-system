@@ -4,6 +4,7 @@ import { escolherVinculo } from "@/lib/vinculos";
 import { identificarSessao } from "@/lib/monitoramento";
 import type { User as SupabaseUser, Session } from "@supabase/supabase-js";
 import type { Enums } from "@/integrations/supabase/types";
+import { planoDoAluno, type PlanoAluno } from "@/lib/planoAluno";
 
 export type AppRole = Enums<"app_role">;
 
@@ -25,6 +26,7 @@ interface Organization {
 }
 
 type FaseJornada = Enums<"fase_jornada">;
+type SituacaoAcademia = Enums<"situacao_aluno_academia">;
 
 interface AuthContextType {
   user: SupabaseUser | null;
@@ -36,6 +38,8 @@ interface AuthContextType {
   alunoId: string | null; // id em `alunos`, quando o papel na org é "aluno"
   faseJornada: FaseJornada | null; // M.A.P.A. → B.A.S.E. → R.O.T.A. → A.P.E.X. → L.E.G.A.D.O.
   metodoArkeAtivo: boolean; // aderiu ao produto Método ARKE (além da matrícula normal na academia)
+  planoAluno: PlanoAluno; // Free, Método Integrado ou Método Elite (lib/planoAluno)
+  situacaoAcademia: SituacaoAcademia | null; // marcada pela academia; só "em_dia" entra no app
   anamneseCompleta: boolean; // Anamnese de Acolhimento (M.A.P.A.®) já preenchida
   consentimentoLgpdAceito: boolean; // Termo de consentimento (dados de saúde) já aceito
   isAuthenticated: boolean;
@@ -64,6 +68,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [alunoId, setAlunoId] = useState<string | null>(null);
   const [faseJornada, setFaseJornada] = useState<FaseJornada | null>(null);
   const [metodoArkeAtivo, setMetodoArkeAtivo] = useState(false);
+  const [planoAluno, setPlanoAluno] = useState<PlanoAluno>("free");
+  const [situacaoAcademia, setSituacaoAcademia] = useState<SituacaoAcademia | null>(null);
   const [anamneseCompleta, setAnamneseCompleta] = useState(false);
   const [consentimentoLgpdAceito, setConsentimentoLgpdAceito] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -82,7 +88,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const loadAlunoStatus = async (userId: string, organizationId: string) => {
     const { data: aluno } = await supabase
       .from("alunos")
-      .select("id, fase_jornada, primeiro_acesso_em, metodo_arke_status")
+      .select("id, fase_jornada, primeiro_acesso_em, metodo_arke_status, nivel_atacado, situacao_academia")
       .eq("user_id", userId)
       .eq("organization_id", organizationId)
       .maybeSingle();
@@ -91,6 +97,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setAlunoId(null);
       setFaseJornada(null);
       setMetodoArkeAtivo(false);
+      setPlanoAluno("free");
+      setSituacaoAcademia(null);
       setAnamneseCompleta(false);
       setConsentimentoLgpdAceito(false);
       return;
@@ -99,6 +107,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setAlunoId(aluno.id);
     setFaseJornada(aluno.fase_jornada);
     setMetodoArkeAtivo(aluno.metodo_arke_status === "ativo");
+    setPlanoAluno(planoDoAluno(aluno));
+    setSituacaoAcademia(aluno.situacao_academia);
 
     // M.A.P.A.®: registra o 1º acesso, para a automação de "48h sem 1º
     // acesso" não abrir tarefa de ativação para quem já entrou.
@@ -170,6 +180,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setAlunoId(null);
         setFaseJornada(null);
         setMetodoArkeAtivo(false);
+        setPlanoAluno("free");
+        setSituacaoAcademia(null);
         setAnamneseCompleta(false);
       }
     } else {
@@ -178,6 +190,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setAlunoId(null);
       setFaseJornada(null);
       setMetodoArkeAtivo(false);
+      setPlanoAluno("free");
+      setSituacaoAcademia(null);
       setAnamneseCompleta(false);
     }
 
@@ -229,6 +243,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setAlunoId(null);
         setFaseJornada(null);
         setMetodoArkeAtivo(false);
+        setPlanoAluno("free");
+        setSituacaoAcademia(null);
         setAnamneseCompleta(false);
         setCurrentUserId(null);
         setRolesLoaded(true);
@@ -318,6 +334,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setAlunoId(null);
     setFaseJornada(null);
     setMetodoArkeAtivo(false);
+    setPlanoAluno("free");
+    setSituacaoAcademia(null);
     setAnamneseCompleta(false);
     setCurrentUserId(null);
   };
@@ -346,6 +364,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         alunoId,
         faseJornada,
         metodoArkeAtivo,
+        planoAluno,
+        situacaoAcademia,
         anamneseCompleta,
         consentimentoLgpdAceito,
         isAuthenticated: !!session,

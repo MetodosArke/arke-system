@@ -39,14 +39,14 @@ A academia compra pelo custo de Atacado da ARKE e define o preço de Varejo (mar
 
 | Nível | Custo Atacado ARKE | Taxa de processamento* | Sugestão de Varejo | Margem Sugerida da Academia |
 |---|---|---|---|---|
-| **Essencial** (Treino ARKE) | R$ 15,00 | R$ 1,68 | R$ 39,90 | R$ 23,22 |
+| **Free** (app da academia) | — | — | — | incluso no plano B2B |
 | **Integrado** (Treino + Nutrição) | R$ 45,00 | R$ 4,05 | R$ 119,00 | R$ 69,95 |
 | **Elite** (Acompanhamento 360°) | R$ 85,00 | R$ 6,44 | R$ 199,00 | R$ 107,56 |
 
 * Taxa do Asaas, somada ao atacado (decisão de 21/09/2026): 2,99% + R$ 0,49 sobre o valor cobrado, configurável em Visão Master → Configurações. Os valores acima são no preço sugerido; com outro varejo, a taxa acompanha.
 
-- **Essencial:** Onboarding M.A.P.A.®, prescrição de treino individualizada com snapshot imutável, aplicativo de treino/diário e suporte a dificuldades.
-- **Integrado:** Tudo do Essencial + plano alimentar individualizado, acompanhamento por Nutricionista ARKE, check-ins semanais (R.O.T.A.®) e revisão integrada.
+- **Free** (substitui o Essencial desde 22/09/2026): todo aluno matriculado e em dia com a academia — treinos com snapshot imutável, calendário, rotina, diário de água e dieta (a dieta vem da nutricionista **da academia**) e chat com os professores da academia. Sem custo de atacado: a academia paga só o plano B2B.
+- **Integrado:** Tudo do Free + acolhimento M.A.P.A.®, fases da jornada, plano alimentar individualizado, acompanhamento por Nutricionista ARKE, check-ins semanais (R.O.T.A.®) e revisão integrada.
 - **Elite:** Tudo do Integrado + acolhimento expandido, encontros periódicos de acompanhamento, relatórios de evolução corporal (A.P.E.X.®/L.E.G.A.D.O.®) e fila prioritária.
 
 > Implementação: `planos_atacado` (custo de atacado + `valor_sugerido_varejo`) e `organization_planos_precificacao` (valor de varejo e markup definidos por organização — pré-preenchido com a sugestão ARKE via trigger ao criar a organização, editável livremente depois pela academia).
@@ -75,7 +75,7 @@ Confirmado pelo responsável pelo projeto em 20/09/2026. O funcionamento real se
 Corrigido junto, o defeito mais caro: nada impedia **duas assinaturas para o mesmo aluno**. Criou no Asaas, falhou ao gravar no banco, a tela seguia oferecendo "Tentar cobrar" — e a primeira assinatura ficava órfã, cobrando o aluno todo mês sem ninguém ver. A de plano próprio era ainda mais direta: conferia a matrícula ativa **depois** de criar a assinatura, então o 409 deixava a recém-criada lá. Hoje as duas:
 
 - conferem o banco **antes** de tocar no gateway (assinatura ativa → 409);
-- exigem CPF com mensagem que diz à equipe onde resolver; **por decisão de 21/09/2026, os CPFs dos alunos não estão sendo coletados** (o ARKE não usa CPF de terceiros para nenhuma outra finalidade), então hoje nenhuma assinatura de aluno é emitida — o bloqueio é o esperado até essa decisão mudar. Consequência a acompanhar: a matrícula pública já ativa o Método (`metodo_arke_status = ativo`) sem gerar cobrança, e a cobrança só nasce quando a equipe a gera na ficha do aluno;
+- exigem CPF com mensagem que diz à equipe onde resolver; **por decisão de 21/09/2026, os CPFs dos alunos não estão sendo coletados** (o ARKE não usa CPF de terceiros para nenhuma outra finalidade), então hoje nenhuma assinatura de aluno é emitida — o bloqueio é o esperado até essa decisão mudar. A matrícula pública ativava o Método sem gerar cobrança; desde 22/09/2026 ela matricula no plano Free;
 - reaproveitam o customer (por `externalReference` do aluno, depois por CPF — a mesma pessoa em duas academias é um cliente só);
 - usam `externalReference` com prefixo na assinatura — `metodo:<aluno>` e `plano:<aluno>`, na mesma convenção dos `org:`/`b2b:` da B2B — e consultam o Asaas por ele antes de criar. No Método, assinatura ativa encontrada lá é **adotada** (é o caso de ter criado e falhado ao gravar); no plano próprio é **recusada** com o id, porque pode ser de outro plano ou valor e adotá-la esconderia o problema.
 
@@ -312,11 +312,39 @@ A estrutura do acervo do app original, trazida para o esquema multitenant:
 - **Aluno:** escolhe a divisão do dia (abre na que já registrou hoje), vê cada série, e o registro guarda a divisão (`registro_treino.divisao`) — o calendário mostra "Treino A". A impressão da ficha também sai por divisão e por série.
 - **Pendência de conteúdo:** os 105 exercícios globais continuam **sem vídeo nem imagem**. A estrutura está pronta; produzir ou licenciar o material é decisão de vocês (D7). Com vídeos, o armazenamento do plano gratuito (1 GB) acaba rápido — mais um motivo para o upgrade vir antes de popular o acervo.
 
+## Plano Free no lugar do Essencial (Rodada 3, 22/09/2026)
+
+Até aqui tudo girava em torno de "aderiu ao Método": 9 dos 11 alunos apareciam como "não aderiu", a tela de dieta ficava trancada fora do Integrado e do Elite, e o chat era só do Método. Agora **todo aluno matriculado e em dia com a academia usa o app no plano Free**, e o Método ARKE pago (Integrado e Elite) soma o que é da metodologia. As decisões (D1–D4, D7) foram do responsável e do sócio:
+
+| | Free | Método (Integrado / Elite) |
+|---|---|---|
+| Treinos, calendário, rotina | ✓ | ✓ |
+| Diário de água e dieta (da nutricionista **da academia**) | ✓ | ✓ |
+| Chat com os professores da academia | ✓ | ✓, com prioridade |
+| Acolhimento M.A.P.A.®, fases da jornada, chat com a nutricionista | — | ✓ |
+| Acolhimento expandido | — | Elite |
+
+**O plano é calculado, não gravado:** `plano_do_aluno(metodo_arke_status, nivel_atacado)` no banco e `planoDoAluno()` em `src/lib/planoAluno.ts` — Método ativo vale o nível, qualquer outra coisa é Free. Nível gravado em quem não está no Método é só intenção. Foi por olhar só o nível que o gatilho `bump_prioridade_elite` subia a prioridade de tarefa de aluno fora do Método; corrigido junto.
+
+**Situação na academia (D1).** `alunos.situacao_academia` (`em_dia`, `inadimplente`, `pausado`), marcada pela academia na lista de alunos, na ficha e na importação (coluna "situação"; texto que não dá para interpretar falha a linha, e inativo ou cancelado não é importado). Só em dia entra no app: os outros veem a tela do `AlunoSituacaoGate`, que manda falar com a recepção — a mensalidade, hoje, é cobrada pela academia fora do ARKE; quando ela cobrar pelo ARKE, a situação passa a ser automática. Quem altera é gestor, recepção ou a ArkeFit: a política de UPDATE de `alunos` vale para toda a equipe, então a trava é por coluna, no gatilho `trg_proteger_situacao_aluno`, que também carimba quem e quando. Marcar pausado ou inadimplente **encerra as tarefas automáticas** abertas do aluno (ativação, barreira, engajamento, acolhimento Elite), com o desfecho registrado — é a regra "pausas encerram automações". E as rotinas só olham quem está em dia.
+
+**Automações.** A tarefa de ativação em 48h passou a valer também para o Free, mas **não para a base importada**: ela é ativada em bloco pelo convite de primeiro acesso (QR Code), e 400 tarefas de uma vez afogariam a fila. Engajamento baixo e acolhimento Elite seguem só no Método — a pontuação de engajamento mede os pilares do Método.
+
+**Chat com prioridade (D2).** `get_caixa_mensagens` devolve o plano e ordena: conversas esperando resposta primeiro e, entre elas, o Elite fura a fila e o Integrado vem antes do Free. A Caixa de Mensagens mostra a etiqueta do plano.
+
+**Essencial fora da tabela (D4).** `planos_atacado.disponivel` = falso para o Essencial (o valor do enum fica, porque há histórico apontando para ele); a precificação da academia deixou de ter a linha, e `trg_exigir_nivel_disponivel` recusa Método ativo em nível indisponível por qualquer caminho, inclusive o trial do Super Admin. A conta E2E, que era Essencial, virou Free.
+
+**Matrícula pública é matrícula no Free.** Antes ela ativava o Método no nível escolhido sem gerar cobrança nenhuma — o produto pago saía de graça pelo link. Agora a página não mostra planos nem preços, e sim o anúncio do Método.
+
+**Método ARKE — breve lançamento.** O Método é upgrade pós-lançamento, então o app anuncia em vez de vender: cartão na home do aluno Free, no chat com a nutricionista e na matrícula pública (`MetodoArkeEmBreve`). No painel, a adesão pela academia (e o "Tentar cobrar") fica atrás de `VITE_METODO_ARKE_VENDA`, desligada; o Super Admin segue atribuindo o Método em trial para homologar. Ligar a venda é pôr `VITE_METODO_ARKE_VENDA=true` na Vercel e fazer um deploy.
+
+**Grupos musculares do app original (D7).** Os 11 do original — Peito, Costas, Ombros, Bíceps, Tríceps, Pernas, Glúteos, Abdômen, Antebraços, Panturrilha, Cardio. Os que saíram foram convertidos pelo nome do exercício: "Braços" virou Bíceps ou Tríceps (rosca inversa ganha Antebraços), "Core" virou Abdômen, quadríceps e posterior viraram Pernas, e os exercícios em que o glúteo manda ganharam Glúteos (como principal no hip thrust e na ponte). Os modelos de treino acompanharam; fichas já publicadas ficam como foram publicadas (snapshot imutável).
+
 ## Primeiro Acesso por QR Code (um link por academia)
 
 Ativar a base importada era aluno a aluno: o botão "Enviar Ativação via WhatsApp" da lista, centenas de vezes. Agora cada academia tem **um link e um QR Code só** — `/p/:slug/primeiro-acesso` —, para colar na recepção, no grupo e no Instagram. O aluno digita o e-mail ou o celular que a academia cadastrou e recebe no e-mail o próprio link para criar a senha (o mesmo `/auth/definir-senha` do link individual). O cartão **Convite de primeiro acesso** fica no topo de *Alunos & Prescrições*, com copiar, baixar o QR em PNG, enviar pelo WhatsApp e a contagem de quantos alunos já entraram no app (`primeiro_acesso_em`). O botão individual continua na lista para quem ficou para trás.
 
-`primeiro-acesso` (edge function, `verify_jwt = false`) tem as travas da matrícula pública — limite por IP em `matricula_publica_tentativas` e Turnstile — e **responde sempre a mesma frase**, exista ou não o cadastro: sem isso, o QR viraria um jeito de descobrir quem é aluno de qual academia digitando e-mails. A busca mora em `buscar_aluno_primeiro_acesso(_organization_id, _contato)`, só `service_role`: e-mail sem diferenciar maiúsculas, ou celular pelos **últimos 10 dígitos**, para "+55 (11) 9..." e "(11) 9..." baterem. O envio é `resetPasswordForEmail`; o Auth segura um envio por minuto por e-mail, e repetir cedo demais só não manda de novo.
+`primeiro-acesso` (edge function, `verify_jwt = false`) tem as travas da matrícula pública — limite por IP em `matricula_publica_tentativas` e Turnstile — e **responde sempre a mesma frase**, exista ou não o cadastro: sem isso, o QR viraria um jeito de descobrir quem é aluno de qual academia digitando e-mails. A busca mora em `buscar_aluno_primeiro_acesso(_organization_id, _contato)`, só `service_role`: e-mail sem diferenciar maiúsculas, ou celular pelos **últimos 10 dígitos**, para "+55 (11) 9..." e "(11) 9..." baterem. O envio é `resetPasswordForEmail`; o Auth segura um envio por minuto por e-mail, e repetir cedo demais só não manda de novo. **Conferido de ponta a ponta em 22/09/2026** pelo responsável, com um aluno vindo importado de outro sistema: o e-mail chega já com o visual do ARKE, o link abre a tela de criar senha e o acesso funciona.
 
 ## Motor de Automações e Regras Operacionais
 - **Prevenção de Falha Humana:** Eventos da jornada viram tarefas automáticas com responsável, prazo (SLA) e prioridade[span_81](start_span)[span_81](end_span).

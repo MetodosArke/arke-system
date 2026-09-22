@@ -84,7 +84,14 @@ export default function AdminMensagens() {
                     <Icone className="h-4 w-4 mt-1 text-muted-foreground shrink-0" />
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center justify-between gap-2">
-                        <p className={cn("text-sm truncate", c.nao_lidas > 0 ? "font-semibold" : "font-medium")}>{c.aluno_nome}</p>
+                        <p className={cn("text-sm truncate flex items-center gap-1.5", c.nao_lidas > 0 ? "font-semibold" : "font-medium")}>
+                          <span className="truncate">{c.aluno_nome}</span>
+                          {c.plano !== "free" && (
+                            <Badge variant="secondary" className="h-4 px-1.5 text-[10px] shrink-0">
+                              {c.plano === "elite" ? "Elite" : "Integrado"}
+                            </Badge>
+                          )}
+                        </p>
                         <span className="text-[11px] text-muted-foreground shrink-0">
                           {formatDistanceToNow(new Date(c.ultima_em), { addSuffix: true, locale: ptBR })}
                         </span>

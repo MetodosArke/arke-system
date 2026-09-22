@@ -11,6 +11,8 @@ export type ConversaCaixa = {
   ultima_em: string;
   ultimo_remetente: string;
   nao_lidas: number;
+  /** free, integrado ou elite — o banco já ordena: Elite fura a fila, Integrado antes do Free. */
+  plano: string;
 };
 
 /**

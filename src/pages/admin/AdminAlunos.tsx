@@ -35,11 +35,12 @@ import { AlunoPerfilSheet } from "@/components/admin/AlunoPerfilSheet";
 import { ImprimirTreinoDialog, type ExercicioSnapshotImpressao, type TreinoImpressao } from "@/components/admin/ImprimirTreinoDialog";
 import { abrirWhatsAppAtivacao } from "@/lib/whatsappAtivacao";
 import { ConvitePrimeiroAcesso } from "@/components/admin/ConvitePrimeiroAcesso";
+import { SituacaoAluno } from "@/components/admin/SituacaoAluno";
+import { planoDoAluno, ROTULO_PLANO, vendaMetodoArkeLiberada, type SituacaoAcademia } from "@/lib/planoAluno";
 
 type Nivel = Enums<"nivel_atacado">;
 
 const NIVEL_LABEL: Record<string, string> = {
-  essencial: "Essencial",
   integrado: "Integrado",
   elite: "Elite",
 };
@@ -74,6 +75,7 @@ interface AlunoRow {
   nivel_atacado: string | null;
   fase_jornada: string;
   metodo_arke_status: string;
+  situacao_academia: SituacaoAcademia;
   objetivo: string | null;
   data_inicio: string | null;
   dias_descanso: number[];
@@ -91,6 +93,8 @@ const EMPTY_ALUNOS: AlunoRow[] = [];
 export default function AdminAlunos() {
   const { organization, hasRole, organizationRole, user } = useAuth();
   const podeGerenciarEquipe = hasRole("admin_arke") || organizationRole === "gestor";
+  // Adesão e cobrança do Método pela academia só depois do lançamento do Método.
+  const vendaMetodo = vendaMetodoArkeLiberada();
   const navigate = useNavigate();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -116,7 +120,7 @@ export default function AdminAlunos() {
       const { data: alunosData, error } = await supabase
         .from("alunos")
         .select(
-          "id, user_id, nivel_atacado, objetivo, data_inicio, fase_jornada, metodo_arke_status, dias_descanso, anonimizado_em"
+          "id, user_id, nivel_atacado, objetivo, data_inicio, fase_jornada, metodo_arke_status, situacao_academia, dias_descanso, anonimizado_em"
         )
         .eq("organization_id", organization!.id)
         .order("data_inicio", { ascending: false });
@@ -402,7 +406,7 @@ export default function AdminAlunos() {
                 <TableRow>
                   <TableHead>Nome</TableHead>
                   <TableHead>Plano</TableHead>
-                  <TableHead>Método ARKE</TableHead>
+                  <TableHead>Situação</TableHead>
                   <TableHead>Assinatura</TableHead>
                   <TableHead>Fase</TableHead>
                   <TableHead>Desde</TableHead>
@@ -426,40 +430,38 @@ export default function AdminAlunos() {
                       )}
                     </TableCell>
                     <TableCell>
-                      {aluno.nivel_atacado ? (
-                        <Badge variant="secondary">{NIVEL_LABEL[aluno.nivel_atacado] ?? aluno.nivel_atacado}</Badge>
+                      {planoDoAluno(aluno) === "free" ? (
+                        <div className="flex items-center gap-1.5">
+                          <Badge variant="outline">{ROTULO_PLANO.free}</Badge>
+                          {vendaMetodo && !aluno.anonimizado_em && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 px-2 text-xs"
+                              onClick={() => {
+                                setAlunoAdesao(aluno);
+                                setNivelAdesao(aluno.nivel_atacado === "integrado" || aluno.nivel_atacado === "elite" ? aluno.nivel_atacado : "");
+                              }}
+                            >
+                              <Sparkles className="h-3 w-3 mr-1" /> Método
+                            </Button>
+                          )}
+                        </div>
                       ) : (
-                        <Badge variant="outline" className="text-muted-foreground">
-                          Sem método
+                        <Badge className="gap-1">
+                          <Sparkles className="h-3 w-3" /> {ROTULO_PLANO[planoDoAluno(aluno)]}
                         </Badge>
                       )}
                     </TableCell>
                     <TableCell>
-                      {aluno.metodo_arke_status === "ativo" ? (
-                        <Badge className="gap-1">
-                          <Sparkles className="h-3 w-3" /> Aderiu
-                        </Badge>
-                      ) : (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="h-7 text-xs"
-                          disabled={!!aluno.anonimizado_em}
-                          onClick={() => {
-                            setAlunoAdesao(aluno);
-                            setNivelAdesao((aluno.nivel_atacado as Nivel) ?? "");
-                          }}
-                        >
-                          Marcar adesão
-                        </Button>
-                      )}
+                      <SituacaoAluno alunoId={aluno.id} situacao={aluno.situacao_academia} desabilitado={!!aluno.anonimizado_em} />
                     </TableCell>
                     <TableCell>
                       {aluno.assinatura_status ? (
                         <Badge variant={aluno.assinatura_status === "ativa" ? "default" : "outline"}>
                           {ASSINATURA_LABEL[aluno.assinatura_status] ?? aluno.assinatura_status}
                         </Badge>
-                      ) : aluno.metodo_arke_status === "ativo" ? (
+                      ) : aluno.metodo_arke_status === "ativo" && vendaMetodo ? (
                         <Button
                           variant="outline"
                           size="sm"
@@ -472,11 +474,16 @@ export default function AdminAlunos() {
                             : "Tentar cobrar"}
                         </Button>
                       ) : (
-                        <span className="text-xs text-muted-foreground">Sem assinatura</span>
+                        <span className="text-xs text-muted-foreground">—</span>
                       )}
                     </TableCell>
                     <TableCell>
-                      <Badge variant="outline">{FASE_LABEL[aluno.fase_jornada] ?? aluno.fase_jornada}</Badge>
+                      {/* Fases da jornada são do Método; no Free não há fase. */}
+                      {planoDoAluno(aluno) === "free" ? (
+                        <span className="text-xs text-muted-foreground">—</span>
+                      ) : (
+                        <Badge variant="outline">{FASE_LABEL[aluno.fase_jornada] ?? aluno.fase_jornada}</Badge>
+                      )}
                     </TableCell>
                     <TableCell>
                       {aluno.data_inicio ? new Date(aluno.data_inicio).toLocaleDateString("pt-BR") : "—"}
@@ -573,8 +580,8 @@ export default function AdminAlunos() {
             <DialogTitle>Registrar adesão ao Método ARKE — {alunoAdesao?.full_name}</DialogTitle>
           </DialogHeader>
           <p className="text-sm text-muted-foreground">
-            Qual nível do Método ARKE esse aluno está contratando? É a partir daqui que ele passa a ter acesso ao
-            onboarding, chat com a equipe e todo o resto do produto.
+            Qual nível do Método ARKE esse aluno está contratando? O plano Free continua valendo; o Método soma o
+            acolhimento M.A.P.A.®, as fases da jornada e o chat com a nutricionista.
           </p>
           <div className="space-y-1.5">
             <Label>Nível</Label>
@@ -590,7 +597,6 @@ export default function AdminAlunos() {
                 <SelectValue placeholder="Selecione o nível" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="essencial">Essencial</SelectItem>
                 <SelectItem value="integrado">Integrado</SelectItem>
                 <SelectItem value="elite">Elite</SelectItem>
               </SelectContent>
@@ -893,22 +899,9 @@ function CadastrarAlunoDialog({
               {problemaCpf && <p className="text-xs text-destructive">{problemaCpf}</p>}
             </div>
           </div>
-          <div className="space-y-1.5">
-            <Label>Nível do Método ARKE (opcional)</Label>
-            <Select
-              value={form.nivel_atacado}
-              onValueChange={(v) => setForm((f) => ({ ...f, nivel_atacado: v as Nivel }))}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Sem método por enquanto" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="essencial">Essencial</SelectItem>
-                <SelectItem value="integrado">Integrado</SelectItem>
-                <SelectItem value="elite">Elite</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+          <p className="text-xs text-muted-foreground">
+            O aluno entra no plano Free: treinos, calendário, rotina, diário de água e dieta, e chat com os professores.
+          </p>
           <DialogFooter>
             <Button type="submit" disabled={cadastrar.isPending}>
               {cadastrar.isPending ? "Cadastrando..." : "Cadastrar e convidar"}

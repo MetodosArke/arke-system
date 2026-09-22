@@ -7,27 +7,19 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Dumbbell, CheckCircle2 } from "lucide-react";
+import { Dumbbell } from "lucide-react";
+import { MetodoArkeEmBreve } from "@/components/aluno/MetodoArkeEmBreve";
 import { useToast } from "@/hooks/use-toast";
 import { mensagemDeErroEdge } from "@/lib/erroEdge";
-import { cn } from "@/lib/utils";
 import { Turnstile } from "@/components/public/Turnstile";
 
 // Sem a chave, a matrícula segue sem captcha (e o servidor não o exige sem
 // TURNSTILE_SECRET_KEY). Ver components/public/Turnstile.
 const TURNSTILE_SITE_KEY: string | undefined = import.meta.env.VITE_TURNSTILE_SITE_KEY || undefined;
 
-interface PlanoPublico {
-  nivel_atacado: "essencial" | "integrado" | "elite";
-  nome: string;
-  descricao: string | null;
-  valor_varejo: number;
-}
-
 interface OrganizacaoPublica {
   organization_id: string;
   nome: string;
-  planos: PlanoPublico[];
 }
 
 export default function PublicMatricula() {
@@ -36,7 +28,6 @@ export default function PublicMatricula() {
   const { toast } = useToast();
   const { signIn } = useAuth();
 
-  const [nivelSelecionado, setNivelSelecionado] = useState<string>("");
   // Captcha só quando configurado (ver components/public/Turnstile). O token é
   // de uso único: a cada falha o widget é remontado para gerar outro.
   const [captchaToken, setCaptchaToken] = useState<string | null>(null);
@@ -56,7 +47,6 @@ export default function PublicMatricula() {
   const matricular = useMutation({
     mutationFn: async () => {
       if (!slug) throw new Error("Academia inválida.");
-      if (!nivelSelecionado) throw new Error("Selecione um plano.");
       if (form.password.length < 6) throw new Error("A senha deve ter no mínimo 6 caracteres.");
       if (form.password !== form.confirmar) throw new Error("As senhas não coincidem.");
       if (TURNSTILE_SITE_KEY && !captchaToken) throw new Error("Aguarde a verificação de segurança terminar.");
@@ -66,7 +56,6 @@ export default function PublicMatricula() {
         {
           body: {
             slug,
-            nivel_atacado: nivelSelecionado,
             full_name: form.full_name,
             email: form.email,
             telefone: form.telefone,
@@ -86,7 +75,7 @@ export default function PublicMatricula() {
       if (signInError) throw signInError;
     },
     onSuccess: () => {
-      toast({ title: "Matrícula concluída!", description: "Vamos te conhecer melhor agora." });
+      toast({ title: "Matrícula concluída!", description: "Bem-vindo! Seus treinos aparecem aqui assim que a academia publicar." });
       navigate("/app", { replace: true });
     },
     onError: (error: Error) => {
@@ -152,37 +141,10 @@ export default function PublicMatricula() {
             <Dumbbell className="h-7 w-7 text-primary-foreground" />
           </div>
           <h1 className="text-2xl font-bold">{org.nome}</h1>
-          <p className="text-sm text-muted-foreground">Escolha seu plano e crie sua conta para começar.</p>
+          <p className="text-sm text-muted-foreground">Crie sua conta para acessar o app da academia.</p>
         </div>
 
-        <div className="grid grid-cols-1 gap-3">
-          {org.planos.map((plano) => (
-            <button
-              key={plano.nivel_atacado}
-              onClick={() => setNivelSelecionado(plano.nivel_atacado)}
-              className={cn(
-                "text-left rounded-xl border p-4 transition-colors",
-                nivelSelecionado === plano.nivel_atacado
-                  ? "border-primary bg-primary/5"
-                  : "border-border hover:bg-accent/50"
-              )}
-            >
-              <div className="flex items-center justify-between">
-                <span className="font-semibold">{plano.nome}</span>
-                {nivelSelecionado === plano.nivel_atacado && <CheckCircle2 className="h-4 w-4 text-primary" />}
-              </div>
-              {plano.descricao && <p className="text-xs text-muted-foreground mt-0.5">{plano.descricao}</p>}
-              <p className="text-sm font-bold text-primary mt-1">
-                R$ {Number(plano.valor_varejo).toFixed(2)}/mês
-              </p>
-            </button>
-          ))}
-          {org.planos.length === 0 && (
-            <p className="text-sm text-muted-foreground text-center">
-              Esta academia ainda não configurou planos para matrícula online.
-            </p>
-          )}
-        </div>
+        <MetodoArkeEmBreve />
 
         <Card>
           <CardHeader className="pb-2">
@@ -230,7 +192,7 @@ export default function PublicMatricula() {
               <Button
                 type="submit"
                 className="w-full gradient-primary text-primary-foreground font-semibold"
-                disabled={matricular.isPending || !nivelSelecionado || (!!TURNSTILE_SITE_KEY && !captchaToken)}
+                disabled={matricular.isPending || (!!TURNSTILE_SITE_KEY && !captchaToken)}
               >
                 {matricular.isPending ? "Criando sua conta..." : "Confirmar matrícula"}
               </Button>

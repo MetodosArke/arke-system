@@ -25,6 +25,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { RegistrarAlertaCard } from "@/components/aluno/RegistrarAlertaCard";
 import PontuacaoEngajamento from "@/components/aluno/PontuacaoEngajamento";
+import { MetodoArkeEmBreve } from "@/components/aluno/MetodoArkeEmBreve";
 import { definirProximaAcao } from "@/lib/proximaAcao";
 import type { Enums } from "@/integrations/supabase/types";
 
@@ -64,7 +65,7 @@ const FASE_LABEL: Record<string, string> = {
 const HOJE = new Date().toISOString().slice(0, 10);
 
 export default function AlunoDashboard() {
-  const { alunoId, organization, faseJornada } = useAuth();
+  const { alunoId, organization, faseJornada, planoAluno } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -304,7 +305,8 @@ export default function AlunoDashboard() {
 
   return (
     <div className="space-y-4 max-w-2xl mx-auto">
-      {faseJornada && (
+      {/* Fases da jornada são do Método ARKE; no Free não há fase a mostrar. */}
+      {faseJornada && planoAluno !== "free" && (
         <Badge variant="outline" className="text-xs">
           {FASE_LABEL[faseJornada] ?? faseJornada}
         </Badge>
@@ -532,6 +534,8 @@ export default function AlunoDashboard() {
       </Card>
 
       <PontuacaoEngajamento />
+
+      {planoAluno === "free" && <MetodoArkeEmBreve />}
 
       {treinoAtivo?.titulo === "Treino de Boas-vindas — Adaptação" && (
         <Card className="border-primary/30 bg-primary/5">

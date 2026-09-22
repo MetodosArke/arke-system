@@ -12,7 +12,6 @@ const jsonResponse = (body: unknown, status = 200) =>
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
 
-const NIVEIS_VALIDOS = new Set(["essencial", "integrado", "elite"]);
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 /**
@@ -139,7 +138,6 @@ async function verificarCaptcha(token: string | undefined, ip: string | null, se
 
 type MatriculaPayload = {
   slug: string;
-  nivel_atacado: "essencial" | "integrado" | "elite";
   full_name: string;
   email: string;
   telefone?: string;
@@ -200,7 +198,6 @@ Deno.serve(async (req: Request) => {
   try {
     const payload: Partial<MatriculaPayload> = await req.json();
     const slug = payload.slug?.trim().toLowerCase();
-    const nivelAtacado = payload.nivel_atacado;
     const fullName = payload.full_name?.trim();
     const email = payload.email?.trim().toLowerCase();
     const telefone = payload.telefone?.trim() || null;
@@ -212,9 +209,6 @@ Deno.serve(async (req: Request) => {
     if (!email || !EMAIL_RE.test(email)) return jsonResponse({ error: "E-mail inválido." }, 400);
     if (!password || password.length < 6) {
       return jsonResponse({ error: "A senha deve ter no mínimo 6 caracteres." }, 400);
-    }
-    if (!nivelAtacado || !NIVEIS_VALIDOS.has(nivelAtacado)) {
-      return jsonResponse({ error: "Selecione um plano válido." }, 400);
     }
 
     const segredoCaptcha = Deno.env.get("TURNSTILE_SECRET_KEY");
@@ -312,16 +306,13 @@ Deno.serve(async (req: Request) => {
       return jsonResponse({ error: "Erro ao vincular o usuário à academia." }, 500);
     }
 
-    // Matrícula pública já é a adesão de verdade ao Método ARKE (o
-    // aluno escolheu o nível e vai pagar por ele) — diferente do
-    // cadastro/importação feito pela academia, aqui não faz sentido
-    // nascer "sem_adesao".
+    // Matrícula pública é matrícula no plano Free (22/09/2026). Antes ela
+    // ativava o Método ARKE no nível escolhido sem gerar cobrança nenhuma —
+    // o produto pago saía de graça pelo link. O Método é somado depois, pela
+    // academia, quando estiver à venda.
     const { error: alunoError } = await admin.from("alunos").insert({
       organization_id: org.id,
       user_id: newUserId,
-      nivel_atacado: nivelAtacado,
-      metodo_arke_status: "ativo",
-      metodo_arke_ativado_em: new Date().toISOString(),
     });
     if (alunoError) {
       console.error("Error inserting aluno", alunoError);
