@@ -76,6 +76,8 @@ interface AlunoRow {
   fase_jornada: string;
   metodo_arke_status: string;
   situacao_academia: SituacaoAcademia;
+  situacao_academia_motivo: string | null;
+  situacao_academia_retorno: string | null;
   objetivo: string | null;
   data_inicio: string | null;
   dias_descanso: number[];
@@ -120,7 +122,7 @@ export default function AdminAlunos() {
       const { data: alunosData, error } = await supabase
         .from("alunos")
         .select(
-          "id, user_id, nivel_atacado, objetivo, data_inicio, fase_jornada, metodo_arke_status, situacao_academia, dias_descanso, anonimizado_em"
+          "id, user_id, nivel_atacado, objetivo, data_inicio, fase_jornada, metodo_arke_status, situacao_academia, situacao_academia_motivo, situacao_academia_retorno, dias_descanso, anonimizado_em"
         )
         .eq("organization_id", organization!.id)
         .order("data_inicio", { ascending: false });
@@ -454,7 +456,13 @@ export default function AdminAlunos() {
                       )}
                     </TableCell>
                     <TableCell>
-                      <SituacaoAluno alunoId={aluno.id} situacao={aluno.situacao_academia} desabilitado={!!aluno.anonimizado_em} />
+                      <SituacaoAluno
+                        alunoId={aluno.id}
+                        situacao={aluno.situacao_academia}
+                        motivo={aluno.situacao_academia_motivo}
+                        retorno={aluno.situacao_academia_retorno}
+                        desabilitado={!!aluno.anonimizado_em}
+                      />
                     </TableCell>
                     <TableCell>
                       {aluno.assinatura_status ? (

@@ -1,4 +1,7 @@
 import { useMemo, useState } from "react";
+import { useOnboardingAcademia } from "@/hooks/useOnboardingAcademia";
+import { ETAPAS } from "@/lib/onboardingAcademia";
+import { Progress } from "@/components/ui/progress";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -88,22 +91,32 @@ function AtalhoButton({
   );
 }
 
-// Onboarding não tem mais item fixo no menu lateral — enquanto a
-// organização não concluir a configuração inicial (perfil + split Asaas),
-// esse banner aparece em qualquer uma das Homes como o caminho de volta.
-function OnboardingBanner() {
+// Checklist fixo do onboarding (Rodada 4): percentual, próximo passo e tempo
+// estimado, em qualquer uma das Homes, até a academia concluir. Para quem não
+// é gestor, só avisa — quem conclui é o gestor.
+function ChecklistOnboarding() {
   const navigate = useNavigate();
+  const { percentual, proxima, minutos, isLoading } = useOnboardingAcademia();
+  if (isLoading) return null;
+  const etapa = ETAPAS.find((e) => e.etapa === proxima);
   return (
     <button
       type="button"
       onClick={() => navigate("/admin/onboarding")}
-      className="flex w-full items-center gap-3 rounded-lg border border-primary/30 bg-primary/5 px-4 py-3 text-left transition-colors hover:bg-primary/10"
+      className="w-full rounded-lg border border-primary/30 bg-primary/5 px-4 py-3 text-left transition-colors hover:bg-primary/10 space-y-2"
     >
-      <Rocket className="h-4 w-4 text-primary shrink-0" />
-      <span className="flex-1 text-sm">
-        <span className="font-medium">Termine a configuração inicial da sua organização.</span>{" "}
-        <span className="text-muted-foreground">Perfil, slug e split de pagamento levam menos de 2 minutos.</span>
+      <span className="flex items-center gap-3">
+        <Rocket className="h-4 w-4 text-primary shrink-0" />
+        <span className="flex-1 text-sm">
+          <span className="font-medium">Configuração da academia: {percentual}%</span>{" "}
+          <span className="text-muted-foreground">
+            {etapa ? `Próximo passo: ${etapa.titulo} (~${etapa.minutos} min).` : "Tudo pronto — conclua para liberar o app."}
+            {minutos > 0 && ` Faltam cerca de ${minutos} min.`}
+          </span>
+        </span>
       </span>
+      <Progress value={percentual} className="h-1.5" />
+      <span className="block text-xs text-muted-foreground">Os alunos entram no app e as cobranças começam quando a configuração for concluída.</span>
     </button>
   );
 }
@@ -129,7 +142,7 @@ export default function DashboardHome() {
         <h1 className="text-xl font-bold">Início</h1>
       </div>
 
-      {organization && !organization.onboardingCompleted && <OnboardingBanner />}
+      {organization && !organization.onboardingCompleted && <ChecklistOnboarding />}
 
       {visao === "gestor_academia" && <VisaoGestorAcademia />}
       {visao === "gestor_studio" && <VisaoGestorStudio />}

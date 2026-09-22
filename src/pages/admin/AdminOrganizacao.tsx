@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -60,6 +61,7 @@ export default function AdminOrganizacao() {
   // as telas de /admin — aqui só resta tratar o caso (fora de homologação)
   // de um usuário sem admin_arke e sem organização.
   const { organization, user, hasRole, refreshOrganization } = useAuth();
+  const navigate = useNavigate();
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -304,32 +306,6 @@ export default function AdminOrganizacao() {
     });
     setReciboAberto(true);
   };
-
-  const [walletId, setWalletId] = useState("");
-
-  useEffect(() => {
-    setWalletId(orgDetalhes?.asaas_wallet_id ?? "");
-  }, [orgDetalhes]);
-
-  const salvarWallet = useMutation({
-    mutationFn: async () => {
-      if (!organization) {
-        throw new Error("Nenhuma organização selecionada. Entre com um usuário vinculado a uma organização (gestor) para editar esses dados.");
-      }
-      const { error } = await supabase
-        .from("organizations")
-        .update({ asaas_wallet_id: walletId || null })
-        .eq("id", organization.id);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      toast({ title: "Wallet do Asaas salva" });
-      void queryClient.invalidateQueries({ queryKey: ["organizacao-wallet", organization?.id] });
-    },
-    onError: (error: Error) => {
-      toast({ title: "Não foi possível salvar", description: error.message, variant: "destructive" });
-    },
-  });
 
   const salvar = useMutation({
     mutationFn: async (nivel: Nivel) => {
@@ -637,18 +613,19 @@ export default function AdminOrganizacao() {
             cobrança (o repasse de atacado à ARKE é retido na origem).
           </p>
         </CardHeader>
-        <CardContent className="flex items-end gap-3">
-          <div className="flex-1 space-y-1.5">
-            <Label htmlFor="wallet-id">Wallet ID do Asaas</Label>
-            <Input
-              id="wallet-id"
-              value={walletId}
-              onChange={(e) => setWalletId(e.target.value)}
-              placeholder="ex.: 22e49670-27e4-4579-a4f4-0dfd42b2e-000"
-            />
-          </div>
-          <Button onClick={() => salvarWallet.mutate()} disabled={salvarWallet.isPending || !organization}>
-            Salvar
+        {/* A carteira é configurada no onboarding (Recebimentos), que confere no Asaas
+            antes de gravar — a carteira da ArkeFit, por exemplo, é recusada. A
+            gravação direta daqui passou a ser recusada pelo banco. */}
+        <CardContent className="flex items-center justify-between gap-3">
+          <p className="text-sm">
+            {orgDetalhes?.asaas_wallet_id ? (
+              <span className="font-mono text-xs">{orgDetalhes.asaas_wallet_id}</span>
+            ) : (
+              <span className="text-muted-foreground">Conta de recebimentos ainda não configurada.</span>
+            )}
+          </p>
+          <Button variant="outline" size="sm" onClick={() => navigate("/admin/onboarding")}>
+            {orgDetalhes?.asaas_wallet_id ? "Ver conta" : "Configurar"}
           </Button>
         </CardContent>
       </Card>

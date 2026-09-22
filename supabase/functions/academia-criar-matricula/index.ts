@@ -204,7 +204,7 @@ Deno.serve(async (req: Request) => {
 
     const { data: org, error: orgError } = await asUser
       .from("organizations")
-      .select("id, nome, asaas_wallet_id")
+      .select("id, nome, asaas_wallet_id, onboarding_completed, status")
       .eq("id", aluno.organization_id)
       .single();
     if (orgError || !org) {
@@ -212,7 +212,15 @@ Deno.serve(async (req: Request) => {
     }
     if (!org.asaas_wallet_id) {
       return jsonResponse(
-        { error: "A academia ainda não configurou a wallet do Asaas (Organização > Split de Pagamento)." },
+        { error: "A academia ainda não configurou a conta de recebimentos no Asaas (Onboarding → Recebimentos)." },
+        422
+      );
+    }
+    // D5: cobrança de aluno só com o onboarding da academia concluído
+    // (organização em trial é homologação e passa).
+    if (!org.onboarding_completed && org.status !== "trial") {
+      return jsonResponse(
+        { error: "Conclua o onboarding da academia (Painel → Onboarding) antes de cobrar alunos pelo ARKE." },
         422
       );
     }

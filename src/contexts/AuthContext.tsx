@@ -23,6 +23,9 @@ interface Organization {
   tipo: OrganizationTipo;
   especialidadeProfissional: AppRole | null;
   onboardingCompleted: boolean;
+  status: Enums<"org_status">;
+  /** Alunos no app e cobranças: onboarding concluído, ou trial (homologação). Decisão D5. */
+  liberada: boolean;
 }
 
 type FaseJornada = Enums<"fase_jornada">;
@@ -142,7 +145,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       supabase.from("user_roles").select("role").eq("user_id", userId),
       supabase
         .from("organization_members")
-        .select("role, organization_id, created_at, organizations ( id, nome, slug, tipo, especialidade_profissional, onboarding_completed )")
+        .select("role, organization_id, created_at, organizations ( id, nome, slug, tipo, especialidade_profissional, onboarding_completed, status )")
         .eq("user_id", userId)
         .eq("status", "active"),
     ]);
@@ -160,6 +163,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         tipo: OrganizationTipo;
         especialidade_profissional: AppRole | null;
         onboarding_completed: boolean;
+        status: Enums<"org_status">;
       } | null;
       setOrganization(
         org
@@ -170,6 +174,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               tipo: org.tipo,
               especialidadeProfissional: org.especialidade_profissional,
               onboardingCompleted: org.onboarding_completed,
+              status: org.status,
+              liberada: org.onboarding_completed || org.status === "trial",
             }
           : null
       );

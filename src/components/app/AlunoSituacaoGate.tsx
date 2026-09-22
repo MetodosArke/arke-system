@@ -15,6 +15,36 @@ export function AlunoSituacaoGate({ children }: { children: React.ReactNode }) {
   const { alunoId, situacaoAcademia, organization, refreshAluno, signOut } = useAuth();
   const [verificando, setVerificando] = useState(false);
 
+  // D5: aluno no app só depois de a academia concluir o onboarding. Quem cai
+  // aqui foi cadastrado ou importado durante a configuração — o acesso abre
+  // sozinho quando ela termina.
+  if (alunoId && organization && !organization.liberada) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background p-4">
+        <Card className="w-full max-w-md">
+          <CardHeader className="items-center text-center">
+            <PauseCircle className="h-10 w-10 text-muted-foreground mb-2" />
+            <CardTitle>Seu app está quase pronto</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4 text-center">
+            <p className="text-sm text-muted-foreground">
+              A {organization.nome} está finalizando a configuração do app. Seu acesso abre assim que ela concluir — não é
+              preciso fazer nada.
+            </p>
+            <div className="flex flex-col gap-2">
+              <Button variant="outline" onClick={() => window.location.reload()}>
+                <RefreshCw className="h-4 w-4 mr-2" /> Verificar de novo
+              </Button>
+              <Button variant="ghost" onClick={() => void signOut()}>
+                Sair
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   if (!alunoId || !situacaoAcademia || situacaoAcademia === "em_dia") {
     return <>{children}</>;
   }

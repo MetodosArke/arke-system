@@ -80,6 +80,8 @@ const SITUACOES = {
 // O que cada desfecho gravado pela Edge Function quer dizer, em português.
 const RESULTADOS: Record<string, string> = {
   cobranca_b2b_atualizada: "Cobrança B2B atualizada",
+  cobranca_b2b_emitida: "Mensalidade B2B emitida",
+  cobranca_b2b_criada: "Mensalidade B2B registrada",
   mensalidade_atualizada: "Mensalidade da academia atualizada",
   mensalidade_criada: "Mensalidade da academia criada",
   pagamento_arke_atualizado: "Pagamento do Método ARKE atualizado",

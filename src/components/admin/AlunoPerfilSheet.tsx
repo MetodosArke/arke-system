@@ -110,7 +110,7 @@ export function AlunoPerfilSheet({
       const { data: aluno, error: alunoError } = await supabase
         .from("alunos")
         .select(
-          "id, user_id, organization_id, nivel_atacado, fase_jornada, metodo_arke_status, situacao_academia, objetivo, data_inicio, data_nascimento, peso_kg, altura_cm, observacoes, anonimizado_em, identificador_catraca, meta_agua_ml, meta_semanal_dias"
+          "id, user_id, organization_id, nivel_atacado, fase_jornada, metodo_arke_status, situacao_academia, situacao_academia_motivo, situacao_academia_retorno, objetivo, data_inicio, data_nascimento, peso_kg, altura_cm, observacoes, anonimizado_em, identificador_catraca, meta_agua_ml, meta_semanal_dias"
         )
         .eq("id", alunoId!)
         .single();
@@ -290,6 +290,8 @@ export function AlunoPerfilSheet({
                 <SituacaoAluno
                   alunoId={perfil.aluno.id}
                   situacao={perfil.aluno.situacao_academia}
+                  motivo={perfil.aluno.situacao_academia_motivo}
+                  retorno={perfil.aluno.situacao_academia_retorno}
                   desabilitado={!!perfil.aluno.anonimizado_em}
                 />
                 {perfil.assinatura?.status && (
@@ -298,6 +300,15 @@ export function AlunoPerfilSheet({
                   </Badge>
                 )}
               </div>
+              {perfil.aluno.situacao_academia !== "em_dia" &&
+                (perfil.aluno.situacao_academia_motivo || perfil.aluno.situacao_academia_retorno) && (
+                  <p className="text-xs text-muted-foreground">
+                    {perfil.aluno.situacao_academia_motivo}
+                    {perfil.aluno.situacao_academia_motivo && perfil.aluno.situacao_academia_retorno && " · "}
+                    {perfil.aluno.situacao_academia_retorno &&
+                      `volta prevista ${new Date(`${perfil.aluno.situacao_academia_retorno}T12:00:00`).toLocaleDateString("pt-BR")}`}
+                  </p>
+                )}
             </SheetHeader>
 
             <div className="flex gap-2 mt-4">

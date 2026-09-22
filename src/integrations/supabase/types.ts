@@ -147,6 +147,24 @@ export type Database = {
           },
         ]
       }
+      alertas_rotinas: {
+        Row: {
+          avisado_em: string
+          nome: string
+          situacao: string
+        }
+        Insert: {
+          avisado_em?: string
+          nome: string
+          situacao: string
+        }
+        Update: {
+          avisado_em?: string
+          nome?: string
+          situacao?: string
+        }
+        Relationships: []
+      }
       alimentos_biblioteca: {
         Row: {
           calorias_kcal: number
@@ -185,7 +203,6 @@ export type Database = {
       }
       aluno_assinaturas: {
         Row: {
-          valor_repasse_arke: number | null
           aluno_id: string
           asaas_subscription_id: string | null
           cartao_atualizado_em: string | null
@@ -200,13 +217,14 @@ export type Database = {
           nivel_atacado: Database["public"]["Enums"]["nivel_atacado"]
           organization_id: string
           proxima_cobranca: string | null
+          reconciliada_em: string | null
           status: Database["public"]["Enums"]["assinatura_status"]
           trial_fim: string | null
           updated_at: string
           valor_cobrado: number
+          valor_repasse_arke: number | null
         }
         Insert: {
-          valor_repasse_arke?: number | null
           aluno_id: string
           asaas_subscription_id?: string | null
           cartao_atualizado_em?: string | null
@@ -221,13 +239,14 @@ export type Database = {
           nivel_atacado: Database["public"]["Enums"]["nivel_atacado"]
           organization_id: string
           proxima_cobranca?: string | null
+          reconciliada_em?: string | null
           status?: Database["public"]["Enums"]["assinatura_status"]
           trial_fim?: string | null
           updated_at?: string
           valor_cobrado: number
+          valor_repasse_arke?: number | null
         }
         Update: {
-          valor_repasse_arke?: number | null
           aluno_id?: string
           asaas_subscription_id?: string | null
           cartao_atualizado_em?: string | null
@@ -242,10 +261,12 @@ export type Database = {
           nivel_atacado?: Database["public"]["Enums"]["nivel_atacado"]
           organization_id?: string
           proxima_cobranca?: string | null
+          reconciliada_em?: string | null
           status?: Database["public"]["Enums"]["assinatura_status"]
           trial_fim?: string | null
           updated_at?: string
           valor_cobrado?: number
+          valor_repasse_arke?: number | null
         }
         Relationships: [
           {
@@ -562,7 +583,29 @@ export type Database = {
           organization_id?: string
           texto?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "aluno_observacoes_aluno_id_fkey"
+            columns: ["aluno_id"]
+            isOneToOne: false
+            referencedRelation: "alunos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "aluno_observacoes_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "org_churn_metrics"
+            referencedColumns: ["organization_id"]
+          },
+          {
+            foreignKeyName: "aluno_observacoes_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       aluno_rotina_semanal: {
         Row: {
@@ -688,7 +731,9 @@ export type Database = {
           provedor_treino: Database["public"]["Enums"]["provedor_treino"]
           situacao_academia: Database["public"]["Enums"]["situacao_aluno_academia"]
           situacao_academia_em: string | null
+          situacao_academia_motivo: string | null
           situacao_academia_por: string | null
+          situacao_academia_retorno: string | null
           updated_at: string
           user_id: string
         }
@@ -717,7 +762,9 @@ export type Database = {
           provedor_treino?: Database["public"]["Enums"]["provedor_treino"]
           situacao_academia?: Database["public"]["Enums"]["situacao_aluno_academia"]
           situacao_academia_em?: string | null
+          situacao_academia_motivo?: string | null
           situacao_academia_por?: string | null
+          situacao_academia_retorno?: string | null
           updated_at?: string
           user_id: string
         }
@@ -746,7 +793,9 @@ export type Database = {
           provedor_treino?: Database["public"]["Enums"]["provedor_treino"]
           situacao_academia?: Database["public"]["Enums"]["situacao_aluno_academia"]
           situacao_academia_em?: string | null
+          situacao_academia_motivo?: string | null
           situacao_academia_por?: string | null
+          situacao_academia_retorno?: string | null
           updated_at?: string
           user_id?: string
         }
@@ -1138,7 +1187,6 @@ export type Database = {
       }
       cobrancas_b2b: {
         Row: {
-          taxa_gateway: number | null
           asaas_customer_id: string | null
           asaas_payment_id: string | null
           created_at: string
@@ -1153,12 +1201,12 @@ export type Database = {
           pix_copia_cola: string | null
           pix_qr_code_base64: string | null
           status: string
+          taxa_gateway: number | null
           updated_at: string
           valor: number
           vencimento: string
         }
         Insert: {
-          taxa_gateway?: number | null
           asaas_customer_id?: string | null
           asaas_payment_id?: string | null
           created_at?: string
@@ -1173,12 +1221,12 @@ export type Database = {
           pix_copia_cola?: string | null
           pix_qr_code_base64?: string | null
           status?: string
+          taxa_gateway?: number | null
           updated_at?: string
           valor: number
           vencimento?: string
         }
         Update: {
-          taxa_gateway?: number | null
           asaas_customer_id?: string | null
           asaas_payment_id?: string | null
           created_at?: string
@@ -1193,6 +1241,7 @@ export type Database = {
           pix_copia_cola?: string | null
           pix_qr_code_base64?: string | null
           status?: string
+          taxa_gateway?: number | null
           updated_at?: string
           valor?: number
           vencimento?: string
@@ -1608,7 +1657,6 @@ export type Database = {
       }
       dieta_adesao: {
         Row: {
-          refeicoes_marcadas: Json
           adesao_percentual: number
           agua_ml: number
           aluno_id: string
@@ -1624,10 +1672,10 @@ export type Database = {
           nivel_saciedade: string | null
           observacoes: string | null
           organization_id: string
+          refeicoes_marcadas: Json
           updated_at: string
         }
         Insert: {
-          refeicoes_marcadas?: Json
           adesao_percentual?: number
           agua_ml?: number
           aluno_id: string
@@ -1643,10 +1691,10 @@ export type Database = {
           nivel_saciedade?: string | null
           observacoes?: string | null
           organization_id: string
+          refeicoes_marcadas?: Json
           updated_at?: string
         }
         Update: {
-          refeicoes_marcadas?: Json
           adesao_percentual?: number
           agua_ml?: number
           aluno_id?: string
@@ -1662,6 +1710,7 @@ export type Database = {
           nivel_saciedade?: string | null
           observacoes?: string | null
           organization_id?: string
+          refeicoes_marcadas?: Json
           updated_at?: string
         }
         Relationships: [
@@ -1785,14 +1834,14 @@ export type Database = {
       }
       exercicios_biblioteca: {
         Row: {
-          equipamento: string | null
-          grupos_musculares: string[]
           ativo: boolean
           created_at: string
           descanso_padrao_seg: number
           descricao_execucao: string | null
+          equipamento: string | null
           gif_url: string | null
           grupo_muscular: string
+          grupos_musculares: string[]
           id: string
           nome: string
           observacoes: string | null
@@ -1803,14 +1852,14 @@ export type Database = {
           video_url: string | null
         }
         Insert: {
-          equipamento?: string | null
-          grupos_musculares?: string[]
           ativo?: boolean
           created_at?: string
           descanso_padrao_seg?: number
           descricao_execucao?: string | null
+          equipamento?: string | null
           gif_url?: string | null
           grupo_muscular: string
+          grupos_musculares?: string[]
           id?: string
           nome: string
           observacoes?: string | null
@@ -1821,14 +1870,14 @@ export type Database = {
           video_url?: string | null
         }
         Update: {
-          equipamento?: string | null
-          grupos_musculares?: string[]
           ativo?: boolean
           created_at?: string
           descanso_padrao_seg?: number
           descricao_execucao?: string | null
+          equipamento?: string | null
           gif_url?: string | null
           grupo_muscular?: string
+          grupos_musculares?: string[]
           id?: string
           nome?: string
           observacoes?: string | null
@@ -1839,6 +1888,13 @@ export type Database = {
           video_url?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "exercicios_biblioteca_equipamento_fkey"
+            columns: ["equipamento"]
+            isOneToOne: false
+            referencedRelation: "equipamentos"
+            referencedColumns: ["nome"]
+          },
           {
             foreignKeyName: "exercicios_biblioteca_organization_id_fkey"
             columns: ["organization_id"]
@@ -2238,6 +2294,45 @@ export type Database = {
         }
         Relationships: []
       }
+      matricula_publica_tentativas: {
+        Row: {
+          concluida: boolean
+          created_at: string
+          id: number
+          ip_hash: string
+          organization_id: string | null
+        }
+        Insert: {
+          concluida?: boolean
+          created_at?: string
+          id?: number
+          ip_hash: string
+          organization_id?: string | null
+        }
+        Update: {
+          concluida?: boolean
+          created_at?: string
+          id?: number
+          ip_hash?: string
+          organization_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "matricula_publica_tentativas_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "org_churn_metrics"
+            referencedColumns: ["organization_id"]
+          },
+          {
+            foreignKeyName: "matricula_publica_tentativas_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       mensagens_dieta: {
         Row: {
           aluno_id: string
@@ -2363,7 +2458,6 @@ export type Database = {
       }
       mensalidades: {
         Row: {
-          taxa_gateway: number | null
           aluno_id: string
           asaas_payment_id: string | null
           competencia: string
@@ -2378,6 +2472,7 @@ export type Database = {
           observacao: string | null
           organization_id: string
           status: Database["public"]["Enums"]["status_mensalidade"]
+          taxa_gateway: number | null
           updated_at: string
           valor: number
           valor_liquido_academia: number
@@ -2385,7 +2480,6 @@ export type Database = {
           vencimento: string
         }
         Insert: {
-          taxa_gateway?: number | null
           aluno_id: string
           asaas_payment_id?: string | null
           competencia: string
@@ -2400,6 +2494,7 @@ export type Database = {
           observacao?: string | null
           organization_id: string
           status?: Database["public"]["Enums"]["status_mensalidade"]
+          taxa_gateway?: number | null
           updated_at?: string
           valor: number
           valor_liquido_academia?: number
@@ -2407,7 +2502,6 @@ export type Database = {
           vencimento: string
         }
         Update: {
-          taxa_gateway?: number | null
           aluno_id?: string
           asaas_payment_id?: string | null
           competencia?: string
@@ -2422,6 +2516,7 @@ export type Database = {
           observacao?: string | null
           organization_id?: string
           status?: Database["public"]["Enums"]["status_mensalidade"]
+          taxa_gateway?: number | null
           updated_at?: string
           valor?: number
           valor_liquido_academia?: number
@@ -2658,13 +2753,12 @@ export type Database = {
       }
       modelo_treino_exercicios: {
         Row: {
-          divisao: string
-          equipamento: string | null
-          exercicio_id: string | null
-          series_detalhe: Json | null
           created_at: string
           descanso_seg: number
           descricao_execucao: string | null
+          divisao: string
+          equipamento: string | null
+          exercicio_id: string | null
           gif_url: string | null
           grupo_muscular: string[]
           id: string
@@ -2674,16 +2768,16 @@ export type Database = {
           ordem: number
           repeticoes: string
           series: number
+          series_detalhe: Json | null
           video_url: string | null
         }
         Insert: {
-          divisao?: string
-          equipamento?: string | null
-          exercicio_id?: string | null
-          series_detalhe?: Json | null
           created_at?: string
           descanso_seg?: number
           descricao_execucao?: string | null
+          divisao?: string
+          equipamento?: string | null
+          exercicio_id?: string | null
           gif_url?: string | null
           grupo_muscular?: string[]
           id?: string
@@ -2693,16 +2787,16 @@ export type Database = {
           ordem?: number
           repeticoes?: string
           series?: number
+          series_detalhe?: Json | null
           video_url?: string | null
         }
         Update: {
-          divisao?: string
-          equipamento?: string | null
-          exercicio_id?: string | null
-          series_detalhe?: Json | null
           created_at?: string
           descanso_seg?: number
           descricao_execucao?: string | null
+          divisao?: string
+          equipamento?: string | null
+          exercicio_id?: string | null
           gif_url?: string | null
           grupo_muscular?: string[]
           id?: string
@@ -2712,9 +2806,17 @@ export type Database = {
           ordem?: number
           repeticoes?: string
           series?: number
+          series_detalhe?: Json | null
           video_url?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "modelo_treino_exercicios_exercicio_id_fkey"
+            columns: ["exercicio_id"]
+            isOneToOne: false
+            referencedRelation: "exercicios_biblioteca"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "modelo_treino_exercicios_modelo_id_fkey"
             columns: ["modelo_id"]
@@ -3072,79 +3174,141 @@ export type Database = {
       }
       organizations: {
         Row: {
+          asaas_conta_id: string | null
+          asaas_conta_origem: string | null
+          asaas_conta_status: string | null
+          asaas_conta_status_em: string | null
           asaas_customer_id_b2b: string | null
+          asaas_subscription_id_b2b: string | null
           asaas_wallet_id: string | null
+          bairro: string | null
+          cep: string | null
+          cidade: string | null
           cnpj_cpf: string | null
+          complemento: string | null
           created_at: string
+          email_contato: string | null
           endereco: string | null
           especialidade_profissional:
             | Database["public"]["Enums"]["app_role"]
             | null
+          faturamento_mensal: number | null
           id: string
           limite_alunos: number
           logo_url: string | null
+          logradouro: string | null
           markup_padrao_pct: number
           nome: string
+          numero: string | null
           onboarding_completed: boolean
+          onboarding_concluido_em: string | null
+          onboarding_equipe_dispensada: boolean
+          onboarding_lembrete_em: string | null
+          onboarding_lembretes: number
           plano_b2b: Database["public"]["Enums"]["plano_b2b"]
+          razao_social: string | null
           slug: string
           status: Database["public"]["Enums"]["org_status"]
           telefone: string | null
           tipo: Database["public"]["Enums"]["organization_tipo"]
+          tipo_empresa: string | null
           trial_vencimento: string | null
+          uf: string | null
           updated_at: string
+          valor_mensal_b2b: number | null
         }
         Insert: {
+          asaas_conta_id?: string | null
+          asaas_conta_origem?: string | null
+          asaas_conta_status?: string | null
+          asaas_conta_status_em?: string | null
           asaas_customer_id_b2b?: string | null
+          asaas_subscription_id_b2b?: string | null
           asaas_wallet_id?: string | null
+          bairro?: string | null
+          cep?: string | null
+          cidade?: string | null
           cnpj_cpf?: string | null
+          complemento?: string | null
           created_at?: string
+          email_contato?: string | null
           endereco?: string | null
           especialidade_profissional?:
             | Database["public"]["Enums"]["app_role"]
             | null
+          faturamento_mensal?: number | null
           id?: string
           limite_alunos?: number
           logo_url?: string | null
+          logradouro?: string | null
           markup_padrao_pct?: number
           nome: string
+          numero?: string | null
           onboarding_completed?: boolean
+          onboarding_concluido_em?: string | null
+          onboarding_equipe_dispensada?: boolean
+          onboarding_lembrete_em?: string | null
+          onboarding_lembretes?: number
           plano_b2b?: Database["public"]["Enums"]["plano_b2b"]
+          razao_social?: string | null
           slug: string
           status?: Database["public"]["Enums"]["org_status"]
           telefone?: string | null
           tipo?: Database["public"]["Enums"]["organization_tipo"]
+          tipo_empresa?: string | null
           trial_vencimento?: string | null
+          uf?: string | null
           updated_at?: string
+          valor_mensal_b2b?: number | null
         }
         Update: {
+          asaas_conta_id?: string | null
+          asaas_conta_origem?: string | null
+          asaas_conta_status?: string | null
+          asaas_conta_status_em?: string | null
           asaas_customer_id_b2b?: string | null
+          asaas_subscription_id_b2b?: string | null
           asaas_wallet_id?: string | null
+          bairro?: string | null
+          cep?: string | null
+          cidade?: string | null
           cnpj_cpf?: string | null
+          complemento?: string | null
           created_at?: string
+          email_contato?: string | null
           endereco?: string | null
           especialidade_profissional?:
             | Database["public"]["Enums"]["app_role"]
             | null
+          faturamento_mensal?: number | null
           id?: string
           limite_alunos?: number
           logo_url?: string | null
+          logradouro?: string | null
           markup_padrao_pct?: number
           nome?: string
+          numero?: string | null
           onboarding_completed?: boolean
+          onboarding_concluido_em?: string | null
+          onboarding_equipe_dispensada?: boolean
+          onboarding_lembrete_em?: string | null
+          onboarding_lembretes?: number
           plano_b2b?: Database["public"]["Enums"]["plano_b2b"]
+          razao_social?: string | null
           slug?: string
           status?: Database["public"]["Enums"]["org_status"]
           telefone?: string | null
           tipo?: Database["public"]["Enums"]["organization_tipo"]
+          tipo_empresa?: string | null
           trial_vencimento?: string | null
+          uf?: string | null
           updated_at?: string
+          valor_mensal_b2b?: number | null
         }
         Relationships: []
       }
       pagamentos: {
         Row: {
-          taxa_gateway: number | null
           aluno_assinatura_id: string
           asaas_payment_id: string | null
           created_at: string
@@ -3153,6 +3317,7 @@ export type Database = {
           invoice_url: string | null
           organization_id: string
           status: Database["public"]["Enums"]["pagamento_status"]
+          taxa_gateway: number | null
           updated_at: string
           valor: number
           valor_liquido_academia: number
@@ -3160,7 +3325,6 @@ export type Database = {
           vencimento: string | null
         }
         Insert: {
-          taxa_gateway?: number | null
           aluno_assinatura_id: string
           asaas_payment_id?: string | null
           created_at?: string
@@ -3169,6 +3333,7 @@ export type Database = {
           invoice_url?: string | null
           organization_id: string
           status?: Database["public"]["Enums"]["pagamento_status"]
+          taxa_gateway?: number | null
           updated_at?: string
           valor: number
           valor_liquido_academia?: number
@@ -3176,7 +3341,6 @@ export type Database = {
           vencimento?: string | null
         }
         Update: {
-          taxa_gateway?: number | null
           aluno_assinatura_id?: string
           asaas_payment_id?: string | null
           created_at?: string
@@ -3185,6 +3349,7 @@ export type Database = {
           invoice_url?: string | null
           organization_id?: string
           status?: Database["public"]["Enums"]["pagamento_status"]
+          taxa_gateway?: number | null
           updated_at?: string
           valor?: number
           valor_liquido_academia?: number
@@ -3345,6 +3510,27 @@ export type Database = {
         }
         Relationships: []
       }
+      planos_b2b_precos: {
+        Row: {
+          limite_alunos: number | null
+          plano: Database["public"]["Enums"]["plano_b2b"]
+          updated_at: string
+          valor_mensal: number | null
+        }
+        Insert: {
+          limite_alunos?: number | null
+          plano: Database["public"]["Enums"]["plano_b2b"]
+          updated_at?: string
+          valor_mensal?: number | null
+        }
+        Update: {
+          limite_alunos?: number | null
+          plano?: Database["public"]["Enums"]["plano_b2b"]
+          updated_at?: string
+          valor_mensal?: number | null
+        }
+        Relationships: []
+      }
       plataforma_config: {
         Row: {
           chave: string
@@ -3372,6 +3558,30 @@ export type Database = {
           updated_at?: string
           updated_by?: string | null
           valor?: number
+        }
+        Relationships: []
+      }
+      plataforma_textos: {
+        Row: {
+          chave: string
+          descricao: string | null
+          updated_at: string
+          updated_by: string | null
+          valor: string | null
+        }
+        Insert: {
+          chave: string
+          descricao?: string | null
+          updated_at?: string
+          updated_by?: string | null
+          valor?: string | null
+        }
+        Update: {
+          chave?: string
+          descricao?: string | null
+          updated_at?: string
+          updated_by?: string | null
+          valor?: string | null
         }
         Relationships: []
       }
@@ -3534,36 +3744,36 @@ export type Database = {
       }
       registro_treino: {
         Row: {
-          divisao: string | null
           aluno_id: string
           concluido: boolean
           created_at: string
           data: string
           detalhes_execucao: Json
+          divisao: string | null
           id: string
           observacao: string | null
           organization_id: string
           treino_id: string | null
         }
         Insert: {
-          divisao?: string | null
           aluno_id: string
           concluido?: boolean
           created_at?: string
           data?: string
           detalhes_execucao?: Json
+          divisao?: string | null
           id?: string
           observacao?: string | null
           organization_id: string
           treino_id?: string | null
         }
         Update: {
-          divisao?: string | null
           aluno_id?: string
           concluido?: boolean
           created_at?: string
           data?: string
           detalhes_execucao?: Json
+          divisao?: string | null
           id?: string
           observacao?: string | null
           organization_id?: string
@@ -4219,15 +4429,19 @@ export type Database = {
       }
     }
     Functions: {
+      abrir_tarefa_cartao_recusado: {
+        Args: { _aluno_assinatura_id: string; _asaas_payment_id: string }
+        Returns: undefined
+      }
       abrir_tarefa_mensalidade_atrasada: {
         Args: { _mensalidade_id: string }
         Returns: undefined
       }
+      aluno_inadimplente_b2c: { Args: { _aluno_id: string }; Returns: boolean }
       aluno_possui_agendamento_ativo_agora: {
         Args: { _aluno_id: string }
         Returns: boolean
       }
-      arke_trial_dias: { Args: never; Returns: number }
       arke_taxa_processamento: { Args: { _valor: number }; Returns: number }
       arke_taxa_processamento_config: {
         Args: never
@@ -4236,9 +4450,28 @@ export type Database = {
           percentual: number
         }[]
       }
+      arke_trial_dias: { Args: never; Returns: number }
       atualizar_meta_agua_aluno: {
         Args: { _meta_ml: number }
         Returns: undefined
+      }
+      avaliar_rotinas: {
+        Args: never
+        Returns: {
+          agendamento: string
+          ativa: boolean
+          execucoes_7d: number
+          falhas_7d: number
+          intervalo_esperado: string
+          nome: string
+          situacao: string
+          ultima_execucao: string
+          ultimo_erro: string
+        }[]
+      }
+      buscar_aluno_primeiro_acesso: {
+        Args: { _contato: string; _organization_id: string }
+        Returns: string
       }
       buscar_user_id_por_email: { Args: { _email: string }; Returns: string }
       calcular_pontuacoes_engajamento_mes: {
@@ -4253,10 +4486,36 @@ export type Database = {
         }[]
       }
       capturar_snapshot_mrr: { Args: never; Returns: undefined }
+      concluir_onboarding_organizacao: {
+        Args: { _organization_id: string }
+        Returns: boolean
+      }
+      concluir_tentativa_matricula: {
+        Args: { _id: number; _organization_id: string }
+        Returns: undefined
+      }
+      conferir_token_alerta_rotinas: {
+        Args: { _token: string }
+        Returns: boolean
+      }
+      conferir_token_lembrete_onboarding: {
+        Args: { _token: string }
+        Returns: boolean
+      }
+      conferir_token_reconciliacao: {
+        Args: { _token: string }
+        Returns: boolean
+      }
       cpf_valido: { Args: { _cpf: string }; Returns: boolean }
       dia_e_esperado_treino: {
         Args: { _aluno_id: string; _dias_descanso: number[]; _isodow: number }
         Returns: boolean
+      }
+      emails_superadmin: {
+        Args: never
+        Returns: {
+          email: string
+        }[]
       }
       encerrar_trial_metodo_arke: {
         Args: { _aluno_id: string }
@@ -4302,66 +4561,6 @@ export type Database = {
       gerar_tarefas_ativacao_pendente: { Args: never; Returns: undefined }
       gerar_tarefas_barreira_rotina: { Args: never; Returns: undefined }
       gerar_tarefas_engajamento_baixo: { Args: never; Returns: undefined }
-      aluno_inadimplente_b2c: {
-        Args: { _aluno_id: string }
-        Returns: boolean
-      }
-      plano_do_aluno: {
-        Args: {
-          _metodo: Database["public"]["Enums"]["metodo_arke_status"]
-          _nivel: Database["public"]["Enums"]["nivel_atacado"]
-        }
-        Returns: string
-      }
-      get_caixa_mensagens: {
-        Args: { _organization_id: string }
-        Returns: {
-          aluno_id: string
-          aluno_nome: string
-          canal: string
-          dieta_id: string | null
-          nao_lidas: number
-          plano: string
-          ultima_em: string
-          ultima_mensagem: string
-          ultimo_remetente: string
-        }[]
-      }
-      get_historico_aluno: {
-        Args: { _aluno_id: string; _limite?: number }
-        Returns: {
-          autor: string | null
-          detalhe: string | null
-          ocorrido_em: string
-          tipo: string
-          titulo: string
-        }[]
-      }
-      get_superadmin_alunos_trial: {
-        Args: { _organization_id: string }
-        Returns: {
-          aluno_id: string
-          assinatura_status: string | null
-          metodo_arke_status: string
-          nivel_atacado: Database["public"]["Enums"]["nivel_atacado"] | null
-          nome: string
-          trial_fim: string | null
-        }[]
-      }
-      get_superadmin_rotinas: {
-        Args: never
-        Returns: {
-          agendamento: string
-          ativa: boolean
-          execucoes_7d: number
-          falhas_7d: number
-          intervalo_esperado: unknown
-          nome: string
-          situacao: string
-          ultima_execucao: string
-          ultimo_erro: string
-        }[]
-      }
       get_bloqueio_aluno: {
         Args: { _aluno_id: string }
         Returns: {
@@ -4384,6 +4583,38 @@ export type Database = {
           organization_id: string
           valor_em_aberto: number
           vencimento_mais_antigo: string
+        }[]
+      }
+      get_caixa_mensagens: {
+        Args: { _organization_id: string }
+        Returns: {
+          aluno_id: string
+          aluno_nome: string
+          canal: string
+          dieta_id: string
+          nao_lidas: number
+          plano: string
+          ultima_em: string
+          ultima_mensagem: string
+          ultimo_remetente: string
+        }[]
+      }
+      get_historico_aluno: {
+        Args: { _aluno_id: string; _limite?: number }
+        Returns: {
+          autor: string
+          detalhe: string
+          ocorrido_em: string
+          tipo: string
+          titulo: string
+        }[]
+      }
+      get_onboarding_organizacao: {
+        Args: { _organization_id: string }
+        Returns: {
+          concluida: boolean
+          detalhe: string
+          etapa: string
         }[]
       }
       get_superadmin_adocao_metodologia: {
@@ -4409,6 +4640,17 @@ export type Database = {
           tarefas_concluidas_30d: number
           tarefas_vencidas_abertas: number
           treino_pct: number
+        }[]
+      }
+      get_superadmin_alunos_trial: {
+        Args: { _organization_id: string }
+        Returns: {
+          aluno_id: string
+          assinatura_status: string
+          metodo_arke_status: string
+          nivel_atacado: Database["public"]["Enums"]["nivel_atacado"]
+          nome: string
+          trial_fim: string
         }[]
       }
       get_superadmin_fila_global: {
@@ -4531,6 +4773,20 @@ export type Database = {
           repasse_arke: number
         }[]
       }
+      get_superadmin_rotinas: {
+        Args: never
+        Returns: {
+          agendamento: string
+          ativa: boolean
+          execucoes_7d: number
+          falhas_7d: number
+          intervalo_esperado: string
+          nome: string
+          situacao: string
+          ultima_execucao: string
+          ultimo_erro: string
+        }[]
+      }
       get_superadmin_tenants: {
         Args: never
         Returns: {
@@ -4580,6 +4836,10 @@ export type Database = {
           ultimo_evento_em: string
         }[]
       }
+      guardar_chave_subconta_asaas: {
+        Args: { _chave: string; _organization_id: string }
+        Returns: undefined
+      }
       has_org_role: {
         Args: {
           _organization_id: string
@@ -4603,16 +4863,24 @@ export type Database = {
         Returns: {
           aluno_id: string
           asaas_subscription_id: string | null
+          cartao_atualizado_em: string | null
+          cartao_atualizado_por: string | null
+          cartao_bandeira: string | null
+          cartao_final: string | null
+          cartao_recusado_em: string | null
           created_at: string
           fatura_pendente_url: string | null
+          forma_pagamento: string
           id: string
           nivel_atacado: Database["public"]["Enums"]["nivel_atacado"]
           organization_id: string
           proxima_cobranca: string | null
+          reconciliada_em: string | null
           status: Database["public"]["Enums"]["assinatura_status"]
           trial_fim: string | null
           updated_at: string
           valor_cobrado: number
+          valor_repasse_arke: number | null
         }
         SetofOptions: {
           from: "*"
@@ -4629,6 +4897,10 @@ export type Database = {
         Args: { _organization_id: string; _user_id: string }
         Returns: boolean
       }
+      ler_chave_subconta_asaas: {
+        Args: { _organization_id: string }
+        Returns: string
+      }
       limite_padrao_plano: {
         Args: { _plano: Database["public"]["Enums"]["plano_b2b"] }
         Returns: number
@@ -4640,6 +4912,10 @@ export type Database = {
         }[]
       }
       marcar_lancamentos_atrasados: { Args: never; Returns: undefined }
+      matricula_publica_org_permitida: {
+        Args: { _organization_id: string }
+        Returns: boolean
+      }
       mover_fase_jornada: {
         Args: {
           _aluno_id: string
@@ -4743,8 +5019,41 @@ export type Database = {
           plano: Database["public"]["Enums"]["plano_b2b"]
         }[]
       }
+      onboarding_etapas_interno: {
+        Args: { _organization_id: string }
+        Returns: {
+          concluida: boolean
+          detalhe: string
+          etapa: string
+        }[]
+      }
       organizacao_inadimplente_b2b: {
         Args: { _organization_id: string }
+        Returns: boolean
+      }
+      organizacao_liberada: {
+        Args: { _organization_id: string }
+        Returns: boolean
+      }
+      organizacoes_onboarding_parado: {
+        Args: never
+        Returns: {
+          email: string
+          lembretes: number
+          nome: string
+          organization_id: string
+          pendentes: string
+        }[]
+      }
+      plano_do_aluno: {
+        Args: {
+          _metodo: Database["public"]["Enums"]["metodo_arke_status"]
+          _nivel: Database["public"]["Enums"]["nivel_atacado"]
+        }
+        Returns: string
+      }
+      pode_gravar_midia_exercicio: {
+        Args: { _pasta: string }
         Returns: boolean
       }
       publicar_dieta: {
@@ -4761,6 +5070,7 @@ export type Database = {
         }
         Returns: string
       }
+      registrar_alerta_rotinas: { Args: { _itens: Json }; Returns: undefined }
       registrar_auditoria: {
         Args: {
           _acao: string
@@ -4772,7 +5082,15 @@ export type Database = {
         }
         Returns: undefined
       }
+      registrar_lembrete_onboarding: {
+        Args: { _organization_id: string }
+        Returns: undefined
+      }
       registrar_primeiro_acesso_aluno: { Args: never; Returns: undefined }
+      registrar_tentativa_matricula: {
+        Args: { _ip_hash: string }
+        Returns: number
+      }
       revogar_consentimento_biometrico: {
         Args: { _aluno_id: string }
         Returns: {
@@ -4780,10 +5098,21 @@ export type Database = {
           organization_id: string
         }[]
       }
+      rotinas_para_alertar: {
+        Args: never
+        Returns: {
+          nome: string
+          situacao: string
+          tipo: string
+          ultima_execucao: string
+          ultimo_erro: string
+        }[]
+      }
       superadmin_resetar_tokens_gateway: {
         Args: { _organization_id: string }
         Returns: number
       }
+      valor_mensal_b2b: { Args: { _organization_id: string }; Returns: number }
       verificar_orfaos: {
         Args: never
         Returns: {
@@ -4847,7 +5176,6 @@ export type Database = {
       org_status: "trial" | "ativo" | "inadimplente" | "suspenso" | "cancelado"
       organization_tipo: "academia" | "profissional_autonomo" | "studio"
       pagamento_status: "pendente" | "confirmado" | "atrasado" | "estornado"
-      situacao_aluno_academia: "em_dia" | "inadimplente" | "pausado"
       periodicidade_plano_academia:
         | "mensal"
         | "trimestral"
@@ -4859,6 +5187,7 @@ export type Database = {
       recorrencia_tipo: "nenhuma" | "mensal"
       remetente_tipo_dieta: "aluno" | "nutricionista"
       remetente_tipo_treino: "aluno" | "treinador"
+      situacao_aluno_academia: "em_dia" | "inadimplente" | "pausado"
       status_matricula_academia: "ativa" | "pausada" | "cancelada"
       status_mensalidade:
         | "pendente"
@@ -5058,7 +5387,6 @@ export const Constants = {
       lancamento_financeiro_tipo: ["receita", "despesa"],
       lancamento_status: ["pendente", "pago", "atrasado", "cancelado"],
       metodo_arke_status: ["sem_adesao", "ativo", "cancelado"],
-      situacao_aluno_academia: ["em_dia", "inadimplente", "pausado"],
       motivo_dificuldade: [
         "tempo",
         "execucao",
@@ -5082,6 +5410,7 @@ export const Constants = {
       recorrencia_tipo: ["nenhuma", "mensal"],
       remetente_tipo_dieta: ["aluno", "nutricionista"],
       remetente_tipo_treino: ["aluno", "treinador"],
+      situacao_aluno_academia: ["em_dia", "inadimplente", "pausado"],
       status_matricula_academia: ["ativa", "pausada", "cancelada"],
       status_mensalidade: [
         "pendente",

@@ -1,268 +1,167 @@
 import { useEffect, useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Progress } from "@/components/ui/progress";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { Rocket, Building2, Wallet, Link2, Copy, CheckCircle2 } from "lucide-react";
-import type { Enums } from "@/integrations/supabase/types";
+import { mensagemDeErroEdge } from "@/lib/erroEdge";
+import { ETAPAS, type EtapaOnboarding } from "@/lib/onboardingAcademia";
+import { useOnboardingAcademia } from "@/hooks/useOnboardingAcademia";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
+import { CheckCircle2, ChevronDown, Circle, Clock, PartyPopper, Rocket } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { EtapaDados } from "@/components/admin/onboarding/EtapaDados";
+import { EtapaRecebimentos } from "@/components/admin/onboarding/EtapaRecebimentos";
+import { EtapaPlanos } from "@/components/admin/onboarding/EtapaPlanos";
+import { EtapaEquipe } from "@/components/admin/onboarding/EtapaEquipe";
+import { EtapaAlunos } from "@/components/admin/onboarding/EtapaAlunos";
+import { SuporteBotao } from "@/components/admin/onboarding/SuporteBotao";
 
-type TipoNegocio = Extract<Enums<"organization_tipo">, "academia" | "studio">;
-
-const SLUG_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
-
-function slugify(valor: string) {
-  return valor
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9\s-]/g, "")
-    .replace(/\s+/g, "-")
-    .replace(/-+/g, "-");
-}
-
-const TOTAL_PASSOS = 3;
-
+/**
+ * Onboarding da academia em etapas (Rodada 4). Cada etapa pode ser feita em
+ * qualquer ordem e retomada depois; o que está pronto é lido do banco. O painel
+ * funciona desde o primeiro dia (decisão D5), mas alunos no app e cobranças só
+ * começam quando o gestor conclui — e aí nasce a mensalidade B2B no Asaas.
+ */
 export default function AdminOnboarding() {
-  const { organization, refreshOrganization } = useAuth();
+  const { organization, organizationRole, hasRole, refreshOrganization } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [passo, setPasso] = useState(1);
+  const { status, percentual, proxima, minutos, tudoPronto, isLoading } = useOnboardingAcademia();
+  const [aberta, setAberta] = useState<EtapaOnboarding | null>(null);
+  const podeEditar = organizationRole === "gestor" || hasRole("admin_arke") || hasRole("superadmin");
+  const concluido = !!organization?.onboardingCompleted;
 
-  const { data: org } = useQuery({
-    queryKey: ["organizacao-onboarding", organization?.id],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("organizations")
-        .select("nome, slug, asaas_wallet_id, tipo")
-        .eq("id", organization!.id)
-        .single();
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!organization?.id,
-  });
-
-  const [nome, setNome] = useState("");
-  const [slug, setSlug] = useState("");
-  const [walletId, setWalletId] = useState("");
-  const [tipoNegocio, setTipoNegocio] = useState<TipoNegocio>("academia");
-
+  // Abre na primeira etapa pendente.
   useEffect(() => {
-    if (org) {
-      setNome(org.nome ?? "");
-      setSlug(org.slug ?? "");
-      setWalletId(org.asaas_wallet_id ?? "");
-      if (org.tipo === "academia" || org.tipo === "studio") setTipoNegocio(org.tipo);
-    }
-  }, [org]);
+    if (aberta === null && proxima) setAberta(proxima);
+  }, [proxima, aberta]);
 
-  const salvarPerfil = useMutation({
-    mutationFn: async () => {
-      if (!organization) throw new Error("Nenhuma organização vinculada.");
-      const slugNormalizado = slugify(slug);
-      if (!SLUG_RE.test(slugNormalizado)) {
-        throw new Error("Slug inválido. Use apenas letras minúsculas, números e hífens.");
-      }
-      const podeEscolherTipo = org?.tipo === "academia" || org?.tipo === "studio";
-      const { error } = await supabase
-        .from("organizations")
-        .update(podeEscolherTipo ? { nome, slug: slugNormalizado, tipo: tipoNegocio } : { nome, slug: slugNormalizado })
-        .eq("id", organization.id);
-      if (error) {
-        if (error.message.includes("duplicate") || error.code === "23505") {
-          throw new Error("Esse slug já está em uso por outra academia. Escolha outro.");
-        }
-        throw error;
-      }
-      setSlug(slugNormalizado);
-    },
-    onSuccess: () => {
-      toast({ title: "Perfil salvo!" });
-      void queryClient.invalidateQueries({ queryKey: ["organizacao-onboarding", organization?.id] });
-      void refreshOrganization();
-      setPasso(2);
-    },
-    onError: (error: Error) => toast({ title: "Erro ao salvar", description: error.message, variant: "destructive" }),
-  });
+  const recarregar = () => void queryClient.invalidateQueries({ queryKey: ["onboarding-academia", organization?.id] });
 
-  // Chegar ao passo 3 (via wallet salva ou "Configurar depois") já é o
-  // suficiente para considerar o onboarding concluído — encerra o banner
-  // que aparece nas Homes até aqui.
-  const concluirOnboarding = useMutation({
+  const concluir = useMutation({
     mutationFn: async () => {
-      if (!organization) return;
-      const { error } = await supabase
-        .from("organizations")
-        .update({ onboarding_completed: true })
-        .eq("id", organization.id);
+      const { error } = await supabase.rpc("concluir_onboarding_organizacao", { _organization_id: organization!.id });
       if (error) throw error;
+      // A mensalidade B2B nasce aqui. Falha nela não desfaz a conclusão: os
+      // alunos já podem entrar, e a ArkeFit cria a assinatura pela Visão Master.
+      const { error: erroB2b } = await supabase.functions.invoke("asaas-assinatura-b2b", {
+        body: { organization_id: organization!.id },
+      });
+      return erroB2b ? await mensagemDeErroEdge(erroB2b, "A mensalidade será iniciada pela ArkeFit.") : null;
     },
-    onSuccess: () => void refreshOrganization(),
+    onSuccess: async (avisoB2b) => {
+      toast({
+        title: "Tudo pronto! Alunos liberados no app.",
+        description: avisoB2b ? `Sobre a mensalidade do ARKE: ${avisoB2b}` : "A mensalidade do ARKE começa hoje; a fatura chega no e-mail da academia.",
+      });
+      await refreshOrganization();
+      recarregar();
+    },
+    onError: (e: Error) => toast({ title: "Ainda falta alguma etapa", description: e.message, variant: "destructive" }),
   });
 
-  const salvarWallet = useMutation({
-    mutationFn: async () => {
-      if (!organization) throw new Error("Nenhuma organização vinculada.");
-      const { error } = await supabase
-        .from("organizations")
-        .update({ asaas_wallet_id: walletId || null, onboarding_completed: true })
-        .eq("id", organization.id);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      toast({ title: "Split de pagamento configurado!" });
-      void queryClient.invalidateQueries({ queryKey: ["organizacao-onboarding", organization?.id] });
-      void refreshOrganization();
-      setPasso(3);
-    },
-    onError: (error: Error) => toast({ title: "Erro ao salvar", description: error.message, variant: "destructive" }),
-  });
-
-  const linkMatricula = slug ? `${window.location.origin}/#/p/${slug}` : "";
-
-  const copiarLink = async () => {
-    try {
-      await navigator.clipboard.writeText(linkMatricula);
-      toast({ title: "Link copiado!" });
-    } catch {
-      toast({ title: "Não foi possível copiar", description: "Copie manualmente o link abaixo.", variant: "destructive" });
+  const conteudo = (etapa: EtapaOnboarding) => {
+    switch (etapa) {
+      case "dados":
+        return <EtapaDados onSalvo={recarregar} />;
+      case "recebimentos":
+        return <EtapaRecebimentos onSalvo={recarregar} />;
+      case "planos":
+        return <EtapaPlanos onSalvo={recarregar} />;
+      case "equipe":
+        return <EtapaEquipe onSalvo={recarregar} />;
+      case "alunos":
+        return <EtapaAlunos />;
     }
   };
 
   return (
-    <div className="space-y-4 max-w-2xl mx-auto">
+    <div className="space-y-4 max-w-2xl mx-auto pb-16">
       <div className="flex items-center gap-2">
         <Rocket className="h-5 w-5 text-primary" />
-        <h1 className="text-xl font-bold">Onboarding da Academia</h1>
+        <h1 className="text-xl font-bold">Configuração da academia</h1>
       </div>
-      <Progress value={(passo / TOTAL_PASSOS) * 100} />
 
-      {passo === 1 && (
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base flex items-center gap-2">
-              <Building2 className="h-4 w-4" /> 1. Perfil da academia
-            </CardTitle>
-            <p className="text-xs text-muted-foreground">
-              O slug define o link público de matrícula dos seus alunos.
-            </p>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="space-y-1.5">
-              <Label htmlFor="onboarding-nome">Nome da academia</Label>
-              <Input id="onboarding-nome" value={nome} onChange={(e) => setNome(e.target.value)} />
+      {concluido ? (
+        <Card className="border-emerald-500/40 bg-emerald-500/5">
+          <CardContent className="py-4 flex items-start gap-3">
+            <PartyPopper className="h-5 w-5 text-emerald-600 shrink-0 mt-0.5" />
+            <div className="text-sm">
+              <p className="font-medium">Configuração concluída — os alunos já usam o app.</p>
+              <p className="text-muted-foreground text-xs">Você pode voltar a qualquer etapa para ajustar.</p>
             </div>
-            {(org?.tipo === "academia" || org?.tipo === "studio") && (
-              <div className="space-y-1.5">
-                <Label htmlFor="onboarding-tipo">Tipo de negócio</Label>
-                <Select value={tipoNegocio} onValueChange={(v) => setTipoNegocio(v as TipoNegocio)}>
-                  <SelectTrigger id="onboarding-tipo">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="academia">Academia (livre acesso)</SelectItem>
-                    <SelectItem value="studio">Studio (turmas fechadas com horário e capacidade)</SelectItem>
-                  </SelectContent>
-                </Select>
-                <p className="text-[11px] text-muted-foreground">
-                  Studios ganham a Grade Semanal de turmas em Agenda e a catraca passa a exigir
-                  agendamento ativo, não só assinatura em dia.
-                </p>
-              </div>
-            )}
-            <div className="space-y-1.5">
-              <Label htmlFor="onboarding-slug">Slug (link amigável)</Label>
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-muted-foreground whitespace-nowrap">arkefit.com.br/#/p/</span>
-                <Input
-                  id="onboarding-slug"
-                  value={slug}
-                  onChange={(e) => setSlug(slugify(e.target.value))}
-                  placeholder="minha-academia"
-                />
-              </div>
-            </div>
-            <Button disabled={!nome.trim() || !slug.trim() || salvarPerfil.isPending || !organization} onClick={() => salvarPerfil.mutate()}>
-              {salvarPerfil.isPending ? "Salvando..." : "Salvar e continuar"}
-            </Button>
           </CardContent>
         </Card>
-      )}
-
-      {passo === 2 && (
+      ) : (
         <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base flex items-center gap-2">
-              <Wallet className="h-4 w-4" /> 2. Split de pagamento (Asaas)
-            </CardTitle>
-            <p className="text-xs text-muted-foreground">
-              Informe a Wallet ID da academia no Asaas para receber automaticamente a parte líquida de
-              cada cobrança dos alunos.
-            </p>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="space-y-1.5">
-              <Label htmlFor="onboarding-wallet">Wallet ID do Asaas</Label>
-              <Input
-                id="onboarding-wallet"
-                value={walletId}
-                onChange={(e) => setWalletId(e.target.value)}
-                placeholder="ex.: 22e49670-27e4-4579-a4f4-0dfd42b2e-000"
-              />
-            </div>
-            <div className="flex gap-2">
-              <Button variant="outline" onClick={() => setPasso(1)}>Voltar</Button>
-              <Button disabled={salvarWallet.isPending || !organization} onClick={() => salvarWallet.mutate()}>
-                {salvarWallet.isPending ? "Salvando..." : "Salvar e continuar"}
-              </Button>
-              {!walletId && (
-                <Button
-                  variant="ghost"
-                  onClick={() => {
-                    concluirOnboarding.mutate();
-                    setPasso(3);
-                  }}
-                >
-                  Configurar depois
-                </Button>
+          <CardContent className="py-4 space-y-2">
+            <div className="flex items-center justify-between text-sm">
+              <span className="font-medium">{percentual}% concluído</span>
+              {minutos > 0 && (
+                <span className="text-xs text-muted-foreground flex items-center gap-1">
+                  <Clock className="h-3.5 w-3.5" /> cerca de {minutos} min para terminar
+                </span>
               )}
             </div>
+            <Progress value={percentual} />
+            <p className="text-xs text-muted-foreground">
+              O painel já funciona. Os alunos entram no app e as cobranças começam quando todas as etapas estiverem prontas.
+            </p>
           </CardContent>
         </Card>
       )}
 
-      {passo === 3 && (
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base flex items-center gap-2">
-              <CheckCircle2 className="h-4 w-4 text-emerald-500" /> 3. Tudo pronto!
-            </CardTitle>
-            <p className="text-xs text-muted-foreground">
-              Compartilhe o link abaixo com seus alunos para que eles escolham um plano e se matriculem
-              sozinhos, direto pelo celular.
-            </p>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="flex items-center gap-2 rounded-lg border border-border bg-muted/40 p-3">
-              <Link2 className="h-4 w-4 text-muted-foreground shrink-0" />
-              <span className="text-sm font-mono truncate flex-1">{linkMatricula || "Configure o slug primeiro"}</span>
-              <Button size="sm" variant="outline" disabled={!linkMatricula} onClick={() => void copiarLink()}>
-                <Copy className="h-3.5 w-3.5 mr-1" /> Copiar
-              </Button>
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Você pode revisitar essas configurações a qualquer momento em Organização.
-            </p>
-            <Button variant="outline" onClick={() => setPasso(1)}>Revisar novamente</Button>
-          </CardContent>
-        </Card>
+      {!podeEditar && <p className="text-sm text-muted-foreground">Só o gestor da academia altera a configuração.</p>}
+
+      {isLoading && <p className="text-sm text-muted-foreground">Carregando...</p>}
+
+      <ol className="space-y-2">
+        {ETAPAS.map((e, i) => {
+          const s = status.find((x) => x.etapa === e.etapa);
+          const feita = !!s?.concluida;
+          const expandida = aberta === e.etapa;
+          return (
+            <li key={e.etapa}>
+              <Card className={cn(expandida && "border-primary/50")}>
+                <button
+                  type="button"
+                  className="w-full flex items-center gap-3 px-4 py-3 text-left"
+                  aria-expanded={expandida}
+                  onClick={() => setAberta(expandida ? null : e.etapa)}
+                >
+                  {feita ? (
+                    <CheckCircle2 className="h-5 w-5 text-emerald-600 shrink-0" aria-label="Concluída" />
+                  ) : (
+                    <Circle className="h-5 w-5 text-muted-foreground shrink-0" aria-label="Pendente" />
+                  )}
+                  <span className="flex-1 min-w-0">
+                    <span className="text-sm font-medium block">
+                      {i + 1}. {e.titulo}
+                      {!feita && proxima === e.etapa && <span className="ml-2 text-[11px] text-primary font-normal">próximo passo</span>}
+                    </span>
+                    <span className="text-xs text-muted-foreground block truncate">{s?.detalhe ?? e.resumo}</span>
+                  </span>
+                  {!feita && <span className="text-[11px] text-muted-foreground shrink-0">~{e.minutos} min</span>}
+                  <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform", expandida && "rotate-180")} />
+                </button>
+                {expandida && podeEditar && (
+                  <CardContent className="pt-0 space-y-3">
+                    {conteudo(e.etapa)}
+                    <SuporteBotao contexto={`${organization?.nome ?? "academia"} — ${e.titulo}`} />
+                  </CardContent>
+                )}
+              </Card>
+            </li>
+          );
+        })}
+      </ol>
+
+      {!concluido && podeEditar && (
+        <Button className="w-full" size="lg" disabled={!tudoPronto || concluir.isPending} onClick={() => concluir.mutate()}>
+          {concluir.isPending ? "Liberando..." : tudoPronto ? "Concluir e liberar o app para os alunos" : "Conclua as etapas para liberar"}
+        </Button>
       )}
     </div>
   );
