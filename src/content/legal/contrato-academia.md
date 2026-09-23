@@ -30,6 +30,7 @@ Licença de uso, não exclusiva e intransferível, da plataforma ARKE (painel da
 - Manter a plataforma disponível e segura, com isolamento dos dados de cada academia.
 - Prestar suporte pelos canais indicados no painel.
 - Comunicar com antecedência mudanças relevantes na plataforma e nestes termos.
+- Para os alunos que contratarem o Método ARKE, prestar o acompanhamento com equipe própria de mentoria, em canal próprio com o aluno, e encaminhar à Academia, pelo painel, o que precisar ser feito presencialmente.
 
 ## 6. Tratamento de dados pessoais (acordo de operador)
 
@@ -44,7 +45,20 @@ Para os dados dos alunos tratados no atendimento, **a Academia é a controladora
 7. ao término do Contrato, disponibilizar à Academia a exportação dos seus dados por 30 dias e, depois disso, eliminá-los ou anonimizá-los, salvo o que a lei obrigar a guardar;
 8. fornecer as informações razoavelmente necessárias para demonstrar o cumprimento destas obrigações.
 
-Os dados da conta da Academia e da sua equipe, e os do Método ARKE quando contratado, são tratados pela ArkeFit como controladora, conforme a Política de Privacidade.
+Os dados da conta da Academia e da sua equipe são tratados pela ArkeFit como controladora, conforme a Política de Privacidade.
+
+### 6.1. Método ARKE: a ArkeFit como controladora
+
+Quando o aluno contrata o Método ARKE, quem o acompanha é a equipe de mentoria da ArkeFit, que decide as finalidades e os meios desse acompanhamento. Nessa parte **a ArkeFit é controladora** (LGPD, art. 5º, VI), contrata os seus próprios operadores e responde diretamente perante o aluno. Em consequência:
+
+1. a ArkeFit obtém do próprio aluno os consentimentos que essa parte exigir, e a Academia não responde por eles;
+2. **o conteúdo das mensagens entre o aluno e o mentor da ArkeFit não é acessível à Academia**, por desenho do serviço; a Academia vê que houve atendimento, o desfecho registrado e as instruções presenciais que lhe forem dirigidas;
+3. a passagem do aluno entre as fases da jornada pode ocorrer de forma automatizada, com base em tempo de acompanhamento e constância, e pode ser revista a qualquer tempo pela equipe;
+4. a ArkeFit poderá submeter dados do aluno a provedor de **inteligência artificial**, exclusivamente para as finalidades e nas condições descritas na Política de Privacidade, **somente mediante autorização específica do próprio aluno** e com transferência internacional amparada em cláusulas-padrão contratuais (art. 33, II) e no consentimento do titular (art. 33, VIII).
+
+### 6.2. Dados que servem aos dois
+
+Os registros de treino, frequência e check-in do aluno do Método ARKE servem ao mesmo tempo à prescrição da Academia e ao acompanhamento da ArkeFit. Nessa medida, as partes tratam os dados **em conjunto**, cada uma respondendo pelas decisões que tomar e pelas obrigações que este Contrato lhe atribui, e ambas devendo atender o titular nos termos do art. 18 da LGPD.
 
 ## 7. Vigência e encerramento
 

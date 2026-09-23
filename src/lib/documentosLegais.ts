@@ -33,17 +33,21 @@ export const DOCUMENTOS: Record<
   privacidade: {
     titulo: "Política de Privacidade",
     caminho: "/privacidade",
-    versao: "2026-09-22.2",
-    sha256: "3ef255908dd98c67dab15e84f26fee73ed4d3ffd201289d38b8b2f745a1ad969",
+    versao: "2026-09-23",
+    sha256: "27f55132300f39c74ae2d79acf2dd67a9184b09d1fc3221a4b9c508941781b03",
     texto: privacidade,
-    revisadoJuridico: true,
+    // Volta a minuta: a versao anterior foi revisada, esta reescreveu a
+    // secao de responsabilidade, a de dados de saude e a de transferencia
+    // internacional. Manter `true` diria que um advogado leu um texto que
+    // ainda nao existia quando ele leu.
+    revisadoJuridico: false,
   },
   contrato_academia: {
     titulo: "Contrato da Academia (licença e tratamento de dados)",
     caminho: "/contrato-academia",
-    versao: "2026-09-22.2",
-    sha256: "4f27a858ce37eaeb1318c52c9bc8d8f5b6e2b146a5feb27599bd05c47eb177e7",
+    versao: "2026-09-23",
+    sha256: "1892e08c58d5d4d56c273af7c43ecbed7fcd9c38f1ebbdc68bb74c54fa35439c",
     texto: contratoAcademia,
-    revisadoJuridico: true,
+    revisadoJuridico: false,
   },
 };
