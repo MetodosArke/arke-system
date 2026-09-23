@@ -4512,6 +4512,64 @@ export type Database = {
           },
         ]
       }
+      sentinela_sugestoes: {
+        Row: {
+          aluno_id: string
+          created_at: string
+          desfecho: string | null
+          fornecedor: string | null
+          id: string
+          mentor_id: string | null
+          organization_id: string
+          respondido_em: string | null
+          sugestao: string
+        }
+        Insert: {
+          aluno_id: string
+          created_at?: string
+          desfecho?: string | null
+          fornecedor?: string | null
+          id?: string
+          mentor_id?: string | null
+          organization_id: string
+          respondido_em?: string | null
+          sugestao: string
+        }
+        Update: {
+          aluno_id?: string
+          created_at?: string
+          desfecho?: string | null
+          fornecedor?: string | null
+          id?: string
+          mentor_id?: string | null
+          organization_id?: string
+          respondido_em?: string | null
+          sugestao?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sentinela_sugestoes_aluno_id_fkey"
+            columns: ["aluno_id"]
+            isOneToOne: false
+            referencedRelation: "alunos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sentinela_sugestoes_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "org_churn_metrics"
+            referencedColumns: ["organization_id"]
+          },
+          {
+            foreignKeyName: "sentinela_sugestoes_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sla_config: {
         Row: {
           descricao: string | null
@@ -5216,8 +5274,9 @@ export type Database = {
           alunos_ativos_mes_passado: number
           chamados_para_a_academia: number
           em_risco: number
+          gestor_email: string
           gestor_nome: string
-          gestor_telefone: string
+          gestor_user_id: string
           novos_na_semana: number
           organizacao_nome: string
           resgates_do_mentor: number
@@ -5984,6 +6043,17 @@ export type Database = {
           tipo: string
           ultima_execucao: string
           ultimo_erro: string
+        }[]
+      }
+      sentinela_taxa_de_aceite: {
+        Args: { _dias?: number }
+        Returns: {
+          aceitas: number
+          aproveitamento_pct: number
+          editadas: number
+          ignoradas: number
+          respondidas: number
+          sugeridas: number
         }[]
       }
       sincronizar_situacao_por_mensalidade: {

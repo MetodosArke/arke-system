@@ -338,6 +338,25 @@ Toda segunda às 8h de Brasília, o dono da academia recebe no WhatsApp o retrat
 
 **Uma armadilha que o teste pegou.** A função nasceu sem declaração em `supabase/config.toml`, então o Supabase exigia JWT e o cron levava `UNAUTHORIZED_NO_AUTH_HEADER`. Pior: os dois primeiros casos do teste ("recusa sem token") **passaram pelo motivo errado** — eram barrados pelo portão de JWT, não pela checagem de token. Corrigido e reverificado: sem token e com token inventado dão 401 de verdade; com o token do Vault, 200.
 
+
+## Sentinela: sugestão de resposta no chat (Fase 5b, 23/09/2026)
+
+O módulo `_shared/ia.ts` é, na maior parte, **uma lista do que não sai daqui** — mesma postura de `src/lib/monitoramento.ts` com o Sentry: um SDK no padrão manda muito mais do que se imagina para um terceiro, e a diferença entre ferramenta útil e vazamento contínuo mora inteira na configuração.
+
+**Nunca saem:** nome, CPF, e-mail, telefone ou id do ARKE. O contexto estruturado vai pseudonimizado (fase, dias sem sinal, constância, meta). **Prompt e resposta nunca vão para log**, nem em erro — só o status HTTP, mesma regra do número de cartão.
+
+**Uma limitação que vale dizer em voz alta:** quando o texto é uma **conversa**, as palavras do aluno vão como ele as escreveu, e ele pode ter digitado o próprio nome. Higienizar isso destruiria o sentido do que se quer sugerir — é inerente à tarefa. Por isso entra no termo de consentimento, e não numa promessa técnica que não se cumpre.
+
+**Falha aberta, de propósito.** Modelo fora do ar não trava o mentor: a resposta diz `indisponivel` e ele segue escrevendo como antes de existir sugestão. Transformar indisponibilidade de terceiro em atendimento bloqueado troca um risco pequeno por uma falha certa.
+
+**Dois fornecedores, escolhidos pelo que estiver configurado.** Azure vence quando ambos existem — é ele que mantém o dado no Brasil, e é a **residência**, não a retenção, que elimina a transferência internacional (os dois exigem pedido de zero-retention; nenhum a dá por padrão). No Azure chama-se o **deployment**, não o nome do modelo: é a diferença que mais confunde quem vem da OpenAI direta.
+
+**A fronteira CREF/CRN não se garante com prompt.** Um modelo deriva para conselho técnico se nada o impedir, e o controle real é humano: **a sugestão é um rascunho que entra no campo de texto do mentor**, para ele editar ou apagar. Não existe e não vai existir modo automático.
+
+Verificado no caso mais difícil — aluno relatando dor lombar. A sugestão acolheu, **não prescreveu nada** e encaminhou para avaliação presencial da equipe técnica. Também conferido: sem conversa não inventa sugestão, quem não é da ArkeFit leva 401, e o fornecedor usado volta na resposta.
+
+**A instrumentação nasceu junto, não depois.** `sentinela_sugestoes` registra o que foi sugerido e o desfecho — aceita, editada ou ignorada —, e `sentinela_taxa_de_aceite()` mede o aproveitamento. **Editada conta como aproveitada:** o modelo poupou o começo do trabalho, que é a maior parte dele; só ignorada é desperdício. Se o aproveitamento for baixo, o recurso é ruído e se desliga sem drama — mas isso só se sabe medindo, e medir depois de ligar é tarde.
+
 ## Trial e Bloqueio por Pagamento
 
 ### Trial não é oferta comercial
