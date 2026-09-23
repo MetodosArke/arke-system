@@ -1,4 +1,4 @@
-﻿xport type Json =
+export type Json =
   | string
   | number
   | boolean
@@ -5072,6 +5072,10 @@ export type Database = {
         Returns: boolean
       }
       aluno_inadimplente_b2c: { Args: { _aluno_id: string }; Returns: boolean }
+      aluno_mensalidade_vencida: {
+        Args: { _aluno_id: string }
+        Returns: boolean
+      }
       aluno_possui_agendamento_ativo_agora: {
         Args: { _aluno_id: string }
         Returns: boolean
@@ -5807,6 +5811,13 @@ export type Database = {
           tipo: string
           ultima_execucao: string
           ultimo_erro: string
+        }[]
+      }
+      sincronizar_situacao_por_mensalidade: {
+        Args: never
+        Returns: {
+          liberados: number
+          marcados: number
         }[]
       }
       situacao_permite_app: {

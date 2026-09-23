@@ -60,7 +60,7 @@ export function CicloAssinatura({
       const { data, error } = await supabase.functions.invoke("asaas-assinatura-ciclo", {
         body: { aluno_id: alunoId, ...corpo },
       });
-      if (error) throw new Error(await mensagemDeErroEdge(error));
+      if (error) throw new Error(await mensagemDeErroEdge(error, "Não foi possível alterar a cobrança."));
       return data as Record<string, unknown>;
     },
     onSuccess: (data) => {

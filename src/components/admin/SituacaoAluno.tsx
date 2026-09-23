@@ -81,7 +81,7 @@ export function SituacaoAluno({
           body: { aluno_id: alunoId, acao },
         });
         if (erroCobranca) {
-          const mensagem = await mensagemDeErroEdge(erroCobranca);
+          const mensagem = await mensagemDeErroEdge(erroCobranca, "Não foi possível alterar a cobrança no gateway.");
           // Aluno sem assinatura é o caso comum (plano Free): não é falha.
           if (!/não tem assinatura/i.test(mensagem)) {
             return { nova: dados.nova, avisoCobranca: mensagem };
