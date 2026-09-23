@@ -15,6 +15,31 @@ const jsonResponse = (body: unknown, status = 200) =>
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 /**
+ * CPF da matrícula: obrigatório e com dígito verificador conferido.
+ *
+ * Duplicado de `src/lib/cpf.ts` de propósito, pelo motivo de sempre: edge
+ * function roda em Deno e não importa do bundle do app. O banco também tem
+ * `public.cpf_valido()`, e é ele quem garante a validade — isto existe para
+ * a mensagem chegar ao aluno em português, na hora, em vez de voltar como
+ * violação de constraint.
+ */
+function erroCpfMatricula(valor: string | null): string | null {
+  const cpf = (valor ?? "").replace(/\D/g, "");
+  if (!cpf) return "Informe o CPF — é obrigatório para a matrícula.";
+  if (cpf.length !== 11) return "CPF deve ter 11 dígitos.";
+  if (/^(\d)\1{10}$/.test(cpf)) return "CPF inválido — confira os dígitos.";
+  const digito = (base: string, pesoInicial: number) => {
+    let soma = 0;
+    for (let i = 0; i < base.length; i++) soma += Number(base[i]) * (pesoInicial - i);
+    const resto = (soma * 10) % 11;
+    return resto >= 10 ? 0 : resto;
+  };
+  if (digito(cpf.slice(0, 9), 10) !== Number(cpf[9])) return "CPF inválido — confira os dígitos.";
+  if (digito(cpf.slice(0, 10), 11) !== Number(cpf[10])) return "CPF inválido — confira os dígitos.";
+  return null;
+}
+
+/**
  * Recusa senha que já aparece em vazamentos públicos, consultando o Pwned
  * Passwords do HaveIBeenPwned.
  *
@@ -211,6 +236,11 @@ Deno.serve(async (req: Request) => {
     if (!password || password.length < 6) {
       return jsonResponse({ error: "A senha deve ter no mínimo 6 caracteres." }, 400);
     }
+    // CPF é obrigatório na matrícula: ela é o cadastro que gera cobrança, e o
+    // gateway não emite cobrança sem CPF. A tela também confere, mas é aqui
+    // que a regra vale — a tela pode ser contornada, a função é o caminho.
+    const cpfErro = erroCpfMatricula(cpf);
+    if (cpfErro) return jsonResponse({ error: cpfErro }, 400);
     if (payload.aceite_termos !== true) {
       return jsonResponse({ error: "Aceite os Termos de Uso e a Política de Privacidade para continuar." }, 400);
     }

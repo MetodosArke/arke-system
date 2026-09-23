@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { mensagemDeErroEdge } from "@/lib/erroEdge";
 import { useAuth } from "@/contexts/AuthContext";
-import { erroCpf } from "@/lib/cpf";
+import { erroCpfObrigatorio } from "@/lib/cpf";
 import { situacaoDoTexto } from "@/lib/planoAluno";
 import { mapearColunas } from "@/lib/mapaColunas";
 import { processarComLimite, CONCORRENCIA_IMPORTACAO } from "@/lib/lote";
@@ -284,7 +284,9 @@ export default function AdminImportarAlunos() {
     // CPF vem truncado, com dígito trocado ou com sequência de
     // preenchimento. O CPF é a chave de leitura da catraca — deixar passar
     // vira aluno que não entra na academia meses depois.
-    const problemaCpf = registro.cpf ? erroCpf(registro.cpf) : null;
+    // CPF obrigatório na importação também: a planilha da academia já traz o
+    // campo, e uma base importada sem CPF vira aluno que não pode ser cobrado.
+    const problemaCpf = erroCpfObrigatorio(registro.cpf);
     if (problemaCpf) throw new Error(problemaCpf);
 
     const { data, error } = await supabase.functions.invoke<{ user_id: string }>("convidar-membro", {

@@ -64,3 +64,18 @@ export function erroCpf(valor: string | null | undefined): string | null {
   if (!validarCpf(cpf)) return "CPF inválido — confira os dígitos.";
   return null;
 }
+
+/**
+ * Igual à anterior, mas para os caminhos de **matrícula**, onde o CPF é
+ * obrigatório: matrícula de aluno gera cobrança, e o gateway não emite
+ * cobrança sem CPF.
+ *
+ * Existe separada de `erroCpf` porque há um caso legítimo de CPF opcional: o
+ * documento da própria academia no onboarding, que é CNPJ na maioria das
+ * vezes e só é CPF no profissional autônomo. Misturar os dois faria a tela de
+ * dados da academia exigir CPF de quem tem CNPJ.
+ */
+export function erroCpfObrigatorio(valor: string | null | undefined): string | null {
+  if (!valor || !somenteDigitos(valor)) return "Informe o CPF — é obrigatório para a matrícula.";
+  return erroCpf(valor);
+}

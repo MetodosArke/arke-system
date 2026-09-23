@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { mensagemDeErroEdge } from "@/lib/erroEdge";
 import { useAuth } from "@/contexts/AuthContext";
-import { erroCpf } from "@/lib/cpf";
+import { erroCpfObrigatorio } from "@/lib/cpf";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -804,10 +804,10 @@ function CadastrarAlunoDialog({
   const [recemCriado, setRecemCriado] = useState<AlunoRecemCriado | null>(null);
   const [enviandoWhatsApp, setEnviandoWhatsApp] = useState(false);
 
-  // CPF é opcional aqui, mas se preenchido tem que fechar o dígito
-  // verificador: ele é a chave de leitura da catraca e a de deduplicação da
-  // base. Avisar na tela evita a viagem até o servidor só para voltar erro.
-  const problemaCpf = erroCpf(form.cpf);
+  // CPF é obrigatório: matrícula gera cobrança, e o gateway não emite
+  // cobrança sem CPF. Ele é também a chave de leitura da catraca e a de
+  // deduplicação da base. Avisar na tela evita a viagem até o servidor.
+  const problemaCpf = erroCpfObrigatorio(form.cpf);
 
   const cadastrar = useMutation({
     mutationFn: async () => {

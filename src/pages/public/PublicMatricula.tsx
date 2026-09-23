@@ -12,6 +12,7 @@ import { Dumbbell } from "lucide-react";
 import { MetodoArkeEmBreve } from "@/components/aluno/MetodoArkeEmBreve";
 import { useToast } from "@/hooks/use-toast";
 import { mensagemDeErroEdge } from "@/lib/erroEdge";
+import { erroCpfObrigatorio } from "@/lib/cpf";
 import { Turnstile } from "@/components/public/Turnstile";
 
 // Sem a chave, a matrícula segue sem captcha (e o servidor não o exige sem
@@ -49,6 +50,11 @@ export default function PublicMatricula() {
   const matricular = useMutation({
     mutationFn: async () => {
       if (!slug) throw new Error("Academia inválida.");
+      // CPF é obrigatório na matrícula: ela gera cobrança, e o gateway não
+      // emite cobrança sem CPF. Conferido aqui para o aluno saber na hora, e
+      // de novo no servidor, que é quem de fato garante.
+      const problemaCpf = erroCpfObrigatorio(form.cpf);
+      if (problemaCpf) throw new Error(problemaCpf);
       if (form.password.length < 6) throw new Error("A senha deve ter no mínimo 6 caracteres.");
       if (form.password !== form.confirmar) throw new Error("As senhas não coincidem.");
       if (!aceiteTermos) throw new Error("Aceite os Termos de Uso e a Política de Privacidade para continuar.");
@@ -177,7 +183,7 @@ export default function PublicMatricula() {
                 </div>
                 <div className="space-y-1.5">
                   <Label htmlFor="cpf">CPF</Label>
-                  <Input id="cpf" value={form.cpf} onChange={(e) => setForm((f) => ({ ...f, cpf: e.target.value }))} placeholder="000.000.000-00" />
+                  <Input id="cpf" required inputMode="numeric" value={form.cpf} onChange={(e) => setForm((f) => ({ ...f, cpf: e.target.value }))} placeholder="000.000.000-00" />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-3">

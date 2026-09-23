@@ -1,0 +1,360 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>ARKE — Prontidão para os primeiros clientes pagantes · 22/09/2026</title>
+<style>
+  @page { size: A4; margin: 18mm 16mm 16mm 16mm; }
+
+  :root {
+    --tinta: #16202b;
+    --suave: #5b6b7c;
+    --linha: #dde4ea;
+    --marca: #1f6feb;
+    --alerta: #b4232b;
+    --ok: #1a7f4b;
+    --atencao: #9a6a00;
+    --fundo-suave: #f6f8fa;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    font-family: "Segoe UI", Calibri, system-ui, sans-serif;
+    color: var(--tinta);
+    font-size: 10.2pt;
+    line-height: 1.5;
+    margin: 0;
+  }
+
+  h1 { font-size: 21pt; margin: 0 0 2px; letter-spacing: -0.3px; }
+  h2 {
+    font-size: 13pt;
+    margin: 22px 0 8px;
+    padding-bottom: 5px;
+    border-bottom: 2px solid var(--linha);
+  }
+  h3 { font-size: 11pt; margin: 16px 0 6px; }
+
+  .capa { border-bottom: 3px solid var(--marca); padding-bottom: 12px; margin-bottom: 18px; }
+  .sub { color: var(--suave); font-size: 10pt; }
+  .destinatario {
+    background: var(--fundo-suave);
+    border-left: 3px solid var(--marca);
+    padding: 8px 12px;
+    margin: 14px 0 0;
+    font-size: 9.4pt;
+    color: var(--suave);
+  }
+
+  table { width: 100%; border-collapse: collapse; margin: 10px 0 14px; font-size: 9.6pt; }
+  th, td { text-align: left; padding: 6px 9px; border-bottom: 1px solid var(--linha); vertical-align: top; }
+  th { background: var(--fundo-suave); font-weight: 600; }
+  td.num, th.num { text-align: right; white-space: nowrap; }
+
+  code {
+    font-family: Consolas, "Courier New", monospace;
+    font-size: 9pt;
+    background: var(--fundo-suave);
+    padding: 1px 4px;
+    border-radius: 3px;
+  }
+
+  .selo {
+    display: inline-block;
+    border: 1px solid var(--linha);
+    border-radius: 3px;
+    padding: 1px 6px;
+    font-size: 8.4pt;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .selo.resolvido { background: #f2faf5; color: var(--ok); border-color: #bfe3cd; }
+  .selo.pendente { background: #fdf4f4; color: var(--alerta); border-color: #f1c4c6; }
+  .selo.atencao { background: #fdfaf2; color: var(--atencao); border-color: #ecdcb4; }
+
+  .veredito {
+    border: 2px solid var(--marca);
+    border-radius: 5px;
+    padding: 12px 16px;
+    margin: 16px 0;
+    background: var(--fundo-suave);
+  }
+  .veredito p { margin: 6px 0; }
+  .nota { font-size: 9.4pt; color: var(--suave); }
+
+  .rodape {
+    margin-top: 26px;
+    padding-top: 10px;
+    border-top: 1px solid var(--linha);
+    color: var(--suave);
+    font-size: 8.6pt;
+  }
+</style>
+</head>
+<body>
+
+<div class="capa">
+  <h1>ARKE — Prontidão para os primeiros clientes pagantes</h1>
+  <div class="sub">Varredura de 22 de setembro de 2026, depois da virada para o projeto brasileiro
+  <code>lzyxqjibkfblrrjboylp</code> (sa-east-1) · branch <code>claude/arke-multitenant-reset-8c8xw3</code></div>
+  <div class="destinatario">
+    <strong>Escopo.</strong> Esta varredura responde a uma pergunta só: o que impede a primeira academia
+    <em>pagante</em> de entrar. Tudo é medido no ambiente que está no ar agora, não de memória. Onde o
+    relatório diz que algo foi corrigido, a correção já está aplicada em produção e reconferida.
+  </div>
+</div>
+
+<div class="veredito">
+  <p><strong>Veredito: o software está pronto. A infraestrutura não está — e ela é contratual, não técnica.</strong></p>
+  <p>Não há nada no código que impeça cobrar a primeira academia. O que impede são três contratos de
+  plano gratuito que, do jeito que estão, tornam irresponsável hospedar dados de um cliente que paga:
+  a Vercel no plano <em>Hobby</em>, que é de uso não-comercial; o Supabase no plano <em>Free</em>, que
+  <strong>pausa o projeto por inatividade</strong> e <strong>não oferece backup</strong>; e o Resend no gratuito,
+  que entrega 100 e-mails por dia — menos do que uma importação de alunos consome numa tarde.</p>
+  <p>São três assinaturas e uma tarde de trabalho. Depois delas, a resposta vira sim.</p>
+</div>
+
+<h2>1. O que está íntegro</h2>
+<p class="nota">Medido no banco de produção em 22/09/2026, não de memória.</p>
+
+<table>
+  <tr><th>Checagem</th><th>Resultado</th></tr>
+  <tr><td>Tabelas sem RLS</td><td><strong>zero</strong> — a regra 1 do projeto está íntegra nas 88 tabelas</td></tr>
+  <tr><td>Duas regras permissivas na mesma tabela e operação</td><td><strong>zero</strong> — inclusive no <code>storage</code>, consolidado nesta rodada</td></tr>
+  <tr><td>Funções <code>security definer</code> sem <code>search_path</code></td><td><strong>zero</strong></td></tr>
+  <tr><td>Funções de gatilho alcançáveis pelo PostgREST</td><td><strong>zero</strong> — sete foram fechadas hoje (item 2.1)</td></tr>
+  <tr><td>Vínculo duplo (<code>.maybeSingle()</code> sobre <code>organization_members</code>)</td><td>10 consultas, <strong>10 seguras</strong> — todas fixam a organização ou usam <code>limit(1)</code></td></tr>
+  <tr><td>RPCs <code>get_superadmin_*</code></td><td>15 de 15 checam o papel por dentro — sem escalada de privilégio</td></tr>
+  <tr><td>Edge functions: repositório ↔ publicadas</td><td>33 = 33, com <code>verify_jwt</code> idêntico em todas</td></tr>
+  <tr><td>Rotinas do <code>pg_cron</code></td><td>12 ativas, nenhuma apontando para o projeto antigo</td></tr>
+  <tr><td>Testes automatizados</td><td><strong>359</strong> — 313 no app, 46 no gateway</td></tr>
+  <tr><td>Ponta a ponta contra a produção</td><td><strong>10 de 10</strong>, incluindo a jornada autenticada do aluno</td></tr>
+  <tr><td>Schema: banco antigo ↔ novo</td><td>14 categorias comparadas objeto a objeto, com md5 do corpo de cada função e da condição de cada regra</td></tr>
+</table>
+
+<h2>2. O que esta varredura encontrou</h2>
+
+<h3>2.1 &nbsp;A higiene de <code>EXECUTE</code> não era automática <span class="selo resolvido">RESOLVIDO</span></h3>
+<p>O <code>CLAUDE.md</code> afirmava que a migration <code>higiene_execute_rpc</code> — que revogou o
+<code>EXECUTE</code> herdado do PUBLIC em toda função <code>returns trigger</code> — <em>"segue pegando as
+próximas automaticamente"</em>. <strong>Não segue.</strong> Aquele <code>revoke</code> rodou uma vez, sobre as
+funções que existiam naquele dia. Toda função criada depois nasce com o ACL padrão do Postgres, que
+concede <code>EXECUTE</code> ao PUBLIC, e reaparece em <code>/rest/v1/rpc/&lt;nome&gt;</code>.</p>
+
+<table>
+  <tr><th>Função de gatilho reexposta</th><th>Entrou em</th></tr>
+  <tr><td><code>encerrar_automacoes_situacao</code>, <code>exigir_nivel_disponivel</code></td><td>Rodada 3</td></tr>
+  <tr><td><code>proteger_colunas_organizacao</code>, <code>proteger_situacao_aluno</code>, <code>seed_planos_academia_modelo</code></td><td>Rodada 4</td></tr>
+  <tr><td><code>proteger_validade_atestado</code></td><td>Rodada 5</td></tr>
+  <tr><td><code>exigir_atestado_para_treinar</code></td><td>Rodada final</td></tr>
+</table>
+
+<p>Chamar qualquer uma delas fora do contexto de gatilho só produz erro — não há escalada aqui. Mas
+isso já era verdade quando o projeto decidiu fechar essa superfície, e o argumento de então vale
+igual: não há razão para deixá-las alcançáveis. As sete foram fechadas, e a documentação foi
+corrigida: <strong>a revogação é de rodar de novo depois de cada rodada que crie gatilho.</strong></p>
+
+<p>Junto, duas funções <code>security definer</code> que não são de gatilho:
+<code>valor_mensal_b2b</code> devolvia a mensalidade negociada de qualquer organização a quem tivesse o
+uuid — que aparece em resposta pública — e <code>get_bloqueio_organizacao</code> atendia sem sessão.
+Ambas restritas a <code>authenticated</code>. E o <code>search_path</code> foi fixado em
+<code>plano_do_aluno</code> e <code>situacao_permite_app</code>, que passaram batido nas rodadas 3 e final.</p>
+
+<h3>2.2 &nbsp;Uma regressão da migração — e o ponto cego que a escondia <span class="selo resolvido">RESOLVIDO</span></h3>
+<p>A replicação do schema para o projeto brasileiro foi conferida objeto a objeto e deu zero
+divergências. <strong>A conferência tinha um furo.</strong></p>
+<p>A consulta que comparava <code>EXECUTE</code> filtrava os papéis por nome. A concessão ao PUBLIC vem de
+<code>aclexplode</code> com <code>grantee = 0</code>, e <code>pg_get_userbyid(0)</code> não devolve
+<code>'public'</code> — então o filtro a descartava. Resultado: a comparação ignorava, em silêncio,
+<em>exatamente a categoria que o projeto revoga de propósito</em>, e os dois bancos pareciam iguais onde
+não eram.</p>
+<p>Corrigida a consulta, apareceu uma regressão real e só uma:
+<code>abrir_tarefa_mensalidade_atrasada</code>, que <strong>escreve</strong> (abre tarefa de cobrança), está
+revogada do PUBLIC no banco antigo e nasceu aberta no novo. Fechada, e restrita à
+<code>service_role</code>, que é quem de fato a chama, pelo <code>asaas-webhook</code>.</p>
+<p class="nota">Lição registrada: verificação que passa não prova ausência de defeito — prova que
+aquela verificação não o alcança. Foi o próprio relatório que teve de ser auditado antes do sistema.</p>
+
+<h3>2.3 &nbsp;Storage: uma regra frouxa vencia a estrita <span class="selo resolvido">RESOLVIDO</span></h3>
+<p>O bucket <code>feed-images</code> tinha <strong>duas</strong> regras permissivas de <code>INSERT</code>: uma
+exigindo a pasta do próprio usuário — que é o que o código faz — e outra pedindo apenas
+<code>bucket_id = 'feed-images'</code>. Regras permissivas se somam com OU, então a frouxa vencia:
+qualquer pessoa autenticada podia gravar, e sobrescrever, arquivo na pasta de qualquer outra. O mesmo
+par duplicado existia na leitura e na exclusão.</p>
+<p>As 23 regras de <code>storage.objects</code> viraram <strong>5</strong> — uma por operação para
+<code>authenticated</code>, mais a leitura pública para <code>anon</code>. Conferido em transação revertida:
+pasta própria passa, pasta de outro é negada, atestado de outro aluno é negado.</p>
+<p>Junto: <code>feed-images</code>, <code>chat-videos</code> e <code>email-assets</code> não tinham
+<code>file_size_limit</code>. O app confere 10 MB no vídeo do chat, mas essa conferência é do navegador —
+quem chamasse a API direto tinha como teto o limite do plano. Os três ganharam limite e lista de tipos.</p>
+
+<h3>2.4 &nbsp;Cinco tabelas com RLS e nenhuma regra <span class="selo atencao">POR DESENHO</span></h3>
+<p><code>alertas_rotinas</code>, <code>asaas_webhook_events</code>, <code>links_ativacao</code>,
+<code>matricula_publica_tentativas</code> e <code>organizacao_segredo_checkin</code> têm RLS ligado e nenhuma
+política. Isso é deliberado e é o comportamento mais restritivo possível: só a <code>service_role</code>
+as alcança. O segredo do check-in por QR, em particular, <em>precisa</em> ser ilegível pelo aluno — do
+contrário a foto do QR mandada para casa funcionaria.</p>
+
+<h2>3. O que bloqueia o primeiro cliente pagante</h2>
+<p>Nenhum destes é defeito de código. Todos são decisão de contrato ou de conteúdo.</p>
+
+<table>
+  <tr><th>Bloqueio</th><th>Por quê</th><th>Saída</th></tr>
+  <tr>
+    <td><strong>Vercel no plano Hobby</strong></td>
+    <td>O Hobby é para projetos pessoais, não comerciais. Cobrar de academias hospedado nele é
+    operar fora dos termos do fornecedor — com risco de derrubada sem aviso.</td>
+    <td>Vercel Pro</td>
+  </tr>
+  <tr>
+    <td><strong>Supabase no plano Free: pausa por inatividade</strong></td>
+    <td>A documentação é explícita: projetos Free são pausados após 7 dias de baixa atividade. Uma
+    academia com poucos alunos ativos pode ser pausada — e o app dela sai do ar.</td>
+    <td>Supabase Pro</td>
+  </tr>
+  <tr>
+    <td><strong>Supabase no plano Free: sem backup</strong></td>
+    <td>"Database backups are not available for download for Free Plan projects." Guardar anamnese,
+    dobras e histórico clínico de alunos de terceiros sem backup não é defensável — nem perante o
+    cliente, nem perante a LGPD.</td>
+    <td>Supabase Pro (backup diário) e, quando o banco passar de alguns GB, PITR</td>
+  </tr>
+  <tr>
+    <td><strong>Resend gratuito</strong></td>
+    <td>100 e-mails/dia. O convite de primeiro acesso de uma base importada de 400 alunos estoura
+    quatro vezes o limite — e e-mail que não sai é aluno que não entra no app.</td>
+    <td>Plano pago do Resend</td>
+  </tr>
+</table>
+
+<p>Depois desses quatro, dois itens deixam de ser adiáveis:</p>
+<ul>
+  <li><strong>Teste de carga.</strong> Só faz sentido depois do upgrade — no plano gratuito ele mediria
+  os limites do plano, não o sistema.</li>
+  <li><strong>Proteção de senha vazada nativa.</strong> Hoje o ARKE faz a checagem por conta própria
+  contra o HaveIBeenPwned, justamente porque o recurso do Supabase é pago. Com o Pro, vale ligar o
+  nativo e manter o nosso como segunda camada.</li>
+</ul>
+
+<h2>4. O que o primeiro cliente <em>não</em> vai ter</h2>
+<p>Isto não bloqueia a venda, mas precisa estar dito antes dela — é o que evita promessa que o
+produto não cumpre. Os itens marcados como <span class="selo atencao">DÍVIDA ASSUMIDA</span> têm
+dono e prazo: o responsável se comprometeu a resolvê-los antes do primeiro cliente pagante, e
+nenhum dos dois é trabalho de engenharia.</p>
+
+<table>
+  <tr><th>Item</th><th>Situação</th></tr>
+  <tr>
+    <td><strong>Cobrar o aluno pela plataforma</strong></td>
+    <td><span class="selo resolvido">CORRIGIDO APÓS A VARREDURA</span> Esta linha dizia que a cobrança
+    estava desligada "pela decisão de não coletar CPF". <strong>Era erro meu</strong>: o CPF sempre foi
+    obrigatório pela regra do produto — matrícula gera cobrança e o gateway não emite cobrança sem CPF.
+    O que existe é uma limitação de homologação (faltam números válidos para cadastrar dez ou mais
+    alunos de teste), e eu a registrei como decisão de produto.<br><br>
+    Pior: <strong>o código não implementava a regra</strong>. O CPF era opcional na constraint do banco,
+    na matrícula pública, na ficha do aluno e na importação. Corrigido nos cinco pontos em 22/09/2026,
+    com trava no banco ancorada em <code>alunos</code> — que é a matrícula, e por isso vale para todo
+    caminho de criação, inclusive <code>service_role</code>. O caminho de cobrança em si já estava
+    <strong>verificado no sandbox do Asaas</strong>: 22 verificações, split de R$ 69,95 para a academia
+    e R$ 49,05 para a ArkeFit no Integrado, cobrança vencendo no dia e idempotência sem duplicar.</td>
+  </tr>
+  <tr>
+    <td><strong>Método ARKE (produto do aluno)</strong></td>
+    <td>Venda desligada por decisão (<code>VITE_METODO_ARKE_VENDA</code>). O app anuncia "em breve". A
+    receita do primeiro cliente é 100% B2B.</td>
+  </tr>
+  <tr>
+    <td><strong>Cobrança recorrente no cartão</strong></td>
+    <td>Desligada nos dois interruptores. A mensalidade B2B sai por fatura (PIX, boleto ou cartão
+    escolhido na hora), que funciona e está conferida em sandbox.</td>
+  </tr>
+  <tr>
+    <td><strong>GIFs dos exercícios</strong></td>
+    <td><span class="selo atencao">DÍVIDA ASSUMIDA</span> Os 105 exercícios globais estão sem mídia
+    hoje. Os GIFs existem no banco do app original e serão carregados antes do primeiro cliente
+    pagante — a estrutura de envio já está pronta e testada. <strong>Vídeo é recurso a mais</strong>,
+    não linha de base: a ficha se explica com GIF.</td>
+  </tr>
+  <tr>
+    <td><strong>Catraca</strong></td>
+    <td>Control iD implementada e testada contra os payloads da documentação; Topdata depende da
+    ponte em .NET; Henry e Dimep sem documentação de integração. Nenhuma testada em bancada — por
+    decisão, isso acontece com o primeiro cliente que tiver o equipamento.</td>
+  </tr>
+  <tr>
+    <td><strong>Canal de suporte</strong></td>
+    <td><span class="selo atencao">DÍVIDA ASSUMIDA</span> Vazio em Visão Master → Configurações, então
+    o botão "falar com o suporte" não aparece em nenhuma etapa do onboarding — um cliente pagante trava
+    e não tem para onde ligar de dentro do produto. É preencher um campo, e está no compromisso do
+    responsável para antes do primeiro cliente.</td>
+  </tr>
+  <tr>
+    <td><strong>Ambiente de homologação</strong></td>
+    <td>Não existe. Os testes de ponta a ponta rodam contra a produção, com uma organização e uma
+    conta de teste que vivem nela. Funciona hoje; com clientes reais no mesmo banco, passa a ser
+    desconfortável.</td>
+  </tr>
+</table>
+
+<h2>5. Placar</h2>
+
+<table>
+  <tr><th>Dimensão</th><th class="num">Nota</th><th>Base</th></tr>
+  <tr>
+    <td><strong>Consistência do software</strong></td>
+    <td class="num">9,0</td>
+    <td>RLS íntegro nas 88 tabelas, uma regra por operação, 359 testes automatizados mais 10 de
+    ponta a ponta contra a produção, schema replicado e conferido objeto a objeto. Os três achados
+    desta varredura eram de superfície, não de acesso a dado de aluno.</td>
+  </tr>
+  <tr>
+    <td><strong>Integridade multitenant</strong></td>
+    <td class="num">9,5</td>
+    <td>A classe de defeito que mais voltou — o vínculo duplo — está em zero, verificada por varredura
+    e não por memória. <code>organization_id</code> presente onde precisa; as 21 tabelas sem ele são as
+    globais da ArkeFit, por desenho.</td>
+  </tr>
+  <tr>
+    <td><strong>Conformidade e privacidade</strong></td>
+    <td class="num">8,5</td>
+    <td>Documentos revisados, aceite provado por hash, banco em São Paulo, buckets com dado pessoal
+    privados, consentimento biométrico separado. Desconta o backup inexistente — que é conformidade,
+    não só infraestrutura.</td>
+  </tr>
+  <tr>
+    <td><strong>Operação e observabilidade</strong></td>
+    <td class="num">8,0</td>
+    <td>12 rotinas com detecção de "parou de rodar", alerta por e-mail, reconciliação diária com o
+    gateway, Sentry configurado com privacidade. Desconta a ausência de teste de carga e de
+    homologação separada.</td>
+  </tr>
+  <tr>
+    <td><strong>Prontidão de infraestrutura</strong></td>
+    <td class="num">4,0</td>
+    <td>Três planos gratuitos sustentando o que seria produção paga. É aqui, e só aqui, que mora o
+    "não".</td>
+  </tr>
+</table>
+
+<h2>6. A recomendação, em uma frase</h2>
+<p><strong>Contrate Vercel Pro, Supabase Pro e o Resend pago, rode o teste de carga — e venda.</strong></p>
+<p>O canal de suporte e a carga dos GIFs são dívidas assumidas pelo responsável para antes do primeiro
+cliente pagante, e nenhuma das duas é trabalho de engenharia: uma é preencher um campo, a outra é
+subir material que já existe, pela estrutura que já está pronta. Vídeo é recurso a mais, não linha
+de base.</p>
+<p>Do que sobra, a venda do Método ARKE é decisão comercial já tomada — adiada para depois do
+lançamento. A cobrança do aluno <strong>não</strong> é: ela é obrigatória por desenho, o caminho está
+construído e verificado no sandbox, e o CPF passou a ser exigido em todos os pontos de entrada em
+22/09/2026. O que falta ali é dado de teste, não produto.</p>
+<p>O sistema não é o gargalo.</p>
+
+<div class="rodape">
+  Varredura executada contra o projeto <code>lzyxqjibkfblrrjboylp</code> (ArkeFit PROD BR, sa-east-1) em
+  22/09/2026, depois da virada. Os números da seção 1 são medidos; as notas da seção 5 são julgamento
+  profissional sobre eles. Correções das seções 2.1 a 2.3 aplicadas e reconferidas; os 10 testes de
+  ponta a ponta voltaram a passar depois delas.
+</div>
+
+</body>
+</html>

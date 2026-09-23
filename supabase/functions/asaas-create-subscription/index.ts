@@ -1,4 +1,11 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import {
+  criarOuAdotarAssinatura,
+  hojeEmBrasilia,
+  obterOuCriarCustomer,
+  repasseDoSplit,
+  somenteDigitos,
+} from "./fluxo.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -17,113 +24,15 @@ type CreateSubscriptionPayload = {
   valor_cobrado: number;
 };
 
-// --- Asaas: customer e assinatura sem duplicar -------------------------------
+// As chamadas ao Asaas moram em ./fluxo.ts — sem Deno e sem Supabase — para
+// que `npm run sandbox:assinatura` exercite este mesmo código contra o
+// sandbox, e não uma cópia escrita para o teste.
 //
-// Duplicado de propósito em asaas-create-subscription e academia-criar-matricula:
-// edge function não compartilha código com as outras sem um _shared/ que o
-// deploy teria de carregar junto, e o projeto preferiu a cópia explícita.
-//
-// Por que existe: as duas funções faziam POST /customers e POST /subscriptions
-// a cada chamada. Dois defeitos saíam daí.
-//
-//   1. O Asaas exige `cpfCnpj` para criar a assinatura (o customer nasce sem,
-//      visto no sandbox), e ele não era enviado — a criação falharia antes de
-//      qualquer cobrança nascer. (Até 21/09/2026 nenhuma assinatura de aluno
-//      tinha sido criada pelo ARKE.)
-//   2. Nada impedia duas assinaturas para o mesmo aluno. O caminho mais curto
-//      estava na própria função: criou no Asaas, falhou ao gravar no banco, a
-//      tela continua oferecendo "Tentar cobrar" — e a primeira assinatura fica
-//      órfã, cobrando o aluno todo mês sem ninguém ver.
-//
-// A resposta é tornar a operação idempotente pelo `externalReference`.
-
-type RespostaAsaas<T> = { ok: boolean; status: number; corpo: T & { errors?: { code?: string; description?: string }[] } };
-
-async function chamarAsaas<T>(url: string, init: RequestInit): Promise<RespostaAsaas<T>> {
-  const resp = await fetch(url, init);
-  let corpo: unknown = {};
-  try {
-    corpo = await resp.json();
-  } catch {
-    // corpo vazio ou não-JSON: fica {}.
-  }
-  return { ok: resp.ok, status: resp.status, corpo: corpo as RespostaAsaas<T>["corpo"] };
-}
-
-function descricaoErroAsaas(corpo: { errors?: { description?: string }[] }): string | null {
-  return corpo?.errors?.map((e) => e.description).filter(Boolean).join(" ") || null;
-}
-
-/**
- * Reaproveita o customer do aluno antes de criar outro: primeiro pelo id do
- * aluno (`externalReference`), depois pelo CPF — a mesma pessoa pode ser aluna
- * de duas academias, e para o Asaas ela é um cliente só.
- */
-async function obterOuCriarCustomer(
-  api: string,
-  headers: Record<string, string>,
-  dados: { alunoId: string; nome: string; cpf: string; telefone: string | null }
-): Promise<{ id: string } | { erro: string }> {
-  for (const filtro of [`externalReference=${encodeURIComponent(dados.alunoId)}`, `cpfCnpj=${dados.cpf}`]) {
-    const busca = await chamarAsaas<{ data?: { id: string; deleted?: boolean }[] }>(`${api}/customers?${filtro}`, {
-      headers,
-    });
-    const existente = busca.ok ? busca.corpo.data?.find((c) => !c.deleted) : undefined;
-    if (existente) return { id: existente.id };
-  }
-
-  const criado = await chamarAsaas<{ id: string }>(`${api}/customers`, {
-    method: "POST",
-    headers,
-    body: JSON.stringify({
-      name: dados.nome,
-      cpfCnpj: dados.cpf,
-      mobilePhone: dados.telefone ?? undefined,
-      externalReference: dados.alunoId,
-    }),
-  });
-  if (!criado.ok) {
-    console.error("Asaas: falha ao criar customer", criado.status, criado.corpo?.errors);
-    return { erro: descricaoErroAsaas(criado.corpo) ?? "Falha ao criar o cliente no Asaas." };
-  }
-  return { id: criado.corpo.id };
-}
-
-/** Assinatura ativa com esta referência no Asaas, se houver. */
-async function assinaturaAtivaNoAsaas(
-  api: string,
-  headers: Record<string, string>,
-  referencia: string
-): Promise<{ id: string; value: number; nextDueDate?: string; split?: { fixedValue?: number | null }[] } | null> {
-  const busca = await chamarAsaas<{ data?: { id: string; value: number; nextDueDate?: string; split?: { fixedValue?: number | null }[] }[] }>(
-    `${api}/subscriptions?externalReference=${encodeURIComponent(referencia)}&status=ACTIVE`,
-    { headers }
-  );
-  return busca.ok ? busca.corpo.data?.[0] ?? null : null;
-}
-
-/**
- * Parte da ArkeFit numa assinatura já existente no Asaas: o valor menos o split
- * da academia. Sem split na resposta, nula — quem chama usa o calculado, em vez
- * de contar o valor inteiro como repasse.
- */
-function repasseDoSplit(assinatura: { value: number; split?: { fixedValue?: number | null }[] }): number | null {
-  if (!assinatura.split?.length) return null;
-  const academia = (assinatura.split ?? []).reduce((soma, s) => soma + Number(s.fixedValue ?? 0), 0);
-  return Math.round((Number(assinatura.value) - academia) * 100) / 100;
-}
-
-/**
- * Hoje no fuso de Brasília. Em UTC, depois das 21h a data já é a de amanhã, e
- * a primeira cobrança venceria um dia depois da matrícula.
- */
-function hojeEmBrasilia(): string {
-  return new Date().toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" });
-}
-
-function somenteDigitos(texto: string | null | undefined): string {
-  return (texto ?? "").replace(/\D/g, "");
-}
+// O que fica aqui são as decisões de negócio que precisam acontecer ANTES de
+// tocar no gateway: adesão ativa ao Método, assinatura já existente, conta de
+// recebimentos da academia, onboarding concluído, CPF do aluno e valor que
+// cubra o repasse. Uma assinatura criada no Asaas e recusada depois vira
+// órfã cobrando todo mês.
 
 // Cria a assinatura recorrente do aluno no Asaas, com split
 // automático: o valor cobrado do aluno é dividido entre o repasse de
@@ -325,41 +234,20 @@ Deno.serve(async (req: Request) => {
     // é ela que vale. O prefixo separa do plano próprio da academia, que usa
     // `plano:` para o mesmo aluno.
     const referencia = `metodo:${aluno.id}`;
-    const jaExistente = await assinaturaAtivaNoAsaas(asaasApiUrl, asaasHeaders, referencia);
-
-    const subscriptionResp = jaExistente ? null : await fetch(`${asaasApiUrl}/subscriptions`, {
-      method: "POST",
-      headers: asaasHeaders,
-      body: JSON.stringify({
-        customer: customer.id,
-        billingType: "UNDEFINED",
-        value: valor_cobrado,
-        cycle: "MONTHLY",
-        nextDueDate: primeiroVencimento,
-        description: `ARKE — ${org.nome} — nível ${aluno.nivel_atacado}`,
-        externalReference: referencia,
-        split: [
-          {
-            walletId: org.asaas_wallet_id,
-            fixedValue: valorLiquidoAcademia,
-          },
-        ],
-      }),
+    const resultado = await criarOuAdotarAssinatura(asaasApiUrl, asaasHeaders, {
+      customerId: customer.id,
+      referencia,
+      valorCobrado: valor_cobrado,
+      primeiroVencimento,
+      descricao: `ARKE — ${org.nome} — nível ${aluno.nivel_atacado}`,
+      walletIdAcademia: org.asaas_wallet_id,
+      valorLiquidoAcademia,
     });
-    let subscription: { id: string; value?: number; nextDueDate?: string };
-    if (jaExistente) {
-      subscription = jaExistente;
-    } else {
-      const corpo = await subscriptionResp!.json();
-      if (!subscriptionResp!.ok) {
-        console.error("Asaas: falha ao criar assinatura", subscriptionResp!.status, corpo?.errors);
-        return jsonResponse(
-          { error: descricaoErroAsaas(corpo) ?? "Falha ao criar assinatura no Asaas." },
-          502
-        );
-      }
-      subscription = corpo;
+    if ("erro" in resultado) {
+      return jsonResponse({ error: resultado.erro }, 502);
     }
+    const subscription = resultado.assinatura;
+    const jaExistente = resultado.adotada ? resultado.assinatura : null;
 
     // --- Persistência (service role: grava independente de RLS, já validamos acima) ---
     const { data: assinatura, error: upsertError } = await admin

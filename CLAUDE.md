@@ -75,7 +75,7 @@ Confirmado pelo responsável pelo projeto em 20/09/2026. O funcionamento real se
 Corrigido junto, o defeito mais caro: nada impedia **duas assinaturas para o mesmo aluno**. Criou no Asaas, falhou ao gravar no banco, a tela seguia oferecendo "Tentar cobrar" — e a primeira assinatura ficava órfã, cobrando o aluno todo mês sem ninguém ver. A de plano próprio era ainda mais direta: conferia a matrícula ativa **depois** de criar a assinatura, então o 409 deixava a recém-criada lá. Hoje as duas:
 
 - conferem o banco **antes** de tocar no gateway (assinatura ativa → 409);
-- exigem CPF com mensagem que diz à equipe onde resolver; **por decisão de 21/09/2026, os CPFs dos alunos não estão sendo coletados** (o ARKE não usa CPF de terceiros para nenhuma outra finalidade), então hoje nenhuma assinatura de aluno é emitida — o bloqueio é o esperado até essa decisão mudar. A matrícula pública ativava o Método sem gerar cobrança; desde 22/09/2026 ela matricula no plano Free;
+- exigem CPF com mensagem que diz à equipe onde resolver. **Correção de 22/09/2026:** o registro anterior dizia que "os CPFs dos alunos não estão sendo coletados por decisão" — leitura errada de uma limitação de dado de teste. **O CPF é obrigatório em toda matrícula**, porque matrícula gera cobrança e o gateway não emite cobrança sem CPF; ver a seção *CPF obrigatório na matrícula*. A matrícula pública ativava o Método sem gerar cobrança; desde 22/09/2026 ela matricula no plano Free;
 - reaproveitam o customer (por `externalReference` do aluno, depois por CPF — a mesma pessoa em duas academias é um cliente só);
 - usam `externalReference` com prefixo na assinatura — `metodo:<aluno>` e `plano:<aluno>`, na mesma convenção dos `org:`/`b2b:` da B2B — e consultam o Asaas por ele antes de criar. No Método, assinatura ativa encontrada lá é **adotada** (é o caso de ter criado e falhado ao gravar); no plano próprio é **recusada** com o id, porque pode ser de outro plano ou valor e adotá-la esconderia o problema.
 
@@ -207,7 +207,7 @@ Uma varredura dedicada em 21/09/2026 encontrou mais cinco ocorrências, corrigid
 
 ## Higiene de Superfície no PostgREST
 
-Toda função `returns trigger` herda EXECUTE do PUBLIC e aparece em `/rest/v1/rpc/<nome>`. Chamá-la fora do contexto de trigger só produz erro, mas não há razão para deixá-la alcançável: a migration `20261124010000` revoga EXECUTE de todas elas em bloco, e segue pegando as próximas automaticamente. As RPCs `get_superadmin_*` deixaram de aceitar chamada anônima pelo mesmo motivo — todas checam o papel por dentro, então não havia vazamento, mas 9 das 13 aceitavam sondagem sem login e 4 não, defesa em profundidade desigual sem motivo.
+Toda função `returns trigger` herda EXECUTE do PUBLIC e aparece em `/rest/v1/rpc/<nome>`. Chamá-la fora do contexto de trigger só produz erro, mas não há razão para deixá-la alcançável: a migration `20261124010000` revoga EXECUTE de todas elas em bloco. **Esse revoke NÃO se mantém sozinho** — o registro anterior dizia que ele "segue pegando as próximas automaticamente", e isso era falso. Ele rodou uma vez, sobre as funções daquele dia; toda função criada depois nasce com o ACL padrão do Postgres, que concede EXECUTE ao PUBLIC. A auditoria de 22/09/2026 encontrou **sete** funções de gatilho reexpostas assim, das rodadas 3 a 6, e `20261215010000_higiene_execute_e_search_path.sql` as fechou. **Regra: rodar a revogação de novo depois de cada rodada que crie função de gatilho** — o bloco é idempotente. Tornar isso automático exigiria event trigger, que precisa de superusuário. As RPCs `get_superadmin_*` deixaram de aceitar chamada anônima pelo mesmo motivo — todas checam o papel por dentro, então não havia vazamento, mas 9 das 13 aceitavam sondagem sem login e 4 não, defesa em profundidade desigual sem motivo.
 
 Revogar EXECUTE **não** afeta o disparo de triggers — o PostgreSQL não checa esse privilégio ao dispará-los. Foi verificado contra o banco real, em transação revertida, com `exigir_limite_alunos` e `set_updated_at`.
 
@@ -401,6 +401,25 @@ As respostas registradas em `docs/DECISOES_PENDENTES.md`, aplicadas:
 - **Funil de vendas** (`leads`, `/admin/funil`): Kanban de seis colunas (novo, em contato, aula experimental, negociação, matriculado, perdido), cartão que anda por botões, WhatsApp num toque, motivo obrigatório para "perdido" e taxa de conversão no topo.
 - **Buckets com dado pessoal privados:** `dietas` (vazio e sem uso) e `chat-videos`, que era público. Os vídeos do chat passam a ir para `<organização>/<aluno>/`, com a regra dos atestados, e tocam por link temporário (`VideoChat`).
 - **Fora do escopo por decisão:** WhatsApp (módulo futuro); NFS-e (emitida no painel do Asaas ou no portal da prefeitura); preço do profissional autônomo (pós-lançamento); canal de suporte (preenchido pelo responsável em Visão Master → Configurações quando existir); vídeos e GIFs (material novo, subido depois); venda do Método (mantida desligada).
+
+## CPF obrigatório na matrícula (22/09/2026)
+
+**O CPF é item obrigatório em toda matrícula de aluno.** Matrícula gera cobrança, e o gateway não emite cobrança sem CPF — não há caminho de aluno pago sem ele.
+
+Isto começou como correção de um erro de leitura meu, e vale registrar o erro porque ele contaminou documento derivado. Eu havia anotado que "os CPFs dos alunos não estão sendo coletados por decisão de privacidade", e uma auditoria inteira de prontidão foi escrita em cima disso — concluindo que a cobrança do aluno era um recurso desligado por escolha. A realidade é outra: **o CPF sempre foi obrigatório pela regra do produto**; o que existe é uma limitação de homologação, porque não há números de CPF válidos suficientes para cadastrar dez ou mais alunos de teste, e não se quer usar CPF de terceiros. Limitação operacional não é decisão de produto, e registrar uma como a outra estraga tudo que se apoia no registro.
+
+**Para testar em volume não é preciso CPF de pessoa real.** CPF válido pelo dígito verificador pode ser gerado pelo próprio módulo 11 — foi assim que o teste de sandbox do Asaas passou, com número sintético que o gateway aceitou. `scripts/asaas-sandbox-assinatura.mjs` tem o gerador.
+
+**O código, porém, não implementava a regra.** Até esta data o CPF era opcional em todos os caminhos: a constraint do banco era `cpf is null or cpf = '' or cpf_valido(cpf)`, a matrícula pública aceitava o campo ausente (`payload.cpf?.trim() || null`), e a ficha do aluno e a importação também. Corrigido nos cinco pontos:
+
+- **`erroCpfObrigatorio`** (`src/lib/cpf.ts`) ao lado de `erroCpf`. As duas existem porque há um caso legítimo de CPF opcional: o documento da própria academia no onboarding, que é CNPJ na maioria das vezes e só é CPF no profissional autônomo. Misturar as duas faria a tela de dados exigir CPF de quem tem CNPJ.
+- **Matrícula pública** (`PublicMatricula.tsx` e `matricula-publica`): a tela avisa na hora, o servidor garante. A validação da edge function é duplicada em Deno pelo motivo de sempre — ela não importa do bundle do app.
+- **Ficha do aluno** (`AdminAlunos.tsx`) e **importação** (`AdminImportarAlunos.tsx`): obrigatório por linha. Base importada sem CPF vira aluno que não pode ser cobrado.
+- **`trg_exigir_cpf_na_matricula`**, em `alunos`. A trava mora na matrícula, não em `profiles`, por dois motivos: `alunos` **é** a matrícula, então a regra vale para todo caminho de criação — inclusive os que ninguém lembrar de ajustar e inclusive `service_role`, que ignora RLS; e `profiles` é compartilhado com a equipe, que não é matriculada nem cobrada, e exigir CPF dela quebraria o cadastro em lote sem ganho.
+
+**Linhas que já existem não são tocadas**: o gatilho é `before insert`. Base importada antes da regra não some do app de um dia para o outro; o CPF entra quando a academia editar a ficha. Conferido em transação revertida: matrícula sem CPF recusada, com CPF válido aceita, e CPF com dígito errado barrado antes, pela constraint `profiles_cpf_valido`. A função publicada responde "Informe o CPF — é obrigatório para a matrícula." e "CPF inválido — confira os dígitos."
+
+**Fora de escopo, de propósito:** a equipe (gestor, professor, nutricionista, recepção) segue sem exigência de CPF. A justificativa da regra é a cobrança do aluno, e ninguém da equipe é cobrado pelo ARKE.
 
 ## Migração para o Projeto Brasil (22/09/2026)
 
