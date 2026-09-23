@@ -226,6 +226,41 @@ O desenho é **padrão mais exceção**, para não obrigar a configurar duas vez
 
 Conferido em 9 casos de resolução no banco (com exceção, sem exceção, exceção sozinha sem padrão, chamada sem nível) e pela função publicada: academia com padrão de R$ 45 e exceção de R$ 85 no Elite gravou R$ 49,05 para o Integrado a R$ 119 e R$ 91,44 para o Elite a R$ 199 — com split de R$ 107,56 para a academia, que é exatamente a margem da tabela comercial original.
 
+
+## Sensores da Jornada (Fase 2 do Ecossistema, 23/09/2026)
+
+Fase sem tela e sem automação: só faz o sistema **enxergar**. O motor de avanço automático (Fase 3) e a fila do Mentor Centralizado (Fase 4) leem daqui. A separação é de propósito — um sensor errado que já move aluno de fase é muito mais caro de descobrir do que um sensor errado que ninguém consultou ainda.
+
+`current_date` em todas estas funções **é** a data de Brasília, porque o fuso do banco mudou em 23/09/2026. É por isso que não há conversão explícita em nenhuma delas.
+
+### Última atividade no app
+
+A regra de inércia do conceito é "sem abrir o app **ou** sem check-in por 5 dias". A segunda metade o sistema já sabia; a primeira não existia — `primeiro_acesso_em` é de uma vez só.
+
+`alunos.ultima_atividade_em` é gravada por `registrar_atividade_aluno()`, chamada pelo `AuthContext`. **RPC e não UPDATE pelo mesmo motivo do primeiro acesso:** o aluno tem só SELECT na policy de `alunos`, e o update é descartado em silêncio pelo RLS. Isso foi **demonstrado**, não suposto: o PATCH direto pelo PostgREST responde **200 com zero linhas alteradas** e a coluna segue nula; a RPC grava. Freio de 15 minutos no próprio `where`, porque o app chama a cada carga e a pergunta tem unidade de dia.
+
+`aluno_dias_inativo()` combina os quatro sinais — app, presença, treino e check-in — e devolve **NULL para quem nunca deu sinal nenhum**: isso é caso de ativação, não de inércia, e as duas têm tratamento diferente.
+
+### Constância contra a meta do próprio aluno
+
+`aluno_constancia(aluno, semanas)` mede os 80% do conceito **contra a meta do aluno**, não contra um número absoluto — é a diretriz de *Constância vs. Adesão*: quem tem meta de 2 e cumpre os dois fez 100%. Cada semana vale no máximo 100%, então excesso numa semana não compensa ausência noutra. A semana corrente fica de fora: está pela metade, e incluí-la puxaria a média por um motivo que não é do aluno.
+
+Verificado com os números exatos: meta 2 com 2 dias/semana → 100%; com 1 dia → 50%; **6 dias numa semana e zero nas outras três → 25%**, não 150%.
+
+### Dor bloqueia a progressão
+
+O check-in com dor já abria tarefa. **O registro de treino com `sensacao = 'dor'` não disparava nada** — o aluno relatava dor ao fim do treino e o sistema seguia como se nada fosse. Agora carimba `alunos.progressao_bloqueada_em` e abre tarefa `dor` crítica.
+
+O carimbo **não é reaberto** por relato posterior: a data tem de ser a do primeiro, senão cada treino novo empurraria o caso para a frente e ele nunca venceria SLA. Desfazer é decisão de gente — `liberar_progressao_aluno()`, restrita à equipe ou à ArkeFit, que registra a justificativa no prontuário. O tempo sozinho nunca libera.
+
+### Estouro de ciclo
+
+`aluno_ciclo_estourado(aluno, dias, minimo_pct)` — prazo vencido com constância abaixo do mínimo. Falso enquanto o prazo não venceu: acusar antes transformaria a régua em ansiedade. O início do ciclo sai de `aluno_fase_historico` (`aluno_fase_desde()`), sem coluna nova — duplicar o histórico criaria duas verdades que divergem na primeira correção manual.
+
+### Um achado de passagem
+
+Uma varredura sobre **todo o schema** procurando `ON CONFLICT` contra índice parcial — a classe do `42P10` encontrado na Fase anterior — não achou mais nenhuma ocorrência. As duas funções corrigidas eram as únicas.
+
 ## Trial e Bloqueio por Pagamento
 
 ### Trial não é oferta comercial
