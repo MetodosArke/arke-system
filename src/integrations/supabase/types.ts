@@ -12,6 +12,31 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.5"
   }
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
   public: {
     Tables: {
       aceites_documentos: {
@@ -4985,6 +5010,7 @@ export type Database = {
         Row: {
           acao: string | null
           aluno_id: string | null
+          concluida_em: string | null
           created_at: string
           data_agendada: string | null
           desfecho_acao: string | null
@@ -5005,6 +5031,7 @@ export type Database = {
         Insert: {
           acao?: string | null
           aluno_id?: string | null
+          concluida_em?: string | null
           created_at?: string
           data_agendada?: string | null
           desfecho_acao?: string | null
@@ -5025,6 +5052,7 @@ export type Database = {
         Update: {
           acao?: string | null
           aluno_id?: string | null
+          concluida_em?: string | null
           created_at?: string
           data_agendada?: string | null
           desfecho_acao?: string | null
@@ -5539,6 +5567,17 @@ export type Database = {
           versao: string
         }[]
       }
+      get_atendimentos_mentor_organizacao: {
+        Args: { _dias?: number; _limite?: number; _organization_id: string }
+        Returns: {
+          aluno_id: string
+          aluno_nome: string
+          concluida_em: string
+          desfecho: string
+          motivo: string
+          tipo: Database["public"]["Enums"]["tarefa_tipo"]
+        }[]
+      }
       get_bloqueio_aluno: {
         Args: { _aluno_id: string }
         Returns: {
@@ -5575,6 +5614,19 @@ export type Database = {
           ultima_em: string
           ultima_mensagem: string
           ultimo_remetente: string
+        }[]
+      }
+      get_carga_mentores: {
+        Args: { _dias?: number }
+        Returns: {
+          abertas: number
+          concluidas: number
+          dentro_do_sla: number
+          horas_ate_resposta_mediana: number
+          mentor_id: string
+          mentor_nome: string
+          pct_sla: number
+          por_semana: number
         }[]
       }
       get_fila_mentor: {
@@ -5614,6 +5666,24 @@ export type Database = {
           concluida: boolean
           detalhe: string
           etapa: string
+        }[]
+      }
+      get_operacao_mentor: {
+        Args: { _dias?: number }
+        Returns: {
+          abertas: number
+          alunos_por_mentor: number
+          alunos_sob_acompanhamento: number
+          concluidas: number
+          dentro_do_sla: number
+          fora_do_sla: number
+          horas_ate_resposta_media: number
+          horas_ate_resposta_mediana: number
+          mentores_ativos: number
+          organizacoes_atendidas: number
+          pct_sla: number
+          tarefas_por_aluno_mes: number
+          vencidas: number
         }[]
       }
       get_superadmin_adocao_metodologia: {
@@ -5848,6 +5918,19 @@ export type Database = {
           ultimo_evento_em: string
         }[]
       }
+      get_valor_mentor_organizacao: {
+        Args: { _dias?: number; _organization_id: string }
+        Returns: {
+          alunos_alcancados: number
+          alunos_no_metodo: number
+          atendimentos_concluidos: number
+          avancos_de_fase: number
+          instrucoes_concluidas: number
+          instrucoes_enviadas: number
+          mensagens_trocadas: number
+          pct_sla: number
+        }[]
+      }
       guardar_chave_subconta_asaas: {
         Args: { _chave: string; _organization_id: string }
         Returns: undefined
@@ -5866,6 +5949,10 @@ export type Database = {
           _user_id: string
         }
         Returns: boolean
+      }
+      horas_uteis_entre: {
+        Args: { _ate: string; _de: string }
+        Returns: number
       }
       iniciar_trial_metodo_arke: {
         Args: {
@@ -6086,6 +6173,7 @@ export type Database = {
         Args: { _pasta: string }
         Returns: boolean
       }
+      prazo_util: { Args: { _horas: number; _inicio: string }; Returns: string }
       publicar_contrato_matricula: {
         Args: { _conteudo: string; _organization_id: string; _titulo: string }
         Returns: string
@@ -6187,6 +6275,10 @@ export type Database = {
           _situacao: Database["public"]["Enums"]["situacao_aluno_academia"]
         }
         Returns: boolean
+      }
+      sla_mentor_horas: {
+        Args: { _prioridade: Database["public"]["Enums"]["tarefa_prioridade"] }
+        Returns: number
       }
       superadmin_resetar_tokens_gateway: {
         Args: { _organization_id: string }
@@ -6440,6 +6532,9 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {
       agendamento_status: ["agendado", "presente", "cancelado", "lista_espera"],

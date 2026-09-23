@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { MessageCircle, Users } from "lucide-react";
 import { ChatMentor } from "@/components/chat/ChatMentor";
 import { FilaChamadosMentor } from "@/components/superadmin/FilaChamadosMentor";
+import { OperacaoMentor } from "@/components/superadmin/OperacaoMentor";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ROTULO_PLANO, type PlanoAluno } from "@/lib/planoAluno";
 import { format } from "date-fns";
@@ -67,6 +68,7 @@ export default function SuperAdminMentoria() {
         <TabsList>
           <TabsTrigger value="chamados">Chamados</TabsTrigger>
           <TabsTrigger value="conversas">Conversas</TabsTrigger>
+          <TabsTrigger value="operacao">Operação</TabsTrigger>
         </TabsList>
         <TabsContent value="chamados" className="mt-3">
           <FilaChamadosMentor />
@@ -140,6 +142,9 @@ export default function SuperAdminMentoria() {
           </Card>
         </div>
       )}
+        </TabsContent>
+        <TabsContent value="operacao" className="mt-3">
+          <OperacaoMentor />
         </TabsContent>
       </Tabs>
     </div>
