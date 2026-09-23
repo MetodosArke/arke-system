@@ -1,3 +1,4 @@
+import { hojeBrasilia } from "@/lib/dataBrasilia";
 import { useMemo, useState } from "react";
 import { useOnboardingAcademia } from "@/hooks/useOnboardingAcademia";
 import { ETAPAS } from "@/lib/onboardingAcademia";
@@ -35,11 +36,9 @@ import {
   Rocket,
 } from "lucide-react";
 
-function hojeISO() {
-  const hoje = new Date();
-  const offset = hoje.getTimezoneOffset();
-  return new Date(hoje.getTime() - offset * 60_000).toISOString().slice(0, 10);
-}
+// A data da academia, nao a do aparelho: aluno viajando veria uma semana
+// diferente da que a academia ve, e o banco decide com Sao Paulo.
+const hojeISO = hojeBrasilia;
 
 function weekdayISO(dataISO: string) {
   const d = new Date(`${dataISO}T12:00:00`);

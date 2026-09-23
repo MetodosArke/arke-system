@@ -1,3 +1,4 @@
+import { hojeBrasilia } from "@/lib/dataBrasilia";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -80,7 +81,7 @@ export default function AlunoCompeticoes() {
     },
   });
 
-  const hoje = new Date().toISOString().slice(0, 10);
+  const hoje = hojeBrasilia();
   const ativas = competicoes.filter((c) => c.data_inicio <= hoje && c.data_fim >= hoje);
   const pendentes = competicoes.filter((c) => c.data_inicio > hoje);
   const encerradas = competicoes.filter((c) => c.data_fim < hoje);

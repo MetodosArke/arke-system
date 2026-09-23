@@ -1,3 +1,4 @@
+import { dataBrasilia } from "@/lib/dataBrasilia";
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -74,7 +75,7 @@ export default function ObjetivosTab() {
         dificuldades: dificuldades.trim() || null,
         visao_3_meses: visao3Meses.trim() || null,
         visao_3_anos: visao3Anos.trim() || null,
-        proxima_revisao: proximaRevisao.toISOString().slice(0, 10),
+        proxima_revisao: dataBrasilia(proximaRevisao),
       });
       if (error) throw error;
     },

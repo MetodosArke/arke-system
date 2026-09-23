@@ -1,3 +1,4 @@
+import { hojeBrasilia } from "@/lib/dataBrasilia";
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -118,7 +119,7 @@ export default function AlunoDesafios() {
     };
   };
 
-  const hoje = new Date().toISOString().slice(0, 10);
+  const hoje = hojeBrasilia();
   const ativos = desafios.filter((d) => d.data_fim >= hoje);
   const encerrados = desafios.filter((d) => d.data_fim < hoje);
   const totalPontos = desafios.reduce((soma, d) => {

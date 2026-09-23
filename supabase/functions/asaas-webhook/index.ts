@@ -1,4 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { hojeBrasilia } from "../_shared/data.ts";
 
 const jsonResponse = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
@@ -24,7 +25,12 @@ function timingSafeEqual(a: string, b: string): boolean {
 // https://docs.asaas.com/docs/webhook-events
 const EVENTOS_CONFIRMADOS = new Set(["PAYMENT_CONFIRMED", "PAYMENT_RECEIVED"]);
 const EVENTOS_ATRASADOS = new Set(["PAYMENT_OVERDUE"]);
-const EVENTOS_ESTORNADOS = new Set(["PAYMENT_REFUNDED", "PAYMENT_DELETED", "PAYMENT_CHARGEBACK_REQUESTED"]);
+const EVENTOS_ESTORNADOS = new Set(["PAYMENT_REFUNDED", "PAYMENT_CHARGEBACK_REQUESTED"]);
+// Cobranca **removida**, que nao e estorno de dinheiro: e o que o Asaas manda
+// para cada cobranca pendente quando a assinatura e cancelada. Tratar as duas
+// como estorno confundia "nao ha o que pagar" com "houve devolucao" — e, com a
+// condicao antiga do B2C, fazia cancelar uma assinatura BLOQUEAR o aluno.
+const EVENTOS_REMOVIDOS = new Set(["PAYMENT_DELETED"]);
 
 // Eventos que apenas **emitem** a cobrança, sem mudar o status de quem já
 // pagou ou deixou de pagar. Não entram em EVENTOS_* acima de propósito: nada
@@ -52,6 +58,10 @@ Deno.serve(async (req: Request) => {
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
   const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
   const webhookSecret = Deno.env.get("ASAAS_WEBHOOK_SECRET");
+  // Segredo próprio da homologação. O Asaas não devolve o token configurado
+  // (só `hasAuthToken`), então o sandbox não tem como reusar o de produção —
+  // e não deveria: é credencial de teste, mais exposta por natureza.
+  const webhookSecretSandbox = Deno.env.get("ASAAS_SANDBOX_WEBHOOK_SECRET");
 
   if (!supabaseUrl || !serviceRoleKey) {
     console.error("Missing required Supabase environment variables");
@@ -63,7 +73,15 @@ Deno.serve(async (req: Request) => {
   }
 
   const tokenRecebido = req.headers.get("asaas-access-token");
-  if (!tokenRecebido || !timingSafeEqual(tokenRecebido, webhookSecret)) {
+  // Qual dos dois segredos validou decide o que este evento pode tocar.
+  const origemEvento: "producao" | "sandbox" | null = !tokenRecebido
+    ? null
+    : timingSafeEqual(tokenRecebido, webhookSecret)
+      ? "producao"
+      : webhookSecretSandbox && timingSafeEqual(tokenRecebido, webhookSecretSandbox)
+        ? "sandbox"
+        : null;
+  if (!origemEvento) {
     return jsonResponse({ error: "Assinatura do webhook inválida." }, 401);
   }
 
@@ -141,15 +159,59 @@ Deno.serve(async (req: Request) => {
       .eq("id", eventoRegistrado.id);
   };
 
+  // Trava de ambiente: evento do sandbox só toca organização em homologação,
+  // evento de produção só toca organização real.
+  //
+  // Não é defesa contra colisão de id (o espaço do Asaas torna isso irreal) —
+  // é contenção de raio. O segredo do sandbox é credencial de teste e vive
+  // mais exposta; sem esta trava, quem o obtivesse poderia forjar um
+  // PAYMENT_CONFIRMED para a assinatura de um aluno pagante de verdade e lhe
+  // dar acesso de graça. Com ela, o estrago para em organizações em trial.
+  const referencia = payment.externalReference ? String(payment.externalReference) : null;
+  const subscriptionDoEvento = payment.subscription ? String(payment.subscription) : null;
+  const statusDaOrganizacao = async (): Promise<string | null> => {
+    if (subscriptionDoEvento) {
+      const [metodo, b2b, mensalidade] = await Promise.all([
+        admin.from("aluno_assinaturas").select("organization_id").eq("asaas_subscription_id", subscriptionDoEvento).maybeSingle(),
+        admin.from("organizations").select("status").eq("asaas_subscription_id_b2b", subscriptionDoEvento).maybeSingle(),
+        admin.from("aluno_matriculas_academia").select("organization_id").eq("asaas_subscription_id", subscriptionDoEvento).limit(1).maybeSingle(),
+      ]);
+      if (b2b.data?.status) return b2b.data.status;
+      const orgId = metodo.data?.organization_id ?? mensalidade.data?.organization_id;
+      if (orgId) {
+        const { data } = await admin.from("organizations").select("status").eq("id", orgId).maybeSingle();
+        return data?.status ?? null;
+      }
+    }
+    // `org:<id>` e `b2b:<id>` carregam a organização direto na referência.
+    const m = referencia?.match(/^(?:org|b2b):([0-9a-f-]{36})$/i);
+    if (m) {
+      const { data } = await admin.from("organizations").select("status").eq("id", m[1]).maybeSingle();
+      return data?.status ?? null;
+    }
+    return null;
+  };
+  const statusOrg = await statusDaOrganizacao();
+  // Evento que não resolve organização nenhuma não tem o que tocar; segue e
+  // termina como "sem correspondência", que é o desfecho honesto.
+  if (statusOrg !== null) {
+    const ehHomologacao = statusOrg === "trial";
+    if (ehHomologacao !== (origemEvento === "sandbox")) {
+      await concluir(`ambiente_incompativel:${origemEvento}`);
+      return jsonResponse({ ok: true, ignorado: "ambiente incompatível" });
+    }
+  }
+
   try {
     // Sem payment.id não há o que casar; o evento fica registrado só como log.
     let resultado = "sem_payment_id";
 
     if (asaasPaymentId) {
-      let novoStatus: "confirmado" | "atrasado" | "estornado" | null = null;
+      let novoStatus: "confirmado" | "atrasado" | "estornado" | "cancelado" | null = null;
       if (EVENTOS_CONFIRMADOS.has(tipoEvento)) novoStatus = "confirmado";
       else if (EVENTOS_ATRASADOS.has(tipoEvento)) novoStatus = "atrasado";
       else if (EVENTOS_ESTORNADOS.has(tipoEvento)) novoStatus = "estornado";
+      else if (EVENTOS_REMOVIDOS.has(tipoEvento)) novoStatus = "cancelado";
 
       // Cobrança B2B (ARKE cobrando a própria academia/studio, emitida via
       // asaas-emitir-cobranca-b2b) — id de pagamento nunca colide com o do
@@ -172,7 +234,7 @@ Deno.serve(async (req: Request) => {
               // Sem a data de liquidação, a série histórica de receita
               // teria que cair no mês de emissão da cobrança, não no mês
               // em que o dinheiro entrou.
-              data_pagamento: novoStatus === "confirmado" ? new Date().toISOString().slice(0, 10) : null,
+              data_pagamento: novoStatus === "confirmado" ? hojeBrasilia() : null,
             })
             .eq("id", cobrancaB2bExistente.id);
         } else if (EVENTOS_EMITIDOS.has(tipoEvento)) {
@@ -216,7 +278,7 @@ Deno.serve(async (req: Request) => {
                 invoice_url: invoiceUrl,
                 vencimento: vencimento ?? undefined,
                 taxa_gateway: taxaGateway,
-                data_pagamento: statusB2b === "confirmado" ? new Date().toISOString().slice(0, 10) : null,
+                data_pagamento: statusB2b === "confirmado" ? hojeBrasilia() : null,
               },
               { onConflict: "asaas_payment_id" }
             );
@@ -242,7 +304,7 @@ Deno.serve(async (req: Request) => {
             .from("mensalidades")
             .update({
               status: novoStatus,
-              data_pagamento: novoStatus === "confirmado" ? new Date().toISOString().slice(0, 10) : null,
+              data_pagamento: novoStatus === "confirmado" ? hojeBrasilia() : null,
               invoice_url: invoiceUrl ?? undefined,
               taxa_gateway: taxaGateway,
             })
@@ -261,7 +323,7 @@ Deno.serve(async (req: Request) => {
       // `novoStatus`. Os blocos B2B e de mensalidade acima não registram a
       // emissão — cada um tem o próprio ciclo; em comum com este, só gravam
       // a taxa do gateway.
-      const statusArke: "confirmado" | "atrasado" | "estornado" | "pendente" | null =
+      const statusArke: "confirmado" | "atrasado" | "estornado" | "cancelado" | "pendente" | null =
         novoStatus ?? (EVENTOS_EMITIDOS.has(tipoEvento) ? "pendente" : null);
 
       const { data: pagamentoExistente } = await admin
@@ -316,14 +378,21 @@ Deno.serve(async (req: Request) => {
           .update({
             ...(soEmissao ? {} : {
               status: statusArke,
-              data_pagamento: statusArke === "confirmado" ? new Date().toISOString().slice(0, 10) : null,
+              data_pagamento: statusArke === "confirmado" ? hojeBrasilia() : null,
             }),
             vencimento: vencimento ?? undefined,
             invoice_url: invoiceUrl ?? undefined,
             taxa_gateway: taxaGateway,
+            // O valor tambem muda: alterar o preco da assinatura reemite a
+            // cobranca pendente com outro valor, e sem isto o banco seguia
+            // mostrando o antigo enquanto o aluno recebia a fatura nova.
+            valor: typeof valorBruto === "number" ? valorBruto : undefined,
           })
           .eq("id", pagamentoExistente.id);
 
+        // `cancelado` fica de fora de proposito: a cobranca sumiu porque a
+        // assinatura foi encerrada, e marcar "atrasada" af diria que o aluno deve
+        // algo que nao existe mais. Quem grava o fim da relacao e o cancelamento.
         if (novoStatus === "atrasado" || novoStatus === "estornado") {
           // Guarda o link da fatura para o App do Aluno redirecionar à
           // quitação (gate de inadimplência em /app).
@@ -383,7 +452,7 @@ Deno.serve(async (req: Request) => {
                 status: statusArke,
                 asaas_payment_id: asaasPaymentId,
                 vencimento,
-                data_pagamento: statusArke === "confirmado" ? new Date().toISOString().slice(0, 10) : null,
+                data_pagamento: statusArke === "confirmado" ? hojeBrasilia() : null,
                 invoice_url: invoiceUrl,
               },
               { onConflict: "asaas_payment_id" }
@@ -410,17 +479,9 @@ Deno.serve(async (req: Request) => {
               .eq("asaas_subscription_id", subscriptionId)
               .maybeSingle();
 
-            if (matricula && !novoStatus) {
-              // Emissão (PAYMENT_CREATED/UPDATED) de mensalidade de plano
-              // próprio da academia. Este fluxo ficou de fora da mudança de
-              // propósito — e precisa ficar: `mensalidades.status` é NOT NULL,
-              // então criar a linha aqui com `novoStatus` nulo quebraria o
-              // upsert. Se a rede de segurança for estendida ao plano próprio
-              // um dia, é aqui e com status explícito.
-              resultado = "evento_ignorado";
-            } else if (matricula) {
+            if (matricula) {
               const valor = Number(payment.value ?? 0);
-              const vencimentoMensalidade = vencimento ?? new Date().toISOString().slice(0, 10);
+              const vencimentoMensalidade = vencimento ?? hojeBrasilia();
               const competencia = `${vencimentoMensalidade.slice(0, 7)}-01`;
 
               // upsert por (matricula_id, competencia): mesma janela de
@@ -443,10 +504,17 @@ Deno.serve(async (req: Request) => {
                     valor_liquido_academia: matricula.valor_liquido_academia,
                     taxa_gateway: taxaGateway,
                     vencimento: vencimentoMensalidade,
-                    status: novoStatus,
                     asaas_payment_id: asaasPaymentId,
-                    data_pagamento: novoStatus === "confirmado" ? new Date().toISOString().slice(0, 10) : null,
                     invoice_url: invoiceUrl,
+                    // Emissao nao tem status proprio: a coluna e NOT NULL mas
+                    // tem default `pendente`, entao a saida e **omitir** a
+                    // chave — nao manda-la nula. Era essa a razao de a
+                    // mensalidade ficar fora da rede de seguranca, e ela nao
+                    // se sustentava. Omitir tambem impede que um evento fora
+                    // de ordem rebaixe uma mensalidade ja paga.
+                    ...(novoStatus
+                      ? { status: novoStatus, data_pagamento: novoStatus === "confirmado" ? hojeBrasilia() : null }
+                      : {}),
                   },
                   { onConflict: "matricula_id,competencia" }
                 )
@@ -456,7 +524,17 @@ Deno.serve(async (req: Request) => {
               if (novoStatus === "atrasado" && mensalidadeCriada) {
                 await admin.rpc("abrir_tarefa_mensalidade_atrasada", { _mensalidade_id: mensalidadeCriada.id });
               }
-              resultado = "mensalidade_criada";
+
+              // A situacao do aluno acompanha a cobranca em vez de ganhar um
+              // caminho de bloqueio proprio: assim vale a tolerancia de 5
+              // dias, a contagem regressiva e o encerramento das automacoes
+              // que ja existem. A sincronizacao no banco decide quem marcar e
+              // quem liberar, e so desfaz a marca que ela mesma criou — marca
+              // feita a mao pela recepcao, por outro motivo, fica de pe.
+              if (novoStatus === "atrasado" || novoStatus === "confirmado") {
+                await admin.rpc("sincronizar_situacao_por_mensalidade");
+              }
+              resultado = novoStatus ? "mensalidade_criada" : "mensalidade_emitida";
             } else {
               // Nem assinatura do Método ARKE nem matrícula de plano da
               // academia. Sintoma clássico de wallet/subscription apontando

@@ -12,6 +12,7 @@ import { ArrowLeft, Check, Clock, Dumbbell, History } from "lucide-react";
 import { seriesDoExercicio, rotuloTecnica, type SerieDetalhe } from "@/lib/seriesTreino";
 import { AvaliacaoTreinoDialog } from "@/components/aluno/AvaliacaoTreinoDialog";
 import { MidiaExercicio } from "@/components/acervo/MidiaExercicio";
+import { hojeBrasilia } from "@/lib/dataBrasilia";
 
 /**
  * Execução do treino, série a série — o módulo do app original trazido para o
@@ -62,7 +63,7 @@ type SerieGravada = {
   concluida: boolean;
 };
 
-const HOJE = new Date().toISOString().slice(0, 10);
+const HOJE = hojeBrasilia();
 
 /** Chave local de uma série, para indexar sem depender do id do banco. */
 const chaveSerie = (ordem: number, numero: number) => `${ordem}:${numero}`;

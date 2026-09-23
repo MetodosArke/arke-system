@@ -6,6 +6,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Maximize2, QrCode } from "lucide-react";
+import { hojeBrasilia } from "@/lib/dataBrasilia";
 
 /**
  * Tela de check-in da recepção: um QR que o aluno escaneia com a câmera do
@@ -30,7 +31,7 @@ export default function AdminCheckinQr() {
   const { data: presencasHoje = 0 } = useQuery({
     queryKey: ["presencas-hoje", organization?.id],
     queryFn: async () => {
-      const hoje = new Date(Date.now() - 3 * 3600_000).toISOString().slice(0, 10);
+      const hoje = hojeBrasilia();
       const { count, error } = await supabase
         .from("presencas")
         .select("id", { count: "exact", head: true })

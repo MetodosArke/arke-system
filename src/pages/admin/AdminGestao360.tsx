@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { BarChart3, Download, FileText, FileSpreadsheet, TrendingUp, TrendingDown, Users, Activity, AlertTriangle, Filter, CalendarDays, DoorOpen } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { hojeBrasilia, inicioDoMesBrasilia } from "@/lib/dataBrasilia";
 
 function StatTile({
   icon: Icon,
@@ -57,10 +58,7 @@ export default function AdminGestao360() {
   const { toast } = useToast();
 
   const inicioMes = useMemo(() => {
-    const d = new Date();
-    d.setDate(1);
-    d.setHours(0, 0, 0, 0);
-    return d.toISOString().slice(0, 10);
+    return inicioDoMesBrasilia();
   }, []);
 
   const { data: metrics } = useQuery({
@@ -290,7 +288,7 @@ export default function AdminGestao360() {
     ...matriculasAcademiaEmRisco.map((m) => m.aluno_id),
   ]).size;
 
-  const nomeArquivoBase = `gestao-360-${organization?.slug ?? "academia"}-${new Date().toISOString().slice(0, 10)}`;
+  const nomeArquivoBase = `gestao-360-${organization?.slug ?? "academia"}-${hojeBrasilia()}`;
 
   const montarLinhasRelatorio = () => {
     const hoje = new Date().toLocaleDateString("pt-BR");

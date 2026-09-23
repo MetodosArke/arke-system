@@ -1,3 +1,4 @@
+import { hojeBrasilia } from "@/lib/dataBrasilia";
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -228,7 +229,7 @@ export function CompeticoesPainel() {
     }));
   };
 
-  const hoje = new Date().toISOString().slice(0, 10);
+  const hoje = hojeBrasilia();
   const statusDe = (c: Competicao) => (c.data_inicio > hoje ? "Pendente" : c.data_fim < hoje ? "Encerrada" : "Ativa");
 
   return (

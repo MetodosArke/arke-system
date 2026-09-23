@@ -1,3 +1,4 @@
+import { dataBrasilia } from "@/lib/dataBrasilia";
 import { useEffect, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -81,7 +82,7 @@ export default function ValoresTab() {
         organization_id: organization.id,
         aluno_id: alunoId,
         valores,
-        validade: validade.toISOString().slice(0, 10),
+        validade: dataBrasilia(validade),
       });
       if (error) throw error;
     },

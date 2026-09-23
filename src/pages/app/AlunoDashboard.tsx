@@ -27,6 +27,7 @@ import { ComunicadosAluno } from "@/components/aluno/ComunicadosAluno";
 import { CHAVE_CHECKIN_PENDENTE } from "@/lib/checkin";
 import { definirProximaAcao } from "@/lib/proximaAcao";
 import type { Enums } from "@/integrations/supabase/types";
+import { dataBrasilia, diaBrasilia, hojeBrasilia } from "@/lib/dataBrasilia";
 
 type CheckinStatus = Enums<"checkin_status">;
 type MotivoDificuldade = Enums<"motivo_dificuldade">;
@@ -61,7 +62,7 @@ const FASE_LABEL: Record<string, string> = {
   legado: "L.E.G.A.D.O.® — Perpetuar",
 };
 
-const HOJE = new Date().toISOString().slice(0, 10);
+const HOJE = hojeBrasilia();
 
 export default function AlunoDashboard() {
   const { alunoId, organization, faseJornada, planoAluno } = useAuth();
@@ -140,14 +141,13 @@ export default function AlunoDashboard() {
   const { data: diasTreinoConcluido = [] } = useQuery({
     queryKey: ["aluno-treino-streak", alunoId],
     queryFn: async () => {
-      const desde = new Date();
-      desde.setDate(desde.getDate() - 90);
+      const desde = diaBrasilia(-90);
       const { data, error } = await supabase
         .from("registro_treino")
         .select("data")
         .eq("aluno_id", alunoId!)
         .eq("concluido", true)
-        .gte("data", desde.toISOString().slice(0, 10))
+        .gte("data", desde)
         .order("data", { ascending: false });
       if (error) throw error;
       return (data ?? []).map((r) => r.data);
@@ -162,7 +162,7 @@ export default function AlunoDashboard() {
     const cursor = new Date();
     if (!dias.has(HOJE)) cursor.setDate(cursor.getDate() - 1);
     let streak = 0;
-    while (dias.has(cursor.toISOString().slice(0, 10))) {
+    while (dias.has(dataBrasilia(cursor))) {
       streak += 1;
       cursor.setDate(cursor.getDate() - 1);
     }

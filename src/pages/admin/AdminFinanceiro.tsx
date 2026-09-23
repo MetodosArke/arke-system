@@ -1,3 +1,4 @@
+import { hojeBrasilia } from "@/lib/dataBrasilia";
 import { useState } from "react";
 import { ExportarContador } from "@/components/admin/ExportarContador";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -94,7 +95,7 @@ const LANCAMENTO_VAZIO: LancamentoForm = {
   formaPagamento: "",
   descricao: "",
   valor: "",
-  data: new Date().toISOString().slice(0, 10),
+  data: hojeBrasilia(),
   vencimento: "",
   recorrente: false,
 };
@@ -203,7 +204,7 @@ export default function AdminFinanceiro() {
     mutationFn: async (id: string) => {
       const { error } = await supabase
         .from("staff_folha_pagamentos")
-        .update({ status: "pago", data_pagamento: new Date().toISOString().slice(0, 10) })
+        .update({ status: "pago", data_pagamento: hojeBrasilia() })
         .eq("id", id);
       if (error) throw error;
     },
@@ -306,7 +307,7 @@ export default function AdminFinanceiro() {
     mutationFn: async (id: string) => {
       const { error } = await supabase
         .from("lancamentos_financeiros")
-        .update({ status: "pago", data_pagamento: new Date().toISOString().slice(0, 10) })
+        .update({ status: "pago", data_pagamento: hojeBrasilia() })
         .eq("id", id);
       if (error) throw error;
     },

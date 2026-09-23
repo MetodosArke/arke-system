@@ -1,3 +1,4 @@
+import { dataBrasilia } from "../_shared/data.ts";
 // Mensalidade B2B recorrente: a assinatura no Asaas da academia com a ArkeFit.
 //
 // Antes cada mensalidade era emitida à mão na Visão Master
@@ -37,9 +38,7 @@ function mensagem(corpo: ErrosAsaas, padrao: string) {
 }
 
 /** Data de hoje em Brasília — a mensalidade B2B vale desde o primeiro dia. */
-export function hojeBrasilia(agora = new Date()): string {
-  return new Date(agora.getTime() - 3 * 60 * 60 * 1000).toISOString().slice(0, 10);
-}
+export { dataBrasilia as hojeBrasilia };
 
 export type DadosClienteB2b = { orgId: string; nome: string; cpfCnpj: string; email: string; telefone: string };
 

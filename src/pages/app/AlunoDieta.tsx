@@ -8,6 +8,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { UtensilsCrossed, Flame, MessageCircle, CalendarDays, ChevronDown, Repeat } from "lucide-react";
 import { MetodoArkeEmBreve } from "@/components/aluno/MetodoArkeEmBreve";
 import { temNutricaoNoPlano } from "@/lib/planoAluno";
+import { hojeBrasilia } from "@/lib/dataBrasilia";
 import { useNutricionistaDaAcademia } from "@/hooks/useNutricionistaDaAcademia";
 import { useToast } from "@/hooks/use-toast";
 import { ChatPanel } from "@/components/chat/ChatPanel";
@@ -31,7 +32,7 @@ interface RefeicaoSnapshot {
   gorduras_g: number | null;
 }
 
-const HOJE = new Date().toISOString().slice(0, 10);
+const HOJE = hojeBrasilia();
 
 export default function AlunoDieta() {
   const { alunoId, organization, planoAluno } = useAuth();

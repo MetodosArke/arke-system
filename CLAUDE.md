@@ -99,6 +99,106 @@ Quem cadastra: o próprio aluno (Perfil → Pagamento) ou gestor/recepção (fic
 
 **Dois interruptores, os dois desligados:** o secret `CARTAO_RECORRENTE_ATIVO` na edge function (sem ele responde 503 sem tocar no Asaas — verificado contra a função publicada) e `VITE_CARTAO_RECORRENTE` no frontend (sem ele a tela mostra a forma de pagamento e não oferece cadastro). O Asaas confirmou a captura de cartão pela API habilitada na conta de produção, e o fluxo passou no sandbox. **O que o sandbox não alcança:** a cobrança mensal efetivamente capturada no cartão (o sandbox não avança o relógio até o vencimento, e com cobrança vencendo no mesmo dia a troca de tipo responde 500) e o webhook `PAYMENT_CREDIT_CARD_CAPTURE_REFUSED` de verdade. Os dois só aparecem na primeira virada de mês com cartão real — conferir em **Visão Master → Webhooks** nesse dia. **Consequência da cobrança no dia da matrícula:** a primeira cobrança do Método vence no próprio dia, e com cobrança vencendo no dia o Asaas recusa a troca para cartão (500 no sandbox). Então, no dia da matrícula, o aluno paga a primeira pela fatura e o cartão só entra a partir do dia seguinte — a função responde com "tente de novo mais tarde", sem alterar nada. Vale conferir se em produção o Asaas se comporta igual.
 
+### Sandbox por organização: a corrente inteira sem dinheiro real (23/09/2026)
+
+Até aqui a URL e a chave do Asaas eram globais. Cada `fluxo.ts` já era exercitável em sandbox — o que cobre a **conversa com o gateway**, não a **corrente**: aluno → edge function → gateway → webhook → banco → gate de bloqueio. Testar a corrente exigiria cobrança de verdade, na conta de verdade, com um CPF sintético que pode ser de alguém.
+
+`supabase/functions/_shared/asaas.ts` (`ambienteAsaas`) resolve isso pelo **status da organização**, e não por um secret separado, porque é o status que já significa homologação: `trial` existe *apenas* como ferramenta de homologação, só o Super Admin atribui, e `trg_proteger_status_organizacao` recusa qualquer outro caminho. Assim é impossível uma academia pagante cair no sandbox por engano. Sem `ASAAS_SANDBOX_KEY` configurada, organização em trial **não** cai em produção por omissão: a chamada é recusada — erro explícito vale mais que cobrança real inesperada. Chave de produção no slot do sandbox também é recusada pelo prefixo `$aact_hmlg_`.
+
+As seis funções que chamam o gateway passam por ele (`asaas-create-subscription`, `academia-criar-matricula`, `asaas-assinatura-b2b`, `asaas-cartao-assinatura`, `asaas-conta-academia`, `asaas-emitir-cobranca-b2b`). `asaas-reconciliar` é a exceção documentada: **exclui** a homologação da varredura (`foraDeHomologacao()`), porque a varredura diária é uma consulta só sobre todas as organizações e perguntar à produção por cobrança que só existe no sandbox devolveria divergência falsa. `src/lib/ambienteAsaas.guarda.test.ts` lê o código-fonte e trava os dois invariantes — função que fala com o gateway passa por `ambienteAsaas`; ninguém além do roteador lê `ASAAS_API_KEY`. O defeito que ele previne **não dá erro**: função nova que leia a chave direto funciona em todo teste e cobra dinheiro real quando alguém exercita a homologação — aparece só no extrato.
+
+**Webhook do sandbox: segredo próprio, e trava de ambiente.** O Asaas devolve apenas `hasAuthToken`, nunca o valor — então o sandbox não tem como reusar o token de produção, e não deveria. `asaas-webhook` aceita `ASAAS_WEBHOOK_SECRET` **ou** `ASAAS_SANDBOX_WEBHOOK_SECRET`, e **qual dos dois validou decide o que o evento pode tocar**: evento do sandbox só age sobre organização em `trial`, evento de produção só sobre organização real. Não é defesa contra colisão de id (o espaço do Asaas torna isso irreal) — é contenção de raio: segredo de sandbox é credencial de teste e vive mais exposta; sem a trava, quem o obtivesse forjaria um `PAYMENT_CONFIRMED` para a assinatura de um aluno pagante e lhe daria acesso de graça. Evento que não resolve organização nenhuma segue e termina como "sem correspondência", que é o desfecho honesto.
+
+Dois achados de passagem ao apontar o webhook: os webhooks do sandbox apontavam para `https://arkefit.com.br/api/webhooks/asaas` e `.../arke-system.vercel.app/...`, **rotas que não existem no repositório** — resquício; foram removidos. O de produção estava correto, na edge function do projeto novo.
+
+**Conferido de ponta a ponta em 23/09/2026**, com `scripts/homologacao-cobranca.mjs`: subconta da homologação criada no sandbox para receber o split; 3 alunos com CPF sintético (módulo 11) e adesão ao Método; 3 assinaturas emitidas **pela edge function publicada**, autenticadas como gestor de verdade — não pela service role, que ignoraria o RLS e deixaria de provar justamente o portão de quem pode cobrar quem; segunda chamada no mesmo aluno recusada com 409. No Asaas: split de R$ 69,95 `ACTIVE` na assinatura e `PENDING` na cobrança, `valor_repasse_arke` travado em R$ 49,05 (45 + 4,05), primeira cobrança vencendo no dia e a seguinte em 30. Pagamento confirmado no sandbox → evento chegou, `asaas_webhook_events` marcou `pagamento_arke_criado` e `pagamentos` gravou `confirmado`; token inventado leva 401.
+
+**Defeito que só a corrente revelaria (`ReferenceError` em três funções).** Ao mover a chave para dentro do `try`, três `index.ts` ficaram com a checagem antiga `if (!… || !asaasApiKey)` fora daquele bloco — referência a constante que não existe mais ali. O `supabase functions deploy` empacota com esbuild, que **não faz análise de escopo**, então o deploy aceitou e as três quebrariam na primeira chamada autenticada. Lição de método: deploy bem-sucedido de edge function não é prova de que ela roda; sem Deno local, a prova é chamada autenticada de verdade.
+
+## Fuso do Banco: o defeito que a corrente de cobrança revelou (23/09/2026)
+
+Exercitando a cobrança na homologação, um aluno com cobrança vencendo **hoje** apareceu como inadimplente. A causa não estava na cobrança: **o banco está em UTC**, então entre 21h e meia-noite de Brasília `current_date` já é o dia seguinte, e tudo que decide por data decide três horas adiantado.
+
+O alcance é muito maior que a cobrança — **26 funções** do schema `public` comparam com `current_date` e **nove colunas `date`** têm `CURRENT_DATE` como default. O pior não é o financeiro:
+
+- `registro_treino.data`, `checkins.data`, `registro_habito.data` — **quem treina às 22h tem o treino gravado como sendo de amanhã**, todo dia, no horário de pico da academia. Desalinha o calendário, a meta semanal, o "treinar hoje" da Próxima Ação e a automação de "2 treinos previstos sem registro";
+- `aluno_inadimplente_b2c` / `organizacao_inadimplente_b2b` — cortam o acesso de quem tem cobrança vencendo hoje, três horas antes da hora, e encurtam as tolerâncias de 5 e 7 dias;
+- `exigir_atestado_para_treinar` — trava o treino no próprio dia da validade;
+- receita e lançamentos — na virada do mês, a noite do dia 1º conta no mês seguinte, e `marcar_lancamentos_atrasados` atrasa quem está em dia.
+
+**O remédio é a raiz, não as 26 funções**, porque o defeito não está em nenhuma delas: está na premissa de que `current_date` é a data do negócio. `alter database postgres set timezone = 'America/Sao_Paulo'` acerta as 26, os nove defaults e toda função futura — que de outro modo nasceria errada de novo. Foi exatamente assim que `presencas.dia` acabou sendo o **único** lugar do schema com `America/Sao_Paulo` escrito à mão: alguém tropeçou nisto antes e remendou um ponto só.
+
+Conferido antes de propor, porque as três dúvidas naturais têm resposta objetiva:
+
+- **`pg_cron` não se move.** Ele agenda pelo GUC próprio `cron.timezone`, que está em `GMT` e é independente de `ALTER DATABASE`. As 12 rotinas seguem nos mesmos horários UTC documentados.
+- **Nada muda de sentido no armazenamento.** `timestamptz` guarda em UTC e o fuso da sessão muda só a leitura; o schema **não tem nenhuma coluna `timestamp without time zone`**, que é o tipo que mudaria.
+- **O ajuste alcança quem importa.** Nenhum papel (`authenticator`, `authenticated`, `anon`, `postgres`…) sobrescreve `TimeZone` em `pg_db_role_setting`, então vale para PostgREST e para as edge functions, não só para quem se conecta pelo psql.
+
+A migration está em `supabase/migrations/20261221010000_fuso_brasilia.sql`. Vale para sessões novas.
+
+**Aplicada em 23/09/2026 — e o app tinha o mesmo defeito.** Depois do `alter database`, `current_date` passou a ser a data de Brasília e o PostgREST a devolver `-03:00` já na primeira leitura (o pool pegou na hora, sem esperar reciclagem); `cron.timezone` seguiu em `GMT`, como previsto. O aluno que aparecia bloqueado com cobrança vencendo hoje deixou de aparecer.
+
+Mas a correção do banco **revelou a metade que faltava**: o frontend calculava a data com `new Date().toISOString().slice(0, 10)` em 12 lugares, e `toISOString()` converte para UTC. Enquanto os dois erravam juntos ninguém notava; com o banco certo, eles passariam a **discordar três horas por noite** — o aluno registra o treino às 22h, o banco grava hoje, a tela pergunta por amanhã e responde "você ainda não treinou hoje". As edge functions tinham o mesmo problema, e o mais caro estava em `asaas-webhook`: `data_pagamento` gravado em UTC põe o pagamento das 22h do último dia do mês no fechamento do mês seguinte, o que vai para o contador.
+
+Havia **três grafias** convivendo, e a do meio é a mais traiçoeira porque quase acerta:
+
+| Grafia | O que devolve | Veredito |
+|---|---|---|
+| `new Date().toISOString().slice(0, 10)` | data em UTC | errada sempre, das 21h à meia-noite |
+| `getTime() - offset * 60_000` | data **do aparelho** | certa no Brasil com relógio certo; erra para quem viaja ou tem o fuso trocado |
+| `- 3 * 3600_000` / `- 3 * 60 * 60 * 1000` | Brasília | valor certo, motivo escrito em lugar nenhum, e some no horário de verão |
+
+O fuso é fixo em São Paulo, e **não o do aparelho**, porque a data que importa é a da academia: aluno viajando veria uma semana de treinos diferente da que a academia e o banco veem. Isso mora agora em `src/lib/dataBrasilia.ts` (`dataBrasilia`, `hojeBrasilia`, `diaBrasilia`, `inicioDoMesBrasilia`) e no espelho em Deno `supabase/functions/_shared/data.ts` — duplicado pelo motivo de sempre, edge function não importa do bundle do app. As 27 ocorrências do app e as 12 das edge functions passaram a usá-los.
+
+`src/lib/dataBrasilia.guarda.test.ts` varre **`src/` e `supabase/functions/`** e falha nas três grafias, verificada quebrando um arquivo de propósito. É a mesma classe do vínculo duplo: parece certo, e por isso volta a cada tela nova.
+
+**Conferido depois do deploy**, porque deploy não é prova: as quatro edge functions tocadas respondem 401 (o módulo sobe e o handler roda) e uma cobrança confirmada no sandbox gravou `data_pagamento = 2026-09-22`, a data de Brasília, ao lado da linha anterior que tinha `2026-09-23` — o antes e o depois na mesma tabela. **Nenhum dado real foi afetado**: o projeto novo só tem a organização de homologação.
+
+
+## Ciclo de Vida da Cobrança e a Mensalidade da Academia (23/09/2026)
+
+O sistema sabia **criar** cobrança e não sabia **parar**. Não existia cancelar, pausar nem alterar valor em lugar nenhum — nem tela, nem edge function, nem chamada ao gateway —, e o valor `cancelada` do enum era rótulo de tela que ninguém nunca gravava. A ausência puxava sempre para o lado mais caro, que é cobrar quem não deve:
+
+- **excluir um aluno** fazia `cascade` em `aluno_assinaturas`, `mensalidades` e `aluno_matriculas_academia`: o rastro sumia deste lado e o Asaas seguia cobrando uma pessoa real todo mês. A varredura de órfãs detecta e não corrige;
+- **pausar um aluno** tirava o acesso e mantinha a cobrança;
+- **mudar o preço de varejo** não alcançava quem já era assinante.
+
+**E havia um defeito pior que a ausência: cancelar bloqueava o aluno.** O `PAYMENT_DELETED` do Asaas virava `estornado`, e a condição do B2C pegava qualquer status que não fosse `confirmado` — então a cobrança apagada, com vencimento no passado, trancava justamente quem não devia mais nada.
+
+**A causa raiz é de uma linha, e vale como regra:** o B2C usava **lista de exclusão** (`status <> 'confirmado'`) onde o B2B usa **lista de inclusão** (`status in ('pendente','atrasado')`). A lista de exclusão trata todo status novo como dívida por omissão — foi por isso que só o B2C quebrou quando surgiu `estornado`, e quebraria de novo em `cancelado`. Dívida é só o que espera pagamento. `get_bloqueio_aluno` tinha o mesmo padrão nos números mostrados ao aluno; também corrigido.
+
+`PAYMENT_DELETED` ganhou status próprio (`cancelado`), separado de `estornado`: "não há o que pagar" não é "houve devolução".
+
+### O que o sandbox decidiu
+
+`asaas-assinatura-ciclo/fluxo.ts`, exercitado por `npm run sandbox:ciclo` (24 verificações):
+
+- `DELETE /subscriptions/{id}` **apaga as cobranças pendentes junto** e dispara um `PAYMENT_DELETED` de cada; é idempotente;
+- `PUT {status:"INACTIVE"}` pausa a emissão futura e **mantém** o que já foi emitido. Por isso **pausar remove a cobrança que ainda não venceu e mantém a já vencida**: uma é cobrança por período que o aluno não vai usar, a outra é dívida de período usado;
+- valor e split vão no mesmo `PUT`, e o split das pendentes acompanha. Isso é obrigatório: a parte da academia é **valor fixo**, então mudar o varejo sem mudar o split mudaria a divisão combinada em silêncio. Cobrança já vencida **não** tem o valor alterado retroativamente, e a resposta diz quais ficaram no valor antigo.
+
+### Saída do aluno: a ordem é obrigatória, não recomendada
+
+`trg_impedir_exclusao_com_cobranca_viva` (`before delete on alunos`) recusa excluir quem tem assinatura viva no gateway. Não impede excluir — obriga a ordem certa. `_shared/encerrarCobrancas.ts` é o que torna a ordem possível, e vale para os **dois** caminhos de saída: a anonimização LGPD preserva o registro financeiro de propósito (auditoria fiscal), mas não pode seguir cobrando quem exerceu o direito de apagamento.
+
+Pausar o aluno na tela passou a pausar a cobrança, e voltar a "em dia" a retoma. Se o gateway falhar, o erro aparece em alto e bom som em vez de virar cobrança silenciosa.
+
+### A mensalidade da academia, rodada pela primeira vez
+
+O fluxo principal do cliente — o aluno pagando a academia — **nunca tinha rodado uma vez sequer**, e estava fora da rede de segurança. A justificativa registrada era que `mensalidades.status` é `NOT NULL` e criar a linha na emissão quebraria o upsert. **Ela não se sustentava:** a coluna tem *default* `pendente`, então bastava **omitir** a chave em vez de mandá-la nula. Hoje `PAYMENT_CREATED`/`PAYMENT_UPDATED` registram a mensalidade como `pendente` com o vencimento, e omitir o status também impede que evento fora de ordem rebaixe uma mensalidade já paga.
+
+**O bloqueio não ganhou caminho novo.** Mensalidade vencida marca `situacao_academia = 'inadimplente'`, que é o mecanismo existente — com a tolerância de 5 dias, a contagem regressiva e o encerramento das automações. Dois caminhos para a mesma pergunta é como eles começam a divergir. `sincronizar_situacao_por_mensalidade()` marca e libera, e **só desfaz a marca que ela mesma criou** (reconhecida pelo motivo): marca feita à mão pela recepção, por outro motivo, fica de pé. Roda no webhook e na rotina `arke-situacao-mensalidade` (05:30 UTC — depois da reconciliação das 04:30, que conserta o `PAYMENT_CONFIRMED` perdido, e antes das rotinas que abrem tarefa de manhã).
+
+### O defeito que só rodar encontrou
+
+Confirmar a mensalidade levantava **`42P10 — no unique or exclusion constraint matching the ON CONFLICT specification`**. O índice existe, mas é **parcial** (`where origem_automatica is not null`), e o PostgreSQL só infere índice parcial quando o `ON CONFLICT` repete o predicado. Sem o `where`, falha **em tempo de execução, nunca na criação** — por isso passou despercebido: o código está correto à leitura.
+
+Atingia duas funções, as duas em produção e nenhuma jamais exercitada: `lancar_receita_mensalidade` (gatilho `after update` na própria `mensalidades` — a exceção derrubaria a transação inteira, e o webhook não conseguiria marcar como confirmada: o aluno ficaria devendo uma mensalidade que pagou) e `lancar_despesa_folha`. **Regra que fica: `ON CONFLICT` sobre índice parcial precisa repetir o predicado.**
+
+### Conferido
+
+Em três camadas. No sandbox, 24 verificações sobre o `fluxo.ts` real. Pela função publicada e autenticado como gestor de verdade, 17 — incluindo excluir um aluno com assinatura ativa e ver a assinatura morrer no gateway sem deixar órfã. E o fluxo da mensalidade de ponta a ponta, 14 verificações: matrícula criada com split (R$129,90 → academia R$125,53, ArkeFit R$4,37 de taxa), emissão registrada, vencimento simulando `PAYMENT_OVERDUE` perdido marcando inadimplente, pagamento liberando, marca manual preservada, exclusão cancelando no gateway, e o lançamento financeiro automático de fato criado. Zero assinaturas órfãs ao fim.
+
 ## Trial e Bloqueio por Pagamento
 
 ### Trial não é oferta comercial

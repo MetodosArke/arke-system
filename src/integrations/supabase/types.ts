@@ -254,6 +254,9 @@ export type Database = {
         Row: {
           aluno_id: string
           asaas_subscription_id: string | null
+          cancelada_em: string | null
+          cancelada_por: string | null
+          cancelamento_motivo: string | null
           cartao_atualizado_em: string | null
           cartao_atualizado_por: string | null
           cartao_bandeira: string | null
@@ -265,6 +268,8 @@ export type Database = {
           id: string
           nivel_atacado: Database["public"]["Enums"]["nivel_atacado"]
           organization_id: string
+          pausada_em: string | null
+          pausada_por: string | null
           proxima_cobranca: string | null
           reconciliada_em: string | null
           status: Database["public"]["Enums"]["assinatura_status"]
@@ -276,6 +281,9 @@ export type Database = {
         Insert: {
           aluno_id: string
           asaas_subscription_id?: string | null
+          cancelada_em?: string | null
+          cancelada_por?: string | null
+          cancelamento_motivo?: string | null
           cartao_atualizado_em?: string | null
           cartao_atualizado_por?: string | null
           cartao_bandeira?: string | null
@@ -287,6 +295,8 @@ export type Database = {
           id?: string
           nivel_atacado: Database["public"]["Enums"]["nivel_atacado"]
           organization_id: string
+          pausada_em?: string | null
+          pausada_por?: string | null
           proxima_cobranca?: string | null
           reconciliada_em?: string | null
           status?: Database["public"]["Enums"]["assinatura_status"]
@@ -298,6 +308,9 @@ export type Database = {
         Update: {
           aluno_id?: string
           asaas_subscription_id?: string | null
+          cancelada_em?: string | null
+          cancelada_por?: string | null
+          cancelamento_motivo?: string | null
           cartao_atualizado_em?: string | null
           cartao_atualizado_por?: string | null
           cartao_bandeira?: string | null
@@ -309,6 +322,8 @@ export type Database = {
           id?: string
           nivel_atacado?: Database["public"]["Enums"]["nivel_atacado"]
           organization_id?: string
+          pausada_em?: string | null
+          pausada_por?: string | null
           proxima_cobranca?: string | null
           reconciliada_em?: string | null
           status?: Database["public"]["Enums"]["assinatura_status"]
@@ -5057,6 +5072,10 @@ export type Database = {
         Returns: boolean
       }
       aluno_inadimplente_b2c: { Args: { _aluno_id: string }; Returns: boolean }
+      aluno_mensalidade_vencida: {
+        Args: { _aluno_id: string }
+        Returns: boolean
+      }
       aluno_possui_agendamento_ativo_agora: {
         Args: { _aluno_id: string }
         Returns: boolean
@@ -5527,6 +5546,9 @@ export type Database = {
         Returns: {
           aluno_id: string
           asaas_subscription_id: string | null
+          cancelada_em: string | null
+          cancelada_por: string | null
+          cancelamento_motivo: string | null
           cartao_atualizado_em: string | null
           cartao_atualizado_por: string | null
           cartao_bandeira: string | null
@@ -5538,6 +5560,8 @@ export type Database = {
           id: string
           nivel_atacado: Database["public"]["Enums"]["nivel_atacado"]
           organization_id: string
+          pausada_em: string | null
+          pausada_por: string | null
           proxima_cobranca: string | null
           reconciliada_em: string | null
           status: Database["public"]["Enums"]["assinatura_status"]
@@ -5789,6 +5813,13 @@ export type Database = {
           ultimo_erro: string
         }[]
       }
+      sincronizar_situacao_por_mensalidade: {
+        Args: never
+        Returns: {
+          liberados: number
+          marcados: number
+        }[]
+      }
       situacao_permite_app: {
         Args: {
           _desde: string
@@ -5820,7 +5851,12 @@ export type Database = {
         | "aluno"
         | "superadmin"
         | "recepcao"
-      assinatura_status: "ativa" | "atrasada" | "cancelada" | "trial"
+      assinatura_status:
+        | "ativa"
+        | "atrasada"
+        | "cancelada"
+        | "trial"
+        | "pausada"
       checkin_status:
         | "funcionando_bem"
         | "preciso_ajuste"
@@ -5863,7 +5899,12 @@ export type Database = {
       nivel_atacado: "essencial" | "integrado" | "elite"
       org_status: "trial" | "ativo" | "inadimplente" | "suspenso" | "cancelado"
       organization_tipo: "academia" | "profissional_autonomo" | "studio"
-      pagamento_status: "pendente" | "confirmado" | "atrasado" | "estornado"
+      pagamento_status:
+        | "pendente"
+        | "confirmado"
+        | "atrasado"
+        | "estornado"
+        | "cancelado"
       periodicidade_plano_academia:
         | "mensal"
         | "trimestral"
@@ -6040,7 +6081,7 @@ export const Constants = {
         "superadmin",
         "recepcao",
       ],
-      assinatura_status: ["ativa", "atrasada", "cancelada", "trial"],
+      assinatura_status: ["ativa", "atrasada", "cancelada", "trial", "pausada"],
       checkin_status: [
         "funcionando_bem",
         "preciso_ajuste",
@@ -6088,7 +6129,13 @@ export const Constants = {
       nivel_atacado: ["essencial", "integrado", "elite"],
       org_status: ["trial", "ativo", "inadimplente", "suspenso", "cancelado"],
       organization_tipo: ["academia", "profissional_autonomo", "studio"],
-      pagamento_status: ["pendente", "confirmado", "atrasado", "estornado"],
+      pagamento_status: [
+        "pendente",
+        "confirmado",
+        "atrasado",
+        "estornado",
+        "cancelado",
+      ],
       periodicidade_plano_academia: [
         "mensal",
         "trimestral",

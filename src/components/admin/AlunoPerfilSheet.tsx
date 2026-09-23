@@ -22,6 +22,7 @@ import { MetasAluno } from "@/components/admin/MetasAluno";
 import { HistoricoAluno } from "@/components/admin/HistoricoAluno";
 import { AcessoCatraca } from "@/components/admin/AcessoCatraca";
 import { CartaoAssinatura } from "@/components/pagamento/CartaoAssinatura";
+import { CicloAssinatura } from "@/components/pagamento/CicloAssinatura";
 import { useToast } from "@/hooks/use-toast";
 import { SituacaoAluno } from "@/components/admin/SituacaoAluno";
 import { DocumentosMatriculaAluno } from "@/components/admin/DocumentosMatriculaAluno";

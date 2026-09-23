@@ -1,3 +1,4 @@
+import { diaBrasilia } from "@/lib/dataBrasilia";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -57,9 +58,7 @@ export default function AdminRetencao() {
   const { data: alunosRisco = [], isLoading: isLoadingRisco } = useQuery({
     queryKey: ["retencao-alunos-risco", organization?.id],
     queryFn: async () => {
-      const cincoDiasAtras = new Date();
-      cincoDiasAtras.setDate(cincoDiasAtras.getDate() - 5);
-      const cincoDiasIso = cincoDiasAtras.toISOString().slice(0, 10);
+      const cincoDiasIso = diaBrasilia(-5);
 
       const [{ data: alunosAtivos }, { data: registros }, { data: tarefasDor }] = await Promise.all([
         supabase
