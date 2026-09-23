@@ -1,5 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { criarOuAdotarAssinaturaB2b, garantirClienteB2b, hojeBrasilia } from "./fluxo.ts";
+import { ambienteAsaas } from "../_shared/asaas.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -31,9 +32,7 @@ Deno.serve(async (req: Request) => {
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
   const anonKey = Deno.env.get("SUPABASE_ANON_KEY");
   const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-  const asaasApiKey = Deno.env.get("ASAAS_API_KEY");
-  const asaasApiUrl = Deno.env.get("ASAAS_API_URL") ?? "https://api.asaas.com/v3";
-  if (!supabaseUrl || !anonKey || !serviceRoleKey || !asaasApiKey) {
+  if (!supabaseUrl || !anonKey || !serviceRoleKey) {
     return jsonResponse({ error: "Configuração do servidor incompleta." }, 500);
   }
 
@@ -67,7 +66,16 @@ Deno.serve(async (req: Request) => {
       .select("id, nome, razao_social, cnpj_cpf, email_contato, telefone, status, plano_b2b, onboarding_completed, asaas_customer_id_b2b, asaas_subscription_id_b2b")
       .eq("id", organizationId)
       .maybeSingle();
+
     if (!org) return jsonResponse({ error: "Organização não encontrada." }, 404);
+    // Organização em trial é homologação: fala com o sandbox do Asaas.
+    const ambiente = ambienteAsaas(org.status, (n) => Deno.env.get(n));
+    if ("erro" in ambiente) {
+      return jsonResponse({ error: ambiente.erro }, 500);
+    }
+    const asaasApiUrl = ambiente.api;
+    const asaasApiKey = ambiente.chave;
+
 
     if (org.asaas_subscription_id_b2b) {
       return jsonResponse({ ok: true, subscription_id: org.asaas_subscription_id_b2b, ja_existia: true });

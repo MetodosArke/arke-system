@@ -1,5 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { ligarCartaoNaAssinatura } from "./fluxo.ts";
+import { ambienteAsaas } from "../_shared/asaas.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -133,9 +134,7 @@ Deno.serve(async (req: Request) => {
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
   const anonKey = Deno.env.get("SUPABASE_ANON_KEY");
   const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-  const asaasApiKey = Deno.env.get("ASAAS_API_KEY");
-  const asaasApiUrl = Deno.env.get("ASAAS_API_URL") ?? "https://api.asaas.com/v3";
-  if (!supabaseUrl || !anonKey || !serviceRoleKey || !asaasApiKey) {
+  if (!supabaseUrl || !anonKey || !serviceRoleKey) {
     console.error("Configuração incompleta para cartão recorrente");
     return jsonResponse({ error: "Configuração do servidor incompleta." }, 500);
   }
@@ -193,6 +192,20 @@ Deno.serve(async (req: Request) => {
     if (!aluno) return jsonResponse({ error: "Aluno não encontrado ou sem permissão de acesso." }, 404);
 
     const admin = createClient(supabaseUrl, serviceRoleKey);
+
+    // A organização do aluno decide o ambiente: em trial é homologação e
+    // fala com o sandbox do Asaas.
+    const { data: orgDoAluno } = await admin
+      .from("organizations")
+      .select("status")
+      .eq("id", aluno.organization_id)
+      .maybeSingle();
+    const ambiente = ambienteAsaas(orgDoAluno?.status, (n) => Deno.env.get(n));
+    if ("erro" in ambiente) {
+      return jsonResponse({ error: ambiente.erro }, 500);
+    }
+    const asaasApiUrl = ambiente.api;
+    const asaasApiKey = ambiente.chave;
     if (aluno.user_id !== callerId) {
       const { data: vinculo } = await admin
         .from("organization_members")

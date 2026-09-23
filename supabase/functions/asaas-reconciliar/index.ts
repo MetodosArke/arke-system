@@ -182,29 +182,53 @@ Deno.serve(async (req: Request) => {
     const { data: valido } = await admin.rpc("conferir_token_reconciliacao", { _token: token });
     if (!valido) return jsonResponse({ error: "Não autorizado." }, 401);
 
+    // A varredura é da produção, e por isso exclui as organizações em trial.
+    //
+    // Desde 23/09/2026 organização em trial fala com o **sandbox** do Asaas
+    // (ver `_shared/asaas.ts`): as assinaturas dela existem lá, não aqui.
+    // Perguntar à produção por um id de sandbox devolveria "não encontrado"
+    // para toda uma academia de homologação — ruído diário na faixa vermelha
+    // da Visão Master, exatamente onde só deveria aparecer problema real.
+    //
+    // Homologação não precisa de reconciliação automática: ela é exercitada
+    // à mão, e a rede de segurança existe para o dinheiro de cliente.
+    const { data: emHomologacao } = await admin
+      .from("organizations")
+      .select("id")
+      .eq("status", "trial");
+    const idsHomologacao = (emHomologacao ?? []).map((o) => o.id as string);
+    const foraDeHomologacao = <T extends { not: (c: string, o: string, v: string) => T }>(consulta: T): T =>
+      idsHomologacao.length ? consulta.not("organization_id", "in", `(${idsHomologacao.join(",")})`) : consulta;
+
     let erro: string | null = null;
     let orfas: { id: string; referencia: string }[] = [];
     try {
-      const { data: metodo } = await admin
-        .from("aluno_assinaturas")
-        .select("asaas_subscription_id")
-        .not("asaas_subscription_id", "is", null)
-        .in("status", ["ativa", "atrasada"]);
+      const { data: metodo } = await foraDeHomologacao(
+        admin
+          .from("aluno_assinaturas")
+          .select("asaas_subscription_id")
+          .not("asaas_subscription_id", "is", null)
+          .in("status", ["ativa", "atrasada"]),
+      );
       for (const a of metodo ?? []) await conferirAssinatura(ctx, "metodo", a.asaas_subscription_id as string, "pagamentos");
 
-      const { data: planos } = await admin
-        .from("aluno_matriculas_academia")
-        .select("asaas_subscription_id")
-        .not("asaas_subscription_id", "is", null)
-        .eq("status", "ativa");
+      const { data: planos } = await foraDeHomologacao(
+        admin
+          .from("aluno_matriculas_academia")
+          .select("asaas_subscription_id")
+          .not("asaas_subscription_id", "is", null)
+          .eq("status", "ativa"),
+      );
       for (const m of planos ?? []) await conferirAssinatura(ctx, "plano", m.asaas_subscription_id as string, "mensalidades");
 
       // B2B: cobrança avulsa, sem assinatura — confere uma a uma.
-      const { data: b2b } = await admin
-        .from("cobrancas_b2b")
-        .select("asaas_payment_id, status")
-        .not("asaas_payment_id", "is", null)
-        .in("status", ["pendente", "atrasado"]);
+      const { data: b2b } = await foraDeHomologacao(
+        admin
+          .from("cobrancas_b2b")
+          .select("asaas_payment_id, status")
+          .not("asaas_payment_id", "is", null)
+          .in("status", ["pendente", "atrasado"]),
+      );
       for (const c of b2b ?? []) {
         let p: PagamentoAsaas;
         try {

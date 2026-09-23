@@ -52,6 +52,10 @@ Deno.serve(async (req: Request) => {
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
   const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
   const webhookSecret = Deno.env.get("ASAAS_WEBHOOK_SECRET");
+  // Segredo próprio da homologação. O Asaas não devolve o token configurado
+  // (só `hasAuthToken`), então o sandbox não tem como reusar o de produção —
+  // e não deveria: é credencial de teste, mais exposta por natureza.
+  const webhookSecretSandbox = Deno.env.get("ASAAS_SANDBOX_WEBHOOK_SECRET");
 
   if (!supabaseUrl || !serviceRoleKey) {
     console.error("Missing required Supabase environment variables");
@@ -63,7 +67,15 @@ Deno.serve(async (req: Request) => {
   }
 
   const tokenRecebido = req.headers.get("asaas-access-token");
-  if (!tokenRecebido || !timingSafeEqual(tokenRecebido, webhookSecret)) {
+  // Qual dos dois segredos validou decide o que este evento pode tocar.
+  const origemEvento: "producao" | "sandbox" | null = !tokenRecebido
+    ? null
+    : timingSafeEqual(tokenRecebido, webhookSecret)
+      ? "producao"
+      : webhookSecretSandbox && timingSafeEqual(tokenRecebido, webhookSecretSandbox)
+        ? "sandbox"
+        : null;
+  if (!origemEvento) {
     return jsonResponse({ error: "Assinatura do webhook inválida." }, 401);
   }
 
@@ -140,6 +152,49 @@ Deno.serve(async (req: Request) => {
       .update({ processado: true, processed_at: new Date().toISOString(), resultado })
       .eq("id", eventoRegistrado.id);
   };
+
+  // Trava de ambiente: evento do sandbox só toca organização em homologação,
+  // evento de produção só toca organização real.
+  //
+  // Não é defesa contra colisão de id (o espaço do Asaas torna isso irreal) —
+  // é contenção de raio. O segredo do sandbox é credencial de teste e vive
+  // mais exposta; sem esta trava, quem o obtivesse poderia forjar um
+  // PAYMENT_CONFIRMED para a assinatura de um aluno pagante de verdade e lhe
+  // dar acesso de graça. Com ela, o estrago para em organizações em trial.
+  const referencia = payment.externalReference ? String(payment.externalReference) : null;
+  const subscriptionDoEvento = payment.subscription ? String(payment.subscription) : null;
+  const statusDaOrganizacao = async (): Promise<string | null> => {
+    if (subscriptionDoEvento) {
+      const [metodo, b2b, mensalidade] = await Promise.all([
+        admin.from("aluno_assinaturas").select("organization_id").eq("asaas_subscription_id", subscriptionDoEvento).maybeSingle(),
+        admin.from("organizations").select("status").eq("asaas_subscription_id_b2b", subscriptionDoEvento).maybeSingle(),
+        admin.from("aluno_matriculas_academia").select("organization_id").eq("asaas_subscription_id", subscriptionDoEvento).limit(1).maybeSingle(),
+      ]);
+      if (b2b.data?.status) return b2b.data.status;
+      const orgId = metodo.data?.organization_id ?? mensalidade.data?.organization_id;
+      if (orgId) {
+        const { data } = await admin.from("organizations").select("status").eq("id", orgId).maybeSingle();
+        return data?.status ?? null;
+      }
+    }
+    // `org:<id>` e `b2b:<id>` carregam a organização direto na referência.
+    const m = referencia?.match(/^(?:org|b2b):([0-9a-f-]{36})$/i);
+    if (m) {
+      const { data } = await admin.from("organizations").select("status").eq("id", m[1]).maybeSingle();
+      return data?.status ?? null;
+    }
+    return null;
+  };
+  const statusOrg = await statusDaOrganizacao();
+  // Evento que não resolve organização nenhuma não tem o que tocar; segue e
+  // termina como "sem correspondência", que é o desfecho honesto.
+  if (statusOrg !== null) {
+    const ehHomologacao = statusOrg === "trial";
+    if (ehHomologacao !== (origemEvento === "sandbox")) {
+      await concluir(`ambiente_incompativel:${origemEvento}`);
+      return jsonResponse({ ok: true, ignorado: "ambiente incompatível" });
+    }
+  }
 
   try {
     // Sem payment.id não há o que casar; o evento fica registrado só como log.

@@ -1,4 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { ambienteAsaas } from "../_shared/asaas.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -100,15 +101,9 @@ Deno.serve(async (req: Request) => {
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
   const anonKey = Deno.env.get("SUPABASE_ANON_KEY");
   const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-  const asaasApiKey = Deno.env.get("ASAAS_API_KEY");
-  const asaasApiUrl = Deno.env.get("ASAAS_API_URL") ?? "https://api.asaas.com/v3";
-
   if (!supabaseUrl || !anonKey || !serviceRoleKey) {
     console.error("Missing required Supabase environment variables");
     return errorResponse("Configuração do servidor incompleta.");
-  }
-  if (!asaasApiKey) {
-    return errorResponse("ASAAS_API_KEY não configurada. Configure o secret no projeto Supabase antes de emitir cobranças.");
   }
 
   try {
@@ -154,14 +149,23 @@ Deno.serve(async (req: Request) => {
 
     const { data: org, error: orgError } = await adminClient
       .from("organizations")
-      .select("id, nome, cnpj_cpf, telefone, asaas_customer_id_b2b")
+      .select("id, nome, status, cnpj_cpf, telefone, asaas_customer_id_b2b")
       .eq("id", organizationId)
       .maybeSingle();
+
     if (orgError) {
       console.error("Error loading organization", orgError);
       return errorResponse("Erro ao carregar a organização.");
     }
     if (!org) return errorResponse("Organização não encontrada.");
+    // Organização em trial é homologação: fala com o sandbox do Asaas.
+    const ambiente = ambienteAsaas(org.status, (n) => Deno.env.get(n));
+    if ("erro" in ambiente) {
+      return jsonResponse({ error: ambiente.erro }, 500);
+    }
+    const asaasApiUrl = ambiente.api;
+    const asaasApiKey = ambiente.chave;
+
 
     const cnpjCpfLimpo = org.cnpj_cpf ? somenteDigitos(org.cnpj_cpf) : "";
     if (cnpjCpfLimpo.length !== 11 && cnpjCpfLimpo.length !== 14) {

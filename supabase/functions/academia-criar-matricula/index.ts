@@ -1,4 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { ambienteAsaas } from "../_shared/asaas.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -153,15 +154,10 @@ Deno.serve(async (req: Request) => {
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
   const anonKey = Deno.env.get("SUPABASE_ANON_KEY");
   const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-  const asaasApiKey = Deno.env.get("ASAAS_API_KEY");
-  const asaasApiUrl = Deno.env.get("ASAAS_API_URL") ?? "https://api.asaas.com/v3";
 
   if (!supabaseUrl || !anonKey || !serviceRoleKey) {
     console.error("Missing required Supabase environment variables");
     return jsonResponse({ error: "Configuração do servidor incompleta." }, 500);
-  }
-  if (!asaasApiKey) {
-    return jsonResponse({ error: "ASAAS_API_KEY não configurada." }, 500);
   }
 
   try {
@@ -232,6 +228,14 @@ Deno.serve(async (req: Request) => {
         422
       );
     }
+
+    // Organização em trial é homologação e fala com o sandbox do Asaas.
+    const ambiente = ambienteAsaas(org.status, (n) => Deno.env.get(n));
+    if ("erro" in ambiente) {
+      return jsonResponse({ error: ambiente.erro }, 500);
+    }
+    const asaasApiUrl = ambiente.api;
+    const asaasApiKey = ambiente.chave;
 
     const valorCobrado = payload.valor_cobrado && payload.valor_cobrado > 0 ? payload.valor_cobrado : Number(plano.valor);
 

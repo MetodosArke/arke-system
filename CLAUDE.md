@@ -99,6 +99,43 @@ Quem cadastra: o próprio aluno (Perfil → Pagamento) ou gestor/recepção (fic
 
 **Dois interruptores, os dois desligados:** o secret `CARTAO_RECORRENTE_ATIVO` na edge function (sem ele responde 503 sem tocar no Asaas — verificado contra a função publicada) e `VITE_CARTAO_RECORRENTE` no frontend (sem ele a tela mostra a forma de pagamento e não oferece cadastro). O Asaas confirmou a captura de cartão pela API habilitada na conta de produção, e o fluxo passou no sandbox. **O que o sandbox não alcança:** a cobrança mensal efetivamente capturada no cartão (o sandbox não avança o relógio até o vencimento, e com cobrança vencendo no mesmo dia a troca de tipo responde 500) e o webhook `PAYMENT_CREDIT_CARD_CAPTURE_REFUSED` de verdade. Os dois só aparecem na primeira virada de mês com cartão real — conferir em **Visão Master → Webhooks** nesse dia. **Consequência da cobrança no dia da matrícula:** a primeira cobrança do Método vence no próprio dia, e com cobrança vencendo no dia o Asaas recusa a troca para cartão (500 no sandbox). Então, no dia da matrícula, o aluno paga a primeira pela fatura e o cartão só entra a partir do dia seguinte — a função responde com "tente de novo mais tarde", sem alterar nada. Vale conferir se em produção o Asaas se comporta igual.
 
+### Sandbox por organização: a corrente inteira sem dinheiro real (23/09/2026)
+
+Até aqui a URL e a chave do Asaas eram globais. Cada `fluxo.ts` já era exercitável em sandbox — o que cobre a **conversa com o gateway**, não a **corrente**: aluno → edge function → gateway → webhook → banco → gate de bloqueio. Testar a corrente exigiria cobrança de verdade, na conta de verdade, com um CPF sintético que pode ser de alguém.
+
+`supabase/functions/_shared/asaas.ts` (`ambienteAsaas`) resolve isso pelo **status da organização**, e não por um secret separado, porque é o status que já significa homologação: `trial` existe *apenas* como ferramenta de homologação, só o Super Admin atribui, e `trg_proteger_status_organizacao` recusa qualquer outro caminho. Assim é impossível uma academia pagante cair no sandbox por engano. Sem `ASAAS_SANDBOX_KEY` configurada, organização em trial **não** cai em produção por omissão: a chamada é recusada — erro explícito vale mais que cobrança real inesperada. Chave de produção no slot do sandbox também é recusada pelo prefixo `$aact_hmlg_`.
+
+As seis funções que chamam o gateway passam por ele (`asaas-create-subscription`, `academia-criar-matricula`, `asaas-assinatura-b2b`, `asaas-cartao-assinatura`, `asaas-conta-academia`, `asaas-emitir-cobranca-b2b`). `asaas-reconciliar` é a exceção documentada: **exclui** a homologação da varredura (`foraDeHomologacao()`), porque a varredura diária é uma consulta só sobre todas as organizações e perguntar à produção por cobrança que só existe no sandbox devolveria divergência falsa. `src/lib/ambienteAsaas.guarda.test.ts` lê o código-fonte e trava os dois invariantes — função que fala com o gateway passa por `ambienteAsaas`; ninguém além do roteador lê `ASAAS_API_KEY`. O defeito que ele previne **não dá erro**: função nova que leia a chave direto funciona em todo teste e cobra dinheiro real quando alguém exercita a homologação — aparece só no extrato.
+
+**Webhook do sandbox: segredo próprio, e trava de ambiente.** O Asaas devolve apenas `hasAuthToken`, nunca o valor — então o sandbox não tem como reusar o token de produção, e não deveria. `asaas-webhook` aceita `ASAAS_WEBHOOK_SECRET` **ou** `ASAAS_SANDBOX_WEBHOOK_SECRET`, e **qual dos dois validou decide o que o evento pode tocar**: evento do sandbox só age sobre organização em `trial`, evento de produção só sobre organização real. Não é defesa contra colisão de id (o espaço do Asaas torna isso irreal) — é contenção de raio: segredo de sandbox é credencial de teste e vive mais exposta; sem a trava, quem o obtivesse forjaria um `PAYMENT_CONFIRMED` para a assinatura de um aluno pagante e lhe daria acesso de graça. Evento que não resolve organização nenhuma segue e termina como "sem correspondência", que é o desfecho honesto.
+
+Dois achados de passagem ao apontar o webhook: os webhooks do sandbox apontavam para `https://arkefit.com.br/api/webhooks/asaas` e `.../arke-system.vercel.app/...`, **rotas que não existem no repositório** — resquício; foram removidos. O de produção estava correto, na edge function do projeto novo.
+
+**Conferido de ponta a ponta em 23/09/2026**, com `scripts/homologacao-cobranca.mjs`: subconta da homologação criada no sandbox para receber o split; 3 alunos com CPF sintético (módulo 11) e adesão ao Método; 3 assinaturas emitidas **pela edge function publicada**, autenticadas como gestor de verdade — não pela service role, que ignoraria o RLS e deixaria de provar justamente o portão de quem pode cobrar quem; segunda chamada no mesmo aluno recusada com 409. No Asaas: split de R$ 69,95 `ACTIVE` na assinatura e `PENDING` na cobrança, `valor_repasse_arke` travado em R$ 49,05 (45 + 4,05), primeira cobrança vencendo no dia e a seguinte em 30. Pagamento confirmado no sandbox → evento chegou, `asaas_webhook_events` marcou `pagamento_arke_criado` e `pagamentos` gravou `confirmado`; token inventado leva 401.
+
+**Defeito que só a corrente revelaria (`ReferenceError` em três funções).** Ao mover a chave para dentro do `try`, três `index.ts` ficaram com a checagem antiga `if (!… || !asaasApiKey)` fora daquele bloco — referência a constante que não existe mais ali. O `supabase functions deploy` empacota com esbuild, que **não faz análise de escopo**, então o deploy aceitou e as três quebrariam na primeira chamada autenticada. Lição de método: deploy bem-sucedido de edge function não é prova de que ela roda; sem Deno local, a prova é chamada autenticada de verdade.
+
+## Fuso do Banco: o defeito que a corrente de cobrança revelou (23/09/2026)
+
+Exercitando a cobrança na homologação, um aluno com cobrança vencendo **hoje** apareceu como inadimplente. A causa não estava na cobrança: **o banco está em UTC**, então entre 21h e meia-noite de Brasília `current_date` já é o dia seguinte, e tudo que decide por data decide três horas adiantado.
+
+O alcance é muito maior que a cobrança — **26 funções** do schema `public` comparam com `current_date` e **nove colunas `date`** têm `CURRENT_DATE` como default. O pior não é o financeiro:
+
+- `registro_treino.data`, `checkins.data`, `registro_habito.data` — **quem treina às 22h tem o treino gravado como sendo de amanhã**, todo dia, no horário de pico da academia. Desalinha o calendário, a meta semanal, o "treinar hoje" da Próxima Ação e a automação de "2 treinos previstos sem registro";
+- `aluno_inadimplente_b2c` / `organizacao_inadimplente_b2b` — cortam o acesso de quem tem cobrança vencendo hoje, três horas antes da hora, e encurtam as tolerâncias de 5 e 7 dias;
+- `exigir_atestado_para_treinar` — trava o treino no próprio dia da validade;
+- receita e lançamentos — na virada do mês, a noite do dia 1º conta no mês seguinte, e `marcar_lancamentos_atrasados` atrasa quem está em dia.
+
+**O remédio é a raiz, não as 26 funções**, porque o defeito não está em nenhuma delas: está na premissa de que `current_date` é a data do negócio. `alter database postgres set timezone = 'America/Sao_Paulo'` acerta as 26, os nove defaults e toda função futura — que de outro modo nasceria errada de novo. Foi exatamente assim que `presencas.dia` acabou sendo o **único** lugar do schema com `America/Sao_Paulo` escrito à mão: alguém tropeçou nisto antes e remendou um ponto só.
+
+Conferido antes de propor, porque as três dúvidas naturais têm resposta objetiva:
+
+- **`pg_cron` não se move.** Ele agenda pelo GUC próprio `cron.timezone`, que está em `GMT` e é independente de `ALTER DATABASE`. As 12 rotinas seguem nos mesmos horários UTC documentados.
+- **Nada muda de sentido no armazenamento.** `timestamptz` guarda em UTC e o fuso da sessão muda só a leitura; o schema **não tem nenhuma coluna `timestamp without time zone`**, que é o tipo que mudaria.
+- **O ajuste alcança quem importa.** Nenhum papel (`authenticator`, `authenticated`, `anon`, `postgres`…) sobrescreve `TimeZone` em `pg_db_role_setting`, então vale para PostgREST e para as edge functions, não só para quem se conecta pelo psql.
+
+A migration está pronta em `supabase/migrations/20261221010000_fuso_brasilia.sql`. Vale para sessões novas; o pool do PostgREST leva alguns minutos para reciclar as abertas.
+
 ## Trial e Bloqueio por Pagamento
 
 ### Trial não é oferta comercial

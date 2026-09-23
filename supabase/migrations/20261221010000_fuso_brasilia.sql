@@ -1,0 +1,42 @@
+-- Fuso do banco: UTC → America/Sao_Paulo.
+--
+-- Descoberto em 23/09/2026 exercitando a corrente de cobrança na homologação:
+-- um aluno com cobrança vencendo HOJE aparecia como inadimplente. O banco
+-- estava em UTC, então entre 21h e meia-noite de Brasília `current_date` já
+-- era o dia seguinte — e tudo que decide por data decidia três horas adiantado.
+--
+-- O alcance é muito maior que a cobrança. 26 funções do schema `public`
+-- comparam com `current_date`, e nove colunas `date` têm `CURRENT_DATE` como
+-- default. As consequências diárias, no horário de pico da academia:
+--
+--   * `registro_treino.data`, `checkins.data`, `registro_habito.data` — quem
+--     treina às 22h tem o treino gravado como sendo de amanhã. Isso desalinha
+--     o calendário, a meta semanal, o "treinar hoje" da Próxima Ação e a
+--     automação de "2 treinos previstos sem registro";
+--   * `aluno_inadimplente_b2c` / `organizacao_inadimplente_b2b` — corta o
+--     acesso de quem tem cobrança vencendo hoje, três horas antes da hora;
+--   * `exigir_atestado_para_treinar` — trava o treino no dia da validade;
+--   * receita e lançamentos — na virada do mês, a noite do dia 1º conta no mês
+--     seguinte, e `marcar_lancamentos_atrasados` atrasa quem está em dia.
+--
+-- Corrigir na raiz, e não função a função, porque o defeito não está em
+-- nenhuma delas: está na premissa de que `current_date` é a data do negócio.
+-- Trocar o fuso acerta as 26 funções, os nove defaults e toda função futura,
+-- que de outro modo nasceria errada de novo — foi assim que `presencas.dia`
+-- acabou sendo o único lugar com `America/Sao_Paulo` escrito à mão.
+--
+-- Por que é seguro:
+--   * `timestamptz` guarda em UTC; o fuso da sessão muda só a leitura. E o
+--     schema não tem nenhuma coluna `timestamp without time zone`, que é o
+--     tipo que mudaria de sentido.
+--   * nenhum papel (`authenticator`, `authenticated`, `anon`, `postgres`…)
+--     sobrescreve `TimeZone` em `pg_db_role_setting`, então o ajuste alcança
+--     PostgREST e as edge functions em vez de valer só para quem se conecta
+--     pelo psql.
+--   * o `pg_cron` agenda pelo GUC próprio `cron.timezone`, que continua em
+--     GMT: os horários das 12 rotinas não se movem. As rotinas documentadas
+--     em UTC seguem rodando na mesma hora UTC.
+--
+-- Vale para sessões novas. O pool do PostgREST leva alguns minutos para
+-- reciclar as conexões abertas.
+alter database postgres set timezone = 'America/Sao_Paulo';

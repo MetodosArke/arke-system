@@ -6,6 +6,7 @@ import {
   repasseDoSplit,
   somenteDigitos,
 } from "./fluxo.ts";
+import { ambienteAsaas } from "../_shared/asaas.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -54,18 +55,10 @@ Deno.serve(async (req: Request) => {
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
   const anonKey = Deno.env.get("SUPABASE_ANON_KEY");
   const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-  const asaasApiKey = Deno.env.get("ASAAS_API_KEY");
-  const asaasApiUrl = Deno.env.get("ASAAS_API_URL") ?? "https://api.asaas.com/v3";
 
   if (!supabaseUrl || !anonKey || !serviceRoleKey) {
     console.error("Missing required Supabase environment variables");
     return jsonResponse({ error: "Configuração do servidor incompleta." }, 500);
-  }
-  if (!asaasApiKey) {
-    return jsonResponse(
-      { error: "ASAAS_API_KEY não configurada. Configure o secret no projeto Supabase antes de usar o split de pagamento." },
-      500
-    );
   }
 
   try {
@@ -152,6 +145,17 @@ Deno.serve(async (req: Request) => {
         422
       );
     }
+
+    // Qual Asaas: organização em trial é homologação e fala com o sandbox;
+    // organização ativa fala com produção. Sem isto, exercitar a corrente
+    // inteira de cobrança exigiria criar cobrança de verdade na conta de
+    // verdade. Ver `_shared/asaas.ts`.
+    const ambiente = ambienteAsaas(org.status, (n) => Deno.env.get(n));
+    if ("erro" in ambiente) {
+      return jsonResponse({ error: ambiente.erro }, 500);
+    }
+    const asaasApiUrl = ambiente.api;
+    const asaasApiKey = ambiente.chave;
 
     const { data: profile } = await asUser
       .from("profiles")
