@@ -42,6 +42,42 @@ export function rotinasComProblema(rotinas: Rotina[] | undefined): Rotina[] {
   return (rotinas ?? []).filter((r) => PRECISA_ATENCAO.has(r.situacao));
 }
 
+// --- Capacidade do banco ----------------------------------------------------
+
+/**
+ * Tamanho do banco contra o limite de Visão Master → Configurações — ver
+ * public.get_superadmin_capacidade(). No plano gratuito, passar do limite
+ * deixa o banco somente leitura; o aviso precisa chegar antes.
+ */
+export interface Capacidade {
+  nome: string;
+  situacao: "ok" | "banco_70" | "banco_85";
+  usado_mb: number;
+  limite_mb: number | null;
+  percentual: number | null;
+  detalhe: string;
+}
+
+export function useCapacidadeBanco() {
+  return useQuery({
+    queryKey: ["superadmin-capacidade"],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("get_superadmin_capacidade");
+      if (error) throw error;
+      return ((data ?? [])[0] ?? null) as Capacidade | null;
+    },
+    // O banco cresce em dias, não em minutos.
+    refetchInterval: 30 * 60 * 1000,
+  });
+}
+
+/** Texto da faixa, ou null quando está abaixo de 70%. */
+export function problemaCapacidade(c: Capacidade | null | undefined): string | null {
+  // Lista de inclusão: situação desconhecida não vira alarme por omissão.
+  if (!c || (c.situacao !== "banco_70" && c.situacao !== "banco_85")) return null;
+  return `Banco de dados acima de ${c.situacao === "banco_85" ? 85 : 70}% do limite (${c.detalhe})`;
+}
+
 // --- Reconciliação Asaas ↔ banco -------------------------------------------
 
 export interface Reconciliacao {

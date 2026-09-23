@@ -1,4 +1,4 @@
-import type { ICloudClient, LogOfflineCloud, OpcoesValidacao } from "../../src/cloud/client";
+import type { ICloudClient, LogOfflineCloud, OpcoesSincronizacao, OpcoesValidacao } from "../../src/cloud/client";
 import type { Credencial, Giro, RespostaSincronizarAlunosCloud, RespostaValidarAcessoCloud } from "../../src/types";
 
 /**
@@ -10,6 +10,13 @@ export class FakeCloudClient implements ICloudClient {
   erroValidarAcesso: Error | null = null;
 
   respostaSincronizarAlunos: RespostaSincronizarAlunosCloud = { alunos: [] };
+  /**
+   * Resposta a um pedido de lista inteira (`completo: true`). Sem ela, vale
+   * `respostaSincronizarAlunos` para todo pedido.
+   */
+  respostaSincronizarCompleto: RespostaSincronizarAlunosCloud | null = null;
+  /** O que o gateway pediu em cada sincronização, na ordem. */
+  pedidosSincronizacao: OpcoesSincronizacao[] = [];
 
   logsRecebidos: LogOfflineCloud[] = [];
 
@@ -35,7 +42,9 @@ export class FakeCloudClient implements ICloudClient {
     return this.respostaValidarAcesso;
   }
 
-  async sincronizarAlunos(): Promise<RespostaSincronizarAlunosCloud> {
+  async sincronizarAlunos(opcoes: OpcoesSincronizacao = {}): Promise<RespostaSincronizarAlunosCloud> {
+    this.pedidosSincronizacao.push(opcoes);
+    if (opcoes.completo && this.respostaSincronizarCompleto) return this.respostaSincronizarCompleto;
     return this.respostaSincronizarAlunos;
   }
 

@@ -26,6 +26,8 @@ const INTERVALO_FLUSH_LOGS_MS = 30_000;
 export class GatewayService extends EventEmitter {
   private status: StatusGateway = "offline";
   private timerSincronizacao: NodeJS.Timeout | null = null;
+  private ultimaSincronizacao: string | undefined;
+  private sincronizando = false;
   private timerFlushLogs: NodeJS.Timeout | null = null;
 
   constructor(
@@ -221,16 +223,55 @@ export class GatewayService extends EventEmitter {
     return "negado_catraca_inativa";
   }
 
+  /**
+   * Mantém o cache offline igual à nuvem. Desde 23/09/2026 pede só a
+   * diferença desde a última sincronização — a lista inteira a cada 5
+   * minutos era quase todo o tráfego da plataforma — e confere o resultado
+   * pelo hash dos ids. Se não bater, pede a lista inteira na mesma rodada:
+   * exclusão de aluno não deixa linha para aparecer na diferença, e o hash
+   * é o que pega isso e qualquer divergência que ninguém previu.
+   *
+   * `ultimaSincronizacao` fica só em memória de propósito: gateway que
+   * reinicia começa com a lista inteira, que é o estado seguro.
+   */
   async sincronizarAlunosComTratamento(): Promise<void> {
+    // O timer não espera a rodada anterior terminar; duas ao mesmo tempo
+    // poderiam aplicar diferenças fora de ordem.
+    if (this.sincronizando) return;
+    this.sincronizando = true;
     try {
-      const resposta = await this.cloud.sincronizarAlunos();
+      let resposta = await this.cloud.sincronizarAlunos(
+        this.ultimaSincronizacao ? { desde: this.ultimaSincronizacao } : {}
+      );
       if (resposta.error) throw new Error(resposta.error);
-      await this.alunosCache.substituirTodos(resposta.alunos ?? []);
-      logger.info({ total: resposta.alunos?.length ?? 0 }, "Cache local de alunos sincronizado com a nuvem");
+
+      // Nuvem antiga não manda `completo`: é lista inteira, como antes.
+      if (resposta.completo === false) {
+        await this.alunosCache.aplicarDiferenca(resposta.alunos ?? [], resposta.remover ?? []);
+        if (resposta.ids_hash && (await this.alunosCache.hashIds()) !== resposta.ids_hash) {
+          logger.warn("Cache local divergiu da nuvem depois da diferença — pedindo a lista inteira");
+          resposta = await this.cloud.sincronizarAlunos({ completo: true });
+          if (resposta.error) throw new Error(resposta.error);
+          await this.alunosCache.substituirTodos(resposta.alunos ?? []);
+        } else {
+          logger.info(
+            { alterados: resposta.alunos?.length ?? 0, removidos: resposta.remover?.length ?? 0 },
+            "Cache local de alunos atualizado pela diferença"
+          );
+        }
+      } else {
+        await this.alunosCache.substituirTodos(resposta.alunos ?? []);
+        logger.info({ total: resposta.alunos?.length ?? 0 }, "Cache local de alunos sincronizado com a nuvem");
+      }
+      // Só avança o marco depois de aplicar: se a gravação local falhar, a
+      // próxima rodada pede de novo a partir do marco anterior.
+      this.ultimaSincronizacao = resposta.sincronizado_em;
       this.setStatus("online");
       await this.flushLogsPendentes();
     } catch (err) {
       logger.warn({ err: (err as Error).message }, "Falha ao sincronizar a lista de alunos com a nuvem");
+    } finally {
+      this.sincronizando = false;
     }
   }
 

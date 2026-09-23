@@ -111,6 +111,15 @@ export interface AlunoCache {
 export interface RespostaSincronizarAlunosCloud {
   alunos?: AlunoCache[];
   sincronizado_em?: string;
+  /**
+   * false: `alunos` é só a diferença desde a última sincronização, e
+   * `remover` traz quem sai do cache. Ausente (nuvem antiga) conta como
+   * lista inteira — é o comportamento de antes.
+   */
+  completo?: boolean;
+  remover?: string[];
+  /** Hash do conjunto que o cache deve ter depois de aplicar a resposta. */
+  ids_hash?: string;
   error?: string;
 }
 

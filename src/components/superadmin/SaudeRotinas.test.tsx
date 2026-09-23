@@ -3,7 +3,14 @@ import { render, screen } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router-dom";
 import { AvisoRotinas, SaudeRotinas } from "./SaudeRotinas";
-import { problemaReconciliacao, rotinasComProblema, type Reconciliacao, type Rotina } from "@/lib/rotinas";
+import {
+  problemaCapacidade,
+  problemaReconciliacao,
+  rotinasComProblema,
+  type Capacidade,
+  type Reconciliacao,
+  type Rotina,
+} from "@/lib/rotinas";
 
 const rpc = vi.fn();
 const ultimaReconciliacao = vi.fn();
@@ -137,5 +144,39 @@ describe("AvisoRotinas com a reconciliação", () => {
     });
     montar(<AvisoRotinas />);
     expect(await screen.findByText(/1 assinatura ativa no Asaas sem registro/)).toBeInTheDocument();
+  });
+});
+
+describe("capacidade do banco", () => {
+  const cap = (situacao: Capacidade["situacao"], detalhe = "430 MB de 500 MB (86%)"): Capacidade => ({
+    nome: "capacidade:banco", situacao, usado_mb: 430, limite_mb: 500, percentual: 86, detalhe,
+  });
+
+  it("abaixo de 70% não é problema; 70% e 85% são, com o detalhe", () => {
+    expect(problemaCapacidade(cap("ok"))).toBeNull();
+    expect(problemaCapacidade(null)).toBeNull();
+    expect(problemaCapacidade(cap("banco_70", "360 MB de 500 MB (72%)"))).toBe(
+      "Banco de dados acima de 70% do limite (360 MB de 500 MB (72%))"
+    );
+    expect(problemaCapacidade(cap("banco_85"))).toContain("acima de 85%");
+  });
+
+  it("faixa aparece só pelo banco, com rotinas e reconciliação em dia", async () => {
+    rpc.mockImplementation(async (nome: string) =>
+      nome === "get_superadmin_capacidade" ? { data: [cap("banco_85")], error: null } : { data: [rotina({})], error: null }
+    );
+    montar(<AvisoRotinas />);
+    expect(await screen.findByText(/Banco de dados acima de 85% do limite/)).toBeInTheDocument();
+  });
+
+  it("rotina com problema e banco perto do limite: nomeia a rotina e avisa do banco", async () => {
+    rpc.mockImplementation(async (nome: string) =>
+      nome === "get_superadmin_capacidade"
+        ? { data: [cap("banco_70")], error: null }
+        : { data: [rotina({ nome: "arke-escalonamento-sla", situacao: "atrasada" })], error: null }
+    );
+    montar(<AvisoRotinas />);
+    expect(await screen.findByText(/arke-escalonamento-sla/)).toBeInTheDocument();
+    expect(await screen.findByText(/o banco está perto do limite/)).toBeInTheDocument();
   });
 });
