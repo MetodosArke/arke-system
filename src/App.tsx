@@ -69,6 +69,7 @@ const AdminFinanceiro = paginaPreguicosa(() => import("@/pages/admin/AdminFinanc
 const AdminEquipe = paginaPreguicosa(() => import("@/pages/admin/AdminEquipe"));
 const AdminOrganizacao = paginaPreguicosa(() => import("@/pages/admin/AdminOrganizacao"));
 const AdminGestao360 = paginaPreguicosa(() => import("@/pages/admin/AdminGestao360"));
+const AdminRelatorioSemanal = paginaPreguicosa(() => import("@/pages/admin/AdminRelatorioSemanal"));
 const AdminTreinos = paginaPreguicosa(() => import("@/pages/admin/AdminTreinos"));
 const AdminDietas = paginaPreguicosa(() => import("@/pages/admin/AdminDietas"));
 const AdminRetencao = paginaPreguicosa(() => import("@/pages/admin/AdminRetencao"));
@@ -274,6 +275,7 @@ const App = () => (
                 <Route path="dietas" element={<AdminDietas />} />
                 <Route path="retencao" element={<AdminRetencao />} />
                 <Route path="gestao-360" element={<AdminGestao360 />} />
+                <Route path="relatorio-semanal" element={<AdminRelatorioSemanal />} />
                 <Route path="catracas" element={<AdminCatracas />} />
                 <Route path="configuracoes/integracoes" element={<AdminIntegracoes />} />
                 <Route path="organizacao" element={<AdminOrganizacao />} />

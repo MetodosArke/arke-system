@@ -1320,6 +1320,57 @@ export type Database = {
           },
         ]
       }
+      briefings_enviados: {
+        Row: {
+          canal: string
+          created_at: string
+          destino: string | null
+          enviado_em: string | null
+          erro: string | null
+          id: string
+          numeros: Json
+          organization_id: string
+          semana: string
+        }
+        Insert: {
+          canal?: string
+          created_at?: string
+          destino?: string | null
+          enviado_em?: string | null
+          erro?: string | null
+          id?: string
+          numeros?: Json
+          organization_id: string
+          semana: string
+        }
+        Update: {
+          canal?: string
+          created_at?: string
+          destino?: string | null
+          enviado_em?: string | null
+          erro?: string | null
+          id?: string
+          numeros?: Json
+          organization_id?: string
+          semana?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "briefings_enviados_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "org_churn_metrics"
+            referencedColumns: ["organization_id"]
+          },
+          {
+            foreignKeyName: "briefings_enviados_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       checkins: {
         Row: {
           aluno_id: string
@@ -5095,6 +5146,10 @@ export type Database = {
         Args: { _organization_id: string }
         Returns: boolean
       }
+      aluno_ativo_em: {
+        Args: { _aluno_id: string; _janela?: number; _referencia: string }
+        Returns: boolean
+      }
       aluno_ciclo_estourado: {
         Args: { _aluno_id: string; _dias?: number; _minimo_pct?: number }
         Returns: boolean
@@ -5154,6 +5209,22 @@ export type Database = {
         Args: { _aluno_id: string }
         Returns: Database["public"]["Enums"]["fase_jornada"]
       }
+      briefing_semanal_organizacao: {
+        Args: { _organization_id: string }
+        Returns: {
+          alunos_ativos: number
+          alunos_ativos_mes_passado: number
+          chamados_para_a_academia: number
+          em_risco: number
+          gestor_nome: string
+          gestor_telefone: string
+          novos_na_semana: number
+          organizacao_nome: string
+          resgates_do_mentor: number
+          retencao_pct: number
+          variacao_pct: number
+        }[]
+      }
       buscar_aluno_primeiro_acesso: {
         Args: { _contato: string; _organization_id: string }
         Returns: string
@@ -5194,6 +5265,7 @@ export type Database = {
         Args: { _token: string }
         Returns: boolean
       }
+      conferir_token_briefing: { Args: { _token: string }; Returns: boolean }
       conferir_token_lembrete_onboarding: {
         Args: { _token: string }
         Returns: boolean
@@ -5816,6 +5888,13 @@ export type Database = {
           nome: string
           organization_id: string
           pendentes: string
+        }[]
+      }
+      organizacoes_para_briefing: {
+        Args: never
+        Returns: {
+          organization_id: string
+          semana: string
         }[]
       }
       plano_do_aluno: {

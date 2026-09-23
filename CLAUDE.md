@@ -317,6 +317,27 @@ As três saídas reais de um chamado estão na mesma tela: encerrar com desfecho
 
 Conferido pelo PostgREST numa sessão de Super Admin real: a fila atravessa organizações com o contexto pronto, o SLA vencido é marcado, a instrução presencial nasce com dono `academia`, a liberação de progressão limpa o bloqueio e o chamado encerrado com desfecho sai da fila.
 
+
+## Briefing Semanal do Gestor (Fase 5c, 23/09/2026)
+
+Toda segunda às 8h de Brasília, o dono da academia recebe no WhatsApp o retrato da base dele.
+
+**Sem LLM, de propósito.** Os números saem de SQL e entram no template como parâmetros. Um modelo só formataria a frase — e introduziria a chance de **inventar um número numa mensagem assinada pela ArkeFit, no WhatsApp do dono**. Num relatório esse é o pior defeito possível: destrói confiança mais rápido do que a ausência do relatório a construiria. A inteligência ali é escolher o que importa, e disso o SQL dá conta.
+
+**A fórmula de retenção** (decisão do responsável): *ativos hoje ÷ ativos há 30 dias*, com ativo = tem presença ou treino registrado nos últimos 30 dias. Contar pelo sinal de uso, e não por `situacao_academia`, é deliberado — a situação é marcada à mão pela recepção e atrasa, então quem parou de aparecer há três semanas ainda consta "em dia". Medida assim, a retenção mediria o cadastro, não o comportamento. Verificado em transação revertida: 8 de 10 → 80% com variação −20%; 0 de 4 → 0%; e um aluno "em dia" sem aparecer há 45 dias **não conta como ativo**.
+
+**Sem base anterior, devolve NULL** em vez de 100% ou 0% — os dois jeitos de mentir ali. A mensagem então diz "primeira semana de acompanhamento".
+
+**O WhatsApp foi descartado, e por governança antes de técnica.** A conta da Meta está num CNPJ que o responsável não controla, e construir dependência num canal de terceiro é risco, não detalhe. A decisão levou junto três problemas: a aprovação de template pela Meta, a fragilidade dos **parâmetros posicionais** (bastava alguém mexer no template para a mensagem sair com os números trocados de lugar, parecendo certa) e o envio dos números da academia para servidores de terceiro. `_shared/whatsapp.ts` foi **removido** em vez de deixado dormindo — é a regra do projeto, a mesma que derrubou `check-notifications` e as funções `create-user`/`delete-user`; o histórico do git preserva.
+
+**No lugar, três camadas.** O relatório vive **dentro do sistema** (`/admin/relatorio-semanal`), onde cabe explicar de onde cada número veio e mostrar a série das semanas anteriores — um template de WhatsApp são oito parâmetros curtos. **Push** avisa que saiu: a PWA já existia completa (manifest, `sw.js` tratando `push`, `usePushNotifications`, `send-chat-push`), e instala em Windows, Android e iOS — **no iPhone a Apple exige o app na tela de início para o push funcionar**, o que vira uma linha no onboarding do gestor. E **e-mail** pelo Resend, que é o que recupera o alcance do WhatsApp para o dono que não abre o painel.
+
+**Cada número diz na tela como é calculado.** Indicador que o gestor não consegue reproduzir vale menos que nenhum: na primeira divergência ele para de confiar no conjunto todo.
+
+**`gerado_em` é gravado antes de qualquer envio**, porque o relatório já existe a partir dali — aviso que falha não pode impedir o gestor de ver o relatório quando abrir o sistema.
+
+**Uma armadilha que o teste pegou.** A função nasceu sem declaração em `supabase/config.toml`, então o Supabase exigia JWT e o cron levava `UNAUTHORIZED_NO_AUTH_HEADER`. Pior: os dois primeiros casos do teste ("recusa sem token") **passaram pelo motivo errado** — eram barrados pelo portão de JWT, não pela checagem de token. Corrigido e reverificado: sem token e com token inventado dão 401 de verdade; com o token do Vault, 200.
+
 ## Trial e Bloqueio por Pagamento
 
 ### Trial não é oferta comercial
