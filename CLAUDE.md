@@ -287,6 +287,27 @@ O Mentor Centralizado **removeu a premissa dessa decisão** — não há mais um
 
 Conferido em **12 casos** em transação revertida: cada transição, cada bloqueio, o não-pular-fase, o fim da régua em L.E.G.A.D.O.® e a varredura movendo de fato. Uma armadilha de teste vale registrar: num `SELECT` só, todas as subconsultas enxergam o snapshot do início da instrução — ler a fase na mesma expressão que a move mostra o valor **de antes**, e parece defeito sem ser.
 
+
+## Fila do Mentor Centralizado — base (Fase 4 do Ecossistema, 23/09/2026)
+
+O BPO tira a carga de acompanhamento digital da academia: quando o aluno foge do fluxo automático, quem atua é a célula da ArkeFit. A academia recebe **instrução presencial**, não trabalho digital.
+
+**A fila do Mentor é a mesma tabela `tarefas`, com dono — não uma tabela nova.** O motor já tem SLA, escalonamento, desfecho obrigatório e idempotência por `origem_evento`, tudo em produção. Duplicar isso daria duas implementações de "o que fazer quando resolve", que divergem na primeira correção feita só num lado. É a mesma razão de a reconciliação reenviar o evento ao próprio webhook em vez de reimplementar o efeito.
+
+**A regra de roteamento é o produto, não o tipo:** o que é do Método é da ArkeFit; o que é da relação da academia com o aluno é dela. Por isso **cobrança e atestado ficam com a academia mesmo para aluno do Método** — dinheiro e documento são a relação dela, e o Mentor não tem como resolver nem um nem outro. Aluno no plano Free não tem Mentor: a academia segue dona da fila dele inteira.
+
+**A separação mora no RLS, não nas consultas.** Sem isso o BPO quebraria na primeira tela: o gestor continuaria vendo as tarefas que a ArkeFit assumiu, e "zero carga digital" viraria uma lista maior que antes. São seis telas lendo `tarefas` hoje e a sétima nasceria sem o filtro. A condição entrou **na regra existente**, e não numa regra nova — uma segunda regra permissiva se somaria por OU e anularia o filtro. Verificado: o gestor enxerga 1 de 2 tarefas do mesmo aluno e **não consegue alterar** a da ArkeFit (0 linhas).
+
+**`get_fila_mentor()` devolve o contexto da decisão junto**, não só a tarefa: fase, dias inativo, constância, nível e não lidas. O mentor precisa disso para escolher entre resgatar, ajustar ou acionar a academia, e buscar aluno a aluno seria uma consulta por linha da fila — que é exatamente o que mata a produtividade da célula, e a produtividade da célula **é** a economia unitária do BPO. A ordem é vencida → prioridade → prazo: a ordem de pegar, não a de chegada.
+
+**Gatilho de inércia** (`gerar_tarefas_inercia`, cron 06:10 UTC): abre chamado de risco de evasão para quem sumiu há 5 dias ou mais, crítico a partir de 10. Idempotente **por janela de 5 dias, não por dia** — sem isso um aluno sumido há três semanas geraria tarefa nova toda madrugada e afogaria a célula com o mesmo caso; com isso, um agravamento (5 → 10 → 15 dias) ainda merece chamado novo.
+
+**`criar_instrucao_presencial()`** é o caminho de volta: o Mentor investigou, decidiu e já agiu no app, e o que sobra para a academia é o que só acontece presencialmente. Nasce com dono `academia` explícito — o único caso em que a tarefa de um aluno do Método não é da ArkeFit.
+
+Conferido em **13 casos** em transação revertida, mais a separação de RLS com identidades reais. Um defeito real apareceu no caminho: o `case when ... then 'critica' else 'alta' end` devolve texto e a coluna é enum, e o **plpgsql só reclama disso em execução, nunca na criação da função** — o teste pegou o que a leitura não pegaria.
+
+**O que falta da Fase 4:** o console do mentor (tela). A base está no ar.
+
 ## Trial e Bloqueio por Pagamento
 
 ### Trial não é oferta comercial
