@@ -12,7 +12,7 @@ import { Separator } from "@/components/ui/separator";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dumbbell, UtensilsCrossed, Phone, Cake, Ruler, ClipboardList, AlertTriangle, Printer, MessageCircle, Wallet, FlaskConical, Route, Fingerprint, Target, History, FileSignature } from "lucide-react";
+import { Dumbbell, UtensilsCrossed, Phone, Cake, Ruler, ClipboardList, AlertTriangle, Printer, MessageCircle, Wallet, FlaskConical, Route, Fingerprint, Target, History, FileSignature, Sparkles, ShieldCheck } from "lucide-react";
 import { ImprimirTreinoDialog, type ExercicioSnapshotImpressao } from "@/components/admin/ImprimirTreinoDialog";
 import { Bloco, formatarData } from "@/components/admin/perfilSheetHelpers";
 import { ChatPanel } from "@/components/chat/ChatPanel";
@@ -23,6 +23,7 @@ import { HistoricoAluno } from "@/components/admin/HistoricoAluno";
 import { AcessoCatraca } from "@/components/admin/AcessoCatraca";
 import { CartaoAssinatura } from "@/components/pagamento/CartaoAssinatura";
 import { CicloAssinatura } from "@/components/pagamento/CicloAssinatura";
+import { ResumoSentinela } from "@/components/sentinela/SentinelaAnamnese";
 import { useToast } from "@/hooks/use-toast";
 import { SituacaoAluno } from "@/components/admin/SituacaoAluno";
 import { DocumentosMatriculaAluno } from "@/components/admin/DocumentosMatriculaAluno";
@@ -479,6 +480,10 @@ export function AlunoPerfilSheet({
                     onSucesso={(m) => toast({ title: "Cartão cadastrado", description: m })}
                   />
                 </div>
+              </Bloco>
+
+              <Bloco titulo="Resumo da anamnese (Sentinela)" icon={Sparkles}>
+                <ResumoSentinela alunoId={perfil.aluno.id} />
               </Bloco>
 
               <Bloco titulo="Documentos da Matrícula" icon={FileSignature}>

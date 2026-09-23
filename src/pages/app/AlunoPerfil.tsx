@@ -3,11 +3,12 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ConsentimentoSentinela } from "@/components/sentinela/SentinelaAnamnese";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { LogOut, Ruler, Droplets, Wallet } from "lucide-react";
+import { LogOut, Ruler, Droplets, Wallet, Sparkles, ShieldCheck } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { Tables } from "@/integrations/supabase/types";
 import { CartaoAssinatura } from "@/components/pagamento/CartaoAssinatura";
@@ -118,6 +119,19 @@ export default function AlunoPerfil() {
           </Button>
         </CardContent>
       </Card>
+
+      {alunoId && organization?.id && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <ShieldCheck className="h-4 w-4 text-primary" /> Privacidade
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ConsentimentoSentinela alunoId={alunoId} organizationId={organization.id} />
+          </CardContent>
+        </Card>
+      )}
 
       {pagamento?.assinatura && (
         <Card>

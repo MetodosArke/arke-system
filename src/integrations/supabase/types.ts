@@ -482,6 +482,67 @@ export type Database = {
           },
         ]
       }
+      aluno_consentimento_ia: {
+        Row: {
+          aceito_em: string
+          aluno_id: string
+          created_at: string
+          finalidade: string
+          id: string
+          organization_id: string
+          provedor: string | null
+          retencao_descricao: string
+          revogado_em: string | null
+          revogado_por: string | null
+        }
+        Insert: {
+          aceito_em?: string
+          aluno_id: string
+          created_at?: string
+          finalidade?: string
+          id?: string
+          organization_id: string
+          provedor?: string | null
+          retencao_descricao?: string
+          revogado_em?: string | null
+          revogado_por?: string | null
+        }
+        Update: {
+          aceito_em?: string
+          aluno_id?: string
+          created_at?: string
+          finalidade?: string
+          id?: string
+          organization_id?: string
+          provedor?: string | null
+          retencao_descricao?: string
+          revogado_em?: string | null
+          revogado_por?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "aluno_consentimento_ia_aluno_id_fkey"
+            columns: ["aluno_id"]
+            isOneToOne: false
+            referencedRelation: "alunos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "aluno_consentimento_ia_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "org_churn_metrics"
+            referencedColumns: ["organization_id"]
+          },
+          {
+            foreignKeyName: "aluno_consentimento_ia_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       aluno_fase_historico: {
         Row: {
           aluno_id: string
@@ -4512,6 +4573,61 @@ export type Database = {
           },
         ]
       }
+      sentinela_anamnese: {
+        Row: {
+          aluno_id: string
+          created_at: string
+          exige_atencao: boolean
+          fornecedor: string | null
+          hash_anamnese: string
+          id: string
+          organization_id: string
+          resumo: string
+        }
+        Insert: {
+          aluno_id: string
+          created_at?: string
+          exige_atencao?: boolean
+          fornecedor?: string | null
+          hash_anamnese: string
+          id?: string
+          organization_id: string
+          resumo: string
+        }
+        Update: {
+          aluno_id?: string
+          created_at?: string
+          exige_atencao?: boolean
+          fornecedor?: string | null
+          hash_anamnese?: string
+          id?: string
+          organization_id?: string
+          resumo?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sentinela_anamnese_aluno_id_fkey"
+            columns: ["aluno_id"]
+            isOneToOne: false
+            referencedRelation: "alunos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sentinela_anamnese_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "org_churn_metrics"
+            referencedColumns: ["organization_id"]
+          },
+          {
+            foreignKeyName: "sentinela_anamnese_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sentinela_sugestoes: {
         Row: {
           aluno_id: string
@@ -5212,6 +5328,7 @@ export type Database = {
         Args: { _aluno_id: string; _dias?: number; _minimo_pct?: number }
         Returns: boolean
       }
+      aluno_consentiu_ia: { Args: { _aluno_id: string }; Returns: boolean }
       aluno_constancia: {
         Args: { _aluno_id: string; _semanas?: number }
         Returns: number
@@ -5227,6 +5344,7 @@ export type Database = {
         Args: { _aluno_id: string }
         Returns: boolean
       }
+      anamnese_para_auditoria: { Args: { _aluno_id: string }; Returns: string }
       arke_taxa_processamento: { Args: { _valor: number }; Returns: number }
       arke_taxa_processamento_config: {
         Args: never
