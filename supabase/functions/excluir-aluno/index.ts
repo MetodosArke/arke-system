@@ -1,4 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { ambienteAsaas } from "../_shared/asaas.ts";
+import { encerrarCobrancasDoAluno } from "../_shared/encerrarCobrancas.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -112,6 +114,32 @@ Deno.serve(async (req: Request) => {
     }
     if (!autorizado) {
       return jsonResponse({ error: "Apenas o gestor da organização pode excluir um aluno." }, 403);
+    }
+
+    // Encerrar a cobranca ANTES de apagar. Apagar primeiro faz cascade em
+    // `aluno_assinaturas` e deixa a assinatura viva no Asaas, cobrando uma
+    // pessoa real todo mes sem registro nenhum deste lado — a orfa que a
+    // varredura detecta e nao consegue corrigir. O gatilho
+    // `trg_impedir_exclusao_com_cobranca_viva` garante a ordem mesmo se
+    // alguem mexer aqui; esta chamada e o que faz a ordem ser possivel.
+    const { data: orgDoAluno } = await adminClient
+      .from("organizations")
+      .select("status")
+      .eq("id", aluno.organization_id)
+      .maybeSingle();
+    const ambiente = ambienteAsaas(orgDoAluno?.status, (n) => Deno.env.get(n));
+    if ("erro" in ambiente) {
+      return jsonResponse({ error: ambiente.erro }, 500);
+    }
+    const encerramento = await encerrarCobrancasDoAluno(
+      adminClient,
+      aluno.id,
+      { api: ambiente.api, chave: ambiente.chave },
+      callerId,
+      "Aluno excluido da academia.",
+    );
+    if (!encerramento.ok) {
+      return jsonResponse({ error: encerramento.erro }, 502);
     }
 
     const { error: deleteError } = await adminClient.auth.admin.deleteUser(aluno.user_id);

@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ROTULO_SITUACAO, SITUACOES, type SituacaoAcademia } from "@/lib/planoAluno";
+import { mensagemDeErroEdge } from "@/lib/erroEdge";
 import { cn } from "@/lib/utils";
 
 const COR: Record<SituacaoAcademia, string> = {
@@ -64,9 +65,41 @@ export function SituacaoAluno({
         })
         .eq("id", alunoId);
       if (error) throw error;
-      return dados.nova;
+
+      // Pausar o aluno precisa pausar a cobrança dele — senão ele sai do app
+      // e segue pagando, que é a reclamação mais previsível que existe. E
+      // voltar a "em dia" precisa retomar, senão a academia para de receber
+      // sem perceber.
+      //
+      // A situação é gravada primeiro porque é o efeito que a pessoa pediu.
+      // Se o gateway falhar em seguida, o erro é dito em alto e bom som em
+      // vez de engolido: a varredura diária corrige, mas até lá alguém seria
+      // cobrado por um mês que não usou.
+      const acao = dados.nova === "pausado" ? "pausar" : situacao === "pausado" && dados.nova === "em_dia" ? "retomar" : null;
+      if (acao) {
+        const { data, error: erroCobranca } = await supabase.functions.invoke("asaas-assinatura-ciclo", {
+          body: { aluno_id: alunoId, acao },
+        });
+        if (erroCobranca) {
+          const mensagem = await mensagemDeErroEdge(erroCobranca);
+          // Aluno sem assinatura é o caso comum (plano Free): não é falha.
+          if (!/não tem assinatura/i.test(mensagem)) {
+            return { nova: dados.nova, avisoCobranca: mensagem };
+          }
+        }
+        if (data?.cobrancas_vencidas_mantidas) {
+          return {
+            nova: dados.nova,
+            avisoCobranca: `A cobrança foi pausada, mas ${data.cobrancas_vencidas_mantidas} cobrança(s) já vencida(s) continuam valendo — são de período já usado.`,
+          };
+        }
+      }
+      return { nova: dados.nova, avisoCobranca: null as string | null };
     },
-    onSuccess: (nova) => {
+    onSuccess: ({ nova, avisoCobranca }) => {
+      if (avisoCobranca) {
+        toast({ title: "Situação alterada, mas a cobrança não", description: avisoCobranca, variant: "destructive" });
+      } else {
       toast({
         title: `Situação: ${ROTULO_SITUACAO[nova]}`,
         description:
@@ -74,6 +107,7 @@ export function SituacaoAluno({
             ? "O aluno volta a acessar o app."
             : "O acesso ao app fica suspenso e as tarefas automáticas dele foram encerradas.",
       });
+      }
       setPedindo(null);
       void queryClient.invalidateQueries({ queryKey: ["admin-alunos"] });
       void queryClient.invalidateQueries({ queryKey: ["aluno-perfil", alunoId] });

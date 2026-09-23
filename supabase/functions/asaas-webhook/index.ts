@@ -25,7 +25,12 @@ function timingSafeEqual(a: string, b: string): boolean {
 // https://docs.asaas.com/docs/webhook-events
 const EVENTOS_CONFIRMADOS = new Set(["PAYMENT_CONFIRMED", "PAYMENT_RECEIVED"]);
 const EVENTOS_ATRASADOS = new Set(["PAYMENT_OVERDUE"]);
-const EVENTOS_ESTORNADOS = new Set(["PAYMENT_REFUNDED", "PAYMENT_DELETED", "PAYMENT_CHARGEBACK_REQUESTED"]);
+const EVENTOS_ESTORNADOS = new Set(["PAYMENT_REFUNDED", "PAYMENT_CHARGEBACK_REQUESTED"]);
+// Cobranca **removida**, que nao e estorno de dinheiro: e o que o Asaas manda
+// para cada cobranca pendente quando a assinatura e cancelada. Tratar as duas
+// como estorno confundia "nao ha o que pagar" com "houve devolucao" — e, com a
+// condicao antiga do B2C, fazia cancelar uma assinatura BLOQUEAR o aluno.
+const EVENTOS_REMOVIDOS = new Set(["PAYMENT_DELETED"]);
 
 // Eventos que apenas **emitem** a cobrança, sem mudar o status de quem já
 // pagou ou deixou de pagar. Não entram em EVENTOS_* acima de propósito: nada
@@ -202,10 +207,11 @@ Deno.serve(async (req: Request) => {
     let resultado = "sem_payment_id";
 
     if (asaasPaymentId) {
-      let novoStatus: "confirmado" | "atrasado" | "estornado" | null = null;
+      let novoStatus: "confirmado" | "atrasado" | "estornado" | "cancelado" | null = null;
       if (EVENTOS_CONFIRMADOS.has(tipoEvento)) novoStatus = "confirmado";
       else if (EVENTOS_ATRASADOS.has(tipoEvento)) novoStatus = "atrasado";
       else if (EVENTOS_ESTORNADOS.has(tipoEvento)) novoStatus = "estornado";
+      else if (EVENTOS_REMOVIDOS.has(tipoEvento)) novoStatus = "cancelado";
 
       // Cobrança B2B (ARKE cobrando a própria academia/studio, emitida via
       // asaas-emitir-cobranca-b2b) — id de pagamento nunca colide com o do
@@ -317,7 +323,7 @@ Deno.serve(async (req: Request) => {
       // `novoStatus`. Os blocos B2B e de mensalidade acima não registram a
       // emissão — cada um tem o próprio ciclo; em comum com este, só gravam
       // a taxa do gateway.
-      const statusArke: "confirmado" | "atrasado" | "estornado" | "pendente" | null =
+      const statusArke: "confirmado" | "atrasado" | "estornado" | "cancelado" | "pendente" | null =
         novoStatus ?? (EVENTOS_EMITIDOS.has(tipoEvento) ? "pendente" : null);
 
       const { data: pagamentoExistente } = await admin
@@ -377,9 +383,16 @@ Deno.serve(async (req: Request) => {
             vencimento: vencimento ?? undefined,
             invoice_url: invoiceUrl ?? undefined,
             taxa_gateway: taxaGateway,
+            // O valor tambem muda: alterar o preco da assinatura reemite a
+            // cobranca pendente com outro valor, e sem isto o banco seguia
+            // mostrando o antigo enquanto o aluno recebia a fatura nova.
+            valor: typeof valorBruto === "number" ? valorBruto : undefined,
           })
           .eq("id", pagamentoExistente.id);
 
+        // `cancelado` fica de fora de proposito: a cobranca sumiu porque a
+        // assinatura foi encerrada, e marcar "atrasada" af diria que o aluno deve
+        // algo que nao existe mais. Quem grava o fim da relacao e o cancelamento.
         if (novoStatus === "atrasado" || novoStatus === "estornado") {
           // Guarda o link da fatura para o App do Aluno redirecionar à
           // quitação (gate de inadimplência em /app).

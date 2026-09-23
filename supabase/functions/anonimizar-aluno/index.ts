@@ -1,4 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { ambienteAsaas } from "../_shared/asaas.ts";
+import { encerrarCobrancasDoAluno } from "../_shared/encerrarCobrancas.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -115,6 +117,29 @@ Deno.serve(async (req: Request) => {
     }
 
     const emailAnonimizado = `anonimizado_${aluno.id}@arkefit.local`;
+
+    // Preservar o registro financeiro e certo — auditoria fiscal precisa
+    // dele. Seguir COBRANDO quem exerceu o direito de apagamento, nao. Por
+    // isso a cobranca e encerrada no gateway antes, e as linhas ficam.
+    const { data: orgDoAluno } = await adminClient
+      .from("organizations")
+      .select("status")
+      .eq("id", aluno.organization_id)
+      .maybeSingle();
+    const ambiente = ambienteAsaas(orgDoAluno?.status, (n) => Deno.env.get(n));
+    if ("erro" in ambiente) {
+      return jsonResponse({ error: ambiente.erro }, 500);
+    }
+    const encerramento = await encerrarCobrancasDoAluno(
+      adminClient,
+      aluno.id,
+      { api: ambiente.api, chave: ambiente.chave },
+      callerId,
+      "Aluno anonimizado a pedido (LGPD).",
+    );
+    if (!encerramento.ok) {
+      return jsonResponse({ error: encerramento.erro }, 502);
+    }
 
     const { error: authUpdateError } = await adminClient.auth.admin.updateUserById(aluno.user_id, {
       email: emailAnonimizado,
