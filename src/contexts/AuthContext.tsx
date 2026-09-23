@@ -135,6 +135,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     }
 
+    // Sinal de vida para a regra de inércia do Mentor ("sem abrir o app por 5
+    // dias"). `primeiro_acesso_em` é de uma vez só e não serve para isso.
+    //
+    // Pelo mesmo motivo acima é RPC, e não UPDATE: o RLS descartaria a escrita
+    // em silêncio, e a inércia acusaria justamente quem usa o app todo dia. O
+    // freio de 15 minutos mora no banco — aqui a chamada é solta de propósito,
+    // porque nenhuma tela depende do resultado dela.
+    void supabase.rpc("registrar_atividade_aluno").then(({ error }) => {
+      if (error) console.error("Falha ao registrar a atividade do aluno", error);
+    });
+
     const { data: anamnese } = await supabase
       .from("anamnese_acolhimento")
       .select("concluida_em, consentimento_lgpd_aceito_em")

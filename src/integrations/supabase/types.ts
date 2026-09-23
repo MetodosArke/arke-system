@@ -914,6 +914,8 @@ export type Database = {
           organization_id: string
           peso_kg: number | null
           primeiro_acesso_em: string | null
+          progressao_bloqueada_em: string | null
+          progressao_bloqueada_motivo: string | null
           provedor_nutricao: Database["public"]["Enums"]["provedor_nutricao"]
           provedor_treino: Database["public"]["Enums"]["provedor_treino"]
           situacao_academia: Database["public"]["Enums"]["situacao_aluno_academia"]
@@ -921,6 +923,7 @@ export type Database = {
           situacao_academia_motivo: string | null
           situacao_academia_por: string | null
           situacao_academia_retorno: string | null
+          ultima_atividade_em: string | null
           updated_at: string
           user_id: string
         }
@@ -945,6 +948,8 @@ export type Database = {
           organization_id: string
           peso_kg?: number | null
           primeiro_acesso_em?: string | null
+          progressao_bloqueada_em?: string | null
+          progressao_bloqueada_motivo?: string | null
           provedor_nutricao?: Database["public"]["Enums"]["provedor_nutricao"]
           provedor_treino?: Database["public"]["Enums"]["provedor_treino"]
           situacao_academia?: Database["public"]["Enums"]["situacao_aluno_academia"]
@@ -952,6 +957,7 @@ export type Database = {
           situacao_academia_motivo?: string | null
           situacao_academia_por?: string | null
           situacao_academia_retorno?: string | null
+          ultima_atividade_em?: string | null
           updated_at?: string
           user_id: string
         }
@@ -976,6 +982,8 @@ export type Database = {
           organization_id?: string
           peso_kg?: number | null
           primeiro_acesso_em?: string | null
+          progressao_bloqueada_em?: string | null
+          progressao_bloqueada_motivo?: string | null
           provedor_nutricao?: Database["public"]["Enums"]["provedor_nutricao"]
           provedor_treino?: Database["public"]["Enums"]["provedor_treino"]
           situacao_academia?: Database["public"]["Enums"]["situacao_aluno_academia"]
@@ -983,6 +991,7 @@ export type Database = {
           situacao_academia_motivo?: string | null
           situacao_academia_por?: string | null
           situacao_academia_retorno?: string | null
+          ultima_atividade_em?: string | null
           updated_at?: string
           user_id?: string
         }
@@ -5083,6 +5092,16 @@ export type Database = {
         Args: { _organization_id: string }
         Returns: boolean
       }
+      aluno_ciclo_estourado: {
+        Args: { _aluno_id: string; _dias?: number; _minimo_pct?: number }
+        Returns: boolean
+      }
+      aluno_constancia: {
+        Args: { _aluno_id: string; _semanas?: number }
+        Returns: number
+      }
+      aluno_dias_inativo: { Args: { _aluno_id: string }; Returns: number }
+      aluno_fase_desde: { Args: { _aluno_id: string }; Returns: string }
       aluno_inadimplente_b2c: { Args: { _aluno_id: string }; Returns: boolean }
       aluno_mensalidade_vencida: {
         Args: { _aluno_id: string }
@@ -5601,6 +5620,10 @@ export type Database = {
         Args: { _organization_id: string }
         Returns: string
       }
+      liberar_progressao_aluno: {
+        Args: { _aluno_id: string; _observacao?: string }
+        Returns: undefined
+      }
       limite_padrao_plano: {
         Args: { _plano: Database["public"]["Enums"]["plano_b2b"] }
         Returns: number
@@ -5784,6 +5807,7 @@ export type Database = {
         Returns: string
       }
       registrar_alerta_rotinas: { Args: { _itens: Json }; Returns: undefined }
+      registrar_atividade_aluno: { Args: never; Returns: undefined }
       registrar_auditoria: {
         Args: {
           _acao: string
