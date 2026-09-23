@@ -34,6 +34,11 @@ verify_jwt = false
 [functions.alertar-rotinas]
 verify_jwt = false
 
+# Chamada pelo cron com token proprio do Vault (x-briefing-token), nao com
+# JWT de usuario — mesmo desenho do alerta de rotinas.
+[functions.briefing-semanal]
+verify_jwt = false
+
 [functions.lembrete-onboarding]
 verify_jwt = false
 

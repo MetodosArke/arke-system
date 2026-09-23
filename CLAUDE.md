@@ -317,6 +317,25 @@ As três saídas reais de um chamado estão na mesma tela: encerrar com desfecho
 
 Conferido pelo PostgREST numa sessão de Super Admin real: a fila atravessa organizações com o contexto pronto, o SLA vencido é marcado, a instrução presencial nasce com dono `academia`, a liberação de progressão limpa o bloqueio e o chamado encerrado com desfecho sai da fila.
 
+
+## Briefing Semanal do Gestor (Fase 5c, 23/09/2026)
+
+Toda segunda às 8h de Brasília, o dono da academia recebe no WhatsApp o retrato da base dele.
+
+**Sem LLM, de propósito.** Os números saem de SQL e entram no template como parâmetros. Um modelo só formataria a frase — e introduziria a chance de **inventar um número numa mensagem assinada pela ArkeFit, no WhatsApp do dono**. Num relatório esse é o pior defeito possível: destrói confiança mais rápido do que a ausência do relatório a construiria. A inteligência ali é escolher o que importa, e disso o SQL dá conta.
+
+**A fórmula de retenção** (decisão do responsável): *ativos hoje ÷ ativos há 30 dias*, com ativo = tem presença ou treino registrado nos últimos 30 dias. Contar pelo sinal de uso, e não por `situacao_academia`, é deliberado — a situação é marcada à mão pela recepção e atrasa, então quem parou de aparecer há três semanas ainda consta "em dia". Medida assim, a retenção mediria o cadastro, não o comportamento. Verificado em transação revertida: 8 de 10 → 80% com variação −20%; 0 de 4 → 0%; e um aluno "em dia" sem aparecer há 45 dias **não conta como ativo**.
+
+**Sem base anterior, devolve NULL** em vez de 100% ou 0% — os dois jeitos de mentir ali. A mensagem então diz "primeira semana de acompanhamento".
+
+**Mensagem iniciada pelo negócio exige template aprovado na Meta.** Texto livre só funciona dentro das 24h depois de o usuário escrever, e o briefing é o contrário: chega na segunda sem ninguém ter puxado conversa. Por isso o que sai é `template` com parâmetros posicionais. **A Meta não nomeia as posições** — quem mexer no template tem de mexer no compositor junto, senão a mensagem sai com os números trocados de lugar, que é pior do que não mandar, porque parece certa. A correspondência está documentada em `briefing-semanal/index.ts`.
+
+**Dois interruptores, como o cartão recorrente:** sem `WHATSAPP_TOKEN` e `WHATSAPP_PHONE_ID` a função não tenta enviar e diz que está desligada, em vez de falhar como se fosse defeito.
+
+`briefings_enviados` guarda **os números exatos de cada semana**, para responder depois ao "mas o sistema me disse X". Academia sem telefone de gestor é registrada mesmo sem envio — sem isso ela ficaria invisível e ninguém descobriria que nunca recebe o briefing. E `enviado_em` só é preenchido quando o envio deu certo, então a execução seguinte tenta de novo o que falhou em vez de dar por entregue o que nunca saiu.
+
+**Uma armadilha que o teste pegou.** A função nasceu sem declaração em `supabase/config.toml`, então o Supabase exigia JWT e o cron levava `UNAUTHORIZED_NO_AUTH_HEADER`. Pior: os dois primeiros casos do teste ("recusa sem token") **passaram pelo motivo errado** — eram barrados pelo portão de JWT, não pela checagem de token. Corrigido e reverificado: sem token e com token inventado dão 401 de verdade; com o token do Vault, 200.
+
 ## Trial e Bloqueio por Pagamento
 
 ### Trial não é oferta comercial
