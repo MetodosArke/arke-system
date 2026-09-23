@@ -349,6 +349,8 @@ O módulo `_shared/ia.ts` é, na maior parte, **uma lista do que não sai daqui*
 
 **Falha aberta, de propósito.** Modelo fora do ar não trava o mentor: a resposta diz `indisponivel` e ele segue escrevendo como antes de existir sugestão. Transformar indisponibilidade de terceiro em atendimento bloqueado troca um risco pequeno por uma falha certa.
 
+> **Superado em 23/09/2026:** o provedor passou a ser o Amazon Bedrock em São Paulo, e os caminhos da OpenAI e do Azure foram removidos — ver *IA no Brasil*.
+
 **Dois fornecedores, escolhidos pelo que estiver configurado.** Azure vence quando ambos existem — é ele que mantém o dado no Brasil, e é a **residência**, não a retenção, que elimina a transferência internacional (os dois exigem pedido de zero-retention; nenhum a dá por padrão). No Azure chama-se o **deployment**, não o nome do modelo: é a diferença que mais confunde quem vem da OpenAI direta.
 
 **A fronteira CREF/CRN não se garante com prompt.** Um modelo deriva para conselho técnico se nada o impedir, e o controle real é humano: **a sugestão é um rascunho que entra no campo de texto do mentor**, para ele editar ou apagar. Não existe e não vai existir modo automático.
@@ -446,6 +448,39 @@ O item **3.6** (retenção zero) foi na direção oposta: o parecer concluiu que
 **Conferido em 10 casos com contas reais**, sendo o que mais importa o do aluno legado: aceite antigo não conta, ele reconfirma, e a partir daí conta. Os documentos vigentes passaram a ser pedidos nas versões novas, e o consentimento de IA nasce na `2026-09-23.2` já com a ressalva gravada no registro.
 
 **A única pendência externa continua sendo o formulário de Zero Data Retention** na conta da OpenAI. Quando sair, a mudança é de uma frase na Política — e, por 3.6, sem novo aceite.
+
+## IA no Brasil: Amazon Bedrock em São Paulo (23/09/2026)
+
+O Sentinela saiu da OpenAI (servidores nos EUA) e passou para o **Amazon Bedrock em `sa-east-1`**. Com isso a análise da anamnese e o rascunho de resposta **deixam de envolver transferência internacional** — o que o Azure Brasil teria resolvido e não chegou a resolver, porque a conta não passou da criação.
+
+**"Configurado" não era "funcionando", e a diferença só apareceu perguntando ao próprio Bedrock.** A configuração recebida apontava para `anthropic.claude-3-5-sonnet-20240620-v1:0`, e o Bedrock em São Paulo respondeu **"identificador de modelo inválido"** tanto na consulta quanto na chamada. A listagem dos modelos da Anthropic na região mostrou o que decide tudo:
+
+| Modelos em `sa-east-1` (23/09/2026) | Como são invocados | Onde processam |
+|---|---|---|
+| Haiku 4.5, Sonnet 4.5 a 5, Opus 4.5 a 5.5, Fable | só por perfil `global.*` | **qualquer região comercial da AWS no mundo** |
+| Claude 3 Haiku, Claude 3 Sonnet | invocação direta (`ON_DEMAND`) | **São Paulo** |
+
+Ou seja: **"100% em São Paulo" só é possível com os modelos de 2024.** Qualquer modelo moderno, na data, mandaria o dado para fora do Brasil — e para uma região que nem se sabe qual. A escolha foi o **Claude 3 Haiku**, pelo lugar do processamento, que é o que o termo promete ao aluno. A qualidade foi conferida antes de trocar, nas duas tarefas reais e com os prompts de produção: o resumo citou só o que o aluno declarou e marcou atenção; a sugestão acolheu dor lombar e encaminhou para avaliação presencial **sem prescrever nada**; ~1,5 s por chamada.
+
+**A garantia mora no código, porque os dois defeitos que a desfariam não dão erro.**
+
+- **A região é fixa** em `_shared/ia.ts` (`const REGIAO = "sa-east-1"`), e não lida de variável de ambiente. Uma variável seria um jeito de mandar dado de saúde para fora do país trocando um texto num painel, com a Política afirmando o contrário.
+- **Modelo com prefixo de roteamento é recusado antes de qualquer envio** (`modeloRodaNaRegiao`): `global.`, `us.`, `sa.`, ARN de perfil. A recusa é em tempo de execução porque o id do modelo vive num secret que teste nenhum enxerga — e trocar por um `global.anthropic.claude-sonnet-5` é exatamente a "atualização" que alguém faria de boa-fé. Verificado: com modelo `global.` a função recusa e **nenhum byte sai para a AWS**.
+- `src/lib/iaNoBrasil.guarda.test.ts` trava as duas regras e confere que nenhuma edge function fala com `api.openai.com`, Azure OpenAI ou `api.anthropic.com`.
+
+**O caminho da OpenAI e do Azure foi removido, não deixado dormindo.** Com os dois no código, bastaria o Bedrock sair do ar ou alguém apagar a credencial para o Sentinela voltar em silêncio para os EUA — com os documentos dizendo São Paulo. Falha do Bedrock agora é `indisponivel`, nunca troca de fornecedor. O secret `OPENAI_API_KEY` continua no projeto, mas é inerte: nenhum código o lê.
+
+**Assinatura AWS feita à mão**, com WebCrypto e sem SDK (o SDK traria dezenas de dependências para uma função que lida com dado de saúde). A armadilha que ela resolve: fora do S3, cada segmento do caminho é codificado **duas vezes** na forma canônica — o `:` do id do modelo vira `%253A` na assinatura e `%3A` na URL. Provada executando **o próprio `ia.ts`** contra o Bedrock, antes do deploy, e depois pela função publicada: `fornecedor = bedrock` gravado em `sentinela_anamnese` e `sentinela_sugestoes`.
+
+**O registro de invocações do Bedrock na conta está desligado** (`loggingConfig: null`, conferido pela API) — então os prompts não ficam gravados na conta da AWS. Segundo a documentação de proteção de dados do Bedrock, o serviço não guarda prompts nem respostas, não os usa para treinar modelos e **não os repassa ao autor do modelo**: a Anthropic não recebe o conteúdo.
+
+**Credenciais:** `BEDROCK_ACCESS_KEY_ID`, `BEDROCK_SECRET_ACCESS_KEY` e `BEDROCK_MODEL_ID` nos secrets do Supabase. Os nomes não usam `AWS_*` de propósito, para não colidir com convenções de SDK que leem essas variáveis sozinhas.
+
+**Os textos acompanharam.** Política e Contrato foram para `2026-09-23.3` — a IA agora processa no Brasil, sem transferência internacional, e o suboperador passou de OpenAI para AWS (Amazon Bedrock). O consentimento de IA foi para `2026-09-23.3`. Mudanças a favor do titular, mas mudanças: versão nova, hash novo, aceite novo. Os dois documentos voltaram a `revisadoJuridico: false` até o encarregado confirmar **o texto** — ele tinha confirmado o desenho, e o texto não existia quando ele confirmou. **Confirmado no mesmo dia, com um ajuste:** *"o provedor não guarda o seu conteúdo"* virou *"o conteúdo não fica registrado na nossa conta do provedor"*. A primeira frase se apoiava na documentação da AWS; a segunda diz só o que foi verificado. **Texto jurídico afirma o que se consegue provar.** Versões finais: Política `2026-09-23.4`, Contrato `2026-09-23.3`, consentimento de IA `2026-09-23.4`, todos com `revisadoJuridico: true`.
+
+**E a ordem de aplicação passou a ser a certa.** Nas rodadas anteriores a linha do documento entrou no banco **antes** do deploy do texto: nesse intervalo o banco tratava como vigente um texto que a página ainda não mostrava, e um aceite dado ali ficaria gravado com o hash de um texto que a pessoa não leu. Não atingiu ninguém (só a conta E2E aceita documentos), mas o registro de aceite existe justamente para ser prova. A partir da `.4`, a migration do documento entra **depois** de o deploy estar no ar. A solução definitiva, se algum dia houver volume que justifique, é o aceite mandar o hash do texto que a tela mostrou e o banco recusar se não for o vigente — aí a ordem deixa de importar.
+
+**O que isto encerrou e o que abriu.** Encerrou o pedido de *Zero Data Retention* à OpenAI e o aceite do DPA dela, que deixaram de ter objeto. Abriu duas coisas: **a conta AWS ainda estava em verificação** na data (uma chamada ao Claude 3 Sonnet levou 403 "account is currently being verified"; o Haiku passou em todas), e **a longevidade do Claude 3 Haiku** — é modelo de 2024, e quando a AWS o aposentar em São Paulo o Sentinela fica indisponível (falha aberta, sem travar ninguém) até existir outro modelo invocável na região. Nesse dia a decisão volta: esperar um modelo novo em São Paulo, ou aceitar a transferência internacional com texto novo.
 
 ## Operação da Célula e Prova de Valor (Fase 6 do Ecossistema, 23/09/2026)
 

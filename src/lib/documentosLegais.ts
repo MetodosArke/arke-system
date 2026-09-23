@@ -35,10 +35,13 @@ export const DOCUMENTOS: Record<
   privacidade: {
     titulo: "Política de Privacidade",
     caminho: "/privacidade",
-    // .2 incorpora o parecer de 23/09/2026: cocontroladoria nomeada com o
-    // art. 42, e a reducao para retencao zero deixando de exigir novo aceite.
-    versao: "2026-09-23.2",
-    sha256: "7b48f0515413a990e644349048fe4a556d53685518ac628e1b7d42508554f17a",
+    // .3: a IA passou da OpenAI (EUA) para o Amazon Bedrock em Sao Paulo.
+    // .4: aprovada pelo encarregado com um ajuste -- "o provedor nao guarda o
+    // conteudo" virou "o conteudo nao fica registrado na nossa conta do
+    // provedor", que e o que foi de fato verificado (registro de invocacoes
+    // da conta desligado), e nao uma afirmacao da documentacao da AWS.
+    versao: "2026-09-23.4",
+    sha256: "b854df771e88e3b0441a073a2a4e0a722d9ba9354ea829b7973b7442f3102423",
     texto: privacidade,
     revisadoJuridico: true,
   },
@@ -48,8 +51,10 @@ export const DOCUMENTOS: Record<
     // .2 incorpora o parecer: a subsecao 6.2 passou a nomear a
     // cocontroladoria, citar o art. 42 e afastar a responsabilidade da
     // ArkeFit por falha exclusiva de execucao presencial da academia.
-    versao: "2026-09-23.2",
-    sha256: "9d3f4f50878f311363a87d9235dcaaa42b026a58cdd86734d1601584f993421d",
+    // .3: clausula 6.1, item 4 -- processamento da IA no Brasil. Aprovada
+    // pelo encarregado sem alteracao.
+    versao: "2026-09-23.3",
+    sha256: "746a33c5a71f61253579ad5d6101de95fcc4d8efed28a603bcc83781d30a909d",
     texto: contratoAcademia,
     revisadoJuridico: true,
   },

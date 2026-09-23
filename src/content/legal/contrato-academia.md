@@ -54,7 +54,7 @@ Quando o aluno contrata o Método ARKE, quem o acompanha é a equipe de mentoria
 1. a ArkeFit obtém do próprio aluno os consentimentos que essa parte exigir, e a Academia não responde por eles;
 2. **o conteúdo das mensagens entre o aluno e o mentor da ArkeFit não é acessível à Academia**, por desenho do serviço; a Academia vê que houve atendimento, o desfecho registrado e as instruções presenciais que lhe forem dirigidas;
 3. a passagem do aluno entre as fases da jornada pode ocorrer de forma automatizada, com base em tempo de acompanhamento e constância, e pode ser revista a qualquer tempo pela equipe;
-4. a ArkeFit poderá submeter dados do aluno a provedor de **inteligência artificial**, exclusivamente para as finalidades e nas condições descritas na Política de Privacidade, **somente mediante autorização específica do próprio aluno** e com transferência internacional amparada em cláusulas-padrão contratuais (art. 33, II) e no consentimento do titular (art. 33, VIII).
+4. a ArkeFit poderá submeter dados do aluno a provedor de **inteligência artificial**, exclusivamente para as finalidades e nas condições descritas na Política de Privacidade, **somente mediante autorização específica do próprio aluno** e com processamento em servidores localizados no Brasil, sem transferência internacional desses dados.
 
 ### 6.2. Cocontroladoria sobre os dados que servem às duas partes
 

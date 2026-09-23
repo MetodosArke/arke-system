@@ -17,7 +17,7 @@ type Resposta = {
 };
 
 /** Espelho de `public.versao_consentimento_ia()`. Mudou lá, muda aqui. */
-const VERSAO_TEXTO = "2026-09-23.2";
+const VERSAO_TEXTO = "2026-09-23.4";
 
 type Proposito = "anamnese" | "chat";
 
@@ -145,19 +145,20 @@ export function ConsentimentoSentinela({ alunoId, organizationId }: { alunoId: s
       })}
 
       {/*
-        A transferência internacional é declarada aqui porque é ela que dá base
-        legal ao consentimento (LGPD art. 33, VIII) — sem a informação prévia
-        sobre o caráter internacional, o consentimento não sustenta a
-        transferência. E a retenção é descrita como ela de fato é: enquanto não
-        houver contrato de retenção zero com o provedor, prometer retenção zero
-        seria viciar o próprio consentimento.
+        Onde o dado é processado vem dito aqui, e não só na Política, porque é
+        a informação que mais pesa para quem decide autorizar ou não. Desde a
+        troca para o Amazon Bedrock em São Paulo não há transferência
+        internacional — e a região está fixa em `_shared/ia.ts`, que recusa
+        modelo que rotearia para fora do país. Se isso mudar, esta frase muda
+        junto, com versão nova do termo.
       */}
       <div className="flex items-start gap-2 border-t pt-3">
         <Globe className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
         <p className="text-[11px] leading-snug text-muted-foreground">
-          O processamento é feito por provedor de inteligência artificial com <strong>servidores fora do
-          Brasil</strong>. O provedor pode guardar o conteúdo por até 30 dias para checagem de uso indevido, e
-          não o utiliza para treinar modelos. Não enviamos o seu nome, CPF, e-mail nem telefone — mas{" "}
+          O processamento é feito <strong>no Brasil</strong>, em servidores da Amazon Web Services em São
+          Paulo. O conteúdo não fica registrado na nossa conta do provedor, e não é utilizado para treinar
+          modelos. Não enviamos o seu
+          nome, CPF, e-mail nem telefone — mas{" "}
           <strong>
             as mensagens que você escreveu são enviadas como você as escreveu, inclusive qualquer dado
             pessoal que você tenha digitado nelas

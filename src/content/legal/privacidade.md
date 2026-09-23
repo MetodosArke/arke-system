@@ -50,8 +50,8 @@ Sobre isso, o que você precisa saber:
 - **Nada é enviado sem a sua autorização**, e as duas autorizações são independentes: você pode aceitar uma e recusar a outra. Sem autorização, o recurso simplesmente não funciona para você — e o seu acompanhamento continua normalmente.
 - **Quem decide é sempre uma pessoa.** O resumo não é avaliação profissional e não substitui a leitura da anamnese; a sugestão é um rascunho que o mentor edita, aprova ou descarta antes de enviar. A inteligência artificial não prescreve treino, não prescreve dieta, não diagnostica e não envia mensagem sozinha.
 - **Não enviamos quem você é.** Não saem nome, CPF, e-mail, telefone nem qualquer identificador seu. Nas mensagens, porém, o texto vai como você o escreveu — se você digitou o seu nome ali, ele vai junto. Não há como limpar isso sem destruir o sentido do que se quer analisar, e por isso está dito aqui em vez de prometido de outra forma.
-- **O processamento acontece fora do Brasil** — ver a seção 6.
-- **O provedor não usa o seu conteúdo para treinar modelos**, e pode guardá-lo por até 30 dias para checagem de uso indevido. Se esse prazo for reduzido a zero por contrato, esta Política será atualizada para dizer isso — como a redução só diminui o seu risco e não amplia nenhuma finalidade, ela não exige que a autorização seja pedida de novo.
+- **O processamento acontece no Brasil**, em servidores da Amazon Web Services em São Paulo — ver a seção 6.
+- **O conteúdo não fica registrado na nossa conta do provedor, e não é usado para treinar modelos.** O modelo de linguagem é desenvolvido pela Anthropic, mas é executado dentro da infraestrutura da Amazon Web Services: a Anthropic não recebe o que você escreveu.
 - **Você pode retirar a autorização quando quiser.** Ao retirar, o que tiver sido gerado a partir daquele dado é apagado do ARKE: o resumo da anamnese é excluído, e o texto dos rascunhos de resposta é removido.
 
 ## 5. Com quem os dados são compartilhados
@@ -67,19 +67,16 @@ Sobre isso, o que você precisa saber:
   - Cloudflare Turnstile — verificação anti-robô no cadastro;
   - BrasilAPI — consulta pública de CNPJ e CEP no cadastro da Academia (só dados da empresa);
   - Have I Been Pwned — checagem de senha vazada, em que apenas os 5 primeiros caracteres de um código da senha saem do seu aparelho; a senha nunca é enviada;
-  - **OpenAI** — análise por inteligência artificial das finalidades descritas na seção 4, **somente para quem autorizou** e somente enquanto a autorização estiver válida.
+  - **Amazon Web Services (Amazon Bedrock)** — análise por inteligência artificial das finalidades descritas na seção 4, com servidores no Brasil, em São Paulo, **somente para quem autorizou** e somente enquanto a autorização estiver válida.
 - **Com autoridades**, quando houver obrigação legal ou ordem judicial.
 
 ## 6. Transferência internacional
 
 Parte da infraestrutura — a hospedagem do aplicativo, o registro de erros e alguns serviços de apoio — fica fora do Brasil, principalmente nos Estados Unidos. O banco de dados principal fica em São Paulo.
 
-**A análise por inteligência artificial (seção 4) é processada fora do Brasil**, nos Estados Unidos. Ela se apoia em duas bases, que valem ao mesmo tempo:
+**A análise por inteligência artificial (seção 4) é processada no Brasil**, em São Paulo, e por isso **não envolve transferência internacional**. Os seus dados de saúde e as suas mensagens não saem do país para essa finalidade.
 
-- as **cláusulas-padrão contratuais** de transferência internacional firmadas com o provedor (art. 33, II, da LGPD, nos termos da Resolução CD/ANPD nº 19/2024); e
-- o **seu consentimento específico e destacado**, dado no aplicativo com esta informação prévia sobre o caráter internacional da operação (art. 33, VIII).
-
-As demais transferências ocorrem com base nas garantias contratuais oferecidas por cada provedor (art. 33, II), com criptografia em trânsito e controles de acesso.
+As transferências da infraestrutura de apoio ocorrem com base nas garantias contratuais oferecidas por cada provedor (art. 33, II, da LGPD), com criptografia em trânsito e controles de acesso.
 
 ## 7. Por quanto tempo
 
