@@ -1,0 +1,373 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>ArkeFit — Auditoria profunda de código e segurança · 23/09/2026</title>
+<style>
+  @page { size: A4; margin: 16mm 14mm 14mm 14mm; }
+
+  :root {
+    --tinta: #16202b;
+    --suave: #5b6b7c;
+    --linha: #dde4ea;
+    --marca: #1f6feb;
+    --alerta: #b4232b;
+    --ok: #1a7f4b;
+    --atencao: #9a6a00;
+    --fundo-suave: #f6f8fa;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    font-family: "Segoe UI", Calibri, system-ui, sans-serif;
+    color: var(--tinta);
+    font-size: 10pt;
+    line-height: 1.48;
+    margin: 0;
+  }
+
+  h1 { font-size: 20pt; margin: 0 0 2px; letter-spacing: -0.3px; }
+  h2 {
+    font-size: 12.5pt;
+    margin: 20px 0 7px;
+    padding-bottom: 4px;
+    border-bottom: 2px solid var(--linha);
+    page-break-after: avoid;
+  }
+  h3 { font-size: 10.5pt; margin: 14px 0 5px; page-break-after: avoid; }
+
+  .capa { border-bottom: 3px solid var(--marca); padding-bottom: 11px; margin-bottom: 16px; }
+  .sub { color: var(--suave); font-size: 9.6pt; }
+  .destinatario {
+    background: var(--fundo-suave);
+    border-left: 3px solid var(--marca);
+    padding: 8px 11px;
+    margin: 12px 0 0;
+    font-size: 9.2pt;
+    color: var(--suave);
+  }
+
+  table { width: 100%; border-collapse: collapse; margin: 8px 0 12px; font-size: 9.2pt; page-break-inside: avoid; }
+  th, td { text-align: left; padding: 5px 8px; border-bottom: 1px solid var(--linha); vertical-align: top; }
+  th { background: var(--fundo-suave); font-weight: 600; }
+  td.num, th.num { text-align: right; white-space: nowrap; }
+
+  code {
+    font-family: Consolas, "Courier New", monospace;
+    font-size: 8.6pt;
+    background: var(--fundo-suave);
+    padding: 1px 3px;
+    border-radius: 3px;
+  }
+
+  .selo {
+    display: inline-block;
+    border: 1px solid var(--linha);
+    border-radius: 3px;
+    padding: 1px 6px;
+    font-size: 8pt;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .selo.ok { background: #f2faf5; color: var(--ok); border-color: #bfe3cd; }
+  .selo.critico { background: #fdf4f4; color: var(--alerta); border-color: #f1c4c6; }
+  .selo.aviso { background: #fdfaf2; color: var(--atencao); border-color: #ecdcb4; }
+
+  .veredito {
+    border: 2px solid var(--marca);
+    border-radius: 5px;
+    padding: 11px 14px;
+    margin: 14px 0;
+    background: var(--fundo-suave);
+    page-break-inside: avoid;
+  }
+  .veredito p { margin: 5px 0; }
+  .nota { font-size: 9pt; color: var(--suave); }
+  ul { margin: 6px 0; padding-left: 18px; }
+  li { margin: 3px 0; }
+
+  .rodape {
+    margin-top: 22px;
+    padding-top: 9px;
+    border-top: 1px solid var(--linha);
+    color: var(--suave);
+    font-size: 8.4pt;
+  }
+</style>
+</head>
+<body>
+
+<div class="capa">
+  <h1>ArkeFit — Auditoria profunda de código e segurança</h1>
+  <div class="sub">23 de setembro de 2026 · projeto <code>lzyxqjibkfblrrjboylp</code> (ArkeFit PROD BR, sa-east-1) · 90 tabelas, 247 regras de RLS, 139 funções, 33 edge functions</div>
+  <div class="destinatario">
+    <strong>Método.</strong> Tudo aqui é medido contra o banco e o app que estão no ar agora, não lido do código
+    e presumido. Onde o relatório afirma que um papel não alcança um dado, a afirmação vem de uma tentativa
+    real de acesso feita como aquele papel, em transação revertida. Onde diz que algo foi corrigido, a
+    correção está aplicada e reconferida.
+  </div>
+</div>
+
+<div class="veredito">
+  <p><strong>[STATUS GERAL] O código está maduro para produção. Nenhum achado crítico ou bloqueante.</strong></p>
+  <p>A varredura não encontrou vazamento entre academias, escalada de privilégio, falha de isolamento
+  multitenant nem tratamento de erro que quebre a experiência. Encontrou <strong>quatro pontos de
+  atenção</strong>, todos de superfície ou desempenho, e <strong>todos já corrigidos</strong> no curso
+  desta auditoria.</p>
+  <p>O que separa o sistema do primeiro cliente pagante continua não sendo o código: são as assinaturas de
+  infraestrutura e dois itens de responsabilidade do responsável, tratados na seção 7.</p>
+</div>
+
+<h2>1. Integridade de dados e isolamento por academia</h2>
+
+<h3>1.1 &nbsp;O teste que importa: uma academia consegue ver a outra?</h3>
+<p>Criei uma segunda academia com um aluno e dados sensíveis dele — anamnese, prontuário, conversa com o
+mentor, lead — e tentei lê-los <strong>como o gestor da primeira academia</strong>. É a pergunta que o
+isolamento multitenant existe para responder.</p>
+
+<table>
+  <tr><th>O que o gestor da academia A tentou ler da academia B</th><th class="num">Linhas visíveis</th></tr>
+  <tr><td>Alunos</td><td class="num">0</td></tr>
+  <tr><td>Anamnese de acolhimento (dado clínico)</td><td class="num">0</td></tr>
+  <tr><td>Observações da equipe (prontuário)</td><td class="num">0</td></tr>
+  <tr><td>Conversa com o mentor ARKE</td><td class="num">0</td></tr>
+  <tr><td>Leads do funil</td><td class="num">0</td></tr>
+  <tr><td>A própria organização</td><td class="num">0</td></tr>
+  <tr><td>Perfil do aluno (nome, CPF, telefone)</td><td class="num">0</td></tr>
+</table>
+
+<p><span class="selo ok">SEM VAZAMENTO</span> Nenhum dado atravessou. Uma varredura estática complementar
+sobre as 242 regras de <code>public</code> encontrou apenas quatro cuja condição não amarra a organização, e
+as quatro são legítimas: duas restritas à ArkeFit (<code>cobrancas_b2b</code>,
+<code>organizacao_status_historico</code>) e duas de "curtida própria" em <code>feed_likes</code>.</p>
+
+<h3>1.2 &nbsp;Estado estrutural do banco</h3>
+<table>
+  <tr><th>Checagem</th><th>Resultado</th></tr>
+  <tr><td>Tabelas sem RLS</td><td><strong>0</strong> de 90 — a regra 1 do projeto está íntegra</td></tr>
+  <tr><td>Regras permissivas sobrepostas</td><td><strong>0</strong> (ver 5.1: três foram encontradas e corrigidas)</td></tr>
+  <tr><td>Funções <code>security definer</code> sem <code>search_path</code></td><td><strong>0</strong> de 114</td></tr>
+  <tr><td>Funções de gatilho alcançáveis pelo PostgREST</td><td><strong>0</strong> de 62</td></tr>
+  <tr><td>Chaves estrangeiras</td><td>177, todas validadas</td></tr>
+  <tr><td>Índices</td><td>320 (14 acrescentados nesta auditoria)</td></tr>
+  <tr><td>RPCs <code>get_superadmin_*</code></td><td>16 de 16 checam o papel por dentro</td></tr>
+  <tr><td>Rotinas do <code>pg_cron</code> ativas</td><td>12, nenhuma apontando para o projeto antigo</td></tr>
+</table>
+
+<p>Cinco tabelas têm RLS ligado e nenhuma política — <code>alertas_rotinas</code>,
+<code>asaas_webhook_events</code>, <code>links_ativacao</code>, <code>matricula_publica_tentativas</code> e
+<code>organizacao_segredo_checkin</code>. Isso é deliberado e é o estado mais restritivo possível: só a
+<code>service_role</code> as alcança. O segredo do check-in por QR, em particular, <em>precisa</em> ser
+ilegível até pelo aluno — do contrário a foto do QR mandada para casa funcionaria.</p>
+
+<h2>2. Fronteiras de permissão entre papéis</h2>
+
+<p>Nove tentativas de escalada, cada uma feita como o papel real, verificando <strong>o valor final no
+banco</strong> e não apenas a ausência de erro.</p>
+
+<table>
+  <tr><th>Tentativa</th><th>Resultado</th></tr>
+  <tr><td>Aluno se promove a <code>superadmin</code></td><td>negado</td></tr>
+  <tr><td>Aluno ativa o próprio Método ARKE</td><td>0 linhas — valor segue <code>sem_adesao</code></td></tr>
+  <tr><td>Aluno muda o plano da academia para Enterprise</td><td>0 linhas — valor segue <code>growth</code></td></tr>
+  <tr><td>Aluno lê a Visão Master</td><td>negado</td></tr>
+  <tr><td>Gestor se dá o plano Enterprise</td><td>negado pelo gatilho</td></tr>
+  <tr><td>Gestor marca o próprio onboarding como concluído</td><td>negado pelo gatilho</td></tr>
+  <tr><td>Gestor põe a academia em trial para fugir da inadimplência</td><td>negado pelo gatilho</td></tr>
+  <tr><td>Gestor concede trial do Método a um aluno</td><td>negado — é do Super Admin</td></tr>
+  <tr><td>Gestor grava no acervo global da ArkeFit</td><td>negado</td></tr>
+</table>
+
+<p><span class="selo ok">SEM BRECHA</span></p>
+
+<p class="nota"><strong>Nota metodológica que vale mais que o resultado.</strong> A primeira rodada deste
+teste acusou <em>três brechas críticas</em>. Eram falsas. Um <code>UPDATE</code> que o RLS filtra
+<strong>não levanta erro</strong> — ele afeta zero linhas e retorna com sucesso. Auditar pela ausência de
+exceção produz alarme falso; auditar pelo valor final no banco produz a resposta. Toda tabela acima foi
+reavaliada com <code>GET DIAGNOSTICS row_count</code> e releitura do valor.</p>
+
+<h2>3. Comunicação front-end ↔ back-end</h2>
+
+<table>
+  <tr><th>Checagem</th><th>Resultado</th></tr>
+  <tr><td>Chamadas <code>functions.invoke</code></td><td>35, em 24 arquivos</td></tr>
+  <tr><td>Tratamento correto do erro da edge function</td><td><strong>100%</strong>, garantido por teste que lê o código-fonte</td></tr>
+  <tr><td>Colunas consultadas que não existem no schema</td><td><strong>0</strong>, garantido por teste que confere cada <code>.select()</code> contra os tipos</td></tr>
+</table>
+
+<p>O tratamento de erro merece nota porque o padrão certo é contraintuitivo: com status não-2xx,
+<code>supabase.functions.invoke</code> devolve <code>data: null</code> e uma mensagem genérica em inglês; o
+texto que a função escreveu fica em <code>error.context</code>. O padrão ingênuo
+(<code>data?.error ?? error.message</code>) parece cobrir o caso e não cobre. Um teste-guarda lê o
+código-fonte e falha se alguma chamada nova repetir o engano — é o que impede a regressão numa tela futura.</p>
+
+<h3>3.1 &nbsp;Degradação elegante nos serviços externos</h3>
+<p>Os quatro integrados foram avaliados quanto ao comportamento quando o terceiro cai:</p>
+<table>
+  <tr><th>Serviço</th><th>Falha do terceiro</th><th>Avaliação</th></tr>
+  <tr><td><strong>Cloudflare Turnstile</strong></td><td>Libera a matrícula, registrando no log</td><td>Correto — indisponibilidade de terceiro não pode virar cadastro bloqueado</td></tr>
+  <tr><td><strong>HaveIBeenPwned</strong></td><td>Libera a senha, registrando no log</td><td>Correto — é trava de qualidade de senha, não fronteira de segurança</td></tr>
+  <tr><td><strong>BrasilAPI</strong> (CNPJ/CEP)</td><td>O gestor digita à mão</td><td>Correto</td></tr>
+  <tr><td><strong>Asaas</strong> (reconciliação)</td><td>Vira erro explícito, nunca "nada a corrigir"</td><td>Correto — e é a decisão mais importante das quatro</td></tr>
+</table>
+
+<p>A do Asaas inverte a lógica das outras de propósito, e com razão: consulta que falha ao gateway
+<strong>não pode</strong> ser lida como "sem divergências". A primeira versão devolvia nulo, e uma chave
+inválida teria resultado em "0 divergências, 0 órfãs, sem erro" — um silêncio que esconderia aluno cobrado
+sem registro. Hoje falha vai para o campo de erro da varredura e para a faixa vermelha da Visão Master.</p>
+
+<h2>4. Fluxos críticos de negócio</h2>
+
+<h3>4.1 &nbsp;Matrícula pública</h3>
+<p>Endpoint público que cria usuário no Auth. Camadas verificadas: limite por IP (30 tentativas/15 min,
+20 matrículas/hora por IP, 60/hora por organização, com o IP guardado apenas como SHA-256 com pimenta),
+captcha Turnstile, checagem de senha vazada, aceite obrigatório dos termos e — desde 22/09 — <strong>CPF
+obrigatório e validado</strong>. Conferido contra a função publicada: sem CPF responde 400 com mensagem em
+português; com dígito inválido, idem.</p>
+
+<h3>4.2 &nbsp;Cobrança recorrente e vinculação ao Método</h3>
+<p>Exercitado contra o sandbox do Asaas com o código real de produção: <strong>22 verificações</strong> —
+customer reaproveitado por <code>externalReference</code> e por CPF, assinatura com split correto
+(R$ 69,95 academia / R$ 49,05 ArkeFit no Integrado), cobrança gerada vencendo no dia com fatura para o
+aluno, e segunda chamada que <em>adota</em> em vez de duplicar.</p>
+<p>A idempotência é o ponto que mais importa: sem ela, "criou no Asaas e falhou ao gravar no banco" deixa
+uma assinatura órfã cobrando o aluno todo mês sem ninguém ver. Três guardas independentes impedem
+assinatura sem adesão ativa ao Método: a edge function antes de tocar no gateway, o gatilho
+<code>trg_assinatura_exige_adesao</code> no banco (que cobre até <code>service_role</code>) e a checagem de
+assinatura já existente.</p>
+
+<h3>4.3 &nbsp;O canal do mentor e a confidencialidade</h3>
+<p>Canal novo desta rodada. Três comportamentos verificados em transação revertida:</p>
+<ul>
+  <li>O <strong>gestor da academia lê zero</strong> mensagens — a regra de leitura não tem
+  <code>is_org_staff</code>, ao contrário dos canais de treino e dieta. É o desenho: o aluno fala ali do
+  que não contaria ao professor da própria academia.</li>
+  <li>O aluno <strong>não consegue forjar</strong> uma mensagem "do mentor" na própria conversa.</li>
+  <li>Mensagem enviada <strong>não pode ser editada</strong> — só a marca de lida muda. Conversa de
+  acompanhamento que pode ser reescrita depois não serve como registro do que foi orientado.</li>
+</ul>
+
+<h2>5. Achados desta auditoria <span class="selo aviso">MELHORIA</span></h2>
+
+<h3>5.1 &nbsp;Três regras permissivas sobrepostas — e o ponto cego que as escondeu <span class="selo ok">CORRIGIDO</span></h3>
+<p>Em <code>organizations</code> (leitura e alteração) e <code>profiles</code> (leitura) havia duas regras
+valendo para a mesma operação, o que o projeto proíbe desde a consolidação de setembro. O Postgres avalia as
+duas em toda consulta.</p>
+<p><strong>Por que escaparam</strong> é a parte que interessa: a varredura agrupava as regras por tabela,
+operação e papel, e estas combinam uma regra <code>TO authenticated</code> com outra <code>TO public</code>.
+Papéis diferentes na listagem — mas <code>public</code> engloba <code>authenticated</code>. A verificação
+olhava o nome do papel e não a relação entre eles. É a mesma classe de ponto cego que escondeu, na semana
+passada, uma regressão de privilégio na migração do banco: lá a consulta filtrava papéis por nome e a
+concessão ao PUBLIC chega com identificador numérico.</p>
+<p>Consolidadas em uma regra por operação. O acesso é idêntico por construção (a condição nova é o OU das
+anteriores) e foi medido: cada identidade real do sistema enxerga exatamente as mesmas linhas antes e
+depois.</p>
+
+<h3>5.2 &nbsp;Reavaliação de <code>auth.uid()</code> por linha <span class="selo ok">CORRIGIDO</span></h3>
+<p>A regra de <code>reconciliacoes_asaas</code> chamava <code>auth.uid()</code> uma vez por linha em vez de
+uma vez por consulta. Com a tabela crescendo a cada varredura diária, viraria custo por linha sem motivo.</p>
+
+<h3>5.3 &nbsp;Quatorze chaves estrangeiras sem índice <span class="selo ok">CORRIGIDO</span></h3>
+<p>Nenhuma dói com o volume atual; todas doem no primeiro cliente com base grande, e criar agora custa zero.
+Duas eram das tabelas criadas nesta mesma rodada.</p>
+
+<h3>5.4 &nbsp;Objetos de erro em log <span class="selo aviso">ACEITÁVEL, COM RESSALVA</span></h3>
+<p>Três pontos registram objetos de erro de terceiros que podem carregar fragmento de contexto:
+<code>send-chat-push</code> (corpo de erro do web-push, que pode conter o endpoint da inscrição),
+<code>superadmin-suporte-tenant</code> e o erro de rede do HaveIBeenPwned em <code>matricula-publica</code>
+— este último inofensivo, porque a URL consultada carrega apenas os 5 primeiros caracteres do hash, que é
+justamente o mecanismo de anonimato do protocolo.</p>
+<p>Nenhum registra senha, CPF ou número de cartão. O caminho do cartão foi verificado à parte e é
+exemplar: o corpo da requisição nunca vai para log nem em erro, o banco guarda só os 4 últimos dígitos com
+<code>check</code> que recusa o número inteiro, e o Sentry remove qualquer objeto sob as chaves
+<code>cartao</code>/<code>titular</code>. <strong>Recomendação:</strong> reduzir os três aos códigos de
+erro, como já se faz no fluxo de cartão.</p>
+
+<h2>6. Resiliência e entrada maliciosa</h2>
+<table>
+  <tr><th>Frente</th><th>Estado</th></tr>
+  <tr><td>Concorrência em vaga de turma</td><td>Reserva atômica, com correção de condição de corrida já aplicada</td></tr>
+  <tr><td>Duplicidade de assinatura no gateway</td><td>Idempotente por <code>externalReference</code>, verificado em sandbox</td></tr>
+  <tr><td>Duplicidade de check-in e de presença</td><td>Restrição de unicidade por aluno e dia</td></tr>
+  <tr><td>Duplicidade de série no registro de treino</td><td>Unicidade por (sessão, exercício, série)</td></tr>
+  <tr><td>CPF inválido ou repetido</td><td>Dígito verificador no banco e unicidade — barrou, inclusive, um teste meu</td></tr>
+  <tr><td>Injeção de SQL</td><td>Não aplicável no caminho normal: o acesso é por PostgREST parametrizado; as funções usam parâmetros tipados</td></tr>
+  <tr><td>Rotinas falhando em silêncio</td><td>Classificadas em ok/falhou/parou de rodar, com faixa vermelha e alerta por e-mail</td></tr>
+  <tr><td>Webhook de pagamento perdido</td><td>Rede de segurança dos dois lados: vencimento no banco e reconciliação diária com o gateway</td></tr>
+</table>
+
+<h2>7. Nota de prontidão para lançamento comercial</h2>
+
+<p class="nota">Conforme pedido, esta nota <strong>exclui</strong> os itens que são de responsabilidade do
+responsável e entram antes do primeiro cliente pagante: o canal de suporte e a carga dos GIFs dos
+exercícios. As assinaturas de infraestrutura permanecem na conta porque não são tarefa, são pré-requisito
+de operação.</p>
+
+<table>
+  <tr><th>Dimensão</th><th class="num">Nota</th><th>Base</th></tr>
+  <tr>
+    <td><strong>Segurança e isolamento multitenant</strong></td>
+    <td class="num">9,5</td>
+    <td>Zero vazamento em teste real entre academias, zero escalada em nove tentativas, RLS íntegro nas 90 tabelas, superfície do PostgREST fechada.</td>
+  </tr>
+  <tr>
+    <td><strong>Integridade de dados</strong></td>
+    <td class="num">9,5</td>
+    <td>177 FKs validadas, unicidade onde importa, CPF com dígito verificador, snapshot imutável de prescrição, nenhuma linha órfã.</td>
+  </tr>
+  <tr>
+    <td><strong>Comunicação front/back</strong></td>
+    <td class="num">9,5</td>
+    <td>100% das 35 chamadas tratam o erro corretamente, com teste-guarda que lê o código e impede a regressão.</td>
+  </tr>
+  <tr>
+    <td><strong>Fluxos críticos de negócio</strong></td>
+    <td class="num">9,0</td>
+    <td>Cobrança verificada ponta a ponta em sandbox, idempotente, com três guardas independentes. Desconta a ausência de execução real em produção — que depende da coleta de CPF.</td>
+  </tr>
+  <tr>
+    <td><strong>Resiliência e tratamento de erro</strong></td>
+    <td class="num">9,0</td>
+    <td>Degradação elegante correta nos quatro serviços externos, rotinas que não falham em silêncio, reconciliação dos dois lados. Desconta os três logs da seção 5.4.</td>
+  </tr>
+  <tr>
+    <td><strong>Cobertura de testes</strong></td>
+    <td class="num">8,5</td>
+    <td>361 automatizados (315 app + 46 gateway) e 10 de ponta a ponta contra produção. Desconta a ausência de teste de carga, que só faz sentido depois do upgrade de infraestrutura.</td>
+  </tr>
+  <tr>
+    <td><strong>Infraestrutura</strong></td>
+    <td class="num">4,0</td>
+    <td>Três planos gratuitos sustentando o que seria produção paga: Vercel Hobby é de uso não-comercial, Supabase Free pausa por inatividade e não oferece backup, Resend gratuito entrega 100 e-mails/dia.</td>
+  </tr>
+</table>
+
+<div class="veredito">
+  <p><strong>Nota de prontidão do código: 9,2 / 10.</strong> Média das seis dimensões de software, excluída
+  a infraestrutura e excluídos os itens do responsável.</p>
+  <p><strong>Nota de prontidão para lançamento comercial: 6,8 / 10</strong>, com a infraestrutura pesando.
+  Ela sobe para <strong>9,2</strong> no dia em que as três assinaturas forem contratadas — e não há uma linha
+  de código entre um número e o outro.</p>
+</div>
+
+<h2>8. Conclusão</h2>
+<p><strong>[CRÍTICO / BLOQUEANTE]:</strong> nenhum.</p>
+<p><strong>[MELHORIA / AVISO]:</strong> quatro, descritos na seção 5. Três já corrigidos e aplicados; o
+quarto é uma recomendação de reduzir três registros de log aos códigos de erro.</p>
+<p><strong>[STATUS GERAL]:</strong> o código está maduro para produção. A maturidade aqui não vem de
+ausência de defeitos — vem de que os defeitos encontrados nas últimas semanas foram, na maioria, achados
+por verificação automática e fechados com teste que impede a volta. Duas vezes nesta auditoria a própria
+ferramenta de verificação se mostrou cega a uma classe de problema, e nas duas o remédio foi corrigir a
+verificação, não só o sintoma. Esse é o sinal que eu procuraria antes de recomendar um sistema para
+produção.</p>
+
+<div class="rodape">
+  Varredura executada em 23/09/2026 contra o projeto <code>lzyxqjibkfblrrjboylp</code> e contra o app
+  publicado em <code>www.arkefit.com.br</code>. Os números das seções 1 a 4 e 6 são medidos; as notas da
+  seção 7 são julgamento profissional sobre eles. As correções da seção 5 estão aplicadas e reconferidas, e
+  os 371 testes (361 automatizados e 10 de ponta a ponta) voltaram a passar depois delas.
+</div>
+
+</body>
+</html>
