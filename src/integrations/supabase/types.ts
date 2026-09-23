@@ -5147,6 +5147,10 @@ export type Database = {
           ultimo_erro: string
         }[]
       }
+      avancar_fase_automatico: {
+        Args: { _aluno_id: string }
+        Returns: Database["public"]["Enums"]["fase_jornada"]
+      }
       buscar_aluno_primeiro_acesso: {
         Args: { _contato: string; _organization_id: string }
         Returns: string
@@ -5215,6 +5219,10 @@ export type Database = {
         Returns: undefined
       }
       escalar_tarefas_vencidas: { Args: never; Returns: undefined }
+      fase_elegivel: {
+        Args: { _aluno_id: string }
+        Returns: Database["public"]["Enums"]["fase_jornada"]
+      }
       gerar_comissao_se_configurada: {
         Args: {
           _aluno_id: string
@@ -5639,6 +5647,7 @@ export type Database = {
         Args: { _organization_id: string }
         Returns: boolean
       }
+      motivo_nao_avanca: { Args: { _aluno_id: string }; Returns: string }
       mover_fase_jornada: {
         Args: {
           _aluno_id: string
@@ -5876,6 +5885,13 @@ export type Database = {
         Returns: number
       }
       valor_mensal_b2b: { Args: { _organization_id: string }; Returns: number }
+      varrer_avanco_fases: {
+        Args: never
+        Returns: {
+          avaliados: number
+          avancados: number
+        }[]
+      }
       verificar_orfaos: {
         Args: never
         Returns: {

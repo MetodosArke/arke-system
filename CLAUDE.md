@@ -261,6 +261,32 @@ O carimbo **não é reaberto** por relato posterior: a data tem de ser a do prim
 
 Uma varredura sobre **todo o schema** procurando `ON CONFLICT` contra índice parcial — a classe do `42P10` encontrado na Fase anterior — não achou mais nenhuma ocorrência. As duas funções corrigidas eram as únicas.
 
+
+## Avanço Automático de Fases (Fase 3 do Ecossistema, 23/09/2026)
+
+**Reverte conscientemente uma decisão registrada.** O projeto dizia: *"as cinco fases são movidas pela equipe, manualmente. A decisão foi não automatizar: quem convive com o aluno é quem sabe se ele mudou de fase."*
+
+O Mentor Centralizado **removeu a premissa dessa decisão** — não há mais um professor acompanhando digitalmente, e esse é justamente o ponto do BPO. Automatizar o fluxo de sucesso e reservar o humano para as exceções é coerente com o modelo novo, não é um recuo. A passagem manual continua por cima, para adiantar, corrigir ou recuar: coisas que critério nenhum decide bem.
+
+| De | Para | Critério |
+|---|---|---|
+| M.A.P.A.® | B.A.S.E.® | anamnese concluída |
+| B.A.S.E.® | R.O.T.A.® | 4 semanas **na fase** com constância ≥ 80% |
+| R.O.T.A.® | A.P.E.X.® | 12 semanas na fase com constância ≥ 80% |
+| A.P.E.X.® | L.E.G.A.D.O.® | 24 semanas de Método com constância ≥ 80% |
+
+**Tempo na fase é exigido junto com a constância, e isso não é detalhe.** A constância olha para trás; sem o tempo mínimo, um aluno que entra hoje em B.A.S.E.® carregando quatro semanas boas da fase anterior avançaria no mesmo dia — pulando exatamente o ciclo de adaptação que a fase existe para dar. Foi o primeiro caso que o teste cobriu.
+
+**Um passo por vez, nunca para trás.** Pular fase daria por cumprido um ciclo que não aconteceu; regredir automaticamente tiraria do aluno um progresso que ele fez, e é decisão de gente. Verificado: aluno em B.A.S.E.® com 24 semanas perfeitas vai para R.O.T.A.®, não para A.P.E.X.®.
+
+**`motivo_nao_avanca()` devolve o motivo, não um booleano.** A fila do Mentor precisa saber **por que** o aluno parou para decidir o que fazer — `dor`, `inercia`, `situacao_pausado`, `fora_do_metodo` pedem respostas completamente diferentes. Um booleano obrigaria a refazer a pergunta. A ficha do aluno mostra isso em texto, porque com o avanço automático a **ausência de movimento passa a ser informação**.
+
+**A ordem do cron não é estética.** `arke-avanco-fases` roda às 05:45 UTC: depois da reconciliação Asaas↔banco (04:30) e da sincronização de situação por mensalidade (05:30), antes das rotinas que abrem tarefa (06:00). `motivo_nao_avanca` recusa quem não está `em_dia`, então rodar antes da sincronização suspenderia o avanço de um aluno que pagou na véspera.
+
+**O histórico distingue.** `mover_fase_jornada` exige papel de equipe e morreria no cron, onde `auth.uid()` é nulo; `avancar_fase_automatico` é a porta do motor, restrita à `service_role`, e grava `movido_por` nulo com o nome "Avanço automático".
+
+Conferido em **12 casos** em transação revertida: cada transição, cada bloqueio, o não-pular-fase, o fim da régua em L.E.G.A.D.O.® e a varredura movendo de fato. Uma armadilha de teste vale registrar: num `SELECT` só, todas as subconsultas enxergam o snapshot do início da instrução — ler a fase na mesma expressão que a move mostra o valor **de antes**, e parece defeito sem ser.
+
 ## Trial e Bloqueio por Pagamento
 
 ### Trial não é oferta comercial
@@ -398,6 +424,8 @@ A ponta que ficava em aberto foi **fechada em 21/09/2026**:
 Como a causa é operacional e não estrutural, a defesa também é. Impedir não dá — quem tem privilégio para trocar o modo tem privilégio para tudo —, então a resposta é tornar barato conferir: `public.verificar_orfaos()` varre todas as FKs que apontam para `organizations` e conta o que ficou apontando para o vazio, sem lista de tabelas mantida à mão (tabela nova entra na varredura sozinha). Restrita à ArkeFit. **Rodar depois de qualquer exclusão de tenant feita fora do produto.**
 
 ## Progressão da Jornada do Aluno
+
+> **Atualizado em 23/09/2026:** o fluxo de sucesso passou a avançar sozinho — ver *Avanço Automático de Fases*. O que segue descreve a passagem manual, que continua valendo por cima.
 
 As cinco fases — M.A.P.A.® → B.A.S.E.® → R.O.T.A.® → A.P.E.X.® → L.E.G.A.D.O.® — **são movidas pela equipe**, manualmente, no bloco *Fase da Jornada* da ficha do aluno. A decisão foi não automatizar: quem convive com o aluno é quem sabe se ele mudou de fase, e um gatilho erraria justamente nos casos que mais importam.
 
