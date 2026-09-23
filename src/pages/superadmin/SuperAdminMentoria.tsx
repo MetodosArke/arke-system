@@ -5,6 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { MessageCircle, Users } from "lucide-react";
 import { ChatMentor } from "@/components/chat/ChatMentor";
+import { FilaChamadosMentor } from "@/components/superadmin/FilaChamadosMentor";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ROTULO_PLANO, type PlanoAluno } from "@/lib/planoAluno";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -58,6 +60,18 @@ export default function SuperAdminMentoria() {
         </span>
       </div>
 
+      {/* Duas filas e duas perguntas: "quem me escreveu" e "quem saiu do
+          trilho". A segunda e o coracao do BPO — ela nasce sozinha dos
+          sensores, sem ninguem precisar reclamar primeiro. */}
+      <Tabs defaultValue="chamados">
+        <TabsList>
+          <TabsTrigger value="chamados">Chamados</TabsTrigger>
+          <TabsTrigger value="conversas">Conversas</TabsTrigger>
+        </TabsList>
+        <TabsContent value="chamados" className="mt-3">
+          <FilaChamadosMentor />
+        </TabsContent>
+        <TabsContent value="conversas" className="mt-3 space-y-3">
       {isLoading ? (
         <div className="flex justify-center py-10">
           <div role="status" aria-label="Carregando" className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
@@ -126,6 +140,8 @@ export default function SuperAdminMentoria() {
           </Card>
         </div>
       )}
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

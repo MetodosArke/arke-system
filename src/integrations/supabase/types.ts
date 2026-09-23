@@ -4763,6 +4763,7 @@ export type Database = {
           created_at: string
           data_agendada: string | null
           desfecho_acao: string | null
+          dono: string
           escalada_em: string | null
           id: string
           motivo: string
@@ -4782,6 +4783,7 @@ export type Database = {
           created_at?: string
           data_agendada?: string | null
           desfecho_acao?: string | null
+          dono?: string
           escalada_em?: string | null
           id?: string
           motivo: string
@@ -4801,6 +4803,7 @@ export type Database = {
           created_at?: string
           data_agendada?: string | null
           desfecho_acao?: string | null
+          dono?: string
           escalada_em?: string | null
           id?: string
           motivo?: string
@@ -5200,12 +5203,28 @@ export type Database = {
         Returns: boolean
       }
       cpf_valido: { Args: { _cpf: string }; Returns: boolean }
+      criar_instrucao_presencial: {
+        Args: {
+          _aluno_id: string
+          _instrucao: string
+          _prazo_horas?: number
+          _prioridade?: Database["public"]["Enums"]["tarefa_prioridade"]
+        }
+        Returns: string
+      }
       dia_e_esperado_treino: {
         Args: { _aluno_id: string; _dias_descanso: number[]; _isodow: number }
         Returns: boolean
       }
       documento_legal_vigente: {
         Args: { _tipo: Database["public"]["Enums"]["tipo_documento_legal"] }
+        Returns: string
+      }
+      dono_da_tarefa: {
+        Args: {
+          _aluno_id: string
+          _tipo: Database["public"]["Enums"]["tarefa_tipo"]
+        }
         Returns: string
       }
       emails_superadmin: {
@@ -5263,6 +5282,7 @@ export type Database = {
       gerar_tarefas_ativacao_pendente: { Args: never; Returns: undefined }
       gerar_tarefas_barreira_rotina: { Args: never; Returns: undefined }
       gerar_tarefas_engajamento_baixo: { Args: never; Returns: undefined }
+      gerar_tarefas_inercia: { Args: never; Returns: number }
       get_aceites_pendentes: {
         Args: { _organization_id?: string }
         Returns: {
@@ -5306,6 +5326,27 @@ export type Database = {
           ultima_em: string
           ultima_mensagem: string
           ultimo_remetente: string
+        }[]
+      }
+      get_fila_mentor: {
+        Args: never
+        Returns: {
+          aluno_id: string
+          aluno_nome: string
+          atrasada: boolean
+          constancia: number
+          dias_inativo: number
+          fase: Database["public"]["Enums"]["fase_jornada"]
+          motivo: string
+          nao_lidas: number
+          nivel: string
+          organizacao_id: string
+          organizacao_nome: string
+          prioridade: Database["public"]["Enums"]["tarefa_prioridade"]
+          sla_prazo: string
+          status: Database["public"]["Enums"]["tarefa_status"]
+          tarefa_id: string
+          tipo: Database["public"]["Enums"]["tarefa_tipo"]
         }[]
       }
       get_historico_aluno: {
@@ -6003,6 +6044,9 @@ export type Database = {
         | "acolhimento_elite"
         | "engajamento_baixo"
         | "atestado"
+        | "inercia"
+        | "ciclo_travado"
+        | "instrucao_presencial"
       tipo_documento_legal: "termos_uso" | "privacidade" | "contrato_academia"
     }
     CompositeTypes: {
@@ -6237,6 +6281,9 @@ export const Constants = {
         "acolhimento_elite",
         "engajamento_baixo",
         "atestado",
+        "inercia",
+        "ciclo_travado",
+        "instrucao_presencial",
       ],
       tipo_documento_legal: ["termos_uso", "privacidade", "contrato_academia"],
     },

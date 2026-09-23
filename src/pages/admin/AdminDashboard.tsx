@@ -33,6 +33,9 @@ import {
   Sparkles,
   TrendingDown,
   Stethoscope,
+  UserMinus,
+  TimerOff,
+  Handshake,
 } from "lucide-react";
 import type { Tables, Enums } from "@/integrations/supabase/types";
 
@@ -54,6 +57,12 @@ const ACOES_RAPIDAS: Record<Tipo, ("treino" | "dieta")[]> = {
   acolhimento_elite: [],
   engajamento_baixo: [],
   atestado: [],
+  // Os tres abaixo sao da fila do Mentor (ArkeFit) e o RLS os esconde da
+  // academia. Ficam aqui porque o mapa e exaustivo por tipo — menos
+  // "instrucao_presencial", que a academia de fato ve e resolve no salao.
+  inercia: [],
+  ciclo_travado: [],
+  instrucao_presencial: [],
 };
 
 const ANAMNESE_CAMPOS: { key: keyof Anamnese; label: string }[] = [
@@ -121,6 +130,9 @@ const TIPO_LABEL: Record<Tipo, string> = {
   acolhimento_elite: "Acolhimento expandido (Elite)",
   engajamento_baixo: "Engajamento baixo no mês",
   atestado: "Atestado médico",
+  inercia: "Risco de evasão (sem sinal de vida)",
+  ciclo_travado: "Ciclo travado sem constância",
+  instrucao_presencial: "Acolhimento presencial pedido pelo Mentor",
 };
 
 const TIPO_ICON: Record<Tipo, typeof HeartPulse> = {
@@ -134,6 +146,9 @@ const TIPO_ICON: Record<Tipo, typeof HeartPulse> = {
   acolhimento_elite: Sparkles,
   engajamento_baixo: TrendingDown,
   atestado: Stethoscope,
+  inercia: UserMinus,
+  ciclo_travado: TimerOff,
+  instrucao_presencial: Handshake,
 };
 
 // Indicadores visuais de SLA: vermelho para dor/vencido, amarelo para
@@ -149,6 +164,11 @@ const TIPO_COLOR_CLASS: Record<Tipo, string> = {
   acolhimento_elite: "bg-violet-500/15 text-violet-700 dark:text-violet-400 border-violet-500/40",
   engajamento_baixo: "bg-orange-500/15 text-orange-700 dark:text-orange-400 border-orange-500/40",
   atestado: "bg-rose-500/15 text-rose-700 dark:text-rose-400 border-rose-500/40",
+  inercia: "bg-orange-500/15 text-orange-700 dark:text-orange-400 border-orange-500/40",
+  ciclo_travado: "",
+  // A instrucao vem do Mentor e e presencial: destaque para nao se perder na
+  // lista, porque o aluno chega hoje.
+  instrucao_presencial: "bg-sky-500/15 text-sky-700 dark:text-sky-400 border-sky-500/40",
 };
 
 const FILTRO_STATUS_OPCOES: Status[] = ["aberta", "em_andamento", "aguardando"];
