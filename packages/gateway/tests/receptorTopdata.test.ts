@@ -45,15 +45,15 @@ const CONFIG: GatewayConfig = {
   timeout_giro_ms: 30_000,
 };
 
-function criarAmbiente(leitorDeEntrada: 1 | 2 = 1) {
+function criarAmbiente(leitorDeEntrada: 1 | 2 = 1, timeoutGiroMs = 30_000) {
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "arke-topdata-test-"));
   const alunosCache = new AlunosCache(dataDir);
   const logsQueue = new LogsQueue(dataDir);
   const cloud = new FakeCloudClient();
   const gateway = new GatewayService(CONFIG, new ReceptorDriver("topdata"), cloud, alunosCache, logsQueue);
   const app = Fastify({ logger: false });
-  registrarReceptorTopdata(app, gateway, { leitorDeEntrada });
-  return { dataDir, alunosCache, cloud, app };
+  registrarReceptorTopdata(app, gateway, { leitorDeEntrada, timeoutGiroMs });
+  return { dataDir, alunosCache, logsQueue, cloud, app };
 }
 
 function comoAPonte(app: ReturnType<typeof criarAmbiente>["app"], corpo: Record<string, unknown>) {
@@ -239,5 +239,162 @@ describe("Receptor Topdata — contingência", () => {
     ).json();
 
     expect(corpo.liberar).toBe(false);
+  });
+});
+
+describe("Receptor Topdata — giro vira presença ou desistência", () => {
+  let amb: ReturnType<typeof criarAmbiente>;
+
+  beforeEach(() => {
+    amb = criarAmbiente();
+    amb.cloud.respostaValidarAcesso = { liberado: true, aluno_nome: "Jean Ramos", log_id: "log-1" };
+  });
+
+  afterEach(async () => {
+    await amb.app.close();
+    fs.rmSync(amb.dataDir, { recursive: true, force: true });
+  });
+
+  it("pede à nuvem para aguardar o giro — a Topdata sempre avisa", async () => {
+    await comoAPonte(amb.app, { inner: 1, origem: ORIGEM_TOPDATA.LEITOR1, valor: "000123" });
+    expect(amb.cloud.opcoesRecebidas).toEqual([{ aguardarGiro: true }]);
+  });
+
+  it("giro (origem 6) confirma o acesso daquele Inner", async () => {
+    await comoAPonte(amb.app, { inner: 1, origem: ORIGEM_TOPDATA.LEITOR1, valor: "000123" });
+    await comoAPonte(amb.app, { inner: 1, origem: ORIGEM_TOPDATA.GIRO_CONFIRMADO });
+    await new Promise((r) => setImmediate(r));
+    expect(amb.cloud.girosConfirmados).toEqual([{ logId: "log-1", giro: "confirmado" }]);
+  });
+
+  it("tempo esgotado (origem 5) fecha como desistência — não vira presença", async () => {
+    await comoAPonte(amb.app, { inner: 1, origem: ORIGEM_TOPDATA.LEITOR1, valor: "000123" });
+    await comoAPonte(amb.app, { inner: 1, origem: ORIGEM_TOPDATA.FIM_TEMPO_ACIONAMENTO });
+    await new Promise((r) => setImmediate(r));
+    expect(amb.cloud.girosConfirmados).toEqual([{ logId: "log-1", giro: "desistencia" }]);
+  });
+
+  it("aviso de outro Inner não fecha o acesso errado", async () => {
+    await comoAPonte(amb.app, { inner: 1, origem: ORIGEM_TOPDATA.LEITOR1, valor: "000123" });
+    await comoAPonte(amb.app, { inner: 2, origem: ORIGEM_TOPDATA.GIRO_CONFIRMADO });
+    await new Promise((r) => setImmediate(r));
+    expect(amb.cloud.girosConfirmados).toEqual([]);
+  });
+
+  it("leitura nova antes do aviso fecha a anterior como sem confirmação", async () => {
+    await comoAPonte(amb.app, { inner: 1, origem: ORIGEM_TOPDATA.LEITOR1, valor: "000123" });
+    amb.cloud.respostaValidarAcesso = { liberado: true, aluno_nome: "Ana", log_id: "log-2" };
+    await comoAPonte(amb.app, { inner: 1, origem: ORIGEM_TOPDATA.LEITOR1, valor: "000456" });
+    await comoAPonte(amb.app, { inner: 1, origem: ORIGEM_TOPDATA.GIRO_CONFIRMADO });
+    await new Promise((r) => setImmediate(r));
+    expect(amb.cloud.girosConfirmados).toEqual([
+      { logId: "log-1", giro: "sem_confirmacao" },
+      { logId: "log-2", giro: "confirmado" },
+    ]);
+  });
+
+  it("sem aviso nenhum, o prazo fecha como sem confirmação", async () => {
+    await amb.app.close();
+    amb = criarAmbiente(1, 30);
+    amb.cloud.respostaValidarAcesso = { liberado: true, aluno_nome: "Jean Ramos", log_id: "log-1" };
+    await comoAPonte(amb.app, { inner: 1, origem: ORIGEM_TOPDATA.LEITOR1, valor: "000123" });
+    await new Promise((r) => setTimeout(r, 80));
+    expect(amb.cloud.girosConfirmados).toEqual([{ logId: "log-1", giro: "sem_confirmacao" }]);
+  });
+
+  it("negado não fica esperando giro", async () => {
+    amb.cloud.respostaValidarAcesso = { liberado: false, motivo: "Matrícula pausada." };
+    await comoAPonte(amb.app, { inner: 1, origem: ORIGEM_TOPDATA.LEITOR1, valor: "000123" });
+    await comoAPonte(amb.app, { inner: 1, origem: ORIGEM_TOPDATA.GIRO_CONFIRMADO });
+    await new Promise((r) => setImmediate(r));
+    expect(amb.cloud.girosConfirmados).toEqual([]);
+  });
+});
+
+describe("Receptor Topdata — contingência guarda o acesso", () => {
+  let amb: ReturnType<typeof criarAmbiente>;
+
+  beforeEach(async () => {
+    amb = criarAmbiente();
+    amb.cloud.erroValidarAcesso = new Error("nuvem indisponível");
+    await amb.alunosCache.substituirTodos([
+      { aluno_id: "aluno-1", cpf: "11111111111", nome: "Jean Ramos", inadimplente: false, identificador_catraca: "6" },
+    ]);
+  });
+
+  afterEach(async () => {
+    await amb.app.close();
+    fs.rmSync(amb.dataDir, { recursive: true, force: true });
+  });
+
+  it("liberado pelo cache entra na fila com giro pendente, e o giro o fecha", async () => {
+    await comoAPonte(amb.app, { inner: 1, origem: ORIGEM_TOPDATA.SENSOR_BIOMETRICO, valor: "6" });
+    let fila = await amb.logsQueue.listarPendentes();
+    expect(fila).toHaveLength(1);
+    expect(fila[0]).toMatchObject({ aluno_id: "aluno-1", resultado: "liberado", giro: "pendente", cpf_consultado: "id:6" });
+
+    await comoAPonte(amb.app, { inner: 1, origem: ORIGEM_TOPDATA.GIRO_CONFIRMADO });
+    await new Promise((r) => setTimeout(r, 20));
+    fila = await amb.logsQueue.listarPendentes();
+    expect(fila[0].giro).toBe("confirmado");
+  });
+
+  it("negado pelo cache também fica registrado, sem giro", async () => {
+    await comoAPonte(amb.app, { inner: 1, origem: ORIGEM_TOPDATA.LEITOR1, valor: "999" });
+    const fila = await amb.logsQueue.listarPendentes();
+    expect(fila).toHaveLength(1);
+    expect(fila[0].resultado).toBe("negado_nao_encontrado");
+    expect(fila[0].giro).toBeUndefined();
+  });
+});
+
+describe("Receptor Topdata — bilhetes e segurança", () => {
+  let amb: ReturnType<typeof criarAmbiente>;
+
+  beforeEach(async () => {
+    amb = criarAmbiente();
+    await amb.alunosCache.substituirTodos([
+      { aluno_id: "aluno-1", cpf: "11111111111", nome: "Jean Ramos", inadimplente: false, identificador_catraca: "777" },
+    ]);
+  });
+
+  afterEach(async () => {
+    await amb.app.close();
+    fs.rmSync(amb.dataDir, { recursive: true, force: true });
+  });
+
+  it("bilhete guardado pela catraca vira passagem com giro confirmado, na hora em que aconteceu", async () => {
+    const resp = await amb.app.inject({
+      method: "POST",
+      url: "/topdata/bilhetes",
+      payload: {
+        inner: 1,
+        bilhetes: [
+          { tipo: 10, valor: "777", ocorrido_em: "2026-09-22T18:45:00-03:00" },
+          { tipo: 10, valor: "000", ocorrido_em: "2026-09-22T18:50:00-03:00" },
+        ],
+      },
+    });
+    expect(resp.json()).toEqual({ registrados: 2 });
+    // Sobe para a nuvem na hora, sem esperar o ciclo de 30 s.
+    await new Promise((r) => setTimeout(r, 30));
+    const subiu = amb.cloud.logsRecebidos;
+    const doAluno = subiu.find((l) => l.aluno_id === "aluno-1");
+    expect(doAluno).toMatchObject({ resultado: "liberado", giro: "confirmado", ocorrido_em: "2026-09-22T18:45:00-03:00" });
+    // Identificador desconhecido sobe para auditoria, sem virar presença de ninguém.
+    expect(subiu.find((l) => l.cpf_consultado === "id:000")?.aluno_id).toBeNull();
+  });
+
+  it("rotas da ponte recusam quem não é a própria máquina", async () => {
+    for (const url of ["/topdata/evento", "/topdata/bilhetes", "/topdata/ponte-viva"]) {
+      const resp = await amb.app.inject({
+        method: "POST",
+        url,
+        remoteAddress: "192.168.0.50",
+        payload: { inner: 1, origem: ORIGEM_TOPDATA.LEITOR1, valor: "777" },
+      });
+      expect(resp.statusCode, url).toBe(403);
+    }
+    expect(amb.cloud.credenciaisRecebidas).toHaveLength(0);
   });
 });

@@ -1,0 +1,24 @@
+{
+  "porta": 3570,
+  "gateway_url": "http://127.0.0.1:4571",
+  "timeout_gateway_ms": 5000,
+  "mudanca_offline_automatica": false,
+  "arquivo_bilhetes": "bilhetes-pendentes.jsonl",
+  "arquivo_log": "ponte.log",
+  "inners": [
+    {
+      "numero": 1,
+      "modo": "entrada_controlada",
+      "dois_leitores": false,
+      "leitor_entrada": 1,
+      "invertida": false,
+      "tipo_leitor": 3,
+      "digitos_cartao": 14,
+      "teclado": true,
+      "digitos_teclado": 11,
+      "biometria": false,
+      "tempo_acionamento_s": 5,
+      "timeout_giro_s": 20
+    }
+  ]
+}
