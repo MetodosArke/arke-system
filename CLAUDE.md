@@ -357,6 +357,27 @@ Verificado no caso mais difícil — aluno relatando dor lombar. A sugestão aco
 
 **A instrumentação nasceu junto, não depois.** `sentinela_sugestoes` registra o que foi sugerido e o desfecho — aceita, editada ou ignorada —, e `sentinela_taxa_de_aceite()` mede o aproveitamento. **Editada conta como aproveitada:** o modelo poupou o começo do trabalho, que é a maior parte dele; só ignorada é desperdício. Se o aproveitamento for baixo, o recurso é ruído e se desliga sem drama — mas isso só se sabe medindo, e medir depois de ligar é tarde.
 
+
+## Sentinela: auditoria da anamnese (Fase 5a, 23/09/2026)
+
+É a única parte do Sentinela que mexe com **dado pessoal sensível de saúde** (LGPD art. 5º, II) — cirurgias, lesões prévias, condições crônicas, medicamento contínuo. O projeto foi construído com postura oposta a isso: o Session Replay do Sentry está desligado justamente porque gravaria dobras e queixas. Mandar anamnese para um modelo exige o que o resto do sistema não exigiu.
+
+**Consentimento específico e destacado** (art. 11, I), no mesmo desenho do biométrico: finalidade declarada, retenção declarada, revogável, com data. O termo da anamnese não cobre isto, pela mesma razão que não cobria a digital — são finalidades diferentes, e consentimento genérico não é consentimento.
+
+**Só o próprio aluno consente.** A regra de inclusão exige `alunos.user_id = auth.uid()`: nem a academia nem a ArkeFit podem autorizar por ele. Consentimento dado por terceiro é o vício que anularia a base legal inteira. Verificado: o mentor recebe **403** ao tentar.
+
+**A trava mora no banco, não na edge function.** `anamnese_para_auditoria()` recusa sem consentimento, e é ela que entrega o texto — **conferir e obter são a mesma operação**, então não existe caminho novo, escrito por quem for, que esqueça de checar. A checagem na edge function existe só para dar mensagem melhor.
+
+**Minimização:** só objetivo, histórico de dores ou lesões, medicamentos e experiência com exercício. Preferências alimentares, expectativas e sono ficam de fora porque não ajudam a responder "este aluno exige cuidado?", e cada campo a mais é dado sensível viajando sem motivo.
+
+**O resumo é guardado por versão da anamnese** (hash SHA-256 do texto), não gerado a cada abertura de tela: uma chamada por versão custa menos e, o que importa mais, **expõe menos** — cada chamada é um envio de dado de saúde a um terceiro. Anamnese corrigida gera resumo novo; a versão antiga sai, para a tela não mostrar a análise de um texto que já não existe.
+
+**Revogar apaga o resumo.** Gatilho no banco: manter um derivado de dado sensível depois de o titular retirar a autorização é descumprimento, não conveniência.
+
+**O que o resumo nunca faz:** diagnosticar, interpretar sintoma, opinar sobre gravidade, recomendar ou contraindicar exercício, sugerir conduta. A tela diz de onde ele veio — *"gerado por IA a partir do que o aluno declarou; não é avaliação profissional e não substitui ler a anamnese"* —, porque texto de IA apresentado como avaliação profissional seria o mesmo problema que a fronteira CREF/CRN existe para evitar.
+
+Conferido em **12 casos**, incluindo os dois que mais importam: sem consentimento nada é analisado nem gravado mesmo com chave configurada, e o mentor não consegue consentir pelo aluno. Com consentimento, o resumo citou cirurgia de menisco, losartana e tempo de parada — **sem recomendar nem contraindicar nada**.
+
 ## Trial e Bloqueio por Pagamento
 
 ### Trial não é oferta comercial
