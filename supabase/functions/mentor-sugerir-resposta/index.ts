@@ -69,11 +69,6 @@ Deno.serve(async (req: Request) => {
     const arkefit = (papeis ?? []).some((p) => p.role === "superadmin" || p.role === "admin_arke");
     if (!arkefit) return jsonResponse({ error: "Apenas a equipe da ArkeFit usa o Sentinela." }, 403);
 
-    const fornecedor = fornecedorIA((n) => Deno.env.get(n));
-    if (!fornecedor) {
-      return jsonResponse({ indisponivel: true, motivo: "Sentinela desligado (sem chave de IA configurada)." });
-    }
-
     const { data: aluno } = await admin
       .from("alunos")
       .select("id, organization_id, fase_jornada, nivel_atacado, meta_semanal_dias, progressao_bloqueada_motivo")
@@ -81,25 +76,41 @@ Deno.serve(async (req: Request) => {
       .maybeSingle();
     if (!aluno) return jsonResponse({ error: "Aluno não encontrado." }, 404);
 
-    const [{ data: dias }, { data: constancia }, { data: mensagens }] = await Promise.all([
+    // A conversa vem por `conversa_para_sugestao`, que RECUSA sem o
+    // consentimento de propósito "chat". Ler `mensagens_mentor` direto aqui,
+    // com a service role que ignora RLS, era um acesso em que esquecer a
+    // checagem não dá erro nenhum — só manda o dado embora.
+    //
+    // As palavras do aluno vão como ele as escreveu, e ele pode ter digitado
+    // dor, cirurgia ou medicamento. Higienizar isso destruiria o sentido do
+    // que se quer sugerir, então a saída é a honesta: ele autoriza, sabendo.
+    const [{ data: dias }, { data: constancia }, { data: conversa, error: erroConversa }] = await Promise.all([
       admin.rpc("aluno_dias_inativo", { _aluno_id: alunoId }),
       admin.rpc("aluno_constancia", { _aluno_id: alunoId, _semanas: 4 }),
-      admin
-        .from("mensagens_mentor")
-        .select("remetente_tipo, mensagem, created_at")
-        .eq("aluno_id", alunoId)
-        .order("created_at", { ascending: false })
-        .limit(8),
+      admin.rpc("conversa_para_sugestao", { _aluno_id: alunoId, _limite: 8 }),
     ]);
 
-    const conversa = (mensagens ?? [])
-      .slice()
-      .reverse()
-      .map((m) => `${m.remetente_tipo === "aluno" ? "Aluno" : "Mentor"}: ${m.mensagem}`)
-      .join("\n");
+    if (erroConversa) {
+      return jsonResponse({
+        sem_consentimento: true,
+        motivo:
+          "O aluno não autorizou a análise das mensagens por inteligência artificial, " +
+          "ou autorizou uma versão anterior do termo e precisa autorizar de novo.",
+      });
+    }
 
     if (!conversa) {
       return jsonResponse({ indisponivel: true, motivo: "Ainda não há conversa para sugerir resposta." });
+    }
+
+    // A checagem de chave vem DEPOIS da de consentimento, de propósito: se o
+    // aluno não autorizou, é isso que o mentor precisa ouvir — dizer
+    // "desligado" o deixaria clicando num botão que nunca ia responder por um
+    // motivo que não é o que ele imagina. Nenhuma das duas ordens manda dado
+    // a lugar nenhum; o que muda é a qualidade da resposta.
+    const fornecedor = fornecedorIA((n) => Deno.env.get(n));
+    if (!fornecedor) {
+      return jsonResponse({ indisponivel: true, motivo: "Sentinela desligado (sem chave de IA configurada)." });
     }
 
     // Só o que ajuda a redigir. Nenhum identificador.

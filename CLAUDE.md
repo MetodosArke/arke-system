@@ -345,7 +345,7 @@ O módulo `_shared/ia.ts` é, na maior parte, **uma lista do que não sai daqui*
 
 **Nunca saem:** nome, CPF, e-mail, telefone ou id do ARKE. O contexto estruturado vai pseudonimizado (fase, dias sem sinal, constância, meta). **Prompt e resposta nunca vão para log**, nem em erro — só o status HTTP, mesma regra do número de cartão.
 
-**Uma limitação que vale dizer em voz alta:** quando o texto é uma **conversa**, as palavras do aluno vão como ele as escreveu, e ele pode ter digitado o próprio nome. Higienizar isso destruiria o sentido do que se quer sugerir — é inerente à tarefa. Por isso entra no termo de consentimento, e não numa promessa técnica que não se cumpre.
+**Uma limitação que vale dizer em voz alta:** quando o texto é uma **conversa**, as palavras do aluno vão como ele as escreveu, e ele pode ter digitado o próprio nome. Higienizar isso destruiria o sentido do que se quer sugerir — é inerente à tarefa. Por isso entra no termo de consentimento, e não numa promessa técnica que não se cumpre — e desde 23/09/2026 esse consentimento **existe de verdade e é exigido**, com propósito próprio; ver *Consentimento de IA: por propósito, versionado e declarando o exterior*.
 
 **Falha aberta, de propósito.** Modelo fora do ar não trava o mentor: a resposta diz `indisponivel` e ele segue escrevendo como antes de existir sugestão. Transformar indisponibilidade de terceiro em atendimento bloqueado troca um risco pequeno por uma falha certa.
 
@@ -377,6 +377,32 @@ Verificado no caso mais difícil — aluno relatando dor lombar. A sugestão aco
 **O que o resumo nunca faz:** diagnosticar, interpretar sintoma, opinar sobre gravidade, recomendar ou contraindicar exercício, sugerir conduta. A tela diz de onde ele veio — *"gerado por IA a partir do que o aluno declarou; não é avaliação profissional e não substitui ler a anamnese"* —, porque texto de IA apresentado como avaliação profissional seria o mesmo problema que a fronteira CREF/CRN existe para evitar.
 
 Conferido em **12 casos**, incluindo os dois que mais importam: sem consentimento nada é analisado nem gravado mesmo com chave configurada, e o mentor não consegue consentir pelo aluno. Com consentimento, o resumo citou cirurgia de menisco, losartana e tempo de parada — **sem recomendar nem contraindicar nada**.
+
+## Consentimento de IA: por propósito, versionado e declarando o exterior (23/09/2026)
+
+A Azure OpenAI tinha sido escolhida na véspera justamente porque **residência, e não retenção, é o que elimina a transferência internacional**. O responsável não conseguiu passar da criação da conta e desistiu, e perguntou se contratar *zero data retention* na OpenAI resolveria a questão jurídica. **Não resolve** — e a resposta certa obrigou a rever o consentimento inteiro.
+
+**ZDR não elimina a transferência internacional.** A LGPD (art. 5º, X) define tratamento incluindo *acesso, processamento, transmissão e transferência*; o dado atravessa a fronteira e é processado fora do Brasil mesmo que ninguém o guarde. O que a Azure Brasil resolveria era não haver saída do país. Sem essa opção, a base da transferência passa a ser o **art. 33, VIII** — consentimento específico e destacado **com informação prévia sobre o caráter internacional da operação**. É a máquina que a Fase 5a já tinha; faltava a frase.
+
+Isso não é categoria nova para o projeto: Vercel, Sentry e Resend já estão fora, e a política revisada já declara "o banco está em São Paulo e o restante da infraestrutura fora do Brasil". O que é novo é ser **dado sensível de saúde**, e é por isso que aqui não basta a política — precisa do consentimento por titular.
+
+Ir atrás disso revelou três defeitos, que são o mesmo visto de ângulos diferentes: **o consentimento declarava coisas que não correspondiam ao que acontece.**
+
+**(1) O texto prometia o que o contrato não garante.** Dizia *"o provedor de IA processa **sem reter**"*, e o padrão da API da OpenAI retém por até 30 dias para checagem de uso indevido. Consentimento que declara condição falsa é consentimento viciado — pior do que não ter prometido nada, porque o vício contamina a base legal inteira. O texto passou a descrever a retenção real. Se o ZDR for contratado, isto muda junto com a versão, e aí a promessa passa a ser verdadeira — a única condição em que ela pode aparecer na tela.
+
+**(2) O chat ia para o modelo sem consentimento nenhum.** A finalidade declarada era só "resumir a anamnese", e `mentor-sugerir-resposta` lia `mensagens_mentor` **direto com a service role, que ignora RLS** — o tipo de acesso em que esquecer a checagem não dá erro, só manda o dado embora. Hoje a conversa vem de `conversa_para_sugestao()`, que recusa sem o consentimento de propósito `chat`: **conferir e obter são a mesma operação**, o mesmo princípio de `anamnese_para_auditoria()`.
+
+**(3) Um consentimento não pode cobrir dois propósitos.** `aluno_consentimento_ia.proposito` (`anamnese` | `chat`) e **dois interruptores** na tela do aluno. Ler o questionário de saúde e ler a conversa são coisas diferentes, e é coerente aceitar uma e recusar a outra; juntá-las num botão recriaria exatamente o *"consentimento genérico não é consentimento"* que a tabela existe para evitar. `aluno_consentiu_ia` ganhou o parâmetro, e a assinatura antiga `(uuid)` foi **derrubada** — mantê-la ao lado deixaria no PostgREST uma função que responde "sim" para um propósito que ninguém autorizou.
+
+**Versionamento, no mesmo desenho de `documentos_legais`.** `versao_texto` na linha e `versao_consentimento_ia()` como a vigente; consentimento dado sob texto antigo **deixa de valer** e a pessoa é perguntada de novo. Reescrever a linha antiga no lugar falsificaria a prova — diria que ela concordou com um texto que nunca leu. O espelho no frontend é a constante `VERSAO_TEXTO`.
+
+**Revogar apaga o derivado daquele propósito, e só dele.** Revogar o chat não pode apagar o resumo da anamnese, que continua autorizado. E a sugestão é **anonimizada, não excluída**: `sentinela_sugestoes.sugestao` sai, mas desfecho, fornecedor e datas ficam — essa linha mede o comportamento do *mentor* (quanto da sugestão ele aproveita), e é esse número que decide se o recurso se paga. Apagá-la inteira destruiria uma medida sobre outra pessoa para cumprir um pedido que não era sobre ela.
+
+**Ordem das checagens em `mentor-sugerir-resposta`:** consentimento **antes** da chave de IA. Nenhuma das duas ordens manda dado a lugar nenhum; o que muda é a qualidade da resposta — dizer "Sentinela desligado" a quem não tem autorização do aluno deixaria o mentor clicando num botão que nunca ia responder, por um motivo que não é o que ele imagina.
+
+Conferido em **17 verificações** com identidades reais: sem consentimento os dois recusam (e o chat é a trava que **não existia**); o mentor leva **403** ao tentar consentir pelo aluno; consentimento de `chat` **não** abre a anamnese e vice-versa; consentimento carimbado com versão anterior para de contar e a função volta a recusar; revogar o chat limpa o texto de todas as sugestões e preserva o desfecho; revogar a anamnese apaga o resumo sem tocar no resto; e o texto gravado declara o exterior, descreve os 30 dias e não promete mais retenção zero.
+
+**Pendências que são do responsável, não do código:** solicitar o ZDR à OpenAI (é pedido por organização da API, avaliado caso a caso — não necessariamente um tier) e levar ao jurídico, junto com a minuta de cocontroladora, a questão das **cláusulas-padrão contratuais da ANPD** (Resolução CD/ANPD nº 19/2024) no contrato com o provedor: a OpenAI oferece as cláusulas da UE no DPA padrão, e se aceita as brasileiras não foi conferido aqui.
 
 ## Operação da Célula e Prova de Valor (Fase 6 do Ecossistema, 23/09/2026)
 
