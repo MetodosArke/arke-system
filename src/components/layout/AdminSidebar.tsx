@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Home, Users, UsersRound, Building2, LogOut, ChevronLeft, Menu, ClipboardList, UserCircle, BarChart3, DoorOpen, CalendarDays, Dumbbell, UtensilsCrossed, Sparkles, DollarSign, Plug, MessageCircle, Megaphone, QrCode, Filter, CalendarCheck } from "lucide-react";
+import { Home, Users, UsersRound, Building2, LogOut, ChevronLeft, Menu, ClipboardList, UserCircle, BarChart3, DoorOpen, CalendarDays, Dumbbell, UtensilsCrossed, Sparkles, DollarSign, Plug, MessageCircle, Megaphone, QrCode, Filter, CalendarCheck, HeartHandshake } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
@@ -62,6 +62,9 @@ function buildSections({
       items: [
         { icon: BarChart3, label: "Gestão 360°", path: "/admin/gestao-360" },
         { icon: CalendarCheck, label: "Resumo da semana", path: "/admin/relatorio-semanal" },
+        // A prestacao de contas do BPO. Sem ela a academia paga por um servico
+        // que, do lado dela, nao aparece em lugar nenhum.
+        { icon: HeartHandshake, label: "Acompanhamento ARKE", path: "/admin/acompanhamento" },
         { icon: UsersRound, label: "Equipe", path: "/admin/equipe" },
         // Comissões virou uma aba dentro de Financeiro.
         { icon: DollarSign, label: "Financeiro", path: "/admin/financeiro" },

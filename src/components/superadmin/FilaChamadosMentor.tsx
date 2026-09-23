@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -79,6 +80,7 @@ const prazoRelativo = (iso: string | null) => {
  */
 export function FilaChamadosMentor() {
   const { toast } = useToast();
+  const { user } = useAuth();
   const queryClient = useQueryClient();
   const [instrucaoPara, setInstrucaoPara] = useState<Chamado | null>(null);
   const [instrucao, setInstrucao] = useState("");
@@ -105,7 +107,16 @@ export function FilaChamadosMentor() {
       // uma pendência só se encerra quando há desfecho registrado.
       const { error } = await supabase
         .from("tarefas")
-        .update({ status: "concluida", desfecho_acao: texto, acao: "Atendimento do Mentor ArkeFit" })
+        // `responsavel_id` e quem de fato atendeu, e sem ele a carga por
+        // mentor fica vazia: a fila apareceria distribuida por ninguem, que e
+        // justamente o estado em que uma celula de BPO sobrecarrega uma
+        // pessoa so sem ninguem notar.
+        .update({
+          status: "concluida",
+          desfecho_acao: texto,
+          acao: "Atendimento do Mentor ArkeFit",
+          responsavel_id: user?.id ?? null,
+        })
         .eq("id", chamado.tarefa_id);
       if (error) throw error;
     },
