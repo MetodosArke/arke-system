@@ -154,6 +154,51 @@ O fuso é fixo em São Paulo, e **não o do aparelho**, porque a data que import
 
 **Conferido depois do deploy**, porque deploy não é prova: as quatro edge functions tocadas respondem 401 (o módulo sobe e o handler roda) e uma cobrança confirmada no sandbox gravou `data_pagamento = 2026-09-22`, a data de Brasília, ao lado da linha anterior que tinha `2026-09-23` — o antes e o depois na mesma tabela. **Nenhum dado real foi afetado**: o projeto novo só tem a organização de homologação.
 
+
+## Ciclo de Vida da Cobrança e a Mensalidade da Academia (23/09/2026)
+
+O sistema sabia **criar** cobrança e não sabia **parar**. Não existia cancelar, pausar nem alterar valor em lugar nenhum — nem tela, nem edge function, nem chamada ao gateway —, e o valor `cancelada` do enum era rótulo de tela que ninguém nunca gravava. A ausência puxava sempre para o lado mais caro, que é cobrar quem não deve:
+
+- **excluir um aluno** fazia `cascade` em `aluno_assinaturas`, `mensalidades` e `aluno_matriculas_academia`: o rastro sumia deste lado e o Asaas seguia cobrando uma pessoa real todo mês. A varredura de órfãs detecta e não corrige;
+- **pausar um aluno** tirava o acesso e mantinha a cobrança;
+- **mudar o preço de varejo** não alcançava quem já era assinante.
+
+**E havia um defeito pior que a ausência: cancelar bloqueava o aluno.** O `PAYMENT_DELETED` do Asaas virava `estornado`, e a condição do B2C pegava qualquer status que não fosse `confirmado` — então a cobrança apagada, com vencimento no passado, trancava justamente quem não devia mais nada.
+
+**A causa raiz é de uma linha, e vale como regra:** o B2C usava **lista de exclusão** (`status <> 'confirmado'`) onde o B2B usa **lista de inclusão** (`status in ('pendente','atrasado')`). A lista de exclusão trata todo status novo como dívida por omissão — foi por isso que só o B2C quebrou quando surgiu `estornado`, e quebraria de novo em `cancelado`. Dívida é só o que espera pagamento. `get_bloqueio_aluno` tinha o mesmo padrão nos números mostrados ao aluno; também corrigido.
+
+`PAYMENT_DELETED` ganhou status próprio (`cancelado`), separado de `estornado`: "não há o que pagar" não é "houve devolução".
+
+### O que o sandbox decidiu
+
+`asaas-assinatura-ciclo/fluxo.ts`, exercitado por `npm run sandbox:ciclo` (24 verificações):
+
+- `DELETE /subscriptions/{id}` **apaga as cobranças pendentes junto** e dispara um `PAYMENT_DELETED` de cada; é idempotente;
+- `PUT {status:"INACTIVE"}` pausa a emissão futura e **mantém** o que já foi emitido. Por isso **pausar remove a cobrança que ainda não venceu e mantém a já vencida**: uma é cobrança por período que o aluno não vai usar, a outra é dívida de período usado;
+- valor e split vão no mesmo `PUT`, e o split das pendentes acompanha. Isso é obrigatório: a parte da academia é **valor fixo**, então mudar o varejo sem mudar o split mudaria a divisão combinada em silêncio. Cobrança já vencida **não** tem o valor alterado retroativamente, e a resposta diz quais ficaram no valor antigo.
+
+### Saída do aluno: a ordem é obrigatória, não recomendada
+
+`trg_impedir_exclusao_com_cobranca_viva` (`before delete on alunos`) recusa excluir quem tem assinatura viva no gateway. Não impede excluir — obriga a ordem certa. `_shared/encerrarCobrancas.ts` é o que torna a ordem possível, e vale para os **dois** caminhos de saída: a anonimização LGPD preserva o registro financeiro de propósito (auditoria fiscal), mas não pode seguir cobrando quem exerceu o direito de apagamento.
+
+Pausar o aluno na tela passou a pausar a cobrança, e voltar a "em dia" a retoma. Se o gateway falhar, o erro aparece em alto e bom som em vez de virar cobrança silenciosa.
+
+### A mensalidade da academia, rodada pela primeira vez
+
+O fluxo principal do cliente — o aluno pagando a academia — **nunca tinha rodado uma vez sequer**, e estava fora da rede de segurança. A justificativa registrada era que `mensalidades.status` é `NOT NULL` e criar a linha na emissão quebraria o upsert. **Ela não se sustentava:** a coluna tem *default* `pendente`, então bastava **omitir** a chave em vez de mandá-la nula. Hoje `PAYMENT_CREATED`/`PAYMENT_UPDATED` registram a mensalidade como `pendente` com o vencimento, e omitir o status também impede que evento fora de ordem rebaixe uma mensalidade já paga.
+
+**O bloqueio não ganhou caminho novo.** Mensalidade vencida marca `situacao_academia = 'inadimplente'`, que é o mecanismo existente — com a tolerância de 5 dias, a contagem regressiva e o encerramento das automações. Dois caminhos para a mesma pergunta é como eles começam a divergir. `sincronizar_situacao_por_mensalidade()` marca e libera, e **só desfaz a marca que ela mesma criou** (reconhecida pelo motivo): marca feita à mão pela recepção, por outro motivo, fica de pé. Roda no webhook e na rotina `arke-situacao-mensalidade` (05:30 UTC — depois da reconciliação das 04:30, que conserta o `PAYMENT_CONFIRMED` perdido, e antes das rotinas que abrem tarefa de manhã).
+
+### O defeito que só rodar encontrou
+
+Confirmar a mensalidade levantava **`42P10 — no unique or exclusion constraint matching the ON CONFLICT specification`**. O índice existe, mas é **parcial** (`where origem_automatica is not null`), e o PostgreSQL só infere índice parcial quando o `ON CONFLICT` repete o predicado. Sem o `where`, falha **em tempo de execução, nunca na criação** — por isso passou despercebido: o código está correto à leitura.
+
+Atingia duas funções, as duas em produção e nenhuma jamais exercitada: `lancar_receita_mensalidade` (gatilho `after update` na própria `mensalidades` — a exceção derrubaria a transação inteira, e o webhook não conseguiria marcar como confirmada: o aluno ficaria devendo uma mensalidade que pagou) e `lancar_despesa_folha`. **Regra que fica: `ON CONFLICT` sobre índice parcial precisa repetir o predicado.**
+
+### Conferido
+
+Em três camadas. No sandbox, 24 verificações sobre o `fluxo.ts` real. Pela função publicada e autenticado como gestor de verdade, 17 — incluindo excluir um aluno com assinatura ativa e ver a assinatura morrer no gateway sem deixar órfã. E o fluxo da mensalidade de ponta a ponta, 14 verificações: matrícula criada com split (R$129,90 → academia R$125,53, ArkeFit R$4,37 de taxa), emissão registrada, vencimento simulando `PAYMENT_OVERDUE` perdido marcando inadimplente, pagamento liberando, marca manual preservada, exclusão cancelando no gateway, e o lançamento financeiro automático de fato criado. Zero assinaturas órfãs ao fim.
+
 ## Trial e Bloqueio por Pagamento
 
 ### Trial não é oferta comercial

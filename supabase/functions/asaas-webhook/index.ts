@@ -479,15 +479,7 @@ Deno.serve(async (req: Request) => {
               .eq("asaas_subscription_id", subscriptionId)
               .maybeSingle();
 
-            if (matricula && !novoStatus) {
-              // Emissão (PAYMENT_CREATED/UPDATED) de mensalidade de plano
-              // próprio da academia. Este fluxo ficou de fora da mudança de
-              // propósito — e precisa ficar: `mensalidades.status` é NOT NULL,
-              // então criar a linha aqui com `novoStatus` nulo quebraria o
-              // upsert. Se a rede de segurança for estendida ao plano próprio
-              // um dia, é aqui e com status explícito.
-              resultado = "evento_ignorado";
-            } else if (matricula) {
+            if (matricula) {
               const valor = Number(payment.value ?? 0);
               const vencimentoMensalidade = vencimento ?? hojeBrasilia();
               const competencia = `${vencimentoMensalidade.slice(0, 7)}-01`;
@@ -512,10 +504,17 @@ Deno.serve(async (req: Request) => {
                     valor_liquido_academia: matricula.valor_liquido_academia,
                     taxa_gateway: taxaGateway,
                     vencimento: vencimentoMensalidade,
-                    status: novoStatus,
                     asaas_payment_id: asaasPaymentId,
-                    data_pagamento: novoStatus === "confirmado" ? hojeBrasilia() : null,
                     invoice_url: invoiceUrl,
+                    // Emissao nao tem status proprio: a coluna e NOT NULL mas
+                    // tem default `pendente`, entao a saida e **omitir** a
+                    // chave — nao manda-la nula. Era essa a razao de a
+                    // mensalidade ficar fora da rede de seguranca, e ela nao
+                    // se sustentava. Omitir tambem impede que um evento fora
+                    // de ordem rebaixe uma mensalidade ja paga.
+                    ...(novoStatus
+                      ? { status: novoStatus, data_pagamento: novoStatus === "confirmado" ? hojeBrasilia() : null }
+                      : {}),
                   },
                   { onConflict: "matricula_id,competencia" }
                 )
@@ -525,7 +524,17 @@ Deno.serve(async (req: Request) => {
               if (novoStatus === "atrasado" && mensalidadeCriada) {
                 await admin.rpc("abrir_tarefa_mensalidade_atrasada", { _mensalidade_id: mensalidadeCriada.id });
               }
-              resultado = "mensalidade_criada";
+
+              // A situacao do aluno acompanha a cobranca em vez de ganhar um
+              // caminho de bloqueio proprio: assim vale a tolerancia de 5
+              // dias, a contagem regressiva e o encerramento das automacoes
+              // que ja existem. A sincronizacao no banco decide quem marcar e
+              // quem liberar, e so desfaz a marca que ela mesma criou — marca
+              // feita a mao pela recepcao, por outro motivo, fica de pe.
+              if (novoStatus === "atrasado" || novoStatus === "confirmado") {
+                await admin.rpc("sincronizar_situacao_por_mensalidade");
+              }
+              resultado = novoStatus ? "mensalidade_criada" : "mensalidade_emitida";
             } else {
               // Nem assinatura do Método ARKE nem matrícula de plano da
               // academia. Sintoma clássico de wallet/subscription apontando
