@@ -27,13 +27,18 @@ const formatarDataHora = (valor: string) =>
     minute: "2-digit",
   });
 
-// Progressão da jornada, movida pela equipe.
+// Progressão da jornada: automática no fluxo de sucesso, manual por cima.
 //
-// A decisão foi manter isto manual em vez de automatizar: quem convive com o
-// aluno é quem sabe se ele de fato mudou de fase, e um gatilho automático
-// erraria justamente nos casos que mais importam. O que o sistema garante é
-// o registro — quem moveu, quando e por quê — porque a fase orienta o
-// atendimento e uma mudança sem autor não se explica depois.
+// Até 23/09/2026 era só manual, com a justificativa de que quem convive com o
+// aluno é quem sabe se ele mudou de fase. O modelo de Mentor Centralizado
+// removeu a premissa: não há mais um professor acompanhando digitalmente. O
+// motor (`varrer_avanco_fases`) move quem cumpriu os critérios, e esta tela
+// continua podendo mover à mão — para adiantar, corrigir ou recuar, coisas
+// que critério nenhum decide bem.
+//
+// O registro é o que não mudou: quem moveu, quando e por quê. No avanço
+// automático o autor fica nulo e o nome é "Avanço automático", e é isso que
+// permite separar depois o que o sistema fez do que a equipe fez.
 export function FaseJornada({
   alunoId,
   faseAtual,
@@ -84,6 +89,7 @@ export function FaseJornada({
 
   return (
     <div className="space-y-3">
+      <SituacaoDoAvanco alunoId={alunoId} />
       <div className="flex flex-wrap gap-2">
         <Select value={fase} onValueChange={(v) => setFase(v as Fase)}>
           <SelectTrigger className="w-[230px]" aria-label="Fase da jornada">
@@ -126,5 +132,65 @@ export function FaseJornada({
         </div>
       )}
     </div>
+  );
+}
+
+/** Rótulo de cada motivo de bloqueio devolvido por `motivo_nao_avanca`. */
+const MOTIVO_ROTULO: Record<string, string> = {
+  dor: "Progressão suspensa por relato de dor — a equipe precisa avaliar antes de liberar.",
+  inercia: "Aluno sem sinal de vida há 5 dias ou mais: o avanço fica suspenso até ele voltar.",
+  fora_do_metodo: "A jornada de fases é do Método ARKE; o aluno está no plano Free.",
+  situacao_pausado: "Matrícula pausada: o avanço fica suspenso durante a pausa.",
+  situacao_inadimplente: "Aluno em situação de inadimplência na academia.",
+};
+
+/**
+ * Por que o aluno não está avançando sozinho.
+ *
+ * Com o avanço automático, a ausência de movimento passa a ser informação: sem
+ * dizer o motivo, a equipe olharia para uma fase parada sem saber se o sistema
+ * está esperando constância, se há dor a avaliar ou se o aluno sumiu — três
+ * situações com respostas completamente diferentes.
+ */
+function SituacaoDoAvanco({ alunoId }: { alunoId: string }) {
+  const { data } = useQuery({
+    queryKey: ["situacao-avanco", alunoId],
+    queryFn: async () => {
+      const [motivo, elegivel, constancia] = await Promise.all([
+        supabase.rpc("motivo_nao_avanca", { _aluno_id: alunoId }),
+        supabase.rpc("fase_elegivel", { _aluno_id: alunoId }),
+        supabase.rpc("aluno_constancia", { _aluno_id: alunoId, _semanas: 4 }),
+      ]);
+      return {
+        motivo: (motivo.data as string | null) ?? null,
+        elegivel: (elegivel.data as Fase | null) ?? null,
+        constancia: constancia.data === null ? null : Number(constancia.data),
+      };
+    },
+  });
+
+  if (!data) return null;
+
+  const rotuloFase = (f: Fase) => FASES.find((x) => x.valor === f)?.label ?? f;
+
+  if (data.motivo) {
+    return (
+      <p className="rounded-md border border-amber-500/40 bg-amber-500/5 p-2 text-xs text-amber-700 dark:text-amber-400">
+        {MOTIVO_ROTULO[data.motivo] ?? `Avanço suspenso (${data.motivo}).`}
+      </p>
+    );
+  }
+  if (data.elegivel) {
+    return (
+      <p className="rounded-md border border-emerald-500/40 bg-emerald-500/5 p-2 text-xs text-emerald-700 dark:text-emerald-400">
+        Critérios cumpridos para {rotuloFase(data.elegivel)} — a varredura da madrugada move sozinha.
+      </p>
+    );
+  }
+  return (
+    <p className="text-xs text-muted-foreground">
+      Em evolução dentro da fase
+      {data.constancia !== null ? ` · constância de ${data.constancia}% nas últimas 4 semanas` : ""}.
+    </p>
   );
 }
