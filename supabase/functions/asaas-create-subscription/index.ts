@@ -176,16 +176,6 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    const { data: planoAtacado, error: planoError } = await asUser
-      .from("planos_atacado")
-      .select("custo_mensal")
-      .eq("id", aluno.nivel_atacado)
-      .single();
-
-    if (planoError || !planoAtacado) {
-      return jsonResponse({ error: "Nível de atacado do aluno inválido." }, 422);
-    }
-
     // A assinatura vale do dia em que é criada: a primeira cobrança vence no
     // ato. Até 21/09/2026 ela vencia no fim de um "trial" de 15 dias — um
     // período grátis para todo aluno, quando trial é só ferramenta de teste
@@ -197,21 +187,33 @@ Deno.serve(async (req: Request) => {
     // de processamento sobre o valor cobrado — a mesma taxa configurável que a
     // mensalidade de plano próprio já usa. Sobre o valor cobrado, e não fixa,
     // porque a academia define o varejo e a parte percentual acompanha.
-    const { data: taxaProcessamento, error: taxaError } = await admin.rpc("arke_taxa_processamento", {
-      _valor: Number(valor_cobrado),
+    const { data: repasseCalculado, error: repasseError } = await admin.rpc("repasse_arke", {
+      _organization_id: org.id,
+      _valor_cobrado: Number(valor_cobrado),
+      // Integrado e Elite custam coisas diferentes de servir, entao cada um
+      // pode ter excecao propria; sem excecao vale o negociado com a academia.
+      _nivel_atacado: aluno.nivel_atacado,
     });
-    if (taxaError || taxaProcessamento === null || Number.isNaN(Number(taxaProcessamento))) {
-      console.error("Falha ao calcular a taxa de processamento", taxaError);
+    if (repasseError) {
+      console.error("Falha ao calcular o repasse", repasseError);
       return jsonResponse({ error: "Não foi possível calcular o repasse ARKE." }, 500);
     }
-    const custoAtacado = Number(planoAtacado.custo_mensal);
-    const valorRepasseArke = Math.round((custoAtacado + Number(taxaProcessamento)) * 100) / 100;
+    // Nulo = repasse nao negociado com esta academia. Recusar e melhor que
+    // assumir um padrao: um padrao cobraria o aluno com uma divisao que
+    // ninguem acordou, e o erro so apareceria no extrato.
+    if (repasseCalculado === null || repasseCalculado === undefined) {
+      return jsonResponse(
+        { error: "Esta academia ainda não tem o repasse do Método negociado. Configure em Visão Master → ficha da organização." },
+        422
+      );
+    }
+    const valorRepasseArke = Math.round(Number(repasseCalculado) * 100) / 100;
     const valorLiquidoAcademia = Math.round((Number(valor_cobrado) - valorRepasseArke) * 100) / 100;
 
     if (valorLiquidoAcademia < 0) {
       return jsonResponse(
         {
-          error: `O valor cobrado (R$ ${valor_cobrado}) é menor que o repasse ARKE (R$ ${valorRepasseArke.toFixed(2)}: atacado R$ ${custoAtacado.toFixed(2)} + taxa de processamento R$ ${Number(taxaProcessamento).toFixed(2)}).`,
+          error: `O valor cobrado (R$ ${valor_cobrado}) é menor que o repasse ARKE (R$ ${valorRepasseArke.toFixed(2)}, já com a taxa de processamento).`,
         },
         422
       );

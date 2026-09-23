@@ -427,12 +427,12 @@ Deno.serve(async (req: Request) => {
             // Assinatura anterior a esse registro cai no custo de atacado.
             let valorRepasseArke = assinatura.valor_repasse_arke === null ? null : Number(assinatura.valor_repasse_arke);
             if (valorRepasseArke === null) {
-              const { data: plano } = await admin
-                .from("planos_atacado")
-                .select("custo_mensal")
-                .eq("id", assinatura.nivel_atacado)
-                .single();
-              valorRepasseArke = Number(plano?.custo_mensal ?? 0);
+              const { data: calculado } = await admin.rpc("repasse_arke", {
+                _organization_id: assinatura.organization_id,
+                _valor_cobrado: valor,
+                _nivel_atacado: assinatura.nivel_atacado,
+              });
+              valorRepasseArke = Number(calculado ?? 0);
             }
 
             // upsert (não insert): duas entregas duplicadas do webhook podem

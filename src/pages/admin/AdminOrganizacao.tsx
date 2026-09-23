@@ -20,7 +20,7 @@ import type { Enums, Tables } from "@/integrations/supabase/types";
 import { ReciboComprovanteDialog, type ReciboData } from "@/components/admin/ReciboComprovanteDialog";
 import { PlanosAcademiaPainel } from "@/components/admin/PlanosAcademiaPainel";
 import { ContratoMatriculaPainel } from "@/components/admin/ContratoMatriculaPainel";
-import { dividirCobranca, type TaxaProcessamento } from "@/lib/repasse";
+import { dividirCobranca, type RepasseConfig, type TaxaProcessamento } from "@/lib/repasse";
 
 type TipoNegocio = Extract<Enums<"organization_tipo">, "academia" | "studio">;
 const SLUG_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
@@ -87,6 +87,26 @@ export default function AdminOrganizacao() {
       if (error) throw error;
       return data;
     },
+  });
+
+  // Quanto a ArkeFit retém é negociado por academia (repasse_tipo/valor na
+  // organização). A academia só lê: quem define é a ArkeFit, e o gatilho
+  // trg_proteger_colunas_organizacao recusa alteração por aqui.
+  const { data: repasseConfig = { tipo: "fixo", valor: null } as RepasseConfig } = useQuery({
+    queryKey: ["repasse-organizacao", organization?.id],
+    queryFn: async (): Promise<RepasseConfig> => {
+      const { data, error } = await supabase
+        .from("organizations")
+        .select("repasse_tipo, repasse_valor")
+        .eq("id", organization!.id)
+        .maybeSingle();
+      if (error) throw error;
+      return {
+        tipo: (data?.repasse_tipo as RepasseConfig["tipo"]) ?? "fixo",
+        valor: data?.repasse_valor === null || data?.repasse_valor === undefined ? null : Number(data.repasse_valor),
+      };
+    },
+    enabled: !!organization?.id,
   });
 
   // A taxa do Asaas entra no repasse ARKE; a prévia do split precisa dela.
@@ -313,17 +333,21 @@ export default function AdminOrganizacao() {
       if (!organization) {
         throw new Error("Nenhuma organização selecionada. Entre com um usuário vinculado a uma organização (gestor) para editar a precificação.");
       }
-      const custo = planosAtacado.find((p) => p.id === nivel)?.custo_mensal ?? 0;
       const valorVarejo = parseMoeda(valores[nivel]);
-      const markupPct = custo > 0 ? ((valorVarejo - custo) / custo) * 100 : 0;
-      // Sem isto o erro só apareceria ao gerar a cobrança do aluno, que a
-      // função recusa pelo mesmo motivo.
-      const divisao = dividirCobranca(valorVarejo, Number(custo), taxaConfig ?? { percentual: 0, fixa: 0 });
+      // O repasse vem do contrato desta academia, não mais de um custo por
+      // nível igual para todas. Sem isto o erro só apareceria ao gerar a
+      // cobrança do aluno, que a função recusa pelo mesmo motivo.
+      const divisao = dividirCobranca(valorVarejo, repasseConfig, taxaConfig ?? { percentual: 0, fixa: 0 });
+      if (divisao.semRepasseNegociado) {
+        throw new Error("O repasse do Método ainda não foi definido no contrato desta academia. Fale com o suporte da ArkeFit.");
+      }
       if (!divisao.cobreORepasse) {
         throw new Error(
-          `O valor precisa cobrir o repasse ARKE de R$ ${divisao.repasseArke.toFixed(2)} (atacado + taxa de processamento).`
+          `O valor precisa cobrir o repasse ARKE de R$ ${divisao.repasseArke!.toFixed(2)} (repasse do contrato + taxa de processamento).`
         );
       }
+      // Markup sobre o que a academia de fato entrega à ArkeFit.
+      const markupPct = divisao.repasseArke! > 0 ? ((valorVarejo - divisao.repasseArke!) / divisao.repasseArke!) * 100 : 0;
 
       const { error } = await supabase
         .from("organization_planos_precificacao")
@@ -643,23 +667,25 @@ export default function AdminOrganizacao() {
         </CardHeader>
         <CardContent className="space-y-3">
           {NIVEIS.map(({ value, label }) => {
-            const plano = planosAtacado.find((p) => p.id === value);
             const valorVarejo = parseMoeda(valores[value] || "0");
-            const custoAtacado = Number(plano?.custo_mensal ?? 0);
-            const { taxaEstimada, repasseArke, liquidoAcademia } = dividirCobranca(
+            const { taxaEstimada, repasseArke, liquidoAcademia, semRepasseNegociado } = dividirCobranca(
               valorVarejo,
-              custoAtacado,
+              repasseConfig,
               taxaConfig ?? { percentual: 0, fixa: 0 }
             );
-            const pctAcademia = valorVarejo > 0 ? Math.round((liquidoAcademia / valorVarejo) * 100) : 0;
+            const pctAcademia =
+              valorVarejo > 0 && liquidoAcademia !== null ? Math.round((liquidoAcademia / valorVarejo) * 100) : 0;
             return (
               <div key={value} className="flex items-center justify-between text-sm border-b border-border pb-2 last:border-0 last:pb-0">
                 <span className="font-medium">{label}</span>
                 <span className="text-xs text-muted-foreground text-right">
-                  Aluno paga R$ {valorVarejo.toFixed(2)} · ARKE retém R$ {repasseArke.toFixed(2)} (atacado R${" "}
-                  {custoAtacado.toFixed(2)} + taxa R$ {taxaEstimada.toFixed(2)}) · Academia recebe R${" "}
-                  {liquidoAcademia.toFixed(2)}
-                  {valorVarejo > 0 && ` (${pctAcademia}%)`}
+                  {semRepasseNegociado
+                    ? "Repasse do Método ainda não definido no contrato desta academia."
+                    : `Aluno paga R$ ${valorVarejo.toFixed(2)} · ARKE retém R$ ${repasseArke!.toFixed(2)} (repasse R$ ${(
+                        repasseArke! - taxaEstimada
+                      ).toFixed(2)} + taxa R$ ${taxaEstimada.toFixed(2)}) · Academia recebe R$ ${liquidoAcademia!.toFixed(
+                        2
+                      )}${valorVarejo > 0 ? ` (${pctAcademia}%)` : ""}`}
                 </span>
               </div>
             );
