@@ -107,7 +107,10 @@ export function definirProximaAcao(estado: EstadoAluno): ProximaAcao {
       titulo: "Falta água para fechar o dia",
       descricao: `Faltam ${(faltamMl / 1000).toFixed(1).replace(".", ",")} L para a sua meta de hoje.`,
       acao: "Registrar água",
-      ancora: "diario-agua",
+      // A água saiu da home e passou a morar só na tela de dieta, onde já
+      // estava duplicada. Por isso aqui é rota e não âncora: o botão leva o
+      // aluno até lá em vez de rolar uma tela que não tem mais o campo.
+      destino: "/app/dieta",
     };
   }
 

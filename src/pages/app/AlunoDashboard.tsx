@@ -6,17 +6,13 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
 import {
   LifeBuoy,
   Dumbbell,
   UtensilsCrossed,
   TrendingUp,
   AlertTriangle,
-  Droplet,
   CalendarClock,
-  Minus,
-  Plus,
   Sparkles,
   CheckCircle2,
   Flame,
@@ -248,26 +244,6 @@ export default function AlunoDashboard() {
     },
   });
 
-  const ajustarAgua = useMutation({
-    mutationFn: async (deltaMl: number) => {
-      if (!alunoId || !organization) throw new Error("Cadastro de aluno não encontrado");
-      const novoTotal = Math.max(0, Math.min(limiteAguaMl, (habitoHoje?.agua_ml ?? 0) + deltaMl));
-      const { error } = await supabase.from("registro_habito").upsert(
-        {
-          organization_id: organization.id,
-          aluno_id: alunoId,
-          data: HOJE,
-          agua_ml: novoTotal,
-        },
-        { onConflict: "aluno_id,data" }
-      );
-      if (error) throw error;
-    },
-    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["aluno-habito-hoje", alunoId] }),
-    onError: (error: Error) => {
-      toast({ title: "Não foi possível atualizar", description: error.message, variant: "destructive" });
-    },
-  });
 
   const escolherStatus = (status: CheckinStatus) => {
     if (status === "com_dificuldade") {
@@ -280,10 +256,8 @@ export default function AlunoDashboard() {
   const checkinHoje = checkins.find((c) => c.data === HOJE);
 
   const aguaMl = habitoHoje?.agua_ml ?? 0;
-  const aguaPct = Math.min(100, Math.round((aguaMl / metaAguaMl) * 100));
   // Além de 150% da meta o botão "+" some — evita um contador sem sentido
   // (e qualquer uso futuro em gamificação virar alvo de "farm" de cliques).
-  const limiteAguaMl = metaAguaMl * 1.5;
 
 
   // A home abre respondendo "o que eu faço agora". Tudo o mais — atalhos,
@@ -518,42 +492,6 @@ export default function AlunoDashboard() {
         </button>
       </div>
 
-      <Card id="diario-agua" className="scroll-mt-4">
-        <CardHeader className="pb-2">
-          <CardTitle className="flex items-center gap-2 text-base">
-            <Droplet className="h-4 w-4 text-primary" /> Diário de Hábitos — Água
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-2">
-          <div className="flex items-center justify-between">
-            <p className="text-sm font-medium">{aguaMl} ml / {metaAguaMl} ml</p>
-            <div className="flex items-center gap-1.5">
-              <Button
-                size="icon"
-                variant="outline"
-                className="h-8 w-8"
-                disabled={ajustarAgua.isPending || aguaMl <= 0}
-                onClick={() => ajustarAgua.mutate(-250)}
-              >
-                <Minus className="h-3.5 w-3.5" />
-              </Button>
-              <Button
-                size="icon"
-                variant="outline"
-                className="h-8 w-8"
-                disabled={ajustarAgua.isPending || aguaMl >= limiteAguaMl}
-                onClick={() => ajustarAgua.mutate(250)}
-              >
-                <Plus className="h-3.5 w-3.5" />
-              </Button>
-            </div>
-          </div>
-          <Progress value={aguaPct} />
-          {aguaMl >= metaAguaMl && (
-            <p className="text-xs font-medium text-emerald-600">🎉 Meta de água batida hoje!</p>
-          )}
-        </CardContent>
-      </Card>
 
       <PontuacaoEngajamento />
 

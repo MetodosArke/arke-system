@@ -180,9 +180,34 @@ export default function ControleDieta({ dietaId, refeicoes = [] }: { dietaId: st
         { onConflict: "aluno_id,data" }
       );
       if (error) throw error;
+
+      // A água também vai para `registro_habito`, que é de onde a pontuação de
+      // engajamento e o card "Próxima Ação" da home leem a hidratação.
+      //
+      // Antes existiam duas águas: a da home gravava aqui e a da dieta gravava
+      // só em `dieta_adesao`, que não alimenta métrica nenhuma. Ao tirar o
+      // card da home, manter só o registro da dieta zeraria a hidratação na
+      // pontuação de todo mundo — em silêncio, que é o pior jeito de quebrar.
+      // Agora a dieta é a única tela que registra água, e ela escreve nos dois
+      // lugares: `dieta_adesao` para o histórico da própria tela e
+      // `registro_habito` como fonte de verdade das métricas.
+      const { error: erroHabito } = await supabase.from("registro_habito").upsert(
+        {
+          organization_id: organization.id,
+          aluno_id: alunoId,
+          data: format(selectedDate, "yyyy-MM-dd"),
+          agua_ml: aguaMl,
+        },
+        { onConflict: "aluno_id,data" }
+      );
+      if (erroHabito) throw erroHabito;
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["dieta-adesao"] });
+      // A home lê a água do dia por estas duas chaves; sem invalidar, o card
+      // "Próxima Ação" continuaria pedindo água já registrada.
+      void queryClient.invalidateQueries({ queryKey: ["aluno-habito-hoje"] });
+      void queryClient.invalidateQueries({ queryKey: ["aluno-meta-agua"] });
       toast({ title: "Adesão registrada!" });
       setDialogOpen(false);
     },

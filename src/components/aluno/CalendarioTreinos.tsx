@@ -115,11 +115,17 @@ const corDotModalidade = (label: string) => MODALITY_DOT_COLORS[indiceModalidade
 
 /**
  * Aba Calendário do aluno, na ordem que se lê de cima para baixo: metas da
- * semana, a rotina planejada (`rotina`, passada pela página) e o calendário
- * com tudo o que foi treinado. Pensada para caber num print: um bloco de
- * números só, sem o antigo "Resumo da Semana" que repetia os quatro de cima.
+ * semana e o calendário com tudo o que foi treinado. Pensada para caber num
+ * print: um bloco de números só, sem o antigo "Resumo da Semana" que repetia
+ * os quatro de cima.
+ *
+ * O card "Minha Rotina da Semana" saiu daqui em 23/09/2026 e virou a aba
+ * *Compromisso* da Jornada. A separação é entre intenção e execução: dizer em
+ * que dias pretendo treinar é compromisso, e o calendário é o registro do que
+ * de fato aconteceu. A meta semanal fica, porque é a régua contra a qual o
+ * registro é lido.
  */
-export default function CalendarioTreinos({ rotina }: { rotina?: React.ReactNode }) {
+export default function CalendarioTreinos() {
   const { alunoId, organization } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -449,8 +455,6 @@ export default function CalendarioTreinos({ rotina }: { rotina?: React.ReactNode
           </div>
         </CardContent>
       </Card>
-
-      {rotina}
 
       <Card className="border-0 shadow-sm">
         <CardContent className="p-4">

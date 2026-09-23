@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -17,12 +18,13 @@ import {
   Pause,
   RotateCcw,
   MessageCircle,
+  Play,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { RegistrarAlertaCard } from "@/components/aluno/RegistrarAlertaCard";
 import { ChatPanel } from "@/components/chat/ChatPanel";
+import { ChatMentor } from "@/components/chat/ChatMentor";
 import CalendarioTreinos from "@/components/aluno/CalendarioTreinos";
-import RotinaSemanal from "@/components/aluno/RotinaSemanal";
 import type { Json } from "@/integrations/supabase/types";
 import { MidiaExercicio } from "@/components/acervo/MidiaExercicio";
 import { situacaoAtestado } from "@/lib/parq";
@@ -54,7 +56,12 @@ interface DetalheExecucao {
 const HOJE = new Date().toISOString().slice(0, 10);
 
 export default function AlunoTreinos() {
-  const { alunoId, organization } = useAuth();
+  const navigate = useNavigate();
+  const { alunoId, organization, planoAluno } = useAuth();
+  // No Método ARKE quem conduz a jornada é o mentor da ArkeFit. O canal do
+  // professor vira histórico em vez de sumir: ele é o registro do que já foi
+  // orientado, e apagar isso da tela do aluno seria perder contexto dele.
+  const temMentor = planoAluno !== "free";
 
   // PAR-Q com "sim" e sem atestado válido: o banco recusa o registro de
   // treino (trg_exigir_atestado_para_treinar); aqui a tela explica o porquê.
@@ -295,6 +302,12 @@ export default function AlunoTreinos() {
                 {totalConcluidos}/{exercicios.length} exercícios concluídos hoje
                 {treino.validade_fim && ` · Válido até ${new Date(treino.validade_fim).toLocaleDateString("pt-BR")}`}
               </p>
+              {/* A tela de execução registra série a série, com a carga da
+                  última vez e cronômetro de descanso. Esta lista continua
+                  servindo para consultar a ficha sem entrar no modo treino. */}
+              <Button className="w-full mt-2" onClick={() => navigate(`/app/treinos/executar/${divisaoHoje}`)}>
+                <Play className="h-4 w-4 mr-1.5" /> Iniciar treino {divisoes.length > 1 ? divisaoHoje : ""}
+              </Button>
             </CardHeader>
             <CardContent className="space-y-4">
               {exercicios.map((ex) => {
@@ -368,7 +381,7 @@ export default function AlunoTreinos() {
         </TabsContent>
 
         <TabsContent value="calendario" className="space-y-4">
-          <CalendarioTreinos rotina={<RotinaSemanal />} />
+          <CalendarioTreinos />
         </TabsContent>
       </Tabs>
 
@@ -381,10 +394,35 @@ export default function AlunoTreinos() {
         <CardContent>
           {/* Chat com os professores da academia: parte do plano Free. */}
           {alunoId && organization ? (
-            <ChatPanel organizationId={organization.id} alunoId={alunoId} viewerType="aluno" type="treino" />
+            <ChatPanel
+              organizationId={organization.id}
+              alunoId={alunoId}
+              viewerType="aluno"
+              type="treino"
+              somenteLeitura={temMentor}
+              motivoSomenteLeitura="Você agora é acompanhado pelo seu mentor ARKE. Esta conversa fica como histórico."
+            />
           ) : null}
         </CardContent>
       </Card>
+
+      {/* Canal do mentor ARKE: só no plano pago, e é ele que passa a conduzir
+          a jornada. A academia não lê esta conversa — nem aqui nem no banco. */}
+      {temMentor && alunoId && organization && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <MessageCircle className="h-4 w-4 text-primary" /> Meu Mentor ARKE
+            </CardTitle>
+            <p className="text-xs text-muted-foreground">
+              Seu acompanhamento do Método. Só você e a ArkeFit leem esta conversa.
+            </p>
+          </CardHeader>
+          <CardContent>
+            <ChatMentor organizationId={organization.id} alunoId={alunoId} viewerType="aluno" />
+          </CardContent>
+        </Card>
+      )}
 
       <RegistrarAlertaCard compact />
 

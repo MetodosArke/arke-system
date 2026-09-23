@@ -13,7 +13,12 @@ import type { Tables } from "@/integrations/supabase/types";
 import { CartaoAssinatura } from "@/components/pagamento/CartaoAssinatura";
 
 export default function AlunoPerfil() {
-  const { user, profile, organization, alunoId, signOut } = useAuth();
+  const { user, profile, organization, alunoId, signOut, planoAluno } = useAuth();
+  // No Método ARKE a meta de hidratação é do mentor, não do aluno (decisão
+  // de 23/09/2026): lá ela faz parte de um acompanhamento prescrito. A RPC
+  // recusa de qualquer forma; a tela existe para o aluno entender o porquê
+  // em vez de tentar e levar um erro.
+  const metaAguaEhDoMentor = planoAluno !== "free";
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [metaAguaInput, setMetaAguaInput] = useState("2000");
@@ -144,25 +149,36 @@ export default function AlunoPerfil() {
             <Droplets className="h-4 w-4 text-blue-500" /> Meta de Água Diária
           </CardTitle>
         </CardHeader>
-        <CardContent className="flex items-center gap-2">
-          <Input
-            type="number"
-            min={500}
-            max={8000}
-            step={100}
-            value={metaAguaInput}
-            onChange={(e) => setMetaAguaInput(e.target.value)}
-            className="flex-1"
-          />
-          <span className="text-sm text-muted-foreground">ml</span>
-          <Button
-            size="sm"
-            disabled={salvarMetaAgua.isPending || metaAguaInput === String(metaAguaMl ?? "")}
-            onClick={() => salvarMetaAgua.mutate()}
-          >
-            {salvarMetaAgua.isPending ? "Salvando..." : "Salvar"}
-          </Button>
-        </CardContent>
+        {metaAguaEhDoMentor ? (
+          <CardContent className="space-y-1">
+            <p className="text-sm font-medium">{metaAguaMl ?? 2000} ml por dia</p>
+            <p className="text-xs text-muted-foreground">
+              No Método ARKE quem define a sua meta de hidratação é o seu mentor. Fale com ele pelo
+              chat se quiser ajustar.
+            </p>
+          </CardContent>
+        ) : (
+          <CardContent className="flex items-center gap-2">
+            <Input
+              type="number"
+              min={500}
+              max={8000}
+              step={100}
+              value={metaAguaInput}
+              onChange={(e) => setMetaAguaInput(e.target.value)}
+              className="flex-1"
+              aria-label="Meta de água diária em mililitros"
+            />
+            <span className="text-sm text-muted-foreground">ml</span>
+            <Button
+              size="sm"
+              disabled={salvarMetaAgua.isPending || metaAguaInput === String(metaAguaMl ?? "")}
+              onClick={() => salvarMetaAgua.mutate()}
+            >
+              {salvarMetaAgua.isPending ? "Salvando..." : "Salvar"}
+            </Button>
+          </CardContent>
+        )}
       </Card>
 
       {avaliacoes.length > 0 && (

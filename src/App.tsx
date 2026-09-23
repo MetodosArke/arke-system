@@ -52,6 +52,7 @@ const AdminFunil = paginaPreguicosa(() => import("@/pages/admin/AdminFunil"));
 const AlunoDashboard = paginaPreguicosa(() => import("@/pages/app/AlunoDashboard"));
 const AlunoPerfil = paginaPreguicosa(() => import("@/pages/app/AlunoPerfil"));
 const AlunoTreinos = paginaPreguicosa(() => import("@/pages/app/AlunoTreinos"));
+const TreinoExecucao = paginaPreguicosa(() => import("@/pages/app/TreinoExecucao"));
 const AlunoDieta = paginaPreguicosa(() => import("@/pages/app/AlunoDieta"));
 const AlunoAgenda = paginaPreguicosa(() => import("@/pages/app/AlunoAgenda"));
 const AlunoEvolucao = paginaPreguicosa(() => import("@/pages/app/AlunoEvolucao"));
@@ -85,6 +86,7 @@ const SuperAdminConfiguracoes = paginaPreguicosa(() => import("@/pages/superadmi
 const SuperAdminAcervo = paginaPreguicosa(() => import("@/pages/superadmin/SuperAdminAcervo"));
 const SuperAdminAuditoria = paginaPreguicosa(() => import("@/pages/superadmin/SuperAdminAuditoria"));
 const SuperAdminWebhooks = paginaPreguicosa(() => import("@/pages/superadmin/SuperAdminWebhooks"));
+const SuperAdminMentoria = paginaPreguicosa(() => import("@/pages/superadmin/SuperAdminMentoria"));
 
 const isNetworkError = (error: unknown) => {
   const message = error instanceof Error ? error.message : String(error ?? "");
@@ -234,6 +236,7 @@ const App = () => (
               >
                 <Route index element={<AlunoDashboard />} />
                 <Route path="treinos" element={<AlunoTreinos />} />
+                <Route path="treinos/executar/:divisao" element={<TreinoExecucao />} />
                 <Route path="dieta" element={<AlunoDieta />} />
                 <Route path="evolucao" element={<AlunoEvolucao />} />
                 <Route path="jornada" element={<AlunoJornada />} />
@@ -294,6 +297,7 @@ const App = () => (
                 <Route path="acervo" element={<SuperAdminAcervo />} />
                 <Route path="auditoria" element={<SuperAdminAuditoria />} />
                 <Route path="webhooks" element={<SuperAdminWebhooks />} />
+                <Route path="mentoria" element={<SuperAdminMentoria />} />
                 <Route path="configuracoes" element={<SuperAdminConfiguracoes />} />
               </Route>
 

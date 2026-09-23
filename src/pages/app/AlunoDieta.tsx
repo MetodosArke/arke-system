@@ -287,7 +287,14 @@ export default function AlunoDieta() {
         </CardHeader>
         <CardContent>
           {(temNutricaoNoPlano(planoAluno) || academiaTemNutri) && alunoId && organization ? (
-            <ChatPanel organizationId={organization.id} alunoId={alunoId} viewerType="aluno" type="nutri" />
+            <ChatPanel
+              organizationId={organization.id}
+              alunoId={alunoId}
+              viewerType="aluno"
+              type="nutri"
+              somenteLeitura={planoAluno !== "free"}
+              motivoSomenteLeitura="Você agora é acompanhado pelo seu mentor ARKE. Esta conversa fica como histórico."
+            />
           ) : (
             <MetodoArkeEmBreve recurso="O chat com a nutricionista" />
           )}

@@ -2799,6 +2799,61 @@ export type Database = {
           },
         ]
       }
+      mensagens_mentor: {
+        Row: {
+          aluno_id: string
+          created_at: string
+          id: string
+          lida: boolean
+          mensagem: string
+          organization_id: string
+          remetente_id: string
+          remetente_tipo: Database["public"]["Enums"]["remetente_mentor"]
+        }
+        Insert: {
+          aluno_id: string
+          created_at?: string
+          id?: string
+          lida?: boolean
+          mensagem: string
+          organization_id: string
+          remetente_id: string
+          remetente_tipo: Database["public"]["Enums"]["remetente_mentor"]
+        }
+        Update: {
+          aluno_id?: string
+          created_at?: string
+          id?: string
+          lida?: boolean
+          mensagem?: string
+          organization_id?: string
+          remetente_id?: string
+          remetente_tipo?: Database["public"]["Enums"]["remetente_mentor"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mensagens_mentor_aluno_id_fkey"
+            columns: ["aluno_id"]
+            isOneToOne: false
+            referencedRelation: "alunos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mensagens_mentor_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "org_churn_metrics"
+            referencedColumns: ["organization_id"]
+          },
+          {
+            foreignKeyName: "mensagens_mentor_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       mensagens_treino: {
         Row: {
           aluno_id: string
@@ -4225,6 +4280,74 @@ export type Database = {
           },
         ]
       }
+      registro_serie: {
+        Row: {
+          carga_kg: number | null
+          concluida: boolean
+          created_at: string
+          exercicio_id: string | null
+          exercicio_ordem: number
+          id: string
+          organization_id: string
+          registro_treino_id: string
+          repeticoes: number | null
+          serie_numero: number
+        }
+        Insert: {
+          carga_kg?: number | null
+          concluida?: boolean
+          created_at?: string
+          exercicio_id?: string | null
+          exercicio_ordem: number
+          id?: string
+          organization_id: string
+          registro_treino_id: string
+          repeticoes?: number | null
+          serie_numero: number
+        }
+        Update: {
+          carga_kg?: number | null
+          concluida?: boolean
+          created_at?: string
+          exercicio_id?: string | null
+          exercicio_ordem?: number
+          id?: string
+          organization_id?: string
+          registro_treino_id?: string
+          repeticoes?: number | null
+          serie_numero?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "registro_serie_exercicio_id_fkey"
+            columns: ["exercicio_id"]
+            isOneToOne: false
+            referencedRelation: "exercicios_biblioteca"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "registro_serie_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "org_churn_metrics"
+            referencedColumns: ["organization_id"]
+          },
+          {
+            foreignKeyName: "registro_serie_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "registro_serie_registro_treino_id_fkey"
+            columns: ["registro_treino_id"]
+            isOneToOne: false
+            referencedRelation: "registro_treino"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       registro_treino: {
         Row: {
           aluno_id: string
@@ -4233,9 +4356,12 @@ export type Database = {
           data: string
           detalhes_execucao: Json
           divisao: string | null
+          duracao_min: number | null
+          esforco_percebido: number | null
           id: string
           observacao: string | null
           organization_id: string
+          sensacao: string | null
           treino_id: string | null
         }
         Insert: {
@@ -4245,9 +4371,12 @@ export type Database = {
           data?: string
           detalhes_execucao?: Json
           divisao?: string | null
+          duracao_min?: number | null
+          esforco_percebido?: number | null
           id?: string
           observacao?: string | null
           organization_id: string
+          sensacao?: string | null
           treino_id?: string | null
         }
         Update: {
@@ -4257,9 +4386,12 @@ export type Database = {
           data?: string
           detalhes_execucao?: Json
           divisao?: string | null
+          duracao_min?: number | null
+          esforco_percebido?: number | null
           id?: string
           observacao?: string | null
           organization_id?: string
+          sensacao?: string | null
           treino_id?: string | null
         }
         Relationships: [
@@ -5187,6 +5319,19 @@ export type Database = {
           vencidas: number
         }[]
       }
+      get_superadmin_fila_mentor: {
+        Args: never
+        Returns: {
+          aluno_id: string
+          aluno_nome: string
+          nao_lidas: number
+          organizacao_nome: string
+          plano: string
+          ultima_em: string
+          ultima_mensagem: string
+          ultimo_remetente: string
+        }[]
+      }
       get_superadmin_funil_conversao: {
         Args: { _meses?: number }
         Returns: {
@@ -5728,6 +5873,7 @@ export type Database = {
       provedor_nutricao: "nenhum" | "nutricionista_academia" | "equipe_arke"
       provedor_treino: "academia_propria" | "personal_parceiro" | "equipe_arke"
       recorrencia_tipo: "nenhuma" | "mensal"
+      remetente_mentor: "aluno" | "mentor"
       remetente_tipo_dieta: "aluno" | "nutricionista"
       remetente_tipo_treino: "aluno" | "treinador"
       situacao_aluno_academia: "em_dia" | "inadimplente" | "pausado"
@@ -5953,6 +6099,7 @@ export const Constants = {
       provedor_nutricao: ["nenhum", "nutricionista_academia", "equipe_arke"],
       provedor_treino: ["academia_propria", "personal_parceiro", "equipe_arke"],
       recorrencia_tipo: ["nenhuma", "mensal"],
+      remetente_mentor: ["aluno", "mentor"],
       remetente_tipo_dieta: ["aluno", "nutricionista"],
       remetente_tipo_treino: ["aluno", "treinador"],
       situacao_aluno_academia: ["em_dia", "inadimplente", "pausado"],

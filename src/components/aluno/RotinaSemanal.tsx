@@ -9,24 +9,15 @@ import { useToast } from "@/hooks/use-toast";
 
 const DIAS_SEMANA = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
 
-const MODALIDADE_OPTIONS = [
-  "Descanso",
-  "Treino A",
-  "Treino B",
-  "Treino C",
-  "Treino D",
-  "Yoga",
-  "Pilates",
-  "Funcional",
-  "CrossFit",
-  "Musculação",
-  "Caminhada",
-  "Corrida",
-  "Natação",
-  "Ciclismo",
-  "Alongamento",
-  "HIIT",
-];
+// Duas opções, por decisão de 23/09/2026. Antes eram dezesseis — Treino A–D
+// mais Yoga, Pilates, CrossFit, Corrida, HIIT e companhia.
+//
+// O compromisso de rotina responde uma pergunta só: neste dia eu treino ou
+// descanso? Qual treino é assunto da ficha, que já traz a divisão, e oferecer
+// "Natação" aqui pedia ao aluno que mantivesse um segundo planejamento que
+// ninguém lia. Rotina antiga com outra modalidade é lida como "Treino" —
+// ver `20261217020000_rotina_treino_ou_descanso.sql`.
+const MODALIDADE_OPTIONS = ["Treino", "Descanso"];
 
 interface RotinaEntry {
   dia_semana: number;
@@ -80,7 +71,15 @@ export default function RotinaSemanal() {
     onSettled: () => setPendente(null),
   });
 
-  const modalidadePorDia = (dia: number) => rotina.find((r) => r.dia_semana === dia)?.modalidade ?? "Descanso";
+  // Rotina gravada antes da redução para duas opções pode trazer "Musculação",
+  // "Corrida" e afins. A migration converte o que está no banco, mas a tela
+  // também normaliza: sem isso, um valor fora da lista deixaria o Select sem
+  // opção correspondente e o dia apareceria em branco.
+  const modalidadePorDia = (dia: number) => {
+    const gravada = rotina.find((r) => r.dia_semana === dia)?.modalidade;
+    if (!gravada) return "Descanso";
+    return gravada === "Descanso" ? "Descanso" : "Treino";
+  };
 
   return (
     <Card>

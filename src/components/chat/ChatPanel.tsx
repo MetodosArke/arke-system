@@ -37,10 +37,21 @@ interface ChatPanelProps {
   type: "treino" | "nutri";
   /** obrigatório quando type === "nutri" e viewerType === "staff" (o aluno resolve pela própria dieta ativa) */
   dietaId?: string;
+  /**
+   * Conversa fechada para mensagem nova, mas com o histórico visível.
+   *
+   * É o estado dos canais de professor e nutricionista depois que o aluno
+   * entra no Método ARKE: quem conduz a jornada passa a ser o mentor, e
+   * manter dois lados respondendo produziria orientação conflitante. Apagar
+   * a conversa seria pior — ela é o registro do que já foi orientado.
+   */
+  somenteLeitura?: boolean;
+  /** Explica ao aluno por que não dá para escrever. */
+  motivoSomenteLeitura?: string;
   className?: string;
 }
 
-export function ChatPanel({ organizationId, alunoId, viewerType, type, dietaId, className }: ChatPanelProps) {
+export function ChatPanel({ organizationId, alunoId, viewerType, type, dietaId, className, somenteLeitura, motivoSomenteLeitura }: ChatPanelProps) {
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -301,6 +312,11 @@ export function ChatPanel({ organizationId, alunoId, viewerType, type, dietaId, 
           }}
         />
       )}
+      {somenteLeitura ? (
+        <p className="pt-2 text-xs text-muted-foreground border-t border-border mt-2">
+          {motivoSomenteLeitura ?? "Esta conversa está encerrada. O histórico continua aqui."}
+        </p>
+      ) : (
       <form
         onSubmit={(e) => {
           e.preventDefault();
@@ -331,6 +347,7 @@ export function ChatPanel({ organizationId, alunoId, viewerType, type, dietaId, 
           <Send className="h-4 w-4" />
         </Button>
       </form>
+      )}
     </div>
   );
 }
