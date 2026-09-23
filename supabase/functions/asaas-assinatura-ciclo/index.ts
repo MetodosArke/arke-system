@@ -230,6 +230,7 @@ Deno.serve(async (req: Request) => {
     const { data: repasseCalculado } = await admin.rpc("repasse_arke", {
       _organization_id: org.id,
       _valor_cobrado: valor,
+      _nivel_atacado: assinatura.nivel_atacado,
     });
     if (repasseCalculado === null || repasseCalculado === undefined) {
       return jsonResponse(

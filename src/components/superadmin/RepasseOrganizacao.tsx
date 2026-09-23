@@ -6,7 +6,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { dividirCobranca, type RepasseConfig, type TaxaProcessamento } from "@/lib/repasse";
+import { dividirCobranca, resolverRepasse, type RepasseConfig, type TaxaProcessamento } from "@/lib/repasse";
+
+/** Os níveis pagos do Método. Free não tem cobrança, então não tem repasse. */
+const NIVEIS: { id: string; rotulo: string; varejoRef: number }[] = [
+  { id: "integrado", rotulo: "Integrado", varejoRef: 119 },
+  { id: "elite", rotulo: "Elite", varejoRef: 199 },
+];
 
 /**
  * Quanto a ArkeFit retém de cada aluno no Método, negociado academia a academia.
@@ -150,6 +156,132 @@ export function RepasseOrganizacao({ organizationId }: { organizationId: string 
       <Button size="sm" disabled={!valido || salvar.isPending} onClick={() => salvar.mutate()}>
         Salvar repasse
       </Button>
+
+      <ExcecoesPorNivel
+        organizationId={organizationId}
+        padrao={{ tipo, valor: valido ? numero : null }}
+        taxa={taxa ?? { percentual: 0, fixa: 0 }}
+      />
+    </div>
+  );
+}
+
+/**
+ * Exceção por nível, dentro da academia.
+ *
+ * Integrado e Elite custam coisas diferentes de servir — Elite entrega
+ * acolhimento expandido, encontros periódicos e fila prioritária, que no
+ * Mentor Centralizado é tempo de gente. Deixar os dois no mesmo repasse seria
+ * um retrocesso: antes da negociação por academia eles já diferiam.
+ *
+ * Em branco = vale o negociado acima, para não obrigar a configurar duas vezes
+ * quem fechou um valor só.
+ */
+function ExcecoesPorNivel({
+  organizationId,
+  padrao,
+  taxa,
+}: {
+  organizationId: string;
+  padrao: RepasseConfig;
+  taxa: TaxaProcessamento;
+}) {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [rascunho, setRascunho] = useState<Record<string, { tipo: RepasseConfig["tipo"]; valor: string }>>({});
+
+  const { data: linhas = [] } = useQuery({
+    queryKey: ["repasse-niveis", organizationId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("organization_planos_precificacao")
+        .select("nivel_atacado, repasse_tipo, repasse_valor")
+        .eq("organization_id", organizationId);
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  useEffect(() => {
+    const inicial: Record<string, { tipo: RepasseConfig["tipo"]; valor: string }> = {};
+    for (const n of NIVEIS) {
+      const l = linhas.find((x) => x.nivel_atacado === n.id);
+      inicial[n.id] = {
+        tipo: (l?.repasse_tipo as RepasseConfig["tipo"]) ?? "fixo",
+        valor: l?.repasse_valor === null || l?.repasse_valor === undefined ? "" : String(l.repasse_valor),
+      };
+    }
+    setRascunho(inicial);
+  }, [linhas]);
+
+  const salvar = useMutation({
+    mutationFn: async (nivel: string) => {
+      const r = rascunho[nivel];
+      const vazio = !r || r.valor.trim() === "";
+      const n = Number((r?.valor ?? "").replace(",", "."));
+      if (!vazio && (!Number.isFinite(n) || n < 0 || (r.tipo === "percentual" && n > 100))) {
+        throw new Error("Valor inválido para este tipo de repasse.");
+      }
+      const { error } = await supabase
+        .from("organization_planos_precificacao")
+        .update({ repasse_tipo: vazio ? null : r.tipo, repasse_valor: vazio ? null : n })
+        .eq("organization_id", organizationId)
+        .eq("nivel_atacado", nivel as never);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast({ title: "Exceção atualizada", description: "Vale para assinaturas novas desse nível." });
+      void queryClient.invalidateQueries({ queryKey: ["repasse-niveis", organizationId] });
+    },
+    onError: (e: Error) => toast({ title: "Não foi possível salvar", description: e.message, variant: "destructive" }),
+  });
+
+  return (
+    <div className="space-y-2 border-t pt-3">
+      <p className="text-xs font-medium">Exceção por nível</p>
+      <p className="text-xs text-muted-foreground -mt-1">Em branco, vale o repasse acima.</p>
+      {NIVEIS.map((n) => {
+        const r = rascunho[n.id] ?? { tipo: "fixo" as const, valor: "" };
+        const num = Number(r.valor.replace(",", "."));
+        const temValor = r.valor.trim() !== "" && Number.isFinite(num);
+        const efetivo = resolverRepasse(padrao, temValor ? { tipo: r.tipo, valor: num } : null);
+        const previa = dividirCobranca(n.varejoRef, efetivo, taxa);
+        return (
+          <div key={n.id} className="space-y-1">
+            <div className="flex items-center gap-2">
+              <span className="w-20 text-xs">{n.rotulo}</span>
+              <Select
+                value={r.tipo}
+                onValueChange={(v) => setRascunho((s) => ({ ...s, [n.id]: { ...r, tipo: v as RepasseConfig["tipo"] } }))}
+              >
+                <SelectTrigger className="h-8 w-28 text-xs" aria-label={`Tipo de repasse do ${n.rotulo}`}>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="fixo">Fixo</SelectItem>
+                  <SelectItem value="percentual">%</SelectItem>
+                </SelectContent>
+              </Select>
+              <Input
+                className="h-8 w-24 text-xs"
+                inputMode="decimal"
+                aria-label={`Valor do repasse do ${n.rotulo}`}
+                placeholder="padrão"
+                value={r.valor}
+                onChange={(e) => setRascunho((s) => ({ ...s, [n.id]: { ...r, valor: e.target.value } }))}
+              />
+              <Button size="sm" variant="outline" disabled={salvar.isPending} onClick={() => salvar.mutate(n.id)}>
+                Salvar
+              </Button>
+            </div>
+            <p className="pl-[5.5rem] text-[11px] text-muted-foreground">
+              {previa.semRepasseNegociado
+                ? "Sem repasse: a cobrança deste nível seria recusada."
+                : `A R$ ${n.varejoRef}: ArkeFit R$ ${previa.repasseArke!.toFixed(2)} · academia R$ ${previa.liquidoAcademia!.toFixed(2)}`}
+            </p>
+          </div>
+        );
+      })}
     </div>
   );
 }

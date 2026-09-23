@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { dividirCobranca, repasseArke, taxaProcessamento, type RepasseConfig } from "./repasse";
+import { dividirCobranca, repasseArke, resolverRepasse, taxaProcessamento, type RepasseConfig } from "./repasse";
 
 const TAXA = { percentual: 2.99, fixa: 0.49 };
 const FIXO_45: RepasseConfig = { tipo: "fixo", valor: 45 };
@@ -59,6 +59,23 @@ describe("repasse do Método ARKE", () => {
       cobreORepasse: false,
       semRepasseNegociado: false,
     });
+  });
+
+  it("a exceção do nível vence o padrão da academia, e só quando tem valor", () => {
+    // Conferido contra public.repasse_arke em 23/09/2026: Elite com exceção
+    // fixa de 85 sobre 199 dá 91,44; sem exceção cai no padrão e dá 51,44.
+    const padrao: RepasseConfig = { tipo: "fixo", valor: 45 };
+    const excecaoElite: RepasseConfig = { tipo: "fixo", valor: 85 };
+    expect(repasseArke(199, resolverRepasse(padrao, excecaoElite), TAXA)).toBe(91.44);
+    expect(repasseArke(199, resolverRepasse(padrao, null), TAXA)).toBe(51.44);
+    // Linha de nível sem exceção gravada não pode suprimir o padrão.
+    expect(repasseArke(199, resolverRepasse(padrao, { tipo: "fixo", valor: null }), TAXA)).toBe(51.44);
+  });
+
+  it("a exceção do nível basta mesmo sem padrão da academia", () => {
+    const semPadrao: RepasseConfig = { tipo: "fixo", valor: null };
+    expect(repasseArke(119, resolverRepasse(semPadrao, { tipo: "fixo", valor: 60 }), TAXA)).toBe(64.05);
+    expect(repasseArke(119, resolverRepasse(semPadrao, null), TAXA)).toBeNull();
   });
 
   it("academia sem repasse negociado não vira divisão inventada", () => {

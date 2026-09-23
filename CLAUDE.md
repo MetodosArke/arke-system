@@ -218,7 +218,13 @@ O modelo comercial passou a negociar contrato a contrato: cada academia tem port
 
 **Conferido pela função publicada**, autenticado como gestor de verdade: repasse percentual de 30% sobre varejo de R$ 149 gravou R$ 49,65 (44,70 + taxa 4,95) e o split no Asaas ficou em R$ 99,35 para a academia; repasse fixo de R$ 49 no mesmo varejo deu R$ 53,95; academia sem repasse negociado foi recusada com 422 **sem deixar assinatura órfã no gateway**; e varejo que não cobre o repasse foi recusado.
 
-**O que ficou de fora de propósito:** os níveis Integrado e Elite **continuam existindo como conjuntos de recurso** (nutrição, acolhimento expandido, fila prioritária) e como linhas de preço de varejo. O que saiu de cena foi o `custo_mensal` deles como fonte do repasse. Colapsar os dois níveis num "Método" único é mudança de produto com efeito em várias telas, e é decisão separada.
+**Os níveis Integrado e Elite continuam existindo** como conjuntos de recurso (nutrição, acolhimento expandido, fila prioritária) e como linhas de preço de varejo. O que saiu de cena foi o `custo_mensal` deles como fonte do repasse.
+
+**Dois níveis, e por isso repasse por nível (decisão de 23/09/2026).** O responsável decidiu **manter Integrado e Elite** em vez de colapsá-los num "Método" único. A decisão tem uma consequência que a configuração por organização sozinha não cobria: com um repasse só, os dois reteriam o mesmo valor — e eles custam coisas diferentes de servir. Elite entrega acolhimento expandido, encontros periódicos e fila prioritária, que no Mentor Centralizado é tempo de gente. Antes da Fase 1 eles já diferiam (R$ 45 e R$ 85); igualá-los seria retrocesso disfarçado de simplificação.
+
+O desenho é **padrão mais exceção**, para não obrigar a configurar duas vezes quem fechou um valor só: `organizations.repasse_*` é o negociado com a academia, e `organization_planos_precificacao.repasse_*` é a exceção daquele nível. A exceção mora onde o varejo daquele nível já morava, e não numa tabela nova. Exceção **sem valor não suprime o padrão** — é a armadilha que o `left join` com `repasse_valor is not null` evita.
+
+Conferido em 9 casos de resolução no banco (com exceção, sem exceção, exceção sozinha sem padrão, chamada sem nível) e pela função publicada: academia com padrão de R$ 45 e exceção de R$ 85 no Elite gravou R$ 49,05 para o Integrado a R$ 119 e R$ 91,44 para o Elite a R$ 199 — com split de R$ 107,56 para a academia, que é exatamente a margem da tabela comercial original.
 
 ## Trial e Bloqueio por Pagamento
 

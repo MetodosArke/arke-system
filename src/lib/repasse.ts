@@ -38,6 +38,23 @@ export function repasseArke(valor: number, config: RepasseConfig, taxa: TaxaProc
   return centavos(base + taxaProcessamento(valor, taxa));
 }
 
+/**
+ * Qual configuração vale para um nível: a exceção dele, se houver, senão a
+ * negociada com a academia.
+ *
+ * Existe porque a decisão foi manter dois níveis (Integrado e Elite), e eles
+ * custam coisas diferentes de servir — Elite entrega acolhimento expandido,
+ * encontros periódicos e fila prioritária, que no Mentor Centralizado é tempo
+ * de gente. Um repasse só para os dois seria um retrocesso: antes eles já
+ * diferiam (R$ 45 e R$ 85).
+ *
+ * Espelha `public.repasse_arke`. Exceção sem valor não suprime o padrão.
+ */
+export function resolverRepasse(padrao: RepasseConfig, excecao?: RepasseConfig | null): RepasseConfig {
+  if (excecao && excecao.valor !== null && excecao.valor !== undefined) return excecao;
+  return padrao;
+}
+
 export function dividirCobranca(valor: number, config: RepasseConfig, taxa: TaxaProcessamento) {
   const taxaEstimada = taxaProcessamento(valor, taxa);
   const repasse = repasseArke(valor, config, taxa);

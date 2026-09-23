@@ -430,6 +430,7 @@ Deno.serve(async (req: Request) => {
               const { data: calculado } = await admin.rpc("repasse_arke", {
                 _organization_id: assinatura.organization_id,
                 _valor_cobrado: valor,
+                _nivel_atacado: assinatura.nivel_atacado,
               });
               valorRepasseArke = Number(calculado ?? 0);
             }

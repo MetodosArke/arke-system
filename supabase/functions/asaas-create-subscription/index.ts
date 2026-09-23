@@ -190,6 +190,9 @@ Deno.serve(async (req: Request) => {
     const { data: repasseCalculado, error: repasseError } = await admin.rpc("repasse_arke", {
       _organization_id: org.id,
       _valor_cobrado: Number(valor_cobrado),
+      // Integrado e Elite custam coisas diferentes de servir, entao cada um
+      // pode ter excecao propria; sem excecao vale o negociado com a academia.
+      _nivel_atacado: aluno.nivel_atacado,
     });
     if (repasseError) {
       console.error("Falha ao calcular o repasse", repasseError);

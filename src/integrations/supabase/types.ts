@@ -3631,6 +3631,8 @@ export type Database = {
           markup_pct: number
           nivel_atacado: Database["public"]["Enums"]["nivel_atacado"]
           organization_id: string
+          repasse_tipo: string | null
+          repasse_valor: number | null
           updated_at: string
           valor_varejo: number
         }
@@ -3640,6 +3642,8 @@ export type Database = {
           markup_pct?: number
           nivel_atacado: Database["public"]["Enums"]["nivel_atacado"]
           organization_id: string
+          repasse_tipo?: string | null
+          repasse_valor?: number | null
           updated_at?: string
           valor_varejo: number
         }
@@ -3649,6 +3653,8 @@ export type Database = {
           markup_pct?: number
           nivel_atacado?: Database["public"]["Enums"]["nivel_atacado"]
           organization_id?: string
+          repasse_tipo?: string | null
+          repasse_valor?: number | null
           updated_at?: string
           valor_varejo?: number
         }
@@ -5803,7 +5809,11 @@ export type Database = {
         Returns: number
       }
       repasse_arke: {
-        Args: { _organization_id: string; _valor_cobrado: number }
+        Args: {
+          _nivel_atacado?: string
+          _organization_id: string
+          _valor_cobrado: number
+        }
         Returns: number
       }
       revogar_consentimento_biometrico: {
