@@ -314,3 +314,37 @@ alter policy "exclusão" on public.tarefas
     or has_role((select auth.uid()), 'admin_arke'::app_role)
     or has_role((select auth.uid()), 'superadmin'::app_role)
   );
+
+-- ── 6. O `with check` das tarefas nunca teve `superadmin` ──────────────────
+--
+-- Achado ao exercitar o console do Mentor: o Super Admin passava no USING e
+-- era recusado no WITH CHECK, então a ArkeFit nunca conseguiu **alterar** uma
+-- tarefa — só ler. Não doía porque não havia console; com a fila do Mentor,
+-- encerrar um chamado é a ação principal da tela.
+--
+-- A armadilha é que `alter policy ... using (...)` muda só o using. Quem
+-- corrige uma regra de UPDATE precisa lembrar das duas metades, e o sintoma de
+-- esquecer é uma atualização que responde sucesso com zero linhas — o mesmo
+-- silêncio que já custou o `primeiro_acesso_em` nulo para todo mundo.
+alter policy "alteração" on public.tarefas
+  with check (
+    is_org_staff((select auth.uid()), organization_id)
+    or has_role((select auth.uid()), 'admin_arke'::app_role)
+    or has_role((select auth.uid()), 'superadmin'::app_role)
+  );
+
+alter policy "inclusão" on public.tarefas
+  with check (
+    (
+      aluno_id is not null
+      and exists (
+        select 1 from public.alunos a
+         where a.id = tarefas.aluno_id
+           and a.user_id = (select auth.uid())
+           and a.organization_id = tarefas.organization_id
+      )
+    )
+    or is_org_staff((select auth.uid()), organization_id)
+    or has_role((select auth.uid()), 'admin_arke'::app_role)
+    or has_role((select auth.uid()), 'superadmin'::app_role)
+  );

@@ -306,7 +306,16 @@ O BPO tira a carga de acompanhamento digital da academia: quando o aluno foge do
 
 Conferido em **13 casos** em transação revertida, mais a separação de RLS com identidades reais. Um defeito real apareceu no caminho: o `case when ... then 'critica' else 'alta' end` devolve texto e a coluna é enum, e o **plpgsql só reclama disso em execução, nunca na criação da função** — o teste pegou o que a leitura não pegaria.
 
-**O que falta da Fase 4:** o console do mentor (tela). A base está no ar.
+
+**O console (23/09/2026).** *Visão Master → Mentoria* passou a ter duas abas, porque são duas perguntas diferentes: **Chamados** (quem saiu do trilho) e **Conversas** (quem escreveu). A primeira é o coração do BPO — ela nasce sozinha dos sensores, sem ninguém precisar reclamar antes.
+
+**O contexto vem na própria linha do chamado:** fase, dias sem sinal, constância e nível. Sem isso o mentor abriria a ficha de cada aluno para descobrir se o caso é resgate, ajuste ou acionamento da academia — uma consulta por linha da fila, que é exatamente o que derruba quantos alunos um mentor consegue servir. **Esse número é a economia unitária do modelo**, e o cabeçalho mostra a carga (total e fora de SLA) justamente para que ele deixe de ser hipótese e passe a ser medido.
+
+As três saídas reais de um chamado estão na mesma tela: encerrar com desfecho (obrigatório, como manda o ciclo de atendimento), mandar instrução presencial para a academia e liberar a progressão. Obrigar a navegar para cada uma seria o mesmo problema de produtividade por outro caminho.
+
+**Um defeito anterior que o console revelou.** O `with check` da regra de alteração de `tarefas` nunca teve `superadmin`: a ArkeFit passava no `using` e era recusada no `with check`, então **nunca conseguiu alterar uma tarefa** — só ler. Não doía porque não havia console. A armadilha é que `alter policy ... using (...)` muda só metade da regra, e o sintoma de esquecer a outra é uma atualização que responde sucesso com zero linhas — o mesmo silêncio que já custou o `primeiro_acesso_em` nulo para todo mundo.
+
+Conferido pelo PostgREST numa sessão de Super Admin real: a fila atravessa organizações com o contexto pronto, o SLA vencido é marcado, a instrução presencial nasce com dono `academia`, a liberação de progressão limpa o bloqueio e o chamado encerrado com desfecho sai da fila.
 
 ## Trial e Bloqueio por Pagamento
 
