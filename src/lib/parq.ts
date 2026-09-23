@@ -58,6 +58,7 @@ Prestação de serviços de atividade física orientada, nas modalidades e horá
 
 ## 4. Saúde e segurança
 - O Aluno declara ter respondido com verdade o questionário de prontidão (PAR-Q) e se compromete a apresentar atestado médico sempre que alguma resposta indicar essa necessidade.
+- Enquanto a Academia não conferir e registrar a validade do atestado exigido, o registro de treino no aplicativo fica bloqueado, por segurança do Aluno.
 - O Aluno deve informar à equipe qualquer dor, lesão ou mudança no seu estado de saúde, e seguir as orientações dos profissionais da Academia.
 
 ## 5. Regras de uso

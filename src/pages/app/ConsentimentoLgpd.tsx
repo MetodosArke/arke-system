@@ -9,6 +9,11 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { ShieldCheck } from "lucide-react";
+import {
+  CAIXA_CONSENTIMENTO_SAUDE,
+  TEXTO_CONSENTIMENTO_SAUDE,
+  VERSAO_CONSENTIMENTO_SAUDE,
+} from "@/lib/consentimentoSaude";
 
 // Tela de consentimento LGPD isolada: cobre o caso de alunos que já
 // concluíram a anamnese M.A.P.A.® antes deste termo existir. Diferente do
@@ -25,7 +30,10 @@ export default function ConsentimentoLgpd() {
       if (!alunoId) throw new Error("Cadastro de aluno não encontrado");
       const { error } = await supabase
         .from("anamnese_acolhimento")
-        .update({ consentimento_lgpd_aceito_em: new Date().toISOString() })
+        .update({
+          consentimento_lgpd_aceito_em: new Date().toISOString(),
+          consentimento_lgpd_versao: VERSAO_CONSENTIMENTO_SAUDE,
+        })
         .eq("aluno_id", alunoId);
       if (error) throw error;
     },
@@ -50,17 +58,11 @@ export default function ConsentimentoLgpd() {
           <CardTitle className="mt-2">Precisamos do seu consentimento</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <p className="text-sm text-muted-foreground">
-            As informações de saúde que você já compartilhou conosco (histórico de saúde, lesões, medicamentos,
-            rotina e objetivos) são dados sensíveis protegidos pela Lei Geral de Proteção de Dados (LGPD). Elas
-            são usadas exclusivamente pela equipe da sua academia para personalizar seu acompanhamento (treino,
-            dieta e atendimento), com acesso restrito ao profissional responsável por você.
-          </p>
+          <p className="text-sm text-muted-foreground">{TEXTO_CONSENTIMENTO_SAUDE}</p>
           <div className="flex items-start gap-2 rounded-lg border border-border bg-muted/40 p-3">
             <Checkbox id="consentimento-lgpd-retro" checked={aceito} onCheckedChange={(c) => setAceito(c === true)} />
             <Label htmlFor="consentimento-lgpd-retro" className="text-sm font-normal leading-snug">
-              Li e autorizo o tratamento dos meus dados de saúde pela equipe da academia, conforme descrito
-              acima, para fins de acompanhamento do meu treino e nutrição.
+              {CAIXA_CONSENTIMENTO_SAUDE}
             </Label>
           </div>
           <Button className="w-full" disabled={!aceito || confirmar.isPending} onClick={() => confirmar.mutate()}>

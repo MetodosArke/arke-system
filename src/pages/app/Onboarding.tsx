@@ -12,6 +12,11 @@ import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
 import { Compass, ShieldCheck } from "lucide-react";
+import {
+  CAIXA_CONSENTIMENTO_SAUDE,
+  TEXTO_CONSENTIMENTO_SAUDE,
+  VERSAO_CONSENTIMENTO_SAUDE,
+} from "@/lib/consentimentoSaude";
 
 interface AnamneseForm {
   objetivo_principal: string;
@@ -163,6 +168,7 @@ export default function Onboarding() {
             : null,
           concluida_em: new Date().toISOString(),
           consentimento_lgpd_aceito_em: new Date().toISOString(),
+          consentimento_lgpd_versao: VERSAO_CONSENTIMENTO_SAUDE,
         },
         { onConflict: "aluno_id" }
       );
@@ -269,12 +275,7 @@ export default function Onboarding() {
                 <ShieldCheck className="h-4 w-4" />
                 <span className="text-xs font-semibold uppercase tracking-wide">LGPD — Dados de Saúde</span>
               </div>
-              <p className="text-sm text-muted-foreground">
-                As informações que você compartilhou aqui (histórico de saúde, lesões, medicamentos, rotina e
-                objetivos) são dados sensíveis protegidos pela Lei Geral de Proteção de Dados (LGPD). Elas serão
-                usadas exclusivamente pela equipe da sua academia para personalizar seu acompanhamento (treino,
-                dieta e atendimento), com acesso restrito ao profissional responsável por você.
-              </p>
+              <p className="text-sm text-muted-foreground">{TEXTO_CONSENTIMENTO_SAUDE}</p>
               <div className="flex items-start gap-2 pt-1">
                 <Checkbox
                   id="consentimento-lgpd"
@@ -282,8 +283,7 @@ export default function Onboarding() {
                   onCheckedChange={(checked) => setConsentimentoAceito(checked === true)}
                 />
                 <Label htmlFor="consentimento-lgpd" className="text-sm font-normal leading-snug">
-                  Li e autorizo o tratamento dos meus dados de saúde pela equipe da academia, conforme descrito
-                  acima, para fins de acompanhamento do meu treino e nutrição.
+                  {CAIXA_CONSENTIMENTO_SAUDE}
                 </Label>
               </div>
             </div>

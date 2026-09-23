@@ -25,24 +25,31 @@ export const DOCUMENTOS: Record<
   termos_uso: {
     titulo: "Termos de Uso",
     caminho: "/termos",
-    versao: "2026-09-22.2",
-    sha256: "47946ceeeb61e25f6bf8d5d302520db8166c009af1a75f535581d016170ccdef",
+    // Mudou em 23/09/2026: a clausula 3 passou a declarar a trava do PAR-Q,
+    // por determinacao do parecer juridico (item 3.8).
+    versao: "2026-09-23",
+    sha256: "848e8dadb79ee19758769adb316e5d74598e18f537f475dddebcc98de05c219e",
     texto: termosUso,
     revisadoJuridico: true,
   },
   privacidade: {
     titulo: "Política de Privacidade",
     caminho: "/privacidade",
-    versao: "2026-09-22.2",
-    sha256: "3ef255908dd98c67dab15e84f26fee73ed4d3ffd201289d38b8b2f745a1ad969",
+    // .2 incorpora o parecer de 23/09/2026: cocontroladoria nomeada com o
+    // art. 42, e a reducao para retencao zero deixando de exigir novo aceite.
+    versao: "2026-09-23.2",
+    sha256: "7b48f0515413a990e644349048fe4a556d53685518ac628e1b7d42508554f17a",
     texto: privacidade,
     revisadoJuridico: true,
   },
   contrato_academia: {
     titulo: "Contrato da Academia (licença e tratamento de dados)",
     caminho: "/contrato-academia",
-    versao: "2026-09-22.2",
-    sha256: "4f27a858ce37eaeb1318c52c9bc8d8f5b6e2b146a5feb27599bd05c47eb177e7",
+    // .2 incorpora o parecer: a subsecao 6.2 passou a nomear a
+    // cocontroladoria, citar o art. 42 e afastar a responsabilidade da
+    // ArkeFit por falha exclusiva de execucao presencial da academia.
+    versao: "2026-09-23.2",
+    sha256: "9d3f4f50878f311363a87d9235dcaaa42b026a58cdd86734d1601584f993421d",
     texto: contratoAcademia,
     revisadoJuridico: true,
   },

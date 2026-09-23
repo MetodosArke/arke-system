@@ -404,8 +404,48 @@ Conferido em **17 verificações** com identidades reais: sem consentimento os d
 
 **Base da transferência fechada em 23/09/2026 (decisão do responsável).** A METODOS ARKE LTDA aceita eletronicamente o **DPA empresarial padrão da OpenAI**, que traz as cláusulas-padrão contratuais de transferência internacional — o caminho do art. 33, II, elegível sob a **Resolução CD/ANPD nº 19/2024**. Com isso a transferência passa a ter **duas bases sobrepostas**, o que é bom e não redundante: o DPA cobre a relação ArkeFit↔OpenAI, e o consentimento do app (art. 33, VIII) cobre a relação com o titular — se uma cair, a outra segura. O lado do código está pronto para as duas. **A única pendência externa é o formulário de Zero Data Retention** na conta da OpenAI; enquanto ele não for aprovado, o termo continua descrevendo a retenção de 30 dias, que é a verdadeira.
 
-> **Ponta solta que a decisão abriu, e que é de texto, não de código.** O responsável posicionou ArkeFit e Academia como **cocontroladoras** perante o titular. Os documentos legais publicados (versão `2026-09-22.2`) dizem outra coisa: *"a Academia é a controladora e a ArkeFit é a operadora"*, em `contrato-academia.md` e em `privacidade.md`. As duas coisas não convivem — operadora trata em nome de outrem, cocontroladora decide junto e responde solidariamente (LGPD arts. 5º, VI e VII, e 42). Adotar a cocontroladoria exige **nova versão dos dois documentos**, o que pelo mecanismo já existente significa hash novo e **todo mundo aceitando de novo**; e a cocontroladoria ArkeFit↔Academia é um instrumento **separado** do DPA com a OpenAI — o DPA não a estabelece. Enquanto os textos não forem revistos, o que vale para o titular é o que está publicado: Academia controladora, ArkeFit operadora.
+## Documentos Legais, versão 2026-09-23: o Ecossistema mudou os fatos que eles descreviam
 
+Ao fechar a base da transferência internacional apareceu que **os textos publicados tinham ficado desatualizados** — e vale registrar antes de tudo a correção de uma leitura minha: eu afirmei que eles diziam "Academia controladora, ArkeFit operadora" e que isso conflitava com o desenho novo. **Diziam as duas coisas.** A cláusula seguinte, que eu não tinha citado, já ressalvava que *"os dados da conta da Academia e da sua equipe, e os do Método ARKE quando contratado, são tratados pela ArkeFit como controladora"*. Ou seja, o modelo publicado **já estava certo** e não havia conflito com o DPA: ArkeFit controladora do Método, OpenAI operadora dela. **Cocontroladoria não era necessária**, e dizer que era teria custado uma reescrita inteira sem motivo.
+
+O que estava de fato errado era outra coisa, em três pontos — e dois deles desfavoráveis ao titular, que é o que torna a correção obrigatória e não cosmética:
+
+1. **"Acesso restrito aos profissionais da Academia que atendem você"**, na seção de dados de saúde, deixou de ser verdade com o Mentor Centralizado: a célula da ArkeFit também lê a anamnese. O aluno precisa saber quem vê a saúde dele.
+2. **A lista de suboperadores não incluía o provedor de IA** — e a cláusula 6.4 do Contrato obriga a usar *"apenas os suboperadores listados na Política de Privacidade"*. Usar um que não está lá é descumprimento do próprio contrato, antes de qualquer discussão de LGPD.
+3. **A transferência internacional** falava de hospedagem e registro de erros. Processar anamnese num modelo é categoria diferente, e a única que toca dado sensível.
+
+**A Política ganhou uma seção própria do Método ARKE** (§4), escrita para o aluno: quem o acompanha, que **a conversa com o mentor não é lida pela Academia** e por que, que o avanço de fase é **decisão automatizada** com direito a revisão humana (art. 20), e as duas finalidades de IA com os seus dois botões. Diz também o que não dá para prometer: nas mensagens o texto vai como a pessoa escreveu, e se ela digitou o próprio nome, ele vai junto — limpar destruiria o sentido do que se quer analisar. A §6 declara a transferência com as **duas bases que valem ao mesmo tempo**: cláusulas-padrão contratuais (art. 33, II, Resolução CD/ANPD nº 19/2024) e consentimento do titular (art. 33, VIII).
+
+**O Contrato ganhou as subseções 6.1 e 6.2.** A 6.1 escreve as consequências de a ArkeFit ser controladora do Método — inclusive a que a academia mais precisa saber, que **ela não lê a conversa entre aluno e mentor**. A 6.2 reconhece que treino, frequência e check-in servem aos dois ao mesmo tempo e que aí o tratamento é conjunto, cada uma respondendo pelo que decide.
+
+**Os Termos de Uso não mudaram** e seguem em `2026-09-22.2` — só quem mudou pede aceite de novo, e isso foi verificado.
+
+**Os dois voltaram a `revisadoJuridico: false`**, e as páginas voltam a marcá-los como minuta até a revisão. Manter `true` diria que um advogado leu um texto que ainda não existia quando ele leu.
+
+**A afirmação sobre o banco no Brasil foi conferida antes de escrita.** A Política diz "servidores no Brasil, em São Paulo", sem a antiga ressalva de migração. O bundle publicado em `www.arkefit.com.br` aponta para `lzyxqjibkfblrrjboylp` (sa-east-1) — a migração para o projeto brasileiro **está em produção**, ao contrário do que o registro anterior dizia.
+
+Conferido em **10 casos** com contas reais: a versão nova é pedida a quem nunca aceitou; os Termos **não** são pedidos de novo; o gestor recebe o Contrato e o aluno não; quem aceitou a versão anterior é perguntado outra vez só sobre o que mudou; e o aceite gravado aponta para a versão e o hash exatos do repositório.
+
+
+### Parecer jurídico recebido, e o que ele mudou no código (23/09/2026)
+
+O parecer **aprovou as duas minutas** e determinou cinco ajustes, todos aplicados. Três são de texto e dois são de comportamento do produto.
+
+| Item | Determinação | O que foi feito |
+|---|---|---|
+| 3.1 | Nomear a **cocontroladoria** e citar o art. 42, § 1º, I | Política §1 e Contrato 6.2 reescritos; a 6.2 ganhou a distribuição do art. 18 e **afastou a responsabilidade da ArkeFit por falha exclusiva da academia na execução presencial** |
+| 3.3 | **Recolher** o consentimento de saúde dos alunos legados | O termo foi corrigido e **versionado**; aceite sob texto anterior deixou de contar, e o aluno legado reconfirma na próxima abertura do app |
+| 3.5 | Manter a ressalva do texto livre **em negrito no opt-in** | O aviso passou da Política para dentro do próprio interruptor de IA |
+| 3.7 | *Disclaimer* na minuta de matrícula | Inserido ao lado do botão que oferece o modelo, com a redação do parecer |
+| 3.8 | Declarar a trava do PAR-Q nos Termos §3 e no modelo §4 | Feito nos dois — a trava existia no produto e não estava escrita em documento nenhum |
+
+O item **3.6** (retenção zero) foi na direção oposta: o parecer concluiu que reduzir o prazo a zero **não exige novo aceite**, por ser só redução de risco. A Política prometia o contrário e foi corrigida.
+
+**Versões resultantes:** Política `2026-09-23.2`, Contrato `2026-09-23.2`, Termos `2026-09-23` — os três com `revisadoJuridico: true`, porque as alterações são exatamente as que o parecer prescreveu, inclusive na redação. Os Termos, que não iam mudar, mudaram por causa do item 3.8 e passam a pedir aceite de novo também.
+
+**Conferido em 10 casos com contas reais**, sendo o que mais importa o do aluno legado: aceite antigo não conta, ele reconfirma, e a partir daí conta. Os documentos vigentes passaram a ser pedidos nas versões novas, e o consentimento de IA nasce na `2026-09-23.2` já com a ressalva gravada no registro.
+
+**A única pendência externa continua sendo o formulário de Zero Data Retention** na conta da OpenAI. Quando sair, a mudança é de uma frase na Política — e, por 3.6, sem novo aceite.
 
 ## Operação da Célula e Prova de Valor (Fase 6 do Ecossistema, 23/09/2026)
 

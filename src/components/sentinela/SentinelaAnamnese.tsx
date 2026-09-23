@@ -17,7 +17,7 @@ type Resposta = {
 };
 
 /** Espelho de `public.versao_consentimento_ia()`. Mudou lá, muda aqui. */
-const VERSAO_TEXTO = "2026-09-23";
+const VERSAO_TEXTO = "2026-09-23.2";
 
 type Proposito = "anamnese" | "chat";
 
@@ -157,7 +157,12 @@ export function ConsentimentoSentinela({ alunoId, organizationId }: { alunoId: s
         <p className="text-[11px] leading-snug text-muted-foreground">
           O processamento é feito por provedor de inteligência artificial com <strong>servidores fora do
           Brasil</strong>. O provedor pode guardar o conteúdo por até 30 dias para checagem de uso indevido, e
-          não o utiliza para treinar modelos. O que o ARKE guarda fica enquanto durar a sua matrícula.{" "}
+          não o utiliza para treinar modelos. Não enviamos o seu nome, CPF, e-mail nem telefone — mas{" "}
+          <strong>
+            as mensagens que você escreveu são enviadas como você as escreveu, inclusive qualquer dado
+            pessoal que você tenha digitado nelas
+          </strong>
+          . O que o ARKE guarda fica enquanto durar a sua matrícula.{" "}
           <strong>Você pode retirar qualquer destas autorizações quando quiser</strong>, e o que tiver sido
           gerado a partir do dado é apagado.
         </p>
