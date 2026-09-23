@@ -51,7 +51,7 @@ Sobre isso, o que você precisa saber:
 - **Quem decide é sempre uma pessoa.** O resumo não é avaliação profissional e não substitui a leitura da anamnese; a sugestão é um rascunho que o mentor edita, aprova ou descarta antes de enviar. A inteligência artificial não prescreve treino, não prescreve dieta, não diagnostica e não envia mensagem sozinha.
 - **Não enviamos quem você é.** Não saem nome, CPF, e-mail, telefone nem qualquer identificador seu. Nas mensagens, porém, o texto vai como você o escreveu — se você digitou o seu nome ali, ele vai junto. Não há como limpar isso sem destruir o sentido do que se quer analisar, e por isso está dito aqui em vez de prometido de outra forma.
 - **O processamento acontece no Brasil**, em servidores da Amazon Web Services em São Paulo — ver a seção 6.
-- **O provedor não guarda o seu conteúdo e não o usa para treinar modelos.** O modelo de linguagem é desenvolvido pela Anthropic, mas é executado dentro da infraestrutura da Amazon Web Services: a Anthropic não recebe o que você escreveu.
+- **O conteúdo não fica registrado na nossa conta do provedor, e não é usado para treinar modelos.** O modelo de linguagem é desenvolvido pela Anthropic, mas é executado dentro da infraestrutura da Amazon Web Services: a Anthropic não recebe o que você escreveu.
 - **Você pode retirar a autorização quando quiser.** Ao retirar, o que tiver sido gerado a partir daquele dado é apagado do ARKE: o resumo da anamnese é excluído, e o texto dos rascunhos de resposta é removido.
 
 ## 5. Com quem os dados são compartilhados
