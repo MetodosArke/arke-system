@@ -11,6 +11,7 @@
 4. [Contingência Offline](#4-contingência-offline)
 5. [Diagnóstico e suporte](#5-diagnóstico-e-suporte)
 6. [Limitações conhecidas](#6-limitações-conhecidas)
+7. [Control iD: configurar o equipamento e ensaiar sem hardware](#7-control-id-configurar-o-equipamento-e-ensaiar-sem-hardware)
 
 ---
 
@@ -73,8 +74,11 @@ Todos os parâmetros vivem em `config.json`, na mesma pasta do executável (`%Pr
 | `supabase_url` | URL do projeto Supabase (ex.: `https://SEU-PROJETO.supabase.co`) |
 | `catraca_ip` / `catraca_porta` | Endereço IP e porta da catraca física na rede local |
 | `modelo_catraca` | `controlid` \| `henry` \| `topdata` \| `dimep` \| `mock` |
-| `tempo_timeout_ms` | Timeout da validação na nuvem antes de cair para o cache local (padrão `300`) |
+| `tempo_timeout_ms` | Timeout da validação na nuvem antes de cair para o cache local (padrão `1000`). Medido: a validação leva ~400 ms normalmente e até 4 s na partida a frio. **Abaixo de ~500 ms o Gateway cai em contingência em quase todo acesso** |
 | `sincronizar_alunos_intervalo_ms` | Intervalo entre sincronizações do cache local de alunos (padrão `300000` = 5 min) |
+| `escuta_host` / `escuta_porta` | Onde o Gateway **escuta** o equipamento (padrão `0.0.0.0:4571`). A Control iD disca para o Gateway, não o contrário: esta porta precisa estar aberta na rede da academia |
+| `confirmacao_giro` | `decisao` (padrão): o acesso liberado já conta presença. `catra_event`: só conta quando a catraca confirma o giro — exige o Monitor configurado (seção 7) e **só existe na iDBlock** |
+| `timeout_giro_ms` | Quanto esperar a confirmação de giro (padrão `30000`). Sem confirmação no prazo, conta presença |
 
 > **Onde conseguir o `token_api_local`**: no painel web, gestor ou admin_arke acessa `/admin/catracas`, cadastra (ou já tem cadastrado) o dispositivo, e clica em "Copiar" ao lado dele. Se o token precisar ser trocado (vazamento, troca de equipamento), um SuperAdmin pode resetá-lo em `/superadmin` (ação "Resetar Token do Gateway Local") — isso invalida o token antigo imediatamente, exigindo atualizar o `config.json` local com o novo valor.
 
@@ -117,6 +121,39 @@ Use esses endpoints para automação de monitoramento local ou para um técnico 
 
 Leia antes de colocar em produção:
 
-1. **Protocolo das catracas físicas ainda não está implementado.** Control iD, Henry, Topdata e Dimep usam protocolos binários proprietários — os drivers em `src/drivers/*Driver.ts` têm a conexão TCP genérica funcional, mas os métodos de decodificação/comando lançam erro explícito até serem preenchidos com a lógica real de cada fabricante. Use `modelo_catraca: "mock"` para desenvolver/homologar sem hardware.
-2. **Só CPF é validado pela nuvem hoje.** A Edge Function `catraca-validar-acesso` recebe `{ device_token, cpf }`. Leituras de código de barras/RFID/biometria/QR Code são capturadas pelo driver mas ainda não têm mapeamento para CPF no backend — o Gateway nega essas leituras com mensagem clara em vez de fingir validação.
-3. **A bandeja do sistema exige um ambiente com GUI** (Windows/desktop Linux/macOS) — em servidores/CI sem display, ela é desativada automaticamente (com aviso no log), sem derrubar o serviço.
+1. **Por fabricante.** **Control iD:** implementada e testada sem hardware (seção 7); falta a bancada. **Topdata:** o lado do ARKE está pronto (`receptores/topdata.ts`); depende da ponte .NET descrita em `docs/PONTE_TOPDATA.md`. **Henry e Dimep:** sem documentação de integração dos fabricantes — a conexão é definida na implantação.
+2. **Cartão e QR Code na Control iD são negados.** Chegam com o valor bruto lido e ainda não há mapeamento desse valor para aluno; adivinhar a quem o número pertence seria pior que negar. A digital (usuário identificado no equipamento) é o caminho suportado.
+3. **O cadastro do aluno no equipamento é manual.** O Gateway não cria nem apaga usuários na catraca: o número do usuário no aparelho é digitado no ARKE como `identificador_catraca`. Na **revogação do consentimento biométrico**, o ARKE devolve o número que precisa ser apagado — e apagar no equipamento é obrigação legal, não opcional.
+4. **A bandeja do sistema exige um ambiente com GUI** (Windows/desktop Linux/macOS) — em servidores/CI sem display, ela é desativada automaticamente (com aviso no log), sem derrubar o serviço.
+
+## 7. Control iD: configurar o equipamento e ensaiar sem hardware
+
+### 7.1 Modo online
+
+No equipamento, ative o **modo online (Pro)** apontando o servidor para o IP da máquina do Gateway e a `escuta_porta` (padrão `4571`). A catraca passa a enviar cada identificação ao Gateway e a girar conforme a resposta. Se o Gateway sair do ar, ela entra em contingência e o chama a cada minuto em `device_is_alive.fcgi`; responder é o que a traz de volta.
+
+### 7.2 Monitor (só iDBlock): confirmação de giro
+
+"Liberado" não é "entrou": a pessoa pode ser liberada e desistir na frente da borboleta. A iDBlock informa o desfecho pelo **Monitor**. Configure no equipamento (via `set_configuration.fcgi` ou interface web):
+
+| Parâmetro do Monitor | Valor |
+|---|---|
+| `hostname` | IP da máquina do Gateway |
+| `port` | a `escuta_porta` do Gateway |
+| `path` | `api/notifications` |
+
+E no `config.json` do Gateway, `"confirmacao_giro": "catra_event"`. A partir daí, a presença do aluno só é registrada quando a catraca confirma o giro; a desistência não conta. Sem o Monitor configurado, **mantenha `decisao`** — com `catra_event` e sem Monitor, toda entrada esperaria 30 s e seria contada sem confirmação.
+
+### 7.3 Ensaio sem catraca: o emulador
+
+A Control iD não tem emulador oficial, e não precisa: o equipamento fala HTTP documentado. O script `scripts/emulador-controlid.mjs` envia exatamente o que a catraca envia e mostra o que o Gateway respondeu, com o tempo de resposta:
+
+```
+npm run emular:controlid -- --gateway http://IP-DO-GATEWAY:4571 --usuario 12
+npm run emular:controlid -- --usuario 12 --giro desiste
+npm run emular:controlid -- --vivo
+```
+
+Use na instalação, antes de haver catraca na parede: confirma que o Gateway está alcançável pela rede, que o aluno com aquele `identificador_catraca` é liberado ou negado conforme a situação dele, e que a presença aparece no ARKE. Rodado de outra máquina da rede, também confirma que a `escuta_porta` está aberta.
+
+**O que só a bancada responde:** o sentido de giro da borboleta como foi montada, o tempo real de acionamento, a leitura da digital, variações de firmware — e se o `uuid` do aviso de giro é o mesmo da identificação que o originou (o Gateway tem um plano B para quando não é, válido para uma borboleta por vez).

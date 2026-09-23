@@ -47,6 +47,8 @@ async function main() {
       host: config.escuta_host,
       porta: config.escuta_porta,
       modelo: config.modelo_catraca,
+      confirmacaoGiro: config.confirmacao_giro,
+      timeoutGiroMs: config.timeout_giro_ms,
     });
     await receptor.iniciar();
   }

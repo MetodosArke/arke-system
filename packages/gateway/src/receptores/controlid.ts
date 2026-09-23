@@ -1,5 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import type { GatewayService } from "../core/gatewayService";
+import type { ConfirmacaoGiro, Giro } from "../types";
 import { logger } from "../logger";
 
 /**
@@ -41,6 +42,34 @@ export interface OpcoesReceptorControlId {
    */
   sentidoGiro?: SentidoGiro;
   portalId?: number;
+  /** Ver GatewayConfig.confirmacao_giro. */
+  confirmacaoGiro?: ConfirmacaoGiro;
+  timeoutGiroMs?: number;
+}
+
+/**
+ * Um acesso liberado esperando o catra_event. Guarda o que for preciso para
+ * fechar o giro nos dois caminhos: o id do registro na nuvem (online) ou o
+ * id local da fila (contingência).
+ */
+type GiroPendente = {
+  deviceId: string;
+  logId?: string;
+  localId?: string | null;
+  timer: NodeJS.Timeout;
+};
+
+/**
+ * Traduz o evento do Monitor. A documentação dá os nomes (EVENT_TURN_LEFT,
+ * EVENT_TURN_RIGHT, EVENT_GIVE_UP) e um exemplo com `"name": "TURN LEFT"`;
+ * casamos pelo nome, com e sem o prefixo, em vez de por código numérico —
+ * só o exemplo do TURN LEFT (type 7) está documentado.
+ */
+export function giroDoEvento(nome: unknown): Giro | null {
+  const n = String(nome ?? "").toUpperCase().replace(/^EVENT_/, "").replace(/_/g, " ").trim();
+  if (n === "GIVE UP") return "desistencia";
+  if (n === "TURN LEFT" || n === "TURN RIGHT") return "confirmado";
+  return null;
 }
 
 type RespostaControlId = {
@@ -104,7 +133,27 @@ export function registrarReceptorControlId(
   const cfg: Required<OpcoesReceptorControlId> = {
     sentidoGiro: opcoes.sentidoGiro ?? "clockwise",
     portalId: opcoes.portalId ?? 1,
+    confirmacaoGiro: opcoes.confirmacaoGiro ?? "decisao",
+    timeoutGiroMs: opcoes.timeoutGiroMs ?? 30_000,
   };
+  const aguardarGiro = cfg.confirmacaoGiro === "catra_event";
+
+  // Acessos liberados esperando o giro, por `device_id:uuid`.
+  const pendentes = new Map<string, GiroPendente>();
+
+  const fechar = (chave: string, giro: Giro, origem: string) => {
+    const p = pendentes.get(chave);
+    if (!p) return;
+    clearTimeout(p.timer);
+    pendentes.delete(chave);
+    logger.info({ giro, origem }, "Giro da catraca registrado");
+    void gateway.concluirGiro({ logId: p.logId, localId: p.localId }, giro);
+  };
+
+  app.addHook("onClose", async () => {
+    for (const p of pendentes.values()) clearTimeout(p.timer);
+    pendentes.clear();
+  });
 
   // O equipamento manda urlencoded na maior parte dos eventos. Parser
   // próprio em vez de mais uma dependência: são três linhas e evita
@@ -136,15 +185,35 @@ export function registrarReceptorControlId(
       return respostaNegado(undefined, undefined, false, cfg);
     }
 
-    const resultado = await gateway.validarCredencial({
-      tipo: "identificador_catraca",
-      valor: String(userId),
-    });
+    const resultado = await gateway.validarCredencial(
+      { tipo: "identificador_catraca", valor: String(userId) },
+      { aguardarGiro }
+    );
 
     logger.info(
       { userId, liberado: resultado.liberado, offline: resultado.validadoOffline },
       "Decisão de acesso devolvida à catraca"
     );
+
+    const esperarGiro = aguardarGiro && resultado.liberado;
+
+    // Na contingência a decisão é do cache e ninguém gravou nada ainda: sem
+    // isto, o acesso pela Control iD durante uma queda de internet se perdia.
+    const localId = await gateway.registrarAcessoOffline(
+      `id:${userId}`,
+      resultado,
+      esperarGiro ? "pendente" : undefined
+    );
+
+    if (esperarGiro) {
+      const deviceId = String(corpo.device_id ?? "");
+      const chave = `${deviceId}:${corpo.uuid ?? `sem-uuid-${Date.now()}`}`;
+      // Sem o catra_event no prazo, conta como presença: a desistência chega
+      // como evento próprio, então o silêncio é do Monitor, não do aluno.
+      const timer = setTimeout(() => fechar(chave, "sem_confirmacao", "prazo esgotado"), cfg.timeoutGiroMs);
+      timer.unref?.();
+      pendentes.set(chave, { deviceId, logId: resultado.logId, localId, timer });
+    }
 
     return resultado.liberado
       ? respostaLiberado(Number(userId), resultado.nomeAluno, cfg)
@@ -182,4 +251,51 @@ export function registrarReceptorControlId(
     logger.info({ logsNoEquipamento: corpo.access_logs }, "Catraca em contingência pedindo o servidor de volta");
     return reply.code(200).send();
   });
+
+  /**
+   * Monitor: a catraca confirma o que aconteceu DEPOIS da liberação —
+   * girou para um lado, para o outro, ou a pessoa desistiu. Exclusivo da
+   * iDBlock; configurado no equipamento com hostname/porta deste gateway e
+   * `path` = "api/notifications".
+   *
+   * O casamento com a liberação é pelo `uuid` do evento, que a
+   * identificação também traz. Se o uuid não bater mas houver exatamente
+   * um acesso esperando giro naquele equipamento, é ele: numa borboleta
+   * passa uma pessoa por vez. Com mais de um, não se adivinha — o prazo
+   * fecha cada um como sem confirmação. Confirmar que o uuid dos dois
+   * eventos é o mesmo é item de bancada.
+   */
+  app.post("/api/notifications/catra_event", async (req, reply) => {
+    const corpo = (req.body ?? {}) as {
+      event?: { type?: number; name?: string; uuid?: string };
+      device_id?: number | string;
+    };
+    const giro = giroDoEvento(corpo.event?.name);
+    const deviceId = String(corpo.device_id ?? "");
+    if (!giro) {
+      logger.warn({ evento: corpo.event?.name, tipo: corpo.event?.type }, "Evento de catraca não reconhecido — ignorado");
+      return reply.code(200).send();
+    }
+
+    let chave = `${deviceId}:${corpo.event?.uuid ?? ""}`;
+    if (!pendentes.has(chave)) {
+      const doEquipamento = [...pendentes.entries()].filter(([, p]) => p.deviceId === deviceId);
+      if (doEquipamento.length !== 1) {
+        logger.warn(
+          { deviceId, esperando: doEquipamento.length },
+          "Giro sem acesso correspondente — não dá para saber de quem é"
+        );
+        return reply.code(200).send();
+      }
+      chave = doEquipamento[0][0];
+    }
+
+    fechar(chave, giro, "catra_event");
+    return reply.code(200).send();
+  });
+
+  // O Monitor manda também outros avisos (portas, cadastros, trocas de
+  // modo) para o mesmo caminho. Responder 200 a eles evita que o
+  // equipamento fique reenviando o que não usamos.
+  app.post("/api/notifications/*", async (_req, reply) => reply.code(200).send());
 }

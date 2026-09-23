@@ -10,12 +10,24 @@ const configSchema = z.object({
   catraca_ip: z.string().min(1, "catraca_ip é obrigatório"),
   catraca_porta: z.number().int().positive(),
   modelo_catraca: z.enum(["controlid", "henry", "topdata", "dimep", "mock"]),
-  tempo_timeout_ms: z.number().int().positive().default(300),
+  // 1000 ms, e não os 300 que o código prometia sem nunca ter medido. Medido
+  // em 23/09/2026 contra catraca-validar-acesso em sa-east-1: mediana 405 ms,
+  // p90 437 ms, 0 de 12 chamadas abaixo de 300 ms (só a ida e volta de rede
+  // custa ~150 ms), e 4 s na partida a frio. Com 300 ms o gateway caía em
+  // contingência em praticamente todo acesso — funcionava pelo cache, mas o
+  // caminho online nunca era usado e o cache pode ter até 5 min de atraso.
+  // Com 1000 ms a chamada normal passa com folga, e a partida a frio continua
+  // caindo no cache, que é o certo: ninguém espera 4 s na frente da catraca.
+  tempo_timeout_ms: z.number().int().positive().default(1000),
   sincronizar_alunos_intervalo_ms: z.number().int().positive().default(300_000),
   // Onde o gateway escuta o equipamento. Ver comentário em types.ts: a
   // catraca é quem disca, então isto precisa ser alcançável na LAN.
   escuta_host: z.string().min(1).default("0.0.0.0"),
   escuta_porta: z.number().int().positive().default(4571),
+  // "decisao" é o padrão porque vale para qualquer equipamento; "catra_event"
+  // só funciona com o Monitor da iDBlock configurado. Ver types.ts.
+  confirmacao_giro: z.enum(["decisao", "catra_event"]).default("decisao"),
+  timeout_giro_ms: z.number().int().positive().default(30_000),
 });
 
 export class ConfigError extends Error {}

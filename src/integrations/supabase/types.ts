@@ -95,6 +95,7 @@ export type Database = {
           confirmado_por: string | null
           cpf_consultado: string | null
           created_at: string
+          giro: string | null
           id: string
           nome_visitante_externo: string | null
           organization_id: string
@@ -108,6 +109,7 @@ export type Database = {
           confirmado_por?: string | null
           cpf_consultado?: string | null
           created_at?: string
+          giro?: string | null
           id?: string
           nome_visitante_externo?: string | null
           organization_id: string
@@ -121,6 +123,7 @@ export type Database = {
           confirmado_por?: string | null
           cpf_consultado?: string | null
           created_at?: string
+          giro?: string | null
           id?: string
           nome_visitante_externo?: string | null
           organization_id?: string
@@ -5361,6 +5364,7 @@ export type Database = {
         Args: { _aluno_id: string; _janela?: number; _referencia: string }
         Returns: boolean
       }
+      aluno_barrado_na_catraca: { Args: { _aluno_id: string }; Returns: string }
       aluno_ciclo_estourado: {
         Args: { _aluno_id: string; _dias?: number; _minimo_pct?: number }
         Returns: boolean
@@ -5383,6 +5387,10 @@ export type Database = {
       aluno_possui_agendamento_ativo_agora: {
         Args: { _aluno_id: string }
         Returns: boolean
+      }
+      alunos_barrados_na_catraca: {
+        Args: { _organization_id: string }
+        Returns: string[]
       }
       anamnese_para_auditoria: { Args: { _aluno_id: string }; Returns: string }
       arke_taxa_processamento: { Args: { _valor: number }; Returns: number }
@@ -5535,6 +5543,7 @@ export type Database = {
         Args: { _aluno_id: string }
         Returns: Database["public"]["Enums"]["fase_jornada"]
       }
+      fechar_giros_pendentes: { Args: never; Returns: number }
       gerar_comissao_se_configurada: {
         Args: {
           _aluno_id: string

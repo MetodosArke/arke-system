@@ -23,3 +23,28 @@ jobs:
       - run: npm run build
 
       - run: npm test
+
+  # O Gateway Local é um pacote à parte (packages/gateway), com as próprias
+  # dependências e testes — e até 23/09/2026 nenhum deles rodava aqui: os
+  # testes do receptor da Control iD e da contingência offline só rodavam na
+  # máquina de quem mexeu. Job separado para uma falha num lado não esconder
+  # a do outro.
+  gateway:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: packages/gateway
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: packages/gateway/package-lock.json
+
+      - run: npm ci
+
+      - run: npm run check
+
+      - run: npm test

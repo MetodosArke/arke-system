@@ -30,8 +30,12 @@ describe("carregarConfig", () => {
 
     const config = carregarConfig(arquivo);
 
-    expect(config.tempo_timeout_ms).toBe(300);
+    // 1000 ms: medido, não prometido — ver o comentário em config.ts.
+    expect(config.tempo_timeout_ms).toBe(1000);
     expect(config.modelo_catraca).toBe("mock");
+    // Sem Monitor configurado, a liberação já é a presença.
+    expect(config.confirmacao_giro).toBe("decisao");
+    expect(config.timeout_giro_ms).toBe(30_000);
   });
 
   it("rejeita um config.json com organization_id inválido", () => {

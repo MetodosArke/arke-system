@@ -36,6 +36,8 @@ const CONFIG: GatewayConfig = {
   sincronizar_alunos_intervalo_ms: 300_000,
   escuta_host: "127.0.0.1",
   escuta_porta: 4571,
+  confirmacao_giro: "decisao",
+  timeout_giro_ms: 30_000,
 };
 
 function criarAmbiente() {
