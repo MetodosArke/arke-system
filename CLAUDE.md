@@ -682,6 +682,37 @@ A investigação de um emulador para a Control iD respondeu à pergunta original
 
 **O que continua fora, e por quê.** O **cadastro do aluno no equipamento** segue manual: o Gateway não cria nem apaga usuário na catraca, e o número do aparelho é digitado no ARKE como `identificador_catraca`. A API da Control iD permite fazer isso pelo Gateway (criar usuário, cadastro remoto de digital, apagar), mas exige um canal de comando da nuvem para o Gateway e uma tela de cadastro na recepção — é uma rodada própria. Tem peso de LGPD: na revogação do consentimento biométrico, **apagar no equipamento é obrigação**, e hoje depende de alguém da academia fazer à mão. E o que só a bancada responde: sentido de giro como a borboleta foi montada, tempo real de acionamento, leitura de digital, firmware — e se o `uuid` do aviso de giro é mesmo o da identificação.
 
+## Ponte Topdata implementada (23/09/2026)
+
+A ponte que a seção *Catraca: quem disca é o equipamento* especificou existe: `packages/ponte-topdata/` (`ArkeInnerBridge.exe`, C# de 32 bits compilado pelo `csc` do .NET Framework que já vem no Windows, sem Visual Studio). O manual de instalação e o roteiro de bancada ficam em `docs/PONTE_TOPDATA.md`.
+
+**A primeira execução contra a DLL real achou o que nenhum teste acharia.** No modo em que a catraca conecta no computador (TCP porta fixa), a `EasyInner.dll` ativa por COM o `InnerIPListener`, que mora na `Inner.dll`, um componente **.NET 2.0**. Sem o registro com o **RegAsm** (exige administrador), a abertura da porta devolve **8, "erro GPF"**. O instalador do SDK "geralmente" faz esse registro, segundo o manual; nesta máquina não tinha feito. A causa foi isolada por eliminação: o .NET 3.5 estava instalado; o tipo 1 abria a porta; com janela Windows o erro era o mesmo; e a reflexão sobre a `Inner.dll` mostrou as 30 classes COM sem registro. A ponte agora detecta isso e mostra o comando exato. **Ninguém instala uma Topdata sem esse passo**, e ele está no roteiro.
+
+**Sem a ponte, a catraca trava, e isso é decisão, não detalhe.** No exemplo da Topdata, o equipamento que perde o computador cai para o modo offline e libera qualquer cartão, sem saber se o aluno está pausado ou inadimplente. Por isso a mudança automática para offline fica desligada, e a configuração offline, que o equipamento usa se reiniciar sem a ponte, tem lista branca vazia. É a mesma postura da Control iD. Catraca funcionando com o computador desligado exigiria gravar a lista de alunos no equipamento.
+
+**O lado do gateway tinha ficado para trás da Control iD, com os mesmos dois defeitos:**
+- não fechava o giro, então desistência viraria presença;
+- não guardava o acesso decidido em contingência, então ele se perdia.
+
+Hoje todo acesso liberado espera o aviso daquele Inner: origem 6 é presença, origem 5 é desistência, o prazo esgotado conta "sem confirmação" e uma leitura nova fecha a anterior. Se a ponte não consegue liberar a catraca, avisa "não girou", para quem ficou do lado de fora não ganhar presença. Os bilhetes que a catraca guardou sozinha chegam por `/topdata/bilhetes` e viram passagem na hora em que aconteceram. Na ponte, cada bilhete vai **para o disco no instante da coleta**, porque coletar o tira da catraca. As rotas `/topdata/*` **só atendem a própria máquina**: sem isso, qualquer aparelho da rede da academia colheria nomes de alunos perguntando por identificadores.
+
+**A consulta ao gateway sai da thread da DLL.** A DLL não é thread-safe e fica numa thread só, mas a consulta à nuvem não é chamada à DLL. Segurar a thread nela congelaria as outras catracas e o `PingOnLine` enquanto a nuvem responde.
+
+**Conferido:**
+- **Ponte:** 24 testes da máquina de estados real, com a DLL falsa e o relógio controlado. Rodam no CI num runner Windows (job `ponte-topdata`) e pegam as três mutações feitas de propósito.
+- **Gateway:** 11 testes novos, também com mutação.
+- **Corrente real:** 13 verificações com a ponte em `--simular` e o gateway e a nuvem de verdade:
+  - giro virou presença;
+  - desistência não virou;
+  - o aluno pausado foi barrado;
+  - o CPF digitado no teclado liberou;
+  - o cartão desconhecido foi negado e registrado;
+  - o bilhete subiu depois da queda do equipamento;
+  - a ponte reconectou sozinha;
+  - o CPF não apareceu no log.
+
+**Continua fora do alcance sem equipamento:** a DLL conversando com um Inner, o sentido de giro, o tempo de acionamento, o formato exato do valor lido e do bilhete, e a leitura biométrica. A Topdata oferece o **Kit Integrador**, que simula a catraca em bancada e é pedido pelo suporte@topdata.com.br. Com ele, a maior parte do roteiro de bancada roda antes do primeiro cliente.
+
 ## Volume da catraca: diferença, retenção e aviso de capacidade (23/09/2026)
 
 Medido antes de decidir: `acessos_catraca_logs` custa **277 bytes por linha** com índices e `presencas` 215; o banco inteiro tinha 30 MB. O que pesava não era o disco, era o **tráfego**: o Gateway baixava a lista inteira de alunos a cada 5 minutos — ~75 KB por rodada numa academia de 500 alunos, 8.640 rodadas por mês, **~630 MB/mês por academia**. No plano gratuito (5 GB de saída) isso acaba com a oitava academia; no Pro (250 GB), com umas quatrocentas. Três mudanças, nenhuma delas dependente do upgrade — que, por decisão do responsável, vem antes do primeiro cliente pagante implantado.

@@ -39,6 +39,8 @@ export interface GatewayConfig {
   confirmacao_giro: ConfirmacaoGiro;
   /** Quanto esperar o catra_event antes de desistir dele. */
   timeout_giro_ms: number;
+  /** Topdata: qual leitor físico é a entrada (1 ou 2). */
+  topdata_leitor_entrada?: 1 | 2;
 }
 
 export type ConfirmacaoGiro = "decisao" | "catra_event";

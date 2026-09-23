@@ -48,3 +48,18 @@ jobs:
       - run: npm run check
 
       - run: npm test
+
+  # A ponte Topdata (packages/ponte-topdata) é C# 32 bits compilado com o
+  # csc do .NET Framework, que só existe no Windows — por isso o runner é
+  # Windows. O build.ps1 compila a ponte e os testes e roda os testes (a
+  # máquina de estados real, com a DLL e o gateway falsos). A DLL da
+  # Topdata não é instalada aqui e não precisa: os testes não a carregam.
+  ponte-topdata:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: packages/ponte-topdata
+    steps:
+      - uses: actions/checkout@v4
+
+      - run: powershell -NoProfile -ExecutionPolicy Bypass -File build.ps1

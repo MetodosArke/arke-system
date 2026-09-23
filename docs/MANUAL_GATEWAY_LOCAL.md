@@ -79,6 +79,7 @@ Todos os parâmetros vivem em `config.json`, na mesma pasta do executável (`%Pr
 | `escuta_host` / `escuta_porta` | Onde o Gateway **escuta** o equipamento (padrão `0.0.0.0:4571`). A Control iD disca para o Gateway, não o contrário: esta porta precisa estar aberta na rede da academia |
 | `confirmacao_giro` | `decisao` (padrão): o acesso liberado já conta presença. `catra_event`: só conta quando a catraca confirma o giro — exige o Monitor configurado (seção 7) e **só existe na iDBlock** |
 | `timeout_giro_ms` | Quanto esperar a confirmação de giro (padrão `30000`). Sem confirmação no prazo, conta presença |
+| `topdata_leitor_entrada` | Topdata: qual leitor físico é a entrada, `1` ou `2` (padrão `1`). Tem de bater com `leitor_entrada` da ponte |
 
 > **Onde conseguir o `token_api_local`**: no painel web, gestor ou admin_arke acessa `/admin/catracas`, cadastra (ou já tem cadastrado) o dispositivo, e clica em "Copiar" ao lado dele. Se o token precisar ser trocado (vazamento, troca de equipamento), um SuperAdmin pode resetá-lo em `/superadmin` (ação "Resetar Token do Gateway Local") — isso invalida o token antigo imediatamente, exigindo atualizar o `config.json` local com o novo valor.
 
@@ -123,7 +124,7 @@ Use esses endpoints para automação de monitoramento local ou para um técnico 
 
 Leia antes de colocar em produção:
 
-1. **Por fabricante.** **Control iD:** implementada e testada sem hardware (seção 7); falta a bancada. **Topdata:** o lado do ARKE está pronto (`receptores/topdata.ts`); depende da ponte .NET descrita em `docs/PONTE_TOPDATA.md`. **Henry e Dimep:** sem documentação de integração dos fabricantes — a conexão é definida na implantação.
+1. **Por fabricante.** **Control iD:** implementada e testada sem hardware (seção 7); falta a bancada. **Topdata:** ponte .NET implementada (`packages/ponte-topdata`) e provada com o Inner simulado contra o gateway e a nuvem reais; falta a bancada. Instalação e roteiro em `docs/PONTE_TOPDATA.md` — inclusive o registro da `Inner.dll` como administrador, sem o qual a DLL devolve "erro GPF". **Henry e Dimep:** sem documentação de integração dos fabricantes — a conexão é definida na implantação.
 2. **Cartão e QR Code na Control iD são negados.** Chegam com o valor bruto lido e ainda não há mapeamento desse valor para aluno; adivinhar a quem o número pertence seria pior que negar. A digital (usuário identificado no equipamento) é o caminho suportado.
 3. **O cadastro do aluno no equipamento é manual.** O Gateway não cria nem apaga usuários na catraca: o número do usuário no aparelho é digitado no ARKE como `identificador_catraca`. Na **revogação do consentimento biométrico**, o ARKE devolve o número que precisa ser apagado — e apagar no equipamento é obrigação legal, não opcional.
 4. **A bandeja do sistema exige um ambiente com GUI** (Windows/desktop Linux/macOS) — em servidores/CI sem display, ela é desativada automaticamente (com aviso no log), sem derrubar o serviço.
