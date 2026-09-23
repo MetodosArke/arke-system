@@ -5,6 +5,7 @@ import { identificarSessao } from "@/lib/monitoramento";
 import type { User as SupabaseUser, Session } from "@supabase/supabase-js";
 import type { Enums } from "@/integrations/supabase/types";
 import { planoDoAluno, type PlanoAluno } from "@/lib/planoAluno";
+import { VERSAO_CONSENTIMENTO_SAUDE } from "@/lib/consentimentoSaude";
 
 export type AppRole = Enums<"app_role">;
 
@@ -148,11 +149,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const { data: anamnese } = await supabase
       .from("anamnese_acolhimento")
-      .select("concluida_em, consentimento_lgpd_aceito_em")
+      .select("concluida_em, consentimento_lgpd_aceito_em, consentimento_lgpd_versao")
       .eq("aluno_id", aluno.id)
       .maybeSingle();
     setAnamneseCompleta(!!anamnese?.concluida_em);
-    setConsentimentoLgpdAceito(!!anamnese?.consentimento_lgpd_aceito_em);
+    // Aceite dado sob texto anterior NAO conta. E o que faz o aluno legado
+    // reconfirmar na proxima abertura do app, como o parecer de 23/09/2026
+    // determinou -- carimbar a versao nova numa linha antiga diria que a
+    // pessoa concordou com um texto que nunca viu.
+    setConsentimentoLgpdAceito(
+      !!anamnese?.consentimento_lgpd_aceito_em &&
+        anamnese?.consentimento_lgpd_versao === VERSAO_CONSENTIMENTO_SAUDE,
+    );
   };
 
   const fetchRoles = async (userId: string) => {

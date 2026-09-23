@@ -56,9 +56,14 @@ Quando o aluno contrata o Método ARKE, quem o acompanha é a equipe de mentoria
 3. a passagem do aluno entre as fases da jornada pode ocorrer de forma automatizada, com base em tempo de acompanhamento e constância, e pode ser revista a qualquer tempo pela equipe;
 4. a ArkeFit poderá submeter dados do aluno a provedor de **inteligência artificial**, exclusivamente para as finalidades e nas condições descritas na Política de Privacidade, **somente mediante autorização específica do próprio aluno** e com transferência internacional amparada em cláusulas-padrão contratuais (art. 33, II) e no consentimento do titular (art. 33, VIII).
 
-### 6.2. Dados que servem aos dois
+### 6.2. Cocontroladoria sobre os dados que servem às duas partes
 
-Os registros de treino, frequência e check-in do aluno do Método ARKE servem ao mesmo tempo à prescrição da Academia e ao acompanhamento da ArkeFit. Nessa medida, as partes tratam os dados **em conjunto**, cada uma respondendo pelas decisões que tomar e pelas obrigações que este Contrato lhe atribui, e ambas devendo atender o titular nos termos do art. 18 da LGPD.
+Os registros de treino, frequência e check-in do aluno do Método ARKE servem ao mesmo tempo à prescrição da Academia e ao acompanhamento da ArkeFit. Como cada parte decide autonomamente sobre a finalidade do seu próprio uso desses dados, **as partes são cocontroladoras** nessa medida (LGPD, art. 5º, VI).
+
+1. Perante o titular, as partes respondem **solidariamente, na medida das decisões que cada uma tomar** (art. 42, § 1º, I, da LGPD), e o titular pode exercer os seus direitos perante qualquer delas.
+2. Cada parte atende os pedidos do art. 18 que lhe forem dirigidos e informa a outra do que precisar ser cumprido do lado dela, no prazo legal.
+3. **A ArkeFit não responde por falha exclusiva da Academia na execução presencial** — o que inclui a prescrição de treino ou dieta, a conferência de atestado, a orientação dada no salão e o cumprimento das instruções presenciais que a ArkeFit lhe encaminhar pelo painel. A Academia não responde pelas decisões que a ArkeFit tomar no acompanhamento do Método ARKE.
+4. Em caso de incidente que envolva esses dados, as partes cooperam na apuração e na comunicação ao titular e à ANPD, observado o prazo da cláusula 6, item 5.
 
 ## 7. Vigência e encerramento
 

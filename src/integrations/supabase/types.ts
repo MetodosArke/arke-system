@@ -1112,6 +1112,7 @@ export type Database = {
           aluno_id: string
           concluida_em: string | null
           consentimento_lgpd_aceito_em: string | null
+          consentimento_lgpd_versao: string | null
           created_at: string
           dores_lesoes: string | null
           estilo_treino: string | null
@@ -1135,6 +1136,7 @@ export type Database = {
           aluno_id: string
           concluida_em?: string | null
           consentimento_lgpd_aceito_em?: string | null
+          consentimento_lgpd_versao?: string | null
           created_at?: string
           dores_lesoes?: string | null
           estilo_treino?: string | null
@@ -1158,6 +1160,7 @@ export type Database = {
           aluno_id?: string
           concluida_em?: string | null
           consentimento_lgpd_aceito_em?: string | null
+          consentimento_lgpd_versao?: string | null
           created_at?: string
           dores_lesoes?: string | null
           estilo_treino?: string | null
@@ -6314,6 +6317,7 @@ export type Database = {
         }[]
       }
       versao_consentimento_ia: { Args: never; Returns: string }
+      versao_consentimento_saude: { Args: never; Returns: string }
     }
     Enums: {
       agendamento_status: "agendado" | "presente" | "cancelado" | "lista_espera"

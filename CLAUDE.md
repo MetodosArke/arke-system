@@ -427,6 +427,26 @@ O que estava de fato errado era outra coisa, em três pontos — e dois deles de
 Conferido em **10 casos** com contas reais: a versão nova é pedida a quem nunca aceitou; os Termos **não** são pedidos de novo; o gestor recebe o Contrato e o aluno não; quem aceitou a versão anterior é perguntado outra vez só sobre o que mudou; e o aceite gravado aponta para a versão e o hash exatos do repositório.
 
 
+### Parecer jurídico recebido, e o que ele mudou no código (23/09/2026)
+
+O parecer **aprovou as duas minutas** e determinou cinco ajustes, todos aplicados. Três são de texto e dois são de comportamento do produto.
+
+| Item | Determinação | O que foi feito |
+|---|---|---|
+| 3.1 | Nomear a **cocontroladoria** e citar o art. 42, § 1º, I | Política §1 e Contrato 6.2 reescritos; a 6.2 ganhou a distribuição do art. 18 e **afastou a responsabilidade da ArkeFit por falha exclusiva da academia na execução presencial** |
+| 3.3 | **Recolher** o consentimento de saúde dos alunos legados | O termo foi corrigido e **versionado**; aceite sob texto anterior deixou de contar, e o aluno legado reconfirma na próxima abertura do app |
+| 3.5 | Manter a ressalva do texto livre **em negrito no opt-in** | O aviso passou da Política para dentro do próprio interruptor de IA |
+| 3.7 | *Disclaimer* na minuta de matrícula | Inserido ao lado do botão que oferece o modelo, com a redação do parecer |
+| 3.8 | Declarar a trava do PAR-Q nos Termos §3 e no modelo §4 | Feito nos dois — a trava existia no produto e não estava escrita em documento nenhum |
+
+O item **3.6** (retenção zero) foi na direção oposta: o parecer concluiu que reduzir o prazo a zero **não exige novo aceite**, por ser só redução de risco. A Política prometia o contrário e foi corrigida.
+
+**Versões resultantes:** Política `2026-09-23.2`, Contrato `2026-09-23.2`, Termos `2026-09-23` — os três com `revisadoJuridico: true`, porque as alterações são exatamente as que o parecer prescreveu, inclusive na redação. Os Termos, que não iam mudar, mudaram por causa do item 3.8 e passam a pedir aceite de novo também.
+
+**Conferido em 10 casos com contas reais**, sendo o que mais importa o do aluno legado: aceite antigo não conta, ele reconfirma, e a partir daí conta. Os documentos vigentes passaram a ser pedidos nas versões novas, e o consentimento de IA nasce na `2026-09-23.2` já com a ressalva gravada no registro.
+
+**A única pendência externa continua sendo o formulário de Zero Data Retention** na conta da OpenAI. Quando sair, a mudança é de uma frase na Política — e, por 3.6, sem novo aceite.
+
 ## Operação da Célula e Prova de Valor (Fase 6 do Ecossistema, 23/09/2026)
 
 Duas perguntas que o produto não sabia responder, e que decidem se o BPO se sustenta: **a ArkeFit está cumprindo o que prometeu?** e **a academia está vendo o serviço acontecer?**

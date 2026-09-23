@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { modeloContratoMatricula } from "@/lib/parq";
+import { AlertTriangle } from "lucide-react";
 
 /**
  * Contrato de matrícula da academia. Nunca é editado no lugar: publicar cria
@@ -103,16 +104,34 @@ export function ContratoMatriculaPainel() {
           <Textarea id="contrato-texto" rows={14} value={conteudo} disabled={!podeEditar} onChange={(e) => setConteudo(e.target.value)} />
         </div>
         {podeEditar && (
-          <div className="flex flex-wrap gap-2">
-            <Button disabled={!mudou || conteudo.trim().length < 50 || publicar.isPending} onClick={() => publicar.mutate()}>
-              {publicar.isPending ? "Publicando..." : data?.ativo ? "Publicar nova versão" : "Publicar contrato"}
-            </Button>
-            {!conteudo.trim() && (
-              <Button variant="outline" onClick={() => setConteudo(modeloContratoMatricula(organization?.nome ?? "Academia"))}>
-                Começar pelo modelo ARKE
+          <>
+            <div className="flex flex-wrap gap-2">
+              <Button disabled={!mudou || conteudo.trim().length < 50 || publicar.isPending} onClick={() => publicar.mutate()}>
+                {publicar.isPending ? "Publicando..." : data?.ativo ? "Publicar nova versão" : "Publicar contrato"}
               </Button>
-            )}
-          </div>
+              {!conteudo.trim() && (
+                <Button variant="outline" onClick={() => setConteudo(modeloContratoMatricula(organization?.nome ?? "Academia"))}>
+                  Começar pelo modelo ARKE
+                </Button>
+              )}
+            </div>
+            {/*
+              Ressalva determinada pelo parecer juridico de 23/09/2026 (item
+              3.7). Fornecer minuta contratual que um terceiro usa de verdade
+              pode gerar tese de responsabilidade solidaria por clausula
+              abusiva ou vicio na prestacao (CDC, arts. 14 e 25). O aviso fica
+              ao lado do botao que oferece o modelo, e nao numa pagina de
+              ajuda: quem precisa le-lo e quem esta prestes a usa-lo.
+            */}
+            <div className="flex items-start gap-2 rounded-md border bg-muted/40 p-3">
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+              <p className="text-xs text-muted-foreground">
+                O modelo de contrato fornecido pela ARKE possui caráter <strong>meramente sugestivo e de
+                ponto de partida</strong>. A academia é a única responsável por revisar, adequar e validar a
+                minuta junto à sua própria assessoria jurídica local.
+              </p>
+            </div>
+          </>
         )}
       </CardContent>
     </Card>

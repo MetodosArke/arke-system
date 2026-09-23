@@ -6,7 +6,7 @@ Esta Política explica como os dados pessoais são tratados na plataforma ARKE, 
 
 - **Dados do aluno usados no atendimento da Academia** (cadastro, treinos, dietas, avaliações, check-ins, mensagens com a equipe da Academia): a **Academia** é a **controladora** — é ela quem decide como atender você. A **ArkeFit** (METODOS ARKE LTDA, CNPJ 68.456.606/0001-70) é a **operadora**: trata esses dados em nome da Academia, seguindo as instruções dela e o contrato entre as duas.
 - **Dados da conta da Academia e da sua equipe** (gestores, professores, nutricionistas, recepção) e **dados do Método ARKE**, quando você contrata esse acompanhamento: a **ArkeFit** é **controladora**. No Método ARKE quem acompanha você é a equipe de mentoria da própria ArkeFit, e é ela que decide o que fazer no seu acompanhamento — por isso a responsabilidade é dela, e não da Academia.
-- **Dados que servem aos dois** (seus treinos registrados, frequência, check-ins): se você está no Método ARKE, o mesmo registro é usado pela Academia, para prescrever, e pela ArkeFit, para acompanhar. Cada uma responde pelo que decide com ele, e as duas respondem perante você pelo tratamento que fizerem em conjunto.
+- **Dados que servem aos dois — cocontroladoria** (seus treinos registrados, frequência, check-ins): se você está no Método ARKE, o mesmo registro é usado pela Academia, para prescrever, e pela ArkeFit, para acompanhar. As duas decidem sobre o mesmo dado, cada uma para a sua finalidade, e por isso são **cocontroladoras** nessa parte. Perante você, ambas respondem **na medida das decisões que cada uma tomar** (art. 42, § 1º, I, da LGPD) — e você pode exercer os seus direitos com qualquer uma das duas.
 - **Encarregado de dados (DPO) da ArkeFit:** André Aquino, contato.iconprime@gmail.com.
 
 ## 2. Quais dados tratamos
@@ -51,7 +51,7 @@ Sobre isso, o que você precisa saber:
 - **Quem decide é sempre uma pessoa.** O resumo não é avaliação profissional e não substitui a leitura da anamnese; a sugestão é um rascunho que o mentor edita, aprova ou descarta antes de enviar. A inteligência artificial não prescreve treino, não prescreve dieta, não diagnostica e não envia mensagem sozinha.
 - **Não enviamos quem você é.** Não saem nome, CPF, e-mail, telefone nem qualquer identificador seu. Nas mensagens, porém, o texto vai como você o escreveu — se você digitou o seu nome ali, ele vai junto. Não há como limpar isso sem destruir o sentido do que se quer analisar, e por isso está dito aqui em vez de prometido de outra forma.
 - **O processamento acontece fora do Brasil** — ver a seção 6.
-- **O provedor não usa o seu conteúdo para treinar modelos**, e pode guardá-lo por até 30 dias para checagem de uso indevido. Se esse prazo for reduzido a zero por contrato, esta Política será atualizada e a autorização, pedida de novo.
+- **O provedor não usa o seu conteúdo para treinar modelos**, e pode guardá-lo por até 30 dias para checagem de uso indevido. Se esse prazo for reduzido a zero por contrato, esta Política será atualizada para dizer isso — como a redução só diminui o seu risco e não amplia nenhuma finalidade, ela não exige que a autorização seja pedida de novo.
 - **Você pode retirar a autorização quando quiser.** Ao retirar, o que tiver sido gerado a partir daquele dado é apagado do ARKE: o resumo da anamnese é excluído, e o texto dos rascunhos de resposta é removido.
 
 ## 5. Com quem os dados são compartilhados
