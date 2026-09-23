@@ -1,6 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import type { GatewayService } from "../core/gatewayService";
 import { logger } from "../logger";
+import type { Giro } from "../types";
 
 /**
  * Receptor Topdata — lado do gateway.
@@ -77,6 +78,12 @@ export interface OpcoesReceptorTopdata {
    * que só a bancada confirma.
    */
   leitorDeEntrada?: 1 | 2;
+  /**
+   * Quanto esperar o aviso de giro (origem 5 ou 6) antes de fechar o acesso
+   * como "sem confirmação". A ponte desiste antes (20 s); este é o limite de
+   * quem esquece — sem ele um aviso perdido deixaria o acesso pendurado.
+   */
+  timeoutGiroMs?: number;
 }
 
 /**
@@ -97,73 +104,163 @@ export function sentidoPorOrigem(
   return "ambos";
 }
 
+/** Acesso liberado esperando o aviso de giro daquele Inner. */
+type GiroPendente = { logId?: string; localId?: string | null; timer: NodeJS.Timeout };
+
+/**
+ * A ponte roda na mesma máquina, por desenho: é ela que carrega a DLL, e a
+ * DLL fica no computador em que a catraca disca. O receptor escuta na rede
+ * da academia por causa da Control iD, mas as rotas da ponte não têm por
+ * que atender outro endereço — sem isto, qualquer aparelho da rede poderia
+ * perguntar "o identificador 123 é de quem?" e colher nomes de alunos.
+ */
+function daPropriaMaquina(ip: string | undefined): boolean {
+  return ip === "127.0.0.1" || ip === "::1" || ip === "::ffff:127.0.0.1";
+}
+
 export function registrarReceptorTopdata(
   app: FastifyInstance,
   gateway: GatewayService,
   opcoes: OpcoesReceptorTopdata = {}
 ): void {
   const leitorDeEntrada = opcoes.leitorDeEntrada ?? 1;
+  const timeoutGiroMs = opcoes.timeoutGiroMs ?? 30_000;
 
-  app.post("/topdata/evento", async (req): Promise<DecisaoTopdata> => {
+  // Um acesso por vez em cada Inner: numa borboleta passa uma pessoa por
+  // vez, e a ponte só lê a próxima depois de o giro terminar. Por isso a
+  // chave é o número do equipamento, sem precisar de id de transação.
+  const pendentes = new Map<string, GiroPendente>();
+
+  const fechar = (inner: string, giro: Giro, origem: string) => {
+    const p = pendentes.get(inner);
+    if (!p) return;
+    clearTimeout(p.timer);
+    pendentes.delete(inner);
+    logger.info({ inner, giro, origem }, "Giro da catraca Topdata registrado");
+    void gateway.concluirGiro({ logId: p.logId, localId: p.localId }, giro);
+  };
+
+  app.addHook("onClose", async () => {
+    for (const p of pendentes.values()) clearTimeout(p.timer);
+    pendentes.clear();
+  });
+
+  app.post("/topdata/evento", async (req, reply) => {
+    if (!daPropriaMaquina(req.ip)) return reply.code(403).send({ error: "Só a ponte local." });
     const corpo = (req.body ?? {}) as EventoTopdata;
     const origem = Number(corpo.origem);
+    const inner = String(corpo.inner ?? "");
     const valor = (corpo.valor ?? "").trim();
 
-    // Eventos que não pedem decisão: só encerram o ciclo do giro. O
-    // registro do acesso liberado já foi gravado na validação, então
-    // aqui não há o que decidir — devolver isso como "negado" faria a
-    // ponte exibir acesso negado depois de a pessoa já ter passado.
+    // Eventos que não pedem decisão: encerram o ciclo do giro. A Topdata
+    // sempre avisa — giro (6) ou tempo esgotado (5) —, então é aqui que o
+    // acesso liberado vira presença ou desistência, como o catra_event da
+    // Control iD. Devolver "negado" faria a ponte exibir acesso negado a
+    // quem já passou.
     if (origem === ORIGEM_TOPDATA.GIRO_CONFIRMADO) {
-      logger.info({ inner: corpo.inner }, "Giro confirmado na catraca Topdata");
-      return { liberar: false, motivo: "giro_confirmado" };
+      fechar(inner, "confirmado", "giro");
+      return { liberar: false, motivo: "giro_confirmado" } satisfies DecisaoTopdata;
     }
     if (origem === ORIGEM_TOPDATA.FIM_TEMPO_ACIONAMENTO) {
-      logger.warn({ inner: corpo.inner }, "Tempo de liberação expirou sem giro na catraca Topdata");
-      return { liberar: false, motivo: "giro_nao_ocorreu" };
+      fechar(inner, "desistencia", "tempo esgotado sem giro");
+      return { liberar: false, motivo: "giro_nao_ocorreu" } satisfies DecisaoTopdata;
     }
 
     if (!valor) {
-      logger.warn({ inner: corpo.inner, origem }, "Evento Topdata sem conteúdo lido");
-      return { liberar: false, motivo: "Leitura vazia." };
+      logger.warn({ inner, origem }, "Evento Topdata sem conteúdo lido");
+      return { liberar: false, motivo: "Leitura vazia." } satisfies DecisaoTopdata;
     }
 
     // Só os dígitos: o teclado devolve o que a pessoa digitou, e em
-    // academia isso costuma ser o CPF. Onze dígitos que fecham o
-    // verificador são tratados como CPF; o resto é identificador do
-    // equipamento, igual ao caminho da Control iD.
+    // academia isso costuma ser o CPF. Onze dígitos no teclado são tratados
+    // como CPF; o resto é identificador do equipamento, igual à Control iD.
     const somenteDigitos = valor.replace(/\D/g, "");
     const ehCpf = origem === ORIGEM_TOPDATA.TECLADO && somenteDigitos.length === 11;
+    const credencial = ehCpf
+      ? ({ tipo: "cpf", valor: somenteDigitos } as const)
+      : ({ tipo: "identificador_catraca", valor } as const);
 
-    const resultado = await gateway.validarCredencial(
-      ehCpf
-        ? { tipo: "cpf", valor: somenteDigitos }
-        : { tipo: "identificador_catraca", valor }
-    );
+    // Leitura nova com um giro ainda aberto no mesmo Inner: o aviso do
+    // anterior se perdeu. Fecha como sem confirmação (conta presença) antes
+    // de abrir o próximo, senão o novo aviso fecharia o acesso errado.
+    if (pendentes.has(inner)) fechar(inner, "sem_confirmacao", "nova leitura antes do aviso");
+
+    const resultado = await gateway.validarCredencial(credencial, { aguardarGiro: true });
 
     logger.info(
-      { inner: corpo.inner, origem, liberado: resultado.liberado, offline: resultado.validadoOffline },
+      { inner, origem, liberado: resultado.liberado, offline: resultado.validadoOffline },
       "Decisão de acesso devolvida à ponte Topdata"
     );
 
-    return resultado.liberado
-      ? {
-          liberar: true,
-          sentido: sentidoPorOrigem(origem, leitorDeEntrada),
-          nome: resultado.nomeAluno,
-          motivo: resultado.mensagem,
-        }
-      : { liberar: false, nome: resultado.nomeAluno, motivo: resultado.mensagem };
+    // Na contingência ninguém gravou nada ainda: sem isto, o acesso decidido
+    // pelo cache durante uma queda de internet se perdia — o mesmo defeito
+    // que a Control iD tinha.
+    const localId = await gateway.registrarAcessoOffline(
+      ehCpf ? somenteDigitos : `id:${valor}`,
+      resultado,
+      resultado.liberado ? "pendente" : undefined
+    );
+
+    if (resultado.liberado) {
+      const timer = setTimeout(() => fechar(inner, "sem_confirmacao", "prazo esgotado"), timeoutGiroMs);
+      timer.unref?.();
+      pendentes.set(inner, { logId: resultado.logId, localId, timer });
+    }
+
+    return (
+      resultado.liberado
+        ? {
+            liberar: true,
+            sentido: sentidoPorOrigem(origem, leitorDeEntrada),
+            nome: resultado.nomeAluno,
+            motivo: resultado.mensagem,
+          }
+        : { liberar: false, nome: resultado.nomeAluno, motivo: resultado.mensagem }
+    ) satisfies DecisaoTopdata;
+  });
+
+  /**
+   * Passagens que a catraca guardou sozinha (bilhetes), coletadas pela ponte
+   * quando o equipamento volta a falar com ela. A ponte só as apaga do
+   * arquivo dela depois deste 200.
+   */
+  app.post("/topdata/bilhetes", async (req, reply) => {
+    if (!daPropriaMaquina(req.ip)) return reply.code(403).send({ error: "Só a ponte local." });
+    const corpo = (req.body ?? {}) as {
+      inner?: number;
+      bilhetes?: { tipo?: number; valor?: string; ocorrido_em?: string }[];
+    };
+    const bilhetes = Array.isArray(corpo.bilhetes) ? corpo.bilhetes : [];
+    let registrados = 0;
+    for (const b of bilhetes) {
+      const quando = b.ocorrido_em && !Number.isNaN(Date.parse(b.ocorrido_em)) ? b.ocorrido_em : new Date().toISOString();
+      await gateway.registrarBilheteEquipamento(String(b.valor ?? "").trim(), quando);
+      registrados++;
+    }
+    if (registrados > 0) {
+      // Com a configuração da ponte a catraca não deveria liberar ninguém
+      // sozinha. Bilhete existindo é informação que alguém precisa ver.
+      logger.warn({ inner: corpo.inner, registrados }, "Catraca Topdata tinha passagens registradas por conta própria");
+    }
+    return { registrados };
   });
 
   /**
    * Sinal de vida da ponte. Não é o `PingOnline` do manual — esse a ponte
    * envia à catraca por conta própria. Este diz ao gateway que a ponte
-   * está de pé, para o diagnóstico distinguir "catraca parada" de "ponte
-   * caída", que exigem providências diferentes.
+   * está de pé e quais equipamentos estão conectados, para o diagnóstico
+   * distinguir "catraca parada" de "ponte caída", que exigem providências
+   * diferentes. Registra só quando muda, para não encher o log a cada 30 s.
    */
+  let ultimoEstado = "";
   app.post("/topdata/ponte-viva", async (req, reply) => {
-    const corpo = (req.body ?? {}) as { inners?: number[] };
-    logger.info({ inners: corpo.inners }, "Ponte Topdata reportando atividade");
+    if (!daPropriaMaquina(req.ip)) return reply.code(403).send({ error: "Só a ponte local." });
+    const corpo = (req.body ?? {}) as { inners?: number[]; conectados?: number[] };
+    const estado = JSON.stringify({ inners: corpo.inners ?? [], conectados: corpo.conectados ?? [] });
+    if (estado !== ultimoEstado) {
+      ultimoEstado = estado;
+      logger.info({ inners: corpo.inners, conectados: corpo.conectados }, "Ponte Topdata: equipamentos conectados");
+    }
     return reply.code(200).send({ ok: true });
   });
 }

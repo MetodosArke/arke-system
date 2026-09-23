@@ -202,6 +202,31 @@ export class GatewayService extends EventEmitter {
    * pior caso, contar uma desistência; nunca apagar a presença de quem
    * entrou.
    */
+  /**
+   * Passagem que o próprio equipamento registrou (bilhete Topdata),
+   * coletada pela ponte quando o equipamento volta a falar com ela.
+   *
+   * Com a configuração da ponte a catraca sozinha não libera ninguém, então
+   * bilhete não deveria existir; quando existe, é passagem que aconteceu
+   * (cartão mestre, liberação manual no equipamento) e vai para a nuvem
+   * como acesso com giro confirmado — é isso que o bilhete atesta. O aluno
+   * sai do cache pelo identificador; sem ele o registro sobe mesmo assim,
+   * para auditoria, só não vira presença de ninguém.
+   */
+  async registrarBilheteEquipamento(identificador: string, ocorridoEm: string): Promise<string> {
+    const aluno = identificador ? await this.alunosCache.buscarPorIdentificador(identificador) : null;
+    const id = await this.logsQueue.adicionar({
+      aluno_id: aluno?.aluno_id ?? null,
+      cpf_consultado: `id:${identificador}`,
+      resultado: "liberado",
+      ocorrido_em: ocorridoEm,
+      sincronizado: false,
+      giro: "confirmado",
+    });
+    void this.flushLogsPendentes();
+    return id;
+  }
+
   async concluirGiro(alvo: { logId?: string; localId?: string | null }, giro: Giro): Promise<void> {
     try {
       if (alvo.logId && this.cloud.confirmarGiro) {

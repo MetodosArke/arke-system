@@ -28,6 +28,9 @@ const configSchema = z.object({
   // só funciona com o Monitor da iDBlock configurado. Ver types.ts.
   confirmacao_giro: z.enum(["decisao", "catra_event"]).default("decisao"),
   timeout_giro_ms: z.number().int().positive().default(30_000),
+  // Topdata: qual leitor físico é a entrada. Decisão de instalação — depende
+  // de como a catraca foi montada, e só a bancada confirma.
+  topdata_leitor_entrada: z.union([z.literal(1), z.literal(2)]).default(1),
 });
 
 export class ConfigError extends Error {}

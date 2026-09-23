@@ -17,3 +17,6 @@ supabase/.temp/
 # Artefatos do Playwright (e2e/)
 test-results/
 playwright-report/
+
+# Binários da ponte Topdata (gerados por packages/ponte-topdata/build.ps1)
+packages/ponte-topdata/bin/

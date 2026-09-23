@@ -49,6 +49,7 @@ async function main() {
       modelo: config.modelo_catraca,
       confirmacaoGiro: config.confirmacao_giro,
       timeoutGiroMs: config.timeout_giro_ms,
+      leitorDeEntrada: config.topdata_leitor_entrada,
     });
     await receptor.iniciar();
   }
