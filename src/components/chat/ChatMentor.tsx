@@ -5,10 +5,11 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Send } from "lucide-react";
+import { Send, Sparkles, Loader2 } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
+import { mensagemDeErroEdge } from "@/lib/erroEdge";
 
 /**
  * Canal do aluno do Método ARKE com o mentor da ArkeFit.
@@ -50,6 +51,11 @@ export function ChatMentor({
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [texto, setTexto] = useState("");
+  // A sugestao do Sentinela e um RASCUNHO: entra no campo para o mentor
+  // editar ou apagar, e nunca vira mensagem sozinha. E o unico controle que
+  // de fato impede a deriva para conselho tecnico — e ele e humano.
+  const [sugestaoId, setSugestaoId] = useState<string | null>(null);
+  const [sugestaoOriginal, setSugestaoOriginal] = useState("");
   const fimRef = useRef<HTMLDivElement>(null);
 
   const meuTipo: "aluno" | "mentor" = viewerType;
@@ -85,6 +91,28 @@ export function ChatMentor({
       .then(() => queryClient.invalidateQueries({ queryKey: ["fila-mentor"] }));
   }, [mensagens, meuTipo, queryClient]);
 
+  const sugerir = useMutation({
+    mutationFn: async () => {
+      const { data, error } = await supabase.functions.invoke("mentor-sugerir-resposta", {
+        body: { aluno_id: alunoId },
+      });
+      if (error) throw new Error(await mensagemDeErroEdge(error, "Não foi possível falar com o Sentinela."));
+      return data as { sugestao?: string; sugestao_id?: string; indisponivel?: boolean; motivo?: string };
+    },
+    onSuccess: (d) => {
+      // Sentinela indisponível não é erro do mentor: ele segue escrevendo
+      // como antes de existir sugestão. Falha aberta, de propósito.
+      if (d.indisponivel || !d.sugestao) {
+        toast({ title: "Sem sugestão agora", description: d.motivo ?? "Tente de novo em instantes." });
+        return;
+      }
+      setTexto(d.sugestao);
+      setSugestaoOriginal(d.sugestao);
+      setSugestaoId(d.sugestao_id ?? null);
+    },
+    onError: (e: Error) => toast({ title: "Sem sugestão agora", description: e.message }),
+  });
+
   const enviar = useMutation({
     mutationFn: async () => {
       if (!user) throw new Error("Sessão inválida.");
@@ -96,9 +124,24 @@ export function ChatMentor({
         mensagem: texto.trim(),
       });
       if (error) throw error;
+
+      // O desfecho da sugestao e a medida de valor do Sentinela: se o mentor
+      // reescreve tudo, o recurso atrapalha mais do que ajuda. "Editada"
+      // conta como aproveitada — o modelo poupou o comeco do trabalho.
+      if (sugestaoId) {
+        await supabase
+          .from("sentinela_sugestoes")
+          .update({
+            desfecho: texto.trim() === sugestaoOriginal.trim() ? "aceita" : "editada",
+            respondido_em: new Date().toISOString(),
+          })
+          .eq("id", sugestaoId);
+      }
     },
     onSuccess: () => {
       setTexto("");
+      setSugestaoId(null);
+      setSugestaoOriginal("");
       void queryClient.invalidateQueries({ queryKey: ["chat-mentor", alunoId] });
       void queryClient.invalidateQueries({ queryKey: ["fila-mentor"] });
     },
@@ -137,6 +180,30 @@ export function ChatMentor({
         })}
         <div ref={fimRef} />
       </div>
+
+      {viewerType === "mentor" && (
+        <div className="flex items-center gap-2 pt-2">
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            disabled={sugerir.isPending}
+            onClick={() => sugerir.mutate()}
+          >
+            {sugerir.isPending ? (
+              <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Sparkles className="mr-1.5 h-3.5 w-3.5" />
+            )}
+            Sugerir resposta
+          </Button>
+          {sugestaoId && (
+            <span className="text-[11px] text-muted-foreground">
+              Rascunho do Sentinela — revise antes de enviar.
+            </span>
+          )}
+        </div>
+      )}
 
       <form
         onSubmit={(e) => {
