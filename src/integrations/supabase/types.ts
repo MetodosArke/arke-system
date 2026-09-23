@@ -515,10 +515,12 @@ export type Database = {
           finalidade: string
           id: string
           organization_id: string
+          proposito: string
           provedor: string | null
           retencao_descricao: string
           revogado_em: string | null
           revogado_por: string | null
+          versao_texto: string
         }
         Insert: {
           aceito_em?: string
@@ -527,10 +529,12 @@ export type Database = {
           finalidade?: string
           id?: string
           organization_id: string
+          proposito?: string
           provedor?: string | null
           retencao_descricao?: string
           revogado_em?: string | null
           revogado_por?: string | null
+          versao_texto?: string
         }
         Update: {
           aceito_em?: string
@@ -539,10 +543,12 @@ export type Database = {
           finalidade?: string
           id?: string
           organization_id?: string
+          proposito?: string
           provedor?: string | null
           retencao_descricao?: string
           revogado_em?: string | null
           revogado_por?: string | null
+          versao_texto?: string
         }
         Relationships: [
           {
@@ -5356,7 +5362,10 @@ export type Database = {
         Args: { _aluno_id: string; _dias?: number; _minimo_pct?: number }
         Returns: boolean
       }
-      aluno_consentiu_ia: { Args: { _aluno_id: string }; Returns: boolean }
+      aluno_consentiu_ia: {
+        Args: { _aluno_id: string; _proposito: string }
+        Returns: boolean
+      }
       aluno_constancia: {
         Args: { _aluno_id: string; _semanas?: number }
         Returns: number
@@ -5478,6 +5487,10 @@ export type Database = {
       conferir_token_reconciliacao: {
         Args: { _token: string }
         Returns: boolean
+      }
+      conversa_para_sugestao: {
+        Args: { _aluno_id: string; _limite?: number }
+        Returns: string
       }
       cpf_valido: { Args: { _cpf: string }; Returns: boolean }
       criar_instrucao_presencial: {
@@ -6300,6 +6313,7 @@ export type Database = {
           tabela: string
         }[]
       }
+      versao_consentimento_ia: { Args: never; Returns: string }
     }
     Enums: {
       agendamento_status: "agendado" | "presente" | "cancelado" | "lista_espera"

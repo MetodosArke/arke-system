@@ -4,7 +4,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { AlertTriangle, Loader2, Sparkles } from "lucide-react";
+import { AlertTriangle, Globe, Loader2, Sparkles } from "lucide-react";
 import { mensagemDeErroEdge } from "@/lib/erroEdge";
 
 type Resposta = {
@@ -16,13 +16,40 @@ type Resposta = {
   motivo?: string;
 };
 
+/** Espelho de `public.versao_consentimento_ia()`. Mudou lá, muda aqui. */
+const VERSAO_TEXTO = "2026-09-23";
+
+type Proposito = "anamnese" | "chat";
+
+const PROPOSITOS: { chave: Proposito; titulo: string; texto: string }[] = [
+  {
+    chave: "anamnese",
+    titulo: "Resumo da minha anamnese para a equipe",
+    texto:
+      "Autorizo que a inteligência artificial do ARKE leia a minha anamnese para resumir, à equipe que me " +
+      "acompanha, o histórico que exige cuidado no treino.",
+  },
+  {
+    chave: "chat",
+    titulo: "Apoio à resposta do meu mentor",
+    texto:
+      "Autorizo que a inteligência artificial do ARKE leia as minhas últimas mensagens com o mentor para " +
+      "sugerir a ele um rascunho de resposta. Quem escreve e envia continua sendo o mentor.",
+  },
+];
+
 /**
- * O consentimento do aluno para a IA ler a anamnese dele.
+ * O consentimento do aluno para a IA ler dado dele.
  *
  * **Específico e destacado** (LGPD art. 11, I), e por isso um bloco próprio em
  * vez de uma linha no termo geral: o consentimento da anamnese não cobre isto,
  * pela mesma razão que não cobria a digital — são finalidades diferentes, e
  * consentimento genérico não é consentimento.
+ *
+ * **Um interruptor por propósito, e não um só.** Ler a anamnese e ler a
+ * conversa são coisas diferentes, e é perfeitamente coerente alguém aceitar
+ * uma e recusar a outra. Juntá-las num botão recriaria o consentimento
+ * genérico que este bloco existe para evitar.
  *
  * A finalidade e a retenção aparecem na tela com as mesmas palavras que ficam
  * gravadas na tabela. Quem autoriza precisa ver o que está autorizando, e não
@@ -32,26 +59,36 @@ export function ConsentimentoSentinela({ alunoId, organizationId }: { alunoId: s
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: consentimento, isLoading } = useQuery({
+  const { data: vigentes = [], isLoading } = useQuery({
     queryKey: ["consentimento-ia", alunoId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("aluno_consentimento_ia")
-        .select("id, aceito_em, revogado_em, finalidade, retencao_descricao")
+        .select("id, proposito, aceito_em, versao_texto")
         .eq("aluno_id", alunoId)
-        .is("revogado_em", null)
-        .maybeSingle();
+        .is("revogado_em", null);
       if (error) throw error;
-      return data;
+      // Consentimento dado sob texto antigo não conta — é a mesma regra do
+      // banco, e é o que faz a pessoa ser perguntada de novo quando o termo
+      // muda de sentido.
+      return (data ?? []).filter((c) => c.versao_texto === VERSAO_TEXTO);
     },
   });
 
   const alternar = useMutation({
-    mutationFn: async (autorizar: boolean) => {
+    mutationFn: async ({ proposito, autorizar }: { proposito: Proposito; autorizar: boolean }) => {
       if (autorizar) {
+        // Revoga o que houver de versão antiga antes de gravar a nova: o
+        // índice de unicidade é por aluno e propósito entre os não revogados.
+        await supabase
+          .from("aluno_consentimento_ia")
+          .update({ revogado_em: new Date().toISOString() })
+          .eq("aluno_id", alunoId)
+          .eq("proposito", proposito)
+          .is("revogado_em", null);
         const { error } = await supabase
           .from("aluno_consentimento_ia")
-          .insert({ aluno_id: alunoId, organization_id: organizationId });
+          .insert({ aluno_id: alunoId, organization_id: organizationId, proposito });
         if (error) throw error;
       } else {
         // Revogar, não apagar: o registro de que houve autorização e de quando
@@ -60,16 +97,17 @@ export function ConsentimentoSentinela({ alunoId, organizationId }: { alunoId: s
           .from("aluno_consentimento_ia")
           .update({ revogado_em: new Date().toISOString() })
           .eq("aluno_id", alunoId)
+          .eq("proposito", proposito)
           .is("revogado_em", null);
         if (error) throw error;
       }
     },
-    onSuccess: (_, autorizar) => {
+    onSuccess: (_, { autorizar }) => {
       toast({
         title: autorizar ? "Autorização registrada" : "Autorização retirada",
         description: autorizar
-          ? "A equipe passa a ver um resumo da sua anamnese."
-          : "O resumo foi apagado e a análise não será mais feita.",
+          ? "Você pode retirar esta autorização quando quiser."
+          : "O que havia sido gerado a partir desse dado foi apagado.",
       });
       void queryClient.invalidateQueries({ queryKey: ["consentimento-ia", alunoId] });
     },
@@ -77,38 +115,53 @@ export function ConsentimentoSentinela({ alunoId, organizationId }: { alunoId: s
   });
 
   if (isLoading) return null;
-  const autorizado = !!consentimento;
 
   return (
-    <div className="space-y-2 rounded-md border p-3">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <Label htmlFor="consentimento-ia" className="text-sm font-medium">
-            Resumo da anamnese para a equipe
-          </Label>
-          <p className="mt-1 text-xs text-muted-foreground">
-            Autorizo que a inteligência artificial do ARKE leia a minha anamnese para resumir, à equipe que me
-            acompanha, o histórico que exige cuidado no treino.
-          </p>
-          <p className="mt-1 text-xs text-muted-foreground">
-            O resumo fica no ARKE enquanto durar a minha matrícula. O provedor de IA processa sem reter, e o texto não é
-            usado para treinar modelo. <strong>Posso retirar esta autorização quando quiser</strong>, e o resumo é
-            apagado.
-          </p>
-        </div>
-        <Switch
-          id="consentimento-ia"
-          checked={autorizado}
-          disabled={alternar.isPending}
-          onCheckedChange={(v) => alternar.mutate(v)}
-          aria-label="Autorizar análise da anamnese por inteligência artificial"
-        />
-      </div>
-      {autorizado && consentimento?.aceito_em && (
-        <p className="text-[11px] text-muted-foreground">
-          Autorizado em {new Date(consentimento.aceito_em).toLocaleDateString("pt-BR")}.
+    <div className="space-y-3 rounded-md border p-3">
+      {PROPOSITOS.map(({ chave, titulo, texto }) => {
+        const atual = vigentes.find((c) => c.proposito === chave);
+        return (
+          <div key={chave} className="flex items-start justify-between gap-3">
+            <div>
+              <Label htmlFor={`consentimento-ia-${chave}`} className="text-sm font-medium">
+                {titulo}
+              </Label>
+              <p className="mt-1 text-xs text-muted-foreground">{texto}</p>
+              {atual?.aceito_em && (
+                <p className="mt-1 text-[11px] text-muted-foreground">
+                  Autorizado em {new Date(atual.aceito_em).toLocaleDateString("pt-BR")}.
+                </p>
+              )}
+            </div>
+            <Switch
+              id={`consentimento-ia-${chave}`}
+              checked={!!atual}
+              disabled={alternar.isPending}
+              onCheckedChange={(v) => alternar.mutate({ proposito: chave, autorizar: v })}
+              aria-label={titulo}
+            />
+          </div>
+        );
+      })}
+
+      {/*
+        A transferência internacional é declarada aqui porque é ela que dá base
+        legal ao consentimento (LGPD art. 33, VIII) — sem a informação prévia
+        sobre o caráter internacional, o consentimento não sustenta a
+        transferência. E a retenção é descrita como ela de fato é: enquanto não
+        houver contrato de retenção zero com o provedor, prometer retenção zero
+        seria viciar o próprio consentimento.
+      */}
+      <div className="flex items-start gap-2 border-t pt-3">
+        <Globe className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+        <p className="text-[11px] leading-snug text-muted-foreground">
+          O processamento é feito por provedor de inteligência artificial com <strong>servidores fora do
+          Brasil</strong>. O provedor pode guardar o conteúdo por até 30 dias para checagem de uso indevido, e
+          não o utiliza para treinar modelos. O que o ARKE guarda fica enquanto durar a sua matrícula.{" "}
+          <strong>Você pode retirar qualquer destas autorizações quando quiser</strong>, e o que tiver sido
+          gerado a partir do dado é apagado.
         </p>
-      )}
+      </div>
     </div>
   );
 }
@@ -153,7 +206,8 @@ export function ResumoSentinela({ alunoId }: { alunoId: string }) {
   if (r?.sem_consentimento) {
     return (
       <p className="text-xs text-muted-foreground">
-        O aluno não autorizou a análise da anamnese por IA. Leia a anamnese na íntegra na aba de acolhimento.
+        {r.motivo ?? "O aluno não autorizou a análise da anamnese por IA."} Leia a anamnese na íntegra na aba
+        de acolhimento.
       </p>
     );
   }

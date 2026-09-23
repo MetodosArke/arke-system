@@ -91,11 +91,16 @@ Deno.serve(async (req: Request) => {
       return jsonResponse({ error: "Você não atende este aluno." }, 403);
     }
 
-    const { data: consentiu } = await admin.rpc("aluno_consentiu_ia", { _aluno_id: alunoId });
+    const { data: consentiu } = await admin.rpc("aluno_consentiu_ia", {
+      _aluno_id: alunoId,
+      _proposito: "anamnese",
+    });
     if (!consentiu) {
       return jsonResponse({
         sem_consentimento: true,
-        motivo: "O aluno ainda não autorizou a análise da anamnese por inteligência artificial.",
+        motivo:
+          "O aluno ainda não autorizou a análise da anamnese por inteligência artificial, " +
+          "ou autorizou uma versão anterior do termo e precisa autorizar de novo.",
       });
     }
 

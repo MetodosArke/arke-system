@@ -97,11 +97,27 @@ export function ChatMentor({
         body: { aluno_id: alunoId },
       });
       if (error) throw new Error(await mensagemDeErroEdge(error, "Não foi possível falar com o Sentinela."));
-      return data as { sugestao?: string; sugestao_id?: string; indisponivel?: boolean; motivo?: string };
+      return data as {
+        sugestao?: string;
+        sugestao_id?: string;
+        indisponivel?: boolean;
+        sem_consentimento?: boolean;
+        motivo?: string;
+      };
     },
     onSuccess: (d) => {
       // Sentinela indisponível não é erro do mentor: ele segue escrevendo
       // como antes de existir sugestão. Falha aberta, de propósito.
+      // Falta de consentimento não é indisponibilidade: o mentor precisa saber
+      // que a diferença está com o aluno, e não com o sistema, senão fica
+      // clicando em vão num botão que nunca vai responder.
+      if (d.sem_consentimento) {
+        toast({
+          title: "O aluno não autorizou",
+          description: d.motivo ?? "Ele pode autorizar a análise das mensagens no perfil dele.",
+        });
+        return;
+      }
       if (d.indisponivel || !d.sugestao) {
         toast({ title: "Sem sugestão agora", description: d.motivo ?? "Tente de novo em instantes." });
         return;
