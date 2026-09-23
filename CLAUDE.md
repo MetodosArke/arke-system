@@ -199,6 +199,27 @@ Atingia duas funções, as duas em produção e nenhuma jamais exercitada: `lanc
 
 Em três camadas. No sandbox, 24 verificações sobre o `fluxo.ts` real. Pela função publicada e autenticado como gestor de verdade, 17 — incluindo excluir um aluno com assinatura ativa e ver a assinatura morrer no gateway sem deixar órfã. E o fluxo da mensalidade de ponta a ponta, 14 verificações: matrícula criada com split (R$129,90 → academia R$125,53, ArkeFit R$4,37 de taxa), emissão registrada, vencimento simulando `PAYMENT_OVERDUE` perdido marcando inadimplente, pagamento liberando, marca manual preservada, exclusão cancelando no gateway, e o lançamento financeiro automático de fato criado. Zero assinaturas órfãs ao fim.
 
+
+## Repasse Negociado por Academia (Fase 1 do Ecossistema, 23/09/2026)
+
+O modelo comercial passou a negociar contrato a contrato: cada academia tem porte e ticket médio diferentes, então **quanto a ArkeFit retém de cada aluno no Método deixou de ser um custo por nível igual para todas** (`planos_atacado.custo_mensal`, Integrado R$ 45 / Elite R$ 85) e passou a viver na organização — `organizations.repasse_tipo` (`fixo` | `percentual`) e `repasse_valor`.
+
+**Nome.** O documento de conceito chama isso de `split_type`/`split_value`. Aqui não, de propósito: neste código **"split" já significa a fatia da academia**, que é o que vai no payload do Asaas. Usar a mesma palavra para a retenção da ArkeFit — o oposto — seria plantar um erro no lugar mais caro possível. `repasse_*` é o termo que o resto do sistema já usa.
+
+**O valor configurado é o líquido desejado.** A taxa do gateway é somada por cima e sai do lado da academia, porque ela recebe valor **fixo** no split e o que o Asaas desconta sai do que sobra. Isso confirma a decisão de 21/09 e a torna explícita.
+
+**O percentual não exigiu nada novo do Asaas.** Quem vai no payload é sempre a fatia da academia, em `fixedValue`; o percentual é só a forma de calcular a retenção antes disso. A verificação de `percentualValue` que eu tinha previsto no plano deixou de ser necessária.
+
+**Academia sem repasse negociado não cobra ninguém.** `repasse_arke()` devolve NULL, e `asaas-create-subscription` recusa com 422 dizendo onde resolver. Cair num valor padrão seria pior: cobraria o aluno com uma divisão que ninguém acordou, e o erro só apareceria no extrato.
+
+**Só a ArkeFit configura.** `trg_proteger_colunas_organizacao` passou a cobrir as duas colunas — sem isso o gestor se daria retenção zero pela política de UPDATE da própria organização, como já podia fazer com plano e limite de alunos antes daquela trava existir. Configurado em **Visão Master → ficha da organização → Repasse do Método**, com prévia da divisão.
+
+**A conta mora em três lugares e foi provada igual nos três.** `public.repasse_arke()` no banco, `src/lib/repasse.ts` no app e `asaas-create-subscription` no gateway. Uma execução comparou a função do banco com a do app em **9 configurações** — fixo e percentual, incluindo 100% e zero — e os números bateram em todas. É o que transforma o comentário "se uma mudar, as três mudam juntas" de promessa em verificação.
+
+**Conferido pela função publicada**, autenticado como gestor de verdade: repasse percentual de 30% sobre varejo de R$ 149 gravou R$ 49,65 (44,70 + taxa 4,95) e o split no Asaas ficou em R$ 99,35 para a academia; repasse fixo de R$ 49 no mesmo varejo deu R$ 53,95; academia sem repasse negociado foi recusada com 422 **sem deixar assinatura órfã no gateway**; e varejo que não cobre o repasse foi recusado.
+
+**O que ficou de fora de propósito:** os níveis Integrado e Elite **continuam existindo como conjuntos de recurso** (nutrição, acolhimento expandido, fila prioritária) e como linhas de preço de varejo. O que saiu de cena foi o `custo_mensal` deles como fonte do repasse. Colapsar os dois níveis num "Método" único é mudança de produto com efeito em várias telas, e é decisão separada.
+
 ## Trial e Bloqueio por Pagamento
 
 ### Trial não é oferta comercial

@@ -227,14 +227,17 @@ Deno.serve(async (req: Request) => {
     // O repasse sai da mesma conta da criação: custo do nível mais a taxa de
     // processamento sobre o valor cobrado. Recalcular aqui é o ponto — é o
     // valor que muda quando o varejo muda, e é ele que define o split.
-    const [{ data: plano }, { data: taxa }] = await Promise.all([
-      admin.from("planos_atacado").select("custo_mensal").eq("id", assinatura.nivel_atacado).maybeSingle(),
-      admin.rpc("arke_taxa_processamento", { _valor: valor }),
-    ]);
-    if (!plano || taxa === null || taxa === undefined) {
-      return jsonResponse({ error: "Não foi possível calcular o repasse ARKE." }, 500);
+    const { data: repasseCalculado } = await admin.rpc("repasse_arke", {
+      _organization_id: org.id,
+      _valor_cobrado: valor,
+    });
+    if (repasseCalculado === null || repasseCalculado === undefined) {
+      return jsonResponse(
+        { error: "Esta academia ainda não tem o repasse do Método negociado. Configure em Visão Master → ficha da organização." },
+        422
+      );
     }
-    const repasse = Math.round((Number(plano.custo_mensal) + Number(taxa)) * 100) / 100;
+    const repasse = Math.round(Number(repasseCalculado) * 100) / 100;
 
     const r = await alterarValorAssinatura(api, chave, assinatura.asaas_subscription_id, {
       valorCobrado: valor,

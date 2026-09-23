@@ -3711,6 +3711,8 @@ export type Database = {
           onboarding_lembretes: number
           plano_b2b: Database["public"]["Enums"]["plano_b2b"]
           razao_social: string | null
+          repasse_tipo: string
+          repasse_valor: number | null
           slug: string
           status: Database["public"]["Enums"]["org_status"]
           telefone: string | null
@@ -3755,6 +3757,8 @@ export type Database = {
           onboarding_lembretes?: number
           plano_b2b?: Database["public"]["Enums"]["plano_b2b"]
           razao_social?: string | null
+          repasse_tipo?: string
+          repasse_valor?: number | null
           slug: string
           status?: Database["public"]["Enums"]["org_status"]
           telefone?: string | null
@@ -3799,6 +3803,8 @@ export type Database = {
           onboarding_lembretes?: number
           plano_b2b?: Database["public"]["Enums"]["plano_b2b"]
           razao_social?: string | null
+          repasse_tipo?: string
+          repasse_valor?: number | null
           slug?: string
           status?: Database["public"]["Enums"]["org_status"]
           telefone?: string | null
@@ -5794,6 +5800,10 @@ export type Database = {
       registrar_primeiro_acesso_aluno: { Args: never; Returns: undefined }
       registrar_tentativa_matricula: {
         Args: { _ip_hash: string }
+        Returns: number
+      }
+      repasse_arke: {
+        Args: { _organization_id: string; _valor_cobrado: number }
         Returns: number
       }
       revogar_consentimento_biometrico: {

@@ -1,7 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { dividirCobranca, taxaProcessamento } from "./repasse";
+import { dividirCobranca, repasseArke, taxaProcessamento, type RepasseConfig } from "./repasse";
 
 const TAXA = { percentual: 2.99, fixa: 0.49 };
+const FIXO_45: RepasseConfig = { tipo: "fixo", valor: 45 };
+const PCT_30: RepasseConfig = { tipo: "percentual", valor: 30 };
+const NAO_NEGOCIADO: RepasseConfig = { tipo: "fixo", valor: null };
 
 describe("repasse do Método ARKE", () => {
   it("bate com a função do banco nos preços sugeridos", () => {
@@ -12,26 +15,59 @@ describe("repasse do Método ARKE", () => {
   });
 
   it("a taxa entra no repasse da ArkeFit, não na parte da academia", () => {
-    expect(dividirCobranca(119, 45, TAXA)).toEqual({
+    expect(dividirCobranca(119, FIXO_45, TAXA)).toEqual({
       taxaEstimada: 4.05,
       repasseArke: 49.05,
       liquidoAcademia: 69.95,
       cobreORepasse: true,
+      semRepasseNegociado: false,
     });
   });
 
   it("acompanha o varejo que a academia define: a parte percentual cresce com o valor", () => {
-    const sugerido = dividirCobranca(119, 45, TAXA);
-    const maisCaro = dividirCobranca(149, 45, TAXA);
+    const sugerido = dividirCobranca(119, FIXO_45, TAXA);
+    const maisCaro = dividirCobranca(149, FIXO_45, TAXA);
     expect(maisCaro.taxaEstimada).toBeGreaterThan(sugerido.taxaEstimada);
-    expect(maisCaro.repasseArke - maisCaro.taxaEstimada).toBe(45);
+    // No fixo, o que a ArkeFit retém além da taxa não muda com o varejo.
+    expect(maisCaro.repasseArke! - maisCaro.taxaEstimada).toBe(45);
+  });
+
+  it("no percentual, a retenção acompanha o valor cobrado", () => {
+    // Conferido contra public.repasse_arke em 23/09/2026: 30% de 149 = 44,70
+    // mais a taxa de 4,95 = 49,65.
+    expect(repasseArke(149, PCT_30, TAXA)).toBe(49.65);
+    expect(repasseArke(99, PCT_30, TAXA)).toBe(33.15);
+  });
+
+  it("fixo e percentual podem dar quase o mesmo no preço de tabela e divergir fora dele", () => {
+    // É o ponto comercial do percentual: acompanha o ticket da academia.
+    expect(repasseArke(149, FIXO_45, TAXA)).toBe(49.95);
+    expect(repasseArke(149, PCT_30, TAXA)).toBe(49.65);
+    expect(repasseArke(299, FIXO_45, TAXA)).toBe(54.43);
+    expect(repasseArke(299, PCT_30, TAXA)).toBe(99.13);
   });
 
   it("valor que não cobre o repasse é sinalizado", () => {
-    expect(dividirCobranca(15, 15, TAXA).cobreORepasse).toBe(false);
+    expect(dividirCobranca(15, { tipo: "fixo", valor: 15 }, TAXA).cobreORepasse).toBe(false);
   });
 
   it("sem valor digitado não inventa taxa", () => {
-    expect(dividirCobranca(0, 45, TAXA)).toEqual({ taxaEstimada: 0, repasseArke: 45, liquidoAcademia: -45, cobreORepasse: false });
+    expect(dividirCobranca(0, FIXO_45, TAXA)).toEqual({
+      taxaEstimada: 0,
+      repasseArke: 45,
+      liquidoAcademia: -45,
+      cobreORepasse: false,
+      semRepasseNegociado: false,
+    });
+  });
+
+  it("academia sem repasse negociado não vira divisão inventada", () => {
+    // Cair num padrão cobraria o aluno com uma divisão que ninguém acordou, e
+    // o erro só apareceria no extrato.
+    expect(repasseArke(119, NAO_NEGOCIADO, TAXA)).toBeNull();
+    const d = dividirCobranca(119, NAO_NEGOCIADO, TAXA);
+    expect(d.semRepasseNegociado).toBe(true);
+    expect(d.cobreORepasse).toBe(false);
+    expect(d.repasseArke).toBeNull();
   });
 });

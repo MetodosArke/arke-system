@@ -89,14 +89,6 @@ export default function AdminGestao360() {
     enabled: !!organization?.id,
   });
 
-  const { data: planosAtacado = [] } = useQuery({
-    queryKey: ["planos-atacado-gestao360"],
-    queryFn: async () => {
-      const { data, error } = await supabase.from("planos_atacado").select("id, custo_mensal");
-      if (error) throw error;
-      return data;
-    },
-  });
 
   // Receita da academia (mensalidade própria, fora do Método ARKE) — até
   // aqui Gestão 360° só enxergava aluno_assinaturas (ARKE); pra academia
@@ -232,8 +224,6 @@ export default function AdminGestao360() {
     enabled: !!organization?.id,
   });
 
-  const custoPorNivel = new Map(planosAtacado.map((p) => [p.id, Number(p.custo_mensal)]));
-
   const mrrArke = Number(metrics?.mrr_arke ?? 0);
   const mrrAcademia = Number(metrics?.mrr_academia ?? 0);
   const mrrBruto = Number(metrics?.mrr_total ?? mrrArke + mrrAcademia);
@@ -243,7 +233,11 @@ export default function AdminGestao360() {
   // travada na matrícula.
   const custoArkeMrr =
     assinaturasAtivas.reduce(
-      (acc, a) => acc + (a.valor_repasse_arke !== null ? Number(a.valor_repasse_arke) : custoPorNivel.get(a.nivel_atacado) ?? 0),
+      // Toda assinatura trava o repasse na criacao desde 21/09/2026, entao o
+      // nulo so existiria em linha anterior a isso — nao ha nenhuma. Cair no
+      // custo por nivel seria pior agora: ele deixou de ser a fonte do
+      // repasse, que passou a ser negociado por academia.
+      (acc, a) => acc + Number(a.valor_repasse_arke ?? 0),
       0
     ) +
     matriculasAcademiaAtivas.reduce(
