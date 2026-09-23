@@ -1,3 +1,4 @@
+import { hojeBrasilia } from "@/lib/dataBrasilia";
 import { useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -20,17 +21,15 @@ interface Turma {
   dias_semana: number[];
 }
 
-function hojeISO() {
-  const hoje = new Date();
-  const offset = hoje.getTimezoneOffset();
-  return new Date(hoje.getTime() - offset * 60_000).toISOString().slice(0, 10);
-}
+// A data da academia, nao a do aparelho: aluno viajando veria uma semana
+// diferente da que a academia ve, e o banco decide com Sao Paulo.
+const hojeISO = hojeBrasilia;
 
 function somarDias(dataISO: string, delta: number) {
+  // Meio-dia deixa o passo de 24h imune a virada de horario de verao.
   const d = new Date(`${dataISO}T12:00:00`);
   d.setDate(d.getDate() + delta);
-  const offset = d.getTimezoneOffset();
-  return new Date(d.getTime() - offset * 60_000).toISOString().slice(0, 10);
+  return dataBrasilia(d);
 }
 
 function weekdayISO(dataISO: string) {

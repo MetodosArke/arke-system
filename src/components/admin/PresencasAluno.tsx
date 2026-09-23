@@ -1,12 +1,13 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { diaBrasilia } from "@/lib/dataBrasilia";
 
 /** Frequência na academia (check-in por QR ou catraca): presenças nos últimos 30 dias. */
 export function PresencasAluno({ alunoId }: { alunoId: string }) {
   const { data } = useQuery({
     queryKey: ["presencas-aluno", alunoId],
     queryFn: async () => {
-      const desde = new Date(Date.now() - 30 * 86_400_000).toISOString().slice(0, 10);
+      const desde = diaBrasilia(-30);
       const { data: linhas, error } = await supabase
         .from("presencas")
         .select("dia")

@@ -1,3 +1,4 @@
+import { hojeBrasilia } from "../_shared/data.ts";
 // Chamadas ao Asaas da assinatura do Método ARKE, separadas do index.ts.
 //
 // Por que separado: aqui não há Deno nem Supabase, só `fetch`. É o que permite
@@ -40,9 +41,7 @@ export function somenteDigitos(texto: string | null | undefined): string {
  * Hoje no fuso de Brasília. Em UTC, depois das 21h a data já é a de amanhã, e
  * a primeira cobrança venceria um dia depois da matrícula.
  */
-export function hojeEmBrasilia(): string {
-  return new Date().toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" });
-}
+export const hojeEmBrasilia = hojeBrasilia;
 
 /**
  * Reaproveita o customer do aluno antes de criar outro: primeiro pelo id do

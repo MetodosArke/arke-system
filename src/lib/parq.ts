@@ -1,3 +1,4 @@
+import { dataBrasilia, diaBrasilia } from "./dataBrasilia";
 /**
  * PAR-Q (Physical Activity Readiness Questionnaire), nas 7 perguntas do PAR-Q+.
  * Qualquer "sim" pede atestado médico antes de treinar. Em São Paulo, a Lei
@@ -23,9 +24,9 @@ export function situacaoAtestado(
 ): SituacaoAtestado {
   if (!parq || !parq.algum_sim) return "nao_precisa";
   if (!parq.atestado_validade) return "falta";
-  const dia = hoje.toISOString().slice(0, 10);
+  const dia = dataBrasilia(hoje);
   if (parq.atestado_validade < dia) return "vencido";
-  const limite = new Date(hoje.getTime() + 15 * 86_400_000).toISOString().slice(0, 10);
+  const limite = diaBrasilia(15, hoje);
   return parq.atestado_validade < limite ? "vence_logo" : "valido";
 }
 

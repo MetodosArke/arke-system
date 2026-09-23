@@ -1,4 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { hojeBrasilia } from "../_shared/data.ts";
 
 const jsonResponse = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
@@ -227,7 +228,7 @@ Deno.serve(async (req: Request) => {
               // Sem a data de liquidação, a série histórica de receita
               // teria que cair no mês de emissão da cobrança, não no mês
               // em que o dinheiro entrou.
-              data_pagamento: novoStatus === "confirmado" ? new Date().toISOString().slice(0, 10) : null,
+              data_pagamento: novoStatus === "confirmado" ? hojeBrasilia() : null,
             })
             .eq("id", cobrancaB2bExistente.id);
         } else if (EVENTOS_EMITIDOS.has(tipoEvento)) {
@@ -271,7 +272,7 @@ Deno.serve(async (req: Request) => {
                 invoice_url: invoiceUrl,
                 vencimento: vencimento ?? undefined,
                 taxa_gateway: taxaGateway,
-                data_pagamento: statusB2b === "confirmado" ? new Date().toISOString().slice(0, 10) : null,
+                data_pagamento: statusB2b === "confirmado" ? hojeBrasilia() : null,
               },
               { onConflict: "asaas_payment_id" }
             );
@@ -297,7 +298,7 @@ Deno.serve(async (req: Request) => {
             .from("mensalidades")
             .update({
               status: novoStatus,
-              data_pagamento: novoStatus === "confirmado" ? new Date().toISOString().slice(0, 10) : null,
+              data_pagamento: novoStatus === "confirmado" ? hojeBrasilia() : null,
               invoice_url: invoiceUrl ?? undefined,
               taxa_gateway: taxaGateway,
             })
@@ -371,7 +372,7 @@ Deno.serve(async (req: Request) => {
           .update({
             ...(soEmissao ? {} : {
               status: statusArke,
-              data_pagamento: statusArke === "confirmado" ? new Date().toISOString().slice(0, 10) : null,
+              data_pagamento: statusArke === "confirmado" ? hojeBrasilia() : null,
             }),
             vencimento: vencimento ?? undefined,
             invoice_url: invoiceUrl ?? undefined,
@@ -438,7 +439,7 @@ Deno.serve(async (req: Request) => {
                 status: statusArke,
                 asaas_payment_id: asaasPaymentId,
                 vencimento,
-                data_pagamento: statusArke === "confirmado" ? new Date().toISOString().slice(0, 10) : null,
+                data_pagamento: statusArke === "confirmado" ? hojeBrasilia() : null,
                 invoice_url: invoiceUrl,
               },
               { onConflict: "asaas_payment_id" }
@@ -475,7 +476,7 @@ Deno.serve(async (req: Request) => {
               resultado = "evento_ignorado";
             } else if (matricula) {
               const valor = Number(payment.value ?? 0);
-              const vencimentoMensalidade = vencimento ?? new Date().toISOString().slice(0, 10);
+              const vencimentoMensalidade = vencimento ?? hojeBrasilia();
               const competencia = `${vencimentoMensalidade.slice(0, 7)}-01`;
 
               // upsert por (matricula_id, competencia): mesma janela de
@@ -500,7 +501,7 @@ Deno.serve(async (req: Request) => {
                     vencimento: vencimentoMensalidade,
                     status: novoStatus,
                     asaas_payment_id: asaasPaymentId,
-                    data_pagamento: novoStatus === "confirmado" ? new Date().toISOString().slice(0, 10) : null,
+                    data_pagamento: novoStatus === "confirmado" ? hojeBrasilia() : null,
                     invoice_url: invoiceUrl,
                   },
                   { onConflict: "matricula_id,competencia" }

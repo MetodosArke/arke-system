@@ -1,5 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { ambienteAsaas } from "../_shared/asaas.ts";
+import { hojeBrasilia } from "../_shared/data.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -23,9 +24,7 @@ type CreateMatriculaPayload = {
  * Hoje no fuso de Brasília. Em UTC, depois das 21h a data já é a de amanhã, e
  * a primeira mensalidade venceria um dia depois da matrícula.
  */
-function hojeEmBrasilia(): string {
-  return new Date().toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" });
-}
+const hojeEmBrasilia = hojeBrasilia;
 
 const CICLO_ASAAS: Record<string, string> = {
   mensal: "MONTHLY",

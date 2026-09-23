@@ -4,6 +4,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Megaphone } from "lucide-react";
+import { hojeBrasilia } from "@/lib/dataBrasilia";
 
 /** Avisos da academia ainda não lidos pelo aluno. Some quando não há nenhum. */
 export function ComunicadosAluno() {
@@ -13,7 +14,7 @@ export function ComunicadosAluno() {
   const { data: avisos = [] } = useQuery({
     queryKey: ["comunicados-aluno", organization?.id, user?.id],
     queryFn: async () => {
-      const hoje = new Date().toISOString().slice(0, 10);
+      const hoje = hojeBrasilia();
       const [{ data: lista, error }, { data: lidos }] = await Promise.all([
         supabase
           .from("comunicados")

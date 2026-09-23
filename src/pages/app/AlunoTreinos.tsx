@@ -29,6 +29,7 @@ import type { Json } from "@/integrations/supabase/types";
 import { MidiaExercicio } from "@/components/acervo/MidiaExercicio";
 import { situacaoAtestado } from "@/lib/parq";
 import { divisoesDoTreino, rotuloTecnica, seriesDoExercicio } from "@/lib/seriesTreino";
+import { hojeBrasilia } from "@/lib/dataBrasilia";
 
 interface ExercicioSnapshot {
   ordem: number;
@@ -53,7 +54,7 @@ interface DetalheExecucao {
   carga_kg: string;
 }
 
-const HOJE = new Date().toISOString().slice(0, 10);
+const HOJE = hojeBrasilia();
 
 export default function AlunoTreinos() {
   const navigate = useNavigate();

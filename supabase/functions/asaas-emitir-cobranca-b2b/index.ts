@@ -1,5 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { ambienteAsaas } from "../_shared/asaas.ts";
+import { hojeBrasilia } from "../_shared/data.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -40,9 +41,7 @@ type EmitirCobrancaPayload = {
 
 const somenteDigitos = (valor: string) => valor.replace(/\D/g, "");
 
-function hojeISO() {
-  return new Date().toISOString().slice(0, 10);
-}
+const hojeISO = hojeBrasilia;
 
 type AsaasErrorBody = { errors?: { code?: string; description?: string }[] };
 type ChamadaAsaas<T> = { ok: true; data: T } | { ok: false; mensagem: string; corpo: unknown };
