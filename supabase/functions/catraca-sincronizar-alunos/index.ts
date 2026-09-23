@@ -83,30 +83,20 @@ Deno.serve(async (req: Request) => {
       return jsonResponse({ error: "Falha ao listar alunos." }, 500);
     }
 
-    // Controle de acesso físico é da academia — inadimplência aqui é do
-    // Plano da Academia (aluno_matriculas_academia/mensalidades), não do
-    // Método ARKE. Sem matrícula ativa cadastrada = libera (mesma regra
-    // do caminho online, catraca-validar-acesso).
-    const { data: matriculasAtivas, error: matriculasError } = await admin
-      .from("aluno_matriculas_academia")
-      .select("id, aluno_id")
-      .eq("organization_id", catraca.organization_id)
-      .eq("status", "ativa");
-    if (matriculasError) {
-      console.error("Erro ao listar matrículas:", matriculasError);
-      return jsonResponse({ error: "Falha ao listar matrículas." }, 500);
+    // A mesma regra do caminho online (aluno_barrado_na_catraca), em lote:
+    // situacao_permite_app, com a tolerância de 5 dias do inadimplente e o
+    // pausado barrado. O campo continua se chamando "inadimplente" porque é
+    // o contrato com gateways já instalados — o sentido agora é "não entra".
+    // A tolerância é avaliada na sincronização, então pode atrasar pelo
+    // intervalo dela (5 min por padrão); na contingência, é aceitável.
+    const { data: barrados, error: barradosError } = await admin.rpc("alunos_barrados_na_catraca", {
+      _organization_id: catraca.organization_id,
+    });
+    if (barradosError) {
+      console.error("Erro ao listar alunos barrados:", barradosError);
+      return jsonResponse({ error: "Falha ao calcular quem pode entrar." }, 500);
     }
-
-    const matriculaIdPorAluno = new Map((matriculasAtivas ?? []).map((m) => [m.aluno_id, m.id]));
-    const matriculaIds = (matriculasAtivas ?? []).map((m) => m.id);
-    const { data: mensalidadesAtrasadas, error: mensalidadesError } = matriculaIds.length
-      ? await admin.from("mensalidades").select("matricula_id").in("matricula_id", matriculaIds).eq("status", "atrasado")
-      : { data: [] as { matricula_id: string }[], error: null };
-    if (mensalidadesError) {
-      console.error("Erro ao listar mensalidades:", mensalidadesError);
-      return jsonResponse({ error: "Falha ao listar mensalidades." }, 500);
-    }
-    const matriculasInadimplentes = new Set((mensalidadesAtrasadas ?? []).map((m) => m.matricula_id));
+    const alunosBarrados = new Set((barrados ?? []) as string[]);
 
     const userIds = (alunos ?? []).map((a) => a.user_id);
     const { data: profiles, error: profilesError } = userIds.length
@@ -132,13 +122,12 @@ Deno.serve(async (req: Request) => {
         // chaves; sem nenhuma, não há como validar offline.
         if (!cpf && !identificador) return null;
 
-        const matriculaId = matriculaIdPorAluno.get(a.id);
         return {
           aluno_id: a.id,
           cpf,
           identificador_catraca: identificador,
           nome: profile?.full_name ?? "",
-          inadimplente: matriculaId ? matriculasInadimplentes.has(matriculaId) : false,
+          inadimplente: alunosBarrados.has(a.id),
         };
       })
       .filter((v): v is NonNullable<typeof v> => v !== null);

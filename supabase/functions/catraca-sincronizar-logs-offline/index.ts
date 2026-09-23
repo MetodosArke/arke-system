@@ -15,17 +15,25 @@ const jsonResponse = (body: unknown, status = 200) =>
 const RESULTADOS_VALIDOS = new Set([
   "liberado",
   "negado_inadimplente",
+  "negado_pausado",
   "negado_nao_encontrado",
   "negado_catraca_inativa",
   "negado_sem_agendamento",
   "negado_falha_verificacao_agendamento",
 ]);
 
+// Desfecho físico do giro, quando o equipamento informa. Na contingência o
+// gateway só enfileira o acesso depois de saber o desfecho, então ele chega
+// junto — e a presença (gatilho trg_presenca_pela_catraca) sai do mesmo
+// jeito que no caminho online.
+const GIROS_VALIDOS = new Set(["confirmado", "desistencia", "sem_confirmacao"]);
+
 type LogOffline = {
   aluno_id?: string | null;
   cpf_consultado: string;
   resultado: string;
   ocorrido_em: string; // ISO — hora real do evento, capturada offline pelo gateway
+  giro?: string;
 };
 
 type SincronizarLogsPayload = {
@@ -91,6 +99,7 @@ Deno.serve(async (req: Request) => {
         resultado: l.resultado,
         validado_offline: true,
         created_at: l.ocorrido_em || new Date().toISOString(),
+        giro: l.giro && GIROS_VALIDOS.has(l.giro) ? l.giro : null,
       }));
 
     if (linhas.length === 0) return jsonResponse({ inseridos: 0 });

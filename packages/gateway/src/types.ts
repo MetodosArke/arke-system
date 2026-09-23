@@ -25,7 +25,30 @@ export interface GatewayConfig {
    */
   escuta_host: string;
   escuta_porta: number;
+  /**
+   * Quando um acesso liberado vira presença.
+   *
+   * `decisao`: na hora da liberação. É o que dá para fazer com equipamento
+   * que não informa o giro — o "liberado" é o melhor sinal disponível.
+   *
+   * `catra_event`: só quando a catraca confirma que o aluno passou. Exige o
+   * Monitor da Control iD configurado para este gateway (exclusivo da
+   * iDBlock). Sem isso, a desistência na frente da borboleta contaria como
+   * presença — e presença alimenta constância, inércia e avanço de fase.
+   */
+  confirmacao_giro: ConfirmacaoGiro;
+  /** Quanto esperar o catra_event antes de desistir dele. */
+  timeout_giro_ms: number;
 }
+
+export type ConfirmacaoGiro = "decisao" | "catra_event";
+
+/**
+ * Desfecho físico de um acesso liberado. `sem_confirmacao` conta como
+ * presença: a desistência chega como evento próprio, então a ausência de
+ * evento é problema de Monitor, não do aluno.
+ */
+export type Giro = "confirmado" | "desistencia" | "sem_confirmacao";
 
 /** Status operacional exibido no ícone da bandeja do sistema. */
 export type StatusGateway = "online" | "contingencia" | "offline";
@@ -63,6 +86,8 @@ export interface ResultadoValidacao {
   alunoId?: string | null;
   /** true quando a decisão veio do cache local (SQLite/NeDB), não da nuvem. */
   validadoOffline: boolean;
+  /** Registro criado pela nuvem, para confirmar o giro depois. Só no caminho online. */
+  logId?: string;
 }
 
 /** Contrato real da Edge Function catraca-validar-acesso (Supabase). */
@@ -70,6 +95,7 @@ export interface RespostaValidarAcessoCloud {
   liberado?: boolean;
   motivo?: string;
   aluno_nome?: string;
+  log_id?: string;
   error?: string;
 }
 
@@ -91,6 +117,7 @@ export interface RespostaSincronizarAlunosCloud {
 export type ResultadoLog =
   | "liberado"
   | "negado_inadimplente"
+  | "negado_pausado"
   | "negado_nao_encontrado"
   | "negado_catraca_inativa";
 
@@ -100,4 +127,6 @@ export interface LogAcessoPendente {
   resultado: ResultadoLog;
   ocorrido_em: string; // ISO
   sincronizado: boolean;
+  /** Desfecho do giro; "pendente" enquanto a catraca não confirmou. */
+  giro?: Giro | "pendente";
 }

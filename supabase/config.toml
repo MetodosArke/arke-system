@@ -63,3 +63,6 @@ verify_jwt = false
 
 [functions.catraca-sincronizar-logs-offline]
 verify_jwt = false
+
+[functions.catraca-confirmar-giro]
+verify_jwt = false

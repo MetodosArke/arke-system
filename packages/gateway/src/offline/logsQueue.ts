@@ -24,8 +24,20 @@ export class LogsQueue {
     });
   }
 
-  async adicionar(log: LogAcessoPendente): Promise<void> {
-    await this.db.insert(log);
+  /** Devolve o id local, para o giro poder ser fechado depois. */
+  async adicionar(log: LogAcessoPendente): Promise<string> {
+    const doc = await this.db.insert(log);
+    return doc._id as string;
+  }
+
+  /**
+   * Fecha o giro de um acesso da contingência que ainda não subiu. Se já
+   * subiu, não há o que fazer daqui: a nuvem fecha os giros que ficarem
+   * pendentes (fechar_giros_pendentes) como sem confirmação.
+   */
+  async fecharGiro(id: string, giro: LogAcessoPendente["giro"]): Promise<boolean> {
+    const n = await this.db.update({ _id: id, sincronizado: false }, { $set: { giro } });
+    return n > 0;
   }
 
   async listarPendentes(limite = 500): Promise<(LogAcessoPendente & { _id: string })[]> {

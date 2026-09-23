@@ -5,6 +5,8 @@
   "catraca_ip": "192.168.0.50",
   "catraca_porta": 3000,
   "modelo_catraca": "controlid",
-  "tempo_timeout_ms": 300,
-  "sincronizar_alunos_intervalo_ms": 300000
+  "tempo_timeout_ms": 1000,
+  "sincronizar_alunos_intervalo_ms": 300000,
+  "confirmacao_giro": "decisao",
+  "timeout_giro_ms": 30000
 }

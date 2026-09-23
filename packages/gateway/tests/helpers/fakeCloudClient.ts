@@ -1,5 +1,5 @@
-import type { ICloudClient } from "../../src/cloud/client";
-import type { Credencial, RespostaSincronizarAlunosCloud, RespostaValidarAcessoCloud } from "../../src/types";
+import type { ICloudClient, LogOfflineCloud, OpcoesValidacao } from "../../src/cloud/client";
+import type { Credencial, Giro, RespostaSincronizarAlunosCloud, RespostaValidarAcessoCloud } from "../../src/types";
 
 /**
  * Fake do cliente da nuvem para os testes — sem axios, sem rede. Cada
@@ -11,7 +11,13 @@ export class FakeCloudClient implements ICloudClient {
 
   respostaSincronizarAlunos: RespostaSincronizarAlunosCloud = { alunos: [] };
 
-  logsRecebidos: { aluno_id: string | null; cpf_consultado: string; resultado: string; ocorrido_em: string }[] = [];
+  logsRecebidos: LogOfflineCloud[] = [];
+
+  /** Opções de cada validação, para conferir se o gateway pediu para aguardar o giro. */
+  opcoesRecebidas: OpcoesValidacao[] = [];
+  /** Giros confirmados, na ordem em que chegaram. */
+  girosConfirmados: { logId: string; giro: Giro }[] = [];
+  erroConfirmarGiro: Error | null = null;
   erroSincronizarLogs: Error | null = null;
 
   /** Guarda o que foi pedido, para os testes afirmarem QUAL credencial chegou à nuvem. */
@@ -21,8 +27,9 @@ export class FakeCloudClient implements ICloudClient {
     return this.validarCredencial({ tipo: "cpf", valor: cpf });
   }
 
-  async validarCredencial(credencial: Credencial): Promise<RespostaValidarAcessoCloud> {
+  async validarCredencial(credencial: Credencial, opcoes: OpcoesValidacao = {}): Promise<RespostaValidarAcessoCloud> {
     this.credenciaisRecebidas.push(credencial);
+    this.opcoesRecebidas.push(opcoes);
     if (this.erroValidarAcesso) throw this.erroValidarAcesso;
     if (!this.respostaValidarAcesso) throw new Error("FakeCloudClient: respostaValidarAcesso não configurada");
     return this.respostaValidarAcesso;
@@ -32,9 +39,13 @@ export class FakeCloudClient implements ICloudClient {
     return this.respostaSincronizarAlunos;
   }
 
-  async sincronizarLogsOffline(
-    logs: { aluno_id: string | null; cpf_consultado: string; resultado: string; ocorrido_em: string }[]
-  ): Promise<{ inseridos: number }> {
+  async confirmarGiro(logId: string, giro: Giro): Promise<{ atualizado: number }> {
+    if (this.erroConfirmarGiro) throw this.erroConfirmarGiro;
+    this.girosConfirmados.push({ logId, giro });
+    return { atualizado: 1 };
+  }
+
+  async sincronizarLogsOffline(logs: LogOfflineCloud[]): Promise<{ inseridos: number }> {
     if (this.erroSincronizarLogs) throw this.erroSincronizarLogs;
     this.logsRecebidos.push(...logs);
     return { inseridos: logs.length };

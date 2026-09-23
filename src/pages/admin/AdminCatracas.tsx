@@ -63,7 +63,7 @@ export default function AdminCatracas() {
       const { data, error } = await supabase
         .from("acessos_catraca_logs")
         .select(
-          "id, resultado, cpf_consultado, created_at, validado_offline, parceiro_externo, nome_visitante_externo, organizacao_catracas(nome)"
+          "id, resultado, giro, cpf_consultado, created_at, validado_offline, parceiro_externo, nome_visitante_externo, organizacao_catracas(nome)"
         )
         .eq("organization_id", organization!.id)
         .order("created_at", { ascending: false })
@@ -191,6 +191,7 @@ export default function AdminCatracas() {
     liberado: { label: "Liberado", variant: "default" },
     liberado_parceiro_externo: { label: "Liberado (parceiro)", variant: "default" },
     negado_inadimplente: { label: "Inadimplente", variant: "destructive" },
+    negado_pausado: { label: "Matrícula pausada", variant: "secondary" },
     negado_nao_encontrado: { label: "Não encontrado", variant: "secondary" },
     negado_catraca_inativa: { label: "Dispositivo inativo", variant: "secondary" },
     negado_sem_agendamento: { label: "Sem agendamento", variant: "secondary" },
@@ -397,7 +398,15 @@ export default function AdminCatracas() {
             <p className="text-sm text-muted-foreground text-center py-4">Nenhum acesso registrado ainda.</p>
           )}
           {logs.map((log) => {
-            const info = RESULTADO_LABEL[log.resultado] ?? { label: log.resultado, variant: "secondary" as const };
+            // Liberado e desistiu é outra coisa: a catraca abriu e o aluno não
+            // passou — e por isso não virou presença. Mostrar só "Liberado"
+            // faria a recepção procurar uma presença que, com razão, não existe.
+            const info =
+              log.resultado === "liberado" && log.giro === "desistencia"
+                ? { label: "Liberado, não passou", variant: "secondary" as const }
+                : log.resultado === "liberado" && log.giro === "pendente"
+                  ? { label: "Liberado, aguardando giro", variant: "secondary" as const }
+                  : (RESULTADO_LABEL[log.resultado] ?? { label: log.resultado, variant: "secondary" as const });
             return (
               <div key={log.id} className="flex items-center justify-between gap-2 text-sm border-b border-border last:border-0 py-1.5">
                 <div className="min-w-0">

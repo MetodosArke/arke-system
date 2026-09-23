@@ -1,11 +1,12 @@
 import { EventEmitter } from "node:events";
-import type { ICloudClient } from "../cloud/client";
+import type { ICloudClient, OpcoesValidacao } from "../cloud/client";
 import type { AlunosCache } from "../offline/alunosCache";
 import type { LogsQueue } from "../offline/logsQueue";
 import type { CatracaDriver } from "../drivers/CatracaDriver";
 import type {
   Credencial,
   GatewayConfig,
+  Giro,
   LeituraCredencial,
   ResultadoLog,
   ResultadoValidacao,
@@ -104,10 +105,10 @@ export class GatewayService extends EventEmitter {
    * por biometria no equipamento. Tenta a nuvem dentro do timeout e cai
    * para o cache local se ela falhar ou demorar.
    */
-  async validarCredencial(credencial: Credencial): Promise<ResultadoValidacao> {
+  async validarCredencial(credencial: Credencial, opcoes: OpcoesValidacao = {}): Promise<ResultadoValidacao> {
     try {
       const resposta = this.cloud.validarCredencial
-        ? await this.cloud.validarCredencial(credencial)
+        ? await this.cloud.validarCredencial(credencial, opcoes)
         : await this.cloud.validarAcesso(credencial.valor);
       if (resposta.error) throw new Error(resposta.error);
       this.setStatus("online");
@@ -116,6 +117,7 @@ export class GatewayService extends EventEmitter {
         mensagem: resposta.motivo ?? "",
         nomeAluno: resposta.aluno_nome,
         validadoOffline: false,
+        logId: resposta.log_id,
       };
     } catch (err) {
       logger.warn(
@@ -164,24 +166,56 @@ export class GatewayService extends EventEmitter {
   }
 
   private async registrarLogSeNecessario(cpf: string, resultado: ResultadoValidacao): Promise<void> {
-    // Validações online já são gravadas em acessos_catraca_logs pela
-    // própria catraca-validar-acesso — só a contingência offline precisa
-    // entrar na fila local para sincronizar depois.
-    if (!resultado.validadoOffline) return;
+    await this.registrarAcessoOffline(cpf, resultado);
+  }
 
-    const resultadoLog = this.classificarResultadoLog(resultado);
-    await this.logsQueue.adicionar({
+  /**
+   * Enfileira um acesso decidido na contingência, e devolve o id local para
+   * o giro ser fechado depois. Validações online já são gravadas pela
+   * própria catraca-validar-acesso; aqui só entra o que foi decidido pelo
+   * cache. Público porque os receptores de fabricante decidem por conta
+   * própria e também precisam registrar — antes o da Control iD não
+   * registrava, e o acesso pela catraca na queda de internet se perdia.
+   */
+  async registrarAcessoOffline(
+    credencialLog: string,
+    resultado: ResultadoValidacao,
+    giro?: Giro | "pendente"
+  ): Promise<string | null> {
+    if (!resultado.validadoOffline) return null;
+    return this.logsQueue.adicionar({
       aluno_id: resultado.alunoId ?? null,
-      cpf_consultado: cpf,
-      resultado: resultadoLog,
+      cpf_consultado: credencialLog,
+      resultado: this.classificarResultadoLog(resultado),
       ocorrido_em: new Date().toISOString(),
       sincronizado: false,
+      ...(giro ? { giro } : {}),
     });
+  }
+
+  /**
+   * Fecha o giro de um acesso liberado. Melhor esforço: se a nuvem não
+   * responder, o registro fica pendente e fechar_giros_pendentes() o fecha
+   * como sem confirmação — que conta presença. Um aviso perdido pode, no
+   * pior caso, contar uma desistência; nunca apagar a presença de quem
+   * entrou.
+   */
+  async concluirGiro(alvo: { logId?: string; localId?: string | null }, giro: Giro): Promise<void> {
+    try {
+      if (alvo.logId && this.cloud.confirmarGiro) {
+        await this.cloud.confirmarGiro(alvo.logId, giro);
+      } else if (alvo.localId) {
+        await this.logsQueue.fecharGiro(alvo.localId, giro);
+      }
+    } catch (err) {
+      logger.warn({ err: (err as Error).message, giro }, "Não foi possível registrar o giro — a nuvem fecha como sem confirmação");
+    }
   }
 
   private classificarResultadoLog(resultado: ResultadoValidacao): ResultadoLog {
     if (resultado.liberado) return "liberado";
     const mensagem = resultado.mensagem.toLowerCase();
+    if (mensagem.includes("pausad")) return "negado_pausado";
     if (mensagem.includes("atraso")) return "negado_inadimplente";
     if (mensagem.includes("não encontrado")) return "negado_nao_encontrado";
     return "negado_catraca_inativa";
@@ -211,6 +245,7 @@ export class GatewayService extends EventEmitter {
           cpf_consultado: p.cpf_consultado,
           resultado: p.resultado,
           ocorrido_em: p.ocorrido_em,
+          ...(p.giro ? { giro: p.giro } : {}),
         }))
       );
       await this.logsQueue.marcarSincronizados(pendentes.map((p) => p._id));

@@ -2,9 +2,24 @@ import axios, { type AxiosInstance } from "axios";
 import type {
   Credencial,
   GatewayConfig,
+  Giro,
   RespostaSincronizarAlunosCloud,
   RespostaValidarAcessoCloud,
 } from "../types";
+
+/** Um acesso decidido na contingência, do jeito que sobe para a nuvem. */
+export type LogOfflineCloud = {
+  aluno_id: string | null;
+  cpf_consultado: string;
+  resultado: string;
+  ocorrido_em: string;
+  giro?: Giro | "pendente";
+};
+
+export type OpcoesValidacao = {
+  /** A catraca vai confirmar o giro depois; o registro nasce pendente. */
+  aguardarGiro?: boolean;
+};
 
 /**
  * Interface do cliente da nuvem — o GatewayService depende disto (não da
@@ -14,10 +29,12 @@ import type {
 export interface ICloudClient {
   validarAcesso(cpf: string): Promise<RespostaValidarAcessoCloud>;
   /** Validação por credencial tipada — o caminho da biometria passa por aqui. */
-  validarCredencial?(credencial: Credencial): Promise<RespostaValidarAcessoCloud>;
+  validarCredencial?(credencial: Credencial, opcoes?: OpcoesValidacao): Promise<RespostaValidarAcessoCloud>;
+  /** Fecha o giro de um acesso liberado online. */
+  confirmarGiro?(logId: string, giro: Giro): Promise<{ atualizado: number }>;
   sincronizarAlunos(): Promise<RespostaSincronizarAlunosCloud>;
   sincronizarLogsOffline(
-    logs: { aluno_id: string | null; cpf_consultado: string; resultado: string; ocorrido_em: string }[]
+    logs: LogOfflineCloud[]
   ): Promise<{ inseridos: number }>;
 }
 
@@ -43,7 +60,7 @@ export class CloudClient implements ICloudClient {
 
   /**
    * POST /catraca-validar-acesso — alvo de latência: responder dentro do
-   * timeout configurado (padrão 300ms). Deixa o timeout do axios estourar
+   * timeout configurado (padrão 1000 ms — ver config.ts). Deixa o timeout do axios estourar
    * naturalmente; quem decide o fallback offline é o chamador
    * (GatewayService), não este cliente.
    */
@@ -57,7 +74,7 @@ export class CloudClient implements ICloudClient {
    * espaço para elas discordarem, e aí a catraca decide por desempate
    * acidental em vez de por regra.
    */
-  async validarCredencial(credencial: Credencial): Promise<RespostaValidarAcessoCloud> {
+  async validarCredencial(credencial: Credencial, opcoes: OpcoesValidacao = {}): Promise<RespostaValidarAcessoCloud> {
     const corpo =
       credencial.tipo === "cpf"
         ? { cpf: credencial.valor }
@@ -66,8 +83,24 @@ export class CloudClient implements ICloudClient {
     const { data } = await this.http.post<RespostaValidarAcessoCloud>("/catraca-validar-acesso", {
       device_token: this.token,
       ...corpo,
+      ...(opcoes.aguardarGiro ? { aguardar_giro: true } : {}),
     });
     return data;
+  }
+
+  /**
+   * POST /catraca-confirmar-giro. Fora do timeout curto da validação: a
+   * catraca já girou, ninguém está esperando na frente dela, e perder esta
+   * chamada por pressa custaria a presença do aluno.
+   */
+  async confirmarGiro(logId: string, giro: Giro): Promise<{ atualizado: number }> {
+    const { data } = await this.http.post<{ atualizado?: number; error?: string }>(
+      "/catraca-confirmar-giro",
+      { device_token: this.token, log_id: logId, giro },
+      { timeout: 10_000 }
+    );
+    if (data.error) throw new Error(data.error);
+    return { atualizado: data.atualizado ?? 0 };
   }
 
   /** POST /catraca-sincronizar-alunos — atualiza o cache offline local. */
@@ -83,7 +116,7 @@ export class CloudClient implements ICloudClient {
    * decididos localmente enquanto a internet estava fora.
    */
   async sincronizarLogsOffline(
-    logs: { aluno_id: string | null; cpf_consultado: string; resultado: string; ocorrido_em: string }[]
+    logs: LogOfflineCloud[]
   ): Promise<{ inseridos: number }> {
     const { data } = await this.http.post<{ inseridos: number; error?: string }>(
       "/catraca-sincronizar-logs-offline",
