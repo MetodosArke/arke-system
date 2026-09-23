@@ -14,13 +14,19 @@ const jsonResponse = (body: unknown, status = 200) =>
 
 type SincronizarPayload = {
   device_token: string;
+  /** `sincronizado_em` da última sincronização — pede só a diferença. */
+  desde?: string;
+  /** Força a lista inteira (o Gateway pede quando o hash não bate). */
+  completo?: boolean;
 };
 
 // ARKE® Gateway Local — alimenta o cache offline do middleware Node.js
 // (SQLite/NeDB local) com a lista de alunos ativos da organização, para
 // que a catraca continue liberando/bloqueando mesmo sem internet. O
-// gateway chama isto periodicamente (ex.: a cada poucos minutos) e
-// substitui seu cache local pelo resultado. Mesmo padrão de autenticação
+// gateway chama isto a cada 5 minutos. Desde 23/09/2026 devolve só a
+// diferença desde a última sincronização, conferida por hash — antes era a
+// lista inteira toda vez, e isso era quase todo o tráfego da plataforma.
+// Mesmo padrão de autenticação
 // via device_token de catraca-validar-acesso (verify_jwt=false).
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
@@ -74,65 +80,51 @@ Deno.serve(async (req: Request) => {
         if (error) console.error("Falha ao registrar heartbeat da catraca", error);
       });
 
-    const { data: alunos, error: alunosError } = await admin
-      .from("alunos")
-      .select("id, user_id, identificador_catraca")
-      .eq("organization_id", catraca.organization_id);
-    if (alunosError) {
-      console.error("Erro ao listar alunos:", alunosError);
+    // Pedido de diferença: o Gateway manda o `sincronizado_em` da última
+    // sincronização. Sem ele, ou se for velho demais, vai a lista inteira —
+    // uma semana sem sincronizar é caso de reinstalação, não de diferença.
+    const desdeTexto = payload.completo ? undefined : payload.desde;
+    const desde = desdeTexto ? new Date(desdeTexto) : null;
+    const diferenca =
+      !!desde && !Number.isNaN(desde.getTime()) && Date.now() - desde.getTime() < 7 * 24 * 3600_000;
+    // Dois minutos de sobreposição: uma linha gravada durante a sincronização
+    // anterior não pode cair no vão entre as duas. Repetir é inofensivo — o
+    // Gateway aplica por aluno_id.
+    const agora = new Date();
+    const aPartirDe = diferenca ? new Date(desde!.getTime() - 120_000).toISOString() : null;
+
+    const [{ data: linhas, error: erroLinhas }, { data: hash, error: erroHash }] = await Promise.all([
+      admin.rpc("alunos_catraca", { _organization_id: catraca.organization_id, _desde: aPartirDe }),
+      admin.rpc("alunos_catraca_hash", { _organization_id: catraca.organization_id }),
+    ]);
+    if (erroLinhas || erroHash) {
+      console.error("Erro ao montar a sincronização:", (erroLinhas ?? erroHash)?.code);
       return jsonResponse({ error: "Falha ao listar alunos." }, 500);
     }
 
-    // A mesma regra do caminho online (aluno_barrado_na_catraca), em lote:
-    // situacao_permite_app, com a tolerância de 5 dias do inadimplente e o
-    // pausado barrado. O campo continua se chamando "inadimplente" porque é
-    // o contrato com gateways já instalados — o sentido agora é "não entra".
-    // A tolerância é avaliada na sincronização, então pode atrasar pelo
-    // intervalo dela (5 min por padrão); na contingência, é aceitável.
-    const { data: barrados, error: barradosError } = await admin.rpc("alunos_barrados_na_catraca", {
-      _organization_id: catraca.organization_id,
+    type Linha = {
+      aluno_id: string;
+      cpf: string;
+      identificador_catraca: string | null;
+      nome: string;
+      inadimplente: boolean;
+      remover: boolean;
+    };
+    const todas = (linhas ?? []) as Linha[];
+    const semRemover = ({ remover: _r, ...resto }: Linha) => resto;
+
+    // `ids_hash` é a impressão digital do conjunto que o cache deve ter. O
+    // Gateway aplica a diferença, calcula o hash do próprio cache e, se não
+    // bater, pede a lista inteira. É o que cobre exclusão de aluno — que
+    // não deixa linha para aparecer na diferença — e qualquer divergência
+    // que ninguém previu.
+    return jsonResponse({
+      completo: !diferenca,
+      alunos: todas.filter((l) => !l.remover).map(semRemover),
+      remover: diferenca ? todas.filter((l) => l.remover).map((l) => l.aluno_id) : [],
+      ids_hash: hash,
+      sincronizado_em: agora.toISOString(),
     });
-    if (barradosError) {
-      console.error("Erro ao listar alunos barrados:", barradosError);
-      return jsonResponse({ error: "Falha ao calcular quem pode entrar." }, 500);
-    }
-    const alunosBarrados = new Set((barrados ?? []) as string[]);
-
-    const userIds = (alunos ?? []).map((a) => a.user_id);
-    const { data: profiles, error: profilesError } = userIds.length
-      ? await admin.from("profiles").select("user_id, full_name, cpf").in("user_id", userIds)
-      : { data: [] as { user_id: string; full_name: string; cpf: string | null }[], error: null };
-    if (profilesError) {
-      console.error("Erro ao listar perfis:", profilesError);
-      return jsonResponse({ error: "Falha ao listar perfis." }, 500);
-    }
-
-    const profileByUserId = new Map((profiles ?? []).map((p) => [p.user_id, p]));
-
-    const lista = (alunos ?? [])
-      .map((a) => {
-        const profile = profileByUserId.get(a.user_id);
-        const cpf = profile?.cpf?.replace(/\D/g, "") ?? "";
-        const identificador = a.identificador_catraca ?? null;
-
-        // Antes isto exigia CPF e descartava o resto. Com liberação por
-        // digital o equipamento devolve o identificador dele, não um CPF —
-        // e o aluno que só tem biometria cadastrada é justamente quem não
-        // pode faltar no cache de contingência. Basta ter uma das duas
-        // chaves; sem nenhuma, não há como validar offline.
-        if (!cpf && !identificador) return null;
-
-        return {
-          aluno_id: a.id,
-          cpf,
-          identificador_catraca: identificador,
-          nome: profile?.full_name ?? "",
-          inadimplente: alunosBarrados.has(a.id),
-        };
-      })
-      .filter((v): v is NonNullable<typeof v> => v !== null);
-
-    return jsonResponse({ alunos: lista, sincronizado_em: new Date().toISOString() });
   } catch (error) {
     console.error("Erro inesperado em catraca-sincronizar-alunos:", error);
     return jsonResponse({ error: "Erro inesperado ao sincronizar alunos." }, 500);

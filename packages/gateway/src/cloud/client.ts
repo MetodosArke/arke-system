@@ -16,6 +16,13 @@ export type LogOfflineCloud = {
   giro?: Giro | "pendente";
 };
 
+export type OpcoesSincronizacao = {
+  /** `sincronizado_em` da última sincronização: pede só a diferença. */
+  desde?: string;
+  /** Força a lista inteira. */
+  completo?: boolean;
+};
+
 export type OpcoesValidacao = {
   /** A catraca vai confirmar o giro depois; o registro nasce pendente. */
   aguardarGiro?: boolean;
@@ -32,7 +39,7 @@ export interface ICloudClient {
   validarCredencial?(credencial: Credencial, opcoes?: OpcoesValidacao): Promise<RespostaValidarAcessoCloud>;
   /** Fecha o giro de um acesso liberado online. */
   confirmarGiro?(logId: string, giro: Giro): Promise<{ atualizado: number }>;
-  sincronizarAlunos(): Promise<RespostaSincronizarAlunosCloud>;
+  sincronizarAlunos(opcoes?: OpcoesSincronizacao): Promise<RespostaSincronizarAlunosCloud>;
   sincronizarLogsOffline(
     logs: LogOfflineCloud[]
   ): Promise<{ inseridos: number }>;
@@ -104,10 +111,18 @@ export class CloudClient implements ICloudClient {
   }
 
   /** POST /catraca-sincronizar-alunos — atualiza o cache offline local. */
-  async sincronizarAlunos(): Promise<RespostaSincronizarAlunosCloud> {
-    const { data } = await this.http.post<RespostaSincronizarAlunosCloud>("/catraca-sincronizar-alunos", {
-      device_token: this.token,
-    });
+  async sincronizarAlunos(opcoes: OpcoesSincronizacao = {}): Promise<RespostaSincronizarAlunosCloud> {
+    const { data } = await this.http.post<RespostaSincronizarAlunosCloud>(
+      "/catraca-sincronizar-alunos",
+      {
+        device_token: this.token,
+        ...(opcoes.desde ? { desde: opcoes.desde } : {}),
+        ...(opcoes.completo ? { completo: true } : {}),
+      },
+      // A lista inteira de uma academia grande não cabe no timeout curto da
+      // validação de acesso; ninguém está esperando na catraca por ela.
+      { timeout: 15_000 }
+    );
     return data;
   }
 

@@ -2,8 +2,10 @@ import { useNavigate } from "react-router-dom";
 import {
   PRECISA_ATENCAO,
   ROTULO,
+  problemaCapacidade,
   problemaReconciliacao,
   rotinasComProblema,
+  useCapacidadeBanco,
   useSaudeRotinas,
   useUltimaReconciliacao,
 } from "@/lib/rotinas";
@@ -29,24 +31,32 @@ function quando(iso: string | null): string {
 export function AvisoRotinas() {
   const { data } = useSaudeRotinas();
   const { data: reconciliacao } = useUltimaReconciliacao();
+  const { data: capacidade } = useCapacidadeBanco();
   const navigate = useNavigate();
   const problemas = rotinasComProblema(data);
   const problemaFinanceiro = problemaReconciliacao(reconciliacao);
-  if (problemas.length === 0 && !problemaFinanceiro) return null;
+  const problemaBanco = problemaCapacidade(capacidade);
+  if (problemas.length === 0 && !problemaFinanceiro && !problemaBanco) return null;
 
   const texto =
     problemas.length === 0
-      ? problemaFinanceiro
+      ? (problemaFinanceiro ?? problemaBanco)
       : problemas.length === 1
         ? `A rotina "${problemas[0].nome}" ${ROTULO[problemas[0].situacao]}`
         : `${problemas.length} rotinas agendadas precisam de atenção`;
-  // Duas coisas ao mesmo tempo: a faixa mostra a de rotina e avisa que há mais.
-  const extra = problemas.length > 0 && problemaFinanceiro ? " · e há divergência na reconciliação" : "";
+  // Várias coisas ao mesmo tempo: a faixa mostra a primeira e avisa que há mais.
+  const extras = [
+    problemas.length > 0 && problemaFinanceiro ? "há divergência na reconciliação" : null,
+    (problemas.length > 0 || problemaFinanceiro) && problemaBanco ? "o banco está perto do limite" : null,
+  ].filter(Boolean);
+  const extra = extras.length ? ` · e ${extras.join(" e ")}` : "";
+  // Só o banco: o que resolve é o limite, em Configurações.
+  const destino = !problemas.length && !problemaFinanceiro ? "/superadmin/configuracoes" : "/superadmin/webhooks";
 
   return (
     <button
       type="button"
-      onClick={() => navigate("/superadmin/webhooks")}
+      onClick={() => navigate(destino)}
       className="flex w-full items-center justify-center gap-2 bg-destructive px-4 py-2 text-sm font-medium text-destructive-foreground"
     >
       <AlertTriangle className="h-4 w-4" />

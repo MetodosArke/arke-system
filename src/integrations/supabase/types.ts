@@ -5378,6 +5378,10 @@ export type Database = {
         Returns: number
       }
       aluno_dias_inativo: { Args: { _aluno_id: string }; Returns: number }
+      aluno_elegivel_catraca: {
+        Args: { _anonimizado_em: string; _cpf: string; _identificador: string }
+        Returns: boolean
+      }
       aluno_fase_desde: { Args: { _aluno_id: string }; Returns: string }
       aluno_inadimplente_b2c: { Args: { _aluno_id: string }; Returns: boolean }
       aluno_mensalidade_vencida: {
@@ -5388,9 +5392,20 @@ export type Database = {
         Args: { _aluno_id: string }
         Returns: boolean
       }
-      alunos_barrados_na_catraca: {
+      alunos_catraca: {
+        Args: { _desde?: string; _organization_id: string }
+        Returns: {
+          aluno_id: string
+          cpf: string
+          identificador_catraca: string
+          inadimplente: boolean
+          nome: string
+          remover: boolean
+        }[]
+      }
+      alunos_catraca_hash: {
         Args: { _organization_id: string }
-        Returns: string[]
+        Returns: string
       }
       anamnese_para_auditoria: { Args: { _aluno_id: string }; Returns: string }
       arke_taxa_processamento: { Args: { _valor: number }; Returns: number }
@@ -5414,6 +5429,17 @@ export type Database = {
       atualizar_meta_agua_aluno: {
         Args: { _meta_ml: number }
         Returns: undefined
+      }
+      avaliar_capacidade: {
+        Args: never
+        Returns: {
+          detalhe: string
+          limite_mb: number
+          nome: string
+          percentual: number
+          situacao: string
+          usado_mb: number
+        }[]
       }
       avaliar_rotinas: {
         Args: never
@@ -5747,6 +5773,17 @@ export type Database = {
           trial_fim: string
         }[]
       }
+      get_superadmin_capacidade: {
+        Args: never
+        Returns: {
+          detalhe: string
+          limite_mb: number
+          nome: string
+          percentual: number
+          situacao: string
+          usado_mb: number
+        }[]
+      }
       get_superadmin_fila_global: {
         Args: never
         Returns: {
@@ -6038,6 +6075,10 @@ export type Database = {
         Args: { _plano: Database["public"]["Enums"]["plano_b2b"] }
         Returns: number
       }
+      limpar_acessos_catraca_antigos: {
+        Args: { _lote?: number }
+        Returns: number
+      }
       listar_parceiros_externos_ativos: {
         Args: { _organization_id: string }
         Returns: {
@@ -6297,6 +6338,14 @@ export type Database = {
       situacao_permite_app: {
         Args: {
           _desde: string
+          _situacao: Database["public"]["Enums"]["situacao_aluno_academia"]
+        }
+        Returns: boolean
+      }
+      situacao_permite_app_em: {
+        Args: {
+          _desde: string
+          _momento: string
           _situacao: Database["public"]["Enums"]["situacao_aluno_academia"]
         }
         Returns: boolean

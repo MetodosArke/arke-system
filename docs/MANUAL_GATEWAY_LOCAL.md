@@ -91,7 +91,9 @@ O Gateway nunca deixa a catraca "cega" mesmo sem internet — dois mecanismos de
 ### 4.1 Cache de alunos (`alunos-cache.db`)
 
 - Populado periodicamente (a cada `sincronizar_alunos_intervalo_ms`, padrão 5 min) chamando a Edge Function **`catraca-sincronizar-alunos`**, autenticada pelo mesmo `token_api_local` da catraca.
-- Cada sincronização **substitui** o cache inteiro pela lista atual de alunos ativos da organização (não é incremental) — garante que o cache nunca fique com aluno cancelado/inadimplente desatualizado por muito tempo.
+- **A primeira sincronização traz a lista inteira; as seguintes, só a diferença** desde a anterior (desde 23/09/2026). A nuvem devolve quem mudou (cadastro, CPF, situação, ou a tolerância de 5 dias do inadimplente que venceu sem ninguém editar nada), quem saiu, e o **hash dos ids** que o cache deve ter. O Gateway aplica a diferença, confere o hash e, se não bater — aluno excluído, que não deixa linha para aparecer na diferença, ou qualquer divergência não prevista —, pede a lista inteira na mesma rodada.
+- O marco da última sincronização fica **só em memória**: Gateway reiniciado começa pela lista inteira, que é o estado seguro. Marco com mais de 7 dias também recebe a lista inteira.
+- Por que isso importa: com a lista inteira a cada 5 minutos, a sincronização era quase todo o tráfego da plataforma (~75 KB por rodada numa academia de 500 alunos, ~630 MB/mês). A rodada sem mudança passou a ter ~130 bytes.
 - Quando a nuvem está fora do ar (timeout ou erro), o Gateway consulta esse cache local por CPF para decidir liberar (aluno em dia) ou negar (inadimplente/não encontrado) — sem depender da internet.
 
 ### 4.2 Fila de logs pendentes (`logs-pendentes.db`)

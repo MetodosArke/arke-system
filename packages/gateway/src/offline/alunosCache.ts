@@ -1,4 +1,5 @@
 import path from "node:path";
+import { createHash } from "node:crypto";
 import Datastore from "nedb-promises";
 import type { AlunoCache } from "../types";
 
@@ -49,5 +50,30 @@ export class AlunosCache {
 
   async contar(): Promise<number> {
     return this.db.count({});
+  }
+
+  /**
+   * Aplica a diferença vinda da nuvem: atualiza ou inclui os alterados e
+   * tira os que deixaram de poder estar no cache. Por `aluno_id`, então
+   * receber o mesmo aluno duas vezes (a nuvem sobrepõe dois minutos entre
+   * sincronizações) é inofensivo.
+   */
+  async aplicarDiferenca(alterados: AlunoCache[], remover: string[]): Promise<void> {
+    const ids = [...new Set([...alterados.map((a) => a.aluno_id), ...remover])];
+    if (ids.length) await this.db.remove({ aluno_id: { $in: ids } }, { multi: true });
+    if (alterados.length) await this.db.insert(alterados);
+  }
+
+  /**
+   * Impressão digital do conjunto: md5 dos ids em ordem, separados por
+   * vírgula — exatamente o que alunos_catraca_hash() calcula no banco. A
+   * ordem do uuid no Postgres é a de bytes, que coincide com a ordem
+   * lexicográfica do texto em minúsculas; por isso um sort() de strings
+   * basta, sem depender de collation.
+   */
+  async hashIds(): Promise<string> {
+    const docs = await this.db.find({}, { aluno_id: 1 });
+    const ids = docs.map((d) => String(d.aluno_id).toLowerCase()).sort();
+    return createHash("md5").update(ids.join(","), "utf8").digest("hex");
   }
 }

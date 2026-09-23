@@ -8,18 +8,20 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { Settings } from "lucide-react";
+import { Database, Settings } from "lucide-react";
+import { useCapacidadeBanco } from "@/lib/rotinas";
 import type { Tables } from "@/integrations/supabase/types";
 
 type ConfigRow = Tables<"plataforma_config">;
 
-const CHAVES = ["taxa_processamento_percentual", "taxa_processamento_fixa"] as const;
+const CHAVES = ["taxa_processamento_percentual", "taxa_processamento_fixa", "limite_banco_mb"] as const;
 
 export default function SuperAdminConfiguracoes() {
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [valores, setValores] = useState<Record<string, string>>({});
+  const { data: capacidade } = useCapacidadeBanco();
 
   const { data: config = [], isLoading } = useQuery({
     queryKey: ["plataforma-config"],
@@ -58,6 +60,7 @@ export default function SuperAdminConfiguracoes() {
     onSuccess: () => {
       toast({ title: "Configuração salva" });
       void queryClient.invalidateQueries({ queryKey: ["plataforma-config"] });
+      void queryClient.invalidateQueries({ queryKey: ["superadmin-capacidade"] });
     },
     onError: (error: Error) => toast({ title: "Erro ao salvar", description: error.message, variant: "destructive" }),
   });
@@ -113,6 +116,36 @@ export default function SuperAdminConfiguracoes() {
               </Button>
             </>
           )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Database className="h-4 w-4" /> Capacidade do banco
+          </CardTitle>
+          <CardDescription>
+            O alerta avisa por e-mail e na faixa da Visão Master quando o banco passa de 70% e de 85% deste limite. No
+            plano gratuito do Supabase o limite é 500 MB, e acima dele o banco fica somente leitura — nenhuma academia
+            grava nada. Depois do upgrade, informe aqui o disco contratado: o aviso passa a ser de custo, não de parada.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="space-y-1.5 max-w-xs">
+            <Label htmlFor="limite-banco">Limite (MB)</Label>
+            <Input
+              id="limite-banco"
+              inputMode="numeric"
+              value={valores.limite_banco_mb ?? ""}
+              onChange={(e) => setValores((v) => ({ ...v, limite_banco_mb: e.target.value }))}
+            />
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Em uso agora: {capacidade ? capacidade.detalhe : "—"}.
+          </p>
+          <Button onClick={() => salvar.mutate()} disabled={salvar.isPending}>
+            {salvar.isPending ? "Salvando..." : "Salvar"}
+          </Button>
         </CardContent>
       </Card>
 
