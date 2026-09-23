@@ -60,7 +60,11 @@ describe("definirProximaAcao", () => {
       aguaMl: 500,
     });
     expect(acao.chave).toBe("hidratacao");
-    expect(acao.ancora).toBe("diario-agua");
+    // Rota, não âncora: a água saiu da home e mora só na tela de dieta.
+    // Rolar a home atrás de um card que não existe mais seria pior do que
+    // não oferecer botão nenhum.
+    expect(acao.destino).toBe("/app/dieta");
+    expect(acao.ancora).toBeUndefined();
     expect(acao.descricao).toContain("1,5 L");
   });
 

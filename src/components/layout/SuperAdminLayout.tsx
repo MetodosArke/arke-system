@@ -5,13 +5,14 @@ import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { LogOut, Shield, LayoutDashboard, UserCog, Settings, Dumbbell, ScrollText, Webhook } from "lucide-react";
+import { LogOut, Shield, LayoutDashboard, UserCog, Settings, Dumbbell, ScrollText, Webhook, MessageCircle } from "lucide-react";
 
 const NAV_ITEMS = [
   { icon: LayoutDashboard, label: "Visão Geral", path: "/superadmin" },
   { icon: UserCog, label: "Profissionais", path: "/superadmin/profissionais" },
   { icon: Dumbbell, label: "Acervo Global", path: "/superadmin/acervo" },
   { icon: ScrollText, label: "Auditoria", path: "/superadmin/auditoria" },
+  { icon: MessageCircle, label: "Mentoria", path: "/superadmin/mentoria" },
   { icon: Webhook, label: "Webhooks", path: "/superadmin/webhooks" },
   { icon: Settings, label: "Configurações", path: "/superadmin/configuracoes" },
 ];
