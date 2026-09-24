@@ -5,7 +5,7 @@ import { mensagemDeErroEdge } from "@/lib/erroEdge";
 import { useAuth } from "@/contexts/AuthContext";
 import { erroCpfObrigatorio } from "@/lib/cpf";
 import { situacaoDoTexto } from "@/lib/planoAluno";
-import { mapearColunas } from "@/lib/mapaColunas";
+import { juntarPartes, mapearColunas } from "@/lib/mapaColunas";
 import { processarComLimite, CONCORRENCIA_IMPORTACAO } from "@/lib/lote";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -28,8 +28,10 @@ const LINHAS_MAXIMAS = 2000;
 
 const CAMPOS_DESTINO = [
   { value: "full_name", label: "Nome completo" },
+  { value: "sobrenome", label: "Sobrenome (junta ao nome)" },
   { value: "email", label: "E-mail" },
   { value: "telefone", label: "Telefone" },
+  { value: "ddd", label: "DDD (junta ao telefone)" },
   { value: "cpf", label: "CPF" },
   { value: "situacao", label: "Situação na academia (opcional — em dia, inadimplente, pausado)" },
   // Histórico de avaliação física — opcionais: preenchidos só se a academia
@@ -250,7 +252,7 @@ export default function AdminImportarAlunos() {
       if (campo === "ignorar") continue;
       registro[campo] = String(linha[coluna] ?? "").trim();
     }
-    return registro;
+    return juntarPartes(registro) as Record<CampoDestino, string>;
   };
 
   /**

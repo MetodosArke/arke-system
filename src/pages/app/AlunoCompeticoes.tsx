@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Medal, Crown, Clock } from "lucide-react";
 import type { Tables } from "@/integrations/supabase/types";
+import { decimal } from "@/lib/numeros";
 
 type Competicao = Tables<"competicoes">;
 
@@ -40,7 +41,7 @@ function RankingCompeticao({ competicaoId }: { competicaoId: string }) {
             {minhaPosicao === 0 ? <Crown className="h-4 w-4 text-amber-500" /> : <Medal className="h-4 w-4 text-primary" />}
             Sua posição: {minhaPosicao + 1}º lugar
           </span>
-          <span className="text-sm font-bold">{Number(ranking[minhaPosicao].valor).toFixed(1)}</span>
+          <span className="text-sm font-bold">{decimal(Number(ranking[minhaPosicao].valor), 1)}</span>
         </div>
       )}
       <div className="space-y-1">
@@ -63,7 +64,7 @@ function RankingCompeticao({ competicaoId }: { competicaoId: string }) {
                 {r.aluno_id === alunoId && <span className="text-xs text-muted-foreground"> (você)</span>}
               </span>
             </div>
-            <span className="font-medium text-muted-foreground">{Number(r.valor).toFixed(1)}</span>
+            <span className="font-medium text-muted-foreground">{decimal(Number(r.valor), 1)}</span>
           </div>
         ))}
       </div>

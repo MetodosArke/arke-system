@@ -14,7 +14,13 @@ export interface Rotina {
   execucoes_7d: number;
 }
 
-export const PRECISA_ATENCAO = new Set(["falhou", "atrasada", "nunca_rodou"]);
+// "Nunca rodou" não entra: é o estado de toda rotina recém-criada até a
+// primeira janela dela — uma semanal criada na quarta fica assim até segunda.
+// Na faixa da Visão Master isso virava alarme falso na tela que se abre todo
+// dia (24/09/2026), e o e-mail de alerta já excluía pelo mesmo motivo. Rotina
+// ativa que nunca roda é o pg_cron parado — e aí as que já rodavam aparecem
+// como "atrasada".
+export const PRECISA_ATENCAO = new Set(["falhou", "atrasada"]);
 
 export const ROTULO: Record<Rotina["situacao"], string> = {
   ok: "ok",

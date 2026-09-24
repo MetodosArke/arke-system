@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { dividirCobranca, resolverRepasse, type RepasseConfig, type TaxaProcessamento } from "@/lib/repasse";
+import { reais } from "@/lib/numeros";
 
 /** Os níveis pagos do Método. Free não tem cobrança, então não tem repasse. */
 const NIVEIS: { id: string; rotulo: string; varejoRef: number }[] = [
@@ -147,10 +148,10 @@ export function RepasseOrganizacao({ organizationId }: { organizationId: string 
         {previa.semRepasseNegociado
           ? "Informe o valor para ver a divisão."
           : !previa.cobreORepasse
-            ? `Este varejo não cobre o repasse de R$ ${previa.repasseArke!.toFixed(2)} — a cobrança seria recusada.`
-            : `ArkeFit fica com R$ ${previa.repasseArke!.toFixed(2)} (negociado R$ ${(
+            ? `Este varejo não cobre o repasse de ${reais(previa.repasseArke!)} — a cobrança seria recusada.`
+            : `ArkeFit fica com ${reais(previa.repasseArke!)} (negociado ${reais((
                 previa.repasseArke! - previa.taxaEstimada
-              ).toFixed(2)} + taxa R$ ${previa.taxaEstimada.toFixed(2)}) · academia recebe R$ ${previa.liquidoAcademia!.toFixed(2)}`}
+              ))} + taxa ${reais(previa.taxaEstimada)}) · academia recebe ${reais(previa.liquidoAcademia!)}`}
       </p>
 
       <Button size="sm" disabled={!valido || salvar.isPending} onClick={() => salvar.mutate()}>
@@ -277,7 +278,7 @@ function ExcecoesPorNivel({
             <p className="pl-[5.5rem] text-[11px] text-muted-foreground">
               {previa.semRepasseNegociado
                 ? "Sem repasse: a cobrança deste nível seria recusada."
-                : `A R$ ${n.varejoRef}: ArkeFit R$ ${previa.repasseArke!.toFixed(2)} · academia R$ ${previa.liquidoAcademia!.toFixed(2)}`}
+                : `A R$ ${n.varejoRef}: ArkeFit ${reais(previa.repasseArke!)} · academia ${reais(previa.liquidoAcademia!)}`}
             </p>
           </div>
         );

@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/dialog";
 import { mensagemDeErroEdge } from "@/lib/erroEdge";
 import { PauseCircle, PlayCircle, Pencil, XCircle } from "lucide-react";
+import { reais } from "@/lib/numeros";
 
 type Assinatura = {
   status: string;
@@ -72,7 +73,7 @@ export function CicloAssinatura({
           vencidas > 0
             ? `${vencidas} cobrança(s) já vencida(s) continuam valendo — são de período já usado.`
             : encerrado > 0
-              ? `Cancelada. R$ ${encerrado.toFixed(2)} em aberto deixaram de ser cobráveis.`
+              ? `Cancelada. ${reais(encerrado)} em aberto deixaram de ser cobráveis.`
               : "Feito.",
       });
       setDialogo(null);

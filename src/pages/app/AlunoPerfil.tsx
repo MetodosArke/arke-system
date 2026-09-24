@@ -13,6 +13,7 @@ import { LogOut, Ruler, Droplets, Wallet, Sparkles, ShieldCheck } from "lucide-r
 import { useToast } from "@/hooks/use-toast";
 import type { Tables } from "@/integrations/supabase/types";
 import { CartaoAssinatura } from "@/components/pagamento/CartaoAssinatura";
+import { MinhasMensalidades } from "@/components/pagamento/MinhasMensalidades";
 
 export default function AlunoPerfil() {
   const { user, profile, organization, alunoId, signOut, planoAluno } = useAuth();
@@ -134,6 +135,8 @@ export default function AlunoPerfil() {
           </CardContent>
         </Card>
       )}
+
+      {alunoId && <MinhasMensalidades alunoId={alunoId} />}
 
       {pagamento?.assinatura && (
         <Card>

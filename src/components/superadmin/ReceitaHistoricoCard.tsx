@@ -15,6 +15,7 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { TrendingUp, TrendingDown, Minus } from "lucide-react";
+import { decimal } from "@/lib/numeros";
 
 type PontoHistorico = {
   mes: string;
@@ -37,7 +38,7 @@ const formatarMoeda = (valor: number) =>
   valor.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
 const formatarMoedaCompacta = (valor: number) =>
-  valor >= 1000 ? `R$ ${(valor / 1000).toFixed(valor >= 10000 ? 0 : 1)}k` : `R$ ${valor.toFixed(0)}`;
+  valor >= 1000 ? `R$ ${decimal(valor / 1000, valor >= 10000 ? 0 : 1)}k` : `R$ ${decimal(valor, 0)}`;
 
 const formatarMesCurto = (mes: string) => {
   // mes vem como 'YYYY-MM-DD' (primeiro dia). Monta a data em UTC para não
@@ -58,7 +59,7 @@ function VariacaoBadge({ atual, anterior }: { atual: number; anterior: number | 
     <span className={`text-xs font-medium flex items-center gap-1 ${cor}`}>
       <Icon className="h-3 w-3" />
       {variacao > 0 ? "+" : ""}
-      {variacao.toFixed(1)}% vs. mês anterior
+      {decimal(variacao, 1)}% vs. mês anterior
     </span>
   );
 }

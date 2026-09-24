@@ -53,7 +53,7 @@ beforeEach(() => {
 });
 
 describe("rotinasComProblema", () => {
-  it("pega falha, parada e nunca rodou; ignora ok e desativada", () => {
+  it("pega falha e parada; ignora ok, desativada e a que ainda não teve a primeira janela", () => {
     const lista = [
       rotina({ nome: "a", situacao: "ok" }),
       rotina({ nome: "b", situacao: "falhou" }),
@@ -61,7 +61,7 @@ describe("rotinasComProblema", () => {
       rotina({ nome: "d", situacao: "nunca_rodou" }),
       rotina({ nome: "e", situacao: "desativada" }),
     ];
-    expect(rotinasComProblema(lista).map((r) => r.nome)).toEqual(["b", "c", "d"]);
+    expect(rotinasComProblema(lista).map((r) => r.nome)).toEqual(["b", "c"]);
   });
 });
 

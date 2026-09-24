@@ -10,6 +10,7 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import { calcularStatusMetas, type StatusMeta } from "@/lib/evolucaoPontos";
 import PontuacaoEngajamento from "@/components/aluno/PontuacaoEngajamento";
 import type { Tables } from "@/integrations/supabase/types";
+import { decimal } from "@/lib/numeros";
 
 type Avaliacao = Tables<"avaliacoes_fisicas">;
 type MetricaCustomizada = Tables<"metricas_customizadas">;
@@ -42,7 +43,7 @@ function Delta({ atual, anterior, quantoMenorMelhor }: { atual: number | null; a
   return (
     <span className={`inline-flex items-center gap-0.5 text-xs font-medium ${melhorou ? "text-emerald-600" : "text-orange-500"}`}>
       <Icon className="h-3 w-3" /> {diff > 0 ? "+" : ""}
-      {diff.toFixed(1)}
+      {decimal(diff, 1)}
     </span>
   );
 }

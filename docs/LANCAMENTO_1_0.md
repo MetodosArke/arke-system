@@ -14,35 +14,21 @@ Este checklist tem três partes: o que vem **antes do primeiro cliente pagante**
 
 Regra do responsável, de 23/09/2026: todo upgrade de infraestrutura acontece antes do primeiro cliente pagante estar implantado.
 
-- [ ] **Supabase Pro.** Backup com recuperação a ponto no tempo e projeto que não pausa. Depois do upgrade, trocar `limite_banco_mb` pelo disco contratado em **Visão Master → Configurações** — o aviso de capacidade passa de "o banco vai travar" para "vai custar mais".
+- [ ] **Supabase Pro.** Backup com recuperação a ponto no tempo e projeto que não pausa. Depois do upgrade:
+  - trocar `limite_banco_mb` pelo disco contratado em **Visão Master → Configurações** — o aviso de capacidade passa de "o banco vai travar" para "vai custar mais";
+  - ligar a **proteção de senha vazada** do Auth, que só existe no plano pago (`password_hibp_enabled` na configuração de Auth; dá para ligar pela API de gerenciamento). A checagem própria contra o HaveIBeenPwned continua valendo e não conflita.
 - [ ] **Vercel Pro.** O plano Hobby proíbe uso comercial.
 - [ ] **Resend pago.** O gratuito envia 100 e-mails por dia; uma importação de 400 alunos com convite já estoura.
 - [ ] **Sentry** conforme o volume.
 - [ ] **Teste de carga**, só depois dos upgrades — antes, ele mediria o limite do plano, não o sistema.
 - [ ] **Canal de suporte** em Visão Master → Configurações (sem ele, o botão "falar com o suporte" do onboarding não aparece).
 - [ ] **GIFs dos exercícios** no acervo global.
-- [ ] Conferir no GitHub que o teste **jornada do aluno** roda de verdade (não "skipped") depois de cada deploy.
 
-## 2. Publicação da 1.0 — nesta ordem
+## 2. Publicação
 
-Já está no banco e publicado, aplicado e provado em 23 e 24/09/2026:
+A 1.0 está no ar desde 24/09/2026, com as migrations pós-deploy aplicadas; o teste de ponta a ponta da jornada do aluno roda de verdade a cada deploy.
 
-- as migrations `20261243` a `20261252`;
-- a rotina `arke-alerta-catracas`;
-- as edge functions `catraca-comandos` e `alertar-catracas`;
-- as versões novas de `alertar-rotinas`, `lembrete-onboarding`, `briefing-semanal`, `ativar-cadastro`, `excluir-aluno` e `anonimizar-aluno`.
-
-Falta:
-
-1. [ ] **Merge do PR da 1.0** e o deploy de produção na Vercel.
-2. [ ] **Só depois do deploy**, aplicar as duas migrations pós-deploy:
-   - `20261270010000_limpeza_pos_deploy_1_0.sql` apaga as colunas de credencial em texto puro e a consulta antiga de Gateways, que a tela anterior ainda usa;
-   - `20261271010000_politica_biometria.sql` publica a Política de Privacidade `2026-09-23.5`. Antes do deploy, o banco trataria como vigente um texto que a página ainda não mostra.
-3. [ ] Regenerar `src/integrations/supabase/types.ts` (as colunas antigas saem dos tipos) e commitar.
-4. [ ] Conferir no ar:
-   - **Visão Master → Equipamentos** e **Catracas** carregam;
-   - **Integrações** mostra "no cofre" ao gravar uma credencial;
-   - a Política pede o aceite novo.
+**Rodada 360° de 24/09/2026:** a migration `20261274010000` já está aplicada e é compatível com a tela publicada. Depois do merge e do deploy da Vercel, aplicar `20261275010000_higiene_funcoes_pos_deploy.sql` — antes disso a ficha do aluno publicada ainda chama as três funções que ela fecha, e o aviso de "por que não avança" sumiria.
 
 ## 3. Implantação de cada academia
 

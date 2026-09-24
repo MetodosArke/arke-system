@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { detectarCampo, mapearColunas } from "./mapaColunas";
+import { detectarCampo, juntarPartes, mapearColunas } from "./mapaColunas";
 
 describe("detectarCampo", () => {
   it.each([
@@ -51,5 +51,31 @@ describe("mapearColunas", () => {
       Plano: "ignorar",
       Código: "ignorar",
     });
+  });
+});
+
+describe("sobrenome e DDD em coluna própria", () => {
+  it("reconhece as colunas", () => {
+    expect(detectarCampo("Sobrenome")).toBe("sobrenome");
+    expect(detectarCampo("Last Name")).toBe("sobrenome");
+    expect(detectarCampo("First Name")).toBe("full_name");
+    expect(detectarCampo("DDD")).toBe("ddd");
+    expect(detectarCampo("DDD Celular")).toBe("ddd");
+    // O telefone inteiro continua sendo telefone.
+    expect(detectarCampo("Celular (com DDD)")).toBe("telefone");
+    expect(detectarCampo("DDD do responsável")).toBe("ignorar");
+  });
+
+  it("junta o sobrenome ao nome, sem duplicar", () => {
+    expect(juntarPartes({ full_name: "Maria", sobrenome: "Souza" }).full_name).toBe("Maria Souza");
+    expect(juntarPartes({ full_name: "Maria Souza", sobrenome: "Souza" }).full_name).toBe("Maria Souza");
+    expect(juntarPartes({ full_name: "Maria", sobrenome: "" }).full_name).toBe("Maria");
+  });
+
+  it("completa o telefone sem DDD e não mexe no que já tem", () => {
+    expect(juntarPartes({ telefone: "98765-4321", ddd: "11" }).telefone).toBe("11987654321");
+    expect(juntarPartes({ telefone: "3456-7890", ddd: "(011)" }).telefone).toBe("1134567890");
+    expect(juntarPartes({ telefone: "(21) 98765-4321", ddd: "11" }).telefone).toBe("(21) 98765-4321");
+    expect(juntarPartes({ telefone: "", ddd: "11" }).telefone).toBe("");
   });
 });

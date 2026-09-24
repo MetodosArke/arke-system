@@ -119,4 +119,36 @@ describe("FaseJornada", () => {
     expect(document.body.textContent).toContain("—");
   });
 
+
+  describe("por que o aluno não avança sozinho", () => {
+    const jornada = (linha: { motivo: string | null; elegivel: string | null; constancia: number | null }) =>
+      rpc.mockImplementation((nome: string) =>
+        Promise.resolve(nome === "get_jornada_aluno" ? { data: [linha], error: null } : { data: null, error: null }),
+      );
+
+    it("pergunta numa chamada só, que confere quem chama", async () => {
+      jornada({ motivo: null, elegivel: null, constancia: 75 });
+      renderizar("base");
+      await waitFor(() => expect(document.body.textContent).toContain("constância de 75%"));
+      // As três funções de dentro respondem sobre qualquer aluno e não ficam
+      // abertas ao app — a ficha não pode voltar a chamá-las direto.
+      const chamadas = rpc.mock.calls.map((c) => c[0]);
+      expect(chamadas).toContain("get_jornada_aluno");
+      expect(chamadas).not.toContain("aluno_constancia");
+      expect(chamadas).not.toContain("fase_elegivel");
+      expect(chamadas).not.toContain("motivo_nao_avanca");
+    });
+
+    it("mostra o motivo da suspensão", async () => {
+      jornada({ motivo: "dor", elegivel: null, constancia: 90 });
+      renderizar("base");
+      await waitFor(() => expect(document.body.textContent).toContain("Progressão suspensa por relato de dor"));
+    });
+
+    it("avisa quando os critérios da próxima fase estão cumpridos", async () => {
+      jornada({ motivo: null, elegivel: "rota", constancia: 85 });
+      renderizar("base");
+      await waitFor(() => expect(document.body.textContent).toContain("Critérios cumpridos para R.O.T.A.®"));
+    });
+  });
 });

@@ -131,7 +131,7 @@ Deno.serve(async (req) => {
         .eq("organization_id", recipientOrgId)
         .eq("status", "active")
         .in("role", recipientOrgRoles);
-      targetUserIds = (membros || []).map((m: any) => m.user_id);
+      targetUserIds = (membros || []).map((m: { user_id: string }) => m.user_id);
     }
 
     // Filtrar pela whitelist de email (modo teste).
@@ -172,7 +172,8 @@ Deno.serve(async (req) => {
           payloadStr,
         );
         sent++;
-      } catch (err: any) {
+      } catch (e) {
+        const err = e as { body?: unknown; message?: string; statusCode?: number };
         const errBody = String(err.body || err.message || "");
         const shouldDelete =
           err.statusCode === 410 ||
@@ -192,9 +193,9 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({ success: true, sent }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
-  } catch (error: any) {
+  } catch (error) {
     console.error("send-chat-push error:", error);
-    return new Response(JSON.stringify({ error: error.message }), {
+    return new Response(JSON.stringify({ error: error instanceof Error ? error.message : String(error) }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { BarChart3, Download, FileText, FileSpreadsheet, TrendingUp, TrendingDown, Users, Activity, AlertTriangle, Filter, CalendarDays, DoorOpen } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { hojeBrasilia, inicioDoMesBrasilia } from "@/lib/dataBrasilia";
+import { decimal } from "@/lib/numeros";
 
 function StatTile({
   icon: Icon,
@@ -304,7 +305,7 @@ export default function AdminGestao360() {
       ["MRR líquido (academia)", formatarMoeda(mrrLiquido)],
       ["ARPU (líquido/aluno)", formatarMoeda(arpu)],
       ["LTV estimado", ltv != null ? formatarMoeda(ltv) : "N/D (sem churn no período)"],
-      ["Churn do mês", `${churnPct.toFixed(1)}%`],
+      ["Churn do mês", `${decimal(churnPct, 1)}%`],
       ["Frequência (constância 7 dias)", `${constanciaPct}%`],
       ["MRR em risco (engajamento < 40)", formatarMoeda(mrrEmRisco)],
       ["Alunos em risco", alunosEmRisco],
@@ -421,7 +422,7 @@ export default function AdminGestao360() {
         <StatTile icon={TrendingUp} label="MRR líquido" value={formatarMoeda(mrrLiquido)} sublabel="Após repasse ARKE (atacado + taxa de processamento)" />
         <StatTile icon={Users} label="ARPU líquido" value={formatarMoeda(arpu)} sublabel="Por aluno ativo/mês" />
         <StatTile icon={TrendingUp} label="LTV estimado" value={ltv != null ? formatarMoeda(ltv) : "N/D"} sublabel="Baseado no churn do mês" />
-        <StatTile icon={TrendingDown} label="Churn do mês" value={`${churnPct.toFixed(1)}%`} sublabel={`${cancelamentosMes} cancelamento(s)`} />
+        <StatTile icon={TrendingDown} label="Churn do mês" value={`${decimal(churnPct, 1)}%`} sublabel={`${cancelamentosMes} cancelamento(s)`} />
         <StatTile icon={Activity} label="Frequência (7 dias)" value={`${constanciaPct}%`} sublabel="Constância de treino" />
         <StatTile
           icon={AlertTriangle}

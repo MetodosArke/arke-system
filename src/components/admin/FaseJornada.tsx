@@ -156,15 +156,15 @@ function SituacaoDoAvanco({ alunoId }: { alunoId: string }) {
   const { data } = useQuery({
     queryKey: ["situacao-avanco", alunoId],
     queryFn: async () => {
-      const [motivo, elegivel, constancia] = await Promise.all([
-        supabase.rpc("motivo_nao_avanca", { _aluno_id: alunoId }),
-        supabase.rpc("fase_elegivel", { _aluno_id: alunoId }),
-        supabase.rpc("aluno_constancia", { _aluno_id: alunoId, _semanas: 4 }),
-      ]);
+      // Uma chamada só, que confere quem pergunta: as três funções de dentro
+      // respondem sobre qualquer aluno e não ficam abertas ao app.
+      const { data, error } = await supabase.rpc("get_jornada_aluno", { _aluno_id: alunoId });
+      if (error) throw error;
+      const linha = data?.[0];
       return {
-        motivo: (motivo.data as string | null) ?? null,
-        elegivel: (elegivel.data as Fase | null) ?? null,
-        constancia: constancia.data === null ? null : Number(constancia.data),
+        motivo: linha?.motivo ?? null,
+        elegivel: (linha?.elegivel as Fase | null | undefined) ?? null,
+        constancia: linha?.constancia == null ? null : Number(linha.constancia),
       };
     },
   });

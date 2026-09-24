@@ -37,6 +37,7 @@ import {
   type ResumoVigia,
 } from "@/lib/vigia";
 import { cn } from "@/lib/utils";
+import { decimal } from "@/lib/numeros";
 
 const TOM = {
   ok: "text-emerald-700 dark:text-emerald-400",
@@ -452,7 +453,7 @@ function Analise({ analise }: { analise: AnaliseVigia }) {
           </Badge>
         )}
         <span className="text-xs text-muted-foreground">
-          · {analise.anomalias} anomalia(s){analise.latencia_ms != null && ` · ${(analise.latencia_ms / 1000).toFixed(1)} s`}
+          · {analise.anomalias} anomalia(s){analise.latencia_ms != null && ` · ${decimal(analise.latencia_ms / 1000, 1)} s`}
         </span>
       </div>
       {analise.diagnostico && <p className="text-sm">{analise.diagnostico}</p>}

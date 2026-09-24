@@ -11,6 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Database, Settings } from "lucide-react";
 import { useCapacidadeBanco } from "@/lib/rotinas";
 import type { Tables } from "@/integrations/supabase/types";
+import { decimal } from "@/lib/numeros";
 
 type ConfigRow = Tables<"plataforma_config">;
 
@@ -109,7 +110,7 @@ export default function SuperAdminConfiguracoes() {
               <p className="text-xs text-muted-foreground">
                 Fórmula aplicada: repasse ARKE = (valor cobrado × percentual) + valor fixo. Atual:{" "}
                 {taxaPercentual ? Number(taxaPercentual.valor).toString() : "—"}% + R${" "}
-                {taxaFixa ? Number(taxaFixa.valor).toFixed(2) : "—"}.
+                {taxaFixa ? decimal(Number(taxaFixa.valor), 2) : "—"}.
               </p>
               <Button onClick={() => salvar.mutate()} disabled={salvar.isPending}>
                 {salvar.isPending ? "Salvando..." : "Salvar"}

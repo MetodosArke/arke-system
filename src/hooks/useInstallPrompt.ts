@@ -11,7 +11,7 @@ let globalIsInstalled = false;
 
 // Set up global listener once (runs at module load time)
 if (typeof window !== "undefined") {
-  if (window.matchMedia("(display-mode: standalone)").matches || (navigator as any).standalone) {
+  if (window.matchMedia("(display-mode: standalone)").matches || (navigator as Navigator & { standalone?: boolean }).standalone) {
     globalIsInstalled = true;
   } else {
     window.addEventListener("beforeinstallprompt", (e: Event) => {
