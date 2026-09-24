@@ -10,9 +10,12 @@ Só o que continua em aberto. As decisões já tomadas e aplicadas saíram desta
 - **Planilha real de exportação** (EVO, Tecnofit, Next Fit ou Pacto), para conferir o reconhecimento das colunas na importação de alunos.
 - **Conta de teste da jornada do aluno.** Confirmar no GitHub que o teste de ponta a ponta `jornada-aluno` roda de verdade depois de cada deploy, e não aparece como "pulado".
 
-## Vigia: quando dar autonomia à análise por IA
+## Vigia: depende de casos reais (decisão de 24/09/2026)
 
-- **As ações propostas pela IA pedem aprovação, por decisão de 24/09/2026**, mesmo as que o catálogo classifica como "sozinho". Rever quando houver casos reais suficientes para medir o acerto fora do simulado — na tela Visão Master → Vigia, quantas ações da IA foram aprovadas, dispensadas ou falharam. Até lá, nada da IA roda sozinho.
+As Fases 1 a 3 estão no ar. O que vem depois é upgrade, e só se decide com o desempenho medido em operação real — o simulado provou que o Vigia acerta nos cenários que foram escritos para ele, não nos que a operação vai trazer. Os números ficam em Visão Master → Vigia: o que cada regra corrigiu, o que sumiu antes da hora de agir, o que foi para uma pessoa, e quantas ações da IA foram aprovadas, dispensadas ou falharam.
+
+- **Fase 4 — ampliar o catálogo de ferramentas.** A primeira candidata é "reiniciar o Gateway", que exige uma ordem nova no próprio Gateway. Novas ferramentas entram conforme os casos reais mostrarem o que falta.
+- **Autonomia da análise por IA.** As ações que ela propõe pedem aprovação, mesmo as que o catálogo classifica como "sozinho". Rever com casos reais suficientes para medir o acerto fora do simulado.
 
 ## Depois do lançamento
 
