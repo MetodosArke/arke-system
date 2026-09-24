@@ -11,9 +11,8 @@ Só o que continua em aberto. As decisões já tomadas e aplicadas saíram desta
 
 ## Nota fiscal automática da academia (24/09/2026)
 
-Implementada, e a Política de Privacidade `2026-09-24` aprovada como estava. O que ficou:
+Implementada, com a Política de Privacidade e o Contrato da Academia `2026-09-24` aprovados como estavam. O que ficou:
 
-- **Confirmar o texto da cláusula de responsabilidade fiscal** no Contrato da Academia (seção 3, versão `2026-09-24`). A inclusão foi aprovada; o texto fica como minuta até a confirmação. Aprovado como está, só sai a marca de minuta, sem novo aceite.
 - **Subcontas de teste no sandbox do Asaas.** A criação parou no limite de subcontas de teste; o responsável vai excluir algumas antigas quando for preciso testar de novo a abertura de subconta pelo ARKE.
 
 ## Quando o primeiro cliente pedir (decisão de 24/09/2026)

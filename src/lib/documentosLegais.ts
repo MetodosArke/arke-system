@@ -66,11 +66,11 @@ export const DOCUMENTOS: Record<
     // pelo encarregado sem alteracao.
     // 2026-09-24: secao 3 ganhou a clausula de responsabilidade fiscal (cada
     // parte pelo que entra no proprio caixa; a nota automatica sai no CNPJ da
-    // academia, e o cadastro fiscal e dela). O responsavel aprovou incluir a
-    // clausula; fica como minuta ate ele confirmar o texto.
+    // academia, e o cadastro fiscal e dela). Texto aprovado pelo responsavel
+    // como estava, em 24/09/2026.
     versao: "2026-09-24",
     sha256: "a74ce7dd53c6c10d24d01deb8a4f8d17933b2c731123082ab4ed01e0d9794f9e",
     texto: contratoAcademia,
-    revisadoJuridico: false,
+    revisadoJuridico: true,
   },
 };
