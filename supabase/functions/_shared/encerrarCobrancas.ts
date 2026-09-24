@@ -17,6 +17,7 @@
  */
 
 import { cancelarAssinatura } from "../asaas-assinatura-ciclo/fluxo.ts";
+import { cancelarCobranca, cobrancaPorReferencia } from "../asaas-cobranca-avulsa/fluxo.ts";
 
 type Supabase = {
   from: (tabela: string) => {
@@ -31,7 +32,7 @@ type Supabase = {
   };
 };
 
-type Registro = { id: string; asaas_subscription_id: string | null };
+type Registro = { id: string; asaas_subscription_id?: string | null; asaas_payment_id?: string | null };
 
 const VIVAS_ASSINATURA = ["ativa", "atrasada", "pausada"];
 const VIVAS_MATRICULA = ["ativa", "pausada"];
@@ -93,6 +94,35 @@ export async function encerrarCobrancasDoAluno(
       return { ok: false, erro: `Não foi possível cancelar a mensalidade no gateway: ${r.erro}` };
     }
     await admin.from("aluno_matriculas_academia").update({ status: "cancelada" }).eq("id", m.id);
+    canceladas++;
+  }
+
+  // Cobrança avulsa em aberto (taxa de matrícula, avaliação...): sem isto o
+  // Asaas seguiria mandando lembrete de uma fatura a quem saiu. A emissão não
+  // confirmada, sem id, é procurada pela referência — pode existir lá.
+  const { data: avulsas } = await admin
+    .from("cobrancas_avulsas")
+    .select("id, asaas_payment_id")
+    .eq("aluno_id", alunoId)
+    .in("status", ["pendente", "atrasado"]);
+
+  for (const c of avulsas ?? []) {
+    let paymentId = c.asaas_payment_id ?? null;
+    if (!paymentId) {
+      try {
+        paymentId = (await cobrancaPorReferencia(gateway.api, gateway.chave, `avulsa:${c.id}`))?.id ?? null;
+      } catch {
+        return { ok: false, erro: "Não foi possível consultar a cobrança avulsa no gateway." };
+      }
+    }
+    if (paymentId) {
+      const r = await cancelarCobranca(gateway.api, gateway.chave, paymentId);
+      if (!r.ok) return { ok: false, erro: `Não foi possível cancelar a cobrança avulsa no gateway: ${r.erro}` };
+    }
+    await admin
+      .from("cobrancas_avulsas")
+      .update({ status: "cancelado", cancelada_por: quem, cancelada_em: new Date().toISOString() })
+      .eq("id", c.id);
     canceladas++;
   }
 

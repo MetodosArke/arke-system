@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { dividirCobranca, resolverRepasse, type RepasseConfig, type TaxaProcessamento } from "@/lib/repasse";
 import { reais } from "@/lib/numeros";
+import { useTaxaProcessamento } from "@/hooks/useTaxaProcessamento";
 
 /** Os níveis pagos do Método. Free não tem cobrança, então não tem repasse. */
 const NIVEIS: { id: string; rotulo: string; varejoRef: number }[] = [
@@ -51,15 +52,7 @@ export function RepasseOrganizacao({ organizationId }: { organizationId: string 
     },
   });
 
-  const { data: taxa } = useQuery({
-    queryKey: ["taxa-processamento-config"],
-    queryFn: async (): Promise<TaxaProcessamento> => {
-      const { data, error } = await supabase.rpc("arke_taxa_processamento_config");
-      if (error) throw error;
-      const linha = data?.[0];
-      return { percentual: Number(linha?.percentual ?? 0), fixa: Number(linha?.fixa ?? 0) };
-    },
-  });
+  const { data: taxa } = useTaxaProcessamento();
 
   useEffect(() => {
     if (!config) return;

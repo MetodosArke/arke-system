@@ -87,4 +87,20 @@ describe("repasse do Método ARKE", () => {
     expect(d.cobreORepasse).toBe(false);
     expect(d.repasseArke).toBeNull();
   });
+
+  it("a taxa nunca fica abaixo do mínimo por cobrança (a taxa fixa do boleto e do PIX)", () => {
+    // Os mesmos números que public.arke_taxa_processamento devolveu em
+    // 24/09/2026 com mínimo de 1,99. Sem o piso, em R$ 5 a parte da academia
+    // (4,36) passava do líquido (4,01) e o Asaas recusava a cobrança.
+    const COM_MINIMO = { ...TAXA, minima: 1.99 };
+    expect(taxaProcessamento(5, COM_MINIMO)).toBe(1.99);
+    expect(taxaProcessamento(30, COM_MINIMO)).toBe(1.99);
+    expect(taxaProcessamento(50, COM_MINIMO)).toBe(1.99);
+    // Acima de ~R$ 50 o percentual já cobre o mínimo, e nada muda.
+    expect(taxaProcessamento(60, COM_MINIMO)).toBe(2.28);
+    expect(taxaProcessamento(119, COM_MINIMO)).toBe(4.05);
+    expect(taxaProcessamento(0, COM_MINIMO)).toBe(0);
+    // Sem mínimo configurado, a regra antiga.
+    expect(taxaProcessamento(30, TAXA)).toBe(1.39);
+  });
 });

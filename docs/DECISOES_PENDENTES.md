@@ -9,14 +9,18 @@ Só o que continua em aberto. As decisões já tomadas e aplicadas saíram desta
 - **Infraestrutura paga** — Supabase Pro, Vercel Pro, Resend pago e Sentry conforme o volume — e, só depois dela, o **teste de carga**. Depois do upgrade do Supabase, trocar `limite_banco_mb` pelo disco contratado em Visão Master → Configurações.
 - **Planilha real de exportação** (EVO, Tecnofit, Next Fit ou Pacto), para conferir o reconhecimento das colunas na importação de alunos.
 
-## Da rodada 360° (24/09/2026): o que a gestão da academia ainda não tem
+## Financeiro da academia: ERP completo com nota fiscal? (em aberto desde 24/09/2026)
 
-A rodada conferiu o que existe; isto é o que não existe e que os sistemas que a academia usa hoje costumam ter. Nada disso quebra o que está no ar — a pergunta é o que as primeiras academias vão sentir falta.
+A pergunta do responsável: reformular o financeiro para um ERP completo, com emissão de nota, deixando de fora só a contabilidade. A recomendação está na conversa de 24/09/2026 e no resumo abaixo; a decisão é dele.
 
-- **Cobrança avulsa e taxa de matrícula.** Hoje o ARKE só cobra de forma recorrente (mensalidade e Método). Taxa de matrícula, diária, avaliação física ou personal avulsos são cobrados por fora e lançados à mão no financeiro.
-- **Plano com fidelidade.** "Anual" cobra uma vez por ano. O plano anual pago mês a mês, com multa se cancelar antes, não existe.
-- **Desconto.** Convênio de empresa, plano família ou primeiro mês com desconto: hoje só criando outro plano com o valor menor.
-- **Nota fiscal em volume.** A decisão de emitir fora do ARKE continua de pé; o custo aparece com a base — uma academia de 300 alunos emite 300 notas por mês à mão, no painel do Asaas ou no portal da prefeitura.
+- **Hoje:** a NFS-e é emitida fora do ARKE (decisão de 22/09/2026). Com a base, o custo aparece: uma academia de 300 alunos emite 300 notas por mês à mão.
+- **Recomendação:** não construir um ERP. Primeiro, a **NFS-e automática** do que já passa pelo ARKE (mensalidade e cobranças avulsas), emitida na **conta Asaas da própria academia** quando o pagamento confirma. Depois, **anexar comprovantes de despesa** aos lançamentos e mandá-los junto na exportação ao contador.
+- **Antes de construir a NFS-e:** parecer do contador sobre quem emite o quê na cobrança do Método (a divisão entre ArkeFit e academia); conferir no sandbox a emissão pela subconta; e o cadastro fiscal de cada academia no onboarding (código de serviço, alíquota de ISS, regime).
+
+## Quando o primeiro cliente pedir (decisão de 24/09/2026)
+
+- **Plano com fidelidade** (anual pago mês a mês, com multa se cancelar antes). Hoje "anual" cobra uma vez por ano.
+- **Desconto** (convênio de empresa, plano família, primeiro mês). Hoje se resolve criando outro plano com o valor menor.
 
 ## Vigia: depende de casos reais (decisão de 24/09/2026)
 

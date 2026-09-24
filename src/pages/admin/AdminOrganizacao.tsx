@@ -20,7 +20,8 @@ import type { Enums, Tables } from "@/integrations/supabase/types";
 import { ReciboComprovanteDialog, type ReciboData } from "@/components/admin/ReciboComprovanteDialog";
 import { PlanosAcademiaPainel } from "@/components/admin/PlanosAcademiaPainel";
 import { ContratoMatriculaPainel } from "@/components/admin/ContratoMatriculaPainel";
-import { dividirCobranca, type RepasseConfig, type TaxaProcessamento } from "@/lib/repasse";
+import { dividirCobranca, type RepasseConfig } from "@/lib/repasse";
+import { useTaxaProcessamento } from "@/hooks/useTaxaProcessamento";
 import { reais } from "@/lib/numeros";
 
 type TipoNegocio = Extract<Enums<"organization_tipo">, "academia" | "studio">;
@@ -111,15 +112,7 @@ export default function AdminOrganizacao() {
   });
 
   // A taxa do Asaas entra no repasse ARKE; a prévia do split precisa dela.
-  const { data: taxaConfig } = useQuery({
-    queryKey: ["taxa-processamento-config"],
-    queryFn: async (): Promise<TaxaProcessamento> => {
-      const { data, error } = await supabase.rpc("arke_taxa_processamento_config");
-      if (error) throw error;
-      const linha = data?.[0];
-      return { percentual: Number(linha?.percentual ?? 0), fixa: Number(linha?.fixa ?? 0) };
-    },
-  });
+  const { data: taxaConfig } = useTaxaProcessamento();
 
   const { data: precificacao = EMPTY_PRECIFICACAO } = useQuery({
     queryKey: ["precificacao", organization?.id],

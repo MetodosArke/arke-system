@@ -28,7 +28,9 @@ Regra do responsável, de 23/09/2026: todo upgrade de infraestrutura acontece an
 
 A 1.0 está no ar desde 24/09/2026, com as migrations pós-deploy aplicadas; o teste de ponta a ponta da jornada do aluno roda de verdade a cada deploy.
 
-**Rodada 360° de 24/09/2026:** a migration `20261274010000` já está aplicada e é compatível com a tela publicada. Depois do merge e do deploy da Vercel, aplicar `20261275010000_higiene_funcoes_pos_deploy.sql` — antes disso a ficha do aluno publicada ainda chama as três funções que ela fecha, e o aviso de "por que não avança" sumiria.
+**Rodada 360° de 24/09/2026:** as migrations `20261274010000` e `20261275010000` (esta depois do deploy da ficha nova) estão aplicadas.
+
+**Cobrança avulsa (24/09/2026):** as migrations `20261276010000` e `20261277010000` estão aplicadas e as funções publicadas (`asaas-cobranca-avulsa`, e as versões novas de `asaas-webhook`, `asaas-reconciliar`, `academia-criar-matricula`, `excluir-aluno` e `anonimizar-aluno`). As telas entram com o merge.
 
 ## 3. Implantação de cada academia
 

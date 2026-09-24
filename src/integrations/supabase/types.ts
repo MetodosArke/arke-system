@@ -1585,6 +1585,97 @@ export type Database = {
           },
         ]
       }
+      cobrancas_avulsas: {
+        Row: {
+          aluno_id: string
+          asaas_payment_id: string | null
+          cancelada_em: string | null
+          cancelada_por: string | null
+          created_at: string
+          criada_por: string | null
+          data_pagamento: string | null
+          descricao: string
+          emitida_em: string | null
+          id: string
+          invoice_url: string | null
+          organization_id: string
+          status: Database["public"]["Enums"]["status_mensalidade"]
+          taxa_gateway: number | null
+          tipo: Database["public"]["Enums"]["cobranca_avulsa_tipo"]
+          updated_at: string
+          valor: number
+          valor_liquido_academia: number
+          valor_repasse_arke: number
+          vencimento: string
+        }
+        Insert: {
+          aluno_id: string
+          asaas_payment_id?: string | null
+          cancelada_em?: string | null
+          cancelada_por?: string | null
+          created_at?: string
+          criada_por?: string | null
+          data_pagamento?: string | null
+          descricao: string
+          emitida_em?: string | null
+          id?: string
+          invoice_url?: string | null
+          organization_id: string
+          status?: Database["public"]["Enums"]["status_mensalidade"]
+          taxa_gateway?: number | null
+          tipo: Database["public"]["Enums"]["cobranca_avulsa_tipo"]
+          updated_at?: string
+          valor: number
+          valor_liquido_academia: number
+          valor_repasse_arke: number
+          vencimento: string
+        }
+        Update: {
+          aluno_id?: string
+          asaas_payment_id?: string | null
+          cancelada_em?: string | null
+          cancelada_por?: string | null
+          created_at?: string
+          criada_por?: string | null
+          data_pagamento?: string | null
+          descricao?: string
+          emitida_em?: string | null
+          id?: string
+          invoice_url?: string | null
+          organization_id?: string
+          status?: Database["public"]["Enums"]["status_mensalidade"]
+          taxa_gateway?: number | null
+          tipo?: Database["public"]["Enums"]["cobranca_avulsa_tipo"]
+          updated_at?: string
+          valor?: number
+          valor_liquido_academia?: number
+          valor_repasse_arke?: number
+          vencimento?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cobrancas_avulsas_aluno_id_fkey"
+            columns: ["aluno_id"]
+            isOneToOne: false
+            referencedRelation: "alunos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cobrancas_avulsas_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "org_churn_metrics"
+            referencedColumns: ["organization_id"]
+          },
+          {
+            foreignKeyName: "cobrancas_avulsas_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       cobrancas_b2b: {
         Row: {
           asaas_customer_id: string | null
@@ -5924,6 +6015,10 @@ export type Database = {
       }
     }
     Functions: {
+      abrir_tarefa_avulsa_atrasada: {
+        Args: { _cobranca_id: string }
+        Returns: undefined
+      }
       abrir_tarefa_cartao_recusado: {
         Args: { _aluno_assinatura_id: string; _asaas_payment_id: string }
         Returns: undefined
@@ -6014,6 +6109,7 @@ export type Database = {
         Args: never
         Returns: {
           fixa: number
+          minima: number
           percentual: number
         }[]
       }
@@ -7301,6 +7397,13 @@ export type Database = {
         | "preciso_ajuste"
         | "com_dificuldade"
         | "quero_falar_com_alguem"
+      cobranca_avulsa_tipo:
+        | "taxa_matricula"
+        | "avaliacao_fisica"
+        | "personal"
+        | "diaria"
+        | "produto"
+        | "outro"
       comissao_status: "pendente" | "pago"
       comissao_tipo_evento: "matricula_academia" | "adesao_metodo_arke"
       competicao_metrica:
@@ -7533,6 +7636,14 @@ export const Constants = {
         "preciso_ajuste",
         "com_dificuldade",
         "quero_falar_com_alguem",
+      ],
+      cobranca_avulsa_tipo: [
+        "taxa_matricula",
+        "avaliacao_fisica",
+        "personal",
+        "diaria",
+        "produto",
+        "outro",
       ],
       comissao_status: ["pendente", "pago"],
       comissao_tipo_evento: ["matricula_academia", "adesao_metodo_arke"],

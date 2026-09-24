@@ -43,7 +43,7 @@ A academia compra pelo custo de Atacado da ARKE e define o preço de Varejo (mar
 | **Integrado** (Treino + Nutrição) | R$ 45,00 | R$ 4,05 | R$ 119,00 | R$ 69,95 |
 | **Elite** (Acompanhamento 360°) | R$ 85,00 | R$ 6,44 | R$ 199,00 | R$ 107,56 |
 
-* Taxa do Asaas, somada ao atacado (decisão de 21/09/2026): 2,99% + R$ 0,49 sobre o valor cobrado, configurável em Visão Master → Configurações. Os valores acima são no preço sugerido; com outro varejo, a taxa acompanha.
+* Taxa do Asaas, somada ao atacado (decisão de 21/09/2026): 2,99% + R$ 0,49 sobre o valor cobrado, **com mínimo de R$ 1,99 por cobrança** (a taxa fixa do boleto e do PIX, desde 24/09/2026 — ver *Cobrança avulsa e taxa de matrícula*), configurável em Visão Master → Configurações. Os valores acima são no preço sugerido; com outro varejo, a taxa acompanha.
 
 - **Free** (substitui o Essencial desde 22/09/2026): todo aluno matriculado e em dia com a academia — treinos com snapshot imutável, calendário, rotina, diário de água e dieta (a dieta vem da nutricionista **da academia**) e chat com os professores da academia. Sem custo de atacado: a academia paga só o plano B2B.
 - **Integrado:** Tudo do Free + acolhimento M.A.P.A.®, fases da jornada, plano alimentar individualizado, acompanhamento por Nutricionista ARKE, check-ins semanais (R.O.T.A.®) e revisão integrada.
@@ -904,6 +904,31 @@ Conferência de ponta a ponta, com a infraestrutura paga como premissa (regra do
 8. **`search_path` fixo** nas onze funções que tinham nascido sem ele.
 
 Um achado de dado, não de produto: o nome do gestor de homologação estava gravado como "Homologa��o" desde a migração — o único texto com U+FFFD no banco inteiro, vindo de um script. Corrigido.
+
+## Cobrança avulsa e taxa de matrícula (24/09/2026)
+
+Decisão do responsável depois da rodada 360°: taxa de matrícula e cobrança avulsa entram antes das primeiras academias; plano com fidelidade e desconto esperam o primeiro cliente que precisar. Até aqui o ARKE só cobrava de forma recorrente, e taxa de matrícula, avaliação física, personal, diária e produto eram cobrados por fora e lançados à mão — ou não eram lançados.
+
+**O desenho é o da mensalidade, de propósito** (`20261276010000`, edge function `asaas-cobranca-avulsa`):
+
+- **A linha nasce no banco antes de ir ao Asaas**, e vai com `externalReference = avulsa:<id>`. Emitir de novo procura a referência antes de criar, então uma cobrança criada no Asaas cuja resposta se perdeu é **adotada, não duplicada**. Recusa definitiva do Asaas desfaz a linha; falha de rede ou tempo a deixa como "emissão não confirmada", com o botão "Tentar de novo".
+- **Mesmo split**: a academia recebe o valor menos a taxa de processamento, que fica com a ArkeFit para cobrir o Asaas. Repasse e líquido travados na linha.
+- **O webhook atualiza** (pelo id do pagamento ou, na falta dele, pela referência — é o que completa a linha se a gravação do id falhou), a **conciliação diária** confere as que ficaram em aberto, e o pagamento **vira lançamento de receita** sozinho ("Cobranças avulsas (automático)").
+- **Sem regra de escrita no RLS**: só a edge function (que confere papel e fala com o Asaas) e o webhook escrevem. Uma política de UPDATE para a equipe deixaria marcar como paga uma cobrança que o gateway nunca recebeu.
+- **Quem emite e cancela:** gestão e recepção da academia do aluno — a mesma regra da situação. O resto da equipe vê.
+- **Vencida abre tarefa de cobrança para a recepção, mas não marca o aluno como inadimplente.** A situação acompanha a mensalidade, que é o contrato; avaliação física atrasada não tira ninguém da academia.
+- **A saída do aluno leva as avulsas junto:** excluir ou anonimizar cancela no Asaas as que estão em aberto (`_shared/encerrarCobrancas.ts`), e `trg_impedir_exclusao_com_cobranca_viva` passou a barrar a exclusão com avulsa em aberto, inclusive a de emissão não confirmada.
+
+**Onde aparece:** bloco *Cobranças avulsas* na ficha do aluno (com prévia de quanto a academia recebe antes de emitir, copiar link, cancelar, tentar de novo); campo **Taxa de matrícula** no diálogo de matrícula, que emite a taxa numa fatura à parte vencendo hoje — se ela falhar, a matrícula não se desfaz e a mensagem diz onde emitir; **Pagamentos da academia** no Perfil do aluno (mensalidade e avulsas, com o botão Pagar); aba própria na **exportação para o contador**; e receita do **Gestão 360**. A série histórica de receita da Visão Master ainda não separa as avulsas.
+
+**O que o sandbox decidiu** (`npm run sandbox:avulsa`, 17 verificações sobre o `fluxo.ts` real):
+
+- **O Asaas não emite abaixo de R$ 5,00** quando o aluno escolhe a forma de pagamento na fatura. A validação barra antes.
+- **Cobrança pequena era recusada por causa do split** — o achado que mais importa, e que valia também para a mensalidade. A taxa retida era estimada só pela fórmula do cartão (2,99% + R$ 0,49), mas boleto e PIX custam **R$ 1,99 fixos** por cobrança (conferido em `/myAccount/fees` nas contas de produção e sandbox; R$ 0,99 com desconto promocional até 08/12/2026). Abaixo de R$ 50,17 a estimativa fica menor que isso, a parte da academia passa do valor líquido e o Asaas recusa criar a cobrança ("o valor total do Split excede o valor a receber"). Hoje isso já barrava cobrança abaixo de ~R$ 17; depois da promoção, barraria toda cobrança abaixo de ~R$ 50 — taxa de matrícula, diária e **mensalidade de plano barato**.
+
+**A correção é um piso na taxa, num lugar só** (`20261277010000`): `arke_taxa_processamento()` nunca devolve menos que `taxa_processamento_minima` (R$ 1,99, editável em Visão Master → Configurações). Acima de R$ 50,17 nada muda — o Método a R$ 119 segue retendo R$ 49,05. `src/lib/repasse.ts` espelha a regra, e as três telas que liam a configuração passaram a usar um hook só (`useTaxaProcessamento`). Pelo caminho apareceu **uma quarta cópia da conta**: `academia-criar-matricula` calculava a taxa por conta própria a partir de `plataforma_config`, e por isso ficaria sem o piso; passou a chamar a função do banco. Assinaturas já criadas mantêm o split travado na criação.
+
+**Conferido:** 12 casos da migration em transação revertida (leitura por aluno e equipe, escrita barrada, lançamento uma vez só, tarefa idempotente com dono academia, exclusão barrada e liberada); 17 no sandbox, incluindo a prova direta do defeito — sem o piso, R$ 5 é recusado; com ele, R$ 5 e R$ 20 passam —; e **27 na corrente real** em homologação, pelas funções publicadas e com sessões de verdade: aluno leva 403, gestor de outra academia 404, a taxa de R$ 40 sai com repasse de R$ 1,99 e split de R$ 38,01, o pagamento confirmado no sandbox volta pelo webhook e vira lançamento, a paga não se cancela, a cancelada some do Asaas, "tentar de novo" adota a cobrança que já existia em vez de duplicar, e excluir uma aluna com taxa em aberto remove a cobrança dela no Asaas. Os registros de teste foram apagados.
 
 ## Rastreamento de Erro (Sentry): a configuração é a política de privacidade
 
