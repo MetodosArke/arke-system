@@ -63,7 +63,35 @@ export type Resumo = {
     acoes_recusadas: number;
     lista: AnaliseResumo[];
   };
-  total: { deteccoes: number; teria_agido: number; sumiram_antes: number; escalariam: number; analises: number };
+  // Da Fase 3 em diante (execução). Opcionais: o resumo do modo sombra não os tinha.
+  pendentes?: PendenteResumo[];
+  executadas?: { automaticas: number; aprovadas: number; dispensadas: number; erros: number; lista: ExecutadaResumo[] };
+  total: { deteccoes: number; teria_agido: number; sumiram_antes: number; escalariam: number; analises: number; executadas?: number };
+};
+
+export type PendenteResumo = {
+  origem: "regra" | "analise";
+  id: number;
+  indice: number | null;
+  desde: string;
+  ferramenta: string;
+  alvo_nome: string;
+  descricao: string | null;
+  titulo: string;
+};
+
+export type ExecutadaResumo = {
+  id: number;
+  criada_em: string;
+  origem: "regra" | "analise";
+  ferramenta: string;
+  alvo_nome: string | null;
+  forma: "automatica" | "aprovada" | "dispensada";
+  resultado: "executando" | "ok" | "erro" | "dispensada";
+  detalhe: string | null;
+  decidido_por: string | null;
+  comando_status: string | null;
+  comando_erro: string | null;
 };
 
 function escapar(texto: string): string {
@@ -86,18 +114,25 @@ function data(iso: string): string {
 
 const plural = (n: number, um: string, varios: string) => `${n} ${n === 1 ? um : varios}`;
 
+/** Alguma regra agindo de verdade (e não só em sombra)? Muda o tom do resumo inteiro. */
+export function executando(r: Pick<Resumo, "regras">): boolean {
+  return r.regras.some((g) => g.modo === "automatica" || g.modo === "aprovacao");
+}
+
 export function linhaRegra(r: RegraResumo): string {
   const partes = [plural(r.deteccoes, "detecção", "detecções")];
   if (r.teria_agido) {
-    partes.push(`${r.nivel === 1 ? "teria agido" : "teria pedido aprovação"} em ${r.teria_agido} (${r.acao.toLowerCase()})`);
+    const verbo =
+      r.modo === "automatica" ? "agiu" : r.modo === "aprovacao" ? "pediu aprovação" : r.nivel === 1 ? "teria agido" : "teria pedido aprovação";
+    partes.push(`${verbo} em ${r.teria_agido} (${r.acao.toLowerCase()})`);
   }
   if (r.sumiram_antes) {
     const mediana = r.mediana_min_sumiram != null ? `, mediana de ${String(r.mediana_min_sumiram).replace(".", ",")} min` : "";
     partes.push(`${r.sumiram_antes} sumiu antes da hora de agir${mediana}`);
   }
-  if (r.persistiram) partes.push(`${r.persistiram} continuou depois da ação prevista`);
-  if (r.com_retentativa) partes.push(`${r.com_retentativa} pediria nova tentativa`);
-  if (r.escalariam) partes.push(`${r.escalariam} iria para uma pessoa`);
+  if (r.persistiram) partes.push(`${r.persistiram} continuou depois da ação`);
+  if (r.com_retentativa) partes.push(`${r.com_retentativa} com nova tentativa`);
+  if (r.escalariam) partes.push(`${r.escalariam} ${r.modo === "automatica" ? "foi" : "iria"} para uma pessoa`);
   if (r.freios) partes.push(`${r.freios} segurada pelo freio de falha geral`);
   if (r.abertas) partes.push(`${r.abertas} aberta agora`);
   return `Nível ${r.nivel} · ${r.titulo}: ${partes.join("; ")}.`;
@@ -110,12 +145,27 @@ export function linhaAcao(a: AcaoResumo): string {
   return `${nome}${alvo} — ${classe}${a.justificativa ? `. ${a.justificativa}` : ""}`;
 }
 
+export function linhaExecutada(x: ExecutadaResumo): string {
+  const nome = FERRAMENTAS[x.ferramenta]?.rotulo ?? x.ferramenta;
+  const forma = x.forma === "automatica" ? "sozinho" : x.forma === "aprovada" ? `aprovada por ${x.decidido_por ?? "?"}` : "dispensada";
+  const resultado =
+    x.resultado === "erro"
+      ? ` — falhou: ${x.detalhe ?? ""}`
+      : x.comando_status
+        ? ` — ordem ${x.comando_status}`
+        : x.detalhe
+          ? ` — ${x.detalhe}`
+          : "";
+  return `${horario(x.criada_em)} · ${nome}${x.alvo_nome ? ` (${x.alvo_nome})` : ""} · ${forma}${resultado}`;
+}
+
 export function cabecalhoAnalise(a: AnaliseResumo): string {
   if (a.status !== "ok") {
-    const motivo = a.status === "indisponivel" ? "modelo indisponível" : a.status === "recusada_validacao" ? "quadro recusado pela validação" : "resposta inválida";
+    const motivo =
+      a.status === "indisponivel" ? "modelo indisponível" : a.status === "recusada_validacao" ? "quadro recusado pela validação" : "resposta inválida";
     return `${horario(a.criada_em)} · análise não concluída (${motivo})`;
   }
-  const causa = a.causa_provavel ? ROTULO_CAUSA[a.causa_provavel as keyof typeof ROTULO_CAUSA] ?? a.causa_provavel : "";
+  const causa = a.causa_provavel ? (ROTULO_CAUSA[a.causa_provavel as keyof typeof ROTULO_CAUSA] ?? a.causa_provavel) : "";
   const confianca = a.confianca != null ? ` · confiança declarada ${a.confianca}%` : "";
   return `${horario(a.criada_em)} · gravidade ${a.gravidade ?? "?"} · ${causa}${confianca}`;
 }
@@ -123,17 +173,27 @@ export function cabecalhoAnalise(a: AnaliseResumo): string {
 export function montarEmailResumo(r: Resumo, painel: string): { assunto: string; html: string; texto: string } {
   const ativas = r.regras.filter((g) => g.deteccoes || g.abertas || g.teria_agido || g.escalariam);
   const deteccoes = r.regras.reduce((s, g) => s + g.deteccoes, 0);
-  const concluido = r.dia > r.dias_avaliacao;
+  const emExecucao = executando(r);
+  const concluido = !emExecucao && r.dia > r.dias_avaliacao;
   const fim = new Date(new Date(r.sombra_desde).getTime() + r.dias_avaliacao * 86_400_000).toISOString();
+  const ex = r.executadas ?? { automaticas: 0, aprovadas: 0, dispensadas: 0, erros: 0, lista: [] };
+  const pendentes = r.pendentes ?? [];
+  const feitas = ex.automaticas + ex.aprovadas;
 
-  const assunto = concluido
-    ? `[ArkeFit] Vigia · avaliação do modo sombra concluída (dia ${r.dia})`
-    : deteccoes || r.analises.total
-      ? `[ArkeFit] Vigia · modo sombra, dia ${r.dia} de ${r.dias_avaliacao}: ${plural(deteccoes, "ocorrência", "ocorrências")}, ${plural(r.analises.total, "análise", "análises")}`
-      : `[ArkeFit] Vigia · modo sombra, dia ${r.dia} de ${r.dias_avaliacao}: sem ocorrências`;
+  const assunto = emExecucao
+    ? deteccoes || feitas || pendentes.length || r.analises.total
+      ? `[ArkeFit] Vigia · resumo do dia: ${plural(feitas, "ação executada", "ações executadas")}, ${pendentes.length} aguardando aprovação`
+      : `[ArkeFit] Vigia · resumo do dia: sem ocorrências`
+    : concluido
+      ? `[ArkeFit] Vigia · avaliação do modo sombra concluída (dia ${r.dia})`
+      : deteccoes || r.analises.total
+        ? `[ArkeFit] Vigia · modo sombra, dia ${r.dia} de ${r.dias_avaliacao}: ${plural(deteccoes, "ocorrência", "ocorrências")}, ${plural(r.analises.total, "análise", "análises")}`
+        : `[ArkeFit] Vigia · modo sombra, dia ${r.dia} de ${r.dias_avaliacao}: sem ocorrências`;
 
   const intro = [
-    `Modo sombra: nada foi executado. Abaixo, o que o Vigia teria feito nas últimas ${r.janela_horas} h, em ${plural(r.varreduras, "varredura", "varreduras")}.`,
+    emExecucao
+      ? `Nas últimas ${r.janela_horas} h, em ${plural(r.varreduras, "varredura", "varreduras")}. As regras de nível 1 corrigem sozinhas; as de nível 2 e as ações da análise por IA esperam aprovação.`
+      : `Modo sombra: nada foi executado. Abaixo, o que o Vigia teria feito nas últimas ${r.janela_horas} h, em ${plural(r.varreduras, "varredura", "varreduras")}.`,
     ...(concluido
       ? [
           `O período de avaliação de ${r.dias_avaliacao} dias terminou em ${data(fim)}. O Vigia continua em modo sombra até a decisão de quais regras e ações passam a rodar.`,
@@ -142,7 +202,23 @@ export function montarEmailResumo(r: Resumo, painel: string): { assunto: string;
     ...(!r.ativo ? ["O Vigia está desligado em Visão Master → Vigia."] : []),
   ];
 
-  const regras = ativas.length ? ativas.map(linhaRegra) : ["Nenhuma regra disparou."];
+  const secoes: { titulo: string; linhas: string[]; texto?: string }[] = [];
+  if (emExecucao) {
+    secoes.push({
+      titulo: "Aguardando aprovação",
+      linhas: pendentes.map((p) => `${FERRAMENTAS[p.ferramenta]?.rotulo ?? p.ferramenta} — ${p.titulo}${p.alvo_nome ? `: ${p.alvo_nome}` : ""}`),
+      texto: pendentes.length ? undefined : "Nada esperando aprovação.",
+    });
+    secoes.push({
+      titulo: "O que o Vigia fez",
+      texto:
+        feitas || ex.dispensadas
+          ? `${ex.automaticas} sozinho, ${ex.aprovadas} aprovada(s), ${ex.dispensadas} dispensada(s)${ex.erros ? `, ${ex.erros} com erro` : ""}.`
+          : "Nenhuma ação executada.",
+      linhas: ex.lista.slice(0, 10).map(linhaExecutada),
+    });
+  }
+  secoes.push({ titulo: "Regras", linhas: ativas.length ? ativas.map(linhaRegra) : ["Nenhuma regra disparou."] });
 
   const a = r.analises;
   const cabecalhoIA = a.total
@@ -161,16 +237,27 @@ export function montarEmailResumo(r: Resumo, painel: string): { assunto: string;
   }));
 
   const t = r.total;
-  const acumulado =
-    `Desde ${data(r.sombra_desde)}: ${plural(t.deteccoes, "detecção", "detecções")}, teria agido em ${t.teria_agido}, ` +
-    `${t.sumiram_antes} sumiu antes da hora de agir, ${t.escalariam} iria para uma pessoa, ${plural(t.analises, "análise", "análises")} por IA.`;
+  const acumulado = emExecucao
+    ? `Desde ${data(r.sombra_desde)}: ${plural(t.deteccoes, "detecção", "detecções")}, ${plural(t.executadas ?? 0, "ação executada", "ações executadas")}, ` +
+      `${t.sumiram_antes} sumiu antes da hora de agir, ${t.escalariam} foi para uma pessoa, ${plural(t.analises, "análise", "análises")} por IA.`
+    : `Desde ${data(r.sombra_desde)}: ${plural(t.deteccoes, "detecção", "detecções")}, teria agido em ${t.teria_agido}, ` +
+      `${t.sumiram_antes} sumiu antes da hora de agir, ${t.escalariam} iria para uma pessoa, ${plural(t.analises, "análise", "análises")} por IA.`;
 
   const link = `${painel}/#/superadmin/vigia`;
+  const h3 = (titulo: string) => `<h3 style="font-size:15px;margin:16px 0 4px">${escapar(titulo)}</h3>`;
   const html =
     `<div style="font-family:sans-serif;font-size:14px;line-height:1.5">` +
     intro.map((p) => `<p>${escapar(p)}</p>`).join("") +
-    `<h3 style="font-size:15px;margin:16px 0 4px">Regras</h3><ul>${regras.map((l) => `<li>${escapar(l)}</li>`).join("")}</ul>` +
-    `<h3 style="font-size:15px;margin:16px 0 4px">Análise por IA</h3><p>${escapar(cabecalhoIA)}</p>` +
+    secoes
+      .map(
+        (s) =>
+          h3(s.titulo) +
+          (s.texto ? `<p>${escapar(s.texto)}</p>` : "") +
+          (s.linhas.length ? `<ul>${s.linhas.map((l) => `<li>${escapar(l)}</li>`).join("")}</ul>` : ""),
+      )
+      .join("") +
+    h3("Análise por IA") +
+    `<p>${escapar(cabecalhoIA)}</p>` +
     analises
       .map(
         (x) =>
@@ -183,9 +270,7 @@ export function montarEmailResumo(r: Resumo, painel: string): { assunto: string;
     `<p><a href="${link}">Abrir o Vigia no ARKE</a></p></div>`;
   const texto = [
     ...intro,
-    "",
-    "REGRAS",
-    ...regras.map((l) => `- ${l}`),
+    ...secoes.flatMap((s) => ["", s.titulo.toUpperCase(), ...(s.texto ? [s.texto] : []), ...s.linhas.map((l) => `- ${l}`)]),
     "",
     "ANÁLISE POR IA",
     cabecalhoIA,

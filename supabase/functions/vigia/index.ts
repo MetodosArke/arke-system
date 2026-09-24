@@ -2,30 +2,32 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import { consultarVigia, MODELO_VIGIA } from "../_shared/ia.ts";
 import { interpretarResposta, validarQuadro } from "../_shared/vigiaAnalise.ts";
 import { descreverErro, registrarExecucao } from "../_shared/execucao.ts";
+import { montarEmailAvisos, type Aviso } from "./email.ts";
 
 const jsonResponse = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
 
 const NOME = "vigia";
 
-// O Vigia, o agente de saúde técnica, em modo sombra: nada aqui executa
-// correção nenhuma — só registra o que faria. Chamado de 5 em 5 minutos pelo
-// cron `arke-vigia`, com o token do alerta de rotinas.
+// O Vigia, a parte que fala com o mundo lá fora. Chamado de 5 em 5 minutos
+// pelo cron `arke-vigia-analise`, com o token do alerta de rotinas.
 //
-// Duas camadas, na ordem:
-//   1. as regras (public.vigia_varrer), que sempre rodam;
-//   2. a análise por IA, só quando o quadro de anomalias mudou — mesmo
-//      problema persistindo não gera chamada nova a cada varredura — e no
-//      máximo 4 por hora (public.vigia_quadro decide).
-//
-// A análise é falha aberta: modelo fora do ar vira uma linha "indisponível"
-// e a varredura segue — as regras não dependem dela. Nada do quadro nem da
-// resposta vai para log; só status.
+// As regras — detectar e corrigir — rodam no banco, pelo cron `arke-vigia`
+// (public.vigia_varrer): se esta função quebrar, as correções continuam.
+// Aqui ficam as duas coisas que precisam de fora do banco:
+//   1. avisos por e-mail: aprovação pedida e caso que o Vigia não resolveu
+//      e precisa de uma pessoa — cada um avisado uma vez;
+//   2. a análise por IA, só quando o quadro de anomalias mudou e no máximo 4
+//      por hora (public.vigia_quadro decide). Falha aberta: modelo fora do ar
+//      vira uma linha "indisponível", e nada do quadro nem da resposta vai
+//      para log.
 Deno.serve(async (req: Request) => {
   if (req.method !== "POST") return jsonResponse({ error: "Method not allowed" }, 405);
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
   const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  const resendKey = Deno.env.get("RESEND_API_KEY");
+  const siteUrl = Deno.env.get("SITE_URL") ?? "https://www.arkefit.com.br";
   if (!supabaseUrl || !serviceRoleKey) {
     console.error("vigia: configuração incompleta");
     return jsonResponse({ error: "Configuração do servidor incompleta." }, 500);
@@ -37,17 +39,50 @@ Deno.serve(async (req: Request) => {
   if (!valido) return jsonResponse({ error: "Não autorizado." }, 401);
 
   try {
-    const { data: varredura, error: erroVarredura } = await admin.rpc("vigia_varrer");
-    if (erroVarredura) {
-      console.error("vigia: falha na varredura das regras", erroVarredura.code);
-      await registrarExecucao(admin, NOME, false, `vigia_varrer: ${erroVarredura.code}`);
-      return jsonResponse({ error: "Falha na varredura." }, 500);
+    const { data: ativo, error: erroAtivo } = await admin.rpc("vigia_ativo");
+    if (erroAtivo) {
+      await registrarExecucao(admin, NOME, false, `vigia_ativo: ${erroAtivo.code}`);
+      return jsonResponse({ error: "Falha ao ler o interruptor." }, 500);
     }
-    if (varredura?.ativo === false) {
+    if (!ativo) {
       await registrarExecucao(admin, NOME, true);
       return jsonResponse({ ok: true, ativo: false });
     }
 
+    // ── 1. Avisos ──
+    // "Já avisei" só depois do envio: se o e-mail falha, o aviso sai de novo
+    // na próxima passada.
+    let avisos = 0;
+    let falhaAviso: string | undefined;
+    const { data: pendentes, error: erroAvisos } = await admin.rpc("vigia_avisos_pendentes");
+    if (erroAvisos) {
+      falhaAviso = `vigia_avisos_pendentes: ${erroAvisos.code}`;
+    } else if ((pendentes ?? []).length) {
+      const lista = pendentes as Aviso[];
+      const { data: dest } = await admin.rpc("emails_superadmin");
+      const emails = (dest ?? []).map((d: { email: string }) => d.email).filter(Boolean);
+      if (!resendKey) {
+        falhaAviso = "RESEND_API_KEY ausente";
+      } else if (emails.length) {
+        const m = montarEmailAvisos(lista, siteUrl);
+        const de = Deno.env.get("EMAIL_ALERTAS_FROM") ?? "ArkeFit Alertas <alertas@arkefit.com.br>";
+        const r = await fetch("https://api.resend.com/emails", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${resendKey}` },
+          body: JSON.stringify({ from: de, to: emails, subject: m.assunto, html: m.html, text: m.texto }),
+        });
+        // Só o status vai para log: a resposta do Resend ecoa os endereços.
+        if (r.ok) {
+          const { error: erroMarca } = await admin.rpc("vigia_marcar_avisadas", { _ids: lista.map((a) => a.id) });
+          if (erroMarca) console.error("vigia: aviso enviado, mas falhou ao registrar", erroMarca.code);
+          avisos = lista.length;
+        } else {
+          falhaAviso = `Resend recusou HTTP ${r.status}`;
+        }
+      }
+    }
+
+    // ── 2. Análise por IA ──
     const { data: quadro, error: erroQuadro } = await admin.rpc("vigia_quadro");
     if (erroQuadro) {
       console.error("vigia: falha ao montar o quadro", erroQuadro.code);
@@ -85,8 +120,8 @@ Deno.serve(async (req: Request) => {
       analise = String(registro._status);
     }
 
-    await registrarExecucao(admin, NOME, true);
-    return jsonResponse({ ok: true, varredura, analise });
+    await registrarExecucao(admin, NOME, !falhaAviso, falhaAviso);
+    return jsonResponse({ ok: !falhaAviso, avisos, analise });
   } catch (erro) {
     console.error("vigia: erro inesperado", erro instanceof Error ? erro.name : typeof erro);
     await registrarExecucao(admin, NOME, false, descreverErro(erro));

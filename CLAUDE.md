@@ -801,7 +801,7 @@ Na rodada pela tela, a chave do parceiro digitada sumia antes de salvar. `const 
 
 O ARKE tem **dois agentes**, e a separação é de propósito. O **Sentinela** é a IA do Mentor: resume a anamnese e sugere resposta no chat, com o consentimento do aluno e processando em São Paulo. O **Vigia** cuida da saúde técnica da plataforma — Gateways de catraca, rotinas agendadas, conferência com o Asaas, avisos de pagamento, capacidade do banco — e **não lê dado de aluno**. O responsável decidiu que o Vigia é um agente só, com duas camadas que se completam: **regras** para o que já se sabe tratar e **análise por IA** para olhar o quadro inteiro.
 
-**Modo sombra: nada é executado.** O Vigia registra o que faria e manda um resumo diário; o responsável decide, regra a regra e ferramenta a ferramenta, o que passa a rodar (`docs/DECISOES_PENDENTES.md`). O plano era esperar duas semanas; sem cliente em produção não haveria o que medir, e a avaliação foi feita por simulado (ver *Fase 2*). É evidência antes de autonomia: a pergunta que decide se uma correção automática vale a pena — o problema teria sumido sozinho? — só se responde medindo.
+**Começou em modo sombra, e executa desde a Fase 3 (24/09/2026).** O Vigia começou registrando o que faria, sem executar nada; o plano era esperar duas semanas, mas sem cliente em produção não haveria o que medir, e a avaliação foi feita por simulado (ver *Fase 2*). Com o resultado, o responsável decidiu o que passa a rodar (ver *Fase 3*). É evidência antes de autonomia: a pergunta que decide se uma correção automática vale a pena — o problema teria sumido sozinho? — só se responde medindo, e a tela continua medindo.
 
 ### Camada de regras
 
@@ -859,6 +859,27 @@ Dois defeitos reais, que teste unitário nenhum acharia:
 **Confiança declarada:** 83 em média quando acertou a causa, 65 quando errou — acompanha o acerto, mas com dois erros a amostra é pequena demais para virar régua. O erro restante: falha de cadastro no equipamento, lida como nuvem em 2 de 3.
 
 **A conta AWS tem cota baixa para o modelo.** Três chamadas em paralelo esgotaram a cota em segundos (429). Em produção não pesa — no máximo 4 análises por hora, e recusa vira "indisponível" com nova tentativa depois —, mas o simulado chama uma de cada vez e espera. Cada análise custa uns 2.500 tokens de entrada e 700 de saída, cerca de US$ 0,02.
+
+### Fase 3: executa (24/09/2026)
+
+Decisão do responsável, depois do simulado: **as 6 regras de nível 1 agem sozinhas; as 3 de nível 2 pedem aprovação de um clique; a análise por IA é conselheira** — o diagnóstico fica visível e as ações dela pedem aprovação, mesmo as que o catálogo classifica como "sozinho", até acumular casos reais (`20261273010000_vigia_execucao.sql`).
+
+**Quem executa é o banco, não a função publicada.** O cron `arke-vigia` chama `vigia_varrer()` direto: se a edge function quebrar num deploy, as correções continuam — e a rotina do cron não tem o **limite de 8 s que o PostgREST impõe** a cada chamada (`statement_timeout` do papel `authenticator`), o que importa quando a correção é rodar de novo uma rotina do banco. A edge function `vigia` ficou com a análise por IA e os avisos por e-mail (cron `arke-vigia-analise`), e a nova `vigia-aprovar` com a aprovação.
+
+**O executor** (`vigia_executar`) só conhece ferramentas do catálogo e só com alvo de verdade: ordem ao Gateway pelas mesmas travas da tela (catraca ativa, capacidade anunciada, Gateway no ar) e **sem empilhar ordem igual** — ordem já na fila espera a próxima varredura **sem gastar tentativa**; rotina rodada de novo com o mesmo comando do cron. Teto de 20 execuções por varredura. Cada ação fica em `vigia_acoes`, com o comando do Gateway ao lado, e o que precisa de uma pessoa — aprovação pedida ou tentativas esgotadas — sai por **e-mail na hora**, uma vez (`vigia_avisos_pendentes`).
+
+**Quatro coisas que o modo sombra escondia e a execução não podia esconder:**
+
+- **Detectar deixou de depender da ordem pendente.** Em sombra, a regra ignorava o Gateway com ordem na fila, para não contar em dobro o que alguém já pedira. Executando, a própria ordem do Vigia fecharia a ocorrência e ela reabriria como nova, zerando tentativas e escalonamento. A regra olha só o problema; quem espera a ordem é o executor.
+- **A remoção de digital reenviada fecha o ciclo.** A remoção só valia quando **todas** as ordens do lote concluíam — a que expirou ficava "expirada" para sempre e o consentimento nunca ganhava a data de exclusão. `verificar_remocao_concluida` passou a olhar a ordem **mais recente** de cada catraca do lote, e fecha a tarefa da falha com desfecho quando o reenvio conclui. A tarefa de equipamento **sem** gestão remota continua exigindo uma pessoa.
+- **Rotina de banco consertada pelo Vigia conta.** O histórico do cron só tem as execuções agendadas: sem isso, a rotina seguiria "falhou" até a próxima execução e o Vigia tentaria de novo e escalaria à toa. A regra considera a reexecução bem-sucedida dele. Rotina de edge function registra o próprio desfecho, então ali vale o registro dela.
+- **Aviso do Asaas agrupado por tipo:** uma queda do Asaas vira um pedido de aprovação, não um por aviso.
+
+**Aprovação sem clique duplo.** `vigia-aprovar` chama `vigia_preparar_aprovacao`, que confere o papel (só a ArkeFit) e **reserva a decisão antes de executar** — a ocorrência ganha `decisao` e a ação nasce "executando" com índice único por ação da análise —; só então executa, e `vigia_concluir_acao` grava o desfecho e a **Auditoria**. O que precisa do Asaas roda na função: cancelar assinatura órfã (produção, pelo `ambienteAsaas`, com o `cancelarAssinatura` do ciclo de cobrança) e reprocessar avisos, reenviando o aviso guardado ao próprio `asaas-webhook` — o mesmo caminho da reconciliação. Ação de pessoa e cancelamento proposto pela IA não têm botão: a órfã se aprova na ocorrência da regra, que sabe qual é. Análise de mais de 12 horas não se aprova mais — o quadro mudou.
+
+**O modo de cada regra muda pela tela** (`definir_modo_regra_vigia`, auditado), com a trava no banco: **nível 1 nunca pede aprovação e nível 2 nunca age sozinho** sem mudança de código. Dispensar pede motivo opcional e fica registrado. O resumo diário deixou de falar em sombra quando há regra executando: conta o que o Vigia fez e o que espera aprovação.
+
+**Conferido:** 28 casos em transação revertida (a ordem que sai e a que não empilha, tentativa sem gastar, fechamento, escalonamento e aviso, freio sem ordem nenhuma, rotina de edge e de banco, aprovação com gestor barrado e clique duplo recusado, dispensa, modo por regra, ação da IA com o pseudônimo virando a catraca de verdade, remoção reenviada fechando tarefa e ocorrência, interruptor) e **a corrente real em produção**, 9 verificações: uma falha provocada consertada sozinha, com a rotina voltando de verdade; outra pedindo aprovação por e-mail, gestor com 403, Super Admin aprovando **pela função publicada** com sessão real, segundo clique com 409, Auditoria gravada e a rotina voltando. Os registros do teste foram apagados; a linha da Auditoria ficou, porque é prova.
 
 ## Rastreamento de Erro (Sentry): a configuração é a política de privacidade
 
