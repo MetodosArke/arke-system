@@ -40,8 +40,13 @@ export const DOCUMENTOS: Record<
     // conteudo" virou "o conteudo nao fica registrado na nossa conta do
     // provedor", que e o que foi de fato verificado (registro de invocacoes
     // da conta desligado), e nao uma afirmacao da documentacao da AWS.
-    versao: "2026-09-23.4",
-    sha256: "b854df771e88e3b0441a073a2a4e0a722d9ba9354ea829b7973b7442f3102423",
+    // .5: a digital, como ela passou a funcionar na versao 1.0 -- autorizacao
+    // no app ou por termo impresso assinado, digital apagada dos equipamentos
+    // ao retirar a autorizacao ou encerrar a matricula, e o termo assinado
+    // guardado como prova. Texto aprovado pelo responsavel em 23/09/2026
+    // ("implementa o mais indicado e encerra").
+    versao: "2026-09-23.5",
+    sha256: "8086c5b2ff61d59794b5a7fbebe5f3f8cf0b24aa8fb65d24ab82883b618b803d",
     texto: privacidade,
     revisadoJuridico: true,
   },

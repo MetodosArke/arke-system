@@ -495,6 +495,9 @@ export function AlunoPerfilSheet({
                   alunoId={perfil.aluno.id}
                   organizationId={perfil.aluno.organization_id}
                   identificadorAtual={perfil.aluno.identificador_catraca}
+                  alunoNome={perfil.profile?.full_name ?? "Aluno"}
+                  alunoCpf={perfil.profile?.cpf ?? null}
+                  situacaoAcademia={perfil.aluno.situacao_academia}
                 />
               </Bloco>
 

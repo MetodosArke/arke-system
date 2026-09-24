@@ -36,7 +36,7 @@ import { ImprimirTreinoDialog, type ExercicioSnapshotImpressao, type TreinoImpre
 import { abrirWhatsAppAtivacao } from "@/lib/whatsappAtivacao";
 import { ConvitePrimeiroAcesso } from "@/components/admin/ConvitePrimeiroAcesso";
 import { SituacaoAluno } from "@/components/admin/SituacaoAluno";
-import { planoDoAluno, ROTULO_PLANO, ROTULO_SITUACAO, vendaMetodoArkeLiberada, type SituacaoAcademia } from "@/lib/planoAluno";
+import { planoDoAluno, ROTULO_PLANO, ROTULO_SITUACAO, type SituacaoAcademia } from "@/lib/planoAluno";
 import { baixarPlanilha, dataBr } from "@/lib/exportarPlanilha";
 
 type Nivel = Enums<"nivel_atacado">;
@@ -96,8 +96,6 @@ const EMPTY_ALUNOS: AlunoRow[] = [];
 export default function AdminAlunos() {
   const { organization, hasRole, organizationRole, user } = useAuth();
   const podeGerenciarEquipe = hasRole("admin_arke") || organizationRole === "gestor";
-  // Adesão e cobrança do Método pela academia só depois do lançamento do Método.
-  const vendaMetodo = vendaMetodoArkeLiberada();
   const navigate = useNavigate();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -465,7 +463,7 @@ export default function AdminAlunos() {
                       {planoDoAluno(aluno) === "free" ? (
                         <div className="flex items-center gap-1.5">
                           <Badge variant="outline">{ROTULO_PLANO.free}</Badge>
-                          {vendaMetodo && !aluno.anonimizado_em && (
+                          {!aluno.anonimizado_em && (
                             <Button
                               variant="ghost"
                               size="sm"
@@ -499,7 +497,7 @@ export default function AdminAlunos() {
                         <Badge variant={aluno.assinatura_status === "ativa" ? "default" : "outline"}>
                           {ASSINATURA_LABEL[aluno.assinatura_status] ?? aluno.assinatura_status}
                         </Badge>
-                      ) : aluno.metodo_arke_status === "ativo" && vendaMetodo ? (
+                      ) : aluno.metodo_arke_status === "ativo" ? (
                         <Button
                           variant="outline"
                           size="sm"

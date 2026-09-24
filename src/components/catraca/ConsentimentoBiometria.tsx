@@ -4,9 +4,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Fingerprint } from "lucide-react";
-
-/** Espelho de `public.versao_consentimento_biometrico()`. Mudou lá, muda aqui — o teste confere. */
-export const VERSAO_CONSENTIMENTO_BIOMETRIA = "2026-09-23";
+import { TEXTO_TERMO_BIOMETRIA, VERSAO_CONSENTIMENTO_BIOMETRIA } from "@/lib/termoBiometria";
 
 const formatarData = (valor: string) => new Date(valor).toLocaleDateString("pt-BR");
 
@@ -16,8 +14,8 @@ const formatarData = (valor: string) => new Date(valor).toLocaleDateString("pt-B
  *
  * Até a versão 1.0 quem registrava isto era a equipe, com um clique na ficha.
  * Consentimento dado por terceiro não é consentimento (LGPD art. 11, I exige o
- * do titular), então agora só o próprio aluno autoriza, aqui, e o banco recusa
- * qualquer outro caminho. Retirar a autorização apaga a digital de todas as
+ * do titular): o aluno autoriza aqui, ou assina o termo impresso na recepção
+ * (mesmo texto, de `lib/termoBiometria`) — nunca a equipe sozinha. Retirar a autorização apaga a digital de todas as
  * catracas da academia: pelo Gateway, sozinho, ou por tarefa para a recepção
  * onde o equipamento não tem gestão remota — e a data aparece aqui quando
  * termina.
@@ -43,7 +41,7 @@ export function ConsentimentoBiometria({ alunoId, organizationId }: { alunoId: s
     queryFn: async () => {
       const { data, error } = await supabase
         .from("aluno_consentimento_biometrico")
-        .select("id, aceito_em, versao_texto, revogado_em, excluido_do_equipamento_em")
+        .select("id, aceito_em, versao_texto, revogado_em, excluido_do_equipamento_em, origem")
         .eq("aluno_id", alunoId)
         .order("aceito_em", { ascending: false })
         .limit(5);
@@ -87,14 +85,13 @@ export function ConsentimentoBiometria({ alunoId, organizationId }: { alunoId: s
           <Label htmlFor="consentimento-biometria" className="flex items-center gap-1.5 text-sm font-medium">
             <Fingerprint className="h-4 w-4 text-primary" /> Uso da minha digital na catraca
           </Label>
-          <p className="mt-1 text-xs text-muted-foreground">
-            Autorizo o uso da minha impressão digital para o <strong>controle de acesso e frequência</strong> na
-            academia. A digital fica guardada <strong>somente nas catracas da academia</strong>; o ARKE guarda apenas o
-            número com que a catraca me identifica. Ela é apagada das catracas quando eu retirar esta autorização ou
-            deixar a academia, e o registro desta autorização é mantido pelo prazo legal, como prova.
-          </p>
+          <p className="mt-1 text-xs text-muted-foreground">{TEXTO_TERMO_BIOMETRIA.join(" ")}</p>
           {vigente && (
-            <p className="mt-1 text-[11px] text-muted-foreground">Autorizado em {formatarData(vigente.aceito_em)}.</p>
+            <p className="mt-1 text-[11px] text-muted-foreground">
+              {vigente.origem === "termo_assinado"
+                ? `Autorizado pelo termo que você assinou na recepção, em ${formatarData(vigente.aceito_em)}.`
+                : `Autorizado em ${formatarData(vigente.aceito_em)}.`}
+            </p>
           )}
           {!vigente && antigo && (
             <p className="mt-1 text-[11px] text-amber-700 dark:text-amber-400">

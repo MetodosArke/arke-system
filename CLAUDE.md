@@ -727,7 +727,7 @@ Medido antes de decidir: `acessos_catraca_logs` custa **277 bytes por linha** co
 
 ## Versão 1.0: o Gateway recebe ordens, a biometria fecha o ciclo e a Visão Master vê os equipamentos (23/09/2026)
 
-A auditoria 360° de 23/09/2026 perguntou o que faltava para a ArkeFit ter controle da operação e encontrou três coisas pela metade, todas no mesmo lugar: **a nuvem não tinha como falar com o Gateway.** Ele validava, sincronizava e subia o que decidiu offline, mas não recebia nada de volta — nem "sincronize agora", nem "apague este aluno do equipamento", que a LGPD exige depois da revogação. Consequências: o cadastro no equipamento era manual, a remoção dependia de alguém lembrar, e a ArkeFit só sabia que um Gateway tinha caído quando uma academia ligava. O responsável decidiu implementar tudo menos as marcas sem documentação (Henry e Dimep), que entram na implantação do primeiro cliente de cada uma. Checklist de lançamento em `docs/LANCAMENTO_1_0.md`; decisões tomadas por padrão em `docs/DECISOES_PENDENTES.md` (19 a 29).
+A auditoria 360° de 23/09/2026 perguntou o que faltava para a ArkeFit ter controle da operação e encontrou três coisas pela metade, todas no mesmo lugar: **a nuvem não tinha como falar com o Gateway.** Ele validava, sincronizava e subia o que decidiu offline, mas não recebia nada de volta — nem "sincronize agora", nem "apague este aluno do equipamento", que a LGPD exige depois da revogação. Consequências: o cadastro no equipamento era manual, a remoção dependia de alguém lembrar, e a ArkeFit só sabia que um Gateway tinha caído quando uma academia ligava. O responsável decidiu implementar tudo menos as marcas sem documentação (Henry e Dimep), que entram na implantação do primeiro cliente de cada uma. Checklist de lançamento em `docs/LANCAMENTO_1_0.md`; o que continua pendente, em `docs/DECISOES_PENDENTES.md`. As decisões que o responsável tomou sobre esta versão estão em *Decisões do responsável sobre a 1.0*, no fim desta seção.
 
 ### Canal de comandos: escuta longa
 
@@ -751,7 +751,7 @@ Três defeitos na mesma direção, corrigidos juntos (`20261245010000`):
 2. **Revogar só mostrava um aviso** ("apague no equipamento") e nada registrava que foi apagado. Agora agenda `apagar_usuario` em todo Gateway com gestão remota ou, onde não há, abre tarefa `equipamento` com desfecho obrigatório (sempre da academia, mesmo para aluno do Método: é trabalho físico). O consentimento **só ganha `excluido_do_equipamento_em` quando todo o lote conclui** — e o aluno vê essa data no app.
 3. **Excluir ou anonimizar o aluno deixava tudo no equipamento.** Agora os dois caminhos agendam a remoção **por gatilho**, e não pelas edge functions de hoje: vale para qualquer código que exclua ou anonimize.
 
-A Política não mudou de versão: ela promete que a revogação "apaga o vínculo da digital", e a 1.0 faz mais que isso.
+A Política passou a descrever isso na versão `2026-09-23.5` — ver *Decisões do responsável sobre a 1.0*.
 
 ### Visão Master → Equipamentos
 
@@ -759,14 +759,32 @@ Três abas. **Gateways e catracas** de todas as academias, ordenados pelo que pr
 
 **Uma regra de "no ar", não duas.** `situacaoGateway()` em `src/lib/gateway.ts` é espelho de `public.situacao_gateway()` (3 min para o Gateway 1.0; 15 min para o anterior), e o card da Visão Master deixou a consulta antiga (`get_superadmin_gateways`, só o sinal de 5 em 5 minutos) — ela sai na migration pós-deploy. Duas telas com duas regras para a mesma catraca é o desacordo que o espelho existe para evitar.
 
-**Catraca fora do ar vira e-mail**, no trilho do alerta de rotinas (`avaliar_catracas()` em `rotinas_para_alertar()`): 15 minutos sem sinal, **das 6h às 23h** de Brasília, só Gateway 1.0 — o anterior avisaria à toa. Fora da janela a situação é `catraca_offline_fora_horario`, que **não avisa nem manda "voltou ao normal"** só porque anoiteceu. Os três números ficam em Configurações.
+**Catraca fora do ar vira e-mail** para a ArkeFit e para o gestor da academia — ver *Decisões do responsável sobre a 1.0*. A avaliação é `avaliar_catracas()`: só Gateway 1.0 (o anterior avisaria à toa), e fora da janela de horário a situação é `catraca_offline_fora_horario`, que **não avisa nem manda "voltou"** só porque anoiteceu.
 
 ### O que mais a auditoria encontrou
 
-- **Credenciais do Wellhub e do TotalPass em texto puro.** Foram para o **Vault**, só de escrita (`salvar_credencial_parceiro`); a tela mostra que existem e os 4 últimos caracteres quando a chave é longa. Apagar a linha apaga o segredo (gatilho). As colunas antigas saem em `20261249010000`, **aplicada depois do deploy** — antes, quebraria a tela publicada; até lá uma restrição impede gravar nelas.
+- **Credenciais do Wellhub e do TotalPass em texto puro.** Foram para o **Vault**, só de escrita (`salvar_credencial_parceiro`); a tela mostra que existem e os 4 últimos caracteres quando a chave é longa. Apagar a linha apaga o segredo (gatilho). As colunas antigas saem em `20261270010000`, **aplicada depois do deploy** — antes, quebraria a tela publicada; até lá uma restrição impede gravar nelas.
 - **"Mapeamento de hardware" que nada lia.** A tela de Integrações gravava fabricante, IP e porta que o Gateway nunca consultou (ele sempre usou o `config.json`). Removido da tela, e é o certo: a senha de administrador da catraca não tem por que ir para a nuvem.
 - **Três edge functions sem tratamento de erro geral.** `lembrete-onboarding` morria no meio do laço numa falha de rede e deixava sem lembrete as academias seguintes; `briefing-semanal` idem, por academia; `ativar-cadastro` dizia **"este link expirou"** com o banco fora do ar — a lição da matrícula pública de novo: falha nossa e link inválido são telas diferentes.
 - **Henry e Dimep: o Gateway se recusa a subir**, com mensagem. Os drivers eram stubs que lançavam erro a cada leitura — subir "quase funcionando" deixaria a academia achando que estava integrada.
+
+### Decisões do responsável sobre a 1.0 (23/09/2026)
+
+Revisadas uma a uma depois da entrega; as que pediam código entraram antes do merge.
+
+**Aluno sem app: termo impresso** (`20261250010000`). Cadastro, digital, cartão e exclusão ficam com a gestão e a recepção, e a autorização pelo app continua. Para quem não usa o app e está **em dia**, a recepção imprime o termo — **o mesmo texto e a mesma versão do app**, que moram num lugar só (`src/lib/termoBiometria.ts`) —, o aluno assina e a recepção anexa o termo assinado. `registrar_consentimento_biometria_termo()` confere papel (gestão ou recepção), situação em dia e que o arquivo existe na pasta do aluno, grava `origem = 'termo_assinado'` com quem registrou e o arquivo, e audita. **Quem consente continua sendo o titular**: a assinatura é dele, a equipe só registra, e o arquivo é a prova. O bucket `termos-biometria` é privado; leem o aluno e a equipe da academia, gravam só gestão e recepção, e ninguém altera nem apaga. As regras de `storage.objects` continuam **uma por operação**: o bucket entrou nas existentes por `alter policy`, e não numa regra a mais.
+
+**Cartão num clique, e "Aluno" no display.** Digital e cartão pedem o aluno já criado no equipamento; quando falta, a ficha cria antes, sozinha. O display da Control iD mostra **"Aluno"**, não o nome: quem está na fila atrás não vê o nome de ninguém. Sem gestão remota, o campo manual diz o que vai nele — na Topdata com cartão, **o número do cartão**. Na Topdata o aluno tem um número só; cartão e digital ao mesmo tempo é item da primeira implantação dessa marca.
+
+**Aviso ao gestor, aos 10 minutos** (`20261251010000`). O aviso de catraca saiu do trilho do alerta de rotinas, que roda de hora em hora — com ele, os 10 minutos pedidos virariam até 70. Ganhou rotina própria, `arke-alerta-catracas`, de **2 em 2 minutos**, e a edge function `alertar-catracas`: a ArkeFit recebe todas as catracas num e-mail, **o gestor recebe só as da academia dele**, com o que conferir na recepção, sem jargão. `alertas_catracas` é o "já avisei" próprio — dividir a tabela das rotinas faria o alerta de rotinas ver as linhas da catraca como rotinas que sumiram e mandar "voltou" por elas. `avaliar_rotinas()` passou a reconhecer agendamento de N em N minutos, para a rotina nova ter a mesma vigilância das outras. Provado pelo cron de verdade, com um gestor no endereço de teste do Resend: avisou, não repetiu, avisou a volta, e os quatro e-mails foram entregues.
+
+**Política `2026-09-23.5`** (`20261271010000`, **aplicada depois do deploy**). Diz o que a digital faz de fato: autorização no app ou pelo termo assinado; retirar a autorização, encerrar a matrícula ou eliminar os dados apaga a digital dos equipamentos; o termo assinado fica pelo prazo legal, como prova. Versão nova, hash novo, aceite novo.
+
+**Método ARKE à venda desde o primeiro dia.** Saiu o interruptor `VITE_METODO_ARKE_VENDA` e o anúncio de "breve lançamento". O app oferece o Método **só quando a academia de fato vende** — `metodo_ofertas_academia()`: nível disponível, preço de varejo e repasse negociado, as mesmas condições da cobrança —, com o preço e "fale com a recepção para assinar". Anunciar a quem não pode comprar mandaria o aluno à recepção atrás de algo que não existe. A matrícula pública deixou de mostrar o Método: ela é a entrada no Free, e a oferta mora no app.
+
+**Arquivos do aluno saem com ele.** Achado de passagem, ao limpar um teste: excluir ou anonimizar o aluno apagava as linhas e **deixava os arquivos** — atestado médico e vídeo de conversa, dado de saúde sem nada apontando para ele. `_shared/arquivosDoAluno.ts` apaga a pasta do aluno nos buckets privados, **depois** do banco (se a exclusão falhasse, o aluno ficaria sem o atestado que vale). A exclusão leva atestados, vídeos e o termo da digital; a anonimização leva atestados e vídeos e **guarda o termo**, que é a prova da autorização.
+
+**Encerradas sem código:** "servidor de suporte" são as ações remotas pelo Gateway; acessos na Visão Master sem nome nem CPF e auditados; QR Code na catraca continua negado; credenciais de parceiro no cofre; configuração do equipamento no `config.json`; liberação remota só por gestão, recepção e ArkeFit; e o instalador do Gateway **sem assinatura de código**, com o aviso do SmartScreen aceito — a conexão com as catracas é acertada na implantação do primeiro cliente.
 
 ### Um defeito que só o navegador mostrou
 
@@ -856,7 +874,7 @@ Até aqui tudo girava em torno de "aderiu ao Método": 9 dos 11 alunos apareciam
 
 **Matrícula pública é matrícula no Free.** Antes ela ativava o Método no nível escolhido sem gerar cobrança nenhuma — o produto pago saía de graça pelo link. Agora a página não mostra planos nem preços, e sim o anúncio do Método.
 
-**Método ARKE — breve lançamento.** O Método é upgrade pós-lançamento, então o app anuncia em vez de vender: cartão na home do aluno Free, no chat com a nutricionista e na matrícula pública (`MetodoArkeEmBreve`). No painel, a adesão pela academia (e o "Tentar cobrar") fica atrás de `VITE_METODO_ARKE_VENDA`, desligada; o Super Admin segue atribuindo o Método em trial para homologar. Ligar a venda é pôr `VITE_METODO_ARKE_VENDA=true` na Vercel e fazer um deploy.
+**Método ARKE — breve lançamento.** *(Superado em 23/09/2026: o Método está à venda desde o primeiro dia; ver* Decisões do responsável sobre a 1.0*.)* O Método é upgrade pós-lançamento, então o app anuncia em vez de vender: cartão na home do aluno Free, no chat com a nutricionista e na matrícula pública (`MetodoArkeEmBreve`). No painel, a adesão pela academia (e o "Tentar cobrar") fica atrás de `VITE_METODO_ARKE_VENDA`, desligada; o Super Admin segue atribuindo o Método em trial para homologar. Ligar a venda é pôr `VITE_METODO_ARKE_VENDA=true` na Vercel e fazer um deploy.
 
 **Grupos musculares do app original (D7).** Os 11 do original — Peito, Costas, Ombros, Bíceps, Tríceps, Pernas, Glúteos, Abdômen, Antebraços, Panturrilha, Cardio. Os que saíram foram convertidos pelo nome do exercício: "Braços" virou Bíceps ou Tríceps (rosca inversa ganha Antebraços), "Core" virou Abdômen, quadríceps e posterior viraram Pernas, e os exercícios em que o glúteo manda ganharam Glúteos (como principal no hip thrust e na ponte). Os modelos de treino acompanharam; fichas já publicadas ficam como foram publicadas (snapshot imutável).
 
@@ -920,7 +938,7 @@ As respostas registradas em `docs/DECISOES_PENDENTES.md`, aplicadas:
 - **Chat com a nutricionista no Free** quando a academia tem nutricionista ativa na equipe (`academia_tem_nutricionista()`, hook `useNutricionistaDaAcademia`): a academia paga a profissional, então o ARKE não esconde o chat. Sem nutricionista, o chat mostra o Método. A nutricionista **da ArkeFit** continua sendo do Método.
 - **Funil de vendas** (`leads`, `/admin/funil`): Kanban de seis colunas (novo, em contato, aula experimental, negociação, matriculado, perdido), cartão que anda por botões, WhatsApp num toque, motivo obrigatório para "perdido" e taxa de conversão no topo.
 - **Buckets com dado pessoal privados:** `dietas` (vazio e sem uso) e `chat-videos`, que era público. Os vídeos do chat passam a ir para `<organização>/<aluno>/`, com a regra dos atestados, e tocam por link temporário (`VideoChat`).
-- **Fora do escopo por decisão:** WhatsApp (módulo futuro); NFS-e (emitida no painel do Asaas ou no portal da prefeitura); preço do profissional autônomo (pós-lançamento); canal de suporte (preenchido pelo responsável em Visão Master → Configurações quando existir); vídeos e GIFs (material novo, subido depois); venda do Método (mantida desligada).
+- **Fora do escopo por decisão:** WhatsApp (módulo futuro); NFS-e (emitida no painel do Asaas ou no portal da prefeitura); preço do profissional autônomo (pós-lançamento); canal de suporte (preenchido pelo responsável em Visão Master → Configurações quando existir); vídeos e GIFs (material novo, subido depois); venda do Método (mantida desligada — *superado em 23/09/2026: à venda desde o primeiro dia*).
 
 ## CPF obrigatório na matrícula (22/09/2026)
 

@@ -21,7 +21,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { RegistrarAlertaCard } from "@/components/aluno/RegistrarAlertaCard";
 import PontuacaoEngajamento from "@/components/aluno/PontuacaoEngajamento";
-import { MetodoArkeEmBreve } from "@/components/aluno/MetodoArkeEmBreve";
+import { MetodoArke } from "@/components/aluno/MetodoArke";
 import { DocumentosMatricula } from "@/components/aluno/DocumentosMatricula";
 import { ComunicadosAluno } from "@/components/aluno/ComunicadosAluno";
 import { CHAVE_CHECKIN_PENDENTE } from "@/lib/checkin";
@@ -495,7 +495,7 @@ export default function AlunoDashboard() {
 
       <PontuacaoEngajamento />
 
-      {planoAluno === "free" && <MetodoArkeEmBreve />}
+      {planoAluno === "free" && organization && <MetodoArke organizationId={organization.id} />}
 
       {treinoAtivo?.titulo === "Treino de Boas-vindas — Adaptação" && (
         <Card className="border-primary/30 bg-primary/5">

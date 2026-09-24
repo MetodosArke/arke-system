@@ -1,57 +1,23 @@
-# Decisões do responsável — estado final das rodadas
+# Decisões e tarefas pendentes
 
-Lista preenchida durante as rodadas de ajustes do app original e respondida pelo responsável em 22/09/2026. As respostas originais ficam registradas abaixo de cada item.
+Só o que continua em aberto. As decisões já tomadas e aplicadas saíram desta lista (a última rodada foi em 23/09/2026); o que cada uma mudou no sistema está registrado no `CLAUDE.md` e no histórico do git.
 
-## Resolvidas e no ar (rodada final)
+## Com o responsável, antes do primeiro cliente pagante
 
-| # | Assunto | Resposta | O que foi feito |
-|---|---|---|---|
-| 6 | Situação do aluno bloqueia o app | "5 dias corridos de tolerância" | Inadimplente usa o app por 5 dias a partir da marcação, com aviso; pausado sai na hora. |
-| 7 | Ativação 48h no Free | "Confirmado" | Mantido: vale para matrícula e cadastro, não para a base importada. |
-| 8 | Chat com a nutricionista no Free | "Sugestão de como tratar" | Liberado quando a academia tem nutricionista na equipe; sem ela, mostra o Método. |
-| 11 | Funil, NFS-e, WhatsApp | "Kanban simples / Asaas ou prefeitura / fora" | Funil em `/admin/funil`; NFS-e e WhatsApp fora do produto. |
-| 13 | Revisão jurídica | Revisão registrada | Documentos marcados como revisados, versão `2026-09-22.2`. |
-| 14 | Dados da ArkeFit | METODOS ARKE LTDA, CNPJ, endereço, DPO, foro, IPCA, 30 dias, 7 dias | Preenchidos; contrato com reajuste IPCA, aviso de 30 dias e suspensão após 7 dias (aplicada no bloqueio B2B). |
-| 16 | PAR-Q trava o treino? | "Sim sem atestado bloqueia o treino" | Registro de treino recusado até a equipe registrar o atestado. |
+- **Canal de suporte.** Preencher em Visão Master → Configurações → Canal de suporte. Até lá o botão "falar com o suporte" não aparece em nenhuma etapa do onboarding, e um gestor que travar não tem para onde ligar de dentro do produto.
+- **GIFs dos exercícios.** Os 105 exercícios globais continuam sem mídia. Os GIFs vêm do banco do app original; a estrutura de envio já existe e está testada. Vídeo é recurso a mais, não linha de base — a ficha se explica com GIF.
+- **Infraestrutura paga** — Supabase Pro, Vercel Pro, Resend pago e Sentry conforme o volume — e, só depois dela, o **teste de carga**. Depois do upgrade do Supabase, trocar `limite_banco_mb` pelo disco contratado em Visão Master → Configurações.
+- **Planilha real de exportação** (EVO, Tecnofit, Next Fit ou Pacto), para conferir o reconhecimento das colunas na importação de alunos.
+- **Conta de teste da jornada do aluno.** Confirmar no GitHub que o teste de ponta a ponta `jornada-aluno` roda de verdade depois de cada deploy, e não aparece como "pulado".
 
-## Com o responsável (sem código)
+## Depois do lançamento
 
-- **1. Canal de suporte:** dívida assumida pelo responsável **para antes do primeiro cliente pagante** (22/09/2026). Preencher em Visão Master → Configurações → Canal de suporte. Até lá o botão "falar com o suporte" não aparece em nenhuma etapa do onboarding, e um gestor que travar não tem para onde ligar de dentro do produto.
-- **2. GIFs dos exercícios:** dívida assumida pelo responsável **para antes do primeiro cliente pagante** (22/09/2026). Os GIFs vêm do banco do app original; a estrutura de envio já existe e está testada. **Vídeo é recurso a mais, não linha de base** — a ficha se explica com GIF.
-- **3. Cabeçalhos de exportação (EVO, Tecnofit, Next Fit, Pacto):** o responsável vai tentar providenciar uma planilha real para conferir o reconhecimento das colunas.
-- **4. Preço do profissional autônomo:** pós-lançamento. Custom segue negociado caso a caso.
-- **5. Planos modelo:** mantidos inativos; os valores são conferidos no onboarding de cada academia.
-- **9. Venda do Método ARKE:** mantida desligada (`VITE_METODO_ARKE_VENDA`) até resolver a coleta de CPF.
-- **17. Infraestrutura paga** (Supabase, Vercel Pro, Resend, Sentry) e, depois, o teste de carga.
-- **18. Venda de produtos e estoque:** depois do lançamento.
-## Resolvidas pela migração
+- **Preço do profissional autônomo.** O plano Custom segue negociado caso a caso.
+- **Venda de produtos e estoque.**
 
-- **12. Tietê Fitness:** resolvida sem exclusão. A organização **não atravessou** para o projeto novo — só os dados globais da ArkeFit foram migrados —, então não há o que excluir nem órfão a varrer. A ressalva que travava o item (mover a conta E2E antes) virou outra coisa: a conta `e2e-jornada@arkefit.com.br` precisa ser **recriada** no projeto novo, numa organização de homologação nova, senão `jornada-aluno.spec.ts` falha em todo deploy.
+## Na implantação de cada cliente com catraca
 
-## Resolvidas depois
-
-- **15. Migração para o projeto `ArkeFit PROD BR` (sa-east-1, São Paulo):** **em produção.** Conferido em 23/09/2026: o bundle publicado em `www.arkefit.com.br` aponta para `lzyxqjibkfblrrjboylp`, e todo o trabalho desde então (Ecossistema, catraca, versão 1.0) foi aplicado e provado nesse projeto. O registro abaixo, de 22/09/2026, fica como histórico. — **o projeto novo está pronto e conferido** (22/09/2026) — schema idêntico em 14 categorias de comparação, 33 edge functions, 12 rotinas, 8 buckets, Auth espelhado com o hook de e-mail ligado, segredos gravados e os dois Super Admins criados. A produção ainda aponta para o projeto antigo. Faltam três passos manuais, detalhados em `docs/MIGRACAO_SUPABASE.md`: copiar `ASAAS_WEBHOOK_SECRET` e `TURNSTILE_SECRET_KEY` do projeto antigo, trocar o ref em `vercel.json` e `supabase/config.toml`, e virar as variáveis da Vercel mais a URL do webhook no Asaas.
-
-## Versão 1.0 — decisões tomadas por padrão (23/09/2026)
-
-Na rodada da versão 1.0 as escolhas abaixo foram feitas sem parar para perguntar, sempre pelo caminho mais seguro e reversível. Cada uma diz o que foi feito e o que muda se a resposta for outra.
-
-| # | Assunto | O que foi feito | Se a resposta for outra |
-|---|---|---|---|
-| 19 | "Servidor de suporte" no pedido da auditoria | Entendido como **ações remotas pelo Gateway**: sincronizar agora, enviar acessos guardados, diagnóstico (com teste de login em cada Control iD) e liberar a catraca, pela Visão Master e pela tela Catracas. | Se a intenção era acesso remoto ao computador da academia (tela, arquivos), isso é ferramenta de terceiro e processo de suporte, não código do ARKE. |
-| 20 | Acessos pela catraca na Visão Master | **Sem nome nem CPF**: o aluno aparece como código estável, a credencial só pelo tipo, e **cada consulta fica na Auditoria** com os filtros. No máximo 31 dias e 500 linhas. | Mostrar quem entrou exigiria base legal própria: nos dados de acesso da academia, a ArkeFit é operadora. Quem vê o nome continua sendo a academia. |
-| 21 | Quem autoriza a digital | **Só o próprio aluno, no app** (Perfil → Privacidade), com texto versionado. A equipe vê, não registra — o banco recusa. | Aluno sem app (idoso, sem celular) fica sem digital e usa cartão ou CPF. Se a academia precisar de digital para ele, a saída é um termo assinado e anexado pela recepção — **não implementado**, decisão do responsável e do encarregado de dados. |
-| 22 | Aviso de catraca fora do ar | E-mail **só para os Super Admins da ArkeFit**, depois de **15 minutos** sem sinal, **das 6h às 23h** de Brasília. Os três números ficam em Visão Master → Configurações. Só vale para o Gateway 1.0. | Avisar também o gestor da academia é uma linha a mais no envio — pendente de decisão. O aviso chegaria a quem pode ir ao computador da recepção. |
-| 23 | QR Code na catraca Control iD | **Continua negado.** O QR do ARKE é o do check-in na recepção, que muda a cada 10 minutos e é lido pelo celular do aluno. | QR na própria catraca exige definir o que o QR carrega e como ele gira; é integração futura. |
-| 24 | Credenciais do Wellhub e do TotalPass | Passaram para o **cofre do banco (Vault)**, só de escrita: a tela mostra que existem e os 4 últimos caracteres (quando a chave é longa), nunca o valor. As colunas de texto puro saem depois do deploy (migration `20261249010000`). | — |
-| 25 | "Mapeamento de hardware" em Integrações | **Removido da tela.** Gravava fabricante, IP e porta que nada lia. A configuração do equipamento mora no `config.json` do Gateway, na máquina da academia, e a senha de administrador da catraca não sobe para a nuvem. | — |
-| 26 | Henry e Dimep | O Gateway **se recusa a subir** com essas marcas, com mensagem explicando. A integração é feita na implantação do primeiro cliente de cada marca (decisão do responsável). | — |
-| 27 | Quem libera a catraca remotamente | Gestor, recepção e ArkeFit. **Motivo obrigatório**, auditado, e a liberação **não conta presença** de ninguém. Professor e nutricionista não liberam. | Incluir outros papéis é uma linha na função `solicitar_comando_gateway`. |
-| 28 | O que vai para o equipamento no cadastro remoto | O número do aluno, o **nome** (o display da Control iD mostra a quem liberou) e os 8 primeiros caracteres do id como matrícula. A digital é copiada entre as catracas da academia pela rede local, passando pela memória do Gateway, sem ser guardada nem ir à nuvem. | Tirar o nome do display é trocar por "Aluno" na função — a catraca continua funcionando. |
-| 29 | Texto da Política sobre a digital | **Não mudou de versão.** A Política diz que a revogação "apaga o vínculo da digital"; a 1.0 faz mais (apaga a digital dos equipamentos), o que é mais protetivo do que a promessa e não exige novo aceite. | Se o encarregado quiser que o texto descreva a remoção nos equipamentos, é versão nova da Política e novo aceite. |
-
-## Versão 1.0 — o que depende de cliente real
-
-- **Bancada de cada marca, no primeiro cliente:** sentido de giro da borboleta montada, tempo real de acionamento e do cadastro remoto da digital, mensagens de erro de cada firmware, e (Control iD) se o `uuid` do aviso de giro é o mesmo da identificação. O ensaio com o emulador prova a conversa; a primeira instalação prova o equipamento. Roteiro em `docs/MANUAL_GATEWAY_LOCAL.md` e `docs/PONTE_TOPDATA.md`.
-- **Henry e Dimep:** integração inteira, quando entrar o primeiro cliente com uma delas.
-- **Topdata:** o Kit Integrador (suporte@topdata.com.br) roda a maior parte da bancada antes do primeiro cliente.
+- **Bancada de cada marca, com o equipamento de verdade:** sentido de giro da borboleta montada, tempo real de acionamento e do cadastro remoto da digital, mensagens de erro do firmware e, na Control iD, se o `uuid` do aviso de giro é o mesmo da identificação. O ensaio com o emulador prova a conversa; a primeira instalação prova o equipamento. Roteiro em `docs/MANUAL_GATEWAY_LOCAL.md` e `docs/PONTE_TOPDATA.md`.
+- **Henry e Dimep:** a integração inteira, quando entrar o primeiro cliente com uma delas.
+- **Topdata:** o Kit Integrador (suporte@topdata.com.br) roda a maior parte da bancada antes. E um ponto que só ela responde: na Topdata o aluno tem um número só no equipamento (o do cartão, ou o da digital), então quem quiser usar **cartão e digital ao mesmo tempo** precisa de dois números — o formato depende de como a digital da Topdata identifica o aluno.
+- **Instalador do Gateway** gerado na implantação, sem assinatura de código: o Windows mostra o aviso do SmartScreen na primeira execução, e isso foi aceito.

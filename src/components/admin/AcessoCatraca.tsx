@@ -6,11 +6,13 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { CreditCard, Fingerprint, Loader2, ShieldOff, UserPlus } from "lucide-react";
+import { CreditCard, FileText, Fingerprint, Loader2, ShieldOff, UserPlus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useComandoGateway } from "@/hooks/useComandoGateway";
 import { ProgressoComando } from "@/components/catraca/ProgressoComando";
-import { VERSAO_CONSENTIMENTO_BIOMETRIA } from "@/components/catraca/ConsentimentoBiometria";
+import { TermoImpressoBiometria } from "@/components/catraca/TermoImpressoBiometria";
+import { VERSAO_CONSENTIMENTO_BIOMETRIA } from "@/lib/termoBiometria";
+import { useAuth } from "@/contexts/AuthContext";
 import { SITUACAO_GATEWAY, equipamentosDeGestao, situacaoGateway, type TipoComando } from "@/lib/gateway";
 
 const formatarData = (valor: string) =>
@@ -34,18 +36,29 @@ const umaTelemetria = (t: Telemetria | Telemetria[] | null | undefined): Telemet
  * (Topdata, ou Control iD sem credencial no config), o cadastro continua no
  * equipamento e o número é vinculado à mão.
  *
- * O consentimento da digital é do ALUNO, dado no app — a equipe vê, não
- * registra. Cartão e senha não são dado biométrico e não dependem dele.
+ * O consentimento da digital é do ALUNO: no app, ou assinando o termo
+ * impresso que a recepção anexa aqui (aluno sem app). A equipe nunca autoriza
+ * por ele. Cartão e senha não são dado biométrico e não dependem disso.
+ * Cadastro, digital, cartão e exclusão ficam com a gestão e a recepção
+ * (decisão do responsável, 23/09/2026).
  */
 export function AcessoCatraca({
   alunoId,
   organizationId,
   identificadorAtual,
+  alunoNome,
+  alunoCpf,
+  situacaoAcademia,
 }: {
   alunoId: string;
   organizationId: string;
   identificadorAtual: string | null;
+  alunoNome: string;
+  alunoCpf: string | null;
+  situacaoAcademia: string | null;
 }) {
+  const { organization, organizationRole } = useAuth();
+  const gestaoOuRecepcao = organizationRole === "gestor" || organizationRole === "recepcao";
   const [identificador, setIdentificador] = useState(identificadorAtual ?? "");
   const [gatewayId, setGatewayId] = useState("");
   const [leitor, setLeitor] = useState("");
@@ -61,7 +74,7 @@ export function AcessoCatraca({
     queryFn: async () => {
       const { data, error } = await supabase
         .from("aluno_consentimento_biometrico")
-        .select("id, aceito_em, versao_texto, revogado_em, excluido_do_equipamento_em")
+        .select("id, aceito_em, versao_texto, revogado_em, excluido_do_equipamento_em, origem, termo_arquivo")
         .eq("aluno_id", alunoId)
         .order("aceito_em", { ascending: false })
         .limit(5);
@@ -106,6 +119,13 @@ export function AcessoCatraca({
   const ordem = async (tipo: TipoComando) => {
     if (!gateway) return;
     try {
+      // Digital e cartão pedem o aluno já criado no equipamento. Quando falta,
+      // o cadastro vem antes, sozinho — a recepção clica uma vez só.
+      if ((tipo === "cadastrar_digital" || tipo === "cadastrar_cartao") && !identificadorAtual) {
+        const antes = await comando.executar(gateway.id, "cadastrar_usuario", { alunoId });
+        if (antes.status !== "concluido") return;
+        atualizar();
+      }
       const c = await comando.executar(gateway.id, tipo, {
         alunoId,
         parametros: leitor && (tipo === "cadastrar_digital" || tipo === "cadastrar_cartao") ? { equipamento: leitor } : {},
@@ -114,6 +134,17 @@ export function AcessoCatraca({
     } catch (e) {
       toast({ title: "Não foi possível enviar ao Gateway", description: (e as Error).message, variant: "destructive" });
     }
+  };
+
+  // Link temporário: o bucket é privado, e o termo assinado não pode virar
+  // endereço público.
+  const verTermo = async (caminho: string) => {
+    const { data, error } = await supabase.storage.from("termos-biometria").createSignedUrl(caminho, 120);
+    if (error || !data?.signedUrl) {
+      toast({ title: "Não foi possível abrir o termo", description: error?.message, variant: "destructive" });
+      return;
+    }
+    window.open(data.signedUrl, "_blank", "noopener");
   };
 
   const vincularManual = useMutation({
@@ -157,9 +188,19 @@ export function AcessoCatraca({
     <div className="space-y-3">
       {/* Consentimento: só leitura para a equipe */}
       {vigente ? (
-        <Badge variant="secondary" className="gap-1">
-          <Fingerprint className="h-3.5 w-3.5" /> Digital autorizada pelo aluno em {formatarData(vigente.aceito_em)}
-        </Badge>
+        <div className="flex flex-wrap items-center gap-2">
+          <Badge variant="secondary" className="gap-1">
+            <Fingerprint className="h-3.5 w-3.5" />
+            {vigente.origem === "termo_assinado"
+              ? `Digital autorizada por termo assinado em ${formatarData(vigente.aceito_em)}`
+              : `Digital autorizada pelo aluno no app em ${formatarData(vigente.aceito_em)}`}
+          </Badge>
+          {vigente.termo_arquivo && (
+            <Button size="sm" variant="ghost" className="h-7 px-2 text-xs" onClick={() => void verTermo(vigente.termo_arquivo!)}>
+              <FileText className="mr-1 h-3.5 w-3.5" /> Ver termo
+            </Button>
+          )}
+        </div>
       ) : antigo ? (
         <p className="rounded-md border border-amber-500/40 bg-amber-500/5 p-2 text-xs">
           O aluno autorizou a digital em {formatarData(antigo.aceito_em)}, sob um texto que mudou. Para cadastrar uma
@@ -168,7 +209,8 @@ export function AcessoCatraca({
       ) : (
         <p className="rounded-md border border-dashed p-2 text-xs text-muted-foreground">
           O aluno ainda não autorizou o uso da digital. Ele autoriza no próprio app, em{" "}
-          <strong>Perfil → Privacidade</strong> — a lei exige que seja ele. Cartão e senha não dependem disso.
+          <strong>Perfil → Privacidade</strong>, ou assinando o termo impresso abaixo — a lei exige que seja ele.
+          Cartão e senha não dependem disso.
           {ultimaRevogacao?.revogado_em && (
             <>
               {" "}
@@ -179,6 +221,18 @@ export function AcessoCatraca({
             </>
           )}
         </p>
+      )}
+
+      {!vigente && gestaoOuRecepcao && (
+        <TermoImpressoBiometria
+          alunoId={alunoId}
+          organizationId={organizationId}
+          academia={organization?.nome ?? "Academia"}
+          alunoNome={alunoNome}
+          alunoCpf={alunoCpf}
+          emDia={situacaoAcademia === "em_dia"}
+          aoRegistrar={atualizar}
+        />
       )}
 
       <p className="text-sm">
@@ -234,8 +288,8 @@ export function AcessoCatraca({
             </Button>
             <Button
               size="sm"
-              disabled={!noAr || ocupado || !identificadorAtual || !vigente}
-              title={!vigente ? "O aluno precisa autorizar no app" : !identificadorAtual ? "Cadastre o aluno no equipamento antes" : undefined}
+              disabled={!noAr || ocupado || !vigente}
+              title={!vigente ? "O aluno precisa autorizar — no app ou pelo termo impresso" : undefined}
               onClick={() => void ordem("cadastrar_digital")}
             >
               <Fingerprint className="mr-1.5 h-3.5 w-3.5" /> Cadastrar digital
@@ -243,7 +297,7 @@ export function AcessoCatraca({
             <Button
               size="sm"
               variant="secondary"
-              disabled={!noAr || ocupado || !identificadorAtual}
+              disabled={!noAr || ocupado}
               onClick={() => void ordem("cadastrar_cartao")}
             >
               <CreditCard className="mr-1.5 h-3.5 w-3.5" /> Cadastrar cartão
@@ -254,7 +308,7 @@ export function AcessoCatraca({
       ) : (
         <div className="space-y-1.5">
           <Label className="text-xs font-medium text-muted-foreground" htmlFor={`catraca-numero-${alunoId}`}>
-            Número do aluno no equipamento
+            Número do usuário ou do cartão no equipamento
           </Label>
           <div className="flex gap-2">
             <Input
@@ -269,9 +323,10 @@ export function AcessoCatraca({
             </Button>
           </div>
           <p className="text-xs text-muted-foreground">
-            Cadastre o aluno no equipamento e informe aqui o número que a catraca deu a ele. Digital só com a
-            autorização do aluno no app; cartão e senha, a qualquer momento. Com a Control iD configurada no Gateway
-            Local, este cadastro passa a ser feito daqui.
+            <strong>Topdata com cartão:</strong> o número impresso no cartão. <strong>Control iD</strong> (ou digital na
+            Topdata): o número de usuário que o equipamento deu ao aluno no cadastro. Digital só com a autorização do
+            aluno (app ou termo impresso); cartão, a qualquer momento. Com a Control iD configurada no Gateway Local, o
+            cadastro passa a ser feito daqui, sem digitar número.
           </p>
         </div>
       )}

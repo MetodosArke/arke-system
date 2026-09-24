@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { acessoPelaSituacao, planoDoAluno, prioridadeDoPlano, situacaoDoTexto, temNutricaoNoPlano, vendaMetodoArkeLiberada } from "./planoAluno";
+import { acessoPelaSituacao, planoDoAluno, prioridadeDoPlano, situacaoDoTexto, temNutricaoNoPlano } from "./planoAluno";
 
 describe("planoDoAluno", () => {
   it("quem não está no Método é Free, mesmo com nível gravado", () => {
@@ -67,19 +67,5 @@ describe("acessoPelaSituacao", () => {
     expect(acessoPelaSituacao("inadimplente", "2026-09-22T11:00:00Z", agora)).toEqual({ liberado: true, diasRestantes: 5 });
     expect(acessoPelaSituacao("inadimplente", "2026-09-18T13:00:00Z", agora)).toEqual({ liberado: true, diasRestantes: 2 });
     expect(acessoPelaSituacao("inadimplente", "2026-09-17T11:00:00Z", agora).liberado).toBe(false);
-  });
-});
-
-describe("vendaMetodoArkeLiberada", () => {
-  afterEach(() => vi.unstubAllEnvs());
-
-  it("desligada sem a variável", () => {
-    vi.stubEnv("VITE_METODO_ARKE_VENDA", "");
-    expect(vendaMetodoArkeLiberada()).toBe(false);
-  });
-
-  it("liga só com true", () => {
-    vi.stubEnv("VITE_METODO_ARKE_VENDA", "true");
-    expect(vendaMetodoArkeLiberada()).toBe(true);
   });
 });

@@ -6,7 +6,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { UtensilsCrossed, Flame, MessageCircle, CalendarDays, ChevronDown, Repeat } from "lucide-react";
-import { MetodoArkeEmBreve } from "@/components/aluno/MetodoArkeEmBreve";
+import { MetodoArke } from "@/components/aluno/MetodoArke";
 import { temNutricaoNoPlano } from "@/lib/planoAluno";
 import { hojeBrasilia } from "@/lib/dataBrasilia";
 import { useNutricionistaDaAcademia } from "@/hooks/useNutricionistaDaAcademia";
@@ -297,7 +297,7 @@ export default function AlunoDieta() {
               motivoSomenteLeitura="Você agora é acompanhado pelo seu mentor ARKE. Esta conversa fica como histórico."
             />
           ) : (
-            <MetodoArkeEmBreve recurso="O chat com a nutricionista" />
+            organization && <MetodoArke organizationId={organization.id} recurso="O chat com a nutricionista" />
           )}
         </CardContent>
       </Card>

@@ -224,6 +224,49 @@ export type Database = {
           },
         ]
       }
+      alertas_catracas: {
+        Row: {
+          avisado_em: string
+          catraca_id: string
+          organization_id: string
+          situacao: string
+        }
+        Insert: {
+          avisado_em?: string
+          catraca_id: string
+          organization_id: string
+          situacao: string
+        }
+        Update: {
+          avisado_em?: string
+          catraca_id?: string
+          organization_id?: string
+          situacao?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "alertas_catracas_catraca_id_fkey"
+            columns: ["catraca_id"]
+            isOneToOne: true
+            referencedRelation: "organizacao_catracas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "alertas_catracas_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "org_churn_metrics"
+            referencedColumns: ["organization_id"]
+          },
+          {
+            foreignKeyName: "alertas_catracas_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       alertas_rotinas: {
         Row: {
           avisado_em: string
@@ -455,10 +498,13 @@ export type Database = {
           finalidade: string
           id: string
           organization_id: string
+          origem: string
+          registrado_por: string | null
           retencao_descricao: string
           revogado_em: string | null
           revogado_por: string | null
           template_no_servidor: boolean
+          termo_arquivo: string | null
           versao_texto: string | null
         }
         Insert: {
@@ -469,10 +515,13 @@ export type Database = {
           finalidade?: string
           id?: string
           organization_id: string
+          origem?: string
+          registrado_por?: string | null
           retencao_descricao?: string
           revogado_em?: string | null
           revogado_por?: string | null
           template_no_servidor?: boolean
+          termo_arquivo?: string | null
           versao_texto?: string | null
         }
         Update: {
@@ -483,10 +532,13 @@ export type Database = {
           finalidade?: string
           id?: string
           organization_id?: string
+          origem?: string
+          registrado_por?: string | null
           retencao_descricao?: string
           revogado_em?: string | null
           revogado_por?: string | null
           template_no_servidor?: boolean
+          termo_arquivo?: string | null
           versao_texto?: string | null
         }
         Relationships: [
@@ -2340,6 +2392,27 @@ export type Database = {
           id?: string
           nome?: string
           ordem?: number
+        }
+        Relationships: []
+      }
+      execucoes_agendadas: {
+        Row: {
+          nome: string
+          ultima_ok: string | null
+          ultimo_erro: string | null
+          ultimo_erro_em: string | null
+        }
+        Insert: {
+          nome: string
+          ultima_ok?: string | null
+          ultimo_erro?: string | null
+          ultimo_erro_em?: string | null
+        }
+        Update: {
+          nome?: string
+          ultima_ok?: string | null
+          ultimo_erro?: string | null
+          ultimo_erro_em?: string | null
         }
         Relationships: []
       }
@@ -5743,6 +5816,19 @@ export type Database = {
         }[]
       }
       capturar_snapshot_mrr: { Args: never; Returns: undefined }
+      catracas_para_alertar: {
+        Args: never
+        Returns: {
+          academia: string
+          catraca: string
+          catraca_id: string
+          detalhe: string
+          organization_id: string
+          sem_sinal_desde: string
+          situacao: string
+          tipo: string
+        }[]
+      }
       codigo_checkin: {
         Args: { _janela: number; _organization_id: string }
         Returns: string
@@ -5814,6 +5900,12 @@ export type Database = {
           _tipo: Database["public"]["Enums"]["tarefa_tipo"]
         }
         Returns: string
+      }
+      emails_gestores_organizacao: {
+        Args: { _organization_id: string }
+        Returns: {
+          email: string
+        }[]
       }
       emails_superadmin: {
         Args: never
@@ -6451,6 +6543,13 @@ export type Database = {
         Args: { _organization_id: string }
         Returns: boolean
       }
+      metodo_ofertas_academia: {
+        Args: { _organization_id: string }
+        Returns: {
+          nivel: string
+          valor_varejo: number
+        }[]
+      }
       motivo_nao_avanca: { Args: { _aluno_id: string }; Returns: string }
       mover_fase_jornada: {
         Args: {
@@ -6600,6 +6699,10 @@ export type Database = {
         Args: { _pasta: string }
         Returns: boolean
       }
+      pode_gravar_termo_biometria: {
+        Args: { _caminho: string }
+        Returns: boolean
+      }
       prazo_util: { Args: { _horas: number; _inicio: string }; Returns: string }
       publicar_contrato_matricula: {
         Args: { _conteudo: string; _organization_id: string; _titulo: string }
@@ -6627,6 +6730,7 @@ export type Database = {
         }
         Returns: string
       }
+      registrar_alerta_catracas: { Args: { _itens: Json }; Returns: undefined }
       registrar_alerta_rotinas: { Args: { _itens: Json }; Returns: undefined }
       registrar_atividade_aluno: { Args: never; Returns: undefined }
       registrar_auditoria: {
@@ -6638,6 +6742,14 @@ export type Database = {
           _entidade_id: string
           _organizacao_nome: string
         }
+        Returns: undefined
+      }
+      registrar_consentimento_biometria_termo: {
+        Args: { _aluno_id: string; _termo_arquivo: string }
+        Returns: string
+      }
+      registrar_execucao_agendada: {
+        Args: { _erro?: string; _nome: string; _ok: boolean }
         Returns: undefined
       }
       registrar_lembrete_onboarding: {

@@ -313,7 +313,7 @@ grant execute on function public.get_superadmin_biometria() to authenticated;
 -- gestor conferir qual chave está configurada sem poder lê-la de volta.
 -- Nenhuma linha tinha segredo em 23/09/2026 — a troca não perde nada.
 --
--- As colunas antigas saem em 20261249010000, aplicada DEPOIS do deploy do
+-- As colunas antigas saem em 20261270010000, aplicada DEPOIS do deploy do
 -- app: apagá-las antes quebraria a tela de Integrações ainda publicada, que
 -- as lê. Até lá, a restrição abaixo impede que alguém grave segredo nelas.
 alter table public.organizacao_credenciais_parceiro
