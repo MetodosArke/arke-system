@@ -3894,9 +3894,7 @@ export type Database = {
       }
       organizacao_credenciais_parceiro: {
         Row: {
-          api_key: string | null
           ativo: boolean
-          client_secret: string | null
           created_at: string
           id: string
           identificador: string | null
@@ -3904,12 +3902,9 @@ export type Database = {
           parceiro: string
           segredos: Json
           updated_at: string
-          webhook_secret: string | null
         }
         Insert: {
-          api_key?: string | null
           ativo?: boolean
-          client_secret?: string | null
           created_at?: string
           id?: string
           identificador?: string | null
@@ -3917,12 +3912,9 @@ export type Database = {
           parceiro: string
           segredos?: Json
           updated_at?: string
-          webhook_secret?: string | null
         }
         Update: {
-          api_key?: string | null
           ativo?: boolean
-          client_secret?: string | null
           created_at?: string
           id?: string
           identificador?: string | null
@@ -3930,7 +3922,6 @@ export type Database = {
           parceiro?: string
           segredos?: Json
           updated_at?: string
-          webhook_secret?: string | null
         }
         Relationships: [
           {
@@ -6284,22 +6275,6 @@ export type Database = {
           trials_sem_prazo: number
           trials_total: number
           trials_vencidos: number
-        }[]
-      }
-      get_superadmin_gateways: {
-        Args: never
-        Returns: {
-          acessos_24h: number
-          catraca_id: string
-          driver: string
-          localizacao: string
-          minutos_sem_heartbeat: number
-          nome: string
-          organizacao_nome: string
-          organization_id: string
-          situacao: string
-          status: string
-          ultimo_heartbeat_em: string
         }[]
       }
       get_superadmin_organizacao_atividade: {
