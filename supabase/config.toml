@@ -66,3 +66,11 @@ verify_jwt = false
 
 [functions.catraca-confirmar-giro]
 verify_jwt = false
+
+[functions.catraca-comandos]
+verify_jwt = false
+
+# Aviso de catraca fora do ar (ArkeFit e gestor), chamado de 2 em 2 minutos pelo
+# cron com o token do alerta de rotinas.
+[functions.alertar-catracas]
+verify_jwt = false

@@ -3,6 +3,7 @@ import type { GatewayService } from "../core/gatewayService";
 import { registrarReceptorControlId, type OpcoesReceptorControlId } from "../receptores/controlid";
 import { registrarReceptorTopdata, type OpcoesReceptorTopdata } from "../receptores/topdata";
 import { logger } from "../logger";
+import { VERSAO_GATEWAY } from "../versao";
 
 /**
  * Servidor HTTP local (não exposto fora de localhost) para diagnóstico:
@@ -14,8 +15,13 @@ export function criarServidorLocal(gateway: GatewayService, porta = 4570) {
 
   app.get("/health", async () => ({ ok: true }));
 
+  // O que o técnico precisa na instalação sem abrir log: a nuvem responde?
+  // a fila offline está andando? a catraca chegou até aqui? Nada de aluno —
+  // só contagens — porque qualquer programa da própria máquina lê isto.
   app.get("/status", async () => ({
-    status: gateway.getStatus(),
+    ...(await gateway.estado()),
+    ...gateway.equipamentos.paraTelemetria(),
+    versao: VERSAO_GATEWAY,
     verificadoEm: new Date().toISOString(),
   }));
 
@@ -59,7 +65,7 @@ export function criarServidorReceptor(
   // Sonda de vida da própria porta do receptor: o técnico de instalação
   // precisa confirmar da rede que o gateway está alcançável, sem depender
   // de ter a catraca já configurada.
-  app.get("/health", async () => ({ ok: true, receptor: "controlid" }));
+  app.get("/health", async () => ({ ok: true, receptor: opcoes.modelo ?? "controlid", versao: VERSAO_GATEWAY }));
 
   const iniciar = async () => {
     try {

@@ -9,6 +9,7 @@ import {
   useSaudeRotinas,
   useUltimaReconciliacao,
 } from "@/lib/rotinas";
+import { catracasSemSinal, useEquipamentosGlobais } from "@/lib/equipamentos";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { AlertTriangle, Clock, Scale } from "lucide-react";
@@ -32,15 +33,23 @@ export function AvisoRotinas() {
   const { data } = useSaudeRotinas();
   const { data: reconciliacao } = useUltimaReconciliacao();
   const { data: capacidade } = useCapacidadeBanco();
+  const { data: equipamentos } = useEquipamentosGlobais();
   const navigate = useNavigate();
   const problemas = rotinasComProblema(data);
   const problemaFinanceiro = problemaReconciliacao(reconciliacao);
   const problemaBanco = problemaCapacidade(capacidade);
-  if (problemas.length === 0 && !problemaFinanceiro && !problemaBanco) return null;
+  const semSinal = catracasSemSinal(equipamentos);
+  const problemaCatraca =
+    semSinal.length === 0
+      ? null
+      : semSinal.length === 1
+        ? `A catraca de ${semSinal[0].academia} (${semSinal[0].catraca}) está sem sinal`
+        : `${semSinal.length} catracas estão sem sinal`;
+  if (problemas.length === 0 && !problemaFinanceiro && !problemaBanco && !problemaCatraca) return null;
 
   const texto =
     problemas.length === 0
-      ? (problemaFinanceiro ?? problemaBanco)
+      ? (problemaFinanceiro ?? problemaBanco ?? problemaCatraca)
       : problemas.length === 1
         ? `A rotina "${problemas[0].nome}" ${ROTULO[problemas[0].situacao]}`
         : `${problemas.length} rotinas agendadas precisam de atenção`;
@@ -48,10 +57,19 @@ export function AvisoRotinas() {
   const extras = [
     problemas.length > 0 && problemaFinanceiro ? "há divergência na reconciliação" : null,
     (problemas.length > 0 || problemaFinanceiro) && problemaBanco ? "o banco está perto do limite" : null,
+    (problemas.length > 0 || problemaFinanceiro || problemaBanco) && problemaCatraca
+      ? `${semSinal.length} catraca(s) sem sinal`
+      : null,
   ].filter(Boolean);
   const extra = extras.length ? ` · e ${extras.join(" e ")}` : "";
   // Só o banco: o que resolve é o limite, em Configurações.
-  const destino = !problemas.length && !problemaFinanceiro ? "/superadmin/configuracoes" : "/superadmin/webhooks";
+  // Só catraca: o que resolve está em Equipamentos.
+  const destino =
+    !problemas.length && !problemaFinanceiro
+      ? problemaBanco
+        ? "/superadmin/configuracoes"
+        : "/superadmin/equipamentos"
+      : "/superadmin/webhooks";
 
   return (
     <button

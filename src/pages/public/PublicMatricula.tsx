@@ -9,7 +9,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dumbbell } from "lucide-react";
-import { MetodoArkeEmBreve } from "@/components/aluno/MetodoArkeEmBreve";
 import { useToast } from "@/hooks/use-toast";
 import { mensagemDeErroEdge } from "@/lib/erroEdge";
 import { erroCpfObrigatorio } from "@/lib/cpf";
@@ -153,8 +152,6 @@ export default function PublicMatricula() {
           <h1 className="text-2xl font-bold">{org.nome}</h1>
           <p className="text-sm text-muted-foreground">Crie sua conta para acessar o app da academia.</p>
         </div>
-
-        <MetodoArkeEmBreve />
 
         <Card>
           <CardHeader className="pb-2">

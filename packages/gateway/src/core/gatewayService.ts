@@ -13,8 +13,11 @@ import type {
   StatusGateway,
 } from "../types";
 import { logger } from "../logger";
+import { RegistroEquipamentos } from "../equipamentos/registro";
 
 const INTERVALO_FLUSH_LOGS_MS = 30_000;
+
+const dormir = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 /**
  * Orquestra o fluxo completo: lê credencial da catraca → valida na nuvem
@@ -29,6 +32,11 @@ export class GatewayService extends EventEmitter {
   private ultimaSincronizacao: string | undefined;
   private sincronizando = false;
   private timerFlushLogs: NodeJS.Timeout | null = null;
+  private ultimaSincronizacaoOk: string | null = null;
+  private ultimoErro: { mensagem: string; em: string } | null = null;
+
+  /** Quem deu sinal desde que o Gateway subiu — alimentado pelos receptores. */
+  readonly equipamentos = new RegistroEquipamentos();
 
   constructor(
     private readonly config: GatewayConfig,
@@ -42,6 +50,37 @@ export class GatewayService extends EventEmitter {
 
   getStatus(): StatusGateway {
     return this.status;
+  }
+
+  /** O estado que a telemetria leva à nuvem e o /status mostra ao técnico. */
+  async estado(): Promise<{
+    status: StatusGateway;
+    filaOffline: number;
+    cacheAlunos: number;
+    ultimaSincronizacao: string | null;
+    ultimoErro: { mensagem: string; em: string } | null;
+  }> {
+    const [filaOffline, cacheAlunos] = await Promise.all([
+      this.logsQueue.contarPendentes().catch(() => 0),
+      this.alunosCache.contar().catch(() => 0),
+    ]);
+    return {
+      status: this.status,
+      filaOffline,
+      cacheAlunos,
+      ultimaSincronizacao: this.ultimaSincronizacaoOk,
+      ultimoErro: this.ultimoErro,
+    };
+  }
+
+  /**
+   * Guarda o último erro para a telemetria. Só a mensagem, curta: o que
+   * chega aqui são falhas de rede e de nuvem, nunca dado de aluno — quem
+   * chama não passa CPF nem nome.
+   */
+  private registrarErro(contexto: string, err: unknown): void {
+    const mensagem = `${contexto}: ${(err as Error)?.message ?? String(err)}`.slice(0, 300);
+    this.ultimoErro = { mensagem, em: new Date().toISOString() };
   }
 
   async iniciar(): Promise<void> {
@@ -126,6 +165,7 @@ export class GatewayService extends EventEmitter {
         { err: (err as Error).message, credencial: credencial.tipo },
         "Falha ou timeout ao validar na nuvem — acionando contingência offline"
       );
+      this.registrarErro("validação na nuvem", err);
       return this.validarOffline(credencial);
     }
   }
@@ -265,59 +305,96 @@ export class GatewayService extends EventEmitter {
     if (this.sincronizando) return;
     this.sincronizando = true;
     try {
-      let resposta = await this.cloud.sincronizarAlunos(
-        this.ultimaSincronizacao ? { desde: this.ultimaSincronizacao } : {}
-      );
-      if (resposta.error) throw new Error(resposta.error);
-
-      // Nuvem antiga não manda `completo`: é lista inteira, como antes.
-      if (resposta.completo === false) {
-        await this.alunosCache.aplicarDiferenca(resposta.alunos ?? [], resposta.remover ?? []);
-        if (resposta.ids_hash && (await this.alunosCache.hashIds()) !== resposta.ids_hash) {
-          logger.warn("Cache local divergiu da nuvem depois da diferença — pedindo a lista inteira");
-          resposta = await this.cloud.sincronizarAlunos({ completo: true });
-          if (resposta.error) throw new Error(resposta.error);
-          await this.alunosCache.substituirTodos(resposta.alunos ?? []);
-        } else {
-          logger.info(
-            { alterados: resposta.alunos?.length ?? 0, removidos: resposta.remover?.length ?? 0 },
-            "Cache local de alunos atualizado pela diferença"
-          );
-        }
-      } else {
-        await this.alunosCache.substituirTodos(resposta.alunos ?? []);
-        logger.info({ total: resposta.alunos?.length ?? 0 }, "Cache local de alunos sincronizado com a nuvem");
-      }
-      // Só avança o marco depois de aplicar: se a gravação local falhar, a
-      // próxima rodada pede de novo a partir do marco anterior.
-      this.ultimaSincronizacao = resposta.sincronizado_em;
-      this.setStatus("online");
-      await this.flushLogsPendentes();
+      await this.sincronizarAlunos(false);
     } catch (err) {
       logger.warn({ err: (err as Error).message }, "Falha ao sincronizar a lista de alunos com a nuvem");
+      this.registrarErro("sincronização de alunos", err);
     } finally {
       this.sincronizando = false;
     }
   }
 
-  async flushLogsPendentes(): Promise<void> {
-    const pendentes = await this.logsQueue.listarPendentes();
-    if (pendentes.length === 0) return;
-
+  /**
+   * Ordem da nuvem ("sincronizar agora", pela Visão Master ou pela academia):
+   * a lista inteira, sem esperar o próximo ciclo. Espera a rodada em curso
+   * terminar em vez de pular, porque quem pediu está esperando a resposta —
+   * e, ao contrário do timer, devolve o erro em vez de engolir.
+   */
+  async forcarSincronizacaoCompleta(): Promise<{ total: number }> {
+    const limite = Date.now() + 30_000;
+    while (this.sincronizando) {
+      if (Date.now() > limite) throw new Error("Outra sincronização não terminou em 30 s.");
+      await dormir(100);
+    }
+    this.sincronizando = true;
     try {
-      await this.cloud.sincronizarLogsOffline(
-        pendentes.map((p) => ({
-          aluno_id: p.aluno_id,
-          cpf_consultado: p.cpf_consultado,
-          resultado: p.resultado,
-          ocorrido_em: p.ocorrido_em,
-          ...(p.giro ? { giro: p.giro } : {}),
-        }))
-      );
-      await this.logsQueue.marcarSincronizados(pendentes.map((p) => p._id));
-      logger.info({ total: pendentes.length }, "Logs offline sincronizados com a nuvem");
+      await this.sincronizarAlunos(true);
+      return { total: await this.alunosCache.contar() };
+    } catch (err) {
+      this.registrarErro("sincronização de alunos", err);
+      throw err;
+    } finally {
+      this.sincronizando = false;
+    }
+  }
+
+  private async sincronizarAlunos(completo: boolean): Promise<void> {
+    let resposta = await this.cloud.sincronizarAlunos(
+      completo ? { completo: true } : this.ultimaSincronizacao ? { desde: this.ultimaSincronizacao } : {}
+    );
+    if (resposta.error) throw new Error(resposta.error);
+
+    // Nuvem antiga não manda `completo`: é lista inteira, como antes.
+    if (resposta.completo === false) {
+      await this.alunosCache.aplicarDiferenca(resposta.alunos ?? [], resposta.remover ?? []);
+      if (resposta.ids_hash && (await this.alunosCache.hashIds()) !== resposta.ids_hash) {
+        logger.warn("Cache local divergiu da nuvem depois da diferença — pedindo a lista inteira");
+        resposta = await this.cloud.sincronizarAlunos({ completo: true });
+        if (resposta.error) throw new Error(resposta.error);
+        await this.alunosCache.substituirTodos(resposta.alunos ?? []);
+      } else {
+        logger.info(
+          { alterados: resposta.alunos?.length ?? 0, removidos: resposta.remover?.length ?? 0 },
+          "Cache local de alunos atualizado pela diferença"
+        );
+      }
+    } else {
+      await this.alunosCache.substituirTodos(resposta.alunos ?? []);
+      logger.info({ total: resposta.alunos?.length ?? 0 }, "Cache local de alunos sincronizado com a nuvem");
+    }
+    // Só avança o marco depois de aplicar: se a gravação local falhar, a
+    // próxima rodada pede de novo a partir do marco anterior.
+    this.ultimaSincronizacao = resposta.sincronizado_em;
+    this.ultimaSincronizacaoOk = new Date().toISOString();
+    this.setStatus("online");
+    await this.flushLogsPendentes();
+  }
+
+  async flushLogsPendentes(): Promise<void> {
+    try {
+      await this.enviarLogsPendentes();
     } catch (err) {
       logger.warn({ err: (err as Error).message }, "Falha ao sincronizar logs offline — tentando de novo mais tarde");
+      this.registrarErro("envio de acessos offline", err);
     }
+  }
+
+  /** Mesmo envio, devolvendo o erro — é o que a ordem "enviar logs" da nuvem usa. */
+  async enviarLogsPendentes(): Promise<number> {
+    const pendentes = await this.logsQueue.listarPendentes();
+    if (pendentes.length === 0) return 0;
+
+    await this.cloud.sincronizarLogsOffline(
+      pendentes.map((p) => ({
+        aluno_id: p.aluno_id,
+        cpf_consultado: p.cpf_consultado,
+        resultado: p.resultado,
+        ocorrido_em: p.ocorrido_em,
+        ...(p.giro ? { giro: p.giro } : {}),
+      }))
+    );
+    await this.logsQueue.marcarSincronizados(pendentes.map((p) => p._id));
+    logger.info({ total: pendentes.length }, "Logs offline sincronizados com a nuvem");
+    return pendentes.length;
   }
 }

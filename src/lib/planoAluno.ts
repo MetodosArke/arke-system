@@ -87,13 +87,3 @@ export function situacaoDoTexto(texto: string | null | undefined): SituacaoAcade
   if (/em dia|adimpl|ativ|regular|pago|\bok\b|^sim$/.test(t)) return "em_dia";
   return null;
 }
-
-/**
- * Venda do Método ARKE pela academia (adesão e cobrança do aluno). Desligada
- * até o lançamento do Método: hoje o app mostra "breve lançamento" e só o
- * Super Admin atribui o Método, em trial, para homologar. Liga com
- * `VITE_METODO_ARKE_VENDA=true` na Vercel, sem mudar código.
- */
-export function vendaMetodoArkeLiberada(): boolean {
-  return import.meta.env.VITE_METODO_ARKE_VENDA === "true";
-}

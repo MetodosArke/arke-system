@@ -25,7 +25,9 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { DoorOpen, Plus, Copy, Power, PowerOff, ScrollText, Radio, UserCheck, Settings } from "lucide-react";
+import { DoorOpen, Plus, Copy, Power, PowerOff, ScrollText, Radio, UserCheck, Settings, Handshake } from "lucide-react";
+import { SaudeGateway } from "@/components/catraca/SaudeGateway";
+import { ConferenciaParceiros } from "@/components/catraca/ConferenciaParceiros";
 
 type Parceiro = "wellhub" | "totalpass";
 const PARCEIRO_LABEL: Record<Parceiro, string> = { wellhub: "Wellhub (Gympass)", totalpass: "TotalPass" };
@@ -38,6 +40,9 @@ export default function AdminCatracas() {
   const [novaLocalizacao, setNovaLocalizacao] = useState("");
   const [dialogAberto, setDialogAberto] = useState(false);
   const ehGestor = organizationRole === "gestor";
+  // Mesma regra de solicitar_comando_gateway(): gestor e recepção mandam
+  // ordens ao Gateway; o banco confere de novo.
+  const podeComandar = organizationRole === "gestor" || organizationRole === "recepcao";
 
   const [checkinCatracaId, setCheckinCatracaId] = useState("");
   const [checkinParceiro, setCheckinParceiro] = useState<Parceiro | "">("");
@@ -48,7 +53,7 @@ export default function AdminCatracas() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("organizacao_catracas")
-        .select("id, nome, localizacao, device_token, status, created_at")
+        .select("id, nome, localizacao, device_token, status, created_at, ultimo_heartbeat_em")
         .eq("organization_id", organization!.id)
         .order("created_at", { ascending: false });
       if (error) throw error;
@@ -190,6 +195,7 @@ export default function AdminCatracas() {
   const RESULTADO_LABEL: Record<string, { label: string; variant: "default" | "destructive" | "secondary" }> = {
     liberado: { label: "Liberado", variant: "default" },
     liberado_parceiro_externo: { label: "Liberado (parceiro)", variant: "default" },
+    liberado_remoto: { label: "Liberado pela recepção", variant: "secondary" },
     negado_inadimplente: { label: "Inadimplente", variant: "destructive" },
     negado_pausado: { label: "Matrícula pausada", variant: "secondary" },
     negado_nao_encontrado: { label: "Não encontrado", variant: "secondary" },
@@ -267,7 +273,8 @@ export default function AdminCatracas() {
             </p>
           )}
           {catracas.map((c) => (
-            <div key={c.id} className="flex items-center justify-between gap-2 rounded-lg border border-border p-3">
+            <div key={c.id} className="space-y-3 rounded-lg border border-border p-3">
+            <div className="flex items-center justify-between gap-2">
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
                   <p className="font-medium truncate">{c.nome}</p>
@@ -301,6 +308,13 @@ export default function AdminCatracas() {
               >
                 {c.status === "ativo" ? <PowerOff className="h-4 w-4" /> : <Power className="h-4 w-4" />}
               </Button>
+            </div>
+            <SaudeGateway
+              catracaId={c.id}
+              status={c.status}
+              heartbeat={c.ultimo_heartbeat_em}
+              podeComandar={podeComandar}
+            />
             </div>
           ))}
         </CardContent>
@@ -386,6 +400,22 @@ export default function AdminCatracas() {
           )}
         </CardContent>
       </Card>
+
+      {parceirosAtivos.length > 0 && organization?.id && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Handshake className="h-4 w-4" /> Conferência de parceiros
+            </CardTitle>
+            <p className="text-xs text-muted-foreground">
+              Check-ins confirmados no mês, para conferir com o repasse do Wellhub e do TotalPass.
+            </p>
+          </CardHeader>
+          <CardContent>
+            <ConferenciaParceiros organizationId={organization.id} />
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader className="pb-2">

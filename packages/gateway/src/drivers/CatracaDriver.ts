@@ -1,13 +1,16 @@
 import type { LeituraCredencial } from "../types";
 
 /**
- * Contrato que todo driver de catraca precisa implementar. Cada
- * fabricante (Control iD, Henry, Topdata, Dimep...) tem um protocolo TCP
- * proprietário e binário diferente — este pacote não inventa/adivinha os
- * bytes desses protocolos (ver o aviso em cada arquivo *Driver.ts em
- * drivers/). O que é comum e estável é este contrato: conectar, emitir
+ * Contrato que todo driver de catraca precisa implementar: conectar, emitir
  * eventos de leitura de credencial, e comandar liberação/bloqueio com
  * feedback no display/sinal sonoro do equipamento.
+ *
+ * Control iD e Topdata não usam este caminho de verdade: nelas quem disca é
+ * o equipamento (ou a ponte), e a decisão volta na resposta da mesma
+ * requisição — ver `ReceptorDriver` e `src/receptores/`. Henry e Dimep não
+ * têm driver: sem documentação de integração nem equipamento para bancada,
+ * a conexão é feita na implantação do primeiro cliente de cada marca, e o
+ * Gateway se recusa a subir com elas (ver config.ts).
  */
 export interface CatracaDriver {
   readonly modelo: string;

@@ -36,6 +36,7 @@ import {
   UserMinus,
   TimerOff,
   Handshake,
+  Fingerprint,
 } from "lucide-react";
 import type { Tables, Enums } from "@/integrations/supabase/types";
 
@@ -63,6 +64,7 @@ const ACOES_RAPIDAS: Record<Tipo, ("treino" | "dieta")[]> = {
   inercia: [],
   ciclo_travado: [],
   instrucao_presencial: [],
+  equipamento: [],
 };
 
 const ANAMNESE_CAMPOS: { key: keyof Anamnese; label: string }[] = [
@@ -133,6 +135,7 @@ const TIPO_LABEL: Record<Tipo, string> = {
   inercia: "Risco de evasão (sem sinal de vida)",
   ciclo_travado: "Ciclo travado sem constância",
   instrucao_presencial: "Acolhimento presencial pedido pelo Mentor",
+  equipamento: "Apagar aluno da catraca (LGPD)",
 };
 
 const TIPO_ICON: Record<Tipo, typeof HeartPulse> = {
@@ -149,6 +152,7 @@ const TIPO_ICON: Record<Tipo, typeof HeartPulse> = {
   inercia: UserMinus,
   ciclo_travado: TimerOff,
   instrucao_presencial: Handshake,
+  equipamento: Fingerprint,
 };
 
 // Indicadores visuais de SLA: vermelho para dor/vencido, amarelo para
@@ -169,6 +173,8 @@ const TIPO_COLOR_CLASS: Record<Tipo, string> = {
   // A instrucao vem do Mentor e e presencial: destaque para nao se perder na
   // lista, porque o aluno chega hoje.
   instrucao_presencial: "bg-sky-500/15 text-sky-700 dark:text-sky-400 border-sky-500/40",
+  // Remoção de dado biométrico parada: obrigação legal, não pode sumir na fila.
+  equipamento: "bg-rose-500/15 text-rose-700 dark:text-rose-400 border-rose-500/40",
 };
 
 const FILTRO_STATUS_OPCOES: Status[] = ["aberta", "em_andamento", "aguardando"];

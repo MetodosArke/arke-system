@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { MemoryRouter } from "react-router-dom";
 import { OperacaoGlobalCard } from "./OperacaoGlobalCard";
 
 const rpc = vi.fn();
@@ -11,18 +12,20 @@ vi.mock("@/integrations/supabase/client", () => ({
   },
 }));
 
+// Formato de public.get_superadmin_equipamentos() — a mesma fonte da página
+// Equipamentos, para as duas telas não discordarem sobre a mesma catraca.
 const GATEWAY_BASE = {
   catraca_id: "c1",
   organization_id: "org-1",
-  organizacao_nome: "Tietê Fitness",
-  nome: "Catraca - Recepção",
-  localizacao: "Recepção",
-  status: "ativo",
-  driver: "mock",
-  ultimo_heartbeat_em: null,
-  minutos_sem_heartbeat: null,
+  academia: "Tietê Fitness",
+  catraca: "Catraca - Recepção",
+  status_catraca: "ativo",
   situacao: "nunca_conectou",
-  acessos_24h: 0,
+  versao: null,
+  reportado_em: null,
+  ultimo_heartbeat_em: null,
+  comandos_falhos_7d: 0,
+  acessos_hoje: 0,
 };
 
 const FILA_BASE = {
@@ -40,7 +43,7 @@ const FILA_BASE = {
 
 const mockarRpc = (gateways: unknown[], fila: unknown[]) => {
   rpc.mockImplementation((nome: string) => {
-    if (nome === "get_superadmin_gateways") return Promise.resolve({ data: gateways, error: null });
+    if (nome === "get_superadmin_equipamentos") return Promise.resolve({ data: gateways, error: null });
     if (nome === "get_superadmin_fila_global") return Promise.resolve({ data: fila, error: null });
     return Promise.resolve({ data: null, error: new Error(`RPC inesperada: ${nome}`) });
   });
@@ -50,7 +53,9 @@ const renderizar = () => {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={client}>
-      <OperacaoGlobalCard />
+      <MemoryRouter>
+        <OperacaoGlobalCard />
+      </MemoryRouter>
     </QueryClientProvider>
   );
 };
@@ -132,10 +137,10 @@ describe("OperacaoGlobalCard", () => {
         {
           ...GATEWAY_BASE,
           catraca_id: "c2",
-          organizacao_nome: "teste",
+          academia: "teste",
           situacao: "offline",
-          ultimo_heartbeat_em: "2026-09-20T08:00:00Z",
-          minutos_sem_heartbeat: 180,
+          versao: "1.0.0",
+          reportado_em: new Date(Date.now() - 180 * 60_000).toISOString(),
         },
       ],
       []
@@ -146,15 +151,15 @@ describe("OperacaoGlobalCard", () => {
     abrirAba(/Gateways/);
 
     await waitFor(() => expect(screen.getByText("Nunca conectou")).toBeInTheDocument());
-    // "Offline" aparece duas vezes de propósito: no contador do resumo e na
+    // "Sem sinal" aparece duas vezes de propósito: no contador do resumo e na
     // linha do gateway. Conferir as duas garante que o resumo não ficou
     // desacoplado da lista.
-    expect(screen.getAllByText("Offline")).toHaveLength(2);
+    expect(screen.getAllByText("Sem sinal")).toHaveLength(2);
     // "Nunca conectou" precisa explicar o que significa — é diferente de
     // ter caído, e a ação do time é outra (instalar vs. investigar queda).
     expect(document.body.textContent).toContain("nunca autenticou nesta unidade");
     // 180 min vira horas em vez de despejar o número cru.
-    expect(document.body.textContent).toContain("3.0 h sem reportar");
+    expect(document.body.textContent).toContain("último sinal há 3 h");
   });
 
   it("deixa claro que o status do cadastro não é sinal de vida", async () => {

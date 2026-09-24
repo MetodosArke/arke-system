@@ -5,7 +5,7 @@ import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { LogOut, Shield, LayoutDashboard, UserCog, Settings, Dumbbell, ScrollText, Webhook, MessageCircle } from "lucide-react";
+import { LogOut, Shield, LayoutDashboard, UserCog, Settings, Dumbbell, ScrollText, Webhook, MessageCircle, Cpu } from "lucide-react";
 
 const NAV_ITEMS = [
   { icon: LayoutDashboard, label: "Visão Geral", path: "/superadmin" },
@@ -13,6 +13,7 @@ const NAV_ITEMS = [
   { icon: Dumbbell, label: "Acervo Global", path: "/superadmin/acervo" },
   { icon: ScrollText, label: "Auditoria", path: "/superadmin/auditoria" },
   { icon: MessageCircle, label: "Mentoria", path: "/superadmin/mentoria" },
+  { icon: Cpu, label: "Equipamentos", path: "/superadmin/equipamentos" },
   { icon: Webhook, label: "Webhooks", path: "/superadmin/webhooks" },
   { icon: Settings, label: "Configurações", path: "/superadmin/configuracoes" },
 ];

@@ -1,6 +1,6 @@
 {
   "name": "@arkefit/gateway-local",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "ARKE® Gateway Local — middleware Node.js/TypeScript que faz a ponte de baixa latência entre catracas físicas da academia e a nuvem da ArkeFit (Supabase).",
   "private": true,
   "type": "commonjs",

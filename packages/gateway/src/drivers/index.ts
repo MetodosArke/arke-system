@@ -2,8 +2,6 @@ import type { GatewayConfig } from "../types";
 import type { CatracaDriver } from "./CatracaDriver";
 import { MockDriver } from "./MockDriver";
 import { ReceptorDriver } from "./ReceptorDriver";
-import { HenryDriver } from "./HenryDriver";
-import { DimepDriver } from "./DimepDriver";
 
 export type { CatracaDriver } from "./CatracaDriver";
 
@@ -24,10 +22,13 @@ export function criarDriver(config: Pick<GatewayConfig, "modelo_catraca" | "catr
     // event loop do Node. Ver src/receptores/topdata.ts.
     case "topdata":
       return new ReceptorDriver("topdata");
+
+    // Henry e Dimep: sem driver até a implantação do primeiro cliente de
+    // cada marca. config.ts já recusa antes de chegar aqui; isto é só a
+    // segunda trava, para quem montar o gateway por outro caminho.
     case "henry":
-      return new HenryDriver(config.catraca_ip, config.catraca_porta);
     case "dimep":
-      return new DimepDriver(config.catraca_ip, config.catraca_porta);
+      throw new Error(`Integração com ${config.modelo_catraca} ainda não disponível — ver config.ts.`);
     default: {
       const _exaustivo: never = config.modelo_catraca;
       throw new Error(`Modelo de catraca desconhecido: ${_exaustivo}`);

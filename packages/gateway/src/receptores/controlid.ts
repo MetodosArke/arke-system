@@ -179,6 +179,7 @@ export function registrarReceptorControlId(
   app.post("/new_user_identified.fcgi", async (req) => {
     const corpo = (req.body ?? {}) as Record<string, string>;
     const userId = corpo.user_id;
+    gateway.equipamentos.controlIdVisto(corpo.device_id);
 
     if (!userId || userId === "0") {
       logger.warn({ corpo }, "Catraca enviou identificação sem user_id");
@@ -221,14 +222,19 @@ export function registrarReceptorControlId(
   });
 
   /**
-   * Cartão e QR chegam com o valor bruto lido, não com o usuário resolvido.
-   * Ainda não existe mapeamento desses valores para aluno no ARKE, então
-   * negamos com log em vez de adivinhar a que aluno o número pertence —
-   * mesmo critério que o gateway já aplicava para credencial não suportada.
+   * Cartão e QR que o equipamento NÃO reconheceu chegam com o valor bruto
+   * lido, não com o usuário resolvido. O cartão cadastrado pelo ARKE
+   * (cadastro remoto, versão 1.0) fica no próprio equipamento, ligado ao
+   * número do aluno, e chega como new_user_identified — igual à digital. O
+   * que cai aqui é cartão que ninguém cadastrou, e negamos com log em vez
+   * de adivinhar a que aluno o número pertence. QR Code na catraca segue
+   * negado: o QR do ARKE é o do check-in na recepção, que muda a cada 10
+   * minutos e é lido pelo celular do aluno, não pela catraca.
    */
   const credencialSemMapeamento = (rota: string, campo: string) => {
     app.post(rota, async (req) => {
       const corpo = (req.body ?? {}) as Record<string, string>;
+      gateway.equipamentos.controlIdVisto(corpo.device_id);
       logger.warn(
         { rota, valor: corpo[campo] },
         "Credencial lida sem mapeamento para aluno no ARKE — acesso negado"
@@ -247,7 +253,8 @@ export function registrarReceptorControlId(
    * catraca da contingência — por isso não há lógica nenhuma no caminho.
    */
   app.post("/device_is_alive.fcgi", async (req, reply) => {
-    const corpo = (req.body ?? {}) as { access_logs?: number };
+    const corpo = (req.body ?? {}) as { access_logs?: number; device_id?: number | string };
+    gateway.equipamentos.controlIdEmContingencia(corpo.device_id);
     logger.info({ logsNoEquipamento: corpo.access_logs }, "Catraca em contingência pedindo o servidor de volta");
     return reply.code(200).send();
   });
@@ -272,6 +279,7 @@ export function registrarReceptorControlId(
     };
     const giro = giroDoEvento(corpo.event?.name);
     const deviceId = String(corpo.device_id ?? "");
+    gateway.equipamentos.controlIdVisto(deviceId);
     if (!giro) {
       logger.warn({ evento: corpo.event?.name, tipo: corpo.event?.type }, "Evento de catraca não reconhecido — ignorado");
       return reply.code(200).send();

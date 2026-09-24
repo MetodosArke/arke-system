@@ -224,6 +224,49 @@ export type Database = {
           },
         ]
       }
+      alertas_catracas: {
+        Row: {
+          avisado_em: string
+          catraca_id: string
+          organization_id: string
+          situacao: string
+        }
+        Insert: {
+          avisado_em?: string
+          catraca_id: string
+          organization_id: string
+          situacao: string
+        }
+        Update: {
+          avisado_em?: string
+          catraca_id?: string
+          organization_id?: string
+          situacao?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "alertas_catracas_catraca_id_fkey"
+            columns: ["catraca_id"]
+            isOneToOne: true
+            referencedRelation: "organizacao_catracas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "alertas_catracas_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "org_churn_metrics"
+            referencedColumns: ["organization_id"]
+          },
+          {
+            foreignKeyName: "alertas_catracas_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       alertas_rotinas: {
         Row: {
           avisado_em: string
@@ -455,10 +498,14 @@ export type Database = {
           finalidade: string
           id: string
           organization_id: string
+          origem: string
+          registrado_por: string | null
           retencao_descricao: string
           revogado_em: string | null
           revogado_por: string | null
           template_no_servidor: boolean
+          termo_arquivo: string | null
+          versao_texto: string | null
         }
         Insert: {
           aceito_em?: string
@@ -468,10 +515,14 @@ export type Database = {
           finalidade?: string
           id?: string
           organization_id: string
+          origem?: string
+          registrado_por?: string | null
           retencao_descricao?: string
           revogado_em?: string | null
           revogado_por?: string | null
           template_no_servidor?: boolean
+          termo_arquivo?: string | null
+          versao_texto?: string | null
         }
         Update: {
           aceito_em?: string
@@ -481,10 +532,14 @@ export type Database = {
           finalidade?: string
           id?: string
           organization_id?: string
+          origem?: string
+          registrado_por?: string | null
           retencao_descricao?: string
           revogado_em?: string | null
           revogado_por?: string | null
           template_no_servidor?: boolean
+          termo_arquivo?: string | null
+          versao_texto?: string | null
         }
         Relationships: [
           {
@@ -2340,6 +2395,27 @@ export type Database = {
         }
         Relationships: []
       }
+      execucoes_agendadas: {
+        Row: {
+          nome: string
+          ultima_ok: string | null
+          ultimo_erro: string | null
+          ultimo_erro_em: string | null
+        }
+        Insert: {
+          nome: string
+          ultima_ok?: string | null
+          ultimo_erro?: string | null
+          ultimo_erro_em?: string | null
+        }
+        Update: {
+          nome?: string
+          ultima_ok?: string | null
+          ultimo_erro?: string | null
+          ultimo_erro_em?: string | null
+        }
+        Relationships: []
+      }
       exercicios_biblioteca: {
         Row: {
           ativo: boolean
@@ -2549,6 +2625,214 @@ export type Database = {
           },
           {
             foreignKeyName: "feed_posts_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      gateway_comandos: {
+        Row: {
+          aluno_id: string | null
+          catraca_id: string
+          concluido_em: string | null
+          entregue_em: string | null
+          erro: string | null
+          expira_em: string
+          id: string
+          lote: string | null
+          motivo: string | null
+          organization_id: string
+          parametros: Json
+          resultado: Json | null
+          solicitado_em: string
+          solicitado_por: string | null
+          status: string
+          tipo: string
+        }
+        Insert: {
+          aluno_id?: string | null
+          catraca_id: string
+          concluido_em?: string | null
+          entregue_em?: string | null
+          erro?: string | null
+          expira_em: string
+          id?: string
+          lote?: string | null
+          motivo?: string | null
+          organization_id: string
+          parametros?: Json
+          resultado?: Json | null
+          solicitado_em?: string
+          solicitado_por?: string | null
+          status?: string
+          tipo: string
+        }
+        Update: {
+          aluno_id?: string | null
+          catraca_id?: string
+          concluido_em?: string | null
+          entregue_em?: string | null
+          erro?: string | null
+          expira_em?: string
+          id?: string
+          lote?: string | null
+          motivo?: string | null
+          organization_id?: string
+          parametros?: Json
+          resultado?: Json | null
+          solicitado_em?: string
+          solicitado_por?: string | null
+          status?: string
+          tipo?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gateway_comandos_aluno_id_fkey"
+            columns: ["aluno_id"]
+            isOneToOne: false
+            referencedRelation: "alunos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "gateway_comandos_catraca_id_fkey"
+            columns: ["catraca_id"]
+            isOneToOne: false
+            referencedRelation: "organizacao_catracas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "gateway_comandos_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "org_churn_metrics"
+            referencedColumns: ["organization_id"]
+          },
+          {
+            foreignKeyName: "gateway_comandos_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      gateway_eventos: {
+        Row: {
+          catraca_id: string
+          detalhe: string | null
+          id: number
+          ocorrido_em: string
+          organization_id: string
+          tipo: string
+        }
+        Insert: {
+          catraca_id: string
+          detalhe?: string | null
+          id?: number
+          ocorrido_em?: string
+          organization_id: string
+          tipo: string
+        }
+        Update: {
+          catraca_id?: string
+          detalhe?: string | null
+          id?: number
+          ocorrido_em?: string
+          organization_id?: string
+          tipo?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gateway_eventos_catraca_id_fkey"
+            columns: ["catraca_id"]
+            isOneToOne: false
+            referencedRelation: "organizacao_catracas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "gateway_eventos_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "org_churn_metrics"
+            referencedColumns: ["organization_id"]
+          },
+          {
+            foreignKeyName: "gateway_eventos_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      gateway_telemetria: {
+        Row: {
+          cache_alunos: number
+          capacidades: string[]
+          catraca_id: string
+          equipamentos: Json
+          estado: string | null
+          fila_offline: number
+          modelo: string | null
+          organization_id: string
+          ponte: Json | null
+          reportado_em: string
+          ultima_sincronizacao: string | null
+          ultimo_erro: string | null
+          ultimo_erro_em: string | null
+          versao: string | null
+        }
+        Insert: {
+          cache_alunos?: number
+          capacidades?: string[]
+          catraca_id: string
+          equipamentos?: Json
+          estado?: string | null
+          fila_offline?: number
+          modelo?: string | null
+          organization_id: string
+          ponte?: Json | null
+          reportado_em?: string
+          ultima_sincronizacao?: string | null
+          ultimo_erro?: string | null
+          ultimo_erro_em?: string | null
+          versao?: string | null
+        }
+        Update: {
+          cache_alunos?: number
+          capacidades?: string[]
+          catraca_id?: string
+          equipamentos?: Json
+          estado?: string | null
+          fila_offline?: number
+          modelo?: string | null
+          organization_id?: string
+          ponte?: Json | null
+          reportado_em?: string
+          ultima_sincronizacao?: string | null
+          ultimo_erro?: string | null
+          ultimo_erro_em?: string | null
+          versao?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gateway_telemetria_catraca_id_fkey"
+            columns: ["catraca_id"]
+            isOneToOne: true
+            referencedRelation: "organizacao_catracas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "gateway_telemetria_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "org_churn_metrics"
+            referencedColumns: ["organization_id"]
+          },
+          {
+            foreignKeyName: "gateway_telemetria_organization_id_fkey"
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
@@ -3618,6 +3902,7 @@ export type Database = {
           identificador: string | null
           organization_id: string
           parceiro: string
+          segredos: Json
           updated_at: string
           webhook_secret: string | null
         }
@@ -3630,6 +3915,7 @@ export type Database = {
           identificador?: string | null
           organization_id: string
           parceiro: string
+          segredos?: Json
           updated_at?: string
           webhook_secret?: string | null
         }
@@ -3642,6 +3928,7 @@ export type Database = {
           identificador?: string | null
           organization_id?: string
           parceiro?: string
+          segredos?: Json
           updated_at?: string
           webhook_secret?: string | null
         }
@@ -5356,9 +5643,30 @@ export type Database = {
         Args: { _mensalidade_id: string }
         Returns: undefined
       }
+      abrir_tarefa_remocao_equipamento: {
+        Args: {
+          _aluno_id: string
+          _identificador: string
+          _motivo: string
+          _org: string
+          _origem: string
+        }
+        Returns: undefined
+      }
+      academia_tem_catraca: { Args: { _org: string }; Returns: boolean }
       academia_tem_nutricionista: {
         Args: { _organization_id: string }
         Returns: boolean
+      }
+      agendar_remocao_equipamento: {
+        Args: {
+          _aluno_id: string
+          _identificador: string
+          _motivo: string
+          _org: string
+          _tinha_biometria: boolean
+        }
+        Returns: number
       }
       aluno_ativo_em: {
         Args: { _aluno_id: string; _janela?: number; _referencia: string }
@@ -5367,6 +5675,10 @@ export type Database = {
       aluno_barrado_na_catraca: { Args: { _aluno_id: string }; Returns: string }
       aluno_ciclo_estourado: {
         Args: { _aluno_id: string; _dias?: number; _minimo_pct?: number }
+        Returns: boolean
+      }
+      aluno_consentiu_biometria: {
+        Args: { _aluno_id: string }
         Returns: boolean
       }
       aluno_consentiu_ia: {
@@ -5441,6 +5753,17 @@ export type Database = {
           usado_mb: number
         }[]
       }
+      avaliar_catracas: {
+        Args: never
+        Returns: {
+          catraca_id: string
+          detalhe: string
+          nome: string
+          organization_id: string
+          sem_sinal_desde: string
+          situacao: string
+        }[]
+      }
       avaliar_rotinas: {
         Args: never
         Returns: {
@@ -5493,6 +5816,19 @@ export type Database = {
         }[]
       }
       capturar_snapshot_mrr: { Args: never; Returns: undefined }
+      catracas_para_alertar: {
+        Args: never
+        Returns: {
+          academia: string
+          catraca: string
+          catraca_id: string
+          detalhe: string
+          organization_id: string
+          sem_sinal_desde: string
+          situacao: string
+          tipo: string
+        }[]
+      }
       codigo_checkin: {
         Args: { _janela: number; _organization_id: string }
         Returns: string
@@ -5503,6 +5839,16 @@ export type Database = {
           codigo: string
           segundos_restantes: number
         }[]
+      }
+      concluir_comando_gateway: {
+        Args: {
+          _catraca_id: string
+          _comando_id: string
+          _erro: string
+          _resultado: Json
+          _sucesso: boolean
+        }
+        Returns: undefined
       }
       concluir_onboarding_organizacao: {
         Args: { _organization_id: string }
@@ -5525,6 +5871,7 @@ export type Database = {
         Args: { _token: string }
         Returns: boolean
       }
+      consentir_biometria: { Args: { _aluno_id: string }; Returns: string }
       conversa_para_sugestao: {
         Args: { _aluno_id: string; _limite?: number }
         Returns: string
@@ -5554,6 +5901,12 @@ export type Database = {
         }
         Returns: string
       }
+      emails_gestores_organizacao: {
+        Args: { _organization_id: string }
+        Returns: {
+          email: string
+        }[]
+      }
       emails_superadmin: {
         Args: never
         Returns: {
@@ -5564,7 +5917,38 @@ export type Database = {
         Args: { _aluno_id: string }
         Returns: undefined
       }
+      entregar_comandos_gateway: {
+        Args: { _catraca_id: string }
+        Returns: {
+          aluno_id: string | null
+          catraca_id: string
+          concluido_em: string | null
+          entregue_em: string | null
+          erro: string | null
+          expira_em: string
+          id: string
+          lote: string | null
+          motivo: string | null
+          organization_id: string
+          parametros: Json
+          resultado: Json | null
+          solicitado_em: string
+          solicitado_por: string | null
+          status: string
+          tipo: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "gateway_comandos"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       escalar_tarefas_vencidas: { Args: never; Returns: undefined }
+      expirar_comandos_gateway: {
+        Args: { _catraca_id?: string }
+        Returns: number
+      }
       fase_elegivel: {
         Args: { _aluno_id: string }
         Returns: Database["public"]["Enums"]["fase_jornada"]
@@ -5737,6 +6121,28 @@ export type Database = {
           vencidas: number
         }[]
       }
+      get_superadmin_acessos_catraca: {
+        Args: {
+          _ate?: string
+          _catraca_id?: string
+          _desde?: string
+          _limite?: number
+          _organization_id?: string
+          _resultado?: string
+        }
+        Returns: {
+          academia: string
+          aluno_ref: string
+          catraca: string
+          credencial: string
+          giro: string
+          id: string
+          ocorrido_em: string
+          parceiro_externo: string
+          resultado: string
+          validado_offline: boolean
+        }[]
+      }
       get_superadmin_adocao_metodologia: {
         Args: never
         Returns: {
@@ -5773,6 +6179,20 @@ export type Database = {
           trial_fim: string
         }[]
       }
+      get_superadmin_biometria: {
+        Args: never
+        Returns: {
+          academia: string
+          alunos_com_identificador: number
+          consentimentos_texto_antigo: number
+          consentimentos_vigentes: number
+          organization_id: string
+          remocoes_em_andamento: number
+          remocoes_paradas: number
+          revogacoes_30d: number
+          tarefas_equipamento_abertas: number
+        }[]
+      }
       get_superadmin_capacidade: {
         Args: never
         Returns: {
@@ -5782,6 +6202,35 @@ export type Database = {
           percentual: number
           situacao: string
           usado_mb: number
+        }[]
+      }
+      get_superadmin_equipamentos: {
+        Args: never
+        Returns: {
+          academia: string
+          acessos_hoje: number
+          cache_alunos: number
+          capacidades: string[]
+          catraca: string
+          catraca_id: string
+          checkins_parceiro_mes: number
+          comandos_falhos_7d: number
+          comandos_pendentes: number
+          contingencias_7d: number
+          equipamentos: Json
+          estado: string
+          fila_offline: number
+          modelo: string
+          organization_id: string
+          ponte: Json
+          reportado_em: string
+          situacao: string
+          status_catraca: string
+          ultima_sincronizacao: string
+          ultimo_erro: string
+          ultimo_erro_em: string
+          ultimo_heartbeat_em: string
+          versao: string
         }[]
       }
       get_superadmin_fila_global: {
@@ -6067,6 +6516,10 @@ export type Database = {
         Args: { _organization_id: string }
         Returns: string
       }
+      ler_credencial_parceiro: {
+        Args: { _campo: string; _organization_id: string; _parceiro: string }
+        Returns: string
+      }
       liberar_progressao_aluno: {
         Args: { _aluno_id: string; _observacao?: string }
         Returns: undefined
@@ -6089,6 +6542,13 @@ export type Database = {
       matricula_publica_org_permitida: {
         Args: { _organization_id: string }
         Returns: boolean
+      }
+      metodo_ofertas_academia: {
+        Args: { _organization_id: string }
+        Returns: {
+          nivel: string
+          valor_varejo: number
+        }[]
       }
       motivo_nao_avanca: { Args: { _aluno_id: string }; Returns: string }
       mover_fase_jornada: {
@@ -6239,6 +6699,10 @@ export type Database = {
         Args: { _pasta: string }
         Returns: boolean
       }
+      pode_gravar_termo_biometria: {
+        Args: { _caminho: string }
+        Returns: boolean
+      }
       prazo_util: { Args: { _horas: number; _inicio: string }; Returns: string }
       publicar_contrato_matricula: {
         Args: { _conteudo: string; _organization_id: string; _titulo: string }
@@ -6266,6 +6730,7 @@ export type Database = {
         }
         Returns: string
       }
+      registrar_alerta_catracas: { Args: { _itens: Json }; Returns: undefined }
       registrar_alerta_rotinas: { Args: { _itens: Json }; Returns: undefined }
       registrar_atividade_aluno: { Args: never; Returns: undefined }
       registrar_auditoria: {
@@ -6279,6 +6744,14 @@ export type Database = {
         }
         Returns: undefined
       }
+      registrar_consentimento_biometria_termo: {
+        Args: { _aluno_id: string; _termo_arquivo: string }
+        Returns: string
+      }
+      registrar_execucao_agendada: {
+        Args: { _erro?: string; _nome: string; _ok: boolean }
+        Returns: undefined
+      }
       registrar_lembrete_onboarding: {
         Args: { _organization_id: string }
         Returns: undefined
@@ -6288,6 +6761,10 @@ export type Database = {
         Returns: string
       }
       registrar_primeiro_acesso_aluno: { Args: never; Returns: undefined }
+      registrar_telemetria_gateway: {
+        Args: { _catraca_id: string; _tel: Json }
+        Returns: undefined
+      }
       registrar_tentativa_matricula: {
         Args: { _ip_hash: string }
         Returns: number
@@ -6317,6 +6794,16 @@ export type Database = {
           ultimo_erro: string
         }[]
       }
+      salvar_credencial_parceiro: {
+        Args: {
+          _ativo: boolean
+          _identificador: string
+          _organization_id: string
+          _parceiro: string
+          _segredos?: Json
+        }
+        Returns: Json
+      }
       sentinela_taxa_de_aceite: {
         Args: { _dias?: number }
         Returns: {
@@ -6334,6 +6821,10 @@ export type Database = {
           liberados: number
           marcados: number
         }[]
+      }
+      situacao_gateway: {
+        Args: { _estado: string; _heartbeat: string; _reportado: string }
+        Returns: string
       }
       situacao_permite_app: {
         Args: {
@@ -6353,6 +6844,16 @@ export type Database = {
       sla_mentor_horas: {
         Args: { _prioridade: Database["public"]["Enums"]["tarefa_prioridade"] }
         Returns: number
+      }
+      solicitar_comando_gateway: {
+        Args: {
+          _aluno_id?: string
+          _catraca_id: string
+          _motivo?: string
+          _parametros?: Json
+          _tipo: string
+        }
+        Returns: string
       }
       superadmin_resetar_tokens_gateway: {
         Args: { _organization_id: string }
@@ -6374,6 +6875,11 @@ export type Database = {
           tabela: string
         }[]
       }
+      verificar_remocao_concluida: {
+        Args: { _lote: string }
+        Returns: undefined
+      }
+      versao_consentimento_biometrico: { Args: never; Returns: string }
       versao_consentimento_ia: { Args: never; Returns: string }
       versao_consentimento_saude: { Args: never; Returns: string }
     }
@@ -6482,6 +6988,7 @@ export type Database = {
         | "inercia"
         | "ciclo_travado"
         | "instrucao_presencial"
+        | "equipamento"
       tipo_documento_legal: "termos_uso" | "privacidade" | "contrato_academia"
     }
     CompositeTypes: {
@@ -6722,6 +7229,7 @@ export const Constants = {
         "inercia",
         "ciclo_travado",
         "instrucao_presencial",
+        "equipamento",
       ],
       tipo_documento_legal: ["termos_uso", "privacidade", "contrato_academia"],
     },

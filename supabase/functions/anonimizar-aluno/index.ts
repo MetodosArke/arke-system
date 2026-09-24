@@ -1,6 +1,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { ambienteAsaas } from "../_shared/asaas.ts";
 import { encerrarCobrancasDoAluno } from "../_shared/encerrarCobrancas.ts";
+import { apagarArquivosDoAluno } from "../_shared/arquivosDoAluno.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -182,7 +183,12 @@ Deno.serve(async (req: Request) => {
       return jsonResponse({ error: "Erro ao registrar a anonimização." }, 500);
     }
 
-    return jsonResponse({ success: true });
+    // Atestado e vídeo de conversa são dado de saúde identificável: saem com a
+    // anonimização. O termo da digital fica — é a prova de que a autorização
+    // foi dada, guardada pelo prazo legal, como diz a Política de Privacidade.
+    const arquivos = await apagarArquivosDoAluno(adminClient, aluno.organization_id, aluno.id, ["atestados", "chat-videos"]);
+
+    return jsonResponse({ success: true, arquivos_apagados: arquivos.apagados, arquivos_pendentes: arquivos.falhas });
   } catch (error) {
     console.error("Unexpected error in anonimizar-aluno", error);
     return jsonResponse({ error: "Erro inesperado ao anonimizar o aluno." }, 500);

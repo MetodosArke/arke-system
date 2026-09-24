@@ -1,6 +1,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { ambienteAsaas } from "../_shared/asaas.ts";
 import { encerrarCobrancasDoAluno } from "../_shared/encerrarCobrancas.ts";
+import { apagarArquivosDoAluno } from "../_shared/arquivosDoAluno.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -148,7 +149,16 @@ Deno.serve(async (req: Request) => {
       return jsonResponse({ error: "Erro ao excluir o aluno." }, 500);
     }
 
-    return jsonResponse({ success: true });
+    // Depois do banco, e não antes: se a exclusão falhasse, o aluno ficaria
+    // sem o atestado que continua valendo. A cascata já levou as linhas;
+    // os arquivos são o que sobrava delas.
+    const arquivos = await apagarArquivosDoAluno(adminClient, aluno.organization_id, aluno.id, [
+      "atestados",
+      "chat-videos",
+      "termos-biometria",
+    ]);
+
+    return jsonResponse({ success: true, arquivos_apagados: arquivos.apagados, arquivos_pendentes: arquivos.falhas });
   } catch (error) {
     console.error("Unexpected error in excluir-aluno", error);
     return jsonResponse({ error: "Erro inesperado ao excluir o aluno." }, 500);
