@@ -5603,6 +5603,96 @@ export type Database = {
         }
         Relationships: []
       }
+      vigia_acoes: {
+        Row: {
+          alvo: string | null
+          alvo_nome: string | null
+          analise_id: number | null
+          comando_id: string | null
+          criada_em: string
+          decidido_por: string | null
+          detalhe: string | null
+          ferramenta: string
+          forma: string
+          id: number
+          indice: number | null
+          ocorrencia_id: number | null
+          organization_id: string | null
+          origem: string
+          resultado: string
+        }
+        Insert: {
+          alvo?: string | null
+          alvo_nome?: string | null
+          analise_id?: number | null
+          comando_id?: string | null
+          criada_em?: string
+          decidido_por?: string | null
+          detalhe?: string | null
+          ferramenta: string
+          forma: string
+          id?: never
+          indice?: number | null
+          ocorrencia_id?: number | null
+          organization_id?: string | null
+          origem: string
+          resultado: string
+        }
+        Update: {
+          alvo?: string | null
+          alvo_nome?: string | null
+          analise_id?: number | null
+          comando_id?: string | null
+          criada_em?: string
+          decidido_por?: string | null
+          detalhe?: string | null
+          ferramenta?: string
+          forma?: string
+          id?: never
+          indice?: number | null
+          ocorrencia_id?: number | null
+          organization_id?: string | null
+          origem?: string
+          resultado?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vigia_acoes_analise_id_fkey"
+            columns: ["analise_id"]
+            isOneToOne: false
+            referencedRelation: "vigia_analises"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vigia_acoes_comando_id_fkey"
+            columns: ["comando_id"]
+            isOneToOne: false
+            referencedRelation: "gateway_comandos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vigia_acoes_ocorrencia_id_fkey"
+            columns: ["ocorrencia_id"]
+            isOneToOne: false
+            referencedRelation: "vigia_ocorrencias"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vigia_acoes_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "org_churn_metrics"
+            referencedColumns: ["organization_id"]
+          },
+          {
+            foreignKeyName: "vigia_acoes_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       vigia_analises: {
         Row: {
           acoes: Json
@@ -5668,12 +5758,18 @@ export type Database = {
           aberta_em: string
           acao_prevista_em: string | null
           alvo: string
+          avisada_em: string | null
           contexto: Json
+          decidida_em: string | null
+          decidida_por: string | null
+          decisao: string | null
+          decisao_motivo: string | null
           descricao: string
           escalaria_em: string | null
           fechada_em: string | null
           freio_em: string | null
           id: number
+          modo: string
           organization_id: string | null
           regra: string
           tentativas_previstas: number
@@ -5684,12 +5780,18 @@ export type Database = {
           aberta_em?: string
           acao_prevista_em?: string | null
           alvo: string
+          avisada_em?: string | null
           contexto?: Json
+          decidida_em?: string | null
+          decidida_por?: string | null
+          decisao?: string | null
+          decisao_motivo?: string | null
           descricao: string
           escalaria_em?: string | null
           fechada_em?: string | null
           freio_em?: string | null
           id?: never
+          modo?: string
           organization_id?: string | null
           regra: string
           tentativas_previstas?: number
@@ -5700,12 +5802,18 @@ export type Database = {
           aberta_em?: string
           acao_prevista_em?: string | null
           alvo?: string
+          avisada_em?: string | null
           contexto?: Json
+          decidida_em?: string | null
+          decidida_por?: string | null
+          decisao?: string | null
+          decisao_motivo?: string | null
           descricao?: string
           escalaria_em?: string | null
           fechada_em?: string | null
           freio_em?: string | null
           id?: never
+          modo?: string
           organization_id?: string | null
           regra?: string
           tentativas_previstas?: number
@@ -5741,6 +5849,7 @@ export type Database = {
           acao: string
           codigo: string
           espera_minutos: number
+          ferramenta: string
           freio_alvos: number | null
           max_tentativas: number
           modo: string
@@ -5753,6 +5862,7 @@ export type Database = {
           acao: string
           codigo: string
           espera_minutos: number
+          ferramenta: string
           freio_alvos?: number | null
           max_tentativas?: number
           modo?: string
@@ -5765,6 +5875,7 @@ export type Database = {
           acao?: string
           codigo?: string
           espera_minutos?: number
+          ferramenta?: string
           freio_alvos?: number | null
           max_tentativas?: number
           modo?: string
@@ -6063,6 +6174,10 @@ export type Database = {
           _prioridade?: Database["public"]["Enums"]["tarefa_prioridade"]
         }
         Returns: string
+      }
+      definir_modo_regra_vigia: {
+        Args: { _codigo: string; _modo: string }
+        Returns: undefined
       }
       definir_vigia_ativo: { Args: { _ativo: boolean }; Returns: undefined }
       dia_e_esperado_treino: {
@@ -7046,7 +7161,29 @@ export type Database = {
       versao_consentimento_biometrico: { Args: never; Returns: string }
       versao_consentimento_ia: { Args: never; Returns: string }
       versao_consentimento_saude: { Args: never; Returns: string }
+      vigia_ativo: { Args: never; Returns: boolean }
+      vigia_avisos_pendentes: {
+        Args: never
+        Returns: {
+          acao: string
+          descricao: string
+          desde: string
+          id: number
+          regra: string
+          tipo: string
+          titulo: string
+        }[]
+      }
       vigia_classificar_erro: { Args: { _msg: string }; Returns: string }
+      vigia_concluir_acao: {
+        Args: {
+          _acao_id: number
+          _comando_id: string
+          _detalhe: string
+          _resultado: string
+        }
+        Returns: undefined
+      }
       vigia_detectar: {
         Args: never
         Returns: {
@@ -7056,6 +7193,33 @@ export type Database = {
           organization_id: string
           regra: string
         }[]
+      }
+      vigia_dispensar: {
+        Args: {
+          _id: number
+          _indice?: number
+          _motivo?: string
+          _origem: string
+        }
+        Returns: undefined
+      }
+      vigia_enviar_ordem: {
+        Args: {
+          _catraca: string
+          _lote: string
+          _motivo: string
+          _parametros: Json
+          _tipo: string
+        }
+        Returns: Json
+      }
+      vigia_executar: {
+        Args: { _alvo: string; _contexto: Json; _ferramenta: string }
+        Returns: Json
+      }
+      vigia_ferramenta_executavel: {
+        Args: { _ferramenta: string }
+        Returns: boolean
       }
       vigia_gateways: {
         Args: never
@@ -7074,7 +7238,16 @@ export type Database = {
           versao_1: boolean
         }[]
       }
+      vigia_marcar_avisadas: { Args: { _ids: number[] }; Returns: undefined }
+      vigia_preparar_aprovacao: {
+        Args: { _id: number; _indice: number; _origem: string; _uid: string }
+        Returns: Json
+      }
       vigia_quadro: { Args: never; Returns: Json }
+      vigia_reenviar_remocao: {
+        Args: { _catraca: string; _lote: string }
+        Returns: Json
+      }
       vigia_registrar_analise: {
         Args: {
           _analise: Json
@@ -7095,6 +7268,7 @@ export type Database = {
         Returns: string
       }
       vigia_resumo_interno: { Args: { _horas?: number }; Returns: Json }
+      vigia_rodar_rotina: { Args: { _nome: string }; Returns: Json }
       vigia_rotina_repetivel: { Args: { _nome: string }; Returns: boolean }
       vigia_varrer: { Args: never; Returns: Json }
     }

@@ -10,12 +10,9 @@ Só o que continua em aberto. As decisões já tomadas e aplicadas saíram desta
 - **Planilha real de exportação** (EVO, Tecnofit, Next Fit ou Pacto), para conferir o reconhecimento das colunas na importação de alunos.
 - **Conta de teste da jornada do aluno.** Confirmar no GitHub que o teste de ponta a ponta `jornada-aluno` roda de verdade depois de cada deploy, e não aparece como "pulado".
 
-## Vigia: o que passa a rodar (Fase 3)
+## Vigia: quando dar autonomia à análise por IA
 
-- **A avaliação foi feita pelo simulado em 24/09/2026** (`npm run simulado:vigia`, resultados no `CLAUDE.md`), porque sem cliente em produção as duas semanas de sombra não teriam o que medir. O modo sombra continua ligado e registrando. Falta a decisão do responsável, regra a regra e ferramenta a ferramenta — sozinho, com aprovação, ou continuar em sombra. Até ela, nada executa. Recomendação:
-  - **as 6 regras de nível 1 rodando sozinhas** — determinísticas, inofensivas mesmo quando a regra erra, com espera, limite de tentativas e freio;
-  - **as 3 de nível 2 com aprovação de um clique** na Visão Master; a de aviso do Asaas agrupada por tipo de evento, para uma queda do Asaas virar um pedido, não um por aviso;
-  - **a análise por IA como conselheira:** diagnóstico sempre visível, e as ações dela com aprovação, não sozinhas, até acumular casos reais — no simulado ela acertou, mas os cenários foram escritos por quem a escreveu.
+- **As ações propostas pela IA pedem aprovação, por decisão de 24/09/2026**, mesmo as que o catálogo classifica como "sozinho". Rever quando houver casos reais suficientes para medir o acerto fora do simulado — na tela Visão Master → Vigia, quantas ações da IA foram aprovadas, dispensadas ou falharam. Até lá, nada da IA roda sozinho.
 
 ## Depois do lançamento
 
