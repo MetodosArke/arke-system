@@ -17,6 +17,7 @@ Licença de uso, não exclusiva e intransferível, da plataforma ARKE (painel da
 
 - A Academia recebe as mensalidades dos seus alunos na própria conta Asaas. Do valor de cada cobrança é retido, no momento do pagamento, o repasse da ArkeFit indicado no painel (custo do nível do Método ARKE e/ou taxa de processamento do meio de pagamento).
 - A Academia define livremente os preços que cobra dos seus alunos e responde pela relação comercial com eles (condições, cancelamentos, reembolsos e documentos fiscais).
+- **Responsabilidade fiscal.** Cada parte responde pelos tributos e documentos fiscais do que entra no próprio caixa: a Academia, pelo valor que recebe de cada cobrança; a ArkeFit, pelo repasse que retém. Quando a Academia liga a emissão automática de nota fiscal na plataforma, a nota de cada pagamento confirmado é emitida **no CNPJ da Academia**, pela conta Asaas dela e pelo valor que entrou no caixa dela, e é cancelada se o pagamento for estornado. O cadastro fiscal — inscrição municipal, regime tributário, serviço municipal, alíquota de ISS e o meio de autenticação exigido pela prefeitura — é informado pela Academia e é de responsabilidade dela; a ArkeFit o transmite ao Asaas e acompanha a emissão, sem responder pelo enquadramento tributário escolhido nem pela indisponibilidade da prefeitura ou do Asaas. A nota que não puder ser emitida fica indicada no painel, com o motivo. Certificado digital e senhas da prefeitura são enviados diretamente ao Asaas e não ficam guardados na plataforma.
 
 ## 4. Obrigações da Academia
 

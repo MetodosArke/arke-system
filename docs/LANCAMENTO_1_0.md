@@ -32,7 +32,7 @@ A 1.0 está no ar desde 24/09/2026, com as migrations pós-deploy aplicadas; o t
 
 **Cobrança avulsa (24/09/2026):** as migrations `20261276010000` e `20261277010000` estão aplicadas e as funções publicadas (`asaas-cobranca-avulsa`, e as versões novas de `asaas-webhook`, `asaas-reconciliar`, `academia-criar-matricula`, `excluir-aluno` e `anonimizar-aluno`). As telas entram com o merge.
 
-**Nota fiscal automática (24/09/2026):** a migration `20261278010000` está aplicada e as funções publicadas (`nfse-emitir`, `asaas-fiscal-academia` e a versão nova de `convidar-membro`). A `20261279010000` (Política de Privacidade `2026-09-24`) entra **depois** do deploy com o texto novo. As telas entram com o merge.
+**Nota fiscal automática (24/09/2026):** a migration `20261278010000` está aplicada e as funções publicadas (`nfse-emitir`, `asaas-fiscal-academia` e a versão nova de `convidar-membro`). A `20261279010000` (Política de Privacidade `2026-09-24`) foi aplicada depois do deploy com o texto novo, e a `20261280010000` (Contrato da Academia `2026-09-24`, com a cláusula de responsabilidade fiscal) segue a mesma ordem.
 
 ## 3. Implantação de cada academia
 
