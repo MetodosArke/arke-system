@@ -16,6 +16,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Upload, FileSpreadsheet, ArrowLeft, CheckCircle2, XCircle, MessageCircle } from "lucide-react";
 import { abrirWhatsAppAtivacao } from "@/lib/whatsappAtivacao";
+import { lerLinhasPlanilha } from "@/lib/lerPlanilha";
 import type { TablesInsert } from "@/integrations/supabase/types";
 
 // Limites de sanidade: este importador roda inteiramente no navegador do
@@ -217,16 +218,8 @@ export default function AdminImportarAlunos() {
       return;
     }
     try {
-      // Import dinâmico: mantém a lib de parsing (pesada) fora do bundle
-      // principal, carregada só quando o staff realmente usa o importador.
-      const { read: readWorkbook, utils: xlsxUtils } = await import("xlsx");
-      const buffer = await file.arrayBuffer();
-      const workbook = readWorkbook(buffer, { type: "array" });
-      const primeiraAba = workbook.SheetNames[0];
-      const linhasBrutas = xlsxUtils.sheet_to_json<Record<string, string>>(workbook.Sheets[primeiraAba], {
-        defval: "",
-        raw: false,
-      });
+      // CSV com o encoding certo (UTF-8 ou Windows-1252) — ver lerPlanilha.ts.
+      const linhasBrutas = await lerLinhasPlanilha(await file.arrayBuffer());
       if (linhasBrutas.length === 0) {
         toast({ title: "Planilha vazia", description: "Nenhuma linha encontrada.", variant: "destructive" });
         return;
