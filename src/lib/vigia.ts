@@ -50,7 +50,7 @@ export type AcaoVigia = {
   alvo_nome: string;
   justificativa: string;
   classe: Classe | null;
-  recusada?: "fora_do_catalogo" | "alvo_inexistente";
+  recusada?: "fora_do_catalogo" | "alvo_inexistente" | "alvo_sem_sinal" | "freio_falha_geral";
 };
 
 export type AnaliseVigia = {
@@ -127,6 +127,8 @@ export const ROTULO_CLASSE: Record<Classe, string> = {
 export const ROTULO_RECUSA: Record<NonNullable<AcaoVigia["recusada"]>, string> = {
   fora_do_catalogo: "recusada: fora da lista de ferramentas",
   alvo_inexistente: "recusada: alvo que não está no quadro",
+  alvo_sem_sinal: "recusada: Gateway sem sinal, a ordem não chegaria",
+  freio_falha_geral: "segurada: a mesma ordem para muitos Gateways (freio de falha geral)",
 };
 
 export const ROTULO_STATUS_ANALISE: Record<AnaliseVigia["status"], string> = {

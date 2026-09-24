@@ -16,7 +16,8 @@
     "sandbox:cartao": "node scripts/asaas-sandbox-cartao.mjs",
     "sandbox:conta": "node scripts/asaas-sandbox-conta.mjs",
     "sandbox:assinatura": "node scripts/asaas-sandbox-assinatura.mjs",
-    "sandbox:ciclo": "node scripts/asaas-sandbox-ciclo.mjs"
+    "sandbox:ciclo": "node scripts/asaas-sandbox-ciclo.mjs",
+    "simulado:vigia": "node scripts/vigia-simulado.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",

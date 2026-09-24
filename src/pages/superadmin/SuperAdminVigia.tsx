@@ -262,7 +262,7 @@ function Analises({ resumo }: { resumo: ResumoVigia }) {
           <>
             <p className="pb-2 text-sm">
               {a.total} análise(s) · ações propostas: {a.acoes_sozinho} faria sozinho, {a.acoes_aprovacao} pediria aprovação,{" "}
-              {a.acoes_humano} pede uma pessoa{a.acoes_recusadas > 0 && `, ${a.acoes_recusadas} recusada(s)`}
+              {a.acoes_humano} pede uma pessoa{a.acoes_recusadas > 0 && `, ${a.acoes_recusadas} barrada(s) pelas travas`}
               {a.indisponiveis > 0 && ` · ${a.indisponiveis} com o modelo indisponível`}
             </p>
             {a.lista.map((x) => (

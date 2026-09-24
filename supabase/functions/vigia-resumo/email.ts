@@ -25,7 +25,7 @@ export type AcaoResumo = {
   alvo_nome: string;
   justificativa: string;
   classe: "sozinho" | "aprovacao" | "humano" | null;
-  recusada?: "fora_do_catalogo" | "alvo_inexistente";
+  recusada?: "fora_do_catalogo" | "alvo_inexistente" | "alvo_sem_sinal" | "freio_falha_geral";
 };
 
 export type AnaliseResumo = {
@@ -151,7 +151,7 @@ export function montarEmailResumo(r: Resumo, painel: string): { assunto: string;
       (a.recusadas ? `, ${a.recusadas} recusada(s) pela validação do quadro` : "") +
       (a.invalidas ? `, ${a.invalidas} com resposta inválida` : "") +
       `. Ações propostas: ${a.acoes_sozinho} faria sozinho, ${a.acoes_aprovacao} pediria aprovação, ${a.acoes_humano} pede uma pessoa` +
-      (a.acoes_recusadas ? `, ${a.acoes_recusadas} recusada(s) por estar fora da lista` : "") +
+      (a.acoes_recusadas ? `, ${a.acoes_recusadas} barrada(s) pelas travas do catálogo` : "") +
       "."
     : "Nenhuma análise: o quadro de anomalias não mudou ou estava vazio.";
   const analises = a.lista.slice(0, 5).map((x) => ({

@@ -801,7 +801,7 @@ Na rodada pela tela, a chave do parceiro digitada sumia antes de salvar. `const 
 
 O ARKE tem **dois agentes**, e a separação é de propósito. O **Sentinela** é a IA do Mentor: resume a anamnese e sugere resposta no chat, com o consentimento do aluno e processando em São Paulo. O **Vigia** cuida da saúde técnica da plataforma — Gateways de catraca, rotinas agendadas, conferência com o Asaas, avisos de pagamento, capacidade do banco — e **não lê dado de aluno**. O responsável decidiu que o Vigia é um agente só, com duas camadas que se completam: **regras** para o que já se sabe tratar e **análise por IA** para olhar o quadro inteiro.
 
-**Modo sombra por duas semanas: nada é executado.** O Vigia registra o que faria e manda um resumo diário; em 08/10/2026 o responsável decide, regra a regra e ferramenta a ferramenta, o que passa a rodar (`docs/DECISOES_PENDENTES.md`). É evidência antes de autonomia: a pergunta que decide se uma correção automática vale a pena — o problema teria sumido sozinho? — só se responde medindo.
+**Modo sombra: nada é executado.** O Vigia registra o que faria e manda um resumo diário; o responsável decide, regra a regra e ferramenta a ferramenta, o que passa a rodar (`docs/DECISOES_PENDENTES.md`). O plano era esperar duas semanas; sem cliente em produção não haveria o que medir, e a avaliação foi feita por simulado (ver *Fase 2*). É evidência antes de autonomia: a pergunta que decide se uma correção automática vale a pena — o problema teria sumido sozinho? — só se responde medindo.
 
 ### Camada de regras
 
@@ -836,6 +836,29 @@ O **resumo diário** sai às 8h de Brasília (`vigia-resumo`, cron `arke-vigia-r
 - **26 casos em transação revertida**, com catracas, rotinas e eventos do Asaas simulados: o ciclo inteiro de uma regra (espera, ação, tentativas, escalonamento, fechamento, "sumiu sozinha"), freio com 3 Gateways, regra desligada, as nove regras, o quadro sem nome, id, e-mail, CPF ou mensagem de erro, a análise repetida não chamando o modelo de novo, o resumo e os acessos (gestor leva 403; desligar fica na Auditoria).
 - **Corrente real em produção:** uma falha de rotina provocada abriu a ocorrência, a função publicada chamou o modelo e gravou a análise, e o resumo foi **entregue** às caixas dos Super Admins. Depois a falha foi desfeita, a ocorrência fechou sozinha e os registros do teste foram apagados, para não entrar na avaliação.
 - **Testes:** validação do quadro (13 formas de sujá-lo, todas recusadas), catálogo e classes, leitura da resposta, e-mail, tela e o espelho dos rótulos — 43 testes, mais as quatro travas novas de `iaNoBrasil.guarda.test.ts`.
+
+### Fase 2: o simulado, em vez de esperar incidente (24/09/2026)
+
+Esperar as duas semanas daria uma avaliação vazia: sem cliente nem catraca em produção, o Vigia não tem o que ver. `npm run simulado:vigia` (`scripts/vigia-simulado.mjs`) monta **13 cenários de falha no banco de verdade**, cada um numa transação desfeita no fim — sem e-mail e sem linha nova —, simula a passagem do tempo para as regras e manda o quadro de cada um ao modelo **pelo mesmo código de produção**, 3 vezes. Como os cenários foram montados à mão, a causa certa e as ações esperadas são conhecidas, e dá para dar nota. Mede se o Vigia acerta; **com que frequência** cada caso acontece só a operação real diz.
+
+**Três rodadas, e o que cada uma consertou:**
+
+| Rodada | Causa certa | Ação esperada | Sem ação fora de lugar |
+|---|---|---|---|
+| 1 — roteiro original | 100% | 96% | **72%** |
+| 2 — Gateway sem sinal explicado e travado | 100% | 79%* | 100% |
+| 3 — freio de falha geral na análise | 95% | 100% | 100% |
+
+\* nota errada do simulado, não do modelo: nos casos em que uma regra já tratava o problema, ele deixou para ela, como o roteiro manda. A rodada 3 conta isso como acerto.
+
+Dois defeitos reais, que teste unitário nenhum acharia:
+
+- **Ordem para Gateway sem sinal.** O modelo acertava "internet da academia" e ainda propunha reenviar acessos e pedir diagnóstico às catracas caídas, "para quando voltarem" — ordem que não chega, e que o Gateway faz sozinho ao voltar. Agora o roteiro explica e o catálogo recusa (`alvo_sem_sinal`), a mesma trava das regras, que só agem em Gateway no ar.
+- **Sintoma tratado um a um.** Com três academias em contingência, acertava "nuvem" e mandava sincronizar cada Gateway — com cem academias, cem downloads da lista inteira numa nuvem que já não responde. Agora a análise tem o **mesmo freio das regras** (`aplicarFreio`: a mesma ordem para 3 Gateways ou mais é segurada) e o roteiro explica que contingência é demora da nuvem, que sincronizar não resolve.
+
+**Confiança declarada:** 83 em média quando acertou a causa, 65 quando errou — acompanha o acerto, mas com dois erros a amostra é pequena demais para virar régua. O erro restante: falha de cadastro no equipamento, lida como nuvem em 2 de 3.
+
+**A conta AWS tem cota baixa para o modelo.** Três chamadas em paralelo esgotaram a cota em segundos (429). Em produção não pesa — no máximo 4 análises por hora, e recusa vira "indisponível" com nova tentativa depois —, mas o simulado chama uma de cada vez e espera. Cada análise custa uns 2.500 tokens de entrada e 700 de saída, cerca de US$ 0,02.
 
 ## Rastreamento de Erro (Sentry): a configuração é a política de privacidade
 

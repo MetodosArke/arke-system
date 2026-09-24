@@ -23,6 +23,7 @@ const quadro = (): Quadro => ({
     { id: 3, tipo: "rotina_falhou", rotina: "arke-alerta-catracas", repetivel: true, classe_erro: "conexao", minutos: 0 },
     { id: 4, tipo: "rotina_falhou", rotina: "arke-lembrete-onboarding", repetivel: false, classe_erro: "envio_email" },
     { id: 5, tipo: "webhook_nao_processado", evento: "PAYMENT_CONFIRMED", quantidade: 1 },
+    { id: 6, tipo: "gateway_sincronizacao_atrasada", academia: "A1", gateway: "G3", minutos: 30 },
   ],
   vigia: [{ regra: "rotina_repetivel_falhou", rotina: "arke-alerta-catracas" }],
 });
@@ -91,7 +92,7 @@ describe("catálogo de ferramentas", () => {
 
   it("a classe vem do catálogo, e rodar rotina de novo depende de ela ser repetível", () => {
     const q = quadro();
-    expect(classificarAcao("sincronizar_gateway", "G1", q)).toEqual({ classe: "sozinho" });
+    expect(classificarAcao("sincronizar_gateway", "G3", q)).toEqual({ classe: "sozinho" });
     expect(classificarAcao("reexecutar_rotina", "arke-alerta-catracas", q)).toEqual({ classe: "sozinho" });
     expect(classificarAcao("reexecutar_rotina", "arke-lembrete-onboarding", q)).toEqual({ classe: "aprovacao" });
     expect(classificarAcao("reprocessar_evento_asaas", "PAYMENT_CONFIRMED", q)).toEqual({ classe: "aprovacao" });
@@ -106,6 +107,48 @@ describe("catálogo de ferramentas", () => {
     expect(classificarAcao("sincronizar_gateway", "A1", q)).toEqual({ classe: null, recusada: "alvo_inexistente" });
     expect(classificarAcao("reexecutar_rotina", "arke-briefing-semanal", q)).toEqual({ classe: null, recusada: "alvo_inexistente" });
     expect(classificarAcao("reconferir_asaas", "G1", q)).toEqual({ classe: null, recusada: "alvo_inexistente" });
+  });
+
+  it("ordem a Gateway sem sinal é recusada — ela não chegaria (achado do simulado)", () => {
+    const q = quadro();
+    for (const f of ["reenviar_acessos_gateway", "pedir_diagnostico_gateway", "sincronizar_gateway", "reiniciar_gateway"]) {
+      expect(classificarAcao(f, "G1", q), f).toEqual({ classe: null, recusada: "alvo_sem_sinal" });
+    }
+    // Falar com a academia do Gateway sem sinal continua sendo a ação certa.
+    expect(classificarAcao("acionar_academia", "A1", q)).toEqual({ classe: "humano" });
+    // Gateway no ar recebe ordem normalmente.
+    const noAr = { ...q, anomalias: [{ id: 1, tipo: "gateway_fila_parada" as const, gateway: "G3", academia: "A1", fila_offline: 9 }] };
+    expect(classificarAcao("reenviar_acessos_gateway", "G3", noAr)).toEqual({ classe: "sozinho" });
+  });
+
+  it("a mesma ordem para 3 Gateways ou mais é segurada pelo freio (achado do simulado)", () => {
+    const nuvemLenta: Quadro = {
+      ...quadro(),
+      anomalias: ["G1", "G2", "G3", "G4"].map((g, i) => ({ id: i + 1, tipo: "gateway_contingencia" as const, gateway: g, academia: `A${i + 1}`, minutos: 15 })),
+    };
+    const r = interpretarResposta(
+      respostaDoModelo({
+        diagnostico: "Nuvem lenta: quatro academias em contingência.",
+        causa_provavel: "nuvem_arke",
+        gravidade: "alta",
+        confianca: 88,
+        acoes: [
+          ...["G1", "G2", "G3"].map((g) => ({ ferramenta: "sincronizar_gateway", alvo: g, justificativa: "x" })),
+          ...["G1", "G2"].map((g) => ({ ferramenta: "reenviar_acessos_gateway", alvo: g, justificativa: "x" })),
+          { ferramenta: "acionar_suporte_arkefit", alvo: "plataforma", justificativa: "x" },
+        ],
+      }),
+      nuvemLenta,
+    );
+    expect(r.ok && r.analise.acoes.map((a) => a.recusada ?? a.classe)).toEqual([
+      "freio_falha_geral",
+      "freio_falha_geral",
+      "freio_falha_geral",
+      // Duas não chegam ao limite: seguem com a classe do catálogo.
+      "sozinho",
+      "sozinho",
+      "humano",
+    ]);
   });
 });
 
