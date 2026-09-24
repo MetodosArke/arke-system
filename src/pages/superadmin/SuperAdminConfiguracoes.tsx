@@ -118,7 +118,7 @@ export default function SuperAdminConfiguracoes() {
               </div>
               <p className="text-xs text-muted-foreground">
                 Fórmula aplicada: repasse ARKE = (valor cobrado × percentual) + valor fixo, nunca menos que o mínimo. Atual:{" "}
-                {taxaPercentual ? Number(taxaPercentual.valor).toString() : "—"}% + R${" "}
+                {taxaPercentual ? decimal(Number(taxaPercentual.valor), 2) : "—"}% + R${" "}
                 {taxaFixa ? decimal(Number(taxaFixa.valor), 2) : "—"}, mínimo de R${" "}
                 {taxaMinima ? decimal(Number(taxaMinima.valor), 2) : "—"}.
               </p>

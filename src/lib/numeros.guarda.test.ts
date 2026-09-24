@@ -47,6 +47,19 @@ describe("números na tela usam vírgula decimal", () => {
     expect(culpados, 'toFixed escreve "125.53". Use reais() ou decimal() de "@/lib/numeros" (nas edge functions, toLocaleString("pt-BR")).').toEqual([]);
   });
 
+  it("nenhum número vai para a tela por toString()", () => {
+    // O mesmo defeito por outro caminho: a Visão Master mostrava a taxa como
+    // "2.99%" (24/09/2026), e a trava do toFixed não via.
+    const culpados = fontes.flatMap((f) =>
+      f.codigo
+        .split("\n")
+        .map((linha, i) => ({ linha, i }))
+        .filter(({ linha }) => /Number\([^)]*\)\.toString\(\)/.test(linha))
+        .map(({ i }) => `${f.nome}:${i + 1}`),
+    );
+    expect(culpados, 'Number(...).toString() escreve "2.99". Use decimal() de "@/lib/numeros".').toEqual([]);
+  });
+
   it("formata como o Brasil lê", () => {
     // O Intl separa "R$" do valor com espaço rígido (U+00A0).
     expect(reais(1234.5).replace(/\u00a0/g, " ")).toBe("R$ 1.234,50");
