@@ -10,9 +10,12 @@ Só o que continua em aberto. As decisões já tomadas e aplicadas saíram desta
 - **Planilha real de exportação** (EVO, Tecnofit, Next Fit ou Pacto), para conferir o reconhecimento das colunas na importação de alunos.
 - **Conta de teste da jornada do aluno.** Confirmar no GitHub que o teste de ponta a ponta `jornada-aluno` roda de verdade depois de cada deploy, e não aparece como "pulado".
 
-## Avaliação do Vigia (08/10/2026)
+## Vigia: o que passa a rodar (Fase 3)
 
-- **O que passa a rodar de verdade.** O Vigia entrou em modo sombra em 24/09/2026 e registra, sem executar, o que faria — regras de nível 1 (sozinho) e 2 (com aprovação) e as ações que a análise por IA escolhe. Ao fim das duas semanas, com os números da tela Visão Master → Vigia e dos resumos diários, decidir regra a regra e ferramenta a ferramenta: ligar sozinho, ligar com aprovação, ou continuar em sombra. As perguntas que os números respondem: quantas vezes cada regra dispararia; quantas vezes o problema sumiu antes da hora de agir (ação desnecessária); quantas iriam para uma pessoa; se a IA acertou a causa; e se a confiança que ela declara acompanha o acerto. Até a decisão, nada muda sozinho.
+- **A avaliação foi feita pelo simulado em 24/09/2026** (`npm run simulado:vigia`, resultados no `CLAUDE.md`), porque sem cliente em produção as duas semanas de sombra não teriam o que medir. O modo sombra continua ligado e registrando. Falta a decisão do responsável, regra a regra e ferramenta a ferramenta — sozinho, com aprovação, ou continuar em sombra. Até ela, nada executa. Recomendação:
+  - **as 6 regras de nível 1 rodando sozinhas** — determinísticas, inofensivas mesmo quando a regra erra, com espera, limite de tentativas e freio;
+  - **as 3 de nível 2 com aprovação de um clique** na Visão Master; a de aviso do Asaas agrupada por tipo de evento, para uma queda do Asaas virar um pedido, não um por aviso;
+  - **a análise por IA como conselheira:** diagnóstico sempre visível, e as ações dela com aprovação, não sozinhas, até acumular casos reais — no simulado ela acertou, mas os cenários foram escritos por quem a escreveu.
 
 ## Depois do lançamento
 

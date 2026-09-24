@@ -295,6 +295,8 @@ export const ROTULO_CLASSE: Record<Classe, string> = {
 export const ROTULO_RECUSA: Record<NonNullable<AcaoProposta["recusada"]>, string> = {
   fora_do_catalogo: "recusada: fora da lista de ferramentas",
   alvo_inexistente: "recusada: alvo que não está no quadro",
+  alvo_sem_sinal: "recusada: Gateway sem sinal, a ordem não chegaria",
+  freio_falha_geral: "segurada: a mesma ordem para muitos Gateways (freio de falha geral)",
 };
 
 export const NOME_FERRAMENTA_ANALISE = "registrar_analise";
@@ -310,6 +312,11 @@ const SISTEMA = [
   "`gateways_no_ar` conta os Gateways que falaram com a nuvem nos últimos 3 minutos: Gateway no ar prova que a internet",
   "e o computador de lá funcionam — um problema dele com o Gateway no ar (lista atrasada, fila parada) é do Gateway ou da nuvem, não da rede.",
   "`minutos` é há quanto tempo a anomalia está de pé; `repetivel` diz se a rotina pode rodar de novo sem efeito duplicado.",
+  "Gateway sem sinal não recebe ordem nenhuma — e, quando volta, ele mesmo sobe a fila e sincroniza. Não proponha ferramenta",
+  "de Gateway para um Gateway sem sinal, nem \"para depois que voltar\": o que resolve um Gateway sem sinal é a academia.",
+  "Contingência é o Gateway no ar e com a lista de alunos, mas a nuvem demorando a responder a validação: sincronizar não",
+  "resolve (a lista já está lá). Quando a causa é comum a várias academias — nuvem ou fornecedor —, não mande ordem a cada",
+  "Gateway: isso sobrecarrega a nuvem que já está lenta. Acione o suporte da ArkeFit e deixe os Gateways se recuperarem.",
   "O campo `vigia` lista o que as regras automáticas já estão tratando: complemente, não repita.",
   "",
   "Sua tarefa: explicar a causa provável olhando as anomalias em conjunto — várias catracas da mesma academia ao mesmo tempo",
@@ -385,8 +392,31 @@ export type AcaoProposta = {
   alvo: string;
   justificativa: string;
   classe: Classe | null;
-  recusada?: "fora_do_catalogo" | "alvo_inexistente";
+  recusada?: "fora_do_catalogo" | "alvo_inexistente" | "alvo_sem_sinal" | "freio_falha_geral";
 };
+
+/**
+ * Freio de falha geral, o mesmo das regras (freio_alvos = 3): a mesma ordem
+ * para muitos Gateways numa análise só é sintoma tratado um a um. O simulado
+ * mostrou o modelo acertando "nuvem lenta" e, mesmo assim, mandando
+ * sincronizar cada Gateway — com cem academias seriam cem downloads da lista
+ * inteira em cima de uma nuvem que já não responde. Quem segura é o catálogo,
+ * não o modelo.
+ */
+export const FREIO_ALVOS = 3;
+
+export function aplicarFreio(acoes: AcaoProposta[]): AcaoProposta[] {
+  const alvos = new Map<string, Set<string>>();
+  for (const a of acoes) {
+    if (a.recusada || FERRAMENTAS[a.ferramenta]?.alvo !== "gateway") continue;
+    alvos.set(a.ferramenta, (alvos.get(a.ferramenta) ?? new Set()).add(a.alvo));
+  }
+  return acoes.map((a) =>
+    !a.recusada && (alvos.get(a.ferramenta)?.size ?? 0) >= FREIO_ALVOS
+      ? { ...a, classe: null, recusada: "freio_falha_geral" as const }
+      : a,
+  );
+}
 
 export type Analise = {
   diagnostico: string;
@@ -422,6 +452,12 @@ export function classificarAcao(ferramenta: string, alvo: string, q: Quadro): Pi
   const f = FERRAMENTAS[ferramenta];
   if (!f) return { classe: null, recusada: "fora_do_catalogo" };
   if (!alvoExiste(f.alvo, alvo, q)) return { classe: null, recusada: "alvo_inexistente" };
+  // Ordem a Gateway sem sinal não chega — e, quando ele volta, sobe a fila e
+  // sincroniza sozinho. É a mesma trava das regras, que só agem em Gateway
+  // no ar; o simulado mostrou o modelo propondo essas ordens "para depois".
+  if (f.alvo === "gateway" && q.anomalias.some((a) => a.gateway === alvo && a.tipo === "gateway_sem_sinal")) {
+    return { classe: null, recusada: "alvo_sem_sinal" };
+  }
   if (f.classe === "depende") {
     const repetivel = q.anomalias.some((a) => a.rotina === alvo && a.repetivel === true);
     return { classe: repetivel ? "sozinho" : "aprovacao" };
@@ -462,7 +498,7 @@ export function interpretarResposta(
     ? [...new Set(e.anomalias_relacionadas.filter((n): n is number => Number.isInteger(n) && ids.has(n)))]
     : [];
 
-  const acoes: AcaoProposta[] = (Array.isArray(e.acoes) ? e.acoes : []).slice(0, 8).map((a) => {
+  const propostas: AcaoProposta[] = (Array.isArray(e.acoes) ? e.acoes : []).slice(0, 8).map((a) => {
     const item = (a ?? {}) as Record<string, unknown>;
     const ferramenta = texto(item.ferramenta, 60);
     const alvo = texto(item.alvo, 63);
@@ -476,6 +512,13 @@ export function interpretarResposta(
 
   return {
     ok: true,
-    analise: { diagnostico, causa_provavel: causa, gravidade, confianca, anomalias_relacionadas: relacionadas, acoes },
+    analise: {
+      diagnostico,
+      causa_provavel: causa,
+      gravidade,
+      confianca,
+      anomalias_relacionadas: relacionadas,
+      acoes: aplicarFreio(propostas),
+    },
   };
 }
