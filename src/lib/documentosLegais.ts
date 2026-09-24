@@ -48,12 +48,13 @@ export const DOCUMENTOS: Record<
     // 2026-09-24: nota fiscal automatica da academia -- o endereco do aluno
     // passa a ser coletado (a prefeitura exige o endereco do tomador), o Asaas
     // tambem emite a nota no CNPJ da academia, a prefeitura recebe a nota e a
-    // BrasilAPI recebe so o CEP do aluno. Fica como minuta ate o responsavel
-    // confirmar o texto.
+    // BrasilAPI recebe so o CEP do aluno. Texto aprovado pelo responsavel
+    // como estava, em 24/09/2026 (a marca de minuta nao muda o hash, entao
+    // nao pede aceite de novo).
     versao: "2026-09-24",
     sha256: "401ba8c2ce3e45133fa351a2d83cb4250586b70645b88ad1362bc1fccd2b55d2",
     texto: privacidade,
-    revisadoJuridico: false,
+    revisadoJuridico: true,
   },
   contrato_academia: {
     titulo: "Contrato da Academia (licença e tratamento de dados)",
@@ -63,9 +64,13 @@ export const DOCUMENTOS: Record<
     // ArkeFit por falha exclusiva de execucao presencial da academia.
     // .3: clausula 6.1, item 4 -- processamento da IA no Brasil. Aprovada
     // pelo encarregado sem alteracao.
-    versao: "2026-09-23.3",
-    sha256: "746a33c5a71f61253579ad5d6101de95fcc4d8efed28a603bcc83781d30a909d",
+    // 2026-09-24: secao 3 ganhou a clausula de responsabilidade fiscal (cada
+    // parte pelo que entra no proprio caixa; a nota automatica sai no CNPJ da
+    // academia, e o cadastro fiscal e dela). O responsavel aprovou incluir a
+    // clausula; fica como minuta ate ele confirmar o texto.
+    versao: "2026-09-24",
+    sha256: "a74ce7dd53c6c10d24d01deb8a4f8d17933b2c731123082ab4ed01e0d9794f9e",
     texto: contratoAcademia,
-    revisadoJuridico: true,
+    revisadoJuridico: false,
   },
 };
