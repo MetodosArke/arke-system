@@ -1,3 +1,5 @@
+import { montarPedido, validarQuadro } from "./vigiaAnalise.ts";
+
 /**
  * O Sentinela fala com o modelo — e este módulo é, na maior parte, uma lista
  * do que **não** sai daqui, e agora também de **para onde** não sai.
@@ -155,4 +157,57 @@ export async function conversarComIA(
     return { ok: false, indisponivel: true, motivo: "O Sentinela respondeu vazio." };
   }
   return { ok: true, texto: texto.trim() };
+}
+
+// ── Vigia: telemetria técnica, sem dado de pessoa ─────────────────────────
+//
+// O Vigia é o outro agente: cuida da saúde técnica da plataforma, e não de
+// alunos. Ele usa um modelo moderno pelo perfil `global.` — que processa em
+// qualquer região da AWS —, e isso só é aceitável porque o que ele manda não
+// é dado pessoal: o quadro passa por `validarQuadro`, que é uma lista do que
+// é permitido (tipos de anomalia, números e pseudônimos), dentro desta
+// própria função. Não existe caminho até o modelo global que não passe por
+// ela, e o Sentinela continua preso a São Paulo pelas travas acima.
+//
+// O modelo é constante no código, e não um secret: trocar para onde vai a
+// telemetria é mudança de código, com revisão. A família Claude 5 não estava
+// liberada para esta conta em 24/09/2026; o Sonnet 4.6 estava.
+export const MODELO_VIGIA = "global.anthropic.claude-sonnet-4-6";
+
+export type RespostaVigia =
+  | { ok: true; resposta: unknown; latenciaMs: number; tokensEntrada: number | null; tokensSaida: number | null }
+  | { ok: false; motivo: "recusada_validacao" | "indisponivel"; detalhe: string };
+
+export async function consultarVigia(env: Env, quadroBruto: unknown): Promise<RespostaVigia> {
+  const validado = validarQuadro(quadroBruto);
+  if (validado.ok === false) return { ok: false, motivo: "recusada_validacao", detalhe: validado.motivo };
+
+  const chaveId = env("BEDROCK_ACCESS_KEY_ID");
+  const segredo = env("BEDROCK_SECRET_ACCESS_KEY");
+  if (!chaveId || !segredo) return { ok: false, motivo: "indisponivel", detalhe: "sem credencial de IA configurada" };
+
+  const corpo = JSON.stringify(montarPedido(validado.quadro));
+  const inicio = Date.now();
+  let resposta: Response;
+  try {
+    const { url, headers } = await assinar(["model", MODELO_VIGIA, "converse"], corpo, chaveId, segredo);
+    resposta = await fetch(url, { method: "POST", headers, body: corpo, signal: AbortSignal.timeout(30_000) });
+  } catch (erro) {
+    return { ok: false, motivo: "indisponivel", detalhe: erro instanceof Error ? erro.name : "falha de rede" };
+  }
+  if (!resposta.ok) {
+    const tipo = (resposta.headers.get("x-amzn-errortype") ?? "").split(":")[0];
+    console.error("vigia: modelo recusou", resposta.status, tipo);
+    return { ok: false, motivo: "indisponivel", detalhe: `HTTP ${resposta.status} ${tipo}`.trim() };
+  }
+  const r = await resposta.json().catch(() => null);
+  if (!r) return { ok: false, motivo: "indisponivel", detalhe: "resposta ilegível" };
+  const uso = (r as { usage?: { inputTokens?: number; outputTokens?: number } }).usage;
+  return {
+    ok: true,
+    resposta: r,
+    latenciaMs: Date.now() - inicio,
+    tokensEntrada: uso?.inputTokens ?? null,
+    tokensSaida: uso?.outputTokens ?? null,
+  };
 }

@@ -5,7 +5,7 @@ import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { LogOut, Shield, LayoutDashboard, UserCog, Settings, Dumbbell, ScrollText, Webhook, MessageCircle, Cpu } from "lucide-react";
+import { LogOut, Shield, LayoutDashboard, UserCog, Settings, Dumbbell, ScrollText, Webhook, MessageCircle, Cpu, Radar } from "lucide-react";
 
 const NAV_ITEMS = [
   { icon: LayoutDashboard, label: "Visão Geral", path: "/superadmin" },
@@ -15,6 +15,7 @@ const NAV_ITEMS = [
   { icon: MessageCircle, label: "Mentoria", path: "/superadmin/mentoria" },
   { icon: Cpu, label: "Equipamentos", path: "/superadmin/equipamentos" },
   { icon: Webhook, label: "Webhooks", path: "/superadmin/webhooks" },
+  { icon: Radar, label: "Vigia", path: "/superadmin/vigia" },
   { icon: Settings, label: "Configurações", path: "/superadmin/configuracoes" },
 ];
 

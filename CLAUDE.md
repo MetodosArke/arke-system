@@ -797,6 +797,46 @@ Na rodada pela tela, a chave do parceiro digitada sumia antes de salvar. `const 
 - **Banco em transação revertida:** 15 grupos do canal e do consentimento; 27 casos do painel, do alerta com janela de horário, da pseudonimização (o CPF não aparece em nenhuma linha) e do cofre; 5 do vigia das funções agendadas.
 - **Gateway: 112 testes**, com três mutações feitas de propósito (usuário apagado antes da digital, ordens do equipamento sem fila, resultado que não volta para a fila) — as três pegas.
 
+## Vigia: o segundo agente, em modo sombra (24/09/2026)
+
+O ARKE tem **dois agentes**, e a separação é de propósito. O **Sentinela** é a IA do Mentor: resume a anamnese e sugere resposta no chat, com o consentimento do aluno e processando em São Paulo. O **Vigia** cuida da saúde técnica da plataforma — Gateways de catraca, rotinas agendadas, conferência com o Asaas, avisos de pagamento, capacidade do banco — e **não lê dado de aluno**. O responsável decidiu que o Vigia é um agente só, com duas camadas que se completam: **regras** para o que já se sabe tratar e **análise por IA** para olhar o quadro inteiro.
+
+**Modo sombra por duas semanas: nada é executado.** O Vigia registra o que faria e manda um resumo diário; em 08/10/2026 o responsável decide, regra a regra e ferramenta a ferramenta, o que passa a rodar (`docs/DECISOES_PENDENTES.md`). É evidência antes de autonomia: a pergunta que decide se uma correção automática vale a pena — o problema teria sumido sozinho? — só se responde medindo.
+
+### Camada de regras
+
+`vigia_detectar()` tem 9 regras em `vigia_regras`: 6 de **nível 1** (faria sozinho: sincronizar Gateway atrasado, reenviar acessos guardados, pedir diagnóstico de Gateway em contingência prolongada, reenviar remoção de digital quando o Gateway volta, rodar de novo rotina repetível que falhou, repetir a conferência com o Asaas) e 3 de **nível 2** (pediria aprovação: rotina que fala com academias, assinatura órfã, aviso do Asaas não processado). `vigia_varrer()`, de 5 em 5 minutos, abre a ocorrência quando a regra vê o problema e a fecha quando ele some, registrando no caminho o que teria acontecido:
+
+- **espera antes de agir** — o que some antes vira "sumiu antes da hora de agir", ou seja, a ação teria sido desnecessária. É o número que mais importa na avaliação;
+- **novas tentativas com limite** e, esgotadas, **"iria para uma pessoa"**;
+- **freio de falha geral** — a mesma regra em muitos alvos de uma vez indica causa comum (nuvem, fornecedor), e agir em cada alvo seria tratar sintoma.
+
+Os freios já valem no modo sombra, para a avaliação medir o que de fato rodaria. **Rotina repetível** mora numa lista só, `vigia_rotina_repetivel()` — as rotinas que criam tarefa com `on conflict … do nothing` ou atualizam por condição; quem manda e-mail para academia fica fora, e rotina nova fica fora até alguém conferir. O próprio Vigia não se avalia: se a rotina dele falha, quem avisa é o alerta de rotinas.
+
+### Camada de análise por IA
+
+`vigia_quadro()` monta o que o modelo vê e só chama a análise quando o conjunto de anomalias muda — mesmo problema persistindo não gera chamada nova a cada varredura —, no máximo 4 por hora, com reavaliação a cada 6 h. O modelo é o **Claude Sonnet 4.6 pelo perfil `global.` do Bedrock**, que processa fora do Brasil, e isso só é aceitável porque **o que sai não é dado pessoal**:
+
+- **lista do que é permitido, não do que é proibido:** tipos de anomalia, contagens, minutos, nomes de rotina e pseudônimos que valem só dentro de uma análise (A1 = uma academia, G1 = um Gateway). Nenhum nome, id, e-mail, CPF ou texto livre — **nem mensagem de erro**, que pode carregar valor de coluna: o erro vai só pela classe (`vigia_classificar_erro`). `validarQuadro()` (`_shared/vigiaAnalise.ts`) confere de novo e recusa o quadro inteiro por um campo fora da lista;
+- **o `mapa`** que liga pseudônimo a academia fica no banco (`vigia_analises`) e nunca sai;
+- **sem texto livre, não há por onde uma instrução plantada num log chegar ao modelo.**
+
+A família Claude 5 não estava liberada para esta conta AWS na data; o Sonnet 4.6 estava, com uso de ferramenta. O modelo é **constante no código** (`MODELO_VIGIA`), não secret: trocar para onde vai a telemetria é mudança com revisão. `iaNoBrasil.guarda.test.ts` ganhou as travas da exceção: o único `global.` do código é o do Vigia; `consultarVigia` valida o quadro antes de montar o pedido e de enviar; o Sentinela não usa o modelo do Vigia; só a função `vigia` usa a porta. Conferido quebrando o código de propósito.
+
+**A autonomia é da ferramenta, não do modelo.** O modelo escolhe ações de um catálogo fechado (`FERRAMENTAS`) chamando uma ferramenta forçada, mas **a classe de cada ação — sozinho, aprovação, pessoa — é do catálogo**: só é "sozinho" o que continua inofensivo com o diagnóstico errado. Ferramenta fora da lista ou alvo fora do quadro é recusada e contada. A **confiança que o modelo declara é guardada e não decide nada**: um número que o modelo escreve sobre si mesmo não é probabilidade medida, e a avaliação vai dizer se ele acompanha o acerto. Ficam **fora do catálogo**, e portanto fora do alcance do modelo: liberar catraca, limpar a fila do Gateway (ela guarda acessos que viram presença), apagar registro, mudar situação ou plano de aluno, ação financeira fora dos caminhos existentes, schema, RLS e segredos.
+
+**O modo sombra já mostrou para que serve.** Na primeira análise de teste, três Gateways de uma academia com a lista atrasada e **todos no ar** saíram como "internet da academia" — errado, porque Gateway no ar prova que a rede funciona. O roteiro do modelo passou a dizer isso, e a análise seguinte apontou a nuvem. É esse tipo de erro que se quer ver antes de dar autonomia.
+
+### Resumo, tela e interruptor
+
+O **resumo diário** sai às 8h de Brasília (`vigia-resumo`, cron `arke-vigia-resumo`) para os Super Admins, **mesmo num dia sem ocorrência**: no modo sombra, "rodou 288 vezes e não viu nada" distingue um dia calmo de um Vigia parado. **Visão Master → Vigia** mostra os mesmos números (`get_superadmin_vigia`), com as análises em nomes de verdade (`vigia_resolver_nomes`) e o **interruptor** (`definir_vigia_ativo`, só a ArkeFit, registrado na Auditoria). As duas funções usam o token do alerta de rotinas e registram o próprio desfecho em `execucoes_agendadas`.
+
+### Conferido
+
+- **26 casos em transação revertida**, com catracas, rotinas e eventos do Asaas simulados: o ciclo inteiro de uma regra (espera, ação, tentativas, escalonamento, fechamento, "sumiu sozinha"), freio com 3 Gateways, regra desligada, as nove regras, o quadro sem nome, id, e-mail, CPF ou mensagem de erro, a análise repetida não chamando o modelo de novo, o resumo e os acessos (gestor leva 403; desligar fica na Auditoria).
+- **Corrente real em produção:** uma falha de rotina provocada abriu a ocorrência, a função publicada chamou o modelo e gravou a análise, e o resumo foi **entregue** às caixas dos Super Admins. Depois a falha foi desfeita, a ocorrência fechou sozinha e os registros do teste foram apagados, para não entrar na avaliação.
+- **Testes:** validação do quadro (13 formas de sujá-lo, todas recusadas), catálogo e classes, leitura da resposta, e-mail, tela e o espelho dos rótulos — 43 testes, mais as quatro travas novas de `iaNoBrasil.guarda.test.ts`.
+
 ## Rastreamento de Erro (Sentry): a configuração é a política de privacidade
 
 Sem rastreamento, um erro de JavaScript numa tela deixa o aluno travado e ninguém fica sabendo — o defeito só aparece quando alguém liga para a academia. Com várias academias em produção isso deixa de ser sustentável, então o Sentry entrou em `src/lib/monitoramento.ts`, ligado em três pontos: a subida do app (`main.tsx`), o `ErrorBoundary` (que antes só fazia `console.error`, inútil para quem não tem DevTools aberto) e o `AuthContext`, que carimba os eventos.

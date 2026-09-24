@@ -10,6 +10,10 @@ Só o que continua em aberto. As decisões já tomadas e aplicadas saíram desta
 - **Planilha real de exportação** (EVO, Tecnofit, Next Fit ou Pacto), para conferir o reconhecimento das colunas na importação de alunos.
 - **Conta de teste da jornada do aluno.** Confirmar no GitHub que o teste de ponta a ponta `jornada-aluno` roda de verdade depois de cada deploy, e não aparece como "pulado".
 
+## Avaliação do Vigia (08/10/2026)
+
+- **O que passa a rodar de verdade.** O Vigia entrou em modo sombra em 24/09/2026 e registra, sem executar, o que faria — regras de nível 1 (sozinho) e 2 (com aprovação) e as ações que a análise por IA escolhe. Ao fim das duas semanas, com os números da tela Visão Master → Vigia e dos resumos diários, decidir regra a regra e ferramenta a ferramenta: ligar sozinho, ligar com aprovação, ou continuar em sombra. As perguntas que os números respondem: quantas vezes cada regra dispararia; quantas vezes o problema sumiu antes da hora de agir (ação desnecessária); quantas iriam para uma pessoa; se a IA acertou a causa; e se a confiança que ela declara acompanha o acerto. Até a decisão, nada muda sozinho.
+
 ## Depois do lançamento
 
 - **Preço do profissional autônomo.** O plano Custom segue negociado caso a caso.

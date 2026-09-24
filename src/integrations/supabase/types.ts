@@ -5603,6 +5603,193 @@ export type Database = {
         }
         Relationships: []
       }
+      vigia_analises: {
+        Row: {
+          acoes: Json
+          anomalias_relacionadas: Json
+          assinatura: string
+          causa_provavel: string | null
+          confianca: number | null
+          criada_em: string
+          diagnostico: string | null
+          gravidade: string | null
+          id: number
+          latencia_ms: number | null
+          mapa: Json
+          modelo: string | null
+          motivo: string | null
+          quadro: Json
+          status: string
+          tokens_entrada: number | null
+          tokens_saida: number | null
+        }
+        Insert: {
+          acoes?: Json
+          anomalias_relacionadas?: Json
+          assinatura: string
+          causa_provavel?: string | null
+          confianca?: number | null
+          criada_em?: string
+          diagnostico?: string | null
+          gravidade?: string | null
+          id?: never
+          latencia_ms?: number | null
+          mapa?: Json
+          modelo?: string | null
+          motivo?: string | null
+          quadro: Json
+          status: string
+          tokens_entrada?: number | null
+          tokens_saida?: number | null
+        }
+        Update: {
+          acoes?: Json
+          anomalias_relacionadas?: Json
+          assinatura?: string
+          causa_provavel?: string | null
+          confianca?: number | null
+          criada_em?: string
+          diagnostico?: string | null
+          gravidade?: string | null
+          id?: never
+          latencia_ms?: number | null
+          mapa?: Json
+          modelo?: string | null
+          motivo?: string | null
+          quadro?: Json
+          status?: string
+          tokens_entrada?: number | null
+          tokens_saida?: number | null
+        }
+        Relationships: []
+      }
+      vigia_ocorrencias: {
+        Row: {
+          aberta_em: string
+          acao_prevista_em: string | null
+          alvo: string
+          contexto: Json
+          descricao: string
+          escalaria_em: string | null
+          fechada_em: string | null
+          freio_em: string | null
+          id: number
+          organization_id: string | null
+          regra: string
+          tentativas_previstas: number
+          ultima_tentativa_em: string | null
+          vista_em: string
+        }
+        Insert: {
+          aberta_em?: string
+          acao_prevista_em?: string | null
+          alvo: string
+          contexto?: Json
+          descricao: string
+          escalaria_em?: string | null
+          fechada_em?: string | null
+          freio_em?: string | null
+          id?: never
+          organization_id?: string | null
+          regra: string
+          tentativas_previstas?: number
+          ultima_tentativa_em?: string | null
+          vista_em?: string
+        }
+        Update: {
+          aberta_em?: string
+          acao_prevista_em?: string | null
+          alvo?: string
+          contexto?: Json
+          descricao?: string
+          escalaria_em?: string | null
+          fechada_em?: string | null
+          freio_em?: string | null
+          id?: never
+          organization_id?: string | null
+          regra?: string
+          tentativas_previstas?: number
+          ultima_tentativa_em?: string | null
+          vista_em?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vigia_ocorrencias_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "org_churn_metrics"
+            referencedColumns: ["organization_id"]
+          },
+          {
+            foreignKeyName: "vigia_ocorrencias_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vigia_ocorrencias_regra_fkey"
+            columns: ["regra"]
+            isOneToOne: false
+            referencedRelation: "vigia_regras"
+            referencedColumns: ["codigo"]
+          },
+        ]
+      }
+      vigia_regras: {
+        Row: {
+          acao: string
+          codigo: string
+          espera_minutos: number
+          freio_alvos: number | null
+          max_tentativas: number
+          modo: string
+          nivel: number
+          retentativa_minutos: number | null
+          sombra_desde: string
+          titulo: string
+        }
+        Insert: {
+          acao: string
+          codigo: string
+          espera_minutos: number
+          freio_alvos?: number | null
+          max_tentativas?: number
+          modo?: string
+          nivel: number
+          retentativa_minutos?: number | null
+          sombra_desde?: string
+          titulo: string
+        }
+        Update: {
+          acao?: string
+          codigo?: string
+          espera_minutos?: number
+          freio_alvos?: number | null
+          max_tentativas?: number
+          modo?: string
+          nivel?: number
+          retentativa_minutos?: number | null
+          sombra_desde?: string
+          titulo?: string
+        }
+        Relationships: []
+      }
+      vigia_varreduras_dia: {
+        Row: {
+          dia: string
+          varreduras: number
+        }
+        Insert: {
+          dia: string
+          varreduras?: number
+        }
+        Update: {
+          dia?: string
+          varreduras?: number
+        }
+        Relationships: []
+      }
     }
     Views: {
       org_churn_metrics: {
@@ -5877,6 +6064,7 @@ export type Database = {
         }
         Returns: string
       }
+      definir_vigia_ativo: { Args: { _ativo: boolean }; Returns: undefined }
       dia_e_esperado_treino: {
         Args: { _aluno_id: string; _dias_descanso: number[]; _isodow: number }
         Returns: boolean
@@ -6375,6 +6563,7 @@ export type Database = {
           ultima_atividade: string
         }[]
       }
+      get_superadmin_vigia: { Args: { _horas?: number }; Returns: Json }
       get_superadmin_webhooks_asaas: {
         Args: { _limite?: number }
         Returns: {
@@ -6857,6 +7046,57 @@ export type Database = {
       versao_consentimento_biometrico: { Args: never; Returns: string }
       versao_consentimento_ia: { Args: never; Returns: string }
       versao_consentimento_saude: { Args: never; Returns: string }
+      vigia_classificar_erro: { Args: { _msg: string }; Returns: string }
+      vigia_detectar: {
+        Args: never
+        Returns: {
+          alvo: string
+          contexto: Json
+          descricao: string
+          organization_id: string
+          regra: string
+        }[]
+      }
+      vigia_gateways: {
+        Args: never
+        Returns: {
+          academia: string
+          capacidades: string[]
+          catraca: string
+          catraca_id: string
+          estado: string
+          fila: number
+          min_sem_sinal: number
+          organization_id: string
+          reportado_em: string
+          situacao: string
+          ultima_sincronizacao: string
+          versao_1: boolean
+        }[]
+      }
+      vigia_quadro: { Args: never; Returns: Json }
+      vigia_registrar_analise: {
+        Args: {
+          _analise: Json
+          _assinatura: string
+          _latencia_ms: number
+          _mapa: Json
+          _modelo: string
+          _motivo: string
+          _quadro: Json
+          _status: string
+          _tokens_entrada: number
+          _tokens_saida: number
+        }
+        Returns: number
+      }
+      vigia_resolver_nomes: {
+        Args: { _mapa: Json; _texto: string }
+        Returns: string
+      }
+      vigia_resumo_interno: { Args: { _horas?: number }; Returns: Json }
+      vigia_rotina_repetivel: { Args: { _nome: string }; Returns: boolean }
+      vigia_varrer: { Args: never; Returns: Json }
     }
     Enums: {
       agendamento_status: "agendado" | "presente" | "cancelado" | "lista_espera"
