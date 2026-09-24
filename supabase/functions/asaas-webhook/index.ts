@@ -189,6 +189,15 @@ Deno.serve(async (req: Request) => {
       const { data } = await admin.from("organizations").select("status").eq("id", m[1]).maybeSingle();
       return data?.status ?? null;
     }
+    // `avulsa:<id>` aponta para a linha da cobrança avulsa, que sabe a academia.
+    const a = referencia?.match(/^avulsa:([0-9a-f-]{36})$/i);
+    if (a) {
+      const { data: avulsa } = await admin.from("cobrancas_avulsas").select("organization_id").eq("id", a[1]).maybeSingle();
+      if (avulsa) {
+        const { data } = await admin.from("organizations").select("status").eq("id", avulsa.organization_id).maybeSingle();
+        return data?.status ?? null;
+      }
+    }
     return null;
   };
   const statusOrg = await statusDaOrganizacao();
@@ -286,6 +295,55 @@ Deno.serve(async (req: Request) => {
           await concluir(statusB2b === "pendente" ? "cobranca_b2b_emitida" : statusB2b ? "cobranca_b2b_criada" : "evento_ignorado");
           return jsonResponse({ ok: true });
         }
+      }
+
+      // Cobrança avulsa da academia (taxa de matrícula, avaliação, personal —
+      // ver asaas-cobranca-avulsa). Casa pelo id do pagamento e, na falta dele,
+      // pela referência `avulsa:<id>`: se a emissão deu certo no Asaas e a
+      // gravação do id falhou deste lado, é a primeira notícia que completa a
+      // linha. Vencida abre tarefa de cobrança, mas NÃO marca o aluno como
+      // inadimplente — a situação acompanha a mensalidade, que é o contrato.
+      const idAvulsa = referencia?.match(/^avulsa:([0-9a-f-]{36})$/i)?.[1] ?? null;
+      let { data: avulsa } = await admin
+        .from("cobrancas_avulsas")
+        .select("id, asaas_payment_id, emitida_em")
+        .eq("asaas_payment_id", asaasPaymentId)
+        .maybeSingle();
+      if (!avulsa && idAvulsa) {
+        ({ data: avulsa } = await admin
+          .from("cobrancas_avulsas")
+          .select("id, asaas_payment_id, emitida_em")
+          .eq("id", idAvulsa)
+          .maybeSingle());
+      }
+      if (avulsa) {
+        const completar = {
+          ...(avulsa.asaas_payment_id ? {} : { asaas_payment_id: asaasPaymentId }),
+          ...(avulsa.emitida_em ? {} : { emitida_em: new Date().toISOString() }),
+          invoice_url: invoiceUrl ?? undefined,
+        };
+        if (novoStatus) {
+          await admin
+            .from("cobrancas_avulsas")
+            .update({
+              ...completar,
+              status: novoStatus,
+              data_pagamento: novoStatus === "confirmado" ? hojeBrasilia() : null,
+              taxa_gateway: taxaGateway,
+            })
+            .eq("id", avulsa.id);
+          if (novoStatus === "atrasado") {
+            await admin.rpc("abrir_tarefa_avulsa_atrasada", { _cobranca_id: avulsa.id });
+          }
+        } else if (EVENTOS_EMITIDOS.has(tipoEvento)) {
+          // Emissão fora de ordem não mexe no status: mesma regra do `soEmissao`.
+          await admin
+            .from("cobrancas_avulsas")
+            .update({ ...completar, vencimento: vencimento ?? undefined })
+            .eq("id", avulsa.id);
+        }
+        await concluir(novoStatus ? "avulsa_atualizada" : EVENTOS_EMITIDOS.has(tipoEvento) ? "avulsa_emitida" : "evento_ignorado");
+        return jsonResponse({ ok: true });
       }
 
       // Mensalidade da academia (plano próprio dela, ver

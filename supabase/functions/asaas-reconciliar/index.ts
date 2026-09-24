@@ -24,7 +24,7 @@ const jsonResponse = (body: unknown, status = 200) =>
 //
 // Dois modos:
 //   - varredura: pg_cron, uma vez por dia, autenticada pelo token do Vault.
-//     Confere Método ARKE, plano próprio da academia e cobranças B2B, e lista
+//     Confere Método ARKE, plano próprio da academia, cobranças B2B e avulsas, e lista
 //     assinaturas ativas no Asaas que o banco não conhece.
 //   - aluno: o botão "Já paguei, verificar novamente" da tela de bloqueio.
 //     Confere só a assinatura daquele aluno — o caminho mais curto para quem
@@ -55,7 +55,7 @@ const MAPA: Record<string, { evento: string; statusBanco: string }> = {
 };
 
 type Divergencia = {
-  origem: "metodo" | "plano" | "b2b";
+  origem: "metodo" | "plano" | "b2b" | "avulsa";
   pagamento: string;
   asaas: string;
   banco: string | null;
@@ -86,7 +86,9 @@ async function pagamentosDaAssinatura(api: string, chave: string, assinaturaId: 
 
 /** Estado que o banco deveria ter para este pagamento, ou nulo se não há o que reconciliar. */
 function esperado(p: PagamentoAsaas) {
-  if (p.deleted) return { evento: "PAYMENT_DELETED", statusBanco: "estornado" };
+  // Removida não é estorno: o webhook grava `cancelado` para PAYMENT_DELETED.
+  // Comparar com "estornado" acusava a mesma divergência todo dia.
+  if (p.deleted) return { evento: "PAYMENT_DELETED", statusBanco: "cancelado" };
   return MAPA[p.status] ?? null;
 }
 
@@ -221,27 +223,30 @@ Deno.serve(async (req: Request) => {
       );
       for (const m of planos ?? []) await conferirAssinatura(ctx, "plano", m.asaas_subscription_id as string, "mensalidades");
 
-      // B2B: cobrança avulsa, sem assinatura — confere uma a uma.
-      const { data: b2b } = await foraDeHomologacao(
-        admin
-          .from("cobrancas_b2b")
-          .select("asaas_payment_id, status")
-          .not("asaas_payment_id", "is", null)
-          .in("status", ["pendente", "atrasado"]),
-      );
-      for (const c of b2b ?? []) {
-        let p: PagamentoAsaas;
-        try {
-          p = await asaasGet<PagamentoAsaas>(api, chave, `/payments/${encodeURIComponent(c.asaas_payment_id as string)}`);
-        } catch (e) {
-          ctx.falhas.push(`${c.asaas_payment_id}: ${e instanceof Error ? e.message : String(e)}`);
-          continue;
+      // Cobranças sem assinatura por trás — a B2B e a avulsa da academia ao
+      // aluno (taxa de matrícula, avaliação...) — conferem uma a uma.
+      for (const [origem, tabela] of [["b2b", "cobrancas_b2b"], ["avulsa", "cobrancas_avulsas"]] as const) {
+        const { data: abertas } = await foraDeHomologacao(
+          admin
+            .from(tabela)
+            .select("asaas_payment_id, status")
+            .not("asaas_payment_id", "is", null)
+            .in("status", ["pendente", "atrasado"]),
+        );
+        for (const c of abertas ?? []) {
+          let p: PagamentoAsaas;
+          try {
+            p = await asaasGet<PagamentoAsaas>(api, chave, `/payments/${encodeURIComponent(c.asaas_payment_id as string)}`);
+          } catch (e) {
+            ctx.falhas.push(`${c.asaas_payment_id}: ${e instanceof Error ? e.message : String(e)}`);
+            continue;
+          }
+          ctx.verificadas++;
+          const alvo = esperado(p);
+          if (!alvo || alvo.statusBanco === "pendente" || alvo.statusBanco === c.status) continue;
+          const corrigida = await reenviarAoWebhook(supabaseUrl, segredoWebhook, alvo.evento, p);
+          ctx.divergencias.push({ origem, pagamento: p.id, asaas: p.deleted ? "DELETED" : p.status, banco: c.status as string, corrigida });
         }
-        ctx.verificadas++;
-        const alvo = esperado(p);
-        if (!alvo || alvo.statusBanco === "pendente" || alvo.statusBanco === c.status) continue;
-        const corrigida = await reenviarAoWebhook(supabaseUrl, segredoWebhook, alvo.evento, p);
-        ctx.divergencias.push({ origem: "b2b", pagamento: p.id, asaas: p.status, banco: c.status as string, corrigida });
       }
 
       // Assinatura ativa no Asaas que o banco não conhece: cobra o aluno sem

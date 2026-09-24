@@ -15,7 +15,7 @@ import { decimal } from "@/lib/numeros";
 
 type ConfigRow = Tables<"plataforma_config">;
 
-const CHAVES = ["taxa_processamento_percentual", "taxa_processamento_fixa", "limite_banco_mb"] as const;
+const CHAVES = ["taxa_processamento_percentual", "taxa_processamento_fixa", "taxa_processamento_minima", "limite_banco_mb"] as const;
 
 export default function SuperAdminConfiguracoes() {
   const { user } = useAuth();
@@ -68,6 +68,7 @@ export default function SuperAdminConfiguracoes() {
 
   const taxaPercentual = config.find((c) => c.chave === "taxa_processamento_percentual");
   const taxaFixa = config.find((c) => c.chave === "taxa_processamento_fixa");
+  const taxaMinima = config.find((c) => c.chave === "taxa_processamento_minima");
 
   return (
     <div className="space-y-4 max-w-2xl">
@@ -106,11 +107,24 @@ export default function SuperAdminConfiguracoes() {
                     onChange={(e) => setValores((v) => ({ ...v, taxa_processamento_fixa: e.target.value }))}
                   />
                 </div>
+                <div className="space-y-1.5">
+                  <Label>Mínimo por cobrança (R$)</Label>
+                  <Input
+                    inputMode="decimal"
+                    value={valores.taxa_processamento_minima ?? ""}
+                    onChange={(e) => setValores((v) => ({ ...v, taxa_processamento_minima: e.target.value }))}
+                  />
+                </div>
               </div>
               <p className="text-xs text-muted-foreground">
-                Fórmula aplicada: repasse ARKE = (valor cobrado × percentual) + valor fixo. Atual:{" "}
+                Fórmula aplicada: repasse ARKE = (valor cobrado × percentual) + valor fixo, nunca menos que o mínimo. Atual:{" "}
                 {taxaPercentual ? Number(taxaPercentual.valor).toString() : "—"}% + R${" "}
-                {taxaFixa ? decimal(Number(taxaFixa.valor), 2) : "—"}.
+                {taxaFixa ? decimal(Number(taxaFixa.valor), 2) : "—"}, mínimo de R${" "}
+                {taxaMinima ? decimal(Number(taxaMinima.valor), 2) : "—"}.
+              </p>
+              <p className="text-xs text-muted-foreground">
+                O mínimo é a taxa fixa do boleto e do PIX no Asaas. Abaixo dela, a parte da academia no split passa do que
+                sobra da cobrança e o Asaas recusa emitir — foi o que aconteceu com cobranças abaixo de ~R$ 50.
               </p>
               <Button onClick={() => salvar.mutate()} disabled={salvar.isPending}>
                 {salvar.isPending ? "Salvando..." : "Salvar"}

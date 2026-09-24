@@ -156,6 +156,23 @@ export default function AdminGestao360() {
     enabled: !!organization?.id,
   });
 
+  // Cobranças avulsas pagas no mês (taxa de matrícula, avaliação, personal):
+  // receita da academia como a mensalidade, com a mesma taxa retida.
+  const { data: avulsasMes = [] } = useQuery({
+    queryKey: ["gestao360-avulsas-mes", organization?.id, inicioMes],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("cobrancas_avulsas")
+        .select("valor, valor_repasse_arke")
+        .eq("organization_id", organization!.id)
+        .eq("status", "confirmado")
+        .gte("data_pagamento", inicioMes);
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!organization?.id,
+  });
+
   // Custo de equipe (folha, já com comissões somadas em valor_total) —
   // a "receita líquida" do DRE só descontava o repasse de atacado ARKE,
   // nunca o custo de equipe, então o número mostrado como "líquido" era
@@ -257,11 +274,13 @@ export default function AdminGestao360() {
   const ltv = churnPct > 0 ? arpu / (churnPct / 100) : null;
 
   const receitaArkeMes = pagamentosMes.reduce((acc, p) => acc + Number(p.valor), 0);
-  const receitaAcademiaMes = mensalidadesMes.reduce((acc, m) => acc + Number(m.valor), 0);
+  const receitaAcademiaMes =
+    mensalidadesMes.reduce((acc, m) => acc + Number(m.valor), 0) + avulsasMes.reduce((acc, a) => acc + Number(a.valor), 0);
   const receitaBrutaMes = receitaArkeMes + receitaAcademiaMes;
   const repasseArkeMes =
     pagamentosMes.reduce((acc, p) => acc + Number(p.valor_repasse_arke), 0) +
-    mensalidadesMes.reduce((acc, m) => acc + Number(m.valor_repasse_arke ?? 0), 0);
+    mensalidadesMes.reduce((acc, m) => acc + Number(m.valor_repasse_arke ?? 0), 0) +
+    avulsasMes.reduce((acc, a) => acc + Number(a.valor_repasse_arke), 0);
   const custoEquipeMes = folhaMes.reduce((acc, f) => acc + Number(f.valor_total), 0);
   const receitaLiquidaMes = receitaBrutaMes - repasseArkeMes - custoEquipeMes;
 
@@ -292,7 +311,7 @@ export default function AdminGestao360() {
       [],
       ["DRE Simplificado (mês corrente)"],
       ["Receita bruta — Método ARKE", formatarMoeda(receitaArkeMes)],
-      ["Receita bruta — Planos da Academia", formatarMoeda(receitaAcademiaMes)],
+      ["Receita bruta — Planos e cobranças avulsas da Academia", formatarMoeda(receitaAcademiaMes)],
       ["Receita bruta total", formatarMoeda(receitaBrutaMes)],
       ["(–) Repasse ARKE (atacado + taxa de processamento)", formatarMoeda(repasseArkeMes)],
       ["(–) Custo de equipe (folha + comissões)", formatarMoeda(custoEquipeMes)],
@@ -454,7 +473,7 @@ export default function AdminGestao360() {
             <span>{formatarMoeda(receitaArkeMes)}</span>
           </div>
           <div className="flex items-center justify-between border-b border-border pb-2 text-xs text-muted-foreground">
-            <span>Receita — Planos da Academia</span>
+            <span>Receita — Planos e cobranças avulsas</span>
             <span>{formatarMoeda(receitaAcademiaMes)}</span>
           </div>
           <div className="flex items-center justify-between border-b border-border pb-2">

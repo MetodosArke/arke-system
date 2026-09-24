@@ -246,14 +246,16 @@ Deno.serve(async (req: Request) => {
 
     // Taxa de processamento (config global, editável pelo Super Admin em
     // Configurações da Plataforma) — cobre o custo real que o Asaas cobra
-    // da ARKE, retido via split no momento da cobrança.
-    const { data: configTaxas } = await admin
-      .from("plataforma_config")
-      .select("chave, valor")
-      .in("chave", ["taxa_processamento_percentual", "taxa_processamento_fixa"]);
-    const taxaPercentual = Number(configTaxas?.find((c) => c.chave === "taxa_processamento_percentual")?.valor ?? 0);
-    const taxaFixa = Number(configTaxas?.find((c) => c.chave === "taxa_processamento_fixa")?.valor ?? 0);
-    const valorRepasseArke = Math.round((valorCobrado * (taxaPercentual / 100) + taxaFixa) * 100) / 100;
+    // da ARKE, retido via split no momento da cobrança. Vem da função do
+    // banco, e não de uma conta própria: era a quarta cópia da regra, e ficou
+    // sem o piso da taxa fixa do boleto/PIX, que em plano abaixo de ~R$ 50
+    // faria o Asaas recusar a assinatura (split maior que o valor líquido).
+    const { data: taxa, error: taxaError } = await admin.rpc("arke_taxa_processamento", { _valor: valorCobrado });
+    if (taxaError || taxa === null || taxa === undefined) {
+      console.error("Taxa de processamento indisponível", taxaError?.code);
+      return jsonResponse({ error: "Não foi possível calcular a taxa de processamento." }, 500);
+    }
+    const valorRepasseArke = Math.round(Number(taxa) * 100) / 100;
     const valorLiquidoAcademia = Math.round((valorCobrado - valorRepasseArke) * 100) / 100;
     if (valorLiquidoAcademia < 0) {
       return jsonResponse({ error: "O valor cobrado é menor que a taxa de processamento da plataforma." }, 422);

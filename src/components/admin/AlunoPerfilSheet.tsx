@@ -12,7 +12,7 @@ import { Separator } from "@/components/ui/separator";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dumbbell, UtensilsCrossed, Phone, Cake, Ruler, ClipboardList, AlertTriangle, Printer, MessageCircle, Wallet, FlaskConical, Route, Fingerprint, Target, History, FileSignature, Sparkles, ShieldCheck } from "lucide-react";
+import { Dumbbell, UtensilsCrossed, Phone, Cake, Ruler, ClipboardList, AlertTriangle, Printer, MessageCircle, Wallet, FlaskConical, Route, Fingerprint, Target, History, FileSignature, Sparkles, ShieldCheck, Receipt } from "lucide-react";
 import { ImprimirTreinoDialog, type ExercicioSnapshotImpressao } from "@/components/admin/ImprimirTreinoDialog";
 import { Bloco, formatarData } from "@/components/admin/perfilSheetHelpers";
 import { ChatPanel } from "@/components/chat/ChatPanel";
@@ -30,7 +30,10 @@ import { DocumentosMatriculaAluno } from "@/components/admin/DocumentosMatricula
 import { PresencasAluno } from "@/components/admin/PresencasAluno";
 import { planoDoAluno, ROTULO_PLANO, temNutricaoNoPlano } from "@/lib/planoAluno";
 import { useNutricionistaDaAcademia } from "@/hooks/useNutricionistaDaAcademia";
-import { reais } from "@/lib/numeros";
+import { lerReais, reais } from "@/lib/numeros";
+import { hojeBrasilia } from "@/lib/dataBrasilia";
+import { emitirCobrancaAvulsa } from "@/lib/cobrancaAvulsa";
+import { CobrancasAvulsas } from "@/components/pagamento/CobrancasAvulsas";
 
 const PERIODICIDADE_LABEL: Record<string, string> = {
   mensal: "Mensal",
@@ -113,6 +116,7 @@ export function AlunoPerfilSheet({
   const [matriculaAberta, setMatriculaAberta] = useState(false);
   const [planoEscolhido, setPlanoEscolhido] = useState("");
   const [valorOverride, setValorOverride] = useState("");
+  const [taxaMatricula, setTaxaMatricula] = useState("");
 
   const { data: perfil, isLoading } = useQuery({
     queryKey: ["aluno-perfil", alunoId],
@@ -252,18 +256,45 @@ export function AlunoPerfilSheet({
       if (!alunoId || !planoEscolhido) throw new Error("Selecione um plano.");
       const body: Record<string, unknown> = { aluno_id: alunoId, plano_id: planoEscolhido };
       if (valorOverride.trim()) {
-        const valor = Number(valorOverride.trim().replace(",", "."));
+        const valor = lerReais(valorOverride);
         if (Number.isFinite(valor) && valor > 0) body.valor_cobrado = valor;
       }
+      const taxa = taxaMatricula.trim() ? lerReais(taxaMatricula) : 0;
+      if (taxaMatricula.trim() && !(taxa > 0)) throw new Error("Confira o valor da taxa de matrícula.");
       const { error } = await supabase.functions.invoke("academia-criar-matricula", { body });
       if (error) throw new Error(await mensagemDeErroEdge(error, "Não foi possível criar a matrícula."));
+      // A taxa é uma cobrança avulsa à parte: se ela falhar, a matrícula já
+      // está feita e não se desfaz — a equipe emite a taxa pela ficha.
+      if (taxa > 0) {
+        try {
+          await emitirCobrancaAvulsa({ aluno_id: alunoId, tipo: "taxa_matricula", valor: taxa });
+        } catch (e) {
+          return { taxaFalhou: e instanceof Error ? e.message : "erro desconhecido" };
+        }
+      }
+      return { taxaFalhou: null as string | null, comTaxa: taxa > 0 };
     },
-    onSuccess: () => {
-      toast({ title: "Matrícula criada", description: "A cobrança recorrente já foi configurada no Asaas." });
+    onSuccess: (r) => {
+      if (r.taxaFalhou) {
+        toast({
+          title: "Matrícula criada, mas a taxa não foi emitida",
+          description: `${r.taxaFalhou} Emita a taxa em "Cobranças avulsas", na ficha.`,
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Matrícula criada",
+          description: r.comTaxa
+            ? "A cobrança recorrente e a taxa de matrícula já foram emitidas no Asaas."
+            : "A cobrança recorrente já foi configurada no Asaas.",
+        });
+      }
       setMatriculaAberta(false);
       setPlanoEscolhido("");
       setValorOverride("");
+      setTaxaMatricula("");
       void queryClient.invalidateQueries({ queryKey: ["aluno-perfil", alunoId] });
+      void queryClient.invalidateQueries({ queryKey: ["cobrancas-avulsas", alunoId] });
     },
     onError: (error: Error) => toast({ title: "Erro ao matricular", description: error.message, variant: "destructive" }),
   });
@@ -540,6 +571,10 @@ export function AlunoPerfilSheet({
                 )}
               </Bloco>
 
+              <Bloco titulo="Cobranças avulsas" icon={Receipt}>
+                <CobrancasAvulsas alunoId={perfil.aluno.id} />
+              </Bloco>
+
               {perfil.tarefasAbertas.length > 0 && (
                 <Bloco titulo="Pendências na Fila de Atendimento" icon={AlertTriangle}>
                   <ul className="space-y-1">
@@ -648,9 +683,19 @@ export function AlunoPerfilSheet({
                       onChange={(e) => setValorOverride(e.target.value)}
                     />
                   </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="taxa-matricula">Taxa de matrícula (opcional)</Label>
+                    <Input
+                      id="taxa-matricula"
+                      placeholder="sem taxa"
+                      inputMode="decimal"
+                      value={taxaMatricula}
+                      onChange={(e) => setTaxaMatricula(e.target.value)}
+                    />
+                  </div>
                   <p className="text-xs text-muted-foreground">
                     A matrícula vale a partir de hoje: a primeira mensalidade vence hoje e as seguintes no dia{" "}
-                    {new Date().getDate()} de cada mês.
+                    {Number(hojeBrasilia().slice(8, 10))} de cada mês. A taxa, se houver, sai numa fatura à parte, vencendo hoje.
                   </p>
                 </div>
                 <DialogFooter>

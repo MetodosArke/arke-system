@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { FileSpreadsheet } from "lucide-react";
 import { baixarPlanilha, dataBr, intervaloDoMes, type Aba } from "@/lib/exportarPlanilha";
+import { hojeBrasilia } from "@/lib/dataBrasilia";
+import { rotuloTipo, type TipoCobrancaAvulsa } from "@/lib/cobrancaAvulsa";
 
 const STATUS: Record<string, string> = {
   pendente: "Pendente",
@@ -18,14 +20,15 @@ const STATUS: Record<string, string> = {
 
 /**
  * Fechamento do mês para o contador, em uma planilha: lançamentos, mensalidades
- * dos planos da academia, Método ARKE e folha. Cada aba traz o bruto, a taxa
+ * dos planos da academia, cobranças avulsas, Método ARKE e folha. Cada aba traz o bruto, a taxa
  * do meio de pagamento e o líquido, que é o que o contador concilia com o
  * extrato do Asaas.
  */
 export function ExportarContador() {
   const { organization } = useAuth();
   const { toast } = useToast();
-  const [mes, setMes] = useState(() => new Date().toISOString().slice(0, 7));
+  // O mês de Brasília: em UTC, depois das 21h do último dia já seria o seguinte.
+  const [mes, setMes] = useState(() => hojeBrasilia().slice(0, 7));
   const [gerando, setGerando] = useState(false);
 
   const exportar = async () => {
@@ -34,7 +37,7 @@ export function ExportarContador() {
     try {
       const { inicio, fim } = intervaloDoMes(mes);
       const orgId = organization.id;
-      const [lanc, mens, pags, folha] = await Promise.all([
+      const [lanc, mens, avul, pags, folha] = await Promise.all([
         supabase
           .from("lancamentos_financeiros")
           .select("data, tipo, categoria, descricao, valor, status, vencimento, data_pagamento, forma_pagamento, contato")
@@ -50,6 +53,13 @@ export function ExportarContador() {
           .lte("competencia", fim)
           .order("vencimento"),
         supabase
+          .from("cobrancas_avulsas")
+          .select("tipo, descricao, vencimento, valor, taxa_gateway, valor_repasse_arke, valor_liquido_academia, status, data_pagamento, aluno_id")
+          .eq("organization_id", orgId)
+          .gte("vencimento", inicio)
+          .lte("vencimento", fim)
+          .order("vencimento"),
+        supabase
           .from("pagamentos")
           .select("vencimento, valor, taxa_gateway, valor_repasse_arke, valor_liquido_academia, status, data_pagamento")
           .eq("organization_id", orgId)
@@ -63,10 +73,10 @@ export function ExportarContador() {
           .gte("competencia", inicio)
           .lte("competencia", fim),
       ]);
-      const erro = [lanc, mens, pags, folha].find((r) => r.error)?.error;
+      const erro = [lanc, mens, avul, pags, folha].find((r) => r.error)?.error;
       if (erro) throw erro;
 
-      const alunoIds = [...new Set((mens.data ?? []).map((m) => m.aluno_id))];
+      const alunoIds = [...new Set([...(mens.data ?? []).map((m) => m.aluno_id), ...(avul.data ?? []).map((a) => a.aluno_id)])];
       const { data: alunosMes } = alunoIds.length
         ? await supabase.from("alunos").select("id, user_id").in("id", alunoIds)
         : { data: [] as { id: string; user_id: string }[] };
@@ -111,6 +121,24 @@ export function ExportarContador() {
               STATUS[m.status] ?? m.status,
               dataBr(m.data_pagamento),
               m.forma_pagamento,
+            ]),
+          ],
+        },
+        {
+          nome: "Cobranças avulsas",
+          linhas: [
+            ["Aluno", "Tipo", "Descrição", "Vencimento", "Valor", "Taxa do meio de pagamento", "Repasse ArkeFit", "Líquido academia", "Status", "Pagamento"],
+            ...(avul.data ?? []).map((a) => [
+              nome.get(userDoAluno.get(a.aluno_id) ?? "") ?? "",
+              rotuloTipo(a.tipo as TipoCobrancaAvulsa),
+              a.descricao,
+              dataBr(a.vencimento),
+              Number(a.valor),
+              a.taxa_gateway === null ? null : Number(a.taxa_gateway),
+              Number(a.valor_repasse_arke),
+              Number(a.valor_liquido_academia),
+              STATUS[a.status] ?? a.status,
+              dataBr(a.data_pagamento),
             ]),
           ],
         },

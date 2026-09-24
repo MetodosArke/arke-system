@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
-import { reais, decimal } from "./numeros";
+import { reais, decimal, lerReais } from "./numeros";
 
 /**
  * Trava contra número escrito com ponto na tela.
@@ -55,5 +55,25 @@ describe("números na tela usam vírgula decimal", () => {
     expect(decimal(41.25, 1)).toBe("41,3");
     expect(decimal(1500, 0)).toBe("1.500");
     expect(decimal("0", 2)).toBe("0,00");
+  });
+});
+
+describe("lerReais", () => {
+  it("lê o valor como a pessoa digitou", () => {
+    expect(lerReais("80,50")).toBe(80.5);
+    expect(lerReais("80.50")).toBe(80.5);
+    expect(lerReais("1.234,56")).toBe(1234.56);
+    expect(lerReais("1.500")).toBe(1500);
+    expect(lerReais("R$ 120")).toBe(120);
+    expect(lerReais("12000")).toBe(12000);
+  });
+
+  it("não inventa número do que não é valor", () => {
+    expect(lerReais("")).toBeNaN();
+    expect(lerReais("abc")).toBeNaN();
+    expect(lerReais("1,2,3")).toBeNaN();
+    expect(lerReais("80.5055")).toBeNaN();
+    // "80.505" é oitenta mil quinhentos e cinco na leitura brasileira, não erro.
+    expect(lerReais("80.505")).toBe(80505);
   });
 });

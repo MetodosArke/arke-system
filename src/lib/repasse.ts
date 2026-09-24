@@ -15,7 +15,13 @@
  * Se uma mudar, as três mudam juntas — o teste confere esta contra os mesmos
  * números que a do banco produz.
  */
-export type TaxaProcessamento = { percentual: number; fixa: number };
+/**
+ * `minima` é o piso por cobrança — a taxa fixa do boleto e do PIX no Asaas.
+ * Sem ele, em cobrança abaixo de ~R$ 50 a parte da academia no split passava
+ * do valor líquido e o Asaas recusava criar a cobrança (achado no sandbox em
+ * 24/09/2026, migration 20261277010000).
+ */
+export type TaxaProcessamento = { percentual: number; fixa: number; minima?: number };
 
 /** O que foi negociado com a academia. `valor` nulo = ainda não negociado. */
 export type RepasseConfig = { tipo: "fixo" | "percentual"; valor: number | null };
@@ -24,7 +30,7 @@ const centavos = (v: number) => Math.round(v * 100) / 100;
 
 export function taxaProcessamento(valor: number, taxa: TaxaProcessamento): number {
   if (!(valor > 0)) return 0;
-  return centavos((valor * taxa.percentual) / 100 + taxa.fixa);
+  return centavos(Math.max((valor * taxa.percentual) / 100 + taxa.fixa, taxa.minima ?? 0));
 }
 
 /**
