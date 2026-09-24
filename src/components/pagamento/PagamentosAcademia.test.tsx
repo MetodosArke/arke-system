@@ -4,14 +4,19 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { PagamentosAcademia, prazo } from "./PagamentosAcademia";
 
 type Linha = { id: string; vencimento: string; valor: number; status: string; invoice_url: string | null; descricao?: string };
-const tabelas: Record<string, Linha[]> = { mensalidades: [], cobrancas_avulsas: [] };
+type Nota = { origem_id: string; pdf_url: string };
+const tabelas: Record<string, (Linha | Nota)[]> = { mensalidades: [], cobrancas_avulsas: [], notas_fiscais: [] };
 vi.mock("@/integrations/supabase/client", () => ({
   supabase: {
-    from: (tabela: string) => ({
-      select: () => ({
-        eq: () => ({ order: () => ({ limit: () => Promise.resolve({ data: tabelas[tabela], error: null }) }) }),
-      }),
-    }),
+    from: (tabela: string) => {
+      const consulta = {
+        select: () => consulta,
+        eq: () => consulta,
+        order: () => consulta,
+        limit: () => Promise.resolve({ data: tabelas[tabela], error: null }),
+      };
+      return consulta;
+    },
   },
 }));
 vi.mock("@/lib/dataBrasilia", () => ({ hojeBrasilia: () => "2026-09-24" }));
@@ -36,6 +41,7 @@ describe("PagamentosAcademia", () => {
   beforeEach(() => {
     tabelas.mensalidades = [];
     tabelas.cobrancas_avulsas = [];
+    tabelas.notas_fiscais = [];
   });
 
   it("não aparece para quem não tem nada cobrado pelo ARKE", async () => {
@@ -63,6 +69,14 @@ describe("PagamentosAcademia", () => {
     expect(screen.getByText("Paga")).toBeInTheDocument();
     // Cancelada não é dívida nem pagamento: não aparece.
     expect(document.body.textContent).not.toContain("24/07/2026");
+  });
+
+  it("põe o link da nota fiscal ao lado do pagamento que a academia já emitiu", async () => {
+    tabelas.mensalidades = [linha({ id: "paga-com-nota", status: "confirmado" }), linha({ id: "paga-sem-nota", vencimento: "2026-08-24", status: "confirmado" })];
+    tabelas.notas_fiscais = [{ origem_id: "paga-com-nota", pdf_url: "https://www.asaas.com/nota/1" }];
+    montar();
+    await waitFor(() => expect(screen.getAllByText("Paga")).toHaveLength(2));
+    expect(screen.getAllByRole("link", { name: "Nota fiscal" }).map((l) => l.getAttribute("href"))).toEqual(["https://www.asaas.com/nota/1"]);
   });
 
   it("diz quando não há nada em aberto", async () => {

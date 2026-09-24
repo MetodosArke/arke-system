@@ -1,6 +1,7 @@
 import { hojeBrasilia } from "@/lib/dataBrasilia";
 import { useState } from "react";
 import { ExportarContador } from "@/components/admin/ExportarContador";
+import { NotasFiscaisPainel } from "@/components/admin/NotasFiscaisPainel";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -434,11 +435,12 @@ export default function AdminFinanceiro() {
       </p>
 
       <Tabs defaultValue="lancamentos">
-        <TabsList>
+        <TabsList className="h-auto flex-wrap">
           <TabsTrigger value="lancamentos">Lançamentos</TabsTrigger>
           <TabsTrigger value="folha">Folha</TabsTrigger>
           <TabsTrigger value="comissoes">Comissões</TabsTrigger>
           <TabsTrigger value="plano-contas">Plano de Contas</TabsTrigger>
+          <TabsTrigger value="notas">Notas fiscais</TabsTrigger>
         </TabsList>
 
         <TabsContent value="lancamentos" className="space-y-4 pt-3">
@@ -887,6 +889,10 @@ export default function AdminFinanceiro() {
               </div>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="notas" className="pt-3">
+          <NotasFiscaisPainel />
         </TabsContent>
       </Tabs>
     </div>

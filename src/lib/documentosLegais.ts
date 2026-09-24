@@ -45,10 +45,15 @@ export const DOCUMENTOS: Record<
     // ao retirar a autorizacao ou encerrar a matricula, e o termo assinado
     // guardado como prova. Texto aprovado pelo responsavel em 23/09/2026
     // ("implementa o mais indicado e encerra").
-    versao: "2026-09-23.5",
-    sha256: "8086c5b2ff61d59794b5a7fbebe5f3f8cf0b24aa8fb65d24ab82883b618b803d",
+    // 2026-09-24: nota fiscal automatica da academia -- o endereco do aluno
+    // passa a ser coletado (a prefeitura exige o endereco do tomador), o Asaas
+    // tambem emite a nota no CNPJ da academia, a prefeitura recebe a nota e a
+    // BrasilAPI recebe so o CEP do aluno. Fica como minuta ate o responsavel
+    // confirmar o texto.
+    versao: "2026-09-24",
+    sha256: "401ba8c2ce3e45133fa351a2d83cb4250586b70645b88ad1362bc1fccd2b55d2",
     texto: privacidade,
-    revisadoJuridico: true,
+    revisadoJuridico: false,
   },
   contrato_academia: {
     titulo: "Contrato da Academia (licença e tratamento de dados)",

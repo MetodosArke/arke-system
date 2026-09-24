@@ -27,7 +27,34 @@ type ConvidarMembroPayload = {
   nivel_atacado?: "integrado" | "elite"; // opcional — sem adesão ainda, fica null quando omitido
   // Situação do aluno na academia (plano Free). Vem da importação; sem valor, em dia.
   situacao_academia?: "em_dia" | "inadimplente" | "pausado";
+  // Endereço, quando a planilha traz: a prefeitura o exige na nota fiscal.
+  endereco?: { cep?: string; logradouro?: string; numero?: string; complemento?: string; bairro?: string; cidade?: string; uf?: string };
 };
+
+/**
+ * Endereço vindo da planilha: entra só o que dá para confiar. CEP que não tem
+ * 8 números e UF que não são duas letras ficam de fora em vez de derrubar a
+ * linha — a importação é de alunos, e o endereço completa-se depois pela
+ * ficha ou pelo app. As mesmas regras de `atualizar_endereco_aluno`.
+ */
+function enderecoDaPlanilha(e: ConvidarMembroPayload["endereco"]) {
+  if (!e) return {};
+  const cep = String(e.cep ?? "").replace(/\D/g, "");
+  const uf = String(e.uf ?? "").trim().toUpperCase();
+  const texto = (v: unknown, max: number) => {
+    const t = String(v ?? "").trim();
+    return t ? t.slice(0, max) : null;
+  };
+  return {
+    cep: cep.length === 8 ? cep : null,
+    logradouro: texto(e.logradouro, 150),
+    endereco_numero: texto(e.numero, 20),
+    complemento: texto(e.complemento, 60),
+    bairro: texto(e.bairro, 80),
+    cidade: texto(e.cidade, 80),
+    uf: /^[A-Z]{2}$/.test(uf) ? uf : null,
+  };
+}
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -197,7 +224,7 @@ Deno.serve(async (req: Request) => {
     const { error: profileError } = await adminClient
       .from("profiles")
       .upsert(
-        { user_id: newUserId, full_name: fullName, phone: telefone, cpf, status: "active" },
+        { user_id: newUserId, full_name: fullName, phone: telefone, cpf, status: "active", ...enderecoDaPlanilha(payload.endereco) },
         { onConflict: "user_id" }
       );
     if (profileError) {

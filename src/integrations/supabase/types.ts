@@ -3920,6 +3920,97 @@ export type Database = {
           },
         ]
       }
+      notas_fiscais: {
+        Row: {
+          aluno_id: string | null
+          asaas_invoice_id: string | null
+          cancelada_em: string | null
+          competencia: string
+          created_at: string
+          descricao: string
+          emitida_em: string | null
+          erro: string | null
+          id: string
+          numero: string | null
+          organization_id: string
+          origem: string
+          origem_id: string
+          pdf_url: string | null
+          proxima_tentativa_em: string
+          status: string
+          tentativas: number
+          updated_at: string
+          valor: number
+          xml_url: string | null
+        }
+        Insert: {
+          aluno_id?: string | null
+          asaas_invoice_id?: string | null
+          cancelada_em?: string | null
+          competencia: string
+          created_at?: string
+          descricao: string
+          emitida_em?: string | null
+          erro?: string | null
+          id?: string
+          numero?: string | null
+          organization_id: string
+          origem: string
+          origem_id: string
+          pdf_url?: string | null
+          proxima_tentativa_em?: string
+          status?: string
+          tentativas?: number
+          updated_at?: string
+          valor: number
+          xml_url?: string | null
+        }
+        Update: {
+          aluno_id?: string | null
+          asaas_invoice_id?: string | null
+          cancelada_em?: string | null
+          competencia?: string
+          created_at?: string
+          descricao?: string
+          emitida_em?: string | null
+          erro?: string | null
+          id?: string
+          numero?: string | null
+          organization_id?: string
+          origem?: string
+          origem_id?: string
+          pdf_url?: string | null
+          proxima_tentativa_em?: string
+          status?: string
+          tentativas?: number
+          updated_at?: string
+          valor?: number
+          xml_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notas_fiscais_aluno_id_fkey"
+            columns: ["aluno_id"]
+            isOneToOne: false
+            referencedRelation: "alunos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notas_fiscais_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "org_churn_metrics"
+            referencedColumns: ["organization_id"]
+          },
+          {
+            foreignKeyName: "notas_fiscais_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       organizacao_catracas: {
         Row: {
           created_at: string
@@ -4026,6 +4117,78 @@ export type Database = {
             foreignKeyName: "organizacao_credenciais_parceiro_organization_id_fkey"
             columns: ["organization_id"]
             isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      organizacao_fiscal: {
+        Row: {
+          aliquota_iss: number | null
+          atualizado_por: string | null
+          autenticacao: string | null
+          autenticacao_enviada: boolean
+          cadastro_enviado: boolean
+          cidade: string | null
+          created_at: string
+          emissao_ativa: boolean
+          observacoes: string | null
+          organization_id: string
+          servico_municipal_codigo: string | null
+          servico_municipal_id: string | null
+          servico_municipal_nome: string | null
+          uf: string | null
+          updated_at: string
+          verificado_em: string | null
+        }
+        Insert: {
+          aliquota_iss?: number | null
+          atualizado_por?: string | null
+          autenticacao?: string | null
+          autenticacao_enviada?: boolean
+          cadastro_enviado?: boolean
+          cidade?: string | null
+          created_at?: string
+          emissao_ativa?: boolean
+          observacoes?: string | null
+          organization_id: string
+          servico_municipal_codigo?: string | null
+          servico_municipal_id?: string | null
+          servico_municipal_nome?: string | null
+          uf?: string | null
+          updated_at?: string
+          verificado_em?: string | null
+        }
+        Update: {
+          aliquota_iss?: number | null
+          atualizado_por?: string | null
+          autenticacao?: string | null
+          autenticacao_enviada?: boolean
+          cadastro_enviado?: boolean
+          cidade?: string | null
+          created_at?: string
+          emissao_ativa?: boolean
+          observacoes?: string | null
+          organization_id?: string
+          servico_municipal_codigo?: string | null
+          servico_municipal_id?: string | null
+          servico_municipal_nome?: string | null
+          uf?: string | null
+          updated_at?: string
+          verificado_em?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "organizacao_fiscal_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: true
+            referencedRelation: "org_churn_metrics"
+            referencedColumns: ["organization_id"]
+          },
+          {
+            foreignKeyName: "organizacao_fiscal_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: true
             referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
@@ -4680,34 +4843,55 @@ export type Database = {
       profiles: {
         Row: {
           avatar_url: string | null
+          bairro: string | null
+          cep: string | null
+          cidade: string | null
+          complemento: string | null
           cpf: string | null
           created_at: string
+          endereco_numero: string | null
           full_name: string
           id: string
+          logradouro: string | null
           phone: string | null
           status: string
+          uf: string | null
           updated_at: string
           user_id: string
         }
         Insert: {
           avatar_url?: string | null
+          bairro?: string | null
+          cep?: string | null
+          cidade?: string | null
+          complemento?: string | null
           cpf?: string | null
           created_at?: string
+          endereco_numero?: string | null
           full_name?: string
           id?: string
+          logradouro?: string | null
           phone?: string | null
           status?: string
+          uf?: string | null
           updated_at?: string
           user_id: string
         }
         Update: {
           avatar_url?: string | null
+          bairro?: string | null
+          cep?: string | null
+          cidade?: string | null
+          complemento?: string | null
           cpf?: string | null
           created_at?: string
+          endereco_numero?: string | null
           full_name?: string
           id?: string
+          logradouro?: string | null
           phone?: string | null
           status?: string
+          uf?: string | null
           updated_at?: string
           user_id?: string
         }
@@ -6123,6 +6307,19 @@ export type Database = {
         }
         Returns: string
       }
+      atualizar_endereco_aluno: {
+        Args: {
+          _aluno_id: string
+          _bairro: string
+          _cep: string
+          _cidade: string
+          _complemento: string
+          _logradouro: string
+          _numero: string
+          _uf: string
+        }
+        Returns: undefined
+      }
       atualizar_meta_agua_aluno: {
         Args: { _meta_ml: number }
         Returns: undefined
@@ -7159,6 +7356,10 @@ export type Database = {
           _valor_cobrado: number
         }
         Returns: number
+      }
+      reprocessar_nota_fiscal: {
+        Args: { _nota_id: string }
+        Returns: undefined
       }
       revogar_consentimento_biometrico: {
         Args: { _aluno_id: string }

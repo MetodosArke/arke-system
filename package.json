@@ -18,6 +18,7 @@
     "sandbox:assinatura": "node scripts/asaas-sandbox-assinatura.mjs",
     "sandbox:ciclo": "node scripts/asaas-sandbox-ciclo.mjs",
     "sandbox:avulsa": "node scripts/asaas-sandbox-avulsa.mjs",
+    "sandbox:nfse": "node scripts/asaas-sandbox-nfse.mjs",
     "simulado:vigia": "node scripts/vigia-simulado.mjs"
   },
   "dependencies": {

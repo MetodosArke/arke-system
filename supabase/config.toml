@@ -82,3 +82,8 @@ verify_jwt = false
 
 [functions.vigia-resumo]
 verify_jwt = false
+
+# Nota fiscal automática da academia: a rodada de 10 em 10 minutos, chamada
+# pelo cron com o token do alerta de rotinas.
+[functions.nfse-emitir]
+verify_jwt = false

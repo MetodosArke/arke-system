@@ -18,6 +18,8 @@ export interface CobrancaDaAcademia {
   valor: number;
   status: Status;
   invoice_url: string | null;
+  /** PDF da nota fiscal que a academia emitiu deste pagamento, quando ela emite pelo ARKE. */
+  nota_pdf?: string | null;
 }
 
 const dataCurta = (iso: string) => `${iso.slice(8, 10)}/${iso.slice(5, 7)}/${iso.slice(0, 4)}`;
@@ -43,7 +45,7 @@ export function PagamentosAcademia({ alunoId }: { alunoId: string }) {
   const { data: cobrancas } = useQuery({
     queryKey: ["pagamentos-academia", alunoId],
     queryFn: async () => {
-      const [mensalidades, avulsas] = await Promise.all([
+      const [mensalidades, avulsas, notas] = await Promise.all([
         supabase
           .from("mensalidades")
           .select("id, vencimento, valor, status, invoice_url")
@@ -56,13 +58,16 @@ export function PagamentosAcademia({ alunoId }: { alunoId: string }) {
           .eq("aluno_id", alunoId)
           .order("vencimento", { ascending: false })
           .limit(12),
+        supabase.from("notas_fiscais").select("origem_id, pdf_url").eq("aluno_id", alunoId).eq("status", "emitida").limit(50),
       ]);
       if (mensalidades.error) throw mensalidades.error;
       if (avulsas.error) throw avulsas.error;
+      // A nota é complemento: se a leitura falhar, os pagamentos aparecem sem ela.
+      const notaDe = new Map((notas.data ?? []).map((n) => [n.origem_id, n.pdf_url]));
       return [
         ...(mensalidades.data ?? []).map((m) => ({ ...m, descricao: "Mensalidade" })),
         ...(avulsas.data ?? []),
-      ] as CobrancaDaAcademia[];
+      ].map((c) => ({ ...c, nota_pdf: notaDe.get(c.id) ?? null })) as CobrancaDaAcademia[];
     },
   });
 
@@ -119,7 +124,14 @@ export function PagamentosAcademia({ alunoId }: { alunoId: string }) {
                 <span>
                   {m.descricao} · {dataCurta(m.vencimento)} · {reais(m.valor)}
                 </span>
-                <Badge variant="outline">Paga</Badge>
+                <span className="flex items-center gap-2">
+                  {m.nota_pdf && (
+                    <a href={m.nota_pdf} target="_blank" rel="noopener noreferrer" className="underline">
+                      Nota fiscal
+                    </a>
+                  )}
+                  <Badge variant="outline">Paga</Badge>
+                </span>
               </li>
             ))}
           </ul>

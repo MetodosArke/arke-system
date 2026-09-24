@@ -32,6 +32,8 @@ A 1.0 está no ar desde 24/09/2026, com as migrations pós-deploy aplicadas; o t
 
 **Cobrança avulsa (24/09/2026):** as migrations `20261276010000` e `20261277010000` estão aplicadas e as funções publicadas (`asaas-cobranca-avulsa`, e as versões novas de `asaas-webhook`, `asaas-reconciliar`, `academia-criar-matricula`, `excluir-aluno` e `anonimizar-aluno`). As telas entram com o merge.
 
+**Nota fiscal automática (24/09/2026):** a migration `20261278010000` está aplicada e as funções publicadas (`nfse-emitir`, `asaas-fiscal-academia` e a versão nova de `convidar-membro`). A `20261279010000` (Política de Privacidade `2026-09-24`) entra **depois** do deploy com o texto novo. As telas entram com o merge.
+
 ## 3. Implantação de cada academia
 
 **Onboarding** (painel, 6 etapas): dados, recebimentos, planos, equipe, alunos, contrato. Sem ele concluído, alunos não entram no app e nada é cobrado.
@@ -59,6 +61,14 @@ Sem eles o app não anuncia o Método (anunciar a quem não pode comprar mandari
    - o **cartão** não depende de autorização e sai num clique (**Cadastrar cartão**), com o aluno encostando o cartão no leitor;
    - sem gestão remota (Topdata), o número do cartão vai no campo da ficha.
 8. **Avisos:** catraca sem sinal por 10 minutos, das 6h às 23h, gera e-mail para o gestor da academia e para a ArkeFit, com o que conferir no computador da recepção.
+
+**Nota fiscal, se a academia quiser emitir pelo ARKE** (**Financeiro → Notas fiscais**, só a gestão):
+
+1. **Conta:** a subconta aberta pelo ARKE já vem conectada. Quem trouxe conta Asaas própria cola a chave de API dela (no Asaas: Integrações → Chave de API).
+2. **Cadastro na prefeitura:** o formulário pede só o que a prefeitura da cidade exige — certificado A1, usuário e senha do portal, ou token — além de inscrição municipal e regime. Certificado e senhas vão direto ao Asaas.
+3. **Serviço e ISS:** buscar o serviço (ginástica, 6.04) e conferir a alíquota com o contador da academia.
+4. **Endereço dos alunos:** a prefeitura exige. Vem da planilha de importação quando ela tem as colunas; o aluno completa no app (Perfil) e a recepção, na ficha. Nota sem endereço espera, com o motivo na tela.
+5. **Ligar a emissão.** Vale a partir daí: pagamentos anteriores não geram nota.
 
 **Parceiros (Wellhub, TotalPass):** credenciais em **Integrações** (vão para o cofre); check-in confirmado pela recepção em **Catracas**, onde fica a conferência do mês para bater com o repasse.
 

@@ -9,13 +9,13 @@ Só o que continua em aberto. As decisões já tomadas e aplicadas saíram desta
 - **Infraestrutura paga** — Supabase Pro, Vercel Pro, Resend pago e Sentry conforme o volume — e, só depois dela, o **teste de carga**. Depois do upgrade do Supabase, trocar `limite_banco_mb` pelo disco contratado em Visão Master → Configurações.
 - **Planilha real de exportação** (EVO, Tecnofit, Next Fit ou Pacto), para conferir o reconhecimento das colunas na importação de alunos.
 
-## Financeiro da academia: ERP completo com nota fiscal? (em aberto desde 24/09/2026)
+## Nota fiscal automática da academia (24/09/2026)
 
-A pergunta do responsável: reformular o financeiro para um ERP completo, com emissão de nota, deixando de fora só a contabilidade. A recomendação está na conversa de 24/09/2026 e no resumo abaixo; a decisão é dele.
+Implementada: a academia emite a nota do que entra no caixa dela, na conta Asaas dela, quando o pagamento confirma. Sem ERP — a contabilidade segue com o contador. O que ficou para o responsável:
 
-- **Hoje:** a NFS-e é emitida fora do ARKE (decisão de 22/09/2026). Com a base, o custo aparece: uma academia de 300 alunos emite 300 notas por mês à mão.
-- **Recomendação:** não construir um ERP. Primeiro, a **NFS-e automática** do que já passa pelo ARKE (mensalidade e cobranças avulsas), emitida na **conta Asaas da própria academia** quando o pagamento confirma. Depois, **anexar comprovantes de despesa** aos lançamentos e mandá-los junto na exportação ao contador.
-- **Antes de construir a NFS-e:** parecer do contador sobre quem emite o quê na cobrança do Método (a divisão entre ArkeFit e academia); conferir no sandbox a emissão pela subconta; e o cadastro fiscal de cada academia no onboarding (código de serviço, alíquota de ISS, regime).
+- **Confirmar o texto da Política de Privacidade `2026-09-24`**, que está como minuta (`revisadoJuridico: false`). Muda o §2 (endereço no cadastro e o que vai na nota), o §3 (a nota como obrigação legal da academia), o §5 (o Asaas emite a nota da academia, a prefeitura recebe, a BrasilAPI recebe só o CEP do aluno) e o §7 (as notas emitidas ficam pelo prazo legal).
+- **Cláusula no Contrato da Academia, se quiser deixar escrito** que a nota de cada pagamento é emitida no CNPJ da academia, pelo valor que entra no caixa dela, e que cadastro fiscal, serviço, alíquota e regime são responsabilidade dela. O produto já funciona assim; a cláusula só tornaria explícito.
+- **Confirmar com o Asaas que a criação de subcontas está liberada na conta de produção da ArkeFit.** No sandbox a criação parou com "teste controlado… homologação regulatória". A academia que traz conta própria não depende disso: ela conecta a conta colando a chave de API.
 
 ## Quando o primeiro cliente pedir (decisão de 24/09/2026)
 
