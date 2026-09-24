@@ -35,7 +35,7 @@ const REGRAS: { campo: string; teste: (t: string) => boolean }[] = [
     campo: "full_name",
     teste: (t) => (/\bnome\b|\bname\b|^cliente$|^aluno$/.test(t)) && !DE_OUTRO.test(t) && !/sobrenome|\bsocial\b/.test(t),
   },
-  { campo: "email", teste: (t) => /e-?mail/.test(t) && !DE_OUTRO.test(t) },
+  { campo: "email", teste: (t) => /e-?mail|endereco eletronico/.test(t) && !DE_OUTRO.test(t) },
   // DDD em coluna própria: só quando o cabeçalho começa por ele ("DDD",
   // "DDD celular"). "Telefone com DDD" é o telefone inteiro.
   { campo: "ddd", teste: (t) => /^ddd\b/.test(t) && !DE_OUTRO.test(t) },
@@ -44,6 +44,20 @@ const REGRAS: { campo: string; teste: (t: string) => boolean }[] = [
   { campo: "telefone", teste: (t) => /celular|whatsapp|\bmovel\b|mobile/.test(t) && !DE_OUTRO.test(t) },
   { campo: "telefone", teste: (t) => /telefone|\bfone\b|\bphone\b|\btel\b/.test(t) && !DE_OUTRO.test(t) && !/comercial|fixo/.test(t) },
   { campo: "cpf", teste: (t) => /\bcpf\b/.test(t) && !DE_OUTRO.test(t) },
+
+  // Endereço: a prefeitura o exige na nota fiscal. "Endereço eletrônico" é
+  // e-mail, "Estado civil" não é UF, e "Número" só conta sozinho — "Número
+  // do cliente" é outra coisa.
+  { campo: "cep", teste: (t) => /\bcep\b/.test(t) && !DE_OUTRO.test(t) },
+  { campo: "complemento", teste: (t) => /\bcomplemento\b/.test(t) && !DE_OUTRO.test(t) },
+  { campo: "bairro", teste: (t) => /\bbairro\b/.test(t) && !DE_OUTRO.test(t) },
+  { campo: "cidade", teste: (t) => /\bcidade\b|\bmunicipio\b/.test(t) && !DE_OUTRO.test(t) && !/naturalidade|nascimento/.test(t) },
+  { campo: "uf", teste: (t) => /^(uf|estado)$|\buf\b/.test(t) && !DE_OUTRO.test(t) },
+  { campo: "endereco_numero", teste: (t) => /^(numero|n[oº°]?\.?|num\.?)$|numero d[oa] (endereco|residencia|casa)/.test(t) },
+  {
+    campo: "logradouro",
+    teste: (t) => /\bendereco\b|\blogradouro\b|^rua$/.test(t) && !DE_OUTRO.test(t) && !/eletronico|e-?mail|numero|complemento|bairro|cidade|cep/.test(t),
+  },
 
   { campo: "perim_braco", teste: (t) => temPerimetria(t) && /\bbraco\b|\barm\b/.test(t) && !/antebraco|forearm/.test(t) },
   { campo: "perim_antebraco", teste: (t) => temPerimetria(t) && /antebraco|forearm/.test(t) },

@@ -12,7 +12,7 @@ import { Separator } from "@/components/ui/separator";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dumbbell, UtensilsCrossed, Phone, Cake, Ruler, ClipboardList, AlertTriangle, Printer, MessageCircle, Wallet, FlaskConical, Route, Fingerprint, Target, History, FileSignature, Sparkles, ShieldCheck, Receipt } from "lucide-react";
+import { Dumbbell, UtensilsCrossed, Phone, Cake, Ruler, ClipboardList, AlertTriangle, Printer, MessageCircle, Wallet, FlaskConical, Route, Fingerprint, Target, History, FileSignature, Sparkles, ShieldCheck, Receipt, MapPin } from "lucide-react";
 import { ImprimirTreinoDialog, type ExercicioSnapshotImpressao } from "@/components/admin/ImprimirTreinoDialog";
 import { Bloco, formatarData } from "@/components/admin/perfilSheetHelpers";
 import { ChatPanel } from "@/components/chat/ChatPanel";
@@ -34,6 +34,7 @@ import { lerReais, reais } from "@/lib/numeros";
 import { hojeBrasilia } from "@/lib/dataBrasilia";
 import { emitirCobrancaAvulsa } from "@/lib/cobrancaAvulsa";
 import { CobrancasAvulsas } from "@/components/pagamento/CobrancasAvulsas";
+import { EnderecoAluno } from "@/components/pagamento/EnderecoAluno";
 
 const PERIODICIDADE_LABEL: Record<string, string> = {
   mensal: "Mensal",
@@ -108,7 +109,7 @@ export function AlunoPerfilSheet({
   onOpenChange: (open: boolean) => void;
 }) {
   const navigate = useNavigate();
-  const { organization } = useAuth();
+  const { organization, organizationRole } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [impressaoAberta, setImpressaoAberta] = useState(false);
@@ -573,6 +574,10 @@ export function AlunoPerfilSheet({
 
               <Bloco titulo="Cobranças avulsas" icon={Receipt}>
                 <CobrancasAvulsas alunoId={perfil.aluno.id} />
+              </Bloco>
+
+              <Bloco titulo="Endereço (nota fiscal)" icon={MapPin}>
+                <EnderecoAluno alunoId={perfil.aluno.id} podeEditar={organizationRole === "gestor" || organizationRole === "recepcao"} />
               </Bloco>
 
               {perfil.tarefasAbertas.length > 0 && (

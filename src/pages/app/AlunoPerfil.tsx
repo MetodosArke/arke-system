@@ -9,11 +9,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { LogOut, Ruler, Droplets, Wallet, Sparkles, ShieldCheck } from "lucide-react";
+import { LogOut, Ruler, Droplets, Wallet, Sparkles, ShieldCheck, MapPin } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { Tables } from "@/integrations/supabase/types";
 import { CartaoAssinatura } from "@/components/pagamento/CartaoAssinatura";
 import { PagamentosAcademia } from "@/components/pagamento/PagamentosAcademia";
+import { EnderecoAluno } from "@/components/pagamento/EnderecoAluno";
 
 export default function AlunoPerfil() {
   const { user, profile, organization, alunoId, signOut, planoAluno } = useAuth();
@@ -137,6 +138,20 @@ export default function AlunoPerfil() {
       )}
 
       {alunoId && <PagamentosAcademia alunoId={alunoId} />}
+
+      {alunoId && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <MapPin className="h-4 w-4" /> Endereço
+            </CardTitle>
+            <p className="text-xs text-muted-foreground">Vai na nota fiscal que a academia emite dos seus pagamentos.</p>
+          </CardHeader>
+          <CardContent>
+            <EnderecoAluno alunoId={alunoId} podeEditar />
+          </CardContent>
+        </Card>
+      )}
 
       {pagamento?.assinatura && (
         <Card>

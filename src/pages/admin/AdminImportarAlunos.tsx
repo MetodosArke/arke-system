@@ -33,6 +33,14 @@ const CAMPOS_DESTINO = [
   { value: "telefone", label: "Telefone" },
   { value: "ddd", label: "DDD (junta ao telefone)" },
   { value: "cpf", label: "CPF" },
+  // Endereço (opcional): a prefeitura o exige na nota fiscal da academia.
+  { value: "cep", label: "Endereço — CEP" },
+  { value: "logradouro", label: "Endereço — rua" },
+  { value: "endereco_numero", label: "Endereço — número" },
+  { value: "complemento", label: "Endereço — complemento" },
+  { value: "bairro", label: "Endereço — bairro" },
+  { value: "cidade", label: "Endereço — cidade" },
+  { value: "uf", label: "Endereço — UF" },
   { value: "situacao", label: "Situação na academia (opcional — em dia, inadimplente, pausado)" },
   // Histórico de avaliação física — opcionais: preenchidos só se a academia
   // de origem exportar esses dados (ex.: migrando de NextFit/Pacto). Vão
@@ -290,6 +298,17 @@ export default function AdminImportarAlunos() {
         full_name: registro.full_name,
         telefone: registro.telefone || undefined,
         cpf: registro.cpf || undefined,
+        endereco: registro.cep
+          ? {
+              cep: registro.cep,
+              logradouro: registro.logradouro,
+              numero: registro.endereco_numero,
+              complemento: registro.complemento,
+              bairro: registro.bairro,
+              cidade: registro.cidade,
+              uf: registro.uf,
+            }
+          : undefined,
         papel: "aluno",
         situacao_academia: situacao,
       },

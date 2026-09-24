@@ -11,11 +11,12 @@ Esta Política explica como os dados pessoais são tratados na plataforma ARKE, 
 
 ## 2. Quais dados tratamos
 
-- **Cadastro:** nome, e-mail, telefone, CPF, data de nascimento, academia e plano.
+- **Cadastro:** nome, e-mail, telefone, CPF, data de nascimento, endereço, academia e plano. O endereço é pedido porque a prefeitura exige o endereço de quem recebe o serviço na nota fiscal que a Academia emite dos seus pagamentos.
 - **Dados de saúde (dados sensíveis):** anamnese, avaliação física (peso, medidas, dobras), relatos de dor ou dificuldade, questionário PAR-Q, atestado médico, dieta, histórico clínico informado. São tratados com proteção reforçada e acesso restrito a quem atende você: os profissionais da Academia e, se você estiver no Método ARKE, também a equipe de mentoria da ArkeFit. Fora dessas pessoas, ninguém na ArkeFit acessa esses dados no dia a dia.
 - **Biometria:** só quando a Academia usa catraca com digital e **somente com o seu consentimento específico**, dado por você no aplicativo ou assinando o termo impresso na recepção. A digital fica guardada **somente nos equipamentos da Academia**; a plataforma guarda apenas o número com que a catraca identifica você e, quando a autorização foi dada em papel, a cópia do termo assinado.
 - **Uso do aplicativo:** treinos registrados, check-ins, consumo de água, adesão à dieta, mensagens com a equipe, agendamentos, presenças.
 - **Pagamento:** a cobrança é processada pelo Asaas. A plataforma guarda apenas situação das cobranças, os 4 últimos dígitos e a bandeira do cartão — nunca o número completo.
+- **Nota fiscal:** quando a Academia emite nota fiscal pela plataforma, a nota sai no CNPJ dela, pelo Asaas, com o seu nome, CPF, endereço e e-mail, o serviço e o valor; vai para a prefeitura da cidade da Academia e chega a você por e-mail. A plataforma guarda a situação, o número e o link da nota.
 - **Dados técnicos:** registros de acesso e de erro. O endereço IP usado para limitar tentativas de cadastro é guardado apenas em forma cifrada (hash) por até 24 horas. Os relatórios de erro não incluem nome, e-mail, CPF nem dados de saúde.
 
 ## 3. Para que usamos e com qual base legal
@@ -25,7 +26,7 @@ Esta Política explica como os dados pessoais são tratados na plataforma ARKE, 
 - **Biometria para acesso à Academia:** consentimento específico (art. 11, I), que você pode retirar a qualquer momento, pelo aplicativo ou pedindo na recepção. Ao retirar a autorização — e também quando a matrícula termina ou os seus dados são eliminados —, a digital é **apagada dos equipamentos da Academia** e o número que a identifica sai da plataforma.
 - **Análise por inteligência artificial:** consentimento específico, destacado e **separado por finalidade** — ver a seção 4.
 - **Segurança da plataforma e prevenção a fraudes** (limite de tentativas, verificação anti-robô, checagem de senha vazada): legítimo interesse (art. 7º, IX) e proteção do titular.
-- **Obrigações legais e fiscais** (registros de pagamento): cumprimento de obrigação legal (art. 7º, II).
+- **Obrigações legais e fiscais** (registros de pagamento e a nota fiscal que a Academia emite dos seus pagamentos): cumprimento de obrigação legal (art. 7º, II).
 - **Comunicações sobre o serviço** (convite de acesso, redefinição de senha, avisos da Academia): execução de contrato.
 
 A plataforma não vende dados pessoais, não faz publicidade com eles e não usa rankings corporais públicos: a evolução física é vista só por você e por quem atende você.
@@ -61,13 +62,14 @@ Sobre isso, o que você precisa saber:
 - **Com prestadores que operam a plataforma** (suboperadores), sob contrato e só para esta finalidade:
   - Supabase — banco de dados, autenticação e armazenamento (servidores no Brasil, em São Paulo);
   - Vercel — hospedagem do aplicativo;
-  - Asaas — processamento de pagamentos (Brasil);
+  - Asaas — processamento de pagamentos e emissão da nota fiscal da Academia (Brasil);
   - Resend — envio de e-mails;
   - Sentry — registro de erros técnicos, sem dados pessoais identificáveis;
   - Cloudflare Turnstile — verificação anti-robô no cadastro;
-  - BrasilAPI — consulta pública de CNPJ e CEP no cadastro da Academia (só dados da empresa);
+  - BrasilAPI — consulta pública de CNPJ e CEP: no cadastro da Academia, só dados da empresa; no seu endereço, só o CEP, para completar rua, bairro e cidade;
   - Have I Been Pwned — checagem de senha vazada, em que apenas os 5 primeiros caracteres de um código da senha saem do seu aparelho; a senha nunca é enviada;
   - **Amazon Web Services (Amazon Bedrock)** — análise por inteligência artificial das finalidades descritas na seção 4, com servidores no Brasil, em São Paulo, **somente para quem autorizou** e somente enquanto a autorização estiver válida.
+- **Com a prefeitura** da cidade da Academia, na nota fiscal que ela emite dos seus pagamentos — obrigação fiscal da Academia.
 - **Com autoridades**, quando houver obrigação legal ou ordem judicial.
 
 ## 6. Transferência internacional
@@ -81,7 +83,7 @@ As transferências da infraestrutura de apoio ocorrem com base nas garantias con
 ## 7. Por quanto tempo
 
 - Enquanto houver vínculo com a Academia e a conta estiver ativa.
-- Depois do encerramento, os dados são eliminados ou anonimizados a pedido, ressalvados os que a lei manda guardar (como registros fiscais de pagamento) e os necessários ao exercício de direitos.
+- Depois do encerramento, os dados são eliminados ou anonimizados a pedido, ressalvados os que a lei manda guardar (como registros fiscais de pagamento e as notas fiscais emitidas) e os necessários ao exercício de direitos.
 - O resumo e os rascunhos gerados por inteligência artificial ficam enquanto durar a sua matrícula, e são apagados assim que você retira a autorização.
 - A digital fica nos equipamentos da Academia enquanto a sua autorização valer e a matrícula estiver ativa. O registro de que a autorização foi dada — e o termo assinado, quando houver — é guardado pelo prazo legal, como prova.
 - Rascunhos digitados na plataforma ficam só no navegador, durante a sessão, e somem ao fechar a aba.

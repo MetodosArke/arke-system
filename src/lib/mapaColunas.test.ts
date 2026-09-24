@@ -79,3 +79,26 @@ describe("sobrenome e DDD em coluna própria", () => {
     expect(juntarPartes({ telefone: "", ddd: "11" }).telefone).toBe("");
   });
 });
+
+describe("endereço", () => {
+  it("reconhece as colunas de endereço das exportações", () => {
+    expect(detectarCampo("CEP")).toBe("cep");
+    expect(detectarCampo("Endereço")).toBe("logradouro");
+    expect(detectarCampo("Logradouro")).toBe("logradouro");
+    expect(detectarCampo("Número")).toBe("endereco_numero");
+    expect(detectarCampo("Nº")).toBe("endereco_numero");
+    expect(detectarCampo("Complemento")).toBe("complemento");
+    expect(detectarCampo("Bairro")).toBe("bairro");
+    expect(detectarCampo("Cidade")).toBe("cidade");
+    expect(detectarCampo("UF")).toBe("uf");
+    expect(detectarCampo("Estado")).toBe("uf");
+  });
+
+  it("não confunde o que só parece endereço", () => {
+    expect(detectarCampo("Endereço eletrônico")).toBe("email");
+    expect(detectarCampo("Estado civil")).toBe("ignorar");
+    expect(detectarCampo("Número do cliente")).toBe("ignorar");
+    expect(detectarCampo("Endereço do responsável")).toBe("ignorar");
+    expect(detectarCampo("Cidade de nascimento")).toBe("ignorar");
+  });
+});
