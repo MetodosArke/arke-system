@@ -31,7 +31,36 @@ const configSchema = z.object({
   // Topdata: qual leitor físico é a entrada. Decisão de instalação — depende
   // de como a catraca foi montada, e só a bancada confirma.
   topdata_leitor_entrada: z.union([z.literal(1), z.literal(2)]).default(1),
+  // Equipamentos Control iD que o Gateway administra pela API deles. O login
+  // é o do próprio equipamento (menu do aparelho), não credencial do ARKE, e
+  // fica só neste arquivo, na máquina da academia — nunca sobe para a nuvem.
+  controlid_equipamentos: z
+    .array(
+      z.object({
+        nome: z.string().min(1, "cada equipamento precisa de um nome"),
+        ip: z.string().min(1, "ip do equipamento é obrigatório"),
+        porta: z.number().int().positive().default(80),
+        usuario: z.string().min(1).default("admin"),
+        senha: z.string().min(1, "senha do equipamento é obrigatória"),
+        sentido_entrada: z.enum(["clockwise", "anticlockwise"]).default("clockwise"),
+      })
+    )
+    .default([])
+    .refine((l) => new Set(l.map((e) => e.nome)).size === l.length, "nomes de equipamento repetidos"),
 });
+
+/**
+ * Marcas sem integração ainda. Henry e Dimep não publicam documentação de
+ * integração, e não há equipamento para bancada: a conexão é feita na
+ * implantação do primeiro cliente com cada marca (decisão de 23/09/2026).
+ * Até lá o Gateway se recusa a subir com elas — subir "quase funcionando",
+ * com um driver que lança erro a cada leitura, deixaria a academia achando
+ * que a catraca está integrada.
+ */
+const MODELOS_SEM_INTEGRACAO: Record<string, string> = {
+  henry: "Henry",
+  dimep: "Dimep",
+};
 
 export class ConfigError extends Error {}
 
@@ -63,6 +92,15 @@ export function carregarConfig(caminho?: string): GatewayConfig {
   if (!resultado.success) {
     const detalhes = resultado.error.issues.map((i) => `- ${i.path.join(".")}: ${i.message}`).join("\n");
     throw new ConfigError(`config.json inválido:\n${detalhes}`);
+  }
+
+  const marca = MODELOS_SEM_INTEGRACAO[resultado.data.modelo_catraca];
+  if (marca) {
+    throw new ConfigError(
+      `A integração com catracas ${marca} ainda não está disponível no Gateway Local: ela é feita na ` +
+        `implantação do primeiro cliente com essa marca, junto com a ArkeFit. Fale com o suporte antes ` +
+        `de instalar. Enquanto isso, a academia pode usar o check-in por QR Code do ARKE.`
+    );
   }
 
   return resultado.data;

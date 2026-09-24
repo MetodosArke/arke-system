@@ -79,6 +79,29 @@ Deno.serve(async (req: Request) => {
       { status: 404, headers: { "Content-Type": "text/html; charset=utf-8", "Content-Security-Policy": CSP } }
     );
 
+  // Falha nossa (banco fora, configuração) não é link expirado: dizer
+  // "expirou" mandaria a pessoa pedir um convite novo à academia à toa — e
+  // o convite antigo continuaria valendo. Mesma lição da matrícula pública,
+  // que dizia "academia não encontrada" numa falha de rede.
+  const paginaIndisponivel = () =>
+    new Response(
+      `<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Tente de novo — ArkeFit</title>
+<style>${ESTILO}</style>
+</head>
+<body>
+  <div>
+    <h1>Não conseguimos abrir agora</h1>
+    <p>O seu convite continua valendo. Tente de novo em alguns minutos, pelo mesmo link.</p>
+  </div>
+</body>
+</html>`,
+      { status: 503, headers: { "Content-Type": "text/html; charset=utf-8", "Content-Security-Policy": CSP, "Retry-After": "60" } }
+    );
+
   const paginaContinuar = (actionLink: string) =>
     new Response(
       `<!doctype html>
@@ -102,8 +125,8 @@ Deno.serve(async (req: Request) => {
     );
 
   if (!supabaseUrl || !serviceRoleKey) {
-    console.error("Missing required Supabase environment variables");
-    return paginaExpirado();
+    console.error("ativar-cadastro: configuração incompleta");
+    return paginaIndisponivel();
   }
 
   const code = new URL(req.url).pathname.split("/").filter(Boolean).pop();
@@ -111,20 +134,26 @@ Deno.serve(async (req: Request) => {
     return paginaExpirado();
   }
 
-  const adminClient = createClient(supabaseUrl, serviceRoleKey);
-  const { data, error } = await adminClient
-    .from("links_ativacao")
-    .select("action_link, expires_at")
-    .eq("code", code)
-    .maybeSingle();
+  try {
+    const adminClient = createClient(supabaseUrl, serviceRoleKey);
+    const { data, error } = await adminClient
+      .from("links_ativacao")
+      .select("action_link, expires_at")
+      .eq("code", code)
+      .maybeSingle();
 
-  if (error) {
-    console.error("Error loading link_ativacao", error);
-    return paginaExpirado();
-  }
-  if (!data || new Date(data.expires_at).getTime() < Date.now()) {
-    return paginaExpirado();
-  }
+    if (error) {
+      // Só o código: o objeto de erro pode trazer o trecho da consulta.
+      console.error("ativar-cadastro: falha ao ler o link", error.code);
+      return paginaIndisponivel();
+    }
+    if (!data || new Date(data.expires_at).getTime() < Date.now()) {
+      return paginaExpirado();
+    }
 
-  return paginaContinuar(data.action_link);
+    return paginaContinuar(data.action_link);
+  } catch (erro) {
+    console.error("ativar-cadastro: erro inesperado", erro instanceof Error ? erro.name : typeof erro);
+    return paginaIndisponivel();
+  }
 });

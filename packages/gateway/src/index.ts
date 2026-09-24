@@ -8,6 +8,9 @@ import { criarDriver } from "./drivers";
 import { GatewayService } from "./core/gatewayService";
 import { criarServidorLocal, criarServidorReceptor } from "./server/localServer";
 import { logger } from "./logger";
+import { ExecutorComandos } from "./core/executorComandos";
+import { GestaoControlId } from "./equipamentos/controlidGestao";
+import { VERSAO_GATEWAY } from "./versao";
 
 async function main() {
   let config;
@@ -55,7 +58,24 @@ async function main() {
   }
 
   await gateway.iniciar();
-  logger.info({ modelo: config.modelo_catraca, catraca: `${config.catraca_ip}:${config.catraca_porta}` }, "ARKE® Gateway Local iniciado");
+
+  // Canal de ida e volta com a nuvem: telemetria, "sincronize agora" e a
+  // gestão do equipamento (cadastro e remoção do aluno, liberação remota).
+  // Falha aqui nunca derruba o gateway — a catraca continua validando; o
+  // canal tenta de novo sozinho, com espera crescente.
+  const gestao = config.controlid_equipamentos?.length ? new GestaoControlId(config.controlid_equipamentos) : null;
+  const executor = new ExecutorComandos(cloud, gateway, gestao, { modelo: config.modelo_catraca });
+  executor.iniciar();
+
+  logger.info(
+    {
+      versao: VERSAO_GATEWAY,
+      modelo: config.modelo_catraca,
+      catraca: `${config.catraca_ip}:${config.catraca_porta}`,
+      gestaoRemota: gestao?.nomes() ?? [],
+    },
+    "ARKE® Gateway Local iniciado"
+  );
 
   // A bandeja do sistema depende de um ambiente com GUI (Windows/desktop
   // Linux) — em servidores/CI (como este processo pode rodar durante
@@ -72,6 +92,7 @@ async function main() {
 
   const encerrar = async () => {
     logger.info("Encerrando ARKE® Gateway Local...");
+    executor.parar();
     await gateway.parar();
     process.exit(0);
   };

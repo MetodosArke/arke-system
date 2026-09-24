@@ -256,6 +256,8 @@ export function registrarReceptorTopdata(
   app.post("/topdata/ponte-viva", async (req, reply) => {
     if (!daPropriaMaquina(req.ip)) return reply.code(403).send({ error: "Só a ponte local." });
     const corpo = (req.body ?? {}) as { inners?: number[]; conectados?: number[] };
+    const numeros = (l: unknown) => (Array.isArray(l) ? l.map(Number).filter((n) => Number.isInteger(n)) : []);
+    gateway.equipamentos.ponteViva(numeros(corpo.inners), numeros(corpo.conectados));
     const estado = JSON.stringify({ inners: corpo.inners ?? [], conectados: corpo.conectados ?? [] });
     if (estado !== ultimoEstado) {
       ultimoEstado = estado;

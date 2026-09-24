@@ -73,13 +73,16 @@ Todos os parâmetros vivem em `config.json`, na mesma pasta do executável (`%Pr
 | `token_api_local` | **O `device_token`** copiado da tela `/admin/catracas` no painel web (botão "Copiar" ao lado do dispositivo cadastrado) |
 | `supabase_url` | URL do projeto Supabase (ex.: `https://SEU-PROJETO.supabase.co`) |
 | `catraca_ip` / `catraca_porta` | Endereço IP e porta da catraca física na rede local |
-| `modelo_catraca` | `controlid` \| `henry` \| `topdata` \| `dimep` \| `mock` |
+| `modelo_catraca` | `controlid` \| `topdata` \| `mock`. `henry` e `dimep` são **recusados na partida**, com mensagem: a integração dessas marcas é feita na implantação do primeiro cliente de cada uma |
 | `tempo_timeout_ms` | Timeout da validação na nuvem antes de cair para o cache local (padrão `1000`). Medido: a validação leva ~400 ms normalmente e até 4 s na partida a frio. **Abaixo de ~500 ms o Gateway cai em contingência em quase todo acesso** |
 | `sincronizar_alunos_intervalo_ms` | Intervalo entre sincronizações do cache local de alunos (padrão `300000` = 5 min) |
 | `escuta_host` / `escuta_porta` | Onde o Gateway **escuta** o equipamento (padrão `0.0.0.0:4571`). A Control iD disca para o Gateway, não o contrário: esta porta precisa estar aberta na rede da academia |
 | `confirmacao_giro` | `decisao` (padrão): o acesso liberado já conta presença. `catra_event`: só conta quando a catraca confirma o giro — exige o Monitor configurado (seção 7) e **só existe na iDBlock** |
 | `timeout_giro_ms` | Quanto esperar a confirmação de giro (padrão `30000`). Sem confirmação no prazo, conta presença |
 | `topdata_leitor_entrada` | Topdata: qual leitor físico é a entrada, `1` ou `2` (padrão `1`). Tem de bater com `leitor_entrada` da ponte |
+| `controlid_equipamentos` | Control iD que o Gateway **administra** (versão 1.0): lista de `{ "nome", "ip", "porta": 80, "usuario": "admin", "senha", "sentido_entrada": "clockwise" }`, um por catraca. Com ela, a recepção cadastra aluno, digital e cartão pelo ARKE e a remoção do aluno é automática. Vazia: cadastro manual no equipamento, como antes. O `nome` é o que a recepção vê para escolher o leitor; `sentido_entrada` é o lado da borboleta que é a entrada, e só a montagem física responde |
+
+> **A senha do equipamento fica só no `config.json`**, na máquina da academia. Para a nuvem vai apenas o nome de cada equipamento.
 
 > **Onde conseguir o `token_api_local`**: no painel web, gestor ou admin_arke acessa `/admin/catracas`, cadastra (ou já tem cadastrado) o dispositivo, e clica em "Copiar" ao lado dele. Se o token precisar ser trocado (vazamento, troca de equipamento), um SuperAdmin pode resetá-lo em `/superadmin` (ação "Resetar Token do Gateway Local") — isso invalida o token antigo imediatamente, exigindo atualizar o `config.json` local com o novo valor.
 
@@ -116,17 +119,18 @@ O Gateway nunca deixa a catraca "cega" mesmo sem internet — dois mecanismos de
 O Gateway expõe um servidor HTTP local de diagnóstico (Fastify, porta **4570**, **só em `127.0.0.1`** — nunca exposto fora da máquina):
 
 - `GET http://127.0.0.1:4570/health` → `{ ok: true }` (confirma que o processo está de pé).
-- `GET http://127.0.0.1:4570/status` → status atual do `GatewayService` (online/contingência/desconectado) e o timestamp da última verificação.
+- `GET http://127.0.0.1:4570/status` → estado (online/contingência/desconectado), versão, acessos guardados na fila offline, alunos no cadastro local, última sincronização, último erro e os equipamentos que deram sinal desde que o Gateway subiu.
+- `GET http://IP:4571/health` → sonda da porta do equipamento, alcançável pela rede da academia.
 
-Use esses endpoints para automação de monitoramento local ou para um técnico confirmar rapidamente o estado do Gateway sem precisar ler os logs.
+**Remotamente, pela Visão Master e pela tela Catracas:** o Gateway 1.0 reporta o mesmo estado à nuvem a cada ~20 s, e de lá dá para pedir **sincronizar agora**, **enviar acessos guardados**, **diagnóstico** (com teste de login em cada Control iD configurada) e **liberar a catraca** com motivo registrado. Gateway sem sinal por 15 minutos, no horário configurado, gera e-mail para a ArkeFit.
 
 ## 6. Limitações conhecidas
 
 Leia antes de colocar em produção:
 
 1. **Por fabricante.** **Control iD:** implementada e testada sem hardware (seção 7); falta a bancada. **Topdata:** ponte .NET implementada (`packages/ponte-topdata`) e provada com o Inner simulado contra o gateway e a nuvem reais; falta a bancada. Instalação e roteiro em `docs/PONTE_TOPDATA.md` — inclusive o registro da `Inner.dll` como administrador, sem o qual a DLL devolve "erro GPF". **Henry e Dimep:** sem documentação de integração dos fabricantes — a conexão é definida na implantação.
-2. **Cartão e QR Code na Control iD são negados.** Chegam com o valor bruto lido e ainda não há mapeamento desse valor para aluno; adivinhar a quem o número pertence seria pior que negar. A digital (usuário identificado no equipamento) é o caminho suportado.
-3. **O cadastro do aluno no equipamento é manual.** O Gateway não cria nem apaga usuários na catraca: o número do usuário no aparelho é digitado no ARKE como `identificador_catraca`. Na **revogação do consentimento biométrico**, o ARKE devolve o número que precisa ser apagado — e apagar no equipamento é obrigação legal, não opcional.
+2. **Cartão só cadastrado pelo ARKE.** O cartão cadastrado pelo ARKE fica no equipamento ligado ao número do aluno e chega como identificação, igual à digital. Cartão que ninguém cadastrou chega com o valor bruto e é negado — adivinhar a quem pertence seria pior que negar. **QR Code na catraca é negado**: o QR do ARKE é o do check-in na recepção, lido pelo celular do aluno.
+3. **Cadastro no equipamento.** Com `controlid_equipamentos` configurado, o ARKE cria o aluno em todas as Control iD da academia, cadastra digital e cartão com o aluno na frente do leitor (e copia para as outras catracas), e apaga tudo quando o aluno retira a autorização, é excluído ou anonimizado. **Sem gestão remota** (Topdata, ou Control iD sem credencial no config) o cadastro continua manual, e a remoção vira **tarefa para a recepção**, com desfecho obrigatório — apagar no equipamento é obrigação legal, não opcional.
 4. **A bandeja do sistema exige um ambiente com GUI** (Windows/desktop Linux/macOS) — em servidores/CI sem display, ela é desativada automaticamente (com aviso no log), sem derrubar o serviço.
 
 ## 7. Control iD: configurar o equipamento e ensaiar sem hardware
@@ -158,5 +162,7 @@ npm run emular:controlid -- --vivo
 ```
 
 Use na instalação, antes de haver catraca na parede: confirma que o Gateway está alcançável pela rede, que o aluno com aquele `identificador_catraca` é liberado ou negado conforme a situação dele, e que a presença aparece no ARKE. Rodado de outra máquina da rede, também confirma que a `escuta_porta` está aberta.
+
+**Ensaio da gestão remota.** `npm run emular:controlid -- --servir 8081` faz o papel da API de gestão do equipamento (login `admin`/`admin`). Aponte um item de `controlid_equipamentos` para `127.0.0.1:8081` e, pelo ARKE, cadastre o aluno no equipamento, a digital e o cartão, libere a catraca e retire a autorização do aluno: cada chamada aparece no terminal do emulador, com o estado do "equipamento" depois de cada mudança. Foi assim que a corrente inteira foi provada em 23/09/2026 (22 verificações, com o Gateway, a função publicada e o banco reais).
 
 **O que só a bancada responde:** o sentido de giro da borboleta como foi montada, o tempo real de acionamento, a leitura da digital, variações de firmware — e se o `uuid` do aviso de giro é o mesmo da identificação que o originou (o Gateway tem um plano B para quando não é, válido para uma borboleta por vez).

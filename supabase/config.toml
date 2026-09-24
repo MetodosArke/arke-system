@@ -66,3 +66,6 @@ verify_jwt = false
 
 [functions.catraca-confirmar-giro]
 verify_jwt = false
+
+[functions.catraca-comandos]
+verify_jwt = false

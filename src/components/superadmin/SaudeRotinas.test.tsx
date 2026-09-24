@@ -180,3 +180,35 @@ describe("capacidade do banco", () => {
     expect(await screen.findByText(/o banco está perto do limite/)).toBeInTheDocument();
   });
 });
+
+describe("AvisoRotinas — catraca sem sinal", () => {
+  const equipamento = {
+    catraca_id: "c1",
+    organization_id: "o1",
+    academia: "Tietê Fitness",
+    catraca: "Entrada",
+    status_catraca: "ativo",
+    situacao: "offline",
+    reportado_em: "2026-09-23T10:00:00Z",
+  };
+
+  it("nomeia a academia e a catraca quando é a única coisa fora do lugar", async () => {
+    rpc.mockImplementation((nome: string) =>
+      Promise.resolve({ data: nome === "get_superadmin_equipamentos" ? [equipamento] : [], error: null })
+    );
+    montar(<AvisoRotinas />);
+    expect(await screen.findByText(/A catraca de Tietê Fitness \(Entrada\) está sem sinal/)).toBeInTheDocument();
+  });
+
+  it("Gateway anterior à 1.0 (sem telemetria) não acende a faixa", async () => {
+    rpc.mockImplementation((nome: string) =>
+      Promise.resolve({
+        data: nome === "get_superadmin_equipamentos" ? [{ ...equipamento, reportado_em: null }] : [],
+        error: null,
+      })
+    );
+    const { container } = montar(<AvisoRotinas />);
+    await new Promise((r) => setTimeout(r, 20));
+    expect(container).toBeEmptyDOMElement();
+  });
+});

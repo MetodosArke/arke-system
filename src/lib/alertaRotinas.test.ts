@@ -70,4 +70,51 @@ describe("e-mail de alerta das rotinas", () => {
       expect(texto).toContain("Banco de dados voltou para abaixo de 70% do limite: 300 MB de 500 MB (60%)");
     });
   });
+
+  describe("catraca sem sinal", () => {
+    const catraca = (tipo: Item["tipo"], situacao: string, detalhe: string | null): Item => ({
+      nome: "catraca:8f1c0000-0000-0000-0000-000000000000", tipo, situacao, ultima_execucao: null, ultimo_erro: detalhe,
+    });
+
+    it("diz qual academia e qual catraca, e desde quando — nunca o id", () => {
+      const { assunto, texto, html } = montarEmail(
+        [catraca("novo", "catraca_offline", "Tietê Fitness · Entrada: sem sinal desde 23/09 14:32")],
+        PAINEL
+      );
+      expect(assunto).toBe("[ArkeFit] 1 catraca(s) sem sinal");
+      expect(texto).toContain("Tietê Fitness · Entrada está sem sinal do Gateway Local (sem sinal desde 23/09 14:32)");
+      expect(texto).toContain("Visão Master → Equipamentos");
+      expect(texto).not.toContain("8f1c0000");
+      expect(texto).not.toContain("última execução");
+      expect(html).not.toContain("As rotinas agendadas são");
+    });
+
+    it("rotina, banco e catraca no mesmo e-mail: o assunto conta os três", () => {
+      const { assunto } = montarEmail(
+        [
+          { nome: "arke-ativacao", tipo: "novo", situacao: "falhou", ultima_execucao: null, ultimo_erro: "x" },
+          { nome: "capacidade:banco", tipo: "lembrete", situacao: "banco_70", ultima_execucao: null, ultimo_erro: "360 MB" },
+          catraca("novo", "catraca_offline", "A · B: sem sinal desde 23/09 14:32"),
+        ],
+        PAINEL
+      );
+      expect(assunto).toBe("[ArkeFit] 1 rotina(s) com problema · banco de dados acima de 70% do limite · 1 catraca(s) sem sinal");
+    });
+
+    it("volta e remoção têm texto próprio", () => {
+      const { assunto, texto } = montarEmail(
+        [catraca("recuperou", "ok", "Tietê Fitness · Entrada"), catraca("recuperou", "removida", null)],
+        PAINEL
+      );
+      expect(assunto).toBe("[ArkeFit] 2 catraca(s) de volta");
+      expect(texto).toContain("Tietê Fitness · Entrada voltou a falar com a nuvem");
+      expect(texto).toContain("Uma catraca foi removida do ARKE");
+    });
+
+    it("nome de academia com HTML não vira HTML no e-mail", () => {
+      const { html } = montarEmail([catraca("novo", "catraca_offline", '<b>X</b> · Y: sem sinal desde 1')], PAINEL);
+      expect(html).not.toContain("<b>X</b>");
+      expect(html).toContain("&lt;b&gt;X&lt;/b&gt;");
+    });
+  });
 });

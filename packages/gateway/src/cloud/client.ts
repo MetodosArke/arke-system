@@ -3,8 +3,11 @@ import type {
   Credencial,
   GatewayConfig,
   Giro,
+  RespostaComandosCloud,
   RespostaSincronizarAlunosCloud,
   RespostaValidarAcessoCloud,
+  ResultadoComando,
+  TelemetriaGateway,
 } from "../types";
 
 /** Um acesso decidido na contingência, do jeito que sobe para a nuvem. */
@@ -45,6 +48,18 @@ export interface ICloudClient {
   ): Promise<{ inseridos: number }>;
 }
 
+export type PedidoCanalComandos = {
+  resultados: ResultadoComando[];
+  telemetria: TelemetriaGateway;
+  /** Quanto a nuvem pode segurar a resposta esperando ordem nova. */
+  aguardarMs: number;
+};
+
+/** Canal de ida e volta com a nuvem (catraca-comandos). Separado para os testes injetarem um fake. */
+export interface ICanalComandos {
+  trocar(pedido: PedidoCanalComandos): Promise<RespostaComandosCloud>;
+}
+
 /**
  * Cliente HTTP para as Edge Functions do ARKE® Gateway Local no Supabase.
  * Autenticação é feita via `device_token` (aqui chamado token_api_local no
@@ -52,7 +67,7 @@ export interface ICloudClient {
  * um JWT de usuário, essas funções rodam com verify_jwt desabilitado e
  * validam o dispositivo internamente.
  */
-export class CloudClient implements ICloudClient {
+export class CloudClient implements ICloudClient, ICanalComandos {
   private readonly http: AxiosInstance;
   private readonly token: string;
 
@@ -139,5 +154,26 @@ export class CloudClient implements ICloudClient {
     );
     if (data.error) throw new Error(data.error);
     return { inseridos: data.inseridos ?? 0 };
+  }
+
+  /**
+   * POST /catraca-comandos — leva resultados e telemetria, traz ordens. A
+   * nuvem segura a resposta por até `aguardarMs` esperando ordem nova
+   * (escuta longa), então o timeout daqui é essa espera mais a folga da
+   * rede, e não o timeout curto da validação.
+   */
+  async trocar(pedido: PedidoCanalComandos): Promise<RespostaComandosCloud> {
+    const { data } = await this.http.post<RespostaComandosCloud>(
+      "/catraca-comandos",
+      {
+        device_token: this.token,
+        resultados: pedido.resultados,
+        telemetria: pedido.telemetria,
+        aguardar_ms: pedido.aguardarMs,
+      },
+      { timeout: pedido.aguardarMs + 15_000 }
+    );
+    if (data?.error) throw new Error(data.error);
+    return data ?? {};
   }
 }

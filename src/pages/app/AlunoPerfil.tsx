@@ -4,6 +4,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ConsentimentoSentinela } from "@/components/sentinela/SentinelaAnamnese";
+import { ConsentimentoBiometria } from "@/components/catraca/ConsentimentoBiometria";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -127,8 +128,9 @@ export default function AlunoPerfil() {
               <ShieldCheck className="h-4 w-4 text-primary" /> Privacidade
             </CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-3">
             <ConsentimentoSentinela alunoId={alunoId} organizationId={organization.id} />
+            <ConsentimentoBiometria alunoId={alunoId} organizationId={organization.id} />
           </CardContent>
         </Card>
       )}

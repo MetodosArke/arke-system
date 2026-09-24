@@ -41,6 +41,69 @@ export interface GatewayConfig {
   timeout_giro_ms: number;
   /** Topdata: qual leitor físico é a entrada (1 ou 2). */
   topdata_leitor_entrada?: 1 | 2;
+  /**
+   * Equipamentos Control iD que o Gateway administra pela API deles
+   * (cadastro do aluno, da digital e do cartão, remoção, liberação remota).
+   * Vazio: o Gateway só recebe as leituras, e o cadastro no equipamento
+   * continua manual — como até a versão 1.0.
+   */
+  controlid_equipamentos?: EquipamentoControlId[];
+}
+
+export interface EquipamentoControlId {
+  /** Como a recepção reconhece o equipamento ("Catraca da entrada"). */
+  nome: string;
+  ip: string;
+  porta: number;
+  usuario: string;
+  senha: string;
+  /** Sentido da borboleta que é a entrada — depende da montagem física. */
+  sentido_entrada: "clockwise" | "anticlockwise";
+}
+
+/** Ordens que a nuvem manda ao Gateway (ver catraca-comandos). */
+export type TipoComando =
+  | "sincronizar_completo"
+  | "enviar_logs"
+  | "diagnostico"
+  | "liberar_catraca"
+  | "cadastrar_usuario"
+  | "cadastrar_digital"
+  | "cadastrar_cartao"
+  | "apagar_usuario";
+
+export interface ComandoGateway {
+  id: string;
+  tipo: TipoComando | string;
+  parametros: Record<string, unknown>;
+}
+
+export interface ResultadoComando {
+  id: string;
+  sucesso: boolean;
+  resultado?: Record<string, unknown>;
+  erro?: string;
+}
+
+/** O que o Gateway conta à nuvem sobre si a cada chamada do canal. */
+export interface TelemetriaGateway {
+  versao: string;
+  modelo: string;
+  estado: StatusGateway;
+  fila_offline: number;
+  cache_alunos: number;
+  ultima_sincronizacao: string | null;
+  ultimo_erro: string | null;
+  ultimo_erro_em: string | null;
+  equipamentos: { nome: string; tipo: string; visto_em: string | null; detalhe?: string }[];
+  ponte: { inners: number[]; conectados: number[]; vista_em: string } | null;
+  capacidades: TipoComando[];
+}
+
+export interface RespostaComandosCloud {
+  comandos?: ComandoGateway[];
+  servidor_em?: string;
+  error?: string;
 }
 
 export type ConfirmacaoGiro = "decisao" | "catra_event";

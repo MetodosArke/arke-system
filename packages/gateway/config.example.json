@@ -8,5 +8,15 @@
   "tempo_timeout_ms": 1000,
   "sincronizar_alunos_intervalo_ms": 300000,
   "confirmacao_giro": "decisao",
-  "timeout_giro_ms": 30000
+  "timeout_giro_ms": 30000,
+  "controlid_equipamentos": [
+    {
+      "nome": "Catraca da entrada",
+      "ip": "192.168.0.50",
+      "porta": 80,
+      "usuario": "admin",
+      "senha": "SENHA_DO_EQUIPAMENTO",
+      "sentido_entrada": "clockwise"
+    }
+  ]
 }

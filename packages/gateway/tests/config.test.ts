@@ -51,6 +51,46 @@ describe("carregarConfig", () => {
     expect(() => carregarConfig(arquivo)).toThrow(ConfigError);
   });
 
+  const BASE = {
+    organization_id: "11111111-1111-1111-1111-111111111111",
+    token_api_local: "token-valido-1234567890",
+    supabase_url: "https://exemplo.supabase.co",
+    catraca_ip: "192.168.0.10",
+    catraca_porta: 3000,
+  };
+
+  it.each(["henry", "dimep"])("recusa subir com %s, que ainda não tem integração", (modelo) => {
+    const arquivo = escreverConfig({ ...BASE, modelo_catraca: modelo });
+    expect(() => carregarConfig(arquivo)).toThrow(/implantação do primeiro cliente/);
+  });
+
+  it("gestão remota da Control iD: vazia por padrão, com defaults por equipamento", () => {
+    expect(carregarConfig(escreverConfig({ ...BASE, modelo_catraca: "controlid" })).controlid_equipamentos).toEqual([]);
+
+    const config = carregarConfig(
+      escreverConfig({
+        ...BASE,
+        modelo_catraca: "controlid",
+        controlid_equipamentos: [{ nome: "Entrada", ip: "192.168.0.50", senha: "x" }],
+      })
+    );
+    expect(config.controlid_equipamentos).toEqual([
+      { nome: "Entrada", ip: "192.168.0.50", porta: 80, usuario: "admin", senha: "x", sentido_entrada: "clockwise" },
+    ]);
+  });
+
+  it("recusa dois equipamentos com o mesmo nome — a recepção escolhe pelo nome", () => {
+    const arquivo = escreverConfig({
+      ...BASE,
+      modelo_catraca: "controlid",
+      controlid_equipamentos: [
+        { nome: "Catraca", ip: "192.168.0.50", senha: "x" },
+        { nome: "Catraca", ip: "192.168.0.51", senha: "x" },
+      ],
+    });
+    expect(() => carregarConfig(arquivo)).toThrow(/nomes de equipamento repetidos/);
+  });
+
   it("lança ConfigError quando o arquivo não existe", () => {
     expect(() => carregarConfig("/caminho/que/nao/existe.json")).toThrow(ConfigError);
   });
