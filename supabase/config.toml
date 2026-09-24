@@ -74,3 +74,11 @@ verify_jwt = false
 # cron com o token do alerta de rotinas.
 [functions.alertar-catracas]
 verify_jwt = false
+
+# Vigia, o agente de saúde técnica (modo sombra): a varredura de 5 em 5
+# minutos e o resumo diário, chamados pelo cron com o token do alerta de rotinas.
+[functions.vigia]
+verify_jwt = false
+
+[functions.vigia-resumo]
+verify_jwt = false

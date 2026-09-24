@@ -90,6 +90,7 @@ const SuperAdminAuditoria = paginaPreguicosa(() => import("@/pages/superadmin/Su
 const SuperAdminWebhooks = paginaPreguicosa(() => import("@/pages/superadmin/SuperAdminWebhooks"));
 const SuperAdminMentoria = paginaPreguicosa(() => import("@/pages/superadmin/SuperAdminMentoria"));
 const SuperAdminEquipamentos = paginaPreguicosa(() => import("@/pages/superadmin/SuperAdminEquipamentos"));
+const SuperAdminVigia = paginaPreguicosa(() => import("@/pages/superadmin/SuperAdminVigia"));
 
 const isNetworkError = (error: unknown) => {
   const message = error instanceof Error ? error.message : String(error ?? "");
@@ -304,6 +305,7 @@ const App = () => (
                 <Route path="webhooks" element={<SuperAdminWebhooks />} />
                 <Route path="mentoria" element={<SuperAdminMentoria />} />
                 <Route path="equipamentos" element={<SuperAdminEquipamentos />} />
+                <Route path="vigia" element={<SuperAdminVigia />} />
                 <Route path="configuracoes" element={<SuperAdminConfiguracoes />} />
               </Route>
 

@@ -70,3 +70,52 @@ describe("IA processada no Brasil", () => {
     expect(fora, `chamam provedor de IA fora do Brasil: ${fora.join(", ")}`).toEqual([]);
   });
 });
+
+/**
+ * A exceção, e as travas dela: o Vigia (saúde técnica, não alunos) usa um
+ * modelo pelo perfil `global.`, que processa fora do Brasil. Isso só não
+ * contraria a Política porque o que ele manda não é dado pessoal — e isso só
+ * é verdade enquanto:
+ *
+ * 1. o único modelo global do código for o do Vigia, constante e não secret;
+ * 2. a porta do Vigia validar o quadro (lista do que é permitido) ANTES de
+ *    qualquer envio — dentro da própria função, sem caminho que a pule;
+ * 3. só a edge function `vigia` usar essa porta.
+ *
+ * Um "atalho" que alguém fizesse de boa-fé — chamar consultarVigia de outra
+ * função com um texto qualquer, ou pôr outro `global.` no código — funcionaria
+ * sem erro nenhum e mandaria dado de aluno para fora do país.
+ */
+describe("Vigia: o perfil global só com telemetria validada", () => {
+  const funcoes = arquivosTs(join(RAIZ, "supabase/functions"));
+
+  it("o único modelo global do código é a constante do Vigia", () => {
+    const comGlobal = funcoes.filter((p) => /["'`]global\.anthropic/.test(readFileSync(p, "utf8")));
+    expect(comGlobal.map((p) => p.replace(RAIZ, "").replace(/\\/g, "/"))).toEqual(["/supabase/functions/_shared/ia.ts"]);
+    expect(IA).toMatch(/export const MODELO_VIGIA = "global\.anthropic\.[a-z0-9.-]+";/);
+    expect(IA).not.toMatch(/MODELO_VIGIA\s*=\s*env\(/);
+  });
+
+  it("a porta do Vigia valida o quadro antes de qualquer envio", () => {
+    const corpo = IA.slice(IA.indexOf("export async function consultarVigia"));
+    const valida = corpo.indexOf("validarQuadro(");
+    const monta = corpo.indexOf("montarPedido(validado.quadro)");
+    const envio = corpo.indexOf("fetch(");
+    expect(valida).toBeGreaterThan(-1);
+    expect(valida).toBeLessThan(monta);
+    expect(monta).toBeLessThan(envio);
+  });
+
+  it("o Sentinela não usa o modelo do Vigia", () => {
+    const sentinela = IA.slice(IA.indexOf("export async function conversarComIA"), IA.indexOf("// ── Vigia"));
+    expect(sentinela).not.toContain("MODELO_VIGIA");
+  });
+
+  it("só a edge function do Vigia usa a porta dele", () => {
+    const usam = funcoes
+      .filter((p) => !p.endsWith("_shared/ia.ts") && !p.endsWith("_shared\\ia.ts"))
+      .filter((p) => /consultarVigia/.test(readFileSync(p, "utf8")))
+      .map((p) => p.replace(RAIZ, "").replace(/\\/g, "/"));
+    expect(usam).toEqual(["/supabase/functions/vigia/index.ts"]);
+  });
+});
