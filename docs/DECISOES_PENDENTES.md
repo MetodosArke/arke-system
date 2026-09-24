@@ -8,7 +8,15 @@ Só o que continua em aberto. As decisões já tomadas e aplicadas saíram desta
 - **GIFs dos exercícios.** Os 105 exercícios globais continuam sem mídia. Os GIFs vêm do banco do app original; a estrutura de envio já existe e está testada. Vídeo é recurso a mais, não linha de base — a ficha se explica com GIF.
 - **Infraestrutura paga** — Supabase Pro, Vercel Pro, Resend pago e Sentry conforme o volume — e, só depois dela, o **teste de carga**. Depois do upgrade do Supabase, trocar `limite_banco_mb` pelo disco contratado em Visão Master → Configurações.
 - **Planilha real de exportação** (EVO, Tecnofit, Next Fit ou Pacto), para conferir o reconhecimento das colunas na importação de alunos.
-- **Conta de teste da jornada do aluno.** Confirmar no GitHub que o teste de ponta a ponta `jornada-aluno` roda de verdade depois de cada deploy, e não aparece como "pulado".
+
+## Da rodada 360° (24/09/2026): o que a gestão da academia ainda não tem
+
+A rodada conferiu o que existe; isto é o que não existe e que os sistemas que a academia usa hoje costumam ter. Nada disso quebra o que está no ar — a pergunta é o que as primeiras academias vão sentir falta.
+
+- **Cobrança avulsa e taxa de matrícula.** Hoje o ARKE só cobra de forma recorrente (mensalidade e Método). Taxa de matrícula, diária, avaliação física ou personal avulsos são cobrados por fora e lançados à mão no financeiro.
+- **Plano com fidelidade.** "Anual" cobra uma vez por ano. O plano anual pago mês a mês, com multa se cancelar antes, não existe.
+- **Desconto.** Convênio de empresa, plano família ou primeiro mês com desconto: hoje só criando outro plano com o valor menor.
+- **Nota fiscal em volume.** A decisão de emitir fora do ARKE continua de pé; o custo aparece com a base — uma academia de 300 alunos emite 300 notas por mês à mão, no painel do Asaas ou no portal da prefeitura.
 
 ## Vigia: depende de casos reais (decisão de 24/09/2026)
 
@@ -16,11 +24,13 @@ As Fases 1 a 3 estão no ar. O que vem depois é upgrade, e só se decide com o 
 
 - **Fase 4 — ampliar o catálogo de ferramentas.** A primeira candidata é "reiniciar o Gateway", que exige uma ordem nova no próprio Gateway. Novas ferramentas entram conforme os casos reais mostrarem o que falta.
 - **Autonomia da análise por IA.** As ações que ela propõe pedem aprovação, mesmo as que o catálogo classifica como "sozinho". Rever com casos reais suficientes para medir o acerto fora do simulado.
+- **Ao medir, desconsiderar as 22 ocorrências de 24/09/2026 entre 10:35 e 12:30** ("rotina falhou" nas rotinas do próprio Vigia e no alerta de catracas). Eram o painel de rotinas lendo uma execução ainda em andamento como falha, corrigido na mesma data; não houve incidente.
 
 ## Depois do lançamento
 
 - **Preço do profissional autônomo.** O plano Custom segue negociado caso a caso.
 - **Venda de produtos e estoque.**
+- **Colunas de repasse visíveis ao próprio aluno.** A regra de leitura de `mensalidades` deixa o aluno ler as linhas dele inteiras, inclusive quanto a ArkeFit retém e quanto a academia recebe. Não expõe outro aluno nem outra academia; fechar pede uma consulta própria para a equipe, porque privilégio de coluna não distingue equipe de aluno.
 
 ## Na implantação de cada cliente com catraca
 

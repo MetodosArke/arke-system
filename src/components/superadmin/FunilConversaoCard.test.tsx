@@ -90,8 +90,8 @@ describe("FunilConversaoCard", () => {
 
     // 10 entradas, 5 ativos => 50% de conversão; 2 cancelados => 20% de churn.
     expect(screen.getByText("10")).toBeInTheDocument();
-    expect(screen.getByText("50.0%")).toBeInTheDocument();
-    expect(screen.getByText("20.0%")).toBeInTheDocument();
+    expect(screen.getByText("50,0%")).toBeInTheDocument();
+    expect(screen.getByText("20,0%")).toBeInTheDocument();
   });
 
   it("não divide por zero quando o período não teve nenhuma entrada", async () => {
@@ -101,8 +101,8 @@ describe("FunilConversaoCard", () => {
 
     await waitFor(() => expect(screen.getByText("Conversão para ativo")).toBeInTheDocument());
 
-    // Sem entradas, as taxas têm que ficar em 0.0% e não virar NaN.
-    expect(screen.getAllByText("0.0%")).toHaveLength(2);
+    // Sem entradas, as taxas têm que ficar em 0,0% e não virar NaN.
+    expect(screen.getAllByText("0,0%")).toHaveLength(2);
     expect(document.body.textContent).not.toContain("NaN");
   });
 

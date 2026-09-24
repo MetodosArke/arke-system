@@ -66,8 +66,8 @@ describe("ReceitaHistoricoCard", () => {
     expect(texto).toContain("R$ 24.000,00"); // ARR projetado
     // Cada KPI calcula a própria variação: receita 1000 -> 1500 (+50%),
     // repasse 200 -> 260 (+30%).
-    expect(screen.getByText("+50.0% vs. mês anterior")).toBeInTheDocument();
-    expect(screen.getByText("+30.0% vs. mês anterior")).toBeInTheDocument();
+    expect(screen.getByText("+50,0% vs. mês anterior")).toBeInTheDocument();
+    expect(screen.getByText("+30,0% vs. mês anterior")).toBeInTheDocument();
   });
 
   it("usa travessão quando o mês ainda não tem snapshot de MRR", async () => {

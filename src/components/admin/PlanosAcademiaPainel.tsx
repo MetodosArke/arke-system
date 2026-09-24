@@ -15,6 +15,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { useToast } from "@/hooks/use-toast";
 import { Plus, Pencil } from "lucide-react";
 import type { Enums, Tables } from "@/integrations/supabase/types";
+import { reais } from "@/lib/numeros";
 
 type Periodicidade = Enums<"periodicidade_plano_academia">;
 type PlanoAcademia = Tables<"planos_academia">;
@@ -154,7 +155,7 @@ export function PlanosAcademiaPainel() {
                       {plano.descricao && <p className="text-xs text-muted-foreground">{plano.descricao}</p>}
                     </TableCell>
                     <TableCell>{PERIODICIDADE_LABEL[plano.periodicidade]}</TableCell>
-                    <TableCell>R$ {Number(plano.valor).toFixed(2)}</TableCell>
+                    <TableCell>{reais(Number(plano.valor))}</TableCell>
                     <TableCell>
                       <Badge variant={plano.ativo ? "default" : "secondary"}>{plano.ativo ? "Ativo" : "Inativo"}</Badge>
                     </TableCell>

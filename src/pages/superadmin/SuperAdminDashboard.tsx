@@ -71,6 +71,7 @@ import { ReceitaHistoricoCard } from "@/components/superadmin/ReceitaHistoricoCa
 import { FunilConversaoCard } from "@/components/superadmin/FunilConversaoCard";
 import { AdocaoMetodologiaCard } from "@/components/superadmin/AdocaoMetodologiaCard";
 import { OperacaoGlobalCard } from "@/components/superadmin/OperacaoGlobalCard";
+import { decimal } from "@/lib/numeros";
 
 type CategoriaSimulacao = "aluno" | "academia" | "studio" | "personal" | "nutricionista";
 
@@ -596,19 +597,19 @@ export default function SuperAdminDashboard() {
         <StatTile
           icon={Percent}
           label="Take Rate"
-          value={overview ? `${Number(overview.take_rate_pct).toFixed(1)}%` : "—"}
+          value={overview ? `${decimal(Number(overview.take_rate_pct), 1)}%` : "—"}
           sublabel="Repasse ARKE líquido de taxa / receita bruta"
         />
         <StatTile
           icon={AlertTriangle}
           label="Inadimplência Geral"
-          value={overview ? `${Number(overview.inadimplencia_pct).toFixed(1)}%` : "—"}
+          value={overview ? `${decimal(Number(overview.inadimplencia_pct), 1)}%` : "—"}
           sublabel="Assinaturas atrasadas"
         />
         <StatTile
           icon={HeartPulse}
           label="Retenção de tenants"
-          value={overview ? `${Number(overview.retencao_tenants_pct).toFixed(1)}%` : "—"}
+          value={overview ? `${decimal(Number(overview.retencao_tenants_pct), 1)}%` : "—"}
           sublabel="Health Score B2B"
         />
         <StatTile

@@ -213,7 +213,7 @@ Deno.serve(async (req: Request) => {
     if (valorLiquidoAcademia < 0) {
       return jsonResponse(
         {
-          error: `O valor cobrado (R$ ${valor_cobrado}) é menor que o repasse ARKE (R$ ${valorRepasseArke.toFixed(2)}, já com a taxa de processamento).`,
+          error: `O valor cobrado (${Number(valor_cobrado).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}) é menor que o repasse ARKE (${valorRepasseArke.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}, já com a taxa de processamento).`,
         },
         422
       );

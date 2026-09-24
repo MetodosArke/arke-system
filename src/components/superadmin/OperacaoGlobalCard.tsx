@@ -9,6 +9,7 @@ import { Activity, Wifi, WifiOff, PlugZap, ListChecks, AlertTriangle, ArrowUpRig
 import type { Enums } from "@/integrations/supabase/types";
 import { SITUACAO_GATEWAY, tempoDesde, type SituacaoGateway } from "@/lib/gateway";
 import { ordenarEquipamentos, useEquipamentosGlobais } from "@/lib/equipamentos";
+import { decimal } from "@/lib/numeros";
 
 type FilaOrg = {
   organization_id: string;
@@ -179,7 +180,7 @@ export function OperacaoGlobalCard() {
                         <div className="text-right shrink-0">
                           <p className="text-sm font-bold">
                             {Number(f.horas_pendencia_mais_antiga) < 24
-                              ? `${Number(f.horas_pendencia_mais_antiga).toFixed(0)}h`
+                              ? `${decimal(Number(f.horas_pendencia_mais_antiga), 0)}h`
                               : `${Math.floor(Number(f.horas_pendencia_mais_antiga) / 24)}d`}
                           </p>
                           <p className="text-[10px] text-muted-foreground">mais antiga</p>

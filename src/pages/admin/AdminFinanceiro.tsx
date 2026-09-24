@@ -18,6 +18,7 @@ import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { DollarSign, TrendingUp, TrendingDown, Plus, Wallet, Repeat, Sparkles, BookOpen, Percent } from "lucide-react";
 import type { Enums, Tables } from "@/integrations/supabase/types";
+import { reais } from "@/lib/numeros";
 
 type FolhaTipo = Enums<"folha_tipo">;
 type LancamentoTipo = Enums<"lancamento_financeiro_tipo">;
@@ -448,7 +449,7 @@ export default function AdminFinanceiro() {
                   <Wallet className="h-4 w-4 text-primary" />
                   <p className="text-xs text-muted-foreground">Saldo (pagos)</p>
                 </div>
-                <p className={`text-lg font-bold ${saldo < 0 ? "text-red-600" : ""}`}>R$ {saldo.toFixed(2)}</p>
+                <p className={`text-lg font-bold ${saldo < 0 ? "text-red-600" : ""}`}>{reais(saldo)}</p>
               </CardContent>
             </Card>
             <Card>
@@ -457,7 +458,7 @@ export default function AdminFinanceiro() {
                   <TrendingUp className="h-4 w-4 text-emerald-600" />
                   <p className="text-xs text-muted-foreground">A receber</p>
                 </div>
-                <p className="text-lg font-bold">R$ {aReceber.toFixed(2)}</p>
+                <p className="text-lg font-bold">{reais(aReceber)}</p>
               </CardContent>
             </Card>
             <Card>
@@ -466,7 +467,7 @@ export default function AdminFinanceiro() {
                   <TrendingDown className="h-4 w-4 text-red-600" />
                   <p className="text-xs text-muted-foreground">A pagar</p>
                 </div>
-                <p className="text-lg font-bold">R$ {aPagar.toFixed(2)}</p>
+                <p className="text-lg font-bold">{reais(aPagar)}</p>
               </CardContent>
             </Card>
           </div>
@@ -599,7 +600,7 @@ export default function AdminFinanceiro() {
                             {STATUS_LABEL[l.status]}
                           </Badge>
                         </TableCell>
-                        <TableCell className="text-right">R$ {Number(l.valor).toFixed(2)}</TableCell>
+                        <TableCell className="text-right">{reais(Number(l.valor))}</TableCell>
                         <TableCell className="text-right">
                           {(l.status === "pendente" || l.status === "atrasado") && (
                             <Button size="sm" variant="ghost" onClick={() => marcarLancamentoPago.mutate(l.id)} disabled={marcarLancamentoPago.isPending}>
@@ -696,9 +697,9 @@ export default function AdminFinanceiro() {
                     return (
                       <TableRow key={m.user_id}>
                         <TableCell>{m.full_name}</TableCell>
-                        <TableCell>{pagamento ? `R$ ${Number(pagamento.valor_base).toFixed(2)}` : "—"}</TableCell>
-                        <TableCell>{pagamento ? `R$ ${Number(pagamento.valor_comissoes).toFixed(2)}` : "—"}</TableCell>
-                        <TableCell className="font-medium">{pagamento ? `R$ ${Number(pagamento.valor_total).toFixed(2)}` : "—"}</TableCell>
+                        <TableCell>{pagamento ? reais(Number(pagamento.valor_base)) : "—"}</TableCell>
+                        <TableCell>{pagamento ? reais(Number(pagamento.valor_comissoes)) : "—"}</TableCell>
+                        <TableCell className="font-medium">{pagamento ? reais(Number(pagamento.valor_total)) : "—"}</TableCell>
                         <TableCell>
                           {pagamento ? (
                             <Badge variant={pagamento.status === "pago" ? "default" : "outline"}>
@@ -808,7 +809,7 @@ export default function AdminFinanceiro() {
                       <TableRow key={l.id}>
                         <TableCell>{l.nome}</TableCell>
                         <TableCell className="text-xs">{TIPO_EVENTO_COMISSAO_LABEL[l.tipo_evento as TipoEventoComissao]}</TableCell>
-                        <TableCell>R$ {Number(l.valor_comissao).toFixed(2)}</TableCell>
+                        <TableCell>{reais(Number(l.valor_comissao))}</TableCell>
                         <TableCell>
                           <Badge variant={l.status === "pago" ? "default" : "outline"}>
                             {l.status === "pago" ? "Pago" : "Pendente"}

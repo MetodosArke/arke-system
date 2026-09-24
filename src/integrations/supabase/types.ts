@@ -6389,6 +6389,14 @@ export type Database = {
           titulo: string
         }[]
       }
+      get_jornada_aluno: {
+        Args: { _aluno_id: string }
+        Returns: {
+          constancia: number
+          elegivel: Database["public"]["Enums"]["fase_jornada"]
+          motivo: string
+        }[]
+      }
       get_onboarding_organizacao: {
         Args: { _organization_id: string }
         Returns: {

@@ -18,7 +18,8 @@ describe("versão do consentimento biométrico", () => {
       .filter((f) => f.endsWith(".sql"))
       .sort()
       .map((f) => readFileSync(path.join(dir, f), "utf8"))
-      .filter((s) => s.includes("function public.versao_consentimento_biometrico"))
+      // Só a definição conta: um `alter function ... set search_path` não traz o texto.
+      .filter((s) => /create (or replace )?function public.versao_consentimento_biometrico/i.test(s))
       .pop();
     const doBanco = ultima?.match(/versao_consentimento_biometrico\(\)[\s\S]*?select '([^']+)'::text/)?.[1];
 

@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Target, AlertTriangle } from "lucide-react";
 import type { Enums } from "@/integrations/supabase/types";
+import { decimal } from "@/lib/numeros";
 
 // Os percentuais são nulos quando o pilar não se aplica (nutrição não
 // contratada) ou quando a organização ainda não tem aluno. O gerador de
@@ -66,7 +67,7 @@ function BarraPilar({
     <div>
       <div className="flex items-baseline justify-between gap-1">
         <p className="text-[11px] text-muted-foreground">{label}</p>
-        <p className="text-[11px] font-medium">{pct.toFixed(0)}%</p>
+        <p className="text-[11px] font-medium">{decimal(pct, 0)}%</p>
       </div>
       <div className="h-1.5 rounded-full bg-muted overflow-hidden mt-0.5">
         <div
@@ -179,7 +180,7 @@ export function AdocaoMetodologiaCard() {
                           </>
                         ) : (
                           <>
-                            <p className={`text-lg font-bold ${corDoScore(score)}`}>{score.toFixed(0)}</p>
+                            <p className={`text-lg font-bold ${corDoScore(score)}`}>{decimal(score, 0)}</p>
                             <p className="text-[10px] text-muted-foreground">score</p>
                           </>
                         )}
@@ -219,7 +220,7 @@ export function AdocaoMetodologiaCard() {
                       <p className="text-[11px] text-muted-foreground">
                         Fila: {l.tarefas_com_desfecho_30d} de {l.tarefas_concluidas_30d} pendências encerradas nos
                         últimos 30d têm desfecho registrado
-                        {l.desfecho_pct !== null && ` (${Number(l.desfecho_pct).toFixed(0)}%)`}
+                        {l.desfecho_pct !== null && ` (${decimal(Number(l.desfecho_pct), 0)}%)`}
                       </p>
                     )}
                   </div>

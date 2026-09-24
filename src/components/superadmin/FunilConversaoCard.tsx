@@ -15,6 +15,7 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { Filter, AlertTriangle, CalendarX } from "lucide-react";
+import { decimal } from "@/lib/numeros";
 
 type PontoFunil = {
   safra: string;
@@ -179,11 +180,11 @@ export function FunilConversaoCard() {
               </div>
               <div>
                 <p className="text-xs text-muted-foreground">Conversão para ativo</p>
-                <p className="text-lg font-bold">{totais.conversao.toFixed(1)}%</p>
+                <p className="text-lg font-bold">{decimal(totais.conversao, 1)}%</p>
               </div>
               <div>
                 <p className="text-xs text-muted-foreground">Churn (cancelados)</p>
-                <p className="text-lg font-bold">{totais.churn.toFixed(1)}%</p>
+                <p className="text-lg font-bold">{decimal(totais.churn, 1)}%</p>
               </div>
               <div>
                 <p className="text-xs text-muted-foreground">Ainda em trial</p>

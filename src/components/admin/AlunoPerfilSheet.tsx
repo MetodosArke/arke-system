@@ -30,6 +30,7 @@ import { DocumentosMatriculaAluno } from "@/components/admin/DocumentosMatricula
 import { PresencasAluno } from "@/components/admin/PresencasAluno";
 import { planoDoAluno, ROTULO_PLANO, temNutricaoNoPlano } from "@/lib/planoAluno";
 import { useNutricionistaDaAcademia } from "@/hooks/useNutricionistaDaAcademia";
+import { reais } from "@/lib/numeros";
 
 const PERIODICIDADE_LABEL: Record<string, string> = {
   mensal: "Mensal",
@@ -508,8 +509,7 @@ export function AlunoPerfilSheet({
                       <div>
                         <p className="text-sm font-medium">{perfil.planoInfo.nome}</p>
                         <p className="text-xs text-muted-foreground">
-                          {PERIODICIDADE_LABEL[perfil.planoInfo.periodicidade] ?? perfil.planoInfo.periodicidade} · R${" "}
-                          {Number(perfil.matricula.valor_cobrado).toFixed(2)} · vence dia {perfil.matricula.dia_vencimento}
+                          {PERIODICIDADE_LABEL[perfil.planoInfo.periodicidade] ?? perfil.planoInfo.periodicidade} · {reais(Number(perfil.matricula.valor_cobrado))} · vence dia {perfil.matricula.dia_vencimento}
                         </p>
                       </div>
                     </div>
@@ -628,7 +628,7 @@ export function AlunoPerfilSheet({
                       <SelectContent>
                         {planosAcademia.map((p) => (
                           <SelectItem key={p.id} value={p.id}>
-                            {p.nome} — R$ {Number(p.valor).toFixed(2)} ({PERIODICIDADE_LABEL[p.periodicidade] ?? p.periodicidade})
+                            {p.nome} — {reais(Number(p.valor))} ({PERIODICIDADE_LABEL[p.periodicidade] ?? p.periodicidade})
                           </SelectItem>
                         ))}
                       </SelectContent>

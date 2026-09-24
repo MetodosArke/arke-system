@@ -16,6 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Plus, Trash2, Pencil, Users, Crown } from "lucide-react";
 import type { Tables } from "@/integrations/supabase/types";
+import { decimal } from "@/lib/numeros";
 
 type Competicao = Tables<"competicoes">;
 type Metrica = Tables<"competicoes">["metrica"];
@@ -76,7 +77,7 @@ function RankingCompeticao({ competicaoId }: { competicaoId: string }) {
             </Badge>
             <span>{r.nome}</span>
           </div>
-          <span className="font-medium text-muted-foreground">{Number(r.valor).toFixed(1)}</span>
+          <span className="font-medium text-muted-foreground">{decimal(Number(r.valor), 1)}</span>
         </div>
       ))}
     </div>

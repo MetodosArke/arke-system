@@ -173,7 +173,7 @@ export async function alterarValorAssinatura(
   if (valorAcademia < 0) {
     return {
       ok: false,
-      erro: `O valor cobrado (R$ ${dados.valorCobrado.toFixed(2)}) é menor que o repasse ARKE (R$ ${dados.valorRepasseArke.toFixed(2)}).`,
+      erro: `O valor cobrado (${dados.valorCobrado.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}) é menor que o repasse ARKE (${dados.valorRepasseArke.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}).`,
       status: 400,
     };
   }

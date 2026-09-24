@@ -36,6 +36,7 @@ import {
 } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
+import { decimal } from "@/lib/numeros";
 
 interface CalendarioEntry {
   id: string;
@@ -444,7 +445,7 @@ export default function CalendarioTreinos() {
             {[
               { label: "Treinos", value: weeklyStats.treinos },
               { label: "Minutos", value: weeklyStats.minutos },
-              { label: "Km", value: weeklyStats.distancia.toFixed(1) },
+              { label: "Km", value: decimal(weeklyStats.distancia, 1) },
               { label: "Modalidades", value: weeklyStats.modalidades },
             ].map((stat) => (
               <div key={stat.label}>
@@ -568,7 +569,7 @@ export default function CalendarioTreinos() {
                     <span className="text-sm font-medium flex items-center gap-2">
                       {MODALITY_EMOJI[m.label]} {m.label}
                     </span>
-                    <span className="text-sm font-bold text-primary">{m.km.toFixed(1)} km</span>
+                    <span className="text-sm font-bold text-primary">{decimal(m.km, 1)} km</span>
                   </div>
                 ))}
               </div>

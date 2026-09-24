@@ -21,6 +21,7 @@ import { ReciboComprovanteDialog, type ReciboData } from "@/components/admin/Rec
 import { PlanosAcademiaPainel } from "@/components/admin/PlanosAcademiaPainel";
 import { ContratoMatriculaPainel } from "@/components/admin/ContratoMatriculaPainel";
 import { dividirCobranca, type RepasseConfig, type TaxaProcessamento } from "@/lib/repasse";
+import { reais } from "@/lib/numeros";
 
 type TipoNegocio = Extract<Enums<"organization_tipo">, "academia" | "studio">;
 const SLUG_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
@@ -343,7 +344,7 @@ export default function AdminOrganizacao() {
       }
       if (!divisao.cobreORepasse) {
         throw new Error(
-          `O valor precisa cobrir o repasse ARKE de R$ ${divisao.repasseArke!.toFixed(2)} (repasse do contrato + taxa de processamento).`
+          `O valor precisa cobrir o repasse ARKE de ${reais(divisao.repasseArke!)} (repasse do contrato + taxa de processamento).`
         );
       }
       // Markup sobre o que a academia de fato entrega à ArkeFit.
@@ -681,11 +682,9 @@ export default function AdminOrganizacao() {
                 <span className="text-xs text-muted-foreground text-right">
                   {semRepasseNegociado
                     ? "Repasse do Método ainda não definido no contrato desta academia."
-                    : `Aluno paga R$ ${valorVarejo.toFixed(2)} · ARKE retém R$ ${repasseArke!.toFixed(2)} (repasse R$ ${(
+                    : `Aluno paga ${reais(valorVarejo)} · ARKE retém ${reais(repasseArke!)} (repasse ${reais((
                         repasseArke! - taxaEstimada
-                      ).toFixed(2)} + taxa R$ ${taxaEstimada.toFixed(2)}) · Academia recebe R$ ${liquidoAcademia!.toFixed(
-                        2
-                      )}${valorVarejo > 0 ? ` (${pctAcademia}%)` : ""}`}
+                      ))} + taxa ${reais(taxaEstimada)}) · Academia recebe ${reais(liquidoAcademia!)}${valorVarejo > 0 ? ` (${pctAcademia}%)` : ""}`}
                 </span>
               </div>
             );

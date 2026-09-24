@@ -15,6 +15,7 @@ import {
   Clock,
   HelpCircle,
 } from "lucide-react";
+import { decimal } from "@/lib/numeros";
 
 // Nulos são reais aqui (evento sem payment_id, sem resultado, sem erro) e o
 // gerador de tipos do Supabase declara colunas de RPC como não-nulas.
@@ -103,7 +104,7 @@ const formatarDataHora = (valor: string) =>
 const formatarSilencio = (horas: number | null) => {
   if (horas === null) return null;
   if (horas < 1) return `${Math.round(horas * 60)} min atrás`;
-  if (horas < 24) return `${horas.toFixed(1)} h atrás`;
+  if (horas < 24) return `${decimal(horas, 1)} h atrás`;
   return `${Math.floor(horas / 24)} d atrás`;
 };
 
