@@ -1,4 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { verificarCaptcha } from "../_shared/captcha.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -139,27 +140,7 @@ async function hashDoIp(ip: string, pimenta: string): Promise<string> {
 // Falha aberta quando a Cloudflare não responde, pelo mesmo motivo do limitador:
 // indisponibilidade de terceiro não pode fechar a matrícula no dia em que a
 // academia divulga o link. Token ausente ou recusado, esse sim, barra.
-type ResultadoCaptcha = "ok" | "recusado" | "indisponivel";
-
-async function verificarCaptcha(token: string | undefined, ip: string | null, segredo: string): Promise<ResultadoCaptcha> {
-  if (!token) return "recusado";
-  const corpo = new FormData();
-  corpo.append("secret", segredo);
-  corpo.append("response", token);
-  if (ip) corpo.append("remoteip", ip);
-  try {
-    const resp = await fetch("https://challenges.cloudflare.com/turnstile/v0/siteverify", {
-      method: "POST",
-      body: corpo,
-      signal: AbortSignal.timeout(5000),
-    });
-    if (!resp.ok) return "indisponivel";
-    const resultado = (await resp.json()) as { success?: boolean };
-    return resultado.success ? "ok" : "recusado";
-  } catch {
-    return "indisponivel";
-  }
-}
+// A verificação mora em _shared/captcha.ts, igual para os três endpoints públicos.
 
 type MatriculaPayload = {
   slug: string;
