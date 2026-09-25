@@ -48,12 +48,14 @@ export function EncerramentoAcademia() {
     onError: (e: Error) => toast({ title: "Não foi possível retirar", description: e.message, variant: "destructive" }),
   });
 
-  if (organizationRole !== "gestor" || !organization || organization.status === "trial") return null;
+  if (organizationRole !== "gestor" || !organization) return null;
+  // Homologação (trial) não tem contrato: exporta, mas não entra no ciclo de encerramento.
+  const comContrato = organization.status !== "trial";
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-base">Dados e encerramento</CardTitle>
+        <CardTitle className="text-base">{comContrato ? "Dados e encerramento" : "Dados da academia"}</CardTitle>
         <CardDescription>
           A planilha traz alunos com contato e endereço, matrículas, mensalidades, cobranças avulsas, presenças e avaliações físicas.
         </CardDescription>
@@ -61,7 +63,7 @@ export function EncerramentoAcademia() {
       <CardContent className="space-y-4">
         <ExportarDadosAcademia />
 
-        {encerramento?.etapa === "aviso" ? (
+        {!comContrato ? null : encerramento?.etapa === "aviso" ? (
           <div className="space-y-2 rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-sm">
             <p>
               O contrato termina em <strong>{dataCurta(encerramento.termino_em)}</strong>
