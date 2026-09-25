@@ -1,4 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { verificarCaptcha } from "../_shared/captcha.ts";
 import { emailDoLead, validarLead } from "./validar.ts";
 
 const corsHeaders = {
@@ -30,22 +31,6 @@ async function hashDoIp(ip: string, pimenta: string): Promise<string> {
   return Array.from(new Uint8Array(digest))
     .map((b) => b.toString(16).padStart(2, "0"))
     .join("");
-}
-
-// Duplicado de matricula-publica (edge function não importa das outras).
-async function verificarCaptcha(token: string | undefined, ip: string | null, segredo: string): Promise<"ok" | "recusado" | "indisponivel"> {
-  if (!token) return "recusado";
-  const corpo = new FormData();
-  corpo.append("secret", segredo);
-  corpo.append("response", token);
-  if (ip) corpo.append("remoteip", ip);
-  try {
-    const resp = await fetch("https://challenges.cloudflare.com/turnstile/v0/siteverify", { method: "POST", body: corpo, signal: AbortSignal.timeout(5000) });
-    if (!resp.ok) return "indisponivel";
-    return ((await resp.json()) as { success?: boolean }).success ? "ok" : "recusado";
-  } catch {
-    return "indisponivel";
-  }
 }
 
 Deno.serve(async (req: Request) => {

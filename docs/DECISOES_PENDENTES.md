@@ -14,6 +14,7 @@ Só o que continua em aberto. As decisões já tomadas e aplicadas saíram desta
 
 ## Página de vendas e endereço do app (25/09/2026)
 
+- **Secret key do Turnstile** (só o responsável, na Cloudflare): o `TURNSTILE_SECRET_KEY` do Supabase guarda a site key, e por isso o captcha de matrícula pública, primeiro acesso e contato do site não está valendo. Copiar a **Secret Key** do widget (Cloudflare → Turnstile → o widget da ArkeFit) e gravar com `supabase secrets set TURNSTILE_SECRET_KEY=...`. Depois, enviar o formulário da página de vendas uma vez para conferir.
 - **DNS de app.arkefit.com.br** (só o responsável, no Registro.br): criar o registro CNAME `app` apontando para `cname.vercel-dns.com`. Depois disso, a troca do app para o endereço próprio segue a ordem descrita no `CLAUDE.md` (Fase 2), antes de a primeira academia imprimir QR Codes.
 - **Preços na página de vendas.** A página não mostra preços dos planos nem da taxa de implantação; o contato leva à demonstração. Publicar os preços é decisão comercial.
 - **Contato comercial na Política de Privacidade.** O formulário avisa a finalidade na hora; a Política não menciona contatos comerciais pelo site. Recomendação: incluir na próxima revisão, com o prazo de guarda de contato que não virou cliente.
