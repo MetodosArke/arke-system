@@ -2,6 +2,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Button } from "@/components/ui/button";
 import { Printer } from "lucide-react";
 import { divisoesDoTreino, rotuloTecnica, seriesDoExercicio, seriesUniformes } from "@/lib/seriesTreino";
+import { formatarDataBR } from "@/lib/dataBrasilia";
 
 export interface ExercicioSnapshotImpressao {
   ordem: number;
@@ -58,7 +59,7 @@ export function ImprimirTreinoDialog({
             <p className="text-xs text-muted-foreground">{treino.titulo}</p>
             {treino.validade_fim && (
               <p className="text-xs text-muted-foreground">
-                Válido até {new Date(treino.validade_fim).toLocaleDateString("pt-BR")}
+                Válido até {formatarDataBR(treino.validade_fim)}
               </p>
             )}
           </div>

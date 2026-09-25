@@ -64,8 +64,13 @@ describe("IA processada no Brasil", () => {
   });
 
   it("nenhuma edge function fala com provedor de IA fora do Brasil", () => {
+    // O Google entrou na lista em 24/09/2026: a importação de dieta por PDF
+    // mandava o arquivo ao Gemini, e esta trava não pegava porque só
+    // conhecia OpenAI, Azure e Anthropic. Provedor novo entra aqui.
     const fora = arquivosTs(join(RAIZ, "supabase/functions")).filter((p) =>
-      /api\.openai\.com|openai\.azure\.com|api\.anthropic\.com/.test(readFileSync(p, "utf8")),
+      /api\.openai\.com|openai\.azure\.com|api\.anthropic\.com|generativelanguage\.googleapis\.com|aiplatform\.googleapis\.com|api\.mistral\.ai|api\.cohere|api-inference\.huggingface|api\.groq\.com|api\.deepseek\.com/.test(
+        readFileSync(p, "utf8"),
+      ),
     );
     expect(fora, `chamam provedor de IA fora do Brasil: ${fora.join(", ")}`).toEqual([]);
   });

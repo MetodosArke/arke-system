@@ -27,7 +27,7 @@ import { ComunicadosAluno } from "@/components/aluno/ComunicadosAluno";
 import { CHAVE_CHECKIN_PENDENTE } from "@/lib/checkin";
 import { definirProximaAcao } from "@/lib/proximaAcao";
 import type { Enums } from "@/integrations/supabase/types";
-import { dataBrasilia, diaBrasilia, hojeBrasilia } from "@/lib/dataBrasilia";
+import { dataBrasilia, diaBrasilia, hojeBrasilia, formatarDataBR } from "@/lib/dataBrasilia";
 
 type CheckinStatus = Enums<"checkin_status">;
 type MotivoDificuldade = Enums<"motivo_dificuldade">;
@@ -343,7 +343,7 @@ export default function AlunoDashboard() {
                   <div key={c.id} className="flex items-center justify-between text-sm border-b border-border pb-2 last:border-0 last:pb-0">
                     <Badge variant="secondary">{CHECKIN_LABEL[c.status]}</Badge>
                     <span className="text-xs text-muted-foreground">
-                      {new Date(c.created_at).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}
+                      {formatarDataBR(c.created_at, { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}
                     </span>
                   </div>
                 ))}

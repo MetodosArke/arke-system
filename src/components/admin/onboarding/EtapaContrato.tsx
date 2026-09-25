@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { CheckCircle2 } from "lucide-react";
 import { DOCUMENTOS } from "@/lib/documentosLegais";
+import { formatarDataBR } from "@/lib/dataBrasilia";
 
 /**
  * Contrato da academia (licença + tratamento de dados). Fora de trial ele já é
@@ -65,7 +66,7 @@ export function EtapaContrato({ onSalvo }: { onSalvo: () => void }) {
       <p className="text-sm flex items-center gap-2">
         <CheckCircle2 className="h-4 w-4 text-emerald-600" />
         <span>
-          {link} aceito em {new Date(aceite.aceito_em).toLocaleDateString("pt-BR")}.
+          {link} aceito em {formatarDataBR(aceite.aceito_em)}.
         </span>
       </p>
     );

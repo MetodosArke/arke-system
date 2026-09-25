@@ -39,6 +39,7 @@ import { ConvitePrimeiroAcesso } from "@/components/admin/ConvitePrimeiroAcesso"
 import { SituacaoAluno } from "@/components/admin/SituacaoAluno";
 import { planoDoAluno, ROTULO_PLANO, ROTULO_SITUACAO, type SituacaoAcademia } from "@/lib/planoAluno";
 import { baixarPlanilha, dataBr } from "@/lib/exportarPlanilha";
+import { formatarDataBR } from "@/lib/dataBrasilia";
 
 type Nivel = Enums<"nivel_atacado">;
 
@@ -518,7 +519,7 @@ export default function AdminAlunos() {
                       )}
                     </TableCell>
                     <TableCell>
-                      {aluno.data_inicio ? new Date(aluno.data_inicio).toLocaleDateString("pt-BR") : "—"}
+                      {aluno.data_inicio ? formatarDataBR(aluno.data_inicio) : "—"}
                     </TableCell>
                     <TableCell>
                       <Button variant="ghost" size="sm" onClick={() => abrirEdicao(aluno)} disabled={!!aluno.anonimizado_em}>

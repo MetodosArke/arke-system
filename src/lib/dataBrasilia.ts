@@ -52,3 +52,24 @@ export function diaBrasilia(dias: number, momento: Date = new Date()): string {
 export function inicioDoMesBrasilia(momento: Date = new Date()): string {
   return `${dataBrasilia(momento).slice(0, 7)}-01`;
 }
+
+const DATA_PURA = /^\d{4}-\d{2}-\d{2}$/;
+
+/**
+ * Uma data para a tela, no formato brasileiro e no fuso de Brasília.
+ *
+ * `new Date("2026-07-01").toLocaleDateString("pt-BR")` mostra **30/06/2026**:
+ * uma data pura é lida como meia-noite em UTC, que em Brasília ainda é o dia
+ * anterior. Era assim em cerca de trinta telas — treino válido até um dia
+ * antes do que a equipe definiu, avaliação física registrada na véspera,
+ * mensalidade de julho mostrada como de junho. Data pura é lida ao meio-dia
+ * de Brasília, longe de qualquer virada; data com hora vira a data de
+ * Brasília daquele instante.
+ */
+export function formatarDataBR(valor: string | Date | null | undefined, opcoes: Intl.DateTimeFormatOptions = {}): string {
+  if (!valor) return "—";
+  const momento = typeof valor === "string" && DATA_PURA.test(valor) ? new Date(`${valor}T12:00:00-03:00`) : new Date(valor);
+  if (Number.isNaN(momento.getTime())) return "—";
+  const padrao: Intl.DateTimeFormatOptions = Object.keys(opcoes).length ? {} : { day: "2-digit", month: "2-digit", year: "numeric" };
+  return momento.toLocaleDateString("pt-BR", { ...padrao, ...opcoes, timeZone: "America/Sao_Paulo" });
+}

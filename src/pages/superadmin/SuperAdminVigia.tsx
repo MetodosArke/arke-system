@@ -38,6 +38,7 @@ import {
 } from "@/lib/vigia";
 import { cn } from "@/lib/utils";
 import { decimal } from "@/lib/numeros";
+import { formatarDataBR } from "@/lib/dataBrasilia";
 
 const TOM = {
   ok: "text-emerald-700 dark:text-emerald-400",
@@ -165,7 +166,7 @@ function Situacao({
           <span className="text-muted-foreground">
             {resumo.varreduras} varreduras no período · {resumo.total.deteccoes} detecções
             {emExecucao && ` e ${resumo.total.executadas ?? 0} ações executadas`} desde{" "}
-            {new Date(resumo.sombra_desde).toLocaleDateString("pt-BR")}
+            {formatarDataBR(resumo.sombra_desde)}
           </span>
         </div>
       </CardContent>

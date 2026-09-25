@@ -17,6 +17,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { X, Trophy, Plus } from "lucide-react";
 import type { Tables } from "@/integrations/supabase/types";
 import { calcularPontosTotais, calcularStatusMetas, type MetaDirecao, type StatusMeta } from "@/lib/evolucaoPontos";
+import { formatarDataBR } from "@/lib/dataBrasilia";
 
 type Avaliacao = Tables<"avaliacoes_fisicas">;
 type MetricaCustomizada = Tables<"metricas_customizadas">;
@@ -581,7 +582,7 @@ export function AvaliacaoFisicaDialog({ open, onOpenChange, alunoId, alunoNome }
               return (
                 <div key={av.id} className="rounded-lg border border-border p-3 text-sm space-y-1">
                   <div className="flex items-center justify-between">
-                    <span className="font-semibold">{new Date(av.data_avaliacao).toLocaleDateString("pt-BR")}</span>
+                    <span className="font-semibold">{formatarDataBR(av.data_avaliacao)}</span>
                     <div className="flex items-center gap-2">
                       {av.pontos > 0 && (
                         <Badge variant="secondary" className="gap-1">
@@ -605,7 +606,7 @@ export function AvaliacaoFisicaDialog({ open, onOpenChange, alunoId, alunoNome }
                     </div>
                   )}
                   {av.data_proxima_avaliacao && (
-                    <p className="text-xs text-primary">Próxima avaliação: {new Date(av.data_proxima_avaliacao).toLocaleDateString("pt-BR")}</p>
+                    <p className="text-xs text-primary">Próxima avaliação: {formatarDataBR(av.data_proxima_avaliacao)}</p>
                   )}
                   {av.dores_relatadas && <p className="text-xs">Dores: {av.dores_relatadas}</p>}
                   {av.observacoes && <p className="text-xs text-muted-foreground">{av.observacoes}</p>}

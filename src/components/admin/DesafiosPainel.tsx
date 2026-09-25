@@ -19,6 +19,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Plus, Trash2, Pencil, Users } from "lucide-react";
 import { DESAFIO_TIPO_LABEL, type DesafioTipo } from "@/lib/desafioProgresso";
 import type { Tables } from "@/integrations/supabase/types";
+import { formatarDataBR } from "@/lib/dataBrasilia";
 
 type Desafio = Tables<"desafios">;
 
@@ -304,7 +305,7 @@ export function DesafiosPainel() {
                     <Users className="h-3 w-3 mr-1" /> {d.para_todos ? "Todos" : "Selecionados"}
                   </Badge>
                   <Badge variant="outline">
-                    {new Date(d.data_inicio).toLocaleDateString("pt-BR")} - {new Date(d.data_fim).toLocaleDateString("pt-BR")}
+                    {formatarDataBR(d.data_inicio)} - {formatarDataBR(d.data_fim)}
                   </Badge>
                   <Badge variant="secondary">{concluidos} concluídos</Badge>
                 </div>

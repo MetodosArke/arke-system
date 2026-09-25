@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Printer } from "lucide-react";
+import { formatarDataBR } from "@/lib/dataBrasilia";
 
 export interface ReciboData {
   organizacaoNome: string;
@@ -80,7 +81,7 @@ export function ReciboComprovanteDialog({
             </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">Data</span>
-              <span className="font-medium">{new Date(recibo.data).toLocaleDateString("pt-BR")}</span>
+              <span className="font-medium">{formatarDataBR(recibo.data)}</span>
             </div>
           </div>
 

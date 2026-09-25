@@ -8,7 +8,17 @@ import { Mail, MessageCircle } from "lucide-react";
  * plataforma_textos (Visão Master → Configurações); sem canal configurado, o
  * botão não aparece — melhor nenhum botão do que um que não leva a ninguém.
  */
-export function SuporteBotao({ contexto }: { contexto: string }) {
+export function SuporteBotao({
+  contexto,
+  mensagem: mensagemPronta,
+  assunto = "Ajuda no onboarding do ARKE",
+  pergunta = "Precisa de ajuda?",
+}: {
+  contexto: string;
+  mensagem?: string;
+  assunto?: string;
+  pergunta?: string;
+}) {
   const { data: canais } = useQuery({
     queryKey: ["canais-suporte"],
     queryFn: async () => {
@@ -25,11 +35,11 @@ export function SuporteBotao({ contexto }: { contexto: string }) {
   const whatsapp = canais?.suporte_whatsapp?.replace(/\D/g, "");
   const email = canais?.suporte_email;
   if (!whatsapp && !email) return null;
-  const mensagem = `Olá! Preciso de ajuda no onboarding do ARKE (${contexto}).`;
+  const mensagem = mensagemPronta ?? `Olá! Preciso de ajuda no onboarding do ARKE (${contexto}).`;
 
   return (
     <div className="flex flex-wrap items-center gap-2 pt-1">
-      <span className="text-xs text-muted-foreground">Precisa de ajuda?</span>
+      <span className="text-xs text-muted-foreground">{pergunta}</span>
       {whatsapp && (
         <Button size="sm" variant="ghost" className="h-7 px-2 text-xs" asChild>
           <a href={`https://wa.me/${whatsapp}?text=${encodeURIComponent(mensagem)}`} target="_blank" rel="noreferrer">
@@ -39,7 +49,7 @@ export function SuporteBotao({ contexto }: { contexto: string }) {
       )}
       {email && (
         <Button size="sm" variant="ghost" className="h-7 px-2 text-xs" asChild>
-          <a href={`mailto:${email}?subject=${encodeURIComponent("Ajuda no onboarding do ARKE")}&body=${encodeURIComponent(mensagem)}`}>
+          <a href={`mailto:${email}?subject=${encodeURIComponent(assunto)}&body=${encodeURIComponent(mensagem)}`}>
             <Mail className="h-3.5 w-3.5 mr-1" /> {whatsapp ? "E-mail" : "Falar com o suporte"}
           </a>
         </Button>

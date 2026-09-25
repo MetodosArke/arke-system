@@ -77,6 +77,19 @@ describe("a data do negócio é a de Brasília", () => {
     expect(culpados, "getTimezoneOffset() dá a data do aparelho, não a da academia: falha para quem está viajando ou com o fuso trocado. Use dataBrasilia().").toEqual([]);
   });
 
+  it("ninguém mostra data pura com new Date(...).toLocaleDateString", () => {
+    // `new Date("2026-07-01")` é meia-noite em UTC: em Brasília, o dia
+    // anterior. Eram cerca de trinta telas mostrando a data um dia antes.
+    const culpados = fontes
+      .filter((f) => !PERMITIDOS.has(f.nome) && !f.nome.includes(".test."))
+      // Quem fixa o fuso de Brasília nas opções está certo (as edge functions
+      // não importam do app e fazem assim).
+      .filter((f) => (f.codigo.match(/new Date\([^()`,]+\)\.toLocaleDateString\([^)]*\)/g) ?? []).some((c) => !c.includes("America/Sao_Paulo")))
+      .map((f) => f.nome);
+
+    expect(culpados, 'Data pura lida como UTC aparece um dia antes em Brasília. Use formatarDataBR() de "@/lib/dataBrasilia".').toEqual([]);
+  });
+
   it("ninguém desconta três horas na mão", () => {
     const culpados = fontes
       .filter((f) => !PERMITIDOS.has(f.nome))

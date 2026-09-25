@@ -279,17 +279,27 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    // Matrícula ativa: recusa ANTES de tocar no gateway. A versão anterior
-    // conferia isto depois de criar a assinatura no Asaas — o 409 voltava,
-    // e a assinatura recém-criada ficava lá, órfã, cobrando o aluno.
-    const { data: matriculaAtiva } = await admin
+    // Matrícula viva (ativa ou pausada): recusa ANTES de tocar no gateway. A
+    // versão anterior conferia isto depois de criar a assinatura no Asaas — o
+    // 409 voltava, e a assinatura recém-criada ficava lá, órfã, cobrando o
+    // aluno. A pausada conta porque retomá-la depois daria duas cobranças.
+    const { data: matriculaViva } = await admin
       .from("aluno_matriculas_academia")
-      .select("id")
+      .select("id, status")
       .eq("aluno_id", alunoId)
-      .eq("status", "ativa")
+      .in("status", ["ativa", "pausada"])
+      .limit(1)
       .maybeSingle();
-    if (matriculaAtiva) {
-      return jsonResponse({ error: "Este aluno já tem uma matrícula ativa. Cancele/pause a atual antes de criar outra." }, 409);
+    if (matriculaViva) {
+      return jsonResponse(
+        {
+          error:
+            matriculaViva.status === "pausada"
+              ? "Este aluno tem uma matrícula pausada. Retome ou cancele a atual antes de criar outra."
+              : "Este aluno já tem uma matrícula ativa. Cancele a atual antes de criar outra.",
+        },
+        409,
+      );
     }
 
     // --- Asaas: cria (ou reaproveita) o customer e a assinatura ---

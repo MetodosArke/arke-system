@@ -4,7 +4,6 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { todasAsLinhas } from "@/lib/paginar";
 import { perfisDosUsuarios } from "@/lib/perfis";
-import { mensagemDeErroEdge } from "@/lib/erroEdge";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRascunho } from "@/hooks/useRascunho";
 import { chaveRascunho, descreverQuandoSalvou } from "@/lib/rascunho";
@@ -19,61 +18,16 @@ import { Combobox } from "@/components/ui/combobox";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { UtensilsCrossed, Plus, Trash2, FolderOpen, UserRound, FileUp, Loader2 } from "lucide-react";
+import { UtensilsCrossed, Plus, Trash2, FolderOpen, UserRound } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import type { Json } from "@/integrations/supabase/types";
+import { formatarDataBR } from "@/lib/dataBrasilia";
 
-// Extração via Google Gemini (gemini-1.5-flash, edge function
-// parse-dieta-pdf) — tem tier gratuito generoso, então fica habilitada por
-// padrão. Requer a secret GEMINI_API_KEY configurada no projeto Supabase;
-// sem ela a função retorna um erro claro em vez de falhar silenciosamente.
-const PARSER_DIETA_PDF_HABILITADO = true;
-
-interface ItemExtraidoPdf {
-  alimento: string;
-  quantidade: string;
-  substituicoes: string[];
-}
-
-interface RefeicaoExtraidaPdf {
-  nome: string;
-  horario: string | null;
-  itens: ItemExtraidoPdf[];
-}
-
-interface DietaExtraidaPdf {
-  titulo_dieta: string;
-  observacoes_gerais: string | null;
-  refeicoes: RefeicaoExtraidaPdf[];
-}
-
-// Espelha o limite da edge function, que recusa base64 acima de 20.000.000
-// de caracteres: 4 * ceil(n/3) <= 20.000.000 dá exatamente 15.000.000 bytes
-// de binário. Checar no cliente evita o usuário esperar o upload inteiro no
-// 4G só para receber o erro no final.
-const TAMANHO_MAXIMO_PDF_BYTES = 15_000_000;
-
-// Leitura via FileReader (nativo e assíncrono) em vez de percorrer o
-// ArrayBuffer manualmente: em celular, montar a string na main thread
-// congela a interface por segundos, e o spread de dezenas de milhares de
-// argumentos em String.fromCharCode estoura a pilha de chamadas.
-function fileToBase64(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onerror = () => reject(new Error("Não foi possível ler o arquivo no dispositivo."));
-    reader.onload = () => {
-      const dataUrl = typeof reader.result === "string" ? reader.result : "";
-      const separador = dataUrl.indexOf(",");
-      if (separador < 0) {
-        reject(new Error("Não foi possível ler o arquivo no dispositivo."));
-        return;
-      }
-      resolve(dataUrl.slice(separador + 1));
-    };
-    reader.readAsDataURL(file);
-  });
-}
+// A importação de dieta por PDF saiu em 24/09/2026: mandava o PDF (com o
+// nome e os dados de saúde do aluno) para o Google Gemini, fora do Brasil e
+// fora da Política de Privacidade, que declara a IA só no Brasil, só com
+// consentimento e só para as finalidades descritas. Voltar exige processar
+// em São Paulo e uma finalidade nova na Política; o código antigo está no
+// histórico do git.
 
 const STATUS_DIETA_LABEL: Record<string, string> = {
   ativo: "Ativo",
@@ -118,12 +72,6 @@ export default function AdminDietas() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [refeicaoSalva]);
-  const [importarPdfAberto, setImportarPdfAberto] = useState(false);
-  const [dietaExtraida, setDietaExtraida] = useState<DietaExtraidaPdf | null>(null);
-  // "modelo": salva na Biblioteca para reaproveitar depois; "aluno": publica
-  // direto no prontuário do aluno já selecionado na aba "Publicar para
-  // Aluno", sem passar pela Biblioteca.
-  const [importarPdfModo, setImportarPdfModo] = useState<"modelo" | "aluno">("modelo");
 
   const { data: bibliotecaAlimentos = [] } = useQuery({
     queryKey: ["alimentos-biblioteca"],
@@ -159,31 +107,6 @@ export default function AdminDietas() {
   const [modeloCarregadoId, setModeloCarregadoId] = useState<string | null>(null);
   const [perfilAberto, setPerfilAberto] = useState(false);
 
-  // Rascunho da extração de PDF.
-  //
-  // É o conteúdo mais caro da tela: custou uma chamada ao Gemini e uma
-  // revisão item a item. E até aqui ele era descartado por um clique —
-  // fechar o diálogo fazia `setDietaExtraida(null)`, jogando fora a
-  // extração inteira sem perguntar. Agora ela espera na sessão de
-  // trabalho, e a pessoa decide se retoma ou descarta.
-  const rascunhoPdf = { dietaExtraida, novoModeloTitulo, importarPdfModo, alunoPublicar };
-  type RascunhoPdf = typeof rascunhoPdf;
-
-  const { rascunhoDisponivel: pdfSalvo, descartar: descartarRascunhoPdf } = useRascunho<RascunhoPdf>(
-    organization?.id ? chaveRascunho("dieta-pdf", organization.id) : null,
-    rascunhoPdf,
-    { ativo: !!dietaExtraida }
-  );
-
-  const restaurarPdf = () => {
-    const d = pdfSalvo?.dados;
-    if (!d?.dietaExtraida) return;
-    setDietaExtraida(d.dietaExtraida);
-    setNovoModeloTitulo(d.novoModeloTitulo ?? "");
-    setImportarPdfModo(d.importarPdfModo ?? "modelo");
-    if (d.alunoPublicar) setAlunoPublicar(d.alunoPublicar);
-    descartarRascunhoPdf();
-  };
 
   useEffect(() => {
     if (alunoIdFromNav) {
@@ -356,114 +279,6 @@ export default function AdminDietas() {
     onError: (error: Error) => toast({ title: "Erro ao adicionar refeição", description: error.message, variant: "destructive" }),
   });
 
-  const importarDietaPdf = useMutation({
-    mutationFn: async (file: File) => {
-      if (file.size > TAMANHO_MAXIMO_PDF_BYTES) {
-        throw new Error("PDF muito grande (máximo 15MB). Envie um arquivo menor ou comprimido.");
-      }
-      const fileBase64 = await fileToBase64(file);
-      const { data, error } = await supabase.functions.invoke<DietaExtraidaPdf & { error?: string }>(
-        "parse-dieta-pdf",
-        { body: { file_base64: fileBase64 } }
-      );
-      if (error) throw new Error(await mensagemDeErroEdge(error, "Não foi possível ler o PDF da dieta."));
-      if (data?.error) throw new Error(data.error);
-      if (!data) throw new Error("Resposta vazia da extração.");
-      return data;
-    },
-    onSuccess: (dieta) => {
-      if (!dieta.refeicoes || dieta.refeicoes.length === 0) {
-        toast({
-          title: "Nenhuma refeição identificada",
-          description: "Não encontramos refeições estruturadas neste PDF. Tente um arquivo mais legível ou preencha manualmente.",
-          variant: "destructive",
-        });
-        return;
-      }
-      setDietaExtraida(dieta);
-      setNovoModeloTitulo(dieta.titulo_dieta || "Dieta importada de PDF");
-    },
-    onError: (error: Error) =>
-      toast({ title: "Erro ao importar PDF", description: error.message, variant: "destructive" }),
-  });
-
-  const confirmarImportacaoPdf = useMutation({
-    mutationFn: async () => {
-      if (!organization) throw new Error("Organização não encontrada");
-      if (!dietaExtraida || dietaExtraida.refeicoes.length === 0) throw new Error("Nada para importar");
-      const titulo = novoModeloTitulo.trim() || dietaExtraida.titulo_dieta || "Dieta importada de PDF";
-
-      if (importarPdfModo === "aluno") {
-        if (!alunoPublicar) throw new Error("Selecione o aluno antes de importar.");
-        const snapshot = dietaExtraida.refeicoes.map((r, index) => ({
-          ordem: index + 1,
-          nome_refeicao: r.nome || `Refeição ${index + 1}`,
-          horario_sugerido: r.horario || null,
-          itens: r.itens.map((i) => `${i.alimento} — ${i.quantidade}`).join("\n") || null,
-          itens_estruturados: r.itens,
-          calorias_kcal: null,
-          proteinas_g: null,
-          carboidratos_g: null,
-          gorduras_g: null,
-        }));
-        const { error } = await supabase.from("dietas").insert({
-          organization_id: organization.id,
-          aluno_id: alunoPublicar,
-          titulo,
-          snapshot_conteudo: snapshot as unknown as Json,
-          observacoes_gerais: dietaExtraida.observacoes_gerais || null,
-        });
-        if (error) throw error;
-        return null;
-      }
-
-      const { data: modelo, error: modeloError } = await supabase
-        .from("modelos_dieta")
-        .insert({
-          organization_id: organization.id,
-          titulo,
-          observacoes: dietaExtraida.observacoes_gerais || null,
-        })
-        .select("id")
-        .single();
-      if (modeloError) throw modeloError;
-      const { error: refeicoesError } = await supabase.from("modelo_dieta_refeicoes").insert(
-        dietaExtraida.refeicoes.map((r, index) => ({
-          modelo_id: modelo.id,
-          ordem: index + 1,
-          nome_refeicao: r.nome || `Refeição ${index + 1}`,
-          horario_sugerido: r.horario || null,
-          itens: r.itens.map((i) => `${i.alimento} — ${i.quantidade}`).join("\n") || null,
-          itens_estruturados: r.itens as unknown as Json,
-        }))
-      );
-      if (refeicoesError) throw refeicoesError;
-      return modelo.id;
-    },
-    onSuccess: (id) => {
-      setNovoModeloTitulo("");
-      setDietaExtraida(null);
-      // Importada de verdade: o rascunho perdeu a razão de existir e não
-      // pode ficar oferecendo restaurar o que já virou dieta.
-      descartarRascunhoPdf();
-      setImportarPdfAberto(false);
-      if (importarPdfModo === "aluno") {
-        toast({ title: "Dieta publicada!", description: "O PDF foi importado e já está disponível para o aluno." });
-        void queryClient.invalidateQueries({ queryKey: ["dietas-historico", alunoPublicar] });
-        navigate("/admin");
-        return;
-      }
-      toast({ title: "Modelo importado!", description: "Revise as refeições e ajuste o que for preciso antes de publicar." });
-      setModeloSelecionado(id);
-      void queryClient.invalidateQueries({ queryKey: ["modelos-dieta", organization?.id] });
-    },
-    onError: (error: Error) =>
-      toast({
-        title: importarPdfModo === "aluno" ? "Erro ao publicar dieta" : "Erro ao salvar modelo importado",
-        description: error.message,
-        variant: "destructive",
-      }),
-  });
 
   const removerRefeicao = useMutation({
     mutationFn: async (id: string) => {
@@ -518,17 +333,6 @@ export default function AdminDietas() {
               <Button disabled={!novoModeloTitulo.trim() || criarModelo.isPending} onClick={() => criarModelo.mutate()}>
                 <Plus className="h-4 w-4 mr-1" /> Criar
               </Button>
-              {PARSER_DIETA_PDF_HABILITADO && (
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    setImportarPdfModo("modelo");
-                    setImportarPdfAberto(true);
-                  }}
-                >
-                  <FileUp className="h-4 w-4 mr-1" /> Importar de PDF
-                </Button>
-              )}
             </CardContent>
           </Card>
 
@@ -714,25 +518,6 @@ export default function AdminDietas() {
                 </div>
               </div>
 
-              {PARSER_DIETA_PDF_HABILITADO && (
-                <div className="pt-1">
-                  <p className="text-xs text-muted-foreground mb-1.5">
-                    Ou pule o modelo e publique um PDF direto para este aluno:
-                  </p>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    disabled={!alunoPublicar}
-                    onClick={() => {
-                      setImportarPdfModo("aluno");
-                      setImportarPdfAberto(true);
-                    }}
-                  >
-                    <FileUp className="h-4 w-4 mr-1" /> Importar de PDF para este aluno
-                  </Button>
-                </div>
-              )}
 
               {modeloCarregadoId && (
                 <div className="space-y-1.5 pt-1 border-t border-border">
@@ -799,7 +584,7 @@ export default function AdminDietas() {
                               {STATUS_DIETA_LABEL[h.status ?? ""] ?? h.status}
                             </Badge>
                           </TableCell>
-                          <TableCell>{new Date(h.created_at).toLocaleDateString("pt-BR")}</TableCell>
+                          <TableCell>{formatarDataBR(h.created_at)}</TableCell>
                           <TableCell className="font-mono text-xs text-muted-foreground">
                             {h.versao_id.slice(0, 8)}
                           </TableCell>
@@ -848,7 +633,7 @@ export default function AdminDietas() {
               {ultimaFichaAtiva ? (
                 <p className="text-sm">
                   {ultimaFichaAtiva.titulo} — publicada em{" "}
-                  {new Date(ultimaFichaAtiva.created_at).toLocaleDateString("pt-BR")}
+                  {formatarDataBR(ultimaFichaAtiva.created_at)}
                 </p>
               ) : (
                 <p className="text-sm text-muted-foreground">Nenhuma dieta ativa publicada.</p>
@@ -858,146 +643,6 @@ export default function AdminDietas() {
         </SheetContent>
       </Sheet>
 
-      <Dialog
-        open={importarPdfAberto}
-        onOpenChange={(open) => {
-          setImportarPdfAberto(open);
-          // Antes, fechar o diálogo descartava a extração inteira sem
-          // perguntar. Ela agora fica no rascunho da sessão, e reabrir
-          // oferece retomar.
-          if (!open) setDietaExtraida(null);
-        }}
-      >
-        <DialogContent
-          className="max-w-lg"
-          onPointerDownOutside={(e) => e.preventDefault()}
-          onInteractOutside={(e) => e.preventDefault()}
-        >
-          <DialogHeader>
-            <DialogTitle>
-              {importarPdfModo === "aluno" ? "Importar PDF direto para o aluno" : "Importar dieta de PDF"}
-            </DialogTitle>
-          </DialogHeader>
-
-          {!dietaExtraida && pdfSalvo?.dados?.dietaExtraida && (
-            // Retomar custa um clique; refazer custa outra extração paga e
-            // outra revisão item a item.
-            <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-amber-500/40 bg-amber-500/5 p-3">
-              <p className="text-xs">
-                Há uma extração não finalizada desta sessão ({descreverQuandoSalvou(pdfSalvo.salvoEm)}):{" "}
-                <span className="font-medium">
-                  {pdfSalvo.dados.dietaExtraida.refeicoes?.length ?? 0} refeição(ões)
-                </span>
-                .
-              </p>
-              <div className="flex gap-2">
-                <Button size="sm" variant="outline" onClick={restaurarPdf}>
-                  Retomar
-                </Button>
-                <Button size="sm" variant="ghost" onClick={descartarRascunhoPdf}>
-                  Descartar
-                </Button>
-              </div>
-            </div>
-          )}
-
-          {!dietaExtraida ? (
-            <div className="space-y-3">
-              <p className="text-sm text-muted-foreground">
-                {importarPdfModo === "aluno"
-                  ? "Envie um PDF com um plano alimentar — ele será publicado direto no prontuário do aluno selecionado, sem passar pela Biblioteca de Modelos."
-                  : "Envie um PDF com um plano alimentar (de outro sistema ou digitado livremente). A extração é automática (Google Gemini) — revise sempre as refeições antes de publicar para um aluno."}
-              </p>
-              <Input
-                type="file"
-                accept="application/pdf,.pdf"
-                disabled={importarDietaPdf.isPending}
-                onChange={(e) => {
-                  const input = e.target;
-                  const file = input.files?.[0];
-                  if (!file) return;
-                  // Só zera o input depois que a leitura terminar: em alguns
-                  // navegadores Android, limpar o value com o arquivo ainda
-                  // sendo lido invalida a referência e a leitura falha.
-                  importarDietaPdf.mutate(file, {
-                    onSettled: () => {
-                      input.value = "";
-                    },
-                  });
-                }}
-              />
-              {importarDietaPdf.isPending && (
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Loader2 className="h-4 w-4 animate-spin" /> A extrair e estruturar dieta com IA...
-                </div>
-              )}
-            </div>
-          ) : (
-            <div className="space-y-3">
-              <div className="space-y-1.5">
-                <Label>{importarPdfModo === "aluno" ? "Título da dieta" : "Título do modelo"}</Label>
-                <Input
-                  placeholder="Ex.: Plano importado — Fase 1"
-                  value={novoModeloTitulo}
-                  onChange={(e) => setNovoModeloTitulo(e.target.value)}
-                />
-              </div>
-              {dietaExtraida.observacoes_gerais && (
-                <div className="space-y-1">
-                  <Label className="text-xs text-muted-foreground">Observações gerais</Label>
-                  <p className="text-sm whitespace-pre-line rounded-md border border-border p-2 bg-muted/30">
-                    {dietaExtraida.observacoes_gerais}
-                  </p>
-                </div>
-              )}
-              <p className="text-xs text-muted-foreground">
-                {dietaExtraida.refeicoes.length} refeiç{dietaExtraida.refeicoes.length === 1 ? "ão encontrada" : "ões encontradas"}.{" "}
-                {importarPdfModo === "aluno"
-                  ? "Revise antes de publicar — a dieta publicada é uma versão travada (snapshot), não editável depois."
-                  : "Revise antes de salvar — você poderá editar cada refeição depois na Biblioteca."}
-              </p>
-              <div className="max-h-72 overflow-y-auto rounded-md border border-border divide-y divide-border">
-                {dietaExtraida.refeicoes.map((r, i) => (
-                  <div key={i} className="p-2.5 text-sm">
-                    <div className="flex items-center justify-between">
-                      <p className="font-medium">{r.nome}</p>
-                      {r.horario && <span className="text-xs text-muted-foreground">{r.horario}</span>}
-                    </div>
-                    <ul className="mt-1 space-y-1">
-                      {r.itens.map((item, j) => (
-                        <li key={j} className="text-xs text-muted-foreground">
-                          {item.alimento} — {item.quantidade}
-                          {item.substituicoes.length > 0 && (
-                            <span className="italic"> (substituições: {item.substituicoes.join(", ")})</span>
-                          )}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          <DialogFooter>
-            {dietaExtraida && (
-              <Button variant="outline" onClick={() => setDietaExtraida(null)}>
-                Voltar
-              </Button>
-            )}
-            <Button
-              disabled={!dietaExtraida || confirmarImportacaoPdf.isPending}
-              onClick={() => confirmarImportacaoPdf.mutate()}
-            >
-              {confirmarImportacaoPdf.isPending
-                ? "Salvando..."
-                : importarPdfModo === "aluno"
-                  ? "Publicar para o aluno"
-                  : "Salvar modelo"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

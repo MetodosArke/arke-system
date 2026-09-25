@@ -5,7 +5,8 @@ import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { LogOut, Shield, LayoutDashboard, UserCog, Settings, Dumbbell, ScrollText, Webhook, MessageCircle, Cpu, Radar } from "lucide-react";
+import { LogOut, Shield, LayoutDashboard, UserCog, Settings, Dumbbell, ScrollText, Webhook, MessageCircle, Cpu, Radar, CircleHelp } from "lucide-react";
+import { BotaoAjuda } from "@/components/ajuda/BotaoAjuda";
 
 const NAV_ITEMS = [
   { icon: LayoutDashboard, label: "Visão Geral", path: "/superadmin" },
@@ -17,6 +18,7 @@ const NAV_ITEMS = [
   { icon: Webhook, label: "Webhooks", path: "/superadmin/webhooks" },
   { icon: Radar, label: "Vigia", path: "/superadmin/vigia" },
   { icon: Settings, label: "Configurações", path: "/superadmin/configuracoes" },
+  { icon: CircleHelp, label: "Ajuda", path: "/superadmin/ajuda" },
 ];
 
 export function SuperAdminLayout() {
@@ -27,7 +29,7 @@ export function SuperAdminLayout() {
   return (
     <div className="min-h-screen bg-background">
       <AvisoRotinas />
-      <header className="border-b border-border bg-card">
+      <header className="border-b border-border bg-card no-print">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-2 px-4 py-3">
           <div className="flex items-center gap-2">
             <Shield className="h-5 w-5 text-primary" />
@@ -39,20 +41,21 @@ export function SuperAdminLayout() {
             </span>
           </div>
           <div className="flex items-center gap-2">
+            <BotaoAjuda className="h-8 w-8" />
             <Button variant="ghost" size="icon" className="h-8 w-8" onClick={signOut} title="Sair">
               <LogOut className="h-4 w-4" />
             </Button>
           </div>
         </div>
-        <nav className="mx-auto flex max-w-6xl gap-1 px-4">
+        <nav className="mx-auto flex max-w-6xl gap-1 overflow-x-auto no-scrollbar px-4">
           {NAV_ITEMS.map((item) => {
-            const isActive = location.pathname === item.path;
+            const isActive = location.pathname === item.path || (item.path === "/superadmin/ajuda" && location.pathname.startsWith("/superadmin/ajuda/"));
             return (
               <button
                 key={item.path}
                 onClick={() => navigate(item.path)}
                 className={cn(
-                  "flex items-center gap-2 border-b-2 px-3 py-2 text-sm font-medium transition-colors",
+                  "flex shrink-0 items-center gap-2 border-b-2 px-3 py-2 text-sm font-medium transition-colors",
                   isActive
                     ? "border-primary text-primary"
                     : "border-transparent text-muted-foreground hover:text-foreground"

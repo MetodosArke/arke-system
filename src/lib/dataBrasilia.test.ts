@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { dataBrasilia, hojeBrasilia, diaBrasilia } from "./dataBrasilia";
+import { dataBrasilia, hojeBrasilia, diaBrasilia, formatarDataBR } from "./dataBrasilia";
 
 describe("data de Brasília", () => {
   it("devolve o dia de Brasília, não o de UTC, na janela da noite", () => {
@@ -46,5 +46,24 @@ describe("data de Brasília", () => {
     // academia: é isso que mantém a tela de acordo com o banco.
     const instante = new Date("2026-09-23T02:25:00Z");
     expect(dataBrasilia(instante)).toBe("2026-09-22");
+  });
+});
+
+describe("formatarDataBR", () => {
+  it("data pura mostra o dia que está escrito, em qualquer fuso", () => {
+    expect(formatarDataBR("2026-07-01")).toBe("01/07/2026");
+    expect(formatarDataBR("2026-12-31")).toBe("31/12/2026");
+  });
+
+  it("data com hora mostra o dia em Brasília", () => {
+    // 01h UTC do dia 23 ainda é 22h do dia 22 em Brasília.
+    expect(formatarDataBR("2026-09-23T01:00:00Z")).toBe("22/09/2026");
+    expect(formatarDataBR(new Date("2026-09-23T15:00:00Z"))).toBe("23/09/2026");
+  });
+
+  it("aceita outro formato e não quebra com vazio ou lixo", () => {
+    expect(formatarDataBR("2026-07-01", { day: "2-digit", month: "2-digit" })).toBe("01/07");
+    expect(formatarDataBR(null)).toBe("—");
+    expect(formatarDataBR("não é data")).toBe("—");
   });
 });

@@ -14,9 +14,10 @@ import { TermoImpressoBiometria } from "@/components/catraca/TermoImpressoBiomet
 import { VERSAO_CONSENTIMENTO_BIOMETRIA } from "@/lib/termoBiometria";
 import { useAuth } from "@/contexts/AuthContext";
 import { SITUACAO_GATEWAY, equipamentosDeGestao, situacaoGateway, type TipoComando } from "@/lib/gateway";
+import { formatarDataBR } from "@/lib/dataBrasilia";
 
 const formatarData = (valor: string) =>
-  new Date(valor).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" });
+  formatarDataBR(valor, { day: "2-digit", month: "2-digit", year: "numeric" });
 
 type Telemetria = { capacidades: string[] | null; equipamentos: unknown; reportado_em: string | null; estado: string | null };
 const umaTelemetria = (t: Telemetria | Telemetria[] | null | undefined): Telemetria | null =>

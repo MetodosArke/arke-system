@@ -165,6 +165,11 @@
   scrollbar-width: none;
 }
 
+/* Só existe na impressão (o artigo da Central de Ajuda, por exemplo). */
+.print-only {
+  display: none;
+}
+
 /* Print styles */
 @media print {
   .no-print {
@@ -196,13 +201,40 @@
   }
 
   /* Impressora térmica (bobina de recibo, 80mm) — usada quando a área
-     imprimível também carrega .print-area--termica. */
+     imprimível também carrega .print-area--termica. A página nomeada deixa o
+     tamanho de bobina só para ela: um `@page` sem nome imprimiria o recibo e
+     o manual técnico em 80mm também. */
   .print-area--termica {
     width: 80mm;
     font-family: "Courier New", monospace;
+    page: termica;
   }
-  @page {
+  @page termica {
     size: 80mm auto;
     margin: 3mm;
+  }
+  @page {
+    margin: 14mm;
+  }
+
+  /* Documento em folha (artigo da Central de Ajuda, guia do aluno). */
+  .print-area--documento {
+    font-size: 11pt;
+    line-height: 1.45;
+  }
+  .print-area--documento img {
+    max-height: 120mm;
+    width: auto;
+    max-width: 100%;
+  }
+  .print-area--documento figure,
+  .print-area--documento aside,
+  .print-area--documento h2,
+  .print-area--documento h3 {
+    break-inside: avoid;
+  }
+  .print-area--documento h2,
+  .print-area--documento h3 {
+    break-after: avoid;
   }
 }

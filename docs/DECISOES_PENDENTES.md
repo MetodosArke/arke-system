@@ -12,6 +12,12 @@ Só o que continua em aberto. As decisões já tomadas e aplicadas saíram desta
 - **Nota fiscal da própria ArkeFit** (mensalidade das academias, taxa de implantação e repasse) configurada na conta Asaas da ArkeFit, com o contador.
 - **Ensaio de restauração do backup**, logo depois do Supabase Pro (`docs/RESTAURACAO_BACKUP.md`).
 
+## Achados da Central de Ajuda (25/09/2026)
+
+- **Recepção cadastrar aluno.** Hoje cadastrar, importar e o convite de primeiro acesso são só do gestor, na tela e na função (`convidar-membro`). No balcão, quem matricula costuma ser a recepção. Recomendação: liberar para a recepção o cadastro e o convite de **aluno** (não o de equipe nem a importação em massa).
+- **Importação de dieta por PDF.** Removida porque mandava o PDF ao Google, fora do Brasil. Para voltar: processar no Amazon Bedrock em São Paulo, como o Sentinela, e acrescentar a finalidade na Política (nova versão e novo aceite). Até lá, a nutricionista digita a dieta.
+- **Secret `GEMINI_API_KEY`.** Nenhum código lê mais. Fica ou sai, a critério do responsável (o `OPENAI_API_KEY` ficou por decisão dele).
+
 ## Nota fiscal automática da academia (24/09/2026)
 
 Implementada, com a Política de Privacidade e o Contrato da Academia `2026-09-24` aprovados como estavam. O que ficou:

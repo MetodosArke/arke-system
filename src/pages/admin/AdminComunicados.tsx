@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Megaphone, Trash2 } from "lucide-react";
+import { formatarDataBR } from "@/lib/dataBrasilia";
 
 const PUBLICO: Record<string, string> = { alunos: "Alunos", equipe: "Equipe", todos: "Todos" };
 
@@ -137,7 +138,7 @@ export default function AdminComunicados() {
               </div>
               <p className="text-sm text-muted-foreground whitespace-pre-line">{c.mensagem}</p>
               <p className="text-[11px] text-muted-foreground">
-                {new Date(c.criado_em).toLocaleDateString("pt-BR")} · lido por {(c.comunicados_lidos as unknown as { count: number }[])?.[0]?.count ?? 0}
+                {formatarDataBR(c.criado_em)} · lido por {(c.comunicados_lidos as unknown as { count: number }[])?.[0]?.count ?? 0}
                 {c.expira_em ? ` · até ${new Date(`${c.expira_em}T12:00:00`).toLocaleDateString("pt-BR")}` : ""}
               </p>
             </CardContent>

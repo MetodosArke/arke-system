@@ -1,7 +1,8 @@
 import type { ComponentType, ReactNode } from "react";
+import { formatarDataBR } from "@/lib/dataBrasilia";
 
 export function formatarData(iso: string | null | undefined) {
-  return iso ? new Date(iso).toLocaleDateString("pt-BR") : "—";
+  return iso ? formatarDataBR(iso) : "—";
 }
 
 // Bloco de seção padrão dos painéis de perfil (aluno, funcionário, ...) —

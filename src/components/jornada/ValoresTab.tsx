@@ -1,4 +1,4 @@
-import { dataBrasilia } from "@/lib/dataBrasilia";
+import { dataBrasilia, formatarDataBR } from "@/lib/dataBrasilia";
 import { useEffect, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -217,7 +217,7 @@ export default function ValoresTab() {
         </div>
         {atual.validade && (
           <p className="text-xs text-muted-foreground">
-            Válidos até {new Date(atual.validade).toLocaleDateString("pt-BR")} — você poderá revisar nessa data.
+            Válidos até {formatarDataBR(atual.validade)} — você poderá revisar nessa data.
           </p>
         )}
       </CardContent>

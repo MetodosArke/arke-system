@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ROTULO_SITUACAO, SITUACOES, type SituacaoAcademia } from "@/lib/planoAluno";
@@ -51,11 +52,12 @@ export function SituacaoAluno({
   const [motivoEscolhido, setMotivoEscolhido] = useState("");
   const [motivoLivre, setMotivoLivre] = useState("");
   const [dataRetorno, setDataRetorno] = useState("");
+  const [pausarPlano, setPausarPlano] = useState(true);
   const podeAlterar =
     hasRole("admin_arke") || hasRole("superadmin") || organizationRole === "gestor" || organizationRole === "recepcao";
 
   const alterar = useMutation({
-    mutationFn: async (dados: { nova: SituacaoAcademia; motivo: string | null; retorno: string | null }) => {
+    mutationFn: async (dados: { nova: SituacaoAcademia; motivo: string | null; retorno: string | null; pausarPlano?: boolean }) => {
       const { error } = await supabase
         .from("alunos")
         .update({
@@ -77,20 +79,30 @@ export function SituacaoAluno({
       // cobrado por um mês que não usou.
       const acao = dados.nova === "pausado" ? "pausar" : situacao === "pausado" && dados.nova === "em_dia" ? "retomar" : null;
       if (acao) {
-        const { data, error: erroCobranca } = await supabase.functions.invoke("asaas-assinatura-ciclo", {
-          body: { aluno_id: alunoId, acao },
-        });
-        if (erroCobranca) {
-          const mensagem = await mensagemDeErroEdge(erroCobranca, "Não foi possível alterar a cobrança no gateway.");
-          // Aluno sem assinatura é o caso comum (plano Free): não é falha.
-          if (!/não tem assinatura/i.test(mensagem)) {
-            return { nova: dados.nova, avisoCobranca: mensagem };
+        // As duas cobranças recorrentes: a do Método e a mensalidade do plano
+        // da academia. O plano só pausa se a equipe deixou marcado — há
+        // academia que cobra durante o trancamento. Voltar a "em dia" retoma o
+        // que estiver pausado.
+        const tipos: ("metodo" | "plano")[] = acao === "pausar" && !dados.pausarPlano ? ["metodo"] : ["metodo", "plano"];
+        const avisos: string[] = [];
+        let vencidas = 0;
+        for (const tipo of tipos) {
+          const { data, error: erroCobranca } = await supabase.functions.invoke("asaas-assinatura-ciclo", {
+            body: { aluno_id: alunoId, acao, tipo },
+          });
+          if (erroCobranca) {
+            const mensagem = await mensagemDeErroEdge(erroCobranca, "Não foi possível alterar a cobrança no gateway.");
+            // Aluno sem assinatura ou sem plano é o caso comum, e retomar o
+            // que não foi pausado não é falha.
+            if (!/não tem (assinatura|matrícula|cobrança no gateway)|não está pausada/i.test(mensagem)) avisos.push(mensagem);
           }
+          vencidas += Number(data?.cobrancas_vencidas_mantidas ?? 0);
         }
-        if (data?.cobrancas_vencidas_mantidas) {
+        if (avisos.length) return { nova: dados.nova, avisoCobranca: avisos.join(" ") };
+        if (vencidas) {
           return {
             nova: dados.nova,
-            avisoCobranca: `A cobrança foi pausada, mas ${data.cobrancas_vencidas_mantidas} cobrança(s) já vencida(s) continuam valendo — são de período já usado.`,
+            avisoCobranca: `A cobrança foi pausada, mas ${vencidas} cobrança(s) já vencida(s) continuam valendo — são de período já usado.`,
           };
         }
       }
@@ -124,6 +136,7 @@ export function SituacaoAluno({
     setMotivoEscolhido("");
     setMotivoLivre("");
     setDataRetorno("");
+    setPausarPlano(true);
     setPedindo(nova);
   };
 
@@ -190,6 +203,15 @@ export function SituacaoAluno({
                 </Label>
                 <Input id="retorno-pausa" type="date" value={dataRetorno} onChange={(e) => setDataRetorno(e.target.value)} />
               </div>
+              <div className="flex items-start gap-2">
+                <Checkbox id="pausar-plano" checked={pausarPlano} onCheckedChange={(v) => setPausarPlano(v === true)} />
+                <div className="space-y-0.5">
+                  <Label htmlFor="pausar-plano" className="text-sm font-normal">
+                    Pausar também a mensalidade do plano da academia
+                  </Label>
+                  <p className="text-xs text-muted-foreground">Desmarque se a academia cobra durante o trancamento.</p>
+                </div>
+              </div>
             </div>
           ) : (
             <div className="space-y-1">
@@ -216,6 +238,7 @@ export function SituacaoAluno({
                   nova: pedindo,
                   motivo: pedindo === "pausado" ? motivoFinal : motivoLivre.trim() || null,
                   retorno: pedindo === "pausado" && dataRetorno ? dataRetorno : null,
+                  pausarPlano,
                 })
               }
             >

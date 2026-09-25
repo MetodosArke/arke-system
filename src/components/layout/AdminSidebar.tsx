@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Home, Users, UsersRound, Building2, LogOut, ChevronLeft, Menu, ClipboardList, UserCircle, BarChart3, DoorOpen, CalendarDays, Dumbbell, UtensilsCrossed, Sparkles, DollarSign, Plug, MessageCircle, Megaphone, QrCode, Filter, CalendarCheck, HeartHandshake } from "lucide-react";
+import { Home, Users, UsersRound, Building2, LogOut, ChevronLeft, Menu, ClipboardList, UserCircle, BarChart3, DoorOpen, CalendarDays, Dumbbell, UtensilsCrossed, Sparkles, DollarSign, Plug, MessageCircle, Megaphone, QrCode, Filter, CalendarCheck, HeartHandshake, CircleHelp } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
@@ -219,6 +219,19 @@ function SidebarNav({
       </nav>
 
       <div className="border-t border-border p-2 space-y-1">
+        <button
+          onClick={() => handleNav("/admin/ajuda")}
+          title={collapsed ? "Ajuda" : undefined}
+          className={cn(
+            "flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
+            location.pathname.startsWith("/admin/ajuda")
+              ? "bg-primary text-primary-foreground"
+              : "text-muted-foreground hover:bg-muted hover:text-foreground"
+          )}
+        >
+          <CircleHelp className="h-5 w-5 shrink-0" />
+          {!collapsed && <span>Ajuda</span>}
+        </button>
         <button
           onClick={signOut}
           className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors"

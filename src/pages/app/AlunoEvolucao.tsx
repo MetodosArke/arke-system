@@ -11,6 +11,7 @@ import { calcularStatusMetas, type StatusMeta } from "@/lib/evolucaoPontos";
 import PontuacaoEngajamento from "@/components/aluno/PontuacaoEngajamento";
 import type { Tables } from "@/integrations/supabase/types";
 import { decimal } from "@/lib/numeros";
+import { formatarDataBR } from "@/lib/dataBrasilia";
 
 type Avaliacao = Tables<"avaliacoes_fisicas">;
 type MetricaCustomizada = Tables<"metricas_customizadas">;
@@ -115,7 +116,7 @@ export default function AlunoEvolucao() {
         .reverse()
         .filter((a) => a[chartMetric] != null)
         .map((a) => ({
-          data: new Date(a.data_avaliacao).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" }),
+          data: formatarDataBR(a.data_avaliacao, { day: "2-digit", month: "2-digit" }),
           valor: Number(a[chartMetric]),
         })),
     [avaliacoes, chartMetric]
@@ -238,7 +239,7 @@ export default function AlunoEvolucao() {
                 <Card key={av.id}>
                   <CardContent className="p-4 space-y-2">
                     <div className="flex items-center justify-between">
-                      <span className="font-semibold text-sm">{new Date(av.data_avaliacao).toLocaleDateString("pt-BR")}</span>
+                      <span className="font-semibold text-sm">{formatarDataBR(av.data_avaliacao)}</span>
                       {av.pontos > 0 && (
                         <Badge variant="secondary" className="gap-1">
                           <Trophy className="h-3 w-3" /> {av.pontos} pts
@@ -271,7 +272,7 @@ export default function AlunoEvolucao() {
                     )}
                     {av.data_proxima_avaliacao && (
                       <p className="text-xs text-primary flex items-center gap-1">
-                        <CalendarClock className="h-3.5 w-3.5" /> Próxima avaliação: {new Date(av.data_proxima_avaliacao).toLocaleDateString("pt-BR")}
+                        <CalendarClock className="h-3.5 w-3.5" /> Próxima avaliação: {formatarDataBR(av.data_proxima_avaliacao)}
                       </p>
                     )}
                     {av.observacoes && <p className="text-xs text-muted-foreground italic">{av.observacoes}</p>}

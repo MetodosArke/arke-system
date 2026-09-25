@@ -72,6 +72,7 @@ import { FunilConversaoCard } from "@/components/superadmin/FunilConversaoCard";
 import { AdocaoMetodologiaCard } from "@/components/superadmin/AdocaoMetodologiaCard";
 import { OperacaoGlobalCard } from "@/components/superadmin/OperacaoGlobalCard";
 import { decimal } from "@/lib/numeros";
+import { formatarDataBR } from "@/lib/dataBrasilia";
 
 type CategoriaSimulacao = "aluno" | "academia" | "studio" | "personal" | "nutricionista";
 
@@ -124,7 +125,7 @@ const formatarMoeda = (valor: number) =>
 
 const formatarData = (valor: string | null) =>
   valor
-    ? new Date(valor).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" })
+    ? formatarDataBR(valor, { day: "2-digit", month: "2-digit", year: "numeric" })
     : "Sem atividade";
 
 const STATUS_LABEL: Record<Enums<"org_status">, string> = {
