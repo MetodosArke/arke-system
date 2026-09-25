@@ -25,7 +25,7 @@ Os upgrades pagos (Supabase, Vercel e Resend) vêm antes do primeiro cliente pag
 
 - **Organização:** MetodosArke.
 - **Projeto em uso:** *ArkeFit PROD BR*, código `lzyxqjibkfblrrjboylp`, região `sa-east-1` (São Paulo). Endereço: `https://lzyxqjibkfblrrjboylp.supabase.co`.
-- **Projeto antigo:** `jbkrxrfdrmrkyldrrdpq`, nos EUA (`us-west-2`), pausado desde a migração para São Paulo. Tudo o que importava passou para o novo, conforme [MIGRACAO_SUPABASE.md](MIGRACAO_SUPABASE.md), e ele pode ser excluído.
+- **Projeto antigo:** `jbkrxrfdrmrkyldrrdpq`, nos EUA (`us-west-2`), excluído em 25/09/2026. Tudo o que importava tinha passado para o novo, conforme [MIGRACAO_SUPABASE.md](MIGRACAO_SUPABASE.md).
 - **Banco:** o esquema inteiro está em `supabase/migrations/`.
 - **Login (Auth):**
   - endereço do app: `https://app.arkefit.com.br`;
@@ -106,8 +106,7 @@ Ficam em Supabase → Project Settings → Edge Functions → Secrets. O Supabas
 | `arkefit.com.br` | MX | `inbound-smtp.sa-east-1.amazonaws.com` | E-mail recebido pelo Resend |
 | `resend._domainkey` | TXT | Chave DKIM do Resend | Assinatura dos e-mails enviados |
 | `send` | MX e TXT (SPF) | Servidores do Resend | Retorno e autorização dos e-mails enviados |
-
-Não existe registro DMARC (`_dmarc`). Criar um com `v=DMARC1; p=none` melhora a entrega dos e-mails e não quebra nada.
+| `_dmarc` | TXT | `v=DMARC1; p=none` | Política de autenticação dos e-mails; melhora a entrega |
 
 **`metodosarke.com.br`** tem o DNS na Vercel (`ns1.vercel-dns.com` e `ns2.vercel-dns.com`) e o e-mail na Hostinger (`mx1.hostinger.com` e `mx2.hostinger.com`). É o domínio do e-mail comercial.
 
