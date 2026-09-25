@@ -82,14 +82,16 @@ export function appInstaladoNaTela(): boolean {
   }
 }
 
-/** Números de mercado da página, cada um com a fonte (item 11 da rodada). */
+/**
+ * Números de mercado da página, cada um com a fonte (item 11 da rodada). Só
+ * entra número que se confere numa página aberta: em 25/09/2026 saiu o estudo
+ * de 2016 (uma academia do Rio), e as alternativas sugeridas para ele não
+ * tinham fonte que se sustentasse. Ficou o Panorama 2026, conferido na página
+ * da própria Fitness Brasil.
+ */
 export const FONTES = {
   panorama: {
     titulo: "Panorama Setorial Fitness Brasil, 5ª edição (2026), dados da ABC EVO",
     url: "https://www.fitnessbrasil.com.br/newsfitbr/tamanho-do-mercado-fitness-brasileiro-os-numeros-que-a-5a-edicao-do-panorama-setorial-revela-sobre-profissionais-centros-e-negocios/",
-  },
-  sperandei: {
-    titulo: "Sperandei, Vieira e Reis (2016), 5.240 alunos de uma academia do Rio de Janeiro, 2005 a 2014",
-    url: "https://researchers.westernsydney.edu.au/en/publications/adherence-to-physical-activity-in-an-unsupervised-setting-explana/",
   },
 } as const;
