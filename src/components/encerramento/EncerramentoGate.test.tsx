@@ -119,14 +119,15 @@ describe("EncerramentoAcademia (Organização → Dados e encerramento)", () => 
     expect(screen.queryByRole("button", { name: /Retirar o aviso/ })).not.toBeInTheDocument();
   });
 
-  it("não aparece para quem não é da gestão, nem em homologação", async () => {
+  it("não aparece para quem não é da gestão; em homologação, só a exportação", async () => {
     papel = "recepcao";
     const { container, unmount } = montar(<EncerramentoAcademia />);
     expect(container).toBeEmptyDOMElement();
     unmount();
     papel = "gestor";
     status = "trial";
-    const r = montar(<EncerramentoAcademia />);
-    expect(r.container).toBeEmptyDOMElement();
+    montar(<EncerramentoAcademia />);
+    expect(await screen.findByRole("button", { name: /Exportar todos os dados/ })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Encerrar o contrato/ })).not.toBeInTheDocument();
   });
 });
