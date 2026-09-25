@@ -75,3 +75,13 @@ test("matrícula pública da academia de homologação mostra o formulário", as
   await expect(page.getByLabel(/senha/i).first()).toBeVisible();
   await semErros();
 });
+
+test("a raiz mostra a página de vendas para quem chega de fora", async ({ page }) => {
+  const semErros = vigiarErros(page);
+  await page.goto("/");
+  await expect(page.getByRole("heading", { level: 1 })).toContainText("O aluno não some de uma vez");
+  await expect(page.getByRole("button", { name: /Quero uma demonstração/ })).toBeVisible();
+  await page.getByRole("link", { name: "Entrar" }).first().click();
+  await expect(page).toHaveURL(/#\/auth\/login/);
+  await semErros();
+});
