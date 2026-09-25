@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -27,7 +27,7 @@ export function TaxaImplantacaoOrganizacao({ organizationId }: { organizationId:
   const [parcelas, setParcelas] = useState("1");
   const [vencimento, setVencimento] = useState(() => hojeBrasilia());
 
-  const { data } = useQuery({
+  const { data, isLoading, isError } = useQuery({
     queryKey: ["taxa-implantacao", organizationId],
     queryFn: async () => {
       const [taxa, cobrancas, referencia] = await Promise.all([
@@ -42,13 +42,19 @@ export function TaxaImplantacaoOrganizacao({ organizationId }: { organizationId:
         supabase.from("plataforma_config").select("valor").eq("chave", "taxa_implantacao_referencia").maybeSingle(),
       ]);
       if (taxa.error) throw taxa.error;
+      if (cobrancas.error) throw cobrancas.error;
       return { taxa: taxa.data, parcelas: cobrancas.data ?? [], referencia: referencia.data?.valor ?? null };
     },
   });
 
+  // Preenche o valor de referência uma vez: quem apaga o campo para digitar
+  // outro valor não o vê voltar sozinho.
+  const preenchido = useRef(false);
   useEffect(() => {
-    if (data?.referencia != null && valor === "") setValor(String(data.referencia).replace(".", ","));
-  }, [data?.referencia, valor]);
+    if (preenchido.current || data === undefined) return;
+    preenchido.current = true;
+    if (data.referencia != null) setValor(String(data.referencia).replace(".", ","));
+  }, [data]);
 
   const total = lerReais(valor);
   const n = Number(parcelas);
@@ -67,6 +73,11 @@ export function TaxaImplantacaoOrganizacao({ organizationId }: { organizationId:
     },
     onError: (e: Error) => toast({ title: "Não foi possível emitir", description: e.message, variant: "destructive" }),
   });
+
+  // Sem os dados, o formulário não aparece: com a taxa já emitida, ele
+  // ofereceria emitir de novo até a consulta responder.
+  if (isLoading) return <p className="text-sm text-muted-foreground">Carregando…</p>;
+  if (isError) return <p className="text-sm text-destructive">Não foi possível carregar a taxa de implantação.</p>;
 
   if (data?.taxa) {
     return (

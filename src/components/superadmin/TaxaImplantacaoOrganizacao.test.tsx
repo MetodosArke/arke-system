@@ -61,6 +61,15 @@ describe("TaxaImplantacaoOrganizacao", () => {
     expect(screen.getByText(/pelo menos R\$ 5,00/)).toBeInTheDocument();
   });
 
+  it("apagar o valor para digitar outro não traz a referência de volta", async () => {
+    montar();
+    const campo = await screen.findByLabelText("Valor (R$)");
+    await waitFor(() => expect(campo).toHaveValue("1490"));
+    fireEvent.change(campo, { target: { value: "" } });
+    await new Promise((r) => setTimeout(r, 20));
+    expect(campo).toHaveValue("");
+  });
+
   it("taxa já emitida mostra as parcelas, sem oferecer emitir de novo", async () => {
     taxa = { valor_total: 1490, parcelas: 3, created_at: "2026-09-24T12:00:00Z" };
     parcelas = [
