@@ -4,17 +4,16 @@ Só o que continua em aberto. As decisões já tomadas e aplicadas saíram desta
 
 ## Com o responsável, antes do primeiro cliente pagante
 
-- **Canal de suporte.** Preencher em Visão Master → Configurações → Canal de suporte. Até lá o botão "falar com o suporte" não aparece em nenhuma etapa do onboarding, e um gestor que travar não tem para onde ligar de dentro do produto.
 - **GIFs dos exercícios.** Os 105 exercícios globais continuam sem mídia. Os GIFs vêm do banco do app original; a estrutura de envio já existe e está testada. Vídeo é recurso a mais, não linha de base — a ficha se explica com GIF.
 - **Infraestrutura paga** — Supabase Pro, Vercel Pro, Resend pago e Sentry conforme o volume — e, só depois dela, o **teste de carga**. Depois do upgrade do Supabase, trocar `limite_banco_mb` pelo disco contratado em Visão Master → Configurações.
 - **Planilha real de exportação** (EVO, Tecnofit, Next Fit ou Pacto), para conferir o reconhecimento das colunas na importação de alunos.
-- **Verificação em duas etapas.** Cada conta da ArkeFit cadastra o aplicativo autenticador na primeira entrada na Visão Master depois da Fase 0. Quem perder o celular tem o fator removido pelo banco e cadastra de novo.
+- **Verificação em duas etapas na conta comercial@metodosarke.com.br.** A do responsável já está ativa; a comercial cadastra o aplicativo autenticador na primeira entrada na Visão Master. Quem perder o celular tem o fator removido pelo banco e cadastra de novo.
 - **Nota fiscal da própria ArkeFit** (mensalidade das academias, taxa de implantação e repasse) configurada na conta Asaas da ArkeFit, com o contador.
 - **Ensaio de restauração do backup**, logo depois do Supabase Pro (`docs/RESTAURACAO_BACKUP.md`).
 
 ## Página de vendas e endereço do app (25/09/2026)
 
-- **Secret key do Turnstile** (só o responsável, na Cloudflare): o `TURNSTILE_SECRET_KEY` do Supabase guarda a site key, e por isso o captcha de matrícula pública, primeiro acesso e contato do site não está valendo. Copiar a **Secret Key** do widget (Cloudflare → Turnstile → o widget da ArkeFit) e gravar com `supabase secrets set TURNSTILE_SECRET_KEY=...`. Depois, enviar o formulário da página de vendas uma vez para conferir.
+- **Um envio de verdade pelo formulário de contato** da página de vendas, para conferir que um envio real passa pelo captcha (o falso já é recusado). Depois, apagar o contato de teste em Visão Master → Contatos do site.
 - **Preços na página de vendas.** A página não mostra preços dos planos nem da taxa de implantação; o contato leva à demonstração. Publicar os preços é decisão comercial.
 - **Contato comercial na Política de Privacidade.** O formulário avisa a finalidade na hora; a Política não menciona contatos comerciais pelo site. Recomendação: incluir na próxima revisão, com o prazo de guarda de contato que não virou cliente.
 
