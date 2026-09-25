@@ -166,7 +166,7 @@ Deno.serve(async (req: Request) => {
     // Filtra por gestor e ordena, em vez de `.maybeSingle()` sobre todos os
     // vínculos: quem é gestor de uma academia e aluno de outra tinha a
     // consulta falhando e levava 403 no próprio painel. Mesma classe de
-    // defeito já corrigida no AuthContext e no parse-dieta-pdf; o
+    // defeito já corrigida no AuthContext e na antiga importação de dieta por PDF; o
     // desempate pelo vínculo mais antigo segue a regra de escolherVinculo.
     const { data: vinculosGestor, error: callerMembershipError } = await adminClient
       .from("organization_members")

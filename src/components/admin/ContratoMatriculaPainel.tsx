@@ -10,6 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { modeloContratoMatricula } from "@/lib/parq";
 import { AlertTriangle } from "lucide-react";
+import { formatarDataBR } from "@/lib/dataBrasilia";
 
 /**
  * Contrato de matrícula da academia. Nunca é editado no lugar: publicar cria
@@ -85,7 +86,7 @@ export function ContratoMatriculaPainel() {
       <CardContent className="space-y-3">
         {data?.ativo ? (
           <p className="text-xs text-muted-foreground">
-            Versão {data.ativo.versao} em vigor desde {new Date(data.ativo.criado_em).toLocaleDateString("pt-BR")} · {data.assinaturas}{" "}
+            Versão {data.ativo.versao} em vigor desde {formatarDataBR(data.ativo.criado_em)} · {data.assinaturas}{" "}
             assinatura(s)
           </p>
         ) : (

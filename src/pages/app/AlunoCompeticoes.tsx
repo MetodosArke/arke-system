@@ -1,4 +1,4 @@
-import { hojeBrasilia } from "@/lib/dataBrasilia";
+import { hojeBrasilia, formatarDataBR } from "@/lib/dataBrasilia";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -146,7 +146,7 @@ export default function AlunoCompeticoes() {
               <CardContent className="p-3 flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium">{c.titulo}</p>
-                  <p className="text-xs text-muted-foreground">Começa em {new Date(c.data_inicio).toLocaleDateString("pt-BR")}</p>
+                  <p className="text-xs text-muted-foreground">Começa em {formatarDataBR(c.data_inicio)}</p>
                 </div>
                 <Clock className="h-4 w-4 text-muted-foreground" />
               </CardContent>

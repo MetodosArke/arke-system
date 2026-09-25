@@ -6,6 +6,7 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { AlertTriangle, Globe, Loader2, Sparkles } from "lucide-react";
 import { mensagemDeErroEdge } from "@/lib/erroEdge";
+import { formatarDataBR } from "@/lib/dataBrasilia";
 
 type Resposta = {
   resumo?: string;
@@ -55,11 +56,26 @@ const PROPOSITOS: { chave: Proposito; titulo: string; texto: string }[] = [
  * gravadas na tabela. Quem autoriza precisa ver o que está autorizando, e não
  * um resumo simpático do que está autorizando.
  */
-export function ConsentimentoSentinela({ alunoId, organizationId }: { alunoId: string; organizationId: string }) {
+export function ConsentimentoSentinela({
+  alunoId,
+  organizationId,
+  noMetodo = true,
+}: {
+  alunoId: string;
+  organizationId: string;
+  /**
+   * As duas finalidades são do Método ARKE (mentor e resumo para quem
+   * acompanha). A Política diz ao aluno do Free que nada disso se aplica a
+   * ele, então o bloco não aparece para ele — a não ser que haja autorização
+   * ainda não retirada (de quando estava no Método): retirar tem de continuar
+   * possível.
+   */
+  noMetodo?: boolean;
+}) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: vigentes = [], isLoading } = useQuery({
+  const { data: consentimentos, isLoading } = useQuery({
     queryKey: ["consentimento-ia", alunoId],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -68,12 +84,13 @@ export function ConsentimentoSentinela({ alunoId, organizationId }: { alunoId: s
         .eq("aluno_id", alunoId)
         .is("revogado_em", null);
       if (error) throw error;
-      // Consentimento dado sob texto antigo não conta — é a mesma regra do
-      // banco, e é o que faz a pessoa ser perguntada de novo quando o termo
-      // muda de sentido.
-      return (data ?? []).filter((c) => c.versao_texto === VERSAO_TEXTO);
+      return data ?? [];
     },
   });
+  // Consentimento dado sob texto antigo não conta — é a mesma regra do banco,
+  // e é o que faz a pessoa ser perguntada de novo quando o termo muda de
+  // sentido.
+  const vigentes = (consentimentos ?? []).filter((c) => c.versao_texto === VERSAO_TEXTO);
 
   const alternar = useMutation({
     mutationFn: async ({ proposito, autorizar }: { proposito: Proposito; autorizar: boolean }) => {
@@ -115,6 +132,7 @@ export function ConsentimentoSentinela({ alunoId, organizationId }: { alunoId: s
   });
 
   if (isLoading) return null;
+  if (!noMetodo && !(consentimentos ?? []).length) return null;
 
   return (
     <div className="space-y-3 rounded-md border p-3">
@@ -129,7 +147,7 @@ export function ConsentimentoSentinela({ alunoId, organizationId }: { alunoId: s
               <p className="mt-1 text-xs text-muted-foreground">{texto}</p>
               {atual?.aceito_em && (
                 <p className="mt-1 text-[11px] text-muted-foreground">
-                  Autorizado em {new Date(atual.aceito_em).toLocaleDateString("pt-BR")}.
+                  Autorizado em {formatarDataBR(atual.aceito_em)}.
                 </p>
               )}
             </div>

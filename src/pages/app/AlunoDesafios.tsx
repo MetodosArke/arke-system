@@ -1,4 +1,4 @@
-import { hojeBrasilia } from "@/lib/dataBrasilia";
+import { hojeBrasilia, formatarDataBR } from "@/lib/dataBrasilia";
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -164,7 +164,7 @@ export default function AlunoDesafios() {
             </span>
           </div>
           <p className="text-[10px] text-muted-foreground">
-            {new Date(d.data_inicio).toLocaleDateString("pt-BR")} — {new Date(d.data_fim).toLocaleDateString("pt-BR")}
+            {formatarDataBR(d.data_inicio)} — {formatarDataBR(d.data_fim)}
           </p>
           {d.tipo === "livre" && !progressoManual[d.id] && !encerrado && (
             <p className="text-[10px] text-muted-foreground italic">Sua equipe confirma a conclusão desse desafio.</p>

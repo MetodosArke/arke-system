@@ -15,9 +15,10 @@ import type { Tables } from "@/integrations/supabase/types";
 import { CartaoAssinatura } from "@/components/pagamento/CartaoAssinatura";
 import { PagamentosAcademia } from "@/components/pagamento/PagamentosAcademia";
 import { EnderecoAluno } from "@/components/pagamento/EnderecoAluno";
+import { formatarDataBR } from "@/lib/dataBrasilia";
 
 export default function AlunoPerfil() {
-  const { user, profile, organization, alunoId, signOut, planoAluno } = useAuth();
+  const { user, profile, organization, alunoId, signOut, planoAluno, metodoArkeAtivo } = useAuth();
   // No Método ARKE a meta de hidratação é do mentor, não do aluno (decisão
   // de 23/09/2026): lá ela faz parte de um acompanhamento prescrito. A RPC
   // recusa de qualquer forma; a tela existe para o aluno entender o porquê
@@ -131,7 +132,7 @@ export default function AlunoPerfil() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            <ConsentimentoSentinela alunoId={alunoId} organizationId={organization.id} />
+            <ConsentimentoSentinela alunoId={alunoId} organizationId={organization.id} noMetodo={metodoArkeAtivo} />
             <ConsentimentoBiometria alunoId={alunoId} organizationId={organization.id} />
           </CardContent>
         </Card>
@@ -227,7 +228,7 @@ export default function AlunoPerfil() {
               <div key={av.id} className="rounded-lg border border-border p-3 text-sm space-y-1">
                 <div className="flex items-center justify-between">
                   <span className="font-semibold">
-                    {new Date(av.data_avaliacao).toLocaleDateString("pt-BR")}
+                    {formatarDataBR(av.data_avaliacao)}
                   </span>
                   {av.imc != null && <span className="text-xs text-muted-foreground">IMC {av.imc}</span>}
                 </div>

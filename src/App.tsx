@@ -92,6 +92,7 @@ const SuperAdminWebhooks = paginaPreguicosa(() => import("@/pages/superadmin/Sup
 const SuperAdminMentoria = paginaPreguicosa(() => import("@/pages/superadmin/SuperAdminMentoria"));
 const SuperAdminEquipamentos = paginaPreguicosa(() => import("@/pages/superadmin/SuperAdminEquipamentos"));
 const SuperAdminVigia = paginaPreguicosa(() => import("@/pages/superadmin/SuperAdminVigia"));
+const CentralAjuda = paginaPreguicosa(() => import("@/pages/ajuda/CentralAjuda"));
 
 const isNetworkError = (error: unknown) => {
   const message = error instanceof Error ? error.message : String(error ?? "");
@@ -252,6 +253,8 @@ const App = () => (
                 <Route path="feed" element={<AlunoFeed />} />
                 <Route path="agenda" element={<AlunoAgenda />} />
                 <Route path="perfil" element={<AlunoPerfil />} />
+                <Route path="ajuda" element={<CentralAjuda />} />
+                <Route path="ajuda/:slug" element={<CentralAjuda />} />
               </Route>
 
               {/* Staff routes (gestor, professor, nutricionista, admin_arke) */}
@@ -293,6 +296,8 @@ const App = () => (
                 <Route path="agenda" element={<AdminAgenda />} />
                 <Route path="engajamento" element={<AdminEngajamento />} />
                 <Route path="mensagens" element={<AdminMensagens />} />
+                <Route path="ajuda" element={<CentralAjuda />} />
+                <Route path="ajuda/:slug" element={<CentralAjuda />} />
               </Route>
 
               {/* Super Admin — Visão Master ArkeFit, restrita ao papel global 'superadmin' */}
@@ -313,6 +318,8 @@ const App = () => (
                 <Route path="equipamentos" element={<SuperAdminEquipamentos />} />
                 <Route path="vigia" element={<SuperAdminVigia />} />
                 <Route path="configuracoes" element={<SuperAdminConfiguracoes />} />
+                <Route path="ajuda" element={<CentralAjuda />} />
+                <Route path="ajuda/:slug" element={<CentralAjuda />} />
               </Route>
 
               <Route path="*" element={<NotFound />} />

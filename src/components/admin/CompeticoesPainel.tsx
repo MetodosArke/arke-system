@@ -1,4 +1,4 @@
-import { hojeBrasilia } from "@/lib/dataBrasilia";
+import { hojeBrasilia, formatarDataBR } from "@/lib/dataBrasilia";
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -278,7 +278,7 @@ export function CompeticoesPainel() {
                     <Users className="h-3 w-3 mr-1" /> {totalParticipantes} {c.para_todos && "(todos)"}
                   </Badge>
                   <Badge variant="outline">
-                    {new Date(c.data_inicio).toLocaleDateString("pt-BR")} - {new Date(c.data_fim).toLocaleDateString("pt-BR")}
+                    {formatarDataBR(c.data_inicio)} - {formatarDataBR(c.data_fim)}
                   </Badge>
                 </div>
                 {status !== "Pendente" && <RankingCompeticao competicaoId={c.id} />}

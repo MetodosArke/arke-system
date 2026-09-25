@@ -5,8 +5,9 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Fingerprint } from "lucide-react";
 import { TEXTO_TERMO_BIOMETRIA, VERSAO_CONSENTIMENTO_BIOMETRIA } from "@/lib/termoBiometria";
+import { formatarDataBR } from "@/lib/dataBrasilia";
 
-const formatarData = (valor: string) => new Date(valor).toLocaleDateString("pt-BR");
+const formatarData = (valor: string) => formatarDataBR(valor);
 
 /**
  * O aluno autoriza — ou retira a autorização — do uso da própria digital na

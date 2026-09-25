@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useAppSidebar } from "./AppLayout";
-import { Home, User, LogOut, ChevronLeft, Menu, Dumbbell, UtensilsCrossed, LayoutDashboard, Activity, Compass, Trophy, Medal, Users, CalendarDays } from "lucide-react";
+import { Home, User, LogOut, ChevronLeft, Menu, Dumbbell, UtensilsCrossed, LayoutDashboard, Activity, Compass, Trophy, Medal, Users, CalendarDays, CircleHelp } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
@@ -22,7 +22,8 @@ function buildMenuItems(ehStudio: boolean) {
     { icon: Trophy, label: "Desafios", path: "/app/desafios" },
     { icon: Medal, label: "Competições", path: "/app/competicoes" },
     { icon: Users, label: "Feed", path: "/app/feed" },
-    { icon: User, label: "Perfil", path: "/app/perfil" }
+    { icon: User, label: "Perfil", path: "/app/perfil" },
+    { icon: CircleHelp, label: "Ajuda", path: "/app/ajuda" }
   );
   return items;
 }
@@ -67,7 +68,7 @@ function SidebarNav({
 
       <nav className="flex-1 space-y-1 p-2 overflow-y-auto">
         {menuItems.map((item) => {
-          const isActive = location.pathname === item.path;
+          const isActive = location.pathname === item.path || (item.path === "/app/ajuda" && location.pathname.startsWith("/app/ajuda/"));
           return (
             <button
               key={item.path}

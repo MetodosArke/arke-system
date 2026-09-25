@@ -195,7 +195,11 @@ export function AlunoPerfilSheet({
           .from("aluno_matriculas_academia")
           .select("id, valor_cobrado, dia_vencimento, status, asaas_subscription_id, forma_pagamento, cartao_final, cartao_bandeira, cartao_recusado_em, planos_academia(nome, periodicidade)")
           .eq("aluno_id", aluno.id)
-          .eq("status", "ativa")
+          // A pausada também: é a matrícula do aluno, só que sem cobrar. Sem
+          // ela na ficha, a tela ofereceria matricular de novo.
+          .in("status", ["ativa", "pausada"])
+          .order("created_at", { ascending: false })
+          .limit(1)
           .maybeSingle()
       ).data;
 
@@ -539,13 +543,28 @@ export function AlunoPerfilSheet({
                   <>
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="text-sm font-medium">{perfil.planoInfo.nome}</p>
+                        <p className="text-sm font-medium">
+                          {perfil.planoInfo.nome}
+                          {perfil.matricula.status === "pausada" && (
+                            <Badge variant="outline" className="ml-2 text-[10px]">
+                              Pausada
+                            </Badge>
+                          )}
+                        </p>
                         <p className="text-xs text-muted-foreground">
                           {PERIODICIDADE_LABEL[perfil.planoInfo.periodicidade] ?? perfil.planoInfo.periodicidade} · {reais(Number(perfil.matricula.valor_cobrado))} · vence dia {perfil.matricula.dia_vencimento}
                         </p>
                       </div>
                     </div>
                     {(organizationRole === "gestor" || organizationRole === "recepcao") && (
+                      <CicloAssinatura
+                        alunoId={perfil.aluno.id}
+                        tipo="plano"
+                        assinatura={perfil.matricula}
+                        onAlterada={() => void queryClient.invalidateQueries({ queryKey: ["aluno-perfil", alunoId] })}
+                      />
+                    )}
+                    {(organizationRole === "gestor" || organizationRole === "recepcao") && perfil.matricula.status === "ativa" && (
                       <div className="mt-3 border-t pt-3">
                         <CartaoAssinatura
                           alunoId={perfil.aluno.id}

@@ -1,4 +1,4 @@
-import { dataBrasilia } from "@/lib/dataBrasilia";
+import { dataBrasilia, formatarDataBR } from "@/lib/dataBrasilia";
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -224,7 +224,7 @@ export default function ObjetivosTab() {
             )}
             {atual.proxima_revisao && (
               <div className="rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-700 dark:text-emerald-400 px-3 py-2 text-xs font-medium">
-                Próxima revisão agendada: {new Date(atual.proxima_revisao).toLocaleDateString("pt-BR")}
+                Próxima revisão agendada: {formatarDataBR(atual.proxima_revisao)}
               </div>
             )}
           </>

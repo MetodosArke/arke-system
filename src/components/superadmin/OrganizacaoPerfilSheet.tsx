@@ -30,6 +30,7 @@ import { RepasseOrganizacao } from "@/components/superadmin/RepasseOrganizacao";
 import { EncerramentoOrganizacao } from "@/components/superadmin/EncerramentoOrganizacao";
 import { TaxaImplantacaoOrganizacao } from "@/components/superadmin/TaxaImplantacaoOrganizacao";
 import type { Enums } from "@/integrations/supabase/types";
+import { formatarDataBR } from "@/lib/dataBrasilia";
 
 type AtividadeTipo = "treino" | "dieta" | "avaliacao" | "tarefa";
 
@@ -99,7 +100,7 @@ const TIPO_LABEL: Record<Enums<"organization_tipo">, string> = {
 const formatarMoeda = (valor: number) => valor.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
 const formatarData = (valor: string | null) =>
-  valor ? new Date(valor).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" }) : "Sem atividade";
+  valor ? formatarDataBR(valor, { day: "2-digit", month: "2-digit", year: "numeric" }) : "Sem atividade";
 
 // Painel lateral com o perfil completo de uma organização — aberto
 // clicando no nome do tenant na tabela do SuperAdmin. É um retrato

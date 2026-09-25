@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PERGUNTAS_PARQ, ROTULO_ATESTADO, situacaoAtestado } from "@/lib/parq";
+import { formatarDataBR } from "@/lib/dataBrasilia";
 
 /**
  * Documentos da matrícula na ficha do aluno: contrato assinado (versão e data),
@@ -74,7 +75,7 @@ export function DocumentosMatriculaAluno({ alunoId, organizationId }: { alunoId:
         {!data.contrato
           ? "a academia ainda não publicou"
           : assinaturaVigente
-            ? `assinado em ${new Date(assinaturaVigente.assinado_em).toLocaleDateString("pt-BR")} (versão ${data.contrato.versao})`
+            ? `assinado em ${formatarDataBR(assinaturaVigente.assinado_em)} (versão ${data.contrato.versao})`
             : ultima
               ? `assinou a versão ${(ultima.contratos_matricula as { versao: number } | null)?.versao ?? "anterior"}; falta a vigente`
               : "não assinado"}

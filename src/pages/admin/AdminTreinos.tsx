@@ -23,6 +23,7 @@ import { SeletorExercicio } from "@/components/acervo/SeletorExercicio";
 import { EditorSeries } from "@/components/acervo/EditorSeries";
 import { MiniaturaExercicio } from "@/components/acervo/MidiaExercicio";
 import { DIVISOES, divisoesDoTreino, paraGravar, rotuloTecnica, seriesDoExercicio, type SerieDetalhe } from "@/lib/seriesTreino";
+import { formatarDataBR } from "@/lib/dataBrasilia";
 
 const SERIES_PADRAO: SerieDetalhe[] = Array.from({ length: 3 }, () => ({ reps: "12", descanso_seg: 60, tecnica: null }));
 
@@ -611,10 +612,10 @@ export default function AdminTreinos() {
                               {STATUS_TREINO_LABEL[h.status ?? ""] ?? h.status}
                             </Badge>
                           </TableCell>
-                          <TableCell>{new Date(h.created_at).toLocaleDateString("pt-BR")}</TableCell>
+                          <TableCell>{formatarDataBR(h.created_at)}</TableCell>
                           <TableCell>
-                            {h.validade_inicio ? new Date(h.validade_inicio).toLocaleDateString("pt-BR") : "—"}
-                            {h.validade_fim ? ` até ${new Date(h.validade_fim).toLocaleDateString("pt-BR")}` : ""}
+                            {h.validade_inicio ? formatarDataBR(h.validade_inicio) : "—"}
+                            {h.validade_fim ? ` até ${formatarDataBR(h.validade_fim)}` : ""}
                           </TableCell>
                           <TableCell className="font-mono text-xs text-muted-foreground">
                             {h.versao_id.slice(0, 8)}
@@ -668,7 +669,7 @@ export default function AdminTreinos() {
               {ultimaFichaAtiva ? (
                 <p className="text-sm">
                   {ultimaFichaAtiva.titulo} — publicada em{" "}
-                  {new Date(ultimaFichaAtiva.created_at).toLocaleDateString("pt-BR")}
+                  {formatarDataBR(ultimaFichaAtiva.created_at)}
                 </p>
               ) : (
                 <p className="text-sm text-muted-foreground">Nenhum treino ativo publicado.</p>

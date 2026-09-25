@@ -20,9 +20,13 @@ const jsonResponse = (body: unknown, status = 200) =>
 
 type Acao = "cancelar" | "pausar" | "retomar" | "alterar_valor";
 const ACOES: Acao[] = ["cancelar", "pausar", "retomar", "alterar_valor"];
+type Tipo = "metodo" | "plano";
 
-// Ciclo de vida da assinatura do Método ARKE: cancelar, pausar, retomar e
-// alterar valor.
+// Ciclo de vida da cobrança recorrente do aluno — a assinatura do Método ARKE
+// (`tipo: "metodo"`, o padrão) ou a mensalidade do plano da academia
+// (`tipo: "plano"`): cancelar, pausar, retomar e alterar valor. As duas moram
+// na conta Asaas da ArkeFit, com split para a academia; o que muda entre elas
+// é a tabela, o repasse e quem pode cancelar.
 //
 // Faltava inteiro, e a ausência puxava sempre para o lado mais caro — cobrar
 // quem não deve. Excluir um aluno apagava a linha daqui por `cascade` e
@@ -49,13 +53,22 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
-    const { aluno_id: alunoId, acao, motivo, valor_cobrado: valorCobrado } = (await req.json()) as {
+    const { aluno_id: alunoId, acao, motivo, valor_cobrado: valorCobrado, tipo: tipoPedido } = (await req.json()) as {
       aluno_id?: string;
       acao?: Acao;
       motivo?: string;
       valor_cobrado?: number;
+      tipo?: Tipo;
     };
     if (!alunoId || !acao || !ACOES.includes(acao)) return jsonResponse({ error: "Pedido inválido." }, 400);
+    if (tipoPedido !== undefined && tipoPedido !== "metodo" && tipoPedido !== "plano") {
+      return jsonResponse({ error: "Pedido inválido." }, 400);
+    }
+    const tipo: Tipo = tipoPedido ?? "metodo";
+    const tabela = tipo === "metodo" ? "aluno_assinaturas" : "aluno_matriculas_academia";
+    // Onde ficam as cobranças de cada uma, e a coluna que liga à assinatura.
+    const cobrancas =
+      tipo === "metodo" ? { tabela: "pagamentos", fk: "aluno_assinatura_id" } : { tabela: "mensalidades", fk: "matricula_id" };
 
     const asUser = createClient(supabaseUrl, anonKey, { global: { headers: { Authorization: authHeader } } });
     const { data: claims, error: claimsError } = await asUser.auth.getClaims(authHeader.replace("Bearer ", ""));
@@ -89,24 +102,47 @@ Deno.serve(async (req: Request) => {
     const equipe = vinculo?.role === "gestor" || vinculo?.role === "recepcao";
     const oProprioAluno = aluno.user_id === callerId;
 
-    // Cancelar a própria assinatura é direito de quem paga. Pausar, retomar e
-    // mudar o preço são decisões da operação, não do aluno.
-    const autorizado = acao === "cancelar" ? equipe || arkefit || oProprioAluno : equipe || arkefit;
+    // Cancelar a própria assinatura do Método é direito de quem paga. O plano
+    // é contrato com a academia (pode ter fidelidade), então sai pela
+    // recepção. Pausar, retomar e mudar o preço são decisões da operação.
+    const autorizado =
+      acao === "cancelar" && tipo === "metodo" ? equipe || arkefit || oProprioAluno : equipe || arkefit;
     if (!autorizado) {
       return jsonResponse({ error: "Você não tem permissão para alterar a cobrança deste aluno." }, 403);
     }
 
-    const { data: assinatura } = await admin
-      .from("aluno_assinaturas")
-      .select("id, status, valor_cobrado, nivel_atacado, asaas_subscription_id")
-      .eq("aluno_id", aluno.id)
-      .maybeSingle();
-    if (!assinatura) return jsonResponse({ error: "Este aluno não tem assinatura do Método ARKE." }, 404);
+    const { data: assinatura } =
+      tipo === "metodo"
+        ? await admin
+            .from("aluno_assinaturas")
+            .select("id, status, valor_cobrado, nivel_atacado, asaas_subscription_id")
+            .eq("aluno_id", aluno.id)
+            .maybeSingle()
+        : await admin
+            .from("aluno_matriculas_academia")
+            .select("id, status, valor_cobrado, asaas_subscription_id")
+            .eq("aluno_id", aluno.id)
+            .in("status", ["ativa", "pausada"])
+            .order("created_at", { ascending: false })
+            .limit(1)
+            .maybeSingle();
+    if (!assinatura) {
+      return jsonResponse(
+        {
+          error:
+            tipo === "metodo"
+              ? "Este aluno não tem assinatura do Método ARKE."
+              : "Este aluno não tem matrícula em plano da academia.",
+        },
+        404,
+      );
+    }
     if (!assinatura.asaas_subscription_id) {
-      // Trial do Super Admin não existe no gateway: encerra só deste lado.
+      // Trial do Super Admin (ou matrícula que não chegou ao gateway) não
+      // existe no Asaas: encerra só deste lado.
       if (acao === "cancelar") {
         await admin
-          .from("aluno_assinaturas")
+          .from(tabela)
           .update({
             status: "cancelada",
             cancelada_em: new Date().toISOString(),
@@ -143,13 +179,13 @@ Deno.serve(async (req: Request) => {
       if (!r.ok) return jsonResponse({ error: r.erro }, r.status);
 
       await admin
-        .from("aluno_assinaturas")
+        .from(tabela)
         .update({
           status: "cancelada",
           cancelada_em: agora,
           cancelada_por: callerId,
           cancelamento_motivo: motivoLimpo,
-          fatura_pendente_url: null,
+          ...(tipo === "metodo" ? { fatura_pendente_url: null } : {}),
         })
         .eq("id", assinatura.id);
 
@@ -159,9 +195,9 @@ Deno.serve(async (req: Request) => {
       // `pendente` com vencimento no passado bloquearia quem não deve mais
       // nada. A dupla escrita é idempotente.
       const { data: canceladas } = await admin
-        .from("pagamentos")
+        .from(cobrancas.tabela)
         .update({ status: "cancelado" })
-        .eq("aluno_assinatura_id", assinatura.id)
+        .eq(cobrancas.fk, assinatura.id)
         .in("status", ["pendente", "atrasado"])
         .select("id, valor, vencimento");
 
@@ -183,13 +219,13 @@ Deno.serve(async (req: Request) => {
       if (!r.ok) return jsonResponse({ error: r.erro }, r.status);
 
       await admin
-        .from("aluno_assinaturas")
+        .from(tabela)
         .update({ status: "pausada", pausada_em: agora, pausada_por: callerId })
         .eq("id", assinatura.id);
 
       if (r.cobrancasRemovidas.length) {
         await admin
-          .from("pagamentos")
+          .from(cobrancas.tabela)
           .update({ status: "cancelado" })
           .in("asaas_payment_id", r.cobrancasRemovidas);
       }
@@ -212,7 +248,7 @@ Deno.serve(async (req: Request) => {
       if (!r.ok) return jsonResponse({ error: r.erro }, r.status);
 
       await admin
-        .from("aluno_assinaturas")
+        .from(tabela)
         .update({ status: "ativa", pausada_em: null, pausada_por: null })
         .eq("id", assinatura.id);
       return jsonResponse({ ok: true, acao });
@@ -225,14 +261,17 @@ Deno.serve(async (req: Request) => {
       return jsonResponse({ error: "A academia ainda não configurou a conta de recebimentos." }, 422);
     }
 
-    // O repasse sai da mesma conta da criação: custo do nível mais a taxa de
-    // processamento sobre o valor cobrado. Recalcular aqui é o ponto — é o
-    // valor que muda quando o varejo muda, e é ele que define o split.
-    const { data: repasseCalculado } = await admin.rpc("repasse_arke", {
-      _organization_id: org.id,
-      _valor_cobrado: valor,
-      _nivel_atacado: assinatura.nivel_atacado,
-    });
+    // O repasse sai da mesma conta da criação — no Método, o negociado mais a
+    // taxa de processamento; no plano, só a taxa. Recalcular aqui é o ponto:
+    // é o valor que muda quando o preço muda, e é ele que define o split.
+    const { data: repasseCalculado } =
+      tipo === "metodo"
+        ? await admin.rpc("repasse_arke", {
+            _organization_id: org.id,
+            _valor_cobrado: valor,
+            _nivel_atacado: (assinatura as { nivel_atacado?: string }).nivel_atacado,
+          })
+        : await admin.rpc("arke_taxa_processamento", { _valor: valor });
     if (repasseCalculado === null || repasseCalculado === undefined) {
       return jsonResponse(
         { error: "Esta academia ainda não tem o repasse do Método negociado. Configure em Visão Master → ficha da organização." },
@@ -250,17 +289,21 @@ Deno.serve(async (req: Request) => {
     if (!r.ok) return jsonResponse({ error: r.erro }, r.status);
 
     await admin
-      .from("aluno_assinaturas")
-      .update({ valor_cobrado: valor, valor_repasse_arke: repasse })
+      .from(tabela)
+      .update({
+        valor_cobrado: valor,
+        valor_repasse_arke: repasse,
+        ...(tipo === "plano" ? { valor_liquido_academia: r.valorAcademia } : {}),
+      })
       .eq("id", assinatura.id);
 
     // Só quando o gateway de fato atualizou as pendentes, senão o banco diria
     // um valor que a fatura do aluno não confirma.
     if (r.pendentesAtualizadas) {
       await admin
-        .from("pagamentos")
+        .from(cobrancas.tabela)
         .update({ valor, valor_repasse_arke: repasse, valor_liquido_academia: r.valorAcademia })
-        .eq("aluno_assinatura_id", assinatura.id)
+        .eq(cobrancas.fk, assinatura.id)
         .eq("status", "pendente");
     }
 

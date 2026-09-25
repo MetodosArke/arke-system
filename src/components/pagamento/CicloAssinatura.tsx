@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/dialog";
 import { mensagemDeErroEdge } from "@/lib/erroEdge";
 import { PauseCircle, PlayCircle, Pencil, XCircle } from "lucide-react";
-import { reais } from "@/lib/numeros";
+import { lerReais, reais } from "@/lib/numeros";
 
 type Assinatura = {
   status: string;
@@ -25,8 +25,31 @@ type Assinatura = {
 
 type Acao = "cancelar" | "pausar" | "retomar" | "alterar_valor";
 
+const TEXTOS = {
+  metodo: {
+    rotulo: "Cobrança do Método",
+    tituloCancelar: "Cancelar a cobrança do Método",
+    descricaoCancelar:
+      "A assinatura é encerrada no gateway e o aluno deixa de ser cobrado. As cobranças ainda em aberto deixam de ser cobráveis — se houver dívida a receber, cobre antes de cancelar.",
+    tituloValor: "Alterar o valor da assinatura",
+    descricaoValor:
+      "O repasse à ARKE é recalculado e a divisão com a academia acompanha. Cobrança já emitida e ainda não vencida passa a valer o novo valor; cobrança já vencida fica como está.",
+  },
+  plano: {
+    rotulo: "Mensalidade do plano",
+    tituloCancelar: "Cancelar a matrícula no plano",
+    descricaoCancelar:
+      "A mensalidade é encerrada no gateway e o aluno deixa de ser cobrado pelo plano. As mensalidades ainda em aberto deixam de ser cobráveis — se houver dívida a receber, cobre antes de cancelar. O aluno continua cadastrado e pode ser matriculado em outro plano.",
+    tituloValor: "Alterar o valor da mensalidade",
+    descricaoValor:
+      "A taxa de processamento é recalculada e a parte da academia acompanha. Mensalidade já emitida e ainda não vencida passa a valer o novo valor; a já vencida fica como está.",
+  },
+} as const;
+
 /**
- * Parar e ajustar a cobrança do Método — o que faltava inteiro no produto.
+ * Parar e ajustar a cobrança recorrente do aluno — a do Método ou a
+ * mensalidade do plano da academia (`tipo`). Faltava inteiro no produto, e
+ * a do plano faltou até 24/09/2026: quem trancava o plano seguia cobrado.
  *
  * Sem isto a única saída era o painel do Asaas, e o mais comum era não haver
  * saída nenhuma: excluir o aluno apagava o registro deste lado e deixava a
@@ -39,11 +62,14 @@ export function CicloAssinatura({
   alunoId,
   assinatura,
   onAlterada,
+  tipo = "metodo",
 }: {
   alunoId: string;
   assinatura: Assinatura;
   onAlterada?: () => void;
+  tipo?: "metodo" | "plano";
 }) {
+  const t = TEXTOS[tipo];
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [dialogo, setDialogo] = useState<"cancelar" | "valor" | null>(null);
@@ -59,7 +85,7 @@ export function CicloAssinatura({
   const executar = useMutation({
     mutationFn: async (corpo: { acao: Acao; motivo?: string; valor_cobrado?: number }) => {
       const { data, error } = await supabase.functions.invoke("asaas-assinatura-ciclo", {
-        body: { aluno_id: alunoId, ...corpo },
+        body: { aluno_id: alunoId, tipo, ...corpo },
       });
       if (error) throw new Error(await mensagemDeErroEdge(error, "Não foi possível alterar a cobrança."));
       return data as Record<string, unknown>;
@@ -90,7 +116,7 @@ export function CicloAssinatura({
 
   return (
     <div className="mt-3 border-t pt-3">
-      <p className="mb-2 text-xs text-muted-foreground">Cobrança do Método</p>
+      <p className="mb-2 text-xs text-muted-foreground">{t.rotulo}</p>
       <div className="flex flex-wrap gap-2">
         {ativa && (
           <Button variant="outline" size="sm" disabled={executar.isPending} onClick={() => executar.mutate({ acao: "pausar" })}>
@@ -111,7 +137,7 @@ export function CicloAssinatura({
               size="sm"
               disabled={executar.isPending}
               onClick={() => {
-                setValor(String(assinatura?.valor_cobrado ?? ""));
+                setValor(String(assinatura?.valor_cobrado ?? "").replace(".", ","));
                 setDialogo("valor");
               }}
             >
@@ -129,11 +155,8 @@ export function CicloAssinatura({
       <Dialog open={dialogo === "cancelar"} onOpenChange={(a) => !a && setDialogo(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Cancelar a cobrança do Método</DialogTitle>
-            <DialogDescription>
-              A assinatura é encerrada no gateway e o aluno deixa de ser cobrado. As cobranças ainda em aberto deixam de
-              ser cobráveis — se houver dívida a receber, cobre antes de cancelar.
-            </DialogDescription>
+            <DialogTitle>{t.tituloCancelar}</DialogTitle>
+            <DialogDescription>{t.descricaoCancelar}</DialogDescription>
           </DialogHeader>
           <div className="space-y-2">
             <Label htmlFor="motivo-cancelamento">Motivo</Label>
@@ -163,11 +186,8 @@ export function CicloAssinatura({
       <Dialog open={dialogo === "valor"} onOpenChange={(a) => !a && setDialogo(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Alterar o valor da assinatura</DialogTitle>
-            <DialogDescription>
-              O repasse à ARKE é recalculado e a divisão com a academia acompanha. Cobrança já emitida e ainda não
-              vencida passa a valer o novo valor; cobrança já vencida fica como está.
-            </DialogDescription>
+            <DialogTitle>{t.tituloValor}</DialogTitle>
+            <DialogDescription>{t.descricaoValor}</DialogDescription>
           </DialogHeader>
           <div className="space-y-2">
             <Label htmlFor="novo-valor">Novo valor mensal (R$)</Label>
@@ -175,7 +195,7 @@ export function CicloAssinatura({
               id="novo-valor"
               inputMode="decimal"
               value={valor}
-              onChange={(e) => setValor(e.target.value.replace(",", "."))}
+              onChange={(e) => setValor(e.target.value)}
             />
           </div>
           <DialogFooter>
@@ -183,8 +203,8 @@ export function CicloAssinatura({
               Voltar
             </Button>
             <Button
-              disabled={!Number(valor) || executar.isPending}
-              onClick={() => executar.mutate({ acao: "alterar_valor", valor_cobrado: Number(valor) })}
+              disabled={!(lerReais(valor) > 0) || executar.isPending}
+              onClick={() => executar.mutate({ acao: "alterar_valor", valor_cobrado: lerReais(valor) })}
             >
               Salvar
             </Button>

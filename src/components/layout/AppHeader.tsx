@@ -7,6 +7,7 @@ import { AdminSidebarMobile } from "./AdminSidebar";
 import { AppSidebarMobile } from "./AppSidebar";
 import { useLocation, useNavigate } from "react-router-dom";
 import { SeletorOrganizacao } from "./SeletorOrganizacao";
+import { BotaoAjuda } from "@/components/ajuda/BotaoAjuda";
 
 export function AppHeader({ title }: { title?: string }) {
   const { theme, toggleTheme } = useTheme();
@@ -57,6 +58,7 @@ export function AppHeader({ title }: { title?: string }) {
 
       <div className="flex items-center gap-1">
         <SeletorOrganizacao />
+        {(isAdmin || isApp) && <BotaoAjuda />}
         <Button variant="ghost" size="icon" onClick={toggleTheme} className="h-8 w-8 sm:h-9 sm:w-9">
           {theme === "dark" ? <Sun className="h-4 w-4 sm:h-5 sm:w-5" /> : <Moon className="h-4 w-4 sm:h-5 sm:w-5" />}
         </Button>

@@ -93,7 +93,6 @@ const segredoDeHook = () => `v1,whsec_${randomBytes(24).toString("base64")}`;
 const SEGREDOS = [
   { nome: "ASAAS_API_KEY", valor: () => porPrefixo("$aact_prod_"), fonte: "arquivo de chaves" },
   { nome: "RESEND_API_KEY", valor: () => porPrefixo("re_"), fonte: "arquivo de chaves" },
-  { nome: "GEMINI_API_KEY", valor: () => process.env.GEMINI_API_KEY, fonte: "ambiente da máquina" },
   { nome: "CRON_SECRET", valor: hex32, fonte: "gerado agora", gerado: true },
   {
     nome: "VAPID_PRIVATE_KEY",

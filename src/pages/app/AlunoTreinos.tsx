@@ -29,7 +29,7 @@ import type { Json } from "@/integrations/supabase/types";
 import { MidiaExercicio } from "@/components/acervo/MidiaExercicio";
 import { situacaoAtestado } from "@/lib/parq";
 import { divisoesDoTreino, rotuloTecnica, seriesDoExercicio } from "@/lib/seriesTreino";
-import { hojeBrasilia } from "@/lib/dataBrasilia";
+import { hojeBrasilia, formatarDataBR } from "@/lib/dataBrasilia";
 
 interface ExercicioSnapshot {
   ordem: number;
@@ -301,7 +301,7 @@ export default function AlunoTreinos() {
               </CardTitle>
               <p className="text-xs text-muted-foreground">
                 {totalConcluidos}/{exercicios.length} exercícios concluídos hoje
-                {treino.validade_fim && ` · Válido até ${new Date(treino.validade_fim).toLocaleDateString("pt-BR")}`}
+                {treino.validade_fim && ` · Válido até ${formatarDataBR(treino.validade_fim)}`}
               </p>
               {/* A tela de execução registra série a série, com a carga da
                   última vez e cronômetro de descanso. Esta lista continua
