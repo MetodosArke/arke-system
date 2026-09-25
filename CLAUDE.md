@@ -980,6 +980,54 @@ A rotina `arke-encerramentos` roda de hora em hora e retoma de onde parou (mil a
 
 **Visão Master com conta só de Super Admin.** Conferindo a Fase 0 pela tela, a ficha da organização ficava em "Carregando…" e o quadro de atividade dava erro para as duas contas da ArkeFit que têm só o papel `superadmin`: `organizations`, `organization_planos_precificacao` e `plataforma_config` davam leitura só a `admin_arke`, papel de antes do Super Admin, e `get_superadmin_organizacao_atividade` respondia 0A000 desde que nasceu (`order by` pelo nome da coluna de saída num `union`). Corrigido em `20261286010000`; tabelas com dado de aluno ficaram como estão, porque ali o Super Admin chega pelas funções `get_superadmin_*`.
 
+## Prontidão para 50 academias: teste de volume (25/09/2026)
+
+Pedido do responsável: confirmar, antes da operação comercial, que o sistema aguenta 50 academias. A conta de referência é de 20 mil alunos.
+
+**Como foi medido.** O Supabase não tem ambiente separado no plano atual, então o teste cria a carga dentro de uma transação que sempre se desfaz: 50 academias fictícias × 400 alunos, com um mês de uso. São 196 mil presenças (as das últimas duas semanas nascem de acessos à catraca, pelo gatilho de verdade), 137 mil treinos, 39 mil check-ins, 39 mil mensalidades e 25 mil tarefas. Todos os gatilhos rodam, inclusive CPF obrigatório e dor no treino. Depois cronometra cada rotina e cada tela no papel certo: Super Admin verificado em duas etapas, gestor e aluno, com as regras de acesso valendo. O roteiro está em `scripts/prontidao/` (`rodar.mjs` e `limpar.mjs`). Duas armadilhas de método:
+- a API de gerenciamento corta a chamada em ~125 s, e a semente de 20 mil alunos leva de 60 a 114 s. As rotinas foram medidas com 5 e 10 mil alunos e projetadas;
+- as linhas desfeitas incham o banco (27 → 194 MB) até o vacuum. No plano gratuito, passar de 500 MB trava o banco em somente leitura. Cada rodada termina reconstruindo as tabelas tocadas (`limpar.mjs`), e o banco volta aos ~28 MB.
+
+**Resultado, no plano gratuito, que é a máquina mais fraca:**
+
+| O quê | Tempo |
+|---|---|
+| Telas da Visão Master (20 mil alunos) | de 2 a 388 ms; a fila do Mentor era a exceção: **2,7 s**, e caiu para **0,73 s** |
+| Telas da academia (lista de alunos, presenças do mês, Minha Fila, engajamento) | até 198 ms |
+| Telas do aluno | até 69 ms |
+| Rotinas diárias e semanais (10 mil alunos) | engajamento baixo 2,3 s; avanço de fases 1,2 s; inércia 1,1 a 1,5 s; o resto abaixo de 0,4 s |
+| Resumo semanal das 25 academias | 0,5 s |
+| Lista da catraca de uma academia (400 alunos) | 25 ms |
+
+Nenhuma tela chega perto do limite de 8 s da API, e as rotinas rodam em segundo plano. Com 20 mil alunos, as mais pesadas ficam por volta de 3 a 5 s.
+
+**O que o teste e a conferência encontraram, e o que foi feito:**
+
+1. **O login mandava no máximo 30 e-mails por hora, no projeto inteiro.** É o padrão do Supabase para SMTP próprio, e vale também para o hook de e-mail. Uma importação de 400 alunos, ou o dia do QR Code na recepção, esgotava a cota em minutos. O primeiro acesso responde sempre a mesma frase, de propósito, então o aluno acharia que o link tinha saído. O limite passou a **500 por hora** (`rate_limit_email_sent`, pela API de gerenciamento). O limite por endereço, de um e-mail por minuto, continua.
+2. **`send-email` não tentava de novo** quando o Resend pedia para esperar (429; o limite dele é de 10 envios por segundo por conta). Agora faz três novas tentativas curtas, dentro do prazo que o Auth dá ao hook. Conferido: uma recuperação de senha real saiu e foi entregue.
+3. **Fila do Mentor:** calculava constância e dias sem sinal de todo chamado aberto, a cada minuto e para cada mentor com a tela aberta. Acima de mil chamados, a API entregaria só uma parte e o total do cabeçalho sairia errado. `get_fila_mentor(_limite)` agora ordena primeiro, calcula o contexto só dos 200 mais urgentes e devolve `total_fila` e `total_atrasadas`. O console mostra o total verdadeiro e avisa quando está mostrando só os mais urgentes.
+4. **Nota fiscal:** eram 40 notas por rodada, e cada nota passa duas vezes pela fila (emitir e acompanhar), então saíam no máximo 240 por hora. Com vencimentos concentrados, a fila levaria dias para zerar. Agora são 300 por lote com orçamento de 100 s, no desenho da conferência com o Asaas.
+5. **Dois registros sem limpeza.** `cron.job_run_details` cresce ~700 linhas por dia. `asaas_webhook_events` guarda ~2 KB por aviso, e com 20 mil alunos seria a maior tabela (~2 GB por ano). A rotina `arke-retencao-historicos` (`limpar_historicos_antigos()`) apaga o histórico do cron depois de 30 dias. O aviso processado vira um resumo depois de 90 dias e sai depois de 13 meses; o não processado fica inteiro, porque é dele que o reprocessamento precisa.
+6. **Mídia do acervo com cache de 1 ano.** O nome do arquivo é único e nunca é sobrescrito. Com o padrão de 1 hora, cada aluno baixaria o mesmo vídeo a cada treino, e esse é o maior custo variável quando o acervo tiver mídia.
+7. **Achados de passagem:**
+   - a consulta de biometria respondia a quem não estava logado. A exceção para contexto sem usuário valia também para o anon;
+   - 11 chaves estrangeiras não tinham índice;
+   - 3 regras de acesso recalculavam a sessão linha a linha.
+
+   Os três foram corrigidos em `20261291010000`.
+8. **Inércia:** o cálculo de "dias sem sinal" rodava três vezes por aluno e passou a rodar uma vez. A medição não mostrou ganho, dentro da variação entre rodadas (1,1 s antes, 1,5 s depois, com 10 mil alunos). A mudança fica porque garante um cálculo só.
+
+**Conferido também:**
+- nenhuma falha de rotina em 7 dias;
+- as 49 funções do repositório são as 49 publicadas;
+- nenhuma linha órfã;
+- os alertas de segurança do Supabase sem novidade além do item 7. A checagem de senha vazada deles só existe no plano pago; a nossa já faz esse papel.
+
+**O que só o volume real ou o plano pago respondem:**
+- **Teste de concorrência** (muitos usuários ao mesmo tempo), depois dos upgrades. No gratuito ele mediria os limites do plano.
+- **Tamanho da máquina do banco:** o Pro começa na Micro, e vale acompanhar o tempo das telas ao passar de uns 10 mil alunos.
+- **Chamadas de função:** cada Gateway de catraca faz ~100 mil por mês (escuta longa), então 50 Gateways passam das 2 milhões incluídas no Pro. É custo, na casa de poucos dólares por mês, não trava.
+
 ## Rodada de lançamento — Fase 1: Central de Ajuda (24–25/09/2026)
 
 Os manuais viraram parte do produto: **Ajuda** no menu do painel, do app e da Visão Master, e um **?** no alto de cada tela que abre o artigo daquela tela. São 54 artigos, escritos para quem usa (gestor e recepção, professor e nutricionista, aluno, ArkeFit), a partir do código e não dos manuais antigos de `docs/`, que estavam desatualizados.

@@ -35,7 +35,18 @@ type Chamado = {
   constancia: number | null;
   nivel: string | null;
   nao_lidas: number;
+  total_fila: number;
+  total_atrasadas: number;
 };
+
+/**
+ * Quantos chamados a tela mostra. A fila vem ordenada pelo que pegar
+ * primeiro, e o contexto de cada linha (constância, dias sem sinal) custa uma
+ * consulta por aluno: com milhares de chamados acumulados, calcular todos a
+ * cada minuto pesava no banco e passava do limite de mil linhas da API. O
+ * total verdadeiro vem junto, para o cabeçalho não mentir.
+ */
+const LIMITE_FILA = 200;
 
 const ICONE: Partial<Record<Enums<"tarefa_tipo">, typeof HeartPulse>> = {
   dor: HeartPulse,
@@ -90,7 +101,7 @@ export function FilaChamadosMentor() {
   const { data: fila = [], isLoading } = useQuery({
     queryKey: ["fila-chamados-mentor"],
     queryFn: async () => {
-      const { data, error } = await supabase.rpc("get_fila_mentor");
+      const { data, error } = await supabase.rpc("get_fila_mentor", { _limite: LIMITE_FILA });
       if (error) throw error;
       return (data ?? []) as Chamado[];
     },
@@ -164,7 +175,8 @@ export function FilaChamadosMentor() {
     onError: (e: Error) => toast({ title: "Não foi possível liberar", description: e.message, variant: "destructive" }),
   });
 
-  const vencidos = fila.filter((c) => c.atrasada).length;
+  const total = fila[0]?.total_fila ?? fila.length;
+  const vencidos = fila[0]?.total_atrasadas ?? fila.filter((c) => c.atrasada).length;
 
   if (isLoading) {
     return (
@@ -179,7 +191,8 @@ export function FilaChamadosMentor() {
       {/* A carga da célula em números. É o instrumento que responde quantos
           alunos um mentor aguenta — a pergunta que decide a margem do BPO. */}
       <div className="flex flex-wrap items-center gap-3 text-xs">
-        <span className="font-medium">{fila.length} chamado(s) na fila</span>
+        <span className="font-medium">{total} chamado(s) na fila</span>
+        {total > fila.length && <span className="text-muted-foreground">mostrando os {fila.length} mais urgentes</span>}
         {vencidos > 0 && (
           <span className="flex items-center gap-1 text-destructive">
             <AlertTriangle className="h-3.5 w-3.5" />

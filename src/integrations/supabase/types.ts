@@ -6984,7 +6984,7 @@ export type Database = {
         }[]
       }
       get_fila_mentor: {
-        Args: never
+        Args: { _limite?: number }
         Returns: {
           aluno_id: string
           aluno_nome: string
@@ -7002,6 +7002,8 @@ export type Database = {
           status: Database["public"]["Enums"]["tarefa_status"]
           tarefa_id: string
           tipo: Database["public"]["Enums"]["tarefa_tipo"]
+          total_atrasadas: number
+          total_fila: number
         }[]
       }
       get_historico_aluno: {
@@ -7444,6 +7446,8 @@ export type Database = {
         Args: { _lote?: number }
         Returns: number
       }
+      limpar_historicos_antigos: { Args: never; Returns: Json }
+      limpar_leads_site_antigos: { Args: never; Returns: number }
       listar_parceiros_externos_ativos: {
         Args: { _organization_id: string }
         Returns: {
