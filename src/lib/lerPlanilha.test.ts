@@ -39,4 +39,12 @@ describe("leitura do arquivo da importação de alunos", () => {
     expect(decodificarTexto(latin1("Situação"))).toBe("Situação");
     expect(decodificarTexto(utf8("Situação"))).toBe("Situação");
   });
+
+  it("CSV chega como texto: zero à esquerda e data ficam como estão na planilha", async () => {
+    const csv = "Aluno;CPF;DataNascimento;Telefone\nAna Lima;01234567890;01/02/1990;011988223344\n";
+    const [linha] = await lerLinhasPlanilha(bytes(utf8(csv)));
+    expect(linha["CPF"]).toBe("01234567890");
+    expect(linha["DataNascimento"]).toBe("01/02/1990");
+    expect(linha["Telefone"]).toBe("011988223344");
+  });
 });

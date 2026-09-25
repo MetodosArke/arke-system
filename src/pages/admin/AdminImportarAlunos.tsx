@@ -5,7 +5,7 @@ import { mensagemDeErroEdge } from "@/lib/erroEdge";
 import { useAuth } from "@/contexts/AuthContext";
 import { erroCpfObrigatorio } from "@/lib/cpf";
 import { situacaoDoTexto } from "@/lib/planoAluno";
-import { juntarPartes, mapearColunas } from "@/lib/mapaColunas";
+import { juntarPartes, mapearColunas, normalizarRegistro } from "@/lib/mapaColunas";
 import { processarComLimite, CONCORRENCIA_IMPORTACAO } from "@/lib/lote";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -260,7 +260,7 @@ export default function AdminImportarAlunos() {
       if (campo === "ignorar") continue;
       registro[campo] = String(linha[coluna] ?? "").trim();
     }
-    return juntarPartes(registro) as Record<CampoDestino, string>;
+    return normalizarRegistro(juntarPartes(registro)) as Record<CampoDestino, string>;
   };
 
   /**

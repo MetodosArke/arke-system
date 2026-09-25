@@ -1036,6 +1036,18 @@ O sistema tem marca própria, separada da do Método ARKE (o "A" dourado metáli
 - **O logo dos e-mails saía achatado:** era a imagem 600×400 do "ARKE" exibida num quadrado de 56×56. Agora é o ícone quadrado, no mesmo endereço, então os e-mails mudam sem republicar a função.
 - **O que ainda diz "ARKE":** a Central de Ajuda chama o sistema assim 63 vezes (fora "Método ARKE"). Trocar é revisão de texto caso a caso, e ficou para uma passada própria.
 
+## Importação: as planilhas dos concorrentes, de verdade (25/09/2026)
+
+O responsável mandou três planilhas de exemplo, montadas a partir do formato oficial de exportação do EVO, do Next Fit e da Tecnofit, e a importação foi rodada contra elas. A do Next Fit passava. **A do EVO não importava ninguém:** `NOME_COMPLETO`, `CPF_ALUNO` e `STATUS_CONTRATO` caíam em "ignorar", porque as regras procuram palavra inteira (`\bnome\b`) e o sublinhado conta como letra. Toda linha falhava por falta de CPF, e sem nome o gestor nem avançava do mapeamento. A da Tecnofit trazia CPF com **10 dígitos**: guardado como número no sistema de origem, perde o zero à esquerda, e o ARKE recusava por "CPF deve ter 11 dígitos".
+
+O que mudou (`src/lib/mapaColunas.ts`):
+
+- **O cabeçalho é lido com sublinhado e ponto como espaço.** Palavras coladas (`DataNascimento`) só são separadas quando o cabeçalho como veio não casa com nada, porque separar sempre transformaria `WhatsApp` em "whats app".
+- **`normalizarRegistro()` conserta o que as exportações estragam:** CPF com 9 ou 10 dígitos volta a ter 11 com zeros à esquerda (o dígito verificador continua decidindo se é válido); o 55 do Brasil sai do celular, para o número ficar gravado como o resto da base, com DDD e sem código do país; o nome todo em maiúsculas vira nome próprio com as partículas (da, de, do, dos, das, e) em minúsculas, e o nome já em caixa mista fica como a academia digitou; e o e-mail vai em minúsculas.
+- **O CSV é lido como texto** (`raw: true` em `lerPlanilha.ts`). Sem isso a biblioteca interpretava a planilha: `1990-05-14` virava `5/13/90`, e um CPF só com dígitos podia virar número e perder o zero antes de a normalização o ver.
+
+Plano, datas do contrato e código de cartão ou catraca continuam fora da importação, de propósito: o plano é criado no ARKE e o cartão é cadastrado na ficha. Os CPFs das planilhas de exemplo são fictícios e falham no dígito verificador, então as linhas aparecem com erro. É o comportamento certo, porque base de verdade traz CPF válido.
+
 ## Rastreamento de Erro (Sentry): a configuração é a política de privacidade
 
 Sem rastreamento, um erro de JavaScript numa tela deixa o aluno travado e ninguém fica sabendo — o defeito só aparece quando alguém liga para a academia. Com várias academias em produção isso deixa de ser sustentável, então o Sentry entrou em `src/lib/monitoramento.ts`, ligado em três pontos: a subida do app (`main.tsx`), o `ErrorBoundary` (que antes só fazia `console.error`, inútil para quem não tem DevTools aberto) e o `AuthContext`, que carimba os eventos.

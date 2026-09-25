@@ -7,6 +7,8 @@ Para trazer a base de alunos do sistema anterior, exporte uma planilha de lá e 
 - O arquivo pode ser **.csv** ou **.xlsx**, com até **5 MB** e **2.000 linhas**. Base maior: divida em mais de um arquivo.
 - Toda linha precisa de **nome, e-mail e CPF**. O CPF é obrigatório porque a matrícula gera cobrança; linha sem CPF válido não entra, e o motivo aparece na tela.
 - Planilhas exportadas do **EVO, Tecnofit, Next Fit e Pacto** já são reconhecidas: o ARKE sugere sozinho qual coluna é o nome, o e-mail, o telefone e a situação. Colunas de outra pessoa, como "Nome da mãe" ou "CPF do responsável", são ignoradas.
+- O ARKE conserta o que as exportações costumam estragar: nome todo em maiúsculas vira "Carlos Eduardo da Silva", CPF que perdeu o zero à esquerda volta a ter 11 dígitos, e o 55 do Brasil sai do celular.
+- Plano, datas do contrato e código de cartão ou de catraca não são importados. O plano é criado no ARKE, e o cartão é cadastrado na ficha do aluno.
 
 ## Passo a passo
 
