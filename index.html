@@ -42,6 +42,16 @@
       (function () {
         try {
           var href = window.location.href;
+          // Já normalizado: tokens depois do "?" da rota e nenhum segundo "#".
+          // Acontece quando o link abriu em arkefit.com.br e foi levado para
+          // app.arkefit.com.br (main.tsx): o script roda de novo lá, e
+          // normalizar outra vez descartaria o access_token.
+          var hash = window.location.hash;
+          if (
+            hash.indexOf("#", 1) === -1 &&
+            /^#\/[^?]*\?(.*&)?(access_token|error|error_description)=/.test(hash)
+          )
+            return;
           var hasTokens =
             href.indexOf("type=recovery") !== -1 ||
             href.indexOf("type=invite") !== -1 ||
