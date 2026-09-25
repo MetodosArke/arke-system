@@ -54,12 +54,13 @@ export const DOCUMENTOS: Record<
     // 2026-09-25: a leitura do plano alimentar em PDF volta, agora no Brasil
     // (transcricao, nao analise; texto sem as linhas de identificacao; so o
     // texto sai do aparelho; mesma base legal do acompanhamento), e o contato
-    // pelo site entra com a guarda de 12 meses sem andamento. Minuta ate o
-    // responsavel aprovar o texto (aprovar nao muda o hash).
+    // pelo site entra com a guarda de 12 meses sem andamento. Texto aprovado
+    // pelo responsavel como estava, em 25/09/2026 (a marca de minuta nao muda
+    // o hash, entao nao pede aceite de novo).
     versao: "2026-09-25",
     sha256: "f792770937cec9018e51bb60a0c22454e8d1e047e5da53903e3614b1df9d5b66",
     texto: privacidade,
-    revisadoJuridico: false,
+    revisadoJuridico: true,
   },
   contrato_academia: {
     titulo: "Contrato da Academia (licença e tratamento de dados)",
