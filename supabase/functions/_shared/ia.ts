@@ -110,7 +110,7 @@ async function assinar(caminho: string[], corpo: string, chaveId: string, segred
 
 export async function conversarComIA(
   env: Env,
-  dados: { sistema: string; usuario: string; maxTokens?: number },
+  dados: { sistema: string; usuario: string; maxTokens?: number; temperatura?: number },
 ): Promise<RespostaIA> {
   const chaveId = env("BEDROCK_ACCESS_KEY_ID");
   const segredo = env("BEDROCK_SECRET_ACCESS_KEY");
@@ -133,7 +133,7 @@ export async function conversarComIA(
   const corpo = JSON.stringify({
     system: [{ text: dados.sistema }],
     messages: [{ role: "user", content: [{ text: dados.usuario }] }],
-    inferenceConfig: { maxTokens: dados.maxTokens ?? 500, temperature: 0.4 },
+    inferenceConfig: { maxTokens: dados.maxTokens ?? 500, temperature: dados.temperatura ?? 0.4 },
   });
 
   let resposta: Response;
