@@ -3,7 +3,6 @@ import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import {
   ArrowRight,
   BadgeCheck,
-  BellRing,
   Building2,
   CalendarClock,
   Check,
@@ -17,17 +16,19 @@ import {
   LineChart,
   ListChecks,
   Lock,
+  MessageCircle,
   QrCode,
   ShieldCheck,
   Smartphone,
   Sparkles,
+  Target,
   UserX,
   Wallet,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { mensagemDeErroEdge } from "@/lib/erroEdge";
 import { FONTES } from "@/lib/landing";
-import { decimal } from "@/lib/numeros";
+import { decimal, reais } from "@/lib/numeros";
 import { Turnstile } from "@/components/public/Turnstile";
 import { MarcaArkeFit, SimboloArkeFit } from "@/components/marca/MarcaArkeFit";
 
@@ -139,7 +140,8 @@ function Nav() {
             para="contato"
             className="rounded-lg bg-primary hover:bg-primary/90 px-3.5 py-2 text-sm font-semibold text-primary-foreground shadow-[0_0_20px_hsl(var(--primary)/.3)] transition-transform hover:scale-[1.03]"
           >
-            Agendar demonstração
+            <span className="sm:hidden">Demonstração</span>
+            <span className="hidden sm:inline">Agendar demonstração</span>
           </Ancora>
         </div>
       </nav>
@@ -261,8 +263,8 @@ function Hero() {
           </Aparecer>
           <Aparecer atraso={0.12}>
             <p className="mt-6 max-w-xl text-lg leading-relaxed text-foreground/65">
-              O ArkeFit percebe os sinais — dias sem vir, treino sem registro, dor relatada, mensalidade que não entrou — e coloca cada um na fila
-              certa, com prazo e responsável. E a cobrança automática no cartão tira a inadimplência do esquecimento.
+              O ArkeFit percebe quando ele começa a parar e põe cada sinal na fila certa, com prazo e responsável. A mensalidade cai sozinha no
+              cartão.
             </p>
           </Aparecer>
           <Aparecer atraso={0.18}>
@@ -303,29 +305,37 @@ function Hero() {
 // ——— Números com fonte ———
 
 /**
- * Panorama Setorial (FONTES.panorama): academias com até 25% dos alunos em
- * cobrança automática contra as com mais de 76%. A fonte não diz o período da
- * evasão, então a página também não diz.
+ * Panorama Setorial (FONTES.panorama): academias com recorrência acima de 76%
+ * contra as com recorrência até 25%. A fonte não diz o período da evasão,
+ * então a página também não diz.
  */
-const PANORAMA = { evasao: { pouca: 12.72, muita: 9.68 }, permanencia: { pouca: 7.93, muita: 10.36 } };
+const PANORAMA = {
+  evasao: { pouca: 12.72, muita: 9.68 },
+  permanencia: { pouca: 7.93, muita: 10.36 },
+  ltv: { pouca: 1093.74, muita: 1521.25 },
+};
 const REDUCAO_EVASAO = Math.round((1 - PANORAMA.evasao.muita / PANORAMA.evasao.pouca) * 100);
 const GANHO_PERMANENCIA = decimal(PANORAMA.permanencia.muita - PANORAMA.permanencia.pouca, 1);
+const GANHO_LTV = Math.round((PANORAMA.ltv.muita / PANORAMA.ltv.pouca - 1) * 100);
 
 function Barra({ rotulo, valor, maximo, texto, destaque = false }: { rotulo: string; valor: number; maximo: number; texto: string; destaque?: boolean }) {
   const reduzir = useReducedMotion();
   return (
     <div>
-      <div className="flex items-baseline justify-between gap-3 text-sm">
+      <div className="flex items-baseline justify-between gap-3 text-xs">
         <span className={destaque ? "text-foreground" : "text-foreground/65"}>{rotulo}</span>
         <span className={`shrink-0 font-semibold tabular-nums ${destaque ? "text-primary" : "text-foreground/80"}`}>{texto}</span>
       </div>
-      <div className="mt-1.5 h-2.5 rounded-full bg-white/[0.06]">
+      <div className="mt-1.5 h-2 rounded-full bg-white/[0.06]">
         <motion.div
           className={`h-full rounded-full ${destaque ? "bg-primary" : "bg-foreground/30"}`}
           style={{ width: `${(valor / maximo) * 100}%`, transformOrigin: "left" }}
           initial={reduzir ? false : { scaleX: 0 }}
           whileInView={{ scaleX: 1 }}
-          viewport={{ once: true, margin: "-60px" }}
+          // Só na vertical: encolhida, a barra tem largura zero e fica colada
+          // na borda do cartão. Com folga nas laterais, no celular ela nunca
+          // "entrava" na tela e ficava vazia.
+          viewport={{ once: true, margin: "-60px 0px" }}
           transition={{ duration: 1.1, ease: [0.22, 1, 0.36, 1] }}
         />
       </div>
@@ -333,150 +343,179 @@ function Barra({ rotulo, valor, maximo, texto, destaque = false }: { rotulo: str
   );
 }
 
-function CartaoNumero({ rotulo, titulo, texto, fonte, children }: { rotulo: string; titulo: ReactNode; texto: string; fonte: { titulo: string; url: string }; children: ReactNode }) {
+function Destaque({ rotulo, numero, unidade, texto, children }: { rotulo: string; numero: string; unidade?: string; texto: string; children: ReactNode }) {
   return (
-    <div className="flex h-full flex-col rounded-2xl border border-white/10 bg-white/[0.02] p-6">
+    <div className="flex h-full flex-col rounded-3xl border border-white/10 bg-white/[0.02] p-6 sm:p-7">
       <div className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">{rotulo}</div>
-      <div className="lp-display mt-3 text-4xl font-extrabold text-foreground">{titulo}</div>
+      <div className="lp-display mt-3 whitespace-nowrap text-5xl font-extrabold text-primary sm:text-6xl">
+        {numero}
+        {unidade && <span className="ml-2 text-2xl font-bold sm:text-3xl">{unidade}</span>}
+      </div>
       <p className="mt-2 text-foreground/80">{texto}</p>
-      <div className="mt-6 flex-1">{children}</div>
-      <a href={fonte.url} target="_blank" rel="noopener noreferrer" className="mt-6 block text-xs text-muted-foreground underline-offset-2 hover:underline">
-        Fonte: {fonte.titulo}
-      </a>
+      <div className="mt-auto space-y-3 pt-6">{children}</div>
     </div>
   );
 }
 
 function Numeros() {
+  const ate = "Recorrência até 25%";
+  const acima = "Acima de 76%";
   return (
     <section className="relative border-y border-white/5 bg-card/60 py-20">
       <div className="mx-auto max-w-6xl px-4 sm:px-6">
         <Aparecer>
           <h2 className="max-w-3xl text-3xl font-bold text-foreground sm:text-4xl">
-            Os três primeiros meses decidem se o aluno fica. <span className="text-foreground/65">E quem paga no automático fica mais.</span>
+            Mensalidade no automático segura o aluno. <span className="text-foreground/65">E cada aluno passa a valer mais.</span>
           </h2>
         </Aparecer>
         <div className="mt-12 grid gap-4 md:grid-cols-3">
           <Aparecer className="h-full">
-            <CartaoNumero
-              rotulo="Alunos novos"
-              titulo={
-                <>
-                  <span className="text-primary">63</span> de cada 100
-                </>
-              }
-              texto="saem antes do terceiro mês. Menos de 4 passam de um ano."
-              fonte={FONTES.sperandei}
-            >
-              <div className="grid max-w-[220px] grid-cols-10 gap-1.5" role="img" aria-label="63 de cada 100 alunos novos saem antes do terceiro mês">
-                {Array.from({ length: 100 }, (_, i) => (
-                  <span key={i} className={`aspect-square rounded-full ${i < 63 ? "bg-foreground/15" : "bg-primary"}`} />
-                ))}
-              </div>
-              <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-foreground/65">
-                <span className="flex items-center gap-1.5">
-                  <span className="h-2 w-2 rounded-full bg-foreground/15" /> saem antes do 3º mês
-                </span>
-                <span className="flex items-center gap-1.5">
-                  <span className="h-2 w-2 rounded-full bg-primary" /> continuam
-                </span>
-              </div>
-            </CartaoNumero>
+            <Destaque rotulo="Valor por aluno" numero={`+${GANHO_LTV}%`} texto="de receita por aluno, ao longo da matrícula.">
+              <Barra rotulo={ate} valor={PANORAMA.ltv.pouca} maximo={PANORAMA.ltv.muita} texto={reais(PANORAMA.ltv.pouca)} />
+              <Barra rotulo={acima} valor={PANORAMA.ltv.muita} maximo={PANORAMA.ltv.muita} texto={reais(PANORAMA.ltv.muita)} destaque />
+            </Destaque>
           </Aparecer>
           <Aparecer atraso={0.08} className="h-full">
-            <CartaoNumero
-              rotulo="Evasão"
-              titulo={<span className="text-primary">{REDUCAO_EVASAO}% menor</span>}
-              texto="nas academias com a maioria dos alunos em cobrança automática."
-              fonte={FONTES.panorama}
-            >
-              <div className="space-y-4">
-                <Barra rotulo="Até 25% no automático" valor={PANORAMA.evasao.pouca} maximo={PANORAMA.evasao.pouca} texto={`${decimal(PANORAMA.evasao.pouca, 2)}%`} />
-                <Barra rotulo="Mais de 76% no automático" valor={PANORAMA.evasao.muita} maximo={PANORAMA.evasao.pouca} texto={`${decimal(PANORAMA.evasao.muita, 2)}%`} destaque />
-              </div>
-              <p className="mt-3 text-xs text-muted-foreground">Taxa de evasão das academias, pela parcela dos alunos em cobrança automática.</p>
-            </CartaoNumero>
+            <Destaque rotulo="Evasão" numero={`−${REDUCAO_EVASAO}%`} texto="de alunos saindo da academia.">
+              <Barra rotulo={ate} valor={PANORAMA.evasao.pouca} maximo={PANORAMA.evasao.pouca} texto={`${decimal(PANORAMA.evasao.pouca, 2)}%`} />
+              <Barra rotulo={acima} valor={PANORAMA.evasao.muita} maximo={PANORAMA.evasao.pouca} texto={`${decimal(PANORAMA.evasao.muita, 2)}%`} destaque />
+            </Destaque>
           </Aparecer>
           <Aparecer atraso={0.16} className="h-full">
-            <CartaoNumero
-              rotulo="Permanência"
-              titulo={<span className="text-primary">+{GANHO_PERMANENCIA} meses</span>}
-              texto="de permanência média do aluno, na mesma comparação."
-              fonte={FONTES.panorama}
-            >
-              <div className="space-y-4">
-                <Barra rotulo="Até 25% no automático" valor={PANORAMA.permanencia.pouca} maximo={PANORAMA.permanencia.muita} texto={`${decimal(PANORAMA.permanencia.pouca, 2)} meses`} />
-                <Barra rotulo="Mais de 76% no automático" valor={PANORAMA.permanencia.muita} maximo={PANORAMA.permanencia.muita} texto={`${decimal(PANORAMA.permanencia.muita, 2)} meses`} destaque />
-              </div>
-              <p className="mt-3 text-xs text-muted-foreground">Tempo médio que o aluno fica, pela parcela dos alunos em cobrança automática.</p>
-            </CartaoNumero>
+            <Destaque rotulo="Permanência" numero={`+${GANHO_PERMANENCIA}`} unidade="meses" texto="de permanência média do aluno.">
+              <Barra rotulo={ate} valor={PANORAMA.permanencia.pouca} maximo={PANORAMA.permanencia.muita} texto={`${decimal(PANORAMA.permanencia.pouca, 2)} meses`} />
+              <Barra rotulo={acima} valor={PANORAMA.permanencia.muita} maximo={PANORAMA.permanencia.muita} texto={`${decimal(PANORAMA.permanencia.muita, 2)} meses`} destaque />
+            </Destaque>
           </Aparecer>
         </div>
+        <p className="mt-6 text-xs leading-relaxed text-muted-foreground">
+          Academias com recorrência acima de 76%, comparadas às com recorrência até 25%. Fonte:{" "}
+          <a href={FONTES.panorama.url} target="_blank" rel="noopener noreferrer" className="underline-offset-2 hover:underline">
+            {FONTES.panorama.titulo}
+          </a>
+          .
+        </p>
       </div>
     </section>
   );
 }
 
-// ——— Como funciona ———
+// ——— Como funciona: os primeiros 90 dias de uma aluna ———
 
-const PASSOS = [
+type Cena = { icone: typeof UserX; texto: string; detalhe: string; tom: Evento["tom"] };
+
+/**
+ * Exemplo ilustrativo, com uma aluna inventada. Cada momento é uma regra que o
+ * sistema tem de verdade: primeiro acesso pelo QR Code, a pergunta do
+ * check-in, dois treinos sem registro, a cobrança no cartão, a dor relatada
+ * no treino e a constância medida contra a meta da própria aluna.
+ */
+const JORNADA: { quando: string; titulo: string; app: Cena; fila: Cena }[] = [
   {
-    icone: BellRing,
-    titulo: "Percebe",
-    texto:
-      "Sinais automáticos: aluno que não entrou no app em 48 horas, dois treinos previstos sem registro, dor relatada, dias sem aparecer, mensalidade vencida.",
+    quando: "Dia 1",
+    titulo: "Entra pelo QR Code da recepção",
+    app: { icone: Smartphone, texto: "Seu Treino A está pronto", detalhe: "Próxima ação · hoje", tom: "marca" },
+    fila: { icone: BadgeCheck, texto: "Ana entrou no app", detalhe: "Primeiro acesso concluído", tom: "ok" },
   },
   {
-    icone: ListChecks,
-    titulo: "Organiza",
-    texto: "Cada sinal vira uma tarefa na fila, com responsável, prioridade e prazo. Se ninguém agir a tempo, ela sobe para o gestor.",
+    quando: "Semana 2",
+    titulo: "Falta dois treinos seguidos",
+    app: { icone: MessageCircle, texto: "Como está sendo seguir seu plano?", detalhe: "Funcionando bem · Preciso de ajuste", tom: "marca" },
+    fila: { icone: UserX, texto: "Ana: 2 treinos sem registro", detalhe: "Recepção · prazo de 4 h", tom: "alerta" },
   },
   {
-    icone: BadgeCheck,
-    titulo: "Fecha com registro",
-    texto: "Nenhuma tarefa termina com um clique: só com o desfecho escrito. Meses depois, você sabe o que foi feito com cada aluno.",
+    quando: "Dia 30",
+    titulo: "A mensalidade vence",
+    app: { icone: CreditCard, texto: "Mensalidade paga no cartão", detalhe: "Nota fiscal no app", tom: "ok" },
+    fila: { icone: Wallet, texto: "Nenhuma cobrança para fazer", detalhe: "A parte da academia já caiu na conta", tom: "ok" },
+  },
+  {
+    quando: "Semana 6",
+    titulo: "Sente dor no joelho",
+    app: { icone: HeartPulse, texto: "Dor registrada no treino", detalhe: "Ao terminar a série", tom: "erro" },
+    fila: { icone: HeartPulse, texto: "Revisar o treino de Ana", detalhe: "Professor · antes do próximo treino", tom: "erro" },
+  },
+  {
+    quando: "Dia 90",
+    titulo: "Continua treinando",
+    app: { icone: Target, texto: "Semana cumprida: 3 de 3", detalhe: "100% da meta dela", tom: "ok" },
+    fila: { icone: ListChecks, texto: "Nada pendente sobre Ana", detalhe: "Cada tarefa fechada com desfecho", tom: "ok" },
   },
 ];
 
-function ComoFunciona() {
+function CenaCartao({ lado, cena }: { lado: string; cena: Cena }) {
+  return (
+    <div className="h-full rounded-2xl border border-white/10 bg-card/90 p-3.5">
+      <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">{lado}</div>
+      <div className="mt-2.5 flex items-start gap-3">
+        <span className={`rounded-lg p-2 ring-1 ${TOM[cena.tom]}`}>
+          <cena.icone className="h-4 w-4" aria-hidden />
+        </span>
+        <span className="min-w-0">
+          <span className="block text-sm font-medium text-foreground">{cena.texto}</span>
+          <span className="block text-xs text-foreground/65">{cena.detalhe}</span>
+        </span>
+      </div>
+    </div>
+  );
+}
+
+function Jornada() {
   return (
     <section id="como-funciona" className="scroll-mt-20 py-24">
       <div className="mx-auto max-w-6xl px-4 sm:px-6">
         <Aparecer>
           <Selo>Como funciona</Selo>
-          <h2 className="mt-5 max-w-3xl text-3xl font-bold text-foreground sm:text-4xl">Ninguém precisa lembrar de olhar cada aluno. A fila mostra quem precisa de atenção.</h2>
+          <h2 className="mt-5 max-w-3xl text-3xl font-bold text-foreground sm:text-4xl">
+            Os primeiros 90 dias de uma aluna. <span className="text-foreground/65">O que ela vê, e o que a academia vê.</span>
+          </h2>
         </Aparecer>
-        <div className="relative mt-14 grid gap-6 md:grid-cols-3">
-          <div className="pointer-events-none absolute left-0 right-0 top-9 hidden h-px bg-gradient-to-r from-transparent via-primary/30 to-transparent md:block" aria-hidden />
-          {PASSOS.map((p, i) => (
-            <Aparecer key={p.titulo} atraso={i * 0.1}>
-              <div className="relative">
-                <div className="relative z-10 flex h-[72px] w-[72px] items-center justify-center rounded-2xl border border-primary/25 bg-card shadow-[0_0_30px_hsl(var(--primary)/.12)]">
-                  <p.icone className="h-7 w-7 text-primary" aria-hidden />
-                </div>
-                <div className="mt-2 text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Passo {i + 1}</div>
-                <h3 className="mt-2 text-xl font-bold text-foreground">{p.titulo}</h3>
-                <p className="mt-2 leading-relaxed text-foreground/65">{p.texto}</p>
-              </div>
-            </Aparecer>
-          ))}
+        <div className="relative mt-14">
+          <div className="pointer-events-none absolute bottom-8 left-[7px] top-2 w-px bg-gradient-to-b from-primary/70 via-primary/25 to-transparent" aria-hidden />
+          <ol className="space-y-6">
+            {JORNADA.map((m, i) => (
+              <li key={m.quando} className="relative pl-9">
+                <span
+                  className="absolute left-0 top-1.5 h-[15px] w-[15px] rounded-full border-2 border-primary bg-background shadow-[0_0_12px_hsl(var(--primary)/.55)]"
+                  aria-hidden
+                />
+                <Aparecer atraso={i * 0.04}>
+                  <div className="grid gap-3 md:grid-cols-[minmax(0,0.9fr)_minmax(0,1fr)_minmax(0,1fr)] md:items-center">
+                    <div>
+                      <div className="lp-display text-sm font-bold text-primary">{m.quando}</div>
+                      <h3 className="mt-1 text-lg font-bold text-foreground">{m.titulo}</h3>
+                    </div>
+                    <CenaCartao lado="No app da Ana" cena={m.app} />
+                    <CenaCartao lado="Na fila da academia" cena={m.fila} />
+                  </div>
+                </Aparecer>
+              </li>
+            ))}
+          </ol>
         </div>
+        <Aparecer>
+          <p className="mt-10 max-w-3xl text-foreground/65">
+            Cada sinal vira tarefa com responsável e prazo, e só fecha com o desfecho escrito.{" "}
+            <span className="text-muted-foreground">Exemplo ilustrativo, com uma aluna inventada.</span>
+          </p>
+        </Aparecer>
       </div>
     </section>
   );
 }
 
-// ——— Recursos (bento) ———
+// ——— Recursos ———
 
-function Cartao({ icone: Icone, titulo, children, className = "" }: { icone: typeof Wallet; titulo: string; children: ReactNode; className?: string }) {
-  return (
-    <div onPointerMove={acompanharPonteiro} className={`lp-cartao h-full rounded-2xl border border-white/10 bg-white/[0.025] p-6 transition-colors hover:border-white/20 ${className}`}>
-      <Icone className="h-6 w-6 text-primary" aria-hidden />
-      <h3 className="mt-4 text-lg font-bold text-foreground">{titulo}</h3>
-      <div className="mt-2 text-sm leading-relaxed text-foreground/65">{children}</div>
-    </div>
-  );
-}
+const RECURSOS: [typeof Wallet, string, string][] = [
+  [CreditCard, "Cobrança automática", "Cartão, PIX ou boleto, direto na conta da academia."],
+  [Smartphone, "App do aluno incluso", "Treino, dieta, check-in e pagamentos."],
+  [FileText, "Nota fiscal automática", "No CNPJ da academia, a cada pagamento."],
+  [DoorOpen, "Catraca que não trava", "Control iD e Topdata, mesmo sem internet."],
+  [QrCode, "Check-in por QR Code", "Para quem não tem catraca."],
+  [FileSpreadsheet, "Traga a sua base", "Planilhas do EVO, Tecnofit, Next Fit e Pacto."],
+  [LineChart, "Gestão que se explica", "DRE, retenção e o resumo da semana."],
+  [ShieldCheck, "LGPD levada a sério", "Dados em São Paulo e IA só com consentimento."],
+];
 
 function Recursos() {
   return (
@@ -484,69 +523,23 @@ function Recursos() {
       <div className="mx-auto max-w-6xl px-4 sm:px-6">
         <Aparecer>
           <Selo>Recursos</Selo>
-          <h2 className="mt-5 max-w-3xl text-3xl font-bold text-foreground sm:text-4xl">O que a operação da academia precisa, num sistema só.</h2>
+          <h2 className="mt-5 max-w-3xl text-3xl font-bold text-foreground sm:text-4xl">O que a operação precisa, num sistema só.</h2>
         </Aparecer>
-        <div className="mt-12 grid auto-rows-fr gap-4 md:grid-cols-6">
-          <Aparecer className="md:col-span-4 md:row-span-2">
-            <div onPointerMove={acompanharPonteiro} className="lp-cartao flex h-full flex-col justify-between rounded-2xl border border-primary/20 bg-gradient-to-br from-primary/[0.09] via-transparent to-primary/[0.03] p-7">
-              <div>
-                <CreditCard className="h-7 w-7 text-primary" aria-hidden />
-                <h3 className="mt-4 text-2xl font-bold text-foreground">Cobrança automática, direto na conta da academia</h3>
-                <p className="mt-3 max-w-xl leading-relaxed text-foreground/80">
-                  O aluno cadastra o cartão uma vez e a mensalidade é cobrada todo mês, sem ele precisar lembrar. Quem prefere recebe a fatura com PIX ou
-                  boleto. A parte da academia cai direto na conta dela, no ato do pagamento.
-                </p>
+        <div className="mt-12 grid grid-cols-2 gap-3 lg:grid-cols-4">
+          {RECURSOS.map(([Icone, titulo, texto], i) => (
+            <Aparecer key={titulo} atraso={(i % 4) * 0.05} className="h-full">
+              <div
+                onPointerMove={acompanharPonteiro}
+                className="lp-cartao h-full rounded-2xl border border-white/10 bg-white/[0.025] p-4 transition-colors hover:border-primary/30 sm:p-5"
+              >
+                <span className="inline-flex rounded-xl bg-primary/10 p-2.5 ring-1 ring-primary/20">
+                  <Icone className="h-5 w-5 text-primary" aria-hidden />
+                </span>
+                <h3 className="mt-4 font-bold text-foreground">{titulo}</h3>
+                <p className="mt-1 text-sm text-foreground/65">{texto}</p>
               </div>
-              <ul className="mt-6 grid gap-3 text-sm text-foreground/80 sm:grid-cols-2">
-                {[
-                  "Conferência diária com o Asaas: pagamento confirmado libera o aluno mesmo se um aviso se perder",
-                  "Inadimplente com 5 dias de tolerância, com aviso no app",
-                  "Taxa de matrícula e cobranças avulsas na mesma ficha",
-                  "Pausar, retomar e cancelar o plano em um clique",
-                ].map((t) => (
-                  <li key={t} className="flex gap-2">
-                    <Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden /> {t}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </Aparecer>
-          <Aparecer atraso={0.05} className="md:col-span-2">
-            <Cartao icone={Smartphone} titulo="App do aluno, incluso">
-              Treino série a série, dieta, check-in do dia, pagamentos e a evolução, que só o aluno vê. Todo aluno em dia usa, sem custo extra.
-            </Cartao>
-          </Aparecer>
-          <Aparecer atraso={0.1} className="md:col-span-2">
-            <Cartao icone={FileText} titulo="Nota fiscal automática">
-              Cada pagamento confirmado vira nota fiscal no CNPJ da academia, e o aluno recebe por e-mail.
-            </Cartao>
-          </Aparecer>
-          <Aparecer className="md:col-span-2">
-            <Cartao icone={DoorOpen} titulo="Catraca que não trava a recepção">
-              Control iD e Topdata. Sem internet, continua liberando pelo cadastro local, e as entradas sobem quando a conexão volta.
-            </Cartao>
-          </Aparecer>
-          <Aparecer atraso={0.05} className="md:col-span-2">
-            <Cartao icone={QrCode} titulo="Check-in por QR Code">
-              Para quem não tem catraca: o aluno aponta o celular para a tela da recepção. O código muda a cada 10 minutos.
-            </Cartao>
-          </Aparecer>
-          <Aparecer atraso={0.1} className="md:col-span-2">
-            <Cartao icone={FileSpreadsheet} titulo="Traga a sua base">
-              Planilhas do EVO, Tecnofit, Next Fit e Pacto são reconhecidas. Parou no meio? A importação retoma de onde estava.
-            </Cartao>
-          </Aparecer>
-          <Aparecer className="md:col-span-3">
-            <Cartao icone={LineChart} titulo="Gestão com número que se explica">
-              DRE do mês, retenção e alunos em risco, e um resumo da semana toda segunda às 8h. Cada número diz, na tela, como é calculado.
-            </Cartao>
-          </Aparecer>
-          <Aparecer atraso={0.05} className="md:col-span-3">
-            <Cartao icone={ShieldCheck} titulo="LGPD levada a sério">
-              Banco de dados em São Paulo. Digital na catraca só com autorização do aluno. Inteligência artificial só com consentimento, por finalidade,
-              processada no Brasil. A academia exporta tudo quando quiser.
-            </Cartao>
-          </Aparecer>
+            </Aparecer>
+          ))}
         </div>
         <div className="relative mt-10 overflow-hidden" aria-hidden>
           <div className="lp-faixa flex w-max gap-10 whitespace-nowrap text-sm text-muted-foreground">
@@ -577,34 +570,30 @@ function Metodo() {
           <Selo>Método ARKE</Selo>
           <h2 className="mt-5 text-3xl font-bold text-foreground sm:text-4xl">Uma receita a mais, sem aumentar a equipe.</h2>
           <p className="mt-5 leading-relaxed text-foreground/65">
-            Além do app incluso, a academia pode oferecer o Método ARKE aos alunos, nos níveis Integrado e Elite: acolhimento, fases da jornada, plano
-            alimentar e uma célula de mentoria da ArkeFit acompanhando cada aluno à distância.
+            Além do app incluso, a academia pode vender o Método ARKE: acolhimento, fases da jornada e uma mentoria da ArkeFit que acompanha cada aluno à
+            distância.
           </p>
           <ul className="mt-6 space-y-3 text-foreground/80">
-            {[
-              "A academia define o preço e recebe a parte dela direto na conta.",
-              "O acompanhamento digital é da ArkeFit; para a academia sobra o que é presencial.",
-              "Uma tela de prestação de contas mostra cada atendimento e o desfecho dele.",
-            ].map((t) => (
-              <li key={t} className="flex gap-3">
-                <Check className="mt-1 h-4 w-4 shrink-0 text-primary" aria-hidden /> {t}
-              </li>
-            ))}
+            {["A academia define o preço e recebe na conta dela.", "O digital fica com a ArkeFit; o presencial, com a academia.", "Cada atendimento aparece para a academia, com o desfecho."].map(
+              (t) => (
+                <li key={t} className="flex gap-3">
+                  <Check className="mt-1 h-4 w-4 shrink-0 text-primary" aria-hidden /> {t}
+                </li>
+              ),
+            )}
           </ul>
         </Aparecer>
         <Aparecer atraso={0.1}>
           <div className="grid gap-3">
             {[
-              ["M.A.P.A.®", "Acolhimento: rotina, objetivos, saúde e o que já tentou antes."],
-              ["B.A.S.E.®", "Adaptação, com constância medida contra a meta do próprio aluno."],
-              ["R.O.T.A.®", "Check-ins semanais e ajustes antes da desistência."],
-              ["A.P.E.X.® e L.E.G.A.D.O.®", "Evolução de longo prazo, individual e privada."],
+              ["M.A.P.A.®", "Acolhimento"],
+              ["B.A.S.E.®", "Adaptação, contra a meta do próprio aluno"],
+              ["R.O.T.A.®", "Check-ins semanais e ajustes"],
+              ["A.P.E.X.® e L.E.G.A.D.O.®", "Evolução de longo prazo"],
             ].map(([fase, texto], i) => (
-              <div key={fase} className="flex items-start gap-4 rounded-xl border border-white/10 bg-white/[0.025] p-4">
-                <span className="lp-display mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/15 text-sm font-bold text-primary">
-                  {i + 1}
-                </span>
-                <div>
+              <div key={fase} className="flex items-center gap-4 rounded-xl border border-white/10 bg-white/[0.025] p-4">
+                <span className="lp-display flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/15 text-sm font-bold text-primary">{i + 1}</span>
+                <div className="min-w-0">
                   <div className="font-semibold text-foreground">{fase}</div>
                   <div className="text-sm text-foreground/65">{texto}</div>
                 </div>
@@ -621,32 +610,39 @@ function Metodo() {
 
 function Implantacao() {
   const passos: [typeof Building2, string, string][] = [
-    [Building2, "Configuração guiada", "Seis etapas no painel: dados, conta de recebimentos, planos, equipe, alunos e contrato. O CNPJ preenche o resto."],
-    [FileSpreadsheet, "Sua base importada", "A planilha do sistema atual entra com as colunas reconhecidas, e o CPF é conferido linha a linha."],
-    [QrCode, "Alunos no app", "Um QR Code para a academia inteira: cada aluno digita o e-mail ou o celular e cria a própria senha."],
-    [Fingerprint, "Catraca ligada", "Com catraca, um técnico instala o Gateway Local seguindo o manual. A digital entra só com a autorização do aluno."],
-    [CalendarClock, "Equipe no ritmo", "A Central de Ajuda dentro do sistema responde as dúvidas do dia a dia, tela por tela."],
+    [Building2, "Configuração guiada", "O CNPJ preenche o resto."],
+    [FileSpreadsheet, "Base importada", "A planilha atual, conferida."],
+    [QrCode, "Alunos no app", "Um QR Code para todos."],
+    [Fingerprint, "Catraca ligada", "Gateway local na recepção."],
+    [CalendarClock, "Equipe no ritmo", "Ajuda dentro de cada tela."],
   ];
   return (
     <section className="border-y border-white/5 bg-card/60 py-24">
       <div className="mx-auto max-w-6xl px-4 sm:px-6">
         <Aparecer>
           <Selo>Implantação</Selo>
-          <h2 className="mt-5 max-w-3xl text-3xl font-bold text-foreground sm:text-4xl">Da assinatura ao primeiro aluno no app, passo a passo.</h2>
+          <h2 className="mt-5 max-w-3xl text-3xl font-bold text-foreground sm:text-4xl">Da assinatura ao primeiro aluno no app.</h2>
         </Aparecer>
-        <div className="mt-12 grid gap-4 md:grid-cols-5">
+        <div className="relative mt-12">
+          <div className="pointer-events-none absolute left-[10%] right-[10%] top-6 hidden h-px bg-gradient-to-r from-primary/10 via-primary/40 to-primary/10 md:block" aria-hidden />
+          <ol className="grid gap-6 md:grid-cols-5 md:gap-4">
           {passos.map(([Icone, titulo, texto], i) => (
-            <Aparecer key={titulo} atraso={i * 0.06} className="h-full">
-              <div className="h-full rounded-2xl border border-white/10 bg-white/[0.02] p-5">
-                <div className="flex items-center justify-between">
-                  <Icone className="h-5 w-5 text-primary" aria-hidden />
-                  <span className="lp-display text-sm font-bold text-muted-foreground/70">0{i + 1}</span>
+            <li key={titulo} className="relative">
+              <Aparecer atraso={i * 0.06}>
+                <div className="flex items-center gap-4 md:flex-col md:text-center">
+                  <span className="relative z-10 flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-primary/25 bg-card shadow-[0_0_24px_hsl(var(--primary)/.12)]">
+                    <Icone className="h-5 w-5 text-primary" aria-hidden />
+                  </span>
+                  <div>
+                    <div className="lp-display text-xs font-bold text-muted-foreground/70">0{i + 1}</div>
+                    <h3 className="font-bold text-foreground">{titulo}</h3>
+                    <p className="text-sm text-foreground/65">{texto}</p>
+                  </div>
                 </div>
-                <h3 className="mt-4 font-bold text-foreground">{titulo}</h3>
-                <p className="mt-2 text-sm leading-relaxed text-foreground/65">{texto}</p>
-              </div>
-            </Aparecer>
+              </Aparecer>
+            </li>
           ))}
+          </ol>
         </div>
       </div>
     </section>
@@ -900,7 +896,7 @@ export default function Landing() {
       <main>
         <Hero />
         <Numeros />
-        <ComoFunciona />
+        <Jornada />
         <Recursos />
         <Metodo />
         <Implantacao />
