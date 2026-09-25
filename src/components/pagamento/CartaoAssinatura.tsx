@@ -17,7 +17,8 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { AlertTriangle, CreditCard, Lock } from "lucide-react";
 
 /**
- * Forma de pagamento da assinatura do Método ARKE, e o cadastro do cartão.
+ * Forma de pagamento de uma assinatura do aluno — a do Método ARKE ou a
+ * mensalidade do plano da academia — e o cadastro do cartão.
  *
  * Os dados do cartão vivem só no estado deste componente, só enquanto o
  * diálogo está aberto: não passam por rascunho (useRascunho), não vão para
@@ -49,6 +50,8 @@ export interface AssinaturaPagamento {
 
 interface Props {
   alunoId: string;
+  /** Qual assinatura recebe o cartão: a do Método ARKE (padrão) ou a mensalidade do plano da academia. */
+  tipo?: "metodo" | "plano";
   assinatura: AssinaturaPagamento | null;
   /** Pré-preenche o titular com os dados do aluno; ele pode trocar. */
   titularPadrao?: Partial<DadosTitular>;
@@ -64,7 +67,7 @@ function nomeBandeira(bandeira: string | null): string {
   return NOME_BANDEIRA[(bandeira ?? "outra") as Bandeira] ?? "Cartão";
 }
 
-export function CartaoAssinatura({ alunoId, assinatura, titularPadrao, onSalvo, onErro, onSucesso }: Props) {
+export function CartaoAssinatura({ alunoId, tipo = "metodo", assinatura, titularPadrao, onSalvo, onErro, onSucesso }: Props) {
   const [aberto, setAberto] = useState(false);
   const [cartao, setCartao] = useState<DadosCartao>(CARTAO_VAZIO);
   const [titular, setTitular] = useState<DadosTitular>(TITULAR_VAZIO);
@@ -102,6 +105,7 @@ export function CartaoAssinatura({ alunoId, assinatura, titularPadrao, onSalvo, 
       {
         body: {
           aluno_id: alunoId,
+          tipo,
           cartao: cartao,
           titular: {
             nome: titular.nome,

@@ -19,6 +19,8 @@
     "sandbox:ciclo": "node scripts/asaas-sandbox-ciclo.mjs",
     "sandbox:avulsa": "node scripts/asaas-sandbox-avulsa.mjs",
     "sandbox:nfse": "node scripts/asaas-sandbox-nfse.mjs",
+    "sandbox:reconciliacao": "node scripts/asaas-sandbox-reconciliacao.mjs",
+    "sandbox:implantacao": "node scripts/asaas-sandbox-implantacao.mjs",
     "simulado:vigia": "node scripts/vigia-simulado.mjs"
   },
   "dependencies": {

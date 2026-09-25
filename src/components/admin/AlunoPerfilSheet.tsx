@@ -193,7 +193,7 @@ export function AlunoPerfilSheet({
       const matricula = (
         await supabase
           .from("aluno_matriculas_academia")
-          .select("id, valor_cobrado, dia_vencimento, status, planos_academia(nome, periodicidade)")
+          .select("id, valor_cobrado, dia_vencimento, status, asaas_subscription_id, forma_pagamento, cartao_final, cartao_bandeira, cartao_recusado_em, planos_academia(nome, periodicidade)")
           .eq("aluno_id", aluno.id)
           .eq("status", "ativa")
           .maybeSingle()
@@ -545,6 +545,22 @@ export function AlunoPerfilSheet({
                         </p>
                       </div>
                     </div>
+                    {(organizationRole === "gestor" || organizationRole === "recepcao") && (
+                      <div className="mt-3 border-t pt-3">
+                        <CartaoAssinatura
+                          alunoId={perfil.aluno.id}
+                          tipo="plano"
+                          assinatura={perfil.matricula}
+                          titularPadrao={{
+                            nome: perfil.profile?.full_name ?? "",
+                            cpf: perfil.profile?.cpf ?? "",
+                            telefone: perfil.profile?.phone ?? "",
+                          }}
+                          onSalvo={() => void queryClient.invalidateQueries({ queryKey: ["aluno-perfil", alunoId] })}
+                          onSucesso={(m) => toast({ title: "Cartão cadastrado", description: m })}
+                        />
+                      </div>
+                    )}
                     {perfil.mensalidades.length > 0 && (
                       <ul className="mt-2 space-y-1">
                         {perfil.mensalidades.map((m) => (

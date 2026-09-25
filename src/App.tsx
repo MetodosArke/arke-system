@@ -26,6 +26,7 @@ import { AlunoBillingGate } from "@/components/app/AlunoBillingGate";
 import { AlunoSituacaoGate } from "@/components/app/AlunoSituacaoGate";
 import { AceiteDocumentosGate } from "@/components/legal/AceiteDocumentosGate";
 import { OrganizacaoBillingGate } from "@/components/admin/OrganizacaoBillingGate";
+import { EncerramentoGate } from "@/components/encerramento/EncerramentoGate";
 
 // Aluno pages
 
@@ -230,7 +231,9 @@ const App = () => (
                       <AlunoOnboardingGate>
                         <AlunoBillingGate>
                           <AlunoSituacaoGate>
-                            <AppLayout />
+                            <EncerramentoGate publico="aluno">
+                              <AppLayout />
+                            </EncerramentoGate>
                           </AlunoSituacaoGate>
                         </AlunoBillingGate>
                       </AlunoOnboardingGate>
@@ -257,9 +260,12 @@ const App = () => (
                 element={
                   <ProtectedRoute requiredRoles={[...STAFF_ROLES]}>
                     <AceiteDocumentosGate>
-                      <OrganizacaoBillingGate>
-                        <AdminLayout />
-                      </OrganizacaoBillingGate>
+                      {/* Encerramento por fora: depois do término a exportação vale mesmo com mensalidade B2B vencida. */}
+                      <EncerramentoGate publico="equipe">
+                        <OrganizacaoBillingGate>
+                          <AdminLayout />
+                        </OrganizacaoBillingGate>
+                      </EncerramentoGate>
                     </AceiteDocumentosGate>
                   </ProtectedRoute>
                 }

@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { porLotes } from "@/lib/paginar";
+import { perfisDosUsuarios } from "@/lib/perfis";
 import { useAuth } from "@/contexts/AuthContext";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
@@ -170,17 +172,9 @@ export function FuncionarioPerfilSheet({
         )
       );
 
-      const { data: alunosData } = alunoIds.length
-        ? await supabase.from("alunos").select("id, user_id").in("id", alunoIds)
-        : { data: [] as { id: string; user_id: string }[] };
-      const userIds = (alunosData ?? []).map((a) => a.user_id);
-      const { data: profilesData } = userIds.length
-        ? await supabase.from("profiles").select("user_id, full_name").in("user_id", userIds)
-        : { data: [] as { user_id: string; full_name: string }[] };
-      const nomeByUserId = new Map((profilesData ?? []).map((p) => [p.user_id, p.full_name]));
-      const nomeByAlunoId = new Map(
-        (alunosData ?? []).map((a) => [a.id, nomeByUserId.get(a.user_id) ?? "Aluno"])
-      );
+      const alunosData = await porLotes(alunoIds, (lote) => supabase.from("alunos").select("id, user_id").in("id", lote));
+      const perfis = await perfisDosUsuarios(alunosData.map((a) => a.user_id));
+      const nomeByAlunoId = new Map(alunosData.map((a) => [a.id, perfis.get(a.user_id)?.full_name ?? "Aluno"]));
 
       const atividade: AtividadeItem[] = [
         ...(treinosRecentes ?? []).map((t) => ({

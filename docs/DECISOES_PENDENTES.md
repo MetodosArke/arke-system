@@ -8,6 +8,9 @@ Só o que continua em aberto. As decisões já tomadas e aplicadas saíram desta
 - **GIFs dos exercícios.** Os 105 exercícios globais continuam sem mídia. Os GIFs vêm do banco do app original; a estrutura de envio já existe e está testada. Vídeo é recurso a mais, não linha de base — a ficha se explica com GIF.
 - **Infraestrutura paga** — Supabase Pro, Vercel Pro, Resend pago e Sentry conforme o volume — e, só depois dela, o **teste de carga**. Depois do upgrade do Supabase, trocar `limite_banco_mb` pelo disco contratado em Visão Master → Configurações.
 - **Planilha real de exportação** (EVO, Tecnofit, Next Fit ou Pacto), para conferir o reconhecimento das colunas na importação de alunos.
+- **Verificação em duas etapas.** Cada conta da ArkeFit cadastra o aplicativo autenticador na primeira entrada na Visão Master depois da Fase 0. Quem perder o celular tem o fator removido pelo banco e cadastra de novo.
+- **Nota fiscal da própria ArkeFit** (mensalidade das academias, taxa de implantação e repasse) configurada na conta Asaas da ArkeFit, com o contador.
+- **Ensaio de restauração do backup**, logo depois do Supabase Pro (`docs/RESTAURACAO_BACKUP.md`).
 
 ## Nota fiscal automática da academia (24/09/2026)
 

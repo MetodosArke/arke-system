@@ -14,8 +14,9 @@ const jsonResponse = (body: unknown, status = 200) =>
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
 
-// Cadastra (ou troca) o cartão da assinatura do Método ARKE e liga a cobrança
-// automática. A partir daí o Asaas cobra o cartão a cada ciclo, sem o aluno
+// Cadastra (ou troca) o cartão da assinatura do Método ARKE — ou, com
+// `tipo: "plano"`, da mensalidade do plano próprio da academia — e liga a
+// cobrança automática. A partir daí o Asaas cobra o cartão a cada ciclo, sem o aluno
 // precisar lembrar de pagar — que é onde nasce a evasão involuntária.
 //
 // ## O cartão é só de passagem
@@ -101,6 +102,8 @@ function ipDoCliente(req: Request): string | null {
 
 type CorpoRequisicao = {
   aluno_id?: unknown;
+  /** "metodo" (padrão) ou "plano" — qual assinatura do aluno recebe o cartão. */
+  tipo?: unknown;
   cartao?: { titular?: unknown; numero?: unknown; mes?: unknown; ano?: unknown; cvv?: unknown };
   titular?: {
     nome?: unknown;
@@ -148,6 +151,7 @@ Deno.serve(async (req: Request) => {
   try {
     const corpo: CorpoRequisicao = await req.json();
     const alunoId = String(corpo?.aluno_id ?? "");
+    const tipo = corpo?.tipo === "plano" ? "plano" : "metodo";
     const numero = digitos(corpo?.cartao?.numero);
     const cvv = digitos(corpo?.cartao?.cvv);
     const val = validade(digitos(corpo?.cartao?.mes), digitos(corpo?.cartao?.ano));
@@ -219,14 +223,25 @@ Deno.serve(async (req: Request) => {
       }
     }
 
+    // As duas assinaturas guardam o resumo do cartão nas mesmas colunas.
+    const tabela = tipo === "plano" ? "aluno_matriculas_academia" : "aluno_assinaturas";
     const { data: assinatura } = await admin
-      .from("aluno_assinaturas")
+      .from(tabela)
       .select("id, status, asaas_subscription_id")
       .eq("aluno_id", aluno.id)
+      .in("status", tipo === "plano" ? ["ativa"] : ["ativa", "atrasada"])
+      .not("asaas_subscription_id", "is", null)
+      .order("created_at", { ascending: false })
+      .limit(1)
       .maybeSingle();
-    if (!assinatura?.asaas_subscription_id || !["ativa", "atrasada"].includes(assinatura.status)) {
+    if (!assinatura?.asaas_subscription_id) {
       return jsonResponse(
-        { error: "A assinatura do Método ARKE ainda não foi emitida. Gere a cobrança antes de cadastrar o cartão." },
+        {
+          error:
+            tipo === "plano"
+              ? "A mensalidade da academia ainda não é cobrada pelo ARKE. Matricule o aluno no plano antes de cadastrar o cartão."
+              : "A assinatura do Método ARKE ainda não foi emitida. Gere a cobrança antes de cadastrar o cartão.",
+        },
         409
       );
     }
@@ -255,7 +270,7 @@ Deno.serve(async (req: Request) => {
 
     const final = numero.slice(-4);
     const { error: gravacaoError } = await admin
-      .from("aluno_assinaturas")
+      .from(tabela)
       .update({
         forma_pagamento: "cartao",
         cartao_final: final,

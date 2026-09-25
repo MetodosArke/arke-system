@@ -1,4 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { verificada } from "../_shared/verificacao.ts";
 import { conversarComIA, fornecedorIA } from "../_shared/ia.ts";
 
 const corsHeaders = {
@@ -66,7 +67,7 @@ Deno.serve(async (req: Request) => {
 
     const admin = createClient(supabaseUrl, serviceRoleKey);
     const { data: papeis } = await admin.from("user_roles").select("role").eq("user_id", callerId);
-    const arkefit = (papeis ?? []).some((p) => p.role === "superadmin" || p.role === "admin_arke");
+    const arkefit = verificada(claims?.claims) && (papeis ?? []).some((p) => p.role === "superadmin" || p.role === "admin_arke");
     if (!arkefit) return jsonResponse({ error: "Apenas a equipe da ArkeFit usa o Sentinela." }, 403);
 
     const { data: aluno } = await admin

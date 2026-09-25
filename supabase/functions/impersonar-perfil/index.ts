@@ -1,4 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { verificada } from "../_shared/verificacao.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -89,8 +90,8 @@ Deno.serve(async (req: Request) => {
       console.error("Error loading caller roles", callerRolesError);
       return errorResponse("Erro ao validar permissões.");
     }
-    const callerIsAdminArke = (callerRoles ?? []).some((r) => r.role === "admin_arke");
-    const callerIsSuperadmin = (callerRoles ?? []).some((r) => r.role === "superadmin");
+    const callerIsAdminArke = verificada(claimsData?.claims) && (callerRoles ?? []).some((r) => r.role === "admin_arke");
+    const callerIsSuperadmin = verificada(claimsData?.claims) && (callerRoles ?? []).some((r) => r.role === "superadmin");
 
     // organization_members tem unique(organization_id, user_id) — filtrar
     // pelos dois garante no máximo uma linha. Filtrar só por user_id (como

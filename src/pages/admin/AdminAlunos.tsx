@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { porLotes, todasAsLinhas } from "@/lib/paginar";
 import { mensagemDeErroEdge } from "@/lib/erroEdge";
 import { useAuth } from "@/contexts/AuthContext";
 import { erroCpfObrigatorio } from "@/lib/cpf";
@@ -118,40 +119,35 @@ export default function AdminAlunos() {
   const { data: alunos = EMPTY_ALUNOS, isLoading } = useQuery({
     queryKey: ["admin-alunos", organization?.id],
     queryFn: async () => {
-      const { data: alunosData, error } = await supabase
-        .from("alunos")
-        .select(
-          "id, user_id, nivel_atacado, objetivo, data_inicio, fase_jornada, metodo_arke_status, situacao_academia, situacao_academia_motivo, situacao_academia_retorno, dias_descanso, anonimizado_em"
-        )
-        .eq("organization_id", organization!.id)
-        .order("data_inicio", { ascending: false });
-      if (error) throw error;
+      const alunosData = await todasAsLinhas((de, ate) =>
+        supabase
+          .from("alunos")
+          .select(
+            "id, user_id, nivel_atacado, objetivo, data_inicio, fase_jornada, metodo_arke_status, situacao_academia, situacao_academia_motivo, situacao_academia_retorno, dias_descanso, anonimizado_em"
+          )
+          .eq("organization_id", organization!.id)
+          .order("data_inicio", { ascending: false })
+          .order("id")
+          .range(de, ate)
+      );
 
-      const userIds = alunosData.map((a) => a.user_id);
-      const alunoIds = alunosData.map((a) => a.id);
-
-      const [{ data: profiles }, { data: assinaturas }] = await Promise.all([
-        userIds.length
-          ? supabase.from("profiles").select("user_id, full_name, phone").in("user_id", userIds)
-          : Promise.resolve({ data: [] as { user_id: string; full_name: string; phone: string | null }[] }),
-        alunoIds.length
-          ? supabase
+      const [profiles, assinaturas] = await Promise.all([
+        porLotes(
+          alunosData.map((a) => a.user_id),
+          (lote) => supabase.from("profiles").select("user_id, full_name, phone").in("user_id", lote)
+        ),
+        porLotes(
+          alunosData.map((a) => a.id),
+          (lote) =>
+            supabase
               .from("aluno_assinaturas")
               .select("aluno_id, status, valor_cobrado, fatura_pendente_url, updated_at")
-              .in("aluno_id", alunoIds)
-          : Promise.resolve({
-              data: [] as {
-                aluno_id: string;
-                status: string;
-                valor_cobrado: number;
-                fatura_pendente_url: string | null;
-                updated_at: string;
-              }[],
-            }),
+              .in("aluno_id", lote)
+        ),
       ]);
 
-      const profileByUserId = new Map((profiles ?? []).map((p) => [p.user_id, p]));
-      const assinaturaByAlunoId = new Map((assinaturas ?? []).map((a) => [a.aluno_id, a]));
+      const profileByUserId = new Map(profiles.map((p) => [p.user_id, p]));
+      const assinaturaByAlunoId = new Map(assinaturas.map((a) => [a.aluno_id, a]));
       return alunosData.map((a) => {
         const profile = profileByUserId.get(a.user_id);
         const assinatura = assinaturaByAlunoId.get(a.id);

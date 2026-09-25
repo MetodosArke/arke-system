@@ -2,6 +2,8 @@ import { dataBrasilia, hojeBrasilia } from "@/lib/dataBrasilia";
 import { useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { todasAsLinhas } from "@/lib/paginar";
+import { perfisDosUsuarios } from "@/lib/perfis";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -115,17 +117,17 @@ export default function AdminAgenda() {
   const { data: alunos = [] } = useQuery({
     queryKey: ["admin-agenda-alunos", organization?.id],
     queryFn: async () => {
-      const { data: alunosData, error } = await supabase
-        .from("alunos")
-        .select("id, user_id")
-        .eq("organization_id", organization!.id)
-        .is("anonimizado_em", null);
-      if (error) throw error;
-      const userIds = alunosData.map((a) => a.user_id);
-      const { data: profiles } = userIds.length
-        ? await supabase.from("profiles").select("user_id, full_name").in("user_id", userIds)
-        : { data: [] as { user_id: string; full_name: string }[] };
-      const nomeByUserId = new Map((profiles ?? []).map((p) => [p.user_id, p.full_name]));
+      const alunosData = await todasAsLinhas((de, ate) =>
+        supabase
+          .from("alunos")
+          .select("id, user_id")
+          .eq("organization_id", organization!.id)
+          .is("anonimizado_em", null)
+          .order("id")
+          .range(de, ate)
+      );
+      const perfis = await perfisDosUsuarios(alunosData.map((a) => a.user_id));
+      const nomeByUserId = new Map([...perfis].map(([id, p]) => [id, p.full_name]));
       return alunosData.map((a) => ({ id: a.id, full_name: nomeByUserId.get(a.user_id) ?? "—" })) as AlunoOpcao[];
     },
     enabled: !!organization?.id,

@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { todasAsLinhas } from "@/lib/paginar";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -196,13 +197,15 @@ export default function AdminDashboard() {
   const { data: tarefas = [], isLoading } = useQuery({
     queryKey: ["tarefas-fila", organization?.id],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("tarefas")
-        .select("*")
-        .eq("organization_id", organization!.id)
-        .in("status", FILTRO_STATUS_OPCOES);
-      if (error) throw error;
-      return data;
+      return todasAsLinhas((de, ate) =>
+        supabase
+          .from("tarefas")
+          .select("*")
+          .eq("organization_id", organization!.id)
+          .in("status", FILTRO_STATUS_OPCOES)
+          .order("id")
+          .range(de, ate)
+      );
     },
     enabled: !!organization?.id,
   });

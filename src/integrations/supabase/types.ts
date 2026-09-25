@@ -695,9 +695,15 @@ export type Database = {
           aluno_id: string
           asaas_customer_id: string | null
           asaas_subscription_id: string | null
+          cartao_atualizado_em: string | null
+          cartao_atualizado_por: string | null
+          cartao_bandeira: string | null
+          cartao_final: string | null
+          cartao_recusado_em: string | null
           created_at: string
           data_inicio: string
           dia_vencimento: number
+          forma_pagamento: string
           id: string
           organization_id: string
           plano_id: string
@@ -712,9 +718,15 @@ export type Database = {
           aluno_id: string
           asaas_customer_id?: string | null
           asaas_subscription_id?: string | null
+          cartao_atualizado_em?: string | null
+          cartao_atualizado_por?: string | null
+          cartao_bandeira?: string | null
+          cartao_final?: string | null
+          cartao_recusado_em?: string | null
           created_at?: string
           data_inicio?: string
           dia_vencimento: number
+          forma_pagamento?: string
           id?: string
           organization_id: string
           plano_id: string
@@ -729,9 +741,15 @@ export type Database = {
           aluno_id?: string
           asaas_customer_id?: string | null
           asaas_subscription_id?: string | null
+          cartao_atualizado_em?: string | null
+          cartao_atualizado_por?: string | null
+          cartao_bandeira?: string | null
+          cartao_final?: string | null
+          cartao_recusado_em?: string | null
           created_at?: string
           data_inicio?: string
           dia_vencimento?: number
+          forma_pagamento?: string
           id?: string
           organization_id?: string
           plano_id?: string
@@ -1258,6 +1276,48 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      arquivo_fiscal_arkefit: {
+        Row: {
+          arquivado_em: string
+          asaas_payment_id: string | null
+          data_pagamento: string | null
+          id: string
+          organizacao_documento: string | null
+          organizacao_nome: string
+          organization_id: string
+          origem: string
+          taxa_gateway: number | null
+          valor_arkefit: number
+          valor_cobrado: number
+        }
+        Insert: {
+          arquivado_em?: string
+          asaas_payment_id?: string | null
+          data_pagamento?: string | null
+          id?: string
+          organizacao_documento?: string | null
+          organizacao_nome: string
+          organization_id: string
+          origem: string
+          taxa_gateway?: number | null
+          valor_arkefit: number
+          valor_cobrado: number
+        }
+        Update: {
+          arquivado_em?: string
+          asaas_payment_id?: string | null
+          data_pagamento?: string | null
+          id?: string
+          organizacao_documento?: string | null
+          organizacao_nome?: string
+          organization_id?: string
+          origem?: string
+          taxa_gateway?: number | null
+          valor_arkefit?: number
+          valor_cobrado?: number
+        }
+        Relationships: []
       }
       asaas_webhook_events: {
         Row: {
@@ -4122,6 +4182,102 @@ export type Database = {
           },
         ]
       }
+      organizacao_encerramentos: {
+        Row: {
+          arquivos_apagados: number | null
+          cobrancas_canceladas: number | null
+          contas_apagadas: number | null
+          eliminacao_em: string
+          eliminada_em: string | null
+          email_enviado_em: string | null
+          encerrada_em: string | null
+          erro: string | null
+          etapa: string
+          id: string
+          iniciativa: string
+          motivo: string
+          organizacao_documento: string | null
+          organizacao_nome: string
+          organization_id: string | null
+          registros_fiscais: number | null
+          remocoes_agendadas: number | null
+          retirado_em: string | null
+          retirado_por: string | null
+          solicitado_em: string
+          solicitado_por: string | null
+          tentativas: number
+          termino_em: string
+          updated_at: string
+        }
+        Insert: {
+          arquivos_apagados?: number | null
+          cobrancas_canceladas?: number | null
+          contas_apagadas?: number | null
+          eliminacao_em: string
+          eliminada_em?: string | null
+          email_enviado_em?: string | null
+          encerrada_em?: string | null
+          erro?: string | null
+          etapa?: string
+          id?: string
+          iniciativa: string
+          motivo: string
+          organizacao_documento?: string | null
+          organizacao_nome: string
+          organization_id?: string | null
+          registros_fiscais?: number | null
+          remocoes_agendadas?: number | null
+          retirado_em?: string | null
+          retirado_por?: string | null
+          solicitado_em?: string
+          solicitado_por?: string | null
+          tentativas?: number
+          termino_em: string
+          updated_at?: string
+        }
+        Update: {
+          arquivos_apagados?: number | null
+          cobrancas_canceladas?: number | null
+          contas_apagadas?: number | null
+          eliminacao_em?: string
+          eliminada_em?: string | null
+          email_enviado_em?: string | null
+          encerrada_em?: string | null
+          erro?: string | null
+          etapa?: string
+          id?: string
+          iniciativa?: string
+          motivo?: string
+          organizacao_documento?: string | null
+          organizacao_nome?: string
+          organization_id?: string | null
+          registros_fiscais?: number | null
+          remocoes_agendadas?: number | null
+          retirado_em?: string | null
+          retirado_por?: string | null
+          solicitado_em?: string
+          solicitado_por?: string | null
+          tentativas?: number
+          termino_em?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "organizacao_encerramentos_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "org_churn_metrics"
+            referencedColumns: ["organization_id"]
+          },
+          {
+            foreignKeyName: "organizacao_encerramentos_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       organizacao_fiscal: {
         Row: {
           aliquota_iss: number | null
@@ -5659,6 +5815,57 @@ export type Database = {
           },
         ]
       }
+      taxas_implantacao: {
+        Row: {
+          asaas_installment_id: string | null
+          created_at: string
+          criada_por: string | null
+          id: string
+          organization_id: string
+          parcelas: number
+          primeiro_vencimento: string
+          status: string
+          valor_total: number
+        }
+        Insert: {
+          asaas_installment_id?: string | null
+          created_at?: string
+          criada_por?: string | null
+          id?: string
+          organization_id: string
+          parcelas: number
+          primeiro_vencimento: string
+          status?: string
+          valor_total: number
+        }
+        Update: {
+          asaas_installment_id?: string | null
+          created_at?: string
+          criada_por?: string | null
+          id?: string
+          organization_id?: string
+          parcelas?: number
+          primeiro_vencimento?: string
+          status?: string
+          valor_total?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "taxas_implantacao_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "org_churn_metrics"
+            referencedColumns: ["organization_id"]
+          },
+          {
+            foreignKeyName: "taxas_implantacao_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       treino_calendario: {
         Row: {
           aluno_id: string
@@ -6207,6 +6414,10 @@ export type Database = {
         Args: { _aluno_assinatura_id: string; _asaas_payment_id: string }
         Returns: undefined
       }
+      abrir_tarefa_cartao_recusado_mensalidade: {
+        Args: { _asaas_payment_id: string; _matricula_id: string }
+        Returns: undefined
+      }
       abrir_tarefa_mensalidade_atrasada: {
         Args: { _mensalidade_id: string }
         Returns: undefined
@@ -6364,6 +6575,15 @@ export type Database = {
         Args: { _aluno_id: string }
         Returns: Database["public"]["Enums"]["fase_jornada"]
       }
+      avisar_encerramento_organizacao: {
+        Args: {
+          _imediato?: boolean
+          _iniciativa: string
+          _motivo: string
+          _organization_id: string
+        }
+        Returns: string
+      }
       briefing_semanal_organizacao: {
         Args: { _organization_id: string }
         Returns: {
@@ -6440,6 +6660,10 @@ export type Database = {
         Args: { _id: number; _organization_id: string }
         Returns: undefined
       }
+      concluir_termino_organizacao: {
+        Args: { _cobrancas_canceladas: number; _encerramento_id: string }
+        Returns: number
+      }
       conferir_token_alerta_rotinas: {
         Args: { _token: string }
         Returns: boolean
@@ -6488,6 +6712,17 @@ export type Database = {
         }
         Returns: string
       }
+      eliminar_organizacao: {
+        Args: { _arquivos: number; _contas: number; _encerramento_id: string }
+        Returns: undefined
+      }
+      emails_alunos_organizacao: {
+        Args: { _organization_id: string }
+        Returns: {
+          aluno_id: string
+          email: string
+        }[]
+      }
       emails_gestores_organizacao: {
         Args: { _organization_id: string }
         Returns: {
@@ -6498,6 +6733,15 @@ export type Database = {
         Args: never
         Returns: {
           email: string
+        }[]
+      }
+      encerramentos_vencidos: {
+        Args: never
+        Returns: {
+          id: string
+          organizacao_nome: string
+          organization_id: string
+          proxima: string
         }[]
       }
       encerrar_trial_metodo_arke: {
@@ -6649,6 +6893,16 @@ export type Database = {
           mentor_nome: string
           pct_sla: number
           por_semana: number
+        }[]
+      }
+      get_encerramento_organizacao: {
+        Args: { _organization_id: string }
+        Returns: {
+          eliminacao_em: string
+          etapa: string
+          iniciativa: string
+          motivo: string
+          termino_em: string
         }[]
       }
       get_fila_mentor: {
@@ -7284,6 +7538,12 @@ export type Database = {
         Returns: boolean
       }
       prazo_util: { Args: { _horas: number; _inicio: string }; Returns: string }
+      preparar_eliminacao_organizacao: {
+        Args: { _encerramento_id: string }
+        Returns: {
+          user_id: string
+        }[]
+      }
       publicar_contrato_matricula: {
         Args: { _conteudo: string; _organization_id: string; _titulo: string }
         Returns: string
@@ -7332,6 +7592,10 @@ export type Database = {
         Args: { _erro?: string; _nome: string; _ok: boolean }
         Returns: undefined
       }
+      registrar_falha_encerramento: {
+        Args: { _encerramento_id: string; _erro: string }
+        Returns: undefined
+      }
       registrar_lembrete_onboarding: {
         Args: { _organization_id: string }
         Returns: undefined
@@ -7359,6 +7623,10 @@ export type Database = {
       }
       reprocessar_nota_fiscal: {
         Args: { _nota_id: string }
+        Returns: undefined
+      }
+      retirar_encerramento_organizacao: {
+        Args: { _organization_id: string }
         Returns: undefined
       }
       revogar_consentimento_biometrico: {

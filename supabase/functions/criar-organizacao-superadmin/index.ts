@@ -1,4 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { verificada } from "../_shared/verificacao.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -129,7 +130,7 @@ Deno.serve(async (req: Request) => {
       console.error("Error loading caller roles", callerRolesError);
       return jsonResponse({ error: "Erro ao validar permissões." }, 500);
     }
-    const callerIsSuperadmin = (callerRoles ?? []).some((r) => r.role === "superadmin");
+    const callerIsSuperadmin = verificada(claimsData?.claims) && (callerRoles ?? []).some((r) => r.role === "superadmin");
     if (!callerIsSuperadmin) {
       return jsonResponse({ error: "Apenas o Super Admin ArkeFit pode cadastrar organizações." }, 403);
     }

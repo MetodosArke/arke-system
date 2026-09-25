@@ -11,11 +11,11 @@ import { useToast } from "@/hooks/use-toast";
 import { Database, Settings } from "lucide-react";
 import { useCapacidadeBanco } from "@/lib/rotinas";
 import type { Tables } from "@/integrations/supabase/types";
-import { decimal } from "@/lib/numeros";
+import { decimal, lerReais } from "@/lib/numeros";
 
 type ConfigRow = Tables<"plataforma_config">;
 
-const CHAVES = ["taxa_processamento_percentual", "taxa_processamento_fixa", "taxa_processamento_minima", "limite_banco_mb"] as const;
+const CHAVES = ["taxa_processamento_percentual", "taxa_processamento_fixa", "taxa_processamento_minima", "limite_banco_mb", "taxa_implantacao_referencia"] as const;
 
 export default function SuperAdminConfiguracoes() {
   const { user } = useAuth();
@@ -49,7 +49,7 @@ export default function SuperAdminConfiguracoes() {
       for (const chave of CHAVES) {
         const bruto = valores[chave];
         if (bruto === undefined) continue;
-        const valor = Number(bruto.replace(",", "."));
+        const valor = lerReais(bruto);
         if (!Number.isFinite(valor) || valor < 0) throw new Error(`Valor inválido para ${chave}.`);
         const { error } = await supabase
           .from("plataforma_config")
@@ -158,6 +158,30 @@ export default function SuperAdminConfiguracoes() {
           <p className="text-xs text-muted-foreground">
             Em uso agora: {capacidade ? capacidade.detalhe : "—"}.
           </p>
+          <Button onClick={() => salvar.mutate()} disabled={salvar.isPending}>
+            {salvar.isPending ? "Salvando..." : "Salvar"}
+          </Button>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base">Taxa de implantação de referência</CardTitle>
+          <CardDescription>
+            Valor sugerido ao emitir a taxa de implantação na ficha da organização. O valor e o parcelamento de cada contrato
+            são livres.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="space-y-1.5 max-w-xs">
+            <Label htmlFor="taxa-implantacao">Valor (R$)</Label>
+            <Input
+              id="taxa-implantacao"
+              inputMode="decimal"
+              value={valores.taxa_implantacao_referencia ?? ""}
+              onChange={(e) => setValores((v) => ({ ...v, taxa_implantacao_referencia: e.target.value }))}
+            />
+          </div>
           <Button onClick={() => salvar.mutate()} disabled={salvar.isPending}>
             {salvar.isPending ? "Salvando..." : "Salvar"}
           </Button>

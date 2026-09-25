@@ -1,4 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { verificada } from "../_shared/verificacao.ts";
 import { ambienteAsaas } from "../_shared/asaas.ts";
 import { hojeBrasilia } from "../_shared/data.ts";
 import {
@@ -84,7 +85,7 @@ Deno.serve(async (req: Request) => {
         .maybeSingle(),
       admin.from("user_roles").select("role").eq("user_id", callerId),
     ]);
-    const arkefit = (papeis ?? []).some((p) => p.role === "superadmin" || p.role === "admin_arke");
+    const arkefit = verificada(claims?.claims) && (papeis ?? []).some((p) => p.role === "superadmin" || p.role === "admin_arke");
     const equipe = vinculo?.role === "gestor" || vinculo?.role === "recepcao";
     const oProprioAluno = aluno.user_id === callerId;
 

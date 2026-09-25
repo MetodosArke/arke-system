@@ -2,6 +2,8 @@ import { hojeBrasilia } from "@/lib/dataBrasilia";
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { todasAsLinhas } from "@/lib/paginar";
+import { perfisDosUsuarios } from "@/lib/perfis";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent } from "@/components/ui/card";
@@ -110,14 +112,11 @@ export function CompeticoesPainel() {
   const { data: alunos = [] } = useQuery({
     queryKey: ["admin-competicoes-alunos", organization?.id],
     queryFn: async () => {
-      const { data: alunosData, error } = await supabase.from("alunos").select("id, user_id").eq("organization_id", organization!.id);
-      if (error) throw error;
-      const userIds = alunosData.map((a) => a.user_id);
-      const { data: profiles } = userIds.length
-        ? await supabase.from("profiles").select("user_id, full_name").in("user_id", userIds)
-        : { data: [] as { user_id: string; full_name: string }[] };
-      const nomeByUserId = new Map((profiles ?? []).map((p) => [p.user_id, p.full_name]));
-      return alunosData.map((a) => ({ id: a.id, nome: nomeByUserId.get(a.user_id) ?? "—" })) as AlunoOpcao[];
+      const alunosData = await todasAsLinhas((de, ate) =>
+        supabase.from("alunos").select("id, user_id").eq("organization_id", organization!.id).order("id").range(de, ate)
+      );
+      const perfis = await perfisDosUsuarios(alunosData.map((a) => a.user_id));
+      return alunosData.map((a) => ({ id: a.id, nome: perfis.get(a.user_id)?.full_name ?? "—" })) as AlunoOpcao[];
     },
     enabled: !!organization?.id,
   });
@@ -126,13 +125,16 @@ export function CompeticoesPainel() {
     queryKey: ["admin-competicoes-participantes", competicoes.map((c) => c.id).join(",")],
     queryFn: async () => {
       if (competicoes.length === 0) return {};
-      const { data, error } = await supabase
-        .from("competicao_participantes")
-        .select("competicao_id, aluno_id")
-        .in("competicao_id", competicoes.map((c) => c.id));
-      if (error) throw error;
+      const data = await todasAsLinhas((de, ate) =>
+        supabase
+          .from("competicao_participantes")
+          .select("competicao_id, aluno_id")
+          .in("competicao_id", competicoes.map((c) => c.id))
+          .order("id")
+          .range(de, ate)
+      );
       const map: Record<string, string[]> = {};
-      (data ?? []).forEach((p) => {
+      data.forEach((p) => {
         map[p.competicao_id] = [...(map[p.competicao_id] ?? []), p.aluno_id];
       });
       return map;

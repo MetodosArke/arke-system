@@ -1,6 +1,7 @@
 import { useMemo, useRef, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { todasAsLinhas } from "@/lib/paginar";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent } from "@/components/ui/card";
@@ -64,9 +65,7 @@ export function FeedSocial({ podeModerarTudo }: { podeModerarTudo: boolean }) {
   const { data: perfis = [] } = useQuery({
     queryKey: ["feed-perfis", organization?.id],
     queryFn: async () => {
-      const { data, error } = await supabase.rpc("obter_perfis_publicos_org");
-      if (error) throw error;
-      return data;
+      return todasAsLinhas((de, ate) => supabase.rpc("obter_perfis_publicos_org").order("user_id").range(de, ate));
     },
     enabled: !!organization?.id,
   });
