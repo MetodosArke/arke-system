@@ -14,7 +14,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useInstallPrompt } from "@/hooks/useInstallPrompt";
 import { resolveHomePath } from "@/lib/authRouting";
 import { getManterConectado, setManterConectado } from "@/integrations/supabase/previewAuthStorage";
-import logo from "@/assets/logo.png";
+import { MarcaArkeFit } from "@/components/marca/MarcaArkeFit";
 
 export default function Login() {
   const [email, setEmail] = useState("");
@@ -107,9 +107,8 @@ export default function Login() {
         className="w-full max-w-sm"
       >
         <div className="mb-8 flex flex-col items-center text-center">
-          <img src={logo} alt="Arke" className="h-24 w-24 mb-4 rounded-xl" />
-          <h1 className="text-2xl font-bold tracking-wide text-primary" style={{ fontFamily: "'Cormorant Garamond', serif" }}>
-            ArkeFit
+          <h1 className="mb-2">
+            <MarcaArkeFit brilho className="h-12 w-auto" />
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
             Gestão inteligente de treinos

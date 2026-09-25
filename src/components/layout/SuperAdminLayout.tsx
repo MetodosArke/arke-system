@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { LogOut, Shield, LayoutDashboard, UserCog, Settings, Dumbbell, ScrollText, Webhook, MessageCircle, Cpu, Radar, CircleHelp, Inbox } from "lucide-react";
 import { BotaoAjuda } from "@/components/ajuda/BotaoAjuda";
+import { MarcaArkeFit } from "@/components/marca/MarcaArkeFit";
 
 const NAV_ITEMS = [
   { icon: LayoutDashboard, label: "Visão Geral", path: "/superadmin" },
@@ -33,12 +34,9 @@ export function SuperAdminLayout() {
       <header className="border-b border-border bg-card no-print">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-2 px-4 py-3">
           <div className="flex items-center gap-2">
-            <Shield className="h-5 w-5 text-primary" />
-            <span
-              className="text-base font-bold tracking-wide text-primary"
-              style={{ fontFamily: "'Cormorant Garamond', serif" }}
-            >
-              ArkeFit — Super Admin
+            <MarcaArkeFit className="h-6 w-auto" />
+            <span className="flex items-center gap-1 rounded-full border border-primary/30 px-2 py-0.5 text-xs font-medium text-primary">
+              <Shield className="h-3 w-3" aria-hidden /> Super Admin
             </span>
           </div>
           <div className="flex items-center gap-2">

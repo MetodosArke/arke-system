@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { MarcaArkeFit } from "@/components/marca/MarcaArkeFit";
 
 function buildMenuItems(ehStudio: boolean) {
   const items = [
@@ -52,11 +53,8 @@ function SidebarNav({
     <>
       <div className="flex items-center justify-between border-b border-border p-4">
         {!collapsed && (
-          <h1
-            className="text-lg font-bold tracking-wide text-primary"
-            style={{ fontFamily: "'Cormorant Garamond', serif" }}
-          >
-            ArkeFit
+          <h1>
+            <MarcaArkeFit className="h-6 w-auto" />
           </h1>
         )}
         {onCollapse && (

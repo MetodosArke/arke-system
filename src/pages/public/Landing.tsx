@@ -29,6 +29,7 @@ import { mensagemDeErroEdge } from "@/lib/erroEdge";
 import { FONTES } from "@/lib/landing";
 import { decimal } from "@/lib/numeros";
 import { Turnstile } from "@/components/public/Turnstile";
+import { MarcaArkeFit, SimboloArkeFit } from "@/components/marca/MarcaArkeFit";
 
 const TURNSTILE_SITE_KEY = import.meta.env.VITE_TURNSTILE_SITE_KEY as string | undefined;
 const APP_HOST = import.meta.env.VITE_APP_HOST as string | undefined;
@@ -40,10 +41,10 @@ const ESTILO = `
 .lp h1,.lp h2,.lp h3,.lp .lp-display{font-family:"Plus Jakarta Sans",Inter,ui-sans-serif,sans-serif;letter-spacing:-.02em}
 .lp-grade{background-image:linear-gradient(rgba(255,255,255,.045) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.045) 1px,transparent 1px);background-size:56px 56px;-webkit-mask-image:radial-gradient(ellipse 75% 55% at 50% 0%,#000 35%,transparent 100%);mask-image:radial-gradient(ellipse 75% 55% at 50% 0%,#000 35%,transparent 100%)}
 .lp-foco{background:radial-gradient(700px circle at var(--x,50%) var(--y,20%),hsl(var(--primary) / .10),transparent 45%)}
-.lp-gradiente{background:linear-gradient(90deg,hsl(43 74% 55%) 0%,hsl(43 74% 65%) 55%,hsl(43 60% 78%) 100%);-webkit-background-clip:text;background-clip:text;color:transparent}
+.lp-gradiente{background:linear-gradient(90deg,hsl(47 100% 52%) 0%,hsl(47 100% 64%) 55%,hsl(48 100% 80%) 100%);-webkit-background-clip:text;background-clip:text;color:transparent}
 @property --lp-a{syntax:"<angle>";inherits:false;initial-value:0deg}
 .lp-feixe{position:relative;isolation:isolate}
-.lp-feixe::before{content:"";position:absolute;inset:-1px;border-radius:inherit;padding:1px;background:conic-gradient(from var(--lp-a),transparent 0 68%,hsl(var(--primary) / .9) 80%,hsl(43 60% 72% / .9) 88%,transparent 96%);-webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude;animation:lp-giro 7s linear infinite;z-index:-1}
+.lp-feixe::before{content:"";position:absolute;inset:-1px;border-radius:inherit;padding:1px;background:conic-gradient(from var(--lp-a),transparent 0 68%,hsl(var(--primary) / .9) 80%,hsl(48 100% 72% / .9) 88%,transparent 96%);-webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude;animation:lp-giro 7s linear infinite;z-index:-1}
 @keyframes lp-giro{to{--lp-a:360deg}}
 .lp-cartao{position:relative;overflow:hidden}
 .lp-cartao::after{content:"";position:absolute;inset:0;background:radial-gradient(380px circle at var(--mx,-200px) var(--my,-200px),hsl(var(--primary) / .08),transparent 45%);opacity:0;transition:opacity .3s;pointer-events:none}
@@ -121,9 +122,8 @@ function Nav() {
   return (
     <header className={`fixed inset-x-0 top-0 z-50 transition-colors duration-300 ${rolou ? "border-b border-white/5 bg-background/80 backdrop-blur-xl" : ""}`}>
       <nav className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3 sm:px-6" aria-label="Principal">
-        <Ancora para="topo" className="flex items-center gap-2.5" aria-label="ARKE, início da página">
-          <img src="/logo.png" alt="" className="h-8 w-8 rounded-md" />
-          <span className="lp-display text-lg font-bold tracking-wide text-foreground">ARKE</span>
+        <Ancora para="topo" className="flex items-center" aria-label="ArkeFit, início da página">
+          <MarcaArkeFit brilho decorativo className="h-7 w-auto" />
         </Ancora>
         <div className="hidden items-center gap-7 text-sm text-foreground/65 md:flex">
           <Ancora para="como-funciona" className="transition-colors hover:text-foreground">Como funciona</Ancora>
@@ -137,7 +137,7 @@ function Nav() {
           </a>
           <Ancora
             para="contato"
-            className="rounded-lg bg-primary hover:bg-primary/90 px-3.5 py-2 text-sm font-semibold text-primary-foreground shadow-[0_0_24px_hsl(var(--primary)/.22)] transition-transform hover:scale-[1.03]"
+            className="rounded-lg bg-primary hover:bg-primary/90 px-3.5 py-2 text-sm font-semibold text-primary-foreground shadow-[0_0_20px_hsl(var(--primary)/.3)] transition-transform hover:scale-[1.03]"
           >
             Agendar demonstração
           </Ancora>
@@ -261,7 +261,7 @@ function Hero() {
           </Aparecer>
           <Aparecer atraso={0.12}>
             <p className="mt-6 max-w-xl text-lg leading-relaxed text-foreground/65">
-              O ARKE percebe os sinais — dias sem vir, treino sem registro, dor relatada, mensalidade que não entrou — e coloca cada um na fila
+              O ArkeFit percebe os sinais — dias sem vir, treino sem registro, dor relatada, mensalidade que não entrou — e coloca cada um na fila
               certa, com prazo e responsável. E a cobrança automática no cartão tira a inadimplência do esquecimento.
             </p>
           </Aparecer>
@@ -269,7 +269,7 @@ function Hero() {
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
               <Ancora
                 para="contato"
-                className="group inline-flex items-center justify-center gap-2 rounded-xl bg-primary hover:bg-primary/90 px-6 py-3.5 font-semibold text-primary-foreground shadow-[0_0_40px_hsl(var(--primary)/.22)] transition-transform hover:scale-[1.02]"
+                className="group inline-flex items-center justify-center gap-2 rounded-xl bg-primary hover:bg-primary/90 px-6 py-3.5 font-semibold text-primary-foreground shadow-[0_0_20px_hsl(var(--primary)/.3)] transition-transform hover:scale-[1.02]"
               >
                 Quero ver na minha academia
                 <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" aria-hidden />
@@ -656,15 +656,15 @@ function Implantacao() {
 // ——— Perguntas ———
 
 const PERGUNTAS: [string, string][] = [
-  ["Preciso trocar de catraca?", "Control iD e Topdata funcionam com o ARKE. Outras marcas são avaliadas e integradas na implantação, conforme o equipamento."],
+  ["Preciso trocar de catraca?", "Control iD e Topdata funcionam com o ArkeFit. Outras marcas são avaliadas e integradas na implantação, conforme o equipamento."],
   [
     "Como trago os alunos do sistema que uso hoje?",
-    "Exporte a planilha de alunos do seu sistema. As do EVO, Tecnofit, Next Fit e Pacto são reconhecidas; o ARKE confere o CPF de cada linha, e a importação pode ser retomada se parar no meio.",
+    "Exporte a planilha de alunos do seu sistema. As do EVO, Tecnofit, Next Fit e Pacto são reconhecidas; o ArkeFit confere o CPF de cada linha, e a importação pode ser retomada se parar no meio.",
   ],
   ["O aluno paga para usar o app?", "Não. Todo aluno matriculado e em dia usa o app. O Método ARKE é opcional, vendido pela própria academia, com o preço que ela define."],
   [
     "Como recebo as mensalidades?",
-    "Pelo Asaas, numa conta da própria academia. No momento do pagamento, a parte da academia cai direto na conta dela; o ARKE não segura o seu dinheiro.",
+    "Pelo Asaas, numa conta da própria academia. No momento do pagamento, a parte da academia cai direto na conta dela; o ArkeFit não segura o seu dinheiro.",
   ],
   [
     "Onde ficam os dados dos alunos?",
@@ -750,7 +750,7 @@ function Contato() {
       <div className="mx-auto grid max-w-6xl gap-12 px-4 sm:px-6 lg:grid-cols-[1fr_1.1fr]">
         <Aparecer>
           <Selo>Demonstração</Selo>
-          <h2 className="mt-5 text-3xl font-bold text-foreground sm:text-4xl">Veja o ARKE com a cara da sua academia.</h2>
+          <h2 className="mt-5 text-3xl font-bold text-foreground sm:text-4xl">Veja o ArkeFit com a cara da sua academia.</h2>
           <p className="mt-5 leading-relaxed text-foreground/65">
             Conte um pouco da sua operação. A equipe da ArkeFit responde pelo WhatsApp ou pelo e-mail para marcar uma demonstração, com a fila, a cobrança e
             o app do aluno funcionando.
@@ -758,7 +758,7 @@ function Contato() {
           <div className="mt-8 flex items-start gap-3 rounded-2xl border border-white/10 bg-white/[0.02] p-5 text-sm text-foreground/65">
             <Lock className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden />
             <p>
-              Usamos estes dados só para responder ao seu contato e apresentar o ARKE. Ninguém além da equipe da ArkeFit os recebe. Veja a{" "}
+              Usamos estes dados só para responder ao seu contato e apresentar o ArkeFit. Ninguém além da equipe da ArkeFit os recebe. Veja a{" "}
               <a href="#/privacidade" target="_blank" rel="noopener" className="text-primary underline-offset-2 hover:underline">
                 Política de Privacidade
               </a>
@@ -837,7 +837,7 @@ function Contato() {
                   <button
                     type="submit"
                     disabled={enviando || (!!TURNSTILE_SITE_KEY && !captcha)}
-                    className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary hover:bg-primary/90 px-6 py-3.5 font-semibold text-primary-foreground transition-opacity disabled:opacity-50 sm:col-span-2"
+                    className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary hover:bg-primary/90 px-6 py-3.5 font-semibold text-primary-foreground shadow-[0_0_20px_hsl(var(--primary)/.3)] transition-opacity disabled:opacity-50 disabled:shadow-none sm:col-span-2"
                   >
                     {enviando ? "Enviando…" : "Quero uma demonstração"}
                     {!enviando && <ArrowRight className="h-4 w-4" aria-hidden />}
@@ -857,7 +857,7 @@ function Rodape() {
     <footer className="py-12">
       <div className="mx-auto flex max-w-6xl flex-col gap-6 px-4 text-sm text-muted-foreground sm:px-6 md:flex-row md:items-center md:justify-between">
         <div className="flex items-center gap-3">
-          <img src="/logo.png" alt="" className="h-7 w-7 rounded" />
+          <SimboloArkeFit decorativo className="h-6 w-6" />
           <span>METODOS ARKE LTDA · CNPJ 68.456.606/0001-70 · São Paulo/SP</span>
         </div>
         <nav className="flex flex-wrap gap-5" aria-label="Rodapé">
@@ -870,7 +870,7 @@ function Rodape() {
   );
 }
 
-const TITULO = "ARKE — Retenção e cobrança automática para academias";
+const TITULO = "ArkeFit — Retenção e cobrança automática para academias";
 const DESCRICAO =
   "Sinais de evasão viram tarefas com prazo e responsável, e a cobrança automática no cartão tira a inadimplência do esquecimento. Com app do aluno, catraca e nota fiscal.";
 

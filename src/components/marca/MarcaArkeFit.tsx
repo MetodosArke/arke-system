@@ -1,0 +1,62 @@
+import { cn } from "@/lib/utils";
+
+/**
+ * A marca do sistema ArkeFit: o Arco (o arco do nome, e o aluno entrando por
+ * ele) e o nome em Plus Jakarta Sans, convertido em traços por
+ * `scripts/marca/gerar-marca.mjs`, para sair igual em qualquer tela sem
+ * depender de fonte carregada. O Método ARKE continua com a marca dele.
+ *
+ * As cores vêm dos tokens: o símbolo e o "Fit" usam o primário (amarelo no
+ * tema escuro, dourado mais fechado no claro, que se lê no branco); o "Arke" é
+ * branco no escuro e a cor do texto no claro.
+ */
+
+const VIEWBOX = "-1.49 -92.38 463.4 95.07";
+const SIMBOLO_NA_MARCA = "translate(0 -90.89) scale(1.09506) translate(-18.5 -18.5)";
+const ARKE = "M132.02 0L117.32 0L143.02-74.50L160.62-74.50L186.32 0L171.52 0L166.22-16L137.42-16L132.02 0ZM153.72-65.10L141.32-28L162.32-28L149.92-65.10L153.72-65.10ZM206.62 0L193.52 0L193.52-54.40L205.82-54.40L205.82-42.30L204.82-44.10Q206.72-50.20 210.77-52.60Q214.82-55 220.52-55L220.52-55L223.72-55L223.72-43.40L219.02-43.40Q213.42-43.40 210.02-39.95Q206.62-36.50 206.62-30.30L206.62-30.30L206.62 0ZM244.02 0L230.92 0L230.92-75.70L244.02-75.70L244.02-26.10L239.02-27.60L264.62-54.40L280.92-54.40L260.82-32.50L281.32 0L266.32 0L248.52-28.20L256.32-29.80L239.92-12.20L244.02-20.20L244.02 0ZM313.42 1.20L313.42 1.20Q305.02 1.20 298.72-2.60Q292.42-6.40 288.92-12.90Q285.42-19.40 285.42-27.30L285.42-27.30Q285.42-35.50 288.97-41.85Q292.52-48.20 298.67-51.90Q304.82-55.60 312.42-55.60L312.42-55.60Q318.82-55.60 323.67-53.50Q328.52-51.40 331.92-47.70Q335.32-44 337.12-39.25Q338.92-34.50 338.92-29L338.92-29Q338.92-27.60 338.77-26.10Q338.62-24.60 338.22-23.50L338.22-23.50L296.22-23.50L296.22-33.50L330.82-33.50L324.62-28.80Q325.52-33.40 324.17-37Q322.82-40.60 319.77-42.70Q316.72-44.80 312.42-44.80L312.42-44.80Q308.32-44.80 305.12-42.75Q301.92-40.70 300.27-36.75Q298.62-32.80 299.02-27.20L299.02-27.20Q298.62-22.20 300.37-18.35Q302.12-14.50 305.57-12.40Q309.02-10.30 313.52-10.30L313.52-10.30Q318.02-10.30 321.17-12.20Q324.32-14.10 326.12-17.30L326.12-17.30L336.72-12.10Q335.12-8.20 331.72-5.20Q328.32-2.20 323.67-0.50Q319.02 1.20 313.42 1.20Z";
+const FIT = "M361.82 0L352.02 0L352.02-74.50L399.22-74.50L399.22-65.50L361.82-65.50L361.82-41.40L395.72-41.40L395.72-32.40L361.82-32.40L361.82 0ZM418.52 0L409.22 0L409.22-53.90L418.52-53.90L418.52 0ZM418.52-62.50L409.22-62.50L409.22-74.50L418.52-74.50L418.52-62.50ZM454.82 0.60L454.82 0.60Q446.92 0.60 442.67-3.90Q438.42-8.40 438.42-16.60L438.42-16.60L438.42-45L428.62-45L428.62-53.90L430.62-53.90Q434.22-53.90 436.32-56.10Q438.42-58.30 438.42-61.90L438.42-61.90L438.42-66.30L447.72-66.30L447.72-53.90L459.82-53.90L459.82-45L447.72-45L447.72-16.90Q447.72-14.20 448.57-12.20Q449.42-10.20 451.42-9.05Q453.42-7.90 456.72-7.90L456.72-7.90Q457.42-7.90 458.47-8Q459.52-8.10 460.42-8.20L460.42-8.20L460.42 0Q459.12 0.30 457.52 0.45Q455.92 0.60 454.82 0.60Z";
+
+function Arco() {
+  return (
+    <>
+      <path d="M 26 94 V 60 A 34 34 0 0 1 94 60 V 94" fill="none" stroke="currentColor" strokeWidth={15} strokeLinecap="round" strokeLinejoin="round" />
+      <circle cx={60} cy={80} r={9.5} fill="currentColor" />
+    </>
+  );
+}
+
+type Props = {
+  className?: string;
+  /** Brilho sutil no tema escuro, para o amarelo saltar do fundo. */
+  brilho?: boolean;
+  /** Sem nome acessível, quando o elemento em volta já diz o que é. */
+  decorativo?: boolean;
+};
+
+const BRILHO = "dark:drop-shadow-[0_0_10px_hsl(var(--primary)/0.35)]";
+
+function acessivel(decorativo?: boolean) {
+  return decorativo ? { "aria-hidden": true as const } : { role: "img", "aria-label": "ArkeFit" };
+}
+
+/** Só o Arco: ícone, favicon, espaços pequenos. */
+export function SimboloArkeFit({ className, brilho, decorativo }: Props) {
+  return (
+    <svg viewBox="18.5 18.5 83 83" className={cn("text-primary", brilho && BRILHO, className)} {...acessivel(decorativo)}>
+      <Arco />
+    </svg>
+  );
+}
+
+/** O Arco com o nome. A altura manda; a largura acompanha. */
+export function MarcaArkeFit({ className, brilho, decorativo }: Props) {
+  return (
+    <svg viewBox={VIEWBOX} className={cn("text-primary", brilho && BRILHO, className)} {...acessivel(decorativo)}>
+      <g transform={SIMBOLO_NA_MARCA}>
+        <Arco />
+      </g>
+      <path d={ARKE} className="fill-foreground dark:fill-white" />
+      <path d={FIT} fill="currentColor" />
+    </svg>
+  );
+}
