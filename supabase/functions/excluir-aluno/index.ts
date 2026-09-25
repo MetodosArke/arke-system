@@ -1,4 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { verificada } from "../_shared/verificacao.ts";
 import { ambienteAsaas } from "../_shared/asaas.ts";
 import { encerrarCobrancasDoAluno } from "../_shared/encerrarCobrancas.ts";
 import { apagarArquivosDoAluno } from "../_shared/arquivosDoAluno.ts";
@@ -89,7 +90,7 @@ Deno.serve(async (req: Request) => {
       console.error("Error loading caller roles", callerRolesError);
       return jsonResponse({ error: "Erro ao validar permissões." }, 500);
     }
-    const callerIsAdminArke = (callerRoles ?? []).some((r) => r.role === "admin_arke");
+    const callerIsAdminArke = verificada(claimsData?.claims) && (callerRoles ?? []).some((r) => r.role === "admin_arke");
 
     let autorizado = callerIsAdminArke;
     if (!autorizado) {

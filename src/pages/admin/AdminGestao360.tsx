@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { todasAsLinhas } from "@/lib/paginar";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -79,13 +80,15 @@ export default function AdminGestao360() {
   const { data: assinaturasAtivas = [], isLoading: isLoadingAssinaturas } = useQuery({
     queryKey: ["gestao360-assinaturas", organization?.id],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("aluno_assinaturas")
-        .select("valor_cobrado, nivel_atacado, status, aluno_id, valor_repasse_arke")
-        .eq("organization_id", organization!.id)
-        .eq("status", "ativa");
-      if (error) throw error;
-      return data;
+      return todasAsLinhas((de, ate) =>
+        supabase
+          .from("aluno_assinaturas")
+          .select("valor_cobrado, nivel_atacado, status, aluno_id, valor_repasse_arke")
+          .eq("organization_id", organization!.id)
+          .eq("status", "ativa")
+          .order("id")
+          .range(de, ate)
+      );
     },
     enabled: !!organization?.id,
   });
@@ -98,13 +101,15 @@ export default function AdminGestao360() {
   const { data: matriculasAcademiaAtivas = [] } = useQuery({
     queryKey: ["gestao360-matriculas-academia", organization?.id],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("aluno_matriculas_academia")
-        .select("aluno_id, valor_cobrado, valor_repasse_arke, planos_academia(periodicidade)")
-        .eq("organization_id", organization!.id)
-        .eq("status", "ativa");
-      if (error) throw error;
-      return data;
+      return todasAsLinhas((de, ate) =>
+        supabase
+          .from("aluno_matriculas_academia")
+          .select("aluno_id, valor_cobrado, valor_repasse_arke, planos_academia(periodicidade)")
+          .eq("organization_id", organization!.id)
+          .eq("status", "ativa")
+          .order("id")
+          .range(de, ate)
+      );
     },
     enabled: !!organization?.id,
   });
@@ -125,14 +130,16 @@ export default function AdminGestao360() {
   const { data: pagamentosMes = [] } = useQuery({
     queryKey: ["gestao360-pagamentos-mes", organization?.id, inicioMes],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("pagamentos")
-        .select("valor, valor_repasse_arke, valor_liquido_academia, status, data_pagamento")
-        .eq("organization_id", organization!.id)
-        .eq("status", "confirmado")
-        .gte("data_pagamento", inicioMes);
-      if (error) throw error;
-      return data;
+      return todasAsLinhas((de, ate) =>
+        supabase
+          .from("pagamentos")
+          .select("valor, valor_repasse_arke, valor_liquido_academia, status, data_pagamento")
+          .eq("organization_id", organization!.id)
+          .eq("status", "confirmado")
+          .gte("data_pagamento", inicioMes)
+          .order("id")
+          .range(de, ate)
+      );
     },
     enabled: !!organization?.id,
   });
@@ -144,14 +151,16 @@ export default function AdminGestao360() {
   const { data: mensalidadesMes = [] } = useQuery({
     queryKey: ["gestao360-mensalidades-mes", organization?.id, inicioMes],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("mensalidades")
-        .select("valor, valor_repasse_arke, status, data_pagamento")
-        .eq("organization_id", organization!.id)
-        .eq("status", "confirmado")
-        .gte("data_pagamento", inicioMes);
-      if (error) throw error;
-      return data;
+      return todasAsLinhas((de, ate) =>
+        supabase
+          .from("mensalidades")
+          .select("valor, valor_repasse_arke, status, data_pagamento")
+          .eq("organization_id", organization!.id)
+          .eq("status", "confirmado")
+          .gte("data_pagamento", inicioMes)
+          .order("id")
+          .range(de, ate)
+      );
     },
     enabled: !!organization?.id,
   });
@@ -161,14 +170,16 @@ export default function AdminGestao360() {
   const { data: avulsasMes = [] } = useQuery({
     queryKey: ["gestao360-avulsas-mes", organization?.id, inicioMes],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("cobrancas_avulsas")
-        .select("valor, valor_repasse_arke")
-        .eq("organization_id", organization!.id)
-        .eq("status", "confirmado")
-        .gte("data_pagamento", inicioMes);
-      if (error) throw error;
-      return data;
+      return todasAsLinhas((de, ate) =>
+        supabase
+          .from("cobrancas_avulsas")
+          .select("valor, valor_repasse_arke")
+          .eq("organization_id", organization!.id)
+          .eq("status", "confirmado")
+          .gte("data_pagamento", inicioMes)
+          .order("id")
+          .range(de, ate)
+      );
     },
     enabled: !!organization?.id,
   });
@@ -180,13 +191,15 @@ export default function AdminGestao360() {
   const { data: folhaMes = [] } = useQuery({
     queryKey: ["gestao360-folha-mes", organization?.id, inicioMes],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("staff_folha_pagamentos")
-        .select("valor_total, competencia")
-        .eq("organization_id", organization!.id)
-        .gte("competencia", inicioMes);
-      if (error) throw error;
-      return data;
+      return todasAsLinhas((de, ate) =>
+        supabase
+          .from("staff_folha_pagamentos")
+          .select("valor_total, competencia")
+          .eq("organization_id", organization!.id)
+          .gte("competencia", inicioMes)
+          .order("id")
+          .range(de, ate)
+      );
     },
     enabled: !!organization?.id,
   });
@@ -198,9 +211,7 @@ export default function AdminGestao360() {
   const { data: engajamentoAlunos = [] } = useQuery({
     queryKey: ["gestao360-engajamento", organization?.id],
     queryFn: async () => {
-      const { data, error } = await supabase.rpc("obter_engajamento_alunos_organizacao");
-      if (error) throw error;
-      return data;
+      return todasAsLinhas((de, ate) => supabase.rpc("obter_engajamento_alunos_organizacao").order("aluno_id").range(de, ate));
     },
     enabled: !!organization?.id,
   });

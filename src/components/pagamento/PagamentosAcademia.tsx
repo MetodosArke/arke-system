@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -7,6 +7,9 @@ import { ExternalLink, Receipt } from "lucide-react";
 import { hojeBrasilia } from "@/lib/dataBrasilia";
 import { reais } from "@/lib/numeros";
 import type { Enums } from "@/integrations/supabase/types";
+import { useAuth } from "@/contexts/AuthContext";
+import { useToast } from "@/hooks/use-toast";
+import { CartaoAssinatura } from "@/components/pagamento/CartaoAssinatura";
 
 type Status = Enums<"status_mensalidade">;
 
@@ -42,6 +45,25 @@ export function prazo(m: Pick<CobrancaDaAcademia, "vencimento" | "status">, hoje
  * que cobra por fora), o cartão não aparece.
  */
 export function PagamentosAcademia({ alunoId }: { alunoId: string }) {
+  const { profile, user } = useAuth();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  // A mensalidade cobrada pelo ARKE pode ir no cartão automático, como o Método.
+  const { data: matricula } = useQuery({
+    queryKey: ["pagamentos-academia-matricula", alunoId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("aluno_matriculas_academia")
+        .select("status, asaas_subscription_id, forma_pagamento, cartao_final, cartao_bandeira, cartao_recusado_em")
+        .eq("aluno_id", alunoId)
+        .eq("status", "ativa")
+        .not("asaas_subscription_id", "is", null)
+        .limit(1)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+  });
   const { data: cobrancas } = useQuery({
     queryKey: ["pagamentos-academia", alunoId],
     queryFn: async () => {
@@ -71,14 +93,14 @@ export function PagamentosAcademia({ alunoId }: { alunoId: string }) {
     },
   });
 
-  if (!cobrancas?.length) return null;
+  if (!cobrancas?.length && !matricula) return null;
 
   const hoje = hojeBrasilia();
   // Dívida é só o que espera pagamento — mesma regra do bloqueio.
-  const abertas = cobrancas
+  const abertas = (cobrancas ?? [])
     .filter((m) => m.status === "pendente" || m.status === "atrasado")
     .sort((a, b) => a.vencimento.localeCompare(b.vencimento));
-  const pagas = cobrancas
+  const pagas = (cobrancas ?? [])
     .filter((m) => m.status === "confirmado")
     .sort((a, b) => b.vencimento.localeCompare(a.vencimento))
     .slice(0, 3);
@@ -135,6 +157,18 @@ export function PagamentosAcademia({ alunoId }: { alunoId: string }) {
               </li>
             ))}
           </ul>
+        )}
+        {matricula && (
+          <div className="border-t pt-3">
+            <CartaoAssinatura
+              alunoId={alunoId}
+              tipo="plano"
+              assinatura={matricula}
+              titularPadrao={{ nome: profile?.full_name ?? "", email: user?.email ?? "" }}
+              onSalvo={() => void queryClient.invalidateQueries({ queryKey: ["pagamentos-academia-matricula", alunoId] })}
+              onSucesso={(m) => toast({ title: "Cartão cadastrado", description: m })}
+            />
+          </div>
         )}
       </CardContent>
     </Card>

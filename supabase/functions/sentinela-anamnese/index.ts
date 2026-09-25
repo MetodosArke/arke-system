@@ -1,4 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { verificada } from "../_shared/verificacao.ts";
 import { conversarComIA, fornecedorIA } from "../_shared/ia.ts";
 
 const corsHeaders = {
@@ -85,7 +86,7 @@ Deno.serve(async (req: Request) => {
         .eq("status", "active")
         .maybeSingle(),
     ]);
-    const arkefit = (papeis ?? []).some((p) => p.role === "superadmin" || p.role === "admin_arke");
+    const arkefit = verificada(claims?.claims) && (papeis ?? []).some((p) => p.role === "superadmin" || p.role === "admin_arke");
     const equipe = ["gestor", "professor", "nutricionista", "recepcao"].includes(vinculo?.role ?? "");
     if (!arkefit && !equipe) {
       return jsonResponse({ error: "Você não atende este aluno." }, 403);

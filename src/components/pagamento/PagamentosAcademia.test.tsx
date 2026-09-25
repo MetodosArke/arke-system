@@ -5,21 +5,27 @@ import { PagamentosAcademia, prazo } from "./PagamentosAcademia";
 
 type Linha = { id: string; vencimento: string; valor: number; status: string; invoice_url: string | null; descricao?: string };
 type Nota = { origem_id: string; pdf_url: string };
-const tabelas: Record<string, (Linha | Nota)[]> = { mensalidades: [], cobrancas_avulsas: [], notas_fiscais: [] };
+type Matricula = { status: string; asaas_subscription_id: string | null; forma_pagamento: string; cartao_final: string | null; cartao_bandeira: string | null; cartao_recusado_em: string | null };
+const tabelas: Record<string, (Linha | Nota | Matricula)[]> = { mensalidades: [], cobrancas_avulsas: [], notas_fiscais: [], aluno_matriculas_academia: [] };
 vi.mock("@/integrations/supabase/client", () => ({
   supabase: {
     from: (tabela: string) => {
       const consulta = {
         select: () => consulta,
         eq: () => consulta,
+        not: () => consulta,
         order: () => consulta,
-        limit: () => Promise.resolve({ data: tabelas[tabela], error: null }),
+        limit: () => Object.assign(Promise.resolve({ data: tabelas[tabela], error: null }), {
+          maybeSingle: () => Promise.resolve({ data: tabelas[tabela][0] ?? null, error: null }),
+        }),
       };
       return consulta;
     },
   },
 }));
 vi.mock("@/lib/dataBrasilia", () => ({ hojeBrasilia: () => "2026-09-24" }));
+vi.mock("@/contexts/AuthContext", () => ({ useAuth: () => ({ profile: { full_name: "Aluna" }, user: { email: "aluna@teste.com" } }) }));
+vi.mock("@/hooks/use-toast", () => ({ useToast: () => ({ toast: vi.fn() }) }));
 
 const linha = (x: Partial<Linha>): Linha => ({
   id: x.id ?? "m1",
@@ -42,6 +48,7 @@ describe("PagamentosAcademia", () => {
     tabelas.mensalidades = [];
     tabelas.cobrancas_avulsas = [];
     tabelas.notas_fiscais = [];
+    tabelas.aluno_matriculas_academia = [];
   });
 
   it("não aparece para quem não tem nada cobrado pelo ARKE", async () => {
@@ -77,6 +84,15 @@ describe("PagamentosAcademia", () => {
     montar();
     await waitFor(() => expect(screen.getAllByText("Paga")).toHaveLength(2));
     expect(screen.getAllByRole("link", { name: "Nota fiscal" }).map((l) => l.getAttribute("href"))).toEqual(["https://www.asaas.com/nota/1"]);
+  });
+
+  it("com a mensalidade cobrada pelo ARKE, mostra a forma de pagamento dela", async () => {
+    tabelas.aluno_matriculas_academia = [
+      { status: "ativa", asaas_subscription_id: "sub_1", forma_pagamento: "cartao", cartao_final: "4242", cartao_bandeira: "visa", cartao_recusado_em: null },
+    ];
+    montar();
+    expect(await screen.findByText("4242")).toBeInTheDocument();
+    expect(document.body.textContent).toContain("cobrança automática");
   });
 
   it("diz quando não há nada em aberto", async () => {

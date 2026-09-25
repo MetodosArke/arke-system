@@ -14,7 +14,8 @@ Este checklist tem três partes: o que vem **antes do primeiro cliente pagante**
 
 Regra do responsável, de 23/09/2026: todo upgrade de infraestrutura acontece antes do primeiro cliente pagante estar implantado.
 
-- [ ] **Supabase Pro.** Backup com recuperação a ponto no tempo e projeto que não pausa. Depois do upgrade:
+- [ ] **Supabase Pro.** Backup diário (decisão de 24/09/2026: sem o adicional de volta a qualquer momento do dia) e projeto que não pausa. Depois do upgrade:
+  - fazer o **ensaio de restauração** (`docs/RESTAURACAO_BACKUP.md`) e anotar o tempo de volta;
   - trocar `limite_banco_mb` pelo disco contratado em **Visão Master → Configurações** — o aviso de capacidade passa de "o banco vai travar" para "vai custar mais";
   - ligar a **proteção de senha vazada** do Auth, que só existe no plano pago (`password_hibp_enabled` na configuração de Auth; dá para ligar pela API de gerenciamento). A checagem própria contra o HaveIBeenPwned continua valendo e não conflita.
 - [ ] **Vercel Pro.** O plano Hobby proíbe uso comercial.
@@ -23,6 +24,8 @@ Regra do responsável, de 23/09/2026: todo upgrade de infraestrutura acontece an
 - [ ] **Teste de carga**, só depois dos upgrades — antes, ele mediria o limite do plano, não o sistema.
 - [ ] **Canal de suporte** em Visão Master → Configurações (sem ele, o botão "falar com o suporte" do onboarding não aparece).
 - [ ] **GIFs dos exercícios** no acervo global.
+- [ ] **Verificação em duas etapas** de cada conta da ArkeFit: na primeira entrada na Visão Master depois da Fase 0, cadastrar o aplicativo autenticador (QR code).
+- [ ] **Nota fiscal da própria ArkeFit** configurada na conta Asaas dela, com o contador (decisão 3).
 
 ## 2. Publicação
 
@@ -33,6 +36,8 @@ A 1.0 está no ar desde 24/09/2026, com as migrations pós-deploy aplicadas; o t
 **Cobrança avulsa (24/09/2026):** as migrations `20261276010000` e `20261277010000` estão aplicadas e as funções publicadas (`asaas-cobranca-avulsa`, e as versões novas de `asaas-webhook`, `asaas-reconciliar`, `academia-criar-matricula`, `excluir-aluno` e `anonimizar-aluno`). As telas entram com o merge.
 
 **Nota fiscal automática (24/09/2026):** a migration `20261278010000` está aplicada e as funções publicadas (`nfse-emitir`, `asaas-fiscal-academia` e a versão nova de `convidar-membro`). A `20261279010000` (Política de Privacidade `2026-09-24`) foi aplicada depois do deploy com o texto novo, e a `20261280010000` (Contrato da Academia `2026-09-24`, com a cláusula de responsabilidade fiscal) segue a mesma ordem.
+
+**Fase 0 da rodada de lançamento (24/09/2026):** aplicadas as migrations `20261281010000` (encerramento), `20261282010000` (exportação), `20261284010000` (cartão na mensalidade) e `20261285010000` (taxa de implantação); publicadas `asaas-reconciliar`, `catraca-sincronizar-alunos`, `encerramento-organizacao`, `asaas-cartao-assinatura`, `asaas-webhook` e `asaas-taxa-implantacao`; `CARTAO_RECORRENTE_ATIVO` ligado. **Depois do deploy das telas:** aplicar `20261283010000` (verificação em duas etapas no banco) e publicar as 15 funções que exigem a sessão verificada — nessa ordem, senão a Visão Master fecha antes de existir a tela que pede o código.
 
 ## 3. Implantação de cada academia
 

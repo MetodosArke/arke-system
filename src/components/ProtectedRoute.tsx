@@ -1,5 +1,6 @@
 import { Navigate } from "react-router-dom";
 import { useAuth, AppRole } from "@/contexts/AuthContext";
+import { VerificacaoDuasEtapas } from "@/components/VerificacaoDuasEtapas";
 
 interface Props {
   children: React.ReactNode;
@@ -29,6 +30,11 @@ export function ProtectedRoute({ children, requiredRoles }: Props) {
       (organizationRole !== null && requiredRoles.includes(organizationRole));
     if (!hasAccess) {
       return <Navigate to="/app" replace />;
+    }
+    // A conta da ArkeFit alcança todas as academias: nas áreas que pedem papel,
+    // ela só entra com a verificação em duas etapas (o banco exige o mesmo).
+    if (roles.includes("superadmin") || roles.includes("admin_arke")) {
+      return <VerificacaoDuasEtapas>{children}</VerificacaoDuasEtapas>;
     }
   }
 

@@ -1,4 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { todasAsLinhas } from "../_shared/paginar.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -93,12 +94,21 @@ Deno.serve(async (req: Request) => {
     const agora = new Date();
     const aPartirDe = diferenca ? new Date(desde!.getTime() - 120_000).toISOString() : null;
 
-    const [{ data: linhas, error: erroLinhas }, { data: hash, error: erroHash }] = await Promise.all([
-      admin.rpc("alunos_catraca", { _organization_id: catraca.organization_id, _desde: aPartirDe }),
-      admin.rpc("alunos_catraca_hash", { _organization_id: catraca.organization_id }),
-    ]);
-    if (erroLinhas || erroHash) {
-      console.error("Erro ao montar a sincronização:", (erroLinhas ?? erroHash)?.code);
+    // Em páginas: a API do banco para em mil linhas sem avisar, e numa academia
+    // maior a lista viria cortada — o hash nunca bateria e o Gateway pediria a
+    // lista inteira de novo a cada rodada, para sempre.
+    let linhas: unknown[];
+    const { data: hash, error: erroHash } = await admin.rpc("alunos_catraca_hash", { _organization_id: catraca.organization_id });
+    try {
+      if (erroHash) throw new Error(erroHash.code ?? erroHash.message);
+      linhas = await todasAsLinhas((de, ate) =>
+        admin
+          .rpc("alunos_catraca", { _organization_id: catraca.organization_id, _desde: aPartirDe })
+          .order("aluno_id")
+          .range(de, ate)
+      );
+    } catch (e) {
+      console.error("Erro ao montar a sincronização:", e instanceof Error ? e.message : typeof e);
       return jsonResponse({ error: "Falha ao listar alunos." }, 500);
     }
 
@@ -110,7 +120,7 @@ Deno.serve(async (req: Request) => {
       inadimplente: boolean;
       remover: boolean;
     };
-    const todas = (linhas ?? []) as Linha[];
+    const todas = linhas as Linha[];
     const semRemover = ({ remover: _r, ...resto }: Linha) => resto;
 
     // `ids_hash` é a impressão digital do conjunto que o cache deve ter. O

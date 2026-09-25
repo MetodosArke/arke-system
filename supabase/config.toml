@@ -87,3 +87,7 @@ verify_jwt = false
 # pelo cron com o token do alerta de rotinas.
 [functions.nfse-emitir]
 verify_jwt = false
+
+# Chamada pelo cron com o token do Vault (sem JWT); a Visão Master chama com a sessão da ArkeFit.
+[functions.encerramento-organizacao]
+verify_jwt = false

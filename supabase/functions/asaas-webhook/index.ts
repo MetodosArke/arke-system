@@ -357,6 +357,26 @@ Deno.serve(async (req: Request) => {
         .maybeSingle();
 
       if (mensalidadeExistente) {
+        // Cartão recusado na mensalidade da academia: mesma regra do Método
+        // (não corta acesso; marca e abre tarefa), com a tarefa da academia.
+        if (tipoEvento === "PAYMENT_CREDIT_CARD_CAPTURE_REFUSED") {
+          if (mensalidadeExistente.matricula_id) {
+            await admin
+              .from("aluno_matriculas_academia")
+              .update({ cartao_recusado_em: new Date().toISOString() })
+              .eq("id", mensalidadeExistente.matricula_id);
+            await admin.rpc("abrir_tarefa_cartao_recusado_mensalidade", {
+              _matricula_id: mensalidadeExistente.matricula_id,
+              _asaas_payment_id: asaasPaymentId,
+            });
+          }
+          if (invoiceUrl) await admin.from("mensalidades").update({ invoice_url: invoiceUrl }).eq("id", mensalidadeExistente.id);
+          await concluir(mensalidadeExistente.matricula_id ? "cartao_recusado" : "sem_correspondencia");
+          return jsonResponse({ ok: true });
+        }
+        if (novoStatus === "confirmado" && mensalidadeExistente.matricula_id) {
+          await admin.from("aluno_matriculas_academia").update({ cartao_recusado_em: null }).eq("id", mensalidadeExistente.matricula_id);
+        }
         if (novoStatus) {
           await admin
             .from("mensalidades")

@@ -1,4 +1,17 @@
 import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2";
+import { diaBrasilia, hojeBrasilia } from "../_shared/data.ts";
+import { todasAsLinhas } from "../_shared/paginar.ts";
+import {
+  asaasGet,
+  emPedacos,
+  eventoParaCorrigir,
+  listagensDaVarredura,
+  listarTodas,
+  origemDaReferencia,
+  TABELA,
+  type Origem,
+  type PagamentoAsaas,
+} from "./fluxo.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -14,7 +27,7 @@ const jsonResponse = (body: unknown, status = 200) =>
 
 // Reconciliação Asaas ↔ banco. Ver a migration 20261201010000 para o porquê.
 //
-// Pergunta ao Asaas a situação real de cada cobrança e, quando ela diverge do
+// Pergunta ao Asaas a situação real das cobranças e, quando ela diverge do
 // banco, **reenvia o evento correspondente ao asaas-webhook**. O efeito no
 // banco sai do mesmo código que trata os webhooks de verdade — não existe uma
 // segunda implementação de "o que fazer quando confirma" para divergir da
@@ -24,73 +37,26 @@ const jsonResponse = (body: unknown, status = 200) =>
 //
 // Dois modos:
 //   - varredura: pg_cron, uma vez por dia, autenticada pelo token do Vault.
-//     Confere Método ARKE, plano próprio da academia, cobranças B2B e avulsas, e lista
-//     assinaturas ativas no Asaas que o banco não conhece.
+//     Em lote (ver fluxo.ts): o Asaas lista as vencidas, as criadas e as
+//     recebidas nos últimos dias; o banco é lido em páginas; só a cobrança
+//     vencida que ficou sem resposta é consultada uma a uma, dentro de um
+//     orçamento de tempo. Depois, as assinaturas ativas no Asaas que o banco
+//     não conhece.
 //   - aluno: o botão "Já paguei, verificar novamente" da tela de bloqueio.
 //     Confere só a assinatura daquele aluno — o caminho mais curto para quem
 //     pagou e ficou bloqueado porque o PAYMENT_CONFIRMED se perdeu.
 
-type PagamentoAsaas = {
-  id: string;
-  status: string;
-  deleted?: boolean;
-  subscription?: string | null;
-  value?: number;
-  dueDate?: string;
-  invoiceUrl?: string;
-};
-
-// Status do Asaas → evento que o asaas-webhook entende e o status que o banco
-// deveria ter depois dele. Status fora da lista (análise de risco, reembolso
-// em andamento...) não são reconciliados: são transitórios, e o webhook de
-// desfecho resolve.
-const MAPA: Record<string, { evento: string; statusBanco: string }> = {
-  PENDING: { evento: "PAYMENT_CREATED", statusBanco: "pendente" },
-  CONFIRMED: { evento: "PAYMENT_CONFIRMED", statusBanco: "confirmado" },
-  RECEIVED: { evento: "PAYMENT_RECEIVED", statusBanco: "confirmado" },
-  RECEIVED_IN_CASH: { evento: "PAYMENT_RECEIVED", statusBanco: "confirmado" },
-  OVERDUE: { evento: "PAYMENT_OVERDUE", statusBanco: "atrasado" },
-  REFUNDED: { evento: "PAYMENT_REFUNDED", statusBanco: "estornado" },
-  CHARGEBACK_REQUESTED: { evento: "PAYMENT_CHARGEBACK_REQUESTED", statusBanco: "estornado" },
-};
+// Uma edge function tem limite de tempo (150 s no plano gratuito, 400 s no
+// pago). As consultas uma a uma param antes disso, e o que sobrar vira aviso.
+const ORCAMENTO_MS = 110_000;
 
 type Divergencia = {
-  origem: "metodo" | "plano" | "b2b" | "avulsa";
+  origem: Origem;
   pagamento: string;
   asaas: string;
   banco: string | null;
   corrigida: boolean;
 };
-
-/**
- * Lança em vez de devolver nulo. A primeira versão devolvia nulo, e uma chave
- * inválida no Asaas virava "0 divergências, 0 órfãs, sem erro" — a falha
- * silenciosa que esta função existe para acabar.
- */
-async function asaasGet<T>(api: string, chave: string, caminho: string): Promise<T> {
-  const resp = await fetch(`${api}${caminho}`, { headers: { access_token: chave } });
-  if (!resp.ok) {
-    throw new Error(`Asaas respondeu ${resp.status} em ${caminho.split("?")[0]}`);
-  }
-  return (await resp.json()) as T;
-}
-
-async function pagamentosDaAssinatura(api: string, chave: string, assinaturaId: string): Promise<PagamentoAsaas[]> {
-  const r = await asaasGet<{ data?: PagamentoAsaas[] }>(
-    api,
-    chave,
-    `/payments?subscription=${encodeURIComponent(assinaturaId)}&limit=100`
-  );
-  return r.data ?? [];
-}
-
-/** Estado que o banco deveria ter para este pagamento, ou nulo se não há o que reconciliar. */
-function esperado(p: PagamentoAsaas) {
-  // Removida não é estorno: o webhook grava `cancelado` para PAYMENT_DELETED.
-  // Comparar com "estornado" acusava a mesma divergência todo dia.
-  if (p.deleted) return { evento: "PAYMENT_DELETED", statusBanco: "cancelado" };
-  return MAPA[p.status] ?? null;
-}
 
 async function reenviarAoWebhook(supabaseUrl: string, segredoWebhook: string, evento: string, p: PagamentoAsaas) {
   const resp = await fetch(`${supabaseUrl}/functions/v1/asaas-webhook`, {
@@ -117,47 +83,27 @@ type Contexto = {
   falhas: string[];
 };
 
-/**
- * Confere os pagamentos de uma assinatura contra a tabela local e reenvia o que
- * divergir. Pagamento pendente que o banco não tem também conta: é o caso do
- * PAYMENT_CREATED perdido, que deixaria a rede de segurança sem o que pescar.
- */
-async function conferirAssinatura(
-  ctx: Contexto,
-  origem: "metodo" | "plano",
-  assinaturaId: string,
-  tabela: "pagamentos" | "mensalidades"
-) {
-  let noAsaas: PagamentoAsaas[];
-  try {
-    noAsaas = await pagamentosDaAssinatura(ctx.api, ctx.chave, assinaturaId);
-  } catch (e) {
-    // Uma assinatura que não respondeu não impede as outras de serem
-    // conferidas — mas fica registrada como falha.
-    ctx.falhas.push(`${assinaturaId}: ${e instanceof Error ? e.message : String(e)}`);
-    return;
+/** Confere um pagamento do Asaas contra o status local e reenvia o evento se divergir. */
+async function conferir(ctx: Contexto, p: PagamentoAsaas, statusLocal: string | null, origem: Origem) {
+  ctx.verificadas++;
+  const evento = eventoParaCorrigir(p, statusLocal, origem);
+  if (!evento) return;
+  const corrigida = await reenviarAoWebhook(ctx.supabaseUrl, ctx.segredoWebhook, evento, p);
+  ctx.divergencias.push({ origem, pagamento: p.id, asaas: p.deleted ? "DELETED" : p.status, banco: statusLocal, corrigida });
+}
+
+/** O status local de cada pagamento, pela tabela da origem de cada um, em pedaços de 100. */
+async function statusLocais(admin: SupabaseClient, itens: { id: string; origem: Origem }[]) {
+  const status = new Map<string, string>();
+  for (const origem of Object.keys(TABELA) as Origem[]) {
+    const ids = itens.filter((i) => i.origem === origem).map((i) => i.id);
+    for (const pedaco of emPedacos(ids)) {
+      const { data, error } = await admin.from(TABELA[origem]).select("asaas_payment_id, status").in("asaas_payment_id", pedaco);
+      if (error) throw new Error(`${TABELA[origem]}: ${error.message}`);
+      for (const l of data ?? []) status.set(l.asaas_payment_id as string, l.status as string);
+    }
   }
-  if (noAsaas.length === 0) return;
-
-  const { data: locais } = await ctx.admin
-    .from(tabela)
-    .select("asaas_payment_id, status")
-    .in("asaas_payment_id", noAsaas.map((p) => p.id));
-  const statusLocal = new Map((locais ?? []).map((l) => [l.asaas_payment_id as string, l.status as string]));
-
-  for (const p of noAsaas) {
-    ctx.verificadas++;
-    const alvo = esperado(p);
-    if (!alvo) continue;
-    const atual = statusLocal.get(p.id) ?? null;
-    // Mensalidade de plano próprio não registra emissão (status NOT NULL, ver
-    // asaas-webhook): pendente que falta lá não é divergência.
-    if (alvo.statusBanco === "pendente" && (atual !== null || tabela === "mensalidades")) continue;
-    if (atual === alvo.statusBanco) continue;
-
-    const corrigida = await reenviarAoWebhook(ctx.supabaseUrl, ctx.segredoWebhook, alvo.evento, p);
-    ctx.divergencias.push({ origem, pagamento: p.id, asaas: p.deleted ? "DELETED" : p.status, banco: atual, corrigida });
-  }
+  return status;
 }
 
 Deno.serve(async (req: Request) => {
@@ -183,94 +129,98 @@ Deno.serve(async (req: Request) => {
   if (token) {
     const { data: valido } = await admin.rpc("conferir_token_reconciliacao", { _token: token });
     if (!valido) return jsonResponse({ error: "Não autorizado." }, 401);
+    const inicio = Date.now();
 
     // A varredura é da produção, e por isso exclui as organizações em trial.
     //
     // Desde 23/09/2026 organização em trial fala com o **sandbox** do Asaas
-    // (ver `_shared/asaas.ts`): as assinaturas dela existem lá, não aqui.
+    // (ver `_shared/asaas.ts`): as cobranças dela existem lá, não aqui.
     // Perguntar à produção por um id de sandbox devolveria "não encontrado"
     // para toda uma academia de homologação — ruído diário na faixa vermelha
     // da Visão Master, exatamente onde só deveria aparecer problema real.
-    //
-    // Homologação não precisa de reconciliação automática: ela é exercitada
-    // à mão, e a rede de segurança existe para o dinheiro de cliente.
-    const { data: emHomologacao } = await admin
-      .from("organizations")
-      .select("id")
-      .eq("status", "trial");
+    const { data: emHomologacao } = await admin.from("organizations").select("id").eq("status", "trial");
     const idsHomologacao = (emHomologacao ?? []).map((o) => o.id as string);
     const foraDeHomologacao = <T extends { not: (c: string, o: string, v: string) => T }>(consulta: T): T =>
       idsHomologacao.length ? consulta.not("organization_id", "in", `(${idsHomologacao.join(",")})`) : consulta;
 
     let erro: string | null = null;
     let orfas: { id: string; referencia: string }[] = [];
+    let naoConferidas = 0;
     try {
-      const { data: metodo } = await foraDeHomologacao(
-        admin
-          .from("aluno_assinaturas")
-          .select("asaas_subscription_id")
-          .not("asaas_subscription_id", "is", null)
-          .in("status", ["ativa", "atrasada"]),
-      );
-      for (const a of metodo ?? []) await conferirAssinatura(ctx, "metodo", a.asaas_subscription_id as string, "pagamentos");
-
-      const { data: planos } = await foraDeHomologacao(
-        admin
-          .from("aluno_matriculas_academia")
-          .select("asaas_subscription_id")
-          .not("asaas_subscription_id", "is", null)
-          .eq("status", "ativa"),
-      );
-      for (const m of planos ?? []) await conferirAssinatura(ctx, "plano", m.asaas_subscription_id as string, "mensalidades");
-
-      // Cobranças sem assinatura por trás — a B2B e a avulsa da academia ao
-      // aluno (taxa de matrícula, avaliação...) — conferem uma a uma.
-      for (const [origem, tabela] of [["b2b", "cobrancas_b2b"], ["avulsa", "cobrancas_avulsas"]] as const) {
-        const { data: abertas } = await foraDeHomologacao(
-          admin
-            .from(tabela)
-            .select("asaas_payment_id, status")
-            .not("asaas_payment_id", "is", null)
-            .in("status", ["pendente", "atrasado"]),
+      // 1. O que o banco tem em aberto e já venceu: é aqui que uma confirmação
+      //    perdida bloquearia quem pagou.
+      const hoje = hojeBrasilia();
+      const abertas = new Map<string, { status: string; origem: Origem }>();
+      for (const origem of Object.keys(TABELA) as Origem[]) {
+        const linhas = await todasAsLinhas<{ asaas_payment_id: string; status: string }>((de, ate) =>
+          foraDeHomologacao(
+            admin
+              .from(TABELA[origem])
+              .select("asaas_payment_id, status")
+              .not("asaas_payment_id", "is", null)
+              .in("status", ["pendente", "atrasado"])
+              .lte("vencimento", hoje),
+          )
+            .order("asaas_payment_id")
+            .range(de, ate)
         );
-        for (const c of abertas ?? []) {
-          let p: PagamentoAsaas;
-          try {
-            p = await asaasGet<PagamentoAsaas>(api, chave, `/payments/${encodeURIComponent(c.asaas_payment_id as string)}`);
-          } catch (e) {
-            ctx.falhas.push(`${c.asaas_payment_id}: ${e instanceof Error ? e.message : String(e)}`);
-            continue;
-          }
-          ctx.verificadas++;
-          const alvo = esperado(p);
-          if (!alvo || alvo.statusBanco === "pendente" || alvo.statusBanco === c.status) continue;
-          const corrigida = await reenviarAoWebhook(supabaseUrl, segredoWebhook, alvo.evento, p);
-          ctx.divergencias.push({ origem, pagamento: p.id, asaas: p.deleted ? "DELETED" : p.status, banco: c.status as string, corrigida });
-        }
+        for (const l of linhas) abertas.set(l.asaas_payment_id, { status: l.status, origem });
       }
 
-      // Assinatura ativa no Asaas que o banco não conhece: cobra o aluno sem
-      // ninguém ver. Não se corrige sozinha — pode ser do plano próprio, de
-      // outro valor —, então vai para o registro e para a Visão Master.
-      const conhecidas = new Set([
-        ...(metodo ?? []).map((a) => a.asaas_subscription_id),
-        ...(planos ?? []).map((m) => m.asaas_subscription_id),
-      ]);
-      let offset = 0;
-      for (;;) {
-        const pagina = await asaasGet<{ data?: { id: string; externalReference?: string }[]; hasMore?: boolean }>(
-          api,
-          chave,
-          `/subscriptions?status=ACTIVE&limit=100&offset=${offset}`
-        );
-        for (const s of pagina.data ?? []) {
-          const ref = s.externalReference ?? "";
-          if ((ref.startsWith("metodo:") || ref.startsWith("plano:")) && !conhecidas.has(s.id)) {
-            orfas.push({ id: s.id, referencia: ref });
-          }
+      // 2. O Asaas lista em lote o que interessa, de 100 em 100.
+      const vistos = new Map<string, PagamentoAsaas>();
+      for (const caminho of listagensDaVarredura((n) => diaBrasilia(-n))) {
+        for (const p of await listarTodas<PagamentoAsaas>(api, chave, caminho)) vistos.set(p.id, p);
+      }
+      const doArke = [...vistos.values()]
+        .map((p) => ({ p, origem: abertas.get(p.id)?.origem ?? origemDaReferencia(p.externalReference) }))
+        .filter((x): x is { p: PagamentoAsaas; origem: Origem } => x.origem !== null);
+      const locais = await statusLocais(
+        admin,
+        doArke.filter((x) => !abertas.has(x.p.id)).map((x) => ({ id: x.p.id, origem: x.origem })),
+      );
+      for (const { p, origem } of doArke) {
+        await conferir(ctx, p, abertas.get(p.id)?.status ?? locais.get(p.id) ?? null, origem);
+      }
+
+      // 3. Vencida em aberto que nenhuma listagem trouxe (removida, estornada,
+      //    ou paga há mais tempo que a janela): uma a uma, dentro do orçamento.
+      const semResposta = [...abertas.entries()].filter(([id]) => !vistos.has(id));
+      for (let i = 0; i < semResposta.length; i++) {
+        if (Date.now() - inicio > ORCAMENTO_MS) {
+          naoConferidas = semResposta.length - i;
+          break;
         }
-        if (!pagina.hasMore) break;
-        offset += 100;
+        const [id, local] = semResposta[i];
+        let p: PagamentoAsaas;
+        try {
+          p = await asaasGet<PagamentoAsaas>(api, chave, `/payments/${encodeURIComponent(id)}`);
+        } catch (e) {
+          ctx.falhas.push(`${id}: ${e instanceof Error ? e.message : String(e)}`);
+          continue;
+        }
+        await conferir(ctx, p, local.status, local.origem);
+      }
+
+      // 4. Assinatura ativa no Asaas que o banco não conhece: cobra o aluno sem
+      //    ninguém ver. Não se corrige sozinha — pode ser do plano próprio, de
+      //    outro valor —, então vai para o registro e para a Visão Master.
+      const conhecidas = new Set<string>();
+      for (const [tabela, status] of [["aluno_assinaturas", ["ativa", "atrasada"]], ["aluno_matriculas_academia", ["ativa"]]] as const) {
+        const linhas = await todasAsLinhas<{ asaas_subscription_id: string }>((de, ate) =>
+          foraDeHomologacao(
+            admin.from(tabela).select("asaas_subscription_id").not("asaas_subscription_id", "is", null).in("status", [...status]),
+          )
+            .order("asaas_subscription_id")
+            .range(de, ate)
+        );
+        for (const l of linhas) conhecidas.add(l.asaas_subscription_id);
+      }
+      for (const s of await listarTodas<{ id: string; externalReference?: string }>(api, chave, "/subscriptions?status=ACTIVE")) {
+        const ref = s.externalReference ?? "";
+        if ((ref.startsWith("metodo:") || ref.startsWith("plano:")) && !conhecidas.has(s.id)) {
+          orfas.push({ id: s.id, referencia: ref });
+        }
       }
     } catch (e) {
       erro = e instanceof Error ? e.message : String(e);
@@ -280,6 +230,10 @@ Deno.serve(async (req: Request) => {
     if (!erro && ctx.falhas.length > 0) {
       erro = `${ctx.falhas.length} consulta(s) ao Asaas falharam: ${ctx.falhas.slice(0, 5).join("; ")}`;
     }
+    if (!erro && naoConferidas > 0) {
+      // Faltar tempo não é "nada a corrigir": vira aviso na faixa vermelha.
+      erro = `Varredura incompleta: ${naoConferidas} cobrança(s) vencida(s) ficaram sem conferir por falta de tempo.`;
+    }
     const corrigidas = ctx.divergencias.filter((d) => d.corrigida).length;
     const { error: gravacaoError } = await admin.from("reconciliacoes_asaas").insert({
       modo: "varredura",
@@ -287,7 +241,7 @@ Deno.serve(async (req: Request) => {
       divergencias: ctx.divergencias.length,
       corrigidas,
       assinaturas_orfas: orfas.length,
-      detalhes: { divergencias: ctx.divergencias, orfas, falhas: ctx.falhas },
+      detalhes: { divergencias: ctx.divergencias, orfas, falhas: ctx.falhas, nao_conferidas: naoConferidas, duracao_ms: Date.now() - inicio },
       erro,
     });
     if (gravacaoError) {
@@ -297,7 +251,7 @@ Deno.serve(async (req: Request) => {
       console.error("Reconciliação feita, mas o registro não foi gravado", gravacaoError.code, gravacaoError.message);
     }
     orfas = orfas.slice(0, 50);
-    return jsonResponse({ verificadas: ctx.verificadas, divergencias: ctx.divergencias.length, corrigidas, orfas });
+    return jsonResponse({ verificadas: ctx.verificadas, divergencias: ctx.divergencias.length, corrigidas, orfas, nao_conferidas: naoConferidas });
   }
 
   // --- Modo aluno (botão da tela de bloqueio) --------------------------------
@@ -326,8 +280,16 @@ Deno.serve(async (req: Request) => {
   }
   await admin.from("aluno_assinaturas").update({ reconciliada_em: new Date().toISOString() }).eq("id", assinatura.id);
 
-  await conferirAssinatura(ctx, "metodo", assinatura.asaas_subscription_id, "pagamentos");
-  if (ctx.falhas.length > 0) {
+  try {
+    const r = await asaasGet<{ data?: PagamentoAsaas[] }>(
+      api,
+      chave,
+      `/payments?subscription=${encodeURIComponent(assinatura.asaas_subscription_id)}&limit=100`,
+    );
+    const noAsaas = r.data ?? [];
+    const locais = await statusLocais(admin, noAsaas.map((p) => ({ id: p.id, origem: "metodo" as const })));
+    for (const p of noAsaas) await conferir(ctx, p, locais.get(p.id) ?? null, "metodo");
+  } catch {
     // Não dá para dizer ao aluno que está tudo certo sem ter conseguido olhar.
     return jsonResponse({ error: "Não foi possível consultar o pagamento agora. Tente de novo em alguns minutos." }, 502);
   }

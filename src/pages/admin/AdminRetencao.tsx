@@ -2,6 +2,8 @@ import { diaBrasilia } from "@/lib/dataBrasilia";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { todasAsLinhas } from "@/lib/paginar";
+import { perfisDosUsuarios } from "@/lib/perfis";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -60,36 +62,41 @@ export default function AdminRetencao() {
     queryFn: async () => {
       const cincoDiasIso = diaBrasilia(-5);
 
-      const [{ data: alunosAtivos }, { data: registros }, { data: tarefasDor }] = await Promise.all([
-        supabase
-          .from("alunos")
-          .select("id, user_id")
-          .eq("organization_id", organization!.id),
-        supabase
-          .from("registro_treino")
-          .select("aluno_id, data")
-          .eq("organization_id", organization!.id)
-          .gte("data", cincoDiasIso),
-        supabase
-          .from("tarefas")
-          .select("aluno_id, motivo")
-          .eq("organization_id", organization!.id)
-          .eq("tipo", "dor")
-          .in("status", ["aberta", "em_andamento", "aguardando"]),
+      // Em páginas: cinco dias de treino de uma academia de 500 alunos já
+      // passam de mil registros, e quem treinou apareceria "em risco".
+      const [alunosAtivos, registros, tarefasDor] = await Promise.all([
+        todasAsLinhas((de, ate) =>
+          supabase.from("alunos").select("id, user_id").eq("organization_id", organization!.id).order("id").range(de, ate)
+        ),
+        todasAsLinhas((de, ate) =>
+          supabase
+            .from("registro_treino")
+            .select("aluno_id, data")
+            .eq("organization_id", organization!.id)
+            .gte("data", cincoDiasIso)
+            .order("id")
+            .range(de, ate)
+        ),
+        todasAsLinhas((de, ate) =>
+          supabase
+            .from("tarefas")
+            .select("aluno_id, motivo")
+            .eq("organization_id", organization!.id)
+            .eq("tipo", "dor")
+            .in("status", ["aberta", "em_andamento", "aguardando"])
+            .order("id")
+            .range(de, ate)
+        ),
       ]);
 
-      const userIds = (alunosAtivos ?? []).map((a) => a.user_id);
-      const { data: profiles } = userIds.length
-        ? await supabase.from("profiles").select("user_id, full_name").in("user_id", userIds)
-        : { data: [] as { user_id: string; full_name: string }[] };
-      const nomeByUserId = new Map((profiles ?? []).map((p) => [p.user_id, p.full_name]));
+      const perfis = await perfisDosUsuarios(alunosAtivos.map((a) => a.user_id));
 
-      const treinouRecente = new Set((registros ?? []).map((r) => r.aluno_id));
-      const alunoIdComDor = new Map((tarefasDor ?? []).map((t) => [t.aluno_id, t.motivo]));
+      const treinouRecente = new Set(registros.map((r) => r.aluno_id));
+      const alunoIdComDor = new Map(tarefasDor.map((t) => [t.aluno_id, t.motivo]));
 
       const risco: AlunoRisco[] = [];
-      for (const aluno of alunosAtivos ?? []) {
-        const nome = nomeByUserId.get(aluno.user_id) ?? "—";
+      for (const aluno of alunosAtivos) {
+        const nome = perfis.get(aluno.user_id)?.full_name ?? "—";
         if (alunoIdComDor.has(aluno.id)) {
           risco.push({ aluno_id: aluno.id, nome, motivo: "dor", detalhe: alunoIdComDor.get(aluno.id)! });
         } else if (!treinouRecente.has(aluno.id)) {
@@ -108,22 +115,19 @@ export default function AdminRetencao() {
   const { data: engajamento = [], isLoading: isLoadingEngajamento } = useQuery({
     queryKey: ["retencao-engajamento-alunos", organization?.id],
     queryFn: async () => {
-      const [{ data: pontuacoes, error }, { data: alunosData }] = await Promise.all([
-        supabase.rpc("obter_engajamento_alunos_organizacao"),
-        supabase.from("alunos").select("id, user_id").eq("organization_id", organization!.id),
+      const [pontuacoes, alunosData] = await Promise.all([
+        todasAsLinhas((de, ate) => supabase.rpc("obter_engajamento_alunos_organizacao").order("aluno_id").range(de, ate)),
+        todasAsLinhas((de, ate) =>
+          supabase.from("alunos").select("id, user_id").eq("organization_id", organization!.id).order("id").range(de, ate)
+        ),
       ]);
-      if (error) throw error;
 
-      const userIdByAlunoId = new Map((alunosData ?? []).map((a) => [a.id, a.user_id]));
-      const userIds = Array.from(userIdByAlunoId.values());
-      const { data: profiles } = userIds.length
-        ? await supabase.from("profiles").select("user_id, full_name").in("user_id", userIds)
-        : { data: [] as { user_id: string; full_name: string }[] };
-      const nomeByUserId = new Map((profiles ?? []).map((p) => [p.user_id, p.full_name]));
+      const userIdByAlunoId = new Map(alunosData.map((a) => [a.id, a.user_id]));
+      const perfis = await perfisDosUsuarios(Array.from(userIdByAlunoId.values()));
 
-      const lista: AlunoEngajamento[] = (pontuacoes ?? []).map((p) => ({
+      const lista: AlunoEngajamento[] = pontuacoes.map((p) => ({
         aluno_id: p.aluno_id,
-        nome: nomeByUserId.get(userIdByAlunoId.get(p.aluno_id) ?? "") ?? "—",
+        nome: perfis.get(userIdByAlunoId.get(p.aluno_id) ?? "")?.full_name ?? "—",
         pontuacao: Math.round(Number(p.pontuacao ?? 0)),
       }));
       return lista.sort((a, b) => a.pontuacao - b.pontuacao);

@@ -2,6 +2,9 @@ import { useEffect, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { EncerramentoAcademia } from "@/components/admin/EncerramentoAcademia";
+import { porLotes, todasAsLinhas } from "@/lib/paginar";
+import { perfisDosUsuarios } from "@/lib/perfis";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
@@ -278,24 +281,24 @@ export default function AdminOrganizacao() {
   const { data: assinaturas = [] } = useQuery({
     queryKey: ["organizacao-assinaturas", organization?.id],
     queryFn: async () => {
-      const { data: assinaturasData, error } = await supabase
-        .from("aluno_assinaturas")
-        .select("id, aluno_id, nivel_atacado, valor_cobrado, status, fatura_pendente_url, updated_at")
-        .eq("organization_id", organization!.id)
-        .order("updated_at", { ascending: false });
-      if (error) throw error;
+      const assinaturasData = await todasAsLinhas((de, ate) =>
+        supabase
+          .from("aluno_assinaturas")
+          .select("id, aluno_id, nivel_atacado, valor_cobrado, status, fatura_pendente_url, updated_at")
+          .eq("organization_id", organization!.id)
+          .order("updated_at", { ascending: false })
+          .order("id")
+          .range(de, ate)
+      );
 
-      const alunoIds = assinaturasData.map((a) => a.aluno_id);
-      const { data: alunosData } = alunoIds.length
-        ? await supabase.from("alunos").select("id, user_id").in("id", alunoIds)
-        : { data: [] as { id: string; user_id: string }[] };
-      const userIds = (alunosData ?? []).map((a) => a.user_id);
-      const { data: profiles } = userIds.length
-        ? await supabase.from("profiles").select("user_id, full_name").in("user_id", userIds)
-        : { data: [] as { user_id: string; full_name: string }[] };
+      const alunosData = await porLotes(
+        assinaturasData.map((a) => a.aluno_id),
+        (lote) => supabase.from("alunos").select("id, user_id").in("id", lote)
+      );
+      const perfis = await perfisDosUsuarios(alunosData.map((a) => a.user_id));
 
-      const userIdByAlunoId = new Map((alunosData ?? []).map((a) => [a.id, a.user_id]));
-      const nomeByUserId = new Map((profiles ?? []).map((p) => [p.user_id, p.full_name]));
+      const userIdByAlunoId = new Map(alunosData.map((a) => [a.id, a.user_id]));
+      const nomeByUserId = new Map([...perfis].map(([id, p]) => [id, p.full_name]));
 
       return assinaturasData.map((a) => ({
         ...a,
@@ -745,6 +748,8 @@ export default function AdminOrganizacao() {
         <ContratoMatriculaPainel />
       </TabsContent>
       </Tabs>
+
+      <EncerramentoAcademia />
 
       <ReciboComprovanteDialog open={reciboAberto} onOpenChange={setReciboAberto} recibo={reciboSelecionado} />
     </div>

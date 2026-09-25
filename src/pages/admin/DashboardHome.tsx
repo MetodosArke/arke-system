@@ -6,6 +6,8 @@ import { Progress } from "@/components/ui/progress";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { porLotes, todasAsLinhas } from "@/lib/paginar";
+import { perfisDosUsuarios } from "@/lib/perfis";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -430,23 +432,22 @@ function VisaoNutricionista({ userId }: { userId: string | null }) {
   const { data: semPlanoAlimentar } = useQuery({
     queryKey: ["home-sem-plano-alimentar", organization?.id],
     queryFn: async () => {
-      const { data: alunosComNutricao, error: alunosError } = await supabase
-        .from("alunos")
-        .select("id")
-        .eq("organization_id", organization!.id)
-        .neq("provedor_nutricao", "nenhum")
-        .is("anonimizado_em", null);
-      if (alunosError) throw alunosError;
+      const alunosComNutricao = await todasAsLinhas((de, ate) =>
+        supabase
+          .from("alunos")
+          .select("id")
+          .eq("organization_id", organization!.id)
+          .neq("provedor_nutricao", "nenhum")
+          .is("anonimizado_em", null)
+          .order("id")
+          .range(de, ate)
+      );
       const ids = alunosComNutricao.map((a) => a.id);
       if (ids.length === 0) return 0;
 
-      const { data: dietasAtivas, error: dietasError } = await supabase
-        .from("dietas")
-        .select("aluno_id")
-        .eq("organization_id", organization!.id)
-        .eq("status", "ativo")
-        .in("aluno_id", ids);
-      if (dietasError) throw dietasError;
+      const dietasAtivas = await porLotes(ids, (lote) =>
+        supabase.from("dietas").select("aluno_id").eq("organization_id", organization!.id).eq("status", "ativo").in("aluno_id", lote)
+      );
 
       const comDieta = new Set(dietasAtivas.map((d) => d.aluno_id));
       return ids.filter((id) => !comDieta.has(id)).length;
@@ -492,17 +493,17 @@ function NovaAvaliacaoDialog({ open, onOpenChange }: { open: boolean; onOpenChan
   const { data: alunos = [] } = useQuery({
     queryKey: ["home-alunos-opcoes", organization?.id],
     queryFn: async () => {
-      const { data: alunosData, error } = await supabase
-        .from("alunos")
-        .select("id, user_id")
-        .eq("organization_id", organization!.id)
-        .is("anonimizado_em", null);
-      if (error) throw error;
-      const userIds = alunosData.map((a) => a.user_id);
-      const { data: profiles } = userIds.length
-        ? await supabase.from("profiles").select("user_id, full_name").in("user_id", userIds)
-        : { data: [] as { user_id: string; full_name: string }[] };
-      const nomeByUserId = new Map((profiles ?? []).map((p) => [p.user_id, p.full_name]));
+      const alunosData = await todasAsLinhas((de, ate) =>
+        supabase
+          .from("alunos")
+          .select("id, user_id")
+          .eq("organization_id", organization!.id)
+          .is("anonimizado_em", null)
+          .order("id")
+          .range(de, ate)
+      );
+      const perfis = await perfisDosUsuarios(alunosData.map((a) => a.user_id));
+      const nomeByUserId = new Map([...perfis].map(([id, p]) => [id, p.full_name]));
       return alunosData.map((a) => ({ id: a.id, nome: nomeByUserId.get(a.user_id) ?? "Aluno" }));
     },
     enabled: open && !!organization?.id,
@@ -590,17 +591,17 @@ function AgendarRetornoDialog({ open, onOpenChange }: { open: boolean; onOpenCha
   const { data: alunos = [] } = useQuery({
     queryKey: ["home-alunos-opcoes", organization?.id],
     queryFn: async () => {
-      const { data: alunosData, error } = await supabase
-        .from("alunos")
-        .select("id, user_id")
-        .eq("organization_id", organization!.id)
-        .is("anonimizado_em", null);
-      if (error) throw error;
-      const userIds = alunosData.map((a) => a.user_id);
-      const { data: profiles } = userIds.length
-        ? await supabase.from("profiles").select("user_id, full_name").in("user_id", userIds)
-        : { data: [] as { user_id: string; full_name: string }[] };
-      const nomeByUserId = new Map((profiles ?? []).map((p) => [p.user_id, p.full_name]));
+      const alunosData = await todasAsLinhas((de, ate) =>
+        supabase
+          .from("alunos")
+          .select("id, user_id")
+          .eq("organization_id", organization!.id)
+          .is("anonimizado_em", null)
+          .order("id")
+          .range(de, ate)
+      );
+      const perfis = await perfisDosUsuarios(alunosData.map((a) => a.user_id));
+      const nomeByUserId = new Map([...perfis].map(([id, p]) => [id, p.full_name]));
       return alunosData.map((a) => ({ id: a.id, nome: nomeByUserId.get(a.user_id) ?? "Aluno" }));
     },
     enabled: open && !!organization?.id,

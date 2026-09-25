@@ -1,4 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { verificada } from "../_shared/verificacao.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -97,7 +98,7 @@ Deno.serve(async (req: Request) => {
       console.error("Error loading caller roles", callerRolesError);
       return errorResponse("Erro ao validar permissões.");
     }
-    const callerIsSuperadmin = (callerRoles ?? []).some((r) => r.role === "superadmin");
+    const callerIsSuperadmin = verificada(claimsData?.claims) && (callerRoles ?? []).some((r) => r.role === "superadmin");
     if (!callerIsSuperadmin) {
       return errorResponse("Apenas o Super Admin ArkeFit pode executar ações de suporte.");
     }
@@ -148,6 +149,18 @@ Deno.serve(async (req: Request) => {
     }
 
     if (acao === "excluir_organizacao") {
+      // Exclusão direta é só para homologação (trial), que não tem contrato
+      // nem cobrança. Academia com contrato sai pelo encerramento: aviso de
+      // 30 dias, cobranças canceladas no Asaas, exportação e eliminação na
+      // ordem certa (ver encerramento-organizacao). Um DELETE aqui deixaria a
+      // mensalidade B2B cobrando e apagaria o registro fiscal da ArkeFit.
+      const { data: alvo } = await adminClient.from("organizations").select("status").eq("id", organizationId).maybeSingle();
+      if (alvo && alvo.status !== "trial") {
+        return jsonResponse(
+          { error: "Academia com contrato sai pelo encerramento (aviso de 30 dias), na ficha da organização." },
+          409,
+        );
+      }
       // organizations é a "raiz" do multitenant: toda tabela filha
       // (alunos, treinos, dietas, checkins, agendamentos, cobrancas_b2b,
       // organization_members etc.) referencia organization_id com

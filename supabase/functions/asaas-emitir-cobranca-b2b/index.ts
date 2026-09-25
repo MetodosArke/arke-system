@@ -1,4 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { verificada } from "../_shared/verificacao.ts";
 import { ambienteAsaas } from "../_shared/asaas.ts";
 import { hojeBrasilia } from "../_shared/data.ts";
 
@@ -141,7 +142,7 @@ Deno.serve(async (req: Request) => {
       console.error("Error loading caller roles", callerRolesError);
       return errorResponse("Erro ao validar permissões.");
     }
-    const callerIsSuperadmin = (callerRoles ?? []).some((r) => r.role === "superadmin");
+    const callerIsSuperadmin = verificada(claimsData?.claims) && (callerRoles ?? []).some((r) => r.role === "superadmin");
     if (!callerIsSuperadmin) {
       return errorResponse("Apenas o Super Admin ArkeFit pode emitir cobranças B2B.");
     }

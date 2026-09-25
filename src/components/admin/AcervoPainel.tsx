@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { porLotes, todasAsLinhas } from "@/lib/paginar";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
@@ -182,32 +183,38 @@ export function AcervoPainel() {
       const modeloIds = (modelos ?? []).map((m) => m.id);
       let fichasAtualizadas = 0;
       if (modeloIds.length > 0) {
-        const { data: itensAntigos } = await supabase
-          .from("modelo_treino_exercicios")
-          .select("id, nome_exercicio")
-          .in("modelo_id", modeloIds);
-        const idsParaAtualizar = (itensAntigos ?? [])
+        const itensAntigos = await porLotes(modeloIds, (lote) =>
+          todasAsLinhas((de, ate) =>
+            supabase.from("modelo_treino_exercicios").select("id, nome_exercicio").in("modelo_id", lote).order("id").range(de, ate)
+          )
+        );
+        const idsParaAtualizar = itensAntigos
           .filter((i) => i.nome_exercicio.trim().toLowerCase() === nomeAntigoNormalizado)
           .map((i) => i.id);
         if (idsParaAtualizar.length > 0) {
-          const { error } = await supabase
-            .from("modelo_treino_exercicios")
-            .update({ nome_exercicio: novo.nome, grupo_muscular: [novo.grupo_muscular] })
-            .in("id", idsParaAtualizar);
-          if (error) throw error;
+          await porLotes(idsParaAtualizar, (lote) =>
+            supabase
+              .from("modelo_treino_exercicios")
+              .update({ nome_exercicio: novo.nome, grupo_muscular: [novo.grupo_muscular] })
+              .in("id", lote)
+          );
           fichasAtualizadas = idsParaAtualizar.length;
         }
       }
 
       // 2) Treinos ativos publicados (snapshot já congelado) — reescreve o item no JSON.
-      const { data: treinosAtivos } = await supabase
-        .from("treinos")
-        .select("id, snapshot_conteudo")
-        .eq("organization_id", organization.id)
-        .eq("status", "ativo");
+      const treinosAtivos = await todasAsLinhas((de, ate) =>
+        supabase
+          .from("treinos")
+          .select("id, snapshot_conteudo")
+          .eq("organization_id", organization.id)
+          .eq("status", "ativo")
+          .order("id")
+          .range(de, ate)
+      );
 
       let treinosAtualizados = 0;
-      for (const treino of treinosAtivos ?? []) {
+      for (const treino of treinosAtivos) {
         // grupo_muscular no snapshot é array (vem de modelo_treino_exercicios.grupo_muscular,
         // que é text[]) — mantém o mesmo formato ao reescrever.
         const conteudo = (treino.snapshot_conteudo as unknown as { nome_exercicio: string; grupo_muscular: string[] }[]) ?? [];

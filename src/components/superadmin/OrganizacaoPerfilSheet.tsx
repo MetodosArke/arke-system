@@ -21,11 +21,14 @@ import {
   CheckCircle2,
   FlaskConical,
   Percent,
+  CalendarX,
 } from "lucide-react";
 import { Bloco } from "@/components/admin/perfilSheetHelpers";
 import { TrialAlunosOrganizacao } from "@/components/superadmin/TrialAlunosOrganizacao";
 import { MensalidadeB2bOrganizacao } from "@/components/superadmin/MensalidadeB2bOrganizacao";
 import { RepasseOrganizacao } from "@/components/superadmin/RepasseOrganizacao";
+import { EncerramentoOrganizacao } from "@/components/superadmin/EncerramentoOrganizacao";
+import { TaxaImplantacaoOrganizacao } from "@/components/superadmin/TaxaImplantacaoOrganizacao";
 import type { Enums } from "@/integrations/supabase/types";
 
 type AtividadeTipo = "treino" | "dieta" | "avaliacao" | "tarefa";
@@ -196,12 +199,20 @@ export function OrganizacaoPerfilSheet({
                 <MensalidadeB2bOrganizacao organizationId={tenant.organization_id} />
               </Bloco>
 
+              <Bloco titulo="Taxa de implantação" icon={Receipt}>
+                <TaxaImplantacaoOrganizacao organizationId={tenant.organization_id} />
+              </Bloco>
+
               <Bloco titulo="Repasse do Método" icon={Percent}>
                 <RepasseOrganizacao organizationId={tenant.organization_id} />
               </Bloco>
 
               <Bloco titulo="Trial do Método ARKE (testes)" icon={FlaskConical}>
                 <TrialAlunosOrganizacao organizationId={tenant.organization_id} />
+              </Bloco>
+
+              <Bloco titulo="Encerramento" icon={CalendarX}>
+                <EncerramentoOrganizacao organizationId={tenant.organization_id} status={tenant.status} />
               </Bloco>
 
               <Bloco titulo="Atividade Recente" icon={ClipboardList}>

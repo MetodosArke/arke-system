@@ -42,14 +42,15 @@ export type ResultadoEncerramento =
   | { ok: false; erro: string };
 
 /**
- * @param quem `user_id` de quem pediu, para o rastro do cancelamento.
+ * @param quem `user_id` de quem pediu, para o rastro do cancelamento; nulo
+ *   quando é a rotina (o encerramento da academia, que não tem uma pessoa na hora).
  * @param motivo texto que fica no histórico — a saída precisa se explicar depois.
  */
 export async function encerrarCobrancasDoAluno(
   admin: Supabase,
   alunoId: string,
   gateway: { api: string; chave: string },
-  quem: string,
+  quem: string | null,
   motivo: string,
 ): Promise<ResultadoEncerramento> {
   let canceladas = 0;

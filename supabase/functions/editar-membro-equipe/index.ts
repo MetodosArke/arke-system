@@ -1,4 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { verificada } from "../_shared/verificacao.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -94,7 +95,7 @@ Deno.serve(async (req: Request) => {
       console.error("Error loading caller roles", callerRolesError);
       return jsonResponse({ error: "Erro ao validar permissões." }, 500);
     }
-    const callerIsAdminArke = (callerRoles ?? []).some((r) => r.role === "admin_arke");
+    const callerIsAdminArke = verificada(claimsData?.claims) && (callerRoles ?? []).some((r) => r.role === "admin_arke");
 
     // Um mesmo user_id pode ter vínculos ativos em mais de uma organização
     // (ex.: personal que também atende como recepção em outra unidade) —
