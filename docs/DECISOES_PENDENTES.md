@@ -16,7 +16,6 @@ Só o que continua em aberto. As decisões já tomadas e aplicadas saíram desta
 
 - **Secret key do Turnstile** (só o responsável, na Cloudflare): o `TURNSTILE_SECRET_KEY` do Supabase guarda a site key, e por isso o captcha de matrícula pública, primeiro acesso e contato do site não está valendo. Copiar a **Secret Key** do widget (Cloudflare → Turnstile → o widget da ArkeFit) e gravar com `supabase secrets set TURNSTILE_SECRET_KEY=...`. Depois, enviar o formulário da página de vendas uma vez para conferir.
 - **Preços na página de vendas.** A página não mostra preços dos planos nem da taxa de implantação; o contato leva à demonstração. Publicar os preços é decisão comercial.
-- **Logo própria do sistema.** Hoje site, favicon e ícone do app usam o "A" do Método ARKE. Três propostas no documento "ARKE — Decisões e pendências" (Arco, recomendada; Monograma a; Laço), todas no dourado do app. Supõe o nome **ArkeFit** para o sistema; a página e o app ainda dizem "ARKE". Escolhida, troca-se logo, favicon, ícones do PWA e o nome na página.
 - **Contato comercial na Política de Privacidade.** O formulário avisa a finalidade na hora; a Política não menciona contatos comerciais pelo site. Recomendação: incluir na próxima revisão, com o prazo de guarda de contato que não virou cliente.
 
 ## Achados da Central de Ajuda (25/09/2026)
