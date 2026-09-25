@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent, type PointerEvent, type ReactNode } from "react";
-import { AnimatePresence, motion, useInView, useReducedMotion } from "framer-motion";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import {
   ArrowRight,
   BadgeCheck,
@@ -27,6 +27,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { mensagemDeErroEdge } from "@/lib/erroEdge";
 import { FONTES } from "@/lib/landing";
+import { decimal } from "@/lib/numeros";
 import { Turnstile } from "@/components/public/Turnstile";
 
 const TURNSTILE_SITE_KEY = import.meta.env.VITE_TURNSTILE_SITE_KEY as string | undefined;
@@ -35,24 +36,24 @@ const APP_HOST = import.meta.env.VITE_APP_HOST as string | undefined;
 const noApp = (rota: string) => (APP_HOST ? `https://${APP_HOST}/#${rota}` : `#${rota}`);
 
 const ESTILO = `
-.lp{font-family:Inter,ui-sans-serif,system-ui,sans-serif;background:#05070b;color:#e2e8f0}
+.lp{font-family:Inter,ui-sans-serif,system-ui,sans-serif;background:hsl(var(--background));color:hsl(var(--foreground))}
 .lp h1,.lp h2,.lp h3,.lp .lp-display{font-family:"Plus Jakarta Sans",Inter,ui-sans-serif,sans-serif;letter-spacing:-.02em}
-.lp-grade{background-image:linear-gradient(rgba(148,163,184,.08) 1px,transparent 1px),linear-gradient(90deg,rgba(148,163,184,.08) 1px,transparent 1px);background-size:56px 56px;-webkit-mask-image:radial-gradient(ellipse 75% 55% at 50% 0%,#000 35%,transparent 100%);mask-image:radial-gradient(ellipse 75% 55% at 50% 0%,#000 35%,transparent 100%)}
-.lp-foco{background:radial-gradient(700px circle at var(--x,50%) var(--y,20%),rgba(34,211,238,.09),transparent 45%)}
-.lp-gradiente{background:linear-gradient(90deg,#67e8f9 0%,#34d399 60%,#a7f3d0 100%);-webkit-background-clip:text;background-clip:text;color:transparent}
+.lp-grade{background-image:linear-gradient(rgba(255,255,255,.045) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.045) 1px,transparent 1px);background-size:56px 56px;-webkit-mask-image:radial-gradient(ellipse 75% 55% at 50% 0%,#000 35%,transparent 100%);mask-image:radial-gradient(ellipse 75% 55% at 50% 0%,#000 35%,transparent 100%)}
+.lp-foco{background:radial-gradient(700px circle at var(--x,50%) var(--y,20%),hsl(var(--primary) / .10),transparent 45%)}
+.lp-gradiente{background:linear-gradient(90deg,hsl(43 74% 55%) 0%,hsl(43 74% 65%) 55%,hsl(43 60% 78%) 100%);-webkit-background-clip:text;background-clip:text;color:transparent}
 @property --lp-a{syntax:"<angle>";inherits:false;initial-value:0deg}
 .lp-feixe{position:relative;isolation:isolate}
-.lp-feixe::before{content:"";position:absolute;inset:-1px;border-radius:inherit;padding:1px;background:conic-gradient(from var(--lp-a),transparent 0 68%,rgba(34,211,238,.9) 80%,rgba(52,211,153,.9) 88%,transparent 96%);-webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude;animation:lp-giro 7s linear infinite;z-index:-1}
+.lp-feixe::before{content:"";position:absolute;inset:-1px;border-radius:inherit;padding:1px;background:conic-gradient(from var(--lp-a),transparent 0 68%,hsl(var(--primary) / .9) 80%,hsl(43 60% 72% / .9) 88%,transparent 96%);-webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude;animation:lp-giro 7s linear infinite;z-index:-1}
 @keyframes lp-giro{to{--lp-a:360deg}}
 .lp-cartao{position:relative;overflow:hidden}
-.lp-cartao::after{content:"";position:absolute;inset:0;background:radial-gradient(380px circle at var(--mx,-200px) var(--my,-200px),rgba(52,211,153,.10),transparent 45%);opacity:0;transition:opacity .3s;pointer-events:none}
+.lp-cartao::after{content:"";position:absolute;inset:0;background:radial-gradient(380px circle at var(--mx,-200px) var(--my,-200px),hsl(var(--primary) / .08),transparent 45%);opacity:0;transition:opacity .3s;pointer-events:none}
 .lp-cartao:hover::after{opacity:1}
 .lp-faixa{animation:lp-faixa 45s linear infinite}
 @keyframes lp-faixa{to{transform:translateX(-50%)}}
-.lp-campo{width:100%;border-radius:.75rem;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.03);padding:.7rem .9rem;color:#f1f5f9;font-size:.95rem;outline:none;transition:border-color .2s,box-shadow .2s}
-.lp-campo::placeholder{color:#64748b}
-.lp-campo:focus{border-color:rgba(34,211,238,.6);box-shadow:0 0 0 3px rgba(34,211,238,.15)}
-.lp select.lp-campo option{background:#0b1017;color:#e2e8f0}
+.lp-campo{width:100%;border-radius:.75rem;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.03);padding:.7rem .9rem;color:hsl(var(--foreground));font-size:.95rem;outline:none;transition:border-color .2s,box-shadow .2s}
+.lp-campo::placeholder{color:hsl(var(--muted-foreground))}
+.lp-campo:focus{border-color:hsl(var(--primary) / .6);box-shadow:0 0 0 3px hsl(var(--primary) / .15)}
+.lp select.lp-campo option{background:hsl(var(--card));color:hsl(var(--foreground))}
 @media (prefers-reduced-motion:reduce){.lp-feixe::before,.lp-faixa{animation:none}}
 `;
 
@@ -101,7 +102,7 @@ function Aparecer({ children, atraso = 0, className }: { children: ReactNode; at
 
 function Selo({ children }: { children: ReactNode }) {
   return (
-    <span className="inline-flex items-center gap-2 rounded-full border border-cyan-400/20 bg-cyan-400/5 px-3 py-1 text-xs font-medium uppercase tracking-[0.14em] text-cyan-300">
+    <span className="inline-flex items-center gap-2 rounded-full border border-primary/25 bg-primary/5 px-3 py-1 text-xs font-medium uppercase tracking-[0.14em] text-primary">
       {children}
     </span>
   );
@@ -118,25 +119,25 @@ function Nav() {
     return () => window.removeEventListener("scroll", aoRolar);
   }, []);
   return (
-    <header className={`fixed inset-x-0 top-0 z-50 transition-colors duration-300 ${rolou ? "border-b border-white/5 bg-[#05070b]/80 backdrop-blur-xl" : ""}`}>
+    <header className={`fixed inset-x-0 top-0 z-50 transition-colors duration-300 ${rolou ? "border-b border-white/5 bg-background/80 backdrop-blur-xl" : ""}`}>
       <nav className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3 sm:px-6" aria-label="Principal">
         <Ancora para="topo" className="flex items-center gap-2.5" aria-label="ARKE, início da página">
           <img src="/logo.png" alt="" className="h-8 w-8 rounded-md" />
-          <span className="lp-display text-lg font-bold tracking-wide text-white">ARKE</span>
+          <span className="lp-display text-lg font-bold tracking-wide text-foreground">ARKE</span>
         </Ancora>
-        <div className="hidden items-center gap-7 text-sm text-slate-400 md:flex">
-          <Ancora para="como-funciona" className="transition-colors hover:text-white">Como funciona</Ancora>
-          <Ancora para="recursos" className="transition-colors hover:text-white">Recursos</Ancora>
-          <Ancora para="metodo" className="transition-colors hover:text-white">Método ARKE</Ancora>
-          <Ancora para="perguntas" className="transition-colors hover:text-white">Perguntas</Ancora>
+        <div className="hidden items-center gap-7 text-sm text-foreground/65 md:flex">
+          <Ancora para="como-funciona" className="transition-colors hover:text-foreground">Como funciona</Ancora>
+          <Ancora para="recursos" className="transition-colors hover:text-foreground">Recursos</Ancora>
+          <Ancora para="metodo" className="transition-colors hover:text-foreground">Método ARKE</Ancora>
+          <Ancora para="perguntas" className="transition-colors hover:text-foreground">Perguntas</Ancora>
         </div>
         <div className="flex items-center gap-2">
-          <a href={noApp("/auth/login")} className="rounded-lg px-3 py-2 text-sm text-slate-300 transition-colors hover:text-white">
+          <a href={noApp("/auth/login")} className="rounded-lg px-3 py-2 text-sm text-foreground/80 transition-colors hover:text-foreground">
             Entrar
           </a>
           <Ancora
             para="contato"
-            className="rounded-lg bg-gradient-to-r from-cyan-400 to-emerald-400 px-3.5 py-2 text-sm font-semibold text-slate-950 shadow-[0_0_24px_rgba(34,211,238,.25)] transition-transform hover:scale-[1.03]"
+            className="rounded-lg bg-primary hover:bg-primary/90 px-3.5 py-2 text-sm font-semibold text-primary-foreground shadow-[0_0_24px_hsl(var(--primary)/.22)] transition-transform hover:scale-[1.03]"
           >
             Agendar demonstração
           </Ancora>
@@ -146,21 +147,21 @@ function Nav() {
   );
 }
 
-type Evento = { icone: typeof UserX; titulo: string; detalhe: string; tom: "cyan" | "rose" | "emerald" | "amber" };
+type Evento = { icone: typeof UserX; titulo: string; detalhe: string; tom: "marca" | "erro" | "ok" | "alerta" };
 const EVENTOS: Evento[] = [
-  { icone: UserX, titulo: "Marina não aparece há 6 dias", detalhe: "Risco de evasão · prazo de 4 h · com a recepção", tom: "amber" },
-  { icone: HeartPulse, titulo: "Pedro relatou dor no joelho", detalhe: "Revisão do treino antes do próximo · professor", tom: "rose" },
-  { icone: CreditCard, titulo: "Mensalidade de Lucas paga no cartão", detalhe: "Cobrança automática · acesso liberado", tom: "emerald" },
-  { icone: Smartphone, titulo: "Gustavo ainda não entrou no app", detalhe: "Ativação · convite de primeiro acesso reenviado", tom: "cyan" },
-  { icone: ListChecks, titulo: "Fernanda: ajuste de treino feito", detalhe: "Encerrada com desfecho registrado", tom: "emerald" },
-  { icone: DoorOpen, titulo: "Catraca da entrada sem internet", detalhe: "Seguindo pelo cadastro local · nada se perde", tom: "cyan" },
-  { icone: Wallet, titulo: "Thiago: mensalidade vencida", detalhe: "5 dias de tolerância · tarefa de cobrança aberta", tom: "amber" },
+  { icone: UserX, titulo: "Marina não aparece há 6 dias", detalhe: "Risco de evasão · prazo de 4 h · com a recepção", tom: "alerta" },
+  { icone: HeartPulse, titulo: "Pedro relatou dor no joelho", detalhe: "Revisão do treino antes do próximo · professor", tom: "erro" },
+  { icone: CreditCard, titulo: "Mensalidade de Lucas paga no cartão", detalhe: "Cobrança automática · acesso liberado", tom: "ok" },
+  { icone: Smartphone, titulo: "Gustavo ainda não entrou no app", detalhe: "Ativação · convite de primeiro acesso reenviado", tom: "marca" },
+  { icone: ListChecks, titulo: "Fernanda: ajuste de treino feito", detalhe: "Encerrada com desfecho registrado", tom: "ok" },
+  { icone: DoorOpen, titulo: "Catraca da entrada sem internet", detalhe: "Seguindo pelo cadastro local · nada se perde", tom: "marca" },
+  { icone: Wallet, titulo: "Thiago: mensalidade vencida", detalhe: "5 dias de tolerância · tarefa de cobrança aberta", tom: "alerta" },
 ];
 const TOM: Record<Evento["tom"], string> = {
-  cyan: "text-cyan-300 bg-cyan-400/10 ring-cyan-400/20",
-  rose: "text-rose-300 bg-rose-400/10 ring-rose-400/20",
-  emerald: "text-emerald-300 bg-emerald-400/10 ring-emerald-400/20",
-  amber: "text-amber-300 bg-amber-400/10 ring-amber-400/20",
+  marca: "text-foreground/80 bg-white/[0.06] ring-white/10",
+  erro: "text-red-400 bg-red-500/10 ring-red-500/20",
+  ok: "text-success bg-success/10 ring-success/25",
+  alerta: "text-warning bg-warning/10 ring-warning/25",
 };
 
 /** A fila "ao vivo" do topo: exemplo ilustrativo, com nomes inventados. */
@@ -176,16 +177,16 @@ function PainelAoVivo() {
   const visiveis = Array.from({ length: 4 }, (_, i) => EVENTOS[(inicio - i + EVENTOS.length * 4) % EVENTOS.length]);
   return (
     <div className="lp-feixe rounded-2xl">
-      <div className="rounded-2xl border border-white/10 bg-[#0a0f16]/90 p-4 shadow-2xl shadow-cyan-950/40 backdrop-blur sm:p-5">
+      <div className="rounded-2xl border border-white/10 bg-card/90 p-4 shadow-2xl shadow-black/60 backdrop-blur sm:p-5">
         <div className="mb-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <span className="relative flex h-2.5 w-2.5">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60 motion-reduce:hidden" />
-              <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-400" />
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-success opacity-60 motion-reduce:hidden" />
+              <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-success" />
             </span>
-            <span className="text-sm font-semibold text-white">Fila de hoje</span>
+            <span className="text-sm font-semibold text-foreground">Fila de hoje</span>
           </div>
-          <span className="text-[11px] text-slate-500">exemplo ilustrativo</span>
+          <span className="text-[11px] text-muted-foreground">exemplo ilustrativo</span>
         </div>
         <ul className="relative space-y-2.5 overflow-hidden" aria-live="off">
           <AnimatePresence initial={false} mode="popLayout">
@@ -203,8 +204,8 @@ function PainelAoVivo() {
                   <e.icone className="h-4 w-4" aria-hidden />
                 </span>
                 <span className="min-w-0">
-                  <span className="block truncate text-sm font-medium text-slate-100">{e.titulo}</span>
-                  <span className="block text-xs text-slate-400">{e.detalhe}</span>
+                  <span className="block truncate text-sm font-medium text-foreground">{e.titulo}</span>
+                  <span className="block text-xs text-foreground/65">{e.detalhe}</span>
                 </span>
               </motion.li>
             ))}
@@ -217,8 +218,8 @@ function PainelAoVivo() {
             ["Esquecidas", "0"],
           ].map(([rotulo, valor]) => (
             <div key={rotulo} className="rounded-lg border border-white/5 bg-white/[0.02] px-2 py-2">
-              <div className="lp-display text-base font-bold text-white">{valor}</div>
-              <div className="text-[10px] leading-tight text-slate-500">{rotulo}</div>
+              <div className="lp-display text-base font-bold text-foreground">{valor}</div>
+              <div className="text-[10px] leading-tight text-muted-foreground">{rotulo}</div>
             </div>
           ))}
         </div>
@@ -243,7 +244,7 @@ function Hero() {
       className="lp-foco relative overflow-hidden pb-20 pt-28 sm:pt-36"
     >
       <div className="lp-grade pointer-events-none absolute inset-0" aria-hidden />
-      <div className="pointer-events-none absolute -top-40 left-1/2 h-[520px] w-[820px] -translate-x-1/2 rounded-full bg-cyan-500/10 blur-[120px]" aria-hidden />
+      <div className="pointer-events-none absolute -top-40 left-1/2 h-[520px] w-[820px] -translate-x-1/2 rounded-full bg-primary/10 blur-[120px]" aria-hidden />
       <div className="relative mx-auto grid max-w-6xl items-center gap-12 px-4 sm:px-6 lg:grid-cols-[1.1fr_1fr]">
         <div>
           <Aparecer>
@@ -252,14 +253,14 @@ function Hero() {
             </Selo>
           </Aparecer>
           <Aparecer atraso={0.05}>
-            <h1 className="mt-6 text-4xl font-extrabold leading-[1.05] text-white sm:text-6xl">
+            <h1 className="mt-6 text-4xl font-extrabold leading-[1.05] text-foreground sm:text-6xl">
               O aluno não some de uma vez.
               <br />
               <span className="lp-gradiente">Ele vai parando.</span>
             </h1>
           </Aparecer>
           <Aparecer atraso={0.12}>
-            <p className="mt-6 max-w-xl text-lg leading-relaxed text-slate-400">
+            <p className="mt-6 max-w-xl text-lg leading-relaxed text-foreground/65">
               O ARKE percebe os sinais — dias sem vir, treino sem registro, dor relatada, mensalidade que não entrou — e coloca cada um na fila
               certa, com prazo e responsável. E a cobrança automática no cartão tira a inadimplência do esquecimento.
             </p>
@@ -268,24 +269,24 @@ function Hero() {
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
               <Ancora
                 para="contato"
-                className="group inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-cyan-400 to-emerald-400 px-6 py-3.5 font-semibold text-slate-950 shadow-[0_0_40px_rgba(34,211,238,.25)] transition-transform hover:scale-[1.02]"
+                className="group inline-flex items-center justify-center gap-2 rounded-xl bg-primary hover:bg-primary/90 px-6 py-3.5 font-semibold text-primary-foreground shadow-[0_0_40px_hsl(var(--primary)/.22)] transition-transform hover:scale-[1.02]"
               >
                 Quero ver na minha academia
                 <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" aria-hidden />
               </Ancora>
               <Ancora
                 para="como-funciona"
-                className="inline-flex items-center justify-center rounded-xl border border-white/10 bg-white/[0.03] px-6 py-3.5 font-medium text-slate-200 transition-colors hover:border-white/25"
+                className="inline-flex items-center justify-center rounded-xl border border-white/10 bg-white/[0.03] px-6 py-3.5 font-medium text-foreground/90 transition-colors hover:border-white/25"
               >
                 Como funciona
               </Ancora>
             </div>
           </Aparecer>
           <Aparecer atraso={0.24}>
-            <ul className="mt-8 flex flex-wrap gap-x-6 gap-y-2 text-sm text-slate-400">
+            <ul className="mt-8 flex flex-wrap gap-x-6 gap-y-2 text-sm text-foreground/65">
               {["Banco de dados em São Paulo", "Nota fiscal automática", "Funciona com a sua catraca"].map((t) => (
                 <li key={t} className="flex items-center gap-2">
-                  <Check className="h-4 w-4 text-emerald-400" aria-hidden /> {t}
+                  <Check className="h-4 w-4 text-primary" aria-hidden /> {t}
                 </li>
               ))}
             </ul>
@@ -301,87 +302,114 @@ function Hero() {
 
 // ——— Números com fonte ———
 
-function Contador({ ate, casas = 0, sufixo = "" }: { ate: number; casas?: number; sufixo?: string }) {
-  const ref = useRef<HTMLSpanElement>(null);
-  const visto = useInView(ref, { once: true, margin: "-60px" });
+/**
+ * Panorama Setorial (FONTES.panorama): academias com até 25% dos alunos em
+ * cobrança automática contra as com mais de 76%. A fonte não diz o período da
+ * evasão, então a página também não diz.
+ */
+const PANORAMA = { evasao: { pouca: 12.72, muita: 9.68 }, permanencia: { pouca: 7.93, muita: 10.36 } };
+const REDUCAO_EVASAO = Math.round((1 - PANORAMA.evasao.muita / PANORAMA.evasao.pouca) * 100);
+const GANHO_PERMANENCIA = decimal(PANORAMA.permanencia.muita - PANORAMA.permanencia.pouca, 1);
+
+function Barra({ rotulo, valor, maximo, texto, destaque = false }: { rotulo: string; valor: number; maximo: number; texto: string; destaque?: boolean }) {
   const reduzir = useReducedMotion();
-  const [valor, setValor] = useState(reduzir ? ate : 0);
-  useEffect(() => {
-    if (!visto || reduzir) return;
-    const inicio = performance.now();
-    let quadro = 0;
-    const passo = (agora: number) => {
-      const t = Math.min(1, (agora - inicio) / 1400);
-      setValor(ate * (1 - Math.pow(1 - t, 3)));
-      if (t < 1) quadro = requestAnimationFrame(passo);
-    };
-    quadro = requestAnimationFrame(passo);
-    return () => cancelAnimationFrame(quadro);
-  }, [visto, reduzir, ate]);
   return (
-    <span ref={ref}>
-      {valor.toLocaleString("pt-BR", { minimumFractionDigits: casas, maximumFractionDigits: casas })}
-      {sufixo}
-    </span>
+    <div>
+      <div className="flex items-baseline justify-between gap-3 text-sm">
+        <span className={destaque ? "text-foreground" : "text-foreground/65"}>{rotulo}</span>
+        <span className={`shrink-0 font-semibold tabular-nums ${destaque ? "text-primary" : "text-foreground/80"}`}>{texto}</span>
+      </div>
+      <div className="mt-1.5 h-2.5 rounded-full bg-white/[0.06]">
+        <motion.div
+          className={`h-full rounded-full ${destaque ? "bg-primary" : "bg-foreground/30"}`}
+          style={{ width: `${(valor / maximo) * 100}%`, transformOrigin: "left" }}
+          initial={reduzir ? false : { scaleX: 0 }}
+          whileInView={{ scaleX: 1 }}
+          viewport={{ once: true, margin: "-60px" }}
+          transition={{ duration: 1.1, ease: [0.22, 1, 0.36, 1] }}
+        />
+      </div>
+    </div>
+  );
+}
+
+function CartaoNumero({ rotulo, titulo, texto, fonte, children }: { rotulo: string; titulo: ReactNode; texto: string; fonte: { titulo: string; url: string }; children: ReactNode }) {
+  return (
+    <div className="flex h-full flex-col rounded-2xl border border-white/10 bg-white/[0.02] p-6">
+      <div className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">{rotulo}</div>
+      <div className="lp-display mt-3 text-4xl font-extrabold text-foreground">{titulo}</div>
+      <p className="mt-2 text-foreground/80">{texto}</p>
+      <div className="mt-6 flex-1">{children}</div>
+      <a href={fonte.url} target="_blank" rel="noopener noreferrer" className="mt-6 block text-xs text-muted-foreground underline-offset-2 hover:underline">
+        Fonte: {fonte.titulo}
+      </a>
+    </div>
   );
 }
 
 function Numeros() {
   return (
-    <section className="relative border-y border-white/5 bg-[#070a10] py-20">
+    <section className="relative border-y border-white/5 bg-card/60 py-20">
       <div className="mx-auto max-w-6xl px-4 sm:px-6">
         <Aparecer>
-          <h2 className="max-w-3xl text-3xl font-bold text-white sm:text-4xl">
-            Os três primeiros meses decidem se o aluno fica. <span className="text-slate-400">E quem paga no automático fica mais.</span>
+          <h2 className="max-w-3xl text-3xl font-bold text-foreground sm:text-4xl">
+            Os três primeiros meses decidem se o aluno fica. <span className="text-foreground/65">E quem paga no automático fica mais.</span>
           </h2>
         </Aparecer>
         <div className="mt-12 grid gap-4 md:grid-cols-3">
           <Aparecer className="h-full">
-            <div className="h-full rounded-2xl border border-white/10 bg-white/[0.02] p-6">
-              <div className="lp-display text-5xl font-extrabold text-white">
-                <Contador ate={63} sufixo="%" />
+            <CartaoNumero
+              rotulo="Alunos novos"
+              titulo={
+                <>
+                  <span className="text-primary">63</span> de cada 100
+                </>
+              }
+              texto="saem antes do terceiro mês. Menos de 4 passam de um ano."
+              fonte={FONTES.sperandei}
+            >
+              <div className="grid max-w-[220px] grid-cols-10 gap-1.5" role="img" aria-label="63 de cada 100 alunos novos saem antes do terceiro mês">
+                {Array.from({ length: 100 }, (_, i) => (
+                  <span key={i} className={`aspect-square rounded-full ${i < 63 ? "bg-foreground/15" : "bg-primary"}`} />
+                ))}
               </div>
-              <p className="mt-3 text-slate-300">dos novos alunos saem antes do terceiro mês; menos de 4% passam de um ano.</p>
-              <a href={FONTES.sperandei.url} target="_blank" rel="noopener noreferrer" className="mt-4 block text-xs text-slate-500 underline-offset-2 hover:underline">
-                {FONTES.sperandei.titulo}
-              </a>
-            </div>
+              <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-foreground/65">
+                <span className="flex items-center gap-1.5">
+                  <span className="h-2 w-2 rounded-full bg-foreground/15" /> saem antes do 3º mês
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="h-2 w-2 rounded-full bg-primary" /> continuam
+                </span>
+              </div>
+            </CartaoNumero>
           </Aparecer>
           <Aparecer atraso={0.08} className="h-full">
-            <div className="h-full rounded-2xl border border-white/10 bg-white/[0.02] p-6">
-              <div className="lp-display flex flex-wrap items-baseline gap-x-2 text-4xl font-extrabold text-white lg:text-[2.6rem]">
-                <span className="lp-gradiente">
-                  <Contador ate={9.68} casas={2} sufixo="%" />
-                </span>
-                <span className="text-xl text-slate-600">×</span>
-                <span className="text-slate-400">
-                  <Contador ate={12.72} casas={2} sufixo="%" />
-                </span>
+            <CartaoNumero
+              rotulo="Evasão"
+              titulo={<span className="text-primary">{REDUCAO_EVASAO}% menor</span>}
+              texto="nas academias com a maioria dos alunos em cobrança automática."
+              fonte={FONTES.panorama}
+            >
+              <div className="space-y-4">
+                <Barra rotulo="Até 25% no automático" valor={PANORAMA.evasao.pouca} maximo={PANORAMA.evasao.pouca} texto={`${decimal(PANORAMA.evasao.pouca, 2)}%`} />
+                <Barra rotulo="Mais de 76% no automático" valor={PANORAMA.evasao.muita} maximo={PANORAMA.evasao.pouca} texto={`${decimal(PANORAMA.evasao.muita, 2)}%`} destaque />
               </div>
-              <p className="mt-3 text-slate-300">
-                de evasão nas academias com mais de 76% dos alunos em cobrança automática, contra as com até 25%.
-              </p>
-              <a href={FONTES.panorama.url} target="_blank" rel="noopener noreferrer" className="mt-4 block text-xs text-slate-500 underline-offset-2 hover:underline">
-                {FONTES.panorama.titulo}
-              </a>
-            </div>
+              <p className="mt-3 text-xs text-muted-foreground">Taxa de evasão das academias, pela parcela dos alunos em cobrança automática.</p>
+            </CartaoNumero>
           </Aparecer>
           <Aparecer atraso={0.16} className="h-full">
-            <div className="h-full rounded-2xl border border-white/10 bg-white/[0.02] p-6">
-              <div className="lp-display flex flex-wrap items-baseline gap-x-2 text-4xl font-extrabold text-white lg:text-[2.6rem]">
-                <span className="lp-gradiente">
-                  <Contador ate={10.36} casas={2} />
-                </span>
-                <span className="text-xl text-slate-600">×</span>
-                <span className="text-slate-400">
-                  <Contador ate={7.93} casas={2} />
-                </span>
+            <CartaoNumero
+              rotulo="Permanência"
+              titulo={<span className="text-primary">+{GANHO_PERMANENCIA} meses</span>}
+              texto="de permanência média do aluno, na mesma comparação."
+              fonte={FONTES.panorama}
+            >
+              <div className="space-y-4">
+                <Barra rotulo="Até 25% no automático" valor={PANORAMA.permanencia.pouca} maximo={PANORAMA.permanencia.muita} texto={`${decimal(PANORAMA.permanencia.pouca, 2)} meses`} />
+                <Barra rotulo="Mais de 76% no automático" valor={PANORAMA.permanencia.muita} maximo={PANORAMA.permanencia.muita} texto={`${decimal(PANORAMA.permanencia.muita, 2)} meses`} destaque />
               </div>
-              <p className="mt-3 text-slate-300">meses de permanência média do aluno, com mais e com menos cobrança automática.</p>
-              <a href={FONTES.panorama.url} target="_blank" rel="noopener noreferrer" className="mt-4 block text-xs text-slate-500 underline-offset-2 hover:underline">
-                {FONTES.panorama.titulo}
-              </a>
-            </div>
+              <p className="mt-3 text-xs text-muted-foreground">Tempo médio que o aluno fica, pela parcela dos alunos em cobrança automática.</p>
+            </CartaoNumero>
           </Aparecer>
         </div>
       </div>
@@ -416,19 +444,19 @@ function ComoFunciona() {
       <div className="mx-auto max-w-6xl px-4 sm:px-6">
         <Aparecer>
           <Selo>Como funciona</Selo>
-          <h2 className="mt-5 max-w-3xl text-3xl font-bold text-white sm:text-4xl">Ninguém precisa lembrar de olhar cada aluno. A fila mostra quem precisa de atenção.</h2>
+          <h2 className="mt-5 max-w-3xl text-3xl font-bold text-foreground sm:text-4xl">Ninguém precisa lembrar de olhar cada aluno. A fila mostra quem precisa de atenção.</h2>
         </Aparecer>
         <div className="relative mt-14 grid gap-6 md:grid-cols-3">
-          <div className="pointer-events-none absolute left-0 right-0 top-9 hidden h-px bg-gradient-to-r from-transparent via-cyan-400/30 to-transparent md:block" aria-hidden />
+          <div className="pointer-events-none absolute left-0 right-0 top-9 hidden h-px bg-gradient-to-r from-transparent via-primary/30 to-transparent md:block" aria-hidden />
           {PASSOS.map((p, i) => (
             <Aparecer key={p.titulo} atraso={i * 0.1}>
               <div className="relative">
-                <div className="relative z-10 flex h-[72px] w-[72px] items-center justify-center rounded-2xl border border-cyan-400/20 bg-[#0a1016] shadow-[0_0_30px_rgba(34,211,238,.12)]">
-                  <p.icone className="h-7 w-7 text-cyan-300" aria-hidden />
+                <div className="relative z-10 flex h-[72px] w-[72px] items-center justify-center rounded-2xl border border-primary/25 bg-card shadow-[0_0_30px_hsl(var(--primary)/.12)]">
+                  <p.icone className="h-7 w-7 text-primary" aria-hidden />
                 </div>
-                <div className="mt-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Passo {i + 1}</div>
-                <h3 className="mt-2 text-xl font-bold text-white">{p.titulo}</h3>
-                <p className="mt-2 leading-relaxed text-slate-400">{p.texto}</p>
+                <div className="mt-2 text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Passo {i + 1}</div>
+                <h3 className="mt-2 text-xl font-bold text-foreground">{p.titulo}</h3>
+                <p className="mt-2 leading-relaxed text-foreground/65">{p.texto}</p>
               </div>
             </Aparecer>
           ))}
@@ -443,33 +471,33 @@ function ComoFunciona() {
 function Cartao({ icone: Icone, titulo, children, className = "" }: { icone: typeof Wallet; titulo: string; children: ReactNode; className?: string }) {
   return (
     <div onPointerMove={acompanharPonteiro} className={`lp-cartao h-full rounded-2xl border border-white/10 bg-white/[0.025] p-6 transition-colors hover:border-white/20 ${className}`}>
-      <Icone className="h-6 w-6 text-emerald-300" aria-hidden />
-      <h3 className="mt-4 text-lg font-bold text-white">{titulo}</h3>
-      <div className="mt-2 text-sm leading-relaxed text-slate-400">{children}</div>
+      <Icone className="h-6 w-6 text-primary" aria-hidden />
+      <h3 className="mt-4 text-lg font-bold text-foreground">{titulo}</h3>
+      <div className="mt-2 text-sm leading-relaxed text-foreground/65">{children}</div>
     </div>
   );
 }
 
 function Recursos() {
   return (
-    <section id="recursos" className="scroll-mt-20 border-t border-white/5 bg-[#070a10] py-24">
+    <section id="recursos" className="scroll-mt-20 border-t border-white/5 bg-card/60 py-24">
       <div className="mx-auto max-w-6xl px-4 sm:px-6">
         <Aparecer>
           <Selo>Recursos</Selo>
-          <h2 className="mt-5 max-w-3xl text-3xl font-bold text-white sm:text-4xl">O que a operação da academia precisa, num sistema só.</h2>
+          <h2 className="mt-5 max-w-3xl text-3xl font-bold text-foreground sm:text-4xl">O que a operação da academia precisa, num sistema só.</h2>
         </Aparecer>
         <div className="mt-12 grid auto-rows-fr gap-4 md:grid-cols-6">
           <Aparecer className="md:col-span-4 md:row-span-2">
-            <div onPointerMove={acompanharPonteiro} className="lp-cartao flex h-full flex-col justify-between rounded-2xl border border-cyan-400/15 bg-gradient-to-br from-cyan-400/[0.07] via-transparent to-emerald-400/[0.05] p-7">
+            <div onPointerMove={acompanharPonteiro} className="lp-cartao flex h-full flex-col justify-between rounded-2xl border border-primary/20 bg-gradient-to-br from-primary/[0.09] via-transparent to-primary/[0.03] p-7">
               <div>
-                <CreditCard className="h-7 w-7 text-cyan-300" aria-hidden />
-                <h3 className="mt-4 text-2xl font-bold text-white">Cobrança automática, direto na conta da academia</h3>
-                <p className="mt-3 max-w-xl leading-relaxed text-slate-300">
+                <CreditCard className="h-7 w-7 text-primary" aria-hidden />
+                <h3 className="mt-4 text-2xl font-bold text-foreground">Cobrança automática, direto na conta da academia</h3>
+                <p className="mt-3 max-w-xl leading-relaxed text-foreground/80">
                   O aluno cadastra o cartão uma vez e a mensalidade é cobrada todo mês, sem ele precisar lembrar. Quem prefere recebe a fatura com PIX ou
                   boleto. A parte da academia cai direto na conta dela, no ato do pagamento.
                 </p>
               </div>
-              <ul className="mt-6 grid gap-3 text-sm text-slate-300 sm:grid-cols-2">
+              <ul className="mt-6 grid gap-3 text-sm text-foreground/80 sm:grid-cols-2">
                 {[
                   "Conferência diária com o Asaas: pagamento confirmado libera o aluno mesmo se um aviso se perder",
                   "Inadimplente com 5 dias de tolerância, com aviso no app",
@@ -477,7 +505,7 @@ function Recursos() {
                   "Pausar, retomar e cancelar o plano em um clique",
                 ].map((t) => (
                   <li key={t} className="flex gap-2">
-                    <Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-400" aria-hidden /> {t}
+                    <Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden /> {t}
                   </li>
                 ))}
               </ul>
@@ -521,13 +549,13 @@ function Recursos() {
           </Aparecer>
         </div>
         <div className="relative mt-10 overflow-hidden" aria-hidden>
-          <div className="lp-faixa flex w-max gap-10 whitespace-nowrap text-sm text-slate-500">
+          <div className="lp-faixa flex w-max gap-10 whitespace-nowrap text-sm text-muted-foreground">
             {[0, 1].map((k) => (
               <div key={k} className="flex gap-10">
                 {["Asaas", "PIX, boleto e cartão", "Control iD", "Topdata", "EVO", "Tecnofit", "Next Fit", "Pacto", "Nota fiscal de serviço"].map((t) => (
                   <span key={`${k}-${t}`} className="flex items-center gap-10">
                     {t}
-                    <span className="h-1 w-1 rounded-full bg-slate-700" />
+                    <span className="h-1 w-1 rounded-full bg-border" />
                   </span>
                 ))}
               </div>
@@ -547,19 +575,19 @@ function Metodo() {
       <div className="mx-auto grid max-w-6xl items-center gap-12 px-4 sm:px-6 lg:grid-cols-2">
         <Aparecer>
           <Selo>Método ARKE</Selo>
-          <h2 className="mt-5 text-3xl font-bold text-white sm:text-4xl">Uma receita a mais, sem aumentar a equipe.</h2>
-          <p className="mt-5 leading-relaxed text-slate-400">
+          <h2 className="mt-5 text-3xl font-bold text-foreground sm:text-4xl">Uma receita a mais, sem aumentar a equipe.</h2>
+          <p className="mt-5 leading-relaxed text-foreground/65">
             Além do app incluso, a academia pode oferecer o Método ARKE aos alunos, nos níveis Integrado e Elite: acolhimento, fases da jornada, plano
             alimentar e uma célula de mentoria da ArkeFit acompanhando cada aluno à distância.
           </p>
-          <ul className="mt-6 space-y-3 text-slate-300">
+          <ul className="mt-6 space-y-3 text-foreground/80">
             {[
               "A academia define o preço e recebe a parte dela direto na conta.",
               "O acompanhamento digital é da ArkeFit; para a academia sobra o que é presencial.",
               "Uma tela de prestação de contas mostra cada atendimento e o desfecho dele.",
             ].map((t) => (
               <li key={t} className="flex gap-3">
-                <Check className="mt-1 h-4 w-4 shrink-0 text-emerald-400" aria-hidden /> {t}
+                <Check className="mt-1 h-4 w-4 shrink-0 text-primary" aria-hidden /> {t}
               </li>
             ))}
           </ul>
@@ -573,12 +601,12 @@ function Metodo() {
               ["A.P.E.X.® e L.E.G.A.D.O.®", "Evolução de longo prazo, individual e privada."],
             ].map(([fase, texto], i) => (
               <div key={fase} className="flex items-start gap-4 rounded-xl border border-white/10 bg-white/[0.025] p-4">
-                <span className="lp-display mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-cyan-400/20 to-emerald-400/20 text-sm font-bold text-cyan-200">
+                <span className="lp-display mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/15 text-sm font-bold text-primary">
                   {i + 1}
                 </span>
                 <div>
-                  <div className="font-semibold text-white">{fase}</div>
-                  <div className="text-sm text-slate-400">{texto}</div>
+                  <div className="font-semibold text-foreground">{fase}</div>
+                  <div className="text-sm text-foreground/65">{texto}</div>
                 </div>
               </div>
             ))}
@@ -600,22 +628,22 @@ function Implantacao() {
     [CalendarClock, "Equipe no ritmo", "A Central de Ajuda dentro do sistema responde as dúvidas do dia a dia, tela por tela."],
   ];
   return (
-    <section className="border-y border-white/5 bg-[#070a10] py-24">
+    <section className="border-y border-white/5 bg-card/60 py-24">
       <div className="mx-auto max-w-6xl px-4 sm:px-6">
         <Aparecer>
           <Selo>Implantação</Selo>
-          <h2 className="mt-5 max-w-3xl text-3xl font-bold text-white sm:text-4xl">Da assinatura ao primeiro aluno no app, passo a passo.</h2>
+          <h2 className="mt-5 max-w-3xl text-3xl font-bold text-foreground sm:text-4xl">Da assinatura ao primeiro aluno no app, passo a passo.</h2>
         </Aparecer>
         <div className="mt-12 grid gap-4 md:grid-cols-5">
           {passos.map(([Icone, titulo, texto], i) => (
             <Aparecer key={titulo} atraso={i * 0.06} className="h-full">
               <div className="h-full rounded-2xl border border-white/10 bg-white/[0.02] p-5">
                 <div className="flex items-center justify-between">
-                  <Icone className="h-5 w-5 text-cyan-300" aria-hidden />
-                  <span className="lp-display text-sm font-bold text-slate-600">0{i + 1}</span>
+                  <Icone className="h-5 w-5 text-primary" aria-hidden />
+                  <span className="lp-display text-sm font-bold text-muted-foreground/70">0{i + 1}</span>
                 </div>
-                <h3 className="mt-4 font-bold text-white">{titulo}</h3>
-                <p className="mt-2 text-sm leading-relaxed text-slate-400">{texto}</p>
+                <h3 className="mt-4 font-bold text-foreground">{titulo}</h3>
+                <p className="mt-2 text-sm leading-relaxed text-foreground/65">{texto}</p>
               </div>
             </Aparecer>
           ))}
@@ -651,16 +679,16 @@ function Perguntas() {
       <div className="mx-auto max-w-3xl px-4 sm:px-6">
         <Aparecer>
           <Selo>Perguntas</Selo>
-          <h2 className="mt-5 text-3xl font-bold text-white sm:text-4xl">O que as academias perguntam primeiro.</h2>
+          <h2 className="mt-5 text-3xl font-bold text-foreground sm:text-4xl">O que as academias perguntam primeiro.</h2>
         </Aparecer>
         <div className="mt-10 divide-y divide-white/10 rounded-2xl border border-white/10 bg-white/[0.02]">
           {PERGUNTAS.map(([p, r]) => (
             <details key={p} className="group px-5 py-4 [&_summary::-webkit-details-marker]:hidden">
-              <summary className="flex cursor-pointer list-none items-center justify-between gap-4 font-medium text-slate-100">
+              <summary className="flex cursor-pointer list-none items-center justify-between gap-4 font-medium text-foreground">
                 {p}
-                <ChevronDown className="h-4 w-4 shrink-0 text-slate-500 transition-transform group-open:rotate-180" aria-hidden />
+                <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-180" aria-hidden />
               </summary>
-              <p className="mt-3 leading-relaxed text-slate-400">{r}</p>
+              <p className="mt-3 leading-relaxed text-foreground/65">{r}</p>
             </details>
           ))}
         </div>
@@ -718,20 +746,20 @@ function Contato() {
   };
 
   return (
-    <section id="contato" className="scroll-mt-20 border-t border-white/5 bg-[#070a10] py-24">
+    <section id="contato" className="scroll-mt-20 border-t border-white/5 bg-card/60 py-24">
       <div className="mx-auto grid max-w-6xl gap-12 px-4 sm:px-6 lg:grid-cols-[1fr_1.1fr]">
         <Aparecer>
           <Selo>Demonstração</Selo>
-          <h2 className="mt-5 text-3xl font-bold text-white sm:text-4xl">Veja o ARKE com a cara da sua academia.</h2>
-          <p className="mt-5 leading-relaxed text-slate-400">
+          <h2 className="mt-5 text-3xl font-bold text-foreground sm:text-4xl">Veja o ARKE com a cara da sua academia.</h2>
+          <p className="mt-5 leading-relaxed text-foreground/65">
             Conte um pouco da sua operação. A equipe da ArkeFit responde pelo WhatsApp ou pelo e-mail para marcar uma demonstração, com a fila, a cobrança e
             o app do aluno funcionando.
           </p>
-          <div className="mt-8 flex items-start gap-3 rounded-2xl border border-white/10 bg-white/[0.02] p-5 text-sm text-slate-400">
-            <Lock className="mt-0.5 h-4 w-4 shrink-0 text-emerald-400" aria-hidden />
+          <div className="mt-8 flex items-start gap-3 rounded-2xl border border-white/10 bg-white/[0.02] p-5 text-sm text-foreground/65">
+            <Lock className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden />
             <p>
               Usamos estes dados só para responder ao seu contato e apresentar o ARKE. Ninguém além da equipe da ArkeFit os recebe. Veja a{" "}
-              <a href="#/privacidade" target="_blank" rel="noopener" className="text-cyan-300 underline-offset-2 hover:underline">
+              <a href="#/privacidade" target="_blank" rel="noopener" className="text-primary underline-offset-2 hover:underline">
                 Política de Privacidade
               </a>
               .
@@ -740,41 +768,41 @@ function Contato() {
         </Aparecer>
         <Aparecer atraso={0.1}>
           <div className="lp-feixe rounded-2xl">
-            <div className="rounded-2xl border border-white/10 bg-[#0a0f16] p-6 sm:p-8">
+            <div className="rounded-2xl border border-white/10 bg-card p-6 sm:p-8">
               {enviado ? (
                 <div className="py-10 text-center" role="status">
-                  <BadgeCheck className="mx-auto h-12 w-12 text-emerald-400" aria-hidden />
-                  <h3 className="mt-4 text-2xl font-bold text-white">Recebemos o seu contato.</h3>
-                  <p className="mt-2 text-slate-400">A equipe da ArkeFit fala com você em breve.</p>
+                  <BadgeCheck className="mx-auto h-12 w-12 text-primary" aria-hidden />
+                  <h3 className="mt-4 text-2xl font-bold text-foreground">Recebemos o seu contato.</h3>
+                  <p className="mt-2 text-foreground/65">A equipe da ArkeFit fala com você em breve.</p>
                 </div>
               ) : (
                 <form onSubmit={(e) => void enviar(e)} className="grid gap-4 sm:grid-cols-2">
-                  <label className="grid gap-1.5 text-sm text-slate-300">
+                  <label className="grid gap-1.5 text-sm text-foreground/80">
                     Seu nome
                     <input name="nome" required minLength={2} maxLength={120} autoComplete="name" className="lp-campo" />
                   </label>
-                  <label className="grid gap-1.5 text-sm text-slate-300">
+                  <label className="grid gap-1.5 text-sm text-foreground/80">
                     Academia
                     <input name="academia" required minLength={2} maxLength={160} autoComplete="organization" className="lp-campo" />
                   </label>
-                  <label className="grid gap-1.5 text-sm text-slate-300">
+                  <label className="grid gap-1.5 text-sm text-foreground/80">
                     WhatsApp
                     <input name="telefone" required inputMode="tel" autoComplete="tel" placeholder="(11) 98888-7777" className="lp-campo" />
                   </label>
-                  <label className="grid gap-1.5 text-sm text-slate-300">
+                  <label className="grid gap-1.5 text-sm text-foreground/80">
                     E-mail
                     <input name="email" type="email" required maxLength={200} autoComplete="email" className="lp-campo" />
                   </label>
-                  <label className="grid gap-1.5 text-sm text-slate-300">
+                  <label className="grid gap-1.5 text-sm text-foreground/80">
                     Cidade
                     <input name="cidade" maxLength={120} autoComplete="address-level2" className="lp-campo" />
                   </label>
                   <div className="grid grid-cols-[5rem_1fr] gap-3">
-                    <label className="grid gap-1.5 text-sm text-slate-300">
+                    <label className="grid gap-1.5 text-sm text-foreground/80">
                       UF
                       <input name="uf" maxLength={2} autoComplete="address-level1" className="lp-campo uppercase" />
                     </label>
-                    <label className="grid gap-1.5 text-sm text-slate-300">
+                    <label className="grid gap-1.5 text-sm text-foreground/80">
                       Alunos ativos
                       <select name="alunos_faixa" defaultValue="" className="lp-campo">
                         <option value="">Selecione</option>
@@ -786,11 +814,11 @@ function Contato() {
                       </select>
                     </label>
                   </div>
-                  <label className="grid gap-1.5 text-sm text-slate-300 sm:col-span-2">
+                  <label className="grid gap-1.5 text-sm text-foreground/80 sm:col-span-2">
                     Sistema que usa hoje (opcional)
                     <input name="sistema_atual" maxLength={80} className="lp-campo" placeholder="EVO, Tecnofit, planilha…" />
                   </label>
-                  <label className="grid gap-1.5 text-sm text-slate-300 sm:col-span-2">
+                  <label className="grid gap-1.5 text-sm text-foreground/80 sm:col-span-2">
                     Mensagem (opcional)
                     <textarea name="mensagem" rows={3} maxLength={2000} className="lp-campo resize-none" />
                   </label>
@@ -809,7 +837,7 @@ function Contato() {
                   <button
                     type="submit"
                     disabled={enviando || (!!TURNSTILE_SITE_KEY && !captcha)}
-                    className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-cyan-400 to-emerald-400 px-6 py-3.5 font-semibold text-slate-950 transition-opacity disabled:opacity-50 sm:col-span-2"
+                    className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary hover:bg-primary/90 px-6 py-3.5 font-semibold text-primary-foreground transition-opacity disabled:opacity-50 sm:col-span-2"
                   >
                     {enviando ? "Enviando…" : "Quero uma demonstração"}
                     {!enviando && <ArrowRight className="h-4 w-4" aria-hidden />}
@@ -827,15 +855,15 @@ function Contato() {
 function Rodape() {
   return (
     <footer className="py-12">
-      <div className="mx-auto flex max-w-6xl flex-col gap-6 px-4 text-sm text-slate-500 sm:px-6 md:flex-row md:items-center md:justify-between">
+      <div className="mx-auto flex max-w-6xl flex-col gap-6 px-4 text-sm text-muted-foreground sm:px-6 md:flex-row md:items-center md:justify-between">
         <div className="flex items-center gap-3">
           <img src="/logo.png" alt="" className="h-7 w-7 rounded" />
           <span>METODOS ARKE LTDA · CNPJ 68.456.606/0001-70 · São Paulo/SP</span>
         </div>
         <nav className="flex flex-wrap gap-5" aria-label="Rodapé">
-          <a href="#/termos" className="hover:text-slate-300">Termos de Uso</a>
-          <a href="#/privacidade" className="hover:text-slate-300">Privacidade</a>
-          <a href={noApp("/auth/login")} className="hover:text-slate-300">Entrar</a>
+          <a href="#/termos" className="hover:text-foreground/80">Termos de Uso</a>
+          <a href="#/privacidade" className="hover:text-foreground/80">Privacidade</a>
+          <a href={noApp("/auth/login")} className="hover:text-foreground/80">Entrar</a>
         </nav>
       </div>
     </footer>
@@ -857,7 +885,7 @@ export default function Landing() {
     fontes.href = "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap";
     document.head.appendChild(fontes);
     const corAnterior = document.body.style.backgroundColor;
-    document.body.style.backgroundColor = "#05070b";
+    document.body.style.backgroundColor = "hsl(0 0% 6%)";
     return () => {
       document.title = anterior;
       fontes.remove();
@@ -866,7 +894,7 @@ export default function Landing() {
   }, []);
 
   return (
-    <div className="lp min-h-screen overflow-x-hidden antialiased">
+    <div className="lp dark min-h-screen overflow-x-hidden antialiased">
       <style>{ESTILO}</style>
       <Nav />
       <main>
