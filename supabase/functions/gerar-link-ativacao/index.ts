@@ -130,7 +130,7 @@ Deno.serve(async (req: Request) => {
           (alvo) =>
             alvo.organization_id === chamador.organization_id &&
             (chamador.role === "gestor" ||
-              (["professor", "nutricionista"].includes(chamador.role) && alvo.role === "aluno"))
+              (["professor", "nutricionista", "recepcao"].includes(chamador.role) && alvo.role === "aluno"))
         )
       );
     }

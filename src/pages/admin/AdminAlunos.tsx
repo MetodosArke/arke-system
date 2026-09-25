@@ -98,6 +98,10 @@ const EMPTY_ALUNOS: AlunoRow[] = [];
 export default function AdminAlunos() {
   const { organization, hasRole, organizationRole, user } = useAuth();
   const podeGerenciarEquipe = hasRole("admin_arke") || organizationRole === "gestor";
+  // Cadastrar e convidar ALUNO: gestor e recepção (no balcão, quem matricula
+  // costuma ser a recepção). Equipe, exportação e importação em massa
+  // seguem só com o gestor (decisão de 25/09/2026).
+  const podeCadastrarAluno = podeGerenciarEquipe || organizationRole === "recepcao";
   const navigate = useNavigate();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -376,41 +380,45 @@ export default function AdminAlunos() {
           <Users className="h-5 w-5 text-primary" />
           <h1 className="text-xl font-bold">Alunos & Prescrições</h1>
         </div>
-        {podeGerenciarEquipe && (
+        {podeCadastrarAluno && (
           <div className="flex items-center gap-2">
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={!alunos.length}
-              onClick={() =>
-                void baixarPlanilha(`alunos-${organization?.slug ?? "academia"}`, [
-                  {
-                    nome: "Alunos",
-                    linhas: [
-                      ["Nome", "Telefone", "Plano", "Situação", "Motivo", "Volta prevista", "Aluno desde"],
-                      ...alunos
-                        .filter((a) => !a.anonimizado_em)
-                        .map((a) => [
-                          a.full_name,
-                          a.telefone,
-                          ROTULO_PLANO[planoDoAluno(a)],
-                          ROTULO_SITUACAO[a.situacao_academia],
-                          a.situacao_academia_motivo,
-                          dataBr(a.situacao_academia_retorno),
-                          dataBr(a.data_inicio),
-                        ]),
-                    ],
-                  },
-                ])
-              }
-            >
-              <FileSpreadsheet className="h-4 w-4 mr-1.5" />
-              Exportar
-            </Button>
-            <Button size="sm" variant="outline" onClick={() => navigate("/admin/alunos/importar")}>
-              <FileSpreadsheet className="h-4 w-4 mr-1.5" />
-              Importar em massa
-            </Button>
+            {podeGerenciarEquipe && (
+              <>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={!alunos.length}
+                  onClick={() =>
+                    void baixarPlanilha(`alunos-${organization?.slug ?? "academia"}`, [
+                      {
+                        nome: "Alunos",
+                        linhas: [
+                          ["Nome", "Telefone", "Plano", "Situação", "Motivo", "Volta prevista", "Aluno desde"],
+                          ...alunos
+                            .filter((a) => !a.anonimizado_em)
+                            .map((a) => [
+                              a.full_name,
+                              a.telefone,
+                              ROTULO_PLANO[planoDoAluno(a)],
+                              ROTULO_SITUACAO[a.situacao_academia],
+                              a.situacao_academia_motivo,
+                              dataBr(a.situacao_academia_retorno),
+                              dataBr(a.data_inicio),
+                            ]),
+                        ],
+                      },
+                    ])
+                  }
+                >
+                  <FileSpreadsheet className="h-4 w-4 mr-1.5" />
+                  Exportar
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => navigate("/admin/alunos/importar")}>
+                  <FileSpreadsheet className="h-4 w-4 mr-1.5" />
+                  Importar em massa
+                </Button>
+              </>
+            )}
             <Button size="sm" onClick={() => setCadastroAberto(true)} disabled={!organization}>
               <UserPlus className="h-4 w-4 mr-1.5" />
               Cadastrar Aluno
@@ -419,7 +427,7 @@ export default function AdminAlunos() {
         )}
       </div>
 
-      {podeGerenciarEquipe && <ConvitePrimeiroAcesso />}
+      {podeCadastrarAluno && <ConvitePrimeiroAcesso />}
 
       <Card>
         <CardContent className="p-0">
@@ -815,6 +823,8 @@ function CadastrarAlunoDialog({
           cpf: form.cpf,
           papel: "aluno",
           nivel_atacado: form.nivel_atacado || undefined,
+          // A unidade em que a pessoa está: quem tem duas não cadastra na errada.
+          organization_id: organization?.id,
         },
       });
       if (error) throw new Error(await mensagemDeErroEdge(error, "Não foi possível cadastrar o aluno."));

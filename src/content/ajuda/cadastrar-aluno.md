@@ -1,4 +1,4 @@
-Em [Alunos & Prescrições](/admin/alunos), clique em **Cadastrar Aluno** e preencha nome completo, e-mail, telefone e CPF. Cadastrar e importar alunos é tarefa do gestor.
+Em [Alunos & Prescrições](/admin/alunos), clique em **Cadastrar Aluno** e preencha nome completo, e-mail, telefone e CPF. Cadastrar alunos é tarefa do gestor e da recepção; a importação em massa é só do gestor.
 
 ![Alunos & Prescrições: o convite de primeiro acesso no topo e a lista com plano, situação e fase.](/ajuda/telas/alunos.jpg)
 

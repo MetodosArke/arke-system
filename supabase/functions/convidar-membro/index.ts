@@ -29,6 +29,9 @@ type ConvidarMembroPayload = {
   situacao_academia?: "em_dia" | "inadimplente" | "pausado";
   // Endereço, quando a planilha traz: a prefeitura o exige na nota fiscal.
   endereco?: { cep?: string; logradouro?: string; numero?: string; complemento?: string; bairro?: string; cidade?: string; uf?: string };
+  // A unidade em que a pessoa está na tela. Quem tem duas unidades não pode
+  // cadastrar na errada; sem ela, vale o vínculo mais antigo (chamada antiga).
+  organization_id?: string;
 };
 
 /**
@@ -57,6 +60,7 @@ function enderecoDaPlanilha(e: ConvidarMembroPayload["endereco"]) {
 }
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
  * Validação de CPF pelo módulo 11.
@@ -163,31 +167,32 @@ Deno.serve(async (req: Request) => {
 
     const adminClient = createClient(supabaseUrl, serviceRoleKey);
 
-    // Filtra por gestor e ordena, em vez de `.maybeSingle()` sobre todos os
-    // vínculos: quem é gestor de uma academia e aluno de outra tinha a
-    // consulta falhando e levava 403 no próprio painel. Mesma classe de
-    // defeito já corrigida no AuthContext e na antiga importação de dieta por PDF; o
-    // desempate pelo vínculo mais antigo segue a regra de escolherVinculo.
-    const { data: vinculosGestor, error: callerMembershipError } = await adminClient
+    // Quem cadastra aluno: o gestor e a recepção (decisão de 25/09/2026 — no
+    // balcão, quem matricula costuma ser a recepção). A unidade vem da tela e
+    // é conferida: quem chama tem de ser gestor ou recepção DAQUELA unidade,
+    // o que elimina a ambiguidade de quem tem duas em vez de desempatá-la.
+    // Sem unidade (chamada antiga), vale o vínculo de gestor mais antigo e,
+    // na falta dele, o de recepção — nunca `.maybeSingle()` sobre todos os
+    // vínculos, a armadilha do vínculo duplo.
+    const orgPedida =
+      typeof payload.organization_id === "string" && UUID_RE.test(payload.organization_id) ? payload.organization_id : null;
+    let consulta = adminClient
       .from("organization_members")
       .select("organization_id, role, created_at")
       .eq("user_id", callerId)
       .eq("status", "active")
-      .eq("role", "gestor")
-      .order("created_at", { ascending: true })
-      .limit(1);
-
-    const callerMembership = vinculosGestor?.[0] ?? null;
+      .in("role", ["gestor", "recepcao"]);
+    if (orgPedida) consulta = consulta.eq("organization_id", orgPedida);
+    const { data: vinculosAutorizados, error: callerMembershipError } = await consulta.order("created_at", { ascending: true });
 
     if (callerMembershipError) {
       console.error("Error loading caller membership", callerMembershipError);
       return jsonResponse({ error: "Erro ao validar permissões." }, 500);
     }
-    if (!callerMembership || callerMembership.role !== "gestor") {
-      return jsonResponse(
-        { error: "Apenas o gestor da organização pode cadastrar alunos ou convidar a equipe." },
-        403
-      );
+    const callerMembership =
+      (vinculosAutorizados ?? []).find((v) => v.role === "gestor") ?? (vinculosAutorizados ?? [])[0] ?? null;
+    if (!callerMembership) {
+      return jsonResponse({ error: "Só o gestor ou a recepção desta academia podem cadastrar alunos." }, 403);
     }
     const organizationId = callerMembership.organization_id;
 

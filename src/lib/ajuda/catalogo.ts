@@ -48,7 +48,7 @@ export const ARTIGOS: ArtigoAjuda[] = [
     titulo: "Cadastrar um aluno",
     resumo: "Cadastro pela ficha, CPF obrigatório e o que acontece depois de salvar.",
     secao: "Alunos",
-    publicos: ["gestor", "autonomo"],
+    publicos: ["gestor", "recepcao", "autonomo"],
     rotas: ["/admin/alunos"],
   },
   {
@@ -64,7 +64,7 @@ export const ARTIGOS: ArtigoAjuda[] = [
     titulo: "Convite de primeiro acesso e guia do aluno",
     resumo: "Um QR Code para a academia inteira, o guia impresso e o link individual.",
     secao: "Alunos",
-    publicos: ["gestor", "autonomo"],
+    publicos: ["gestor", "recepcao", "autonomo"],
   },
   {
     slug: "situacao-do-aluno",
