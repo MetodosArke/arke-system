@@ -7,6 +7,7 @@ O ARKE é uma plataforma SaaS B2B/B2C para academias, studios e personal trainer
 - **Frontend:** React + TypeScript, Vite, TailwindCSS, Shadcn/UI, Lucide React[span_53](start_span)[span_53](end_span).
 - **Backend & Banco de Dados:** Supabase (Auth, PostgreSQL, Row Level Security - RLS, Storage, Edge Functions)[span_54](start_span)[span_54](end_span).
 - **Hospedagem:** Vercel[span_55](start_span)[span_55](end_span).
+- **Mapa de toda a infraestrutura** (serviços, domínios, DNS, nomes dos segredos e onde cada um mora, sem nenhum valor): `docs/INFRAESTRUTURA.md`. O repositório é público; o arquivo não leva segredo, login nem caminho de máquina. Cada troca de serviço, domínio ou chave o atualiza no mesmo PR.
 
 ## Princípios de Engenharia e Regras Estritas
 1. **Multitenancy em Primeiro Lugar:** Toda e qualquer tabela do banco (alunos, treinos, dietas, agendamentos, tarefas) deve conter a coluna `organization_id` (ou `academia_id`) e ter políticas de RLS ativas desde o primeiro script SQL[span_56](start_span)[span_56](end_span).
@@ -338,6 +339,8 @@ Toda segunda às 8h de Brasília, o dono da academia recebe no WhatsApp o retrat
 
 **Uma armadilha que o teste pegou.** A função nasceu sem declaração em `supabase/config.toml`, então o Supabase exigia JWT e o cron levava `UNAUTHORIZED_NO_AUTH_HEADER`. Pior: os dois primeiros casos do teste ("recusa sem token") **passaram pelo motivo errado** — eram barrados pelo portão de JWT, não pela checagem de token. Corrigido e reverificado: sem token e com token inventado dão 401 de verdade; com o token do Vault, 200.
 
+
+**O aviso no celular nunca saiu (achado em 25/09/2026).** `briefing-semanal` passava ao web-push um `VAPID_PUBLIC_KEY` lido do ambiente, e esse segredo não existe no projeto. As outras funções derivam a chave pública da privada. Com a chave vazia, o web-push recusava, e o `catch` que existe para inscrição expirada engolia o erro: o e-mail saía, o push nunca. Hoje a derivação mora em `_shared/vapid.ts` (`chavePublicaVapid`), e `vapid.guarda.test.ts` confere o par de chaves e barra qualquer função que volte a ler `VAPID_PUBLIC_KEY`.
 
 ## Sentinela: sugestão de resposta no chat (Fase 5b, 23/09/2026)
 
