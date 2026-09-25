@@ -39,7 +39,11 @@ export async function lerLinhasPlanilha(buffer: ArrayBuffer): Promise<Record<str
   const bytes = new Uint8Array(buffer);
   const workbook = ehPlanilhaBinaria(bytes)
     ? read(bytes, { type: "array" })
-    : read(decodificarTexto(bytes), { type: "string" });
+    : // raw: o CSV entra como texto, do jeito que veio. Sem isso a biblioteca
+      // converte por conta própria: "01/02/2026" virava "1/1/26" (leitura
+      // americana, e um dia a menos pelo fuso), e número com zero à esquerda
+      // perdia o zero.
+      read(decodificarTexto(bytes), { type: "string", raw: true });
   const primeiraAba = workbook.SheetNames[0];
   return utils.sheet_to_json<Record<string, string>>(workbook.Sheets[primeiraAba], { defval: "", raw: false });
 }

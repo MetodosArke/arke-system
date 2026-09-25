@@ -104,9 +104,61 @@ export function juntarPartes(registro: Record<string, string>): Record<string, s
   return r;
 }
 
+/**
+ * O cabeçalho como texto comparável. Sublinhado e ponto viram espaço antes de
+ * normalizar: a exportação do EVO usa `NOME_COMPLETO`, `CPF_ALUNO` e
+ * `STATUS_CONTRATO`, e `\bnome\b` não casa com `nome_completo`, porque o
+ * sublinhado conta como letra. Sem isso a planilha do EVO chegava sem nome, sem
+ * CPF e sem situação.
+ */
+function cabecalho(nomeColuna: string): string {
+  return normalizarTexto(nomeColuna.replace(/[_.]+/g, " ").replace(/\s+/g, " "));
+}
+
+/**
+ * Palavras coladas separadas: `DataNascimento` e `VencimentoContrato`, da
+ * Tecnofit. Só é tentado quando o cabeçalho como veio não casa com nada,
+ * porque separar sempre quebraria `WhatsApp`.
+ */
+function cabecalhoSeparado(nomeColuna: string): string {
+  return cabecalho(nomeColuna.replace(/([a-zà-ÿ])([A-ZÀ-Ý])/g, "$1 $2"));
+}
+
+const PARTICULAS = new Set(["da", "das", "de", "do", "dos", "e"]);
+
+/** "CARLOS EDUARDO DA SILVA" → "Carlos Eduardo da Silva". Nome já em caixa mista fica como veio. */
+function nomeEmCaixaAlta(nome: string): string {
+  const limpo = nome.replace(/\s+/g, " ").trim();
+  if (!/[A-ZÀ-Ý]/.test(limpo) || limpo !== limpo.toUpperCase()) return limpo;
+  return limpo
+    .toLowerCase()
+    .split(" ")
+    .map((p, i) => (i > 0 && PARTICULAS.has(p) ? p : p.charAt(0).toUpperCase() + p.slice(1)))
+    .join(" ");
+}
+
+/**
+ * Acerta o que as exportações dos outros sistemas estragam, antes de validar:
+ *   - CPF com 9 ou 10 dígitos perdeu o zero à esquerda (o Excel trata a coluna
+ *     como número); os zeros voltam, e o dígito verificador ainda confere;
+ *   - celular com o código do país (55) fica como os outros, com DDD e número;
+ *   - nome todo em maiúsculas vira nome com iniciais maiúsculas;
+ *   - e-mail sem espaço e em minúsculas.
+ */
+export function normalizarRegistro(registro: Record<string, string>): Record<string, string> {
+  const r = { ...registro };
+  if (r.full_name) r.full_name = nomeEmCaixaAlta(r.full_name);
+  if (r.email) r.email = r.email.trim().toLowerCase();
+  const cpf = (r.cpf ?? "").replace(/\D/g, "");
+  if (cpf.length === 9 || cpf.length === 10) r.cpf = cpf.padStart(11, "0");
+  const telefone = (r.telefone ?? "").replace(/\D/g, "");
+  if (telefone.startsWith("55") && (telefone.length === 12 || telefone.length === 13)) r.telefone = telefone.slice(2);
+  return r;
+}
+
 export function detectarCampo(nomeColuna: string): string {
-  const t = normalizarTexto(nomeColuna);
-  return REGRAS.find((r) => r.teste(t))?.campo ?? "ignorar";
+  const campo = (t: string) => REGRAS.find((r) => r.teste(t))?.campo;
+  return campo(cabecalho(nomeColuna)) ?? campo(cabecalhoSeparado(nomeColuna)) ?? "ignorar";
 }
 
 /** Mapa coluna → campo, com cada campo usado por uma coluna só (a primeira). */
