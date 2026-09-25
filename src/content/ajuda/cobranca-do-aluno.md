@@ -1,5 +1,7 @@
 Todas as cobranças do aluno saem pelo ARKE, no meio de pagamento Asaas, e a parte da academia cai direto na conta dela. O aluno escolhe PIX, boleto ou cartão na fatura, e vê tudo no app, em **Perfil → Pagamentos da academia**.
 
+![Na ficha: o plano da academia com as mensalidades, as cobranças avulsas e o endereço.](/ajuda/telas/ficha-plano.jpg)
+
 ## Matricular num plano
 
 Na ficha do aluno, bloco **Plano da Academia**, clique em **Matricular**:

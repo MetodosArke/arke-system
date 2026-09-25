@@ -1,5 +1,7 @@
 O painel é onde a equipe da academia trabalha: atendimento, alunos, prescrição, recepção e gestão. Cada pessoa entra com o próprio e-mail e vê só o que o seu papel permite.
 
+![A tela inicial do gestor, com o menu à esquerda e o ? no alto.](/ajuda/telas/painel-home.jpg)
+
 ## O menu
 
 O menu fica à esquerda (no celular, no ícone de três linhas no alto). Ele tem três blocos:

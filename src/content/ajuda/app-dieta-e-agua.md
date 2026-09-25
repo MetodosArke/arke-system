@@ -1,5 +1,7 @@
 A sua dieta fica em **Dieta**, no menu. Ela é feita pela nutricionista da sua academia, ou, no Método ARKE, pela nutricionista da ArkeFit.
 
+![A dieta do dia no app.](/ajuda/telas/app-dieta.jpg)
+
 ## O plano do dia
 
 Cada refeição mostra o horário sugerido, os alimentos, as quantidades e as **substituições** possíveis. Quando a nutricionista informou, aparecem também os macronutrientes do dia: proteína, carboidrato e gordura.

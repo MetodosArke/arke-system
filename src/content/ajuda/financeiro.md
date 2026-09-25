@@ -1,5 +1,7 @@
 O [Financeiro](/admin/financeiro) é o caixa da academia dentro do ARKE. É do gestor.
 
+![O Financeiro, com o saldo do mês e o novo lançamento.](/ajuda/telas/financeiro.jpg)
+
 ## As abas
 
 - **Lançamentos**: receitas e despesas. As mensalidades e cobranças avulsas pagas pelo ARKE entram **sozinhas** como receita, já com a taxa do meio de pagamento descontada. O que acontece fora do ARKE (aluguel, luz, uma venda no dinheiro) entra em **Novo lançamento**.

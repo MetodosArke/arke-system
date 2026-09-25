@@ -1,5 +1,7 @@
 O check-in por QR Code registra a presença de quem não passa por catraca: academia sem catraca, aula ao ar livre, um dia com a catraca parada. Abra [Check-in QR](/admin/checkin-qr) no computador ou tablet da recepção e clique em **Tela cheia**.
 
+![A tela da recepção. O código muda a cada 10 minutos.](/ajuda/telas/checkin-qr.jpg)
+
 ## Como funciona
 
 1. A tela mostra um QR Code grande.

@@ -175,7 +175,7 @@ export function MarkdownSimples({ texto, resolverLink }: { texto: string; resolv
                   src={b.src}
                   alt={b.legenda}
                   loading="lazy"
-                  className="w-full rounded-lg border border-border shadow-sm"
+                  className="mx-auto h-auto max-h-[75vh] w-auto max-w-full rounded-lg border border-border shadow-sm"
                 />
                 {b.legenda && <figcaption className="text-xs text-muted-foreground">{b.legenda}</figcaption>}
               </figure>

@@ -1,5 +1,7 @@
 O [Funil de vendas](/admin/funil) acompanha cada interessado da primeira conversa até a matrícula. É um quadro com seis colunas:
 
+![O funil, com um cartão por interessado.](/ajuda/telas/funil.jpg)
+
 1. **Novo**
 2. **Em contato**
 3. **Aula experimental**

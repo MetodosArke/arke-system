@@ -1,4 +1,5 @@
 import { Toaster } from "@/components/ui/toaster";
+import { appInstaladoNaTela, haSessaoGuardada, mostrarPaginaDeVendas } from "@/lib/landing";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider, QueryCache } from "@tanstack/react-query";
@@ -11,7 +12,7 @@ import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { NetworkStatusBanner } from "@/components/NetworkStatusBanner";
 import { ImpersonationBanner } from "@/components/ImpersonationBanner";
 import { resolveHomePath } from "@/lib/authRouting";
-import { Suspense } from "react";
+import { Suspense, useState } from "react";
 import { paginaPreguicosa } from "@/lib/carregamentoPreguicoso";
 import { CarregandoPagina } from "@/components/CarregandoPagina";
 
@@ -93,6 +94,8 @@ const SuperAdminMentoria = paginaPreguicosa(() => import("@/pages/superadmin/Sup
 const SuperAdminEquipamentos = paginaPreguicosa(() => import("@/pages/superadmin/SuperAdminEquipamentos"));
 const SuperAdminVigia = paginaPreguicosa(() => import("@/pages/superadmin/SuperAdminVigia"));
 const CentralAjuda = paginaPreguicosa(() => import("@/pages/ajuda/CentralAjuda"));
+const Landing = paginaPreguicosa(() => import("@/pages/public/Landing"));
+const SuperAdminContatos = paginaPreguicosa(() => import("@/pages/superadmin/SuperAdminContatos"));
 
 const isNetworkError = (error: unknown) => {
   const message = error instanceof Error ? error.message : String(error ?? "");
@@ -153,6 +156,20 @@ function AlunoOnboardingGate({ children }: { children: React.ReactNode }) {
 // nutricionista → /admin, aluno → /app).
 function RootRedirect() {
   const { isAuthenticated, isLoading, roles, organizationRole, organization, rolesLoaded } = useAuth();
+  // A raiz de arkefit.com.br é a página de vendas para quem chega de fora;
+  // quem tem sessão ou abre o app instalado segue para o app. `?vendas`
+  // força a página, para conferir em outro endereço.
+  const [paginaDeVendas] = useState(() =>
+    mostrarPaginaDeVendas({
+      host: window.location.hostname,
+      hash: window.location.hash,
+      temSessao: haSessaoGuardada(),
+      appInstalado: appInstaladoNaTela(),
+      forcar: new URLSearchParams(window.location.search).has("vendas"),
+    }),
+  );
+
+  if (paginaDeVendas) return <Landing />;
 
   if (isLoading || (isAuthenticated && !rolesLoaded)) {
     return (
@@ -318,6 +335,7 @@ const App = () => (
                 <Route path="equipamentos" element={<SuperAdminEquipamentos />} />
                 <Route path="vigia" element={<SuperAdminVigia />} />
                 <Route path="configuracoes" element={<SuperAdminConfiguracoes />} />
+                <Route path="contatos" element={<SuperAdminContatos />} />
                 <Route path="ajuda" element={<CentralAjuda />} />
                 <Route path="ajuda/:slug" element={<CentralAjuda />} />
               </Route>

@@ -23,6 +23,9 @@ verify_jwt = false
 [functions.primeiro-acesso]
 verify_jwt = false
 
+[functions.lead-site]
+verify_jwt = false
+
 # Link curto de ativação, aberto pelo e-mail antes de existir sessão.
 [functions.ativar-cadastro]
 verify_jwt = false

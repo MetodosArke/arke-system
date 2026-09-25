@@ -1,5 +1,7 @@
 Em [Alunos & Prescrições](/admin/alunos), clique em **Cadastrar Aluno** e preencha nome completo, e-mail, telefone e CPF. Cadastrar e importar alunos é tarefa do gestor.
 
+![Alunos & Prescrições: o convite de primeiro acesso no topo e a lista com plano, situação e fase.](/ajuda/telas/alunos.jpg)
+
 ## Por que o CPF é obrigatório
 
 A matrícula gera cobrança, e o meio de pagamento não emite cobrança sem CPF. Por isso ele é exigido em todo cadastro de aluno, pela ficha, pela importação ou pelo link de matrícula. O sistema confere os dígitos na hora e avisa se o número estiver errado.

@@ -1,5 +1,7 @@
 Os pagamentos para a academia ficam em **Perfil**, no bloco **Pagamentos da academia**.
 
+![Perfil: privacidade e os pagamentos da academia.](/ajuda/telas/app-pagamentos.jpg)
+
 ## O que aparece
 
 - A mensalidade ou cobrança **em aberto**, com o vencimento e o botão **Pagar**, que abre a fatura. Na fatura você escolhe **PIX, boleto ou cartão**.

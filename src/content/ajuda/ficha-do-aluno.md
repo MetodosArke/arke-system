@@ -1,5 +1,7 @@
 Clique no nome de um aluno em [Alunos & Prescrições](/admin/alunos) para abrir a ficha. Ela reúne tudo o que a equipe precisa saber dele, em blocos. Cada papel vê os blocos do seu trabalho.
 
+![A ficha do aluno, aberta a partir da lista.](/ajuda/telas/ficha.jpg)
+
 ## Os blocos
 
 - **Dados**: contato, CPF, situação na academia e plano (Free ou Método ARKE).

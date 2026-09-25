@@ -7,6 +7,7 @@ Em [Configurações](/superadmin/configuracoes) ficam os números que valem para
 - **Taxa de implantação de referência**: o valor que vem preenchido na ficha de cada academia nova.
 - **Preços B2B** de tabela de cada plano.
 - **Textos da plataforma**, como o canal de suporte (WhatsApp e e-mail) que aparece no botão "Falar com o suporte" das academias. Sem canal preenchido, o botão não aparece.
+- **Contatos da página de vendas**: o e-mail que recebe cada pedido de demonstração. Veja [Contatos do site](ajuda:vm-contatos).
 
 ## Acervo Global
 

@@ -12,6 +12,12 @@ Só o que continua em aberto. As decisões já tomadas e aplicadas saíram desta
 - **Nota fiscal da própria ArkeFit** (mensalidade das academias, taxa de implantação e repasse) configurada na conta Asaas da ArkeFit, com o contador.
 - **Ensaio de restauração do backup**, logo depois do Supabase Pro (`docs/RESTAURACAO_BACKUP.md`).
 
+## Página de vendas e endereço do app (25/09/2026)
+
+- **DNS de app.arkefit.com.br** (só o responsável, no Registro.br): criar o registro CNAME `app` apontando para `cname.vercel-dns.com`. Depois disso, a troca do app para o endereço próprio segue a ordem descrita no `CLAUDE.md` (Fase 2), antes de a primeira academia imprimir QR Codes.
+- **Preços na página de vendas.** A página não mostra preços dos planos nem da taxa de implantação; o contato leva à demonstração. Publicar os preços é decisão comercial.
+- **Contato comercial na Política de Privacidade.** O formulário avisa a finalidade na hora; a Política não menciona contatos comerciais pelo site. Recomendação: incluir na próxima revisão, com o prazo de guarda de contato que não virou cliente.
+
 ## Achados da Central de Ajuda (25/09/2026)
 
 - **Recepção cadastrar aluno.** Hoje cadastrar, importar e o convite de primeiro acesso são só do gestor, na tela e na função (`convidar-membro`). No balcão, quem matricula costuma ser a recepção. Recomendação: liberar para a recepção o cadastro e o convite de **aluno** (não o de equipe nem a importação em massa).

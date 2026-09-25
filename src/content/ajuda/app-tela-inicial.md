@@ -1,5 +1,7 @@
 A tela inicial mostra primeiro o que importa hoje, e deixa o resto para baixo.
 
+![A tela inicial do aluno, com a próxima ação no topo.](/ajuda/telas/app-home.jpg)
+
 ## Próxima Ação
 
 O primeiro cartão diz a próxima coisa a fazer, uma só:

@@ -1,5 +1,7 @@
 A tela [Organização](/admin/organizacao) reúne os dados e as regras comerciais da academia. É do gestor.
 
+![Organização, na aba Planos da Academia.](/ajuda/telas/organizacao.jpg)
+
 ## As abas
 
 - **Perfil**: nome, contato, endereço, logotipo e o endereço do link de matrícula. O tipo de negócio (academia, studio) muda o que o painel oferece; studio tem agenda de aulas.

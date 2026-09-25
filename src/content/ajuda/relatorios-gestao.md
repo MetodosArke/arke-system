@@ -1,5 +1,9 @@
 Três telas contam como vai a academia, cada uma respondendo a uma pergunta. Todas explicam na própria tela como cada número é calculado: indicador que ninguém consegue conferir não merece confiança.
 
+![Gestão 360°: indicadores do mês e o DRE simplificado.](/ajuda/telas/gestao360.jpg)
+
+![Retenção & Jornada: quem está em risco agora.](/ajuda/telas/retencao.jpg)
+
 ## Resumo da semana: como foi a semana?
 
 Toda segunda às 8h sai o [Resumo da semana](/admin/relatorio-semanal), e o gestor recebe um aviso no celular e um e-mail.

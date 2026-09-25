@@ -1,5 +1,7 @@
 Cada academia tem **um link e um QR Code só** para os alunos entrarem no app pela primeira vez. É o jeito mais rápido de ativar uma base inteira: cole o QR Code na recepção, mande o link no grupo e poste no Instagram.
 
+![O cartão do convite, no topo da lista de alunos.](/ajuda/telas/alunos.jpg)
+
 O cartão **Convite de primeiro acesso ao app** fica no topo de [Alunos & Prescrições](/admin/alunos).
 
 ## Como o aluno usa

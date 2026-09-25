@@ -695,6 +695,9 @@ export type Database = {
           aluno_id: string
           asaas_customer_id: string | null
           asaas_subscription_id: string | null
+          cancelada_em: string | null
+          cancelada_por: string | null
+          cancelamento_motivo: string | null
           cartao_atualizado_em: string | null
           cartao_atualizado_por: string | null
           cartao_bandeira: string | null
@@ -706,6 +709,8 @@ export type Database = {
           forma_pagamento: string
           id: string
           organization_id: string
+          pausada_em: string | null
+          pausada_por: string | null
           plano_id: string
           registrado_por: string | null
           status: Database["public"]["Enums"]["status_matricula_academia"]
@@ -718,6 +723,9 @@ export type Database = {
           aluno_id: string
           asaas_customer_id?: string | null
           asaas_subscription_id?: string | null
+          cancelada_em?: string | null
+          cancelada_por?: string | null
+          cancelamento_motivo?: string | null
           cartao_atualizado_em?: string | null
           cartao_atualizado_por?: string | null
           cartao_bandeira?: string | null
@@ -729,6 +737,8 @@ export type Database = {
           forma_pagamento?: string
           id?: string
           organization_id: string
+          pausada_em?: string | null
+          pausada_por?: string | null
           plano_id: string
           registrado_por?: string | null
           status?: Database["public"]["Enums"]["status_matricula_academia"]
@@ -741,6 +751,9 @@ export type Database = {
           aluno_id?: string
           asaas_customer_id?: string | null
           asaas_subscription_id?: string | null
+          cancelada_em?: string | null
+          cancelada_por?: string | null
+          cancelamento_motivo?: string | null
           cartao_atualizado_em?: string | null
           cartao_atualizado_por?: string | null
           cartao_bandeira?: string | null
@@ -752,6 +765,8 @@ export type Database = {
           forma_pagamento?: string
           id?: string
           organization_id?: string
+          pausada_em?: string | null
+          pausada_por?: string | null
           plano_id?: string
           registrado_por?: string | null
           status?: Database["public"]["Enums"]["status_matricula_academia"]
@@ -3278,6 +3293,69 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      leads_site: {
+        Row: {
+          academia: string
+          alunos_faixa: string | null
+          atualizado_em: string | null
+          atualizado_por: string | null
+          cidade: string | null
+          created_at: string
+          email: string
+          email_enviado_em: string | null
+          id: string
+          ip_hash: string | null
+          mensagem: string | null
+          nome: string
+          observacao: string | null
+          origem: string | null
+          sistema_atual: string | null
+          status: string
+          telefone: string
+          uf: string | null
+        }
+        Insert: {
+          academia: string
+          alunos_faixa?: string | null
+          atualizado_em?: string | null
+          atualizado_por?: string | null
+          cidade?: string | null
+          created_at?: string
+          email: string
+          email_enviado_em?: string | null
+          id?: string
+          ip_hash?: string | null
+          mensagem?: string | null
+          nome: string
+          observacao?: string | null
+          origem?: string | null
+          sistema_atual?: string | null
+          status?: string
+          telefone: string
+          uf?: string | null
+        }
+        Update: {
+          academia?: string
+          alunos_faixa?: string | null
+          atualizado_em?: string | null
+          atualizado_por?: string | null
+          cidade?: string | null
+          created_at?: string
+          email?: string
+          email_enviado_em?: string | null
+          id?: string
+          ip_hash?: string | null
+          mensagem?: string | null
+          nome?: string
+          observacao?: string | null
+          origem?: string | null
+          sistema_atual?: string | null
+          status?: string
+          telefone?: string
+          uf?: string | null
+        }
+        Relationships: []
       }
       links_ativacao: {
         Row: {
