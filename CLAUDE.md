@@ -1048,6 +1048,12 @@ O que mudou (`src/lib/mapaColunas.ts`):
 
 Plano, datas do contrato e código de cartão ou catraca continuam fora da importação, de propósito: o plano é criado no ARKE e o cartão é cadastrado na ficha. Os CPFs das planilhas de exemplo são fictícios e falham no dígito verificador, então as linhas aparecem com erro. É o comportamento certo, porque base de verdade traz CPF válido.
 
+## Visão Master com menu lateral (25/09/2026)
+
+Pedido do responsável: os itens da Visão Master saíram da faixa de abas no alto e foram para um menu lateral, igual ao do painel da academia. Com onze itens, a faixa rolava para o lado no celular e escondia metade deles. `SuperAdminSidebar.tsx` segue o desenho de `AdminSidebar.tsx`: três grupos (Operação, Monitoramento, Configurações), recolhível no desktop, gaveta no celular, e Ajuda e Sair no rodapé. O estado de recolhido reaproveita `AdminSidebarContext`. O cabeçalho mostra o nome da tela aberta, tirado da mesma lista `SECOES_SUPERADMIN`, e **não** é `h1`: a página já tem o dela, e o `h1` do app usa a fonte serifada dos títulos. A faixa vermelha das rotinas ficou logo abaixo do cabeçalho.
+
+Conferido no navegador com um Super Admin temporário, verificado em duas etapas e apagado no fim. No desktop, os dez itens aparecem, a navegação funciona e o item ativo fica marcado, o menu recolhe para 64 px com o nome em cada ícone, e a Ajuda abre a Central da Visão Master. No celular, a gaveta traz os mesmos itens e fecha ao escolher, e a página não rola para o lado.
+
 ## Rastreamento de Erro (Sentry): a configuração é a política de privacidade
 
 Sem rastreamento, um erro de JavaScript numa tela deixa o aluno travado e ninguém fica sabendo — o defeito só aparece quando alguém liga para a academia. Com várias academias em produção isso deixa de ser sustentável, então o Sentry entrou em `src/lib/monitoramento.ts`, ligado em três pontos: a subida do app (`main.tsx`), o `ErrorBoundary` (que antes só fazia `console.error`, inútil para quem não tem DevTools aberto) e o `AuthContext`, que carimba os eventos.
