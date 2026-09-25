@@ -294,6 +294,7 @@ export default function AdminImportarAlunos() {
 
     const { data, error } = await supabase.functions.invoke<{ user_id: string }>("convidar-membro", {
       body: {
+        organization_id: organization?.id,
         email: registro.email,
         full_name: registro.full_name,
         telefone: registro.telefone || undefined,

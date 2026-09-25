@@ -18,7 +18,6 @@ Só o que continua em aberto. As decisões já tomadas e aplicadas saíram desta
 
 ## Achados da Central de Ajuda (25/09/2026)
 
-- **Recepção cadastrar aluno.** Hoje cadastrar, importar e o convite de primeiro acesso são só do gestor, na tela e na função (`convidar-membro`). No balcão, quem matricula costuma ser a recepção. Recomendação: liberar para a recepção o cadastro e o convite de **aluno** (não o de equipe nem a importação em massa).
 
 ## Nota fiscal automática da academia (24/09/2026)
 
