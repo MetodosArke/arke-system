@@ -1,6 +1,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import webpush from "npm:web-push@3.6.7";
 import { descreverErro, registrarExecucao } from "../_shared/execucao.ts";
+import { chavePublicaVapid } from "../_shared/vapid.ts";
 
 const NOME = "briefing-semanal";
 
@@ -168,7 +169,7 @@ Deno.serve(async (req: Request) => {
             .eq("user_id", b.gestor_user_id);
           for (const s of inscricoes ?? []) {
             try {
-              webpush.setVapidDetails("mailto:contato@arkefit.com.br", Deno.env.get("VAPID_PUBLIC_KEY") ?? "", vapidPrivateKey);
+              webpush.setVapidDetails("mailto:contato@arkefit.com.br", chavePublicaVapid(vapidPrivateKey), vapidPrivateKey);
               await webpush.sendNotification(
                 { endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } },
                 JSON.stringify({
