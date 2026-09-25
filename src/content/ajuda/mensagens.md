@@ -1,5 +1,7 @@
 Em [Mensagens](/admin/mensagens) ficam todas as conversas dos alunos com a equipe, de treino e de nutrição. As conversas com mensagem não lida vêm primeiro, e o número no menu mostra quantas estão esperando.
 
+![A caixa de mensagens com uma conversa aberta.](/ajuda/telas/mensagens.jpg)
+
 ## Quem vê o quê
 
 - **Professor**: as conversas de treino.

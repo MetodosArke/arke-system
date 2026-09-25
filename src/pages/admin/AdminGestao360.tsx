@@ -336,7 +336,7 @@ export default function AdminGestao360() {
       ["ARPU (líquido/aluno)", formatarMoeda(arpu)],
       ["LTV estimado", ltv != null ? formatarMoeda(ltv) : "N/D (sem churn no período)"],
       ["Churn do mês", `${decimal(churnPct, 1)}%`],
-      ["Frequência (constância 7 dias)", `${constanciaPct}%`],
+      ["Frequência (constância 7 dias)", `${decimal(Number(constanciaPct), 1)}%`],
       ["MRR em risco (engajamento < 40)", formatarMoeda(mrrEmRisco)],
       ["Alunos em risco", alunosEmRisco],
       ["Alunos ativos", alunosAtivos],
@@ -453,7 +453,7 @@ export default function AdminGestao360() {
         <StatTile icon={Users} label="ARPU líquido" value={formatarMoeda(arpu)} sublabel="Por aluno ativo/mês" />
         <StatTile icon={TrendingUp} label="LTV estimado" value={ltv != null ? formatarMoeda(ltv) : "N/D"} sublabel="Baseado no churn do mês" />
         <StatTile icon={TrendingDown} label="Churn do mês" value={`${decimal(churnPct, 1)}%`} sublabel={`${cancelamentosMes} cancelamento(s)`} />
-        <StatTile icon={Activity} label="Frequência (7 dias)" value={`${constanciaPct}%`} sublabel="Constância de treino" />
+        <StatTile icon={Activity} label="Frequência (7 dias)" value={`${decimal(Number(constanciaPct), 1)}%`} sublabel="Constância de treino" />
         <StatTile
           icon={AlertTriangle}
           label="MRR em risco"

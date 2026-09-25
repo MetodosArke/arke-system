@@ -4,12 +4,22 @@ import { ErrorBoundary } from "./components/ErrorBoundary.tsx";
 import { isSupabaseConfigured } from "./integrations/supabase/client.ts";
 import { iniciarMonitoramento } from "./lib/monitoramento.ts";
 import "./index.css";
+import { destinoNoApp } from "./lib/landing.ts";
 
 // Antes de qualquer render: erro na própria subida do app é o mais caro de
 // diagnosticar sem rastreamento, porque não sobra nem tela para reclamar.
 iniciarMonitoramento();
 
 const rootElement = document.getElementById("root")!;
+
+// Com o app no endereço próprio (VITE_APP_HOST), uma rota do app aberta em
+// arkefit.com.br — link antigo, QR Code impresso, e-mail de convite — vai para
+// lá com o caminho e os tokens inteiros. Sem a variável, nada muda.
+const destinoApp = destinoNoApp(
+  { host: window.location.hostname, hash: window.location.hash, search: window.location.search },
+  import.meta.env.VITE_APP_HOST as string | undefined,
+);
+if (destinoApp) window.location.replace(destinoApp);
 
 // PWA: registra o service worker (também usado para push notifications)
 // para que o app seja instalável na tela inicial, sobretudo em /app.
@@ -32,7 +42,7 @@ if (!isSupabaseConfigured) {
       </p>
     </div>
   `;
-} else {
+} else if (!destinoApp) {
   createRoot(rootElement).render(
     <ErrorBoundary>
       <App />

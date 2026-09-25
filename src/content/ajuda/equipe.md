@@ -1,5 +1,7 @@
 Em [Equipe](/admin/equipe) o gestor cadastra quem trabalha na academia. Cada pessoa tem o próprio acesso, com o papel que define o que ela vê e faz.
 
+![A equipe da academia, com papel e situação de cada pessoa.](/ajuda/telas/equipe.jpg)
+
 ## Os papéis
 
 - **Gestor**: tudo da academia, inclusive financeiro, relatórios, configurações e equipe. Cadastrar e importar alunos também é do gestor.

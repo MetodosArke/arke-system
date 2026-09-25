@@ -1,5 +1,7 @@
 A configuração inicial tem seis etapas, feitas na ordem que você preferir e retomadas quando quiser. O painel mostra quanto falta, qual é o próximo passo e o tempo aproximado. Abra em **Home → aviso no topo** ou em [Configuração da academia](/admin/onboarding).
 
+![A configuração inicial: o que falta, o próximo passo e o tempo estimado.](/ajuda/telas/onboarding.jpg)
+
 ## O que funciona desde o primeiro dia
 
 Cadastrar alunos, importar a planilha, montar a equipe e prescrever treinos e dietas funcionam desde o primeiro acesso. Ficam esperando o fim da configuração:

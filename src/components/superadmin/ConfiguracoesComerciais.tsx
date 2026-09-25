@@ -173,3 +173,60 @@ export function CanaisSuporte() {
     </Card>
   );
 }
+
+/** Para onde vão os contatos da página de vendas. Vazio: para os Super Admins. */
+export function EmailComercial() {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [email, setEmail] = useState("");
+
+  const { data } = useQuery({
+    queryKey: ["email-comercial"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("plataforma_textos").select("valor").eq("chave", "comercial_email").maybeSingle();
+      if (error) throw error;
+      return data?.valor?.trim() ?? "";
+    },
+  });
+
+  useEffect(() => {
+    setEmail(data ?? "");
+  }, [data]);
+
+  const salvar = useMutation({
+    mutationFn: async (valor: string) => {
+      if (valor && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(valor)) throw new Error("E-mail inválido.");
+      const { error } = await supabase
+        .from("plataforma_textos")
+        .upsert({ chave: "comercial_email", valor: valor || null, updated_at: new Date().toISOString() }, { onConflict: "chave" });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast({ title: "E-mail do comercial salvo" });
+      void queryClient.invalidateQueries({ queryKey: ["email-comercial"] });
+    },
+    onError: (e: Error) => toast({ title: "Não foi possível salvar", description: e.message, variant: "destructive" }),
+  });
+
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle className="text-base">Contatos da página de vendas</CardTitle>
+        <CardDescription>
+          Cada pedido de demonstração vai para este e-mail e fica em Contatos do site. Vazio, o aviso vai para os Super Admins.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-3 sm:flex-row sm:items-end">
+        <div className="flex-1 space-y-1">
+          <Label htmlFor="email-comercial" className="text-xs">
+            E-mail do comercial
+          </Label>
+          <Input id="email-comercial" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+        </div>
+        <Button size="sm" onClick={() => salvar.mutate(email.trim())} disabled={salvar.isPending}>
+          {salvar.isPending ? "Salvando..." : "Salvar"}
+        </Button>
+      </CardContent>
+    </Card>
+  );
+}

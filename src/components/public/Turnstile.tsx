@@ -39,7 +39,15 @@ function carregarTurnstile(): Promise<TurnstileApi> {
   return carregando;
 }
 
-export function Turnstile({ siteKey, onToken }: { siteKey: string; onToken: (token: string | null) => void }) {
+export function Turnstile({
+  siteKey,
+  onToken,
+  tema = "auto",
+}: {
+  siteKey: string;
+  onToken: (token: string | null) => void;
+  tema?: "auto" | "light" | "dark";
+}) {
   const alvo = useRef<HTMLDivElement>(null);
   const aoToken = useRef(onToken);
   aoToken.current = onToken;
@@ -53,6 +61,7 @@ export function Turnstile({ siteKey, onToken }: { siteKey: string; onToken: (tok
         widgetId = api.render(alvo.current, {
           sitekey: siteKey,
           language: "pt-br",
+          theme: tema,
           callback: (token: string) => aoToken.current(token),
           "expired-callback": () => aoToken.current(null),
           "error-callback": () => aoToken.current(null),
@@ -63,7 +72,7 @@ export function Turnstile({ siteKey, onToken }: { siteKey: string; onToken: (tok
       cancelado = true;
       if (widgetId && window.turnstile) window.turnstile.remove(widgetId);
     };
-  }, [siteKey]);
+  }, [siteKey, tema]);
 
   return <div ref={alvo} className="flex justify-center min-h-[65px]" />;
 }

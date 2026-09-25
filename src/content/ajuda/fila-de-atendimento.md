@@ -1,5 +1,7 @@
 A tela [Atendimento (Fila)](/admin) é a central de pendências do dia. Cada acontecimento que pede ação da equipe vira uma **tarefa**, com responsável, prazo e prioridade. Ninguém precisa lembrar de olhar cada aluno: a fila mostra quem precisa de atenção.
 
+![A fila: prioridade, prazo e as ações de cada tarefa.](/ajuda/telas/fila.jpg)
+
 ## De onde vêm as tarefas
 
 A maioria nasce sozinha:

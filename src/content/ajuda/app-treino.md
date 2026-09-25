@@ -1,5 +1,7 @@
 O seu treino fica em **Treino**, no menu.
 
+![O treino do dia, com cada série.](/ajuda/telas/app-treino.jpg)
+
 ## Escolher o treino do dia
 
 Se a ficha tem mais de uma divisão (Treino A, Treino B…), escolha a de hoje. Se você já treinou hoje, o app abre na divisão que você fez.

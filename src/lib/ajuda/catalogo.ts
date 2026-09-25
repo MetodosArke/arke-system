@@ -428,6 +428,14 @@ export const ARTIGOS: ArtigoAjuda[] = [
     publicos: ["arkefit"],
   },
   {
+    slug: "vm-contatos",
+    titulo: "Contatos do site",
+    resumo: "Os pedidos de demonstração da página de vendas: situação, anotações e o e-mail do comercial.",
+    secao: "Visão Master",
+    publicos: ["arkefit"],
+    rotas: ["/superadmin/contatos"],
+  },
+  {
     slug: "vm-configuracoes",
     titulo: "Configurações, acervo, profissionais e auditoria",
     resumo: "Taxas, preços B2B, textos da plataforma, acervo global e o registro de ações sensíveis.",

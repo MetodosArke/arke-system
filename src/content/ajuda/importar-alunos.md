@@ -1,5 +1,7 @@
 Para trazer a base de alunos do sistema anterior, exporte uma planilha de lá e importe em [Importar Alunos em Massa](/admin/alunos/importar). O botão fica em **Alunos & Prescrições → Importar em massa**.
 
+![A importação: escolha o arquivo e confira de qual coluna vem cada campo.](/ajuda/telas/importar.jpg)
+
 ## Antes de começar
 
 - O arquivo pode ser **.csv** ou **.xlsx**, com até **5 MB** e **2.000 linhas**. Base maior: divida em mais de um arquivo.

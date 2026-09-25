@@ -1,5 +1,7 @@
 O [Vigia](/superadmin/vigia) cuida da saúde técnica da plataforma: Gateways de catraca, rotinas agendadas, conferência com o Asaas, avisos de pagamento e capacidade do banco. Ele **não lê dado de aluno**.
 
+![O Vigia: o que espera aprovação, o que ele fez e as regras.](/ajuda/telas/vm-vigia.jpg)
+
 ## Como trabalha
 
 A cada 5 minutos, o Vigia confere a plataforma com as suas regras.

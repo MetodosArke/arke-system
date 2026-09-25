@@ -1,5 +1,7 @@
 Todo aluno matriculado e em dia usa o app da academia no **plano Free**. O **Método ARKE** é um acompanhamento a mais, que a academia pode oferecer.
 
+![No Método ARKE, o app começa pelo acolhimento M.A.P.A.®.](/ajuda/telas/app-acolhimento.jpg)
+
 ## O que vem no Free
 
 - seus treinos, calendário e rotina;

@@ -1,5 +1,7 @@
 ## Evolução
 
+![A evolução: só você vê as suas medidas.](/ajuda/telas/app-evolucao.jpg)
+
 Em **Evolução** você vê o histórico das suas avaliações físicas (peso, medidas, dobras) e as metas que a equipe combinou com você para a próxima avaliação. Meta atingida vale pontos; meta superada vale mais.
 
 A sua evolução é **só sua**. Ninguém vê o seu peso ou as suas medidas numa lista ao lado dos outros alunos: no ARKE não existe ranking de corpo.

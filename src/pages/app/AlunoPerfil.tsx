@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -134,6 +135,17 @@ export default function AlunoPerfil() {
           <CardContent className="space-y-3">
             <ConsentimentoSentinela alunoId={alunoId} organizationId={organization.id} noMetodo={metodoArkeAtivo} />
             <ConsentimentoBiometria alunoId={alunoId} organizationId={organization.id} />
+            <p className="text-xs text-muted-foreground">
+              Como a academia e o ARKE tratam os seus dados:{" "}
+              <Link to="/app/ajuda/app-privacidade" className="text-primary underline underline-offset-2">
+                resumo em linguagem simples
+              </Link>{" "}
+              e a{" "}
+              <Link to="/privacidade" className="text-primary underline underline-offset-2">
+                Política de Privacidade
+              </Link>
+              .
+            </p>
           </CardContent>
         </Card>
       )}

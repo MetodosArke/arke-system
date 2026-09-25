@@ -1,5 +1,7 @@
 [Mentoria](/superadmin/mentoria) é a mesa de trabalho da célula de mentoria do Método ARKE. Três abas, três perguntas.
 
+![A aba Operação: prazo cumprido, fila e capacidade da célula.](/ajuda/telas/vm-mentoria.jpg)
+
 ## Chamados: quem saiu do trilho?
 
 Os chamados nascem sozinhos dos sensores do Método: aluno sem sinal há 5 dias ou mais (risco de evasão), ciclo da fase vencido sem constância, dor relatada, pedido de ajuste. Cada linha já traz o contexto para decidir sem abrir a ficha: fase, dias sem sinal, constância e nível.

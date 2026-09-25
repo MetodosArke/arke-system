@@ -1,5 +1,7 @@
 Em [Comunicados](/admin/comunicados) o gestor e a recepção avisam todo mundo de uma vez: feriado, horário especial, evento, manutenção.
 
+![Comunicados publicados e quantas pessoas leram.](/ajuda/telas/comunicados.jpg)
+
 ## Publicar
 
 1. Clique em **Novo comunicado**.

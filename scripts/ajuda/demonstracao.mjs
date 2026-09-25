@@ -63,6 +63,18 @@ function cpf(semente) {
   return n.join("");
 }
 
+// CNPJ válido pelo dígito verificador, sintético.
+function cnpj(semente) {
+  const n = String(10000000 + ((semente * 104729) % 89999999)).slice(0, 8).split("").map(Number).concat([0, 0, 0, 1]);
+  const dv = (base, pesos) => {
+    const s = base.reduce((a, d, i) => a + d * pesos[i], 0) % 11;
+    return s < 2 ? 0 : 11 - s;
+  };
+  n.push(dv(n, [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2]));
+  n.push(dv(n, [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2]));
+  return n.join("");
+}
+
 const EQUIPE = [
   { chave: "gestor", nome: "Carla Mendes", papel: "gestor" },
   { chave: "recepcao", nome: "Bruno Lima", papel: "recepcao" },
@@ -112,9 +124,10 @@ async function semear() {
     console.log("A academia de demonstração já existe; rode `limpar` antes para recriar.");
     return;
   }
-  const [org] = await sql(`insert into public.organizations (nome, slug, status, tipo, plano_b2b, onboarding_completed, onboarding_concluido_em,
-      cidade, uf, telefone, email_contato, razao_social, trial_vencimento)
-    values ('Academia Horizonte', ${q(SLUG)}, 'trial', 'academia', 'growth', true, now(),
+  const [org] = await sql(`insert into public.organizations (nome, slug, status, tipo, plano_b2b, onboarding_completed,
+      cnpj_cpf, tipo_empresa, cep, logradouro, numero, bairro, cidade, uf, telefone, email_contato, razao_social, trial_vencimento)
+    values ('Academia Horizonte', ${q(SLUG)}, 'trial', 'academia', 'growth', false,
+      ${q(cnpj(7))}, 'LIMITED', '01310-100', 'Avenida Paulista', '1000', 'Bela Vista',
       'São Paulo', 'SP', '(11) 3333-0000', 'contato@${DOMINIO}', 'Academia Horizonte (demonstração)', current_date + 30)
     returning id`);
   const ORG = org.id;
@@ -260,7 +273,7 @@ async function semear() {
   // Lançamentos manuais do mês.
   await sql(`insert into public.lancamentos_financeiros (organization_id, tipo, categoria, descricao, valor, data, vencimento, data_pagamento, status, registrado_por)
     select ${q(ORG)}, 'despesa', c, d, v, current_date - 5, current_date - 5, current_date - 5, 'pago', ${q(ids.gestor)}
-      from (values ('Ocupação', 'Aluguel', 8500::numeric), ('Utilidades', 'Energia elétrica', 1320::numeric), ('Manutenção', 'Manutenção de esteiras', 450::numeric)) as x(c, d, v)`);
+      from (values ('Limpeza', 'Material de limpeza', 380::numeric), ('Manutenção', 'Manutenção de esteiras', 450::numeric)) as x(c, d, v)`);
 
   // Aceite dos documentos vigentes, para as telas abrirem direto.
   const docs = await sql(`select distinct on (tipo) id, tipo from public.documentos_legais order by tipo, versao desc`);

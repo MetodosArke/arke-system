@@ -1,5 +1,7 @@
 A dieta é montada em [Prescrever Dietas](/admin/dietas), com duas abas: **Biblioteca de Modelos** e **Publicar para Aluno**. No plano Free, quem prescreve é a nutricionista da academia.
 
+![Prescrever Dietas: biblioteca de modelos e publicação para o aluno.](/ajuda/telas/dietas.jpg)
+
 ## Modelos
 
 Crie um modelo em **Novo modelo** e adicione as refeições. Para cada refeição:

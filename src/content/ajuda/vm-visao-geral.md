@@ -1,5 +1,7 @@
 A [Visão Geral](/superadmin) é a tela de abertura da Visão Master: a plataforma inteira num lugar só.
 
+![A Visão Geral da Visão Master.](/ajuda/telas/vm-visao-geral.jpg)
+
 ## A faixa vermelha
 
 No topo, uma faixa vermelha aparece quando algo precisa de ação: rotina agendada que falhou ou parou de rodar, assinatura órfã no Asaas (alguém sendo cobrado sem registro no ARKE), conferência com o Asaas com erro. Enquanto não houver faixa, não há incêndio.

@@ -1,5 +1,7 @@
 A prescrição fica em [Prescrever Treinos](/admin/treinos), com três abas: **Biblioteca de Modelos**, **Publicar para Aluno** e **Acervo de Exercícios**.
 
+![Prescrever Treinos: modelos, publicação e acervo em abas.](/ajuda/telas/treinos.jpg)
+
 ## Modelos
 
 Um modelo é uma ficha pronta para reaproveitar. Crie em **Novo modelo**, adicione os exercícios e salve. A academia já começa com alguns modelos prontos (adaptação, hipertrofia, metabólico) para ajustar.

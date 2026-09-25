@@ -47,7 +47,15 @@ const sql = async (q) => {
 const admin = (caminho, init = {}) =>
   fetch(`${URL}/auth/v1${caminho}`, { ...init, headers: { apikey: SERVICE, Authorization: `Bearer ${SERVICE}`, "Content-Type": "application/json", ...(init.headers ?? {}) } });
 
-const { sessoes } = JSON.parse(readFileSync(join(AQUI, ".sessoes.json"), "utf8"));
+// Uma sessão nova por tela: reaproveitar o mesmo refresh token em vários
+// navegadores esbarra na detecção de reuso do Auth e a tela abre deslogada.
+async function sessaoDemo(papel) {
+  const email = `${papel}@demo.arkefit.com.br`;
+  const g = await (await admin("/admin/generate_link", { method: "POST", body: JSON.stringify({ type: "magiclink", email }) })).json();
+  const v = await (await fetch(`${URL}/auth/v1/verify`, { method: "POST", headers: { apikey: ANON, "Content-Type": "application/json" }, body: JSON.stringify({ type: "magiclink", token_hash: g?.properties?.hashed_token ?? g?.hashed_token }) })).json();
+  if (!v.access_token) throw new Error(`sessão de ${email}: rode antes "demonstracao.mjs semear"`);
+  return v;
+}
 
 // ——— Super Admin temporário, com o fator TOTP cadastrado e verificado aqui ———
 function base32(s) {
@@ -125,7 +133,7 @@ const sa = aTirar.some((t) => t.papel === "superadmin") ? await superAdminTempor
 let falhas = 0;
 try {
   for (const t of aTirar) {
-    const sessao = t.papel === "superadmin" ? sa.sessao : sessoes[t.papel];
+    const sessao = t.papel === "superadmin" ? sa.sessao : await sessaoDemo(t.papel);
     const ctx = await browser.newContext({ viewport: t.tela ?? DESKTOP, deviceScaleFactor: t.tela === CELULAR ? 2 : 1, locale: "pt-BR", timezoneId: "America/Sao_Paulo", colorScheme: "light" });
     await ctx.addInitScript(([k, v]) => {
       try {
