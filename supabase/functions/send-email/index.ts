@@ -16,6 +16,21 @@ const hookSecret = (Deno.env.get('SEND_EMAIL_HOOK_SECRET') as string).replace('v
 const SITE_NAME = 'ArkeFit'
 const FROM = Deno.env.get('EMAIL_FROM') ?? 'ArkeFit <convites@arkefit.com.br>'
 
+// O Resend aceita 10 envios por segundo por conta. No dia do QR Code de
+// primeiro acesso a recepção enche, e um pico passa disso: sem nova
+// tentativa, o aluno ficava sem o link. Espera curta, porque o Auth dá
+// poucos segundos para o hook responder.
+const ESPERAS_MS = [400, 800, 1200]
+async function enviarComNovaTentativa(email: { from: string; to: string[]; subject: string; html: string }) {
+  for (let tentativa = 0; ; tentativa++) {
+    const { error } = await resend.emails.send(email)
+    if (!error) return
+    const limite = (error as { statusCode?: number; name?: string }).statusCode === 429 || error.name === 'rate_limit_exceeded'
+    if (!limite || tentativa >= ESPERAS_MS.length) throw error
+    await new Promise((r) => setTimeout(r, ESPERAS_MS[tentativa]))
+  }
+}
+
 type EmailActionType = 'signup' | 'invite' | 'magiclink' | 'recovery' | 'email_change' | 'reauthentication'
 
 type EmailData = {
@@ -125,8 +140,7 @@ Deno.serve(async (req: Request) => {
 
     const html = await renderAsync(element)
 
-    const { error } = await resend.emails.send({ from: FROM, to: [user.email], subject, html })
-    if (error) throw error
+    await enviarComNovaTentativa({ from: FROM, to: [user.email], subject, html })
   } catch (error) {
     console.error('Error sending auth email via send-email hook', error)
     return new Response(JSON.stringify({ error: { http_code: 500, message: 'Falha ao enviar e-mail.' } }), {

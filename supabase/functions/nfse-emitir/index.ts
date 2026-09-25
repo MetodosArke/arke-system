@@ -17,7 +17,13 @@ const jsonResponse = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
 
 const NOME = "nfse-emitir";
-const LOTE = 40;
+// Lote grande e orçamento de tempo, no desenho da conferência com o Asaas.
+// Com lote fixo de 40, e cada nota passando duas vezes pela fila (emitir e
+// acompanhar), saíam no máximo 240 por hora: 20 mil mensalidades concentradas
+// no dia de vencimento levariam dias. A linha só é reservada na hora de ser
+// tratada, então o que o orçamento não alcança fica para a rodada seguinte.
+const LOTE = 300;
+const ORCAMENTO_MS = 100_000;
 const MAX_TENTATIVAS = 5;
 
 // Nota fiscal automática da academia (cron `arke-emitir-notas`, de 10 em 10
@@ -276,6 +282,7 @@ Deno.serve(async (req: Request) => {
   const { data: valido } = token ? await admin.rpc("conferir_token_alerta_rotinas", { _token: token }) : { data: false };
   if (!valido) return jsonResponse({ error: "Não autorizado." }, 401);
 
+  const inicio = Date.now();
   try {
     const { data: fila, error } = await admin
       .from("notas_fiscais")
@@ -292,6 +299,10 @@ Deno.serve(async (req: Request) => {
     for (const l of (fila ?? []) as Linha[]) porAcademia.set(l.organization_id, [...(porAcademia.get(l.organization_id) ?? []), l]);
 
     for (const [orgId, linhas] of porAcademia) {
+      if (Date.now() - inicio > ORCAMENTO_MS) {
+        linhas.forEach(() => conta("para_a_proxima_rodada"));
+        continue;
+      }
       const ctx = await contextoDaAcademia(admin, orgId);
       if ("motivo" in ctx) {
         // Configuração pela metade não é erro da nota: ela espera, e a
@@ -303,6 +314,10 @@ Deno.serve(async (req: Request) => {
         continue;
       }
       for (const l of linhas) {
+        if (Date.now() - inicio > ORCAMENTO_MS) {
+          conta("para_a_proxima_rodada");
+          continue;
+        }
         if (!(await reservar(admin, l))) {
           conta("com_outra_rodada");
           continue;

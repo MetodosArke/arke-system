@@ -31,15 +31,17 @@ Os upgrades pagos (Supabase, Vercel e Resend) vêm antes do primeiro cliente pag
   - endereço do app: `https://app.arkefit.com.br`;
   - os e-mails do Auth saem pela função `send-email`, ligada no hook de e-mail;
   - SMTP de reserva: `smtp.resend.com`;
-  - verificação em duas etapas por aplicativo autenticador, obrigatória nas contas da ArkeFit.
+  - verificação em duas etapas por aplicativo autenticador, obrigatória nas contas da ArkeFit;
+  - **limite de e-mails do login: 500 por hora** no projeto inteiro. O padrão com SMTP próprio é 30, que uma importação de 400 alunos esgotava. Fica em Authentication → Rate Limits.
 - **Arquivos (Storage):** nove espaços.
   - Privados: `atestados`, `chat-videos`, `dietas`, `termos-biometria`.
   - Públicos: `avatars`, `email-assets`, `exercicio-imagens`, `exercicio-videos`, `feed-images`.
 - **Funções do servidor (Edge Functions):**
   - são 49, com o código em `supabase/functions/`;
   - quais respondem sem login está em `supabase/config.toml`;
+  - cada Gateway de catraca faz ~100 mil chamadas por mês (escuta longa de ordens). Com 50 academias com catraca, passa das 2 milhões incluídas no Pro, e o excedente custa poucos dólares por mês;
   - publicar: `supabase functions deploy <nome> --project-ref lzyxqjibkfblrrjboylp`.
-- **Rotinas agendadas (pg_cron):** 26. A situação de cada uma aparece em Visão Master → Webhooks, e uma rotina que falha manda e-mail aos Super Admins.
+- **Rotinas agendadas (pg_cron):** 27. A `arke-retencao-historicos` apaga o histórico do próprio cron depois de 30 dias e resume os avisos do Asaas depois de 90. A situação de cada uma aparece em Visão Master → Webhooks, e uma rotina que falha manda e-mail aos Super Admins.
 - **Cofre (Vault):**
   - quatro tokens que as rotinas usam para chamar as funções: `alerta_rotinas_token`, `briefing_semanal_token`, `lembrete_onboarding_token` e `reconciliacao_asaas_token`;
   - quando existirem, também moram aqui a chave da subconta Asaas de cada academia e as credenciais de Wellhub e TotalPass.

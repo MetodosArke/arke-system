@@ -53,7 +53,13 @@ export function CampoMidia({
       setEtapa("Enviando…");
       const bucket = tipo === "video" ? "exercicio-videos" : "exercicio-imagens";
       const caminho = caminhoDaMidia(pasta, arquivo.name);
-      const { error } = await supabase.storage.from(bucket).upload(caminho, arquivo, { contentType: arquivo.type, upsert: false });
+      // Nome único a cada envio e nunca sobrescrito: o navegador pode guardar
+      // por um ano. Com o cache padrão (1 hora), cada aluno baixaria o mesmo
+      // vídeo de novo a cada treino, e esse tráfego é o maior custo variável
+      // quando o acervo tiver mídia.
+      const { error } = await supabase.storage
+        .from(bucket)
+        .upload(caminho, arquivo, { contentType: arquivo.type, upsert: false, cacheControl: "31536000" });
       if (error) throw error;
       const { data } = supabase.storage.from(bucket).getPublicUrl(caminho);
       onChange(tipo === "video" ? { video_url: data.publicUrl } : { gif_url: data.publicUrl });
