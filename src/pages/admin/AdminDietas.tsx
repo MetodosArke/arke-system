@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { todasAsLinhas } from "@/lib/paginar";
 import { perfisDosUsuarios } from "@/lib/perfis";
+import { mensagemDeErroEdge } from "@/lib/erroEdge";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRascunho } from "@/hooks/useRascunho";
 import { chaveRascunho, descreverQuandoSalvou } from "@/lib/rascunho";
@@ -18,16 +19,48 @@ import { Combobox } from "@/components/ui/combobox";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { UtensilsCrossed, Plus, Trash2, FolderOpen, UserRound } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Checkbox } from "@/components/ui/checkbox";
+import { UtensilsCrossed, Plus, Trash2, FolderOpen, UserRound, FileUp, Loader2, TriangleAlert } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { formatarDataBR } from "@/lib/dataBrasilia";
+import type { Json } from "@/integrations/supabase/types";
 
-// A importação de dieta por PDF saiu em 24/09/2026: mandava o PDF (com o
-// nome e os dados de saúde do aluno) para o Google Gemini, fora do Brasil e
-// fora da Política de Privacidade, que declara a IA só no Brasil, só com
-// consentimento e só para as finalidades descritas. Voltar exige processar
-// em São Paulo e uma finalidade nova na Política; o código antigo está no
-// histórico do git.
+// Importação de dieta por PDF (voltou em 25/09/2026, agora no Brasil). O
+// texto do PDF é lido no navegador — o arquivo não sai do aparelho — e a
+// edge function importar-dieta-pdf monta as refeições com IA processada em
+// São Paulo (Amazon Bedrock). Cada item volta conferido contra o texto
+// original: o que não bate chega marcado "confira" para a nutricionista.
+interface ItemExtraidoPdf {
+  alimento: string;
+  quantidade: string;
+  substituicoes: string[];
+  conferir?: boolean;
+}
+
+interface RefeicaoExtraidaPdf {
+  nome: string;
+  horario: string | null;
+  itens: ItemExtraidoPdf[];
+}
+
+interface DietaExtraidaPdf {
+  titulo_dieta: string;
+  observacoes_gerais: string | null;
+  refeicoes: RefeicaoExtraidaPdf[];
+  itens_para_conferir?: number;
+}
+
+// O arquivo é lido no aparelho; o limite só evita travar o celular.
+const TAMANHO_MAXIMO_PDF_BYTES = 15_000_000;
+
+// Sem texto não há o que ler: PDF escaneado (imagem). Nem chama a leitura.
+const pdfSemTexto = (texto: string) => (texto.match(/[A-Za-zÀ-ÿ]/g) ?? []).length < 60;
+
+// Sem alimento, quantidade e substituições do jeito que o banco guarda.
+const itensParaSalvar = (itens: ItemExtraidoPdf[]) =>
+  itens.map(({ alimento, quantidade, substituicoes }) => ({ alimento, quantidade, substituicoes }));
+
 
 const STATUS_DIETA_LABEL: Record<string, string> = {
   ativo: "Ativo",
@@ -72,6 +105,13 @@ export default function AdminDietas() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [refeicaoSalva]);
+  const [importarPdfAberto, setImportarPdfAberto] = useState(false);
+  const [dietaExtraida, setDietaExtraida] = useState<DietaExtraidaPdf | null>(null);
+  // "modelo": salva na Biblioteca para reaproveitar depois; "aluno": publica
+  // direto no prontuário do aluno já selecionado na aba "Publicar para
+  // Aluno", sem passar pela Biblioteca.
+  const [importarPdfModo, setImportarPdfModo] = useState<"modelo" | "aluno">("modelo");
+  const [conferiuItens, setConferiuItens] = useState(false);
 
   const { data: bibliotecaAlimentos = [] } = useQuery({
     queryKey: ["alimentos-biblioteca"],
@@ -106,6 +146,32 @@ export default function AdminDietas() {
   const [tituloPublicar, setTituloPublicar] = useState("");
   const [modeloCarregadoId, setModeloCarregadoId] = useState<string | null>(null);
   const [perfilAberto, setPerfilAberto] = useState(false);
+
+  // Rascunho da extração de PDF.
+  //
+  // É o conteúdo mais caro da tela: custou uma leitura por IA e uma
+  // revisão item a item. E até aqui ele era descartado por um clique —
+  // fechar o diálogo fazia `setDietaExtraida(null)`, jogando fora a
+  // extração inteira sem perguntar. Agora ela espera na sessão de
+  // trabalho, e a pessoa decide se retoma ou descarta.
+  const rascunhoPdf = { dietaExtraida, novoModeloTitulo, importarPdfModo, alunoPublicar };
+  type RascunhoPdf = typeof rascunhoPdf;
+
+  const { rascunhoDisponivel: pdfSalvo, descartar: descartarRascunhoPdf } = useRascunho<RascunhoPdf>(
+    organization?.id ? chaveRascunho("dieta-pdf", organization.id) : null,
+    rascunhoPdf,
+    { ativo: !!dietaExtraida }
+  );
+
+  const restaurarPdf = () => {
+    const d = pdfSalvo?.dados;
+    if (!d?.dietaExtraida) return;
+    setDietaExtraida(d.dietaExtraida);
+    setNovoModeloTitulo(d.novoModeloTitulo ?? "");
+    setImportarPdfModo(d.importarPdfModo ?? "modelo");
+    if (d.alunoPublicar) setAlunoPublicar(d.alunoPublicar);
+    descartarRascunhoPdf();
+  };
 
 
   useEffect(() => {
@@ -280,6 +346,116 @@ export default function AdminDietas() {
   });
 
 
+  const importarDietaPdf = useMutation({
+    mutationFn: async (file: File) => {
+      if (file.size > TAMANHO_MAXIMO_PDF_BYTES) {
+        throw new Error("PDF muito grande (máximo 15 MB).");
+      }
+      let texto: string;
+      try {
+        const { extrairTextoDoPdf } = await import("@/lib/textoDoPdf");
+        texto = await extrairTextoDoPdf(file);
+      } catch {
+        throw new Error("Não foi possível abrir este PDF. Confira se ele não está protegido por senha ou corrompido.");
+      }
+      if (pdfSemTexto(texto)) {
+        throw new Error(
+          "Este PDF não tem texto para ler: provavelmente é uma imagem (digitalizado). Exporte o PDF direto do programa em que a dieta foi montada, ou digite a dieta."
+        );
+      }
+      const { data, error } = await supabase.functions.invoke<DietaExtraidaPdf>("importar-dieta-pdf", { body: { texto } });
+      if (error) throw new Error(await mensagemDeErroEdge(error, "Não foi possível ler o PDF da dieta."));
+      if (!data) throw new Error("A leitura voltou vazia. Tente de novo.");
+      return data;
+    },
+    onSuccess: (dieta) => {
+      setConferiuItens(false);
+      setDietaExtraida(dieta);
+      setNovoModeloTitulo(dieta.titulo_dieta || "Dieta importada de PDF");
+    },
+    onError: (error: Error) =>
+      toast({ title: "Não foi possível importar o PDF", description: error.message, variant: "destructive" }),
+  });
+
+  const confirmarImportacaoPdf = useMutation({
+    mutationFn: async () => {
+      if (!organization) throw new Error("Organização não encontrada");
+      if (!dietaExtraida || dietaExtraida.refeicoes.length === 0) throw new Error("Nada para importar");
+      const titulo = novoModeloTitulo.trim() || dietaExtraida.titulo_dieta || "Dieta importada de PDF";
+
+      if (importarPdfModo === "aluno") {
+        if (!alunoPublicar) throw new Error("Selecione o aluno antes de importar.");
+        const snapshot = dietaExtraida.refeicoes.map((r, index) => ({
+          ordem: index + 1,
+          nome_refeicao: r.nome || `Refeição ${index + 1}`,
+          horario_sugerido: r.horario || null,
+          itens: r.itens.map((i) => `${i.alimento} — ${i.quantidade}`).join("\n") || null,
+          itens_estruturados: itensParaSalvar(r.itens),
+          calorias_kcal: null,
+          proteinas_g: null,
+          carboidratos_g: null,
+          gorduras_g: null,
+        }));
+        const { error } = await supabase.from("dietas").insert({
+          organization_id: organization.id,
+          aluno_id: alunoPublicar,
+          titulo,
+          snapshot_conteudo: snapshot as unknown as Json,
+          observacoes_gerais: dietaExtraida.observacoes_gerais || null,
+        });
+        if (error) throw error;
+        return null;
+      }
+
+      const { data: modelo, error: modeloError } = await supabase
+        .from("modelos_dieta")
+        .insert({
+          organization_id: organization.id,
+          titulo,
+          observacoes: dietaExtraida.observacoes_gerais || null,
+        })
+        .select("id")
+        .single();
+      if (modeloError) throw modeloError;
+      const { error: refeicoesError } = await supabase.from("modelo_dieta_refeicoes").insert(
+        dietaExtraida.refeicoes.map((r, index) => ({
+          modelo_id: modelo.id,
+          ordem: index + 1,
+          nome_refeicao: r.nome || `Refeição ${index + 1}`,
+          horario_sugerido: r.horario || null,
+          itens: r.itens.map((i) => `${i.alimento} — ${i.quantidade}`).join("\n") || null,
+          itens_estruturados: itensParaSalvar(r.itens) as unknown as Json,
+        }))
+      );
+      if (refeicoesError) throw refeicoesError;
+      return modelo.id;
+    },
+    onSuccess: (id) => {
+      setNovoModeloTitulo("");
+      setDietaExtraida(null);
+      // Importada de verdade: o rascunho perdeu a razão de existir e não
+      // pode ficar oferecendo restaurar o que já virou dieta.
+      descartarRascunhoPdf();
+      setImportarPdfAberto(false);
+      if (importarPdfModo === "aluno") {
+        toast({ title: "Dieta publicada!", description: "O PDF foi importado e já está disponível para o aluno." });
+        void queryClient.invalidateQueries({ queryKey: ["dietas-historico", alunoPublicar] });
+        navigate("/admin");
+        return;
+      }
+      toast({ title: "Modelo importado!", description: "Revise as refeições e ajuste o que for preciso antes de publicar." });
+      setModeloSelecionado(id);
+      void queryClient.invalidateQueries({ queryKey: ["modelos-dieta", organization?.id] });
+    },
+    onError: (error: Error) =>
+      toast({
+        title: importarPdfModo === "aluno" ? "Erro ao publicar dieta" : "Erro ao salvar modelo importado",
+        description: error.message,
+        variant: "destructive",
+      }),
+  });
+
+
   const removerRefeicao = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase.from("modelo_dieta_refeicoes").delete().eq("id", id);
@@ -332,6 +508,15 @@ export default function AdminDietas() {
               <Input placeholder="Título do modelo" value={novoModeloTitulo} onChange={(e) => setNovoModeloTitulo(e.target.value)} />
               <Button disabled={!novoModeloTitulo.trim() || criarModelo.isPending} onClick={() => criarModelo.mutate()}>
                 <Plus className="h-4 w-4 mr-1" /> Criar
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setImportarPdfModo("modelo");
+                  setImportarPdfAberto(true);
+                }}
+              >
+                <FileUp className="h-4 w-4 mr-1" /> Importar de PDF
               </Button>
             </CardContent>
           </Card>
@@ -519,6 +704,24 @@ export default function AdminDietas() {
               </div>
 
 
+              <div className="pt-1">
+                <p className="text-xs text-muted-foreground mb-1.5">
+                  Ou pule o modelo e publique um PDF direto para este aluno:
+                </p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={!alunoPublicar}
+                  onClick={() => {
+                    setImportarPdfModo("aluno");
+                    setImportarPdfAberto(true);
+                  }}
+                >
+                  <FileUp className="h-4 w-4 mr-1" /> Importar de PDF para este aluno
+                </Button>
+              </div>
+
               {modeloCarregadoId && (
                 <div className="space-y-1.5 pt-1 border-t border-border">
                   <p className="text-xs font-semibold text-muted-foreground pt-2">Ficha carregada</p>
@@ -642,6 +845,178 @@ export default function AdminDietas() {
           </div>
         </SheetContent>
       </Sheet>
+
+      <Dialog
+        open={importarPdfAberto}
+        onOpenChange={(open) => {
+          setImportarPdfAberto(open);
+          // Antes, fechar o diálogo descartava a extração inteira sem
+          // perguntar. Ela agora fica no rascunho da sessão, e reabrir
+          // oferece retomar.
+          if (!open) setDietaExtraida(null);
+        }}
+      >
+        <DialogContent
+          className="max-w-lg"
+          onPointerDownOutside={(e) => e.preventDefault()}
+          onInteractOutside={(e) => e.preventDefault()}
+        >
+          <DialogHeader>
+            <DialogTitle>
+              {importarPdfModo === "aluno" ? "Importar PDF direto para o aluno" : "Importar dieta de PDF"}
+            </DialogTitle>
+          </DialogHeader>
+
+          {!dietaExtraida && pdfSalvo?.dados?.dietaExtraida && (
+            // Retomar custa um clique; refazer custa outra extração paga e
+            // outra revisão item a item.
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-amber-500/40 bg-amber-500/5 p-3">
+              <p className="text-xs">
+                Há uma extração não finalizada desta sessão ({descreverQuandoSalvou(pdfSalvo.salvoEm)}):{" "}
+                <span className="font-medium">
+                  {pdfSalvo.dados.dietaExtraida.refeicoes?.length ?? 0} refeição(ões)
+                </span>
+                .
+              </p>
+              <div className="flex gap-2">
+                <Button size="sm" variant="outline" onClick={restaurarPdf}>
+                  Retomar
+                </Button>
+                <Button size="sm" variant="ghost" onClick={descartarRascunhoPdf}>
+                  Descartar
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {!dietaExtraida ? (
+            <div className="space-y-3">
+              <p className="text-sm text-muted-foreground">
+                {importarPdfModo === "aluno"
+                  ? "Envie o PDF do plano alimentar. Depois da revisão, ele é publicado direto no prontuário do aluno selecionado, sem passar pela Biblioteca de Modelos."
+                  : "Envie o PDF do plano alimentar, de outro programa ou digitado. As refeições vão para a Biblioteca, onde você ajusta o que precisar."}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                O texto do PDF é lido neste aparelho, e só ele segue para a leitura por inteligência artificial, processada no Brasil. O arquivo não é enviado, e as linhas de identificação, como o nome do paciente, saem antes. Revise sempre: nada é salvo sem você.
+              </p>
+              <Input
+                type="file"
+                accept="application/pdf,.pdf"
+                disabled={importarDietaPdf.isPending}
+                onChange={(e) => {
+                  const input = e.target;
+                  const file = input.files?.[0];
+                  if (!file) return;
+                  // Só zera o input depois que a leitura terminar: em alguns
+                  // navegadores Android, limpar o value com o arquivo ainda
+                  // sendo lido invalida a referência e a leitura falha.
+                  importarDietaPdf.mutate(file, {
+                    onSettled: () => {
+                      input.value = "";
+                    },
+                  });
+                }}
+              />
+              {importarDietaPdf.isPending && (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Loader2 className="h-4 w-4 animate-spin" /> Lendo o PDF e montando as refeições…
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <div className="space-y-1.5">
+                <Label>{importarPdfModo === "aluno" ? "Título da dieta" : "Título do modelo"}</Label>
+                <Input
+                  placeholder="Ex.: Plano importado — Fase 1"
+                  value={novoModeloTitulo}
+                  onChange={(e) => setNovoModeloTitulo(e.target.value)}
+                />
+              </div>
+              {dietaExtraida.observacoes_gerais && (
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">Observações gerais</Label>
+                  <p className="text-sm whitespace-pre-line rounded-md border border-border p-2 bg-muted/30">
+                    {dietaExtraida.observacoes_gerais}
+                  </p>
+                </div>
+              )}
+              {(dietaExtraida.itens_para_conferir ?? 0) > 0 && (
+                <div className="flex gap-2 rounded-lg border border-warning/40 bg-warning/5 p-3 text-xs">
+                  <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0 text-warning" aria-hidden />
+                  <p>
+                    {dietaExtraida.itens_para_conferir === 1
+                      ? "1 item não aparece do mesmo jeito no PDF."
+                      : `${dietaExtraida.itens_para_conferir} itens não aparecem do mesmo jeito no PDF.`}{" "}
+                    Estão marcados com <span className="font-semibold">confira</span>: compare com o original antes de salvar.
+                  </p>
+                </div>
+              )}
+              <p className="text-xs text-muted-foreground">
+                {dietaExtraida.refeicoes.length} refeiç{dietaExtraida.refeicoes.length === 1 ? "ão encontrada" : "ões encontradas"}.{" "}
+                {importarPdfModo === "aluno"
+                  ? "Revise antes de publicar — a dieta publicada é uma versão travada (snapshot), não editável depois."
+                  : "Revise antes de salvar — você poderá editar cada refeição depois na Biblioteca."}
+              </p>
+              <div className="max-h-72 overflow-y-auto rounded-md border border-border divide-y divide-border">
+                {dietaExtraida.refeicoes.map((r, i) => (
+                  <div key={i} className="p-2.5 text-sm">
+                    <div className="flex items-center justify-between">
+                      <p className="font-medium">{r.nome}</p>
+                      {r.horario && <span className="text-xs text-muted-foreground">{r.horario}</span>}
+                    </div>
+                    <ul className="mt-1 space-y-1">
+                      {r.itens.map((item, j) => (
+                        <li key={j} className="text-xs text-muted-foreground">
+                          {item.conferir && (
+                            <Badge variant="outline" className="mr-1.5 border-warning/50 px-1 py-0 text-[10px] font-semibold text-warning">
+                              confira
+                            </Badge>
+                          )}
+                          {item.alimento} — {item.quantidade}
+                          {item.substituicoes.length > 0 && (
+                            <span className="italic"> (substituições: {item.substituicoes.join(", ")})</span>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {dietaExtraida && importarPdfModo === "aluno" && (dietaExtraida.itens_para_conferir ?? 0) > 0 && (
+            // A dieta publicada é um snapshot travado: item errado chegaria ao aluno sem volta.
+            <label className="flex items-start gap-2 text-xs">
+              <Checkbox checked={conferiuItens} onCheckedChange={(v) => setConferiuItens(v === true)} className="mt-0.5" />
+              Conferi com o PDF original os itens marcados com "confira".
+            </label>
+          )}
+
+          <DialogFooter>
+            {dietaExtraida && (
+              <Button variant="outline" onClick={() => setDietaExtraida(null)}>
+                Voltar
+              </Button>
+            )}
+            <Button
+              disabled={
+                !dietaExtraida ||
+                confirmarImportacaoPdf.isPending ||
+                (importarPdfModo === "aluno" && (dietaExtraida.itens_para_conferir ?? 0) > 0 && !conferiuItens)
+              }
+              onClick={() => confirmarImportacaoPdf.mutate()}
+            >
+              {confirmarImportacaoPdf.isPending
+                ? "Salvando..."
+                : importarPdfModo === "aluno"
+                  ? "Publicar para o aluno"
+                  : "Salvar modelo"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
     </div>
   );

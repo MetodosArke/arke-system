@@ -28,4 +28,17 @@ No app, o aluno vê as refeições do dia e marca **Sim** ou **Não** para cada 
 
 Se a academia tem nutricionista ativa na equipe, os alunos do Free conversam com ela pelo chat de nutrição. Sem nutricionista, o chat de nutrição apresenta o Método ARKE, que inclui a nutricionista da ArkeFit.
 
-> A importação de dieta a partir de PDF foi retirada em 24/09/2026: ela mandava o arquivo para um serviço de inteligência artificial fora do Brasil, o que a Política de Privacidade não permite.
+## Importar uma dieta em PDF
+
+Se a dieta já está pronta num PDF, de outro programa ou digitada, não precisa redigitar:
+
+- **Importar de PDF**, ao lado de **Criar**, transforma o PDF num modelo da biblioteca, que você ajusta depois;
+- **Importar de PDF para este aluno**, na aba **Publicar para Aluno**, publica direto no aluno escolhido, depois da sua revisão.
+
+O ARKE lê o texto do PDF e monta as refeições, os horários, as quantidades e as substituições. Revise tudo antes de salvar: **nada é salvo sem você**.
+
+- **O que não bate com o PDF vem marcado "confira".** Cada item é comparado com o texto original; se o alimento, a quantidade ou uma substituição não aparece do mesmo jeito no PDF, o item chega marcado. Na publicação direto para o aluno, que fica travada, o botão só libera depois de você marcar que conferiu esses itens.
+- **Se a leitura não bater com o PDF, ela é descartada**, para não criar uma dieta que não é a sua.
+- **PDF escaneado (foto do papel) não é lido**: ele não tem texto, só imagem. Exporte o PDF direto do programa em que a dieta foi montada, ou digite a dieta.
+
+> O arquivo não sai do seu aparelho: o texto é lido no navegador, e só ele segue para a leitura por inteligência artificial, processada no Brasil. As linhas de identificação, como o nome do paciente, saem antes do envio.
