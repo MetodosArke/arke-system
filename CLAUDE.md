@@ -1059,7 +1059,7 @@ A página de vendas (`src/pages/public/Landing.tsx`) mora na **raiz de arkefit.c
 
 **Fundadores, telas reais e fotos (25/09/2026).** Pedido do responsável, para a página ter mais imagem e menos texto:
 
-- **Fundadores:** Jean (CEO e fundador) e André (CTO e fundador), com as fotos que o responsável mandou prontas (`public/site/fundadores/`). A seção vem antes das perguntas.
+- **Fundadores:** Jean Ramos (CEO e fundador) e André Aquino (CTO e fundador), com as fotos que o responsável mandou prontas (`public/site/fundadores/`), recortadas em moldura redonda no rosto e na camiseta. A pedido dele: assim o fundo aparece pouco e a foto não fica com cara de edição por IA. A seção vem antes das perguntas.
 - **Por dentro:** telas reais da academia de demonstração da Central de Ajuda (`public/site/telas/`, cópias de `public/ajuda/telas/`): a fila da academia e o app do aluno, os mesmos dois lados da jornada. A página avisa que os nomes são inventados. No celular o app vem primeiro, porque ali a tela do painel fica pequena demais para ler. Quando as telas da Central forem tiradas de novo, estas acompanham.
 - **Duas fotos do Unsplash**, sob a licença do Unsplash (uso comercial sem pedir permissão e sem crédito obrigatório): uma faixa depois dos números e o fundo do contato. As duas foram escolhidas sem rosto e sem marca visível, porque não podem parecer clientes da ArkeFit, e a página não tem depoimento. Autor e endereço de cada uma ficam num comentário em `Landing.tsx`.
 
