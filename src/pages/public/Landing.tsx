@@ -400,6 +400,39 @@ function Numeros() {
   );
 }
 
+// ——— Fotos da página ———
+//
+// As fotos de academia são do Unsplash, licença do Unsplash (uso comercial
+// livre, sem pedir permissão e sem crédito obrigatório). Foram escolhidas sem
+// rosto e sem marca visível: não podem parecer clientes da ArkeFit, e a
+// página não tem depoimento.
+//   academia-halteres.webp — Rick Barrett (Ambitious Studio), unsplash.com/photos/1RNQ11ZODJM
+//   academia-ambar.webp    — Mohamed Fareed, unsplash.com/photos/rbSNsoXk-3A (recorte sem o cartaz nem a marca do aparelho)
+
+function FaixaAcademia() {
+  return (
+    <section aria-label="Uma academia de verdade" className="relative isolate overflow-hidden">
+      <img
+        src="/site/fotos/academia-halteres.webp"
+        alt=""
+        width={2000}
+        height={1334}
+        loading="lazy"
+        decoding="async"
+        className="absolute inset-0 -z-20 h-full w-full object-cover"
+      />
+      <div className="absolute inset-0 -z-10 bg-gradient-to-b from-background via-background/55 to-background" aria-hidden />
+      <div className="mx-auto max-w-6xl px-4 py-28 sm:px-6 sm:py-40">
+        <Aparecer>
+          <p className="lp-display max-w-2xl text-3xl font-bold leading-tight text-foreground sm:text-5xl">
+            Todo mês, alguns alunos começam a parar. <span className="lp-gradiente">O ArkeFit mostra quem são.</span>
+          </p>
+        </Aparecer>
+      </div>
+    </section>
+  );
+}
+
 // ——— Como funciona: os primeiros 90 dias de uma aluna ———
 
 type Cena = { icone: typeof UserX; texto: string; detalhe: string; tom: Evento["tom"] };
@@ -499,6 +532,71 @@ function Jornada() {
             <span className="text-muted-foreground">Exemplo ilustrativo, com uma aluna inventada.</span>
           </p>
         </Aparecer>
+      </div>
+    </section>
+  );
+}
+
+// ——— Telas reais ———
+
+/**
+ * Telas do sistema publicado, com a academia de demonstração da Central de
+ * Ajuda (nomes inventados). Mostram os dois lados da página: a fila da
+ * academia e o app do aluno. Quando as telas mudarem, a Central de Ajuda
+ * tira as imagens de novo e estas acompanham (public/site/telas).
+ */
+function PorDentro() {
+  return (
+    <section id="telas" className="scroll-mt-20 border-t border-white/5 py-24">
+      <div className="mx-auto max-w-6xl px-4 sm:px-6">
+        <Aparecer>
+          <Selo>Por dentro</Selo>
+          <h2 className="mt-5 max-w-3xl text-3xl font-bold text-foreground sm:text-4xl">
+            Telas reais do sistema. <span className="text-foreground/65">Sem maquete.</span>
+          </h2>
+        </Aparecer>
+        <div className="mt-12 grid items-end gap-10 lg:grid-cols-[minmax(0,1.75fr)_minmax(0,1fr)]">
+          <Aparecer className="order-2 lg:order-1">
+            <figure>
+              <div className="overflow-hidden rounded-2xl border border-white/10 bg-card shadow-[0_30px_80px_-30px_rgba(0,0,0,.9)]">
+                <div className="border-b border-white/10 px-4 py-2 text-xs font-medium text-muted-foreground">Painel da academia</div>
+                <img
+                  src="/site/telas/fila.webp"
+                  width={1280}
+                  height={800}
+                  loading="lazy"
+                  decoding="async"
+                  alt="Tela Minha Fila do painel da academia: tarefas de dor relatada, mensalidade vencida e aluno que ainda não entrou no app, cada uma com prioridade e prazo"
+                  className="block h-auto w-full"
+                />
+              </div>
+              <figcaption className="mt-4 text-sm text-foreground/65">
+                <span className="font-semibold text-foreground">Minha Fila.</span> Cada sinal vira tarefa com prioridade e prazo, e só fecha com o
+                desfecho escrito.
+              </figcaption>
+            </figure>
+          </Aparecer>
+          {/* No celular o app vem primeiro: ali a tela do painel fica pequena demais para ler. */}
+          <Aparecer atraso={0.1} className="order-1 lg:order-2">
+            <figure className="mx-auto w-full max-w-[280px]">
+              <div className="rounded-[2.2rem] border border-white/15 bg-black p-2.5 shadow-[0_30px_80px_-30px_rgba(0,0,0,.9),0_0_40px_hsl(var(--primary)/.08)]">
+                <img
+                  src="/site/telas/app-home.webp"
+                  width={780}
+                  height={1560}
+                  loading="lazy"
+                  decoding="async"
+                  alt="Tela inicial do app do aluno, com a próxima ação em destaque: abrir o treino de hoje"
+                  className="block h-auto w-full rounded-[1.75rem]"
+                />
+              </div>
+              <figcaption className="mt-4 text-sm text-foreground/65">
+                <span className="font-semibold text-foreground">App do aluno.</span> A próxima ação vem primeiro.
+              </figcaption>
+            </figure>
+          </Aparecer>
+        </div>
+        <p className="mt-10 text-sm text-muted-foreground">Telas da academia de demonstração, com nomes inventados.</p>
       </div>
     </section>
   );
@@ -649,6 +747,50 @@ function Implantacao() {
   );
 }
 
+// ——— Fundadores ———
+
+const FUNDADORES = [
+  { nome: "Jean", cargo: "CEO e fundador", foto: "/site/fundadores/jean.webp", largura: 507, altura: 731 },
+  { nome: "André", cargo: "CTO e fundador", foto: "/site/fundadores/andre.webp", largura: 504, altura: 711 },
+];
+
+function Fundadores() {
+  return (
+    <section id="fundadores" className="scroll-mt-20 py-24">
+      <div className="mx-auto max-w-6xl px-4 sm:px-6">
+        <Aparecer className="text-center">
+          <Selo>Fundadores</Selo>
+          <h2 className="mt-5 text-3xl font-bold text-foreground sm:text-4xl">Quem está por trás da ArkeFit.</h2>
+        </Aparecer>
+        <div className="mx-auto mt-12 grid max-w-3xl grid-cols-2 gap-3 sm:gap-6">
+          {FUNDADORES.map((f, i) => (
+            <Aparecer key={f.nome} atraso={i * 0.08}>
+              <figure
+                onPointerMove={acompanharPonteiro}
+                className="lp-cartao overflow-hidden rounded-2xl border border-white/10 bg-white/[0.025] transition-colors hover:border-primary/30"
+              >
+                <img
+                  src={f.foto}
+                  width={f.largura}
+                  height={f.altura}
+                  loading="lazy"
+                  decoding="async"
+                  alt={`${f.nome}, ${f.cargo} da ArkeFit`}
+                  className="aspect-[4/5] h-auto w-full object-cover object-top"
+                />
+                <figcaption className="p-4 sm:p-5">
+                  <div className="lp-display text-lg font-bold text-foreground sm:text-xl">{f.nome}</div>
+                  <div className="text-sm text-primary">{f.cargo}</div>
+                </figcaption>
+              </figure>
+            </Aparecer>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
 // ——— Perguntas ———
 
 const PERGUNTAS: [string, string][] = [
@@ -742,7 +884,17 @@ function Contato() {
   };
 
   return (
-    <section id="contato" className="scroll-mt-20 border-t border-white/5 bg-card/60 py-24">
+    <section id="contato" className="relative isolate scroll-mt-20 overflow-hidden border-t border-white/5 py-24">
+      <img
+        src="/site/fotos/academia-ambar.webp"
+        alt=""
+        width={1800}
+        height={1120}
+        loading="lazy"
+        decoding="async"
+        className="absolute inset-0 -z-20 h-full w-full object-cover opacity-50"
+      />
+      <div className="absolute inset-0 -z-10 bg-gradient-to-r from-background via-background/85 to-background/55" aria-hidden />
       <div className="mx-auto grid max-w-6xl gap-12 px-4 sm:px-6 lg:grid-cols-[1fr_1.1fr]">
         <Aparecer>
           <Selo>Demonstração</Selo>
@@ -896,10 +1048,13 @@ export default function Landing() {
       <main>
         <Hero />
         <Numeros />
+        <FaixaAcademia />
         <Jornada />
+        <PorDentro />
         <Recursos />
         <Metodo />
         <Implantacao />
+        <Fundadores />
         <Perguntas />
         <Contato />
       </main>
