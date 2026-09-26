@@ -749,9 +749,11 @@ function Implantacao() {
 
 // ——— Fundadores ———
 
+// Moldura redonda, recortada no rosto e na camiseta: o fundo do escritório
+// aparece pouco, e a foto não fica com cara de montagem.
 const FUNDADORES = [
-  { nome: "Jean", cargo: "CEO e fundador", foto: "/site/fundadores/jean.webp", largura: 507, altura: 731 },
-  { nome: "André", cargo: "CTO e fundador", foto: "/site/fundadores/andre.webp", largura: 504, altura: 711 },
+  { nome: "Jean Ramos", cargo: "CEO e fundador", foto: "/site/fundadores/jean.webp" },
+  { nome: "André Aquino", cargo: "CTO e fundador", foto: "/site/fundadores/andre.webp" },
 ];
 
 function Fundadores() {
@@ -762,25 +764,24 @@ function Fundadores() {
           <Selo>Fundadores</Selo>
           <h2 className="mt-5 text-3xl font-bold text-foreground sm:text-4xl">Quem está por trás da ArkeFit.</h2>
         </Aparecer>
-        <div className="mx-auto mt-12 grid max-w-3xl grid-cols-2 gap-3 sm:gap-6">
+        <div className="mx-auto mt-12 grid max-w-2xl grid-cols-2 gap-6 sm:gap-10">
           {FUNDADORES.map((f, i) => (
             <Aparecer key={f.nome} atraso={i * 0.08}>
-              <figure
-                onPointerMove={acompanharPonteiro}
-                className="lp-cartao overflow-hidden rounded-2xl border border-white/10 bg-white/[0.025] transition-colors hover:border-primary/30"
-              >
-                <img
-                  src={f.foto}
-                  width={f.largura}
-                  height={f.altura}
-                  loading="lazy"
-                  decoding="async"
-                  alt={`${f.nome}, ${f.cargo} da ArkeFit`}
-                  className="aspect-[4/5] h-auto w-full object-cover object-top"
-                />
-                <figcaption className="p-4 sm:p-5">
+              <figure className="flex flex-col items-center text-center">
+                <span className="rounded-full bg-gradient-to-b from-primary/70 via-primary/25 to-white/10 p-[3px] shadow-[0_0_40px_hsl(var(--primary)/.18)]">
+                  <img
+                    src={f.foto}
+                    width={480}
+                    height={480}
+                    loading="lazy"
+                    decoding="async"
+                    alt={`${f.nome}, ${f.cargo} da ArkeFit`}
+                    className="block h-32 w-32 rounded-full border-4 border-background object-cover sm:h-48 sm:w-48"
+                  />
+                </span>
+                <figcaption className="mt-5">
                   <div className="lp-display text-lg font-bold text-foreground sm:text-xl">{f.nome}</div>
-                  <div className="text-sm text-primary">{f.cargo}</div>
+                  <div className="mt-0.5 text-sm text-primary">{f.cargo}</div>
                 </figcaption>
               </figure>
             </Aparecer>
