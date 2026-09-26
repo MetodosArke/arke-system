@@ -615,6 +615,9 @@ const RECURSOS: [typeof Wallet, string, string][] = [
   [ShieldCheck, "LGPD levada a sério", "Dados em São Paulo e IA só com consentimento."],
 ];
 
+/** A faixa que corre no pé de Recursos: só parceiros e integrações, sem nome de concorrente. */
+const FAIXA_PARCEIROS = ["Asaas", "PIX, boleto e cartão", "Control iD", "Topdata", "Nota fiscal de serviço"];
+
 function Recursos() {
   return (
     <section id="recursos" className="scroll-mt-20 border-t border-white/5 bg-card/60 py-24">
@@ -641,10 +644,11 @@ function Recursos() {
         </div>
         <div className="relative mt-10 overflow-hidden" aria-hidden>
           <div className="lp-faixa flex w-max gap-10 whitespace-nowrap text-sm text-muted-foreground">
+            {/* Cada metade repete a lista duas vezes: com poucos itens, uma volta só não cobre a largura da tela e a faixa abriria um vão. */}
             {[0, 1].map((k) => (
               <div key={k} className="flex gap-10">
-                {["Asaas", "PIX, boleto e cartão", "Control iD", "Topdata", "EVO", "Tecnofit", "Next Fit", "Pacto", "Nota fiscal de serviço"].map((t) => (
-                  <span key={`${k}-${t}`} className="flex items-center gap-10">
+                {[...FAIXA_PARCEIROS, ...FAIXA_PARCEIROS].map((t, i) => (
+                  <span key={`${k}-${i}`} className="flex items-center gap-10">
                     {t}
                     <span className="h-1 w-1 rounded-full bg-border" />
                   </span>
