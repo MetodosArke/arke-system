@@ -13,7 +13,7 @@ Todos os serviços de que o ArkeFit depende, para que servem e onde fica a confi
 | **GitHub** | Código, testes a cada mudança e teste depois de cada publicação | Gratuito | Nada no ar para; só não sai versão nova |
 | **Registro.br** | Domínio `arkefit.com.br` e o DNS dele | Anuidade | Site, app e e-mails deixam de ser encontrados |
 | **Asaas** | Cobrança (cartão, PIX, boleto), divisão do pagamento entre ArkeFit e academia, nota fiscal da academia | Por transação | Ninguém paga; a conferência diária recupera o que se perder |
-| **Resend** | Todos os e-mails: convite, senha, alertas e resumo semanal | Gratuito | E-mails param; o app segue |
+| **Resend** | Todos os e-mails: convite, senha, alertas, resumo semanal e a resposta automática ao contato do site | Gratuito | E-mails param; o app segue |
 | **Amazon Web Services** (Bedrock) | IA: leitura de dieta em PDF, Sentinela e Vigia | Por uso | Os recursos de IA ficam "indisponível"; nada trava |
 | **Cloudflare** (Turnstile) | Captcha dos formulários públicos | Gratuito | Os formulários seguem funcionando, sem captcha |
 | **Sentry** | Avisa quando uma tela quebra no navegador de alguém | Gratuito | Nada para; perde-se o aviso |
@@ -37,11 +37,11 @@ Os upgrades pagos (Supabase, Vercel e Resend) vêm antes do primeiro cliente pag
   - Privados: `atestados`, `chat-videos`, `dietas`, `termos-biometria`.
   - Públicos: `avatars`, `email-assets`, `exercicio-imagens`, `exercicio-videos`, `feed-images`.
 - **Funções do servidor (Edge Functions):**
-  - são 49, com o código em `supabase/functions/`;
+  - são 50, com o código em `supabase/functions/`;
   - quais respondem sem login está em `supabase/config.toml`;
   - cada Gateway de catraca faz ~100 mil chamadas por mês (escuta longa de ordens). Com 50 academias com catraca, passa das 2 milhões incluídas no Pro, e o excedente custa poucos dólares por mês;
   - publicar: `supabase functions deploy <nome> --project-ref lzyxqjibkfblrrjboylp`.
-- **Rotinas agendadas (pg_cron):** 27. A `arke-retencao-historicos` apaga o histórico do próprio cron depois de 30 dias e resume os avisos do Asaas depois de 90. A situação de cada uma aparece em Visão Master → Webhooks, e uma rotina que falha manda e-mail aos Super Admins.
+- **Rotinas agendadas (pg_cron):** 28. A `arke-agente-comercial` (de 5 em 5 minutos) é a resposta automática ao contato do site, e só envia com ela ligada em Visão Master → Contatos do site. A `arke-retencao-historicos` apaga o histórico do próprio cron depois de 30 dias e resume os avisos do Asaas depois de 90. A situação de cada uma aparece em Visão Master → Webhooks, e uma rotina que falha manda e-mail aos Super Admins.
 - **Cofre (Vault):**
   - quatro tokens que as rotinas usam para chamar as funções: `alerta_rotinas_token`, `briefing_semanal_token`, `lembrete_onboarding_token` e `reconciliacao_asaas_token`;
   - quando existirem, também moram aqui a chave da subconta Asaas de cada academia e as credenciais de Wellhub e TotalPass.

@@ -76,6 +76,8 @@ Prazo indeterminado, a partir do aceite. Qualquer das partes pode encerrá-lo co
 
 Cada parte responde pelos danos que causar. A ArkeFit não responde pelo conteúdo prescrito pela Academia, pela relação comercial entre Academia e aluno, nem por falhas de terceiros fora do seu controle, e a Academia não responde pelo conteúdo prescrito pela ArkeFit no Método ARKE. A responsabilidade total da ArkeFit por este Contrato fica limitada ao valor pago pela Academia nos 12 meses anteriores ao fato, salvo dolo ou culpa grave.
 
+A ArkeFit fornece a plataforma e, no Método ARKE, o acompanhamento contratado, mas **não garante resultado específico de retenção, evasão, receita ou adesão de alunos**, que dependem também da operação da Academia, do atendimento presencial e de fatores externos. Os indicadores mostrados na plataforma e nos materiais da ArkeFit são medições do período a que se referem, e não promessa de resultado futuro.
+
 ## 9. Disposições gerais
 
 O aceite eletrônico, registrado com data, hora, usuário e versão deste documento, é a manifestação de vontade da Academia. Alterações entram em vigor com o aceite da nova versão no painel. Fica eleito o foro da Comarca de **São Paulo/SP**.

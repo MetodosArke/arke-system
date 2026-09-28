@@ -567,6 +567,31 @@ O personal e a nutricionista que usam o ArkeFit como negócio próprio são o ge
 
 **Conferido:** 15 casos em transação revertida (etapas da configuração com CPF, personal não publica dieta, parceira nutricionista publica dieta e não treino, convite de e-mail sem conta devolve P0002, parceria encerrada tira o acesso, academia inalterada) e 22 verificações pela tela, com um personal e uma nutricionista temporários fazendo a parceria pelo painel, apagados no fim.
 
+## Resultado não é promessa (28/09/2026)
+
+Duas decisões do responsável, tomadas juntas porque tratam da mesma coisa:
+
+- **Números no site.** Só números de mercado com fonte citada, como já é hoje. Número próprio da ArkeFit entra com pelo menos 3 academias e 6 meses de uso, comparando antes e depois. Aparece como "observado", com período, número de academias e o método ao lado, e nunca como "garantido" ou "até X%". O número sai do banco, pela evasão de cada academia. A comparação antes e depois não separa o efeito do sistema do efeito de época do ano, e é por isso que o método vai escrito ao lado.
+- **Contrato 2026-09-28.2.** A cláusula 8 diz que a ArkeFit não garante resultado de retenção, evasão, receita ou adesão, e que indicador é medição do período, não promessa.
+
+A medida de retenção dos agentes é **antes e depois** (a evasão da academia nos 6 meses antes do ArkeFit contra os 6 meses com ele). O grupo de comparação, que deixaria alunos sem mensagem para medir, foi descartado pelo responsável.
+
+## Letícia: o agente comercial (semana 1 do plano dos agentes, 28/09/2026)
+
+O plano dos agentes, versão 3, está no workspace da ArkeFit. A ordem é esta: Letícia (comercial), Bruno (implantação) e Lucas (assistente), um por semana; Camila (retenção) e Financeiro vêm depois. Todos rodam sozinhos em rotina agendada, menos o Lucas, que responde quando alguém pergunta.
+
+A Letícia responde o contato da página de vendas por e-mail em minutos e leva à demonstração com o Jean. **O objetivo é vender a reunião, não o plano.** Migration `20261298010000_agente_comercial.sql`, edge function `agente-comercial`, rotina `arke-agente-comercial` de 5 em 5 minutos, com o token do alerta de rotinas.
+
+- **O e-mail é texto nosso; a IA escreve só o espelho.** O que a ArkeFit faz (um texto por assunto: evasão, inadimplência, catraca, atendimento, troca de sistema), o convite e o link da agenda são fixos, em `fluxo.ts`. A IA, o Claude 3 Haiku em São Paulo pela mesma porta do Sentinela, escreve uma ou duas frases sobre o que a academia contou. `espelhoAceito` recusa número, "R$", "%", pergunta, link, preço, plano, promessa, solução e qualquer menção à ArkeFit. Recusado ou fora do ar, o e-mail sai sem o espelho. É a regra "nenhuma IA escreve número" em forma de código. No teste real, a mensagem que só pedia preço saiu sem espelho, como deve, e a de inadimplência também saiu sem ele.
+- **Ao modelo vão só a mensagem, a faixa de alunos e o sistema atual**, com e-mails e telefones digitados na mensagem trocados por marcadores (`tirarContatos`). Nome, e-mail e telefone do formulário não vão.
+- **Quando sai.** A primeira sai na hora, de dia ou de noite, só para contatos criados depois de ela ser ligada e há menos de 24 h; assim, ligá-la não dispara e-mail para quem já foi atendido por gente. Os lembretes saem no 2º e no 5º dia depois da primeira, só em dia útil, das 9h às 19h de Brasília. A regra mora em `leads_para_agente_comercial()`, num lugar só.
+- **Para quando** o status do contato sai de "novo", a pessoa clica em "não quero mais receber" (`/contato/parar?t=`, que pede um clique para o antivírus do e-mail não descadastrar ninguém, e o cabeçalho List-Unsubscribe de um clique) ou o endereço não existe (422 do Resend).
+- **Não sai duas vezes.** A mensagem é reservada no banco antes do envio (`unique (lead_id, etapa)`). Uma reserva de mais de 15 minutos é de rodada que caiu, e o envio leva uma chave de idempotência no Resend.
+- **Dois interruptores:** `agente_comercial_ativo`, que só a ArkeFit liga, em Visão Master → Contatos do site, por `definir_agente_comercial()`, que exige o link da agenda e fica na Auditoria; e `agente_comercial_ia`, que liga a frase da IA e é ligado pela migration da Política que a descreve. Sem ele, o e-mail sai só com o texto fixo.
+- **Assinatura.** O e-mail sai assinado por "Equipe comercial ArkeFit" (`agente_comercial_assinatura`), e não pela Letícia: assinar por uma pessoa que não existe faria a academia achar que falou com ela.
+
+**Conferido:** 14 casos em transação revertida (quem está devido, reserva única, lembrete só em horário útil, sem 2º lembrete antes do 1º, status e pedido de parar interrompendo, falha voltando à fila, endereço inválido parando, reserva velha liberada, desligada sem envio, papel exigido, privilégios), 36 testes do `fluxo.ts` e dois envios reais para a caixa de teste do Resend pela função publicada, com a primeira resposta e os dois lembretes nas quatro categorias. Pela tela, 24 verificações, com o painel, o andamento por contato e a página pública, no computador e no celular. Tudo o que o teste criou foi apagado, e a Letícia ficou desligada.
+
 ## Trial e Bloqueio por Pagamento
 
 ### Trial não é oferta comercial

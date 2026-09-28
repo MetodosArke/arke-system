@@ -26,6 +26,11 @@ verify_jwt = false
 [functions.lead-site]
 verify_jwt = false
 
+# Letícia: a rotina autentica pelo token do Vault; o "não quero mais receber"
+# é público.
+[functions.agente-comercial]
+verify_jwt = false
+
 # Link curto de ativação, aberto pelo e-mail antes de existir sessão.
 [functions.ativar-cadastro]
 verify_jwt = false
