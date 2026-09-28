@@ -4,6 +4,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { todasAsLinhas } from "@/lib/paginar";
 import { perfisDosUsuarios } from "@/lib/perfis";
 import { mensagemDeErroEdge } from "@/lib/erroEdge";
+import { MENSAGEM_DA_FALHA, motivoDaFalhaDoPdf } from "@/lib/falhaDoPdf";
+import { reportarErro } from "@/lib/monitoramento";
 import { useRascunho } from "@/hooks/useRascunho";
 import { chaveRascunho, descreverQuandoSalvou } from "@/lib/rascunho";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -377,8 +379,14 @@ export function PrescricaoDieta({
       try {
         const { extrairTextoDoPdf } = await import("@/lib/textoDoPdf");
         texto = await extrairTextoDoPdf(file);
-      } catch {
-        throw new Error("Não foi possível abrir este PDF. Confira se ele não está protegido por senha ou corrompido.");
+      } catch (erro) {
+        // O arquivo de leitura pode ser justamente o que sumiu com a
+        // publicação, então a classificação não depende dele.
+        const motivo = motivoDaFalhaDoPdf(erro);
+        if (motivo === "versao_antiga" || motivo === "outro") {
+          reportarErro(erro, { etapa: "importar_dieta_pdf", motivo, nome: erro instanceof Error ? erro.name : typeof erro });
+        }
+        throw new Error(MENSAGEM_DA_FALHA[motivo]);
       }
       if (pdfSemTexto(texto)) {
         throw new Error(
