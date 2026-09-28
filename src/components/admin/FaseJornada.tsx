@@ -42,9 +42,12 @@ const formatarDataHora = (valor: string) =>
 export function FaseJornada({
   alunoId,
   faseAtual,
+  somenteLeitura = false,
 }: {
   alunoId: string;
   faseAtual: Fase;
+  /** Aluno do Método: a fase é conduzida pelo mentor da ArkeFit, e o banco recusa a academia. */
+  somenteLeitura?: boolean;
 }) {
   const [fase, setFase] = useState<Fase>(faseAtual);
   const [observacao, setObservacao] = useState("");
@@ -90,31 +93,40 @@ export function FaseJornada({
   return (
     <div className="space-y-3">
       <SituacaoDoAvanco alunoId={alunoId} />
-      <div className="flex flex-wrap gap-2">
-        <Select value={fase} onValueChange={(v) => setFase(v as Fase)}>
-          <SelectTrigger className="w-[230px]" aria-label="Fase da jornada">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {FASES.map((f) => (
-              <SelectItem key={f.valor} value={f.valor}>
-                {f.label} — {f.resumo}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Button size="sm" disabled={fase === faseAtual || mover.isPending} onClick={() => mover.mutate()}>
-          {mover.isPending && <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />}
-          Mover fase
-        </Button>
-      </div>
+      {somenteLeitura ? (
+        <p className="text-sm">
+          Fase atual: <span className="font-medium">{rotulo(faseAtual)}</span>
+          <span className="block text-xs text-muted-foreground">Conduzida pelo mentor da ArkeFit.</span>
+        </p>
+      ) : (
+        <>
+          <div className="flex flex-wrap gap-2">
+            <Select value={fase} onValueChange={(v) => setFase(v as Fase)}>
+              <SelectTrigger className="w-[230px]" aria-label="Fase da jornada">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {FASES.map((f) => (
+                  <SelectItem key={f.valor} value={f.valor}>
+                    {f.label} — {f.resumo}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Button size="sm" disabled={fase === faseAtual || mover.isPending} onClick={() => mover.mutate()}>
+              {mover.isPending && <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />}
+              Mover fase
+            </Button>
+          </div>
 
-      <Input
-        value={observacao}
-        onChange={(e) => setObservacao(e.target.value)}
-        placeholder="Por que está mudando de fase? (opcional)"
-        className="text-sm"
-      />
+          <Input
+            value={observacao}
+            onChange={(e) => setObservacao(e.target.value)}
+            placeholder="Por que está mudando de fase? (opcional)"
+            className="text-sm"
+          />
+        </>
+      )}
 
       {historico.length > 0 && (
         <div className="space-y-1.5 pt-1">

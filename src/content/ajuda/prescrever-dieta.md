@@ -1,4 +1,4 @@
-A dieta é montada em [Prescrever Dietas](/admin/dietas), com duas abas: **Biblioteca de Modelos** e **Publicar para Aluno**. No plano Free, quem prescreve é a nutricionista da academia.
+A dieta é montada em [Prescrever Dietas](/admin/dietas), com duas abas: **Biblioteca de Modelos** e **Publicar para Aluno**. No plano Free, quem prescreve é a nutricionista da academia. O aluno do Método ARKE aparece desabilitado na lista: a dieta dele é da nutricionista da ArkeFit, e a academia não a vê.
 
 ![Prescrever Dietas: biblioteca de modelos e publicação para o aluno.](/ajuda/telas/dietas.jpg)
 

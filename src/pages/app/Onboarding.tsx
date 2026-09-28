@@ -174,11 +174,13 @@ export default function Onboarding() {
       );
       if (anamneseError) throw anamneseError;
 
-      // Deliverable do M.A.P.A.®: agenda o Acolhimento (consulta inicial) com a equipe
+      // Deliverable do M.A.P.A.®: o acolhimento vai para a fila do mentor da
+      // ArkeFit (o dono da tarefa sai do plano do aluno, no banco), que lê a
+      // anamnese e prescreve o primeiro treino.
       const { error: tarefaError } = await supabase.from("tarefas").insert({
         organization_id: organization.id,
         aluno_id: alunoId,
-        motivo: "Agendar consulta de Acolhimento (M.A.P.A.®)",
+        motivo: "Acolhimento M.A.P.A.®: ler a anamnese e prescrever o primeiro treino",
         prioridade: "media",
         sla_prazo: new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString(),
         origem_evento: `agendar_acolhimento:${alunoId}`,
@@ -186,17 +188,15 @@ export default function Onboarding() {
       });
       if (tarefaError && !tarefaError.message.includes("duplicate")) throw tarefaError;
 
-      // Nunca deixa o aluno cair num dashboard vazio: publica um treino
-      // de adaptação genérico agora, até o professor montar a ficha
-      // personalizada. Falha aqui não deve travar a conclusão do
-      // onboarding — só loga, o aluno ainda pode navegar normalmente.
-      const { error: treinoBoasVindasError } = await supabase.functions.invoke("publicar-treino-boas-vindas");
-      if (treinoBoasVindasError) {
-        console.error("Error publishing welcome treino", treinoBoasVindasError);
-      }
+      // Sem treino genérico da academia aqui: no Método o primeiro treino é
+      // do mentor, montado a partir desta anamnese. Até ele publicar, a home
+      // diz que a ficha está sendo preparada — que é a verdade.
     },
     onSuccess: async () => {
-      toast({ title: "Tudo pronto!", description: "Sua equipe já foi avisada para agendar seu acolhimento." });
+      toast({
+        title: "Tudo pronto!",
+        description: "Seu mentor da ArkeFit já recebeu o seu acolhimento e vai montar o seu primeiro treino.",
+      });
       if (alunoId) {
         try {
           localStorage.removeItem(draftKey(alunoId));

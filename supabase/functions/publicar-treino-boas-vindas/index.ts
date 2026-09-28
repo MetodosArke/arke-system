@@ -66,14 +66,14 @@ Deno.serve(async (req: Request) => {
       // sem body = chamada do aluno pra si mesmo (fluxo de onboarding), segue normal.
     }
 
-    let aluno: { id: string; organization_id: string } | null = null;
+    let aluno: { id: string; organization_id: string; metodo_arke_status: string } | null = null;
 
     if (alunoIdAlvo) {
       // Chamada em nome de outro aluno (import em massa) — só staff da
       // organização dele pode disparar.
       const { data: alunoAlvo, error: alunoAlvoError } = await adminClient
         .from("alunos")
-        .select("id, organization_id")
+        .select("id, organization_id, metodo_arke_status")
         .eq("id", alunoIdAlvo)
         .maybeSingle();
       if (alunoAlvoError) {
@@ -98,7 +98,7 @@ Deno.serve(async (req: Request) => {
     } else {
       const { data: alunoProprio, error: alunoError } = await adminClient
         .from("alunos")
-        .select("id, organization_id")
+        .select("id, organization_id, metodo_arke_status")
         .eq("user_id", callerId)
         .maybeSingle();
       if (alunoError) {
@@ -109,6 +109,14 @@ Deno.serve(async (req: Request) => {
         return jsonResponse({ error: "Cadastro de aluno não encontrado." }, 404);
       }
       aluno = alunoProprio;
+    }
+
+    // No Método ARKE o primeiro treino é do mentor da ArkeFit, que prescreve
+    // depois de ler a anamnese. O modelo genérico da academia não entra: o
+    // banco o recusaria (só a equipe da ArkeFit com CREF publica treino de
+    // aluno do Método), e o acolhimento terminaria com um erro no console.
+    if (aluno.metodo_arke_status === "ativo") {
+      return jsonResponse({ published: false, reason: "metodo_arke" });
     }
 
     // Idempotente: se já existe treino ativo (ex.: o professor já

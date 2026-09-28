@@ -235,7 +235,7 @@ export default function AdminDietas() {
       const alunosData = await todasAsLinhas((de, ate) =>
         supabase
           .from("alunos")
-          .select("id, user_id")
+          .select("id, user_id, metodo_arke_status")
           .eq("organization_id", organization!.id)
           .is("anonimizado_em", null)
           .order("id")
@@ -243,7 +243,12 @@ export default function AdminDietas() {
       );
       const perfis = await perfisDosUsuarios(alunosData.map((a) => a.user_id));
       const nomeByUserId = new Map([...perfis].map(([id, p]) => [id, p.full_name]));
-      return alunosData.map((a) => ({ id: a.id, nome: nomeByUserId.get(a.user_id) ?? "—" }));
+      return alunosData.map((a) => ({
+        id: a.id,
+        nome: nomeByUserId.get(a.user_id) ?? "—",
+        // A dieta do aluno do Método é da nutricionista da ArkeFit, e o banco recusa a academia.
+        doMetodo: a.metodo_arke_status === "ativo",
+      }));
     },
     enabled: !!organization?.id,
   });
@@ -490,7 +495,8 @@ export default function AdminDietas() {
         <h1 className="text-xl font-bold">Dietas</h1>
       </div>
       <p className="text-xs text-muted-foreground">
-        Para todos os alunos: no plano Free a dieta vem da nutricionista da academia. O chat com a nutricionista é do Método ARKE.
+        Para os alunos do plano Free, a dieta vem da nutricionista da academia. Os alunos do Método ARKE são acompanhados
+        pela nutricionista da ArkeFit.
       </p>
 
       <Tabs value={abaAtiva} onValueChange={setAbaAtiva}>
@@ -651,7 +657,8 @@ export default function AdminDietas() {
             <CardHeader className="pb-2">
               <CardTitle className="text-base">Publicar dieta</CardTitle>
               <p className="text-xs text-muted-foreground">
-                Cria uma cópia congelada (snapshot) do modelo para o aluno. Só aparecem alunos Integrado/Elite.
+                Cria uma cópia congelada (snapshot) do modelo para o aluno. Alunos do Método ARKE aparecem desabilitados:
+                a dieta deles é da nutricionista da ArkeFit.
               </p>
             </CardHeader>
             <CardContent className="space-y-3">
@@ -669,7 +676,10 @@ export default function AdminDietas() {
                   <SelectTrigger><SelectValue placeholder="Selecione o aluno" /></SelectTrigger>
                   <SelectContent>
                     {alunos.map((a) => (
-                      <SelectItem key={a.id} value={a.id}>{a.nome}</SelectItem>
+                      <SelectItem key={a.id} value={a.id} disabled={a.doMetodo}>
+                        {a.nome}
+                        {a.doMetodo && " · Método ARKE (dieta com a ArkeFit)"}
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>

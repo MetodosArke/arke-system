@@ -2454,9 +2454,11 @@ export type Database = {
           aluno_id: string
           arquivo_url: string | null
           created_at: string
+          dono: string
           id: string
           observacoes_gerais: string | null
           organization_id: string
+          prescritor_registro: string | null
           publicado_por: string | null
           snapshot_conteudo: Json
           status: string
@@ -2468,9 +2470,11 @@ export type Database = {
           aluno_id: string
           arquivo_url?: string | null
           created_at?: string
+          dono?: string
           id?: string
           observacoes_gerais?: string | null
           organization_id: string
+          prescritor_registro?: string | null
           publicado_por?: string | null
           snapshot_conteudo?: Json
           status?: string
@@ -2482,9 +2486,11 @@ export type Database = {
           aluno_id?: string
           arquivo_url?: string | null
           created_at?: string
+          dono?: string
           id?: string
           observacoes_gerais?: string | null
           organization_id?: string
+          prescritor_registro?: string | null
           publicado_por?: string | null
           snapshot_conteudo?: Json
           status?: string
@@ -2558,6 +2564,39 @@ export type Database = {
           id?: string
           nome?: string
           ordem?: number
+        }
+        Relationships: []
+      }
+      equipe_arkefit: {
+        Row: {
+          ativo: boolean
+          atualizado_por: string | null
+          created_at: string
+          cref: string | null
+          crn: string | null
+          mentor: boolean
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          ativo?: boolean
+          atualizado_por?: string | null
+          created_at?: string
+          cref?: string | null
+          crn?: string | null
+          mentor?: boolean
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          ativo?: boolean
+          atualizado_por?: string | null
+          created_at?: string
+          cref?: string | null
+          crn?: string | null
+          mentor?: boolean
+          updated_at?: string
+          user_id?: string
         }
         Relationships: []
       }
@@ -6012,9 +6051,11 @@ export type Database = {
         Row: {
           aluno_id: string
           created_at: string
+          dono: string
           id: string
           modelo_id: string | null
           organization_id: string
+          prescritor_registro: string | null
           publicado_por: string | null
           snapshot_conteudo: Json
           status: string
@@ -6027,9 +6068,11 @@ export type Database = {
         Insert: {
           aluno_id: string
           created_at?: string
+          dono?: string
           id?: string
           modelo_id?: string | null
           organization_id: string
+          prescritor_registro?: string | null
           publicado_por?: string | null
           snapshot_conteudo?: Json
           status?: string
@@ -6042,9 +6085,11 @@ export type Database = {
         Update: {
           aluno_id?: string
           created_at?: string
+          dono?: string
           id?: string
           modelo_id?: string | null
           organization_id?: string
+          prescritor_registro?: string | null
           publicado_por?: string | null
           snapshot_conteudo?: Json
           status?: string
@@ -6557,6 +6602,7 @@ export type Database = {
         Args: { _aluno_id: string }
         Returns: boolean
       }
+      aluno_no_metodo: { Args: { _aluno_id: string }; Returns: boolean }
       aluno_possui_agendamento_ativo_agora: {
         Args: { _aluno_id: string }
         Returns: boolean
@@ -6853,6 +6899,7 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      equipe_metodo: { Args: never; Returns: boolean }
       escalar_tarefas_vencidas: { Args: never; Returns: undefined }
       expirar_comandos_gateway: {
         Args: { _catraca_id?: string }
@@ -7160,6 +7207,20 @@ export type Database = {
           ultimo_erro_em: string
           ultimo_heartbeat_em: string
           versao: string
+        }[]
+      }
+      get_superadmin_equipe_arkefit: {
+        Args: never
+        Returns: {
+          ativo: boolean
+          cadastrado: boolean
+          cref: string
+          crn: string
+          email: string
+          mentor: boolean
+          nome: string
+          papeis: string[]
+          user_id: string
         }[]
       }
       get_superadmin_fila_global: {
@@ -7619,6 +7680,8 @@ export type Database = {
         Args: { _caminho: string }
         Returns: boolean
       }
+      pode_prescrever_dieta_metodo: { Args: never; Returns: boolean }
+      pode_prescrever_treino_metodo: { Args: never; Returns: boolean }
       prazo_util: { Args: { _horas: number; _inicio: string }; Returns: string }
       preparar_eliminacao_organizacao: {
         Args: { _encerramento_id: string }
@@ -7737,6 +7800,16 @@ export type Database = {
           _segredos?: Json
         }
         Returns: Json
+      }
+      salvar_equipe_arkefit: {
+        Args: {
+          _ativo: boolean
+          _cref: string
+          _crn: string
+          _mentor: boolean
+          _user_id: string
+        }
+        Returns: undefined
       }
       sentinela_taxa_de_aceite: {
         Args: { _dias?: number }

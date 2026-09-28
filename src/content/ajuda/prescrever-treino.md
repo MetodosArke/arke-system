@@ -1,5 +1,7 @@
 A prescrição fica em [Prescrever Treinos](/admin/treinos), com três abas: **Biblioteca de Modelos**, **Publicar para Aluno** e **Acervo de Exercícios**.
 
+O aluno do Método ARKE aparece desabilitado em **Publicar para Aluno**: o treino dele é prescrito pelo mentor da ArkeFit. A academia continua vendo esse treino na ficha, para orientar o aluno no salão.
+
 ![Prescrever Treinos: modelos, publicação e acervo em abas.](/ajuda/telas/treinos.jpg)
 
 ## Modelos

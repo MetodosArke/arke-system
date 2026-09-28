@@ -190,14 +190,19 @@ export default function AdminTreinos() {
       const alunosData = await todasAsLinhas((de, ate) =>
         supabase
           .from("alunos")
-          .select("id, user_id")
+          .select("id, user_id, metodo_arke_status")
           .eq("organization_id", organization!.id)
           .order("id")
           .range(de, ate)
       );
       const perfis = await perfisDosUsuarios(alunosData.map((a) => a.user_id));
       const nomeByUserId = new Map([...perfis].map(([id, p]) => [id, p.full_name]));
-      return alunosData.map((a) => ({ id: a.id, nome: nomeByUserId.get(a.user_id) ?? "—" }));
+      return alunosData.map((a) => ({
+        id: a.id,
+        nome: nomeByUserId.get(a.user_id) ?? "—",
+        // O treino do aluno do Método é prescrito pelo mentor da ArkeFit, e o banco recusa a academia.
+        doMetodo: a.metodo_arke_status === "ativo",
+      }));
     },
     enabled: !!organization?.id,
   });
@@ -506,7 +511,10 @@ export default function AdminTreinos() {
                   <SelectTrigger><SelectValue placeholder="Selecione o aluno" /></SelectTrigger>
                   <SelectContent>
                     {alunos.map((a) => (
-                      <SelectItem key={a.id} value={a.id}>{a.nome}</SelectItem>
+                      <SelectItem key={a.id} value={a.id} disabled={a.doMetodo}>
+                        {a.nome}
+                        {a.doMetodo && " · Método ARKE (treino com o mentor)"}
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
