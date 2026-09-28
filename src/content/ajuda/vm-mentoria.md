@@ -6,6 +6,8 @@
 
 Todos os alunos do Método, de todas as academias. Cada aluno tem um **mentor responsável**, e os filtros separam **Pedem atenção**, **Meus alunos**, **Sem mentor** e **Todos**. A busca procura pelo nome do aluno ou da academia.
 
+Quando um aluno entra no Método, chega um chamado **Novo aluno no Método ARKE** para dar as boas-vindas pelo chat e acompanhar o acolhimento. Quando ele sai, o mentor deixa de ser o responsável, os chamados abertos dele se encerram com o desfecho "saiu do Método", e a academia recebe a tarefa de assumir.
+
 Os sinais em vermelho travam o aluno e vêm primeiro: **acolhimento pendente**, **sem treino**, **relato de dor** e **chamado atrasado**. Os outros pedem atenção: sem dieta, mensagem sem resposta, treino vencendo nos próximos 7 dias e sem mentor.
 
 ## A ficha do aluno

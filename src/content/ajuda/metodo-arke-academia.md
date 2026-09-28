@@ -23,6 +23,10 @@ Quando o aluno entra no Método, o acompanhamento dele passa para a **ArkeFit**:
 
 A equipe da academia continua **vendo o treino** do aluno do Método, porque é ela quem orienta no salão, mas não o altera. A dieta e a anamnese ficam só com a ArkeFit. Na ficha do aluno, o aviso **Acompanhado pelo mentor da ArkeFit** mostra isso, e nas telas de treino e dieta ele aparece desabilitado.
 
+### Quando o aluno sai do Método
+
+Se o aluno cancela o Método, ele volta para a academia, e a sua fila recebe a tarefa **Aluno saiu do Método ARKE e voltou para a academia**, com prioridade alta. O último treino e a última dieta do mentor continuam valendo até você publicar os seus, então o aluno não fica sem ficha. A partir daí a academia volta a ver a dieta e a anamnese dele e a prescrever normalmente.
+
 Os chamados da mentoria não aparecem na fila da academia. Quando precisa de algo que só acontece presencialmente, a ArkeFit manda um pedido para a fila da academia: **Acolhimento presencial pedido pelo Mentor**.
 
 ## O que a academia vê
