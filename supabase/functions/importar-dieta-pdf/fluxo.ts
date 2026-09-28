@@ -48,12 +48,22 @@ const PALAVRAS_VAZIAS = new Set([
   "que", "ou", "e", "em", "no", "na", "nos", "nas", "a", "o", "as", "os", "ao", "aos", "ate",
 ]);
 
-/** Minúsculas, sem acento, só letras e números separados por espaço. */
+/**
+ * Minúsculas, sem acento, só letras e números separados por espaço.
+ *
+ * Número colado na unidade vira dois pedaços ("150g" → "150 g"). Sem isso, a
+ * conferência procurava o "150" e só achava o "150g", e todo item escrito
+ * assim — a forma mais comum num plano alimentar — voltava como inventado,
+ * até a leitura inteira ser descartada (achado em 28/09/2026). NFKD, e não
+ * NFD, para "½" virar "1⁄2" e dali "1 2", do mesmo jeito que "1/2".
+ */
 export function normalizar(s: string): string {
   return s
-    .normalize("NFD")
+    .normalize("NFKD")
     .replace(/[̀-ͯ]/g, "")
     .toLowerCase()
+    .replace(/(\d)([a-z])/g, "$1 $2")
+    .replace(/([a-z])(\d)/g, "$1 $2")
     .replace(/[^a-z0-9]+/g, " ")
     .trim();
 }
@@ -99,6 +109,8 @@ Responda SOMENTE com um JSON, sem nada antes ou depois, no formato:
 
 Regras:
 - Use as palavras do documento. Alimento, quantidade e substituição devem aparecer no texto.
+- Cada item é um alimento. Uma linha com vários alimentos vira vários itens.
+- "alimento" é o nome completo, com o tipo e o preparo, sem a quantidade. "quantidade" é o número com a medida, como está escrito. Exemplo: "150g de frango grelhado" vira {"alimento": "frango grelhado", "quantidade": "150g"}; "1 fatia de pão integral" vira {"alimento": "pão integral", "quantidade": "1 fatia"}; "salada verde" vira {"alimento": "salada verde", "quantidade": ""}.
 - "refeicoes" na ordem do documento. Sem horário escrito, "horario" fica "".
 - "substituicoes" só com as trocas escritas no documento para aquele item; sem nenhuma, lista vazia.
 - "observacoes_gerais": as orientações gerais escritas no documento, ou "".

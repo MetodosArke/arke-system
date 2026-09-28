@@ -155,4 +155,65 @@ describe("conferência contra o PDF", () => {
   it("sem refeição nenhuma, não há o que importar", () => {
     expect(avaliarLeitura(0, 0).ok).toBe(false);
   });
+
+  // O PDF de teste de 28/09/2026 foi descartado inteiro: o plano escreve
+  // "150g" e "100g", o modelo copiou igual, e a conferência procurava o "150"
+  // sem achar. Esta é a leitura real que o modelo devolveu para aquele texto.
+  const COLADO = `Plano Alimentar - Fase Teste
+Cafe da Manha - 08:00
+2 ovos mexidos, 1 fatia de pao integral
+Pode substituir por: tapioca, omelete de claras
+Almoco - 12:30
+150g de frango grelhado, arroz integral 100g, salada verde
+Observacoes gerais: beber 2 litros de agua por dia.`;
+  const LEITURA_COLADO: DietaLida = {
+    titulo_dieta: "Plano Alimentar - Fase Teste",
+    observacoes_gerais: "beber 2 litros de agua por dia.",
+    refeicoes: [
+      {
+        nome: "Cafe da Manha",
+        horario: "08:00",
+        itens: [
+          { alimento: "ovos", quantidade: "2", substituicoes: ["tapioca", "omelete de claras"] },
+          { alimento: "pao", quantidade: "1 fatia", substituicoes: [] },
+        ],
+      },
+      {
+        nome: "Almoco",
+        horario: "12:30",
+        itens: [
+          { alimento: "frango", quantidade: "150g", substituicoes: [] },
+          { alimento: "arroz", quantidade: "100g", substituicoes: [] },
+          { alimento: "salada verde", quantidade: "", substituicoes: [] },
+        ],
+      },
+    ],
+  };
+
+  it("número colado na unidade (150g) bate com o PDF, escrito junto ou separado", () => {
+    const r = conferirNoOriginal(LEITURA_COLADO, COLADO);
+    expect(r.semAncora).toBe(0);
+    expect(avaliarLeitura(r.itens, r.semAncora)).toEqual({ ok: true });
+    const separado = structuredClone(LEITURA_COLADO);
+    separado.refeicoes[1].itens[0].quantidade = "150 g";
+    expect(conferirNoOriginal(separado, COLADO).semAncora).toBe(0);
+  });
+
+  it("número colado não abre porta para número trocado", () => {
+    const trocado = structuredClone(LEITURA_COLADO);
+    trocado.refeicoes[1].itens[0].quantidade = "180g";
+    const r = conferirNoOriginal(trocado, COLADO);
+    expect(r.semAncora).toBe(1);
+    expect(r.dieta.refeicoes[1].itens[0].conferir).toBe(true);
+  });
+
+  it("fração escrita como ½ bate com 1/2", () => {
+    const original = "Lanche\n½ xícara de aveia com 1,5 banana";
+    const leitura: DietaLida = {
+      titulo_dieta: "",
+      observacoes_gerais: null,
+      refeicoes: [{ nome: "Lanche", horario: null, itens: [{ alimento: "aveia", quantidade: "1/2 xícara", substituicoes: [] }, { alimento: "banana", quantidade: "1.5", substituicoes: [] }] }],
+    };
+    expect(conferirNoOriginal(leitura, original).semAncora).toBe(0);
+  });
 });
