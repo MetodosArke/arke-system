@@ -106,6 +106,7 @@ export default function AdminFinanceiro() {
   const { organization, user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const ehAutonomo = organization?.tipo === "profissional_autonomo";
   const [competencia, setCompetencia] = useState(MESES_RECENTES[0]);
   const [formFolha, setFormFolha] = useState<Record<string, { tipo: FolhaTipo; valor_base: string; ativo: boolean }>>({});
   const [novoLancamento, setNovoLancamento] = useState<LancamentoForm>(LANCAMENTO_VAZIO);
@@ -437,8 +438,9 @@ export default function AdminFinanceiro() {
       <Tabs defaultValue="lancamentos">
         <TabsList className="h-auto flex-wrap">
           <TabsTrigger value="lancamentos">Lançamentos</TabsTrigger>
-          <TabsTrigger value="folha">Folha</TabsTrigger>
-          <TabsTrigger value="comissoes">Comissões</TabsTrigger>
+          {/* Profissional autônomo não tem equipe: sem folha nem comissões. */}
+          {!ehAutonomo && <TabsTrigger value="folha">Folha</TabsTrigger>}
+          {!ehAutonomo && <TabsTrigger value="comissoes">Comissões</TabsTrigger>}
           <TabsTrigger value="plano-contas">Plano de Contas</TabsTrigger>
           <TabsTrigger value="notas">Notas fiscais</TabsTrigger>
         </TabsList>

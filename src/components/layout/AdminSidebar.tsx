@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { useCaixaMensagens } from "@/hooks/useCaixaMensagens";
 import { MarcaArkeFit } from "@/components/marca/MarcaArkeFit";
+import { podePrescrever } from "@/lib/prescricaoPermitida";
 
 type MenuItem = { icon: typeof Home; label: string; path: string };
 type MenuSection = { label: string; items: MenuItem[] };
@@ -85,16 +86,19 @@ function buildSections({
   return sections;
 }
 
-// Personal/nutricionista autônomo: carteira própria de alunos, sem
-// estrutura física de academia — sem Catracas, Organização (slug/split de
-// academia), Equipe nem Gestão 360°/Onboarding B2B. A prescrição disponível
-// segue a especialidade de quem contratou (treino ou dieta, nunca as duas).
+// Personal/nutricionista autônomo: o painel de uma academia pequena — vendas,
+// financeiro, planos e cobrança —, sem o que só existe em academia: catraca,
+// check-in por QR, equipe (no lugar dela, a parceria, em Meu negócio) e o
+// Método ARKE. Cada um prescreve a sua parte: o dono pela especialidade, o
+// parceiro convidado pelo papel. Vendas e dinheiro são só do dono do painel.
 function buildSectionsProfissionalAutonomo({
   podePrescreverTreino,
   podePrescreverDieta,
+  ehDono,
 }: {
   podePrescreverTreino: boolean;
   podePrescreverDieta: boolean;
+  ehDono: boolean;
 }): MenuSection[] {
   const operacao: MenuItem[] = [
     { icon: Home, label: "Home (Início)", path: "/admin/dashboard" },
@@ -102,13 +106,27 @@ function buildSectionsProfissionalAutonomo({
     { icon: MessageCircle, label: "Mensagens", path: "/admin/mensagens" },
     { icon: Users, label: "Meus Alunos", path: "/admin/alunos" },
   ];
+  if (ehDono) operacao.push({ icon: Filter, label: "Funil de Vendas", path: "/admin/funil" });
   if (podePrescreverTreino) {
     operacao.push({ icon: Dumbbell, label: "Prescrever Treinos", path: "/admin/treinos" });
   }
   if (podePrescreverDieta) {
     operacao.push({ icon: UtensilsCrossed, label: "Prescrever Dietas", path: "/admin/dietas" });
   }
-  return [{ label: "Operação", items: operacao }];
+  if (ehDono) operacao.push({ icon: Megaphone, label: "Comunicados", path: "/admin/comunicados" });
+
+  const sections: MenuSection[] = [{ label: "Operação", items: operacao }];
+  if (ehDono) {
+    sections.push({
+      label: "Meu negócio",
+      items: [
+        { icon: DollarSign, label: "Financeiro", path: "/admin/financeiro" },
+        { icon: CalendarCheck, label: "Resumo da semana", path: "/admin/relatorio-semanal" },
+        { icon: Building2, label: "Meu negócio", path: "/admin/organizacao" },
+      ],
+    });
+  }
+  return sections;
 }
 
 function SidebarNav({
@@ -128,15 +146,16 @@ function SidebarNav({
   const podeGerenciarEquipe = isAdminArke || organizationRole === "gestor";
   const ehProfissionalAutonomo = organization?.tipo === "profissional_autonomo";
   const ehStudio = organization?.tipo === "studio";
-  const especialidade = organization?.especialidadeProfissional;
-  const podePrescreverTreino = ehProfissionalAutonomo
-    ? especialidade !== "nutricionista"
-    : isAdminArke || organizationRole === "gestor" || organizationRole === "professor";
-  const podePrescreverDieta = ehProfissionalAutonomo
-    ? especialidade === "nutricionista"
-    : isAdminArke || organizationRole === "gestor" || organizationRole === "nutricionista";
+  const contextoPrescricao = {
+    tipoOrganizacao: organization?.tipo,
+    especialidade: organization?.especialidadeProfissional,
+    papel: organizationRole,
+    adminArke: isAdminArke,
+  };
+  const podePrescreverTreino = podePrescrever("treino", contextoPrescricao);
+  const podePrescreverDieta = podePrescrever("dieta", contextoPrescricao);
   const sections = ehProfissionalAutonomo
-    ? buildSectionsProfissionalAutonomo({ podePrescreverTreino, podePrescreverDieta })
+    ? buildSectionsProfissionalAutonomo({ podePrescreverTreino, podePrescreverDieta, ehDono: organizationRole === "gestor" })
     : buildSections({
         ehStudio,
         podeGerenciarEquipe,

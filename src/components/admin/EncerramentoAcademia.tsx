@@ -55,7 +55,7 @@ export function EncerramentoAcademia() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-base">{comContrato ? "Dados e encerramento" : "Dados da academia"}</CardTitle>
+        <CardTitle className="text-base">{comContrato ? "Dados e encerramento" : "Exportar os dados"}</CardTitle>
         <CardDescription>
           A planilha traz alunos com contato e endereço, matrículas, mensalidades, cobranças avulsas, presenças e avaliações físicas.
         </CardDescription>

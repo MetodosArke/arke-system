@@ -4694,6 +4694,7 @@ export type Database = {
           razao_social: string | null
           repasse_tipo: string
           repasse_valor: number | null
+          responsavel_nascimento: string | null
           slug: string
           status: Database["public"]["Enums"]["org_status"]
           telefone: string | null
@@ -4740,6 +4741,7 @@ export type Database = {
           razao_social?: string | null
           repasse_tipo?: string
           repasse_valor?: number | null
+          responsavel_nascimento?: string | null
           slug: string
           status?: Database["public"]["Enums"]["org_status"]
           telefone?: string | null
@@ -4786,6 +4788,7 @@ export type Database = {
           razao_social?: string | null
           repasse_tipo?: string
           repasse_valor?: number | null
+          responsavel_nascimento?: string | null
           slug?: string
           status?: Database["public"]["Enums"]["org_status"]
           telefone?: string | null
@@ -6822,6 +6825,10 @@ export type Database = {
         Args: { _aluno_id: string; _limite?: number }
         Returns: string
       }
+      convidar_parceiro_autonomo: {
+        Args: { _email: string; _organization_id: string }
+        Returns: Json
+      }
       cpf_valido: { Args: { _cpf: string }; Returns: boolean }
       criar_instrucao_presencial: {
         Args: {
@@ -6892,6 +6899,10 @@ export type Database = {
           organization_id: string
           proxima: string
         }[]
+      }
+      encerrar_parceria_autonomo: {
+        Args: { _organization_id: string; _user_id: string }
+        Returns: undefined
       }
       encerrar_trial_metodo_arke: {
         Args: { _aluno_id: string }
@@ -7146,6 +7157,17 @@ export type Database = {
           pct_sla: number
           tarefas_por_aluno_mes: number
           vencidas: number
+        }[]
+      }
+      get_parceiros_autonomo: {
+        Args: { _organization_id: string }
+        Returns: {
+          desde: string
+          email: string
+          nome: string
+          papel: string
+          status: string
+          user_id: string
         }[]
       }
       get_superadmin_acessos_catraca: {
@@ -7714,6 +7736,10 @@ export type Database = {
           organization_id: string
           semana: string
         }[]
+      }
+      papel_prescreve_no_autonomo: {
+        Args: { _o_que: string; _organization_id: string; _user_id: string }
+        Returns: boolean
       }
       plano_do_aluno: {
         Args: {

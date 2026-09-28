@@ -17,6 +17,7 @@ import { EtapaPlanos } from "@/components/admin/onboarding/EtapaPlanos";
 import { EtapaEquipe } from "@/components/admin/onboarding/EtapaEquipe";
 import { EtapaAlunos } from "@/components/admin/onboarding/EtapaAlunos";
 import { EtapaContrato } from "@/components/admin/onboarding/EtapaContrato";
+import { ParceriaAutonomo } from "@/components/admin/ParceriaAutonomo";
 import { SuporteBotao } from "@/components/admin/onboarding/SuporteBotao";
 
 /**
@@ -33,6 +34,10 @@ export default function AdminOnboarding() {
   const [aberta, setAberta] = useState<EtapaOnboarding | null>(null);
   const podeEditar = organizationRole === "gestor" || hasRole("admin_arke") || hasRole("superadmin");
   const concluido = !!organization?.onboardingCompleted;
+  // O profissional autônomo trabalha sozinho: a etapa de equipe vira a parceria, que é opcional.
+  const autonomo = organization?.tipo === "profissional_autonomo";
+  const tituloEtapa = (etapa: EtapaOnboarding, titulo: string) =>
+    autonomo && etapa === "equipe" ? "Parceria (opcional)" : autonomo && etapa === "dados" ? "Seus dados" : titulo;
 
   // Abre na primeira etapa pendente.
   useEffect(() => {
@@ -72,7 +77,7 @@ export default function AdminOnboarding() {
       case "planos":
         return <EtapaPlanos onSalvo={recarregar} />;
       case "equipe":
-        return <EtapaEquipe onSalvo={recarregar} />;
+        return autonomo ? <ParceriaAutonomo aoMudar={recarregar} /> : <EtapaEquipe onSalvo={recarregar} />;
       case "alunos":
         return <EtapaAlunos />;
       case "contrato":
@@ -84,7 +89,7 @@ export default function AdminOnboarding() {
     <div className="space-y-4 max-w-2xl mx-auto pb-16">
       <div className="flex items-center gap-2">
         <Rocket className="h-5 w-5 text-primary" />
-        <h1 className="text-xl font-bold">Configuração da academia</h1>
+        <h1 className="text-xl font-bold">{autonomo ? "Configuração do seu painel" : "Configuração da academia"}</h1>
       </div>
 
       {concluido ? (
@@ -141,7 +146,7 @@ export default function AdminOnboarding() {
                   )}
                   <span className="flex-1 min-w-0">
                     <span className="text-sm font-medium block">
-                      {i + 1}. {e.titulo}
+                      {i + 1}. {tituloEtapa(e.etapa, e.titulo)}
                       {!feita && proxima === e.etapa && <span className="ml-2 text-[11px] text-primary font-normal">próximo passo</span>}
                     </span>
                     <span className="text-xs text-muted-foreground block truncate">{s?.detalhe ?? e.resumo}</span>

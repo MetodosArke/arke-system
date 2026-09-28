@@ -79,7 +79,7 @@ Deno.serve(async (req: Request) => {
     const { data: org, error: orgError } = await admin
       .from("organizations")
       .select(
-        "id, nome, status, razao_social, cnpj_cpf, email_contato, telefone, cep, logradouro, numero, complemento, bairro, tipo_empresa, faturamento_mensal, asaas_wallet_id, asaas_conta_id, asaas_conta_origem, asaas_conta_status"
+        "id, nome, status, razao_social, cnpj_cpf, email_contato, telefone, cep, logradouro, numero, complemento, bairro, tipo_empresa, faturamento_mensal, responsavel_nascimento, asaas_wallet_id, asaas_conta_id, asaas_conta_origem, asaas_conta_status"
       )
       .eq("id", organizationId)
       .maybeSingle();
@@ -167,7 +167,7 @@ Deno.serve(async (req: Request) => {
     }
     const montado = montarSubconta({ ...org, faturamento_mensal: org.faturamento_mensal === null ? null : Number(org.faturamento_mensal) });
     if (!montado.ok) {
-      return jsonResponse({ error: `Complete os dados da academia antes: ${montado.faltando.join(", ")}.` }, 400);
+      return jsonResponse({ error: `Complete os dados do cadastro antes: ${montado.faltando.join(", ")}.` }, 400);
     }
 
     const r = await criarOuAdotarSubconta(asaasApiUrl, asaasApiKey, montado.payload);

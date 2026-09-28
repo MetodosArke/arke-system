@@ -40,6 +40,7 @@ type Form = {
   bairro: string;
   cidade: string;
   uf: string;
+  responsavel_nascimento: string;
 };
 
 const VAZIO: Form = {
@@ -57,6 +58,7 @@ const VAZIO: Form = {
   bairro: "",
   cidade: "",
   uf: "",
+  responsavel_nascimento: "",
 };
 
 /** Erros de cada campo, conferidos enquanto a pessoa digita (não só ao salvar). */
@@ -70,7 +72,8 @@ function errosDoCadastro(f: Form): Partial<Record<keyof Form, string>> {
     e.cnpj = doc.length === 14 ? "CNPJ com dígito verificador inválido." : "Informe o CNPJ (ou CPF, para profissional autônomo).";
   }
   if (doc.length === 14 && !f.razao_social.trim()) e.razao_social = "Informe a razão social.";
-  if (!f.nome.trim()) e.nome = "Informe o nome da academia.";
+  if (doc.length === 11 && !f.razao_social.trim()) e.razao_social = "Informe o nome completo, como no CPF.";
+  if (!f.nome.trim()) e.nome = "Informe o nome.";
   if (!SLUG_RE.test(slugify(f.slug))) e.slug = "Use letras minúsculas, números e hífens.";
   if (!EMAIL_RE.test(f.email_contato.trim())) e.email_contato = "E-mail inválido.";
   const tel = f.telefone.replace(/\D/g, "");
@@ -98,7 +101,7 @@ export function EtapaDados({ onSalvo }: { onSalvo: () => void }) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("organizations")
-        .select("nome, slug, cnpj_cpf, razao_social, tipo_empresa, email_contato, telefone, cep, logradouro, numero, complemento, bairro, cidade, uf")
+        .select("nome, slug, cnpj_cpf, razao_social, tipo_empresa, email_contato, telefone, cep, logradouro, numero, complemento, bairro, cidade, uf, responsavel_nascimento")
         .eq("id", organization!.id)
         .single();
       if (error) throw error;
@@ -124,10 +127,14 @@ export function EtapaDados({ onSalvo }: { onSalvo: () => void }) {
       bairro: org.bairro ?? "",
       cidade: org.cidade ?? "",
       uf: org.uf ?? "",
+      responsavel_nascimento: org.responsavel_nascimento ?? "",
     });
   }, [org]);
 
   const erros = errosDoCadastro(form);
+  // O profissional autônomo pode trabalhar com CPF; a academia, sempre com CNPJ.
+  const autonomo = organization?.tipo === "profissional_autonomo";
+  const pessoaFisica = form.cnpj.replace(/\D/g, "").length === 11;
   const mudar = (campo: keyof Form, valor: string) => {
     setForm((f) => ({ ...f, [campo]: valor }));
     setTocados((t) => new Set(t).add(campo));
@@ -190,7 +197,9 @@ export function EtapaDados({ onSalvo }: { onSalvo: () => void }) {
           razao_social: form.razao_social.trim() || null,
           nome: form.nome.trim(),
           slug,
-          tipo_empresa: form.tipo_empresa || null,
+          // Tipo de empresa é de CNPJ; com CPF vai a data de nascimento, que o Asaas pede para pessoa física.
+          tipo_empresa: pessoaFisica ? null : form.tipo_empresa || null,
+          responsavel_nascimento: pessoaFisica ? form.responsavel_nascimento || null : null,
           email_contato: form.email_contato.trim().toLowerCase(),
           telefone: form.telefone.replace(/\D/g, ""),
           cep: form.cep.replace(/\D/g, ""),
@@ -244,43 +253,50 @@ export function EtapaDados({ onSalvo }: { onSalvo: () => void }) {
       <div className="grid sm:grid-cols-2 gap-3">
         <div className="space-y-1">
           <Label htmlFor="onb-cnpj" className="text-xs flex items-center gap-1.5">
-            CNPJ {buscando === "cnpj" && <Loader2 className="h-3 w-3 animate-spin" />}
+            {autonomo ? "CNPJ ou CPF" : "CNPJ"} {buscando === "cnpj" && <Loader2 className="h-3 w-3 animate-spin" />}
           </Label>
           <Input
             id="onb-cnpj"
             inputMode="numeric"
-            placeholder="00.000.000/0000-00"
+            placeholder={autonomo ? "CNPJ, ou CPF se ainda não tiver" : "00.000.000/0000-00"}
             value={form.cnpj}
             onChange={(e) => void aoMudarCnpj(e.target.value)}
             aria-invalid={!!erroVisivel("cnpj")}
           />
           {erroVisivel("cnpj") && <p className="text-[11px] text-destructive">{erroVisivel("cnpj")}</p>}
         </div>
-        {campo("razao_social", "Razão social")}
+        {campo("razao_social", pessoaFisica ? "Nome completo (como no CPF)" : "Razão social")}
       </div>
       {avisoReceita && (
         <p className="text-[11px] text-muted-foreground">Preenchido com os dados da Receita Federal. Confira antes de salvar.</p>
       )}
       <div className="grid sm:grid-cols-2 gap-3">
-        {campo("nome", "Nome da academia (como os alunos conhecem)")}
-        <div className="space-y-1">
-          <Label className="text-xs">Tipo de empresa</Label>
-          <Select value={form.tipo_empresa} onValueChange={(v) => mudar("tipo_empresa", v)}>
-            <SelectTrigger>
-              <SelectValue placeholder="Selecione" />
-            </SelectTrigger>
-            <SelectContent>
-              {(Object.keys(ROTULO_TIPO_EMPRESA) as TipoEmpresaAsaas[]).map((t) => (
-                <SelectItem key={t} value={t}>
-                  {ROTULO_TIPO_EMPRESA[t]}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+        {campo("nome", autonomo ? "Nome do seu negócio (como os alunos conhecem)" : "Nome da academia (como os alunos conhecem)")}
+        {pessoaFisica ? (
+          <div className="space-y-1">
+            {campo("responsavel_nascimento", "Data de nascimento", { type: "date" })}
+            <p className="text-[11px] text-muted-foreground">O Asaas pede para abrir conta com CPF.</p>
+          </div>
+        ) : (
+          <div className="space-y-1">
+            <Label className="text-xs">Tipo de empresa</Label>
+            <Select value={form.tipo_empresa} onValueChange={(v) => mudar("tipo_empresa", v)}>
+              <SelectTrigger>
+                <SelectValue placeholder="Selecione" />
+              </SelectTrigger>
+              <SelectContent>
+                {(Object.keys(ROTULO_TIPO_EMPRESA) as TipoEmpresaAsaas[]).map((t) => (
+                  <SelectItem key={t} value={t}>
+                    {ROTULO_TIPO_EMPRESA[t]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
       </div>
       <div className="grid sm:grid-cols-2 gap-3">
-        {campo("email_contato", "E-mail da academia", { type: "email", autoComplete: "email" })}
+        {campo("email_contato", autonomo ? "E-mail de contato" : "E-mail da academia", { type: "email", autoComplete: "email" })}
         {campo("telefone", "Celular com DDD", { inputMode: "tel", placeholder: "(11) 91234-5678" })}
       </div>
       <div className="grid grid-cols-3 gap-3">

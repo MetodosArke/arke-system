@@ -44,6 +44,14 @@ export const ARTIGOS: ArtigoAjuda[] = [
     rotas: ["/admin/onboarding"],
   },
   {
+    slug: "painel-autonomo",
+    titulo: "O painel do profissional autônomo",
+    resumo: "Configuração com CPF ou CNPJ, planos e cobrança, nota fiscal e a parceria entre personal e nutricionista.",
+    secao: "Primeiros passos",
+    publicos: ["autonomo"],
+    rotas: ["/admin/onboarding", "/admin/organizacao"],
+  },
+  {
     slug: "cadastrar-aluno",
     titulo: "Cadastrar um aluno",
     resumo: "Cadastro pela ficha, CPF obrigatório e o que acontece depois de salvar.",
@@ -153,7 +161,7 @@ export const ARTIGOS: ArtigoAjuda[] = [
     titulo: "Financeiro e fechamento do mês",
     resumo: "Lançamentos automáticos e manuais, comissões, folha e a exportação para o contador.",
     secao: "Cobrança e financeiro",
-    publicos: ["gestor"],
+    publicos: ["gestor", "autonomo"],
     rotas: ["/admin/financeiro"],
   },
   {
@@ -176,7 +184,7 @@ export const ARTIGOS: ArtigoAjuda[] = [
     titulo: "Comunicados",
     resumo: "Avisar alunos e equipe de feriado, horário especial ou evento.",
     secao: "Recepção e frequência",
-    publicos: ["gestor", "recepcao"],
+    publicos: ["gestor", "recepcao", "autonomo"],
     rotas: ["/admin/comunicados"],
   },
   {
@@ -184,7 +192,7 @@ export const ARTIGOS: ArtigoAjuda[] = [
     titulo: "Funil de vendas",
     resumo: "Interessados da aula experimental à matrícula, com motivo de quem não fechou.",
     secao: "Recepção e frequência",
-    publicos: ["gestor", "recepcao"],
+    publicos: ["gestor", "recepcao", "autonomo"],
     rotas: ["/admin/funil"],
   },
   {
