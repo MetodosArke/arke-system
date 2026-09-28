@@ -535,6 +535,18 @@ A fase 1 deu ao mentor a posse do acompanhamento; esta dá a ele onde trabalhar.
 
 **Conferido:** 23 casos em transação revertida (exigência desligada e ligada, sem configuração exigindo, biblioteca invisível para a academia, carteira, metas e ficha recusadas ao gestor e ao aluno); 15 na corrente real com um Super Admin temporário verificado em duas etapas (sem as duas etapas a carteira e o PDF recusam; o mentor assume o aluno, define metas, monta um modelo do Método e publica, e a academia vê o treino mas não a biblioteca; tudo desfeito no fim); e as telas num navegador, no computador e no celular, sem exceção nem erro do Supabase.
 
+## O painel do profissional autônomo (fase 7 do plano do Método, 28/09/2026)
+
+O personal e a nutricionista que usam o ArkeFit como negócio próprio são o gestor de uma organização de uma pessoa só (`tipo = profissional_autonomo`, especialidade em `especialidade_profissional`). O painel deles tinha só atendimento, mensagens, alunos e a prescrição; agora funciona como o de uma academia pequena. Migration `20261294010000_profissional_autonomo.sql`.
+
+- **Menu**: funil de vendas, prescrição da especialidade, comunicados e, em **Meu negócio**, Financeiro, Resumo da semana e a tela Organização (perfil, pagamentos, meus planos, contrato de matrícula e **Parceria**). Ficam de fora catraca, check-in por QR, equipe, o Método ARKE (Precificação, Assinaturas, Acompanhamento ARKE) e, no Financeiro, Folha e Comissões. Vendas e dinheiro são só do dono do painel.
+- **Conta Asaas com CPF**: `montarSubconta` aceita CPF com o nome completo (em `razao_social`) e `organizations.responsavel_nascimento`, que o Asaas exige para pessoa física; com CNPJ segue igual. A configuração inicial pede CNPJ **ou** CPF ao autônomo e o nome completo quando é CPF. **O sandbox não confirmou a abertura com CPF**: ele está no limite de subcontas, e testar depende de excluir as antigas (ação do responsável). A nota fiscal automática exige CNPJ (MEI serve), e a tela diz isso a quem tem CPF.
+- **Configuração inicial**: a etapa de equipe vira **Parceria (opcional)** e já nasce concluída para o autônomo (`onboarding_etapas_interno`).
+- **Cada um prescreve a sua parte, no banco**: `definir_dono_da_prescricao()` recusa, numa organização de autônomo, treino de quem não é personal e dieta de quem não é nutricionista (`papel_prescreve_no_autonomo`: o dono pela especialidade, o parceiro pelo papel). Rotina sem usuário passa, como antes. Na academia nada muda. O espelho da tela é `src/lib/prescricaoPermitida.ts` (`podePrescrever`), usado pelo menu, pela ficha e pelas telas de prescrição.
+- **Parceria (decisão 6)**: `convidar_parceiro_autonomo()` vincula quem já tem conta no ArkeFit à organização, com o papel complementar (o personal chama nutricionista; a nutricionista, personal). Quem não tem conta é cadastrado pela `cadastrar-membro-equipe`, com senha temporária. O parceiro vê o painel no seletor de unidade, a ficha completa (a dieta passou a mostrar as refeições na ficha) e prescreve só a parte dele. `encerrar_parceria_autonomo()` tira o acesso; o que ele prescreveu continua valendo.
+
+**Conferido:** 15 casos em transação revertida (etapas da configuração com CPF, personal não publica dieta, parceira nutricionista publica dieta e não treino, convite de e-mail sem conta devolve P0002, parceria encerrada tira o acesso, academia inalterada) e 22 verificações pela tela, com um personal e uma nutricionista temporários fazendo a parceria pelo painel, apagados no fim.
+
 ## Trial e Bloqueio por Pagamento
 
 ### Trial não é oferta comercial

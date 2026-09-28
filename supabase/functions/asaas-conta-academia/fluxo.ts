@@ -60,26 +60,32 @@ export type OrganizacaoParaSubconta = {
   bairro: string | null;
   tipo_empresa: string | null;
   faturamento_mensal: number | null;
+  /** Só para CPF: o Asaas exige a data de nascimento de quem abre conta de pessoa física. */
+  responsavel_nascimento?: string | null;
 };
 
 export type PayloadSubconta = Record<string, string | number>;
 
 /**
  * Monta o corpo de POST /accounts a partir do cadastro da academia, ou diz o
- * que falta. Só CNPJ: para CPF o Asaas exige data de nascimento, e o
- * profissional autônomo que usa CPF já costuma ter conta — informa a carteira.
+ * que falta. Com CNPJ, vão a razão social e o tipo de empresa. Com CPF (o
+ * profissional autônomo que não tem CNPJ), vão o nome completo — guardado em
+ * `razao_social` — e a data de nascimento, que o Asaas exige para pessoa
+ * física; tipo de empresa não se aplica.
  */
 export function montarSubconta(o: OrganizacaoParaSubconta): { ok: true; payload: PayloadSubconta } | { ok: false; faltando: string[] } {
   const faltando: string[] = [];
   const doc = soDigitos(o.cnpj_cpf);
-  if (doc.length !== 14) faltando.push("CNPJ (para CPF, informe a carteira de uma conta Asaas que você já tenha)");
-  if (!o.razao_social?.trim()) faltando.push("razão social");
+  const pessoaFisica = doc.length === 11;
+  if (doc.length !== 14 && !pessoaFisica) faltando.push("CNPJ ou CPF");
+  if (!o.razao_social?.trim()) faltando.push(pessoaFisica ? "nome completo" : "razão social");
   if (!o.email_contato?.trim()) faltando.push("e-mail");
   const celular = soDigitos(o.telefone);
   if (celular.length < 10) faltando.push("celular");
   if (soDigitos(o.cep).length !== 8) faltando.push("CEP");
   if (!o.logradouro?.trim() || !o.numero?.trim() || !o.bairro?.trim()) faltando.push("endereço");
-  if (!o.tipo_empresa) faltando.push("tipo de empresa");
+  if (!pessoaFisica && !o.tipo_empresa) faltando.push("tipo de empresa");
+  if (pessoaFisica && !/^\d{4}-\d{2}-\d{2}$/.test(o.responsavel_nascimento ?? "")) faltando.push("data de nascimento");
   if (!o.faturamento_mensal || o.faturamento_mensal <= 0) faltando.push("faturamento mensal");
   if (faltando.length) return { ok: false, faltando };
 
@@ -87,7 +93,7 @@ export function montarSubconta(o: OrganizacaoParaSubconta): { ok: true; payload:
     name: o.razao_social!.trim(),
     email: o.email_contato!.trim().toLowerCase(),
     cpfCnpj: doc,
-    companyType: o.tipo_empresa!,
+    ...(pessoaFisica ? { birthDate: o.responsavel_nascimento! } : { companyType: o.tipo_empresa! }),
     mobilePhone: celular,
     incomeValue: Number(o.faturamento_mensal),
     address: o.logradouro!.trim(),

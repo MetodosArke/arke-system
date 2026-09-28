@@ -64,6 +64,27 @@ export function NotasFiscaisPainel() {
   });
   const atualizar = (s: SituacaoFiscal) => queryClient.setQueryData(["situacao-fiscal", orgId], s);
 
+  // Nota fiscal de serviço sai em CNPJ (MEI serve). O profissional autônomo que
+  // trabalha com CPF segue emitindo recibo; a tela diz isso em vez de oferecer
+  // uma configuração que a prefeitura recusaria.
+  const { data: documento } = useQuery({
+    queryKey: ["documento-organizacao", orgId],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("organizations").select("cnpj_cpf").eq("id", orgId!).single();
+      if (error) throw error;
+      return (data.cnpj_cpf ?? "").replace(/\D/g, "");
+    },
+    enabled: !!orgId,
+  });
+  if (documento?.length === 11) {
+    return (
+      <p className="text-sm text-muted-foreground">
+        A nota fiscal automática precisa de CNPJ (o MEI serve). Com CPF, ela não se aplica: quando abrir o CNPJ, atualize o
+        cadastro na Configuração inicial e volte aqui.
+      </p>
+    );
+  }
+
   return (
     <div className="space-y-4">
       <p className="text-sm text-muted-foreground">

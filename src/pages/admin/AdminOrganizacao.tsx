@@ -23,6 +23,7 @@ import type { Enums, Tables } from "@/integrations/supabase/types";
 import { ReciboComprovanteDialog, type ReciboData } from "@/components/admin/ReciboComprovanteDialog";
 import { PlanosAcademiaPainel } from "@/components/admin/PlanosAcademiaPainel";
 import { ContratoMatriculaPainel } from "@/components/admin/ContratoMatriculaPainel";
+import { ParceriaAutonomo } from "@/components/admin/ParceriaAutonomo";
 import { dividirCobranca, type RepasseConfig } from "@/lib/repasse";
 import { useTaxaProcessamento } from "@/hooks/useTaxaProcessamento";
 import { reais } from "@/lib/numeros";
@@ -67,6 +68,7 @@ export default function AdminOrganizacao() {
   // as telas de /admin — aqui só resta tratar o caso (fora de homologação)
   // de um usuário sem admin_arke e sem organização.
   const { organization, user, hasRole, refreshOrganization } = useAuth();
+  const ehAutonomo = organization?.tipo === "profissional_autonomo";
   const navigate = useNavigate();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -383,14 +385,17 @@ export default function AdminOrganizacao() {
         </div>
       )}
 
+      {/* O profissional autônomo não vende o Método ARKE: sem Precificação nem
+          Assinaturas, e com a Parceria no lugar da equipe. */}
       <Tabs defaultValue="perfil">
         <TabsList className="flex-wrap h-auto">
           <TabsTrigger value="perfil">Perfil</TabsTrigger>
-          <TabsTrigger value="precificacao">Precificação</TabsTrigger>
+          {!ehAutonomo && <TabsTrigger value="precificacao">Precificação</TabsTrigger>}
           <TabsTrigger value="pagamentos">Pagamentos</TabsTrigger>
-          <TabsTrigger value="assinaturas">Assinaturas</TabsTrigger>
-          <TabsTrigger value="planos">Planos da Academia</TabsTrigger>
+          {!ehAutonomo && <TabsTrigger value="assinaturas">Assinaturas</TabsTrigger>}
+          <TabsTrigger value="planos">{ehAutonomo ? "Meus planos" : "Planos da Academia"}</TabsTrigger>
           <TabsTrigger value="contrato">Contrato de matrícula</TabsTrigger>
+          {ehAutonomo && <TabsTrigger value="parceria">Parceria</TabsTrigger>}
         </TabsList>
 
       <TabsContent value="perfil" className="space-y-4 pt-3">
@@ -653,6 +658,7 @@ export default function AdminOrganizacao() {
         </CardContent>
       </Card>
 
+      {!ehAutonomo && (
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Taxa de split aplicada por plano</CardTitle>
@@ -687,6 +693,7 @@ export default function AdminOrganizacao() {
           })}
         </CardContent>
       </Card>
+      )}
       </TabsContent>
 
       <TabsContent value="assinaturas" className="pt-3">
@@ -747,6 +754,16 @@ export default function AdminOrganizacao() {
       <TabsContent value="contrato" className="pt-3">
         <ContratoMatriculaPainel />
       </TabsContent>
+
+      {ehAutonomo && (
+        <TabsContent value="parceria" className="pt-3">
+          <Card>
+            <CardContent className="pt-4">
+              <ParceriaAutonomo />
+            </CardContent>
+          </Card>
+        </TabsContent>
+      )}
       </Tabs>
 
       <EncerramentoAcademia />

@@ -130,7 +130,8 @@ export default function DashboardHome() {
   const especialidade = organization?.especialidadeProfissional;
 
   const visao = useMemo(() => {
-    if (ehProfissionalAutonomo) return especialidade === "nutricionista" ? "nutricionista" : "personal";
+    // O dono do painel segue a especialidade dele; o parceiro convidado, o próprio papel.
+    if (ehProfissionalAutonomo && organizationRole === "gestor") return especialidade === "nutricionista" ? "nutricionista" : "personal";
     if (organizationRole === "professor") return "personal";
     if (organizationRole === "nutricionista") return "nutricionista";
     return ehStudio ? "gestor_studio" : "gestor_academia";

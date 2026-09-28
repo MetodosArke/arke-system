@@ -29,6 +29,7 @@ import { SituacaoAluno } from "@/components/admin/SituacaoAluno";
 import { DocumentosMatriculaAluno } from "@/components/admin/DocumentosMatriculaAluno";
 import { PresencasAluno } from "@/components/admin/PresencasAluno";
 import { planoDoAluno, ROTULO_PLANO, temNutricaoNoPlano } from "@/lib/planoAluno";
+import { podePrescrever } from "@/lib/prescricaoPermitida";
 import { useNutricionistaDaAcademia } from "@/hooks/useNutricionistaDaAcademia";
 import { lerReais, reais } from "@/lib/numeros";
 import { hojeBrasilia } from "@/lib/dataBrasilia";
@@ -109,7 +110,7 @@ export function AlunoPerfilSheet({
   onOpenChange: (open: boolean) => void;
 }) {
   const navigate = useNavigate();
-  const { organization, organizationRole } = useAuth();
+  const { organization, organizationRole, hasRole } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [impressaoAberta, setImpressaoAberta] = useState(false);
@@ -170,7 +171,7 @@ export function AlunoPerfilSheet({
           .maybeSingle(),
         supabase
           .from("dietas")
-          .select("titulo")
+          .select("titulo, snapshot_conteudo")
           .eq("aluno_id", aluno.id)
           .eq("status", "ativo")
           .order("created_at", { ascending: false })
@@ -310,6 +311,17 @@ export function AlunoPerfilSheet({
   // avaliação física que o mentor pedir. O banco já recusa o resto; a tela só
   // deixa de oferecer o que ia ser recusado.
   const doMetodo = plano !== "free";
+  // No painel do autônomo, cada um prescreve a sua parte; na academia nada muda.
+  const contextoPrescricao = {
+    tipoOrganizacao: organization?.tipo,
+    especialidade: organization?.especialidadeProfissional,
+    papel: organizationRole,
+    adminArke: hasRole("admin_arke"),
+  };
+  const ehAutonomo = organization?.tipo === "profissional_autonomo";
+  const podeTreino = podePrescrever("treino", contextoPrescricao);
+  const podeDieta = podePrescrever("dieta", contextoPrescricao);
+  const refeicoesDieta = (perfil?.dietaAtiva?.snapshot_conteudo as unknown as { nome_refeicao: string; horario_sugerido: string | null; itens: string | null }[] | null) ?? [];
   const academiaTemNutri = useNutricionistaDaAcademia(perfil?.aluno.organization_id);
   const idade = perfil?.aluno.data_nascimento ? calcularIdade(perfil.aluno.data_nascimento) : null;
   const exerciciosTreinoAtivo =
@@ -376,14 +388,18 @@ export function AlunoPerfilSheet({
               </div>
             ) : (
               <div className="flex gap-2 mt-4">
-                <Button size="sm" className="flex-1" onClick={() => irPrescrever("treinos")}>
-                  <Dumbbell className="h-4 w-4 mr-1.5" />
-                  Prescrever Treino
-                </Button>
-                <Button size="sm" variant="outline" className="flex-1" onClick={() => irPrescrever("dietas")}>
-                  <UtensilsCrossed className="h-4 w-4 mr-1.5" />
-                  Prescrever Dieta
-                </Button>
+                {podeTreino && (
+                  <Button size="sm" className="flex-1" onClick={() => irPrescrever("treinos")}>
+                    <Dumbbell className="h-4 w-4 mr-1.5" />
+                    Prescrever Treino
+                  </Button>
+                )}
+                {podeDieta && (
+                  <Button size="sm" variant="outline" className="flex-1" onClick={() => irPrescrever("dietas")}>
+                    <UtensilsCrossed className="h-4 w-4 mr-1.5" />
+                    Prescrever Dieta
+                  </Button>
+                )}
               </div>
             )}
 
@@ -510,10 +526,24 @@ export function AlunoPerfilSheet({
                 {doMetodo ? (
                   // A academia não lê a dieta do Método: é da nutricionista da ArkeFit.
                   <p className="text-sm text-muted-foreground">Acompanhada pela nutricionista da ArkeFit.</p>
+                ) : perfil.dietaAtiva ? (
+                  <>
+                    <p className="text-sm font-medium">{perfil.dietaAtiva.titulo}</p>
+                    {/* A ficha é completa para quem acompanha o aluno, mesmo sem prescrever a dieta. */}
+                    <ul className="mt-1.5 space-y-1">
+                      {refeicoesDieta.map((r, i) => (
+                        <li key={i} className="text-sm">
+                          <span className="font-medium">{r.nome_refeicao}</span>
+                          {r.horario_sugerido && (
+                            <span className="text-xs text-muted-foreground"> · {r.horario_sugerido.slice(0, 5)}</span>
+                          )}
+                          {r.itens && <p className="text-xs text-muted-foreground whitespace-pre-line">{r.itens}</p>}
+                        </li>
+                      ))}
+                    </ul>
+                  </>
                 ) : (
-                  <p className="text-sm">
-                    {perfil.dietaAtiva ? perfil.dietaAtiva.titulo : <span className="text-muted-foreground">nenhuma ativa</span>}
-                  </p>
+                  <p className="text-sm text-muted-foreground">nenhuma ativa</p>
                 )}
               </Bloco>
 
@@ -524,6 +554,7 @@ export function AlunoPerfilSheet({
                 </Bloco>
               )}
 
+              {!ehAutonomo && (
               <Bloco titulo="Método ARKE" icon={FlaskConical}>
                 {/* Trial é atribuído só pelo Super Admin (Visão Master); aqui a academia só vê. */}
                 <TrialMetodoArke
@@ -547,6 +578,7 @@ export function AlunoPerfilSheet({
                   />
                 </div>
               </Bloco>
+              )}
 
               {/* No Método o resumo é do mentor, como a anamnese de onde ele sai. */}
               {!doMetodo && (
@@ -559,16 +591,19 @@ export function AlunoPerfilSheet({
                 <DocumentosMatriculaAluno alunoId={perfil.aluno.id} organizationId={perfil.aluno.organization_id} />
               </Bloco>
 
-              <Bloco titulo="Acesso por Catraca" icon={Fingerprint}>
-                <AcessoCatraca
-                  alunoId={perfil.aluno.id}
-                  organizationId={perfil.aluno.organization_id}
-                  identificadorAtual={perfil.aluno.identificador_catraca}
-                  alunoNome={perfil.profile?.full_name ?? "Aluno"}
-                  alunoCpf={perfil.profile?.cpf ?? null}
-                  situacaoAcademia={perfil.aluno.situacao_academia}
-                />
-              </Bloco>
+              {/* Profissional autônomo não tem catraca. */}
+              {!ehAutonomo && (
+                <Bloco titulo="Acesso por Catraca" icon={Fingerprint}>
+                  <AcessoCatraca
+                    alunoId={perfil.aluno.id}
+                    organizationId={perfil.aluno.organization_id}
+                    identificadorAtual={perfil.aluno.identificador_catraca}
+                    alunoNome={perfil.profile?.full_name ?? "Aluno"}
+                    alunoCpf={perfil.profile?.cpf ?? null}
+                    situacaoAcademia={perfil.aluno.situacao_academia}
+                  />
+                </Bloco>
+              )}
 
               <Bloco titulo="Plano da Academia" icon={Wallet}>
                 {perfil.matricula && perfil.planoInfo ? (
