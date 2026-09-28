@@ -28,4 +28,15 @@ A academia não lê essas conversas.
 
 O tempo até a resposta é **latência**, não esforço: um chamado resolvido em 3 horas pode ter dado 10 minutos de trabalho.
 
+## Equipe ArkeFit: quem pode prescrever
+
+Em [Equipe ArkeFit](/superadmin/equipe) ficam as contas da ArkeFit e o registro profissional de cada uma. No Método, o treino e a dieta do aluno são da ArkeFit, e o sistema só deixa publicar:
+
+- **treino** para quem tem **CREF** cadastrado e está ativo;
+- **dieta** para quem tem **CRN** cadastrado e está ativo.
+
+Quem não tem registro acompanha, conversa e encaminha, mas não prescreve. A mesma pessoa pode ter os dois. Cada mudança fica na Auditoria. Desativar alguém não apaga o que essa pessoa já publicou.
+
+A academia deixa de prescrever para o aluno no dia em que ele entra no Método: ela vê o treino, para orientar no salão, e não vê a dieta nem a anamnese.
+
 > Cobrança e atestado não são da célula: ficam com a academia, mesmo para aluno do Método.

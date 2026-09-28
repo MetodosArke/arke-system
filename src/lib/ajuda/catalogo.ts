@@ -390,11 +390,11 @@ export const ARTIGOS: ArtigoAjuda[] = [
   },
   {
     slug: "vm-mentoria",
-    titulo: "Mentoria: chamados, conversas e operação",
-    resumo: "A fila da célula, as três saídas de um chamado e o painel de SLA.",
+    titulo: "Mentoria: chamados, conversas, operação e equipe",
+    resumo: "A fila da célula, as três saídas de um chamado, o painel de SLA e quem da equipe pode prescrever.",
     secao: "Visão Master",
     publicos: ["arkefit"],
-    rotas: ["/superadmin/mentoria"],
+    rotas: ["/superadmin/mentoria", "/superadmin/equipe"],
   },
   {
     slug: "vm-equipamentos",

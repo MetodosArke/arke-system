@@ -17,10 +17,13 @@ export function MetasAluno({
   alunoId,
   metaAguaMl,
   metaSemanalDias,
+  somenteLeitura = false,
 }: {
   alunoId: string;
   metaAguaMl: number | null;
   metaSemanalDias: number | null;
+  /** Aluno do Método: quem ajusta as metas é o mentor da ArkeFit, e o banco recusa a academia. */
+  somenteLeitura?: boolean;
 }) {
   const [agua, setAgua] = useState(String(metaAguaMl ?? 2000));
   const [dias, setDias] = useState(String(metaSemanalDias ?? 3));
@@ -46,6 +49,18 @@ export function MetasAluno({
   });
 
   const mudou = agua !== String(metaAguaMl ?? 2000) || dias !== String(metaSemanalDias ?? 3);
+
+  if (somenteLeitura) {
+    return (
+      <div className="space-y-1 text-sm">
+        <p>
+          Água por dia: <span className="font-medium">{metaAguaMl ?? 2000} ml</span> · Treinos por semana:{" "}
+          <span className="font-medium">{metaSemanalDias ?? 3} dias</span>
+        </p>
+        <p className="text-xs text-muted-foreground">Definidas pelo mentor da ArkeFit.</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-2">

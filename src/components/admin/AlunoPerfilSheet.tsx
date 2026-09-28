@@ -162,7 +162,7 @@ export function AlunoPerfilSheet({
           .limit(1),
         supabase
           .from("treinos")
-          .select("titulo, validade_inicio, validade_fim, snapshot_conteudo")
+          .select("titulo, validade_inicio, validade_fim, snapshot_conteudo, dono")
           .eq("aluno_id", aluno.id)
           .eq("status", "ativo")
           .order("created_at", { ascending: false })
@@ -305,6 +305,11 @@ export function AlunoPerfilSheet({
   });
 
   const plano = perfil ? planoDoAluno(perfil.aluno) : "free";
+  // No Método, treino, dieta, anamnese, metas e jornada são do mentor da
+  // ArkeFit. A academia fica com cadastro, matrícula, catraca, atestado e a
+  // avaliação física que o mentor pedir. O banco já recusa o resto; a tela só
+  // deixa de oferecer o que ia ser recusado.
+  const doMetodo = plano !== "free";
   const academiaTemNutri = useNutricionistaDaAcademia(perfil?.aluno.organization_id);
   const idade = perfil?.aluno.data_nascimento ? calcularIdade(perfil.aluno.data_nascimento) : null;
   const exerciciosTreinoAtivo =
@@ -358,16 +363,29 @@ export function AlunoPerfilSheet({
                 )}
             </SheetHeader>
 
-            <div className="flex gap-2 mt-4">
-              <Button size="sm" className="flex-1" onClick={() => irPrescrever("treinos")}>
-                <Dumbbell className="h-4 w-4 mr-1.5" />
-                Prescrever Treino
-              </Button>
-              <Button size="sm" variant="outline" className="flex-1" onClick={() => irPrescrever("dietas")}>
-                <UtensilsCrossed className="h-4 w-4 mr-1.5" />
-                Prescrever Dieta
-              </Button>
-            </div>
+            {doMetodo ? (
+              <div className="mt-4 rounded-md border border-primary/40 bg-primary/5 p-3 text-xs space-y-1">
+                <p className="font-medium text-sm flex items-center gap-1.5">
+                  <ShieldCheck className="h-4 w-4 text-primary" />
+                  Acompanhado pelo mentor da ArkeFit
+                </p>
+                <p className="text-muted-foreground">
+                  Treino, dieta, anamnese, metas e fases da jornada ficam com o mentor. A academia cuida do cadastro,
+                  da matrícula, da catraca, do atestado e da avaliação física quando o mentor pedir.
+                </p>
+              </div>
+            ) : (
+              <div className="flex gap-2 mt-4">
+                <Button size="sm" className="flex-1" onClick={() => irPrescrever("treinos")}>
+                  <Dumbbell className="h-4 w-4 mr-1.5" />
+                  Prescrever Treino
+                </Button>
+                <Button size="sm" variant="outline" className="flex-1" onClick={() => irPrescrever("dietas")}>
+                  <UtensilsCrossed className="h-4 w-4 mr-1.5" />
+                  Prescrever Dieta
+                </Button>
+              </div>
+            )}
 
             <div className="flex gap-2 mt-2">
               <Button
@@ -412,6 +430,7 @@ export function AlunoPerfilSheet({
                   alunoId={perfil.aluno.id}
                   metaAguaMl={perfil.aluno.meta_agua_ml}
                   metaSemanalDias={perfil.aluno.meta_semanal_dias}
+                  somenteLeitura={doMetodo}
                 />
               </Bloco>
 
@@ -452,6 +471,9 @@ export function AlunoPerfilSheet({
                     <div className="flex items-center justify-between gap-2">
                       <div>
                         <p className="text-sm font-medium">{perfil.treinoAtivo.titulo}</p>
+                        {perfil.treinoAtivo.dono === "arkefit" && (
+                          <p className="text-xs text-primary">Prescrito pela ArkeFit</p>
+                        )}
                         {perfil.treinoAtivo.validade_fim && (
                           <p className="text-xs text-muted-foreground">
                             Válido até {formatarData(perfil.treinoAtivo.validade_fim)}
@@ -478,20 +500,27 @@ export function AlunoPerfilSheet({
                     </ul>
                   </>
                 ) : (
-                  <p className="text-sm text-muted-foreground">Nenhum treino ativo</p>
+                  <p className="text-sm text-muted-foreground">
+                    {doMetodo ? "O mentor da ArkeFit ainda não publicou o treino." : "Nenhum treino ativo"}
+                  </p>
                 )}
               </Bloco>
 
               <Bloco titulo="Dieta Ativa" icon={UtensilsCrossed}>
-                <p className="text-sm">
-                  {perfil.dietaAtiva ? perfil.dietaAtiva.titulo : <span className="text-muted-foreground">nenhuma ativa</span>}
-                </p>
+                {doMetodo ? (
+                  // A academia não lê a dieta do Método: é da nutricionista da ArkeFit.
+                  <p className="text-sm text-muted-foreground">Acompanhada pela nutricionista da ArkeFit.</p>
+                ) : (
+                  <p className="text-sm">
+                    {perfil.dietaAtiva ? perfil.dietaAtiva.titulo : <span className="text-muted-foreground">nenhuma ativa</span>}
+                  </p>
+                )}
               </Bloco>
 
-              {/* Fases da jornada são do Método ARKE; no Free não há fase a mover. */}
-              {plano !== "free" && (
+              {/* Fases da jornada são do Método ARKE, e quem as conduz é o mentor. */}
+              {doMetodo && (
                 <Bloco titulo="Fase da Jornada" icon={Route}>
-                  <FaseJornada alunoId={perfil.aluno.id} faseAtual={perfil.aluno.fase_jornada} />
+                  <FaseJornada alunoId={perfil.aluno.id} faseAtual={perfil.aluno.fase_jornada} somenteLeitura />
                 </Bloco>
               )}
 
@@ -519,9 +548,12 @@ export function AlunoPerfilSheet({
                 </div>
               </Bloco>
 
-              <Bloco titulo="Resumo da anamnese (Sentinela)" icon={Sparkles}>
-                <ResumoSentinela alunoId={perfil.aluno.id} />
-              </Bloco>
+              {/* No Método o resumo é do mentor, como a anamnese de onde ele sai. */}
+              {!doMetodo && (
+                <Bloco titulo="Resumo da anamnese (Sentinela)" icon={Sparkles}>
+                  <ResumoSentinela alunoId={perfil.aluno.id} />
+                </Bloco>
+              )}
 
               <Bloco titulo="Documentos da Matrícula" icon={FileSignature}>
                 <DocumentosMatriculaAluno alunoId={perfil.aluno.id} organizationId={perfil.aluno.organization_id} />
