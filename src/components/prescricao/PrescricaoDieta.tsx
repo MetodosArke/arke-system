@@ -27,6 +27,11 @@ import { formatarDataBR } from "@/lib/dataBrasilia";
 import type { Json } from "@/integrations/supabase/types";
 import { bibliotecaDoEscopo, type EscopoPrescricao } from "@/components/prescricao/escopo";
 
+// Tom leve do dourado da marca nos botões de importar PDF: é o atalho que mais
+// poupa trabalho da nutricionista, e sem destaque ele se perdia entre os
+// botões de contorno.
+const DESTAQUE_PDF = "border-primary/40 bg-primary/10 hover:bg-primary/20 hover:text-foreground";
+
 // Importação de dieta por PDF (voltou em 25/09/2026, agora no Brasil). O
 // texto do PDF é lido no navegador — o arquivo não sai do aparelho — e a
 // edge function importar-dieta-pdf monta as refeições com IA processada em
@@ -546,6 +551,7 @@ export function PrescricaoDieta({
               </Button>
               <Button
                 variant="outline"
+                className={DESTAQUE_PDF}
                 onClick={() => {
                   setImportarPdfModo("modelo");
                   setImportarPdfAberto(true);
@@ -755,6 +761,7 @@ export function PrescricaoDieta({
                   type="button"
                   variant="outline"
                   size="sm"
+                  className={DESTAQUE_PDF}
                   disabled={!alunoPublicar}
                   onClick={() => {
                     setImportarPdfModo("aluno");
@@ -957,6 +964,7 @@ export function PrescricaoDieta({
               <Input
                 type="file"
                 accept="application/pdf,.pdf"
+                className="h-auto cursor-pointer py-1.5 file:mr-3 file:cursor-pointer file:rounded-md file:bg-primary/15 file:px-3 file:py-1.5 file:font-semibold hover:file:bg-primary/25"
                 disabled={importarDietaPdf.isPending}
                 onChange={(e) => {
                   const input = e.target;
