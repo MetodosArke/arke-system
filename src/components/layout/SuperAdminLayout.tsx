@@ -15,6 +15,7 @@ import { SECOES_SUPERADMIN, SuperAdminSidebarDesktop, SuperAdminSidebarMobile } 
 /** O nome da tela aberta, para o cabeçalho. A Central de Ajuda tem subpáginas. */
 function tituloDaTela(pathname: string): string {
   if (pathname.startsWith("/superadmin/ajuda")) return "Ajuda";
+  if (pathname.startsWith("/superadmin/mentoria/")) return "Mentoria";
   const item = SECOES_SUPERADMIN.flatMap((s) => s.items).find((i) => i.path === pathname);
   return item?.label ?? "Visão Master";
 }

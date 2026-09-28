@@ -1086,6 +1086,8 @@ export type Database = {
           fase_jornada: Database["public"]["Enums"]["fase_jornada"]
           id: string
           identificador_catraca: string | null
+          mentor_desde: string | null
+          mentor_id: string | null
           meta_agua_ml: number
           meta_semanal_dias: number
           metodo_arke_ativado_em: string | null
@@ -1120,6 +1122,8 @@ export type Database = {
           fase_jornada?: Database["public"]["Enums"]["fase_jornada"]
           id?: string
           identificador_catraca?: string | null
+          mentor_desde?: string | null
+          mentor_id?: string | null
           meta_agua_ml?: number
           meta_semanal_dias?: number
           metodo_arke_ativado_em?: string | null
@@ -1154,6 +1158,8 @@ export type Database = {
           fase_jornada?: Database["public"]["Enums"]["fase_jornada"]
           id?: string
           identificador_catraca?: string | null
+          mentor_desde?: string | null
+          mentor_id?: string | null
           meta_agua_ml?: number
           meta_semanal_dias?: number
           metodo_arke_ativado_em?: string | null
@@ -4009,31 +4015,34 @@ export type Database = {
       }
       modelos_dieta: {
         Row: {
+          biblioteca: string
           created_at: string
           criado_por: string | null
           id: string
           observacoes: string | null
-          organization_id: string
+          organization_id: string | null
           tipo: string | null
           titulo: string
           updated_at: string
         }
         Insert: {
+          biblioteca?: string
           created_at?: string
           criado_por?: string | null
           id?: string
           observacoes?: string | null
-          organization_id: string
+          organization_id?: string | null
           tipo?: string | null
           titulo: string
           updated_at?: string
         }
         Update: {
+          biblioteca?: string
           created_at?: string
           criado_por?: string | null
           id?: string
           observacoes?: string | null
-          organization_id?: string
+          organization_id?: string | null
           tipo?: string | null
           titulo?: string
           updated_at?: string
@@ -4057,26 +4066,29 @@ export type Database = {
       }
       modelos_treino: {
         Row: {
+          biblioteca: string
           created_at: string
           criado_por: string | null
           id: string
-          organization_id: string
+          organization_id: string | null
           titulo: string
           updated_at: string
         }
         Insert: {
+          biblioteca?: string
           created_at?: string
           criado_por?: string | null
           id?: string
-          organization_id: string
+          organization_id?: string | null
           titulo: string
           updated_at?: string
         }
         Update: {
+          biblioteca?: string
           created_at?: string
           criado_por?: string | null
           id?: string
-          organization_id?: string
+          organization_id?: string | null
           titulo?: string
           updated_at?: string
         }
@@ -6642,6 +6654,10 @@ export type Database = {
         }
         Returns: string
       }
+      atribuir_mentor_aluno: {
+        Args: { _aluno_id: string; _mentor_id: string }
+        Returns: undefined
+      }
       atualizar_endereco_aluno: {
         Args: {
           _aluno_id: string
@@ -6815,6 +6831,15 @@ export type Database = {
           _prioridade?: Database["public"]["Enums"]["tarefa_prioridade"]
         }
         Returns: string
+      }
+      definir_metas_aluno_metodo: {
+        Args: {
+          _aluno_id: string
+          _meta_agua_ml: number
+          _meta_semanal_dias: number
+          _objetivo: string
+        }
+        Returns: undefined
       }
       definir_modo_regra_vigia: {
         Args: { _codigo: string; _modo: string }
@@ -7020,6 +7045,31 @@ export type Database = {
           por_semana: number
         }[]
       }
+      get_carteira_mentor: {
+        Args: { _limite?: number }
+        Returns: {
+          aluno_id: string
+          aluno_nome: string
+          anamnese_concluida: boolean
+          atencao: string[]
+          chamados_abertos: number
+          chamados_atrasados: number
+          constancia: number
+          dias_inativo: number
+          dieta_ativa: boolean
+          fase: Database["public"]["Enums"]["fase_jornada"]
+          mentor_id: string
+          mentor_nome: string
+          nao_lidas: number
+          organizacao_nome: string
+          organization_id: string
+          plano: string
+          progressao_bloqueada: boolean
+          situacao_academia: string
+          treino_ativo: boolean
+          treino_validade_fim: string
+        }[]
+      }
       get_encerramento_organizacao: {
         Args: { _organization_id: string }
         Returns: {
@@ -7030,6 +7080,7 @@ export type Database = {
           termino_em: string
         }[]
       }
+      get_ficha_mentor: { Args: { _aluno_id: string }; Returns: Json }
       get_fila_mentor: {
         Args: { _limite?: number }
         Returns: {
@@ -7758,6 +7809,7 @@ export type Database = {
         Args: { _ip_hash: string }
         Returns: number
       }
+      registro_metodo_exigido: { Args: never; Returns: boolean }
       repasse_arke: {
         Args: {
           _nivel_atacado?: string

@@ -520,6 +520,21 @@ Até aqui o aluno do Método era, para o banco, igual a qualquer outro: a equipe
 
 **Conferido em 26 casos** em transação revertida, com identidades reais da homologação e o Super Admin sem o papel antigo de Admin ARKE (que já lia tudo): gestor lê o treino do Método e não a anamnese nem a dieta, e é recusado ao publicar, mexer nas metas e mover a fase; o Free segue igual; Super Admin sem registro é recusado; com CREF publica o treino (`arkefit`, com o registro gravado) e o aluno em M.A.P.A.® passa a B.A.S.E.®; sem CRN a dieta é recusada, com CRN passa, e a academia não a vê; o aluno vê a própria dieta e a própria anamnese; e sem usuário o gatilho recusa aluno do Método e aceita o Free.
 
+## Método ARKE: o console do mentor (fase 3, 28/09/2026)
+
+A fase 1 deu ao mentor a posse do acompanhamento; esta dá a ele onde trabalhar. A Mentoria da Visão Master deixou de ser só fila de chamados: a primeira aba é a **carteira**, e cada aluno abre uma **ficha** (`/superadmin/mentoria/aluno/:id`) com visão geral, acolhimento, treino, dieta, evolução e conversa. Migration `20261293010000_metodo_console_mentor.sql`.
+
+**O CREF e o CRN deixaram de ser obrigatórios por enquanto** (decisão do responsável, para não travar o desenvolvimento). O cadastro continua, e o registro continua gravado na prescrição quando existe, mas a exigência depende de `plataforma_config.exigir_registro_metodo` (0 hoje), lido por `registro_metodo_exigido()`. **Sem a linha, exige**: esquecer a configuração não pode abrir a porta. Religar é o interruptor em **Visão Master → Equipe ArkeFit**, sem migration — e é o passo combinado para quando o console estiver testado.
+
+- **Biblioteca do Método**: `modelos_treino` e `modelos_dieta` ganharam `biblioteca` (`academia` | `metodo`). O modelo do Método não tem organização, e uma restrição amarra as duas coisas. Moram nas mesmas tabelas de propósito: `publicar_treino` e `publicar_dieta` servem aos dois lados sem uma segunda cópia do snapshot. A condição entrou na regra FOR ALL que cada tabela já tinha; a academia não enxerga a biblioteca do Método.
+- **Carteira**: `alunos.mentor_id` e `mentor_desde`. Só a ArkeFit troca (`trg_proteger_mentor_do_aluno`), por `atribuir_mentor_aluno()`. `get_carteira_mentor()` devolve os alunos do Método com os sinais de atenção já calculados (`atencao`: acolhimento pendente, sem treino, sem dieta, dor, chamado atrasado, mensagem, treino vencendo, sem mentor), o que trava primeiro. Os rótulos e filtros da tela moram em `src/lib/carteiraMentor.ts`.
+- **Metas**: `definir_metas_aluno_metodo()`. A ArkeFit não tem regra de alteração em `alunos` — a tabela é o cadastro da academia —, então as metas do aluno do Método passam por essa função.
+- **Ficha**: `get_ficha_mentor()` devolve tudo numa chamada (aluno, anamnese, treino e dieta ativos, check-ins, treinos registrados, adesão, avaliações, chamados) e recusa aluno do Free: esse é da academia.
+- **Um editor só para os dois lados.** As telas de treino e dieta viraram `PrescricaoTreino` e `PrescricaoDieta` (`src/components/prescricao/`), com um `escopo`: a academia trabalha com a biblioteca e os alunos dela; o mentor, com a biblioteca do Método e o aluno fixo da ficha. `AdminTreinos` e `AdminDietas` são só o invólucro da academia. Duas cópias do editor divergiriam na primeira correção feita num lado só.
+- **Importação de dieta por PDF para a ArkeFit**: `importar-dieta-pdf` aceita, além de gestor e nutricionista, quem o banco reconhece por `equipe_metodo()`, perguntado com a sessão de quem chama — lá o papel da ArkeFit só vale com a verificação em duas etapas.
+
+**Conferido:** 23 casos em transação revertida (exigência desligada e ligada, sem configuração exigindo, biblioteca invisível para a academia, carteira, metas e ficha recusadas ao gestor e ao aluno); 15 na corrente real com um Super Admin temporário verificado em duas etapas (sem as duas etapas a carteira e o PDF recusam; o mentor assume o aluno, define metas, monta um modelo do Método e publica, e a academia vê o treino mas não a biblioteca; tudo desfeito no fim); e as telas num navegador, no computador e no celular, sem exceção nem erro do Supabase.
+
 ## Trial e Bloqueio por Pagamento
 
 ### Trial não é oferta comercial

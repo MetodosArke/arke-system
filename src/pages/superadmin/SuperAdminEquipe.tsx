@@ -63,6 +63,42 @@ export default function SuperAdminEquipe() {
     onError: (e: Error) => toast({ title: "Não foi possível salvar", description: e.message, variant: "destructive" }),
   });
 
+  // A exigência do registro fica desligada enquanto o console do mentor é
+  // construído e testado; ligar é uma decisão do responsável, tomada aqui.
+  const { data: exigeRegistro } = useQuery({
+    queryKey: ["exigir-registro-metodo"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("plataforma_config")
+        .select("valor")
+        .eq("chave", "exigir_registro_metodo")
+        .maybeSingle();
+      if (error) throw error;
+      // Sem a linha, o banco exige: a tela diz o mesmo.
+      return data ? Number(data.valor) === 1 : true;
+    },
+  });
+
+  const mudarExigencia = useMutation({
+    mutationFn: async (ligar: boolean) => {
+      const { error } = await supabase
+        .from("plataforma_config")
+        .update({ valor: ligar ? 1 : 0 })
+        .eq("chave", "exigir_registro_metodo");
+      if (error) throw error;
+    },
+    onSuccess: (_d, ligar) => {
+      toast({
+        title: ligar ? "Registro profissional exigido" : "Exigência desligada",
+        description: ligar
+          ? "A partir de agora só publica treino quem tem CREF, e dieta quem tem CRN."
+          : "Qualquer pessoa da equipe da ArkeFit publica treino e dieta do Método.",
+      });
+      void queryClient.invalidateQueries({ queryKey: ["exigir-registro-metodo"] });
+    },
+    onError: (e: Error) => toast({ title: "Não foi possível mudar", description: e.message, variant: "destructive" }),
+  });
+
   const abrir = (m: MembroEquipe) =>
     setEdicao({
       user_id: m.user_id,
@@ -83,6 +119,27 @@ export default function SuperAdminEquipe() {
         Quem acompanha os alunos do Método ARKE. Publicar treino de aluno do Método exige CREF, e publicar dieta exige
         CRN. Quem não tem registro acompanha e conversa, mas não prescreve.
       </p>
+
+      <Card>
+        <CardContent className="flex flex-wrap items-center justify-between gap-3 py-4">
+          <div className="space-y-0.5">
+            <Label htmlFor="exigir-registro" className="text-sm font-medium">
+              Exigir CREF e CRN para prescrever
+            </Label>
+            <p className="text-xs text-muted-foreground">
+              {exigeRegistro
+                ? "Ligado: só publica treino quem tem CREF cadastrado, e dieta quem tem CRN."
+                : "Desligado, para a fase de testes: qualquer pessoa da equipe da ArkeFit publica. O registro, quando cadastrado, fica gravado na prescrição."}
+            </p>
+          </div>
+          <Switch
+            id="exigir-registro"
+            checked={!!exigeRegistro}
+            disabled={exigeRegistro === undefined || mudarExigencia.isPending}
+            onCheckedChange={(v) => mudarExigencia.mutate(v)}
+          />
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader className="pb-2">
