@@ -7,6 +7,7 @@ import { MessageCircle, Users } from "lucide-react";
 import { ChatMentor } from "@/components/chat/ChatMentor";
 import { FilaChamadosMentor } from "@/components/superadmin/FilaChamadosMentor";
 import { OperacaoMentor } from "@/components/superadmin/OperacaoMentor";
+import { CarteiraMentor } from "@/components/superadmin/CarteiraMentor";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ROTULO_PLANO, type PlanoAluno } from "@/lib/planoAluno";
 import { format } from "date-fns";
@@ -61,15 +62,19 @@ export default function SuperAdminMentoria() {
         </span>
       </div>
 
-      {/* Duas filas e duas perguntas: "quem me escreveu" e "quem saiu do
-          trilho". A segunda e o coracao do BPO — ela nasce sozinha dos
-          sensores, sem ninguem precisar reclamar primeiro. */}
-      <Tabs defaultValue="chamados">
+      {/* A carteira é a porta de entrada: o mentor é dono do acompanhamento
+          do aluno do Método, e não só de chamados. Chamados e conversas
+          continuam como filas de trabalho ao lado. */}
+      <Tabs defaultValue="alunos">
         <TabsList>
+          <TabsTrigger value="alunos">Alunos</TabsTrigger>
           <TabsTrigger value="chamados">Chamados</TabsTrigger>
           <TabsTrigger value="conversas">Conversas</TabsTrigger>
           <TabsTrigger value="operacao">Operação</TabsTrigger>
         </TabsList>
+        <TabsContent value="alunos" className="mt-3">
+          <CarteiraMentor />
+        </TabsContent>
         <TabsContent value="chamados" className="mt-3">
           <FilaChamadosMentor />
         </TabsContent>

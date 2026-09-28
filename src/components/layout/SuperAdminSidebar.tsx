@@ -97,7 +97,10 @@ function SidebarNav({
               </p>
             )}
             {section.items.map((item) => {
-              const isActive = location.pathname === item.path;
+              // A ficha do aluno mora dentro da Mentoria.
+              const isActive =
+                location.pathname === item.path ||
+                (item.path === "/superadmin/mentoria" && location.pathname.startsWith("/superadmin/mentoria/"));
               return (
                 <button
                   key={item.path}

@@ -97,6 +97,7 @@ const CentralAjuda = paginaPreguicosa(() => import("@/pages/ajuda/CentralAjuda")
 const Landing = paginaPreguicosa(() => import("@/pages/public/Landing"));
 const SuperAdminContatos = paginaPreguicosa(() => import("@/pages/superadmin/SuperAdminContatos"));
 const SuperAdminEquipe = paginaPreguicosa(() => import("@/pages/superadmin/SuperAdminEquipe"));
+const SuperAdminFichaAluno = paginaPreguicosa(() => import("@/pages/superadmin/SuperAdminFichaAluno"));
 
 const isNetworkError = (error: unknown) => {
   const message = error instanceof Error ? error.message : String(error ?? "");
@@ -333,6 +334,7 @@ const App = () => (
                 <Route path="auditoria" element={<SuperAdminAuditoria />} />
                 <Route path="webhooks" element={<SuperAdminWebhooks />} />
                 <Route path="mentoria" element={<SuperAdminMentoria />} />
+                <Route path="mentoria/aluno/:alunoId" element={<SuperAdminFichaAluno />} />
                 <Route path="equipamentos" element={<SuperAdminEquipamentos />} />
                 <Route path="vigia" element={<SuperAdminVigia />} />
                 <Route path="configuracoes" element={<SuperAdminConfiguracoes />} />

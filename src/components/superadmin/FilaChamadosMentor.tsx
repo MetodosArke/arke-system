@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -217,7 +218,9 @@ export function FilaChamadosMentor() {
                 <div className="min-w-0">
                   <p className="flex items-center gap-1.5 text-sm font-medium">
                     <Icone className="h-4 w-4 text-muted-foreground" />
-                    {c.aluno_nome}
+                    <Link to={`/superadmin/mentoria/aluno/${c.aluno_id}`} className="underline-offset-2 hover:underline">
+                      {c.aluno_nome}
+                    </Link>
                     <span className="text-xs font-normal text-muted-foreground">· {c.organizacao_nome}</span>
                   </p>
                   <p className="mt-0.5 text-xs text-muted-foreground">{c.motivo}</p>

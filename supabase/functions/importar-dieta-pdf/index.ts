@@ -49,7 +49,13 @@ Deno.serve(async (req: Request) => {
       .eq("user_id", callerId)
       .eq("status", "active")
       .in("role", ["gestor", "nutricionista"]);
-    if (!vinculos?.length) return jsonResponse({ error: "Só a nutricionista ou o gestor podem importar dieta de PDF." }, 403);
+    // A equipe da ArkeFit prescreve a dieta do aluno do Método. A pergunta vai
+    // ao banco com a sessão de quem chama: lá o papel da ArkeFit só vale com a
+    // verificação em duas etapas.
+    const daArkefit = vinculos?.length ? false : (await asUser.rpc("equipe_metodo")).data === true;
+    if (!vinculos?.length && !daArkefit) {
+      return jsonResponse({ error: "Só a nutricionista, o gestor ou a equipe da ArkeFit podem importar dieta de PDF." }, 403);
+    }
 
     const corpo = await req.json().catch(() => null);
     const texto = typeof corpo?.texto === "string" ? corpo.texto : "";

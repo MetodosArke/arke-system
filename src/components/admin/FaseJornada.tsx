@@ -43,11 +43,14 @@ export function FaseJornada({
   alunoId,
   faseAtual,
   somenteLeitura = false,
+  aoMover,
 }: {
   alunoId: string;
   faseAtual: Fase;
   /** Aluno do Método: a fase é conduzida pelo mentor da ArkeFit, e o banco recusa a academia. */
   somenteLeitura?: boolean;
+  /** Chamado depois de mover, para a tela de quem usa (a ficha do mentor) se atualizar. */
+  aoMover?: () => void;
 }) {
   const [fase, setFase] = useState<Fase>(faseAtual);
   const [observacao, setObservacao] = useState("");
@@ -83,6 +86,7 @@ export function FaseJornada({
       void queryClient.invalidateQueries({ queryKey: ["aluno-fase-historico", alunoId] });
       void queryClient.invalidateQueries({ queryKey: ["aluno-perfil"] });
       void queryClient.invalidateQueries({ queryKey: ["admin-alunos"] });
+      aoMover?.();
     },
     onError: (erro: Error) =>
       toast({ title: "Não foi possível mover a fase", description: erro.message, variant: "destructive" }),
