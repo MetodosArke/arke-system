@@ -84,8 +84,12 @@ export const DOCUMENTOS: Record<
     // com cada lado e a volta do aluno a academia (6.1, itens 5 e 6), e a
     // cocontroladoria ajustada (6.2). Texto aprovado pelo responsavel no chat
     // em 28/09/2026 ("Aprovado").
-    versao: "2026-09-28",
-    sha256: "5d6966d9cf70f1156e9f38cbb87bca60090dd93075b24e701e4dd3f835df5f4e",
+    // 2026-09-28.2: secao 8 ganhou a clausula de que a ArkeFit nao garante
+    // resultado de retencao, evasao, receita ou adesao, e de que indicadores
+    // sao medicoes do periodo, nao promessa. Texto aprovado pelo responsavel
+    // em 28/09/2026, por comentario no proprio texto no workspace e no chat.
+    versao: "2026-09-28.2",
+    sha256: "d4c10182699c4dd5c56996e7eb62ace0bd4cb8840aacd845bc48d132f03bbbfa",
     texto: contratoAcademia,
     revisadoJuridico: true,
   },

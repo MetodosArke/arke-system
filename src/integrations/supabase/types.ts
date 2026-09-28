@@ -3342,6 +3342,8 @@ export type Database = {
       leads_site: {
         Row: {
           academia: string
+          agente_parou_em: string | null
+          agente_parou_motivo: string | null
           alunos_faixa: string | null
           atualizado_em: string | null
           atualizado_por: string | null
@@ -3358,10 +3360,13 @@ export type Database = {
           sistema_atual: string | null
           status: string
           telefone: string
+          token_parar: string
           uf: string | null
         }
         Insert: {
           academia: string
+          agente_parou_em?: string | null
+          agente_parou_motivo?: string | null
           alunos_faixa?: string | null
           atualizado_em?: string | null
           atualizado_por?: string | null
@@ -3378,10 +3383,13 @@ export type Database = {
           sistema_atual?: string | null
           status?: string
           telefone: string
+          token_parar?: string
           uf?: string | null
         }
         Update: {
           academia?: string
+          agente_parou_em?: string | null
+          agente_parou_motivo?: string | null
           alunos_faixa?: string | null
           atualizado_em?: string | null
           atualizado_por?: string | null
@@ -3398,9 +3406,60 @@ export type Database = {
           sistema_atual?: string | null
           status?: string
           telefone?: string
+          token_parar?: string
           uf?: string | null
         }
         Relationships: []
+      }
+      leads_site_mensagens: {
+        Row: {
+          assunto: string | null
+          categoria: string | null
+          corpo: string | null
+          enviado_em: string | null
+          etapa: string
+          id: string
+          lead_id: string
+          origem_texto: string | null
+          resend_id: string | null
+          reservado_em: string
+          situacao: string
+        }
+        Insert: {
+          assunto?: string | null
+          categoria?: string | null
+          corpo?: string | null
+          enviado_em?: string | null
+          etapa: string
+          id?: string
+          lead_id: string
+          origem_texto?: string | null
+          resend_id?: string | null
+          reservado_em?: string
+          situacao?: string
+        }
+        Update: {
+          assunto?: string | null
+          categoria?: string | null
+          corpo?: string | null
+          enviado_em?: string | null
+          etapa?: string
+          id?: string
+          lead_id?: string
+          origem_texto?: string | null
+          resend_id?: string | null
+          reservado_em?: string
+          situacao?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "leads_site_mensagens_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads_site"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       links_ativacao: {
         Row: {
@@ -6799,6 +6858,19 @@ export type Database = {
         }
         Returns: undefined
       }
+      concluir_mensagem_agente_comercial: {
+        Args: {
+          _assunto?: string
+          _categoria?: string
+          _corpo?: string
+          _endereco_invalido?: boolean
+          _enviada: boolean
+          _id: string
+          _origem_texto?: string
+          _resend_id?: string
+        }
+        Returns: undefined
+      }
       concluir_onboarding_organizacao: {
         Args: { _organization_id: string }
         Returns: boolean
@@ -6842,6 +6914,10 @@ export type Database = {
           _prioridade?: Database["public"]["Enums"]["tarefa_prioridade"]
         }
         Returns: string
+      }
+      definir_agente_comercial: {
+        Args: { _agenda_url: string; _ativo: boolean }
+        Returns: undefined
       }
       definir_metas_aluno_metodo: {
         Args: {
@@ -7565,6 +7641,21 @@ export type Database = {
         Args: { _organization_id: string; _user_id: string }
         Returns: boolean
       }
+      leads_para_agente_comercial: {
+        Args: { _limite?: number }
+        Returns: {
+          academia: string
+          alunos_faixa: string
+          categoria: string
+          email: string
+          etapa: string
+          lead_id: string
+          mensagem: string
+          nome: string
+          sistema_atual: string
+          token_parar: string
+        }[]
+      }
       ler_chave_subconta_asaas: {
         Args: { _organization_id: string }
         Returns: string
@@ -7746,6 +7837,7 @@ export type Database = {
         Args: { _o_que: string; _organization_id: string; _user_id: string }
         Returns: boolean
       }
+      parar_agente_comercial: { Args: { _token: string }; Returns: undefined }
       plano_do_aluno: {
         Args: {
           _metodo: Database["public"]["Enums"]["metodo_arke_status"]
@@ -7852,6 +7944,10 @@ export type Database = {
       reprocessar_nota_fiscal: {
         Args: { _nota_id: string }
         Returns: undefined
+      }
+      reservar_mensagem_agente_comercial: {
+        Args: { _etapa: string; _lead_id: string }
+        Returns: string
       }
       retirar_encerramento_organizacao: {
         Args: { _organization_id: string }
