@@ -57,8 +57,13 @@ export const DOCUMENTOS: Record<
     // pelo site entra com a guarda de 12 meses sem andamento. Texto aprovado
     // pelo responsavel como estava, em 25/09/2026 (a marca de minuta nao muda
     // o hash, entao nao pede aceite de novo).
-    versao: "2026-09-25",
-    sha256: "f792770937cec9018e51bb60a0c22454e8d1e047e5da53903e3614b1df9d5b66",
+    // 2026-09-28: Metodo ARKE, fase 6 -- a ArkeFit prescreve treino e dieta do
+    // aluno do Metodo (CREF, CRN), a academia deixa de ver a anamnese e a dieta
+    // dele e continua vendo o treino e a avaliacao; ao sair do Metodo, o
+    // acompanhamento volta a academia. Texto aprovado pelo responsavel no chat
+    // em 28/09/2026 ("Aprovado").
+    versao: "2026-09-28",
+    sha256: "61c0f3c69fe42815b738b2f921221fd87f2249c238ff6e222a94bc83e465bec2",
     texto: privacidade,
     revisadoJuridico: true,
   },
@@ -74,8 +79,13 @@ export const DOCUMENTOS: Record<
     // parte pelo que entra no proprio caixa; a nota automatica sai no CNPJ da
     // academia, e o cadastro fiscal e dela). Texto aprovado pelo responsavel
     // como estava, em 24/09/2026.
-    versao: "2026-09-24",
-    sha256: "a74ce7dd53c6c10d24d01deb8a4f8d17933b2c731123082ab4ed01e0d9794f9e",
+    // 2026-09-28: Metodo ARKE, fase 6 -- a ArkeFit prescreve e responde pelo
+    // conteudo prescrito no Metodo (secoes 4, 5 e 8), a divisao do que fica
+    // com cada lado e a volta do aluno a academia (6.1, itens 5 e 6), e a
+    // cocontroladoria ajustada (6.2). Texto aprovado pelo responsavel no chat
+    // em 28/09/2026 ("Aprovado").
+    versao: "2026-09-28",
+    sha256: "5d6966d9cf70f1156e9f38cbb87bca60090dd93075b24e701e4dd3f835df5f4e",
     texto: contratoAcademia,
     revisadoJuridico: true,
   },
