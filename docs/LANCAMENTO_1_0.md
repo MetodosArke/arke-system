@@ -20,7 +20,7 @@ Regra do responsável, de 23/09/2026: todo upgrade de infraestrutura acontece an
   - ligar a **proteção de senha vazada** do Auth, que só existe no plano pago (`password_hibp_enabled` na configuração de Auth; dá para ligar pela API de gerenciamento). A checagem própria contra o HaveIBeenPwned continua valendo e não conflita.
 - [ ] **Vercel Pro.** O plano Hobby proíbe uso comercial.
 - [ ] **Resend pago.** O gratuito envia 100 e-mails por dia; uma importação de 400 alunos com convite já estoura.
-- [ ] **Sentry** conforme o volume.
+- [x] **Sentry** fica no plano gratuito, sem upgrade (decisão de 28/09/2026). O resto da plataforma já é vigiado sem ele.
 - [ ] **Teste de carga**, só depois dos upgrades — antes, ele mediria o limite do plano, não o sistema.
 - [ ] **Canal de suporte** em Visão Master → Configurações (sem ele, o botão "falar com o suporte" do onboarding não aparece).
 - [ ] **GIFs dos exercícios** no acervo global.

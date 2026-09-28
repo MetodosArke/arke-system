@@ -145,6 +145,7 @@ Ficam em Supabase → Project Settings → Edge Functions → Secrets. O Supabas
 - **Organização** `arkefit`, projeto `javascript-react`, dados nos EUA.
 - **A chave pública (DSN)** fica na Vercel (`VITE_SENTRY_DSN`). É pública por desenho, porque vai no código do navegador.
 - **Configuração:** está em `src/lib/monitoramento.ts` e não manda nome, e-mail, CPF nem gravação de tela.
+- **Plano:** fica no gratuito, sem upgrade (decisão de 28/09/2026). As ocorrências de rotas `/api/trpc` que aparecem lá são de outro sistema que usa a mesma chave.
 
 ## Serviços usados sem conta
 
