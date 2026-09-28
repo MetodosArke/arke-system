@@ -408,6 +408,8 @@ export function AlunoPerfilSheet({
                 size="sm"
                 variant="outline"
                 className="flex-1"
+                disabled={doMetodo}
+                title={doMetodo ? "No Método, o aluno fala de treino com o mentor da ArkeFit" : undefined}
                 onClick={() => setChatAberto("treino")}
               >
                 <MessageCircle className="h-4 w-4 mr-1.5" />
@@ -417,8 +419,14 @@ export function AlunoPerfilSheet({
                 size="sm"
                 variant="outline"
                 className="flex-1"
-                disabled={!temNutricaoNoPlano(plano) && !academiaTemNutri}
-                title={temNutricaoNoPlano(plano) || academiaTemNutri ? undefined : "Sem nutricionista na equipe: o chat com a nutricionista é do Método ARKE"}
+                disabled={doMetodo || (!temNutricaoNoPlano(plano) && !academiaTemNutri)}
+                title={
+                  doMetodo
+                    ? "No Método, o aluno fala da dieta com o mentor da ArkeFit"
+                    : academiaTemNutri
+                      ? undefined
+                      : "Sem nutricionista na equipe: o chat com a nutricionista é do Método ARKE"
+                }
                 onClick={() => setChatAberto("nutri")}
               >
                 <MessageCircle className="h-4 w-4 mr-1.5" />

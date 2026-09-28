@@ -10,7 +10,7 @@ Em [Mensagens](/admin/mensagens) ficam todas as conversas dos alunos com a equip
 
 ## A ordem da caixa
 
-Primeiro vêm as conversas que esperam resposta. Entre elas, o aluno **Elite** vem antes, depois o **Integrado**, depois o **Free**: é a prioridade que o plano do aluno promete. A etiqueta do plano aparece em cada conversa.
+Primeiro vêm as conversas que esperam resposta, depois as mais recentes.
 
 ## Responder
 
@@ -24,4 +24,4 @@ O aluno pode mandar vídeo de um exercício para você corrigir a execução. O 
 
 ## E a conversa com o Mentor ARKE?
 
-No Método ARKE o aluno também conversa com o mentor da ArkeFit. Essa conversa é só entre ele e a ArkeFit e não aparece aqui. O resultado do acompanhamento aparece em [Acompanhamento ARKE](/admin/acompanhamento).
+No Método ARKE, o aluno fala de treino e de dieta com o mentor da ArkeFit, e não com a academia. Por isso o aluno do Método não aparece nesta caixa, e o chat de treino e de nutrição dele fica desativado na ficha: a conversa antiga continua lá como histórico, mas não aceita mensagem nova. A conversa com o mentor é só entre o aluno e a ArkeFit. O resultado do acompanhamento aparece em [Acompanhamento ARKE](/admin/acompanhamento).

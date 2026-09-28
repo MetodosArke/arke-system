@@ -17,9 +17,17 @@ Todo aluno matriculado e em dia usa o app da academia no **plano Free**. O **Mé
 
 Quando a sua academia oferece, o app mostra o Método com o preço. Para contratar, fale com a recepção.
 
+## Quem cuida do quê
+
+No Método, o seu treino, a sua dieta, as suas metas e a sua jornada ficam com o **mentor da ArkeFit**. O treino e a dieta mostram quem prescreveu, com o registro profissional (CREF para treino, CRN para dieta). A academia continua cuidando do seu cadastro, da matrícula, da catraca e da avaliação física, e os professores do salão veem o seu treino para orientar você na hora.
+
+As metas de treino por semana e de água passam a ser definidas pelo mentor. Para mudar alguma, fale com ele.
+
 ## A conversa com o mentor
 
-No Método, o chat **Meu Mentor ARKE** é só entre você e a ArkeFit: a academia não lê. É de propósito, para você poder contar o que talvez não dissesse no balcão. A academia sabe que o atendimento aconteceu e como terminou.
+O chat **Meu Mentor ARKE** aparece na tela de treino e na de dieta. É por ele que você fala do treino, da dieta e das metas. A conversa é só entre você e a ArkeFit: a academia não lê. É de propósito, para você poder contar o que talvez não dissesse no balcão. A academia sabe que o atendimento aconteceu e como terminou.
+
+A conversa que você tinha com os professores ou com a nutricionista da academia fica como histórico, só para leitura.
 
 ## As fases da jornada
 

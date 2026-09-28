@@ -12,6 +12,7 @@ import { hojeBrasilia } from "@/lib/dataBrasilia";
 import { useNutricionistaDaAcademia } from "@/hooks/useNutricionistaDaAcademia";
 import { useToast } from "@/hooks/use-toast";
 import { ChatPanel } from "@/components/chat/ChatPanel";
+import { CanalMentor, PrescritoPor } from "@/components/aluno/MeuMentor";
 import ControleDieta from "@/components/aluno/ControleDieta";
 
 interface ItemSnapshot {
@@ -38,6 +39,7 @@ export default function AlunoDieta() {
   const { alunoId, organization, planoAluno } = useAuth();
   // Free com nutricionista na equipe da academia também conversa com ela.
   const academiaTemNutri = useNutricionistaDaAcademia(organization?.id);
+  const noMetodo = planoAluno !== "free";
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -154,7 +156,9 @@ export default function AlunoDieta() {
       {!isLoading && !dieta && (
         <Card>
           <CardContent className="py-8 text-center text-sm text-muted-foreground">
-            Nenhuma dieta publicada ainda. Sua equipe vai te avisar assim que estiver pronta.
+            {noMetodo
+              ? "Nenhuma dieta publicada ainda. Seu mentor da ArkeFit está preparando e avisa quando estiver pronta."
+              : "Nenhuma dieta publicada ainda. Sua equipe vai te avisar assim que estiver pronta."}
           </CardContent>
         </Card>
       )}
@@ -192,6 +196,7 @@ export default function AlunoDieta() {
           <Card>
             <CardHeader>
               <CardTitle>{dieta.titulo}</CardTitle>
+              <PrescritoPor o_que="dieta" />
             </CardHeader>
             <CardContent className="space-y-3">
               {refeicoes.map((r) => {
@@ -280,10 +285,15 @@ export default function AlunoDieta() {
         </>
       )}
 
+      {/* No Método, é com o mentor que se fala da dieta: o canal dele aparece
+          aqui também, para o aluno não ter de procurar na tela de treino. */}
+      {noMetodo && <CanalMentor />}
+
+      {(!noMetodo || academiaTemNutri) && (
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="flex items-center gap-2 text-base">
-            <MessageCircle className="h-4 w-4 text-primary" /> Chat com a Nutricionista
+            <MessageCircle className="h-4 w-4 text-primary" /> {noMetodo ? "Histórico com a nutricionista da academia" : "Chat com a Nutricionista"}
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -301,6 +311,7 @@ export default function AlunoDieta() {
           )}
         </CardContent>
       </Card>
+      )}
     </div>
   );
 }
