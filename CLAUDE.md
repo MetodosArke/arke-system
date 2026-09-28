@@ -546,6 +546,15 @@ Com o mentor dono do acompanhamento, o aluno do Método fala de treino e dieta c
 
 **Conferido:** 12 casos em transação revertida, incluindo a prova do defeito (o UPDATE direto do aluno afetou 0 linhas; a função gravou) e as duas pontas do canal recusadas para o Método e abertas para o Free; e o app do aluno do Método num navegador, com o canal do mentor no treino e na dieta, o histórico só leitura e a meta sem edição.
 
+## Método ARKE: a passagem de bastão (fase 6, 28/09/2026)
+
+Entrar ou sair do Método muda quem cuida do aluno, e até aqui não avisava ninguém. Dois gatilhos em `alunos` (`20261296010000_metodo_passagem.sql`), valendo para qualquer caminho que mude `metodo_arke_status` — adesão pela academia, cancelamento da assinatura, fim do trial:
+
+- **Entrada**: tarefa da ArkeFit para dar as boas-vindas e acompanhar o acolhimento. A academia não recebe tarefa: é ela quem registra a adesão, e a ficha já diz o que passa à ArkeFit — tarefa só para avisar viraria ruído na fila.
+- **Saída** (decisão 5): o aluno sai da carteira (`mentor_id` limpo **antes** de gravar, porque a academia que cancela não pode mexer no mentor e a mudança dentro do próprio UPDATE não passa por aquela trava), os chamados abertos da ArkeFit se encerram com desfecho, e a academia recebe tarefa de prioridade alta para assumir. O último treino e a última dieta do mentor **não são desativados**: seguem valendo até a academia publicar os dela, e o aluno não fica sem ficha. As tarefas nascem **depois** de gravar, porque o dono delas sai do plano do aluno e precisa enxergar o plano novo.
+
+Conferido em 8 casos em transação revertida, com o gestor cancelando o Método de verdade. **Os textos do Contrato e da Política desta fase dependem de aprovação do responsável no chat** e entram numa versão própria.
+
 ## O painel do profissional autônomo (fase 7 do plano do Método, 28/09/2026)
 
 O personal e a nutricionista que usam o ArkeFit como negócio próprio são o gestor de uma organização de uma pessoa só (`tipo = profissional_autonomo`, especialidade em `especialidade_profissional`). O painel deles tinha só atendimento, mensagens, alunos e a prescrição; agora funciona como o de uma academia pequena. Migration `20261294010000_profissional_autonomo.sql`.
