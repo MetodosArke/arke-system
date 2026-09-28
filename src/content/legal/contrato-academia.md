@@ -22,7 +22,7 @@ Licença de uso, não exclusiva e intransferível, da plataforma ARKE (painel da
 ## 4. Obrigações da Academia
 
 - Manter cadastro verdadeiro e atualizado, e a conta de recebimentos em seu próprio nome.
-- Garantir que treinos e dietas sejam prescritos por profissionais habilitados (CREF, CRN) e responder pelo conteúdo prescrito.
+- Garantir que os treinos e as dietas que prescrever sejam feitos por profissionais habilitados (CREF, CRN) e responder pelo conteúdo que prescrever. Para o aluno do Método ARKE, a prescrição é da ArkeFit (cláusula 6.1).
 - Informar os alunos sobre o uso da plataforma e obter os consentimentos necessários, em especial para dados de saúde e biometria.
 - Usar a plataforma conforme os Termos de Uso e manter em sigilo os acessos da sua equipe.
 
@@ -31,7 +31,7 @@ Licença de uso, não exclusiva e intransferível, da plataforma ARKE (painel da
 - Manter a plataforma disponível e segura, com isolamento dos dados de cada academia.
 - Prestar suporte pelos canais indicados no painel.
 - Comunicar com antecedência mudanças relevantes na plataforma e nestes termos.
-- Para os alunos que contratarem o Método ARKE, prestar o acompanhamento com equipe própria de mentoria, em canal próprio com o aluno, e encaminhar à Academia, pelo painel, o que precisar ser feito presencialmente.
+- Para os alunos que contratarem o Método ARKE, prestar o acompanhamento com equipe própria de mentoria, em canal próprio com o aluno: prescrever treino e dieta por profissionais habilitados (CREF, CRN) e responder pelo conteúdo prescrito, definir as metas, conduzir a jornada e encaminhar à Academia, pelo painel, o que precisar ser feito presencialmente.
 
 ## 6. Tratamento de dados pessoais (acordo de operador)
 
@@ -55,15 +55,17 @@ Quando o aluno contrata o Método ARKE, quem o acompanha é a equipe de mentoria
 1. a ArkeFit obtém do próprio aluno os consentimentos que essa parte exigir, e a Academia não responde por eles;
 2. **o conteúdo das mensagens entre o aluno e o mentor da ArkeFit não é acessível à Academia**, por desenho do serviço; a Academia vê que houve atendimento, o desfecho registrado e as instruções presenciais que lhe forem dirigidas;
 3. a passagem do aluno entre as fases da jornada pode ocorrer de forma automatizada, com base em tempo de acompanhamento e constância, e pode ser revista a qualquer tempo pela equipe;
-4. a ArkeFit poderá submeter dados do aluno a provedor de **inteligência artificial**, exclusivamente para as finalidades e nas condições descritas na Política de Privacidade, **somente mediante autorização específica do próprio aluno** e com processamento em servidores localizados no Brasil, sem transferência internacional desses dados.
+4. a ArkeFit poderá submeter dados do aluno a provedor de **inteligência artificial**, exclusivamente para as finalidades e nas condições descritas na Política de Privacidade, **somente mediante autorização específica do próprio aluno** e com processamento em servidores localizados no Brasil, sem transferência internacional desses dados;
+5. enquanto o aluno estiver no Método, treino, dieta, anamnese, metas e fases da jornada são conduzidos pela ArkeFit. A Academia vê o treino, para orientar o aluno no salão, mas não o altera, e não tem acesso à dieta nem à anamnese desse aluno. Cadastro, matrícula, cobrança, catraca, atestado, PAR-Q e a avaliação física pedida pelo mentor continuam com a Academia;
+6. quando o aluno deixa o Método, o acompanhamento volta à Academia, que é avisada pelo painel. O último treino e a última dieta prescritos pela ArkeFit continuam valendo até a Academia publicar os seus.
 
 ### 6.2. Cocontroladoria sobre os dados que servem às duas partes
 
-Os registros de treino, frequência e check-in do aluno do Método ARKE servem ao mesmo tempo à prescrição da Academia e ao acompanhamento da ArkeFit. Como cada parte decide autonomamente sobre a finalidade do seu próprio uso desses dados, **as partes são cocontroladoras** nessa medida (LGPD, art. 5º, VI).
+Os registros de treino, frequência e check-in do aluno do Método ARKE servem ao mesmo tempo à Academia, que orienta o aluno no salão, e ao acompanhamento da ArkeFit. Como cada parte decide autonomamente sobre a finalidade do seu próprio uso desses dados, **as partes são cocontroladoras** nessa medida (LGPD, art. 5º, VI).
 
 1. Perante o titular, as partes respondem **solidariamente, na medida das decisões que cada uma tomar** (art. 42, § 1º, I, da LGPD), e o titular pode exercer os seus direitos perante qualquer delas.
 2. Cada parte atende os pedidos do art. 18 que lhe forem dirigidos e informa a outra do que precisar ser cumprido do lado dela, no prazo legal.
-3. **A ArkeFit não responde por falha exclusiva da Academia na execução presencial** — o que inclui a prescrição de treino ou dieta, a conferência de atestado, a orientação dada no salão e o cumprimento das instruções presenciais que a ArkeFit lhe encaminhar pelo painel. A Academia não responde pelas decisões que a ArkeFit tomar no acompanhamento do Método ARKE.
+3. **A ArkeFit não responde por falha exclusiva da Academia na execução presencial** — o que inclui a prescrição de treino ou dieta feita pela Academia aos alunos que não estão no Método, a conferência de atestado, a orientação dada no salão e o cumprimento das instruções presenciais que a ArkeFit lhe encaminhar pelo painel. A Academia não responde pelas decisões que a ArkeFit tomar no acompanhamento do Método ARKE.
 4. Em caso de incidente que envolva esses dados, as partes cooperam na apuração e na comunicação ao titular e à ANPD, observado o prazo da cláusula 6, item 5.
 
 ## 7. Vigência e encerramento
@@ -72,7 +74,7 @@ Prazo indeterminado, a partir do aceite. Qualquer das partes pode encerrá-lo co
 
 ## 8. Responsabilidade
 
-Cada parte responde pelos danos que causar. A ArkeFit não responde pelo conteúdo prescrito pela Academia, pela relação comercial entre Academia e aluno, nem por falhas de terceiros fora do seu controle. A responsabilidade total da ArkeFit por este Contrato fica limitada ao valor pago pela Academia nos 12 meses anteriores ao fato, salvo dolo ou culpa grave.
+Cada parte responde pelos danos que causar. A ArkeFit não responde pelo conteúdo prescrito pela Academia, pela relação comercial entre Academia e aluno, nem por falhas de terceiros fora do seu controle, e a Academia não responde pelo conteúdo prescrito pela ArkeFit no Método ARKE. A responsabilidade total da ArkeFit por este Contrato fica limitada ao valor pago pela Academia nos 12 meses anteriores ao fato, salvo dolo ou culpa grave.
 
 ## 9. Disposições gerais
 
