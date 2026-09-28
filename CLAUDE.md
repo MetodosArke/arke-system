@@ -535,6 +535,17 @@ A fase 1 deu ao mentor a posse do acompanhamento; esta dá a ele onde trabalhar.
 
 **Conferido:** 23 casos em transação revertida (exigência desligada e ligada, sem configuração exigindo, biblioteca invisível para a academia, carteira, metas e ficha recusadas ao gestor e ao aluno); 15 na corrente real com um Super Admin temporário verificado em duas etapas (sem as duas etapas a carteira e o PDF recusam; o mentor assume o aluno, define metas, monta um modelo do Método e publica, e a academia vê o treino mas não a biblioteca; tudo desfeito no fim); e as telas num navegador, no computador e no celular, sem exceção nem erro do Supabase.
 
+## Método ARKE: a conversa e o que o aluno vê (fases 4 e 5, 28/09/2026)
+
+Com o mentor dono do acompanhamento, o aluno do Método fala de treino e dieta com ele, e não com a academia. O app já trancava o canal antigo do lado do aluno; faltavam o banco, a caixa da academia e o aluno saber quem o acompanha. Migration `20261295010000_metodo_conversa_aluno.sql`.
+
+- **O canal antigo não aceita mensagem nova, de nenhum lado**: `recusar_conversa_de_prescricao_no_metodo()` (gatilho em `mensagens_treino` e `mensagens_dieta`) recusa o aluno do Método e a equipe da academia. O histórico continua legível: é o registro do que já foi orientado. Na ficha da academia, os botões de chat ficam desativados com o motivo.
+- **A Caixa de Mensagens da academia não lista o aluno do Método** (`get_caixa_mensagens`): uma mensagem antiga não lida ficaria lá para sempre, pedindo resposta que a academia não pode dar. A ordem por plano saiu junto, porque o Método não está mais na caixa.
+- **No app**: o canal **Meu Mentor ARKE** (`CanalMentor`, `src/components/aluno/MeuMentor.tsx`) aparece no treino **e** na dieta, com o nome de quem acompanha; o treino e a dieta dizem quem prescreveu e o registro (`PrescritoPor`). Os dois vêm de `get_meu_acompanhamento()`, porque o aluno não lê `profiles` de outras pessoas nem a equipe da ArkeFit, e não deve.
+- **Um defeito antigo no caminho: a meta semanal do aluno nunca gravava.** O calendário fazia UPDATE direto em `alunos`, onde o aluno só tem leitura, e o PostgREST respondia sucesso com zero linhas — o mesmo silêncio do `primeiro_acesso_em`. Virou `atualizar_meta_semanal_aluno()`, no desenho da meta de água: vale para todos os cadastros da pessoa e recusa o aluno do Método, cuja meta é do mentor. A tela ganhou a mensagem de erro que não tinha.
+
+**Conferido:** 12 casos em transação revertida, incluindo a prova do defeito (o UPDATE direto do aluno afetou 0 linhas; a função gravou) e as duas pontas do canal recusadas para o Método e abertas para o Free; e o app do aluno do Método num navegador, com o canal do mentor no treino e na dieta, o histórico só leitura e a meta sem edição.
+
 ## O painel do profissional autônomo (fase 7 do plano do Método, 28/09/2026)
 
 O personal e a nutricionista que usam o ArkeFit como negócio próprio são o gestor de uma organização de uma pessoa só (`tipo = profissional_autonomo`, especialidade em `especialidade_profissional`). O painel deles tinha só atendimento, mensagens, alunos e a prescrição; agora funciona como o de uma academia pequena. Migration `20261294010000_profissional_autonomo.sql`.

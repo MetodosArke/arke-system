@@ -23,7 +23,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { RegistrarAlertaCard } from "@/components/aluno/RegistrarAlertaCard";
 import { ChatPanel } from "@/components/chat/ChatPanel";
-import { ChatMentor } from "@/components/chat/ChatMentor";
+import { CanalMentor, PrescritoPor } from "@/components/aluno/MeuMentor";
 import CalendarioTreinos from "@/components/aluno/CalendarioTreinos";
 import type { Json } from "@/integrations/supabase/types";
 import { MidiaExercicio } from "@/components/acervo/MidiaExercicio";
@@ -299,6 +299,7 @@ export default function AlunoTreinos() {
                 {treino.titulo}
                 {divisoes.length > 1 && <span className="text-muted-foreground font-normal"> · Treino {divisaoHoje}</span>}
               </CardTitle>
+              <PrescritoPor o_que="treino" />
               <p className="text-xs text-muted-foreground">
                 {totalConcluidos}/{exercicios.length} exercícios concluídos hoje
                 {treino.validade_fim && ` · Válido até ${formatarDataBR(treino.validade_fim)}`}
@@ -386,14 +387,19 @@ export default function AlunoTreinos() {
         </TabsContent>
       </Tabs>
 
+      {/* No Método, a conversa de treino é com o mentor, e ela vem primeiro.
+          A academia não lê esta conversa — nem aqui nem no banco. */}
+      {temMentor && <CanalMentor />}
+
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="flex items-center gap-2 text-base">
-            <MessageCircle className="h-4 w-4 text-primary" /> Chat com o Treinador
+            <MessageCircle className="h-4 w-4 text-primary" /> {temMentor ? "Histórico com a academia" : "Chat com o Treinador"}
           </CardTitle>
         </CardHeader>
         <CardContent>
-          {/* Chat com os professores da academia: parte do plano Free. */}
+          {/* Chat com os professores da academia: parte do plano Free. No
+              Método vira histórico, e o banco recusa mensagem nova. */}
           {alunoId && organization ? (
             <ChatPanel
               organizationId={organization.id}
@@ -406,24 +412,6 @@ export default function AlunoTreinos() {
           ) : null}
         </CardContent>
       </Card>
-
-      {/* Canal do mentor ARKE: só no plano pago, e é ele que passa a conduzir
-          a jornada. A academia não lê esta conversa — nem aqui nem no banco. */}
-      {temMentor && alunoId && organization && (
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="flex items-center gap-2 text-base">
-              <MessageCircle className="h-4 w-4 text-primary" /> Meu Mentor ARKE
-            </CardTitle>
-            <p className="text-xs text-muted-foreground">
-              Seu acompanhamento do Método. Só você e a ArkeFit leem esta conversa.
-            </p>
-          </CardHeader>
-          <CardContent>
-            <ChatMentor organizationId={organization.id} alunoId={alunoId} viewerType="aluno" />
-          </CardContent>
-        </Card>
-      )}
 
       <RegistrarAlertaCard compact />
 

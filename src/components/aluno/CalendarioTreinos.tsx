@@ -127,7 +127,8 @@ const corDotModalidade = (label: string) => MODALITY_DOT_COLORS[indiceModalidade
  * registro é lido.
  */
 export default function CalendarioTreinos() {
-  const { alunoId, organization } = useAuth();
+  const { alunoId, organization, planoAluno } = useAuth();
+  const metaDoMentor = planoAluno !== "free";
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [currentMonth, setCurrentMonth] = useState(new Date());
@@ -263,10 +264,12 @@ export default function CalendarioTreinos() {
     onError: (error: Error) => toast({ title: "Erro ao remover", description: error.message, variant: "destructive" }),
   });
 
+  // Pela função, e não por UPDATE direto: o aluno só lê `alunos`, e o UPDATE
+  // respondia sucesso sem gravar nada — a meta nunca mudava.
   const updateMeta = useMutation({
     mutationFn: async (dias: number) => {
       if (!alunoId) throw new Error("Cadastro de aluno não encontrado");
-      const { error } = await supabase.from("alunos").update({ meta_semanal_dias: dias }).eq("id", alunoId);
+      const { error } = await supabase.rpc("atualizar_meta_semanal_aluno", { _dias: dias });
       if (error) throw error;
     },
     onSuccess: () => {
@@ -274,6 +277,7 @@ export default function CalendarioTreinos() {
       setEditingGoal(false);
       toast({ title: "Meta atualizada!" });
     },
+    onError: (error: Error) => toast({ title: "Não foi possível mudar a meta", description: error.message, variant: "destructive" }),
   });
 
   const resetForm = () => {
@@ -420,6 +424,8 @@ export default function CalendarioTreinos() {
                     {weekDaysWithWorkouts}/{metaSemanalDias}
                   </span>
                   <span className="text-xs text-muted-foreground">dias</span>
+                  {/* No Método, a meta é do mentor: o aluno vê, e ajusta conversando com ele. */}
+                  {!metaDoMentor && (
                   <Button
                     variant="ghost"
                     size="icon"
@@ -432,6 +438,7 @@ export default function CalendarioTreinos() {
                   >
                     <Pencil className="h-3.5 w-3.5" />
                   </Button>
+                  )}
                 </>
               )}
             </div>

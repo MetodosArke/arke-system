@@ -6678,6 +6678,10 @@ export type Database = {
         Args: { _meta_ml: number }
         Returns: undefined
       }
+      atualizar_meta_semanal_aluno: {
+        Args: { _dias: number }
+        Returns: undefined
+      }
       avaliar_capacidade: {
         Args: never
         Returns: {
@@ -7133,6 +7137,7 @@ export type Database = {
           motivo: string
         }[]
       }
+      get_meu_acompanhamento: { Args: { _aluno_id: string }; Returns: Json }
       get_onboarding_organizacao: {
         Args: { _organization_id: string }
         Returns: {
