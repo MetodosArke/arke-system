@@ -28,10 +28,12 @@ O ARKE é uma plataforma SaaS B2B/B2C para academias, studios e personal trainer
 ### 1. Planos B2B (Assinatura de Plataforma para Academias)
 Valor mensal fixo pago pela academia para acesso à infraestrutura, isolamento por tenant, aplicativo com marca da academia e painel "Minha Fila" para a equipe local.
 
-- **Starter (Até 150 alunos ativos):** R$ 390,00/mês — Gestão operacional da metodologia, fila de atendimento básica, aplicativo da academia e treinamento da equipe local.
-- **Growth (Até 500 alunos ativos):** R$ 790,00/mês — Módulo completo de retenção (R.O.T.A.®), versionamento de fichas, acompanhamento de adesão e suporte prioritário.
-- **Enterprise (Até 1.000 alunos ativos):** R$ 1.290,00/mês — Gestão multiunidade, relatórios avançados de churn e SLAs dedicados.
-- **Custom (Redes/Multiunidades):** Sob consulta — Estruturas com personalização avançada de branding, suporte presencial dedicado e integrações sob demanda.
+**Todo plano tem o sistema inteiro** (decisão do responsável, 28/09/2026). O que muda de um plano para outro é o limite de alunos ativos e o suporte; nenhum recurso é travado por plano. A descrição antiga prometia diferenças de recurso que o sistema nunca travou, e foi ajustada a isto.
+
+- **Starter (Até 150 alunos ativos):** R$ 390,00/mês — suporte pelo canal de atendimento.
+- **Growth (Até 500 alunos ativos):** R$ 790,00/mês — suporte prioritário.
+- **Enterprise (Até 1.000 alunos ativos):** R$ 1.290,00/mês — suporte prioritário e SLAs dedicados.
+- **Custom (Redes/Multiunidades):** Sob consulta — personalização avançada de branding, suporte presencial dedicado e integrações sob demanda.
 
 > Implementação: `organizations.plano_b2b` (enum) guarda o plano contratado; ainda não há tabela de preços B2B no banco (só documental aqui).
 
@@ -587,7 +589,7 @@ A Letícia responde o contato da página de vendas por e-mail em minutos e leva 
 - **Quando sai.** A primeira sai na hora, de dia ou de noite, só para contatos criados depois de ela ser ligada e há menos de 24 h; assim, ligá-la não dispara e-mail para quem já foi atendido por gente. Os lembretes saem no 2º e no 5º dia depois da primeira, só em dia útil, das 9h às 19h de Brasília. A regra mora em `leads_para_agente_comercial()`, num lugar só.
 - **Para quando** o status do contato sai de "novo", a pessoa clica em "não quero mais receber" (`/contato/parar?t=`, que pede um clique para o antivírus do e-mail não descadastrar ninguém, e o cabeçalho List-Unsubscribe de um clique) ou o endereço não existe (422 do Resend).
 - **Não sai duas vezes.** A mensagem é reservada no banco antes do envio (`unique (lead_id, etapa)`). Uma reserva de mais de 15 minutos é de rodada que caiu, e o envio leva uma chave de idempotência no Resend.
-- **Dois interruptores:** `agente_comercial_ativo`, que só a ArkeFit liga, em Visão Master → Contatos do site, por `definir_agente_comercial()`, que exige o link da agenda e fica na Auditoria; e `agente_comercial_ia`, que liga a frase da IA e é ligado pela migration da Política que a descreve. Sem ele, o e-mail sai só com o texto fixo.
+- **Dois interruptores:** `agente_comercial_ativo`, que só a ArkeFit liga, em Visão Master → Contatos do site, por `definir_agente_comercial()`, que exige o link da agenda e fica na Auditoria; e `agente_comercial_ia`, que liga a frase da IA. Sem ele, o e-mail sai só com o texto fixo. Quem ligou o segundo foi a migration da Política 2026-09-28.2 (`20261300010000`), que descreve a resposta automática e foi aprovada pelo responsável no workspace, como estava.
 - **Assinatura.** O e-mail sai assinado por "Equipe comercial ArkeFit" (`agente_comercial_assinatura`), e não pela Letícia: assinar por uma pessoa que não existe faria a academia achar que falou com ela.
 
 **Conferido:** 14 casos em transação revertida (quem está devido, reserva única, lembrete só em horário útil, sem 2º lembrete antes do 1º, status e pedido de parar interrompendo, falha voltando à fila, endereço inválido parando, reserva velha liberada, desligada sem envio, papel exigido, privilégios), 36 testes do `fluxo.ts` e dois envios reais para a caixa de teste do Resend pela função publicada, com a primeira resposta e os dois lembretes nas quatro categorias. Pela tela, 24 verificações, com o painel, o andamento por contato e a página pública, no computador e no celular. Tudo o que o teste criou foi apagado, e a Letícia ficou desligada.
@@ -1216,7 +1218,7 @@ Sem rastreamento, um erro de JavaScript numa tela deixa o aluno travado e ningu�
 
 **O que é enviado de identificação:** `organization_id` e `user_id`, ambos UUID. São pseudônimos, e sem eles não dá para responder "esse erro atinge uma academia ou todas", que é a pergunta que justifica ter monitoramento. Nome, e-mail e CPF não vão nunca.
 
-Sem `VITE_SENTRY_DSN` o monitoramento simplesmente não sobe — é assim que se roda em desenvolvimento e é assim que se desliga em produção sem deploy de código. A variável está configurada na Vercel só para `production`, apontando para a org `arkefit`, projeto `javascript-react`.
+Sem `VITE_SENTRY_DSN` o monitoramento simplesmente não sobe — é assim que se roda em desenvolvimento e é assim que se desliga em produção sem deploy de código. A variável está configurada na Vercel só para `production`, apontando para a org `arkefit`, projeto `javascript-react`. **Fica no plano gratuito** (decisão do responsável, 28/09/2026): o resto da plataforma já é vigiado sem ele, e ele sai da lista de upgrades antes do primeiro cliente.
 
 ## Trabalho em Andamento: Rascunho e Retomada
 

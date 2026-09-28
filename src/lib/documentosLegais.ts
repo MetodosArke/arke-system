@@ -62,8 +62,12 @@ export const DOCUMENTOS: Record<
     // dele e continua vendo o treino e a avaliacao; ao sair do Metodo, o
     // acompanhamento volta a academia. Texto aprovado pelo responsavel no chat
     // em 28/09/2026 ("Aprovado").
-    versao: "2026-09-28",
-    sha256: "61c0f3c69fe42815b738b2f921221fd87f2249c238ff6e222a94bc83e465bec2",
+    // 2026-09-28.2: a resposta automatica ao contato do site (Leticia) -- o
+    // texto e nosso e a IA, no Brasil, escreve uma ou duas frases a partir da
+    // mensagem; ate dois lembretes e link para nao receber mais. Texto aprovado
+    // pelo responsavel no workspace em 28/09/2026, como estava.
+    versao: "2026-09-28.2",
+    sha256: "7324b3cf3cd60d70fcb4c9fc55d6a6ffd23ef50f8f91045a0dbf09e562a35be6",
     texto: privacidade,
     revisadoJuridico: true,
   },

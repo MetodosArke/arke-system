@@ -30,7 +30,7 @@ Esta Política explica como os dados pessoais são tratados na plataforma ARKE, 
 - **Segurança da plataforma e prevenção a fraudes** (limite de tentativas, verificação anti-robô, checagem de senha vazada): legítimo interesse (art. 7º, IX) e proteção do titular.
 - **Obrigações legais e fiscais** (registros de pagamento e a nota fiscal que a Academia emite dos seus pagamentos): cumprimento de obrigação legal (art. 7º, II).
 - **Comunicações sobre o serviço** (convite de acesso, redefinição de senha, avisos da Academia): execução de contrato.
-- **Contato pelo site:** responder a quem pediu uma demonstração e apresentar a plataforma — procedimentos preliminares a um contrato, a pedido de quem enviou (art. 7º, V).
+- **Contato pelo site:** responder a quem pediu uma demonstração e apresentar a plataforma — procedimentos preliminares a um contrato, a pedido de quem enviou (art. 7º, V). A primeira resposta a quem pede uma demonstração é montada automaticamente: um texto nosso, com o convite para a conversa, e uma ou duas frases escritas por inteligência artificial a partir da mensagem enviada, para mostrar que entendemos o que foi contado. Só a mensagem, a faixa de alunos e o sistema usado hoje vão para o modelo, sem nome, e-mail ou telefone. O processamento é no Brasil (seções 5 e 6), e o conteúdo não fica registrado na nossa conta do provedor. Sem resposta, seguem no máximo dois lembretes, e todo e-mail traz um link para não receber mais.
 
 A plataforma não vende dados pessoais, não faz publicidade com eles e não usa rankings corporais públicos: a evolução física é vista só por você e por quem atende você.
 
@@ -71,7 +71,7 @@ Sobre isso, o que você precisa saber:
   - Cloudflare Turnstile — verificação anti-robô no cadastro, no primeiro acesso e no formulário de contato do site;
   - BrasilAPI — consulta pública de CNPJ e CEP: no cadastro da Academia, só dados da empresa; no seu endereço, só o CEP, para completar rua, bairro e cidade;
   - Have I Been Pwned — checagem de senha vazada, em que apenas os 5 primeiros caracteres de um código da senha saem do seu aparelho; a senha nunca é enviada;
-  - **Amazon Web Services (Amazon Bedrock)** — com servidores no Brasil, em São Paulo: a análise por inteligência artificial das finalidades descritas na seção 4, **somente para quem autorizou** e somente enquanto a autorização estiver válida; e a leitura do plano alimentar em PDF descrita na seção 3.
+  - **Amazon Web Services (Amazon Bedrock)** — com servidores no Brasil, em São Paulo: a análise por inteligência artificial das finalidades descritas na seção 4, **somente para quem autorizou** e somente enquanto a autorização estiver válida; a leitura do plano alimentar em PDF descrita na seção 3; e a resposta automática ao contato pelo site, também descrita na seção 3.
 - **Com a prefeitura** da cidade da Academia, na nota fiscal que ela emite dos seus pagamentos — obrigação fiscal da Academia.
 - **Com autoridades**, quando houver obrigação legal ou ordem judicial.
 
