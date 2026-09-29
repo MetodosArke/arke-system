@@ -578,6 +578,13 @@ Duas decisões do responsável, tomadas juntas porque tratam da mesma coisa:
 
 A medida de retenção dos agentes é **antes e depois** (a evasão da academia nos 6 meses antes do ArkeFit contra os 6 meses com ele). O grupo de comparação, que deixaria alunos sem mensagem para medir, foi descartado pelo responsável.
 
+## Dois ajustes comerciais no app do aluno (28/09/2026)
+
+Decisões do responsável, depois dos testes do Jean:
+
+- **Minha Jornada só no Método ARKE.** O item sai do menu do aluno do Free (`AppSidebar`, pelo `planoAluno` do `AuthContext`), e a rota, aberta por link antigo, mostra o convite do Método em vez da tela. A Jornada leva junto a aba **Compromisso** (a rotina da semana), que mora nela desde 23/09; no Free fica o calendário com a meta semanal e os treinos registrados.
+- **Sem preço no app.** O cartão do Método e o aviso de recurso do Método (`MetodoArke`) dizem o que o Método traz e mandam à recepção, sem valor: o preço de cara barrava a venda antes da conversa. A regra de só oferecer quando a academia de fato vende (`metodo_ofertas_academia()`) continua; o preço de varejo segue definido pela academia em Precificação e usado na cobrança.
+
 ## Letícia: o agente comercial (semana 1 do plano dos agentes, 28/09/2026)
 
 O plano dos agentes, versão 3, está no workspace da ArkeFit. A ordem é esta: Letícia (comercial), Bruno (implantação) e Lucas (assistente), um por semana; Camila (retenção) e Financeiro vêm depois. Todos rodam sozinhos em rotina agendada, menos o Lucas, que responde quando alguém pergunta.

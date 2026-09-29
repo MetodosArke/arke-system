@@ -3,13 +3,13 @@ Todo aluno matriculado e em dia usa o app da academia no plano **Free**. O **Mé
 ## O que cada um tem
 
 - **Free**: treinos, calendário, rotina, água, dieta (da nutricionista da academia) e chat com os professores.
-- **Integrado**: tudo do Free, mais o acolhimento M.A.P.A.®, as fases da jornada, plano alimentar individualizado com a nutricionista da ArkeFit, check-ins semanais e a mentoria da ArkeFit.
+- **Integrado**: tudo do Free, mais o acolhimento M.A.P.A.®, as fases da jornada, a tela Minha Jornada, plano alimentar individualizado com a nutricionista da ArkeFit, check-ins semanais e a mentoria da ArkeFit.
 - **Elite**: tudo do Integrado, mais acolhimento expandido, encontros periódicos, relatórios de evolução e fila prioritária.
 
 ## Como vender
 
 1. Defina o preço de cada nível em **Organização → Precificação**. A tela mostra quanto fica com a academia.
-2. O aluno vê a oferta no app, com o preço, e é orientado a falar com a recepção.
+2. O aluno vê a oferta no app, **sem o preço**, e é orientado a falar com a recepção. O valor é apresentado por vocês, na conversa: preço de cara no app tendia a encerrar a venda antes dela começar.
 3. Na lista de alunos, o botão **Método**, ao lado do plano Free, registra a adesão no nível escolhido, e a cobrança começa. A parte da academia cai direto na conta dela.
 
 O app só oferece o Método quando a academia de fato vende: com o preço definido e o acordo com a ArkeFit fechado.

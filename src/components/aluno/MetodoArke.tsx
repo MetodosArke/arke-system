@@ -3,10 +3,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Sparkles } from "lucide-react";
 
-const INCLUI = ["Acolhimento M.A.P.A.®", "Fases da jornada", "Chat com a nutricionista", "Mentor ARKE"];
+const INCLUI = ["Acolhimento M.A.P.A.®", "Minha Jornada", "Chat com a nutricionista", "Mentor ARKE"];
 const NIVEL: Record<string, string> = { integrado: "Integrado", elite: "Elite" };
-
-const reais = (valor: number) => valor.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
 /**
  * O que o Método ARKE soma ao plano Free — à venda desde o primeiro dia
@@ -21,6 +19,10 @@ const reais = (valor: number) => valor.toLocaleString("pt-BR", { style: "currenc
  * a matrícula no Método gera cobrança recorrente, e quem combina forma de
  * pagamento com o aluno é a recepção.
  *
+ * **Sem preço no app** (decisão comercial do responsável, 28/09/2026): o valor
+ * aparecendo de cara barrava a venda antes da conversa. O app diz o que o
+ * Método traz e manda à recepção, que apresenta e fecha o valor.
+ *
  * `recurso` é usado onde o aluno esbarra num item do Método (o chat com a
  * nutricionista): diz o que falta sem trancar a tela nem cobrar nada.
  */
@@ -30,7 +32,7 @@ export function MetodoArke({ organizationId, recurso }: { organizationId: string
     queryFn: async () => {
       const { data, error } = await supabase.rpc("metodo_ofertas_academia", { _organization_id: organizationId });
       if (error) throw error;
-      return (data ?? []) as { nivel: string; valor_varejo: number }[];
+      return (data ?? []) as { nivel: string }[];
     },
     staleTime: 10 * 60_000,
   });
@@ -46,8 +48,7 @@ export function MetodoArke({ organizationId, recurso }: { organizationId: string
               <Sparkles className="h-3.5 w-3.5 text-primary" /> Faz parte do Método ARKE
             </p>
             <p className="text-xs text-muted-foreground max-w-xs">
-              {recurso} está no Método ARKE, disponível na sua academia a partir de{" "}
-              {reais(Number(ofertas[0].valor_varejo))}/mês. Fale com a recepção para assinar.
+              {recurso} está no Método ARKE, disponível na sua academia. Fale com a recepção para conhecer.
             </p>
           </>
         ) : (
@@ -77,8 +78,8 @@ export function MetodoArke({ organizationId, recurso }: { organizationId: string
           ))}
         </ul>
         <p className="text-xs">
-          {ofertas.map((o) => `${NIVEL[o.nivel] ?? o.nivel} ${reais(Number(o.valor_varejo))}/mês`).join(" · ")} —{" "}
-          <strong>fale com a recepção para assinar.</strong>
+          Disponível nos níveis {ofertas.map((o) => NIVEL[o.nivel] ?? o.nivel).join(" e ")} —{" "}
+          <strong>fale com a recepção para conhecer.</strong>
         </p>
       </CardContent>
     </Card>

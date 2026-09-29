@@ -12,12 +12,14 @@ const montar = (ui: React.ReactElement) =>
 describe("anúncio do Método ARKE", () => {
   beforeEach(() => rpc.mockReset());
 
-  it("academia que vende: mostra os níveis com preço e manda à recepção", async () => {
+  // Sem preço no app (decisão comercial de 28/09/2026): o valor fica com a recepção.
+  it("academia que vende: mostra os níveis sem preço e manda à recepção", async () => {
     rpc.mockResolvedValue({ data: [{ nivel: "integrado", valor_varejo: 119 }, { nivel: "elite", valor_varejo: 199 }], error: null });
     montar(<MetodoArke organizationId="o1" />);
     expect(await screen.findByText("Método ARKE na sua academia")).toBeInTheDocument();
-    expect(document.body.textContent).toMatch(/Integrado R\$\s?119,00\/mês · Elite R\$\s?199,00\/mês/);
-    expect(document.body.textContent).toContain("fale com a recepção para assinar");
+    expect(document.body.textContent).toContain("Disponível nos níveis Integrado e Elite");
+    expect(document.body.textContent).toContain("fale com a recepção para conhecer");
+    expect(document.body.textContent).not.toMatch(/R\$|119|199/);
     expect(document.body.textContent).not.toMatch(/breve/i);
   });
 
@@ -32,7 +34,8 @@ describe("anúncio do Método ARKE", () => {
     rpc.mockResolvedValue({ data: [{ nivel: "integrado", valor_varejo: 119 }], error: null });
     montar(<MetodoArke organizationId="o1" recurso="O chat com a nutricionista" />);
     expect(await screen.findByText("Faz parte do Método ARKE")).toBeInTheDocument();
-    expect(document.body.textContent).toMatch(/a partir de R\$\s?119,00\/mês/);
+    expect(document.body.textContent).toContain("disponível na sua academia");
+    expect(document.body.textContent).not.toMatch(/R\$|119/);
 
     rpc.mockResolvedValue({ data: [], error: null });
     montar(<MetodoArke organizationId="o2" recurso="O chat com a nutricionista" />);
