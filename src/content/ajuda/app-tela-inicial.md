@@ -32,4 +32,4 @@ Sentiu dor ou teve um problema na rotina? Toque em **Registrar Alerta**. A equip
 
 Comunicados da academia, documentos pendentes da matrícula, o diário de água e a sua pontuação de engajamento.
 
-> O menu (as três linhas no alto) leva a Treino, Dieta, Evolução, Jornada, Desafios, Competições, Feed, Perfil e esta Ajuda.
+> O menu (as três linhas no alto) leva a Treino, Dieta, Evolução, Jornada (no Método ARKE), Desafios, Competições, Feed, Perfil e esta Ajuda.

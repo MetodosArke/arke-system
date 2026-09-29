@@ -10,12 +10,12 @@ Todo aluno matriculado e em dia usa o app da academia no **plano Free**. O **Mé
 
 ## O que o Método acrescenta
 
-- **Integrado**: acolhimento M.A.P.A.® (uma conversa inicial sobre a sua rotina, objetivos e saúde), fases da jornada, plano alimentar individualizado com a nutricionista da ArkeFit, check-ins semanais e um **mentor** da ArkeFit acompanhando você.
+- **Integrado**: acolhimento M.A.P.A.® (uma conversa inicial sobre a sua rotina, objetivos e saúde), fases da jornada, a tela **Minha Jornada** (objetivos, valores, meta pessoal e rotina da semana), plano alimentar individualizado com a nutricionista da ArkeFit, check-ins semanais e um **mentor** da ArkeFit acompanhando você.
 - **Elite**: tudo do Integrado, mais acolhimento expandido, encontros periódicos, relatórios de evolução e prioridade no atendimento.
 
 ## Como contratar
 
-Quando a sua academia oferece, o app mostra o Método com o preço. Para contratar, fale com a recepção.
+Quando a sua academia oferece, o app mostra o Método e o que ele traz. Valores e contratação ficam com a recepção: é só falar com eles.
 
 ## Quem cuida do quê
 

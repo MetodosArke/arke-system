@@ -4,6 +4,8 @@ import ObjetivosTab from "@/components/jornada/ObjetivosTab";
 import ValoresTab from "@/components/jornada/ValoresTab";
 import CompromissoTab from "@/components/jornada/CompromissoTab";
 import RotinaSemanal from "@/components/aluno/RotinaSemanal";
+import { MetodoArke } from "@/components/aluno/MetodoArke";
+import { useAuth } from "@/contexts/AuthContext";
 
 /**
  * Minha Jornada — quatro abas.
@@ -19,6 +21,19 @@ import RotinaSemanal from "@/components/aluno/RotinaSemanal";
  * o card de meta semanal e os treinos registrados.
  */
 export default function AlunoJornada() {
+  const { planoAluno, organization } = useAuth();
+
+  // A Jornada é do Método ARKE (decisão comercial de 28/09/2026). Quem chega
+  // aqui no Free, por um link antigo, vê o convite, sem tela trancada.
+  if (planoAluno === "free") {
+    return (
+      <div className="space-y-4 max-w-2xl mx-auto">
+        <h1 className="text-xl font-bold">Minha Jornada</h1>
+        {organization?.id && <MetodoArke organizationId={organization.id} recurso="A Minha Jornada" />}
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-4 max-w-2xl mx-auto">
       <div>

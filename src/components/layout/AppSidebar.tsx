@@ -8,7 +8,9 @@ import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { MarcaArkeFit } from "@/components/marca/MarcaArkeFit";
 
-function buildMenuItems(ehStudio: boolean) {
+// A Jornada (objetivos, valores, meta pessoal e rotina) é do Método ARKE:
+// decisão comercial do responsável, 28/09/2026. No Free ela sai do menu.
+function buildMenuItems(ehStudio: boolean, noMetodo: boolean) {
   const items = [
     { icon: Home, label: "Início", path: "/app" },
     { icon: Dumbbell, label: "Treino", path: "/app/treinos" },
@@ -19,7 +21,7 @@ function buildMenuItems(ehStudio: boolean) {
   }
   items.push(
     { icon: Activity, label: "Evolução", path: "/app/evolucao" },
-    { icon: Compass, label: "Jornada", path: "/app/jornada" },
+    ...(noMetodo ? [{ icon: Compass, label: "Jornada", path: "/app/jornada" }] : []),
     { icon: Trophy, label: "Desafios", path: "/app/desafios" },
     { icon: Medal, label: "Competições", path: "/app/competicoes" },
     { icon: Users, label: "Feed", path: "/app/feed" },
@@ -40,9 +42,9 @@ function SidebarNav({
 }) {
   const location = useLocation();
   const navigate = useNavigate();
-  const { signOut, hasRole, organization } = useAuth();
+  const { signOut, hasRole, organization, planoAluno } = useAuth();
   const isAdminArke = hasRole("admin_arke");
-  const menuItems = buildMenuItems(organization?.tipo === "studio");
+  const menuItems = buildMenuItems(organization?.tipo === "studio", planoAluno !== "free");
 
   const handleNav = (path: string) => {
     navigate(path);
