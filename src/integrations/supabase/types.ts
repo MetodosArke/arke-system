@@ -12,31 +12,6 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.5"
   }
-  graphql_public: {
-    Tables: {
-      [_ in never]: never
-    }
-    Views: {
-      [_ in never]: never
-    }
-    Functions: {
-      graphql: {
-        Args: {
-          extensions?: Json
-          operationName?: string
-          query?: string
-          variables?: Json
-        }
-        Returns: Json
-      }
-    }
-    Enums: {
-      [_ in never]: never
-    }
-    CompositeTypes: {
-      [_ in never]: never
-    }
-  }
   public: {
     Tables: {
       aceites_documentos: {
@@ -3339,9 +3314,11 @@ export type Database = {
           },
         ]
       }
-      leads_site: {
+      leads_comerciais: {
         Row: {
           academia: string
+          agente_acionado_em: string | null
+          agente_acionado_por: string | null
           agente_parou_em: string | null
           agente_parou_motivo: string | null
           alunos_faixa: string | null
@@ -3349,22 +3326,29 @@ export type Database = {
           atualizado_por: string | null
           cidade: string | null
           created_at: string
-          email: string
+          criado_por: string | null
+          email: string | null
           email_enviado_em: string | null
           id: string
+          interesse: string | null
           ip_hash: string | null
           mensagem: string | null
-          nome: string
-          observacao: string | null
-          origem: string | null
+          motivo_perda: string | null
+          nome: string | null
+          observacoes_vendedor: string | null
+          origem: string
+          origem_detalhe: string | null
           sistema_atual: string | null
           status: string
-          telefone: string
+          status_desde: string
+          telefone: string | null
           token_parar: string
           uf: string | null
         }
         Insert: {
           academia: string
+          agente_acionado_em?: string | null
+          agente_acionado_por?: string | null
           agente_parou_em?: string | null
           agente_parou_motivo?: string | null
           alunos_faixa?: string | null
@@ -3372,22 +3356,29 @@ export type Database = {
           atualizado_por?: string | null
           cidade?: string | null
           created_at?: string
-          email: string
+          criado_por?: string | null
+          email?: string | null
           email_enviado_em?: string | null
           id?: string
+          interesse?: string | null
           ip_hash?: string | null
           mensagem?: string | null
-          nome: string
-          observacao?: string | null
-          origem?: string | null
+          motivo_perda?: string | null
+          nome?: string | null
+          observacoes_vendedor?: string | null
+          origem?: string
+          origem_detalhe?: string | null
           sistema_atual?: string | null
           status?: string
-          telefone: string
+          status_desde?: string
+          telefone?: string | null
           token_parar?: string
           uf?: string | null
         }
         Update: {
           academia?: string
+          agente_acionado_em?: string | null
+          agente_acionado_por?: string | null
           agente_parou_em?: string | null
           agente_parou_motivo?: string | null
           alunos_faixa?: string | null
@@ -3395,23 +3386,28 @@ export type Database = {
           atualizado_por?: string | null
           cidade?: string | null
           created_at?: string
-          email?: string
+          criado_por?: string | null
+          email?: string | null
           email_enviado_em?: string | null
           id?: string
+          interesse?: string | null
           ip_hash?: string | null
           mensagem?: string | null
-          nome?: string
-          observacao?: string | null
-          origem?: string | null
+          motivo_perda?: string | null
+          nome?: string | null
+          observacoes_vendedor?: string | null
+          origem?: string
+          origem_detalhe?: string | null
           sistema_atual?: string | null
           status?: string
-          telefone?: string
+          status_desde?: string
+          telefone?: string | null
           token_parar?: string
           uf?: string | null
         }
         Relationships: []
       }
-      leads_site_mensagens: {
+      leads_comerciais_mensagens: {
         Row: {
           assunto: string | null
           categoria: string | null
@@ -3453,10 +3449,10 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "leads_site_mensagens_lead_id_fkey"
+            foreignKeyName: "leads_comerciais_mensagens_lead_id_fkey"
             columns: ["lead_id"]
             isOneToOne: false
-            referencedRelation: "leads_site"
+            referencedRelation: "leads_comerciais"
             referencedColumns: ["id"]
           },
         ]
@@ -6634,6 +6630,10 @@ export type Database = {
         Args: { _organization_id: string }
         Returns: boolean
       }
+      acionar_agente_comercial: {
+        Args: { _lead_id: string }
+        Returns: undefined
+      }
       agendar_remocao_equipamento: {
         Args: {
           _aluno_id: string
@@ -7652,6 +7652,8 @@ export type Database = {
           lead_id: string
           mensagem: string
           nome: string
+          origem: string
+          origem_detalhe: string
           sistema_atual: string
           token_parar: string
         }[]
@@ -7677,7 +7679,7 @@ export type Database = {
         Returns: number
       }
       limpar_historicos_antigos: { Args: never; Returns: Json }
-      limpar_leads_site_antigos: { Args: never; Returns: number }
+      limpar_leads_comerciais_antigos: { Args: never; Returns: number }
       listar_parceiros_externos_ativos: {
         Args: { _organization_id: string }
         Returns: {
@@ -8418,9 +8420,6 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
-  graphql_public: {
-    Enums: {},
-  },
   public: {
     Enums: {
       agendamento_status: ["agendado", "presente", "cancelado", "lista_espera"],

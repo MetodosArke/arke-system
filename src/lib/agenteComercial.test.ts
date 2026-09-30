@@ -5,9 +5,12 @@ import {
   espelhoAceito,
   lerRespostaModelo,
   montarEmail,
+  motivoDoEmail,
+  ORIGENS,
   primeiroNome,
   PROPOSTA,
   tirarContatos,
+  usaEspelho,
   type DadosEmail,
 } from "../../supabase/functions/agente-comercial/fluxo";
 
@@ -113,6 +116,8 @@ describe("montarEmail", () => {
     academia: "Studio <b>Forte</b>",
     categoria: "evasao",
     espelho: null,
+    origem: "site",
+    origemDetalhe: "google / cpc",
     agenda: "https://calendly.com/arkefit/demonstracao",
     linkParar: "https://app.arkefit.com.br/#/contato/parar?t=abc",
     assinatura: "Equipe comercial ArkeFit",
@@ -156,6 +161,44 @@ describe("montarEmail", () => {
         expect(corpo).not.toMatch(/\d/);
       }
     }
+  });
+
+  it("nenhum canal fala de preço, plano ou valor, e todo e-mail diz por que chegou", () => {
+    for (const origem of ORIGENS) {
+      for (const etapa of ["primeira", "retorno_1", "retorno_2"] as const) {
+        const { texto } = montarEmail({ ...base, etapa, origem, origemDetalhe: "Google Maps", academia: "Academia Forte" });
+        const corpo = texto.split("\n—")[0].replace(base.agenda, "");
+        expect(corpo).not.toMatch(/R\$|%|\bpre[çc]o|\bplanos?\b|\bdesconto/i);
+        expect(texto).toContain(motivoDoEmail(origem, "Google Maps"));
+      }
+    }
+  });
+
+  it("cada canal abre dizendo por que escrevemos", () => {
+    const abre = (origem: DadosEmail["origem"]) =>
+      montarEmail({ ...base, origem, origemDetalhe: "Google Maps", academia: "Academia Forte" }).texto;
+    expect(abre("whatsapp")).toContain("Obrigado pelo contato pelo WhatsApp.");
+    expect(abre("telefone")).toContain("Obrigado pela conversa por telefone.");
+    expect(abre("indicacao")).toContain("Sua academia nos foi indicada");
+    expect(abre("prospeccao")).toContain("Encontramos o contato de Academia Forte numa busca por academias (Google Maps)");
+    expect(abre("prospeccao")).toContain("está publicado na internet (Google Maps)");
+    // O rodapé do site não aparece para quem não pediu contato pelo site.
+    expect(abre("prospeccao")).not.toContain("pediu contato em arkefit.com.br");
+  });
+
+  it("a frase da IA só entra onde a própria academia contou algo", () => {
+    const espelho = "Ver aluno sumir sem ninguém perceber a tempo é frustrante para quem cuida de uma academia.";
+    expect(usaEspelho("site") && usaEspelho("whatsapp") && usaEspelho("telefone")).toBe(true);
+    expect(usaEspelho("indicacao") || usaEspelho("prospeccao")).toBe(false);
+    expect(montarEmail({ ...base, origem: "whatsapp", espelho }).texto).toContain(espelho);
+    expect(montarEmail({ ...base, origem: "indicacao", espelho }).texto).not.toContain(espelho);
+    expect(montarEmail({ ...base, origem: "prospeccao", origemDetalhe: "Instagram", espelho }).texto).not.toContain(espelho);
+  });
+
+  it("escapa no HTML a fonte da prospecção, que é digitada pela equipe", () => {
+    const e = montarEmail({ ...base, origem: "prospeccao", origemDetalhe: "<i>Maps</i>" });
+    expect(e.html).not.toContain("<i>");
+    expect(e.html).toContain("&lt;i&gt;Maps&lt;/i&gt;");
   });
 
   it("os lembretes têm assunto próprio e o último avisa que é o último", () => {

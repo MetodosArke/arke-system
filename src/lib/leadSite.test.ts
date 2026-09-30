@@ -25,7 +25,7 @@ describe("formulário da página de vendas", () => {
   it("o e-mail do comercial escapa o que veio do formulário", () => {
     const r = validarLead({ ...base, mensagem: "<script>alert(1)</script>" });
     if (!r.ok) throw new Error("erro" in r ? r.erro : "inválido");
-    const { html, assunto } = emailDoLead(r.lead, "https://www.arkefit.com.br/#/superadmin/contatos");
+    const { html, assunto } = emailDoLead(r.lead, "https://www.arkefit.com.br/#/superadmin/comercial");
     expect(html).not.toContain("<script>");
     expect(html).toContain("&lt;script&gt;");
     expect(assunto).toBe("Contato pelo site: Academia Horizonte");

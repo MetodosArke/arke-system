@@ -13,7 +13,7 @@ Só o que continua em aberto. As decisões já tomadas e aplicadas saíram desta
 
 ## Página de vendas e endereço do app (25/09/2026)
 
-- **Um envio de verdade pelo formulário de contato** da página de vendas, para conferir que um envio real passa pelo captcha (o falso já é recusado). Depois, apagar o contato de teste em Visão Master → Contatos do site.
+- **Um envio de verdade pelo formulário de contato** da página de vendas, para conferir que um envio real passa pelo captcha (o falso já é recusado). Depois, apagar o contato de teste em Visão Master → Pipeline comercial.
 - **Aprovar o texto da Política de Privacidade 2026-09-25** (leitura do plano alimentar em PDF e contato pelo site). Ela vai ao ar como minuta; aprovada, vira `revisadoJuridico: true` sem pedir aceite de novo, porque o hash não muda.
 
 ## Achados da Central de Ajuda (25/09/2026)

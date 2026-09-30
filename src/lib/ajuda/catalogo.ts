@@ -436,12 +436,12 @@ export const ARTIGOS: ArtigoAjuda[] = [
     publicos: ["arkefit"],
   },
   {
-    slug: "vm-contatos",
-    titulo: "Contatos do site",
-    resumo: "Os pedidos de demonstração da página de vendas: situação, anotações e o e-mail do comercial.",
+    slug: "vm-comercial",
+    titulo: "Pipeline comercial",
+    resumo: "O CRM da ArkeFit: contatos do site e dos outros canais, as etapas, o cadastro à mão e a Letícia.",
     secao: "Visão Master",
     publicos: ["arkefit"],
-    rotas: ["/superadmin/contatos"],
+    rotas: ["/superadmin/comercial"],
   },
   {
     slug: "vm-configuracoes",

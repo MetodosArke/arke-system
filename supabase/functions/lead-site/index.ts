@@ -14,7 +14,7 @@ const jsonResponse = (body: unknown, status = 200) =>
 // (verify_jwt = false) com as travas da matrícula pública: limite por IP
 // (as funções de matricula_publica_tentativas), captcha Turnstile quando
 // TURNSTILE_SECRET_KEY existe, e um campo-isca que robô preenche e gente não
-// vê. Grava em `leads_site` e avisa o e-mail do comercial (plataforma_textos
+// vê. Grava em `leads_comerciais` (canal "site") e avisa o e-mail do comercial (plataforma_textos
 // `comercial_email`; sem ele, os Super Admins).
 const MUITAS_TENTATIVAS = "Muitas tentativas a partir desta rede. Aguarde alguns minutos e tente de novo.";
 const POR_IP_POR_DIA = 5;
@@ -70,7 +70,7 @@ Deno.serve(async (req: Request) => {
 
     if (ipHash) {
       const { count } = await admin
-        .from("leads_site")
+        .from("leads_comerciais")
         .select("id", { count: "exact", head: true })
         .eq("ip_hash", ipHash)
         .gte("created_at", new Date(Date.now() - 86_400_000).toISOString());
@@ -78,7 +78,7 @@ Deno.serve(async (req: Request) => {
     }
 
     const { data: lead, error: erroGravar } = await admin
-      .from("leads_site")
+      .from("leads_comerciais")
       .insert({ ...validacao.lead, ip_hash: ipHash })
       .select("id")
       .single();
@@ -98,7 +98,7 @@ Deno.serve(async (req: Request) => {
         destino = ((sa ?? []) as unknown[]).map((l) => (typeof l === "string" ? l : (l as { email?: string }).email ?? "")).filter(Boolean);
       }
       if (destino.length) {
-        const { assunto, html } = emailDoLead(validacao.lead, `${siteUrl}/#/superadmin/contatos`);
+        const { assunto, html } = emailDoLead(validacao.lead, `${siteUrl}/#/superadmin/comercial`);
         try {
           const envio = await fetch("https://api.resend.com/emails", {
             method: "POST",
@@ -112,7 +112,7 @@ Deno.serve(async (req: Request) => {
             }),
             signal: AbortSignal.timeout(10_000),
           });
-          if (envio.ok) await admin.from("leads_site").update({ email_enviado_em: new Date().toISOString() }).eq("id", lead.id);
+          if (envio.ok) await admin.from("leads_comerciais").update({ email_enviado_em: new Date().toISOString() }).eq("id", lead.id);
           else console.error("lead-site: Resend respondeu", envio.status);
         } catch (e) {
           console.error("lead-site: falha no envio do e-mail", e instanceof Error ? e.name : typeof e);

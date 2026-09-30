@@ -12,6 +12,10 @@ import { MarcaArkeFit } from "@/components/marca/MarcaArkeFit";
 import { AdminSidebarProvider, useAdminSidebar } from "@/contexts/AdminSidebarContext";
 import { SECOES_SUPERADMIN, SuperAdminSidebarDesktop, SuperAdminSidebarMobile } from "./SuperAdminSidebar";
 
+// Telas que usam a largura toda. O quadro do Pipeline tem seis colunas e,
+// preso à coluna central das outras telas, mostrava três e meia.
+const TELAS_LARGAS = ["/superadmin/comercial"];
+
 /** O nome da tela aberta, para o cabeçalho. A Central de Ajuda tem subpáginas. */
 function tituloDaTela(pathname: string): string {
   if (pathname.startsWith("/superadmin/ajuda")) return "Ajuda";
@@ -65,7 +69,7 @@ function SuperAdminLayoutInner() {
           </div>
         </header>
         <AvisoRotinas />
-        <main className="mx-auto w-full max-w-6xl flex-1 min-w-0 p-3 sm:p-4 md:p-6">
+        <main className={cn("mx-auto w-full flex-1 min-w-0 p-3 sm:p-4 md:p-6", TELAS_LARGAS.includes(location.pathname) ? "max-w-none" : "max-w-6xl")}>
           <Suspense fallback={<CarregandoPagina />}>
             <Outlet />
           </Suspense>
