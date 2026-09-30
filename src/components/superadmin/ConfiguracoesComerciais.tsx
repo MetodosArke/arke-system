@@ -213,7 +213,7 @@ export function EmailComercial() {
       <CardHeader className="pb-2">
         <CardTitle className="text-base">Contatos da página de vendas</CardTitle>
         <CardDescription>
-          Cada pedido de demonstração vai para este e-mail e fica em Contatos do site. Vazio, o aviso vai para os Super Admins.
+          Cada pedido de demonstração vai para este e-mail e fica no Pipeline comercial. Vazio, o aviso vai para os Super Admins.
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-3 sm:flex-row sm:items-end">

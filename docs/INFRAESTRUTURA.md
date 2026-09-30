@@ -41,7 +41,7 @@ Os upgrades pagos (Supabase, Vercel e Resend) vêm antes do primeiro cliente pag
   - quais respondem sem login está em `supabase/config.toml`;
   - cada Gateway de catraca faz ~100 mil chamadas por mês (escuta longa de ordens). Com 50 academias com catraca, passa das 2 milhões incluídas no Pro, e o excedente custa poucos dólares por mês;
   - publicar: `supabase functions deploy <nome> --project-ref lzyxqjibkfblrrjboylp`.
-- **Rotinas agendadas (pg_cron):** 28. A `arke-agente-comercial` (de 5 em 5 minutos) é a resposta automática ao contato do site, e só envia com ela ligada em Visão Master → Contatos do site. A `arke-retencao-historicos` apaga o histórico do próprio cron depois de 30 dias e resume os avisos do Asaas depois de 90. A situação de cada uma aparece em Visão Master → Webhooks, e uma rotina que falha manda e-mail aos Super Admins.
+- **Rotinas agendadas (pg_cron):** 28. A `arke-agente-comercial` (de 5 em 5 minutos) é a resposta automática ao contato comercial (sozinha no site; nos outros canais, quando acionada), e só envia com ela ligada em Visão Master → Pipeline comercial. A `arke-retencao-historicos` apaga o histórico do próprio cron depois de 30 dias e resume os avisos do Asaas depois de 90. A situação de cada uma aparece em Visão Master → Webhooks, e uma rotina que falha manda e-mail aos Super Admins.
 - **Cofre (Vault):**
   - quatro tokens que as rotinas usam para chamar as funções: `alerta_rotinas_token`, `briefing_semanal_token`, `lembrete_onboarding_token` e `reconciliacao_asaas_token`;
   - quando existirem, também moram aqui a chave da subconta Asaas de cada academia e as credenciais de Wellhub e TotalPass.

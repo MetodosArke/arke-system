@@ -1,7 +1,7 @@
 /**
  * Validação do formulário da página de vendas. Sem Deno e sem Supabase, para
  * o teste do app exercitar este código e não uma cópia. As mesmas regras
- * estão no banco (`leads_site`); aqui elas viram mensagens para quem digitou.
+ * estão no banco (`leads_comerciais`); aqui elas viram mensagens para quem digitou.
  */
 
 export const FAIXAS_ALUNOS = ["ate_150", "151_500", "501_1000", "mais_1000"] as const;
@@ -16,7 +16,8 @@ export type Lead = {
   alunos_faixa: (typeof FAIXAS_ALUNOS)[number] | null;
   sistema_atual: string | null;
   mensagem: string | null;
-  origem: string | null;
+  /** UTM ou site de onde o visitante veio. O canal (`origem`) é sempre "site", o padrão da coluna. */
+  origem_detalhe: string | null;
 };
 
 const texto = (v: unknown, max: number) => {
@@ -51,7 +52,7 @@ export function validarLead(corpo: Record<string, unknown>): { ok: true; lead: L
       alunos_faixa: (faixa || null) as Lead["alunos_faixa"],
       sistema_atual: texto(corpo.sistema_atual, 80) || null,
       mensagem: typeof corpo.mensagem === "string" ? corpo.mensagem.trim().slice(0, 2000) || null : null,
-      origem: texto(corpo.origem, 200) || null,
+      origem_detalhe: texto(corpo.origem, 200) || null,
     },
   };
 }
@@ -76,7 +77,7 @@ export function emailDoLead(lead: Lead, painel: string): { assunto: string; html
     ["Alunos", lead.alunos_faixa ? ROTULO_FAIXA[lead.alunos_faixa] : null],
     ["Sistema atual", lead.sistema_atual],
     ["Mensagem", lead.mensagem],
-    ["Origem", lead.origem],
+    ["Veio de", lead.origem_detalhe],
   ];
   const tabela = linhas
     .filter(([, v]) => v)
@@ -91,7 +92,7 @@ export function emailDoLead(lead: Lead, painel: string): { assunto: string; html
     html: `<div style="font-family:Arial,sans-serif;font-size:14px;color:#0f172a">
 <p>Novo contato pela página de vendas do ARKE.</p>
 <table style="border-collapse:collapse">${tabela}</table>
-<p style="margin-top:16px"><a href="${escapar(painel)}">Abrir em Visão Master → Contatos do site</a></p>
+<p style="margin-top:16px"><a href="${escapar(painel)}">Abrir em Visão Master → Pipeline comercial</a></p>
 <p style="color:#64748b;font-size:12px">Responder a este e-mail responde para o contato.</p>
 </div>`,
   };

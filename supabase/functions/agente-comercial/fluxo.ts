@@ -14,6 +14,20 @@ export const CATEGORIAS = ["evasao", "inadimplencia", "catraca", "atendimento", 
 export type Categoria = (typeof CATEGORIAS)[number];
 export type Etapa = "primeira" | "retorno_1" | "retorno_2";
 
+/** Por onde a academia chegou (`leads_comerciais.origem`). */
+export const ORIGENS = ["site", "whatsapp", "telefone", "indicacao", "prospeccao"] as const;
+export type Origem = (typeof ORIGENS)[number];
+
+/**
+ * A IA só escreve a partir do que a própria academia contou: pelo formulário,
+ * no WhatsApp ou por telefone. Na indicação e na prospecção ninguém da
+ * academia contou nada, e uma frase de "entendemos o que você passa" seria
+ * suposição apresentada como escuta: o e-mail sai só com o texto nosso.
+ */
+export function usaEspelho(origem: Origem): boolean {
+  return origem === "site" || origem === "whatsapp" || origem === "telefone";
+}
+
 const normalizar = (t: string) =>
   t
     .normalize("NFD")
@@ -48,9 +62,9 @@ export function tirarContatos(mensagem: string): string {
     .replace(/\+?\d[\d\s().-]{7,}\d/g, "[telefone]");
 }
 
-export const SISTEMA_ESPELHO = `Você ajuda a equipe comercial da ArkeFit, um sistema de gestão e retenção de alunos para academias, a responder quem pediu uma demonstração pelo site.
+export const SISTEMA_ESPELHO = `Você ajuda a equipe comercial da ArkeFit, um sistema de gestão e retenção de alunos para academias, a responder quem entrou em contato para conhecer o sistema, pelo site, pelo WhatsApp ou por telefone.
 
-Você recebe a mensagem que a academia escreveu no formulário. Devolva SOMENTE um JSON, sem nenhum texto antes ou depois, no formato:
+Você recebe o que a academia contou: escrito por ela no formulário do site, ou anotado pela nossa equipe depois de uma conversa. Devolva SOMENTE um JSON, sem nenhum texto antes ou depois, no formato:
 {"categoria": "...", "espelho": "..."}
 
 - "categoria": o problema principal que a mensagem conta, uma destas palavras: evasao (alunos cancelando, sumindo, rotatividade), inadimplencia (mensalidade atrasada, cobrança), catraca (controle de acesso, biometria), atendimento (acompanhar alunos, comunicação, aplicativo), migracao (trocar de sistema), outro.
@@ -149,6 +163,9 @@ export type DadosEmail = {
   academia: string;
   categoria: Categoria;
   espelho: string | null;
+  origem: Origem;
+  /** Na prospecção, onde o contato foi achado ("Google Maps", "Instagram"). Vai no e-mail. */
+  origemDetalhe: string | null;
   agenda: string;
   linkParar: string;
   assinatura: string;
@@ -157,12 +174,51 @@ export type DadosEmail = {
 const LOGO = "https://arkefit.com.br/logo-email.jpg";
 const COR = { texto: "#55575d", titulo: "#0d0d0d", ouro: "#c9952b", apagado: "#999999" };
 
+/** Sem frase da IA, a primeira mensagem abre dizendo por que escrevemos. */
+function abertura(origem: Origem, academia: string, fonte: string | null): string {
+  switch (origem) {
+    case "whatsapp":
+      return "Obrigado pelo contato pelo WhatsApp.";
+    case "telefone":
+      return "Obrigado pela conversa por telefone.";
+    case "indicacao":
+      return "Sua academia nos foi indicada, e por isso resolvemos escrever.";
+    case "prospeccao":
+      return `Encontramos o contato de ${academia} numa busca por academias (${fonte ?? "fonte pública"}) e resolvemos escrever.`;
+    default:
+      return "Obrigado por contar um pouco sobre a sua academia.";
+  }
+}
+
+/**
+ * Por que a pessoa recebeu o e-mail. Quem não pediu o contato (indicação,
+ * prospecção) tem de saber de onde a ArkeFit tirou o endereço.
+ */
+export function motivoDoEmail(origem: Origem, fonte: string | null): string {
+  switch (origem) {
+    case "whatsapp":
+      return "Você recebeu este e-mail porque falou com a ArkeFit pelo WhatsApp.";
+    case "telefone":
+      return "Você recebeu este e-mail porque falou com a ArkeFit por telefone.";
+    case "indicacao":
+      return "Você recebeu este e-mail porque a sua academia foi indicada à ArkeFit.";
+    case "prospeccao":
+      // Entre parênteses, para não depender do artigo ("no Instagram", "no site da academia").
+      return `Você recebeu este e-mail porque o contato da sua academia está publicado na internet (${fonte ?? "fonte pública"}).`;
+    default:
+      return "Você recebeu este e-mail porque pediu contato em arkefit.com.br.";
+  }
+}
+
 /** Monta o e-mail de cada etapa, em HTML e em texto simples. */
 export function montarEmail(d: DadosEmail): { assunto: string; html: string; texto: string } {
   const nome = primeiroNome(d.nome);
   const ola = nome ? `Olá, ${nome}!` : "Olá!";
   const academia = d.academia.trim();
   const tema = TEMA[d.categoria];
+  const fonte = d.origemDetalhe?.replace(/\s+/g, " ").trim().slice(0, 80) || null;
+  // A frase da IA só vale onde a academia contou algo (`usaEspelho`).
+  const espelho = usaEspelho(d.origem) ? d.espelho : null;
 
   let assunto: string;
   let paragrafos: string[];
@@ -172,7 +228,7 @@ export function montarEmail(d: DadosEmail): { assunto: string; html: string; tex
     // soariam errados, e o nome é o que a pessoa digitou.
     assunto = `${academia} e o ArkeFit`;
     paragrafos = [
-      d.espelho ?? "Obrigado por contar um pouco sobre a sua academia.",
+      espelho ?? abertura(d.origem, academia, fonte),
       PROPOSTA[d.categoria],
       `O melhor jeito de ver se faz sentido para vocês é uma conversa rápida com o Jean Ramos, um dos fundadores da ArkeFit, com o sistema aberto na tela. Escolha o horário que ficar melhor para você:`,
     ];
@@ -191,7 +247,7 @@ export function montarEmail(d: DadosEmail): { assunto: string; html: string; tex
     fecho = "E, se preferir, é só responder este e-mail quando quiser.";
   }
 
-  const rodape = `Você recebeu este e-mail porque pediu contato em arkefit.com.br. Não quer mais receber?`;
+  const rodape = `${motivoDoEmail(d.origem, fonte)} Não quer mais receber?`;
 
   const texto = [
     ola,

@@ -7,8 +7,10 @@ import {
   lerRespostaModelo,
   montarEmail,
   SISTEMA_ESPELHO,
+  usaEspelho,
   type Categoria,
   type Etapa,
+  type Origem,
 } from "./fluxo.ts";
 
 const corsHeaders = {
@@ -27,7 +29,9 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 // Dois caminhos:
 // - a rotina `arke-agente-comercial`, de 5 em 5 minutos, com o token do
 //   alerta de rotinas (header x-alerta-token): manda a primeira resposta e os
-//   lembretes que `leads_para_agente_comercial()` diz estarem devidos;
+//   lembretes que `leads_para_agente_comercial()` diz estarem devidos — os
+//   contatos do site sozinhos, os dos outros canais só quando a equipe aciona
+//   (`acionar_agente_comercial`);
 // - o "não quero mais receber", público (verify_jwt = false): o link do
 //   e-mail leva à página do app, que manda `{parar: <token>}`, e o cabeçalho
 //   List-Unsubscribe do e-mail faz o mesmo por `?parar=<token>`. A resposta é
@@ -103,7 +107,7 @@ Deno.serve(async (req: Request) => {
     for (const d of devidas as {
       lead_id: string;
       etapa: Etapa;
-      nome: string;
+      nome: string | null;
       academia: string;
       email: string;
       alunos_faixa: string | null;
@@ -111,6 +115,8 @@ Deno.serve(async (req: Request) => {
       mensagem: string | null;
       token_parar: string;
       categoria: Categoria | null;
+      origem: Origem;
+      origem_detalhe: string | null;
     }[]) {
       const { data: reserva, error: erroReserva } = await admin.rpc("reservar_mensagem_agente_comercial", {
         _lead_id: d.lead_id,
@@ -123,11 +129,14 @@ Deno.serve(async (req: Request) => {
       if (!reserva) continue; // outra rodada pegou
 
       // Assunto e espelho: só na primeira mensagem. Os lembretes repetem o
-      // assunto que a primeira identificou.
-      let categoria: Categoria = d.categoria ?? categoriaPorPalavras(d.mensagem);
+      // assunto que a primeira identificou. O assunto escolhido pela equipe
+      // (`interesse`) chega como categoria e vale mais que o palpite da IA. A
+      // IA só é chamada onde a academia contou algo (`usaEspelho`).
+      const escolhida = d.categoria;
+      let categoria: Categoria = escolhida ?? categoriaPorPalavras(d.mensagem);
       let espelho: string | null = null;
       let origem: "ia" | "modelo" = "modelo";
-      if (d.etapa === "primeira" && usarIa && d.mensagem?.trim()) {
+      if (d.etapa === "primeira" && usarIa && usaEspelho(d.origem) && d.mensagem?.trim()) {
         const resposta = await conversarComIA((n) => Deno.env.get(n), {
           sistema: SISTEMA_ESPELHO,
           usuario: entradaDoModelo({ mensagem: d.mensagem, alunos_faixa: d.alunos_faixa, sistema_atual: d.sistema_atual }),
@@ -136,7 +145,7 @@ Deno.serve(async (req: Request) => {
         });
         if (resposta.ok) {
           const lido = lerRespostaModelo(resposta.texto);
-          if (lido.categoria) categoria = lido.categoria;
+          if (lido.categoria && !escolhida) categoria = lido.categoria;
           if (lido.espelho) {
             espelho = lido.espelho;
             origem = "ia";
@@ -145,7 +154,18 @@ Deno.serve(async (req: Request) => {
       }
 
       const linkParar = `${siteUrl}/#/contato/parar?t=${d.token_parar}`;
-      const email = montarEmail({ etapa: d.etapa, nome: d.nome, academia: d.academia, categoria, espelho, agenda, linkParar, assinatura });
+      const email = montarEmail({
+        etapa: d.etapa,
+        nome: d.nome ?? "",
+        academia: d.academia,
+        categoria,
+        espelho,
+        origem: d.origem,
+        origemDetalhe: d.origem_detalhe,
+        agenda,
+        linkParar,
+        assinatura,
+      });
 
       let resendId: string | null = null;
       let enderecoInvalido = false;
