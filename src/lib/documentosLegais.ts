@@ -66,8 +66,15 @@ export const DOCUMENTOS: Record<
     // texto e nosso e a IA, no Brasil, escreve uma ou duas frases a partir da
     // mensagem; ate dois lembretes e link para nao receber mais. Texto aprovado
     // pelo responsavel no workspace em 28/09/2026, como estava.
-    versao: "2026-09-28.2",
-    sha256: "7324b3cf3cd60d70fcb4c9fc55d6a6ffd23ef50f8f91045a0dbf09e562a35be6",
+    // 2026-09-30: o contato comercial alem do site (Pipeline comercial) --
+    // WhatsApp, telefone, indicacao e prospeccao; legitimo interesse para
+    // indicacao e prospeccao, com a origem do contato no primeiro e-mail; a
+    // Leticia sozinha so no site e, nos outros canais, quando a equipe aciona;
+    // a IA so a partir do que a propria academia contou; guarda de 12 meses
+    // para qualquer canal. Texto aprovado pelo responsavel no chat em
+    // 30/09/2026 ("Texto aprovado").
+    versao: "2026-09-30",
+    sha256: "dc59c4d4f10f74dd11218f6372834c3c6cebd4fe9096a9b249efaec507ab7d69",
     texto: privacidade,
     revisadoJuridico: true,
   },
