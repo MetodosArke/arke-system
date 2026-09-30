@@ -55,8 +55,6 @@ O painel **Letícia, a resposta automática**, acima do quadro, mostra numa linh
 
 Na ficha de cada contato aparece o que a Letícia mandou e quando. **Ver o que foi enviado** mostra o texto de cada e-mail. Ligar, desligar e acionar ficam registrados na Auditoria.
 
-> Enquanto a Política de Privacidade não descrever os canais além do site, o cartão avisa que a Letícia aguarda a Política, e o botão não aparece.
-
 ## De onde vêm os contatos do site
 
 O formulário da página pede nome, academia, WhatsApp, e-mail, cidade, UF, faixa de alunos, o sistema que a academia usa hoje e uma mensagem. Antes de gravar, ele confere a verificação contra robôs e limita os envios por rede. O que chegou também vai por e-mail para o endereço configurado em **Configurações → Contatos da página de vendas**. Sem endereço, vai para os Super Admins. Responder ao e-mail responde para o contato.

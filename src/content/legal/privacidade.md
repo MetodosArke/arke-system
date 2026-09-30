@@ -17,7 +17,7 @@ Esta Política explica como os dados pessoais são tratados na plataforma ARKE, 
 - **Uso do aplicativo:** treinos registrados, check-ins, consumo de água, adesão à dieta, mensagens com a equipe, agendamentos, presenças.
 - **Pagamento:** a cobrança é processada pelo Asaas. A plataforma guarda apenas situação das cobranças, os 4 últimos dígitos e a bandeira do cartão — nunca o número completo.
 - **Nota fiscal:** quando a Academia emite nota fiscal pela plataforma, a nota sai no CNPJ dela, pelo Asaas, com o seu nome, CPF, endereço e e-mail, o serviço e o valor; vai para a prefeitura da cidade da Academia e chega a você por e-mail. A plataforma guarda a situação, o número e o link da nota.
-- **Contato pelo site da ArkeFit:** quem pede uma demonstração na página de vendas informa nome, academia, WhatsApp, e-mail e cidade e, se quiser, o número de alunos, o sistema que usa hoje e uma mensagem.
+- **Contato comercial com a ArkeFit:** quem pede uma demonstração na página de vendas informa nome, academia, WhatsApp, e-mail e cidade e, se quiser, o número de alunos, o sistema que usa hoje e uma mensagem. Quem fala com a ArkeFit pelo WhatsApp ou por telefone, ou é indicado por outra pessoa, tem anotados pela equipe comercial o nome, a academia, o telefone, o e-mail, a cidade e o que contou. Na prospecção, a ArkeFit anota o contato que a própria academia publicou na internet (no site dela, em redes sociais ou em mapas), com a fonte.
 - **Dados técnicos:** registros de acesso e de erro. O endereço IP usado para limitar tentativas de cadastro é guardado apenas em forma cifrada (hash) por até 24 horas. Os relatórios de erro não incluem nome, e-mail, CPF nem dados de saúde.
 
 ## 3. Para que usamos e com qual base legal
@@ -30,7 +30,7 @@ Esta Política explica como os dados pessoais são tratados na plataforma ARKE, 
 - **Segurança da plataforma e prevenção a fraudes** (limite de tentativas, verificação anti-robô, checagem de senha vazada): legítimo interesse (art. 7º, IX) e proteção do titular.
 - **Obrigações legais e fiscais** (registros de pagamento e a nota fiscal que a Academia emite dos seus pagamentos): cumprimento de obrigação legal (art. 7º, II).
 - **Comunicações sobre o serviço** (convite de acesso, redefinição de senha, avisos da Academia): execução de contrato.
-- **Contato pelo site:** responder a quem pediu uma demonstração e apresentar a plataforma — procedimentos preliminares a um contrato, a pedido de quem enviou (art. 7º, V). A primeira resposta a quem pede uma demonstração é montada automaticamente: um texto nosso, com o convite para a conversa, e uma ou duas frases escritas por inteligência artificial a partir da mensagem enviada, para mostrar que entendemos o que foi contado. Só a mensagem, a faixa de alunos e o sistema usado hoje vão para o modelo, sem nome, e-mail ou telefone. O processamento é no Brasil (seções 5 e 6), e o conteúdo não fica registrado na nossa conta do provedor. Sem resposta, seguem no máximo dois lembretes, e todo e-mail traz um link para não receber mais.
+- **Contato comercial:** responder a quem procurou a ArkeFit e apresentar a plataforma. Para quem pediu uma demonstração no site ou falou com a ArkeFit pelo WhatsApp ou por telefone, a base são os procedimentos preliminares a um contrato, a pedido de quem procurou (art. 7º, V). Para a academia indicada ou encontrada em prospecção, a base é o legítimo interesse da ArkeFit em apresentar a plataforma a academias (art. 7º, IX), limitado ao contato profissional da academia, com a origem do contato informada já no primeiro e-mail e a opção de não receber mais em todos eles. A resposta automática sai sozinha só para quem pediu contato pelo site; nos outros canais, só quando a equipe a aciona. O e-mail é um texto nosso, com o convite para a conversa; uma ou duas frases podem ser escritas por inteligência artificial a partir do que a própria academia contou — no site, no WhatsApp ou por telefone —, para mostrar que entendemos. Em indicação e prospecção, o e-mail é só texto nosso. Só o que a academia contou, a faixa de alunos e o sistema usado hoje vão para o modelo, sem nome, e-mail ou telefone. O processamento é no Brasil (seções 5 e 6), e o conteúdo não fica registrado na nossa conta do provedor. Sem resposta, seguem no máximo dois lembretes, e todo e-mail traz um link para não receber mais.
 
 A plataforma não vende dados pessoais, não faz publicidade com eles e não usa rankings corporais públicos: a evolução física é vista só por você e por quem atende você.
 
@@ -71,7 +71,7 @@ Sobre isso, o que você precisa saber:
   - Cloudflare Turnstile — verificação anti-robô no cadastro, no primeiro acesso e no formulário de contato do site;
   - BrasilAPI — consulta pública de CNPJ e CEP: no cadastro da Academia, só dados da empresa; no seu endereço, só o CEP, para completar rua, bairro e cidade;
   - Have I Been Pwned — checagem de senha vazada, em que apenas os 5 primeiros caracteres de um código da senha saem do seu aparelho; a senha nunca é enviada;
-  - **Amazon Web Services (Amazon Bedrock)** — com servidores no Brasil, em São Paulo: a análise por inteligência artificial das finalidades descritas na seção 4, **somente para quem autorizou** e somente enquanto a autorização estiver válida; a leitura do plano alimentar em PDF descrita na seção 3; e a resposta automática ao contato pelo site, também descrita na seção 3.
+  - **Amazon Web Services (Amazon Bedrock)** — com servidores no Brasil, em São Paulo: a análise por inteligência artificial das finalidades descritas na seção 4, **somente para quem autorizou** e somente enquanto a autorização estiver válida; a leitura do plano alimentar em PDF descrita na seção 3; e a resposta automática ao contato comercial, também descrita na seção 3.
 - **Com a prefeitura** da cidade da Academia, na nota fiscal que ela emite dos seus pagamentos — obrigação fiscal da Academia.
 - **Com autoridades**, quando houver obrigação legal ou ordem judicial.
 
@@ -89,7 +89,7 @@ As transferências da infraestrutura de apoio ocorrem com base nas garantias con
 - Depois do encerramento, os dados são eliminados ou anonimizados a pedido, ressalvados os que a lei manda guardar (como registros fiscais de pagamento e as notas fiscais emitidas) e os necessários ao exercício de direitos.
 - O resumo e os rascunhos gerados por inteligência artificial ficam enquanto durar a sua matrícula, e são apagados assim que você retira a autorização.
 - O texto do plano alimentar enviado para leitura não é guardado: fica só a dieta que a nutricionista revisou e salvou.
-- O contato recebido pelo site que não virou cliente é apagado depois de 12 meses sem andamento.
+- O contato comercial que não virou cliente, qualquer que seja o canal por onde chegou, é apagado depois de 12 meses sem andamento.
 - A digital fica nos equipamentos da Academia enquanto a sua autorização valer e a matrícula estiver ativa. O registro de que a autorização foi dada — e o termo assinado, quando houver — é guardado pelo prazo legal, como prova.
 - Rascunhos digitados na plataforma ficam só no navegador, durante a sessão, e somem ao fechar a aba.
 
