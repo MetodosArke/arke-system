@@ -30,12 +30,17 @@ Valor mensal fixo pago pela academia para acesso à infraestrutura, isolamento p
 
 **Todo plano tem o sistema inteiro** (decisão do responsável, 28/09/2026). O que muda de um plano para outro é o limite de alunos ativos e o suporte; nenhum recurso é travado por plano. A descrição antiga prometia diferenças de recurso que o sistema nunca travou, e foi ajustada a isto.
 
-- **Starter (Até 150 alunos ativos):** R$ 390,00/mês — suporte pelo canal de atendimento.
-- **Growth (Até 500 alunos ativos):** R$ 790,00/mês — suporte prioritário.
-- **Enterprise (Até 1.000 alunos ativos):** R$ 1.290,00/mês — suporte prioritário e SLAs dedicados.
-- **Custom (Redes/Multiunidades):** Sob consulta — personalização avançada de branding, suporte presencial dedicado e integrações sob demanda.
+Tabela vigente desde 01/10/2026 (decisão do responsável, depois da comparação com os concorrentes):
 
-> Implementação: `organizations.plano_b2b` (enum) guarda o plano contratado; ainda não há tabela de preços B2B no banco (só documental aqui).
+- **Growth (uma unidade, até 300 alunos ativos):** R$ 390,00/mês — suporte pelo canal de atendimento.
+- **Enterprise (uma unidade, a partir de 301 alunos):** R$ 790,00/mês, sem teto — suporte prioritário.
+- **Redes (até 3 unidades):** R$ 1.290,00/mês, cobrado na unidade principal — suporte prioritário e SLAs dedicados.
+- **Custom (redes com mais de 3 unidades):** sob consulta — personalização avançada de branding, suporte presencial dedicado e integrações sob demanda.
+- **Taxa de implantação:** R$ 500,00 de referência, negociável por contrato.
+
+O Starter (R$ 390 até 150 alunos) saiu de venda: o salto de 151 para 500 alunos custava o dobro e deixava a faixa onde está a maior parte das academias de bairro acima da Tecnofit. O valor do enum fica, para quem ainda estiver nele.
+
+> Implementação: `organizations.plano_b2b` (enum) guarda o plano, e `planos_b2b_precos` o preço e o limite de cada um (`20261305010000_tabela_b2b_outubro.sql`). **O limite acompanha o plano**: `trg_limite_segue_plano` grava o limite da tabela na criação e quando o plano muda sem o limite mudar junto. Antes, trocar o plano deixava o limite antigo, e a academia que subia de plano seguia barrada no teto do anterior. Limite nulo é sem teto (`exigir_limite_alunos` já tratava assim). **Unidade de rede** é organização no Redes com `valor_mensal_b2b = 0`: `asaas-assinatura-b2b` não cria assinatura para ela e a ficha mostra "Unidade de rede". O teto de 3 unidades do Redes é regra comercial, não trava do sistema.
 
 ### 2. Licenças de Atacado (Wholesale) vs. Sugestão de Varejo (por aluno/mês)
 A academia compra pelo custo de Atacado da ARKE e define o preço de Varejo (markup) cobrado do aluno. O Split Automático de Pagamento liquida os valores no checkout (Asaas).

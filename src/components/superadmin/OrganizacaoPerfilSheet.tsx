@@ -84,9 +84,10 @@ const STATUS_LABEL: Record<Enums<"org_status">, string> = {
 };
 
 const PLANO_LABEL: Record<Enums<"plano_b2b">, string> = {
-  starter: "Starter",
+  starter: "Starter (fora de venda)",
   growth: "Growth",
   enterprise: "Enterprise",
+  redes: "Redes",
   custom: "Custom",
   autonomo: "Profissional Autônomo",
 };

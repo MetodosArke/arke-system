@@ -8,7 +8,7 @@ Licença de uso, não exclusiva e intransferível, da plataforma ARKE (painel da
 
 ## 2. Plano, preço e cobrança
 
-- O plano contratado e o limite de alunos ativos são os indicados no painel. A tabela vigente é: Starter R$ 390,00 (até 150 alunos), Growth R$ 790,00 (até 500), Enterprise R$ 1.290,00 (até 1.000); Custom sob consulta.
+- O plano contratado e o limite de alunos ativos são os indicados no painel. A tabela vigente é: Growth R$ 390,00 (uma unidade, até 300 alunos), Enterprise R$ 790,00 (uma unidade, a partir de 301 alunos) e Redes R$ 1.290,00 (até 3 unidades, cobrado na unidade principal); Custom sob consulta, para redes com mais de 3 unidades.
 - A mensalidade é cobrada por assinatura recorrente no Asaas, com vencimento no mesmo dia do mês em que o onboarding é concluído, e vale desde o primeiro dia.
 - Cobrança não paga **7 (sete) dias corridos** após o vencimento suspende o acesso da **equipe** da Academia ao painel até a regularização. **Os alunos da Academia continuam usando o aplicativo**, porque não deram causa ao atraso.
 - Reajuste anual pelo **IPCA/IBGE** acumulado no período (ou pelo índice oficial que venha a substituí-lo), com aviso prévio de 30 dias.

@@ -6,7 +6,18 @@ Em [Visão Geral](/superadmin), **Nova Organização**:
 
 - tipo (academia, studio ou profissional autônomo), nome da unidade e o endereço do link de matrícula;
 - e-mail e nome do gestor principal: ele recebe o convite para criar a senha;
-- o plano (Starter, Growth, Enterprise ou Custom) e a situação.
+- o plano (Growth, Enterprise, Redes ou Custom) e a situação.
+
+Os planos:
+
+- **Growth**: uma unidade, até 300 alunos ativos;
+- **Enterprise**: uma unidade, a partir de 301 alunos;
+- **Redes**: rede com até 3 unidades;
+- **Custom**: rede com mais de 3 unidades, com valor negociado.
+
+O limite de alunos acompanha o plano: trocar de Growth para Enterprise tira o teto de 300 sozinho.
+
+**Rede com até 3 unidades:** cada unidade é uma organização. A principal fica no Redes e paga a mensalidade da rede. As outras também ficam no Redes, com o valor negociado **R$ 0,00** na Mensalidade B2B (passo 3): assim não nasce cobrança nelas, e a ficha mostra "Unidade de rede".
 
 A organização nasce **ativa**. **Trial** é só para homologação: organização em trial não é cobrada, fala com o sandbox do Asaas e não pode ser usada por cliente.
 

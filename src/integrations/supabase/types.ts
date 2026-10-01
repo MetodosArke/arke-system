@@ -12,6 +12,31 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.5"
   }
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
   public: {
     Tables: {
       aceites_documentos: {
@@ -4734,7 +4759,7 @@ export type Database = {
             | null
           faturamento_mensal: number | null
           id: string
-          limite_alunos: number
+          limite_alunos: number | null
           logo_url: string | null
           logradouro: string | null
           markup_padrao_pct: number
@@ -4781,7 +4806,7 @@ export type Database = {
             | null
           faturamento_mensal?: number | null
           id?: string
-          limite_alunos?: number
+          limite_alunos?: number | null
           logo_url?: string | null
           logradouro?: string | null
           markup_padrao_pct?: number
@@ -4828,7 +4853,7 @@ export type Database = {
             | null
           faturamento_mensal?: number | null
           id?: string
-          limite_alunos?: number
+          limite_alunos?: number | null
           logo_url?: string | null
           logradouro?: string | null
           markup_padrao_pct?: number
@@ -8257,7 +8282,13 @@ export type Database = {
         | "trimestral"
         | "semestral"
         | "anual"
-      plano_b2b: "starter" | "growth" | "enterprise" | "custom" | "autonomo"
+      plano_b2b:
+        | "starter"
+        | "growth"
+        | "enterprise"
+        | "redes"
+        | "custom"
+        | "autonomo"
       provedor_nutricao: "nenhum" | "nutricionista_academia" | "equipe_arke"
       provedor_treino: "academia_propria" | "personal_parceiro" | "equipe_arke"
       recorrencia_tipo: "nenhuma" | "mensal"
@@ -8420,6 +8451,9 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {
       agendamento_status: ["agendado", "presente", "cancelado", "lista_espera"],
@@ -8501,7 +8535,14 @@ export const Constants = {
         "semestral",
         "anual",
       ],
-      plano_b2b: ["starter", "growth", "enterprise", "custom", "autonomo"],
+      plano_b2b: [
+        "starter",
+        "growth",
+        "enterprise",
+        "redes",
+        "custom",
+        "autonomo",
+      ],
       provedor_nutricao: ["nenhum", "nutricionista_academia", "equipe_arke"],
       provedor_treino: ["academia_propria", "personal_parceiro", "equipe_arke"],
       recorrencia_tipo: ["nenhuma", "mensal"],

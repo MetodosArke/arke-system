@@ -11,10 +11,11 @@ const ROTULO_PLANO: Record<string, string> = {
   starter: "Starter",
   growth: "Growth",
   enterprise: "Enterprise",
+  redes: "Redes (até 3 unidades)",
   custom: "Custom",
   autonomo: "Profissional autônomo",
 };
-const ORDEM = ["starter", "growth", "enterprise", "custom", "autonomo"];
+const ORDEM = ["growth", "enterprise", "redes", "custom", "autonomo", "starter"];
 
 const paraNumero = (v: string) => (v.trim() ? Number(v.replace(/\./g, "").replace(",", ".")) : null);
 
@@ -70,8 +71,9 @@ export function PrecosPlanosB2b() {
       <CardHeader className="pb-2">
         <CardTitle className="text-base">Planos B2B — preço de tabela</CardTitle>
         <CardDescription>
-          Mensalidade da assinatura recorrente de cada academia, criada quando ela conclui o onboarding. Custom e autônomo não têm
-          preço de tabela: o valor é definido na ficha da organização.
+          Mensalidade da assinatura recorrente de cada academia, criada quando ela conclui o onboarding. Limite vazio é plano sem teto
+          de alunos. A academia recebe o limite do plano quando entra nele; mudar o limite aqui vale para quem entrar depois. Custom e autônomo não têm preço de tabela: o valor é definido
+          na ficha da organização.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-2">
@@ -90,7 +92,7 @@ export function PrecosPlanosB2b() {
               aria-label={`Limite de alunos ${ROTULO_PLANO[p.plano]}`}
               className="h-8"
               inputMode="numeric"
-              placeholder="alunos"
+              placeholder="sem teto"
               value={valores[p.plano]?.limite ?? ""}
               onChange={(e) => setValores((v) => ({ ...v, [p.plano]: { ...v[p.plano], limite: e.target.value } }))}
             />

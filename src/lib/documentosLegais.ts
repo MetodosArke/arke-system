@@ -99,8 +99,11 @@ export const DOCUMENTOS: Record<
     // resultado de retencao, evasao, receita ou adesao, e de que indicadores
     // sao medicoes do periodo, nao promessa. Texto aprovado pelo responsavel
     // em 28/09/2026, por comentario no proprio texto no workspace e no chat.
-    versao: "2026-09-28.2",
-    sha256: "d4c10182699c4dd5c56996e7eb62ace0bd4cb8840aacd845bc48d132f03bbbfa",
+    // 2026-10-01: secao 2 com a tabela B2B nova (Growth, Enterprise, Redes e
+    // Custom), enviada pelo responsavel em 01/10/2026 com a ordem de alterar
+    // o sistema todo.
+    versao: "2026-10-01",
+    sha256: "34813d2be0830ea0b2cd8f062bd3acb7b3e5021d7fdfba0a38908899b4399b68",
     texto: contratoAcademia,
     revisadoJuridico: true,
   },
