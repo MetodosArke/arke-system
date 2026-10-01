@@ -409,6 +409,7 @@ export default function TreinoExecucao() {
           onConcluido={() => {
             void queryClient.invalidateQueries({ queryKey: ["aluno-registro-hoje", alunoId] });
             void queryClient.invalidateQueries({ queryKey: ["aluno-treino-streak", alunoId] });
+            void queryClient.invalidateQueries({ queryKey: ["aluno-ultimo-treino", alunoId] });
             navigate("/app/treinos");
           }}
         />

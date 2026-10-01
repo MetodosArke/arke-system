@@ -28,7 +28,7 @@ import CalendarioTreinos from "@/components/aluno/CalendarioTreinos";
 import type { Json } from "@/integrations/supabase/types";
 import { MidiaExercicio } from "@/components/acervo/MidiaExercicio";
 import { situacaoAtestado } from "@/lib/parq";
-import { divisoesDoTreino, rotuloTecnica, seriesDoExercicio } from "@/lib/seriesTreino";
+import { divisoesDoTreino, rotuloTecnica, sequenciaDoTreino, seriesDoExercicio } from "@/lib/seriesTreino";
 import { hojeBrasilia, formatarDataBR } from "@/lib/dataBrasilia";
 
 interface ExercicioSnapshot {
@@ -55,6 +55,35 @@ interface DetalheExecucao {
 }
 
 const HOJE = hojeBrasilia();
+
+type Indicador = { tipo: "proximo" | "ultimo"; rotulo: string };
+
+/** O indicador da sequência para uma divisão, se ela for a próxima ou a última feita. */
+function indicadorDaDivisao(divisao: string, sequencia: { ultimo: string | null; proximo: string | null }): Indicador | null {
+  if (divisao === sequencia.proximo) return { tipo: "proximo", rotulo: "Próximo treino" };
+  if (divisao === sequencia.ultimo) return { tipo: "ultimo", rotulo: "Último executado" };
+  return null;
+}
+
+/**
+ * Etiqueta da sequência. O próximo leva a cor da marca, com o texto escuro
+ * que o primário usa nos dois temas; o último fica discreto, porque é só
+ * contexto.
+ */
+function IndicadorSequencia({ tipo, rotulo, ...props }: Indicador & { "aria-hidden"?: boolean }) {
+  return (
+    <span
+      {...props}
+      className={
+        tipo === "proximo"
+          ? "inline-flex items-center whitespace-nowrap rounded-full font-sans tracking-normal border border-primary bg-primary px-1.5 py-0.5 text-[10px] font-semibold leading-none text-primary-foreground"
+          : "inline-flex items-center whitespace-nowrap rounded-full font-sans tracking-normal border border-border bg-muted px-1.5 py-0.5 text-[10px] font-medium leading-none text-muted-foreground"
+      }
+    >
+      {rotulo}
+    </span>
+  );
+}
 
 export default function AlunoTreinos() {
   const navigate = useNavigate();
@@ -113,12 +142,37 @@ export default function AlunoTreinos() {
     enabled: !!alunoId,
   });
 
+  // A divisão do último treino concluído, que guia a sugestão do próximo.
+  // "Concluído" é o mesmo critério do calendário e da constância: encerrar
+  // com séries faltando não conta, e o aluno volta a ver aquela divisão como
+  // a próxima. Registro de antes das divisões vale como "A".
+  const { data: ultimaConcluida, isLoading: carregandoSequencia } = useQuery({
+    queryKey: ["aluno-ultimo-treino", alunoId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("registro_treino")
+        .select("divisao")
+        .eq("aluno_id", alunoId!)
+        .eq("concluido", true)
+        .order("data", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (error) throw error;
+      return data ? data.divisao || "A" : null;
+    },
+    enabled: !!alunoId,
+  });
+
   const todosExercicios = (treino?.snapshot_conteudo as unknown as ExercicioSnapshot[] | null) ?? [];
-  // Divisões A, B, C... O aluno escolhe a do dia; se já treinou hoje, abre na que registrou.
+  // Divisões A, B, C... O aluno escolhe a do dia. Se já treinou hoje, abre na
+  // que registrou; senão, na sugerida pela sequência. A sugestão não trava
+  // nada: qualquer divisão continua a um toque.
   const divisoes = divisoesDoTreino(todosExercicios);
+  const sequencia = sequenciaDoTreino(divisoes, ultimaConcluida);
   const [divisaoEscolhida, setDivisaoEscolhida] = useState<string | null>(null);
   const divisaoHoje =
-    divisaoEscolhida ?? (registroHoje?.divisao && divisoes.includes(registroHoje.divisao) ? registroHoje.divisao : divisoes[0] ?? "A");
+    divisaoEscolhida ??
+    (registroHoje?.divisao && divisoes.includes(registroHoje.divisao) ? registroHoje.divisao : sequencia.proximo ?? "A");
   const exercicios = todosExercicios.filter((e) => (e.divisao || "A") === divisaoHoje);
   const detalhes = ((registroHoje?.detalhes_execucao as unknown as DetalheExecucao[] | null) ?? []);
 
@@ -174,6 +228,7 @@ export default function AlunoTreinos() {
     onSuccess: (todosConcluidos) => {
       void queryClient.invalidateQueries({ queryKey: ["aluno-registro-hoje", alunoId] });
       void queryClient.invalidateQueries({ queryKey: ["aluno-treino-streak", alunoId] });
+      void queryClient.invalidateQueries({ queryKey: ["aluno-ultimo-treino", alunoId] });
       if (todosConcluidos) {
         toast({ title: "Treino concluído!", description: "Bom trabalho hoje." });
       }
@@ -206,6 +261,7 @@ export default function AlunoTreinos() {
 
   const totalConcluidos = exercicios.filter((e) => progresso[e.ordem]?.concluido).length;
   const treinoConcluidoHoje = !!registroHoje?.concluido;
+  const indicadorHoje = divisoes.length > 1 ? indicadorDaDivisao(divisaoHoje, sequencia) : null;
 
   return (
     <div className="space-y-4 max-w-2xl lg:max-w-4xl mx-auto">
@@ -233,7 +289,7 @@ export default function AlunoTreinos() {
         </TabsList>
 
         <TabsContent value="treino" className="space-y-4">
-      {isLoading && <p className="text-sm text-muted-foreground">Carregando...</p>}
+      {(isLoading || carregandoSequencia) && <p className="text-sm text-muted-foreground">Carregando...</p>}
 
       {!isLoading && !treino && (
         <Card>
@@ -243,7 +299,7 @@ export default function AlunoTreinos() {
         </Card>
       )}
 
-      {treino && (
+      {treino && !carregandoSequencia && (
         <>
           {treinoConcluidoHoje && (
             <div className="flex items-center gap-2 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-700 dark:text-emerald-400 px-3 py-2 text-sm font-medium">
@@ -284,20 +340,38 @@ export default function AlunoTreinos() {
           )}
 
           {divisoes.length > 1 && (
-            <div className="flex flex-wrap gap-2" role="group" aria-label="Qual treino hoje">
-              {divisoes.map((d) => (
-                <Button key={d} size="sm" variant={d === divisaoHoje ? "default" : "outline"} aria-pressed={d === divisaoHoje} onClick={() => setDivisaoEscolhida(d)}>
-                  Treino {d}
-                </Button>
-              ))}
+            <div className="flex flex-wrap gap-x-2 gap-y-3" role="group" aria-label="Qual treino hoje">
+              {divisoes.map((d) => {
+                const indicador = indicadorDaDivisao(d, sequencia);
+                return (
+                  <div key={d} className="flex flex-col items-center gap-1">
+                    {/* Nenhum botão fica desativado: a sequência é sugestão, e o
+                        aluno faz a divisão que quiser. */}
+                    <Button
+                      size="sm"
+                      className="min-w-[6.5rem]"
+                      variant={d === divisaoHoje ? "default" : "outline"}
+                      aria-pressed={d === divisaoHoje}
+                      onClick={() => setDivisaoEscolhida(d)}
+                    >
+                      Treino {d}
+                      {indicador && <span className="sr-only">, {indicador.rotulo.toLowerCase()}</span>}
+                    </Button>
+                    {indicador && <IndicadorSequencia {...indicador} aria-hidden />}
+                  </div>
+                );
+              })}
             </div>
           )}
 
           <Card>
             <CardHeader>
-              <CardTitle>
-                {treino.titulo}
-                {divisoes.length > 1 && <span className="text-muted-foreground font-normal"> · Treino {divisaoHoje}</span>}
+              <CardTitle className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                <span>
+                  {treino.titulo}
+                  {divisoes.length > 1 && <span className="text-muted-foreground font-normal"> · Treino {divisaoHoje}</span>}
+                </span>
+                {indicadorHoje && <IndicadorSequencia {...indicadorHoje} />}
               </CardTitle>
               <PrescritoPor o_que="treino" />
               <p className="text-xs text-muted-foreground">

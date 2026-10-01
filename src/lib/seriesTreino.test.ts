@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { divisoesDoTreino, paraGravar, resumoSeries, seriesDoExercicio, seriesUniformes } from "./seriesTreino";
+import { divisoesDoTreino, paraGravar, resumoSeries, seriesDoExercicio, seriesUniformes, sequenciaDoTreino } from "./seriesTreino";
 
 describe("séries individuais", () => {
   it("ficha antiga, sem detalhe, vira séries iguais", () => {
@@ -48,5 +48,35 @@ describe("séries individuais", () => {
 describe("divisões do treino", () => {
   it("em ordem, e ficha antiga sem divisão é A", () => {
     expect(divisoesDoTreino([{ divisao: "B" }, { divisao: "A" }, { divisao: "B" }, {}])).toEqual(["A", "B"]);
+  });
+});
+
+describe("sequência sugerida das divisões", () => {
+  const abc = ["A", "B", "C"];
+
+  it("depois da última concluída vem a seguinte", () => {
+    expect(sequenciaDoTreino(abc, "A")).toEqual({ ultimo: "A", proximo: "B" });
+    expect(sequenciaDoTreino(abc, "B")).toEqual({ ultimo: "B", proximo: "C" });
+  });
+
+  it("depois da última da lista, volta para a primeira", () => {
+    expect(sequenciaDoTreino(abc, "C")).toEqual({ ultimo: "C", proximo: "A" });
+  });
+
+  it("sem treino concluído, sugere a primeira e não marca último", () => {
+    expect(sequenciaDoTreino(abc, null)).toEqual({ ultimo: null, proximo: "A" });
+    expect(sequenciaDoTreino(abc, undefined)).toEqual({ ultimo: null, proximo: "A" });
+  });
+
+  it("divisão que a ficha nova não tem não vira último, e a sugestão volta para a primeira", () => {
+    expect(sequenciaDoTreino(["A", "B"], "D")).toEqual({ ultimo: null, proximo: "A" });
+  });
+
+  it("segue a ordem da lista, sem pular divisão que falta no meio", () => {
+    expect(sequenciaDoTreino(["A", "C", "E"], "C")).toEqual({ ultimo: "C", proximo: "E" });
+  });
+
+  it("ficha sem exercício não sugere nada", () => {
+    expect(sequenciaDoTreino([], "A")).toEqual({ ultimo: null, proximo: null });
   });
 });

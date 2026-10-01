@@ -72,3 +72,25 @@ export function paraGravar(series: SerieDetalhe[]) {
 export function divisoesDoTreino(exercicios: { divisao?: string | null }[]): string[] {
   return [...new Set(exercicios.map((e) => e.divisao || "A"))].sort();
 }
+
+/**
+ * A sequência sugerida das divisões: depois da última concluída vem a
+ * seguinte, e depois da última da lista volta a primeira (A → B → C → A).
+ *
+ * É só sugestão. O aluno continua livre para fazer qualquer divisão, e a tela
+ * não trava nenhuma: quem decide o treino do dia é ele, no salão.
+ *
+ * `ultimaConcluida` é a divisão do último treino concluído, de qualquer ficha:
+ * uma revisão da ficha no meio do ciclo não recomeça a sequência. Se ela não
+ * existe na ficha atual (a revisão tirou a divisão), não há "último" a marcar
+ * e a sugestão volta para a primeira.
+ */
+export function sequenciaDoTreino(
+  divisoes: string[],
+  ultimaConcluida: string | null | undefined,
+): { ultimo: string | null; proximo: string | null } {
+  if (divisoes.length === 0) return { ultimo: null, proximo: null };
+  const i = ultimaConcluida ? divisoes.indexOf(ultimaConcluida) : -1;
+  if (i === -1) return { ultimo: null, proximo: divisoes[0] };
+  return { ultimo: divisoes[i], proximo: divisoes[(i + 1) % divisoes.length] };
+}
