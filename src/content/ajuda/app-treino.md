@@ -4,7 +4,12 @@ O seu treino fica em **Treino**, no menu.
 
 ## Escolher o treino do dia
 
-Se a ficha tem mais de uma divisão (Treino A, Treino B…), escolha a de hoje. Se você já treinou hoje, o app abre na divisão que você fez.
+Se a ficha tem mais de uma divisão (Treino A, Treino B…), escolha a de hoje. Para ajudar na ordem, duas etiquetas aparecem embaixo dos botões:
+
+- **Próximo treino**: a divisão que vem depois da última que você concluiu. Depois da última da ficha, volta para a primeira (A, B, C, A…). O app já abre nela.
+- **Último executado**: a última divisão que você concluiu.
+
+São só sugestões. Você pode fazer qualquer divisão, na ordem que quiser. Treino encerrado com séries faltando não conta como concluído, então aquela divisão continua sendo a próxima. Se você já treinou hoje, o app abre na divisão que você fez.
 
 ## Durante o treino
 
