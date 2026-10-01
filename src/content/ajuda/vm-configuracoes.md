@@ -5,7 +5,7 @@ Em [Configurações](/superadmin/configuracoes) ficam os números que valem para
 - **Taxa de processamento**: percentual, valor fixo e **mínimo por cobrança** (hoje 2,99% + R$ 0,49, mínimo R$ 1,99). É a estimativa da taxa do Asaas usada para montar a divisão de cada cobrança. Mudar vale para cobranças novas; assinaturas já criadas guardam a divisão do dia em que nasceram.
 - **Capacidade do banco**: o limite em MB contra o qual o ARKE avisa quando o banco enche (70% e 85%). Depois de cada mudança de plano do Supabase, atualize com o disco contratado.
 - **Taxa de implantação de referência**: o valor que vem preenchido na ficha de cada academia nova.
-- **Preços B2B** de tabela de cada plano.
+- **Preços B2B** de tabela de cada plano, com o limite de alunos. Limite vazio é plano sem teto. A academia recebe o limite do plano quando entra nele; mudar o limite aqui vale para quem entrar depois. O Starter saiu de venda em 01/10/2026 e não tem mais preço de tabela.
 - **Textos da plataforma**, como o canal de suporte (WhatsApp e e-mail) que aparece no botão "Falar com o suporte" das academias. Sem canal preenchido, o botão não aparece.
 - **Contatos da página de vendas**: o e-mail que recebe cada pedido de demonstração. Veja [Pipeline comercial](ajuda:vm-comercial).
 

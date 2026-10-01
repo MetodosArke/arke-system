@@ -438,8 +438,8 @@ export default function AdminImportarAlunos() {
     const registros = linhas.map((linha) => linhaParaRegistro(linha));
 
     // Conferido antes de gravar qualquer coisa: sem isto, uma academia no
-    // Starter começaria a importar 400 alunos e o banco barraria na linha
-    // 151, deixando 150 dentro e o resto num lote pela metade. Avisar antes
+    // Growth começaria a importar 400 alunos e o banco barraria na linha
+    // 301, deixando 300 dentro e o resto num lote pela metade. Avisar antes
     // é a diferença entre uma decisão e um estrago.
     const { data: uso } = await supabase.rpc("obter_uso_limite_alunos");
     const cota = uso?.find((u) => u.organization_id === organization.id);

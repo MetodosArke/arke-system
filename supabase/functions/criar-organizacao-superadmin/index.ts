@@ -15,7 +15,8 @@ const jsonResponse = (body: unknown, status = 200) =>
 
 type TipoOrg = "academia" | "studio";
 const TIPOS_VALIDOS = new Set<TipoOrg>(["academia", "studio"]);
-const PLANOS_VALIDOS = new Set(["starter", "growth", "enterprise", "custom"]);
+// Os planos à venda (tabela de 01/10/2026). O Starter saiu de venda.
+const PLANOS_VALIDOS = new Set(["growth", "enterprise", "redes", "custom"]);
 const STATUS_VALIDOS = new Set(["trial", "ativo"]);
 
 type CriarOrganizacaoPayload = {
@@ -24,7 +25,7 @@ type CriarOrganizacaoPayload = {
   tipo: TipoOrg;
   gestor_email: string;
   gestor_nome: string;
-  plano_b2b: "starter" | "growth" | "enterprise" | "custom";
+  plano_b2b: "growth" | "enterprise" | "redes" | "custom";
   status: "trial" | "ativo";
 };
 

@@ -140,12 +140,18 @@ const STATUS_ATIVOS = new Set<Enums<"org_status">>(["ativo", "trial"]);
 const STATUS_INATIVOS = new Set<Enums<"org_status">>(["suspenso", "inadimplente", "cancelado"]);
 
 const PLANO_LABEL: Record<Enums<"plano_b2b">, string> = {
-  starter: "Starter",
   growth: "Growth",
   enterprise: "Enterprise",
+  redes: "Redes",
   custom: "Custom",
   autonomo: "Profissional Autônomo",
+  starter: "Starter (fora de venda)",
 };
+
+// O Starter saiu de venda em 01/10/2026: só aparece na lista para quem já
+// está nele, para a tela não esconder o plano atual.
+const planosNaLista = (atual: Enums<"plano_b2b">) =>
+  Object.entries(PLANO_LABEL).filter(([plano]) => plano !== "starter" || plano === atual);
 
 // Onboarding Assistido só cria academia/studio (profissional_autonomo tem
 // fluxo próprio via convidar-profissional-autonomo), por isso o tipo aqui é
@@ -285,7 +291,7 @@ export default function SuperAdminDashboard() {
     slug: "",
     gestor_email: "",
     gestor_nome: "",
-    plano_b2b: "starter" as Enums<"plano_b2b">,
+    plano_b2b: "growth" as Enums<"plano_b2b">,
     // Plano B2B vale desde o primeiro dia; trial é só para testes.
     status: "ativo" as "trial" | "ativo",
   });
@@ -297,7 +303,7 @@ export default function SuperAdminDashboard() {
       slug: "",
       gestor_email: "",
       gestor_nome: "",
-      plano_b2b: "starter",
+      plano_b2b: "growth",
       status: "ativo",
     });
 
@@ -335,7 +341,7 @@ export default function SuperAdminDashboard() {
   const [edicao, setEdicao] = useState({
     nome: "",
     tipo: "academia" as Enums<"organization_tipo">,
-    plano_b2b: "starter" as Enums<"plano_b2b">,
+    plano_b2b: "growth" as Enums<"plano_b2b">,
     status: "trial" as Enums<"org_status">,
     cnpjCpf: "",
     telefone: "",
@@ -798,7 +804,7 @@ export default function SuperAdminDashboard() {
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          {Object.entries(PLANO_LABEL).map(([value, label]) => (
+                          {planosNaLista(tenant.plano_b2b).map(([value, label]) => (
                             <SelectItem key={value} value={value}>
                               {label}
                             </SelectItem>
@@ -971,10 +977,10 @@ export default function SuperAdminDashboard() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="starter">Starter</SelectItem>
-                    <SelectItem value="growth">Growth</SelectItem>
-                    <SelectItem value="enterprise">Enterprise</SelectItem>
-                    <SelectItem value="custom">Custom</SelectItem>
+                    <SelectItem value="growth">Growth · até 300 alunos</SelectItem>
+                    <SelectItem value="enterprise">Enterprise · 301 alunos ou mais</SelectItem>
+                    <SelectItem value="redes">Redes · até 3 unidades</SelectItem>
+                    <SelectItem value="custom">Custom · mais de 3 unidades</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -1072,7 +1078,7 @@ export default function SuperAdminDashboard() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {Object.entries(PLANO_LABEL).map(([value, label]) => (
+                      {planosNaLista(edicao.plano_b2b).map(([value, label]) => (
                         <SelectItem key={value} value={value}>
                           {label}
                         </SelectItem>

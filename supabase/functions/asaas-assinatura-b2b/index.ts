@@ -16,6 +16,7 @@ const ROTULO_PLANO: Record<string, string> = {
   starter: "Starter",
   growth: "Growth",
   enterprise: "Enterprise",
+  redes: "Redes",
   custom: "Custom",
   autonomo: "Profissional Autônomo",
 };
@@ -89,7 +90,12 @@ Deno.serve(async (req: Request) => {
 
     const { data: valorBanco } = await admin.rpc("valor_mensal_b2b", { _organization_id: org.id });
     const valor = valorBanco === null || valorBanco === undefined ? null : Number(valorBanco);
-    if (!valor || valor <= 0) {
+    // Zero é a unidade de uma rede: a rede paga numa unidade só, a principal,
+    // e esta não tem mensalidade própria. Não é erro, e não cria assinatura.
+    if (valor === 0) {
+      return jsonResponse({ ok: true, sem_cobranca: true, motivo: "Unidade de rede: a mensalidade é cobrada na unidade principal." });
+    }
+    if (!valor || valor < 0) {
       return jsonResponse(
         { error: "O plano desta academia não tem preço de tabela. A ArkeFit define a mensalidade na Visão Master antes de começar a cobrança." },
         409
