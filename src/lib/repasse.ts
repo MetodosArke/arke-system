@@ -1,3 +1,5 @@
+import { reais } from "./numeros";
+
 /**
  * Divisão de uma cobrança do Método ARKE entre ArkeFit e academia.
  *
@@ -59,6 +61,35 @@ export function repasseArke(valor: number, config: RepasseConfig, taxa: TaxaProc
 export function resolverRepasse(padrao: RepasseConfig, excecao?: RepasseConfig | null): RepasseConfig {
   if (excecao && excecao.valor !== null && excecao.valor !== undefined) return excecao;
   return padrao;
+}
+
+/**
+ * A exceção de um nível, lida da linha de `organization_planos_precificacao`.
+ * Linha sem valor não é exceção: vale o negociado com a academia. Quem
+ * calcula a divisão de um nível passa por aqui e por `resolverRepasse`, senão
+ * a tela mostra o padrão onde o Elite tem repasse próprio.
+ */
+export function excecaoDoNivel(
+  linha?: { repasse_tipo: string | null; repasse_valor: number | string | null } | null
+): RepasseConfig | null {
+  if (!linha || linha.repasse_valor === null || linha.repasse_valor === undefined) return null;
+  return { tipo: linha.repasse_tipo === "percentual" ? "percentual" : "fixo", valor: Number(linha.repasse_valor) };
+}
+
+/**
+ * Confere uma linha da tabela de atacado de referência (Visão Master →
+ * Configurações). Devolve o problema em texto, ou `null` quando está boa. O
+ * varejo sugerido precisa cobrir a referência mais a taxa: sugestão que não
+ * cobre seria recusada na primeira cobrança da academia que a seguisse.
+ */
+export function conferirAtacado(referencia: number, varejoSugerido: number, taxa: TaxaProcessamento): string | null {
+  if (!(referencia > 0)) return "Informe o repasse de referência.";
+  if (!(varejoSugerido > 0)) return "Informe o varejo sugerido.";
+  const divisao = dividirCobranca(varejoSugerido, { tipo: "fixo", valor: referencia }, taxa);
+  if (!divisao.cobreORepasse) {
+    return `O varejo sugerido não cobre o repasse de ${reais(divisao.repasseArke)} (referência mais a taxa).`;
+  }
+  return null;
 }
 
 export function dividirCobranca(valor: number, config: RepasseConfig, taxa: TaxaProcessamento) {

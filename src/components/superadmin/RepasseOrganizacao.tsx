@@ -9,12 +9,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { dividirCobranca, resolverRepasse, type RepasseConfig, type TaxaProcessamento } from "@/lib/repasse";
 import { reais } from "@/lib/numeros";
 import { useTaxaProcessamento } from "@/hooks/useTaxaProcessamento";
+import { useAtacadoReferencia, type NivelAtacado } from "@/hooks/useAtacadoReferencia";
 
 /** Os níveis pagos do Método. Free não tem cobrança, então não tem repasse. */
-const NIVEIS: { id: string; rotulo: string; varejoRef: number }[] = [
-  { id: "integrado", rotulo: "Integrado", varejoRef: 119 },
-  { id: "elite", rotulo: "Elite", varejoRef: 199 },
-];
+const ROTULO_NIVEL: Record<string, string> = { integrado: "Integrado", elite: "Elite" };
+
+type LinhaNivel = { nivel_atacado: string; repasse_tipo: string | null; repasse_valor: number | null };
+const SEM_LINHAS: LinhaNivel[] = [];
 
 /**
  * Quanto a ArkeFit retém de cada aluno no Método, negociado academia a academia.
@@ -53,6 +54,8 @@ export function RepasseOrganizacao({ organizationId }: { organizationId: string 
   });
 
   const { data: taxa } = useTaxaProcessamento();
+  const { data: referencia } = useAtacadoReferencia();
+  const [confirmando, setConfirmando] = useState(false);
 
   useEffect(() => {
     if (!config) return;
@@ -89,12 +92,52 @@ export function RepasseOrganizacao({ organizationId }: { organizationId: string 
 
   const naoNegociado = config?.repasse_valor === null || config?.repasse_valor === undefined;
 
+  // A tabela vira o negociado desta academia num clique (padrão no Integrado,
+  // exceção no nível com valor diferente), pelo banco e auditada. Sobre um
+  // repasse já negociado, pede um segundo clique: ele é substituído.
+  const aplicarReferencia = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase.rpc("aplicar_repasse_referencia", { _organization_id: organizationId });
+      if (error) throw new Error(error.message);
+    },
+    onSuccess: () => {
+      setConfirmando(false);
+      toast({ title: "Tabela de referência aplicada", description: "Vale para assinaturas novas desta academia." });
+      void queryClient.invalidateQueries({ queryKey: ["repasse-config", organizationId] });
+      void queryClient.invalidateQueries({ queryKey: ["repasse-niveis", organizationId] });
+    },
+    onError: (e: Error) => toast({ title: "Não foi possível aplicar", description: e.message, variant: "destructive" }),
+  });
+
+  const resumoReferencia = referencia?.map((n) => `${ROTULO_NIVEL[n.id] ?? n.id} ${reais(n.referencia)}`).join(" · ");
+
   return (
     <div className="space-y-3">
       {naoNegociado && (
         <p className="rounded-md border border-amber-500/40 bg-amber-500/5 p-2 text-xs text-amber-700 dark:text-amber-400">
           Sem repasse negociado: a cobrança do Método nesta academia é recusada até configurar aqui.
         </p>
+      )}
+
+      {referencia && referencia.length > 0 && (
+        <div className="space-y-1 rounded-md border p-2">
+          <p className="text-xs text-muted-foreground">
+            Tabela de referência: {resumoReferencia} por aluno, mais a taxa. Definida em Configurações.
+          </p>
+          {confirmando && !naoNegociado && (
+            <p className="text-xs text-amber-700 dark:text-amber-400">
+              Substitui o repasse e as exceções desta academia. Confirme para aplicar.
+            </p>
+          )}
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={aplicarReferencia.isPending}
+            onClick={() => (naoNegociado || confirmando ? aplicarReferencia.mutate() : setConfirmando(true))}
+          >
+            {aplicarReferencia.isPending ? "Aplicando..." : confirmando ? "Confirmar" : "Aplicar a tabela de referência"}
+          </Button>
+        </div>
       )}
 
       <div className="flex gap-2">
@@ -153,6 +196,7 @@ export function RepasseOrganizacao({ organizationId }: { organizationId: string 
 
       <ExcecoesPorNivel
         organizationId={organizationId}
+        niveis={referencia}
         padrao={{ tipo, valor: valido ? numero : null }}
         taxa={taxa ?? { percentual: 0, fixa: 0 }}
       />
@@ -173,10 +217,12 @@ export function RepasseOrganizacao({ organizationId }: { organizationId: string 
  */
 function ExcecoesPorNivel({
   organizationId,
+  niveis,
   padrao,
   taxa,
 }: {
   organizationId: string;
+  niveis: NivelAtacado[] | undefined;
   padrao: RepasseConfig;
   taxa: TaxaProcessamento;
 }) {
@@ -184,7 +230,9 @@ function ExcecoesPorNivel({
   const queryClient = useQueryClient();
   const [rascunho, setRascunho] = useState<Record<string, { tipo: RepasseConfig["tipo"]; valor: string }>>({});
 
-  const { data: linhas = [] } = useQuery({
+  // Sem valor padrão literal: um [] novo a cada renderização refaria o efeito
+  // abaixo em laço enquanto a consulta carrega.
+  const { data: linhas = SEM_LINHAS } = useQuery({
     queryKey: ["repasse-niveis", organizationId],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -192,13 +240,14 @@ function ExcecoesPorNivel({
         .select("nivel_atacado, repasse_tipo, repasse_valor")
         .eq("organization_id", organizationId);
       if (error) throw error;
-      return data;
+      return data as LinhaNivel[];
     },
   });
 
   useEffect(() => {
+    if (!niveis) return;
     const inicial: Record<string, { tipo: RepasseConfig["tipo"]; valor: string }> = {};
-    for (const n of NIVEIS) {
+    for (const n of niveis) {
       const l = linhas.find((x) => x.nivel_atacado === n.id);
       inicial[n.id] = {
         tipo: (l?.repasse_tipo as RepasseConfig["tipo"]) ?? "fixo",
@@ -206,7 +255,7 @@ function ExcecoesPorNivel({
       };
     }
     setRascunho(inicial);
-  }, [linhas]);
+  }, [linhas, niveis]);
 
   const salvar = useMutation({
     mutationFn: async (nivel: string) => {
@@ -234,21 +283,22 @@ function ExcecoesPorNivel({
     <div className="space-y-2 border-t pt-3">
       <p className="text-xs font-medium">Exceção por nível</p>
       <p className="text-xs text-muted-foreground -mt-1">Em branco, vale o repasse acima.</p>
-      {NIVEIS.map((n) => {
+      {niveis?.map((n) => {
         const r = rascunho[n.id] ?? { tipo: "fixo" as const, valor: "" };
         const num = Number(r.valor.replace(",", "."));
         const temValor = r.valor.trim() !== "" && Number.isFinite(num);
         const efetivo = resolverRepasse(padrao, temValor ? { tipo: r.tipo, valor: num } : null);
-        const previa = dividirCobranca(n.varejoRef, efetivo, taxa);
+        const previa = dividirCobranca(n.varejoSugerido, efetivo, taxa);
+        const rotulo = ROTULO_NIVEL[n.id] ?? n.id;
         return (
           <div key={n.id} className="space-y-1">
             <div className="flex items-center gap-2">
-              <span className="w-20 text-xs">{n.rotulo}</span>
+              <span className="w-20 text-xs">{rotulo}</span>
               <Select
                 value={r.tipo}
                 onValueChange={(v) => setRascunho((s) => ({ ...s, [n.id]: { ...r, tipo: v as RepasseConfig["tipo"] } }))}
               >
-                <SelectTrigger className="h-8 w-28 text-xs" aria-label={`Tipo de repasse do ${n.rotulo}`}>
+                <SelectTrigger className="h-8 w-28 text-xs" aria-label={`Tipo de repasse do ${rotulo}`}>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -259,7 +309,7 @@ function ExcecoesPorNivel({
               <Input
                 className="h-8 w-24 text-xs"
                 inputMode="decimal"
-                aria-label={`Valor do repasse do ${n.rotulo}`}
+                aria-label={`Valor do repasse do ${rotulo}`}
                 placeholder="padrão"
                 value={r.valor}
                 onChange={(e) => setRascunho((s) => ({ ...s, [n.id]: { ...r, valor: e.target.value } }))}
@@ -271,7 +321,7 @@ function ExcecoesPorNivel({
             <p className="pl-[5.5rem] text-[11px] text-muted-foreground">
               {previa.semRepasseNegociado
                 ? "Sem repasse: a cobrança deste nível seria recusada."
-                : `A R$ ${n.varejoRef}: ArkeFit ${reais(previa.repasseArke!)} · academia ${reais(previa.liquidoAcademia!)}`}
+                : `A ${reais(n.varejoSugerido)}: ArkeFit ${reais(previa.repasseArke!)} · academia ${reais(previa.liquidoAcademia!)}`}
             </p>
           </div>
         );

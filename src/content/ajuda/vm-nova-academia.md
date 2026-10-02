@@ -25,6 +25,8 @@ A organização nasce **ativa**. **Trial** é só para homologação: organizaç
 
 Na ficha da organização, **Repasse do Método**: quanto a ArkeFit fica de cada aluno do Método, negociado com a academia. Pode ser **valor fixo** ou **percentual** do preço cobrado, com exceção por nível (Integrado e Elite). A prévia mostra a divisão. A taxa do meio de pagamento é somada por cima.
 
+**Aplicar a tabela de referência** copia a tabela de [Configurações](/superadmin/configuracoes) para esta academia: o Integrado vira o padrão e o nível com valor diferente ganha a exceção. Sobre um repasse já negociado, pede um segundo clique, porque substitui o que estava lá. Fica na Auditoria.
+
 Sem repasse configurado, a academia não consegue vender o Método: a cobrança é recusada em vez de sair com uma divisão que ninguém combinou.
 
 ## 3. Mensalidade B2B
