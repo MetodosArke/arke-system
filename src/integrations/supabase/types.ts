@@ -6722,6 +6722,10 @@ export type Database = {
         Returns: string
       }
       anamnese_para_auditoria: { Args: { _aluno_id: string }; Returns: string }
+      aplicar_repasse_referencia: {
+        Args: { _organization_id: string }
+        Returns: Json
+      }
       arke_taxa_processamento: { Args: { _valor: number }; Returns: number }
       arke_taxa_processamento_config: {
         Args: never

@@ -5,7 +5,7 @@ A tela [Organização](/admin/organizacao) reúne os dados e as regras comerciai
 ## As abas
 
 - **Perfil**: nome, contato, endereço, logotipo e o endereço do link de matrícula. O tipo de negócio (academia, studio) muda o que o painel oferece; studio tem agenda de aulas.
-- **Precificação**: o preço que a academia cobra do aluno pelo Método ARKE, em cada nível (Integrado e Elite). A tela mostra a divisão de cada cobrança: quanto fica com a ArkeFit, quanto é a taxa do meio de pagamento e quanto cai na conta da academia. Um preço que não cobre a parte da ArkeFit é recusado.
+- **Precificação**: o preço que a academia cobra do aluno pelo Método ARKE, em cada nível (Integrado e Elite). Ao lado de cada nível vem o preço sugerido pela ArkeFit. A tela mostra a divisão de cada cobrança, com o repasse do contrato da academia para aquele nível: quanto fica com a ArkeFit, quanto é a taxa do meio de pagamento e quanto cai na conta da academia. Um preço que não cobre a parte da ArkeFit é recusado.
 - **Pagamentos**: a conta de recebimentos da academia no Asaas, onde cai a parte dela de cada cobrança. A conta é configurada na [Configuração da academia](/admin/onboarding).
 - **Assinaturas**: os alunos com Método ARKE, com o botão de recibo de cada assinatura.
 - **Planos da Academia**: os planos que a academia vende (mensal, trimestral, anual ou outros). Crie em **Novo plano**, com nome, periodicidade e valor. Plano desativado não aparece para matrícula nova, e quem já está nele continua.

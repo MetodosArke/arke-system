@@ -24,7 +24,7 @@ import { ReciboComprovanteDialog, type ReciboData } from "@/components/admin/Rec
 import { PlanosAcademiaPainel } from "@/components/admin/PlanosAcademiaPainel";
 import { ContratoMatriculaPainel } from "@/components/admin/ContratoMatriculaPainel";
 import { ParceriaAutonomo } from "@/components/admin/ParceriaAutonomo";
-import { dividirCobranca, type RepasseConfig } from "@/lib/repasse";
+import { dividirCobranca, excecaoDoNivel, resolverRepasse, type RepasseConfig } from "@/lib/repasse";
 import { useTaxaProcessamento } from "@/hooks/useTaxaProcessamento";
 import { reais } from "@/lib/numeros";
 
@@ -131,6 +131,12 @@ export default function AdminOrganizacao() {
     },
     enabled: !!organization?.id,
   });
+
+  // O repasse de cada nível: a exceção dele, se a ArkeFit negociou uma, senão
+  // o padrão da academia. Sem isto a tela mostrava a divisão do padrão para um
+  // Elite com repasse próprio, e conferia o preço contra o valor errado.
+  const repasseDoNivel = (nivel: Nivel) =>
+    resolverRepasse(repasseConfig, excecaoDoNivel(precificacao.find((p) => p.nivel_atacado === nivel)));
 
   const [valores, setValores] = useState<Record<Nivel, string>>({ essencial: "", integrado: "", elite: "" });
 
@@ -336,7 +342,7 @@ export default function AdminOrganizacao() {
       // O repasse vem do contrato desta academia, não mais de um custo por
       // nível igual para todas. Sem isto o erro só apareceria ao gerar a
       // cobrança do aluno, que a função recusa pelo mesmo motivo.
-      const divisao = dividirCobranca(valorVarejo, repasseConfig, taxaConfig ?? { percentual: 0, fixa: 0 });
+      const divisao = dividirCobranca(valorVarejo, repasseDoNivel(nivel), taxaConfig ?? { percentual: 0, fixa: 0 });
       if (divisao.semRepasseNegociado) {
         throw new Error("O repasse do Método ainda não foi definido no contrato desta academia. Fale com o suporte da ArkeFit.");
       }
@@ -606,8 +612,7 @@ export default function AdminOrganizacao() {
                     {label}{" "}
                     {plano != null && (
                       <span className="text-muted-foreground">
-                        (custo atacado R$ {plano.custo_mensal} + taxa de processamento · sugestão ARKE R${" "}
-                        {plano.valor_sugerido_varejo})
+                        (sugestão ARKE {reais(plano.valor_sugerido_varejo)})
                       </span>
                     )}
                   </Label>
@@ -673,7 +678,7 @@ export default function AdminOrganizacao() {
             const valorVarejo = parseMoeda(valores[value] || "0");
             const { taxaEstimada, repasseArke, liquidoAcademia, semRepasseNegociado } = dividirCobranca(
               valorVarejo,
-              repasseConfig,
+              repasseDoNivel(value),
               taxaConfig ?? { percentual: 0, fixa: 0 }
             );
             const pctAcademia =

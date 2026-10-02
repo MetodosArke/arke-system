@@ -6,6 +6,7 @@ Em [Configurações](/superadmin/configuracoes) ficam os números que valem para
 - **Capacidade do banco**: o limite em MB contra o qual o ARKE avisa quando o banco enche (70% e 85%). Depois de cada mudança de plano do Supabase, atualize com o disco contratado.
 - **Taxa de implantação de referência**: o valor que vem preenchido na ficha de cada academia nova.
 - **Preços B2B** de tabela de cada plano, com o limite de alunos. Limite vazio é plano sem teto. A academia recebe o limite do plano quando entra nele; mudar o limite aqui vale para quem entrar depois. O Starter saiu de venda em 01/10/2026 e não tem mais preço de tabela.
+- **Método ARKE — atacado de referência**: por nível (Integrado e Elite), quanto a ArkeFit fica de cada aluno e o preço sugerido ao aluno, com a divisão ao lado. É o ponto de partida da negociação, não o repasse que vale na cobrança: esse é o de cada academia, em **Repasse do Método** na ficha da organização, onde o botão **Aplicar a tabela de referência** copia esta tabela. Mudar aqui não altera o que já foi negociado nem assinatura já criada; o varejo sugerido preenche a precificação das academias criadas depois.
 - **Textos da plataforma**, como o canal de suporte (WhatsApp e e-mail) que aparece no botão "Falar com o suporte" das academias. Sem canal preenchido, o botão não aparece.
 - **Contatos da página de vendas**: o e-mail que recebe cada pedido de demonstração. Veja [Pipeline comercial](ajuda:vm-comercial).
 

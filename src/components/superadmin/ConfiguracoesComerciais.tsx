@@ -6,6 +6,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useAtacadoReferencia, type NivelAtacado } from "@/hooks/useAtacadoReferencia";
+import { useTaxaProcessamento } from "@/hooks/useTaxaProcessamento";
+import { conferirAtacado, dividirCobranca } from "@/lib/repasse";
+import { decimal, lerReais, reais } from "@/lib/numeros";
 
 const ROTULO_PLANO: Record<string, string> = {
   starter: "Starter",
@@ -101,6 +105,136 @@ export function PrecosPlanosB2b() {
         <Button size="sm" onClick={() => salvar.mutate()} disabled={salvar.isPending}>
           {salvar.isPending ? "Salvando..." : "Salvar preços"}
         </Button>
+      </CardContent>
+    </Card>
+  );
+}
+
+const ROTULO_NIVEL: Record<string, string> = { integrado: "Integrado", elite: "Elite" };
+
+/**
+ * Tabela de atacado de referência do Método ARKE: por nível, quanto a ArkeFit
+ * fica de cada aluno e o preço sugerido ao aluno.
+ *
+ * É o ponto de partida da negociação, e não o repasse que vale na cobrança:
+ * esse é o de cada academia (Repasse do Método, na ficha da organização), onde
+ * um botão aplica esta tabela. Academia sem repasse negociado continua sem
+ * cobrar o Método — cair aqui por omissão cobraria o aluno com uma divisão que
+ * ninguém combinou.
+ */
+export function AtacadoMetodo() {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const { data: niveis } = useAtacadoReferencia();
+  const { data: taxa } = useTaxaProcessamento();
+  const [valores, setValores] = useState<Record<string, { referencia: string; varejo: string }>>({});
+
+  useEffect(() => {
+    if (!niveis) return;
+    setValores(
+      Object.fromEntries(niveis.map((n) => [n.id, { referencia: decimal(n.referencia, 2), varejo: decimal(n.varejoSugerido, 2) }]))
+    );
+  }, [niveis]);
+
+  const taxaAtual = taxa ?? { percentual: 0, fixa: 0 };
+
+  const salvar = useMutation({
+    mutationFn: async (linhas: { id: NivelAtacado["id"]; referencia: number; varejo: number }[]) => {
+      for (const l of linhas) {
+        const problema = conferirAtacado(l.referencia, l.varejo, taxaAtual);
+        if (problema) throw new Error(`${ROTULO_NIVEL[l.id] ?? l.id}: ${problema}`);
+      }
+      for (const l of linhas) {
+        const { error } = await supabase
+          .from("planos_atacado")
+          .update({ custo_mensal: l.referencia, valor_sugerido_varejo: l.varejo })
+          .eq("id", l.id);
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => {
+      toast({
+        title: "Tabela de atacado salva",
+        description: "Vale para as próximas negociações e para academias novas. O repasse já negociado não muda.",
+      });
+      void queryClient.invalidateQueries({ queryKey: ["atacado-referencia"] });
+      void queryClient.invalidateQueries({ queryKey: ["planos-atacado"] });
+    },
+    onError: (e: Error) => toast({ title: "Não foi possível salvar", description: e.message, variant: "destructive" }),
+  });
+
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle className="text-base">Método ARKE — atacado de referência</CardTitle>
+        <CardDescription>
+          Quanto a ArkeFit fica de cada aluno do Método, por nível, e o preço sugerido ao aluno. É o ponto de partida da
+          negociação: o repasse que vale é o de cada academia, em Repasse do Método na ficha da organização, onde um botão
+          aplica esta tabela. Mudar aqui não altera o que já foi negociado nem assinatura já criada. O varejo sugerido
+          preenche a precificação das academias criadas daqui em diante.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {!niveis && <p className="text-sm text-muted-foreground">Carregando...</p>}
+        {niveis && (
+          <div className="grid grid-cols-[1fr_7rem_7rem] items-end gap-2 text-xs text-muted-foreground">
+            <span>Nível</span>
+            <span>Repasse por aluno (R$)</span>
+            <span>Varejo sugerido (R$)</span>
+          </div>
+        )}
+        {niveis?.map((n) => {
+          const v = valores[n.id] ?? { referencia: "", varejo: "" };
+          const referencia = lerReais(v.referencia);
+          const varejo = lerReais(v.varejo);
+          const problema = conferirAtacado(referencia, varejo, taxaAtual);
+          const divisao = dividirCobranca(varejo, { tipo: "fixo", valor: referencia }, taxaAtual);
+          const rotulo = ROTULO_NIVEL[n.id] ?? n.id;
+          return (
+            <div key={n.id} className="space-y-1">
+              <div className="grid grid-cols-[1fr_7rem_7rem] items-center gap-2">
+                <span className="text-sm">{rotulo}</span>
+                <Input
+                  aria-label={`Repasse de referência do ${rotulo}`}
+                  className="h-8"
+                  inputMode="decimal"
+                  value={v.referencia}
+                  onChange={(e) => setValores((s) => ({ ...s, [n.id]: { ...v, referencia: e.target.value } }))}
+                />
+                <Input
+                  aria-label={`Varejo sugerido do ${rotulo}`}
+                  className="h-8"
+                  inputMode="decimal"
+                  value={v.varejo}
+                  onChange={(e) => setValores((s) => ({ ...s, [n.id]: { ...v, varejo: e.target.value } }))}
+                />
+              </div>
+              <p className={`text-[11px] ${problema ? "text-destructive" : "text-muted-foreground"}`}>
+                {problema ??
+                  `A ${reais(varejo)}: ArkeFit fica com ${reais(divisao.repasseArke)} (${reais(referencia)} + taxa ${reais(
+                    divisao.taxaEstimada
+                  )}) · academia recebe ${reais(divisao.liquidoAcademia)}`}
+              </p>
+            </div>
+          );
+        })}
+        {niveis && (
+          <Button
+            size="sm"
+            disabled={salvar.isPending}
+            onClick={() =>
+              salvar.mutate(
+                niveis.map((n) => ({
+                  id: n.id,
+                  referencia: lerReais(valores[n.id]?.referencia ?? ""),
+                  varejo: lerReais(valores[n.id]?.varejo ?? ""),
+                }))
+              )
+            }
+          >
+            {salvar.isPending ? "Salvando..." : "Salvar tabela"}
+          </Button>
+        )}
       </CardContent>
     </Card>
   );

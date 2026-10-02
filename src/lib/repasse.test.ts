@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { dividirCobranca, repasseArke, resolverRepasse, taxaProcessamento, type RepasseConfig } from "./repasse";
+import { conferirAtacado, dividirCobranca, excecaoDoNivel, repasseArke, resolverRepasse, taxaProcessamento, type RepasseConfig } from "./repasse";
 
 const TAXA = { percentual: 2.99, fixa: 0.49 };
 const FIXO_45: RepasseConfig = { tipo: "fixo", valor: 45 };
@@ -102,5 +102,32 @@ describe("repasse do Método ARKE", () => {
     expect(taxaProcessamento(0, COM_MINIMO)).toBe(0);
     // Sem mínimo configurado, a regra antiga.
     expect(taxaProcessamento(30, TAXA)).toBe(1.39);
+  });
+});
+
+describe("tabela de atacado de referência", () => {
+  it("a linha da precificação vira exceção só quando tem valor", () => {
+    expect(excecaoDoNivel({ repasse_tipo: "fixo", repasse_valor: "85.00" })).toEqual({ tipo: "fixo", valor: 85 });
+    expect(excecaoDoNivel({ repasse_tipo: "percentual", repasse_valor: 30 })).toEqual({ tipo: "percentual", valor: 30 });
+    expect(excecaoDoNivel({ repasse_tipo: null, repasse_valor: null })).toBeNull();
+    expect(excecaoDoNivel(undefined)).toBeNull();
+  });
+
+  it("o Elite com exceção não usa a divisão do padrão", () => {
+    // O mesmo caso de 20261307010000: padrão 45, Elite 90, a R$ 199.
+    const efetivo = resolverRepasse(FIXO_45, excecaoDoNivel({ repasse_tipo: "fixo", repasse_valor: 90 }));
+    expect(dividirCobranca(199, efetivo, TAXA).repasseArke).toBe(96.44);
+    expect(dividirCobranca(199, FIXO_45, TAXA).repasseArke).toBe(51.44);
+  });
+
+  it("confere a referência contra o varejo sugerido", () => {
+    expect(conferirAtacado(45, 119, TAXA)).toBeNull();
+    expect(conferirAtacado(85, 199, TAXA)).toBeNull();
+    expect(conferirAtacado(0, 119, TAXA)).toBe("Informe o repasse de referência.");
+    expect(conferirAtacado(45, 0, TAXA)).toBe("Informe o varejo sugerido.");
+    // 45 + taxa de 2,99% + 0,49 sobre 45 passa dos 45 cobrados.
+    const erro = conferirAtacado(45, 45, TAXA);
+    expect(erro).toContain("não cobre o repasse");
+    expect(erro).toContain("46,84");
   });
 });
