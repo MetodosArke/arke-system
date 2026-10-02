@@ -129,7 +129,10 @@ export default function AlunoDashboard() {
     queryFn: async () => {
       const { data } = await supabase
         .from("registro_treino")
-        .select("id, concluido")
+        // A mesma consulta de Meu Treino, que usa a mesma chave de cache: com
+        // menos colunas aqui, Meu Treino abria com o registro sem o progresso
+        // e as marcações dos exercícios sumiam (chavesDeCache.guarda.test.ts).
+        .select("id, concluido, detalhes_execucao, divisao")
         .eq("aluno_id", alunoId!)
         .eq("data", HOJE)
         .maybeSingle();
