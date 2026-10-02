@@ -201,3 +201,18 @@ export function equipamentosDeGestao(equipamentos: unknown): string[] {
     .filter((e): e is { nome: string; tipo: string } => !!e && typeof e === "object" && (e as { tipo?: unknown }).tipo === "controlid-gestao")
     .map((e) => String(e.nome));
 }
+
+/**
+ * O número que o leitor informou, quando nenhum aluno tem aquele cartão.
+ *
+ * Sem cadastro remoto (Toletus, Topdata, Control iD sem credencial), é por
+ * aqui que a recepção descobre o número que vai na ficha: passa o cartão e
+ * lê nos últimos acessos. O número impresso no cartão pode ser outro.
+ * Só o que veio como `id:` (cartão, código, usuário do equipamento): CPF
+ * digitado não aparece, porque a lista fica aberta na tela da recepção.
+ */
+export function numeroNaoCadastrado(log: { resultado: string; cpf_consultado: string | null }): string | null {
+  if (log.resultado !== "negado_nao_encontrado") return null;
+  const valor = log.cpf_consultado ?? "";
+  return valor.startsWith("id:") && valor.length > 3 ? valor.slice(3) : null;
+}

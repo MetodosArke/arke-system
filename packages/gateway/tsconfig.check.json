@@ -2,7 +2,12 @@
   "extends": "./tsconfig.json",
   "compilerOptions": {
     "noEmit": true,
+    "rootDir": ".",
     "types": ["node", "vitest/globals"]
   },
-  "include": ["src", "tests"]
+  "include": ["src", "tests"],
+  // Repetido de propósito: sem isto vale o "exclude" do tsconfig.json, que
+  // tira tests/ do build, e a pasta tests nunca era verificada (achado em
+  // 02/10/2026, com um teste que só quebrava na execução).
+  "exclude": ["node_modules", "dist", "dist-exe"]
 }

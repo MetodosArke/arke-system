@@ -9,11 +9,23 @@ import type { TelemetriaGateway } from "../types";
  *
  * Control iD: o equipamento se identifica pelo `device_id` em cada
  * chamada. Topdata: quem fala é a ponte, que conta quais Inners estão
- * conectados.
+ * conectados. Toletus: quem disca é o Gateway, então o estado de cada
+ * placa vem do próprio conector, na hora da telemetria.
  */
+
+/** O que a telemetria precisa saber de uma placa Toletus. */
+export interface EstadoPlacaToletus {
+  nome: string;
+  conectada: boolean;
+  firmware: string | null;
+  vistaEm: Date | null;
+  desconectadaEm: Date | null;
+}
+
 export class RegistroEquipamentos {
   private readonly controlid = new Map<string, { visto_em: Date; contingencia_em: Date | null }>();
   private ponte: { inners: number[]; conectados: number[]; vista_em: Date } | null = null;
+  private placasToletus: () => EstadoPlacaToletus[] = () => [];
 
   constructor(private readonly agora: () => Date = () => new Date()) {}
 
@@ -38,6 +50,11 @@ export class RegistroEquipamentos {
     this.ponte = { inners: [...inners], conectados: [...conectados], vista_em: this.agora() };
   }
 
+  /** O conector Toletus se apresenta aqui ao subir. */
+  fonteToletus(estados: () => EstadoPlacaToletus[]): void {
+    this.placasToletus = estados;
+  }
+
   paraTelemetria(): Pick<TelemetriaGateway, "equipamentos" | "ponte"> {
     const equipamentos: TelemetriaGateway["equipamentos"] = [];
     for (const [id, e] of this.controlid) {
@@ -58,6 +75,16 @@ export class RegistroEquipamentos {
           detalhe: conectado ? "conectado à ponte" : "sem conexão com a ponte",
         });
       }
+    }
+    for (const placa of this.placasToletus()) {
+      equipamentos.push({
+        nome: `Toletus ${placa.nome}`,
+        tipo: "toletus",
+        visto_em: placa.conectada && placa.vistaEm ? placa.vistaEm.toISOString() : null,
+        detalhe: placa.conectada
+          ? `conectada${placa.firmware ? `, firmware ${placa.firmware}` : ""}`
+          : `sem conexão com o Gateway${placa.desconectadaEm ? ` desde ${placa.desconectadaEm.toISOString()}` : ""}`,
+      });
     }
     return {
       equipamentos,

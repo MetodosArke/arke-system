@@ -1,4 +1,4 @@
-export type ModeloCatraca = "controlid" | "henry" | "topdata" | "dimep" | "mock";
+export type ModeloCatraca = "controlid" | "henry" | "topdata" | "toletus" | "dimep" | "mock";
 
 export interface GatewayConfig {
   organization_id: string;
@@ -48,6 +48,25 @@ export interface GatewayConfig {
    * continua manual — como até a versão 1.0.
    */
   controlid_equipamentos?: EquipamentoControlId[];
+  /**
+   * Placas Toletus LiteNet2 a que o Gateway se conecta. Ao contrário da
+   * Control iD, aqui quem disca é o Gateway: a placa escuta na porta 7878.
+   * Vazio com o modelo "toletus": vale uma placa só, em catraca_ip.
+   */
+  toletus_equipamentos?: EquipamentoToletus[];
+}
+
+export interface EquipamentoToletus {
+  /** Como a recepção reconhece a catraca ("Catraca da entrada"). */
+  nome: string;
+  ip: string;
+  porta: number;
+  /**
+   * O que liberar quando o aluno é aceito. "entrada" é o comum em
+   * academia: a saída fica livre na configuração da placa. "ambos" serve
+   * para catraca em que a saída também exige identificação.
+   */
+  liberar: "entrada" | "ambos";
 }
 
 export interface EquipamentoControlId {

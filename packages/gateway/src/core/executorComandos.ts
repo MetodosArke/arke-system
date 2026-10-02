@@ -33,13 +33,6 @@ const TIPOS_DO_EQUIPAMENTO = new Set<string>([
 ]);
 
 const CAPACIDADES_BASE: TipoComando[] = ["sincronizar_completo", "enviar_logs", "diagnostico"];
-const CAPACIDADES_GESTAO: TipoComando[] = [
-  "liberar_catraca",
-  "cadastrar_usuario",
-  "cadastrar_digital",
-  "cadastrar_cartao",
-  "apagar_usuario",
-];
 
 export interface OpcoesExecutor {
   modelo: string;
@@ -87,11 +80,21 @@ export class ExecutorComandos {
 
   /** O que este Gateway sabe fazer. A nuvem só aceita pedir o que estiver aqui. */
   capacidades(): TipoComando[] {
-    return this.temGestao() ? [...CAPACIDADES_BASE, ...CAPACIDADES_GESTAO] : [...CAPACIDADES_BASE];
+    return this.temGestao() ? [...CAPACIDADES_BASE, ...this.gestao!.capacidades()] : [...CAPACIDADES_BASE];
   }
 
   private temGestao(): boolean {
     return !!this.gestao && this.gestao.nomes().length > 0;
+  }
+
+  /**
+   * Equipamento em que a ficha do aluno cadastra digital e cartão. Só esses
+   * vão para a telemetria como "controlid-gestao": é a lista que a tela
+   * mostra como "gestão remota" e em que a recepção escolhe o leitor. A
+   * Toletus libera remotamente, mas não cadastra, e não pode aparecer ali.
+   */
+  private cadastraNoEquipamento(): boolean {
+    return this.temGestao() && this.gestao!.capacidades().includes("cadastrar_usuario");
   }
 
   async telemetria(): Promise<TelemetriaGateway> {
@@ -101,7 +104,7 @@ export class ExecutorComandos {
     // que a recepção escolhe em qual leitor o aluno vai pôr o dedo. Sem IP
     // nem senha — só o nome.
     const equipamentos = [
-      ...(this.temGestao()
+      ...(this.cadastraNoEquipamento()
         ? this.gestao!.nomes().map((nome) => ({ nome, tipo: "controlid-gestao", visto_em: null }))
         : []),
       ...vistos.equipamentos,
@@ -170,11 +173,15 @@ export class ExecutorComandos {
     }
   }
 
-  private exigirGestao(): GestaoEquipamentos {
+  private exigirGestao(tipo: TipoComando): GestaoEquipamentos {
     if (!this.gestao || !this.temGestao()) {
       throw new Error(
-        "Este Gateway não tem equipamento Control iD configurado para gestão remota (controlid_equipamentos no config.json)."
+        "Este Gateway não tem equipamento configurado para gestão remota (controlid_equipamentos ou toletus_equipamentos no config.json)."
       );
+    }
+    // A nuvem já não pede o que o Gateway não anunciou; esta é a segunda trava.
+    if (!this.gestao.capacidades().includes(tipo)) {
+      throw new Error(`O equipamento desta academia não aceita a ordem "${tipo}".`);
     }
     return this.gestao;
   }
@@ -203,20 +210,20 @@ export class ExecutorComandos {
       }
       case "liberar_catraca": {
         const sentido = p.sentido === "saida" || p.sentido === "ambos" ? p.sentido : "entrada";
-        return this.exigirGestao().liberarCatraca(sentido, equipamentoDe(p));
+        return this.exigirGestao("liberar_catraca").liberarCatraca(sentido, equipamentoDe(p));
       }
       case "cadastrar_usuario": {
         const userId = numeroDoUsuario(p.user_id);
         const nome = String(p.nome ?? "Aluno").slice(0, 60) || "Aluno";
         const matricula = String(p.matricula ?? userId).slice(0, 30);
-        return this.exigirGestao().criarUsuario(userId, nome, matricula);
+        return this.exigirGestao("cadastrar_usuario").criarUsuario(userId, nome, matricula);
       }
       case "cadastrar_digital":
-        return this.exigirGestao().cadastrarDigital(numeroDoUsuario(p.user_id), equipamentoDe(p));
+        return this.exigirGestao("cadastrar_digital").cadastrarDigital(numeroDoUsuario(p.user_id), equipamentoDe(p));
       case "cadastrar_cartao":
-        return this.exigirGestao().cadastrarCartao(numeroDoUsuario(p.user_id), equipamentoDe(p));
+        return this.exigirGestao("cadastrar_cartao").cadastrarCartao(numeroDoUsuario(p.user_id), equipamentoDe(p));
       case "apagar_usuario":
-        return this.exigirGestao().apagarUsuario(numeroDoUsuario(p.user_id));
+        return this.exigirGestao("apagar_usuario").apagarUsuario(numeroDoUsuario(p.user_id));
       default:
         throw new Error(`Este Gateway não conhece a ordem "${c.tipo}". Atualize o Gateway Local.`);
     }

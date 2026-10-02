@@ -12,6 +12,7 @@
 5. [Diagnóstico e suporte](#5-diagnóstico-e-suporte)
 6. [Limitações conhecidas](#6-limitações-conhecidas)
 7. [Control iD: configurar o equipamento e ensaiar sem hardware](#7-control-id-configurar-o-equipamento-e-ensaiar-sem-hardware)
+8. [Toletus: o Gateway disca para a placa](#8-toletus-o-gateway-disca-para-a-placa)
 
 ---
 
@@ -73,13 +74,14 @@ Todos os parâmetros vivem em `config.json`, na mesma pasta do executável (`%Pr
 | `token_api_local` | **O `device_token`** copiado da tela `/admin/catracas` no painel web (botão "Copiar" ao lado do dispositivo cadastrado) |
 | `supabase_url` | URL do projeto Supabase (ex.: `https://SEU-PROJETO.supabase.co`) |
 | `catraca_ip` / `catraca_porta` | Endereço IP e porta da catraca física na rede local |
-| `modelo_catraca` | `controlid` \| `topdata` \| `mock`. `henry` e `dimep` são **recusados na partida**, com mensagem: a integração dessas marcas é feita na implantação do primeiro cliente de cada uma |
+| `modelo_catraca` | `controlid` \| `topdata` \| `toletus` \| `mock`. `henry` e `dimep` são **recusados na partida**, com mensagem: a integração dessas marcas é feita na implantação do primeiro cliente de cada uma |
 | `tempo_timeout_ms` | Timeout da validação na nuvem antes de cair para o cache local (padrão `1000`). Medido: a validação leva ~400 ms normalmente e até 4 s na partida a frio. **Abaixo de ~500 ms o Gateway cai em contingência em quase todo acesso** |
 | `sincronizar_alunos_intervalo_ms` | Intervalo entre sincronizações do cache local de alunos (padrão `300000` = 5 min) |
 | `escuta_host` / `escuta_porta` | Onde o Gateway **escuta** o equipamento (padrão `0.0.0.0:4571`). A Control iD disca para o Gateway, não o contrário: esta porta precisa estar aberta na rede da academia |
 | `confirmacao_giro` | `decisao` (padrão): o acesso liberado já conta presença. `catra_event`: só conta quando a catraca confirma o giro — exige o Monitor configurado (seção 7) e **só existe na iDBlock** |
 | `timeout_giro_ms` | Quanto esperar a confirmação de giro (padrão `30000`). Sem confirmação no prazo, conta presença |
 | `topdata_leitor_entrada` | Topdata: qual leitor físico é a entrada, `1` ou `2` (padrão `1`). Tem de bater com `leitor_entrada` da ponte |
+| `toletus_equipamentos` | Placas Toletus LiteNet2 que o Gateway **disca** (versão 1.1): lista de `{ "nome", "ip", "porta": 7878, "liberar": "entrada" }`, uma por catraca. Vazia com o modelo `toletus`: uma placa só, em `catraca_ip`, na porta 7878 (`catraca_porta` não entra). `liberar: "ambos"` é para catraca em que a saída também exige identificação. Ver seção 8 |
 | `controlid_equipamentos` | Control iD que o Gateway **administra** (versão 1.0): lista de `{ "nome", "ip", "porta": 80, "usuario": "admin", "senha", "sentido_entrada": "clockwise" }`, um por catraca. Com ela, a recepção cadastra aluno, digital e cartão pelo ARKE e a remoção do aluno é automática. Vazia: cadastro manual no equipamento, como antes. O `nome` é o que a recepção vê para escolher o leitor; `sentido_entrada` é o lado da borboleta que é a entrada, e só a montagem física responde |
 
 > **A senha do equipamento fica só no `config.json`**, na máquina da academia. Para a nuvem vai apenas o nome de cada equipamento.
@@ -128,9 +130,9 @@ O Gateway expõe um servidor HTTP local de diagnóstico (Fastify, porta **4570**
 
 Leia antes de colocar em produção:
 
-1. **Por fabricante.** **Control iD:** implementada e testada sem hardware (seção 7); falta a bancada. **Topdata:** ponte .NET implementada (`packages/ponte-topdata`) e provada com o Inner simulado contra o gateway e a nuvem reais; falta a bancada. Instalação e roteiro em `docs/PONTE_TOPDATA.md` — inclusive o registro da `Inner.dll` como administrador, sem o qual a DLL devolve "erro GPF". **Henry e Dimep:** sem documentação de integração dos fabricantes — a conexão é definida na implantação.
+1. **Por fabricante.** **Control iD:** implementada e testada sem hardware (seção 7); falta a bancada. **Topdata:** ponte .NET implementada (`packages/ponte-topdata`) e provada com o Inner simulado contra o gateway e a nuvem reais; falta a bancada. Instalação e roteiro em `docs/PONTE_TOPDATA.md` — inclusive o registro da `Inner.dll` como administrador, sem o qual a DLL devolve "erro GPF". **Toletus:** conector pela documentação pública do fabricante, provado com o emulador contra o Gateway e a nuvem reais (seção 8); falta a bancada. **Henry e Dimep:** sem documentação de integração dos fabricantes — a conexão é definida na implantação.
 2. **Cartão só cadastrado pelo ARKE.** O cartão cadastrado pelo ARKE fica no equipamento ligado ao número do aluno e chega como identificação, igual à digital. Cartão que ninguém cadastrou chega com o valor bruto e é negado — adivinhar a quem pertence seria pior que negar. **QR Code na catraca é negado**: o QR do ARKE é o do check-in na recepção, lido pelo celular do aluno.
-3. **Cadastro no equipamento.** Com `controlid_equipamentos` configurado, o ARKE cria o aluno em todas as Control iD da academia, cadastra digital e cartão com o aluno na frente do leitor (e copia para as outras catracas), e apaga tudo quando o aluno retira a autorização, é excluído ou anonimizado. **Sem gestão remota** (Topdata, ou Control iD sem credencial no config) o cadastro continua manual, e a remoção vira **tarefa para a recepção**, com desfecho obrigatório — apagar no equipamento é obrigação legal, não opcional.
+3. **Cadastro no equipamento.** Com `controlid_equipamentos` configurado, o ARKE cria o aluno em todas as Control iD da academia, cadastra digital e cartão com o aluno na frente do leitor (e copia para as outras catracas), e apaga tudo quando o aluno retira a autorização, é excluído ou anonimizado. **Sem gestão remota** (Topdata, Toletus, ou Control iD sem credencial no config) o cadastro continua manual, e a remoção vira **tarefa para a recepção**, com desfecho obrigatório — apagar no equipamento é obrigação legal, não opcional.
 4. **A bandeja do sistema exige um ambiente com GUI** (Windows/desktop Linux/macOS) — em servidores/CI sem display, ela é desativada automaticamente (com aviso no log), sem derrubar o serviço.
 
 ## 7. Control iD: configurar o equipamento e ensaiar sem hardware
@@ -166,3 +168,41 @@ Use na instalação, antes de haver catraca na parede: confirma que o Gateway es
 **Ensaio da gestão remota.** `npm run emular:controlid -- --servir 8081` faz o papel da API de gestão do equipamento (login `admin`/`admin`). Aponte um item de `controlid_equipamentos` para `127.0.0.1:8081` e, pelo ARKE, cadastre o aluno no equipamento, a digital e o cartão, libere a catraca e retire a autorização do aluno: cada chamada aparece no terminal do emulador, com o estado do "equipamento" depois de cada mudança. Foi assim que a corrente inteira foi provada em 23/09/2026 (22 verificações, com o Gateway, a função publicada e o banco reais).
 
 **O que só a bancada responde:** o sentido de giro da borboleta como foi montada, o tempo real de acionamento, a leitura da digital, variações de firmware — e se o `uuid` do aviso de giro é o mesmo da identificação que o originou (o Gateway tem um plano B para quando não é, válido para uma borboleta por vez).
+
+## 8. Toletus: o Gateway disca para a placa
+
+A placa **Toletus LiteNet2** (catracas da Toletus, antiga Actuar) inverte o sentido das outras marcas: ela é o servidor, na porta **7878**, e quem se conecta é o Gateway. O protocolo é aberto: o fabricante publica o manual de comandos e os pacotes de integração em github.com/Toletus. Pacotes de 20 bytes por TCP, sem DLL e sem ponte.
+
+### 8.1 Na placa
+
+1. **IP fixo**, pelo Gerenciador Toletus ou pelo menu da catraca.
+2. **Entrada controlada, saída livre** no modo de controle. Se a saída também exige identificação, controlada nos dois sentidos e `"liberar": "ambos"` no `config.json`.
+3. **Feche o Gerenciador Toletus** e qualquer outro sistema ligado à placa: ela aceita um computador por vez.
+
+Não há porta para abrir no computador do Gateway: a conexão sai dele.
+
+### 8.2 O que acontece em cada leitura
+
+| A placa avisa | O Gateway faz |
+|---|---|
+| Cartão, código de barras ou teclado | Teclado com 11 dígitos é CPF; o resto é o `identificador_catraca` do aluno. O número do cartão vale sem os zeros à esquerda |
+| Digital reconhecida | O número do usuário no leitor é o `identificador_catraca` |
+| — | Decide (nuvem, ou cache na queda de internet) e manda **liberar** com "Bem-vindo!" no display, ou **nega** com uma frase curta ("Fale c/ recepcao", "Nao cadastrado") e toque de erro. O motivo completo fica no registro, não no display público |
+| Passagem | Giro confirmado: vira presença |
+| Tempo esgotado sem passagem | Desistência: não vira presença |
+
+Sem o Gateway, **a entrada controlada não libera ninguém**: a placa não guarda lista de alunos e só abre por ordem. É a regra do ARKE sem precisar configurar nada.
+
+A conexão se mantém sozinha: o Gateway pergunta o id da placa a cada 10 s (o firmware não responde ao keepalive do TCP, e o pacote oficial da Toletus aprendeu isso em produção), reabre a conexão se a placa ficar 35 s calada e reconecta quando ela cai, com espera crescente até 5 s. Placa que cai com um giro aberto fecha o acesso como "sem confirmação", que conta presença, pela mesma regra do prazo.
+
+### 8.3 Cartão: o número que vai na ficha
+
+Sem cadastro remoto, a recepção vincula o número à mão na ficha do aluno. Para descobrir o número que o leitor dá a um cartão, passe o cartão na catraca: como ainda não é de ninguém, ele aparece em **Catracas → Últimos acessos** como "Número lido". O número impresso no cartão pode ser outro.
+
+### 8.4 Ensaio sem catraca
+
+`npm run emular:toletus` abre a porta 7878 e faz o papel da placa: espera o Gateway conectar e manda as leituras que você digitar (`c 123` cartão, `t 52998224725` teclado, `b 42` digital, `g desiste` para a próxima liberação não passar). Ele mostra o que o Gateway mandou: liberação com a mensagem do display, ou negativa. No `config.json` de ensaio, `"modelo_catraca": "toletus"` e `"catraca_ip": "127.0.0.1"`.
+
+Foi assim que a corrente foi provada em 02/10/2026, com o Gateway compilado, as funções publicadas e o banco reais (27 verificações): cartão liberado virando presença, pausada e cartão desconhecido negados com o registro certo, CPF no teclado, digital com desistência sem presença, liberação remota pela tela, e a placa caindo e voltando.
+
+**O que só a bancada responde:** o número que um cartão de verdade produz no leitor, o tempo de liberação configurado na placa, o sentido de giro da catraca montada e o leitor de digital SM25. **Cadastro remoto da digital** (pelo leitor SM25, que tem protocolo próprio na porta 7879) e a **placa LiteNet3** (que fala outro protocolo, JSON por WebSocket) são a etapa seguinte.

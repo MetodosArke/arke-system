@@ -34,8 +34,8 @@ const umaTelemetria = (t: Telemetria | Telemetria[] | null | undefined): Telemet
  * Versão 1.0: com a Control iD configurada no Gateway, a recepção cadastra o
  * aluno, a digital e o cartão daqui, com o aluno na frente do leitor, em vez
  * de digitar o número no equipamento e depois no ARKE. Sem gestão remota
- * (Topdata, ou Control iD sem credencial no config), o cadastro continua no
- * equipamento e o número é vinculado à mão.
+ * (Topdata, Toletus, ou Control iD sem credencial no config), o cadastro
+ * continua no equipamento e o número é vinculado à mão.
  *
  * O consentimento da digital é do ALUNO: no app, ou assinando o termo
  * impresso que a recepção anexa aqui (aluno sem app). A equipe nunca autoriza
@@ -324,10 +324,11 @@ export function AcessoCatraca({
             </Button>
           </div>
           <p className="text-xs text-muted-foreground">
-            <strong>Topdata com cartão:</strong> o número impresso no cartão. <strong>Control iD</strong> (ou digital na
-            Topdata): o número de usuário que o equipamento deu ao aluno no cadastro. Digital só com a autorização do
-            aluno (app ou termo impresso); cartão, a qualquer momento. Com a Control iD configurada no Gateway Local, o
-            cadastro passa a ser feito daqui, sem digitar número.
+            <strong>Topdata com cartão:</strong> o número impresso no cartão. <strong>Toletus com cartão:</strong> o
+            número que o leitor informa; passe o cartão na catraca e ele aparece em Catracas → Últimos acessos.{" "}
+            <strong>Control iD</strong> (ou digital na Topdata e na Toletus): o número de usuário que o equipamento deu ao
+            aluno no cadastro. Digital só com a autorização do aluno (app ou termo impresso); cartão, a qualquer momento.
+            Com a Control iD configurada no Gateway Local, o cadastro passa a ser feito daqui, sem digitar número.
           </p>
         </div>
       )}

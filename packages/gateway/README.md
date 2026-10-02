@@ -1,4 +1,4 @@
-# ARKE® Gateway Local 1.0
+# ARKE® Gateway Local 1.1
 
 Programa Node.js/TypeScript que roda **no computador da recepção da academia**
 e liga a catraca física à plataforma ArkeFit no Supabase. Decide o acesso em
@@ -10,6 +10,7 @@ equipamento).
 Catraca Control iD ──HTTP──▶ ┐
                               │  ARKE Gateway Local  ◀──── escuta longa ────▶  catraca-comandos
 Catraca Topdata ─▶ ponte .NET ┘   (porta 4571)               (telemetria, ordens, resultados)
+Placa Toletus ◀── TCP 7878 ────── (o Gateway disca)
                                      │
                                      ├──▶ catraca-validar-acesso       (cada leitura)
                                      ├──▶ catraca-confirmar-giro       (girou / desistiu)
@@ -24,12 +25,18 @@ espera a decisão na resposta da mesma requisição; a Topdata fala com a ponte
 `ArkeInnerBridge`, que fala com o Gateway. O Gateway não abre conexão para a
 catraca para decidir acesso — só para administrá-la (cadastro e remoção).
 
+**A exceção é a Toletus.** A placa LiteNet2 é o servidor (porta 7878) e quem
+disca é o Gateway: `src/conectores/toletus/`. O caminho da decisão é o mesmo
+das outras marcas — nuvem, cache, giro pendente até a placa avisar a passagem
+ou o tempo esgotado.
+
 ## Equipamentos
 
 | Marca | Situação na 1.0 |
 |---|---|
 | **Control iD** (modo Pro) | Decisão de acesso, confirmação de giro pelo Monitor (iDBlock), contingência, **gestão remota**: cadastro do aluno, da digital e do cartão pelo ARKE, cópia entre as catracas da academia, remoção e liberação remota. |
 | **Topdata** (Inner, via EasyInner.dll) | Decisão de acesso, giro, contingência e bilhetes, pela ponte `packages/ponte-topdata` — ver `docs/PONTE_TOPDATA.md`. Sem gestão remota: o cadastro no equipamento é feito nele. |
+| **Toletus** (placa LiteNet2) | Decisão de acesso, giro (passagem e tempo esgotado avisados pela placa), contingência e liberação remota, pelo protocolo aberto do fabricante (porta 7878). Sem a ArkeFit, a entrada controlada fica travada: a placa não guarda alunos. Sem cadastro remoto: as digitais ficam no leitor SM25, que tem protocolo próprio. |
 | **Henry, Dimep** | Sem integração. Os fabricantes não publicam documentação e não há equipamento para bancada: a conexão é feita na implantação do primeiro cliente de cada marca. O Gateway **se recusa a subir** com elas, com mensagem explicando. |
 | `mock` | Driver de desenvolvimento, sem hardware. |
 
@@ -65,7 +72,7 @@ cp config.example.json config.json
 | `organization_id` | UUID da organização (informativo — quem autentica é o token) |
 | `token_api_local` | O `device_token` do dispositivo, copiado em **Catracas** no painel |
 | `supabase_url` | URL do projeto Supabase |
-| `modelo_catraca` | `controlid` \| `topdata` \| `mock` (`henry` e `dimep` são recusados) |
+| `modelo_catraca` | `controlid` \| `topdata` \| `toletus` \| `mock` (`henry` e `dimep` são recusados) |
 | `catraca_ip` / `catraca_porta` | Endereço de referência do equipamento |
 | `escuta_host` / `escuta_porta` | Onde o Gateway escuta o equipamento (padrão `0.0.0.0:4571`, alcançável na rede da academia) |
 | `tempo_timeout_ms` | Tempo da validação na nuvem antes da contingência (padrão `1000`) |
@@ -73,6 +80,7 @@ cp config.example.json config.json
 | `confirmacao_giro` | `decisao` (padrão) ou `catra_event` (só iDBlock com Monitor configurado) |
 | `timeout_giro_ms` | Quanto esperar o aviso de giro (padrão 30 s) |
 | `topdata_leitor_entrada` | Topdata: qual leitor é a entrada (1 ou 2) |
+| `toletus_equipamentos` | Lista de placas Toletus a discar: `nome`, `ip`, `porta` (7878), `liberar` (`entrada`\|`ambos`). Vazia com o modelo `toletus`: uma placa só, em `catraca_ip`. |
 | `controlid_equipamentos` | Lista de Control iD para gestão remota: `nome`, `ip`, `porta` (80), `usuario` (`admin`), `senha`, `sentido_entrada` (`clockwise`\|`anticlockwise`). Vazia: sem gestão remota, cadastro manual no equipamento. |
 
 **A senha do equipamento fica só neste arquivo, na máquina da academia.** Para
@@ -90,6 +98,7 @@ npm run build            # compila para dist/
 npm run build:exe        # executável Windows (pkg) — o instalador usa scripts/gateway-installer.iss (Inno Setup)
 npm run emular:controlid -- --usuario 12            # faz o papel da catraca contra um Gateway rodando
 npm run emular:controlid -- --servir 8081           # faz o papel da API de gestão do equipamento
+npm run emular:toletus                               # faz o papel da placa Toletus (porta 7878); o Gateway disca para ela
 ```
 
 O emulador serve de ensaio de instalação: confirma que o Gateway está
@@ -115,12 +124,15 @@ Sonda da porta do equipamento, alcançável pela rede: `http://IP:4571/health`.
 
 ## Testes
 
-`npm test` — 112 testes, sem rede e sem hardware:
+`npm test` — 155 testes, sem rede e sem hardware:
 
 - decisão online e contingência (libera em dia, nega inadimplente e pausado,
   cache vazio), fila offline e reenvio;
 - receptores Control iD e Topdata com os payloads da documentação, giro,
   desistência, bilhetes, rotas da ponte presas à própria máquina;
+- Toletus: o protocolo byte a byte contra o manual, a remontagem de pacotes
+  (partidos, colados, com lixo), e o conector contra uma placa falsa por TCP
+  (passagem, desistência, fila por placa, queda, placa calada, contingência);
 - sincronização por diferença, hash e concorrência;
 - gestão remota contra um equipamento Control iD falso (ordem de remoção,
   cópia entre equipamentos, sessão vencida, senha errada, desistência do

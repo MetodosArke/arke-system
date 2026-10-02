@@ -2,7 +2,7 @@ import { describe, it, expect, afterEach } from "vitest";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { carregarConfig, ConfigError } from "../src/config";
+import { carregarConfig, ConfigError, equipamentosToletus } from "../src/config";
 
 describe("carregarConfig", () => {
   const arquivos: string[] = [];
@@ -89,6 +89,41 @@ describe("carregarConfig", () => {
       ],
     });
     expect(() => carregarConfig(arquivo)).toThrow(/nomes de equipamento repetidos/);
+  });
+
+  it("Toletus com uma catraca só: basta o catraca_ip, na porta 7878 da placa", () => {
+    // catraca_porta (3000 na BASE) não entra: nos outros modelos é outra coisa.
+    const config = carregarConfig(escreverConfig({ ...BASE, modelo_catraca: "toletus" }));
+    expect(equipamentosToletus(config)).toEqual([{ nome: "Catraca", ip: "192.168.0.10", porta: 7878, liberar: "entrada" }]);
+  });
+
+  it("Toletus com várias catracas: a lista do config vale, com defaults por placa", () => {
+    const config = carregarConfig(
+      escreverConfig({
+        ...BASE,
+        modelo_catraca: "toletus",
+        toletus_equipamentos: [
+          { nome: "Entrada", ip: "192.168.0.60" },
+          { nome: "Fundos", ip: "192.168.0.61", liberar: "ambos" },
+        ],
+      })
+    );
+    expect(equipamentosToletus(config)).toEqual([
+      { nome: "Entrada", ip: "192.168.0.60", porta: 7878, liberar: "entrada" },
+      { nome: "Fundos", ip: "192.168.0.61", porta: 7878, liberar: "ambos" },
+    ]);
+    expect(() =>
+      carregarConfig(
+        escreverConfig({
+          ...BASE,
+          modelo_catraca: "toletus",
+          toletus_equipamentos: [
+            { nome: "Catraca", ip: "192.168.0.60" },
+            { nome: "Catraca", ip: "192.168.0.61" },
+          ],
+        })
+      )
+    ).toThrow(/nomes de equipamento repetidos/);
   });
 
   it("lança ConfigError quando o arquivo não existe", () => {
