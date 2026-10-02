@@ -185,8 +185,10 @@ export default function AlunoTreinos() {
       mapa[ex.ordem] = existente ?? { ordem: ex.ordem, concluido: false, carga_kg: "" };
     }
     setProgresso(mapa);
+    // O registro inteiro, e não só o id: o progresso gravado pela execução
+    // série a série chega no mesmo registro, com o mesmo id.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [treino?.id, registroHoje?.id]);
+  }, [treino?.id, registroHoje]);
 
   useEffect(() => {
     if (descansoOrdem === null) return;

@@ -16,7 +16,8 @@ São só sugestões. Você pode fazer qualquer divisão, na ordem que quiser. Tr
 Cada exercício mostra as séries, as repetições, o descanso e, quando houver, a técnica (drop-set, rest-pause, isometria…). Quando as séries são diferentes entre si, cada uma aparece separada.
 
 - **Ver execução** mostra o vídeo ou a imagem do exercício.
-- Marque as séries conforme for fazendo.
+- **Iniciar treino** abre o treino série a série: você anota a carga e as repetições de cada série, o descanso é contado sozinho e aparece a carga que você usou da última vez. No fim, o app pergunta como foi.
+- Se preferir só marcar, marque cada exercício feito na própria lista. As duas formas ficam registradas no mesmo treino do dia.
 
 ## No fim
 

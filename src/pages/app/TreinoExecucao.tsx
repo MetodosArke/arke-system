@@ -13,6 +13,7 @@ import { seriesDoExercicio, rotuloTecnica, type SerieDetalhe } from "@/lib/serie
 import { AvaliacaoTreinoDialog } from "@/components/aluno/AvaliacaoTreinoDialog";
 import { MidiaExercicio } from "@/components/acervo/MidiaExercicio";
 import { hojeBrasilia } from "@/lib/dataBrasilia";
+import type { Json } from "@/integrations/supabase/types";
 
 /**
  * Execução do treino, série a série — o módulo do app original trazido para o
@@ -55,6 +56,9 @@ interface ExercicioSnapshot {
   exercicio_id?: string | null;
 }
 
+/** O progresso por exercício que Meu Treino grava em registro_treino.detalhes_execucao. */
+type DetalheExecucao = { ordem: number; concluido: boolean; carga_kg: string };
+
 type SerieGravada = {
   exercicio_ordem: number;
   serie_numero: number;
@@ -86,8 +90,11 @@ export default function TreinoExecucao() {
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const inicioRef = useRef<number>(Date.now());
 
+  // Chave própria: a tela inicial guarda "aluno-treino-ativo" sem os
+  // exercícios, e reaproveitar aquele cache abria a execução vazia
+  // ("A divisão C não tem exercícios nesta ficha"). chavesDeCache.guarda.test.ts.
   const { data: treino, isLoading: carregandoTreino } = useQuery({
-    queryKey: ["aluno-treino-ativo", alunoId],
+    queryKey: ["aluno-treino-execucao", alunoId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("treinos")
@@ -103,13 +110,13 @@ export default function TreinoExecucao() {
     enabled: !!alunoId,
   });
 
-  const todos = (treino?.snapshot_conteudo as unknown as ExercicioSnapshot[] | null) ?? [];
   const divisaoAtual = (divisao ?? "A").toUpperCase();
-  const exercicios = useMemo(
-    () => todos.filter((e) => (e.divisao || "A") === divisaoAtual).sort((a, b) => a.ordem - b.ordem),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [treino?.id, divisaoAtual],
-  );
+  // Depende do treino inteiro, e não só do id: o mesmo treino pode chegar
+  // primeiro sem os exercícios e depois com eles, e o id não muda entre os dois.
+  const exercicios = useMemo(() => {
+    const todos = (treino?.snapshot_conteudo as unknown as ExercicioSnapshot[] | null) ?? [];
+    return todos.filter((e) => (e.divisao || "A") === divisaoAtual).sort((a, b) => a.ordem - b.ordem);
+  }, [treino, divisaoAtual]);
 
   // O registro da sessão. Criado na entrada da tela, não no fim: sem ele não
   // há onde pendurar as séries, e o aluno começa a treinar antes de concluir.
@@ -128,7 +135,7 @@ export default function TreinoExecucao() {
           },
           { onConflict: "aluno_id,data" },
         )
-        .select("id, concluido, esforco_percebido")
+        .select("id, concluido, esforco_percebido, detalhes_execucao")
         .single();
       if (error) throw error;
       return data;
@@ -230,6 +237,28 @@ export default function TreinoExecucao() {
     onError: (e: Error) =>
       toast({ title: "Não foi possível salvar a série", description: e.message, variant: "destructive" }),
   });
+
+  // O progresso por exercício que Meu Treino mostra (detalhes_execucao), tirado
+  // das séries: exercício com todas as séries feitas conta como feito, com a
+  // carga da última série. Sem isto, quem treinava aqui voltava para Meu Treino
+  // e via "0/2 exercícios" ao lado de "treino concluído". O que estava marcado
+  // lá e não foi mexido aqui continua marcado.
+  const detalhesSincronizados = (): Json => {
+    const existentes = ((registro?.detalhes_execucao as unknown as DetalheExecucao[] | null) ?? []).filter(
+      (d) => !exercicios.some((ex) => ex.ordem === d.ordem),
+    );
+    const daqui = exercicios.map((ex) => {
+      const series = seriesDoExercicio(ex).map((_, i) => gravadaPorChave.get(chaveSerie(ex.ordem, i + 1)));
+      const anterior = ((registro?.detalhes_execucao as unknown as DetalheExecucao[] | null) ?? []).find((d) => d.ordem === ex.ordem);
+      const cargas = series.map((s) => s?.carga_kg).filter((c): c is number => c != null);
+      return {
+        ordem: ex.ordem,
+        concluido: (series.length > 0 && series.every((s) => s?.concluida)) || !!anterior?.concluido,
+        carga_kg: cargas.length > 0 ? String(cargas[cargas.length - 1]) : anterior?.carga_kg ?? "",
+      };
+    });
+    return [...existentes, ...daqui] as unknown as Json;
+  };
 
   const totalSeries = exercicios.reduce((soma, ex) => soma + seriesDoExercicio(ex).length, 0);
   const feitas = seriesGravadas.filter((s) => s.concluida).length;
@@ -405,6 +434,7 @@ export default function TreinoExecucao() {
           onOpenChange={setAvaliacaoAberta}
           registroId={registro.id}
           todasFeitas={tudoFeito}
+          detalhesExecucao={detalhesSincronizados()}
           duracaoMin={Math.max(1, Math.round((Date.now() - inicioRef.current) / 60000))}
           onConcluido={() => {
             void queryClient.invalidateQueries({ queryKey: ["aluno-registro-hoje", alunoId] });

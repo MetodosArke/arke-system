@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import type { Json } from "@/integrations/supabase/types";
 import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -38,6 +39,7 @@ export function AvaliacaoTreinoDialog({
   registroId,
   todasFeitas,
   duracaoMin,
+  detalhesExecucao,
   onConcluido,
 }: {
   aberto: boolean;
@@ -45,6 +47,8 @@ export function AvaliacaoTreinoDialog({
   registroId: string;
   todasFeitas: boolean;
   duracaoMin: number;
+  /** O progresso por exercício, para Meu Treino mostrar o mesmo que a execução. */
+  detalhesExecucao?: Json;
   onConcluido: () => void;
 }) {
   const { toast } = useToast();
@@ -65,6 +69,7 @@ export function AvaliacaoTreinoDialog({
           sensacao,
           duracao_min: duracaoMin,
           observacao: observacao.trim() || null,
+          ...(detalhesExecucao !== undefined ? { detalhes_execucao: detalhesExecucao } : {}),
         })
         .eq("id", registroId);
       if (error) throw error;

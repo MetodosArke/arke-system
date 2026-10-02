@@ -42,7 +42,7 @@ export function ConsentimentoBiometria({ alunoId, organizationId }: { alunoId: s
     queryFn: async () => {
       const { data, error } = await supabase
         .from("aluno_consentimento_biometrico")
-        .select("id, aceito_em, versao_texto, revogado_em, excluido_do_equipamento_em, origem")
+        .select("id, aceito_em, versao_texto, revogado_em, excluido_do_equipamento_em, origem, termo_arquivo")
         .eq("aluno_id", alunoId)
         .order("aceito_em", { ascending: false })
         .limit(5);
