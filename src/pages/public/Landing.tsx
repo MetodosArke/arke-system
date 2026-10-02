@@ -25,8 +25,10 @@ import {
   UserX,
   Wallet,
 } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { mensagemDeErroEdge } from "@/lib/erroEdge";
+import { cartoesDosPlanos, type TabelaSite } from "@/lib/planosSite";
 import { FONTES } from "@/lib/landing";
 import { decimal, reais } from "@/lib/numeros";
 import { Turnstile } from "@/components/public/Turnstile";
@@ -130,6 +132,7 @@ function Nav() {
           <Ancora para="como-funciona" className="transition-colors hover:text-foreground">Como funciona</Ancora>
           <Ancora para="recursos" className="transition-colors hover:text-foreground">Recursos</Ancora>
           <Ancora para="metodo" className="transition-colors hover:text-foreground">Método ARKE</Ancora>
+          <Ancora para="planos" className="transition-colors hover:text-foreground">Planos</Ancora>
           <Ancora para="perguntas" className="transition-colors hover:text-foreground">Perguntas</Ancora>
         </div>
         <div className="flex items-center gap-2">
@@ -751,6 +754,104 @@ function Implantacao() {
   );
 }
 
+// ——— Planos ———
+
+/**
+ * A tabela B2B (decisão de 02/10/2026). O preço vem de planos_b2b_site(),
+ * a mesma tabela que a cobrança usa: mudar um valor em Visão Master →
+ * Configurações muda o site junto. Se a tabela não carregar, a seção diz isso
+ * e manda à demonstração — nunca mostra um preço escrito à mão.
+ * O Método ARKE fica fora até o preço fixo dele ser definido.
+ */
+function Planos() {
+  const { data, isLoading, isError } = useQuery({
+    queryKey: ["planos-b2b-site"],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("planos_b2b_site");
+      if (error) throw error;
+      return cartoesDosPlanos(data as TabelaSite);
+    },
+    staleTime: 10 * 60_000,
+  });
+  const planos = data?.planos ?? [];
+  const semTabela = isError || (!isLoading && planos.length === 0);
+  return (
+    <section id="planos" className="scroll-mt-20 py-24">
+      <div className="mx-auto max-w-6xl px-4 sm:px-6">
+        <Aparecer>
+          <Selo>Planos</Selo>
+          <h2 className="mt-5 max-w-3xl text-3xl font-bold text-foreground sm:text-4xl">O sistema inteiro, em todo plano.</h2>
+          <p className="mt-4 max-w-2xl leading-relaxed text-foreground/65">
+            Muda quantos alunos ativos cabem e o suporte. Nenhum recurso fica preso a plano.
+          </p>
+        </Aparecer>
+
+        {semTabela ? (
+          <p className="mt-10 rounded-2xl border border-white/10 bg-white/[0.025] p-5 text-foreground/70">
+            Não conseguimos carregar a tabela agora. Os valores são apresentados na demonstração.
+          </p>
+        ) : (
+          <div className="mt-12 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            {isLoading
+              ? [0, 1, 2, 3].map((i) => <div key={i} className="h-52 animate-pulse rounded-2xl border border-white/10 bg-white/[0.03]" />)
+              : planos.map((p, i) => (
+                  <Aparecer key={p.plano} atraso={i * 0.05} className="h-full">
+                    <div
+                      onPointerMove={acompanharPonteiro}
+                      className="lp-cartao flex h-full flex-col rounded-2xl border border-white/10 bg-white/[0.025] p-5 transition-colors hover:border-primary/30"
+                    >
+                      <h3 className="lp-display text-lg font-bold text-foreground">{p.nome}</h3>
+                      <p className="mt-1 text-sm text-foreground/65">{p.publico}</p>
+                      <div className="mt-5">
+                        {p.preco ? (
+                          <p>
+                            <span className="lp-display text-3xl font-bold text-foreground">{p.preco}</span>
+                            <span className="text-sm text-foreground/60"> por mês</span>
+                          </p>
+                        ) : (
+                          <p className="lp-display text-2xl font-bold text-foreground">Sob consulta</p>
+                        )}
+                      </div>
+                      <p className="mt-auto pt-5 text-sm text-foreground/65">{p.suporte}</p>
+                    </div>
+                  </Aparecer>
+                ))}
+          </div>
+        )}
+
+        <Aparecer>
+          <div className="mt-6 rounded-2xl border border-white/10 bg-white/[0.02] p-5 sm:p-6">
+            <h3 className="font-bold text-foreground">Todo plano inclui</h3>
+            <ul className="mt-4 grid gap-2 text-sm text-foreground/75 sm:grid-cols-2 lg:grid-cols-4">
+              {RECURSOS.map(([, titulo]) => (
+                <li key={titulo} className="flex gap-2">
+                  <Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden /> {titulo}
+                </li>
+              ))}
+            </ul>
+            <div className="mt-6 flex flex-col gap-4 border-t border-white/10 pt-5 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-sm text-foreground/65">
+                {data?.implantacao ? (
+                  <>
+                    Implantação: <span className="font-semibold text-foreground">{data.implantacao}</span>, uma vez.{" "}
+                  </>
+                ) : null}
+                O Método ARKE é opcional e é contratado à parte.
+              </p>
+              <Ancora
+                para="contato"
+                className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-[0_0_20px_hsl(var(--primary)/.3)] transition-transform hover:scale-[1.03]"
+              >
+                Agendar demonstração <ArrowRight className="h-4 w-4" aria-hidden />
+              </Ancora>
+            </div>
+          </div>
+        </Aparecer>
+      </div>
+    </section>
+  );
+}
+
 // ——— Fundadores ———
 
 // Moldura redonda, recortada no rosto e na camiseta: o fundo do escritório
@@ -1059,6 +1160,7 @@ export default function Landing() {
         <Recursos />
         <Metodo />
         <Implantacao />
+        <Planos />
         <Fundadores />
         <Perguntas />
         <Contato />
