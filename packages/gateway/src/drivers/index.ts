@@ -23,6 +23,13 @@ export function criarDriver(config: Pick<GatewayConfig, "modelo_catraca" | "catr
     case "topdata":
       return new ReceptorDriver("topdata");
 
+    // Toletus: a placa é o servidor e quem disca é o Gateway, mas a
+    // decisão de acesso precisa do mesmo caminho das outras marcas (giro
+    // pendente, registro offline). Isso mora no conector, iniciado à parte
+    // em index.ts; o driver fica inerte. Ver src/conectores/toletus/.
+    case "toletus":
+      return new ReceptorDriver("toletus", "Toletus: o Gateway disca para as placas pelo conector TCP");
+
     // Henry e Dimep: sem driver até a implantação do primeiro cliente de
     // cada marca. config.ts já recusa antes de chegar aqui; isto é só a
     // segunda trava, para quem montar o gateway por outro caminho.

@@ -10,7 +10,7 @@ import { MockDriver } from "../src/drivers/MockDriver";
 import { FakeCloudClient } from "./helpers/fakeCloudClient";
 import type { ICanalComandos, PedidoCanalComandos } from "../src/cloud/client";
 import type { GestaoEquipamentos } from "../src/equipamentos/controlidGestao";
-import type { ComandoGateway, GatewayConfig, RespostaComandosCloud } from "../src/types";
+import type { ComandoGateway, GatewayConfig, RespostaComandosCloud, TipoComando } from "../src/types";
 import { VERSAO_GATEWAY } from "../src/versao";
 
 const CONFIG: GatewayConfig = {
@@ -70,6 +70,9 @@ class GestaoFalsa implements GestaoEquipamentos {
   demoraCadastroMs = 0;
   nomes() {
     return ["Entrada"];
+  }
+  capacidades(): TipoComando[] {
+    return ["liberar_catraca", "cadastrar_usuario", "cadastrar_digital", "cadastrar_cartao", "apagar_usuario"];
   }
   async testar() {
     return [{ equipamento: "Entrada", ok: true }];
@@ -141,6 +144,28 @@ describe("ExecutorComandos", () => {
     fs.rmSync(sem.dataDir, { recursive: true, force: true });
   });
 
+  it("equipamento que só libera (Toletus) anuncia só a liberação e não aparece como cadastro remoto", async () => {
+    class SoLibera extends GestaoFalsa {
+      capacidades(): TipoComando[] {
+        return ["liberar_catraca"];
+      }
+    }
+    const so = criar(new SoLibera());
+    expect(so.executor.capacidades()).toEqual(["sincronizar_completo", "enviar_logs", "diagnostico", "liberar_catraca"]);
+    // A tela lista "controlid-gestao" como os leitores em que a recepção
+    // cadastra digital; um equipamento que não cadastra não pode estar ali.
+    const tel = await so.executor.telemetria();
+    expect(tel.equipamentos.filter((e) => e.tipo === "controlid-gestao")).toEqual([]);
+    // Segunda trava: mesmo que a ordem chegue, ela não toca no equipamento.
+    const r = await so.executor.executar({ id: "c", tipo: "cadastrar_digital", parametros: { user_id: "7" } });
+    expect(r.sucesso).toBe(false);
+    expect(r.erro).toMatch(/não aceita a ordem "cadastrar_digital"/);
+    expect((so.gestao as GestaoFalsa).chamadas).toEqual([]);
+    const l = await so.executor.executar({ id: "l", tipo: "liberar_catraca", parametros: { sentido: "entrada" } });
+    expect(l.sucesso).toBe(true);
+    fs.rmSync(so.dataDir, { recursive: true, force: true });
+  });
+
   it("toda chamada leva a telemetria, com versão, estado e fila offline", async () => {
     amb.executor.iniciar();
     await ate(() => amb.canal.pedidos.length > 0);
@@ -182,7 +207,7 @@ describe("ExecutorComandos", () => {
     const sem = criar(null);
     const r2 = await sem.executor.executar({ id: "y", tipo: "apagar_usuario", parametros: { user_id: "42" } });
     expect(r2.sucesso).toBe(false);
-    expect(r2.erro).toMatch(/controlid_equipamentos/);
+    expect(r2.erro).toMatch(/controlid_equipamentos ou toletus_equipamentos/);
     fs.rmSync(sem.dataDir, { recursive: true, force: true });
   });
 

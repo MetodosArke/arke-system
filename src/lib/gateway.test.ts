@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
-import { comandoTerminou, equipamentosDeGestao, resumoResultado, situacaoGateway, tempoDesde } from "./gateway";
+import { comandoTerminou, equipamentosDeGestao, numeroNaoCadastrado, resumoResultado, situacaoGateway, tempoDesde } from "./gateway";
 
 const agora = new Date("2026-09-23T15:00:00-03:00");
 const antes = (min: number) => new Date(agora.getTime() - min * 60_000).toISOString();
@@ -69,5 +69,13 @@ describe("apoio do painel", () => {
       ])
     ).toEqual(["Entrada"]);
     expect(equipamentosDeGestao(null)).toEqual([]);
+  });
+
+  it("número lido aparece só para cartão não cadastrado, e nunca o CPF", () => {
+    expect(numeroNaoCadastrado({ resultado: "negado_nao_encontrado", cpf_consultado: "id:3954862189" })).toBe("3954862189");
+    expect(numeroNaoCadastrado({ resultado: "negado_nao_encontrado", cpf_consultado: "52998224725" })).toBeNull();
+    expect(numeroNaoCadastrado({ resultado: "liberado", cpf_consultado: "id:3954862189" })).toBeNull();
+    expect(numeroNaoCadastrado({ resultado: "negado_nao_encontrado", cpf_consultado: "id:" })).toBeNull();
+    expect(numeroNaoCadastrado({ resultado: "negado_nao_encontrado", cpf_consultado: null })).toBeNull();
   });
 });

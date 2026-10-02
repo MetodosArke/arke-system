@@ -9,7 +9,7 @@ const configSchema = z.object({
   supabase_url: z.string().url("supabase_url deve ser uma URL válida"),
   catraca_ip: z.string().min(1, "catraca_ip é obrigatório"),
   catraca_porta: z.number().int().positive(),
-  modelo_catraca: z.enum(["controlid", "henry", "topdata", "dimep", "mock"]),
+  modelo_catraca: z.enum(["controlid", "henry", "topdata", "toletus", "dimep", "mock"]),
   // 1000 ms, e não os 300 que o código prometia sem nunca ter medido. Medido
   // em 23/09/2026 contra catraca-validar-acesso em sa-east-1: mediana 405 ms,
   // p90 437 ms, 0 de 12 chamadas abaixo de 300 ms (só a ida e volta de rede
@@ -47,7 +47,31 @@ const configSchema = z.object({
     )
     .default([])
     .refine((l) => new Set(l.map((e) => e.nome)).size === l.length, "nomes de equipamento repetidos"),
+  // Placas Toletus LiteNet2: aqui quem disca é o Gateway, para a porta 7878
+  // de cada placa. Sem a lista, vale uma placa só, em catraca_ip.
+  toletus_equipamentos: z
+    .array(
+      z.object({
+        nome: z.string().min(1, "cada equipamento precisa de um nome"),
+        ip: z.string().min(1, "ip do equipamento é obrigatório"),
+        porta: z.number().int().positive().default(7878),
+        liberar: z.enum(["entrada", "ambos"]).default("entrada"),
+      })
+    )
+    .default([])
+    .refine((l) => new Set(l.map((e) => e.nome)).size === l.length, "nomes de equipamento repetidos"),
 });
+
+/**
+ * As placas Toletus que o Gateway vai discar. A academia com uma catraca só
+ * não precisa da lista: o IP de sempre (catraca_ip) basta, na porta 7878 da
+ * placa. catraca_porta não entra: nos outros modelos ela é outra coisa, e um
+ * valor herdado de config antigo faria o Gateway discar para a porta errada.
+ */
+export function equipamentosToletus(config: GatewayConfig): NonNullable<GatewayConfig["toletus_equipamentos"]> {
+  if (config.toletus_equipamentos?.length) return config.toletus_equipamentos;
+  return [{ nome: "Catraca", ip: config.catraca_ip, porta: 7878, liberar: "entrada" }];
+}
 
 /**
  * Marcas sem integração ainda. Henry e Dimep não publicam documentação de

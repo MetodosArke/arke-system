@@ -18,16 +18,20 @@ import { logger } from "../logger";
  */
 export class ReceptorDriver implements CatracaDriver {
   readonly modelo: string;
+  private readonly comoOpera: string;
 
-  constructor(modelo: string) {
+  /**
+   * `comoOpera` é a frase do log de partida. A Toletus usa este mesmo driver
+   * inerte pelo motivo oposto (quem disca é o Gateway, pelo conector), e o
+   * log precisa dizer a verdade sobre qual dos dois caminhos está em uso.
+   */
+  constructor(modelo: string, comoOpera = "Modelo opera por escuta: quem abre a conexão é a catraca, o gateway não disca") {
     this.modelo = modelo;
+    this.comoOpera = comoOpera;
   }
 
   async conectar(): Promise<void> {
-    logger.info(
-      { modelo: this.modelo },
-      "Modelo opera por escuta: quem abre a conexão é a catraca, o gateway não disca"
-    );
+    logger.info({ modelo: this.modelo }, this.comoOpera);
   }
 
   async desconectar(): Promise<void> {}

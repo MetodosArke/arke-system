@@ -1,5 +1,5 @@
 import axios, { type AxiosInstance } from "axios";
-import type { EquipamentoControlId } from "../types";
+import type { EquipamentoControlId, TipoComando } from "../types";
 import { logger } from "../logger";
 
 /**
@@ -48,6 +48,12 @@ export type ReplicacaoEquipamentos = {
 export interface GestaoEquipamentos {
   /** Nomes dos equipamentos configurados, na ordem do config. */
   nomes(): string[];
+  /**
+   * As ordens que este equipamento aceita. A Control iD aceita todas; a
+   * Toletus só a liberação, porque a placa não guarda cadastro de aluno. É
+   * o que o Gateway anuncia à nuvem, e a nuvem não pede o que não estiver aqui.
+   */
+  capacidades(): TipoComando[];
   /** Faz login em cada equipamento: é o "está alcançável e com a senha certa?" do suporte. */
   testar(): Promise<{ equipamento: string; ok: boolean; erro?: string }[]>;
   criarUsuario(userId: number, nome: string, matricula: string): Promise<{ equipamentos: string[] }>;
@@ -144,6 +150,10 @@ export class GestaoControlId implements GestaoEquipamentos {
 
   nomes(): string[] {
     return this.clientes.map((c) => c.eq.nome);
+  }
+
+  capacidades(): TipoComando[] {
+    return ["liberar_catraca", "cadastrar_usuario", "cadastrar_digital", "cadastrar_cartao", "apagar_usuario"];
   }
 
   async testar(): Promise<{ equipamento: string; ok: boolean; erro?: string }[]> {

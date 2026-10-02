@@ -28,6 +28,7 @@ import { useToast } from "@/hooks/use-toast";
 import { DoorOpen, Plus, Copy, Power, PowerOff, ScrollText, Radio, UserCheck, Settings, Handshake } from "lucide-react";
 import { SaudeGateway } from "@/components/catraca/SaudeGateway";
 import { ConferenciaParceiros } from "@/components/catraca/ConferenciaParceiros";
+import { numeroNaoCadastrado } from "@/lib/gateway";
 
 type Parceiro = "wellhub" | "totalpass";
 const PARCEIRO_LABEL: Record<Parceiro, string> = { wellhub: "Wellhub (Gympass)", totalpass: "TotalPass" };
@@ -437,6 +438,9 @@ export default function AdminCatracas() {
                 : log.resultado === "liberado" && log.giro === "pendente"
                   ? { label: "Liberado, aguardando giro", variant: "secondary" as const }
                   : (RESULTADO_LABEL[log.resultado] ?? { label: log.resultado, variant: "secondary" as const });
+            // Cartão que nenhum aluno tem: é assim que a recepção descobre o
+            // número que o leitor dá ao cartão, para pôr na ficha.
+            const numero = numeroNaoCadastrado(log);
             return (
               <div key={log.id} className="flex items-center justify-between gap-2 text-sm border-b border-border last:border-0 py-1.5">
                 <div className="min-w-0">
@@ -453,6 +457,11 @@ export default function AdminCatracas() {
                   <p className="text-xs text-muted-foreground">
                     {new Date(log.created_at).toLocaleString("pt-BR")}
                   </p>
+                  {numero && (
+                    <p className="text-xs text-muted-foreground">
+                      Número lido: <span className="font-mono">{numero}</span>
+                    </p>
+                  )}
                 </div>
                 <div className="flex items-center gap-1.5">
                   {log.validado_offline && (

@@ -1,6 +1,6 @@
 import path from "node:path";
 import fs from "node:fs";
-import { carregarConfig, ConfigError } from "./config";
+import { carregarConfig, ConfigError, equipamentosToletus } from "./config";
 import { CloudClient } from "./cloud/client";
 import { AlunosCache } from "./offline/alunosCache";
 import { LogsQueue } from "./offline/logsQueue";
@@ -9,7 +9,8 @@ import { GatewayService } from "./core/gatewayService";
 import { criarServidorLocal, criarServidorReceptor } from "./server/localServer";
 import { logger } from "./logger";
 import { ExecutorComandos } from "./core/executorComandos";
-import { GestaoControlId } from "./equipamentos/controlidGestao";
+import { GestaoControlId, type GestaoEquipamentos } from "./equipamentos/controlidGestao";
+import { ConectorToletus, GestaoToletus } from "./conectores/toletus/conector";
 import { VERSAO_GATEWAY } from "./versao";
 
 async function main() {
@@ -59,11 +60,27 @@ async function main() {
 
   await gateway.iniciar();
 
+  // Toletus: o sentido é o oposto do receptor — a placa escuta na porta
+  // 7878 e quem disca é o Gateway. Sobe depois da primeira sincronização,
+  // para a primeira leitura já encontrar o cache cheio se a nuvem cair.
+  // Placa fora do ar não derruba nada: o conector tenta de novo sozinho.
+  let conectorToletus: ConectorToletus | null = null;
+  if (config.modelo_catraca === "toletus") {
+    conectorToletus = new ConectorToletus(gateway, equipamentosToletus(config), { timeoutGiroMs: config.timeout_giro_ms });
+    const conector = conectorToletus;
+    gateway.equipamentos.fonteToletus(() => conector.estados());
+    conector.iniciar();
+  }
+
   // Canal de ida e volta com a nuvem: telemetria, "sincronize agora" e a
   // gestão do equipamento (cadastro e remoção do aluno, liberação remota).
   // Falha aqui nunca derruba o gateway — a catraca continua validando; o
   // canal tenta de novo sozinho, com espera crescente.
-  const gestao = config.controlid_equipamentos?.length ? new GestaoControlId(config.controlid_equipamentos) : null;
+  const gestao: GestaoEquipamentos | null = config.controlid_equipamentos?.length
+    ? new GestaoControlId(config.controlid_equipamentos)
+    : conectorToletus
+      ? new GestaoToletus(conectorToletus)
+      : null;
   const executor = new ExecutorComandos(cloud, gateway, gestao, { modelo: config.modelo_catraca });
   executor.iniciar();
 
@@ -93,6 +110,7 @@ async function main() {
   const encerrar = async () => {
     logger.info("Encerrando ARKE® Gateway Local...");
     executor.parar();
+    conectorToletus?.parar();
     await gateway.parar();
     process.exit(0);
   };
