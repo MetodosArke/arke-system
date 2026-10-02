@@ -7876,6 +7876,7 @@ export type Database = {
         }
         Returns: string
       }
+      planos_b2b_site: { Args: never; Returns: Json }
       pode_acessar_atestado: { Args: { _caminho: string }; Returns: boolean }
       pode_gravar_midia_exercicio: {
         Args: { _pasta: string }
