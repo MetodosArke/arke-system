@@ -1,3 +1,4 @@
+import { montarEntrada, type TrechoEntrada } from "./assistenteEntrada.ts";
 import { montarPedido, validarQuadro } from "./vigiaAnalise.ts";
 
 /**
@@ -210,4 +211,54 @@ export async function consultarVigia(env: Env, quadroBruto: unknown): Promise<Re
     tokensEntrada: uso?.inputTokens ?? null,
     tokensSaida: uso?.outputTokens ?? null,
   };
+}
+
+// ── Assistente da academia: dúvida de uso do painel, sem identificação ────
+//
+// Desde 03/10/2026 (decisão do responsável) o assistente da academia usa o
+// mesmo modelo do Vigia. O de São Paulo, o Claude 3 Haiku, acertou 2 de 10
+// perguntas típicas na avaliação e errou 2, e não há modelo moderno invocável
+// dentro da região. A pergunta da equipe passa a sair do Brasil, e por isso
+// sai sem identificação: a entrada é montada AQUI, por `montarEntrada`, que
+// tira CPF, e-mail, telefone e o nome de quem está na academia (alunos e
+// equipe). O resto da entrada já não tinha nome: trechos da Central de Ajuda
+// e a situação com "o aluno citado". Não existe caminho até o modelo que pule
+// a limpeza, e só a edge function do assistente usa esta porta. O Sentinela,
+// a leitura da dieta em PDF e a Letícia continuam em São Paulo.
+export const MODELO_ASSISTENTE = MODELO_VIGIA;
+
+export type RespostaAssistente =
+  | { ok: true; texto: string; entrada: string }
+  | { ok: false; indisponivel: true; motivo: string };
+
+export async function consultarAssistente(
+  env: Env,
+  dados: { sistema: string; pergunta: string; trechos: TrechoEntrada[]; situacao: string; nomes: string[] },
+): Promise<RespostaAssistente> {
+  const entrada = montarEntrada(dados.pergunta, dados.trechos, dados.situacao, dados.nomes);
+
+  const chaveId = env("BEDROCK_ACCESS_KEY_ID");
+  const segredo = env("BEDROCK_SECRET_ACCESS_KEY");
+  if (!chaveId || !segredo) return { ok: false, indisponivel: true, motivo: "sem credencial de IA configurada" };
+
+  const corpo = JSON.stringify({
+    system: [{ text: dados.sistema }],
+    messages: [{ role: "user", content: [{ text: entrada }] }],
+    inferenceConfig: { maxTokens: 400, temperature: 0.2 },
+  });
+  let resposta: Response;
+  try {
+    const { url, headers } = await assinar(["model", MODELO_ASSISTENTE, "converse"], corpo, chaveId, segredo);
+    resposta = await fetch(url, { method: "POST", headers, body: corpo, signal: AbortSignal.timeout(20_000) });
+  } catch {
+    return { ok: false, indisponivel: true, motivo: "falha de rede" };
+  }
+  if (!resposta.ok) {
+    console.error("assistente: modelo recusou", resposta.status, (resposta.headers.get("x-amzn-errortype") ?? "").split(":")[0]);
+    return { ok: false, indisponivel: true, motivo: `HTTP ${resposta.status}` };
+  }
+  const r = await resposta.json().catch(() => null);
+  const texto = r?.output?.message?.content?.[0]?.text;
+  if (typeof texto !== "string" || !texto.trim()) return { ok: false, indisponivel: true, motivo: "resposta vazia" };
+  return { ok: true, texto: texto.trim(), entrada };
 }

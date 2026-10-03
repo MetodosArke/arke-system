@@ -7,7 +7,7 @@ No alto desta Central de Ajuda fica o **assistente**. Escreva a dúvida como fal
   - **Catraca**: cada Gateway, se está no ar, quando sincronizou e se há acessos guardados. Gestão e recepção têm o botão **Sincronizar agora**.
   - **Um aluno**: escreva o nome no campo **É sobre um aluno?**. Aparecem a situação dele (em dia, pausado ou inadimplente), se ele entra no app e na catraca e se já entrou no app. Para gestão e recepção, aparece também a cobrança em aberto, com o link da fatura. Os botões abrem a ficha e copiam o link de ativação de quem nunca entrou.
   - **Configuração**: para a gestão, a etapa que falta na implantação.
-- **Uma resposta escrita**, quando a ArkeFit liga essa parte: um texto curto escrito por inteligência artificial a partir dos artigos, marcado como tal. Confira antes de agir.
+- **Uma resposta escrita**: um texto curto escrito por inteligência artificial a partir dos artigos e da situação, marcado como tal. Confira antes de agir. Para escrever, a sua pergunta vai a um modelo de inteligência artificial fora do Brasil, **sem CPF, e-mail, telefone e sem o nome de alunos e da equipe**, que o assistente tira antes do envio. O conteúdo não fica registrado na conta da ArkeFit no provedor. Não precisa pôr o nome do aluno na pergunta: use o campo **É sobre um aluno?**, que não vai ao modelo.
 
 Os botões fazem o mesmo que nas telas, com a sua permissão: quem não pode sincronizar a catraca na tela Catracas também não pode por aqui.
 

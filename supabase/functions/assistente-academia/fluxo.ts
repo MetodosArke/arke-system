@@ -3,6 +3,9 @@
 
 import type { Publico, Trecho } from "./indice.ts";
 
+// A limpeza do que vai ao modelo mora em `_shared`, junto da porta dele.
+export { montarEntrada, tirarContatos, tirarNomes } from "../_shared/assistenteEntrada.ts";
+
 // ── Busca ──────────────────────────────────────────────────────────────────
 
 const STOP = new Set(
@@ -147,8 +150,8 @@ function haQuanto(iso: string | null, agora: Date): string {
 
 /**
  * O que o modelo pode saber da situação, sem nome, e-mail, CPF ou id: o
- * aluno é "o aluno citado". O texto vai para a IA em São Paulo e serve só
- * para ela não contradizer o que a tela mostra.
+ * aluno é "o aluno citado". O texto vai ao modelo (fora do Brasil, desde
+ * 03/10/2026) e serve só para ele não contradizer o que a tela mostra.
  */
 export function resumoSituacao(ctx: Contexto, agora: Date): string {
   const linhas: string[] = [];
@@ -183,13 +186,6 @@ export function resumoSituacao(ctx: Contexto, agora: Date): string {
 
 // ── A IA ───────────────────────────────────────────────────────────────────
 
-export function tirarContatos(texto: string): string {
-  return texto
-    .replace(/[\w.+-]+@[\w-]+(?:\.[\w-]+)+/g, "[e-mail]")
-    .replace(/\b\d{3}\.?\d{3}\.?\d{3}-?\d{2}\b/g, "[CPF]")
-    .replace(/\+?\(?\d[\d\s().-]{7,}\d/g, "[telefone]");
-}
-
 export const SISTEMA_ASSISTENTE = `Você é o assistente do painel do ArkeFit, o sistema de gestão e retenção de alunos que academias e personal trainers usam. Quem pergunta é alguém da equipe da academia (gestão, recepção, professor ou nutricionista).
 
 Você recebe a pergunta, trechos da Central de Ajuda do ArkeFit e, às vezes, a situação do sistema na hora. Responda em português do Brasil, falando com a pessoa ("você"), em no máximo 3 frases curtas e práticas, dizendo o que fazer e em que tela. Responda só o que foi perguntado.
@@ -202,19 +198,6 @@ Regras, sem exceção:
 - A situação do sistema vale mais que a sua suposição: não contradiga o que ela diz.
 - Não dê orientação de treino, dieta, saúde, jurídica ou contábil. Não fale de preço.
 - Não use markdown, listas, títulos nem links. Só texto corrido.`;
-
-export function montarEntrada(pergunta: string, achados: Achado[], situacao: string): string {
-  const trechos = achados.length
-    ? achados.map((a, i) => `[${i + 1}] ${a.artigo}${a.secao ? ` — ${a.secao}` : ""}\n${a.texto}`).join("\n\n")
-    : "(nenhum trecho encontrado)";
-  return [
-    `PERGUNTA:\n${tirarContatos(pergunta).slice(0, 1000)}`,
-    `TRECHOS DA CENTRAL DE AJUDA:\n${trechos}`,
-    situacao ? `SITUAÇÃO DO SISTEMA AGORA:\n${situacao}` : "",
-  ]
-    .filter(Boolean)
-    .join("\n\n");
-}
 
 /**
  * A resposta da IA só vai para a tela se for texto corrido, sem link e sem

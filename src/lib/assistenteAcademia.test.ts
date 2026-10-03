@@ -14,6 +14,7 @@ import {
   raizes,
   resumoSituacao,
   tirarContatos,
+  tirarNomes,
 } from "../../supabase/functions/assistente-academia/fluxo";
 
 const CAMINHO = resolve(__dirname, "../../supabase/functions/assistente-academia/artigos.json");
@@ -124,7 +125,32 @@ describe("o que vai para a IA", () => {
   it("e-mail, CPF e telefone digitados na pergunta saem antes de ir ao modelo", () => {
     const t = tirarContatos("o aluno joao@exemplo.com, CPF 529.982.247-25, telefone (11) 98888-7777");
     expect(t).toBe("o aluno [e-mail], CPF [CPF], telefone [telefone]");
-    expect(montarEntrada("ligue 11 98888-7777", [], "")).toContain("[telefone]");
+    expect(montarEntrada("ligue 11 98888-7777", [], "", [])).toContain("[telefone]");
+  });
+
+  // Desde 03/10/2026 a pergunta vai a um modelo fora do Brasil: sai sem o nome
+  // de quem está na academia.
+  const NOMES = ["Bruna Teste Lucas", "José da Silva Rosa", "Ana Clara Dias", "Mário Gonçalves"];
+
+  it("o nome de aluno ou da equipe sai da pergunta, com ou sem acento e maiúscula", () => {
+    expect(tirarNomes("A Bruna Lucas não consegue entrar", NOMES)).toBe("A [nome] não consegue entrar");
+    expect(tirarNomes("o jose da silva não recebeu o e-mail", NOMES)).toBe("o [nome] não recebeu o e-mail");
+    expect(tirarNomes("O MARIO GONCALVES pagou ontem", NOMES)).toBe("O [nome] pagou ontem");
+    expect(tirarNomes("falei com a Ana Clara", NOMES)).toBe("falei com a [nome]");
+  });
+
+  it("palavra comum em minúscula fica, mesmo sendo sobrenome de alguém", () => {
+    expect(tirarNomes("há 5 dias a regra não está clara para a rosa dos ventos", NOMES)).toBe(
+      "há 5 dias a regra não está clara para a rosa dos ventos"
+    );
+    expect(tirarNomes("A Rosa pediu para pausar", NOMES)).toBe("A [nome] pediu para pausar");
+  });
+
+  it("sem lista, a pergunta fica como está; a entrada do modelo usa a lista", () => {
+    expect(tirarNomes("A Bruna não entra", [])).toBe("A Bruna não entra");
+    const e = montarEntrada("A Bruna Lucas (bruna@x.com) não entra", [], "", NOMES);
+    expect(e).toContain("PERGUNTA:\nA [nome] ([e-mail]) não entra");
+    expect(e).not.toMatch(/Bruna|Lucas|bruna@/);
   });
 
   it("a resposta só passa sem número inventado, sem link e sem marcação", () => {
