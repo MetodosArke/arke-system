@@ -815,7 +815,7 @@ function CadastrarAlunoDialog({
   const cadastrar = useMutation({
     mutationFn: async () => {
       if (problemaCpf) throw new Error(problemaCpf);
-      const { data, error } = await supabase.functions.invoke<{ user_id: string }>("convidar-membro", {
+      const { data, error } = await supabase.functions.invoke<{ user_id: string; conta_existente?: boolean; aviso?: string | null }>("convidar-membro", {
         body: {
           email: form.email,
           full_name: form.full_name,
@@ -831,6 +831,19 @@ function CadastrarAlunoDialog({
       return data;
     },
     onSuccess: (data) => {
+      if (data?.conta_existente) {
+        // Quem já tinha conta entra com a senha que usa: não há convite a reenviar.
+        toast({
+          title: "Aluno cadastrado",
+          description:
+            data.aviso ??
+            "O e-mail já tinha conta no ArkeFit e o CPF confere: a matrícula foi ligada a ela, e a pessoa recebeu um aviso por e-mail.",
+        });
+        setForm(CADASTRO_INICIAL);
+        onSuccess();
+        onOpenChange(false);
+        return;
+      }
       toast({ title: "Aluno cadastrado", description: "Um e-mail de convite foi enviado para definir a senha." });
       if (data?.user_id) {
         setRecemCriado({ user_id: data.user_id, full_name: form.full_name, telefone: form.telefone });

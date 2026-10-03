@@ -12,6 +12,15 @@ O aluno recebe um e-mail para criar a senha. Na mesma tela você pode mandar tam
 
 Para ativar muitos alunos de uma vez, use o convite único da academia, com QR Code. Veja [Convite de primeiro acesso e guia do aluno](ajuda:primeiro-acesso-aluno).
 
+## Quando o e-mail já tem conta no ArkeFit
+
+Quem já é aluno de outra academia que usa o ArkeFit tem conta. Nesse caso, o cadastro confere o CPF:
+
+- **CPF igual ao da conta**: a matrícula é ligada à conta que a pessoa já tem, e ela recebe um e-mail avisando. Ela entra com a mesma senha e escolhe a academia no alto da tela. O nome e o telefone que ela já usa não mudam.
+- **CPF diferente, ou conta sem CPF**: o cadastro é recusado. Confira o e-mail e o CPF; se estiverem certos, fale com a ArkeFit.
+
+A conferência existe para nenhuma academia ligar a si a conta de outra pessoa só por saber o e-mail dela. Vale também para a importação.
+
 ## A lista de alunos
 
 A lista mostra, para cada aluno, o plano (Free ou Método ARKE), a situação na academia, a assinatura, a fase da jornada e desde quando é aluno. Clique no nome para abrir a ficha completa. Em **Exportar** você baixa a lista em planilha.

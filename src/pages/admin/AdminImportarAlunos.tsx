@@ -292,7 +292,7 @@ export default function AdminImportarAlunos() {
     const problemaCpf = erroCpfObrigatorio(registro.cpf);
     if (problemaCpf) throw new Error(problemaCpf);
 
-    const { data, error } = await supabase.functions.invoke<{ user_id: string }>("convidar-membro", {
+    const { data, error } = await supabase.functions.invoke<{ user_id: string; conta_existente?: boolean; aviso?: string | null }>("convidar-membro", {
       body: {
         organization_id: organization?.id,
         email: registro.email,
@@ -317,6 +317,7 @@ export default function AdminImportarAlunos() {
     if (error) throw new Error(await mensagemDeErroEdge(error, "Não foi possível importar esta linha."));
 
     const avisos: string[] = [];
+    if (data?.conta_existente) avisos.push(data.aviso ?? "já tinha conta no ArkeFit: matrícula ligada a ela, com aviso por e-mail");
 
     const temHistorico = CAMPOS_AVALIACAO_FISICA.some((campo) => (registro[campo] ?? "").trim() !== "");
     if (data?.user_id && temHistorico && organization?.id) {
