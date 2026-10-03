@@ -15,7 +15,7 @@ Quem conecta é sempre o Gateway e a catraca: **não é preciso abrir porta na i
 - Computador Windows 10 ou 11, ligado o dia todo, com IP fixo na rede das catracas.
 - O **token do dispositivo**: o gestor cadastra a catraca em **Catracas → Novo dispositivo** e copia o token.
 - O modelo, o IP e a senha de administrador de cada catraca.
-- Marcas atendidas hoje: **Control iD** (modo online), **Topdata** (linha Inner com a ponte `ArkeInnerBridge`, e leitores faciais da linha Easy e da Fit 4 Facial) e **Toletus** (placas LiteNet2 e LiteNet3). Henry e Dimep são integradas na implantação do primeiro cliente de cada marca; o Gateway se recusa a subir com elas configuradas.
+- Marcas atendidas hoje: **Control iD** (modo online, também como leitor numa catraca de outra marca), **Topdata** (linha Inner com a ponte `ArkeInnerBridge`, e leitores faciais da linha Easy e da Fit 4 Facial), **Toletus** (placas LiteNet2 e LiteNet3) e **Intelbras** (terminais da linha Bio-T, no Modo Online). Henry e Dimep são integradas na implantação do primeiro cliente de cada marca; o Gateway se recusa a subir com elas configuradas.
 
 ## Instalação
 
@@ -143,7 +143,25 @@ O leitor facial se conecta ao Gateway, como a Control iD. Ele aparece em dois ti
 ]
 ```
 
-Ao conectar, o Gateway põe o leitor da linha Easy em **"só online"**: com o Gateway desligado, o leitor não libera ninguém. Ele também desliga no leitor a foto de cada acesso e a de desconhecido. A recepção cadastra o aluno nos leitores pela ficha, em **Acesso pela catraca**, e quem sai da academia é apagado de todos sozinho. O cadastro do rosto pelo ARKE chega com a autorização do rosto, que está em preparação.
+Ao conectar, o Gateway põe o leitor da linha Easy em **"só online"**: com o Gateway desligado, o leitor não libera ninguém. Ele também desliga no leitor a foto de cada acesso e a de desconhecido. A recepção cadastra o aluno nos leitores pela ficha, em **Acesso pela catraca**, e quem sai da academia é apagado de todos sozinho. O rosto entra pela câmera do leitor, pelo botão **Cadastrar rosto** da ficha, ou pela foto que o aluno manda no app, uma vez só.
+
+## Intelbras
+
+Os terminais da linha Bio-T (faciais SS 3530, SS 3540, SS 5530 e a geração nova; os de digital SS 3430 e SS 5430) chamam o Gateway a cada acesso, no **Modo Online**, na mesma porta **4571** da Control iD. Os SS 1530 e SS 1540 não têm o Modo Online.
+
+1. Deixe o IP do terminal fixo e anote o usuário e a senha da interface web dele.
+2. Na interface web do terminal, em **Publicidade → Feedback**, escolha **Personalizado**: é o que faz a mensagem do Gateway aparecer no display.
+3. No `config.json`, `"modelo_catraca": "intelbras"` e a lista dos terminais:
+
+```
+"intelbras_equipamentos": [
+  { "nome": "Catraca da entrada", "ip": "192.168.0.60", "senha": "SENHA DO TERMINAL" }
+]
+```
+
+Ao subir, o Gateway acerta a hora do terminal, aponta o servidor de eventos para este computador e liga o Modo Online sozinho. Ponha `"rosto": false` nos terminais de digital e `"canal": 2` se a catraca está no segundo relé.
+
+**Sem o Gateway, o terminal decide sozinho e libera quem está cadastrado nele.** Por isso o Gateway desativa no terminal quem a academia barrou e reativa quem volta. A saída passa sempre, sem consulta. A recepção cadastra e apaga o aluno pela ficha, e o rosto entra pela foto que o aluno manda no app; digital e cartão continuam no próprio terminal.
 
 ## Conferir antes de ir embora
 
@@ -158,6 +176,6 @@ Ao conectar, o Gateway põe o leitor da linha Easy em **"só online"**: com o Ga
 - `http://127.0.0.1:4570/status` mostra o estado, a versão, os acessos guardados e o último erro.
 - O ícone na bandeja: verde (no ar), amarelo (contingência), vermelho (sem nuvem e sem cadastro local).
 
-Ensaio sem catraca: `npm run emular:controlid` faz o papel da Control iD, e `npm run emular:toletus` o da placa Toletus, para testar rede, cadastro e liberação antes de o equipamento chegar.
+Ensaio sem catraca: `npm run emular:controlid` faz o papel da Control iD, `npm run emular:toletus` o da placa Toletus e `npm run emular:intelbras` o do terminal Intelbras, para testar rede, cadastro e liberação antes de o equipamento chegar.
 
 > Dúvida na instalação: fale com o suporte da ArkeFit antes de mexer na rede da academia.

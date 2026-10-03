@@ -36,6 +36,12 @@ export function criarDriver(config: Pick<GatewayConfig, "modelo_catraca" | "catr
     case "toletus":
       return new ReceptorDriver("toletus", "Toletus: o Gateway disca para as placas pelo conector TCP");
 
+    // Intelbras (linha Bio-T, Modo Online): o terminal faz POST no Gateway a
+    // cada acesso, na mesma porta de escuta da Control iD. A decisão mora
+    // em src/conectores/intelbras/receptor.ts; o driver fica inerte.
+    case "intelbras":
+      return new ReceptorDriver("intelbras", "Intelbras: os terminais chamam o Gateway no Modo Online");
+
     // Henry e Dimep: sem driver até a implantação do primeiro cliente de
     // cada marca. config.ts já recusa antes de chegar aqui; isto é só a
     // segunda trava, para quem montar o gateway por outro caminho.

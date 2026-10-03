@@ -2,9 +2,9 @@ import { TAMANHO_MAXIMO_FOTO, bytesDoDataUrl, dimensoesDaFoto, fotoGrandeOBastan
 
 /**
  * Prepara a foto do rosto no próprio aparelho, antes de qualquer envio:
- * reduz para caber em 480x640, regrava em JPEG e baixa a qualidade até o
- * arquivo caber em 150 KB. O original não sai do aparelho; o que sai é a
- * versão reduzida, que é a que os leitores pedem.
+ * reduz para caber em 480x640 (600x450 deitada), regrava em JPEG e baixa a
+ * qualidade até o arquivo caber em 100 KB. O original não sai do aparelho; o
+ * que sai é a versão reduzida, que é a que os leitores pedem.
  *
  * Só funciona no navegador (canvas). As contas ficam em `cadastroRosto.ts`,
  * onde os testes as conferem.

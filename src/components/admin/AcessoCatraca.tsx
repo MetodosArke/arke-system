@@ -413,6 +413,7 @@ export function AcessoCatraca({
           <p className="text-xs text-muted-foreground">
             <strong>Topdata com cartão:</strong> o número impresso no cartão. <strong>Toletus com cartão:</strong> o
             número que o leitor informa; passe o cartão na catraca e ele aparece em Catracas → Últimos acessos.{" "}
+            <strong>Intelbras com cartão:</strong> o número que o terminal informa, achado do mesmo jeito.{" "}
             <strong>Control iD</strong> (ou digital na Topdata e na Toletus): o número de usuário que o equipamento deu ao
             aluno no cadastro. Digital e rosto só com a autorização do aluno (app ou termo impresso); cartão, a qualquer momento.
             Com a Control iD configurada no Gateway Local, o cadastro passa a ser feito daqui, sem digitar número.

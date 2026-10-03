@@ -31,9 +31,10 @@ describe("cadastro do rosto", () => {
     expect(situacaoDoRosto({ ...base, tipo: "cadastrar_rosto", pendentes: 1 })?.texto).toBe("Cadastro pela câmera do leitor em andamento.");
   });
 
-  it("a foto cabe em 480x640 sem aumentar a pequena nem cortar", () => {
+  it("a foto cabe em 480x640 (em pé) e 600x450 (deitada) sem aumentar a pequena nem cortar", () => {
     expect(dimensoesDaFoto(3000, 4000)).toEqual({ largura: 480, altura: 640 });
-    expect(dimensoesDaFoto(4000, 3000)).toEqual({ largura: 640, altura: 480 });
+    // A Intelbras recusa largura acima de 600.
+    expect(dimensoesDaFoto(4000, 3000)).toEqual({ largura: 600, altura: 450 });
     expect(dimensoesDaFoto(1080, 1920)).toEqual({ largura: 360, altura: 640 });
     expect(dimensoesDaFoto(400, 500)).toEqual({ largura: 400, altura: 500 });
     expect(() => dimensoesDaFoto(0, 10)).toThrow();
