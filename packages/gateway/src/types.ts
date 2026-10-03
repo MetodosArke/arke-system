@@ -53,6 +53,17 @@ export interface GatewayConfig {
    */
   controlid_equipamentos?: EquipamentoControlId[];
   /**
+   * Como libera o equipamento Control iD que não está em
+   * `controlid_equipamentos` (academia com um equipamento só, sem gestão
+   * remota): catraca da Control iD, relé ou SecBox. Ver `liberacao` no
+   * equipamento.
+   */
+  controlid_liberacao?: "catraca" | "rele" | "secbox";
+  /** Sentido de entrada da catraca Control iD fora de `controlid_equipamentos`. */
+  controlid_sentido_entrada?: "clockwise" | "anticlockwise";
+  /** Relé que libera, no leitor fora de `controlid_equipamentos` que libera pelo relé. */
+  controlid_rele?: 1 | 2;
+  /**
    * Placas Toletus a que o Gateway se conecta. Na LiteNet2 quem disca é o
    * Gateway (a placa escuta na porta 7878); na LiteNet3 é a placa, depois
    * de o Gateway anunciar o endereço por UDP. Vazio com o modelo "toletus":
@@ -128,6 +139,15 @@ export interface EquipamentoControlId {
    * facial em catraca). Só nesses a ficha cadastra o rosto.
    */
   rosto?: boolean;
+  /**
+   * Como ele libera a passagem: "catraca" (iDBlock e iDBlock Next), "rele"
+   * (iDAccess, iDFit, iDBox, e o leitor que libera a catraca de outra marca
+   * pelo contato seco) ou "secbox" (iDFlex, iDAccess Pro, iDAccess Nano).
+   * O iDFace usa relé ou SecBox, conforme a instalação.
+   */
+  liberacao?: "catraca" | "rele" | "secbox";
+  /** Qual relé fecha, quando libera pelo relé. */
+  rele?: 1 | 2;
 }
 
 /** Ordens que a nuvem manda ao Gateway (ver catraca-comandos). */

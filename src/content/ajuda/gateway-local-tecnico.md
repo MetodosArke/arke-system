@@ -49,7 +49,7 @@ Quem conecta é sempre o Gateway e a catraca: **não é preciso abrir porta na i
 - `token_api_local`: o token do dispositivo, copiado em Catracas.
 - `modelo_catraca`: `controlid`, `topdata`, `topdata_facial` (linha Easy) ou `toletus`.
 - `tempo_timeout_ms`: deixe `1000`. Abaixo de 500 o Gateway cai em contingência quase sempre.
-- `controlid_equipamentos`: uma linha por Control iD. Com ela, a recepção cadastra aluno, digital e cartão pelo ARKE. O `nome` é o que a recepção vê para escolher o leitor. `sentido_entrada` é o lado da borboleta que é a entrada; confira girando.
+- `controlid_equipamentos`: uma linha por Control iD. Com ela, a recepção cadastra aluno, digital e cartão pelo ARKE. O `nome` é o que a recepção vê para escolher o leitor. `sentido_entrada` é o lado da borboleta que é a entrada; confira girando. `liberacao` diz como ele libera (abaixo). O Gateway reconhece cada equipamento pelo `ip`, então o IP tem de ser fixo.
 - `confirmacao_giro`: deixe `decisao`. Só use `catra_event` na iDBlock com o Monitor configurado (abaixo).
 
 **A senha do equipamento fica só neste arquivo**, no computador da academia. Para a nuvem vai apenas o nome de cada catraca.
@@ -59,6 +59,16 @@ Quem conecta é sempre o Gateway e a catraca: **não é preciso abrir porta na i
 1. No equipamento, ative o **modo online (Pro)**, com o servidor apontando para o IP do computador do Gateway e a porta **4571**.
 2. Libere a porta 4571 no firewall do Windows (entrada, rede privada).
 3. Só na iDBlock, para contar presença apenas quando a pessoa gira: configure o **Monitor** com o IP do Gateway, a porta 4571 e o caminho `api/notifications`, e troque `confirmacao_giro` para `catra_event`.
+
+### Leitor Control iD numa catraca de outra marca
+
+Cada modelo libera de um jeito. Diga qual em `"liberacao"`, no equipamento:
+
+- `catraca` (o padrão): iDBlock e iDBlock Next, que giram a própria borboleta.
+- `rele`: iDAccess, iDFit, iDBox, e o leitor ligado à catraca de outra marca pelo contato seco. Ponha também `"rele": 1` ou `2`, o relé que você ligou.
+- `secbox`: iDFlex, iDAccess Pro e iDAccess Nano, pelo módulo SecBox.
+
+O iDFace libera pelo relé ou pelo SecBox, conforme a ligação. Sem a lista de equipamentos (um leitor só, sem gestão remota), use `"controlid_liberacao"` e `"controlid_rele"` no começo do arquivo. O leitor não avisa o giro, e o Gateway não espera por ele: a presença conta na liberação.
 
 ## Topdata
 

@@ -1,4 +1,4 @@
-# ARKE® Gateway Local 1.3
+# ARKE® Gateway Local 1.4
 
 Programa Node.js/TypeScript que roda **no computador da recepção da academia**
 e liga a catraca física à plataforma ArkeFit no Supabase. Decide o acesso em
@@ -38,9 +38,9 @@ passagem ou o tempo esgotado.
 
 ## Equipamentos
 
-| Marca | Situação na 1.3 |
+| Marca | Situação na 1.4 |
 |---|---|
-| **Control iD** (modo Pro) | Decisão de acesso, confirmação de giro pelo Monitor (iDBlock), contingência, **gestão remota**: cadastro do aluno, da digital e do cartão pelo ARKE, cópia entre as catracas da academia, remoção e liberação remota. |
+| **Control iD** (modo Pro) | Decisão de acesso, confirmação de giro pelo Monitor (iDBlock), contingência, **gestão remota**: cadastro do aluno, da digital e do cartão pelo ARKE, cópia entre as catracas da academia, remoção e liberação remota. Desde a 1.4, **leitor numa catraca de outra marca**: cada equipamento libera do seu jeito (`liberacao`: catraca, relé ou SecBox), reconhecido pelo IP, e o leitor não espera giro. |
 | **Topdata** (Inner, via EasyInner.dll) | Decisão de acesso, giro, contingência e bilhetes, pela ponte `packages/ponte-topdata` — ver `docs/PONTE_TOPDATA.md`. Sem gestão remota: o cadastro no equipamento é feito nele. |
 | **Topdata facial** (leitores F4/T4; catracas Fit Easy, Revolution Easy e Box Easy; Fit 4 Facial) | Linha Easy (modelo `topdata_facial`): o leitor pergunta ao Gateway a cada rosto e libera com a resposta; o Gateway o põe em "só online" a cada conexão, então sem o Gateway ele nega. Sem confirmação de giro: a presença conta pela liberação. Fit 4 Facial (modelo `topdata`, com a ponte): o leitor só identifica e passa o número à placa Inner. Nos dois, cadastro e remoção do aluno em todos os leitores pelo ARKE, e abertura remota pela API HTTP do leitor. |
 | **Toletus** (placas LiteNet2 e LiteNet3) | Decisão de acesso, giro (passagem e tempo esgotado avisados pela placa), contingência e liberação remota, pelo protocolo aberto do fabricante. Sem a ArkeFit, a entrada controlada fica travada: a placa não guarda alunos. Sem cadastro remoto: as digitais ficam no leitor SM25, que tem protocolo próprio. A LiteNet3 com leitor de digital manda a imagem do dedo para o servidor comparar, o que o ARKE não faz: ali vale cartão, código ou teclado. |

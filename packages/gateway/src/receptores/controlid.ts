@@ -1,6 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import type { GatewayService } from "../core/gatewayService";
-import type { ConfirmacaoGiro, Giro } from "../types";
+import type { ConfirmacaoGiro, GatewayConfig, Giro } from "../types";
 import { logger } from "../logger";
 
 /**
@@ -33,14 +33,83 @@ const EVENTO = {
 
 export type SentidoGiro = "clockwise" | "anticlockwise" | "both";
 
+/**
+ * Como cada equipamento Control iD libera a passagem. A ação muda por
+ * modelo, conforme a documentação ("Abertura remota de porta e catraca" e
+ * "Eventos de identificação online"):
+ *   - "catraca": iDBlock e iDBlock Next giram a própria borboleta (`catra`,
+ *     com o sentido);
+ *   - "rele": iDAccess, iDFit e iDBox fecham o relé (`door`) — é como um
+ *     leitor Control iD libera a catraca de outra marca, pelo contato seco;
+ *   - "secbox": iDFlex, iDAccess Pro e iDAccess Nano acionam o módulo
+ *     externo SecBox (`sec_box`, id 65793).
+ * O iDFace não aparece em nenhuma das listas da documentação: aceita relé
+ * ou SecBox, conforme a instalação, e por isso o jeito é configuração.
+ */
+export type LiberacaoControlId = "catraca" | "rele" | "secbox";
+
+export interface ComoLiberar {
+  liberacao: LiberacaoControlId;
+  /** Sentido da borboleta que é a entrada — só vale na catraca da Control iD. */
+  sentidoEntrada: "clockwise" | "anticlockwise";
+  /** Qual relé fecha — só vale no "rele". */
+  rele: 1 | 2;
+}
+
+/** O identificador do módulo SecBox na documentação da Control iD. */
+export const SECBOX_ID = 65793;
+
+/**
+ * As ações que liberam a passagem naquele equipamento. `motivo` vai no
+ * SecBox (1 autorizado, 3 comando web), como a documentação pede; o sentido
+ * vale só na catraca (entrada é o comum; a liberação remota pode pedir a
+ * saída ou os dois).
+ */
+export function acoesDeLiberacao(
+  como: ComoLiberar,
+  opcoes: { motivo?: "acesso" | "remoto"; sentido?: SentidoGiro } = {}
+): { action: string; parameters: string }[] {
+  switch (como.liberacao) {
+    case "rele":
+      return [{ action: "door", parameters: `door=${como.rele}` }];
+    case "secbox":
+      return [{ action: "sec_box", parameters: `id=${SECBOX_ID}, reason=${opcoes.motivo === "remoto" ? 3 : 1}` }];
+    default:
+      return [{ action: "catra", parameters: `allow=${opcoes.sentido ?? como.sentidoEntrada}` }];
+  }
+}
+
+/** "::ffff:192.168.0.10" (IPv4 dentro de IPv6, como o Node às vezes entrega) vira "192.168.0.10". */
+export function ipDoEquipamento(ip: string | undefined): string {
+  return String(ip ?? "").replace(/^::ffff:/i, "").trim();
+}
+
+/**
+ * Quem é o equipamento que chamou, pelo IP: o listado em
+ * `controlid_equipamentos` com aquele IP leva a configuração dele; o
+ * resto, a padrão (`controlid_liberacao`, `controlid_sentido_entrada`,
+ * `controlid_rele`), que serve à academia com um equipamento só e sem
+ * gestão remota.
+ */
+export function resolverComoLiberar(config: Pick<GatewayConfig, "controlid_equipamentos" | "controlid_liberacao" | "controlid_sentido_entrada" | "controlid_rele">) {
+  const padrao: ComoLiberar = {
+    liberacao: config.controlid_liberacao ?? "catraca",
+    sentidoEntrada: config.controlid_sentido_entrada ?? "clockwise",
+    rele: config.controlid_rele ?? 1,
+  };
+  return (ip: string | undefined): ComoLiberar => {
+    const eq = (config.controlid_equipamentos ?? []).find((e) => ipDoEquipamento(e.ip) === ipDoEquipamento(ip));
+    if (!eq) return padrao;
+    return { liberacao: eq.liberacao ?? "catraca", sentidoEntrada: eq.sentido_entrada, rele: eq.rele ?? 1 };
+  };
+}
+
 export interface OpcoesReceptorControlId {
   /**
-   * Sentido em que a borboleta libera. Depende de como a catraca foi
-   * montada fisicamente (qual lado é a entrada), então é configuração de
-   * instalação — e é um dos itens que só a bancada com equipamento
-   * confirma de verdade.
+   * Como liberar, por equipamento (pelo IP de quem chamou). Sem isto, todo
+   * equipamento é catraca Control iD com entrada no sentido horário.
    */
-  sentidoGiro?: SentidoGiro;
+  comoLiberar?: (ip: string | undefined) => ComoLiberar;
   portalId?: number;
   /** Ver GatewayConfig.confirmacao_giro. */
   confirmacaoGiro?: ConfirmacaoGiro;
@@ -86,6 +155,7 @@ type RespostaControlId = {
 function respostaLiberado(
   userId: number | undefined,
   nome: string | undefined,
+  como: ComoLiberar,
   opcoes: Required<OpcoesReceptorControlId>
 ): RespostaControlId {
   return {
@@ -95,7 +165,7 @@ function respostaLiberado(
       user_name: nome,
       user_image: false,
       portal_id: opcoes.portalId,
-      actions: [{ action: "catra", parameters: `allow=${opcoes.sentidoGiro}` }],
+      actions: acoesDeLiberacao(como),
     },
   };
 }
@@ -131,12 +201,15 @@ export function registrarReceptorControlId(
   opcoes: OpcoesReceptorControlId = {}
 ): void {
   const cfg: Required<OpcoesReceptorControlId> = {
-    sentidoGiro: opcoes.sentidoGiro ?? "clockwise",
+    comoLiberar: opcoes.comoLiberar ?? (() => ({ liberacao: "catraca", sentidoEntrada: "clockwise", rele: 1 })),
     portalId: opcoes.portalId ?? 1,
     confirmacaoGiro: opcoes.confirmacaoGiro ?? "decisao",
     timeoutGiroMs: opcoes.timeoutGiroMs ?? 30_000,
   };
-  const aguardarGiro = cfg.confirmacaoGiro === "catra_event";
+  // O catra_event só existe na catraca da Control iD. Leitor que libera a
+  // catraca de outra marca, pelo relé ou pelo SecBox, não avisa giro
+  // nenhum: esperar por ele só atrasaria a presença até o prazo.
+  const esperaGiro = (como: ComoLiberar) => cfg.confirmacaoGiro === "catra_event" && como.liberacao === "catraca";
 
   // Acessos liberados esperando o giro, por `device_id:uuid`.
   const pendentes = new Map<string, GiroPendente>();
@@ -180,6 +253,8 @@ export function registrarReceptorControlId(
     const corpo = (req.body ?? {}) as Record<string, string>;
     const userId = corpo.user_id;
     gateway.equipamentos.controlIdVisto(corpo.device_id);
+    const como = cfg.comoLiberar(req.ip);
+    const aguardarGiro = esperaGiro(como);
 
     if (!userId || userId === "0") {
       logger.warn({ corpo }, "Catraca enviou identificação sem user_id");
@@ -192,7 +267,7 @@ export function registrarReceptorControlId(
     );
 
     logger.info(
-      { userId, liberado: resultado.liberado, offline: resultado.validadoOffline },
+      { userId, liberado: resultado.liberado, offline: resultado.validadoOffline, liberacao: como.liberacao },
       "Decisão de acesso devolvida à catraca"
     );
 
@@ -217,7 +292,7 @@ export function registrarReceptorControlId(
     }
 
     return resultado.liberado
-      ? respostaLiberado(Number(userId), resultado.nomeAluno, cfg)
+      ? respostaLiberado(Number(userId), resultado.nomeAluno, como, cfg)
       : respostaNegado(Number(userId), resultado.nomeAluno, true, cfg);
   });
 

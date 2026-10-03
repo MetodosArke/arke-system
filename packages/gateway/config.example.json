@@ -16,7 +16,18 @@
       "porta": 80,
       "usuario": "admin",
       "senha": "SENHA_DO_EQUIPAMENTO",
-      "sentido_entrada": "clockwise"
+      "sentido_entrada": "clockwise",
+      "liberacao": "catraca"
+    },
+    {
+      "nome": "Leitor na catraca antiga",
+      "ip": "192.168.0.51",
+      "porta": 80,
+      "usuario": "admin",
+      "senha": "SENHA_DO_EQUIPAMENTO",
+      "sentido_entrada": "clockwise",
+      "liberacao": "rele",
+      "rele": 1
     }
   ]
 }

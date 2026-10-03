@@ -178,13 +178,17 @@ if (args.servir) {
     console.error(`Resposta inesperada do Gateway (HTTP ${id.status}): ${id.texto.slice(0, 200)}`);
     process.exit(1);
   }
-  const liberado = res.event === 7 && (res.actions ?? []).some((a) => a.action === "catra");
+  // Catraca Control iD gira (catra); leitor numa catraca de outra marca
+  // fecha o relé (door) ou aciona o SecBox (sec_box).
+  const liberado = res.event === 7 && (res.actions ?? []).some((a) => ["catra", "door", "sec_box"].includes(a.action));
+  const ehCatraca = (res.actions ?? []).some((a) => a.action === "catra");
   console.log(`  → ${liberado ? "LIBERADO" : "NEGADO"} em ${ms} ms  (event ${res.event}${res.user_name ? `, ${res.user_name}` : ""})`);
   if (liberado) console.log(`    ação: ${res.actions.map((a) => `${a.action} ${a.parameters}`).join("; ")}`);
   if (ms > 1000) console.log("    atenção: acima de 1 s, a fila na catraca em horário de pico sente.");
 
   const giro = args.giro ?? "esquerda";
-  if (!liberado || giro === "nada") process.exit(0);
+  // Só a catraca da Control iD avisa o giro; o leitor não manda nada.
+  if (!liberado || !ehCatraca || giro === "nada") process.exit(0);
   if (!GIROS[giro]) { console.error(`--giro inválido: ${giro}`); process.exit(2); }
 
   await new Promise((r) => setTimeout(r, Number(args.espera ?? 1500)));
