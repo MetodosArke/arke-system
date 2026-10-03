@@ -82,7 +82,11 @@ Deno.serve(async (req: Request) => {
       console.error("Error loading caller roles", callerRolesError);
       return jsonResponse({ error: "Erro ao validar permissões." }, 500);
     }
-    const callerIsAdminArke = verificada(claimsData?.claims) && (callerRoles ?? []).some((r) => r.role === "admin_arke");
+    // A ArkeFit gera para qualquer conta com vínculo: o papel antigo (Admin
+    // ARKE) e o Super Admin, que cuida dos profissionais autônomos na Visão
+    // Master. Os dois só valem com a verificação em duas etapas.
+    const callerIsAdminArke =
+      verificada(claimsData?.claims) && (callerRoles ?? []).some((r) => r.role === "admin_arke" || r.role === "superadmin");
 
     // Listas, não .maybeSingle(): tanto o alvo quanto o chamador podem ter
     // vínculo ativo em mais de uma academia, e nesse caso a consulta

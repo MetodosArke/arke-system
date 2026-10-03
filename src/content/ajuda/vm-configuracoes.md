@@ -16,7 +16,7 @@ Em [Acervo Global](/superadmin/acervo), a ArkeFit mantém os exercícios que tod
 
 ## Profissionais
 
-Em [Profissionais](/superadmin/profissionais), os personal trainers e nutricionistas **autônomos**, convidados diretamente pela ArkeFit, com a carteira própria de alunos.
+Em [Profissionais](/superadmin/profissionais), os personal trainers e nutricionistas **autônomos**, cada um com o próprio painel. O passo a passo está em [Profissionais autônomos](ajuda:vm-profissionais).
 
 ## Auditoria
 
