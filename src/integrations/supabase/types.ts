@@ -39,6 +39,48 @@ export type Database = {
   }
   public: {
     Tables: {
+      academia_evasao_anterior: {
+        Row: {
+          alunos_inicio: number
+          informado_em: string
+          informado_por: string | null
+          mes: string
+          organization_id: string
+          saidas: number
+        }
+        Insert: {
+          alunos_inicio: number
+          informado_em?: string
+          informado_por?: string | null
+          mes: string
+          organization_id: string
+          saidas: number
+        }
+        Update: {
+          alunos_inicio?: number
+          informado_em?: string
+          informado_por?: string | null
+          mes?: string
+          organization_id?: string
+          saidas?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "academia_evasao_anterior_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "org_churn_metrics"
+            referencedColumns: ["organization_id"]
+          },
+          {
+            foreignKeyName: "academia_evasao_anterior_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       aceites_documentos: {
         Row: {
           aceito_em: string
@@ -3121,6 +3163,168 @@ export type Database = {
         }
         Relationships: []
       }
+      implantacao: {
+        Row: {
+          asaas_conferido_em: string | null
+          concluida_em: string | null
+          etapa_atual: string | null
+          etapa_atual_desde: string | null
+          iniciada_em: string
+          organization_id: string
+          updated_at: string
+        }
+        Insert: {
+          asaas_conferido_em?: string | null
+          concluida_em?: string | null
+          etapa_atual?: string | null
+          etapa_atual_desde?: string | null
+          iniciada_em?: string
+          organization_id: string
+          updated_at?: string
+        }
+        Update: {
+          asaas_conferido_em?: string | null
+          concluida_em?: string | null
+          etapa_atual?: string | null
+          etapa_atual_desde?: string | null
+          iniciada_em?: string
+          organization_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "implantacao_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: true
+            referencedRelation: "org_churn_metrics"
+            referencedColumns: ["organization_id"]
+          },
+          {
+            foreignKeyName: "implantacao_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: true
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      implantacao_chamados: {
+        Row: {
+          aberto_em: string
+          acao: string | null
+          concluido_em: string | null
+          desfecho: string | null
+          etapa: string
+          id: string
+          motivo: string
+          organization_id: string
+          prazo: string
+          proxima_checagem: string | null
+          responsavel_id: string | null
+        }
+        Insert: {
+          aberto_em?: string
+          acao?: string | null
+          concluido_em?: string | null
+          desfecho?: string | null
+          etapa: string
+          id?: string
+          motivo: string
+          organization_id: string
+          prazo: string
+          proxima_checagem?: string | null
+          responsavel_id?: string | null
+        }
+        Update: {
+          aberto_em?: string
+          acao?: string | null
+          concluido_em?: string | null
+          desfecho?: string | null
+          etapa?: string
+          id?: string
+          motivo?: string
+          organization_id?: string
+          prazo?: string
+          proxima_checagem?: string | null
+          responsavel_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "implantacao_chamados_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "org_churn_metrics"
+            referencedColumns: ["organization_id"]
+          },
+          {
+            foreignKeyName: "implantacao_chamados_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      implantacao_mensagens: {
+        Row: {
+          chave: string
+          criado_em: string
+          destinatarios: number | null
+          enviado_em: string | null
+          erro: string | null
+          etapa: string | null
+          id: string
+          motivo: string
+          organization_id: string
+          resend_id: string | null
+          status: string
+          tipo: string
+        }
+        Insert: {
+          chave: string
+          criado_em?: string
+          destinatarios?: number | null
+          enviado_em?: string | null
+          erro?: string | null
+          etapa?: string | null
+          id?: string
+          motivo: string
+          organization_id: string
+          resend_id?: string | null
+          status?: string
+          tipo: string
+        }
+        Update: {
+          chave?: string
+          criado_em?: string
+          destinatarios?: number | null
+          enviado_em?: string | null
+          erro?: string | null
+          etapa?: string | null
+          id?: string
+          motivo?: string
+          organization_id?: string
+          resend_id?: string | null
+          status?: string
+          tipo?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "implantacao_mensagens_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "org_churn_metrics"
+            referencedColumns: ["organization_id"]
+          },
+          {
+            foreignKeyName: "implantacao_mensagens_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       importacoes_alunos: {
         Row: {
           arquivo_nome: string | null
@@ -4853,8 +5057,6 @@ export type Database = {
           onboarding_completed: boolean
           onboarding_concluido_em: string | null
           onboarding_equipe_dispensada: boolean
-          onboarding_lembrete_em: string | null
-          onboarding_lembretes: number
           plano_b2b: Database["public"]["Enums"]["plano_b2b"]
           razao_social: string | null
           repasse_tipo: string
@@ -4903,8 +5105,6 @@ export type Database = {
           onboarding_completed?: boolean
           onboarding_concluido_em?: string | null
           onboarding_equipe_dispensada?: boolean
-          onboarding_lembrete_em?: string | null
-          onboarding_lembretes?: number
           plano_b2b?: Database["public"]["Enums"]["plano_b2b"]
           razao_social?: string | null
           repasse_tipo?: string
@@ -4953,8 +5153,6 @@ export type Database = {
           onboarding_completed?: boolean
           onboarding_concluido_em?: string | null
           onboarding_equipe_dispensada?: boolean
-          onboarding_lembrete_em?: string | null
-          onboarding_lembretes?: number
           plano_b2b?: Database["public"]["Enums"]["plano_b2b"]
           razao_social?: string | null
           repasse_tipo?: string
@@ -6715,6 +6913,10 @@ export type Database = {
       }
     }
     Functions: {
+      abrir_chamado_implantacao: {
+        Args: { _etapa: string; _motivo: string; _organization_id: string }
+        Returns: string
+      }
       abrir_tarefa_avulsa_atrasada: {
         Args: { _cobranca_id: string }
         Returns: undefined
@@ -6973,6 +7175,15 @@ export type Database = {
           segundos_restantes: number
         }[]
       }
+      concluir_chamado_implantacao: {
+        Args: {
+          _acao: string
+          _chamado_id: string
+          _desfecho: string
+          _proxima_checagem?: string
+        }
+        Returns: undefined
+      }
       concluir_comando_gateway: {
         Args: {
           _catraca_id: string
@@ -6996,6 +7207,19 @@ export type Database = {
         }
         Returns: undefined
       }
+      concluir_mensagem_implantacao: {
+        Args: {
+          _agora?: string
+          _chave: string
+          _destinatarios: number
+          _erro: string
+          _ok: boolean
+          _organization_id: string
+          _resend_id: string
+          _tipo: string
+        }
+        Returns: undefined
+      }
       concluir_onboarding_organizacao: {
         Args: { _organization_id: string }
         Returns: boolean
@@ -7013,10 +7237,6 @@ export type Database = {
         Returns: boolean
       }
       conferir_token_briefing: { Args: { _token: string }; Returns: boolean }
-      conferir_token_lembrete_onboarding: {
-        Args: { _token: string }
-        Returns: boolean
-      }
       conferir_token_reconciliacao: {
         Args: { _token: string }
         Returns: boolean
@@ -7042,6 +7262,10 @@ export type Database = {
       }
       definir_agente_comercial: {
         Args: { _agenda_url: string; _ativo: boolean }
+        Returns: undefined
+      }
+      definir_agente_implantacao: {
+        Args: { _ativo: boolean }
         Returns: undefined
       }
       definir_metas_aluno_metodo: {
@@ -7335,6 +7559,10 @@ export type Database = {
           titulo: string
         }[]
       }
+      get_implantacao_organizacao: {
+        Args: { _organization_id: string }
+        Returns: Json
+      }
       get_jornada_aluno: {
         Args: { _aluno_id: string }
         Returns: {
@@ -7560,6 +7788,25 @@ export type Database = {
           trials_vencidos: number
         }[]
       }
+      get_superadmin_implantacoes: {
+        Args: never
+        Returns: {
+          asaas_conta_status: string
+          chamado: Json
+          concluida_em: string
+          etapa_atual: string
+          etapa_atual_desde: string
+          etapas_feitas: number
+          etapas_total: number
+          evasao_meses: number
+          iniciada_em: string
+          nome: string
+          organization_id: string
+          status: string
+          tipo: string
+          ultima_mensagem: Json
+        }[]
+      }
       get_superadmin_organizacao_atividade: {
         Args: { _organization_id: string }
         Returns: {
@@ -7724,6 +7971,39 @@ export type Database = {
         Args: { _ate: string; _de: string }
         Returns: number
       }
+      implantacao_etapas: {
+        Args: { _organization_id: string }
+        Returns: {
+          concluida: boolean
+          detalhe: string
+          etapa: string
+          ordem: number
+          principal: boolean
+        }[]
+      }
+      implantacoes_para_agente: {
+        Args: never
+        Returns: {
+          asaas_conferido_em: string
+          asaas_conta_origem: string
+          asaas_conta_status: string
+          chamados: Json
+          concluida_em: string
+          emails: string[]
+          etapa_atual: string
+          etapa_atual_desde: string
+          etapas: Json
+          evasao_fim: string
+          evasao_inicio: string
+          iniciada_em: string
+          mensagens: Json
+          nome: string
+          organization_id: string
+          slug: string
+          status: string
+          tipo: string
+        }[]
+      }
       iniciar_trial_metodo_arke: {
         Args: {
           _aluno_id: string
@@ -7770,6 +8050,13 @@ export type Database = {
       is_org_staff: {
         Args: { _organization_id: string; _user_id: string }
         Returns: boolean
+      }
+      janela_evasao_anterior: {
+        Args: { _organization_id: string }
+        Returns: {
+          fim: string
+          inicio: string
+        }[]
       }
       leads_para_agente_comercial: {
         Args: { _limite?: number }
@@ -7819,6 +8106,10 @@ export type Database = {
       }
       marca_academia: { Args: { _slug: string }; Returns: Json }
       marca_do_usuario: { Args: { _user_id: string }; Returns: Json }
+      marcar_implantacao_concluida: {
+        Args: { _organization_id: string }
+        Returns: undefined
+      }
       marcar_lancamentos_atrasados: { Args: never; Returns: undefined }
       matricula_publica_org_permitida: {
         Args: { _organization_id: string }
@@ -7951,16 +8242,6 @@ export type Database = {
         Args: { _organization_id: string }
         Returns: boolean
       }
-      organizacoes_onboarding_parado: {
-        Args: never
-        Returns: {
-          email: string
-          lembretes: number
-          nome: string
-          organization_id: string
-          pendentes: string
-        }[]
-      }
       organizacoes_para_briefing: {
         Args: never
         Returns: {
@@ -8040,8 +8321,16 @@ export type Database = {
         }
         Returns: undefined
       }
+      registrar_conferencia_asaas_implantacao: {
+        Args: { _organization_id: string; _status: string }
+        Returns: undefined
+      }
       registrar_consentimento_biometria_termo: {
         Args: { _aluno_id: string; _termo_arquivo: string }
+        Returns: string
+      }
+      registrar_etapa_implantacao: {
+        Args: { _agora?: string; _etapa: string; _organization_id: string }
         Returns: string
       }
       registrar_execucao_agendada: {
@@ -8050,10 +8339,6 @@ export type Database = {
       }
       registrar_falha_encerramento: {
         Args: { _encerramento_id: string; _erro: string }
-        Returns: undefined
-      }
-      registrar_lembrete_onboarding: {
-        Args: { _organization_id: string }
         Returns: undefined
       }
       registrar_presenca_qr: {
@@ -8085,6 +8370,17 @@ export type Database = {
       reservar_mensagem_agente_comercial: {
         Args: { _etapa: string; _lead_id: string }
         Returns: string
+      }
+      reservar_mensagem_implantacao: {
+        Args: {
+          _agora?: string
+          _chave: string
+          _etapa: string
+          _motivo: string
+          _organization_id: string
+          _tipo: string
+        }
+        Returns: boolean
       }
       retirar_encerramento_organizacao: {
         Args: { _organization_id: string }
@@ -8126,6 +8422,10 @@ export type Database = {
           _user_id: string
         }
         Returns: undefined
+      }
+      salvar_evasao_anterior: {
+        Args: { _meses: Json; _organization_id: string }
+        Returns: number
       }
       sentinela_taxa_de_aceite: {
         Args: { _dias?: number }

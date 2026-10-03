@@ -1,6 +1,8 @@
 import { hojeBrasilia } from "@/lib/dataBrasilia";
 import { useMemo, useState } from "react";
 import { useOnboardingAcademia } from "@/hooks/useOnboardingAcademia";
+import { useImplantacaoAcademia } from "@/hooks/useImplantacaoAcademia";
+import { tituloEtapa } from "@/lib/implantacao";
 import { ETAPAS } from "@/lib/onboardingAcademia";
 import { Progress } from "@/components/ui/progress";
 import { useNavigate } from "react-router-dom";
@@ -92,9 +94,41 @@ function AtalhoButton({
   );
 }
 
-// Checklist fixo do onboarding (Rodada 4): percentual, próximo passo e tempo
-// estimado, em qualquer uma das Homes, até a academia concluir. Para quem não
-// é gestor, só avisa — quem conclui é o gestor.
+// A implantação em qualquer uma das Homes, até a primeira entrada: quanto já
+// foi e o próximo passo. Antes da liberação, com o tempo estimado da
+// configuração (Rodada 4). Para quem não é gestor, só avisa — quem conclui é o
+// gestor. Depois da primeira entrada o cartão sai: o kit fica no painel da
+// implantação e chega por e-mail.
+function ChecklistImplantacao() {
+  const navigate = useNavigate();
+  const { organization } = useAuth();
+  const imp = useImplantacaoAcademia();
+  if (imp.isLoading || !imp.implantacao) return organization && !organization.onboardingCompleted ? <ChecklistOnboarding /> : null;
+  if (!imp.proxima || imp.proxima.etapa === "lancamento") return null;
+  if (!organization?.onboardingCompleted) return <ChecklistOnboarding />;
+  return (
+    <button
+      type="button"
+      onClick={() => navigate("/admin/onboarding")}
+      className="w-full rounded-lg border border-primary/30 bg-primary/5 px-4 py-3 text-left transition-colors hover:bg-primary/10 space-y-2"
+    >
+      <span className="flex items-center gap-3">
+        <Rocket className="h-4 w-4 text-primary shrink-0" />
+        <span className="flex-1 text-sm">
+          <span className="font-medium">
+            Implantação: {imp.feitas} de {imp.total} etapas
+          </span>{" "}
+          <span className="text-muted-foreground">Próximo passo: {tituloEtapa(imp.proxima.etapa)}.</span>
+        </span>
+      </span>
+      <Progress value={imp.percentual} className="h-1.5" />
+      <span className="block text-xs text-muted-foreground">{imp.proxima.detalhe}</span>
+    </button>
+  );
+}
+
+// Checklist da configuração (Rodada 4): percentual, próximo passo e tempo
+// estimado, até a academia concluir.
 function ChecklistOnboarding() {
   const navigate = useNavigate();
   const { percentual, proxima, minutos, isLoading } = useOnboardingAcademia();
@@ -144,7 +178,7 @@ export default function DashboardHome() {
         <h1 className="text-xl font-bold">Início</h1>
       </div>
 
-      {organization && !organization.onboardingCompleted && <ChecklistOnboarding />}
+      {organization && <ChecklistImplantacao />}
 
       {visao === "gestor_academia" && <VisaoGestorAcademia />}
       {visao === "gestor_studio" && <VisaoGestorStudio />}

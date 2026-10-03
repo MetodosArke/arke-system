@@ -19,18 +19,27 @@ import { EtapaAlunos } from "@/components/admin/onboarding/EtapaAlunos";
 import { EtapaContrato } from "@/components/admin/onboarding/EtapaContrato";
 import { ParceriaAutonomo } from "@/components/admin/ParceriaAutonomo";
 import { SuporteBotao } from "@/components/admin/onboarding/SuporteBotao";
+import { AssistenteImplantacao, EvasaoAnterior, Lancamento, PrimeiraEntrada } from "@/components/admin/onboarding/PosConfiguracao";
+import { chaveImplantacao, useImplantacaoAcademia } from "@/hooks/useImplantacaoAcademia";
+import { tituloEtapa as nomeDaEtapa } from "@/lib/implantacao";
 
 /**
- * Onboarding da academia em etapas (Rodada 4). Cada etapa pode ser feita em
- * qualquer ordem e retomada depois; o que está pronto é lido do banco. O painel
+ * A implantação da academia, do primeiro acesso à primeira entrada.
+ *
+ * As seis etapas da configuração (Rodada 4) podem ser feitas em qualquer
+ * ordem e retomadas depois; o que está pronto é lido do banco. O painel
  * funciona desde o primeiro dia (decisão D5), mas alunos no app e cobranças só
  * começam quando o gestor conclui — e aí nasce a mensalidade B2B no Asaas.
+ * Depois vêm a primeira entrada e o lançamento, com o kit para chamar todos os
+ * alunos (semana 2 do plano dos agentes, 03/10/2026): o assistente de
+ * implantação acompanha tudo de hora em hora e manda o próximo passo.
  */
 export default function AdminOnboarding() {
   const { organization, organizationRole, hasRole, refreshOrganization } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { status, percentual, proxima, minutos, tudoPronto, isLoading } = useOnboardingAcademia();
+  const imp = useImplantacaoAcademia();
   const [aberta, setAberta] = useState<EtapaOnboarding | null>(null);
   const podeEditar = organizationRole === "gestor" || hasRole("admin_arke") || hasRole("superadmin");
   const concluido = !!organization?.onboardingCompleted;
@@ -44,7 +53,10 @@ export default function AdminOnboarding() {
     if (aberta === null && proxima) setAberta(proxima);
   }, [proxima, aberta]);
 
-  const recarregar = () => void queryClient.invalidateQueries({ queryKey: ["onboarding-academia", organization?.id] });
+  const recarregar = () => {
+    void queryClient.invalidateQueries({ queryKey: ["onboarding-academia", organization?.id] });
+    void queryClient.invalidateQueries({ queryKey: chaveImplantacao(organization?.id) });
+  };
 
   const concluir = useMutation({
     mutationFn: async () => {
@@ -89,8 +101,31 @@ export default function AdminOnboarding() {
     <div className="space-y-4 max-w-2xl mx-auto pb-16">
       <div className="flex items-center gap-2">
         <Rocket className="h-5 w-5 text-primary" />
-        <h1 className="text-xl font-bold">{autonomo ? "Configuração do seu painel" : "Configuração da academia"}</h1>
+        <h1 className="text-xl font-bold">{autonomo ? "Implantação do seu painel" : "Implantação da academia"}</h1>
       </div>
+
+      {imp.implantacao && (
+        <Card>
+          <CardContent className="py-4 space-y-2">
+            <div className="flex items-center justify-between text-sm gap-2">
+              <span className="font-medium">
+                {imp.feitas} de {imp.total} etapas da implantação
+              </span>
+              {imp.proxima && <span className="text-xs text-muted-foreground">Próximo passo: {nomeDaEtapa(imp.proxima.etapa)}</span>}
+            </div>
+            <Progress value={imp.percentual} />
+            <p className="text-xs text-muted-foreground">
+              {imp.implantacao.concluida_em
+                ? "Implantação concluída. Você pode voltar a qualquer etapa para ajustar."
+                : autonomo
+                  ? "Da configuração ao primeiro aluno no app. Os alunos entram no app quando a configuração estiver pronta."
+                  : "Da configuração à primeira entrada de um aluno. Os alunos entram no app quando a configuração estiver pronta, e o kit para chamar todos sai depois da primeira entrada."}
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
+      <h2 className="text-sm font-semibold text-muted-foreground pt-1">Configuração</h2>
 
       {concluido ? (
         <Card className="border-emerald-500/40 bg-emerald-500/5">
@@ -106,7 +141,7 @@ export default function AdminOnboarding() {
         <Card>
           <CardContent className="py-4 space-y-2">
             <div className="flex items-center justify-between text-sm">
-              <span className="font-medium">{percentual}% concluído</span>
+              <span className="font-medium">Configuração: {percentual}% concluída</span>
               {minutos > 0 && (
                 <span className="text-xs text-muted-foreground flex items-center gap-1">
                   <Clock className="h-3.5 w-3.5" /> cerca de {minutos} min para terminar
@@ -167,9 +202,22 @@ export default function AdminOnboarding() {
       </ol>
 
       {!concluido && podeEditar && (
-        <Button className="w-full" size="lg" disabled={!tudoPronto || concluir.isPending} onClick={() => concluir.mutate()}>
-          {concluir.isPending ? "Liberando..." : tudoPronto ? "Concluir e liberar o app para os alunos" : "Conclua as etapas para liberar"}
-        </Button>
+        <div className="space-y-1">
+          <p className="text-sm font-medium">7. Liberar o app</p>
+          <Button className="w-full" size="lg" disabled={!tudoPronto || concluir.isPending} onClick={() => concluir.mutate()}>
+            {concluir.isPending ? "Liberando..." : tudoPronto ? "Concluir e liberar o app para os alunos" : "Conclua as etapas para liberar"}
+          </Button>
+        </div>
+      )}
+
+      {imp.implantacao && (
+        <>
+          <h2 className="text-sm font-semibold text-muted-foreground pt-2">Depois da configuração</h2>
+          <PrimeiraEntrada etapas={imp.etapas} autonomo={autonomo} />
+          <Lancamento implantacao={imp.implantacao} autonomo={autonomo} />
+          <EvasaoAnterior implantacao={imp.implantacao} podeEditar={podeEditar} />
+          <AssistenteImplantacao implantacao={imp.implantacao} />
+        </>
       )}
     </div>
   );
