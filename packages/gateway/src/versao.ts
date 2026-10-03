@@ -4,4 +4,4 @@
  * Gateway desatualizado — então precisa bater com o package.json, e o teste
  * `versao.test.ts` confere isso.
  */
-export const VERSAO_GATEWAY = "1.2.0";
+export const VERSAO_GATEWAY = "1.3.0";

@@ -88,6 +88,32 @@ export class ApiHttpFacial {
   }
 
   /**
+   * Rosto pela câmera do leitor: `adduser` abre a tela de cadastro no
+   * próprio leitor, e `checkregstatus` diz como foi (0 em andamento, 1
+   * sucesso, -1 cancelado, outro valor falha). A imagem de pré-visualização
+   * que o checkregstatus pode trazer é ignorada.
+   */
+  async cadastrarRosto(enrollid: number, timeoutMs: number, intervaloMs = 1_000): Promise<void> {
+    await this.chamar("adduser", { enrollid, name: "Aluno", admin: 0, backupnum: 50, flag: 0 });
+    const fim = Date.now() + timeoutMs;
+    try {
+      for (;;) {
+        await new Promise((r) => setTimeout(r, intervaloMs));
+        const r = await this.chamar("checkregstatus");
+        const status = Number(r.status);
+        if (status === 1) return;
+        if (status === -1) throw new Error(`O cadastro do rosto foi cancelado no leitor "${this.eq.nome}".`);
+        if (status !== 0) throw new Error(`O leitor "${this.eq.nome}" não concluiu o cadastro do rosto${r.msg ? `: ${String(r.msg)}` : ""}.`);
+        if (Date.now() > fim) throw new Error(`O aluno não terminou o cadastro do rosto no leitor "${this.eq.nome}" a tempo.`);
+      }
+    } catch (err) {
+      // O leitor fica preso na tela de cadastro até alguém cancelar.
+      await this.chamar("adduser", { cancel: true }).catch(() => undefined);
+      throw err;
+    }
+  }
+
+  /**
    * Desliga a foto em cada registro de acesso e a foto de desconhecido.
    * O leitor guardaria o rosto de cada pessoa que passa na frente dele,
    * aluno ou não, e o ARKE não precisa disso para nada.

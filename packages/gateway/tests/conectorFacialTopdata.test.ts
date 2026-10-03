@@ -211,7 +211,7 @@ describe("leitores faciais Topdata: a corrente do lado do Gateway", () => {
       const b = await ligarLeitor("SN-B");
       await ate(() => a.regAceito === true && b.regAceito === true);
       const gestao = new GestaoTopdataFacial(conector!);
-      expect(gestao.capacidades()).toEqual(["cadastrar_usuario", "apagar_usuario"]);
+      expect(gestao.capacidades()).toEqual(["cadastrar_usuario", "apagar_usuario", "enviar_foto_rosto"]);
 
       expect(await gestao.criarUsuario(42)).toEqual({ equipamentos: ["Entrada", "Saída"] });
       expect(a.usuarios.get(42)).toMatchObject({ name: "Aluno", enable: 1 });
@@ -252,6 +252,89 @@ describe("leitores faciais Topdata: a corrente do lado do Gateway", () => {
       await expect(gestao.criarUsuario(1)).rejects.toThrow(/não respondeu a "setuserinfo"/);
       leitor.responderOrdens = true;
       expect(await gestao.criarUsuario(2)).toEqual({ equipamentos: ["Entrada"] });
+    });
+
+    it("foto do app: vai a todos os leitores com backupnum 50, e não volta no resultado", async () => {
+      await subir({
+        equipamentos: [
+          { nome: "Entrada", ip: "127.0.0.1", sn: "SN-A" },
+          { nome: "Saída", ip: "127.0.0.1", sn: "SN-B" },
+        ],
+      });
+      const a = await ligarLeitor("SN-A");
+      const b = await ligarLeitor("SN-B");
+      await ate(() => a.regAceito === true && b.regAceito === true);
+      const jpeg = Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0]), Buffer.from("FOTO-DO-APP"), Buffer.alloc(1500, 7)]);
+      const r = await new GestaoTopdataFacial(conector!).enviarFotoRosto(42, jpeg);
+      expect(r).toEqual({ equipamentos: ["Entrada", "Saída"] });
+      for (const l of [a, b]) {
+        const u = l.usuarios.get(42)!;
+        expect(u).toMatchObject({ backupnum: 50, name: "Aluno", enable: 1 });
+        expect(Buffer.from(String(u.record).replace("data:image/jpeg;base64,", ""), "base64").toString()).toContain("FOTO-DO-APP");
+      }
+      expect(JSON.stringify(r)).not.toContain("base64");
+    });
+
+    it("foto recusada pelo leitor: a ordem falha com o motivo em português", async () => {
+      await subir();
+      const leitor = await ligarLeitor();
+      await ate(() => leitor.regAceito === true);
+      leitor.recusarFoto = { reason: 6, msg: "multi faces" };
+      const jpeg = Buffer.concat([Buffer.from([0xff, 0xd8]), Buffer.alloc(1500, 7)]);
+      await expect(new GestaoTopdataFacial(conector!).enviarFotoRosto(42, jpeg)).rejects.toThrow(/Entrada: mais de um rosto na imagem/);
+    });
+
+    it("câmera do leitor (API HTTP): cadastra no leitor com senha e copia a foto ao outro", async () => {
+      const a = new LeitorFacialFalso("SN-A");
+      leitores.push(a);
+      const portaHttp = await a.abrirApiHttp();
+      await subir({
+        funcao: "identifica",
+        equipamentos: [
+          { nome: "Entrada", ip: "127.0.0.1", sn: "SN-A", senha: "1234", porta_http: portaHttp },
+          { nome: "Saída", ip: "127.0.0.1", sn: "SN-B" },
+        ],
+      });
+      await a.discar(conector!.porta());
+      const b = await ligarLeitor("SN-B");
+      await ate(() => a.regAceito === true && b.regAceito === true);
+      const gestao = new GestaoTopdataFacial(conector!, { timeoutCadastroMs: 2_000, intervaloConsultaMs: 20 });
+      expect(gestao.capacidades()).toEqual(expect.arrayContaining(["cadastrar_rosto", "enviar_foto_rosto", "liberar_catraca"]));
+      expect(gestao.temRosto("Entrada")).toBe(true);
+      expect(gestao.temRosto("Saída")).toBe(false);
+
+      const r = await gestao.cadastrarRosto(42);
+      expect(r).toEqual({ equipamento: "Entrada", replicado_em: ["Saída"], falhou_em: [] });
+      expect(a.chamadasHttp.find((c) => c.cmd === "adduser")).toMatchObject({ enrollid: 42, backupnum: 50, password: "1234" });
+      const copia = b.usuarios.get(42)!;
+      expect(copia).toMatchObject({ backupnum: 50, card: 42 });
+      expect(Buffer.from(String(copia.record).replace("data:image/jpeg;base64,", ""), "base64").toString()).toContain("ROSTO-DA-CAMERA-TOPDATA");
+      expect(JSON.stringify(r)).not.toContain("ROSTO");
+    });
+
+    it("câmera cancelada no leitor: erro, e o leitor sai da tela de cadastro", async () => {
+      const a = new LeitorFacialFalso("SN-A");
+      leitores.push(a);
+      const portaHttp = await a.abrirApiHttp();
+      await subir({ equipamentos: [{ nome: "Entrada", ip: "127.0.0.1", sn: "SN-A", senha: "1234", porta_http: portaHttp }] });
+      await a.discar(conector!.porta());
+      await ate(() => a.regAceito === true);
+      a.cadastroCamera = "cancela";
+      const gestao = new GestaoTopdataFacial(conector!, { timeoutCadastroMs: 2_000, intervaloConsultaMs: 20 });
+      await expect(gestao.cadastrarRosto(42)).rejects.toThrow(/cancelado no leitor/);
+      a.cadastroCamera = "nunca";
+      const lenta = new GestaoTopdataFacial(conector!, { timeoutCadastroMs: 100, intervaloConsultaMs: 20 });
+      await expect(lenta.cadastrarRosto(43)).rejects.toThrow(/não terminou o cadastro do rosto/);
+      expect(a.chamadasHttp.filter((c) => c.cmd === "adduser" && c.cancel === true).length).toBeGreaterThanOrEqual(2);
+    });
+
+    it("leitor sem a senha do menu não abre a câmera", async () => {
+      await subir();
+      const leitor = await ligarLeitor();
+      await ate(() => leitor.regAceito === true);
+      const gestao = new GestaoTopdataFacial(conector!);
+      expect(gestao.capacidades()).not.toContain("cadastrar_rosto");
+      await expect(gestao.cadastrarRosto(42)).rejects.toThrow(/sem a senha do menu/);
     });
 
     it("abertura remota pela API HTTP do leitor, com a senha do menu", async () => {

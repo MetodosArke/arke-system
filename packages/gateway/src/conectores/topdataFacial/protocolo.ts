@@ -265,6 +265,33 @@ export function ordemUsuario(enrollid: number, opcoes: { cartao?: boolean } = {}
   };
 }
 
+/**
+ * O aluno com a foto do rosto (`backupnum` 50, a foto em base64 no
+ * `record`). O leitor gera o reconhecimento a partir dela. A página de
+ * comandos recomenda até 150 KB, idealmente 480x640.
+ */
+export function ordemFoto(enrollid: number, jpeg: Buffer, opcoes: { cartao?: boolean } = {}): Objeto {
+  return {
+    ...ordemUsuario(enrollid, opcoes),
+    backupnum: 50,
+    record: `data:image/jpeg;base64,${jpeg.toString("base64")}`,
+  };
+}
+
+/** Pede ao leitor a foto de cadastro do aluno, para copiá-la aos outros leitores. */
+export function ordemLerFoto(enrollid: number): Objeto {
+  return { cmd: "getuserinfo", enrollid, backupnum: 50 };
+}
+
+/** A foto que veio no `record` do getuserinfo, com ou sem o prefixo data:. */
+export function fotoDaResposta(dados: Record<string, unknown>): Buffer | null {
+  const record = typeof dados.record === "string" ? dados.record.trim() : "";
+  if (!record || record === "0") return null;
+  const base64 = record.replace(/^data:image\/[a-z]+;base64,/i, "");
+  const foto = Buffer.from(base64, "base64");
+  return foto.length > 100 ? foto : null;
+}
+
 /** Apaga o aluno inteiro do leitor: rosto, cartão e senha (`backupnum` 0). */
 export function ordemApagar(enrollid: number): Objeto {
   return { cmd: "deleteuser", enrollid, backupnum: 0 };

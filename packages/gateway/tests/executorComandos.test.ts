@@ -277,3 +277,91 @@ describe("ExecutorComandos", () => {
     await ate(() => amb.canal.pedidos.length >= 4);
   });
 });
+
+describe("ExecutorComandos: rosto", () => {
+  const jpeg = Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0]), Buffer.from("FOTO-DO-ALUNO"), Buffer.alloc(1500, 7)]);
+  const dataUrl = `data:image/jpeg;base64,${jpeg.toString("base64")}`;
+
+  class GestaoFacial extends GestaoFalsa {
+    recebida: Buffer | null = null;
+    capacidades(): TipoComando[] {
+      return ["cadastrar_usuario", "apagar_usuario", "cadastrar_rosto", "enviar_foto_rosto"];
+    }
+    temRosto(nome: string) {
+      return nome === "Entrada";
+    }
+    async cadastrarRosto(userId: number, equipamento?: string | null) {
+      this.chamadas.push(`rosto:${userId}:${equipamento ?? ""}`);
+      return { equipamento: equipamento ?? "Entrada", replicado_em: [], falhou_em: [] };
+    }
+    async enviarFotoRosto(userId: number, foto: Buffer) {
+      this.chamadas.push(`foto:${userId}:${foto.subarray(4, 17).toString()}`);
+      this.recebida = foto;
+      return { equipamentos: ["Entrada"] };
+    }
+  }
+
+  let amb: ReturnType<typeof criar>;
+  let gestao: GestaoFacial;
+
+  beforeEach(() => {
+    gestao = new GestaoFacial();
+    amb = criar(gestao);
+  });
+
+  afterEach(() => {
+    amb.executor.parar();
+    amb.canal.encerrado = true;
+    fs.rmSync(amb.dataDir, { recursive: true, force: true });
+  });
+
+  it("a foto chega ao equipamento, some da memória depois, e não volta no resultado", async () => {
+    amb.cloud.respostaSincronizarAlunos = { alunos: [], sincronizado_em: new Date().toISOString() };
+    amb.executor.iniciar();
+    amb.canal.ordens.push({ id: "f1", tipo: "enviar_foto_rosto", parametros: { user_id: "42", foto_id: "x", foto: dataUrl } });
+    await ate(() => amb.canal.resultados().some((r) => r.id === "f1"));
+    expect(gestao.chamadas).toContain("foto:42:FOTO-DO-ALUNO");
+    // Zerada assim que o equipamento a recebeu.
+    expect(gestao.recebida!.every((b) => b === 0)).toBe(true);
+    const r = amb.canal.resultados().find((x) => x.id === "f1")!;
+    expect(r).toMatchObject({ sucesso: true, resultado: { equipamentos: ["Entrada"] } });
+    expect(JSON.stringify(amb.canal.resultados())).not.toContain("FOTO");
+    expect(JSON.stringify(amb.canal.resultados())).not.toContain("base64");
+    // O aluno pode ter ganhado o número agora: o cache sincroniza.
+    await ate(() => amb.cloud.pedidosSincronizacao.length > 0);
+  });
+
+  it("foto que já saiu da nuvem, ou que não é JPEG, vira erro claro sem tocar no equipamento", async () => {
+    amb.executor.iniciar();
+    amb.canal.ordens.push(
+      { id: "f2", tipo: "enviar_foto_rosto", parametros: { user_id: "42", foto_id: "x", foto: null } },
+      { id: "f3", tipo: "enviar_foto_rosto", parametros: { user_id: "42", foto_id: "x", foto: "data:image/jpeg;base64," + Buffer.alloc(2000, 1).toString("base64") } }
+    );
+    await ate(() => ["f2", "f3"].every((id) => amb.canal.resultados().some((r) => r.id === id)));
+    const res = amb.canal.resultados();
+    expect(res.find((r) => r.id === "f2")?.erro).toMatch(/não está mais disponível/);
+    expect(res.find((r) => r.id === "f3")?.erro).toMatch(/não é um JPEG válido/);
+    expect(gestao.chamadas.filter((c) => c.startsWith("foto"))).toEqual([]);
+  });
+
+  it("câmera do equipamento escolhido; a telemetria marca quais equipamentos cadastram rosto", async () => {
+    amb.executor.iniciar();
+    amb.canal.ordens.push({ id: "c1", tipo: "cadastrar_rosto", parametros: { user_id: "7", equipamento: "Entrada" } });
+    await ate(() => amb.canal.resultados().some((r) => r.id === "c1"));
+    expect(gestao.chamadas).toContain("rosto:7:Entrada");
+    const tel = await amb.executor.telemetria();
+    expect(tel.equipamentos).toContainEqual({ nome: "Entrada", tipo: "controlid-gestao", visto_em: null, rosto: true });
+    expect(tel.capacidades).toEqual(expect.arrayContaining(["cadastrar_rosto", "enviar_foto_rosto"]));
+  });
+
+  it("equipamento que não anuncia o rosto recusa as ordens de rosto", async () => {
+    const sem = criar(new GestaoFalsa());
+    sem.executor.iniciar();
+    sem.canal.ordens.push({ id: "s1", tipo: "cadastrar_rosto", parametros: { user_id: "7" } });
+    await ate(() => sem.canal.resultados().some((r) => r.id === "s1"));
+    expect(sem.canal.resultados().find((r) => r.id === "s1")?.erro).toMatch(/não aceita a ordem "cadastrar_rosto"/);
+    sem.executor.parar();
+    sem.canal.encerrado = true;
+    fs.rmSync(sem.dataDir, { recursive: true, force: true });
+  });
+});

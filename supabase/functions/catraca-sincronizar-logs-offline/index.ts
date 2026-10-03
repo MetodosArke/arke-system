@@ -72,6 +72,10 @@ Deno.serve(async (req: Request) => {
 
     if (!deviceToken) return jsonResponse({ error: "device_token é obrigatório." }, 400);
     if (logs.length === 0) return jsonResponse({ inseridos: 0 });
+    // Token fora do formato não é de dispositivo nenhum: 401, e não "falha do servidor".
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(deviceToken)) {
+      return jsonResponse({ error: "Dispositivo não autorizado." }, 401);
+    }
     if (logs.length > 500) {
       return jsonResponse({ error: "Máximo de 500 logs por sincronização." }, 400);
     }

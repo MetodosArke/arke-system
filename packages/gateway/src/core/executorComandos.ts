@@ -29,8 +29,33 @@ const TIPOS_DO_EQUIPAMENTO = new Set<string>([
   "cadastrar_usuario",
   "cadastrar_digital",
   "cadastrar_cartao",
+  "cadastrar_rosto",
+  "enviar_foto_rosto",
   "apagar_usuario",
 ]);
+
+/** Ordens cujo sucesso pode ter dado número novo ao aluno: o cache local precisa dele. */
+const SINCRONIZAR_APOS = new Set<string>(["cadastrar_usuario", "enviar_foto_rosto"]);
+
+/** O teto da nuvem é ~300 KB em base64; o JPEG decodificado fica abaixo disso. */
+const FOTO_MAX_BYTES = 300 * 1024;
+
+/**
+ * A foto do rosto que a nuvem mandou junto com a ordem. Dado biométrico:
+ * não vai para log, nem para o resultado, nem para a mensagem de erro.
+ */
+export function fotoDosParametros(valor: unknown): Buffer {
+  if (typeof valor !== "string" || !valor.startsWith("data:image/jpeg;base64,")) {
+    throw new Error("A foto não está mais disponível (expirou ou foi trocada por outra). Peça ao aluno para enviar de novo pelo app.");
+  }
+  const jpeg = Buffer.from(valor.slice("data:image/jpeg;base64,".length), "base64");
+  // Todo JPEG começa com FF D8.
+  if (jpeg.length < 1_000 || jpeg.length > FOTO_MAX_BYTES || jpeg[0] !== 0xff || jpeg[1] !== 0xd8) {
+    jpeg.fill(0);
+    throw new Error("A foto recebida não é um JPEG válido. Peça ao aluno para enviar de novo pelo app.");
+  }
+  return jpeg;
+}
 
 const CAPACIDADES_BASE: TipoComando[] = ["sincronizar_completo", "enviar_logs", "diagnostico"];
 
@@ -105,7 +130,12 @@ export class ExecutorComandos {
     // nem senha — só o nome.
     const equipamentos = [
       ...(this.cadastraNoEquipamento()
-        ? this.gestao!.nomes().map((nome) => ({ nome, tipo: "controlid-gestao", visto_em: null }))
+        ? this.gestao!.nomes().map((nome) => ({
+            nome,
+            tipo: "controlid-gestao",
+            visto_em: null,
+            ...(this.gestao!.temRosto?.(nome) ? { rosto: true } : {}),
+          }))
         : []),
       ...vistos.equipamentos,
     ];
@@ -149,7 +179,7 @@ export class ExecutorComandos {
     logger.info({ comando: c.tipo, id: c.id }, "Ordem recebida da nuvem");
     const executar = async () => {
       const r = await this.executar(c);
-      if (r.sucesso && c.tipo === "cadastrar_usuario") this.sincronizarAposEntrega.add(r.id);
+      if (r.sucesso && SINCRONIZAR_APOS.has(c.tipo)) this.sincronizarAposEntrega.add(r.id);
       this.resultados.push(r);
       this.enviarJa();
     };
@@ -224,6 +254,23 @@ export class ExecutorComandos {
         return this.exigirGestao("cadastrar_cartao").cadastrarCartao(numeroDoUsuario(p.user_id), equipamentoDe(p));
       case "apagar_usuario":
         return this.exigirGestao("apagar_usuario").apagarUsuario(numeroDoUsuario(p.user_id));
+      case "cadastrar_rosto": {
+        const g = this.exigirGestao("cadastrar_rosto");
+        if (!g.cadastrarRosto) throw new Error("O equipamento desta academia não cadastra rosto pela câmera.");
+        return g.cadastrarRosto(numeroDoUsuario(p.user_id), equipamentoDe(p));
+      }
+      case "enviar_foto_rosto": {
+        const g = this.exigirGestao("enviar_foto_rosto");
+        if (!g.enviarFotoRosto) throw new Error("O equipamento desta academia não recebe foto de rosto.");
+        const userId = numeroDoUsuario(p.user_id);
+        const jpeg = fotoDosParametros(p.foto);
+        try {
+          return await g.enviarFotoRosto(userId, jpeg);
+        } finally {
+          // A foto sai da memória do Gateway assim que os leitores a têm.
+          jpeg.fill(0);
+        }
+      }
       default:
         throw new Error(`Este Gateway não conhece a ordem "${c.tipo}". Atualize o Gateway Local.`);
     }

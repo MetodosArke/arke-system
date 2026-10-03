@@ -158,3 +158,101 @@ describe("GestaoControlId", () => {
     await expect(gestao.cadastrarDigital(1, "Academia vizinha")).rejects.toThrow(/não está configurado/);
   });
 });
+
+describe("GestaoControlId: rosto", () => {
+  let facial1: EquipamentoControlIdFalso;
+  let facial2: EquipamentoControlIdFalso;
+  let digital: EquipamentoControlIdFalso;
+  let gestao: GestaoControlId;
+
+  beforeEach(async () => {
+    facial1 = new EquipamentoControlIdFalso("facial 1");
+    facial2 = new EquipamentoControlIdFalso("facial 2");
+    digital = new EquipamentoControlIdFalso("digital");
+    for (const eq of [facial1, facial2, digital]) await eq.iniciar();
+    gestao = new GestaoControlId(
+      [
+        { ...config("Facial entrada", facial1.porta), rosto: true },
+        { ...config("Facial saída", facial2.porta), rosto: true },
+        config("Digital", digital.porta),
+      ],
+      { timeoutCadastroMs: 500 }
+    );
+    await gestao.criarUsuario(42, "Aluno", "m");
+  });
+
+  afterEach(async () => {
+    for (const eq of [facial1, facial2, digital]) await eq.parar();
+  });
+
+  it("só anuncia o rosto quando há equipamento facial, e diz quais são", () => {
+    expect(gestao.capacidades()).toEqual(expect.arrayContaining(["cadastrar_rosto", "enviar_foto_rosto"]));
+    expect(gestao.temRosto("Facial entrada")).toBe(true);
+    expect(gestao.temRosto("Digital")).toBe(false);
+    const semFacial = new GestaoControlId([config("Digital", digital.porta)]);
+    expect(semFacial.capacidades()).not.toContain("cadastrar_rosto");
+    expect(semFacial.capacidades()).not.toContain("enviar_foto_rosto");
+  });
+
+  it("câmera do equipamento: captura, copia aos outros faciais (não ao de digital) e não devolve a foto", async () => {
+    const r = await gestao.cadastrarRosto(42, "Facial saída");
+    expect(r).toEqual({ equipamento: "Facial saída", replicado_em: ["Facial entrada"], falhou_em: [] });
+    expect(facial2.chamadas.find((c) => c.rota === "/remote_enroll.fcgi")?.corpo).toMatchObject({
+      type: "face",
+      user_id: 42,
+      save: true,
+      sync: true,
+      auto: true,
+    });
+    expect(facial1.rostos.get(42)?.toString()).toContain("ROSTO-CAPTURADO-PELA-CAMERA");
+    expect(digital.rotas()).not.toContain("/user_set_image.fcgi");
+    // A foto atravessou a memória do Gateway e não sobe no resultado.
+    expect(JSON.stringify(r)).not.toContain("ROSTO");
+    expect(JSON.stringify(r)).not.toMatch(/\/9j\//);
+  });
+
+  it("antes de cadastrar, manda o equipamento não guardar a foto (keep_user_image 0)", async () => {
+    await gestao.cadastrarRosto(42);
+    expect(facial1.configuracoes).toContainEqual({ general: { keep_user_image: "0" } });
+    expect(facial2.configuracoes).toContainEqual({ general: { keep_user_image: "0" } });
+    expect(digital.configuracoes).toEqual([]);
+  });
+
+  it("equipamento sem reconhecimento facial não abre a câmera de rosto", async () => {
+    await expect(gestao.cadastrarRosto(42, "Digital")).rejects.toThrow(/não tem reconhecimento facial/);
+  });
+
+  it("foto do app: vai a todos os faciais, o primeiro confere duplicado, e o aluno é criado onde faltar", async () => {
+    facial2.tabelas.users = [];
+    const jpeg = EquipamentoControlIdFalso.jpegFalso("FOTO-DO-APP");
+    const r = await gestao.enviarFotoRosto(42, jpeg);
+    expect(r).toEqual({ equipamentos: ["Facial entrada", "Facial saída"] });
+    expect(facial1.chamadas.find((c) => c.rota === "/user_set_image.fcgi")?.query).toMatchObject({ user_id: "42", match: "1" });
+    expect(facial2.chamadas.find((c) => c.rota === "/user_set_image.fcgi")?.query).toMatchObject({ user_id: "42", match: "0" });
+    expect(facial2.tabelas.users.map((u) => u.id)).toEqual([42]);
+    expect(facial2.rostos.get(42)?.toString()).toContain("FOTO-DO-APP");
+    expect(digital.rotas()).not.toContain("/user_set_image.fcgi");
+  });
+
+  it("foto recusada pelo equipamento: a ordem falha com o motivo em português", async () => {
+    facial1.recusarFoto = [{ code: 2, message: "Face not detected" }];
+    await expect(gestao.enviarFotoRosto(42, EquipamentoControlIdFalso.jpegFalso("X"))).rejects.toThrow(
+      /Facial entrada: nenhum rosto encontrado na foto/
+    );
+    facial2.recusarFoto = [{ code: 3, message: "Face exists" }];
+    await expect(gestao.enviarFotoRosto(42, EquipamentoControlIdFalso.jpegFalso("X"))).rejects.toThrow(
+      /já está cadastrado para outra pessoa/
+    );
+  });
+
+  it("apagar o aluno apaga o rosto antes, nos faciais", async () => {
+    await gestao.enviarFotoRosto(42, EquipamentoControlIdFalso.jpegFalso("FOTO"));
+    await gestao.apagarUsuario(42);
+    for (const eq of [facial1, facial2]) {
+      expect(eq.rostos.has(42)).toBe(false);
+      const rotas = eq.rotas();
+      expect(rotas.indexOf("/user_destroy_image.fcgi")).toBeLessThan(rotas.lastIndexOf("/destroy_objects.fcgi"));
+    }
+    expect(digital.rotas()).not.toContain("/user_destroy_image.fcgi");
+  });
+});

@@ -2843,6 +2843,55 @@ export type Database = {
           },
         ]
       }
+      fotos_rosto_pendentes: {
+        Row: {
+          aluno_id: string
+          criada_em: string
+          expira_em: string
+          foto: string
+          id: string
+          organization_id: string
+        }
+        Insert: {
+          aluno_id: string
+          criada_em?: string
+          expira_em?: string
+          foto: string
+          id?: string
+          organization_id: string
+        }
+        Update: {
+          aluno_id?: string
+          criada_em?: string
+          expira_em?: string
+          foto?: string
+          id?: string
+          organization_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fotos_rosto_pendentes_aluno_id_fkey"
+            columns: ["aluno_id"]
+            isOneToOne: false
+            referencedRelation: "alunos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fotos_rosto_pendentes_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "org_churn_metrics"
+            referencedColumns: ["organization_id"]
+          },
+          {
+            foreignKeyName: "fotos_rosto_pendentes_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       gateway_comandos: {
         Row: {
           aluno_id: string | null
@@ -6686,6 +6735,7 @@ export type Database = {
         Args: { _aluno_id: string; _proposito: string }
         Returns: boolean
       }
+      aluno_consentiu_rosto: { Args: { _aluno_id: string }; Returns: boolean }
       aluno_constancia: {
         Args: { _aluno_id: string; _semanas?: number }
         Returns: number
@@ -6702,6 +6752,10 @@ export type Database = {
         Returns: boolean
       }
       aluno_no_metodo: { Args: { _aluno_id: string }; Returns: boolean }
+      aluno_pode_enviar_foto_rosto: {
+        Args: { _aluno_id: string }
+        Returns: boolean
+      }
       aluno_possui_agendamento_ativo_agora: {
         Args: { _aluno_id: string }
         Returns: boolean
@@ -7044,6 +7098,10 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      enviar_foto_rosto: {
+        Args: { _aluno_id: string; _foto: string }
+        Returns: number
+      }
       equipe_metodo: { Args: never; Returns: boolean }
       escalar_tarefas_vencidas: { Args: never; Returns: undefined }
       expirar_comandos_gateway: {
@@ -7138,6 +7196,7 @@ export type Database = {
           vencimento_mais_antigo: string
         }[]
       }
+      get_cadastro_rosto: { Args: { _aluno_id: string }; Returns: Json }
       get_caixa_mensagens: {
         Args: { _organization_id: string }
         Returns: {
@@ -7707,6 +7766,7 @@ export type Database = {
         Args: { _lote?: number }
         Returns: number
       }
+      limpar_fotos_rosto_sem_uso: { Args: never; Returns: number }
       limpar_historicos_antigos: { Args: never; Returns: Json }
       limpar_leads_comerciais_antigos: { Args: never; Returns: number }
       listar_parceiros_externos_ativos: {
@@ -7895,6 +7955,7 @@ export type Database = {
           user_id: string
         }[]
       }
+      proximo_identificador_catraca: { Args: { _org: string }; Returns: string }
       publicar_contrato_matricula: {
         Args: { _conteudo: string; _organization_id: string; _titulo: string }
         Returns: string
@@ -8099,6 +8160,7 @@ export type Database = {
       }
       versao_consentimento_biometrico: { Args: never; Returns: string }
       versao_consentimento_ia: { Args: never; Returns: string }
+      versao_consentimento_rosto: { Args: never; Returns: string }
       versao_consentimento_saude: { Args: never; Returns: string }
       vigia_ativo: { Args: never; Returns: boolean }
       vigia_avisos_pendentes: {

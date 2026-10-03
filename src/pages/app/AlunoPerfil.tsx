@@ -6,6 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ConsentimentoSentinela } from "@/components/sentinela/SentinelaAnamnese";
 import { ConsentimentoBiometria } from "@/components/catraca/ConsentimentoBiometria";
+import { FotoRostoCatraca } from "@/components/catraca/FotoRostoCatraca";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -135,6 +136,7 @@ export default function AlunoPerfil() {
           <CardContent className="space-y-3">
             <ConsentimentoSentinela alunoId={alunoId} organizationId={organization.id} noMetodo={metodoArkeAtivo} />
             <ConsentimentoBiometria alunoId={alunoId} organizationId={organization.id} />
+            <FotoRostoCatraca alunoId={alunoId} />
             <p className="text-xs text-muted-foreground">
               Como a academia e o ARKE tratam os seus dados:{" "}
               <Link to="/app/ajuda/app-privacidade" className="text-primary underline underline-offset-2">

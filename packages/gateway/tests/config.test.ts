@@ -75,7 +75,7 @@ describe("carregarConfig", () => {
       })
     );
     expect(config.controlid_equipamentos).toEqual([
-      { nome: "Entrada", ip: "192.168.0.50", porta: 80, usuario: "admin", senha: "x", sentido_entrada: "clockwise" },
+      { nome: "Entrada", ip: "192.168.0.50", porta: 80, usuario: "admin", senha: "x", sentido_entrada: "clockwise", rosto: false },
     ]);
   });
 

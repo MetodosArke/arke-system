@@ -46,6 +46,7 @@ const sn = String(args.sn ?? "AYSH01090913");
 const senha = String(args.senha ?? "1234");
 const usuarios = new Map();
 let ws = null;
+let cadastroCamera = null;
 let roteiroIniciado = false;
 
 const agora = () =>
@@ -109,8 +110,17 @@ function tratar(msg) {
       return enviar({ ret: "setdevinfo", result: true });
     case "setuserinfo":
       usuarios.set(Number(msg.enrollid), msg);
-      console.log(`← cadastrou o usuário ${msg.enrollid}${msg.card ? ` (cartão ${msg.card})` : ""}`);
+      if (Number(msg.backupnum) === 50) {
+        const kb = Math.round((String(msg.record).length * 3) / 4 / 1024);
+        console.log(`← recebeu a FOTO do rosto do usuário ${msg.enrollid} (${kb} KB)${msg.card ? ` (cartão ${msg.card})` : ""}`);
+      } else console.log(`← cadastrou o usuário ${msg.enrollid}${msg.card ? ` (cartão ${msg.card})` : ""}`);
       return enviar({ ret: "setuserinfo", sn, result: true });
+    case "getuserinfo": {
+      const u = usuarios.get(Number(msg.enrollid));
+      if (!u) return enviar({ ret: "getuserinfo", sn, result: false, reason: 1, msg: "can not find the user" });
+      console.log(`← o Gateway leu a foto do usuário ${msg.enrollid} para copiar`);
+      return enviar({ ret: "getuserinfo", sn, enrollid: msg.enrollid, result: true, backupnum: msg.backupnum, record: Number(u.backupnum) === 50 ? u.record : "" });
+    }
     case "deleteuser": {
       const existia = usuarios.delete(Number(msg.enrollid));
       console.log(`← apagou o usuário ${msg.enrollid}${existia ? "" : " (já não existia)"}`);
@@ -182,6 +192,30 @@ if (args.http) {
         if (pedido.password !== senha) {
           console.log(`← API HTTP "${pedido.cmd}" com senha errada`);
           return res.end(JSON.stringify({ ret: pedido.cmd, sn, result: false, reason: 2 }));
+        }
+        if (pedido.cmd === "adduser" && pedido.cancel) {
+          cadastroCamera = null;
+          console.log("← CÂMERA: cadastro cancelado");
+          return res.end(JSON.stringify({ ret: "adduser", result: true, cancel: true }));
+        }
+        if (pedido.cmd === "adduser") {
+          cadastroCamera = { enrollid: Number(pedido.enrollid), consultas: 0 };
+          console.log(`← CÂMERA: tela de cadastro do rosto aberta para o usuário ${pedido.enrollid}`);
+          return res.end(JSON.stringify({ ret: "adduser", sn, result: true, backupnum: 50, enrollid: pedido.enrollid }));
+        }
+        if (pedido.cmd === "checkregstatus") {
+          let status = -1;
+          if (cadastroCamera) {
+            cadastroCamera.consultas++;
+            status = cadastroCamera.consultas < 2 ? 0 : 1;
+            if (status === 1) {
+              const foto = Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0]), Buffer.from("ROSTO-DA-CAMERA"), Buffer.alloc(4000, 7)]);
+              usuarios.set(cadastroCamera.enrollid, { enrollid: cadastroCamera.enrollid, name: "Aluno", backupnum: 50, record: "data:image/jpeg;base64," + foto.toString("base64") });
+              console.log(`← CÂMERA: rosto do usuário ${cadastroCamera.enrollid} capturado`);
+              cadastroCamera = null;
+            }
+          }
+          return res.end(JSON.stringify({ ret: "checkregstatus", sn, result: true, status, msg: status === 1 ? "success" : "" }));
         }
         if (pedido.cmd === "opendoor") console.log(`← ABERTURA REMOTA: "${pedido.msg ?? ""}"`);
         else console.log(`← API HTTP "${pedido.cmd}" ${JSON.stringify({ ...pedido, password: undefined })}`);

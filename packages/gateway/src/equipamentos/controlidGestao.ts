@@ -64,6 +64,38 @@ export interface GestaoEquipamentos {
     equipamento?: string | null
   ): Promise<{ equipamento: string; cartoes: number } & ReplicacaoEquipamentos>;
   liberarCatraca(sentido: "entrada" | "saida" | "ambos", equipamento?: string | null): Promise<{ equipamento: string }>;
+  /**
+   * Rosto pela câmera do equipamento, com o aluno na frente, copiado aos
+   * outros leitores faciais da academia. Só quem anuncia "cadastrar_rosto".
+   */
+  cadastrarRosto?(userId: number, equipamento?: string | null): Promise<{ equipamento: string } & ReplicacaoEquipamentos>;
+  /**
+   * A foto que o aluno mandou pelo app, entregue a todos os leitores faciais
+   * da academia. Só quem anuncia "enviar_foto_rosto". A foto vem em JPEG e
+   * não sai daqui para log nem para o resultado.
+   */
+  enviarFotoRosto?(userId: number, jpeg: Buffer): Promise<{ equipamentos: string[] }>;
+  /** O equipamento cadastra rosto? Vai na telemetria para a ficha oferecer só esses. */
+  temRosto?(nome: string): boolean;
+}
+
+/** Os códigos de erro do cadastro facial por foto (API Control iD, "Cadastro facial por fotos"). */
+const ERROS_FOTO_CONTROLID: Record<number, string> = {
+  1: "foto em formato não reconhecido, ou o aluno não existe no equipamento",
+  2: "nenhum rosto encontrado na foto",
+  3: "este rosto já está cadastrado para outra pessoa",
+  4: "rosto fora do centro da foto",
+  5: "rosto muito longe",
+  6: "rosto muito perto",
+  7: "rosto virado: olhe de frente para a câmera",
+  8: "foto sem nitidez",
+  9: "rosto muito perto da borda da foto",
+};
+
+export function motivoDaFotoControlId(erros: unknown): string {
+  const lista = Array.isArray(erros) ? (erros as { code?: number; message?: string }[]) : [];
+  if (lista.length === 0) return "o equipamento recusou a foto";
+  return lista.map((e) => ERROS_FOTO_CONTROLID[Number(e.code)] ?? e.message ?? `código ${e.code}`).join("; ");
 }
 
 /** Tempo máximo do cadastro remoto: o aluno precisa pôr o dedo três vezes. */
@@ -137,6 +169,32 @@ export class ClienteControlId {
     }
     return data;
   }
+
+  /**
+   * Foto do rosto do aluno (POST /user_set_image.fcgi, corpo em
+   * application/octet-stream). Firmware antigo não responde nada; o novo
+   * responde `success` e `errors`. A foto não aparece em erro nem em log.
+   */
+  async enviarFoto(userId: number, jpeg: Buffer, verificarDuplicado: boolean): Promise<void> {
+    const sessao = await this.sessaoValida();
+    const timestamp = Math.floor(Date.now() / 1000);
+    let data: { success?: boolean; errors?: unknown } | "" | undefined;
+    try {
+      ({ data } = await this.http.post(
+        `/user_set_image.fcgi?user_id=${userId}&timestamp=${timestamp}&match=${verificarDuplicado ? 1 : 0}&session=${encodeURIComponent(sessao)}`,
+        jpeg,
+        { headers: { "Content-Type": "application/octet-stream" }, timeout: 20_000 }
+      ));
+    } catch (err) {
+      const e = err as { response?: { status?: number; data?: { errors?: unknown } } };
+      if (e.response?.status === 401) this.sessao = null;
+      if (e.response?.data?.errors) throw new Error(`${this.eq.nome}: ${motivoDaFotoControlId(e.response.data.errors)}`);
+      throw new Error(`${this.eq.nome}: ${mensagemDeErro(err)}`);
+    }
+    if (data && typeof data === "object" && data.success === false) {
+      throw new Error(`${this.eq.nome}: ${motivoDaFotoControlId(data.errors)}`);
+    }
+  }
 }
 
 export class GestaoControlId implements GestaoEquipamentos {
@@ -153,7 +211,125 @@ export class GestaoControlId implements GestaoEquipamentos {
   }
 
   capacidades(): TipoComando[] {
-    return ["liberar_catraca", "cadastrar_usuario", "cadastrar_digital", "cadastrar_cartao", "apagar_usuario"];
+    const caps: TipoComando[] = ["liberar_catraca", "cadastrar_usuario", "cadastrar_digital", "cadastrar_cartao", "apagar_usuario"];
+    if (this.faciais().length) caps.push("cadastrar_rosto", "enviar_foto_rosto");
+    return caps;
+  }
+
+  temRosto(nome: string): boolean {
+    return this.clientes.some((c) => c.eq.nome === nome && c.eq.rosto === true);
+  }
+
+  private faciais(): ClienteControlId[] {
+    return this.clientes.filter((c) => c.eq.rosto === true);
+  }
+
+  /**
+   * Por padrão a Control iD guarda a foto de cadastro de cada aluno. Com
+   * `keep_user_image` em 0, ela gera o modelo do rosto e apaga a foto
+   * (documentação, "Remoção de foto do usuário após o cadastro"). O ARKE
+   * não precisa da foto no equipamento, então não deixa ficar. Uma vez por
+   * equipamento a cada vez que o Gateway sobe; falha não impede o cadastro.
+   */
+  private readonly semFotoConfigurado = new Set<string>();
+  private async naoGuardarFoto(c: ClienteControlId): Promise<void> {
+    if (this.semFotoConfigurado.has(c.eq.nome)) return;
+    try {
+      await c.chamar("/set_configuration.fcgi", { general: { keep_user_image: "0" } });
+      this.semFotoConfigurado.add(c.eq.nome);
+    } catch (err) {
+      logger.warn({ equipamento: c.eq.nome, err: (err as Error).message }, "Não foi possível desligar a foto guardada no equipamento");
+    }
+  }
+
+  private escolherFacial(equipamento?: string | null): ClienteControlId {
+    const faciais = this.faciais();
+    if (faciais.length === 0) throw new Error("Nenhum equipamento Control iD com reconhecimento facial configurado (\"rosto\": true no config.json).");
+    if (!equipamento) return faciais[0];
+    const c = faciais.find((x) => x.eq.nome === equipamento);
+    if (!c) throw new Error(`O equipamento "${equipamento}" não tem reconhecimento facial configurado neste Gateway.`);
+    return c;
+  }
+
+  /** Garante o aluno no equipamento antes da foto: user_set_image exige usuário existente. */
+  private async garantirUsuario(c: ClienteControlId, userId: number): Promise<void> {
+    const atual = await c.chamar<{ users?: unknown[] }>("/load_objects.fcgi", { object: "users", where: { users: { id: userId } } });
+    if ((atual.users ?? []).length === 0) {
+      await c.chamar("/create_objects.fcgi", { object: "users", values: [{ id: userId, name: "Aluno", registration: "" }] });
+    }
+  }
+
+  /**
+   * Rosto pela câmera do equipamento (remote_enroll síncrono, com contagem
+   * regressiva). A resposta traz a foto capturada (`user_image`): ela só
+   * atravessa a memória do Gateway para ser copiada aos outros leitores
+   * faciais da academia, pela rede local, e é descartada.
+   */
+  async cadastrarRosto(userId: number, equipamento?: string | null): Promise<{ equipamento: string } & ReplicacaoEquipamentos> {
+    const c = this.escolherFacial(equipamento);
+    await this.naoGuardarFoto(c);
+    let foto: Buffer | null = null;
+    try {
+      const r = await c.chamar<{ success?: boolean; user_image?: string }>(
+        "/remote_enroll.fcgi",
+        { type: "face", user_id: userId, save: true, sync: true, auto: true, countdown: 3, msg: "Olhe para a camera" },
+        this.timeoutCadastroMs
+      );
+      if (r?.success === false) throw new Error(`${c.eq.nome}: o cadastro do rosto não foi concluído.`);
+      foto = typeof r?.user_image === "string" && r.user_image ? Buffer.from(r.user_image, "base64") : null;
+    } catch (err) {
+      await c.chamar("/cancel_remote_enroll.fcgi", {}).catch(() => undefined);
+      throw err;
+    }
+
+    const saida: ReplicacaoEquipamentos = { replicado_em: [], falhou_em: [] };
+    try {
+      for (const outro of this.faciais()) {
+        if (outro === c) continue;
+        if (!foto) {
+          saida.falhou_em.push({ equipamento: outro.eq.nome, erro: "o equipamento não devolveu a foto para copiar" });
+          continue;
+        }
+        try {
+          await this.naoGuardarFoto(outro);
+          await this.garantirUsuario(outro, userId);
+          await outro.enviarFoto(userId, foto, false);
+          saida.replicado_em.push(outro.eq.nome);
+        } catch (err) {
+          saida.falhou_em.push({ equipamento: outro.eq.nome, erro: (err as Error).message });
+        }
+      }
+    } finally {
+      foto?.fill(0);
+    }
+    logger.info({ equipamento: c.eq.nome, replicado: saida.replicado_em.length, falhas: saida.falhou_em.length }, "Rosto cadastrado remotamente");
+    return { equipamento: c.eq.nome, ...saida };
+  }
+
+  /**
+   * A foto que o aluno mandou pelo app, em todos os equipamentos faciais. O
+   * primeiro confere se o rosto já é de outra pessoa (`match`); os demais
+   * não precisam repetir a conta. Falha em qualquer um falha a ordem, com o
+   * motivo de cada um: o aluno tira outra foto, ou a recepção cadastra pela câmera.
+   */
+  async enviarFotoRosto(userId: number, jpeg: Buffer): Promise<{ equipamentos: string[] }> {
+    const faciais = this.faciais();
+    if (faciais.length === 0) throw new Error("Nenhum equipamento Control iD com reconhecimento facial neste Gateway.");
+    const feitos: string[] = [];
+    const falhas: string[] = [];
+    for (const [i, c] of faciais.entries()) {
+      try {
+        await this.naoGuardarFoto(c);
+        await this.garantirUsuario(c, userId);
+        await c.enviarFoto(userId, jpeg, i === 0);
+        feitos.push(c.eq.nome);
+      } catch (err) {
+        falhas.push((err as Error).message);
+      }
+    }
+    if (falhas.length) throw new Error(`A foto não entrou em todos os leitores — ${falhas.join("; ")}`);
+    logger.info({ equipamentos: feitos.length }, "Foto do rosto entregue aos equipamentos");
+    return { equipamentos: feitos };
   }
 
   async testar(): Promise<{ equipamento: string; ok: boolean; erro?: string }[]> {
@@ -217,6 +393,9 @@ export class GestaoControlId implements GestaoEquipamentos {
     const feitos: string[] = [];
     let apagados = 0;
     for (const c of this.clientes) {
+      // Rosto primeiro, nos faciais: a foto e o modelo do rosto são dado
+      // biométrico, e apagar o usuário pode não levá-los junto.
+      if (c.eq.rosto) await c.chamar("/user_destroy_image.fcgi", { user_id: userId }).catch(() => undefined);
       for (const objeto of ["templates", "cards"]) {
         const r = await c.chamar<{ changes?: number }>("/destroy_objects.fcgi", {
           object: objeto,

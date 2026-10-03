@@ -2,12 +2,15 @@ import type { GatewayService } from "../../core/gatewayService";
 import type { GestaoEquipamentos, ReplicacaoEquipamentos } from "../../equipamentos/controlidGestao";
 import { logger } from "../../logger";
 import type { TipoComando } from "../../types";
-import { ApiHttpFacial } from "./apiHttp";
+import { ApiHttpFacial, motivoDaFalha } from "./apiHttp";
 import { LeitorFacialTopdata, type EquipamentoFacialTopdata, type EstadoLeitor, type OpcoesLeitor } from "./leitor";
 import {
   apagarConcluido,
   ehPedidoDeAcesso,
+  fotoDaResposta,
   ordemApagar,
+  ordemFoto,
+  ordemLerFoto,
   ordemModo,
   ordemUsuario,
   respostaAcesso,
@@ -192,16 +195,101 @@ export class ConectorFacialTopdata {
  * número, para ser reconhecido em qualquer catraca; e sair de todos.
  */
 export class GestaoTopdataFacial implements GestaoEquipamentos {
-  constructor(private readonly conector: ConectorFacialTopdata) {}
+  private readonly timeoutCadastroMs: number;
+  private readonly intervaloConsultaMs: number;
+
+  constructor(
+    private readonly conector: ConectorFacialTopdata,
+    opcoes: { timeoutCadastroMs?: number; intervaloConsultaMs?: number } = {}
+  ) {
+    // O mesmo prazo do cadastro remoto da Control iD: o aluno precisa se posicionar.
+    this.timeoutCadastroMs = opcoes.timeoutCadastroMs ?? 90_000;
+    this.intervaloConsultaMs = opcoes.intervaloConsultaMs ?? 1_000;
+  }
 
   nomes(): string[] {
     return this.conector.nomes();
   }
 
   capacidades(): TipoComando[] {
-    const caps: TipoComando[] = ["cadastrar_usuario", "apagar_usuario"];
-    if (this.conector.todos().some((l) => this.conector.api(l.nome).configurada)) caps.push("liberar_catraca");
+    // A foto do app vai pelo WebSocket, que todo leitor tem. A câmera do
+    // leitor e a abertura remota usam a API HTTP, que pede a senha do menu.
+    const caps: TipoComando[] = ["cadastrar_usuario", "apagar_usuario", "enviar_foto_rosto"];
+    if (this.conector.todos().some((l) => this.conector.api(l.nome).configurada)) caps.push("liberar_catraca", "cadastrar_rosto");
     return caps;
+  }
+
+  /** Para a ficha: só o leitor com a senha no config abre a câmera de cadastro. */
+  temRosto(nome: string): boolean {
+    return this.conector.todos().some((l) => l.nome === nome && this.conector.api(l.nome).configurada);
+  }
+
+  /**
+   * A foto que o aluno mandou pelo app, em todos os leitores da academia
+   * (setuserinfo com backupnum 50). Falha em qualquer um falha a ordem, com
+   * o motivo do leitor (sem rosto, dois rostos, rosto de outra pessoa).
+   */
+  async enviarFotoRosto(userId: number, jpeg: Buffer): Promise<{ equipamentos: string[] }> {
+    const cartao = this.conector.funcao === "identifica";
+    const feitos: string[] = [];
+    const falhas: string[] = [];
+    for (const leitor of this.conector.todos()) {
+      try {
+        const r = await leitor.ordem(ordemFoto(userId, jpeg, { cartao }));
+        if (!r.sucesso) throw new Error(motivoDaFalha(r.motivo, r.mensagem));
+        feitos.push(leitor.nome);
+      } catch (err) {
+        falhas.push(`${leitor.nome}: ${(err as Error).message}`);
+      }
+    }
+    if (falhas.length) throw new Error(`A foto não entrou em todos os leitores — ${falhas.join("; ")}`);
+    logger.info({ leitores: feitos.length }, "Foto do rosto entregue aos leitores faciais");
+    return { equipamentos: feitos };
+  }
+
+  /**
+   * Rosto pela câmera do leitor (API HTTP: adduser e checkregstatus), com o
+   * aluno na frente. Depois, a foto de cadastro é lida do leitor e copiada
+   * aos outros pela rede local, atravessando só a memória do Gateway.
+   */
+  async cadastrarRosto(userId: number, equipamento?: string | null): Promise<{ equipamento: string } & ReplicacaoEquipamentos> {
+    const leitor = equipamento
+      ? this.conector.leitor(equipamento)
+      : this.conector.todos().find((l) => this.conector.api(l.nome).configurada) ?? this.conector.leitor(null);
+    const api = this.conector.api(leitor.nome);
+    if (!api.configurada) throw new Error(`O leitor "${leitor.nome}" está sem a senha do menu no config.json; a câmera de cadastro precisa dela.`);
+    await api.cadastrarRosto(userId, this.timeoutCadastroMs, this.intervaloConsultaMs);
+
+    const saida: ReplicacaoEquipamentos = { replicado_em: [], falhou_em: [] };
+    const outros = this.conector.todos().filter((l) => l !== leitor);
+    if (outros.length === 0) return { equipamento: leitor.nome, ...saida };
+
+    let foto: Buffer | null = null;
+    try {
+      foto = fotoDaResposta((await leitor.ordem(ordemLerFoto(userId))).dados);
+    } catch (err) {
+      logger.warn({ leitor: leitor.nome, err: (err as Error).message }, "Não foi possível ler a foto de cadastro para copiar");
+    }
+    try {
+      const cartao = this.conector.funcao === "identifica";
+      for (const outro of outros) {
+        if (!foto) {
+          saida.falhou_em.push({ equipamento: outro.nome, erro: "o leitor não devolveu a foto para copiar" });
+          continue;
+        }
+        try {
+          const r = await outro.ordem(ordemFoto(userId, foto, { cartao }));
+          if (!r.sucesso) throw new Error(motivoDaFalha(r.motivo, r.mensagem));
+          saida.replicado_em.push(outro.nome);
+        } catch (err) {
+          saida.falhou_em.push({ equipamento: outro.nome, erro: (err as Error).message });
+        }
+      }
+    } finally {
+      foto?.fill(0);
+    }
+    logger.info({ leitor: leitor.nome, replicado: saida.replicado_em.length, falhas: saida.falhou_em.length }, "Rosto cadastrado pela câmera do leitor");
+    return { equipamento: leitor.nome, ...saida };
   }
 
   async testar(): Promise<{ equipamento: string; ok: boolean; erro?: string }[]> {
