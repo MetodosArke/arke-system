@@ -90,10 +90,11 @@ Deno.serve(async (req: Request) => {
 
     const { data: valorBanco } = await admin.rpc("valor_mensal_b2b", { _organization_id: org.id });
     const valor = valorBanco === null || valorBanco === undefined ? null : Number(valorBanco);
-    // Zero é a unidade de uma rede: a rede paga numa unidade só, a principal,
-    // e esta não tem mensalidade própria. Não é erro, e não cria assinatura.
+    // Zero é quem não tem mensalidade própria: a unidade de uma rede (a rede
+    // paga na principal) ou um painel que a ArkeFit decidiu não cobrar. Não é
+    // erro, e não cria assinatura.
     if (valor === 0) {
-      return jsonResponse({ ok: true, sem_cobranca: true, motivo: "Unidade de rede: a mensalidade é cobrada na unidade principal." });
+      return jsonResponse({ ok: true, sem_cobranca: true, motivo: "Valor zero: sem mensalidade própria." });
     }
     if (!valor || valor < 0) {
       return jsonResponse(

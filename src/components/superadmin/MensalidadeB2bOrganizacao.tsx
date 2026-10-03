@@ -46,8 +46,8 @@ export function MensalidadeB2bOrganizacao({ organizationId }: { organizationId: 
   const atualizar = () => void queryClient.invalidateQueries({ queryKey: ["mensalidade-b2b", organizationId] });
 
   const salvarValor = useMutation({
-    mutationFn: async () => {
-      const numero = valor.trim() ? Number(valor.replace(/\./g, "").replace(",", ".")) : null;
+    mutationFn: async (texto: string) => {
+      const numero = texto.trim() ? Number(texto.replace(/\./g, "").replace(",", ".")) : null;
       if (numero !== null && (!Number.isFinite(numero) || numero < 0)) throw new Error("Valor inválido.");
       const { error } = await supabase.from("organizations").update({ valor_mensal_b2b: numero }).eq("id", organizationId);
       if (error) throw error;
@@ -89,7 +89,7 @@ export function MensalidadeB2bOrganizacao({ organizationId }: { organizationId: 
         {data.asaas_subscription_id_b2b ? (
           <Badge>Recorrente</Badge>
         ) : data.efetivo === 0 ? (
-          <Badge variant="outline">Unidade de rede</Badge>
+          <Badge variant="outline">{data.plano_b2b === "redes" ? "Unidade de rede" : "Sem mensalidade"}</Badge>
         ) : (
           <Badge variant="outline">{data.status === "trial" ? "Trial — não cobra" : "Sem assinatura"}</Badge>
         )}
@@ -103,7 +103,7 @@ export function MensalidadeB2bOrganizacao({ organizationId }: { organizationId: 
           value={valor}
           onChange={(e) => setValor(e.target.value)}
         />
-        <Button size="sm" variant="outline" disabled={salvarValor.isPending} onClick={() => salvarValor.mutate()}>
+        <Button size="sm" variant="outline" disabled={salvarValor.isPending} onClick={() => salvarValor.mutate(valor)}>
           Salvar valor
         </Button>
       </div>
@@ -113,7 +113,11 @@ export function MensalidadeB2bOrganizacao({ organizationId }: { organizationId: 
         </Button>
       )}
       {data.efetivo === 0 && (
-        <p className="text-[11px] text-muted-foreground">Unidade de rede: a mensalidade do plano Redes é cobrada na unidade principal.</p>
+        <p className="text-[11px] text-muted-foreground">
+          {data.plano_b2b === "redes"
+            ? "Unidade de rede: a mensalidade do plano Redes é cobrada na unidade principal."
+            : "Valor zero: o ArkeFit não cobra mensalidade desta organização, e nenhuma assinatura é criada."}
+        </p>
       )}
       {!data.onboarding_completed && data.status !== "trial" && data.efetivo !== 0 && (
         <p className="text-[11px] text-muted-foreground">A mensalidade começa quando a academia conclui o onboarding.</p>
