@@ -266,7 +266,7 @@ export const PASSOS: Record<string, Passo> = {
   },
   liberacao: {
     titulo: "Liberar o app",
-    texto: "As seis etapas estão prontas. Conclua a configuração para os alunos entrarem no app; a mensalidade do ArkeFit começa nesse dia.",
+    texto: "As seis etapas estão prontas. Conclua a configuração para os alunos entrarem no app.",
     links: [{ rotulo: "Concluir a configuração", rota: "/admin/onboarding" }],
     artigos: [{ slug: "onboarding-academia", titulo: "Configuração inicial da academia" }],
   },

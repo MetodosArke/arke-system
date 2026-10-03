@@ -64,15 +64,20 @@ export default function AdminOnboarding() {
       if (error) throw error;
       // A mensalidade B2B nasce aqui. Falha nela não desfaz a conclusão: os
       // alunos já podem entrar, e a ArkeFit cria a assinatura pela Visão Master.
-      const { error: erroB2b } = await supabase.functions.invoke("asaas-assinatura-b2b", {
+      const { data: b2b, error: erroB2b } = await supabase.functions.invoke<{ sem_cobranca?: boolean }>("asaas-assinatura-b2b", {
         body: { organization_id: organization!.id },
       });
-      return erroB2b ? await mensagemDeErroEdge(erroB2b, "A mensalidade será iniciada pela ArkeFit.") : null;
+      if (erroB2b) return { aviso: await mensagemDeErroEdge(erroB2b, "A mensalidade será iniciada pela ArkeFit."), semCobranca: false };
+      return { aviso: null, semCobranca: !!b2b?.sem_cobranca };
     },
-    onSuccess: async (avisoB2b) => {
+    onSuccess: async ({ aviso, semCobranca }) => {
       toast({
         title: "Tudo pronto! Alunos liberados no app.",
-        description: avisoB2b ? `Sobre a mensalidade do ARKE: ${avisoB2b}` : "A mensalidade do ARKE começa hoje; a fatura chega no e-mail da academia.",
+        description: aviso
+          ? `Sobre a mensalidade do ARKE: ${aviso}`
+          : semCobranca
+            ? "Sem mensalidade do ARKE para esta organização."
+            : "A mensalidade do ARKE começa hoje; a fatura chega no e-mail da academia.",
       });
       await refreshOrganization();
       recarregar();
