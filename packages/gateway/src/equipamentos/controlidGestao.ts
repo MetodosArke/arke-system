@@ -1,6 +1,7 @@
 import axios, { type AxiosInstance } from "axios";
 import type { EquipamentoControlId, TipoComando } from "../types";
 import { logger } from "../logger";
+import { acoesDeLiberacao } from "../receptores/controlid";
 
 /**
  * Gestão remota do equipamento Control iD — o lado que o receptor não cobre.
@@ -498,13 +499,20 @@ export class GestaoControlId implements GestaoEquipamentos {
     return { equipamento: c.eq.nome, cartoes: quantidade, replicado_em, falhou_em };
   }
 
+  /**
+   * A liberação a pedido da recepção, do jeito daquele equipamento: a
+   * catraca da Control iD gira no sentido pedido; o leitor que libera pelo
+   * relé ou pelo SecBox dá um pulso, sem sentido (a catraca de outra marca
+   * decide o lado pela própria montagem).
+   */
   async liberarCatraca(sentido: "entrada" | "saida" | "ambos", equipamento?: string | null): Promise<{ equipamento: string }> {
     const c = this.escolher(equipamento);
     const entrada = c.eq.sentido_entrada;
     const saida = entrada === "clockwise" ? "anticlockwise" : "clockwise";
     const allow = sentido === "ambos" ? "both" : sentido === "saida" ? saida : entrada;
-    await c.chamar("/execute_actions.fcgi", { actions: [{ action: "catra", parameters: `allow=${allow}` }] });
-    logger.info({ equipamento: c.eq.nome, sentido }, "Catraca liberada remotamente");
+    const como = { liberacao: c.eq.liberacao ?? "catraca", sentidoEntrada: entrada, rele: c.eq.rele ?? 1 } as const;
+    await c.chamar("/execute_actions.fcgi", { actions: acoesDeLiberacao(como, { motivo: "remoto", sentido: allow }) });
+    logger.info({ equipamento: c.eq.nome, sentido, liberacao: como.liberacao }, "Catraca liberada remotamente");
     return { equipamento: c.eq.nome };
   }
 }

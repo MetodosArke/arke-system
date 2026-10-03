@@ -45,10 +45,20 @@ const configSchema = z.object({
         sentido_entrada: z.enum(["clockwise", "anticlockwise"]).default("clockwise"),
         // Só os equipamentos com reconhecimento facial cadastram rosto.
         rosto: z.boolean().default(false),
+        // Como libera: catraca (iDBlock), relé (iDAccess, iDFit, iDBox, e o
+        // leitor numa catraca de outra marca) ou SecBox (iDFlex, iDAccess Pro
+        // e Nano). O equipamento é reconhecido pelo IP, então o IP tem de ser fixo.
+        liberacao: z.enum(["catraca", "rele", "secbox"]).default("catraca"),
+        rele: z.union([z.literal(1), z.literal(2)]).default(1),
       })
     )
     .default([])
     .refine((l) => new Set(l.map((e) => e.nome)).size === l.length, "nomes de equipamento repetidos"),
+  // O equipamento Control iD que não está na lista acima (um só, sem gestão
+  // remota) libera assim.
+  controlid_liberacao: z.enum(["catraca", "rele", "secbox"]).default("catraca"),
+  controlid_sentido_entrada: z.enum(["clockwise", "anticlockwise"]).default("clockwise"),
+  controlid_rele: z.union([z.literal(1), z.literal(2)]).default(1),
   // Placas Toletus LiteNet2: aqui quem disca é o Gateway, para a porta 7878
   // de cada placa. Sem a lista, vale uma placa só, em catraca_ip.
   toletus_equipamentos: z

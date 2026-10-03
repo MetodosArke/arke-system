@@ -11,7 +11,7 @@
 ; no Menu Iniciar.
 
 #define MyAppName "ArkeFit Gateway"
-#define MyAppVersion "1.3.0"
+#define MyAppVersion "1.4.0"
 #define MyAppPublisher "ARKE"
 #define MyAppExeName "arkefit-gateway.exe"
 

@@ -16,6 +16,8 @@
 9. [Leitores faciais da Topdata](#9-leitores-faciais-da-topdata)
 10. [Cadastro do rosto (versão 1.3)](#10-cadastro-do-rosto-versão-13)
 
+A seção 7.4 trata do leitor Control iD numa catraca de outra marca (versão 1.4).
+
 ---
 
 ## 1. O que é e como funciona
@@ -87,7 +89,8 @@ Todos os parâmetros vivem em `config.json`, na mesma pasta do executável (`%Pr
 | `toletus_litenet3_porta` / `toletus_litenet3_endereco` | LiteNet3: a porta onde as placas discam (padrão `7880`, **aberta no firewall** do computador) e, se preciso, o endereço deste computador que elas devem discar. Vazio: o Gateway escolhe a interface que alcança cada placa |
 | `topdata_faciais` | Leitores faciais da Topdata (versão 1.2): lista de `{ "nome", "ip", "sn", "senha", "porta_http": 80 }`. `sn` é o número de série (opcional: sem ele, o leitor é reconhecido pelo IP); `senha` é a de gerenciamento do menu do leitor, para a abertura remota. Vazia com o modelo `topdata_facial`: um leitor só, em `catraca_ip`. Ver seção 9 |
 | `topdata_facial_porta` | Onde os leitores faciais discam (padrão `7792`, a do menu do leitor; **aberta no firewall**) |
-| `controlid_equipamentos` | Control iD que o Gateway **administra** (versão 1.0): lista de `{ "nome", "ip", "porta": 80, "usuario": "admin", "senha", "sentido_entrada": "clockwise" }`, um por catraca. Com ela, a recepção cadastra aluno, digital e cartão pelo ARKE e a remoção do aluno é automática. Vazia: cadastro manual no equipamento, como antes. O `nome` é o que a recepção vê para escolher o leitor; `sentido_entrada` é o lado da borboleta que é a entrada, e só a montagem física responde. `"rosto": true` nos equipamentos com reconhecimento facial (iDFace): só nesses a ficha cadastra o rosto (seção 10) |
+| `controlid_equipamentos` | Control iD que o Gateway **administra** (versão 1.0): lista de `{ "nome", "ip", "porta": 80, "usuario": "admin", "senha", "sentido_entrada": "clockwise" }`, um por catraca. Com ela, a recepção cadastra aluno, digital e cartão pelo ARKE e a remoção do aluno é automática. Vazia: cadastro manual no equipamento, como antes. O `nome` é o que a recepção vê para escolher o leitor; `sentido_entrada` é o lado da borboleta que é a entrada, e só a montagem física responde. `"rosto": true` nos equipamentos com reconhecimento facial (iDFace): só nesses a ficha cadastra o rosto (seção 10). `"liberacao"` diz como o equipamento libera a passagem, e `"rele"` qual relé fecha (seção 7.4). O Gateway reconhece cada equipamento pelo `ip` de quem chama, então o IP tem de ser fixo |
+| `controlid_liberacao`, `controlid_sentido_entrada`, `controlid_rele` | Como libera a Control iD que **não** está em `controlid_equipamentos` (academia com um equipamento só, sem gestão remota): `catraca` (padrão), `rele` ou `secbox`; o lado da borboleta que é a entrada (`clockwise`, padrão, ou `anticlockwise`); e o relé (1, padrão, ou 2). Seção 7.4 |
 
 > **A senha do equipamento fica só no `config.json`**, na máquina da academia. Para a nuvem vai apenas o nome de cada equipamento.
 
@@ -171,6 +174,26 @@ npm run emular:controlid -- --vivo
 Use na instalação, antes de haver catraca na parede: confirma que o Gateway está alcançável pela rede, que o aluno com aquele `identificador_catraca` é liberado ou negado conforme a situação dele, e que a presença aparece no ARKE. Rodado de outra máquina da rede, também confirma que a `escuta_porta` está aberta.
 
 **Ensaio da gestão remota.** `npm run emular:controlid -- --servir 8081` faz o papel da API de gestão do equipamento (login `admin`/`admin`). Aponte um item de `controlid_equipamentos` para `127.0.0.1:8081` e, pelo ARKE, cadastre o aluno no equipamento, a digital e o cartão, libere a catraca e retire a autorização do aluno: cada chamada aparece no terminal do emulador, com o estado do "equipamento" depois de cada mudança. Foi assim que a corrente inteira foi provada em 23/09/2026 (22 verificações, com o Gateway, a função publicada e o banco reais).
+
+### 7.4 Leitor Control iD numa catraca de outra marca (versão 1.4)
+
+Cada modelo libera de um jeito, e o Gateway responde do jeito daquele equipamento:
+
+| `liberacao` | Modelos | O que o Gateway manda |
+|---|---|---|
+| `catraca` (padrão) | iDBlock e iDBlock Next | `catra`, no sentido de entrada (`sentido_entrada`) |
+| `rele` | iDAccess, iDFit, iDBox, e o leitor que libera a catraca de outra marca pelo contato seco | `door`, no relé configurado (`rele`, 1 ou 2) |
+| `secbox` | iDFlex, iDAccess Pro, iDAccess Nano | `sec_box`, no módulo SecBox (id 65793) |
+
+O **iDFace** não aparece em nenhuma lista da documentação da Control iD: libera pelo relé ou pelo SecBox, conforme a instalação. Escolha o que o técnico ligou à catraca.
+
+O equipamento é reconhecido pelo **IP** de quem chama: o listado em `controlid_equipamentos` leva a configuração dele, e o resto leva a padrão (`controlid_liberacao`, `controlid_sentido_entrada`, `controlid_rele`). Por isso o IP de cada equipamento tem de ser fixo.
+
+**Giro:** só a catraca da Control iD avisa o giro (seção 7.2). Leitor que libera pelo relé ou pelo SecBox não avisa nada, e o Gateway não espera por ele, mesmo com `confirmacao_giro` em `catra_event`: a presença conta na liberação. Com uma iDBlock e um leitor na mesma academia, os dois funcionam com a mesma configuração.
+
+**Liberação remota:** pela ficha ou pela tela Catracas, a catraca da Control iD gira no sentido pedido; o leitor dá um pulso no relé ou no SecBox, sem sentido, porque o lado é decidido pela montagem da catraca de outra marca.
+
+**Até a versão 1.3**, a resposta à identificação era sempre a da catraca e no sentido horário, mesmo com outro `sentido_entrada` configurado (ele só valia na liberação remota). Leitor numa catraca de outra marca não liberava nada.
 
 **O que só a bancada responde:** o sentido de giro da borboleta como foi montada, o tempo real de acionamento, a leitura da digital, variações de firmware — e se o `uuid` do aviso de giro é o mesmo da identificação que o originou (o Gateway tem um plano B para quando não é, válido para uma borboleta por vez).
 

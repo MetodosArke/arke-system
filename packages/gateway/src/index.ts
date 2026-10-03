@@ -7,6 +7,7 @@ import { LogsQueue } from "./offline/logsQueue";
 import { criarDriver } from "./drivers";
 import { GatewayService } from "./core/gatewayService";
 import { criarServidorLocal, criarServidorReceptor } from "./server/localServer";
+import { resolverComoLiberar } from "./receptores/controlid";
 import { logger } from "./logger";
 import { ExecutorComandos } from "./core/executorComandos";
 import { GestaoControlId, type GestaoEquipamentos } from "./equipamentos/controlidGestao";
@@ -55,6 +56,10 @@ async function main() {
       confirmacaoGiro: config.confirmacao_giro,
       timeoutGiroMs: config.timeout_giro_ms,
       leitorDeEntrada: config.topdata_leitor_entrada,
+      // Como cada Control iD libera (catraca, relé ou SecBox), pelo IP de
+      // quem chama. Antes, toda resposta era a da catraca, no sentido
+      // horário, mesmo com outra entrada configurada.
+      comoLiberar: resolverComoLiberar(config),
     });
     await receptor.iniciar();
   }
