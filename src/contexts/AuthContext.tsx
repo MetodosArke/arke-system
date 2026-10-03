@@ -27,6 +27,11 @@ interface Organization {
   status: Enums<"org_status">;
   /** Alunos no app e cobranças: onboarding concluído, ou trial (homologação). Decisão D5. */
   liberada: boolean;
+  /** A marca da academia no app do aluno (logo, cor e ícones do app instalado). */
+  logoUrl: string | null;
+  corMarca: string | null;
+  icone192: string | null;
+  icone512: string | null;
 }
 
 type FaseJornada = Enums<"fase_jornada">;
@@ -172,7 +177,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       supabase.from("user_roles").select("role").eq("user_id", userId),
       supabase
         .from("organization_members")
-        .select("role, organization_id, created_at, organizations ( id, nome, slug, tipo, especialidade_profissional, onboarding_completed, status )")
+        .select("role, organization_id, created_at, organizations ( id, nome, slug, tipo, especialidade_profissional, onboarding_completed, status, logo_url, cor_marca, icone_app_192_url, icone_app_512_url )")
         .eq("user_id", userId)
         .eq("status", "active"),
     ]);
@@ -200,6 +205,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         especialidade_profissional: AppRole | null;
         onboarding_completed: boolean;
         status: Enums<"org_status">;
+        logo_url: string | null;
+        cor_marca: string | null;
+        icone_app_192_url: string | null;
+        icone_app_512_url: string | null;
       } | null;
       setOrganization(
         org
@@ -212,6 +221,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               onboardingCompleted: org.onboarding_completed,
               status: org.status,
               liberada: org.onboarding_completed || org.status === "trial",
+              logoUrl: org.logo_url,
+              corMarca: org.cor_marca,
+              icone192: org.icone_app_192_url,
+              icone512: org.icone_app_512_url,
             }
           : null
       );

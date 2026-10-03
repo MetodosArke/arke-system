@@ -6,6 +6,7 @@ import CompromissoTab from "@/components/jornada/CompromissoTab";
 import RotinaSemanal from "@/components/aluno/RotinaSemanal";
 import { MetodoArke } from "@/components/aluno/MetodoArke";
 import { useAuth } from "@/contexts/AuthContext";
+import { SeloMetodoArke } from "@/components/marca/MarcaAcademia";
 
 /**
  * Minha Jornada — quatro abas.
@@ -37,7 +38,11 @@ export default function AlunoJornada() {
   return (
     <div className="space-y-4 max-w-2xl mx-auto">
       <div>
-        <h1 className="text-xl font-bold">Minha Jornada</h1>
+        {/* O app leva a marca da academia; a Jornada é do Método, e o selo diz isso. */}
+        <div className="flex flex-wrap items-center gap-2">
+          <h1 className="text-xl font-bold">Minha Jornada</h1>
+          <SeloMetodoArke />
+        </div>
         <p className="text-xs text-muted-foreground">Seus objetivos, valores, metas e compromisso de rotina</p>
       </div>
 

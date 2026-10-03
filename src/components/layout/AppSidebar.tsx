@@ -7,6 +7,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { MarcaArkeFit } from "@/components/marca/MarcaArkeFit";
+import { ComTecnologiaArkeFit, LogoAcademia, useMarcaAcademia } from "@/components/marca/MarcaAcademia";
 
 // A Jornada (objetivos, valores, meta pessoal e rotina) é do Método ARKE:
 // decisão comercial do responsável, 28/09/2026. No Free ela sai do menu.
@@ -43,6 +44,7 @@ function SidebarNav({
   const location = useLocation();
   const navigate = useNavigate();
   const { signOut, hasRole, organization, planoAluno } = useAuth();
+  const marca = useMarcaAcademia();
   const isAdminArke = hasRole("admin_arke");
   const menuItems = buildMenuItems(organization?.tipo === "studio", planoAluno !== "free");
 
@@ -54,10 +56,17 @@ function SidebarNav({
   return (
     <>
       <div className="flex items-center justify-between border-b border-border p-4">
-        {!collapsed && (
-          <h1>
-            <MarcaArkeFit className="h-6 w-auto" />
+        {/* O app do aluno leva a marca da academia; a ArkeFit fica no rodapé. */}
+        {marca ? (
+          <h1 className="min-w-0">
+            <LogoAcademia marca={marca} soLogo={collapsed} />
           </h1>
+        ) : (
+          !collapsed && (
+            <h1>
+              <MarcaArkeFit className="h-6 w-auto" />
+            </h1>
+          )
         )}
         {onCollapse && (
           <Button variant="ghost" size="icon" onClick={onCollapse} className="h-8 w-8">
@@ -106,6 +115,7 @@ function SidebarNav({
           <LogOut className="h-5 w-5 shrink-0" />
           {!collapsed && <span>Sair</span>}
         </button>
+        {marca && !collapsed && <ComTecnologiaArkeFit className="pt-2 pb-1" />}
       </div>
     </>
   );

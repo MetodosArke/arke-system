@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
 import { Compass, ShieldCheck } from "lucide-react";
+import { SeloMetodoArke } from "@/components/marca/MarcaAcademia";
 import {
   CAIXA_CONSENTIMENTO_SAUDE,
   TEXTO_CONSENTIMENTO_SAUDE,
@@ -233,9 +234,10 @@ export default function Onboarding() {
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <Card className="w-full max-w-lg">
         <CardHeader>
-          <div className="flex items-center gap-2 text-primary">
+          <div className="flex flex-wrap items-center gap-2 text-primary">
             <Compass className="h-5 w-5" />
             <span className="text-xs font-semibold uppercase tracking-wide">M.A.P.A.® — Descobrir</span>
+            <SeloMetodoArke className="ml-auto" />
           </div>
           <Progress value={((stepIndex + 1) / STEPS.length) * 100} className="mt-2" />
           <CardTitle className="mt-3">{step.title}</CardTitle>

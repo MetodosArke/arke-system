@@ -13,6 +13,7 @@ import { useToast } from "@/hooks/use-toast";
 import { mensagemDeErroEdge } from "@/lib/erroEdge";
 import { erroCpfObrigatorio } from "@/lib/cpf";
 import { Turnstile } from "@/components/public/Turnstile";
+import { useMarcaAcademia } from "@/components/marca/MarcaAcademia";
 
 // Sem a chave, a matrícula segue sem captcha (e o servidor não o exige sem
 // TURNSTILE_SECRET_KEY). Ver components/public/Turnstile.
@@ -25,6 +26,7 @@ interface OrganizacaoPublica {
 
 export default function PublicMatricula() {
   const { slug } = useParams<{ slug: string }>();
+  const marca = useMarcaAcademia();
   const navigate = useNavigate();
   const { toast } = useToast();
   const { signIn } = useAuth();
@@ -146,9 +148,14 @@ export default function PublicMatricula() {
     <div className="min-h-screen bg-background p-4 py-10">
       <div className="mx-auto max-w-lg space-y-4">
         <div className="text-center space-y-1">
-          <div className="mx-auto mb-2 flex h-14 w-14 items-center justify-center rounded-2xl gradient-primary">
-            <Dumbbell className="h-7 w-7 text-primary-foreground" />
-          </div>
+          {/* Com logo, a página leva a marca da academia; sem, o ícone de sempre. */}
+          {marca?.logoUrl ? (
+            <img src={marca.logoUrl} alt={`Logo da ${org.nome}`} className="mx-auto mb-2 h-14 w-auto max-w-[10rem] object-contain" />
+          ) : (
+            <div className="mx-auto mb-2 flex h-14 w-14 items-center justify-center rounded-2xl gradient-primary">
+              <Dumbbell className="h-7 w-7 text-primary-foreground" />
+            </div>
+          )}
           <h1 className="text-2xl font-bold">{org.nome}</h1>
           <p className="text-sm text-muted-foreground">Crie sua conta para acessar o app da academia.</p>
         </div>

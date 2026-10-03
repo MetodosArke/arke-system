@@ -2,20 +2,21 @@
 
 import * as React from 'npm:react@18.3.1'
 import { Button, Heading, Link, Text } from 'npm:@react-email/components@0.0.22'
-import { EmailLayout, colors } from './_components/brand.tsx'
+import { EmailLayout, colors, type MarcaEmail } from './_components/brand.tsx'
 
 interface SignupEmailProps {
   siteName: string
   siteUrl: string
   recipient: string
   confirmationUrl: string
+  marca?: MarcaEmail | null
 }
 
-export const SignupEmail = ({ siteName, siteUrl, recipient, confirmationUrl }: SignupEmailProps) => (
-  <EmailLayout preview={`Confirme seu e-mail no ${siteName}`}>
+export const SignupEmail = ({ siteName, siteUrl, recipient, confirmationUrl, marca }: SignupEmailProps) => (
+  <EmailLayout preview={`Confirme seu e-mail no ${siteName}`} marca={marca}>
     <Heading style={h1}>Confirme seu e-mail</Heading>
     <Text style={text}>
-      Obrigado por se cadastrar na{' '}
+      Obrigado por se cadastrar {marca ? 'no' : 'na'}{' '}
       <Link href={siteUrl} style={link}>
         <strong>{siteName}</strong>
       </Link>

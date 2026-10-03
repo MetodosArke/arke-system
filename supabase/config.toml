@@ -31,6 +31,11 @@ verify_jwt = false
 [functions.agente-comercial]
 verify_jwt = false
 
+# Manifesto do app instalado com a marca da academia: o navegador o busca
+# sem sessão. Chega pela Vercel em /manifest/<slug> (vercel.json).
+[functions.manifest-academia]
+verify_jwt = false
+
 # Link curto de ativação, aberto pelo e-mail antes de existir sessão.
 [functions.ativar-cadastro]
 verify_jwt = false

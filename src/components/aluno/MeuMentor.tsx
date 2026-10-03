@@ -1,6 +1,7 @@
 import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { MessageCircle } from "lucide-react";
+import { SeloMetodoArke } from "@/components/marca/MarcaAcademia";
 import { ChatMentor } from "@/components/chat/ChatMentor";
 import { useMeuAcompanhamento } from "@/hooks/useMeuAcompanhamento";
 
@@ -33,8 +34,9 @@ export function CanalMentor() {
   return (
     <Card>
       <CardHeader className="pb-2">
-        <CardTitle className="flex items-center gap-2 text-base">
+        <CardTitle className="flex flex-wrap items-center gap-2 text-base">
           <MessageCircle className="h-4 w-4 text-primary" /> Meu Mentor ARKE
+          <SeloMetodoArke />
         </CardTitle>
         <p className="text-xs text-muted-foreground">
           {data?.mentor_nome ? `Quem acompanha você é ${data.mentor_nome}, da ArkeFit.` : "A equipe da ArkeFit acompanha você."} É

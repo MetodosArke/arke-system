@@ -2,15 +2,16 @@
 
 import * as React from 'npm:react@18.3.1'
 import { Button, Heading, Text } from 'npm:@react-email/components@0.0.22'
-import { EmailLayout, colors } from './_components/brand.tsx'
+import { EmailLayout, colors, type MarcaEmail } from './_components/brand.tsx'
 
 interface MagicLinkEmailProps {
   siteName: string
   confirmationUrl: string
+  marca?: MarcaEmail | null
 }
 
-export const MagicLinkEmail = ({ siteName, confirmationUrl }: MagicLinkEmailProps) => (
-  <EmailLayout preview={`Seu link de acesso ao ${siteName}`}>
+export const MagicLinkEmail = ({ siteName, confirmationUrl, marca }: MagicLinkEmailProps) => (
+  <EmailLayout preview={`Seu link de acesso ao ${siteName}`} marca={marca}>
     <Heading style={h1}>Seu link de acesso</Heading>
     <Text style={text}>Clique no botão abaixo para entrar no {siteName}. Este link expira em breve.</Text>
     <Button style={button} href={confirmationUrl}>

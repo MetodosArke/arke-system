@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Dumbbell, MailCheck } from "lucide-react";
 import { mensagemDeErroEdge } from "@/lib/erroEdge";
 import { Turnstile } from "@/components/public/Turnstile";
+import { useMarcaAcademia } from "@/components/marca/MarcaAcademia";
 import { LinksLegais } from "@/components/legal/LinksLegais";
 
 const TURNSTILE_SITE_KEY: string | undefined = import.meta.env.VITE_TURNSTILE_SITE_KEY || undefined;
@@ -21,6 +22,7 @@ const TURNSTILE_SITE_KEY: string | undefined = import.meta.env.VITE_TURNSTILE_SI
  */
 export default function PrimeiroAcesso() {
   const { slug } = useParams<{ slug: string }>();
+  const marca = useMarcaAcademia();
   const [contato, setContato] = useState("");
   const [captchaToken, setCaptchaToken] = useState<string | null>(null);
   const [captchaVersao, setCaptchaVersao] = useState(0);
@@ -60,9 +62,13 @@ export default function PrimeiroAcesso() {
     <div className="min-h-screen flex items-center justify-center p-4 bg-background">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center space-y-2">
-          <div className="mx-auto h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
-            <Dumbbell className="h-6 w-6 text-primary" />
-          </div>
+          {marca?.logoUrl ? (
+            <img src={marca.logoUrl} alt={`Logo da ${marca.nome}`} className="mx-auto h-12 w-auto max-w-[10rem] object-contain" />
+          ) : (
+            <div className="mx-auto h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
+              <Dumbbell className="h-6 w-6 text-primary" />
+            </div>
+          )}
           <CardTitle>Primeiro acesso{academia?.nome ? ` — ${academia.nome}` : ""}</CardTitle>
           <p className="text-sm text-muted-foreground">
             Já é aluno? Digite o e-mail ou o celular que você informou na academia. Enviamos um link para você criar a sua senha.

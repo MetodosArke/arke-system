@@ -37,7 +37,7 @@ Os upgrades pagos (Supabase, Vercel e Resend) vêm antes do primeiro cliente pag
   - Privados: `atestados`, `chat-videos`, `dietas`, `termos-biometria`.
   - Públicos: `avatars`, `email-assets`, `exercicio-imagens`, `exercicio-videos`, `feed-images`.
 - **Funções do servidor (Edge Functions):**
-  - são 50, com o código em `supabase/functions/`;
+  - são 51, com o código em `supabase/functions/`;
   - quais respondem sem login está em `supabase/config.toml`;
   - cada Gateway de catraca faz ~100 mil chamadas por mês (escuta longa de ordens). Com 50 academias com catraca, passa das 2 milhões incluídas no Pro, e o excedente custa poucos dólares por mês;
   - publicar: `supabase functions deploy <nome> --project-ref lzyxqjibkfblrrjboylp`.
@@ -77,6 +77,7 @@ Ficam em Supabase → Project Settings → Edge Functions → Secrets. O Supabas
   - `app.arkefit.com.br`: o app;
   - `arkefit.com.br`: redireciona para o `www`;
   - `arke-system.vercel.app`: o endereço da própria Vercel.
+- **Endereços repassados ao Supabase** (`vercel.json`): `/cadastro/<código>` (link curto de ativação) e `/manifest/<academia>` (o manifesto do app instalado com a marca da academia, da função `manifest-academia`).
 - **Variáveis:** todas começam com `VITE_`, e **tudo o que começa com `VITE_` vai para o navegador**. Nunca pôr segredo nelas. Mudar uma variável só vale na publicação seguinte.
 
 | Nome | Ambiente | O que faz |

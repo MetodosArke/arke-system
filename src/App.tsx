@@ -15,6 +15,8 @@ import { resolveHomePath } from "@/lib/authRouting";
 import { Suspense, useState } from "react";
 import { paginaPreguicosa } from "@/lib/carregamentoPreguicoso";
 import { CarregandoPagina } from "@/components/CarregandoPagina";
+import { MarcaAcademiaProvider } from "@/components/marca/MarcaAcademia";
+import { slugDeEntrada } from "@/lib/marcaAcademia";
 
 // Auth pages
 import Login from "@/pages/auth/Login";
@@ -169,6 +171,8 @@ function RootRedirect() {
       temSessao: haSessaoGuardada(),
       appInstalado: appInstaladoNaTela(),
       forcar: new URLSearchParams(window.location.search).has("vendas"),
+      // O app instalado com a marca de uma academia começa em "/?academia=…".
+      entradaDeAcademia: !!slugDeEntrada({ search: window.location.search, hash: window.location.hash }),
     }),
   );
 
@@ -200,6 +204,7 @@ const App = () => (
           <NetworkStatusBanner />
           <ImpersonationBanner />
           <HashRouter>
+            <MarcaAcademiaProvider>
             <Suspense fallback={<CarregandoPagina />}>
             <Routes>
               <Route path="/" element={<RootRedirect />} />
@@ -214,6 +219,8 @@ const App = () => (
               <Route path="/p/:slug" element={<PublicMatricula />} />
               {/* Primeiro acesso de quem a academia já cadastrou (QR Code da recepção) */}
               <Route path="/p/:slug/primeiro-acesso" element={<PrimeiroAcesso />} />
+              {/* Tela de entrar com a marca da academia: o link que ela divulga e o app instalado */}
+              <Route path="/p/:slug/entrar" element={<Login />} />
               {/* "Não quero mais receber" dos e-mails da resposta automática ao contato do site */}
               <Route path="/contato/parar" element={<PararContatoSite />} />
 
@@ -352,6 +359,7 @@ const App = () => (
               <Route path="*" element={<NotFound />} />
             </Routes>
             </Suspense>
+            </MarcaAcademiaProvider>
           </HashRouter>
         </TooltipProvider>
         </PushNotificationManager>

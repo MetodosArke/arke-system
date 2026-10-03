@@ -30,16 +30,20 @@ export function mostrarPaginaDeVendas({
   temSessao,
   appInstalado,
   forcar = false,
+  entradaDeAcademia = false,
 }: {
   host: string;
   hash: string;
   temSessao: boolean;
   appInstalado: boolean;
   forcar?: boolean;
+  /** Aberto pelo app instalado com a marca de uma academia (`?academia=`): é o app, não a vitrine. */
+  entradaDeAcademia?: boolean;
 }): boolean {
   const naRaiz = hash === "" || hash === "#" || hash === "#/";
   if (!naRaiz) return false;
   if (forcar) return true;
+  if (entradaDeAcademia) return false;
   return ehHostDeVendas(host) && !temSessao && !appInstalado;
 }
 
@@ -51,7 +55,10 @@ export function mostrarPaginaDeVendas({
 export function destinoNoApp(url: { host: string; hash: string; search: string }, appHost: string | undefined): string | null {
   if (!appHost || !ehHostDeVendas(url.host) || url.host.toLowerCase() === appHost.toLowerCase()) return null;
   const rota = url.hash.replace(/^#/, "").split("?")[0];
-  if (!rota || rota === "/") return null;
+  // A raiz com `?academia=` é o começo do app instalado com a marca de uma
+  // academia: vai para o endereço do app, como qualquer rota dele.
+  const entradaDeAcademia = new URLSearchParams(url.search).has("academia");
+  if ((!rota || rota === "/") && !entradaDeAcademia) return null;
   if (ROTAS_DO_SITE.some((r) => rota === r || rota.startsWith(`${r}/`))) return null;
   return `https://${appHost}/${url.search}${url.hash}`;
 }
