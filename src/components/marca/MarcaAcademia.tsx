@@ -110,7 +110,7 @@ function slugDaRotaPublica(pathname: string): string | null {
 /** Fica dentro do roteador: a marca depende da tela. */
 export function MarcaAcademiaProvider({ children }: { children: ReactNode }) {
   const { pathname } = useLocation();
-  const { organization, organizationRole } = useAuth();
+  const { organization, organizationRole, isLoading, isAuthenticated, rolesLoaded } = useAuth();
 
   const doAluno: MarcaAcademia | null =
     pathname.startsWith("/app") && organizationRole === "aluno" && organization
@@ -131,7 +131,7 @@ export function MarcaAcademiaProvider({ children }: { children: ReactNode }) {
     if (daRota) guardarEntrada(daRota);
   }, [daRota]);
 
-  const { data: publica } = useQuery({
+  const { data: publica, isPending } = useQuery({
     queryKey: ["marca-academia", slugBusca],
     queryFn: async (): Promise<MarcaAcademia | null> => {
       const { data, error } = await supabase.rpc("marca_academia", { _slug: slugBusca! });
@@ -148,9 +148,17 @@ export function MarcaAcademiaProvider({ children }: { children: ReactNode }) {
 
   const marca = doAluno ?? (slugBusca ? publica ?? null : null);
 
+  // Enquanto a marca carrega, nada muda no documento. Voltar ao manifesto da
+  // ArkeFit por um instante e depois ir ao da academia fazia o navegador às
+  // vezes ficar com o do meio, e o app seria instalado com o nome errado; e
+  // no app do aluno, as cores piscavam no amarelo antes da academia.
+  const aguardando =
+    (!!slugBusca && isPending) || (pathname.startsWith("/app") && (isLoading || (isAuthenticated && !rolesLoaded)));
+
   useEffect(() => {
+    if (aguardando) return;
     aplicarNoDocumento(marca);
-  }, [marca?.slug, marca?.nome, marca?.cor, marca?.icone192]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [aguardando, marca?.slug, marca?.nome, marca?.cor, marca?.icone192]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return <MarcaContext.Provider value={marca}>{children}</MarcaContext.Provider>;
 }
