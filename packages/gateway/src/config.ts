@@ -70,10 +70,17 @@ const configSchema = z.object({
         liberar: z.enum(["entrada", "ambos"]).default("entrada"),
         placa: z.enum(["litenet2", "litenet3"]).default("litenet2"),
         serial: z.string().trim().min(1).optional(),
+        // O leitor SM25 da LiteNet2, na porta 7879 do mesmo IP.
+        leitor_digital: z.boolean().default(false),
+        porta_leitor: z.number().int().positive().default(7879),
       })
     )
     .default([])
     .refine((l) => new Set(l.map((e) => e.nome)).size === l.length, "nomes de equipamento repetidos")
+    .refine(
+      (l) => l.every((e) => !(e.leitor_digital && e.placa === "litenet3")),
+      "leitor_digital vale só na LiteNet2 (a LiteNet3 com digital manda a imagem do dedo, que o ARKE não compara)"
+    )
     .refine(
       (l) => {
         const seriais = l.filter((e) => e.serial).map((e) => e.serial);
@@ -105,6 +112,7 @@ const configSchema = z.object({
   // A porta padrão do menu do leitor (Configurações → Rede → Servidor).
   topdata_facial_porta: z.number().int().positive().default(7792),
   toletus_placa: z.enum(["litenet2", "litenet3"]).default("litenet2"),
+  toletus_leitor_digital: z.boolean().default(false),
   // A LiteNet3 disca para o Gateway. 7880, e não a 7878 da placa nem a 7879
   // do leitor SM25, para não confundir quem lê a configuração do firewall.
   toletus_litenet3_porta: z.number().int().positive().default(7880),
@@ -140,7 +148,18 @@ const configSchema = z.object({
  */
 export function equipamentosToletus(config: GatewayConfig): NonNullable<GatewayConfig["toletus_equipamentos"]> {
   if (config.toletus_equipamentos?.length) return config.toletus_equipamentos;
-  return [{ nome: "Catraca", ip: config.catraca_ip, porta: 7878, liberar: "entrada", placa: config.toletus_placa ?? "litenet2" }];
+  const placa = config.toletus_placa ?? "litenet2";
+  return [
+    {
+      nome: "Catraca",
+      ip: config.catraca_ip,
+      porta: 7878,
+      liberar: "entrada",
+      placa,
+      leitor_digital: placa === "litenet2" && !!config.toletus_leitor_digital,
+      porta_leitor: 7879,
+    },
+  ];
 }
 
 /**

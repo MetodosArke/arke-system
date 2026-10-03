@@ -105,8 +105,11 @@ describe("carregarConfig", () => {
     // catraca_porta (3000 na BASE) não entra: nos outros modelos é outra coisa.
     const config = carregarConfig(escreverConfig({ ...BASE, modelo_catraca: "toletus" }));
     expect(equipamentosToletus(config)).toEqual([
-      { nome: "Catraca", ip: "192.168.0.10", porta: 7878, liberar: "entrada", placa: "litenet2" },
+      { nome: "Catraca", ip: "192.168.0.10", porta: 7878, liberar: "entrada", placa: "litenet2", leitor_digital: false, porta_leitor: 7879 },
     ]);
+    // Com o leitor de digital SM25, na porta 7879 do mesmo IP.
+    const comLeitor = carregarConfig(escreverConfig({ ...BASE, modelo_catraca: "toletus", toletus_leitor_digital: true }));
+    expect(equipamentosToletus(comLeitor)[0]).toMatchObject({ leitor_digital: true, porta_leitor: 7879 });
     // Uma LiteNet3 só: o tipo da placa basta, e a porta onde ela disca tem padrão.
     const l3 = carregarConfig(escreverConfig({ ...BASE, modelo_catraca: "toletus", toletus_placa: "litenet3" }));
     expect(equipamentosToletus(l3)[0]).toMatchObject({ ip: "192.168.0.10", placa: "litenet3" });
@@ -126,9 +129,19 @@ describe("carregarConfig", () => {
       })
     );
     expect(equipamentosToletus(config)).toEqual([
-      { nome: "Entrada", ip: "192.168.0.60", porta: 7878, liberar: "entrada", placa: "litenet3", serial: "00000002" },
-      { nome: "Antiga", ip: "192.168.0.61", porta: 7878, liberar: "entrada", placa: "litenet2" },
+      { nome: "Entrada", ip: "192.168.0.60", porta: 7878, liberar: "entrada", placa: "litenet3", serial: "00000002", leitor_digital: false, porta_leitor: 7879 },
+      { nome: "Antiga", ip: "192.168.0.61", porta: 7878, liberar: "entrada", placa: "litenet2", leitor_digital: false, porta_leitor: 7879 },
     ]);
+    // O leitor SM25 é da LiteNet2: a LiteNet3 com digital manda a imagem do dedo.
+    expect(() =>
+      carregarConfig(
+        escreverConfig({
+          ...BASE,
+          modelo_catraca: "toletus",
+          toletus_equipamentos: [{ nome: "A", ip: "192.168.0.60", placa: "litenet3", leitor_digital: true }],
+        })
+      )
+    ).toThrow(/LiteNet2/);
     expect(() =>
       carregarConfig(
         escreverConfig({
@@ -186,14 +199,14 @@ describe("carregarConfig", () => {
         ...BASE,
         modelo_catraca: "toletus",
         toletus_equipamentos: [
-          { nome: "Entrada", ip: "192.168.0.60" },
+          { nome: "Entrada", ip: "192.168.0.60", leitor_digital: true },
           { nome: "Fundos", ip: "192.168.0.61", liberar: "ambos" },
         ],
       })
     );
     expect(equipamentosToletus(config)).toEqual([
-      { nome: "Entrada", ip: "192.168.0.60", porta: 7878, liberar: "entrada", placa: "litenet2" },
-      { nome: "Fundos", ip: "192.168.0.61", porta: 7878, liberar: "ambos", placa: "litenet2" },
+      { nome: "Entrada", ip: "192.168.0.60", porta: 7878, liberar: "entrada", placa: "litenet2", leitor_digital: true, porta_leitor: 7879 },
+      { nome: "Fundos", ip: "192.168.0.61", porta: 7878, liberar: "ambos", placa: "litenet2", leitor_digital: false, porta_leitor: 7879 },
     ]);
     expect(() =>
       carregarConfig(

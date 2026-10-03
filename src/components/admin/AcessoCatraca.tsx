@@ -34,9 +34,12 @@ const umaTelemetria = (t: Telemetria | Telemetria[] | null | undefined): Telemet
  *
  * Versão 1.0: com a Control iD configurada no Gateway, a recepção cadastra o
  * aluno, a digital e o cartão daqui, com o aluno na frente do leitor, em vez
- * de digitar o número no equipamento e depois no ARKE. Sem gestão remota
- * (Topdata, Toletus, ou Control iD sem credencial no config), o cadastro
- * continua no equipamento e o número é vinculado à mão.
+ * de digitar o número no equipamento e depois no ARKE. Cada marca anuncia o
+ * que cadastra (a digital da Toletus desde o Gateway 1.6), e a tela só
+ * oferece isso. Onde o Gateway não cadastra cartão (Toletus, Intelbras), o
+ * número do cartão continua vinculado à mão, aqui mesmo. Sem gestão remota
+ * (Topdata Inner, Control iD sem credencial no config), o cadastro continua
+ * no equipamento e o número é vinculado à mão.
  *
  * O consentimento da digital é do ALUNO: no app, ou assinando o termo
  * impresso que a recepção anexa aqui (aluno sem app). A equipe nunca autoriza
@@ -62,6 +65,8 @@ export function AcessoCatraca({
   const { organization, organizationRole } = useAuth();
   const gestaoOuRecepcao = organizationRole === "gestor" || organizationRole === "recepcao";
   const [identificador, setIdentificador] = useState(identificadorAtual ?? "");
+  // O número do cartão, na marca em que o Gateway não cadastra cartão (Toletus, Intelbras).
+  const [cartao, setCartao] = useState("");
   const [gatewayId, setGatewayId] = useState("");
   const [leitor, setLeitor] = useState("");
   const [leitorRosto, setLeitorRosto] = useState("");
@@ -177,15 +182,24 @@ export function AcessoCatraca({
     window.open(data.signedUrl, "_blank", "noopener");
   };
 
+  // O número vai no mutate(), montado no clique: lido pelo fechamento, o
+  // botão logo depois de digitar mandaria o valor de antes.
   const vincularManual = useMutation({
-    mutationFn: async () => {
-      const valor = identificador.trim();
+    mutationFn: async (numero: string) => {
+      const valor = numero.trim();
       if (!valor) throw new Error("Informe o número do aluno no equipamento.");
       const { error } = await supabase.from("alunos").update({ identificador_catraca: valor }).eq("id", alunoId);
       if (error) throw error;
+      return { trocou: !!identificadorAtual && identificadorAtual !== valor };
     },
-    onSuccess: () => {
-      toast({ title: "Número vinculado", description: "A catraca já reconhece o aluno por este número." });
+    onSuccess: ({ trocou }) => {
+      toast({
+        title: "Número vinculado",
+        description: trocou
+          ? "A catraca já reconhece o aluno por este número. O número anterior sai dos equipamentos."
+          : "A catraca já reconhece o aluno por este número.",
+      });
+      setCartao("");
       atualizar();
     },
     onError: (error: Error) =>
@@ -385,6 +399,44 @@ export function AcessoCatraca({
               {situacaoRosto.texto}
             </p>
           )}
+          {!podeCartao && (
+            // Toletus e Intelbras mandam o número lido do cartão, e é ele que
+            // vira o número do aluno: não há o que cadastrar no equipamento.
+            <div className="space-y-1.5 border-t pt-2">
+              <Label className="text-xs font-medium text-muted-foreground" htmlFor={`catraca-cartao-${alunoId}`}>
+                Cartão
+              </Label>
+              <div className="flex gap-2">
+                <Input
+                  id={`catraca-cartao-${alunoId}`}
+                  className="h-8"
+                  value={cartao}
+                  onChange={(e) => setCartao(e.target.value)}
+                  placeholder="Número que a catraca informa"
+                />
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  disabled={vincularManual.isPending || !cartao.trim()}
+                  onClick={() => vincularManual.mutate(cartao)}
+                >
+                  {vincularManual.isPending ? (
+                    <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <CreditCard className="mr-1.5 h-3.5 w-3.5" />
+                  )}
+                  Vincular
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Passe o cartão na catraca e veja o número em <strong>Catracas → Últimos acessos</strong>. Cada aluno tem um
+                número só
+                {identificadorAtual
+                  ? `: o do cartão substitui o ${identificadorAtual}, e a digital e o rosto cadastrados com ele saem dos equipamentos.`
+                  : "."}
+              </p>
+            </div>
+          )}
           {!podeDigital && !podeCartao && (
             <p className="text-xs text-muted-foreground">
               Leitor facial: o aluno fica cadastrado em todos os leitores com o mesmo número. O rosto entra pela câmera
@@ -405,7 +457,7 @@ export function AcessoCatraca({
               onChange={(e) => setIdentificador(e.target.value)}
               placeholder="Ex.: 6"
             />
-            <Button disabled={vincularManual.isPending} onClick={() => vincularManual.mutate()}>
+            <Button disabled={vincularManual.isPending} onClick={() => vincularManual.mutate(identificador)}>
               {vincularManual.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Vincular
             </Button>
@@ -416,7 +468,8 @@ export function AcessoCatraca({
             <strong>Intelbras com cartão:</strong> o número que o terminal informa, achado do mesmo jeito.{" "}
             <strong>Control iD</strong> (ou digital na Topdata e na Toletus): o número de usuário que o equipamento deu ao
             aluno no cadastro. Digital e rosto só com a autorização do aluno (app ou termo impresso); cartão, a qualquer momento.
-            Com a Control iD configurada no Gateway Local, o cadastro passa a ser feito daqui, sem digitar número.
+            Com a Control iD, a Intelbras, os leitores faciais da Topdata ou o leitor de digital da Toletus configurados no
+            Gateway Local, o cadastro passa a ser feito daqui, sem digitar número.
           </p>
         </div>
       )}

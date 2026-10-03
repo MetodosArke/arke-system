@@ -106,8 +106,18 @@ Na Toletus o sentido é o contrário das outras marcas: a placa LiteNet2 espera 
 ```
 
 5. Cartão: passe o cartão na catraca. Como ele ainda não é de ninguém, aparece em **Catracas → Últimos acessos** com o **número lido**, que é o que vai na ficha do aluno.
+6. Catraca com **leitor de digital** (LiteNet2): ponha `"leitor_digital": true` na placa, ou `"toletus_leitor_digital": true` com uma placa só. A ficha do aluno passa a ter **Cadastrar digital**: com o aluno na frente do leitor, ele põe o mesmo dedo três vezes, o display da catraca acompanha, e a digital é copiada para os leitores das outras catracas. Quando o aluno sai ou retira a autorização, a digital sai de todos os leitores sozinha.
 
-Com o Gateway desligado, a entrada controlada **não libera ninguém**: a placa não guarda lista de alunos e só abre quando o Gateway manda. O display mostra "Bem-vindo!" ao liberar e, ao negar, uma frase curta como "Fale c/ recepcao", sem expor o motivo para a fila.
+```
+"toletus_equipamentos": [
+  { "nome": "Catraca da entrada", "ip": "192.168.0.60", "leitor_digital": true },
+  { "nome": "Catraca dos fundos", "ip": "192.168.0.61", "leitor_digital": true }
+]
+```
+
+Na Toletus cada aluno tem **um número só**: o do cartão ou o da digital. Vincular o cartão a quem tinha digital troca o número, e a digital antiga sai dos leitores.
+
+Com o Gateway desligado, a entrada controlada **não libera ninguém**: a placa não guarda lista de alunos e só abre quando o Gateway manda. O display mostra "Bem-vindo!" ao liberar e, ao negar, uma frase curta como "Fale c/ recepcao", sem expor o motivo para a fila. No teclado vale só o **CPF**: o número do aluno no equipamento é curto e sequencial, e a catraca não tem senha para conferir, então outro número digitado é negado com "Digite o CPF".
 
 ### Placa LiteNet3
 
@@ -124,7 +134,7 @@ A LiteNet3, mais nova, faz o contrário da LiteNet2: o Gateway avisa a placa do 
 
 3. Com uma catraca só, basta `"toletus_placa": "litenet3"` e o `catraca_ip`.
 
-Na LiteNet3 a academia usa **cartão, código de barras ou teclado**. A placa com leitor de digital manda a imagem do dedo para o computador comparar, e o ARKE não compara digital fora do equipamento: a catraca nega com "Use o cartao".
+Na LiteNet3 a academia usa **cartão, código de barras ou o CPF no teclado**. A placa com leitor de digital manda a imagem do dedo para o computador comparar, e o ARKE não compara digital fora do equipamento: a catraca nega com "Use o cartao".
 
 ## Leitores faciais da Topdata
 

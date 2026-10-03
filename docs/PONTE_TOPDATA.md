@@ -103,7 +103,7 @@ Resposta:
 { "liberar": true, "sentido": "entrada", "nome": "Jean Ramos", "motivo": "Acesso liberado." }
 ```
 
-- **Leitura:** 11 dígitos no teclado viram CPF; o resto vira `identificador_catraca`. A biometria chega como o número do usuário **dentro do equipamento**: a digital é comparada lá, como na Control iD, e nenhum dado biométrico trafega.
+- **Leitura:** no teclado vale só o CPF (11 dígitos); outro número digitado é negado com "Digite o CPF." sem ir à nuvem, porque os números do equipamento são pequenos e sequenciais e a catraca não tem senha para conferir (Gateway 1.6). Cartão e QR viram `identificador_catraca`. A biometria chega como o número do usuário **dentro do equipamento**: a digital é comparada lá, como na Control iD, e nenhum dado biométrico trafega.
 - **Giro:** a Topdata sempre avisa, com origem 6 (girou) ou 5 (não girou). Todo acesso liberado fica **esperando o aviso daquele Inner**. Se girou, vira presença; se não girou, vira desistência, que não conta. Se não chega aviso no prazo, o acesso fecha como "sem confirmação", que conta. Quando a ponte não consegue liberar a catraca, ela avisa "não girou", para quem ficou do lado de fora não ganhar presença.
 - **Contingência:** acesso decidido pelo cache do gateway vai para a fila offline com o giro pendente, e o aviso o fecha.
 

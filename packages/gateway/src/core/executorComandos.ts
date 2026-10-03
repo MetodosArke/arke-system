@@ -130,7 +130,7 @@ export class ExecutorComandos {
     // nem senha — só o nome.
     const equipamentos = [
       ...(this.cadastraNoEquipamento()
-        ? this.gestao!.nomes().map((nome) => ({
+        ? (this.gestao!.nomesDeCadastro?.() ?? this.gestao!.nomes()).map((nome) => ({
             nome,
             tipo: "controlid-gestao",
             visto_em: null,

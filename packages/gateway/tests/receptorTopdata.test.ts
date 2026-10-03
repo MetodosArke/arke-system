@@ -125,12 +125,13 @@ describe("Receptor Topdata — decisão de acesso", () => {
     expect(amb.cloud.credenciaisRecebidas).toEqual([{ tipo: "cpf", valor: "52998224725" }]);
   });
 
-  it("não confunde senha curta digitada com CPF", async () => {
+  it("número curto no teclado é negado sem ir à nuvem: seria entrar como o aluno daquele número", async () => {
     amb.cloud.respostaValidarAcesso = { liberado: true };
 
-    await comoAPonte(amb.app, { inner: 1, origem: ORIGEM_TOPDATA.TECLADO, valor: "1234" });
+    const resposta = await comoAPonte(amb.app, { inner: 1, origem: ORIGEM_TOPDATA.TECLADO, valor: "1234" });
 
-    expect(amb.cloud.credenciaisRecebidas).toEqual([{ tipo: "identificador_catraca", valor: "1234" }]);
+    expect(amb.cloud.credenciaisRecebidas).toEqual([]);
+    expect(resposta.json()).toMatchObject({ liberar: false, motivo: "Digite o CPF." });
   });
 
   it("nega sem sentido de giro quando a nuvem recusa", async () => {

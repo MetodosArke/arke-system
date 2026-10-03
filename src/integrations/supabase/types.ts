@@ -4608,6 +4608,39 @@ export type Database = {
           },
         ]
       }
+      organizacao_numeracao_catraca: {
+        Row: {
+          organization_id: string
+          ultimo: number
+          updated_at: string
+        }
+        Insert: {
+          organization_id: string
+          ultimo?: number
+          updated_at?: string
+        }
+        Update: {
+          organization_id?: string
+          ultimo?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "organizacao_numeracao_catraca_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: true
+            referencedRelation: "org_churn_metrics"
+            referencedColumns: ["organization_id"]
+          },
+          {
+            foreignKeyName: "organizacao_numeracao_catraca_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: true
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       organizacao_segredo_checkin: {
         Row: {
           criado_em: string
