@@ -213,7 +213,7 @@ export const ARTIGOS: ArtigoAjuda[] = [
   },
   {
     slug: "biometria-cadastro",
-    titulo: "Digital e cartão na catraca",
+    titulo: "Digital, rosto e cartão na catraca",
     resumo: "Autorização do aluno (app ou termo assinado), cadastro pela ficha e remoção.",
     secao: "Catraca e biometria",
     publicos: ["gestor", "recepcao"],
@@ -360,7 +360,7 @@ export const ARTIGOS: ArtigoAjuda[] = [
   },
   {
     slug: "app-biometria",
-    titulo: "Sua digital na catraca, em linguagem simples",
+    titulo: "Sua digital e seu rosto na catraca, em linguagem simples",
     resumo: "O que é guardado, onde, por quanto tempo e como retirar a autorização.",
     secao: "Privacidade",
     publicos: ["aluno", "gestor", "recepcao"],

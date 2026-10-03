@@ -73,8 +73,14 @@ export const DOCUMENTOS: Record<
     // a IA so a partir do que a propria academia contou; guarda de 12 meses
     // para qualquer canal. Texto aprovado pelo responsavel no chat em
     // 30/09/2026 ("Texto aprovado").
-    versao: "2026-09-30",
-    sha256: "dc59c4d4f10f74dd11218f6372834c3c6cebd4fe9096a9b249efaec507ab7d69",
+    // 2026-10-03: o rosto entra ao lado da digital -- reconhecimento facial na
+    // catraca, com o mesmo consentimento especifico; o rosto cadastrado pela
+    // camera do equipamento ou por foto enviada pelo app, que passa pela
+    // plataforma so para chegar aos equipamentos e e apagada dela ao chegar ou
+    // em 24 horas. Texto-base aprovado pelo responsavel no chat em 02/10/2026
+    // ("o texto base ja esta aprovado").
+    versao: "2026-10-03",
+    sha256: "b2202eedc569ca283804cfef14d4ad974545a80a6356c12984fd90e16505ade5",
     texto: privacidade,
     revisadoJuridico: true,
   },

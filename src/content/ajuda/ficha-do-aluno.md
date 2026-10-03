@@ -11,7 +11,7 @@ Clique no nome de um aluno em [Alunos & Prescrições](/admin/alunos) para abrir
 - **Treino Ativo** e **Dieta Ativa**: a prescrição publicada que o aluno está seguindo.
 - **Última Avaliação Física**: medidas e a data da próxima.
 - **Documentos da Matrícula**: contrato assinado, PAR-Q e atestado. Veja [Contrato de matrícula, PAR-Q e atestado](ajuda:documentos-da-matricula).
-- **Acesso por Catraca**: autorização da digital e o cadastro no equipamento. Veja [Digital e cartão na catraca](ajuda:biometria-cadastro).
+- **Acesso por Catraca**: autorização da digital e do rosto e o cadastro no equipamento. Veja [Digital, rosto e cartão na catraca](ajuda:biometria-cadastro).
 - **Plano da Academia**, **Cobranças avulsas** e **Endereço**: matrícula, mensalidades, cartão e cobranças à parte. Veja [Cobrança do aluno](ajuda:cobranca-do-aluno).
 - **Método ARKE**: nível, cobrança e o que a ArkeFit está fazendo por ele.
 - **Pendências na Fila de Atendimento**: tarefas abertas deste aluno.
