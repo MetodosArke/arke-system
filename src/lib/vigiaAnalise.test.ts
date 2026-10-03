@@ -21,7 +21,7 @@ const quadro = (): Quadro => ({
     { id: 1, tipo: "gateway_sem_sinal", academia: "A1", gateway: "G1", minutos: 25, dentro_do_horario: true },
     { id: 2, tipo: "gateway_sem_sinal", academia: "A1", gateway: "G2", minutos: 24, dentro_do_horario: true },
     { id: 3, tipo: "rotina_falhou", rotina: "arke-alerta-catracas", repetivel: true, classe_erro: "conexao", minutos: 0 },
-    { id: 4, tipo: "rotina_falhou", rotina: "arke-lembrete-onboarding", repetivel: false, classe_erro: "envio_email" },
+    { id: 4, tipo: "rotina_falhou", rotina: "arke-agente-implantacao", repetivel: false, classe_erro: "envio_email" },
     { id: 5, tipo: "webhook_nao_processado", evento: "PAYMENT_CONFIRMED", quantidade: 1 },
     { id: 6, tipo: "gateway_sincronizacao_atrasada", academia: "A1", gateway: "G3", minutos: 30 },
   ],
@@ -94,7 +94,7 @@ describe("catálogo de ferramentas", () => {
     const q = quadro();
     expect(classificarAcao("sincronizar_gateway", "G3", q)).toEqual({ classe: "sozinho" });
     expect(classificarAcao("reexecutar_rotina", "arke-alerta-catracas", q)).toEqual({ classe: "sozinho" });
-    expect(classificarAcao("reexecutar_rotina", "arke-lembrete-onboarding", q)).toEqual({ classe: "aprovacao" });
+    expect(classificarAcao("reexecutar_rotina", "arke-agente-implantacao", q)).toEqual({ classe: "aprovacao" });
     expect(classificarAcao("reprocessar_evento_asaas", "PAYMENT_CONFIRMED", q)).toEqual({ classe: "aprovacao" });
     expect(classificarAcao("acionar_academia", "A1", q)).toEqual({ classe: "humano" });
     expect(classificarAcao("reconferir_asaas", "plataforma", q)).toEqual({ classe: "sozinho" });
@@ -165,7 +165,7 @@ describe("interpretarResposta", () => {
           { ferramenta: "acionar_academia", alvo: "A1", justificativa: "Duas catracas caíram juntas." },
           { ferramenta: "liberar_catraca", alvo: "G1", justificativa: "Deixar entrar." },
           // O modelo não escolhe a classe: um "classe" vindo dele é ignorado.
-          { ferramenta: "reexecutar_rotina", alvo: "arke-lembrete-onboarding", justificativa: "x", classe: "sozinho" },
+          { ferramenta: "reexecutar_rotina", alvo: "arke-agente-implantacao", justificativa: "x", classe: "sozinho" },
         ],
       }),
       quadro(),

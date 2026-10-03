@@ -52,7 +52,7 @@ verify_jwt = false
 [functions.briefing-semanal]
 verify_jwt = false
 
-[functions.lembrete-onboarding]
+[functions.agente-implantacao]
 verify_jwt = false
 
 # Chamadas por outras edge functions com a service role key, não pelo navegador.

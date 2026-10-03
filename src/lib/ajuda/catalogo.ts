@@ -37,8 +37,8 @@ export const ARTIGOS: ArtigoAjuda[] = [
   },
   {
     slug: "onboarding-academia",
-    titulo: "Configuração inicial da academia",
-    resumo: "As seis etapas do onboarding, o que cada uma pede e o que fica travado até terminar.",
+    titulo: "Implantação da academia",
+    resumo: "As seis etapas da configuração, a liberação do app, a primeira entrada, o kit de lançamento e o assistente de implantação.",
     secao: "Primeiros passos",
     publicos: ["gestor"],
     rotas: ["/admin/onboarding"],
@@ -434,6 +434,14 @@ export const ARTIGOS: ArtigoAjuda[] = [
     resumo: "Aviso de 30 dias, término, prazo de exportação e eliminação.",
     secao: "Visão Master",
     publicos: ["arkefit"],
+  },
+  {
+    slug: "vm-implantacao",
+    titulo: "Implantação das academias",
+    resumo: "O agente de implantação, o andamento de cada academia e o chamado para ligar quando uma etapa para.",
+    secao: "Visão Master",
+    publicos: ["arkefit"],
+    rotas: ["/superadmin/implantacao"],
   },
   {
     slug: "vm-comercial",
