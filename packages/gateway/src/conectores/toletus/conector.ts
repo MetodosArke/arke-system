@@ -2,8 +2,10 @@ import type { GatewayService } from "../../core/gatewayService";
 import type { GestaoEquipamentos } from "../../equipamentos/controlidGestao";
 import { logger } from "../../logger";
 import type { Credencial, EquipamentoToletus, Giro, TipoComando } from "../../types";
-import { PlacaToletus, type EstadoPlaca, type OpcoesPlaca, type SentidoLiberacao } from "./placa";
+import { PlacaToletus, type EstadoPlaca, type OpcoesPlaca, type PlacaConectavel, type SentidoLiberacao } from "./placa";
 import { mensagemDoDisplay, type EventoToletus } from "./protocolo";
+import { PlacaLiteNet3, type OpcoesPlacaLiteNet3 } from "./litenet3/placa";
+import { ServidorLiteNet3 } from "./litenet3/servidor";
 
 /**
  * Liga as placas Toletus à decisão de acesso do Gateway.
@@ -31,7 +33,18 @@ export interface OpcoesConectorToletus {
   timeoutGiroMs?: number;
   /** Para os testes encurtarem os tempos da conexão. */
   placa?: Partial<Omit<OpcoesPlaca, "nome" | "ip" | "porta">>;
+  /** Onde as placas LiteNet3 discam (o servidor só sobe se houver LiteNet3 no config). */
+  litenet3?: {
+    host?: string;
+    porta?: number;
+    enderecoAnunciado?: string | null;
+    /** Para os testes: porta UDP da placa e tempos da conexão. */
+    placa?: Partial<Pick<OpcoesPlacaLiteNet3, "portaUdp" | "intervaloAnuncioMs" | "intervaloVidaMs" | "esperaPongMs">>;
+  };
 }
+
+/** Quanto tempo esperar entre dois avisos de "use o cartão" na LiteNet3. */
+const INTERVALO_AVISO_DIGITAL_MS = 5_000;
 
 type Decisor = Pick<GatewayService, "validarCredencial" | "registrarAcessoOffline" | "concluirGiro">;
 
@@ -47,7 +60,9 @@ export function credencialDaLeitura(origem: string, valor: string): Credencial {
 }
 
 export class ConectorToletus {
-  private readonly placas: PlacaToletus[];
+  private readonly placas: PlacaConectavel[];
+  private readonly servidorLiteNet3: ServidorLiteNet3 | null;
+  private readonly avisoDigital = new Map<string, number>();
   private readonly sentidos = new Map<string, SentidoLiberacao>();
   private readonly pendentes = new Map<string, GiroPendente>();
   /**
@@ -65,9 +80,22 @@ export class ConectorToletus {
     opcoes: OpcoesConectorToletus = {}
   ) {
     this.timeoutGiroMs = opcoes.timeoutGiroMs ?? 30_000;
+    this.servidorLiteNet3 = equipamentos.some((eq) => eq.placa === "litenet3")
+      ? new ServidorLiteNet3(opcoes.litenet3?.host ?? "0.0.0.0", opcoes.litenet3?.porta ?? 7880)
+      : null;
     this.placas = equipamentos.map((eq) => {
       this.sentidos.set(eq.nome, eq.liberar);
-      const placa = new PlacaToletus({ ...opcoes.placa, nome: eq.nome, ip: eq.ip, porta: eq.porta });
+      const placa: PlacaConectavel =
+        eq.placa === "litenet3" && this.servidorLiteNet3
+          ? new PlacaLiteNet3({
+              ...opcoes.litenet3?.placa,
+              nome: eq.nome,
+              ip: eq.ip,
+              serial: eq.serial ?? null,
+              servidor: this.servidorLiteNet3,
+              enderecoAnunciado: opcoes.litenet3?.enderecoAnunciado ?? null,
+            })
+          : new PlacaToletus({ ...opcoes.placa, nome: eq.nome, ip: eq.ip, porta: eq.porta });
       placa.on("evento", (evento: EventoToletus) => this.enfileirar(placa, evento));
       // Placa que caiu com um giro aberto: a pessoa pode ter passado. Fecha
       // como sem confirmação, que conta presença — mesma regra do prazo.
@@ -76,12 +104,24 @@ export class ConectorToletus {
     });
   }
 
-  iniciar(): void {
+  /**
+   * O servidor da LiteNet3 sobe antes das placas: elas só discam depois do
+   * anúncio. Porta ocupada derruba a inicialização, como a do receptor —
+   * subir "quase funcionando" deixaria a catraca sem ninguém para liberar.
+   */
+  async iniciar(): Promise<void> {
+    await this.servidorLiteNet3?.iniciar();
     for (const p of this.placas) p.iniciar();
+  }
+
+  /** Porta efetiva do servidor da LiteNet3 (os testes pedem a porta 0). */
+  portaLiteNet3(): number | null {
+    return this.servidorLiteNet3?.portaEmUso() ?? null;
   }
 
   parar(): void {
     for (const p of this.placas) p.parar();
+    void this.servidorLiteNet3?.parar();
     for (const pendente of this.pendentes.values()) clearTimeout(pendente.timer);
     this.pendentes.clear();
   }
@@ -105,7 +145,7 @@ export class ConectorToletus {
     return { equipamento: placa.nome };
   }
 
-  private enfileirar(placa: PlacaToletus, evento: EventoToletus): void {
+  private enfileirar(placa: PlacaConectavel, evento: EventoToletus): void {
     const anterior = this.filas.get(placa.nome) ?? Promise.resolve();
     const proxima = anterior
       .then(() => this.tratar(placa, evento))
@@ -124,7 +164,7 @@ export class ConectorToletus {
     void this.gateway.concluirGiro({ logId: pendente.logId, localId: pendente.localId }, giro);
   }
 
-  private async tratar(placa: PlacaToletus, evento: EventoToletus): Promise<void> {
+  private async tratar(placa: PlacaConectavel, evento: EventoToletus): Promise<void> {
     switch (evento.tipo) {
       case "passagem":
         if (this.pendentes.has(placa.nome)) this.fechar(placa.nome, "confirmado", `passagem de ${evento.direcao}`);
@@ -139,6 +179,19 @@ export class ConectorToletus {
         placa.negar("Nao cadastrado");
         logger.info({ placa: placa.nome }, "Digital não cadastrada no leitor Toletus");
         return;
+      case "biometria_imagem": {
+        // A imagem do dedo chega em vários pedaços; um aviso basta. O
+        // conteúdo nunca é guardado: a placa só repassa que ele chegou.
+        const ultimo = this.avisoDigital.get(placa.nome) ?? 0;
+        if (Date.now() - ultimo < INTERVALO_AVISO_DIGITAL_MS) return;
+        this.avisoDigital.set(placa.nome, Date.now());
+        placa.negar("Use o cartao");
+        logger.warn(
+          { placa: placa.nome },
+          "A LiteNet3 mandou a imagem de uma digital para comparar no servidor — o ARKE não compara digital fora do equipamento; use cartão, código ou teclado"
+        );
+        return;
+      }
       case "identificacao":
         await this.decidir(placa, evento.origem, evento.valor);
         return;
@@ -147,7 +200,7 @@ export class ConectorToletus {
     }
   }
 
-  private async decidir(placa: PlacaToletus, origem: string, valor: string): Promise<void> {
+  private async decidir(placa: PlacaConectavel, origem: string, valor: string): Promise<void> {
     if (!valor) {
       placa.negar("Leitura vazia");
       return;

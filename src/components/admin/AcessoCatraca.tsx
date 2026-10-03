@@ -111,6 +111,10 @@ export function AcessoCatraca({
   const comGestao = gateways.filter((g) => g.capacidades.includes("cadastrar_usuario"));
   const gateway = comGestao.find((g) => g.id === gatewayId) ?? comGestao[0];
   const noAr = gateway?.situacao === "online" || gateway?.situacao === "contingencia";
+  // Cada marca cadastra uma coisa: a Control iD, digital e cartão; o leitor
+  // facial da Topdata, nenhum dos dois. A tela só oferece o que o Gateway anuncia.
+  const podeDigital = !!gateway?.capacidades.includes("cadastrar_digital");
+  const podeCartao = !!gateway?.capacidades.includes("cadastrar_cartao");
 
   const atualizar = () => {
     void queryClient.invalidateQueries({ queryKey: ["aluno-perfil", alunoId] });
@@ -264,7 +268,7 @@ export function AcessoCatraca({
           </div>
           {!noAr && <p className="text-xs text-muted-foreground">{SITUACAO_GATEWAY[gateway.situacao].descricao}</p>}
 
-          {gateway.leitores.length > 1 && (
+          {gateway.leitores.length > 1 && (podeDigital || podeCartao) && (
             <div className="space-y-1">
               <Label className="text-xs text-muted-foreground">Leitor para digital e cartão</Label>
               <Select value={leitor || gateway.leitores[0]} onValueChange={setLeitor}>
@@ -287,23 +291,33 @@ export function AcessoCatraca({
               <UserPlus className="mr-1.5 h-3.5 w-3.5" />
               {identificadorAtual ? "Atualizar no equipamento" : "Cadastrar no equipamento"}
             </Button>
-            <Button
-              size="sm"
-              disabled={!noAr || ocupado || !vigente}
-              title={!vigente ? "O aluno precisa autorizar — no app ou pelo termo impresso" : undefined}
-              onClick={() => void ordem("cadastrar_digital")}
-            >
-              <Fingerprint className="mr-1.5 h-3.5 w-3.5" /> Cadastrar digital
-            </Button>
-            <Button
-              size="sm"
-              variant="secondary"
-              disabled={!noAr || ocupado}
-              onClick={() => void ordem("cadastrar_cartao")}
-            >
-              <CreditCard className="mr-1.5 h-3.5 w-3.5" /> Cadastrar cartão
-            </Button>
+            {podeDigital && (
+              <Button
+                size="sm"
+                disabled={!noAr || ocupado || !vigente}
+                title={!vigente ? "O aluno precisa autorizar — no app ou pelo termo impresso" : undefined}
+                onClick={() => void ordem("cadastrar_digital")}
+              >
+                <Fingerprint className="mr-1.5 h-3.5 w-3.5" /> Cadastrar digital
+              </Button>
+            )}
+            {podeCartao && (
+              <Button
+                size="sm"
+                variant="secondary"
+                disabled={!noAr || ocupado}
+                onClick={() => void ordem("cadastrar_cartao")}
+              >
+                <CreditCard className="mr-1.5 h-3.5 w-3.5" /> Cadastrar cartão
+              </Button>
+            )}
           </div>
+          {!podeDigital && !podeCartao && (
+            <p className="text-xs text-muted-foreground">
+              Leitor facial: o aluno fica cadastrado em todos os leitores com o mesmo número. O rosto só é cadastrado
+              com a autorização do aluno para o uso do rosto.
+            </p>
+          )}
           <ProgressoComando estado={comando.estado} />
         </div>
       ) : (

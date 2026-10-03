@@ -1,6 +1,6 @@
 import path from "node:path";
 import fs from "node:fs";
-import { carregarConfig, ConfigError, equipamentosToletus } from "./config";
+import { carregarConfig, ConfigError, equipamentosToletus, leitoresFaciais } from "./config";
 import { CloudClient } from "./cloud/client";
 import { AlunosCache } from "./offline/alunosCache";
 import { LogsQueue } from "./offline/logsQueue";
@@ -11,6 +11,7 @@ import { logger } from "./logger";
 import { ExecutorComandos } from "./core/executorComandos";
 import { GestaoControlId, type GestaoEquipamentos } from "./equipamentos/controlidGestao";
 import { ConectorToletus, GestaoToletus } from "./conectores/toletus/conector";
+import { ConectorFacialTopdata, GestaoTopdataFacial } from "./conectores/topdataFacial/conector";
 import { VERSAO_GATEWAY } from "./versao";
 
 async function main() {
@@ -60,16 +61,42 @@ async function main() {
 
   await gateway.iniciar();
 
-  // Toletus: o sentido é o oposto do receptor — a placa escuta na porta
-  // 7878 e quem disca é o Gateway. Sobe depois da primeira sincronização,
-  // para a primeira leitura já encontrar o cache cheio se a nuvem cair.
-  // Placa fora do ar não derruba nada: o conector tenta de novo sozinho.
+  // Toletus: na LiteNet2 a placa escuta na porta 7878 e quem disca é o
+  // Gateway; na LiteNet3 o Gateway anuncia o endereço e a placa disca.
+  // Sobe depois da primeira sincronização, para a primeira leitura já
+  // encontrar o cache cheio se a nuvem cair. Placa fora do ar não derruba
+  // nada: o conector tenta de novo sozinho. A porta da LiteNet3 ocupada,
+  // sim: sem ela nenhuma placa LiteNet3 alcança o Gateway.
   let conectorToletus: ConectorToletus | null = null;
   if (config.modelo_catraca === "toletus") {
-    conectorToletus = new ConectorToletus(gateway, equipamentosToletus(config), { timeoutGiroMs: config.timeout_giro_ms });
+    conectorToletus = new ConectorToletus(gateway, equipamentosToletus(config), {
+      timeoutGiroMs: config.timeout_giro_ms,
+      litenet3: {
+        host: config.escuta_host,
+        porta: config.toletus_litenet3_porta,
+        enderecoAnunciado: config.toletus_litenet3_endereco ?? null,
+      },
+    });
     const conector = conectorToletus;
     gateway.equipamentos.fonteToletus(() => conector.estados());
-    conector.iniciar();
+    await conector.iniciar();
+  }
+
+  // Leitores faciais da Topdata. Na linha Easy (modelo topdata_facial) eles
+  // decidem com a nossa resposta; na Fit 4 Facial (modelo topdata, com a
+  // ponte) só guardam o cadastro. Nos dois casos quem disca é o leitor, e a
+  // porta ocupada derruba a inicialização, pelo mesmo motivo do receptor.
+  let conectorFacial: ConectorFacialTopdata | null = null;
+  const faciais = leitoresFaciais(config);
+  if (faciais.length && (config.modelo_catraca === "topdata_facial" || config.modelo_catraca === "topdata")) {
+    conectorFacial = new ConectorFacialTopdata(gateway, faciais, {
+      funcao: config.modelo_catraca === "topdata_facial" ? "decide" : "identifica",
+      host: config.escuta_host,
+      porta: config.topdata_facial_porta,
+    });
+    const conector = conectorFacial;
+    gateway.equipamentos.fonteFacial(() => conector.estados());
+    await conector.iniciar();
   }
 
   // Canal de ida e volta com a nuvem: telemetria, "sincronize agora" e a
@@ -78,9 +105,11 @@ async function main() {
   // canal tenta de novo sozinho, com espera crescente.
   const gestao: GestaoEquipamentos | null = config.controlid_equipamentos?.length
     ? new GestaoControlId(config.controlid_equipamentos)
-    : conectorToletus
-      ? new GestaoToletus(conectorToletus)
-      : null;
+    : conectorFacial
+      ? new GestaoTopdataFacial(conectorFacial)
+      : conectorToletus
+        ? new GestaoToletus(conectorToletus)
+        : null;
   const executor = new ExecutorComandos(cloud, gateway, gestao, { modelo: config.modelo_catraca });
   executor.iniciar();
 
@@ -111,6 +140,7 @@ async function main() {
     logger.info("Encerrando ARKE® Gateway Local...");
     executor.parar();
     conectorToletus?.parar();
+    conectorFacial?.parar();
     await gateway.parar();
     process.exit(0);
   };

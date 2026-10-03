@@ -126,11 +126,18 @@ export class MontadorDePacotes {
 
 export type OrigemIdentificacao = "rfid" | "codigo_barras" | "teclado" | "biometria";
 
+/**
+ * O que uma placa Toletus conta ao conector. A LiteNet2 e a LiteNet3 falam
+ * protocolos diferentes, mas o que importa para a decisão é o mesmo.
+ */
 export type EventoToletus =
   | { tipo: "identificacao"; origem: OrigemIdentificacao; valor: string }
-  | { tipo: "passagem"; direcao: "entrada" | "saida"; total: number }
+  /** A LiteNet3 pode não dizer o sentido; a LiteNet2 sempre diz, com o contador. */
+  | { tipo: "passagem"; direcao: "entrada" | "saida" | "indefinida"; total?: number }
   | { tipo: "tempo_esgotado" }
   | { tipo: "biometria_nao_cadastrada" }
+  /** LiteNet3: a imagem da digital veio para o servidor comparar, o que o ARKE não faz. */
+  | { tipo: "biometria_imagem" }
   | { tipo: "resposta"; comando: number; dados: Buffer };
 
 /** Texto ASCII dos dados, sem os zeros de preenchimento nem espaços. */

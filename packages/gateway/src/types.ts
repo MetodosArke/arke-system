@@ -1,4 +1,8 @@
-export type ModeloCatraca = "controlid" | "henry" | "topdata" | "toletus" | "dimep" | "mock";
+/**
+ * `topdata` é a linha Inner, pela ponte .NET. `topdata_facial` é a linha
+ * Easy, em que o leitor facial decide com a nossa resposta, sem placa Inner.
+ */
+export type ModeloCatraca = "controlid" | "henry" | "topdata" | "topdata_facial" | "toletus" | "dimep" | "mock";
 
 export interface GatewayConfig {
   organization_id: string;
@@ -49,18 +53,59 @@ export interface GatewayConfig {
    */
   controlid_equipamentos?: EquipamentoControlId[];
   /**
-   * Placas Toletus LiteNet2 a que o Gateway se conecta. Ao contrário da
-   * Control iD, aqui quem disca é o Gateway: a placa escuta na porta 7878.
-   * Vazio com o modelo "toletus": vale uma placa só, em catraca_ip.
+   * Placas Toletus a que o Gateway se conecta. Na LiteNet2 quem disca é o
+   * Gateway (a placa escuta na porta 7878); na LiteNet3 é a placa, depois
+   * de o Gateway anunciar o endereço por UDP. Vazio com o modelo "toletus":
+   * vale uma placa só, em catraca_ip, do tipo de toletus_placa.
    */
   toletus_equipamentos?: EquipamentoToletus[];
+  /**
+   * Leitores faciais da Topdata. Com o modelo "topdata_facial" (linha
+   * Easy), eles decidem o acesso com a resposta do Gateway. Com o modelo
+   * "topdata" (Fit 4 Facial), quem decide continua sendo a placa Inner, pela
+   * ponte; os leitores só guardam o cadastro dos alunos, que o Gateway
+   * mantém. Quem disca é o leitor, para topdata_facial_porta.
+   */
+  topdata_faciais?: EquipamentoFacialTopdata[];
+  topdata_facial_porta?: number;
+  /** Tipo da placa quando a lista está vazia. */
+  toletus_placa?: "litenet2" | "litenet3";
+  /** Porta onde as placas LiteNet3 discam. */
+  toletus_litenet3_porta?: number;
+  /**
+   * Endereço deste computador que as placas LiteNet3 devem discar. Vazio:
+   * o Gateway descobre sozinho a interface que alcança cada placa. Só é
+   * preciso em computador com várias redes em que a escolha automática erra.
+   */
+  toletus_litenet3_endereco?: string;
+}
+
+export interface EquipamentoFacialTopdata {
+  /** Como a recepção reconhece o leitor ("Catraca da entrada"). */
+  nome: string;
+  /** IP do leitor: identifica quem não tem `sn` no config e é usado pela API HTTP. */
+  ip: string;
+  /** Número de série, se o instalador anotou. É o que identifica o leitor. */
+  sn?: string;
+  /**
+   * Senha de gerenciamento do menu do leitor, para a API HTTP (abertura
+   * remota, fotos desligadas). Fica só no config.json, na máquina da
+   * academia, e nunca sobe para a nuvem.
+   */
+  senha?: string;
+  porta_http?: number;
 }
 
 export interface EquipamentoToletus {
   /** Como a recepção reconhece a catraca ("Catraca da entrada"). */
   nome: string;
   ip: string;
+  /** Só na LiteNet2: a porta onde a placa escuta. */
   porta: number;
+  /** LiteNet2 (o padrão) ou LiteNet3: protocolos diferentes, mesma decisão. */
+  placa?: "litenet2" | "litenet3";
+  /** LiteNet3: o serial da placa. Sem ele, o Gateway descobre pelo IP. */
+  serial?: string;
   /**
    * O que liberar quando o aluno é aceito. "entrada" é o comum em
    * academia: a saída fica livre na configuração da placa. "ambos" serve
