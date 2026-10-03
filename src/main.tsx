@@ -5,6 +5,8 @@ import { isSupabaseConfigured } from "./integrations/supabase/client.ts";
 import { iniciarMonitoramento } from "./lib/monitoramento.ts";
 import "./index.css";
 import { destinoNoApp } from "./lib/landing.ts";
+import { slugDeEntrada } from "./lib/marcaAcademia.ts";
+import { apontarManifesto, guardarEntrada } from "./components/marca/MarcaAcademia.tsx";
 
 // Antes de qualquer render: erro na própria subida do app é o mais caro de
 // diagnosticar sem rastreamento, porque não sobra nem tela para reclamar.
@@ -20,6 +22,16 @@ const destinoApp = destinoNoApp(
   import.meta.env.VITE_APP_HOST as string | undefined,
 );
 if (destinoApp) window.location.replace(destinoApp);
+
+// Entrada pela academia: o link dela (`#/p/<slug>…`) ou o app instalado com a
+// marca dela (`?academia=<slug>`). O manifesto passa a ser o da academia já
+// aqui, antes do React, porque é este o que o navegador lê para instalar; e a
+// academia fica guardada na aba para a tela de entrar e as de senha.
+const entrada = slugDeEntrada({ search: window.location.search, hash: window.location.hash });
+if (entrada) {
+  guardarEntrada(entrada);
+  apontarManifesto(entrada);
+}
 
 // PWA: registra o service worker (também usado para push notifications)
 // para que o app seja instalável na tela inicial, sobretudo em /app.

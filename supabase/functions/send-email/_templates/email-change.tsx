@@ -2,17 +2,18 @@
 
 import * as React from 'npm:react@18.3.1'
 import { Button, Heading, Link, Text } from 'npm:@react-email/components@0.0.22'
-import { EmailLayout, colors } from './_components/brand.tsx'
+import { EmailLayout, colors, type MarcaEmail } from './_components/brand.tsx'
 
 interface EmailChangeEmailProps {
   siteName: string
   oldEmail: string
   newEmail: string
   confirmationUrl: string
+  marca?: MarcaEmail | null
 }
 
-export const EmailChangeEmail = ({ siteName, oldEmail, newEmail, confirmationUrl }: EmailChangeEmailProps) => (
-  <EmailLayout preview={`Confirme a alteração de e-mail no ${siteName}`}>
+export const EmailChangeEmail = ({ siteName, oldEmail, newEmail, confirmationUrl, marca }: EmailChangeEmailProps) => (
+  <EmailLayout preview={`Confirme a alteração de e-mail no ${siteName}`} marca={marca}>
     <Heading style={h1}>Confirme a alteração de e-mail</Heading>
     <Text style={text}>
       Você solicitou a alteração do seu e-mail no {siteName} de{' '}

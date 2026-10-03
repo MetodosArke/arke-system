@@ -15,6 +15,7 @@ import { useInstallPrompt } from "@/hooks/useInstallPrompt";
 import { resolveHomePath } from "@/lib/authRouting";
 import { getManterConectado, setManterConectado } from "@/integrations/supabase/previewAuthStorage";
 import { MarcaArkeFit } from "@/components/marca/MarcaArkeFit";
+import { ComTecnologiaArkeFit, LogoAcademia, useMarcaAcademia } from "@/components/marca/MarcaAcademia";
 
 export default function Login() {
   const [email, setEmail] = useState("");
@@ -27,6 +28,8 @@ export default function Login() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { canInstall, promptInstall } = useInstallPrompt();
+  // Aberta pelo link da academia ou pelo app instalado com a marca dela.
+  const marca = useMarcaAcademia();
   const [showInstallBanner, setShowInstallBanner] = useState(true);
 
   // Redirect based on role after authentication
@@ -107,12 +110,23 @@ export default function Login() {
         className="w-full max-w-sm"
       >
         <div className="mb-8 flex flex-col items-center text-center">
-          <h1 className="mb-2">
-            <MarcaArkeFit brilho className="h-12 w-auto" />
-          </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Gestão inteligente de treinos
-          </p>
+          {marca ? (
+            <>
+              <h1 className="mb-2">
+                <LogoAcademia marca={marca} tamanho="lg" />
+              </h1>
+              <p className="mt-1 text-sm text-muted-foreground">Entre no app da academia</p>
+            </>
+          ) : (
+            <>
+              <h1 className="mb-2">
+                <MarcaArkeFit brilho className="h-12 w-auto" />
+              </h1>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Gestão inteligente de treinos
+              </p>
+            </>
+          )}
         </div>
 
         <Card className="border-0 shadow-xl">
@@ -186,16 +200,31 @@ export default function Login() {
 
             </form>
 
-            <Button
-              variant="ghost"
-              className="mt-4 w-full"
-              onClick={() => navigate("/auth/register")}
-            >
-              Não tem conta? Cadastre-se
-            </Button>
+            {marca ? (
+              // Quem a academia já cadastrou cria a senha no primeiro acesso;
+              // quem ainda não é aluno se matricula. O cadastro genérico não
+              // liga ninguém à academia.
+              <div className="mt-4 space-y-1">
+                <Button variant="ghost" className="w-full" onClick={() => navigate(`/p/${marca.slug}/primeiro-acesso`)}>
+                  Primeiro acesso? Crie sua senha
+                </Button>
+                <Button variant="ghost" className="w-full text-muted-foreground" onClick={() => navigate(`/p/${marca.slug}`)}>
+                  Ainda não é aluno? Faça a matrícula
+                </Button>
+              </div>
+            ) : (
+              <Button
+                variant="ghost"
+                className="mt-4 w-full"
+                onClick={() => navigate("/auth/register")}
+              >
+                Não tem conta? Cadastre-se
+              </Button>
+            )}
             <LinksLegais className="mt-2 text-[11px] text-center text-muted-foreground space-x-3" />
           </CardContent>
         </Card>
+        {marca && <ComTecnologiaArkeFit className="mt-6" />}
       </motion.div>
     </div>
   );

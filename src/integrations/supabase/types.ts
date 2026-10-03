@@ -4800,6 +4800,7 @@ export type Database = {
           cidade: string | null
           cnpj_cpf: string | null
           complemento: string | null
+          cor_marca: string | null
           created_at: string
           email_contato: string | null
           endereco: string | null
@@ -4807,6 +4808,8 @@ export type Database = {
             | Database["public"]["Enums"]["app_role"]
             | null
           faturamento_mensal: number | null
+          icone_app_192_url: string | null
+          icone_app_512_url: string | null
           id: string
           limite_alunos: number | null
           logo_url: string | null
@@ -4847,6 +4850,7 @@ export type Database = {
           cidade?: string | null
           cnpj_cpf?: string | null
           complemento?: string | null
+          cor_marca?: string | null
           created_at?: string
           email_contato?: string | null
           endereco?: string | null
@@ -4854,6 +4858,8 @@ export type Database = {
             | Database["public"]["Enums"]["app_role"]
             | null
           faturamento_mensal?: number | null
+          icone_app_192_url?: string | null
+          icone_app_512_url?: string | null
           id?: string
           limite_alunos?: number | null
           logo_url?: string | null
@@ -4894,6 +4900,7 @@ export type Database = {
           cidade?: string | null
           cnpj_cpf?: string | null
           complemento?: string | null
+          cor_marca?: string | null
           created_at?: string
           email_contato?: string | null
           endereco?: string | null
@@ -4901,6 +4908,8 @@ export type Database = {
             | Database["public"]["Enums"]["app_role"]
             | null
           faturamento_mensal?: number | null
+          icone_app_192_url?: string | null
+          icone_app_512_url?: string | null
           id?: string
           limite_alunos?: number | null
           logo_url?: string | null
@@ -7775,6 +7784,8 @@ export type Database = {
           parceiro: string
         }[]
       }
+      marca_academia: { Args: { _slug: string }; Returns: Json }
+      marca_do_usuario: { Args: { _user_id: string }; Returns: Json }
       marcar_lancamentos_atrasados: { Args: never; Returns: undefined }
       matricula_publica_org_permitida: {
         Args: { _organization_id: string }

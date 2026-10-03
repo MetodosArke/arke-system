@@ -13,6 +13,8 @@ Não chegou nada? Confira a caixa de spam. Se continuar sem chegar, peça à rec
 
 ## Instalar na tela de início
 
+Instale a partir do QR Code ou do link da sua academia (o de primeiro acesso ou o de entrada): assim o app fica com o nome e o ícone dela.
+
 - **iPhone**: abra no Safari, toque em Compartilhar (o quadrado com a seta) e em **Adicionar à Tela de Início**.
 - **Android**: abra no Chrome e toque em **Instalar app**, ou no menu ⋮ e em Instalar.
 

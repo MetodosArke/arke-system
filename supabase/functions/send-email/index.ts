@@ -8,6 +8,7 @@ import { MagicLinkEmail } from './_templates/magic-link.tsx'
 import { RecoveryEmail } from './_templates/recovery.tsx'
 import { EmailChangeEmail } from './_templates/email-change.tsx'
 import { ReauthenticationEmail } from './_templates/reauthentication.tsx'
+import type { MarcaEmail } from './_templates/_components/brand.tsx'
 
 const resend = new Resend(Deno.env.get('RESEND_API_KEY') as string)
 // O Supabase mostra o secret como "v1,whsec_<base64>" — o Webhook (padrão
@@ -31,6 +32,29 @@ async function enviarComNovaTentativa(email: { from: string; to: string[]; subje
   }
 }
 
+// A academia de quem é aluno: os e-mails de acesso saem com a marca dela
+// (decisão do responsável de 03/10/2026). Quem é da equipe recebe o da
+// ArkeFit. Falha aqui nunca segura o e-mail: sai com a marca da ArkeFit, e o
+// aluno entra igual.
+async function marcaDoUsuario(userId: string | undefined): Promise<MarcaEmail | null> {
+  const url = Deno.env.get('SUPABASE_URL')
+  const chave = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+  if (!userId || !url || !chave) return null
+  try {
+    const r = await fetch(`${url}/rest/v1/rpc/marca_do_usuario`, {
+      method: 'POST',
+      headers: { apikey: chave, Authorization: `Bearer ${chave}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ _user_id: userId }),
+      signal: AbortSignal.timeout(1500),
+    })
+    if (!r.ok) return null
+    const m = (await r.json()) as { nome?: string; icone_192?: string | null } | null
+    return m?.nome ? { nome: m.nome, icone: m.icone_192?.startsWith('https://') ? m.icone_192 : null } : null
+  } catch {
+    return null
+  }
+}
+
 type EmailActionType = 'signup' | 'invite' | 'magiclink' | 'recovery' | 'email_change' | 'reauthentication'
 
 type EmailData = {
@@ -44,6 +68,7 @@ type EmailData = {
 }
 
 type HookUser = {
+  id: string
   email: string
   new_email?: string
   user_metadata?: Record<string, unknown>
@@ -95,35 +120,40 @@ Deno.serve(async (req: Request) => {
     let subject: string
     let element: React.ReactElement
 
+    const marca = emailData.email_action_type === 'reauthentication' ? null : await marcaDoUsuario(user.id)
+    const siteName = marca ? `app da ${marca.nome}` : SITE_NAME
+
     switch (emailData.email_action_type) {
       case 'invite':
-        subject = `Você foi convidado para o ${SITE_NAME}`
-        element = React.createElement(InviteEmail, { siteName: SITE_NAME, siteUrl, confirmationUrl, fullName })
+        subject = marca ? `${marca.nome}: seu convite para o app` : `Você foi convidado para o ${SITE_NAME}`
+        element = React.createElement(InviteEmail, { siteName, siteUrl, confirmationUrl, fullName, marca })
         break
       case 'signup':
-        subject = `Confirme seu e-mail no ${SITE_NAME}`
+        subject = `Confirme seu e-mail no ${siteName}`
         element = React.createElement(SignupEmail, {
-          siteName: SITE_NAME,
+          siteName,
           siteUrl,
           recipient: user.email,
           confirmationUrl,
+          marca,
         })
         break
       case 'magiclink':
-        subject = `Seu link de acesso ao ${SITE_NAME}`
-        element = React.createElement(MagicLinkEmail, { siteName: SITE_NAME, confirmationUrl })
+        subject = `Seu link de acesso ao ${siteName}`
+        element = React.createElement(MagicLinkEmail, { siteName, confirmationUrl, marca })
         break
       case 'recovery':
-        subject = `Redefinir sua senha do ${SITE_NAME}`
-        element = React.createElement(RecoveryEmail, { siteName: SITE_NAME, confirmationUrl })
+        subject = `Redefinir sua senha do ${siteName}`
+        element = React.createElement(RecoveryEmail, { siteName, confirmationUrl, marca })
         break
       case 'email_change':
-        subject = `Confirme a alteração de e-mail no ${SITE_NAME}`
+        subject = `Confirme a alteração de e-mail no ${siteName}`
         element = React.createElement(EmailChangeEmail, {
-          siteName: SITE_NAME,
+          siteName,
           oldEmail: user.email,
           newEmail: user.new_email ?? user.email,
           confirmationUrl,
+          marca,
         })
         break
       case 'reauthentication':

@@ -2,25 +2,33 @@
 
 import * as React from 'npm:react@18.3.1'
 import { Button, Heading, Link, Text } from 'npm:@react-email/components@0.0.22'
-import { EmailLayout, colors } from './_components/brand.tsx'
+import { EmailLayout, colors, type MarcaEmail } from './_components/brand.tsx'
 
 interface InviteEmailProps {
   siteName: string
   siteUrl: string
   confirmationUrl: string
   fullName?: string
+  marca?: MarcaEmail | null
 }
 
-export const InviteEmail = ({ siteName, siteUrl, confirmationUrl, fullName }: InviteEmailProps) => (
-  <EmailLayout preview={`Você foi convidado para o ${siteName}`}>
+export const InviteEmail = ({ siteName, siteUrl, confirmationUrl, fullName, marca }: InviteEmailProps) => (
+  <EmailLayout preview={`Você foi convidado para o ${siteName}`} marca={marca}>
     <Heading style={h1}>Você foi convidado{fullName ? `, ${fullName}` : ''}</Heading>
-    <Text style={text}>
-      Você foi convidado para participar da{' '}
-      <Link href={siteUrl} style={link}>
-        <strong>{siteName}</strong>
-      </Link>
-      . Clique no botão abaixo para aceitar o convite e criar sua conta.
-    </Text>
+    {marca ? (
+      <Text style={text}>
+        A <strong>{marca.nome}</strong> convidou você para o app da academia. Clique no botão abaixo para aceitar o convite e
+        criar sua conta.
+      </Text>
+    ) : (
+      <Text style={text}>
+        Você foi convidado para participar da{' '}
+        <Link href={siteUrl} style={link}>
+          <strong>{siteName}</strong>
+        </Link>
+        . Clique no botão abaixo para aceitar o convite e criar sua conta.
+      </Text>
+    )}
     <Button style={button} href={confirmationUrl}>
       Aceitar convite
     </Button>

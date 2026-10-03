@@ -4,6 +4,10 @@
       "source": "/cadastro/:code",
       "destination": "https://lzyxqjibkfblrrjboylp.supabase.co/functions/v1/ativar-cadastro/:code"
     },
+    {
+      "source": "/manifest/:slug",
+      "destination": "https://lzyxqjibkfblrrjboylp.supabase.co/functions/v1/manifest-academia/:slug"
+    },
     { "source": "/(.*)", "destination": "/index.html" }
   ],
   "headers": [

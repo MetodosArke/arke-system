@@ -24,6 +24,7 @@ import { ReciboComprovanteDialog, type ReciboData } from "@/components/admin/Rec
 import { PlanosAcademiaPainel } from "@/components/admin/PlanosAcademiaPainel";
 import { ContratoMatriculaPainel } from "@/components/admin/ContratoMatriculaPainel";
 import { ParceriaAutonomo } from "@/components/admin/ParceriaAutonomo";
+import { MarcaAppAluno } from "@/components/admin/MarcaAppAluno";
 import { dividirCobranca, excecaoDoNivel, resolverRepasse, type RepasseConfig } from "@/lib/repasse";
 import { useTaxaProcessamento } from "@/hooks/useTaxaProcessamento";
 import { reais } from "@/lib/numeros";
@@ -258,6 +259,8 @@ export default function AdminOrganizacao() {
     onSuccess: () => {
       toast({ title: "Perfil do estabelecimento atualizado" });
       void queryClient.invalidateQueries({ queryKey: ["organizacao-wallet", organization?.id] });
+      // O cartão da marca gera o ícone do logo salvo: precisa ver o logo novo.
+      void queryClient.invalidateQueries({ queryKey: ["marca-app-aluno", organization?.id] });
       // organization.tipo no AuthContext decide o que a Sidebar e a Home
       // mostram (ex.: item "Agenda", visão de Studio) — sem isto o usuário
       // só veria a mudança depois de deslogar e logar de novo.
@@ -567,6 +570,7 @@ export default function AdminOrganizacao() {
           </Button>
         </CardContent>
       </Card>
+      {organization && <MarcaAppAluno organizationId={organization.id} />}
       </TabsContent>
 
       <Dialog open={confirmarMudancaTipoAberto} onOpenChange={setConfirmarMudancaTipoAberto}>

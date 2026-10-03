@@ -48,4 +48,18 @@ describe("mudança do app para o endereço próprio", () => {
   it("no próprio endereço do app, não redireciona", () => {
     expect(destinoNoApp(url("#/admin", "app.arkefit.com.br"), "app.arkefit.com.br")).toBeNull();
   });
+
+  it("o começo do app instalado com a marca da academia vai para o endereço do app", () => {
+    expect(destinoNoApp(url("", "www.arkefit.com.br", "?academia=tiete-fitness"), "app.arkefit.com.br")).toBe(
+      "https://app.arkefit.com.br/?academia=tiete-fitness",
+    );
+  });
+});
+
+describe("app instalado com a marca da academia", () => {
+  it("não mostra a página de vendas, nem para quem ainda não entrou", () => {
+    expect(
+      mostrarPaginaDeVendas({ host: "www.arkefit.com.br", hash: "", temSessao: false, appInstalado: false, entradaDeAcademia: true }),
+    ).toBe(false);
+  });
 });
