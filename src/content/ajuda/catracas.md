@@ -10,7 +10,7 @@ No computador da recepção roda o **Gateway Local**, um programa da ArkeFit que
 
 - **No ar**: tudo normal.
 - **Contingência**: a internet da academia está falhando. A catraca continua funcionando, decidindo pelo cadastro guardado no computador, e os acessos sobem quando a conexão voltar. Nenhuma entrada se perde.
-- **Sem sinal**: o computador do Gateway está desligado, sem internet ou com o programa parado. Confira se o computador está ligado e conectado. Se passar de 10 minutos no horário de funcionamento, o gestor recebe um e-mail avisando.
+- **Sem sinal**: o ARKE parou de receber notícias do Gateway. Se o **computador está desligado ou o programa parado**, a catraca não libera ninguém (os terminais Intelbras liberam só quem está cadastrado e ativo neles). Se o computador está ligado e **só falta internet**, a catraca segue funcionando pelo cadastro guardado, e os acessos sobem quando a internet voltar. Confira primeiro se o computador está ligado e com o programa aberto. Se passar de 10 minutos no horário de funcionamento, o gestor recebe um e-mail avisando.
 - **Nunca conectou**: o Gateway ainda não foi instalado ou configurado.
 
 ## Ações pela tela

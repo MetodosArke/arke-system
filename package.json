@@ -21,7 +21,8 @@
     "sandbox:nfse": "node scripts/asaas-sandbox-nfse.mjs",
     "sandbox:reconciliacao": "node scripts/asaas-sandbox-reconciliacao.mjs",
     "sandbox:implantacao": "node scripts/asaas-sandbox-implantacao.mjs",
-    "simulado:vigia": "node scripts/vigia-simulado.mjs"
+    "simulado:vigia": "node scripts/vigia-simulado.mjs",
+    "ajuda:indice": "node scripts/ajuda/indice-assistente.mjs"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
