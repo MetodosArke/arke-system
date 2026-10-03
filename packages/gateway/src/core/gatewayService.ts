@@ -33,6 +33,8 @@ export class GatewayService extends EventEmitter {
   private sincronizando = false;
   private timerFlushLogs: NodeJS.Timeout | null = null;
   private ultimaSincronizacaoOk: string | null = null;
+  /** Quem quer saber que o cache mudou (o espelho da situação nos terminais Intelbras). */
+  private readonly aposSincronizar: (() => void)[] = [];
   private ultimoErro: { mensagem: string; em: string } | null = null;
 
   /** Quem deu sinal desde que o Gateway subiu — alimentado pelos receptores. */
@@ -288,6 +290,16 @@ export class GatewayService extends EventEmitter {
     return "negado_catraca_inativa";
   }
 
+  /** Chamado depois de cada sincronização que deu certo. Não espera ninguém: quem ouve cuida dos próprios erros. */
+  aoSincronizar(fn: () => void): void {
+    this.aposSincronizar.push(fn);
+  }
+
+  /** Os alunos com número no equipamento e se estão barrados, do cache local. */
+  async alunosNoEquipamento(): Promise<{ identificador: string; barrado: boolean }[]> {
+    return this.alunosCache.comIdentificador();
+  }
+
   /**
    * Mantém o cache offline igual à nuvem. Desde 23/09/2026 pede só a
    * diferença desde a última sincronização — a lista inteira a cada 5
@@ -367,6 +379,7 @@ export class GatewayService extends EventEmitter {
     this.ultimaSincronizacao = resposta.sincronizado_em;
     this.ultimaSincronizacaoOk = new Date().toISOString();
     this.setStatus("online");
+    for (const fn of this.aposSincronizar) fn();
     await this.flushLogsPendentes();
   }
 

@@ -2,7 +2,7 @@
  * `topdata` é a linha Inner, pela ponte .NET. `topdata_facial` é a linha
  * Easy, em que o leitor facial decide com a nossa resposta, sem placa Inner.
  */
-export type ModeloCatraca = "controlid" | "henry" | "topdata" | "topdata_facial" | "toletus" | "dimep" | "mock";
+export type ModeloCatraca = "controlid" | "henry" | "topdata" | "topdata_facial" | "toletus" | "intelbras" | "dimep" | "mock";
 
 export interface GatewayConfig {
   organization_id: string;
@@ -89,6 +89,34 @@ export interface GatewayConfig {
    * preciso em computador com várias redes em que a escolha automática erra.
    */
   toletus_litenet3_endereco?: string;
+  /**
+   * Terminais Intelbras (linha Bio-T) no Modo Online: o terminal pergunta
+   * ao Gateway a cada acesso. Com a lista, o Gateway configura cada um ao
+   * subir, cadastra e apaga o aluno, abre a porta a pedido da recepção e
+   * desativa no terminal quem a academia barrou. Sem a lista, o Gateway só
+   * recebe as tentativas.
+   */
+  intelbras_equipamentos?: EquipamentoIntelbras[];
+  /**
+   * Endereço deste computador que os terminais devem chamar. Vazio: o
+   * Gateway descobre sozinho a interface que alcança cada terminal.
+   */
+  intelbras_endereco?: string;
+  /** O Gateway configura o Modo Online em cada terminal ao subir (padrão: sim). */
+  intelbras_configurar?: boolean;
+}
+
+export interface EquipamentoIntelbras {
+  /** Como a recepção reconhece o terminal ("Catraca da entrada"). */
+  nome: string;
+  ip: string;
+  porta: number;
+  usuario: string;
+  senha: string;
+  /** O relé que libera a passagem (o `channel` da API). */
+  canal: number;
+  /** Terminal com reconhecimento facial: só nesses a ficha cadastra o rosto. */
+  rosto: boolean;
 }
 
 export interface EquipamentoFacialTopdata {

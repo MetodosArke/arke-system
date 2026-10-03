@@ -15,6 +15,7 @@
 8. [Toletus: o Gateway disca para a placa](#8-toletus-o-gateway-disca-para-a-placa)
 9. [Leitores faciais da Topdata](#9-leitores-faciais-da-topdata)
 10. [Cadastro do rosto (versão 1.3)](#10-cadastro-do-rosto-versão-13)
+11. [Intelbras: o Modo Online (versão 1.5)](#11-intelbras-o-modo-online-versão-15)
 
 A seção 7.4 trata do leitor Control iD numa catraca de outra marca (versão 1.4).
 
@@ -78,7 +79,7 @@ Todos os parâmetros vivem em `config.json`, na mesma pasta do executável (`%Pr
 | `token_api_local` | **O `device_token`** copiado da tela `/admin/catracas` no painel web (botão "Copiar" ao lado do dispositivo cadastrado) |
 | `supabase_url` | URL do projeto Supabase (ex.: `https://SEU-PROJETO.supabase.co`) |
 | `catraca_ip` / `catraca_porta` | Endereço IP e porta da catraca física na rede local |
-| `modelo_catraca` | `controlid` \| `topdata` \| `topdata_facial` \| `toletus` \| `mock`. `topdata` é a linha Inner, pela ponte; `topdata_facial` é a linha Easy, em que o leitor facial decide com a resposta do Gateway (seção 9). `henry` e `dimep` são **recusados na partida**, com mensagem: a integração dessas marcas é feita na implantação do primeiro cliente de cada uma |
+| `modelo_catraca` | `controlid` \| `topdata` \| `topdata_facial` \| `toletus` \| `intelbras` \| `mock`. `intelbras` é a linha Bio-T no Modo Online (seção 11). `topdata` é a linha Inner, pela ponte; `topdata_facial` é a linha Easy, em que o leitor facial decide com a resposta do Gateway (seção 9). `henry` e `dimep` são **recusados na partida**, com mensagem: a integração dessas marcas é feita na implantação do primeiro cliente de cada uma |
 | `tempo_timeout_ms` | Timeout da validação na nuvem antes de cair para o cache local (padrão `1000`). Medido: a validação leva ~400 ms normalmente e até 4 s na partida a frio. **Abaixo de ~500 ms o Gateway cai em contingência em quase todo acesso** |
 | `sincronizar_alunos_intervalo_ms` | Intervalo entre sincronizações do cache local de alunos (padrão `300000` = 5 min) |
 | `escuta_host` / `escuta_porta` | Onde o Gateway **escuta** o equipamento (padrão `0.0.0.0:4571`). A Control iD disca para o Gateway, não o contrário: esta porta precisa estar aberta na rede da academia |
@@ -87,6 +88,7 @@ Todos os parâmetros vivem em `config.json`, na mesma pasta do executável (`%Pr
 | `topdata_leitor_entrada` | Topdata: qual leitor físico é a entrada, `1` ou `2` (padrão `1`). Tem de bater com `leitor_entrada` da ponte |
 | `toletus_equipamentos` | Placas Toletus (versão 1.1; LiteNet3 na 1.2): lista de `{ "nome", "ip", "liberar": "entrada", "placa": "litenet2" }`, uma por catraca. Na LiteNet2 o Gateway **disca** para a `porta` (7878); na LiteNet3 a placa disca para o Gateway, e `serial` é opcional (sem ele, o Gateway descobre pelo IP). Vazia com o modelo `toletus`: uma placa só, em `catraca_ip`, do tipo de `toletus_placa` (`catraca_porta` não entra). `liberar: "ambos"` é para catraca em que a saída também exige identificação. Ver seção 8 |
 | `toletus_litenet3_porta` / `toletus_litenet3_endereco` | LiteNet3: a porta onde as placas discam (padrão `7880`, **aberta no firewall** do computador) e, se preciso, o endereço deste computador que elas devem discar. Vazio: o Gateway escolhe a interface que alcança cada placa |
+| `intelbras_equipamentos` | Terminais Intelbras (versão 1.5): lista de `{ "nome", "ip", "porta": 80, "usuario": "admin", "senha", "canal": 1, "rosto": true }`. Com ela, o Gateway configura o Modo Online em cada terminal ao subir, cadastra e apaga o aluno, abre a porta e desativa no terminal quem a academia barrou. `intelbras_endereco` força o endereço deste computador que os terminais chamam; `intelbras_configurar: false` deixa a configuração à mão. Ver seção 11 |
 | `topdata_faciais` | Leitores faciais da Topdata (versão 1.2): lista de `{ "nome", "ip", "sn", "senha", "porta_http": 80 }`. `sn` é o número de série (opcional: sem ele, o leitor é reconhecido pelo IP); `senha` é a de gerenciamento do menu do leitor, para a abertura remota. Vazia com o modelo `topdata_facial`: um leitor só, em `catraca_ip`. Ver seção 9 |
 | `topdata_facial_porta` | Onde os leitores faciais discam (padrão `7792`, a do menu do leitor; **aberta no firewall**) |
 | `controlid_equipamentos` | Control iD que o Gateway **administra** (versão 1.0): lista de `{ "nome", "ip", "porta": 80, "usuario": "admin", "senha", "sentido_entrada": "clockwise" }`, um por catraca. Com ela, a recepção cadastra aluno, digital e cartão pelo ARKE e a remoção do aluno é automática. Vazia: cadastro manual no equipamento, como antes. O `nome` é o que a recepção vê para escolher o leitor; `sentido_entrada` é o lado da borboleta que é a entrada, e só a montagem física responde. `"rosto": true` nos equipamentos com reconhecimento facial (iDFace): só nesses a ficha cadastra o rosto (seção 10). `"liberacao"` diz como o equipamento libera a passagem, e `"rele"` qual relé fecha (seção 7.4). O Gateway reconhece cada equipamento pelo `ip` de quem chama, então o IP tem de ser fixo |
@@ -303,3 +305,39 @@ O rosto entra de dois jeitos, decididos pelo responsável em 02/10/2026, e sempr
 Corrente provada em 02/10/2026 com o Gateway compilado, dois leitores Topdata emulados (`npm run emular:facial-topdata`, um com a API HTTP, outro sem), a função `catraca-comandos` publicada e o banco: a foto saiu da tabela de passagem, chegou aos dois leitores e sumiu do banco; a câmera de um leitor capturou e o Gateway copiou para o outro; foto que já tinha saído virou erro claro; o rosto cadastrado liberou a aluna, e a exclusão a apagou dos leitores.
 
 **O que só a bancada responde:** a qualidade do reconhecimento com a foto tirada no celular, o tempo da câmera de cadastro em cada firmware e se a Topdata guarda a foto de cadastro (a API dela tem a pasta `/photos/`, e não há configuração documentada para não guardar).
+
+## 11. Intelbras: o Modo Online (versão 1.5)
+
+Os terminais da linha Bio-T da Intelbras (faciais SS 3530, SS 3540, SS 5530 e a geração nova SS 3531 a SS 7542; os de digital SS 3430 e SS 5430) chamam o Gateway a cada acesso, no **Modo Online**: o terminal faz `POST /notification` com o evento e espera a decisão, e chama `GET /keepalive` a cada 10 s. Os dois caminhos ficam na mesma `escuta_porta` da Control iD. Os SS 1530 e SS 1540 não têm o Modo Online e ficam fora.
+
+No `config.json`:
+
+```json
+"modelo_catraca": "intelbras",
+"intelbras_equipamentos": [
+  { "nome": "Catraca da entrada", "ip": "192.168.0.60", "porta": 80, "usuario": "admin", "senha": "SENHA_DO_TERMINAL", "canal": 1, "rosto": true }
+]
+```
+
+- **O Gateway configura o terminal sozinho ao subir** (`intelbras_configurar`, padrão `true`): acerta a hora (e de novo a cada 6 h), aponta o servidor de eventos para o próprio computador e liga o Modo Online, com keepalive de 10 s e 5 s para a decisão. O endereço deste computador é descoberto pela rede que alcança cada terminal; com várias redes, ponha `"intelbras_endereco"`.
+- **Na interface web do terminal, um passo à mão:** em Publicidade → Feedback, escolha **Personalizado**. É o que faz a mensagem do Gateway aparecer no display.
+- **O terminal é reconhecido pelo IP**, que tem de ser fixo. A senha fica só neste arquivo; os comandos usam autenticação Digest.
+- `canal` é o relé que libera a passagem; `rosto: false` nos terminais de digital (SS 3430, SS 5430).
+
+**O que acontece em cada acesso:**
+
+- o terminal reconhece o rosto ou a digital de quem está cadastrado nele e manda o número; cartão que ele não conhece vem com o número lido, e vale como o número do aluno, como na Toletus;
+- o Gateway decide com a nuvem, ou com o cadastro local se a internet cair, e responde em até 1 s, dentro dos 5 s do terminal;
+- o display mostra "Bem-vindo!" ou uma negativa curta, sem o nome e sem falar de dinheiro;
+- **a foto da pessoa que vem em cada acesso é descartada na leitura**, sem log, disco ou nuvem;
+- **a saída passa sem consulta**: barrar a saída prenderia lá dentro quem está barrado na entrada;
+- sem confirmação de giro: a presença conta na liberação (a Intelbras só avisa a passagem com catraca da própria marca);
+- os registros que o terminal guardou enquanto estava sem o Gateway chegam juntos quando ele volta, e as entradas aceitas viram presença na hora em que aconteceram.
+
+**Sem o Gateway, o terminal decide sozinho**, e a documentação diz que libera todo usuário cadastrado nele, 24 horas. Por isso o Gateway **desativa no terminal** (`UserType` 5) quem a academia barrou (pausado, inadimplente fora da tolerância) e reativa quem volta, a cada sincronização. O terminal recusa sozinho o usuário desativado; se ele respeita isso também no modo sem servidor é a pergunta enviada à Intelbras e item de bancada. Com o computador do Gateway ligado, a decisão é sempre da nuvem. "Sem conexão" é o computador do Gateway desligado ou fora da rede, não a internet: sem internet, o Gateway segue respondendo pelo cadastro local.
+
+**Gestão pela ficha do aluno:** cadastrar o aluno em todos os terminais (já desativado, se ele estiver barrado), apagar o aluno e o rosto, abrir a porta a pedido da recepção e entregar a foto do rosto que o aluno mandou pelo app. A Intelbras aceita foto em JPEG de até 100 KB, de 150x300 a 600x1200, e o app já reduz a foto para isso. Ficam no próprio terminal: o cadastro da digital (a captura remota só existe no SS 3430), do cartão (a API não captura cartão) e o do rosto pela câmera do terminal (existe na API e entra depois da bancada).
+
+**Ensaio sem terminal:** `npm run emular:intelbras -- --http 8090 --senha SENHA` faz o papel do terminal: a API dos comandos, com Digest, e o Modo Online depois que o Gateway o configura. Comandos: `r 42` (rosto do usuário 42), `b 42` (digital), `c 12AB` (cartão sem usuário), `s 42` (saída), `h 42` (registro guardado de uma hora atrás), `u` (usuários do terminal). Corrente provada em 03/10/2026 com o Gateway compilado, o emulador, as funções publicadas e o banco: 23 verificações.
+
+**O que só a bancada responde:** se o terminal sem o Gateway respeita o usuário desativado, o tempo real de resposta, o relé ligado à catraca, o formato do número do cartão em cada leitor e se a foto de cada acesso pode ser desligada no Modo Online do SS 5530.

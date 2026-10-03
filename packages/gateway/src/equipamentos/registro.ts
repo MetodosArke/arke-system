@@ -37,6 +37,8 @@ export class RegistroEquipamentos {
   private ponte: { inners: number[]; conectados: number[]; vista_em: Date } | null = null;
   private placasToletus: () => EstadoPlacaToletus[] = () => [];
   private leitoresFaciais: () => EstadoLeitorFacial[] = () => [];
+  /** Terminais Intelbras: quem chamou (keepalive ou acesso), pelo nome do config ou pelo IP. */
+  private readonly intelbras = new Map<string, Date>();
 
   constructor(private readonly agora: () => Date = () => new Date()) {}
 
@@ -55,6 +57,11 @@ export class RegistroEquipamentos {
   controlIdEmContingencia(deviceId: string | number | undefined): void {
     const id = String(deviceId ?? "").trim() || "sem-id";
     this.controlid.set(id, { visto_em: this.agora(), contingencia_em: this.agora() });
+  }
+
+  /** Keepalive ou acesso de um terminal Intelbras. */
+  intelbrasVisto(nome: string): void {
+    this.intelbras.set(nome, this.agora());
   }
 
   ponteViva(inners: number[], conectados: number[]): void {
@@ -112,6 +119,11 @@ export class RegistroEquipamentos {
           ? `conectado${sobre ? `, ${sobre}` : ""}`
           : `sem conexão com o Gateway${leitor.desconectadoEm ? ` desde ${leitor.desconectadoEm.toISOString()}` : ""}`,
       });
+    }
+    // O terminal chama o keepalive a cada 10 s: o "visto em" é a prova de
+    // que ele está chegando ao Gateway.
+    for (const [nome, visto] of this.intelbras) {
+      equipamentos.push({ nome, tipo: "intelbras", visto_em: visto.toISOString() });
     }
     return {
       equipamentos,

@@ -13,7 +13,7 @@ import { prepararFotoRosto } from "@/lib/fotoRosto";
  * leitor, com a recepção, ou por foto enviada no app).
  *
  * A foto fica só na memória desta tela, fora de rascunho e de qualquer
- * armazenamento do aparelho, e sai daqui reduzida (480x640, até 150 KB). Na
+ * armazenamento do aparelho, e sai daqui reduzida (480x640, até 100 KB). Na
  * nuvem ela mora numa tabela que ninguém lê pela API e é apagada assim que
  * os leitores a recebem, ou em 24 horas.
  *

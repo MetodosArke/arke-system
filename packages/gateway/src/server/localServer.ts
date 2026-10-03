@@ -2,6 +2,7 @@ import Fastify from "fastify";
 import type { GatewayService } from "../core/gatewayService";
 import { registrarReceptorControlId, type OpcoesReceptorControlId } from "../receptores/controlid";
 import { registrarReceptorTopdata, type OpcoesReceptorTopdata } from "../receptores/topdata";
+import { registrarReceptorIntelbras, type OpcoesReceptorIntelbras } from "../conectores/intelbras/receptor";
 import { logger } from "../logger";
 import { VERSAO_GATEWAY } from "../versao";
 
@@ -48,7 +49,7 @@ export function criarServidorLocal(gateway: GatewayService, porta = 4570) {
  */
 export function criarServidorReceptor(
   gateway: GatewayService,
-  opcoes: { host?: string; porta?: number; modelo?: string } & OpcoesReceptorControlId &
+  opcoes: { host?: string; porta?: number; modelo?: string; intelbras?: OpcoesReceptorIntelbras } & OpcoesReceptorControlId &
     OpcoesReceptorTopdata = {}
 ) {
   const host = opcoes.host ?? "0.0.0.0";
@@ -61,6 +62,8 @@ export function criarServidorReceptor(
   // academia com catracas de marcas diferentes funcionar sem ajuste.
   registrarReceptorControlId(app, gateway, opcoes);
   registrarReceptorTopdata(app, gateway, opcoes);
+  // Intelbras (Modo Online): /keepalive e /notification, na mesma porta.
+  if (opcoes.intelbras) registrarReceptorIntelbras(app, gateway, opcoes.intelbras);
 
   // Sonda de vida da própria porta do receptor: o técnico de instalação
   // precisa confirmar da rede que o gateway está alcançável, sem depender

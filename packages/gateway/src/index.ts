@@ -13,6 +13,7 @@ import { ExecutorComandos } from "./core/executorComandos";
 import { GestaoControlId, type GestaoEquipamentos } from "./equipamentos/controlidGestao";
 import { ConectorToletus, GestaoToletus } from "./conectores/toletus/conector";
 import { ConectorFacialTopdata, GestaoTopdataFacial } from "./conectores/topdataFacial/conector";
+import { ConectorIntelbras, GestaoIntelbras } from "./conectores/intelbras/conector";
 import { VERSAO_GATEWAY } from "./versao";
 
 async function main() {
@@ -47,7 +48,19 @@ async function main() {
   // Topdata entra aqui apesar de a DLL ser da ponte .NET: o que o gateway
   // precisa abrir é a mesma porta de escuta, só que o cliente passa a ser
   // a ponte em vez do equipamento.
-  const MODELOS_RECEPTOR = ["controlid", "topdata"];
+  // Intelbras também: o terminal chama o Gateway no Modo Online, na mesma
+  // porta. O conector existe antes do receptor para dar nome a cada terminal
+  // pelo IP, e inicia depois da primeira sincronização (é ela que diz quem
+  // desativar no terminal).
+  const conectorIntelbras =
+    config.modelo_catraca === "intelbras"
+      ? new ConectorIntelbras(gateway, config.intelbras_equipamentos ?? [], {
+          porta: config.escuta_porta,
+          endereco: config.intelbras_endereco ?? null,
+          configurar: config.intelbras_configurar ?? true,
+        })
+      : null;
+  const MODELOS_RECEPTOR = ["controlid", "topdata", "intelbras"];
   if (MODELOS_RECEPTOR.includes(config.modelo_catraca)) {
     const receptor = criarServidorReceptor(gateway, {
       host: config.escuta_host,
@@ -60,11 +73,13 @@ async function main() {
       // quem chama. Antes, toda resposta era a da catraca, no sentido
       // horário, mesmo com outra entrada configurada.
       comoLiberar: resolverComoLiberar(config),
+      ...(conectorIntelbras ? { intelbras: { nomePorIp: (ip: string) => conectorIntelbras.nomePorIp(ip) } } : {}),
     });
     await receptor.iniciar();
   }
 
   await gateway.iniciar();
+  if (conectorIntelbras) await conectorIntelbras.iniciar();
 
   // Toletus: na LiteNet2 a placa escuta na porta 7878 e quem disca é o
   // Gateway; na LiteNet3 o Gateway anuncia o endereço e a placa disca.
@@ -110,11 +125,13 @@ async function main() {
   // canal tenta de novo sozinho, com espera crescente.
   const gestao: GestaoEquipamentos | null = config.controlid_equipamentos?.length
     ? new GestaoControlId(config.controlid_equipamentos)
-    : conectorFacial
-      ? new GestaoTopdataFacial(conectorFacial)
-      : conectorToletus
-        ? new GestaoToletus(conectorToletus)
-        : null;
+    : conectorIntelbras?.nomes().length
+      ? new GestaoIntelbras(conectorIntelbras)
+      : conectorFacial
+        ? new GestaoTopdataFacial(conectorFacial)
+        : conectorToletus
+          ? new GestaoToletus(conectorToletus)
+          : null;
   const executor = new ExecutorComandos(cloud, gateway, gestao, { modelo: config.modelo_catraca });
   executor.iniciar();
 
@@ -146,6 +163,7 @@ async function main() {
     executor.parar();
     conectorToletus?.parar();
     conectorFacial?.parar();
+    conectorIntelbras?.parar();
     await gateway.parar();
     process.exit(0);
   };

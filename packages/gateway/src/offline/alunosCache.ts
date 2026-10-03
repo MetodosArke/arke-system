@@ -53,6 +53,17 @@ export class AlunosCache {
   }
 
   /**
+   * Quem tem número no equipamento e se está barrado: é o que o Gateway
+   * espelha nos terminais que guardam a situação (Intelbras).
+   */
+  async comIdentificador(): Promise<{ identificador: string; barrado: boolean }[]> {
+    const docs = await this.db.find({});
+    return docs
+      .filter((d) => d.identificador_catraca)
+      .map((d) => ({ identificador: String(d.identificador_catraca), barrado: !!d.inadimplente }));
+  }
+
+  /**
    * Aplica a diferença vinda da nuvem: atualiza ou inclui os alterados e
    * tira os que deixaram de poder estar no cache. Por `aluno_id`, então
    * receber o mesmo aluno duas vezes (a nuvem sobrepõe dois minutos entre

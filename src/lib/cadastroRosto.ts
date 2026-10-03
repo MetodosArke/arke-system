@@ -93,13 +93,14 @@ export function situacaoDoRosto(u: UltimoEnvioRosto | null): { tom: TomSituacao;
 /**
  * Tamanho da foto que sai do aparelho. Os leitores pedem rosto nítido e
  * arquivo pequeno (a Topdata recomenda até 150 KB, idealmente 480x640; a
- * Control iD aceita a partir de 160x160). A foto é reduzida para caber em
- * 480x640 na vertical (640x480 na horizontal), sem aumentar a pequena e sem
- * cortar: o leitor procura o rosto na imagem inteira.
+ * Control iD aceita a partir de 160x160; a Intelbras, de 150x300 a 600x1200,
+ * até 100 KB). A foto é reduzida para caber em 480x640 na vertical e em
+ * 600x450 na horizontal (a Intelbras recusa largura acima de 600), sem
+ * aumentar a pequena e sem cortar: o leitor procura o rosto na imagem inteira.
  */
 export function dimensoesDaFoto(largura: number, altura: number): { largura: number; altura: number } {
   if (largura <= 0 || altura <= 0) throw new Error("Foto sem tamanho.");
-  const [maxL, maxA] = largura > altura ? [640, 480] : [480, 640];
+  const [maxL, maxA] = largura > altura ? [600, 450] : [480, 640];
   const escala = Math.min(1, maxL / largura, maxA / altura);
   return { largura: Math.round(largura * escala), altura: Math.round(altura * escala) };
 }
@@ -109,8 +110,8 @@ export function fotoGrandeOBastante(largura: number, altura: number): boolean {
   return Math.min(largura, altura) >= 160;
 }
 
-/** Limite do arquivo enviado: a recomendação da Topdata (150 KB). */
-export const TAMANHO_MAXIMO_FOTO = 150 * 1024;
+/** Limite do arquivo enviado: o da Intelbras (100 KB), que cabe também na recomendação da Topdata (150 KB). */
+export const TAMANHO_MAXIMO_FOTO = 100 * 1024;
 
 /** Quantos bytes um data URL em base64 representa. */
 export function bytesDoDataUrl(dataUrl: string): number {

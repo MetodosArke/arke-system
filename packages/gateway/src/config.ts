@@ -9,7 +9,7 @@ const configSchema = z.object({
   supabase_url: z.string().url("supabase_url deve ser uma URL válida"),
   catraca_ip: z.string().min(1, "catraca_ip é obrigatório"),
   catraca_porta: z.number().int().positive(),
-  modelo_catraca: z.enum(["controlid", "henry", "topdata", "topdata_facial", "toletus", "dimep", "mock"]),
+  modelo_catraca: z.enum(["controlid", "henry", "topdata", "topdata_facial", "toletus", "intelbras", "dimep", "mock"]),
   // 1000 ms, e não os 300 que o código prometia sem nunca ter medido. Medido
   // em 23/09/2026 contra catraca-validar-acesso em sa-east-1: mediana 405 ms,
   // p90 437 ms, 0 de 12 chamadas abaixo de 300 ms (só a ida e volta de rede
@@ -109,6 +109,27 @@ const configSchema = z.object({
   // do leitor SM25, para não confundir quem lê a configuração do firewall.
   toletus_litenet3_porta: z.number().int().positive().default(7880),
   toletus_litenet3_endereco: z.string().trim().min(1).optional(),
+  // Terminais Intelbras (linha Bio-T) no Modo Online. O login é o do próprio
+  // terminal e fica só neste arquivo, como o da Control iD. O terminal é
+  // reconhecido pelo IP, então o IP tem de ser fixo.
+  intelbras_equipamentos: z
+    .array(
+      z.object({
+        nome: z.string().min(1, "cada terminal precisa de um nome"),
+        ip: z.string().min(1, "ip do terminal é obrigatório"),
+        porta: z.number().int().positive().default(80),
+        usuario: z.string().min(1).default("admin"),
+        senha: z.string().min(1, "senha do terminal é obrigatória"),
+        canal: z.number().int().positive().default(1),
+        // A maior parte da linha é facial; os BIO (SS 3430, SS 5430) não são.
+        rosto: z.boolean().default(true),
+      })
+    )
+    .default([])
+    .refine((l) => new Set(l.map((e) => e.nome)).size === l.length, "nomes de terminal repetidos")
+    .refine((l) => new Set(l.map((e) => e.ip)).size === l.length, "dois terminais com o mesmo IP"),
+  intelbras_endereco: z.string().trim().min(1).optional(),
+  intelbras_configurar: z.boolean().default(true),
 });
 
 /**
