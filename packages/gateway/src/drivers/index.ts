@@ -23,6 +23,12 @@ export function criarDriver(config: Pick<GatewayConfig, "modelo_catraca" | "catr
     case "topdata":
       return new ReceptorDriver("topdata");
 
+    // Linha Easy: o leitor facial disca para o Gateway por WebSocket e
+    // decide com a nossa resposta. A decisão mora no conector facial,
+    // iniciado à parte em index.ts. Ver src/conectores/topdataFacial/.
+    case "topdata_facial":
+      return new ReceptorDriver("topdata_facial", "Topdata facial: os leitores discam para o Gateway por WebSocket");
+
     // Toletus: a placa é o servidor e quem disca é o Gateway, mas a
     // decisão de acesso precisa do mesmo caminho das outras marcas (giro
     // pendente, registro offline). Isso mora no conector, iniciado à parte

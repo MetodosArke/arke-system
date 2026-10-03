@@ -15,7 +15,7 @@ Quem conecta é sempre o Gateway e a catraca: **não é preciso abrir porta na i
 - Computador Windows 10 ou 11, ligado o dia todo, com IP fixo na rede das catracas.
 - O **token do dispositivo**: o gestor cadastra a catraca em **Catracas → Novo dispositivo** e copia o token.
 - O modelo, o IP e a senha de administrador de cada catraca.
-- Marcas atendidas hoje: **Control iD** (modo online), **Topdata** (com a ponte `ArkeInnerBridge`) e **Toletus** (placa LiteNet2). Henry e Dimep são integradas na implantação do primeiro cliente de cada marca; o Gateway se recusa a subir com elas configuradas.
+- Marcas atendidas hoje: **Control iD** (modo online), **Topdata** (linha Inner com a ponte `ArkeInnerBridge`, e leitores faciais da linha Easy e da Fit 4 Facial) e **Toletus** (placas LiteNet2 e LiteNet3). Henry e Dimep são integradas na implantação do primeiro cliente de cada marca; o Gateway se recusa a subir com elas configuradas.
 
 ## Instalação
 
@@ -47,7 +47,7 @@ Quem conecta é sempre o Gateway e a catraca: **não é preciso abrir porta na i
 ```
 
 - `token_api_local`: o token do dispositivo, copiado em Catracas.
-- `modelo_catraca`: `controlid`, `topdata` ou `toletus`.
+- `modelo_catraca`: `controlid`, `topdata`, `topdata_facial` (linha Easy) ou `toletus`.
 - `tempo_timeout_ms`: deixe `1000`. Abaixo de 500 o Gateway cai em contingência quase sempre.
 - `controlid_equipamentos`: uma linha por Control iD. Com ela, a recepção cadastra aluno, digital e cartão pelo ARKE. O `nome` é o que a recepção vê para escolher o leitor. `sentido_entrada` é o lado da borboleta que é a entrada; confira girando.
 - `confirmacao_giro`: deixe `decisao`. Só use `catra_event` na iDBlock com o Monitor configurado (abaixo).
@@ -98,6 +98,42 @@ Na Toletus o sentido é o contrário das outras marcas: a placa LiteNet2 espera 
 5. Cartão: passe o cartão na catraca. Como ele ainda não é de ninguém, aparece em **Catracas → Últimos acessos** com o **número lido**, que é o que vai na ficha do aluno.
 
 Com o Gateway desligado, a entrada controlada **não libera ninguém**: a placa não guarda lista de alunos e só abre quando o Gateway manda. O display mostra "Bem-vindo!" ao liberar e, ao negar, uma frase curta como "Fale c/ recepcao", sem expor o motivo para a fila.
+
+### Placa LiteNet3
+
+A LiteNet3, mais nova, faz o contrário da LiteNet2: o Gateway avisa a placa do endereço dele e **a placa se conecta ao Gateway**.
+
+1. Dê **IP fixo** à placa e libere a porta **7880** no firewall do Windows do computador (entrada, rede privada).
+2. Na lista do `config.json`, marque a placa como LiteNet3. O número de série é opcional; com ele, outra placa no mesmo IP é recusada:
+
+```
+"toletus_equipamentos": [
+  { "nome": "Catraca da entrada", "ip": "192.168.0.60", "placa": "litenet3", "serial": "00000042" }
+]
+```
+
+3. Com uma catraca só, basta `"toletus_placa": "litenet3"` e o `catraca_ip`.
+
+Na LiteNet3 a academia usa **cartão, código de barras ou teclado**. A placa com leitor de digital manda a imagem do dedo para o computador comparar, e o ARKE não compara digital fora do equipamento: a catraca nega com "Use o cartao".
+
+## Leitores faciais da Topdata
+
+O leitor facial se conecta ao Gateway, como a Control iD. Ele aparece em dois tipos de catraca:
+
+- **Linha Easy** (Fit Easy, Revolution Easy, Box Easy): o leitor pergunta ao Gateway a cada rosto. No `config.json`, `"modelo_catraca": "topdata_facial"`.
+- **Fit 4 Facial**: a placa Inner decide, pela ponte de sempre (seção Topdata), e o leitor só reconhece o rosto. Fica `"modelo_catraca": "topdata"`, com a lista dos leitores.
+
+1. No leitor, em **Configurações → Rede → Servidor**: "Req. Servidor" = Sim, o **IP do computador** e a porta **7792**.
+2. Libere a porta **7792** no firewall do Windows.
+3. Anote no `config.json` o número de série e a **senha de gerenciamento** do menu do leitor (a senha serve para a recepção abrir a catraca pela tela):
+
+```
+"topdata_faciais": [
+  { "nome": "Catraca da entrada", "ip": "192.168.0.70", "sn": "AYSH01090913", "senha": "SENHA DO MENU" }
+]
+```
+
+Ao conectar, o Gateway põe o leitor da linha Easy em **"só online"**: com o Gateway desligado, o leitor não libera ninguém. Ele também desliga no leitor a foto de cada acesso e a de desconhecido. A recepção cadastra o aluno nos leitores pela ficha, em **Acesso pela catraca**, e quem sai da academia é apagado de todos sozinho. O cadastro do rosto pelo ARKE chega com a autorização do rosto, que está em preparação.
 
 ## Conferir antes de ir embora
 

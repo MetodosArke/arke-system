@@ -61,7 +61,21 @@ export interface EstadoPlaca {
   desconectadaEm: Date | null;
 }
 
-export class PlacaToletus extends EventEmitter {
+/**
+ * O que o conector precisa de uma placa, seja LiteNet2 (o Gateway disca) ou
+ * LiteNet3 (a placa disca). Eventos: "evento" (EventoToletus), "conectada"
+ * e "desconectada".
+ */
+export interface PlacaConectavel extends EventEmitter {
+  readonly nome: string;
+  iniciar(): void;
+  parar(): void;
+  liberar(sentido: SentidoLiberacao, mensagem: string): boolean;
+  negar(mensagem: string): boolean;
+  estado(): EstadoPlaca;
+}
+
+export class PlacaToletus extends EventEmitter implements PlacaConectavel {
   readonly nome: string;
   private readonly ip: string;
   private readonly porta: number;

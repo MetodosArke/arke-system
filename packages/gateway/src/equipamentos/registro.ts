@@ -22,10 +22,21 @@ export interface EstadoPlacaToletus {
   desconectadaEm: Date | null;
 }
 
+/** O que a telemetria precisa saber de um leitor facial da Topdata. */
+export interface EstadoLeitorFacial {
+  nome: string;
+  conectado: boolean;
+  modelo: string | null;
+  firmware: string | null;
+  vistoEm: Date | null;
+  desconectadoEm: Date | null;
+}
+
 export class RegistroEquipamentos {
   private readonly controlid = new Map<string, { visto_em: Date; contingencia_em: Date | null }>();
   private ponte: { inners: number[]; conectados: number[]; vista_em: Date } | null = null;
   private placasToletus: () => EstadoPlacaToletus[] = () => [];
+  private leitoresFaciais: () => EstadoLeitorFacial[] = () => [];
 
   constructor(private readonly agora: () => Date = () => new Date()) {}
 
@@ -53,6 +64,11 @@ export class RegistroEquipamentos {
   /** O conector Toletus se apresenta aqui ao subir. */
   fonteToletus(estados: () => EstadoPlacaToletus[]): void {
     this.placasToletus = estados;
+  }
+
+  /** O conector dos leitores faciais Topdata, idem. */
+  fonteFacial(estados: () => EstadoLeitorFacial[]): void {
+    this.leitoresFaciais = estados;
   }
 
   paraTelemetria(): Pick<TelemetriaGateway, "equipamentos" | "ponte"> {
@@ -84,6 +100,17 @@ export class RegistroEquipamentos {
         detalhe: placa.conectada
           ? `conectada${placa.firmware ? `, firmware ${placa.firmware}` : ""}`
           : `sem conexão com o Gateway${placa.desconectadaEm ? ` desde ${placa.desconectadaEm.toISOString()}` : ""}`,
+      });
+    }
+    for (const leitor of this.leitoresFaciais()) {
+      const sobre = [leitor.modelo, leitor.firmware ? `firmware ${leitor.firmware}` : null].filter(Boolean).join(", ");
+      equipamentos.push({
+        nome: `Topdata facial ${leitor.nome}`,
+        tipo: "topdata_facial",
+        visto_em: leitor.conectado && leitor.vistoEm ? leitor.vistoEm.toISOString() : null,
+        detalhe: leitor.conectado
+          ? `conectado${sobre ? `, ${sobre}` : ""}`
+          : `sem conexão com o Gateway${leitor.desconectadoEm ? ` desde ${leitor.desconectadoEm.toISOString()}` : ""}`,
       });
     }
     return {

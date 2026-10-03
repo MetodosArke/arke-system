@@ -13,6 +13,7 @@
 6. [Limitações conhecidas](#6-limitações-conhecidas)
 7. [Control iD: configurar o equipamento e ensaiar sem hardware](#7-control-id-configurar-o-equipamento-e-ensaiar-sem-hardware)
 8. [Toletus: o Gateway disca para a placa](#8-toletus-o-gateway-disca-para-a-placa)
+9. [Leitores faciais da Topdata](#9-leitores-faciais-da-topdata)
 
 ---
 
@@ -74,14 +75,17 @@ Todos os parâmetros vivem em `config.json`, na mesma pasta do executável (`%Pr
 | `token_api_local` | **O `device_token`** copiado da tela `/admin/catracas` no painel web (botão "Copiar" ao lado do dispositivo cadastrado) |
 | `supabase_url` | URL do projeto Supabase (ex.: `https://SEU-PROJETO.supabase.co`) |
 | `catraca_ip` / `catraca_porta` | Endereço IP e porta da catraca física na rede local |
-| `modelo_catraca` | `controlid` \| `topdata` \| `toletus` \| `mock`. `henry` e `dimep` são **recusados na partida**, com mensagem: a integração dessas marcas é feita na implantação do primeiro cliente de cada uma |
+| `modelo_catraca` | `controlid` \| `topdata` \| `topdata_facial` \| `toletus` \| `mock`. `topdata` é a linha Inner, pela ponte; `topdata_facial` é a linha Easy, em que o leitor facial decide com a resposta do Gateway (seção 9). `henry` e `dimep` são **recusados na partida**, com mensagem: a integração dessas marcas é feita na implantação do primeiro cliente de cada uma |
 | `tempo_timeout_ms` | Timeout da validação na nuvem antes de cair para o cache local (padrão `1000`). Medido: a validação leva ~400 ms normalmente e até 4 s na partida a frio. **Abaixo de ~500 ms o Gateway cai em contingência em quase todo acesso** |
 | `sincronizar_alunos_intervalo_ms` | Intervalo entre sincronizações do cache local de alunos (padrão `300000` = 5 min) |
 | `escuta_host` / `escuta_porta` | Onde o Gateway **escuta** o equipamento (padrão `0.0.0.0:4571`). A Control iD disca para o Gateway, não o contrário: esta porta precisa estar aberta na rede da academia |
 | `confirmacao_giro` | `decisao` (padrão): o acesso liberado já conta presença. `catra_event`: só conta quando a catraca confirma o giro — exige o Monitor configurado (seção 7) e **só existe na iDBlock** |
 | `timeout_giro_ms` | Quanto esperar a confirmação de giro (padrão `30000`). Sem confirmação no prazo, conta presença |
 | `topdata_leitor_entrada` | Topdata: qual leitor físico é a entrada, `1` ou `2` (padrão `1`). Tem de bater com `leitor_entrada` da ponte |
-| `toletus_equipamentos` | Placas Toletus LiteNet2 que o Gateway **disca** (versão 1.1): lista de `{ "nome", "ip", "porta": 7878, "liberar": "entrada" }`, uma por catraca. Vazia com o modelo `toletus`: uma placa só, em `catraca_ip`, na porta 7878 (`catraca_porta` não entra). `liberar: "ambos"` é para catraca em que a saída também exige identificação. Ver seção 8 |
+| `toletus_equipamentos` | Placas Toletus (versão 1.1; LiteNet3 na 1.2): lista de `{ "nome", "ip", "liberar": "entrada", "placa": "litenet2" }`, uma por catraca. Na LiteNet2 o Gateway **disca** para a `porta` (7878); na LiteNet3 a placa disca para o Gateway, e `serial` é opcional (sem ele, o Gateway descobre pelo IP). Vazia com o modelo `toletus`: uma placa só, em `catraca_ip`, do tipo de `toletus_placa` (`catraca_porta` não entra). `liberar: "ambos"` é para catraca em que a saída também exige identificação. Ver seção 8 |
+| `toletus_litenet3_porta` / `toletus_litenet3_endereco` | LiteNet3: a porta onde as placas discam (padrão `7880`, **aberta no firewall** do computador) e, se preciso, o endereço deste computador que elas devem discar. Vazio: o Gateway escolhe a interface que alcança cada placa |
+| `topdata_faciais` | Leitores faciais da Topdata (versão 1.2): lista de `{ "nome", "ip", "sn", "senha", "porta_http": 80 }`. `sn` é o número de série (opcional: sem ele, o leitor é reconhecido pelo IP); `senha` é a de gerenciamento do menu do leitor, para a abertura remota. Vazia com o modelo `topdata_facial`: um leitor só, em `catraca_ip`. Ver seção 9 |
+| `topdata_facial_porta` | Onde os leitores faciais discam (padrão `7792`, a do menu do leitor; **aberta no firewall**) |
 | `controlid_equipamentos` | Control iD que o Gateway **administra** (versão 1.0): lista de `{ "nome", "ip", "porta": 80, "usuario": "admin", "senha", "sentido_entrada": "clockwise" }`, um por catraca. Com ela, a recepção cadastra aluno, digital e cartão pelo ARKE e a remoção do aluno é automática. Vazia: cadastro manual no equipamento, como antes. O `nome` é o que a recepção vê para escolher o leitor; `sentido_entrada` é o lado da borboleta que é a entrada, e só a montagem física responde |
 
 > **A senha do equipamento fica só no `config.json`**, na máquina da academia. Para a nuvem vai apenas o nome de cada equipamento.
@@ -130,9 +134,9 @@ O Gateway expõe um servidor HTTP local de diagnóstico (Fastify, porta **4570**
 
 Leia antes de colocar em produção:
 
-1. **Por fabricante.** **Control iD:** implementada e testada sem hardware (seção 7); falta a bancada. **Topdata:** ponte .NET implementada (`packages/ponte-topdata`) e provada com o Inner simulado contra o gateway e a nuvem reais; falta a bancada. Instalação e roteiro em `docs/PONTE_TOPDATA.md` — inclusive o registro da `Inner.dll` como administrador, sem o qual a DLL devolve "erro GPF". **Toletus:** conector pela documentação pública do fabricante, provado com o emulador contra o Gateway e a nuvem reais (seção 8); falta a bancada. **Henry e Dimep:** sem documentação de integração dos fabricantes — a conexão é definida na implantação.
+1. **Por fabricante.** **Control iD:** implementada e testada sem hardware (seção 7); falta a bancada. **Topdata:** ponte .NET implementada (`packages/ponte-topdata`) e provada com o Inner simulado contra o gateway e a nuvem reais; falta a bancada. Instalação e roteiro em `docs/PONTE_TOPDATA.md` — inclusive o registro da `Inner.dll` como administrador, sem o qual a DLL devolve "erro GPF". **Toletus (LiteNet2 e LiteNet3):** conector pela documentação pública do fabricante, provado com os emuladores contra o Gateway e a nuvem reais (seção 8); falta a bancada. **Topdata facial:** conector pela página de comandos do portal de integradores, provado com o emulador contra o Gateway e a nuvem reais (seção 9); falta a bancada (Kit Integrador da Topdata). **Henry e Dimep:** sem documentação de integração dos fabricantes — a conexão é definida na implantação.
 2. **Cartão só cadastrado pelo ARKE.** O cartão cadastrado pelo ARKE fica no equipamento ligado ao número do aluno e chega como identificação, igual à digital. Cartão que ninguém cadastrou chega com o valor bruto e é negado — adivinhar a quem pertence seria pior que negar. **QR Code na catraca é negado**: o QR do ARKE é o do check-in na recepção, lido pelo celular do aluno.
-3. **Cadastro no equipamento.** Com `controlid_equipamentos` configurado, o ARKE cria o aluno em todas as Control iD da academia, cadastra digital e cartão com o aluno na frente do leitor (e copia para as outras catracas), e apaga tudo quando o aluno retira a autorização, é excluído ou anonimizado. **Sem gestão remota** (Topdata, Toletus, ou Control iD sem credencial no config) o cadastro continua manual, e a remoção vira **tarefa para a recepção**, com desfecho obrigatório — apagar no equipamento é obrigação legal, não opcional.
+3. **Cadastro no equipamento.** Com `controlid_equipamentos` configurado, o ARKE cria o aluno em todas as Control iD da academia, cadastra digital e cartão com o aluno na frente do leitor (e copia para as outras catracas), e apaga tudo quando o aluno retira a autorização, é excluído ou anonimizado. Com `topdata_faciais`, o ARKE cria e apaga o aluno em todos os leitores faciais da academia, com o mesmo número. **Sem gestão remota** (Topdata Inner, Toletus, ou Control iD sem credencial no config) o cadastro continua manual, e a remoção vira **tarefa para a recepção**, com desfecho obrigatório — apagar no equipamento é obrigação legal, não opcional.
 4. **A bandeja do sistema exige um ambiente com GUI** (Windows/desktop Linux/macOS) — em servidores/CI sem display, ela é desativada automaticamente (com aviso no log), sem derrubar o serviço.
 
 ## 7. Control iD: configurar o equipamento e ensaiar sem hardware
@@ -205,4 +209,54 @@ Sem cadastro remoto, a recepção vincula o número à mão na ficha do aluno. P
 
 Foi assim que a corrente foi provada em 02/10/2026, com o Gateway compilado, as funções publicadas e o banco reais (27 verificações): cartão liberado virando presença, pausada e cartão desconhecido negados com o registro certo, CPF no teclado, digital com desistência sem presença, liberação remota pela tela, e a placa caindo e voltando.
 
-**O que só a bancada responde:** o número que um cartão de verdade produz no leitor, o tempo de liberação configurado na placa, o sentido de giro da catraca montada e o leitor de digital SM25. **Cadastro remoto da digital** (pelo leitor SM25, que tem protocolo próprio na porta 7879) e a **placa LiteNet3** (que fala outro protocolo, JSON por WebSocket) são a etapa seguinte.
+**O que só a bancada responde:** o número que um cartão de verdade produz no leitor, o tempo de liberação configurado na placa, o sentido de giro da catraca montada e o leitor de digital SM25. **Cadastro remoto da digital** (pelo leitor SM25, que tem protocolo próprio na porta 7879) é a etapa seguinte.
+
+### 8.5 LiteNet3: a placa disca para o Gateway
+
+A placa **LiteNet3**, mais nova, fala outro protocolo: JSON por WebSocket, com a placa como cliente. O Gateway manda à placa, por UDP na porta 7878 dela, o endereço onde está escutando (`ws://IP-do-computador:7880`); a placa guarda o endereço e disca, apresentando o número de série. O anúncio se repete enquanto a placa não conecta, então uma placa trocada ou reiniciada volta sozinha.
+
+1. **IP fixo** na placa e, no `config.json`, `"placa": "litenet3"` na lista (ou `"toletus_placa": "litenet3"` com uma placa só).
+2. **Libere a porta 7880** (TCP) no firewall do Windows do computador do Gateway: aqui, ao contrário da LiteNet2, a conexão chega até ele.
+3. Opcional: anote o **número de série** da placa em `serial`. Com ele, uma placa diferente no mesmo IP é recusada.
+
+Placa que não está no `config.json` é recusada na porta, antes de abrir a conexão. A decisão, o giro e o display seguem a seção 8.2, com uma diferença: a LiteNet3 com leitor de digital **manda a imagem do dedo** para o servidor comparar. O ARKE não compara digital fora do equipamento, por desenho, então nega com "Use o cartao" e não guarda nada. Na LiteNet3, a academia usa cartão, código de barras ou teclado.
+
+Ensaio: `npm run emular:litenet3` escuta o UDP 7878, recebe o endereço, disca e manda as leituras que você digitar (`c`, `q`, `t`, `x` para um pedaço da imagem da digital, `g desiste`). Corrente provada em 02/10/2026 com o Gateway compilado, as funções publicadas e o banco reais: anúncio e conexão, cartão virando presença, negativas, digital recusada sem ir à nuvem, desistência, liberação remota e a placa reiniciando.
+
+**O que só a bancada responde, além do da 8.4:** o valor exato da mensagem temporária do display (o pacote oficial só documenta "clear"), se o aviso de passagem traz contadores ou só a marca do sentido (o Gateway lê os dois jeitos) e o que a placa faz quando não tem servidor nenhum.
+
+## 9. Leitores faciais da Topdata
+
+Os leitores faciais da Topdata (F4, T4 e T4-50k) falam JSON por WebSocket, e **quem disca é o leitor**, para o servidor configurado no menu dele. Eles aparecem em dois papéis:
+
+| Catraca | Modelo no `config.json` | Quem decide |
+|---|---|---|
+| **Linha Easy** (Fit Easy, Revolution Easy, Box Easy) | `topdata_facial` | O leitor pergunta ao Gateway a cada rosto (`sendlog`) e libera com a resposta |
+| **Fit 4 Facial** (placa Inner com leitor facial) | `topdata`, com a ponte e a lista `topdata_faciais` | A placa Inner, pela ponte de sempre. O leitor só reconhece e passa o número do aluno à placa |
+
+Nos dois, o leitor só reconhece quem está cadastrado nele. O Gateway cria e apaga o aluno em **todos** os leitores da academia, com o mesmo número do ARKE, pelas ordens da ficha do aluno.
+
+### 9.1 No leitor
+
+1. **Configurações → Rede → Servidor:** "Req. Servidor" = Sim, o **IP do computador do Gateway** e a porta **7792**.
+2. **Libere a porta 7792** (TCP) no firewall do Windows do computador do Gateway.
+3. Anote o **número de série** e a **senha de gerenciamento** do menu em `topdata_faciais` (a senha é para a abertura remota; fica só no `config.json`).
+
+A cada conexão, o Gateway põe o leitor da linha Easy em **"só online"** e recusando desconhecido: sem o Gateway, o leitor nega todo mundo, e isso não depende de o instalador lembrar. O da Fit 4 Facial fica em "só offline", porque quem decide é a placa Inner, e duas decisões para o mesmo acesso seriam erradas. Com a senha configurada, o Gateway também **desliga a foto em cada acesso e a foto de desconhecido** no leitor: ele guardaria o rosto de cada pessoa que passa na frente da catraca, aluno ou não.
+
+### 9.2 O que acontece em cada rosto (linha Easy)
+
+| O leitor avisa | O Gateway responde |
+|---|---|
+| Rosto de alguém cadastrado | Decide (nuvem, ou cache na queda de internet) e responde com "Bem-vindo!" ou uma negativa curta, como no display da Toletus. A tela do leitor é pública |
+| Rosto desconhecido | Nega com "Nao cadastrado", **sem ir à nuvem**. A foto que o leitor manda junto é descartada na leitura da mensagem: não vai para log, nem para a nuvem |
+| Registros guardados enquanto estava sem servidor | Responde "recebido", sem liberar nada. No modo "só online" o leitor negou todos, então não há presença a recuperar |
+| Cadastro feito no menu do próprio leitor | Responde e avisa no log: quem foi cadastrado por fora não tem o número no ARKE e não é reconhecido como aluno |
+
+A linha Easy **não confirma o giro** (a própria Topdata diz isso no portal): a presença conta pela liberação, como na Control iD sem o Monitor.
+
+### 9.3 Ensaio sem catraca
+
+`npm run emular:facial-topdata -- --http 8080 --senha 1234` disca para a porta 7792, apresenta-se, guarda os usuários que o Gateway cadastra e manda os rostos que você digitar (`r 12` rosto do usuário 12, `d` desconhecido, `h` histórico). Com `--http`, faz também o papel da API HTTP do leitor. Corrente provada em 02/10/2026 com o Gateway compilado, as funções publicadas e o banco reais: modo só online e fotos desligadas, cadastro da aluna pela ficha chegando ao leitor com o número dela, rosto liberado virando presença, negativas, desconhecido e histórico sem ir à nuvem, abertura remota e a aluna excluída saindo do leitor.
+
+**O que só a bancada responde:** quanto tempo o leitor espera a resposta, o que ele faz com o histórico ao reconectar, a ligação da Fit 4 Facial com a placa Inner (o número que a placa lê) e a captura do rosto. **O cadastro do rosto pelo ARKE** (pela câmera do leitor ou pela foto enviada no app) depende do texto da autorização do rosto, em aprovação, e é a etapa seguinte.

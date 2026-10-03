@@ -9,7 +9,7 @@ const configSchema = z.object({
   supabase_url: z.string().url("supabase_url deve ser uma URL válida"),
   catraca_ip: z.string().min(1, "catraca_ip é obrigatório"),
   catraca_porta: z.number().int().positive(),
-  modelo_catraca: z.enum(["controlid", "henry", "topdata", "toletus", "dimep", "mock"]),
+  modelo_catraca: z.enum(["controlid", "henry", "topdata", "topdata_facial", "toletus", "dimep", "mock"]),
   // 1000 ms, e não os 300 que o código prometia sem nunca ter medido. Medido
   // em 23/09/2026 contra catraca-validar-acesso em sa-east-1: mediana 405 ms,
   // p90 437 ms, 0 de 12 chamadas abaixo de 300 ms (só a ida e volta de rede
@@ -56,21 +56,69 @@ const configSchema = z.object({
         ip: z.string().min(1, "ip do equipamento é obrigatório"),
         porta: z.number().int().positive().default(7878),
         liberar: z.enum(["entrada", "ambos"]).default("entrada"),
+        placa: z.enum(["litenet2", "litenet3"]).default("litenet2"),
+        serial: z.string().trim().min(1).optional(),
       })
     )
     .default([])
-    .refine((l) => new Set(l.map((e) => e.nome)).size === l.length, "nomes de equipamento repetidos"),
+    .refine((l) => new Set(l.map((e) => e.nome)).size === l.length, "nomes de equipamento repetidos")
+    .refine(
+      (l) => {
+        const seriais = l.filter((e) => e.serial).map((e) => e.serial);
+        return new Set(seriais).size === seriais.length;
+      },
+      "seriais de placa repetidos"
+    ),
+  // Leitores faciais da Topdata. A senha é a do menu do leitor (API HTTP):
+  // como a da Control iD, fica só neste arquivo e nunca sobe para a nuvem.
+  topdata_faciais: z
+    .array(
+      z.object({
+        nome: z.string().min(1, "cada leitor precisa de um nome"),
+        ip: z.string().min(1, "ip do leitor é obrigatório"),
+        sn: z.string().trim().min(1).optional(),
+        senha: z.string().min(1).optional(),
+        porta_http: z.number().int().positive().default(80),
+      })
+    )
+    .default([])
+    .refine((l) => new Set(l.map((e) => e.nome)).size === l.length, "nomes de leitor repetidos")
+    .refine(
+      (l) => {
+        const sns = l.filter((e) => e.sn).map((e) => e.sn);
+        return new Set(sns).size === sns.length;
+      },
+      "números de série de leitor repetidos"
+    ),
+  // A porta padrão do menu do leitor (Configurações → Rede → Servidor).
+  topdata_facial_porta: z.number().int().positive().default(7792),
+  toletus_placa: z.enum(["litenet2", "litenet3"]).default("litenet2"),
+  // A LiteNet3 disca para o Gateway. 7880, e não a 7878 da placa nem a 7879
+  // do leitor SM25, para não confundir quem lê a configuração do firewall.
+  toletus_litenet3_porta: z.number().int().positive().default(7880),
+  toletus_litenet3_endereco: z.string().trim().min(1).optional(),
 });
 
 /**
- * As placas Toletus que o Gateway vai discar. A academia com uma catraca só
- * não precisa da lista: o IP de sempre (catraca_ip) basta, na porta 7878 da
- * placa. catraca_porta não entra: nos outros modelos ela é outra coisa, e um
+ * As placas Toletus da academia. A academia com uma catraca só não precisa
+ * da lista: o IP de sempre (catraca_ip) basta, com o tipo de toletus_placa.
+ * catraca_porta não entra: nos outros modelos ela é outra coisa, e um
  * valor herdado de config antigo faria o Gateway discar para a porta errada.
  */
 export function equipamentosToletus(config: GatewayConfig): NonNullable<GatewayConfig["toletus_equipamentos"]> {
   if (config.toletus_equipamentos?.length) return config.toletus_equipamentos;
-  return [{ nome: "Catraca", ip: config.catraca_ip, porta: 7878, liberar: "entrada" }];
+  return [{ nome: "Catraca", ip: config.catraca_ip, porta: 7878, liberar: "entrada", placa: config.toletus_placa ?? "litenet2" }];
+}
+
+/**
+ * Os leitores faciais da Topdata. Na linha Easy com uma catraca só, o IP de
+ * sempre (catraca_ip) basta. No modelo "topdata" (ponte), só os da lista:
+ * catraca Inner sem leitor facial não tem o que cadastrar.
+ */
+export function leitoresFaciais(config: GatewayConfig): NonNullable<GatewayConfig["topdata_faciais"]> {
+  if (config.topdata_faciais?.length) return config.topdata_faciais;
+  if (config.modelo_catraca === "topdata_facial") return [{ nome: "Catraca", ip: config.catraca_ip, porta_http: 80 }];
+  return [];
 }
 
 /**
