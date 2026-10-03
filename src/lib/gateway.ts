@@ -63,6 +63,8 @@ export type TipoComando =
   | "cadastrar_usuario"
   | "cadastrar_digital"
   | "cadastrar_cartao"
+  | "cadastrar_rosto"
+  | "enviar_foto_rosto"
   | "apagar_usuario";
 
 export const ROTULO_COMANDO: Record<TipoComando, string> = {
@@ -73,6 +75,8 @@ export const ROTULO_COMANDO: Record<TipoComando, string> = {
   cadastrar_usuario: "Cadastrar aluno no equipamento",
   cadastrar_digital: "Cadastrar digital",
   cadastrar_cartao: "Cadastrar cartão",
+  cadastrar_rosto: "Cadastrar rosto",
+  enviar_foto_rosto: "Foto do rosto pelo app",
   apagar_usuario: "Apagar do equipamento",
 };
 
@@ -167,6 +171,10 @@ export function resumoResultado(tipo: string, resultado: Record<string, unknown>
       return `Digital cadastrada em ${String(r.equipamento ?? "equipamento")}${copia}.${aviso}`;
     case "cadastrar_cartao":
       return `Cartão cadastrado em ${String(r.equipamento ?? "equipamento")}${copia.replace("copiada", "copiado")}.${aviso}`;
+    case "cadastrar_rosto":
+      return `Rosto cadastrado em ${String(r.equipamento ?? "equipamento")}${copia.replace("copiada", "copiado")}.${aviso}`;
+    case "enviar_foto_rosto":
+      return `Foto do rosto entregue a ${lista(r.equipamentos).join(", ") || "todos os leitores"}.`;
     case "liberar_catraca":
       return `Catraca liberada em ${String(r.equipamento ?? "equipamento")}.`;
     case "apagar_usuario":
@@ -192,6 +200,17 @@ export function tempoDesde(iso: string | null | undefined, agora: Date = new Dat
   const h = Math.round(min / 60);
   if (h < 48) return `há ${h} h`;
   return `há ${Math.round(h / 24)} dias`;
+}
+
+/** Equipamentos de gestão que cadastram rosto (marcados com `rosto` na telemetria). */
+export function equipamentosDeRosto(equipamentos: unknown): string[] {
+  if (!Array.isArray(equipamentos)) return [];
+  return equipamentos
+    .filter(
+      (e): e is { nome: string; tipo: string; rosto?: boolean } =>
+        !!e && typeof e === "object" && (e as { tipo?: unknown }).tipo === "controlid-gestao" && (e as { rosto?: unknown }).rosto === true
+    )
+    .map((e) => String(e.nome));
 }
 
 /** Equipamentos com gestão remota que o Gateway anunciou na telemetria (nomes do config). */

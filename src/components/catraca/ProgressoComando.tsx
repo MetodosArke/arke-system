@@ -6,6 +6,7 @@ import type { EstadoComando } from "@/hooks/useComandoGateway";
 const ENQUANTO_EXECUTA: Partial<Record<TipoComando, string>> = {
   cadastrar_digital: "Peça ao aluno para pôr o mesmo dedo no leitor, três vezes, quando o equipamento pedir.",
   cadastrar_cartao: "Peça ao aluno para aproximar o cartão do leitor.",
+  cadastrar_rosto: "Peça ao aluno para olhar de frente para a câmera do leitor, sem boné nem óculos escuros, até a contagem terminar.",
   liberar_catraca: "A catraca libera assim que o Gateway receber a ordem.",
 };
 

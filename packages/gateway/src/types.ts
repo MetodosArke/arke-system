@@ -123,6 +123,11 @@ export interface EquipamentoControlId {
   senha: string;
   /** Sentido da borboleta que é a entrada — depende da montagem física. */
   sentido_entrada: "clockwise" | "anticlockwise";
+  /**
+   * Equipamento com reconhecimento facial (iDFace, iDFace Max, leitor
+   * facial em catraca). Só nesses a ficha cadastra o rosto.
+   */
+  rosto?: boolean;
 }
 
 /** Ordens que a nuvem manda ao Gateway (ver catraca-comandos). */
@@ -134,6 +139,10 @@ export type TipoComando =
   | "cadastrar_usuario"
   | "cadastrar_digital"
   | "cadastrar_cartao"
+  /** A câmera do equipamento captura o rosto, com o aluno na frente. */
+  | "cadastrar_rosto"
+  /** A foto que o aluno mandou pelo app vai para os leitores faciais. */
+  | "enviar_foto_rosto"
   | "apagar_usuario";
 
 export interface ComandoGateway {
@@ -159,7 +168,8 @@ export interface TelemetriaGateway {
   ultima_sincronizacao: string | null;
   ultimo_erro: string | null;
   ultimo_erro_em: string | null;
-  equipamentos: { nome: string; tipo: string; visto_em: string | null; detalhe?: string }[];
+  /** `rosto`: o equipamento de gestão cadastra rosto (a ficha só oferece esses para o rosto). */
+  equipamentos: { nome: string; tipo: string; visto_em: string | null; detalhe?: string; rosto?: boolean }[];
   ponte: { inners: number[]; conectados: number[]; vista_em: string } | null;
   capacidades: TipoComando[];
 }

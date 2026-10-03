@@ -14,6 +14,7 @@
 7. [Control iD: configurar o equipamento e ensaiar sem hardware](#7-control-id-configurar-o-equipamento-e-ensaiar-sem-hardware)
 8. [Toletus: o Gateway disca para a placa](#8-toletus-o-gateway-disca-para-a-placa)
 9. [Leitores faciais da Topdata](#9-leitores-faciais-da-topdata)
+10. [Cadastro do rosto (versão 1.3)](#10-cadastro-do-rosto-versão-13)
 
 ---
 
@@ -86,7 +87,7 @@ Todos os parâmetros vivem em `config.json`, na mesma pasta do executável (`%Pr
 | `toletus_litenet3_porta` / `toletus_litenet3_endereco` | LiteNet3: a porta onde as placas discam (padrão `7880`, **aberta no firewall** do computador) e, se preciso, o endereço deste computador que elas devem discar. Vazio: o Gateway escolhe a interface que alcança cada placa |
 | `topdata_faciais` | Leitores faciais da Topdata (versão 1.2): lista de `{ "nome", "ip", "sn", "senha", "porta_http": 80 }`. `sn` é o número de série (opcional: sem ele, o leitor é reconhecido pelo IP); `senha` é a de gerenciamento do menu do leitor, para a abertura remota. Vazia com o modelo `topdata_facial`: um leitor só, em `catraca_ip`. Ver seção 9 |
 | `topdata_facial_porta` | Onde os leitores faciais discam (padrão `7792`, a do menu do leitor; **aberta no firewall**) |
-| `controlid_equipamentos` | Control iD que o Gateway **administra** (versão 1.0): lista de `{ "nome", "ip", "porta": 80, "usuario": "admin", "senha", "sentido_entrada": "clockwise" }`, um por catraca. Com ela, a recepção cadastra aluno, digital e cartão pelo ARKE e a remoção do aluno é automática. Vazia: cadastro manual no equipamento, como antes. O `nome` é o que a recepção vê para escolher o leitor; `sentido_entrada` é o lado da borboleta que é a entrada, e só a montagem física responde |
+| `controlid_equipamentos` | Control iD que o Gateway **administra** (versão 1.0): lista de `{ "nome", "ip", "porta": 80, "usuario": "admin", "senha", "sentido_entrada": "clockwise" }`, um por catraca. Com ela, a recepção cadastra aluno, digital e cartão pelo ARKE e a remoção do aluno é automática. Vazia: cadastro manual no equipamento, como antes. O `nome` é o que a recepção vê para escolher o leitor; `sentido_entrada` é o lado da borboleta que é a entrada, e só a montagem física responde. `"rosto": true` nos equipamentos com reconhecimento facial (iDFace): só nesses a ficha cadastra o rosto (seção 10) |
 
 > **A senha do equipamento fica só no `config.json`**, na máquina da academia. Para a nuvem vai apenas o nome de cada equipamento.
 
@@ -259,4 +260,23 @@ A linha Easy **não confirma o giro** (a própria Topdata diz isso no portal): a
 
 `npm run emular:facial-topdata -- --http 8080 --senha 1234` disca para a porta 7792, apresenta-se, guarda os usuários que o Gateway cadastra e manda os rostos que você digitar (`r 12` rosto do usuário 12, `d` desconhecido, `h` histórico). Com `--http`, faz também o papel da API HTTP do leitor. Corrente provada em 02/10/2026 com o Gateway compilado, as funções publicadas e o banco reais: modo só online e fotos desligadas, cadastro da aluna pela ficha chegando ao leitor com o número dela, rosto liberado virando presença, negativas, desconhecido e histórico sem ir à nuvem, abertura remota e a aluna excluída saindo do leitor.
 
-**O que só a bancada responde:** quanto tempo o leitor espera a resposta, o que ele faz com o histórico ao reconectar, a ligação da Fit 4 Facial com a placa Inner (o número que a placa lê) e a captura do rosto. **O cadastro do rosto pelo ARKE** (pela câmera do leitor ou pela foto enviada no app) depende do texto da autorização do rosto, em aprovação, e é a etapa seguinte.
+**O que só a bancada responde:** quanto tempo o leitor espera a resposta, o que ele faz com o histórico ao reconectar, a ligação da Fit 4 Facial com a placa Inner (o número que a placa lê) e a captura do rosto. O cadastro do rosto pelo ARKE está na seção 10.
+
+## 10. Cadastro do rosto (versão 1.3)
+
+O rosto entra de dois jeitos, decididos pelo responsável em 02/10/2026, e sempre com a autorização do próprio aluno (a mesma da digital, no texto que fala de digital e rosto):
+
+| Caminho | Quem dispara | O que o Gateway faz |
+|---|---|---|
+| **Câmera do equipamento** | A recepção, na ficha do aluno (**Cadastrar rosto**), com o aluno na frente do leitor | Control iD: `remote_enroll` de rosto, com contagem regressiva. Topdata: `adduser` e `checkregstatus` pela API HTTP do leitor (exige a senha do menu no config). A foto capturada é copiada aos outros leitores faciais da academia, pela rede local |
+| **Foto pelo app** | O próprio aluno, em **Perfil → Privacidade**, **uma vez só**: trocar depois é com a recepção, pela câmera. Tentativa que falhou não conta | A foto chega junto com a ordem, só na entrega. O Gateway confere que é JPEG (até 300 KB), entrega a todos os leitores faciais e zera a memória |
+
+**Onde a foto passa, e por quanto tempo.** A foto do app sai do celular já reduzida (480x640, até 150 KB). Na nuvem, mora numa tabela que nenhum papel lê pela API, nem a equipe nem o aluno, e é apagada assim que a ordem fecha, ou em 24 horas no máximo. A ordem guarda só o número da foto. No Gateway, nenhuma foto vai para log, para o resultado da ordem ou para a nuvem. Na Control iD, o Gateway configura `keep_user_image = 0`: o equipamento gera o modelo do rosto e apaga a foto. Retirar a autorização, excluir ou anonimizar o aluno apaga o rosto de todos os leitores, como a digital.
+
+**Antes do texto novo da autorização entrar no ar, nada disso funciona**: o banco recusa os dois caminhos, porque a autorização vigente só fala de digital. A ficha mostra o botão desativado com o motivo, e o app não mostra o envio de foto.
+
+**Na Control iD**, marque `"rosto": true` nos equipamentos faciais em `controlid_equipamentos`. **Na Topdata**, todo leitor facial recebe a foto do app; a câmera só nos que têm a senha do menu no config.
+
+Corrente provada em 02/10/2026 com o Gateway compilado, dois leitores Topdata emulados (`npm run emular:facial-topdata`, um com a API HTTP, outro sem), a função `catraca-comandos` publicada e o banco: a foto saiu da tabela de passagem, chegou aos dois leitores e sumiu do banco; a câmera de um leitor capturou e o Gateway copiou para o outro; foto que já tinha saído virou erro claro; o rosto cadastrado liberou a aluna, e a exclusão a apagou dos leitores.
+
+**O que só a bancada responde:** a qualidade do reconhecimento com a foto tirada no celular, o tempo da câmera de cadastro em cada firmware e se a Topdata guarda a foto de cadastro (a API dela tem a pasta `/photos/`, e não há configuração documentada para não guardar).

@@ -13,7 +13,13 @@ type Tabela = "users" | "templates" | "cards";
 export class EquipamentoControlIdFalso {
   readonly app: FastifyInstance = Fastify({ logger: false });
   readonly tabelas: Record<Tabela, Objeto[]> = { users: [], templates: [], cards: [] };
-  readonly chamadas: { rota: string; corpo: Record<string, unknown> }[] = [];
+  readonly chamadas: { rota: string; corpo: Record<string, unknown>; query: Record<string, string> }[] = [];
+  /** Fotos de rosto por usuário (bytes recebidos em user_set_image ou capturados pela câmera). */
+  readonly rostos = new Map<number, Buffer>();
+  /** Configurações recebidas por set_configuration. */
+  readonly configuracoes: Record<string, unknown>[] = [];
+  /** Recusa a próxima foto com estes erros (formato da documentação). */
+  recusarFoto: { code: number; message: string }[] | null = null;
   private proximoId = 1000;
   private sessoes = new Set<string>();
 
@@ -26,11 +32,13 @@ export class EquipamentoControlIdFalso {
   porta = 0;
 
   constructor(readonly nome = "Equipamento falso") {
+    this.app.addContentTypeParser("application/octet-stream", { parseAs: "buffer" }, (_req, corpo, pronto) => pronto(null, corpo));
     const autenticar = (sessao: unknown) => typeof sessao === "string" && this.sessoes.has(sessao);
 
     this.app.addHook("preHandler", async (req, reply) => {
       const rota = req.url.split("?")[0];
-      this.chamadas.push({ rota, corpo: (req.body ?? {}) as Record<string, unknown> });
+      const corpo = Buffer.isBuffer(req.body) ? { bytes: (req.body as Buffer).length } : ((req.body ?? {}) as Record<string, unknown>);
+      this.chamadas.push({ rota, corpo, query: { ...(req.query as Record<string, string>) } });
       if (rota === "/login.fcgi") return;
       const sessao = (req.query as Record<string, string>).session;
       if (!autenticar(sessao)) {
@@ -102,6 +110,12 @@ export class EquipamentoControlIdFalso {
       const { demoraMs, falhar, cartao } = this.cadastro;
       if (demoraMs) await new Promise((r) => setTimeout(r, demoraMs));
       if (falhar) return reply.code(400).send({ error: "Enrollment canceled" });
+      if (corpo.type === "face") {
+        const foto = EquipamentoControlIdFalso.jpegFalso("ROSTO-CAPTURADO-PELA-CAMERA");
+        this.rostos.set(corpo.user_id, foto);
+        // O que o equipamento de verdade devolve: a foto capturada.
+        return { success: true, user_id: corpo.user_id, device_id: 1, user_image: foto.toString("base64") };
+      }
       if (corpo.type === "biometry") {
         this.tabelas.templates.push({
           id: this.proximoId++,
@@ -124,8 +138,34 @@ export class EquipamentoControlIdFalso {
       return { success: true, user_id: corpo.user_id, device_id: 1, card_value: valor };
     });
 
+    this.app.post("/user_set_image.fcgi", async (req) => {
+      const userId = Number((req.query as Record<string, string>).user_id);
+      if (!this.tabelas.users.some((u) => u.id === userId)) {
+        return { user_id: userId, success: false, errors: [{ code: 1, message: "User does not exist" }] };
+      }
+      if (this.recusarFoto) {
+        const errors = this.recusarFoto;
+        this.recusarFoto = null;
+        return { user_id: userId, success: false, errors };
+      }
+      this.rostos.set(userId, Buffer.from(req.body as Buffer));
+      return { user_id: userId, scores: { bounds_width: 300 }, success: true };
+    });
+    this.app.post("/user_destroy_image.fcgi", async (req) => {
+      this.rostos.delete(Number((req.body as { user_id?: number | string }).user_id));
+      return {};
+    });
+    this.app.post("/set_configuration.fcgi", async (req) => {
+      this.configuracoes.push(req.body as Record<string, unknown>);
+      return {};
+    });
     this.app.post("/cancel_remote_enroll.fcgi", async () => ({}));
     this.app.post("/execute_actions.fcgi", async () => ({}));
+  }
+
+  /** Um "JPEG" de teste: começa com FF D8, como todo JPEG, e carrega uma marca legível. */
+  static jpegFalso(marca: string): Buffer {
+    return Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0]), Buffer.from(marca), Buffer.alloc(1500, 7)]);
   }
 
   /** Derruba todas as sessões — como o equipamento faz ao reiniciar. */

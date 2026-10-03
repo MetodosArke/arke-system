@@ -1,4 +1,4 @@
-# ARKE® Gateway Local 1.2
+# ARKE® Gateway Local 1.3
 
 Programa Node.js/TypeScript que roda **no computador da recepção da academia**
 e liga a catraca física à plataforma ArkeFit no Supabase. Decide o acesso em
@@ -38,7 +38,7 @@ passagem ou o tempo esgotado.
 
 ## Equipamentos
 
-| Marca | Situação na 1.2 |
+| Marca | Situação na 1.3 |
 |---|---|
 | **Control iD** (modo Pro) | Decisão de acesso, confirmação de giro pelo Monitor (iDBlock), contingência, **gestão remota**: cadastro do aluno, da digital e do cartão pelo ARKE, cópia entre as catracas da academia, remoção e liberação remota. |
 | **Topdata** (Inner, via EasyInner.dll) | Decisão de acesso, giro, contingência e bilhetes, pela ponte `packages/ponte-topdata` — ver `docs/PONTE_TOPDATA.md`. Sem gestão remota: o cadastro no equipamento é feito nele. |
@@ -92,7 +92,7 @@ cp config.example.json config.json
 | `toletus_litenet3_endereco` | Endereço deste computador anunciado às LiteNet3. Vazio: o Gateway escolhe a interface que alcança a placa. |
 | `topdata_faciais` | Leitores faciais da Topdata: `nome`, `ip`, `sn` (opcional; sem ele, o leitor é reconhecido pelo IP), `senha` e `porta_http` (80) da API HTTP do leitor, para a abertura remota. Vazia com o modelo `topdata_facial`: um leitor só, em `catraca_ip`. |
 | `topdata_facial_porta` | Onde os leitores faciais discam (padrão `7792`, a do menu do leitor). |
-| `controlid_equipamentos` | Lista de Control iD para gestão remota: `nome`, `ip`, `porta` (80), `usuario` (`admin`), `senha`, `sentido_entrada` (`clockwise`\|`anticlockwise`). Vazia: sem gestão remota, cadastro manual no equipamento. |
+| `controlid_equipamentos` | Lista de Control iD para gestão remota: `nome`, `ip`, `porta` (80), `usuario` (`admin`), `senha`, `sentido_entrada` (`clockwise`\|`anticlockwise`), `rosto` (`true` nos equipamentos com reconhecimento facial, como o iDFace; só nesses a ficha cadastra o rosto). Vazia: sem gestão remota, cadastro manual no equipamento. |
 
 **A senha do equipamento fica só neste arquivo, na máquina da academia.** Para
 a nuvem vai o nome de cada equipamento (para a recepção escolher o leitor),
@@ -134,6 +134,15 @@ Sonda da porta do equipamento, alcançável pela rede: `http://IP:4571/health`.
   rosto de quem ele não conhece chega com a foto da pessoa; o Gateway a
   descarta na leitura da mensagem, sem log e sem nuvem, e desliga no leitor a
   foto de cada acesso e a de desconhecido.
+- **Cadastro do rosto (1.3).** Pela câmera do equipamento (`cadastrar_rosto`:
+  remote_enroll na Control iD; adduser/checkregstatus na API HTTP do leitor
+  Topdata), ou pela foto que o próprio aluno manda no app (`enviar_foto_rosto`).
+  A foto do app chega junto com a ordem, só na entrega; o Gateway a confere
+  (JPEG de verdade, até 300 KB), entrega a todos os leitores faciais e zera o
+  buffer. A foto capturada pela câmera atravessa a memória do Gateway para ser
+  copiada aos outros leitores, pela rede local. Nenhuma foto vai para log,
+  resultado ou nuvem. Na Control iD, o Gateway liga `keep_user_image = 0`:
+  o equipamento gera o modelo do rosto e apaga a foto.
 - A LiteNet3 com leitor de digital manda a imagem do dedo para o servidor
   comparar. O Gateway recusa, com "Use o cartao" no display, e não guarda nada.
 - Cadastrar a digital exige a autorização do **próprio aluno**, dada no app
@@ -143,7 +152,7 @@ Sonda da porta do equipamento, alcançável pela rede: `http://IP:4571/health`.
 
 ## Testes
 
-`npm test` — 205 testes, sem rede e sem hardware:
+`npm test` — 221 testes, sem rede e sem hardware:
 
 - decisão online e contingência (libera em dia, nega inadimplente e pausado,
   cache vazio), fila offline e reenvio;

@@ -43,6 +43,8 @@ const configSchema = z.object({
         usuario: z.string().min(1).default("admin"),
         senha: z.string().min(1, "senha do equipamento é obrigatória"),
         sentido_entrada: z.enum(["clockwise", "anticlockwise"]).default("clockwise"),
+        // Só os equipamentos com reconhecimento facial cadastram rosto.
+        rosto: z.boolean().default(false),
       })
     )
     .default([])

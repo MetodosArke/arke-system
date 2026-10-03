@@ -29,6 +29,26 @@ type Payload = {
 
 const dormir = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
+/**
+ * As fotos do rosto das ordens entregues agora (no máximo 10 ordens por
+ * entrega). Dado biométrico: nunca vai para log, nem o tamanho.
+ */
+async function fotosDoRosto(
+  admin: ReturnType<typeof createClient>,
+  comandos: { tipo: string; parametros: Record<string, unknown> | null }[]
+): Promise<Map<string, string>> {
+  const ids = comandos
+    .filter((c) => c.tipo === "enviar_foto_rosto")
+    .map((c) => String(c.parametros?.foto_id ?? ""))
+    .filter((id) => UUID.test(id));
+  const fotos = new Map<string, string>();
+  if (ids.length === 0) return fotos;
+  const { data, error } = await admin.from("fotos_rosto_pendentes").select("id, foto").in("id", ids);
+  if (error) console.error("catraca-comandos: fotos do rosto indisponíveis", error.code);
+  for (const f of (data ?? []) as { id: string; foto: string }[]) fotos.set(f.id, f.foto);
+  return fotos;
+}
+
 // ARKE® Gateway Local — canal de ida e volta com a nuvem (versão 1.0).
 //
 // Até aqui só o Gateway falava: validava acesso, sincronizava alunos, subia
@@ -64,6 +84,10 @@ Deno.serve(async (req: Request) => {
     const payload = (await req.json()) as Payload;
     const deviceToken = payload.device_token?.trim();
     if (!deviceToken) return jsonResponse({ error: "device_token é obrigatório." }, 400);
+    // Token fora do formato não é de dispositivo nenhum. Sem isto, a consulta
+    // quebrava no banco e a resposta dizia "falha do servidor" a quem só
+    // copiou o token errado no config.json.
+    if (!UUID.test(deviceToken)) return jsonResponse({ error: "Dispositivo não autorizado." }, 401);
 
     const { data: catraca, error: erroCatraca } = await admin
       .from("organizacao_catracas")
@@ -119,11 +143,20 @@ Deno.serve(async (req: Request) => {
         return jsonResponse({ error: "Falha ao buscar ordens." }, 500);
       }
       if ((comandos ?? []).length > 0 || Date.now() + INTERVALO_CONSULTA_MS > limite || req.signal.aborted) {
+        const lista = (comandos ?? []) as { id: string; tipo: string; parametros: Record<string, unknown> | null }[];
+        const fotos = await fotosDoRosto(admin, lista);
         return jsonResponse({
-          comandos: (comandos ?? []).map((c: { id: string; tipo: string; parametros: unknown }) => ({
+          comandos: lista.map((c) => ({
             id: c.id,
             tipo: c.tipo,
-            parametros: c.parametros,
+            // A foto do rosto vai junto só na entrega: a ordem guarda o
+            // número dela, e a foto mora em fotos_rosto_pendentes, que
+            // ninguém lê pela API. Foto que já saiu (expirou, foi trocada)
+            // vai como null, e o Gateway responde que ela não está mais lá.
+            parametros:
+              c.tipo === "enviar_foto_rosto"
+                ? { ...(c.parametros ?? {}), foto: fotos.get(String(c.parametros?.foto_id ?? "")) ?? null }
+                : c.parametros,
           })),
           servidor_em: new Date().toISOString(),
         });

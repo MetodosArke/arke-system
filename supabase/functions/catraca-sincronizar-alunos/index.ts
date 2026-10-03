@@ -51,6 +51,10 @@ Deno.serve(async (req: Request) => {
     const payload: Partial<SincronizarPayload> = await req.json();
     const deviceToken = payload.device_token?.trim();
     if (!deviceToken) return jsonResponse({ error: "device_token é obrigatório." }, 400);
+    // Token fora do formato não é de dispositivo nenhum: 401, e não "falha do servidor".
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(deviceToken)) {
+      return jsonResponse({ error: "Dispositivo não autorizado." }, 401);
+    }
 
     const { data: catraca, error: catracaError } = await admin
       .from("organizacao_catracas")

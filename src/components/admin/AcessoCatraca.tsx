@@ -6,14 +6,15 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { CreditCard, FileText, Fingerprint, Loader2, ShieldOff, UserPlus } from "lucide-react";
+import { CreditCard, FileText, Fingerprint, Loader2, ScanFace, ShieldOff, UserPlus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useComandoGateway } from "@/hooks/useComandoGateway";
 import { ProgressoComando } from "@/components/catraca/ProgressoComando";
 import { TermoImpressoBiometria } from "@/components/catraca/TermoImpressoBiometria";
 import { VERSAO_CONSENTIMENTO_BIOMETRIA } from "@/lib/termoBiometria";
 import { useAuth } from "@/contexts/AuthContext";
-import { SITUACAO_GATEWAY, equipamentosDeGestao, situacaoGateway, type TipoComando } from "@/lib/gateway";
+import { SITUACAO_GATEWAY, equipamentosDeGestao, equipamentosDeRosto, situacaoGateway, type TipoComando } from "@/lib/gateway";
+import { lerCadastroRosto, situacaoDoRosto } from "@/lib/cadastroRosto";
 import { formatarDataBR } from "@/lib/dataBrasilia";
 
 const formatarData = (valor: string) =>
@@ -63,6 +64,7 @@ export function AcessoCatraca({
   const [identificador, setIdentificador] = useState(identificadorAtual ?? "");
   const [gatewayId, setGatewayId] = useState("");
   const [leitor, setLeitor] = useState("");
+  const [leitorRosto, setLeitorRosto] = useState("");
   const [confirmarRevogacao, setConfirmarRevogacao] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -87,6 +89,18 @@ export function AcessoCatraca({
   const antigo = consentimentos.find((c) => !c.revogado_em && c.versao_texto !== VERSAO_CONSENTIMENTO_BIOMETRIA);
   const ultimaRevogacao = consentimentos.find((c) => c.revogado_em);
 
+  // Rosto: se o texto vigente cobre o rosto, se o aluno autorizou e como foi o
+  // último cadastro (pela câmera ou pela foto do app). Nunca a foto.
+  const { data: rosto } = useQuery({
+    queryKey: ["cadastro-rosto", alunoId],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("get_cadastro_rosto", { _aluno_id: alunoId });
+      if (error) throw error;
+      return lerCadastroRosto(data);
+    },
+  });
+  const situacaoRosto = situacaoDoRosto(rosto?.ultimo ?? null);
+
   const { data: gateways = [] } = useQuery({
     queryKey: ["catracas-gestao", organizationId],
     queryFn: async () => {
@@ -103,6 +117,7 @@ export function AcessoCatraca({
           nome: c.nome,
           capacidades: t?.capacidades ?? [],
           leitores: equipamentosDeGestao(t?.equipamentos),
+          leitoresRosto: equipamentosDeRosto(t?.equipamentos),
           situacao: situacaoGateway(c.ultimo_heartbeat_em, t?.reportado_em, t?.estado),
         };
       });
@@ -115,25 +130,35 @@ export function AcessoCatraca({
   // facial da Topdata, nenhum dos dois. A tela só oferece o que o Gateway anuncia.
   const podeDigital = !!gateway?.capacidades.includes("cadastrar_digital");
   const podeCartao = !!gateway?.capacidades.includes("cadastrar_cartao");
+  const podeRosto = !!gateway?.capacidades.includes("cadastrar_rosto");
 
   const atualizar = () => {
     void queryClient.invalidateQueries({ queryKey: ["aluno-perfil", alunoId] });
     void queryClient.invalidateQueries({ queryKey: ["consentimento-biometrico", alunoId] });
+    void queryClient.invalidateQueries({ queryKey: ["cadastro-rosto", alunoId] });
   };
 
   const ordem = async (tipo: TipoComando) => {
     if (!gateway) return;
     try {
-      // Digital e cartão pedem o aluno já criado no equipamento. Quando falta,
-      // o cadastro vem antes, sozinho — a recepção clica uma vez só.
-      if ((tipo === "cadastrar_digital" || tipo === "cadastrar_cartao") && !identificadorAtual) {
+      // Digital, cartão e rosto pedem o aluno já criado no equipamento. Quando
+      // falta, o cadastro vem antes, sozinho — a recepção clica uma vez só.
+      const precisaDoAluno = tipo === "cadastrar_digital" || tipo === "cadastrar_cartao" || tipo === "cadastrar_rosto";
+      if (precisaDoAluno && !identificadorAtual) {
         const antes = await comando.executar(gateway.id, "cadastrar_usuario", { alunoId });
         if (antes.status !== "concluido") return;
         atualizar();
       }
       const c = await comando.executar(gateway.id, tipo, {
         alunoId,
-        parametros: leitor && (tipo === "cadastrar_digital" || tipo === "cadastrar_cartao") ? { equipamento: leitor } : {},
+        parametros:
+          tipo === "cadastrar_rosto"
+            ? leitorRosto
+              ? { equipamento: leitorRosto }
+              : {}
+            : leitor && (tipo === "cadastrar_digital" || tipo === "cadastrar_cartao")
+              ? { equipamento: leitor }
+              : {},
       });
       if (c.status === "concluido") atualizar();
     } catch (e) {
@@ -286,6 +311,24 @@ export function AcessoCatraca({
             </div>
           )}
 
+          {podeRosto && gateway.leitoresRosto.length > 1 && (
+            <div className="space-y-1">
+              <Label className="text-xs text-muted-foreground">Leitor para o rosto</Label>
+              <Select value={leitorRosto || gateway.leitoresRosto[0]} onValueChange={setLeitorRosto}>
+                <SelectTrigger className="h-8">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {gateway.leitoresRosto.map((n) => (
+                    <SelectItem key={n} value={n}>
+                      {n}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
           <div className="flex flex-wrap gap-2">
             <Button size="sm" variant="outline" disabled={!noAr || ocupado} onClick={() => void ordem("cadastrar_usuario")}>
               <UserPlus className="mr-1.5 h-3.5 w-3.5" />
@@ -312,10 +355,39 @@ export function AcessoCatraca({
               </Button>
             )}
           </div>
+          {podeRosto && (
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                size="sm"
+                variant="secondary"
+                disabled={!noAr || ocupado || !rosto?.autorizado}
+                title={
+                  !rosto?.texto_cobre_rosto
+                    ? "O cadastro do rosto entra com o texto novo da autorização, em aprovação"
+                    : !rosto?.autorizado
+                      ? "O aluno precisa autorizar o uso do rosto — no app ou pelo termo impresso"
+                      : undefined
+                }
+                onClick={() => void ordem("cadastrar_rosto")}
+              >
+                <ScanFace className="mr-1.5 h-3.5 w-3.5" /> Cadastrar rosto
+              </Button>
+              {rosto && !rosto.texto_cobre_rosto && (
+                <span className="text-xs text-muted-foreground">Disponível quando o texto novo da autorização entrar no ar.</span>
+              )}
+            </div>
+          )}
+          {situacaoRosto && (
+            <p
+              className={`text-xs ${situacaoRosto.tom === "falhou" ? "text-destructive" : situacaoRosto.tom === "ok" ? "text-success" : "text-muted-foreground"}`}
+            >
+              {situacaoRosto.texto}
+            </p>
+          )}
           {!podeDigital && !podeCartao && (
             <p className="text-xs text-muted-foreground">
-              Leitor facial: o aluno fica cadastrado em todos os leitores com o mesmo número. O rosto só é cadastrado
-              com a autorização do aluno para o uso do rosto.
+              Leitor facial: o aluno fica cadastrado em todos os leitores com o mesmo número. O rosto entra pela câmera
+              do leitor (botão acima) ou pela foto que o próprio aluno manda no app, sempre com a autorização dele.
             </p>
           )}
           <ProgressoComando estado={comando.estado} />

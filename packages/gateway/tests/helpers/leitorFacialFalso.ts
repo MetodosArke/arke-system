@@ -20,6 +20,11 @@ export class LeitorFacialFalso {
   /** false: as ordens ficam sem resposta, como um leitor travado. */
   responderOrdens = true;
   senhaHttp = "1234";
+  /** Recusa a próxima foto (setuserinfo com backupnum 50) com este motivo da página de comandos. */
+  recusarFoto: { reason: number; msg: string } | null = null;
+  /** Como termina o próximo cadastro pela câmera (API HTTP adduser/checkregstatus). */
+  cadastroCamera: "sucesso" | "cancela" | "nunca" = "sucesso";
+  private cadastroEmAndamento: { enrollid: number; consultas: number } | null = null;
   private ws: WebSocket | null = null;
   private apiHttp: http.Server | null = null;
   portaHttp = 0;
@@ -123,8 +128,18 @@ export class LeitorFacialFalso {
   private responder(o: Record<string, unknown>): void {
     const cmd = String(o.cmd);
     if (cmd === "setuserinfo") {
+      if (Number(o.backupnum) === 50 && this.recusarFoto) {
+        const { reason, msg } = this.recusarFoto;
+        this.recusarFoto = null;
+        this.enviar({ ret: "setuserinfo", sn: this.sn, result: false, reason, msg });
+        return;
+      }
       this.usuarios.set(Number(o.enrollid), o);
       this.enviar({ ret: "setuserinfo", sn: this.sn, result: true });
+    } else if (cmd === "getuserinfo") {
+      const u = this.usuarios.get(Number(o.enrollid));
+      if (!u) this.enviar({ ret: "getuserinfo", sn: this.sn, result: false, reason: 1, msg: "can not find the user" });
+      else this.enviar({ ret: "getuserinfo", sn: this.sn, enrollid: o.enrollid, result: true, backupnum: o.backupnum, record: Number(u.backupnum) === 50 ? u.record : "" });
     } else if (cmd === "deleteuser") {
       const existia = this.usuarios.delete(Number(o.enrollid));
       this.enviar(existia ? { ret: "deleteuser", result: true } : { ret: "deleteuser", result: false, reason: 1, msg: "can not find the user" });
@@ -144,6 +159,33 @@ export class LeitorFacialFalso {
         res.setHeader("Content-Type", "application/json");
         if (pedido.password !== this.senhaHttp) {
           res.end(JSON.stringify({ ret: pedido.cmd, sn: this.sn, result: false, reason: 2 }));
+          return;
+        }
+        if (pedido.cmd === "adduser") {
+          if (pedido.cancel) {
+            this.cadastroEmAndamento = null;
+            res.end(JSON.stringify({ ret: "adduser", result: true, cancel: true }));
+            return;
+          }
+          this.cadastroEmAndamento = { enrollid: Number(pedido.enrollid), consultas: 0 };
+          res.end(JSON.stringify({ ret: "adduser", sn: this.sn, result: true, backupnum: 50, enrollid: pedido.enrollid }));
+          return;
+        }
+        if (pedido.cmd === "checkregstatus") {
+          const c = this.cadastroEmAndamento;
+          let status = -1;
+          if (c) {
+            c.consultas++;
+            if (this.cadastroCamera === "cancela") status = -1;
+            else if (this.cadastroCamera === "nunca" || c.consultas < 2) status = 0;
+            else {
+              status = 1;
+              const foto = Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0]), Buffer.from("ROSTO-DA-CAMERA-TOPDATA"), Buffer.alloc(800, 7)]);
+              this.usuarios.set(c.enrollid, { cmd: "setuserinfo", enrollid: c.enrollid, name: "Aluno", backupnum: 50, record: "data:image/jpeg;base64," + foto.toString("base64") });
+              this.cadastroEmAndamento = null;
+            }
+          }
+          res.end(JSON.stringify({ ret: "checkregstatus", sn: this.sn, result: true, status, msg: status === 1 ? "success" : "", image: "" }));
           return;
         }
         res.end(JSON.stringify({ ret: pedido.cmd, sn: this.sn, result: true }));
