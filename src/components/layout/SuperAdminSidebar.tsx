@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ChevronLeft, CircleHelp, Cpu, Dumbbell, Kanban, LayoutDashboard, LogOut, Menu, MessageCircle, Radar, Rocket, ScrollText, Settings, Shield, UserCog, UsersRound, Webhook } from "lucide-react";
+import { ChevronLeft, CircleHelp, Cpu, Dumbbell, Kanban, LayoutDashboard, LifeBuoy, LogOut, Menu, MessageCircle, Radar, Rocket, ScrollText, Settings, Shield, UserCog, UsersRound, Webhook } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
@@ -23,6 +23,7 @@ export const SECOES_SUPERADMIN: { label: string; items: MenuItem[] }[] = [
       { icon: UsersRound, label: "Equipe ArkeFit", path: "/superadmin/equipe" },
       { icon: Kanban, label: "Pipeline comercial", path: "/superadmin/comercial" },
       { icon: Rocket, label: "Implantação", path: "/superadmin/implantacao" },
+      { icon: LifeBuoy, label: "Suporte", path: "/superadmin/suporte" },
       { icon: UserCog, label: "Profissionais", path: "/superadmin/profissionais" },
     ],
   },

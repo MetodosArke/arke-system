@@ -10,6 +10,7 @@ import { artigoPorSlug, artigosPara, buscarArtigos, type ArtigoAjuda } from "@/l
 import { TEXTOS_AJUDA } from "@/lib/ajuda/textos";
 import { useAjuda } from "@/components/ajuda/useAjuda";
 import { SuporteBotao } from "@/components/admin/onboarding/SuporteBotao";
+import { AssistenteAcademia } from "@/components/ajuda/AssistenteAcademia";
 import { cn } from "@/lib/utils";
 
 type Grupo = "Painel da academia" | "App do aluno" | "Visão Master";
@@ -149,6 +150,8 @@ export default function CentralAjuda() {
               : "Como fazer as tarefas do dia a dia no ARKE. Em cada tela, o ? no alto abre o artigo dela."}
         </p>
       </header>
+
+      {area === "admin" && <AssistenteAcademia base={base} />}
 
       <div className="relative">
         <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />

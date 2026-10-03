@@ -36,6 +36,14 @@ export const ARTIGOS: ArtigoAjuda[] = [
     rotas: ["/admin/dashboard", "/admin/perfil"],
   },
   {
+    slug: "assistente-academia",
+    titulo: "O assistente da Central de Ajuda",
+    resumo: "Pergunte como falaria com alguém da ArkeFit: os artigos que respondem, a situação na hora e o chamado quando não resolve.",
+    secao: "Primeiros passos",
+    publicos: EQUIPE,
+    rotas: ["/admin/ajuda"],
+  },
+  {
     slug: "onboarding-academia",
     titulo: "Implantação da academia",
     resumo: "As seis etapas da configuração, a liberação do app, a primeira entrada, o kit de lançamento e o assistente de implantação.",
@@ -458,6 +466,14 @@ export const ARTIGOS: ArtigoAjuda[] = [
     secao: "Visão Master",
     publicos: ["arkefit"],
     rotas: ["/superadmin/configuracoes", "/superadmin/acervo", "/superadmin/auditoria"],
+  },
+  {
+    slug: "vm-suporte",
+    titulo: "Suporte: os chamados das academias",
+    resumo: "As dúvidas que o assistente do painel não resolveu, o prazo e o desfecho, e quanto ele resolve sozinho.",
+    secao: "Visão Master",
+    publicos: ["arkefit"],
+    rotas: ["/superadmin/suporte"],
   },
   {
     slug: "vm-profissionais",

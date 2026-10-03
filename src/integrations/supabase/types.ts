@@ -1421,6 +1421,54 @@ export type Database = {
         }
         Relationships: []
       }
+      assistente_perguntas: {
+        Row: {
+          artigos: string[]
+          created_at: string
+          id: string
+          intencoes: string[]
+          organization_id: string
+          resolveu: boolean | null
+          user_id: string | null
+          usou_ia: boolean
+        }
+        Insert: {
+          artigos?: string[]
+          created_at?: string
+          id?: string
+          intencoes?: string[]
+          organization_id: string
+          resolveu?: boolean | null
+          user_id?: string | null
+          usou_ia?: boolean
+        }
+        Update: {
+          artigos?: string[]
+          created_at?: string
+          id?: string
+          intencoes?: string[]
+          organization_id?: string
+          resolveu?: boolean | null
+          user_id?: string | null
+          usou_ia?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "assistente_perguntas_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "org_churn_metrics"
+            referencedColumns: ["organization_id"]
+          },
+          {
+            foreignKeyName: "assistente_perguntas_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       auditoria_acoes_sensiveis: {
         Row: {
           acao: string
@@ -1640,6 +1688,78 @@ export type Database = {
           },
           {
             foreignKeyName: "briefings_enviados_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      chamados_suporte: {
+        Row: {
+          acao: string | null
+          artigos: string[]
+          concluido_em: string | null
+          contexto: Json
+          created_at: string
+          desfecho: string | null
+          id: string
+          organization_id: string
+          papel: string | null
+          pergunta: string
+          prazo: string
+          proxima_checagem: string | null
+          responsavel_id: string | null
+          resposta_assistente: string | null
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          acao?: string | null
+          artigos?: string[]
+          concluido_em?: string | null
+          contexto?: Json
+          created_at?: string
+          desfecho?: string | null
+          id?: string
+          organization_id: string
+          papel?: string | null
+          pergunta: string
+          prazo?: string
+          proxima_checagem?: string | null
+          responsavel_id?: string | null
+          resposta_assistente?: string | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          acao?: string | null
+          artigos?: string[]
+          concluido_em?: string | null
+          contexto?: Json
+          created_at?: string
+          desfecho?: string | null
+          id?: string
+          organization_id?: string
+          papel?: string | null
+          pergunta?: string
+          prazo?: string
+          proxima_checagem?: string | null
+          responsavel_id?: string | null
+          resposta_assistente?: string | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chamados_suporte_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "org_churn_metrics"
+            referencedColumns: ["organization_id"]
+          },
+          {
+            foreignKeyName: "chamados_suporte_organization_id_fkey"
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
@@ -7043,6 +7163,14 @@ export type Database = {
         }
         Returns: string
       }
+      assistente_contexto: {
+        Args: {
+          _aluno?: string
+          _intencoes?: string[]
+          _organization_id: string
+        }
+        Returns: Json
+      }
       atribuir_mentor_aluno: {
         Args: { _aluno_id: string; _mentor_id: string }
         Returns: undefined
@@ -7190,6 +7318,15 @@ export type Database = {
           _acao: string
           _chamado_id: string
           _desfecho: string
+          _proxima_checagem?: string
+        }
+        Returns: undefined
+      }
+      concluir_chamado_suporte: {
+        Args: {
+          _acao: string
+          _desfecho: string
+          _id: string
           _proxima_checagem?: string
         }
         Returns: undefined
@@ -7684,6 +7821,10 @@ export type Database = {
           trial_fim: string
         }[]
       }
+      get_superadmin_assistente_numeros: {
+        Args: { _dias?: number }
+        Returns: Json
+      }
       get_superadmin_biometria: {
         Args: never
         Returns: {
@@ -7707,6 +7848,29 @@ export type Database = {
           percentual: number
           situacao: string
           usado_mb: number
+        }[]
+      }
+      get_superadmin_chamados_suporte: {
+        Args: never
+        Returns: {
+          acao: string
+          artigos: string[]
+          concluido_em: string
+          contexto: Json
+          created_at: string
+          desfecho: string
+          email: string
+          id: string
+          organizacao: string
+          organization_id: string
+          papel: string
+          pergunta: string
+          prazo: string
+          proxima_checagem: string
+          quem: string
+          responsavel: string
+          resposta_assistente: string
+          tipo_organizacao: string
         }[]
       }
       get_superadmin_equipamentos: {
@@ -8375,6 +8539,10 @@ export type Database = {
         Returns: string
       }
       registrar_primeiro_acesso_aluno: { Args: never; Returns: undefined }
+      registrar_resultado_assistente: {
+        Args: { _pergunta_id: string; _resolveu: boolean }
+        Returns: undefined
+      }
       registrar_telemetria_gateway: {
         Args: { _catraca_id: string; _tel: Json }
         Returns: undefined
@@ -8511,6 +8679,7 @@ export type Database = {
         Args: { _organization_id: string }
         Returns: number
       }
+      texto_sem_acento: { Args: { _t: string }; Returns: string }
       valor_mensal_b2b: { Args: { _organization_id: string }; Returns: number }
       varrer_avanco_fases: {
         Args: never

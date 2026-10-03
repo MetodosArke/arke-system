@@ -100,6 +100,7 @@ const CentralAjuda = paginaPreguicosa(() => import("@/pages/ajuda/CentralAjuda")
 const Landing = paginaPreguicosa(() => import("@/pages/public/Landing"));
 const SuperAdminComercial = paginaPreguicosa(() => import("@/pages/superadmin/SuperAdminComercial"));
 const SuperAdminImplantacao = paginaPreguicosa(() => import("@/pages/superadmin/SuperAdminImplantacao"));
+const SuperAdminSuporte = paginaPreguicosa(() => import("@/pages/superadmin/SuperAdminSuporte"));
 const SuperAdminEquipe = paginaPreguicosa(() => import("@/pages/superadmin/SuperAdminEquipe"));
 const SuperAdminFichaAluno = paginaPreguicosa(() => import("@/pages/superadmin/SuperAdminFichaAluno"));
 
@@ -351,6 +352,7 @@ const App = () => (
                 <Route path="configuracoes" element={<SuperAdminConfiguracoes />} />
                 <Route path="comercial" element={<SuperAdminComercial />} />
                 <Route path="implantacao" element={<SuperAdminImplantacao />} />
+                <Route path="suporte" element={<SuperAdminSuporte />} />
                 {/* Endereço antigo, dos e-mails de aviso enviados antes do Pipeline comercial. */}
                 <Route path="contatos" element={<Navigate to="/superadmin/comercial" replace />} />
                 <Route path="equipe" element={<SuperAdminEquipe />} />
