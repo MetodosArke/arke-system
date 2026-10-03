@@ -130,7 +130,7 @@ Ficam em Supabase → Project Settings → Edge Functions → Secrets. O Supabas
 - **Região** `sa-east-1` (São Paulo), **fixa no código** (`supabase/functions/_shared/ia.ts`).
 - **Sentinela e leitura de dieta:** Claude 3 Haiku, que processa em São Paulo. É o valor de `BEDROCK_MODEL_ID`.
 - **Vigia:** Claude Sonnet 4.6 pelo perfil global. É constante no código e só recebe dado técnico, nunca dado de aluno.
-- **Assistente da academia (Lucas):** usa o mesmo Claude 3 Haiku em São Paulo, mas a resposta escrita por IA está **desligada** (`plataforma_config.assistente_ia = 0`). Sem ela, o assistente não chama a AWS.
+- **Assistente da academia (Lucas):** desde 03/10/2026 usa o mesmo modelo do Vigia (`MODELO_ASSISTENTE = MODELO_VIGIA`, perfil `global.`, fora do Brasil), com as mesmas credenciais. A pergunta sai sem CPF, e-mail, telefone e sem os nomes da academia (`nomes_para_anonimizar`). O interruptor é `plataforma_config.assistente_ia`; desligado, o assistente não chama a AWS.
 - **Registro de invocações** na conta: desligado.
 - **Acesso:** por um usuário IAM com as chaves `BEDROCK_*`. Em 23/09/2026 a conta ainda estava em verificação na AWS.
 

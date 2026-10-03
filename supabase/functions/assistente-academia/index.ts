@@ -1,5 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { conversarComIA } from "../_shared/ia.ts";
+import { consultarAssistente } from "../_shared/ia.ts";
 import indice from "./artigos.json" with { type: "json" };
 import type { Trecho } from "./indice.ts";
 import {
@@ -7,7 +7,6 @@ import {
   detectarIntencoes,
   diagnosticoAceito,
   montarEmailChamado,
-  montarEntrada,
   publicosDoPapel,
   resumoSituacao,
   SISTEMA_ASSISTENTE,
@@ -44,8 +43,10 @@ type Payload = {
 //
 // - perguntar: acha os trechos da Central de Ajuda que respondem, monta os
 //   cartões com a situação na hora (`assistente_contexto`, com a identidade de
-//   quem pergunta) e, com a IA ligada, escreve a resposta em São Paulo a
-//   partir dos trechos. A pergunta não é guardada; só o que mede o assistente.
+//   quem pergunta) e, com a IA ligada, escreve a resposta a partir dos
+//   trechos, com o modelo do Vigia, fora do Brasil (decisão de 03/10/2026).
+//   Por isso a pergunta vai sem CPF, e-mail, telefone e sem o nome de quem
+//   está na academia. A pergunta não é guardada; só o que mede o assistente.
 // - chamado: guarda a pergunta como chamado para a ArkeFit e avisa por e-mail,
 //   com a resposta indo para quem perguntou.
 //
@@ -132,12 +133,23 @@ Deno.serve(async (req: Request) => {
     let resposta: string | null = null;
     let usouIa = false;
     if (ligado("assistente_ia")) {
-      const situacao = resumoSituacao(contexto as Contexto, new Date());
-      const entrada = montarEntrada(pergunta, achados, situacao);
-      const r = await conversarComIA((n) => Deno.env.get(n), { sistema: SISTEMA_ASSISTENTE, usuario: entrada, maxTokens: 400, temperatura: 0.2 });
-      if (r.ok) {
-        usouIa = true;
-        resposta = diagnosticoAceito(r.texto, entrada);
+      // Sem a lista de nomes da academia, a pergunta não vai ao modelo: sairia
+      // do Brasil com o nome que alguém tivesse digitado.
+      const { data: nomes, error: nomesError } = await admin.rpc("nomes_para_anonimizar", { _organization_id: orgId });
+      if (nomesError || !Array.isArray(nomes)) {
+        console.error("nomes_para_anonimizar", nomesError?.code ?? "sem lista");
+      } else {
+        const r = await consultarAssistente((n) => Deno.env.get(n), {
+          sistema: SISTEMA_ASSISTENTE,
+          pergunta,
+          trechos: achados,
+          situacao: resumoSituacao(contexto as Contexto, new Date()),
+          nomes: nomes as string[],
+        });
+        if (r.ok) {
+          usouIa = true;
+          resposta = diagnosticoAceito(r.texto, r.entrada);
+        }
       }
     }
 

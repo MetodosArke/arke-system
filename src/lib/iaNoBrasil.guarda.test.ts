@@ -99,6 +99,8 @@ describe("Vigia: o perfil global só com telemetria validada", () => {
     expect(comGlobal.map((p) => p.replace(RAIZ, "").replace(/\\/g, "/"))).toEqual(["/supabase/functions/_shared/ia.ts"]);
     expect(IA).toMatch(/export const MODELO_VIGIA = "global\.anthropic\.[a-z0-9.-]+";/);
     expect(IA).not.toMatch(/MODELO_VIGIA\s*=\s*env\(/);
+    // O assistente da academia usa o mesmo modelo, sem um segundo literal.
+    expect(IA).toMatch(/export const MODELO_ASSISTENTE = MODELO_VIGIA;/);
   });
 
   it("a porta do Vigia valida o quadro antes de qualquer envio", () => {
@@ -111,9 +113,10 @@ describe("Vigia: o perfil global só com telemetria validada", () => {
     expect(monta).toBeLessThan(envio);
   });
 
-  it("o Sentinela não usa o modelo do Vigia", () => {
+  it("o Sentinela não usa o modelo do Vigia nem o do assistente", () => {
     const sentinela = IA.slice(IA.indexOf("export async function conversarComIA"), IA.indexOf("// ── Vigia"));
     expect(sentinela).not.toContain("MODELO_VIGIA");
+    expect(sentinela).not.toContain("MODELO_ASSISTENTE");
   });
 
   it("só a edge function do Vigia usa a porta dele", () => {
@@ -122,5 +125,50 @@ describe("Vigia: o perfil global só com telemetria validada", () => {
       .filter((p) => /consultarVigia/.test(readFileSync(p, "utf8")))
       .map((p) => p.replace(RAIZ, "").replace(/\\/g, "/"));
     expect(usam).toEqual(["/supabase/functions/vigia/index.ts"]);
+  });
+});
+
+/**
+ * A segunda exceção (decisão do responsável, 03/10/2026): o assistente da
+ * academia usa o modelo do Vigia, fora do Brasil, para responder dúvida de uso
+ * do painel. A pergunta é texto livre da equipe, e por isso sai sem
+ * identificação — CPF, e-mail, telefone e o nome de quem está na academia. Isso
+ * só é verdade enquanto:
+ *
+ * 1. a porta do assistente montar a entrada ela mesma, pela limpeza, ANTES de
+ *    qualquer envio;
+ * 2. a limpeza da pergunta tirar os contatos e depois os nomes;
+ * 3. só a edge function do assistente usar essa porta, e com a lista de nomes
+ *    da academia vinda do banco.
+ */
+describe("Assistente da academia: o perfil global só com a pergunta sem identificação", () => {
+  const funcoes = arquivosTs(join(RAIZ, "supabase/functions"));
+  const ENTRADA = readFileSync(join(RAIZ, "supabase/functions/_shared/assistenteEntrada.ts"), "utf8");
+  const ASSISTENTE = readFileSync(join(RAIZ, "supabase/functions/assistente-academia/index.ts"), "utf8");
+
+  it("a porta do assistente monta a entrada limpa antes de qualquer envio", () => {
+    const corpo = IA.slice(IA.indexOf("export async function consultarAssistente"));
+    const monta = corpo.indexOf("montarEntrada(dados.pergunta, dados.trechos, dados.situacao, dados.nomes)");
+    const envio = corpo.indexOf("fetch(");
+    expect(monta).toBeGreaterThan(-1);
+    expect(monta).toBeLessThan(envio);
+    expect(corpo.slice(0, envio)).toContain("text: entrada");
+  });
+
+  it("a pergunta perde os contatos e depois os nomes", () => {
+    expect(ENTRADA).toContain("tirarNomes(tirarContatos(pergunta), nomes)");
+  });
+
+  it("só a edge function do assistente usa a porta, com os nomes do banco", () => {
+    const usam = funcoes
+      .filter((p) => !/_shared[\\/](ia|assistenteEntrada)\.ts$/.test(p))
+      .filter((p) => /consultarAssistente/.test(readFileSync(p, "utf8")))
+      .map((p) => p.replace(RAIZ, "").replace(/\\/g, "/"));
+    expect(usam).toEqual(["/supabase/functions/assistente-academia/index.ts"]);
+    const pedeNomes = ASSISTENTE.indexOf('rpc("nomes_para_anonimizar"');
+    const consulta = ASSISTENTE.indexOf("consultarAssistente((n)");
+    expect(pedeNomes).toBeGreaterThan(-1);
+    expect(consulta).toBeGreaterThan(pedeNomes);
+    expect(ASSISTENTE.slice(consulta, consulta + 300)).toContain("nomes: nomes as string[]");
   });
 });
