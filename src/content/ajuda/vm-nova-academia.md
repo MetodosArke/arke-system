@@ -33,6 +33,8 @@ Sem repasse configurado, a academia não consegue vender o Método: a cobrança 
 
 Na ficha, **Mensalidade B2B**: o valor mensal da plataforma. Sem valor negociado, vale o preço de tabela do plano. A assinatura é criada quando o gestor conclui a configuração inicial; para academia que já estava no ar, crie pela ficha. A academia escolhe PIX, boleto ou cartão em cada fatura.
 
+**Mudar o valor depois** (reajuste pelo IPCA, renegociação): mudar o valor negociado, ou o preço de tabela em [Configurações](/superadmin/configuracoes), não muda a assinatura que já existe. A ficha mostra o valor que está no Asaas e, quando ele é diferente do de hoje, o botão **Cobrar R$ … a partir de agora**. A fatura do mês que ainda não venceu já sai no valor novo; fatura já vencida e em aberto fica no valor antigo, e aí o valor novo vale a partir da próxima. A mudança fica na [Auditoria](/superadmin/auditoria). O contrato pede aviso de 30 dias antes do reajuste.
+
 ## 4. Taxa de implantação
 
 Na ficha, **Taxa de implantação**: o valor vem preenchido com a referência (Configurações) e pode mudar em cada contrato; escolha à vista ou parcelado (até 12×) e a data do primeiro vencimento. Cada parcela é uma cobrança B2B, e o atraso entra na regra de inadimplência da academia.

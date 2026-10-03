@@ -1,6 +1,12 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { verificada } from "../_shared/verificacao.ts";
-import { criarOuAdotarAssinaturaB2b, garantirClienteB2b, hojeBrasilia } from "./fluxo.ts";
+import {
+  alterarValorAssinaturaB2b,
+  consultarAssinaturaB2b,
+  criarOuAdotarAssinaturaB2b,
+  garantirClienteB2b,
+  hojeBrasilia,
+} from "./fluxo.ts";
 import { ambienteAsaas } from "../_shared/asaas.ts";
 
 const corsHeaders = {
@@ -24,6 +30,11 @@ const ROTULO_PLANO: Record<string, string> = {
 // Cria (ou adota) a assinatura B2B da academia no Asaas. Chamada pelo painel
 // logo depois de concluir o onboarding, e pela Visão Master para academias que
 // já estavam no ar. O valor vem do banco (valor_mensal_b2b), nunca do pedido.
+//
+// Duas ações a mais, só da ArkeFit: `situacao` compara a assinatura no Asaas
+// com o valor de hoje, e `alterar_valor` leva o valor de hoje para ela
+// (reajuste pelo IPCA, renegociação). Mudar o valor na tela não muda a
+// cobrança sozinho; é este passo que muda, e ele fica na Auditoria.
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") return jsonResponse({ error: "Method not allowed" }, 405);
@@ -39,8 +50,11 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
-    const { organization_id: organizationId } = (await req.json()) as { organization_id?: string };
-    if (!organizationId) return jsonResponse({ error: "Pedido inválido." }, 400);
+    const { organization_id: organizationId, acao = "criar" } = (await req.json()) as {
+      organization_id?: string;
+      acao?: "criar" | "situacao" | "alterar_valor";
+    };
+    if (!organizationId || !["criar", "situacao", "alterar_valor"].includes(acao)) return jsonResponse({ error: "Pedido inválido." }, 400);
 
     const asUser = createClient(supabaseUrl, anonKey, { global: { headers: { Authorization: authHeader } } });
     const { data: claims, error: claimsError } = await asUser.auth.getClaims(authHeader.replace("Bearer ", ""));
@@ -77,6 +91,53 @@ Deno.serve(async (req: Request) => {
     }
     const asaasApiUrl = ambiente.api;
     const asaasApiKey = ambiente.chave;
+
+    if (acao === "situacao" || acao === "alterar_valor") {
+      if (!arkefit) return jsonResponse({ error: "Só a ArkeFit consulta e muda a assinatura B2B." }, 403);
+      if (!org.asaas_subscription_id_b2b) return jsonResponse({ error: "A academia ainda não tem assinatura B2B." }, 409);
+      const { data: valorBancoHoje } = await admin.rpc("valor_mensal_b2b", { _organization_id: org.id });
+      const valorHoje = valorBancoHoje === null || valorBancoHoje === undefined ? null : Number(valorBancoHoje);
+      const sit = await consultarAssinaturaB2b(asaasApiUrl, asaasApiKey, org.asaas_subscription_id_b2b);
+      if (!sit.ok) return jsonResponse({ error: sit.erro }, 502);
+      if (acao === "situacao") {
+        return jsonResponse({
+          ok: true,
+          valor_asaas: sit.valor,
+          status: sit.status,
+          proximo_vencimento: sit.proximoVencimento,
+          valor_hoje: valorHoje,
+          divergente: valorHoje !== null && valorHoje > 0 && Math.abs(sit.valor - valorHoje) > 0.009,
+        });
+      }
+      if (!valorHoje || valorHoje <= 0) {
+        return jsonResponse({ error: "O valor de hoje é zero ou não está definido. Para parar a mensalidade, use o encerramento." }, 409);
+      }
+      if (sit.status !== "ACTIVE") return jsonResponse({ error: `A assinatura não está ativa no Asaas (${sit.status}).` }, 409);
+      if (Math.abs(sit.valor - valorHoje) <= 0.009) return jsonResponse({ ok: true, sem_mudanca: true, para: valorHoje });
+      const r = await alterarValorAssinaturaB2b(asaasApiUrl, asaasApiKey, org.asaas_subscription_id_b2b, { valor: valorHoje, hoje: hojeBrasilia() });
+      if (!r.ok) return jsonResponse({ error: r.erro }, 502);
+      const { error: erroAuditoria } = await admin.rpc("registrar_auditoria", {
+        _ator_user_id: callerId,
+        _acao: "mensalidade_b2b.valor_alterado",
+        _entidade: "organizations",
+        _entidade_id: org.id,
+        _organizacao_nome: org.nome,
+        _detalhes: {
+          de: sit.valor,
+          para: valorHoje,
+          pendentes_atualizadas: r.pendentesAtualizadas,
+          vencidas_no_valor_antigo: r.vencidasNoValorAntigo.length,
+        },
+      });
+      if (erroAuditoria) console.error("asaas-assinatura-b2b: auditoria", erroAuditoria.code);
+      return jsonResponse({
+        ok: true,
+        de: sit.valor,
+        para: valorHoje,
+        pendentes_atualizadas: r.pendentesAtualizadas,
+        vencidas_no_valor_antigo: r.vencidasNoValorAntigo.length,
+      });
+    }
 
 
     if (org.asaas_subscription_id_b2b) {
