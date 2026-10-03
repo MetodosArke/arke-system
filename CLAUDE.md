@@ -582,6 +582,22 @@ O personal e a nutricionista que usam o ArkeFit como negócio próprio são o ge
 
 **Conferido:** 15 casos em transação revertida (etapas da configuração com CPF, personal não publica dieta, parceira nutricionista publica dieta e não treino, convite de e-mail sem conta devolve P0002, parceria encerrada tira o acesso, academia inalterada) e 22 verificações pela tela, com um personal e uma nutricionista temporários fazendo a parceria pelo painel, apagados no fim.
 
+### A gestão dos profissionais pela Visão Master (03/10/2026)
+
+**O convite de quem já tinha conta falhava e deixava painel vazio para trás.** O Jean criou o próprio painel de personal com o e-mail da conta que já tinha. O Auth recusa convidar quem existe, e o desfazer quebrava: a consulta do PostgREST não é uma Promise e não tem `.catch`, então o `delete` nem rodava. Ficaram duas organizações sem ninguém dentro, como já tinha acontecido com outras duas em setembro. Agora `convidar-profissional-autonomo`:
+
+- liga a conta existente como gestora, achada por `conta_por_email()` (só a service role), e manda pelo Resend o aviso "Seu painel está pronto" (`email.ts`), com o link de criar a senha para quem nunca entrou;
+- aceita um painel por pessoa: o segundo é recusado com o nome do primeiro;
+- espera o `delete` ao desfazer.
+
+Tem três ações: `criar`; `responsavel`, que põe responsável no painel sem ninguém ou troca quem nunca entrou (e-mail errado no convite); e `reenviar`. Quem já entra no painel não é trocado por aqui: o caminho é alterar o e-mail de login dele.
+
+- **A ficha do profissional** (Visão Master → Profissionais, `ProfissionalAutonomoSheet`): editar o painel e o responsável (`atualizar_profissional_autonomo`, auditada; a especialidade fica presa enquanto houver parceria ativa, porque o parceiro foi convidado para a outra parte), o acesso (definir, trocar, reenviar, copiar o link de ativação, alterar o e-mail de login), alunos e parceria, implantação, a mensalidade do ArkeFit e a saída. `gerar-link-ativacao` passou a aceitar o Super Admin, e não só o papel antigo de Admin ARKE.
+- **O painel que nunca virou cliente sai direto**, além da homologação: `organizacao_nunca_usada()` (sem contrato aceito, sem aluno, sem cobrança da ArkeFit, sem conta de recebimento), conferida em `superadmin-suporte-tenant`. O resto sai pelo encerramento.
+- **A lista dizia "Ativou a conta" de quem nunca entrou**, porque o perfil nasce `active` no próprio convite. O convite pendente passou a vir do último acesso.
+
+Migration `20261317010000_profissionais_autonomos_gestao.sql`; regras da tela em `src/lib/profissionaisAutonomos.ts`; artigo *Profissionais autônomos* na Central de Ajuda. **Conferido:** 29 casos em transação desfeita; 25 na corrente real, pelas funções publicadas e com um Super Admin verificado em duas etapas (inclusive o convite que falha no meio sem deixar painel e os sete e-mails entregues); e 24 pela tela, no computador e no celular. Três defeitos plantados de propósito, os três pegos.
+
 ## Resultado não é promessa (28/09/2026)
 
 Duas decisões do responsável, tomadas juntas porque tratam da mesma coisa:

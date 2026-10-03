@@ -453,11 +453,19 @@ export const ARTIGOS: ArtigoAjuda[] = [
   },
   {
     slug: "vm-configuracoes",
-    titulo: "Configurações, acervo, profissionais e auditoria",
+    titulo: "Configurações, acervo e auditoria",
     resumo: "Taxas, preços B2B, textos da plataforma, acervo global e o registro de ações sensíveis.",
     secao: "Visão Master",
     publicos: ["arkefit"],
-    rotas: ["/superadmin/configuracoes", "/superadmin/acervo", "/superadmin/profissionais", "/superadmin/auditoria"],
+    rotas: ["/superadmin/configuracoes", "/superadmin/acervo", "/superadmin/auditoria"],
+  },
+  {
+    slug: "vm-profissionais",
+    titulo: "Profissionais autônomos",
+    resumo: "Criar o painel do personal ou da nutricionista, cuidar do acesso do responsável e excluir o painel criado por engano.",
+    secao: "Visão Master",
+    publicos: ["arkefit"],
+    rotas: ["/superadmin/profissionais"],
   },
   {
     slug: "vm-backup",

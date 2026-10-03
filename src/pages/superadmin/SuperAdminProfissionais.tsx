@@ -2,6 +2,16 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { mensagemDeErroEdge } from "@/lib/erroEdge";
+import {
+  ESPECIALIDADE_ROTULO,
+  ROTULO_ACESSO,
+  filtrarProfissionais,
+  rotuloImplantacao,
+  situacaoAcesso,
+  telefoneValido,
+  type EspecialidadeAutonomo,
+  type ProfissionalAutonomo,
+} from "@/lib/profissionaisAutonomos";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -9,46 +19,23 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { UserCog, UserPlus, Dumbbell, Apple } from "lucide-react";
+import { ProfissionalAutonomoSheet } from "@/components/superadmin/ProfissionalAutonomoSheet";
+import { UserCog, UserPlus, Dumbbell, Apple, Search, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { Enums } from "@/integrations/supabase/types";
 
-type Especialidade = Extract<Enums<"app_role">, "professor" | "nutricionista">;
-
-type ProfissionalRow = {
-  organization_id: string;
-  nome: string;
-  especialidade: Especialidade;
-  status: Enums<"org_status">;
-  email: string | null;
-  status_convite: string | null;
-  alunos_total: number;
-  created_at: string;
-  sem_gestor: boolean;
-};
-
-const ESPECIALIDADE_LABEL: Record<Especialidade, string> = {
-  professor: "Personal Trainer",
-  nutricionista: "Nutricionista",
-};
-
-const STATUS_CONVITE_LABEL: Record<string, string> = {
-  active: "Ativou a conta",
-  pending: "Convite pendente",
-  inactive: "Inativo",
-};
-
-const CADASTRO_INICIAL = { full_name: "", email: "", telefone: "" };
+const CADASTRO_INICIAL = { full_name: "", email: "", telefone: "", nome_painel: "" };
 
 export default function SuperAdminProfissionais() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [novoAberto, setNovoAberto] = useState(false);
-  const [especialidade, setEspecialidade] = useState<Especialidade | null>(null);
+  const [especialidade, setEspecialidade] = useState<EspecialidadeAutonomo | null>(null);
   const [form, setForm] = useState(CADASTRO_INICIAL);
+  const [busca, setBusca] = useState("");
+  const [selecionado, setSelecionado] = useState<string | null>(null);
 
   const {
-    data: profissionais = [],
+    data: profissionais,
     isLoading,
     error: erroProfissionais,
   } = useQuery({
@@ -56,9 +43,13 @@ export default function SuperAdminProfissionais() {
     queryFn: async () => {
       const { data, error } = await supabase.rpc("get_superadmin_profissionais_autonomos");
       if (error) throw error;
-      return (data ?? []) as ProfissionalRow[];
+      return (data ?? []) as unknown as ProfissionalAutonomo[];
     },
   });
+  const lista = profissionais ?? [];
+  const visiveis = filtrarProfissionais(lista, busca);
+  // A ficha lê a linha da lista: depois de salvar, a lista recarrega e a ficha acompanha.
+  const aberto = lista.find((p) => p.organization_id === selecionado) ?? null;
 
   const fecharModal = () => {
     setNovoAberto(false);
@@ -67,48 +58,74 @@ export default function SuperAdminProfissionais() {
   };
 
   const convidar = useMutation({
-    mutationFn: async () => {
-      if (!especialidade) throw new Error("Selecione a especialidade.");
-      const { error } = await supabase.functions.invoke("convidar-profissional-autonomo", {
+    mutationFn: async (dados: typeof CADASTRO_INICIAL & { especialidade: EspecialidadeAutonomo }) => {
+      const { data, error } = await supabase.functions.invoke<{
+        organization_id?: string;
+        conta_existente?: boolean;
+        aviso?: string | null;
+      }>("convidar-profissional-autonomo", {
         body: {
-          email: form.email.trim(),
-          full_name: form.full_name.trim(),
-          telefone: form.telefone.trim() || undefined,
-          especialidade,
+          acao: "criar",
+          email: dados.email,
+          full_name: dados.full_name,
+          telefone: dados.telefone || undefined,
+          nome_painel: dados.nome_painel || undefined,
+          especialidade: dados.especialidade,
         },
       });
-      if (error) throw new Error(await mensagemDeErroEdge(error, "Não foi possível enviar o convite."));
+      if (error) throw new Error(await mensagemDeErroEdge(error, "Não foi possível criar o painel."));
+      return data;
     },
-    onSuccess: () => {
-      toast({ title: "Profissional convidado!", description: "O link de ativação foi enviado por e-mail." });
+    onSuccess: (data) => {
+      toast({
+        title: "Painel criado",
+        description:
+          data?.aviso ??
+          (data?.conta_existente
+            ? "O e-mail já tinha conta no ArkeFit: a conta foi ligada ao painel e a pessoa recebeu o aviso por e-mail."
+            : "O convite para criar a senha foi enviado por e-mail."),
+      });
       void queryClient.invalidateQueries({ queryKey: ["superadmin-profissionais-autonomos"] });
       fecharModal();
     },
-    onError: (error: Error) =>
-      toast({ title: "Erro ao convidar", description: error.message, variant: "destructive" }),
+    onError: (error: Error) => toast({ title: "Não foi possível criar", description: error.message, variant: "destructive" }),
   });
 
-  const formValido = !!especialidade && form.full_name.trim() && form.email.trim();
+  const formValido =
+    !!especialidade &&
+    !!form.full_name.trim() &&
+    /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim()) &&
+    telefoneValido(form.telefone);
 
   return (
     <div className="space-y-4 max-w-5xl mx-auto">
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <UserCog className="h-5 w-5 text-primary" />
-          <h1 className="text-xl font-bold">Gestão de Profissionais Autônomos</h1>
+          <h1 className="text-xl font-bold">Profissionais autônomos</h1>
         </div>
         <Button size="sm" onClick={() => setNovoAberto(true)}>
-          <UserPlus className="h-4 w-4 mr-1" /> Novo Profissional
+          <UserPlus className="h-4 w-4 mr-1" /> Novo profissional
         </Button>
       </div>
       <p className="text-xs text-muted-foreground">
-        Personal Trainers e Nutricionistas que compram a plataforma direto da ARKE para montar a própria
-        carteira de alunos, fora do modelo de academia/studio.
+        Personal Trainers e Nutricionistas que usam o ArkeFit como negócio próprio, cada um com o seu painel. Clique numa
+        linha para editar, cuidar do acesso do responsável, da mensalidade e da saída.
       </p>
 
       <Card>
-        <CardHeader className="pb-2">
+        <CardHeader className="pb-2 flex flex-row items-center justify-between gap-2 space-y-0">
           <CardTitle className="text-base">Profissionais cadastrados</CardTitle>
+          <div className="relative w-full max-w-[16rem]">
+            <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+            <Input
+              aria-label="Buscar profissional"
+              placeholder="Buscar por nome ou e-mail"
+              value={busca}
+              onChange={(e) => setBusca(e.target.value)}
+              className="h-8 pl-7 text-sm"
+            />
+          </div>
         </CardHeader>
         <CardContent className="p-0">
           {erroProfissionais && (
@@ -120,58 +137,80 @@ export default function SuperAdminProfissionais() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border text-left text-xs text-muted-foreground">
-                  <th className="p-3">Profissional</th>
+                  <th className="p-3">Painel</th>
                   <th className="p-3">Especialidade</th>
-                  <th className="p-3">E-mail</th>
+                  <th className="p-3">Responsável</th>
                   <th className="p-3">Alunos</th>
-                  <th className="p-3">Convite</th>
+                  <th className="p-3">Implantação</th>
                   <th className="p-3">Status</th>
+                  <th className="p-3 w-6" />
                 </tr>
               </thead>
               <tbody>
-                {!isLoading && !erroProfissionais && profissionais.length === 0 && (
+                {!isLoading && !erroProfissionais && visiveis.length === 0 && (
                   <tr>
-                    <td colSpan={6} className="p-4 text-center text-muted-foreground">
-                      Nenhum profissional autônomo cadastrado ainda.
+                    <td colSpan={7} className="p-4 text-center text-muted-foreground">
+                      {lista.length === 0 ? "Nenhum profissional autônomo cadastrado ainda." : "Nenhum profissional com essa busca."}
                     </td>
                   </tr>
                 )}
-                {profissionais.map((p) => (
-                  <tr key={p.organization_id} className="border-b border-border last:border-0">
-                    <td className="p-3 font-medium">{p.nome}</td>
-                    <td className="p-3">
-                      <Badge variant="secondary">{ESPECIALIDADE_LABEL[p.especialidade] ?? p.especialidade}</Badge>
-                    </td>
-                    <td className="p-3 text-xs">
-                      {p.sem_gestor ? (
-                        <Badge variant="destructive">Sem gestor vinculado</Badge>
-                      ) : (
-                        p.email
-                      )}
-                    </td>
-                    <td className="p-3">{p.alunos_total}</td>
-                    <td className="p-3">
-                      <Badge variant={p.status_convite === "active" ? "default" : "outline"}>
-                        {p.sem_gestor ? "—" : STATUS_CONVITE_LABEL[p.status_convite ?? ""] ?? "—"}
-                      </Badge>
-                    </td>
-                    <td className="p-3">
-                      <Badge variant={p.status === "ativo" || p.status === "trial" ? "default" : "secondary"}>
-                        {p.status}
-                      </Badge>
-                    </td>
-                  </tr>
-                ))}
+                {visiveis.map((p) => {
+                  const acesso = situacaoAcesso(p);
+                  return (
+                    <tr
+                      key={p.organization_id}
+                      className="border-b border-border last:border-0 cursor-pointer hover:bg-muted/40"
+                      onClick={() => setSelecionado(p.organization_id)}
+                    >
+                      <td className="p-3">
+                        <button
+                          type="button"
+                          className="font-medium text-left hover:underline"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelecionado(p.organization_id);
+                          }}
+                        >
+                          {p.nome}
+                        </button>
+                      </td>
+                      <td className="p-3">
+                        {p.especialidade && <Badge variant="secondary">{ESPECIALIDADE_ROTULO[p.especialidade]}</Badge>}
+                      </td>
+                      <td className="p-3 text-xs">
+                        {acesso === "sem_responsavel" ? (
+                          <Badge variant="destructive">{ROTULO_ACESSO[acesso]}</Badge>
+                        ) : (
+                          <div className="space-y-0.5">
+                            <p className="text-sm">{p.gestor_nome?.trim() || p.email}</p>
+                            {p.gestor_nome?.trim() && <p className="text-muted-foreground">{p.email}</p>}
+                            {acesso === "convite_pendente" && <Badge variant="outline">{ROTULO_ACESSO[acesso]}</Badge>}
+                          </div>
+                        )}
+                      </td>
+                      <td className="p-3">{p.alunos_total}</td>
+                      <td className="p-3 text-xs">{rotuloImplantacao(p)}</td>
+                      <td className="p-3">
+                        <Badge variant={p.status === "ativo" || p.status === "trial" ? "default" : "secondary"}>{p.status}</Badge>
+                      </td>
+                      <td className="p-3 text-muted-foreground">
+                        <ChevronRight className="h-4 w-4" />
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
         </CardContent>
       </Card>
 
+      <ProfissionalAutonomoSheet profissional={aberto} onOpenChange={(open) => !open && setSelecionado(null)} />
+
       <Dialog open={novoAberto} onOpenChange={(open) => !open && fecharModal()}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Novo Profissional Autônomo</DialogTitle>
+            <DialogTitle>Novo profissional autônomo</DialogTitle>
           </DialogHeader>
 
           {!especialidade ? (
@@ -200,10 +239,10 @@ export default function SuperAdminProfissionais() {
           ) : (
             <div className="space-y-3 py-2">
               <Badge variant="secondary" className="w-fit">
-                {ESPECIALIDADE_LABEL[especialidade]}
+                {ESPECIALIDADE_ROTULO[especialidade]}
               </Badge>
               <div className="space-y-1.5">
-                <Label htmlFor="prof-nome">Nome completo</Label>
+                <Label htmlFor="prof-nome">Nome completo do profissional</Label>
                 <Input
                   id="prof-nome"
                   value={form.full_name}
@@ -218,14 +257,29 @@ export default function SuperAdminProfissionais() {
                   value={form.email}
                   onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
                 />
+                <p className="text-xs text-muted-foreground">
+                  Se o e-mail já tiver conta no ArkeFit, ela é ligada ao painel e a pessoa entra com a senha que já usa.
+                </p>
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="prof-painel-novo">Nome do painel (opcional)</Label>
+                <Input
+                  id="prof-painel-novo"
+                  placeholder="O nome do negócio. Sem ele, o painel leva o nome do profissional."
+                  value={form.nome_painel}
+                  maxLength={120}
+                  onChange={(e) => setForm((f) => ({ ...f, nome_painel: e.target.value }))}
+                />
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="prof-telefone">Telefone (opcional)</Label>
                 <Input
                   id="prof-telefone"
+                  inputMode="tel"
                   value={form.telefone}
                   onChange={(e) => setForm((f) => ({ ...f, telefone: e.target.value }))}
                 />
+                {!telefoneValido(form.telefone) && <p className="text-xs text-destructive">Use o DDD e o número.</p>}
               </div>
             </div>
           )}
@@ -240,8 +294,19 @@ export default function SuperAdminProfissionais() {
               Cancelar
             </Button>
             {especialidade && (
-              <Button disabled={!formValido || convidar.isPending} onClick={() => convidar.mutate()}>
-                {convidar.isPending ? "Enviando..." : "Enviar convite de ativação"}
+              <Button
+                disabled={!formValido || convidar.isPending}
+                onClick={() =>
+                  convidar.mutate({
+                    especialidade,
+                    full_name: form.full_name.trim(),
+                    email: form.email.trim(),
+                    telefone: form.telefone.trim(),
+                    nome_painel: form.nome_painel.trim(),
+                  })
+                }
+              >
+                {convidar.isPending ? "Criando..." : "Criar o painel"}
               </Button>
             )}
           </DialogFooter>

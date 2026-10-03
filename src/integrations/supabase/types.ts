@@ -7068,6 +7068,16 @@ export type Database = {
         Args: { _dias: number }
         Returns: undefined
       }
+      atualizar_profissional_autonomo: {
+        Args: {
+          _especialidade: Database["public"]["Enums"]["app_role"]
+          _nome: string
+          _organization_id: string
+          _responsavel_nome?: string
+          _responsavel_telefone?: string
+        }
+        Returns: undefined
+      }
       avaliar_capacidade: {
         Args: never
         Returns: {
@@ -7242,6 +7252,13 @@ export type Database = {
         Returns: boolean
       }
       consentir_biometria: { Args: { _aluno_id: string }; Returns: string }
+      conta_por_email: {
+        Args: { _email: string }
+        Returns: {
+          ultimo_acesso: string
+          user_id: string
+        }[]
+      }
       conversa_para_sugestao: {
         Args: { _aluno_id: string; _limite?: number }
         Returns: string
@@ -7851,11 +7868,19 @@ export type Database = {
           created_at: string
           email: string
           especialidade: Database["public"]["Enums"]["app_role"]
+          etapa_implantacao: string
+          gestor_nome: string
+          gestor_user_id: string
           nome: string
+          onboarding_completed: boolean
           organization_id: string
+          parceiros: Json
+          pode_excluir: boolean
           sem_gestor: boolean
+          slug: string
           status: Database["public"]["Enums"]["org_status"]
-          status_convite: string
+          telefone: string
+          ultimo_acesso: string
         }[]
       }
       get_superadmin_receita_historica: {
@@ -8239,6 +8264,10 @@ export type Database = {
         Returns: boolean
       }
       organizacao_liberada: {
+        Args: { _organization_id: string }
+        Returns: boolean
+      }
+      organizacao_nunca_usada: {
         Args: { _organization_id: string }
         Returns: boolean
       }

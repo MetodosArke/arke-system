@@ -154,12 +154,24 @@ Deno.serve(async (req: Request) => {
       // 30 dias, cobranças canceladas no Asaas, exportação e eliminação na
       // ordem certa (ver encerramento-organizacao). Um DELETE aqui deixaria a
       // mensalidade B2B cobrando e apagaria o registro fiscal da ArkeFit.
+      // A outra exceção é a organização que nunca virou cliente: sem contrato
+      // aceito, sem aluno, sem cobrança e sem conta de recebimento — como o
+      // painel que sobra de um convite que falhou no meio.
       const { data: alvo } = await adminClient.from("organizations").select("status").eq("id", organizationId).maybeSingle();
       if (alvo && alvo.status !== "trial") {
-        return jsonResponse(
-          { error: "Academia com contrato sai pelo encerramento (aviso de 30 dias), na ficha da organização." },
-          409,
-        );
+        const { data: nuncaUsada, error: nuncaUsadaError } = await adminClient.rpc("organizacao_nunca_usada", {
+          _organization_id: organizationId,
+        });
+        if (nuncaUsadaError) {
+          console.error("Error checking organizacao_nunca_usada", nuncaUsadaError.code);
+          return errorResponse("Erro ao conferir se a organização já foi usada.");
+        }
+        if (!nuncaUsada) {
+          return jsonResponse(
+            { error: "Academia com contrato sai pelo encerramento (aviso de 30 dias), na ficha da organização." },
+            409,
+          );
+        }
       }
       // organizations é a "raiz" do multitenant: toda tabela filha
       // (alunos, treinos, dietas, checkins, agendamentos, cobrancas_b2b,
@@ -184,6 +196,7 @@ Deno.serve(async (req: Request) => {
       }
       await registrarAuditoria("organizacao.excluida", "organizations", organizationId, {
         cascade: "alunos, equipe, treinos, dietas, check-ins, agendamentos e cobranças",
+        motivo: alvo?.status === "trial" ? "homologação" : "nunca usada",
       });
       return jsonResponse({ success: true });
     }
