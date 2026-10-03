@@ -1,4 +1,5 @@
-import { createClient } from "npm:@supabase/supabase-js@2";
+import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2";
+import { emailMatriculaNova } from "./email.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -196,6 +197,108 @@ Deno.serve(async (req: Request) => {
     }
     const organizationId = callerMembership.organization_id;
 
+    // Quem já tem conta no ArkeFit (aluno de outra academia, por exemplo) não
+    // pode ser convidado: o Auth recusa quem existe. A conta é ligada à
+    // matrícula quando o CPF digitado é o dela (decisão de 03/10/2026): é a
+    // prova de que a academia conhece a pessoa. Sem isso, qualquer academia
+    // que soubesse um e-mail veria o nome e o telefone de quem é dono dele.
+    const { data: contas, error: contaError } = await adminClient.rpc("conta_por_email", { _email: email });
+    if (contaError) {
+      console.error("conta_por_email", contaError.code);
+      return jsonResponse({ error: "Erro ao conferir o e-mail." }, 500);
+    }
+    const conta = ((contas ?? []) as { user_id: string; ultimo_acesso: string | null }[])[0];
+    if (conta) {
+      const userId = conta.user_id;
+      const { data: perfil } = await adminClient
+        .from("profiles")
+        .select("full_name, cpf, phone, cep")
+        .eq("user_id", userId)
+        .maybeSingle();
+      // Primeiro o que esta academia já sabe (a equipe e os alunos dela); o
+      // CPF vem depois, porque é ele que separa uma pessoa de outra.
+      const { data: vinculo } = await adminClient
+        .from("organization_members")
+        .select("role, status")
+        .eq("organization_id", organizationId)
+        .eq("user_id", userId)
+        .maybeSingle();
+      if (vinculo && vinculo.role !== "aluno") {
+        return jsonResponse({ error: "Essa pessoa já está na equipe desta academia." }, 409);
+      }
+      const { data: jaAluno } = await adminClient
+        .from("alunos")
+        .select("id")
+        .eq("organization_id", organizationId)
+        .eq("user_id", userId)
+        .maybeSingle();
+      if (jaAluno) return jsonResponse({ error: "Essa pessoa já é aluna desta academia." }, 409);
+
+      const cpfDigitado = (cpf ?? "").replace(/\D/g, "");
+      const cpfDaConta = (perfil?.cpf ?? "").replace(/\D/g, "");
+      if (!cpfDigitado || !cpfDaConta || cpfDigitado !== cpfDaConta) {
+        return jsonResponse(
+          {
+            error:
+              "Esse e-mail já tem conta no ArkeFit, e o CPF não confere com o dela. Confira o e-mail e o CPF; se estiverem certos, fale com a ArkeFit.",
+          },
+          409
+        );
+      }
+
+      // O perfil é da pessoa: completa só o que falta, sem trocar o que ela usa.
+      const completar: Record<string, unknown> = {};
+      if (!perfil?.phone && telefone) completar.phone = telefone;
+      if (!perfil?.cep) Object.assign(completar, enderecoDaPlanilha(payload.endereco));
+      for (const k of Object.keys(completar)) if (completar[k] === null || completar[k] === undefined) delete completar[k];
+      if (Object.keys(completar).length) {
+        const { error } = await adminClient.from("profiles").update(completar).eq("user_id", userId);
+        if (error) console.error("Error completing profile", error.code);
+      }
+
+      if (vinculo) {
+        const { error } = await adminClient
+          .from("organization_members")
+          .update({ status: "active" })
+          .eq("organization_id", organizationId)
+          .eq("user_id", userId);
+        if (error) return jsonResponse({ error: "Erro ao vincular a pessoa à academia." }, 500);
+      } else {
+        const { error } = await adminClient
+          .from("organization_members")
+          .insert({ organization_id: organizationId, user_id: userId, role: "aluno", status: "active" });
+        if (error) return jsonResponse({ error: "Erro ao vincular a pessoa à academia." }, 500);
+      }
+      const { error: alunoError } = await adminClient.from("alunos").insert({
+        organization_id: organizationId,
+        user_id: userId,
+        nivel_atacado: nivelAtacado,
+        situacao_academia: situacaoAcademia,
+      });
+      if (alunoError) {
+        console.error("Error inserting aluno for existing account", alunoError.code);
+        // Desfaz só o que esta chamada criou: o vínculo novo. Um vínculo que já
+        // existia volta ao que era.
+        if (vinculo) {
+          await adminClient.from("organization_members").update({ status: vinculo.status }).eq("organization_id", organizationId).eq("user_id", userId);
+        } else {
+          await adminClient.from("organization_members").delete().eq("organization_id", organizationId).eq("user_id", userId);
+        }
+        const limite = alunoError.message?.toLowerCase().includes("limite");
+        return jsonResponse({ error: limite ? alunoError.message : "Erro ao criar o cadastro do aluno." }, limite ? 409 : 500);
+      }
+
+      const aviso = await avisarMatricula(adminClient, {
+        userId,
+        email,
+        nome: perfil?.full_name?.trim() || fullName,
+        organizationId,
+        criarSenha: !conta.ultimo_acesso,
+        siteUrl,
+      });
+      return jsonResponse({ user_id: userId, conta_existente: true, aviso });
+    }
+
     const { data: invited, error: inviteError } = await adminClient.auth.admin.inviteUserByEmail(email, {
       data: { full_name: fullName },
       // Aponta direto pra tela de "defina sua senha e entre" (mesmo
@@ -270,3 +373,49 @@ Deno.serve(async (req: Request) => {
     return jsonResponse({ error: "Erro inesperado ao processar o convite." }, 500);
   }
 });
+
+// O aviso por e-mail a quem já tinha conta: a matrícula nova, com o link de
+// entrar na academia, ou o de criar a senha se a pessoa nunca entrou. Falha
+// no aviso não desfaz a matrícula: volta como aviso para a tela.
+async function avisarMatricula(
+  admin: SupabaseClient,
+  o: { userId: string; email: string; nome: string; organizationId: string; criarSenha: boolean; siteUrl: string }
+): Promise<string | null> {
+  const falhou = "A matrícula foi ligada à conta, mas o aviso por e-mail não saiu. Avise a pessoa de que ela já pode entrar.";
+  const resendKey = Deno.env.get("RESEND_API_KEY");
+  if (!resendKey) return falhou;
+  const { data: org } = await admin.from("organizations").select("nome, slug").eq("id", o.organizationId).maybeSingle();
+  const academia = (org?.nome as string | undefined) ?? "sua academia";
+  let link = org?.slug ? `${o.siteUrl}/#/p/${org.slug}/entrar` : `${o.siteUrl}/#/auth/login`;
+  if (o.criarSenha) {
+    const { data, error } = await admin.auth.admin.generateLink({
+      type: "recovery",
+      email: o.email,
+      options: { redirectTo: `${o.siteUrl}/#/auth/definir-senha` },
+    });
+    if (error || !data?.properties?.action_link) return falhou;
+    link = data.properties.action_link;
+  }
+  const conteudo = emailMatriculaNova({ nome: o.nome, academia, link, criarSenha: o.criarSenha });
+  try {
+    const r = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${resendKey}` },
+      body: JSON.stringify({
+        from: Deno.env.get("EMAIL_ACESSO_FROM") ?? "ArkeFit <acesso@arkefit.com.br>",
+        to: [o.email],
+        subject: conteudo.assunto,
+        html: conteudo.html,
+        text: conteudo.texto,
+      }),
+      signal: AbortSignal.timeout(15_000),
+    });
+    if (!r.ok) {
+      console.error("convidar-membro: Resend", r.status);
+      return falhou;
+    }
+    return null;
+  } catch {
+    return falhou;
+  }
+}

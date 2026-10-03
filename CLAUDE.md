@@ -1570,6 +1570,8 @@ Isto começou como correção de um erro de leitura meu, e vale registrar o erro
 
 **Linhas que já existem não são tocadas**: o gatilho é `before insert`. Base importada antes da regra não some do app de um dia para o outro; o CPF entra quando a academia editar a ficha. Conferido em transação revertida: matrícula sem CPF recusada, com CPF válido aceita, e CPF com dígito errado barrado antes, pela constraint `profiles_cpf_valido`. A função publicada responde "Informe o CPF — é obrigatório para a matrícula." e "CPF inválido — confira os dígitos."
 
+**Cadastro de quem já tem conta (decisão do responsável, 03/10/2026).** O Auth não convida quem existe, e `convidar-membro` recusava todo e-mail que já tinha conta, como o de quem é aluno de outra academia. Agora a conta é **ligada à matrícula quando o CPF digitado é o dela** (`conta_por_email()`, só a service role): é a prova de que a academia conhece a pessoa, e sem ela qualquer academia que soubesse um e-mail veria o nome e o telefone do dono. CPF diferente ou conta sem CPF é recusado com a mesma frase. As checagens da própria academia vêm antes (já está na equipe, já é aluno), porque não expõem nada. O perfil é da pessoa: o nome não muda, e só o que falta (telefone, endereço) é completado. Ela recebe um aviso por e-mail (`convidar-membro/email.ts`) com o link de entrar na academia, ou o de criar a senha se nunca entrou. Vale para a ficha e para a importação. Conferido: 10 verificações pela função publicada, com os avisos entregues, e pela tela.
+
 **Fora de escopo, de propósito:** a equipe (gestor, professor, nutricionista, recepção) segue sem exigência de CPF. A justificativa da regra é a cobrança do aluno, e ninguém da equipe é cobrado pelo ARKE.
 
 ## Migração para o Projeto Brasil (22/09/2026)
