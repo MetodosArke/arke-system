@@ -204,7 +204,7 @@ export function AcessoCatraca({
         title: "Autorização retirada",
         description: comGestao.length
           ? "O Gateway vai apagar o aluno das catracas. Acompanhe aqui a data da exclusão."
-          : "Abrimos uma tarefa na fila para apagar a digital no equipamento.",
+          : "Abrimos uma tarefa na fila para apagar a biometria no equipamento.",
       });
       atualizar();
     },
@@ -222,8 +222,8 @@ export function AcessoCatraca({
           <Badge variant="secondary" className="gap-1">
             <Fingerprint className="h-3.5 w-3.5" />
             {vigente.origem === "termo_assinado"
-              ? `Digital autorizada por termo assinado em ${formatarData(vigente.aceito_em)}`
-              : `Digital autorizada pelo aluno no app em ${formatarData(vigente.aceito_em)}`}
+              ? `Biometria autorizada por termo assinado em ${formatarData(vigente.aceito_em)}`
+              : `Biometria autorizada pelo aluno no app em ${formatarData(vigente.aceito_em)}`}
           </Badge>
           {vigente.termo_arquivo && (
             <Button size="sm" variant="ghost" className="h-7 px-2 text-xs" onClick={() => void verTermo(vigente.termo_arquivo!)}>
@@ -233,12 +233,13 @@ export function AcessoCatraca({
         </div>
       ) : antigo ? (
         <p className="rounded-md border border-amber-500/40 bg-amber-500/5 p-2 text-xs">
-          O aluno autorizou a digital em {formatarData(antigo.aceito_em)}, sob um texto que mudou. Para cadastrar uma
-          digital nova, ele precisa confirmar de novo no app (<strong>Perfil → Privacidade</strong>).
+          O aluno autorizou a biometria em {formatarData(antigo.aceito_em)}, sob um texto que mudou. Para cadastrar
+          digital ou rosto, ele precisa confirmar de novo no app (<strong>Perfil → Privacidade</strong>) ou assinar o termo
+          novo.
         </p>
       ) : (
         <p className="rounded-md border border-dashed p-2 text-xs text-muted-foreground">
-          O aluno ainda não autorizou o uso da digital. Ele autoriza no próprio app, em{" "}
+          O aluno ainda não autorizou o uso da digital e do rosto. Ele autoriza no próprio app, em{" "}
           <strong>Perfil → Privacidade</strong>, ou assinando o termo impresso abaixo — a lei exige que seja ele.
           Cartão e senha não dependem disso.
           {ultimaRevogacao?.revogado_em && (
@@ -413,7 +414,7 @@ export function AcessoCatraca({
             <strong>Topdata com cartão:</strong> o número impresso no cartão. <strong>Toletus com cartão:</strong> o
             número que o leitor informa; passe o cartão na catraca e ele aparece em Catracas → Últimos acessos.{" "}
             <strong>Control iD</strong> (ou digital na Topdata e na Toletus): o número de usuário que o equipamento deu ao
-            aluno no cadastro. Digital só com a autorização do aluno (app ou termo impresso); cartão, a qualquer momento.
+            aluno no cadastro. Digital e rosto só com a autorização do aluno (app ou termo impresso); cartão, a qualquer momento.
             Com a Control iD configurada no Gateway Local, o cadastro passa a ser feito daqui, sem digitar número.
           </p>
         </div>
@@ -422,7 +423,7 @@ export function AcessoCatraca({
       {(vigente || antigo) &&
         (confirmarRevogacao ? (
           <div className="flex flex-wrap items-center gap-2 rounded-md border border-destructive/40 p-2 text-xs">
-            <span>Retirar a autorização apaga a digital de todas as catracas. Foi o aluno quem pediu?</span>
+            <span>Retirar a autorização apaga a digital e o rosto de todas as catracas. Foi o aluno quem pediu?</span>
             <Button size="sm" variant="destructive" disabled={revogar.isPending} onClick={() => revogar.mutate()}>
               {revogar.isPending && <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />}
               Sim, retirar

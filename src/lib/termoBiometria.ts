@@ -1,6 +1,8 @@
 /**
- * O termo de autorização do uso da digital — um texto só, para o app e para o
- * papel.
+ * O termo de autorização do uso da digital e do rosto — um texto só, para o
+ * app e para o papel. Desde 2026-10-03 cobre os dois (decisão do responsável
+ * de 02/10/2026: um consentimento só para digital e rosto); é a versão que
+ * `public.versao_consentimento_rosto()` exige para o cadastro do rosto.
  *
  * O aluno autoriza de dois jeitos: no app (Perfil → Privacidade) ou assinando
  * o termo impresso na recepção, quando não usa o app. Os dois precisam dizer
@@ -12,15 +14,16 @@
  * `public.versao_consentimento_biometrico()`. Mudou o texto, muda a versão lá
  * e aqui — `versaoBiometria.guarda.test.ts` confere.
  */
-export const VERSAO_CONSENTIMENTO_BIOMETRIA = "2026-09-23";
+export const VERSAO_CONSENTIMENTO_BIOMETRIA = "2026-10-03";
 
-export const TITULO_TERMO_BIOMETRIA = "Autorização para uso da impressão digital na catraca";
+export const TITULO_TERMO_BIOMETRIA = "Autorização para uso da digital e do rosto na catraca";
 
 /** Os parágrafos do termo, na ordem. O app mostra; o papel imprime. */
 export const TEXTO_TERMO_BIOMETRIA = [
-  "Autorizo o uso da minha impressão digital para o controle de acesso e frequência na academia.",
-  "A digital fica guardada somente nas catracas da academia. O ARKE guarda apenas o número com que a catraca me identifica, nunca a digital.",
-  "A digital é apagada das catracas quando eu retirar esta autorização — pelo app ou pedindo na recepção — ou quando deixar a academia.",
+  "Autorizo o uso da minha impressão digital e do meu rosto para o controle de acesso e frequência na academia, nos equipamentos que ela usar.",
+  "A digital e o rosto ficam guardados somente nos equipamentos da academia. O ARKE guarda apenas o número com que o equipamento me identifica, nunca a digital nem o rosto.",
+  "O rosto pode ser cadastrado pela câmera do equipamento, na recepção, ou por uma foto que eu mesmo envie pelo app. A foto enviada pelo app passa pelo ARKE só para chegar aos equipamentos e é apagada do ARKE assim que eles a recebem, ou em até 24 horas.",
+  "A digital e o rosto são apagados dos equipamentos quando eu retirar esta autorização — pelo app ou pedindo na recepção — ou quando deixar a academia.",
   "O registro desta autorização é mantido pelo prazo legal, como prova de que ela foi dada.",
 ];
 

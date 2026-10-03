@@ -66,8 +66,8 @@ export function ConsentimentoBiometria({ alunoId, organizationId }: { alunoId: s
       toast({
         title: autorizar ? "Autorização registrada" : "Autorização retirada",
         description: autorizar
-          ? "Agora a recepção pode cadastrar a sua digital na catraca."
-          : "A sua digital vai ser apagada das catracas da academia.",
+          ? "Agora a sua digital e o seu rosto podem ser cadastrados na catraca."
+          : "A sua digital e o seu rosto vão ser apagados das catracas da academia.",
       });
       void queryClient.invalidateQueries({ queryKey: ["consentimento-biometrico", alunoId] });
     },
@@ -84,7 +84,7 @@ export function ConsentimentoBiometria({ alunoId, organizationId }: { alunoId: s
       <div className="flex items-start justify-between gap-3">
         <div>
           <Label htmlFor="consentimento-biometria" className="flex items-center gap-1.5 text-sm font-medium">
-            <Fingerprint className="h-4 w-4 text-primary" /> Uso da minha digital na catraca
+            <Fingerprint className="h-4 w-4 text-primary" /> Uso da minha digital e do meu rosto na catraca
           </Label>
           <p className="mt-1 text-xs text-muted-foreground">{TEXTO_TERMO_BIOMETRIA.join(" ")}</p>
           {vigente && (
@@ -97,9 +97,9 @@ export function ConsentimentoBiometria({ alunoId, organizationId }: { alunoId: s
           {!vigente && antigo && (
             <p className="mt-1 text-[11px] text-amber-700 dark:text-amber-400">
               O texto desta autorização mudou desde {formatarData(antigo.aceito_em)}. Confirme de novo para a catraca
-              continuar usando a sua digital, ou{" "}
+              continuar usando a sua biometria, ou{" "}
               {/* Sem isto, quem não quer confirmar o texto novo ficaria sem
-                  como retirar a autorização antiga — e a digital, no equipamento. */}
+                  como retirar a autorização antiga — e a biometria, no equipamento. */}
               <button
                 type="button"
                 className="underline underline-offset-2"
@@ -115,8 +115,8 @@ export function ConsentimentoBiometria({ alunoId, organizationId }: { alunoId: s
             <p className="mt-1 text-[11px] text-muted-foreground">
               Autorização retirada em {formatarData(ultimaRevogacao.revogado_em)}.{" "}
               {ultimaRevogacao.excluido_do_equipamento_em
-                ? `Digital apagada das catracas em ${formatarData(ultimaRevogacao.excluido_do_equipamento_em)}.`
-                : "A academia está apagando a digital das catracas."}
+                ? `Biometria apagada das catracas em ${formatarData(ultimaRevogacao.excluido_do_equipamento_em)}.`
+                : "A academia está apagando a biometria das catracas."}
             </p>
           )}
         </div>
@@ -125,7 +125,7 @@ export function ConsentimentoBiometria({ alunoId, organizationId }: { alunoId: s
           checked={!!vigente}
           disabled={alternar.isPending}
           onCheckedChange={(v) => alternar.mutate(v)}
-          aria-label="Uso da minha digital na catraca"
+          aria-label="Uso da minha digital e do meu rosto na catraca"
         />
       </div>
     </div>
