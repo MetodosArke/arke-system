@@ -105,3 +105,66 @@ export async function criarOuAdotarAssinaturaB2b(
   if (!criada.ok || !criada.corpo.id) return { ok: false, erro: mensagem(criada.corpo, "O Asaas não criou a assinatura.") };
   return { ok: true, id: criada.corpo.id, adotada: false, valor: a.valor };
 }
+
+// ── Mudar o valor (reajuste pelo IPCA, renegociação) ──────────────────────
+//
+// O valor de hoje mora no banco (`valor_mensal_b2b()`); a assinatura no Asaas
+// guarda o do dia em que nasceu. Mudar um não muda o outro, então a ficha da
+// organização compara os dois e a ArkeFit atualiza com um clique.
+
+export type SituacaoAssinaturaB2b =
+  | { ok: true; valor: number; status: string; proximoVencimento: string | null }
+  | { ok: false; erro: string };
+
+export async function consultarAssinaturaB2b(api: string, chave: string, subscriptionId: string): Promise<SituacaoAssinaturaB2b> {
+  const r = await chamar<{ value?: number; status?: string; nextDueDate?: string; deleted?: boolean }>(
+    api,
+    chave,
+    "GET",
+    `/subscriptions/${encodeURIComponent(subscriptionId)}`
+  );
+  if (!r.ok) return { ok: false, erro: mensagem(r.corpo, "Não foi possível consultar a assinatura no Asaas agora.") };
+  return {
+    ok: true,
+    valor: Number(r.corpo.value ?? 0),
+    status: r.corpo.deleted ? "DELETED" : String(r.corpo.status ?? ""),
+    proximoVencimento: r.corpo.nextDueDate ?? null,
+  };
+}
+
+export type ResultadoValorB2b =
+  | { ok: true; pendentesAtualizadas: boolean; vencidasNoValorAntigo: string[] }
+  | { ok: false; erro: string };
+
+/**
+ * A mesma regra do ciclo de cobrança do aluno (asaas-assinatura-ciclo): a
+ * cobrança já vencida e em aberto não muda de valor, porque é dívida de um
+ * mês já usado. Com alguma assim, as pendentes não são tocadas e o valor novo
+ * vale a partir da próxima que o Asaas gerar; sem nenhuma, a pendente do mês
+ * acompanha.
+ */
+export async function alterarValorAssinaturaB2b(
+  api: string,
+  chave: string,
+  subscriptionId: string,
+  a: { valor: number; hoje: string }
+): Promise<ResultadoValorB2b> {
+  if (!(a.valor > 0)) return { ok: false, erro: "O valor precisa ser maior que zero." };
+  const cobrancas = await chamar<{ data?: { id: string; status: string; dueDate: string }[] }>(
+    api,
+    chave,
+    "GET",
+    `/payments?subscription=${encodeURIComponent(subscriptionId)}&limit=100`
+  );
+  if (!cobrancas.ok) return { ok: false, erro: mensagem(cobrancas.corpo, "Não foi possível conferir as cobranças da assinatura.") };
+  const vencidas = (cobrancas.corpo.data ?? [])
+    .filter((c) => (c.status === "PENDING" || c.status === "OVERDUE") && c.dueDate < a.hoje)
+    .map((c) => c.id);
+  const atualizar = vencidas.length === 0;
+  const r = await chamar(api, chave, "PUT", `/subscriptions/${encodeURIComponent(subscriptionId)}`, {
+    value: a.valor,
+    updatePendingPayments: atualizar,
+  });
+  if (!r.ok) return { ok: false, erro: mensagem(r.corpo as ErrosAsaas, "O Asaas não alterou o valor da assinatura.") };
+  return { ok: true, pendentesAtualizadas: atualizar, vencidasNoValorAntigo: vencidas };
+}
