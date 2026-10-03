@@ -158,6 +158,8 @@ const lista = (v: unknown): string[] => (Array.isArray(v) ? v.map(String) : []);
  */
 export function resumoResultado(tipo: string, resultado: Record<string, unknown> | null | undefined): string {
   const r = resultado ?? {};
+  // O Gateway pode explicar o que fez (a Toletus, que não guarda cadastro, só reserva o número).
+  if (typeof r.mensagem === "string" && r.mensagem.trim()) return r.mensagem;
   const falhas = Array.isArray(r.falhou_em)
     ? (r.falhou_em as { equipamento?: string }[]).map((f) => f?.equipamento).filter(Boolean)
     : [];

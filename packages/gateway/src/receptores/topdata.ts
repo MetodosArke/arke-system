@@ -171,11 +171,16 @@ export function registrarReceptorTopdata(
       return { liberar: false, motivo: "Leitura vazia." } satisfies DecisaoTopdata;
     }
 
-    // Só os dígitos: o teclado devolve o que a pessoa digitou, e em
-    // academia isso costuma ser o CPF. Onze dígitos no teclado são tratados
-    // como CPF; o resto é identificador do equipamento, igual à Control iD.
+    // Só os dígitos: o teclado devolve o que a pessoa digitou. No teclado vale
+    // só o CPF: os números do equipamento são pequenos e sequenciais, e quem
+    // digitasse "12" entraria como o aluno 12 — a catraca não tem senha para
+    // conferir. Cartão e biometria são o identificador do equipamento.
     const somenteDigitos = valor.replace(/\D/g, "");
     const ehCpf = origem === ORIGEM_TOPDATA.TECLADO && somenteDigitos.length === 11;
+    if (origem === ORIGEM_TOPDATA.TECLADO && !ehCpf) {
+      logger.info({ inner }, "Teclado sem CPF: negado sem consultar a nuvem");
+      return { liberar: false, motivo: "Digite o CPF." } satisfies DecisaoTopdata;
+    }
     const credencial = ehCpf
       ? ({ tipo: "cpf", valor: somenteDigitos } as const)
       : ({ tipo: "identificador_catraca", valor } as const);

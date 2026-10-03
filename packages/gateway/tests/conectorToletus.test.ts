@@ -151,17 +151,17 @@ describe("conector Toletus: a corrente do lado do Gateway", () => {
       expect(amb.placa.comandos().filter((c) => c === COMANDO.LIBERA_SAIDA || c === COMANDO.LIBERA_DOIS_SENTIDOS)).toEqual([]);
     });
 
-    it("teclado com onze dígitos é CPF; biometria é o número do usuário no leitor", async () => {
+    it("teclado só aceita CPF; número curto é negado sem ir à nuvem; biometria é o número do usuário no leitor", async () => {
       amb.cloud.respostaValidarAcesso = { liberado: false, motivo: "Aluno não encontrado nesta academia." };
       amb.placa.teclado("01234567890");
       await ate(() => amb.cloud.credenciaisRecebidas.length === 1);
-      amb.placa.teclado("4321");
-      await ate(() => amb.cloud.credenciaisRecebidas.length === 2);
+      // "12" é o número de algum aluno: digitado, entraria como ele.
+      amb.placa.teclado("12");
+      await ate(() => amb.placa.textoDo(COMANDO.MENSAGEM_TEMPORARIA) === "Digite o CPF");
       amb.placa.biometria(42);
-      await ate(() => amb.cloud.credenciaisRecebidas.length === 3);
+      await ate(() => amb.cloud.credenciaisRecebidas.length === 2);
       expect(amb.cloud.credenciaisRecebidas).toEqual([
         { tipo: "cpf", valor: "01234567890" },
-        { tipo: "identificador_catraca", valor: "4321" },
         { tipo: "identificador_catraca", valor: "42" },
       ]);
       await ate(() => amb.placa.textoDo(COMANDO.MENSAGEM_TEMPORARIA) === "Nao cadastrado");
@@ -184,12 +184,14 @@ describe("conector Toletus: a corrente do lado do Gateway", () => {
       expect(() => conector.liberarRemoto("entrada", "Fundos")).toThrow(/não está configurado/);
     });
 
-    it("gestão remota da Toletus: só liberar; cadastro no equipamento é recusado com explicação", async () => {
+    it("gestão remota da Toletus sem leitor de digital: só liberar; cadastro recusado com explicação", async () => {
       const gestao = new GestaoToletus(conector);
       expect(gestao.capacidades()).toEqual(["liberar_catraca"]);
+      expect(gestao.nomesDeCadastro()).toEqual([]);
       expect(await gestao.testar()).toEqual([{ equipamento: "Entrada", ok: true }]);
-      await expect(gestao.criarUsuario()).rejects.toThrow(/não guarda cadastro de aluno/);
-      await expect(gestao.cadastrarDigital()).rejects.toThrow(/não guarda cadastro de aluno/);
+      await expect(gestao.criarUsuario(5)).rejects.toThrow(/leitor_digital/);
+      await expect(gestao.cadastrarDigital(5)).rejects.toThrow(/leitor_digital/);
+      await expect(gestao.cadastrarCartao()).rejects.toThrow(/Últimos acessos/);
     });
   });
 
@@ -279,7 +281,7 @@ describe("conector Toletus: a corrente do lado do Gateway", () => {
 describe("conector Toletus: credencial de cada leitura", () => {
   it("onze dígitos no teclado são CPF; qualquer outra coisa é identificador do equipamento", () => {
     expect(credencialDaLeitura("teclado", "529.982.247-25")).toEqual({ tipo: "cpf", valor: "52998224725" });
-    expect(credencialDaLeitura("teclado", "1234")).toEqual({ tipo: "identificador_catraca", valor: "1234" });
+    expect(credencialDaLeitura("teclado", "1234")).toBeNull();
     // Cartão com onze dígitos continua sendo cartão: só o teclado é CPF.
     expect(credencialDaLeitura("rfid", "52998224725")).toEqual({ tipo: "identificador_catraca", valor: "52998224725" });
   });

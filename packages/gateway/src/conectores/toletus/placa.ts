@@ -175,6 +175,22 @@ export class PlacaToletus extends EventEmitter implements PlacaConectavel {
     return texto && aviso;
   }
 
+  /**
+   * Mensagem no display sem mexer na borboleta: o passo a passo do cadastro
+   * da digital, para o aluno que está com o dedo no leitor. "passo" fica
+   * amarelo até o próximo aviso; "ok" e "erro" fecham o cadastro.
+   */
+  avisar(mensagem: string, tom: "passo" | "ok" | "erro"): boolean {
+    const texto = this.enviar(COMANDO.MENSAGEM_TEMPORARIA, textoParaDados(mensagem));
+    const notificacao =
+      tom === "passo"
+        ? dadosDaNotificacao(10_000, TOQUE.BEEP, COR.AMARELO, true)
+        : tom === "ok"
+          ? dadosDaNotificacao(3000, TOQUE.BEEP, COR.VERDE_DOS_DOIS_LADOS, true)
+          : dadosDaNotificacao(3000, TOQUE.ERRO, COR.VERMELHO, true);
+    return texto && this.enviar(COMANDO.NOTIFICA_USUARIO, notificacao);
+  }
+
   private conectar(): void {
     if (!this.rodando) return;
     const socket = new net.Socket();

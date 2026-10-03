@@ -81,6 +81,8 @@ export interface GatewayConfig {
   topdata_facial_porta?: number;
   /** Tipo da placa quando a lista está vazia. */
   toletus_placa?: "litenet2" | "litenet3";
+  /** Uma placa só (sem a lista): a catraca tem o leitor de digital SM25. */
+  toletus_leitor_digital?: boolean;
   /** Porta onde as placas LiteNet3 discam. */
   toletus_litenet3_porta?: number;
   /**
@@ -151,6 +153,14 @@ export interface EquipamentoToletus {
    * para catraca em que a saída também exige identificação.
    */
   liberar: "entrada" | "ambos";
+  /**
+   * Só na LiteNet2: a catraca tem o leitor de digital SM25. Com ele, a ficha
+   * do aluno cadastra a digital e a saída do aluno a apaga, pela porta 7879
+   * do mesmo IP.
+   */
+  leitor_digital?: boolean;
+  /** A porta do leitor de digital (7879). Só muda em ensaio com o emulador. */
+  porta_leitor?: number;
 }
 
 export interface EquipamentoControlId {

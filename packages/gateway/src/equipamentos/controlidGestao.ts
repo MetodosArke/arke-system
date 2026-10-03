@@ -50,6 +50,12 @@ export interface GestaoEquipamentos {
   /** Nomes dos equipamentos configurados, na ordem do config. */
   nomes(): string[];
   /**
+   * Os equipamentos em que a ficha cadastra (a lista em que a recepção
+   * escolhe o leitor). Sem o método, todos os de nomes(). A Toletus lista só
+   * as catracas com leitor de digital.
+   */
+  nomesDeCadastro?(): string[];
+  /**
    * As ordens que este equipamento aceita. A Control iD aceita todas; a
    * Toletus só a liberação, porque a placa não guarda cadastro de aluno. É
    * o que o Gateway anuncia à nuvem, e a nuvem não pede o que não estiver aqui.

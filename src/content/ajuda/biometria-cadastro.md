@@ -13,13 +13,17 @@ Quando o texto da autorização muda, a ficha avisa que o aluno autorizou sob um
 
 ## Cadastrar digital e cartão
 
-Com o Gateway e a catraca Control iD configurada para gestão remota:
+Com o Gateway e a catraca Control iD, ou a Toletus com leitor de digital, configurados para gestão remota:
 
 1. Na ficha, escolha o **leitor** em que o aluno vai pôr o dedo ou o cartão.
-2. Clique em **Cadastrar digital** (ou **Cadastrar cartão**) e peça ao aluno para encostar no leitor quando o equipamento pedir.
+2. Clique em **Cadastrar digital** (ou **Cadastrar cartão**, na Control iD) e peça ao aluno para encostar no leitor quando o equipamento pedir. Na Toletus, ele põe o mesmo dedo três vezes, e o visor da catraca diz quando pôr e quando tirar.
 3. O ARKE copia a digital para as outras catracas da academia.
 
 Se o aluno ainda não existe no equipamento, o ARKE cria antes, sozinho. O visor da catraca mostra "Aluno", e não o nome, para quem está na fila não ver o nome de ninguém.
+
+Se a digital não sair (o aluno demorou, as três leituras não bateram, ou o dedo já está cadastrado para outro número), a ficha diz o motivo. Num recadastro que falha, a digital anterior continua valendo.
+
+**Cartão na Toletus e na Intelbras:** o número vem do próprio cartão. Passe o cartão na catraca, veja o número em **Catracas → Últimos acessos** e vincule no campo **Cartão** da ficha. Nessas marcas cada aluno tem um número só: o do cartão ou o da digital. Vincular o cartão a quem tinha digital troca o número, e a digital antiga sai dos leitores sozinha.
 
 Sem gestão remota (por exemplo, Topdata com cartão), o cadastro é feito no próprio equipamento, e a recepção informa na ficha o número que o equipamento deu ao aluno; na Topdata com cartão, o número do cartão.
 

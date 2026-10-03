@@ -57,6 +57,10 @@ describe("apoio do painel", () => {
     expect(resumoResultado("enviar_logs", { enviados: 0 })).toBe("Não havia acesso guardado para enviar.");
     expect(resumoResultado("sincronizar_completo", { total: 6 })).toBe("Cadastro do Gateway atualizado: 6 aluno(s).");
     expect(resumoResultado("desconhecido", null)).toBe("Concluído.");
+    // A Toletus não guarda cadastro: o Gateway diz o que fez, e a frase dele vale.
+    expect(resumoResultado("cadastrar_usuario", { equipamentos: [], mensagem: "Número 12 reservado ao aluno." })).toBe(
+      "Número 12 reservado ao aluno."
+    );
   });
 
   it("equipamentos de gestão saem da telemetria pelo tipo, e lixo não quebra", () => {

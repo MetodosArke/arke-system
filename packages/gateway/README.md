@@ -1,4 +1,4 @@
-# ARKE® Gateway Local 1.5
+# ARKE® Gateway Local 1.6
 
 Programa Node.js/TypeScript que roda **no computador da recepção da academia**
 e liga a catraca física à plataforma ArkeFit no Supabase. Decide o acesso em
@@ -11,6 +11,7 @@ Catraca Control iD ──HTTP──▶ ┐
                               │  ARKE Gateway Local  ◀──── escuta longa ────▶  catraca-comandos
 Catraca Topdata ─▶ ponte .NET ┘   (porta 4571)               (telemetria, ordens, resultados)
 Placa Toletus LiteNet2 ◀── TCP 7878 ── (o Gateway disca)
+Leitor de digital SM25 ◀── TCP 7879 ── (o Gateway disca, só no cadastro e na remoção)
 Placa Toletus LiteNet3 ──WebSocket──▶ porta 7880 (o Gateway anuncia o endereço por UDP)
 Leitor facial Topdata ──WebSocket──▶ porta 7792
 Terminal Intelbras ──HTTP (Modo Online)──▶ porta 4571 (/notification, /keepalive)
@@ -39,12 +40,12 @@ passagem ou o tempo esgotado.
 
 ## Equipamentos
 
-| Marca | Situação na 1.5 |
+| Marca | Situação na 1.6 |
 |---|---|
 | **Control iD** (modo Pro) | Decisão de acesso, confirmação de giro pelo Monitor (iDBlock), contingência, **gestão remota**: cadastro do aluno, da digital e do cartão pelo ARKE, cópia entre as catracas da academia, remoção e liberação remota. Desde a 1.4, **leitor numa catraca de outra marca**: cada equipamento libera do seu jeito (`liberacao`: catraca, relé ou SecBox), reconhecido pelo IP, e o leitor não espera giro. |
 | **Topdata** (Inner, via EasyInner.dll) | Decisão de acesso, giro, contingência e bilhetes, pela ponte `packages/ponte-topdata` — ver `docs/PONTE_TOPDATA.md`. Sem gestão remota: o cadastro no equipamento é feito nele. |
 | **Topdata facial** (leitores F4/T4; catracas Fit Easy, Revolution Easy e Box Easy; Fit 4 Facial) | Linha Easy (modelo `topdata_facial`): o leitor pergunta ao Gateway a cada rosto e libera com a resposta; o Gateway o põe em "só online" a cada conexão, então sem o Gateway ele nega. Sem confirmação de giro: a presença conta pela liberação. Fit 4 Facial (modelo `topdata`, com a ponte): o leitor só identifica e passa o número à placa Inner. Nos dois, cadastro e remoção do aluno em todos os leitores pelo ARKE, e abertura remota pela API HTTP do leitor. |
-| **Toletus** (placas LiteNet2 e LiteNet3) | Decisão de acesso, giro (passagem e tempo esgotado avisados pela placa), contingência e liberação remota, pelo protocolo aberto do fabricante. Sem a ArkeFit, a entrada controlada fica travada: a placa não guarda alunos. Sem cadastro remoto: as digitais ficam no leitor SM25, que tem protocolo próprio. A LiteNet3 com leitor de digital manda a imagem do dedo para o servidor comparar, o que o ARKE não faz: ali vale cartão, código ou teclado. |
+| **Toletus** (placas LiteNet2 e LiteNet3) | Decisão de acesso, giro (passagem e tempo esgotado avisados pela placa), contingência e liberação remota, pelo protocolo aberto do fabricante. Sem a ArkeFit, a entrada controlada fica travada: a placa não guarda alunos. Desde a 1.6, com `leitor_digital`, a digital é cadastrada pela ficha no leitor SM25 da LiteNet2 (porta 7879), copiada para as outras catracas e apagada quando o aluno sai. A LiteNet3 com leitor de digital manda a imagem do dedo para o servidor comparar, o que o ARKE não faz: ali vale cartão, código ou teclado. |
 | **Intelbras** (linha Bio-T, Modo Online) | Desde a 1.5. O terminal pergunta ao Gateway a cada acesso (`POST /notification`, na porta de escuta) e o Gateway responde com a decisão; a foto que vem junto é descartada na leitura; a saída passa sem consulta. O Gateway configura o Modo Online em cada terminal ao subir, acerta a hora, cadastra e apaga o aluno, abre a porta e entrega a foto do rosto do app, pela API CGI com Digest. **Sem o Gateway o terminal libera quem está cadastrado**, então o Gateway desativa no terminal quem a academia barrou e reativa quem volta, a cada sincronização. Sem giro: presença pela liberação. Ver `src/conectores/intelbras/`. |
 | **Henry, Dimep** | Sem integração. Os fabricantes não publicam documentação e não há equipamento para bancada: a conexão é feita na implantação do primeiro cliente de cada marca. O Gateway **se recusa a subir** com elas, com mensagem explicando. |
 | `mock` | Driver de desenvolvimento, sem hardware. |
@@ -89,7 +90,7 @@ cp config.example.json config.json
 | `confirmacao_giro` | `decisao` (padrão) ou `catra_event` (só iDBlock com Monitor configurado) |
 | `timeout_giro_ms` | Quanto esperar o aviso de giro (padrão 30 s) |
 | `topdata_leitor_entrada` | Topdata: qual leitor é a entrada (1 ou 2) |
-| `toletus_equipamentos` | Lista de placas Toletus: `nome`, `ip`, `liberar` (`entrada`\|`ambos`), `placa` (`litenet2`\|`litenet3`, padrão `litenet2`); na LiteNet2, `porta` (7878); na LiteNet3, `serial` (opcional: sem ele, o Gateway descobre). Vazia com o modelo `toletus`: uma placa só, em `catraca_ip`, do tipo de `toletus_placa`. |
+| `toletus_equipamentos` | Lista de placas Toletus: `nome`, `ip`, `liberar` (`entrada`\|`ambos`), `placa` (`litenet2`\|`litenet3`, padrão `litenet2`); na LiteNet2, `porta` (7878) e `leitor_digital` (o leitor SM25, na porta 7879 do mesmo IP); na LiteNet3, `serial` (opcional: sem ele, o Gateway descobre). Vazia com o modelo `toletus`: uma placa só, em `catraca_ip`, do tipo de `toletus_placa`, com `toletus_leitor_digital`. |
 | `toletus_litenet3_porta` | Onde as LiteNet3 discam (padrão `7880`). |
 | `toletus_litenet3_endereco` | Endereço deste computador anunciado às LiteNet3. Vazio: o Gateway escolhe a interface que alcança a placa. |
 | `topdata_faciais` | Leitores faciais da Topdata: `nome`, `ip`, `sn` (opcional; sem ele, o leitor é reconhecido pelo IP), `senha` e `porta_http` (80) da API HTTP do leitor, para a abertura remota. Vazia com o modelo `topdata_facial`: um leitor só, em `catraca_ip`. |
@@ -112,6 +113,7 @@ npm run build:exe        # executável Windows (pkg) — o instalador usa script
 npm run emular:controlid -- --usuario 12            # faz o papel da catraca contra um Gateway rodando
 npm run emular:controlid -- --servir 8081           # faz o papel da API de gestão do equipamento
 npm run emular:toletus                               # faz o papel da placa Toletus LiteNet2 (porta 7878); o Gateway disca para ela
+npm run emular:toletus -- --leitor                   # e também o do leitor de digital SM25 (porta 7879)
 npm run emular:litenet3                              # faz o papel da LiteNet3: recebe o anúncio por UDP e disca para o Gateway
 npm run emular:facial-topdata -- --http 8080         # faz o papel do leitor facial (disca para a porta 7792) e da API HTTP dele
 ```
@@ -163,6 +165,9 @@ Sonda da porta do equipamento, alcançável pela rede: `http://IP:4571/health`.
 - Toletus: o protocolo byte a byte contra o manual, a remontagem de pacotes
   (partidos, colados, com lixo), e o conector contra uma placa falsa por TCP
   (passagem, desistência, fila por placa, queda, placa calada, contingência);
+- leitor SM25: os pacotes contra os exemplos do manual do fabricante, e o
+  cadastro, a cópia, o recadastro que devolve a digital anterior, a repetida,
+  o prazo com cancelamento e a remoção contra leitores falsos por TCP;
 - LiteNet3: as mensagens JSON contra o pacote oficial, e o conector contra uma
   placa falsa por UDP e WebSocket (anúncio, serial e chave conferidos na
   porta, giro, imagem da digital recusada, reconexão, placa sem pong);

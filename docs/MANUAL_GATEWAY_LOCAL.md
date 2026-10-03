@@ -86,7 +86,7 @@ Todos os parâmetros vivem em `config.json`, na mesma pasta do executável (`%Pr
 | `confirmacao_giro` | `decisao` (padrão): o acesso liberado já conta presença. `catra_event`: só conta quando a catraca confirma o giro — exige o Monitor configurado (seção 7) e **só existe na iDBlock** |
 | `timeout_giro_ms` | Quanto esperar a confirmação de giro (padrão `30000`). Sem confirmação no prazo, conta presença |
 | `topdata_leitor_entrada` | Topdata: qual leitor físico é a entrada, `1` ou `2` (padrão `1`). Tem de bater com `leitor_entrada` da ponte |
-| `toletus_equipamentos` | Placas Toletus (versão 1.1; LiteNet3 na 1.2): lista de `{ "nome", "ip", "liberar": "entrada", "placa": "litenet2" }`, uma por catraca. Na LiteNet2 o Gateway **disca** para a `porta` (7878); na LiteNet3 a placa disca para o Gateway, e `serial` é opcional (sem ele, o Gateway descobre pelo IP). Vazia com o modelo `toletus`: uma placa só, em `catraca_ip`, do tipo de `toletus_placa` (`catraca_porta` não entra). `liberar: "ambos"` é para catraca em que a saída também exige identificação. Ver seção 8 |
+| `toletus_equipamentos` | Placas Toletus (versão 1.1; LiteNet3 na 1.2): lista de `{ "nome", "ip", "liberar": "entrada", "placa": "litenet2" }`, uma por catraca. Na LiteNet2 o Gateway **disca** para a `porta` (7878); na LiteNet3 a placa disca para o Gateway, e `serial` é opcional (sem ele, o Gateway descobre pelo IP). Vazia com o modelo `toletus`: uma placa só, em `catraca_ip`, do tipo de `toletus_placa` (`catraca_porta` não entra). `liberar: "ambos"` é para catraca em que a saída também exige identificação. Na LiteNet2 com leitor de digital, `"leitor_digital": true` (versão 1.6; com uma placa só, `toletus_leitor_digital`): a ficha do aluno passa a cadastrar a digital. Ver seção 8 |
 | `toletus_litenet3_porta` / `toletus_litenet3_endereco` | LiteNet3: a porta onde as placas discam (padrão `7880`, **aberta no firewall** do computador) e, se preciso, o endereço deste computador que elas devem discar. Vazio: o Gateway escolhe a interface que alcança cada placa |
 | `intelbras_equipamentos` | Terminais Intelbras (versão 1.5): lista de `{ "nome", "ip", "porta": 80, "usuario": "admin", "senha", "canal": 1, "rosto": true }`. Com ela, o Gateway configura o Modo Online em cada terminal ao subir, cadastra e apaga o aluno, abre a porta e desativa no terminal quem a academia barrou. `intelbras_endereco` força o endereço deste computador que os terminais chamam; `intelbras_configurar: false` deixa a configuração à mão. Ver seção 11 |
 | `topdata_faciais` | Leitores faciais da Topdata (versão 1.2): lista de `{ "nome", "ip", "sn", "senha", "porta_http": 80 }`. `sn` é o número de série (opcional: sem ele, o leitor é reconhecido pelo IP); `senha` é a de gerenciamento do menu do leitor, para a abertura remota. Vazia com o modelo `topdata_facial`: um leitor só, em `catraca_ip`. Ver seção 9 |
@@ -142,7 +142,7 @@ Leia antes de colocar em produção:
 
 1. **Por fabricante.** **Control iD:** implementada e testada sem hardware (seção 7); falta a bancada. **Topdata:** ponte .NET implementada (`packages/ponte-topdata`) e provada com o Inner simulado contra o gateway e a nuvem reais; falta a bancada. Instalação e roteiro em `docs/PONTE_TOPDATA.md` — inclusive o registro da `Inner.dll` como administrador, sem o qual a DLL devolve "erro GPF". **Toletus (LiteNet2 e LiteNet3):** conector pela documentação pública do fabricante, provado com os emuladores contra o Gateway e a nuvem reais (seção 8); falta a bancada. **Topdata facial:** conector pela página de comandos do portal de integradores, provado com o emulador contra o Gateway e a nuvem reais (seção 9); falta a bancada (Kit Integrador da Topdata). **Henry e Dimep:** sem documentação de integração dos fabricantes — a conexão é definida na implantação.
 2. **Cartão só cadastrado pelo ARKE.** O cartão cadastrado pelo ARKE fica no equipamento ligado ao número do aluno e chega como identificação, igual à digital. Cartão que ninguém cadastrou chega com o valor bruto e é negado — adivinhar a quem pertence seria pior que negar. **QR Code na catraca é negado**: o QR do ARKE é o do check-in na recepção, lido pelo celular do aluno.
-3. **Cadastro no equipamento.** Com `controlid_equipamentos` configurado, o ARKE cria o aluno em todas as Control iD da academia, cadastra digital e cartão com o aluno na frente do leitor (e copia para as outras catracas), e apaga tudo quando o aluno retira a autorização, é excluído ou anonimizado. Com `topdata_faciais`, o ARKE cria e apaga o aluno em todos os leitores faciais da academia, com o mesmo número. **Sem gestão remota** (Topdata Inner, Toletus, ou Control iD sem credencial no config) o cadastro continua manual, e a remoção vira **tarefa para a recepção**, com desfecho obrigatório — apagar no equipamento é obrigação legal, não opcional.
+3. **Cadastro no equipamento.** Com `controlid_equipamentos` configurado, o ARKE cria o aluno em todas as Control iD da academia, cadastra digital e cartão com o aluno na frente do leitor (e copia para as outras catracas), e apaga tudo quando o aluno retira a autorização, é excluído ou anonimizado. Com `topdata_faciais`, o ARKE cria e apaga o aluno em todos os leitores faciais da academia, com o mesmo número. Com `leitor_digital` nas placas Toletus LiteNet2, o ARKE cadastra a digital no leitor da catraca com o aluno na frente, copia para os leitores das outras catracas e apaga de todos quando o aluno sai (seção 8.4). **Sem gestão remota** (Topdata Inner, Toletus sem `leitor_digital`, ou Control iD sem credencial no config) o cadastro continua manual, e a remoção vira **tarefa para a recepção**, com desfecho obrigatório — apagar no equipamento é obrigação legal, não opcional.
 4. **A bandeja do sistema exige um ambiente com GUI** (Windows/desktop Linux/macOS) — em servidores/CI sem display, ela é desativada automaticamente (com aviso no log), sem derrubar o serviço.
 
 ## 7. Control iD: configurar o equipamento e ensaiar sem hardware
@@ -215,7 +215,7 @@ Não há porta para abrir no computador do Gateway: a conexão sai dele.
 
 | A placa avisa | O Gateway faz |
 |---|---|
-| Cartão, código de barras ou teclado | Teclado com 11 dígitos é CPF; o resto é o `identificador_catraca` do aluno. O número do cartão vale sem os zeros à esquerda |
+| Cartão, código de barras ou teclado | No teclado vale só o **CPF** (11 dígitos): os números do equipamento são pequenos e sequenciais, e quem digitasse "12" entraria como o aluno 12, porque a catraca não tem senha para conferir. Outro número digitado é negado com "Digite o CPF", sem ir à nuvem (desde a versão 1.6). Cartão e código de barras são o `identificador_catraca` do aluno; o número do cartão vale sem os zeros à esquerda |
 | Digital reconhecida | O número do usuário no leitor é o `identificador_catraca` |
 | — | Decide (nuvem, ou cache na queda de internet) e manda **liberar** com "Bem-vindo!" no display, ou **nega** com uma frase curta ("Fale c/ recepcao", "Nao cadastrado") e toque de erro. O motivo completo fica no registro, não no display público |
 | Passagem | Giro confirmado: vira presença |
@@ -227,17 +227,43 @@ A conexão se mantém sozinha: o Gateway pergunta o id da placa a cada 10 s (o f
 
 ### 8.3 Cartão: o número que vai na ficha
 
-Sem cadastro remoto, a recepção vincula o número à mão na ficha do aluno. Para descobrir o número que o leitor dá a um cartão, passe o cartão na catraca: como ainda não é de ninguém, ele aparece em **Catracas → Últimos acessos** como "Número lido". O número impresso no cartão pode ser outro.
+O número do cartão é vinculado à mão na ficha do aluno: o Gateway não tem o que cadastrar, porque o número vem do próprio cartão. Para descobrir o número que o leitor dá a um cartão, passe o cartão na catraca: como ainda não é de ninguém, ele aparece em **Catracas → Últimos acessos** como "Número lido". O número impresso no cartão pode ser outro. Com o leitor de digital configurado, o campo **Cartão** fica no bloco do Gateway, na ficha.
 
-### 8.4 Ensaio sem catraca
+Cada aluno tem **um número só**: o do cartão ou o da digital. Vincular o cartão a quem já tinha digital troca o número, e a digital do número antigo sai dos leitores sozinha.
 
-`npm run emular:toletus` abre a porta 7878 e faz o papel da placa: espera o Gateway conectar e manda as leituras que você digitar (`c 123` cartão, `t 52998224725` teclado, `b 42` digital, `g desiste` para a próxima liberação não passar). Ele mostra o que o Gateway mandou: liberação com a mensagem do display, ou negativa. No `config.json` de ensaio, `"modelo_catraca": "toletus"` e `"catraca_ip": "127.0.0.1"`.
+### 8.4 Digital pelo ARKE: o leitor SM25 (versão 1.6)
+
+As catracas LiteNet2 com digital têm o leitor **SM25** (fabricado pela CAMA), e a placa o expõe na porta **7879** do mesmo IP. O protocolo é o do manual do fabricante do leitor, que a própria Toletus publica junto com o pacote de integração dela. Com `"leitor_digital": true` na placa (ou `"toletus_leitor_digital": true` com uma placa só), o Gateway anuncia o cadastro da digital, e a ficha do aluno passa a ter **Cadastrar digital**, como na Control iD:
+
+```json
+"toletus_equipamentos": [
+  { "nome": "Catraca da entrada", "ip": "192.168.0.60", "leitor_digital": true },
+  { "nome": "Catraca dos fundos", "ip": "192.168.0.61", "leitor_digital": true }
+]
+```
+
+- **O número.** A digital fica no leitor sob um número, e é esse número que a placa manda quando reconhece o dedo. "Cadastrar no equipamento" na Toletus só reserva o número do aluno: a placa não guarda cadastro. O leitor guarda números de até 2 bytes e **3.000 digitais**. Por isso a nuvem dá o número por um **contador da academia**, que só sobe e não conta os números de cartão (de até dez dígitos) vinculados à mão.
+- **O cadastro.** Com o aluno na frente do leitor escolhido, ele põe o mesmo dedo três vezes. O display da catraca acompanha ("Ponha o dedo 1/3", "Tire o dedo", "Digital salva"). Leitura ruim não encerra: o leitor pede de novo. Sem dedo por 90 s, o Gateway cancela o cadastro no leitor e a ficha diz por quê. O tempo de espera de cada toque vai a 60 s, como o software da Toletus grava (o de fábrica, 5 s, não dá tempo de explicar ao aluno).
+- **Recadastro.** O leitor só cadastra em número vazio. O Gateway lê a digital anterior, apaga, cadastra a nova e, se a nova não sair, **devolve a anterior** ao leitor: o aluno nunca fica sem entrar por um recadastro que falhou.
+- **Digital repetida.** O leitor recusa o dedo que já está em outro número, e a ficha mostra qual. O mesmo dedo não vale para dois alunos.
+- **As outras catracas.** Cada leitor guarda as próprias digitais. Depois do cadastro, o Gateway lê o registro da digital (498 bytes) e grava nos leitores das outras catracas com `leitor_digital`. O registro atravessa só a memória do Gateway e é zerado em seguida; não vai para log, resultado nem nuvem. Cópia que falha volta na ficha com o nome da catraca, sem desfazer o cadastro.
+- **Durante o cadastro**, a digital que a placa reconhecer no leitor daquela catraca é ignorada: o dedo é o de quem está cadastrando, e liberar ali contaria uma presença que ninguém fez. Cartão e teclado seguem valendo.
+- **A saída do aluno.** Retirar a autorização, excluir ou anonimizar o aluno, ou trocar o número dele na ficha apaga a digital daquele número em todos os leitores. Número vazio conta como apagado. Leitor fora do ar falha a ordem, que volta a ser tentada.
+- **A conexão** com o leitor abre para cada operação e fecha no fim, como o Toletus Hub faz: a placa usa o mesmo leitor para reconhecer quem chega à catraca. O **Diagnóstico** testa cada leitor.
+
+**O que só a bancada responde:** se a placa deixa o leitor livre para o cadastro enquanto o Gateway está conectado na 7879 (o Toletus Hub faz exatamente isso), se ela reconhece o dedo durante o cadastro, a capacidade exata do leitor montado e o tempo real de cada toque.
+
+### 8.5 Ensaio sem catraca
+
+`npm run emular:toletus` abre a porta 7878 e faz o papel da placa: espera o Gateway conectar e manda as leituras que você digitar (`c 123` cartão, `t 52998224725` teclado, `b 42` digital, `g desiste` para a próxima liberação não passar). Ele mostra o que o Gateway mandou: liberação com a mensagem do display, negativa, ou aviso do cadastro da digital. No `config.json` de ensaio, `"modelo_catraca": "toletus"` e `"catraca_ip": "127.0.0.1"`.
+
+Com `--leitor`, ele faz também o leitor de digital, na porta 7879 (`--porta-leitor` muda): `d 1` põe o dedo 1 no leitor, `d -` tira, `i` faz a placa reconhecer o dedo posto e `l` lista as digitais guardadas. O mesmo dedo gera sempre a mesma digital, e é assim que o leitor emulado percebe a repetida. Corrente provada em 03/10/2026 com o Gateway compilado, duas placas emuladas com leitor, as funções publicadas e o banco: 23 verificações, do número reservado à digital apagada dos dois leitores.
 
 Foi assim que a corrente foi provada em 02/10/2026, com o Gateway compilado, as funções publicadas e o banco reais (27 verificações): cartão liberado virando presença, pausada e cartão desconhecido negados com o registro certo, CPF no teclado, digital com desistência sem presença, liberação remota pela tela, e a placa caindo e voltando.
 
-**O que só a bancada responde:** o número que um cartão de verdade produz no leitor, o tempo de liberação configurado na placa, o sentido de giro da catraca montada e o leitor de digital SM25. **Cadastro remoto da digital** (pelo leitor SM25, que tem protocolo próprio na porta 7879) é a etapa seguinte.
+**O que só a bancada responde:** o número que um cartão de verdade produz no leitor, o tempo de liberação configurado na placa, o sentido de giro da catraca montada e o leitor de digital com um dedo de verdade (seção 8.4).
 
-### 8.5 LiteNet3: a placa disca para o Gateway
+### 8.6 LiteNet3: a placa disca para o Gateway
 
 A placa **LiteNet3**, mais nova, fala outro protocolo: JSON por WebSocket, com a placa como cliente. O Gateway manda à placa, por UDP na porta 7878 dela, o endereço onde está escutando (`ws://IP-do-computador:7880`); a placa guarda o endereço e disca, apresentando o número de série. O anúncio se repete enquanto a placa não conecta, então uma placa trocada ou reiniciada volta sozinha.
 
@@ -249,7 +275,7 @@ Placa que não está no `config.json` é recusada na porta, antes de abrir a con
 
 Ensaio: `npm run emular:litenet3` escuta o UDP 7878, recebe o endereço, disca e manda as leituras que você digitar (`c`, `q`, `t`, `x` para um pedaço da imagem da digital, `g desiste`). Corrente provada em 02/10/2026 com o Gateway compilado, as funções publicadas e o banco reais: anúncio e conexão, cartão virando presença, negativas, digital recusada sem ir à nuvem, desistência, liberação remota e a placa reiniciando.
 
-**O que só a bancada responde, além do da 8.4:** o valor exato da mensagem temporária do display (o pacote oficial só documenta "clear"), se o aviso de passagem traz contadores ou só a marca do sentido (o Gateway lê os dois jeitos) e o que a placa faz quando não tem servidor nenhum.
+**O que só a bancada responde, além do da 8.5:** o valor exato da mensagem temporária do display (o pacote oficial só documenta "clear"), se o aviso de passagem traz contadores ou só a marca do sentido (o Gateway lê os dois jeitos) e o que a placa faz quando não tem servidor nenhum.
 
 ## 9. Leitores faciais da Topdata
 
