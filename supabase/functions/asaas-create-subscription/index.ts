@@ -7,6 +7,8 @@ import {
   somenteDigitos,
 } from "./fluxo.ts";
 import { ambienteAsaas } from "../_shared/asaas.ts";
+import { dentroDoFreio, MENSAGEM_FREIO, regrasAsaas } from "../_shared/freio.ts";
+import { MENSAGEM_SO_QUEM_COBRA, podeCobrarNaAcademia } from "../_shared/papelCobranca.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -67,11 +69,18 @@ Deno.serve(async (req: Request) => {
       return jsonResponse({ error: "aluno_id e valor_cobrado (> 0) são obrigatórios." }, 400);
     }
 
-    // Cliente com o JWT do chamador: a leitura abaixo só funciona se o
-    // usuário for staff da organização do aluno (RLS de `alunos`/`organizations`).
+    // Cliente com o JWT do chamador: as leituras passam pela regra de acesso
+    // de cada tabela. Quem pode cobrar é conferido à parte, logo depois de
+    // achar o aluno: a regra de leitura deixa o próprio aluno ler o cadastro
+    // e a academia dele.
     const asUser = createClient(supabaseUrl, anonKey, {
       global: { headers: { Authorization: authHeader } },
     });
+    const { data: claimsData, error: claimsError } = await asUser.auth.getClaims(authHeader.replace("Bearer ", ""));
+    const callerId = typeof claimsData?.claims?.sub === "string" ? claimsData.claims.sub : null;
+    if (claimsError || !callerId) {
+      return jsonResponse({ error: "Sessão inválida. Faça login novamente." }, 401);
+    }
 
     const { data: aluno, error: alunoError } = await asUser
       .from("alunos")
@@ -81,6 +90,14 @@ Deno.serve(async (req: Request) => {
 
     if (alunoError || !aluno) {
       return jsonResponse({ error: "Aluno não encontrado ou sem permissão de acesso." }, 404);
+    }
+
+    const admin = createClient(supabaseUrl, serviceRoleKey);
+    if (!(await podeCobrarNaAcademia(admin, callerId, aluno.organization_id, claimsData?.claims))) {
+      return jsonResponse({ error: MENSAGEM_SO_QUEM_COBRA }, 403);
+    }
+    if (!(await dentroDoFreio(admin, regrasAsaas(callerId, aluno.organization_id)))) {
+      return jsonResponse({ error: MENSAGEM_FREIO }, 429);
     }
 
     // A adesão ao Método é o que autoriza a cobrança. `nivel_atacado` fica
@@ -106,7 +123,6 @@ Deno.serve(async (req: Request) => {
     // isto, cada chamada criava uma assinatura nova e a anterior seguia
     // cobrando no Asaas, órfã. Trial (sem id no Asaas) não conta: é
     // justamente o caso de converter o trial em assinatura paga.
-    const admin = createClient(supabaseUrl, serviceRoleKey);
     const { data: assinaturaAtual } = await admin
       .from("aluno_assinaturas")
       .select("status, asaas_subscription_id")

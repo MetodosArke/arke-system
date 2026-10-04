@@ -1,5 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { verificada } from "../_shared/verificacao.ts";
+import { alvoSoNaAcademia, MENSAGEM_OUTRA_ACADEMIA } from "../_shared/alvoNaAcademia.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -135,6 +136,14 @@ Deno.serve(async (req: Request) => {
     }
     if (!targetMembership) {
       return jsonResponse({ error: "Membro não encontrado nesta organização." }, 404);
+    }
+
+    // E-mail de login e nome são da CONTA da pessoa, que pode ter vínculo em
+    // outra academia: trocar o e-mail e pedir a redefinição de senha nele
+    // daria a conta inteira a quem trocou. O gestor só troca de quem está
+    // apenas nesta academia; o resto fica com a ArkeFit ou com a pessoa.
+    if ((email || fullName) && !callerIsAdminArke && !(await alvoSoNaAcademia(adminClient, targetUserId, organizationId))) {
+      return jsonResponse({ error: MENSAGEM_OUTRA_ACADEMIA }, 403);
     }
 
     if (email) {

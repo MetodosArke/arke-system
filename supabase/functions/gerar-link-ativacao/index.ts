@@ -1,5 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { verificada } from "../_shared/verificacao.ts";
+import { alvoSoNaAcademia, MENSAGEM_OUTRA_ACADEMIA } from "../_shared/alvoNaAcademia.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -107,6 +108,7 @@ Deno.serve(async (req: Request) => {
     }
 
     let autorizado = callerIsAdminArke;
+    let orgDoChamador: string | null = null;
     if (!autorizado) {
       const { data: vinculosChamador, error: callerMembershipError } = await adminClient
         .from("organization_members")
@@ -129,7 +131,7 @@ Deno.serve(async (req: Request) => {
       // organização compartilhada e o mesmo par de papéis —, e fecha um
       // buraco sutil que a versão anterior tinha: ela comparava o papel do
       // alvo num vínculo possivelmente de outra academia.
-      autorizado = (vinculosChamador ?? []).some((chamador) =>
+      const chamadorAutorizado = (vinculosChamador ?? []).find((chamador) =>
         (vinculosAlvo ?? []).some(
           (alvo) =>
             alvo.organization_id === chamador.organization_id &&
@@ -137,6 +139,8 @@ Deno.serve(async (req: Request) => {
               (["professor", "nutricionista", "recepcao"].includes(chamador.role) && alvo.role === "aluno"))
         )
       );
+      autorizado = !!chamadorAutorizado;
+      orgDoChamador = chamadorAutorizado?.organization_id ?? null;
     }
     if (!autorizado) {
       return jsonResponse({ error: "Você não tem permissão para gerar este link." }, 403);
@@ -146,6 +150,20 @@ Deno.serve(async (req: Request) => {
     if (targetUserError || !targetUser.user?.email) {
       console.error("Error loading target user", targetUserError);
       return jsonResponse({ error: "Usuário de destino não encontrado." }, 404);
+    }
+
+    // O link é de ATIVAÇÃO: para a equipe da academia, só de quem nunca
+    // entrou e está só nesta academia. Para quem já usa o app, o link de
+    // redefinição daria à equipe a conta da pessoa — e, com ela, entrar como o
+    // aluno, inclusive para autorizar o que só ele autoriza, ou numa outra
+    // academia em que ela esteja. Quem já entrou usa "Esqueci a senha".
+    if (!callerIsAdminArke) {
+      if (targetUser.user.last_sign_in_at) {
+        return jsonResponse({ error: "Esta pessoa já entra no app. Para trocar a senha, ela usa \"Esqueci a senha\" na tela de entrar." }, 409);
+      }
+      if (!orgDoChamador || !(await alvoSoNaAcademia(adminClient, targetUserId, orgDoChamador))) {
+        return jsonResponse({ error: MENSAGEM_OUTRA_ACADEMIA }, 403);
+      }
     }
 
     const { data: linkData, error: linkError } = await adminClient.auth.admin.generateLink({

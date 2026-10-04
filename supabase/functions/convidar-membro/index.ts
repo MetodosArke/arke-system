@@ -1,5 +1,6 @@
 import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2";
 import { emailMatriculaNova } from "./email.ts";
+import { dentroDoFreio, MENSAGEM_FREIO } from "../_shared/freio.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -197,6 +198,16 @@ Deno.serve(async (req: Request) => {
     }
     const organizationId = callerMembership.organization_id;
 
+    // Uma importação de 400 alunos são 400 chamadas em poucos minutos, e passa.
+    // O que não passa é laço.
+    const freioGeral = [
+      { chave: `convite:user:${callerId}`, limite: 600, janelaSeg: 60 * 60 },
+      { chave: `convite:org:${organizationId}`, limite: 1500, janelaSeg: 24 * 60 * 60 },
+    ];
+    if (!(await dentroDoFreio(adminClient, freioGeral))) {
+      return jsonResponse({ error: MENSAGEM_FREIO }, 429);
+    }
+
     // Quem já tem conta no ArkeFit (aluno de outra academia, por exemplo) não
     // pode ser convidado: o Auth recusa quem existe. A conta é ligada à
     // matrícula quando o CPF digitado é o dela (decisão de 03/10/2026): é a
@@ -233,6 +244,20 @@ Deno.serve(async (req: Request) => {
         .eq("user_id", userId)
         .maybeSingle();
       if (jaAluno) return jsonResponse({ error: "Essa pessoa já é aluna desta academia." }, 409);
+
+      // O CPF é a prova de que a academia conhece a pessoa, e por isso não
+      // pode ser achado por tentativa: o freio vem antes da comparação, e
+      // conta toda tentativa sobre conta que já existe.
+      const freioConta = [
+        { chave: `convite:conta:user:${callerId}`, limite: 20, janelaSeg: 60 * 60 },
+        { chave: `convite:conta:org:${organizationId}`, limite: 50, janelaSeg: 24 * 60 * 60 },
+      ];
+      if (!(await dentroDoFreio(adminClient, freioConta))) {
+        return jsonResponse(
+          { error: "Muitos cadastros de quem já tem conta no ArkeFit hoje. Tente amanhã ou fale com a ArkeFit." },
+          429
+        );
+      }
 
       const cpfDigitado = (cpf ?? "").replace(/\D/g, "");
       const cpfDaConta = (perfil?.cpf ?? "").replace(/\D/g, "");
@@ -311,6 +336,17 @@ Deno.serve(async (req: Request) => {
 
     if (inviteError || !invited.user) {
       console.error("Error inviting user", inviteError);
+      // O limite de e-mails do login vale para o projeto inteiro, e não só
+      // para esta academia: a importação para aqui e retoma depois.
+      if (inviteError?.status === 429 || /rate limit/i.test(inviteError?.message ?? "")) {
+        return jsonResponse(
+          {
+            error:
+              "O limite de e-mails de convite por hora foi atingido. Retome daqui a uma hora: o que falta fica guardado.",
+          },
+          429
+        );
+      }
       const alreadyExists = inviteError?.message?.toLowerCase().includes("already been registered");
       return jsonResponse(
         {

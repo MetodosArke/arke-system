@@ -24,6 +24,8 @@ A resposta na tela é sempre a mesma, exista ou não o cadastro. Assim ninguém 
 
 Na lista de alunos, o botão **Enviar Ativação via WhatsApp** gera um link só daquele aluno. Use para quem ficou para trás.
 
+O link é de **ativação**: sai só para quem ainda não entrou no app e é aluno só da sua academia. Quem já entra e esqueceu a senha usa **Esqueci a senha** na tela de entrar. Quem também está em outra academia que usa o ArkeFit recebe o link pela ArkeFit ou pelo próprio primeiro acesso, porque a conta dele vale nas duas.
+
 ## Instalar o app no celular
 
 O app do aluno é um site que se instala na tela de início, sem loja de aplicativos:

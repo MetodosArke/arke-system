@@ -1307,6 +1307,40 @@ Nenhuma tela chega perto do limite de 8 s da API, e as rotinas rodam em segundo 
 - **Tamanho da máquina do banco:** o Pro começa na Micro, e vale acompanhar o tempo das telas ao passar de uns 10 mil alunos.
 - **Chamadas de função:** cada Gateway de catraca faz ~100 mil por mês (escuta longa), então 50 Gateways passam das 2 milhões incluídas no Pro. É custo, na casa de poucos dólares por mês, não trava.
 
+## Freio, tetos e quem age sobre o quê: a prévia do teste de concorrência (04/10/2026)
+
+Antes de medir muitos usuários ao mesmo tempo, a pergunta foi o contrário: o que acontece com **um** usuário fazendo milhares de chamadas, por defeito do app ou de propósito. A conta do Asaas é uma só para todas as academias (25.000 chamadas a cada 12 horas, e o `/payments` com uns 140 por minuto), o e-mail do login é um orçamento do projeto inteiro, e o modelo de IA se paga por uso. Um laço numa academia não pode parar as outras.
+
+**Freio nas edge functions** (`20261321010000_freio_chamadas.sql`, `_shared/freio.ts`). `registrar_chamada(chave, limite, janela)` conta numa tabela só da service role, com uma trava por chave para duas chamadas simultâneas não passarem juntas; a chamada recusada não conta. **Falha do banco libera**, pelo motivo do limitador da matrícula pública. Os limites são folgados: uso de verdade não chega neles.
+
+| Onde | Limite |
+|---|---|
+| Funções que chamam o Asaas (`regrasAsaas`) | 30 por pessoa a cada 10 min; 120 por academia por hora; 400 no total por hora |
+| Cartão | mais 5 por pessoa por hora e 10 por aluno por dia |
+| Dieta por PDF (IA) | 30 por pessoa por hora, 100 por dia; 300 no total por hora |
+| Comunicado | 10 por pessoa por hora; 20 por academia por dia (só conta quem pode publicar) |
+| Cadastro de aluno | 600 por pessoa por hora, 1.500 por academia por dia; sobre conta que já existe, 20 por hora e 50 por dia, contados **antes** de comparar o CPF |
+| Aviso no celular | 60 por pessoa a cada 10 min |
+
+`freio.guarda.test.ts` falha em função nova que fale com o Asaas ou com a IA sem passar pelo freio, salvo a lista com o porquê (rotinas com token, funções só da ArkeFit com as duas etapas, o assistente com freio próprio, exclusão e encerramento). As linhas do freio saem em 2 dias, na limpeza diária (`limpar_historicos_antigos`).
+
+**Tetos diários no banco** (`20261322010000_teto_diario.sql`), para o que a pessoa logada grava direto e outras pessoas veem: 30 posts e 200 comentários no feed por pessoa; 100 mensagens por conversa e por quem envia (o professor que responde 50 alunos não é barrado); 15 chamados por aluno quando quem abre é o próprio aluno (o alerta do app); e, no Storage, 30 arquivos por dia na pasta do feed e do logo e 20 na pasta do aluno (atestado, vídeo do chat, termo da digital). Valem só com usuário logado: rotina e service role passam. O teto do Storage entrou na regra de inclusão que já existia, por `alter policy`, e não numa regra a mais. O gatilho de `tarefas` (`trg_teto_alertas_aluno`) ordena antes de `trg_ultimo_sla_util_mentor`.
+
+**Quem age sobre o quê**, conferido nas próprias funções, e não só pela regra de leitura das tabelas:
+
+- **Matrícula e assinatura do Método**: só a gestão e a recepção da academia do aluno, ou a ArkeFit com as duas etapas (`_shared/papelCobranca.ts`, `podeCobrarNaAcademia`). A regra de leitura deixa o aluno ler o próprio cadastro, o plano e a academia, e por isso não serve de autorização. Na tela, **Matricular** e **Método** aparecem só para a gestão e a recepção.
+- **A conta de outra pessoa** (simular o perfil, trocar o e-mail de login ou o nome, gerar link de ativação): a equipe da academia só age sobre quem está **apenas** na academia dela (`_shared/alvoNaAcademia.ts`). A conta vale em todas as academias da pessoa; quem também está em outra, ou é da ArkeFit, fica com a ArkeFit ou com a própria pessoa. O **link de ativação** sai só para quem nunca entrou: para quem já entra, o caminho é "Esqueci a senha".
+- **Aviso no celular** (`send-chat-push/regras.ts`): o aluno só avisa a equipe da academia dele; o aviso em massa só vai a papéis da equipe; o link fica preso a um caminho do app (e o service worker ignora endereço de fora); título e texto têm tamanho máximo.
+- **Aprovar ação do Vigia** exige a sessão verificada em duas etapas. A aprovação confere o papel no banco com a service role passando o usuário, e ali `has_role` não exige as duas etapas; `verificacao.guarda.test.ts` passou a reconhecer esse caminho.
+
+**O aviso do chat nunca tinha saído.** `send-chat-push` importava a biblioteca do Supabase fixada na 2.49.1, que não tem `getClaims`, e respondia 500 a toda mensagem desde que a função passou a conferir a sessão. Conferido contra a versão publicada antes da troca; hoje importa a mesma biblioteca das outras funções.
+
+**Um defeito que passou nos testes de recusa pelo motivo errado.** A primeira versão de `alvoSoNaAcademia` pedia `user_roles.organization_id`, coluna que não existe; a consulta falhava, e a função, que nega em caso de erro, negava todo mundo. As três recusas da corrente passavam; só os casos de **permitir** acusaram. `colunasConsultas.guarda.test.ts` passou a ler também `supabase/functions/` — nenhuma outra função pedia coluna inexistente — e pega esse defeito plantado de volta. **Regra: toda trava se testa nos dois sentidos, recusar e permitir.**
+
+**De passagem:** o comunicado lia os destinatários sem paginar e com a lista inteira de ids no `.in()`, e numa academia com mais de mil alunos parte deles ficaria sem o aviso. Agora pagina e busca as inscrições em lotes de 200. E o cadastro de aluno passou a dizer em português quando o limite de e-mails do login por hora estoura, para a importação ser retomada depois.
+
+**Conferido:** 18 casos das migrations em transação desfeita; 6 defeitos plantados (as duas travas de papel, o freio, e três nas regras do aviso), os seis pegos; e a **corrente real**, 30 verificações pelas funções publicadas com duas academias temporárias apagadas no fim — a aluna recusada na própria matrícula e na assinatura, recepção e gestora passando da trava de papel, o aviso voltando a funcionar e recusado de aluno para aluno, simular, editar e gerar link recusados para quem é de outra academia e permitidos para quem é só da academia, o link recusado para quem já entra, o Super Admin sem as duas etapas recusado no Vigia, o freio segurando a 31ª chamada ao Asaas e a 6ª de cartão sem criar nada, o comunicado parando em 10 por pessoa e 20 por academia, e o 31º post recusado com a frase em português.
+
 ## Rodada de lançamento — Fase 1: Central de Ajuda (24–25/09/2026)
 
 Os manuais viraram parte do produto: **Ajuda** no menu do painel, do app e da Visão Master, e um **?** no alto de cada tela que abre o artigo daquela tela. São 54 artigos, escritos para quem usa (gestor e recepção, professor e nutricionista, aluno, ArkeFit), a partir do código e não dos manuais antigos de `docs/`, que estavam desatualizados.

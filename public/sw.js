@@ -41,7 +41,14 @@ self.addEventListener('push', function(event) {
 self.addEventListener('notificationclick', function(event) {
   event.notification.close();
   const targetUrl = event.notification.data?.url || '/';
-  const absoluteUrl = new URL(targetUrl, self.location.origin).href;
+  // O aviso só abre o próprio app: endereço de fora vira a página inicial.
+  let absoluteUrl = new URL('/', self.location.origin).href;
+  try {
+    const destino = new URL(targetUrl, self.location.origin);
+    if (destino.origin === self.location.origin) absoluteUrl = destino.href;
+  } catch (e) {
+    // endereço inválido: fica a página inicial
+  }
 
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function(clientList) {

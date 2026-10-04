@@ -2,6 +2,7 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import { verificada } from "../_shared/verificacao.ts";
 import { ambienteAsaas } from "../_shared/asaas.ts";
 import { hojeBrasilia } from "../_shared/data.ts";
+import { dentroDoFreio, MENSAGEM_FREIO, regrasAsaas } from "../_shared/freio.ts";
 import {
   alterarValorAssinatura,
   cancelarAssinatura,
@@ -109,6 +110,9 @@ Deno.serve(async (req: Request) => {
       acao === "cancelar" && tipo === "metodo" ? equipe || arkefit || oProprioAluno : equipe || arkefit;
     if (!autorizado) {
       return jsonResponse({ error: "Você não tem permissão para alterar a cobrança deste aluno." }, 403);
+    }
+    if (!(await dentroDoFreio(admin, regrasAsaas(callerId, aluno.organization_id)))) {
+      return jsonResponse({ error: MENSAGEM_FREIO }, 429);
     }
 
     const { data: assinatura } =

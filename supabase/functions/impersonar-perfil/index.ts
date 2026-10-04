@@ -1,5 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { verificada } from "../_shared/verificacao.ts";
+import { alvoSoNaAcademia, MENSAGEM_OUTRA_ACADEMIA } from "../_shared/alvoNaAcademia.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -133,6 +134,13 @@ Deno.serve(async (req: Request) => {
 
     if (!autorizado) {
       return errorResponse("Você não tem permissão para simular este perfil.");
+    }
+
+    // A simulação abre a CONTA da pessoa, e não só o vínculo com esta
+    // academia: o gestor só simula quem está apenas aqui. Quem também está
+    // em outra academia, ou é da ArkeFit, só a ArkeFit simula.
+    if (!callerIsAdminArke && !callerIsSuperadmin && !(await alvoSoNaAcademia(adminClient, targetUserId, organizationId))) {
+      return errorResponse(MENSAGEM_OUTRA_ACADEMIA);
     }
 
     const { data: targetUser, error: targetUserError } = await adminClient.auth.admin.getUserById(targetUserId);
