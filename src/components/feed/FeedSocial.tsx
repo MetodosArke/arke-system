@@ -14,12 +14,16 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import type { Tables } from "@/integrations/supabase/types";
+import { extensaoDoTipo, passaSemReduzir, reduzirImagem } from "@/lib/reduzirImagem";
 
 type FeedPost = Tables<"feed_posts">;
 type FeedComment = Tables<"feed_comments">;
 
 const PAGE_SIZE = 15;
+// O bucket aceita até 5 MB, e é o que vale para o arquivo que sobe. A foto é
+// reduzida antes, então o original pode ser maior; o GIF sobe como veio.
 const MAX_IMAGE_MB = 5;
+const MAX_ORIGINAL_MB = 25;
 
 interface Perfil {
   full_name: string;
@@ -119,8 +123,9 @@ export function FeedSocial({ podeModerarTudo }: { podeModerarTudo: boolean }) {
   };
 
   const escolherImagem = (file: File) => {
-    if (file.size > MAX_IMAGE_MB * 1024 * 1024) {
-      toast({ title: "Imagem muito grande", description: `Máximo ${MAX_IMAGE_MB}MB.`, variant: "destructive" });
+    const limiteMb = passaSemReduzir(file.type) ? MAX_IMAGE_MB : MAX_ORIGINAL_MB;
+    if (file.size > limiteMb * 1024 * 1024) {
+      toast({ title: "Imagem muito grande", description: `Máximo ${limiteMb} MB.`, variant: "destructive" });
       return;
     }
     setImagemArquivo(file);
@@ -140,9 +145,15 @@ export function FeedSocial({ podeModerarTudo }: { podeModerarTudo: boolean }) {
       setEnviandoPost(true);
       let imageUrl: string | null = null;
       if (imagemArquivo) {
-        const ext = imagemArquivo.name.split(".").pop();
-        const path = `${user.id}/${Date.now()}.${ext}`;
-        const { error: uploadError } = await supabase.storage.from("feed-images").upload(path, imagemArquivo);
+        // A foto sai reduzida do aparelho, e o nome único deixa o navegador
+        // guardá-la por um ano: cada aluno que abre o feed não baixa a foto
+        // inteira de novo.
+        const imagem = await reduzirImagem(imagemArquivo, { ladoMaior: 1600, tipo: "image/jpeg" });
+        if (imagem.size > MAX_IMAGE_MB * 1024 * 1024) throw new Error(`A imagem passou de ${MAX_IMAGE_MB} MB. Escolha outra.`);
+        const path = `${user.id}/${Date.now()}.${extensaoDoTipo(imagem.type)}`;
+        const { error: uploadError } = await supabase.storage
+          .from("feed-images")
+          .upload(path, imagem, { contentType: imagem.type, cacheControl: "31536000" });
         if (uploadError) throw uploadError;
         imageUrl = supabase.storage.from("feed-images").getPublicUrl(path).data.publicUrl;
       }

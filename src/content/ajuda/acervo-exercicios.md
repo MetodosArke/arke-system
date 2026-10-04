@@ -21,7 +21,7 @@ Clique em **Novo exercício da academia** e preencha:
 Cada exercício pode ter um vídeo e uma imagem ou GIF:
 
 - **Vídeo**: até 15 MB. O ARKE tira o áudio antes de enviar (quando o navegador permite), e o app sempre toca o vídeo sem som.
-- **Imagem ou GIF**: até 5 MB.
+- **Imagem ou GIF**: até 5 MB. A imagem sai reduzida do seu computador antes de subir, para carregar rápido no celular do aluno; o GIF sobe como está, para não perder a animação.
 - **Link do YouTube**: cole o link comum do vídeo; o app mostra o vídeo embutido.
 
 O aluno vê a execução pelo botão ao lado do exercício, no treino do dia.

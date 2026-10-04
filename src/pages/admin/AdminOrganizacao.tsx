@@ -28,6 +28,7 @@ import { MarcaAppAluno } from "@/components/admin/MarcaAppAluno";
 import { dividirCobranca, excecaoDoNivel, resolverRepasse, type RepasseConfig } from "@/lib/repasse";
 import { useTaxaProcessamento } from "@/hooks/useTaxaProcessamento";
 import { reais } from "@/lib/numeros";
+import { extensaoDoTipo, reduzirImagem } from "@/lib/reduzirImagem";
 
 type TipoNegocio = Extract<Enums<"organization_tipo">, "academia" | "studio">;
 const SLUG_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
@@ -188,6 +189,9 @@ export default function AdminOrganizacao() {
 
   const LOGO_TIPOS_ACEITOS = ["image/png", "image/jpeg", "image/webp", "image/svg+xml"];
   const LOGO_TAMANHO_MAXIMO = 1.5 * 1024 * 1024; // mesmo limite configurado no bucket "avatars"
+  // O original pode ser maior: a imagem é reduzida antes de subir, e o limite
+  // do bucket vale para o arquivo reduzido. O SVG sobe como veio.
+  const LOGO_ORIGINAL_MAXIMO = 25 * 1024 * 1024;
 
   // Reaproveita o bucket "avatars" (já público, já com RLS liberando
   // upload/troca/exclusão em uma pasta com o próprio user_id) para a logo
@@ -198,18 +202,26 @@ export default function AdminOrganizacao() {
       toast({ title: "Formato não suportado", description: "Envie um PNG, JPEG, WEBP ou SVG.", variant: "destructive" });
       return;
     }
-    if (file.size > LOGO_TAMANHO_MAXIMO) {
-      toast({ title: "Arquivo muito grande", description: "O limite é 1,5 MB por imagem.", variant: "destructive" });
+    if (file.size > (file.type === "image/svg+xml" ? LOGO_TAMANHO_MAXIMO : LOGO_ORIGINAL_MAXIMO)) {
+      toast({
+        title: "Arquivo muito grande",
+        description: file.type === "image/svg+xml" ? "O limite é 1,5 MB para SVG." : "O limite é 25 MB por imagem.",
+        variant: "destructive",
+      });
       return;
     }
 
     setEnviandoLogo(true);
     try {
-      const extensao = file.name.split(".").pop() || "png";
-      const caminho = `${user.id}/org-logo-${Date.now()}.${extensao}`;
+      // O logo aparece no menu do app de todo aluno: sai reduzido do aparelho
+      // (WebP com transparência, ou PNG no navegador que não grava WebP), e o
+      // nome único deixa o navegador guardá-lo por um ano.
+      const logo = await reduzirImagem(file, { ladoMaior: 512, tipo: "image/webp", qualidade: 0.9 });
+      if (logo.size > LOGO_TAMANHO_MAXIMO) throw new Error("A imagem passou de 1,5 MB. Escolha outra.");
+      const caminho = `${user.id}/org-logo-${Date.now()}.${extensaoDoTipo(logo.type)}`;
       const { error } = await supabase.storage
         .from("avatars")
-        .upload(caminho, file, { upsert: true, contentType: file.type });
+        .upload(caminho, logo, { upsert: true, contentType: logo.type, cacheControl: "31536000" });
       if (error) throw error;
 
       const { data } = supabase.storage.from("avatars").getPublicUrl(caminho);
