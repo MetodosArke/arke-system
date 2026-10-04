@@ -12,6 +12,8 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { FileSignature, HeartPulse, Upload } from "lucide-react";
 import { MarkdownSimples } from "@/lib/markdownSimples";
 import { PERGUNTAS_PARQ, situacaoAtestado } from "@/lib/parq";
+import { emPerfilSimulado } from "@/lib/impersonation";
+import { AvisoPerfilSimulado } from "@/components/AvisoPerfilSimulado";
 
 /**
  * Documentos da matrícula que dependem do aluno: assinar o contrato da
@@ -29,6 +31,7 @@ export function DocumentosMatricula() {
   const [concordo, setConcordo] = useState(false);
   const [respostas, setRespostas] = useState<(boolean | null)[]>(PERGUNTAS_PARQ.map(() => null));
   const [enviando, setEnviando] = useState(false);
+  const simulado = emPerfilSimulado();
 
   const { data } = useQuery({
     queryKey: ["documentos-matricula", alunoId],
@@ -181,8 +184,9 @@ export function DocumentosMatricula() {
             <Checkbox checked={concordo} onCheckedChange={(v) => setConcordo(v === true)} className="mt-0.5" />
             <span>Li e concordo com o contrato. Esta é a minha assinatura eletrônica.</span>
           </label>
+          {simulado && <AvisoPerfilSimulado />}
           <DialogFooter>
-            <Button disabled={!concordo || nome.trim().length < 3 || assinar.isPending} onClick={() => assinar.mutate()}>
+            <Button disabled={!concordo || nome.trim().length < 3 || assinar.isPending || simulado} onClick={() => assinar.mutate()}>
               {assinar.isPending ? "Assinando..." : "Assinar"}
             </Button>
           </DialogFooter>

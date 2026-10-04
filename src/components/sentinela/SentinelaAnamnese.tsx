@@ -7,6 +7,8 @@ import { Label } from "@/components/ui/label";
 import { AlertTriangle, Globe, Loader2, Sparkles } from "lucide-react";
 import { mensagemDeErroEdge } from "@/lib/erroEdge";
 import { formatarDataBR } from "@/lib/dataBrasilia";
+import { emPerfilSimulado } from "@/lib/impersonation";
+import { AvisoPerfilSimulado } from "@/components/AvisoPerfilSimulado";
 
 type Resposta = {
   resumo?: string;
@@ -74,6 +76,7 @@ export function ConsentimentoSentinela({
 }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const simulado = emPerfilSimulado();
 
   const { data: consentimentos, isLoading } = useQuery({
     queryKey: ["consentimento-ia", alunoId],
@@ -154,13 +157,14 @@ export function ConsentimentoSentinela({
             <Switch
               id={`consentimento-ia-${chave}`}
               checked={!!atual}
-              disabled={alternar.isPending}
+              disabled={alternar.isPending || simulado}
               onCheckedChange={(v) => alternar.mutate({ proposito: chave, autorizar: v })}
               aria-label={titulo}
             />
           </div>
         );
       })}
+      {simulado && <AvisoPerfilSimulado />}
 
       {/*
         Onde o dado é processado vem dito aqui, e não só na Política, porque é

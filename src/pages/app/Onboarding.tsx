@@ -18,6 +18,8 @@ import {
   TEXTO_CONSENTIMENTO_SAUDE,
   VERSAO_CONSENTIMENTO_SAUDE,
 } from "@/lib/consentimentoSaude";
+import { emPerfilSimulado } from "@/lib/impersonation";
+import { AvisoPerfilSimulado } from "@/components/AvisoPerfilSimulado";
 
 interface AnamneseForm {
   objetivo_principal: string;
@@ -115,6 +117,7 @@ export default function Onboarding() {
   const [stepIndex, setStepIndex] = useState(0);
   const [form, setForm] = useState<AnamneseForm>(EMPTY_FORM);
   const [consentimentoAceito, setConsentimentoAceito] = useState(false);
+  const simulado = emPerfilSimulado();
   const [rascunhoRestaurado, setRascunhoRestaurado] = useState(false);
 
   // Restaura o rascunho salvo (se houver) assim que soubermos quem é o
@@ -288,6 +291,7 @@ export default function Onboarding() {
                   {CAIXA_CONSENTIMENTO_SAUDE}
                 </Label>
               </div>
+              {simulado && <AvisoPerfilSimulado />}
             </div>
           )}
 
@@ -301,7 +305,7 @@ export default function Onboarding() {
             </Button>
             {isLastStep ? (
               <Button
-                disabled={concluirOnboarding.isPending || !consentimentoAceito}
+                disabled={concluirOnboarding.isPending || !consentimentoAceito || simulado}
                 onClick={() => concluirOnboarding.mutate()}
               >
                 Concluir

@@ -19,7 +19,7 @@ Quem já é aluno de outra academia que usa o ArkeFit tem conta. Nesse caso, o c
 - **CPF igual ao da conta**: a matrícula é ligada à conta que a pessoa já tem, e ela recebe um e-mail avisando. Ela entra com a mesma senha e escolhe a academia no alto da tela. O nome e o telefone que ela já usa não mudam.
 - **CPF diferente, ou conta sem CPF**: o cadastro é recusado. Confira o e-mail e o CPF; se estiverem certos, fale com a ArkeFit.
 
-A conferência existe para nenhuma academia ligar a si a conta de outra pessoa só por saber o e-mail dela. Vale também para a importação.
+A conferência existe para nenhuma academia ligar a si a conta de outra pessoa só por saber o e-mail dela. Vale também para a importação, que só não manda o e-mail de aviso: na importação, ninguém recebe e-mail.
 
 ## A lista de alunos
 

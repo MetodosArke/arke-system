@@ -34,6 +34,12 @@ type ConvidarMembroPayload = {
   // A unidade em que a pessoa está na tela. Quem tem duas unidades não pode
   // cadastrar na errada; sem ela, vale o vínculo mais antigo (chamada antiga).
   organization_id?: string;
+  // Da importação (decisão de 04/10/2026): o cadastro nasce sem e-mail nenhum,
+  // e o aluno ativa pelo convite de primeiro acesso da academia (QR Code e
+  // link), quando quiser. O convite do login sai de um orçamento único do
+  // projeto (500 por hora), que serve também à recuperação de senha de todas
+  // as academias: uma importação de 400 alunos gastava 80% dele de uma vez.
+  sem_email?: boolean;
 };
 
 /**
@@ -132,6 +138,7 @@ Deno.serve(async (req: Request) => {
       return jsonResponse({ error: "Situação inválida. Use em dia, inadimplente ou pausado." }, 400);
     }
     const situacaoAcademia = payload.situacao_academia ?? "em_dia";
+    const semEmail = payload.sem_email === true && papel === "aluno";
 
     // CPF é opcional, mas se vier tem que ser real: ele é a chave de
     // leitura da catraca e a chave de deduplicação da base. Recusar aqui
@@ -313,26 +320,30 @@ Deno.serve(async (req: Request) => {
         return jsonResponse({ error: limite ? alunoError.message : "Erro ao criar o cadastro do aluno." }, limite ? 409 : 500);
       }
 
-      const aviso = await avisarMatricula(adminClient, {
-        userId,
-        email,
-        nome: perfil?.full_name?.trim() || fullName,
-        organizationId,
-        criarSenha: !conta.ultimo_acesso,
-        siteUrl,
-      });
-      return jsonResponse({ user_id: userId, conta_existente: true, aviso });
+      const aviso = semEmail
+        ? null
+        : await avisarMatricula(adminClient, {
+            userId,
+            email,
+            nome: perfil?.full_name?.trim() || fullName,
+            organizationId,
+            criarSenha: !conta.ultimo_acesso,
+            siteUrl,
+          });
+      return jsonResponse({ user_id: userId, conta_existente: true, aviso, sem_email: semEmail });
     }
 
-    const { data: invited, error: inviteError } = await adminClient.auth.admin.inviteUserByEmail(email, {
-      data: { full_name: fullName },
-      // Aponta direto pra tela de "defina sua senha e entre" (mesmo
-      // caminho usado em gerar-link-ativacao) — sem isso, o link cai na
-      // raiz do site e depende só da detecção de type=invite no index.html,
-      // que fica frágil se o domínio do e-mail (redirectTo) não bater
-      // exatamente com o domínio publicado.
-      redirectTo: `${siteUrl}/#/auth/definir-senha`,
-    });
+    const { data: invited, error: inviteError } = semEmail
+      ? await adminClient.auth.admin.createUser({ email, user_metadata: { full_name: fullName } })
+      : await adminClient.auth.admin.inviteUserByEmail(email, {
+          data: { full_name: fullName },
+          // Aponta direto pra tela de "defina sua senha e entre" (mesmo
+          // caminho usado em gerar-link-ativacao) — sem isso, o link cai na
+          // raiz do site e depende só da detecção de type=invite no index.html,
+          // que fica frágil se o domínio do e-mail (redirectTo) não bater
+          // exatamente com o domínio publicado.
+          redirectTo: `${siteUrl}/#/auth/definir-senha`,
+        });
 
     if (inviteError || !invited.user) {
       console.error("Error inviting user", inviteError);
@@ -403,7 +414,7 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    return jsonResponse({ user_id: newUserId });
+    return jsonResponse({ user_id: newUserId, sem_email: semEmail });
   } catch (error) {
     console.error("Unexpected error in convidar-membro", error);
     return jsonResponse({ error: "Erro inesperado ao processar o convite." }, 500);

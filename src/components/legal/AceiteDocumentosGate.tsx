@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { FileText } from "lucide-react";
 import { DOCUMENTOS, type TipoDocumento } from "@/lib/documentosLegais";
+import { emPerfilSimulado } from "@/lib/impersonation";
 
 /**
  * Aceite dos documentos legais vigentes antes de usar a plataforma: termos e
@@ -39,7 +40,9 @@ export function AceiteDocumentosGate({ children }: { children: React.ReactNode }
     staleTime: 5 * 60_000,
   });
 
-  if (!pendentes.length) return <>{children}</>;
+  // Em perfil simulado o aceite é recusado pelo banco: quem simula vê o app
+  // como a pessoa vê, e o aceite fica para ela.
+  if (!pendentes.length || emPerfilSimulado()) return <>{children}</>;
 
   const pessoais = pendentes.filter((t) => t !== "contrato_academia");
   const contrato = pendentes.includes("contrato_academia");

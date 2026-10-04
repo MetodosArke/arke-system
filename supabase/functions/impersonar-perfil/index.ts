@@ -30,11 +30,24 @@ type ImpersonarPayload = {
   organization_id: string;
 };
 
-// Gera um token de sessão (magic link) para o admin_arke/gestor "simular"
-// outro perfil já cadastrado, para testes de homologação — nunca expõe ou
-// altera a senha do usuário simulado. O frontend troca esse token pela
-// sessão do usuário-alvo via supabase.auth.verifyOtp, depois de guardar a
-// própria sessão do admin para poder voltar.
+// Abre uma sessão do usuário-alvo para o admin_arke/gestor "simular" outro
+// perfil já cadastrado — nunca expõe ou altera a senha do usuário simulado.
+// A sessão nasce aqui, e não no navegador, para o banco saber que ela é
+// simulada: o identificador dela vai para `sessoes_simuladas` antes de ser
+// entregue, e é isso que faz o banco recusar, nela, as autorizações que só a
+// própria pessoa dá (decisão de 04/10/2026). O frontend guarda a própria
+// sessão para poder voltar e troca pela que recebe daqui.
+
+/** O `session_id` do JWT de acesso, sem conferir a assinatura (o token acabou de vir do Auth). */
+function sessaoDoToken(accessToken: string): string | null {
+  try {
+    const parte = accessToken.split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
+    const json = JSON.parse(atob(parte + "=".repeat((4 - (parte.length % 4)) % 4)));
+    return typeof json.session_id === "string" ? json.session_id : null;
+  } catch {
+    return null;
+  }
+}
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -158,6 +171,30 @@ Deno.serve(async (req: Request) => {
       return errorResponse("Erro ao gerar acesso de simulação.");
     }
 
+    // A sessão é aberta aqui e marcada como simulada antes de sair. Sem a
+    // marca, ela não sai: uma sessão simulada sem marca autorizaria pelo aluno.
+    const verificador = createClient(supabaseUrl, anonKey, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+    const { data: verificado, error: verificarError } = await verificador.auth.verifyOtp({
+      type: "magiclink",
+      token_hash: linkData.properties.hashed_token,
+    });
+    const sessao = verificado?.session;
+    const sessionId = sessao ? sessaoDoToken(sessao.access_token) : null;
+    if (verificarError || !sessao || !sessionId) {
+      console.error("Falha ao abrir a sessão de simulação", verificarError?.status ?? "");
+      return errorResponse("Erro ao gerar acesso de simulação.");
+    }
+    const { error: marcaError } = await adminClient
+      .from("sessoes_simuladas")
+      .insert({ session_id: sessionId, alvo_user_id: targetUserId, ator_user_id: callerId });
+    if (marcaError) {
+      console.error("Falha ao marcar a sessão de simulação", marcaError.code);
+      await adminClient.auth.admin.signOut(sessao.access_token, "local").catch(() => undefined);
+      return errorResponse("Erro ao gerar acesso de simulação.");
+    }
+
     // Assumir a sessão de outra pessoa é a ação mais sensível do sistema, e
     // é a única que não mexe em nenhuma tabela — nenhum trigger a veria.
     // Registrar aqui é o único jeito de ela deixar rastro.
@@ -184,7 +221,8 @@ Deno.serve(async (req: Request) => {
 
     return jsonResponse({
       email: targetUser.user.email,
-      token_hash: linkData.properties.hashed_token,
+      access_token: sessao.access_token,
+      refresh_token: sessao.refresh_token,
     });
   } catch (error) {
     console.error("Unexpected error in impersonar-perfil", error);
