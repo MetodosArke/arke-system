@@ -4,7 +4,7 @@ A tela [Organização](/admin/organizacao) reúne os dados e as regras comerciai
 
 ## As abas
 
-- **Perfil**: nome, contato, endereço, logotipo e o endereço do link de matrícula. O tipo de negócio (academia, studio) muda o que o painel oferece; studio tem agenda de aulas. No fim da aba fica a marca do app do aluno (abaixo).
+- **Perfil**: nome, contato, endereço, logotipo e o endereço do link de matrícula. O logotipo pode ser PNG, JPEG, WebP ou SVG; o ArkeFit reduz a imagem antes de subir, porque ela aparece no app de todo aluno. O tipo de negócio (academia, studio) muda o que o painel oferece; studio tem agenda de aulas. No fim da aba fica a marca do app do aluno (abaixo).
 - **Precificação**: o preço que a academia cobra do aluno pelo Método ARKE, em cada nível (Integrado e Elite). Ao lado de cada nível vem o preço sugerido pela ArkeFit. A tela mostra a divisão de cada cobrança, com o repasse do contrato da academia para aquele nível: quanto fica com a ArkeFit, quanto é a taxa do meio de pagamento e quanto cai na conta da academia. Um preço que não cobre a parte da ArkeFit é recusado.
 - **Pagamentos**: a conta de recebimentos da academia no Asaas, onde cai a parte dela de cada cobrança. A conta é configurada na [Configuração da academia](/admin/onboarding).
 - **Assinaturas**: os alunos com Método ARKE, com o botão de recibo de cada assinatura.

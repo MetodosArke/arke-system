@@ -8,6 +8,7 @@ import { caminhoDaMidia, validarArquivo } from "@/lib/midiaExercicio";
 import { removerAudio } from "@/lib/removerAudio";
 import { MidiaExercicio } from "@/components/acervo/MidiaExercicio";
 import { Loader2, Upload, Link2, X } from "lucide-react";
+import { nomeComExtensao, passaSemReduzir, reduzirImagem } from "@/lib/reduzirImagem";
 
 /**
  * Vídeo e imagem/GIF do exercício: envio para o armazenamento do ARKE (o
@@ -49,6 +50,15 @@ export function CampoMidia({
       if (tipo === "video") {
         setEtapa("Tirando o áudio do vídeo…");
         arquivo = (await removerAudio(arquivoOriginal)).arquivo;
+      }
+      if (tipo === "imagem" && !passaSemReduzir(arquivoOriginal.type)) {
+        // A imagem aparece na ficha de todo aluno que treina o exercício: sai
+        // reduzida do aparelho. O GIF sobe como veio, para não perder a animação.
+        setEtapa("Reduzindo a imagem…");
+        const reduzida = await reduzirImagem(arquivoOriginal, { ladoMaior: 1200, tipo: "image/webp", qualidade: 0.85 });
+        if (reduzida !== arquivoOriginal) {
+          arquivo = new File([reduzida], nomeComExtensao(arquivoOriginal.name, reduzida.type), { type: reduzida.type });
+        }
       }
       setEtapa("Enviando…");
       const bucket = tipo === "video" ? "exercicio-videos" : "exercicio-imagens";
