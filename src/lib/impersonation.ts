@@ -15,6 +15,11 @@ interface SessionBackup {
 // pela do usuário-alvo, via o Edge Function `impersonar-perfil` (que nunca
 // expõe nem altera a senha de ninguém). A sessão original fica guardada em
 // sessionStorage (por aba) até `stopImpersonation` restaurá-la.
+//
+// A sessão simulada nasce no servidor, marcada: nela o banco recusa as
+// autorizações que só a própria pessoa dá (IA, digital e rosto, documentos,
+// consentimento de saúde e contrato). As telas usam `emPerfilSimulado()` só
+// para mostrar isso antes de a pessoa tentar.
 export async function startImpersonation(
   targetUserId: string,
   organizationId: string
@@ -26,13 +31,14 @@ export async function startImpersonation(
 
   const { data, error } = await supabase.functions.invoke<{
     email?: string;
-    token_hash?: string;
+    access_token?: string;
+    refresh_token?: string;
     error?: string;
   }>("impersonar-perfil", { body: { user_id: targetUserId, organization_id: organizationId } });
   if (error) {
     return { error: new Error(await mensagemDeErroEdge(error, "Falha ao simular o perfil.")) };
   }
-  if (data?.error || !data?.email || !data?.token_hash) {
+  if (data?.error || !data?.email || !data?.access_token || !data?.refresh_token) {
     return { error: new Error(data?.error ?? "Falha ao simular o perfil.") };
   }
 
@@ -44,18 +50,13 @@ export async function startImpersonation(
   };
   sessionStorage.setItem(STORAGE_KEY, JSON.stringify(backup));
 
-  // VerifyTokenHashParams aceita SOMENTE { type, token_hash } — incluir
-  // `email` junto (como este código fazia) faz o próprio servidor do
-  // Supabase Auth rejeitar com "Only the token_hash and type should be
-  // provided" (o TS não pega isso: excess-property-check em union types é
-  // permissivo o bastante para deixar passar uma combinação inválida).
-  const { error: verifyError } = await supabase.auth.verifyOtp({
-    type: "magiclink",
-    token_hash: data.token_hash,
+  const { error: sessionError } = await supabase.auth.setSession({
+    access_token: data.access_token,
+    refresh_token: data.refresh_token,
   });
-  if (verifyError) {
+  if (sessionError) {
     sessionStorage.removeItem(STORAGE_KEY);
-    return { error: verifyError };
+    return { error: sessionError };
   }
 
   return { error: null };
@@ -71,9 +72,25 @@ export function getImpersonationBackup(): SessionBackup | null {
   }
 }
 
+/** Esta aba está num perfil simulado. */
+export function emPerfilSimulado(): boolean {
+  try {
+    return !!sessionStorage.getItem(STORAGE_KEY);
+  } catch {
+    return false;
+  }
+}
+
+export const MENSAGEM_PERFIL_SIMULADO =
+  "Em perfil simulado, só a própria pessoa autoriza, retira a autorização, aceita ou assina. Peça a ela para fazer isso no app dela.";
+
 export async function stopImpersonation(): Promise<{ error: Error | null }> {
   const backup = getImpersonationBackup();
   if (!backup) return { error: null };
+
+  // Encerra a sessão simulada no servidor: sem isso ela seguiria válida,
+  // esquecida, com a marca de simulada até expirar.
+  await supabase.auth.signOut({ scope: "local" }).catch(() => undefined);
 
   const { error } = await supabase.auth.setSession({
     access_token: backup.access_token,

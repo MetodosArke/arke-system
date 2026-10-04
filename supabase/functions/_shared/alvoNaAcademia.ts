@@ -1,3 +1,5 @@
+import type { SupabaseClient } from "npm:@supabase/supabase-js@2";
+
 // Até onde a equipe de uma academia alcança a conta de outra pessoa.
 //
 // Simular o perfil, trocar o e-mail de login e gerar link de ativação mexem na
@@ -12,16 +14,7 @@
 //
 // Falha da consulta conta como "não": aqui o erro é deixar passar.
 
-type Consulta = PromiseLike<{ data: Record<string, unknown>[] | null; error: unknown }>;
-type ClienteAdmin = {
-  from: (tabela: string) => {
-    select: (colunas: string) => {
-      eq: (coluna: string, valor: string) => Consulta & { eq: (coluna: string, valor: string) => Consulta };
-    };
-  };
-};
-
-export async function alvoSoNaAcademia(admin: ClienteAdmin, alvoId: string, organizationId: string): Promise<boolean> {
+export async function alvoSoNaAcademia(admin: SupabaseClient, alvoId: string, organizationId: string): Promise<boolean> {
   try {
     const [vinculos, matriculas, papeis] = await Promise.all([
       admin.from("organization_members").select("organization_id").eq("user_id", alvoId).eq("status", "active"),

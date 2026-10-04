@@ -27,6 +27,8 @@ Corrija o que a tela apontou (e-mail repetido, CPF com dígito errado) e use **T
 
 ## E depois?
 
-Cada aluno importado recebe um e-mail para criar a senha. Para quem não viu o e-mail, use o convite único da academia, com QR Code. Veja [Convite de primeiro acesso e guia do aluno](ajuda:primeiro-acesso-aluno).
+A importação **não manda e-mail** aos alunos. Para eles entrarem no app, divulgue o convite único da academia: o QR Code na recepção e o link no grupo e no Instagram. Cada aluno digita o e-mail ou o celular cadastrado e recebe, nessa hora, o próprio link para criar a senha. Assim o e-mail sai quando o aluno pede, espalhado pelos dias, e não centenas de uma vez. Veja [Convite de primeiro acesso e guia do aluno](ajuda:primeiro-acesso-aluno).
+
+Quem já tinha conta no ArkeFit, em outra academia, fica ligado à sua com a mesma conta e a mesma senha, desde que o CPF da planilha seja o da conta.
 
 > Situação que o ARKE não consegue interpretar faz a linha falhar, em vez de adivinhar. "Bloqueado", do EVO, é lido como inadimplente; aluno inativo ou cancelado não é importado.

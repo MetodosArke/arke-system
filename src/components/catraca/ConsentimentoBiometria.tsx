@@ -6,6 +6,8 @@ import { Label } from "@/components/ui/label";
 import { Fingerprint } from "lucide-react";
 import { TEXTO_TERMO_BIOMETRIA, VERSAO_CONSENTIMENTO_BIOMETRIA } from "@/lib/termoBiometria";
 import { formatarDataBR } from "@/lib/dataBrasilia";
+import { emPerfilSimulado } from "@/lib/impersonation";
+import { AvisoPerfilSimulado } from "@/components/AvisoPerfilSimulado";
 
 const formatarData = (valor: string) => formatarDataBR(valor);
 
@@ -27,6 +29,7 @@ const formatarData = (valor: string) => formatarDataBR(valor);
 export function ConsentimentoBiometria({ alunoId, organizationId }: { alunoId: string; organizationId: string }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const simulado = emPerfilSimulado();
 
   const { data: temCatraca = false } = useQuery({
     queryKey: ["academia-tem-catraca", organizationId],
@@ -103,7 +106,7 @@ export function ConsentimentoBiometria({ alunoId, organizationId }: { alunoId: s
               <button
                 type="button"
                 className="underline underline-offset-2"
-                disabled={alternar.isPending}
+                disabled={alternar.isPending || simulado}
                 onClick={() => alternar.mutate(false)}
               >
                 retire a autorização anterior
@@ -123,11 +126,12 @@ export function ConsentimentoBiometria({ alunoId, organizationId }: { alunoId: s
         <Switch
           id="consentimento-biometria"
           checked={!!vigente}
-          disabled={alternar.isPending}
+          disabled={alternar.isPending || simulado}
           onCheckedChange={(v) => alternar.mutate(v)}
           aria-label="Uso da minha digital e do meu rosto na catraca"
         />
       </div>
+      {simulado && <AvisoPerfilSimulado />}
     </div>
   );
 }

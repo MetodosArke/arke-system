@@ -8,6 +8,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { CheckCircle2 } from "lucide-react";
 import { DOCUMENTOS } from "@/lib/documentosLegais";
 import { formatarDataBR } from "@/lib/dataBrasilia";
+import { emPerfilSimulado } from "@/lib/impersonation";
+import { AvisoPerfilSimulado } from "@/components/AvisoPerfilSimulado";
 
 /**
  * Contrato da academia (licença + tratamento de dados). Fora de trial ele já é
@@ -18,6 +20,7 @@ export function EtapaContrato({ onSalvo }: { onSalvo: () => void }) {
   const { organization } = useAuth();
   const { toast } = useToast();
   const [marcado, setMarcado] = useState(false);
+  const simulado = emPerfilSimulado();
   const doc = DOCUMENTOS.contrato_academia;
 
   const { data: aceite, refetch } = useQuery({
@@ -79,7 +82,8 @@ export function EtapaContrato({ onSalvo }: { onSalvo: () => void }) {
         <Checkbox checked={marcado} onCheckedChange={(v) => setMarcado(v === true)} className="mt-0.5" />
         <span>Li e aceito o contrato, e tenho poderes para aceitá-lo em nome da {organization?.nome ?? "academia"}.</span>
       </label>
-      <Button disabled={!marcado || aceitar.isPending} onClick={() => aceitar.mutate()}>
+      {simulado && <AvisoPerfilSimulado />}
+      <Button disabled={!marcado || aceitar.isPending || simulado} onClick={() => aceitar.mutate()}>
         {aceitar.isPending ? "Registrando..." : "Aceitar contrato"}
       </Button>
     </div>

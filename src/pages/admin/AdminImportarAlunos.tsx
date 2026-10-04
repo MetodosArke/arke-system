@@ -312,12 +312,15 @@ export default function AdminImportarAlunos() {
           : undefined,
         papel: "aluno",
         situacao_academia: situacao,
+        // Sem e-mail (decisão de 04/10/2026): o aluno ativa pelo convite de
+        // primeiro acesso da academia, e o e-mail sai quando ele pede.
+        sem_email: true,
       },
     });
     if (error) throw new Error(await mensagemDeErroEdge(error, "Não foi possível importar esta linha."));
 
     const avisos: string[] = [];
-    if (data?.conta_existente) avisos.push(data.aviso ?? "já tinha conta no ArkeFit: matrícula ligada a ela, com aviso por e-mail");
+    if (data?.conta_existente) avisos.push(data.aviso ?? "já tinha conta no ArkeFit: matrícula ligada a ela");
 
     const temHistorico = CAMPOS_AVALIACAO_FISICA.some((campo) => (registro[campo] ?? "").trim() !== "");
     if (data?.user_id && temHistorico && organization?.id) {
@@ -583,7 +586,8 @@ export default function AdminImportarAlunos() {
         <CardHeader className="pb-2">
           <CardTitle className="text-base">1. Selecione o arquivo</CardTitle>
           <p className="text-xs text-muted-foreground">
-            Formatos aceitos: .csv e .xlsx — até 5MB / 2000 linhas. As colunas são reconhecidas automaticamente
+            A importação não manda e-mail aos alunos: depois de importar, divulgue o convite de primeiro acesso
+            (QR Code e link), e cada aluno ativa a própria conta quando quiser. Formatos aceitos: .csv e .xlsx — até 5MB / 2000 linhas. As colunas são reconhecidas automaticamente
             mesmo com nomes diferentes ou em inglês (ex.: "weight" vira Peso, "waist circumference" vira
             Perimetria — Cintura) — confira o de-para abaixo antes de importar. Se a planilha tiver dados de
             avaliação física (peso, dobras, perimetria) de um sistema anterior, dá pra mapear essas colunas
@@ -660,6 +664,15 @@ export default function AdminImportarAlunos() {
                 </Button>
               )}
             </div>
+            {totalSucesso > 0 && !importando && (
+              <p className="text-xs text-muted-foreground">
+                Nenhum e-mail foi enviado. Para os alunos entrarem no app, use o{" "}
+                <button type="button" className="text-primary underline underline-offset-2" onClick={() => navigate("/admin/alunos")}>
+                  convite de primeiro acesso
+                </button>
+                : o QR Code na recepção e o link no grupo da academia.
+              </p>
+            )}
           </CardHeader>
           <CardContent>
             <Table>

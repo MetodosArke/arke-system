@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Camera, Loader2, ScanFace } from "lucide-react";
 import { lerCadastroRosto, situacaoDoRosto } from "@/lib/cadastroRosto";
 import { prepararFotoRosto } from "@/lib/fotoRosto";
+import { emPerfilSimulado } from "@/lib/impersonation";
+import { AvisoPerfilSimulado } from "@/components/AvisoPerfilSimulado";
 
 /**
  * O aluno manda a foto do próprio rosto para as catracas da academia
@@ -31,6 +33,7 @@ export function FotoRostoCatraca({ alunoId }: { alunoId: string }) {
   const entrada = useRef<HTMLInputElement>(null);
   const [foto, setFoto] = useState<string | null>(null);
   const [preparando, setPreparando] = useState(false);
+  const simulado = emPerfilSimulado();
 
   const { data: rosto } = useQuery({
     queryKey: ["cadastro-rosto", alunoId],
@@ -110,6 +113,8 @@ export function FotoRostoCatraca({ alunoId }: { alunoId: string }) {
           />
           {!rosto.pode_enviar_pelo_app ? (
             <p className="text-xs text-muted-foreground">Para trocar a foto do rosto, fale com a recepção da academia.</p>
+          ) : simulado ? (
+            <AvisoPerfilSimulado />
           ) : foto ? (
             <div className="flex items-end gap-3">
               <img src={foto} alt="Prévia da foto do rosto" className="h-32 w-24 rounded-md border object-cover" />

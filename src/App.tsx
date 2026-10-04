@@ -11,6 +11,7 @@ import { PushNotificationManager } from "@/components/PushNotificationManager";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { NetworkStatusBanner } from "@/components/NetworkStatusBanner";
 import { ImpersonationBanner } from "@/components/ImpersonationBanner";
+import { emPerfilSimulado } from "@/lib/impersonation";
 import { resolveHomePath } from "@/lib/authRouting";
 import { Suspense, useState } from "react";
 import { paginaPreguicosa } from "@/lib/carregamentoPreguicoso";
@@ -147,6 +148,9 @@ const SUPERADMIN_ROLES = ["superadmin"] as const;
 // que a equipe publicar pra ele.
 function AlunoOnboardingGate({ children }: { children: React.ReactNode }) {
   const { alunoId, metodoArkeAtivo, anamneseCompleta, consentimentoLgpdAceito, rolesLoaded } = useAuth();
+  // Em perfil simulado, quem simula não preenche nem autoriza pelo aluno: vê o
+  // app como ele, e as duas telas seguem abertas pelo endereço.
+  if (emPerfilSimulado()) return <>{children}</>;
   if (rolesLoaded && alunoId && metodoArkeAtivo && !anamneseCompleta) {
     return <Navigate to="/app/onboarding" replace />;
   }

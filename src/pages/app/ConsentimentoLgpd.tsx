@@ -14,6 +14,8 @@ import {
   TEXTO_CONSENTIMENTO_SAUDE,
   VERSAO_CONSENTIMENTO_SAUDE,
 } from "@/lib/consentimentoSaude";
+import { emPerfilSimulado } from "@/lib/impersonation";
+import { AvisoPerfilSimulado } from "@/components/AvisoPerfilSimulado";
 
 // Tela de consentimento LGPD isolada: cobre o caso de alunos que já
 // concluíram a anamnese M.A.P.A.® antes deste termo existir. Diferente do
@@ -24,6 +26,7 @@ export default function ConsentimentoLgpd() {
   const { toast } = useToast();
   const navigate = useNavigate();
   const [aceito, setAceito] = useState(false);
+  const simulado = emPerfilSimulado();
 
   const confirmar = useMutation({
     mutationFn: async () => {
@@ -65,7 +68,8 @@ export default function ConsentimentoLgpd() {
               {CAIXA_CONSENTIMENTO_SAUDE}
             </Label>
           </div>
-          <Button className="w-full" disabled={!aceito || confirmar.isPending} onClick={() => confirmar.mutate()}>
+          {simulado && <AvisoPerfilSimulado />}
+          <Button className="w-full" disabled={!aceito || confirmar.isPending || simulado} onClick={() => confirmar.mutate()}>
             {confirmar.isPending ? "Confirmando..." : "Confirmar e continuar"}
           </Button>
         </CardContent>

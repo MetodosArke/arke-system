@@ -30,4 +30,6 @@ Clique no nome da academia para abrir a ficha: métricas, contato, dados fiscais
 
 Para ver exatamente o que um gestor, professor ou aluno vê, escolha a pessoa em **Simulação de Visão de Perfil**. A sessão passa a ser a dela, com uma faixa permanente avisando, e **Voltar** devolve você à sua. Ninguém precisa passar senha para isso.
 
+Na sessão simulada, o que só a própria pessoa faz fica com ela: autorizar ou retirar a autorização da IA, da digital e do rosto, enviar a foto do rosto, aceitar os documentos, dar o consentimento de saúde e assinar o contrato. As telas mostram a situação, mas não deixam mudar, e o banco recusa se alguém tentar por outro caminho. A visita também não conta como primeiro acesso nem como atividade do aluno.
+
 > Simular é entrar na conta de uma pessoa real. Use para suporte e conferência, e só o tempo necessário.
