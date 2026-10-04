@@ -468,7 +468,7 @@ export default function AdminAlunos() {
                       {planoDoAluno(aluno) === "free" ? (
                         <div className="flex items-center gap-1.5">
                           <Badge variant="outline">{ROTULO_PLANO.free}</Badge>
-                          {!aluno.anonimizado_em && (
+                          {!aluno.anonimizado_em && podeCadastrarAluno && (
                             <Button
                               variant="ghost"
                               size="sm"
@@ -502,7 +502,7 @@ export default function AdminAlunos() {
                         <Badge variant={aluno.assinatura_status === "ativa" ? "default" : "outline"}>
                           {ASSINATURA_LABEL[aluno.assinatura_status] ?? aluno.assinatura_status}
                         </Badge>
-                      ) : aluno.metodo_arke_status === "ativo" ? (
+                      ) : aluno.metodo_arke_status === "ativo" && podeCadastrarAluno ? (
                         <Button
                           variant="outline"
                           size="sm"

@@ -1,7 +1,9 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import { createClient } from "npm:@supabase/supabase-js@2";
 import webpush from "npm:web-push@3.6.7";
 import { Buffer } from "node:buffer";
 import { createECDH } from "node:crypto";
+import { dentroDoFreio, MENSAGEM_FREIO } from "../_shared/freio.ts";
+import { caminhoDoApp, papeisDaEquipe, podeAvisarPessoa, TEXTO_MAXIMO, textoDoAviso, TITULO_MAXIMO } from "./regras.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -61,7 +63,10 @@ Deno.serve(async (req) => {
     );
 
     const body = (await req.json()) as Payload;
-    const { recipientUserId, recipientOrgId, recipientOrgRoles, title, body: msgBody, url } = body || ({} as Payload);
+    const { recipientUserId, recipientOrgId, recipientOrgRoles } = body || ({} as Payload);
+    const title = textoDoAviso(body?.title, TITULO_MAXIMO);
+    const msgBody = textoDoAviso(body?.body, TEXTO_MAXIMO);
+    const url = caminhoDoApp(body?.url);
 
     if ((!recipientUserId && !(recipientOrgId && recipientOrgRoles?.length)) || !title || !msgBody) {
       return new Response(JSON.stringify({ error: "missing fields" }), {
@@ -85,20 +90,39 @@ Deno.serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, serviceRoleKey);
 
+    // Uma mensagem de chat gera um aviso; um laço, centenas.
+    if (!(await dentroDoFreio(supabase, [{ chave: `push:user:${callerId}`, limite: 60, janelaSeg: 10 * 60 }]))) {
+      return new Response(JSON.stringify({ error: MENSAGEM_FREIO }), {
+        status: 429,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     // Quem manda o push precisa pertencer à MESMA organização do(s)
     // destinatário(s) — mensagens de chat são sempre dentro de uma
-    // organização (aluno <-> staff da própria academia), então isto
-    // fecha o relay pra fora sem precisar validar cada conversa.
+    // organização (aluno <-> staff da própria academia). E o papel conta:
+    // o aluno só avisa a equipe, nunca outro aluno (regras.ts).
     const { data: callerOrgs } = await supabase
       .from("organization_members")
-      .select("organization_id")
+      .select("organization_id, role")
       .eq("user_id", callerId)
       .eq("status", "active");
-    const callerOrgIds = new Set((callerOrgs ?? []).map((m) => m.organization_id));
+    const papelNa = new Map<string, string>((callerOrgs ?? []).map((m) => [m.organization_id, m.role]));
 
     let orgAutorizada: string | null = null;
+    let targetUserIds: string[] = [];
     if (recipientOrgId) {
-      orgAutorizada = callerOrgIds.has(recipientOrgId) ? recipientOrgId : null;
+      const papeis = papeisDaEquipe(recipientOrgRoles);
+      if (papelNa.has(recipientOrgId) && papeis.length > 0) {
+        orgAutorizada = recipientOrgId;
+        const { data: membros } = await supabase
+          .from("organization_members")
+          .select("user_id")
+          .eq("organization_id", recipientOrgId)
+          .eq("status", "active")
+          .in("role", papeis);
+        targetUserIds = (membros || []).map((m: { user_id: string }) => m.user_id);
+      }
     } else if (recipientUserId) {
       // O destinatário pode ter vínculo ativo em mais de uma academia, e
       // com .maybeSingle() a consulta falhava — a notificação simplesmente
@@ -107,31 +131,19 @@ Deno.serve(async (req) => {
       // academia que os dois têm em comum.
       const { data: vinculosAlvo } = await supabase
         .from("organization_members")
-        .select("organization_id")
+        .select("organization_id, role")
         .eq("user_id", recipientUserId)
         .eq("status", "active");
       orgAutorizada =
-        (vinculosAlvo ?? []).find((v) => callerOrgIds.has(v.organization_id))?.organization_id ?? null;
+        (vinculosAlvo ?? []).find((v) => podeAvisarPessoa(papelNa.get(v.organization_id) ?? null, v.role))
+          ?.organization_id ?? null;
+      if (orgAutorizada) targetUserIds = [recipientUserId];
     }
     if (!orgAutorizada) {
       return new Response(JSON.stringify({ error: "Você não tem permissão para notificar este destinatário." }), {
         status: 403,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
-    }
-
-    // Resolver lista de user_ids destinatários
-    let targetUserIds: string[] = [];
-    if (recipientUserId) {
-      targetUserIds = [recipientUserId];
-    } else if (recipientOrgId && recipientOrgRoles?.length) {
-      const { data: membros } = await supabase
-        .from("organization_members")
-        .select("user_id")
-        .eq("organization_id", recipientOrgId)
-        .eq("status", "active")
-        .in("role", recipientOrgRoles);
-      targetUserIds = (membros || []).map((m: { user_id: string }) => m.user_id);
     }
 
     // Filtrar pela whitelist de email (modo teste).
@@ -163,7 +175,7 @@ Deno.serve(async (req) => {
     }
 
     let sent = 0;
-    const payloadStr = JSON.stringify({ title, body: msgBody, url: url || "/" });
+    const payloadStr = JSON.stringify({ title, body: msgBody, url });
 
     for (const sub of subscriptions) {
       try {

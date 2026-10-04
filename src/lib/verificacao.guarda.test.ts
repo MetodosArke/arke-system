@@ -21,7 +21,16 @@ function arquivos(dir: string, achados: string[] = []): string[] {
   return achados;
 }
 
-const PAPEL_ARKE = /role\s*===\s*"(superadmin|admin_arke)"/;
+// Também quem confere o papel no banco passando o usuário (`_uid`) com a
+// service role: ali `has_role` não exige as duas etapas, porque a pergunta é
+// sobre outra pessoa. Foi assim que a aprovação do Vigia ficou sem a exigência.
+const PAPEL_ARKE = /role\s*===\s*"(superadmin|admin_arke)"|vigia_preparar_aprovacao|_uid\s*:\s*uid/;
+
+// Arquivos que olham o papel da ArkeFit de OUTRA pessoa, e não de quem chama:
+// ali o papel não dá poder a ninguém, só protege a conta do alvo.
+const SOBRE_O_ALVO = new Set([
+  "_shared/alvoNaAcademia.ts", // a equipe da academia não mexe na conta de quem é da ArkeFit
+]);
 
 describe("verificação em duas etapas nas edge functions", () => {
   const codigos = arquivos(FUNCOES).map((c) => ({ nome: c.slice(FUNCOES.length + 1).replace(/\\/g, "/"), codigo: readFileSync(c, "utf8") }));
@@ -31,7 +40,9 @@ describe("verificação em duas etapas nas edge functions", () => {
   });
 
   it("toda função que decide pelo papel da ArkeFit exige a sessão verificada", () => {
-    const sem = codigos.filter((c) => PAPEL_ARKE.test(c.codigo) && !/verificada\(/.test(c.codigo)).map((c) => c.nome);
+    const sem = codigos
+      .filter((c) => !SOBRE_O_ALVO.has(c.nome) && PAPEL_ARKE.test(c.codigo) && !/verificada\(/.test(c.codigo))
+      .map((c) => c.nome);
     expect(sem, "use verificada(claims) de _shared/verificacao.ts").toEqual([]);
   });
 });

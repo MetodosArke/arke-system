@@ -14,6 +14,10 @@ import { join, relative } from "node:path";
 // (`treinos(titulo)`) conferem só o nome da tabela.
 
 const RAIZ = join(__dirname, "..");
+// As edge functions também: lá a consulta roda com a service role, e um
+// select com coluna errada dá erro que muitas vezes vira "não" em silêncio —
+// foi assim que a conferência de "só nesta academia" nasceu negando todo mundo.
+const FUNCOES = join(__dirname, "..", "..", "supabase", "functions");
 
 function arquivosFonte(dir: string): string[] {
   return readdirSync(dir).flatMap((nome) => {
@@ -62,7 +66,7 @@ describe("colunas pedidas nas consultas existem no banco", () => {
 
   it("nenhuma consulta pede coluna ou tabela inexistente", () => {
     const problemas: string[] = [];
-    for (const arquivo of arquivosFonte(RAIZ)) {
+    for (const arquivo of [...arquivosFonte(RAIZ), ...arquivosFonte(FUNCOES)]) {
       if (arquivo.includes(join("integrations", "supabase"))) continue;
       const fonte = readFileSync(arquivo, "utf8");
       for (const m of fonte.matchAll(/\.from\(\s*"(\w+)"\s*\)/g)) {
@@ -82,11 +86,11 @@ describe("colunas pedidas nas consultas existem no banco", () => {
           if (semAlias.includes("(")) {
             // Relação embutida: "treinos(titulo)" ou "alias:treinos!fk(col)".
             const nome = semAlias.split("(")[0].split(":").pop()!.split("!")[0].trim();
-            if (!esquema.has(nome)) problemas.push(`${relative(RAIZ, arquivo)}: ${tabela} → relação ${nome}`);
+            if (!esquema.has(nome)) problemas.push(`${relative(RAIZ, arquivo).replace(/\\/g, "/")}: ${tabela} → relação ${nome}`);
             continue;
           }
           const coluna = semAlias.split("::")[0].trim();
-          if (!colunas.has(coluna)) problemas.push(`${relative(RAIZ, arquivo)}: ${tabela}.${coluna}`);
+          if (!colunas.has(coluna)) problemas.push(`${relative(RAIZ, arquivo).replace(/\\/g, "/")}: ${tabela}.${coluna}`);
         }
       }
     }

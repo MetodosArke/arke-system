@@ -1,6 +1,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { ligarCartaoNaAssinatura } from "./fluxo.ts";
 import { ambienteAsaas } from "../_shared/asaas.ts";
+import { dentroDoFreio, MENSAGEM_FREIO, regrasAsaas } from "../_shared/freio.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -221,6 +222,17 @@ Deno.serve(async (req: Request) => {
       if (!vinculo || !PAPEIS_EQUIPE.includes(vinculo.role)) {
         return jsonResponse({ error: "Só o próprio aluno, a gestão ou a recepção podem cadastrar o cartão." }, 403);
       }
+    }
+
+    // Cartão é onde se testa cartão roubado: muitas tentativas seguidas, cada
+    // uma com um número, até um passar. Uso de verdade é uma ou duas por vez.
+    const freioCartao = [
+      { chave: `cartao:user:${callerId}`, limite: 5, janelaSeg: 60 * 60 },
+      { chave: `cartao:aluno:${aluno.id}`, limite: 10, janelaSeg: 24 * 60 * 60 },
+      ...regrasAsaas(callerId, aluno.organization_id),
+    ];
+    if (!(await dentroDoFreio(admin, freioCartao))) {
+      return jsonResponse({ error: "Muitas tentativas de cadastrar cartão. Espere uma hora e tente de novo." }, 429);
     }
 
     // As duas assinaturas guardam o resumo do cartão nas mesmas colunas.

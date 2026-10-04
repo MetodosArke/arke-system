@@ -2,6 +2,8 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import webpush from "npm:web-push@3.6.7";
 import { Buffer } from "node:buffer";
 import { createECDH } from "node:crypto";
+import { dentroDoFreio } from "../_shared/freio.ts";
+import { todasAsLinhas } from "../_shared/paginar.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -46,6 +48,28 @@ Deno.serve(async (req: Request) => {
     const callerId = typeof claims?.claims?.sub === "string" ? claims.claims.sub : null;
     if (claimsError || !callerId) return jsonResponse({ error: "Sessão inválida. Faça login novamente." }, 401);
 
+    // Um comunicado avisa a academia inteira no celular. Algumas vezes por dia
+    // é uso; dezenas viram ruído que ensina o aluno a desligar os avisos. O
+    // freio só conta para quem pode publicar, senão um aluno gastaria a cota
+    // da academia com chamadas que nem seriam aceitas.
+    const admin = createClient(supabaseUrl, serviceRoleKey);
+    const { data: papelDoChamador } = await admin
+      .from("organization_members")
+      .select("role")
+      .eq("organization_id", organizationId)
+      .eq("user_id", callerId)
+      .eq("status", "active")
+      .maybeSingle();
+    if (papelDoChamador && ["gestor", "recepcao"].includes(papelDoChamador.role)) {
+      const freio = [
+        { chave: `comunicado:user:${callerId}`, limite: 10, janelaSeg: 60 * 60 },
+        { chave: `comunicado:org:${organizationId}`, limite: 20, janelaSeg: 24 * 60 * 60 },
+      ];
+      if (!(await dentroDoFreio(admin, freio))) {
+        return jsonResponse({ error: "Muitos comunicados hoje. Amanhã libera de novo." }, 429);
+      }
+    }
+
     // Grava como o próprio chamador: as regras da tabela conferem que ele é
     // gestor ou recepção DESTA organização.
     const { data: comunicado, error: erroInsert } = await asUser
@@ -67,28 +91,48 @@ Deno.serve(async (req: Request) => {
     const vapidPrivateKey = Deno.env.get("VAPID_PRIVATE_KEY");
     if (!vapidPrivateKey) return jsonResponse({ ok: true, enviados: 0 });
 
-    const admin = createClient(supabaseUrl, serviceRoleKey);
     const papeis = publico === "alunos" ? ["aluno"] : publico === "equipe" ? ["gestor", "professor", "nutricionista", "recepcao"] : null;
-    let consulta = admin.from("organization_members").select("user_id").eq("organization_id", organizationId).eq("status", "active");
-    if (papeis) consulta = consulta.in("role", papeis);
-    const { data: membros } = await consulta;
-    const destinatarios = [...new Set((membros ?? []).map((m) => m.user_id).filter((u) => u !== callerId))];
+    // Em páginas: a API para em mil linhas sem avisar, e a academia grande
+    // ficaria com parte dos alunos sem o aviso.
+    const membros = await todasAsLinhas<{ user_id: string }>((de, ate) => {
+      let consulta = admin
+        .from("organization_members")
+        .select("user_id")
+        .eq("organization_id", organizationId)
+        .eq("status", "active")
+        .order("user_id");
+      if (papeis) consulta = consulta.in("role", papeis);
+      return consulta.range(de, ate);
+    });
+    const destinatarios = [...new Set(membros.map((m) => m.user_id).filter((u) => u !== callerId))];
     if (!destinatarios.length) return jsonResponse({ ok: true, enviados: 0 });
 
     // Alunos pausados ou inadimplentes não estão no app: não recebem aviso de uso.
     let alvo = destinatarios;
     if (publico !== "equipe") {
-      const { data: foraDoApp } = await admin
-        .from("alunos")
-        .select("user_id")
-        .eq("organization_id", organizationId)
-        .neq("situacao_academia", "em_dia");
-      const fora = new Set((foraDoApp ?? []).map((a) => a.user_id));
+      const foraDoApp = await todasAsLinhas<{ user_id: string }>((de, ate) =>
+        admin
+          .from("alunos")
+          .select("user_id")
+          .eq("organization_id", organizationId)
+          .neq("situacao_academia", "em_dia")
+          .order("id")
+          .range(de, ate)
+      );
+      const fora = new Set(foraDoApp.map((a) => a.user_id));
       alvo = destinatarios.filter((u) => !fora.has(u));
     }
 
-    const { data: inscricoes } = await admin.from("push_subscriptions").select("user_id, endpoint, p256dh, auth").in("user_id", alvo);
-    if (!inscricoes?.length) return jsonResponse({ ok: true, enviados: 0 });
+    // Lista de ids em lotes: 800 ids no endereço da consulta já voltam 400.
+    const inscricoes: { user_id: string; endpoint: string; p256dh: string; auth: string }[] = [];
+    for (let i = 0; i < alvo.length; i += 200) {
+      const { data } = await admin
+        .from("push_subscriptions")
+        .select("user_id, endpoint, p256dh, auth")
+        .in("user_id", alvo.slice(i, i + 200));
+      inscricoes.push(...(data ?? []));
+    }
+    if (!inscricoes.length) return jsonResponse({ ok: true, enviados: 0 });
 
     webpush.setVapidDetails("mailto:noreply@arkefit.com.br", chavePublica(vapidPrivateKey), vapidPrivateKey);
     const carga = JSON.stringify({ title: titulo.trim(), body: mensagem.trim().slice(0, 180), url: publico === "equipe" ? "/#/admin" : "/#/app" });

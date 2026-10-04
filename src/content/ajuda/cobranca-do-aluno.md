@@ -4,7 +4,7 @@ Todas as cobranças do aluno saem pelo ARKE, no meio de pagamento Asaas, e a par
 
 ## Matricular num plano
 
-Na ficha do aluno, bloco **Plano da Academia**, clique em **Matricular**:
+Na ficha do aluno, bloco **Plano da Academia**, clique em **Matricular** (só a gestão e a recepção matriculam e cobram):
 
 1. escolha o plano;
 2. se o valor for diferente do plano, informe o valor combinado;

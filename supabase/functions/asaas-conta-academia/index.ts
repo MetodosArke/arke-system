@@ -8,6 +8,7 @@ import {
   walletIdValido,
 } from "./fluxo.ts";
 import { ambienteAsaas } from "../_shared/asaas.ts";
+import { dentroDoFreio, MENSAGEM_FREIO, regrasAsaas } from "../_shared/freio.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -74,6 +75,9 @@ Deno.serve(async (req: Request) => {
     const arkefit = verificada(claims?.claims) && (papeis ?? []).some((p) => p.role === "superadmin" || p.role === "admin_arke");
     if (!arkefit && vinculo?.role !== "gestor") {
       return jsonResponse({ error: "Só o gestor da academia configura a conta de recebimentos." }, 403);
+    }
+    if (!(await dentroDoFreio(admin, regrasAsaas(callerId, organizationId)))) {
+      return jsonResponse({ error: MENSAGEM_FREIO }, 429);
     }
 
     const { data: org, error: orgError } = await admin

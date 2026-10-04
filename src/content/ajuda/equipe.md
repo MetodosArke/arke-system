@@ -23,6 +23,8 @@ Na [Configuração da academia](/admin/onboarding), a etapa Equipe aceita vária
 
 Na lista, cada pessoa tem as ações de **editar** (nome, e-mail, papel), **inativar** e **remover**. Inativar corta o acesso na hora e mantém o histórico do que a pessoa fez.
 
+O nome e o e-mail de login são da conta da pessoa, e não só do vínculo com a sua academia. Por isso você troca os dois só de quem está apenas na sua academia; de quem também está em outra academia que usa o ArkeFit, a troca é com a ArkeFit ou com a própria pessoa. O papel na sua academia você troca sempre.
+
 Para ter um segundo gestor na academia, fale com a ArkeFit.
 
 > Quando alguém sai da equipe, inative no mesmo dia. É o que impede um ex-funcionário de continuar vendo dados de alunos.

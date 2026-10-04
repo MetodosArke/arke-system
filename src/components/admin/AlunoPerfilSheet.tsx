@@ -674,10 +674,14 @@ export function AlunoPerfilSheet({
                 ) : (
                   <>
                     <p className="text-sm text-muted-foreground mb-2">Aluno sem plano da academia.</p>
-                    <Button size="sm" variant="outline" onClick={() => setMatriculaAberta(true)}>
-                      <Wallet className="h-3.5 w-3.5 mr-1.5" />
-                      Matricular
-                    </Button>
+                    {organizationRole === "gestor" || organizationRole === "recepcao" ? (
+                      <Button size="sm" variant="outline" onClick={() => setMatriculaAberta(true)}>
+                        <Wallet className="h-3.5 w-3.5 mr-1.5" />
+                        Matricular
+                      </Button>
+                    ) : (
+                      <p className="text-xs text-muted-foreground">A gestão ou a recepção faz a matrícula.</p>
+                    )}
                   </>
                 )}
               </Bloco>

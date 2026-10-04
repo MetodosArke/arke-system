@@ -1,6 +1,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { ambienteAsaas } from "../_shared/asaas.ts";
 import { cancelarAssinatura } from "../asaas-assinatura-ciclo/fluxo.ts";
+import { verificada } from "../_shared/verificacao.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -51,6 +52,12 @@ Deno.serve(async (req: Request) => {
     const { data: claims, error: erroClaims } = await asUser.auth.getClaims(authHeader.replace("Bearer ", ""));
     const uid = typeof claims?.claims?.sub === "string" ? claims.claims.sub : null;
     if (erroClaims || !uid) return jsonResponse({ error: "Sessão inválida. Faça login novamente." }, 401);
+    // O papel é conferido no banco com a service role, onde `has_role` não
+    // exige as duas etapas (sem `auth.uid()`, a pergunta é sobre outra pessoa).
+    // Por isso a sessão verificada é conferida aqui, antes de qualquer coisa.
+    if (!verificada(claims?.claims)) {
+      return jsonResponse({ error: "Aprovar ação do Vigia exige a verificação em duas etapas. Entre de novo com o código do aplicativo." }, 403);
+    }
 
     const admin = createClient(supabaseUrl, serviceRoleKey);
     const { data: prep, error: erroPrep } = await admin.rpc("vigia_preparar_aprovacao", {

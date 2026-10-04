@@ -1,5 +1,6 @@
 import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2";
 import { ambienteAsaas } from "../_shared/asaas.ts";
+import { dentroDoFreio, MENSAGEM_FREIO, regrasAsaas } from "../_shared/freio.ts";
 import {
   autenticacaoEnviada,
   buscarServicos,
@@ -113,6 +114,9 @@ Deno.serve(async (req: Request) => {
     // A configuração fiscal é do dono do CNPJ: só a gestão mexe.
     if ((await papelNaOrganizacao(admin, callerId, orgId)) !== "gestor") {
       return jsonResponse({ error: "Só a gestão da academia configura a nota fiscal." }, 403);
+    }
+    if (!(await dentroDoFreio(admin, regrasAsaas(callerId, orgId)))) {
+      return jsonResponse({ error: MENSAGEM_FREIO }, 429);
     }
     const { data: org } = await admin.from("organizations").select("id, status, asaas_wallet_id").eq("id", orgId).maybeSingle();
     if (!org) return jsonResponse({ error: "Academia não encontrada." }, 404);

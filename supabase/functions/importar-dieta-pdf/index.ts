@@ -9,6 +9,7 @@ import {
   temTextoSuficiente,
   tirarIdentificacao,
 } from "./fluxo.ts";
+import { dentroDoFreio, MENSAGEM_FREIO } from "../_shared/freio.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -33,7 +34,8 @@ Deno.serve(async (req: Request) => {
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
   const anonKey = Deno.env.get("SUPABASE_ANON_KEY");
-  if (!supabaseUrl || !anonKey) return jsonResponse({ error: "Configuração do servidor incompleta." }, 500);
+  const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  if (!supabaseUrl || !anonKey || !serviceRoleKey) return jsonResponse({ error: "Configuração do servidor incompleta." }, 500);
 
   try {
     const asUser = createClient(supabaseUrl, anonKey, { global: { headers: { Authorization: authHeader } } });
@@ -55,6 +57,17 @@ Deno.serve(async (req: Request) => {
     const daArkefit = vinculos?.length ? false : (await asUser.rpc("equipe_metodo")).data === true;
     if (!vinculos?.length && !daArkefit) {
       return jsonResponse({ error: "Só a nutricionista, o gestor ou a equipe da ArkeFit podem importar dieta de PDF." }, 403);
+    }
+
+    // Cada leitura é uma chamada ao modelo, que se paga por uso. Uma
+    // nutricionista importa algumas dietas por dia; um laço, centenas.
+    const freio = [
+      { chave: `ia:dieta:user:${callerId}`, limite: 30, janelaSeg: 60 * 60 },
+      { chave: `ia:dieta:user-dia:${callerId}`, limite: 100, janelaSeg: 24 * 60 * 60 },
+      { chave: "ia:dieta:total", limite: 300, janelaSeg: 60 * 60 },
+    ];
+    if (!(await dentroDoFreio(createClient(supabaseUrl, serviceRoleKey), freio))) {
+      return jsonResponse({ error: MENSAGEM_FREIO }, 429);
     }
 
     const corpo = await req.json().catch(() => null);

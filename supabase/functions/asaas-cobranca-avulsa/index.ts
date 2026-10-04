@@ -1,6 +1,7 @@
 import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2";
 import { ambienteAsaas } from "../_shared/asaas.ts";
 import { hojeBrasilia } from "../_shared/data.ts";
+import { dentroDoFreio, MENSAGEM_FREIO, regrasAsaas } from "../_shared/freio.ts";
 import {
   cancelarCobranca,
   cobrancaPorReferencia,
@@ -143,6 +144,9 @@ Deno.serve(async (req: Request) => {
       return papel === null && linha
         ? jsonResponse({ error: "Cobrança não encontrada." }, 404)
         : jsonResponse({ error: "Só a gestão e a recepção da academia emitem ou cancelam cobranças." }, 403);
+    }
+    if (!(await dentroDoFreio(admin, regrasAsaas(callerId, organizationId)))) {
+      return jsonResponse({ error: MENSAGEM_FREIO }, 429);
     }
 
     const { data: org } = await admin

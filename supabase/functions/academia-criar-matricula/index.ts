@@ -1,6 +1,8 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { ambienteAsaas } from "../_shared/asaas.ts";
 import { hojeBrasilia } from "../_shared/data.ts";
+import { dentroDoFreio, MENSAGEM_FREIO, regrasAsaas } from "../_shared/freio.ts";
+import { MENSAGEM_SO_QUEM_COBRA, podeCobrarNaAcademia } from "../_shared/papelCobranca.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -168,8 +170,10 @@ Deno.serve(async (req: Request) => {
       return jsonResponse({ error: "aluno_id e plano_id são obrigatórios." }, 400);
     }
 
-    // Cliente com o JWT do chamador: só segue se o usuário for staff da
-    // organização do aluno (RLS de alunos/planos_academia/organizations).
+    // Cliente com o JWT do chamador: as leituras abaixo passam pela regra de
+    // acesso de cada tabela. Quem pode matricular é conferido à parte, logo
+    // depois de achar o aluno: a regra de leitura deixa o próprio aluno ler o
+    // cadastro, o plano e a academia dele.
     const asUser = createClient(supabaseUrl, anonKey, {
       global: { headers: { Authorization: authHeader } },
     });
@@ -191,6 +195,14 @@ Deno.serve(async (req: Request) => {
       .single();
     if (alunoError || !aluno) {
       return jsonResponse({ error: "Aluno não encontrado ou sem permissão de acesso." }, 404);
+    }
+
+    const admin = createClient(supabaseUrl, serviceRoleKey);
+    if (!(await podeCobrarNaAcademia(admin, callerId, aluno.organization_id, claimsData?.claims))) {
+      return jsonResponse({ error: MENSAGEM_SO_QUEM_COBRA }, 403);
+    }
+    if (!(await dentroDoFreio(admin, regrasAsaas(callerId, aluno.organization_id)))) {
+      return jsonResponse({ error: MENSAGEM_FREIO }, 429);
     }
 
     const { data: plano, error: planoError } = await asUser
@@ -240,9 +252,8 @@ Deno.serve(async (req: Request) => {
 
     // A partir daqui usa o client de service_role: gestor não tem (nem
     // deveria ter) acesso de leitura a plataforma_config (RLS só libera
-    // admin_arke) — já validamos acima que ele é staff da organização
-    // do aluno, então seguir com privilégio elevado aqui é seguro.
-    const admin = createClient(supabaseUrl, serviceRoleKey);
+    // admin_arke) — já validamos acima que ele é gestão ou recepção da
+    // organização do aluno, então seguir com privilégio elevado aqui é seguro.
 
     // Taxa de processamento (config global, editável pelo Super Admin em
     // Configurações da Plataforma) — cobre o custo real que o Asaas cobra
