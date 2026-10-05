@@ -1,6 +1,14 @@
 import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
-import { comandoTerminou, equipamentosDeGestao, numeroNaoCadastrado, resumoResultado, situacaoGateway, tempoDesde } from "./gateway";
+import {
+  comandoTerminou,
+  equipamentosDeGestao,
+  numeroNaoCadastrado,
+  resumoResultado,
+  situacaoGateway,
+  tempoDesde,
+  versaoAbaixoDaMinima,
+} from "./gateway";
 
 const agora = new Date("2026-09-23T15:00:00-03:00");
 const antes = (min: number) => new Date(agora.getTime() - min * 60_000).toISOString();
@@ -81,5 +89,31 @@ describe("apoio do painel", () => {
     expect(numeroNaoCadastrado({ resultado: "liberado", cpf_consultado: "id:3954862189" })).toBeNull();
     expect(numeroNaoCadastrado({ resultado: "negado_nao_encontrado", cpf_consultado: "id:" })).toBeNull();
     expect(numeroNaoCadastrado({ resultado: "negado_nao_encontrado", cpf_consultado: null })).toBeNull();
+  });
+});
+
+describe("versaoAbaixoDaMinima — espelho de versaoAbaixo do Gateway", () => {
+  it("compara número a número", () => {
+    expect(versaoAbaixoDaMinima("1.6.9", "1.7.0")).toBe(true);
+    expect(versaoAbaixoDaMinima("1.9.0", "1.10.0")).toBe(true);
+    expect(versaoAbaixoDaMinima("1.10.0", "1.9.0")).toBe(false);
+    expect(versaoAbaixoDaMinima("1.7.0", "1.7.0")).toBe(false);
+    expect(versaoAbaixoDaMinima("1.8.0", "1.7.0")).toBe(false);
+  });
+
+  it("Gateway sem versão é o anterior à 1.0: abaixo de qualquer mínima", () => {
+    expect(versaoAbaixoDaMinima(null, "1.7.0")).toBe(true);
+  });
+
+  it("sem mínima, ou com versão que não se lê, não acusa", () => {
+    expect(versaoAbaixoDaMinima("1.0.0", null)).toBe(false);
+    expect(versaoAbaixoDaMinima(null, "")).toBe(false);
+    expect(versaoAbaixoDaMinima("teste", "1.7.0")).toBe(false);
+  });
+
+  it("dá o mesmo resultado que a função do Gateway", async () => {
+    const { versaoAbaixo } = await import("../../packages/gateway/src/versao");
+    const casos = [["1.6.9", "1.7.0"], ["1.9.0", "1.10.0"], ["1.10.0", "1.9.0"], ["1.7.0", "1.7.0"], ["2.0.0", "1.7.0"], ["teste", "1.7.0"], ["1.0.0", ""]];
+    for (const [v, m] of casos) expect(versaoAbaixoDaMinima(v, m), `${v} / ${m}`).toBe(versaoAbaixo(v, m));
   });
 });

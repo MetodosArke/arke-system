@@ -10,6 +10,7 @@ O Gateway Local é o programa que roda no computador da recepção, entre as cat
   - Os leitores faciais da Topdata e a Toletus LiteNet3 discam por WebSocket.
   - Na Toletus LiteNet2, quem disca é o Gateway.
 - **A decisão é da nuvem** (`validarCredencial`), pela mesma regra do app. O prazo é medido: o padrão é 1000 ms.
+- **Espera que dobra a cada falha passa por `comVariacao`** (metade fixa, metade sorteada), senão os Gateways que caíram juntos voltam juntos. `espera.guarda.test.ts` cobra.
 - **Contingência:** decide pelo cache local e trava na dúvida. Acesso decidido offline sobe depois (`registrarAcessoOffline`), e nenhuma entrada se perde.
 - **Liberado não é entrou.** O giro fica `pendente`, depois `confirmado`, `desistencia` ou `sem_confirmacao`. Desistência não vira presença; a presença nasce no banco, por gatilho.
 - **Canal de comandos** (`catraca-comandos`, escuta longa):
@@ -36,5 +37,5 @@ O Gateway Local é o programa que roda no computador da recepção, entre as cat
 - **Emuladores** (`npm run emular:*`): escritos do material do fabricante, **sem importar o Gateway**, senão provam só que o código concorda consigo mesmo.
 - Defeito plantado de propósito em toda mudança de protocolo, para ver o teste falhar.
 - O `vitest.config.ts` tem PostCSS próprio e vazio: sem ele, o Vitest acha a configuração do app na raiz e não sobe no CI.
-- **Versão nova:** `src/versao.ts`, o `package.json` e as duas primeiras linhas de versão do `package-lock.json`, juntos (`versao.test.ts`). A Visão Master mostra a versão de cada academia.
+- **Versão nova:** `src/versao.ts`, o `package.json` e as duas primeiras linhas de versão do `package-lock.json`, juntos (`versao.test.ts`). A Visão Master mostra a versão de cada academia e marca a que está abaixo da mínima (Configurações).
 - **Corrente real:** o Gateway compilado, o emulador, as funções publicadas e o banco, numa academia temporária apagada no fim.

@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Cpu, Fingerprint, ScrollText, ShieldAlert } from "lucide-react";
 import { SaudeGateway } from "@/components/catraca/SaudeGateway";
-import { SITUACAO_GATEWAY, tempoDesde } from "@/lib/gateway";
+import { SITUACAO_GATEWAY, tempoDesde, useVersaoMinimaGateway, versaoAbaixoDaMinima } from "@/lib/gateway";
 import { ordenarEquipamentos, useEquipamentosGlobais, type EquipamentoGlobal } from "@/lib/equipamentos";
 import { cn } from "@/lib/utils";
 
@@ -84,11 +84,14 @@ function ListaEquipamentos() {
   const { data = [], isLoading, error } = useEquipamentosGlobais();
   const [aberto, setAberto] = useState<EquipamentoGlobal | null>(null);
   const lista = useMemo(() => ordenarEquipamentos(data), [data]);
+  const { data: versaoMinima } = useVersaoMinimaGateway();
+  const desatualizado = (e: EquipamentoGlobal) => e.situacao !== "nunca_conectou" && versaoAbaixoDaMinima(e.versao, versaoMinima);
   const contagem = useMemo(() => {
     const c: Record<string, number> = {};
     for (const e of data) c[e.situacao] = (c[e.situacao] ?? 0) + 1;
     return c;
   }, [data]);
+  const desatualizados = data.filter(desatualizado).length;
 
   if (error) return <p className="text-sm text-destructive">Não foi possível carregar: {(error as Error).message}</p>;
 
@@ -104,10 +107,17 @@ function ListaEquipamentos() {
               <p className="text-xs text-muted-foreground">{SITUACAO_GATEWAY[s].rotulo}</p>
             </div>
           ))}
+          {versaoMinima && (
+            <div>
+              <p className={cn("text-2xl font-bold", desatualizados > 0 && TOM.atencao)}>{desatualizados}</p>
+              <p className="text-xs text-muted-foreground">Abaixo da {versaoMinima}</p>
+            </div>
+          )}
         </div>
         <p className="text-xs text-muted-foreground">
           "Sem sinal" é o Gateway Local 1.0 que não reporta há mais de 3 minutos; um e-mail sai depois de 15, no horário
           configurado em Configurações. Toque numa linha para ver o histórico e agir remotamente.
+          {versaoMinima && ` "Abaixo da ${versaoMinima}" é o Gateway mais velho que a versão mínima, também em Configurações.`}
         </p>
       </CardHeader>
       <CardContent>
@@ -136,6 +146,11 @@ function ListaEquipamentos() {
                     </p>
                   </div>
                   <div className="flex flex-wrap gap-1.5">
+                    {desatualizado(e) && (
+                      <Badge variant="outline" className={TOM.atencao}>
+                        Abaixo da {versaoMinima}
+                      </Badge>
+                    )}
                     {(e.fila_offline ?? 0) > 0 && <Badge variant="outline">{e.fila_offline} guardado(s)</Badge>}
                     {e.comandos_falhos_7d > 0 && <Badge variant="destructive">{e.comandos_falhos_7d} ordem(ns) falha(s)</Badge>}
                     {e.contingencias_7d > 0 && <Badge variant="outline">{e.contingencias_7d} contingência(s) em 7d</Badge>}

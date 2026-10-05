@@ -84,3 +84,15 @@ O deploy das edge functions empacota com esbuild, que não confere tipo nem esco
 - **O jsdom não tem `AbortSignal.timeout`**, e os testes que importam código das funções quebrariam com os prazos novos. `src/test/setup.ts` traz um substituto.
 
 **Conferido:** o `.catch` plantado de volta em `criar-organizacao-superadmin` fez o `check` falhar com TS2551; sem ele, as 52 passam.
+
+## Auditoria de dependências no `check` (05/10/2026)
+
+O `npm run check` passou a rodar `npm run auditar`: o `npm audit` do app e do Gateway, **só das dependências de produção** e **só alto e crítico**. Uma vulnerabilidade nova que vai para o navegador ou para o Gateway passa a reprovar o CI.
+
+O que a primeira rodada achou, e o que foi feito:
+- **`xlsx` 0.18.5** tinha poluição de protótipo e expressão regular lenta. É ele que lê a planilha que a academia envia na importação. A SheetJS não publica mais no npm, então a versão 0.20.3 vem do endereço oficial dela (`cdn.sheetjs.com`). Com isso, o `npm audit` deixa de enxergar o `xlsx`, e uma versão nova dele tem de ser conferida à mão.
+- **`dompurify`**, que vem pelo `jspdf`, foi atualizado na mesma versão maior.
+- **`tailwindcss-animate` passou para as dependências de desenvolvimento.** Ele só roda no build, e entre as de produção arrastava o Tailwind e o `chokidar` para a contagem.
+- **Ficou, com motivo:**
+  - **React Router 6**: o aviso é de endereço externo em `<Link>` e `navigate()`. Nenhuma navegação do app usa endereço vindo de fora; todas saem do próprio código ou do catálogo da Central de Ajuda, que o teste confere. A correção só existe na versão 7, que é troca de versão maior e fica registrada no workspace.
+  - **Vite, Vitest, esbuild e Tailwind 3**: só desenvolvimento e build. Os avisos são do servidor de desenvolvimento, que não vai para produção. A correção também é troca de versão maior.

@@ -298,3 +298,24 @@ Agora (`src/server/origemEquipamento.ts`) o receptor atende só os IPs de `contr
   - token inventado e token torto levam 401;
   - depois da troca, o antigo leva 401 e o novo vale, e a troca fica na Auditoria.
 - 280 testes no Gateway, 8 deles novos, com três defeitos plantados (o filtro desligado, a própria máquina recusada, o nome de volta no display), os três pegos.
+
+## Gateway 1.8.0: espera com variação e versão mínima (05/10/2026)
+
+Rodada B.
+
+- **A espera entre tentativas ganhou variação.** Quando a nuvem cai, todos os Gateways falham juntos. A espera que só dobrava os faria voltar juntos, no mesmo segundo, a cada rodada, e a nuvem que acabou de voltar receberia todos de uma vez. Agora `comVariacao` (`src/core/espera.ts`) usa metade fixa e metade sorteada: a parte sorteada espalha as tentativas, e a parte fixa mantém o mínimo. Vale para o canal de comandos e para a reconexão da placa Toletus. `espera.guarda.test.ts` falha em espera que dobra sem `comVariacao`.
+- **Versão mínima do Gateway** (`plataforma_textos.gateway_versao_minima`, migration `20261330010000`). Começa em 1.7.0, a versão do token só como hash e do receptor só para os equipamentos. **Nada é bloqueado**: parar a catraca de uma academia por versão seria pior que a versão velha. Onde ela aparece:
+  - o canal de comandos devolve a mínima, e o Gateway abaixo dela avisa no log uma vez;
+  - **Visão Master → Equipamentos** conta as catracas desatualizadas e marca cada uma;
+  - a saúde do Gateway diz à academia que é preciso atualizar.
+
+  A mínima se muda em **Configurações**, e o banco recusa texto fora do formato `1.7.0`. O Gateway sem versão é o anterior à 1.0, abaixo de qualquer mínima. `versaoAbaixoDaMinima`, no app, é espelho de `versaoAbaixo`, do Gateway, e o teste compara as duas.
+
+**Conferido:**
+- 288 testes no Gateway, com três defeitos plantados, os três pegos: a reconexão sem variação, a versão comparada como texto (1.10 abaixo de 1.9) e o aviso repetido a cada troca.
+- Os testes do espelho no app.
+- 3 casos da regra de formato em transação desfeita.
+- A **corrente real**, com 6 verificações pela função publicada, numa academia temporária apagada no fim:
+  - a versão mínima volta ao Gateway, inclusive com a catraca desativada;
+  - a telemetria grava 1.6.0 e depois 1.8.0;
+  - nenhuma catraca ficou órfã.

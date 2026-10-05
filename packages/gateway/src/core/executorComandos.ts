@@ -2,7 +2,8 @@ import type { ICanalComandos } from "../cloud/client";
 import type { GestaoEquipamentos } from "../equipamentos/controlidGestao";
 import type { ComandoGateway, ResultadoComando, TelemetriaGateway, TipoComando } from "../types";
 import type { GatewayService } from "./gatewayService";
-import { VERSAO_GATEWAY } from "../versao";
+import { VERSAO_GATEWAY, versaoAbaixo } from "../versao";
+import { comVariacao } from "./espera";
 import { logger } from "../logger";
 
 /**
@@ -63,7 +64,7 @@ export interface OpcoesExecutor {
   modelo: string;
   /** Quanto a nuvem pode segurar cada chamada esperando ordem. */
   aguardarMs?: number;
-  /** Espera depois de uma falha; dobra a cada falha seguida, até o teto. */
+  /** Espera depois de uma falha; dobra a cada falha seguida, até o teto, com variação (ver `comVariacao`). */
   esperaFalhaMs?: number;
   esperaFalhaMaxMs?: number;
 }
@@ -91,6 +92,8 @@ export class ExecutorComandos {
   private readonly aguardarMs: number;
   private readonly esperaFalhaMs: number;
   private readonly esperaFalhaMaxMs: number;
+  /** A versão mínima que a nuvem pediu e que já foi avisada no log, para não repetir a cada troca. */
+  private versaoMinimaAvisada: string | null = null;
 
   constructor(
     private readonly canal: ICanalComandos,
@@ -162,6 +165,7 @@ export class ExecutorComandos {
     try {
       const resposta = await this.canal.trocar({ resultados: enviados, telemetria: await this.telemetria(), aguardarMs });
       comandos = resposta.comandos ?? [];
+      this.conferirVersao(resposta.versao_minima);
     } catch (err) {
       // Não entregou: os resultados voltam para a frente da fila.
       this.resultados.unshift(...enviados);
@@ -173,6 +177,21 @@ export class ExecutorComandos {
     }
     for (const c of comandos) this.despachar(c);
     return comandos.length;
+  }
+
+  /**
+   * A nuvem diz a versão mínima do Gateway. Abaixo dela, o Gateway segue
+   * funcionando (parar a catraca seria pior), mas avisa no log, que é o que o
+   * técnico da implantação olha; a Visão Master mostra o mesmo.
+   */
+  private conferirVersao(minima: string | null | undefined): void {
+    if (!minima || minima === this.versaoMinimaAvisada) return;
+    if (!versaoAbaixo(VERSAO_GATEWAY, minima)) return;
+    this.versaoMinimaAvisada = minima;
+    logger.warn(
+      { versao: VERSAO_GATEWAY, minima },
+      "Este Gateway está abaixo da versão mínima. Ele continua funcionando, mas precisa ser atualizado: fale com o suporte da ArkeFit."
+    );
   }
 
   private despachar(c: ComandoGateway): void {
@@ -317,9 +336,10 @@ export class ExecutorComandos {
         await this.trocar(this.aguardarMs);
         espera = this.esperaFalhaMs;
       } catch (err) {
-        logger.warn({ err: (err as Error).message, novaTentativaEmMs: espera }, "Canal de comandos com a nuvem falhou");
+        const aguardar = comVariacao(espera);
+        logger.warn({ err: (err as Error).message, novaTentativaEmMs: aguardar }, "Canal de comandos com a nuvem falhou");
         await new Promise<void>((resolve) => {
-          const t = setTimeout(resolve, espera);
+          const t = setTimeout(resolve, aguardar);
           t.unref?.();
           this.acordar = () => {
             clearTimeout(t);

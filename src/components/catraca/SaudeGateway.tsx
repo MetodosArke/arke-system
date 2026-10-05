@@ -18,6 +18,8 @@ import {
   equipamentosDeGestao,
   situacaoGateway,
   tempoDesde,
+  useVersaoMinimaGateway,
+  versaoAbaixoDaMinima,
   type StatusComando,
   type TipoComando,
 } from "@/lib/gateway";
@@ -114,6 +116,8 @@ export function SaudeGateway({
       )
     : [];
   const gestao = equipamentosDeGestao(tel?.equipamentos);
+  const { data: versaoMinima } = useVersaoMinimaGateway();
+  const desatualizado = situacao !== "nunca_conectou" && versaoAbaixoDaMinima(tel?.versao, versaoMinima);
 
   return (
     <div className="space-y-3 text-sm">
@@ -127,6 +131,12 @@ export function SaudeGateway({
         </span>
       </div>
       {situacao !== "online" && <p className="text-xs text-muted-foreground">{info.descricao}</p>}
+      {desatualizado && (
+        <p className="text-xs text-amber-700 dark:text-amber-400">
+          Este Gateway está abaixo da versão mínima ({versaoMinima}). Ele continua funcionando, mas precisa ser atualizado:
+          fale com o suporte da ArkeFit.
+        </p>
+      )}
 
       {tel && (
         <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs sm:grid-cols-4">
