@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { exigirGravacao } from "@/lib/gravacao";
 import { porLotes, todasAsLinhas } from "@/lib/paginar";
 import { mensagemDeErroEdge } from "@/lib/erroEdge";
 import { useAuth } from "@/contexts/AuthContext";
@@ -185,7 +186,7 @@ export default function AdminAlunos() {
 
   const marcarAdesaoMetodoArke = useMutation({
     mutationFn: async ({ aluno, nivel, valorCobrado }: { aluno: AlunoRow; nivel: Nivel; valorCobrado: number }) => {
-      const { error } = await supabase
+      await exigirGravacao(supabase
         .from("alunos")
         .update({
           metodo_arke_status: "ativo",
@@ -193,8 +194,7 @@ export default function AdminAlunos() {
           metodo_arke_ativado_por: user?.id,
           nivel_atacado: nivel,
         })
-        .eq("id", aluno.id);
-      if (error) throw error;
+        .eq("id", aluno.id).select("id"));
 
       // A adesão em si já vale — se a cobrança falhar (ex.: wallet do Asaas
       // ainda não configurada), não desfaz o que já foi salvo, só avisa o
@@ -254,11 +254,10 @@ export default function AdminAlunos() {
   const salvarDiasDescanso = useMutation({
     mutationFn: async () => {
       if (!alunoEditando) return;
-      const { error } = await supabase
+      await exigirGravacao(supabase
         .from("alunos")
         .update({ dias_descanso: diasSelecionados })
-        .eq("id", alunoEditando.id);
-      if (error) throw error;
+        .eq("id", alunoEditando.id).select("id"));
     },
     onSuccess: () => {
       toast({ title: "Dias de descanso atualizados" });

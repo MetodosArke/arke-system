@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { exigirGravacao } from "@/lib/gravacao";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
@@ -63,11 +64,10 @@ export function PlanosAcademiaPainel() {
       if (valor <= 0) throw new Error("O valor precisa ser maior que zero.");
 
       if (form.id) {
-        const { error } = await supabase
+        await exigirGravacao(supabase
           .from("planos_academia")
           .update({ nome: form.nome.trim(), periodicidade: form.periodicidade, valor, descricao: form.descricao.trim() || null, ativo: form.ativo })
-          .eq("id", form.id);
-        if (error) throw error;
+          .eq("id", form.id).select("id"));
       } else {
         const { error } = await supabase.from("planos_academia").insert({
           organization_id: organization.id,
@@ -90,8 +90,7 @@ export function PlanosAcademiaPainel() {
 
   const alternarAtivo = useMutation({
     mutationFn: async (plano: PlanoAcademia) => {
-      const { error } = await supabase.from("planos_academia").update({ ativo: !plano.ativo }).eq("id", plano.id);
-      if (error) throw error;
+      await exigirGravacao(supabase.from("planos_academia").update({ ativo: !plano.ativo }).eq("id", plano.id).select("id"));
     },
     onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["planos-academia", organization?.id] }),
     onError: (error: Error) => toast({ title: "Erro ao atualizar plano", description: error.message, variant: "destructive" }),

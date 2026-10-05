@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { exigirGravacao } from "@/lib/gravacao";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { mensagemDeErroEdge } from "@/lib/erroEdge";
@@ -64,8 +65,7 @@ export function EtapaRecebimentos({ onSalvo }: { onSalvo: () => void }) {
         throw new Error("Informe o faturamento mensal aproximado — o Asaas pede para abrir a conta.");
       }
       if (valor > 0) {
-        const { error } = await supabase.from("organizations").update({ faturamento_mensal: valor }).eq("id", organization!.id);
-        if (error) throw error;
+        await exigirGravacao(supabase.from("organizations").update({ faturamento_mensal: valor }).eq("id", organization!.id).select("id"));
       }
       return chamar({ acao: "criar" });
     },

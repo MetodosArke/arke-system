@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { exigirGravacao } from "@/lib/gravacao";
 import { mensagemDeErroEdge } from "@/lib/erroEdge";
 import { useAuth } from "@/contexts/AuthContext";
 import { erroCpfObrigatorio } from "@/lib/cpf";
@@ -17,7 +18,7 @@ import { Badge } from "@/components/ui/badge";
 import { Upload, FileSpreadsheet, ArrowLeft, CheckCircle2, XCircle, MessageCircle } from "lucide-react";
 import { abrirWhatsAppAtivacao } from "@/lib/whatsappAtivacao";
 import { lerLinhasPlanilha } from "@/lib/lerPlanilha";
-import type { TablesInsert } from "@/integrations/supabase/types";
+import type { TablesInsert, TablesUpdate } from "@/integrations/supabase/types";
 
 // Limites de sanidade: este importador roda inteiramente no navegador do
 // staff (nenhum arquivo é enviado a um servidor além das linhas já
@@ -393,32 +394,47 @@ export default function AdminImportarAlunos() {
       return;
     }
 
-    await processarComLimite(
-      pendentes ?? [],
-      CONCORRENCIA_IMPORTACAO,
-      async (linha) => {
-        const registro = linha.dados as Record<string, string>;
-        try {
-          const { user_id, mensagem } = await processarRegistro(registro);
-          await supabase
-            .from("importacoes_alunos_linhas")
-            .update({ status: "sucesso", user_id_criado: user_id ?? null, mensagem: mensagem ?? null, processado_em: new Date().toISOString() })
-            .eq("id", linha.id);
-          setResultados((prev) =>
-            prev ? prev.map((r) => (r.linha === linha.numero ? { ...r, status: "sucesso", user_id, mensagem } : r)) : prev
-          );
-        } catch (erro) {
-          const mensagem = erro instanceof Error ? erro.message : "Erro desconhecido";
-          await supabase
-            .from("importacoes_alunos_linhas")
-            .update({ status: "erro", mensagem, processado_em: new Date().toISOString() })
-            .eq("id", linha.id);
-          setResultados((prev) =>
-            prev ? prev.map((r) => (r.linha === linha.numero ? { ...r, status: "erro", mensagem } : r)) : prev
-          );
-        }
+    // O andamento de cada linha é o que permite retomar: se ele não grava, a
+    // linha seguiria pendente e seria processada de novo na retomada.
+    const registrarLinha = (id: string, dados: TablesUpdate<"importacoes_alunos_linhas">) =>
+      exigirGravacao(supabase.from("importacoes_alunos_linhas").update(dados).eq("id", id).select("id"));
+
+    const resultadosLote = await processarComLimite(pendentes ?? [], CONCORRENCIA_IMPORTACAO, async (linha) => {
+      const registro = linha.dados as Record<string, string>;
+      let criado: Awaited<ReturnType<typeof processarRegistro>>;
+      try {
+        criado = await processarRegistro(registro);
+      } catch (erro) {
+        const mensagem = erro instanceof Error ? erro.message : "Erro desconhecido";
+        await registrarLinha(linha.id, { status: "erro", mensagem, processado_em: new Date().toISOString() });
+        setResultados((prev) =>
+          prev ? prev.map((r) => (r.linha === linha.numero ? { ...r, status: "erro", mensagem } : r)) : prev
+        );
+        return;
       }
-    );
+      const { user_id, mensagem } = criado;
+      await registrarLinha(linha.id, {
+        status: "sucesso",
+        user_id_criado: user_id ?? null,
+        mensagem: mensagem ?? null,
+        processado_em: new Date().toISOString(),
+      });
+      setResultados((prev) =>
+        prev ? prev.map((r) => (r.linha === linha.numero ? { ...r, status: "sucesso", user_id, mensagem } : r)) : prev
+      );
+    });
+    const falha = resultadosLote.find((r) => !r.ok);
+    const falhaDoAndamento = falha && "erro" in falha ? falha.erro.message : null;
+
+    if (falhaDoAndamento) {
+      setImportando(false);
+      toast({
+        title: "A importação parou",
+        description: `Não foi possível registrar o andamento (${falhaDoAndamento}). O que entrou ficou registrado; retome o lote depois.`,
+        variant: "destructive",
+      });
+      return;
+    }
 
     const { count: aindaPendentes } = await supabase
       .from("importacoes_alunos_linhas")
@@ -427,8 +443,16 @@ export default function AdminImportarAlunos() {
       .eq("status", "pendente");
 
     if ((aindaPendentes ?? 0) === 0) {
-      await supabase.from("importacoes_alunos").update({ status: "concluida" }).eq("id", idLote);
-      setLoteRetomavel(null);
+      try {
+        await exigirGravacao(supabase.from("importacoes_alunos").update({ status: "concluida" }).eq("id", idLote).select("id"));
+        setLoteRetomavel(null);
+      } catch (erro) {
+        toast({
+          title: "Lote não marcado como concluído",
+          description: erro instanceof Error ? erro.message : String(erro),
+          variant: "destructive",
+        });
+      }
     }
 
     setImportando(false);
@@ -542,11 +566,15 @@ export default function AdminImportarAlunos() {
   /** Reprocessa só o que falhou, sem tocar em quem já entrou. */
   const reprocessarFalhas = async () => {
     if (!importacaoId) return;
-    await supabase
+    const { error } = await supabase
       .from("importacoes_alunos_linhas")
       .update({ status: "pendente", mensagem: null })
       .eq("importacao_id", importacaoId)
       .eq("status", "erro");
+    if (error) {
+      toast({ title: "Não foi possível tentar de novo", description: error.message, variant: "destructive" });
+      return;
+    }
     setResultados((prev) => (prev ? prev.map((r) => (r.status === "erro" ? { ...r, status: "pendente", mensagem: undefined } : r)) : prev));
     await processarPendentes(importacaoId);
   };

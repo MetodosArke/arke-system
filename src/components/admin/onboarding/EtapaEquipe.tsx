@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useMutation } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { exigirGravacao } from "@/lib/gravacao";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { mensagemDeErroEdge } from "@/lib/erroEdge";
@@ -84,8 +85,7 @@ export function EtapaEquipe({ onSalvo }: { onSalvo: () => void }) {
 
   const dispensar = useMutation({
     mutationFn: async () => {
-      const { error } = await supabase.from("organizations").update({ onboarding_equipe_dispensada: true }).eq("id", organization!.id);
-      if (error) throw error;
+      await exigirGravacao(supabase.from("organizations").update({ onboarding_equipe_dispensada: true }).eq("id", organization!.id).select("id"));
     },
     onSuccess: () => onSalvo(),
     onError: (e: Error) => toast({ title: "Não foi possível salvar", description: e.message, variant: "destructive" }),

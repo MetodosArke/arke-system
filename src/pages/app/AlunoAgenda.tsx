@@ -2,6 +2,7 @@ import { dataBrasilia, hojeBrasilia } from "@/lib/dataBrasilia";
 import { useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { exigirGravacao } from "@/lib/gravacao";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -139,8 +140,7 @@ export default function AlunoAgenda() {
 
   const cancelar = useMutation({
     mutationFn: async (agendamentoId: string) => {
-      const { error } = await supabase.from("agendamentos").update({ status: "cancelado" }).eq("id", agendamentoId);
-      if (error) throw error;
+      await exigirGravacao(supabase.from("agendamentos").update({ status: "cancelado" }).eq("id", agendamentoId).select("id"));
     },
     onSuccess: () => {
       toast({ title: "Agendamento cancelado" });

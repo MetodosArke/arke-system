@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { NADA_GRAVADO } from "@/lib/gravacao";
 import { EncerramentoAcademia } from "@/components/admin/EncerramentoAcademia";
 import { porLotes, todasAsLinhas } from "@/lib/paginar";
 import { perfisDosUsuarios } from "@/lib/perfis";
@@ -249,7 +250,7 @@ export default function AdminOrganizacao() {
       if (!SLUG_RE.test(slugNormalizado)) {
         throw new Error("Slug inválido. Use apenas letras minúsculas, números e hífens.");
       }
-      const { error } = await supabase
+      const { data: gravada, error } = await supabase
         .from("organizations")
         .update({
           nome: perfil.nome,
@@ -259,13 +260,15 @@ export default function AdminOrganizacao() {
           telefone: perfil.telefone.trim() || null,
           endereco: perfil.endereco.trim() || null,
         })
-        .eq("id", organization.id);
+        .eq("id", organization.id)
+        .select("id");
       if (error) {
         if (error.message.includes("duplicate") || error.code === "23505") {
           throw new Error("Esse slug já está em uso por outra organização. Escolha outro.");
         }
         throw error;
       }
+      if (!gravada?.length) throw new Error(NADA_GRAVADO);
       setPerfil((prev) => ({ ...prev, slug: slugNormalizado }));
     },
     onSuccess: () => {

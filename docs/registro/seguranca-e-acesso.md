@@ -194,3 +194,19 @@ A decisão foi oferecer as duas etapas à gestão e exigi-las nessas três açõ
   - na entrada seguinte, o painel pede o código antes de aparecer;
   - com o código, o perfil mostra as duas etapas ativadas;
   - na sessão já verificada, a exportação baixa direto.
+
+## Gravação que não grava não passa em silêncio (05/10/2026)
+
+Rodada B. Quando a regra de acesso recusa a linha, o PostgREST responde sucesso com zero linhas alteradas e nenhum erro. Esse silêncio já custou quatro vezes: o primeiro acesso do aluno ficou nulo para todo mundo, a meta semanal nunca gravou, a ArkeFit "alterava" tarefa sem alterar, e a publicação do mentor não mudava a fase do aluno. Das 62 gravações do app, só 2 conferiam a linha gravada.
+
+- **`exigirGravacao`** (`src/lib/gravacao.ts`) recebe a gravação com `.select(...)` no fim. Ela devolve as linhas gravadas e, quando não vem nenhuma, falha com `NADA_GRAVADO`. O erro do banco passa adiante com o código, e por isso as mensagens do 23505 (endereço de link já usado) continuam. Há duas formas de conferir: passar por ela, ou pedir as linhas de volta e acusar `NADA_GRAVADO` na mão, onde a tela trata o erro de outro jeito.
+- **As 60 foram convertidas**: 46 por um script e 14 à mão. Os casos mais relevantes:
+  - **Importação de alunos.** O andamento de cada linha não conferia nem o erro. Se ele não gravasse, a linha seguiria pendente e seria processada de novo na retomada. Agora a importação para com a mensagem e pode ser retomada.
+  - **Atualização em lote do acervo.** Ela confere quantas fichas mudaram.
+  - **Revogação de versão antiga do consentimento de IA.** Passou a conferir o erro; ali zero linhas é o normal.
+- **`gravacao.guarda.test.ts`** lê o código e falha em `.update` sem conferência. As exceções são por arquivo e tabela, cada uma com o motivo e valendo para uma gravação só: marcar mensagens como lidas, o desfecho da sugestão do Sentinela, revogar a versão anterior antes de autorizar, e voltar as linhas com erro da importação. Em todas, zero linhas é o resultado normal.
+
+**Conferido:**
+- 845 testes, com os do auxiliar.
+- O guarda das colunas pegou uma chave errada da conversão (`planos_b2b_precos` não tem `id`).
+- Dois defeitos plantados, os dois pegos: uma gravação voltando ao formato antigo, e um `exigirGravacao` de outra instrução logo antes de uma gravação sem conferência.

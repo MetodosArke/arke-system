@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
+import { NADA_GRAVADO } from "@/lib/gravacao";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -55,14 +56,15 @@ export default function AdminPerfil() {
       return;
     }
     setSalvandoPerfil(true);
-    const { error } = await supabase
+    const { data: gravado, error } = await supabase
       .from("profiles")
       .update({ full_name: fullName.trim(), avatar_url: avatarUrl.trim() || null })
-      .eq("user_id", user.id);
+      .eq("user_id", user.id)
+      .select("id");
     setSalvandoPerfil(false);
 
-    if (error) {
-      toast({ title: "Erro ao salvar perfil", description: error.message, variant: "destructive" });
+    if (error || !gravado?.length) {
+      toast({ title: "Erro ao salvar perfil", description: error?.message ?? NADA_GRAVADO, variant: "destructive" });
       return;
     }
     await refreshProfile();

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useMutation } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { exigirGravacao } from "@/lib/gravacao";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -31,14 +32,13 @@ export default function ConsentimentoLgpd() {
   const confirmar = useMutation({
     mutationFn: async () => {
       if (!alunoId) throw new Error("Cadastro de aluno não encontrado");
-      const { error } = await supabase
+      await exigirGravacao(supabase
         .from("anamnese_acolhimento")
         .update({
           consentimento_lgpd_aceito_em: new Date().toISOString(),
           consentimento_lgpd_versao: VERSAO_CONSENTIMENTO_SAUDE,
         })
-        .eq("aluno_id", alunoId);
-      if (error) throw error;
+        .eq("aluno_id", alunoId).select("id"));
     },
     onSuccess: async () => {
       toast({ title: "Consentimento registrado. Obrigado!" });

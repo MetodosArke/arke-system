@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { NADA_GRAVADO } from "@/lib/gravacao";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -106,8 +107,13 @@ export function DocumentosMatricula() {
     const caminho = `${organization!.id}/${alunoId}/${Date.now()}-${nomeArquivo}`;
     const { error } = await supabase.storage.from("atestados").upload(caminho, arquivo, { contentType: arquivo.type });
     if (!error) {
-      const { error: erroParq } = await supabase.from("aluno_parq").update({ atestado_caminho: caminho }).eq("aluno_id", alunoId!);
-      if (erroParq) toast({ title: "Arquivo enviado, mas não registrado", description: erroParq.message, variant: "destructive" });
+      const { data: gravado, error: erroParq } = await supabase
+        .from("aluno_parq")
+        .update({ atestado_caminho: caminho })
+        .eq("aluno_id", alunoId!)
+        .select("id");
+      if (erroParq || !gravado?.length)
+        toast({ title: "Arquivo enviado, mas não registrado", description: erroParq?.message ?? NADA_GRAVADO, variant: "destructive" });
       else toast({ title: "Atestado enviado", description: "A academia confere e registra a validade." });
     } else {
       toast({ title: "Não foi possível enviar", description: error.message, variant: "destructive" });

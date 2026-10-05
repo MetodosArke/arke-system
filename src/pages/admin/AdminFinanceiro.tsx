@@ -4,6 +4,7 @@ import { ExportarContador } from "@/components/admin/ExportarContador";
 import { NotasFiscaisPainel } from "@/components/admin/NotasFiscaisPainel";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { exigirGravacao } from "@/lib/gravacao";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
@@ -205,11 +206,10 @@ export default function AdminFinanceiro() {
 
   const marcarFolhaPaga = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase
+      await exigirGravacao(supabase
         .from("staff_folha_pagamentos")
         .update({ status: "pago", data_pagamento: hojeBrasilia() })
-        .eq("id", id);
-      if (error) throw error;
+        .eq("id", id).select("id"));
     },
     onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["staff-folha-pagamentos", organization?.id, competencia] }),
     onError: (error: Error) => toast({ title: "Erro ao atualizar", description: error.message, variant: "destructive" }),
@@ -251,8 +251,7 @@ export default function AdminFinanceiro() {
 
   const alternarCategoria = useMutation({
     mutationFn: async (categoria: PlanoContas) => {
-      const { error } = await supabase.from("plano_contas").update({ ativo: !categoria.ativo }).eq("id", categoria.id);
-      if (error) throw error;
+      await exigirGravacao(supabase.from("plano_contas").update({ ativo: !categoria.ativo }).eq("id", categoria.id).select("id"));
     },
     onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["plano-contas", organization?.id] }),
     onError: (error: Error) => toast({ title: "Erro ao atualizar conta", description: error.message, variant: "destructive" }),
@@ -308,11 +307,10 @@ export default function AdminFinanceiro() {
 
   const marcarLancamentoPago = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase
+      await exigirGravacao(supabase
         .from("lancamentos_financeiros")
         .update({ status: "pago", data_pagamento: hojeBrasilia() })
-        .eq("id", id);
-      if (error) throw error;
+        .eq("id", id).select("id"));
     },
     onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["lancamentos-financeiros", organization?.id] }),
     onError: (error: Error) => toast({ title: "Erro ao atualizar", description: error.message, variant: "destructive" }),
@@ -402,8 +400,7 @@ export default function AdminFinanceiro() {
 
   const marcarComissaoPaga = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from("staff_comissoes_lancamentos").update({ status: "pago" }).eq("id", id);
-      if (error) throw error;
+      await exigirGravacao(supabase.from("staff_comissoes_lancamentos").update({ status: "pago" }).eq("id", id).select("id"));
     },
     onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["staff-comissoes-lancamentos", organization?.id] }),
     onError: (error: Error) => toast({ title: "Erro ao atualizar", description: error.message, variant: "destructive" }),

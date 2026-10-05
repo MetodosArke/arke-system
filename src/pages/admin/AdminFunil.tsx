@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { exigirGravacao } from "@/lib/gravacao";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent } from "@/components/ui/card";
@@ -92,11 +93,10 @@ export default function AdminFunil() {
 
   const mover = useMutation({
     mutationFn: async ({ lead, etapa, motivoPerda }: { lead: Lead; etapa: Etapa; motivoPerda?: string }) => {
-      const { error } = await supabase
+      await exigirGravacao(supabase
         .from("leads")
         .update({ etapa, motivo_perda: etapa === "perdido" ? motivoPerda ?? null : null })
-        .eq("id", lead.id);
-      if (error) throw error;
+        .eq("id", lead.id).select("id"));
     },
     onSuccess: (_d, v) => {
       if (v.etapa === "matriculado") toast({ title: "Matriculado!", description: "Cadastre o aluno em Alunos & Prescrições." });

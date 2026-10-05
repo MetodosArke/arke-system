@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { exigirGravacao } from "@/lib/gravacao";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -56,11 +57,10 @@ export function PrecosPlanosB2b() {
         const valor = paraNumero(v?.valor ?? "");
         const limite = v?.limite.trim() ? Number(v.limite) : null;
         if ((valor !== null && !(valor > 0)) || (limite !== null && !(limite > 0))) throw new Error(`Valor inválido em ${ROTULO_PLANO[p.plano]}.`);
-        const { error } = await supabase
+        await exigirGravacao(supabase
           .from("planos_b2b_precos")
           .update({ valor_mensal: valor, limite_alunos: limite, updated_at: new Date().toISOString() })
-          .eq("plano", p.plano);
-        if (error) throw error;
+          .eq("plano", p.plano).select("plano"));
       }
     },
     onSuccess: () => {
@@ -145,11 +145,10 @@ export function AtacadoMetodo() {
         if (problema) throw new Error(`${ROTULO_NIVEL[l.id] ?? l.id}: ${problema}`);
       }
       for (const l of linhas) {
-        const { error } = await supabase
+        await exigirGravacao(supabase
           .from("planos_atacado")
           .update({ custo_mensal: l.referencia, valor_sugerido_varejo: l.varejo })
-          .eq("id", l.id);
-        if (error) throw error;
+          .eq("id", l.id).select("id"));
       }
     },
     onSuccess: () => {
@@ -270,8 +269,7 @@ export function CanaisSuporte() {
         ["suporte_whatsapp", numero || null],
         ["suporte_email", email.trim() || null],
       ] as const) {
-        const { error } = await supabase.from("plataforma_textos").update({ valor, updated_at: new Date().toISOString() }).eq("chave", chave);
-        if (error) throw error;
+        await exigirGravacao(supabase.from("plataforma_textos").update({ valor, updated_at: new Date().toISOString() }).eq("chave", chave).select("chave"));
       }
     },
     onSuccess: () => {

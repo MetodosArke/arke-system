@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Kanban, Plus, Search } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { exigirGravacao } from "@/lib/gravacao";
 import { useToast } from "@/hooks/use-toast";
 import { todasAsLinhas } from "@/lib/paginar";
 import { cn } from "@/lib/utils";
@@ -74,8 +75,7 @@ export default function SuperAdminComercial() {
         // No contato do site, o canal e o que a academia escreveu não se mexem.
         const { origem: _o, mensagem: _m, ...resto } = dados;
         const mudanca = lead.origem === "site" ? resto : dados;
-        const { error } = await supabase.from("leads_comerciais").update(mudanca).eq("id", lead.id);
-        if (error) throw error;
+        await exigirGravacao(supabase.from("leads_comerciais").update(mudanca).eq("id", lead.id).select("id"));
       } else {
         const { error } = await supabase.from("leads_comerciais").insert({ ...dados, status: etapa });
         if (error) throw error;
@@ -92,11 +92,10 @@ export default function SuperAdminComercial() {
   // Mover é otimista: o cartão fica onde foi solto, e volta se o banco recusar.
   const mover = useMutation({
     mutationFn: async ({ lead, etapa, motivo }: { lead: LeadComercial; etapa: string; motivo?: string }) => {
-      const { error } = await supabase
+      await exigirGravacao(supabase
         .from("leads_comerciais")
         .update({ status: etapa, motivo_perda: etapa === "perdido" ? motivo ?? null : null })
-        .eq("id", lead.id);
-      if (error) throw error;
+        .eq("id", lead.id).select("id"));
     },
     onMutate: async ({ lead, etapa, motivo }) => {
       await queryClient.cancelQueries({ queryKey: CHAVE });

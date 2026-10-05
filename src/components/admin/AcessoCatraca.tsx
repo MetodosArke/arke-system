@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { exigirGravacao } from "@/lib/gravacao";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -188,8 +189,7 @@ export function AcessoCatraca({
     mutationFn: async (numero: string) => {
       const valor = numero.trim();
       if (!valor) throw new Error("Informe o número do aluno no equipamento.");
-      const { error } = await supabase.from("alunos").update({ identificador_catraca: valor }).eq("id", alunoId);
-      if (error) throw error;
+      await exigirGravacao(supabase.from("alunos").update({ identificador_catraca: valor }).eq("id", alunoId).select("id"));
       return { trocou: !!identificadorAtual && identificadorAtual !== valor };
     },
     onSuccess: ({ trocou }) => {

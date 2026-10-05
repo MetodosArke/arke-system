@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { exigirGravacao } from "@/lib/gravacao";
 import { todasAsLinhas } from "@/lib/paginar";
 import { perfisDosUsuarios } from "@/lib/perfis";
 import { useAuth } from "@/contexts/AuthContext";
@@ -149,8 +150,7 @@ export function DesafiosPainel() {
 
       let desafioId: string;
       if (editando) {
-        const { error } = await supabase.from("desafios").update(payload).eq("id", editando.id);
-        if (error) throw error;
+        await exigirGravacao(supabase.from("desafios").update(payload).eq("id", editando.id).select("id"));
         desafioId = editando.id;
       } else {
         const { data, error } = await supabase.from("desafios").insert(payload).select("id").single();

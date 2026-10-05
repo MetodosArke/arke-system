@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { exigirGravacao } from "@/lib/gravacao";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
@@ -58,15 +59,14 @@ export function SituacaoAluno({
 
   const alterar = useMutation({
     mutationFn: async (dados: { nova: SituacaoAcademia; motivo: string | null; retorno: string | null; pausarPlano?: boolean }) => {
-      const { error } = await supabase
+      await exigirGravacao(supabase
         .from("alunos")
         .update({
           situacao_academia: dados.nova,
           situacao_academia_motivo: dados.motivo,
           situacao_academia_retorno: dados.retorno,
         })
-        .eq("id", alunoId);
-      if (error) throw error;
+        .eq("id", alunoId).select("id"));
 
       // Pausar o aluno precisa pausar a cobrança dele — senão ele sai do app
       // e segue pagando, que é a reclamação mais previsível que existe. E
