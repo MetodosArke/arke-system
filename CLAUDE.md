@@ -1079,6 +1079,44 @@ As catracas Toletus LiteNet2 com digital têm o leitor **CAMA-SM25**, e a placa 
 
 **Fora, e por quê:** a bancada — se a placa deixa o leitor livre para o cadastro com o Gateway conectado na 7879, se reconhece o dedo durante o cadastro, a capacidade do leitor montado e o tempo real de cada toque. Cartão e digital no mesmo aluno, nas marcas em que o cartão é o número, pedem uma segunda coluna e a busca pelas duas; fica para quando uma academia precisar.
 
+## Gateway 1.7.0: token só como hash e só os equipamentos falam com o receptor (04/10/2026)
+
+A conferência de 04/10/2026 achou três defeitos na fronteira entre a catraca e o resto. Nenhuma academia tinha catraca cadastrada.
+
+**O token do Gateway morava em claro, e toda a equipe o lia.** `organizacao_catracas.device_token` aparecia na tela, e uma regra `FOR ALL` dava leitura, alteração e exclusão a toda a equipe, professor e nutricionista incluídos. Quem tem o token faz tudo o que o Gateway faz:
+- consulta quem entra;
+- sobe acessos, que viram presença;
+- recebe as ordens daquela catraca, inclusive a foto do rosto enviada pelo aluno.
+
+Agora (`20261325010000_token_catraca_hash.sql`):
+- **O banco guarda só o SHA-256** (`device_token_hash`). As cinco funções da catraca conferem o hash do token recebido por `_shared/tokenCatraca.ts`, com a mesma conta de `hash_token_catraca()` no banco.
+- **O token nasce em `criar_catraca()` e é trocado em `girar_token_catraca()`.** As duas são só da gestão e da ArkeFit (`gere_catracas()`, que pergunta só sobre quem chama; a ArkeFit, com as duas etapas). Cada uma devolve o token **uma vez**, e a tela o mostra numa janela com "Copiar". A troca vai para a Auditoria.
+- **A ação de suporte da Visão Master passou a invalidar** os tokens da academia, em vez de gerar outros que ninguém veria. A gestão gera os novos em Catracas.
+- **Uma regra por operação.** A equipe lê, porque a recepção opera a tela. A gestão e a ArkeFit alteram e excluem. Ninguém inclui pela API. Pela API mudam só nome, localização, status e o atraso de liberação, por privilégio de coluna: o hash muda só pela função, que audita.
+- **O Gateway não muda:** o token continua sendo um UUID no `config.json`.
+- **A coluna antiga sai depois do deploy**, em `20261326010000`.
+
+**O receptor atendia qualquer aparelho da rede.** A rede das catracas pode ser a mesma do Wi-Fi dos alunos. Sabendo a rota, qualquer aparelho:
+- pedia decisão por número de aluno, e o acesso virava presença de quem não veio;
+- fechava o giro de outro acesso pelo aviso do Monitor;
+- mandava acesso "histórico" da Intelbras, que vira presença na hora que ele diz.
+
+Agora (`src/server/origemEquipamento.ts`) o receptor atende só os IPs de `controlid_equipamentos`, `intelbras_equipamentos` e da lista nova `equipamentos_permitidos` (a Control iD única, sem gestão remota), além da própria máquina, que roda o emulador na instalação. Os outros levam 403, registrado no log uma vez a cada 10 minutos por IP. A sonda `/health` segue aberta para o técnico, e as rotas da ponte Topdata seguem com a regra delas. **Sem lista nenhuma, o receptor continua aberto**, como até a 1.6, e o Gateway avisa no log ao subir: recusar ali pararia a catraca de quem atualizou sem mexer no config.
+
+**O display da Control iD mostrava o nome do aluno.** A decisão da versão 1.0 é que o display mostra "Aluno". O cadastro no equipamento seguia a decisão, mas a resposta à identificação mandava o nome, inclusive ao lado de "acesso negado": a fila sabia quem estava barrado. Agora a resposta manda "Aluno", e o motivo fica nos Últimos acessos.
+
+`tokenCatraca.guarda.test.ts` trava as regras do token: nenhuma função procura a catraca pelo token em claro, toda função que recebe o token confere o hash, e a tela não lê nem grava o token.
+
+**Conferido:**
+- 18 casos da migration em transação desfeita: gestor, professor, recepção, gestor de outra academia, Super Admin com e sem as duas etapas, e anônimo.
+- A **corrente real**, com 14 verificações pelas funções publicadas, com sessões de verdade numa academia temporária apagada no fim:
+  - o token volta uma vez e não sai em leitura nenhuma;
+  - professor e recepção são recusados, e ninguém inclui direto;
+  - as cinco funções aceitam o token, em maiúsculas também;
+  - token inventado e token torto levam 401;
+  - depois da troca, o antigo leva 401 e o novo vale, e a troca fica na Auditoria.
+- 280 testes no Gateway, 8 deles novos, com três defeitos plantados (o filtro desligado, a própria máquina recusada, o nome de volta no display), os três pegos.
+
 ## Vigia: o segundo agente, em modo sombra (24/09/2026)
 
 O ARKE tem **dois agentes**, e a separação é de propósito. O **Sentinela** é a IA do Mentor: resume a anamnese e sugere resposta no chat, com o consentimento do aluno e processando em São Paulo. O **Vigia** cuida da saúde técnica da plataforma — Gateways de catraca, rotinas agendadas, conferência com o Asaas, avisos de pagamento, capacidade do banco — e **não lê dado de aluno**. O responsável decidiu que o Vigia é um agente só, com duas camadas que se completam: **regras** para o que já se sabe tratar e **análise por IA** para olhar o quadro inteiro.

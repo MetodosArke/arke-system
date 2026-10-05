@@ -234,9 +234,9 @@ describe("Bordas — duas catracas da mesma academia ao mesmo tempo", () => {
     ]);
 
     expect(a.json().result.event).toBe(7);
-    expect(a.json().result.user_name).toBe("Em Dia");
+    expect(a.json().result.user_id).toBe(10);
     expect(b.json().result.event).toBe(6);
-    expect(b.json().result.user_name).toBe("Atrasado");
+    expect(b.json().result.user_id).toBe(20);
   });
 
   it("aguenta uma rajada sem misturar decisões", async () => {
@@ -260,7 +260,8 @@ describe("Bordas — duas catracas da mesma academia ao mesmo tempo", () => {
 
     respostas.forEach((r, i) => {
       const corpo = r.json();
-      expect(corpo.result.user_name).toBe(`Aluno ${i + 1}`);
+      expect(corpo.result.user_id).toBe(i + 1);
+      expect(corpo.result.user_name).toBe("Aluno");
       expect(corpo.result.event).toBe((i + 1) % 2 === 0 ? 6 : 7);
     });
   });

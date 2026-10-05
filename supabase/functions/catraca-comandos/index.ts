@@ -1,4 +1,5 @@
-import { createClient } from "npm:@supabase/supabase-js@2";
+import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2";
+import { hashDoTokenCatraca } from "../_shared/tokenCatraca.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -34,7 +35,7 @@ const dormir = (ms: number) => new Promise((r) => setTimeout(r, ms));
  * entrega). Dado biométrico: nunca vai para log, nem o tamanho.
  */
 async function fotosDoRosto(
-  admin: ReturnType<typeof createClient>,
+  admin: SupabaseClient,
   comandos: { tipo: string; parametros: Record<string, unknown> | null }[]
 ): Promise<Map<string, string>> {
   const ids = comandos
@@ -84,15 +85,13 @@ Deno.serve(async (req: Request) => {
     const payload = (await req.json()) as Payload;
     const deviceToken = payload.device_token?.trim();
     if (!deviceToken) return jsonResponse({ error: "device_token é obrigatório." }, 400);
-    // Token fora do formato não é de dispositivo nenhum. Sem isto, a consulta
-    // quebrava no banco e a resposta dizia "falha do servidor" a quem só
-    // copiou o token errado no config.json.
-    if (!UUID.test(deviceToken)) return jsonResponse({ error: "Dispositivo não autorizado." }, 401);
+    const tokenHash = await hashDoTokenCatraca(deviceToken);
+    if (!tokenHash) return jsonResponse({ error: "Dispositivo não autorizado." }, 401);
 
     const { data: catraca, error: erroCatraca } = await admin
       .from("organizacao_catracas")
       .select("id, status")
-      .eq("device_token", deviceToken)
+      .eq("device_token_hash", tokenHash)
       .maybeSingle();
     if (erroCatraca) {
       console.error("catraca-comandos: falha ao validar dispositivo", erroCatraca.code);

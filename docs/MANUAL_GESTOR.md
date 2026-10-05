@@ -101,13 +101,13 @@ O motor de automações previne falha humana: eventos repetidos não geram taref
 
 ### 5.1 Cadastro em `/admin/catracas`
 
-Cada dispositivo físico de catraca da unidade precisa ser cadastrado uma vez em `/admin/catracas`: nome do dispositivo, localização (ex.: "Entrada principal") e status (ativo/inativo). Ao salvar, o sistema gera um `device_token` (UUID único por dispositivo).
+Cada dispositivo físico de catraca da unidade precisa ser cadastrado uma vez em `/admin/catracas`: nome do dispositivo, localização (ex.: "Entrada principal") e status (ativo/inativo). Ao salvar, o sistema gera o token do dispositivo e o mostra **uma vez**. Cadastrar, gerar token, ativar e desativar são da gestão.
 
 ### 5.2 Obtendo o `device_token` para o Gateway Local
 
-Ao lado de cada catraca cadastrada há um botão **"Copiar"** que copia o `device_token` para a área de transferência. Esse valor é exatamente o que vai no campo `token_api_local` do `config.json` do **ARKE Gateway Local**, instalado no computador da recepção conectado fisicamente à catraca — ver [Manual do Gateway Local](MANUAL_GATEWAY_LOCAL.md) para o passo a passo completo de instalação e configuração.
+O token aparece numa janela com o botão **"Copiar"** logo depois do cadastro, e não aparece de novo: o banco guarda só o hash dele. Esse valor é exatamente o que vai no campo `token_api_local` do `config.json` do **ARKE Gateway Local**, instalado no computador da recepção conectado fisicamente à catraca — ver [Manual do Gateway Local](MANUAL_GATEWAY_LOCAL.md) para o passo a passo completo de instalação e configuração.
 
-> Se o token vazar ou precisar ser trocado por qualquer motivo, peça ao SuperAdmin para usar a ação "Resetar Token do Gateway Local" em `/superadmin` — isso gera um novo token para todas as catracas da organização, exigindo reconfiguração do Gateway Local no local físico.
+> Se o token se perdeu ou vazou, clique em **Gerar token novo** na catraca. O token antigo para de valer na hora, e o Gateway Local precisa receber o novo no `config.json`. A troca fica na Auditoria.
 
 ### 5.3 Status em tempo real
 

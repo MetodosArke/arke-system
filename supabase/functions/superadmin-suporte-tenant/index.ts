@@ -36,8 +36,8 @@ type SuportePayload = {
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-// Ações de suporte do SuperAdmin sobre um tenant específico: resetar o(s)
-// token(s) de dispositivo do Gateway Local (organizacao_catracas.device_token),
+// Ações de suporte do SuperAdmin sobre um tenant específico: invalidar o(s)
+// token(s) de dispositivo do Gateway Local (a gestão gera o novo em Catracas),
 // trocar o e-mail de login do gestor principal (auth.users — por isso exige
 // Admin API/service_role, não dá para fazer via update direto do client) e
 // excluir permanentemente a organização. Todas ficam na mesma função por

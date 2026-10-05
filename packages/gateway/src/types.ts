@@ -59,6 +59,13 @@ export interface GatewayConfig {
    * equipamento.
    */
   controlid_liberacao?: "catraca" | "rele" | "secbox";
+  /**
+   * IPs de equipamento fora de `controlid_equipamentos` e de
+   * `intelbras_equipamentos` (a Control iD única, sem gestão remota). Com
+   * qualquer uma das três listas, o receptor só atende os IPs delas e a
+   * própria máquina; sem nenhuma, atende qualquer aparelho da rede.
+   */
+  equipamentos_permitidos?: string[];
   /** Sentido de entrada da catraca Control iD fora de `controlid_equipamentos`. */
   controlid_sentido_entrada?: "clockwise" | "anticlockwise";
   /** Relé que libera, no leitor fora de `controlid_equipamentos` que libera pelo relé. */

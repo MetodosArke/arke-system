@@ -54,6 +54,9 @@ const configSchema = z.object({
     )
     .default([])
     .refine((l) => new Set(l.map((e) => e.nome)).size === l.length, "nomes de equipamento repetidos"),
+  // IPs de equipamento que não estão em lista nenhuma (a Control iD única,
+  // sem gestão remota). Com qualquer lista, o receptor só atende esses IPs.
+  equipamentos_permitidos: z.array(z.string().trim().min(1)).default([]),
   // O equipamento Control iD que não está na lista acima (um só, sem gestão
   // remota) libera assim.
   controlid_liberacao: z.enum(["catraca", "rele", "secbox"]).default("catraca"),

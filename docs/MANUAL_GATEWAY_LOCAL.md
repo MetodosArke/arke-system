@@ -76,7 +76,7 @@ Todos os parâmetros vivem em `config.json`, na mesma pasta do executável (`%Pr
 | Campo | Descrição |
 |---|---|
 | `organization_id` | UUID da organização (informativo — a autenticação real é pelo `token_api_local`) |
-| `token_api_local` | **O `device_token`** copiado da tela `/admin/catracas` no painel web (botão "Copiar" ao lado do dispositivo cadastrado) |
+| `token_api_local` | O token do dispositivo, mostrado uma vez na tela `/admin/catracas` quando a gestão cadastra a catraca ou gera um token novo |
 | `supabase_url` | URL do projeto Supabase (ex.: `https://SEU-PROJETO.supabase.co`) |
 | `catraca_ip` / `catraca_porta` | Endereço IP e porta da catraca física na rede local |
 | `modelo_catraca` | `controlid` \| `topdata` \| `topdata_facial` \| `toletus` \| `intelbras` \| `mock`. `intelbras` é a linha Bio-T no Modo Online (seção 11). `topdata` é a linha Inner, pela ponte; `topdata_facial` é a linha Easy, em que o leitor facial decide com a resposta do Gateway (seção 9). `henry` e `dimep` são **recusados na partida**, com mensagem: a integração dessas marcas é feita na implantação do primeiro cliente de cada uma |
@@ -96,7 +96,7 @@ Todos os parâmetros vivem em `config.json`, na mesma pasta do executável (`%Pr
 
 > **A senha do equipamento fica só no `config.json`**, na máquina da academia. Para a nuvem vai apenas o nome de cada equipamento.
 
-> **Onde conseguir o `token_api_local`**: no painel web, gestor ou admin_arke acessa `/admin/catracas`, cadastra (ou já tem cadastrado) o dispositivo, e clica em "Copiar" ao lado dele. Se o token precisar ser trocado (vazamento, troca de equipamento), um SuperAdmin pode resetá-lo em `/superadmin` (ação "Resetar Token do Gateway Local") — isso invalida o token antigo imediatamente, exigindo atualizar o `config.json` local com o novo valor.
+> **Onde conseguir o `token_api_local`**: no painel web, a gestão acessa `/admin/catracas` e cadastra o dispositivo; o token aparece **uma vez**, na hora. O banco guarda só o hash dele. Se o token se perdeu ou vazou, a gestão clica em **Gerar token novo** na catraca: o antigo para de valer na hora, e é preciso atualizar o `config.json` local com o novo. A ArkeFit também pode invalidar todos os tokens da academia em `/superadmin` ("Invalidar token do Gateway Local"), e aí a gestão gera os novos.
 
 Depois de editar `config.json`, reinicie o Gateway (ou reinicie o computador, já que ele sobe automaticamente).
 

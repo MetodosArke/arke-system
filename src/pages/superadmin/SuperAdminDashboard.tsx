@@ -403,8 +403,8 @@ export default function SuperAdminDashboard() {
     onSuccess: (data, variables) => {
       if (variables.acao === "resetar_token_gateway") {
         toast({
-          title: "Token do Gateway Local resetado.",
-          description: `${data?.catracas_resetadas ?? 0} dispositivo(s) atualizado(s).`,
+          title: "Token do Gateway Local invalidado.",
+          description: `${data?.catracas_resetadas ?? 0} dispositivo(s). A gestão gera o token novo em Catracas.`,
         });
       } else if (variables.acao === "excluir_organizacao") {
         toast({ title: "Organização excluída." });
@@ -843,7 +843,7 @@ export default function SuperAdminDashboard() {
                             }
                             onClick={() => setTenantResetandoToken(tenant)}
                           >
-                            <KeyRound className="h-3.5 w-3.5 mr-2" /> Resetar Token do Gateway Local
+                            <KeyRound className="h-3.5 w-3.5 mr-2" /> Invalidar token do Gateway Local
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
                           {tenant.status === "suspenso" ? (
@@ -1342,11 +1342,10 @@ export default function SuperAdminDashboard() {
       <Dialog open={!!tenantResetandoToken} onOpenChange={(open) => !open && setTenantResetandoToken(null)}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
-            <DialogTitle>Resetar token do Gateway Local de {tenantResetandoToken?.nome}?</DialogTitle>
+            <DialogTitle>Invalidar o token do Gateway Local de {tenantResetandoToken?.nome}?</DialogTitle>
             <DialogDescription>
-              Isso invalida imediatamente o token de todas as catracas dessa organização — os leitores
-              físicos param de autenticar até alguém reconfigurar o Gateway Local no local com o novo
-              token.
+              O token de todas as catracas dessa organização para de valer na hora. As catracas param
+              até a gestão gerar um token novo em Catracas e colocá-lo no Gateway Local.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -1364,7 +1363,7 @@ export default function SuperAdminDashboard() {
                 )
               }
             >
-              {acaoSuporte.isPending ? "Resetando..." : "Resetar token"}
+              {acaoSuporte.isPending ? "Invalidando..." : "Invalidar token"}
             </Button>
           </DialogFooter>
         </DialogContent>

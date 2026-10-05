@@ -6,6 +6,14 @@ A tela [Catracas](/admin/catracas) mostra o estado de cada equipamento e os últ
 
 No computador da recepção roda o **Gateway Local**, um programa da ArkeFit que fica entre a catraca e o ARKE. A catraca pergunta ao Gateway, o Gateway pergunta à nuvem, e a resposta volta em menos de um segundo. A instalação é feita por um técnico; veja [Instalação do Gateway Local](ajuda:gateway-local-tecnico).
 
+## O token de cada catraca
+
+Cada catraca tem um **token**, que o Gateway usa para falar com o ARKE. Ele aparece **uma vez só**, quando o gestor cadastra a catraca: copie na hora e entregue ao técnico. O ARKE guarda só uma impressão dele, então ninguém consegue copiá-lo depois.
+
+Se o token se perdeu ou pode ter vazado, o gestor clica em **Gerar token novo** na catraca. O token anterior para de valer na hora, e a catraca fica parada até o novo entrar no `config.json` do Gateway. A troca fica registrada.
+
+Cadastrar, gerar token, ativar e desativar são da gestão. A recepção acompanha a tela e usa as ações abaixo.
+
 ## Os estados do Gateway
 
 - **No ar**: tudo normal.

@@ -25,7 +25,18 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { DoorOpen, Plus, Copy, Power, PowerOff, ScrollText, Radio, UserCheck, Settings, Handshake } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { DoorOpen, Plus, Copy, Power, PowerOff, ScrollText, Radio, UserCheck, Settings, Handshake, KeyRound } from "lucide-react";
+import { formatarDataBR } from "@/lib/dataBrasilia";
 import { SaudeGateway } from "@/components/catraca/SaudeGateway";
 import { ConferenciaParceiros } from "@/components/catraca/ConferenciaParceiros";
 import { numeroNaoCadastrado } from "@/lib/gateway";
@@ -40,6 +51,11 @@ export default function AdminCatracas() {
   const [novoNome, setNovoNome] = useState("");
   const [novaLocalizacao, setNovaLocalizacao] = useState("");
   const [dialogAberto, setDialogAberto] = useState(false);
+  // O token aparece uma vez só, logo depois de gerado: o banco guarda o hash.
+  const [tokenMostrado, setTokenMostrado] = useState<{ nome: string; token: string } | null>(null);
+  const [catracaGirando, setCatracaGirando] = useState<{ id: string; nome: string } | null>(null);
+  // Mesma regra de gere_catracas() no banco: só a gestão cadastra, troca o
+  // token, ativa e desativa.
   const ehGestor = organizationRole === "gestor";
   // Mesma regra de solicitar_comando_gateway(): gestor e recepção mandam
   // ordens ao Gateway; o banco confere de novo.
@@ -54,7 +70,7 @@ export default function AdminCatracas() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("organizacao_catracas")
-        .select("id, nome, localizacao, device_token, status, created_at, ultimo_heartbeat_em")
+        .select("id, nome, localizacao, status, created_at, ultimo_heartbeat_em, token_gerado_em")
         .eq("organization_id", organization!.id)
         .order("created_at", { ascending: false });
       if (error) throw error;
@@ -109,21 +125,24 @@ export default function AdminCatracas() {
   }, [organization?.id, queryClient]);
 
   const criarCatraca = useMutation({
-    mutationFn: async () => {
+    mutationFn: async ({ nome, localizacao }: { nome: string; localizacao: string }) => {
       if (!organization) throw new Error("Nenhuma organização vinculada.");
-      const { error } = await supabase.from("organizacao_catracas").insert({
-        organization_id: organization.id,
-        nome: novoNome.trim(),
-        localizacao: novaLocalizacao.trim() || null,
+      const { data, error } = await supabase.rpc("criar_catraca", {
+        _organization_id: organization.id,
+        _nome: nome,
+        _localizacao: localizacao || undefined,
       });
       if (error) throw error;
+      const token = (data as { token?: string } | null)?.token;
+      if (!token) throw new Error("O dispositivo foi cadastrado, mas o token não voltou. Gere um token novo nele.");
+      return { nome, token };
     },
-    onSuccess: () => {
-      toast({ title: "Dispositivo cadastrado!" });
+    onSuccess: (gerado) => {
       void queryClient.invalidateQueries({ queryKey: ["admin-catracas", organization?.id] });
       setNovoNome("");
       setNovaLocalizacao("");
       setDialogAberto(false);
+      setTokenMostrado(gerado);
     },
     onError: (error: Error) =>
       toast({ title: "Erro ao cadastrar", description: error.message, variant: "destructive" }),
@@ -139,6 +158,22 @@ export default function AdminCatracas() {
     },
     onError: (error: Error) =>
       toast({ title: "Erro ao atualizar", description: error.message, variant: "destructive" }),
+  });
+
+  const girarToken = useMutation({
+    mutationFn: async (catraca: { id: string; nome: string }) => {
+      const { data, error } = await supabase.rpc("girar_token_catraca", { _catraca_id: catraca.id });
+      if (error) throw error;
+      if (!data) throw new Error("O token não voltou. Tente de novo.");
+      return { nome: catraca.nome, token: data };
+    },
+    onSuccess: (gerado) => {
+      void queryClient.invalidateQueries({ queryKey: ["admin-catracas", organization?.id] });
+      setCatracaGirando(null);
+      setTokenMostrado(gerado);
+    },
+    onError: (error: Error) =>
+      toast({ title: "Não foi possível gerar o token", description: error.message, variant: "destructive" }),
   });
 
   const copiarToken = async (token: string) => {
@@ -217,6 +252,7 @@ export default function AdminCatracas() {
             </Badge>
           )}
         </div>
+        {ehGestor && (
         <Dialog open={dialogAberto} onOpenChange={setDialogAberto}>
           <DialogTrigger asChild>
             <Button size="sm">
@@ -250,21 +286,73 @@ export default function AdminCatracas() {
             <DialogFooter>
               <Button
                 disabled={!novoNome.trim() || criarCatraca.isPending}
-                onClick={() => criarCatraca.mutate()}
+                onClick={() => criarCatraca.mutate({ nome: novoNome.trim(), localizacao: novaLocalizacao.trim() })}
               >
                 {criarCatraca.isPending ? "Cadastrando..." : "Cadastrar"}
               </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
+        )}
       </div>
+
+      <Dialog open={!!tokenMostrado} onOpenChange={(aberto) => !aberto && setTokenMostrado(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Token de {tokenMostrado?.nome}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 text-sm">
+            <p>
+              Copie agora e cole no campo <code>token_api_local</code> do <code>config.json</code> do Gateway
+              Local. <strong>Ele não aparece de novo.</strong> Se perder, gere outro.
+            </p>
+            <div className="flex items-center gap-2 rounded-md border border-border bg-muted/50 p-2">
+              <span className="font-mono text-xs break-all flex-1">{tokenMostrado?.token}</span>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => tokenMostrado && void copiarToken(tokenMostrado.token)}
+              >
+                <Copy className="h-3.5 w-3.5 mr-1.5" /> Copiar
+              </Button>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button onClick={() => setTokenMostrado(null)}>Já copiei</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog open={!!catracaGirando} onOpenChange={(aberto) => !aberto && setCatracaGirando(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Gerar um token novo para {catracaGirando?.nome}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              O token atual para de valer na hora, e a catraca fica parada até o token novo entrar no
+              Gateway Local. Use quando o token se perdeu ou pode ter vazado.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={girarToken.isPending}
+              onClick={(e) => {
+                e.preventDefault();
+                if (catracaGirando) girarToken.mutate(catracaGirando);
+              }}
+            >
+              {girarToken.isPending ? "Gerando..." : "Gerar token novo"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-base">Dispositivos cadastrados</CardTitle>
           <p className="text-xs text-muted-foreground">
-            Cada catraca usa seu próprio token de dispositivo para autenticar chamadas ao endpoint
-            de validação de acesso — mantenha-o em local seguro no hardware.
+            Cada catraca tem um token próprio, que o Gateway Local usa para falar com o ARKE. O token
+            aparece uma vez, quando é gerado; o ARKE guarda só uma impressão dele.
           </p>
         </CardHeader>
         <CardContent className="space-y-2">
@@ -284,31 +372,38 @@ export default function AdminCatracas() {
                   </Badge>
                 </div>
                 {c.localizacao && <p className="text-xs text-muted-foreground">{c.localizacao}</p>}
-                <div className="flex items-center gap-1 mt-1">
-                  <span className="text-[11px] font-mono text-muted-foreground truncate">
-                    {c.device_token}
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-1">
+                  <span className="text-[11px] text-muted-foreground">
+                    {c.token_gerado_em
+                      ? `Token gerado em ${formatarDataBR(c.token_gerado_em)}`
+                      : "Sem token válido: gere um para o Gateway voltar a funcionar"}
                   </span>
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    className="h-5 w-5"
-                    onClick={() => void copiarToken(c.device_token)}
-                  >
-                    <Copy className="h-3 w-3" />
-                  </Button>
+                  {ehGestor && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-6 px-2 text-xs"
+                      onClick={() => setCatracaGirando({ id: c.id, nome: c.nome })}
+                    >
+                      <KeyRound className="h-3 w-3 mr-1" /> Gerar token novo
+                    </Button>
+                  )}
                 </div>
               </div>
-              <Button
-                size="icon"
-                variant="ghost"
-                className="h-8 w-8 shrink-0"
-                title={c.status === "ativo" ? "Desativar" : "Ativar"}
-                onClick={() =>
-                  alternarStatus.mutate({ id: c.id, status: c.status === "ativo" ? "inativo" : "ativo" })
-                }
-              >
-                {c.status === "ativo" ? <PowerOff className="h-4 w-4" /> : <Power className="h-4 w-4" />}
-              </Button>
+              {ehGestor && (
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="h-8 w-8 shrink-0"
+                  title={c.status === "ativo" ? "Desativar" : "Ativar"}
+                  aria-label={c.status === "ativo" ? "Desativar" : "Ativar"}
+                  onClick={() =>
+                    alternarStatus.mutate({ id: c.id, status: c.status === "ativo" ? "inativo" : "ativo" })
+                  }
+                >
+                  {c.status === "ativo" ? <PowerOff className="h-4 w-4" /> : <Power className="h-4 w-4" />}
+                </Button>
+              )}
             </div>
             <SaudeGateway
               catracaId={c.id}

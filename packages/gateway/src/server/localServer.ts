@@ -4,6 +4,7 @@ import { registrarReceptorControlId, type OpcoesReceptorControlId } from "../rec
 import { registrarReceptorTopdata, type OpcoesReceptorTopdata } from "../receptores/topdata";
 import { registrarReceptorIntelbras, type OpcoesReceptorIntelbras } from "../conectores/intelbras/receptor";
 import { logger } from "../logger";
+import { origemPermitida, rotaSemFiltro } from "./origemEquipamento";
 import { VERSAO_GATEWAY } from "../versao";
 
 /**
@@ -49,12 +50,39 @@ export function criarServidorLocal(gateway: GatewayService, porta = 4570) {
  */
 export function criarServidorReceptor(
   gateway: GatewayService,
-  opcoes: { host?: string; porta?: number; modelo?: string; intelbras?: OpcoesReceptorIntelbras } & OpcoesReceptorControlId &
+  opcoes: {
+    host?: string;
+    porta?: number;
+    modelo?: string;
+    intelbras?: OpcoesReceptorIntelbras;
+    /** IPs dos equipamentos (ver origemEquipamento.ts). Ausente: sem filtro. */
+    ipsPermitidos?: ReadonlySet<string>;
+  } & OpcoesReceptorControlId &
     OpcoesReceptorTopdata = {}
 ) {
   const host = opcoes.host ?? "0.0.0.0";
   const porta = opcoes.porta ?? 4571;
   const app = Fastify({ logger: false });
+
+  // Só os equipamentos do config falam com o receptor. A recusa vai ao log
+  // uma vez a cada 10 minutos por IP, para um aparelho insistente não encher
+  // o disco da recepção.
+  if (opcoes.ipsPermitidos) {
+    const permitidos = opcoes.ipsPermitidos;
+    const ultimoAviso = new Map<string, number>();
+    app.addHook("onRequest", async (req, reply) => {
+      if (rotaSemFiltro(req.url) || origemPermitida(permitidos, req.ip)) return;
+      const agora = Date.now();
+      if ((ultimoAviso.get(req.ip) ?? 0) + 600_000 < agora) {
+        ultimoAviso.set(req.ip, agora);
+        logger.warn(
+          { ip: req.ip, rota: req.url.split("?")[0] },
+          "Chamada ao receptor de um aparelho fora da lista de equipamentos — recusada"
+        );
+      }
+      return reply.code(403).send();
+    });
+  }
 
   // As rotas dos dois fabricantes não colidem — Control iD usa os
   // caminhos .fcgi que o próprio equipamento chama, e a ponte Topdata usa

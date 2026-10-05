@@ -1,4 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { hashDoTokenCatraca } from "../_shared/tokenCatraca.ts";
 import { todasAsLinhas } from "../_shared/paginar.ts";
 
 const corsHeaders = {
@@ -51,15 +52,13 @@ Deno.serve(async (req: Request) => {
     const payload: Partial<SincronizarPayload> = await req.json();
     const deviceToken = payload.device_token?.trim();
     if (!deviceToken) return jsonResponse({ error: "device_token é obrigatório." }, 400);
-    // Token fora do formato não é de dispositivo nenhum: 401, e não "falha do servidor".
-    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(deviceToken)) {
-      return jsonResponse({ error: "Dispositivo não autorizado." }, 401);
-    }
+    const tokenHash = await hashDoTokenCatraca(deviceToken);
+    if (!tokenHash) return jsonResponse({ error: "Dispositivo não autorizado." }, 401);
 
     const { data: catraca, error: catracaError } = await admin
       .from("organizacao_catracas")
       .select("id, organization_id, status")
-      .eq("device_token", deviceToken)
+      .eq("device_token_hash", tokenHash)
       .maybeSingle();
     if (catracaError) {
       console.error("Erro ao consultar catraca:", catracaError);

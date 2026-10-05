@@ -3054,6 +3054,24 @@ export type Database = {
           },
         ]
       }
+      freio_chamadas: {
+        Row: {
+          chave: string
+          criado_em: string
+          id: number
+        }
+        Insert: {
+          chave: string
+          criado_em?: string
+          id?: number
+        }
+        Update: {
+          chave?: string
+          criado_em?: string
+          id?: number
+        }
+        Relationships: []
+      }
       gateway_comandos: {
         Row: {
           aluno_id: string | null
@@ -4657,7 +4675,7 @@ export type Database = {
         Row: {
           created_at: string
           delay_liberacao_seg: number
-          device_token: string
+          device_token_hash: string | null
           driver: string | null
           id: string
           ip_address: string | null
@@ -4666,13 +4684,14 @@ export type Database = {
           organization_id: string
           porta: number | null
           status: string
+          token_gerado_em: string | null
           ultimo_heartbeat_em: string | null
           updated_at: string
         }
         Insert: {
           created_at?: string
           delay_liberacao_seg?: number
-          device_token?: string
+          device_token_hash?: string | null
           driver?: string | null
           id?: string
           ip_address?: string | null
@@ -4681,13 +4700,14 @@ export type Database = {
           organization_id: string
           porta?: number | null
           status?: string
+          token_gerado_em?: string | null
           ultimo_heartbeat_em?: string | null
           updated_at?: string
         }
         Update: {
           created_at?: string
           delay_liberacao_seg?: number
-          device_token?: string
+          device_token_hash?: string | null
           driver?: string | null
           id?: string
           ip_address?: string | null
@@ -4696,6 +4716,7 @@ export type Database = {
           organization_id?: string
           porta?: number | null
           status?: string
+          token_gerado_em?: string | null
           ultimo_heartbeat_em?: string | null
           updated_at?: string
         }
@@ -6053,6 +6074,27 @@ export type Database = {
           },
         ]
       }
+      sessoes_simuladas: {
+        Row: {
+          alvo_user_id: string
+          ator_user_id: string
+          criada_em: string
+          session_id: string
+        }
+        Insert: {
+          alvo_user_id: string
+          ator_user_id: string
+          criada_em?: string
+          session_id: string
+        }
+        Update: {
+          alvo_user_id?: string
+          ator_user_id?: string
+          criada_em?: string
+          session_id?: string
+        }
+        Relationships: []
+      }
       sla_config: {
         Row: {
           descricao: string | null
@@ -7405,6 +7447,10 @@ export type Database = {
         Returns: Json
       }
       cpf_valido: { Args: { _cpf: string }; Returns: boolean }
+      criar_catraca: {
+        Args: { _localizacao?: string; _nome: string; _organization_id: string }
+        Returns: Json
+      }
       criar_instrucao_presencial: {
         Args: {
           _aluno_id: string
@@ -7522,6 +7568,10 @@ export type Database = {
         Args: { _aluno_id: string; _foto: string }
         Returns: number
       }
+      envio_dentro_do_teto: {
+        Args: { _bucket: string; _nome: string }
+        Returns: boolean
+      }
       equipe_metodo: { Args: never; Returns: boolean }
       escalar_tarefas_vencidas: { Args: never; Returns: undefined }
       expirar_comandos_gateway: {
@@ -7574,6 +7624,7 @@ export type Database = {
       gerar_tarefas_barreira_rotina: { Args: never; Returns: undefined }
       gerar_tarefas_engajamento_baixo: { Args: never; Returns: undefined }
       gerar_tarefas_inercia: { Args: never; Returns: number }
+      gere_catracas: { Args: { _organization_id: string }; Returns: boolean }
       get_aceites_pendentes: {
         Args: { _organization_id?: string }
         Returns: {
@@ -8137,6 +8188,7 @@ export type Database = {
           pct_sla: number
         }[]
       }
+      girar_token_catraca: { Args: { _catraca_id: string }; Returns: string }
       guardar_chave_subconta_asaas: {
         Args: { _chave: string; _organization_id: string }
         Returns: undefined
@@ -8156,6 +8208,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      hash_token_catraca: { Args: { _token: string }; Returns: string }
       horas_uteis_entre: {
         Args: { _ate: string; _de: string }
         Returns: number
@@ -8319,6 +8372,10 @@ export type Database = {
           _observacao?: string
         }
         Returns: Database["public"]["Enums"]["fase_jornada"]
+      }
+      nomes_para_anonimizar: {
+        Args: { _organization_id: string }
+        Returns: string[]
       }
       obter_dias_previstos_semana: {
         Args: { _aluno_id: string; _meta_padrao: number }
@@ -8514,6 +8571,10 @@ export type Database = {
         }
         Returns: undefined
       }
+      registrar_chamada: {
+        Args: { _chave: string; _janela_seg: number; _limite: number }
+        Returns: boolean
+      }
       registrar_conferencia_asaas_implantacao: {
         Args: { _organization_id: string; _status: string }
         Returns: undefined
@@ -8635,6 +8696,7 @@ export type Database = {
           sugeridas: number
         }[]
       }
+      sessao_simulada: { Args: never; Returns: boolean }
       sincronizar_situacao_por_mensalidade: {
         Args: never
         Returns: {

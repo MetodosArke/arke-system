@@ -52,9 +52,9 @@ Sem eles o app não anuncia o Método (anunciar a quem não pode comprar mandari
 
 **Catraca, se houver:**
 
-1. Cadastrar o dispositivo em **Catracas** e copiar o token.
+1. Cadastrar o dispositivo em **Catracas** e copiar o token na hora (ele aparece uma vez só).
 2. Gerar o instalador do **Gateway Local** (`npm run build:exe` e `iscc scripts\gateway-installer.iss`, numa máquina Windows com o Inno Setup) e instalar no computador da recepção. O executável não tem assinatura de código: o Windows mostra o aviso do SmartScreen na primeira execução, e isso foi aceito.
-3. No `config.json`, informar o token, o `modelo_catraca` e, para Control iD, `controlid_equipamentos`, com o nome, o IP e a senha de cada catraca. A senha fica só nessa máquina.
+3. No `config.json`, informar o token, o `modelo_catraca` e, para Control iD, `controlid_equipamentos`, com o nome, o IP e a senha de cada catraca. A senha fica só nessa máquina. Equipamento fora das listas vai em `equipamentos_permitidos`: com as listas, o Gateway só atende esses IPs.
 4. Configurar o equipamento:
    - **Control iD:** ativar o modo online (Pro) apontando para o IP do Gateway e a porta 4571. Na iDBlock, configurar o Monitor e usar `confirmacao_giro: "catra_event"`.
    - **Topdata:** instalar a ponte e registrar a `Inner.dll` como administrador (`docs/PONTE_TOPDATA.md`).
