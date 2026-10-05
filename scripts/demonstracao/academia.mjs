@@ -190,11 +190,13 @@ async function semear() {
 
   // ── A academia ───────────────────────────────────────────────────────────
   const [org] = await sql(`insert into public.organizations (nome, slug, status, ficticia, tipo, plano_b2b, onboarding_completed,
-      cnpj_cpf, tipo_empresa, razao_social, cep, logradouro, numero, bairro, cidade, uf, telefone, email_contato, trial_vencimento)
+      cnpj_cpf, tipo_empresa, razao_social, cep, logradouro, numero, bairro, cidade, uf, telefone, email_contato, trial_vencimento, cor_marca)
     values (${q(NOME)}, ${q(SLUG)}, 'trial', true, 'academia', 'growth', true,
       ${q(cnpj(31))}, 'LIMITED', 'Ponto Alto Academia (demonstração ArkeFit)', '04538-133', 'Avenida Brigadeiro Faria Lima', '3900', 'Itaim Bibi',
-      'São Paulo', 'SP', '(11) 3030-4000', 'contato@${DOMINIO}', '2030-12-31')
+      'São Paulo', 'SP', '(11) 3030-4000', 'contato@${DOMINIO}', '2030-12-31', '#2563eb')
     returning id`);
+  // A cor da academia no app do aluno, para a demonstração mostrar a marca
+  // dela; o painel da equipe continua com a da ArkeFit.
   const ORG = org.id;
   console.log("academia", ORG);
 
