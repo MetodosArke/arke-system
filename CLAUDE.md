@@ -1455,6 +1455,8 @@ A decisão foi oferecer as duas etapas à gestão e exigi-las nessas três açõ
 - **Perdeu o celular:** a ArkeFit remove o fator no banco (`auth.mfa_factors`), como faz com a conta dela.
 - Artigo **Verificação em duas etapas** na Central de Ajuda, com links nos artigos de exportação e de equipe.
 
+**Um defeito antigo que a tela mostrou: a sessão renovada desmontava o painel.** Conferindo pela tela em produção, a exportação não rodava depois do código. O `AuthContext` tratava todo evento de sessão como uma entrada nova, inclusive o token renovado de hora em hora e o código das duas etapas confirmado: marcava os papéis como não carregados, e o `ProtectedRoute` trocava o painel inteiro pelo carregamento. A cada renovação do token, o formulário aberto se perdia, e aqui a ação que esperava o código se perdia junto. Agora evento da mesma pessoa só atualiza a sessão; depois do código, os papéis são relidos em segundo plano, sem desmontar nada. Outra pessoa entrando recarrega tudo, como antes. `AuthContext.sessao.test.tsx` falha na versão anterior.
+
 **Conferido:**
 - 8 casos da migration em transação desfeita.
 - 8 testes do componente e do gancho, com dois defeitos plantados (a ação rodando sem o código, a gestão forçada a cadastrar na entrada), os dois pegos.

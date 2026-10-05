@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import { createContext, useContext, useState, useEffect, useRef, ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { escolherVinculo, gravarOrganizacaoPreferida, lerOrganizacaoPreferida } from "@/lib/vinculos";
 import { identificarSessao } from "@/lib/monitoramento";
@@ -90,6 +90,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const [rolesLoaded, setRolesLoaded] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  // De quem são o perfil e os papéis carregados (ou carregando). Evento de
+  // sessão da mesma pessoa não recarrega nada: ver o onAuthStateChange.
+  const usuarioCarregado = useRef<string | null>(null);
   const [vinculosDisponiveis, setVinculosDisponiveis] = useState<{ organizationId: string; nome: string; role: AppRole }[]>([]);
 
   const fetchProfile = async (userId: string) => {
@@ -282,11 +285,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     // Set up auth listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_event, nextSession) => {
+      (evento, nextSession) => {
         setSession(nextSession);
         setUser(nextSession?.user ?? null);
 
         if (nextSession?.user) {
+          // A mesma pessoa, só a sessão mudou: o token renovado de hora em
+          // hora, o código das duas etapas confirmado. Recarregar marcaria os
+          // papéis como não carregados, e o ProtectedRoute desmontaria o
+          // painel inteiro: o formulário aberto e a ação que esperava o código
+          // das duas etapas se perdiam. Depois do código, os papéis são lidos
+          // de novo em segundo plano, sem desmontar nada.
+          if (nextSession.user.id === usuarioCarregado.current) {
+            if (evento === "MFA_CHALLENGE_VERIFIED") {
+              void Promise.all([fetchProfile(nextSession.user.id), fetchRoles(nextSession.user.id)]);
+            }
+            return;
+          }
+          usuarioCarregado.current = nextSession.user.id;
           setRolesLoaded(false);
           setCurrentUserId(nextSession.user.id);
 
@@ -302,6 +318,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           return;
         }
 
+        usuarioCarregado.current = null;
         setProfile(null);
         setRoles([]);
         setOrganization(null);
@@ -324,6 +341,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(initialSession?.user ?? null);
 
       if (initialSession?.user) {
+        // O onAuthStateChange já começou a carregar esta pessoa.
+        if (initialSession.user.id === usuarioCarregado.current) return;
+        usuarioCarregado.current = initialSession.user.id;
         setRolesLoaded(false);
         setCurrentUserId(initialSession.user.id);
         void Promise.all([
