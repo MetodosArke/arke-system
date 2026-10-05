@@ -1,5 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { verificada } from "../_shared/verificacao.ts";
+import { servir } from "../_shared/servir.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -58,7 +59,7 @@ const mensagemIndicaEmailJaCadastrado = (mensagem: string | undefined | null) =>
 // o vínculo do gestor são criados normalmente — só a UI é avisada de que
 // o e-mail não saiu, para o SuperAdmin repassar o acesso manualmente
 // (ex.: via /superadmin, ação equivalente à de "gerar-link-ativacao").
-Deno.serve(async (req: Request) => {
+servir("criar-organizacao-superadmin", async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }

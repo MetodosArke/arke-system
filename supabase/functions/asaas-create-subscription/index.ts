@@ -9,6 +9,7 @@ import {
 import { ambienteAsaas } from "../_shared/asaas.ts";
 import { dentroDoFreio, MENSAGEM_FREIO, regrasAsaas } from "../_shared/freio.ts";
 import { MENSAGEM_SO_QUEM_COBRA, podeCobrarNaAcademia } from "../_shared/papelCobranca.ts";
+import { servir } from "../_shared/servir.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -41,7 +42,7 @@ type CreateSubscriptionPayload = {
 // automático: o valor cobrado do aluno é dividido entre o repasse de
 // atacado à ARKE (custo do nivel_atacado + taxa de processamento) e o valor líquido que
 // fica com a academia, via wallet_id configurada em `organizations`.
-Deno.serve(async (req: Request) => {
+servir("asaas-create-subscription", async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }

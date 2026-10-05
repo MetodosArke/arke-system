@@ -1,5 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { hashDoTokenCatraca } from "../_shared/tokenCatraca.ts";
+import { servir } from "../_shared/servir.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -48,7 +49,7 @@ type SincronizarLogsPayload = {
 // horário real do evento (ocorrido_em) em vez da hora da sincronização.
 // Idempotente por natureza best-effort: o gateway só deve reenviar logs
 // que ainda não confirmou como sincronizados (controle fica do lado dele).
-Deno.serve(async (req: Request) => {
+servir("catraca-sincronizar-logs-offline", async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }

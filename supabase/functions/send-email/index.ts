@@ -9,6 +9,7 @@ import { RecoveryEmail } from './_templates/recovery.tsx'
 import { EmailChangeEmail } from './_templates/email-change.tsx'
 import { ReauthenticationEmail } from './_templates/reauthentication.tsx'
 import type { MarcaEmail } from './_templates/_components/brand.tsx'
+import { servir } from '../_shared/servir.ts'
 
 const resend = new Resend(Deno.env.get('RESEND_API_KEY') as string)
 // O Supabase mostra o secret como "v1,whsec_<base64>" — o Webhook (padrão
@@ -82,7 +83,7 @@ type HookUser = {
 // repo (antes órfãos, nunca ligados a nada) renderizados e enviados via
 // Resend. Autenticação da chamada é por assinatura de webhook (Svix), não
 // por JWT — por isso a função é implantada com verify_jwt = false.
-Deno.serve(async (req: Request) => {
+servir("send-email", async (req: Request) => {
   if (req.method !== 'POST') {
     return new Response('not allowed', { status: 400 })
   }

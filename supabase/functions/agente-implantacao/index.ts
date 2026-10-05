@@ -11,6 +11,7 @@ import {
   proximaEtapa,
   type Implantacao,
 } from "./fluxo.ts";
+import { servir } from "../_shared/servir.ts";
 
 const jsonResponse = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
@@ -34,7 +35,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 // a decisão e o registro nunca divergirem.
 //
 // Nada da academia vai para log além do id: só códigos de erro e status HTTP.
-Deno.serve(async (req: Request) => {
+servir("agente-implantacao", async (req: Request) => {
   if (req.method !== "POST") return jsonResponse({ error: "Method not allowed" }, 405);
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL");

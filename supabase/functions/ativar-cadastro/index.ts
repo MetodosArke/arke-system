@@ -1,4 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { servir } from "../_shared/servir.ts";
 
 // Resolve arkefit.com.br/cadastro/<code> (via rewrite no vercel.json, que
 // proxya direto pra cá mantendo o domínio arkefit.com.br na barra de
@@ -51,7 +52,7 @@ const ESTILO = `
   }
 `;
 
-Deno.serve(async (req: Request) => {
+servir("ativar-cadastro", async (req: Request) => {
   const siteUrl = Deno.env.get("SITE_URL") ?? "https://arkefit.com.br";
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
   const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");

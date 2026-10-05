@@ -1,6 +1,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { hashDoTokenCatraca } from "../_shared/tokenCatraca.ts";
 import { todasAsLinhas } from "../_shared/paginar.ts";
+import { servir } from "../_shared/servir.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -30,7 +31,7 @@ type SincronizarPayload = {
 // lista inteira toda vez, e isso era quase todo o tráfego da plataforma.
 // Mesmo padrão de autenticação
 // via device_token de catraca-validar-acesso (verify_jwt=false).
-Deno.serve(async (req: Request) => {
+servir("catraca-sincronizar-alunos", async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }

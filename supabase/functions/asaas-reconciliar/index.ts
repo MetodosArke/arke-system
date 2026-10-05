@@ -13,6 +13,7 @@ import {
   type Origem,
   type PagamentoAsaas,
 } from "./fluxo.ts";
+import { servir } from "../_shared/servir.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -121,7 +122,7 @@ async function statusLocais(admin: SupabaseClient, itens: { id: string; origem: 
   return locais;
 }
 
-Deno.serve(async (req: Request) => {
+servir("asaas-reconciliar", async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") return jsonResponse({ error: "Method not allowed" }, 405);
 

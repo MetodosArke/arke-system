@@ -1,6 +1,7 @@
 import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2";
 import { verificada } from "../_shared/verificacao.ts";
 import { emailPainelPronto, type Especialidade } from "./email.ts";
+import { servir } from "../_shared/servir.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -62,7 +63,7 @@ class Recusa extends Error {
 // Quem já tem conta no ArkeFit (aluno de uma academia, por exemplo) é ligado
 // ao painel e recebe um aviso: o Auth não convida quem existe, e até
 // 03/10/2026 isso derrubava o convite e deixava a organização vazia para trás.
-Deno.serve(async (req: Request) => {
+servir("convidar-profissional-autonomo", async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }

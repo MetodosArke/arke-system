@@ -12,6 +12,8 @@ Funções em Deno, publicadas no projeto `lzyxqjibkfblrrjboylp`. O repositório 
 
 ## Erros e logs
 
+- **Toda função entra por `servir("<nome da pasta>", ...)`** (`_shared/servir.ts`), e não por `Deno.serve`. O erro não tratado vira 500 com JSON, e o 500, 502 e 504 vão ao Sentry só com o nome, o status, o tipo e o código. O 503 fica de fora, porque é a resposta de propósito de recurso desligado. `servir.guarda.test.ts` cobra.
+
 - **O supabase-js não lança erro: ele devolve o erro.** Confira o `error` de toda leitura e gravação. No webhook do Asaas, tudo passa por `exigir()`; gravação que falha deixa o aviso sem processar.
 - **Log leva só status HTTP e código de erro.** Nunca o corpo, que pode trazer número de cartão, dado de saúde, prompt ou resposta de IA.
 - Falha nossa e pedido inválido são respostas diferentes: com o banco fora do ar, a resposta não diz "link expirado".

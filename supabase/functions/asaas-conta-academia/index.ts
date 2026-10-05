@@ -9,6 +9,7 @@ import {
 } from "./fluxo.ts";
 import { ambienteAsaas } from "../_shared/asaas.ts";
 import { dentroDoFreio, MENSAGEM_FREIO, regrasAsaas } from "../_shared/freio.ts";
+import { servir } from "../_shared/servir.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -29,7 +30,7 @@ type Acao = "criar" | "existente" | "situacao";
 // Gestor da organização ou ArkeFit. As colunas asaas_* são travadas para o
 // gestor no banco (trg_proteger_colunas_organizacao): só esta função, com a
 // service_role, grava — depois de conferir a carteira.
-Deno.serve(async (req: Request) => {
+servir("asaas-conta-academia", async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") return jsonResponse({ error: "Method not allowed" }, 405);
 

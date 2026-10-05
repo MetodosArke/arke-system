@@ -104,3 +104,8 @@ verify_jwt = false
 # Chamada pelo cron com o token do Vault (sem JWT); a Visão Master chama com a sessão da ArkeFit.
 [functions.encerramento-organizacao]
 verify_jwt = false
+
+# Saúde da plataforma para o monitor externo (uptime do Sentry). Pública e sem
+# dado: responde só se o banco, as rotinas e o alerta de rotinas estão de pé.
+[functions.saude]
+verify_jwt = false

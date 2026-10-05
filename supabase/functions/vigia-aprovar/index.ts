@@ -2,6 +2,7 @@ import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2";
 import { ambienteAsaas } from "../_shared/asaas.ts";
 import { cancelarAssinatura } from "../asaas-assinatura-ciclo/fluxo.ts";
 import { verificada } from "../_shared/verificacao.ts";
+import { servir } from "../_shared/servir.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -24,7 +25,7 @@ type Resultado = { resultado: "ok" | "erro" | "ignorada"; detalhe: string; coman
 //
 // O que precisa do Asaas roda aqui, com a chave pelo roteador de ambiente;
 // o resto roda no banco (public.vigia_executar).
-Deno.serve(async (req: Request) => {
+servir("vigia-aprovar", async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") return jsonResponse({ error: "Method not allowed" }, 405);
 

@@ -1,4 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { servir } from "../_shared/servir.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -23,7 +24,7 @@ const jsonResponse = (body: unknown, status = 200) =>
 // em nome de outra pessoa tem (ou deve ter) permissão de INSERT direto
 // em `treinos` — só via publicar_treino, que já resolve o snapshot
 // imutável.
-Deno.serve(async (req: Request) => {
+servir("publicar-treino-boas-vindas", async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }

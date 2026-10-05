@@ -1,5 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { hojeBrasilia } from "../_shared/data.ts";
+import { servir } from "../_shared/servir.ts";
 
 const jsonResponse = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
@@ -68,7 +69,7 @@ async function exigir<T extends { error: unknown }>(consulta: PromiseLike<T>): P
   return resultado;
 }
 
-Deno.serve(async (req: Request) => {
+servir("asaas-webhook", async (req: Request) => {
   if (req.method !== "POST") {
     return jsonResponse({ error: "Method not allowed" }, 405);
   }

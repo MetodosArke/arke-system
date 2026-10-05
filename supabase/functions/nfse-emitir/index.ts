@@ -12,6 +12,7 @@ import {
   situacaoDaNota,
   type NotaAsaas,
 } from "./fluxo.ts";
+import { servir } from "../_shared/servir.ts";
 
 const jsonResponse = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
@@ -267,7 +268,7 @@ async function cancelar(admin: SupabaseClient, ctx: Contexto, l: Linha): Promise
   return situacao ?? "cancelando";
 }
 
-Deno.serve(async (req: Request) => {
+servir("nfse-emitir", async (req: Request) => {
   if (req.method !== "POST") return jsonResponse({ error: "Method not allowed" }, 405);
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL");

@@ -1,6 +1,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { verificada } from "../_shared/verificacao.ts";
 import { alvoSoNaAcademia, MENSAGEM_OUTRA_ACADEMIA } from "../_shared/alvoNaAcademia.ts";
+import { servir } from "../_shared/servir.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -41,7 +42,7 @@ function gerarCodigoCurto(tamanho = 8): string {
 // supabase.auth.admin.generateLink, type "recovery") para o botão
 // "Enviar Ativação via WhatsApp" — não envia e-mail, apenas devolve o
 // link para o staff colar na mensagem do WhatsApp.
-Deno.serve(async (req: Request) => {
+servir("gerar-link-ativacao", async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }

@@ -2,6 +2,7 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import webpush from "npm:web-push@3.6.7";
 import { descreverErro, registrarExecucao } from "../_shared/execucao.ts";
 import { chavePublicaVapid } from "../_shared/vapid.ts";
+import { servir } from "../_shared/servir.ts";
 
 const NOME = "briefing-semanal";
 
@@ -84,7 +85,7 @@ function corpoEmail(b: Briefing, url: string): string {
 // **Sem LLM, de propósito.** Os números saem de SQL. Um modelo só formataria a
 // frase — e introduziria a chance de inventar um número num relatório assinado
 // pela ArkeFit, que é o pior defeito possível num relatório.
-Deno.serve(async (req: Request) => {
+servir("briefing-semanal", async (req: Request) => {
   if (req.method !== "POST") return jsonResponse({ error: "Method not allowed" }, 405);
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL");

@@ -10,6 +10,7 @@ import {
   tirarIdentificacao,
 } from "./fluxo.ts";
 import { dentroDoFreio, MENSAGEM_FREIO } from "../_shared/freio.ts";
+import { servir } from "../_shared/servir.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -25,7 +26,7 @@ const jsonResponse = (body: unknown, status = 200) =>
 // (`_shared/ia.ts`, a mesma porta do Sentinela) e devolve a dieta conferida
 // contra o original (`fluxo.ts`). Não grava nada: quem salva é a tela, depois
 // da revisão da nutricionista. Nem o texto nem a resposta vão para log.
-Deno.serve(async (req: Request) => {
+servir("importar-dieta-pdf", async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") return jsonResponse({ error: "Method not allowed" }, 405);
 

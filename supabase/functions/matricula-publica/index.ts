@@ -1,5 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { verificarCaptcha } from "../_shared/captcha.ts";
+import { servir } from "../_shared/servir.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -158,7 +159,7 @@ type MatriculaPayload = {
 // um convite de um gestor. Usa service_role para criar o usuário já com a
 // senha escolhida pelo próprio aluno (sem e-mail de convite — o fluxo é
 // self-service) e vinculá-lo como aluno da organização.
-Deno.serve(async (req: Request) => {
+servir("matricula-publica", async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }

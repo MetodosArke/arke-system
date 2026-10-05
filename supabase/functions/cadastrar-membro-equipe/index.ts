@@ -1,4 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { servir } from "../_shared/servir.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -63,7 +64,7 @@ function gerarSenhaTemporaria(): string {
 // já nasce com e-mail confirmado e uma senha temporária definida agora,
 // para o gestor poder colocar o funcionário para trabalhar imediatamente,
 // sem depender de entrega de e-mail.
-Deno.serve(async (req: Request) => {
+servir("cadastrar-membro-equipe", async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }

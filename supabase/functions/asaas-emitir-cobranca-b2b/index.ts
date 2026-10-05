@@ -2,6 +2,7 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import { verificada } from "../_shared/verificacao.ts";
 import { ambienteAsaas } from "../_shared/asaas.ts";
 import { hojeBrasilia } from "../_shared/data.ts";
+import { servir } from "../_shared/servir.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -85,7 +86,7 @@ async function chamarAsaas<T>(url: string, options: RequestInit): Promise<Chamad
 // (mensalidade SaaS, taxa de implantação etc.) — direção oposta do split
 // de aluno em asaas-create-subscription (lá a academia recebe, aqui a
 // ARKE recebe o valor inteiro, sem split, na conta dona da ASAAS_API_KEY).
-Deno.serve(async (req: Request) => {
+servir("asaas-emitir-cobranca-b2b", async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }

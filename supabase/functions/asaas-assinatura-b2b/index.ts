@@ -8,6 +8,7 @@ import {
   hojeBrasilia,
 } from "./fluxo.ts";
 import { ambienteAsaas } from "../_shared/asaas.ts";
+import { servir } from "../_shared/servir.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -35,7 +36,7 @@ const ROTULO_PLANO: Record<string, string> = {
 // com o valor de hoje, e `alterar_valor` leva o valor de hoje para ela
 // (reajuste pelo IPCA, renegociação). Mudar o valor na tela não muda a
 // cobrança sozinho; é este passo que muda, e ele fica na Auditoria.
-Deno.serve(async (req: Request) => {
+servir("asaas-assinatura-b2b", async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") return jsonResponse({ error: "Method not allowed" }, 405);
 

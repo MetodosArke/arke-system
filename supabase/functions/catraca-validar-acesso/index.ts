@@ -1,5 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { hashDoTokenCatraca } from "../_shared/tokenCatraca.ts";
+import { servir } from "../_shared/servir.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -41,7 +42,7 @@ type ValidarAcessoPayload = {
 // bater com uma catraca cadastrada e ativa antes de qualquer consulta a
 // dados de aluno. Latência medida em 23/09/2026: mediana ~400 ms, 4 s a frio
 // — o gateway espera até 1000 ms e cai para o cache depois disso.
-Deno.serve(async (req: Request) => {
+servir("catraca-validar-acesso", async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }

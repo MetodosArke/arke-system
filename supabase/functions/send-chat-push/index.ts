@@ -4,6 +4,7 @@ import { Buffer } from "node:buffer";
 import { createECDH } from "node:crypto";
 import { dentroDoFreio, MENSAGEM_FREIO } from "../_shared/freio.ts";
 import { caminhoDoApp, papeisDaEquipe, podeAvisarPessoa, TEXTO_MAXIMO, textoDoAviso, TITULO_MAXIMO } from "./regras.ts";
+import { servir } from "../_shared/servir.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -26,7 +27,7 @@ interface Payload {
   url?: string;
 }
 
-Deno.serve(async (req) => {
+servir("send-chat-push", async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }

@@ -1,6 +1,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { montarEmail, type Item } from "./email.ts";
 import { descreverErro, registrarExecucao } from "../_shared/execucao.ts";
+import { servir } from "../_shared/servir.ts";
 
 const jsonResponse = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
@@ -23,7 +24,7 @@ const NOME = "alertar-rotinas";
 // (registrar_execucao_agendada): se esta função quebrar, é a faixa da Visão
 // Master que avisa — o e-mail seria mandado justamente por ela.
 
-Deno.serve(async (req: Request) => {
+servir("alertar-rotinas", async (req: Request) => {
   if (req.method !== "POST") return jsonResponse({ error: "Method not allowed" }, 405);
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL");

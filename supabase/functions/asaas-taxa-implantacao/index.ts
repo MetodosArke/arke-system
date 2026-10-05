@@ -4,6 +4,7 @@ import { ambienteAsaas } from "../_shared/asaas.ts";
 import { hojeBrasilia } from "../_shared/data.ts";
 import { garantirClienteB2b } from "../asaas-assinatura-b2b/fluxo.ts";
 import { emitirOuAdotarTaxa, validarTaxa } from "./fluxo.ts";
+import { servir } from "../_shared/servir.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -18,7 +19,7 @@ const jsonResponse = (body: unknown, status = 200) =>
 // parcela vira uma linha de `cobrancas_b2b` já na emissão: o webhook só
 // registra sozinho as cobranças de assinatura, e é essa linha que a
 // conferência diária e a regra de inadimplência B2B enxergam.
-Deno.serve(async (req: Request) => {
+servir("asaas-taxa-implantacao", async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") return jsonResponse({ error: "Method not allowed" }, 405);
 
