@@ -3,6 +3,7 @@ import { ambienteAsaas } from "../_shared/asaas.ts";
 import { hojeBrasilia } from "../_shared/data.ts";
 import { dentroDoFreio, MENSAGEM_FREIO, regrasAsaas } from "../_shared/freio.ts";
 import { MENSAGEM_SO_QUEM_COBRA, podeCobrarNaAcademia } from "../_shared/papelCobranca.ts";
+import { servir } from "../_shared/servir.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -139,7 +140,7 @@ function somenteDigitos(texto: string | null | undefined): string {
 // menos uma taxinha de processamento (config global em
 // plataforma_config, editável pelo Super Admin) que cobre o custo real
 // que o Asaas cobra da ARKE.
-Deno.serve(async (req: Request) => {
+servir("academia-criar-matricula", async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }

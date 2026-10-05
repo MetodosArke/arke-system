@@ -12,6 +12,7 @@ import {
   SISTEMA_ASSISTENTE,
   type Contexto,
 } from "./fluxo.ts";
+import { servir } from "../_shared/servir.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -52,7 +53,7 @@ type Payload = {
 //
 // Os botões dos cartões não passam por aqui: chamam a mesma rota da tela, com
 // a permissão de quem clica.
-Deno.serve(async (req: Request) => {
+servir("assistente-academia", async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") return jsonResponse({ error: "Method not allowed" }, 405);
 

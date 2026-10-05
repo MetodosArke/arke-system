@@ -3,6 +3,7 @@ import { verificada } from "../_shared/verificacao.ts";
 import { ambienteAsaas } from "../_shared/asaas.ts";
 import { encerrarCobrancasDoAluno } from "../_shared/encerrarCobrancas.ts";
 import { apagarArquivosDoAluno } from "../_shared/arquivosDoAluno.ts";
+import { servir } from "../_shared/servir.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -28,7 +29,7 @@ type ExcluirPayload = {
 // aluno (treinos, dietas, checkins, avaliações, assinaturas, pagamentos
 // etc.) — não deixa rastro nenhum, inclusive o e-mail fica livre para
 // recadastro imediato.
-Deno.serve(async (req: Request) => {
+servir("excluir-aluno", async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }

@@ -1,4 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { servir } from "../_shared/servir.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -30,7 +31,7 @@ type CheckinPayload = {
 // grava o log normalmente em acessos_catraca_logs. Chamada com o JWT do
 // funcionário logado (não device_token de catraca), diferente das demais
 // funções deste subsistema.
-Deno.serve(async (req: Request) => {
+servir("catraca-checkin-parceiro-externo", async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }

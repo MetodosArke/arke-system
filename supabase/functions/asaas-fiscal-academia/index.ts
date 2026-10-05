@@ -12,6 +12,7 @@ import {
   FalhaIndefinida,
   opcoesMunicipais,
 } from "../nfse-emitir/fluxo.ts";
+import { servir } from "../_shared/servir.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -84,7 +85,7 @@ async function situacao(admin: SupabaseClient, orgId: string, api: string, chave
   };
 }
 
-Deno.serve(async (req: Request) => {
+servir("asaas-fiscal-academia", async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") return jsonResponse({ error: "Method not allowed" }, 405);
 

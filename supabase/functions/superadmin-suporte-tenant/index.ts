@@ -1,5 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { verificada } from "../_shared/verificacao.ts";
+import { servir } from "../_shared/servir.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -42,7 +43,7 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 // Admin API/service_role, não dá para fazer via update direto do client) e
 // excluir permanentemente a organização. Todas ficam na mesma função por
 // reaproveitar a mesma checagem de autorização (superadmin).
-Deno.serve(async (req: Request) => {
+servir("superadmin-suporte-tenant", async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }

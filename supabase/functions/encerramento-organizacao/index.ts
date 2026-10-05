@@ -6,6 +6,7 @@ import { encerrarCobrancasDoAluno } from "../_shared/encerrarCobrancas.ts";
 import { descreverErro, registrarExecucao } from "../_shared/execucao.ts";
 import { todasAsLinhas } from "../_shared/paginar.ts";
 import { pausarAssinatura } from "../asaas-assinatura-ciclo/fluxo.ts";
+import { servir } from "../_shared/servir.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -156,7 +157,7 @@ function emailDeAviso(e: { organizacao_nome: string; iniciativa: string; termino
   return { assunto: `ARKE: encerramento do contrato em ${data(e.termino_em)}`, texto, html };
 }
 
-Deno.serve(async (req: Request) => {
+servir("encerramento-organizacao", async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") return jsonResponse({ error: "Method not allowed" }, 405);
 

@@ -3,6 +3,7 @@ import { consultarVigia, MODELO_VIGIA } from "../_shared/ia.ts";
 import { interpretarResposta, validarQuadro } from "../_shared/vigiaAnalise.ts";
 import { descreverErro, registrarExecucao } from "../_shared/execucao.ts";
 import { montarEmailAvisos, type Aviso } from "./email.ts";
+import { servir } from "../_shared/servir.ts";
 
 const jsonResponse = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
@@ -21,7 +22,7 @@ const NOME = "vigia";
 //      por hora (public.vigia_quadro decide). Falha aberta: modelo fora do ar
 //      vira uma linha "indisponível", e nada do quadro nem da resposta vai
 //      para log.
-Deno.serve(async (req: Request) => {
+servir("vigia", async (req: Request) => {
   if (req.method !== "POST") return jsonResponse({ error: "Method not allowed" }, 405);
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL");

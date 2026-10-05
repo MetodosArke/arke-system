@@ -1,5 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { hashDoTokenCatraca } from "../_shared/tokenCatraca.ts";
+import { servir } from "../_shared/servir.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -25,7 +26,7 @@ const GIROS = new Set(["confirmado", "desistencia", "sem_confirmacao"]);
 // verify_jwt desligado. E presa ao próprio dispositivo: a atualização exige
 // que o registro seja DESTA catraca, então um token vazado não fecha giro
 // de outra academia.
-Deno.serve(async (req: Request) => {
+servir("catraca-confirmar-giro", async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") return jsonResponse({ error: "Method not allowed" }, 405);
 

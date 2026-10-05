@@ -1,6 +1,7 @@
 import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2";
 import { emailMatriculaNova } from "./email.ts";
 import { dentroDoFreio, MENSAGEM_FREIO } from "../_shared/freio.ts";
+import { servir } from "../_shared/servir.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -99,7 +100,7 @@ function cpfValido(valor: string): boolean {
 // cadastro de equipe (professor, nutricionista, recepção) não passa mais
 // por aqui — usa a Edge Function `cadastrar-membro-equipe`, que cria a
 // conta direto, com senha temporária, sem depender de entrega de e-mail.
-Deno.serve(async (req: Request) => {
+servir("convidar-membro", async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }

@@ -96,3 +96,33 @@ O que a primeira rodada achou, e o que foi feito:
 - **Ficou, com motivo:**
   - **React Router 6**: o aviso é de endereço externo em `<Link>` e `navigate()`. Nenhuma navegação do app usa endereço vindo de fora; todas saem do próprio código ou do catálogo da Central de Ajuda, que o teste confere. A correção só existe na versão 7, que é troca de versão maior e fica registrada no workspace.
   - **Vite, Vitest, esbuild e Tailwind 3**: só desenvolvimento e build. Os avisos são do servidor de desenvolvimento, que não vai para produção. A correção também é troca de versão maior.
+
+## Saúde da plataforma, erro das funções no Sentry e cabeçalhos de segurança (05/10/2026)
+
+Rodada B. Os três tratam do mesmo problema: saber que algo quebrou antes de uma academia ligar.
+
+- **Monitor de fora.** O alerta de rotinas e o Vigia rodam dentro do Supabase. Se o banco ou o pg_cron param, quem avisaria parou junto.
+  - A função pública `saude` (`verify_jwt` desligado) lê `saude_plataforma()`, que só a service role chama.
+  - Ela responde 200 só quando o banco responde, alguma rotina do pg_cron terminou bem nos últimos 15 minutos e o alerta de rotinas rodou nas últimas 2 h 15 min. Fora isso, responde 503.
+  - Devolve só três booleanos e guarda a resposta 30 s por instância.
+  - Quem chama é o **monitor de disponibilidade do Sentry**, de minuto em minuto, com 3 falhas seguidas para acusar. Ele foi criado pela API, sem conta nova em outro serviço, mas **está desligado**: o plano gratuito pede saldo de uso avulso para ligá-lo, e essa decisão é do responsável.
+- **Erro das funções no Sentry** (projeto `edge-functions`, segredo `SENTRY_DSN_FUNCOES`). As 53 funções passaram a entrar por `servir` (`_shared/servir.ts`) em vez de `Deno.serve`:
+  - O erro não tratado vira 500 com corpo JSON, e não mais a página de erro do runtime.
+  - O 500, o 502 e o 504 vão ao Sentry, sem SDK (`_shared/sentry.ts`). O 503 fica de fora, porque é a resposta de propósito de recurso desligado.
+  - **O que sai é só o nome da função, o status, o tipo e o código do erro, e o rastro.** A mensagem não sai, porque a do banco pode trazer o valor de uma coluna; o corpo da requisição nunca é lido. O teste confere com um erro de chave duplicada com CPF.
+  - A mesma falha vai uma vez a cada 5 minutos por instância, para um laço não gastar a cota gratuita.
+- **Cabeçalhos de segurança** no `vercel.json`. Valem já: `X-Content-Type-Options`, `Referrer-Policy`, `X-Frame-Options: DENY` e `Permissions-Policy` (sem microfone, localização, pagamento e USB). O HSTS a Vercel já mandava.
+  - **A CSP entrou só observando** (`Content-Security-Policy-Report-Only`), com os relatos indo ao Sentry. Ela libera o script embutido do `index.html` pelo hash.
+  - O hash tem de ser do texto com quebra de linha LF, que é como o arquivo sai do git para o build. Calculado com o CRLF da cópia local, ele não batia com o de produção.
+  - `cabecalhos.guarda.test.ts` falha se o script mudar sem o hash. Passar a CSP a valer é decisão, depois de alguns dias sem relato.
+
+**Conferido:**
+- O guarda do `servir` e do evento: nenhuma função com `Deno.serve`, cada uma com o nome da própria pasta, e o CPF da mensagem fora do evento.
+- O guarda dos cabeçalhos, com um caractere mudado no script derrubando o teste.
+- As 53 funções no `deno check`.
+- `saude_plataforma()` fechada para quem está logado e para o anônimo.
+- As 53 funções publicadas, nenhuma respondendo 5xx sem credencial, e a `saude` respondendo 200 em GET e HEAD.
+- **A corrente do Sentry**, com uma função temporária que lançava um erro com um número no texto e outra que respondia 502:
+  - os dois eventos chegaram com a função, o status, o tipo, o código e o rastro, e sem o texto do erro;
+  - a regra de e-mail do projeto disparou;
+  - a função foi apagada e os dois eventos foram resolvidos.

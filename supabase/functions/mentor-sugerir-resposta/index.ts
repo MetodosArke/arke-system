@@ -1,6 +1,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { verificada } from "../_shared/verificacao.ts";
 import { conversarComIA, fornecedorIA } from "../_shared/ia.ts";
+import { servir } from "../_shared/servir.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -42,7 +43,7 @@ FORMA: no máximo 3 frases. Sem emoji. Sem saudação genérica do tipo "espero 
 // constância. Nome, CPF, e-mail e id não saem daqui. A conversa vai como o
 // aluno escreveu, e isso é limitação assumida: higienizá-la destruiria o
 // sentido do que se quer sugerir. Está no termo, não numa promessa técnica.
-Deno.serve(async (req: Request) => {
+servir("mentor-sugerir-resposta", async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") return jsonResponse({ error: "Method not allowed" }, 405);
 

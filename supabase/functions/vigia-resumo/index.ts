@@ -1,6 +1,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { montarEmailResumo, type Resumo } from "./email.ts";
 import { descreverErro, registrarExecucao } from "../_shared/execucao.ts";
+import { servir } from "../_shared/servir.ts";
 
 const jsonResponse = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
@@ -11,7 +12,7 @@ const NOME = "vigia-resumo";
 // `arke-vigia-resumo`). Sai mesmo num dia sem ocorrência nenhuma: no modo
 // sombra, "rodou 288 vezes e não viu nada" é informação — é o que distingue
 // um dia calmo de um Vigia parado. Desligado o Vigia, o resumo não sai.
-Deno.serve(async (req: Request) => {
+servir("vigia-resumo", async (req: Request) => {
   if (req.method !== "POST") return jsonResponse({ error: "Method not allowed" }, 405);
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL");

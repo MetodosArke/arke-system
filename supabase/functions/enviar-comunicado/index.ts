@@ -4,6 +4,7 @@ import { Buffer } from "node:buffer";
 import { createECDH } from "node:crypto";
 import { dentroDoFreio } from "../_shared/freio.ts";
 import { todasAsLinhas } from "../_shared/paginar.ts";
+import { servir } from "../_shared/servir.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -19,7 +20,7 @@ type Publico = "alunos" | "equipe" | "todos";
 // Comunicado em massa da academia: grava o aviso (que aparece no app) e manda
 // notificação no celular de quem ativou. Gestor ou recepção da organização.
 // A publicação vale mesmo se a notificação falhar — o aviso está no app.
-Deno.serve(async (req: Request) => {
+servir("enviar-comunicado", async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") return jsonResponse({ error: "Method not allowed" }, 405);
 

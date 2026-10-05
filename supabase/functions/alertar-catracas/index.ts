@@ -1,6 +1,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { montarEmailArkeFit, montarEmailGestor, type ItemCatraca } from "./email.ts";
 import { descreverErro, registrarExecucao } from "../_shared/execucao.ts";
+import { servir } from "../_shared/servir.ts";
 
 const jsonResponse = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
@@ -18,7 +19,7 @@ const NOME = "alertar-catracas";
 // academia, um com as catracas dela. Falha no envio a uma academia não
 // impede as outras nem o da ArkeFit — e o registro de cada uma só acontece
 // quando o e-mail dela saiu.
-Deno.serve(async (req: Request) => {
+servir("alertar-catracas", async (req: Request) => {
   if (req.method !== "POST") return jsonResponse({ error: "Method not allowed" }, 405);
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL");

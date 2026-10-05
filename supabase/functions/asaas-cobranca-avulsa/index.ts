@@ -9,6 +9,7 @@ import {
   validarCobrancaAvulsa,
   type CobrancaAsaas,
 } from "./fluxo.ts";
+import { servir } from "../_shared/servir.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -88,7 +89,7 @@ async function registrarEmissao(admin: SupabaseClient, linhaId: string, c: Cobra
   if (error) console.error("Cobrança emitida, mas não gravada; o webhook completa", linhaId, error.code);
 }
 
-Deno.serve(async (req: Request) => {
+servir("asaas-cobranca-avulsa", async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") return jsonResponse({ error: "Method not allowed" }, 405);
 

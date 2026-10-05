@@ -1,5 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { verificarCaptcha } from "../_shared/captcha.ts";
+import { servir } from "../_shared/servir.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -38,7 +39,7 @@ async function hashDoIp(ip: string, pimenta: string): Promise<string> {
     .join("");
 }
 
-Deno.serve(async (req: Request) => {
+servir("primeiro-acesso", async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") return jsonResponse({ error: "Method not allowed" }, 405);
 

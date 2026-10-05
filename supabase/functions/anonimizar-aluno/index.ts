@@ -3,6 +3,7 @@ import { verificada } from "../_shared/verificacao.ts";
 import { ambienteAsaas } from "../_shared/asaas.ts";
 import { encerrarCobrancasDoAluno } from "../_shared/encerrarCobrancas.ts";
 import { apagarArquivosDoAluno } from "../_shared/arquivosDoAluno.ts";
+import { servir } from "../_shared/servir.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -25,7 +26,7 @@ type AnonimizarPayload = {
 // pagamentos, IDs do Asaas) — que precisam sobreviver para auditoria
 // fiscal/contábil. Em vez disso, substitui os dados pessoais por
 // placeholders e desativa o acesso do aluno à organização.
-Deno.serve(async (req: Request) => {
+servir("anonimizar-aluno", async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }

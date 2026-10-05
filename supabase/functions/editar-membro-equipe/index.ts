@@ -1,6 +1,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { verificada } from "../_shared/verificacao.ts";
 import { alvoSoNaAcademia, MENSAGEM_OUTRA_ACADEMIA } from "../_shared/alvoNaAcademia.ts";
+import { servir } from "../_shared/servir.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -33,7 +34,7 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 // update direto do client. Nome e papel também passam por aqui para
 // manter a mesma checagem de autorização (gestor da própria org, ou
 // admin_arke) num só lugar.
-Deno.serve(async (req: Request) => {
+servir("editar-membro-equipe", async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }

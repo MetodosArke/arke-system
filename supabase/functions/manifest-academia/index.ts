@@ -1,5 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { montarManifesto, slugDoPedido, type MarcaManifesto } from "./fluxo.ts";
+import { servir } from "../_shared/servir.ts";
 
 // O manifesto do app instalado com a marca da academia. Público
 // (verify_jwt = false): o navegador busca o manifesto sem sessão nenhuma, e o
@@ -13,7 +14,7 @@ const cabecalhos = {
   "Cache-Control": "public, max-age=300",
 };
 
-Deno.serve(async (req) => {
+servir("manifest-academia", async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cabecalhos });
   if (req.method !== "GET") return new Response("Método não aceito.", { status: 405 });
 

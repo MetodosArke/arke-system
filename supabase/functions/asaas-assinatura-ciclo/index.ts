@@ -9,6 +9,7 @@ import {
   pausarAssinatura,
   retomarAssinatura,
 } from "./fluxo.ts";
+import { servir } from "../_shared/servir.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -39,7 +40,7 @@ type Tipo = "metodo" | "plano";
 // cobrança e com acesso por um tempo — erro que não custa dinheiro a ninguém,
 // ao contrário do inverso. E o `PAYMENT_DELETED` que o Asaas dispara corrige
 // as cobranças por conta própria.
-Deno.serve(async (req: Request) => {
+servir("asaas-assinatura-ciclo", async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") return jsonResponse({ error: "Method not allowed" }, 405);
 

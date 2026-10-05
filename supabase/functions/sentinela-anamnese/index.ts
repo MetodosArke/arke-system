@@ -2,6 +2,7 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import { verificada } from "../_shared/verificacao.ts";
 import { conversarComIA, fornecedorIA } from "../_shared/ia.ts";
 import { lerAtencao } from "./atencao.ts";
+import { servir } from "../_shared/servir.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -45,7 +46,7 @@ Ao final, em uma linha separada, escreva exatamente "ATENCAO: SIM" se o aluno de
 // O resumo é **guardado por versão da anamnese** (hash), não gerado a cada
 // abertura de tela: uma chamada por versão custa menos e, o que importa mais,
 // **expõe menos** — cada chamada é um envio de dado de saúde a um terceiro.
-Deno.serve(async (req: Request) => {
+servir("sentinela-anamnese", async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") return jsonResponse({ error: "Method not allowed" }, 405);
 

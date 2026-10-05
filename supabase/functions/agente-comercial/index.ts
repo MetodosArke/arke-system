@@ -12,6 +12,7 @@ import {
   type Etapa,
   type Origem,
 } from "./fluxo.ts";
+import { servir } from "../_shared/servir.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -38,7 +39,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 //   igual exista ou não o token.
 //
 // Nada do contato vai para log: só códigos de erro e status HTTP.
-Deno.serve(async (req: Request) => {
+servir("agente-comercial", async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") return jsonResponse({ error: "Method not allowed" }, 405);
 

@@ -1,5 +1,6 @@
 import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2";
 import { hashDoTokenCatraca } from "../_shared/tokenCatraca.ts";
+import { servir } from "../_shared/servir.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -90,7 +91,7 @@ async function fotosDoRosto(
 //
 // Mesma autenticação das outras funções da catraca: device_token no corpo,
 // verify_jwt desligado, e tudo preso ao próprio dispositivo.
-Deno.serve(async (req: Request) => {
+servir("catraca-comandos", async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") return jsonResponse({ error: "Method not allowed" }, 405);
 
