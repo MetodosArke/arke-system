@@ -124,9 +124,10 @@ async function semear() {
     console.log("A academia de demonstração já existe; rode `limpar` antes para recriar.");
     return;
   }
-  const [org] = await sql(`insert into public.organizations (nome, slug, status, tipo, plano_b2b, onboarding_completed,
+  // Fictícia: fora dos números da plataforma e do resumo semanal por e-mail.
+  const [org] = await sql(`insert into public.organizations (nome, slug, status, ficticia, tipo, plano_b2b, onboarding_completed,
       cnpj_cpf, tipo_empresa, cep, logradouro, numero, bairro, cidade, uf, telefone, email_contato, razao_social, trial_vencimento)
-    values ('Academia Horizonte', ${q(SLUG)}, 'trial', 'academia', 'growth', false,
+    values ('Academia Horizonte', ${q(SLUG)}, 'trial', true, 'academia', 'growth', false,
       ${q(cnpj(7))}, 'LIMITED', '01310-100', 'Avenida Paulista', '1000', 'Bela Vista',
       'São Paulo', 'SP', '(11) 3333-0000', 'contato@${DOMINIO}', 'Academia Horizonte (demonstração)', current_date + 30)
     returning id`);

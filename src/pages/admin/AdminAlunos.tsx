@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -28,6 +28,7 @@ import {
   Trash2,
   ClipboardList,
   Sparkles,
+  Search,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { Enums } from "@/integrations/supabase/types";
@@ -38,6 +39,7 @@ import { ImprimirTreinoDialog, type ExercicioSnapshotImpressao, type TreinoImpre
 import { abrirWhatsAppAtivacao } from "@/lib/whatsappAtivacao";
 import { ConvitePrimeiroAcesso } from "@/components/admin/ConvitePrimeiroAcesso";
 import { SituacaoAluno } from "@/components/admin/SituacaoAluno";
+import { filtrarAlunos, LIMITE_NA_TELA, type FiltroSituacao } from "@/lib/buscaAlunos";
 import { planoDoAluno, ROTULO_PLANO, ROTULO_SITUACAO, type SituacaoAcademia } from "@/lib/planoAluno";
 import { baixarPlanilha, dataBr } from "@/lib/exportarPlanilha";
 import { formatarDataBR } from "@/lib/dataBrasilia";
@@ -88,6 +90,8 @@ interface AlunoRow {
   anonimizado_em: string | null;
   full_name: string;
   telefone: string | null;
+  /** Só para a busca: a lista não mostra o CPF. */
+  cpf: string | null;
   assinatura_status: string | null;
   assinatura_valor: number | null;
   assinatura_fatura_url: string | null;
@@ -121,6 +125,9 @@ export default function AdminAlunos() {
   const [alunoPerfilId, setAlunoPerfilId] = useState<string | null>(null);
   const [impressaoTreino, setImpressaoTreino] = useState<{ alunoNome: string; treino: TreinoImpressao } | null>(null);
   const [carregandoImpressao, setCarregandoImpressao] = useState<string | null>(null);
+  const [busca, setBusca] = useState("");
+  const [filtroSituacao, setFiltroSituacao] = useState<FiltroSituacao>("todas");
+  const [mostrarTodos, setMostrarTodos] = useState(false);
 
   const { data: alunos = EMPTY_ALUNOS, isLoading } = useQuery({
     queryKey: ["admin-alunos", organization?.id],
@@ -140,7 +147,7 @@ export default function AdminAlunos() {
       const [profiles, assinaturas] = await Promise.all([
         porLotes(
           alunosData.map((a) => a.user_id),
-          (lote) => supabase.from("profiles").select("user_id, full_name, phone").in("user_id", lote)
+          (lote) => supabase.from("profiles").select("user_id, full_name, phone, cpf").in("user_id", lote)
         ),
         porLotes(
           alunosData.map((a) => a.id),
@@ -161,6 +168,7 @@ export default function AdminAlunos() {
           ...a,
           full_name: profile?.full_name ?? "—",
           telefone: profile?.phone ?? null,
+          cpf: profile?.cpf ?? null,
           assinatura_status: assinatura?.status ?? null,
           assinatura_valor: assinatura?.valor_cobrado ?? null,
           assinatura_fatura_url: assinatura?.fatura_pendente_url ?? null,
@@ -170,6 +178,11 @@ export default function AdminAlunos() {
     },
     enabled: !!organization?.id,
   });
+
+  // A busca filtra na tela: a lista já vem inteira do banco.
+  const filtrados = useMemo(() => filtrarAlunos(alunos, busca, filtroSituacao), [alunos, busca, filtroSituacao]);
+  const visiveis = mostrarTodos ? filtrados : filtrados.slice(0, LIMITE_NA_TELA);
+  const buscando = busca.trim() !== "" || filtroSituacao !== "todas";
 
   const { data: precificacaoAtacado = [] } = useQuery({
     queryKey: ["org-precificacao-atacado", organization?.id],
@@ -435,6 +448,49 @@ export default function AdminAlunos() {
             <p className="p-4 text-sm text-muted-foreground">Nenhum aluno cadastrado ainda.</p>
           )}
           {alunos.length > 0 && (
+            <div className="flex flex-wrap items-center gap-2 border-b p-3">
+              <div className="relative min-w-[200px] flex-1">
+                <Search className="pointer-events-none absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" aria-hidden />
+                <Input
+                  type="search"
+                  value={busca}
+                  onChange={(e) => {
+                    setBusca(e.target.value);
+                    setMostrarTodos(false);
+                  }}
+                  placeholder="Buscar por nome, telefone ou CPF"
+                  aria-label="Buscar aluno"
+                  className="pl-8"
+                />
+              </div>
+              <Select
+                value={filtroSituacao}
+                onValueChange={(v) => {
+                  setFiltroSituacao(v as FiltroSituacao);
+                  setMostrarTodos(false);
+                }}
+              >
+                <SelectTrigger className="w-40" aria-label="Situação">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todas">Todas as situações</SelectItem>
+                  <SelectItem value="em_dia">{ROTULO_SITUACAO.em_dia}</SelectItem>
+                  <SelectItem value="inadimplente">{ROTULO_SITUACAO.inadimplente}</SelectItem>
+                  <SelectItem value="pausado">{ROTULO_SITUACAO.pausado}</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="w-full text-xs text-muted-foreground sm:w-auto" aria-live="polite">
+                {buscando ? `${filtrados.length} de ${alunos.length} aluno(s)` : `${alunos.length} aluno(s)`}
+              </p>
+            </div>
+          )}
+          {alunos.length > 0 && filtrados.length === 0 && (
+            <p className="p-4 text-sm text-muted-foreground">
+              Nenhum aluno encontrado{busca.trim() ? ` para "${busca.trim()}"` : ""}.
+            </p>
+          )}
+          {filtrados.length > 0 && (
             <Table>
               <TableHeader>
                 <TableRow>
@@ -449,7 +505,7 @@ export default function AdminAlunos() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {alunos.map((aluno) => (
+                {visiveis.map((aluno) => (
                   <TableRow key={aluno.id}>
                     <TableCell className="font-medium">
                       <button
@@ -601,6 +657,13 @@ export default function AdminAlunos() {
                 ))}
               </TableBody>
             </Table>
+          )}
+          {filtrados.length > visiveis.length && (
+            <div className="border-t p-3 text-center">
+              <Button variant="ghost" size="sm" onClick={() => setMostrarTodos(true)}>
+                Mostrar todos os {filtrados.length} alunos
+              </Button>
+            </div>
           )}
         </CardContent>
       </Card>

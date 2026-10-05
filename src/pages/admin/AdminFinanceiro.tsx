@@ -21,6 +21,7 @@ import { useToast } from "@/hooks/use-toast";
 import { DollarSign, TrendingUp, TrendingDown, Plus, Wallet, Repeat, Sparkles, BookOpen, Percent } from "lucide-react";
 import type { Enums, Tables } from "@/integrations/supabase/types";
 import { reais } from "@/lib/numeros";
+import { todasAsLinhas } from "@/lib/paginar";
 
 type FolhaTipo = Enums<"folha_tipo">;
 type LancamentoTipo = Enums<"lancamento_financeiro_tipo">;
@@ -67,12 +68,19 @@ const STATUS_LABEL: Record<LancamentoStatus, string> = {
   cancelado: "Cancelado",
 };
 
+// Os últimos seis meses (YYYY-MM), contados do mês de hoje em Brasília.
 const MESES_RECENTES = Array.from({ length: 6 }, (_, i) => {
-  const d = new Date();
-  d.setDate(1);
-  d.setMonth(d.getMonth() - i);
-  return d.toISOString().slice(0, 7); // YYYY-MM
+  const [ano, mes] = hojeBrasilia().split("-").map(Number);
+  const total = ano * 12 + (mes - 1) - i;
+  return `${Math.floor(total / 12)}-${String((total % 12) + 1).padStart(2, "0")}`;
 });
+
+/** Primeiro e último dia de um mês YYYY-MM. */
+function limitesDoMes(ym: string): [string, string] {
+  const [ano, mes] = ym.split("-").map(Number);
+  const ultimo = new Date(Date.UTC(ano, mes, 0)).getUTCDate();
+  return [`${ym}-01`, `${ym}-${String(ultimo).padStart(2, "0")}`];
+}
 
 function mesLabel(ym: string) {
   const [ano, mes] = ym.split("-").map(Number);
@@ -109,6 +117,7 @@ export default function AdminFinanceiro() {
   const queryClient = useQueryClient();
   const ehAutonomo = organization?.tipo === "profissional_autonomo";
   const [competencia, setCompetencia] = useState(MESES_RECENTES[0]);
+  const [mesLancamentos, setMesLancamentos] = useState(MESES_RECENTES[0]);
   const [formFolha, setFormFolha] = useState<Record<string, { tipo: FolhaTipo; valor_base: string; ativo: boolean }>>({});
   const [novoLancamento, setNovoLancamento] = useState<LancamentoForm>(LANCAMENTO_VAZIO);
   const [novaCategoria, setNovaCategoria] = useState<{ tipo: LancamentoTipo; nome: string }>({ tipo: "despesa", nome: "" });
@@ -257,18 +266,41 @@ export default function AdminFinanceiro() {
     onError: (error: Error) => toast({ title: "Erro ao atualizar conta", description: error.message, variant: "destructive" }),
   });
 
+  // Os lançamentos do mês escolhido, todos (em páginas). Antes eram só os 80
+  // mais recentes, de qualquer mês, e os totais saíam deles: com o volume de
+  // uma academia de verdade, o saldo ficava errado.
   const { data: lancamentos = [] } = useQuery({
-    queryKey: ["lancamentos-financeiros", organization?.id],
+    queryKey: ["lancamentos-financeiros", organization?.id, mesLancamentos],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("lancamentos_financeiros")
-        .select("*")
-        .eq("organization_id", organization!.id)
-        .order("data", { ascending: false })
-        .limit(80);
-      if (error) throw error;
-      return data;
+      const [inicio, fim] = limitesDoMes(mesLancamentos);
+      return todasAsLinhas((de, ate) =>
+        supabase
+          .from("lancamentos_financeiros")
+          .select("*")
+          .eq("organization_id", organization!.id)
+          .gte("data", inicio)
+          .lte("data", fim)
+          .order("data", { ascending: false })
+          .order("id")
+          .range(de, ate)
+      );
     },
+    enabled: !!organization?.id,
+  });
+
+  // O que está em aberto, de qualquer mês: é o a receber e o a pagar de hoje.
+  const { data: emAberto = [] } = useQuery({
+    queryKey: ["lancamentos-financeiros-em-aberto", organization?.id],
+    queryFn: async () =>
+      todasAsLinhas((de, ate) =>
+        supabase
+          .from("lancamentos_financeiros")
+          .select("id, tipo, valor")
+          .eq("organization_id", organization!.id)
+          .in("status", ["pendente", "atrasado"])
+          .order("id")
+          .range(de, ate)
+      ),
     enabled: !!organization?.id,
   });
 
@@ -300,7 +332,7 @@ export default function AdminFinanceiro() {
     onSuccess: () => {
       toast({ title: "Lançamento registrado" });
       setNovoLancamento(LANCAMENTO_VAZIO);
-      void queryClient.invalidateQueries({ queryKey: ["lancamentos-financeiros", organization?.id] });
+      void queryClient.invalidateQueries({ queryKey: ["lancamentos-financeiros", organization?.id] }).then(() => queryClient.invalidateQueries({ queryKey: ["lancamentos-financeiros-em-aberto", organization?.id] }));
     },
     onError: (error: Error) => toast({ title: "Erro ao registrar", description: error.message, variant: "destructive" }),
   });
@@ -312,7 +344,7 @@ export default function AdminFinanceiro() {
         .update({ status: "pago", data_pagamento: hojeBrasilia() })
         .eq("id", id).select("id"));
     },
-    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["lancamentos-financeiros", organization?.id] }),
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["lancamentos-financeiros", organization?.id] }).then(() => queryClient.invalidateQueries({ queryKey: ["lancamentos-financeiros-em-aberto", organization?.id] })),
     onError: (error: Error) => toast({ title: "Erro ao atualizar", description: error.message, variant: "destructive" }),
   });
 
@@ -410,12 +442,8 @@ export default function AdminFinanceiro() {
   const totalReceitasPagas = pagos.filter((l) => l.tipo === "receita").reduce((s, l) => s + Number(l.valor), 0);
   const totalDespesasPagas = pagos.filter((l) => l.tipo === "despesa").reduce((s, l) => s + Number(l.valor), 0);
   const saldo = totalReceitasPagas - totalDespesasPagas;
-  const aReceber = lancamentos
-    .filter((l) => l.tipo === "receita" && (l.status === "pendente" || l.status === "atrasado"))
-    .reduce((s, l) => s + Number(l.valor), 0);
-  const aPagar = lancamentos
-    .filter((l) => l.tipo === "despesa" && (l.status === "pendente" || l.status === "atrasado"))
-    .reduce((s, l) => s + Number(l.valor), 0);
+  const aReceber = emAberto.filter((l) => l.tipo === "receita").reduce((s, l) => s + Number(l.valor), 0);
+  const aPagar = emAberto.filter((l) => l.tipo === "despesa").reduce((s, l) => s + Number(l.valor), 0);
 
   return (
     <div className="space-y-4 max-w-4xl">
@@ -443,21 +471,41 @@ export default function AdminFinanceiro() {
         </TabsList>
 
         <TabsContent value="lancamentos" className="space-y-4 pt-3">
-          <div className="grid grid-cols-3 gap-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="text-xs text-muted-foreground">
+              Saldo e lista do mês escolhido; a receber e a pagar são o que está em aberto hoje, de qualquer mês.
+            </p>
+            <Select value={mesLancamentos} onValueChange={setMesLancamentos}>
+              <SelectTrigger className="w-44 h-8" aria-label="Mês dos lançamentos">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {MESES_RECENTES.map((m) => (
+                  <SelectItem key={m} value={m}>
+                    {mesLabel(m)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <Card>
               <CardContent className="pt-4">
                 <div className="flex items-center gap-2">
                   <Wallet className="h-4 w-4 text-primary" />
-                  <p className="text-xs text-muted-foreground">Saldo (pagos)</p>
+                  <p className="text-xs text-muted-foreground">Saldo do mês (pagos)</p>
                 </div>
                 <p className={`text-lg font-bold ${saldo < 0 ? "text-red-600" : ""}`}>{reais(saldo)}</p>
+                <p className="text-[11px] text-muted-foreground">
+                  recebido {reais(totalReceitasPagas)} · pago {reais(totalDespesasPagas)}
+                </p>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="pt-4">
                 <div className="flex items-center gap-2">
                   <TrendingUp className="h-4 w-4 text-emerald-600" />
-                  <p className="text-xs text-muted-foreground">A receber</p>
+                  <p className="text-xs text-muted-foreground">A receber (em aberto)</p>
                 </div>
                 <p className="text-lg font-bold">{reais(aReceber)}</p>
               </CardContent>
@@ -466,7 +514,7 @@ export default function AdminFinanceiro() {
               <CardContent className="pt-4">
                 <div className="flex items-center gap-2">
                   <TrendingDown className="h-4 w-4 text-red-600" />
-                  <p className="text-xs text-muted-foreground">A pagar</p>
+                  <p className="text-xs text-muted-foreground">A pagar (em aberto)</p>
                 </div>
                 <p className="text-lg font-bold">{reais(aPagar)}</p>
               </CardContent>
@@ -563,7 +611,7 @@ export default function AdminFinanceiro() {
           <Card>
             <CardContent className="pt-4">
               {lancamentos.length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-6">Nenhum lançamento ainda.</p>
+                <p className="text-sm text-muted-foreground text-center py-6">Nenhum lançamento em {mesLabel(mesLancamentos)}.</p>
               ) : (
                 <Table>
                   <TableHeader>
