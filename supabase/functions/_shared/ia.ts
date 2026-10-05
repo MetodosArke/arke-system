@@ -46,16 +46,25 @@ const REGIAO = "sa-east-1";
 // Por isso a recusa mora aqui, em tempo de execução, e não num teste: o id do
 // modelo vive num secret que nenhum teste enxerga, e "atualizar o modelo"
 // para um `global.` é exatamente a troca que alguém faria de boa-fé.
-const MODELO_PADRAO = "anthropic.claude-3-haiku-20240307-v1:0";
+export const MODELO_PADRAO = "anthropic.claude-3-haiku-20240307-v1:0";
 const PREFIXO_ROTEADO = /^(global|us|us-gov|eu|apac|sa|jp|au|ca)\./;
 
 export function modeloRodaNaRegiao(id: string): boolean {
   return /^[a-z0-9-]+\.[A-Za-z0-9.:_-]+$/.test(id) && !PREFIXO_ROTEADO.test(id);
 }
 
+/** O que a chamada custou, para o medidor de uso. Sem texto nenhum. */
+export type UsoModelo = { modelo: string; tokensEntrada: number | null; tokensSaida: number | null; latenciaMs: number };
+
+function usoDa(resposta: unknown, modelo: string, inicio: number): UsoModelo {
+  const uso = (resposta as { usage?: { inputTokens?: unknown; outputTokens?: unknown } } | null)?.usage;
+  const numero = (v: unknown) => (typeof v === "number" && Number.isFinite(v) && v >= 0 ? Math.round(v) : null);
+  return { modelo, tokensEntrada: numero(uso?.inputTokens), tokensSaida: numero(uso?.outputTokens), latenciaMs: Date.now() - inicio };
+}
+
 export type RespostaIA =
-  | { ok: true; texto: string }
-  | { ok: false; indisponivel: true; motivo: string };
+  | { ok: true; texto: string; uso: UsoModelo }
+  | { ok: false; indisponivel: true; motivo: string; uso?: UsoModelo };
 
 type Env = (n: string) => string | undefined;
 
@@ -143,27 +152,29 @@ export async function conversarComIA(
     inferenceConfig: { maxTokens: dados.maxTokens ?? 500, temperature: dados.temperatura ?? 0.4 },
   });
 
+  const inicio = Date.now();
   let resposta: Response;
   try {
     const { url, headers } = await assinar(["model", modelo, "converse"], corpo, chaveId, segredo);
     resposta = await fetch(url, { method: "POST", headers, body: corpo, signal: AbortSignal.timeout(dados.prazoMs ?? 30_000) });
   } catch {
-    return { ok: false, indisponivel: true, motivo: "Não foi possível falar com o Sentinela agora." };
+    return { ok: false, indisponivel: true, motivo: "Não foi possível falar com o Sentinela agora.", uso: usoDa(null, modelo, inicio) };
   }
 
   if (!resposta.ok) {
     // O tipo de erro da AWS não carrega conteúdo, e é o que distingue
     // credencial errada de conta em verificação de modelo inexistente.
     console.error("ia: recusado", resposta.status, resposta.headers.get("x-amzn-errortype") ?? "");
-    return { ok: false, indisponivel: true, motivo: "O Sentinela não respondeu agora." };
+    return { ok: false, indisponivel: true, motivo: "O Sentinela não respondeu agora.", uso: usoDa(null, modelo, inicio) };
   }
 
   const r = await resposta.json().catch(() => null);
+  const uso = usoDa(r, modelo, inicio);
   const texto = r?.output?.message?.content?.[0]?.text;
   if (typeof texto !== "string" || !texto.trim()) {
-    return { ok: false, indisponivel: true, motivo: "O Sentinela respondeu vazio." };
+    return { ok: false, indisponivel: true, motivo: "O Sentinela respondeu vazio.", uso };
   }
-  return { ok: true, texto: texto.trim() };
+  return { ok: true, texto: texto.trim(), uso };
 }
 
 // ── Vigia: telemetria técnica, sem dado de pessoa ─────────────────────────
@@ -234,8 +245,8 @@ export async function consultarVigia(env: Env, quadroBruto: unknown): Promise<Re
 export const MODELO_ASSISTENTE = MODELO_VIGIA;
 
 export type RespostaAssistente =
-  | { ok: true; texto: string; entrada: string }
-  | { ok: false; indisponivel: true; motivo: string };
+  | { ok: true; texto: string; entrada: string; uso: UsoModelo }
+  | { ok: false; indisponivel: true; motivo: string; uso?: UsoModelo };
 
 export async function consultarAssistente(
   env: Env,
@@ -252,19 +263,21 @@ export async function consultarAssistente(
     messages: [{ role: "user", content: [{ text: entrada }] }],
     inferenceConfig: { maxTokens: 400, temperature: 0.2 },
   });
+  const inicio = Date.now();
   let resposta: Response;
   try {
     const { url, headers } = await assinar(["model", MODELO_ASSISTENTE, "converse"], corpo, chaveId, segredo);
     resposta = await fetch(url, { method: "POST", headers, body: corpo, signal: AbortSignal.timeout(20_000) });
   } catch {
-    return { ok: false, indisponivel: true, motivo: "falha de rede" };
+    return { ok: false, indisponivel: true, motivo: "falha de rede", uso: usoDa(null, MODELO_ASSISTENTE, inicio) };
   }
   if (!resposta.ok) {
     console.error("assistente: modelo recusou", resposta.status, (resposta.headers.get("x-amzn-errortype") ?? "").split(":")[0]);
-    return { ok: false, indisponivel: true, motivo: `HTTP ${resposta.status}` };
+    return { ok: false, indisponivel: true, motivo: `HTTP ${resposta.status}`, uso: usoDa(null, MODELO_ASSISTENTE, inicio) };
   }
   const r = await resposta.json().catch(() => null);
+  const uso = usoDa(r, MODELO_ASSISTENTE, inicio);
   const texto = r?.output?.message?.content?.[0]?.text;
-  if (typeof texto !== "string" || !texto.trim()) return { ok: false, indisponivel: true, motivo: "resposta vazia" };
-  return { ok: true, texto: texto.trim(), entrada };
+  if (typeof texto !== "string" || !texto.trim()) return { ok: false, indisponivel: true, motivo: "resposta vazia", uso };
+  return { ok: true, texto: texto.trim(), entrada, uso };
 }

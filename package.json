@@ -25,6 +25,7 @@
     "sandbox:implantacao": "node scripts/asaas-sandbox-implantacao.mjs",
     "sandbox:b2b-valor": "node scripts/asaas-sandbox-b2b-valor.mjs",
     "simulado:vigia": "node scripts/vigia-simulado.mjs",
+    "avaliar:ia": "node scripts/avaliar-ia.mjs",
     "ajuda:indice": "node scripts/ajuda/indice-assistente.mjs"
   },
   "dependencies": {

@@ -106,6 +106,24 @@ export function espelhoAceito(espelho: string): boolean {
 }
 
 /** Lê a resposta do modelo. Qualquer coisa fora do formato vira nulo. */
+/**
+ * O modelo escreveu um espelho e a trava (`espelhoAceito`) o recusou. Espelho
+ * vazio não é recusa: é o modelo dizendo que não havia o que espelhar. Serve
+ * ao medidor de uso das IAs.
+ */
+export function espelhoRecusado(texto: string): boolean {
+  const inicio = texto.indexOf("{");
+  const fim = texto.lastIndexOf("}");
+  if (inicio < 0 || fim <= inicio) return false;
+  try {
+    const o = (JSON.parse(texto.slice(inicio, fim + 1)) ?? {}) as Record<string, unknown>;
+    const bruto = typeof o.espelho === "string" ? o.espelho.replace(/\s+/g, " ").trim() : "";
+    return !!bruto && !espelhoAceito(bruto);
+  } catch {
+    return false;
+  }
+}
+
 export function lerRespostaModelo(texto: string): { categoria: Categoria | null; espelho: string | null } {
   const inicio = texto.indexOf("{");
   const fim = texto.lastIndexOf("}");

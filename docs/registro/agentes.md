@@ -172,3 +172,48 @@ Rodada B. Dois problemas que o Vigia não via, e que nenhuma ação automática 
 - as funções novas fora do PostgREST.
 
 Também os testes de `vigia.ts` e do resumo com o nível 3. Em produção, a migration foi aplicada, as duas regras estão avisando, nada é acusado hoje, e a conferência real já grava `valores`.
+
+## Medidor de uso e avaliação repetível das IAs (05/10/2026)
+
+Rodada B. Quatro IAs entram: a Letícia, o assistente da academia, a leitura de dieta em PDF e o Vigia. O Sentinela segue congelado e fica de fora. Antes, não havia como responder três perguntas: quanto cada IA custa, quantas vezes a trava descarta o que o modelo escreveu, e se um ajuste no roteiro deixou a IA melhor ou pior.
+
+**O medidor.** Cada chamada vira uma linha em `ia_chamadas` (migration `20261333010000`), gravada por `registrarUsoIA` (`_shared/usoIA.ts`). A linha guarda:
+- o resultado: `ok`, `recusada_trava` ou `indisponivel`;
+- o modelo, os tokens e a latência, que as portas de `_shared/ia.ts` passaram a devolver (`uso`);
+- a academia, quando há uma.
+
+**Nenhum texto entra no medidor**, nem a pergunta nem a resposta; o teste confere que a tabela não tem coluna de texto livre. Só a service role grava. A ArkeFit lê por `get_superadmin_uso_ia()`, na tela **Visão Master → Uso das IAs**. A tela mostra, por IA:
+- as chamadas, a taxa de recusa (destacada a partir de 20%) e os indisponíveis;
+- os tokens;
+- o custo estimado, pela tabela `ia_precos` (preço público da AWS, em dólar);
+- a latência média e a máxima.
+
+As linhas saem em 13 meses, na limpeza diária. `usoIA.test.ts` falha se uma função que chama o modelo não registrar o uso, fora as duas do Sentinela.
+
+**O que é "recusada pela trava" em cada IA:**
+- Letícia: espelho com número, preço, promessa ou link (`espelhoRecusado`; espelho vazio não conta).
+- Assistente: resposta com número que não está na Central.
+- Dieta: leitura que não montou, ou alimento que não está no PDF.
+- Vigia: quadro que não passou na validação, ou resposta fora do catálogo.
+
+**A avaliação** (`npm run avaliar:ia`, com `-- --vigia` para o Vigia pelo simulado). Os casos são inventados (`scripts/avaliacao-ia/casos.mjs`) e passam pelo mesmo código de produção: o roteiro, a porta de IA e a trava. Cada caso diz o que conta como acerto:
+- **Assistente.** Na dúvida que a Central cobre, acerta quem acha o artigo e responde com o que está nele. Na dúvida que ela não cobre, **dizer que não encontrou vale ponto**, porque inventar resposta é o pior erro.
+- **Registro.** O resultado vai para `docs/avaliacoes-ia/<data>.json`, com a assinatura do roteiro e do modelo de cada IA. Nos casos que erram, vai também o começo da resposta.
+- **Trava.** `avaliacaoIA.guarda.test.ts` falha quando o roteiro ou o modelo de uma IA muda sem avaliação nova.
+
+**A primeira avaliação, de 05/10/2026:**
+- Letícia: 7 de 7. Numa rodada anterior, a trava recusou um espelho; a temperatura de 0,3 dá essa variação.
+- Assistente: 12 de 13. Respondeu "não encontrei" nas três dúvidas de fora. O erro foi "como aviso todos os alunos que vamos fechar no feriado", em que a busca não liga "aviso" a "comunicado".
+- Dieta: 3 de 3, inclusive recusar um contrato de locação.
+- Vigia: 12 de 13. O erro foi a falha de cadastro no equipamento lida como nuvem, o mesmo de setembro.
+
+**O que a avaliação achou e já mudou:**
+- **A busca do assistente não ligava o verbo conjugado ao substantivo.** "Como pauso ele" não achava o artigo da situação do aluno. As raízes passaram a incluir as quatro primeiras letras das palavras de cinco ou mais. Num conjunto de 28 perguntas, a busca foi de 26 para 27, sem perder nenhuma.
+- **O Claude 3 Haiku de São Paulo devolve 429 com poucas chamadas seguidas**, pela cota da conta. A avaliação passou a tentar de novo com espera crescente.
+- **O cenário "banco cheio" do simulado do Vigia tinha parado de rodar** com a faixa de `plataforma_config` (mínimo de 100 MB, sem casas). Agora o gatilho da faixa é desligado só dentro da transação do cenário.
+
+**Conferido:**
+- O guarda da avaliação, com uma palavra mudada no roteiro da Letícia derrubando o teste.
+- Os testes do medidor e da recusa da Letícia.
+- A **corrente real**, com uma gestora temporária: o assistente e a leitura de dieta publicados gravaram modelo, academia, tokens (1.338 e 97; 599 e 286) e latência, e nenhum texto.
+- As funções que importam `_shared/ia.ts` foram publicadas, inclusive as duas do Sentinela, para o código publicado bater com o repositório. O comportamento do Sentinela não mudou: a porta só passou a devolver o uso, que ele ignora.

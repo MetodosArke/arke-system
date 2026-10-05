@@ -28,15 +28,20 @@ export function normalizar(t: string): string {
 
 /**
  * Raiz grosseira, de propósito: as cinco primeiras letras das palavras de seis
- * ou mais. "Cadastro", "cadastrar" e "cadastrei" caem juntos; "catraca" e
- * "catracas" também. Para 54 artigos, é o bastante; a busca do banco com
- * dicionário só entra se esta não der conta.
+ * ou mais, e também as quatro primeiras das de cinco ou mais. "Cadastro",
+ * "cadastrar" e "cadastrei" caem juntos; "catraca" e "catracas" também; e o
+ * verbo conjugado acha o substantivo ("pauso" e "pausado", pela raiz "paus").
+ * A raiz de quatro entrou depois da avaliação de 05/10/2026, em que "como
+ * pauso ele" não achava o artigo da situação do aluno; num conjunto de 28
+ * perguntas, a busca foi de 26 para 27, sem perder nenhuma. Para os artigos
+ * da Central, é o bastante; a busca do banco com dicionário só entra se esta
+ * não der conta.
  */
 export function raizes(t: string): string[] {
   return normalizar(t)
     .split(/[^a-z0-9]+/)
     .filter((p) => p.length >= 3 && !STOP.has(p))
-    .map((p) => (p.length >= 6 ? p.slice(0, 5) : p));
+    .flatMap((p) => (p.length >= 6 ? [p.slice(0, 5), p.slice(0, 4)] : p.length === 5 ? [p, p.slice(0, 4)] : [p]));
 }
 
 export type Achado = { slug: string; artigo: string; secao: string | null; texto: string; pontos: number };

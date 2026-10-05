@@ -8,6 +8,7 @@ A cada 5 minutos, o Vigia confere a plataforma com as suas regras.
 
 - **Nível 1** (corrige sozinho): sincronizar Gateway atrasado, reenviar acessos guardados, pedir diagnóstico de Gateway em contingência prolongada, reenviar remoção de digital quando o Gateway volta, rodar de novo uma rotina repetível que falhou, repetir a conferência com o Asaas.
 - **Nível 2** (pede aprovação): rotina que fala com academias, assinatura órfã no Asaas, aviso do Asaas não processado.
+- **Nível 3** (avisa uma pessoa, sem ação nenhuma): o Asaas parou de mandar avisos (silêncio de 72 horas com cobranças vencendo, ou a conferência diária corrigindo de novo e de novo) e cobrança com a conta que não fecha (valor diferente de repasse mais líquido, cobrança paga sem o lançamento ou sem a nota, valor diferente no Asaas e no banco).
 
 Antes de agir, ele espera um pouco: o que some sozinho não precisava de ação, e isso fica contado em **Sumiram antes**. Tentativas têm limite; esgotadas, o caso vai **para uma pessoa**, por e-mail. O **freio** segura a mesma ação em muitos alvos de uma vez, porque aí a causa é comum (a nuvem, um fornecedor) e agir em cada alvo seria tratar sintoma.
 
