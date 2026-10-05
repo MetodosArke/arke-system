@@ -412,6 +412,22 @@ async function semear() {
   await inserirEmLotes("insert into public.dieta_adesao (organization_id, aluno_id, dieta_id, data, adesao_percentual, refeicoes_marcadas, agua_ml, consumiu_doce, consumiu_alcool, nivel_saciedade)", adesoes);
   console.log(`${adesoes.length} dias de adesão à dieta`);
 
+  // Diário de água das duas últimas semanas, perto da meta de cada um. É um
+  // dos quatro pilares da pontuação de engajamento.
+  const metaAgua = new Map((await sql(`select id, meta_agua_ml from public.alunos where organization_id = ${q(ORG)}`)).map((m) => [m.id, Number(m.meta_agua_ml)]));
+  const aguas = [];
+  for (const a of comTreino) {
+    if (a.perfil === "sumido") continue;
+    const meta = metaAgua.get(a.id) ?? 2500;
+    for (let dia = 0; dia < 14; dia++) {
+      if (!chance(a.perfil === "assidua" ? 0.85 : 0.5)) continue;
+      const ml = Math.round((meta * (chance(0.7) ? 1 : 0.6) + entre(0, 3) * 250) / 250) * 250;
+      aguas.push(`(${q(ORG)}, ${q(a.id)}, current_date - ${dia}, ${ml})`);
+    }
+  }
+  await inserirEmLotes("insert into public.registro_habito (organization_id, aluno_id, data, agua_ml)", aguas);
+  console.log(`${aguas.length} dias de água registrados`);
+
   // ── Check-ins da semana ──────────────────────────────────────────────────
   const checkins = [];
   for (const a of comTreino.filter((x) => x.perfil !== "sumido")) {
