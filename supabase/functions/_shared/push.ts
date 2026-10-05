@@ -18,6 +18,20 @@ export type ResultadoEnvio = { enviados: number; removidas: number; falhas: numb
 
 const PRAZO_ENVIO_MS = 10_000;
 
+/**
+ * Prazo por cima da promessa, e não a opção `timeout` do web-push. No runtime
+ * do Supabase (Deno 2.1), a opção arma um prazo na conexão, e a conexão é
+ * reaproveitada: o prazo do envio anterior disparava no meio do seguinte, e o
+ * aviso que chegou ao aparelho contava como falha (corrente real, 05/10/2026).
+ */
+function comPrazo<T>(promessa: Promise<T>): Promise<T> {
+  let relogio: ReturnType<typeof setTimeout> | undefined;
+  const prazo = new Promise<never>((_, rejeitar) => {
+    relogio = setTimeout(() => rejeitar(Object.assign(new Error("prazo esgotado"), { code: "PRAZO" })), PRAZO_ENVIO_MS);
+  });
+  return Promise.race([promessa, prazo]).finally(() => clearTimeout(relogio));
+}
+
 export async function enviarAvisos(
   admin: SupabaseClient,
   inscricoes: Inscricao[],
@@ -33,13 +47,12 @@ export async function enviarAvisos(
   const detalhes = {
     TTL: opcoes.validadeSeg,
     urgency: opcoes.urgencia ?? "normal",
-    timeout: PRAZO_ENVIO_MS,
     ...(opcoes.topico ? { topic: opcoes.topico } : {}),
   };
 
   for (const lote of emLotes(inscricoes)) {
     const envios = await Promise.allSettled(
-      lote.map((s) => webpush.sendNotification({ endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } }, carga, detalhes)),
+      lote.map((s) => comPrazo(webpush.sendNotification({ endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } }, carga, detalhes))),
     );
     const mortas: string[] = [];
     envios.forEach((envio, i) => {
@@ -47,13 +60,15 @@ export async function enviarAvisos(
         resultado.enviados++;
         return;
       }
-      const e = envio.reason as { statusCode?: number; body?: unknown };
+      const e = envio.reason as { statusCode?: number; body?: unknown; code?: unknown; name?: unknown };
       if (inscricaoMorta(e.statusCode, typeof e.body === "string" ? e.body : undefined)) {
+        console.warn("push: inscrição que não existe mais", e.statusCode);
         mortas.push(lote[i].endpoint);
       } else {
         resultado.falhas++;
-        // Só o status: o corpo da resposta pode ecoar o endereço da inscrição.
-        console.error("push: envio falhou", e.statusCode ?? "sem status");
+        // Só o status ou o código do erro: o corpo da resposta pode ecoar o
+        // endereço da inscrição.
+        console.error("push: envio falhou", e.statusCode ?? (typeof e.code === "string" ? e.code : String(e.name ?? "sem status")));
       }
     });
     if (mortas.length) {
