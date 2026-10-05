@@ -5264,6 +5264,7 @@ export type Database = {
             | Database["public"]["Enums"]["app_role"]
             | null
           faturamento_mensal: number | null
+          ficticia: boolean
           icone_app_192_url: string | null
           icone_app_512_url: string | null
           id: string
@@ -5312,6 +5313,7 @@ export type Database = {
             | Database["public"]["Enums"]["app_role"]
             | null
           faturamento_mensal?: number | null
+          ficticia?: boolean
           icone_app_192_url?: string | null
           icone_app_512_url?: string | null
           id?: string
@@ -5360,6 +5362,7 @@ export type Database = {
             | Database["public"]["Enums"]["app_role"]
             | null
           faturamento_mensal?: number | null
+          ficticia?: boolean
           icone_app_192_url?: string | null
           icone_app_512_url?: string | null
           id?: string
@@ -8598,6 +8601,7 @@ export type Database = {
           etapa: string
         }[]
       }
+      organizacao_ficticia: { Args: { _org: string }; Returns: boolean }
       organizacao_inadimplente_b2b: {
         Args: { _organization_id: string }
         Returns: boolean

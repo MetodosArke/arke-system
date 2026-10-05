@@ -179,3 +179,46 @@ Plano, datas do contrato e código de cartão ou catraca continuam fora da impor
 Pedido do responsável: os itens da Visão Master saíram da faixa de abas no alto e foram para um menu lateral, igual ao do painel da academia. Com onze itens, a faixa rolava para o lado no celular e escondia metade deles. `SuperAdminSidebar.tsx` segue o desenho de `AdminSidebar.tsx`: três grupos (Operação, Monitoramento, Configurações), recolhível no desktop, gaveta no celular, e Ajuda e Sair no rodapé. O estado de recolhido reaproveita `AdminSidebarContext`. O cabeçalho mostra o nome da tela aberta, tirado da mesma lista `SECOES_SUPERADMIN`, e **não** é `h1`: a página já tem o dela, e o `h1` do app usa a fonte serifada dos títulos. A faixa vermelha das rotinas ficou logo abaixo do cabeçalho.
 
 Conferido no navegador com um Super Admin temporário, verificado em duas etapas e apagado no fim. No desktop, os dez itens aparecem, a navegação funciona e o item ativo fica marcado, o menu recolhe para 64 px com o nome em cada ícone, e a Ajuda abre a Central da Visão Master. No celular, a gaveta traz os mesmos itens e fecha ao escolher, e a página não rola para o lado.
+
+## Academia de demonstração, busca de alunos e os totais do Financeiro (05/10/2026)
+
+Pedido do responsável: uma academia completa para as apresentações do sistema, e uma busca na lista de alunos.
+
+**A academia de demonstração.** `scripts/demonstracao/academia.mjs` cria a "Ponto Alto Academia", inteira e em uso:
+- **Equipe:** gestão, duas pessoas na recepção, quatro professores e uma nutricionista.
+- **Alunos:** 180, com até um ano e meio de casa. A maioria está em dia, alguns inadimplentes e pausados. Há quem treina sempre, quem treina às vezes e quem sumiu, para a retenção ter o que mostrar.
+- **Cobrança:** mensalidades dos últimos meses, a maior parte paga e algumas em atraso. A receita lançada nasce do gatilho de verdade, na confirmação de cada mensalidade.
+- **Treino e saúde:** treinos publicados pelos professores, dois meses de treinos registrados e presenças, dietas da nutricionista, avaliações físicas com evolução e check-ins.
+- **Atendimento e vendas:** fila com casos abertos de vários tipos e casos resolvidos com desfecho, conversas com os professores, funil de vendas, comunicados, despesas do mês e um desafio.
+
+Os logins para a apresentação (gestão, recepção, professor, nutricionista e dois alunos) têm uma senha só, guardada **fora do repositório** em `~/arkefit-demonstracao.txt`. As contas usam o domínio `demonstracao.arkefit.com.br`, que não recebe e-mail. As datas são relativas ao dia da semeadura. `npm run demo:recriar` apaga a academia, a semeia de novo com as datas de hoje e reaproveita a senha. `npm run demo:limpar` apaga tudo.
+
+**A academia fictícia fica fora dos números da plataforma.** A demonstração tem mensalidades "pagas" e matrículas ativas, e entraria no MRR, na receita e nas contagens da Visão Master. Para evitar isso, a migration `20261334010000` criou `organizations.ficticia`, que só a ArkeFit marca. Com a marca, a academia sai de:
+- `get_superadmin_overview`, `get_superadmin_receita_historica` e a foto diária do MRR;
+- a fila global;
+- a conferência financeira do Vigia;
+- o resumo semanal por e-mail, que iria a caixas que não existem.
+
+A academia de testes automáticos e a das imagens da Central de Ajuda também estão marcadas. A academia fictícia continua funcionando inteira; o que muda é ficar fora desses números.
+
+**A busca na lista de alunos.** Antes, a lista mostrava todos os alunos, um embaixo do outro. Agora (`src/lib/buscaAlunos.ts`):
+- a busca acha pelo nome, sem acento, sem diferença de maiúscula e em qualquer ordem das palavras ("silva ana" acha "Ana Paula da Silva");
+- também acha pelo telefone ou pelo CPF, só pelos dígitos, com ou sem máscara, e a partir de três dígitos;
+- há filtro de situação e a contagem "N de M";
+- a tabela mostra 100 alunos por vez, com "mostrar todos".
+
+A lista já vem inteira do banco, então a busca filtra na tela, sem consulta a cada letra. O CPF vem só para a busca e não aparece na lista.
+
+**Dois defeitos que a academia de demonstração mostrou:**
+- **Os totais do Financeiro somavam só os 80 lançamentos mais recentes, de qualquer mês.** Numa academia com 180 alunos, o saldo saiu negativo, porque as despesas do mês entravam inteiras e as receitas pela metade. Agora a aba tem seletor de mês: o saldo é do recebido e pago no mês escolhido, e a lista mostra todos os lançamentos do mês, em páginas. O a receber e o a pagar são o que está em aberto hoje, de qualquer mês.
+- **O aceite dos documentos piscava o painel** antes de aparecer (ver *O teste de ponta a ponta também no painel do gestor*, em [operacao.md](operacao.md)).
+
+**Conferido:**
+- 10 casos da marca `ficticia` em transação desfeita:
+  - a matrícula e a mensalidade da fictícia não entram no MRR nem na receita;
+  - ela fica fora da conferência do Vigia, do resumo semanal e da fila global;
+  - sem a marca, a mesma academia entra em tudo;
+  - a gestora não consegue se marcar como fictícia.
+- Os testes da busca.
+- A academia semeada duas vezes (`semear` e `recriar`), com a fila, as situações e a receita conferidas no banco, nada para o Vigia acusar e o login entrando com a senha guardada.
+- As telas da gestão e o app da aluna abertos em produção, sem erro.
