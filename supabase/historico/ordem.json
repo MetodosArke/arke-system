@@ -1,0 +1,1515 @@
+{
+  "explicacao": "Ordem e texto das migrations que construíram o banco de produção. Ver supabase/historico/README.md.",
+  "gerado_em": "2026-10-05",
+  "projeto": "lzyxqjibkfblrrjboylp",
+  "desde": "reset_schema_public",
+  "ultima_versao": "20261337010000",
+  "passos": [
+    {
+      "versao": "20260917193745",
+      "nome": "reset_schema_public",
+      "arquivo": "supabase/historico/20260917193745_reset_schema_public.sql"
+    },
+    {
+      "versao": "20260917193833",
+      "nome": "fundacao_multitenant",
+      "arquivo": "supabase/migrations/20260917000000_fundacao_multitenant.sql"
+    },
+    {
+      "versao": "20260917193848",
+      "nome": "hardening_funcoes_seguranca",
+      "arquivo": "supabase/historico/20260917193848_hardening_funcoes_seguranca.sql"
+    },
+    {
+      "versao": "20260917203102",
+      "nome": "fase2_mapa_onboarding_anamnese",
+      "arquivo": "supabase/historico/20260917203102_fase2_mapa_onboarding_anamnese.sql"
+    },
+    {
+      "versao": "20260917203114",
+      "nome": "hardening_fase2_funcoes",
+      "arquivo": "supabase/historico/20260917203114_hardening_fase2_funcoes.sql"
+    },
+    {
+      "versao": "20260917204813",
+      "nome": "fase3_prescricao_versionamento",
+      "arquivo": "supabase/migrations/20260917030000_fase3_prescricao_versionamento.sql"
+    },
+    {
+      "versao": "20260917204840",
+      "nome": "hardening_revoke_public_execute",
+      "arquivo": "supabase/historico/20260917204840_hardening_revoke_public_execute.sql"
+    },
+    {
+      "versao": "20260917204916",
+      "nome": "fix_grant_execute_authenticated_rls_helpers",
+      "arquivo": "supabase/historico/20260917204916_fix_grant_execute_authenticated_rls_helpers.sql"
+    },
+    {
+      "versao": "20260917212548",
+      "nome": "fase4_atendimento_automacoes_sla",
+      "arquivo": "supabase/historico/20260917212548_fase4_atendimento_automacoes_sla.sql"
+    },
+    {
+      "versao": "20260917212622",
+      "nome": "fix_escalar_tarefas_vencidas_lateral_bug",
+      "arquivo": "supabase/historico/20260917212622_fix_escalar_tarefas_vencidas_lateral_bug.sql"
+    },
+    {
+      "versao": "20260917213459",
+      "nome": "fase5_gestao_comercial_split_pagamento",
+      "arquivo": "supabase/migrations/20260917060000_fase5_gestao_comercial_split_pagamento.sql"
+    },
+    {
+      "versao": "20260917215346",
+      "nome": "precificacao_sugestao_varejo_padrao",
+      "arquivo": "supabase/migrations/20260917070000_precificacao_sugestao_varejo_padrao.sql"
+    },
+    {
+      "versao": "20260918012843",
+      "nome": "fix_grant_table_privileges_authenticated_service_role",
+      "arquivo": "supabase/migrations/20260918010000_fix_grant_table_privileges_authenticated_service_role.sql"
+    },
+    {
+      "versao": "20260918014710",
+      "nome": "renomear_nivel_integral_para_elite",
+      "arquivo": "supabase/migrations/20260918020000_renomear_nivel_integral_para_elite.sql"
+    },
+    {
+      "versao": "20260918021348",
+      "nome": "provisionar_organizacao_padrao_admin_arke",
+      "arquivo": "supabase/migrations/20260918030000_provisionar_organizacao_padrao_admin_arke.sql"
+    },
+    {
+      "versao": "20260918023052",
+      "nome": "etapa1_alunos_equipe",
+      "arquivo": "supabase/historico/20260918023052_etapa1_alunos_equipe.sql"
+    },
+    {
+      "versao": "20260918023211",
+      "nome": "etapa1_alunos_equipe_handle_new_user",
+      "arquivo": "supabase/historico/20260918023211_etapa1_alunos_equipe_handle_new_user.sql"
+    },
+    {
+      "versao": "20260918023820",
+      "nome": "revoke_execute_handle_new_user",
+      "arquivo": "supabase/historico/20260918023820_revoke_execute_handle_new_user.sql"
+    },
+    {
+      "versao": "20260918033543",
+      "nome": "fix_rls_insert_tarefas_aluno_onboarding",
+      "arquivo": "supabase/migrations/20260918050000_fix_rls_insert_tarefas_aluno_onboarding.sql"
+    },
+    {
+      "versao": "20260918040455",
+      "nome": "etapa2_fila_pessoal_alertas_prescricao",
+      "arquivo": "supabase/migrations/20260918070000_etapa2_fila_pessoal_alertas_prescricao.sql"
+    },
+    {
+      "versao": "20260918043945",
+      "nome": "etapa3_execucao_treino_habitos_macros",
+      "arquivo": "supabase/migrations/20260918080000_etapa3_execucao_treino_habitos_macros.sql"
+    },
+    {
+      "versao": "20260918045100",
+      "nome": "etapa4_gate_inadimplencia_fatura",
+      "arquivo": "supabase/migrations/20260918090000_etapa4_gate_inadimplencia_fatura.sql"
+    },
+    {
+      "versao": "20260918052239",
+      "nome": "etapa6_matricula_publica_slug",
+      "arquivo": "supabase/migrations/20260918100000_etapa6_matricula_publica_slug.sql"
+    },
+    {
+      "versao": "20260918053545",
+      "nome": "etapa6_superadmin_role",
+      "arquivo": "supabase/migrations/20260918110000_etapa6_superadmin_role.sql"
+    },
+    {
+      "versao": "20260918053558",
+      "nome": "etapa6_superadmin_rpcs_policies",
+      "arquivo": "supabase/migrations/20260918110100_etapa6_superadmin_rpcs_policies.sql"
+    },
+    {
+      "versao": "20260918054222",
+      "nome": "etapa6_catracas_gateway_local",
+      "arquivo": "supabase/migrations/20260918120000_etapa6_catracas_gateway_local.sql"
+    },
+    {
+      "versao": "20260918060011",
+      "nome": "selamento_sla_config",
+      "arquivo": "supabase/migrations/20260919010000_selamento_sla_config.sql"
+    },
+    {
+      "versao": "20260918060232",
+      "nome": "selamento_biblioteca_exercicios_alimentos",
+      "arquivo": "supabase/migrations/20260919020000_selamento_biblioteca_exercicios_alimentos.sql"
+    },
+    {
+      "versao": "20260918060325",
+      "nome": "selamento_templates_treino_padrao",
+      "arquivo": "supabase/migrations/20260919030000_selamento_templates_treino_padrao.sql"
+    },
+    {
+      "versao": "20260918060340",
+      "nome": "selamento_anamnese_lgpd_sono_estresse",
+      "arquivo": "supabase/migrations/20260919040000_selamento_anamnese_lgpd_sono_estresse.sql"
+    },
+    {
+      "versao": "20260918060348",
+      "nome": "selamento_realtime_catracas",
+      "arquivo": "supabase/migrations/20260919050000_selamento_realtime_catracas.sql"
+    },
+    {
+      "versao": "20260918062024",
+      "nome": "lgpd_anonimizacao_aluno",
+      "arquivo": "supabase/migrations/20260920010000_lgpd_anonimizacao_aluno.sql"
+    },
+    {
+      "versao": "20260918063310",
+      "nome": "gateway_local_sync_offline",
+      "arquivo": "supabase/migrations/20260921010000_gateway_local_sync_offline.sql"
+    },
+    {
+      "versao": "20260918073919",
+      "nome": "audit_performance_and_fixes",
+      "arquivo": "supabase/historico/20260918073919_audit_performance_and_fixes.sql"
+    },
+    {
+      "versao": "20260918074011",
+      "nome": "fix_superadmin_revoke_from_public",
+      "arquivo": "supabase/historico/20260918074011_fix_superadmin_revoke_from_public.sql"
+    },
+    {
+      "versao": "20260918141303",
+      "nome": "profissionais_autonomos_enum",
+      "arquivo": "supabase/migrations/20260921020000_profissionais_autonomos_enum.sql"
+    },
+    {
+      "versao": "20260918141333",
+      "nome": "profissionais_autonomos_schema",
+      "arquivo": "supabase/migrations/20260921030000_profissionais_autonomos_schema.sql"
+    },
+    {
+      "versao": "20260918141357",
+      "nome": "avaliacoes_fisicas",
+      "arquivo": "supabase/migrations/20260921040000_avaliacoes_fisicas.sql"
+    },
+    {
+      "versao": "20260918142316",
+      "nome": "superadmin_simular_perfis",
+      "arquivo": "supabase/migrations/20260921050000_superadmin_simular_perfis.sql"
+    },
+    {
+      "versao": "20260918143036",
+      "nome": "studio_tipo_enum",
+      "arquivo": "supabase/migrations/20260922010000_studio_tipo_enum.sql"
+    },
+    {
+      "versao": "20260918143113",
+      "nome": "studio_turmas_agendamentos",
+      "arquivo": "supabase/migrations/20260922020000_studio_turmas_agendamentos.sql"
+    },
+    {
+      "versao": "20260918143144",
+      "nome": "superadmin_perfis_simulaveis_studio",
+      "arquivo": "supabase/migrations/20260922030000_superadmin_perfis_simulaveis_studio.sql"
+    },
+    {
+      "versao": "20260918144244",
+      "nome": "fix_race_condition_capacidade_turma",
+      "arquivo": "supabase/migrations/20260923010000_fix_race_condition_capacidade_turma.sql"
+    },
+    {
+      "versao": "20260918150541",
+      "nome": "recepcao_role_enum",
+      "arquivo": "supabase/migrations/20260924010000_recepcao_role_enum.sql"
+    },
+    {
+      "versao": "20260918150601",
+      "nome": "recepcao_is_org_staff",
+      "arquivo": "supabase/migrations/20260924020000_recepcao_is_org_staff.sql"
+    },
+    {
+      "versao": "20260918152148",
+      "nome": "superadmin_tenants_tipo_atividade_v2",
+      "arquivo": "supabase/historico/20260918152148_superadmin_tenants_tipo_atividade_v2.sql"
+    },
+    {
+      "versao": "20260918155746",
+      "nome": "organizacao_perfil_onboarding",
+      "arquivo": "supabase/migrations/20260926010000_organizacao_perfil_onboarding.sql"
+    },
+    {
+      "versao": "20260918162210",
+      "nome": "auditoria_resiliencia_2",
+      "arquivo": "supabase/migrations/20260927010000_auditoria_resiliencia_2.sql"
+    },
+    {
+      "versao": "20260918172756",
+      "nome": "superadmin_cobranca_b2b_fiscal",
+      "arquivo": "supabase/migrations/20260928010000_superadmin_cobranca_b2b_fiscal.sql"
+    },
+    {
+      "versao": "20260918180808",
+      "nome": "fix_superadmin_tenants_gestor_email_cast",
+      "arquivo": "supabase/migrations/20260929010000_fix_superadmin_tenants_gestor_email_cast.sql"
+    },
+    {
+      "versao": "20260918183838",
+      "nome": "superadmin_buscar_user_id_por_email",
+      "arquivo": "supabase/migrations/20260930010000_superadmin_buscar_user_id_por_email.sql"
+    },
+    {
+      "versao": "20260918184818",
+      "nome": "superadmin_tenants_telefone",
+      "arquivo": "supabase/migrations/20261001010000_superadmin_tenants_telefone.sql"
+    },
+    {
+      "versao": "20260918214842",
+      "nome": "superadmin_perfis_simulaveis_organization_id",
+      "arquivo": "supabase/migrations/20261002010000_superadmin_perfis_simulaveis_organization_id.sql"
+    },
+    {
+      "versao": "20260918221205",
+      "nome": "fix_prevent_ultimo_gestor_cascade_org",
+      "arquivo": "supabase/migrations/20261003010000_fix_prevent_ultimo_gestor_cascade_org.sql"
+    },
+    {
+      "versao": "20260918222314",
+      "nome": "fix_profissionais_autonomos_left_join",
+      "arquivo": "supabase/migrations/20261004010000_fix_profissionais_autonomos_left_join.sql"
+    },
+    {
+      "versao": "20260919112247",
+      "nome": "seed_templates_treino_nova_organizacao",
+      "arquivo": "supabase/migrations/20261005010000_seed_templates_treino_nova_organizacao.sql"
+    },
+    {
+      "versao": "20260919112958",
+      "nome": "seed_templates_dieta_nova_organizacao",
+      "arquivo": "supabase/historico/20260919112958_seed_templates_dieta_nova_organizacao.sql"
+    },
+    {
+      "versao": "20260919113116",
+      "nome": "fix_seed_templates_dieta_horario_cast",
+      "arquivo": "supabase/historico/20260919113116_fix_seed_templates_dieta_horario_cast.sql"
+    },
+    {
+      "versao": "20260919122801",
+      "nome": "backfill_templates_treino_dieta_organizacoes_existentes",
+      "arquivo": "supabase/migrations/20261007010000_backfill_templates_treino_dieta_organizacoes_existentes.sql"
+    },
+    {
+      "versao": "20260919123357",
+      "nome": "superadmin_organizacao_atividade",
+      "arquivo": "supabase/migrations/20261008010000_superadmin_organizacao_atividade.sql"
+    },
+    {
+      "versao": "20260919131000",
+      "nome": "links_ativacao_curtos",
+      "arquivo": "supabase/migrations/20261009010000_links_ativacao_curtos.sql"
+    },
+    {
+      "versao": "20260919162140",
+      "nome": "onboarding_agendamento_acolhimento",
+      "arquivo": "supabase/migrations/20261010010000_onboarding_agendamento_acolhimento.sql"
+    },
+    {
+      "versao": "20260919162422",
+      "nome": "obter_proximo_evento_aluno",
+      "arquivo": "supabase/migrations/20261010020000_obter_proximo_evento_aluno.sql"
+    },
+    {
+      "versao": "20260919164811",
+      "nome": "metodo_arke_adesao",
+      "arquivo": "supabase/migrations/20260921010000_metodo_arke_adesao.sql"
+    },
+    {
+      "versao": "20260919170419",
+      "nome": "ativacao_pendente_so_para_metodo_arke",
+      "arquivo": "supabase/migrations/20260921020000_ativacao_pendente_so_para_metodo_arke.sql"
+    },
+    {
+      "versao": "20260919192233",
+      "nome": "chat_treino_nutri_e_calendario",
+      "arquivo": "supabase/migrations/20260921030000_chat_treino_nutri_e_calendario.sql"
+    },
+    {
+      "versao": "20260919193441",
+      "nome": "dieta_adesao",
+      "arquivo": "supabase/migrations/20260921040000_dieta_adesao.sql"
+    },
+    {
+      "versao": "20260919194207",
+      "nome": "evolucao_metas_pontos_metricas",
+      "arquivo": "supabase/migrations/20260921050000_evolucao_metas_pontos_metricas.sql"
+    },
+    {
+      "versao": "20260919194240",
+      "nome": "jornada_objetivos_valores_compromisso",
+      "arquivo": "supabase/migrations/20260921060000_jornada_objetivos_valores_compromisso.sql"
+    },
+    {
+      "versao": "20260919200216",
+      "nome": "desafios_competicoes",
+      "arquivo": "supabase/migrations/20260921070000_desafios_competicoes.sql"
+    },
+    {
+      "versao": "20260919200243",
+      "nome": "ranking_competicao_rpc",
+      "arquivo": "supabase/migrations/20260921080000_ranking_competicao_rpc.sql"
+    },
+    {
+      "versao": "20260919201331",
+      "nome": "feed_social",
+      "arquivo": "supabase/migrations/20260921090000_feed_social.sql"
+    },
+    {
+      "versao": "20260919204645",
+      "nome": "nivel_atacado_opcional",
+      "arquivo": "supabase/migrations/20260921100000_nivel_atacado_opcional.sql"
+    },
+    {
+      "versao": "20260919212547",
+      "nome": "indices_fks_jornada_gamificacao_feed",
+      "arquivo": "supabase/migrations/20261011010000_indices_fks_jornada_gamificacao_feed.sql"
+    },
+    {
+      "versao": "20260919213524",
+      "nome": "tarefa_tipo_cobranca",
+      "arquivo": "supabase/migrations/20261012000000_tarefa_tipo_cobranca.sql"
+    },
+    {
+      "versao": "20260919214207",
+      "nome": "tarefa_tipo_cobranca",
+      "arquivo": "supabase/migrations/20261012000000_tarefa_tipo_cobranca.sql"
+    },
+    {
+      "versao": "20260919214251",
+      "nome": "planos_academia_matriculas_mensalidades",
+      "arquivo": "supabase/historico/20260919214251_planos_academia_matriculas_mensalidades.sql"
+    },
+    {
+      "versao": "20260919214738",
+      "nome": "plataforma_config_taxa_processamento",
+      "arquivo": "supabase/migrations/20261012020000_plataforma_config_taxa_processamento.sql"
+    },
+    {
+      "versao": "20260919220816",
+      "nome": "staff_horarios",
+      "arquivo": "supabase/migrations/20261013010000_staff_horarios.sql"
+    },
+    {
+      "versao": "20260919223039",
+      "nome": "staff_comissoes",
+      "arquivo": "supabase/migrations/20261014010000_staff_comissoes.sql"
+    },
+    {
+      "versao": "20260919223910",
+      "nome": "staff_folha_lancamentos_financeiros",
+      "arquivo": "supabase/migrations/20261015010000_staff_folha_lancamentos_financeiros.sql"
+    },
+    {
+      "versao": "20260919224304",
+      "nome": "aluno_agenda_propria_vaga",
+      "arquivo": "supabase/historico/20260919224304_aluno_agenda_propria_vaga.sql"
+    },
+    {
+      "versao": "20260919230019",
+      "nome": "financeiro_completo",
+      "arquivo": "supabase/migrations/20261017010000_financeiro_completo.sql"
+    },
+    {
+      "versao": "20260920000443",
+      "nome": "acervo_exercicios_organizacao_depara",
+      "arquivo": "supabase/historico/20260920000443_acervo_exercicios_organizacao_depara.sql"
+    },
+    {
+      "versao": "20260920002000",
+      "nome": "meta_agua_configuravel",
+      "arquivo": "supabase/migrations/20261019010000_meta_agua_configuravel.sql"
+    },
+    {
+      "versao": "20260920002449",
+      "nome": "checkins_anti_duplicidade_diaria",
+      "arquivo": "supabase/migrations/20261020010000_checkins_anti_duplicidade_diaria.sql"
+    },
+    {
+      "versao": "20260920003459",
+      "nome": "gamificacao_pontuacao_rotina_semanal",
+      "arquivo": "supabase/migrations/20261021010000_gamificacao_pontuacao_rotina_semanal.sql"
+    },
+    {
+      "versao": "20260920010852",
+      "nome": "tarefa_tipo_acolhimento_elite",
+      "arquivo": "supabase/migrations/20261022010000_tarefa_tipo_acolhimento_elite.sql"
+    },
+    {
+      "versao": "20260920010906",
+      "nome": "elite_diferenciais",
+      "arquivo": "supabase/migrations/20261022020000_elite_diferenciais.sql"
+    },
+    {
+      "versao": "20260920011511",
+      "nome": "unificar_dias_previstos_treino",
+      "arquivo": "supabase/migrations/20261023010000_unificar_dias_previstos_treino.sql"
+    },
+    {
+      "versao": "20260920011852",
+      "nome": "pontuacao_engajamento_staff",
+      "arquivo": "supabase/migrations/20261024010000_pontuacao_engajamento_staff.sql"
+    },
+    {
+      "versao": "20260920012407",
+      "nome": "unificar_constancia_view",
+      "arquivo": "supabase/migrations/20261025010000_unificar_constancia_view.sql"
+    },
+    {
+      "versao": "20260920012448",
+      "nome": "tarefa_tipo_engajamento_baixo",
+      "arquivo": "supabase/migrations/20261025020000_tarefa_tipo_engajamento_baixo.sql"
+    },
+    {
+      "versao": "20260920012551",
+      "nome": "automacao_engajamento_baixo",
+      "arquivo": "supabase/migrations/20261025030000_automacao_engajamento_baixo.sql"
+    },
+    {
+      "versao": "20260920014324",
+      "nome": "receita_consolidada_view",
+      "arquivo": "supabase/migrations/20261026010000_receita_consolidada_view.sql"
+    },
+    {
+      "versao": "20260920014502",
+      "nome": "receita_consolidada_view",
+      "arquivo": "supabase/migrations/20261026010000_receita_consolidada_view.sql"
+    },
+    {
+      "versao": "20260920015135",
+      "nome": "gestao360_funil_ocupacao_catraca",
+      "arquivo": "supabase/migrations/20261027010000_gestao360_funil_ocupacao_catraca.sql"
+    },
+    {
+      "versao": "20260920020642",
+      "nome": "catraca_adimplencia_plano_academia",
+      "arquivo": "supabase/migrations/20261028010000_catraca_adimplencia_plano_academia.sql"
+    },
+    {
+      "versao": "20260920022330",
+      "nome": "checkin_parceiro_externo",
+      "arquivo": "supabase/migrations/20261029010000_checkin_parceiro_externo.sql"
+    },
+    {
+      "versao": "20260920023459",
+      "nome": "dieta_pdf_gemini_itens_estruturados",
+      "arquivo": "supabase/migrations/20261030010000_dieta_pdf_gemini_itens_estruturados.sql"
+    },
+    {
+      "versao": "20260920030936",
+      "nome": "credenciais_wellhub_totalpass_hardware_catraca",
+      "arquivo": "supabase/migrations/20261031010000_credenciais_wellhub_totalpass_hardware_catraca.sql"
+    },
+    {
+      "versao": "20260920042947",
+      "nome": "acervo_exercicios_restringe_gestor_professor",
+      "arquivo": "supabase/migrations/20261101010000_acervo_exercicios_restringe_gestor_professor.sql"
+    },
+    {
+      "versao": "20260920051255",
+      "nome": "otimiza_rls_auth_uid_initplan",
+      "arquivo": "supabase/historico/20260920051255_otimiza_rls_auth_uid_initplan.sql"
+    },
+    {
+      "versao": "20260920051317",
+      "nome": "indices_faltando_para_fks_quentes",
+      "arquivo": "supabase/historico/20260920051317_indices_faltando_para_fks_quentes.sql"
+    },
+    {
+      "versao": "20260920051441",
+      "nome": "consolida_policies_permissivas_duplicadas",
+      "arquivo": "supabase/migrations/20261103010000_consolida_policies_permissivas_duplicadas.sql"
+    },
+    {
+      "versao": "20260920052746",
+      "nome": "acervo_descricao_execucao_gif_url",
+      "arquivo": "supabase/migrations/20261104010000_acervo_descricao_execucao_gif_url.sql"
+    },
+    {
+      "versao": "20260920053853",
+      "nome": "acervo_global_restringe_superadmin",
+      "arquivo": "supabase/migrations/20261105010000_acervo_global_restringe_superadmin.sql"
+    },
+    {
+      "versao": "20260920055417",
+      "nome": "superadmin_mrr_historico",
+      "arquivo": "supabase/historico/20260920055417_superadmin_mrr_historico.sql"
+    },
+    {
+      "versao": "20260920102244",
+      "nome": "superadmin_funil_conversao",
+      "arquivo": "supabase/migrations/20261107010000_superadmin_funil_conversao.sql"
+    },
+    {
+      "versao": "20260920103717",
+      "nome": "auditoria_acoes_sensiveis",
+      "arquivo": "supabase/migrations/20261108010000_auditoria_acoes_sensiveis.sql"
+    },
+    {
+      "versao": "20260920104618",
+      "nome": "superadmin_adocao_metodologia",
+      "arquivo": "supabase/historico/20260920104618_superadmin_adocao_metodologia.sql"
+    },
+    {
+      "versao": "20260920104701",
+      "nome": "superadmin_adocao_metodologia_ordem",
+      "arquivo": "supabase/historico/20260920104701_superadmin_adocao_metodologia_ordem.sql"
+    },
+    {
+      "versao": "20260920104754",
+      "nome": "superadmin_adocao_corrige_fanout",
+      "arquivo": "supabase/historico/20260920104754_superadmin_adocao_corrige_fanout.sql"
+    },
+    {
+      "versao": "20260920105811",
+      "nome": "superadmin_operacao_global",
+      "arquivo": "supabase/migrations/20261110010000_superadmin_operacao_global.sql"
+    },
+    {
+      "versao": "20260920111420",
+      "nome": "trial_15_dias",
+      "arquivo": "supabase/migrations/20261111010000_trial_15_dias.sql"
+    },
+    {
+      "versao": "20260920111559",
+      "nome": "superadmin_webhooks_asaas",
+      "arquivo": "supabase/migrations/20261112010000_superadmin_webhooks_asaas.sql"
+    },
+    {
+      "versao": "20260920121252",
+      "nome": "gate_pagamento_b2b",
+      "arquivo": "supabase/historico/20260920121252_gate_pagamento_b2b.sql"
+    },
+    {
+      "versao": "20260920121359",
+      "nome": "gate_pagamento_b2b_multiplos_vinculos",
+      "arquivo": "supabase/historico/20260920121359_gate_pagamento_b2b_multiplos_vinculos.sql"
+    },
+    {
+      "versao": "20260920121737",
+      "nome": "gate_b2b_fecha_helper_e_unifica_regra",
+      "arquivo": "supabase/historico/20260920121737_gate_b2b_fecha_helper_e_unifica_regra.sql"
+    },
+    {
+      "versao": "20260920121913",
+      "nome": "cobrancas_b2b_vencimento_default",
+      "arquivo": "supabase/historico/20260920121913_cobrancas_b2b_vencimento_default.sql"
+    },
+    {
+      "versao": "20260920123013",
+      "nome": "receita_b2b_exige_liquidacao",
+      "arquivo": "supabase/migrations/20261114010000_receita_b2b_exige_liquidacao.sql"
+    },
+    {
+      "versao": "20260920130426",
+      "nome": "assinatura_status_trial",
+      "arquivo": "supabase/migrations/20261115010000_assinatura_status_trial.sql"
+    },
+    {
+      "versao": "20260920130910",
+      "nome": "correcoes_jornada_e_trial_b2c",
+      "arquivo": "supabase/migrations/20261116010000_correcoes_jornada_e_trial_b2c.sql"
+    },
+    {
+      "versao": "20260920132014",
+      "nome": "fase_jornada_manual",
+      "arquivo": "supabase/historico/20260920132014_fase_jornada_manual.sql"
+    },
+    {
+      "versao": "20260920175619",
+      "nome": "remover_provisionamento_organizacao_padrao",
+      "arquivo": "supabase/migrations/20261118010000_remover_provisionamento_organizacao_padrao.sql"
+    },
+    {
+      "versao": "20260920211843",
+      "nome": "identificador_catraca_e_consentimento_biometrico",
+      "arquivo": "supabase/historico/20260920211843_identificador_catraca_e_consentimento_biometrico.sql"
+    },
+    {
+      "versao": "20260920220133",
+      "nome": "validacao_cpf",
+      "arquivo": "supabase/migrations/20261120010000_validacao_cpf.sql"
+    },
+    {
+      "versao": "20260920222531",
+      "nome": "cpf_validado_e_unico",
+      "arquivo": "supabase/migrations/20261121010000_cpf_validado_e_unico.sql"
+    },
+    {
+      "versao": "20260920222739",
+      "nome": "importacao_alunos_retomavel",
+      "arquivo": "supabase/historico/20260920222739_importacao_alunos_retomavel.sql"
+    },
+    {
+      "versao": "20260920224403",
+      "nome": "aplicar_limite_alunos",
+      "arquivo": "supabase/migrations/20261123010000_aplicar_limite_alunos.sql"
+    },
+    {
+      "versao": "20260921002451",
+      "nome": "higiene_execute_rpc",
+      "arquivo": "supabase/migrations/20261124010000_higiene_execute_rpc.sql"
+    },
+    {
+      "versao": "20260921003030",
+      "nome": "detector_de_orfaos",
+      "arquivo": "supabase/historico/20260921003030_detector_de_orfaos.sql"
+    },
+    {
+      "versao": "20260921123309",
+      "nome": "rede_seguranca_inadimplencia_b2c",
+      "arquivo": "supabase/migrations/20261126010000_rede_seguranca_inadimplencia_b2c.sql"
+    },
+    {
+      "versao": "20260921152141",
+      "nome": "limite_matricula_publica",
+      "arquivo": "supabase/migrations/20261127010000_limite_matricula_publica.sql"
+    },
+    {
+      "versao": "20260921160232",
+      "nome": "indices_chaves_estrangeiras",
+      "arquivo": "supabase/migrations/20261128010000_indices_chaves_estrangeiras.sql"
+    },
+    {
+      "versao": "20260921161650",
+      "nome": "cartao_recorrente",
+      "arquivo": "supabase/migrations/20261129010000_cartao_recorrente.sql"
+    },
+    {
+      "versao": "20260921170856",
+      "nome": "saude_das_rotinas",
+      "arquivo": "supabase/migrations/20261130010000_saude_das_rotinas.sql"
+    },
+    {
+      "versao": "20260921172554",
+      "nome": "reconciliacao_asaas",
+      "arquivo": "supabase/migrations/20261201010000_reconciliacao_asaas.sql"
+    },
+    {
+      "versao": "20260921173055",
+      "nome": "sequencias_service_role",
+      "arquivo": "supabase/migrations/20261201020000_sequencias_service_role.sql"
+    },
+    {
+      "versao": "20260921185133",
+      "nome": "taxa_gateway",
+      "arquivo": "supabase/migrations/20261202010000_taxa_gateway.sql"
+    },
+    {
+      "versao": "20260921185344",
+      "nome": "taxa_processamento_config",
+      "arquivo": "supabase/migrations/20261202020000_taxa_processamento_config.sql"
+    },
+    {
+      "versao": "20260921191502",
+      "nome": "trial_so_superadmin",
+      "arquivo": "supabase/migrations/20261203010000_trial_so_superadmin.sql"
+    },
+    {
+      "versao": "20260921191936",
+      "nome": "trial_nao_sobrescreve_pagante",
+      "arquivo": "supabase/migrations/20261203020000_trial_nao_sobrescreve_pagante.sql"
+    },
+    {
+      "versao": "20260921200358",
+      "nome": "alerta_rotinas_email",
+      "arquivo": "supabase/migrations/20261204010000_alerta_rotinas_email.sql"
+    },
+    {
+      "versao": "20260921202419",
+      "nome": "consolidar_politicas_rls",
+      "arquivo": "supabase/migrations/20261205010000_consolidar_politicas_rls.sql"
+    },
+    {
+      "versao": "20260922004406",
+      "nome": "rodada1_aluno_e_comunicacao",
+      "arquivo": "supabase/historico/20260922004406_rodada1_aluno_e_comunicacao.sql"
+    },
+    {
+      "versao": "20260922004630",
+      "nome": "rodada1_caixa_dieta_id",
+      "arquivo": "supabase/historico/20260922004630_rodada1_caixa_dieta_id.sql"
+    },
+    {
+      "versao": "20260922015152",
+      "nome": "rodada2_acervo_e_prescricao",
+      "arquivo": "supabase/migrations/20261207010000_rodada2_acervo_e_prescricao.sql"
+    },
+    {
+      "versao": "20260922022050",
+      "nome": "primeiro_acesso",
+      "arquivo": "supabase/migrations/20261208010000_primeiro_acesso.sql"
+    },
+    {
+      "versao": "20260922115602",
+      "nome": "rodada3_plano_free",
+      "arquivo": "supabase/migrations/20261209010000_rodada3_plano_free.sql"
+    },
+    {
+      "versao": "20260922122153",
+      "nome": "rodada4_onboarding_academia",
+      "arquivo": "supabase/historico/20260922122153_rodada4_onboarding_academia.sql"
+    },
+    {
+      "versao": "20260922122235",
+      "nome": "rodada4_onboarding_array_append",
+      "arquivo": "supabase/historico/20260922122235_rodada4_onboarding_array_append.sql"
+    },
+    {
+      "versao": "20260922123552",
+      "nome": "rodada4_complementos",
+      "arquivo": "supabase/migrations/20261210020000_rodada4_complementos.sql"
+    },
+    {
+      "versao": "20260922123704",
+      "nome": "lembrete_onboarding",
+      "arquivo": "supabase/migrations/20261210030000_lembrete_onboarding.sql"
+    },
+    {
+      "versao": "20260922211037",
+      "nome": "higiene_execute_e_search_path",
+      "arquivo": "supabase/historico/20260922211037_higiene_execute_e_search_path.sql"
+    },
+    {
+      "versao": "20260922224326",
+      "nome": "cpf_obrigatorio_na_matricula",
+      "arquivo": "supabase/migrations/20261216010000_cpf_obrigatorio_na_matricula.sql"
+    },
+    {
+      "versao": "20260923001507",
+      "nome": "ciclo_assinatura_enums",
+      "arquivo": "supabase/migrations/20261222010000_ciclo_assinatura_enums.sql"
+    },
+    {
+      "versao": "20260923001531",
+      "nome": "ciclo_assinatura",
+      "arquivo": "supabase/historico/20260923001531_ciclo_assinatura.sql"
+    },
+    {
+      "versao": "20260923003211",
+      "nome": "mensalidade_rede_de_seguranca",
+      "arquivo": "supabase/migrations/20261223010000_mensalidade_rede_de_seguranca.sql"
+    },
+    {
+      "versao": "20260923003248",
+      "nome": "cron_situacao_mensalidade",
+      "arquivo": "supabase/historico/20260923003248_cron_situacao_mensalidade.sql"
+    },
+    {
+      "versao": "20260923003655",
+      "nome": "on_conflict_indice_parcial",
+      "arquivo": "supabase/migrations/20261223020000_on_conflict_indice_parcial.sql"
+    },
+    {
+      "versao": "20260923004504",
+      "nome": "meta_agua_por_plano",
+      "arquivo": "supabase/migrations/20261217010000_meta_agua_por_plano.sql"
+    },
+    {
+      "versao": "20260923004841",
+      "nome": "rotina_treino_ou_descanso",
+      "arquivo": "supabase/migrations/20261217020000_rotina_treino_ou_descanso.sql"
+    },
+    {
+      "versao": "20260923005204",
+      "nome": "registro_serie",
+      "arquivo": "supabase/migrations/20261218010000_registro_serie.sql"
+    },
+    {
+      "versao": "20260923005849",
+      "nome": "canal_mentor",
+      "arquivo": "supabase/historico/20260923005849_canal_mentor.sql"
+    },
+    {
+      "versao": "20260923005902",
+      "nome": "fila_mentor_superadmin",
+      "arquivo": "supabase/historico/20260923005902_fila_mentor_superadmin.sql"
+    },
+    {
+      "versao": "20260923011908",
+      "nome": "consolidar_organizations_profiles_e_initplan",
+      "arquivo": "supabase/historico/20260923011908_consolidar_organizations_profiles_e_initplan.sql"
+    },
+    {
+      "versao": "20260923012227",
+      "nome": "repasse_por_organizacao",
+      "arquivo": "supabase/migrations/20261224010000_repasse_por_organizacao.sql"
+    },
+    {
+      "versao": "20260923022516",
+      "nome": "fuso_brasilia",
+      "arquivo": "supabase/migrations/20261221010000_fuso_brasilia.sql"
+    },
+    {
+      "versao": "20260923071600",
+      "nome": "repasse_por_nivel",
+      "arquivo": "supabase/migrations/20261224020000_repasse_por_nivel.sql"
+    },
+    {
+      "versao": "20260923081238",
+      "nome": "cron_avanco_fases",
+      "arquivo": "supabase/historico/20260923081238_cron_avanco_fases.sql"
+    },
+    {
+      "versao": "20260923083459",
+      "nome": "fila_mentor_enums",
+      "arquivo": "supabase/historico/20260923083459_fila_mentor_enums.sql"
+    },
+    {
+      "versao": "20260923083724",
+      "nome": "fila_mentor_inercia_cast",
+      "arquivo": "supabase/historico/20260923083724_fila_mentor_inercia_cast.sql"
+    },
+    {
+      "versao": "20260923083956",
+      "nome": "rls_tarefas_por_dono",
+      "arquivo": "supabase/historico/20260923083956_rls_tarefas_por_dono.sql"
+    },
+    {
+      "versao": "20260923084042",
+      "nome": "cron_inercia_mentor",
+      "arquivo": "supabase/historico/20260923084042_cron_inercia_mentor.sql"
+    },
+    {
+      "versao": "20260923091853",
+      "nome": "rls_tarefas_superadmin_with_check",
+      "arquivo": "supabase/historico/20260923091853_rls_tarefas_superadmin_with_check.sql"
+    },
+    {
+      "versao": "20260923094744",
+      "nome": "briefing_registro_e_token",
+      "arquivo": "supabase/historico/20260923094744_briefing_registro_e_token.sql"
+    },
+    {
+      "versao": "20260923095103",
+      "nome": "cron_briefing_semanal",
+      "arquivo": "supabase/historico/20260923095103_cron_briefing_semanal.sql"
+    },
+    {
+      "versao": "20260923100421",
+      "nome": "briefing_destino_interno",
+      "arquivo": "supabase/historico/20260923100421_briefing_destino_interno.sql"
+    },
+    {
+      "versao": "20260923102435",
+      "nome": "sentinela_sugestoes",
+      "arquivo": "supabase/historico/20260923102435_sentinela_sugestoes.sql"
+    },
+    {
+      "versao": "20261211010000",
+      "nome": "rodada5_documentos_legais",
+      "arquivo": "supabase/migrations/20261211010000_rodada5_documentos_legais.sql"
+    },
+    {
+      "versao": "20261211020000",
+      "nome": "rodada5_contrato_parq",
+      "arquivo": "supabase/migrations/20261211020000_rodada5_contrato_parq.sql"
+    },
+    {
+      "versao": "20261211030000",
+      "nome": "rodada5_alerta_atestado",
+      "arquivo": "supabase/migrations/20261211030000_rodada5_alerta_atestado.sql"
+    },
+    {
+      "versao": "20261211040000",
+      "nome": "rodada5_validade_atestado",
+      "arquivo": "supabase/migrations/20261211040000_rodada5_validade_atestado.sql"
+    },
+    {
+      "versao": "20261212010000",
+      "nome": "rodada6_checkin_comunicados",
+      "arquivo": "supabase/migrations/20261212010000_rodada6_checkin_comunicados.sql"
+    },
+    {
+      "versao": "20261213010000",
+      "nome": "rodada_final_decisoes",
+      "arquivo": "supabase/migrations/20261213010000_rodada_final_decisoes.sql"
+    },
+    {
+      "versao": "20261214010000",
+      "nome": "storage_politicas_e_limites",
+      "arquivo": "supabase/migrations/20261214010000_storage_politicas_e_limites.sql"
+    },
+    {
+      "versao": "20261230010000",
+      "nome": "operacao_mentor",
+      "arquivo": "supabase/migrations/20261230010000_operacao_mentor.sql"
+    },
+    {
+      "versao": "20261231010000",
+      "nome": "consentimento_ia_por_proposito",
+      "arquivo": "supabase/migrations/20261231010000_consentimento_ia_por_proposito.sql"
+    },
+    {
+      "versao": "20261232010000",
+      "nome": "documentos_legais_2026_09_23",
+      "arquivo": "supabase/migrations/20261232010000_documentos_legais_2026_09_23.sql"
+    },
+    {
+      "versao": "20261233010000",
+      "nome": "consentimento_saude_versionado",
+      "arquivo": "supabase/migrations/20261233010000_consentimento_saude_versionado.sql"
+    },
+    {
+      "versao": "20261234010000",
+      "nome": "consentimento_ia_ressalva",
+      "arquivo": "supabase/migrations/20261234010000_consentimento_ia_ressalva.sql"
+    },
+    {
+      "versao": "20261235010000",
+      "nome": "documentos_legais_pos_parecer",
+      "arquivo": "supabase/migrations/20261235010000_documentos_legais_pos_parecer.sql"
+    },
+    {
+      "versao": "20261236010000",
+      "nome": "ia_no_brasil",
+      "arquivo": "supabase/migrations/20261236010000_ia_no_brasil.sql"
+    },
+    {
+      "versao": "20261237010000",
+      "nome": "politica_ia_ajuste_encarregado",
+      "arquivo": "supabase/migrations/20261237010000_politica_ia_ajuste_encarregado.sql"
+    },
+    {
+      "versao": "20261238010000",
+      "nome": "catraca_presenca_giro_situacao",
+      "arquivo": "supabase/migrations/20261238010000_catraca_presenca_giro_situacao.sql"
+    },
+    {
+      "versao": "20261239010000",
+      "nome": "fechar_giros_pendentes",
+      "arquivo": "supabase/migrations/20261239010000_fechar_giros_pendentes.sql"
+    },
+    {
+      "versao": "20261240010000",
+      "nome": "sincronizacao_incremental_catraca",
+      "arquivo": "supabase/migrations/20261240010000_sincronizacao_incremental_catraca.sql"
+    },
+    {
+      "versao": "20261241010000",
+      "nome": "retencao_logs_catraca",
+      "arquivo": "supabase/migrations/20261241010000_retencao_logs_catraca.sql"
+    },
+    {
+      "versao": "20261242010000",
+      "nome": "alerta_capacidade_banco",
+      "arquivo": "supabase/migrations/20261242010000_alerta_capacidade_banco.sql"
+    },
+    {
+      "versao": "20261243010000",
+      "nome": "tarefa_tipo_equipamento",
+      "arquivo": "supabase/migrations/20261243010000_tarefa_tipo_equipamento.sql"
+    },
+    {
+      "versao": "20261244010000",
+      "nome": "telemetria_comandos_gateway",
+      "arquivo": "supabase/migrations/20261244010000_telemetria_comandos_gateway.sql"
+    },
+    {
+      "versao": "20261245010000",
+      "nome": "biometria_ciclo_completo",
+      "arquivo": "supabase/migrations/20261245010000_biometria_ciclo_completo.sql"
+    },
+    {
+      "versao": "20261246010000",
+      "nome": "equipamentos_painel_parceiros",
+      "arquivo": "supabase/migrations/20261246010000_equipamentos_painel_parceiros.sql"
+    },
+    {
+      "versao": "20261248010000",
+      "nome": "vigia_funcoes_agendadas",
+      "arquivo": "supabase/migrations/20261248010000_vigia_funcoes_agendadas.sql"
+    },
+    {
+      "versao": "20261250010000",
+      "nome": "biometria_termo_assinado",
+      "arquivo": "supabase/migrations/20261250010000_biometria_termo_assinado.sql"
+    },
+    {
+      "versao": "20261251010000",
+      "nome": "alerta_catraca_gestor",
+      "arquivo": "supabase/migrations/20261251010000_alerta_catraca_gestor.sql"
+    },
+    {
+      "versao": "20261252010000",
+      "nome": "metodo_ofertas_academia",
+      "arquivo": "supabase/migrations/20261252010000_metodo_ofertas_academia.sql"
+    },
+    {
+      "versao": "20261270010000",
+      "nome": "limpeza_pos_deploy_1_0",
+      "arquivo": "supabase/migrations/20261270010000_limpeza_pos_deploy_1_0.sql"
+    },
+    {
+      "versao": "20261271010000",
+      "nome": "politica_biometria",
+      "arquivo": "supabase/migrations/20261271010000_politica_biometria.sql"
+    },
+    {
+      "versao": "20261272010000",
+      "nome": "vigia_modo_sombra",
+      "arquivo": "supabase/migrations/20261272010000_vigia_modo_sombra.sql"
+    },
+    {
+      "versao": "20261273010000",
+      "nome": "vigia_execucao",
+      "arquivo": "supabase/migrations/20261273010000_vigia_execucao.sql"
+    },
+    {
+      "versao": "20261274010000",
+      "nome": "higiene_funcoes_abertas",
+      "arquivo": "supabase/migrations/20261274010000_higiene_funcoes_abertas.sql"
+    },
+    {
+      "versao": "20261275010000",
+      "nome": "higiene_funcoes_pos_deploy",
+      "arquivo": "supabase/migrations/20261275010000_higiene_funcoes_pos_deploy.sql"
+    },
+    {
+      "versao": "20261276010000",
+      "nome": "cobranca_avulsa",
+      "arquivo": "supabase/migrations/20261276010000_cobranca_avulsa.sql"
+    },
+    {
+      "versao": "20261277010000",
+      "nome": "taxa_processamento_minima",
+      "arquivo": "supabase/migrations/20261277010000_taxa_processamento_minima.sql"
+    },
+    {
+      "versao": "20261278010000",
+      "nome": "nfse_academia",
+      "arquivo": "supabase/migrations/20261278010000_nfse_academia.sql"
+    },
+    {
+      "versao": "20261279010000",
+      "nome": "politica_nota_fiscal",
+      "arquivo": "supabase/migrations/20261279010000_politica_nota_fiscal.sql"
+    },
+    {
+      "versao": "20261280010000",
+      "nome": "contrato_nota_fiscal",
+      "arquivo": "supabase/migrations/20261280010000_contrato_nota_fiscal.sql"
+    },
+    {
+      "versao": "20261281010000",
+      "nome": "encerramento_organizacao",
+      "arquivo": "supabase/migrations/20261281010000_encerramento_organizacao.sql"
+    },
+    {
+      "versao": "20261282010000",
+      "nome": "exportacao_dados_academia",
+      "arquivo": "supabase/migrations/20261282010000_exportacao_dados_academia.sql"
+    },
+    {
+      "versao": "20261283010000",
+      "nome": "verificacao_duas_etapas",
+      "arquivo": "supabase/migrations/20261283010000_verificacao_duas_etapas.sql"
+    },
+    {
+      "versao": "20261284010000",
+      "nome": "cartao_mensalidade",
+      "arquivo": "supabase/migrations/20261284010000_cartao_mensalidade.sql"
+    },
+    {
+      "versao": "20261285010000",
+      "nome": "taxa_implantacao",
+      "arquivo": "supabase/migrations/20261285010000_taxa_implantacao.sql"
+    },
+    {
+      "versao": "20261286010000",
+      "nome": "superadmin_visao_master",
+      "arquivo": "supabase/migrations/20261286010000_superadmin_visao_master.sql"
+    },
+    {
+      "versao": "20261287010000",
+      "nome": "ciclo_matricula_plano",
+      "arquivo": "supabase/migrations/20261287010000_ciclo_matricula_plano.sql"
+    },
+    {
+      "versao": "20261288010000",
+      "nome": "leads_site",
+      "arquivo": "supabase/migrations/20261288010000_leads_site.sql"
+    },
+    {
+      "versao": "20261289010000",
+      "nome": "retencao_contatos_site",
+      "arquivo": "supabase/migrations/20261289010000_retencao_contatos_site.sql"
+    },
+    {
+      "versao": "20261290010000",
+      "nome": "politica_dieta_pdf_e_contato",
+      "arquivo": "supabase/migrations/20261290010000_politica_dieta_pdf_e_contato.sql"
+    },
+    {
+      "versao": "20261291010000",
+      "nome": "prontidao_escala",
+      "arquivo": "supabase/migrations/20261291010000_prontidao_escala.sql"
+    },
+    {
+      "versao": "20261292010000",
+      "nome": "metodo_dono_e_equipe",
+      "arquivo": "supabase/migrations/20261292010000_metodo_dono_e_equipe.sql"
+    },
+    {
+      "versao": "20261293010000",
+      "nome": "metodo_console_mentor",
+      "arquivo": "supabase/migrations/20261293010000_metodo_console_mentor.sql"
+    },
+    {
+      "versao": "20261294010000",
+      "nome": "profissional_autonomo",
+      "arquivo": "supabase/migrations/20261294010000_profissional_autonomo.sql"
+    },
+    {
+      "versao": "20261295010000",
+      "nome": "metodo_conversa_aluno",
+      "arquivo": "supabase/migrations/20261295010000_metodo_conversa_aluno.sql"
+    },
+    {
+      "versao": "20261296010000",
+      "nome": "metodo_passagem",
+      "arquivo": "supabase/migrations/20261296010000_metodo_passagem.sql"
+    },
+    {
+      "versao": "20261297010000",
+      "nome": "documentos_metodo_mentor",
+      "arquivo": "supabase/migrations/20261297010000_documentos_metodo_mentor.sql"
+    },
+    {
+      "versao": "20261298010000",
+      "nome": "agente_comercial",
+      "arquivo": "supabase/migrations/20261298010000_agente_comercial.sql"
+    },
+    {
+      "versao": "20261299010000",
+      "nome": "contrato_sem_garantia_resultado",
+      "arquivo": "supabase/migrations/20261299010000_contrato_sem_garantia_resultado.sql"
+    },
+    {
+      "versao": "20261300010000",
+      "nome": "politica_resposta_automatica",
+      "arquivo": "supabase/migrations/20261300010000_politica_resposta_automatica.sql"
+    },
+    {
+      "versao": "20261301010000",
+      "nome": "crm_comercial",
+      "arquivo": "supabase/migrations/20261301010000_crm_comercial.sql"
+    },
+    {
+      "versao": "20261302010000",
+      "nome": "politica_canais_comerciais",
+      "arquivo": "supabase/migrations/20261302010000_politica_canais_comerciais.sql"
+    },
+    {
+      "versao": "20261303010000",
+      "nome": "registro_treino_concluido_padrao",
+      "arquivo": "supabase/migrations/20261303010000_registro_treino_concluido_padrao.sql"
+    },
+    {
+      "versao": "20261304010000",
+      "nome": "plano_redes",
+      "arquivo": "supabase/migrations/20261304010000_plano_redes.sql"
+    },
+    {
+      "versao": "20261305010000",
+      "nome": "tabela_b2b_outubro",
+      "arquivo": "supabase/migrations/20261305010000_tabela_b2b_outubro.sql"
+    },
+    {
+      "versao": "20261306010000",
+      "nome": "contrato_tabela_b2b",
+      "arquivo": "supabase/migrations/20261306010000_contrato_tabela_b2b.sql"
+    },
+    {
+      "versao": "20261307010000",
+      "nome": "atacado_referencia",
+      "arquivo": "supabase/migrations/20261307010000_atacado_referencia.sql"
+    },
+    {
+      "versao": "20261308010000",
+      "nome": "planos_no_site",
+      "arquivo": "supabase/migrations/20261308010000_planos_no_site.sql"
+    },
+    {
+      "versao": "20261309010000",
+      "nome": "catracas_gateway_1_2",
+      "arquivo": "supabase/migrations/20261309010000_catracas_gateway_1_2.sql"
+    },
+    {
+      "versao": "20261310010000",
+      "nome": "cadastro_rosto",
+      "arquivo": "supabase/migrations/20261310010000_cadastro_rosto.sql"
+    },
+    {
+      "versao": "20261311010000",
+      "nome": "rosto_uma_vez_pelo_app",
+      "arquivo": "supabase/migrations/20261311010000_rosto_uma_vez_pelo_app.sql"
+    },
+    {
+      "versao": "20261312010000",
+      "nome": "termo_biometria_rosto",
+      "arquivo": "supabase/migrations/20261312010000_termo_biometria_rosto.sql"
+    },
+    {
+      "versao": "20261313010000",
+      "nome": "marca_academia",
+      "arquivo": "supabase/migrations/20261313010000_marca_academia.sql"
+    },
+    {
+      "versao": "20261314010000",
+      "nome": "toletus_digital",
+      "arquivo": "supabase/migrations/20261314010000_toletus_digital.sql"
+    },
+    {
+      "versao": "20261315010000",
+      "nome": "agente_implantacao",
+      "arquivo": "supabase/migrations/20261315010000_agente_implantacao.sql"
+    },
+    {
+      "versao": "20261316010000",
+      "nome": "agente_implantacao_relogio",
+      "arquivo": "supabase/migrations/20261316010000_agente_implantacao_relogio.sql"
+    },
+    {
+      "versao": "20261317010000",
+      "nome": "profissionais_autonomos_gestao",
+      "arquivo": "supabase/migrations/20261317010000_profissionais_autonomos_gestao.sql"
+    },
+    {
+      "versao": "20261318010000",
+      "nome": "assistente_academia",
+      "arquivo": "supabase/migrations/20261318010000_assistente_academia.sql"
+    },
+    {
+      "versao": "20261319010000",
+      "nome": "assistente_sem_nomes",
+      "arquivo": "supabase/migrations/20261319010000_assistente_sem_nomes.sql"
+    },
+    {
+      "versao": "20261320010000",
+      "nome": "assistente_ia_ligada",
+      "arquivo": "supabase/migrations/20261320010000_assistente_ia_ligada.sql"
+    },
+    {
+      "versao": "20261321010000",
+      "nome": "freio_chamadas",
+      "arquivo": "supabase/migrations/20261321010000_freio_chamadas.sql"
+    },
+    {
+      "versao": "20261322010000",
+      "nome": "teto_diario",
+      "arquivo": "supabase/migrations/20261322010000_teto_diario.sql"
+    },
+    {
+      "versao": "20261323010000",
+      "nome": "sessao_simulada",
+      "arquivo": "supabase/migrations/20261323010000_sessao_simulada.sql"
+    },
+    {
+      "versao": "20261324010000",
+      "nome": "transicoes_cobranca",
+      "arquivo": "supabase/migrations/20261324010000_transicoes_cobranca.sql"
+    },
+    {
+      "versao": "20261325010000",
+      "nome": "token_catraca_hash",
+      "arquivo": "supabase/migrations/20261325010000_token_catraca_hash.sql"
+    },
+    {
+      "versao": "20261326010000",
+      "nome": "token_catraca_sem_coluna",
+      "arquivo": "supabase/migrations/20261326010000_token_catraca_sem_coluna.sql"
+    },
+    {
+      "versao": "20261327010000",
+      "nome": "faixas_plataforma_config",
+      "arquivo": "supabase/migrations/20261327010000_faixas_plataforma_config.sql"
+    },
+    {
+      "versao": "20261328010000",
+      "nome": "duas_etapas_gestor",
+      "arquivo": "supabase/migrations/20261328010000_duas_etapas_gestor.sql"
+    },
+    {
+      "versao": "20261329010000",
+      "nome": "vigia_nivel3_financeiro",
+      "arquivo": "supabase/migrations/20261329010000_vigia_nivel3_financeiro.sql"
+    },
+    {
+      "versao": "20261330010000",
+      "nome": "gateway_versao_minima",
+      "arquivo": "supabase/migrations/20261330010000_gateway_versao_minima.sql"
+    },
+    {
+      "versao": "20261331010000",
+      "nome": "gateway_versao_minima_181",
+      "arquivo": "supabase/migrations/20261331010000_gateway_versao_minima_181.sql"
+    },
+    {
+      "versao": "20261332010000",
+      "nome": "saude_plataforma",
+      "arquivo": "supabase/migrations/20261332010000_saude_plataforma.sql"
+    },
+    {
+      "versao": "20261333010000",
+      "nome": "uso_ia",
+      "arquivo": "supabase/migrations/20261333010000_uso_ia.sql"
+    },
+    {
+      "versao": "20261334010000",
+      "nome": "academia_ficticia",
+      "arquivo": "supabase/migrations/20261334010000_academia_ficticia.sql"
+    },
+    {
+      "versao": "20261335010000",
+      "nome": "engajamento_proporcional",
+      "arquivo": "supabase/historico/20261335010000_engajamento_proporcional.sql"
+    },
+    {
+      "versao": "20261336010000",
+      "nome": "engajamento_pilares_do_plano",
+      "arquivo": "supabase/migrations/20261336010000_engajamento_pilares_do_plano.sql"
+    },
+    {
+      "versao": "20261337010000",
+      "nome": "indices_fks_suporte",
+      "arquivo": "supabase/migrations/20261337010000_indices_fks_suporte.sql"
+    }
+  ],
+  "fora_da_ordem": [
+    {
+      "arquivo": "supabase/migrations/20260917010000_fase2_mapa_onboarding_anamnese.sql",
+      "motivo": "o texto difere do que rodou; vale supabase/historico/20260917203102_fase2_mapa_onboarding_anamnese.sql"
+    },
+    {
+      "arquivo": "supabase/migrations/20260917020000_fix_grant_execute_rls_helpers.sql",
+      "motivo": "não rodou com este nome: o conteúdo entrou no banco em outras migrations do histórico"
+    },
+    {
+      "arquivo": "supabase/migrations/20260917040000_fase4_atendimento_automacoes_sla.sql",
+      "motivo": "o texto difere do que rodou; vale supabase/historico/20260917212548_fase4_atendimento_automacoes_sla.sql"
+    },
+    {
+      "arquivo": "supabase/migrations/20260917050000_fix_escalar_tarefas_lateral_bug.sql",
+      "motivo": "não rodou com este nome: o conteúdo entrou no banco em outras migrations do histórico"
+    },
+    {
+      "arquivo": "supabase/migrations/20260918040000_etapa1_alunos_equipe.sql",
+      "motivo": "o texto difere do que rodou; vale supabase/historico/20260918023052_etapa1_alunos_equipe.sql"
+    },
+    {
+      "arquivo": "supabase/migrations/20260920020000_audit_performance_and_fixes.sql",
+      "motivo": "o texto difere do que rodou; vale supabase/historico/20260918073919_audit_performance_and_fixes.sql"
+    },
+    {
+      "arquivo": "supabase/migrations/20260925010000_superadmin_tenants_tipo_atividade.sql",
+      "motivo": "não rodou com este nome: o conteúdo entrou no banco em outras migrations do histórico"
+    },
+    {
+      "arquivo": "supabase/migrations/20261006010000_seed_templates_dieta_nova_organizacao.sql",
+      "motivo": "o texto difere do que rodou; vale supabase/historico/20260919112958_seed_templates_dieta_nova_organizacao.sql"
+    },
+    {
+      "arquivo": "supabase/migrations/20261012010000_planos_academia_matriculas_mensalidades.sql",
+      "motivo": "o texto difere do que rodou; vale supabase/historico/20260919214251_planos_academia_matriculas_mensalidades.sql"
+    },
+    {
+      "arquivo": "supabase/migrations/20261016010000_aluno_agenda_propria_vaga.sql",
+      "motivo": "o texto difere do que rodou; vale supabase/historico/20260919224304_aluno_agenda_propria_vaga.sql"
+    },
+    {
+      "arquivo": "supabase/migrations/20261018010000_acervo_exercicios_organizacao_depara.sql",
+      "motivo": "o texto difere do que rodou; vale supabase/historico/20260920000443_acervo_exercicios_organizacao_depara.sql"
+    },
+    {
+      "arquivo": "supabase/migrations/20261102010000_otimiza_rls_auth_uid_initplan.sql",
+      "motivo": "o texto difere do que rodou; vale supabase/historico/20260920051255_otimiza_rls_auth_uid_initplan.sql"
+    },
+    {
+      "arquivo": "supabase/migrations/20261106010000_superadmin_mrr_historico.sql",
+      "motivo": "o texto difere do que rodou; vale supabase/historico/20260920055417_superadmin_mrr_historico.sql"
+    },
+    {
+      "arquivo": "supabase/migrations/20261109010000_superadmin_adocao_metodologia.sql",
+      "motivo": "o texto difere do que rodou; vale supabase/historico/20260920104618_superadmin_adocao_metodologia.sql"
+    },
+    {
+      "arquivo": "supabase/migrations/20261113010000_gate_pagamento_b2b.sql",
+      "motivo": "o texto difere do que rodou; vale supabase/historico/20260920121252_gate_pagamento_b2b.sql"
+    },
+    {
+      "arquivo": "supabase/migrations/20261117010000_fase_jornada_manual.sql",
+      "motivo": "o texto difere do que rodou; vale supabase/historico/20260920132014_fase_jornada_manual.sql"
+    },
+    {
+      "arquivo": "supabase/migrations/20261119010000_identificador_catraca_e_consentimento_biometrico.sql",
+      "motivo": "o texto difere do que rodou; vale supabase/historico/20260920211843_identificador_catraca_e_consentimento_biometrico.sql"
+    },
+    {
+      "arquivo": "supabase/migrations/20261122010000_importacao_alunos_retomavel.sql",
+      "motivo": "o texto difere do que rodou; vale supabase/historico/20260920222739_importacao_alunos_retomavel.sql"
+    },
+    {
+      "arquivo": "supabase/migrations/20261125010000_detector_de_orfaos.sql",
+      "motivo": "o texto difere do que rodou; vale supabase/historico/20260921003030_detector_de_orfaos.sql"
+    },
+    {
+      "arquivo": "supabase/migrations/20261206010000_rodada1_aluno_e_comunicacao.sql",
+      "motivo": "o texto difere do que rodou; vale supabase/historico/20260922004406_rodada1_aluno_e_comunicacao.sql"
+    },
+    {
+      "arquivo": "supabase/migrations/20261210010000_rodada4_onboarding_academia.sql",
+      "motivo": "o texto difere do que rodou; vale supabase/historico/20260922122153_rodada4_onboarding_academia.sql"
+    },
+    {
+      "arquivo": "supabase/migrations/20261215010000_higiene_execute_e_search_path.sql",
+      "motivo": "o texto difere do que rodou; vale supabase/historico/20260922211037_higiene_execute_e_search_path.sql"
+    },
+    {
+      "arquivo": "supabase/migrations/20261219010000_canal_mentor.sql",
+      "motivo": "o texto difere do que rodou; vale supabase/historico/20260923005849_canal_mentor.sql"
+    },
+    {
+      "arquivo": "supabase/migrations/20261220010000_consolidar_organizations_profiles.sql",
+      "motivo": "não rodou com este nome: o conteúdo entrou no banco em outras migrations do histórico"
+    },
+    {
+      "arquivo": "supabase/migrations/20261222020000_ciclo_assinatura.sql",
+      "motivo": "o texto difere do que rodou; vale supabase/historico/20260923001531_ciclo_assinatura.sql"
+    },
+    {
+      "arquivo": "supabase/migrations/20261225010000_sensores_jornada.sql",
+      "motivo": "não rodou com este nome: o conteúdo entrou no banco em outras migrations do histórico"
+    },
+    {
+      "arquivo": "supabase/migrations/20261226010000_avanco_automatico_fases.sql",
+      "motivo": "não rodou com este nome: o conteúdo entrou no banco em outras migrations do histórico"
+    },
+    {
+      "arquivo": "supabase/migrations/20261227010000_fila_mentor_centralizado.sql",
+      "motivo": "não rodou com este nome: o conteúdo entrou no banco em outras migrations do histórico"
+    },
+    {
+      "arquivo": "supabase/migrations/20261228010000_briefing_semanal.sql",
+      "motivo": "não rodou com este nome: o conteúdo entrou no banco em outras migrations do histórico"
+    },
+    {
+      "arquivo": "supabase/migrations/20261229010000_sentinela_anamnese.sql",
+      "motivo": "não rodou com este nome: o conteúdo entrou no banco em outras migrations do histórico"
+    },
+    {
+      "arquivo": "supabase/migrations/20261335010000_engajamento_proporcional.sql",
+      "motivo": "o texto difere do que rodou; vale supabase/historico/20261335010000_engajamento_proporcional.sql"
+    }
+  ]
+}
