@@ -50,6 +50,24 @@ const EVENTOS_EMITIDOS = new Set(["PAYMENT_CREATED", "PAYMENT_UPDATED"]);
 // o status da assinatura do aluno. Não usa o JWT do Supabase — a autenticação
 // é feita pelo token compartilhado configurado no próprio Asaas
 // (header "asaas-access-token"), comparado ao secret ASAAS_WEBHOOK_SECRET.
+/** Data `AAAA-MM-DD` de um campo do Asaas, ou nula. */
+function dataDoAsaas(valor: unknown): string | null {
+  return typeof valor === "string" && /^\d{4}-\d{2}-\d{2}/.test(valor) ? valor.slice(0, 10) : null;
+}
+
+// O supabase-js não lança erro: devolve `error`. Sem conferir, uma gravação
+// que falhava (uma restrição do banco, por exemplo) seguia em frente e o aviso
+// era marcado como processado. Aqui a falha vira exceção: o aviso fica com o
+// erro registrado e sem `processado`, e o Vigia e a conferência diária o pegam.
+async function exigir<T extends { error: unknown }>(consulta: PromiseLike<T>): Promise<T> {
+  const resultado = await consulta;
+  if (resultado.error) {
+    const e = resultado.error as { code?: string; message?: string };
+    throw new Error(`Falha no banco: ${e.code ?? ""} ${e.message ?? ""}`.trim());
+  }
+  return resultado;
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method !== "POST") {
     return jsonResponse({ error: "Method not allowed" }, 405);
@@ -102,6 +120,13 @@ Deno.serve(async (req: Request) => {
   // vencimento não há como perguntar "esta cobrança venceu e ninguém
   // confirmou".
   const vencimento = payment.dueDate ? String(payment.dueDate) : null;
+  // A data do pagamento é a do Asaas, e não a do dia em que o aviso chega.
+  // A conferência diária e o Vigia reenviam avisos guardados, e no cartão o
+  // PAYMENT_RECEIVED chega uns 30 dias depois do PAYMENT_CONFIRMED: com a data
+  // do relógio, o pagamento mudava de mês na receita. `clientPaymentDate` é
+  // quando o cliente pagou; no cartão, `paymentDate` fica vazio até o crédito.
+  const dataDoPagamento =
+    dataDoAsaas(payment.clientPaymentDate) ?? dataDoAsaas(payment.confirmedDate) ?? dataDoAsaas(payment.paymentDate) ?? hojeBrasilia();
   // Taxa que o Asaas descontou: sai da parte da ArkeFit (a academia recebe o
   // split em valor fixo), e é o que separa receita bruta de líquida. Na
   // emissão o netValue é estimado; na confirmação, definitivo — cada evento
@@ -226,15 +251,15 @@ Deno.serve(async (req: Request) => {
       // asaas-emitir-cobranca-b2b) — id de pagamento nunca colide com o do
       // fluxo B2C abaixo, então checar aqui primeiro e, se achar, não passa
       // pelo restante do bloco (aluno_assinaturas não tem nada a ver com isso).
-      const { data: cobrancaB2bExistente } = await admin
+      const { data: cobrancaB2bExistente } = await exigir(admin
         .from("cobrancas_b2b")
         .select("id")
         .eq("asaas_payment_id", asaasPaymentId)
-        .maybeSingle();
+        .maybeSingle());
 
       if (cobrancaB2bExistente) {
         if (novoStatus) {
-          await admin
+          await exigir(admin
             .from("cobrancas_b2b")
             .update({
               status: novoStatus,
@@ -243,17 +268,17 @@ Deno.serve(async (req: Request) => {
               // Sem a data de liquidação, a série histórica de receita
               // teria que cair no mês de emissão da cobrança, não no mês
               // em que o dinheiro entrou.
-              data_pagamento: novoStatus === "confirmado" ? hojeBrasilia() : null,
+              data_pagamento: novoStatus === "confirmado" ? dataDoPagamento : null,
             })
-            .eq("id", cobrancaB2bExistente.id);
+            .eq("id", cobrancaB2bExistente.id));
         } else if (EVENTOS_EMITIDOS.has(tipoEvento)) {
           // Emissão fora de ordem (chegou depois do status): atualiza
           // vencimento e fatura, nunca o status — mesma regra do `soEmissao`
           // do Método ARKE, pelo mesmo motivo.
-          await admin
+          await exigir(admin
             .from("cobrancas_b2b")
             .update({ vencimento: vencimento ?? undefined, invoice_url: invoiceUrl ?? undefined })
-            .eq("id", cobrancaB2bExistente.id);
+            .eq("id", cobrancaB2bExistente.id));
         }
         await concluir(novoStatus ? "cobranca_b2b_atualizada" : EVENTOS_EMITIDOS.has(tipoEvento) ? "cobranca_b2b_emitida" : "evento_ignorado");
         return jsonResponse({ ok: true });
@@ -266,16 +291,16 @@ Deno.serve(async (req: Request) => {
       // mesmo que o PAYMENT_OVERDUE se perca.
       const subscriptionB2b = payment.subscription ? String(payment.subscription) : null;
       if (subscriptionB2b) {
-        const { data: orgB2b } = await admin
+        const { data: orgB2b } = await exigir(admin
           .from("organizations")
           .select("id")
           .eq("asaas_subscription_id_b2b", subscriptionB2b)
-          .maybeSingle();
+          .maybeSingle());
         if (orgB2b) {
           const statusB2b = novoStatus ?? (EVENTOS_EMITIDOS.has(tipoEvento) ? "pendente" : null);
           if (statusB2b) {
             const tipo = String(payment.billingType ?? "UNDEFINED");
-            await admin.from("cobrancas_b2b").upsert(
+            await exigir(admin.from("cobrancas_b2b").upsert(
               {
                 organization_id: orgB2b.id,
                 valor: Number(payment.value ?? 0),
@@ -287,10 +312,10 @@ Deno.serve(async (req: Request) => {
                 invoice_url: invoiceUrl,
                 vencimento: vencimento ?? undefined,
                 taxa_gateway: taxaGateway,
-                data_pagamento: statusB2b === "confirmado" ? hojeBrasilia() : null,
+                data_pagamento: statusB2b === "confirmado" ? dataDoPagamento : null,
               },
               { onConflict: "asaas_payment_id" }
-            );
+            ));
           }
           await concluir(statusB2b === "pendente" ? "cobranca_b2b_emitida" : statusB2b ? "cobranca_b2b_criada" : "evento_ignorado");
           return jsonResponse({ ok: true });
@@ -304,17 +329,17 @@ Deno.serve(async (req: Request) => {
       // linha. Vencida abre tarefa de cobrança, mas NÃO marca o aluno como
       // inadimplente — a situação acompanha a mensalidade, que é o contrato.
       const idAvulsa = referencia?.match(/^avulsa:([0-9a-f-]{36})$/i)?.[1] ?? null;
-      let { data: avulsa } = await admin
+      let { data: avulsa } = await exigir(admin
         .from("cobrancas_avulsas")
         .select("id, asaas_payment_id, emitida_em")
         .eq("asaas_payment_id", asaasPaymentId)
-        .maybeSingle();
+        .maybeSingle());
       if (!avulsa && idAvulsa) {
-        ({ data: avulsa } = await admin
+        ({ data: avulsa } = await exigir(admin
           .from("cobrancas_avulsas")
           .select("id, asaas_payment_id, emitida_em")
           .eq("id", idAvulsa)
-          .maybeSingle());
+          .maybeSingle()));
       }
       if (avulsa) {
         const completar = {
@@ -323,24 +348,24 @@ Deno.serve(async (req: Request) => {
           invoice_url: invoiceUrl ?? undefined,
         };
         if (novoStatus) {
-          await admin
+          await exigir(admin
             .from("cobrancas_avulsas")
             .update({
               ...completar,
               status: novoStatus,
-              data_pagamento: novoStatus === "confirmado" ? hojeBrasilia() : null,
+              data_pagamento: novoStatus === "confirmado" ? dataDoPagamento : null,
               taxa_gateway: taxaGateway,
             })
-            .eq("id", avulsa.id);
+            .eq("id", avulsa.id));
           if (novoStatus === "atrasado") {
-            await admin.rpc("abrir_tarefa_avulsa_atrasada", { _cobranca_id: avulsa.id });
+            await exigir(admin.rpc("abrir_tarefa_avulsa_atrasada", { _cobranca_id: avulsa.id }));
           }
         } else if (EVENTOS_EMITIDOS.has(tipoEvento)) {
           // Emissão fora de ordem não mexe no status: mesma regra do `soEmissao`.
-          await admin
+          await exigir(admin
             .from("cobrancas_avulsas")
             .update({ ...completar, vencimento: vencimento ?? undefined })
-            .eq("id", avulsa.id);
+            .eq("id", avulsa.id));
         }
         await concluir(novoStatus ? "avulsa_atualizada" : EVENTOS_EMITIDOS.has(tipoEvento) ? "avulsa_emitida" : "evento_ignorado");
         return jsonResponse({ ok: true });
@@ -350,46 +375,46 @@ Deno.serve(async (req: Request) => {
       // academia-criar-matricula) — outro fluxo que não tem nada a ver com
       // aluno_assinaturas/pagamentos (Método ARKE), checa aqui antes de
       // cair no bloco de adesão ao método.
-      const { data: mensalidadeExistente } = await admin
+      const { data: mensalidadeExistente } = await exigir(admin
         .from("mensalidades")
         .select("id, matricula_id")
         .eq("asaas_payment_id", asaasPaymentId)
-        .maybeSingle();
+        .maybeSingle());
 
       if (mensalidadeExistente) {
         // Cartão recusado na mensalidade da academia: mesma regra do Método
         // (não corta acesso; marca e abre tarefa), com a tarefa da academia.
         if (tipoEvento === "PAYMENT_CREDIT_CARD_CAPTURE_REFUSED") {
           if (mensalidadeExistente.matricula_id) {
-            await admin
+            await exigir(admin
               .from("aluno_matriculas_academia")
               .update({ cartao_recusado_em: new Date().toISOString() })
-              .eq("id", mensalidadeExistente.matricula_id);
-            await admin.rpc("abrir_tarefa_cartao_recusado_mensalidade", {
+              .eq("id", mensalidadeExistente.matricula_id));
+            await exigir(admin.rpc("abrir_tarefa_cartao_recusado_mensalidade", {
               _matricula_id: mensalidadeExistente.matricula_id,
               _asaas_payment_id: asaasPaymentId,
-            });
+            }));
           }
-          if (invoiceUrl) await admin.from("mensalidades").update({ invoice_url: invoiceUrl }).eq("id", mensalidadeExistente.id);
+          if (invoiceUrl) await exigir(admin.from("mensalidades").update({ invoice_url: invoiceUrl }).eq("id", mensalidadeExistente.id));
           await concluir(mensalidadeExistente.matricula_id ? "cartao_recusado" : "sem_correspondencia");
           return jsonResponse({ ok: true });
         }
         if (novoStatus === "confirmado" && mensalidadeExistente.matricula_id) {
-          await admin.from("aluno_matriculas_academia").update({ cartao_recusado_em: null }).eq("id", mensalidadeExistente.matricula_id);
+          await exigir(admin.from("aluno_matriculas_academia").update({ cartao_recusado_em: null }).eq("id", mensalidadeExistente.matricula_id));
         }
         if (novoStatus) {
-          await admin
+          await exigir(admin
             .from("mensalidades")
             .update({
               status: novoStatus,
-              data_pagamento: novoStatus === "confirmado" ? hojeBrasilia() : null,
+              data_pagamento: novoStatus === "confirmado" ? dataDoPagamento : null,
               invoice_url: invoiceUrl ?? undefined,
               taxa_gateway: taxaGateway,
             })
-            .eq("id", mensalidadeExistente.id);
+            .eq("id", mensalidadeExistente.id));
 
           if (novoStatus === "atrasado") {
-            await admin.rpc("abrir_tarefa_mensalidade_atrasada", { _mensalidade_id: mensalidadeExistente.id });
+            await exigir(admin.rpc("abrir_tarefa_mensalidade_atrasada", { _mensalidade_id: mensalidadeExistente.id }));
           }
         }
         await concluir(novoStatus ? "mensalidade_atualizada" : "evento_ignorado");
@@ -404,11 +429,11 @@ Deno.serve(async (req: Request) => {
       const statusArke: "confirmado" | "atrasado" | "estornado" | "cancelado" | "pendente" | null =
         novoStatus ?? (EVENTOS_EMITIDOS.has(tipoEvento) ? "pendente" : null);
 
-      const { data: pagamentoExistente } = await admin
+      const { data: pagamentoExistente } = await exigir(admin
         .from("pagamentos")
         .select("id, aluno_assinatura_id")
         .eq("asaas_payment_id", asaasPaymentId)
-        .maybeSingle();
+        .maybeSingle());
 
       // Recusa na cobrança recorrente do cartão. Não muda o status da
       // cobrança nem corta o acesso — ela ainda não venceu, e quem corta por
@@ -420,25 +445,25 @@ Deno.serve(async (req: Request) => {
         let assinaturaId: string | null = pagamentoExistente?.aluno_assinatura_id ?? null;
         const subscriptionId = payment.subscription ? String(payment.subscription) : null;
         if (!assinaturaId && subscriptionId) {
-          const { data: porAssinatura } = await admin
+          const { data: porAssinatura } = await exigir(admin
             .from("aluno_assinaturas")
             .select("id")
             .eq("asaas_subscription_id", subscriptionId)
-            .maybeSingle();
+            .maybeSingle());
           assinaturaId = porAssinatura?.id ?? null;
         }
         if (assinaturaId) {
-          await admin
+          await exigir(admin
             .from("aluno_assinaturas")
             .update({
               cartao_recusado_em: new Date().toISOString(),
               ...(invoiceUrl ? { fatura_pendente_url: invoiceUrl } : {}),
             })
-            .eq("id", assinaturaId);
-          await admin.rpc("abrir_tarefa_cartao_recusado", {
+            .eq("id", assinaturaId));
+          await exigir(admin.rpc("abrir_tarefa_cartao_recusado", {
             _aluno_assinatura_id: assinaturaId,
             _asaas_payment_id: asaasPaymentId,
-          });
+          }));
         }
         await concluir(assinaturaId ? "cartao_recusado" : "sem_correspondencia");
         return jsonResponse({ ok: true });
@@ -451,12 +476,12 @@ Deno.serve(async (req: Request) => {
         // passado, bloquearia um aluno que já pagou — o defeito oposto ao que
         // este trabalho conserta, e pior, porque atinge quem está em dia.
         const soEmissao = statusArke === "pendente";
-        await admin
+        const { data: gravado } = await exigir(admin
           .from("pagamentos")
           .update({
             ...(soEmissao ? {} : {
               status: statusArke,
-              data_pagamento: statusArke === "confirmado" ? hojeBrasilia() : null,
+              data_pagamento: statusArke === "confirmado" ? dataDoPagamento : null,
             }),
             vencimento: vencimento ?? undefined,
             invoice_url: invoiceUrl ?? undefined,
@@ -466,25 +491,38 @@ Deno.serve(async (req: Request) => {
             // mostrando o antigo enquanto o aluno recebia a fatura nova.
             valor: typeof valorBruto === "number" ? valorBruto : undefined,
           })
-          .eq("id", pagamentoExistente.id);
+          .eq("id", pagamentoExistente.id)
+          .select("status")
+          .maybeSingle());
+        // A assinatura segue o status que ficou gravado, e não o do aviso: um
+        // PAYMENT_OVERDUE velho, reenviado depois do pagamento, tem a transição
+        // recusada pelo banco (trg_transicao_cobranca) e não pode marcar a
+        // assinatura como atrasada, que bloquearia quem pagou.
+        const statusGravado = (gravado?.status as string | undefined) ?? novoStatus;
 
         // `cancelado` fica de fora de proposito: a cobranca sumiu porque a
         // assinatura foi encerrada, e marcar "atrasada" af diria que o aluno deve
         // algo que nao existe mais. Quem grava o fim da relacao e o cancelamento.
-        if (novoStatus === "atrasado" || novoStatus === "estornado") {
+        if (novoStatus && statusGravado === novoStatus && (novoStatus === "atrasado" || novoStatus === "estornado")) {
           // Guarda o link da fatura para o App do Aluno redirecionar à
           // quitação (gate de inadimplência em /app).
-          await admin
+          await exigir(admin
             .from("aluno_assinaturas")
             .update({ status: "atrasada", fatura_pendente_url: invoiceUrl })
-            .eq("id", pagamentoExistente.aluno_assinatura_id);
-        } else if (novoStatus === "confirmado") {
+            // Pausada ou cancelada fica como está: pagar uma cobrança antiga não
+            // reativa no banco uma assinatura que no Asaas segue parada.
+            .in("status", ["ativa", "atrasada"])
+            .eq("id", pagamentoExistente.aluno_assinatura_id));
+        } else if (novoStatus === "confirmado" && statusGravado === "confirmado") {
           // Pagamento confirmado: libera o acesso imediatamente, limpando
           // a fatura pendente.
-          await admin
+          await exigir(admin
             .from("aluno_assinaturas")
             .update({ status: "ativa", fatura_pendente_url: null, cartao_recusado_em: null })
-            .eq("id", pagamentoExistente.aluno_assinatura_id);
+            // Pausada ou cancelada fica como está: pagar uma cobrança antiga não
+            // reativa no banco uma assinatura que no Asaas segue parada.
+            .in("status", ["ativa", "atrasada"])
+            .eq("id", pagamentoExistente.aluno_assinatura_id));
         }
         resultado = statusArke === "pendente" ? "pagamento_arke_emitido" : "pagamento_arke_atualizado";
       } else if (!pagamentoExistente && statusArke) {
@@ -493,11 +531,11 @@ Deno.serve(async (req: Request) => {
         // ou mensalidade da academia via academia-criar-matricula).
         const subscriptionId = payment.subscription ? String(payment.subscription) : null;
         if (subscriptionId) {
-          const { data: assinatura } = await admin
+          const { data: assinatura } = await exigir(admin
             .from("aluno_assinaturas")
             .select("id, organization_id, valor_cobrado, nivel_atacado, valor_repasse_arke")
             .eq("asaas_subscription_id", subscriptionId)
-            .maybeSingle();
+            .maybeSingle());
 
           if (assinatura) {
             const valor = Number(payment.value ?? assinatura.valor_cobrado);
@@ -505,11 +543,11 @@ Deno.serve(async (req: Request) => {
             // Assinatura anterior a esse registro cai no custo de atacado.
             let valorRepasseArke = assinatura.valor_repasse_arke === null ? null : Number(assinatura.valor_repasse_arke);
             if (valorRepasseArke === null) {
-              const { data: calculado } = await admin.rpc("repasse_arke", {
+              const { data: calculado } = await exigir(admin.rpc("repasse_arke", {
                 _organization_id: assinatura.organization_id,
                 _valor_cobrado: valor,
                 _nivel_atacado: assinatura.nivel_atacado,
-              });
+              }));
               valorRepasseArke = Number(calculado ?? 0);
             }
 
@@ -519,7 +557,7 @@ Deno.serve(async (req: Request) => {
             // segunda bateria na constraint única de asaas_payment_id e
             // cairia no catch como erro; com upsert ela só sobrescreve com
             // o mesmo resultado, mantendo a idempotência de fato.
-            await admin.from("pagamentos").upsert(
+            await exigir(admin.from("pagamentos").upsert(
               {
                 organization_id: assinatura.organization_id,
                 aluno_assinatura_id: assinatura.id,
@@ -530,32 +568,38 @@ Deno.serve(async (req: Request) => {
                 status: statusArke,
                 asaas_payment_id: asaasPaymentId,
                 vencimento,
-                data_pagamento: statusArke === "confirmado" ? hojeBrasilia() : null,
+                data_pagamento: statusArke === "confirmado" ? dataDoPagamento : null,
                 invoice_url: invoiceUrl,
               },
               { onConflict: "asaas_payment_id" }
-            );
+            ));
 
             if (novoStatus === "atrasado" || novoStatus === "estornado") {
-              await admin
+              await exigir(admin
                 .from("aluno_assinaturas")
                 .update({ status: "atrasada", fatura_pendente_url: invoiceUrl })
-                .eq("id", assinatura.id);
+                // Pausada ou cancelada fica como está: pagar uma cobrança antiga não
+                // reativa no banco uma assinatura que no Asaas segue parada.
+                .in("status", ["ativa", "atrasada"])
+                .eq("id", assinatura.id));
             } else if (novoStatus === "confirmado") {
-              await admin
+              await exigir(admin
                 .from("aluno_assinaturas")
                 .update({ status: "ativa", fatura_pendente_url: null, cartao_recusado_em: null })
-                .eq("id", assinatura.id);
+                // Pausada ou cancelada fica como está: pagar uma cobrança antiga não
+                // reativa no banco uma assinatura que no Asaas segue parada.
+                .in("status", ["ativa", "atrasada"])
+                .eq("id", assinatura.id));
             }
             resultado = statusArke === "pendente" ? "pagamento_arke_emitido" : "pagamento_arke_criado";
           } else {
             // Não é assinatura do Método ARKE — tenta como matrícula de
             // plano próprio da academia.
-            const { data: matricula } = await admin
+            const { data: matricula } = await exigir(admin
               .from("aluno_matriculas_academia")
               .select("id, organization_id, aluno_id, valor_repasse_arke, valor_liquido_academia")
               .eq("asaas_subscription_id", subscriptionId)
-              .maybeSingle();
+              .maybeSingle());
 
             if (matricula) {
               const valor = Number(payment.value ?? 0);
@@ -569,7 +613,7 @@ Deno.serve(async (req: Request) => {
               // do snapshot gravado na matrícula (é o que o split do Asaas
               // já define desde a criação da assinatura, não recalcula a
               // cada evento).
-              const { data: mensalidadeCriada } = await admin
+              const { data: mensalidadeCriada } = await exigir(admin
                 .from("mensalidades")
                 .upsert(
                   {
@@ -591,16 +635,16 @@ Deno.serve(async (req: Request) => {
                     // se sustentava. Omitir tambem impede que um evento fora
                     // de ordem rebaixe uma mensalidade ja paga.
                     ...(novoStatus
-                      ? { status: novoStatus, data_pagamento: novoStatus === "confirmado" ? hojeBrasilia() : null }
+                      ? { status: novoStatus, data_pagamento: novoStatus === "confirmado" ? dataDoPagamento : null }
                       : {}),
                   },
                   { onConflict: "matricula_id,competencia" }
                 )
                 .select("id")
-                .single();
+                .single());
 
               if (novoStatus === "atrasado" && mensalidadeCriada) {
-                await admin.rpc("abrir_tarefa_mensalidade_atrasada", { _mensalidade_id: mensalidadeCriada.id });
+                await exigir(admin.rpc("abrir_tarefa_mensalidade_atrasada", { _mensalidade_id: mensalidadeCriada.id }));
               }
 
               // A situacao do aluno acompanha a cobranca em vez de ganhar um
@@ -610,7 +654,7 @@ Deno.serve(async (req: Request) => {
               // quem liberar, e so desfaz a marca que ela mesma criou — marca
               // feita a mao pela recepcao, por outro motivo, fica de pe.
               if (novoStatus === "atrasado" || novoStatus === "confirmado") {
-                await admin.rpc("sincronizar_situacao_por_mensalidade");
+                await exigir(admin.rpc("sincronizar_situacao_por_mensalidade"));
               }
               resultado = novoStatus ? "mensalidade_criada" : "mensalidade_emitida";
             } else {
