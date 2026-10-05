@@ -158,9 +158,10 @@ Deno.serve(async (req: Request) => {
     const organizationId = organizacao.id as string;
 
     const rollbackOrganizacao = async () => {
-      await adminClient.from("organizations").delete().eq("id", organizationId).catch((e) =>
-        console.error("rollback organization", e)
-      );
+      // A consulta do PostgREST não é uma Promise com .catch: o erro vem no
+      // resultado. O .catch daqui quebrava o próprio desfazer.
+      const { error } = await adminClient.from("organizations").delete().eq("id", organizationId);
+      if (error) console.error("rollback organization", error.code);
     };
 
     // ---------------------------------------------------------------

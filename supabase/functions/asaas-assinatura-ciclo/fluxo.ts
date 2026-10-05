@@ -33,6 +33,7 @@ const cabecalhos = (chave: string) => ({
 
 async function chamar(url: string, chave: string, metodo = "GET", corpo?: unknown) {
   const resposta = await fetch(url, {
+    signal: AbortSignal.timeout(20_000),
     method: metodo,
     headers: cabecalhos(chave),
     ...(corpo ? { body: JSON.stringify(corpo) } : {}),
@@ -140,12 +141,12 @@ export async function retomarAssinatura(
   api: string,
   chave: string,
   subscriptionId: string,
-): Promise<Resultado<Record<string, never>>> {
+): Promise<Resultado<{ retomada: true }>> {
   const r = await chamar(`${api}/subscriptions/${subscriptionId}`, chave, "PUT", { status: "ACTIVE" });
   if (!r.ok) {
     return { ok: false, erro: primeiroErro(r.dados, "Não foi possível retomar a assinatura no gateway."), status: 502 };
   }
-  return { ok: true };
+  return { ok: true, retomada: true };
 }
 
 /**

@@ -40,6 +40,7 @@ Deno.serve(async (req: Request) => {
   const de = Deno.env.get("EMAIL_ALERTAS_FROM") ?? "ArkeFit Alertas <alertas@arkefit.com.br>";
   const enviar = async (para: string[], m: { assunto: string; html: string; texto: string }) => {
     const r = await fetch("https://api.resend.com/emails", {
+      signal: AbortSignal.timeout(15_000),
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${resendKey}` },
       body: JSON.stringify({ from: de, to: para, subject: m.assunto, html: m.html, text: m.texto }),

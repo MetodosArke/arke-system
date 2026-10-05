@@ -5,6 +5,7 @@ import {
   asaasGet,
   emPedacos,
   eventoParaCorrigir,
+  valorDiverge,
   listagensDaVarredura,
   listarTodas,
   origemDaReferencia,
@@ -60,6 +61,7 @@ type Divergencia = {
 
 async function reenviarAoWebhook(supabaseUrl: string, segredoWebhook: string, evento: string, p: PagamentoAsaas) {
   const resp = await fetch(`${supabaseUrl}/functions/v1/asaas-webhook`, {
+    signal: AbortSignal.timeout(30_000),
     method: "POST",
     headers: { "Content-Type": "application/json", "asaas-access-token": segredoWebhook },
     body: JSON.stringify({
@@ -79,31 +81,44 @@ type Contexto = {
   segredoWebhook: string;
   verificadas: number;
   divergencias: Divergencia[];
+  /** Cobrança com valor diferente no Asaas e no banco: vai para o Vigia, que avisa uma pessoa. */
+  valores: { origem: Origem; pagamento: string; asaas: number; banco: number }[];
   /** Consultas ao Asaas que falharam; qualquer uma vira erro no registro. */
   falhas: string[];
 };
 
-/** Confere um pagamento do Asaas contra o status local e reenvia o evento se divergir. */
-async function conferir(ctx: Contexto, p: PagamentoAsaas, statusLocal: string | null, origem: Origem) {
+type Local = { status: string; valor: number | null };
+
+/**
+ * Confere um pagamento do Asaas contra o banco: reenvia o evento se o status
+ * divergir, e anota o valor que não bate (esse não se corrige sozinho).
+ */
+async function conferir(ctx: Contexto, p: PagamentoAsaas, local: Local | null, origem: Origem) {
   ctx.verificadas++;
+  const statusLocal = local?.status ?? null;
+  if (local && !p.deleted && valorDiverge(p.value, local.valor)) {
+    ctx.valores.push({ origem, pagamento: p.id, asaas: p.value as number, banco: Number(local.valor) });
+  }
   const evento = eventoParaCorrigir(p, statusLocal, origem);
   if (!evento) return;
   const corrigida = await reenviarAoWebhook(ctx.supabaseUrl, ctx.segredoWebhook, evento, p);
   ctx.divergencias.push({ origem, pagamento: p.id, asaas: p.deleted ? "DELETED" : p.status, banco: statusLocal, corrigida });
 }
 
-/** O status local de cada pagamento, pela tabela da origem de cada um, em pedaços de 100. */
+/** O status e o valor locais de cada pagamento, pela tabela da origem de cada um, em pedaços de 100. */
 async function statusLocais(admin: SupabaseClient, itens: { id: string; origem: Origem }[]) {
-  const status = new Map<string, string>();
+  const locais = new Map<string, Local>();
   for (const origem of Object.keys(TABELA) as Origem[]) {
     const ids = itens.filter((i) => i.origem === origem).map((i) => i.id);
     for (const pedaco of emPedacos(ids)) {
-      const { data, error } = await admin.from(TABELA[origem]).select("asaas_payment_id, status").in("asaas_payment_id", pedaco);
+      const { data, error } = await admin.from(TABELA[origem]).select("asaas_payment_id, status, valor").in("asaas_payment_id", pedaco);
       if (error) throw new Error(`${TABELA[origem]}: ${error.message}`);
-      for (const l of data ?? []) status.set(l.asaas_payment_id as string, l.status as string);
+      for (const l of data ?? []) {
+        locais.set(l.asaas_payment_id as string, { status: l.status as string, valor: l.valor == null ? null : Number(l.valor) });
+      }
     }
   }
-  return status;
+  return locais;
 }
 
 Deno.serve(async (req: Request) => {
@@ -122,7 +137,7 @@ Deno.serve(async (req: Request) => {
   }
 
   const admin = createClient(supabaseUrl, serviceRoleKey);
-  const ctx: Contexto = { admin, api, chave, supabaseUrl, segredoWebhook, verificadas: 0, divergencias: [], falhas: [] };
+  const ctx: Contexto = { admin, api, chave, supabaseUrl, segredoWebhook, verificadas: 0, divergencias: [], valores: [], falhas: [] };
 
   // --- Modo varredura (pg_cron) --------------------------------------------
   const token = req.headers.get("x-reconciliacao-token");
@@ -140,8 +155,9 @@ Deno.serve(async (req: Request) => {
     // da Visão Master, exatamente onde só deveria aparecer problema real.
     const { data: emHomologacao } = await admin.from("organizations").select("id").eq("status", "trial");
     const idsHomologacao = (emHomologacao ?? []).map((o) => o.id as string);
-    const foraDeHomologacao = <T extends { not: (c: string, o: string, v: string) => T }>(consulta: T): T =>
-      idsHomologacao.length ? consulta.not("organization_id", "in", `(${idsHomologacao.join(",")})`) : consulta;
+    // Filtro aplicado em cada consulta, e não por uma função genérica: o tipo
+    // do PostgREST passado adiante fica fundo demais para o Deno (TS2589).
+    const homologacao = idsHomologacao.length ? `(${idsHomologacao.join(",")})` : null;
 
     let erro: string | null = null;
     let orfas: { id: string; referencia: string }[] = [];
@@ -150,21 +166,21 @@ Deno.serve(async (req: Request) => {
       // 1. O que o banco tem em aberto e já venceu: é aqui que uma confirmação
       //    perdida bloquearia quem pagou.
       const hoje = hojeBrasilia();
-      const abertas = new Map<string, { status: string; origem: Origem }>();
+      const abertas = new Map<string, Local & { origem: Origem }>();
       for (const origem of Object.keys(TABELA) as Origem[]) {
-        const linhas = await todasAsLinhas<{ asaas_payment_id: string; status: string }>((de, ate) =>
-          foraDeHomologacao(
-            admin
-              .from(TABELA[origem])
-              .select("asaas_payment_id, status")
-              .not("asaas_payment_id", "is", null)
-              .in("status", ["pendente", "atrasado"])
-              .lte("vencimento", hoje),
-          )
-            .order("asaas_payment_id")
-            .range(de, ate)
-        );
-        for (const l of linhas) abertas.set(l.asaas_payment_id, { status: l.status, origem });
+        const linhas = await todasAsLinhas<{ asaas_payment_id: string; status: string; valor: number | string | null }>((de, ate) => {
+          let consulta = admin
+            .from(TABELA[origem])
+            .select("asaas_payment_id, status, valor")
+            .not("asaas_payment_id", "is", null)
+            .in("status", ["pendente", "atrasado"])
+            .lte("vencimento", hoje);
+          if (homologacao) consulta = consulta.filter("organization_id", "not.in", homologacao);
+          return consulta.order("asaas_payment_id").range(de, ate);
+        });
+        for (const l of linhas) {
+          abertas.set(l.asaas_payment_id, { status: l.status, valor: l.valor == null ? null : Number(l.valor), origem });
+        }
       }
 
       // 2. O Asaas lista em lote o que interessa, de 100 em 100.
@@ -180,7 +196,7 @@ Deno.serve(async (req: Request) => {
         doArke.filter((x) => !abertas.has(x.p.id)).map((x) => ({ id: x.p.id, origem: x.origem })),
       );
       for (const { p, origem } of doArke) {
-        await conferir(ctx, p, abertas.get(p.id)?.status ?? locais.get(p.id) ?? null, origem);
+        await conferir(ctx, p, abertas.get(p.id) ?? locais.get(p.id) ?? null, origem);
       }
 
       // 3. Vencida em aberto que nenhuma listagem trouxe (removida, estornada,
@@ -199,7 +215,7 @@ Deno.serve(async (req: Request) => {
           ctx.falhas.push(`${id}: ${e instanceof Error ? e.message : String(e)}`);
           continue;
         }
-        await conferir(ctx, p, local.status, local.origem);
+        await conferir(ctx, p, local, local.origem);
       }
 
       // 4. Assinatura ativa no Asaas que o banco não conhece: cobra o aluno sem
@@ -207,13 +223,15 @@ Deno.serve(async (req: Request) => {
       //    outro valor —, então vai para o registro e para a Visão Master.
       const conhecidas = new Set<string>();
       for (const [tabela, status] of [["aluno_assinaturas", ["ativa", "atrasada"]], ["aluno_matriculas_academia", ["ativa"]]] as const) {
-        const linhas = await todasAsLinhas<{ asaas_subscription_id: string }>((de, ate) =>
-          foraDeHomologacao(
-            admin.from(tabela).select("asaas_subscription_id").not("asaas_subscription_id", "is", null).in("status", [...status]),
-          )
-            .order("asaas_subscription_id")
-            .range(de, ate)
-        );
+        const linhas = await todasAsLinhas<{ asaas_subscription_id: string }>((de, ate) => {
+          let consulta = admin
+            .from(tabela)
+            .select("asaas_subscription_id")
+            .not("asaas_subscription_id", "is", null)
+            .in("status", [...status]);
+          if (homologacao) consulta = consulta.filter("organization_id", "not.in", homologacao);
+          return consulta.order("asaas_subscription_id").range(de, ate);
+        });
         for (const l of linhas) conhecidas.add(l.asaas_subscription_id);
       }
       for (const s of await listarTodas<{ id: string; externalReference?: string }>(api, chave, "/subscriptions?status=ACTIVE")) {
@@ -241,7 +259,14 @@ Deno.serve(async (req: Request) => {
       divergencias: ctx.divergencias.length,
       corrigidas,
       assinaturas_orfas: orfas.length,
-      detalhes: { divergencias: ctx.divergencias, orfas, falhas: ctx.falhas, nao_conferidas: naoConferidas, duracao_ms: Date.now() - inicio },
+      detalhes: {
+        divergencias: ctx.divergencias,
+        valores: ctx.valores,
+        orfas,
+        falhas: ctx.falhas,
+        nao_conferidas: naoConferidas,
+        duracao_ms: Date.now() - inicio,
+      },
       erro,
     });
     if (gravacaoError) {

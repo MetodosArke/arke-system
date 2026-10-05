@@ -88,8 +88,18 @@ export function eventoParaCorrigir(p: PagamentoAsaas, statusLocal: string | null
  * inválida no Asaas virava "0 divergências, 0 órfãs, sem erro" — a falha
  * silenciosa que a conferência existe para acabar.
  */
+/**
+ * O valor no Asaas difere do valor no banco? Diferença de até um centavo é
+ * arredondamento. Sem um dos dois, não há o que comparar.
+ */
+export function valorDiverge(asaas: number | undefined | null, banco: number | string | null | undefined): boolean {
+  const b = typeof banco === "string" ? Number(banco) : banco;
+  if (typeof asaas !== "number" || typeof b !== "number" || !Number.isFinite(asaas) || !Number.isFinite(b)) return false;
+  return Math.abs(asaas - b) > 0.01;
+}
+
 export async function asaasGet<T>(api: string, chave: string, caminho: string): Promise<T> {
-  const resp = await fetch(`${api}${caminho}`, { headers: { access_token: chave } });
+  const resp = await fetch(`${api}${caminho}`, { signal: AbortSignal.timeout(20_000), headers: { access_token: chave } });
   if (!resp.ok) throw new Error(`Asaas respondeu ${resp.status} em ${caminho.split("?")[0]}`);
   return (await resp.json()) as T;
 }

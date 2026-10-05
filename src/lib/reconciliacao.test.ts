@@ -5,6 +5,7 @@ import {
   listagensDaVarredura,
   listarTodas,
   origemDaReferencia,
+  valorDiverge,
   type PagamentoAsaas,
 } from "../../supabase/functions/asaas-reconciliar/fluxo";
 import { todasAsLinhas } from "../../supabase/functions/_shared/paginar";
@@ -117,5 +118,17 @@ describe("todasAsLinhas (paginação do banco nas edge functions)", () => {
 
   it("propaga o erro do banco", async () => {
     await expect(todasAsLinhas(async () => ({ data: null, error: { message: "falhou" } }))).rejects.toThrow("falhou");
+  });
+});
+
+describe("valor no Asaas contra o banco", () => {
+  it("acusa diferença acima de um centavo, e só com os dois valores", () => {
+    expect(valorDiverge(129.9, "129.90")).toBe(false);
+    expect(valorDiverge(129.9, 129.91)).toBe(false);
+    expect(valorDiverge(129.9, 119.9)).toBe(true);
+    expect(valorDiverge(129.9, "119.90")).toBe(true);
+    expect(valorDiverge(undefined, 119.9)).toBe(false);
+    expect(valorDiverge(129.9, null)).toBe(false);
+    expect(valorDiverge(129.9, "abc")).toBe(false);
   });
 });

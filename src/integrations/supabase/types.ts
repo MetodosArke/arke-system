@@ -4891,6 +4891,7 @@ export type Database = {
           cidade: string | null
           created_at: string
           emissao_ativa: boolean
+          emissao_ativa_desde: string | null
           observacoes: string | null
           organization_id: string
           servico_municipal_codigo: string | null
@@ -4909,6 +4910,7 @@ export type Database = {
           cidade?: string | null
           created_at?: string
           emissao_ativa?: boolean
+          emissao_ativa_desde?: string | null
           observacoes?: string | null
           organization_id: string
           servico_municipal_codigo?: string | null
@@ -4927,6 +4929,7 @@ export type Database = {
           cidade?: string | null
           created_at?: string
           emissao_ativa?: boolean
+          emissao_ativa_desde?: string | null
           observacoes?: string | null
           organization_id?: string
           servico_municipal_codigo?: string | null
@@ -7000,7 +7003,7 @@ export type Database = {
           acao: string
           codigo: string
           espera_minutos: number
-          ferramenta: string
+          ferramenta: string | null
           freio_alvos: number | null
           max_tentativas: number
           modo: string
@@ -7013,7 +7016,7 @@ export type Database = {
           acao: string
           codigo: string
           espera_minutos: number
-          ferramenta: string
+          ferramenta?: string | null
           freio_alvos?: number | null
           max_tentativas?: number
           modo?: string
@@ -7026,7 +7029,7 @@ export type Database = {
           acao?: string
           codigo?: string
           espera_minutos?: number
-          ferramenta?: string
+          ferramenta?: string | null
           freio_alvos?: number | null
           max_tentativas?: number
           modo?: string
@@ -7344,6 +7347,13 @@ export type Database = {
           tipo: string
         }[]
       }
+      cobrancas_esperando_aviso: {
+        Args: never
+        Returns: {
+          id: string
+          tabela: string
+        }[]
+      }
       codigo_checkin: {
         Args: { _janela: number; _organization_id: string }
         Returns: string
@@ -7420,6 +7430,15 @@ export type Database = {
       concluir_termino_organizacao: {
         Args: { _cobrancas_canceladas: number; _encerramento_id: string }
         Returns: number
+      }
+      conferir_contas_financeiras: {
+        Args: never
+        Returns: {
+          alvo: string
+          contexto: Json
+          descricao: string
+          organization_id: string
+        }[]
       }
       conferir_token_alerta_rotinas: {
         Args: { _token: string }
@@ -7577,6 +7596,14 @@ export type Database = {
       expirar_comandos_gateway: {
         Args: { _catraca_id?: string }
         Returns: number
+      }
+      faixa_plataforma_config: {
+        Args: { _chave: string }
+        Returns: {
+          inteiro: boolean
+          maximo: number
+          minimo: number
+        }[]
       }
       fase_elegivel: {
         Args: { _aluno_id: string }
@@ -8697,6 +8724,7 @@ export type Database = {
         }[]
       }
       sessao_simulada: { Args: never; Returns: boolean }
+      sessao_verificada: { Args: never; Returns: boolean }
       sincronizar_situacao_por_mensalidade: {
         Args: never
         Returns: {

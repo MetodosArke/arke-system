@@ -56,7 +56,7 @@ type ChamadaAsaas<T> = { ok: true; data: T } | { ok: false; mensagem: string; co
 async function chamarAsaas<T>(url: string, options: RequestInit): Promise<ChamadaAsaas<T>> {
   let resp: Response;
   try {
-    resp = await fetch(url, options);
+    resp = await fetch(url, { ...options, signal: AbortSignal.timeout(20_000) });
   } catch (networkError) {
     console.error("Falha de rede ao chamar o Asaas", networkError);
     return { ok: false, mensagem: "Falha de rede ao comunicar com o Asaas. Tente novamente.", corpo: String(networkError) };
