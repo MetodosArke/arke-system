@@ -128,7 +128,7 @@ Cada linha é uma armadilha que já aconteceu aqui. Onde há trava, ela é um te
   - `RESTAURACAO_BACKUP.md`;
   - `DECISOES_PENDENTES.md`;
   - os manuais antigos, que a Central de Ajuda substituiu.
-- `e2e/`: Playwright contra produção, depois de cada deploy. A conta `e2e-jornada@arkefit.com.br` é permanente: não excluir.
+- `e2e/`: Playwright contra produção, depois de cada deploy: fumaça, a jornada do aluno e o painel do gestor. As contas `e2e-jornada@` e `e2e-gestor@arkefit.com.br` e a academia "ARKE Homologação — testes automáticos" (`homologacao`) são permanentes: **não excluir**. Recriar: `node scripts/migracao/conta-e2e.mjs --criar-organizacao --aplicar --rodar-e2e`.
 
 ## Comandos de prova
 

@@ -157,3 +157,18 @@ Agora todo aviso sai por `enviarAvisos` (`_shared/push.ts`), e as regras moram e
 - a inscrição inexistente sai do banco, e a boa continua.
 
 O Chrome sem janela perde a conexão com o serviço do Google e passa a receber 410. A corrente roda com a janela fora da tela.
+
+## O teste de ponta a ponta também no painel do gestor (05/10/2026)
+
+Rodada B. Pela conferência, **o E2E de produção falhava em todo deploy desde 02/10/2026.** Naquele dia, a academia "ARKE Homologação" foi excluída pela Visão Master, e com ela saiu a conta de teste do aluno. A fumaça da matrícula pública e a jornada do aluno não tinham mais onde entrar, e ninguém percebeu, porque o E2E não bloqueia merge.
+
+- **A academia de testes voltou** com um nome que diz para que serve: "ARKE Homologação — testes automáticos" (`homologacao`, em trial até 2030). O CLAUDE.md marca a academia e as contas como permanentes.
+- **`scripts/migracao/conta-e2e.mjs` refaz tudo**:
+  - com `--criar-organizacao`, recria a academia;
+  - monta as duas contas, a do aluno e a da gestora (`e2e-gestor@arkefit.com.br`), com a mesma senha;
+  - grava a senha no secret `E2E_SENHA` sem imprimi-la.
+- **As duas contas têm a mesma senha porque o workflow só passa `E2E_EMAIL` e `E2E_SENHA`**, e o token destas sessões não altera `.github/workflows`.
+- **`e2e/painel-gestor.spec.ts`**: a gestora entra e percorre dez telas (painel, alunos, mensagens, financeiro, catracas, comunicados, retenção, Gestão 360, organização e ajuda). O teste falha com erro de JavaScript, queda na tela de erro ou resposta 5xx do Supabase. O que a CSP acusar fica anotado, sem reprovar. O teste só lê.
+- **Um defeito de tela que o teste achou.** Enquanto consultava os documentos pendentes, o aceite mostrava o painel e o trocava pela tela de aceite um instante depois. O painel piscava e disparava as próprias consultas à toa. Agora o aceite mostra só o indicador de carregamento até saber se há documento pendente.
+
+**Conferido:** os 12 testes de ponta a ponta contra produção, com as contas e os secrets recriados: os 9 de fumaça, os 2 da jornada do aluno e o do painel do gestor.

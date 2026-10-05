@@ -5,7 +5,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { FileText } from "lucide-react";
+import { FileText, Loader2 } from "lucide-react";
 import { DOCUMENTOS, type TipoDocumento } from "@/lib/documentosLegais";
 import { emPerfilSimulado } from "@/lib/impersonation";
 
@@ -26,7 +26,7 @@ export function AceiteDocumentosGate({ children }: { children: React.ReactNode }
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
 
-  const { data: pendentes = [] } = useQuery({
+  const { data: pendentes = [], isLoading } = useQuery({
     queryKey: ["aceites-pendentes", user?.id, organization?.id],
     queryFn: async () => {
       const { data, error } = await supabase.rpc("get_aceites_pendentes", { _organization_id: organization?.id ?? undefined });
@@ -39,6 +39,17 @@ export function AceiteDocumentosGate({ children }: { children: React.ReactNode }
     enabled: !!user,
     staleTime: 5 * 60_000,
   });
+
+  // Enquanto a consulta não volta, nada do app aparece: antes, o painel
+  // abria, disparava as próprias consultas e era trocado pelo aceite um
+  // instante depois.
+  if (isLoading && !emPerfilSimulado()) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" aria-label="Carregando" />
+      </div>
+    );
+  }
 
   // Em perfil simulado o aceite é recusado pelo banco: quem simula vê o app
   // como a pessoa vê, e o aceite fica para ela.

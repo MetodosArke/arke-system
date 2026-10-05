@@ -1,5 +1,12 @@
-// Cria (ou recria) a conta de aluno que o teste de ponta a ponta usa, e grava
-// a senha direto nos secrets do GitHub.
+// Cria (ou recria) as contas que o teste de ponta a ponta usa, a do aluno e a
+// da gestora, e grava a senha direto nos secrets do GitHub. As duas têm a mesma
+// senha: o workflow só passa E2E_EMAIL e E2E_SENHA, e o e-mail da gestora é
+// fixo no teste (e2e/painel-gestor.spec.ts).
+//
+// Sem a academia de testes, cria (--criar-organizacao): "ARKE Homologação —
+// testes automáticos", em trial, que é o status de homologação. Ela foi
+// excluída em 02/10/2026 pela Visão Master, e o teste de ponta a ponta falhou
+// em todo deploy desde então; o nome agora diz para que ela serve.
 //
 // Por que existe: `jornada-aluno.spec.ts` faz login de verdade, no app
 // publicado, com uma conta que precisa existir no banco de produção. Sem ela o
@@ -29,6 +36,8 @@ const RAIZ = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const DESTINO = process.env.ARKE_DESTINO ?? "lzyxqjibkfblrrjboylp";
 const SLUG = process.env.ARKE_SLUG_HOMOLOGACAO ?? "homologacao";
 const EMAIL = process.env.ARKE_EMAIL_E2E ?? "e2e-jornada@arkefit.com.br";
+const EMAIL_GESTORA = process.env.ARKE_EMAIL_E2E_GESTORA ?? "e2e-gestor@arkefit.com.br";
+const criarOrganizacao = process.argv.includes("--criar-organizacao");
 const REPO = process.env.ARKE_REPO ?? "MetodosArke/arke-system";
 const aplicar = process.argv.includes("--aplicar");
 
@@ -62,14 +71,23 @@ async function api(caminho, metodo = "GET", corpo) {
 const sql = (q) => api(`projects/${DESTINO}/database/query`, "POST", { query: q });
 const aspas = (s) => "'" + String(s).replace(/'/g, "''") + "'";
 
-const org = await sql(
+let org = await sql(
   `select id::text, nome, status from public.organizations where slug = ${aspas(SLUG)} limit 1`,
 );
-if (!org.length) throw new Error(`Organização com slug "${SLUG}" não existe em ${DESTINO}.`);
+if (!org.length && criarOrganizacao && aplicar) {
+  // Trial é o status de homologação: usa o sandbox do Asaas e nunca é cobrado.
+  // Sem usuário na sessão, a trava de status deixa a rotina atribuir o trial.
+  org = await sql(`
+    insert into public.organizations (nome, slug, status, trial_vencimento)
+    values ('ARKE Homologação — testes automáticos', ${aspas(SLUG)}, 'trial', '2030-12-31')
+    returning id::text, nome, status`);
+  console.log("  academia de testes criada");
+}
+if (!org.length) throw new Error(`Organização com slug "${SLUG}" não existe em ${DESTINO}. Use --criar-organizacao.`);
 
 console.log(`destino      ${DESTINO}`);
 console.log(`organização  ${org[0].nome} (${SLUG}, ${org[0].status})`);
-console.log(`conta        ${EMAIL}`);
+console.log(`contas       ${EMAIL} (aluno) e ${EMAIL_GESTORA} (gestora)`);
 console.log(`secrets em   ${REPO}\n`);
 
 if (!aplicar) {
@@ -135,6 +153,33 @@ if (!aplicar) {
   `);
   console.log("  CPF, vínculo e registro de aluno prontos");
 
+  // A gestora: mesma senha, vínculo de gestão na mesma academia.
+  const existenteGestora = await sql(`select id::text from auth.users where email = ${aspas(EMAIL_GESTORA)} limit 1`);
+  let gestoraId = existenteGestora[0]?.id;
+  if (gestoraId) {
+    const r = await fetch(`https://${DESTINO}.supabase.co/auth/v1/admin/users/${gestoraId}`, {
+      method: "PUT",
+      headers: admin,
+      body: JSON.stringify({ password: senha, email_confirm: true }),
+    });
+    if (!r.ok) throw new Error(`falha ao trocar a senha da gestora: HTTP ${r.status}`);
+  } else {
+    const r = await fetch(`https://${DESTINO}.supabase.co/auth/v1/admin/users`, {
+      method: "POST",
+      headers: admin,
+      body: JSON.stringify({ email: EMAIL_GESTORA, password: senha, email_confirm: true, user_metadata: { full_name: "Gestora E2E" } }),
+    });
+    const t = await r.text();
+    if (!r.ok) throw new Error(`falha ao criar a gestora: HTTP ${r.status} ${t.slice(0, 200)}`);
+    gestoraId = JSON.parse(t).id;
+  }
+  await sql(`
+    insert into public.organization_members (organization_id, user_id, role, status)
+    values (${aspas(org[0].id)}, ${aspas(gestoraId)}, 'gestor', 'active')
+    on conflict (organization_id, user_id) do update set role = 'gestor', status = 'active';
+  `);
+  console.log("  gestora pronta");
+
   // `gh secret set` lê o valor da entrada padrão: ele não aparece na linha de
   // comando (e portanto nem no histórico do shell) nem na saída.
   for (const [nome, valor] of [["E2E_EMAIL", EMAIL], ["E2E_SENHA", senha]]) {
@@ -162,7 +207,7 @@ if (!aplicar) {
       // o que esconde justamente a saída do teste.
       execFileSync(
         process.execPath,
-        ["node_modules/@playwright/test/cli.js", "test", "e2e/jornada-aluno.spec.ts"],
+        ["node_modules/@playwright/test/cli.js", "test", "e2e/"],
         { stdio: "inherit", cwd: RAIZ, env: { ...process.env, E2E_EMAIL: EMAIL, E2E_SENHA: senha } },
       );
     } catch {
