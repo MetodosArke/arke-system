@@ -358,7 +358,9 @@ async function semear() {
   const presencas = [];
   for (const a of comTreino) {
     const adesao = a.perfil === "assidua" ? 0.95 : a.perfil === "irregular" ? 0.55 : 0.2;
-    const ultimoDia = a.perfil === "sumido" ? entre(9, 25) : a.chave === "aluna" ? 0 : entre(0, 3);
+    // A Marina treinou hoje (o app mostra o treino concluído); o Pedro, não, para o
+    // check-in pelo QR Code dar certo ao vivo na demonstração.
+    const ultimoDia = a.perfil === "sumido" ? entre(9, 25) : a.chave === "aluna" ? 0 : a.chave === "aluno" ? entre(1, 3) : entre(0, 3);
     const inicio = Math.min(56, a.diasDeCasa);
     const usados = new Set();
     for (let semana = 0; semana * 7 < inicio; semana++) {
