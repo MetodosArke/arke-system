@@ -238,7 +238,10 @@ async function semear() {
     a.situacao = a.perfil ? "em_dia" : chance(0.08) ? "inadimplente" : chance(0.065) ? "pausado" : "em_dia";
     a.perfil = a.perfil ?? (a.situacao === "pausado" ? "sumido" : chance(0.6) ? "assidua" : chance(0.6) ? "irregular" : "sumido");
     a.semAcesso = !PERSONAS.includes(a) && a.diasDeCasa < 10 && chance(0.5);
-    a.plano = um(["mensal", "mensal", "mensal", "mensal", "mensal", "trimestral", "trimestral", "anual"]);
+    const plano = um(["mensal", "mensal", "mensal", "mensal", "mensal", "trimestral", "trimestral", "anual"]);
+    // O inadimplente fica no mensal: é a mensalidade do mês em atraso que
+    // explica a situação dele na ficha.
+    a.plano = a.situacao === "inadimplente" ? "mensal" : plano;
   }
   await inserirEmLotes(
     `insert into public.alunos (organization_id, user_id, objetivo, meta_semanal_dias, data_inicio, primeiro_acesso_em, ultima_atividade_em,
@@ -280,14 +283,19 @@ async function semear() {
   const alunoPorId = new Map(todosAlunos.map((a) => [a.id, a]));
   // Mensalidades: até quatro competências por matrícula (a do mês e as três
   // anteriores), respeitando a data de entrada do aluno. Plano trimestral e
-  // anual cobram de uma vez, numa competência só dentro da janela.
+  // anual cobram de uma vez, no mês em que o período renova: cada aluno
+  // entrou num mês, então as renovações se espalham pela janela. Cobrar todos
+  // no mesmo mês punha meio ano de receita num mês só.
+  const PERIODO_MESES = { mensal: 1, trimestral: 3, semestral: 6, anual: 12 };
   const mensalidades = [];
   for (const m of matriculas) {
     const a = alunoPorId.get(m.aluno_id);
     const v = Number(m.valor_cobrado);
-    const meses = m.periodicidade === "mensal" ? [3, 2, 1, 0] : [Math.min(2, Math.floor(a.diasDeCasa / 30))];
-    for (const atras of meses) {
+    const periodo = PERIODO_MESES[m.periodicidade] ?? 1;
+    const mesesDeCasa = Math.floor(a.diasDeCasa / 30);
+    for (const atras of [3, 2, 1, 0]) {
       if (atras * 30 > a.diasDeCasa) continue;
+      if ((mesesDeCasa - atras) % periodo !== 0) continue;
       const venc = `(date_trunc('month', current_date) - interval '${atras} months' + interval '${Math.min(m.dia_vencimento, 28) - 1} days')::date`;
       let status = "confirmado";
       if (atras === 0) status = a.situacao === "inadimplente" ? "atrasado" : chance(0.35) ? "pendente" : "confirmado";
@@ -483,12 +491,20 @@ async function semear() {
     (${q(ORG)}, 'Horário do feriado', 'No feriado a academia abre das 8h às 14h. Bons treinos!', 'todos', ${q(ids.gestor)}, current_date + 15, now() - interval '2 days'),
     (${q(ORG)}, 'Aulas de mobilidade', 'Toda terça e quinta às 19h, com a professora Camila. Vagas na recepção.', 'alunos', ${q(ids.gestor)}, current_date + 30, now() - interval '5 days'),
     (${q(ORG)}, 'Reunião de equipe', 'Sexta às 14h, para alinhar a escala do mês.', 'equipe', ${q(ids.gestor)}, current_date + 4, now() - interval '1 day')`);
+  // Despesas fixas de cada mês da janela, no dia em que vencem: o que já
+  // venceu está pago, o que vence depois de hoje fica a pagar. A manutenção
+  // aparece só em alguns meses, como na vida real.
   await sql(`insert into public.lancamentos_financeiros (organization_id, tipo, categoria, descricao, valor, data, vencimento, data_pagamento, status, registrado_por)
-    select ${q(ORG)}, 'despesa', c, d, v, current_date - x, current_date - x, case when pago then current_date - x end, case when pago then 'pago' else 'pendente' end::public.lancamento_status, ${q(ids.gestor)}
-      from (values ('Aluguel', 'Aluguel do salão', 14500::numeric, 4, true), ('Energia', 'Conta de luz', 3180::numeric, 6, true),
-                   ('Água', 'Conta de água', 640::numeric, 6, true), ('Limpeza', 'Material de limpeza', 420::numeric, 9, true),
-                   ('Manutenção', 'Revisão das esteiras', 980::numeric, 12, true), ('Marketing', 'Anúncios no Instagram', 1200::numeric, 3, true),
-                   ('Internet', 'Link de internet', 289::numeric, -5, false)) as l(c, d, v, x, pago)`);
+    select ${q(ORG)}, 'despesa', l.c, l.d, l.v, dia, dia, case when dia <= current_date then dia end,
+           case when dia <= current_date then 'pago' else 'pendente' end::public.lancamento_status, ${q(ids.gestor)}
+      from generate_series(0, 3) as atras,
+           (values ('Aluguel', 'Aluguel do salão', 7800::numeric, 10, -1), ('Energia', 'Conta de luz', 2350::numeric, 15, -1),
+                   ('Água', 'Conta de água', 480::numeric, 15, -1), ('Internet', 'Link de internet', 289::numeric, 10, -1),
+                   ('Limpeza', 'Material de limpeza', 420::numeric, 20, -1), ('Marketing', 'Anúncios no Instagram', 1200::numeric, 5, -1),
+                   ('Manutenção', 'Revisão das esteiras', 980::numeric, 22, 2), ('Manutenção', 'Troca de cabos e polias', 640::numeric, 18, 0))
+             as l(c, d, v, dia_do_mes, so_atras),
+           lateral (select (date_trunc('month', current_date) - make_interval(months => atras) + make_interval(days => l.dia_do_mes - 1))::date as dia) as quando
+      where l.so_atras = -1 or l.so_atras = atras`);
   const [desafio] = await sql(`insert into public.desafios (organization_id, titulo, descricao, tipo, meta_valor, data_inicio, data_fim, pontos, criado_por, para_todos)
     values (${q(ORG)}, 'Outubro sem faltar', '12 treinos no mês: quem completar ganha uma camiseta da academia.', 'numero_treinos', 12,
       date_trunc('month', current_date)::date, (date_trunc('month', current_date) + interval '1 month - 1 day')::date, 50, ${q(ids.gestor)}, false) returning id`);

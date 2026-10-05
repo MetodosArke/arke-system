@@ -470,7 +470,7 @@ export default function AdminAlunos() {
                   setMostrarTodos(false);
                 }}
               >
-                <SelectTrigger className="w-40" aria-label="Situação">
+                <SelectTrigger className="w-48" aria-label="Filtrar por situação">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
