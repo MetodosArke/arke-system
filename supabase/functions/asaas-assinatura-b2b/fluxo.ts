@@ -19,6 +19,7 @@ type ErrosAsaas = { errors?: { code?: string; description?: string }[] };
 
 async function chamar<T>(api: string, chave: string, metodo: string, caminho: string, corpo?: unknown) {
   const resp = await fetch(api + caminho, {
+    signal: AbortSignal.timeout(20_000),
     method: metodo,
     headers: { "Content-Type": "application/json", access_token: chave, "User-Agent": "arke" },
     body: corpo === undefined ? undefined : JSON.stringify(corpo),

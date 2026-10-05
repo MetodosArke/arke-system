@@ -19,7 +19,7 @@ export type RespostaAsaas<T> = {
 };
 
 export async function chamarAsaas<T>(url: string, init: RequestInit): Promise<RespostaAsaas<T>> {
-  const resp = await fetch(url, init);
+  const resp = await fetch(url, { ...init, signal: AbortSignal.timeout(20_000) });
   let corpo: unknown = {};
   try {
     corpo = await resp.json();

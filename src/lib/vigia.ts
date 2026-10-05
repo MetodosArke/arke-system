@@ -13,7 +13,7 @@ import { mensagemDeErroEdge } from "@/lib/erroEdge";
  */
 
 export type Classe = "sozinho" | "aprovacao" | "humano";
-export type ModoRegra = "automatica" | "aprovacao" | "sombra" | "desligada";
+export type ModoRegra = "automatica" | "aprovacao" | "avisar" | "sombra" | "desligada";
 
 export type RegraVigia = {
   codigo: string;
@@ -21,7 +21,8 @@ export type RegraVigia = {
   titulo: string;
   acao: string;
   modo: ModoRegra;
-  ferramenta: string;
+  /** Nível 3 não tem ferramenta: vai direto para uma pessoa. */
+  ferramenta: string | null;
   deteccoes: number;
   teria_agido: number;
   com_retentativa: number;
@@ -39,7 +40,7 @@ export type OcorrenciaVigia = {
   nivel: number;
   titulo: string;
   descricao: string;
-  modo: "sombra" | "automatica" | "aprovacao";
+  modo: "sombra" | "automatica" | "aprovacao" | "avisar";
   decisao: "aprovada" | "dispensada" | null;
   aberta_em: string;
   fechada_em: string | null;
@@ -185,18 +186,24 @@ export const JANELAS = [
 export const ROTULO_MODO: Record<ModoRegra, string> = {
   automatica: "Sozinha",
   aprovacao: "Com aprovação",
+  avisar: "Avisa uma pessoa",
   sombra: "Só registra",
   desligada: "Desligada",
 };
 
-/** Nível 1 nunca pede aprovação e nível 2 nunca age sozinho — a mesma regra do banco. */
+/**
+ * Nível 1 age sozinho, nível 2 pede aprovação e nível 3 avisa uma pessoa,
+ * sem ação — a mesma regra do banco.
+ */
 export function modosDaRegra(nivel: number): ModoRegra[] {
-  return nivel === 1 ? ["automatica", "sombra", "desligada"] : ["aprovacao", "sombra", "desligada"];
+  if (nivel === 1) return ["automatica", "sombra", "desligada"];
+  if (nivel === 3) return ["avisar", "sombra", "desligada"];
+  return ["aprovacao", "sombra", "desligada"];
 }
 
 /** Alguma regra agindo de verdade? Muda o que a tela diz no topo. */
 export function executando(regras: Pick<RegraVigia, "modo">[]): boolean {
-  return regras.some((r) => r.modo === "automatica" || r.modo === "aprovacao");
+  return regras.some((r) => r.modo === "automatica" || r.modo === "aprovacao" || r.modo === "avisar");
 }
 
 export function rotuloFerramenta(f: string): string {
@@ -219,7 +226,7 @@ export function desfechoOcorrencia(o: OcorrenciaVigia): { texto: string; tom: "n
     return { texto: `agiu${vezes}${o.fechada_em ? ", e resolveu" : ""}`, tom: o.fechada_em ? "ok" : "atencao" };
   }
   if (o.acao_prevista_em) {
-    const verbo = o.nivel === 1 ? "teria agido" : "teria pedido aprovação";
+    const verbo = o.nivel === 1 ? "teria agido" : o.nivel === 3 ? "teria avisado uma pessoa" : "teria pedido aprovação";
     const vezes = o.nivel === 1 && o.tentativas_previstas > 1 ? ` (${o.tentativas_previstas} tentativas)` : "";
     return { texto: `${verbo}${vezes}${o.fechada_em ? ", e resolveu" : ""}`, tom: o.fechada_em ? "ok" : "atencao" };
   }

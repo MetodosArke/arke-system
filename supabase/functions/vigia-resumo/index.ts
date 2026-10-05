@@ -54,6 +54,7 @@ Deno.serve(async (req: Request) => {
     const m = montarEmailResumo(resumo as Resumo, siteUrl);
     const de = Deno.env.get("EMAIL_ALERTAS_FROM") ?? "ArkeFit Alertas <alertas@arkefit.com.br>";
     const r = await fetch("https://api.resend.com/emails", {
+      signal: AbortSignal.timeout(15_000),
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${resendKey}` },
       body: JSON.stringify({ from: de, to: emails, subject: m.assunto, html: m.html, text: m.texto }),

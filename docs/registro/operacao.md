@@ -71,3 +71,16 @@ O CLAUDE.md tinha chegado a 372 mil caracteres, com 86 seções de diário, e en
 - **`packages/gateway/` e `supabase/functions/` têm o próprio CLAUDE.md**, que só entra quando se trabalha nelas.
 
 Entrega nova vai numa seção do arquivo do assunto, no mesmo PR. O CLAUDE.md só muda quando muda uma regra, o mapa ou um comando.
+
+## `deno check` no CI (05/10/2026)
+
+O deploy das edge functions empacota com esbuild, que não confere tipo nem escopo. Já passaram assim um `ReferenceError` em três funções (23/09) e um `.catch` em consulta do PostgREST, que não é uma Promise (03/10 e 05/10). O `deno check` pega os dois, mas só rodava quando alguém lembrava.
+
+- **`npm run check` agora roda o `deno check` das 52 funções** (`npm run check:funcoes`, `scripts/checar-funcoes.mjs`). Ele entra pelo `check`, que o CI já roda, e não por um passo novo no workflow, porque o token destas sessões não altera `.github/workflows`.
+- **O Deno é dependência do projeto** (`deno` 2.9.6, fixado). Assim o CI e a máquina usam a mesma versão.
+- **`--no-config`:** sem ele, o Deno acharia o `package.json` da raiz e resolveria os `npm:` das funções pelo `node_modules` do app.
+- **`--no-lock`:** as versões já vêm fixadas em cada import, e um lock seria mais um arquivo para manter.
+- **Os 10 erros que ele achou na primeira rodada foram corrigidos.** Dois eram defeito de verdade (ver *prazo em toda chamada* em [cobranca.md](cobranca.md)); o resto era tipo.
+- **O jsdom não tem `AbortSignal.timeout`**, e os testes que importam código das funções quebrariam com os prazos novos. `src/test/setup.ts` traz um substituto.
+
+**Conferido:** o `.catch` plantado de volta em `criar-organizacao-superadmin` fez o `check` falhar com TS2551; sem ele, as 52 passam.

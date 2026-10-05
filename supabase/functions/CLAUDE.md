@@ -5,7 +5,8 @@ Funções em Deno, publicadas no projeto `lzyxqjibkfblrrjboylp`. O repositório 
 ## Antes de publicar
 
 - **O `verify_jwt` de cada função mora em `supabase/config.toml`.** Função pública (webhook, matrícula, primeiro acesso, cron) é declarada lá. Sem a declaração, o Supabase exige JWT, e o cron leva 401.
-- **Deploy não é prova.** O empacotador não faz análise de escopo: uma variável fora do bloco passa no deploy e quebra na primeira chamada. Rode `deno check` e faça uma chamada autenticada de verdade.
+- **Deploy não é prova.** O empacotador não faz análise de escopo: uma variável fora do bloco passa no deploy e quebra na primeira chamada. O `deno check` de todas as funções roda no `npm run check` (`npm run check:funcoes`); depois do deploy, faça uma chamada autenticada de verdade.
+- **Toda chamada externa tem prazo:** `signal: AbortSignal.timeout(...)` em cada `fetch`. `prazoChamadas.guarda.test.ts` cobra.
 - **Tipos:** `SupabaseClient` de `npm:@supabase/supabase-js@2`, e não `ReturnType<typeof createClient>`, que o `deno check` recusa.
 - Código testável fica num `fluxo.ts` sem Deno nem Supabase, para o teste do app e o sandbox exercitarem o código real, e não uma cópia.
 

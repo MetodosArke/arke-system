@@ -116,14 +116,24 @@ const plural = (n: number, um: string, varios: string) => `${n} ${n === 1 ? um :
 
 /** Alguma regra agindo de verdade (e não só em sombra)? Muda o tom do resumo inteiro. */
 export function executando(r: Pick<Resumo, "regras">): boolean {
-  return r.regras.some((g) => g.modo === "automatica" || g.modo === "aprovacao");
+  return r.regras.some((g) => g.modo === "automatica" || g.modo === "aprovacao" || g.modo === "avisar");
 }
 
 export function linhaRegra(r: RegraResumo): string {
   const partes = [plural(r.deteccoes, "detecção", "detecções")];
   if (r.teria_agido) {
     const verbo =
-      r.modo === "automatica" ? "agiu" : r.modo === "aprovacao" ? "pediu aprovação" : r.nivel === 1 ? "teria agido" : "teria pedido aprovação";
+      r.modo === "automatica"
+        ? "agiu"
+        : r.modo === "aprovacao"
+          ? "pediu aprovação"
+          : r.modo === "avisar"
+            ? "avisou uma pessoa"
+            : r.nivel === 1
+              ? "teria agido"
+              : r.nivel === 3
+                ? "teria avisado uma pessoa"
+                : "teria pedido aprovação";
     partes.push(`${verbo} em ${r.teria_agido} (${r.acao.toLowerCase()})`);
   }
   if (r.sumiram_antes) {
@@ -132,7 +142,7 @@ export function linhaRegra(r: RegraResumo): string {
   }
   if (r.persistiram) partes.push(`${r.persistiram} continuou depois da ação`);
   if (r.com_retentativa) partes.push(`${r.com_retentativa} com nova tentativa`);
-  if (r.escalariam) partes.push(`${r.escalariam} ${r.modo === "automatica" ? "foi" : "iria"} para uma pessoa`);
+  if (r.escalariam) partes.push(`${r.escalariam} ${r.modo === "automatica" || r.modo === "avisar" ? "foi" : "iria"} para uma pessoa`);
   if (r.freios) partes.push(`${r.freios} segurada pelo freio de falha geral`);
   if (r.abertas) partes.push(`${r.abertas} aberta agora`);
   return `Nível ${r.nivel} · ${r.titulo}: ${partes.join("; ")}.`;

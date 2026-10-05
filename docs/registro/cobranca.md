@@ -253,3 +253,14 @@ Uma conferência do webhook do Asaas em 04/10/2026 achou cinco defeitos. Todos v
 - o cartão recebido um mês depois manteve a data;
 - a B2B apagada no Asaas gravou `cancelado`;
 - uma gravação recusada pelo banco deixou o aviso sem processar, com o erro `23514`.
+
+## Cobrança: prazo em toda chamada, e o valor conferido (05/10/2026)
+
+Rodada B, a parte da cobrança. Nenhum dinheiro real foi afetado: até hoje só a homologação recebeu cobrança.
+
+- **Toda chamada externa das funções tem prazo.** Eram 17 sem, em 15 funções: o Asaas, o Resend e o reenvio de aviso ao próprio `asaas-webhook`. Uma chamada que trava segura a função até a plataforma cortar, e a conferência diária com o Asaas tem um orçamento de tempo que só funciona se cada chamada voltar. Agora é `AbortSignal.timeout(20_000)` em cada uma. `prazoChamadas.guarda.test.ts` falha em `fetch(` sem `signal`.
+- **A conferência diária compara o valor.** Antes ela olhava só o status. Agora, cobrança com valor diferente no Asaas e no banco vai para `detalhes.valores` (`valorDiverge`, em `asaas-reconciliar/fluxo.ts`; até um centavo é arredondamento). Ela **não se corrige sozinha**, porque não dá para saber qual lado está certo: o Vigia avisa uma pessoa (ver *Vigia: nível 3* em [agentes.md](agentes.md)).
+- **A saída do aluno lia as cobranças sem conferir o erro.** Em `_shared/encerrarCobrancas.ts`, uma leitura que falhasse virava "nada a cancelar". Na exclusão, a trava do banco ainda segurava. **Na anonimização, que guarda o registro, o aluno seguiria cobrado.** E uma gravação que falhasse depois de cancelar no Asaas contava como cancelada. Hoje as duas param com a mensagem, e a próxima tentativa retoma.
+- **O desfazer da criação de academia nunca rodou.** `criar-organizacao-superadmin` fazia `.delete().eq(...).catch(...)`. A consulta do PostgREST não tem `.catch`, então o desfazer quebrava antes de apagar, e uma criação que falhava no meio deixava a academia para trás. É o mesmo defeito do convite de profissional de 03/10, que ficou sem trava naquele dia. A trava agora é o `deno check` no CI (ver [operacao.md](operacao.md)).
+
+**Conferido:** 836 testes do app, com os novos de `valorDiverge` e a trava dos prazos; as 52 funções no `deno check`; as 20 funções tocadas publicadas, todas respondendo 401 sem credencial (a função sobe); e a **conferência diária real**, pelo comando do cron: 2 cobranças conferidas, nenhum erro, e `valores` gravado como lista vazia.

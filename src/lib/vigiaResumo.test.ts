@@ -186,6 +186,13 @@ describe("resumo diário do Vigia", () => {
 
   it("nível 2 pede aprovação, e ação recusada diz por quê", () => {
     expect(linhaRegra(regra("assinatura_orfa", 2, { deteccoes: 1, teria_agido: 1 }))).toContain("teria pedido aprovação em 1");
+    expect(linhaRegra(regra("conta_nao_fecha", 3, { deteccoes: 1, teria_agido: 1 }))).toContain("teria avisado uma pessoa em 1");
+    expect(linhaRegra(regra("conta_nao_fecha", 3, { modo: "avisar", deteccoes: 1, teria_agido: 1, escalariam: 1 }))).toContain(
+      "avisou uma pessoa em 1",
+    );
+    expect(linhaRegra(regra("conta_nao_fecha", 3, { modo: "avisar", deteccoes: 1, teria_agido: 1, escalariam: 1 }))).toContain(
+      "1 foi para uma pessoa",
+    );
     expect(
       linhaAcao({ ferramenta: "liberar_catraca", alvo: "G1", alvo_nome: "G1", justificativa: "", classe: null, recusada: "fora_do_catalogo" }),
     ).toBe("liberar_catraca em G1 — recusada: fora da lista de ferramentas");

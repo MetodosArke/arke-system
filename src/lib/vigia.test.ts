@@ -81,6 +81,15 @@ describe("desfecho de uma ocorrência", () => {
     expect(executando([{ modo: "sombra" }, { modo: "automatica" }])).toBe(true);
   });
 
+  it("nível 3 só avisa uma pessoa: sem ação, e em sombra diz o que teria feito", () => {
+    expect(modosDaRegra(3)).toEqual(["avisar", "sombra", "desligada"]);
+    expect(executando([{ modo: "avisar" }])).toBe(true);
+    expect(desfechoOcorrencia(ocorrencia({ nivel: 3, modo: "avisar", acao_prevista_em: "x", escalaria_em: "x" })).texto).toBe(
+      "foi para uma pessoa",
+    );
+    expect(desfechoOcorrencia(ocorrencia({ nivel: 3, acao_prevista_em: "x" })).texto).toBe("teria avisado uma pessoa");
+  });
+
   it("período do modo sombra", () => {
     expect(periodoSombra({ dia: 3, dias_avaliacao: 14 })).toBe("Dia 3 de 14 da avaliação");
     expect(periodoSombra({ dia: 15, dias_avaliacao: 14 })).toBe("Avaliação de 14 dias concluída — aguardando a decisão");

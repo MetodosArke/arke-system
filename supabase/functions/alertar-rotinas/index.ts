@@ -71,6 +71,7 @@ Deno.serve(async (req: Request) => {
 
     const { assunto, html, texto } = montarEmail(itens as Item[], `${siteUrl}/#/superadmin`);
     const envio = await fetch("https://api.resend.com/emails", {
+      signal: AbortSignal.timeout(15_000),
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${resendKey}` },
       body: JSON.stringify({

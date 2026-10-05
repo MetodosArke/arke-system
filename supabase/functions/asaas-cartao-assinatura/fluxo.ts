@@ -22,7 +22,7 @@ type ErrosAsaas = { errors?: { code?: string; description?: string }[] };
 type RespostaAsaas = { ok: boolean; status: number; corpo: ErrosAsaas & Record<string, unknown> };
 
 async function chamarAsaas(url: string, init: RequestInit): Promise<RespostaAsaas> {
-  const resp = await fetch(url, init);
+  const resp = await fetch(url, { ...init, signal: AbortSignal.timeout(20_000) });
   let corpo: ErrosAsaas & Record<string, unknown> = {};
   try {
     corpo = await resp.json();

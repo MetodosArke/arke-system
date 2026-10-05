@@ -58,7 +58,7 @@ const CICLO_ASAAS: Record<string, string> = {
 type RespostaAsaas<T> = { ok: boolean; status: number; corpo: T & { errors?: { code?: string; description?: string }[] } };
 
 async function chamarAsaas<T>(url: string, init: RequestInit): Promise<RespostaAsaas<T>> {
-  const resp = await fetch(url, init);
+  const resp = await fetch(url, { ...init, signal: AbortSignal.timeout(20_000) });
   let corpo: unknown = {};
   try {
     corpo = await resp.json();
@@ -352,6 +352,7 @@ Deno.serve(async (req: Request) => {
     const diaVencimento = Number(primeiroVencimento.slice(8, 10));
 
     const subscriptionResp = await fetch(`${asaasApiUrl}/subscriptions`, {
+      signal: AbortSignal.timeout(20_000),
       method: "POST",
       headers: asaasHeaders,
       body: JSON.stringify({

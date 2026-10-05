@@ -145,3 +145,30 @@ Decisão do responsável, depois do simulado: **as 6 regras de nível 1 agem soz
 **O modo de cada regra muda pela tela** (`definir_modo_regra_vigia`, auditado), com a trava no banco: **nível 1 nunca pede aprovação e nível 2 nunca age sozinho** sem mudança de código. Dispensar pede motivo opcional e fica registrado. O resumo diário deixou de falar em sombra quando há regra executando: conta o que o Vigia fez e o que espera aprovação.
 
 **Conferido:** 28 casos em transação revertida (a ordem que sai e a que não empilha, tentativa sem gastar, fechamento, escalonamento e aviso, freio sem ordem nenhuma, rotina de edge e de banco, aprovação com gestor barrado e clique duplo recusado, dispensa, modo por regra, ação da IA com o pseudônimo virando a catraca de verdade, remoção reenviada fechando tarefa e ocorrência, interruptor) e **a corrente real em produção**, 9 verificações: uma falha provocada consertada sozinha, com a rotina voltando de verdade; outra pedindo aprovação por e-mail, gestor com 403, Super Admin aprovando **pela função publicada** com sessão real, segundo clique com 409, Auditoria gravada e a rotina voltando. Os registros do teste foram apagados; a linha da Auditoria ficou, porque é prova.
+
+### Nível 3: avisar uma pessoa (05/10/2026)
+
+Rodada B. Dois problemas que o Vigia não via, e que nenhuma ação automática resolve: o Asaas parar de mandar avisos, e uma cobrança com a conta que não fecha. Os dois ganharam o **nível 3**, que não tem ferramenta: vai direto para uma pessoa, pelo mesmo e-mail de "precisa de uma pessoa". Migration `20261329010000_vigia_nivel3_financeiro.sql`.
+
+- **A trava do nível é do banco.** O nível 3 só fica em `avisar`, `sombra` ou `desligada`, e só ele não tem ferramenta. Nível 1 continua sem pedir aprovação, e nível 2 sem agir sozinho.
+- **`webhook_calado`**, por dois sinais:
+  - **Silêncio.** São 5 cobranças ou mais vencendo nos últimos 3 dias, em academias fora da homologação, sem nenhum aviso do Asaas em 72 horas. Os reenvios da conferência e do Vigia não contam como aviso. A primeira versão acusava em 24 horas e com qualquer cobrança, e erraria todo fim de semana: o Asaas só marca o boleto vencido no sábado como vencido no dia útil seguinte, então um fim de semana calado é normal.
+  - **Correções.** A conferência diária corrige o que o webhook perdeu. Se ela corrigir 3 ou mais numa rodada, ou pelo menos 1 em duas rodadas seguidas, os avisos estão se perdendo. Uma correção isolada é o caso para o qual a conferência existe, e não acusa.
+- **`conta_nao_fecha`** (`conferir_contas_financeiras()`, nos últimos 35 dias, agrupada por academia e tabela). Ela acusa:
+  - **valor diferente de repasse mais líquido**, em `pagamentos`, `mensalidades`, `cobrancas_avulsas` e `cobrancas_b2b`;
+  - **cobrança paga sem o lançamento automático**, passadas 2 horas;
+  - **cobrança paga sem nota fiscal**, com a emissão ligada. `organizacao_fiscal.emissao_ativa_desde`, carimbada por gatilho, faz ligar a nota não acusar o que foi pago antes;
+  - **valor diferente no Asaas e no banco**, que a conferência diária passou a anotar (ver [cobranca.md](cobranca.md)).
+- **Tela e resumo:** "Avisa uma pessoa" na lista de modos, e o resumo diário diz "avisou uma pessoa" (ou "teria avisado", em sombra).
+
+**Conferido:** 23 casos em transação desfeita, com a migration. Os casos:
+- as travas de nível;
+- o silêncio com 4 e com 5 cobranças, e o reenvio da conferência não contando como aviso;
+- as correções numa rodada e em duas;
+- o valor do Asaas com os dois números na descrição;
+- a conta acertada parando de acusar, e a paga sem lançamento acusando só a que ficou sem;
+- a nota antes e depois de ligada;
+- a ocorrência indo ao e-mail sem nenhuma ação executada;
+- as funções novas fora do PostgREST.
+
+Também os testes de `vigia.ts` e do resumo com o nível 3. Em produção, a migration foi aplicada, as duas regras estão avisando, nada é acusado hoje, e a conferência real já grava `valores`.

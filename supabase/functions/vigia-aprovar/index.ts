@@ -1,4 +1,4 @@
-import { createClient } from "npm:@supabase/supabase-js@2";
+import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2";
 import { ambienteAsaas } from "../_shared/asaas.ts";
 import { cancelarAssinatura } from "../asaas-assinatura-ciclo/fluxo.ts";
 import { verificada } from "../_shared/verificacao.ts";
@@ -119,7 +119,7 @@ Deno.serve(async (req: Request) => {
 // o efeito no banco sai do código dos webhooks de verdade, e o evento ainda
 // não processado é processado, não duplicado.
 async function reprocessarAvisos(
-  admin: ReturnType<typeof createClient>,
+  admin: SupabaseClient,
   supabaseUrl: string,
   tipoEvento: string,
 ): Promise<Resultado> {
@@ -140,6 +140,7 @@ async function reprocessarAvisos(
   let ok = 0;
   for (const e of lista) {
     const r = await fetch(`${supabaseUrl}/functions/v1/asaas-webhook`, {
+      signal: AbortSignal.timeout(30_000),
       method: "POST",
       headers: { "Content-Type": "application/json", "asaas-access-token": segredo },
       body: JSON.stringify(e.payload),

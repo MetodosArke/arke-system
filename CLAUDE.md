@@ -144,7 +144,7 @@ Cada linha é uma armadilha que já aconteceu aqui. Onde há trava, ela é um te
   3. a tela, no computador e no celular;
   4. um defeito plantado de propósito, para ver o teste falhar.
 
-  Deploy de edge function não é prova: `deno check` e uma chamada autenticada de verdade.
+  Deploy de edge function não é prova: `npm run check` (que roda o `deno check` das funções) e uma chamada autenticada de verdade.
 
 ## Como registrar
 
