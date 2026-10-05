@@ -28,7 +28,7 @@ import { AlertTriangle, CreditCard, Lock } from "lucide-react";
  * Desligado por padrão: com VITE_CARTAO_RECORRENTE diferente de "true" a tela
  * mostra a forma de pagamento atual e não oferece cadastro. A edge function tem
  * o próprio interruptor (CARTAO_RECORRENTE_ATIVO), e os dois precisam estar
- * ligados — ver a pendência de validação em sandbox no CLAUDE.md.
+ * ligados — ver a cobrança automática no cartão em docs/registro/cobranca.md.
  */
 
 // Função, e não constante de módulo: lida a cada renderização. Em produção dá

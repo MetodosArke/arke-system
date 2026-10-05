@@ -1,6 +1,6 @@
 # Decisões e tarefas pendentes
 
-Só o que continua em aberto. As decisões já tomadas e aplicadas saíram desta lista (a última rodada foi em 23/09/2026); o que cada uma mudou no sistema está registrado no `CLAUDE.md` e no histórico do git.
+Só o que continua em aberto. As decisões já tomadas e aplicadas saíram desta lista (a última rodada foi em 23/09/2026); o que cada uma mudou no sistema está registrado em `docs/registro/` e no histórico do git.
 
 ## Com o responsável, antes do primeiro cliente pagante
 

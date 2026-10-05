@@ -1,5 +1,5 @@
 // Teste de volume: semeia academias fictícias, cronometra rotinas e telas, e
-// desfaz tudo. Ver "Prontidão para 50 academias" no CLAUDE.md.
+// desfaz tudo. Ver "Prontidão para 50 academias" em docs/registro/lancamento.md.
 //
 //   ARKE_CHAVES=... node scripts/prontidao/rodar.mjs testes-telas.json 50 400
 //   ARKE_CHAVES=... node scripts/prontidao/limpar.mjs

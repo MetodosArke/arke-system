@@ -133,7 +133,7 @@ conferir(
 
 console.log("\n=== 3. A assinatura do Método, com split ===");
 // Integrado a R$ 119: atacado 45 + taxa (2,99% + 0,49) = 49,05 para a ArkeFit,
-// 69,95 para a academia. É o exemplo do CLAUDE.md.
+// 69,95 para a academia. É o exemplo de docs/registro/cobranca.md.
 const VALOR = 119;
 const TAXA = Math.round((VALOR * 0.0299 + 0.49) * 100) / 100;
 const REPASSE_ARKE = Math.round((45 + TAXA) * 100) / 100;
