@@ -82,7 +82,9 @@ describe("Intelbras: protocolo", () => {
 
   it("aluno no terminal: nome genérico, e desativado quando barrado", () => {
     expect(usuarioDoAluno(42)).toMatchObject({ UserID: "42", UserName: "Aluno", UserType: 0 });
-    expect(usuarioDoAluno(42, true).UserType).toBe(5);
+    expect(usuarioDoAluno(42, true).UserType).toBe(1);
+    // O 5 é acessibilidade: o aluno barrado nunca pode ir com ele.
+    expect(usuarioDoAluno(42, true).UserType).not.toBe(5);
   });
 
   it("Digest: o exemplo da RFC 2617", () => {
@@ -258,7 +260,7 @@ describe("Intelbras: gestão e espelho da situação", () => {
   it("cadastra o aluno já com a situação do cache; repetir só atualiza", async () => {
     await amb.cache.substituirTodos([aluno("42", true)]);
     await gestao.criarUsuario(42);
-    expect(term.usuarios.get("42")).toMatchObject({ UserName: "Aluno", UserType: 5 });
+    expect(term.usuarios.get("42")).toMatchObject({ UserName: "Aluno", UserType: 1 });
     await amb.cache.substituirTodos([aluno("42", false)]);
     await gestao.criarUsuario(42);
     expect(term.usuarios.get("42")?.UserType).toBe(0);
@@ -294,7 +296,7 @@ describe("Intelbras: gestão e espelho da situação", () => {
     expect(new GestaoIntelbras(new ConectorIntelbras(amb.gateway, [eq({ rosto: false })], { porta: 4571 })).capacidades()).not.toContain("enviar_foto_rosto");
   });
 
-  it("espelho: desativa quem está barrado, ignora quem não está no terminal, e só reenvia o que mudou", async () => {
+  it("espelho: bloqueia quem está barrado, ignora quem não está no terminal, e só reenvia o que mudou", async () => {
     await gestao.criarUsuario(1);
     await gestao.criarUsuario(2);
     // O 3 tem número no ARKE e não está neste terminal.
@@ -302,7 +304,7 @@ describe("Intelbras: gestão e espelho da situação", () => {
     const r1 = await conector.espelhar();
     expect(r1[0].falhou).toBeUndefined();
     expect(term.usuarios.get("1")?.UserType).toBe(0);
-    expect(term.usuarios.get("2")?.UserType).toBe(5);
+    expect(term.usuarios.get("2")?.UserType).toBe(1);
     expect(term.usuarios.has("3")).toBe(false);
 
     const antes = term.chamadas.length;
@@ -311,7 +313,7 @@ describe("Intelbras: gestão e espelho da situação", () => {
 
     await amb.cache.substituirTodos([aluno("1", true), aluno("2", true), aluno("3", true)]);
     await conector.espelhar();
-    expect(term.usuarios.get("1")?.UserType).toBe(5);
+    expect(term.usuarios.get("1")?.UserType).toBe(1);
     const novas = term.chamadas.slice(antes);
     expect(novas).toHaveLength(1);
     expect((novas[0].corpo as { UserList: { UserID: string }[] }).UserList.map((u) => u.UserID)).toEqual(["1"]);
@@ -338,7 +340,7 @@ describe("Intelbras: gestão e espelho da situação", () => {
     await conector.iniciar();
     amb.cloud.respostaSincronizarAlunos = { alunos: [aluno("5", true)], sincronizado_em: new Date().toISOString() };
     await amb.gateway.sincronizarAlunosComTratamento();
-    for (let i = 0; i < 50 && term.usuarios.get("5")?.UserType !== 5; i++) await new Promise((r) => setTimeout(r, 20));
-    expect(term.usuarios.get("5")?.UserType).toBe(5);
+    for (let i = 0; i < 50 && term.usuarios.get("5")?.UserType !== 1; i++) await new Promise((r) => setTimeout(r, 20));
+    expect(term.usuarios.get("5")?.UserType).toBe(1);
   });
 });

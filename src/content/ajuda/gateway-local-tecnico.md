@@ -172,7 +172,7 @@ Os terminais da linha Bio-T (faciais SS 3530, SS 3540, SS 5530 e a geração nov
 
 Ao subir, o Gateway acerta a hora do terminal, aponta o servidor de eventos para este computador e liga o Modo Online sozinho. Ponha `"rosto": false` nos terminais de digital e `"canal": 2` se a catraca está no segundo relé.
 
-**Sem o Gateway, o terminal decide sozinho e libera quem está cadastrado nele.** Por isso o Gateway desativa no terminal quem a academia barrou e reativa quem volta. A saída passa sempre, sem consulta. A recepção cadastra e apaga o aluno pela ficha, e o rosto entra pela foto que o aluno manda no app; digital e cartão continuam no próprio terminal.
+**Sem o Gateway, o terminal decide sozinho e libera quem está cadastrado nele.** Por isso o Gateway bloqueia no terminal quem a academia barrou e desbloqueia quem volta: a Intelbras confirmou que o terminal não libera o usuário bloqueado, nem sem o Gateway. Use a versão 1.8.1 ou mais nova. A saída passa sempre, sem consulta. A recepção cadastra e apaga o aluno pela ficha, e o rosto entra pela foto que o aluno manda no app; digital e cartão continuam no próprio terminal.
 
 ## Conferir antes de ir embora
 

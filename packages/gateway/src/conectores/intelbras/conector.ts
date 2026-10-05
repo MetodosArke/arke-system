@@ -42,16 +42,15 @@ export interface OpcoesConectorIntelbras {
  *
  * ESPELHO. Sem o Gateway (computador desligado ou fora da rede), o terminal
  * decide sozinho e, pela documentação, libera todo usuário cadastrado nele.
- * O terminal recusa sozinho o usuário desativado (`UserType` 5), então o
- * Gateway desativa quem a academia barrou (pausado, inadimplente fora da
- * tolerância) e reativa quem volta, a cada sincronização (decisão do
- * responsável de 02/10/2026). Se o terminal respeita a desativação no modo
- * sem servidor é item da bancada e da resposta da Intelbras; com o Gateway
- * no ar, a decisão é sempre da nuvem.
+ * O terminal não libera o usuário bloqueado (`UserType` 1), nem sem o
+ * servidor, como a Intelbras confirmou em 05/10/2026. Então o Gateway bloqueia
+ * quem a academia barrou (pausado, inadimplente fora da tolerância) e
+ * desbloqueia quem volta, a cada sincronização (decisão do responsável de
+ * 02/10/2026). Com o Gateway no ar, a decisão é sempre da nuvem.
  */
 export class ConectorIntelbras {
   private readonly clientes = new Map<string, ClienteIntelbras>();
-  /** O que já foi espelhado em cada terminal: número → desativado. */
+  /** O que já foi espelhado em cada terminal: número → bloqueado. */
   private readonly espelhado = new Map<string, Map<string, boolean>>();
   private espelhando = false;
   private deNovo = false;
@@ -136,8 +135,8 @@ export class ConectorIntelbras {
   }
 
   /** Registra o que acabou de ir ao terminal, para o espelho não repetir. */
-  marcarEspelhado(nome: string, identificador: string, desativado: boolean): void {
-    this.espelhado.get(nome)?.set(identificador, desativado);
+  marcarEspelhado(nome: string, identificador: string, bloqueado: boolean): void {
+    this.espelhado.get(nome)?.set(identificador, bloqueado);
   }
 
   esquecer(identificador: string): void {
@@ -236,20 +235,20 @@ export class GestaoIntelbras implements GestaoEquipamentos {
   }
 
   /** Cria ou atualiza o aluno no terminal, já com a situação dele. */
-  private async garantirUsuario(nome: string, userId: number, desativado: boolean): Promise<void> {
+  private async garantirUsuario(nome: string, userId: number, bloqueado: boolean): Promise<void> {
     const c = this.conector.cliente(nome);
-    const corpo = { UserList: [usuarioDoAluno(userId, desativado)] };
+    const corpo = { UserList: [usuarioDoAluno(userId, bloqueado)] };
     if (respostaOk(await c.chamar(caminhos.inserirUsuarios, corpo))) return;
     if (respostaOk(await c.chamar(caminhos.atualizarUsuarios, corpo))) return;
     throw new Error(`${nome}: o terminal recusou o cadastro do aluno`);
   }
 
   async criarUsuario(userId: number): Promise<{ equipamentos: string[] }> {
-    const desativado = await this.conector.barrado(String(userId));
+    const bloqueado = await this.conector.barrado(String(userId));
     // Falha em um falha a ordem: ela continua pendente e é refeita inteira.
     for (const nome of this.nomes()) {
-      await this.garantirUsuario(nome, userId, desativado);
-      this.conector.marcarEspelhado(nome, String(userId), desativado);
+      await this.garantirUsuario(nome, userId, bloqueado);
+      this.conector.marcarEspelhado(nome, String(userId), bloqueado);
     }
     logger.info({ userId, terminais: this.nomes().length }, "Aluno cadastrado nos terminais Intelbras");
     return { equipamentos: this.nomes() };
@@ -286,11 +285,11 @@ export class GestaoIntelbras implements GestaoEquipamentos {
     }
     const faciais = this.conector.equipamentos.filter((e) => e.rosto);
     if (!faciais.length) throw new Error("Nenhum terminal Intelbras com reconhecimento facial neste Gateway.");
-    const desativado = await this.conector.barrado(String(userId));
+    const bloqueado = await this.conector.barrado(String(userId));
     const corpo = { FaceList: [{ UserID: String(userId), PhotoData: [jpeg.toString("base64")] }] };
     for (const eq of faciais) {
-      await this.garantirUsuario(eq.nome, userId, desativado);
-      this.conector.marcarEspelhado(eq.nome, String(userId), desativado);
+      await this.garantirUsuario(eq.nome, userId, bloqueado);
+      this.conector.marcarEspelhado(eq.nome, String(userId), bloqueado);
       const c = this.conector.cliente(eq.nome);
       if (respostaOk(await c.chamar(caminhos.inserirRostos, corpo))) continue;
       if (respostaOk(await c.chamar(caminhos.atualizarRostos, corpo))) continue;
