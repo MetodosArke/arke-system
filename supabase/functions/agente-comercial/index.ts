@@ -4,6 +4,7 @@ import { descreverErro, registrarExecucao } from "../_shared/execucao.ts";
 import {
   categoriaPorPalavras,
   entradaDoModelo,
+  espelhoRecusado,
   lerRespostaModelo,
   montarEmail,
   SISTEMA_ESPELHO,
@@ -13,6 +14,7 @@ import {
   type Origem,
 } from "./fluxo.ts";
 import { servir } from "../_shared/servir.ts";
+import { registrarUsoIA } from "../_shared/usoIA.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -151,6 +153,13 @@ servir("agente-comercial", async (req: Request) => {
             espelho = lido.espelho;
             origem = "ia";
           }
+        }
+        if (resposta.uso) {
+          await registrarUsoIA(admin, {
+            agente: "leticia",
+            ...resposta.uso,
+            resultado: !resposta.ok ? "indisponivel" : espelhoRecusado(resposta.texto) ? "recusada_trava" : "ok",
+          });
         }
       }
 

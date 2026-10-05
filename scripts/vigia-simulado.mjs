@@ -239,7 +239,11 @@ const CENARIOS = [
     id: "banco-cheio",
     titulo: "Banco perto do limite do plano (88%)",
     hora: 10,
-    preparo: `update public.plataforma_config set valor = round(pg_database_size(current_database()) / 1048576.0 / 0.88, 1)
+    // A faixa de plataforma_config (mínimo de 100 MB, sem casas) recusaria o
+    // limite que deixa o banco de hoje em 88%: o gatilho sai só dentro da
+    // transação do cenário, que é desfeita no fim.
+    preparo: `alter table public.plataforma_config disable trigger trg_faixa_plataforma_config;
+      update public.plataforma_config set valor = round(pg_database_size(current_database()) / 1048576.0 / 0.88, 1)
        where chave = 'limite_banco_mb';`,
     esperado: {
       causas: ["configuracao", "nuvem_arke"],

@@ -46,8 +46,11 @@ describe("o índice da Central de Ajuda no assistente", () => {
 
 describe("a busca", () => {
   it("raiz junta as formas da mesma palavra", () => {
-    expect(raizes("cadastrar cadastro catracas catraca")).toEqual(["cadas", "cadas", "catra", "catra"]);
-    expect(raizes("Como eu faço para o aluno entrar?")).toEqual(["faco", "aluno", "entra"]);
+    expect(raizes("cadastrar cadastro catracas catraca")).toEqual(["cadas", "cada", "cadas", "cada", "catra", "catr", "catra", "catr"]);
+    expect(raizes("Como eu faço para o aluno entrar?")).toEqual(["faco", "aluno", "alun", "entra", "entr"]);
+    // O verbo conjugado acha o substantivo pela raiz de quatro letras.
+    expect(raizes("pauso")).toContain("paus");
+    expect(raizes("pausado")).toContain("paus");
   });
 
   it("acha o artigo certo para perguntas do dia a dia", () => {
@@ -55,6 +58,8 @@ describe("a busca", () => {
     expect(buscarTrechos(indice, "a catraca está sem sinal, o que eu faço?", gestor)[0]?.slug).toBe("catracas");
     expect(buscarTrechos(indice, "como importar a planilha de alunos do sistema antigo", gestor)[0]?.slug).toBe("importar-alunos");
     expect(buscarTrechos(indice, "o aluno não recebeu o e-mail para criar a senha", gestor).map((a) => a.slug)).toContain("primeiro-acesso-aluno");
+    // Achado da avaliação de 05/10/2026: o verbo conjugado não achava o artigo.
+    expect(buscarTrechos(indice, "Um aluno vai viajar um mês. Como pauso ele?", gestor).map((a) => a.slug)).toContain("situacao-do-aluno");
   });
 
   it("só devolve artigos que quem pergunta pode ler, no máximo dois por artigo", () => {

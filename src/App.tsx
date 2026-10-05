@@ -97,6 +97,7 @@ const SuperAdminWebhooks = paginaPreguicosa(() => import("@/pages/superadmin/Sup
 const SuperAdminMentoria = paginaPreguicosa(() => import("@/pages/superadmin/SuperAdminMentoria"));
 const SuperAdminEquipamentos = paginaPreguicosa(() => import("@/pages/superadmin/SuperAdminEquipamentos"));
 const SuperAdminVigia = paginaPreguicosa(() => import("@/pages/superadmin/SuperAdminVigia"));
+const SuperAdminUsoIA = paginaPreguicosa(() => import("@/pages/superadmin/SuperAdminUsoIA"));
 const CentralAjuda = paginaPreguicosa(() => import("@/pages/ajuda/CentralAjuda"));
 const Landing = paginaPreguicosa(() => import("@/pages/public/Landing"));
 const SuperAdminComercial = paginaPreguicosa(() => import("@/pages/superadmin/SuperAdminComercial"));
@@ -353,6 +354,7 @@ const App = () => (
                 <Route path="mentoria/aluno/:alunoId" element={<SuperAdminFichaAluno />} />
                 <Route path="equipamentos" element={<SuperAdminEquipamentos />} />
                 <Route path="vigia" element={<SuperAdminVigia />} />
+                <Route path="ia" element={<SuperAdminUsoIA />} />
                 <Route path="configuracoes" element={<SuperAdminConfiguracoes />} />
                 <Route path="comercial" element={<SuperAdminComercial />} />
                 <Route path="implantacao" element={<SuperAdminImplantacao />} />

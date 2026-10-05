@@ -4,6 +4,7 @@ import { interpretarResposta, validarQuadro } from "../_shared/vigiaAnalise.ts";
 import { descreverErro, registrarExecucao } from "../_shared/execucao.ts";
 import { montarEmailAvisos, type Aviso } from "./email.ts";
 import { servir } from "../_shared/servir.ts";
+import { registrarUsoIA } from "../_shared/usoIA.ts";
 
 const jsonResponse = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
@@ -108,6 +109,16 @@ servir("vigia", async (req: Request) => {
         registro._tokens_entrada = r.tokensEntrada;
         registro._tokens_saida = r.tokensSaida;
       }
+      // O quadro que nem saiu (validação) e a resposta fora do catálogo são a
+      // trava funcionando; o modelo fora do ar é indisponível.
+      await registrarUsoIA(admin, {
+        agente: "vigia",
+        modelo: MODELO_VIGIA,
+        resultado: registro._status === "ok" ? "ok" : registro._status === "indisponivel" ? "indisponivel" : "recusada_trava",
+        tokensEntrada: r.ok ? r.tokensEntrada : null,
+        tokensSaida: r.ok ? r.tokensSaida : null,
+        latenciaMs: r.ok ? r.latenciaMs : null,
+      });
       const { error: erroRegistro } = await admin.rpc("vigia_registrar_analise", {
         _assinatura: quadro.assinatura,
         _quadro: quadro.enviar,

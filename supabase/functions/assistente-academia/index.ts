@@ -13,6 +13,7 @@ import {
   type Contexto,
 } from "./fluxo.ts";
 import { servir } from "../_shared/servir.ts";
+import { registrarUsoIA } from "../_shared/usoIA.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -153,6 +154,14 @@ servir("assistente-academia", async (req: Request) => {
         if (r.ok) {
           usouIa = true;
           resposta = diagnosticoAceito(r.texto, r.entrada);
+        }
+        if (r.uso) {
+          await registrarUsoIA(admin, {
+            agente: "assistente",
+            organizationId: orgId,
+            ...r.uso,
+            resultado: !r.ok ? "indisponivel" : resposta ? "ok" : "recusada_trava",
+          });
         }
       }
     }

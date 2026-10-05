@@ -436,6 +436,14 @@ export const ARTIGOS: ArtigoAjuda[] = [
     rotas: ["/superadmin/vigia"],
   },
   {
+    slug: "vm-uso-ia",
+    titulo: "Uso das IAs: chamadas, trava e custo",
+    resumo: "Quanto cada IA foi chamada, quanto a trava recusou e quanto custou.",
+    secao: "Visão Master",
+    publicos: ["arkefit"],
+    rotas: ["/superadmin/ia"],
+  },
+  {
     slug: "vm-webhooks-rotinas",
     titulo: "Webhooks, rotinas e conferência com o Asaas",
     resumo: "O que cada evento fez no banco, rotinas paradas e assinaturas órfãs.",

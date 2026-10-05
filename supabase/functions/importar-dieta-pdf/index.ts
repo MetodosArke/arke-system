@@ -1,5 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { conversarComIA } from "../_shared/ia.ts";
+import { conversarComIA, type UsoModelo } from "../_shared/ia.ts";
 import {
   avaliarLeitura,
   conferirNoOriginal,
@@ -11,6 +11,7 @@ import {
 } from "./fluxo.ts";
 import { dentroDoFreio, MENSAGEM_FREIO } from "../_shared/freio.ts";
 import { servir } from "../_shared/servir.ts";
+import { registrarUsoIA, type ResultadoIA } from "../_shared/usoIA.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -48,7 +49,7 @@ servir("importar-dieta-pdf", async (req: Request) => {
     // Lista, não `.maybeSingle()`: vínculo em duas academias não pode virar 403.
     const { data: vinculos } = await asUser
       .from("organization_members")
-      .select("role")
+      .select("role, organization_id")
       .eq("user_id", callerId)
       .eq("status", "active")
       .in("role", ["gestor", "nutricionista"]);
@@ -67,7 +68,13 @@ servir("importar-dieta-pdf", async (req: Request) => {
       { chave: `ia:dieta:user-dia:${callerId}`, limite: 100, janelaSeg: 24 * 60 * 60 },
       { chave: "ia:dieta:total", limite: 300, janelaSeg: 60 * 60 },
     ];
-    if (!(await dentroDoFreio(createClient(supabaseUrl, serviceRoleKey), freio))) {
+    const admin = createClient(supabaseUrl, serviceRoleKey);
+    // A academia de quem importou, para o medidor de uso; com duas, nenhuma.
+    const orgsDoUsuario = [...new Set((vinculos ?? []).map((v) => v.organization_id as string))];
+    const organizacaoDoUso = orgsDoUsuario.length === 1 ? orgsDoUsuario[0] : null;
+    const medir = (uso: UsoModelo | undefined, resultado: ResultadoIA) =>
+      uso ? registrarUsoIA(admin, { agente: "dieta_pdf", organizationId: organizacaoDoUso, ...uso, resultado }) : Promise.resolve();
+    if (!(await dentroDoFreio(admin, freio))) {
       return jsonResponse({ error: MENSAGEM_FREIO }, 429);
     }
 
@@ -94,6 +101,7 @@ servir("importar-dieta-pdf", async (req: Request) => {
       prazoMs: 90_000,
     });
     if (!resposta.ok) {
+      await medir(resposta.uso, "indisponivel");
       return jsonResponse({ error: "A leitura automática não está disponível agora. Tente de novo em instantes, ou digite a dieta." }, 503);
     }
 
@@ -101,11 +109,13 @@ servir("importar-dieta-pdf", async (req: Request) => {
     try {
       dieta = lerResposta(resposta.texto);
     } catch {
+      await medir(resposta.uso, "recusada_trava");
       return jsonResponse({ error: "Não conseguimos montar as refeições a partir deste PDF. Digite a dieta, ou tente outro arquivo." }, 422);
     }
 
     const conferida = conferirNoOriginal(dieta, texto);
     const veredito = avaliarLeitura(conferida.itens, conferida.semAncora);
+    await medir(resposta.uso, veredito.ok ? "ok" : "recusada_trava");
     if (!veredito.ok) return jsonResponse({ error: veredito.motivo }, 422);
 
     return jsonResponse({ ...conferida.dieta, itens_para_conferir: conferida.semAncora });

@@ -138,6 +138,7 @@ Cada linha é uma armadilha que já aconteceu aqui. Onde há trava, ela é um te
 - Emuladores das catracas: `cd packages/gateway && npm run emular:controlid|toletus|litenet3|facial-topdata|intelbras`.
 - Artigo da Central mudou: `npm run ajuda:indice`, e depois publicar `assistente-academia`.
 - Vigia: `npm run simulado:vigia`.
+- IAs (menos o Sentinela): `npm run avaliar:ia` (com `-- --vigia`). Roteiro ou modelo mudou, avalia de novo: `avaliacaoIA.guarda.test.ts` cobra.
 - **Como provar uma entrega**, em camadas:
   1. o banco, em transação desfeita;
   2. a corrente real, pelas funções publicadas, com contas e academia temporárias apagadas no fim;

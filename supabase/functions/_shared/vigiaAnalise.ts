@@ -301,7 +301,7 @@ export const ROTULO_RECUSA: Record<NonNullable<AcaoProposta["recusada"]>, string
 
 export const NOME_FERRAMENTA_ANALISE = "registrar_analise";
 
-const SISTEMA = [
+export const SISTEMA_VIGIA = [
   "Você é o Vigia, o agente de saúde técnica da plataforma ARKE, usada por academias.",
   "Como o sistema funciona: em cada academia, o Gateway Local roda num computador da recepção e liga as catracas à nuvem;",
   "sem nuvem ele decide pelo cadastro guardado (contingência) e guarda os acessos numa fila para subir depois.",
@@ -375,7 +375,7 @@ export function esquemaAnalise() {
 /** O corpo da chamada ao Bedrock (Converse), com a ferramenta forçada. */
 export function montarPedido(quadro: Quadro) {
   return {
-    system: [{ text: SISTEMA }],
+    system: [{ text: SISTEMA_VIGIA }],
     messages: [{ role: "user", content: [{ text: `Quadro atual:\n${JSON.stringify(quadro)}` }] }],
     inferenceConfig: { maxTokens: 1500, temperature: 0.2 },
     toolConfig: {

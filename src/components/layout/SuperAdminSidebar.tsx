@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ChevronLeft, CircleHelp, Cpu, Dumbbell, Kanban, LayoutDashboard, LifeBuoy, LogOut, Menu, MessageCircle, Radar, Rocket, ScrollText, Settings, Shield, UserCog, UsersRound, Webhook } from "lucide-react";
+import { ChevronLeft, CircleHelp, Cpu, Dumbbell, Kanban, LayoutDashboard, LifeBuoy, LogOut, Menu, MessageCircle, Radar, Rocket, ScrollText, Settings, Shield, Sparkles, UserCog, UsersRound, Webhook } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
@@ -31,6 +31,7 @@ export const SECOES_SUPERADMIN: { label: string; items: MenuItem[] }[] = [
     label: "Monitoramento",
     items: [
       { icon: Radar, label: "Vigia", path: "/superadmin/vigia" },
+      { icon: Sparkles, label: "Uso das IAs", path: "/superadmin/ia" },
       { icon: Cpu, label: "Equipamentos", path: "/superadmin/equipamentos" },
       { icon: Webhook, label: "Webhooks", path: "/superadmin/webhooks" },
       { icon: ScrollText, label: "Auditoria", path: "/superadmin/auditoria" },

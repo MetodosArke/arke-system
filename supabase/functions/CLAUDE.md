@@ -8,6 +8,7 @@ Funções em Deno, publicadas no projeto `lzyxqjibkfblrrjboylp`. O repositório 
 - **Deploy não é prova.** O empacotador não faz análise de escopo: uma variável fora do bloco passa no deploy e quebra na primeira chamada. O `deno check` de todas as funções roda no `npm run check` (`npm run check:funcoes`); depois do deploy, faça uma chamada autenticada de verdade.
 - **Toda chamada externa tem prazo:** `signal: AbortSignal.timeout(...)` em cada `fetch`. `prazoChamadas.guarda.test.ts` cobra.
 - **Tipos:** `SupabaseClient` de `npm:@supabase/supabase-js@2`, e não `ReturnType<typeof createClient>`, que o `deno check` recusa.
+- **Função que chama o modelo registra o uso** (`registrarUsoIA`, `_shared/usoIA.ts`), sem texto nenhum: `usoIA.test.ts` cobra. O Sentinela fica de fora enquanto estiver congelado.
 - Código testável fica num `fluxo.ts` sem Deno nem Supabase, para o teste do app e o sandbox exercitarem o código real, e não uma cópia.
 
 ## Erros e logs

@@ -3301,6 +3301,81 @@ export type Database = {
         }
         Relationships: []
       }
+      ia_chamadas: {
+        Row: {
+          agente: string
+          feita_em: string
+          id: number
+          latencia_ms: number | null
+          modelo: string
+          organization_id: string | null
+          resultado: string
+          tokens_entrada: number | null
+          tokens_saida: number | null
+        }
+        Insert: {
+          agente: string
+          feita_em?: string
+          id?: number
+          latencia_ms?: number | null
+          modelo: string
+          organization_id?: string | null
+          resultado: string
+          tokens_entrada?: number | null
+          tokens_saida?: number | null
+        }
+        Update: {
+          agente?: string
+          feita_em?: string
+          id?: number
+          latencia_ms?: number | null
+          modelo?: string
+          organization_id?: string | null
+          resultado?: string
+          tokens_entrada?: number | null
+          tokens_saida?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ia_chamadas_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "org_churn_metrics"
+            referencedColumns: ["organization_id"]
+          },
+          {
+            foreignKeyName: "ia_chamadas_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ia_precos: {
+        Row: {
+          conferido_em: string
+          entrada_usd_por_milhao: number
+          fonte: string
+          modelo: string
+          saida_usd_por_milhao: number
+        }
+        Insert: {
+          conferido_em: string
+          entrada_usd_por_milhao: number
+          fonte: string
+          modelo: string
+          saida_usd_por_milhao: number
+        }
+        Update: {
+          conferido_em?: string
+          entrada_usd_por_milhao?: number
+          fonte?: string
+          modelo?: string
+          saida_usd_por_milhao?: number
+        }
+        Relationships: []
+      }
       implantacao: {
         Row: {
           asaas_conferido_em: string | null
@@ -8172,6 +8247,22 @@ export type Database = {
           ultima_atividade: string
         }[]
       }
+      get_superadmin_uso_ia: {
+        Args: { _dias?: number }
+        Returns: {
+          agente: string
+          chamadas: number
+          custo_usd: number
+          indisponiveis: number
+          latencia_max_ms: number
+          latencia_media_ms: number
+          ok: number
+          recusadas_trava: number
+          sem_preco: boolean
+          tokens_entrada: number
+          tokens_saida: number
+        }[]
+      }
       get_superadmin_vigia: { Args: { _horas?: number }; Returns: Json }
       get_superadmin_webhooks_asaas: {
         Args: { _limite?: number }
@@ -8712,6 +8803,7 @@ export type Database = {
         Args: { _meses: Json; _organization_id: string }
         Returns: number
       }
+      saude_plataforma: { Args: never; Returns: Json }
       sentinela_taxa_de_aceite: {
         Args: { _dias?: number }
         Returns: {
