@@ -2,6 +2,7 @@ import { dataBrasilia, hojeBrasilia } from "@/lib/dataBrasilia";
 import { useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { exigirGravacao } from "@/lib/gravacao";
 import { todasAsLinhas } from "@/lib/paginar";
 import { perfisDosUsuarios } from "@/lib/perfis";
 import { useAuth } from "@/contexts/AuthContext";
@@ -229,8 +230,7 @@ export default function AdminAgenda() {
 
   const atualizarStatus = useMutation({
     mutationFn: async (payload: { id: string; status: AgendamentoStatus }) => {
-      const { error } = await supabase.from("agendamentos").update({ status: payload.status }).eq("id", payload.id);
-      if (error) throw error;
+      await exigirGravacao(supabase.from("agendamentos").update({ status: payload.status }).eq("id", payload.id).select("id"));
     },
     onSuccess: () => {
       invalidarAgendamentos();

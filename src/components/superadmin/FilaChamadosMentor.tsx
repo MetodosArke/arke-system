@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { exigirGravacao } from "@/lib/gravacao";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { Badge } from "@/components/ui/badge";
@@ -117,7 +118,7 @@ export function FilaChamadosMentor() {
     mutationFn: async ({ chamado, texto }: { chamado: Chamado; texto: string }) => {
       // Desfecho obrigatório: é a regra do ciclo de atendimento do projeto —
       // uma pendência só se encerra quando há desfecho registrado.
-      const { error } = await supabase
+      await exigirGravacao(supabase
         .from("tarefas")
         // `responsavel_id` e quem de fato atendeu, e sem ele a carga por
         // mentor fica vazia: a fila apareceria distribuida por ninguem, que e
@@ -129,8 +130,7 @@ export function FilaChamadosMentor() {
           acao: "Atendimento do Mentor ArkeFit",
           responsavel_id: user?.id ?? null,
         })
-        .eq("id", chamado.tarefa_id);
-      if (error) throw error;
+        .eq("id", chamado.tarefa_id).select("id"));
     },
     onSuccess: () => {
       toast({ title: "Chamado encerrado", description: "O desfecho ficou registrado no histórico do aluno." });

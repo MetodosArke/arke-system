@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { exigirGravacao } from "@/lib/gravacao";
 import { mensagemDeErroEdge } from "@/lib/erroEdge";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent } from "@/components/ui/card";
@@ -74,12 +75,11 @@ export default function AdminEquipe() {
   const alternarStatus = useMutation({
     mutationFn: async (membro: MembroRow) => {
       const novoStatus = membro.status === "active" ? "inactive" : "active";
-      const { error } = await supabase
+      await exigirGravacao(supabase
         .from("organization_members")
         .update({ status: novoStatus })
         .eq("organization_id", organization!.id)
-        .eq("user_id", membro.user_id);
-      if (error) throw error;
+        .eq("user_id", membro.user_id).select("id"));
     },
     onSuccess: () => {
       toast({ title: "Status atualizado." });

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { exigirGravacao } from "@/lib/gravacao";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -27,13 +28,14 @@ export function VersaoMinimaGateway() {
       const versao = texto.trim();
       if (versao && !/^\d+\.\d+\.\d+$/.test(versao)) throw new Error("Use o formato 1.7.0.");
       // Sem a linha devolvida, a regra de acesso recusou em silêncio.
-      const { data, error } = await supabase
-        .from("plataforma_textos")
-        .update({ valor: versao || null, updated_at: new Date().toISOString() })
-        .eq("chave", "gateway_versao_minima")
-        .select("chave");
-      if (error) throw error;
-      if (!data?.length) throw new Error("Nada foi gravado. Confira se a sessão está verificada em duas etapas.");
+      await exigirGravacao(
+        supabase
+          .from("plataforma_textos")
+          .update({ valor: versao || null, updated_at: new Date().toISOString() })
+          .eq("chave", "gateway_versao_minima")
+          .select("chave"),
+        "Nada foi gravado. Confira se a sessão está verificada em duas etapas."
+      );
     },
     onSuccess: () => {
       toast({ title: "Versão mínima salva" });

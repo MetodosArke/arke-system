@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { exigirGravacao } from "@/lib/gravacao";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -83,8 +84,7 @@ export default function SuperAdminAcervo() {
         gif_url: form.gif_url.trim() || null,
       };
       if (form.id) {
-        const { error } = await supabase.from("exercicios_biblioteca").update(payload).eq("id", form.id);
-        if (error) throw error;
+        await exigirGravacao(supabase.from("exercicios_biblioteca").update(payload).eq("id", form.id).select("id"));
       } else {
         const { error } = await supabase
           .from("exercicios_biblioteca")
@@ -107,8 +107,7 @@ export default function SuperAdminAcervo() {
 
   const alternarAtivo = useMutation({
     mutationFn: async (ex: ExercicioBiblioteca) => {
-      const { error } = await supabase.from("exercicios_biblioteca").update({ ativo: !ex.ativo }).eq("id", ex.id);
-      if (error) throw error;
+      await exigirGravacao(supabase.from("exercicios_biblioteca").update({ ativo: !ex.ativo }).eq("id", ex.id).select("id"));
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["exercicios-biblioteca-global"] });

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { exigirGravacao } from "@/lib/gravacao";
 import type { Json } from "@/integrations/supabase/types";
 import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -58,7 +59,7 @@ export function AvaliacaoTreinoDialog({
 
   const concluir = useMutation({
     mutationFn: async () => {
-      const { error } = await supabase
+      await exigirGravacao(supabase
         .from("registro_treino")
         .update({
           // `concluido` reflete o que de fato aconteceu: encerrar com metade
@@ -71,8 +72,7 @@ export function AvaliacaoTreinoDialog({
           observacao: observacao.trim() || null,
           ...(detalhesExecucao !== undefined ? { detalhes_execucao: detalhesExecucao } : {}),
         })
-        .eq("id", registroId);
-      if (error) throw error;
+        .eq("id", registroId).select("id"));
     },
     onSuccess: () => {
       toast({

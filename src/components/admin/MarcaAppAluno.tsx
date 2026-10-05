@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { exigirGravacao } from "@/lib/gravacao";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -65,14 +66,15 @@ export function MarcaAppAluno({ organizationId }: { organizationId: string }) {
         };
         icones = { icone_app_192_url: await enviar(i192, 192), icone_app_512_url: await enviar(i512, 512) };
       }
-      const { data, error } = await supabase
-        .from("organizations")
-        .update({ cor_marca: dados.cor, ...(icones ?? {}) })
-        .eq("id", organizationId)
-        .select("id");
-      if (error) throw error;
       // Sem linha alterada é o RLS recusando em silêncio: só a gestão altera.
-      if (!data?.length) throw new Error("Só a gestão da academia altera a marca.");
+      await exigirGravacao(
+        supabase
+          .from("organizations")
+          .update({ cor_marca: dados.cor, ...(icones ?? {}) })
+          .eq("id", organizationId)
+          .select("id"),
+        "Só a gestão da academia altera a marca."
+      );
       return { comIcone: !!icones };
     },
     onSuccess: ({ comIcone }) => {

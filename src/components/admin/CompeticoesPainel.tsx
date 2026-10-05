@@ -2,6 +2,7 @@ import { hojeBrasilia, formatarDataBR } from "@/lib/dataBrasilia";
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { exigirGravacao } from "@/lib/gravacao";
 import { todasAsLinhas } from "@/lib/paginar";
 import { perfisDosUsuarios } from "@/lib/perfis";
 import { useAuth } from "@/contexts/AuthContext";
@@ -157,8 +158,7 @@ export function CompeticoesPainel() {
 
       let competicaoId: string;
       if (editando) {
-        const { error } = await supabase.from("competicoes").update(payload).eq("id", editando.id);
-        if (error) throw error;
+        await exigirGravacao(supabase.from("competicoes").update(payload).eq("id", editando.id).select("id"));
         competicaoId = editando.id;
       } else {
         const { data, error } = await supabase.from("competicoes").insert(payload).select("id").single();

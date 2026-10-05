@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { NADA_GRAVADO, exigirGravacao } from "@/lib/gravacao";
 import { porLotes, todasAsLinhas } from "@/lib/paginar";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -93,8 +94,7 @@ export function AcervoPainel() {
       // global compartilhada com as outras academias — sempre cria uma
       // cópia da própria organização, já com as mudanças aplicadas.
       if (form.id && !form.origemPadraoId) {
-        const { error } = await supabase.from("exercicios_biblioteca").update(payload).eq("id", form.id);
-        if (error) throw error;
+        await exigirGravacao(supabase.from("exercicios_biblioteca").update(payload).eq("id", form.id).select("id"));
       } else {
         const { error } = await supabase
           .from("exercicios_biblioteca")
@@ -115,8 +115,7 @@ export function AcervoPainel() {
 
   const alternarAtivo = useMutation({
     mutationFn: async (ex: ExercicioBiblioteca) => {
-      const { error } = await supabase.from("exercicios_biblioteca").update({ ativo: !ex.ativo }).eq("id", ex.id);
-      if (error) throw error;
+      await exigirGravacao(supabase.from("exercicios_biblioteca").update({ ativo: !ex.ativo }).eq("id", ex.id).select("id"));
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["exercicios-biblioteca-acervo", organization?.id] });
@@ -192,13 +191,17 @@ export function AcervoPainel() {
           .filter((i) => i.nome_exercicio.trim().toLowerCase() === nomeAntigoNormalizado)
           .map((i) => i.id);
         if (idsParaAtualizar.length > 0) {
-          await porLotes(idsParaAtualizar, (lote) =>
+          const gravadas = await porLotes(idsParaAtualizar, (lote) =>
             supabase
               .from("modelo_treino_exercicios")
               .update({ nome_exercicio: novo.nome, grupo_muscular: [novo.grupo_muscular] })
               .in("id", lote)
+              .select("id")
           );
-          fichasAtualizadas = idsParaAtualizar.length;
+          // A regra de acesso recusa em silêncio: sem a contagem, uma ficha
+          // que não mudou passaria por atualizada.
+          if (gravadas.length < idsParaAtualizar.length) throw new Error(NADA_GRAVADO);
+          fichasAtualizadas = gravadas.length;
         }
       }
 
@@ -227,11 +230,10 @@ export function AcervoPainel() {
           return item;
         });
         if (mudou) {
-          const { error } = await supabase
+          await exigirGravacao(supabase
             .from("treinos")
             .update({ snapshot_conteudo: novoConteudo as never })
-            .eq("id", treino.id);
-          if (error) throw error;
+            .eq("id", treino.id).select("id"));
           treinosAtualizados++;
         }
       }

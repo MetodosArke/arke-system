@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { NADA_GRAVADO } from "@/lib/gravacao";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
@@ -190,7 +191,7 @@ export function EtapaDados({ onSalvo }: { onSalvo: () => void }) {
       const endereco = [`${form.logradouro.trim()}, ${form.numero.trim()}`, form.complemento.trim(), form.bairro.trim(), `${form.cidade.trim()}/${form.uf.trim().toUpperCase()}`]
         .filter(Boolean)
         .join(" — ");
-      const { error } = await supabase
+      const { data: gravada, error } = await supabase
         .from("organizations")
         .update({
           cnpj_cpf: form.cnpj.replace(/\D/g, ""),
@@ -211,11 +212,13 @@ export function EtapaDados({ onSalvo }: { onSalvo: () => void }) {
           uf: form.uf.trim().toUpperCase(),
           endereco,
         })
-        .eq("id", organization!.id);
+        .eq("id", organization!.id)
+        .select("id");
       if (error) {
         if (error.code === "23505") throw new Error("Esse endereço de link já é usado por outra academia. Escolha outro.");
         throw error;
       }
+      if (!gravada?.length) throw new Error(NADA_GRAVADO);
     },
     onSuccess: () => {
       toast({ title: "Dados salvos" });

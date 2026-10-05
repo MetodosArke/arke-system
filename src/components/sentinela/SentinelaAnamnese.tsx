@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { exigirGravacao } from "@/lib/gravacao";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -100,12 +101,14 @@ export function ConsentimentoSentinela({
       if (autorizar) {
         // Revoga o que houver de versão antiga antes de gravar a nova: o
         // índice de unicidade é por aluno e propósito entre os não revogados.
-        await supabase
+        // Pode não haver nada a revogar: zero linhas aqui é o normal.
+        const { error: erroRevogar } = await supabase
           .from("aluno_consentimento_ia")
           .update({ revogado_em: new Date().toISOString() })
           .eq("aluno_id", alunoId)
           .eq("proposito", proposito)
           .is("revogado_em", null);
+        if (erroRevogar) throw erroRevogar;
         const { error } = await supabase
           .from("aluno_consentimento_ia")
           .insert({ aluno_id: alunoId, organization_id: organizationId, proposito });
@@ -113,13 +116,12 @@ export function ConsentimentoSentinela({
       } else {
         // Revogar, não apagar: o registro de que houve autorização e de quando
         // ela foi retirada é o que prova depois que a regra foi seguida.
-        const { error } = await supabase
+        await exigirGravacao(supabase
           .from("aluno_consentimento_ia")
           .update({ revogado_em: new Date().toISOString() })
           .eq("aluno_id", alunoId)
           .eq("proposito", proposito)
-          .is("revogado_em", null);
-        if (error) throw error;
+          .is("revogado_em", null).select("id"));
       }
     },
     onSuccess: (_, { autorizar }) => {

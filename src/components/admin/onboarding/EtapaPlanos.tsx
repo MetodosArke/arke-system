@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { exigirGravacao } from "@/lib/gravacao";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { Input } from "@/components/ui/input";
@@ -42,8 +43,7 @@ export function EtapaPlanos({ onSalvo }: { onSalvo: () => void }) {
     mutationFn: async ({ id, ativo }: { id: string; ativo: boolean }) => {
       const valor = Number((valores[id] ?? "").replace(/\./g, "").replace(",", "."));
       if (!Number.isFinite(valor) || valor <= 0) throw new Error("Informe um valor maior que zero.");
-      const { error } = await supabase.from("planos_academia").update({ valor, ativo }).eq("id", id);
-      if (error) throw error;
+      await exigirGravacao(supabase.from("planos_academia").update({ valor, ativo }).eq("id", id).select("id"));
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["onboarding-planos", organization?.id] });

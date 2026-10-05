@@ -3,6 +3,7 @@ import { AtacadoMetodo, CanaisSuporte, EmailComercial, PrecosPlanosB2b } from "@
 import { VersaoMinimaGateway } from "@/components/superadmin/VersaoMinimaGateway";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { exigirGravacao } from "@/lib/gravacao";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
@@ -52,11 +53,10 @@ export default function SuperAdminConfiguracoes() {
         if (bruto === undefined) continue;
         const valor = lerReais(bruto);
         if (!Number.isFinite(valor) || valor < 0) throw new Error(`Valor inválido para ${chave}.`);
-        const { error } = await supabase
+        await exigirGravacao(supabase
           .from("plataforma_config")
           .update({ valor, updated_by: user?.id })
-          .eq("chave", chave);
-        if (error) throw error;
+          .eq("chave", chave).select("id"));
       }
     },
     onSuccess: () => {

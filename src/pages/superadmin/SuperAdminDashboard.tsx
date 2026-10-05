@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { exigirGravacao } from "@/lib/gravacao";
 import { mensagemDeErroEdge } from "@/lib/erroEdge";
 import { useTrialDias } from "@/lib/trial";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -233,11 +234,10 @@ export default function SuperAdminDashboard() {
       if (payload.cnpj_cpf !== undefined) update.cnpj_cpf = payload.cnpj_cpf;
       if (payload.telefone !== undefined) update.telefone = payload.telefone;
       if (payload.trial_vencimento !== undefined) update.trial_vencimento = payload.trial_vencimento;
-      const { error } = await supabase
+      await exigirGravacao(supabase
         .from("organizations")
         .update(update)
-        .eq("id", payload.organizationId);
-      if (error) throw error;
+        .eq("id", payload.organizationId).select("id"));
     },
     onSuccess: () => {
       toast({ title: "Academia atualizada." });

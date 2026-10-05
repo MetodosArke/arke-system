@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { exigirGravacao } from "@/lib/gravacao";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -38,8 +39,7 @@ export function MetasAluno({
         throw new Error(`A meta de água deve ficar entre ${AGUA_MIN} e ${AGUA_MAX} ml.`);
       }
       if (!Number.isInteger(d) || d < 1 || d > 7) throw new Error("A meta de treino deve ficar entre 1 e 7 dias.");
-      const { error } = await supabase.from("alunos").update({ meta_agua_ml: ml, meta_semanal_dias: d }).eq("id", alunoId);
-      if (error) throw error;
+      await exigirGravacao(supabase.from("alunos").update({ meta_agua_ml: ml, meta_semanal_dias: d }).eq("id", alunoId).select("id"));
     },
     onSuccess: () => {
       toast({ title: "Metas atualizadas", description: "O aluno já vê as novas metas no app." });

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { exigirGravacao } from "@/lib/gravacao";
 import { mensagemDeErroEdge } from "@/lib/erroEdge";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -150,8 +151,7 @@ export default function AdminCatracas() {
 
   const alternarStatus = useMutation({
     mutationFn: async ({ id, status }: { id: string; status: "ativo" | "inativo" }) => {
-      const { error } = await supabase.from("organizacao_catracas").update({ status }).eq("id", id);
-      if (error) throw error;
+      await exigirGravacao(supabase.from("organizacao_catracas").update({ status }).eq("id", id).select("id"));
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["admin-catracas", organization?.id] });

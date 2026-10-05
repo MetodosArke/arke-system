@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { exigirGravacao } from "@/lib/gravacao";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -74,11 +75,10 @@ export function RepasseOrganizacao({ organizationId }: { organizationId: string 
 
   const salvar = useMutation({
     mutationFn: async () => {
-      const { error } = await supabase
+      await exigirGravacao(supabase
         .from("organizations")
         .update({ repasse_tipo: tipo, repasse_valor: numero })
-        .eq("id", organizationId);
-      if (error) throw error;
+        .eq("id", organizationId).select("id"));
     },
     onSuccess: () => {
       toast({
@@ -265,12 +265,11 @@ function ExcecoesPorNivel({
       if (!vazio && (!Number.isFinite(n) || n < 0 || (r.tipo === "percentual" && n > 100))) {
         throw new Error("Valor inválido para este tipo de repasse.");
       }
-      const { error } = await supabase
+      await exigirGravacao(supabase
         .from("organization_planos_precificacao")
         .update({ repasse_tipo: vazio ? null : r.tipo, repasse_valor: vazio ? null : n })
         .eq("organization_id", organizationId)
-        .eq("nivel_atacado", nivel as never);
-      if (error) throw error;
+        .eq("nivel_atacado", nivel as never).select("id"));
     },
     onSuccess: () => {
       toast({ title: "Exceção atualizada", description: "Vale para assinaturas novas desse nível." });

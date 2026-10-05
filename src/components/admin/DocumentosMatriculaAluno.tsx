@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { exigirGravacao } from "@/lib/gravacao";
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -41,8 +42,7 @@ export function DocumentosMatriculaAluno({ alunoId, organizationId }: { alunoId:
 
   const salvarValidade = useMutation({
     mutationFn: async () => {
-      const { error } = await supabase.from("aluno_parq").update({ atestado_validade: validade || null }).eq("aluno_id", alunoId);
-      if (error) throw error;
+      await exigirGravacao(supabase.from("aluno_parq").update({ atestado_validade: validade || null }).eq("aluno_id", alunoId).select("id"));
     },
     onSuccess: () => {
       toast({ title: "Validade do atestado registrada" });

@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { exigirGravacao } from "@/lib/gravacao";
 import { todasAsLinhas } from "@/lib/paginar";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -256,8 +257,7 @@ export default function AdminDashboard() {
   const assumirTarefa = useMutation({
     mutationFn: async (tarefaId: string) => {
       if (!user) throw new Error("Usuário não autenticado");
-      const { error } = await supabase.from("tarefas").update({ responsavel_id: user.id }).eq("id", tarefaId);
-      if (error) throw error;
+      await exigirGravacao(supabase.from("tarefas").update({ responsavel_id: user.id }).eq("id", tarefaId).select("id"));
     },
     onSuccess: () => {
       toast({ title: "Pendência assumida", description: "Ela agora está na sua fila." });
@@ -271,11 +271,10 @@ export default function AdminDashboard() {
   const concluirTarefa = useMutation({
     mutationFn: async () => {
       if (!tarefaSelecionada) return;
-      const { error } = await supabase
+      await exigirGravacao(supabase
         .from("tarefas")
         .update({ status: "concluida", desfecho_acao: desfecho })
-        .eq("id", tarefaSelecionada.id);
-      if (error) throw error;
+        .eq("id", tarefaSelecionada.id).select("id"));
     },
     onSuccess: () => {
       toast({ title: "Tarefa encerrada", description: "Desfecho registrado com sucesso." });
@@ -295,11 +294,10 @@ export default function AdminDashboard() {
   const agendarTarefa = useMutation({
     mutationFn: async () => {
       if (!tarefaAgendar || !dataAgendadaInput) return;
-      const { error } = await supabase
+      await exigirGravacao(supabase
         .from("tarefas")
         .update({ data_agendada: new Date(dataAgendadaInput).toISOString() })
-        .eq("id", tarefaAgendar.id);
-      if (error) throw error;
+        .eq("id", tarefaAgendar.id).select("id"));
     },
     onSuccess: () => {
       toast({ title: "Agendado!", description: "O aluno já vê essa data no app dele." });

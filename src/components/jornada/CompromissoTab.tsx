@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { exigirGravacao } from "@/lib/gravacao";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent } from "@/components/ui/card";
@@ -126,8 +127,7 @@ export default function CompromissoTab() {
 
   const toggleMeta = useMutation({
     mutationFn: async ({ id, concluida }: { id: string; concluida: boolean }) => {
-      const { error } = await supabase.from("compromisso_metas").update({ concluida }).eq("id", id);
-      if (error) throw error;
+      await exigirGravacao(supabase.from("compromisso_metas").update({ concluida }).eq("id", id).select("id"));
     },
     onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["compromisso-metas", compromisso?.id] }),
   });

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { exigirGravacao } from "@/lib/gravacao";
 import { useToast } from "@/hooks/use-toast";
 import { mensagemDeErroEdge } from "@/lib/erroEdge";
 import { Button } from "@/components/ui/button";
@@ -97,8 +98,7 @@ export function MensalidadeB2bOrganizacao({ organizationId }: { organizationId: 
     mutationFn: async (texto: string) => {
       const numero = texto.trim() ? Number(texto.replace(/\./g, "").replace(",", ".")) : null;
       if (numero !== null && (!Number.isFinite(numero) || numero < 0)) throw new Error("Valor inválido.");
-      const { error } = await supabase.from("organizations").update({ valor_mensal_b2b: numero }).eq("id", organizationId);
-      if (error) throw error;
+      await exigirGravacao(supabase.from("organizations").update({ valor_mensal_b2b: numero }).eq("id", organizationId).select("id"));
     },
     onSuccess: () => {
       toast({ title: "Valor salvo", description: "Vale para a próxima assinatura. Uma assinatura já criada continua no valor dela até você levar o valor novo, logo abaixo." });

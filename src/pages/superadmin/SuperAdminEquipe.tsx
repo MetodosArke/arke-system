@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { exigirGravacao } from "@/lib/gravacao";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -81,11 +82,10 @@ export default function SuperAdminEquipe() {
 
   const mudarExigencia = useMutation({
     mutationFn: async (ligar: boolean) => {
-      const { error } = await supabase
+      await exigirGravacao(supabase
         .from("plataforma_config")
         .update({ valor: ligar ? 1 : 0 })
-        .eq("chave", "exigir_registro_metodo");
-      if (error) throw error;
+        .eq("chave", "exigir_registro_metodo").select("id"));
     },
     onSuccess: (_d, ligar) => {
       toast({
