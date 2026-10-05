@@ -1,7 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
-import webpush from "npm:web-push@3.6.7";
-import { Buffer } from "node:buffer";
-import { createECDH } from "node:crypto";
+import { agrupamentoDaConversa, VALIDADE_SEG } from "../_shared/avisoPush.ts";
+import { enviarAvisos } from "../_shared/push.ts";
 import { dentroDoFreio, MENSAGEM_FREIO } from "../_shared/freio.ts";
 import { caminhoDoApp, papeisDaEquipe, podeAvisarPessoa, TEXTO_MAXIMO, textoDoAviso, TITULO_MAXIMO } from "./regras.ts";
 import { servir } from "../_shared/servir.ts";
@@ -25,6 +24,8 @@ interface Payload {
   title: string;
   body: string;
   url?: string;
+  /** `treino:<aluno>` ou `dieta:<dieta>`: agrupa os avisos da mesma conversa no aparelho. */
+  conversa?: string;
 }
 
 servir("send-chat-push", async (req: Request) => {
@@ -55,13 +56,6 @@ servir("send-chat-push", async (req: Request) => {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-
-    const vapidPublicKey = deriveVapidPublicKey(vapidPrivateKey);
-    webpush.setVapidDetails(
-      "mailto:noreply@metodosarke.com.br",
-      vapidPublicKey,
-      vapidPrivateKey,
-    );
 
     const body = (await req.json()) as Payload;
     const { recipientUserId, recipientOrgId, recipientOrgRoles } = body || ({} as Payload);
@@ -164,10 +158,17 @@ servir("send-chat-push", async (req: Request) => {
       });
     }
 
-    const { data: subscriptions } = await supabase
+    const { data: subscriptions, error: erroInscricoes } = await supabase
       .from("push_subscriptions")
       .select("user_id, endpoint, p256dh, auth")
       .in("user_id", targetUserIds);
+    if (erroInscricoes) {
+      console.error("send-chat-push: inscrições indisponíveis", erroInscricoes.code);
+      return new Response(JSON.stringify({ error: "Não foi possível avisar agora." }), {
+        status: 502,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     if (!subscriptions || subscriptions.length === 0) {
       return new Response(JSON.stringify({ sent: 0, reason: "no subscriptions" }), {
@@ -175,62 +176,25 @@ servir("send-chat-push", async (req: Request) => {
       });
     }
 
-    let sent = 0;
-    const payloadStr = JSON.stringify({ title, body: msgBody, url });
-
-    for (const sub of subscriptions) {
-      try {
-        await webpush.sendNotification(
-          { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
-          payloadStr,
-        );
-        sent++;
-      } catch (e) {
-        const err = e as { body?: unknown; message?: string; statusCode?: number };
-        const errBody = String(err.body || err.message || "");
-        const shouldDelete =
-          err.statusCode === 410 ||
-          err.statusCode === 404 ||
-          (err.statusCode === 403 && errBody.toLowerCase().includes("vapid credentials"));
-        console.error(`Push failed (${err.statusCode}):`, errBody);
-        if (shouldDelete) {
-          await supabase
-            .from("push_subscriptions")
-            .delete()
-            .eq("endpoint", sub.endpoint)
-            .eq("user_id", sub.user_id);
-        }
-      }
-    }
+    // Mesma conversa, mesmo grupo: no aparelho o aviso novo substitui o
+    // anterior, e com o aparelho desligado só o último fica guardado.
+    const grupo = agrupamentoDaConversa(body?.conversa);
+    const { enviados: sent } = await enviarAvisos(
+      supabase,
+      subscriptions,
+      { title, body: msgBody, url, tag: grupo?.etiqueta },
+      { validadeSeg: VALIDADE_SEG.chat, topico: grupo?.topico, urgencia: "high" },
+    );
 
     return new Response(JSON.stringify({ success: true, sent }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error) {
-    console.error("send-chat-push error:", error);
-    return new Response(JSON.stringify({ error: error instanceof Error ? error.message : String(error) }), {
+    // Só o tipo vai para o log, e a resposta não ecoa a mensagem do erro.
+    console.error("send-chat-push: erro inesperado", error instanceof Error ? error.name : typeof error);
+    return new Response(JSON.stringify({ error: "Erro inesperado." }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 });
-
-function deriveVapidPublicKey(privateKey: string): string {
-  const ecdh = createECDH("prime256v1");
-  ecdh.setPrivateKey(base64UrlToBuffer(privateKey));
-  return toBase64Url(ecdh.getPublicKey(undefined, "uncompressed"));
-}
-
-function base64UrlToBuffer(value: string): Buffer {
-  const normalized = value.replace(/-/g, "+").replace(/_/g, "/");
-  const padding = "=".repeat((4 - (normalized.length % 4)) % 4);
-  return Buffer.from(`${normalized}${padding}`, "base64");
-}
-
-function toBase64Url(value: Uint8Array): string {
-  return Buffer.from(value)
-    .toString("base64")
-    .replace(/\+/g, "-")
-    .replace(/\//g, "_")
-    .replace(/=+$/u, "");
-}

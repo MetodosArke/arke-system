@@ -32,6 +32,12 @@ self.addEventListener('push', function(event) {
     },
     actions: [],
   };
+  // Mesma etiqueta (a mesma conversa, o mesmo comunicado): o aviso novo
+  // substitui o anterior na bandeja, e o celular avisa de novo.
+  if (typeof data.tag === 'string' && data.tag.length <= 64) {
+    options.tag = data.tag;
+    options.renotify = true;
+  }
 
   event.waitUntil(
     self.registration.showNotification(data.title || 'Arke', options)

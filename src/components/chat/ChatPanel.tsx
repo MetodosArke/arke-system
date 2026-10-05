@@ -172,6 +172,7 @@ export function ChatPanel({ organizationId, alunoId, viewerType, type, dietaId, 
         title: type === "treino" ? "Nova mensagem no chat de treino" : "Nova mensagem no chat de nutrição",
         body: texto.slice(0, 140),
         url: type === "treino" ? "/#/app/treinos" : "/#/app/dieta",
+        conversa: type === "treino" ? `treino:${alunoId}` : `dieta:${activeDietaId}`,
       });
     },
     onSuccess: () => {
@@ -210,6 +211,7 @@ export function ChatPanel({ organizationId, alunoId, viewerType, type, dietaId, 
         title: "Novo vídeo no chat de treino",
         body: "📹 Vídeo enviado",
         url: "/#/app/treinos",
+        conversa: `treino:${alunoId}`,
       });
       invalidar();
     } catch (err) {

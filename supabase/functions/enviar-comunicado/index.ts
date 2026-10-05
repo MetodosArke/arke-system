@@ -1,7 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
-import webpush from "npm:web-push@3.6.7";
-import { Buffer } from "node:buffer";
-import { createECDH } from "node:crypto";
+import { validadeDoComunicado } from "../_shared/avisoPush.ts";
+import { enviarAvisos } from "../_shared/push.ts";
 import { dentroDoFreio } from "../_shared/freio.ts";
 import { todasAsLinhas } from "../_shared/paginar.ts";
 import { servir } from "../_shared/servir.ts";
@@ -127,41 +126,34 @@ servir("enviar-comunicado", async (req: Request) => {
     // Lista de ids em lotes: 800 ids no endereço da consulta já voltam 400.
     const inscricoes: { user_id: string; endpoint: string; p256dh: string; auth: string }[] = [];
     for (let i = 0; i < alvo.length; i += 200) {
-      const { data } = await admin
+      const { data, error } = await admin
         .from("push_subscriptions")
         .select("user_id, endpoint, p256dh, auth")
         .in("user_id", alvo.slice(i, i + 200));
+      // O comunicado já foi publicado; sem as inscrições, só o aviso no celular não sai.
+      if (error) {
+        console.error("enviar-comunicado: inscrições indisponíveis", error.code);
+        return jsonResponse({ ok: true, enviados: 0 });
+      }
       inscricoes.push(...(data ?? []));
     }
     if (!inscricoes.length) return jsonResponse({ ok: true, enviados: 0 });
 
-    webpush.setVapidDetails("mailto:noreply@arkefit.com.br", chavePublica(vapidPrivateKey), vapidPrivateKey);
-    const carga = JSON.stringify({ title: titulo.trim(), body: mensagem.trim().slice(0, 180), url: publico === "equipe" ? "/#/admin" : "/#/app" });
-
-    let enviados = 0;
-    for (const s of inscricoes) {
-      try {
-        await webpush.sendNotification({ endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } }, carga);
-        enviados++;
-      } catch (err) {
-        const e = err as { statusCode?: number };
-        if (e.statusCode === 404 || e.statusCode === 410) {
-          await admin.from("push_subscriptions").delete().eq("endpoint", s.endpoint).eq("user_id", s.user_id);
-        } else {
-          console.error("enviar-comunicado: push falhou", e.statusCode);
-        }
-      }
-    }
+    // O aviso vale até o comunicado expirar; o mesmo comunicado não empilha.
+    const { enviados } = await enviarAvisos(
+      admin,
+      inscricoes,
+      {
+        title: titulo.trim(),
+        body: mensagem.trim().slice(0, 180),
+        url: publico === "equipe" ? "/#/admin" : "/#/app",
+        tag: `comunicado:${comunicado.id}`,
+      },
+      { validadeSeg: validadeDoComunicado(expiraEm) },
+    );
     return jsonResponse({ ok: true, enviados });
   } catch (erro) {
     console.error("enviar-comunicado: erro inesperado", erro instanceof Error ? erro.name : typeof erro);
     return jsonResponse({ error: "Erro inesperado. Tente de novo." }, 500);
   }
 });
-
-function chavePublica(privada: string): string {
-  const ecdh = createECDH("prime256v1");
-  const normalizada = privada.replace(/-/g, "+").replace(/_/g, "/");
-  ecdh.setPrivateKey(Buffer.from(normalizada + "=".repeat((4 - (normalizada.length % 4)) % 4), "base64"));
-  return Buffer.from(ecdh.getPublicKey(undefined, "uncompressed")).toString("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/u, "");
-}
