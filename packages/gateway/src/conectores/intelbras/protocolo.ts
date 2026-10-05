@@ -192,18 +192,33 @@ export function lerChaveValor(corpo: unknown): Record<string, string> {
 const DATA_INICIO = "2020-01-01 00:00:00";
 const DATA_FIM = "2037-12-31 23:59:59";
 
+/** Usuário comum. */
+export const USUARIO_COMUM = 0;
+/**
+ * Usuário bloqueado: o terminal não libera, nem sem o servidor. Confirmado
+ * pela Intelbras em 05/10/2026 ("usuários bloqueados ou fora de validade não
+ * têm acesso ao local").
+ */
+export const USUARIO_BLOQUEADO = 1;
+/**
+ * NUNCA usar: o 5 é usuário de ACESSIBILIDADE, e não "desativado". Até a
+ * 1.8.0 o Gateway gravava 5 em quem a academia barrou, e o aluno pausado ou
+ * inadimplente virava usuário de acessibilidade no terminal (Intelbras,
+ * 05/10/2026). Nenhuma academia usava Intelbras.
+ */
+export const USUARIO_ACESSIBILIDADE = 5;
+
 /**
  * O aluno no terminal. O nome é "Aluno", e não o da pessoa: o display é
- * público. `UserType` 5 é "desativado", e o terminal recusa sozinho; é como
- * o Gateway espelha quem a academia barrou (pausado, inadimplente fora da
- * tolerância), para o caso de o terminal ficar sem o Gateway (decisão do
- * responsável de 02/10/2026).
+ * público. Quem a academia barrou (pausado, inadimplente fora da tolerância)
+ * vai como bloqueado, para o caso de o terminal ficar sem o Gateway (decisão
+ * do responsável de 02/10/2026).
  */
-export function usuarioDoAluno(userId: number | string, desativado = false): Objeto {
+export function usuarioDoAluno(userId: number | string, bloqueado = false): Objeto {
   return {
     UserID: String(userId),
     UserName: "Aluno",
-    UserType: desativado ? 5 : 0,
+    UserType: bloqueado ? USUARIO_BLOQUEADO : USUARIO_COMUM,
     UserStatus: 0,
     Authority: 2,
     Doors: [0],

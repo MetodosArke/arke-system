@@ -16,7 +16,8 @@
  *
  * O que ele NÃO substitui: o reconhecimento do rosto e da digital, o tempo
  * real de resposta do terminal, o relé ligado à catraca e o que o terminal
- * faz sem o servidor (se respeita o usuário desativado). Isso é bancada.
+ * faz sem o servidor (a Intelbras confirmou em 05/10/2026 que o bloqueado,
+ * `UserType` 1, não entra). Isso é bancada.
  *
  * Uso:
  *   node scripts/emulador-intelbras.mjs --http 8090 --senha admin123
@@ -54,6 +55,13 @@ const rostos = new Map();
 let servidor = null; // { host, porta } que o Gateway configurou
 let modoOnline = false;
 let keepalive = null;
+
+// UserType: 0 comum, 1 bloqueado, 5 acessibilidade (Intelbras, 05/10/2026).
+function rotulo(u) {
+  if (u.UserType === 1) return " (bloqueado)";
+  if (u.UserType === 5) return " (ACESSIBILIDADE)";
+  return "";
+}
 
 const log = (...a) => console.log(new Date().toISOString().slice(11, 19), ...a);
 
@@ -98,13 +106,13 @@ function atender(uri, corpo) {
     if (acao === "insertMulti") {
       if (lista.some((u) => usuarios.has(String(u.UserID)))) return ERRO;
       for (const u of lista) usuarios.set(String(u.UserID), u);
-      log(`USUÁRIO cadastrado: ${lista.map((u) => `${u.UserID}${u.UserType === 5 ? " (desativado)" : ""}`).join(", ")}`);
+      log(`USUÁRIO cadastrado: ${lista.map((u) => `${u.UserID}${rotulo(u)}`).join(", ")}`);
       return OK;
     }
     if (acao === "updateMulti") {
       if (lista.some((u) => !usuarios.has(String(u.UserID)))) return ERRO;
       for (const u of lista) usuarios.set(String(u.UserID), u);
-      log(`USUÁRIO atualizado: ${lista.map((u) => `${u.UserID}${u.UserType === 5 ? " (desativado)" : " (ativo)"}`).join(", ")}`);
+      log(`USUÁRIO atualizado: ${lista.map((u) => `${u.UserID}${rotulo(u) || " (comum)"}`).join(", ")}`);
       return OK;
     }
     if (acao === "removeMulti") {
@@ -226,7 +234,7 @@ async function executar(linha) {
     ]), "multipart/mixed; boundary=myboundary").catch((e) => ({ texto: `{"erro":"${e.message}"}` }));
     return log(`HISTÓRICO enviado (entrada de 1 h atrás) → ${r.texto}`);
   }
-  if (cmd === "u") return log(`USUÁRIOS: ${[...usuarios.values()].map((u) => `${u.UserID}${u.UserType === 5 ? " (desativado)" : ""}${rostos.has(String(u.UserID)) ? " +rosto" : ""}`).join(", ") || "nenhum"}`);
+  if (cmd === "u") return log(`USUÁRIOS: ${[...usuarios.values()].map((u) => `${u.UserID}${rotulo(u)}${rostos.has(String(u.UserID)) ? " +rosto" : ""}`).join(", ") || "nenhum"}`);
   if (cmd === "sair") process.exit(0);
   log(`Comando desconhecido: ${cmd}`);
 }
