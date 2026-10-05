@@ -21,10 +21,18 @@ type GerarLinkPayload = {
 // Sem 0/O/1/l/I para evitar confusão ao digitar/ler o código.
 const ALFABETO_CODIGO_CURTO = "23456789ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz";
 
+// O código abre a definição de senha de uma conta, então sai do gerador
+// criptográfico, e não de Math.random, cuja sequência dá para prever. Sem
+// viés: o byte acima do último múltiplo do tamanho do alfabeto é descartado,
+// senão as primeiras letras sairiam mais que as outras.
 function gerarCodigoCurto(tamanho = 8): string {
+  const n = ALFABETO_CODIGO_CURTO.length;
+  const limite = 256 - (256 % n);
   let codigo = "";
-  for (let i = 0; i < tamanho; i++) {
-    codigo += ALFABETO_CODIGO_CURTO[Math.floor(Math.random() * ALFABETO_CODIGO_CURTO.length)];
+  while (codigo.length < tamanho) {
+    for (const byte of crypto.getRandomValues(new Uint8Array(tamanho * 2))) {
+      if (byte < limite && codigo.length < tamanho) codigo += ALFABETO_CODIGO_CURTO[byte % n];
+    }
   }
   return codigo;
 }

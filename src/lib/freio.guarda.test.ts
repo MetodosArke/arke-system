@@ -68,9 +68,17 @@ describe("quem matricula e quem mexe na conta de outra pessoa", () => {
     }
   });
 
-  it("simular perfil, trocar e-mail e gerar link conferem se a pessoa está só nesta academia", () => {
-    for (const n of ["impersonar-perfil", "editar-membro-equipe", "gerar-link-ativacao"]) {
+  it("trocar e-mail e gerar link conferem se a pessoa está só nesta academia", () => {
+    for (const n of ["editar-membro-equipe", "gerar-link-ativacao"]) {
       expect(ler(n), n).toMatch(/alvoSoNaAcademia\(/);
     }
+  });
+
+  it("só a ArkeFit simula perfil, e recusa antes de olhar o perfil de destino", () => {
+    const codigo = ler("impersonar-perfil");
+    expect(codigo).not.toMatch(/role === "gestor"/);
+    const recusa = codigo.indexOf("if (!callerIsAdminArke && !callerIsSuperadmin)");
+    expect(recusa).toBeGreaterThan(0);
+    expect(recusa).toBeLessThan(codigo.indexOf(".eq(\"user_id\", targetUserId)"));
   });
 });

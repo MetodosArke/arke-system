@@ -132,7 +132,10 @@ Deno.serve(async (req: Request) => {
 
     let resposta: string | null = null;
     let usouIa = false;
-    if (ligado("assistente_ia")) {
+    // Sem trecho da Central, o modelo não é chamado: ele responderia sem base,
+    // e "use só o que está nos trechos" não segura um modelo sem trecho. A tela
+    // diz que não achou e oferece o chamado, e os cartões da situação seguem.
+    if (ligado("assistente_ia") && achados.length > 0) {
       // Sem a lista de nomes da academia, a pergunta não vai ao modelo: sairia
       // do Brasil com o nome que alguém tivesse digitado.
       const { data: nomes, error: nomesError } = await admin.rpc("nomes_para_anonimizar", { _organization_id: orgId });
@@ -185,9 +188,25 @@ Deno.serve(async (req: Request) => {
 
       const resposta = typeof payload.resposta === "string" ? payload.resposta.trim().slice(0, 2000) || null : null;
       const artigos = Array.isArray(payload.artigos) ? payload.artigos.filter((a) => typeof a === "string" && /^[a-z0-9-]{2,60}$/.test(a)).slice(0, 6) : [];
+
+      // A situação do sistema na hora do chamado, lida de novo aqui (o que a
+      // tela manda não vale como prova) e no resumo sem nome de pessoa, o mesmo
+      // que vai ao modelo. Sem ela, a ArkeFit abria o chamado sem saber o que
+      // a pessoa estava vendo. Falha na leitura não segura o chamado.
+      const alunoCitado = (payload.aluno ?? "").trim().slice(0, 80);
+      const intencoesChamado = detectarIntencoes(pergunta);
+      const { data: ctxChamado, error: ctxChamadoError } = await asUser.rpc("assistente_contexto", {
+        _organization_id: orgId,
+        _intencoes: intencoesChamado,
+        _aluno: alunoCitado || null,
+      });
+      if (ctxChamadoError) console.error("assistente_contexto (chamado)", ctxChamadoError.code);
+      const situacao = ctxChamadoError || !ctxChamado ? null : resumoSituacao(ctxChamado as Contexto, new Date()) || null;
+      const contexto = { intencoes: intencoesChamado, aluno_citado: !!alunoCitado, situacao };
+
       const { data: chamado, error } = await admin
         .from("chamados_suporte")
-        .insert({ organization_id: orgId, user_id: userId, papel, pergunta, resposta_assistente: resposta, artigos })
+        .insert({ organization_id: orgId, user_id: userId, papel, pergunta, resposta_assistente: resposta, artigos, contexto })
         .select("id, prazo")
         .single();
       if (error || !chamado) {
@@ -195,11 +214,11 @@ Deno.serve(async (req: Request) => {
         return jsonResponse({ error: "Não foi possível abrir o chamado. Tente de novo." }, 500);
       }
 
-      const aviso = await avisarArkefit(chamado.prazo as string, resposta, artigos);
+      const aviso = await avisarArkefit(chamado.prazo as string, resposta, artigos, situacao);
       return jsonResponse({ chamado_id: chamado.id, prazo: chamado.prazo, aviso });
     }
 
-    async function avisarArkefit(prazo: string, resposta: string | null, artigos: string[]): Promise<string | null> {
+    async function avisarArkefit(prazo: string, resposta: string | null, artigos: string[], situacao: string | null): Promise<string | null> {
       const resendKey = Deno.env.get("RESEND_API_KEY");
       if (!resendKey) return "O chamado foi registrado, mas o aviso por e-mail não está configurado.";
       const { data: usuario } = await admin.auth.admin.getUserById(userId!);
@@ -222,6 +241,7 @@ Deno.serve(async (req: Request) => {
         pergunta,
         resposta,
         artigos,
+        situacao,
         prazo: prazoTexto,
         site: Deno.env.get("SITE_URL") ?? "https://app.arkefit.com.br",
       });

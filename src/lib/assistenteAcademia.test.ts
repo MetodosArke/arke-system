@@ -183,5 +183,24 @@ describe("o e-mail do chamado", () => {
     expect(e.texto).toContain("https://app.arkefit.com.br/#/superadmin/suporte");
     expect(e.html).toContain("A catraca &lt;não&gt; libera");
     expect(e.html).not.toContain("<não>");
+    expect(e.texto).not.toContain("Situação no sistema");
+  });
+
+  it("leva a situação do sistema quando o chamado foi aberto", () => {
+    const e = montarEmailChamado({
+      organizacao: "Academia",
+      autonomo: false,
+      nome: "Ana",
+      email: "ana@exemplo.com",
+      papel: "gestor",
+      pergunta: "A catraca parou",
+      resposta: null,
+      artigos: [],
+      situacao: 'Catraca "Entrada": sem sinal <há 2 h>.',
+      prazo: "06/10 10:00",
+      site: "https://app.arkefit.com.br",
+    });
+    expect(e.texto).toContain('Situação no sistema quando o chamado foi aberto:\nCatraca "Entrada": sem sinal <há 2 h>.');
+    expect(e.html).toContain("sem sinal &lt;há 2 h&gt;");
   });
 });

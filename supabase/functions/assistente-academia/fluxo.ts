@@ -241,6 +241,8 @@ export function montarEmailChamado(o: {
   pergunta: string;
   resposta: string | null;
   artigos: string[];
+  /** A situação do sistema quando o chamado foi aberto, sem nome de pessoa. */
+  situacao?: string | null;
   prazo: string;
   site: string;
 }): { assunto: string; html: string; texto: string } {
@@ -256,6 +258,7 @@ export function montarEmailChamado(o: {
     "",
     o.resposta ? `O assistente respondeu:\n${o.resposta}\n` : "O assistente não escreveu resposta (a IA está desligada ou não achou).\n",
     o.artigos.length ? `Artigos sugeridos: ${o.artigos.join(", ")}` : "Nenhum artigo da Central de Ajuda bateu com a pergunta.",
+    ...(o.situacao ? ["", "Situação no sistema quando o chamado foi aberto:", o.situacao, ""] : []),
     `Prazo para responder: ${o.prazo}.`,
     "",
     `Abrir a fila: ${link}`,
@@ -266,6 +269,7 @@ export function montarEmailChamado(o: {
   <p style="margin-top:4px;white-space:pre-wrap">${escapar(o.pergunta)}</p>
   ${o.resposta ? `<p style="margin-bottom:4px"><strong>O assistente respondeu</strong></p><p style="margin-top:4px;color:#444">${escapar(o.resposta)}</p>` : `<p style="color:#444">O assistente não escreveu resposta (a IA está desligada ou não achou).</p>`}
   <p>${o.artigos.length ? `Artigos sugeridos: ${escapar(o.artigos.join(", "))}` : "Nenhum artigo da Central de Ajuda bateu com a pergunta."}</p>
+  ${o.situacao ? `<p style="margin-bottom:4px"><strong>Situação no sistema quando o chamado foi aberto</strong></p><p style="margin-top:4px;white-space:pre-wrap;color:#444">${escapar(o.situacao)}</p>` : ""}
   <p>Prazo para responder: ${escapar(o.prazo)}.</p>
   <p><a href="${escapar(link)}" style="display:inline-block;background:#111;color:#fff;padding:9px 16px;border-radius:8px;text-decoration:none">Abrir a fila de suporte</a></p>
 </div>`;

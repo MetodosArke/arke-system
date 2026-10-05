@@ -1,6 +1,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { verificada } from "../_shared/verificacao.ts";
 import { conversarComIA, fornecedorIA } from "../_shared/ia.ts";
+import { lerAtencao } from "./atencao.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -144,8 +145,7 @@ Deno.serve(async (req: Request) => {
     });
     if (!r.ok) return jsonResponse({ indisponivel: true, motivo: r.motivo });
 
-    const exigeAtencao = /ATENCAO:\s*SIM/i.test(r.texto);
-    const resumo = r.texto.replace(/ATENCAO:\s*(SIM|NAO)\s*$/i, "").trim();
+    const { resumo, exigeAtencao } = lerAtencao(r.texto);
 
     // Resumo antigo sai: manter duas versões faria a tela mostrar a análise de
     // uma anamnese que o aluno já corrigiu.
