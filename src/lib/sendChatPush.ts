@@ -14,6 +14,8 @@ export async function sendChatPush(params: {
   title: string;
   body: string;
   url?: string;
+  /** `treino:<aluno>` ou `dieta:<dieta>`: os avisos da mesma conversa se agrupam no aparelho. */
+  conversa?: string;
 }) {
   try {
     await supabase.functions.invoke("send-chat-push", { body: params });

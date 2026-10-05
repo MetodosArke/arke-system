@@ -126,3 +126,24 @@ Rodada B. Os três tratam do mesmo problema: saber que algo quebrou antes de uma
   - os dois eventos chegaram com a função, o status, o tipo, o código e o rastro, e sem o texto do erro;
   - a regra de e-mail do projeto disparou;
   - a função foi apagada e os dois eventos foram resolvidos.
+
+## Aviso no celular: lotes, validade e agrupamento por conversa (05/10/2026)
+
+Rodada B. O chat, o comunicado e o resumo semanal mandavam o aviso cada um do seu jeito. Os três tinham os mesmos três problemas:
+- **um aviso por vez**: um comunicado para 400 alunos esperava 400 envios em fila;
+- **sem validade**: o serviço de push (Google, Apple, Mozilla) guardava o aviso por até quatro semanas, e a mensagem de chat de ontem aparecia dias depois como nova;
+- **sem agrupar**: dez mensagens viravam dez avisos empilhados.
+
+Agora todo aviso sai por `enviarAvisos` (`_shared/push.ts`), e as regras moram em `_shared/avisoPush.ts`, sem Deno, testadas no app.
+
+- **Lotes de 25 ao mesmo tempo**, com prazo de 10 s por envio. A inscrição que não existe mais (404, 410, ou 403 de chave VAPID trocada) sai do banco numa consulta só por lote.
+- **Validade por tipo de aviso:**
+  - chat, 12 horas;
+  - resumo semanal, 3 dias;
+  - comunicado, até ele expirar, entre 1 hora e 7 dias, ou 3 dias quando não tem data.
+- **Agrupamento:**
+  - **No aparelho, a etiqueta.** `treino:<aluno>`, `dieta:<dieta>`, `comunicado:<id>` e `resumo:<academia>`. O service worker usa a etiqueta com `renotify`: o aviso novo da mesma conversa substitui o anterior e o celular toca de novo.
+  - **No serviço de push, o tópico.** Com o aparelho desligado, só o último aviso da conversa fica guardado.
+  - O chat passa `conversa` ao `send-chat-push`. O que não está no formato não agrupa.
+- **As leituras das inscrições conferem o erro.** Antes, uma falha virava "nenhum aparelho para avisar". A resposta de erro do `send-chat-push` deixou de ecoar a mensagem do erro.
+- `avisoPush.test.ts` falha se outra função voltar a usar o `web-push` direto, ou se o service worker deixar de agrupar.

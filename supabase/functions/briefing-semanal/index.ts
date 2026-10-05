@@ -1,7 +1,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
-import webpush from "npm:web-push@3.6.7";
 import { descreverErro, registrarExecucao } from "../_shared/execucao.ts";
-import { chavePublicaVapid } from "../_shared/vapid.ts";
+import { topicoDoId, VALIDADE_SEG } from "../_shared/avisoPush.ts";
+import { enviarAvisos } from "../_shared/push.ts";
 import { servir } from "../_shared/servir.ts";
 
 const NOME = "briefing-semanal";
@@ -165,27 +165,24 @@ servir("briefing-semanal", async (req: Request) => {
         }
 
         if (vapidPrivateKey && b.gestor_user_id) {
-          const { data: inscricoes } = await admin
+          const { data: inscricoes, error: erroInscricoes } = await admin
             .from("push_subscriptions")
             .select("endpoint, p256dh, auth")
             .eq("user_id", b.gestor_user_id);
-          for (const s of inscricoes ?? []) {
-            try {
-              webpush.setVapidDetails("mailto:contato@arkefit.com.br", chavePublicaVapid(vapidPrivateKey), vapidPrivateKey);
-              await webpush.sendNotification(
-                { endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } },
-                JSON.stringify({
-                  title: "Seu resumo da semana saiu",
-                  body: `${b.alunos_ativos} alunos ativos · ${b.em_risco} em risco sendo tratados pelo Mentor`,
-                  url: "/admin/relatorio-semanal",
-                }),
-              );
-              pushes++;
-            } catch {
-              // Inscrição expirada é o caso comum e não é defeito: o gestor
-              // trocou de aparelho ou revogou a permissão.
-            }
-          }
+          if (erroInscricoes) throw erroInscricoes;
+          const envio = await enviarAvisos(
+            admin,
+            inscricoes ?? [],
+            {
+              title: "Seu resumo da semana saiu",
+              body: `${b.alunos_ativos} alunos ativos · ${b.em_risco} em risco sendo tratados pelo Mentor`,
+              url: "/admin/relatorio-semanal",
+              // Um por academia: quem é gestor de duas recebe os dois.
+              tag: `resumo:${alvo.organization_id}`,
+            },
+            { validadeSeg: VALIDADE_SEG.resumoSemanal, topico: topicoDoId(alvo.organization_id) },
+          );
+          pushes += envio.enviados;
         }
       } catch (erro) {
         console.error("briefing-semanal: falha numa academia", erro instanceof Error ? erro.name : typeof erro);
