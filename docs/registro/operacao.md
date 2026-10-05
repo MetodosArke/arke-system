@@ -97,6 +97,10 @@ O que a primeira rodada achou, e o que foi feito:
   - **React Router 6**: o aviso é de endereço externo em `<Link>` e `navigate()`. Nenhuma navegação do app usa endereço vindo de fora; todas saem do próprio código ou do catálogo da Central de Ajuda, que o teste confere. A correção só existe na versão 7, que é troca de versão maior e fica registrada no workspace.
   - **Vite, Vitest, esbuild e Tailwind 3**: só desenvolvimento e build. Os avisos são do servidor de desenvolvimento, que não vai para produção. A correção também é troca de versão maior.
 
+**React Router 7 (05/10/2026).** Decisão do responsável: atualizar antes do primeiro cliente, numa rodada própria, e deixar Vite, Vitest e Tailwind para depois do lançamento. O app usa o roteador do jeito declarativo (`HashRouter`, `Routes`, `Route`, `Link`, `useNavigate`), sem o modo de dados, e a única rota coringa é a da página não encontrada. Por isso a versão 7.18.4 entrou sem mudança de código: o pacote `react-router-dom` continua existindo e reexporta o `react-router`. Os dois avisos do React Router sumiram, e a auditoria das dependências de produção ficou em zero, inclusive nos moderados. De passagem, um teste de tela da Visão Master (Equipamentos) esperava só 1 segundo pela primeira montagem e falhou uma vez na rodada completa, com a máquina carregada; o limite passou a 5 segundos.
+
+Conferido: `npm run check` sem erro, os 877 testes, o build, e 48 telas abertas no build local com o banco de produção, pela gestora e pela aluna da academia de demonstração e sem login. Abriram todas, sem erro de página nem de console. A exceção foram as duas rotas que devem dar 404: uma inventada e `/admin/acervo`, que é da Visão Master. O clique no menu e o voltar do navegador também funcionaram.
+
 ## Saúde da plataforma, erro das funções no Sentry e cabeçalhos de segurança (05/10/2026)
 
 Rodada B. Os três tratam do mesmo problema: saber que algo quebrou antes de uma academia ligar.

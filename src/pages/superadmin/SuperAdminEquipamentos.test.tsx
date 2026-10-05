@@ -64,7 +64,7 @@ describe("Visão Master → Equipamentos", () => {
       Promise.resolve({ data: nome === "get_superadmin_equipamentos" ? [EQUIPAMENTO] : [], error: null })
     );
     montar();
-    expect(await screen.findByText(/há 20 min/)).toBeInTheDocument();
+    expect(await screen.findByText(/há 20 min/, {}, { timeout: 5000 })).toBeInTheDocument();
     expect(document.body.textContent).toContain("Tietê Fitness");
     expect(document.body.textContent).toContain("2 ordem(ns) falha(s)");
     expect(document.body.textContent).toContain("3 guardado(s)");
