@@ -16,6 +16,8 @@
 -- treino a mais ou a menos decide a pontuação, e chamado aberto à toa vira
 -- ruído na fila do Mentor.
 
+set lock_timeout = '5s';
+
 create or replace function public.calcular_pontuacoes_engajamento_mes(_org_id uuid)
  returns table(aluno_id uuid, treinos_concluidos integer, checkins_registrados integer, adesao_dieta_media numeric, dias_meta_agua_batida integer, pontuacao numeric)
  language plpgsql
