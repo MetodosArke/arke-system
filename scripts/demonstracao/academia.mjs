@@ -190,11 +190,13 @@ async function semear() {
 
   // ── A academia ───────────────────────────────────────────────────────────
   const [org] = await sql(`insert into public.organizations (nome, slug, status, ficticia, tipo, plano_b2b, onboarding_completed,
-      cnpj_cpf, tipo_empresa, razao_social, cep, logradouro, numero, bairro, cidade, uf, telefone, email_contato, trial_vencimento)
+      cnpj_cpf, tipo_empresa, razao_social, cep, logradouro, numero, bairro, cidade, uf, telefone, email_contato, trial_vencimento, cor_marca)
     values (${q(NOME)}, ${q(SLUG)}, 'trial', true, 'academia', 'growth', true,
       ${q(cnpj(31))}, 'LIMITED', 'Ponto Alto Academia (demonstração ArkeFit)', '04538-133', 'Avenida Brigadeiro Faria Lima', '3900', 'Itaim Bibi',
-      'São Paulo', 'SP', '(11) 3030-4000', 'contato@${DOMINIO}', '2030-12-31')
+      'São Paulo', 'SP', '(11) 3030-4000', 'contato@${DOMINIO}', '2030-12-31', '#2563eb')
     returning id`);
+  // A cor da academia no app do aluno, para a demonstração mostrar a marca
+  // dela; o painel da equipe continua com a da ArkeFit.
   const ORG = org.id;
   console.log("academia", ORG);
 
@@ -255,6 +257,9 @@ async function semear() {
         ${q(a.situacao)}, ${q(motivo)}, ${retorno}, ${a.situacao === "em_dia" ? "null" : `now() - interval '${entre(2, 20)} days'`}, ${um([2000, 2500, 3000])}, 'nutricionista_academia')`;
     }),
   );
+  // O cadastro nasce com a data de entrada do aluno, e não com a de hoje: sem
+  // isso o resumo da semana contava os 182 como novos.
+  await sql(`update public.alunos set created_at = data_inicio + time '09:00' where organization_id = ${q(ORG)}`);
   const mapa = await sql(`select id, user_id from public.alunos where organization_id = ${q(ORG)}`);
   const alunoPorUser = new Map(mapa.map((m) => [m.user_id, m.id]));
   for (const a of todosAlunos) a.id = alunoPorUser.get(ids[a.chave]);
@@ -376,7 +381,54 @@ async function semear() {
   }
   await inserirEmLotes("insert into public.registro_treino (organization_id, aluno_id, treino_id, data, concluido, divisao, esforco_percebido, sensacao, duracao_min)", registros);
   await inserirEmLotes("insert into public.presencas (organization_id, aluno_id, dia, origem, registrada_em)", presencas.map((p) => p));
+  // Cada treino registrado fica numa divisão que existe na ficha do aluno, com
+  // todos os exercícios dela feitos e uma carga: é o que o app grava quando o
+  // aluno conclui. Sem isso a tela dizia "treino de hoje concluído" ao lado
+  // de "0/6 exercícios".
+  await sql(`update public.registro_treino r set divisao = x.divs[1 + abs(hashtext(r.id::text)) % array_length(x.divs, 1)]
+    from (select t.id, array_agg(distinct coalesce(e->>'divisao', 'A') order by coalesce(e->>'divisao', 'A')) as divs
+            from public.treinos t, jsonb_array_elements(t.snapshot_conteudo) e where t.organization_id = ${q(ORG)} group by t.id) x
+    where r.treino_id = x.id and r.organization_id = ${q(ORG)}`);
+  await sql(`update public.registro_treino r set detalhes_execucao = coalesce((
+      select jsonb_agg(jsonb_build_object('ordem', (e->>'ordem')::int, 'concluido', true, 'carga_kg', (8 + abs(hashtext(r.id::text || (e->>'ordem'))) % 40)::text))
+        from public.treinos t, jsonb_array_elements(t.snapshot_conteudo) e
+       where t.id = r.treino_id and coalesce(e->>'divisao', 'A') = r.divisao), '[]'::jsonb)
+    where r.organization_id = ${q(ORG)} and r.concluido`);
   console.log(`${registros.length} treinos registrados, ${presencas.length} presenças`);
+
+  // Adesão à dieta nas duas últimas semanas, refeição por refeição, como o
+  // aluno marca no app; quem sumiu não marca.
+  const dietaDoAluno = new Map((await sql(`select aluno_id, id from public.dietas where organization_id = ${q(ORG)} and status = 'ativo'`)).map((d) => [d.aluno_id, d.id]));
+  const adesoes = [];
+  for (const a of comDieta) {
+    if (a.perfil === "sumido" || !dietaDoAluno.has(a.id)) continue;
+    const segue = a.chave === "aluna" ? 0.85 : a.perfil === "assidua" ? 0.8 : 0.55;
+    for (let dia = 0; dia < 14; dia++) {
+      if (!chance(a.chave === "aluna" ? 0.9 : 0.7)) continue;
+      const marcadas = Object.fromEntries(refeicoes.map((r) => [String(r.ordem), chance(segue)]));
+      const pct = Math.round((Object.values(marcadas).filter(Boolean).length / refeicoes.length) * 100);
+      adesoes.push(`(${q(ORG)}, ${q(a.id)}, ${q(dietaDoAluno.get(a.id))}, current_date - ${dia}, ${pct}, ${q(JSON.stringify(marcadas))}::jsonb,
+        ${entre(4, 11) * 250}, ${chance(0.2)}, ${chance(0.1)}, ${q(um(["sem_fome", "sem_fome", "fome_leve", "fome_moderada"]))})`);
+    }
+  }
+  await inserirEmLotes("insert into public.dieta_adesao (organization_id, aluno_id, dieta_id, data, adesao_percentual, refeicoes_marcadas, agua_ml, consumiu_doce, consumiu_alcool, nivel_saciedade)", adesoes);
+  console.log(`${adesoes.length} dias de adesão à dieta`);
+
+  // Diário de água das duas últimas semanas, perto da meta de cada um. É um
+  // dos quatro pilares da pontuação de engajamento.
+  const metaAgua = new Map((await sql(`select id, meta_agua_ml from public.alunos where organization_id = ${q(ORG)}`)).map((m) => [m.id, Number(m.meta_agua_ml)]));
+  const aguas = [];
+  for (const a of comTreino) {
+    if (a.perfil === "sumido") continue;
+    const meta = metaAgua.get(a.id) ?? 2500;
+    for (let dia = 0; dia < 14; dia++) {
+      if (!chance(a.perfil === "assidua" ? 0.85 : 0.5)) continue;
+      const ml = Math.round((meta * (chance(0.7) ? 1 : 0.6) + entre(0, 3) * 250) / 250) * 250;
+      aguas.push(`(${q(ORG)}, ${q(a.id)}, current_date - ${dia}, ${ml})`);
+    }
+  }
+  await inserirEmLotes("insert into public.registro_habito (organization_id, aluno_id, data, agua_ml)", aguas);
+  console.log(`${aguas.length} dias de água registrados`);
 
   // ── Check-ins da semana ──────────────────────────────────────────────────
   const checkins = [];
@@ -512,6 +564,16 @@ async function semear() {
     "insert into public.desafio_participantes (organization_id, desafio_id, aluno_id)",
     comTreino.filter((a, i) => a.chave === "aluna" || i % 5 === 0).map((a) => `(${q(ORG)}, ${q(desafio.id)}, ${q(a.id)})`),
   );
+
+  // ── Resumo da semana ─────────────────────────────────────────────────────
+  // A academia fictícia fica fora do envio semanal, que manda e-mail; o resumo
+  // desta semana é gravado aqui, com os números da mesma função do envio.
+  await sql(`insert into public.briefings_enviados (organization_id, semana, numeros, enviado_em)
+    select ${q(ORG)}, date_trunc('week', current_date::timestamp)::date,
+           jsonb_build_object('ativos', b.alunos_ativos, 'ativos_mes_passado', b.alunos_ativos_mes_passado, 'retencao_pct', b.retencao_pct,
+             'variacao_pct', b.variacao_pct, 'novos', b.novos_na_semana, 'em_risco', b.em_risco, 'resgates', b.resgates_do_mentor,
+             'presenciais', b.chamados_para_a_academia), now()
+      from public.briefing_semanal_organizacao(${q(ORG)}) b`);
 
   // ── Aceite dos documentos, para os logins abrirem direto ────────────────
   const docs = await sql(`select distinct on (tipo) id, tipo from public.documentos_legais order by tipo, versao desc`);
