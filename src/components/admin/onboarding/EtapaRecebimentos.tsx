@@ -26,7 +26,7 @@ export function EtapaRecebimentos({ onSalvo }: { onSalvo: () => void }) {
   const { organization } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [caminho, setCaminho] = useState<Caminho>("criar");
+  const [caminho, setCaminho] = useState<Caminho>("existente");
   const [faturamento, setFaturamento] = useState("");
   const [walletId, setWalletId] = useState("");
 
@@ -142,8 +142,8 @@ export function EtapaRecebimentos({ onSalvo }: { onSalvo: () => void }) {
       <div className="grid sm:grid-cols-2 gap-2" role="radiogroup" aria-label="Conta Asaas">
         {(
           [
-            ["criar", "Abrir minha conta pelo ARKE", "Recomendado. Em 1 minuto, sem sair daqui."],
-            ["existente", "Já tenho conta no Asaas", "Informe a carteira da sua conta."],
+            ["existente", "Conta da academia no Asaas", "Recomendado. Abra grátis no site do Asaas, ou use a que já tem, e informe a carteira."],
+            ["criar", "Abrir pela ArkeFit", "Só quando a equipe ArkeFit combinar com você."],
           ] as const
         ).map(([valor, titulo, texto]) => (
           <button
@@ -193,7 +193,13 @@ export function EtapaRecebimentos({ onSalvo }: { onSalvo: () => void }) {
               value={walletId}
               onChange={(e) => setWalletId(e.target.value.trim())}
             />
-            <p className="text-[11px] text-muted-foreground">No Asaas: Minha Conta → Integrações → Wallet ID.</p>
+            <p className="text-[11px] text-muted-foreground">
+              No Asaas: Minha Conta → Integrações → Wallet ID. Ainda não tem conta? Abra grátis em{" "}
+              <a href="https://www.asaas.com" target="_blank" rel="noopener noreferrer" className="underline">
+                asaas.com
+              </a>
+              , com o CNPJ da academia.
+            </p>
           </div>
           <Button onClick={() => informar.mutate()} disabled={informar.isPending || !walletId}>
             {informar.isPending ? "Conferindo..." : "Vincular carteira"}
