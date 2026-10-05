@@ -1,3 +1,4 @@
+import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
 /**
@@ -236,4 +237,39 @@ export function numeroNaoCadastrado(log: { resultado: string; cpf_consultado: st
   if (log.resultado !== "negado_nao_encontrado") return null;
   const valor = log.cpf_consultado ?? "";
   return valor.startsWith("id:") && valor.length > 3 ? valor.slice(3) : null;
+}
+
+function partesDaVersao(versao: string): number[] | null {
+  const m = /^(\d+)\.(\d+)\.(\d+)$/.exec(versao.trim());
+  return m ? [Number(m[1]), Number(m[2]), Number(m[3])] : null;
+}
+
+/**
+ * O Gateway está abaixo da versão mínima? Espelho de `versaoAbaixo`, em
+ * packages/gateway/src/versao.ts, que avisa no log do próprio Gateway.
+ *
+ * Sem versão é o Gateway anterior à 1.0, que não reportava a versão: abaixo
+ * de qualquer mínima. Quem chama descarta a catraca que nunca conectou.
+ */
+export function versaoAbaixoDaMinima(versao: string | null | undefined, minima: string | null | undefined): boolean {
+  const b = minima ? partesDaVersao(minima) : null;
+  if (!b) return false;
+  if (!versao) return true;
+  const a = partesDaVersao(versao);
+  if (!a) return false;
+  for (let i = 0; i < 3; i++) if (a[i] !== b[i]) return a[i] < b[i];
+  return false;
+}
+
+/** A versão mínima do Gateway, configurada na Visão Master. Nula: sem mínima. */
+export function useVersaoMinimaGateway() {
+  return useQuery({
+    queryKey: ["gateway-versao-minima"],
+    staleTime: 5 * 60_000,
+    queryFn: async () => {
+      const { data, error } = await supabase.from("plataforma_textos").select("valor").eq("chave", "gateway_versao_minima").maybeSingle();
+      if (error) throw error;
+      return data?.valor?.trim() || null;
+    },
+  });
 }

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { AtacadoMetodo, CanaisSuporte, EmailComercial, PrecosPlanosB2b } from "@/components/superadmin/ConfiguracoesComerciais";
+import { VersaoMinimaGateway } from "@/components/superadmin/VersaoMinimaGateway";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -193,6 +194,7 @@ export default function SuperAdminConfiguracoes() {
 
       <CanaisSuporte />
       <EmailComercial />
+      <VersaoMinimaGateway />
     </div>
   );
 }

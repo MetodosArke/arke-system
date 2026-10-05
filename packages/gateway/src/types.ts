@@ -242,6 +242,8 @@ export interface TelemetriaGateway {
 export interface RespostaComandosCloud {
   comandos?: ComandoGateway[];
   servidor_em?: string;
+  /** A versão mínima do Gateway, configurada na Visão Master. Nula: sem mínima. */
+  versao_minima?: string | null;
   error?: string;
 }
 

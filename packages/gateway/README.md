@@ -70,6 +70,13 @@ passagem ou o tempo esgotado.
    leva a telemetria (versão, estado, fila offline, equipamentos vistos) e os
    resultados das ordens executadas. É por ela que a Visão Master sabe, em
    ~20 s, que um Gateway caiu.
+7. **Queda da nuvem (1.8.0).** A espera entre tentativas dobra a cada falha
+   e tem variação: metade fixa, metade sorteada. Gateways que caíram juntos
+   não voltam juntos, no mesmo segundo. A reconexão da placa Toletus segue a
+   mesma regra.
+8. **Versão mínima (1.8.0).** A nuvem diz a versão mínima, configurada na
+   Visão Master. Abaixo dela, o Gateway segue funcionando e avisa no log uma
+   vez; a Visão Master mostra a catraca como desatualizada.
 
 ## Configuração
 

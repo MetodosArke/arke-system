@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -12,6 +12,7 @@ import type { ICanalComandos, PedidoCanalComandos } from "../src/cloud/client";
 import type { GestaoEquipamentos } from "../src/equipamentos/controlidGestao";
 import type { ComandoGateway, GatewayConfig, RespostaComandosCloud, TipoComando } from "../src/types";
 import { VERSAO_GATEWAY } from "../src/versao";
+import { logger } from "../src/logger";
 
 const CONFIG: GatewayConfig = {
   organization_id: "00000000-0000-0000-0000-000000000000",
@@ -48,6 +49,7 @@ class CanalFalso implements ICanalComandos {
   ordens: ComandoGateway[] = [];
   falharProximas = 0;
   encerrado = false;
+  versaoMinima: string | null = null;
 
   async trocar(pedido: PedidoCanalComandos): Promise<RespostaComandosCloud> {
     this.pedidos.push(JSON.parse(JSON.stringify(pedido)));
@@ -57,7 +59,7 @@ class CanalFalso implements ICanalComandos {
     }
     const fim = Date.now() + pedido.aguardarMs;
     while (this.ordens.length === 0 && Date.now() < fim && !this.encerrado) await esperar(5);
-    return { comandos: this.ordens.splice(0) };
+    return { comandos: this.ordens.splice(0), versao_minima: this.versaoMinima };
   }
 
   resultados() {
@@ -363,5 +365,42 @@ describe("ExecutorComandos: rosto", () => {
     sem.executor.parar();
     sem.canal.encerrado = true;
     fs.rmSync(sem.dataDir, { recursive: true, force: true });
+  });
+});
+
+describe("ExecutorComandos: versão mínima", () => {
+  let amb: ReturnType<typeof criar>;
+
+  beforeEach(() => {
+    amb = criar();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    amb.executor.parar();
+    amb.canal.encerrado = true;
+    fs.rmSync(amb.dataDir, { recursive: true, force: true });
+  });
+
+  it("abaixo da mínima avisa no log uma vez só, e continua atendendo", async () => {
+    const aviso = vi.spyOn(logger, "warn");
+    const abaixo = () => aviso.mock.calls.filter((c) => String(c[1] ?? "").includes("abaixo da versão mínima"));
+    amb.canal.versaoMinima = "99.0.0";
+    await amb.executor.trocar(0);
+    await amb.executor.trocar(0);
+    expect(abaixo()).toHaveLength(1);
+    expect(abaixo()[0][0]).toMatchObject({ versao: VERSAO_GATEWAY, minima: "99.0.0" });
+
+    amb.canal.ordens.push({ id: "c1", tipo: "liberar_catraca", parametros: {} } as ComandoGateway);
+    expect(await amb.executor.trocar(0)).toBe(1);
+  });
+
+  it("na mínima ou acima, e sem mínima, não avisa", async () => {
+    const aviso = vi.spyOn(logger, "warn");
+    for (const minima of [VERSAO_GATEWAY, "1.0.0", null]) {
+      amb.canal.versaoMinima = minima;
+      await amb.executor.trocar(0);
+    }
+    expect(aviso.mock.calls.filter((c) => String(c[1] ?? "").includes("abaixo da versão mínima"))).toHaveLength(0);
   });
 });

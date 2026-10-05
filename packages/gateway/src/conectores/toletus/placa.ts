@@ -1,6 +1,7 @@
 import net from "node:net";
 import { EventEmitter } from "node:events";
 import { logger } from "../../logger";
+import { comVariacao } from "../../core/espera";
 import {
   COMANDO,
   COR,
@@ -258,7 +259,7 @@ export class PlacaToletus extends EventEmitter implements PlacaConectavel {
     this.timerReconexao = setTimeout(() => {
       this.timerReconexao = null;
       this.conectar();
-    }, espera);
+    }, comVariacao(espera));
     this.timerReconexao.unref?.();
   }
 

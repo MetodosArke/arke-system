@@ -31,6 +31,24 @@ type Payload = {
 const dormir = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 /**
+ * A versão mínima do Gateway (Visão Master → Configurações). Lida no máximo a
+ * cada 5 minutos por instância: são umas 100 mil chamadas por Gateway por mês,
+ * e o valor quase nunca muda. Falha na leitura devolve a última conhecida, ou
+ * nenhuma: o aviso de versão não pode derrubar o canal.
+ */
+let versaoMinima: { valor: string | null; lidaEm: number } | null = null;
+async function lerVersaoMinima(admin: SupabaseClient): Promise<string | null> {
+  if (versaoMinima && Date.now() - versaoMinima.lidaEm < 5 * 60_000) return versaoMinima.valor;
+  const { data, error } = await admin.from("plataforma_textos").select("valor").eq("chave", "gateway_versao_minima").maybeSingle();
+  if (error) {
+    console.error("catraca-comandos: versão mínima indisponível", error.code);
+    return versaoMinima?.valor ?? null;
+  }
+  versaoMinima = { valor: (data?.valor as string | null)?.trim() || null, lidaEm: Date.now() };
+  return versaoMinima.valor;
+}
+
+/**
  * As fotos do rosto das ordens entregues agora (no máximo 10 ordens por
  * entrega). Dado biométrico: nunca vai para log, nem o tamanho.
  */
@@ -129,8 +147,9 @@ Deno.serve(async (req: Request) => {
 
     // Catraca desativada no ARKE não recebe ordem nova; a telemetria acima
     // continua valendo para o painel mostrar que o equipamento está ligado.
+    const versao_minima = await lerVersaoMinima(admin);
     if (catraca.status !== "ativo") {
-      return jsonResponse({ comandos: [], servidor_em: new Date().toISOString() });
+      return jsonResponse({ comandos: [], servidor_em: new Date().toISOString(), versao_minima });
     }
 
     const espera = Math.max(0, Math.min(Number(payload.aguardar_ms) || 0, ESPERA_MAXIMA_MS));
@@ -158,6 +177,7 @@ Deno.serve(async (req: Request) => {
                 : c.parametros,
           })),
           servidor_em: new Date().toISOString(),
+          versao_minima,
         });
       }
       await dormir(INTERVALO_CONSULTA_MS);
