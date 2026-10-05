@@ -1414,6 +1414,29 @@ Uma conferência do webhook do Asaas em 04/10/2026 achou cinco defeitos. Todos v
 - a B2B apagada no Asaas gravou `cancelado`;
 - uma gravação recusada pelo banco deixou o aviso sem processar, com o erro `23514`.
 
+## Correções da conferência de 04/10/2026
+
+O resto dos defeitos que a conferência de 04/10/2026 confirmou no código. A cobrança e as catracas têm seções próprias.
+
+- **Só a ArkeFit simula perfil** (decisão de 04/10/2026). A sessão simulada lê o que a pessoa lê. O gestor simulava aluno da própria academia, inclusive do Método, e assim lia a conversa com o mentor, a dieta e a anamnese, que a academia não lê. Na tela, a simulação já existia só na Visão Master; o caminho do gestor ficava aberto para quem chamasse `impersonar-perfil` direto. A recusa vem antes de consultar o perfil de destino, para não revelar quem é de qual academia.
+- **O código do link de ativação saía de `Math.random()`.** Esse código abre a definição de senha de uma conta. Agora sai de `crypto.getRandomValues`, sem viés. `aleatorio.guarda.test.ts` barra `Math.random()` nas funções e nas telas; a única exceção listada é a largura do esqueleto do menu.
+- **O Sentinela lia "ATENÇÃO" com acento como "não exige atenção"**, e a linha esquecida também. Um aluno com lesão declarada podia aparecer sem cuidado especial. `lerAtencao()` (`sentinela-anamnese/atencao.ts`) aceita a linha com e sem acento e, sem ela, pede atenção. É a única mudança no Sentinela, que segue congelado.
+- **`conversarComIA` não tinha prazo.** Uma resposta presa segurava a função até o limite da plataforma. Agora o prazo é de 30 s, e de 90 s na dieta do PDF. `prazoIA.guarda.test.ts` exige prazo em toda chamada ao modelo.
+- **O assistente chamava o modelo sem trecho da Central.** Agora, sem trecho, não chama. A tela já dizia "não achei" e oferecia o chamado.
+- **O chamado do assistente agora grava o contexto.** A coluna `contexto` existia e nunca era preenchida. Agora leva as intenções, se a pessoa citou um aluno e a situação do sistema na hora, relida no servidor e no resumo sem nome de pessoa. Esse resumo vai no e-mail e aparece em Visão Master → Suporte.
+- **`plataforma_config` aceitava qualquer número.** Uma taxa de 29,9% em vez de 2,99 valeria para toda cobrança nova, e um interruptor podia ficar em 2. Agora cada chave tem faixa em `faixa_plataforma_config()`, e um gatilho recusa o valor fora dela com a faixa na mensagem. Chave sem faixa também é recusada: quem cria a chave define a faixa junto (`20261327010000`).
+- **Migration nova começa com `set lock_timeout = '5s'`.** Sem isso, um `alter table` esperando a trava de uma tabela ocupada faz o app e a catraca esperarem atrás dele. `migrations.guarda.test.ts` cobra isso das migrations a partir de `20261324010000`.
+
+**Conferido:**
+- 12 casos das faixas em transação desfeita.
+- Os testes do Sentinela, do e-mail do chamado e das quatro travas novas.
+- A **corrente real**, com 10 verificações pelas funções publicadas, numa academia temporária com um Super Admin verificado em duas etapas:
+  - o gestor é recusado na simulação, com a mesma frase para qualquer alvo, e a ArkeFit só simula com as duas etapas;
+  - três links de ativação saem com códigos diferentes, no alfabeto;
+  - a pergunta sem trecho fica sem resposta escrita e sem o modelo;
+  - o chamado guarda a situação da aluna pausada sem o nome dela, e o e-mail sai;
+  - a taxa de 29,9% é recusada pela API com a faixa na mensagem.
+
 ## Rodada de lançamento — Fase 1: Central de Ajuda (24–25/09/2026)
 
 Os manuais viraram parte do produto: **Ajuda** no menu do painel, do app e da Visão Master, e um **?** no alto de cada tela que abre o artigo daquela tela. São 54 artigos, escritos para quem usa (gestor e recepção, professor e nutricionista, aluno, ArkeFit), a partir do código e não dos manuais antigos de `docs/`, que estavam desatualizados.

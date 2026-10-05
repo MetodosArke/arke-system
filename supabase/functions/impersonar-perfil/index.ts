@@ -1,6 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { verificada } from "../_shared/verificacao.ts";
-import { alvoSoNaAcademia, MENSAGEM_OUTRA_ACADEMIA } from "../_shared/alvoNaAcademia.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -30,8 +29,11 @@ type ImpersonarPayload = {
   organization_id: string;
 };
 
-// Abre uma sessão do usuário-alvo para o admin_arke/gestor "simular" outro
-// perfil já cadastrado — nunca expõe ou altera a senha do usuário simulado.
+// Abre uma sessão do usuário-alvo para a ArkeFit "simular" outro perfil já
+// cadastrado — nunca expõe ou altera a senha do usuário simulado. Só a
+// ArkeFit simula, com as duas etapas (decisão de 04/10/2026): a sessão
+// simulada lê o que a pessoa lê, e o gestor que simulasse um aluno do Método
+// leria a conversa com o mentor, a dieta e a anamnese, que a academia não lê.
 // A sessão nasce aqui, e não no navegador, para o banco saber que ela é
 // simulada: o identificador dela vai para `sessoes_simuladas` antes de ser
 // entregue, e é isso que faz o banco recusar, nela, as autorizações que só a
@@ -106,6 +108,11 @@ Deno.serve(async (req: Request) => {
     }
     const callerIsAdminArke = verificada(claimsData?.claims) && (callerRoles ?? []).some((r) => r.role === "admin_arke");
     const callerIsSuperadmin = verificada(claimsData?.claims) && (callerRoles ?? []).some((r) => r.role === "superadmin");
+    // Antes de olhar o perfil de destino: quem não é da ArkeFit não fica sabendo
+    // se a pessoa é desta academia.
+    if (!callerIsAdminArke && !callerIsSuperadmin) {
+      return errorResponse("Só a ArkeFit simula perfil, com a verificação em duas etapas.");
+    }
 
     // organization_members tem unique(organization_id, user_id) — filtrar
     // pelos dois garante no máximo uma linha. Filtrar só por user_id (como
@@ -127,33 +134,6 @@ Deno.serve(async (req: Request) => {
     }
     if (!targetMembership) {
       return errorResponse("Perfil de destino não encontrado ou sem organização ativa.");
-    }
-
-    let autorizado = callerIsAdminArke || callerIsSuperadmin;
-    if (!autorizado) {
-      const { data: callerMembership, error: callerMembershipError } = await adminClient
-        .from("organization_members")
-        .select("organization_id, role")
-        .eq("user_id", callerId)
-        .eq("organization_id", organizationId)
-        .eq("status", "active")
-        .maybeSingle();
-      if (callerMembershipError) {
-        console.error("Error loading caller membership", callerMembershipError);
-        return errorResponse("Erro ao validar permissões.");
-      }
-      autorizado = callerMembership?.role === "gestor";
-    }
-
-    if (!autorizado) {
-      return errorResponse("Você não tem permissão para simular este perfil.");
-    }
-
-    // A simulação abre a CONTA da pessoa, e não só o vínculo com esta
-    // academia: o gestor só simula quem está apenas aqui. Quem também está
-    // em outra academia, ou é da ArkeFit, só a ArkeFit simula.
-    if (!callerIsAdminArke && !callerIsSuperadmin && !(await alvoSoNaAcademia(adminClient, targetUserId, organizationId))) {
-      return errorResponse(MENSAGEM_OUTRA_ACADEMIA);
     }
 
     const { data: targetUser, error: targetUserError } = await adminClient.auth.admin.getUserById(targetUserId);

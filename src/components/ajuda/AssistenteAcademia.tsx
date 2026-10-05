@@ -67,7 +67,7 @@ export function AssistenteAcademia({ base }: { base: string }) {
   const queryClient = useQueryClient();
   const [pergunta, setPergunta] = useState("");
   const [aluno, setAluno] = useState("");
-  const [resultado, setResultado] = useState<{ pergunta: string; dados: Resposta } | null>(null);
+  const [resultado, setResultado] = useState<{ pergunta: string; aluno: string; dados: Resposta } | null>(null);
   const [retorno, setRetorno] = useState<"resolveu" | "chamar" | "chamado" | null>(null);
   const [alunoAberto, setAlunoAberto] = useState<string | null>(null);
 
@@ -96,7 +96,7 @@ export function AssistenteAcademia({ base }: { base: string }) {
       });
       if (error) throw new Error(await mensagemDeErroEdge(error, "O assistente não respondeu agora."));
       if (!data) throw new Error("O assistente não respondeu agora.");
-      return { pergunta: dados.pergunta, dados: data };
+      return { pergunta: dados.pergunta, aluno: dados.aluno, dados: data };
     },
     onSuccess: (r) => {
       setResultado(r);
@@ -113,9 +113,16 @@ export function AssistenteAcademia({ base }: { base: string }) {
   });
 
   const abrirChamado = useMutation({
-    mutationFn: async (dados: { pergunta: string; resposta: string | null; artigos: string[] }) => {
+    mutationFn: async (dados: { pergunta: string; aluno: string; resposta: string | null; artigos: string[] }) => {
       const { data, error } = await supabase.functions.invoke<{ chamado_id: string; aviso: string | null }>("assistente-academia", {
-        body: { acao: "chamado", organization_id: orgId, pergunta: dados.pergunta, resposta: dados.resposta, artigos: dados.artigos },
+        body: {
+          acao: "chamado",
+          organization_id: orgId,
+          pergunta: dados.pergunta,
+          aluno: dados.aluno || undefined,
+          resposta: dados.resposta,
+          artigos: dados.artigos,
+        },
       });
       if (error) throw new Error(await mensagemDeErroEdge(error, "Não foi possível abrir o chamado."));
       return data;
@@ -345,7 +352,7 @@ export function AssistenteAcademia({ base }: { base: string }) {
                     size="sm"
                     disabled={abrirChamado.isPending}
                     onClick={() =>
-                      abrirChamado.mutate({ pergunta: resultado!.pergunta, resposta: dados.resposta, artigos: dados.artigos.map((a) => a.slug) })
+                      abrirChamado.mutate({ pergunta: resultado!.pergunta, aluno: resultado!.aluno, resposta: dados.resposta, artigos: dados.artigos.map((a) => a.slug) })
                     }
                   >
                     {abrirChamado.isPending ? "Abrindo..." : "Abrir chamado"}

@@ -23,6 +23,7 @@ type Chamado = {
   pergunta: string;
   resposta_assistente: string | null;
   artigos: string[];
+  contexto: { situacao?: string | null } | null;
   prazo: string;
   created_at: string;
   responsavel: string | null;
@@ -150,6 +151,12 @@ export default function SuperAdminSuporte() {
                     </p>
                   )}
                   {c.artigos.length > 0 && <p className="text-xs text-muted-foreground">Artigos sugeridos: {c.artigos.join(", ")}</p>}
+                  {c.contexto?.situacao && (
+                    <p className="whitespace-pre-wrap rounded-md border p-2 text-xs text-muted-foreground">
+                      <span className="font-medium text-foreground">Situação no sistema quando abriu: </span>
+                      {c.contexto.situacao}
+                    </p>
+                  )}
                   {c.concluido_em && (
                     <div className="space-y-0.5 border-t pt-2 text-xs">
                       {c.acao && (

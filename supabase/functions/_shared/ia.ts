@@ -109,9 +109,15 @@ async function assinar(caminho: string[], corpo: string, chaveId: string, segred
   };
 }
 
+/**
+ * `prazoMs`: quanto esperar o modelo antes de desistir (padrão 30 s). Sem
+ * prazo, uma resposta presa segurava a função até o limite da plataforma, e
+ * o mentor ficava esperando um rascunho que não vinha. Quem gera texto longo
+ * (a dieta do PDF) pede mais.
+ */
 export async function conversarComIA(
   env: Env,
-  dados: { sistema: string; usuario: string; maxTokens?: number; temperatura?: number },
+  dados: { sistema: string; usuario: string; maxTokens?: number; temperatura?: number; prazoMs?: number },
 ): Promise<RespostaIA> {
   const chaveId = env("BEDROCK_ACCESS_KEY_ID");
   const segredo = env("BEDROCK_SECRET_ACCESS_KEY");
@@ -140,7 +146,7 @@ export async function conversarComIA(
   let resposta: Response;
   try {
     const { url, headers } = await assinar(["model", modelo, "converse"], corpo, chaveId, segredo);
-    resposta = await fetch(url, { method: "POST", headers, body: corpo });
+    resposta = await fetch(url, { method: "POST", headers, body: corpo, signal: AbortSignal.timeout(dados.prazoMs ?? 30_000) });
   } catch {
     return { ok: false, indisponivel: true, motivo: "Não foi possível falar com o Sentinela agora." };
   }

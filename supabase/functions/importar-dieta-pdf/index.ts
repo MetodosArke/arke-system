@@ -89,6 +89,8 @@ Deno.serve(async (req: Request) => {
       usuario: semIdentificacao,
       maxTokens: 4000,
       temperatura: 0,
+      // Até 4.000 tokens de saída levam perto de um minuto.
+      prazoMs: 90_000,
     });
     if (!resposta.ok) {
       return jsonResponse({ error: "A leitura automática não está disponível agora. Tente de novo em instantes, ou digite a dieta." }, 503);
