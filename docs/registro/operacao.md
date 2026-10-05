@@ -147,3 +147,13 @@ Agora todo aviso sai por `enviarAvisos` (`_shared/push.ts`), e as regras moram e
   - O chat passa `conversa` ao `send-chat-push`. O que não está no formato não agrupa.
 - **As leituras das inscrições conferem o erro.** Antes, uma falha virava "nenhum aparelho para avisar". A resposta de erro do `send-chat-push` deixou de ecoar a mensagem do erro.
 - `avisoPush.test.ts` falha se outra função voltar a usar o `web-push` direto, ou se o service worker deixar de agrupar.
+
+**Um defeito que só a corrente real mostrou.** O prazo de 10 s ia como a opção `timeout` do `web-push`. No runtime do Supabase, que roda Deno 2.1, essa opção arma o prazo na conexão, e a conexão é reaproveitada. O prazo do envio anterior disparava no meio do seguinte: o aviso chegava ao aparelho e contava como falha. Localmente, com Deno 2.9, não reproduz. Agora o prazo é nosso, por cima da promessa, e o log registra o código do erro e o status da inscrição que saiu do banco.
+
+**Conferido:** 861 testes e a **corrente real**, com 8 verificações. Foi usada uma inscrição de verdade do Chrome no serviço de push do Google, com o `send-chat-push` publicado, o `sw.js` de produção e uma academia temporária apagada no fim:
+- o aviso chega com a etiqueta da conversa;
+- a segunda mensagem da mesma conversa substitui a primeira, e o aparelho fica com um aviso só;
+- o aviso sem conversa não agrupa;
+- a inscrição inexistente sai do banco, e a boa continua.
+
+O Chrome sem janela perde a conexão com o serviço do Google e passa a receber 410. A corrente roda com a janela fora da tela.
