@@ -22,6 +22,12 @@
 //   node scripts/migracao/replicar-schema.mjs --conferir
 //   node scripts/migracao/replicar-schema.mjs --aplicar
 //
+// Sem banco de origem (05/10/2026): com ARKE_ORIGEM=repositorio, o histórico
+// sai de supabase/historico/ordem.json, o retrato fiel do banco de produção
+// (ver o README daquela pasta), seguido das migrations de supabase/migrations
+// com versão maior que a última do retrato. Nesse modo o destino tem de vir em
+// ARKE_DESTINO, e nunca é o projeto de produção.
+//
 // O token da API sai de SUPABASE_ACCESS_TOKEN ou do arquivo apontado por
 // ARKE_CHAVES (a primeira linha que começar com `sbp_`). O valor nunca é
 // impresso.
@@ -34,8 +40,14 @@ const AQUI = dirname(fileURLToPath(import.meta.url));
 const RAIZ = join(AQUI, "..", "..");
 const MIGRATIONS = join(RAIZ, "supabase", "migrations");
 
+const PRODUCAO = "lzyxqjibkfblrrjboylp";
 const ORIGEM = process.env.ARKE_ORIGEM ?? "jbkrxrfdrmrkyldrrdpq";
-const DESTINO = process.env.ARKE_DESTINO ?? "lzyxqjibkfblrrjboylp";
+const DO_REPOSITORIO = ORIGEM === "repositorio";
+const DESTINO = process.env.ARKE_DESTINO ?? (DO_REPOSITORIO ? null : PRODUCAO);
+if (DO_REPOSITORIO && (!DESTINO || DESTINO === PRODUCAO)) {
+  console.error("Com ARKE_ORIGEM=repositorio, diga o projeto vazio em ARKE_DESTINO; o de produção nunca é destino.");
+  process.exit(2);
+}
 const MARCO_ZERO = "reset_schema_public";
 
 const aplicar = process.argv.includes("--aplicar");
@@ -112,10 +124,39 @@ function arquivoDaMigration(nome) {
   return candidatos.length === 1 ? join(MIGRATIONS, candidatos[0]) : null;
 }
 
+// O histórico guardado no repositório: o retrato de supabase/historico e, depois
+// dele, as migrations mais novas de supabase/migrations.
+function passosDoRepositorio() {
+  const ordem = JSON.parse(readFileSync(join(RAIZ, "supabase", "historico", "ordem.json"), "utf8"));
+  const passos = ordem.passos.map((p) => ({
+    version: p.versao,
+    name: p.nome,
+    sql: readFileSync(join(RAIZ, p.arquivo), "utf8"),
+    origem: p.arquivo.startsWith("supabase/historico/") ? "banco" : "arquivo",
+  }));
+  for (const f of readdirSync(MIGRATIONS).filter((x) => x.endsWith(".sql")).sort()) {
+    const versao = f.split("_")[0];
+    if (versao > ordem.ultima_versao) {
+      passos.push({
+        version: versao,
+        name: f.replace(/^\d+_/, "").replace(/\.sql$/, ""),
+        sql: readFileSync(join(MIGRATIONS, f), "utf8"),
+        origem: "arquivo",
+      });
+    }
+  }
+  return passos;
+}
+
 async function principal() {
   console.log(`origem  ${ORIGEM}`);
   console.log(`destino ${DESTINO}\n`);
 
+  const passos = DO_REPOSITORIO ? passosDoRepositorio() : await passosDoBanco();
+  await aplicarPassos(passos);
+}
+
+async function passosDoBanco() {
   const marco = await consultar(
     ORIGEM,
     `select version from supabase_migrations.schema_migrations where name = ${aspas(MARCO_ZERO)} limit 1`,
@@ -151,13 +192,17 @@ async function principal() {
     for (const n of semSql) console.error(`  - ${n}`);
     process.exit(1);
   }
+  return passos;
+}
+
+async function aplicarPassos(passos) {
 
   const doBanco = passos.filter((p) => p.origem === "banco").length;
   const doArquivo = passos.filter((p) => p.origem === "arquivo").length;
   const bytes = passos.reduce((t, p) => t + p.sql.length, 0);
-  console.log(`${passos.length} migrations desde ${MARCO_ZERO} (${desde})`);
-  console.log(`  ${doBanco} com SQL guardado no banco`);
-  console.log(`  ${doArquivo} lidas do repositório`);
+  console.log(`${passos.length} migrations desde ${MARCO_ZERO}`);
+  console.log(`  ${doBanco} com o texto que rodou no banco${DO_REPOSITORIO ? " (cópias de supabase/historico)" : ""}`);
+  console.log(`  ${doArquivo} lidas de supabase/migrations`);
   console.log(`  ${(bytes / 1024).toFixed(0)} KB de SQL no total\n`);
   for (const p of passos.filter((x) => x.origem === "arquivo")) {
     console.log(`  do repositório: ${p.version}  ${p.name}`);

@@ -176,3 +176,18 @@ Rodada B. Pela conferência, **o E2E de produção falhava em todo deploy desde 
 - **Um defeito de tela que o teste achou.** Enquanto consultava os documentos pendentes, o aceite mostrava o painel e o trocava pela tela de aceite um instante depois. O painel piscava e disparava as próprias consultas à toa. Agora o aceite mostra só o indicador de carregamento até saber se há documento pendente.
 
 **Conferido:** os 12 testes de ponta a ponta contra produção, com as contas e os secrets recriados: os 9 de fumaça, os 2 da jornada do aluno e o do painel do gestor.
+
+## O repositório reconstrói o banco (05/10/2026)
+
+Achado de 04/10: parte das migrations aplicadas no banco não tinha arquivo no repositório. Comparando os dois lados pelo conteúdo, e não pelo número, o retrato ficou assim. Das 276 migrations desde `reset_schema_public`:
+- 222 rodaram com o texto de um arquivo de `supabase/migrations/`, mesmo quando o número do arquivo é outro, porque o repositório renumerou boa parte delas;
+- 32 não tinham arquivo nenhum, como as partes da fila do mentor e do resumo semanal aplicadas em pedaços;
+- 22 têm arquivo com texto um pouco diferente do que rodou.
+
+`scripts/migracao/historico.mjs` grava em `supabase/historico/` a ordem e o texto que rodou: aponta para o arquivo quando o texto bate (sem contar comentário, espaço e maiúscula) e guarda uma cópia fiel do banco quando falta ou difere (54 cópias). Os 31 arquivos de `supabase/migrations/` que a reconstrução não usa ficam listados com o motivo. Nenhuma cópia traz segredo, e-mail ou CPF; foi conferido antes do commit, porque o repositório é público.
+
+`scripts/migracao/replicar-schema.mjs` ganhou o modo `ARKE_ORIGEM=repositorio`. Ele lê esse retrato e as migrations mais novas e aplica num projeto vazio, que precisa vir em `ARKE_DESTINO`. O projeto de produção nunca é aceito como destino. `historicoBanco.guarda` confere o retrato sem falar com o banco: todo arquivo citado existe, a ordem não volta atrás, e nenhum arquivo antigo fica sem explicação.
+
+De passagem, os índices das três chaves estrangeiras que o conselheiro de desempenho do Supabase acusava sem índice (`chamados_suporte` e `equipe_arkefit`), em `20261337010000`.
+
+**Conferido:** o modo novo em ensaio (`--conferir`): 276 migrations, 1,5 MB de SQL, e a recusa sem destino e com a produção como destino. A guarda passou, e pegou um arquivo antigo plantado sem explicação. **Falta a prova de verdade:** reconstruir num projeto vazio e comparar com `03-conferencia.sql`. Ela entra no ensaio de restauração do backup, depois do Supabase Pro.

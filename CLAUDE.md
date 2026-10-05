@@ -119,6 +119,7 @@ Cada linha é uma armadilha que já aconteceu aqui. Onde há trava, ela é um te
 - `src/content/ajuda/*.md` e `src/lib/ajuda/catalogo.ts`: a Central de Ajuda. Tela mudou, artigo muda no mesmo PR.
 - `src/content/legal/*.md`: o texto dos documentos legais. O banco guarda versão e hash, e `documentosLegais.test.ts` falha se o texto mudar sem o hash.
 - `supabase/migrations/` e `supabase/functions/`, com `_shared/` e o próprio CLAUDE.md. O `verify_jwt` de cada função fica em `supabase/config.toml`.
+- `supabase/historico/`: o retrato fiel de como o banco de produção foi construído (a ordem e o texto que rodou), para recriá-lo do zero pelo repositório. Renovar com `scripts/migracao/historico.mjs`; `historicoBanco.guarda` confere.
 - `packages/gateway/`: o Gateway Local das catracas, com o próprio CLAUDE.md. `packages/ponte-topdata/`: a ponte .NET da Topdata (`docs/PONTE_TOPDATA.md`).
 - `scripts/`: sandbox do Asaas, prontidão (`scripts/prontidao/`), marca, Central de Ajuda e migração.
 - `docs/`:
