@@ -1437,6 +1437,31 @@ O resto dos defeitos que a conferência de 04/10/2026 confirmou no código. A co
   - o chamado guarda a situação da aluna pausada sem o nome dela, e o e-mail sai;
   - a taxa de 29,9% é recusada pela API com a faixa na mensagem.
 
+## Duas etapas para a gestão (decisão de 04/10/2026)
+
+A senha sozinha dava a quem a tivesse três coisas:
+- a planilha com e-mail, telefone e endereço de todos os alunos;
+- o fim do contrato;
+- a conta de um membro da equipe, trocando o e-mail de login dele e pedindo a senha nova nesse e-mail.
+
+A decisão foi oferecer as duas etapas à gestão e exigi-las nessas três ações. Migration `20261328010000_duas_etapas_gestor.sql`.
+
+- **O servidor exige.** `sessao_verificada()` lê o `aal` do JWT.
+  - `emails_alunos_organizacao()` exige a sessão verificada. É a única peça da exportação que vem do servidor; o resto a gestão já lê nas telas.
+  - `avisar_encerramento_organizacao()` exige o mesmo da gestão; a ArkeFit já chega verificada pelo `has_role`.
+  - `editar-membro-equipe` recusa a troca de e-mail sem a sessão verificada. Trocar nome e papel segue só com a senha.
+- **A tela pede o código antes.** `useDuasEtapasNaAcao()` (`src/components/duasEtapas/`): com a sessão já verificada, a ação roda direto. Sem ela, abre uma janela que pede o código e roda a ação depois. Quem ainda não ativou faz o cadastro pelo QR code na própria janela. É o mesmo `VerificacaoDuasEtapas` da Visão Master, agora com três usos: tela inteira (ArkeFit), embutida numa janela (as três ações) e `soSeAtivada` (a entrada no painel).
+- **É opcional na entrada.** Em Meu perfil, o quadro **Verificação em duas etapas** (`DuasEtapasGestor`) liga e desliga. Ligada, a entrada no painel pede o código: é o `soSeAtivada` no `ProtectedRoute`, que deixa passar direto quem não ligou e mostra o painel enquanto confere. Na sessão simulada pela ArkeFit, nem o portão nem o quadro aparecem: ela não tem o celular da pessoa, e ligar as duas etapas na conta de outra pessoa a trancaria fora.
+- **Perdeu o celular:** a ArkeFit remove o fator no banco (`auth.mfa_factors`), como faz com a conta dela.
+- Artigo **Verificação em duas etapas** na Central de Ajuda, com links nos artigos de exportação e de equipe.
+
+**Conferido:**
+- 8 casos da migration em transação desfeita.
+- 8 testes do componente e do gancho, com dois defeitos plantados (a ação rodando sem o código, a gestão forçada a cadastrar na entrada), os dois pegos.
+- A **corrente real**, com 9 verificações pelas funções publicadas e uma gestora de verdade:
+  - só com a senha, as três ações são recusadas com a frase, e o nome segue mudando;
+  - depois de cadastrar o aplicativo e verificar, a gestora exporta, troca o e-mail, avisa e retira o encerramento.
+
 ## Rodada de lançamento — Fase 1: Central de Ajuda (24–25/09/2026)
 
 Os manuais viraram parte do produto: **Ajuda** no menu do painel, do app e da Visão Master, e um **?** no alto de cada tela que abre o artigo daquela tela. São 54 artigos, escritos para quem usa (gestor e recepção, professor e nutricionista, aluno, ArkeFit), a partir do código e não dos manuais antigos de `docs/`, que estavam desatualizados.

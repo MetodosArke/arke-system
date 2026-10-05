@@ -7,6 +7,7 @@ import { Download } from "lucide-react";
 import { baixarPlanilha, dataBr, type Aba } from "@/lib/exportarPlanilha";
 import { hojeBrasilia } from "@/lib/dataBrasilia";
 import { porLotes, todasAsLinhas } from "@/lib/paginar";
+import { useDuasEtapasNaAcao } from "@/components/duasEtapas/useDuasEtapasNaAcao";
 
 const STATUS: Record<string, string> = {
   pendente: "Pendente",
@@ -28,6 +29,11 @@ export function ExportarDadosAcademia({ variante = "outline" }: { variante?: "de
   const { organization } = useAuth();
   const { toast } = useToast();
   const [gerando, setGerando] = useState(false);
+  // A planilha leva o e-mail, o contato e o endereço de todos os alunos: pede
+  // as duas etapas, e o banco exige o mesmo (`emails_alunos_organizacao`).
+  const { exigir, dialogo } = useDuasEtapasNaAcao(
+    "A exportação leva os dados de todos os alunos. Confirme que é você com o código do aplicativo autenticador do celular. Se ainda não ativou, leia o QR code abaixo."
+  );
 
   const exportar = async () => {
     if (!organization) return;
@@ -179,9 +185,12 @@ export function ExportarDadosAcademia({ variante = "outline" }: { variante?: "de
   };
 
   return (
-    <Button variant={variante} onClick={() => void exportar()} disabled={gerando || !organization}>
-      <Download className="mr-2 h-4 w-4" />
-      {gerando ? "Gerando…" : "Exportar todos os dados"}
-    </Button>
+    <>
+      <Button variant={variante} onClick={() => void exigir(() => void exportar())} disabled={gerando || !organization}>
+        <Download className="mr-2 h-4 w-4" />
+        {gerando ? "Gerando…" : "Exportar todos os dados"}
+      </Button>
+      {dialogo}
+    </>
   );
 }

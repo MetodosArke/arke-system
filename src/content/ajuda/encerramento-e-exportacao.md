@@ -11,6 +11,8 @@ No fim da tela [Organização](/admin/organizacao), o botão **Exportar todos os
 
 A planilha é gerada no seu navegador e baixada no computador. Guarde-a com o cuidado de quem guarda dado de saúde: ela tem dados pessoais de todos os alunos.
 
+> Exportar e encerrar pedem a [verificação em duas etapas](ajuda:duas-etapas-gestor): o código do aplicativo autenticador do seu celular. Se você ainda não ativou, a própria janela faz o cadastro.
+
 ## Encerrar o contrato
 
 O encerramento tem aviso prévio de **30 dias**, como está no contrato.

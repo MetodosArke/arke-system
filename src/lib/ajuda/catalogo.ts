@@ -275,6 +275,13 @@ export const ARTIGOS: ArtigoAjuda[] = [
     rotas: ["/admin/configuracoes/integracoes"],
   },
   {
+    slug: "duas-etapas-gestor",
+    titulo: "Verificação em duas etapas",
+    resumo: "O código do celular além da senha: onde ele é pedido e como ligar na entrada do painel.",
+    secao: "Academia e equipe",
+    publicos: ["gestor"],
+  },
+  {
     slug: "encerramento-e-exportacao",
     titulo: "Exportar os dados e encerrar o contrato",
     resumo: "A exportação completa, o aviso de encerramento e os 30 dias depois do término.",
