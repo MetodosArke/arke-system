@@ -15,19 +15,38 @@ type Estado =
   | { tipo: "verificar"; fatorId: string }
   | { tipo: "erro"; mensagem: string };
 
+const DESCRICAO_ARKEFIT =
+  "A conta da ArkeFit alcança todas as academias. Além da senha, ela pede um código do aplicativo autenticador do seu celular.";
+
 /**
- * Verificação em duas etapas para as contas da ArkeFit (Super Admin e Admin
- * ARKE), que atravessam todas as academias e podem entrar como qualquer
- * perfil. O banco só aceita o papel da ArkeFit numa sessão verificada
- * (`has_role`, migration 20261283010000); esta tela leva a pessoa até lá:
- * na primeira vez, cadastra o aplicativo autenticador pelo QR code; nas
- * seguintes, pede o código de 6 dígitos.
+ * Verificação em duas etapas. Na primeira vez, cadastra o aplicativo
+ * autenticador pelo QR code; nas seguintes, pede o código de 6 dígitos.
+ *
+ * Três usos:
+ * - **tela inteira** (padrão): as contas da ArkeFit (Super Admin e Admin
+ *   ARKE), que atravessam todas as academias e podem entrar como qualquer
+ *   perfil. O banco só aceita o papel da ArkeFit numa sessão verificada
+ *   (`has_role`, migration 20261283010000).
+ * - **embutida**, dentro de uma janela: as ações da gestão que pedem as duas
+ *   etapas (exportar todos os dados, encerrar a academia, trocar o e-mail de
+ *   login), por `useDuasEtapasNaAcao`. Quem ainda não ativou ativa ali.
+ * - **soSeAtivada**: a entrada no painel de quem ligou as duas etapas pede o
+ *   código; quem não ligou passa direto. Enquanto confere, mostra o painel.
  *
  * Perdeu o celular: o fator é removido no banco (`auth.mfa_factors` da conta),
- * e na entrada seguinte a tela pede o cadastro de novo — ver o manual da
- * Visão Master.
+ * e na entrada seguinte a tela pede o cadastro de novo.
  */
-export function VerificacaoDuasEtapas({ children }: { children: ReactNode }) {
+export function VerificacaoDuasEtapas({
+  children,
+  variante = "tela",
+  descricao = DESCRICAO_ARKEFIT,
+  soSeAtivada = false,
+}: {
+  children: ReactNode;
+  variante?: "tela" | "embutida";
+  descricao?: ReactNode;
+  soSeAtivada?: boolean;
+}) {
   const { signOut } = useAuth();
   const queryClient = useQueryClient();
   const [estado, setEstado] = useState<Estado>({ tipo: "carregando" });
@@ -42,12 +61,15 @@ export function VerificacaoDuasEtapas({ children }: { children: ReactNode }) {
       if (!vivo) return;
       if (error) return setEstado({ tipo: "erro", mensagem: error.message });
       if (nivel.currentLevel === "aal2") return setEstado({ tipo: "ok" });
+      // `nextLevel` só é aal2 quando a conta tem um aplicativo cadastrado.
+      if (soSeAtivada && nivel.nextLevel !== "aal2") return setEstado({ tipo: "ok" });
 
       const { data: fatores, error: erroFatores } = await supabase.auth.mfa.listFactors();
       if (!vivo) return;
       if (erroFatores) return setEstado({ tipo: "erro", mensagem: erroFatores.message });
       const verificado = fatores.totp.find((f) => f.status === "verified");
       if (verificado) return setEstado({ tipo: "verificar", fatorId: verificado.id });
+      if (soSeAtivada) return setEstado({ tipo: "ok" });
 
       // Cadastro que começou e não terminou (a pessoa recarregou a página): recomeça do zero.
       for (const f of fatores.all.filter((f) => f.status !== "verified")) await supabase.auth.mfa.unenroll({ factorId: f.id });
@@ -59,9 +81,12 @@ export function VerificacaoDuasEtapas({ children }: { children: ReactNode }) {
     return () => {
       vivo = false;
     };
-  }, []);
+  }, [soSeAtivada]);
 
   if (estado.tipo === "ok") return <>{children}</>;
+  // Quem só confere se a pessoa ligou as duas etapas não segura o painel
+  // enquanto pergunta: a resposta quase sempre é "não ligou".
+  if (soSeAtivada && estado.tipo === "carregando") return <>{children}</>;
 
   const confirmar = async (fatorId: string) => {
     setEnviando(true);
@@ -77,6 +102,58 @@ export function VerificacaoDuasEtapas({ children }: { children: ReactNode }) {
     setEstado({ tipo: "ok" });
   };
 
+  const conteudo = (
+    <>
+      {estado.tipo === "carregando" && <p className="text-muted-foreground">Conferindo a verificação…</p>}
+      {estado.tipo === "erro" && <p className="text-destructive">{estado.mensagem}</p>}
+      {estado.tipo === "cadastrar" && (
+        <>
+          <p>
+            1. Abra o aplicativo autenticador (Google Authenticator, Microsoft Authenticator ou outro) e leia o QR code.
+          </p>
+          <img src={estado.qr} alt="QR code para o aplicativo autenticador" className="mx-auto h-44 w-44 rounded bg-white p-2" />
+          <p className="text-xs text-muted-foreground">
+            Sem câmera? Digite no aplicativo o código <span className="font-mono break-all">{estado.segredo}</span>
+          </p>
+          <p>2. Digite o código de 6 dígitos que aparece no aplicativo.</p>
+        </>
+      )}
+      {estado.tipo === "verificar" && <p>Digite o código de 6 dígitos do aplicativo autenticador.</p>}
+      {(estado.tipo === "cadastrar" || estado.tipo === "verificar") && (
+        <form
+          className="space-y-2"
+          onSubmit={(e) => {
+            e.preventDefault();
+            void confirmar(estado.fatorId);
+          }}
+        >
+          <Label htmlFor="codigo-2fa">Código</Label>
+          <Input
+            id="codigo-2fa"
+            inputMode="numeric"
+            autoComplete="one-time-code"
+            maxLength={6}
+            value={codigo}
+            onChange={(e) => setCodigo(e.target.value.replace(/\D/g, ""))}
+          />
+          {erroCodigo && <p className="text-xs text-destructive">{erroCodigo}</p>}
+          <Button type="submit" className="w-full" disabled={enviando || codigo.length !== 6}>
+            {enviando ? "Conferindo…" : "Confirmar"}
+          </Button>
+        </form>
+      )}
+    </>
+  );
+
+  if (variante === "embutida") {
+    return (
+      <div className="space-y-4 text-sm">
+        <p className="text-muted-foreground">{descricao}</p>
+        {conteudo}
+      </div>
+    );
+  }
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-background p-4">
       <Card className="w-full max-w-md">
@@ -84,49 +161,10 @@ export function VerificacaoDuasEtapas({ children }: { children: ReactNode }) {
           <CardTitle className="flex items-center gap-2">
             <ShieldCheck className="h-5 w-5 text-primary" /> Verificação em duas etapas
           </CardTitle>
-          <CardDescription>
-            A conta da ArkeFit alcança todas as academias. Além da senha, ela pede um código do aplicativo autenticador do seu celular.
-          </CardDescription>
+          <CardDescription>{descricao}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4 text-sm">
-          {estado.tipo === "carregando" && <p className="text-muted-foreground">Conferindo a verificação…</p>}
-          {estado.tipo === "erro" && <p className="text-destructive">{estado.mensagem}</p>}
-          {estado.tipo === "cadastrar" && (
-            <>
-              <p>
-                1. Abra o aplicativo autenticador (Google Authenticator, Microsoft Authenticator ou outro) e leia o QR code.
-              </p>
-              <img src={estado.qr} alt="QR code para o aplicativo autenticador" className="mx-auto h-44 w-44 rounded bg-white p-2" />
-              <p className="text-xs text-muted-foreground">
-                Sem câmera? Digite no aplicativo o código <span className="font-mono break-all">{estado.segredo}</span>
-              </p>
-              <p>2. Digite o código de 6 dígitos que aparece no aplicativo.</p>
-            </>
-          )}
-          {estado.tipo === "verificar" && <p>Digite o código de 6 dígitos do aplicativo autenticador.</p>}
-          {(estado.tipo === "cadastrar" || estado.tipo === "verificar") && (
-            <form
-              className="space-y-2"
-              onSubmit={(e) => {
-                e.preventDefault();
-                void confirmar(estado.fatorId);
-              }}
-            >
-              <Label htmlFor="codigo-2fa">Código</Label>
-              <Input
-                id="codigo-2fa"
-                inputMode="numeric"
-                autoComplete="one-time-code"
-                maxLength={6}
-                value={codigo}
-                onChange={(e) => setCodigo(e.target.value.replace(/\D/g, ""))}
-              />
-              {erroCodigo && <p className="text-xs text-destructive">{erroCodigo}</p>}
-              <Button type="submit" className="w-full" disabled={enviando || codigo.length !== 6}>
-                {enviando ? "Conferindo…" : "Confirmar"}
-              </Button>
-            </form>
-          )}
+          {conteudo}
           <Button variant="ghost" onClick={() => void signOut()}>
             <LogOut className="mr-2 h-4 w-4" /> Sair
           </Button>

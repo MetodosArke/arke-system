@@ -146,6 +146,13 @@ Deno.serve(async (req: Request) => {
       return jsonResponse({ error: MENSAGEM_OUTRA_ACADEMIA }, 403);
     }
 
+    // Trocar o e-mail de login entrega a conta a quem tem o e-mail novo: a
+    // gestão confirma com as duas etapas (decisão de 04/10/2026). A ArkeFit já
+    // chega verificada.
+    if (email && !callerIsAdminArke && !verificada(claimsData?.claims)) {
+      return jsonResponse({ error: "Trocar o e-mail de login pede a verificação em duas etapas." }, 403);
+    }
+
     if (email) {
       const { error: emailError } = await adminClient.auth.admin.updateUserById(targetUserId, {
         email,

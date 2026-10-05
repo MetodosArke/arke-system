@@ -68,3 +68,40 @@ describe("VerificacaoDuasEtapas", () => {
     await waitFor(() => expect(screen.getByText("Visão Master")).toBeInTheDocument());
   });
 });
+
+describe("VerificacaoDuasEtapas só se ativada (entrada da gestão)", () => {
+  const montarGestao = () =>
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <VerificacaoDuasEtapas soSeAtivada>
+          <p>Painel</p>
+        </VerificacaoDuasEtapas>
+      </QueryClientProvider>,
+    );
+
+  beforeEach(() => {
+    Object.values(mfa).forEach((f) => f.mockReset());
+  });
+
+  it("quem não ligou as duas etapas entra direto, sem cadastrar nada", async () => {
+    mfa.getAuthenticatorAssuranceLevel.mockResolvedValue({ data: { currentLevel: "aal1", nextLevel: "aal1" }, error: null });
+    montarGestao();
+    expect(await screen.findByText("Painel")).toBeInTheDocument();
+    await new Promise((r) => setTimeout(r, 0));
+    expect(mfa.enroll).not.toHaveBeenCalled();
+    expect(mfa.listFactors).not.toHaveBeenCalled();
+  });
+
+  it("quem ligou digita o código, e o painel some até confirmar", async () => {
+    mfa.getAuthenticatorAssuranceLevel.mockResolvedValue({ data: { currentLevel: "aal1", nextLevel: "aal2" }, error: null });
+    mfa.listFactors.mockResolvedValue({ data: { totp: [{ id: "fator-g", status: "verified" }], all: [{ id: "fator-g", status: "verified" }] }, error: null });
+    mfa.challengeAndVerify.mockResolvedValue({ error: null });
+    montarGestao();
+    expect(await screen.findByText(/Digite o código de 6 dígitos do aplicativo/)).toBeInTheDocument();
+    expect(screen.queryByText("Painel")).not.toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Código"), { target: { value: "111222" } });
+    fireEvent.click(screen.getByRole("button", { name: "Confirmar" }));
+    await waitFor(() => expect(screen.getByText("Painel")).toBeInTheDocument());
+    expect(mfa.enroll).not.toHaveBeenCalled();
+  });
+});

@@ -8,6 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { ExportarDadosAcademia } from "@/components/admin/ExportarDadosAcademia";
 import { avisarEncerramento, dataCurta, encerramentoDaAcademia, retirarEncerramento } from "@/lib/encerramento";
+import { useDuasEtapasNaAcao } from "@/components/duasEtapas/useDuasEtapasNaAcao";
 
 /**
  * Organização → Dados e encerramento (só a gestão). Exportar todos os dados
@@ -21,6 +22,9 @@ export function EncerramentoAcademia() {
   const [pedindo, setPedindo] = useState(false);
   const [motivo, setMotivo] = useState("");
   const orgId = organization?.id;
+  const { exigir, dialogo } = useDuasEtapasNaAcao(
+    "Encerrar o contrato pede a verificação em duas etapas. Digite o código do aplicativo autenticador do celular. Se ainda não ativou, leia o QR code abaixo."
+  );
 
   const { data: encerramento } = useQuery({
     queryKey: ["encerramento-academia", orgId],
@@ -85,7 +89,7 @@ export function EncerramentoAcademia() {
               param e as digitais saem das catracas. Você pode retirar o aviso antes disso.
             </p>
             <div className="flex gap-2">
-              <Button variant="destructive" disabled={avisar.isPending || motivo.trim().length < 3} onClick={() => avisar.mutate(motivo.trim())}>
+              <Button variant="destructive" disabled={avisar.isPending || motivo.trim().length < 3} onClick={() => { const texto = motivo.trim(); void exigir(() => avisar.mutate(texto)); }}>
                 Avisar encerramento
               </Button>
               <Button variant="ghost" onClick={() => setPedindo(false)}>
@@ -98,6 +102,7 @@ export function EncerramentoAcademia() {
             Encerrar o contrato…
           </Button>
         )}
+        {dialogo}
       </CardContent>
     </Card>
   );

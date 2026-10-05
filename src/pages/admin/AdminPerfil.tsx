@@ -9,6 +9,8 @@ import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { LogOut } from "lucide-react";
+import { DuasEtapasGestor } from "@/components/admin/DuasEtapasGestor";
+import { emPerfilSimulado } from "@/lib/impersonation";
 
 const PAPEL_LABEL: Record<string, string> = {
   admin_arke: "Admin ARKE",
@@ -162,6 +164,9 @@ export default function AdminPerfil() {
           </Button>
         </CardContent>
       </Card>
+
+      {/* Em perfil simulado não: ligar as duas etapas na conta de outra pessoa a trancaria fora. */}
+      {organizationRole === "gestor" && !emPerfilSimulado() && <DuasEtapasGestor />}
 
       <Button variant="destructive" className="w-full" onClick={signOut}>
         <LogOut className="mr-2 h-4 w-4" /> Sair

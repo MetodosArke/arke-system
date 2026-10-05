@@ -15,6 +15,7 @@ import { UsersRound, UserPlus, Pencil, Power, UserX, Copy, Check, KeyRound } fro
 import { useToast } from "@/hooks/use-toast";
 import type { Enums } from "@/integrations/supabase/types";
 import { FuncionarioPerfilSheet } from "@/components/admin/FuncionarioPerfilSheet";
+import { useDuasEtapasNaAcao } from "@/components/duasEtapas/useDuasEtapasNaAcao";
 
 type PapelEquipe = Extract<Enums<"app_role">, "gestor" | "professor" | "nutricionista" | "recepcao">;
 
@@ -510,6 +511,11 @@ function EditarMembroDialog({
   const { organization } = useAuth();
   const { toast } = useToast();
   const [form, setForm] = useState<EditForm | null>(null);
+  // Trocar o e-mail de login entrega a conta a quem tem o e-mail novo: pede as
+  // duas etapas, e `editar-membro-equipe` exige o mesmo.
+  const { exigir, dialogo } = useDuasEtapasNaAcao(
+    "Trocar o e-mail de login pede a verificação em duas etapas. Digite o código do aplicativo autenticador do celular. Se ainda não ativou, leia o QR code abaixo."
+  );
 
   // O e-mail atual não é buscado — trocá-lo exige a Admin API, então o
   // campo começa vazio e só é enviado se preenchido.
@@ -561,7 +567,8 @@ function EditarMembroDialog({
           className="space-y-3"
           onSubmit={(e) => {
             e.preventDefault();
-            salvar.mutate();
+            if (formAtual.email.trim()) void exigir(() => salvar.mutate());
+            else salvar.mutate();
           }}
         >
           <div className="space-y-1.5">
@@ -606,6 +613,7 @@ function EditarMembroDialog({
             </Button>
           </DialogFooter>
         </form>
+        {dialogo}
       </DialogContent>
     </Dialog>
   );

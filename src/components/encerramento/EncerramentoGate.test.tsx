@@ -7,11 +7,18 @@ import { EncerramentoAcademia } from "@/components/admin/EncerramentoAcademia";
 
 let encerramento: Record<string, unknown> | null = null;
 let papel = "gestor";
+let nivelSessao = "aal2";
 let status = "ativo";
 const rpc = vi.fn();
 
 vi.mock("@/integrations/supabase/client", () => ({
   supabase: {
+    auth: {
+      mfa: {
+        getAuthenticatorAssuranceLevel: () => Promise.resolve({ data: { currentLevel: nivelSessao, nextLevel: "aal2" }, error: null }),
+        listFactors: () => Promise.resolve({ data: { totp: [{ id: "f1", status: "verified" }], all: [{ id: "f1", status: "verified" }] }, error: null }),
+      },
+    },
     rpc: (nome: string, args: unknown) => {
       rpc(nome, args);
       if (nome === "get_encerramento_organizacao") return Promise.resolve({ data: encerramento ? [encerramento] : [], error: null });
@@ -87,6 +94,17 @@ describe("EncerramentoAcademia (Organização → Dados e encerramento)", () => 
     papel = "gestor";
     status = "ativo";
     rpc.mockReset();
+    nivelSessao = "aal2";
+  });
+
+  it("sem a sessão verificada, o aviso só sai depois do código das duas etapas", async () => {
+    nivelSessao = "aal1";
+    montar(<EncerramentoAcademia />);
+    fireEvent.click(await screen.findByRole("button", { name: /Encerrar o contrato/ }));
+    fireEvent.change(screen.getByLabelText(/Por que a academia vai encerrar/), { target: { value: "Mudança de sistema" } });
+    fireEvent.click(screen.getByRole("button", { name: "Avisar encerramento" }));
+    expect(await screen.findByText(/Digite o código de 6 dígitos/)).toBeInTheDocument();
+    expect(rpc).not.toHaveBeenCalledWith("avisar_encerramento_organizacao", expect.anything());
   });
 
   it("a gestão avisa o encerramento por iniciativa da academia, com motivo", async () => {
