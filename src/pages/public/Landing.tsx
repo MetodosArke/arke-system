@@ -611,7 +611,7 @@ const RECURSOS: [typeof Wallet, string, string][] = [
   [CreditCard, "Cobrança automática", "Cartão, PIX ou boleto, direto na conta da academia."],
   [Smartphone, "App do aluno incluso", "Treino, dieta, check-in e pagamentos."],
   [FileText, "Nota fiscal automática", "No CNPJ da academia, a cada pagamento."],
-  [DoorOpen, "Catraca que não trava", "Control iD, Topdata e Toletus, com digital ou rosto, mesmo sem internet."],
+  [DoorOpen, "Catraca que não trava", "Control iD, Topdata, Toletus e Intelbras, com digital ou rosto, mesmo sem internet."],
   [QrCode, "Check-in por QR Code", "Para quem não tem catraca."],
   [FileSpreadsheet, "Traga a sua base", "Planilhas do EVO, Tecnofit, Next Fit e Pacto."],
   [LineChart, "Gestão que se explica", "DRE, retenção e o resumo da semana."],
@@ -619,7 +619,7 @@ const RECURSOS: [typeof Wallet, string, string][] = [
 ];
 
 /** A faixa que corre no pé de Recursos: só parceiros e integrações, sem nome de concorrente. */
-const FAIXA_PARCEIROS = ["Asaas", "PIX, boleto e cartão", "Control iD", "Topdata", "Toletus", "Nota fiscal de serviço"];
+const FAIXA_PARCEIROS = ["Asaas", "PIX, boleto e cartão", "Control iD", "Topdata", "Toletus", "Intelbras", "Nota fiscal de serviço"];
 
 function Recursos() {
   return (
@@ -900,7 +900,7 @@ function Fundadores() {
 // ——— Perguntas ———
 
 const PERGUNTAS: [string, string][] = [
-  ["Preciso trocar de catraca?", "Control iD, Topdata e Toletus funcionam com o ArkeFit, com digital, cartão e, nos modelos com leitor facial, o rosto. O modelo exato é conferido na implantação, e outras marcas são avaliadas e integradas conforme o equipamento."],
+  ["Preciso trocar de catraca?", "Control iD, Topdata, Toletus e Intelbras funcionam com o ArkeFit, com digital, cartão e, nos modelos com leitor facial, o rosto. O modelo exato é conferido na implantação, e outras marcas são avaliadas e integradas conforme o equipamento."],
   [
     "Como trago os alunos do sistema que uso hoje?",
     "Exporte a planilha de alunos do seu sistema. As do EVO, Tecnofit, Next Fit e Pacto são reconhecidas; o ArkeFit confere o CPF de cada linha, e a importação pode ser retomada se parar no meio.",

@@ -222,3 +222,31 @@ A lista já vem inteira do banco, então a busca filtra na tela, sem consulta a 
 - Os testes da busca.
 - A academia semeada duas vezes (`semear` e `recriar`), com a fila, as situações e a receita conferidas no banco, nada para o Vigia acusar e o login entrando com a senha guardada.
 - As telas da gestão e o app da aluna abertos em produção, sem erro.
+
+## Conferindo a demonstração, e as decisões de 05/10 (05/10/2026)
+
+As telas da academia de demonstração foram abertas uma a uma, pela gestora e pela aluna, para montar a apresentação comercial nova. Saíram dali correções na demonstração, um defeito do produto e, no fim do dia, cinco decisões do responsável.
+
+**Na demonstração** (`scripts/demonstracao/academia.mjs`). O responsável pediu que ela só mostre o sistema funcionando, sem perseguir números perfeitos, então entrou só o que parecia defeito para quem assiste:
+- o trimestral e o anual de todos os alunos eram cobrados no mesmo mês, e as despesas entravam só nos últimos dias, atravessando a virada do mês. Agora cada plano cobra no mês em que renova, e as despesas fixas entram todo mês, no dia em que vencem;
+- o treino de hoje aparecia "concluído" ao lado de "0/6 exercícios": cada treino registrado tem a divisão da ficha e os exercícios feitos, com carga;
+- a dieta só mostrava zeros, e não havia diário de água: duas semanas de cada um;
+- o resumo da semana ficava vazio, porque a academia fictícia fica fora do envio por e-mail. O desta semana é gravado com a mesma função do envio, e os alunos nascem com a data de entrada, e não com a de hoje (contavam todos como novos);
+- o app da aluna sai com a cor da academia (`cor_marca`), para a demonstração mostrar a marca dela; o painel da equipe continua ArkeFit;
+- na lista de alunos, o filtro de situação cortava o texto e tinha o mesmo nome do seletor de cada linha.
+
+**O defeito do produto: a nota de engajamento na primeira semana do mês** (`20261335010000`). A nota comparava o que o aluno fez até hoje com a meta do mês inteiro. Até o dia 7 de todo mês, todo aluno saía com engajamento baixo, o Gestão 360 mostrava a receita inteira como "MRR em risco", e a rotina de segunda abria chamado de engajamento baixo para os alunos do Método. A meta agora é proporcional aos dias que passaram, igual à de antes no último dia, e a rotina não abre chamado antes do dia 7. Em 05/10 ela já tinha aberto um.
+
+**As decisões de 05/10**, todas na opção recomendada:
+- **A nota conta só o que o aluno tem** (`20261336010000`). Ela tem quatro pilares, treino (40), check-in (20), dieta (20) e água (20), e nasceu para o Método. O aluno do Free sem dieta da academia não passava de 80, e quem fica abaixo de 40 conta como risco no Gestão 360 e na Retenção. Sem dieta ativa, os outros três valem os 100. O aluno do Método segue com os quatro.
+- **A conta própria no Asaas é a recomendada.** No período de teste do Asaas, cada subconta aberta pela ArkeFit tem um teto de cobranças. A tela de recebimentos passou a recomendar que a academia abra a conta dela, grátis, no site do Asaas, e informe a carteira. "Abrir pela ArkeFit" continua, para quando a equipe combinar. O agente de implantação e o artigo da Central acompanharam.
+- **A Intelbras está no site**, depois da resposta dela sobre o terminal sem o Gateway (ver [catracas.md](catracas.md)).
+- **A CSP passa a valer** depois de 7 dias sem aviso de bloqueio de uso real, a partir de 12/10.
+- **O React Router 7** entra numa rodada própria antes do primeiro cliente. Vite, Vitest e Tailwind esperam o lançamento.
+
+**Fora do código:** o monitor de fora ficou no UptimeRobot (ver [operacao.md](operacao.md)), e o DMARC de `arkefit.com.br` passou a mandar relatório a `dmarc@arkefit.com.br`, ainda em `p=none`.
+
+**Conferido:**
+- a nota proporcional e a nota por pilares, em transação desfeita na academia de demonstração: a média de hoje foi de 5,8 para 19,8 com a meta proporcional; com os pilares, a média de quem não tem dieta foi de 26,2 para 32,7, e a de quem tem ficou igual; a rotina do dia 5 não abriu chamado;
+- a demonstração recriada em produção, com as telas da gestora e da aluna capturadas de novo, sem erro de página, no computador e no celular;
+- a busca e o filtro de situação pela tela, em produção: nome, nome fora de ordem, telefone e CPF com máscara, sem resultado e só os inadimplentes.
