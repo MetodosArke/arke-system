@@ -152,9 +152,16 @@ type RespostaControlId = {
   };
 };
 
+/**
+ * O display é público: quem está na fila lê. Ele mostra "Aluno", nunca o
+ * nome, como o cadastro no equipamento (decisão da versão 1.0). Até a 1.6 a
+ * resposta mandava o nome do aluno, inclusive ao lado de "acesso negado",
+ * dizendo à fila quem estava barrado. O motivo fica nos Últimos acessos.
+ */
+const NOME_NO_DISPLAY = "Aluno";
+
 function respostaLiberado(
   userId: number | undefined,
-  nome: string | undefined,
   como: ComoLiberar,
   opcoes: Required<OpcoesReceptorControlId>
 ): RespostaControlId {
@@ -162,7 +169,7 @@ function respostaLiberado(
     result: {
       event: EVENTO.ACESSO_CONCEDIDO,
       user_id: userId,
-      user_name: nome,
+      user_name: userId === undefined ? undefined : NOME_NO_DISPLAY,
       user_image: false,
       portal_id: opcoes.portalId,
       actions: acoesDeLiberacao(como),
@@ -172,18 +179,15 @@ function respostaLiberado(
 
 function respostaNegado(
   userId: number | undefined,
-  nome: string | undefined,
   identificado: boolean,
   opcoes: Required<OpcoesReceptorControlId>
 ): RespostaControlId {
-  // Sem `actions`: a borboleta fica travada. O nome vai junto quando
-  // conhecido para o display dizer a quem está negando — recepção
-  // conseguir resolver na hora vale mais que a economia de um campo.
+  // Sem `actions`: a borboleta fica travada.
   return {
     result: {
       event: identificado ? EVENTO.ACESSO_NEGADO : EVENTO.NAO_IDENTIFICADO,
       user_id: userId,
-      user_name: nome,
+      user_name: userId === undefined ? undefined : NOME_NO_DISPLAY,
       user_image: false,
       portal_id: opcoes.portalId,
     },
@@ -258,7 +262,7 @@ export function registrarReceptorControlId(
 
     if (!userId || userId === "0") {
       logger.warn({ corpo }, "Catraca enviou identificação sem user_id");
-      return respostaNegado(undefined, undefined, false, cfg);
+      return respostaNegado(undefined, false, cfg);
     }
 
     const resultado = await gateway.validarCredencial(
@@ -292,8 +296,8 @@ export function registrarReceptorControlId(
     }
 
     return resultado.liberado
-      ? respostaLiberado(Number(userId), resultado.nomeAluno, como, cfg)
-      : respostaNegado(Number(userId), resultado.nomeAluno, true, cfg);
+      ? respostaLiberado(Number(userId), como, cfg)
+      : respostaNegado(Number(userId), true, cfg);
   });
 
   /**
@@ -314,7 +318,7 @@ export function registrarReceptorControlId(
         { rota, valor: corpo[campo] },
         "Credencial lida sem mapeamento para aluno no ARKE — acesso negado"
       );
-      return respostaNegado(undefined, undefined, false, cfg);
+      return respostaNegado(undefined, false, cfg);
     });
   };
 

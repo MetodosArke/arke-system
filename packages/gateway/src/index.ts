@@ -8,6 +8,7 @@ import { criarDriver } from "./drivers";
 import { GatewayService } from "./core/gatewayService";
 import { criarServidorLocal, criarServidorReceptor } from "./server/localServer";
 import { resolverComoLiberar } from "./receptores/controlid";
+import { ipsPermitidos } from "./server/origemEquipamento";
 import { logger } from "./logger";
 import { ExecutorComandos } from "./core/executorComandos";
 import { GestaoControlId, type GestaoEquipamentos } from "./equipamentos/controlidGestao";
@@ -61,6 +62,15 @@ async function main() {
         })
       : null;
   const MODELOS_RECEPTOR = ["controlid", "topdata", "intelbras"];
+  // Só os equipamentos do config falam com o receptor (ver
+  // origemEquipamento.ts). Na Topdata quem chama é a ponte, na própria máquina.
+  const permitidos = ipsPermitidos(config);
+  if (["controlid", "intelbras"].includes(config.modelo_catraca) && permitidos.size === 0) {
+    logger.warn(
+      "Nenhum equipamento listado no config: o receptor atende qualquer aparelho da rede. " +
+        "Ponha o IP da catraca em equipamentos_permitidos (ou nas listas de equipamentos)."
+    );
+  }
   if (MODELOS_RECEPTOR.includes(config.modelo_catraca)) {
     const receptor = criarServidorReceptor(gateway, {
       host: config.escuta_host,
@@ -74,6 +84,7 @@ async function main() {
       // horário, mesmo com outra entrada configurada.
       comoLiberar: resolverComoLiberar(config),
       ...(conectorIntelbras ? { intelbras: { nomePorIp: (ip: string) => conectorIntelbras.nomePorIp(ip) } } : {}),
+      ipsPermitidos: permitidos,
     });
     await receptor.iniciar();
   }

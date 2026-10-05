@@ -89,7 +89,8 @@ describe("Receptor Control iD — modo Pro (biometria identificada no equipament
     expect(resp.statusCode).toBe(200);
     const corpo = resp.json();
     expect(corpo.result.event).toBe(7);
-    expect(corpo.result.user_name).toBe("Jean Ramos");
+    // O display é público: "Aluno", nunca o nome.
+    expect(corpo.result.user_name).toBe("Aluno");
     expect(corpo.result.actions).toEqual([{ action: "catra", parameters: "allow=clockwise" }]);
   });
 
@@ -114,9 +115,10 @@ describe("Receptor Control iD — modo Pro (biometria identificada no equipament
 
     expect(corpo.result.event).toBe(6);
     expect(corpo.result.actions).toBeUndefined();
-    // O nome vai mesmo na negativa: o display diz a quem está negando, e a
-    // recepção resolve na hora em vez de o aluno ficar sem explicação.
-    expect(corpo.result.user_name).toBe("Jean Ramos");
+    // Nem na negativa o display diz o nome: a fila não fica sabendo quem foi
+    // barrado. O motivo fica nos Últimos acessos, para a recepção.
+    expect(corpo.result.user_name).toBe("Aluno");
+    expect(JSON.stringify(corpo)).not.toContain("Jean");
   });
 
   it("responde não-identificado quando o equipamento manda evento sem user_id", async () => {

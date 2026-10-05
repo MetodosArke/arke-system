@@ -18,7 +18,7 @@ O menu de cada academia tem:
 
 - **Editar Informações**: nome, tipo, plano, CNPJ, contato, prazo do trial.
 - **Faturamento / Cobranças B2B**: as cobranças da ArkeFit à academia.
-- **Resetar Token do Gateway Local**: gera um token novo para as catracas. As catracas param até alguém atualizar o `config.json` no computador da academia: use só em vazamento ou troca de equipamento.
+- **Invalidar token do Gateway Local**: o token de todas as catracas da academia para de valer na hora. As catracas param até a gestão gerar um token novo em Catracas e atualizar o `config.json` no computador da academia: use só em vazamento.
 - **Suspender / Ativar acesso do tenant**.
 - **Excluir Organização**: só para organizações em **trial**, que são de homologação. Academia cliente sai pelo encerramento; veja [Encerrar uma academia](ajuda:vm-encerramento).
 

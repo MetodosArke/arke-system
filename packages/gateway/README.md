@@ -80,7 +80,7 @@ cp config.example.json config.json
 | Campo | Descrição |
 |---|---|
 | `organization_id` | UUID da organização (informativo — quem autentica é o token) |
-| `token_api_local` | O `device_token` do dispositivo, copiado em **Catracas** no painel |
+| `token_api_local` | O token do dispositivo, copiado em **Catracas** no painel quando foi gerado (ele aparece uma vez só) |
 | `supabase_url` | URL do projeto Supabase |
 | `modelo_catraca` | `controlid` \| `topdata` \| `topdata_facial` \| `toletus` \| `mock` (`henry` e `dimep` são recusados) |
 | `catraca_ip` / `catraca_porta` | Endereço de referência do equipamento |
@@ -96,6 +96,7 @@ cp config.example.json config.json
 | `topdata_faciais` | Leitores faciais da Topdata: `nome`, `ip`, `sn` (opcional; sem ele, o leitor é reconhecido pelo IP), `senha` e `porta_http` (80) da API HTTP do leitor, para a abertura remota. Vazia com o modelo `topdata_facial`: um leitor só, em `catraca_ip`. |
 | `topdata_facial_porta` | Onde os leitores faciais discam (padrão `7792`, a do menu do leitor). |
 | `controlid_equipamentos` | Lista de Control iD para gestão remota: `nome`, `ip`, `porta` (80), `usuario` (`admin`), `senha`, `sentido_entrada` (`clockwise`\|`anticlockwise`), `rosto` (`true` nos equipamentos com reconhecimento facial, como o iDFace; só nesses a ficha cadastra o rosto). Vazia: sem gestão remota, cadastro manual no equipamento. |
+| `equipamentos_permitidos` | IPs de equipamento fora de `controlid_equipamentos` e de `intelbras_equipamentos` (a Control iD única, sem gestão remota). Com qualquer uma das três listas, o receptor só atende esses IPs e o próprio computador (desde a 1.7.0). Sem lista nenhuma, atende qualquer aparelho da rede e avisa no log. |
 
 **A senha do equipamento fica só neste arquivo, na máquina da academia.** Para
 a nuvem vai o nome de cada equipamento (para a recepção escolher o leitor),

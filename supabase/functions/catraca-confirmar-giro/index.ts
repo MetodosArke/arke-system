@@ -1,4 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { hashDoTokenCatraca } from "../_shared/tokenCatraca.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -37,6 +38,8 @@ Deno.serve(async (req: Request) => {
     const payload = (await req.json()) as { device_token?: string; log_id?: string; giro?: string };
     const deviceToken = payload.device_token?.trim();
     if (!deviceToken) return jsonResponse({ error: "device_token é obrigatório." }, 400);
+    const tokenHash = await hashDoTokenCatraca(deviceToken);
+    if (!tokenHash) return jsonResponse({ error: "Dispositivo não autorizado." }, 401);
     if (!payload.log_id || !payload.giro || !GIROS.has(payload.giro)) {
       return jsonResponse({ error: "Informe log_id e giro (confirmado, desistencia ou sem_confirmacao)." }, 400);
     }
@@ -44,7 +47,7 @@ Deno.serve(async (req: Request) => {
     const { data: catraca } = await admin
       .from("organizacao_catracas")
       .select("id")
-      .eq("device_token", deviceToken)
+      .eq("device_token_hash", tokenHash)
       .maybeSingle();
     if (!catraca) return jsonResponse({ error: "Dispositivo não autorizado." }, 401);
 

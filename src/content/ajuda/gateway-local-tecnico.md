@@ -13,7 +13,7 @@ Quem conecta é sempre o Gateway e a catraca: **não é preciso abrir porta na i
 ## Antes de ir
 
 - Computador Windows 10 ou 11, ligado o dia todo, com IP fixo na rede das catracas.
-- O **token do dispositivo**: o gestor cadastra a catraca em **Catracas → Novo dispositivo** e copia o token.
+- O **token do dispositivo**: o gestor cadastra a catraca em **Catracas → Novo dispositivo** e copia o token na hora. **Ele aparece uma vez só**; se perder, o gestor gera outro em **Gerar token novo**.
 - O modelo, o IP e a senha de administrador de cada catraca.
 - Marcas atendidas hoje: **Control iD** (modo online, também como leitor numa catraca de outra marca), **Topdata** (linha Inner com a ponte `ArkeInnerBridge`, e leitores faciais da linha Easy e da Fit 4 Facial), **Toletus** (placas LiteNet2 e LiteNet3) e **Intelbras** (terminais da linha Bio-T, no Modo Online). Henry e Dimep são integradas na implantação do primeiro cliente de cada marca; o Gateway se recusa a subir com elas configuradas.
 
@@ -46,11 +46,12 @@ Quem conecta é sempre o Gateway e a catraca: **não é preciso abrir porta na i
 }
 ```
 
-- `token_api_local`: o token do dispositivo, copiado em Catracas.
+- `token_api_local`: o token do dispositivo, copiado em Catracas quando foi gerado.
 - `modelo_catraca`: `controlid`, `topdata`, `topdata_facial` (linha Easy) ou `toletus`.
 - `tempo_timeout_ms`: deixe `1000`. Abaixo de 500 o Gateway cai em contingência quase sempre.
 - `controlid_equipamentos`: uma linha por Control iD. Com ela, a recepção cadastra aluno, digital e cartão pelo ARKE. O `nome` é o que a recepção vê para escolher o leitor. `sentido_entrada` é o lado da borboleta que é a entrada; confira girando. `liberacao` diz como ele libera (abaixo). O Gateway reconhece cada equipamento pelo `ip`, então o IP tem de ser fixo.
 - `confirmacao_giro`: deixe `decisao`. Só use `catra_event` na iDBlock com o Monitor configurado (abaixo).
+- `equipamentos_permitidos`: os IPs dos equipamentos que não estão em `controlid_equipamentos` nem em `intelbras_equipamentos`, como a Control iD única sem gestão remota. **Com qualquer uma dessas listas, o Gateway só atende os IPs delas** (e o próprio computador): um aparelho qualquer da rede da academia não consegue se passar pela catraca. Sem lista nenhuma, o Gateway atende qualquer aparelho e avisa isso no log ao subir.
 
 **A senha do equipamento fica só neste arquivo**, no computador da academia. Para a nuvem vai apenas o nome de cada catraca.
 
