@@ -1,8 +1,8 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { servir } from "../_shared/servir.ts";
 
-// Saúde da plataforma para o monitor externo (o uptime do Sentry, de minuto
-// em minuto).
+// Saúde da plataforma para o monitor externo (o UptimeRobot, de 5 em 5
+// minutos).
 //
 // O alerta de rotinas e o Vigia moram dentro do Supabase: se o banco, as edge
 // functions ou o pg_cron param, quem avisaria parou junto. Esta função é o

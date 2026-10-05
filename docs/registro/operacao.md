@@ -105,7 +105,7 @@ Rodada B. Os três tratam do mesmo problema: saber que algo quebrou antes de uma
   - A função pública `saude` (`verify_jwt` desligado) lê `saude_plataforma()`, que só a service role chama.
   - Ela responde 200 só quando o banco responde, alguma rotina do pg_cron terminou bem nos últimos 15 minutos e o alerta de rotinas rodou nas últimas 2 h 15 min. Fora isso, responde 503.
   - Devolve só três booleanos e guarda a resposta 30 s por instância.
-  - Quem chama é o **monitor de disponibilidade do Sentry**, de minuto em minuto, com 3 falhas seguidas para acusar. Ele foi criado pela API, sem conta nova em outro serviço, mas **está desligado**: o plano gratuito pede saldo de uso avulso para ligá-lo, e essa decisão é do responsável.
+  - Quem chama é o **monitor de disponibilidade do Sentry**, de minuto em minuto, com 3 falhas seguidas para acusar. Ele foi criado pela API, sem conta nova em outro serviço, mas **está desligado**: o plano gratuito pede saldo de uso avulso para ligá-lo, e essa decisão é do responsável. **Superado em 05/10/2026:** quem chama é o UptimeRobot, no plano gratuito, de 5 em 5 minutos, junto com o site e o app (decisão do responsável; detalhes em `docs/INFRAESTRUTURA.md`). O do Sentry segue desligado. Conferido: os três monitores criados pela API v3 deram verde na primeira checagem, avisando o e-mail comercial.
 - **Erro das funções no Sentry** (projeto `edge-functions`, segredo `SENTRY_DSN_FUNCOES`). As 53 funções passaram a entrar por `servir` (`_shared/servir.ts`) em vez de `Deno.serve`:
   - O erro não tratado vira 500 com corpo JSON, e não mais a página de erro do runtime.
   - O 500, o 502 e o 504 vão ao Sentry, sem SDK (`_shared/sentry.ts`). O 503 fica de fora, porque é a resposta de propósito de recurso desligado.

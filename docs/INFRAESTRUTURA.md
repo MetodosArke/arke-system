@@ -16,7 +16,8 @@ Todos os serviços de que o ArkeFit depende, para que servem e onde fica a confi
 | **Resend** | Todos os e-mails: convite, senha, alertas, resumo semanal e a resposta automática ao contato do site | Gratuito | E-mails param; o app segue |
 | **Amazon Web Services** (Bedrock) | IA: leitura de dieta em PDF, Sentinela e Vigia | Por uso | Os recursos de IA ficam "indisponível"; nada trava |
 | **Cloudflare** (Turnstile) | Captcha dos formulários públicos | Gratuito | Os formulários seguem funcionando, sem captcha |
-| **Sentry** | Avisa quando uma tela quebra no navegador de alguém, quando uma função do servidor dá erro e quando a plataforma sai do ar | Gratuito | Nada para; perde-se o aviso |
+| **Sentry** | Avisa quando uma tela quebra no navegador de alguém e quando uma função do servidor dá erro | Gratuito | Nada para; perde-se o aviso |
+| **UptimeRobot** | Avisa, de fora, quando o site, o app ou a plataforma saem do ar | Gratuito | Nada para; perde-se o aviso |
 | **Hostinger** | E-mail do domínio `metodosarke.com.br` (e-mail comercial) | — | Só o e-mail comercial |
 
 Os upgrades pagos (Supabase, Vercel e Resend) vêm antes do primeiro cliente pagante. A lista está em [LANCAMENTO_1_0.md](LANCAMENTO_1_0.md).
@@ -148,10 +149,22 @@ Ficam em Supabase → Project Settings → Edge Functions → Secrets. O Supabas
 - **Organização** `arkefit`, dados nos EUA. Dois projetos:
   - `javascript-react`: o app no navegador, e os relatos da CSP (cabeçalho `report-uri` no `vercel.json`, pela chave pública dele);
   - `edge-functions` (desde 05/10/2026): o erro 500, 502 ou 504 das funções do servidor, mandado por `_shared/sentry.ts` com só o nome da função, o status, o tipo e o código do erro.
-- **Monitor de disponibilidade** (uptime do Sentry, de minuto em minuto, com 3 falhas seguidas para acusar) na função pública `saude`. **Está criado e desligado:** o plano gratuito pede saldo de uso avulso (pay-as-you-go) para ligá-lo, e isso é decisão do responsável. Ela responde 503 quando o banco não responde, quando o pg_cron para ou quando o alerta de rotinas para, que são os casos em que os alertas internos param junto.
+- **Monitor de disponibilidade:** fica no UptimeRobot, e não no Sentry (decisão do responsável, 05/10/2026). Detalhes na seção *Monitor de fora*. O monitor do Sentry na função `saude` foi criado e está desligado, porque o plano gratuito pede saldo de uso avulso para ligá-lo.
 - **A chave pública (DSN)** fica na Vercel (`VITE_SENTRY_DSN`). É pública por desenho, porque vai no código do navegador.
 - **Configuração:** está em `src/lib/monitoramento.ts` e não manda nome, e-mail, CPF nem gravação de tela.
 - **Plano:** fica no gratuito, sem upgrade (decisão de 28/09/2026). As ocorrências de rotas `/api/trpc` que aparecem lá são de outro sistema que usa a mesma chave.
+
+## UptimeRobot (monitor de fora)
+
+O alerta de rotinas e o Vigia rodam dentro do Supabase: se o banco ou o pg_cron param, quem avisaria parou junto. O UptimeRobot pergunta de fora.
+
+- **Conta:** MetodosArke, no plano gratuito, que pergunta de 5 em 5 minutos.
+- **Monitores** (HTTP, tempo limite de 30 s), todos avisando o e-mail comercial:
+  - `arkefit.com.br`, a página de vendas;
+  - `app.arkefit.com.br`, o app;
+  - a função pública `saude`, que responde 503 quando o banco não responde, quando o pg_cron para ou quando o alerta de rotinas para.
+- **Chave da API:** `UPTIMEROBOT_API_KEY`, no arquivo de chaves do responsável. O plano gratuito cria monitor só pela API v3 (`api.uptimerobot.com/v3`, com `Authorization: Bearer`); a v2 recusa com "not allowed … current plan".
+- Mais e-mails para avisar entram como contato de alerta no painel do UptimeRobot.
 
 ## Serviços usados sem conta
 
