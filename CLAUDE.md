@@ -1357,6 +1357,25 @@ Duas decisões do responsável que saíram da prévia do teste de concorrência;
 
 **Conferido:** 22 casos da migration em transação desfeita; três defeitos plantados nas travas, os três pegos; a **corrente real**, 18 verificações pelas funções publicadas (a sessão simulada sai pronta e marcada, as quatro autorizações recusadas com a frase, a visita sem primeiro acesso, o app visível, a sessão encerrada ao voltar, a aluna autorizando pela conta dela; a importação sem convite nem e-mail, com o e-mail de senha saindo quando pedido e o link funcionando, quem já tinha conta ligado sem aviso, e a ficha ainda convidando); e **15 pela tela**, com a aba simulada e sem ela, no computador e no celular.
 
+## Cobrança: o aviso velho não volta atrás (04/10/2026)
+
+Uma conferência do webhook do Asaas em 04/10/2026 achou cinco defeitos. Todos vinham da mesma premissa: o aviso que chega descreve o estado de agora. Não descreve. O Asaas não garante a ordem de entrega, e a conferência diária e o Vigia reenviam avisos guardados. Nenhum dinheiro real foi afetado: até hoje só a homologação recebeu cobrança. Migration `20261324010000_transicoes_cobranca.sql`.
+
+1. **Aviso velho rebaixava cobrança paga.** O `soEmissao` protegia só a emissão. Um `PAYMENT_OVERDUE` que chegasse depois da confirmação voltava a cobrança a "atrasado", bloqueava quem pagou e abria tarefa de cobrar. Agora o gatilho `trg_transicao_cobranca`, em `pagamentos`, `mensalidades`, `cobrancas_avulsas` e `cobrancas_b2b`, segura isso venha o UPDATE de onde vier. O que foi pago, estornado ou cancelado não volta a pendente nem a atrasado, e o que foi pago não vira cancelado, porque estorno é outro status. A transição recusada mantém o status anterior sem erro, e o aviso fica no log com o que trouxe. As duas funções de tarefa atrasada passaram a exigir a cobrança de fato atrasada. Desfazer um recebimento em dinheiro (`PAYMENT_RECEIVED_IN_CASH_UNDONE`) continua sem efeito, como já era; se um dia tiver efeito, precisa de um caminho explícito por essa trava.
+2. **Pagar uma cobrança antiga reativava a assinatura pausada ou cancelada.** O webhook gravava "ativa" em toda confirmação. Agora as quatro mudanças de status de `aluno_assinaturas` só valem a partir de ativa ou atrasada. Além disso, a assinatura acompanha só o status que o pagamento de fato gravou: o aviso velho barrado pelo gatilho não marca a assinatura como atrasada.
+3. **A data do pagamento era a do relógio.** No cartão, o Asaas manda o `PAYMENT_CONFIRMED` e, uns 30 dias depois, o `PAYMENT_RECEIVED`. Um aviso reenviado também chega em outro dia. Nos dois casos o pagamento mudava de mês, e é pelo mês que a receita vai ao contador. Agora a data é a do Asaas: `clientPaymentDate`, depois `confirmedDate`, depois `paymentDate`, e só sem nenhuma delas a data de hoje. O gatilho também não deixa regravar a data de uma cobrança já confirmada.
+4. **Gravação que falhava marcava o aviso como processado.** O supabase-js não lança erro, ele devolve o erro. O webhook não o conferia, então uma gravação recusada pelo banco virava "processado" e nada acusava. Agora toda leitura e gravação do processamento passa por `exigir()`, que lança. O aviso fica sem processar e com o erro, e é isso que a regra do Vigia de aviso não processado vê.
+5. **A cobrança B2B não aceitava `cancelado`.** O webhook grava esse status quando o Asaas apaga a cobrança (`PAYMENT_DELETED`, por exemplo na pausa da mensalidade do encerramento), e a gravação falhava em silêncio. Era o defeito 4 em ação. A inadimplência B2B conta só pendente e atrasado, então `cancelado` não vira dívida.
+
+`webhookAsaas.guarda.test.ts` trava três regras: nenhuma chamada ao banco sem `exigir`, nenhuma data de pagamento do relógio, e nenhuma mudança de status da assinatura sem a condição de partida.
+
+**Conferido:** 14 casos da migration em transação desfeita. A **corrente real** teve 9 verificações pelo webhook publicado, com avisos simulados assinados com o token, numa academia temporária apagada no fim, sem nenhuma linha órfã. Os casos:
+- a cobrança paga de uma assinatura pausada ficou confirmada com a data do Asaas, e a assinatura seguiu pausada;
+- o aviso velho de vencida não rebaixou a cobrança, nem a assinatura ativa, nem a mensalidade paga, e não abriu tarefa;
+- o cartão recebido um mês depois manteve a data;
+- a B2B apagada no Asaas gravou `cancelado`;
+- uma gravação recusada pelo banco deixou o aviso sem processar, com o erro `23514`.
+
 ## Rodada de lançamento — Fase 1: Central de Ajuda (24–25/09/2026)
 
 Os manuais viraram parte do produto: **Ajuda** no menu do painel, do app e da Visão Master, e um **?** no alto de cada tela que abre o artigo daquela tela. São 54 artigos, escritos para quem usa (gestor e recepção, professor e nutricionista, aluno, ArkeFit), a partir do código e não dos manuais antigos de `docs/`, que estavam desatualizados.
