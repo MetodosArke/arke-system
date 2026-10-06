@@ -125,7 +125,10 @@ servir("catraca-sincronizar-alunos", async (req: Request) => {
       remover: boolean;
     };
     const todas = linhas as Linha[];
-    const semRemover = ({ remover: _r, ...resto }: Linha) => resto;
+    // O nome não vai para o computador da recepção (desde 06/10/2026): o
+    // display da catraca não o mostra, e o Gateway 1.9 não o guarda. O banco
+    // já devolve a coluna vazia; tirar aqui também cobre a ordem do deploy.
+    const semRemover = ({ remover: _r, nome: _n, ...resto }: Linha) => resto;
 
     // `ids_hash` é a impressão digital do conjunto que o cache deve ter. O
     // Gateway aplica a diferença, calcula o hash do próprio cache e, se não

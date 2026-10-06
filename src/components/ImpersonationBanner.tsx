@@ -2,16 +2,21 @@ import { useEffect, useState } from "react";
 import { UserCog } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { getImpersonationBackup, stopImpersonation } from "@/lib/impersonation";
+import { useAuth } from "@/contexts/AuthContext";
 
 // Mostrado em qualquer tela enquanto um admin_arke/gestor está "simulando"
 // outro perfil (ver src/lib/impersonation.ts), para deixar claro que a
 // sessão atual não é a do próprio administrador e permitir voltar.
 export function ImpersonationBanner() {
+  const { user } = useAuth();
   const [backup, setBackup] = useState(() => getImpersonationBackup());
 
+  // Relê a cada troca de pessoa na sessão: quando a sessão simulada termina
+  // (vence, ou alguém sai), a cópia some, e a faixa não pode seguir
+  // oferecendo "Voltar para Admin" para uma sessão que não existe mais.
   useEffect(() => {
     setBackup(getImpersonationBackup());
-  }, []);
+  }, [user?.id]);
 
   if (!backup) return null;
 

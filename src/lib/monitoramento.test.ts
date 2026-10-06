@@ -140,6 +140,12 @@ describe("limpeza do evento", () => {
     expect(evento.request.headers).toBeUndefined();
   });
 
+  it("tira o token do link do responsável legal do endereço", async () => {
+    const limpar = await beforeSend();
+    const evento = limpar({ request: { url: "https://app.arkefit.com.br/#/responsavel/AbC-123_xyz" } });
+    expect(evento.request.url).toBe("https://app.arkefit.com.br/#/responsavel/[removido]");
+  });
+
   it("não quebra com evento sem request nem extra", async () => {
     const limpar = await beforeSend();
     expect(() => limpar({ message: "erro seco" })).not.toThrow();

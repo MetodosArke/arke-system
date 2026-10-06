@@ -126,13 +126,16 @@ namespace Arke.PonteTopdata.Testes
     public sealed class GatewayFalso : IGateway
     {
         public readonly List<Tuple<int, int, string>> Eventos = new List<Tuple<int, int, string>>();
+        /// <summary>O tipo de leitor que veio em cada evento, na mesma ordem.</summary>
+        public readonly List<int> TiposLeitor = new List<int>();
         public readonly List<Bilhete> BilhetesRecebidos = new List<Bilhete>();
-        public Func<int, string, Decisao> Responder = (origem, valor) => new Decisao { Liberar = true, Sentido = "entrada", Nome = "Maria Joana", Motivo = "Acesso liberado." };
+        public Func<int, string, Decisao> Responder = (origem, valor) => new Decisao { Liberar = true, Sentido = "entrada", Motivo = "Bem-vindo!" };
         public bool FalharBilhetes;
 
-        public Decisao Evento(int inner, int origem, int complemento, string valor)
+        public Decisao Evento(int inner, int origem, int complemento, string valor, int tipoLeitor)
         {
             Eventos.Add(Tuple.Create(inner, origem, valor));
+            TiposLeitor.Add(tipoLeitor);
             return Responder(origem, valor);
         }
 

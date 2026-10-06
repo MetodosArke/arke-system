@@ -66,6 +66,10 @@ export class PlacaToletusFalsa {
     this.enviarBruto(montarPacote(COMANDO.ID_TECLADO, textoParaDados(digitos)));
   }
 
+  codigoDeBarras(texto: string): void {
+    this.enviarBruto(montarPacote(COMANDO.ID_CODIGO_BARRAS, textoParaDados(texto)));
+  }
+
   biometria(usuario: number): void {
     const dados = Buffer.alloc(16);
     dados.writeUInt16LE(usuario, 0);

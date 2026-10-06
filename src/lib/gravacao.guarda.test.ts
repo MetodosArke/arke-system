@@ -28,6 +28,8 @@ const EXCECOES: Record<string, string> = {
     "revoga a autorização de versão anterior antes de gravar a nova; pode não haver nenhuma (a revogação pelo botão confere)",
   "pages/admin/AdminImportarAlunos.tsx|importacoes_alunos_linhas":
     "volta as linhas com erro para pendentes antes de tentar de novo; pode não haver nenhuma (o andamento de cada linha confere)",
+  "pages/app/Onboarding.tsx|anamnese_acolhimento":
+    "completa só a anamnese ainda aberta; com ela já concluída, zero linhas é o normal e o envio avisa que nada mudou (lib/acolhimento.ts)",
 };
 
 function arquivos(dir: string): string[] {

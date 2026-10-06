@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 import { todasAsLinhas } from "@/lib/paginar";
 import { perfisDosUsuarios } from "@/lib/perfis";
 import { useRascunho } from "@/hooks/useRascunho";
@@ -67,6 +68,7 @@ export function PrescricaoTreino({
   rodape: "fixo" | "embutido";
 }) {
   const { toast } = useToast();
+  const { user } = useAuth();
   const queryClient = useQueryClient();
   const biblioteca = bibliotecaDoEscopo(escopo);
   const alunoFixo = escopo.tipo === "metodo" ? escopo.aluno : null;
@@ -103,8 +105,11 @@ export function PrescricaoTreino({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [exercicioSalvo]);
 
+  // Sem filtro: quem decide o que vem é a regra de acesso (o acervo global e
+  // os exercícios próprios das academias da pessoa). Por isso a chave leva a
+  // pessoa: a lista de uma academia não pode servir a quem entra depois.
   const { data: bibliotecaExercicios = [] } = useQuery({
-    queryKey: ["exercicios-biblioteca"],
+    queryKey: ["exercicios-biblioteca", user?.id ?? null],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("exercicios_biblioteca")

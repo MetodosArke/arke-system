@@ -284,22 +284,29 @@ export type Credencial =
   | { tipo: "cpf"; valor: string }
   | { tipo: "identificador_catraca"; valor: string };
 
-/** Resultado — já traduzido para o vocabulário do gateway — de uma validação de acesso. */
+/**
+ * Resultado — já traduzido para o vocabulário do gateway — de uma validação
+ * de acesso. Sem o nome do aluno, desde a 1.9: o display é público e não o
+ * mostra, e o Gateway não tem mais por que guardá-lo.
+ */
 export interface ResultadoValidacao {
   liberado: boolean;
+  /** O motivo, para o registro. O display mostra `mensagemDoDisplay(liberado, mensagem)`. */
   mensagem: string;
-  nomeAluno?: string;
   alunoId?: string | null;
   /** true quando a decisão veio do cache local (SQLite/NeDB), não da nuvem. */
   validadoOffline: boolean;
   /** Registro criado pela nuvem, para confirmar o giro depois. Só no caminho online. */
   logId?: string;
+  /** Como o acesso decidido pelo cache sobe para a nuvem. Só no caminho offline. */
+  resultadoLog?: ResultadoLog;
 }
 
 /** Contrato real da Edge Function catraca-validar-acesso (Supabase). */
 export interface RespostaValidarAcessoCloud {
   liberado?: boolean;
   motivo?: string;
+  /** Nuvem anterior a 06/10/2026: mandava o nome do aluno. O Gateway ignora. */
   aluno_nome?: string;
   log_id?: string;
   error?: string;
@@ -308,7 +315,13 @@ export interface RespostaValidarAcessoCloud {
 export interface AlunoCache {
   aluno_id: string;
   cpf: string;
-  nome: string;
+  /**
+   * A nuvem anterior a 06/10/2026 manda o nome; o cache não o guarda (ver
+   * `AlunosCache`): o display não o mostra, e o computador da recepção não
+   * precisa dele.
+   */
+  nome?: string;
+  /** "Não entra": pausado, ou inadimplente fora da tolerância (é o nome do contrato com os Gateways instalados). */
   inadimplente: boolean;
   /** Número do usuário dentro do equipamento; ausente para quem não tem biometria cadastrada. */
   identificador_catraca?: string | null;
@@ -344,4 +357,11 @@ export interface LogAcessoPendente {
   sincronizado: boolean;
   /** Desfecho do giro; "pendente" enquanto a catraca não confirmou. */
   giro?: Giro | "pendente";
+  /**
+   * Quando a nuvem aceitou (ou recusou de vez) o registro. É daqui que conta
+   * o prazo para apagá-lo do computador da recepção (`LogsQueue.limparAntigos`).
+   */
+  sincronizado_em?: string;
+  /** A nuvem recusou o registro de vez (aluno de fora da academia, data fora da janela...): não sobe mais. */
+  descartado?: string;
 }

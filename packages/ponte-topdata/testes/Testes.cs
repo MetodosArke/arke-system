@@ -27,7 +27,9 @@ namespace Arke.PonteTopdata.Testes
                 // Acesso
                 Caso("cartão liberado: pergunta ao gateway, libera a entrada, avisa o giro", CartaoLiberadoComGiro),
                 Caso("sentido e catraca invertida escolhem a chamada certa", SentidoEInvertida),
-                Caso("negado: não libera, mostra o motivo sem acento e bipa", Negado),
+                Caso("negado: não libera, mostra a negativa curta do gateway e bipa", Negado),
+                Caso("a resposta do gateway não traz o nome para o display, nem a de gateway antigo", RespostaSemNome),
+                Caso("o display nunca mostra o nome, em nenhum desfecho", DisplayNuncaMostraNome),
                 Caso("gateway fora do ar: nega, nunca libera", GatewayForaNega),
                 Caso("gateway lento: continua pingando e nega no prazo", GatewayLentoNega),
                 Caso("liberação que a DLL recusa 3 vezes vira 'não girou' e reconecta", LiberacaoRecusada),
@@ -141,7 +143,9 @@ namespace Arke.PonteTopdata.Testes
             Igual(Sdk.ORIGEM_LEITOR1, (byte)c.Gateway.Eventos[0].Item2, "origem enviada");
             Igual("00001234567890", c.Gateway.Eventos[0].Item3, "valor enviado");
             Verdade(c.Dll.Chamou("LiberarCatracaEntrada(1)"), "deveria liberar a entrada");
-            Verdade(c.Dll.Chamadas.Any(x => x.StartsWith("EnviarMensagemPadraoOnLine(1,0,Maria ")), "display com o primeiro nome");
+            Igual((int)Sdk.TIPO_LEITOR_WIEGAND, c.Gateway.TiposLeitor[0], "tipo de leitor enviado ao gateway");
+            // O display é público: boas-vindas e o sentido, nunca o nome.
+            Verdade(c.Dll.Chamou("EnviarMensagemPadraoOnLine(1,0,Bem-vindo!      ENTRADA LIBERADA)"), "display com boas-vindas e o sentido");
             Igual(EstadoInner.MonitorarGiro, c.M.Estado, "estado");
 
             c.Dll.Eventos.Enqueue(Tuple.Create(Sdk.ORIGEM_GIRO, (byte)1, (string)null));
@@ -164,7 +168,7 @@ namespace Arke.PonteTopdata.Testes
             foreach (var k in casos)
             {
                 var c = Online(x => x.Cfg.Invertida = k.Item2);
-                c.Gateway.Responder = (o, v) => new Decisao { Liberar = true, Sentido = k.Item1, Nome = "Ana", Motivo = "ok" };
+                c.Gateway.Responder = (o, v) => new Decisao { Liberar = true, Sentido = k.Item1, Motivo = "Bem-vindo!" };
                 c.Dll.Eventos.Enqueue(Tuple.Create(Sdk.ORIGEM_LEITOR1, (byte)0, "777"));
                 c.Passos(3);
                 Verdade(c.Dll.Chamou(k.Item3), k.Item1 + (k.Item2 ? " invertida" : "") + " deveria chamar " + k.Item3);
@@ -175,16 +179,55 @@ namespace Arke.PonteTopdata.Testes
         private static void Negado()
         {
             var c = Online();
-            c.Gateway.Responder = (o, v) => new Decisao { Liberar = false, Nome = "João Silva", Motivo = "Matrícula pausada." };
+            c.Gateway.Responder = (o, v) => new Decisao { Liberar = false, Motivo = "Fale c/ recepcao" };
             c.Dll.Eventos.Enqueue(Tuple.Create(Sdk.ORIGEM_LEITOR1, (byte)0, "777"));
             c.Passos(2);
             Igual(0, c.Dll.Contar("LiberarCatraca"), "liberações");
-            Verdade(c.Dll.Chamadas.Any(x => x.Contains("JOAO") || x.Contains("Joao")), "nome sem acento no display");
-            Verdade(c.Dll.Chamadas.Any(x => x.Contains("Matricula pausad")), "motivo sem acento no display");
+            Verdade(c.Dll.Chamou("EnviarMensagemPadraoOnLine(1,0,ACESSO NEGADO   Fale c/ recepcao)"), "negativa curta no display");
             Verdade(c.Dll.Chamou("AcionarBipLongo(1)"), "bip longo");
             Igual(EstadoInner.AguardarMensagem, c.M.Estado, "mostra a mensagem");
             c.Avancar(2.1);
             c.Ate(EstadoInner.Polling);
+        }
+
+        private static void RespostaSemNome()
+        {
+            // Gateway anterior à 1.9 ainda manda o nome do aluno e o motivo da
+            // nuvem. O nome não é lido; nem existe onde guardá-lo.
+            var r = new Dictionary<string, object>
+            {
+                { "liberar", false }, { "nome", "João Silva" }, { "motivo", "Fale c/ recepcao" },
+            };
+            var d = Decisao.DeResposta(r);
+            Verdade(!d.Liberar, "negado");
+            Igual("Fale c/ recepcao", d.Motivo, "motivo");
+            Verdade(typeof(Decisao).GetField("Nome") == null, "Decisao não tem campo de nome");
+
+            var lib = Decisao.DeResposta(new Dictionary<string, object> { { "liberar", true }, { "sentido", "saida" }, { "nome", "João Silva" } });
+            string tela = MaquinaInner.DisplayLiberado(lib);
+            Igual("Bem-vindo!      SAIDA LIBERADA  ", tela, "liberado sem motivo: boas-vindas");
+            Verdade(!tela.Contains("Jo"), "nome fora do display");
+        }
+
+        private static void DisplayNuncaMostraNome()
+        {
+            // Em todo desfecho, nenhuma chamada ao display leva o nome.
+            var decisoes = new[]
+            {
+                new Decisao { Liberar = true, Sentido = "entrada", Motivo = "Bem-vindo!" },
+                new Decisao { Liberar = false, Motivo = "Fale c/ recepcao" },
+                new Decisao { Liberar = false, Motivo = "Nao cadastrado" },
+            };
+            foreach (var d in decisoes)
+            {
+                var c = Online();
+                var esta = d;
+                c.Gateway.Responder = (o, v) => esta;
+                c.Dll.Eventos.Enqueue(Tuple.Create(Sdk.ORIGEM_LEITOR1, (byte)0, "777"));
+                c.Passos(3);
+                foreach (string ch in c.Dll.Chamadas.Where(x => x.StartsWith("EnviarMensagemPadraoOnLine(1,0,")))
+                    Verdade(!ch.Contains("Maria") && !ch.Contains("Joao") && !ch.Contains("atraso"), "display: " + ch);
+            }
         }
 
         private static void GatewayForaNega()
@@ -269,6 +312,9 @@ namespace Arke.PonteTopdata.Testes
             c.Passos(1);
             Verdade(c.Dll.Chamou("ReceberDadosOnLine_ComLetras(1)"), "leitura com letras");
             Igual("ARKE-abc123", c.Gateway.Eventos[0].Item3, "texto do QR inteiro");
+            // Quem decide que código não identifica aluno é o gateway: a ponte
+            // conta que tipo de leitor está configurado.
+            Igual((int)Sdk.TIPO_LEITOR_BARRAS_PROX_QRCODE, c.Gateway.TiposLeitor[0], "tipo de leitor enviado ao gateway");
         }
 
         // ── Rede ────────────────────────────────────────────────────────────

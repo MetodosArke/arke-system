@@ -5,6 +5,8 @@ import { exigirGravacao } from "@/lib/gravacao";
 import { mensagemDeErroEdge } from "@/lib/erroEdge";
 import { useAuth } from "@/contexts/AuthContext";
 import { erroCpfObrigatorio } from "@/lib/cpf";
+import { lerDataDaPlanilha } from "@/lib/menorDeIdade";
+import { hojeBrasilia } from "@/lib/dataBrasilia";
 import { situacaoDoTexto } from "@/lib/planoAluno";
 import { juntarPartes, mapearColunas, normalizarRegistro } from "@/lib/mapaColunas";
 import { processarComLimite, CONCORRENCIA_IMPORTACAO } from "@/lib/lote";
@@ -34,6 +36,10 @@ const CAMPOS_DESTINO = [
   { value: "telefone", label: "Telefone" },
   { value: "ddd", label: "DDD (junta ao telefone)" },
   { value: "cpf", label: "CPF" },
+  // Opcional: sem ela (ou com data ilegível), o aluno fica com idade
+  // desconhecida e a informa no app; menor de idade depende do responsável
+  // para saúde, biometria e IA (06/10/2026).
+  { value: "data_nascimento", label: "Data de nascimento (opcional)" },
   // Endereço (opcional): a prefeitura o exige na nota fiscal da academia.
   { value: "cep", label: "Endereço — CEP" },
   { value: "logradouro", label: "Endereço — rua" },
@@ -313,6 +319,8 @@ export default function AdminImportarAlunos() {
           : undefined,
         papel: "aluno",
         situacao_academia: situacao,
+        data_nascimento: lerDataDaPlanilha(registro.data_nascimento, hojeBrasilia()) ?? undefined,
+        origem: "importacao",
         // Sem e-mail (decisão de 04/10/2026): o aluno ativa pelo convite de
         // primeiro acesso da academia, e o e-mail sai quando ele pede.
         sem_email: true,

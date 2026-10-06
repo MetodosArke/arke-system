@@ -14,8 +14,11 @@ import type {
 } from "../types";
 import { logger } from "../logger";
 import { RegistroEquipamentos } from "../equipamentos/registro";
+import { mensagemDoDisplay } from "./display";
 
 const INTERVALO_FLUSH_LOGS_MS = 30_000;
+/** A retenção dos acessos já entregues roda ao subir e a cada 6 horas. */
+const INTERVALO_RETENCAO_MS = 6 * 3600_000;
 
 const dormir = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -32,6 +35,7 @@ export class GatewayService extends EventEmitter {
   private ultimaSincronizacao: string | undefined;
   private sincronizando = false;
   private timerFlushLogs: NodeJS.Timeout | null = null;
+  private timerRetencao: NodeJS.Timeout | null = null;
   private ultimaSincronizacaoOk: string | null = null;
   /** Quem quer saber que o cache mudou (o espelho da situação nos terminais Intelbras). */
   private readonly aposSincronizar: (() => void)[] = [];
@@ -99,12 +103,32 @@ export class GatewayService extends EventEmitter {
       this.config.sincronizar_alunos_intervalo_ms
     );
     this.timerFlushLogs = setInterval(() => void this.flushLogsPendentes(), INTERVALO_FLUSH_LOGS_MS);
+    void this.aplicarRetencao();
+    this.timerRetencao = setInterval(() => void this.aplicarRetencao(), INTERVALO_RETENCAO_MS);
+    this.timerRetencao.unref?.();
   }
 
   async parar(): Promise<void> {
     if (this.timerSincronizacao) clearInterval(this.timerSincronizacao);
     if (this.timerFlushLogs) clearInterval(this.timerFlushLogs);
+    if (this.timerRetencao) clearInterval(this.timerRetencao);
     await this.driver.desconectar();
+  }
+
+  /**
+   * Apaga do computador da recepção os acessos que já subiram há mais de 30
+   * dias (CPF consultado, aluno e horário). Falha aqui não para nada: tenta
+   * de novo na próxima rodada.
+   */
+  async aplicarRetencao(agora: Date = new Date()): Promise<number> {
+    try {
+      const n = await this.logsQueue.limparAntigos(undefined, agora);
+      if (n > 0) logger.info({ apagados: n }, "Acessos antigos já entregues à nuvem apagados deste computador");
+      return n;
+    } catch (err) {
+      logger.warn({ err: (err as Error).message }, "Falha ao apagar acessos antigos — tentando de novo mais tarde");
+      return 0;
+    }
   }
 
   private setStatus(novo: StatusGateway): void {
@@ -129,10 +153,11 @@ export class GatewayService extends EventEmitter {
     const cpf = leitura.valor.replace(/\D/g, "");
     const resultado = await this.validarAcesso(cpf);
 
+    // O display é público: a frase de todas as marcas, nunca o nome.
     if (resultado.liberado) {
-      await this.driver.liberarAcesso(resultado.nomeAluno ?? "Aluno");
+      await this.driver.liberarAcesso(mensagemDoDisplay(true, resultado.mensagem));
     } else {
-      await this.driver.negarAcesso(resultado.mensagem);
+      await this.driver.negarAcesso(mensagemDoDisplay(false, resultado.mensagem));
     }
 
     await this.registrarLogSeNecessario(cpf, resultado);
@@ -155,10 +180,10 @@ export class GatewayService extends EventEmitter {
         : await this.cloud.validarAcesso(credencial.valor);
       if (resposta.error) throw new Error(resposta.error);
       this.setStatus("online");
+      // `aluno_nome` (nuvem anterior a 06/10/2026) fica de fora de propósito.
       return {
         liberado: !!resposta.liberado,
         mensagem: resposta.motivo ?? "",
-        nomeAluno: resposta.aluno_nome,
         validadoOffline: false,
         logId: resposta.log_id,
       };
@@ -180,6 +205,7 @@ export class GatewayService extends EventEmitter {
         liberado: false,
         mensagem: "Sem conexão com a nuvem e cache local ainda vazio.",
         validadoOffline: true,
+        resultadoLog: "negado_catraca_inativa",
       };
     }
 
@@ -189,23 +215,31 @@ export class GatewayService extends EventEmitter {
         ? await this.alunosCache.buscarPorCpf(credencial.valor)
         : await this.alunosCache.buscarPorIdentificador(credencial.valor);
     if (!aluno) {
-      return { liberado: false, mensagem: "Aluno não encontrado no cache local.", validadoOffline: true };
-    }
-    if (aluno.inadimplente) {
       return {
         liberado: false,
-        mensagem: "Assinatura em atraso (validado pelo cache local).",
-        nomeAluno: aluno.nome,
+        mensagem: "Aluno não encontrado no cache local.",
+        validadoOffline: true,
+        resultadoLog: "negado_nao_encontrado",
+      };
+    }
+    if (aluno.inadimplente) {
+      // O cache não separa pausado de inadimplente (o contrato é "não
+      // entra"). O texto não fala de dinheiro: até a 1.8 dizia "Assinatura
+      // em atraso", e a ponte Topdata o escrevia no display.
+      return {
+        liberado: false,
+        mensagem: "Procure a recepção (validado pelo cache local).",
         alunoId: aluno.aluno_id,
         validadoOffline: true,
+        resultadoLog: "negado_inadimplente",
       };
     }
     return {
       liberado: true,
       mensagem: "Acesso liberado (contingência offline).",
-      nomeAluno: aluno.nome,
       alunoId: aluno.aluno_id,
       validadoOffline: true,
+      resultadoLog: "liberado",
     };
   }
 
@@ -282,6 +316,7 @@ export class GatewayService extends EventEmitter {
   }
 
   private classificarResultadoLog(resultado: ResultadoValidacao): ResultadoLog {
+    if (resultado.resultadoLog) return resultado.resultadoLog;
     if (resultado.liberado) return "liberado";
     const mensagem = resultado.mensagem.toLowerCase();
     if (mensagem.includes("pausad")) return "negado_pausado";
@@ -392,13 +427,27 @@ export class GatewayService extends EventEmitter {
     }
   }
 
-  /** Mesmo envio, devolvendo o erro — é o que a ordem "enviar logs" da nuvem usa. */
+  /**
+   * Mesmo envio, devolvendo o erro — é o que a ordem "enviar logs" da nuvem
+   * usa. Devolve quantos a nuvem aceitou.
+   *
+   * Cada registro vai com o id local, e a nuvem diz o que fez com cada um
+   * (desde 06/10/2026): aceito, ou recusado de vez (aluno que não é da
+   * academia, data fora da janela, dado torto). Os dois saem da fila. Antes
+   * a nuvem gravava o lote numa instrução só: um registro com problema (o
+   * aluno excluído durante a queda, por exemplo) derrubava o lote, e o
+   * Gateway reenviava os mesmos 500 para sempre — a fila daquela catraca
+   * parava. O que a nuvem não citar fica para a próxima tentativa.
+   *
+   * Nuvem antiga, sem a lista: o 200 vale como aceite de todos, como antes.
+   */
   async enviarLogsPendentes(): Promise<number> {
     const pendentes = await this.logsQueue.listarPendentes();
     if (pendentes.length === 0) return 0;
 
-    await this.cloud.sincronizarLogsOffline(
+    const resposta = await this.cloud.sincronizarLogsOffline(
       pendentes.map((p) => ({
+        id_local: p._id,
         aluno_id: p.aluno_id,
         cpf_consultado: p.cpf_consultado,
         resultado: p.resultado,
@@ -406,8 +455,28 @@ export class GatewayService extends EventEmitter {
         ...(p.giro ? { giro: p.giro } : {}),
       }))
     );
-    await this.logsQueue.marcarSincronizados(pendentes.map((p) => p._id));
-    logger.info({ total: pendentes.length }, "Logs offline sincronizados com a nuvem");
-    return pendentes.length;
+
+    if (!Array.isArray(resposta.aceitos)) {
+      await this.logsQueue.marcarSincronizados(pendentes.map((p) => p._id));
+      logger.info({ total: pendentes.length }, "Logs offline sincronizados com a nuvem");
+      return pendentes.length;
+    }
+
+    const enviados = new Set(pendentes.map((p) => p._id));
+    const aceitos = resposta.aceitos.filter((id) => enviados.has(id));
+    const descartados = (resposta.descartados ?? [])
+      .filter((d) => d && typeof d.id_local === "string" && enviados.has(d.id_local))
+      .map((d) => ({ id: d.id_local as string, motivo: String(d.motivo ?? "recusado pela nuvem") }));
+    await this.logsQueue.marcarSincronizados(aceitos);
+    await this.logsQueue.marcarDescartados(descartados);
+
+    const ficaram = pendentes.length - aceitos.length - descartados.length;
+    if (descartados.length > 0) {
+      // Sem CPF nem aluno no log: só quantos e por quê.
+      const motivos = [...new Set(descartados.map((d) => d.motivo))];
+      logger.warn({ descartados: descartados.length, motivos }, "A nuvem recusou acessos offline de vez — saíram da fila");
+    }
+    logger.info({ aceitos: aceitos.length, descartados: descartados.length, ficaram }, "Logs offline sincronizados com a nuvem");
+    return aceitos.length;
   }
 }

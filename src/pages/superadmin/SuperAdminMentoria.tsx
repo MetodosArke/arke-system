@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { MessageCircle, Users } from "lucide-react";
@@ -36,10 +37,12 @@ type ItemFila = {
 };
 
 export default function SuperAdminMentoria() {
+  const { user } = useAuth();
   const [aberto, setAberto] = useState<ItemFila | null>(null);
 
+  // A fila responde por quem pergunta: a chave leva a pessoa.
   const { data: fila = [], isLoading } = useQuery({
-    queryKey: ["fila-mentor"],
+    queryKey: ["fila-mentor", user?.id ?? null],
     queryFn: async () => {
       const { data, error } = await supabase.rpc("get_superadmin_fila_mentor");
       if (error) throw error;

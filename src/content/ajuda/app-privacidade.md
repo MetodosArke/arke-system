@@ -15,6 +15,8 @@ O processamento é feito **no Brasil**, em São Paulo. A IA não prescreve trein
 
 Desligar um interruptor apaga o que a IA tinha gerado para aquele uso.
 
+Se você tem menos de 18 anos, o seu responsável legal autoriza antes. Veja [Menor de 18 anos: a autorização do seu responsável](ajuda:app-menor-de-idade).
+
 ## Sem o Método
 
 No plano Free, nenhum dado seu passa por inteligência artificial.

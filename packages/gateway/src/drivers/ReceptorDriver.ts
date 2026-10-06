@@ -40,9 +40,9 @@ export class ReceptorDriver implements CatracaDriver {
     // As leituras entram pelas rotas HTTP do receptor, não por callback.
   }
 
-  async liberarAcesso(nomeAluno: string): Promise<void> {
+  async liberarAcesso(mensagem: string): Promise<void> {
     logger.warn(
-      { modelo: this.modelo, nomeAluno },
+      { modelo: this.modelo, mensagem },
       "liberarAcesso chamado num modelo de escuta — a liberação vai na resposta HTTP, não por comando"
     );
   }

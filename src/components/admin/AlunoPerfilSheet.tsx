@@ -21,6 +21,8 @@ import { FaseJornada } from "@/components/admin/FaseJornada";
 import { MetasAluno } from "@/components/admin/MetasAluno";
 import { HistoricoAluno } from "@/components/admin/HistoricoAluno";
 import { AcessoCatraca } from "@/components/admin/AcessoCatraca";
+import { ResponsavelLegalAluno } from "@/components/admin/ResponsavelLegalAluno";
+import { idadeEm } from "@/lib/menorDeIdade";
 import { CartaoAssinatura } from "@/components/pagamento/CartaoAssinatura";
 import { CicloAssinatura } from "@/components/pagamento/CicloAssinatura";
 import { ResumoSentinela } from "@/components/sentinela/SentinelaAnamnese";
@@ -86,17 +88,6 @@ const TAREFA_TIPO_LABEL: Record<string, string> = {
   engajamento_baixo: "Engajamento baixo",
   atestado: "Atestado médico",
 };
-
-function calcularIdade(dataNascimento: string | null) {
-  if (!dataNascimento) return null;
-  const nasc = new Date(dataNascimento);
-  const hoje = new Date();
-  let idade = hoje.getFullYear() - nasc.getFullYear();
-  const aindaNaoFezAniversario =
-    hoje.getMonth() < nasc.getMonth() || (hoje.getMonth() === nasc.getMonth() && hoje.getDate() < nasc.getDate());
-  if (aindaNaoFezAniversario) idade--;
-  return idade;
-}
 
 // Painel lateral com o perfil completo do aluno — aberto clicando no nome
 // dele em qualquer lista (gestor, professor ou nutricionista). Reúne dados
@@ -323,7 +314,9 @@ export function AlunoPerfilSheet({
   const podeDieta = podePrescrever("dieta", contextoPrescricao);
   const refeicoesDieta = (perfil?.dietaAtiva?.snapshot_conteudo as unknown as { nome_refeicao: string; horario_sugerido: string | null; itens: string | null }[] | null) ?? [];
   const academiaTemNutri = useNutricionistaDaAcademia(perfil?.aluno.organization_id);
-  const idade = perfil?.aluno.data_nascimento ? calcularIdade(perfil.aluno.data_nascimento) : null;
+  // A conta da idade do banco (`idade_em`), com o "hoje" de Brasília: lida com
+  // `new Date()`, a data pura virava o dia anterior.
+  const idade = perfil?.aluno.data_nascimento ? idadeEm(perfil.aluno.data_nascimento, hojeBrasilia()) : null;
   const exerciciosTreinoAtivo =
     (perfil?.treinoAtivo?.snapshot_conteudo as unknown as ExercicioSnapshotImpressao[] | null) ?? [];
 
@@ -442,6 +435,7 @@ export function AlunoPerfilSheet({
                 <p className="text-xs text-muted-foreground">
                   {idade != null ? `${idade} anos · ` : ""}Aluno desde {formatarData(perfil.aluno.data_inicio)}
                 </p>
+                {!perfil.aluno.anonimizado_em && <ResponsavelLegalAluno alunoId={perfil.aluno.id} />}
                 <PresencasAluno alunoId={perfil.aluno.id} />
                 {perfil.aluno.objetivo && (
                   <p className="text-xs text-muted-foreground">Objetivo: {perfil.aluno.objetivo}</p>

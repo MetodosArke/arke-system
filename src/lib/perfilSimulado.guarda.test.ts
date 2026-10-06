@@ -25,12 +25,16 @@ function arquivos(dir: string, achados: string[] = []): string[] {
   return achados;
 }
 
+// Desde 06/10/2026 (aluno menor), também a data de nascimento informada pelo
+// aluno, o pedido de aceite ao responsável e a retirada desse aceite.
 const GRAVA_AUTORIZACAO =
-  /rpc\("(consentir_biometria|revogar_consentimento_biometrico|assinar_contrato_matricula|enviar_foto_rosto|registrar_aceite)"|from\("aluno_consentimento_ia"\)\s*\.\s*(insert|update)|consentimento_lgpd_aceito_em:/;
+  /rpc\("(consentir_biometria|revogar_consentimento_biometrico|assinar_contrato_matricula|enviar_foto_rosto|registrar_aceite|informar_data_nascimento|revogar_aceite_responsavel)"|from\("aluno_consentimento_ia"\)\s*\.\s*(insert|update)|consentimento_lgpd_aceito_em:|invoke\("responsavel-pedido"/;
 
 /** Telas que gravam autorização pela conta de quem está usando, e não do aluno. */
 const PELA_PROPRIA_CONTA: Record<string, string> = {
   "components/admin/AcessoCatraca.tsx": "a equipe retira a digital pela conta dela, como a lei permite",
+  "components/admin/ResponsavelLegalAluno.tsx":
+    "a equipe retira o aceite do responsável pela conta dela, quando ele pede à academia",
 };
 
 describe("perfil simulado", () => {

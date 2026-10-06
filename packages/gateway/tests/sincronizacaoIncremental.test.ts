@@ -30,9 +30,14 @@ const A = "c0000000-0000-4000-8000-000000000001";
 const B = "0a000000-0000-4000-8000-000000000002";
 const C = "7f000000-0000-4000-8000-000000000003";
 
+/**
+ * A nuvem manda o nome (a anterior a 06/10/2026), mas o cache não o guarda
+ * desde a 1.9. Para saber qual versão do aluno ficou no cache, os testes
+ * marcam o CPF com o mesmo texto.
+ */
 const aluno = (id: string, nome: string, extra: Partial<AlunoCache> = {}): AlunoCache => ({
   aluno_id: id,
-  cpf: id.slice(0, 11).replace(/\D/g, "0").padEnd(11, "0"),
+  cpf: nome,
   // Identificador = id, só para os testes acharem o aluno pelo cache.
   identificador_catraca: id,
   nome,
@@ -58,8 +63,9 @@ describe("Sincronização incremental do cache de alunos", () => {
 
   afterEach(() => fs.rmSync(dataDir, { recursive: true, force: true }));
 
+  /** A marca (no CPF) de cada aluno no cache. */
   const nomes = async () =>
-    (await Promise.all([A, B, C].map(async (id) => [id, (await cache.buscarPorIdentificador(id))?.nome])))
+    (await Promise.all([A, B, C].map(async (id) => [id, (await cache.buscarPorIdentificador(id))?.cpf])))
       .filter(([, n]) => n);
 
   it("o hash do cache é o mesmo que o banco calcula (ids ordenados, separados por vírgula)", async () => {
@@ -127,7 +133,10 @@ describe("Sincronização incremental do cache de alunos", () => {
     await gateway.sincronizarAlunosComTratamento();
 
     expect(await cache.contar()).toBe(1);
-    expect((await cache.buscarPorIdentificador(A))?.nome).toBe("Ana Maria");
+    const noCache = await cache.buscarPorIdentificador(A);
+    expect(noCache?.cpf).toBe("Ana Maria");
+    // O nome que a nuvem antiga manda não fica no computador da recepção.
+    expect(noCache).not.toHaveProperty("nome");
   });
 
   it("hash divergente (aluno excluído, que não aparece na diferença) força a lista inteira na mesma rodada", async () => {

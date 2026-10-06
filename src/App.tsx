@@ -28,6 +28,8 @@ import { AdminLayout } from "@/components/layout/AdminLayout";
 import { SuperAdminLayout } from "@/components/layout/SuperAdminLayout";
 import { AlunoBillingGate } from "@/components/app/AlunoBillingGate";
 import { AlunoSituacaoGate } from "@/components/app/AlunoSituacaoGate";
+import { AlunoVinculoGate } from "@/components/app/AlunoVinculoGate";
+import { ErroAoCarregarAcesso } from "@/components/acesso/TelasDeAcesso";
 import { AceiteDocumentosGate } from "@/components/legal/AceiteDocumentosGate";
 import { OrganizacaoBillingGate } from "@/components/admin/OrganizacaoBillingGate";
 import { EncerramentoGate } from "@/components/encerramento/EncerramentoGate";
@@ -50,6 +52,7 @@ const DefinirSenha = paginaPreguicosa(() => import("@/pages/auth/DefinirSenha"))
 const PublicMatricula = paginaPreguicosa(() => import("@/pages/public/PublicMatricula"));
 const PrimeiroAcesso = paginaPreguicosa(() => import("@/pages/public/PrimeiroAcesso"));
 const PararContatoSite = paginaPreguicosa(() => import("@/pages/public/PararContatoSite"));
+const AceiteResponsavel = paginaPreguicosa(() => import("@/pages/public/AceiteResponsavel"));
 const DocumentoLegal = paginaPreguicosa(() => import("@/pages/public/DocumentoLegal"));
 const AlunoCheckin = paginaPreguicosa(() => import("@/pages/app/AlunoCheckin"));
 const AdminCheckinQr = paginaPreguicosa(() => import("@/pages/admin/AdminCheckinQr"));
@@ -152,12 +155,15 @@ function AlunoOnboardingGate({ children }: { children: React.ReactNode }) {
   // Em perfil simulado, quem simula não preenche nem autoriza pelo aluno: vê o
   // app como ele, e as duas telas seguem abertas pelo endereço.
   if (emPerfilSimulado()) return <>{children}</>;
-  if (rolesLoaded && alunoId && metodoArkeAtivo && !anamneseCompleta) {
+  // `=== false`, e não `!`: anamnese com leitura falha é desconhecida (null),
+  // e mandar esse aluno de volta ao acolhimento era o caminho para ele
+  // reenviar e sobrescrever a anamnese que já existia.
+  if (rolesLoaded && alunoId && metodoArkeAtivo && anamneseCompleta === false) {
     return <Navigate to="/app/onboarding" replace />;
   }
   // Aluno com anamnese antiga (anterior ao termo LGPD) precisa registrar o
   // consentimento antes de continuar, sem refazer a anamnese inteira.
-  if (rolesLoaded && alunoId && metodoArkeAtivo && anamneseCompleta && !consentimentoLgpdAceito) {
+  if (rolesLoaded && alunoId && metodoArkeAtivo && anamneseCompleta === true && consentimentoLgpdAceito === false) {
     return <Navigate to="/app/consentimento" replace />;
   }
   return <>{children}</>;
@@ -167,7 +173,7 @@ function AlunoOnboardingGate({ children }: { children: React.ReactNode }) {
 // painel correspondente ao seu papel (admin_arke/gestor/professor/
 // nutricionista → /admin, aluno → /app).
 function RootRedirect() {
-  const { isAuthenticated, isLoading, roles, organizationRole, organization, rolesLoaded } = useAuth();
+  const { isAuthenticated, isLoading, roles, organizationRole, organization, rolesLoaded, erroAcesso } = useAuth();
   // A raiz de arkefit.com.br é a página de vendas para quem chega de fora;
   // quem tem sessão ou abre o app instalado segue para o app. `?vendas`
   // força a página, para conferir em outro endereço.
@@ -184,6 +190,8 @@ function RootRedirect() {
   );
 
   if (paginaDeVendas) return <Landing />;
+
+  if (isAuthenticated && erroAcesso) return <ErroAoCarregarAcesso />;
 
   if (isLoading || (isAuthenticated && !rolesLoaded)) {
     return (
@@ -230,6 +238,8 @@ const App = () => (
               <Route path="/p/:slug/entrar" element={<Login />} />
               {/* "Não quero mais receber" dos e-mails da resposta automática ao contato do site */}
               <Route path="/contato/parar" element={<PararContatoSite />} />
+              {/* O link que o responsável legal do aluno menor recebe por e-mail (sem login) */}
+              <Route path="/responsavel/:token" element={<AceiteResponsavel />} />
 
               {/* Documentos legais, públicos */}
               <Route path="/termos" element={<DocumentoLegal tipo="termos_uso" />} />
@@ -264,17 +274,19 @@ const App = () => (
                 path="/app"
                 element={
                   <ProtectedRoute>
-                    <AceiteDocumentosGate>
-                      <AlunoOnboardingGate>
-                        <AlunoBillingGate>
-                          <AlunoSituacaoGate>
-                            <EncerramentoGate publico="aluno">
-                              <AppLayout />
-                            </EncerramentoGate>
-                          </AlunoSituacaoGate>
-                        </AlunoBillingGate>
-                      </AlunoOnboardingGate>
-                    </AceiteDocumentosGate>
+                    <AlunoVinculoGate>
+                      <AceiteDocumentosGate>
+                        <AlunoOnboardingGate>
+                          <AlunoBillingGate>
+                            <AlunoSituacaoGate>
+                              <EncerramentoGate publico="aluno">
+                                <AppLayout />
+                              </EncerramentoGate>
+                            </AlunoSituacaoGate>
+                          </AlunoBillingGate>
+                        </AlunoOnboardingGate>
+                      </AceiteDocumentosGate>
+                    </AlunoVinculoGate>
                   </ProtectedRoute>
                 }
               >

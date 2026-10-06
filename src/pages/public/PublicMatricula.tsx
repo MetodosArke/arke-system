@@ -12,6 +12,8 @@ import { Dumbbell } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { mensagemDeErroEdge } from "@/lib/erroEdge";
 import { erroCpfObrigatorio } from "@/lib/cpf";
+import { erroDataNascimento } from "@/lib/menorDeIdade";
+import { hojeBrasilia } from "@/lib/dataBrasilia";
 import { Turnstile } from "@/components/public/Turnstile";
 import { useMarcaAcademia } from "@/components/marca/MarcaAcademia";
 
@@ -36,7 +38,7 @@ export default function PublicMatricula() {
   const [captchaToken, setCaptchaToken] = useState<string | null>(null);
   const [captchaVersao, setCaptchaVersao] = useState(0);
   const [aceiteTermos, setAceiteTermos] = useState(false);
-  const [form, setForm] = useState({ full_name: "", email: "", telefone: "", cpf: "", password: "", confirmar: "" });
+  const [form, setForm] = useState({ full_name: "", email: "", telefone: "", cpf: "", data_nascimento: "", password: "", confirmar: "" });
 
   const { data: org, isLoading, isError, refetch, isFetching } = useQuery({
     queryKey: ["organizacao-publica", slug],
@@ -56,6 +58,10 @@ export default function PublicMatricula() {
       // de novo no servidor, que é quem de fato garante.
       const problemaCpf = erroCpfObrigatorio(form.cpf);
       if (problemaCpf) throw new Error(problemaCpf);
+      // A data de nascimento diz quem é menor de idade: para ele, saúde,
+      // biometria e IA esperam o aceite do responsável (06/10/2026).
+      const problemaNascimento = erroDataNascimento(form.data_nascimento, hojeBrasilia());
+      if (problemaNascimento) throw new Error(problemaNascimento);
       if (form.password.length < 6) throw new Error("A senha deve ter no mínimo 6 caracteres.");
       if (form.password !== form.confirmar) throw new Error("As senhas não coincidem.");
       if (!aceiteTermos) throw new Error("Aceite os Termos de Uso e a Política de Privacidade para continuar.");
@@ -70,6 +76,7 @@ export default function PublicMatricula() {
             email: form.email,
             telefone: form.telefone,
             cpf: form.cpf,
+            data_nascimento: form.data_nascimento,
             password: form.password,
             captcha_token: captchaToken ?? undefined,
             aceite_termos: aceiteTermos,
@@ -189,6 +196,18 @@ export default function PublicMatricula() {
                   <Label htmlFor="cpf">CPF</Label>
                   <Input id="cpf" required inputMode="numeric" value={form.cpf} onChange={(e) => setForm((f) => ({ ...f, cpf: e.target.value }))} placeholder="000.000.000-00" />
                 </div>
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="data_nascimento">Data de nascimento</Label>
+                <Input
+                  id="data_nascimento"
+                  type="date"
+                  required
+                  min="1900-01-01"
+                  max={hojeBrasilia()}
+                  value={form.data_nascimento}
+                  onChange={(e) => setForm((f) => ({ ...f, data_nascimento: e.target.value }))}
+                />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">

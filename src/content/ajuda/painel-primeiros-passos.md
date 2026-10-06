@@ -30,6 +30,14 @@ No alto de cada tela há um **?**. Ele abre o artigo que explica aquela tela; se
 
 Clique na sua foto, no alto à esquerda, para abrir **Meu perfil**. Ali você troca o nome, a foto e a senha. Se esqueceu a senha, use **Esqueceu a senha?** na tela de entrada: o link chega no seu e-mail.
 
+## Sair
+
+**Sair** desconecta só o aparelho em que você está: o celular e os outros computadores seguem conectados. Ao sair, o aparelho deixa de receber os seus avisos, e o que estava digitado e não foi salvo (uma avaliação física pela metade, por exemplo) é apagado. No computador da recepção, saia sempre ao terminar o turno.
+
+## Quando o painel não abre
+
+Se a conexão falhar na hora de abrir, o painel tenta de novo sozinho por alguns segundos. Se continuar sem conseguir, aparece **Não conseguimos carregar o seu acesso**: confira a internet e toque em **Tentar de novo**. Nada se perde nesse meio-tempo.
+
 ## Mais de uma unidade
 
 Quem trabalha em mais de uma academia ou unidade da mesma rede vê um seletor de unidade no alto da tela. Ao trocar, o painel recarrega com os dados da outra unidade, e a escolha fica guardada naquele aparelho.

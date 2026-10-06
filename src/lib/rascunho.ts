@@ -1,8 +1,9 @@
 /**
  * Rascunho de formulário: o trabalho digitado sobrevive a fechar a aba.
  *
- * O padrão já existia solto no onboarding do aluno (`arke_onboarding_draft:`)
- * e a importação em lote resolveu o mesmo problema no banco. Este módulo é
+ * O padrão nasceu solto no onboarding do aluno (`arke_onboarding_draft:`, no
+ * localStorage, sem prazo e restaurando sozinho; trocado por este módulo em
+ * 06/10/2026) e a importação em lote resolveu o mesmo problema no banco. Este módulo é
  * o meio-termo para o resto: conteúdo que custa caro reproduzir, mas que é
  * de uma pessoa, numa máquina, numa sessão — avaliação física com o aluno
  * na frente, ficha de treino montada exercício por exercício, dieta revisada
@@ -130,6 +131,52 @@ export function descartarRascunho(
   } catch {
     /* nada a fazer — o rascunho some sozinho quando o navegador limpar */
   }
+}
+
+/** Armazenamento que se deixa percorrer, como o `sessionStorage` e o `localStorage`. */
+export interface ArmazenamentoListavel extends ArmazenamentoLocal {
+  readonly length: number;
+  key(indice: number): string | null;
+}
+
+function apagarPorPrefixo(armazenamento: ArmazenamentoListavel | null, prefixo: string): number {
+  if (!armazenamento) return 0;
+  try {
+    const chaves: string[] = [];
+    for (let i = 0; i < armazenamento.length; i++) {
+      const chave = armazenamento.key(i);
+      if (chave?.startsWith(prefixo)) chaves.push(chave);
+    }
+    for (const chave of chaves) armazenamento.removeItem(chave);
+    return chaves.length;
+  } catch {
+    return 0;
+  }
+}
+
+/**
+ * Apaga todos os rascunhos do armazenamento. É o que o "Sair" faz: no
+ * computador da recepção, a próxima pessoa não pode encontrar a avaliação
+ * física ou a anamnese que outra deixou pela metade.
+ */
+export function descartarTodosOsRascunhos(
+  armazenamento: ArmazenamentoListavel | null = armazenamentoPadrao() as ArmazenamentoListavel | null
+): number {
+  return apagarPorPrefixo(armazenamento, PREFIXO);
+}
+
+/** Prefixo do rascunho antigo da anamnese, gravado no localStorage até 06/10/2026. */
+export const PREFIXO_ACOLHIMENTO_ANTIGO = "arke_onboarding_draft:";
+
+/**
+ * Apaga dos aparelhos o rascunho antigo da anamnese: dores, lesões,
+ * medicamentos, sono e estresse no localStorage, sem prazo. Roda na carga do
+ * app, e depois de um tempo não acha mais nada.
+ */
+export function apagarRascunhosAntigosDoAcolhimento(
+  armazenamento: ArmazenamentoListavel | null = armazenamentoPadrao("persistente") as ArmazenamentoListavel | null
+): number {
+  return apagarPorPrefixo(armazenamento, PREFIXO_ACOLHIMENTO_ANTIGO);
 }
 
 /**

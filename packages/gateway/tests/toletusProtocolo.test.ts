@@ -141,6 +141,10 @@ describe("protocolo Toletus LiteNet2: frase do display", () => {
     [false, "Matrícula pausada. Procure a recepção.", "Fale c/ recepcao"],
     [false, "Mensalidade da academia em atraso.", "Fale c/ recepcao"],
     [false, "Assinatura em atraso (validado pelo cache local).", "Fale c/ recepcao"],
+    // Os textos da nuvem e do cache desde 06/10/2026: pausado, inadimplente e
+    // matrícula encerrada dizem só para procurar a recepção.
+    [false, "Procure a recepção.", "Fale c/ recepcao"],
+    [false, "Procure a recepção (validado pelo cache local).", "Fale c/ recepcao"],
     [false, "Sem agendamento ativo para este horário.", "Sem agendamento"],
     [false, "Dispositivo inativo.", "Catraca inativa"],
     [false, "Sem conexão com a nuvem e cache local ainda vazio.", "Sem conexao"],

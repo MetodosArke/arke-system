@@ -39,15 +39,6 @@ namespace Arke.PonteTopdata
             return sb.ToString();
         }
 
-        /// <summary>Primeiro nome — o display tem 16 colunas.</summary>
-        public static string PrimeiroNome(string nome)
-        {
-            if (string.IsNullOrEmpty(nome)) return "";
-            string t = nome.Trim();
-            int i = t.IndexOf(' ');
-            return i > 0 ? t.Substring(0, i) : t;
-        }
-
         public static string SoDigitos(string s)
         {
             var sb = new StringBuilder();

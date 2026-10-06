@@ -21,9 +21,12 @@ export interface CatracaDriver {
   /** Chamado a cada credencial lida (CPF digitado, cartão, biometria, QR). */
   aoLerCredencial(callback: (leitura: LeituraCredencial) => void): void;
 
-  /** Destrava o giro e mostra o nome do aluno no display. */
-  liberarAcesso(nomeAluno: string): Promise<void>;
+  /**
+   * Destrava o giro e mostra a mensagem no display. O display é público:
+   * a mensagem é "Bem-vindo!" (`mensagemDoDisplay`), nunca o nome do aluno.
+   */
+  liberarAcesso(mensagem: string): Promise<void>;
 
-  /** Mantém o giro travado, aciona o sinal sonoro e mostra o motivo. */
+  /** Mantém o giro travado, aciona o sinal sonoro e mostra a negativa curta, que não fala de dinheiro. */
   negarAcesso(motivo: string): Promise<void>;
 }

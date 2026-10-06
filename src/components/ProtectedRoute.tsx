@@ -2,6 +2,7 @@ import { Navigate } from "react-router-dom";
 import { useAuth, AppRole } from "@/contexts/AuthContext";
 import { VerificacaoDuasEtapas } from "@/components/VerificacaoDuasEtapas";
 import { emPerfilSimulado } from "@/lib/impersonation";
+import { ErroAoCarregarAcesso } from "@/components/acesso/TelasDeAcesso";
 
 interface Props {
   children: React.ReactNode;
@@ -9,7 +10,13 @@ interface Props {
 }
 
 export function ProtectedRoute({ children, requiredRoles }: Props) {
-  const { isAuthenticated, isLoading, roles, organizationRole, rolesLoaded } = useAuth();
+  const { isAuthenticated, isLoading, roles, organizationRole, rolesLoaded, erroAcesso } = useAuth();
+
+  // Falha ao ler o acesso não é falta de acesso: antes desta tela, a gestão
+  // com a rede instável era mandada para o app do aluno.
+  if (isAuthenticated && erroAcesso) {
+    return <ErroAoCarregarAcesso />;
+  }
 
   if (isLoading || (requiredRoles && requiredRoles.length > 0 && !rolesLoaded)) {
     return (

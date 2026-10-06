@@ -61,7 +61,7 @@ No computador que vai ficar ligado à rede das catracas, o mesmo do Gateway Loca
 | `inners[].modo` | `entrada_controlada` | `entrada_controlada` (saída livre) ou `entrada_e_saida` |
 | `inners[].dois_leitores`, `leitor_entrada` | `false`, 1 | só em `entrada_e_saida` |
 | `inners[].invertida` | `false` | catraca montada do lado oposto ao padrão |
-| `inners[].tipo_leitor` | 3 (Wiegand) | 0 barras · 1 magnético · 2 Abatrack · 3 Wiegand · 4 smart card · 5 barras serial · 6 Wiegand FC · 7 barras/prox/QR |
+| `inners[].tipo_leitor` | 3 (Wiegand) | 0 barras · 1 magnético · 2 Abatrack · 3 Wiegand · 4 smart card · 5 barras serial · 6 Wiegand FC · 7 barras/prox/QR. Com 0, 5 e 7 a leitura é negada: código de barras e QR não identificam aluno |
 | `inners[].digitos_cartao` | 14 | dígitos que o leitor entrega |
 | `inners[].teclado`, `digitos_teclado` | `true`, 11 | 11 dígitos para o aluno digitar o CPF |
 | `inners[].biometria` | `false` | Inner com módulo biométrico (identificação 1:N no equipamento) |
@@ -92,18 +92,19 @@ As três rotas só atendem a própria máquina (`127.0.0.1`). O receptor escuta 
 ### `POST /topdata/evento`
 
 ```json
-{ "inner": 1, "origem": 2, "complemento": 0, "valor": "000123" }
+{ "inner": 1, "origem": 2, "complemento": 0, "valor": "000123", "tipo_leitor": 3 }
 ```
 
-`origem` segue o manual (§4.3.2): 1 teclado, 2 leitor 1, 3 leitor 2, 5 fim do tempo de acionamento (não girou), 6 giro confirmado, 12 biometria, 21 QR Code. O exemplo C# do SDK não tem o 21; o manual tem.
+`origem` segue o manual (§4.3.2): 1 teclado, 2 leitor 1, 3 leitor 2, 5 fim do tempo de acionamento (não girou), 6 giro confirmado, 12 biometria, 21 QR Code. O exemplo C# do SDK não tem o 21; o manual tem. `tipo_leitor` é o do `ponte.config.json` (desde a 1.9): é por ele que o gateway sabe se o leitor 1 ou 2 leu um cartão ou um código de barras.
 
 Resposta:
 
 ```json
-{ "liberar": true, "sentido": "entrada", "nome": "Jean Ramos", "motivo": "Acesso liberado." }
+{ "liberar": true, "sentido": "entrada", "motivo": "Bem-vindo!" }
 ```
 
-- **Leitura:** no teclado vale só o CPF (11 dígitos); outro número digitado é negado com "Digite o CPF." sem ir à nuvem, porque os números do equipamento são pequenos e sequenciais e a catraca não tem senha para conferir (Gateway 1.6). Cartão e QR viram `identificador_catraca`. A biometria chega como o número do usuário **dentro do equipamento**: a digital é comparada lá, como na Control iD, e nenhum dado biométrico trafega.
+- **Display:** `motivo` é o texto do display, que é público. Na liberação, "Bem-vindo!" e o sentido ("ENTRADA LIBERADA"); na negativa, "ACESSO NEGADO" e uma frase curta que não fala de dinheiro ("Fale c/ recepcao", "Nao cadastrado"). **Nunca o nome do aluno.** Até a 1.8 a resposta trazia `nome`, e a ponte escrevia o primeiro nome no display, inclusive ao lado de "acesso negado", com o motivo da nuvem ("Mensalidade da academia em atraso"). A ponte nova não lê `nome`, mesmo que um gateway antigo o mande.
+- **Leitura:** no teclado vale só o CPF (11 dígitos); outro número digitado é negado com "Digite o CPF" sem ir à nuvem, porque os números do equipamento são pequenos e sequenciais e a catraca não tem senha para conferir (Gateway 1.6). **QR Code (origem 21) e leitor de código de barras (`tipo_leitor` 0, 5 ou 7) são negados com "Acesso negado", sem ir à nuvem** (Gateway 1.9), pela mesma razão: um código impresso com "12" entrava como o aluno 12. No tipo 7 (barras, proximidade e QR no mesmo leitor) o cartão e o código chegam pela mesma origem, sem como separar, e vale a regra mais segura: para cartão, use um leitor de proximidade (tipos 3, 4 ou 6). O cartão vira `identificador_catraca`. A biometria chega como o número do usuário **dentro do equipamento**: a digital é comparada lá, como na Control iD, e nenhum dado biométrico trafega.
 - **Giro:** a Topdata sempre avisa, com origem 6 (girou) ou 5 (não girou). Todo acesso liberado fica **esperando o aviso daquele Inner**. Se girou, vira presença; se não girou, vira desistência, que não conta. Se não chega aviso no prazo, o acesso fecha como "sem confirmação", que conta. Quando a ponte não consegue liberar a catraca, ela avisa "não girou", para quem ficou do lado de fora não ganhar presença.
 - **Contingência:** acesso decidido pelo cache do gateway vai para a fila offline com o giro pendente, e o aviso o fecha.
 
@@ -137,7 +138,7 @@ O `--simular` é o equivalente do emulador da Control iD, com um limite que vale
 powershell -ExecutionPolicy Bypass -File packages/ponte-topdata/build.ps1
 ```
 
-O build usa o compilador que já vem no Windows (.NET Framework 4.x), sem Visual Studio. A compilação é sempre `/platform:x86`. O mesmo script roda os 24 testes da ponte, que também rodam no CI (job `ponte-topdata`, runner Windows).
+O build usa o compilador que já vem no Windows (.NET Framework 4.x), sem Visual Studio. A compilação é sempre `/platform:x86`. O mesmo script roda os testes da ponte (26 em 06/10/2026), que também rodam no CI (job `ponte-topdata`, runner Windows).
 
 ## Conferido em 23/09/2026
 
@@ -166,6 +167,8 @@ O que só o equipamento responde, na ordem de fazer:
 7. **Ponte desligada:** fechar a ponte e passar um cartão. **A catraca não pode liberar.** Depois, reiniciar a catraca sem a ponte e repetir, porque é aí que vale a lista branca vazia da configuração offline. Se liberar em algum dos dois, é defeito grave: parar e rever `RegrasInner`.
 8. **Bilhete:** se o equipamento tiver liberação manual ou cartão mestre, usar com a ponte fora e conferir se o registro sobe ao reconectar. Conferir também se o último caractere descartado do bilhete (herdado do exemplo oficial) está certo para esse leitor.
 9. **Biometria** (se houver): o número que chega na origem 12 é o usuário cadastrado no equipamento. Testar com a mão suada, com calo de barra e com magnésio.
+10. **Display** (desde a 1.9): liberado mostra "Bem-vindo!" e o sentido; negado (aluno pausado, inadimplente, matrícula encerrada) mostra "ACESSO NEGADO" e "Fale c/ recepcao". **Nunca o nome do aluno nem o motivo financeiro.** Conferir também se as duas linhas de 16 colunas aparecem inteiras nesse firmware.
+11. **Leitor de código de barras ou QR** (se houver): a leitura é negada com "Acesso negado", sem ir à nuvem. Se o equipamento tiver um leitor só para cartão e código (tipo 7), o cartão também é negado: para cartão, configurar um leitor de proximidade.
 
 ## O Kit Integrador
 

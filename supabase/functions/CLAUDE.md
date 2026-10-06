@@ -34,6 +34,8 @@ Funções em Deno, publicadas no projeto `lzyxqjibkfblrrjboylp`. O repositório 
 - `paginar.ts`: espelho de `src/lib/paginar.ts`.
 - `captcha.ts`: o Turnstile. Token recusado é recusado com qualquer status HTTP.
 - `tokenCatraca.ts`: o hash do token do Gateway, a mesma conta de `hash_token_catraca()`.
+- `responsavel.ts`: o aceite do responsável do aluno menor (`responsavel-pedido` e `responsavel-aceite`): o token do link e o hash dele, e a versão e o hash de cada texto, conferidos contra o app por `textosConsentimento.test.ts`.
+- `nascimento.ts`: a data de nascimento e a idade, espelho de `src/lib/menorDeIdade.ts`.
 - `encerrarCobrancas.ts`: a saída do aluno cancela o que está vivo no Asaas.
 - `arquivosDoAluno.ts`: apaga a pasta do aluno nos buckets privados, depois do banco.
 - `verificacao.ts`, `alvoNaAcademia.ts`, `papelCobranca.ts`, `freio.ts`, `execucao.ts` e `vapid.ts`: um pedaço de regra cada.

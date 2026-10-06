@@ -147,9 +147,14 @@ if (!aplicar) {
     values (${aspas(org[0].id)}, ${aspas(userId)}, 'aluno', 'active')
     on conflict (organization_id, user_id) do update set role = 'aluno', status = 'active';
 
-    insert into public.alunos (organization_id, user_id)
-    values (${aspas(org[0].id)}, ${aspas(userId)})
+    insert into public.alunos (organization_id, user_id, data_nascimento)
+    values (${aspas(org[0].id)}, ${aspas(userId)}, '1990-01-01')
     on conflict do nothing;
+
+    -- Adulta: sem a data, a trava do menor (06/10/2026) recusaria as
+    -- autorizações de saúde, digital e IA.
+    update public.alunos set data_nascimento = '1990-01-01'
+     where organization_id = ${aspas(org[0].id)} and user_id = ${aspas(userId)} and data_nascimento is null;
   `);
   console.log("  CPF, vínculo e registro de aluno prontos");
 

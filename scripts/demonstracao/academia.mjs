@@ -247,16 +247,18 @@ async function semear() {
   }
   await inserirEmLotes(
     `insert into public.alunos (organization_id, user_id, objetivo, meta_semanal_dias, data_inicio, primeiro_acesso_em, ultima_atividade_em,
-       situacao_academia, situacao_academia_motivo, situacao_academia_retorno, situacao_academia_em, meta_agua_ml, provedor_nutricao)`,
+       situacao_academia, situacao_academia_motivo, situacao_academia_retorno, situacao_academia_em, meta_agua_ml, provedor_nutricao, data_nascimento)`,
     todosAlunos.map((a) => {
       const ultima = a.semAcesso ? "null" : a.perfil === "sumido" ? `now() - interval '${entre(9, 30)} days'` : `now() - interval '${entre(1, 60)} hours'`;
       const motivo = a.situacao === "pausado" ? um(["Viagem", "Saúde", "Rotina de trabalho"]) : a.situacao === "inadimplente" ? "Mensalidade em atraso" : null;
       const retorno = a.situacao === "pausado" ? `current_date + ${entre(5, 40)}` : "null";
       return `(${q(ORG)}, ${q(ids[a.chave])}, ${q(a.objetivo)}, ${a.meta}, current_date - ${a.diasDeCasa},
         ${a.semAcesso ? "null" : `now() - interval '${Math.max(1, a.diasDeCasa - 1)} days'`}, ${ultima},
-        ${q(a.situacao)}, ${q(motivo)}, ${retorno}, ${a.situacao === "em_dia" ? "null" : `now() - interval '${entre(2, 20)} days'`}, ${um([2000, 2500, 3000])}, 'nutricionista_academia')`;
+        ${q(a.situacao)}, ${q(motivo)}, ${retorno}, ${a.situacao === "em_dia" ? "null" : `now() - interval '${entre(2, 20)} days'`}, ${um([2000, 2500, 3000])}, 'nutricionista_academia', current_date - ${entre(6900, 21900)})`;
     }),
   );
+  // Todos adultos (de 19 a 60 anos): sem a data, a trava do menor (06/10/2026)
+  // deixaria a demonstração sem as autorizações de saúde, digital e IA.
   // O cadastro nasce com a data de entrada do aluno, e não com a de hoje: sem
   // isso o resumo da semana contava os 182 como novos.
   await sql(`update public.alunos set created_at = data_inicio + time '09:00' where organization_id = ${q(ORG)}`);

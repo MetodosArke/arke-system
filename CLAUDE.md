@@ -45,6 +45,7 @@ O ArkeFit (ARKE) é uma plataforma SaaS para academias, studios e profissionais 
   - Aluno inadimplente: 5 dias de tolerância. O pausado sai na hora. A catraca segue `situacao_permite_app()`.
   - A ArkeFit nunca é bloqueada.
 - **CPF obrigatório em toda matrícula** (gatilho em `alunos`). A equipe não precisa de CPF.
+- **Aluno menor de idade:** data de nascimento obrigatória na matrícula (na importação, sem ela a idade fica desconhecida). Para o menor, saúde, biometria e IA só liberam com o aceite do responsável pelo link do e-mail, um por propósito; sem a data, ficam travadas até ela ser informada. A trava é por gatilho (`exigir_liberacao_consentimento`), e o aceite libera o aluno a consentir, não consente por ele.
 - **A responsabilidade fiscal segue o split:** a nota da academia sai no CNPJ dela, pelo líquido dela.
 - **Resultado não é promessa:** no site, número de mercado só com fonte citada; número próprio só "observado", com período e método.
 - **WhatsApp fica fora do produto.** O aviso sai por push e e-mail.
@@ -61,8 +62,8 @@ O ArkeFit (ARKE) é uma plataforma SaaS para academias, studios e profissionais 
   - as contas da ArkeFit sempre;
   - a gestão, em exportar todos os dados, avisar o encerramento e trocar o e-mail de login de alguém;
   - para a gestão, opcional na entrada do painel.
-- **Biometria:** só o titular consente, pelo app ou pelo termo impresso que a recepção anexa. Revogar, excluir ou anonimizar apaga a biometria dos equipamentos.
-- **Display de catraca é público:** "Bem-vindo!" ou "Aluno", nunca o nome, e a negativa não fala de dinheiro.
+- **Biometria:** só o titular consente, pelo app ou pelo termo impresso que a recepção anexa. Revogar, excluir, anonimizar ou encerrar a matrícula apaga a biometria dos equipamentos; o número de digital ou rosto vinculado à mão também exige a autorização.
+- **Display de catraca é público:** "Bem-vindo!" ou "Aluno", nunca o nome, e a negativa não fala de dinheiro. Código de barras e QR na catraca não identificam aluno (`catracaPublica.guarda`).
 
 ## Regras que já custaram caro
 

@@ -105,6 +105,10 @@ export class PlacaLiteNet3Falsa {
     this.notificar("keypad", { code });
   }
 
+  codigoDeBarras(code: string): void {
+    this.notificar("barcode", { code });
+  }
+
   passagem(dados: Record<string, unknown> = { in: 1 }): void {
     this.notificar("passage", dados);
   }

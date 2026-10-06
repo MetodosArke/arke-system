@@ -191,19 +191,8 @@ export function versaoDoFirmware(dados: Buffer): string {
 }
 
 /**
- * Frase do display (16 caracteres) para cada decisão. O motivo completo
- * fica no registro; o display da catraca é público, então "mensalidade em
- * atraso" não aparece para a fila inteira ler: a recepção resolve.
+ * Frase do display (16 caracteres) para cada decisão: a mesma de todas as
+ * marcas, em `core/display.ts`. Reexportada aqui porque os conectores e os
+ * testes a importavam deste módulo.
  */
-export function mensagemDoDisplay(liberado: boolean, motivo: string): string {
-  if (liberado) return "Bem-vindo!";
-  const m = motivo.toLowerCase();
-  if (m.includes("não encontrado") || m.includes("nao encontrado")) return "Nao cadastrado";
-  // Falha nossa ao conferir não é "sem agendamento": diria ao aluno algo falso.
-  if (m.includes("tente novamente")) return "Tente novamente";
-  if (m.includes("agendamento")) return "Sem agendamento";
-  if (m.includes("sem conexão") || m.includes("sem conexao")) return "Sem conexao";
-  if (m.includes("dispositivo")) return "Catraca inativa";
-  if (m.includes("pausad") || m.includes("atraso") || m.includes("recepç")) return "Fale c/ recepcao";
-  return "Acesso negado";
-}
+export { mensagemDoDisplay } from "../../core/display";

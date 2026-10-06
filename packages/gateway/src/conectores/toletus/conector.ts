@@ -1,7 +1,8 @@
 import type { GatewayService } from "../../core/gatewayService";
 import type { GestaoEquipamentos, ReplicacaoEquipamentos } from "../../equipamentos/controlidGestao";
 import { logger } from "../../logger";
-import type { Credencial, EquipamentoToletus, Giro, TipoComando } from "../../types";
+import type { EquipamentoToletus, Giro, TipoComando } from "../../types";
+import { credencialDaLeitura, displayDaLeituraRecusada } from "../../core/credencial";
 import { PlacaToletus, type EstadoPlaca, type OpcoesPlaca, type PlacaConectavel, type SentidoLiberacao } from "./placa";
 import { mensagemDoDisplay, type EventoToletus } from "./protocolo";
 import { PlacaLiteNet3, type OpcoesPlacaLiteNet3 } from "./litenet3/placa";
@@ -58,18 +59,11 @@ const INTERVALO_AVISO_DIGITAL_MS = 5_000;
 type Decisor = Pick<GatewayService, "validarCredencial" | "registrarAcessoOffline" | "concluirGiro">;
 
 /**
- * Teclado: só o CPF (onze dígitos), como na Topdata. Os números do
- * equipamento são pequenos e sequenciais (1, 2, 3…), e a catraca não tem
- * senha para conferir: quem digitasse "12" entraria como o aluno 12. Por
- * isso outro número digitado é negado sem ir à nuvem (null). O resto —
- * cartão, código de barras, usuário da biometria — é o identificador do
- * equipamento, que mora em `alunos.identificador_catraca`.
+ * A regra da leitura é a de todas as marcas (`core/credencial.ts`): no
+ * teclado só o CPF; código de barras não identifica ninguém; cartão e
+ * digital são o número do equipamento. Reexportada para os testes.
  */
-export function credencialDaLeitura(origem: string, valor: string): Credencial | null {
-  const digitos = valor.replace(/\D/g, "");
-  if (origem === "teclado") return digitos.length === 11 ? { tipo: "cpf", valor: digitos } : null;
-  return { tipo: "identificador_catraca", valor };
-}
+export { credencialDaLeitura };
 
 export class ConectorToletus {
   private readonly placas: PlacaConectavel[];
@@ -234,7 +228,7 @@ export class ConectorToletus {
         placa.negar("Use o cartao");
         logger.warn(
           { placa: placa.nome },
-          "A LiteNet3 mandou a imagem de uma digital para comparar no servidor — o ARKE não compara digital fora do equipamento; use cartão, código ou teclado"
+          "A LiteNet3 mandou a imagem de uma digital para comparar no servidor — o ARKE não compara digital fora do equipamento; use cartão ou o CPF no teclado"
         );
         return;
       }
@@ -253,10 +247,15 @@ export class ConectorToletus {
     }
     const credencial = credencialDaLeitura(origem, valor);
     if (!credencial) {
-      // Não abre acesso nem fecha o giro de quem está passando: é só um
-      // número digitado que não é CPF.
-      placa.negar("Digite o CPF");
-      logger.info({ placa: placa.nome }, "Teclado sem CPF: negado sem consultar a nuvem");
+      // Não abre acesso nem fecha o giro de quem está passando: é um número
+      // digitado que não é CPF, ou um código de barras.
+      placa.negar(displayDaLeituraRecusada(origem));
+      logger.info(
+        { placa: placa.nome, origem },
+        origem === "teclado"
+          ? "Teclado sem CPF: negado sem consultar a nuvem"
+          : "Código de barras não identifica aluno: negado sem consultar a nuvem"
+      );
       return;
     }
 

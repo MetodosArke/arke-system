@@ -94,8 +94,9 @@ describe("Receptor Topdata — decisão de acesso", () => {
     fs.rmSync(amb.dataDir, { recursive: true, force: true });
   });
 
-  it("libera pela entrada quando o leitor 1 lê um cartão autorizado", async () => {
-    amb.cloud.respostaValidarAcesso = { liberado: true, aluno_nome: "Jean Ramos" };
+  it("libera pela entrada quando o leitor 1 lê um cartão autorizado, com 'Bem-vindo!' e sem o nome", async () => {
+    // Nuvem antiga ainda manda o nome: ele não pode chegar ao display.
+    amb.cloud.respostaValidarAcesso = { liberado: true, motivo: "Acesso liberado.", aluno_nome: "Jean Ramos" };
 
     const corpo = (
       await comoAPonte(amb.app, { inner: 1, origem: ORIGEM_TOPDATA.LEITOR1, valor: "000123" })
@@ -103,7 +104,9 @@ describe("Receptor Topdata — decisão de acesso", () => {
 
     expect(corpo.liberar).toBe(true);
     expect(corpo.sentido).toBe("entrada");
-    expect(corpo.nome).toBe("Jean Ramos");
+    expect(corpo.motivo).toBe("Bem-vindo!");
+    expect(corpo).not.toHaveProperty("nome");
+    expect(JSON.stringify(corpo)).not.toContain("Jean");
   });
 
   it("trata biometria como identificador do equipamento, não como CPF", async () => {
@@ -131,10 +134,12 @@ describe("Receptor Topdata — decisão de acesso", () => {
     const resposta = await comoAPonte(amb.app, { inner: 1, origem: ORIGEM_TOPDATA.TECLADO, valor: "1234" });
 
     expect(amb.cloud.credenciaisRecebidas).toEqual([]);
-    expect(resposta.json()).toMatchObject({ liberar: false, motivo: "Digite o CPF." });
+    expect(resposta.json()).toMatchObject({ liberar: false, motivo: "Digite o CPF" });
   });
 
-  it("nega sem sentido de giro quando a nuvem recusa", async () => {
+  it("nega sem sentido de giro quando a nuvem recusa — sem o nome e sem falar de dinheiro", async () => {
+    // O display é público: até a 1.8 a ponte escrevia "Jean" e "Mensalidade
+    // da academia em atraso" para a fila inteira ler.
     amb.cloud.respostaValidarAcesso = {
       liberado: false,
       motivo: "Mensalidade da academia em atraso.",
@@ -147,9 +152,47 @@ describe("Receptor Topdata — decisão de acesso", () => {
 
     expect(corpo.liberar).toBe(false);
     expect(corpo.sentido).toBeUndefined();
-    // O nome vai junto para o display dizer a quem está negando.
-    expect(corpo.nome).toBe("Jean Ramos");
-    expect(corpo.motivo).toContain("atraso");
+    expect(corpo).not.toHaveProperty("nome");
+    expect(corpo.motivo).toBe("Fale c/ recepcao");
+    expect(JSON.stringify(corpo).toLowerCase()).not.toMatch(/jean|atraso|mensalidade/);
+  });
+
+  it("QR Code (origem 21) não identifica ninguém: negado sem ir à nuvem", async () => {
+    // Um QR com "6" entraria como o aluno 6, cujo número é pequeno e sequencial.
+    amb.cloud.respostaValidarAcesso = { liberado: true };
+
+    const corpo = (await comoAPonte(amb.app, { inner: 1, origem: ORIGEM_TOPDATA.QRCODE, valor: "6", tipo_leitor: 7 })).json();
+
+    expect(amb.cloud.credenciaisRecebidas).toEqual([]);
+    expect(corpo).toEqual({ liberar: false, motivo: "Acesso negado" });
+  });
+
+  it.each([0, 5, 7])("leitor de código de barras (tipo_leitor %s) não identifica ninguém", async (tipo) => {
+    amb.cloud.respostaValidarAcesso = { liberado: true };
+
+    const corpo = (
+      await comoAPonte(amb.app, { inner: 1, origem: ORIGEM_TOPDATA.LEITOR1, valor: "6", tipo_leitor: tipo })
+    ).json();
+
+    expect(amb.cloud.credenciaisRecebidas).toEqual([]);
+    expect(corpo.liberar).toBe(false);
+  });
+
+  it("leitor de cartão (Wiegand, tipo_leitor 3) segue sendo o número do equipamento", async () => {
+    amb.cloud.respostaValidarAcesso = { liberado: true };
+
+    await comoAPonte(amb.app, { inner: 1, origem: ORIGEM_TOPDATA.LEITOR2, valor: "3954862189", tipo_leitor: 3 });
+
+    expect(amb.cloud.credenciaisRecebidas).toEqual([{ tipo: "identificador_catraca", valor: "3954862189" }]);
+  });
+
+  it("origem que o manual não lista para leitura é negada sem ir à nuvem", async () => {
+    amb.cloud.respostaValidarAcesso = { liberado: true };
+
+    const corpo = (await comoAPonte(amb.app, { inner: 1, origem: 8, valor: "6" })).json();
+
+    expect(amb.cloud.credenciaisRecebidas).toEqual([]);
+    expect(corpo.liberar).toBe(false);
   });
 
   it("recusa leitura vazia sem consultar a nuvem", async () => {
@@ -230,6 +273,8 @@ describe("Receptor Topdata — contingência", () => {
 
     expect(corpo.liberar).toBe(true);
     expect(corpo.sentido).toBe("ambos");
+    expect(corpo.motivo).toBe("Bem-vindo!");
+    expect(JSON.stringify(corpo)).not.toContain("Jean");
   });
 
   it("nega quem não está no cache — fail-closed, igual à Control iD", async () => {
