@@ -30,6 +30,12 @@
 
 -- ---------------------------------------------------------------- Storage ---
 
+-- Os 9 buckets de produção (retrato de 06/10/2026). Os que uma migration cria
+-- ou altera têm aqui os mesmos valores dela, e `src/lib/bucketsBanco.guarda.test.ts`
+-- falha se um bucket novo de migration ficar fora desta lista (como ficou
+-- `termos-biometria`, de 20261250010000, até 06/10/2026). Avatars, dietas,
+-- email-assets e os dois de exercício nasceram pelo painel, antes das
+-- migrations: para eles, esta lista é o registro.
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 values
   ('atestados',         'atestados',         false,  5242880, array['application/pdf','image/jpeg','image/png','image/webp']),
@@ -39,14 +45,18 @@ values
   ('email-assets',      'email-assets',      true,   2097152, null),
   ('exercicio-imagens', 'exercicio-imagens', true,   5242880, array['image/png','image/jpeg','image/webp','image/gif']),
   ('exercicio-videos',  'exercicio-videos',  true,  15728640, array['video/mp4','video/webm','video/quicktime']),
-  ('feed-images',       'feed-images',       true,   5242880, array['image/png','image/jpeg','image/webp','image/gif'])
+  ('feed-images',       'feed-images',       true,   5242880, array['image/png','image/jpeg','image/webp','image/gif']),
+  ('termos-biometria',  'termos-biometria',  false,  5242880, array['application/pdf','image/jpeg','image/png','image/webp'])
 on conflict (id) do update
    set public = excluded.public,
        file_size_limit = excluded.file_size_limit,
        allowed_mime_types = excluded.allowed_mime_types;
 
--- As regras são as de 20261214010000_storage_politicas_e_limites.sql: uma por
--- operação para `authenticated`, mais a leitura pública para `anon`.
+-- As regras são as vigentes nas migrations: uma por operação para
+-- `authenticated`, mais a leitura pública para `anon` (20261214010000), com
+-- o termo da digital na leitura e na inclusão (20261250010000) e o teto
+-- diário de envio na inclusão (20261322010000). `bucketsBanco.guarda` confere
+-- cada uma contra a última versão das migrations.
 drop policy if exists "objetos: leitura pública" on storage.objects;
 drop policy if exists "objetos: leitura" on storage.objects;
 drop policy if exists "objetos: inclusão" on storage.objects;
@@ -62,18 +72,21 @@ create policy "objetos: leitura pública"
 create policy "objetos: leitura"
   on storage.objects for select to authenticated
   using (
-    bucket_id = any (array['avatars','email-assets','exercicio-videos','exercicio-imagens','feed-images'])
-    or (bucket_id = any (array['atestados','chat-videos']) and public.pode_acessar_atestado(name))
+    (bucket_id = any (array['avatars', 'email-assets', 'exercicio-videos', 'exercicio-imagens', 'feed-images']))
+    or ((bucket_id = any (array['atestados', 'chat-videos', 'termos-biometria'])) and public.pode_acessar_atestado(name))
   );
 
 create policy "objetos: inclusão"
   on storage.objects for insert to authenticated
   with check (
-    (bucket_id = 'avatars' and (storage.foldername(name))[1] = auth.uid()::text)
-    or (bucket_id = 'feed-images' and (storage.foldername(name))[1] = auth.uid()::text)
-    or (bucket_id = any (array['exercicio-videos','exercicio-imagens'])
-        and public.pode_gravar_midia_exercicio((storage.foldername(name))[1]))
-    or (bucket_id = any (array['atestados','chat-videos']) and public.pode_acessar_atestado(name))
+    (
+      (bucket_id = 'avatars' and (storage.foldername(name))[1] = (select auth.uid())::text)
+      or (bucket_id = 'feed-images' and (storage.foldername(name))[1] = (select auth.uid())::text)
+      or (bucket_id = any (array['exercicio-videos', 'exercicio-imagens']) and public.pode_gravar_midia_exercicio((storage.foldername(name))[1]))
+      or (bucket_id = any (array['atestados', 'chat-videos']) and public.pode_acessar_atestado(name))
+      or (bucket_id = 'termos-biometria' and public.pode_gravar_termo_biometria(name))
+    )
+    and public.envio_dentro_do_teto(bucket_id, name)
   );
 
 create policy "objetos: alteração"
@@ -103,6 +116,8 @@ create policy "objetos: exclusão"
 
 grant execute on function public.pode_acessar_atestado(text) to authenticated;
 grant execute on function public.pode_gravar_midia_exercicio(text) to authenticated;
+grant execute on function public.pode_gravar_termo_biometria(text) to authenticated;
+grant execute on function public.envio_dentro_do_teto(text, text) to authenticated;
 
 
 -- ------------------------------------------------------ Tokens do Vault -----
