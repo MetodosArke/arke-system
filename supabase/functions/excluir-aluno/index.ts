@@ -2,7 +2,7 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import { verificada } from "../_shared/verificacao.ts";
 import { ambienteAsaas } from "../_shared/asaas.ts";
 import { encerrarCobrancasDoAluno } from "../_shared/encerrarCobrancas.ts";
-import { abridorDaContaDaAcademia } from "../_shared/contaCobranca.ts";
+import { abridorDaContaDaAcademia } from "../_shared/contaDaAcademia.ts";
 import { anonimizarClienteNaSaida } from "../_shared/saidaAsaas.ts";
 import { apagarArquivosDoAluno, apagarArquivosPorUrl } from "../_shared/arquivosDoAluno.ts";
 import { servir } from "../_shared/servir.ts";

@@ -2,6 +2,8 @@
 // teste do app exercitar o código real (src/lib/encerramentoAcademia.test.ts).
 // O envio mora no index.ts.
 
+import { blocoPrestador } from "../_shared/prestadorPagamentos.ts";
+
 export type AvisoEncerramento = { organizacao_nome: string; iniciativa: string; termino_em: string; eliminacao_em: string };
 
 export type DestinatarioAluno = { user_id: string; email: string | null; nome: string; metodo: boolean };
@@ -13,12 +15,20 @@ export const dataBR = (d: string) => `${d.slice(8, 10)}/${d.slice(5, 7)}/${d.sli
 
 const escapar = (t: string) => t.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]!);
 
+/**
+ * O e-mail em HTML. Os dois e-mails falam das cobranças dos alunos, e levam o
+ * Asaas identificado como prestador, com o selo e o atendimento dele (BaaS,
+ * art. 14 da Resolução Conjunta nº 16/2025).
+ */
 function emHtml(texto: string): string {
   return `<div style="font-family:system-ui,sans-serif;line-height:1.5;color:#111">${texto
     .split("\n")
     .map((l) => (l ? `<p style="margin:0 0 12px">${escapar(l)}</p>` : ""))
-    .join("")}</div>`;
+    .join("")}${blocoPrestador().html}</div>`;
 }
+
+/** O texto do e-mail, com o prestador no fim. */
+const comPrestador = (texto: string) => `${texto}\n\n${blocoPrestador().texto}`;
 
 /** O e-mail do aviso à gestão da academia e à ArkeFit. */
 export function emailDeAviso(e: AvisoEncerramento, siteUrl: string): Mensagem {
@@ -32,7 +42,7 @@ export function emailDeAviso(e: AvisoEncerramento, siteUrl: string): Mensagem {
     "",
     `Para retirar o aviso antes do término, ou tirar dúvidas: ${siteUrl}`,
   ].join("\n");
-  return { assunto: `ARKE: encerramento do contrato em ${dataBR(e.termino_em)}`, texto, html: emHtml(texto) };
+  return { assunto: `ARKE: encerramento do contrato em ${dataBR(e.termino_em)}`, texto: comPrestador(texto), html: emHtml(texto) };
 }
 
 /**
@@ -81,7 +91,7 @@ export function emailAoAluno(
   const assunto = jaTerminou
     ? `${academia} encerrou o uso do ARKE: o que acontece com os seus dados`
     : `${academia} vai encerrar o uso do ARKE em ${termino}`;
-  return { assunto, texto, html: emHtml(texto) };
+  return { assunto, texto: comPrestador(texto), html: emHtml(texto) };
 }
 
 /** O aviso no celular: curto, e o detalhe fica no e-mail. */

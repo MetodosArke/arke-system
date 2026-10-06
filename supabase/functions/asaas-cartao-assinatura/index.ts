@@ -4,7 +4,8 @@ import { ambienteAsaas } from "../_shared/asaas.ts";
 import { dentroDoFreio, MENSAGEM_FREIO, regrasAsaas } from "../_shared/freio.ts";
 import { MENSAGEM_PERFIL_SIMULADO, sessaoSimulada } from "../_shared/sessaoSimulada.ts";
 import { servir } from "../_shared/servir.ts";
-import { contaDaCobranca, contaDaLinha } from "../_shared/contaCobranca.ts";
+import { contaDaLinha } from "../_shared/contaCobranca.ts";
+import { contaDaCobranca } from "../_shared/contaDaAcademia.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",

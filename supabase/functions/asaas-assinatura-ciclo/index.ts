@@ -11,7 +11,8 @@ import {
   retomarAssinatura,
 } from "./fluxo.ts";
 import { servir } from "../_shared/servir.ts";
-import { contaDaCobranca, contaDaLinha } from "../_shared/contaCobranca.ts";
+import { contaDaLinha } from "../_shared/contaCobranca.ts";
+import { contaDaCobranca } from "../_shared/contaDaAcademia.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",

@@ -3,7 +3,7 @@ import { verificada } from "../_shared/verificacao.ts";
 import { ambienteAsaas } from "../_shared/asaas.ts";
 import { hojeBrasilia } from "../_shared/data.ts";
 import { encerrarCobrancasDoAluno } from "../_shared/encerrarCobrancas.ts";
-import { abridorDaContaDaAcademia } from "../_shared/contaCobranca.ts";
+import { abridorDaContaDaAcademia } from "../_shared/contaDaAcademia.ts";
 import { descreverErro, registrarExecucao } from "../_shared/execucao.ts";
 import { resumoDoErro } from "../_shared/resumoDoErro.ts";
 import { todasAsLinhas } from "../_shared/paginar.ts";

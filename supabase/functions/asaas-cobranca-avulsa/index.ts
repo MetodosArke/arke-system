@@ -11,13 +11,8 @@ import {
 } from "./fluxo.ts";
 import { servir } from "../_shared/servir.ts";
 import { resumoDoErro } from "../_shared/resumoDoErro.ts";
-import {
-  contaDaCobranca,
-  contaDaLinha,
-  contaParaNovaCobranca,
-  divisaoDaCobranca,
-  lembrarClienteDaAcademia,
-} from "../_shared/contaCobranca.ts";
+import { contaDaLinha, contaParaNovaCobranca, divisaoDaCobranca } from "../_shared/contaCobranca.ts";
+import { contaDaCobranca, lembrarClienteDaAcademia } from "../_shared/contaDaAcademia.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",

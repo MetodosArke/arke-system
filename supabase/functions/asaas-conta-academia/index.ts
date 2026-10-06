@@ -9,7 +9,8 @@ import {
   ehTrocaDeCarteira,
   montarSubconta,
   SUBCONTA_DESLIGADA,
-  subcontasBaasLigadas,
+  documentosDaSubconta,
+  subcontaDisponivel,
   TERMOS_ASAAS_URL,
   walletIdValido,
 } from "./fluxo.ts";
@@ -18,7 +19,7 @@ import { dentroDoFreio, MENSAGEM_FREIO, regrasAsaas } from "../_shared/freio.ts"
 import { servir } from "../_shared/servir.ts";
 import { resumoDoErro } from "../_shared/resumoDoErro.ts";
 import { MENSAGEM_PERFIL_SIMULADO, sessaoSimulada } from "../_shared/sessaoSimulada.ts";
-import { contaDaCobranca } from "../_shared/contaCobranca.ts";
+import { contaDaCobranca } from "../_shared/contaDaAcademia.ts";
 import {
   gerarTokenWebhook,
   hashDoTokenWebhook,
@@ -35,7 +36,7 @@ const corsHeaders = {
 const jsonResponse = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
-type Acao = "criar" | "existente" | "situacao" | "modo_cobranca";
+type Acao = "criar" | "existente" | "situacao" | "documentos" | "modo_cobranca";
 
 /**
  * Avisa a ArkeFit pelo canal dos alertas: e-mail do remetente de alertas para
@@ -117,7 +118,7 @@ servir("asaas-conta-academia", async (req: Request) => {
       ligar?: unknown;
     };
     const { organization_id: organizationId, acao, wallet_id: walletBruta } = corpo;
-    if (!organizationId || !acao || !["criar", "existente", "situacao", "modo_cobranca"].includes(acao)) {
+    if (!organizationId || !acao || !["criar", "existente", "situacao", "documentos", "modo_cobranca"].includes(acao)) {
       return jsonResponse({ error: "Pedido inválido." }, 400);
     }
 
@@ -340,16 +341,33 @@ servir("asaas-conta-academia", async (req: Request) => {
       return jsonResponse({ ok: true, situacao: r.situacao });
     }
 
-    // ── Abrir a subconta (BaaS) ─────────────────────────────────────────
-    // Atrás do interruptor: desligado, a conta própria é o único caminho.
+    // ── O caminho BaaS: abrir a subconta e mandar os documentos ─────────
+    // Atrás do interruptor: desligado, a conta própria é o único caminho, e
+    // só a organização em trial (o sandbox) abre — é a homologação.
     const { data: interruptor, error: erroInterruptor } = await admin
       .from("plataforma_config")
       .select("valor")
       .eq("chave", "asaas_subcontas_baas")
       .maybeSingle();
     if (erroInterruptor) return jsonResponse({ error: "Não foi possível conferir a configuração agora. Tente de novo." }, 500);
-    if (!subcontasBaasLigadas(interruptor?.valor as number | null | undefined)) {
+    if (!subcontaDisponivel(interruptor?.valor as number | null | undefined, org.status as string)) {
       return jsonResponse({ error: SUBCONTA_DESLIGADA, subcontas_desligadas: true }, 409);
+    }
+
+    // Os documentos que o Asaas pede, com o link de envio de cada grupo:
+    // no BaaS a academia não vai ao painel do Asaas, o ARKE abre o link.
+    if (acao === "documentos") {
+      if (org.asaas_conta_origem !== "criada") {
+        return jsonResponse({ error: "Os documentos só são acompanhados aqui para contas abertas pela ArkeFit." }, 409);
+      }
+      const { data: chaveSubconta, error: erroChave } = await admin.rpc("ler_chave_subconta_asaas", { _organization_id: org.id });
+      if (erroChave) return jsonResponse({ error: "Não foi possível ler a chave da conta agora. Tente de novo." }, 500);
+      if (!chaveSubconta) {
+        return jsonResponse({ error: "Esta conta foi recuperada de uma tentativa anterior e não temos acesso aos documentos dela. Acompanhe no painel do Asaas." }, 409);
+      }
+      const r = await documentosDaSubconta(asaasApiUrl, String(chaveSubconta));
+      if (!r.ok) return jsonResponse({ error: r.erro }, 502);
+      return jsonResponse({ ok: true, grupos: r.grupos, motivo_recusa: r.motivoRecusa });
     }
     if (org.asaas_wallet_id) {
       return jsonResponse({ ok: true, wallet_id: org.asaas_wallet_id, origem: org.asaas_conta_origem, ja_configurada: true });

@@ -62,7 +62,7 @@ export function tokenWebhookValido(token: string): boolean {
 }
 
 /**
- * Sorteia um token pelo gerador criptográfico (nunca `Math.random()`), e
+ * Sorteia um token pelo gerador criptográfico (`aleatorio.guarda`), e
  * sorteia de novo até cumprir as regras. O alfabeto deixa de fora 0, 1, I, l
  * e O, que se confundem quando alguém precisa ler o token num painel.
  */

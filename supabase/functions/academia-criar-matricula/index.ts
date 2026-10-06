@@ -5,12 +5,8 @@ import { dentroDoFreio, MENSAGEM_FREIO, regrasAsaas } from "../_shared/freio.ts"
 import { MENSAGEM_SO_QUEM_COBRA, podeCobrarNaAcademia } from "../_shared/papelCobranca.ts";
 import { servir } from "../_shared/servir.ts";
 import { resumoDoErro } from "../_shared/resumoDoErro.ts";
-import {
-  contaDaCobranca,
-  contaParaNovaCobranca,
-  divisaoDaCobranca,
-  lembrarClienteDaAcademia,
-} from "../_shared/contaCobranca.ts";
+import { contaParaNovaCobranca, divisaoDaCobranca } from "../_shared/contaCobranca.ts";
+import { contaDaCobranca, lembrarClienteDaAcademia } from "../_shared/contaDaAcademia.ts";
 import { assinaturaAtivaNoAsaas, criarAssinaturaDoPlano, obterOuCriarCustomer } from "./fluxo.ts";
 
 const corsHeaders = {
