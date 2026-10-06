@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { formatarDataBR } from "@/lib/dataBrasilia";
+import { decimal } from "@/lib/numeros";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -104,6 +105,8 @@ export default function SuperAdminSuporte() {
         texto aqui quando a pessoa abre o chamado.
       </p>
 
+      <QualidadeDoAtendimento />
+
       {chamados.error && <p className="text-sm text-destructive">Não foi possível carregar: {(chamados.error as Error).message}</p>}
       {!chamados.isLoading && !chamados.error && lista.length === 0 && (
         <p className="text-sm text-muted-foreground">Nenhum chamado ainda.</p>
@@ -203,6 +206,70 @@ function Numero({ titulo, valor, nota, alerta }: { titulo: string; valor: number
         {nota && <p className="text-[11px] text-muted-foreground">{nota}</p>}
       </CardContent>
     </Card>
+  );
+}
+
+type Avaliacoes = {
+  avaliacoes: number;
+  media: number | null;
+  encerrados: number;
+  por_nota: Record<string, number>;
+  recentes: { nota: number; comentario: string | null; created_at: string; organizacao: string }[];
+};
+
+/**
+ * A qualidade do atendimento: a nota que quem abriu o chamado deu quando ele
+ * se encerrou ("Como foi o atendimento?"), nos últimos 30 dias. É a avaliação
+ * regular que o formulário do BaaS pergunta e que o Asaas acompanha (art. 16
+ * da Resolução Conjunta nº 16/2025).
+ */
+function QualidadeDoAtendimento() {
+  const avaliacoes = useQuery({
+    queryKey: [...CHAVE, "avaliacoes"],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("get_superadmin_avaliacoes_atendimento", { _dias: 30 });
+      if (error) throw error;
+      return data as unknown as Avaliacoes;
+    },
+  });
+  const a = avaliacoes.data;
+  if (avaliacoes.error) {
+    return <p className="text-sm text-destructive">Não foi possível carregar a avaliação do atendimento: {(avaliacoes.error as Error).message}</p>;
+  }
+  return (
+    <div className="space-y-2">
+      <div className="grid gap-3 sm:grid-cols-3">
+        <Numero
+          titulo="Nota do atendimento (30 dias)"
+          valor={a?.media == null ? "—" : `${decimal(Number(a.media), 1)} de 5`}
+          nota={a ? `${a.avaliacoes} avaliaç${a.avaliacoes === 1 ? "ão" : "ões"}` : undefined}
+          alerta={a?.media != null && Number(a.media) < 3.5}
+        />
+        <Numero
+          titulo="Avaliaram"
+          valor={a && a.encerrados ? `${Math.round((a.avaliacoes / a.encerrados) * 100)}%` : "—"}
+          nota={a ? `${a.avaliacoes} de ${a.encerrados} chamados encerrados` : undefined}
+        />
+        <Numero
+          titulo="Notas 1 e 2"
+          valor={a ? (a.por_nota["1"] ?? 0) + (a.por_nota["2"] ?? 0) : undefined}
+          alerta={!!a && (a.por_nota["1"] ?? 0) + (a.por_nota["2"] ?? 0) > 0}
+          nota="leia o comentário e fale com a academia"
+        />
+      </div>
+      {!!a?.recentes.length && (
+        <ul className="space-y-1 text-xs">
+          {a.recentes.map((r, i) => (
+            <li key={i} className="flex flex-wrap gap-x-2 text-muted-foreground">
+              <span className="font-medium text-foreground">{r.nota} de 5</span>
+              <span>{r.organizacao}</span>
+              <span>{dataHora(r.created_at)}</span>
+              {r.comentario && <span className="basis-full">“{r.comentario}”</span>}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   );
 }
 
