@@ -3,21 +3,24 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
-import { mensagemDeErroEdge } from "@/lib/erroEdge";
+import { corpoDoErroEdge, mensagemDeErroEdge } from "@/lib/erroEdge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Copy, Handshake } from "lucide-react";
+import { Handshake } from "lucide-react";
 
 type Parceiro = { user_id: string; nome: string; email: string; papel: string; status: string };
+type RespostaCadastro = { convite_enviado?: boolean; pendente?: boolean; aviso?: string | null };
 
 /**
  * Parceria entre personal e nutricionista autônomos (decisão 6 do plano do
  * Método). O dono do painel chama quem faz a outra metade: o parceiro entra
  * com o papel dele, vê a ficha completa dos alunos e prescreve só a parte
- * dele. Quem já tem conta no ArkeFit é vinculado na hora; quem não tem é
- * cadastrado com senha temporária, como qualquer membro de equipe.
+ * dele. Pelo mesmo cadastro da equipe (`cadastrar-membro-equipe`): quem não
+ * tem conta recebe o convite e cria a senha pelo e-mail; quem tem fica
+ * pendente até definir a senha pelo link do e-mail, que é a prova de que o
+ * e-mail é dele (auditoria de 06/10/2026). Ninguém recebe senha de outra pessoa.
  */
 export function ParceriaAutonomo({ aoMudar }: { aoMudar?: () => void }) {
   const { organization, organizationRole } = useAuth();
@@ -31,7 +34,6 @@ export function ParceriaAutonomo({ aoMudar }: { aoMudar?: () => void }) {
   const [email, setEmail] = useState("");
   const [nome, setNome] = useState("");
   const [precisaCadastrar, setPrecisaCadastrar] = useState(false);
-  const [senhaTemporaria, setSenhaTemporaria] = useState<string | null>(null);
 
   const { data: parceiros = [] } = useQuery({
     queryKey: ["parceiros-autonomo", orgId],
@@ -49,34 +51,37 @@ export function ParceriaAutonomo({ aoMudar }: { aoMudar?: () => void }) {
   };
 
   const convidar = useMutation({
-    mutationFn: async (dados: { email: string; nome: string; cadastrar: boolean }) => {
-      if (dados.cadastrar) {
-        const { data, error } = await supabase.functions.invoke<{ senha_temporaria: string }>("cadastrar-membro-equipe", {
-          body: { email: dados.email, full_name: dados.nome, papel: parceiroEh, organization_id: orgId },
-        });
-        if (error) throw new Error(await mensagemDeErroEdge(error, "Não foi possível cadastrar a pessoa."));
-        return { novo: true as const, senha: data?.senha_temporaria ?? null };
-      }
-      const { error } = await supabase.rpc("convidar_parceiro_autonomo", { _organization_id: orgId!, _email: dados.email });
+    mutationFn: async (dados: { email: string; nome: string }) => {
+      const { data, error } = await supabase.functions.invoke<RespostaCadastro>("cadastrar-membro-equipe", {
+        body: { email: dados.email, full_name: dados.nome || undefined, papel: parceiroEh, organization_id: orgId },
+      });
       if (error) {
-        // Sem conta no ArkeFit: o mesmo formulário passa a cadastrar.
-        if (error.code === "P0002") return { semConta: true as const };
-        throw error;
+        // Sem conta no ArkeFit: o mesmo formulário pede o nome para o convite.
+        if ((await corpoDoErroEdge(error))?.precisa_nome === true) return { semConta: true as const };
+        throw new Error(await mensagemDeErroEdge(error, "Não foi possível convidar a pessoa."));
       }
-      return { novo: false as const, senha: null };
+      return { semConta: false as const, resposta: data ?? {} };
     },
     onSuccess: (r) => {
-      if ("semConta" in r) {
+      if (r.semConta) {
         setPrecisaCadastrar(true);
         return;
       }
-      toast({
-        title: "Parceria feita",
-        description: r.novo
-          ? "A pessoa foi cadastrada. Passe a ela o e-mail e a senha temporária."
-          : "A pessoa já vê o seu painel no seletor do cabeçalho, com a ficha completa dos alunos.",
-      });
-      setSenhaTemporaria(r.senha);
+      const { resposta } = r;
+      toast(
+        resposta.pendente
+          ? {
+              title: resposta.aviso ? "Parceria pendente, e-mail não enviado" : "Parceria pendente",
+              description:
+                resposta.aviso ??
+                "A pessoa já tinha conta no ArkeFit. A parceria vale quando ela definir a senha pelo link que foi para o e-mail dela.",
+              variant: resposta.aviso ? "destructive" : undefined,
+            }
+          : {
+              title: "Convite enviado",
+              description: "A pessoa recebe no e-mail o link para criar a senha e entrar no seu painel.",
+            },
+      );
       setEmail("");
       setNome("");
       setPrecisaCadastrar(false);
@@ -97,7 +102,8 @@ export function ParceriaAutonomo({ aoMudar }: { aoMudar?: () => void }) {
     onError: (e: Error) => toast({ title: "Não foi possível encerrar", description: e.message, variant: "destructive" }),
   });
 
-  const ativos = parceiros.filter((p) => p.status === "active");
+  // O pendente aparece também: o dono do painel vê que o convite espera o e-mail.
+  const ativos = parceiros.filter((p) => p.status === "active" || p.status === "pending");
 
   return (
     <div className="space-y-3">
@@ -117,6 +123,11 @@ export function ParceriaAutonomo({ aoMudar }: { aoMudar?: () => void }) {
                 <Badge variant="outline" className="ml-2 text-[10px]">
                   {p.papel === "nutricionista" ? "Nutricionista" : "Personal"}
                 </Badge>
+                {p.status === "pending" && (
+                  <Badge variant="secondary" className="ml-1 text-[10px]" title="A parceria vale quando a pessoa definir a senha pelo link do e-mail">
+                    Aguardando o e-mail
+                  </Badge>
+                )}
               </span>
               {ehDono && (
                 <Button
@@ -133,24 +144,6 @@ export function ParceriaAutonomo({ aoMudar }: { aoMudar?: () => void }) {
             </li>
           ))}
         </ul>
-      )}
-
-      {senhaTemporaria && (
-        <div className="rounded-md border border-primary/40 bg-primary/5 p-2 text-xs space-y-1">
-          <p>Senha temporária para o primeiro acesso (ela troca depois de entrar):</p>
-          <div className="flex items-center gap-2">
-            <code className="font-mono text-sm">{senhaTemporaria}</code>
-            <Button
-              size="icon"
-              variant="ghost"
-              className="h-7 w-7"
-              aria-label="Copiar senha"
-              onClick={() => void navigator.clipboard.writeText(senhaTemporaria)}
-            >
-              <Copy className="h-3.5 w-3.5" />
-            </Button>
-          </div>
-        </div>
       )}
 
       {ehDono && (
@@ -179,15 +172,16 @@ export function ParceriaAutonomo({ aoMudar }: { aoMudar?: () => void }) {
           </div>
           {precisaCadastrar && (
             <p className="text-xs text-muted-foreground">
-              Essa pessoa ainda não tem conta no ArkeFit. Informe o nome para cadastrá-la com uma senha temporária.
+              Essa pessoa ainda não tem conta no ArkeFit. Informe o nome para mandar o convite: ela cria a própria senha pelo
+              link do e-mail.
             </p>
           )}
           <Button
             size="sm"
             disabled={convidar.isPending || !email.trim() || (precisaCadastrar && !nome.trim())}
-            onClick={() => convidar.mutate({ email: email.trim(), nome: nome.trim(), cadastrar: precisaCadastrar })}
+            onClick={() => convidar.mutate({ email: email.trim(), nome: nome.trim() })}
           >
-            {convidar.isPending ? "Convidando..." : precisaCadastrar ? "Cadastrar e convidar" : "Convidar"}
+            {convidar.isPending ? "Convidando..." : precisaCadastrar ? "Mandar o convite" : "Convidar"}
           </Button>
         </div>
       )}

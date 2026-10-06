@@ -15,7 +15,9 @@ Todos atendem a fila e as mensagens do seu assunto. Quem abre pelo endereço uma
 
 1. Clique em **Cadastrar Funcionário**.
 2. Preencha nome completo, e-mail e telefone, e escolha o papel.
-3. O ARKE mostra o e-mail e uma **senha temporária**. Entregue à pessoa e peça que ela troque a senha em Meu perfil no primeiro acesso.
+3. A pessoa recebe no e-mail o convite com o link para criar a própria senha e entrar. Ninguém recebe a senha de outra pessoa, nem você.
+
+Se o e-mail já tem conta no ArkeFit (a pessoa é aluna de outra academia, por exemplo), ela aparece na lista como **Aguardando o e-mail**. O acesso à sua academia vale depois que ela definir a senha pelo link que foi para o e-mail dela: é o que confirma que o e-mail é dela, e não de quem criou a conta. Até lá, ninguém ativa o acesso por fora, nem você. Se o e-mail não chegou, cadastre de novo com o mesmo e-mail: o link vai outra vez.
 
 A pessoa entra na academia que está aberta no seletor do cabeçalho. Quem é gestor de mais de uma unidade escolhe a unidade antes de cadastrar.
 

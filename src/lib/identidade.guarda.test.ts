@@ -60,7 +60,10 @@ describe("a gestão só com o e-mail provado", () => {
     expect(corpo).toMatch(/public\.sessao_simulada\(\)/);
     expect(corpo).toMatch(/-> 'amr'/);
     expect(corpo).not.toMatch(/'password'/);
-    expect(corpo).toMatch(/where m\.user_id = v_uid and m\.role = 'gestor' and m\.status = 'pending'/);
+    // A gestão e, desde 20261395010000, a equipe: o vínculo pendente de cada uma.
+    expect(corpo).toMatch(
+      /where m\.user_id = v_uid\s+and m\.role in \('gestor', 'professor', 'nutricionista', 'recepcao'\)\s+and m\.status = 'pending'/,
+    );
     expect(corpo).toMatch(/registrar_auditoria/);
   });
 
@@ -76,6 +79,67 @@ describe("a gestão só com o e-mail provado", () => {
   it("a gestão pendente conta como outra academia para a equipe que mexe na conta", () => {
     const f = ler(FUNCOES, "_shared", "alvoNaAcademia.ts");
     expect(f).toMatch(/\.in\("status", \["active", "pending"\]\)/);
+  });
+});
+
+describe("a equipe só com o e-mail provado (pré-sequestro de conta)", () => {
+  const sqlDasMigrations = () =>
+    readdirSync(join(RAIZ, "supabase", "migrations"))
+      .filter((n) => n.endsWith(".sql"))
+      .sort()
+      .map((n) => ler(RAIZ, "supabase", "migrations", n))
+      .join("\n");
+  const ultima = (sql: string, funcao: string) =>
+    sql.match(new RegExp(String.raw`create or replace function public\.${funcao}\([\s\S]*?\$\$;`, "g"))?.at(-1) ?? "";
+
+  it("o cadastro da equipe não escolhe a senha de ninguém nem confirma o e-mail por conta própria", () => {
+    const f = ler(FUNCOES, "cadastrar-membro-equipe", "index.ts");
+    expect(f).not.toMatch(/\bpassword\s*:/);
+    expect(f).not.toMatch(/email_confirm\s*:\s*true/);
+    expect(f).not.toMatch(/senha_temporaria|gerarSenhaTemporaria/);
+    expect(f).not.toMatch(/auth\.admin\.createUser\(/);
+    // E-mail novo: o convite do Auth, com o link de definir a senha.
+    expect(f).toMatch(/auth\.admin\.inviteUserByEmail\(email, \{[\s\S]*?redirectTo: linkDefinirSenha/);
+    expect(f).toMatch(/linkDoApp\(Deno\.env\.get\("SITE_URL"\), "\/auth\/definir-senha"\)/);
+  });
+
+  it("a conta que já existia entra pendente e recebe o link de definir a senha", () => {
+    const f = ler(FUNCOES, "cadastrar-membro-equipe", "index.ts");
+    const pendente = f.slice(f.indexOf('if (decisao.acao === "pendente")'), f.indexOf("// Sem conta: o convite do Auth."));
+    expect(pendente).toMatch(/role: papel, status: "pending"/);
+    expect(pendente).not.toMatch(/status: "active"/);
+    expect(f).toMatch(/generateLink\(\{\s+type: "recovery"/);
+  });
+
+  it("a parceria do autônomo não liga conta existente como ativa", () => {
+    const corpo = ultima(sqlDasMigrations(), "convidar_parceiro_autonomo");
+    expect(corpo, "a função existe").not.toBe("");
+    expect(corpo).toMatch(/v_status := case when v_atual\.status = 'active' then 'active' else 'pending' end;/);
+    expect(corpo).not.toMatch(/values \(_organization_id, v_user, v_papel, 'active'\)/);
+    expect(corpo).not.toMatch(/status = 'active';/);
+  });
+
+  it("o pendente não vira ativo pela API: só pela ativação do link", () => {
+    const sql = sqlDasMigrations();
+    const gatilho = ultima(sql, "vinculo_pendente_so_pelo_email");
+    expect(gatilho).toMatch(/old\.status = 'pending' and new\.status = 'active' and current_user in \('authenticated', 'anon'\)/);
+    expect(gatilho, "não é security definer: senão current_user seria o dono dela").not.toMatch(/security definer/);
+    expect(sql).toMatch(/create trigger trg_vinculo_pendente_so_pelo_email\s+before update of status on public\.organization_members/);
+  });
+
+  it("nenhuma tela mostra nem copia senha de outra pessoa, e o pendente não tem botão de ativar", () => {
+    for (const tela of [
+      ["src", "pages", "admin", "AdminEquipe.tsx"],
+      ["src", "components", "admin", "onboarding", "EtapaEquipe.tsx"],
+      ["src", "components", "admin", "ParceriaAutonomo.tsx"],
+    ]) {
+      const t = ler(RAIZ, ...tela);
+      expect(t, tela.at(-1)).not.toMatch(/senha_temporaria|[Ss]enha temporária/);
+    }
+    expect(ler(RAIZ, "src", "pages", "admin", "AdminEquipe.tsx")).toMatch(/membro\.status === "pending" \|\|/);
+    expect(ler(RAIZ, "src", "components", "admin", "FuncionarioPerfilSheet.tsx")).toMatch(/disabled=\{ehVoceMesmo \|\| membro\.status === "pending"\}/);
+    // A parceria passa pelo mesmo cadastro, que manda o link; o RPC que ligava na hora sai da tela.
+    expect(ler(RAIZ, "src", "components", "admin", "ParceriaAutonomo.tsx")).not.toMatch(/convidar_parceiro_autonomo/);
   });
 });
 

@@ -17,6 +17,23 @@ import { FunctionsFetchError, FunctionsHttpError, FunctionsRelayError } from "@s
 
 const SEM_CONEXAO = "Não foi possível falar com o servidor. Verifique a internet e tente de novo.";
 
+/**
+ * O corpo JSON da resposta de erro de uma edge function, quando a tela precisa
+ * de mais que a mensagem (por exemplo, `precisa_nome` no cadastro da equipe).
+ * Nulo quando não há corpo legível.
+ */
+export async function corpoDoErroEdge(error: unknown): Promise<Record<string, unknown> | null> {
+  if (!(error instanceof FunctionsHttpError)) return null;
+  const resposta = error.context as Response | undefined;
+  if (!resposta) return null;
+  try {
+    const corpo = await resposta.clone().json();
+    return corpo && typeof corpo === "object" && !Array.isArray(corpo) ? (corpo as Record<string, unknown>) : null;
+  } catch {
+    return null;
+  }
+}
+
 export async function mensagemDeErroEdge(error: unknown, padrao: string): Promise<string> {
   if (error instanceof FunctionsHttpError) {
     const resposta = error.context as Response | undefined;

@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { UsersRound, UserPlus, Pencil, Power, UserX, Copy, Check, KeyRound } from "lucide-react";
+import { UsersRound, UserPlus, Pencil, Power, UserX } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { Enums } from "@/integrations/supabase/types";
 import { FuncionarioPerfilSheet } from "@/components/admin/FuncionarioPerfilSheet";
@@ -29,6 +29,14 @@ const PAPEL_LABEL: Record<string, string> = {
 };
 
 const PAPEIS_EDITAVEIS: PapelEquipe[] = ["gestor", "recepcao", "professor", "nutricionista"];
+
+// "Aguardando o e-mail": a pessoa já tinha conta no ArkeFit, e o acesso só vale
+// depois que ela define a senha pelo link que foi para o e-mail dela.
+const STATUS_LABEL: Record<string, string> = {
+  active: "Ativo",
+  pending: "Aguardando o e-mail",
+  inactive: "Inativo",
+};
 
 interface MembroRow {
   user_id: string;
@@ -165,7 +173,7 @@ export default function AdminEquipe() {
                     </TableCell>
                     <TableCell>
                       <Badge variant={membro.status === "active" ? "default" : "outline"}>
-                        {membro.status === "active" ? "Ativo" : "Inativo"}
+                        {STATUS_LABEL[membro.status] ?? "Inativo"}
                       </Badge>
                     </TableCell>
                     <TableCell className="text-right">
@@ -189,12 +197,16 @@ export default function AdminEquipe() {
                               title={
                                 ehVoceMesmo
                                   ? "Você não pode inativar seu próprio acesso"
-                                  : membro.status === "active"
-                                    ? "Inativar"
-                                    : "Ativar"
+                                  : membro.status === "pending"
+                                    ? "O acesso vale quando a pessoa definir a senha pelo link do e-mail"
+                                    : membro.status === "active"
+                                      ? "Inativar"
+                                      : "Ativar"
                               }
                               disabled={
                                 ehVoceMesmo ||
+                                // O pendente só vira ativo pelo link do e-mail da pessoa (o banco recusa por fora).
+                                membro.status === "pending" ||
                                 (alternarStatus.isPending && alternarStatus.variables?.user_id === membro.user_id)
                               }
                               onClick={() =>
@@ -315,11 +327,8 @@ interface CadastroForm {
 
 const CADASTRO_INICIAL: CadastroForm = { full_name: "", email: "", telefone: "", cpf: "", papel: "" };
 
-interface CredenciaisGeradas {
-  full_name: string;
-  email: string;
-  senha_temporaria: string;
-}
+/** A resposta de `cadastrar-membro-equipe`: o convite novo, ou o acesso pendente de quem já tinha conta. */
+type RespostaCadastro = { user_id: string; convite_enviado?: boolean; pendente?: boolean; aviso?: string | null };
 
 function CadastrarMembroDialog({
   open,
@@ -333,34 +342,43 @@ function CadastrarMembroDialog({
   const { toast } = useToast();
   const { organization } = useAuth();
   const [form, setForm] = useState<CadastroForm>(CADASTRO_INICIAL);
-  const [credenciais, setCredenciais] = useState<CredenciaisGeradas | null>(null);
 
   const cadastrar = useMutation({
-    mutationFn: async () => {
-      if (!form.papel) throw new Error("Selecione o papel do funcionário.");
+    mutationFn: async (dados: CadastroForm) => {
+      if (!dados.papel) throw new Error("Selecione o papel do funcionário.");
       if (!organization) throw new Error("Nenhuma organização vinculada.");
-      const { data, error } = await supabase.functions.invoke<{ user_id: string; senha_temporaria: string }>(
-        "cadastrar-membro-equipe",
-        {
-          body: {
-            email: form.email,
-            full_name: form.full_name,
-            telefone: form.telefone,
-            cpf: form.cpf,
-            papel: form.papel,
-            // A unidade escolhida no seletor: o servidor confere que você é gestor dela.
-            organization_id: organization.id,
-          },
-        }
-      );
+      const { data, error } = await supabase.functions.invoke<RespostaCadastro>("cadastrar-membro-equipe", {
+        body: {
+          email: dados.email,
+          full_name: dados.full_name,
+          telefone: dados.telefone,
+          cpf: dados.cpf,
+          papel: dados.papel,
+          // A unidade escolhida no seletor: o servidor confere que você é gestor dela.
+          organization_id: organization.id,
+        },
+      });
       if (error) throw new Error(await mensagemDeErroEdge(error, "Não foi possível cadastrar o membro da equipe."));
       if (!data) throw new Error("Resposta inesperada do servidor.");
       return data;
     },
-    onSuccess: (data) => {
+    onSuccess: (data, dados) => {
       onOpenChange(false);
       onSuccess();
-      setCredenciais({ full_name: form.full_name, email: form.email, senha_temporaria: data.senha_temporaria });
+      toast(
+        data.pendente
+          ? {
+              title: data.aviso ? "Acesso pendente, e-mail não enviado" : "Acesso pendente",
+              description:
+                data.aviso ??
+                `${dados.email} já tinha conta no ArkeFit. O acesso à equipe vale quando a pessoa definir a senha pelo link que foi para o e-mail dela.`,
+              variant: data.aviso ? "destructive" : undefined,
+            }
+          : {
+              title: "Convite enviado",
+              description: `${dados.full_name} recebe em ${dados.email} o link para criar a senha e entrar.`,
+            },
+      );
       setForm(CADASTRO_INICIAL);
     },
     onError: (error: Error) => {
@@ -376,14 +394,14 @@ function CadastrarMembroDialog({
             <DialogTitle>Cadastrar Funcionário</DialogTitle>
           </DialogHeader>
           <p className="text-sm text-muted-foreground -mt-2">
-            Cadastro direto — a conta é criada e liberada na hora, sem envio de e-mail de convite. Ao final, você
-            recebe a senha temporária para repassar ao funcionário.
+            A pessoa recebe no e-mail o link para criar a própria senha. Se ela já tem conta no ArkeFit, o acesso à
+            equipe vale depois que ela definir a senha por esse link: é o que confirma que o e-mail é dela.
           </p>
           <form
             className="space-y-3"
             onSubmit={(e) => {
               e.preventDefault();
-              cadastrar.mutate();
+              cadastrar.mutate(form);
             }}
           >
             <div className="space-y-1.5">
@@ -444,67 +462,7 @@ function CadastrarMembroDialog({
           </form>
         </DialogContent>
       </Dialog>
-
-      <CredenciaisGeradasDialog credenciais={credenciais} onOpenChange={(open) => !open && setCredenciais(null)} />
     </>
-  );
-}
-
-function CredenciaisGeradasDialog({
-  credenciais,
-  onOpenChange,
-}: {
-  credenciais: CredenciaisGeradas | null;
-  onOpenChange: (open: boolean) => void;
-}) {
-  const { toast } = useToast();
-  const [copiado, setCopiado] = useState(false);
-
-  const copiar = async () => {
-    if (!credenciais) return;
-    const texto = `E-mail: ${credenciais.email}\nSenha temporária: ${credenciais.senha_temporaria}`;
-    try {
-      await navigator.clipboard.writeText(texto);
-      setCopiado(true);
-      setTimeout(() => setCopiado(false), 2000);
-    } catch {
-      toast({ title: "Não foi possível copiar", description: "Copie manualmente os dados abaixo.", variant: "destructive" });
-    }
-  };
-
-  return (
-    <Dialog open={!!credenciais} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <KeyRound className="h-4 w-4 text-primary" />
-            Funcionário cadastrado
-          </DialogTitle>
-        </DialogHeader>
-        <p className="text-sm text-muted-foreground">
-          {credenciais?.full_name} já pode acessar o ArkeFit. Repasse os dados abaixo por WhatsApp ou verbalmente —
-          nenhum e-mail foi enviado. Esta senha só é exibida agora; se for perdida, o funcionário pode redefini-la
-          pelo "Esqueci minha senha" na tela de login.
-        </p>
-        <div className="rounded-md border bg-muted/40 p-3 space-y-1.5 font-mono text-sm">
-          <div>
-            <span className="text-muted-foreground">E-mail: </span>
-            {credenciais?.email}
-          </div>
-          <div>
-            <span className="text-muted-foreground">Senha: </span>
-            {credenciais?.senha_temporaria}
-          </div>
-        </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={copiar}>
-            {copiado ? <Check className="h-4 w-4 mr-1.5" /> : <Copy className="h-4 w-4 mr-1.5" />}
-            {copiado ? "Copiado!" : "Copiar dados"}
-          </Button>
-          <Button onClick={() => onOpenChange(false)}>Fechar</Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
   );
 }
 
