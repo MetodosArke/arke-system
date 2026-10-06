@@ -33,8 +33,16 @@ Se você tem menos de 18 anos, o seu responsável legal autoriza antes. Veja [Me
 
 No plano Free, nenhum dado seu passa por inteligência artificial.
 
+## Baixar os seus dados
+
+Em **Perfil → Privacidade**, o botão **Baixar os meus dados** gera um arquivo com o que é seu: cadastro, anamnese, avaliações físicas, treinos e o que você registrou deles, dietas e a adesão, presenças, mensagens com a equipe e com o mentor, autorizações (inteligência artificial, digital, documentos aceitos, contrato e o aceite do responsável) e pagamentos. Vale para todas as academias em que você tem matrícula.
+
+O arquivo sai no formato JSON, que outro serviço consegue ler, e traz o que você pode ver pelo app. O que a academia guarda e não aparece para você (como cada passagem na catraca) pode ser pedido na recepção.
+
+Se uma parte dos dados não carregar, o app avisa e não entrega o arquivo pela metade: tente de novo em instantes. Quando alguém da equipe da ArkeFit está vendo o app como você (perfil simulado), o botão não funciona: só você baixa os seus dados.
+
 ## Seus direitos
 
-Você pode pedir para saber quais dados a academia tem sobre você, receber uma cópia, corrigir o que estiver errado e pedir a exclusão. Faça o pedido na recepção. A exclusão apaga os seus dados pessoais; o que a lei obriga a guardar (como registros de pagamento) fica sem identificar você.
+Você pode pedir para saber quais dados a academia tem sobre você, receber uma cópia (ou baixar você mesmo, como no item acima), corrigir o que estiver errado e pedir a exclusão. Faça o pedido na recepção. A exclusão apaga os seus dados pessoais; o que a lei obriga a guardar (como registros de pagamento) fica sem identificar você.
 
 A política de privacidade completa está no link **Privacidade**, na tela de entrada do app.
