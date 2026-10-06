@@ -18,7 +18,7 @@ A ARKE é um software de acompanhamento de treino, nutrição e rotina usado por
 
 ## 3. Treinos, dietas e saúde
 
-- **Os treinos, dietas e orientações publicados na plataforma são prescritos pelos profissionais da Academia** (ou, no Método ARKE, pela equipe indicada), não pela plataforma. A ArkeFit não presta serviço de saúde, não faz diagnóstico e não substitui avaliação médica.
+- **Os treinos, dietas e orientações publicados na plataforma são prescritos por profissionais habilitados, e não pelo software.** No plano Free, pelos profissionais da Academia, que respondem pelo que prescrevem. No Método ARKE, pela equipe de mentoria da ArkeFit, por profissionais com registro no CREF (treino) e no CRN (dieta), e a ArkeFit responde pelo que essa equipe prescreve. A ArkeFit não presta serviço médico, não faz diagnóstico e não substitui avaliação médica.
 - Antes de começar ou intensificar atividade física, siga a orientação da Academia sobre avaliação de saúde. Ao sentir dor, mal-estar ou qualquer sintoma, interrompa o exercício e procure atendimento. O registro de dor no aplicativo avisa a equipe da Academia, mas não é atendimento de emergência.
 - **Questionário de prontidão (PAR-Q) e atestado médico.** Se você responder "sim" a qualquer pergunta do questionário de prontidão, é preciso apresentar atestado médico. Enquanto a Academia não conferir e registrar a validade desse atestado, **o aplicativo não permite registrar treino** — o restante do aplicativo continua disponível, inclusive para você enviar o atestado. A trava existe para a sua segurança: sem resposta "sim", o questionário substitui o atestado nos termos da lei aplicável.
 
