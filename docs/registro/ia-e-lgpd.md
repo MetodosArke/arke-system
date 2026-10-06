@@ -192,3 +192,19 @@ Achado da auditoria de prontidão. A Política de Privacidade (art. 14) e os Ter
 - Com o aceite, a aluna autorizou a IA, e a digital continuou travada.
 - **Também no banco, em transação desfeita:** 17 casos das três migrations, todos como esperado.
 - **Os alunos já cadastrados:** a demonstração e a conta do teste automático ganharam uma data de nascimento adulta antes da trava. Os 2 alunos da academia do Jean informam a data no app quando forem autorizar.
+
+## Política de Privacidade, versão de 06/10/2026
+
+Decisão D2 do responsável, saída da auditoria de prontidão: a versão nova sai antes do primeiro cliente, porque hoje ninguém precisa aceitar de novo de verdade. Texto aprovado por ele no workspace em 06/10, como estava.
+
+O que muda:
+- **O assistente da equipe da academia** entra na lista de suboperadores e na transferência internacional. Ele roda na infraestrutura global da AWS e recebe a dúvida sem CPF, e-mail, telefone e sem os nomes cadastrados. A tela passou a orientar a equipe a não escrever nome nem dado de saúde de aluno.
+- **Google Fonts e YouTube** entram na lista de suboperadores.
+- **A seção 4:** o resumo da anamnese vale também no plano gratuito, com autorização, lido pela equipe da academia.
+- **O Sentry** identifica só por código interno.
+- **O hash de IP** do contato pelo site fica com o pedido.
+- **A seção 11** descreve o consentimento do responsável pelo menor, que entrou no ar no mesmo dia.
+
+O Contrato remete à lista de suboperadores da Política, então não muda. O novo aceite que a plataforma pede vale como o aviso que ele promete às academias.
+
+A versão entra no banco pela migration `20261354010000`, aplicada depois de o texto estar no ar.

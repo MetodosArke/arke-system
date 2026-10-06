@@ -87,7 +87,8 @@ export const DOCUMENTOS: Record<
     // o Sentry identifica so por codigo interno; o hash de IP do contato pelo
     // site; e a secao 11 descreve o consentimento do responsavel pelo menor.
     // Decisao do responsavel no workspace (D2, 06/10/2026): versao antes do
-    // primeiro cliente. Texto aguardando a aprovacao dele.
+    // primeiro cliente. Texto aprovado pelo responsavel no workspace em
+    // 06/10/2026, como estava.
     versao: "2026-10-06",
     sha256: "f0fba71e9b4cb201d3d51b5e664bc4b345346a6bd39aeeae05f4ba14724817ff",
     texto: privacidade,
