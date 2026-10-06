@@ -20,4 +20,4 @@ Em [Profissionais](/superadmin/profissionais), os personal trainers e nutricioni
 
 ## Auditoria
 
-A [Auditoria](/superadmin/auditoria) registra as ações sensíveis: quem fez, quando, sobre o quê e o motivo. Entram ali exclusões, liberações remotas de catraca, consultas de acessos, mudanças no Vigia, emissões de taxa de implantação, encerramentos e aprovações. É a resposta para "quem fez isso?" meses depois.
+A [Auditoria](/superadmin/auditoria) registra as ações sensíveis: quem fez, quando, sobre o quê e o motivo. Entram ali exclusões, liberações remotas de catraca, consultas de acessos, mudanças no Vigia, emissões de taxa de implantação, trocas da carteira de recebimento de uma academia, encerramentos e aprovações. A troca de carteira também chega por e-mail aos Super Admins, porque muda para onde vai o dinheiro da academia. É a resposta para "quem fez isso?" meses depois.

@@ -39,6 +39,8 @@ Na ficha, **Mensalidade B2B**: o valor mensal da plataforma. Sem valor negociado
 
 Na ficha, **Taxa de implantação**: o valor vem preenchido com a referência (Configurações) e pode mudar em cada contrato; escolha à vista ou parcelado (até 12×) e a data do primeiro vencimento. Cada parcela é uma cobrança B2B, e o atraso entra na regra de inadimplência da academia.
 
+Emitir duas vezes não cobra duas vezes: a segunda tentativa adota a taxa que já está no Asaas. Se a ficha avisar que há parcelas emitidas no Asaas e não registradas aqui, clique em **Registrar as parcelas que faltam**: o ARKE procura a taxa no Asaas e grava só o que faltou, sem emitir outra.
+
 ## 5. Acompanhar a configuração
 
 O gestor faz as seis etapas da configuração inicial no painel dele, e recebe lembretes por e-mail se parar no meio. Para ver o que ele vê, use a **Simulação de Visão de Perfil**. Enquanto a configuração não termina, os alunos não entram no app e nada é cobrado deles.
