@@ -1,6 +1,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { hashDoTokenCatraca } from "../_shared/tokenCatraca.ts";
 import { servir } from "../_shared/servir.ts";
+import { resumoDoErro } from "../_shared/resumoDoErro.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -86,7 +87,7 @@ servir("catraca-validar-acesso", async (req: Request) => {
       .maybeSingle();
 
     if (catracaError) {
-      console.error("Erro ao consultar catraca:", catracaError);
+      console.error("Erro ao consultar catraca:", resumoDoErro(catracaError));
       return jsonResponse({ error: "Falha ao validar dispositivo." }, 500);
     }
     if (!catraca) {
@@ -163,7 +164,7 @@ servir("catraca-validar-acesso", async (req: Request) => {
       // Erro, e não negação: o gateway trata erro da nuvem como queda e cai
       // para o cache local, que tem a mesma regra pré-calculada. Negar aqui
       // trancaria a academia inteira por uma falha de consulta.
-      console.error("Erro ao verificar a situação do aluno:", barradoError);
+      console.error("Erro ao verificar a situação do aluno:", resumoDoErro(barradoError));
       return jsonResponse({ error: "Falha ao verificar a situação do aluno." }, 500);
     }
     // negado_pausado, negado_inadimplente ou negado_matricula_encerrada.
@@ -185,7 +186,7 @@ servir("catraca-validar-acesso", async (req: Request) => {
         // Fail-closed: se a checagem de agendamento falhar, negar em vez
         // de liberar silenciosamente — do contrário a redundância vira um
         // no-op justamente quando ela deveria pegar o problema.
-        console.error("Erro ao verificar agendamento do studio:", agendamentoError);
+        console.error("Erro ao verificar agendamento do studio:", resumoDoErro(agendamentoError));
         falhaAoVerificarAgendamento = true;
       } else {
         semAgendamento = !possuiAgendamento;
@@ -230,7 +231,7 @@ servir("catraca-validar-acesso", async (req: Request) => {
     // log_id volta para o gateway confirmar o giro depois (catraca-confirmar-giro).
     return jsonResponse({ liberado: true, motivo: "Acesso liberado.", log_id: log?.id });
   } catch (error) {
-    console.error("Erro inesperado em catraca-validar-acesso:", error);
+    console.error("Erro inesperado em catraca-validar-acesso:", resumoDoErro(error));
     return jsonResponse({ error: "Erro inesperado ao validar acesso." }, 500);
   }
 });

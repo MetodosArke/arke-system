@@ -1,6 +1,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { verificada } from "../_shared/verificacao.ts";
 import { servir } from "../_shared/servir.ts";
+import { resumoDoErro } from "../_shared/resumoDoErro.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -148,7 +149,7 @@ servir("impersonar-perfil", async (req: Request) => {
       email: targetUser.user.email,
     });
     if (linkError || !linkData) {
-      console.error("Error generating impersonation link", linkError);
+      console.error("Error generating impersonation link", resumoDoErro(linkError));
       return errorResponse("Erro ao gerar acesso de simulação.");
     }
 
@@ -200,7 +201,7 @@ servir("impersonar-perfil", async (req: Request) => {
         ator_superadmin: callerIsSuperadmin,
       },
     });
-    if (auditoriaError) console.error("Falha ao registrar auditoria de simulação", auditoriaError);
+    if (auditoriaError) console.error("Falha ao registrar auditoria de simulação", resumoDoErro(auditoriaError));
 
     return jsonResponse({
       email: targetUser.user.email,
@@ -208,7 +209,7 @@ servir("impersonar-perfil", async (req: Request) => {
       refresh_token: sessao.refresh_token,
     });
   } catch (error) {
-    console.error("Unexpected error in impersonar-perfil", error);
+    console.error("Unexpected error in impersonar-perfil", resumoDoErro(error));
     return errorResponse("Erro inesperado ao simular o perfil.");
   }
 });

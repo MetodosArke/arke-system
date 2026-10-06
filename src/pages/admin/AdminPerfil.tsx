@@ -105,13 +105,13 @@ export default function AdminPerfil() {
           <Badge variant="secondary">{cargo}</Badge>
         </CardHeader>
         <CardContent className="space-y-3">
-          <div className="flex justify-between border-b border-border py-2 text-sm">
-            <span className="text-muted-foreground">Email</span>
-            <span className="font-medium">{user?.email}</span>
+          <div className="flex justify-between gap-3 border-b border-border py-2 text-sm">
+            <span className="shrink-0 text-muted-foreground">Email</span>
+            <span className="min-w-0 text-right font-medium [overflow-wrap:anywhere]">{user?.email}</span>
           </div>
-          <div className="flex justify-between border-b border-border py-2 text-sm">
-            <span className="text-muted-foreground">Academia</span>
-            <span className="font-medium">{organization?.nome ?? "—"}</span>
+          <div className="flex justify-between gap-3 border-b border-border py-2 text-sm">
+            <span className="shrink-0 text-muted-foreground">Academia</span>
+            <span className="min-w-0 text-right font-medium [overflow-wrap:anywhere]">{organization?.nome ?? "—"}</span>
           </div>
 
           <div className="space-y-2 pt-2">

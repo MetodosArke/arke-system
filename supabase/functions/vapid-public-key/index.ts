@@ -1,6 +1,7 @@
 import { Buffer } from "node:buffer";
 import { createECDH } from "node:crypto";
 import { servir } from "../_shared/servir.ts";
+import { resumoDoErro } from "../_shared/resumoDoErro.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -26,7 +27,7 @@ servir("vapid-public-key", async (req: Request) => {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error) {
-    console.error("Error in vapid-public-key:", error);
+    console.error("Error in vapid-public-key:", resumoDoErro(error));
 
     return new Response(
       JSON.stringify({ error: error instanceof Error ? error.message : "Unknown error" }),

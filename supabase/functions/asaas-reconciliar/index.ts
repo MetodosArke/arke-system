@@ -17,6 +17,7 @@ import {
   type PagamentoAsaas,
 } from "./fluxo.ts";
 import { servir } from "../_shared/servir.ts";
+import { resumoDoErro } from "../_shared/resumoDoErro.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -276,7 +277,7 @@ servir("asaas-reconciliar", async (req: Request) => {
       }
     } catch (e) {
       erro = e instanceof Error ? e.message : String(e);
-      console.error("Reconciliação interrompida", erro);
+      console.error("Reconciliação interrompida", resumoDoErro(e));
     }
 
     if (!erro && ctx.falhas.length > 0) {
@@ -307,7 +308,7 @@ servir("asaas-reconciliar", async (req: Request) => {
       // Foi exatamente assim que a primeira execução falhou calada (403 por
       // falta de grant na sequência): a varredura respondia 200 e o registro
       // não existia.
-      console.error("Reconciliação feita, mas o registro não foi gravado", gravacaoError.code, gravacaoError.message);
+      console.error("Reconciliação feita, mas o registro não foi gravado", resumoDoErro(gravacaoError));
     }
     orfas = orfas.slice(0, 50);
     return jsonResponse({ verificadas: ctx.verificadas, divergencias: ctx.divergencias.length, corrigidas, orfas, nao_conferidas: naoConferidas });

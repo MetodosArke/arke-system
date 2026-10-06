@@ -4,6 +4,7 @@ import { hojeBrasilia } from "../_shared/data.ts";
 import { dentroDoFreio, MENSAGEM_FREIO, regrasAsaas } from "../_shared/freio.ts";
 import { MENSAGEM_SO_QUEM_COBRA, podeCobrarNaAcademia } from "../_shared/papelCobranca.ts";
 import { servir } from "../_shared/servir.ts";
+import { resumoDoErro } from "../_shared/resumoDoErro.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -399,7 +400,7 @@ servir("academia-criar-matricula", async (req: Request) => {
       .single();
 
     if (insertError) {
-      console.error("Erro ao gravar matrícula", insertError);
+      console.error("Erro ao gravar matrícula", resumoDoErro(insertError));
       return jsonResponse(
         {
           error:
@@ -412,7 +413,7 @@ servir("academia-criar-matricula", async (req: Request) => {
 
     return jsonResponse({ matricula, asaas_subscription_id: subscription.id });
   } catch (error) {
-    console.error("academia-criar-matricula error", error);
+    console.error("academia-criar-matricula error", resumoDoErro(error));
     return jsonResponse({ error: "Erro inesperado ao criar matrícula." }, 500);
   }
 });

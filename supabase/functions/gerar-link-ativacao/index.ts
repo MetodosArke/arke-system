@@ -2,6 +2,7 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import { verificada } from "../_shared/verificacao.ts";
 import { alvoSoNaAcademia, MENSAGEM_OUTRA_ACADEMIA } from "../_shared/alvoNaAcademia.ts";
 import { servir } from "../_shared/servir.ts";
+import { resumoDoErro } from "../_shared/resumoDoErro.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -188,7 +189,7 @@ servir("gerar-link-ativacao", async (req: Request) => {
       options: { redirectTo: `${siteUrl}/#/auth/definir-senha` },
     });
     if (linkError || !linkData) {
-      console.error("Error generating activation link", linkError);
+      console.error("Error generating activation link", resumoDoErro(linkError));
       return jsonResponse({ error: "Erro ao gerar o link de ativação." }, 500);
     }
 
@@ -204,7 +205,7 @@ servir("gerar-link-ativacao", async (req: Request) => {
       });
       if (!insertError) break;
       if (insertError.code !== "23505") {
-        console.error("Error saving short link", insertError);
+        console.error("Error saving short link", resumoDoErro(insertError));
         return jsonResponse({ error: "Erro ao gerar o link de ativação." }, 500);
       }
       if (tentativa === 4) {
@@ -235,7 +236,7 @@ servir("gerar-link-ativacao", async (req: Request) => {
 
     return jsonResponse({ action_link: `${siteUrl}/cadastro/${code}` });
   } catch (error) {
-    console.error("Unexpected error in gerar-link-ativacao", error);
+    console.error("Unexpected error in gerar-link-ativacao", resumoDoErro(error));
     return jsonResponse({ error: "Erro inesperado ao gerar o link de ativação." }, 500);
   }
 });

@@ -1,5 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { descreverErro, registrarExecucao } from "../_shared/execucao.ts";
+import { resumoDoErro } from "../_shared/resumoDoErro.ts";
 import { retentarPendentes } from "../_shared/saidaAsaas.ts";
 import { servir } from "../_shared/servir.ts";
 
@@ -32,7 +33,7 @@ servir("retentar-saida-asaas", async (req: Request) => {
     await registrarExecucao(admin, NOME, true);
     return jsonResponse({ ok: true, ...r });
   } catch (e) {
-    console.error(`${NOME}: erro inesperado`, descreverErro(e));
+    console.error(`${NOME}: erro inesperado`, resumoDoErro(e));
     await registrarExecucao(admin, NOME, false, descreverErro(e));
     return jsonResponse({ error: "Erro inesperado." }, 500);
   }

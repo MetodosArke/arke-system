@@ -114,13 +114,13 @@ export default function AlunoPerfil() {
         </CardHeader>
         <CardContent className="space-y-3">
           <div className="grid grid-cols-1 gap-2 text-sm">
-            <div className="flex justify-between border-b border-border py-2">
-              <span className="text-muted-foreground">Email</span>
-              <span className="font-medium">{user?.email}</span>
+            <div className="flex justify-between gap-3 border-b border-border py-2">
+              <span className="shrink-0 text-muted-foreground">Email</span>
+              <span className="min-w-0 text-right font-medium [overflow-wrap:anywhere]">{user?.email}</span>
             </div>
-            <div className="flex justify-between border-b border-border py-2">
-              <span className="text-muted-foreground">Academia</span>
-              <span className="font-medium">{organization?.nome ?? "—"}</span>
+            <div className="flex justify-between gap-3 border-b border-border py-2">
+              <span className="shrink-0 text-muted-foreground">Academia</span>
+              <span className="min-w-0 text-right font-medium [overflow-wrap:anywhere]">{organization?.nome ?? "—"}</span>
             </div>
           </div>
           <Button variant="destructive" className="w-full" onClick={signOut}>

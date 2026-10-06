@@ -1,6 +1,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { montarManifesto, slugDoPedido, type MarcaManifesto } from "./fluxo.ts";
 import { servir } from "../_shared/servir.ts";
+import { resumoDoErro } from "../_shared/resumoDoErro.ts";
 
 // O manifesto do app instalado com a marca da academia. Público
 // (verify_jwt = false): o navegador busca o manifesto sem sessão nenhuma, e o
@@ -32,7 +33,7 @@ servir("manifest-academia", async (req: Request) => {
   } catch (e) {
     // Falha nossa não vira o manifesto da ArkeFit: o app seria instalado com
     // o nome errado e ficaria assim. Sem manifesto, o navegador tenta depois.
-    console.error("manifest-academia: falha ao ler a marca", e instanceof Error ? e.message : e);
+    console.error("manifest-academia: falha ao ler a marca", resumoDoErro(e));
     return new Response(JSON.stringify({ error: "Indisponível." }), {
       status: 503,
       headers: { ...cabecalhos, "Cache-Control": "no-store" },

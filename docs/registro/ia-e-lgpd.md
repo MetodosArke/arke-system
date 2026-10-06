@@ -275,6 +275,11 @@ Achados médios de conformidade da auditoria de prontidão de 05/10.
 
 (5) `npm run sandbox:anonimizar`: as 14 verificações passaram.
 
-**Falta:** a corrente real (anonimizar um aluno de homologação e ver o cliente no sandbox) e a tela no computador e no celular.
+(6) **Pela corrente real**, depois do deploy (06/10):
+- `anonimizar-aluno` e `excluir-aluno`, chamadas por uma gestora temporária da homologação (que está em teste e por isso usa o sandbox), deixaram o cliente de cada aluna no sandbox removido, com "Pessoa anonimizada", sem e-mail e sem telefone, e com o CPF;
+- a resposta trouxe `cadastro_no_asaas: "anonimizado"`, e nenhuma pendência ficou;
+- a rotina `arke-saida-asaas`, disparada pelo mesmo comando do cron, respondeu 200 e marcou a execução.
+
+(7) **A tela**, no celular: o arquivo de **Baixar os meus dados** (`meus-dados-arkefit-<data>.json`) chegou com as partes cadastro, saúde, avaliações, treinos, dietas, presenças, mensagens, autorizações e pagamentos, só da própria pessoa e sem a divisão do repasse.
 
 **Pendências.** (1) O encerramento da academia (`eliminar_organizacao`) apaga os alunos sem passar pela anonimização no Asaas: fica para a próxima rodada, com a mesma função. (2) ~~`npm run sandbox:anonimizar` antes do deploy~~: rodou em 06/10, e as 14 verificações passaram.

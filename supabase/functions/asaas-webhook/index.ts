@@ -2,6 +2,7 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import { hojeBrasilia } from "../_shared/data.ts";
 import { servir } from "../_shared/servir.ts";
 import { ambienteDoAviso, pistaDaReferencia } from "./fluxo.ts";
+import { resumoDoErro } from "../_shared/resumoDoErro.ts";
 
 const jsonResponse = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
@@ -170,7 +171,7 @@ servir("asaas-webhook", async (req: Request) => {
     .single();
 
   if (logError || !eventoRegistrado) {
-    console.error("Falha ao registrar evento de webhook", logError);
+    console.error("Falha ao registrar evento de webhook", resumoDoErro(logError));
     return jsonResponse({ error: "Falha ao registrar evento." }, 500);
   }
 
@@ -699,7 +700,7 @@ servir("asaas-webhook", async (req: Request) => {
 
     return jsonResponse({ ok: true, resultado });
   } catch (error) {
-    console.error("Erro ao processar webhook do Asaas", error);
+    console.error("Erro ao processar webhook do Asaas", resumoDoErro(error));
     await admin
       .from("asaas_webhook_events")
       .update({ erro: String(error) })

@@ -1,6 +1,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { verificada } from "../_shared/verificacao.ts";
 import { servir } from "../_shared/servir.ts";
+import { resumoDoErro } from "../_shared/resumoDoErro.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -132,7 +133,7 @@ servir("superadmin-suporte-tenant", async (req: Request) => {
       });
       // Falha de auditoria não desfaz a ação já executada, mas não pode
       // passar silenciosa: sem este log ninguém descobre depois quem agiu.
-      if (error) console.error("Falha ao registrar auditoria", acaoLog, error);
+      if (error) console.error("Falha ao registrar auditoria", acaoLog, resumoDoErro(error));
     };
 
     if (acao === "resetar_token_gateway") {
@@ -140,7 +141,7 @@ servir("superadmin-suporte-tenant", async (req: Request) => {
         _organization_id: organizationId,
       });
       if (resetError) {
-        console.error("Error resetting gateway tokens", resetError);
+        console.error("Error resetting gateway tokens", resumoDoErro(resetError));
         return errorResponse("Erro ao resetar o token do gateway.");
       }
       await registrarAuditoria("catraca.token_resetado", "organizacao_catracas", organizationId, {
@@ -189,7 +190,7 @@ servir("superadmin-suporte-tenant", async (req: Request) => {
         .select("id")
         .maybeSingle();
       if (deleteError) {
-        console.error("Error deleting organization", deleteError);
+        console.error("Error deleting organization", resumoDoErro(deleteError));
         return errorResponse(deleteError.message || "Erro ao excluir a organização.");
       }
       if (!deletada) {
@@ -213,7 +214,7 @@ servir("superadmin-suporte-tenant", async (req: Request) => {
       .limit(1)
       .maybeSingle();
     if (gestorError) {
-      console.error("Error loading gestor", gestorError);
+      console.error("Error loading gestor", resumoDoErro(gestorError));
       return errorResponse("Erro ao localizar o gestor da organização.");
     }
     if (!gestorMembership) {
@@ -225,7 +226,7 @@ servir("superadmin-suporte-tenant", async (req: Request) => {
       email_confirm: true,
     });
     if (emailError) {
-      console.error("Error updating gestor email", emailError);
+      console.error("Error updating gestor email", resumoDoErro(emailError));
       const jaExiste = emailError.message?.toLowerCase().includes("already been registered");
       return errorResponse(jaExiste ? "Já existe um usuário cadastrado com esse e-mail." : emailError.message);
     }
@@ -239,7 +240,7 @@ servir("superadmin-suporte-tenant", async (req: Request) => {
 
     return jsonResponse({ success: true });
   } catch (error) {
-    console.error("Unexpected error in superadmin-suporte-tenant", error);
+    console.error("Unexpected error in superadmin-suporte-tenant", resumoDoErro(error));
     return errorResponse("Erro inesperado ao executar a ação de suporte.");
   }
 });

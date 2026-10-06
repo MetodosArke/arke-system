@@ -233,3 +233,34 @@ Defeitos do caminho:
   - o término marca a etapa e confere a remoção; a eliminação apaga a academia e leva o placar à Auditoria;
   - a reserva do aviso, duas vezes sem confirmar, devolve o mesmo lote e as mesmas 3 pessoas; depois de confirmar, lote novo, sem repetir ninguém, e `alunos_avisados` = 3;
   - canal inválido recusado (22023); nenhum aluno sem conta no banco, o que a reserva exige.
+
+## Auditoria de prontidão, rodada 3: fechamento (06/10/2026)
+
+O que sobrou das quatro frentes da rodada 3 (dinheiro, acesso, funções e app), feito depois que as quatro entraram e foram publicadas.
+
+**O log das funções sem dado pessoal.** 76 chamadas de log, em 23 funções, mandavam o objeto de erro inteiro ou a mensagem dele.
+- **O risco:** a mensagem do Auth traz o e-mail de quem já tem conta; a do PostgREST traz o valor que violou a restrição única (o CPF em `Key (cpf)=(...)`); a do Asaas descreve o cliente; e a do Resend, no encerramento, pode trazer o endereço do aluno. O log fica no painel do Supabase, fora do controle de acesso do produto.
+- **Agora:** o erro entra por `resumoDoErro()` (`_shared/resumoDoErro.ts`), com o nome, o código e o status, que bastam para achar o defeito. `descreverErro`, que leva a mensagem, ficou só no registro da execução (`execucoes_agendadas` e o registro do encerramento), que tem acesso controlado.
+- **A trava:** `logsSemDadoPessoal.guarda` lê cada `console.*` das funções, argumento por argumento, e falha com o objeto de erro, a mensagem, o objeto serializado ou `descreverErro`.
+- Nenhum log imprimia CPF, e-mail ou nome de forma direta.
+
+**O aviso de erro em 15 segundos, e não 53.** A prova da tela da frente do app mediu 53 segundos de "Carregando..." na lista de alunos, com o banco sem resposta, antes do aviso "Não foi possível carregar". O motivo:
+- o react-query tentava de novo até quatro vezes a consulta que falha por rede;
+- cada tentativa ainda tem as repetições do supabase-js por baixo (até 3, com 1, 2 e 4 segundos).
+
+A consulta agora tenta de novo uma vez (`tentarConsultaDeNovo`, em `src/lib/tentativas.ts`, ao lado da regra do login). As gravações não mudaram.
+
+**O e-mail longo no Perfil.** No celular, o e-mail da aluna passava da borda do cartão do Perfil, colado no rótulo ("Emailfulana@..."). O valor agora quebra dentro do cartão, alinhado à direita, no Perfil do aluno e no da equipe.
+
+**Os tipos gerados de novo** (`types.ts`, com `public` e `graphql_public`): entram as tabelas e funções das rodadas de 06/10.
+- tabelas: `asaas_saida_pendente`, `organizacao_encerramento_avisos`, `registros_acesso_aplicacao` e `registros_acesso_preservacoes`;
+- funções: `checkin_parceiro_externo`, `catracas_a_avisar`, a reserva e a confirmação do aviso de encerramento, entre outras.
+
+**A corrente real das funções da rodada 3,** pelas funções publicadas, com duas academias e as contas temporárias apagadas no fim:
+- a gestora de duas unidades cadastrou um professor na B, e ele nasceu só na B;
+- sem a unidade, ela foi recusada (400), e numa academia de que não é gestora, também (403).
+
+**Conferido:**
+- `logsSemDadoPessoal.guarda`: 5 testes. Defeito plantado (o objeto de erro de volta no log de `vapid-public-key`): o teste certo falhou, apontando o arquivo e a linha.
+- `tentativas`: 9 testes.
+- **Falta:** o tempo do aviso em produção depois do deploy; o encerramento de ponta a ponta, com o e-mail chegando a um aluno; e a aprovação do Vigia com o Asaas fora do prazo, no sandbox.

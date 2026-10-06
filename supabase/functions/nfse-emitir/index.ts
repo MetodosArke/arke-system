@@ -15,6 +15,7 @@ import {
   type NotaAsaas,
 } from "./fluxo.ts";
 import { servir } from "../_shared/servir.ts";
+import { resumoDoErro } from "../_shared/resumoDoErro.ts";
 
 const jsonResponse = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
@@ -359,7 +360,7 @@ servir("nfse-emitir", async (req: Request) => {
     await registrarExecucao(admin, NOME, true);
     return jsonResponse({ ok: true, processadas: fila?.length ?? 0, contagem });
   } catch (erro) {
-    console.error("nfse-emitir: erro inesperado", erro instanceof Error ? erro.message : typeof erro);
+    console.error("nfse-emitir: erro inesperado", resumoDoErro(erro));
     await registrarExecucao(admin, NOME, false, descreverErro(erro));
     return jsonResponse({ error: "Erro inesperado." }, 500);
   }
