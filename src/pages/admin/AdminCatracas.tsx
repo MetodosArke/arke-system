@@ -234,6 +234,7 @@ export default function AdminCatracas() {
     liberado_remoto: { label: "Liberado pela recepção", variant: "secondary" },
     negado_inadimplente: { label: "Inadimplente", variant: "destructive" },
     negado_pausado: { label: "Matrícula pausada", variant: "secondary" },
+    negado_matricula_encerrada: { label: "Matrícula encerrada", variant: "secondary" },
     negado_nao_encontrado: { label: "Não encontrado", variant: "secondary" },
     negado_catraca_inativa: { label: "Dispositivo inativo", variant: "secondary" },
     negado_sem_agendamento: { label: "Sem agendamento", variant: "secondary" },

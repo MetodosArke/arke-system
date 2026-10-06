@@ -106,12 +106,12 @@ servir("catraca-validar-acesso", async (req: Request) => {
     // catraca: o identificador é único por organização, nunca global —
     // equipamentos de academias diferentes numeram usuários a partir do 1
     // e colidiriam entre si.
-    let aluno: { id: string; user_id: string | null } | null = null;
+    let aluno: { id: string } | null = null;
 
     if (identificador) {
       const { data } = await admin
         .from("alunos")
-        .select("id, user_id")
+        .select("id")
         .eq("organization_id", catraca.organization_id)
         .eq("identificador_catraca", identificador)
         .maybeSingle();
@@ -125,7 +125,7 @@ servir("catraca-validar-acesso", async (req: Request) => {
       if (profile) {
         const { data } = await admin
           .from("alunos")
-          .select("id, user_id")
+          .select("id")
           .eq("organization_id", catraca.organization_id)
           .eq("user_id", profile.user_id)
           .maybeSingle();
@@ -143,13 +143,10 @@ servir("catraca-validar-acesso", async (req: Request) => {
       return jsonResponse({ liberado: false, motivo: "Aluno não encontrado nesta academia." });
     }
 
-    // Nome vem do perfil, não do equipamento: é o que o display mostra, e
-    // vale tanto na liberação quanto na negativa para a recepção saber de
-    // quem se trata sem precisar consultar outra tela.
-    const { data: perfilAluno } = aluno.user_id
-      ? await admin.from("profiles").select("full_name").eq("user_id", aluno.user_id).maybeSingle()
-      : { data: null };
-    const nomeAluno = perfilAluno?.full_name ?? undefined;
+    // O nome do aluno não vai na resposta. O display da catraca é público
+    // ("Bem-vindo!" ou "Aluno", nunca o nome), e até 06/10/2026 a ponte da
+    // Topdata escrevia no display o primeiro nome que saía daqui, inclusive
+    // ao lado de "acesso negado". A recepção vê quem é nos Últimos acessos.
 
     // Uma regra de acesso só: a mesma do app e do check-in por QR
     // (situacao_permite_app), resolvida no banco por aluno_barrado_na_catraca.
@@ -157,7 +154,8 @@ servir("catraca-validar-acesso", async (req: Request) => {
     // na hora, sem a tolerância de 5 dias decidida para o inadimplente, e
     // deixava o aluno PAUSADO passar. A mensalidade vencida chega aqui porque
     // sincronizar_situacao_por_mensalidade() marca a situação — não há um
-    // segundo caminho olhando a mensalidade direto.
+    // segundo caminho olhando a mensalidade direto. Desde 06/10/2026 a mesma
+    // função barra também quem teve a matrícula encerrada.
     const { data: barrado, error: barradoError } = await admin.rpc("aluno_barrado_na_catraca", {
       _aluno_id: aluno.id,
     });
@@ -168,7 +166,8 @@ servir("catraca-validar-acesso", async (req: Request) => {
       console.error("Erro ao verificar a situação do aluno:", barradoError);
       return jsonResponse({ error: "Falha ao verificar a situação do aluno." }, 500);
     }
-    const negadoPorSituacao = (barrado as "negado_pausado" | "negado_inadimplente" | null) ?? null;
+    // negado_pausado, negado_inadimplente ou negado_matricula_encerrada.
+    const negadoPorSituacao = typeof barrado === "string" && barrado.startsWith("negado_") ? barrado : null;
 
     // Redundância de turma: em Studios (turmas de horário fixo e
     // capacidade limitada), assinatura em dia não basta — o aluno
@@ -215,29 +214,21 @@ servir("catraca-validar-acesso", async (req: Request) => {
       .select("id")
       .single();
 
-    if (negadoPorSituacao === "negado_pausado") {
-      return jsonResponse({ liberado: false, motivo: "Matrícula pausada. Procure a recepção.", aluno_nome: nomeAluno });
-    }
-    if (negadoPorSituacao === "negado_inadimplente") {
-      return jsonResponse({ liberado: false, motivo: "Mensalidade da academia em atraso.", aluno_nome: nomeAluno });
+    // Pausado, inadimplente e matrícula encerrada: a mesma frase, que não
+    // fala de dinheiro. Gateway antigo da Topdata a escreve no display como
+    // veio; o motivo de verdade fica no registro (Últimos acessos).
+    if (negadoPorSituacao) {
+      return jsonResponse({ liberado: false, motivo: "Procure a recepção." });
     }
     if (falhaAoVerificarAgendamento) {
-      return jsonResponse({
-        liberado: false,
-        motivo: "Falha ao verificar agendamento. Tente novamente.",
-        aluno_nome: nomeAluno,
-      });
+      return jsonResponse({ liberado: false, motivo: "Falha ao verificar agendamento. Tente novamente." });
     }
     if (semAgendamento) {
-      return jsonResponse({
-        liberado: false,
-        motivo: "Sem agendamento ativo para este horário.",
-        aluno_nome: nomeAluno,
-      });
+      return jsonResponse({ liberado: false, motivo: "Sem agendamento ativo para este horário." });
     }
 
     // log_id volta para o gateway confirmar o giro depois (catraca-confirmar-giro).
-    return jsonResponse({ liberado: true, motivo: "Acesso liberado.", aluno_nome: nomeAluno, log_id: log?.id });
+    return jsonResponse({ liberado: true, motivo: "Acesso liberado.", log_id: log?.id });
   } catch (error) {
     console.error("Erro inesperado em catraca-validar-acesso:", error);
     return jsonResponse({ error: "Erro inesperado ao validar acesso." }, 500);
