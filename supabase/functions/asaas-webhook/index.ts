@@ -417,6 +417,12 @@ servir("asaas-webhook", async (req: Request) => {
           if (novoStatus === "atrasado") {
             await exigir(admin.rpc("abrir_tarefa_mensalidade_atrasada", { _mensalidade_id: mensalidadeExistente.id }));
           }
+
+          // O pagamento cai quase sempre aqui, e não no ramo que cria a
+          // mensalidade: o `PAYMENT_CREATED` já criou a linha. Sem esta
+          // chamada, quem pagava o PIX às 10h continuava barrado no app e na
+          // catraca até a rotina da madrugada (auditoria de 05/10/2026).
+          await exigir(admin.rpc("sincronizar_situacao_por_mensalidade"));
         }
         await concluir(novoStatus ? "mensalidade_atualizada" : "evento_ignorado");
         return jsonResponse({ ok: true });

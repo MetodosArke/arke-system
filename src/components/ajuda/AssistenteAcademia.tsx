@@ -189,7 +189,14 @@ export function AssistenteAcademia({ base }: { base: string }) {
               value={pergunta}
               onChange={(e) => setPergunta(e.target.value)}
               placeholder="Ex.: a catraca não liberou o aluno hoje cedo; o aluno não recebeu o e-mail para criar a senha."
+              aria-describedby="assistente-pergunta-dica"
             />
+            {/* A dúvida vai a um modelo de IA que pode rodar fora do Brasil
+                (Política, seções 5 e 6): o nome do aluno vai no campo de
+                baixo, que fica na plataforma. */}
+            <p id="assistente-pergunta-dica" className="text-xs text-muted-foreground">
+              Não escreva aqui o nome, o CPF nem dado de saúde do aluno. Para falar de um aluno, use o campo abaixo.
+            </p>
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="assistente-aluno">É sobre um aluno? (opcional)</Label>

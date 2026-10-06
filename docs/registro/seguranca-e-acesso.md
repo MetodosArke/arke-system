@@ -210,3 +210,52 @@ Rodada B. Quando a regra de acesso recusa a linha, o PostgREST responde sucesso 
 - 845 testes, com os do auxiliar.
 - O guarda das colunas pegou uma chave errada da conversão (`planos_b2b_precos` não tem `id`).
 - Dois defeitos plantados, os dois pegos: uma gravação voltando ao formato antigo, e um `exigirGravacao` de outra instrução logo antes de uma gravação sem conferência.
+
+## Auditoria de prontidão, rodada 1: dinheiro, saída do aluno e acesso (06/10/2026)
+
+A auditoria de 05/10 achou três bloqueadores e quinze achados altos antes da primeira academia pagante. Esta rodada fecha os que são do banco e das funções do servidor. O app, as catracas e os menores de idade foram em frentes próprias. As decisões são as registradas pelo responsável no workspace em 06/10.
+
+**Dinheiro do Método** (migration `20261338010000`).
+- **A exceção de repasse por nível ganhou a trava que o repasse da academia já tinha.** A regra de alteração de `organization_planos_precificacao` é do gestor, porque ali ele põe o preço de varejo, e a mesma regra deixava gravar a exceção de repasse. O gatilho `trg_proteger_repasse_por_nivel` recusa incluir, alterar e apagar a exceção para quem não é da ArkeFit. Apagar também conta: sem a exceção, o nível voltaria ao valor da academia.
+- **`pagamentos` passou a ser só leitura para a equipe.** Havia uma regra única para todas as operações, com toda a equipe da academia. Quem grava pagamento é o webhook, pela service role. A correção foi feita sem reproduzir a gravação, por decisão do responsável (D5): a trava do Claude Code recusou o teste de escrita, mesmo em transação desfeita.
+- **Assinatura do Método cancelada encerra o Método no aluno.** O plano é calculado por `alunos.metodo_arke_status`, e nenhum cancelamento mudava essa coluna: a cobrança parava e o aluno seguia com mentor e nutricionista. A regra mora num gatilho, porque o cancelamento chega por mais de um caminho.
+- **O próprio aluno com cobrança vencida não cancela sozinho.** Cancelar no Asaas leva as cobranças em aberto junto; para a academia ou a ArkeFit, é decisão de quem cobra, mas para o aluno seria apagar a dívida com um clique. Ele recebe a frase para quitar ou falar com a recepção.
+- **Pagar a mensalidade libera o aluno na hora.** A situação só era recalculada quando o webhook criava a mensalidade, e o aviso de pagamento cai quase sempre no ramo da mensalidade que já existe. Quem pagava o PIX de manhã ficava barrado até a rotina da madrugada.
+
+**Saída do aluno** (migration `20261339010000`, decisão D1).
+- **Defeito:** a exclusão apagava a conta de login, e a cascata levava a matrícula, o histórico e as mensagens da pessoa em todas as academias dela, e os pagamentos do Método. A anonimização trocava o e-mail e o perfil, que são da pessoa, cortava o acesso dela em todas as academias e anonimizava só nome, CPF e telefone.
+- **`anonimizar_dados_do_aluno`** faz o trabalho do banco numa transação só, dentro da academia que pede:
+  - apaga a ficha, a anamnese (fica a data e a versão do consentimento, como prova), as avaliações, os treinos, as dietas, as conversas, o feed e as autorizações;
+  - tira o nome da assinatura do contrato, o CPF dos registros da catraca e as linhas da importação;
+  - desativa o vínculo, o que já esconde o perfil daquela academia pela regra de leitura de `profiles`;
+  - anonimiza o perfil e o login só quando a pessoa não tem vínculo vivo em outro lugar;
+  - fica o que a lei manda guardar (mensalidades, pagamentos, notas, comissões) e as presenças, que com o aluno anonimizado viram contagem;
+  - a sugestão ao mentor perde o texto e fica, como na revogação, porque ela mede o trabalho do mentor.
+- **`excluir_aluno_da_academia`:** só em academia em teste. Apaga o aluno daquela academia, e a conta só quando não sobra vínculo nenhum. O botão de excluir só aparece com a academia em teste.
+- As duas registram a ação na auditoria. As fotos do feed e a foto de perfil, que ficam em bucket público, saem pela URL (`apagarArquivosPorUrl`).
+
+**Acesso.**
+- `editar-membro-equipe` recusa aluno como alvo: a gestão trocaria o e-mail de login do aluno pelo dela e entraria como ele.
+- `sentinela-anamnese` segue a separação do Mentor Centralizado: o aluno do Método é da ArkeFit, o do plano Free é da academia, e a recepção não atende saúde. Correção no Sentinela congelado, autorizada pelo responsável (D4).
+
+**Prazos da Política** (migration `20261340010000`). A foto do rosto e o hash de IP das tentativas prometiam até 24 horas, mas a limpeza só rodava quando outra coisa a chamava. Agora há uma rotina de hora em hora (`arke-dados-de-passagem`), e a foto vence em 23 horas. O fim da última matrícula apaga o resumo da anamnese e o texto das sugestões, como a Política promete. A rotina nova entrou também no roteiro de reconstrução do banco.
+
+**Travas:** `dinheiroDoMetodo.guarda.test.ts` e `saidaDoAluno.guarda.test.ts`. A segunda lê o histórico do banco e as migrations e falha quando surge uma tabela com `aluno_id` que a anonimização não trata e que não diz por que fica.
+
+**Defeitos do caminho.**
+- A primeira versão da guarda não achava `sentinela_sugestoes`, que nasceu por fora das migrations e só existe no histórico. Ela passou a ler os dois.
+- A primeira versão da anonimização apagava as sugestões ao mentor, contra a regra registrada na migration `20261231`. Passou a só tirar o texto.
+
+**Conferido:**
+- **Dinheiro, em transação desfeita:**
+  - a gestora alterando e incluindo a exceção de repasse, recusada (42501);
+  - o varejo seguindo editável (2 linhas);
+  - a equipe sem permissão de alterar e apagar pagamentos, só a regra de leitura;
+  - uma assinatura de teste cancelada tirando do Método o único aluno ativo.
+- **Saída, em transação desfeita, com uma aluna da academia de demonstração:**
+  - avaliações (2), treinos (1), dietas (1) e registros de treino (23) apagados;
+  - presenças (23), mensalidades (4) e matrícula (1) mantidas;
+  - perfil anonimizado, vínculo inativo e a ação na auditoria;
+  - excluir numa academia fora de teste, recusado;
+  - com um vínculo de professora em outra academia, o perfil e esse vínculo intactos, e a exclusão sem apagar a conta.
+- **Testes:** 12 testes nas duas guardas, e um defeito plantado (uma tabela fora da anonimização) pego.

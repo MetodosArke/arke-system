@@ -19,6 +19,48 @@ type ClienteStorage = {
   };
 };
 
+/**
+ * Caminho dentro do bucket a partir da URL pública do Storage
+ * (`…/storage/v1/object/public/<bucket>/<caminho>`). Devolve null para
+ * qualquer outra URL: o que não é deste Storage não é apagado daqui.
+ */
+export function caminhoDaUrlPublica(url: string): { bucket: string; caminho: string } | null {
+  const m = /\/storage\/v1\/object\/public\/([^/?#]+)\/([^?#]+)/.exec(url);
+  if (!m) return null;
+  return { bucket: m[1], caminho: decodeURIComponent(m[2]) };
+}
+
+/**
+ * Apaga arquivos de buckets públicos (fotos do feed, foto de perfil) pela URL
+ * guardada no banco. Eles não ficam na pasta do aluno: a URL é o único rastro,
+ * e um arquivo público esquecido continua aberto para quem tem o link.
+ * Nunca lança, pelo mesmo motivo de `apagarArquivosDoAluno`.
+ */
+export async function apagarArquivosPorUrl(
+  admin: ClienteStorage,
+  urls: string[],
+): Promise<{ apagados: number; falhas: string[] }> {
+  const porBucket = new Map<string, string[]>();
+  for (const url of urls) {
+    const alvo = caminhoDaUrlPublica(url);
+    if (!alvo) continue;
+    porBucket.set(alvo.bucket, [...(porBucket.get(alvo.bucket) ?? []), alvo.caminho]);
+  }
+  let apagados = 0;
+  const falhas: string[] = [];
+  for (const [bucket, caminhos] of porBucket) {
+    try {
+      const { error } = await admin.storage.from(bucket).remove(caminhos);
+      if (error) throw error;
+      apagados += caminhos.length;
+    } catch {
+      falhas.push(bucket);
+      console.error("arquivosDoAluno: não foi possível apagar", bucket);
+    }
+  }
+  return { apagados, falhas };
+}
+
 export async function apagarArquivosDoAluno(
   admin: ClienteStorage,
   organizationId: string,

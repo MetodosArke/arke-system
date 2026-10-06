@@ -139,6 +139,14 @@ servir("editar-membro-equipe", async (req: Request) => {
       return jsonResponse({ error: "Membro não encontrado nesta organização." }, 404);
     }
 
+    // Esta função é da equipe. Com um aluno como alvo, a gestão trocaria o
+    // e-mail de login dele pelo próprio e, pela redefinição de senha, entraria
+    // como o aluno: leria a dieta e a anamnese do Método e autorizaria IA e
+    // biometria no nome dele (auditoria de 05/10/2026).
+    if (!PAPEIS_VALIDOS.has(targetMembership.role as Papel)) {
+      return jsonResponse({ error: "Esta tela edita só a equipe. Os dados de login do aluno são dele." }, 403);
+    }
+
     // E-mail de login e nome são da CONTA da pessoa, que pode ter vínculo em
     // outra academia: trocar o e-mail e pedir a redefinição de senha nele
     // daria a conta inteira a quem trocou. O gestor só troca de quem está

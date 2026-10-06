@@ -33,6 +33,10 @@ O cadastro cria o aluno; a matrícula num plano da academia é feita na ficha, n
 
 ## Quando o aluno sai
 
-Na lista, o menu de ações do aluno tem **Desativar / Anonimizar Aluno**, o protocolo da LGPD: os dados pessoais são apagados e o que é financeiro fica guardado pelo prazo legal, sem nome. Antes disso, cancele as cobranças em aberto; o sistema não deixa sair quem ainda tem cobrança ativa no meio de pagamento, justamente para ninguém seguir sendo cobrado depois de ir embora.
+Na lista, o menu de ações do aluno tem **Desativar / Anonimizar Aluno**, o protocolo da LGPD. Ele apaga os dados pessoais do aluno **nesta academia**: a ficha, a anamnese, as avaliações, os treinos, as dietas, as conversas, as fotos do feed e as autorizações. A digital sai dos equipamentos. O que é financeiro (mensalidades, pagamentos, notas) e as presenças ficam guardados pelo prazo legal, sem nome. Antes de apagar, as cobranças em aberto são encerradas no meio de pagamento, para ninguém seguir sendo cobrado depois de ir embora.
+
+Se a pessoa também é aluna ou faz parte da equipe de outra academia, o cadastro dela lá continua: a anonimização só alcança o que é desta academia.
+
+O botão de **excluir de vez** só aparece enquanto a academia está em teste, para limpar cadastros de homologação. Com a academia em operação, a saída de um aluno real é sempre a anonimização.
 
 > O limite de alunos ativos vem do plano contratado pela academia. Se ele for atingido, o cadastro avisa; fale com a ArkeFit para mudar de plano.

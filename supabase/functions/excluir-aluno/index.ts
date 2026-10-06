@@ -2,7 +2,7 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import { verificada } from "../_shared/verificacao.ts";
 import { ambienteAsaas } from "../_shared/asaas.ts";
 import { encerrarCobrancasDoAluno } from "../_shared/encerrarCobrancas.ts";
-import { apagarArquivosDoAluno } from "../_shared/arquivosDoAluno.ts";
+import { apagarArquivosDoAluno, apagarArquivosPorUrl } from "../_shared/arquivosDoAluno.ts";
 import { servir } from "../_shared/servir.ts";
 
 const corsHeaders = {
@@ -21,14 +21,12 @@ type ExcluirPayload = {
   aluno_id: string;
 };
 
-// Exclusão DEFINITIVA de um aluno (diferente de anonimizar-aluno, que é o
-// protocolo LGPD oficial e preserva o histórico financeiro). Esta função
-// serve para limpar contas de teste/homologação: apaga o usuário no Auth,
-// o que em cascata (ON DELETE CASCADE) remove alunos, organization_members,
-// profiles, user_roles, links_ativacao e todos os dados vinculados ao
-// aluno (treinos, dietas, checkins, avaliações, assinaturas, pagamentos
-// etc.) — não deixa rastro nenhum, inclusive o e-mail fica livre para
-// recadastro imediato.
+// Exclusão DEFINITIVA de um aluno, só em academia em teste (diferente de
+// anonimizar-aluno, que é o protocolo LGPD oficial e preserva o histórico
+// financeiro). Serve para limpar cadastros de teste e homologação: apaga o
+// aluno NESTA academia, com tudo o que é dele aqui, e a conta de login só
+// quando a pessoa não tem vínculo nenhum em outro lugar
+// (`excluir_aluno_da_academia`).
 servir("excluir-aluno", async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -76,7 +74,7 @@ servir("excluir-aluno", async (req: Request) => {
       .eq("id", alunoId)
       .maybeSingle();
     if (alunoError) {
-      console.error("Error loading aluno", alunoError);
+      console.error("Error loading aluno", alunoError.code);
       return jsonResponse({ error: "Erro ao carregar o aluno." }, 500);
     }
     if (!aluno) {
@@ -88,7 +86,7 @@ servir("excluir-aluno", async (req: Request) => {
       .select("role")
       .eq("user_id", callerId);
     if (callerRolesError) {
-      console.error("Error loading caller roles", callerRolesError);
+      console.error("Error loading caller roles", callerRolesError.code);
       return jsonResponse({ error: "Erro ao validar permissões." }, 500);
     }
     const callerIsAdminArke = verificada(claimsData?.claims) && (callerRoles ?? []).some((r) => r.role === "admin_arke");
@@ -110,7 +108,7 @@ servir("excluir-aluno", async (req: Request) => {
         .eq("status", "active")
         .limit(1);
       if (callerMembershipError) {
-        console.error("Error loading caller membership", callerMembershipError);
+        console.error("Error loading caller membership", callerMembershipError.code);
         return jsonResponse({ error: "Erro ao validar permissões." }, 500);
       }
       autorizado = !!vinculosGestor?.length;
@@ -125,11 +123,25 @@ servir("excluir-aluno", async (req: Request) => {
     // varredura detecta e nao consegue corrigir. O gatilho
     // `trg_impedir_exclusao_com_cobranca_viva` garante a ordem mesmo se
     // alguem mexer aqui; esta chamada e o que faz a ordem ser possivel.
-    const { data: orgDoAluno } = await adminClient
+    const { data: orgDoAluno, error: orgError } = await adminClient
       .from("organizations")
       .select("status")
       .eq("id", aluno.organization_id)
       .maybeSingle();
+    if (orgError) {
+      console.error("Error loading organization", orgError.code);
+      return jsonResponse({ error: "Erro ao carregar a academia." }, 500);
+    }
+    // Excluir de vez é para teste e homologação (decisão de 06/10/2026). Para
+    // um aluno real, a anonimização apaga os dados pessoais e guarda o que a
+    // lei exige; apagar tudo levaria o histórico financeiro junto. O banco
+    // recusa do mesmo jeito; aqui é para recusar antes de mexer no Asaas.
+    if (orgDoAluno?.status !== "trial") {
+      return jsonResponse(
+        { error: "Excluir de vez é só para academia em teste. Para um aluno real, use a anonimização." },
+        403,
+      );
+    }
     const ambiente = ambienteAsaas(orgDoAluno?.status, (n) => Deno.env.get(n));
     if ("erro" in ambiente) {
       return jsonResponse({ error: ambiente.erro }, 500);
@@ -145,24 +157,47 @@ servir("excluir-aluno", async (req: Request) => {
       return jsonResponse({ error: encerramento.erro }, 502);
     }
 
-    const { error: deleteError } = await adminClient.auth.admin.deleteUser(aluno.user_id);
+    // O banco apaga só o que é do aluno NESTA academia. Antes, a função
+    // apagava a conta (auth.users), e a cascata levava a matrícula, o
+    // histórico e as mensagens da pessoa em todas as academias dela
+    // (auditoria de 05/10/2026).
+    const { data: feito, error: deleteError } = await adminClient.rpc("excluir_aluno_da_academia", {
+      _aluno_id: aluno.id,
+      _ator: callerId,
+    });
     if (deleteError) {
-      console.error("Error deleting aluno auth user", deleteError);
+      console.error("Error deleting aluno", deleteError.code);
       return jsonResponse({ error: "Erro ao excluir o aluno." }, 500);
+    }
+    const resultado = feito as { apagar_conta: boolean; imagens_feed: string[] | null };
+
+    // A conta de login só sai quando não sobrou vínculo nenhum da pessoa.
+    if (resultado.apagar_conta) {
+      const { error: contaError } = await adminClient.auth.admin.deleteUser(aluno.user_id);
+      if (contaError) {
+        // O aluno já saiu da academia; a conta sem vínculo não vê nada.
+        console.error("Error deleting auth user", contaError.status);
+      }
     }
 
     // Depois do banco, e não antes: se a exclusão falhasse, o aluno ficaria
     // sem o atestado que continua valendo. A cascata já levou as linhas;
     // os arquivos são o que sobrava delas.
-    const arquivos = await apagarArquivosDoAluno(adminClient, aluno.organization_id, aluno.id, [
+    const privados = await apagarArquivosDoAluno(adminClient, aluno.organization_id, aluno.id, [
       "atestados",
       "chat-videos",
       "termos-biometria",
     ]);
+    const publicos = await apagarArquivosPorUrl(adminClient, resultado.imagens_feed ?? []);
 
-    return jsonResponse({ success: true, arquivos_apagados: arquivos.apagados, arquivos_pendentes: arquivos.falhas });
+    return jsonResponse({
+      success: true,
+      conta_apagada: resultado.apagar_conta,
+      arquivos_apagados: privados.apagados + publicos.apagados,
+      arquivos_pendentes: [...privados.falhas, ...publicos.falhas],
+    });
   } catch (error) {
-    console.error("Unexpected error in excluir-aluno", error);
+    console.error("Unexpected error in excluir-aluno", error instanceof Error ? error.name : "erro");
     return jsonResponse({ error: "Erro inesperado ao excluir o aluno." }, 500);
   }
 });

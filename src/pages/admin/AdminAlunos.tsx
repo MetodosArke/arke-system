@@ -354,13 +354,21 @@ export default function AdminAlunos() {
   const anonimizarAluno = useMutation({
     mutationFn: async () => {
       if (!alunoAnonimizar) return;
-      const { error } = await supabase.functions.invoke("anonimizar-aluno", {
+      const { data, error } = await supabase.functions.invoke("anonimizar-aluno", {
         body: { aluno_id: alunoAnonimizar.id },
       });
       if (error) throw new Error(await mensagemDeErroEdge(error, "Não foi possível anonimizar o aluno."));
+      return data as { arquivos_pendentes?: string[] } | null;
     },
-    onSuccess: () => {
-      toast({ title: "Aluno anonimizado", description: "Os dados pessoais foram removidos conforme a LGPD." });
+    onSuccess: (resultado) => {
+      const pendentes = resultado?.arquivos_pendentes?.length ?? 0;
+      toast({
+        title: "Aluno anonimizado",
+        description: pendentes
+          ? "Os dados pessoais desta academia foram apagados, mas alguns arquivos não saíram. Tente de novo mais tarde ou fale com o suporte."
+          : "Os dados pessoais desta academia foram apagados. Ficou o que a lei manda guardar, sem identificar a pessoa.",
+        variant: pendentes ? "destructive" : undefined,
+      });
       setAlunoAnonimizar(null);
       void queryClient.invalidateQueries({ queryKey: ["admin-alunos", organization?.id] });
     },
@@ -371,13 +379,19 @@ export default function AdminAlunos() {
   const excluirAluno = useMutation({
     mutationFn: async () => {
       if (!alunoExcluir) return;
-      const { error } = await supabase.functions.invoke("excluir-aluno", {
+      const { data, error } = await supabase.functions.invoke("excluir-aluno", {
         body: { aluno_id: alunoExcluir.id },
       });
       if (error) throw new Error(await mensagemDeErroEdge(error, "Não foi possível excluir o aluno."));
+      return data as { conta_apagada?: boolean } | null;
     },
-    onSuccess: () => {
-      toast({ title: "Aluno excluído", description: "A conta e todos os dados vinculados foram apagados." });
+    onSuccess: (resultado) => {
+      toast({
+        title: "Aluno excluído",
+        description: resultado?.conta_apagada
+          ? "O aluno e a conta de login foram apagados."
+          : "O aluno foi apagado desta academia. A conta de login continua, porque a pessoa tem vínculo em outro lugar.",
+      });
       setAlunoExcluir(null);
       void queryClient.invalidateQueries({ queryKey: ["admin-alunos", organization?.id] });
     },
@@ -642,15 +656,20 @@ export default function AdminAlunos() {
                         >
                           <UserX className="h-3.5 w-3.5" />
                         </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-7 w-7 text-destructive"
-                          title="Excluir Aluno (teste/homologação)"
-                          onClick={() => setAlunoExcluir(aluno)}
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
+                        {/* Excluir de vez é só para academia em teste: para um
+                            aluno real, a saída é a anonimização. */}
+                        {organization?.status === "trial" && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 text-destructive"
+                            title="Excluir aluno (academia em teste)"
+                            aria-label="Excluir aluno (academia em teste)"
+                            onClick={() => setAlunoExcluir(aluno)}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        )}
                       </div>
                     </TableCell>
                   </TableRow>
@@ -743,13 +762,15 @@ export default function AdminAlunos() {
           </DialogHeader>
           <div className="space-y-2 text-sm text-muted-foreground">
             <p>
-              Esta ação vai <strong>anonimizar permanentemente</strong> os dados pessoais de{" "}
-              <strong>{alunoAnonimizar?.full_name}</strong>: nome, CPF, e-mail e telefone serão substituídos por
-              placeholders, e o acesso do aluno à organização será desativado.
+              Esta ação vai <strong>apagar permanentemente</strong> os dados pessoais de{" "}
+              <strong>{alunoAnonimizar?.full_name}</strong> nesta academia: a ficha, a anamnese, as avaliações, os
+              treinos, as dietas, as conversas, as fotos do feed e as autorizações. O vínculo com a academia é
+              desativado, e a digital sai dos equipamentos.
             </p>
             <p>
-              O histórico financeiro (assinaturas, pagamentos e IDs do Asaas) é preservado, para fins de
-              auditoria fiscal/contábil. <strong>Esta ação não pode ser desfeita.</strong>
+              Fica o que a lei manda guardar, sem identificar a pessoa: mensalidades, pagamentos, notas e presenças.
+              Se a pessoa tiver vínculo com outra academia, o cadastro dela lá continua.{" "}
+              <strong>Esta ação não pode ser desfeita.</strong>
             </p>
           </div>
           <DialogFooter>
@@ -770,18 +791,17 @@ export default function AdminAlunos() {
       <Dialog open={!!alunoExcluir} onOpenChange={(open) => !open && setAlunoExcluir(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Excluir Aluno — Teste/Homologação</DialogTitle>
+            <DialogTitle>Excluir aluno — academia em teste</DialogTitle>
           </DialogHeader>
           <div className="space-y-2 text-sm text-muted-foreground">
             <p>
-              Esta ação vai <strong>apagar definitivamente</strong> a conta de{" "}
-              <strong>{alunoExcluir?.full_name}</strong>: login, perfil, treinos, dietas, check-ins, avaliações,
-              assinaturas e pagamentos — nada fica registrado.
+              Esta ação vai <strong>apagar definitivamente</strong> <strong>{alunoExcluir?.full_name}</strong>{" "}
+              desta academia: treinos, dietas, check-ins, avaliações, assinaturas e pagamentos. A conta de login
+              também sai, se a pessoa não tiver vínculo em outro lugar.
             </p>
             <p>
-              Diferente da anonimização (que preserva o histórico financeiro para auditoria), aqui não sobra
-              rastro nenhum e o e-mail fica livre para um novo cadastro na hora. Use apenas para limpar contas de
-              teste. <strong>Esta ação não pode ser desfeita.</strong>
+              Só existe enquanto a academia está em teste, para limpar cadastros de homologação. Para um aluno real,
+              use a anonimização. <strong>Esta ação não pode ser desfeita.</strong>
             </p>
           </div>
           <DialogFooter>
