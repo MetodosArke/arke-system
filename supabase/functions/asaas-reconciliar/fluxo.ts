@@ -84,10 +84,63 @@ export function eventoParaCorrigir(p: PagamentoAsaas, statusLocal: string | null
 }
 
 /**
- * Lança em vez de devolver nulo. Uma versão antiga devolvia nulo, e uma chave
- * inválida no Asaas virava "0 divergências, 0 órfãs, sem erro" — a falha
- * silenciosa que a conferência existe para acabar.
+ * O id do aviso que a conferência reenvia ao webhook. É o mesmo para a mesma
+ * divergência, então reenviá-la de novo não repete o efeito, e é por ele que
+ * a conferência lê o desfecho que o webhook gravou.
  */
+export function idDoReenvio(p: PagamentoAsaas): string {
+  return `reconciliacao:${p.id}:${p.deleted ? "DELETED" : p.status}`;
+}
+
+/**
+ * Desfechos que o webhook grava quando o aviso mexeu na cobrança. Os outros
+ * (`sem_correspondencia`, `evento_ignorado`, `sem_payment_id`,
+ * `ambiente_incompativel:*`, `cartao_recusado`) não corrigem status nenhum.
+ */
+export const DESFECHOS_QUE_CORRIGEM = new Set([
+  "cobranca_b2b_atualizada",
+  "cobranca_b2b_criada",
+  "cobranca_b2b_emitida",
+  "avulsa_atualizada",
+  "avulsa_emitida",
+  "mensalidade_atualizada",
+  "mensalidade_criada",
+  "mensalidade_emitida",
+  "pagamento_arke_atualizado",
+  "pagamento_arke_criado",
+  "pagamento_arke_emitido",
+]);
+
+export type EventoGravado = { processado: boolean | null; resultado: string | null; erro: string | null };
+
+/**
+ * O reenvio corrigiu a divergência? O webhook responde 200 também ao aviso
+ * repetido, ao ignorado e ao que deu erro interno — por isso a resposta HTTP
+ * não diz nada. Até 06/10/2026 a conferência contava como corrigido todo 200.
+ *
+ * Corrigiu quando as três coisas valem: o webhook gravou o aviso como
+ * processado e sem erro; o desfecho é dos que mexem na cobrança; e o status
+ * no banco, lido depois, é o que o Asaas diz. A última conta porque o banco
+ * pode recusar a transição em silêncio (`trg_transicao_cobranca`: o que foi
+ * pago não volta a dever), e o desfecho ainda diria "atualizada".
+ *
+ * `desfecho` explica, no registro da conferência, por que não corrigiu.
+ */
+export function correcaoAplicada(
+  evento: EventoGravado | null,
+  statusDepois: string | null,
+  p: PagamentoAsaas,
+): { corrigida: boolean; desfecho: string } {
+  if (!evento) return { corrigida: false, desfecho: "aviso_nao_registrado" };
+  if (evento.erro) return { corrigida: false, desfecho: "erro_no_webhook" };
+  if (!evento.processado) return { corrigida: false, desfecho: "nao_processado" };
+  const desfecho = evento.resultado ?? "sem_desfecho";
+  if (!DESFECHOS_QUE_CORRIGEM.has(desfecho)) return { corrigida: false, desfecho };
+  const alvo = esperado(p);
+  if (!alvo || statusDepois !== alvo.statusBanco) return { corrigida: false, desfecho: `${desfecho}:status_${statusDepois ?? "ausente"}` };
+  return { corrigida: true, desfecho };
+}
+
 /**
  * O valor no Asaas difere do valor no banco? Diferença de até um centavo é
  * arredondamento. Sem um dos dois, não há o que comparar.
@@ -98,6 +151,11 @@ export function valorDiverge(asaas: number | undefined | null, banco: number | s
   return Math.abs(asaas - b) > 0.01;
 }
 
+/**
+ * Lança em vez de devolver nulo. Uma versão antiga devolvia nulo, e uma chave
+ * inválida no Asaas virava "0 divergências, 0 órfãs, sem erro" — a falha
+ * silenciosa que a conferência existe para acabar.
+ */
 export async function asaasGet<T>(api: string, chave: string, caminho: string): Promise<T> {
   const resp = await fetch(`${api}${caminho}`, { signal: AbortSignal.timeout(20_000), headers: { access_token: chave } });
   if (!resp.ok) throw new Error(`Asaas respondeu ${resp.status} em ${caminho.split("?")[0]}`);

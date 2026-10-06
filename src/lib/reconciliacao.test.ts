@@ -1,7 +1,12 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+  correcaoAplicada,
+  DESFECHOS_QUE_CORRIGEM,
   emPedacos,
   eventoParaCorrigir,
+  idDoReenvio,
   listagensDaVarredura,
   listarTodas,
   origemDaReferencia,
@@ -130,5 +135,60 @@ describe("valor no Asaas contra o banco", () => {
     expect(valorDiverge(undefined, 119.9)).toBe(false);
     expect(valorDiverge(129.9, null)).toBe(false);
     expect(valorDiverge(129.9, "abc")).toBe(false);
+  });
+});
+
+describe("o reenvio corrigiu? (o desfecho que o webhook gravou)", () => {
+  const processado = (resultado: string) => ({ processado: true, resultado, erro: null });
+
+  it("o id do reenvio é o mesmo para a mesma divergência", () => {
+    expect(idDoReenvio(p("RECEIVED"))).toBe("reconciliacao:pay_1:RECEIVED");
+    expect(idDoReenvio(p("PENDING", { deleted: true }))).toBe("reconciliacao:pay_1:DELETED");
+  });
+
+  it("corrigiu: processado, desfecho que mexe na cobrança e o status do Asaas no banco", () => {
+    expect(correcaoAplicada(processado("mensalidade_atualizada"), "confirmado", p("RECEIVED"))).toEqual({
+      corrigida: true,
+      desfecho: "mensalidade_atualizada",
+    });
+    expect(correcaoAplicada(processado("pagamento_arke_emitido"), "pendente", p("PENDING")).corrigida).toBe(true);
+    expect(correcaoAplicada(processado("cobranca_b2b_atualizada"), "cancelado", p("PENDING", { deleted: true })).corrigida).toBe(true);
+  });
+
+  it("o 200 do aviso ignorado, sem correspondência ou de outro ambiente não é correção", () => {
+    for (const desfecho of ["sem_correspondencia", "evento_ignorado", "sem_payment_id", "ambiente_incompativel:producao", "cartao_recusado"]) {
+      expect(correcaoAplicada(processado(desfecho), "pendente", p("RECEIVED"))).toEqual({ corrigida: false, desfecho });
+    }
+  });
+
+  it("erro interno do webhook, aviso sem processar ou sem registro não é correção", () => {
+    expect(correcaoAplicada({ processado: false, resultado: null, erro: "Error: Falha no banco: 23514" }, "pendente", p("RECEIVED"))).toEqual({
+      corrigida: false,
+      desfecho: "erro_no_webhook",
+    });
+    expect(correcaoAplicada({ processado: false, resultado: null, erro: null }, "pendente", p("RECEIVED")).desfecho).toBe("nao_processado");
+    expect(correcaoAplicada(null, "pendente", p("RECEIVED")).desfecho).toBe("aviso_nao_registrado");
+  });
+
+  it("transição recusada em silêncio pelo banco não é correção, mesmo com o desfecho 'atualizada'", () => {
+    // O Asaas diz vencida, o banco tem paga: trg_transicao_cobranca mantém paga.
+    expect(correcaoAplicada(processado("mensalidade_atualizada"), "confirmado", p("OVERDUE"))).toEqual({
+      corrigida: false,
+      desfecho: "mensalidade_atualizada:status_confirmado",
+    });
+    // Aviso repetido (já processado antes) e a divergência continua: não corrigiu agora.
+    expect(correcaoAplicada(processado("pagamento_arke_atualizado"), "pendente", p("RECEIVED")).corrigida).toBe(false);
+  });
+
+  it("todos os desfechos de correção são desfechos que o webhook grava", () => {
+    const webhook = readFileSync(join(__dirname, "..", "..", "supabase", "functions", "asaas-webhook", "index.ts"), "utf8");
+    for (const d of DESFECHOS_QUE_CORRIGEM) expect(webhook, d).toContain(`"${d}"`);
+  });
+
+  it("a conferência decide pelo desfecho gravado, e não pelo 200 da resposta", () => {
+    const funcao = readFileSync(join(__dirname, "..", "..", "supabase", "functions", "asaas-reconciliar", "index.ts"), "utf8");
+    expect(funcao).not.toMatch(/return resp\.ok;/);
+    expect(funcao).toMatch(/from\("asaas_webhook_events"\)\.select\("processado, resultado, erro"\)\.eq\("asaas_event_id", idAviso\)/);
+    expect(funcao).toMatch(/return correcaoAplicada\(/);
   });
 });

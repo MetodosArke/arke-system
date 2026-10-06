@@ -3,9 +3,12 @@ import { diaBrasilia, hojeBrasilia } from "../_shared/data.ts";
 import { todasAsLinhas } from "../_shared/paginar.ts";
 import {
   asaasGet,
+  correcaoAplicada,
   emPedacos,
   eventoParaCorrigir,
+  idDoReenvio,
   valorDiverge,
+  type EventoGravado,
   listagensDaVarredura,
   listarTodas,
   origemDaReferencia,
@@ -58,20 +61,50 @@ type Divergencia = {
   asaas: string;
   banco: string | null;
   corrigida: boolean;
+  /** O que o webhook gravou para o reenvio, ou por que não deu para saber. */
+  desfecho: string;
 };
 
-async function reenviarAoWebhook(supabaseUrl: string, segredoWebhook: string, evento: string, p: PagamentoAsaas) {
-  const resp = await fetch(`${supabaseUrl}/functions/v1/asaas-webhook`, {
-    signal: AbortSignal.timeout(30_000),
-    method: "POST",
-    headers: { "Content-Type": "application/json", "asaas-access-token": segredoWebhook },
-    body: JSON.stringify({
-      id: `reconciliacao:${p.id}:${p.deleted ? "DELETED" : p.status}`,
-      event: evento,
-      payment: p,
-    }),
-  });
-  return resp.ok;
+/**
+ * Reenvia o aviso ao webhook e lê o que ele de fato fez: o desfecho gravado
+ * em `asaas_webhook_events` e o status da cobrança depois. O 200 da resposta
+ * não basta — o webhook responde 200 também ao aviso repetido, ao ignorado e
+ * ao que deu erro interno.
+ */
+async function reenviarAoWebhook(ctx: Contexto, evento: string, p: PagamentoAsaas, origem: Origem) {
+  const idAviso = idDoReenvio(p);
+  try {
+    const resp = await fetch(`${ctx.supabaseUrl}/functions/v1/asaas-webhook`, {
+      signal: AbortSignal.timeout(30_000),
+      method: "POST",
+      headers: { "Content-Type": "application/json", "asaas-access-token": ctx.segredoWebhook },
+      body: JSON.stringify({ id: idAviso, event: evento, payment: p }),
+    });
+    // O corpo não interessa; ler libera a conexão.
+    await resp.text().catch(() => "");
+    if (!resp.ok) {
+      // Webhook fora do ar é falha da conferência, e não só uma divergência
+      // a mais: vai para `falhas`, que vira erro no registro e aviso do Vigia.
+      ctx.falhas.push(`${p.id}: webhook respondeu ${resp.status}`);
+      return { corrigida: false, desfecho: `webhook_http_${resp.status}` };
+    }
+  } catch (e) {
+    ctx.falhas.push(`${p.id}: webhook sem resposta`);
+    return { corrigida: false, desfecho: `webhook_sem_resposta:${e instanceof Error ? e.name : "falha"}` };
+  }
+  const [aviso, cobranca] = await Promise.all([
+    ctx.admin.from("asaas_webhook_events").select("processado, resultado, erro").eq("asaas_event_id", idAviso).maybeSingle(),
+    ctx.admin.from(TABELA[origem]).select("status").eq("asaas_payment_id", p.id).maybeSingle(),
+  ]);
+  if (aviso.error || cobranca.error) {
+    ctx.falhas.push(`${p.id}: desfecho ilegível`);
+    return { corrigida: false, desfecho: "desfecho_ilegivel" };
+  }
+  return correcaoAplicada(
+    (aviso.data as EventoGravado | null) ?? null,
+    (cobranca.data?.status as string | undefined) ?? null,
+    p,
+  );
 }
 
 type Contexto = {
@@ -102,8 +135,8 @@ async function conferir(ctx: Contexto, p: PagamentoAsaas, local: Local | null, o
   }
   const evento = eventoParaCorrigir(p, statusLocal, origem);
   if (!evento) return;
-  const corrigida = await reenviarAoWebhook(ctx.supabaseUrl, ctx.segredoWebhook, evento, p);
-  ctx.divergencias.push({ origem, pagamento: p.id, asaas: p.deleted ? "DELETED" : p.status, banco: statusLocal, corrigida });
+  const { corrigida, desfecho } = await reenviarAoWebhook(ctx, evento, p, origem);
+  ctx.divergencias.push({ origem, pagamento: p.id, asaas: p.deleted ? "DELETED" : p.status, banco: statusLocal, corrigida, desfecho });
 }
 
 /** O status e o valor locais de cada pagamento, pela tabela da origem de cada um, em pedaços de 100. */
@@ -247,7 +280,7 @@ servir("asaas-reconciliar", async (req: Request) => {
     }
 
     if (!erro && ctx.falhas.length > 0) {
-      erro = `${ctx.falhas.length} consulta(s) ao Asaas falharam: ${ctx.falhas.slice(0, 5).join("; ")}`;
+      erro = `${ctx.falhas.length} consulta(s) ao Asaas ou reenvio(s) ao webhook falharam: ${ctx.falhas.slice(0, 5).join("; ")}`;
     }
     if (!erro && naoConferidas > 0) {
       // Faltar tempo não é "nada a corrigir": vira aviso na faixa vermelha.
