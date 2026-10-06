@@ -17,6 +17,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Plus, Pencil } from "lucide-react";
 import type { Enums, Tables } from "@/integrations/supabase/types";
 import { reais } from "@/lib/numeros";
+import { ErroAoCarregar } from "@/components/ErroAoCarregar";
 
 type Periodicidade = Enums<"periodicidade_plano_academia">;
 type PlanoAcademia = Tables<"planos_academia">;
@@ -42,7 +43,13 @@ export function PlanosAcademiaPainel() {
   const [dialogAberto, setDialogAberto] = useState(false);
   const [form, setForm] = useState(FORM_VAZIO);
 
-  const { data: planos = [], isLoading } = useQuery({
+  const {
+    data: planos = [],
+    isLoading,
+    error: erroPlanos,
+    refetch: recarregarPlanos,
+    isFetching: recarregandoPlanos,
+  } = useQuery({
     queryKey: ["planos-academia", organization?.id],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -132,7 +139,10 @@ export function PlanosAcademiaPainel() {
         </CardHeader>
         <CardContent>
           {isLoading && <p className="text-sm text-muted-foreground">Carregando...</p>}
-          {!isLoading && planos.length === 0 && (
+          {erroPlanos && planos.length === 0 && (
+            <ErroAoCarregar oQue="os planos" onTentarDeNovo={() => void recarregarPlanos()} tentando={recarregandoPlanos} />
+          )}
+          {!isLoading && !erroPlanos && planos.length === 0 && (
             <p className="text-sm text-muted-foreground py-6 text-center">Nenhum plano cadastrado ainda.</p>
           )}
           {planos.length > 0 && (
@@ -159,7 +169,7 @@ export function PlanosAcademiaPainel() {
                       <Badge variant={plano.ativo ? "default" : "secondary"}>{plano.ativo ? "Ativo" : "Inativo"}</Badge>
                     </TableCell>
                     <TableCell className="text-right space-x-1">
-                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => abrirEdicao(plano)}>
+                      <Button aria-label="Editar o plano" variant="ghost" size="icon" className="h-7 w-7" onClick={() => abrirEdicao(plano)}>
                         <Pencil className="h-3.5 w-3.5" />
                       </Button>
                       <Switch checked={plano.ativo} onCheckedChange={() => alternarAtivo.mutate(plano)} />

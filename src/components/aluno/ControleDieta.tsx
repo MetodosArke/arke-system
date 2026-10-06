@@ -22,11 +22,10 @@ import {
   addMonths,
   subMonths,
   isToday,
-  startOfWeek,
-  endOfWeek,
 } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
+import { semanaBrasilia } from "@/lib/dataBrasilia";
 import { marcacoesDoPlano, percentualAdesao, respondidas, type Marcacoes, type RefeicaoPlano } from "@/lib/adesaoDieta";
 
 const INCREMENTOS_AGUA_ML = [200, 300, 500];
@@ -111,12 +110,11 @@ export default function ControleDieta({ dietaId, refeicoes = [] }: { dietaId: st
     enabled: !!alunoId,
   });
 
-  const weekStart = startOfWeek(new Date(), { weekStartsOn: 0 });
-  const weekEnd = endOfWeek(new Date(), { weekStartsOn: 0 });
-  const weekAdesoes = adesoes.filter((a) => {
-    const d = new Date(a.data);
-    return d >= weekStart && d <= weekEnd;
-  });
+  // `data` é data pura: comparada como texto com a semana de Brasília. Lida
+  // como Date, virava meia-noite em UTC (21h da véspera) e o domingo saía do
+  // resumo.
+  const semana = semanaBrasilia();
+  const weekAdesoes = adesoes.filter((a) => a.data >= semana.inicio && a.data <= semana.fim);
 
   const weekDoces = weekAdesoes.filter((a) => a.consumiu_doce).length;
   const weekAlcool = weekAdesoes.filter((a) => a.consumiu_alcool).length;
@@ -225,11 +223,11 @@ export default function ControleDieta({ dietaId, refeicoes = [] }: { dietaId: st
               Calendário de Adesão
             </CardTitle>
             <div className="flex items-center gap-1">
-              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}>
+              <Button aria-label="Mês anterior" variant="ghost" size="icon" className="h-8 w-8" onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}>
                 <ChevronLeft className="h-4 w-4" />
               </Button>
               <span className="text-sm font-medium min-w-[110px] text-center capitalize">{format(currentMonth, "MMMM yyyy", { locale: ptBR })}</span>
-              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}>
+              <Button aria-label="Próximo mês" variant="ghost" size="icon" className="h-8 w-8" onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}>
                 <ChevronRight className="h-4 w-4" />
               </Button>
             </div>

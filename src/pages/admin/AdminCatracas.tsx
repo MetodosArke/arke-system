@@ -40,6 +40,7 @@ import { DoorOpen, Plus, Copy, Power, PowerOff, ScrollText, Radio, UserCheck, Se
 import { formatarDataBR } from "@/lib/dataBrasilia";
 import { SaudeGateway } from "@/components/catraca/SaudeGateway";
 import { ConferenciaParceiros } from "@/components/catraca/ConferenciaParceiros";
+import { ErroAoCarregar } from "@/components/ErroAoCarregar";
 import { numeroNaoCadastrado } from "@/lib/gateway";
 import { useComandoGateway } from "@/hooks/useComandoGateway";
 import { ProgressoComando } from "@/components/catraca/ProgressoComando";
@@ -69,7 +70,13 @@ export default function AdminCatracas() {
   const [checkinParceiro, setCheckinParceiro] = useState<Parceiro | "">("");
   const [checkinNomeVisitante, setCheckinNomeVisitante] = useState("");
 
-  const { data: catracas = [], isLoading } = useQuery({
+  const {
+    data: catracas = [],
+    isLoading,
+    error: erroCatracas,
+    refetch: recarregarCatracas,
+    isFetching: recarregandoCatracas,
+  } = useQuery({
     queryKey: ["admin-catracas", organization?.id],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -83,7 +90,12 @@ export default function AdminCatracas() {
     enabled: !!organization?.id,
   });
 
-  const { data: logs = [] } = useQuery({
+  const {
+    data: logs = [],
+    error: erroLogs,
+    refetch: recarregarLogs,
+    isFetching: recarregandoLogs,
+  } = useQuery({
     queryKey: ["admin-catracas-logs", organization?.id],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -192,7 +204,12 @@ export default function AdminCatracas() {
   // RPC listar_parceiros_externos_ativos (não expõe credenciais). O
   // cadastro das credenciais em si fica em /admin/configuracoes/integracoes
   // (restrito a gestor, mesma regra do RLS).
-  const { data: parceirosAtivos = [] } = useQuery({
+  const {
+    data: parceirosAtivos = [],
+    error: erroParceiros,
+    refetch: recarregarParceiros,
+    isFetching: recarregandoParceiros,
+  } = useQuery({
     queryKey: ["admin-parceiros-ativos", organization?.id],
     queryFn: async () => {
       const { data, error } = await supabase.rpc("listar_parceiros_externos_ativos", {
@@ -370,7 +387,10 @@ export default function AdminCatracas() {
           </p>
         </CardHeader>
         <CardContent className="space-y-2">
-          {!isLoading && catracas.length === 0 && (
+          {erroCatracas && catracas.length === 0 && (
+            <ErroAoCarregar oQue="as catracas" onTentarDeNovo={() => void recarregarCatracas()} tentando={recarregandoCatracas} />
+          )}
+          {!isLoading && !erroCatracas && catracas.length === 0 && (
             <p className="text-sm text-muted-foreground text-center py-4">
               Nenhum dispositivo cadastrado ainda.
             </p>
@@ -442,7 +462,9 @@ export default function AdminCatracas() {
           </p>
         </CardHeader>
         <CardContent className="space-y-3">
-          {parceirosAtivos.length === 0 ? (
+          {erroParceiros && parceirosAtivos.length === 0 ? (
+            <ErroAoCarregar oQue="os parceiros" onTentarDeNovo={() => void recarregarParceiros()} tentando={recarregandoParceiros} />
+          ) : parceirosAtivos.length === 0 ? (
             <div className="text-sm text-muted-foreground text-center py-2 space-y-2">
               <p>Nenhum parceiro habilitado ainda.</p>
               {ehGestor ? (
@@ -553,7 +575,10 @@ export default function AdminCatracas() {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-1.5">
-          {logs.length === 0 && (
+          {erroLogs && logs.length === 0 && (
+            <ErroAoCarregar oQue="os acessos" onTentarDeNovo={() => void recarregarLogs()} tentando={recarregandoLogs} />
+          )}
+          {!erroLogs && logs.length === 0 && (
             <p className="text-sm text-muted-foreground text-center py-4">Nenhum acesso registrado ainda.</p>
           )}
           {logs.map((log) => {

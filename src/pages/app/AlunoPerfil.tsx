@@ -9,6 +9,7 @@ import { ConsentimentoSaude } from "@/components/privacidade/ConsentimentoSaude"
 import { ConsentimentoBiometria } from "@/components/catraca/ConsentimentoBiometria";
 import { AutorizacaoResponsavel } from "@/components/responsavel/AutorizacaoResponsavel";
 import { FotoRostoCatraca } from "@/components/catraca/FotoRostoCatraca";
+import { BaixarMeusDados } from "@/components/aluno/BaixarMeusDados";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -142,6 +143,7 @@ export default function AlunoPerfil() {
             <ConsentimentoSentinela alunoId={alunoId} organizationId={organization.id} noMetodo={metodoArkeAtivo} />
             <ConsentimentoBiometria alunoId={alunoId} organizationId={organization.id} />
             <FotoRostoCatraca alunoId={alunoId} />
+            <BaixarMeusDados />
             <p className="text-xs text-muted-foreground">
               Como a academia e o ARKE tratam os seus dados:{" "}
               <Link to="/app/ajuda/app-privacidade" className="text-primary underline underline-offset-2">

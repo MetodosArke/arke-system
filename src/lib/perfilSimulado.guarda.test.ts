@@ -58,4 +58,23 @@ describe("perfil simulado", () => {
     // A marca vem antes da entrega da sessão.
     expect(funcao.indexOf('from("sessoes_simuladas")')).toBeLessThan(funcao.indexOf("access_token: sessao.access_token"));
   });
+
+  it("a trilha da simulação guarda o id da pessoa, e não o e-mail", () => {
+    // Decisão de 06/10/2026: o e-mail na trilha, sem prazo, religava ao
+    // endereço da pessoa a conta que a anonimização desligou dele.
+    const funcao = readFileSync(join(FUNCOES, "impersonar-perfil", "index.ts"), "utf8");
+    const registro = funcao.slice(funcao.indexOf('rpc("registrar_auditoria"'));
+    const detalhes = registro.slice(registro.indexOf("_detalhes:"), registro.indexOf("});"));
+    expect(detalhes, "o registro da simulação foi achado").toMatch(/papel_alvo/);
+    expect(detalhes).not.toMatch(/email/i);
+    expect(registro).toMatch(/_entidade_id:\s*targetUserId/);
+    // E o banco tira o e-mail de todo registro de simulação, por qualquer caminho.
+    const pasta = join(__dirname, "..", "..", "supabase", "migrations");
+    const migrations = readdirSync(pasta)
+      .filter((f) => f.endsWith(".sql"))
+      .map((f) => readFileSync(join(pasta, f), "utf8"))
+      .join("\n");
+    expect(migrations).toMatch(/create trigger trg_auditoria_simulacao_sem_email\s+before insert or update of detalhes on public\.auditoria_acoes_sensiveis/);
+    expect(migrations).toMatch(/new\.detalhes := new\.detalhes - 'email_alvo'/);
+  });
 });

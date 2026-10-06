@@ -28,6 +28,8 @@ export default {
           DEFAULT: "hsl(var(--primary))",
           foreground: "hsl(var(--primary-foreground))",
         },
+        // O dourado da marca como está, para o logotipo (que não é texto).
+        marca: "hsl(var(--primary))",
         secondary: {
           DEFAULT: "hsl(var(--secondary))",
           foreground: "hsl(var(--secondary-foreground))",
@@ -73,6 +75,29 @@ export default {
           "accent-foreground": "hsl(var(--sidebar-accent-foreground))",
           border: "hsl(var(--sidebar-border))",
           ring: "hsl(var(--sidebar-ring))",
+        },
+      },
+      // Como TEXTO, algumas cores da marca não chegam a 4,5:1 (WCAG AA no
+      // texto pequeno): o dourado do botão dava 2,06:1 sobre o fundo claro, e
+      // o vermelho do botão 2,97:1 sobre o card escuro. O texto lê um token
+      // próprio (`--*-texto` em index.css); o fundo, a borda e o anel seguem
+      // com a cor da marca. `contraste.guarda.test.ts` confere as contas.
+      textColor: {
+        primary: {
+          DEFAULT: "hsl(var(--primary-texto))",
+          foreground: "hsl(var(--primary-foreground))",
+        },
+        destructive: {
+          DEFAULT: "hsl(var(--destructive-texto))",
+          foreground: "hsl(var(--destructive-foreground))",
+        },
+        success: {
+          DEFAULT: "hsl(var(--success-texto))",
+          foreground: "hsl(var(--success-foreground))",
+        },
+        warning: {
+          DEFAULT: "hsl(var(--warning-texto))",
+          foreground: "hsl(var(--warning-foreground))",
         },
       },
       borderRadius: {

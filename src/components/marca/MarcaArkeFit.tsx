@@ -35,6 +35,11 @@ type Props = {
 
 const BRILHO = "dark:drop-shadow-[0_0_10px_hsl(var(--primary)/0.35)]";
 
+// A marca é desenhada no dourado da marca (`text-marca`, o --primary), e não
+// em `text-primary`: desde 06/10/2026 o texto dourado do tema claro é um tom
+// mais fechado, para passar no contraste de texto — o logotipo não é texto e
+// fica na cor dele.
+
 function acessivel(decorativo?: boolean) {
   return decorativo ? { "aria-hidden": true as const } : { role: "img", "aria-label": "ArkeFit" };
 }
@@ -42,7 +47,7 @@ function acessivel(decorativo?: boolean) {
 /** Só o Arco: ícone, favicon, espaços pequenos. */
 export function SimboloArkeFit({ className, brilho, decorativo }: Props) {
   return (
-    <svg viewBox="18.5 18.5 83 83" className={cn("text-primary", brilho && BRILHO, className)} {...acessivel(decorativo)}>
+    <svg viewBox="18.5 18.5 83 83" className={cn("text-marca", brilho && BRILHO, className)} {...acessivel(decorativo)}>
       <Arco />
     </svg>
   );
@@ -51,7 +56,7 @@ export function SimboloArkeFit({ className, brilho, decorativo }: Props) {
 /** O Arco com o nome. A altura manda; a largura acompanha. */
 export function MarcaArkeFit({ className, brilho, decorativo }: Props) {
   return (
-    <svg viewBox={VIEWBOX} className={cn("text-primary", brilho && BRILHO, className)} {...acessivel(decorativo)}>
+    <svg viewBox={VIEWBOX} className={cn("text-marca", brilho && BRILHO, className)} {...acessivel(decorativo)}>
       <g transform={SIMBOLO_NA_MARCA}>
         <Arco />
       </g>

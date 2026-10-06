@@ -2,6 +2,7 @@ import { Navigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { resolveHomePath } from "@/lib/authRouting";
 import { SemAcademiaVinculada } from "@/components/acesso/TelasDeAcesso";
+import { CarregandoTela } from "@/components/CarregandoPagina";
 
 /**
  * Porta do app do aluno: só passa quem tem cadastro de aluno na academia.
@@ -15,11 +16,7 @@ export function AlunoVinculoGate({ children }: { children: React.ReactNode }) {
   const { rolesLoaded, alunoId, roles, organizationRole, organization } = useAuth();
 
   if (!rolesLoaded) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-background">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-      </div>
-    );
+    return <CarregandoTela />;
   }
 
   if (alunoId) return <>{children}</>;

@@ -1,4 +1,5 @@
 import { hojeBrasilia, formatarDataBR } from "@/lib/dataBrasilia";
+import { ErroAoCarregar } from "@/components/ErroAoCarregar";
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -28,7 +29,13 @@ const STATUS_STYLE: Record<string, { label: string; badge: "default" | "secondar
 export default function AlunoDesafios() {
   const { alunoId } = useAuth();
 
-  const { data: desafios = [], isLoading } = useQuery({
+  const {
+    data: desafios = [],
+    isLoading,
+    error: erroDesafios,
+    refetch: recarregarDesafios,
+    isFetching: recarregandoDesafios,
+  } = useQuery({
     queryKey: ["aluno-desafios", alunoId],
     queryFn: async () => {
       const { data, error } = await supabase.from("desafios").select("*").order("data_inicio", { ascending: false });
@@ -205,7 +212,12 @@ export default function AlunoDesafios() {
       </div>
 
       {isLoading && <p className="text-sm text-muted-foreground">Carregando...</p>}
-      {!isLoading && desafios.length === 0 && (
+      {erroDesafios && desafios.length === 0 && (
+        <Card>
+          <ErroAoCarregar oQue="os desafios" onTentarDeNovo={() => void recarregarDesafios()} tentando={recarregandoDesafios} />
+        </Card>
+      )}
+      {!isLoading && !erroDesafios && desafios.length === 0 && (
         <Card>
           <CardContent className="py-8 text-center text-sm text-muted-foreground">Nenhum desafio disponível no momento.</CardContent>
         </Card>

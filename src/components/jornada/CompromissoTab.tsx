@@ -166,7 +166,7 @@ export default function CompromissoTab() {
                   className="flex-1"
                 />
                 {metas.length > 1 && (
-                  <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={() => removerMeta(idx)}>
+                  <Button aria-label="Remover a meta" variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={() => removerMeta(idx)}>
                     <X className="h-4 w-4" />
                   </Button>
                 )}

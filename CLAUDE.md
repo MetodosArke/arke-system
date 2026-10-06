@@ -92,9 +92,10 @@ Cada linha é uma armadilha que já aconteceu aqui. Onde há trava, ela é um te
 - Exclusão de tenant por fora do produto com `session_replication_role = 'replica'` deixa órfãos. Confira com `verificar_orfaos()`.
 
 **App**
-- **Datas:** use `dataBrasilia`, `hojeBrasilia` e `formatarDataBR` (`src/lib/dataBrasilia.ts`), nunca `toISOString().slice(0, 10)` nem `new Date("aaaa-mm-dd")` na tela (`dataBrasilia.guarda`).
+- **Datas:** use `dataBrasilia`, `hojeBrasilia`, `semanaBrasilia` e `formatarDataBR` (`src/lib/dataBrasilia.ts`), nunca `toISOString().slice(0, 10)` nem `new Date()` sobre coluna `date`; compare data pura como texto (`dataBrasilia.guarda`).
 - **Erro de edge function:** use `mensagemDeErroEdge()`. Em erro, o `data` vem nulo (`erroEdge.guarda`).
-- **Mil linhas:** a API corta sem avisar. Use `todasAsLinhas`, e ids em lotes de 200 com `porLotes` (`paginar.guarda`).
+- **Mil linhas:** a API corta sem avisar. Use `todasAsLinhas`, e ids em lotes de 200 com `porLotes`; `.limit()` nunca passa de mil (`paginar.guarda`).
+- **Erro não é vazio:** tela com estado vazio trata o erro da mesma consulta, com `<ErroAoCarregar>` (`estadoVazio.guarda`).
 - **Cache:** a mesma chave do react-query nunca serve a duas consultas diferentes (`chavesDeCache.guarda`).
 - **Formulário:** mutação que envia estado de formulário recebe os dados no `mutate`, não pelo fechamento.
 - **Efeitos:** valor padrão literal (`= []`, `= {}`) em dado que é dependência de efeito causa laço.
@@ -105,6 +106,7 @@ Cada linha é uma armadilha que já aconteceu aqui. Onde há trava, ela é um te
 - **Rascunho:** digitação cara vai em `useRascunho`, no `sessionStorage`, e nunca restaura sozinha.
 - **Imagem:** sai reduzida do aparelho antes do upload (`reduzirImagem.guarda`). Arquivo de nome único ganha cache de 1 ano.
 - **Sorteio:** nunca `Math.random()` (`aleatorio.guarda`).
+- **Acessibilidade:** texto com 4,5:1 nos dois temas (a cor de texto lê `--*-texto`, não a do botão), zoom liberado, botão só de ícone com `aria-label` e o carregando com `role="status"` (`acessibilidade.guarda`).
 
 **Segurança e privacidade**
 - Papel da ArkeFit só vale com as duas etapas: `has_role` no banco e `verificada(claims)` nas funções (`verificacao.guarda`). Na gestão, `sessao_verificada()`.
@@ -112,7 +114,7 @@ Cada linha é uma armadilha que já aconteceu aqui. Onde há trava, ela é um te
 - IA: região fixa e modelo sem roteamento (`iaNoBrasil.guarda`), e prazo em toda chamada (`prazoIA.guarda`).
 - Sentry: o módulo é uma lista do que não sai. Session Replay desligado, e a identificação vai só por UUID.
 - Captcha só por `_shared/captcha.ts`. Senha vazada por k-anonimato (HIBP), com falha aberta.
-- A chave do Asaas só pelo `ambienteAsaas` (`ambienteAsaas.guarda`). O webhook confere cada gravação, e o aviso do sandbox só toca organização em trial, mesmo sem achar organização (`webhookAsaas.guarda`).
+- A chave do Asaas só pelo `ambienteAsaas` (`ambienteAsaas.guarda`). O webhook confere cada gravação, e o aviso do sandbox só toca organização em trial, mesmo sem achar organização (`webhookAsaas.guarda`). O aviso do Asaas é gravado reduzido ao que o webhook lê, mais os 4 dígitos e a bandeira (`trg_minimizar_aviso_asaas`, `avisoAsaas.guarda`).
 - Na sessão simulada, as autorizações da pessoa são recusadas no banco (`perfilSimulado.guarda`).
 
 ## Mapa
@@ -139,7 +141,7 @@ Cada linha é uma armadilha que já aconteceu aqui. Onde há trava, ela é um te
 
 - `npm run check`: tipos, lint, o `deno check` das funções e a auditoria das dependências de produção (alto e crítico); só erro reprova. `npx vitest run`: os testes do app, guardas incluídas.
 - Gateway: `cd packages/gateway && npm test && npm run check`. Versão nova muda `src/versao.ts` e o `package.json` juntos.
-- Sandbox do Asaas, que só aceita chave `$aact_hmlg_`: `npm run sandbox:cartao|ciclo|avulsa|conta|nfse|reconciliacao|implantacao|b2b-valor|assinatura`.
+- Sandbox do Asaas, que só aceita chave `$aact_hmlg_`: `npm run sandbox:cartao|ciclo|avulsa|conta|nfse|reconciliacao|implantacao|b2b-valor|assinatura|anonimizar`.
 - Emuladores das catracas: `cd packages/gateway && npm run emular:controlid|toletus|litenet3|facial-topdata|intelbras`.
 - Artigo da Central mudou: `npm run ajuda:indice`, e depois publicar `assistente-academia`.
 - Vigia: `npm run simulado:vigia`.

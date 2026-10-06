@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { dataBrasilia, hojeBrasilia, diaBrasilia, formatarDataBR } from "./dataBrasilia";
+import { dataBrasilia, hojeBrasilia, diaBrasilia, formatarDataBR, semanaBrasilia } from "./dataBrasilia";
 
 describe("data de Brasília", () => {
   it("devolve o dia de Brasília, não o de UTC, na janela da noite", () => {
@@ -65,5 +65,33 @@ describe("formatarDataBR", () => {
     expect(formatarDataBR("2026-07-01", { day: "2-digit", month: "2-digit" })).toBe("01/07");
     expect(formatarDataBR(null)).toBe("—");
     expect(formatarDataBR("não é data")).toBe("—");
+  });
+});
+
+describe("semanaBrasilia", () => {
+  it("vai de domingo a sábado, com o domingo dentro", () => {
+    // Terça, 06/10/2026, às 10h de Brasília.
+    expect(semanaBrasilia(new Date("2026-10-06T13:00:00Z"))).toEqual({ inicio: "2026-10-04", fim: "2026-10-10" });
+    // No próprio domingo, a semana começa nele.
+    expect(semanaBrasilia(new Date("2026-10-04T15:00:00Z"))).toEqual({ inicio: "2026-10-04", fim: "2026-10-10" });
+  });
+
+  it("às 22h do sábado ainda é a semana do sábado, e não a seguinte", () => {
+    // 22h de 10/10 em Brasília é 01h de 11/10 (domingo) em UTC.
+    expect(semanaBrasilia(new Date("2026-10-11T01:00:00Z"))).toEqual({ inicio: "2026-10-04", fim: "2026-10-10" });
+  });
+
+  it("o domingo lido como texto entra no filtro (o defeito do resumo da dieta)", () => {
+    const { inicio, fim } = semanaBrasilia(new Date("2026-10-06T13:00:00Z"));
+    const dias = ["2026-10-03", "2026-10-04", "2026-10-10", "2026-10-11"];
+    expect(dias.filter((d) => d >= inicio && d <= fim)).toEqual(["2026-10-04", "2026-10-10"]);
+    // O jeito errado: a data pura vira 21h da véspera e o domingo some.
+    const inicioDoAparelho = new Date("2026-10-04T00:00:00-03:00");
+    expect(new Date("2026-10-04") >= inicioDoAparelho).toBe(false);
+  });
+
+  it("atravessa a virada do ano", () => {
+    // Quinta, 31/12/2026.
+    expect(semanaBrasilia(new Date("2026-12-31T15:00:00Z"))).toEqual({ inicio: "2026-12-27", fim: "2027-01-02" });
   });
 });

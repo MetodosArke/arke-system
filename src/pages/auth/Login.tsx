@@ -94,7 +94,11 @@ export default function Login() {
               >
                 Instalar
               </Button>
-              <button onClick={() => setShowInstallBanner(false)} className="text-primary-foreground/70 hover:text-primary-foreground">
+              <button
+                aria-label="Fechar o aviso de instalação"
+                onClick={() => setShowInstallBanner(false)}
+                className="text-primary-foreground/70 hover:text-primary-foreground"
+              >
                 <X className="h-4 w-4" />
               </button>
             </div>
@@ -107,6 +111,7 @@ export default function Login() {
         size="icon"
         onClick={toggleTheme}
         className="absolute right-4 top-4"
+        aria-label={theme === "dark" ? "Usar o tema claro" : "Usar o tema escuro"}
       >
         {theme === "dark" ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
       </Button>

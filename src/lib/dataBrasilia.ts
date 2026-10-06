@@ -48,6 +48,24 @@ export function diaBrasilia(dias: number, momento: Date = new Date()): string {
   return dataBrasilia(new Date(momento.getTime() + dias * 86_400_000));
 }
 
+/**
+ * A semana de Brasília (de domingo a sábado) de um instante, como datas
+ * `YYYY-MM-DD` — para filtrar colunas `date` comparando texto com texto.
+ *
+ * Até 06/10/2026 o resumo da semana da dieta lia cada dia com
+ * `new Date("2026-10-04")`, que é meia-noite em UTC: em Brasília, 21h do
+ * sábado. O domingo caía antes do começo da semana e sumia do resumo. A conta
+ * parte do meio-dia de Brasília, longe de qualquer virada.
+ */
+export function semanaBrasilia(momento: Date = new Date()): { inicio: string; fim: string } {
+  const meioDia = new Date(`${dataBrasilia(momento)}T12:00:00-03:00`);
+  const diaDaSemana = meioDia.getUTCDay(); // 0 = domingo; 15h em UTC é o mesmo dia
+  return {
+    inicio: dataBrasilia(new Date(meioDia.getTime() - diaDaSemana * 86_400_000)),
+    fim: dataBrasilia(new Date(meioDia.getTime() + (6 - diaDaSemana) * 86_400_000)),
+  };
+}
+
 /** O primeiro dia do mês corrente em Brasília, como `YYYY-MM-01`. */
 export function inicioDoMesBrasilia(momento: Date = new Date()): string {
   return `${dataBrasilia(momento).slice(0, 7)}-01`;

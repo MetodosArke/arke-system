@@ -228,7 +228,7 @@ function Previa({
           <span className="rounded-md px-3 py-1.5 text-xs font-semibold" style={{ background: tema.cor, color: texto }}>
             Iniciar treino
           </span>
-          <span className="text-xs font-medium" style={{ color: tema.cor }}>
+          <span className="text-xs font-medium" style={{ color: tema.corTexto }}>
             Ver minha ficha
           </span>
         </div>

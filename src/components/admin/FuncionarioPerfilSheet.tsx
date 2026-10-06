@@ -430,7 +430,7 @@ export function FuncionarioPerfilSheet({
                   <span>
                     {DIA_SEMANA_LABEL[h.dia_semana]} · {h.hora_inicio.slice(0, 5)}–{h.hora_fim.slice(0, 5)}
                   </span>
-                  <Button
+                  <Button aria-label="Remover o horário"
                     size="icon"
                     variant="ghost"
                     className="h-6 w-6 text-destructive"

@@ -1,6 +1,7 @@
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
 import { describe, expect, it } from "vitest";
+import { TAMANHO_PAGINA } from "./paginar";
 
 /**
  * Trava de `paginar.ts`: a API do banco para em mil linhas sem avisar, e uma
@@ -10,10 +11,12 @@ import { describe, expect, it } from "vitest";
  *
  * Regra 1: ler uma tabela que cresce com a academia filtrando só pela
  * academia (`organization_id`) exige `.range()` — isto é, passar por
- * `todasAsLinhas` — ou um limite explícito.
+ * `todasAsLinhas` — ou um limite explícito, de até mil (regra 3).
  * Regra 2: `.in("id"|"user_id"|"aluno_id"|..., lista)` exige `porLotes` (a
  * lista chega como `lote`), a menos que a lista seja curta por natureza e
  * esteja em LISTAS_CURTAS com o porquê.
+ * Regra 3: nenhum `.limit(N)` passa de mil, no app e nas edge functions: acima
+ * disso a API devolve mil, com status 200.
  */
 const SRC = join(__dirname, "..");
 
@@ -78,8 +81,28 @@ export function inSemLote(codigo: string) {
     .map((m) => ({ coluna: m[1], lista: m[2], linha: codigo.slice(0, m.index).split("\n").length }));
 }
 
+/**
+ * `.limit(N)` com N acima do teto da API: o número escrito ou uma constante
+ * `const NOME = N` do mesmo arquivo. Limite que vem de estado (a página do
+ * feed que cresce) não dá para saber aqui.
+ */
+export function limitesAcimaDoTeto(codigo: string) {
+  const constantes = new Map(
+    [...codigo.matchAll(/\bconst\s+([A-Za-z_]\w*)\s*=\s*([\d_]+)\s*;/g)].map((m) => [m[1], Number(m[2].replace(/_/g, ""))]),
+  );
+  return [...codigo.matchAll(/\.limit\(\s*([\d_]+|[A-Za-z_]\w*)\s*\)/g)]
+    .map((m) => ({ valor: /^[\d_]+$/.test(m[1]) ? Number(m[1].replace(/_/g, "")) : constantes.get(m[1]), linha: codigo.slice(0, m.index).split("\n").length }))
+    .filter((l): l is { valor: number; linha: number } => typeof l.valor === "number" && l.valor > TAMANHO_PAGINA);
+}
+
 const codigos = arquivos(SRC).map((caminho) => ({
   nome: relative(SRC, caminho).replace(/\\/g, "/"),
+  codigo: readFileSync(caminho, "utf8"),
+}));
+
+const FUNCOES = join(__dirname, "..", "..", "supabase", "functions");
+const codigosFuncoes = arquivos(FUNCOES).map((caminho) => ({
+  nome: `supabase/functions/${relative(FUNCOES, caminho).replace(/\\/g, "/")}`,
   codigo: readFileSync(caminho, "utf8"),
 }));
 
@@ -109,6 +132,20 @@ describe("leituras que passam de mil linhas", () => {
       LISTAS_CURTAS[nome] ? [] : inSemLote(codigo).map((i) => `${nome}:${i.linha} (.in("${i.coluna}", ${i.lista}))`),
     );
     expect(violacoes, "use porLotes() de @/lib/paginar").toEqual([]);
+  });
+
+  it("nenhum limite passa do teto de mil linhas", () => {
+    // Brecha fechada em 06/10/2026: a regra 1 aceitava qualquer `.limit(`, e
+    // a conferência dos parceiros pedia `.limit(2000)` — a API devolvia mil, com
+    // status 200, e o repasse do mês era conferido contra um número cortado.
+    // Vale também para as edge functions: o teto é do PostgREST, com qualquer chave.
+    expect(limitesAcimaDoTeto('supabase.from("x").select("id").limit(2000);'), "o detector detecta").toHaveLength(1);
+    expect(limitesAcimaDoTeto('const LOTE = 5_000;\nsupabase.from("x").select("id").limit(LOTE);'), "e resolve a constante do arquivo").toHaveLength(1);
+    expect(limitesAcimaDoTeto('supabase.from("x").select("id").limit(1000);')).toHaveLength(0);
+    const violacoes = [...codigos, ...codigosFuncoes].flatMap(({ nome, codigo }) =>
+      limitesAcimaDoTeto(codigo).map((l) => `${nome}:${l.linha} (.limit(${l.valor}))`),
+    );
+    expect(violacoes, `acima de ${TAMANHO_PAGINA} a API corta sem avisar: use todasAsLinhas() de @/lib/paginar`).toEqual([]);
   });
 
   it("toda exceção listada ainda existe", () => {

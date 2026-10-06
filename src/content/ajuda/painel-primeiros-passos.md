@@ -38,6 +38,10 @@ Clique na sua foto, no alto à esquerda, para abrir **Meu perfil**. Ali você tr
 
 Se a conexão falhar na hora de abrir, o painel tenta de novo sozinho por alguns segundos. Se continuar sem conseguir, aparece **Não conseguimos carregar o seu acesso**: confira a internet e toque em **Tentar de novo**. Nada se perde nesse meio-tempo.
 
+## Quando uma lista não carrega
+
+Se a conexão falha no meio de uma tela (a lista de alunos, o financeiro, as catracas, o histórico de uma ficha), a tela mostra **Não foi possível carregar…**, com o botão **Tentar de novo**, e não "nenhum aluno" ou "nenhum lançamento". Os dados continuam guardados: não cadastre nem importe de novo. Confira a internet e toque em **Tentar de novo**.
+
 ## Mais de uma unidade
 
 Quem trabalha em mais de uma academia ou unidade da mesma rede vê um seletor de unidade no alto da tela. Ao trocar, o painel recarrega com os dados da outra unidade, e a escolha fica guardada naquele aparelho.

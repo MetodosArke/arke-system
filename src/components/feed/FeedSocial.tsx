@@ -15,6 +15,7 @@ import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import type { Tables } from "@/integrations/supabase/types";
 import { extensaoDoTipo, passaSemReduzir, reduzirImagem } from "@/lib/reduzirImagem";
+import { ErroAoCarregar } from "@/components/ErroAoCarregar";
 
 type FeedPost = Tables<"feed_posts">;
 type FeedComment = Tables<"feed_comments">;
@@ -52,7 +53,13 @@ export function FeedSocial({ podeModerarTudo }: { podeModerarTudo: boolean }) {
   const [novoComentario, setNovoComentario] = useState<Record<string, string>>({});
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const { data: posts = [], isLoading } = useQuery({
+  const {
+    data: posts = [],
+    isLoading,
+    error: erroPosts,
+    refetch: recarregarPosts,
+    isFetching: recarregandoPosts,
+  } = useQuery({
     queryKey: ["feed-posts", organization?.id, limite],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -238,7 +245,7 @@ export function FeedSocial({ podeModerarTudo }: { podeModerarTudo: boolean }) {
           {imagemPreview && (
             <div className="relative inline-block">
               <img src={imagemPreview} alt="Prévia" className="max-h-48 rounded-lg" />
-              <button
+              <button aria-label="Tirar a imagem"
                 className="absolute -top-2 -right-2 h-6 w-6 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center"
                 onClick={removerImagem}
               >
@@ -268,7 +275,12 @@ export function FeedSocial({ podeModerarTudo }: { podeModerarTudo: boolean }) {
       </Card>
 
       {isLoading && <p className="text-sm text-muted-foreground text-center">Carregando...</p>}
-      {!isLoading && posts.length === 0 && (
+      {erroPosts && posts.length === 0 && (
+        <Card>
+          <ErroAoCarregar oQue="o feed" onTentarDeNovo={() => void recarregarPosts()} tentando={recarregandoPosts} />
+        </Card>
+      )}
+      {!isLoading && !erroPosts && posts.length === 0 && (
         <Card>
           <CardContent className="py-8 text-center text-sm text-muted-foreground">Ainda não tem nada por aqui. Seja o primeiro a postar!</CardContent>
         </Card>
@@ -296,7 +308,7 @@ export function FeedSocial({ podeModerarTudo }: { podeModerarTudo: boolean }) {
                   </div>
                 </div>
                 {podeApagar && (
-                  <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive shrink-0" onClick={() => apagarPost.mutate(post.id)}>
+                  <Button aria-label="Apagar a publicação" variant="ghost" size="icon" className="h-7 w-7 text-destructive shrink-0" onClick={() => apagarPost.mutate(post.id)}>
                     <Trash2 className="h-3.5 w-3.5" />
                   </Button>
                 )}
@@ -337,7 +349,7 @@ export function FeedSocial({ podeModerarTudo }: { podeModerarTudo: boolean }) {
                           <p className="text-sm break-words">{c.content}</p>
                         </div>
                         {(podeModerarTudo || c.user_id === user?.id) && (
-                          <button className="text-muted-foreground hover:text-destructive shrink-0" onClick={() => apagarComentario.mutate(c.id)}>
+                          <button aria-label="Apagar o comentário" className="text-muted-foreground hover:text-destructive shrink-0" onClick={() => apagarComentario.mutate(c.id)}>
                             <X className="h-3.5 w-3.5" />
                           </button>
                         )}
@@ -357,7 +369,7 @@ export function FeedSocial({ podeModerarTudo }: { podeModerarTudo: boolean }) {
                       onChange={(e) => setNovoComentario((c) => ({ ...c, [post.id]: e.target.value }))}
                       className="h-8 text-sm"
                     />
-                    <Button type="submit" size="icon" className="h-8 w-8 shrink-0" disabled={!(novoComentario[post.id] ?? "").trim()}>
+                    <Button aria-label="Enviar comentário" type="submit" size="icon" className="h-8 w-8 shrink-0" disabled={!(novoComentario[post.id] ?? "").trim()}>
                       <Send className="h-3.5 w-3.5" />
                     </Button>
                   </form>

@@ -2,6 +2,7 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import { verificada } from "../_shared/verificacao.ts";
 import { ambienteAsaas } from "../_shared/asaas.ts";
 import { encerrarCobrancasDoAluno } from "../_shared/encerrarCobrancas.ts";
+import { anonimizarClienteNaSaida } from "../_shared/saidaAsaas.ts";
 import { apagarArquivosDoAluno, apagarArquivosPorUrl } from "../_shared/arquivosDoAluno.ts";
 import { servir } from "../_shared/servir.ts";
 
@@ -157,6 +158,12 @@ servir("anonimizar-aluno", async (req: Request) => {
       console.error("Error checking other links", outrosError.code);
       return jsonResponse({ error: "Erro ao conferir os vínculos da pessoa." }, 500);
     }
+    // O cadastro dela no Asaas (auditoria de 05/10/2026): antes do banco,
+    // porque o CPF ainda está no perfil. Não trava a anonimização: se o
+    // Asaas falhar, fica a pendência, e a rotina `retentar-saida-asaas`
+    // tenta de novo de hora em hora (`_shared/saidaAsaas.ts`).
+    const asaas = await anonimizarClienteNaSaida(adminClient, aluno, !!outrosVinculos, (n) => Deno.env.get(n));
+
     if (!outrosVinculos) {
       const { error: authUpdateError } = await adminClient.auth.admin.updateUserById(aluno.user_id, {
         email: emailAnonimizado,
@@ -195,6 +202,8 @@ servir("anonimizar-aluno", async (req: Request) => {
     return jsonResponse({
       success: true,
       outros_vinculos: !!outrosVinculos,
+      // "anonimizado", ou "pendente" quando o Asaas falhou e a rotina tenta de novo.
+      cadastro_no_asaas: asaas.situacao === "anonimizado" ? "anonimizado" : "pendente",
       arquivos_apagados: privados.apagados + publicos.apagados,
       arquivos_pendentes: [...privados.falhas, ...publicos.falhas],
     });

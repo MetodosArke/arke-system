@@ -191,9 +191,11 @@ servir("impersonar-perfil", async (req: Request) => {
       _entidade: "auth.users",
       _entidade_id: targetUserId,
       _organizacao_nome: organizacao?.nome ?? null,
+      // A pessoa simulada fica pelo id (`_entidade_id`), e não pelo e-mail:
+      // o e-mail na trilha religava ao endereço da pessoa a conta que a
+      // anonimização desligou dele, e a trilha não tem prazo (06/10/2026).
       _detalhes: {
         papel_alvo: targetMembership.role,
-        email_alvo: targetUser.user.email,
         ator_admin_arke: callerIsAdminArke,
         ator_superadmin: callerIsSuperadmin,
       },

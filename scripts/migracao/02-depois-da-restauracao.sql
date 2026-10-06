@@ -121,7 +121,7 @@ select vault.create_secret(encode(extensions.gen_random_bytes(32), 'hex'), 'reco
 -- ------------------------------------------------------------- Rotinas ------
 
 -- >>> rotinas (gerado por scripts/migracao/rotinas.mjs; não editar à mão)
--- 31 rotinas, as mesmas que as migrations deixam agendadas. Horários em UTC,
+-- 32 rotinas, as mesmas que as migrations deixam agendadas. Horários em UTC,
 -- como o pg_cron os guarda. Cada uma diz de que migration veio.
 select cron.unschedule(jobid) from cron.job;
 
@@ -322,6 +322,19 @@ select cron.schedule('arke-vigia', '*/5 * * * *', $cmd$select public.vigia_fecha
 
 -- supabase/migrations/20261374010000_vigia_desfecho_e_rotina_do_mrr.sql
 select cron.schedule('snapshot-mrr-diario', '5 3 * * *', $cmd$select public.capturar_snapshot_mrr();$cmd$);
+
+-- supabase/migrations/20261377010000_saida_asaas_pendente.sql
+select cron.schedule('arke-saida-asaas', '25 * * * *', $cmd$
+    select net.http_post(
+      url := 'https://lzyxqjibkfblrrjboylp.supabase.co/functions/v1/retentar-saida-asaas',
+      headers := jsonb_build_object(
+        'Content-Type', 'application/json',
+        'x-alerta-token', (select decrypted_secret from vault.decrypted_secrets where name = 'alerta_rotinas_token')
+      ),
+      body := '{}'::jsonb,
+      timeout_milliseconds := 120000
+    );
+  $cmd$);
 
 -- supabase/migrations/20261380010000_registros_de_acesso_marco_civil.sql
 select cron.schedule('arke-registros-de-acesso', '10 7 * * *', $cmd$select public.limpar_registros_acesso_aplicacao()$cmd$);

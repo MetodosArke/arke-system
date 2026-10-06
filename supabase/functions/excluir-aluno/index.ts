@@ -2,6 +2,7 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import { verificada } from "../_shared/verificacao.ts";
 import { ambienteAsaas } from "../_shared/asaas.ts";
 import { encerrarCobrancasDoAluno } from "../_shared/encerrarCobrancas.ts";
+import { anonimizarClienteNaSaida } from "../_shared/saidaAsaas.ts";
 import { apagarArquivosDoAluno, apagarArquivosPorUrl } from "../_shared/arquivosDoAluno.ts";
 import { servir } from "../_shared/servir.ts";
 
@@ -157,6 +158,18 @@ servir("excluir-aluno", async (req: Request) => {
       return jsonResponse({ error: encerramento.erro }, 502);
     }
 
+    // O cadastro dele no Asaas, antes de o banco apagar o aluno (o CPF e as
+    // matrículas são o que acha o cliente). Não trava a exclusão: se o Asaas
+    // falhar, fica a pendência para a rotina `retentar-saida-asaas`.
+    const { data: outrosVinculos, error: outrosError } = await adminClient.rpc("pessoa_tem_outro_vinculo", {
+      _aluno_id: aluno.id,
+    });
+    if (outrosError) {
+      console.error("Error checking other links", outrosError.code);
+      return jsonResponse({ error: "Erro ao conferir os vínculos da pessoa." }, 500);
+    }
+    const asaas = await anonimizarClienteNaSaida(adminClient, aluno, !!outrosVinculos, (n) => Deno.env.get(n));
+
     // O banco apaga só o que é do aluno NESTA academia. Antes, a função
     // apagava a conta (auth.users), e a cascata levava a matrícula, o
     // histórico e as mensagens da pessoa em todas as academias dela
@@ -193,6 +206,7 @@ servir("excluir-aluno", async (req: Request) => {
     return jsonResponse({
       success: true,
       conta_apagada: resultado.apagar_conta,
+      cadastro_no_asaas: asaas.situacao === "anonimizado" ? "anonimizado" : "pendente",
       arquivos_apagados: privados.apagados + publicos.apagados,
       arquivos_pendentes: [...privados.falhas, ...publicos.falhas],
     });

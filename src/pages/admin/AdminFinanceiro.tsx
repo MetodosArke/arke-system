@@ -22,6 +22,7 @@ import { DollarSign, TrendingUp, TrendingDown, Plus, Wallet, Repeat, Sparkles, B
 import type { Enums, Tables } from "@/integrations/supabase/types";
 import { reais } from "@/lib/numeros";
 import { todasAsLinhas } from "@/lib/paginar";
+import { ErroAoCarregar } from "@/components/ErroAoCarregar";
 
 type FolhaTipo = Enums<"folha_tipo">;
 type LancamentoTipo = Enums<"lancamento_financeiro_tipo">;
@@ -122,7 +123,12 @@ export default function AdminFinanceiro() {
   const [novoLancamento, setNovoLancamento] = useState<LancamentoForm>(LANCAMENTO_VAZIO);
   const [novaCategoria, setNovaCategoria] = useState<{ tipo: LancamentoTipo; nome: string }>({ tipo: "despesa", nome: "" });
 
-  const { data: equipe = [] } = useQuery({
+  const {
+    data: equipe = [],
+    error: erroEquipe,
+    refetch: recarregarEquipe,
+    isFetching: recarregandoEquipe,
+  } = useQuery({
     queryKey: ["financeiro-equipe", organization?.id],
     queryFn: async () => {
       const { data: membros, error } = await supabase
@@ -133,9 +139,10 @@ export default function AdminFinanceiro() {
         .in("role", ["gestor", "professor", "nutricionista", "recepcao"]);
       if (error) throw error;
       const userIds = membros.map((m) => m.user_id);
-      const { data: profiles } = userIds.length
+      const { data: profiles, error: erroPerfis } = userIds.length
         ? await supabase.from("profiles").select("user_id, full_name").in("user_id", userIds)
-        : { data: [] as { user_id: string; full_name: string }[] };
+        : { data: [] as { user_id: string; full_name: string }[], error: null };
+      if (erroPerfis) throw erroPerfis;
       const nomeByUserId = new Map((profiles ?? []).map((p) => [p.user_id, p.full_name]));
       return membros.map((m) => ({ ...m, full_name: nomeByUserId.get(m.user_id) ?? "—" }));
     },
@@ -269,7 +276,12 @@ export default function AdminFinanceiro() {
   // Os lançamentos do mês escolhido, todos (em páginas). Antes eram só os 80
   // mais recentes, de qualquer mês, e os totais saíam deles: com o volume de
   // uma academia de verdade, o saldo ficava errado.
-  const { data: lancamentos = [] } = useQuery({
+  const {
+    data: lancamentos = [],
+    error: erroLancamentos,
+    refetch: recarregarLancamentos,
+    isFetching: recarregandoLancamentos,
+  } = useQuery({
     queryKey: ["lancamentos-financeiros", organization?.id, mesLancamentos],
     queryFn: async () => {
       const [inicio, fim] = limitesDoMes(mesLancamentos);
@@ -360,7 +372,12 @@ export default function AdminFinanceiro() {
     enabled: !!organization?.id,
   });
 
-  const { data: comissoesLancamentos = [] } = useQuery({
+  const {
+    data: comissoesLancamentos = [],
+    error: erroComissoes,
+    refetch: recarregarComissoes,
+    isFetching: recarregandoComissoes,
+  } = useQuery({
     queryKey: ["staff-comissoes-lancamentos", organization?.id],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -610,7 +627,13 @@ export default function AdminFinanceiro() {
 
           <Card>
             <CardContent className="pt-4">
-              {lancamentos.length === 0 ? (
+              {erroLancamentos && lancamentos.length === 0 ? (
+                <ErroAoCarregar
+                  oQue="os lançamentos"
+                  onTentarDeNovo={() => void recarregarLancamentos()}
+                  tentando={recarregandoLancamentos}
+                />
+              ) : lancamentos.length === 0 ? (
                 <p className="text-sm text-muted-foreground text-center py-6">Nenhum lançamento em {mesLabel(mesLancamentos)}.</p>
               ) : (
                 <Table>
@@ -705,7 +728,11 @@ export default function AdminFinanceiro() {
                   </div>
                 );
               })}
-              {equipe.length === 0 && <p className="text-sm text-muted-foreground">Nenhum profissional na equipe.</p>}
+              {erroEquipe && equipe.length === 0 ? (
+                <ErroAoCarregar oQue="a equipe" onTentarDeNovo={() => void recarregarEquipe()} tentando={recarregandoEquipe} />
+              ) : (
+                equipe.length === 0 && <p className="text-sm text-muted-foreground">Nenhum profissional na equipe.</p>
+              )}
             </CardContent>
           </Card>
 
@@ -840,7 +867,13 @@ export default function AdminFinanceiro() {
               <CardTitle className="text-base">Lançamentos recentes</CardTitle>
             </CardHeader>
             <CardContent>
-              {comissoesLancamentos.length === 0 ? (
+              {erroComissoes && comissoesLancamentos.length === 0 ? (
+                <ErroAoCarregar
+                  oQue="as comissões"
+                  onTentarDeNovo={() => void recarregarComissoes()}
+                  tentando={recarregandoComissoes}
+                />
+              ) : comissoesLancamentos.length === 0 ? (
                 <p className="text-sm text-muted-foreground py-6 text-center">Nenhuma comissão gerada ainda.</p>
               ) : (
                 <Table>

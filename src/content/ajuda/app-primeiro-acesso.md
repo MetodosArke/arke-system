@@ -32,6 +32,7 @@ Na tela de entrada, toque em **Esqueceu a senha?** e digite o seu e-mail. O link
 
 - **Não conseguimos carregar o seu acesso**: a conexão falhou na hora de abrir, mesmo depois de o app tentar de novo. Confira a internet e toque em **Tentar de novo**.
 - **Nenhuma academia vinculada a esta conta**: o e-mail com que você entrou não tem matrícula ativa em nenhuma academia. Confira se entrou com o e-mail da matrícula, ou peça à recepção para conferir o seu cadastro.
+- **Não foi possível carregar o seu treino** (ou a dieta, as avaliações, a conversa): a conexão falhou no meio do caminho. Nada foi apagado: toque em **Tentar de novo**.
 
 ## Os primeiros passos
 

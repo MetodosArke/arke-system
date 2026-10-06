@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   CONTRASTE_MINIMO,
   FUNDOS,
+  FUNDOS_DO_TEXTO,
   contraste,
   coresDaMarca,
   cssDaMarca,
@@ -9,8 +10,10 @@ import {
   linkDeEntrada,
   normalizarHex,
   slugDeEntrada,
+  hslDe,
   textoSobre,
   tomParaOTema,
+  tomParaTexto,
 } from "./marcaAcademia";
 
 const pior = (hex: string, tema: "claro" | "escuro") => Math.min(...FUNDOS[tema].map((f) => contraste(lerHex(hex)!, f)));
@@ -76,6 +79,19 @@ describe("cor da academia", () => {
         expect(contraste(c, textoSobre(c)), `${hex} ${tema}`).toBeGreaterThanOrEqual(4.5);
       }
     }
+  });
+
+  it("a cor usada como texto passa de 4,5 sobre o fundo, o cartão e o muted, nos dois temas", () => {
+    for (const hex of ["#ffffff", "#000000", "#ff0000", "#00ff00", "#0000ff", "#777777", "#ffc700", "#d9a520", "#1e6fd9", "#e91e63", "#00a86b"]) {
+      for (const tema of ["claro", "escuro"] as const) {
+        const t = coresDaMarca(hex)![tema];
+        const c = lerHex(t.corTexto)!;
+        for (const fundo of FUNDOS_DO_TEXTO[tema]) expect(contraste(c, fundo), `${hex} ${tema}`).toBeGreaterThanOrEqual(4.5);
+        expect(t.tokens["--primary-texto"]).toBe(hslDe(c));
+      }
+    }
+    // O azul escuro já passa no claro e fica como está.
+    expect(tomParaTexto(lerHex("#1e3a8a")!, "claro")).toEqual(lerHex("#1e3a8a"));
   });
 
   it("o texto acompanha a cor: escuro no amarelo, branco no azul", () => {

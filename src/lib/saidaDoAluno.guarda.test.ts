@@ -72,6 +72,8 @@ const FICAM: Record<string, string> = {
     "prova do aceite do responsável legal do aluno menor (nome, e-mail, versão e hash do texto), guardada como o termo da digital",
   responsavel_pedidos:
     "registro do pedido ao responsável e da resposta dele, que prova o caminho do consentimento; com o aluno anonimizado, o link para de valer",
+  asaas_saida_pendente:
+    "a pendência de anonimizar o cadastro no Asaas quando ele falhou na saída; sem dado pessoal, e sai quando a rotina conclui",
 };
 
 describe("saída do aluno", () => {
@@ -102,6 +104,29 @@ describe("saída do aluno", () => {
     expect(funcao).toMatch(/if \(resultado\.apagar_conta\) \{\s+const \{ error: contaError \} = await adminClient\.auth\.admin\.deleteUser/);
     expect(funcao.match(/deleteUser/g)?.length).toBe(1);
     expect(funcao.indexOf('rpc("excluir_aluno_da_academia"')).toBeLessThan(funcao.indexOf("deleteUser"));
+  });
+
+  it("a saída anonimiza o cliente no Asaas antes do banco, e não trava se o Asaas falhar", () => {
+    // Decisão de 06/10/2026: o CPF ainda está no perfil antes do banco, e o
+    // direito da pessoa não espera o gateway — a pendência fica para a rotina.
+    for (const [nome, rpcDoBanco] of [
+      ["anonimizar-aluno", 'rpc("anonimizar_dados_do_aluno"'],
+      ["excluir-aluno", 'rpc("excluir_aluno_da_academia"'],
+    ]) {
+      const funcao = ler(FUNCOES, nome, "index.ts");
+      const chamada = funcao.indexOf("anonimizarClienteNaSaida(adminClient, aluno");
+      expect(chamada, `${nome} chama a anonimização no Asaas`).toBeGreaterThan(0);
+      expect(chamada, `${nome}: antes do banco`).toBeLessThan(funcao.indexOf(rpcDoBanco));
+      // O desfecho vai na resposta, e nenhum `return` depende dele.
+      expect(funcao, nome).not.toMatch(/if\s*\(\s*asaas[^)]*\)\s*\{?\s*return/);
+      expect(funcao, nome).toMatch(/cadastro_no_asaas: asaas\.situacao === "anonimizado"/);
+    }
+    const anonimizar = ler(FUNCOES, "anonimizar-aluno", "index.ts");
+    expect(anonimizar.indexOf("anonimizarClienteNaSaida(")).toBeLessThan(anonimizar.indexOf("updateUserById"));
+    const saida = ler(FUNCOES, "_shared", "saidaAsaas.ts");
+    expect(saida).toMatch(/rpc\("registrar_saida_asaas_pendente"/);
+    const todas = migrations.map((m) => m.sql).join("\n");
+    expect(todas, "a rotina que tenta de novo").toMatch(/cron\.schedule\(\s*'arke-saida-asaas'[\s\S]*?functions\/v1\/retentar-saida-asaas/);
   });
 
   it("nenhum usuário logado chama as funções de saída", () => {

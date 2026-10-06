@@ -9,6 +9,7 @@ import { UtensilsCrossed, Flame, MessageCircle, CalendarDays, ChevronDown, Repea
 import { MetodoArke } from "@/components/aluno/MetodoArke";
 import { temNutricaoNoPlano } from "@/lib/planoAluno";
 import { hojeBrasilia } from "@/lib/dataBrasilia";
+import { ErroAoCarregar } from "@/components/ErroAoCarregar";
 import { useNutricionistaDaAcademia } from "@/hooks/useNutricionistaDaAcademia";
 import { useToast } from "@/hooks/use-toast";
 import { ChatPanel } from "@/components/chat/ChatPanel";
@@ -43,10 +44,17 @@ export default function AlunoDieta() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: dieta, isLoading } = useQuery({
+  const {
+    data: dieta,
+    isLoading,
+    error: erroDieta,
+    refetch: recarregarDieta,
+    isFetching: recarregandoDieta,
+  } = useQuery({
     queryKey: ["aluno-dieta-atual", alunoId],
     queryFn: async () => {
-      const { data } = await supabase
+      // O erro sobe: engolido, virava "nenhuma dieta publicada".
+      const { data, error } = await supabase
         .from("dietas")
         .select("id, titulo, snapshot_conteudo")
         .eq("aluno_id", alunoId!)
@@ -54,6 +62,7 @@ export default function AlunoDieta() {
         .order("created_at", { ascending: false })
         .limit(1)
         .maybeSingle();
+      if (error) throw error;
       return data;
     },
     enabled: !!alunoId,
@@ -153,7 +162,13 @@ export default function AlunoDieta() {
 
       {isLoading && <p className="text-sm text-muted-foreground">Carregando...</p>}
 
-      {!isLoading && !dieta && (
+      {erroDieta && !dieta && (
+        <Card>
+          <ErroAoCarregar oQue="a sua dieta" onTentarDeNovo={() => void recarregarDieta()} tentando={recarregandoDieta} />
+        </Card>
+      )}
+
+      {!isLoading && !erroDieta && !dieta && (
         <Card>
           <CardContent className="py-8 text-center text-sm text-muted-foreground">
             {noMetodo

@@ -17,6 +17,7 @@ import { useToast } from "@/hooks/use-toast";
 import type { Enums } from "@/integrations/supabase/types";
 import { FuncionarioPerfilSheet } from "@/components/admin/FuncionarioPerfilSheet";
 import { useDuasEtapasNaAcao } from "@/components/duasEtapas/useDuasEtapasNaAcao";
+import { ErroAoCarregar } from "@/components/ErroAoCarregar";
 
 type PapelEquipe = Extract<Enums<"app_role">, "gestor" | "professor" | "nutricionista" | "recepcao">;
 
@@ -48,7 +49,13 @@ export default function AdminEquipe() {
   const [inativando, setInativando] = useState<MembroRow | null>(null);
   const [perfilAberto, setPerfilAberto] = useState<MembroRow | null>(null);
 
-  const { data: equipe = EMPTY_EQUIPE, isLoading } = useQuery({
+  const {
+    data: equipe = EMPTY_EQUIPE,
+    isLoading,
+    error: erroEquipe,
+    refetch: recarregarEquipe,
+    isFetching: recarregandoEquipe,
+  } = useQuery({
     queryKey: ["admin-equipe", organization?.id],
     queryFn: async () => {
       const { data: membros, error } = await supabase
@@ -60,9 +67,10 @@ export default function AdminEquipe() {
       if (error) throw error;
 
       const userIds = membros.map((m) => m.user_id);
-      const { data: profiles } = userIds.length
+      const { data: profiles, error: erroPerfis } = userIds.length
         ? await supabase.from("profiles").select("user_id, full_name").in("user_id", userIds)
-        : { data: [] as { user_id: string; full_name: string }[] };
+        : { data: [] as { user_id: string; full_name: string }[], error: null };
+      if (erroPerfis) throw erroPerfis;
 
       const nomeByUserId = new Map((profiles ?? []).map((p) => [p.user_id, p.full_name]));
       return membros.map((m) => ({ ...m, full_name: nomeByUserId.get(m.user_id) ?? "—" }));
@@ -124,7 +132,10 @@ export default function AdminEquipe() {
       <Card>
         <CardContent className="p-0">
           {isLoading && <p className="p-4 text-sm text-muted-foreground">Carregando...</p>}
-          {!isLoading && equipe.length === 0 && (
+          {erroEquipe && equipe.length === 0 && (
+            <ErroAoCarregar oQue="a equipe" onTentarDeNovo={() => void recarregarEquipe()} tentando={recarregandoEquipe} />
+          )}
+          {!isLoading && !erroEquipe && equipe.length === 0 && (
             <p className="p-4 text-sm text-muted-foreground">Nenhum membro de equipe cadastrado ainda.</p>
           )}
           {equipe.length > 0 && (

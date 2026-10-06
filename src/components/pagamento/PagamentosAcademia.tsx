@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ExternalLink, Receipt } from "lucide-react";
 import { hojeBrasilia } from "@/lib/dataBrasilia";
+import { ErroAoCarregar } from "@/components/ErroAoCarregar";
 import { reais } from "@/lib/numeros";
 import type { Enums } from "@/integrations/supabase/types";
 import { useAuth } from "@/contexts/AuthContext";
@@ -64,7 +65,12 @@ export function PagamentosAcademia({ alunoId }: { alunoId: string }) {
       return data;
     },
   });
-  const { data: cobrancas } = useQuery({
+  const {
+    data: cobrancas,
+    error: erroCobrancas,
+    refetch: recarregarCobrancas,
+    isFetching: recarregandoCobrancas,
+  } = useQuery({
     queryKey: ["pagamentos-academia", alunoId],
     queryFn: async () => {
       const [mensalidades, avulsas, notas] = await Promise.all([
@@ -93,7 +99,9 @@ export function PagamentosAcademia({ alunoId }: { alunoId: string }) {
     },
   });
 
-  if (!cobrancas?.length && !matricula) return null;
+  // Falha na leitura não some com o cartão nem vira "Nada em aberto": o
+  // aluno com mensalidade vencida acharia que está em dia.
+  if (!cobrancas?.length && !matricula && !erroCobrancas) return null;
 
   const hoje = hojeBrasilia();
   // Dívida é só o que espera pagamento — mesma regra do bloqueio.
@@ -113,7 +121,14 @@ export function PagamentosAcademia({ alunoId }: { alunoId: string }) {
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
-        {abertas.length === 0 ? (
+        {erroCobrancas && !cobrancas ? (
+          <ErroAoCarregar
+            oQue="os seus pagamentos"
+            onTentarDeNovo={() => void recarregarCobrancas()}
+            tentando={recarregandoCobrancas}
+            className="p-2"
+          />
+        ) : abertas.length === 0 ? (
           <p className="text-sm text-muted-foreground">Nada em aberto.</p>
         ) : (
           abertas.map((m) => {

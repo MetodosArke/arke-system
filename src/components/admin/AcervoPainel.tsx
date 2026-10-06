@@ -439,7 +439,7 @@ export function AcervoPainel() {
                       {detalheEhDaOrg ? <Pencil className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
                     </Button>
                     {detalheEhDaOrg && (
-                      <Button
+                      <Button aria-label="Excluir do acervo"
                         variant="ghost"
                         size="icon"
                         className="h-8 w-8 text-destructive"

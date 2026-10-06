@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { todasAsLinhas } from "@/lib/paginar";
 import { perfisDosUsuarios } from "@/lib/perfis";
+import { ErroAoCarregar } from "@/components/ErroAoCarregar";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -57,7 +58,13 @@ export default function AdminRetencao() {
   const { organization } = useAuth();
   const navigate = useNavigate();
 
-  const { data: alunosRisco = [], isLoading: isLoadingRisco } = useQuery({
+  const {
+    data: alunosRisco = [],
+    isLoading: isLoadingRisco,
+    error: erroRisco,
+    refetch: recarregarRisco,
+    isFetching: recarregandoRisco,
+  } = useQuery({
     queryKey: ["retencao-alunos-risco", organization?.id],
     queryFn: async () => {
       const cincoDiasIso = diaBrasilia(-5);
@@ -112,7 +119,13 @@ export default function AdminRetencao() {
   // aluno vê no próprio app, aqui por aluno, pra equipe agir antes de
   // virar cancelamento. Ordenado do mais baixo pro mais alto: quem
   // precisa de atenção aparece primeiro.
-  const { data: engajamento = [], isLoading: isLoadingEngajamento } = useQuery({
+  const {
+    data: engajamento = [],
+    isLoading: isLoadingEngajamento,
+    error: erroEngajamento,
+    refetch: recarregarEngajamento,
+    isFetching: recarregandoEngajamento,
+  } = useQuery({
     queryKey: ["retencao-engajamento-alunos", organization?.id],
     queryFn: async () => {
       const [pontuacoes, alunosData] = await Promise.all([
@@ -135,7 +148,13 @@ export default function AdminRetencao() {
     enabled: !!organization?.id,
   });
 
-  const { data: metrics, isLoading } = useQuery({
+  const {
+    data: metrics,
+    isLoading,
+    error: erroMetricas,
+    refetch: recarregarMetricas,
+    isFetching: recarregandoMetricas,
+  } = useQuery({
     queryKey: ["org-churn-metrics", organization?.id],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -171,7 +190,10 @@ export default function AdminRetencao() {
         </CardHeader>
         <CardContent className="space-y-2">
           {isLoadingRisco && <p className="text-sm text-muted-foreground">Carregando...</p>}
-          {!isLoadingRisco && alunosRisco.length === 0 && (
+          {erroRisco && alunosRisco.length === 0 && (
+            <ErroAoCarregar oQue="os alunos em risco" onTentarDeNovo={() => void recarregarRisco()} tentando={recarregandoRisco} />
+          )}
+          {!isLoadingRisco && !erroRisco && alunosRisco.length === 0 && (
             <p className="text-sm text-muted-foreground">Nenhum aluno em risco no momento. 🎉</p>
           )}
           {alunosRisco.map((a) => (
@@ -212,7 +234,14 @@ export default function AdminRetencao() {
         </CardHeader>
         <CardContent className="space-y-2">
           {isLoadingEngajamento && <p className="text-sm text-muted-foreground">Carregando...</p>}
-          {!isLoadingEngajamento && engajamento.length === 0 && (
+          {erroEngajamento && engajamento.length === 0 && (
+            <ErroAoCarregar
+              oQue="o engajamento"
+              onTentarDeNovo={() => void recarregarEngajamento()}
+              tentando={recarregandoEngajamento}
+            />
+          )}
+          {!isLoadingEngajamento && !erroEngajamento && engajamento.length === 0 && (
             <p className="text-sm text-muted-foreground">Nenhum aluno cadastrado ainda.</p>
           )}
           {engajamento.slice(0, 10).map((a) => (
@@ -228,6 +257,12 @@ export default function AdminRetencao() {
           )}
         </CardContent>
       </Card>
+
+      {erroMetricas && !metrics && (
+        <Card>
+          <ErroAoCarregar oQue="os números da retenção" onTentarDeNovo={() => void recarregarMetricas()} tentando={recarregandoMetricas} />
+        </Card>
+      )}
 
       {metrics && (
         <>
