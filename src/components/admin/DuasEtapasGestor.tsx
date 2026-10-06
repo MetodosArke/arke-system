@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useDuasEtapasNaAcao } from "@/components/duasEtapas/useDuasEtapasNaAcao";
+import { useAuth } from "@/contexts/AuthContext";
 
 /**
  * Perfil da gestão → Verificação em duas etapas (decisão de 04/10/2026). É
@@ -15,20 +16,22 @@ import { useDuasEtapasNaAcao } from "@/components/duasEtapas/useDuasEtapasNaAcao
  */
 export function DuasEtapasGestor() {
   const { toast } = useToast();
+  const { user } = useAuth();
   const queryClient = useQueryClient();
   const { exigir, dialogo } = useDuasEtapasNaAcao(
     "Leia o QR code com o aplicativo autenticador do celular e digite o código. Depois disso, a entrada no painel pede o código além da senha."
   );
 
+  // Os fatores são da pessoa da sessão: a chave leva a pessoa.
   const { data: fator, isLoading } = useQuery({
-    queryKey: ["duas-etapas-fator"],
+    queryKey: ["duas-etapas-fator", user?.id ?? null],
     queryFn: async () => {
       const { data, error } = await supabase.auth.mfa.listFactors();
       if (error) throw error;
       return data.totp.find((f) => f.status === "verified") ?? null;
     },
   });
-  const atualizar = () => void queryClient.invalidateQueries({ queryKey: ["duas-etapas-fator"] });
+  const atualizar = () => void queryClient.invalidateQueries({ queryKey: ["duas-etapas-fator", user?.id ?? null] });
 
   const ativar = () =>
     void exigir(() => {

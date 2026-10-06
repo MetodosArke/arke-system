@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 import { todasAsLinhas } from "@/lib/paginar";
 import { perfisDosUsuarios } from "@/lib/perfis";
 import { mensagemDeErroEdge } from "@/lib/erroEdge";
@@ -95,6 +96,7 @@ export function PrescricaoDieta({
   rodape: "fixo" | "embutido";
 }) {
   const { toast } = useToast();
+  const { user } = useAuth();
   const queryClient = useQueryClient();
   const biblioteca = bibliotecaDoEscopo(escopo);
   const alunoFixo = escopo.tipo === "metodo" ? escopo.aluno : null;
@@ -139,8 +141,10 @@ export function PrescricaoDieta({
   const [importarPdfModo, setImportarPdfModo] = useState<"modelo" | "aluno">("modelo");
   const [conferiuItens, setConferiuItens] = useState(false);
 
+  // Sem filtro, como a biblioteca de exercícios: a regra de acesso decide o
+  // que vem, e a chave leva a pessoa.
   const { data: bibliotecaAlimentos = [] } = useQuery({
-    queryKey: ["alimentos-biblioteca"],
+    queryKey: ["alimentos-biblioteca", user?.id ?? null],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("alimentos_biblioteca")

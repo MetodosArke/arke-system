@@ -24,6 +24,15 @@ No iPhone, os avisos do app (mensagem da equipe, comunicado da academia) só che
 
 Na tela de entrada, toque em **Esqueceu a senha?** e digite o seu e-mail. O link para criar uma nova chega no mesmo e-mail.
 
+## Sair
+
+**Sair** fica no menu e no seu perfil. Ele desconecta só o aparelho em que você está, e esse aparelho para de receber os avisos do app. Se você usa o app num aparelho que não é seu, saia sempre ao terminar.
+
+## Quando o app não abre
+
+- **Não conseguimos carregar o seu acesso**: a conexão falhou na hora de abrir, mesmo depois de o app tentar de novo. Confira a internet e toque em **Tentar de novo**.
+- **Nenhuma academia vinculada a esta conta**: o e-mail com que você entrou não tem matrícula ativa em nenhuma academia. Confira se entrou com o e-mail da matrícula, ou peça à recepção para conferir o seu cadastro.
+
 ## Os primeiros passos
 
 Na primeira vez, o app pede para você aceitar os termos de uso e a política de privacidade e, se a academia usa, assinar o contrato de matrícula e responder o questionário de saúde (PAR-Q). Leva poucos minutos. Veja [Contrato, PAR-Q e atestado](ajuda:app-documentos).

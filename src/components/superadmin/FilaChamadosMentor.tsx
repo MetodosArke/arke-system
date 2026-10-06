@@ -101,7 +101,8 @@ export function FilaChamadosMentor() {
   const [desfecho, setDesfecho] = useState("");
 
   const { data: fila = [], isLoading } = useQuery({
-    queryKey: ["fila-chamados-mentor"],
+    // A fila responde por quem pergunta: a chave leva a pessoa.
+    queryKey: ["fila-chamados-mentor", user?.id ?? null],
     queryFn: async () => {
       const { data, error } = await supabase.rpc("get_fila_mentor", { _limite: LIMITE_FILA });
       if (error) throw error;

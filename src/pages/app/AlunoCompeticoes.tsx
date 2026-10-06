@@ -73,8 +73,12 @@ function RankingCompeticao({ competicaoId }: { competicaoId: string }) {
 }
 
 export default function AlunoCompeticoes() {
+  const { alunoId } = useAuth();
+  // Sem filtro: a regra de acesso devolve as competições abertas da academia
+  // e aquelas em que o aluno está inscrito. A chave leva o aluno.
   const { data: competicoes = [], isLoading } = useQuery({
-    queryKey: ["aluno-competicoes"],
+    queryKey: ["aluno-competicoes", alunoId],
+    enabled: !!alunoId,
     queryFn: async () => {
       const { data, error } = await supabase.from("competicoes").select("*").order("data_inicio", { ascending: false });
       if (error) throw error;

@@ -13,6 +13,14 @@ Todo aluno matriculado e em dia usa o app da academia no **plano Free**. O **Mé
 - **Integrado**: acolhimento M.A.P.A.® (uma conversa inicial sobre a sua rotina, objetivos e saúde), fases da jornada, a tela **Minha Jornada** (objetivos, valores, meta pessoal e rotina da semana), plano alimentar individualizado com a nutricionista da ArkeFit, check-ins semanais e um **mentor** da ArkeFit acompanhando você.
 - **Elite**: tudo do Integrado, mais acolhimento expandido, encontros periódicos, relatórios de evolução e prioridade no atendimento.
 
+## O acolhimento
+
+Ao entrar no Método, o app começa pelo acolhimento M.A.P.A.®: cinco etapas sobre o seu objetivo, a sua rotina, a sua saúde e a sua alimentação, e o consentimento para tratar esses dados.
+
+- As respostas ficam guardadas só nesta aba enquanto você preenche. Se a página recarregar, o app pergunta se você quer **Restaurar** o que tinha escrito.
+- Ao fechar a aba ou sair do app, as respostas não enviadas são apagadas do aparelho.
+- O acolhimento é enviado uma vez. Se ele já tinha sido enviado, um segundo envio não troca as respostas: para mudar alguma, fale com o seu mentor.
+
 ## Como contratar
 
 Quando a sua academia oferece, o app mostra o Método e o que ele traz. Valores e contratação ficam com a recepção: é só falar com eles.

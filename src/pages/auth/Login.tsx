@@ -23,7 +23,7 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [manterConectado, setManterConectadoState] = useState(() => getManterConectado());
-  const { signIn, roles, organizationRole, organization, isAuthenticated, rolesLoaded } = useAuth();
+  const { signIn, roles, organizationRole, organization, isAuthenticated, rolesLoaded, erroAcesso } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -33,11 +33,15 @@ export default function Login() {
   const [showInstallBanner, setShowInstallBanner] = useState(true);
 
   // Redirect based on role after authentication
+  // Com falha ao ler o acesso, a raiz mostra o erro e o "Tentar de novo", em
+  // vez de a tela de entrar ficar parada sem dizer nada.
   useEffect(() => {
     if (isAuthenticated && rolesLoaded) {
       navigate(resolveHomePath(roles, organizationRole, organization?.tipo), { replace: true });
+    } else if (isAuthenticated && erroAcesso) {
+      navigate("/", { replace: true });
     }
-  }, [isAuthenticated, rolesLoaded, roles, organizationRole, organization, navigate]);
+  }, [isAuthenticated, rolesLoaded, erroAcesso, roles, organizationRole, organization, navigate]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();

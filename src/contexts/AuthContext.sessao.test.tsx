@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, waitFor, act } from "@testing-library/react";
 import type { ReactNode } from "react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 /**
  * Evento de sessão da mesma pessoa (token renovado de hora em hora, código
@@ -58,7 +59,12 @@ function Espiao() {
   estados.push(rolesLoaded);
   return null;
 }
-const montar = (filhos: ReactNode = <Espiao />) => render(<AuthProvider>{filhos}</AuthProvider>);
+const montar = (filhos: ReactNode = <Espiao />) =>
+  render(
+    <QueryClientProvider client={new QueryClient()}>
+      <AuthProvider>{filhos}</AuthProvider>
+    </QueryClientProvider>,
+  );
 
 describe("AuthContext: evento de sessão da mesma pessoa", () => {
   beforeEach(() => {
