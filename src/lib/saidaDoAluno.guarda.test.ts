@@ -67,6 +67,7 @@ const FICAM: Record<string, string> = {
   presencas: "com o aluno anonimizado, vira só contagem",
   tarefas: "registro do atendimento da equipe",
   gateway_comandos: "a ordem de tirar a digital do equipamento precisa rodar depois",
+  remocoes_fim_de_matricula: "a remoção agendada confere o aluno antes de rodar, e a anonimização já agenda a dela",
   responsavel_aceites:
     "prova do aceite do responsável legal do aluno menor (nome, e-mail, versão e hash do texto), guardada como o termo da digital",
   responsavel_pedidos:

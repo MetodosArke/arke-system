@@ -6042,6 +6042,61 @@ export type Database = {
           },
         ]
       }
+      remocoes_fim_de_matricula: {
+        Row: {
+          agendada_para: string
+          aluno_id: string
+          cancelada_em: string | null
+          created_at: string
+          executada_em: string | null
+          id: string
+          identificador: string
+          organization_id: string
+        }
+        Insert: {
+          agendada_para: string
+          aluno_id: string
+          cancelada_em?: string | null
+          created_at?: string
+          executada_em?: string | null
+          id?: string
+          identificador: string
+          organization_id: string
+        }
+        Update: {
+          agendada_para?: string
+          aluno_id?: string
+          cancelada_em?: string | null
+          created_at?: string
+          executada_em?: string | null
+          id?: string
+          identificador?: string
+          organization_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "remocoes_fim_de_matricula_aluno_id_fkey"
+            columns: ["aluno_id"]
+            isOneToOne: false
+            referencedRelation: "alunos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "remocoes_fim_de_matricula_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "org_churn_metrics"
+            referencedColumns: ["organization_id"]
+          },
+          {
+            foreignKeyName: "remocoes_fim_de_matricula_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       responsavel_aceites: {
         Row: {
           aceito_em: string
@@ -7414,6 +7469,10 @@ export type Database = {
         Returns: string
       }
       anamnese_para_auditoria: { Args: { _aluno_id: string }; Returns: string }
+      anonimizar_dados_do_aluno: {
+        Args: { _aluno_id: string; _ator: string }
+        Returns: Json
+      }
       aplicar_repasse_referencia: {
         Args: { _organization_id: string }
         Returns: Json
@@ -7835,6 +7894,11 @@ export type Database = {
       }
       equipe_metodo: { Args: never; Returns: boolean }
       escalar_tarefas_vencidas: { Args: never; Returns: undefined }
+      excluir_aluno_da_academia: {
+        Args: { _aluno_id: string; _ator: string }
+        Returns: Json
+      }
+      executar_remocoes_fim_de_matricula: { Args: never; Returns: number }
       exigir_liberacao_consentimento: {
         Args: { _aluno_id: string; _proposito: string }
         Returns: undefined
@@ -8631,6 +8695,7 @@ export type Database = {
         Args: { _lote?: number }
         Returns: number
       }
+      limpar_dados_de_passagem: { Args: never; Returns: undefined }
       limpar_fotos_rosto_sem_uso: { Args: never; Returns: number }
       limpar_historicos_antigos: { Args: never; Returns: Json }
       limpar_leads_comerciais_antigos: { Args: never; Returns: number }
@@ -8800,6 +8865,10 @@ export type Database = {
         Returns: boolean
       }
       parar_agente_comercial: { Args: { _token: string }; Returns: undefined }
+      pessoa_tem_outro_vinculo: {
+        Args: { _aluno_id: string }
+        Returns: boolean
+      }
       plano_do_aluno: {
         Args: {
           _metodo: Database["public"]["Enums"]["metodo_arke_status"]

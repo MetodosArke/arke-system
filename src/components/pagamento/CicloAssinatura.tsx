@@ -39,7 +39,7 @@ const TEXTOS = {
     rotulo: "Mensalidade do plano",
     tituloCancelar: "Cancelar a matrícula no plano",
     descricaoCancelar:
-      "A mensalidade é encerrada no gateway e o aluno deixa de ser cobrado pelo plano. As mensalidades ainda em aberto deixam de ser cobráveis — se houver dívida a receber, cobre antes de cancelar. O aluno continua cadastrado e pode ser matriculado em outro plano. Sem outra matrícula ativa ou pausada, a catraca deixa de liberá-lo, e a digital e o rosto dele saem dos equipamentos: numa troca de plano, cadastre de novo depois da matrícula nova.",
+      "A mensalidade é encerrada no gateway e o aluno deixa de ser cobrado pelo plano. As mensalidades ainda em aberto deixam de ser cobráveis — se houver dívida a receber, cobre antes de cancelar. O aluno continua cadastrado e pode ser matriculado em outro plano. Sem outra matrícula ativa ou pausada, a catraca deixa de liberá-lo na hora, e a digital e o rosto dele saem dos equipamentos depois de 48 horas. Numa troca de plano, faça a matrícula nova nesse prazo e nada muda na catraca.",
     tituloValor: "Alterar o valor da mensalidade",
     descricaoValor:
       "A taxa de processamento é recalculada e a parte da academia acompanha. Mensalidade já emitida e ainda não vencida passa a valer o novo valor; a já vencida fica como está.",

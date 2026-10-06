@@ -372,3 +372,21 @@ O pausado continua saindo pela situação, regra que não mudou. **A ordem impor
 - Migrations: 16 casos em transação desfeita num Postgres local (PGlite), sobre um esqueleto só com as tabelas e funções que elas tocam, copiadas das migrations — **não é o banco de produção** —, e cinco defeitos plantados (o ex-aluno de volta ao cadastro, a tarefa presa ao consentimento, o vínculo sem conferir a autorização, a trava só para o anônimo, a catraca sem barrar o ex-aluno), os cinco pegos.
 
 **Fica para depois de aplicar:** a mesma prova no banco de produção, em transação desfeita; a corrente real (funções publicadas, Gateway compilado e emuladores, numa academia temporária apagada no fim); e a bancada da Topdata (display e leitor de código, itens 10 e 11 do roteiro em `docs/PONTE_TOPDATA.md`).
+
+## Troca de plano sem apagar a digital (06/10/2026)
+
+Decisão do responsável no workspace, com a recomendação: a remoção da digital no fim da matrícula espera 48 horas e é cancelada se uma matrícula nova entrar nesse prazo (migration `20261353010000`). Trocar de plano é cancelar a matrícula e criar outra, e a migration `20261345` apagava a digital no cancelamento: a recepção cadastraria de novo a cada troca.
+
+- **O que continua na hora:**
+  - a catraca barra desde o cancelamento (`matricula_encerrada`);
+  - o aluno sai do cadastro do Gateway;
+  - as ordens de cadastro em aberto e a foto do rosto pendente saem.
+- **O que espera:** a remoção física e o número. O cancelamento só põe uma linha em `remocoes_fim_de_matricula`, para daqui a 48 horas.
+- **Matrícula nova** (ativa ou pausada) cancela a remoção pendente.
+- **A rotina `arke-remocoes-fim-de-matricula`,** de hora em hora, confere o aluno antes de apagar. Se ele voltou a ter matrícula, foi anonimizado (a anonimização já agenda a remoção dela) ou trocou de número, a remoção da fila não vale mais.
+- A rotina entrou também no roteiro de reconstrução do banco. A tela de cancelamento e a Central de Ajuda passaram a dizer o prazo.
+
+**Conferido em transação desfeita:**
+- **Troca de plano:** no prazo, o número ficou e a catraca barrou; com a matrícula de volta, a remoção foi cancelada e a catraca liberou.
+- **Saída de verdade:** depois de 48 horas, a rotina removeu, tirou o número e abriu a tarefa.
+- **Anonimizado no prazo:** uma remoção só, e a da fila foi cancelada.

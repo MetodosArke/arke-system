@@ -42,7 +42,7 @@ Pelo app, o aluno cadastra o rosto **uma vez**. Para trocar depois, é com a rec
 
 O aluno retira pelo app, ou pede na recepção, e a recepção registra na ficha. Ao retirar, o ARKE **apaga a digital e o rosto de todos os equipamentos** sozinho. Onde não há gestão remota, ou quando a academia não tem catraca cadastrada no ARKE, abre uma tarefa **Apagar aluno da catraca (LGPD)** na fila, que só fecha com o desfecho. A ficha diz o que foi agendado: as catracas que o Gateway vai apagar e a tarefa, quando ela existe.
 
-O mesmo acontece quando o aluno é excluído ou anonimizado, e quando a **matrícula termina** (a última matrícula do plano é cancelada). Numa troca de plano, cadastre a digital de novo depois da matrícula nova.
+O mesmo acontece quando o aluno é excluído ou anonimizado, e quando a **matrícula termina** (a última matrícula do plano é cancelada). No fim da matrícula, a catraca deixa de liberar na hora, e a digital sai dos equipamentos depois de 48 horas: numa troca de plano, a matrícula nova feita nesse prazo mantém a digital.
 
 > Apagar do equipamento não é opcional: é o que a lei exige quando a autorização acaba. O aluno vê no app a data em que a biometria foi apagada.
 

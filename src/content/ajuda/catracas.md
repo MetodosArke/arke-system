@@ -36,7 +36,7 @@ Com o Gateway na versão 1.0, gestor e recepção podem, pelo ARKE:
 
 Os **Últimos acessos** mostram cada tentativa e o motivo: pausado, inadimplente, matrícula encerrada, não encontrado. Para liberar o aluno de verdade, resolva a situação dele na ficha (ou faça a matrícula nova); a catraca segue a ficha, e a mudança chega ao equipamento na próxima sincronização (ou na hora, com **Sincronizar agora**).
 
-Quando a matrícula termina, a digital e o rosto do aluno saem dos equipamentos e o número dele sai do ARKE: numa troca de plano (cancelar e matricular de novo), cadastre a digital outra vez depois da matrícula nova.
+Quando a matrícula termina, a catraca deixa de liberar o aluno na hora. Depois de 48 horas, a digital e o rosto dele saem dos equipamentos e o número dele sai do ARKE. Numa troca de plano (cancelar e matricular de novo), a matrícula nova feita nesse prazo mantém a digital e o número.
 
 ## Visitantes de Wellhub e TotalPass
 
