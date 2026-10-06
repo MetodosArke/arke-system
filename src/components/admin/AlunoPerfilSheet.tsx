@@ -588,8 +588,9 @@ export function AlunoPerfilSheet({
               </Bloco>
               )}
 
-              {/* No Método o resumo é do mentor, como a anamnese de onde ele sai. */}
-              {!doMetodo && (
+              {/* No Método o resumo é do mentor, como a anamnese de onde ele sai.
+                  A recepção não atende saúde: a função recusa, e o bloco nem aparece. */}
+              {!doMetodo && organizationRole !== "recepcao" && (
                 <Bloco titulo="Resumo da anamnese (Sentinela)" icon={Sparkles}>
                   <ResumoSentinela alunoId={perfil.aluno.id} />
                 </Bloco>

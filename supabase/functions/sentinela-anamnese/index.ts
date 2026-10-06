@@ -72,10 +72,11 @@ servir("sentinela-anamnese", async (req: Request) => {
     const admin = createClient(supabaseUrl, serviceRoleKey);
     const { data: aluno } = await admin
       .from("alunos")
-      .select("id, organization_id")
+      .select("id, organization_id, metodo_arke_status")
       .eq("id", alunoId)
       .maybeSingle();
     if (!aluno) return jsonResponse({ error: "Aluno não encontrado." }, 404);
+    const noMetodo = aluno.metodo_arke_status === "ativo";
 
     // Quem atende o aluno: a célula da ArkeFit ou a equipe da academia.
     const [{ data: papeis }, { data: vinculo }] = await Promise.all([
@@ -88,9 +89,15 @@ servir("sentinela-anamnese", async (req: Request) => {
         .eq("status", "active")
         .maybeSingle(),
     ]);
+    // A mesma separação do RLS (Mentor Centralizado): o aluno do Método é da
+    // ArkeFit, e a academia não lê a anamnese dele; o aluno do plano Free é da
+    // academia, e a ArkeFit não lê. A recepção não atende saúde. Antes, toda a
+    // equipe passava, inclusive para o aluno do Método — a tela escondia o
+    // botão, mas a chamada direta devolvia o resumo (auditoria de 05/10/2026,
+    // correção autorizada pelo responsável com o Sentinela congelado).
     const arkefit = verificada(claims?.claims) && (papeis ?? []).some((p) => p.role === "superadmin" || p.role === "admin_arke");
-    const equipe = ["gestor", "professor", "nutricionista", "recepcao"].includes(vinculo?.role ?? "");
-    if (!arkefit && !equipe) {
+    const equipe = ["gestor", "professor", "nutricionista"].includes(vinculo?.role ?? "");
+    if (noMetodo ? !arkefit : !equipe) {
       return jsonResponse({ error: "Você não atende este aluno." }, 403);
     }
 

@@ -22,7 +22,7 @@ O aluno tem direito de saber quais dados a academia tem, pedir cópia, corrigir 
 
 1. Não resolva na hora "de cabeça": anote o pedido e avise o gestor.
 2. Correção de cadastro, a própria equipe faz na ficha.
-3. Exclusão: o gestor usa o protocolo **Desativar / Anonimizar Aluno** na lista de alunos, que apaga os dados pessoais e guarda só o que a lei obriga, sem identificação. Antes, as cobranças em aberto são canceladas.
+3. Exclusão: o gestor usa o protocolo **Desativar / Anonimizar Aluno** na lista de alunos, que apaga os dados pessoais do aluno nesta academia e guarda só o que a lei obriga, sem identificação. Antes, as cobranças em aberto são canceladas. O cadastro da pessoa em outra academia não é afetado.
 4. Dúvida sobre o que pode ou não ser apagado: fale com a ArkeFit.
 
 ## Se algo der errado

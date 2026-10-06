@@ -180,6 +180,25 @@ servir("asaas-assinatura-ciclo", async (req: Request) => {
       if (!motivoLimpo) {
         return jsonResponse({ error: "Informe o motivo do cancelamento — ele fica no histórico do aluno." }, 400);
       }
+      // Cancelar no Asaas leva junto as cobranças em aberto. Para a academia
+      // ou a ArkeFit, é decisão de quem cobra; para o próprio aluno com
+      // cobrança vencida, seria apagar a dívida com um clique (auditoria de
+      // 05/10/2026). Ele quita ou fala com a recepção.
+      if (oProprioAluno && !equipe && !arkefit) {
+        const { data: vencidas, error: erroVencidas } = await admin
+          .from(cobrancas.tabela)
+          .select("id")
+          .eq(cobrancas.fk, assinatura.id)
+          .or(`status.eq.atrasado,and(status.eq.pendente,vencimento.lt.${hoje})`)
+          .limit(1);
+        if (erroVencidas) return jsonResponse({ error: "Não foi possível conferir as cobranças. Tente de novo." }, 500);
+        if (vencidas?.length) {
+          return jsonResponse(
+            { error: "Há uma cobrança vencida. Para cancelar, quite a cobrança ou fale com a recepção da academia." },
+            409,
+          );
+        }
+      }
       const r = await cancelarAssinatura(api, chave, assinatura.asaas_subscription_id);
       if (!r.ok) return jsonResponse({ error: r.erro }, r.status);
 

@@ -2,7 +2,7 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import { verificada } from "../_shared/verificacao.ts";
 import { ambienteAsaas } from "../_shared/asaas.ts";
 import { encerrarCobrancasDoAluno } from "../_shared/encerrarCobrancas.ts";
-import { apagarArquivosDoAluno } from "../_shared/arquivosDoAluno.ts";
+import { apagarArquivosDoAluno, apagarArquivosPorUrl } from "../_shared/arquivosDoAluno.ts";
 import { servir } from "../_shared/servir.ts";
 
 const corsHeaders = {
@@ -21,11 +21,11 @@ type AnonimizarPayload = {
   aluno_id: string;
 };
 
-// Política de Exclusão e Anonimização LGPD (soft delete): nunca apaga o
-// registro do aluno nem seus dados financeiros (aluno_assinaturas,
-// pagamentos, IDs do Asaas) — que precisam sobreviver para auditoria
-// fiscal/contábil. Em vez disso, substitui os dados pessoais por
-// placeholders e desativa o acesso do aluno à organização.
+// Anonimização a pedido (LGPD), dentro desta academia: nunca apaga o registro
+// do aluno nem os dados financeiros (assinaturas, pagamentos, mensalidades,
+// IDs do Asaas), que precisam sobreviver para a contabilidade. Apaga o resto
+// do que é da pessoa nesta academia e desativa o vínculo. O trabalho do banco
+// mora em `anonimizar_dados_do_aluno`.
 servir("anonimizar-aluno", async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -73,7 +73,7 @@ servir("anonimizar-aluno", async (req: Request) => {
       .eq("id", alunoId)
       .maybeSingle();
     if (alunoError) {
-      console.error("Error loading aluno", alunoError);
+      console.error("Error loading aluno", alunoError.code);
       return jsonResponse({ error: "Erro ao carregar o aluno." }, 500);
     }
     if (!aluno) {
@@ -88,7 +88,7 @@ servir("anonimizar-aluno", async (req: Request) => {
       .select("role")
       .eq("user_id", callerId);
     if (callerRolesError) {
-      console.error("Error loading caller roles", callerRolesError);
+      console.error("Error loading caller roles", callerRolesError.code);
       return jsonResponse({ error: "Erro ao validar permissões." }, 500);
     }
     const callerIsAdminArke = verificada(claimsData?.claims) && (callerRoles ?? []).some((r) => r.role === "admin_arke");
@@ -110,7 +110,7 @@ servir("anonimizar-aluno", async (req: Request) => {
         .eq("status", "active")
         .limit(1);
       if (callerMembershipError) {
-        console.error("Error loading caller membership", callerMembershipError);
+        console.error("Error loading caller membership", callerMembershipError.code);
         return jsonResponse({ error: "Erro ao validar permissões." }, 500);
       }
       autorizado = !!vinculosGestor?.length;
@@ -144,55 +144,62 @@ servir("anonimizar-aluno", async (req: Request) => {
       return jsonResponse({ error: encerramento.erro }, 502);
     }
 
-    const { error: authUpdateError } = await adminClient.auth.admin.updateUserById(aluno.user_id, {
-      email: emailAnonimizado,
+    // A conta de login é da pessoa, não da academia: só é anonimizada quando
+    // ela não tem vínculo vivo em outro lugar. Antes daqui, a anonimização
+    // trocava o e-mail e o perfil de quem também era aluna ou professora na
+    // academia ao lado, e cortava o acesso dela lá (auditoria de 05/10/2026).
+    // O login vem antes do banco para a nova tentativa, se algo falhar no
+    // meio, refazer as duas partes: trocar o e-mail de novo não muda nada.
+    const { data: outrosVinculos, error: outrosError } = await adminClient.rpc("pessoa_tem_outro_vinculo", {
+      _aluno_id: aluno.id,
     });
-    if (authUpdateError) {
-      console.error("Error anonymizing auth user email", authUpdateError);
-      return jsonResponse({ error: "Erro ao anonimizar o e-mail de acesso." }, 500);
+    if (outrosError) {
+      console.error("Error checking other links", outrosError.code);
+      return jsonResponse({ error: "Erro ao conferir os vínculos da pessoa." }, 500);
+    }
+    if (!outrosVinculos) {
+      const { error: authUpdateError } = await adminClient.auth.admin.updateUserById(aluno.user_id, {
+        email: emailAnonimizado,
+        user_metadata: { full_name: null },
+      });
+      if (authUpdateError) {
+        console.error("Error anonymizing auth user", authUpdateError.status);
+        return jsonResponse({ error: "Erro ao anonimizar o e-mail de acesso." }, 500);
+      }
     }
 
-    const { error: profileError } = await adminClient
-      .from("profiles")
-      .update({
-        full_name: `Aluno Anonimizado [${aluno.id}]`,
-        cpf: null,
-        phone: null,
-        status: "inactive",
-      })
-      .eq("user_id", aluno.user_id);
-    if (profileError) {
-      console.error("Error anonymizing profile", profileError);
-      return jsonResponse({ error: "Erro ao anonimizar o perfil." }, 500);
+    // O banco numa transação só: a ficha, as autorizações, a saúde, as
+    // conversas, o feed, o vínculo desta academia e, sem outro vínculo, o
+    // perfil. Fica o que a lei manda guardar, sem identificar a pessoa.
+    const { data: feito, error: anonError } = await adminClient.rpc("anonimizar_dados_do_aluno", {
+      _aluno_id: aluno.id,
+      _ator: callerId,
+    });
+    if (anonError) {
+      console.error("Error anonymizing aluno", anonError.code);
+      return jsonResponse({ error: "Erro ao anonimizar o aluno." }, 500);
     }
-
-    const { error: membershipError } = await adminClient
-      .from("organization_members")
-      .update({ status: "inactive" })
-      .eq("user_id", aluno.user_id)
-      .eq("organization_id", aluno.organization_id);
-    if (membershipError) {
-      console.error("Error deactivating membership", membershipError);
-      return jsonResponse({ error: "Erro ao desativar o vínculo com a organização." }, 500);
-    }
-
-    const { error: alunoUpdateError } = await adminClient
-      .from("alunos")
-      .update({ anonimizado_em: new Date().toISOString() })
-      .eq("id", aluno.id);
-    if (alunoUpdateError) {
-      console.error("Error marking aluno as anonymized", alunoUpdateError);
-      return jsonResponse({ error: "Erro ao registrar a anonimização." }, 500);
-    }
+    const resultado = feito as { avatar_url: string | null; imagens_feed: string[] | null };
 
     // Atestado e vídeo de conversa são dado de saúde identificável: saem com a
     // anonimização. O termo da digital fica — é a prova de que a autorização
     // foi dada, guardada pelo prazo legal, como diz a Política de Privacidade.
-    const arquivos = await apagarArquivosDoAluno(adminClient, aluno.organization_id, aluno.id, ["atestados", "chat-videos"]);
+    // As fotos do feed e a foto de perfil ficam em bucket público: a URL é o
+    // único rastro delas.
+    const privados = await apagarArquivosDoAluno(adminClient, aluno.organization_id, aluno.id, ["atestados", "chat-videos"]);
+    const publicos = await apagarArquivosPorUrl(adminClient, [
+      ...(resultado.imagens_feed ?? []),
+      ...(resultado.avatar_url ? [resultado.avatar_url] : []),
+    ]);
 
-    return jsonResponse({ success: true, arquivos_apagados: arquivos.apagados, arquivos_pendentes: arquivos.falhas });
+    return jsonResponse({
+      success: true,
+      outros_vinculos: !!outrosVinculos,
+      arquivos_apagados: privados.apagados + publicos.apagados,
+      arquivos_pendentes: [...privados.falhas, ...publicos.falhas],
+    });
   } catch (error) {
-    console.error("Unexpected error in anonimizar-aluno", error);
+    console.error("Unexpected error in anonimizar-aluno", error instanceof Error ? error.name : "erro");
     return jsonResponse({ error: "Erro inesperado ao anonimizar o aluno." }, 500);
   }
 });
