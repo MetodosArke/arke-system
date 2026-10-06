@@ -1,4 +1,6 @@
-A catraca decide quem entra pela mesma regra do app: aluno **em dia** passa; **pausado** é barrado; **inadimplente** passa durante os 5 dias de tolerância e é barrado depois. Quem gira a catraca ganha presença no ARKE, como quem faz check-in por QR Code.
+A catraca decide quem entra pela mesma regra do app: aluno **em dia** passa; **pausado** é barrado; **inadimplente** passa durante os 5 dias de tolerância e é barrado depois. Quem teve a **matrícula encerrada** (a última matrícula do plano cancelada) também é barrado. Quem gira a catraca ganha presença no ARKE, como quem faz check-in por QR Code.
+
+O display da catraca é público: mostra "Bem-vindo!" ao liberar e, ao negar, uma frase curta como "Fale c/ recepcao". Nunca o nome do aluno nem o motivo; o motivo fica nos Últimos acessos.
 
 A tela [Catracas](/admin/catracas) mostra o estado de cada equipamento e os últimos acessos, ao vivo.
 
@@ -32,10 +34,12 @@ Com o Gateway na versão 1.0, gestor e recepção podem, pelo ARKE:
 
 ## Por que um aluno foi barrado?
 
-Os **Últimos acessos** mostram cada tentativa e o motivo: pausado, inadimplente, não encontrado. Para liberar o aluno de verdade, resolva a situação dele na ficha; a catraca segue a situação, e a mudança chega ao equipamento na próxima sincronização (ou na hora, com **Sincronizar agora**).
+Os **Últimos acessos** mostram cada tentativa e o motivo: pausado, inadimplente, matrícula encerrada, não encontrado. Para liberar o aluno de verdade, resolva a situação dele na ficha (ou faça a matrícula nova); a catraca segue a ficha, e a mudança chega ao equipamento na próxima sincronização (ou na hora, com **Sincronizar agora**).
+
+Quando a matrícula termina, a digital e o rosto do aluno saem dos equipamentos e o número dele sai do ARKE: numa troca de plano (cancelar e matricular de novo), cadastre a digital outra vez depois da matrícula nova.
 
 ## Visitantes de Wellhub e TotalPass
 
 Com um parceiro ligado em [Integrações](/admin/configuracoes/integracoes), a tela mostra o **Check-in de visitante**, e a **Conferência de parceiros** conta os check-ins do mês para conferir com o repasse de cada parceiro.
 
-> O QR Code do ARKE é o da recepção, lido pelo celular do aluno. Mostrar QR Code na catraca não libera ninguém.
+> O QR Code do ARKE é o da recepção, lido pelo celular do aluno. Mostrar QR Code ou código de barras na catraca não libera ninguém: o aluno entra com digital, rosto, cartão ou o CPF no teclado.

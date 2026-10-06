@@ -61,8 +61,8 @@ O ArkeFit (ARKE) é uma plataforma SaaS para academias, studios e profissionais 
   - as contas da ArkeFit sempre;
   - a gestão, em exportar todos os dados, avisar o encerramento e trocar o e-mail de login de alguém;
   - para a gestão, opcional na entrada do painel.
-- **Biometria:** só o titular consente, pelo app ou pelo termo impresso que a recepção anexa. Revogar, excluir ou anonimizar apaga a biometria dos equipamentos.
-- **Display de catraca é público:** "Bem-vindo!" ou "Aluno", nunca o nome, e a negativa não fala de dinheiro.
+- **Biometria:** só o titular consente, pelo app ou pelo termo impresso que a recepção anexa. Revogar, excluir, anonimizar ou encerrar a matrícula apaga a biometria dos equipamentos; o número de digital ou rosto vinculado à mão também exige a autorização.
+- **Display de catraca é público:** "Bem-vindo!" ou "Aluno", nunca o nome, e a negativa não fala de dinheiro. Código de barras e QR na catraca não identificam aluno (`catracaPublica.guarda`).
 
 ## Regras que já custaram caro
 

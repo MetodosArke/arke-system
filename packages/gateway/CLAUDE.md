@@ -12,6 +12,9 @@ O Gateway Local é o programa que roda no computador da recepção, entre as cat
 - **A decisão é da nuvem** (`validarCredencial`), pela mesma regra do app. O prazo é medido: o padrão é 1000 ms.
 - **Espera que dobra a cada falha passa por `comVariacao`** (metade fixa, metade sorteada), senão os Gateways que caíram juntos voltam juntos. `espera.guarda.test.ts` cobra.
 - **Contingência:** decide pelo cache local e trava na dúvida. Acesso decidido offline sobe depois (`registrarAcessoOffline`), e nenhuma entrada se perde.
+- **A fila offline anda:** cada registro sobe com o `id_local`, e a nuvem diz o que aceitou e o que recusou de vez; os dois saem da fila. O que já subiu sai do computador em 30 dias (`limparAntigos`).
+- **O computador da recepção guarda o mínimo:** o cache só tem os alunos atuais e não guarda o nome, e todo arquivo do NeDB é reescrito (`compactarArquivo`) depois de apagar, senão a linha apagada continua no disco.
+- **Leitura que vale como aluno** (`core/credencial.ts`): no teclado só o CPF; código de barras e QR não valem nada; cartão e biometria são o número do equipamento.
 - **Liberado não é entrou.** O giro fica `pendente`, depois `confirmado`, `desistencia` ou `sem_confirmacao`. Desistência não vira presença; a presença nasce no banco, por gatilho.
 - **Canal de comandos** (`catraca-comandos`, escuta longa):
   - a nuvem só pede o que o Gateway anuncia em `capacidades`;
@@ -22,7 +25,7 @@ O Gateway Local é o programa que roda no computador da recepção, entre as cat
 
 - A senha de cada equipamento fica só no `config.json`. Para a nuvem vai só o nome.
 - Digital, rosto e foto passam só pela memória (por exemplo, na cópia entre catracas) e são descartados. Nunca vão para log, resultado de comando ou nuvem.
-- **O display é público:** "Bem-vindo!" ou "Aluno", nunca o nome. A negativa é curta e não fala de dinheiro, e o motivo fica nos Últimos acessos.
+- **O display é público:** "Bem-vindo!" ou "Aluno", nunca o nome. A negativa é curta e não fala de dinheiro, e o motivo fica nos Últimos acessos. A frase é uma só para todas as marcas (`mensagemDoDisplay`, em `core/display.ts`), inclusive a que a ponte Topdata escreve. `catracaPublica.guarda.test.ts`, no app, cobra.
 
 ## Quem fala com ele
 

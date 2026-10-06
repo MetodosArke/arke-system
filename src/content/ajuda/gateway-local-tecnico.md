@@ -90,6 +90,8 @@ A Topdata só conversa pela biblioteca oficial dela, então entra uma ponte (`Ar
 
 Sem o registro do passo 3 a ponte mostra "erro GPF" (código 8), e explica o comando. Com a ponte desligada, **a catraca não libera ninguém**: é proposital.
 
+Use a ponte e o Gateway da **versão 1.9 ou mais nova**: até a 1.8, o display da Topdata mostrava o primeiro nome do aluno e o motivo da negativa. Hoje mostra "Bem-vindo!" ou "ACESSO NEGADO" com uma frase curta. Leitor de **código de barras ou QR** (`tipo_leitor` 0, 5 ou 7 no `ponte.config.json`) não identifica aluno: a leitura é negada. Para cartão, use um leitor de proximidade.
+
 ## Toletus
 
 Na Toletus o sentido é o contrário das outras marcas: a placa LiteNet2 espera na porta **7878** e quem se conecta a ela é o Gateway. Não há porta para abrir no computador.
@@ -118,7 +120,7 @@ Na Toletus o sentido é o contrário das outras marcas: a placa LiteNet2 espera 
 
 Na Toletus cada aluno tem **um número só**: o do cartão ou o da digital. Vincular o cartão a quem tinha digital troca o número, e a digital antiga sai dos leitores.
 
-Com o Gateway desligado, a entrada controlada **não libera ninguém**: a placa não guarda lista de alunos e só abre quando o Gateway manda. O display mostra "Bem-vindo!" ao liberar e, ao negar, uma frase curta como "Fale c/ recepcao", sem expor o motivo para a fila. No teclado vale só o **CPF**: o número do aluno no equipamento é curto e sequencial, e a catraca não tem senha para conferir, então outro número digitado é negado com "Digite o CPF".
+Com o Gateway desligado, a entrada controlada **não libera ninguém**: a placa não guarda lista de alunos e só abre quando o Gateway manda. O display mostra "Bem-vindo!" ao liberar e, ao negar, uma frase curta como "Fale c/ recepcao", sem expor o motivo para a fila. No teclado vale só o **CPF**: o número do aluno no equipamento é curto e sequencial, e a catraca não tem senha para conferir, então outro número digitado é negado com "Digite o CPF". Pela mesma razão, **código de barras é negado** com "Acesso negado" (Gateway 1.9).
 
 ### Placa LiteNet3
 
@@ -135,7 +137,7 @@ A LiteNet3, mais nova, faz o contrário da LiteNet2: o Gateway avisa a placa do 
 
 3. Com uma catraca só, basta `"toletus_placa": "litenet3"` e o `catraca_ip`.
 
-Na LiteNet3 a academia usa **cartão, código de barras ou o CPF no teclado**. A placa com leitor de digital manda a imagem do dedo para o computador comparar, e o ARKE não compara digital fora do equipamento: a catraca nega com "Use o cartao".
+Na LiteNet3 a academia usa **cartão ou o CPF no teclado**. Código de barras é negado, como na LiteNet2: o número do aluno no equipamento é curto e sequencial, e um código impresso com ele entraria no lugar do aluno. A placa com leitor de digital manda a imagem do dedo para o computador comparar, e o ARKE não compara digital fora do equipamento: a catraca nega com "Use o cartao".
 
 ## Leitores faciais da Topdata
 
