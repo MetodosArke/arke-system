@@ -481,12 +481,27 @@ A responsabilidade fiscal (item seguinte do contrato) pede um ajuste de uma pala
   - o link dos documentos;
   - as duas travas das migrations.
 
-**Não conferido:** nada contra o Asaas de verdade (o sandbox fica com o responsável) e nada no banco de produção.
+**No banco de produção, em transação desfeita** (06/10, as três migrations): 29 casos.
+- **O interruptor:** fica em 0 e recusa 2 e 0,5 (23514).
+- **Ligar o modo:** com uma assinatura viva na conta da ArkeFit, é recusado (P0001). Sem ela, liga, grava o webhook e a auditoria. Com hash fora do formato, é recusado (22023).
+- **Desligar:** com avulsa em aberto na conta da academia, é recusado (P0001). Sem ela, desliga, e o webhook fica.
+- **Nem a `service_role` burla:** repasse maior que zero na conta da academia dá 23514, e trocar a conta de uma matrícula dá 42501.
+- **A gestora:** não liga o modo direto, não cria avulsa na conta da academia e não troca a conta das matrículas (42501). Lê a situação da própria academia; o gestor de outra academia, não (42501). Ninguém da gestão lê `asaas_webhook_academia`.
+- **A avaliação:** só quem abriu o chamado avalia, uma vez (23505 na segunda), com o chamado encerrado (22023 se aberto), nota de 1 a 5 (22023 com 6). Outra pessoa não acha o chamado (P0002), e a gestão não lê os números da Visão Master (42501).
+- **As funções reescritas:** `proteger_colunas_organizacao` e `faixa_plataforma_config`, comparadas com as de produção, só ganharam a trava do modo e a faixa do interruptor.
+
+**No sandbox do Asaas** (06/10):
+- `sandbox:conta-academia`: 29 de 29; `sandbox:nfse`: 14 de 14; `sandbox:anonimizar`: 14 de 14.
+- Dois defeitos do próprio cenário apareceram e foram corrigidos:
+  - **A varredura conferia depois da pausa.** Pausar apaga a cobrança pendente, então a conferência agora vem antes.
+  - **O "erro desconhecido".** O sandbox às vezes responde "Ocorreu um erro desconhecido. Por favor, tente novamente." à mudança de valor e ao cancelamento, e o mesmo pedido passa em seguida. Foram 3 de 3 rodadas do cenário e 1 de 7 tentativas isoladas, com e sem webhook desligado na conta. A tela mostra essa frase do Asaas, e a gestão repete; o cenário repete uma vez.
+- **Não rodam agora:** `sandbox:avulsa` e `sandbox:ciclo` abrem uma subconta para receber o split, e o sandbox passou a recusar ("O limite de uso do teste controlado para criação de subcontas foi atingido [...] é necessário concluir a homologação regulatória"). O caminho sem split deles está coberto pelo cenário da conta da academia.
+- **`sandbox:cartao`:** falha igual na main, sem esta frente. O Asaas responde 500 `unknow.error` na troca do tipo de cobrança para cartão. Ligar o cartão na assinatura da conta da academia passou no cenário novo.
 
 ### Fica com o responsável
 
-1. As três migrations no banco, primeiro em transação desfeita (os casos estão no relatório da entrega), depois aplicadas, e `supabase gen types` para conferir que o `types.ts` editado à mão bate com o gerado.
+1. ~~As três migrations em transação desfeita~~ (feito em 06/10, acima). Depois de aplicadas, `supabase gen types` para conferir que o `types.ts` editado à mão bate com o gerado.
 2. A publicação das funções, nesta ordem: `asaas-webhook` e `asaas-reconciliar` primeiro, depois as que criam e mexem em cobrança, e por fim `asaas-conta-academia`.
-3. `npm run sandbox:conta-academia` com a chave do sandbox (e `SUBCONTA=1`, se quiser ver a recusa da subconta), e `npm run sandbox:avulsa|ciclo|cartao|nfse|anonimizar` de novo, porque os `fluxo.ts` deles mudaram.
+3. ~~Os cenários do sandbox~~ (feito em 06/10, acima).
 4. O print da tela de abertura da subconta, na academia de homologação (trial).
 5. A aprovação da proposta de texto do recebimento e da redação das taxas na tela.

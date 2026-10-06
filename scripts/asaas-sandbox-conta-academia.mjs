@@ -128,12 +128,25 @@ try {
     const achada = await assinaturaAtivaNoAsaas(API, H, referencia);
     conferir("achada pela referência plano:", achada?.id === sub);
 
-    const valor = await alterarValorAssinatura(API, CHAVE, sub, { valorCobrado: 135, valorRepasseArke: 0, walletAcademia: null, hoje });
+    // O sandbox às vezes responde "Ocorreu um erro desconhecido. Por favor,
+    // tente novamente." a esta mudança, e o mesmo pedido passa em seguida
+    // (sondado em 06/10/2026: 3 de 3 rodadas do cenário, 1 de 7 isolado). A
+    // tela mostra essa frase do Asaas, e a gestão repete; aqui, uma vez só.
+    let valor = await alterarValorAssinatura(API, CHAVE, sub, { valorCobrado: 135, valorRepasseArke: 0, walletAcademia: null, hoje });
+    if (!valor.ok && /erro desconhecido/i.test(valor.erro)) {
+      valor = await alterarValorAssinatura(API, CHAVE, sub, { valorCobrado: 135, valorRepasseArke: 0, walletAcademia: null, hoje });
+    }
     conferir("muda o valor sem split", valor.ok && valor.valorAcademia === 135, valor.ok ? "" : valor.erro);
     const lida2 = await asaas("GET", `/subscriptions/${sub}`);
     conferir("o Asaas guarda o valor novo, ainda sem split", Number(lida2.corpo.value) === 135 && !(lida2.corpo.split?.length > 0));
     const comRepasse = await alterarValorAssinatura(API, CHAVE, sub, { valorCobrado: 135, valorRepasseArke: 4, walletAcademia: null, hoje });
     conferir("repasse sem split é recusado antes do Asaas", !comRepasse.ok);
+
+    // ── 5. A conferência (antes da pausa: pausar apaga a cobrança pendente) ──────────────────────────────────────────────────
+    const criadasHoje = await listarTodas(API, CHAVE, `/payments?dateCreated%5Bge%5D=${hoje}`);
+    const nossas = criadasHoje.filter((p) => p.subscription === sub);
+    conferir("a varredura acha a mensalidade da conta", nossas.length > 0, `${nossas.length}`);
+    conferir("e ela é do ARKE ali, como mensalidade", nossas.every((p) => origemDaReferencia(p.externalReference, origensDaConta({ nome: "academia", organizationId: orgFalsa })) === "plano"));
 
     const cartao = await ligarCartaoNaAssinatura(API, CHAVE, sub, {
       creditCard: { holderName: "ALUNA SANDBOX", number: "5162306219378829", expiryMonth: "12", expiryYear: String(new Date().getFullYear() + 3), ccv: "318" },
@@ -146,12 +159,6 @@ try {
     conferir("pausa na conta onde nasceu", pausa.ok, pausa.ok ? "" : pausa.erro);
     const volta = await retomarAssinatura(API, CHAVE, sub);
     conferir("retoma", volta.ok, volta.ok ? "" : volta.erro);
-
-    // ── 5. A conferência ──────────────────────────────────────────────────
-    const criadasHoje = await listarTodas(API, CHAVE, `/payments?dateCreated%5Bge%5D=${hoje}`);
-    const nossas = criadasHoje.filter((p) => p.subscription === sub);
-    conferir("a varredura acha a mensalidade da conta", nossas.length > 0, `${nossas.length}`);
-    conferir("e ela é do ARKE ali, como mensalidade", nossas.every((p) => origemDaReferencia(p.externalReference, origensDaConta({ nome: "academia", organizationId: orgFalsa })) === "plano"));
 
     const cancelada = await cancelarAssinatura(API, CHAVE, sub);
     conferir("cancela na conta onde nasceu", cancelada.ok, cancelada.ok ? "" : cancelada.erro);
