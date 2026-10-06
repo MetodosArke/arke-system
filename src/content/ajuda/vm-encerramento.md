@@ -2,11 +2,13 @@ Uma academia cliente sai do ARKE pelo **encerramento**, nunca pela exclusão. O 
 
 ## O caminho
 
-1. **Aviso** (dia zero). A academia avisa pelo painel dela, ou a ArkeFit registra na ficha da organização, bloco **Encerramento**, em **Avisar encerramento…**: quando a academia pediu por outro canal, ou por **decisão da ArkeFit**. Em violação grave dos Termos, a ArkeFit pode encerrar **sem os 30 dias de aviso**. A academia e a ArkeFit recebem um e-mail com as datas.
+1. **Aviso** (dia zero). A academia avisa pelo painel dela, ou a ArkeFit registra na ficha da organização, bloco **Encerramento**, em **Avisar encerramento…**: quando a academia pediu por outro canal, ou por **decisão da ArkeFit**. Em violação grave dos Termos, a ArkeFit pode encerrar **sem os 30 dias de aviso**. A academia e a ArkeFit recebem um e-mail com as datas. Cada aluno com matrícula ativa, ou no Método ARKE, recebe um e-mail e um aviso no celular com o prazo e o que acontece com os dados dele; o envio vai em lotes, de hora em hora, e o bloco mostra quantos já foram avisados.
 2. **Aviso prévio de 30 dias**. Tudo continua funcionando. O aviso pode ser retirado até o fim do prazo.
-3. **Término**. As cobranças recorrentes dos alunos são canceladas no Asaas, a mensalidade B2B é encerrada, e o acesso ao app e ao painel termina. A equipe da academia passa a ver só a tela do encerramento, com a exportação dos dados.
+3. **Término**. As cobranças recorrentes dos alunos são canceladas no Asaas, a mensalidade B2B é encerrada, e o acesso ao app e ao painel termina. A equipe da academia passa a ver só a tela do encerramento, com a exportação dos dados e as remoções de digital que faltam fazer à mão. As digitais saem das catracas: por ordem ao Gateway, ou por tarefa da academia na catraca sem gestão remota.
 4. **30 dias para exportar**. A academia baixa tudo pelo botão de exportação.
-5. **Eliminação**. Depois do prazo, os arquivos (atestados, vídeos, termos), as contas e os dados da academia são apagados. Ficam só os registros fiscais e de pagamento que a lei obriga a guardar, sem identificação dos alunos.
+5. **Eliminação**. Depois do prazo, os arquivos (atestados, vídeos, termos), as contas e os dados da academia são apagados. Ficam só os registros fiscais e de pagamento que a lei obriga a guardar, sem identificação dos alunos. Só sai a conta de quem não tem vínculo nenhum (nem inativo) com outra organização, nem matrícula noutra academia.
+
+**A prova da remoção das digitais** fica no registro do encerramento, sem dado pessoal: quantos alunos tinham número na catraca, quantas ordens ao Gateway foram confirmadas e quantas remoções à mão foram fechadas com desfecho. Ela é conferida a cada rodada e uma última vez antes da eliminação, e vai também para a Auditoria.
 
 A rotina de encerramento roda de hora em hora e cuida das passagens sozinha. Falha numa passagem fica registrada na ficha e é tentada de novo.
 

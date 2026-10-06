@@ -12,7 +12,7 @@ A chave vai para um cofre cifrado e **nunca volta para a tela**: depois de salva
 
 ## No dia a dia
 
-Com o parceiro ativo, a tela **Catracas** mostra o **Check-in de visitante**: a recepção confirma a entrada do visitante do parceiro e libera a catraca. A **Conferência de parceiros**, na mesma tela, conta os check-ins do mês para conferir com o repasse de cada parceiro.
+Com o parceiro ativo, a tela **Catracas** mostra o **Check-in de visitante**: a recepção confirma a entrada do visitante do parceiro, e a catraca libera quando aceita ordem pelo ARKE; senão, a tela diz como liberar. A **Conferência de parceiros**, na mesma tela, conta os check-ins do mês para conferir com o repasse de cada parceiro.
 
 > A conferência automática do check-in direto com o sistema do Wellhub e do TotalPass ainda depende da documentação e das credenciais reais dos parceiros. Por enquanto, quem confirma é a recepção.
 

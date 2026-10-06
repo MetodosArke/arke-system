@@ -42,4 +42,6 @@ Quando a matrícula termina, a catraca deixa de liberar o aluno na hora. Depois 
 
 Com um parceiro ligado em [Integrações](/admin/configuracoes/integracoes), a tela mostra o **Check-in de visitante**, e a **Conferência de parceiros** conta os check-ins do mês para conferir com o repasse de cada parceiro.
 
+Ao confirmar o check-in, ele fica registrado e o ARKE manda a catraca liberar a entrada, quando ela aceita ordem pelo ARKE (a mesma da liberação remota) e o computador da recepção está com sinal. A tela acompanha a ordem e só diz que liberou quando o Gateway confirma. Se a catraca não abre pelo ARKE, ou se a ordem não for confirmada, a tela avisa: libere o visitante pelo botão da recepção ou no próprio equipamento. Mandar abrir é da gestão e da recepção; o professor registra o check-in e pede a liberação à recepção.
+
 > O QR Code do ARKE é o da recepção, lido pelo celular do aluno. Mostrar QR Code ou código de barras na catraca não libera ninguém: o aluno entra com digital, rosto, cartão ou o CPF no teclado.
