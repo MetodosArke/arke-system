@@ -7,6 +7,7 @@ import "./index.css";
 import { destinoNoApp } from "./lib/landing.ts";
 import { slugDeEntrada } from "./lib/marcaAcademia.ts";
 import { apontarManifesto, guardarEntrada } from "./components/marca/MarcaAcademia.tsx";
+import { apagarRascunhosAntigosDoAcolhimento } from "./lib/rascunho.ts";
 
 // Antes de qualquer render: erro na própria subida do app é o mais caro de
 // diagnosticar sem rastreamento, porque não sobra nem tela para reclamar.
@@ -32,6 +33,12 @@ if (entrada) {
   guardarEntrada(entrada);
   apontarManifesto(entrada);
 }
+
+// O rascunho antigo da anamnese (dores, lesões, medicamentos, sono e
+// estresse) ficava no localStorage, sem prazo, até 06/10/2026. Sai dos
+// aparelhos na primeira carga do app novo; o rascunho de hoje mora em
+// src/lib/rascunho.ts, só na aba.
+apagarRascunhosAntigosDoAcolhimento();
 
 // PWA: registra o service worker (também usado para push notifications)
 // para que o app seja instalável na tela inicial, sobretudo em /app.

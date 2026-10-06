@@ -8,6 +8,9 @@ import {
   armazenamentoPadrao,
   descreverQuandoSalvou,
   type ArmazenamentoLocal,
+  descartarTodosOsRascunhos,
+  apagarRascunhosAntigosDoAcolhimento,
+  PREFIXO_ACOLHIMENTO_ANTIGO,
 } from "./rascunho";
 
 function criarArmazenamentoFake(): ArmazenamentoLocal & { dados: Map<string, string>; falhar?: boolean } {
@@ -166,5 +169,45 @@ describe("escopo de armazenamento", () => {
   it("os dois escopos não se enxergam", () => {
     gravarRascunho("k", { onde: "sessao" }, armazenamentoPadrao("sessao"));
     expect(lerRascunho<{ onde: string }>("k", armazenamentoPadrao("persistente"))).toBeNull();
+  });
+});
+
+describe("limpeza de rascunhos", () => {
+  beforeEach(() => {
+    window.sessionStorage.clear();
+    window.localStorage.clear();
+  });
+
+  it("o Sair apaga todos os rascunhos e deixa o resto do armazenamento", () => {
+    gravarRascunho(chaveRascunho("avaliacao-fisica", "aluno-1"), { peso: "82" });
+    gravarRascunho(chaveRascunho("acolhimento", "aluno-2"), { dores_lesoes: "joelho" });
+    window.sessionStorage.setItem("outra-coisa", "fica");
+    expect(descartarTodosOsRascunhos()).toBe(2);
+    expect(window.sessionStorage.length).toBe(1);
+    expect(window.sessionStorage.getItem("outra-coisa")).toBe("fica");
+  });
+
+  it("apaga do localStorage o rascunho antigo da anamnese, e só ele", () => {
+    window.localStorage.setItem(`${PREFIXO_ACOLHIMENTO_ANTIGO}aluno-1`, JSON.stringify({ form: { medicamentos: "x" } }));
+    window.localStorage.setItem(`${PREFIXO_ACOLHIMENTO_ANTIGO}aluno-2`, "{}");
+    window.localStorage.setItem("gym-theme", "dark");
+    expect(apagarRascunhosAntigosDoAcolhimento()).toBe(2);
+    expect(window.localStorage.length).toBe(1);
+    expect(window.localStorage.getItem("gym-theme")).toBe("dark");
+    expect(apagarRascunhosAntigosDoAcolhimento()).toBe(0);
+  });
+
+  it("armazenamento indisponível não derruba nada", () => {
+    expect(descartarTodosOsRascunhos(null)).toBe(0);
+    const quebrado = {
+      get length(): number {
+        throw new Error("bloqueado");
+      },
+      key: () => null,
+      getItem: () => null,
+      setItem: () => {},
+      removeItem: () => {},
+    };
+    expect(apagarRascunhosAntigosDoAcolhimento(quebrado)).toBe(0);
   });
 });

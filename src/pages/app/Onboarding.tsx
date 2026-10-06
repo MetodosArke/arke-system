@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useMemo, useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import { useMutation } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -20,6 +20,9 @@ import {
 } from "@/lib/consentimentoSaude";
 import { emPerfilSimulado } from "@/lib/impersonation";
 import { AvisoPerfilSimulado } from "@/components/AvisoPerfilSimulado";
+import { useRascunho } from "@/hooks/useRascunho";
+import { chaveRascunho, descreverQuandoSalvou } from "@/lib/rascunho";
+import { enviarAnamnese } from "@/lib/acolhimento";
 
 interface AnamneseForm {
   objetivo_principal: string;
@@ -108,7 +111,7 @@ const STEPS: { title: string; description: string; fields: StepField[] }[] = [
   },
 ];
 
-const draftKey = (alunoId: string) => `arke_onboarding_draft:${alunoId}`;
+type RascunhoAcolhimento = { form: AnamneseForm; stepIndex: number };
 
 export default function Onboarding() {
   const { alunoId, organization, metodoArkeAtivo, rolesLoaded, anamneseCompleta, refreshAluno } = useAuth();
@@ -118,65 +121,60 @@ export default function Onboarding() {
   const [form, setForm] = useState<AnamneseForm>(EMPTY_FORM);
   const [consentimentoAceito, setConsentimentoAceito] = useState(false);
   const simulado = emPerfilSimulado();
-  const [rascunhoRestaurado, setRascunhoRestaurado] = useState(false);
 
-  // Restaura o rascunho salvo (se houver) assim que soubermos quem é o
-  // aluno — evita perder respostas de um formulário de 5 etapas por causa
-  // de uma queda de conexão ou fechamento acidental da aba.
-  useEffect(() => {
-    if (!alunoId || rascunhoRestaurado) return;
-    try {
-      const raw = localStorage.getItem(draftKey(alunoId));
-      if (raw) {
-        const draft = JSON.parse(raw) as { form: AnamneseForm; stepIndex: number };
-        setForm((prev) => ({ ...prev, ...draft.form }));
-        if (typeof draft.stepIndex === "number") {
-          setStepIndex(Math.min(draft.stepIndex, STEPS.length - 1));
-        }
-      }
-    } catch {
-      // rascunho corrompido — ignora e segue com o formulário em branco.
-    }
-    setRascunhoRestaurado(true);
-  }, [alunoId, rascunhoRestaurado]);
+  // Rascunho das respostas: sobrevive a recarregar a página ou a uma queda de
+  // conexão no meio das 5 etapas. Até 06/10/2026 ficava no localStorage, sem
+  // prazo, e voltava sozinho: dores, lesões, medicamentos, sono e estresse no
+  // disco do aparelho, para quem abrisse o navegador depois. Agora é o
+  // `useRascunho`: só nesta aba, some ao fechá-la e ao sair, e a tela oferece
+  // restaurar em vez de preencher sozinha. O consentimento nunca entra: ele
+  // precisa ser dado de novo a cada preenchimento. Em perfil simulado não se
+  // guarda nada, porque quem simula não preenche pelo aluno.
+  const valorRascunho = useMemo<RascunhoAcolhimento>(() => ({ form, stepIndex }), [form, stepIndex]);
+  const { rascunhoDisponivel, descartar: descartarRascunho } = useRascunho<RascunhoAcolhimento>(
+    alunoId ? chaveRascunho("acolhimento", alunoId) : null,
+    valorRascunho,
+    { ativo: !simulado },
+  );
 
-  // Salva o rascunho a cada mudança — nunca o consentimento LGPD, que
-  // precisa ser reafirmado explicitamente em cada sessão de preenchimento.
-  useEffect(() => {
-    if (!alunoId || !rascunhoRestaurado) return;
-    try {
-      localStorage.setItem(draftKey(alunoId), JSON.stringify({ form, stepIndex }));
-    } catch {
-      // localStorage indisponível (modo privado, cota cheia etc.) — segue sem autosave.
-    }
-  }, [alunoId, rascunhoRestaurado, form, stepIndex]);
+  const restaurarRascunho = () => {
+    const dados = rascunhoDisponivel?.dados;
+    if (!dados) return;
+    setForm({ ...EMPTY_FORM, ...dados.form });
+    if (typeof dados.stepIndex === "number") setStepIndex(Math.min(Math.max(0, dados.stepIndex), STEPS.length - 1));
+    descartarRascunho();
+  };
 
   const isLastStep = stepIndex === STEPS.length - 1;
   const step = STEPS[stepIndex];
   const isConsentStep = step.fields.length === 0;
 
+  // Os dados vêm no `mutate`, e não pelo fechamento (regra do CLAUDE.md).
   const concluirOnboarding = useMutation({
-    mutationFn: async () => {
+    mutationFn: async ({ respostas, consentimento }: { respostas: AnamneseForm; consentimento: boolean }) => {
       if (!alunoId || !organization) throw new Error("Cadastro de aluno não encontrado");
-      if (!consentimentoAceito) throw new Error("É necessário aceitar o termo de consentimento para continuar.");
+      if (!consentimento) throw new Error("É necessário aceitar o termo de consentimento para continuar.");
 
-      const { frequencia_semanal_desejada, ...formTexto } = form;
+      const { frequencia_semanal_desejada, ...formTexto } = respostas;
+      const agora = new Date().toISOString();
+      const linha = {
+        organization_id: organization.id,
+        aluno_id: alunoId,
+        ...formTexto,
+        frequencia_semanal_desejada: frequencia_semanal_desejada ? parseInt(frequencia_semanal_desejada, 10) : null,
+        concluida_em: agora,
+        consentimento_lgpd_aceito_em: agora,
+        consentimento_lgpd_versao: VERSAO_CONSENTIMENTO_SAUDE,
+      };
 
-      const { error: anamneseError } = await supabase.from("anamnese_acolhimento").upsert(
-        {
-          organization_id: organization.id,
-          aluno_id: alunoId,
-          ...formTexto,
-          frequencia_semanal_desejada: frequencia_semanal_desejada
-            ? parseInt(frequencia_semanal_desejada, 10)
-            : null,
-          concluida_em: new Date().toISOString(),
-          consentimento_lgpd_aceito_em: new Date().toISOString(),
-          consentimento_lgpd_versao: VERSAO_CONSENTIMENTO_SAUDE,
-        },
-        { onConflict: "aluno_id" }
-      );
-      if (anamneseError) throw anamneseError;
+      // Inclui, e nunca sobrescreve a anamnese concluída: ver src/lib/acolhimento.ts.
+      const resultado = await enviarAnamnese(linha, {
+        inserir: (l) => supabase.from("anamnese_acolhimento").insert(l),
+        completarSeAberta: (l) =>
+          supabase.from("anamnese_acolhimento").update(l).eq("aluno_id", alunoId).is("concluida_em", null).select("id"),
+      });
+      // O acolhimento já tinha sido enviado (e já está na fila do mentor).
+      if (resultado === "ja_existia") return resultado;
 
       // Deliverable do M.A.P.A.®: o acolhimento vai para a fila do mentor da
       // ArkeFit (o dono da tarefa sai do plano do aluno, no banco), que lê a
@@ -195,20 +193,22 @@ export default function Onboarding() {
       // Sem treino genérico da academia aqui: no Método o primeiro treino é
       // do mentor, montado a partir desta anamnese. Até ele publicar, a home
       // diz que a ficha está sendo preparada — que é a verdade.
+      return resultado;
     },
-    onSuccess: async () => {
-      toast({
-        title: "Tudo pronto!",
-        description: "Seu mentor da ArkeFit já recebeu o seu acolhimento e vai montar o seu primeiro treino.",
-      });
-      if (alunoId) {
-        try {
-          localStorage.removeItem(draftKey(alunoId));
-        } catch {
-          // sem problema — o onboarding já foi concluído no banco.
-        }
-      }
+    onSuccess: async (resultado) => {
+      toast(
+        resultado === "ja_existia"
+          ? {
+              title: "Seu acolhimento já estava registrado",
+              description: "Nada foi alterado. Se quiser mudar alguma resposta, fale com o seu mentor pelo app.",
+            }
+          : {
+              title: "Tudo pronto!",
+              description: "Seu mentor da ArkeFit já recebeu o seu acolhimento e vai montar o seu primeiro treino.",
+            },
+      );
       await refreshAluno();
+      descartarRascunho();
       navigate("/app", { replace: true });
     },
     onError: (error: Error) => {
@@ -247,6 +247,23 @@ export default function Onboarding() {
           <p className="text-sm text-muted-foreground">{step.description}</p>
         </CardHeader>
         <CardContent className="space-y-4">
+          {rascunhoDisponivel && (
+            // Oferece, não restaura sozinho: no aparelho de outra pessoa, ou
+            // dias depois, respostas que voltam sozinhas podem não ser as de agora.
+            <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-amber-500/40 bg-amber-500/5 p-3">
+              <p className="text-xs">
+                Há respostas não enviadas desta sessão ({descreverQuandoSalvou(rascunhoDisponivel.salvoEm)}).
+              </p>
+              <div className="flex gap-2">
+                <Button size="sm" variant="outline" onClick={restaurarRascunho}>
+                  Restaurar
+                </Button>
+                <Button size="sm" variant="ghost" onClick={descartarRascunho}>
+                  Descartar
+                </Button>
+              </div>
+            </div>
+          )}
           {step.fields.map((field) =>
             field.type === "number" ? (
               <div key={field.key} className="space-y-1.5">
@@ -306,7 +323,7 @@ export default function Onboarding() {
             {isLastStep ? (
               <Button
                 disabled={concluirOnboarding.isPending || !consentimentoAceito || simulado}
-                onClick={() => concluirOnboarding.mutate()}
+                onClick={() => concluirOnboarding.mutate({ respostas: form, consentimento: consentimentoAceito })}
               >
                 Concluir
               </Button>
