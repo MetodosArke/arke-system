@@ -263,4 +263,5 @@ A consulta agora tenta de novo uma vez (`tentarConsultaDeNovo`, em `src/lib/tent
 **Conferido:**
 - `logsSemDadoPessoal.guarda`: 5 testes. Defeito plantado (o objeto de erro de volta no log de `vapid-public-key`): o teste certo falhou, apontando o arquivo e a linha.
 - `tentativas`: 9 testes.
-- **Falta:** o tempo do aviso em produção depois do deploy; o encerramento de ponta a ponta, com o e-mail chegando a um aluno; e a aprovação do Vigia com o Asaas fora do prazo, no sandbox.
+- **Em produção, depois do deploy:** o aviso de erro na lista de alunos apareceu em 17 segundos (eram 53), e **Tentar de novo** carregou a lista; as 23 funções publicadas, com o e-mail de troca de senha saindo pelo `send-email`, o webhook do Asaas recusando chamada sem token (401) e as rotinas sem erro 5xx.
+- **Falta:** o encerramento de ponta a ponta, com o e-mail chegando a um aluno; e a aprovação do Vigia com o Asaas fora do prazo, no sandbox.

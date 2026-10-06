@@ -9,10 +9,20 @@ Valor mensal fixo pago pela academia para acesso à infraestrutura, isolamento p
 
 **Todo plano tem o sistema inteiro** (decisão do responsável, 28/09/2026). O que muda de um plano para outro é o limite de alunos ativos e o suporte; nenhum recurso é travado por plano. A descrição antiga prometia diferenças de recurso que o sistema nunca travou, e foi ajustada a isto.
 
-Tabela vigente desde 01/10/2026 (decisão do responsável, depois da comparação com os concorrentes):
+Tabela vigente desde 01/10/2026 (decisão do responsável, depois da comparação com os concorrentes), com o teto do Growth de 06/10/2026:
 
-- **Growth (uma unidade, até 300 alunos ativos):** R$ 390,00/mês — suporte pelo canal de atendimento.
-- **Enterprise (uma unidade, a partir de 301 alunos):** R$ 790,00/mês, sem teto — suporte prioritário.
+- **Growth (uma unidade, até 500 alunos ativos):** R$ 390,00/mês — suporte pelo canal de atendimento.
+- **Enterprise (uma unidade, a partir de 501 alunos):** R$ 790,00/mês, sem teto — suporte prioritário.
+
+**O teto do Growth subiu de 300 para 500 alunos** (decisão do responsável, 06/10/2026: "o plano de entrada passa a ter teto de até 500 alunos, e os outros acompanham"). O preço não muda. O Enterprise passa a começar em 501, porque começa onde o Growth termina; o Redes e o Custom não têm teto de alunos. As academias que estavam no Growth com o teto de antes (300) subiram junto; limite negociado à parte não é tocado (`20261384010000`). O Contrato da Academia ganhou a versão 2026-10-06 com a tabela nova, e a lista de planos da nova academia na Visão Master passou a ler o teto da tabela, como o site, em vez de trazê-lo escrito. A frase anterior, "Growth até 300 alunos, Enterprise a partir de 301", foi **superada em 06/10/2026**.
+
+**Conferido** (06/10/2026):
+- **No banco de produção, em transação desfeita:**
+  - a tabela e o limite padrão do Growth passaram a 500;
+  - a homologação e a Ponto Alto foram de 300 para 500, e o autônomo ficou em 150;
+  - uma academia nova no Growth nasce com 500, e ao passar para o Enterprise fica sem teto;
+  - `planos_b2b_site()` já devolve 500.
+- **`documentosLegais`:** o hash novo bate. Defeito plantado (o texto do contrato mudado sem o hash): o teste falhou.
 - **Redes (até 3 unidades):** R$ 1.290,00/mês, cobrado na unidade principal — suporte prioritário e SLAs dedicados.
 - **Custom (redes com mais de 3 unidades):** sob consulta — personalização avançada de branding, suporte presencial dedicado e integrações sob demanda.
 - **Taxa de implantação:** R$ 500,00 de referência, negociável por contrato.

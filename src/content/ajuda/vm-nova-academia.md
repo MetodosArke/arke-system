@@ -12,12 +12,12 @@ Se o e-mail do gestor **já tem conta** no ArkeFit (gestor de outra unidade, alu
 
 Os planos:
 
-- **Growth**: uma unidade, até 300 alunos ativos;
-- **Enterprise**: uma unidade, a partir de 301 alunos;
+- **Growth**: uma unidade, até 500 alunos ativos;
+- **Enterprise**: uma unidade, a partir de 501 alunos;
 - **Redes**: rede com até 3 unidades;
 - **Custom**: rede com mais de 3 unidades, com valor negociado.
 
-O limite de alunos acompanha o plano: trocar de Growth para Enterprise tira o teto de 300 sozinho.
+O limite de alunos acompanha o plano: trocar de Growth para Enterprise tira o teto de 500 sozinho.
 
 **Rede com até 3 unidades:** cada unidade é uma organização. A principal fica no Redes e paga a mensalidade da rede. As outras também ficam no Redes, com o valor negociado **R$ 0,00** na Mensalidade B2B (passo 3): assim não nasce cobrança nelas, e a ficha mostra "Unidade de rede".
 
