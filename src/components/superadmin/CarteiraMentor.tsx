@@ -47,7 +47,8 @@ export function CarteiraMentor() {
   const [busca, setBusca] = useState("");
 
   const { data: carteira = [], isLoading, error } = useQuery({
-    queryKey: ["carteira-mentor"],
+    // A carteira responde por quem pergunta (o papel na equipe da ArkeFit).
+    queryKey: ["carteira-mentor", user?.id ?? null],
     queryFn: async () => {
       const { data, error } = await supabase.rpc("get_carteira_mentor", { _limite: 500 });
       if (error) throw error;

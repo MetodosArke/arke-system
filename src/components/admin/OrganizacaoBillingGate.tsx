@@ -22,11 +22,12 @@ import { AlertTriangle, ExternalLink, RefreshCw, LogOut } from "lucide-react";
 // resultado. Este é um gate de experiência, não uma fronteira de segurança:
 // o que protege os dados continua sendo o RLS de cada tabela.
 export function OrganizacaoBillingGate({ children }: { children: React.ReactNode }) {
-  const { rolesLoaded, signOut } = useAuth();
+  const { rolesLoaded, signOut, user, organization } = useAuth();
   const queryClient = useQueryClient();
-
+  // A função responde por quem chama: a chave leva a pessoa e a academia,
+  // para o resultado de uma nunca servir à outra na mesma aba.
   const { data: bloqueio, isFetching } = useQuery({
-    queryKey: ["bloqueio-organizacao"],
+    queryKey: ["bloqueio-organizacao", user?.id ?? null, organization?.id ?? null],
     queryFn: async () => {
       const { data, error } = await supabase.rpc("get_bloqueio_organizacao");
       if (error) throw error;
@@ -119,7 +120,9 @@ export function OrganizacaoBillingGate({ children }: { children: React.ReactNode
               variant="outline"
               className="w-full"
               disabled={isFetching}
-              onClick={() => void queryClient.invalidateQueries({ queryKey: ["bloqueio-organizacao"] })}
+              onClick={() =>
+                void queryClient.invalidateQueries({ queryKey: ["bloqueio-organizacao", user?.id ?? null, organization?.id ?? null] })
+              }
             >
               <RefreshCw className="mr-2 h-4 w-4" />
               {isFetching ? "Verificando..." : "Já paguei, verificar novamente"}
