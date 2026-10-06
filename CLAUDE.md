@@ -81,7 +81,8 @@ Cada linha é uma armadilha que já aconteceu aqui. Onde há trava, ela é um te
   - segue a numeração do repositório, não a data do relógio;
   - começa com `set lock_timeout = '5s'` (`migrations.guarda`);
   - coluna que a tela publicada ainda lê sai em migration pós-deploy;
-  - documento legal entra no banco só depois de o texto estar no ar.
+  - documento legal entra no banco só depois de o texto estar no ar;
+  - rotina do pg_cron nasce (e sai) só por migration, e o roteiro de reconstrução é gerado de novo com `node scripts/migracao/rotinas.mjs --escrever` (`rotinasBanco.guarda`).
 - Os gatilhos `before insert` de `tarefas` disparam em ordem alfabética, e o do SLA é o último (`trg_ultimo_`, `ordemGatilhosTarefas.guarda`).
 - Tabela com `bigserial` precisa de `grant usage` na sequência para a `service_role`.
 - `plataforma_config` tem faixa por chave (`faixa_plataforma_config()`). Chave nova nasce com faixa.
