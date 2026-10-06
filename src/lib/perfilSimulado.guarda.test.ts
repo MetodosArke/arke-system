@@ -77,4 +77,24 @@ describe("perfil simulado", () => {
     expect(migrations).toMatch(/create trigger trg_auditoria_simulacao_sem_email\s+before insert or update of detalhes on public\.auditoria_acoes_sensiveis/);
     expect(migrations).toMatch(/new\.detalhes := new\.detalhes - 'email_alvo'/);
   });
+
+  it("a troca do e-mail de login fica na trilha sem o e-mail", () => {
+    // Auditoria de prontidão, 06/10/2026 (20261397010000): o registro
+    // `gestor.email_alterado` guardava o e-mail novo em claro.
+    const funcao = readFileSync(join(FUNCOES, "superadmin-suporte-tenant", "index.ts"), "utf8");
+    const registro = funcao.slice(funcao.indexOf('registrarAuditoria("gestor.email_alterado"'));
+    const detalhes = registro.slice(0, registro.indexOf("});"));
+    expect(detalhes, "o registro da troca foi achado").toMatch(/mudou: "e-mail de login"/);
+    expect(detalhes).not.toMatch(/novo_?email|email_novo|novoEmail/i);
+    // E o banco tira o e-mail de todo registro dessa ação, por qualquer caminho.
+    const pasta = join(__dirname, "..", "..", "supabase", "migrations");
+    const migrations = readdirSync(pasta)
+      .filter((f) => f.endsWith(".sql"))
+      .map((f) => readFileSync(join(pasta, f), "utf8"))
+      .join("\n");
+    expect(migrations).toMatch(
+      /create trigger trg_auditoria_troca_de_email_sem_email\s+before insert or update of detalhes on public\.auditoria_acoes_sensiveis/,
+    );
+    expect(migrations).toMatch(/if new\.acao = 'gestor\.email_alterado' then[\s\S]*?where d\.chave not ilike '%email%'/);
+  });
 });
