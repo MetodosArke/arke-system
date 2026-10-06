@@ -17,6 +17,8 @@ Todos atendem a fila e as mensagens do seu assunto. Quem abre pelo endereço uma
 2. Preencha nome completo, e-mail e telefone, e escolha o papel.
 3. O ARKE mostra o e-mail e uma **senha temporária**. Entregue à pessoa e peça que ela troque a senha em Meu perfil no primeiro acesso.
 
+A pessoa entra na academia que está aberta no seletor do cabeçalho. Quem é gestor de mais de uma unidade escolhe a unidade antes de cadastrar.
+
 Na [Configuração da academia](/admin/onboarding), a etapa Equipe aceita várias pessoas de uma vez, uma por linha, no formato `Nome; e-mail; papel`.
 
 ## Mudar ou tirar o acesso

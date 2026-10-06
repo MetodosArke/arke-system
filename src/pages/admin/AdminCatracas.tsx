@@ -41,6 +41,9 @@ import { formatarDataBR } from "@/lib/dataBrasilia";
 import { SaudeGateway } from "@/components/catraca/SaudeGateway";
 import { ConferenciaParceiros } from "@/components/catraca/ConferenciaParceiros";
 import { numeroNaoCadastrado } from "@/lib/gateway";
+import { useComandoGateway } from "@/hooks/useComandoGateway";
+import { ProgressoComando } from "@/components/catraca/ProgressoComando";
+import { passoDoCheckin, type RespostaCheckin } from "@/lib/checkinParceiro";
 
 type Parceiro = "wellhub" | "totalpass";
 const PARCEIRO_LABEL: Record<Parceiro, string> = { wellhub: "Wellhub (Gympass)", totalpass: "TotalPass" };
@@ -201,36 +204,46 @@ export default function AdminCatracas() {
     enabled: !!organization?.id,
   });
 
+  // O check-in registra a visita (é o que conta no repasse do parceiro) e,
+  // se a catraca abre pelo ARKE, manda a ordem ao Gateway: a tela acompanha
+  // a ordem e só diz "liberada" quando o Gateway confirma. Sem ordem remota,
+  // a tela diz como liberar.
+  const liberacaoParceiro = useComandoGateway();
+  const [avisoCheckin, setAvisoCheckin] = useState<string | null>(null);
   const checkinParceiroExterno = useMutation({
-    mutationFn: async () => {
-      const { data, error } = await supabase.functions.invoke<{
-        liberado: boolean;
-        motivo: string;
-        error?: string;
-      }>("catraca-checkin-parceiro-externo", {
-        body: {
-          catraca_id: checkinCatracaId,
-          parceiro: checkinParceiro,
-          nome_visitante: checkinNomeVisitante.trim() || undefined,
-        },
+    mutationFn: async (dados: { catracaId: string; parceiro: Parceiro; nomeVisitante: string | undefined }) => {
+      const { data, error } = await supabase.functions.invoke<RespostaCheckin & { error?: string }>("catraca-checkin-parceiro-externo", {
+        body: { catraca_id: dados.catracaId, parceiro: dados.parceiro, nome_visitante: dados.nomeVisitante },
       });
       if (error) throw new Error(await mensagemDeErroEdge(error, "Não foi possível registrar o check-in."));
       if (data?.error) throw new Error(data.error);
-      if (!data?.liberado) throw new Error(data?.motivo ?? "Acesso não liberado.");
-      return data;
+      const passo = passoDoCheckin(data);
+      if (passo.tipo === "recusado") throw new Error(passo.erro);
+      return passo;
     },
-    onSuccess: () => {
-      toast({ title: "Catraca liberada!" });
+    onSuccess: (passo) => {
       setCheckinNomeVisitante("");
       void queryClient.invalidateQueries({ queryKey: ["admin-catracas-logs", organization?.id] });
+      toast({ title: "Check-in registrado", description: passo.aviso });
+      if (passo.tipo === "acompanhar") {
+        setAvisoCheckin(null);
+        void liberacaoParceiro
+          .acompanhar(passo.comandoId, "liberar_catraca")
+          .catch(() => setAvisoCheckin("Não foi possível acompanhar a liberação. Se a catraca não abriu, libere pelo botão da recepção."));
+      } else {
+        liberacaoParceiro.limpar();
+        setAvisoCheckin(passo.aviso);
+      }
     },
     onError: (error: Error) =>
-      toast({ title: "Não foi possível liberar", description: error.message, variant: "destructive" }),
+      toast({ title: "Não foi possível registrar o check-in", description: error.message, variant: "destructive" }),
   });
+  const liberacaoNaoConfirmada =
+    liberacaoParceiro.estado.fase === "fim" && liberacaoParceiro.estado.comando.status !== "concluido";
 
   const RESULTADO_LABEL: Record<string, { label: string; variant: "default" | "destructive" | "secondary" }> = {
     liberado: { label: "Liberado", variant: "default" },
-    liberado_parceiro_externo: { label: "Liberado (parceiro)", variant: "default" },
+    liberado_parceiro_externo: { label: "Check-in (parceiro)", variant: "default" },
     liberado_remoto: { label: "Liberado pela recepção", variant: "secondary" },
     negado_inadimplente: { label: "Inadimplente", variant: "destructive" },
     negado_pausado: { label: "Matrícula pausada", variant: "secondary" },
@@ -423,8 +436,9 @@ export default function AdminCatracas() {
             <UserCheck className="h-4 w-4" /> Check-in de visitante (Wellhub / TotalPass)
           </CardTitle>
           <p className="text-xs text-muted-foreground">
-            Confira o código mostrado no app do visitante e confirme aqui para liberar a catraca. A
-            validação automática com o parceiro ainda não está disponível — esta confirmação é manual.
+            Confira o código mostrado no app do visitante e confirme aqui: o check-in fica registrado e, se a catraca abre pelo ARKE,
+            ela é liberada. Se não abre, a tela diz como liberar. A validação automática com o parceiro ainda não está disponível —
+            esta confirmação é manual.
           </p>
         </CardHeader>
         <CardContent className="space-y-3">
@@ -488,11 +502,29 @@ export default function AdminCatracas() {
               </div>
               <Button
                 className="w-full"
-                disabled={!checkinCatracaId || !checkinParceiro || checkinParceiroExterno.isPending}
-                onClick={() => checkinParceiroExterno.mutate()}
+                disabled={!checkinCatracaId || !checkinParceiro || checkinParceiroExterno.isPending || liberacaoParceiro.emAndamento}
+                onClick={() =>
+                  checkinParceiro &&
+                  checkinParceiroExterno.mutate({
+                    catracaId: checkinCatracaId,
+                    parceiro: checkinParceiro,
+                    nomeVisitante: checkinNomeVisitante.trim() || undefined,
+                  })
+                }
               >
-                {checkinParceiroExterno.isPending ? "Liberando..." : "Confirmar e liberar catraca"}
+                {checkinParceiroExterno.isPending ? "Registrando…" : "Confirmar check-in e liberar"}
               </Button>
+              <ProgressoComando estado={liberacaoParceiro.estado} />
+              {liberacaoNaoConfirmada && (
+                <p className="text-xs text-muted-foreground">
+                  O check-in ficou registrado. Libere o visitante pelo botão da recepção ou no próprio equipamento.
+                </p>
+              )}
+              {avisoCheckin && (
+                <p role="status" className="rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-sm">
+                  {avisoCheckin}
+                </p>
+              )}
             </>
           )}
         </CardContent>

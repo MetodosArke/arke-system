@@ -390,3 +390,32 @@ Decisão do responsável no workspace, com a recomendação: a remoção da digi
 - **Troca de plano:** no prazo, o número ficou e a catraca barrou; com a matrícula de volta, a remoção foi cancelada e a catraca liberou.
 - **Saída de verdade:** depois de 48 horas, a rotina removeu, tirou o número e abriu a tarefa.
 - **Anonimizado no prazo:** uma remoção só, e a da fila foi cancelada.
+
+## Aviso de catraca parada por destinatário e check-in de parceiro que abre a catraca (06/10/2026)
+
+Dois achados médios da auditoria de prontidão de 05/10, sem mudança no Gateway.
+
+**"Já avisei" por destinatário** (`20261372010000`). O aviso de catraca parada vai ao gestor de cada academia e à ArkeFit, mas o registro era um só por catraca, gravado pelo envio da ArkeFit:
+- o e-mail do gestor falhava e ele ficava como avisado, até o lembrete de 24 horas;
+- o da ArkeFit falhava e nada era marcado, e os gestores recebiam o mesmo e-mail a cada 2 minutos.
+
+Agora `alertas_catracas` tem uma linha por catraca e destinatário (`arkefit` ou `gestor`). `catracas_a_avisar()` avalia cada um contra o próprio registro, e `registrar_aviso_catracas()` marca só o destinatário cujo e-mail saiu. Cada aviso traz uma `referencia` (a catraca, a situação e o último "já avisei" ou o início da queda), e a chave de idempotência do e-mail sai dela: se o registro falhar depois do envio, a passada seguinte manda com a mesma chave e o Resend não entrega de novo. O lembrete de 24 horas tem outra referência e sai. Na migração, o que já tinha sido avisado foi copiado para o gestor, para ninguém receber de uma vez o aviso de catraca já avisada. As funções antigas ficam, olhando só a ArkeFit e marcando as duas, para a edge function publicada seguir igual até a nova entrar; saem numa migration depois do deploy.
+
+**O check-in de parceiro abre a catraca** (`20261373010000`). A tela dizia "Catraca liberada!", e `catraca-checkin-parceiro-externo` só gravava o registro; nenhuma ordem saía para o Gateway. A regra passou para `checkin_parceiro_externo()`, chamada com a sessão de quem confirma:
+1. confere a equipe da academia (ou a ArkeFit), a catraca ativa e o parceiro habilitado, e registra o check-in, que é o que conta na conferência com o repasse;
+2. se o Gateway declarou `liberar_catraca`, está com sinal e quem pede é da gestão ou da recepção (a regra da liberação remota), manda a ordem pelo mesmo canal (`gateway_comandos`), com Auditoria;
+3. senão, responde o que fazer: liberar pelo botão da recepção ou no equipamento.
+
+Como grava no registro de acessos e na fila do Gateway por cima do RLS, a função exige a sessão verificada de quem tem o aplicativo autenticador (`sessao_cumpre_duas_etapas`, a regra "duas etapas" de `20261363010000`).
+
+A tela acompanha a ordem (`useComandoGateway().acompanhar`) e só diz que liberou quando o Gateway confirma; ordem que expira ou falha vira o mesmo aviso de liberar à mão. A ordem concluída de um check-in não grava um segundo acesso "liberado pela recepção", porque o check-in já está registrado (`concluir_comando_gateway`). Nos últimos acessos, o rótulo passou de "Liberado (parceiro)" para "Check-in (parceiro)", que é o que o registro prova.
+
+**Conferido:** os testes do aviso (`alertaCatracas`, 3 novos) e do check-in (`checkinParceiro`, 6). Defeito plantado: o envio do aviso sem a chave de idempotência derrubou `alertaCatracas`; o "Catraca liberada!" de volta na tela derrubou `checkinParceiro`. No banco de produção, em transação desfeita:
+- o "já avisei" antigo virou dois (ArkeFit e gestor), e o gestor que recuperou não apagou o da ArkeFit;
+- o check-in da gestora numa catraca sem ordem remota volta `manual`, e numa com o Gateway no ar volta `enviada`;
+- o do professor volta `manual` mesmo com o Gateway no ar, porque abrir é da recepção ou da gestão;
+- com o Gateway sem sinal há 10 minutos, volta `manual`;
+- a ordem concluída não grava um segundo acesso (`liberado_remoto`);
+- a gestora com aplicativo autenticador e a sessão só de senha é recusada (42501).
+
+**Falta,** pela corrente real, uma catraca que aceita ordem remota abrindo pelo check-in, e uma sem gestão remota mostrando o aviso de liberar à mão.

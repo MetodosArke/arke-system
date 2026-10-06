@@ -15,6 +15,8 @@ export const VALIDADE_SEG = {
   comunicadoSemData: 3 * 86400,
   comunicadoMinimo: 3600,
   comunicadoMaximo: 7 * 86400,
+  /** O aviso de que a academia vai encerrar o ARKE: o detalhe vai por e-mail. */
+  encerramento: 3 * 86400,
 };
 
 export type Urgencia = "very-low" | "low" | "normal" | "high";

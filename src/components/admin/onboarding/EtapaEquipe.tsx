@@ -63,7 +63,7 @@ export function EtapaEquipe({ onSalvo }: { onSalvo: () => void }) {
           continue;
         }
         const { data, error } = await supabase.functions.invoke<{ senha_temporaria?: string }>("cadastrar-membro-equipe", {
-          body: { full_name: l.nome, email: l.email, papel: l.papel },
+          body: { full_name: l.nome, email: l.email, papel: l.papel, organization_id: organization!.id },
         });
         if (error) {
           saida.push({ nome: l.nome, email: l.email, ok: false, mensagem: await mensagemDeErroEdge(error, "Não foi possível cadastrar.") });

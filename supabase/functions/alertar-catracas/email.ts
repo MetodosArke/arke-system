@@ -11,6 +11,46 @@ export type ItemCatraca = {
   sem_sinal_desde: string | null;
 };
 
+export type Destinatario = "arkefit" | "gestor";
+
+/** Um aviso para um destinatário, como `catracas_a_avisar()` devolve. */
+export type AvisoCatraca = ItemCatraca & { destinatario: Destinatario; referencia: string };
+
+export type Envio = { destinatario: Destinatario; organization_id: string | null; itens: AvisoCatraca[] };
+
+/**
+ * Os envios de uma passada: um para a ArkeFit, com tudo o que é dela, e um
+ * por academia para o gestor. Cada destinatário tem o próprio "já avisei":
+ * o e-mail de um que falha não marca nem repete o do outro.
+ */
+export function separarEnvios(itens: AvisoCatraca[]): Envio[] {
+  const envios: Envio[] = [];
+  const arkefit = itens.filter((i) => i.destinatario === "arkefit");
+  if (arkefit.length) envios.push({ destinatario: "arkefit", organization_id: null, itens: arkefit });
+  const porAcademia = new Map<string, AvisoCatraca[]>();
+  for (const i of itens.filter((x) => x.destinatario === "gestor")) {
+    porAcademia.set(i.organization_id, [...(porAcademia.get(i.organization_id) ?? []), i]);
+  }
+  for (const [org, doOrg] of porAcademia) envios.push({ destinatario: "gestor", organization_id: org, itens: doOrg });
+  return envios;
+}
+
+/**
+ * A chave de idempotência do e-mail no Resend: o destinatário, a academia e
+ * a referência de cada aviso (que só muda depois de o aviso ser registrado).
+ * Se o registro falha depois do envio, a passada seguinte manda com a mesma
+ * chave e o Resend não entrega de novo.
+ */
+export async function chaveDoEnvio(envio: Envio): Promise<string> {
+  const base = envio.itens
+    .map((i) => `${i.tipo}:${i.referencia}`)
+    .sort()
+    .join("|");
+  const resumo = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(base));
+  const hex = [...new Uint8Array(resumo)].map((b) => b.toString(16).padStart(2, "0")).join("");
+  return `alerta-catracas/${envio.destinatario}/${envio.organization_id ?? "todas"}/${hex.slice(0, 40)}`;
+}
+
 function escapar(texto: string): string {
   return texto.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]!);
 }

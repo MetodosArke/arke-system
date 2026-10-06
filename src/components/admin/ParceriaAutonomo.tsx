@@ -52,7 +52,7 @@ export function ParceriaAutonomo({ aoMudar }: { aoMudar?: () => void }) {
     mutationFn: async (dados: { email: string; nome: string; cadastrar: boolean }) => {
       if (dados.cadastrar) {
         const { data, error } = await supabase.functions.invoke<{ senha_temporaria: string }>("cadastrar-membro-equipe", {
-          body: { email: dados.email, full_name: dados.nome, papel: parceiroEh },
+          body: { email: dados.email, full_name: dados.nome, papel: parceiroEh, organization_id: orgId },
         });
         if (error) throw new Error(await mensagemDeErroEdge(error, "Não foi possível cadastrar a pessoa."));
         return { novo: true as const, senha: data?.senha_temporaria ?? null };

@@ -245,7 +245,8 @@ por `ARKE_CHAVES`, e **nenhum imprime valor de segredo**.
 |---|---|
 | `01-antes-da-restauracao.sql` | zera o `public` do destino e cria as extensões |
 | `replicar-schema.mjs` | replica as 161 migrations (`--conferir` não escreve nada) |
-| `02-depois-da-restauracao.sql` | buckets, regras de storage, tokens do Vault e as 12 rotinas |
+| `02-depois-da-restauracao.sql` | buckets, regras de storage, tokens do Vault e todas as rotinas (os dois últimos gerados das migrations por `rotinas.mjs`) |
+| `rotinas.mjs` | lê as rotinas do pg_cron das migrations, na ordem da reconstrução, e gera os blocos do `02` (`--escrever`) |
 | `comparar.mjs` | compara os dois bancos objeto a objeto |
 | `dados-globais.mjs` | compara a contagem das tabelas globais |
 | `impressao-globais.mjs` | compara o conteúdo delas, linha a linha, por hash |

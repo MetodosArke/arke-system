@@ -4865,6 +4865,8 @@ export type Database = {
       }
       organizacao_encerramentos: {
         Row: {
+          alunos_avisados: number
+          alunos_avisados_push: number
           arquivos_apagados: number | null
           cobrancas_canceladas: number | null
           contas_apagadas: number | null
@@ -4882,6 +4884,11 @@ export type Database = {
           organization_id: string | null
           registros_fiscais: number | null
           remocoes_agendadas: number | null
+          remocoes_alunos: number | null
+          remocoes_conferidas_em: string | null
+          remocoes_manuais: number | null
+          remocoes_manuais_confirmadas: number | null
+          remocoes_remotas_confirmadas: number | null
           retirado_em: string | null
           retirado_por: string | null
           solicitado_em: string
@@ -4891,6 +4898,8 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          alunos_avisados?: number
+          alunos_avisados_push?: number
           arquivos_apagados?: number | null
           cobrancas_canceladas?: number | null
           contas_apagadas?: number | null
@@ -4908,6 +4917,11 @@ export type Database = {
           organization_id?: string | null
           registros_fiscais?: number | null
           remocoes_agendadas?: number | null
+          remocoes_alunos?: number | null
+          remocoes_conferidas_em?: string | null
+          remocoes_manuais?: number | null
+          remocoes_manuais_confirmadas?: number | null
+          remocoes_remotas_confirmadas?: number | null
           retirado_em?: string | null
           retirado_por?: string | null
           solicitado_em?: string
@@ -4917,6 +4931,8 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          alunos_avisados?: number
+          alunos_avisados_push?: number
           arquivos_apagados?: number | null
           cobrancas_canceladas?: number | null
           contas_apagadas?: number | null
@@ -4934,6 +4950,11 @@ export type Database = {
           organization_id?: string | null
           registros_fiscais?: number | null
           remocoes_agendadas?: number | null
+          remocoes_alunos?: number | null
+          remocoes_conferidas_em?: string | null
+          remocoes_manuais?: number | null
+          remocoes_manuais_confirmadas?: number | null
+          remocoes_remotas_confirmadas?: number | null
           retirado_em?: string | null
           retirado_por?: string | null
           solicitado_em?: string

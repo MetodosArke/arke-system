@@ -10,6 +10,8 @@ let papel = "gestor";
 let nivelSessao = "aal2";
 let status = "ativo";
 const rpc = vi.fn();
+let tarefasAbertas: { id: string; motivo: string; created_at: string }[] = [];
+const atualizarTarefa = vi.fn();
 
 vi.mock("@/integrations/supabase/client", () => ({
   supabase: {
@@ -19,6 +21,28 @@ vi.mock("@/integrations/supabase/client", () => ({
         listFactors: () => Promise.resolve({ data: { totp: [{ id: "f1", status: "verified" }], all: [{ id: "f1", status: "verified" }] }, error: null }),
       },
     },
+    from: (tabela: string) => ({
+      select: () => ({
+        eq: () => ({
+          eq: () => ({
+            in: () => ({
+              order: () => ({
+                order: () => ({ range: () => Promise.resolve({ data: tabela === "tarefas" ? tarefasAbertas : [], error: null }) }),
+              }),
+            }),
+          }),
+        }),
+      }),
+      update: (dados: unknown) => ({
+        eq: (_c: string, id: string) => ({
+          select: () => {
+            atualizarTarefa(id, dados);
+            tarefasAbertas = tarefasAbertas.filter((t) => t.id !== id);
+            return Promise.resolve({ data: [{ id }], error: null });
+          },
+        }),
+      }),
+    }),
     rpc: (nome: string, args: unknown) => {
       rpc(nome, args);
       if (nome === "get_encerramento_organizacao") return Promise.resolve({ data: encerramento ? [encerramento] : [], error: null });
@@ -45,6 +69,8 @@ describe("EncerramentoGate", () => {
     papel = "gestor";
     status = "ativo";
     rpc.mockReset();
+    tarefasAbertas = [];
+    atualizarTarefa.mockReset();
   });
 
   it("sem encerramento, o painel segue igual", async () => {
@@ -59,7 +85,17 @@ describe("EncerramentoGate", () => {
     expect(screen.getByText("painel")).toBeInTheDocument();
   });
 
-  it("durante o aviso, o professor e o aluno não veem nada de diferente", async () => {
+  it("durante o aviso, o aluno vê a data e até quando os dados dele ficam", async () => {
+    encerramento = { etapa: "aviso", iniciativa: "academia", termino_em: "2026-10-24", eliminacao_em: "2026-11-23", motivo: null };
+    papel = "aluno";
+    montar(<EncerramentoGate publico="aluno"><p>app</p></EncerramentoGate>);
+    const faixa = await screen.findByRole("status");
+    expect(faixa.textContent).toContain("Academia Tietê vai encerrar o uso do ARKE em 24/10/2026");
+    expect(faixa.textContent).toContain("Seus dados desta academia ficam até 23/11/2026");
+    expect(screen.getByText("app")).toBeInTheDocument();
+  });
+
+  it("durante o aviso, o professor não vê nada de diferente", async () => {
     encerramento = { etapa: "aviso", iniciativa: "academia", termino_em: "2026-10-24", eliminacao_em: "2026-11-23", motivo: null };
     papel = "professor";
     montar(<EncerramentoGate publico="equipe"><p>painel</p></EncerramentoGate>);
@@ -78,12 +114,36 @@ describe("EncerramentoGate", () => {
     expect(document.body.textContent).toContain("24/10/2026");
   });
 
+  it("depois do término, a gestão fecha com desfecho a remoção que ficou à mão", async () => {
+    encerramento = { etapa: "encerrada", iniciativa: "academia", termino_em: "2026-09-24", eliminacao_em: "2026-10-24", motivo: "x" };
+    tarefasAbertas = [
+      { id: "t1", motivo: "Apagar do equipamento da catraca o usuário 12 — Encerramento da academia", created_at: "2026-09-24T03:00:00Z" },
+    ];
+    montar(<EncerramentoGate publico="equipe"><p>painel</p></EncerramentoGate>);
+    expect(await screen.findByText("Falta apagar das catracas")).toBeInTheDocument();
+    expect(screen.getByText(/usuário 12/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Apaguei do equipamento" }));
+    await waitFor(() =>
+      expect(atualizarTarefa).toHaveBeenCalledWith("t1", { status: "concluida", desfecho_acao: expect.stringContaining("Apagado do equipamento") }),
+    );
+    await waitFor(() => expect(screen.queryByText("Falta apagar das catracas")).not.toBeInTheDocument());
+  });
+
+  it("sem remoção pendente, a tela da gestão não mostra a lista", async () => {
+    encerramento = { etapa: "encerrada", iniciativa: "academia", termino_em: "2026-09-24", eliminacao_em: "2026-10-24", motivo: "x" };
+    montar(<EncerramentoGate publico="equipe"><p>painel</p></EncerramentoGate>);
+    expect(await screen.findByText("Contrato encerrado")).toBeInTheDocument();
+    expect(screen.queryByText("Falta apagar das catracas")).not.toBeInTheDocument();
+  });
+
   it("depois do término, o aluno é avisado e o app fecha", async () => {
     encerramento = { etapa: "encerrada", iniciativa: "academia", termino_em: "2026-09-24", eliminacao_em: "2026-10-24", motivo: null };
     papel = "aluno";
     montar(<EncerramentoGate publico="aluno"><p>app</p></EncerramentoGate>);
     expect(await screen.findByText("Sua academia encerrou o uso do ARKE")).toBeInTheDocument();
     expect(screen.queryByText("app")).not.toBeInTheDocument();
+    expect(document.body.textContent).toContain("Seus dados desta academia ficam guardados até 24/10/2026");
+    expect(screen.getByRole("link", { name: "Política de Privacidade" })).toHaveAttribute("href", "/privacidade");
     expect(screen.queryByRole("button", { name: /Exportar/ })).not.toBeInTheDocument();
   });
 });

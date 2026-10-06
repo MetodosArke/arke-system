@@ -64,7 +64,9 @@ Ficam em Supabase → Project Settings → Edge Functions → Secrets. O Supabas
 | `SEND_EMAIL_HOOK_SECRET` | Conferir que o pedido de e-mail veio do Auth | Tem de ser o mesmo nas configurações do Auth e aqui |
 | `TURNSTILE_SECRET_KEY` | Conferir o captcha no servidor. Apagar este segredo desliga o captcha sem publicar nada | Cloudflare → Turnstile |
 | `VAPID_PRIVATE_KEY` | Notificação no celular; a chave pública é derivada dela | Gerada uma vez; trocar invalida as inscrições |
-| `SITE_URL` | Endereço do app nos links dos e-mails | `https://app.arkefit.com.br` |
+| `SITE_URL` | Endereço do app nos links dos e-mails e dos avisos. A tela vai depois do `#` (`<SITE_URL>/#/admin/...`), montada por `_shared/linkDoApp.ts`; sem a variável, o padrão é o app | `https://app.arkefit.com.br` |
+| `APP_URL` | Nenhum código lê. O resumo semanal lia esta variável, sem documentação e com o site de vendas como padrão; desde 06/10/2026 usa `SITE_URL` | Pode ser apagado, se existir |
+| `ASAAS_API_URL`, `ASAAS_SANDBOX_URL` | Trocam o endereço da API do Asaas, de produção e do sandbox. Sem elas, os endereços oficiais escritos em `_shared/asaas.ts` | Não são segredos; só para teste controlado |
 | `SENTRY_DSN_FUNCOES` | Mandar o erro 500 das funções ao Sentry (projeto `edge-functions`). Sem ele, as funções não mandam nada | Sentry → projeto `edge-functions` → Client Keys. É pública por desenho, como a do navegador |
 | `CARTAO_RECORRENTE_ATIVO` | Interruptor da cobrança automática no cartão, do lado do servidor | Ligado por decisão dos sócios |
 | `OPENAI_API_KEY`, `OPENAI_MODEL` | Nenhum código lê. Guardados por decisão do responsável, para uso futuro | Religar exige texto novo na Política, porque a OpenAI processa fora do Brasil |
@@ -124,7 +126,7 @@ Ficam em Supabase → Project Settings → Edge Functions → Secrets. O Supabas
 ## Resend
 
 - **Domínio** `arkefit.com.br`: verificado, região `sa-east-1`, com envio e recebimento ligados e sem rastreamento de abertura nem de clique.
-- **Remetentes usados pelo código:** `alertas@`, `relatorios@`, `convites@`, `suporte@`, `site@`, `ola@`, `noreply@`, `contato@`, `comercial@`, `implantacao@` e `acesso@arkefit.com.br`. Três podem ser trocados sem mexer no código, por variável das funções (não são segredos, e hoje nenhuma está definida): `EMAIL_IMPLANTACAO_FROM` (Bruno e o aviso de painel pronto do profissional autônomo), `EMAIL_SUPORTE_FROM` (chamado do assistente da academia) e `EMAIL_ACESSO_FROM` (aviso de matrícula a quem já tinha conta e o pedido de autorização ao responsável do aluno menor, `responsavel-pedido`).
+- **Remetentes usados pelo código:** `alertas@`, `relatorios@`, `convites@`, `suporte@`, `site@`, `ola@`, `noreply@`, `contato@`, `comercial@`, `implantacao@` e `acesso@arkefit.com.br`. Podem ser trocados sem mexer no código, por variável das funções (não são segredos; sem a variável, vale o remetente escrito no código): `EMAIL_IMPLANTACAO_FROM` (Bruno e o aviso de painel pronto do profissional autônomo), `EMAIL_SUPORTE_FROM` (chamado do assistente da academia), `EMAIL_ACESSO_FROM` (aviso de matrícula a quem já tinha conta, o pedido de autorização ao responsável do aluno menor, `responsavel-pedido`, e o aviso de encerramento da academia aos alunos), `EMAIL_ALERTAS_FROM` (alerta de rotinas e de catraca parada, o Vigia e o aviso de encerramento à gestão), `EMAIL_COMERCIAL_FROM` (Letícia), `EMAIL_SITE_FROM` (contato do site) e `EMAIL_FROM` (os e-mails do Auth, `send-email`).
 - **Onde entra a chave do Resend:** no segredo `RESEND_API_KEY` e na senha do SMTP do Auth.
 
 ## Amazon Web Services (Bedrock)
