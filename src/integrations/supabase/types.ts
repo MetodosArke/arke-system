@@ -8192,6 +8192,15 @@ export type Database = {
         Args: { _ativo: boolean }
         Returns: undefined
       }
+      definir_carteira_recebimento: {
+        Args: {
+          _ator_user_id: string
+          _organization_id: string
+          _papel: string
+          _wallet_id: string
+        }
+        Returns: string
+      }
       definir_cobranca_conta_academia: {
         Args: {
           _ambiente: string
@@ -8202,15 +8211,6 @@ export type Database = {
           _token_hash: string
         }
         Returns: Json
-      }
-      definir_carteira_recebimento: {
-        Args: {
-          _ator_user_id: string
-          _organization_id: string
-          _papel: string
-          _wallet_id: string
-        }
-        Returns: string
       }
       definir_metas_aluno_metodo: {
         Args: {
