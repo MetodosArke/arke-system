@@ -4,8 +4,8 @@
 // O `cron.job` pertence à extensão, e nem o dump do schema nem a cópia dos
 // dados o trazem. Por isso o roteiro `02-depois-da-restauracao.sql` recria as
 // rotinas — e, até 06/10/2026, recriava uma lista escrita à mão, com 14
-// (uma já desagendada): depois de desagendar tudo, ficavam de fora 17 das 30,
-// entre elas a retenção dos logs da catraca, os históricos, os leads, o Vigia
+// (uma já desagendada): depois de desagendar tudo, ficava de fora mais da
+// metade das que as migrations agendam, entre elas a retenção dos logs da catraca, os históricos, os leads, o Vigia
 // e os encerramentos.
 //
 // Agora a lista não é escrita à mão em lugar nenhum. Este módulo percorre a

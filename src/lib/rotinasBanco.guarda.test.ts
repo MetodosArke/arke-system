@@ -19,10 +19,10 @@ import {
  *
  * O roteiro de reconstrução (`scripts/migracao/02-depois-da-restauracao.sql`)
  * desagenda tudo e recria as rotinas, porque o `cron.job` não sai no dump. A
- * lista dele era escrita à mão, com 14 rotinas (uma já desagendada), e 17 das
- * 30 ficavam de fora: a retenção dos logs da catraca, os históricos, os
- * leads, o Vigia e os encerramentos, entre outras, sumiriam numa
- * reconstrução. Agora o bloco é gerado por
+ * lista dele era escrita à mão, com 14 rotinas (uma já desagendada), e mais
+ * da metade das que as migrations agendam ficava de fora: a retenção dos
+ * logs da catraca, os históricos, os leads, o Vigia e os encerramentos,
+ * entre outras, sumiriam numa reconstrução. Agora o bloco é gerado por
  * `node scripts/migracao/rotinas.mjs --escrever`, e este teste falha quando
  * uma migration nova agenda (ou desagenda) uma rotina e o roteiro não foi
  * gerado de novo.
@@ -61,6 +61,10 @@ describe("rotinas do banco na reconstrução", () => {
       "arke-encerramentos",
       "arke-alerta-catracas",
       "arke-briefing-semanal",
+      // As mais novas, agendadas pelas migrations depois da lista à mão.
+      "arke-dados-de-passagem",
+      "arke-remocoes-fim-de-matricula",
+      "arke-registros-de-acesso",
       // Nasceu pelo roteiro antigo, sem migration que a agendasse no banco
       // de produção; agora nasce de 20261374010000.
       "snapshot-mrr-diario",

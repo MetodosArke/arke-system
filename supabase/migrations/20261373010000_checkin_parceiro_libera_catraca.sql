@@ -47,6 +47,13 @@ begin
   if not (v_arkefit or public.is_org_staff(v_uid, v_cat.organization_id)) then
     raise exception 'Você não tem permissão para liberar acessos nesta academia.' using errcode = '42501';
   end if;
+  -- A função grava no registro de acessos e na fila do Gateway por cima do
+  -- RLS; a regra "duas etapas" das duas tabelas (20261363010000) vale aqui
+  -- também.
+  if not public.sessao_cumpre_duas_etapas() then
+    raise exception 'Entre de novo com o código do aplicativo autenticador: a sua conta usa a verificação em duas etapas.'
+      using errcode = '42501';
+  end if;
 
   if _parceiro is null or _parceiro not in ('wellhub', 'totalpass') then
     raise exception 'Parceiro inválido. Use wellhub ou totalpass.' using errcode = '22023';
