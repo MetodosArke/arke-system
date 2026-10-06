@@ -66,8 +66,16 @@ const DENTRO_DE: Record<string, { pai: string[]; motivo: string }> = {
   },
 };
 
-/** Telas internas da ArkeFit (Visão Master), sem cliente do outro lado: o painel de avisos e a visão geral. */
-const INTERNAS = new Set(["src/pages/superadmin/SuperAdminWebhooks.tsx", "src/pages/superadmin/SuperAdminDashboard.tsx"]);
+/**
+ * Telas internas da ArkeFit (Visão Master), sem cliente do outro lado: o
+ * painel de avisos, a visão geral e as parcelas da taxa de implantação (a
+ * cobrança B2B da própria ArkeFit, que mostra o link da fatura).
+ */
+const INTERNAS = new Set([
+  "src/pages/superadmin/SuperAdminWebhooks.tsx",
+  "src/pages/superadmin/SuperAdminDashboard.tsx",
+  "src/components/superadmin/TaxaImplantacaoOrganizacao.tsx",
+]);
 
 /**
  * As funções que criam ou mexem em cobrança do aluno, e a conta Asaas da
