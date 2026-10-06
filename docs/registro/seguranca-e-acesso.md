@@ -259,6 +259,13 @@ A auditoria de 05/10 achou três bloqueadores e quinze achados altos antes da pr
   - excluir numa academia fora de teste, recusado;
   - com um vínculo de professora em outra academia, o perfil e esse vínculo intactos, e a exclusão sem apagar a conta.
 - **Testes:** 12 testes nas duas guardas, e um defeito plantado (uma tabela fora da anonimização) pego.
+- **A corrente real, depois do deploy:** 8 verificações pelas funções publicadas, com contas temporárias apagadas no fim.
+  - Editar a equipe recusou um aluno como alvo (403).
+  - O resumo da anamnese recusou a recepção e atendeu o gestor do aluno do plano Free.
+  - Sem outro vínculo, a anonimização apagou a ficha e a avaliação e anonimizou o perfil e o login.
+  - Com vínculo em outra academia, ficaram intactos o perfil, o login e o outro vínculo.
+  - A exclusão em academia em teste apagou o aluno e a conta.
+  - As três saídas ficaram na auditoria.
 
 ## O "Sair" que limpa, e a falha de rede que não vira falta de acesso (06/10/2026)
 
@@ -292,3 +299,9 @@ Os artigos da Central mudaram junto: `app-primeiro-acesso` (Sair e as duas telas
 - Seis defeitos plantados, os seis pegos, com 9 testes falhando: o erro da leitura dos papéis ignorado de novo, o "Sair" com o escopo global, o cache que não limpa na troca de pessoa, a anamnese concluída tratada como completada, a simulação registrando o aparelho para os avisos, e a rota da gestão sem a tela de erro.
 - `npm run check` sem erro: tipos, lint (0 erros, os 27 avisos de antes), o `deno check` das 53 funções e a auditoria das dependências (0 vulnerabilidades).
 - Falta conferir em produção: a tela no computador e no celular (o "Sair" com e sem simulação, o erro de acesso com a rede desligada, a conta sem academia e o rascunho do acolhimento), e o aviso que para de chegar no aparelho depois do "Sair".
+
+**Conferido pela tela em produção, depois do deploy (06/10/2026), e o defeito que ela mostrou.**
+- **No computador e no celular:** a conta sem academia viu "Nenhuma academia vinculada a esta conta", sem rolagem lateral, e o "Sair" apagou a sessão da aba.
+- **A falha de rede, com a leitura dos vínculos bloqueada,** chegou à tela "Não conseguimos carregar o seu acesso", mas levou 34 segundos. Nesse tempo, o formulário de entrar ficava parado, sem dizer nada.
+- **A causa:** o supabase-js já repete por baixo toda consulta ao PostgREST que falha por rede, até 3 vezes, com 1, 2 e 4 segundos de espera. As 4 tentativas do app por cima multiplicavam isso: foram 16 consultas bloqueadas, e não 4.
+- **A correção:** `comNovasTentativas` passou a tentar 2 vezes, e o "Entrar" mostra "Entrando..." até o acesso carregar ou falhar. Um teste novo trava o padrão de duas tentativas.

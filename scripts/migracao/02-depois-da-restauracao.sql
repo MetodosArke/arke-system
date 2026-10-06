@@ -137,6 +137,7 @@ select cron.schedule('arke-alerta-atestado',        '15 7 * * *',  'select publi
 select cron.schedule('arke-engajamento-baixo',      '0 8 * * 1',   'select public.gerar_tarefas_engajamento_baixo();');
 select cron.schedule('snapshot-mrr-diario',         '5 3 * * *',   'select public.capturar_snapshot_mrr();');
 select cron.schedule('arke-dados-de-passagem',     '17 * * * *',  'select public.limpar_dados_de_passagem();');
+select cron.schedule('arke-remocoes-fim-de-matricula', '23 * * * *', 'select public.executar_remocoes_fim_de_matricula();');
 
 -- As três que chamam edge function: a URL abaixo é a do projeto de destino.
 select cron.schedule(

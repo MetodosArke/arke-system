@@ -43,6 +43,10 @@ export default function Login() {
     }
   }, [isAuthenticated, rolesLoaded, erroAcesso, roles, organizationRole, organization, navigate]);
 
+  // Entre a senha aceita e o acesso carregado, a tela não pode ficar parada:
+  // com a rede ruim, a leitura do acesso pode levar alguns segundos.
+  const entrando = isLoading || (isAuthenticated && !rolesLoaded && !erroAcesso);
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
@@ -197,9 +201,9 @@ export default function Login() {
               <Button
                 type="submit"
                 className="w-full gradient-primary text-primary-foreground font-semibold"
-                disabled={isLoading}
+                disabled={entrando}
               >
-                {isLoading ? "Entrando..." : "Entrar"}
+                {entrando ? "Entrando..." : "Entrar"}
               </Button>
 
             </form>

@@ -7,6 +7,18 @@ const semEsperar = () => {
 };
 
 describe("comNovasTentativas", () => {
+  it("o padrão é duas tentativas: o supabase-js já repete as falhas de rede por baixo", async () => {
+    const { esperas, esperar } = semEsperar();
+    let chamadas = 0;
+    const acao = async () => {
+      chamadas++;
+      throw new Error("rede");
+    };
+    await expect(comNovasTentativas(acao, { esperar })).rejects.toThrow("rede");
+    expect(chamadas).toBe(2);
+    expect(esperas).toEqual([1000]);
+  });
+
   it("dá certo de primeira sem esperar nada", async () => {
     const { esperas, esperar } = semEsperar();
     await expect(comNovasTentativas(async () => "ok", { esperar })).resolves.toBe("ok");
@@ -21,7 +33,7 @@ describe("comNovasTentativas", () => {
       if (chamadas < 3) throw new Error("rede");
       return chamadas;
     };
-    await expect(comNovasTentativas(acao, { esperar, esperaInicialMs: 500 })).resolves.toBe(3);
+    await expect(comNovasTentativas(acao, { esperar, esperaInicialMs: 500, tentativas: 3 })).resolves.toBe(3);
     expect(esperas).toEqual([500, 1000]);
   });
 
