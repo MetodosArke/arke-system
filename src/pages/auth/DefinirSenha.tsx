@@ -126,7 +126,7 @@ export default function DefinirSenha() {
     // a gestão que esperava essa prova é ativada (ver src/lib/senhaDefinida.ts).
     const depois = await depoisDeDefinirASenha(supabase);
     if (depois.tipo === "sessoes_nao_encerradas") {
-      toast({ title: "Gestão ainda pendente", description: AVISO_GESTAO_PENDENTE, variant: "destructive" });
+      toast({ title: "Acesso ainda pendente", description: AVISO_GESTAO_PENDENTE, variant: "destructive" });
     }
 
     // Garante que organização/papel/perfil (vinculados no convite) já

@@ -8,8 +8,10 @@
  * nesta ordem (auditoria de 05/10/2026, migration 20261362010000):
  *
  * 1. as outras sessões da conta caem, e com elas quem tinha a senha antiga;
- * 2. a gestão que esperava a prova do e-mail (`pending`) é ativada. O banco só
- *    ativa numa sessão aberta por link, e nunca em perfil simulado.
+ * 2. a gestão que esperava a prova do e-mail (`pending`) é ativada, e desde
+ *    20261395010000 também o vínculo pendente de professor, nutricionista e
+ *    recepção. O banco só ativa numa sessão aberta por link, e nunca em perfil
+ *    simulado.
  *
  * Sem o passo 1, a gestão não é ativada: ativar com a sessão de outra pessoa
  * ainda viva daria o painel a ela.
@@ -35,5 +37,6 @@ export async function depoisDeDefinirASenha(cliente: ClienteAuth): Promise<Resul
   return { tipo: "ok", gestoesAtivadas: typeof data === "number" ? data : 0 };
 }
 
+// Desde 20261395010000 o vínculo pendente pode ser de gestão ou de equipe.
 export const AVISO_GESTAO_PENDENTE =
-  "A senha foi definida, mas não conseguimos encerrar as outras sessões desta conta, e por isso a gestão que esperava a confirmação do seu e-mail continua pendente. Use “Esqueci minha senha” na tela de entrar para tentar de novo.";
+  "A senha foi definida, mas não conseguimos encerrar as outras sessões desta conta, e por isso o acesso (de gestão ou de equipe) que esperava a confirmação do seu e-mail continua pendente. Use “Esqueci minha senha” na tela de entrar para tentar de novo.";

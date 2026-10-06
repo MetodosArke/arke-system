@@ -372,3 +372,86 @@ Os achados médios de acesso e de identidade da auditoria de 05/10. Migrations `
 - **Testes:** 38 novos (11 em `acessoPainel.guarda`, 8 em `consentimentoSaude.guarda`, 4 em `duasEtapasNoBanco.guarda`, 10 em `identidade.guarda`, 4 da ordem do "definir a senha" e 1 da Visão Master). Suíte inteira, depois do rebase sobre a main: 1.079 testes em 145 arquivos, todos passando. Na rodada anterior ao rebase, com a máquina carregada, 9 testes de telas que esta entrega não toca passaram do prazo de 5 segundos; rodados sozinhos, os 10 arquivos passaram (52 testes).
 - `npm run check` sem erro: tipos, lint (0 erros, os 27 avisos de antes), o `deno check` das 55 funções e a auditoria das dependências (0 vulnerabilidades).
 - **Falta, depois do deploy:** a prova no banco de produção em transação desfeita e a corrente real pelas funções publicadas; a tela no computador e no celular (o painel de cada papel, a ficha da recepção e do professor, a retirada no app, a gestão pendente com uma conta temporária); e desligar o cadastro aberto no Auth.
+
+## Auditoria de prontidão: as sobras de banco e de funções (06/10/2026)
+
+Seis sobras da auditoria de prontidão, de banco e de funções. Migrations `20261393010000` a `20261397010000`.
+
+**1. O admin da ArkeFit só nas tarefas da ArkeFit** (`20261393`). A fila do Mentor é a mesma `tarefas`, com `dono`, e a separação mora no RLS. A academia já não lia o que é da ArkeFit, mas o lado inverso estava aberto: o `admin_arke` lia, alterava e excluía toda tarefa de toda academia, inclusive cobrança, atestado e a fila do aluno do Free.
+- Agora o `admin_arke` alcança só `dono = 'arkefit'`, nas duas metades de cada regra. O Super Admin continua vendo tudo.
+- No `with check` da alteração, cada lado só deixa a tarefa com o próprio dono: antes a equipe podia mudar o dono de uma tarefa dela. A inclusão da equipe fica como estava, porque o gatilho decide o dono antes do `with check`, e o relato de dor de um aluno do Método vira tarefa do mentor.
+- Conferido antes de cortar: a fila, a operação, a ficha do Método, a instrução presencial e a liberação da progressão passam por funções `security definer`. A única gravação direta da ArkeFit é encerrar o chamado da fila, que é sempre `dono = 'arkefit'`.
+
+**2. O histórico do aluno mostra só o que quem pede pode ver** (`20261394`). `get_historico_aluno` rodava com a permissão da função e devolvia à recepção e ao professor o que o RLS das tabelas esconde deles: as tarefas do mentor, a dieta, o comentário de saúde do check-in e, no aluno do Método, o que é da ArkeFit. E o `admin_arke` abria o histórico de qualquer aluno do Free.
+- **A escolha:** a função passa a `security invoker`. Cada parte passa pelo RLS da tabela de origem, e a regra mora num lugar só: quando a regra de `tarefas`, `dietas` ou `checkins` mudar, o histórico muda junto, sem ninguém lembrar dele. A outra saída, repetir as condições do RLS dentro da função, deixaria duas cópias da regra para divergirem na primeira correção, que é como esta divergência nasceu. De quebra, a regra restritiva "duas etapas" passa a valer para o histórico, que era o próximo passo da rodada 3. A caixa de mensagens (`get_caixa_mensagens`) continua `security definer`.
+- O que o RLS não diz, a função diz com a mesma função das regras, `atende_saude()`. A recepção não vê o comentário e o motivo do check-in nem as pendências de dor e de anamnese. A lista dos tipos de saúde mora em `TAREFAS_DE_SAUDE` (`src/lib/acessoPainel.ts`), usada pela ficha e conferida contra a função.
+- Quem pede: a equipe da academia, ou a ArkeFit só no aluno do Método. O suporte ao Free passa pelo perfil simulado, como na anamnese.
+- O autor que o RLS não deixa ler não some. Aparece como **Equipe ArkeFit** quando a linha é da ArkeFit (`dono = 'arkefit'`, ou a fase mudada por quem não é da academia). Aparece como **Equipe da academia** quando é de alguém que saiu da equipe: o perfil de quem foi inativado também deixa de ser lido, e sem essa distinção o ex-professor apareceria como ArkeFit.
+- O `profiles` foi conferido: só uma regra permissiva de leitura em produção. O leitor de regras das guardas chegou ao mesmo número (ver os defeitos do caminho).
+
+**3. A equipe só com o e-mail provado** (`20261395`, `cadastrar-membro-equipe`). A matrícula pública e a gestão nova já esperavam a prova do e-mail (`20261362`). O cadastro da equipe, não.
+- Ele criava a conta com o e-mail confirmado e uma senha temporária que voltava para quem cadastrava. A gestão ficava com a senha da conta de outra pessoa, e o e-mail nunca era provado.
+- A parceria do profissional autônomo (`convidar_parceiro_autonomo`) ligava na hora, como professor ou nutricionista, a conta que já existisse com o e-mail digitado. Quem se matriculasse antes com o e-mail de uma nutricionista leria a ficha completa dos alunos do painel.
+- `convidar-membro` só cadastra aluno: e-mail novo recebe o convite do Auth, sem senha, e a importação sem e-mail cria a conta sem senha. A conta que já existe é ligada pelo CPF (decisão de 03/10/2026; ver abaixo o que ficou de fora).
+
+O que muda, no molde da gestão:
+- e-mail sem conta recebe o convite do Auth, e a senha nasce no link (`inviteUserByEmail`, sem `password` nem `email_confirm`);
+- conta que já existe entra **pendente** e recebe o link de definir a senha (`generateLink` de recuperação);
+- `ativar_gestao_pendente()` passa a ativar também professor, nutricionista e recepção pendentes. O nome fica, porque o app publicado a chama depois de definir a senha, e a auditoria distingue `equipe.ativada_pelo_email` de `gestao.ativada_pelo_email`;
+- a parceria liga a conta existente como pendente, e a tela passa pelo mesmo cadastro, que manda o link;
+- o gatilho `trg_vinculo_pendente_so_pelo_email` recusa trocar `pending` por `active` pela API. A tela da Equipe oferecia **Ativar** para quem não estava ativo, e o clique de boa-fé do gestor completaria o pré-sequestro. Agora a tela mostra **Aguardando o e-mail** e não oferece o botão;
+- as telas (Equipe, a etapa Equipe da configuração e a Parceria) não mostram nem copiam senha nenhuma, e os artigos da Central mudaram junto.
+
+**4. O roteiro de reconstrução cria todos os buckets.** `02-depois-da-restauracao.sql` criava 8 dos 9 buckets e esquecia `termos-biometria` (`20261250`). As regras de `storage.objects` dele eram as de `20261214`, sem o termo da digital e sem o teto diário de envio (`20261322`): rodar o roteiro depois de uma reconstrução pelas migrations voltaria as regras para trás.
+- O roteiro passou a ter os 9 buckets e as regras vigentes.
+- `scripts/migracao/buckets.mjs` lê as migrations e o histórico na ordem da reconstrução, no molde de `rotinas.mjs`.
+- A guarda `bucketsBanco.guarda` falha em quatro casos: um bucket de migration fora do roteiro ou com outro valor; um bucket usado no código que o roteiro não cria; uma regra de Storage do roteiro diferente da última versão das migrations; e o retrato de produção (os 9 nomes e o público ou privado de cada um) diferente do roteiro.
+- Cinco buckets nasceram pelo painel, antes das migrations (avatars, dietas, email-assets e os dois de exercício): para os limites deles, o roteiro é o registro.
+
+**5. O encerramento anonimiza o cliente no Asaas** (`20261396`, `encerramento-organizacao`, `_shared/saidaAsaas.ts`). A eliminação apagava os alunos sem passar pela anonimização que a saída de um aluno já faz.
+- Agora a etapa de eliminação anonimiza o cliente de cada aluno antes de apagar contas (o CPF está no perfil) e organização (o ambiente vem do status dela). Vai em lotes de 50, cinco em paralelo, com cursor em `organizacao_encerramentos.asaas_cursor` e o placar na Auditoria. Lote novo não começa depois de 60 segundos: a rodada é retomável.
+- Quem falha vira pendência, e a eliminação segue, como na saída. Se um lote inteiro falha (o Asaas fora do ar, a chave errada), a rodada para sem avançar o cursor e fica como falha na Visão Master: seguir só trocaria cada aluno por uma pendência, com um prazo de 20 segundos de cada vez.
+- `eliminar_organizacao` recusa enquanto o passo não terminou, e assim uma versão antiga da função publicada não elimina sem ele.
+- **Outro vínculo:** a regra é a da saída, olhada para fora desta academia. Quem tem matrícula viva ou vínculo ativo noutra academia fica intocado na conta da ArkeFit. O vínculo de equipe na mesma academia não conta, porque também está saindo.
+- **Só a conta da ArkeFit.** A conta Asaas da academia é dela: a subconta aberta pela ArkeFit ou a conta própria que ela conectou. As cobranças, as notas e os clientes de lá são o registro dela, que continua depois do contrato, e a responsabilidade fiscal segue o split. Anonimizar ali apagaria o contato de quem ainda deve à academia. A ArkeFit só apaga do cofre a chave que guardava. A saída de um aluno com a academia ainda no ArkeFit continua tratando as duas contas. Antes de eliminar, a rodada tenta de novo as pendências de saída daquela academia, enquanto a chave existe.
+- **A pendência sobrevive à eliminação.** `asaas_saida_pendente` não tem chave estrangeira, e a eliminação não a apaga (a guarda confere). Com a organização apagada, a nova tentativa não saberia o ambiente (trial vai ao sandbox) nem teria a chave da academia, que sai do cofre junto. A pendência passa a guardar o ambiente, se toca a conta da academia (falso no encerramento) e as outras matrículas da pessoa (só ids), que o banco não acha depois da exclusão das contas. Sem dado pessoal, como antes. A pendência antiga, sem ambiente, segue a regra de antes (produção).
+
+**6. A troca do e-mail de login sem o e-mail na trilha** (`20261397`, `superadmin-suporte-tenant`). O registro `gestor.email_alterado` guardava `novo_email` em claro. No molde de `20261376`, a função manda só `{"mudou": "e-mail de login"}`, e um gatilho tira de todo registro dessa ação qualquer chave com e-mail. Ele vale já, antes de a função nova ser publicada, e para qualquer caminho.
+
+**Fica de fora, e por quê.**
+- **O aluno com conta que já existe** (`convidar-membro`). A matrícula liga a conta pelo CPF, sem a prova do e-mail (decisão de 03/10/2026). O pré-sequestro ainda é possível por aí: quem se matricula antes pela matrícula pública, com o e-mail e o CPF de outra pessoa, recebe depois a matrícula que outra academia fizer para ela. Pôr o aluno pendente não cabe no `organization_members`: o RLS do aluno, em mais de 40 tabelas, olha `alunos.user_id`, que é obrigatório e nasce na matrícula, e várias funções do app leem pela mesma coluna. As saídas são uma matrícula que só se liga à conta depois do link (a academia não veria o aluno até ele aceitar) ou a matrícula pública com e-mail confirmado. É decisão de produto do responsável.
+- **A troca do e-mail de um membro da equipe pela gestão** (`editar-membro-equipe`) não vai à auditoria. Ela já pede as duas etapas e só vale para quem está apenas naquela academia; registrar a troca (sem o e-mail, como aqui) é um passo a decidir, e não estava nesta lista.
+
+**Defeitos do caminho.**
+- O leitor de regras das guardas via viva a regra antiga de leitura de `profiles`. O Postgres corta o nome com mais de 63 bytes, e a regra foi apagada pelo nome cortado. O leitor passou a cortar igual e chegou à única regra de leitura que produção tem.
+- A prova no banco local mostrou a nota do mentor ao mudar a fase do aluno do Método chegando ao professor: `aluno_fase_historico` é legível pela equipe inteira. No Método, a academia vê que a fase mudou, mas a nota fica com a ArkeFit.
+- O roteiro voltaria as regras do Storage para a versão de `20261214`. O caso não estava na lista da auditoria, e a guarda dos buckets o pegou na primeira rodada.
+- A parceria do autônomo e o botão **Ativar** da Equipe também não estavam na lista. Os dois completariam o pré-sequestro, e foram corrigidos no mesmo molde.
+- O teste do passo do Asaas importa `_shared/saidaAsaas.ts`, e o `tsc` do app não entende o `npm:` do Deno. O módulo deixou de importar o tipo do cliente do Supabase e usa só o pedaço que lê, como `arquivosDoAluno.ts`. A primeira tentativa, comparar o cliente de verdade com esse pedaço, estourou a checagem do Deno ("instanciação profunda demais"), e o cliente entra como `object`, convertido num lugar só.
+
+**Travas:** `tarefasPorDono.guarda` e `historicoDoAluno.guarda` (novas) leem a versão vigente de cada regra com `scripts/migracao/regras.mjs`, que aplica `create`, `alter` e `drop policy` na ordem da reconstrução. `bucketsBanco.guarda` (nova) é a dos buckets. `identidade.guarda` ganhou a equipe, `saidaDoAluno.guarda` a eliminação e a pendência, e `perfilSimulado.guarda` a troca de e-mail.
+
+**Conferido:**
+- **O banco, em Postgres local (PGlite), sobre um esqueleto com as tabelas e as funções de papel copiadas das migrations.** As regras de acesso não foram copiadas à mão: foram geradas pelo mesmo leitor das guardas, no estado de antes desta entrega. As cinco migrations rodaram duas vezes seguidas, e **108 casos** passaram, cada um em transação desfeita:
+  - **itens 1 e 2, 68 casos.** Antes, o `admin_arke` lia as 5 tarefas e a recepção via pelo histórico a dor, o comentário do check-in, a tarefa do mentor e a dieta do Método. Depois, o `admin_arke` lê, altera e encerra só a da ArkeFit, não muda o dono, não abre tarefa na fila da academia e, sem as duas etapas, não lê nada. Os quatro papéis da academia leem as quatro dela e não mudam o dono. O histórico ficou certo para gestor, professor, nutricionista, recepção, `admin_arke`, Super Admin, gestor de outra academia, o próprio aluno e o gestor só com a senha. A função não é mais `security definer`;
+  - **item 3, 14 casos:** a parceria liga a conta existente como pendente, e antes ligava ativa; nem o gestor nem a ArkeFit ativam o pendente pela API; a ativação é recusada só com a senha e em perfil simulado, vale pelo link e fica na auditoria como da equipe, e a gestão pendente segue ativando;
+  - **item 4, 4 casos:** a seção Storage do roteiro roda duas vezes e cria os 9 buckets e as 5 regras, com o termo e o teto;
+  - **item 5, 17 casos:** a pendência antiga ganha as colunas, a chamada de antes com cinco parâmetros continua valendo, e a repetida junta as matrículas e não volta a tocar a conta da academia. A lista dos alunos pula o anonimizado, marca o outro vínculo só fora da academia, traz o CPF e pagina pelo cursor. A eliminação é recusada sem o passo do Asaas; feito o passo, a chave sai do cofre, as pendências sobrevivem, e a Auditoria guarda o placar. Nenhum usuário logado chama as funções novas;
+  - **item 6, 5 casos:** o registro antigo perde o e-mail, o novo e a alteração também, e outra ação não é tocada.
+- **7 defeitos plantados, os 7 pegos:**
+  - o `admin_arke` sem `dono = 'arkefit'` no `with check` da alteração;
+  - o comentário do check-in sem a conferência da saúde;
+  - a lista de tarefas de saúde da ficha diferente da do banco;
+  - a conta existente ligada como ativa no cadastro da equipe;
+  - o bucket do termo trocado de nome no roteiro (3 testes);
+  - a eliminação tocando a conta da academia (a guarda e 3 testes do passo);
+  - o e-mail de volta no registro da troca.
+- **Testes:**
+  - 39 novos: 6 em `tarefasPorDono.guarda`, 6 em `historicoDoAluno.guarda`, 6 em `bucketsBanco.guarda`, 8 do passo do Asaas na eliminação contra um Asaas e um banco de mentira com o código real (`eliminacaoAsaas.test.ts`), 5 em `cadastroEquipe`, 5 em `identidade.guarda`, 2 em `saidaDoAluno.guarda` e 1 em `perfilSimulado.guarda`;
+  - suíte inteira: 1.282 testes em 171 arquivos, todos passando. Antes do `npm run ajuda:indice`, falhou só o índice da Central, que acusa artigo mudado sem índice novo.
+- `npm run check` sem erro: tipos, lint (0 erros, os 27 avisos de antes), o `deno check` das 56 funções e a auditoria das dependências (0 vulnerabilidades).
+- **Falta, porque esta frente não toca produção:**
+  - aplicar as migrations e provar no banco de produção em transação desfeita;
+  - publicar as funções e a corrente real: o convite e o pendente com uma conta temporária, e um encerramento de homologação até a eliminação;
+  - a tela no computador e no celular: a Equipe com o pendente, a Parceria, a ficha da recepção e do professor;
+  - publicar `assistente-academia` com o índice novo.

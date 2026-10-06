@@ -16,8 +16,34 @@
  * outras matrículas da pessoa (20261396010000).
  */
 
-import type { SupabaseClient } from "npm:@supabase/supabase-js@2";
 import { anonimizarAlunoNoAsaas, type EntradaAnonimizacao, type ResultadoAnonimizacao } from "./clienteAsaas.ts";
+
+// Sem o tipo do cliente do Supabase (`npm:`), para o teste do app exercitar
+// este código: só o pedaço do cliente que ele usa, como em `arquivosDoAluno.ts`.
+type Resposta = { data: unknown; error: { code?: string; message?: string } | null };
+type Filtro = PromiseLike<Resposta> & {
+  eq(coluna: string, valor: unknown): Filtro;
+  neq(coluna: string, valor: unknown): Filtro;
+  order(coluna: string): Filtro;
+  limit(quantos: number): Filtro;
+  single(): PromiseLike<Resposta>;
+  maybeSingle(): PromiseLike<Resposta>;
+};
+export type ClienteBanco = {
+  from(tabela: string): {
+    select(colunas: string): Filtro;
+    update(valores: Record<string, unknown>): Filtro;
+    delete(): Filtro;
+  };
+  rpc(funcao: string, args: Record<string, unknown>): PromiseLike<Resposta>;
+};
+/**
+ * O cliente do Supabase de quem chama (a service role). Entra como `object`:
+ * comparar o tipo de verdade com o pedaço acima estoura a checagem do Deno
+ * (instanciação profunda demais), e a conversão fica num lugar só.
+ */
+export type ClienteDoSupabase = object;
+const comoBanco = (cliente: ClienteDoSupabase) => cliente as ClienteBanco;
 
 export type AlunoQueSai = { id: string; user_id: string | null; organization_id: string };
 
@@ -58,11 +84,12 @@ const statusDoAmbiente = (ambiente: Ambiente | null | undefined) =>
 
 /** O que a anonimização no Asaas precisa ler do banco. Lança se a leitura falhar. */
 async function entradaDoAluno(
-  admin: SupabaseClient,
+  cliente: ClienteDoSupabase,
   aluno: AlunoQueSai,
   outrosVinculos: boolean,
   contexto: ContextoSaida,
 ): Promise<EntradaAnonimizacao> {
+  const admin = comoBanco(cliente);
   const lerStatus = contexto.statusOrganizacao === undefined;
   const lerChave = contexto.contaDaAcademia !== false;
   const lerCpf = contexto.cpf === undefined && !!aluno.user_id;
@@ -102,16 +129,17 @@ async function entradaDoAluno(
  * o desfecho diz se deu certo ou se ficou pendente.
  */
 export async function anonimizarClienteNaSaida(
-  admin: SupabaseClient,
+  cliente: ClienteDoSupabase,
   aluno: AlunoQueSai,
   outrosVinculos: boolean,
   env: (nome: string) => string | undefined,
   contexto: ContextoSaida = {},
 ): Promise<DesfechoSaidaAsaas> {
+  const admin = comoBanco(cliente);
   let r: ResultadoAnonimizacao;
   let entrada: EntradaAnonimizacao | null = null;
   try {
-    entrada = await entradaDoAluno(admin, aluno, outrosVinculos, contexto);
+    entrada = await entradaDoAluno(cliente, aluno, outrosVinculos, contexto);
     r = await anonimizarAlunoNoAsaas(entrada, env);
   } catch (e) {
     r = { ok: false, erro: descrever(e) };
@@ -164,11 +192,12 @@ type Pendencia = {
  * e com `ate`, nenhuma começa depois desse instante.
  */
 export async function retentarPendentes(
-  admin: SupabaseClient,
+  cliente: ClienteDoSupabase,
   env: (nome: string) => string | undefined,
   limite = 50,
   filtro: { organizationId?: string; ate?: number; agora?: () => number } = {},
 ): Promise<{ tentadas: number; concluidas: number; pendentes: number }> {
+  const admin = comoBanco(cliente);
   const agora = filtro.agora ?? Date.now;
   let consulta = admin
     .from("asaas_saida_pendente")
@@ -182,7 +211,7 @@ export async function retentarPendentes(
     if (filtro.ate !== undefined && agora() > filtro.ate) break;
     tentadas++;
     const d = await anonimizarClienteNaSaida(
-      admin,
+      cliente,
       { id: p.aluno_id, user_id: p.user_id, organization_id: p.organization_id },
       p.outros_vinculos,
       env,
@@ -220,29 +249,36 @@ export class AsaasSemResposta extends Error {}
  * de 20 segundos de cada vez.
  */
 export async function anonimizarClientesDaEliminacao(
-  admin: SupabaseClient,
+  cliente: ClienteDoSupabase,
   enc: { id: string; organization_id: string },
   env: (nome: string) => string | undefined,
   opcoes: { inicio: number; orcamentoMs: number; lote?: number; paralelos?: number; agora?: () => number },
 ): Promise<PassoAsaasDaEliminacao> {
+  const admin = comoBanco(cliente);
   const agora = opcoes.agora ?? Date.now;
   const lote = opcoes.lote ?? 50;
   const paralelos = opcoes.paralelos ?? 5;
 
-  const { data: registro, error: erroRegistro } = await admin
+  const { data: lido, error: erroRegistro } = await admin
     .from("organizacao_encerramentos")
     .select("asaas_cursor, asaas_concluido_em, asaas_anonimizados, asaas_pendentes")
     .eq("id", enc.id)
     .single();
+  const registro = lido as {
+    asaas_cursor: string | null;
+    asaas_concluido_em: string | null;
+    asaas_anonimizados: number | null;
+    asaas_pendentes: number | null;
+  } | null;
   if (erroRegistro || !registro) throw new Error(`encerramento: ${erroRegistro?.code ?? "não encontrado"}`);
-  let cursor = (registro.asaas_cursor as string | null) ?? null;
-  let anonimizados = (registro.asaas_anonimizados as number | null) ?? 0;
-  let pendentes = (registro.asaas_pendentes as number | null) ?? 0;
+  let cursor = registro.asaas_cursor ?? null;
+  let anonimizados = registro.asaas_anonimizados ?? 0;
+  let pendentes = registro.asaas_pendentes ?? 0;
   if (registro.asaas_concluido_em) return { concluido: true, anonimizados, pendentes };
 
   const { data: org, error: erroOrg } = await admin.from("organizations").select("status").eq("id", enc.organization_id).maybeSingle();
   if (erroOrg) throw new Error(`organização: ${erroOrg.code}`);
-  const statusOrganizacao = (org?.status as string | undefined) ?? null;
+  const statusOrganizacao = (org as { status?: string | null } | null)?.status ?? null;
   const ambiente = ambienteDoStatus(statusOrganizacao);
 
   const salvar = async (campos: Record<string, unknown>) => {
@@ -273,7 +309,7 @@ export async function anonimizarClientesDaEliminacao(
       const desfechos = await Promise.all(
         grupo.map((a) =>
           anonimizarClienteNaSaida(
-            admin,
+            cliente,
             { id: a.aluno_id, user_id: a.user_id, organization_id: enc.organization_id },
             a.outros_vinculos,
             env,
