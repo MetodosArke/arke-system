@@ -1,6 +1,6 @@
 # Segurança e acesso
 
-Senha, captcha, vínculos, RLS, a rodada 360°, o freio, o perfil simulado e as duas etapas.
+Senha, captcha, vínculos, RLS, a rodada 360°, o freio, o perfil simulado, as duas etapas e o "Sair".
 
 ## Senha Vazada: substituta do recurso pago do Supabase
 
@@ -259,3 +259,36 @@ A auditoria de 05/10 achou três bloqueadores e quinze achados altos antes da pr
   - excluir numa academia fora de teste, recusado;
   - com um vínculo de professora em outra academia, o perfil e esse vínculo intactos, e a exclusão sem apagar a conta.
 - **Testes:** 12 testes nas duas guardas, e um defeito plantado (uma tabela fora da anonimização) pego.
+
+## O "Sair" que limpa, e a falha de rede que não vira falta de acesso (06/10/2026)
+
+Achados da auditoria de prontidão no app (A11, A12, a conta sem vínculo e o rascunho da anamnese).
+
+**A11. O "Sair" deixava a sessão para trás.** Ele só zerava o estado da tela. O cache das consultas ficava, e quem entrava na mesma aba via por um instante os dados de quem saiu; algumas chaves de cache nem levavam a pessoa ou a academia. O aparelho seguia recebendo os avisos da conta. A sessão saía com o escopo padrão do Supabase, o global, derrubando a pessoa em todos os aparelhos. No perfil simulado, a cópia da sessão da ArkeFit ficava na aba depois do "Sair", e a aba continuava "em simulação": o próximo login ali pulava o aceite de documentos e as duas etapas. E a simulação registrava o aparelho da ArkeFit como destino dos avisos da pessoa simulada.
+
+- **O passo a passo mora em `src/lib/sair.ts`**, com a ordem testada. Os avisos saem primeiro (`src/lib/avisosDoAparelho.ts`): a linha de `push_subscriptions` deste aparelho é apagada ainda com a sessão, porque o RLS só deixa a própria pessoa apagar, e depois a assinatura é cancelada no navegador. Esse passo tem prazo de 4 segundos, para um navegador lento não segurar a saída. Depois, a sessão sai com `scope: 'local'`, e se o `signOut` falhar antes de apagar (sem rede, com o token vencido) a sessão guardada é apagada à mão. Por fim a aba é limpa sempre, mesmo com falha antes: o cache do react-query, os rascunhos (`descartarTodosOsRascunhos`) e a cópia da simulação. Enquanto sai, a árvore do app fica desmontada (tela "Saindo..."), e nenhuma tela dispara consulta no meio da troca.
+- **Na simulação, "Sair" encerra a simulação e sai também da conta da ArkeFit.** Havia duas saídas possíveis: agir como "Voltar para Admin" ou sair de vez. A escolha foi sair de vez. Um botão "Sair" que deixasse uma conta da ArkeFit aberta no aparelho seria o pior resultado num computador compartilhado, e "Voltar" continua na faixa para quem quer seguir trabalhando.
+- **O cache é de uma pessoa só.** O `AuthContext` limpa o cache sempre que a pessoa da sessão muda (entra outra ou a sessão termina), e não só no "Sair". O fim da sessão por qualquer motivo apaga a cópia da simulação, e a entrada com senha também, porque nunca é simulação. A faixa da simulação relê a cópia a cada troca de pessoa.
+- **Chaves com a pessoa ou a academia:** `bloqueio-organizacao` (pessoa e academia), `exercicios-biblioteca` e `alimentos-biblioteca` (pessoa, porque a consulta não filtra e quem decide é a regra de acesso), `aluno-competicoes` (aluno), `duas-etapas-fator`, `carteira-mentor`, `fila-mentor` e, do mesmo tipo, `fila-chamados-mentor` (pessoa). As outras chaves sem id são configuração da plataforma ou números da Visão Master, iguais para quem as vê.
+- **Na simulação não se registra assinatura de avisos**, e a volta para a ArkeFit apaga a linha da pessoa simulada neste aparelho, sem cancelar a assinatura do navegador, que é a mesma da conta da ArkeFit. Isso limpa, aos poucos, as linhas que a simulação criou antes desta data. O registro de avisos volta a valer para a pessoa seguinte que entra na aba.
+
+**A12. Uma falha de rede ao abrir mandava a equipe para o app do aluno.** O `AuthContext` ignorava o erro das leituras de `user_roles` e `organization_members`. Sem vínculo, marcava os papéis como carregados, e o `ProtectedRoute` mandava para `/app`, onde a home ficava em "carregando". A leitura da anamnese também ignorava o erro: com ela falha, o aluno do Método era mandado de volta ao acolhimento, e o envio (um `upsert`) sobrescrevia a anamnese que o mentor já tinha lido.
+
+- **Ler, depois aplicar.** `lerAcesso` lê papéis, vínculos, aluno e anamnese e lança no erro. `comNovasTentativas` (`src/lib/tentativas.ts`) tenta quatro vezes, com 1, 2 e 4 segundos entre elas. Esgotadas, o contexto marca `erroAcesso`, e a raiz, o login e as rotas protegidas mostram **Não conseguimos carregar o seu acesso**, com **Tentar de novo** e **Sair**, sem redirecionar. A releitura em segundo plano (depois das duas etapas ou da troca de marca) mantém o que já estava carregado. Toda resposta confere se a pessoa ainda é a mesma antes de virar estado.
+- **Anamnese com leitura falha é desconhecida** (`null`), e não incompleta: o portão do acolhimento só redireciona com `false`.
+- **O acolhimento não sobrescreve** (`src/lib/acolhimento.ts`). Ele inclui a anamnese; se ela já existe, completa só a que ainda não foi concluída. A concluída fica como está, e o aluno lê que nada foi alterado. Zero linhas ali é o resultado normal, e por isso o envio entrou nas exceções de `gravacao.guarda`.
+
+**A conta sem vínculo ativo.** A rota `/app` não pede papel, e a conta sem matrícula ativa (o aluno desligado, quem criou conta sem matrícula) ficava na home em "carregando" para sempre. `AlunoVinculoGate` espera os papéis. A equipe que abre `/app` volta para o painel dela, e quem não tem academia vê **Nenhuma academia vinculada a esta conta**, com **Sair**. A tela da gestão sem organização também ganhou o **Sair**.
+
+**O rascunho da anamnese saiu do localStorage.** Dores, lesões, medicamentos, sono e estresse ficavam no disco do aparelho, sem prazo, e voltavam sozinhos ao abrir o acolhimento. Isso contrariava a Política e a regra dos rascunhos. Agora é `useRascunho`: o rascunho fica no `sessionStorage`, vale por 48 horas e a tela oferece **Restaurar** ou **Descartar**. Ele some ao fechar a aba e ao sair, e não guarda nada em perfil simulado. Na primeira carga do app novo, `apagarRascunhosAntigosDoAcolhimento` apaga as chaves antigas (`arke_onboarding_draft:`) do localStorage dos aparelhos. O envio passou a receber as respostas no `mutate`, como pede a regra dos formulários.
+
+Os artigos da Central mudaram junto: `app-primeiro-acesso` (Sair e as duas telas novas), `app-metodo-arke` (o acolhimento), `painel-primeiros-passos` (Sair e o painel que não abre) e `vm-visao-geral` ("Sair" na simulação).
+
+**Defeito do caminho:** o `gravacao.guarda` acusou o envio do acolhimento. A inclusão e a conclusão estavam no mesmo objeto, e o leitor do guarda via as duas como uma cadeia só e contava a conclusão duas vezes. Cada gravação virou uma instrução própria.
+
+**Conferido:**
+- 41 testes novos: o passo a passo do "Sair" (5), as tentativas e o prazo (7), os avisos do aparelho (4), o envio da anamnese (5), a limpeza dos rascunhos (3), o `AuthContext` com a rede falhando e o "Sair" de verdade (8), o portão do app do aluno e o erro de acesso na rota da gestão (6) e o registro de avisos na simulação (3).
+- Suíte inteira: 923 testes em 128 arquivos. Na primeira rodada, 915 passaram; das 8 falhas, 7 foram tempo esgotado em telas que esta entrega não toca, com a máquina carregada, e 1 foi o defeito do guarda acima. Depois da correção, os 108 arquivos com os guardas, as sete telas e as áreas tocadas passaram: 812 de 812.
+- Seis defeitos plantados, os seis pegos, com 9 testes falhando: o erro da leitura dos papéis ignorado de novo, o "Sair" com o escopo global, o cache que não limpa na troca de pessoa, a anamnese concluída tratada como completada, a simulação registrando o aparelho para os avisos, e a rota da gestão sem a tela de erro.
+- `npm run check` sem erro: tipos, lint (0 erros, os 27 avisos de antes), o `deno check` das 53 funções e a auditoria das dependências (0 vulnerabilidades).
+- Falta conferir em produção: a tela no computador e no celular (o "Sair" com e sem simulação, o erro de acesso com a rede desligada, a conta sem academia e o rascunho do acolhimento), e o aviso que para de chegar no aparelho depois do "Sair".
