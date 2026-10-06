@@ -167,6 +167,15 @@ describe("conector Toletus: a corrente do lado do Gateway", () => {
       await ate(() => amb.placa.textoDo(COMANDO.MENSAGEM_TEMPORARIA) === "Nao cadastrado");
     });
 
+    it("código de barras não identifica ninguém: negado sem ir à nuvem, com negativa neutra", async () => {
+      // Um código impresso com "12" entrava como o aluno 12.
+      amb.cloud.respostaValidarAcesso = LIBERADO;
+      amb.placa.codigoDeBarras("12");
+      await ate(() => amb.placa.textoDo(COMANDO.MENSAGEM_TEMPORARIA) === "Acesso negado");
+      expect(amb.cloud.credenciaisRecebidas).toEqual([]);
+      expect(amb.placa.comandos()).not.toContain(COMANDO.LIBERA_ENTRADA);
+    });
+
     it("passagem sem liberação nossa (saída livre) não fecha nada nem vira presença", async () => {
       amb.placa.passagem(2, 9);
       await esperar(100);
@@ -284,5 +293,12 @@ describe("conector Toletus: credencial de cada leitura", () => {
     expect(credencialDaLeitura("teclado", "1234")).toBeNull();
     // Cartão com onze dígitos continua sendo cartão: só o teclado é CPF.
     expect(credencialDaLeitura("rfid", "52998224725")).toEqual({ tipo: "identificador_catraca", valor: "52998224725" });
+    expect(credencialDaLeitura("biometria", "42")).toEqual({ tipo: "identificador_catraca", valor: "42" });
+  });
+
+  it("código de barras e QR não valem nada, nem com onze dígitos", () => {
+    expect(credencialDaLeitura("codigo_barras", "12")).toBeNull();
+    expect(credencialDaLeitura("codigo_barras", "52998224725")).toBeNull();
+    expect(credencialDaLeitura("qrcode", "ARKE-12")).toBeNull();
   });
 });

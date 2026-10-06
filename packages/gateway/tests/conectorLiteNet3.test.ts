@@ -158,6 +158,16 @@ describe("conector Toletus com a LiteNet3: a corrente do lado do Gateway", () =>
     expect(cloud.credenciaisRecebidas).toHaveLength(1);
   });
 
+  it("código de barras é negado sem ir à nuvem: um código impresso com '12' entrava como o aluno 12", async () => {
+    const { cloud } = await subir();
+    await ate(() => placa!.conectada());
+    cloud.respostaValidarAcesso = LIBERADO;
+    placa!.codigoDeBarras("12");
+    await ate(() => placa!.acoes().some((a) => a.action === "display" && a.data.topRow === "Acesso negado"));
+    expect(cloud.credenciaisRecebidas).toEqual([]);
+    expect(placa!.liberacoes()).toHaveLength(0);
+  });
+
   it("placa que reinicia volta sozinha, e o giro aberto na queda fecha como sem confirmação", async () => {
     const { cloud } = await subir();
     await ate(() => placa!.conectada());

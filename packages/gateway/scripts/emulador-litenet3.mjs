@@ -26,7 +26,7 @@
  *   "modelo_catraca": "toletus",
  *   "toletus_equipamentos": [{ "nome": "Catraca", "ip": "127.0.0.1", "placa": "litenet3" }]
  *
- * Comandos: c <número> (cartão), q <número> (código de barras),
+ * Comandos: c <número> (cartão), q <número> (código de barras: o Gateway 1.9 nega),
  *   t <dígitos> (teclado; 11 dígitos = CPF), x (digital: manda um pedaço
  *   da imagem), p (passagem sem liberação), g passa|desiste|nada, sair.
  */

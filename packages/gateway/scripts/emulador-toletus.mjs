@@ -34,7 +34,7 @@
  *
  * Comandos no terminal:
  *   c <número>   aproxima um cartão (RFID)
- *   q <número>   lê um código de barras
+ *   q <número>   lê um código de barras (o Gateway 1.9 nega, sem ir à nuvem)
  *   t <dígitos>  digita no teclado (11 dígitos = CPF)
  *   b <número>   digital reconhecida pelo leitor (número do usuário)
  *   x            digital não cadastrada

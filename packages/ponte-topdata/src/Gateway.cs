@@ -8,14 +8,35 @@ using System.Web.Script.Serialization;
 
 namespace Arke.PonteTopdata
 {
-    /// <summary>O que o gateway decidiu (contrato em docs/PONTE_TOPDATA.md).</summary>
+    /// <summary>
+    /// O que o gateway decidiu (contrato em docs/PONTE_TOPDATA.md).
+    ///
+    /// <para>Sem o nome do aluno, de propósito. O display é público: quem está
+    /// na fila lê. Até a ponte da 1.8 havia um campo <c>Nome</c>, e o primeiro
+    /// nome ia para o display, inclusive ao lado de "acesso negado". Gateway
+    /// antigo ainda manda <c>nome</c>; a ponte não o lê.</para>
+    /// </summary>
     public sealed class Decisao
     {
         public bool Liberar;
         /// <summary>"entrada", "saida" ou "ambos".</summary>
         public string Sentido;
-        public string Nome;
+        /// <summary>
+        /// O texto do display: "Bem-vindo!" ou a negativa curta, que não fala
+        /// de dinheiro. Quem escolhe a frase é o gateway (mensagemDoDisplay).
+        /// </summary>
         public string Motivo;
+
+        /// <summary>A resposta do gateway, só com os campos que o display pode mostrar.</summary>
+        public static Decisao DeResposta(IDictionary<string, object> r)
+        {
+            var d = new Decisao();
+            object v;
+            d.Liberar = r.TryGetValue("liberar", out v) && v is bool && (bool)v;
+            d.Sentido = r.TryGetValue("sentido", out v) && v != null ? Convert.ToString(v) : "ambos";
+            d.Motivo = r.TryGetValue("motivo", out v) && v != null ? Convert.ToString(v) : "";
+            return d;
+        }
     }
 
     /// <summary>Um registro que a catraca guardou sozinha (bilhete).</summary>
@@ -34,7 +55,12 @@ namespace Arke.PonteTopdata
     /// </summary>
     public interface IGateway
     {
-        Decisao Evento(int inner, int origem, int complemento, string valor);
+        /// <summary>
+        /// Um evento do Inner. <paramref name="tipoLeitor"/> é o <c>tipo_leitor</c>
+        /// configurado: é por ele que o gateway sabe se o leitor 1 ou 2 leu um
+        /// cartão ou um código de barras, que não identifica aluno.
+        /// </summary>
+        Decisao Evento(int inner, int origem, int complemento, string valor, int tipoLeitor);
         void Bilhetes(int inner, IList<Bilhete> bilhetes);
         void PonteViva(int[] inners, int[] conectados);
     }
@@ -51,20 +77,14 @@ namespace Arke.PonteTopdata
             _timeoutMs = timeoutMs;
         }
 
-        public Decisao Evento(int inner, int origem, int complemento, string valor)
+        public Decisao Evento(int inner, int origem, int complemento, string valor, int tipoLeitor)
         {
             var corpo = new Dictionary<string, object>
             {
                 { "inner", inner }, { "origem", origem }, { "complemento", complemento }, { "valor", valor ?? "" },
+                { "tipo_leitor", tipoLeitor },
             };
-            var r = Postar("/topdata/evento", corpo);
-            var d = new Decisao();
-            object v;
-            d.Liberar = r.TryGetValue("liberar", out v) && v is bool && (bool)v;
-            d.Sentido = r.TryGetValue("sentido", out v) && v != null ? Convert.ToString(v) : "ambos";
-            d.Nome = r.TryGetValue("nome", out v) && v != null ? Convert.ToString(v) : "";
-            d.Motivo = r.TryGetValue("motivo", out v) && v != null ? Convert.ToString(v) : "";
-            return d;
+            return Decisao.DeResposta(Postar("/topdata/evento", corpo));
         }
 
         public void Bilhetes(int inner, IList<Bilhete> bilhetes)
