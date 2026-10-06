@@ -74,6 +74,25 @@ export async function carteiraDaChave(api: string, chave: string): Promise<strin
   return r.corpo.data?.[0]?.id ?? null;
 }
 
+/**
+ * Por que a chave guardada não serve para emitir nota agora, ou nulo.
+ *
+ * A chave é conferida contra a carteira quando a academia a conecta. Mas a
+ * carteira pode mudar depois (Recebimentos), e a chave guardada continuava a
+ * da conta antiga: a nota sairia no CNPJ de outra empresa, por um dinheiro
+ * que já não entra nela. Por isso a rodada confere de novo antes de emitir.
+ * `carteiraDaChave` nula é o Asaas que não respondeu ou recusou a chave: a
+ * nota espera, porque emitir sem conferir é o defeito que isto fecha.
+ */
+export function impedimentoDaCarteira(carteiraDaChave: string | null, carteiraDaAcademia: string | null): string | null {
+  if (!carteiraDaAcademia) return "conta de recebimentos não configurada";
+  if (!carteiraDaChave) return "não foi possível conferir no Asaas a conta da chave guardada";
+  if (carteiraDaChave.trim().toLowerCase() !== carteiraDaAcademia.trim().toLowerCase()) {
+    return "a chave guardada é de outra conta Asaas, não da que recebe os pagamentos — conecte a chave da conta nova em Financeiro → Notas fiscais";
+  }
+  return null;
+}
+
 export type OpcoesMunicipais = {
   authenticationType: "CERTIFICATE" | "TOKEN" | "USER_AND_PASSWORD" | null;
   supportsCancellation: boolean;

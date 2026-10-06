@@ -12,6 +12,12 @@ Confira com a sua contabilidade o serviço municipal, a alíquota de ISS e o reg
 
 Para parar, use **Desligar emissão**.
 
+Salvar com a emissão ligada confere o cadastro de novo no Asaas. Se ele deixou de valer (o certificado venceu, por exemplo), a configuração é salva, a emissão desliga e a tela avisa. Pagamento confirmado com a emissão desligada não gera nota; complete o que falta e ligue de novo.
+
+## Trocou a conta de recebimentos
+
+A nota sai na conta Asaas que recebe os pagamentos da academia. Se a conta de recebimentos mudar, conecte de novo a chave, agora da conta nova, no passo 1. Até lá, as notas novas esperam na fila com o aviso, e as que já saíram pela conta antiga continuam acompanhadas.
+
 ## Notas emitidas
 
 A lista mostra cada nota, com a situação e o **PDF**. Nota que falhou mostra o motivo e o botão **Tentar de novo**. Pagamento estornado tem a nota cancelada junto à prefeitura.

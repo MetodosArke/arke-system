@@ -97,7 +97,9 @@ export function NotasFiscaisPainel() {
         <>
           {isLoading && <p className="text-sm text-muted-foreground">Consultando o Asaas…</p>}
           {error && <p className="text-sm text-destructive">{(error as Error).message}</p>}
-          {situacao && "possuiCarteira" in situacao && orgId && <ConectarConta orgId={orgId} possuiCarteira={situacao.possuiCarteira} aoConectar={atualizar} />}
+          {situacao && "possuiCarteira" in situacao && orgId && (
+            <ConectarConta orgId={orgId} possuiCarteira={situacao.possuiCarteira} reconectar={situacao.reconectar} aoConectar={atualizar} />
+          )}
           {situacao?.conectada && orgId && (
             <>
               <CadastroPrefeitura orgId={orgId} situacao={situacao} aoSalvar={atualizar} />
@@ -112,7 +114,17 @@ export function NotasFiscaisPainel() {
   );
 }
 
-function ConectarConta({ orgId, possuiCarteira, aoConectar }: { orgId: string; possuiCarteira: boolean; aoConectar: (s: SituacaoFiscal) => void }) {
+function ConectarConta({
+  orgId,
+  possuiCarteira,
+  reconectar,
+  aoConectar,
+}: {
+  orgId: string;
+  possuiCarteira: boolean;
+  reconectar?: string;
+  aoConectar: (s: SituacaoFiscal) => void;
+}) {
   const { toast } = useToast();
   const [chave, setChave] = useState("");
   const conectar = useMutation({
@@ -128,6 +140,7 @@ function ConectarConta({ orgId, possuiCarteira, aoConectar }: { orgId: string; p
     <Card>
       <CardHeader className="pb-2">
         <CardTitle className="text-base">1. Conta Asaas da academia</CardTitle>
+        {reconectar && <p className="text-sm text-destructive">{reconectar}</p>}
         <CardDescription>
           {possuiCarteira
             ? "A academia informou uma conta Asaas que já tinha. Para emitir a nota nela, cole a chave de API dessa conta (no Asaas: Integrações → Chave de API). Ela fica no cofre, e o ARKE confere que é da mesma conta que recebe os pagamentos."
@@ -356,6 +369,11 @@ function ServicoEEmissao({ orgId, situacao, aoSalvar }: { orgId: string; situaca
     mutationFn: (config: ConfigFiscal) => salvarConfigFiscal(orgId, config),
     onSuccess: (s, config) => {
       aoSalvar(s);
+      // Salvo, mas a conferência no Asaas desligou a emissão: a tela diz, em vez de "salvo".
+      if (s.conectada && s.emissao_desligada) {
+        toast({ title: "Emissão automática desligada", description: s.aviso, variant: "destructive" });
+        return;
+      }
       toast({ title: config.emissao_ativa && !cfg?.emissao_ativa ? "Emissão automática ligada" : "Configuração salva" });
     },
     onError: (e: Error) => {

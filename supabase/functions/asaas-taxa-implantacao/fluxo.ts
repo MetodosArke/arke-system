@@ -51,6 +51,7 @@ export function validarTaxa(
 
 export type ParcelaAsaas = {
   id: string;
+  customer?: string;
   value: number;
   dueDate: string;
   description?: string;
@@ -97,10 +98,60 @@ export async function parcelasDoParcelamento(api: string, chave: string, install
   return (r.corpo.data ?? []).filter((p) => !p.deleted).sort((a, b) => (a.installmentNumber ?? 0) - (b.installmentNumber ?? 0));
 }
 
+export type TaxaNoAsaas = { installmentId: string | null; parcelas: ParcelaAsaas[] };
+
+/**
+ * A taxa desta academia que já existe no Asaas (mesma referência e
+ * descrição), ou nula. Só consulta: nunca cria. É o que a nova tentativa usa
+ * para completar o registro de uma taxa já emitida — se ela não estiver no
+ * Asaas, completar não pode virar emitir outra.
+ */
+export async function buscarTaxaExistente(api: string, chave: string, orgId: string): Promise<TaxaNoAsaas | null> {
+  const referencia = `b2b:${orgId}`;
+  const existentes = await chamar<{ data?: ParcelaAsaas[] }>(api, chave, "GET", `/payments?externalReference=${encodeURIComponent(referencia)}&limit=100`);
+  if (!existentes.ok) throw new FalhaIndefinida(`consulta da taxa respondeu ${existentes.status}`);
+  const achada = (existentes.corpo.data ?? []).find((x) => !x.deleted && (x.description ?? "").includes(DESCRICAO));
+  if (!achada) return null;
+  const parcelas = achada.installment ? await parcelasDoParcelamento(api, chave, achada.installment) : [achada];
+  return { installmentId: achada.installment ?? null, parcelas };
+}
+
+/** As linhas de `cobrancas_b2b` de cada parcela, para entrarem na conferência e na inadimplência B2B. */
+export function linhasDasParcelas(
+  parcelas: ParcelaAsaas[],
+  p: { orgId: string; cliente: string | null; criadoPor: string },
+) {
+  return parcelas.map((x) => ({
+    organization_id: p.orgId,
+    valor: x.value,
+    descricao: x.description ?? DESCRICAO,
+    forma_pagamento: "UNDEFINED",
+    status: "pendente",
+    asaas_customer_id: p.cliente,
+    asaas_payment_id: x.id,
+    invoice_url: x.invoiceUrl ?? null,
+    vencimento: x.dueDate,
+    criado_por: p.criadoPor,
+  }));
+}
+
+/** O que a linha da taxa guarda, tirado do que o Asaas de fato emitiu. */
+export function resumoDaTaxa(t: TaxaNoAsaas, pedido: PedidoTaxa | null) {
+  const total = Math.round(t.parcelas.reduce((s, x) => s + Number(x.value ?? 0), 0) * 100) / 100;
+  return {
+    valor_total: total > 0 ? total : pedido?.valor ?? 0,
+    parcelas: t.parcelas.length || pedido?.parcelas || 1,
+    primeiro_vencimento: t.parcelas[0]?.dueDate ?? pedido?.vencimento ?? null,
+    asaas_installment_id: t.installmentId,
+  };
+}
+
 /**
  * Emite a taxa, ou adota a que já existe no Asaas para esta academia (mesma
  * referência e descrição): uma emissão cuja resposta se perdeu não vira duas
- * cobranças da implantação.
+ * cobranças da implantação. Quem chama já tem a reserva no banco
+ * (`reservar_taxa_implantacao`): duas chamadas ao mesmo tempo não chegam
+ * as duas até aqui.
  */
 export async function emitirOuAdotarTaxa(
   api: string,
@@ -112,13 +163,8 @@ export async function emitirOuAdotarTaxa(
 > {
   const referencia = `b2b:${p.orgId}`;
   try {
-    const existentes = await chamar<{ data?: ParcelaAsaas[] }>(api, chave, "GET", `/payments?externalReference=${encodeURIComponent(referencia)}&limit=100`);
-    if (!existentes.ok) return { ok: false, erro: "Não foi possível consultar o Asaas agora.", definitivo: false };
-    const achada = (existentes.corpo.data ?? []).find((x) => !x.deleted && (x.description ?? "").includes(DESCRICAO));
-    if (achada) {
-      const parcelas = achada.installment ? await parcelasDoParcelamento(api, chave, achada.installment) : [achada];
-      return { ok: true, adotada: true, installmentId: achada.installment ?? null, parcelas };
-    }
+    const existente = await buscarTaxaExistente(api, chave, p.orgId);
+    if (existente) return { ok: true, adotada: true, ...existente };
 
     const corpo = {
       customer: p.cliente,

@@ -81,4 +81,27 @@ describe("TaxaImplantacaoOrganizacao", () => {
     expect(screen.getByText("Em aberto")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Emitir/ })).not.toBeInTheDocument();
   });
+
+  it("taxa emitida com parcela fora do registro oferece completar, sem emitir outra", async () => {
+    taxa = { valor_total: 1490, parcelas: 3, created_at: "2026-09-24T12:00:00Z" };
+    parcelas = [
+      { id: "a", valor: 496.66, vencimento: "2026-09-24", status: "pendente", invoice_url: null, descricao: "Parcela 1 de 3" },
+    ];
+    invoke.mockResolvedValue({ data: { completada: 2 }, error: null });
+    montar();
+    expect(await screen.findByText(/2 parcela\(s\) emitida\(s\) no Asaas não estão registradas/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Registrar as parcelas que faltam" }));
+    await waitFor(() =>
+      expect(invoke).toHaveBeenCalledWith("asaas-taxa-implantacao", { body: { organization_id: "org-1", completar: true } }),
+    );
+    expect(screen.queryByRole("button", { name: /Emitir/ })).not.toBeInTheDocument();
+  });
+
+  it("com todas as parcelas registradas, não oferece completar", async () => {
+    taxa = { valor_total: 990, parcelas: 1, created_at: "2026-09-24T12:00:00Z" };
+    parcelas = [{ id: "a", valor: 990, vencimento: "2026-09-24", status: "pendente", invoice_url: null, descricao: "Taxa de implantação ARKE" }];
+    montar();
+    expect(await screen.findByText("Em aberto")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Registrar as parcelas/ })).not.toBeInTheDocument();
+  });
 });

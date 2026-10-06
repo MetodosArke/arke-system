@@ -6770,6 +6770,7 @@ export type Database = {
           organization_id: string
           parcelas: number
           primeiro_vencimento: string
+          reservada_ate: string | null
           status: string
           valor_total: number
         }
@@ -6781,6 +6782,7 @@ export type Database = {
           organization_id: string
           parcelas: number
           primeiro_vencimento: string
+          reservada_ate?: string | null
           status?: string
           valor_total: number
         }
@@ -6792,6 +6794,7 @@ export type Database = {
           organization_id?: string
           parcelas?: number
           primeiro_vencimento?: string
+          reservada_ate?: string | null
           status?: string
           valor_total?: number
         }
@@ -7757,6 +7760,7 @@ export type Database = {
         Args: { _email: string; _organization_id: string }
         Returns: Json
       }
+      cpf_sem_mascara: { Args: { _valor: string }; Returns: string }
       cpf_valido: { Args: { _cpf: string }; Returns: boolean }
       criar_catraca: {
         Args: { _localizacao?: string; _nome: string; _organization_id: string }
@@ -7787,6 +7791,15 @@ export type Database = {
       definir_agente_implantacao: {
         Args: { _ativo: boolean }
         Returns: undefined
+      }
+      definir_carteira_recebimento: {
+        Args: {
+          _ator_user_id: string
+          _organization_id: string
+          _papel: string
+          _wallet_id: string
+        }
+        Returns: string
       }
       definir_metas_aluno_metodo: {
         Args: {
@@ -9016,6 +9029,19 @@ export type Database = {
           _tipo: string
         }
         Returns: boolean
+      }
+      reservar_taxa_implantacao: {
+        Args: {
+          _criada_por: string
+          _organization_id: string
+          _parcelas: number
+          _primeiro_vencimento: string
+          _valor_total: number
+        }
+        Returns: {
+          situacao: string
+          taxa_id: string
+        }[]
       }
       retirar_encerramento_organizacao: {
         Args: { _organization_id: string }

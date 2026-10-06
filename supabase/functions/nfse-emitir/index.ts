@@ -3,12 +3,14 @@ import { ambienteAsaas } from "../_shared/asaas.ts";
 import { descreverErro, registrarExecucao } from "../_shared/execucao.ts";
 import {
   cancelarNota,
+  carteiraDaChave,
   chaveCombinaComAmbiente,
   consultarNota,
   emitirNota,
   enderecoCompleto,
   FalhaIndefinida,
   garantirCliente,
+  impedimentoDaCarteira,
   situacaoDaNota,
   type NotaAsaas,
 } from "./fluxo.ts";
@@ -66,7 +68,7 @@ const emMinutos = (m: number) => new Date(Date.now() + m * 60_000).toISOString()
 
 async function contextoDaAcademia(admin: SupabaseClient, orgId: string): Promise<Contexto | { motivo: string }> {
   const [{ data: org }, { data: config }, { data: chave }] = await Promise.all([
-    admin.from("organizations").select("status").eq("id", orgId).maybeSingle(),
+    admin.from("organizations").select("status, asaas_wallet_id").eq("id", orgId).maybeSingle(),
     admin
       .from("organizacao_fiscal")
       .select("emissao_ativa, cadastro_enviado, autenticacao_enviada, servico_municipal_id, servico_municipal_codigo, servico_municipal_nome, aliquota_iss, observacoes")
@@ -82,13 +84,26 @@ async function contextoDaAcademia(admin: SupabaseClient, orgId: string): Promise
   // Desligar a emissão ou deixar o cadastro pela metade segura só as notas
   // novas: as já agendadas continuam sendo acompanhadas até a prefeitura
   // responder, e o estorno ainda cancela o que saiu.
-  const impedimentoEmissao = !config?.emissao_ativa
+  let impedimentoEmissao = !config?.emissao_ativa
     ? "emissão desligada"
     : !config.cadastro_enviado || !config.autenticacao_enviada
       ? "cadastro fiscal incompleto"
       : !(config.servico_municipal_id || config.servico_municipal_codigo) || config.aliquota_iss === null
         ? "serviço ou ISS não configurado"
         : null;
+  // A chave tem de ser da conta que recebe o split hoje: a carteira pode ter
+  // mudado depois que a chave foi conectada. Só para emitir nota nova; as que
+  // já saíram na conta antiga seguem acompanhadas e canceladas com a chave
+  // dela. Conferido só quando nada mais impede, para não gastar a chamada.
+  if (!impedimentoEmissao) {
+    let carteira: string | null = null;
+    try {
+      carteira = await carteiraDaChave(ambiente.api, chave as string);
+    } catch (e) {
+      if (!(e instanceof FalhaIndefinida)) throw e;
+    }
+    impedimentoEmissao = impedimentoDaCarteira(carteira, (org.asaas_wallet_id as string | null) ?? null);
+  }
   return {
     api: ambiente.api,
     chave: chave as string,

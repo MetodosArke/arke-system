@@ -1,6 +1,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { hojeBrasilia } from "../_shared/data.ts";
 import { servir } from "../_shared/servir.ts";
+import { ambienteDoAviso, pistaDaReferencia } from "./fluxo.ts";
 
 const jsonResponse = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
@@ -186,60 +187,69 @@ servir("asaas-webhook", async (req: Request) => {
   };
 
   // Trava de ambiente: evento do sandbox só toca organização em homologação,
-  // evento de produção só toca organização real.
+  // evento de produção só toca organização real (a regra está em
+  // `ambienteDoAviso`, no fluxo.ts).
   //
   // Não é defesa contra colisão de id (o espaço do Asaas torna isso irreal) —
   // é contenção de raio. O segredo do sandbox é credencial de teste e vive
   // mais exposta; sem esta trava, quem o obtivesse poderia forjar um
-  // PAYMENT_CONFIRMED para a assinatura de um aluno pagante de verdade e lhe
+  // PAYMENT_CONFIRMED para a cobrança de um aluno pagante de verdade e lhe
   // dar acesso de graça. Com ela, o estrago para em organizações em trial.
+  //
+  // A organização sai de tudo o que o aviso alcança: a assinatura, a
+  // referência e a cobrança que já existe no banco com aquele id de
+  // pagamento. Até 06/10/2026 só as duas primeiras contavam, e o aviso que
+  // não achava organização passava; e uma consulta que falhava virava "sem
+  // organização" e desligava a trava. Agora a consulta que falha lança, e o
+  // aviso fica sem processar, com o erro.
   const referencia = payment.externalReference ? String(payment.externalReference) : null;
   const subscriptionDoEvento = payment.subscription ? String(payment.subscription) : null;
-  const statusDaOrganizacao = async (): Promise<string | null> => {
-    if (subscriptionDoEvento) {
-      const [metodo, b2b, mensalidade] = await Promise.all([
-        admin.from("aluno_assinaturas").select("organization_id").eq("asaas_subscription_id", subscriptionDoEvento).maybeSingle(),
-        admin.from("organizations").select("status").eq("asaas_subscription_id_b2b", subscriptionDoEvento).maybeSingle(),
-        admin.from("aluno_matriculas_academia").select("organization_id").eq("asaas_subscription_id", subscriptionDoEvento).limit(1).maybeSingle(),
-      ]);
-      if (b2b.data?.status) return b2b.data.status;
-      const orgId = metodo.data?.organization_id ?? mensalidade.data?.organization_id;
-      if (orgId) {
-        const { data } = await admin.from("organizations").select("status").eq("id", orgId).maybeSingle();
-        return data?.status ?? null;
-      }
-    }
-    // `org:<id>` e `b2b:<id>` carregam a organização direto na referência.
-    const m = referencia?.match(/^(?:org|b2b):([0-9a-f-]{36})$/i);
-    if (m) {
-      const { data } = await admin.from("organizations").select("status").eq("id", m[1]).maybeSingle();
-      return data?.status ?? null;
-    }
-    // `avulsa:<id>` aponta para a linha da cobrança avulsa, que sabe a academia.
-    const a = referencia?.match(/^avulsa:([0-9a-f-]{36})$/i);
-    if (a) {
-      const { data: avulsa } = await admin.from("cobrancas_avulsas").select("organization_id").eq("id", a[1]).maybeSingle();
-      if (avulsa) {
-        const { data } = await admin.from("organizations").select("status").eq("id", avulsa.organization_id).maybeSingle();
-        return data?.status ?? null;
-      }
-    }
-    return null;
+  const statusDasOrganizacoesDoAviso = async (): Promise<(string | null)[]> => {
+    const ids = new Set<string>();
+    const anotar = (linhas: { organization_id?: unknown; id?: unknown }[] | null | undefined, campo: "organization_id" | "id") => {
+      for (const l of linhas ?? []) if (l[campo]) ids.add(String(l[campo]));
+    };
+    const pista = pistaDaReferencia(referencia);
+    if (pista?.tipo === "organizacao") ids.add(pista.id);
+    const vazio = { data: [] as { organization_id?: unknown; id?: unknown }[] };
+    const [metodo, b2b, plano, porReferencia, b2bPago, avulsaPaga, mensalidadePaga, metodoPago] = await Promise.all([
+      subscriptionDoEvento
+        ? exigir(admin.from("aluno_assinaturas").select("organization_id").eq("asaas_subscription_id", subscriptionDoEvento))
+        : vazio,
+      subscriptionDoEvento
+        ? exigir(admin.from("organizations").select("id").eq("asaas_subscription_id_b2b", subscriptionDoEvento))
+        : vazio,
+      subscriptionDoEvento
+        ? exigir(admin.from("aluno_matriculas_academia").select("organization_id").eq("asaas_subscription_id", subscriptionDoEvento))
+        : vazio,
+      pista?.tipo === "avulsa"
+        ? exigir(admin.from("cobrancas_avulsas").select("organization_id").eq("id", pista.id))
+        : pista?.tipo === "aluno"
+          ? exigir(admin.from("alunos").select("organization_id").eq("id", pista.id))
+          : vazio,
+      asaasPaymentId ? exigir(admin.from("cobrancas_b2b").select("organization_id").eq("asaas_payment_id", asaasPaymentId)) : vazio,
+      asaasPaymentId ? exigir(admin.from("cobrancas_avulsas").select("organization_id").eq("asaas_payment_id", asaasPaymentId)) : vazio,
+      asaasPaymentId ? exigir(admin.from("mensalidades").select("organization_id").eq("asaas_payment_id", asaasPaymentId)) : vazio,
+      asaasPaymentId ? exigir(admin.from("pagamentos").select("organization_id").eq("asaas_payment_id", asaasPaymentId)) : vazio,
+    ]);
+    anotar(b2b.data, "id");
+    for (const r of [metodo, plano, porReferencia, b2bPago, avulsaPaga, mensalidadePaga, metodoPago]) anotar(r.data, "organization_id");
+    if (ids.size === 0) return [];
+    const { data: orgs } = await exigir(admin.from("organizations").select("id, status").in("id", [...ids]));
+    const status = new Map((orgs ?? []).map((o): [string, string] => [String(o.id), String(o.status)]));
+    // Organização que o aviso aponta e que não existe conta como "não é homologação".
+    return [...ids].map((id) => status.get(id) ?? null);
   };
-  const statusOrg = await statusDaOrganizacao();
-  // Evento que não resolve organização nenhuma não tem o que tocar; segue e
-  // termina como "sem correspondência", que é o desfecho honesto.
-  if (statusOrg !== null) {
-    const ehHomologacao = statusOrg === "trial";
-    if (ehHomologacao !== (origemEvento === "sandbox")) {
-      await concluir(`ambiente_incompativel:${origemEvento}`);
-      return jsonResponse({ ok: true, ignorado: "ambiente incompatível" });
-    }
-  }
 
   try {
     // Sem payment.id não há o que casar; o evento fica registrado só como log.
     let resultado = "sem_payment_id";
+
+    const ambiente = ambienteDoAviso(origemEvento, await statusDasOrganizacoesDoAviso());
+    if (!ambiente.ok) {
+      await concluir(ambiente.resultado);
+      return jsonResponse({ ok: true, ignorado: "ambiente incompatível" });
+    }
 
     if (asaasPaymentId) {
       let novoStatus: "confirmado" | "atrasado" | "estornado" | "cancelado" | null = null;

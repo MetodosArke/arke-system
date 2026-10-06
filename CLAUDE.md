@@ -60,7 +60,7 @@ O ArkeFit (ARKE) é uma plataforma SaaS para academias, studios e profissionais 
 - **Perfil simulado:** só a ArkeFit simula, com as duas etapas. Na sessão simulada, só a própria pessoa autoriza IA, biometria, documentos e contrato.
 - **Duas etapas:**
   - as contas da ArkeFit sempre;
-  - a gestão, em exportar todos os dados, avisar o encerramento e trocar o e-mail de login de alguém;
+  - a gestão, em exportar todos os dados, avisar o encerramento, trocar o e-mail de login de alguém e trocar a carteira de recebimento (que fica na auditoria e avisa a ArkeFit por e-mail);
   - para a gestão, opcional na entrada do painel.
 - **Biometria:** só o titular consente, pelo app ou pelo termo impresso que a recepção anexa. Revogar, excluir, anonimizar ou encerrar a matrícula apaga a biometria dos equipamentos; o número de digital ou rosto vinculado à mão também exige a autorização.
 - **Display de catraca é público:** "Bem-vindo!" ou "Aluno", nunca o nome, e a negativa não fala de dinheiro. Código de barras e QR na catraca não identificam aluno (`catracaPublica.guarda`).
@@ -86,6 +86,8 @@ Cada linha é uma armadilha que já aconteceu aqui. Onde há trava, ela é um te
 - Tabela com `bigserial` precisa de `grant usage` na sequência para a `service_role`.
 - `plataforma_config` tem faixa por chave (`faixa_plataforma_config()`). Chave nova nasce com faixa.
 - O status de cobrança só anda pelas transições permitidas (`trg_transicao_cobranca`): o pago não volta a dever.
+- Gatilho do dinheiro que entrou (receita, nota fiscal) é `after insert or update`: a cobrança pode nascer confirmada (`cobrancaQueNascePaga.guarda`).
+- CPF fica só com os dígitos (`trg_cpf_sem_mascara`) e se compara sem máscara (`cpfSemMascara.guarda`).
 - Exclusão de tenant por fora do produto com `session_replication_role = 'replica'` deixa órfãos. Confira com `verificar_orfaos()`.
 
 **App**
@@ -109,7 +111,7 @@ Cada linha é uma armadilha que já aconteceu aqui. Onde há trava, ela é um te
 - IA: região fixa e modelo sem roteamento (`iaNoBrasil.guarda`), e prazo em toda chamada (`prazoIA.guarda`).
 - Sentry: o módulo é uma lista do que não sai. Session Replay desligado, e a identificação vai só por UUID.
 - Captcha só por `_shared/captcha.ts`. Senha vazada por k-anonimato (HIBP), com falha aberta.
-- A chave do Asaas só pelo `ambienteAsaas` (`ambienteAsaas.guarda`). O webhook confere cada gravação (`webhookAsaas.guarda`).
+- A chave do Asaas só pelo `ambienteAsaas` (`ambienteAsaas.guarda`). O webhook confere cada gravação, e o aviso do sandbox só toca organização em trial, mesmo sem achar organização (`webhookAsaas.guarda`).
 - Na sessão simulada, as autorizações da pessoa são recusadas no banco (`perfilSimulado.guarda`).
 
 ## Mapa

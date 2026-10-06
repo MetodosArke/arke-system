@@ -8,10 +8,11 @@
 //   * parcelada em 3x com a forma de pagamento escolhida pela academia, as
 //     parcelas somam o total, vencem mês a mês e herdam a referência b2b:;
 //   * emitir de novo adota a mesma cobrança — não cobra a implantação duas vezes;
+//   * completar o registro (buscarTaxaExistente) acha a taxa e nunca cria outra;
 //   * à vista vira uma cobrança só;
 //   * a validação barra parcela abaixo do mínimo do Asaas e data no passado.
 import { garantirClienteB2b } from "../supabase/functions/asaas-assinatura-b2b/fluxo.ts";
-import { emitirOuAdotarTaxa, validarTaxa } from "../supabase/functions/asaas-taxa-implantacao/fluxo.ts";
+import { buscarTaxaExistente, emitirOuAdotarTaxa, validarTaxa } from "../supabase/functions/asaas-taxa-implantacao/fluxo.ts";
 
 const API = "https://api-sandbox.asaas.com/v3";
 const CHAVE = process.env.ASAAS_SANDBOX_KEY ?? "";
@@ -47,6 +48,12 @@ try {
 
   const r2 = await emitirOuAdotarTaxa(API, CHAVE, { orgId: orgA, cliente: cliA.id, pedido: ok3.pedido });
   conferir("emitir de novo adota a mesma cobrança", r2.ok && r2.adotada && r2.installmentId === r1.installmentId);
+
+  // Completar o registro de uma taxa já emitida só procura: nunca cria.
+  const achada = await buscarTaxaExistente(API, CHAVE, orgA);
+  conferir("completar acha a taxa emitida, com as três parcelas", achada?.installmentId === r1.installmentId && achada?.parcelas.length === 3);
+  const nenhuma = await buscarTaxaExistente(API, CHAVE, crypto.randomUUID());
+  conferir("completar sem taxa no Asaas não cria nada", nenhuma === null);
 
   const cliB = await garantirClienteB2b(API, CHAVE, { orgId: orgB, nome: "Academia Sandbox Implantação B", cpfCnpj: "11444777000161", email: "implantacao-b@arkefit.com.br", telefone: "11987654321" });
   if (cliB.ok) criados.clientes.push(cliB.id);

@@ -1,4 +1,7 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { decidirEmissao } from "../../supabase/functions/asaas-fiscal-academia/fluxo";
 import {
   autenticacaoEnviada,
   chaveCombinaComAmbiente,
@@ -176,5 +179,41 @@ describe("emitirNota (o mesmo código da edge function)", () => {
     simular([() => ({ status: 200, corpo: { data: [] } }), () => "rede"]);
     const r = await emitirNota(API, "$aact_hmlg_x", pedido);
     expect(r).toEqual({ ok: false, erro: "Não foi possível falar com o Asaas agora.", definitivo: false });
+  });
+});
+
+describe("salvar a configuração não desliga a emissão em silêncio (o mesmo código da edge function)", () => {
+  it("ligada e o cadastro confere: continua ligada, sem passar por desligada", () => {
+    expect(decidirEmissao({ pedido: true, estavaAtiva: true, pronta: true })).toEqual({ acao: "manter" });
+  });
+
+  it("desligada e o cadastro confere: liga", () => {
+    expect(decidirEmissao({ pedido: true, estavaAtiva: false, pronta: true })).toEqual({ acao: "ligar" });
+  });
+
+  it("ligada e a conferência falha: desliga e diz à tela", () => {
+    const d = decidirEmissao({ pedido: true, estavaAtiva: true, pronta: false });
+    expect(d).toMatchObject({ acao: "desligar", desligadaAgora: true });
+    expect(d.acao === "desligar" && d.erro).toMatch(/foi desligada/);
+  });
+
+  it("desligada e a conferência falha: recusa ligar, como antes", () => {
+    const d = decidirEmissao({ pedido: true, estavaAtiva: false, pronta: false });
+    expect(d).toMatchObject({ acao: "desligar", desligadaAgora: false });
+    expect(d.acao === "desligar" && d.erro).toMatch(/antes de ligar/);
+  });
+
+  it("a gestão pediu desligada: desliga, sem erro", () => {
+    expect(decidirEmissao({ pedido: false, estavaAtiva: true, pronta: true })).toEqual({ acao: "desligar", erro: null, desligadaAgora: true });
+    expect(decidirEmissao({ pedido: false, estavaAtiva: false, pronta: false })).toEqual({ acao: "desligar", erro: null, desligadaAgora: false });
+  });
+
+  it("a edge function não grava a emissão desligada antes de conferir", () => {
+    const funcao = readFileSync(join(__dirname, "..", "..", "supabase", "functions", "asaas-fiscal-academia", "index.ts"), "utf8");
+    const config = funcao.slice(funcao.indexOf('if (acao === "config")'), funcao.indexOf('return jsonResponse({ error: "Ação desconhecida." }'));
+    const linha = config.slice(config.indexOf("const linha = {"), config.indexOf("};", config.indexOf("const linha = {")));
+    expect(linha).not.toMatch(/emissao_ativa/);
+    // Desligar só depois da decisão, e só quando estava ligada.
+    expect(config.indexOf("update({ emissao_ativa: false })")).toBeGreaterThan(config.indexOf("decidirEmissao("));
   });
 });
