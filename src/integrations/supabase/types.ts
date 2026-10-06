@@ -6042,6 +6042,153 @@ export type Database = {
           },
         ]
       }
+      responsavel_aceites: {
+        Row: {
+          aceito_em: string
+          aluno_id: string
+          id: string
+          organization_id: string
+          pedido_id: string | null
+          proposito: string
+          responsavel_email: string
+          responsavel_nome: string
+          revogado_em: string | null
+          revogado_por: string | null
+          texto_sha256: string
+          versao_texto: string
+        }
+        Insert: {
+          aceito_em?: string
+          aluno_id: string
+          id?: string
+          organization_id: string
+          pedido_id?: string | null
+          proposito: string
+          responsavel_email: string
+          responsavel_nome: string
+          revogado_em?: string | null
+          revogado_por?: string | null
+          texto_sha256: string
+          versao_texto: string
+        }
+        Update: {
+          aceito_em?: string
+          aluno_id?: string
+          id?: string
+          organization_id?: string
+          pedido_id?: string | null
+          proposito?: string
+          responsavel_email?: string
+          responsavel_nome?: string
+          revogado_em?: string | null
+          revogado_por?: string | null
+          texto_sha256?: string
+          versao_texto?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "responsavel_aceites_aluno_id_fkey"
+            columns: ["aluno_id"]
+            isOneToOne: false
+            referencedRelation: "alunos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "responsavel_aceites_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "org_churn_metrics"
+            referencedColumns: ["organization_id"]
+          },
+          {
+            foreignKeyName: "responsavel_aceites_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "responsavel_aceites_pedido_id_fkey"
+            columns: ["pedido_id"]
+            isOneToOne: false
+            referencedRelation: "responsavel_pedidos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      responsavel_pedidos: {
+        Row: {
+          aluno_id: string
+          cancelado_em: string | null
+          criado_em: string
+          enviado_em: string | null
+          expira_em: string
+          id: string
+          organization_id: string
+          pedido_pela: string
+          pedido_por: string | null
+          propositos: string[]
+          respondido_em: string | null
+          responsavel_email: string
+          responsavel_nome: string
+          token_hash: string | null
+        }
+        Insert: {
+          aluno_id: string
+          cancelado_em?: string | null
+          criado_em?: string
+          enviado_em?: string | null
+          expira_em?: string
+          id?: string
+          organization_id: string
+          pedido_pela: string
+          pedido_por?: string | null
+          propositos: string[]
+          respondido_em?: string | null
+          responsavel_email: string
+          responsavel_nome: string
+          token_hash?: string | null
+        }
+        Update: {
+          aluno_id?: string
+          cancelado_em?: string | null
+          criado_em?: string
+          enviado_em?: string | null
+          expira_em?: string
+          id?: string
+          organization_id?: string
+          pedido_pela?: string
+          pedido_por?: string | null
+          propositos?: string[]
+          respondido_em?: string | null
+          responsavel_email?: string
+          responsavel_nome?: string
+          token_hash?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "responsavel_pedidos_aluno_id_fkey"
+            columns: ["aluno_id"]
+            isOneToOne: false
+            referencedRelation: "alunos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "responsavel_pedidos_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "org_churn_metrics"
+            referencedColumns: ["organization_id"]
+          },
+          {
+            foreignKeyName: "responsavel_pedidos_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sentinela_anamnese: {
         Row: {
           aluno_id: string
@@ -7191,6 +7338,10 @@ export type Database = {
         Args: { _organization_id: string }
         Returns: boolean
       }
+      aceite_responsavel_vigente: {
+        Args: { _aluno_id: string; _proposito: string }
+        Returns: boolean
+      }
       acionar_agente_comercial: {
         Args: { _lead_id: string }
         Returns: undefined
@@ -7528,6 +7679,10 @@ export type Database = {
         Returns: boolean
       }
       consentir_biometria: { Args: { _aluno_id: string }; Returns: string }
+      consultar_pedido_responsavel: {
+        Args: { _token_hash: string }
+        Returns: Json
+      }
       conta_por_email: {
         Args: { _email: string }
         Returns: {
@@ -7556,6 +7711,15 @@ export type Database = {
           _prioridade?: Database["public"]["Enums"]["tarefa_prioridade"]
         }
         Returns: string
+      }
+      criar_pedido_responsavel: {
+        Args: {
+          _aluno_id: string
+          _email: string
+          _nome: string
+          _propositos: string[]
+        }
+        Returns: Json
       }
       definir_agente_comercial: {
         Args: { _agenda_url: string; _ativo: boolean }
@@ -7671,6 +7835,10 @@ export type Database = {
       }
       equipe_metodo: { Args: never; Returns: boolean }
       escalar_tarefas_vencidas: { Args: never; Returns: undefined }
+      exigir_liberacao_consentimento: {
+        Args: { _aluno_id: string; _proposito: string }
+        Returns: undefined
+      }
       expirar_comandos_gateway: {
         Args: { _catraca_id?: string }
         Returns: number
@@ -8334,6 +8502,10 @@ export type Database = {
         Args: { _ate: string; _de: string }
         Returns: number
       }
+      idade_em: {
+        Args: { _hoje: string; _nascimento: string }
+        Returns: number
+      }
       implantacao_etapas: {
         Args: { _organization_id: string }
         Returns: {
@@ -8367,6 +8539,7 @@ export type Database = {
           tipo: string
         }[]
       }
+      informar_data_nascimento: { Args: { _data: string }; Returns: number }
       iniciar_trial_metodo_arke: {
         Args: {
           _aluno_id: string
@@ -8679,6 +8852,18 @@ export type Database = {
         }
         Returns: string
       }
+      registrar_aceite_responsavel: {
+        Args: {
+          _ator: string
+          _hashes: Json
+          _nome: string
+          _propositos: string[]
+          _sessao: string
+          _token_hash: string
+          _versoes: Json
+        }
+        Returns: number
+      }
       registrar_alerta_catracas: { Args: { _itens: Json }; Returns: undefined }
       registrar_alerta_rotinas: { Args: { _itens: Json }; Returns: undefined }
       registrar_atividade_aluno: { Args: never; Returns: undefined }
@@ -8766,6 +8951,10 @@ export type Database = {
         Args: { _organization_id: string }
         Returns: undefined
       }
+      revogar_aceite_responsavel: {
+        Args: { _aluno_id: string; _proposito: string }
+        Returns: undefined
+      }
       revogar_consentimento_biometrico: {
         Args: { _aluno_id: string }
         Returns: {
@@ -8832,6 +9021,7 @@ export type Database = {
         Args: { _estado: string; _heartbeat: string; _reportado: string }
         Returns: string
       }
+      situacao_idade: { Args: { _nascimento: string }; Returns: string }
       situacao_permite_app: {
         Args: {
           _desde: string
@@ -8890,6 +9080,10 @@ export type Database = {
       versao_consentimento_ia: { Args: never; Returns: string }
       versao_consentimento_rosto: { Args: never; Returns: string }
       versao_consentimento_saude: { Args: never; Returns: string }
+      versao_proposito_responsavel: {
+        Args: { _proposito: string }
+        Returns: string
+      }
       vigia_ativo: { Args: never; Returns: boolean }
       vigia_avisos_pendentes: {
         Args: never
