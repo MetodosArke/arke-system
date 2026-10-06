@@ -41,6 +41,9 @@ Funções em Deno, publicadas no projeto `lzyxqjibkfblrrjboylp`. O repositório 
 - `clienteAsaas.ts`: a saída do aluno anonimiza o cliente dele no Asaas (na conta da ArkeFit, anonimiza e remove; na da academia, só anonimiza); o CPF e as cobranças ficam. Ligado na saída por `saidaAsaas.ts`.
 - `saidaAsaas.ts`: a saída do aluno (`anonimizar-aluno`, `excluir-aluno`) chama `anonimizarClienteNaSaida` antes do banco; se o Asaas falha, a saída segue e a pendência fica em `asaas_saida_pendente`, que `retentar-saida-asaas` tenta de novo de hora em hora.
 - `arquivosDoAluno.ts`: apaga a pasta do aluno nos buckets privados, depois do banco.
+- `contaCobranca.ts` (puro) e `contaDaAcademia.ts`: em qual conta Asaas a cobrança mora. O Método, sempre na da ArkeFit; a mensalidade e a avulsa novas, na da academia quando `cobranca_conta_academia` está ligado (sem split, sem taxa). A cobrança que já existe vai à conta gravada em `conta_asaas`; nunca à do modo de hoje.
+- `webhookAcademia.ts`: o webhook que a ArkeFit registra na conta da academia (`asaas-webhook?org=<id>`), o token dentro das regras do Asaas e o hash dele, que é o que o banco guarda.
+- `prestadorPagamentos.ts`: o selo e o texto do Asaas como prestador, para os e-mails que falam de cobrança (espelho de `src/lib/prestadorPagamentos.ts`).
 - `verificacao.ts`, `alvoNaAcademia.ts`, `papelCobranca.ts`, `freio.ts`, `execucao.ts` e `vapid.ts`: um pedaço de regra cada.
 
 ## Asaas e envios

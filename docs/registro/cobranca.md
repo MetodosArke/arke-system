@@ -286,3 +286,207 @@ Rodada 3 da auditoria de 05/10, a parte do dinheiro: cobrança, webhook, nota fi
 - **`organizations.cnpj_cpf` ficou de fora de propósito.** É o documento da empresa, ninguém procura por ele, e o CNPJ alfanumérico da Receita tem letras.
 
 **Conferido no repositório:** 1.041 testes do app, 53 deles novos (a trava do ambiente do webhook, o desfecho da conferência, a reserva da taxa, a troca da carteira, o interruptor da nota, as duas guardas novas e a ficha da taxa); seis estouraram o prazo de 5 s numa máquina carregada e passaram rodando sozinhos com prazo maior, e nenhum deles é de arquivo desta rodada. `npm run check` sem erro, com as 55 funções no `deno check`. As guardas novas trazem casos de código com o defeito, que elas acusam ("o detector detecta"). **Falta**, e fica com o responsável: as quatro migrations em transação desfeita no banco, `npm run sandbox:implantacao` e a corrente real pelas funções publicadas.
+
+## O Asaas como prestador e o formato BaaS (06/10/2026)
+
+O Asaas respondeu que o modelo da ArkeFit é BaaS: criamos cobranças pelas academias, guardamos a chave da conta delas e mandamos o dinheiro por split. Abrir a conta da academia pela conta da ArkeFit também é BaaS. Desde 28/11/2025 o BaaS segue a Resolução Conjunta BCB/CMN nº 16/2025 (adequação até 31/12/2026). Os pontos que pesam aqui:
+
+- **Art. 14:** o prestador (o Asaas) aparece identificado, de forma visível, nas telas, nos contratos, nos documentos e nos instrumentos de pagamento. O white label acabou.
+- **Art. 8:** pelas cláusulas obrigatórias, a tomadora (a ArkeFit) não cobra em nome próprio tarifa ou comissão pelos serviços do prestador, nem recebe em conta própria valores dos serviços prestados aos clientes. Ela também precisa de procedimento de atendimento e avisa o prestador antes de contratar terceiro que trate os dados.
+- **Art. 16:** o prestador acompanha a qualidade do atendimento da tomadora.
+- **Titularidade:** a conta é do cliente final, na instituição prestadora. KYC e prevenção à lavagem ficam com o Asaas.
+
+**Decisão do responsável.** A ArkeFit vai passar pela homologação do BaaS, no modelo A ("Direto Tomador"). Até lá, a academia abre a própria conta no Asaas e a conecta pela carteira e pela chave, o caminho recomendado desde 05/10. O sistema fica pronto para o formato BaaS, de modo que ligar seja configuração, e não reescrita. Com tudo desligado, a produção se comporta como antes, com uma diferença: a identificação do Asaas, que é condição da homologação e já entra ligada. Migrations `20261390010000` a `20261392010000`.
+
+### 1. O Asaas identificado em toda tela, recibo e e-mail de pagamento
+
+O componente é `<PrestadorPagamentos />` (`src/components/pagamento/PrestadorPagamentos.tsx`), e as regras do Playbook do Asaas estão em `src/lib/prestadorPagamentos.ts`:
+
+- O selo oficial, com o id individual da ArkeFit, vem direto do endereço do Asaas e nunca é copiado. Nada de `referrerPolicy`, porque o Asaas confere pelo `Referer` que o selo carregou. O tamanho de referência é 160 × 48, com link para asaas.com. No tema claro vai o positivo; no escuro, o negativo branco.
+- Ao lado do selo vai o texto: "Pagamentos processados pelo Asaas (Asaas Gestão Financeira Instituição de Pagamento S.A., CNPJ 19.540.550/0001-21), instituição de pagamento autorizada pelo Banco Central." Se a imagem não carrega, ela sai da tela e o texto fica de pé sozinho.
+- Junto vem o atendimento do Asaas ao cliente final (Playbook, p. 16): 0800 009 0037 (pessoa jurídica; também por mensagem) e contato@asaas.com.br.
+
+**Onde o selo entrou:**
+
+| Quem vê | Telas |
+| --- | --- |
+| Aluno | os pagamentos da academia (`PagamentosAcademia`); o cadastro do cartão (`CartaoAssinatura`, no diálogo); a tela de bloqueio com a fatura (`AlunoBillingGate`); o cartão do Método no Perfil (`AlunoPerfil`) |
+| Gestão | o Financeiro inteiro, no topo, valendo para todas as abas, inclusive Notas fiscais e a conexão da chave Asaas; Organização → Pagamentos e → Assinaturas; o recibo impresso (`ReciboComprovanteDialog`); a matrícula no plano (diálogo da ficha); as cobranças avulsas; a adesão ao Método (`AdminAlunos`); a conta de recebimentos (`EtapaRecebimentos`, conectada, a conectar e a abertura BaaS); a tela de bloqueio B2B; a cobrança em aberto que o assistente da Central de Ajuda mostra |
+| Visão Master | a conta das cobranças da academia, na ficha da organização |
+| E-mails | os do Bruno sobre a conta de recebimentos (o passo Recebimentos, a conta aprovada e a conta recusada) e os do encerramento da academia, à gestão e aos alunos, que falam das cobranças |
+
+As guardas: `prestadorPagamentos.guarda` falha se uma tela da lista perder o componente. Ela também falha se uma tela nova chamar uma função de cobrança (`asaas-*`, `academia-criar-matricula`) ou mostrar o link de uma fatura sem o selo. Fica de fora a tela que sempre aparece dentro de outra que já mostra o selo (`DENTRO_DE`, que a própria guarda confere). Ficam de fora também as telas internas da Visão Master (`INTERNAS`). A cobrança B2B está fora da detecção, porque nela a ArkeFit cobra a própria mensalidade, como cliente do Asaas; mesmo assim, a tela de bloqueio B2B mostra o selo. A guarda confere ainda o texto, o CNPJ, as URLs com o id, a ausência de `referrerPolicy`, a imagem fora do repositório e o bloco nos e-mails.
+
+A página de vendas não mostra cobrança e por isso fica sem o selo. A pergunta "Como recebo as mensalidades?" passou a dizer que o Asaas é a instituição de pagamento que processa, e que o ArkeFit é a plataforma de tecnologia.
+
+### 2. A subconta pela ArkeFit atrás do interruptor (BaaS)
+
+- **O interruptor:** `asaas_subcontas_baas` em `plataforma_config`, com faixa de 0 a 1 e valor 0, editável em Visão Master → Configurações. A gestão pergunta por `asaas_subcontas_baas_ligadas()`, porque não lê `plataforma_config`.
+- **Desligado:**
+  - "Abrir pela ArkeFit" some da etapa Recebimentos, e `asaas-conta-academia` recusa `criar` e `documentos` com 409 e a mensagem da conta própria.
+  - A exceção é a organização em `trial`, que fala com o sandbox: nela o caminho aparece, para tirar o print da tela de abertura, pedido no formulário de habilitação, sem ligar nada em produção.
+  - O sandbox pode recusar a subconta. A recusa fica na tela, num bloco de erro com a mensagem do Asaas e o atalho para a conta própria, e não num aviso que some.
+- **Ligado, antes de abrir:**
+  - A tela diz que a conta de pagamento é aberta e mantida pelo Asaas, em nome da academia, e é dela.
+  - Ela pede o aceite dos [Termos de Uso do Asaas](https://central.ajuda.asaas.com/hc/pt-br/articles/32096847160859-Termos-e-Condi%C3%A7%C3%B5es-de-Uso). É o endereço que o rodapé do site do Asaas liga, conferido em 06/10/2026. O item 5.1.3 dos Termos pede que a subconta esteja ciente deles e concorde.
+  - Quem aceita é o titular: a função recusa quem não é da gestão (inclusive a ArkeFit) e o perfil simulado.
+  - O aceite vai para `aceites_termos_asaas`, só com quem, quando e o endereço, antes da chamada ao Asaas.
+- **Ligado, depois de abrir (o formato BaaS):**
+  - A academia não vai ao painel do Asaas mandar documento. A tela lista os grupos que o Asaas pede (`GET /myAccount/documents`, com a chave da subconta), cada um com a situação e o botão "Enviar no Asaas", que abre o `onboardingUrl` em outra aba.
+  - Só link `https` vira botão. Grupo sem link mostra "Fale com a ArkeFit"; é o envio pela API, que fica para quando aparecer o caso.
+  - O Asaas pede 15 segundos depois da abertura antes de consultar, e a lista vazia diz isso.
+- **A subconta que já existe** (uma, de 03/10) segue igual com o interruptor desligado: a situação, a nota fiscal, a saída do aluno e o e-mail do Asaas para os documentos.
+- **Bruno e a Central de Ajuda:** o roteiro do Bruno já não oferecia a abertura pela ArkeFit. Os artigos da gestão deixaram de oferecê-la; os da Visão Master descrevem o interruptor.
+- **A guarda:** `subcontaBaas.guarda` confere que a tela e a função decidem igual, para toda combinação de interruptor e status. Ela também falha:
+  - se uma tela pedir `criar` sem `caminhosDaConta`;
+  - se "Abrir pela ArkeFit" aparecer fora dela;
+  - se a função abrir a conta antes de conferir o interruptor, o aceite, o perfil simulado e de gravar o aceite;
+  - se o roteiro do Bruno ou um artigo da gestão oferecer o caminho;
+  - se o interruptor nascer sem faixa ou ligado.
+
+### 3. Cobrança na conta da academia, por academia, desligada
+
+`organizations.cobranca_conta_academia`. Só a ArkeFit, com as duas etapas, liga e desliga, pela ficha da organização ("Conta das cobranças"), e a mudança fica na auditoria. Nem a ArkeFit muda a coluna direto pela API: `proteger_colunas_organizacao` recusa fora de `definir_cobranca_conta_academia()`.
+
+- **Com o modo ligado:**
+  - A mensalidade (`plano:`) e a avulsa (`avulsa:`) **novas** saem da conta da academia, com a chave do cofre (a da nota fiscal), conferida contra o ambiente e contra a carteira de hoje.
+  - Não há split nem taxa de processamento: o Asaas cobra a tarifa direto da academia. Isso fica travado no banco: na conta da academia, `valor_repasse_arke = 0` e o líquido é o valor inteiro.
+  - O Método (`metodo:`) continua na conta da ArkeFit, com split para a academia, porque é serviço da ArkeFit.
+- **A conta mora na linha:** `conta_asaas` na matrícula e na avulsa. O modo vale para a cobrança nova. Cancelar, pausar, retomar, mudar o valor, ligar o cartão, reemitir, encerrar na saída do aluno e no encerramento da academia, e conferir: tudo vai à conta gravada. A coluna não muda depois de criada, e só a função (`service_role`) cria na conta da academia (`trg_conta_asaas_fixa`).
+- **Clientes por conta:** o id do cliente na conta da academia mora em `asaas_clientes_academia`. A coluna `asaas_customer_id` da matrícula fica sendo só o da conta da ArkeFit.
+- **O webhook da conta da academia:**
+  - Ligar registra pela API, na conta da academia, o webhook para `asaas-webhook?org=<id>`, com um token sorteado dentro das regras do Asaas. O banco guarda só o SHA-256 (`asaas_webhook_academia`); o token em claro só vai ao Asaas.
+  - Registrar de novo atualiza o mesmo webhook. Desligar deixa o webhook e o hash, porque o estorno de cobrança antiga ainda chega por ele.
+  - Com `org`, o `asaas-webhook` aceita só o token daquela academia, e não o segredo da ArkeFit.
+  - Ele só grava cobrança com referência `plano:`/`avulsa:` daquela academia e que mora na conta dela. O aviso que alcança o Método, o B2B, outra academia ou cobrança da conta da ArkeFit termina como `fora_da_conta_da_academia:*`, sem efeito.
+  - A cobrança que a academia faz por fora do ARKE, na conta dela, nem é gravada.
+- **Conciliação:** `asaas-reconciliar` confere também a conta de cada academia com webhook registrado em produção, com a chave do cofre: as listagens, a vencida uma a uma e as assinaturas órfãs de lá. Academia sem chave vira falha da conferência. O reenvio vai ao webhook com o segredo da ArkeFit, como sempre.
+- **Ligar e desligar:**
+  - Ligar é recusado enquanto houver assinatura `plano:` viva na conta da ArkeFit para aquela academia, e a ficha diz quantas. Não se migra assinatura.
+  - Desligar é recusado com assinatura viva ou avulsa em aberto na conta da academia.
+- **Nota fiscal:** a regra de hoje usa `valor_liquido_academia`, o líquido do split. No modo, esse valor é o valor inteiro, então a nota da mensalidade e da avulsa sai pelo que entrou na conta da academia. A tarifa do Asaas é despesa dela.
+  - Com o modo ligado, o cliente da nota é o mesmo da fatura, e a nota não desliga mais os avisos dele.
+- **Receita, lançamentos, bloqueio e inadimplência:** não mudam, porque vêm de `mensalidades` e `cobrancas_avulsas`.
+
+### 4. A avaliação do atendimento
+
+O formulário de habilitação pergunta se a empresa avalia a qualidade do atendimento de forma regular, e o art. 16 põe o Asaas para acompanhar. O ARKE não tinha nada disso.
+
+- O atendimento com uma pessoa do outro lado é o chamado de suporte (`chamados_suporte`): a equipe da academia pergunta à Central de Ajuda, o assistente não resolve e a ArkeFit responde e encerra com o desfecho.
+- Encerrado o chamado, quem o abriu vê "Como foi o atendimento?", de 1 a 5 estrelas, com um comentário opcional, uma vez.
+- A gravação passa por `avaliar_atendimento()`. Ela recusa:
+  - quem não abriu o chamado (para essa pessoa, o chamado "não existe");
+  - o chamado aberto;
+  - o encerrado sem uma pessoa;
+  - a nota fora de 1 a 5;
+  - a segunda avaliação;
+  - o perfil simulado.
+- A Visão Master → Suporte mostra a média, o volume dos últimos 30 dias, quantos chamados encerrados foram avaliados, as notas 1 e 2 e as dez mais recentes. Os números vêm de `get_superadmin_avaliacoes_atendimento()`, que só a ArkeFit lê.
+- O aluno não abre chamado com a ArkeFit: o pedido de ajuda dele vai à academia, pela fila dela.
+
+### 5. A nomenclatura (Playbook, p. 5)
+
+**A varredura** passou pelo app, pela página de vendas (`src/pages/public`), pelos artigos e pelos e-mails, procurando "Pay", "Payments", "Bank", "Wallet", "Financeira" e "Instituição de Pagamento" referidos à ArkeFit, e textos que digam que a ArkeFit mexe no dinheiro.
+
+**O que se achou:**
+
+- Nenhum "Pay", "Payments", "Bank" ou "Financeira" que se refira à ArkeFit.
+- "Wallet" aparece só como o nome do campo do Asaas ("Wallet ID") e como nome de ícone.
+- "Instituição de pagamento" aparece só referida ao Asaas.
+
+**O que foi corrigido:**
+
+- **Organização → Pagamentos.** "Split de Pagamento (Asaas)" virou "Conta de recebimentos (Asaas)". Antes o texto dizia que o repasse à ARKE "é retido na origem"; agora diz que o Asaas divide cada cobrança. "Taxa de split aplicada por plano" virou "Divisão do Método por nível", e "ARKE retém" virou "parte da ArkeFit".
+- **Adesão ao Método.** O aviso "Configure a wallet do Asaas" virou "Configure a conta de recebimentos". "Split automático" virou "divisão automática".
+- **Cartão.** "nosso processador de pagamento" virou "que processa o pagamento".
+- **Artigos.** "Todas as cobranças saem pelo ARKE" virou "criadas pelo ARKE e processadas pelo Asaas", com o bloco "Quem atende o quê". No app do aluno, o número do cartão "vai direto para o Asaas".
+- **Página de vendas.** A pergunta "Como recebo as mensalidades?" agora nomeia o Asaas como instituição de pagamento e o ArkeFit como plataforma de tecnologia.
+
+**O que ficou:**
+
+- **Na Visão Master,** "Retida automaticamente via split" (Configurações → taxa de processamento). É tela interna, mas acompanha a proposta das taxas abaixo.
+- **"Pendência financeira com a ArkeFit".** É o bloqueio B2B, a dívida da academia com a ArkeFit, e não apresenta a ArkeFit como instituição financeira.
+
+### Defeitos que só apareceram fazendo
+
+- **A nota fiscal calaria a fatura.** `garantirCliente` (`nfse-emitir`) cria e atualiza o aluno na conta da academia com `notificationDisabled: true`, porque até aqui a academia não cobrava nada ali. Com a cobrança na conta da academia, é o mesmo cliente que recebe a fatura: a primeira nota desligaria os avisos de cobrança do aluno. A nota agora deixa os avisos ligados quando a academia cobra na própria conta, e a cobrança reativa o cliente achado com os avisos desligados.
+- **O aluno que volta seria cobrado como "Pessoa anonimizada".** Na conta da academia, a saída só anonimiza o cliente, e não o remove (as notas dela ficam ali). A matrícula seguinte acharia esse cliente pelo CPF e cobraria um cadastro sem nome e sem avisos. A reativação devolve o nome e o celular de hoje e liga os avisos. Ela não apaga nada da academia.
+- **O token da academia alcançava o B2B e o Método.** A primeira versão do escopo conferia só a organização. Com o token da academia, bastaria um aviso forjado com o id da assinatura B2B dela, ou de uma assinatura do Método de um aluno dela, e uma referência `plano:` de um aluno dela, para marcar como paga a mensalidade dela com a ArkeFit ou liberar o Método. O escopo agora recusa o aviso que toca o Método, o B2B ou cobrança da conta da ArkeFit.
+- **A matrícula não tinha `fluxo.ts`.** As chamadas ao Asaas moravam no `index.ts` e o sandbox não chegava nelas. Agora estão em `academia-criar-matricula/fluxo.ts`, e o cliente vem do mesmo `obterOuCriarCustomer` da avulsa.
+- **Select montado em tempo de execução quebra o `deno check`.** O tipo do PostgREST lê a lista de colunas como texto literal. A conta da linha passou a ser lida numa consulta à parte.
+- **Um módulo com `npm:` importado por um teste do app quebra o `tsc`.** A regra da conta ficou dividida: `contaCobranca.ts` com as funções puras, e `contaDaAcademia.ts` com o que lê o cofre e o Asaas.
+
+### Proposta: os textos legais
+
+A cláusula-modelo do Asaas (Playbook, p. 11), adaptada à ArkeFit, foi **aprovada** e entra nas versões novas dos Termos de Uso e do Contrato da Academia, no PR do responsável (migrations `20261386` e `20261387`). Esta frente não mexeu em `src/content/legal` nem em `documentosLegais.ts`.
+
+O Playbook pede que a tomadora não altere nem crie documentos legais relacionados ao processamento financeiro de pagamentos. Na prática:
+
+- os nossos textos não regulam o serviço de pagamento: liquidação, prazos de saque, estorno, chargeback e tarifas do Asaas;
+- eles remetem aos Termos do Asaas;
+- eles falam só do que é da ArkeFit: a tecnologia, o Método, a licença, os dados.
+
+A cláusula de hoje que mais esbarra nisso é a da retenção ("Do valor de cada cobrança é retido... o repasse da ArkeFit").
+
+**Continua como proposta (precisa da aprovação do responsável): o recebimento com a cobrança na conta da academia e com a subconta BaaS.** O texto substituiria, no Contrato da Academia, o item "A Academia recebe as mensalidades...":
+
+> **Recebimentos.** Os serviços de pagamento usados pela Academia na plataforma, inclusive a conta de pagamento, o processamento das cobranças e as transferências, são prestados pelo Asaas Gestão Financeira Instituição de Pagamento S.A. (CNPJ 19.540.550/0001-21), na conta de pagamento da Academia, que é dela e é mantida pelo Asaas nos termos do contrato entre a Academia e o Asaas. A ArkeFit integra essa conta à plataforma e não recebe, em conta própria, valores dos serviços que a Academia presta aos seus alunos.
+>
+> (a) **Cobranças da Academia.** As mensalidades e as cobranças avulsas dos alunos são emitidas pela plataforma na conta Asaas da Academia, pelo valor integral. As tarifas do serviço de pagamento são cobradas pelo Asaas diretamente da Academia; a ArkeFit não cobra tarifa nem comissão sobre elas.
+>
+> (b) **Método ARKE.** O Método é serviço da ArkeFit ao aluno, cobrado pela ArkeFit na conta Asaas dela. No momento do pagamento, o Asaas transfere à Academia a parte indicada no painel, pela entrega presencial do Método.
+>
+> (c) **Remuneração da ArkeFit.** A ArkeFit é remunerada pela licença da plataforma (mensalidade e taxa de implantação) e pelo Método ARKE.
+>
+> (d) **Conta aberta pela plataforma.** Quando a Academia escolher abrir a conta de pagamento pela plataforma, a conta é aberta e mantida pelo Asaas em nome da Academia, que aceita os Termos de Uso do Asaas antes da abertura e envia os documentos ao Asaas pelo canal que ele indicar. A ArkeFit não guarda documento nem dado bancário da Academia.
+
+A responsabilidade fiscal (item seguinte do contrato) pede um ajuste de uma palavra: "a ArkeFit, pelo que recebe" no lugar de "pelo repasse que retém".
+
+**Enquanto o modo estiver desligado,** a mensalidade e a avulsa da academia passam pela conta da ArkeFit, com a taxa de processamento retida no split. É exatamente o que o art. 8 tira da tomadora. O caminho de adequação é ligar a cobrança na conta da academia, academia a academia, antes do fim da homologação. A outra saída depende do que o Asaas aceitar no fluxo de homologação, que avalia a remuneração da tecnologia: renomear a taxa como remuneração da plataforma.
+
+**As taxas na tela, como pagamento por tecnologia e serviço (proposta).** O Asaas disse que a remuneração da tecnologia e eventual margem sobre o serviço financeiro se avaliam na homologação. O Playbook permite cobrar pelo produto, desde que fique claro que a operação financeira é do Asaas.
+
+- **Na prévia da cobrança da academia (modo desligado), hoje:** "O aluno paga R$ 100,00 · a academia recebe R$ 96,52 (taxa de processamento de R$ 3,48)". A proposta:
+
+  > "O aluno paga R$ 100,00 · a academia recebe R$ 96,52 · **uso da plataforma ArkeFit** (emissão, conferência, bloqueio automático e nota fiscal): R$ 3,48. O pagamento é processado pelo Asaas."
+
+  Em Configurações, "Taxa de processamento" passaria a "Tarifa de uso da plataforma por cobrança", com o texto: "remuneração da ArkeFit pela tecnologia de cobrança; não é tarifa do serviço de pagamento, que é do Asaas".
+
+- **No Método, hoje:** "Aluno paga R$ 119,00 · parte da ArkeFit R$ 49,05 (repasse R$ 45,00 + taxa R$ 4,05) · Academia recebe R$ 69,95". A proposta:
+
+  > "Aluno paga R$ 119,00 pelo **Método ARKE, serviço da ArkeFit** · a academia recebe R$ 69,95 pela entrega presencial · a ArkeFit fica com R$ 49,05 pelo acompanhamento (mentor, nutricionista, jornada) e pela operação da cobrança."
+
+  Assim o dinheiro aparece como preço do serviço e da tecnologia, e não como taxa sobre o serviço financeiro.
+
+- **No modo ligado** não há o que propor: a prévia já diz "a cobrança sai da conta Asaas da academia, que recebe o valor inteiro. A tarifa do Asaas é cobrada pelo Asaas, direto da academia."
+
+### Conferido
+
+**Conferido no repositório:**
+
+- 1.243 testes do app, em 167 arquivos, todos passando. Nove arquivos de teste são novos: as guardas `prestadorPagamentos` e `subcontaBaas`, os fluxos da conta da academia, o webhook da academia, os documentos BaaS, o selo, a etapa Recebimentos e a avaliação. A guarda do webhook ganhou dois casos.
+- `npm run check` sem erro, com as 56 funções no `deno check`.
+- As três migrations, aplicadas num Postgres local (PGlite) sobre um esqueleto das tabelas que elas tocam, e aplicadas de novo, para provar que são idempotentes: 53 verificações, cada caso em transação desfeita.
+- Um defeito plantado por parte, 15 no total, e o teste certo falhou nos 15:
+  - o selo tirado de uma tela;
+  - o `referrerPolicy`;
+  - o prestador nos e-mails;
+  - o interruptor na função e o interruptor na tela;
+  - o aceite;
+  - a taxa e o split na conta da academia;
+  - o Método fora da conta da ArkeFit;
+  - o escopo do webhook;
+  - o segredo da ArkeFit no webhook da academia;
+  - a conta na conferência;
+  - o link dos documentos;
+  - as duas travas das migrations.
+
+**Não conferido:** nada contra o Asaas de verdade (o sandbox fica com o responsável) e nada no banco de produção.
+
+### Fica com o responsável
+
+1. As três migrations no banco, primeiro em transação desfeita (os casos estão no relatório da entrega), depois aplicadas, e `supabase gen types` para conferir que o `types.ts` editado à mão bate com o gerado.
+2. A publicação das funções, nesta ordem: `asaas-webhook` e `asaas-reconciliar` primeiro, depois as que criam e mexem em cobrança, e por fim `asaas-conta-academia`.
+3. `npm run sandbox:conta-academia` com a chave do sandbox (e `SUBCONTA=1`, se quiser ver a recusa da subconta), e `npm run sandbox:avulsa|ciclo|cartao|nfse|anonimizar` de novo, porque os `fluxo.ts` deles mudaram.
+4. O print da tela de abertura da subconta, na academia de homologação (trial).
+5. A aprovação da proposta de texto do recebimento e da redação das taxas na tela.

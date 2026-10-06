@@ -39,6 +39,9 @@ O ArkeFit (ARKE) é uma plataforma SaaS para academias, studios e profissionais 
   - A academia recebe valor fixo no split (`fixedValue`), e o repasse fica travado na assinatura (`valor_repasse_arke`).
   - A conta mora em três lugares, que mudam juntos: `repasse_arke()`, `src/lib/repasse.ts` e `asaas-create-subscription`.
 - **Asaas configurado e funcionando:** não tratar como pendência nem perguntar. Organização em `trial` usa o sandbox (`ambienteAsaas`), e só o Super Admin dá trial. A carteira de split da academia nunca é a da ArkeFit.
+- **Asaas é o prestador (BaaS, Resolução Conjunta nº 16/2025):** o selo oficial, o texto com razão social e CNPJ e o atendimento do Asaas vão em toda tela, recibo e e-mail de pagamento (`<PrestadorPagamentos />`, `prestadorPagamentos.guarda`). A ArkeFit não se apresenta como instituição financeira nem de pagamento.
+  - A subconta aberta pela ArkeFit fica atrás de `asaas_subcontas_baas` (desligado; em trial aparece), com o aceite dos Termos do Asaas pelo titular (`subcontaBaas.guarda`).
+  - Cobrança na conta da academia, por academia (`cobranca_conta_academia`, desligada, só a ArkeFit liga): a mensalidade e a avulsa novas saem da conta dela, sem split e sem taxa; o Método segue na da ArkeFit. A conta de cada cobrança mora em `conta_asaas` e não muda.
 - **Trial é homologação, nunca oferta.** Matrícula e plano B2B valem desde o primeiro dia e vencem no dia.
 - **Bloqueio por pagamento.** É dívida só a cobrança emitida e vencida sem confirmação (lista de inclusão: `pendente`, `atrasado`).
   - B2B: bloqueia só a equipe, com 7 dias de tolerância.
@@ -142,7 +145,7 @@ Cada linha é uma armadilha que já aconteceu aqui. Onde há trava, ela é um te
 
 - `npm run check`: tipos, lint, o `deno check` das funções e a auditoria das dependências de produção (alto e crítico); só erro reprova. `npx vitest run`: os testes do app, guardas incluídas.
 - Gateway: `cd packages/gateway && npm test && npm run check`. Versão nova muda `src/versao.ts` e o `package.json` juntos.
-- Sandbox do Asaas, que só aceita chave `$aact_hmlg_`: `npm run sandbox:cartao|ciclo|avulsa|conta|nfse|reconciliacao|implantacao|b2b-valor|assinatura|anonimizar`.
+- Sandbox do Asaas, que só aceita chave `$aact_hmlg_`: `npm run sandbox:cartao|ciclo|avulsa|conta|nfse|reconciliacao|implantacao|b2b-valor|assinatura|anonimizar|conta-academia`.
 - Emuladores das catracas: `cd packages/gateway && npm run emular:controlid|toletus|litenet3|facial-topdata|intelbras`.
 - Artigo da Central mudou: `npm run ajuda:indice`, e depois publicar `assistente-academia`.
 - Vigia: `npm run simulado:vigia`.
