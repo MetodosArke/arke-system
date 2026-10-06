@@ -32,8 +32,13 @@ export const DOCUMENTOS: Record<
     // No plano Free a prescricao e da academia; no Metodo ARKE, da equipe de
     // mentoria da ArkeFit, por profissionais com CREF e CRN, e a ArkeFit
     // responde por ela -- como ja diziam o Contrato e a Politica.
-    versao: "2026-10-06",
-    sha256: "7e1bba0f223a16a4c5e6315afa58edee86ed50d85f9c05790e076d0c83dc33bf",
+    // 2026-10-06.2: a secao 5 ganhou a clausula de prestacao de servicos
+    // financeiros do playbook de BaaS do Asaas (Resolucao Conjunta BCB/CMN
+    // n. 16/2025, art. 14): o Asaas presta os servicos financeiros, a ArkeFit
+    // so integra a tecnologia, e o suporte financeiro e do Asaas. Clausula
+    // modelo do Asaas, aprovada pelo responsavel no workspace em 06/10/2026.
+    versao: "2026-10-06.2",
+    sha256: "69076e2b5668289147efb9faaef3adbcea7f12dfc15d55e4e6a97e5138be011d",
     texto: termosUso,
     revisadoJuridico: true,
   },
@@ -132,8 +137,11 @@ export const DOCUMENTOS: Record<
     // 2026-10-06: na mesma tabela, o teto do Growth subiu de 300 para 500
     // alunos (e o Enterprise passou a comecar em 501), por decisao do
     // responsavel no chat em 06/10/2026. Nada mais mudou no texto.
-    versao: "2026-10-06",
-    sha256: "bd656f0f0c60c9b61bbbbfefa781235a870d402e3d06daaef63f84cd322f7844",
+    // 2026-10-06.2: a secao 3 ganhou a mesma clausula de prestacao de servicos
+    // financeiros dos Termos (playbook de BaaS do Asaas), aprovada pelo
+    // responsavel no workspace em 06/10/2026.
+    versao: "2026-10-06.2",
+    sha256: "f01f9fdc896c954ab39d982bef003cf6c246b424fe06a8eb806c3dcf48dc833f",
     texto: contratoAcademia,
     revisadoJuridico: true,
   },

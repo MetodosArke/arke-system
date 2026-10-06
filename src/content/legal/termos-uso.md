@@ -28,7 +28,8 @@ Não é permitido: usar a conta de outra pessoa; tentar acessar dados de terceir
 
 ## 5. Pagamentos
 
-- A mensalidade do aluno é cobrada pela Academia. Quando a cobrança é feita pela plataforma, ela é processada pelo Asaas, instituição de pagamento; a ArkeFit não armazena o número do cartão.
+- **Prestação de serviços financeiros.** Os serviços financeiros e de pagamentos disponibilizados por meio da presente plataforma, incluindo abertura e manutenção de conta de pagamento, processamento de transações, emissão de boletos, transferências, pagamentos e demais movimentações de valores, são prestados pelo **ASAAS GESTÃO FINANCEIRA INSTITUIÇÃO DE PAGAMENTO S.A.**, CNPJ 19.540.550/0001-21, instituição de pagamento autorizada a funcionar pelo Banco Central do Brasil. A ArkeFit atua exclusivamente como integradora tecnológica e distribuidora da experiência do produto, não sendo instituição financeira ou de pagamento, nem realizando intermediação financeira em nome próprio. Você declara ciência de que o relacionamento financeiro e de pagamentos e a responsabilidade regulatória pelos serviços acima descritos são do Asaas, nos termos da regulamentação vigente. O suporte sobre as operações financeiras é prestado pelo Asaas: 0800 009 0037 e contato@asaas.com.br.
+- A mensalidade do aluno é cobrada pela Academia. Quando a cobrança é feita pela plataforma, ela é processada pelo Asaas; a ArkeFit não armazena o número do cartão.
 - Dúvidas sobre valores, planos, cancelamento e reembolso da matrícula são tratadas com a Academia, que é quem define as condições comerciais com o aluno.
 
 ## 6. Propriedade intelectual
