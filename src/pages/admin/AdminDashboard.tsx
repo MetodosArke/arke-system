@@ -41,6 +41,7 @@ import {
   Fingerprint,
 } from "lucide-react";
 import type { Tables, Enums } from "@/integrations/supabase/types";
+import { atendeSaude } from "@/lib/acessoPainel";
 
 type Tarefa = Tables<"tarefas">;
 type Anamnese = Tables<"anamnese_acolhimento">;
@@ -182,7 +183,13 @@ const TIPO_COLOR_CLASS: Record<Tipo, string> = {
 const FILTRO_STATUS_OPCOES: Status[] = ["aberta", "em_andamento", "aguardando"];
 
 export default function AdminDashboard() {
-  const { organization, user } = useAuth();
+  const { organization, user, organizationRole, hasRole } = useAuth();
+  const veSaude = atendeSaude({
+    tipoOrganizacao: organization?.tipo,
+    especialidade: organization?.especialidadeProfissional,
+    papel: organizationRole,
+    adminArke: hasRole("admin_arke"),
+  });
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
@@ -441,7 +448,8 @@ export default function AdminDashboard() {
                           Assumir
                         </Button>
                       )}
-                      {tarefa.aluno_id && (
+                      {/* A anamnese é de quem atende a saúde: a recepção não abre (o banco também recusa). */}
+                      {tarefa.aluno_id && veSaude && (
                         <Button
                           size="sm"
                           variant="outline"
