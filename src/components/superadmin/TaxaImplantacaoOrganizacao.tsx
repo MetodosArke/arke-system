@@ -74,6 +74,21 @@ export function TaxaImplantacaoOrganizacao({ organizationId }: { organizationId:
     onError: (e: Error) => toast({ title: "Não foi possível emitir", description: e.message, variant: "destructive" }),
   });
 
+  // Taxa emitida com parcela fora de `cobrancas_b2b` (a gravação falhou no
+  // meio): a função procura no Asaas e registra só o que faltou, sem emitir outra.
+  const completar = useMutation({
+    mutationFn: async () => {
+      const { data: r, error } = await supabase.functions.invoke("asaas-taxa-implantacao", { body: { organization_id: organizationId, completar: true } });
+      if (error) throw new Error(await mensagemDeErroEdge(error, "Não foi possível registrar as parcelas."));
+      return r as { completada?: number };
+    },
+    onSuccess: (r) => {
+      void queryClient.invalidateQueries({ queryKey: ["taxa-implantacao", organizationId] });
+      toast({ title: "Parcelas registradas", description: `${r.completada ?? 0} parcela(s) que faltavam agora entram na cobrança B2B.` });
+    },
+    onError: (e: Error) => toast({ title: "Não foi possível registrar", description: e.message, variant: "destructive" }),
+  });
+
   // Sem os dados, o formulário não aparece: com a taxa já emitida, ele
   // ofereceria emitir de novo até a consulta responder.
   if (isLoading) return <p className="text-sm text-muted-foreground">Carregando…</p>;
@@ -104,6 +119,17 @@ export function TaxaImplantacaoOrganizacao({ organizationId }: { organizationId:
             </li>
           ))}
         </ul>
+        {data.parcelas.length < data.taxa.parcelas && (
+          <div className="space-y-1 rounded-md border border-dashed p-2 text-xs">
+            <p className="text-muted-foreground">
+              {data.taxa.parcelas - data.parcelas.length} parcela(s) emitida(s) no Asaas não estão registradas aqui, e por isso ficam fora da
+              inadimplência B2B.
+            </p>
+            <Button size="sm" variant="outline" disabled={completar.isPending} onClick={() => completar.mutate()}>
+              {completar.isPending ? "Registrando…" : "Registrar as parcelas que faltam"}
+            </Button>
+          </div>
+        )}
       </div>
     );
   }
