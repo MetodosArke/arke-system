@@ -31,6 +31,15 @@ Na ficha da organização, **Repasse do Método**: quanto a ArkeFit fica de cada
 
 Sem repasse configurado, a academia não consegue vender o Método: a cobrança é recusada em vez de sair com uma divisão que ninguém combinou.
 
+### Conta das cobranças
+
+Na ficha, **Conta das cobranças**: por padrão, a mensalidade e a avulsa saem da conta Asaas da ArkeFit, com a divisão para a carteira da academia e a taxa de processamento. **Cobrar na conta da academia** faz a mensalidade e a avulsa **novas** saírem da conta Asaas da própria academia, sem divisão e sem taxa (a tarifa do Asaas é cobrada direto dela). O Método continua na conta da ArkeFit.
+
+- Pede a chave da conta da academia conectada (a gestão conecta em Financeiro → Notas fiscais), conferida contra a carteira.
+- Ligar registra o aviso de pagamento (webhook) na conta da academia, com um token só dela.
+- É recusado enquanto houver assinatura de plano viva na conta da ArkeFit para a academia (a ficha diz quantas): o modo não migra assinatura. Voltar para a conta da ArkeFit é recusado com assinatura ou avulsa em aberto na conta da academia.
+- Só a ArkeFit, com as duas etapas, muda; fica na Auditoria.
+
 ## 3. Mensalidade B2B
 
 Na ficha, **Mensalidade B2B**: o valor mensal da plataforma. Sem valor negociado, vale o preço de tabela do plano. A assinatura é criada quando o gestor conclui a configuração inicial; para academia que já estava no ar, crie pela ficha. A academia escolhe PIX, boleto ou cartão em cada fatura.

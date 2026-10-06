@@ -6,7 +6,7 @@ O Bruno é o agente que acompanha a implantação. Ele roda de hora em hora e, p
 
 - manda à gestão o próximo passo assim que uma etapa termina, com o link da tela e do artigo que explica;
 - lembra a etapa parada a cada 3 dias úteis, no máximo duas vezes;
-- confere uma vez por dia a aprovação da conta no Asaas, quando ela foi aberta pelo ArkeFit, e avisa quando ela é aprovada ou recusada;
+- confere uma vez por dia a aprovação da conta no Asaas, nas subcontas que a ArkeFit abriu, e avisa quando ela é aprovada ou recusada (desde 06/10/2026, abrir subconta é o caminho BaaS, atrás do interruptor de [Configurações](ajuda:vm-configuracoes));
 - pede a evasão dos 6 meses anteriores, que é a base da medida de resultado;
 - manda o kit de lançamento depois da primeira entrada registrada, e com isso a implantação termina.
 

@@ -15,6 +15,10 @@ Os botões fazem o mesmo que nas telas, com a sua permissão: quem não pode sin
 
 No fim da resposta, **Isso resolveu?**. Com **Não, chamar a ArkeFit**, a sua pergunta vira um chamado, com o que o assistente respondeu e os artigos sugeridos. A ArkeFit responde no seu e-mail em até 1 dia útil, e o andamento aparece em **Chamados da academia**, logo abaixo, com o desfecho quando for respondido.
 
+Quando o chamado que você abriu é respondido, aparece embaixo dele **Como foi o atendimento?**, de 1 a 5 estrelas, com um comentário se quiser. Uma vez por chamado. A nota vai para a ArkeFit, que acompanha a qualidade do atendimento todo mês.
+
+Dúvida sobre o pagamento em si (a fatura, o PIX, o boleto, a conta Asaas) é atendida pelo Asaas, que processa os pagamentos: **0800 009 0037** (pessoa jurídica; também por mensagem) e **contato@asaas.com.br**.
+
 ## O que fica guardado
 
 A pergunta não é guardada: fica só o assunto e os artigos sugeridos, para a ArkeFit saber se o assistente está ajudando. A pergunta só fica quando vira chamado, porque é ela que a ArkeFit responde. Não escreva CPF, telefone ou e-mail de aluno na pergunta: para falar de um aluno, basta o nome no campo dele.

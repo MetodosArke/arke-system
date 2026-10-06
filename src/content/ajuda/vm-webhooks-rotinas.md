@@ -9,9 +9,13 @@ Todo aviso que o Asaas entrega, com o que ele **efetivamente fez no banco**: pag
 
 A situação das chaves (`ASAAS_API_KEY`, `ASAAS_WEBHOOK_SECRET`) aparece no topo.
 
+Com a **cobrança na conta da academia** ligada para uma academia, os avisos da conta Asaas dela chegam por um webhook próprio, registrado pela ficha da organização, com um token só dela (o banco guarda só o hash). Esse aviso só mexe na mensalidade e na avulsa daquela academia que nasceram na conta dela; o que tentar mexer em outra coisa aparece como **Conta da academia: …**, sem efeito. A cobrança que a academia faz por fora do ARKE, na conta dela, nem é gravada.
+
 ## Conferência diária com o Asaas
 
 Toda madrugada, o ARKE confere cada cobrança em aberto com o Asaas e corrige o que divergir, reenviando o aviso ao próprio webhook: é assim que um pagamento confirmado cujo aviso se perdeu é recuperado. A mesma conferência lista as **assinaturas órfãs**: ativas no Asaas, com referência do ARKE, sem registro no banco. Órfã não se corrige sozinha, porque pode ser de outro plano ou valor: ela aparece na faixa vermelha e no Vigia, para uma pessoa decidir.
+
+A conferência passa também pela conta Asaas de cada academia que cobra na própria conta (a que tem o webhook registrado), com a chave dela: a mensalidade e a avulsa de lá, e as assinaturas órfãs de lá. Academia sem a chave conectada vira falha da conferência, porque a cobrança dela não está sendo conferida.
 
 ## Rotinas agendadas
 
