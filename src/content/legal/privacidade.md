@@ -18,7 +18,7 @@ Esta Política explica como os dados pessoais são tratados na plataforma ARKE, 
 - **Pagamento:** a cobrança é processada pelo Asaas. A plataforma guarda apenas situação das cobranças, os 4 últimos dígitos e a bandeira do cartão — nunca o número completo.
 - **Nota fiscal:** quando a Academia emite nota fiscal pela plataforma, a nota sai no CNPJ dela, pelo Asaas, com o seu nome, CPF, endereço e e-mail, o serviço e o valor; vai para a prefeitura da cidade da Academia e chega a você por e-mail. A plataforma guarda a situação, o número e o link da nota.
 - **Contato comercial com a ArkeFit:** quem pede uma demonstração na página de vendas informa nome, academia, WhatsApp, e-mail e cidade e, se quiser, o número de alunos, o sistema que usa hoje e uma mensagem. Quem fala com a ArkeFit pelo WhatsApp ou por telefone, ou é indicado por outra pessoa, tem anotados pela equipe comercial o nome, a academia, o telefone, o e-mail, a cidade e o que contou. Na prospecção, a ArkeFit anota o contato que a própria academia publicou na internet (no site dela, em redes sociais ou em mapas), com a fonte.
-- **Dados técnicos:** registros de acesso e de erro. O endereço IP usado para limitar tentativas de cadastro é guardado apenas em forma cifrada (hash) por até 24 horas. Os relatórios de erro não incluem nome, e-mail, CPF nem dados de saúde.
+- **Dados técnicos:** registros de acesso e de erro. O endereço IP usado para limitar tentativas de cadastro é guardado apenas em forma cifrada (hash) por até 24 horas; no pedido de contato feito pelo site, o hash fica junto do pedido, para barrar abuso, e sai com ele. Os relatórios de erro não incluem nome, e-mail, CPF nem dados de saúde: a pessoa e a academia aparecem neles só por um código interno.
 
 ## 3. Para que usamos e com qual base legal
 
@@ -36,7 +36,7 @@ A plataforma não vende dados pessoais, não faz publicidade com eles e não usa
 
 ## 4. Método ARKE: mentoria e inteligência artificial
 
-Esta seção vale se você contratou o Método ARKE. Se você usa o aplicativo no plano gratuito da sua Academia, nada aqui se aplica a você.
+Esta seção vale se você contratou o Método ARKE. No plano gratuito da sua Academia, vale só o resumo da anamnese (item 1 abaixo), e só se você autorizar: nesse caso, quem lê o resumo é a equipe da Academia que atende você.
 
 **Quem acompanha.** No Método ARKE, quem acompanha você é a equipe de mentoria da ArkeFit. Ela prescreve o seu treino e a sua dieta, por profissionais com registro (CREF para treino, CRN para dieta), define as suas metas, vê os seus registros de treino, frequência, constância, fase da jornada e a sua anamnese, e pode pedir à Academia que faça algo presencialmente com você. Se você sair do Método, o acompanhamento volta para a Academia, que passa a ver de novo a sua anamnese e a sua dieta para continuar atendendo você.
 
@@ -67,17 +67,19 @@ Sobre isso, o que você precisa saber:
   - Vercel — hospedagem do aplicativo;
   - Asaas — processamento de pagamentos e emissão da nota fiscal da Academia (Brasil);
   - Resend — envio de e-mails;
-  - Sentry — registro de erros técnicos, sem dados pessoais identificáveis;
+  - Sentry — registro de erros técnicos, em que a pessoa e a academia aparecem só por um código interno, sem nome, e-mail ou CPF;
   - Cloudflare Turnstile — verificação anti-robô no cadastro, no primeiro acesso e no formulário de contato do site;
   - BrasilAPI — consulta pública de CNPJ e CEP: no cadastro da Academia, só dados da empresa; no seu endereço, só o CEP, para completar rua, bairro e cidade;
   - Have I Been Pwned — checagem de senha vazada, em que apenas os 5 primeiros caracteres de um código da senha saem do seu aparelho; a senha nunca é enviada;
   - **Amazon Web Services (Amazon Bedrock)** — com servidores no Brasil, em São Paulo: a análise por inteligência artificial das finalidades descritas na seção 4, **somente para quem autorizou** e somente enquanto a autorização estiver válida; a leitura do plano alimentar em PDF descrita na seção 3; e a resposta automática ao contato comercial, também descrita na seção 3.
+  - **Amazon Web Services (Amazon Bedrock), pela infraestrutura global** — só para o assistente que responde dúvidas da equipe da Academia sobre o uso do sistema. Vai ao modelo a dúvida escrita pela equipe, da qual a plataforma tira, antes do envio, CPF, e-mail, telefone e os nomes cadastrados na Academia; a tela orienta a equipe a não escrever nome nem dado de saúde de aluno. Quando a dúvida é sobre um aluno, vai também a situação dele no sistema (por exemplo, se entra na catraca ou se há cobrança em aberto), sem nome nem outra identificação. Esse processamento pode acontecer fora do Brasil (seção 6). Nada disso vale para os seus dados de saúde nem para as suas mensagens, que não passam por esse assistente.
+  - Google — as fontes de letra do aplicativo (Google Fonts) e os vídeos dos exercícios (YouTube): o seu navegador busca esses arquivos direto no Google, que recebe o endereço de internet (IP) do seu aparelho.
 - **Com a prefeitura** da cidade da Academia, na nota fiscal que ela emite dos seus pagamentos — obrigação fiscal da Academia.
 - **Com autoridades**, quando houver obrigação legal ou ordem judicial.
 
 ## 6. Transferência internacional
 
-Parte da infraestrutura — a hospedagem do aplicativo, o registro de erros e alguns serviços de apoio — fica fora do Brasil, principalmente nos Estados Unidos. O banco de dados principal fica em São Paulo.
+Parte da infraestrutura — a hospedagem do aplicativo, o registro de erros, o envio de e-mails, as fontes e os vídeos dos exercícios — fica fora do Brasil, principalmente nos Estados Unidos. O banco de dados principal fica em São Paulo. O assistente que responde dúvidas da equipe da Academia (seção 5) também pode ser processado fora do Brasil, pela infraestrutura global da Amazon Web Services, sem a identificação dos alunos.
 
 **A análise por inteligência artificial (seção 4) e a leitura do plano alimentar em PDF (seção 3) são processadas no Brasil**, em São Paulo, e por isso **não envolvem transferência internacional**. Os seus dados de saúde e as suas mensagens não saem do país para essas finalidades.
 
@@ -107,7 +109,7 @@ A plataforma não usa cookies de publicidade nem de rastreamento. Usa o armazena
 
 ## 11. Crianças e adolescentes
 
-Dados de menores de 18 anos são tratados no melhor interesse deles, com consentimento de ao menos um dos pais ou responsável legal (art. 14).
+Dados de menores de 18 anos são tratados no melhor interesse deles, com consentimento de ao menos um dos pais ou responsável legal (art. 14). Por isso a plataforma pede a data de nascimento na matrícula. O menor se matricula e treina normalmente, mas o uso de dados de saúde, da biometria e da inteligência artificial só começa depois que o responsável autoriza, por um link enviado ao e-mail dele.
 
 ## 12. Alterações
 

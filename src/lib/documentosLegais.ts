@@ -79,8 +79,18 @@ export const DOCUMENTOS: Record<
     // plataforma so para chegar aos equipamentos e e apagada dela ao chegar ou
     // em 24 horas. Texto-base aprovado pelo responsavel no chat em 02/10/2026
     // ("o texto base ja esta aprovado").
-    versao: "2026-10-03",
-    sha256: "b2202eedc569ca283804cfef14d4ad974545a80a6356c12984fd90e16505ade5",
+    // 2026-10-06: a auditoria de prontidao de 05/10 -- o assistente da equipe
+    // da academia, que roda na infraestrutura global da AWS, entra na lista
+    // de suboperadores e na transferencia internacional; Google Fonts e
+    // YouTube entram na lista; o resumo da anamnese no plano gratuito (com
+    // autorizacao, lido pela equipe da academia) passa a constar da secao 4;
+    // o Sentry identifica so por codigo interno; o hash de IP do contato pelo
+    // site; e a secao 11 descreve o consentimento do responsavel pelo menor.
+    // Decisao do responsavel no workspace (D2, 06/10/2026): versao antes do
+    // primeiro cliente. Texto aprovado pelo responsavel no workspace em
+    // 06/10/2026, como estava.
+    versao: "2026-10-06",
+    sha256: "f0fba71e9b4cb201d3d51b5e664bc4b345346a6bd39aeeae05f4ba14724817ff",
     texto: privacidade,
     revisadoJuridico: true,
   },
