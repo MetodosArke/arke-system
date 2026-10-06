@@ -3,6 +3,7 @@ import { ambienteAsaas } from "../_shared/asaas.ts";
 import { cancelarAssinatura } from "../asaas-assinatura-ciclo/fluxo.ts";
 import { verificada } from "../_shared/verificacao.ts";
 import { servir } from "../_shared/servir.ts";
+import { executarComDesfecho, type Preparo, type Resultado } from "./fluxo.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -13,15 +14,16 @@ const corsHeaders = {
 const jsonResponse = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
-type Resultado = { resultado: "ok" | "erro" | "ignorada"; detalhe: string; comando_id?: string | null };
-
 // Aprovação de um clique, na Visão Master → Vigia: uma ação de regra de
 // nível 2 ou uma ação proposta pela análise por IA.
 //
 // A ordem é o que impede executar duas vezes: public.vigia_preparar_aprovacao
 // confere o papel e RESERVA a decisão antes de qualquer execução — dois
 // cliques, ou duas abas, e o segundo recebe "já foi decidida". Só depois a
-// ação roda, e o desfecho vai para vigia_acoes e para a Auditoria.
+// ação roda, e o desfecho vai para vigia_acoes e para a Auditoria — sempre,
+// inclusive quando a execução lança (fluxo.ts, executarComDesfecho). Se nem
+// isso der certo (a função morta no meio), o Vigia fecha a ação presa em
+// "executando" como erro (vigia_fechar_acoes_sem_desfecho).
 //
 // O que precisa do Asaas roda aqui, com a chave pelo roteador de ambiente;
 // o resto roda no banco (public.vigia_executar).
@@ -72,39 +74,40 @@ servir("vigia-aprovar", async (req: Request) => {
       return jsonResponse({ error: erroPrep?.message ?? "Não foi possível aprovar." }, erroPrep?.code === "42501" ? 403 : 409);
     }
 
-    let res: Resultado;
-    if (prep.ferramenta === "cancelar_assinatura_orfa") {
-      // Assinatura órfã só é procurada na produção (a conferência exclui a
-      // homologação), então o ambiente é o de produção.
-      const amb = ambienteAsaas(null, (n) => Deno.env.get(n));
-      if ("erro" in amb) {
-        res = { resultado: "erro", detalhe: amb.erro };
-      } else {
-        const r = await cancelarAssinatura(amb.api, amb.chave, String(prep.alvo));
-        res = r.ok
-          ? { resultado: "ok", detalhe: r.jaEstavaCancelada ? "A assinatura já estava cancelada no Asaas." : "Assinatura cancelada no Asaas." }
-          : { resultado: "erro", detalhe: r.erro };
-      }
-    } else if (prep.ferramenta === "reprocessar_evento_asaas") {
-      res = await reprocessarAvisos(admin, supabaseUrl, String(prep.alvo));
-    } else {
-      const { data: r, error: erroExec } = await admin.rpc("vigia_executar", {
-        _ferramenta: prep.ferramenta,
-        _alvo: prep.alvo,
-        _contexto: prep.contexto ?? {},
-      });
-      res = erroExec ? { resultado: "erro", detalhe: `Falha ao executar (${erroExec.code}).` } : (r as Resultado);
-      // Ordem igual já na fila do Gateway: o que foi aprovado já vai acontecer.
-      if (res.resultado === "ignorada") res = { ...res, resultado: "ok" };
-    }
-
-    const { error: erroConcluir } = await admin.rpc("vigia_concluir_acao", {
-      _acao_id: prep.acao_id,
-      _resultado: res.resultado,
-      _detalhe: res.detalhe,
-      _comando_id: res.comando_id ?? null,
-    });
-    if (erroConcluir) console.error("vigia-aprovar: executou, mas falhou ao registrar", erroConcluir.code);
+    // Daqui em diante a decisão está reservada: toda saída registra o
+    // desfecho, inclusive a exceção de um `fetch` que estourou o prazo.
+    const { resultado: res, registrado } = await executarComDesfecho(
+      prep as Preparo,
+      async (p): Promise<Resultado> => {
+        if (p.ferramenta === "cancelar_assinatura_orfa") {
+          // Assinatura órfã só é procurada na produção (a conferência exclui a
+          // homologação), então o ambiente é o de produção.
+          const amb = ambienteAsaas(null, (n) => Deno.env.get(n));
+          if ("erro" in amb) return { resultado: "erro", detalhe: amb.erro };
+          const r = await cancelarAssinatura(amb.api, amb.chave, String(p.alvo));
+          return r.ok
+            ? { resultado: "ok", detalhe: r.jaEstavaCancelada ? "A assinatura já estava cancelada no Asaas." : "Assinatura cancelada no Asaas." }
+            : { resultado: "erro", detalhe: r.erro };
+        }
+        if (p.ferramenta === "reprocessar_evento_asaas") return reprocessarAvisos(admin, supabaseUrl, String(p.alvo));
+        const { data: r, error: erroExec } = await admin.rpc("vigia_executar", {
+          _ferramenta: p.ferramenta,
+          _alvo: p.alvo,
+          _contexto: p.contexto ?? {},
+        });
+        return erroExec ? { resultado: "erro", detalhe: `Falha ao executar (${erroExec.code}).` } : (r as Resultado);
+      },
+      async (d) => {
+        const { error } = await admin.rpc("vigia_concluir_acao", {
+          _acao_id: d.acao_id,
+          _resultado: d.resultado,
+          _detalhe: d.detalhe,
+          _comando_id: d.comando_id,
+        });
+        return { error };
+      },
+    );
+    if (!registrado) console.error("vigia-aprovar: o desfecho não foi registrado", prep.acao_id);
 
     return res.resultado === "ok"
       ? jsonResponse({ ok: true, detalhe: res.detalhe })
@@ -140,13 +143,18 @@ async function reprocessarAvisos(
   if (!lista.length) return { resultado: "ok", detalhe: "Nenhum aviso pendente desse tipo — já foram processados." };
   let ok = 0;
   for (const e of lista) {
-    const r = await fetch(`${supabaseUrl}/functions/v1/asaas-webhook`, {
-      signal: AbortSignal.timeout(30_000),
-      method: "POST",
-      headers: { "Content-Type": "application/json", "asaas-access-token": segredo },
-      body: JSON.stringify(e.payload),
-    });
-    if (r.ok) ok++;
+    // Um aviso que estoura o prazo conta como não processado; os outros seguem.
+    try {
+      const r = await fetch(`${supabaseUrl}/functions/v1/asaas-webhook`, {
+        signal: AbortSignal.timeout(30_000),
+        method: "POST",
+        headers: { "Content-Type": "application/json", "asaas-access-token": segredo },
+        body: JSON.stringify(e.payload),
+      });
+      if (r.ok) ok++;
+    } catch {
+      // segue para o próximo
+    }
   }
   return ok === lista.length
     ? { resultado: "ok", detalhe: `${ok} aviso(s) ${tipoEvento} processado(s) de novo.` }
