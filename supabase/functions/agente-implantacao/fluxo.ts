@@ -5,6 +5,8 @@
 // Sem IA, de propósito: as mensagens são modelos fixos, e todo número que
 // aparece nelas vem do banco.
 
+import { blocoPrestador } from "../_shared/prestadorPagamentos.ts";
+
 export type TipoMensagem =
   | "boas_vindas"
   | "proximo_passo"
@@ -309,7 +311,13 @@ function escapar(texto: string): string {
 
 type Bloco = { titulo?: string; paragrafos: string[]; links?: { rotulo: string; url: string }[] };
 
-function montar(assunto: string, abertura: string, blocos: Bloco[], assinatura: string, rodape: string | null) {
+/**
+ * `prestador`: o e-mail fala da conta de recebimentos ou de pagamento, e leva
+ * o selo e o texto do Asaas como prestador, com o atendimento dele (BaaS,
+ * art. 14 da Resolução Conjunta nº 16/2025; `_shared/prestadorPagamentos.ts`).
+ */
+function montar(assunto: string, abertura: string, blocos: Bloco[], assinatura: string, rodape: string | null, prestador = false) {
+  const asaas = prestador ? blocoPrestador() : null;
   const texto = [
     abertura,
     "",
@@ -320,6 +328,7 @@ function montar(assunto: string, abertura: string, blocos: Bloco[], assinatura: 
       "",
     ]),
     assinatura,
+    ...(asaas ? ["", asaas.texto] : []),
     ...(rodape ? ["", rodape] : []),
   ].join("\n");
   const html = `<div style="font-family:Arial,sans-serif;max-width:560px;margin:auto;color:#111;line-height:1.5">
@@ -341,10 +350,14 @@ function montar(assunto: string, abertura: string, blocos: Bloco[], assinatura: 
     )
     .join("\n  ")}
   <p style="margin-top:24px">${escapar(assinatura)}</p>
+  ${asaas ? asaas.html : ""}
   ${rodape ? `<p style="color:#666;font-size:12px">${escapar(rodape)}</p>` : ""}
 </div>`;
   return { assunto, html, texto };
 }
+
+/** A etapa fala da conta de recebimentos: o e-mail leva o prestador. */
+const etapaDePagamento = (etapa: string | null | undefined) => etapa === "recebimentos";
 
 function blocoDoPasso(etapa: string, site: string): Bloco {
   const p = PASSOS[etapa];
@@ -378,7 +391,8 @@ export function montarEmail(
         `Olá! Daqui até o primeiro aluno entrando, este e-mail traz sempre o próximo passo da ${academia}, com o link da tela e do artigo que explica.`,
         [blocoDoPasso(email.etapa!, site), { paragrafos: [andamento] }],
         assinatura,
-        rodape
+        rodape,
+        etapaDePagamento(email.etapa)
       );
     case "proximo_passo":
       return montar(
@@ -386,7 +400,8 @@ export function montarEmail(
         "Uma etapa a menos. O próximo passo é este:",
         [blocoDoPasso(email.etapa!, site), { paragrafos: [andamento] }],
         assinatura,
-        rodape
+        rodape,
+        etapaDePagamento(email.etapa)
       );
     case "lembrete":
       return montar(
@@ -394,7 +409,8 @@ export function montarEmail(
         `A implantação da ${academia} está esperando esta etapa. Se travou em alguma coisa, é só responder este e-mail.`,
         [blocoDoPasso(email.etapa!, site), { paragrafos: [andamento] }],
         assinatura,
-        rodape
+        rodape,
+        etapaDePagamento(email.etapa)
       );
     case "pedido_evasao":
       return montar(
@@ -419,7 +435,8 @@ export function montarEmail(
         `O Asaas aprovou a conta de recebimentos da ${academia}. A parte da academia em cada mensalidade cai nela, e o saque já está liberado.`,
         [{ paragrafos: [andamento] }],
         assinatura,
-        rodape
+        rodape,
+        true
       );
     case "asaas_recusada":
       return montar(
@@ -427,7 +444,8 @@ export function montarEmail(
         `O Asaas recusou a conta de recebimentos da ${academia}. O motivo vem no e-mail do próprio Asaas, e a equipe da ArkeFit vai entrar em contato para resolver junto.`,
         [{ paragrafos: [andamento] }],
         assinatura,
-        rodape
+        rodape,
+        true
       );
     case "kit_lancamento": {
       const autonomo = imp.tipo === "profissional_autonomo";

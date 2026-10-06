@@ -212,9 +212,16 @@ export function enderecoCompleto(e: Partial<Tomador["endereco"]> | null | undefi
  * O aluno como cliente na conta da academia: procura pelo id do aluno, depois
  * pelo CPF, e atualiza o endereço — a nota sai com o endereço de hoje.
  * `notificationDisabled`: a conta da academia não cobra nada deste cliente,
- * e a nota em si o Asaas manda por e-mail mesmo assim.
+ * e a nota em si o Asaas manda por e-mail mesmo assim. Com a cobrança na
+ * conta da academia (`cobrancaNaConta`), cobra: o mesmo cliente recebe a
+ * fatura, e os avisos ficam ligados.
  */
-export async function garantirCliente(api: string, chave: string, t: Tomador): Promise<{ id: string } | { erro: string }> {
+export async function garantirCliente(
+  api: string,
+  chave: string,
+  t: Tomador,
+  opcoes: { cobrancaNaConta?: boolean } = {},
+): Promise<{ id: string } | { erro: string }> {
   if (t.cpf.length !== 11) return { erro: "CPF do aluno ausente ou inválido." };
   const dados = {
     name: t.nome,
@@ -226,7 +233,7 @@ export async function garantirCliente(api: string, chave: string, t: Tomador): P
     addressNumber: t.endereco.numero,
     complement: t.endereco.complemento ?? undefined,
     province: t.endereco.bairro,
-    notificationDisabled: true,
+    notificationDisabled: !opcoes.cobrancaNaConta,
   };
   for (const filtro of [`externalReference=${encodeURIComponent(t.alunoId)}`, `cpfCnpj=${t.cpf}`]) {
     const busca = await chamar<{ data?: { id: string; deleted?: boolean }[] }>(api, chave, "GET", `/customers?${filtro}`);

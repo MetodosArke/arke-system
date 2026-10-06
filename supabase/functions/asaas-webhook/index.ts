@@ -1,8 +1,15 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { hojeBrasilia } from "../_shared/data.ts";
 import { servir } from "../_shared/servir.ts";
-import { ambienteDoAviso, pistaDaReferencia } from "./fluxo.ts";
+import {
+  ambienteDoAviso,
+  escopoDoAvisoDaAcademia,
+  organizacaoDoEndereco,
+  pistaDaReferencia,
+  referenciaDaContaDaAcademia,
+} from "./fluxo.ts";
 import { resumoDoErro } from "../_shared/resumoDoErro.ts";
+import { hashDoTokenWebhook, iguaisEmTempoConstante } from "../_shared/webhookAcademia.ts";
 
 const jsonResponse = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
@@ -94,19 +101,48 @@ servir("asaas-webhook", async (req: Request) => {
   }
 
   const tokenRecebido = req.headers.get("asaas-access-token");
-  // Qual dos dois segredos validou decide o que este evento pode tocar.
-  const origemEvento: "producao" | "sandbox" | null = !tokenRecebido
-    ? null
-    : timingSafeEqual(tokenRecebido, webhookSecret)
-      ? "producao"
-      : webhookSecretSandbox && timingSafeEqual(tokenRecebido, webhookSecretSandbox)
-        ? "sandbox"
-        : null;
+  const admin = createClient(supabaseUrl, serviceRoleKey);
+
+  // Com `?org=<id>`, o aviso vem da conta Asaas da própria academia (a
+  // cobrança na conta da academia, `organizations.cobranca_conta_academia`)
+  // e só vale o token dela, conferido pelo hash guardado no registro do
+  // webhook (`asaas_webhook_academia`). O ambiente é o do registro. Sem
+  // `org`, valem os segredos da ArkeFit, como sempre: qual dos dois validou
+  // decide o que o evento pode tocar.
+  const endereco = organizacaoDoEndereco(req.url);
+  if ("invalido" in endereco) {
+    return jsonResponse({ error: "Assinatura do webhook inválida." }, 401);
+  }
+  const orgDoToken = endereco.org;
+  let origemEvento: "producao" | "sandbox" | null = null;
+  if (orgDoToken) {
+    if (tokenRecebido) {
+      const { data: registro, error: erroRegistro } = await admin
+        .from("asaas_webhook_academia")
+        .select("token_hash, ambiente")
+        .eq("organization_id", orgDoToken)
+        .maybeSingle();
+      if (erroRegistro) {
+        // Falha nossa não é token errado: o 500 faz o Asaas tentar de novo.
+        console.error("Falha ao conferir o webhook da academia", resumoDoErro(erroRegistro));
+        return jsonResponse({ error: "Falha ao conferir o webhook." }, 500);
+      }
+      if (registro && iguaisEmTempoConstante(await hashDoTokenWebhook(tokenRecebido), String(registro.token_hash))) {
+        origemEvento = registro.ambiente === "sandbox" ? "sandbox" : "producao";
+      }
+    }
+  } else {
+    origemEvento = !tokenRecebido
+      ? null
+      : timingSafeEqual(tokenRecebido, webhookSecret)
+        ? "producao"
+        : webhookSecretSandbox && timingSafeEqual(tokenRecebido, webhookSecretSandbox)
+          ? "sandbox"
+          : null;
+  }
   if (!origemEvento) {
     return jsonResponse({ error: "Assinatura do webhook inválida." }, 401);
   }
-
-  const admin = createClient(supabaseUrl, serviceRoleKey);
 
   let payload: Record<string, unknown>;
   try {
@@ -117,6 +153,12 @@ servir("asaas-webhook", async (req: Request) => {
 
   const tipoEvento = String(payload.event ?? "");
   const payment = (payload.payment ?? {}) as Record<string, unknown>;
+
+  // A conta da academia também recebe as cobranças que ela faz por fora do
+  // ARKE. Essas não são nossas: não são gravadas nem processadas.
+  if (orgDoToken && !referenciaDaContaDaAcademia(payment.externalReference ? String(payment.externalReference) : null)) {
+    return jsonResponse({ ok: true, ignorado: "cobrança fora do ARKE" });
+  }
   const asaasPaymentId = payment.id ? String(payment.id) : null;
   const invoiceUrl = payment.invoiceUrl ? String(payment.invoiceUrl) : null;
   // Base da rede de segurança contra webhook perdido: sem a data de
@@ -205,14 +247,23 @@ servir("asaas-webhook", async (req: Request) => {
   // aviso fica sem processar, com o erro.
   const referencia = payment.externalReference ? String(payment.externalReference) : null;
   const subscriptionDoEvento = payment.subscription ? String(payment.subscription) : null;
-  const statusDasOrganizacoesDoAviso = async (): Promise<(string | null)[]> => {
+  //
+  // O mesmo levantamento diz, para o aviso que veio da conta da academia
+  // (`?org=`), se ele alcança o Método, o B2B, ou uma cobrança que mora na
+  // conta da ArkeFit (`conta_asaas`): `escopoDoAvisoDaAcademia` recusa.
+  type Linha = { organization_id?: unknown; id?: unknown; conta_asaas?: unknown; matricula_id?: unknown };
+  const alcanceDoAviso = async () => {
     const ids = new Set<string>();
-    const anotar = (linhas: { organization_id?: unknown; id?: unknown }[] | null | undefined, campo: "organization_id" | "id") => {
+    const contas: (string | null)[] = [];
+    const anotar = (linhas: Linha[] | null | undefined, campo: "organization_id" | "id") => {
       for (const l of linhas ?? []) if (l[campo]) ids.add(String(l[campo]));
+    };
+    const anotarConta = (linhas: Linha[] | null | undefined) => {
+      for (const l of linhas ?? []) contas.push(l.conta_asaas === undefined || l.conta_asaas === null ? null : String(l.conta_asaas));
     };
     const pista = pistaDaReferencia(referencia);
     if (pista?.tipo === "organizacao") ids.add(pista.id);
-    const vazio = { data: [] as { organization_id?: unknown; id?: unknown }[] };
+    const vazio = { data: [] as Linha[] };
     const [metodo, b2b, plano, porReferencia, b2bPago, avulsaPaga, mensalidadePaga, metodoPago] = await Promise.all([
       subscriptionDoEvento
         ? exigir(admin.from("aluno_assinaturas").select("organization_id").eq("asaas_subscription_id", subscriptionDoEvento))
@@ -221,32 +272,59 @@ servir("asaas-webhook", async (req: Request) => {
         ? exigir(admin.from("organizations").select("id").eq("asaas_subscription_id_b2b", subscriptionDoEvento))
         : vazio,
       subscriptionDoEvento
-        ? exigir(admin.from("aluno_matriculas_academia").select("organization_id").eq("asaas_subscription_id", subscriptionDoEvento))
+        ? exigir(admin.from("aluno_matriculas_academia").select("organization_id, conta_asaas").eq("asaas_subscription_id", subscriptionDoEvento))
         : vazio,
       pista?.tipo === "avulsa"
-        ? exigir(admin.from("cobrancas_avulsas").select("organization_id").eq("id", pista.id))
+        ? exigir(admin.from("cobrancas_avulsas").select("organization_id, conta_asaas").eq("id", pista.id))
         : pista?.tipo === "aluno"
           ? exigir(admin.from("alunos").select("organization_id").eq("id", pista.id))
           : vazio,
       asaasPaymentId ? exigir(admin.from("cobrancas_b2b").select("organization_id").eq("asaas_payment_id", asaasPaymentId)) : vazio,
-      asaasPaymentId ? exigir(admin.from("cobrancas_avulsas").select("organization_id").eq("asaas_payment_id", asaasPaymentId)) : vazio,
-      asaasPaymentId ? exigir(admin.from("mensalidades").select("organization_id").eq("asaas_payment_id", asaasPaymentId)) : vazio,
+      asaasPaymentId ? exigir(admin.from("cobrancas_avulsas").select("organization_id, conta_asaas").eq("asaas_payment_id", asaasPaymentId)) : vazio,
+      asaasPaymentId ? exigir(admin.from("mensalidades").select("organization_id, matricula_id").eq("asaas_payment_id", asaasPaymentId)) : vazio,
       asaasPaymentId ? exigir(admin.from("pagamentos").select("organization_id").eq("asaas_payment_id", asaasPaymentId)) : vazio,
     ]);
     anotar(b2b.data, "id");
     for (const r of [metodo, plano, porReferencia, b2bPago, avulsaPaga, mensalidadePaga, metodoPago]) anotar(r.data, "organization_id");
-    if (ids.size === 0) return [];
+    anotarConta(plano.data);
+    anotarConta(avulsaPaga.data);
+    if (pista?.tipo === "avulsa") anotarConta(porReferencia.data);
+    // A mensalidade mora onde a matrícula dela nasceu.
+    const matriculas = ((mensalidadePaga.data ?? []) as Linha[]).map((m) => m.matricula_id).filter(Boolean).map(String);
+    if (matriculas.length) {
+      const { data: daMensalidade } = await exigir(admin.from("aluno_matriculas_academia").select("conta_asaas").in("id", matriculas));
+      anotarConta(daMensalidade as Linha[] | null);
+    }
+    const tocaB2b = (b2b.data ?? []).length > 0 || (b2bPago.data ?? []).length > 0;
+    const tocaMetodo = (metodo.data ?? []).length > 0 || (metodoPago.data ?? []).length > 0;
+    if (ids.size === 0) return { status: [] as (string | null)[], organizacoes: [] as string[], tocaB2b, tocaMetodo, contas };
     const { data: orgs } = await exigir(admin.from("organizations").select("id, status").in("id", [...ids]));
     const status = new Map((orgs ?? []).map((o): [string, string] => [String(o.id), String(o.status)]));
     // Organização que o aviso aponta e que não existe conta como "não é homologação".
-    return [...ids].map((id) => status.get(id) ?? null);
+    return { status: [...ids].map((id) => status.get(id) ?? null), organizacoes: [...ids], tocaB2b, tocaMetodo, contas };
   };
 
   try {
     // Sem payment.id não há o que casar; o evento fica registrado só como log.
     let resultado = "sem_payment_id";
 
-    const ambiente = ambienteDoAviso(origemEvento, await statusDasOrganizacoesDoAviso());
+    const alcance = await alcanceDoAviso();
+    // O aviso da conta da academia só mexe em cobrança dela, que mora na conta dela.
+    if (orgDoToken) {
+      const escopo = escopoDoAvisoDaAcademia({
+        orgDoToken,
+        referencia,
+        organizacoes: alcance.organizacoes,
+        tocaB2b: alcance.tocaB2b,
+        tocaMetodo: alcance.tocaMetodo,
+        contasDasCobrancas: alcance.contas,
+      });
+      if (!escopo.ok) {
+        await concluir(escopo.resultado);
+        return jsonResponse({ ok: true, ignorado: "fora da conta da academia" });
+      }
+    }
+    const ambiente = ambienteDoAviso(origemEvento, alcance.status);
     if (!ambiente.ok) {
       await concluir(ambiente.resultado);
       return jsonResponse({ ok: true, ignorado: "ambiente incompatível" });

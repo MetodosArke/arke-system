@@ -168,8 +168,21 @@ export async function alterarValorAssinatura(
   api: string,
   chave: string,
   subscriptionId: string,
-  dados: { valorCobrado: number; valorRepasseArke: number; walletAcademia: string; hoje: string },
+  dados: {
+    valorCobrado: number;
+    valorRepasseArke: number;
+    /**
+     * A carteira da academia, para o split. Nula quando a assinatura mora na
+     * conta da própria academia (`_shared/contaCobranca.ts`): lá não há split
+     * nem repasse, e o PUT vai sem o campo.
+     */
+    walletAcademia: string | null;
+    hoje: string;
+  },
 ): Promise<Resultado<{ valorAcademia: number; pendentesAtualizadas: boolean; vencidasNoValorAntigo: string[] }>> {
+  if (dados.walletAcademia === null && dados.valorRepasseArke !== 0) {
+    return { ok: false, erro: "Assinatura sem split não tem repasse: a academia fica com o valor inteiro.", status: 400 };
+  }
   const valorAcademia = Math.round((dados.valorCobrado - dados.valorRepasseArke) * 100) / 100;
   if (valorAcademia < 0) {
     return {
@@ -191,7 +204,9 @@ export async function alterarValorAssinatura(
   const r = await chamar(`${api}/subscriptions/${subscriptionId}`, chave, "PUT", {
     value: dados.valorCobrado,
     updatePendingPayments: atualizarPendentes,
-    split: valorAcademia > 0 ? [{ walletId: dados.walletAcademia, fixedValue: valorAcademia }] : [],
+    ...(dados.walletAcademia === null
+      ? {}
+      : { split: valorAcademia > 0 ? [{ walletId: dados.walletAcademia, fixedValue: valorAcademia }] : [] }),
   });
   if (!r.ok) {
     return { ok: false, erro: primeiroErro(r.dados, "Não foi possível alterar o valor da assinatura."), status: 502 };

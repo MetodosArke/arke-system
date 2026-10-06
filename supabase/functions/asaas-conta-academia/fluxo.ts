@@ -22,6 +22,59 @@
 // subconta pelo CNPJ (GET /accounts?cpfCnpj=) e a adota, em vez de abrir outra.
 // A adotada não tem chave — a situação passa a ser acompanhada no Asaas.
 
+// ## Subconta aberta pela ArkeFit é BaaS (06/10/2026)
+//
+// O Asaas respondeu que abrir a conta da academia pela conta da ArkeFit é
+// BaaS, com homologação, e o BaaS segue a Resolução Conjunta BCB/CMN nº
+// 16/2025: o Asaas aparece identificado como prestador, e a conta é do
+// cliente final, na instituição prestadora. Por isso o caminho fica atrás do
+// interruptor `asaas_subcontas_baas` (`plataforma_config`, 0 por padrão) e,
+// ligado, só abre depois do aceite dos Termos de Uso do Asaas pela gestão da
+// academia — os Termos do Asaas (5.1.3) pedem que a subconta esteja ciente
+// deles e concorde.
+
+/**
+ * Os Termos de Uso do Asaas, no endereço que o próprio site do Asaas liga no
+ * rodapé ("Termos de uso"). Conferido em 06/10/2026. Espelho de
+ * `src/lib/prestadorPagamentos.ts`; `subcontaBaas.guarda.test.ts` cobra os dois iguais.
+ */
+export const TERMOS_ASAAS_URL =
+  "https://central.ajuda.asaas.com/hc/pt-br/articles/32096847160859-Termos-e-Condi%C3%A7%C3%B5es-de-Uso";
+
+/** O interruptor gravado em `plataforma_config` está ligado? Sem a linha, desligado. */
+export function subcontasBaasLigadas(valor: number | string | null | undefined): boolean {
+  return Number(valor) === 1;
+}
+
+/**
+ * O caminho da subconta está aberto para esta organização? Com o interruptor
+ * ligado, para todas; desligado, só para a organização em `trial`, que fala
+ * com o sandbox, onde nada de verdade é criado. É o que deixa tirar o print
+ * da tela de abertura (pedido no formulário de habilitação do BaaS) na
+ * academia de homologação, sem ligar o interruptor em produção.
+ */
+export function subcontaDisponivel(valorInterruptor: number | string | null | undefined, statusOrganizacao: string | null | undefined): boolean {
+  return subcontasBaasLigadas(valorInterruptor) || statusOrganizacao === "trial";
+}
+
+/** A mensagem de quando o caminho está fechado. */
+export const SUBCONTA_DESLIGADA =
+  "A abertura da conta Asaas pela ArkeFit está desligada. Abra a conta da academia no site do Asaas (é gratuita) e informe a carteira aqui.";
+
+/**
+ * O aceite que a tela manda antes de abrir a conta: o titular marcou que leu
+ * e aceita os Termos do Asaas, e o endereço é o que a tela mostrou.
+ */
+export function aceiteDosTermos(corpo: { aceite_termos?: unknown; termos_url?: unknown }): { ok: true } | { ok: false; erro: string } {
+  if (corpo.aceite_termos !== true) {
+    return { ok: false, erro: "Para abrir a conta, o titular aceita os Termos de Uso do Asaas, que mantém a conta em nome da academia." };
+  }
+  if (corpo.termos_url !== TERMOS_ASAAS_URL) {
+    return { ok: false, erro: "Os Termos de Uso do Asaas mudaram de endereço. Recarregue a página e aceite de novo." };
+  }
+  return { ok: true };
+}
+
 type ErrosAsaas = { errors?: { code?: string; description?: string }[] };
 type RespostaAsaas<T> = { ok: boolean; status: number; corpo: T & ErrosAsaas };
 
@@ -144,6 +197,83 @@ export async function consultarSituacao(api: string, chaveSubconta: string): Pro
     return { ok: false, erro: mensagemAsaas(r.corpo, "Não foi possível consultar a situação da conta no Asaas.") };
   }
   return { ok: true, situacao: r.corpo };
+}
+
+// ## Documentos da subconta, no formato BaaS
+//
+// No BaaS, a academia não vai ao painel do Asaas mandar documento: o ARKE
+// mostra o que falta e abre o link que o Asaas dá para cada grupo
+// (`onboardingUrl`), onde o titular envia o documento e faz a selfie. A
+// consulta é `GET /myAccount/documents`, com a chave da **subconta**
+// (docs.asaas.com, "Verificar documentos pendentes", conferido em 06/10/2026).
+// O Asaas pede ao menos 15 segundos depois da criação antes de consultar:
+// antes disso a lista pode trazer documento que não será exigido. Grupo com
+// link não se envia pela API (o Asaas recusa); grupo sem link é envio pela
+// API, que fica para quando houver o caso (associação, ata de eleição).
+
+export type GrupoDeDocumentos = {
+  id: string;
+  /** NOT_SENT, PENDING, APPROVED, REJECTED ou IGNORED. */
+  status: string;
+  tipo: string;
+  titulo: string;
+  descricao: string | null;
+  /** De quem é o documento (o sócio, o diretor...), como o Asaas descreve. */
+  responsavel: string | null;
+  link: string | null;
+  linkExpiraEm: string | null;
+};
+
+/** O que ainda pede ação do titular: não enviado ou recusado. */
+export function grupoPendente(g: Pick<GrupoDeDocumentos, "status">): boolean {
+  return g.status === "NOT_SENT" || g.status === "REJECTED";
+}
+
+/** Só endereço https do Asaas (ou do parceiro dele) vira botão: nada de `javascript:` vindo de fora. */
+function linkSeguro(valor: unknown): string | null {
+  if (typeof valor !== "string") return null;
+  try {
+    const u = new URL(valor);
+    return u.protocol === "https:" ? u.toString() : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function documentosDaSubconta(
+  api: string,
+  chaveSubconta: string,
+): Promise<{ ok: true; grupos: GrupoDeDocumentos[]; motivoRecusa: string | null } | { ok: false; erro: string }> {
+  const r = await chamar<{
+    rejectReasons?: string | null;
+    data?: {
+      id?: string;
+      status?: string;
+      type?: string;
+      title?: string;
+      description?: string | null;
+      responsible?: { name?: string | null } | null;
+      onboardingUrl?: string | null;
+      onboardingUrlExpirationDate?: string | null;
+    }[];
+  }>(api, chaveSubconta, "GET", "/myAccount/documents");
+  if (!r.ok) {
+    console.error("Asaas: falha ao consultar documentos", r.status, r.corpo?.errors?.map((e) => e.code) ?? []);
+    return { ok: false, erro: mensagemAsaas(r.corpo, "Não foi possível consultar os documentos no Asaas agora.") };
+  }
+  const grupos = (r.corpo.data ?? [])
+    .filter((g) => g.id && g.status !== "IGNORED")
+    .map((g) => ({
+      id: String(g.id),
+      status: String(g.status ?? "NOT_SENT"),
+      tipo: String(g.type ?? "CUSTOM"),
+      titulo: g.title?.trim() || "Documento",
+      descricao: g.description?.trim() || null,
+      responsavel: g.responsible?.name?.trim() || null,
+      link: linkSeguro(g.onboardingUrl),
+      linkExpiraEm: g.onboardingUrlExpirationDate ?? null,
+    }));
+  return { ok: true, grupos, motivoRecusa: r.corpo.rejectReasons?.trim() || null };
 }
 
 /** Carteiras da própria conta (a da ArkeFit): split para ela é recusado pelo Asaas. */

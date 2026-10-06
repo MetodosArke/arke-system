@@ -25,6 +25,8 @@ import { ErroAoCarregar } from "@/components/ErroAoCarregar";
 import { lerReais, reais } from "@/lib/numeros";
 import { taxaProcessamento } from "@/lib/repasse";
 import { useTaxaProcessamento } from "@/hooks/useTaxaProcessamento";
+import { useCobrancaNaContaDaAcademia } from "@/hooks/useContaDasCobrancas";
+import { PrestadorPagamentos } from "@/components/pagamento/PrestadorPagamentos";
 import {
   ROTULO_SITUACAO,
   TIPOS_COBRANCA,
@@ -63,7 +65,7 @@ const FORM_VAZIO = { tipo: "taxa_matricula" as TipoCobrancaAvulsa, descricao: ""
  * o resto da equipe vê a lista.
  */
 export function CobrancasAvulsas({ alunoId }: { alunoId: string }) {
-  const { organizationRole } = useAuth();
+  const { organization, organizationRole } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   // A mesma regra do servidor: vínculo de gestão ou recepção nesta academia.
@@ -94,6 +96,8 @@ export function CobrancasAvulsas({ alunoId }: { alunoId: string }) {
   });
 
   const { data: taxa } = useTaxaProcessamento(aberto);
+  // Com a cobrança na conta da academia, não há taxa da ArkeFit na prévia.
+  const { data: naContaDaAcademia = false } = useCobrancaNaContaDaAcademia(organization?.id, aberto);
 
   const atualizar = () => void queryClient.invalidateQueries({ queryKey: chave });
   const valorNumero = lerReais(form.valor);
@@ -226,6 +230,8 @@ export function CobrancasAvulsas({ alunoId }: { alunoId: string }) {
         </Button>
       )}
 
+      <PrestadorPagamentos />
+
       <Dialog open={aberto} onOpenChange={setAberto}>
         <DialogContent>
           <DialogHeader>
@@ -282,12 +288,19 @@ export function CobrancasAvulsas({ alunoId }: { alunoId: string }) {
                 />
               </div>
             </div>
-            {taxaPrevia !== null && (
-              <p className="text-xs text-muted-foreground">
-                O aluno paga {reais(valorNumero)} · a academia recebe {reais(Math.max(0, valorNumero - taxaPrevia))} (taxa de
-                processamento de {reais(taxaPrevia)}).
-              </p>
-            )}
+            {naContaDaAcademia
+              ? valorValido && (
+                  <p className="text-xs text-muted-foreground">
+                    O aluno paga {reais(valorNumero)} · a cobrança sai da conta Asaas da academia, que recebe o valor inteiro. A
+                    tarifa do Asaas é cobrada pelo Asaas, direto da academia.
+                  </p>
+                )
+              : taxaPrevia !== null && (
+                  <p className="text-xs text-muted-foreground">
+                    O aluno paga {reais(valorNumero)} · a academia recebe {reais(Math.max(0, valorNumero - taxaPrevia))} (taxa de
+                    processamento de {reais(taxaPrevia)}).
+                  </p>
+                )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setAberto(false)}>

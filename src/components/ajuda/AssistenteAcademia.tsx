@@ -15,6 +15,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { AlunoPerfilSheet } from "@/components/admin/AlunoPerfilSheet";
+import { AvaliarAtendimento } from "@/components/ajuda/AvaliarAtendimento";
+import { PrestadorPagamentos } from "@/components/pagamento/PrestadorPagamentos";
 import { CircleHelp, MessageSquareText, RefreshCw, Send, Sparkles } from "lucide-react";
 
 type CatracaCartao = {
@@ -62,7 +64,7 @@ const PAPEIS_EQUIPE = ["gestor", "recepcao", "professor", "nutricionista"];
  * botões chamam as mesmas rotas das telas, com a permissão de quem clica.
  */
 export function AssistenteAcademia({ base }: { base: string }) {
-  const { organization, organizationRole } = useAuth();
+  const { user, organization, organizationRole } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [pergunta, setPergunta] = useState("");
@@ -80,12 +82,28 @@ export function AssistenteAcademia({ base }: { base: string }) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("chamados_suporte")
-        .select("id, pergunta, created_at, concluido_em, desfecho, prazo")
+        .select("id, pergunta, created_at, concluido_em, desfecho, prazo, user_id, responsavel_id")
         .eq("organization_id", orgId!)
         .order("created_at", { ascending: false })
         .limit(5);
       if (error) throw error;
       return data ?? [];
+    },
+  });
+
+  // Os chamados encerrados por uma pessoa da ArkeFit que quem está aqui abriu
+  // e ainda não avaliou: é nesses que aparece "Como foi o atendimento?".
+  const paraAvaliar = (chamados.data ?? []).filter((c) => c.concluido_em && c.responsavel_id && c.user_id === user?.id);
+  const avaliados = useQuery({
+    queryKey: ["assistente-chamados-avaliados", orgId, paraAvaliar.map((c) => c.id).join(",")],
+    enabled: paraAvaliar.length > 0,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("avaliacoes_atendimento")
+        .select("chamado_id")
+        .in("chamado_id", paraAvaliar.map((c) => c.id));
+      if (error) throw error;
+      return new Set((data ?? []).map((a) => a.chamado_id));
     },
   });
 
@@ -277,10 +295,13 @@ export function AssistenteAcademia({ base }: { base: string }) {
                       {a.tem_numero_catraca ? "" : "Não tem número na catraca."}
                     </p>
                     {a.cobranca && (
-                      <p className="text-xs">
-                        {a.cobranca.descricao} de {reais(Number(a.cobranca.valor))}, vencimento {formatarDataBR(a.cobranca.vencimento)},{" "}
-                        <span className={a.cobranca.status === "atrasado" ? "text-destructive" : ""}>{a.cobranca.status === "atrasado" ? "atrasada" : "em aberto"}</span>.
-                      </p>
+                      <>
+                        <p className="text-xs">
+                          {a.cobranca.descricao} de {reais(Number(a.cobranca.valor))}, vencimento {formatarDataBR(a.cobranca.vencimento)},{" "}
+                          <span className={a.cobranca.status === "atrasado" ? "text-destructive" : ""}>{a.cobranca.status === "atrasado" ? "atrasada" : "em aberto"}</span>.
+                        </p>
+                        <PrestadorPagamentos atendimento={false} />
+                      </>
                     )}
                     <div className="flex flex-wrap gap-2 pt-1">
                       <Button size="sm" variant="outline" onClick={() => setAlunoAberto(a.id)}>
@@ -388,6 +409,15 @@ export function AssistenteAcademia({ base }: { base: string }) {
                     <span className="text-xs text-muted-foreground">{formatarDataBR(c.created_at)}</span>
                   </div>
                   {c.desfecho && <p className="pl-1 text-xs text-muted-foreground">{c.desfecho}</p>}
+                  {avaliados.data && paraAvaliar.some((p) => p.id === c.id) && !avaliados.data.has(c.id) && (
+                    <AvaliarAtendimento
+                      chamadoId={c.id}
+                      aoAvaliar={() => {
+                        toast({ title: "Obrigado pela avaliação" });
+                        void avaliados.refetch();
+                      }}
+                    />
+                  )}
                 </li>
               ))}
             </ul>

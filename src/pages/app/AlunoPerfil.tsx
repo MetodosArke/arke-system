@@ -19,6 +19,7 @@ import { useToast } from "@/hooks/use-toast";
 import type { Tables } from "@/integrations/supabase/types";
 import { CartaoAssinatura } from "@/components/pagamento/CartaoAssinatura";
 import { PagamentosAcademia } from "@/components/pagamento/PagamentosAcademia";
+import { PrestadorPagamentos } from "@/components/pagamento/PrestadorPagamentos";
 import { EnderecoAluno } from "@/components/pagamento/EnderecoAluno";
 import { formatarDataBR } from "@/lib/dataBrasilia";
 
@@ -196,6 +197,7 @@ export default function AlunoPerfil() {
               onSalvo={() => void queryClient.invalidateQueries({ queryKey: ["aluno-pagamento", alunoId] })}
               onSucesso={(m) => toast({ title: "Cartão cadastrado", description: m })}
             />
+            <PrestadorPagamentos className="mt-3" />
           </CardContent>
         </Card>
       )}

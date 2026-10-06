@@ -56,6 +56,8 @@ type Contexto = {
   chave: string;
   /** Por que não dá para emitir nota nova agora; acompanhar e cancelar seguem. */
   impedimentoEmissao: string | null;
+  /** A academia cobra o aluno na própria conta: o cliente da nota é o mesmo da fatura, com os avisos ligados. */
+  cobrancaNaConta: boolean;
   config: {
     servico_municipal_id: string | null;
     servico_municipal_codigo: string | null;
@@ -69,7 +71,7 @@ const emMinutos = (m: number) => new Date(Date.now() + m * 60_000).toISOString()
 
 async function contextoDaAcademia(admin: SupabaseClient, orgId: string): Promise<Contexto | { motivo: string }> {
   const [{ data: org }, { data: config }, { data: chave }] = await Promise.all([
-    admin.from("organizations").select("status, asaas_wallet_id").eq("id", orgId).maybeSingle(),
+    admin.from("organizations").select("status, asaas_wallet_id, cobranca_conta_academia").eq("id", orgId).maybeSingle(),
     admin
       .from("organizacao_fiscal")
       .select("emissao_ativa, cadastro_enviado, autenticacao_enviada, servico_municipal_id, servico_municipal_codigo, servico_municipal_nome, aliquota_iss, observacoes")
@@ -109,6 +111,7 @@ async function contextoDaAcademia(admin: SupabaseClient, orgId: string): Promise
     api: ambiente.api,
     chave: chave as string,
     impedimentoEmissao,
+    cobrancaNaConta: org.cobranca_conta_academia === true,
     config: {
       servico_municipal_id: config?.servico_municipal_id ?? null,
       servico_municipal_codigo: config?.servico_municipal_codigo ?? null,
@@ -195,7 +198,7 @@ async function emitir(admin: SupabaseClient, ctx: Contexto, l: Linha): Promise<s
     await atualizar(admin, l.id, { status: "sem_endereco", erro: "Falta o endereço do aluno — a prefeitura exige." });
     return "sem_endereco";
   }
-  const cliente = await garantirCliente(ctx.api, ctx.chave, t);
+  const cliente = await garantirCliente(ctx.api, ctx.chave, t, { cobrancaNaConta: ctx.cobrancaNaConta });
   if ("erro" in cliente) {
     await atualizar(admin, l.id, { status: "erro", erro: cliente.erro, tentativas: l.tentativas + 1 });
     return "erro";

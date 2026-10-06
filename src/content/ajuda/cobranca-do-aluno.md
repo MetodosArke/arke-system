@@ -1,4 +1,9 @@
-Todas as cobranças do aluno saem pelo ARKE, no meio de pagamento Asaas, e a parte da academia cai direto na conta dela. O aluno escolhe PIX, boleto ou cartão na fatura, e vê tudo no app, em **Perfil → Pagamentos da academia**.
+As cobranças do aluno são criadas pelo ARKE e processadas pelo **Asaas** (Asaas Gestão Financeira Instituição de Pagamento S.A., CNPJ 19.540.550/0001-21), instituição de pagamento autorizada pelo Banco Central. A parte da academia cai direto na conta Asaas dela. O aluno escolhe PIX, boleto ou cartão na fatura, e vê tudo no app, em **Perfil → Pagamentos da academia**. Toda tela de pagamento mostra o selo do Asaas e o atendimento dele.
+
+## Quem atende o quê
+
+- **O pagamento em si** (a fatura, o PIX, o boleto, o cartão, a conta Asaas da academia): o atendimento do Asaas, **0800 009 0037** (pessoa jurídica; também por mensagem) e **contato@asaas.com.br**.
+- **O ARKE** (a matrícula, a ficha, o bloqueio, as telas): o suporte da ArkeFit, pelo botão **Falar com o suporte** ou pela [Central de Ajuda](ajuda:assistente-academia).
 
 ![Na ficha: o plano da academia com as mensalidades, as cobranças avulsas e o endereço.](/ajuda/telas/ficha-plano.jpg)
 
@@ -36,6 +41,15 @@ O cancelamento do plano é feito pela academia; o aluno não cancela o plano pel
 Para o que não é mensalidade (avaliação física, personal, diária, produto), use o bloco **Cobranças avulsas** da ficha, em **Nova cobrança**. A tela mostra, antes de emitir, quanto a academia recebe. O valor mínimo é R$ 5,00, exigência do Asaas.
 
 Se a emissão não se confirmar por falha de conexão, a cobrança aparece com **Tentar de novo**, que reaproveita a que já existir no Asaas em vez de duplicar.
+
+## Cobrança na conta da academia
+
+Por padrão, a mensalidade e a avulsa saem da conta Asaas da ArkeFit, com a divisão automática: a parte da academia vai para a conta dela, e a taxa de processamento fica com a ArkeFit. Quando a equipe da ArkeFit liga, na ficha da academia, a **cobrança na conta da academia**, a mensalidade e a avulsa **novas** saem da conta Asaas da própria academia, sem divisão e sem a taxa de processamento: a academia recebe o valor inteiro, e a tarifa do Asaas é cobrada pelo Asaas, direto da academia. A prévia na tela diz isso antes de emitir.
+
+- O que já existia continua onde nasceu: uma mensalidade criada antes continua sendo cobrada, pausada e cancelada na conta de antes.
+- O Método ARKE continua saindo da conta da ArkeFit, porque é um serviço da ArkeFit.
+- Para isso, a chave da conta Asaas da academia precisa estar conectada em **Financeiro → Notas fiscais**. Sem ela, a cobrança não sai, e a tela diz o que falta.
+- A receita, o bloqueio e a inadimplência funcionam do mesmo jeito.
 
 ## Mensalidade atrasada
 

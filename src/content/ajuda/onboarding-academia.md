@@ -15,7 +15,7 @@ Assim nenhum aluno chega a um app pela metade nem recebe cobrança com preço qu
 ## As seis etapas
 
 1. **Dados da academia** (cerca de 2 min). Digite o CNPJ e o CEP: razão social, endereço e tipo de empresa são preenchidos com os dados da Receita Federal. Confira antes de salvar. Aqui também se escolhe o endereço do link de matrícula.
-2. **Conta de recebimentos** (cerca de 3 min). É a conta Asaas onde cai a parte da academia de cada mensalidade. O caminho recomendado é a conta da própria academia: abra grátis em asaas.com, com o CNPJ da academia, ou use a que já tem, e informe o Wallet ID dela (no Asaas: Minha Conta → Integrações → Wallet ID). A conta também pode ser aberta pela ArkeFit, quando a equipe combinar com você; nesse caso o Asaas manda um e-mail para você definir a senha, enviar os documentos e cadastrar a conta bancária. As cobranças podem começar antes da aprovação; o saque para o banco espera o Asaas aprovar.
+2. **Conta de recebimentos** (cerca de 3 min). É a conta Asaas da academia, onde cai o que os alunos pagam. Abra grátis em asaas.com, com o CNPJ da academia, ou use a que já tem, e informe o Wallet ID dela (no Asaas: Minha Conta → Integrações → Wallet ID). A conta é da academia, no Asaas: é o Asaas, instituição de pagamento autorizada pelo Banco Central, que processa os pagamentos; o ARKE é a plataforma que cria as cobranças e mostra tudo no painel. A tela mostra o selo do Asaas e o atendimento dele: **0800 009 0037** (pessoa jurídica; também por mensagem) e **contato@asaas.com.br**, para dúvidas sobre a conta e os pagamentos. Se a sua conta foi aberta pela equipe da ArkeFit antes de 06/10/2026, ela continua funcionando: a tela mostra a aprovação no Asaas, e os documentos e a conta bancária se completam pelo e-mail do Asaas.
 3. **Planos e preços** (cerca de 2 min). Mensal, trimestral e anual já vêm prontos, desligados. Ajuste o valor e ative os que a academia vende.
 4. **Equipe** (cerca de 3 min). Cadastre professores, nutricionista e recepção, uma pessoa por vez ou várias de uma vez. Quem trabalha sozinho marca **Trabalho sozinho(a), sem equipe**.
 5. **Alunos** (cerca de 5 min). Importe a planilha do sistema anterior ou cadastre os alunos. Veja [Importar alunos de outro sistema](ajuda:importar-alunos).
@@ -37,7 +37,7 @@ Um assistente automático acompanha a implantação de hora em hora:
 
 - quando uma etapa termina, manda por e-mail à gestão o próximo passo, com o link da tela e do artigo que explica;
 - se a etapa ficar parada, lembra a cada 3 dias úteis, no máximo duas vezes;
-- confere todo dia a aprovação da conta no Asaas, quando ela foi aberta pelo ArkeFit, e avisa quando sai;
+- confere todo dia a aprovação da conta no Asaas, nas contas que a equipe da ArkeFit abriu, e avisa quando sai;
 - pede a evasão dos 6 meses anteriores quando os alunos chegam do sistema antigo;
 - manda o kit de lançamento depois da primeira entrada.
 

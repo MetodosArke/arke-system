@@ -61,9 +61,9 @@ export function esperado(p: PagamentoAsaas): { evento: string; statusBanco: stri
  * Referência de outro dono (cobrança feita à mão no painel do Asaas) não é
  * nossa, e não se reconcilia.
  */
-export function origemDaReferencia(ref: string | null | undefined): Origem | null {
+export function origemDaReferencia(ref: string | null | undefined, origens: Origem[] = ["metodo", "plano", "b2b", "avulsa"]): Origem | null {
   const prefixo = (ref ?? "").split(":")[0];
-  return prefixo === "metodo" || prefixo === "plano" || prefixo === "b2b" || prefixo === "avulsa" ? prefixo : null;
+  return (origens as string[]).includes(prefixo) ? (prefixo as Origem) : null;
 }
 
 /**
@@ -195,6 +195,40 @@ export function listagensDaVarredura(diasAtras: (n: number) => string): string[]
     // tem data de pagamento: lista-se pelo status.
     "/payments?status=CONFIRMED",
   ];
+}
+
+/**
+ * As contas que a varredura confere. A da ArkeFit tem as quatro origens; a
+ * conta de uma academia com a cobrança na conta dela
+ * (`organizations.cobranca_conta_academia`) tem só a mensalidade e a avulsa
+ * — o Método e o B2B moram sempre na conta da ArkeFit.
+ */
+export type ContaDaVarredura = { nome: "arkefit" } | { nome: "academia"; organizationId: string };
+
+export function origensDaConta(conta: ContaDaVarredura): Origem[] {
+  return conta.nome === "arkefit" ? ["metodo", "plano", "b2b", "avulsa"] : ["plano", "avulsa"];
+}
+
+/**
+ * Em qual conta mora a cobrança do banco. O Método e o B2B, sempre na da
+ * ArkeFit; a mensalidade, onde a matrícula dela nasceu; a avulsa, onde ela
+ * nasceu (`conta_asaas`). Perguntar à conta errada por uma cobrança devolve
+ * "não encontrada" — a falha falsa que a varredura não pode inventar.
+ */
+export function contaDaCobrancaNoBanco(origem: Origem, contaGravada: string | null | undefined): "arkefit" | "academia" {
+  if (origem === "metodo" || origem === "b2b") return "arkefit";
+  return contaGravada === "academia" ? "academia" : "arkefit";
+}
+
+/** A cobrança do banco é desta conta? Na da academia, também tem de ser daquela academia. */
+export function cobrancaDaConta(
+  conta: ContaDaVarredura,
+  origem: Origem,
+  linha: { conta_asaas?: string | null; organization_id?: string | null },
+): boolean {
+  const onde = contaDaCobrancaNoBanco(origem, linha.conta_asaas);
+  if (conta.nome === "arkefit") return onde === "arkefit";
+  return onde === "academia" && linha.organization_id === conta.organizationId;
 }
 
 /** Divide uma lista em pedaços, para `.in()` não passar do tamanho de URL. */

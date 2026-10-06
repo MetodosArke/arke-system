@@ -5,6 +5,9 @@ import { dentroDoFreio, MENSAGEM_FREIO, regrasAsaas } from "../_shared/freio.ts"
 import { MENSAGEM_SO_QUEM_COBRA, podeCobrarNaAcademia } from "../_shared/papelCobranca.ts";
 import { servir } from "../_shared/servir.ts";
 import { resumoDoErro } from "../_shared/resumoDoErro.ts";
+import { contaParaNovaCobranca, divisaoDaCobranca } from "../_shared/contaCobranca.ts";
+import { contaDaCobranca, lembrarClienteDaAcademia } from "../_shared/contaDaAcademia.ts";
+import { assinaturaAtivaNoAsaas, criarAssinaturaDoPlano, obterOuCriarCustomer } from "./fluxo.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -30,21 +33,10 @@ type CreateMatriculaPayload = {
  */
 const hojeEmBrasilia = hojeBrasilia;
 
-const CICLO_ASAAS: Record<string, string> = {
-  mensal: "MONTHLY",
-  trimestral: "QUARTERLY",
-  semestral: "SEMIANNUALLY",
-  anual: "YEARLY",
-};
-
 // --- Asaas: customer e assinatura sem duplicar -------------------------------
 //
-// Duplicado de propósito em asaas-create-subscription e academia-criar-matricula:
-// edge function não compartilha código com as outras sem um _shared/ que o
-// deploy teria de carregar junto, e o projeto preferiu a cópia explícita.
-//
-// Por que existe: as duas funções faziam POST /customers e POST /subscriptions
-// a cada chamada. Dois defeitos saíam daí.
+// As chamadas ao Asaas moram em ./fluxo.ts (desde 06/10/2026), para o sandbox
+// exercitar o código real. Por que a operação é idempotente:
 //
 //   1. O Asaas exige `cpfCnpj` para criar a assinatura (o customer nasce sem,
 //      visto no sandbox), e ele não era enviado — a criação falharia antes de
@@ -55,92 +47,21 @@ const CICLO_ASAAS: Record<string, string> = {
 //      tela continua oferecendo "Tentar cobrar" — e a primeira assinatura fica
 //      órfã, cobrando o aluno todo mês sem ninguém ver.
 //
-// A resposta é tornar a operação idempotente pelo `externalReference`.
-
-type RespostaAsaas<T> = { ok: boolean; status: number; corpo: T & { errors?: { code?: string; description?: string }[] } };
-
-async function chamarAsaas<T>(url: string, init: RequestInit): Promise<RespostaAsaas<T>> {
-  const resp = await fetch(url, { ...init, signal: AbortSignal.timeout(20_000) });
-  let corpo: unknown = {};
-  try {
-    corpo = await resp.json();
-  } catch {
-    // corpo vazio ou não-JSON: fica {}.
-  }
-  return { ok: resp.ok, status: resp.status, corpo: corpo as RespostaAsaas<T>["corpo"] };
-}
-
-function descricaoErroAsaas(corpo: { errors?: { description?: string }[] }): string | null {
-  return corpo?.errors?.map((e) => e.description).filter(Boolean).join(" ") || null;
-}
-
-/**
- * Reaproveita o customer do aluno antes de criar outro: primeiro pelo id do
- * aluno (`externalReference`), depois pelo CPF — a mesma pessoa pode ser aluna
- * de duas academias, e para o Asaas ela é um cliente só.
- */
-async function obterOuCriarCustomer(
-  api: string,
-  headers: Record<string, string>,
-  dados: { alunoId: string; nome: string; cpf: string; telefone: string | null }
-): Promise<{ id: string } | { erro: string }> {
-  // Filtro vazio no Asaas não filtra: `GET /customers?cpfCnpj=` devolve a
-  // lista inteira da conta, e a busca abaixo adota o primeiro resultado. Um
-  // CPF em branco faria a mensalidade nascer grudada no customer de **outra
-  // pessoa**. O chamador já exige CPF, mas isso depende de ele lembrar.
-  if (dados.cpf.length !== 11 || !dados.alunoId) {
-    return { erro: "CPF do aluno ausente ou inválido: o Asaas exige CPF para emitir a cobrança." };
-  }
-
-  for (const filtro of [`externalReference=${encodeURIComponent(dados.alunoId)}`, `cpfCnpj=${dados.cpf}`]) {
-    const busca = await chamarAsaas<{ data?: { id: string; deleted?: boolean }[] }>(`${api}/customers?${filtro}`, {
-      headers,
-    });
-    const existente = busca.ok ? busca.corpo.data?.find((c) => !c.deleted) : undefined;
-    if (existente) return { id: existente.id };
-  }
-
-  const criado = await chamarAsaas<{ id: string }>(`${api}/customers`, {
-    method: "POST",
-    headers,
-    body: JSON.stringify({
-      name: dados.nome,
-      cpfCnpj: dados.cpf,
-      mobilePhone: dados.telefone ?? undefined,
-      externalReference: dados.alunoId,
-    }),
-  });
-  if (!criado.ok) {
-    console.error("Asaas: falha ao criar customer", criado.status, criado.corpo?.errors);
-    return { erro: descricaoErroAsaas(criado.corpo) ?? "Falha ao criar o cliente no Asaas." };
-  }
-  return { id: criado.corpo.id };
-}
-
-/** Assinatura ativa com esta referência no Asaas, se houver. */
-async function assinaturaAtivaNoAsaas(
-  api: string,
-  headers: Record<string, string>,
-  referencia: string
-): Promise<{ id: string; value: number; nextDueDate?: string } | null> {
-  const busca = await chamarAsaas<{ data?: { id: string; value: number; nextDueDate?: string }[] }>(
-    `${api}/subscriptions?externalReference=${encodeURIComponent(referencia)}&status=ACTIVE`,
-    { headers }
-  );
-  return busca.ok ? busca.corpo.data?.[0] ?? null : null;
-}
+// A resposta é procurar pelo `externalReference` (`plano:<aluno>`) antes de criar.
 
 function somenteDigitos(texto: string | null | undefined): string {
   return (texto ?? "").replace(/\D/g, "");
 }
 
-
 // Matricula o aluno num plano próprio da academia e cria a assinatura
-// recorrente no Asaas — mesmo mecanismo do fluxo de adesão ao Método
-// ARKE (asaas-create-subscription): a academia recebe a mensalidade
-// menos uma taxinha de processamento (config global em
-// plataforma_config, editável pelo Super Admin) que cobre o custo real
-// que o Asaas cobra da ARKE.
+// recorrente no Asaas. Em qual conta (`_shared/contaCobranca.ts`):
+//   * modo desligado (o padrão): na conta da ArkeFit, com o mesmo split do
+//     Método — a academia recebe a mensalidade menos a taxa de processamento
+//     (config global em plataforma_config, editável pelo Super Admin), que
+//     cobre o custo que o Asaas cobra da ArkeFit;
+//   * `organizations.cobranca_conta_academia` ligado: na conta Asaas da
+//     academia, com a chave dela, sem split e sem taxa — a tarifa do Asaas é
+//     cobrada direto dela. A matrícula guarda a conta em `conta_asaas`.
 servir("academia-criar-matricula", async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -221,7 +142,7 @@ servir("academia-criar-matricula", async (req: Request) => {
 
     const { data: org, error: orgError } = await asUser
       .from("organizations")
-      .select("id, nome, asaas_wallet_id, onboarding_completed, status")
+      .select("id, nome, asaas_wallet_id, onboarding_completed, status, cobranca_conta_academia")
       .eq("id", aluno.organization_id)
       .single();
     if (orgError || !org) {
@@ -247,8 +168,20 @@ servir("academia-criar-matricula", async (req: Request) => {
     if ("erro" in ambiente) {
       return jsonResponse({ error: ambiente.erro }, 500);
     }
-    const asaasApiUrl = ambiente.api;
-    const asaasApiKey = ambiente.chave;
+    // A conta da cobrança nova: a da ArkeFit, ou a da academia com o modo
+    // ligado (a chave do cofre, conferida contra a carteira de hoje).
+    const conta = await contaDaCobranca(
+      admin,
+      ambiente,
+      org,
+      contaParaNovaCobranca("plano", org.cobranca_conta_academia as boolean | null),
+      { conferirCarteira: true },
+    );
+    if ("erro" in conta) {
+      return jsonResponse({ error: conta.erro }, conta.status);
+    }
+    const asaasApiUrl = conta.api;
+    const asaasApiKey = conta.chave;
 
     const valorCobrado = payload.valor_cobrado && payload.valor_cobrado > 0 ? payload.valor_cobrado : Number(plano.valor);
 
@@ -263,13 +196,22 @@ servir("academia-criar-matricula", async (req: Request) => {
     // banco, e não de uma conta própria: era a quarta cópia da regra, e ficou
     // sem o piso da taxa fixa do boleto/PIX, que em plano abaixo de ~R$ 50
     // faria o Asaas recusar a assinatura (split maior que o valor líquido).
-    const { data: taxa, error: taxaError } = await admin.rpc("arke_taxa_processamento", { _valor: valorCobrado });
-    if (taxaError || taxa === null || taxa === undefined) {
-      console.error("Taxa de processamento indisponível", taxaError?.code);
-      return jsonResponse({ error: "Não foi possível calcular a taxa de processamento." }, 500);
+    // Na conta da academia não há taxa: a academia fica com o valor inteiro.
+    let taxaArke: number | null = null;
+    if (conta.nome === "arkefit") {
+      const { data: taxa, error: taxaError } = await admin.rpc("arke_taxa_processamento", { _valor: valorCobrado });
+      if (taxaError || taxa === null || taxa === undefined) {
+        console.error("Taxa de processamento indisponível", taxaError?.code);
+        return jsonResponse({ error: "Não foi possível calcular a taxa de processamento." }, 500);
+      }
+      taxaArke = Number(taxa);
     }
-    const valorRepasseArke = Math.round(Number(taxa) * 100) / 100;
-    const valorLiquidoAcademia = Math.round((valorCobrado - valorRepasseArke) * 100) / 100;
+    const divisao = divisaoDaCobranca(conta.nome, valorCobrado, taxaArke, org.asaas_wallet_id);
+    if ("erro" in divisao) {
+      return jsonResponse({ error: divisao.erro }, 500);
+    }
+    const valorRepasseArke = divisao.repasse;
+    const valorLiquidoAcademia = divisao.liquido;
     if (valorLiquidoAcademia < 0) {
       return jsonResponse({ error: "O valor cobrado é menor que a taxa de processamento da plataforma." }, 422);
     }
@@ -318,12 +260,19 @@ servir("academia-criar-matricula", async (req: Request) => {
     // --- Asaas: cria (ou reaproveita) o customer e a assinatura ---
     const asaasHeaders = { "Content-Type": "application/json", access_token: asaasApiKey };
 
-    const customer = await obterOuCriarCustomer(asaasApiUrl, asaasHeaders, {
-      alunoId: aluno.id,
-      nome: profile?.full_name ?? "Aluno ARKE",
-      cpf,
-      telefone: somenteDigitos(profile?.phone) || null,
-    });
+    // Na conta da academia, o cliente achado com os avisos desligados (o da
+    // nota fiscal) ou anonimizado volta a receber a fatura.
+    const customer = await obterOuCriarCustomer(
+      asaasApiUrl,
+      asaasApiKey,
+      {
+        alunoId: aluno.id,
+        nome: profile?.full_name ?? "Aluno ARKE",
+        cpf,
+        telefone: somenteDigitos(profile?.phone) || null,
+      },
+      { reativar: conta.nome === "academia" },
+    );
     if ("erro" in customer) {
       return jsonResponse({ error: customer.erro }, 502);
     }
@@ -333,7 +282,12 @@ servir("academia-criar-matricula", async (req: Request) => {
     // Diferente do Método, não se adota: pode ser de outro plano ou outro
     // valor, e adotar esconderia o problema. Recusa e diz onde olhar.
     const referencia = `plano:${aluno.id}`;
-    const orfa = await assinaturaAtivaNoAsaas(asaasApiUrl, asaasHeaders, referencia);
+    let orfa = await assinaturaAtivaNoAsaas(asaasApiUrl, asaasHeaders, referencia);
+    // Na conta da academia, a órfã também pode estar na conta da ArkeFit (de
+    // antes de ligar o modo): o aluno seria cobrado nas duas.
+    if (!orfa && conta.nome === "academia") {
+      orfa = await assinaturaAtivaNoAsaas(ambiente.api, { "Content-Type": "application/json", access_token: ambiente.chave }, referencia);
+    }
     if (orfa) {
       console.error("Assinatura de plano órfã no Asaas", orfa.id, "aluno", aluno.id);
       return jsonResponse(
@@ -353,31 +307,30 @@ servir("academia-criar-matricula", async (req: Request) => {
     const primeiroVencimento = hojeEmBrasilia();
     const diaVencimento = Number(primeiroVencimento.slice(8, 10));
 
-    const subscriptionResp = await fetch(`${asaasApiUrl}/subscriptions`, {
-      signal: AbortSignal.timeout(20_000),
-      method: "POST",
-      headers: asaasHeaders,
-      body: JSON.stringify({
-        customer: customer.id,
-        billingType: "UNDEFINED",
-        value: valorCobrado,
-        cycle: CICLO_ASAAS[plano.periodicidade] ?? "MONTHLY",
-        nextDueDate: primeiroVencimento,
-        description: `${org.nome} — ${plano.nome}`,
-        externalReference: referencia,
-        // A academia recebe o valor líquido (mensalidade menos a taxa de
-        // processamento); o restante fica retido pela ARKE, mesmo
-        // mecanismo de split usado na assinatura do Método ARKE.
-        split: [{ walletId: org.asaas_wallet_id, fixedValue: valorLiquidoAcademia }],
-      }),
+    // Na conta da ArkeFit, a academia recebe o valor líquido (mensalidade
+    // menos a taxa de processamento) pelo split; o restante fica retido pela
+    // ArkeFit, o mesmo mecanismo da assinatura do Método. Na conta da
+    // academia, sem split: ela recebe o valor inteiro.
+    const criada = await criarAssinaturaDoPlano(asaasApiUrl, asaasApiKey, {
+      customerId: customer.id,
+      valor: valorCobrado,
+      periodicidade: plano.periodicidade,
+      primeiroVencimento,
+      descricao: `${org.nome} — ${plano.nome}`,
+      referencia,
+      split: divisao.split,
     });
-    const subscription = await subscriptionResp.json();
-    if (!subscriptionResp.ok) {
-      console.error("Asaas: falha ao criar assinatura", subscriptionResp.status, subscription?.errors);
-      return jsonResponse(
-        { error: descricaoErroAsaas(subscription) ?? "Falha ao criar assinatura no Asaas." },
-        502
-      );
+    if (!criada.ok) {
+      return jsonResponse({ error: criada.erro }, 502);
+    }
+    const subscription = criada.assinatura;
+    if (conta.nome === "academia") {
+      await lembrarClienteDaAcademia(admin, {
+        alunoId: aluno.id,
+        organizationId: aluno.organization_id,
+        ambiente: conta.ambiente,
+        customerId: customer.id,
+      });
     }
 
     // --- Persistência (service role, client já criado acima) ---
@@ -392,8 +345,11 @@ servir("academia-criar-matricula", async (req: Request) => {
         valor_repasse_arke: valorRepasseArke,
         valor_liquido_academia: valorLiquidoAcademia,
         dia_vencimento: diaVencimento,
-        asaas_customer_id: customer.id,
+        // O cliente da conta da academia mora em asaas_clientes_academia;
+        // esta coluna é sempre o da conta da ArkeFit.
+        asaas_customer_id: conta.nome === "arkefit" ? customer.id : null,
         asaas_subscription_id: subscription.id,
+        conta_asaas: conta.nome,
         registrado_por: callerId,
       })
       .select()
@@ -411,7 +367,7 @@ servir("academia-criar-matricula", async (req: Request) => {
       );
     }
 
-    return jsonResponse({ matricula, asaas_subscription_id: subscription.id });
+    return jsonResponse({ matricula, asaas_subscription_id: subscription.id, conta: conta.nome });
   } catch (error) {
     console.error("academia-criar-matricula error", resumoDoErro(error));
     return jsonResponse({ error: "Erro inesperado ao criar matrícula." }, 500);

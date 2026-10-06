@@ -9,11 +9,15 @@ Os pagamentos para a academia ficam em **Perfil**, no bloco **Pagamentos da acad
 
 A fatura também chega no seu e-mail.
 
+## Quem processa o pagamento
+
+O pagamento é processado pelo **Asaas** (Asaas Gestão Financeira Instituição de Pagamento S.A., CNPJ 19.540.550/0001-21), instituição de pagamento autorizada pelo Banco Central; o selo dele aparece junto dos pagamentos. Dúvidas sobre o pagamento em si (a fatura, o PIX, o boleto, o cartão): atendimento do Asaas, **0800 009 0037** e **contato@asaas.com.br**. Dúvidas sobre o plano: a recepção da academia.
+
 ## Deixar no cartão
 
 Para não precisar pagar a fatura todo mês, cadastre um cartão: a mensalidade passa a ser cobrada nele automaticamente.
 
-- O app guarda só os **4 últimos dígitos** e a bandeira. O número do cartão vai direto para o meio de pagamento.
+- O app guarda só os **4 últimos dígitos** e a bandeira. O número do cartão vai direto para o Asaas.
 - No dia da matrícula, a primeira mensalidade é paga pela fatura; o cartão passa a valer a partir do dia seguinte.
 - Se o cartão for recusado, você não perde o acesso na hora: a academia recebe o aviso e fala com você.
 

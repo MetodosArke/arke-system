@@ -11,6 +11,8 @@ import {
   retomarAssinatura,
 } from "./fluxo.ts";
 import { servir } from "../_shared/servir.ts";
+import { contaDaLinha } from "../_shared/contaCobranca.ts";
+import { contaDaCobranca } from "../_shared/contaDaAcademia.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -138,7 +140,7 @@ servir("asaas-assinatura-ciclo", async (req: Request) => {
             .maybeSingle()
         : await admin
             .from("aluno_matriculas_academia")
-            .select("id, status, valor_cobrado, asaas_subscription_id")
+            .select("id, status, valor_cobrado, asaas_subscription_id, conta_asaas")
             .eq("aluno_id", aluno.id)
             .in("status", ["ativa", "pausada"])
             .order("created_at", { ascending: false })
@@ -183,7 +185,13 @@ servir("asaas-assinatura-ciclo", async (req: Request) => {
     // Organização em trial é homologação e fala com o sandbox.
     const ambiente = ambienteAsaas(org.status, (n) => Deno.env.get(n));
     if ("erro" in ambiente) return jsonResponse({ error: ambiente.erro }, 500);
-    const { api, chave } = ambiente;
+    // A conta onde a assinatura mora: o Método, sempre na da ArkeFit; a
+    // mensalidade, onde a matrícula nasceu (`conta_asaas`), qualquer que seja
+    // o modo de hoje. Pausar, retomar, cancelar e mudar o valor vão lá.
+    const nomeConta = tipo === "metodo" ? "arkefit" : contaDaLinha((assinatura as { conta_asaas?: string | null }).conta_asaas);
+    const conta = await contaDaCobranca(admin, ambiente, org, nomeConta, { conferirCarteira: false });
+    if ("erro" in conta) return jsonResponse({ error: conta.erro }, conta.status);
+    const { api, chave } = conta;
     const hoje = hojeBrasilia();
     const agora = new Date().toISOString();
 
@@ -300,15 +308,18 @@ servir("asaas-assinatura-ciclo", async (req: Request) => {
 
     // O repasse sai da mesma conta da criação — no Método, o negociado mais a
     // taxa de processamento; no plano, só a taxa. Recalcular aqui é o ponto:
-    // é o valor que muda quando o preço muda, e é ele que define o split.
+    // é o valor que muda quando o preço muda, e é ele que define o split. Na
+    // conta da academia não há repasse nem split: ela recebe o valor inteiro.
     const { data: repasseCalculado } =
-      tipo === "metodo"
-        ? await admin.rpc("repasse_arke", {
-            _organization_id: org.id,
-            _valor_cobrado: valor,
-            _nivel_atacado: (assinatura as { nivel_atacado?: string }).nivel_atacado,
-          })
-        : await admin.rpc("arke_taxa_processamento", { _valor: valor });
+      conta.nome === "academia"
+        ? { data: 0 }
+        : tipo === "metodo"
+          ? await admin.rpc("repasse_arke", {
+              _organization_id: org.id,
+              _valor_cobrado: valor,
+              _nivel_atacado: (assinatura as { nivel_atacado?: string }).nivel_atacado,
+            })
+          : await admin.rpc("arke_taxa_processamento", { _valor: valor });
     if (repasseCalculado === null || repasseCalculado === undefined) {
       return jsonResponse(
         { error: "Esta academia ainda não tem o repasse do Método negociado. Configure em Visão Master → ficha da organização." },
@@ -320,7 +331,7 @@ servir("asaas-assinatura-ciclo", async (req: Request) => {
     const r = await alterarValorAssinatura(api, chave, assinatura.asaas_subscription_id, {
       valorCobrado: valor,
       valorRepasseArke: repasse,
-      walletAcademia: org.asaas_wallet_id,
+      walletAcademia: conta.nome === "academia" ? null : org.asaas_wallet_id,
       hoje,
     });
     if (!r.ok) return jsonResponse({ error: r.erro }, r.status);

@@ -1,17 +1,31 @@
 import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2";
 import { verificada } from "../_shared/verificacao.ts";
 import {
+  aceiteDosTermos,
   avisoDeTrocaDeCarteira,
   carteirasProprias,
   consultarSituacao,
   criarOuAdotarSubconta,
   ehTrocaDeCarteira,
   montarSubconta,
+  SUBCONTA_DESLIGADA,
+  documentosDaSubconta,
+  subcontaDisponivel,
+  TERMOS_ASAAS_URL,
   walletIdValido,
 } from "./fluxo.ts";
 import { ambienteAsaas } from "../_shared/asaas.ts";
 import { dentroDoFreio, MENSAGEM_FREIO, regrasAsaas } from "../_shared/freio.ts";
 import { servir } from "../_shared/servir.ts";
+import { resumoDoErro } from "../_shared/resumoDoErro.ts";
+import { MENSAGEM_PERFIL_SIMULADO, sessaoSimulada } from "../_shared/sessaoSimulada.ts";
+import { contaDaCobranca } from "../_shared/contaDaAcademia.ts";
+import {
+  gerarTokenWebhook,
+  hashDoTokenWebhook,
+  registrarWebhookNaConta,
+  urlDoWebhookDaAcademia,
+} from "../_shared/webhookAcademia.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -22,7 +36,7 @@ const corsHeaders = {
 const jsonResponse = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
-type Acao = "criar" | "existente" | "situacao";
+type Acao = "criar" | "existente" | "situacao" | "documentos" | "modo_cobranca";
 
 /**
  * Avisa a ArkeFit pelo canal dos alertas: e-mail do remetente de alertas para
@@ -69,6 +83,13 @@ async function avisarArkefit(admin: SupabaseClient, m: { assunto: string; texto:
 //   criar     → o ARKE abre a subconta pela API (POST /accounts);
 //   existente → a academia que já tem conta informa a carteira (walletId);
 //   situacao  → consulta a aprovação da subconta criada pelo ARKE.
+//   modo_cobranca → liga ou desliga a cobrança na conta da academia (só a
+//               ArkeFit, verificada): registra o webhook na conta dela.
+//
+// `criar` é BaaS (resposta do Asaas de 06/10/2026): só com o interruptor
+// `asaas_subcontas_baas` ligado e com o aceite dos Termos do Asaas pela
+// gestão. A subconta que já existe segue com a situação, a nota fiscal e a
+// saída do aluno, com o interruptor em qualquer posição.
 //
 // Gestor da organização ou ArkeFit. As colunas asaas_* são travadas para o
 // gestor no banco (trg_proteger_colunas_organizacao): só esta função, com a
@@ -88,12 +109,16 @@ servir("asaas-conta-academia", async (req: Request) => {
   }
 
   try {
-    const { organization_id: organizationId, acao, wallet_id: walletBruta } = (await req.json()) as {
+    const corpo = (await req.json()) as {
       organization_id?: string;
       acao?: Acao;
       wallet_id?: string;
+      aceite_termos?: unknown;
+      termos_url?: unknown;
+      ligar?: unknown;
     };
-    if (!organizationId || !acao || !["criar", "existente", "situacao"].includes(acao)) {
+    const { organization_id: organizationId, acao, wallet_id: walletBruta } = corpo;
+    if (!organizationId || !acao || !["criar", "existente", "situacao", "documentos", "modo_cobranca"].includes(acao)) {
       return jsonResponse({ error: "Pedido inválido." }, 400);
     }
 
@@ -127,7 +152,7 @@ servir("asaas-conta-academia", async (req: Request) => {
     const { data: org, error: orgError } = await admin
       .from("organizations")
       .select(
-        "id, nome, status, razao_social, cnpj_cpf, email_contato, telefone, cep, logradouro, numero, complemento, bairro, tipo_empresa, faturamento_mensal, responsavel_nascimento, asaas_wallet_id, asaas_conta_id, asaas_conta_origem, asaas_conta_status"
+        "id, nome, status, razao_social, cnpj_cpf, email_contato, telefone, cep, logradouro, numero, complemento, bairro, tipo_empresa, faturamento_mensal, responsavel_nascimento, asaas_wallet_id, asaas_conta_id, asaas_conta_origem, asaas_conta_status, cobranca_conta_academia"
       )
       .eq("id", organizationId)
       .maybeSingle();
@@ -140,6 +165,82 @@ servir("asaas-conta-academia", async (req: Request) => {
     }
     const asaasApiUrl = ambiente.api;
     const asaasApiKey = ambiente.chave;
+
+    // ── Cobrança na conta da academia ───────────────────────────────────
+    // Só a ArkeFit, verificada em duas etapas. Ligar registra o webhook na
+    // conta da academia (o aviso de pagamento de lá chega em
+    // `asaas-webhook?org=<id>`), com um token novo cujo hash vai ao banco
+    // junto com o modo e a auditoria. O modo vale para cobrança nova: com
+    // assinatura de plano viva na conta da ArkeFit, ligar é recusado.
+    if (acao === "modo_cobranca") {
+      if (!arkefit) {
+        return jsonResponse({ error: "Só a equipe ArkeFit, com a verificação em duas etapas, muda a conta das cobranças." }, 403);
+      }
+      if (typeof corpo.ligar !== "boolean") return jsonResponse({ error: "Pedido inválido." }, 400);
+
+      const definir = async (ligar: boolean, extras: { ambiente: string | null; hash: string | null; webhook: string | null }) => {
+        const { data, error } = await admin.rpc("definir_cobranca_conta_academia", {
+          _organization_id: org.id,
+          _ligar: ligar,
+          _ator_user_id: callerId,
+          _ambiente: extras.ambiente,
+          _token_hash: extras.hash,
+          _asaas_webhook_id: extras.webhook,
+        });
+        if (error) {
+          // P0001: a recusa com a contagem (assinatura viva na outra conta).
+          if (error.code === "P0001") return jsonResponse({ error: error.message, cobrancas_vivas: Number(error.details ?? 0) || null }, 409);
+          console.error("asaas-conta-academia: falhou ao gravar o modo", resumoDoErro(error));
+          return jsonResponse({ error: "Não foi possível gravar a mudança. Tente de novo." }, 500);
+        }
+        return null as Response | null;
+      };
+
+      if (!corpo.ligar) {
+        const falha = await definir(false, { ambiente: null, hash: null, webhook: null });
+        // O webhook fica registrado: estorno de cobrança antiga ainda chega por ele.
+        return falha ?? jsonResponse({ ok: true, ligado: false });
+      }
+
+      if (!org.asaas_wallet_id) {
+        return jsonResponse({ error: "A academia ainda não configurou a conta de recebimentos (Onboarding → Recebimentos)." }, 422);
+      }
+      // A recusa antes de mexer no Asaas: o banco recusa de novo, na mesma
+      // transação que liga o modo.
+      const { count: vivas, error: erroVivas } = await admin
+        .from("aluno_matriculas_academia")
+        .select("id", { count: "exact", head: true })
+        .eq("organization_id", org.id)
+        .eq("conta_asaas", "arkefit")
+        .in("status", ["ativa", "pausada"])
+        .not("asaas_subscription_id", "is", null);
+      if (erroVivas) return jsonResponse({ error: "Não foi possível conferir as assinaturas agora. Tente de novo." }, 500);
+      if (vivas) {
+        return jsonResponse(
+          {
+            error: `Há ${vivas} assinatura(s) de plano viva(s) na conta da ArkeFit para esta academia. O modo vale só para cobrança nova e não migra assinatura: cancele ou deixe terminar essas antes de ligar.`,
+            cobrancas_vivas: vivas,
+          },
+          409,
+        );
+      }
+      // A chave da conta da academia (a do cofre, da nota fiscal), conferida
+      // contra a carteira que recebe hoje.
+      const conta = await contaDaCobranca(admin, ambiente, org, "academia", { conferirCarteira: true });
+      if ("erro" in conta) return jsonResponse({ error: conta.erro }, conta.status);
+
+      const token = gerarTokenWebhook();
+      const registro = await registrarWebhookNaConta(conta.api, conta.chave, {
+        url: urlDoWebhookDaAcademia(supabaseUrl, org.id as string),
+        token,
+      });
+      if (!registro.ok) {
+        console.error("asaas-conta-academia: o Asaas não registrou o webhook da academia");
+        return jsonResponse({ error: `O Asaas não registrou o aviso de pagamento na conta da academia: ${registro.erro}` }, 502);
+      }
+      const falha = await definir(true, { ambiente: conta.ambiente, hash: await hashDoTokenWebhook(token), webhook: registro.id });
+      return falha ?? jsonResponse({ ok: true, ligado: true, webhook: registro.atualizado ? "atualizado" : "registrado" });
+    }
 
     // ── Academia que já tem conta Asaas ─────────────────────────────────
     if (acao === "existente") {
@@ -240,13 +341,63 @@ servir("asaas-conta-academia", async (req: Request) => {
       return jsonResponse({ ok: true, situacao: r.situacao });
     }
 
-    // ── Abrir a subconta ────────────────────────────────────────────────
+    // ── O caminho BaaS: abrir a subconta e mandar os documentos ─────────
+    // Atrás do interruptor: desligado, a conta própria é o único caminho, e
+    // só a organização em trial (o sandbox) abre — é a homologação.
+    const { data: interruptor, error: erroInterruptor } = await admin
+      .from("plataforma_config")
+      .select("valor")
+      .eq("chave", "asaas_subcontas_baas")
+      .maybeSingle();
+    if (erroInterruptor) return jsonResponse({ error: "Não foi possível conferir a configuração agora. Tente de novo." }, 500);
+    if (!subcontaDisponivel(interruptor?.valor as number | null | undefined, org.status as string)) {
+      return jsonResponse({ error: SUBCONTA_DESLIGADA, subcontas_desligadas: true }, 409);
+    }
+
+    // Os documentos que o Asaas pede, com o link de envio de cada grupo:
+    // no BaaS a academia não vai ao painel do Asaas, o ARKE abre o link.
+    if (acao === "documentos") {
+      if (org.asaas_conta_origem !== "criada") {
+        return jsonResponse({ error: "Os documentos só são acompanhados aqui para contas abertas pela ArkeFit." }, 409);
+      }
+      const { data: chaveSubconta, error: erroChave } = await admin.rpc("ler_chave_subconta_asaas", { _organization_id: org.id });
+      if (erroChave) return jsonResponse({ error: "Não foi possível ler a chave da conta agora. Tente de novo." }, 500);
+      if (!chaveSubconta) {
+        return jsonResponse({ error: "Esta conta foi recuperada de uma tentativa anterior e não temos acesso aos documentos dela. Acompanhe no painel do Asaas." }, 409);
+      }
+      const r = await documentosDaSubconta(asaasApiUrl, String(chaveSubconta));
+      if (!r.ok) return jsonResponse({ error: r.erro }, 502);
+      return jsonResponse({ ok: true, grupos: r.grupos, motivo_recusa: r.motivoRecusa });
+    }
     if (org.asaas_wallet_id) {
       return jsonResponse({ ok: true, wallet_id: org.asaas_wallet_id, origem: org.asaas_conta_origem, ja_configurada: true });
     }
+    // A conta é do titular, no Asaas: quem aceita os Termos do Asaas é a
+    // gestão da academia, e não a ArkeFit por ela — nem numa sessão simulada.
+    if (vinculo?.role !== "gestor") {
+      return jsonResponse({ error: "Quem abre a conta e aceita os Termos do Asaas é a gestão da academia, titular da conta." }, 403);
+    }
+    let simulada: boolean;
+    try {
+      simulada = await sessaoSimulada(admin, claims?.claims);
+    } catch {
+      return jsonResponse({ error: "Não foi possível conferir a sessão. Tente de novo." }, 500);
+    }
+    if (simulada) return jsonResponse({ error: MENSAGEM_PERFIL_SIMULADO }, 403);
+    const aceite = aceiteDosTermos(corpo);
+    if (!aceite.ok) return jsonResponse({ error: aceite.erro }, 422);
     const montado = montarSubconta({ ...org, faturamento_mensal: org.faturamento_mensal === null ? null : Number(org.faturamento_mensal) });
     if (!montado.ok) {
       return jsonResponse({ error: `Complete os dados do cadastro antes: ${montado.faltando.join(", ")}.` }, 400);
+    }
+
+    // O aceite fica antes da conta: quem, quando e qual endereço dos termos.
+    const { error: erroAceite } = await admin
+      .from("aceites_termos_asaas")
+      .insert({ organization_id: org.id, aceito_por: callerId, termos_url: TERMOS_ASAAS_URL });
+    if (erroAceite) {
+      console.error("asaas-conta-academia: o aceite dos termos não foi gravado", resumoDoErro(erroAceite));
+      return jsonResponse({ error: "Não foi possível registrar o aceite dos Termos do Asaas. Tente de novo." }, 500);
     }
 
     const r = await criarOuAdotarSubconta(asaasApiUrl, asaasApiKey, montado.payload);

@@ -131,24 +131,58 @@ function descricaoErro(corpo: { errors?: { description?: string }[] }): string |
   return corpo?.errors?.map((e) => e.description).filter(Boolean).join(" ") || null;
 }
 
+/** O nome que a saída do aluno põe no cliente (`_shared/clienteAsaas.ts`). */
+const NOME_ANONIMIZADO = "Pessoa anonimizada";
+
+/**
+ * O cliente achado precisa voltar a receber os avisos antes de cobrar? Só na
+ * conta da academia (`reativar`), onde o mesmo cliente serve à nota fiscal —
+ * que o cria com os avisos desligados, porque ali a academia não cobrava nada
+ * — e onde a saída de um aluno o deixa anonimizado, sem removê-lo. Cobrar
+ * esse cliente como está mandaria a fatura a ninguém.
+ */
+export function clientePrecisaReativar(c: { name?: string | null; notificationDisabled?: boolean | null }): boolean {
+  return c.notificationDisabled === true || c.name === NOME_ANONIMIZADO;
+}
+
 /**
  * Reaproveita o customer do aluno: primeiro pelo id do aluno, depois pelo CPF.
  * Mesma regra da matrícula e do Método — para o Asaas, a mesma pessoa é um
  * cliente só. CPF em branco é recusado aqui porque `?cpfCnpj=` vazio não
  * filtra: devolveria a lista inteira e a cobrança nasceria em outra pessoa.
+ *
+ * `reativar` (só na conta da academia): o cliente achado com os avisos
+ * desligados, ou anonimizado por uma saída anterior, volta com o nome e o
+ * celular de hoje e os avisos ligados. Na conta da ArkeFit isso não acontece
+ * (lá a saída remove o cliente), e por isso fica desligado.
  */
 export async function obterOuCriarCustomer(
   api: string,
   chave: string,
   dados: { alunoId: string; nome: string; cpf: string; telefone: string | null },
+  opcoes: { reativar?: boolean } = {},
 ): Promise<{ id: string } | { erro: string }> {
   if (dados.cpf.length !== 11 || !dados.alunoId) {
     return { erro: "CPF do aluno ausente ou inválido: o Asaas exige CPF para emitir a cobrança." };
   }
   for (const filtro of [`externalReference=${encodeURIComponent(dados.alunoId)}`, `cpfCnpj=${dados.cpf}`]) {
-    const busca = await chamar<{ data?: { id: string; deleted?: boolean }[] }>(api, chave, "GET", `/customers?${filtro}`);
+    const busca = await chamar<{ data?: { id: string; deleted?: boolean; name?: string | null; notificationDisabled?: boolean | null }[] }>(
+      api,
+      chave,
+      "GET",
+      `/customers?${filtro}`,
+    );
     const existente = busca.ok ? busca.corpo.data?.find((c) => !c.deleted) : undefined;
-    if (existente) return { id: existente.id };
+    if (!existente) continue;
+    if (opcoes.reativar && clientePrecisaReativar(existente)) {
+      const atualizado = await chamar<{ id: string }>(api, chave, "POST", `/customers/${encodeURIComponent(existente.id)}`, {
+        name: dados.nome,
+        mobilePhone: dados.telefone ?? undefined,
+        notificationDisabled: false,
+      });
+      if (!atualizado.ok) return { erro: descricaoErro(atualizado.corpo) ?? "Falha ao atualizar o cliente na conta da academia." };
+    }
+    return { id: existente.id };
   }
   const criado = await chamar<{ id: string }>(api, chave, "POST", "/customers", {
     name: dados.nome,
@@ -168,6 +202,8 @@ export type CobrancaAsaas = {
   invoiceUrl?: string;
   deleted?: boolean;
   split?: { walletId: string; fixedValue?: number; status?: string }[];
+  /** O cliente da cobrança, na conta onde ela nasceu. */
+  customer?: string;
 };
 
 /** A cobrança desta linha no Asaas, se já existir (a não removida). */
@@ -200,15 +236,24 @@ export async function emitirCobrancaAvulsa(
     valor: number;
     vencimento: string;
     descricao: string;
-    walletAcademia: string;
+    /**
+     * A carteira da academia, para o split. Nula quando a cobrança nasce na
+     * conta da própria academia (`_shared/contaCobranca.ts`): lá ela recebe o
+     * valor inteiro, e split para a própria carteira o Asaas recusa.
+     */
+    walletAcademia: string | null;
     valorLiquidoAcademia: number;
   },
 ): Promise<ResultadoEmissao> {
+  // Sem carteira, só na conta da academia — e lá a academia fica com tudo.
+  if (dados.walletAcademia === null && Math.abs(dados.valorLiquidoAcademia - dados.valor) > 0.001) {
+    return { ok: false, erro: "Cobrança sem split precisa deixar o valor inteiro com a academia.", definitivo: true };
+  }
   try {
     const existente = await cobrancaPorReferencia(api, chave, dados.referencia);
     if (existente) return { ok: true, cobranca: existente, adotada: true };
 
-    const customer = await obterOuCriarCustomer(api, chave, dados.aluno);
+    const customer = await obterOuCriarCustomer(api, chave, dados.aluno, { reativar: dados.walletAcademia === null });
     if ("erro" in customer) return { ok: false, erro: customer.erro, definitivo: true };
 
     const criada = await chamar<CobrancaAsaas>(api, chave, "POST", "/payments", {
@@ -219,10 +264,12 @@ export async function emitirCobrancaAvulsa(
       dueDate: dados.vencimento,
       description: dados.descricao,
       externalReference: dados.referencia,
-      // A academia recebe o valor menos a taxa de processamento; a taxa do
-      // Asaas sai do que sobra na conta da ArkeFit — o mesmo split da
-      // mensalidade.
-      split: [{ walletId: dados.walletAcademia, fixedValue: dados.valorLiquidoAcademia }],
+      // Na conta da ArkeFit, a academia recebe o valor menos a taxa de
+      // processamento; a taxa do Asaas sai do que sobra na conta da ArkeFit —
+      // o mesmo split da mensalidade. Na conta da academia, não há split.
+      ...(dados.walletAcademia === null
+        ? {}
+        : { split: [{ walletId: dados.walletAcademia, fixedValue: dados.valorLiquidoAcademia }] }),
     });
     if (criada.ok) return { ok: true, cobranca: criada.corpo, adotada: false };
     const erro = descricaoErro(criada.corpo) ?? `O Asaas recusou a cobrança (HTTP ${criada.status}).`;

@@ -16,7 +16,7 @@ O resumo do mês mostra entradas, saídas e o resultado. Lançamento vencido e n
 
 ## Exportar para o contador
 
-O botão **Exportar para o contador** gera o fechamento do mês em planilha, uma aba por assunto: lançamentos, mensalidades dos planos, cobranças avulsas, Método ARKE e folha. Cada cobrança vem com o valor cobrado, a taxa do meio de pagamento, a parte da ArkeFit e o líquido da academia, que é o que se confere com o extrato do Asaas.
+O botão **Exportar para o contador** gera o fechamento do mês em planilha, uma aba por assunto: lançamentos, mensalidades dos planos, cobranças avulsas, Método ARKE e folha. Cada cobrança vem com o valor cobrado, a taxa do meio de pagamento, a parte da ArkeFit e o líquido da academia, que é o que se confere com o extrato do Asaas. Com a cobrança na conta da academia, a mensalidade e a avulsa vêm sem parte da ArkeFit: o líquido é o valor inteiro, e a tarifa do Asaas aparece no extrato da conta da academia.
 
 ## O que é da academia e o que é da ArkeFit
 

@@ -29,6 +29,7 @@ import { MarcaAppAluno } from "@/components/admin/MarcaAppAluno";
 import { dividirCobranca, excecaoDoNivel, resolverRepasse, type RepasseConfig } from "@/lib/repasse";
 import { useTaxaProcessamento } from "@/hooks/useTaxaProcessamento";
 import { reais } from "@/lib/numeros";
+import { PrestadorPagamentos } from "@/components/pagamento/PrestadorPagamentos";
 import { extensaoDoTipo, reduzirImagem } from "@/lib/reduzirImagem";
 
 type TipoNegocio = Extract<Enums<"organization_tipo">, "academia" | "studio">;
@@ -658,11 +659,11 @@ export default function AdminOrganizacao() {
       <Card>
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">
-            <Wallet className="h-4 w-4" /> Split de Pagamento (Asaas)
+            <Wallet className="h-4 w-4" /> Conta de recebimentos (Asaas)
           </CardTitle>
           <p className="text-xs text-muted-foreground">
-            Wallet ID da academia no Asaas — usada para receber automaticamente a parte líquida de cada
-            cobrança (o repasse de atacado à ARKE é retido na origem).
+            Wallet ID da conta Asaas da academia. O Asaas, que processa os pagamentos, divide cada cobrança na
+            hora: a parte da academia cai direto nesta conta, e a parte da ArkeFit (a plataforma e o Método) vai para a ArkeFit.
           </p>
         </CardHeader>
         {/* A carteira é configurada no onboarding (Recebimentos), que confere no Asaas
@@ -685,11 +686,11 @@ export default function AdminOrganizacao() {
       {!ehAutonomo && (
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Taxa de split aplicada por plano</CardTitle>
+          <CardTitle className="text-base">Divisão do Método por nível</CardTitle>
           <p className="text-xs text-muted-foreground">
-            A cada cobrança confirmada no Asaas, o repasse ARKE — custo de atacado mais a taxa de
-            processamento do pagamento — é retido automaticamente, e o restante cai direto na Wallet ID
-            da academia configurada acima. A taxa acompanha o valor cobrado.
+            A cada cobrança do Método confirmada no Asaas, a divisão é feita pelo Asaas: a parte da ArkeFit (o repasse
+            do Método mais a taxa de processamento do pagamento) vai para a ArkeFit, e o restante cai direto na conta da
+            academia configurada acima. A taxa acompanha o valor cobrado.
           </p>
         </CardHeader>
         <CardContent className="space-y-3">
@@ -708,7 +709,7 @@ export default function AdminOrganizacao() {
                 <span className="text-xs text-muted-foreground text-right">
                   {semRepasseNegociado
                     ? "Repasse do Método ainda não definido no contrato desta academia."
-                    : `Aluno paga ${reais(valorVarejo)} · ARKE retém ${reais(repasseArke!)} (repasse ${reais((
+                    : `Aluno paga ${reais(valorVarejo)} · parte da ArkeFit ${reais(repasseArke!)} (repasse ${reais((
                         repasseArke! - taxaEstimada
                       ))} + taxa ${reais(taxaEstimada)}) · Academia recebe ${reais(liquidoAcademia!)}${valorVarejo > 0 ? ` (${pctAcademia}%)` : ""}`}
                 </span>
@@ -718,9 +719,10 @@ export default function AdminOrganizacao() {
         </CardContent>
       </Card>
       )}
+      <PrestadorPagamentos />
       </TabsContent>
 
-      <TabsContent value="assinaturas" className="pt-3">
+      <TabsContent value="assinaturas" className="space-y-4 pt-3">
       <Card>
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">
@@ -769,6 +771,7 @@ export default function AdminOrganizacao() {
           )}
         </CardContent>
       </Card>
+      <PrestadorPagamentos />
       </TabsContent>
 
       <TabsContent value="planos" className="pt-3">

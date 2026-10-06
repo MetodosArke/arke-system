@@ -35,6 +35,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Bloco } from "@/components/admin/perfilSheetHelpers";
 import { MensalidadeB2bOrganizacao } from "@/components/superadmin/MensalidadeB2bOrganizacao";
+import { CobrancaContaAcademiaOrganizacao } from "@/components/superadmin/CobrancaContaAcademiaOrganizacao";
 import { EncerramentoOrganizacao } from "@/components/superadmin/EncerramentoOrganizacao";
 import { CalendarX, KeyRound, ListChecks, Pencil, Receipt, Trash2, UserRound, Users } from "lucide-react";
 
@@ -124,6 +125,10 @@ function Ficha({ p, onExcluido }: { p: ProfissionalAutonomo; onExcluido: () => v
 
         <Bloco titulo="Mensalidade do ArkeFit" icon={Receipt}>
           <MensalidadeB2bOrganizacao organizationId={p.organization_id} />
+        </Bloco>
+
+        <Bloco titulo="Conta das cobranças" icon={Receipt}>
+          <CobrancaContaAcademiaOrganizacao organizationId={p.organization_id} />
         </Bloco>
 
         <Bloco titulo={p.pode_excluir ? "Excluir o painel" : "Encerramento"} icon={p.pode_excluir ? Trash2 : CalendarX}>

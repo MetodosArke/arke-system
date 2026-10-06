@@ -4,6 +4,8 @@ import { ambienteAsaas } from "../_shared/asaas.ts";
 import { dentroDoFreio, MENSAGEM_FREIO, regrasAsaas } from "../_shared/freio.ts";
 import { MENSAGEM_PERFIL_SIMULADO, sessaoSimulada } from "../_shared/sessaoSimulada.ts";
 import { servir } from "../_shared/servir.ts";
+import { contaDaLinha } from "../_shared/contaCobranca.ts";
+import { contaDaCobranca } from "../_shared/contaDaAcademia.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -204,15 +206,13 @@ servir("asaas-cartao-assinatura", async (req: Request) => {
     // fala com o sandbox do Asaas.
     const { data: orgDoAluno } = await admin
       .from("organizations")
-      .select("status")
+      .select("id, status, asaas_wallet_id")
       .eq("id", aluno.organization_id)
       .maybeSingle();
     const ambiente = ambienteAsaas(orgDoAluno?.status, (n) => Deno.env.get(n));
     if ("erro" in ambiente) {
       return jsonResponse({ error: ambiente.erro }, 500);
     }
-    const asaasApiUrl = ambiente.api;
-    const asaasApiKey = ambiente.chave;
     if (aluno.user_id !== callerId) {
       const { data: vinculo } = await admin
         .from("organization_members")
@@ -269,6 +269,29 @@ servir("asaas-cartao-assinatura", async (req: Request) => {
         409
       );
     }
+
+    // O Método mora sempre na conta da ArkeFit; a mensalidade, na conta onde
+    // a matrícula nasceu (`conta_asaas`): o cartão é ligado lá.
+    let contaGravada: string | null = null;
+    if (tipo === "plano") {
+      const { data: daMatricula, error: erroConta } = await admin
+        .from("aluno_matriculas_academia")
+        .select("conta_asaas")
+        .eq("id", assinatura.id)
+        .maybeSingle();
+      if (erroConta) return jsonResponse({ error: "Não foi possível ler a matrícula agora. Tente de novo." }, 500);
+      contaGravada = (daMatricula?.conta_asaas as string | null | undefined) ?? null;
+    }
+    const conta = await contaDaCobranca(
+      admin,
+      ambiente,
+      { id: aluno.organization_id, asaas_wallet_id: orgDoAluno?.asaas_wallet_id ?? null },
+      contaDaLinha(contaGravada),
+      { conferirCarteira: false },
+    );
+    if ("erro" in conta) return jsonResponse({ error: conta.erro }, conta.status);
+    const asaasApiUrl = conta.api;
+    const asaasApiKey = conta.chave;
 
     const resultado = await ligarCartaoNaAssinatura(asaasApiUrl, asaasApiKey, assinatura.asaas_subscription_id, {
       creditCard: {
