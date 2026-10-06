@@ -48,7 +48,7 @@ export function arquivosDaReconstrucao(raiz = RAIZ_PADRAO) {
 }
 
 /** Tira os comentários de linha (`-- ...`) fora de texto entre aspas simples. */
-function semComentarios(sql) {
+export function semComentarios(sql) {
   return sql
     .split("\n")
     .map((linha) => {
