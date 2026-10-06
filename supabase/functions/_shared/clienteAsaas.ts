@@ -93,8 +93,11 @@ export type ContaAsaas = {
   chave: string;
   /** Remove o cliente depois de anonimizar (só na conta das cobranças). */
   remover: boolean;
-  /** Procura também pelo CPF (só quando a pessoa não tem outro vínculo vivo). */
-  porCpf: boolean;
+  /**
+   * Procura pela pessoa toda: o CPF e a referência de cada matrícula dela, e
+   * não só a deste aluno (só quando a pessoa não tem outro vínculo vivo).
+   */
+  daPessoaToda: boolean;
 };
 
 type Resposta<T> = { ok: boolean; status: number; corpo: T & { errors?: { description?: string }[] } };
@@ -137,13 +140,13 @@ const soDigitos = (v: unknown) => String(v ?? "").replace(/\D/g, "");
  * lista inteira da conta (`?cpfCnpj=` vazio já fez isso), e anonimizar "o que
  * voltou" apagaria o cadastro de outras pessoas.
  */
-export async function clientesDoAluno(conta: ContaAsaas, alunoId: string, cpf: string | null): Promise<ClienteAsaas[]> {
+export async function clientesDoAluno(conta: ContaAsaas, referencias: string[], cpf: string | null): Promise<ClienteAsaas[]> {
   const buscas: { filtro: string; confere: (c: ClienteAsaas) => boolean }[] = [];
-  if (alunoId) {
-    buscas.push({ filtro: `externalReference=${encodeURIComponent(alunoId)}`, confere: (c) => c.externalReference === alunoId });
+  for (const ref of [...new Set(referencias.filter(Boolean))]) {
+    buscas.push({ filtro: `externalReference=${encodeURIComponent(ref)}`, confere: (c) => c.externalReference === ref });
   }
   const cpfLimpo = soDigitos(cpf);
-  if (conta.porCpf && cpfLimpo.length === 11) {
+  if (conta.daPessoaToda && cpfLimpo.length === 11) {
     buscas.push({ filtro: `cpfCnpj=${cpfLimpo}`, confere: (c) => soDigitos(c.cpfCnpj) === cpfLimpo });
   }
   const achados = new Map<string, ClienteAsaas>();
@@ -189,8 +192,15 @@ export type EntradaAnonimizacao = {
   alunoId: string;
   /** `organizations.status` da academia do aluno: decide sandbox ou produção. */
   statusOrganizacao: string | null | undefined;
-  /** `profiles.cpf`, lido ANTES de `anonimizar_dados_do_aluno`, que o apaga. */
+  /**
+   * `profiles.cpf`, lido ANTES de `anonimizar_dados_do_aluno`, que o apaga.
+   * Na nova tentativa, depois da anonimização, ele já não existe: aí a busca
+   * vai pelas referências (o id de cada matrícula da pessoa), com que os
+   * clientes foram criados.
+   */
   cpf: string | null;
+  /** Os ids das outras matrículas da mesma pessoa (`alunos` com o mesmo `user_id`). */
+  outrasMatriculas?: string[];
   /** `ler_chave_subconta_asaas`: a chave da conta da academia, ou nula. */
   chaveDaAcademia: string | null;
   /** `pessoa_tem_outro_vinculo`. */
@@ -207,9 +217,10 @@ export type ResultadoAnonimizacao =
   | { ok: false; erro: string };
 
 /**
- * Anonimiza o aluno nas duas contas do Asaas. Para no primeiro erro: quem
- * chama devolve 502 e a gestão tenta de novo — repetir é seguro (o cliente já
- * removido não volta na busca, e anonimizar de novo dá no mesmo).
+ * Anonimiza o aluno nas duas contas do Asaas. Para no primeiro erro, e quem
+ * chama guarda a pendência para a nova tentativa (`_shared/saidaAsaas.ts`):
+ * a saída do aluno não espera o Asaas. Repetir é seguro — o cliente já
+ * removido não volta na busca, e anonimizar de novo dá no mesmo.
  */
 export async function anonimizarAlunoNoAsaas(
   entrada: EntradaAnonimizacao,
@@ -220,12 +231,12 @@ export async function anonimizarAlunoNoAsaas(
 
   const contas: ContaAsaas[] = [];
   if (!entrada.outrosVinculos) {
-    contas.push({ nome: "arkefit", api: ambiente.api, chave: ambiente.chave, remover: true, porCpf: true });
+    contas.push({ nome: "arkefit", api: ambiente.api, chave: ambiente.chave, remover: true, daPessoaToda: true });
   }
   let academia: number | "sem conta conectada" | "pulada: chave de outro ambiente" = "sem conta conectada";
   if (entrada.chaveDaAcademia) {
     if (chaveCombinaComAmbiente(entrada.chaveDaAcademia, ambiente.nome)) {
-      contas.push({ nome: "academia", api: ambiente.api, chave: entrada.chaveDaAcademia, remover: false, porCpf: !entrada.outrosVinculos });
+      contas.push({ nome: "academia", api: ambiente.api, chave: entrada.chaveDaAcademia, remover: false, daPessoaToda: !entrada.outrosVinculos });
     } else {
       academia = "pulada: chave de outro ambiente";
     }
@@ -235,7 +246,8 @@ export async function anonimizarAlunoNoAsaas(
   for (const conta of contas) {
     let clientes: ClienteAsaas[];
     try {
-      clientes = await clientesDoAluno(conta, entrada.alunoId, entrada.cpf);
+      const referencias = conta.daPessoaToda ? [entrada.alunoId, ...(entrada.outrasMatriculas ?? [])] : [entrada.alunoId];
+      clientes = await clientesDoAluno(conta, referencias, entrada.cpf);
     } catch (e) {
       return { ok: false, erro: `Não foi possível procurar o cliente na conta ${conta.nome === "arkefit" ? "da ArkeFit" : "da academia"} no Asaas: ${e instanceof Error ? e.message : "erro"}` };
     }

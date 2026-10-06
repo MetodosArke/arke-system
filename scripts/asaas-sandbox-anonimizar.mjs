@@ -53,7 +53,7 @@ async function asaas(metodo, caminho, corpo) {
   return { ok: r.ok, status: r.status, corpo: await r.json().catch(() => ({})) };
 }
 
-const conta = (remover) => ({ nome: remover ? "arkefit" : "academia", api: API, chave: CHAVE, remover, porCpf: true });
+const conta = (remover) => ({ nome: remover ? "arkefit" : "academia", api: API, chave: CHAVE, remover, daPessoaToda: true });
 
 async function clienteCompleto(alunoId, cpf) {
   const r = await asaas("POST", "/customers", {
@@ -85,7 +85,7 @@ if (cobranca.ok) {
   conferir("cobrança recebida em dinheiro", paga.ok, paga.ok ? paga.corpo.status : `HTTP ${paga.status}`);
 }
 
-const achadosA = await clientesDoAluno(conta(true), alunoA, cpfA);
+const achadosA = await clientesDoAluno(conta(true), [alunoA], cpfA);
 conferir("achado pela referência e pelo CPF, uma vez só", achadosA.length === 1 && achadosA[0].id === clienteA.id, `${achadosA.length}`);
 
 const rA = await anonimizarCliente(conta(true), clienteA);
@@ -100,7 +100,7 @@ if (cobranca.ok) {
   const pagaDepois = await asaas("GET", `/payments/${cobranca.corpo.id}`);
   conferir("a cobrança paga continua lá, paga", pagaDepois.ok && pagaDepois.corpo.deleted !== true && pagaDepois.corpo.status === "RECEIVED_IN_CASH", pagaDepois.corpo.status);
 }
-const deNovoA = await clientesDoAluno(conta(true), alunoA, cpfA);
+const deNovoA = await clientesDoAluno(conta(true), [alunoA], cpfA);
 conferir("a busca não devolve o cliente removido (quem voltar ganha um novo)", deNovoA.length === 0);
 
 // ── Conta da nota fiscal: só anonimiza ─────────────────────────────────────

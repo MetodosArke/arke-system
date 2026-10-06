@@ -188,13 +188,10 @@ const PARES_DE_TEXTO: [string, string[]][] = [
 ];
 
 /**
- * Botões só de ícone sem nome em telas que outra frente está mexendo nesta
- * rodada (06/10/2026). Consertou, tire daqui.
+ * Botões só de ícone sem nome que ficam para depois, com o porquê. Vazia desde
+ * 06/10/2026; consertou, tire daqui.
  */
-const SEM_ROTULO_PENDENTE: Record<string, string> = {
-  "pages/auth/Login.tsx": "o tema e o fechar do aviso de instalação; a tela de entrar é de outra frente nesta rodada",
-  "pages/auth/Register.tsx": "o tema; o cadastro é de outra frente nesta rodada",
-};
+const SEM_ROTULO_PENDENTE: Record<string, string> = {};
 
 function arquivos(dir: string, achados: string[] = []): string[] {
   for (const nome of readdirSync(dir)) {

@@ -37,7 +37,7 @@ O cadastro cria o aluno; a matrícula num plano da academia é feita na ficha, n
 
 ## Quando o aluno sai
 
-Na lista, o menu de ações do aluno tem **Desativar / Anonimizar Aluno**, o protocolo da LGPD. Ele apaga os dados pessoais do aluno **nesta academia**: a ficha, a anamnese, as avaliações, os treinos, as dietas, as conversas, as fotos do feed e as autorizações. A digital sai dos equipamentos. O que é financeiro (mensalidades, pagamentos, notas) e as presenças ficam guardados pelo prazo legal, sem nome. Antes de apagar, as cobranças em aberto são encerradas no meio de pagamento, para ninguém seguir sendo cobrado depois de ir embora.
+Na lista, o menu de ações do aluno tem **Desativar / Anonimizar Aluno**, o protocolo da LGPD. Ele apaga os dados pessoais do aluno **nesta academia**: a ficha, a anamnese, as avaliações, os treinos, as dietas, as conversas, as fotos do feed e as autorizações. A digital sai dos equipamentos. O que é financeiro (mensalidades, pagamentos, notas) e as presenças ficam guardados pelo prazo legal, sem nome. Antes de apagar, as cobranças em aberto são encerradas no meio de pagamento, para ninguém seguir sendo cobrado depois de ir embora, e o cadastro da pessoa no meio de pagamento (o Asaas) perde o nome, o e-mail, o telefone e o endereço; fica o CPF, que liga os pagamentos já feitos a quem pagou. Se o meio de pagamento não responder na hora, a anonimização segue e o aviso diz que o cadastro de lá sai na próxima tentativa automática, em até uma hora: não é preciso fazer nada.
 
 Se a pessoa também é aluna ou faz parte da equipe de outra academia, o cadastro dela lá continua: a anonimização só alcança o que é desta academia.
 

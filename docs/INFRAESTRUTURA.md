@@ -38,11 +38,11 @@ Os upgrades pagos (Supabase, Vercel e Resend) vêm antes do primeiro cliente pag
   - Privados: `atestados`, `chat-videos`, `dietas`, `termos-biometria`.
   - Públicos: `avatars`, `email-assets`, `exercicio-imagens`, `exercicio-videos`, `feed-images`.
 - **Funções do servidor (Edge Functions):**
-  - são 51, com o código em `supabase/functions/`;
+  - são 56, com o código em `supabase/functions/`;
   - quais respondem sem login está em `supabase/config.toml`;
   - cada Gateway de catraca faz ~100 mil chamadas por mês (escuta longa de ordens). Com 50 academias com catraca, passa das 2 milhões incluídas no Pro, e o excedente custa poucos dólares por mês;
   - publicar: `supabase functions deploy <nome> --project-ref lzyxqjibkfblrrjboylp`.
-- **Rotinas agendadas (pg_cron):** 28. A `arke-agente-comercial` (de 5 em 5 minutos) é a resposta automática ao contato comercial (sozinha no site; nos outros canais, quando acionada), e só envia com ela ligada em Visão Master → Pipeline comercial. A `arke-retencao-historicos` apaga o histórico do próprio cron depois de 30 dias e resume os avisos do Asaas depois de 90. A situação de cada uma aparece em Visão Master → Webhooks, e uma rotina que falha manda e-mail aos Super Admins.
+- **Rotinas agendadas (pg_cron):** 32 (a lista sai das migrations: `node scripts/migracao/rotinas.mjs`). A `arke-agente-comercial` (de 5 em 5 minutos) é a resposta automática ao contato comercial (sozinha no site; nos outros canais, quando acionada), e só envia com ela ligada em Visão Master → Pipeline comercial. A `arke-retencao-historicos` apaga o histórico do próprio cron depois de 30 dias e resume os avisos do Asaas depois de 30 (desde 06/10/2026 eles já são gravados reduzidos ao que o webhook lê). A `arke-saida-asaas` (de hora em hora, `retentar-saida-asaas`) tenta de novo anonimizar no Asaas o cliente do aluno que saiu quando o Asaas falhou na hora da saída. A situação de cada uma aparece em Visão Master → Webhooks, e uma rotina que falha manda e-mail aos Super Admins.
 - **Cofre (Vault):**
   - quatro tokens que as rotinas usam para chamar as funções: `alerta_rotinas_token`, `briefing_semanal_token`, `lembrete_onboarding_token` e `reconciliacao_asaas_token`;
   - quando existirem, também moram aqui a chave da subconta Asaas de cada academia e as credenciais de Wellhub e TotalPass.

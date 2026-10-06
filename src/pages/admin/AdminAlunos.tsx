@@ -366,15 +366,21 @@ export default function AdminAlunos() {
         body: { aluno_id: alunoAnonimizar.id },
       });
       if (error) throw new Error(await mensagemDeErroEdge(error, "Não foi possível anonimizar o aluno."));
-      return data as { arquivos_pendentes?: string[] } | null;
+      return data as { arquivos_pendentes?: string[]; cadastro_no_asaas?: "anonimizado" | "pendente" } | null;
     },
     onSuccess: (resultado) => {
       const pendentes = resultado?.arquivos_pendentes?.length ?? 0;
+      // O Asaas que não respondeu não trava a saída: a rotina tenta de novo.
+      const asaasDepois =
+        resultado?.cadastro_no_asaas === "pendente"
+          ? " O cadastro no meio de pagamento sai na próxima tentativa automática, em até uma hora."
+          : "";
       toast({
         title: "Aluno anonimizado",
-        description: pendentes
-          ? "Os dados pessoais desta academia foram apagados, mas alguns arquivos não saíram. Tente de novo mais tarde ou fale com o suporte."
-          : "Os dados pessoais desta academia foram apagados. Ficou o que a lei manda guardar, sem identificar a pessoa.",
+        description:
+          (pendentes
+            ? "Os dados pessoais desta academia foram apagados, mas alguns arquivos não saíram. Tente de novo mais tarde ou fale com o suporte."
+            : "Os dados pessoais desta academia foram apagados. Ficou o que a lei manda guardar, sem identificar a pessoa.") + asaasDepois,
         variant: pendentes ? "destructive" : undefined,
       });
       setAlunoAnonimizar(null);

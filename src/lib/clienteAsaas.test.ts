@@ -137,6 +137,25 @@ describe("anonimizar o aluno no Asaas", () => {
     expect(outraPessoa.deleted).toBeUndefined();
   });
 
+  it("a nova tentativa, já sem o CPF, acha o cliente pela referência de outra matrícula da pessoa", async () => {
+    // Criado para a matrícula antiga (outra academia) e reaproveitado pelo CPF.
+    const deOutraMatricula = cliente("cus_antigo", { externalReference: "aluno-antigo" });
+    const chamadas = asaasDeMentira({ [CHAVE_ARKEFIT]: [deOutraMatricula] });
+    const r = await anonimizarAlunoNoAsaas(entrada({ cpf: null, chaveDaAcademia: null, outrasMatriculas: ["aluno-antigo"] }), env);
+    expect(r).toEqual({ ok: true, arkefit: 1, academia: "sem conta conectada" });
+    expect(deOutraMatricula.deleted).toBe(true);
+    expect(chamadas.some((c) => c.caminho.includes("cpfCnpj")), "sem CPF, sem busca por CPF").toBe(false);
+  });
+
+  it("com outro vínculo, as referências das outras matrículas não são procuradas", async () => {
+    const daMatriculaViva = cliente("cus_viva", { externalReference: "aluno-vivo" });
+    const chamadas = asaasDeMentira({ [CHAVE_ACADEMIA]: [daMatriculaViva] });
+    const r = await anonimizarAlunoNoAsaas(entrada({ outrosVinculos: true, outrasMatriculas: ["aluno-vivo"] }), env);
+    expect(r).toEqual({ ok: true, arkefit: "pulada: a pessoa tem outro vínculo", academia: 0 });
+    expect(chamadas.some((c) => c.caminho.includes("aluno-vivo"))).toBe(false);
+    expect(daMatriculaViva.name).toBe("Maria da Silva");
+  });
+
   it("CPF em branco não vira busca sem filtro", async () => {
     const chamadas = asaasDeMentira({ [CHAVE_ARKEFIT]: [cliente("cus_x", { externalReference: "outro" })] });
     const r = await anonimizarAlunoNoAsaas(entrada({ cpf: "", chaveDaAcademia: null }), env);

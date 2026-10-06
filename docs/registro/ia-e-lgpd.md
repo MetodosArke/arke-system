@@ -228,3 +228,38 @@ Com os fatos do Método em mãos, o advogado reviu o item 3 do memorando (regist
 - **No médio prazo, depois da captação:** o CNPJ ganha as CNAEs secundárias de instrução esportiva e de nutrição, e a ArkeFit se registra como pessoa jurídica nos dois conselhos, com os especialistas como responsáveis técnicos.
 
 Os Termos de Uso diziam que a prescrição era "da equipe indicada" no Método, "não pela plataforma". A versão 2026-10-06 diz quem prescreve em cada plano e que a ArkeFit responde pelo que a sua equipe prescreve no Método, como já diziam o Contrato e a Política. A versão entra no banco pela migration `20261383`, depois de o texto estar no ar.
+
+## Rodada 3 da conformidade: o Asaas, a simulação e os dados do aluno (06/10/2026)
+
+Achados médios de conformidade da auditoria de prontidão de 05/10.
+
+**O cliente no Asaas é anonimizado na saída do aluno.** A anonimização apagava a pessoa do banco e deixava o cadastro dela no Asaas como estava: na conta da ArkeFit, nome, CPF e celular (matrícula, Método, avulsa); na conta da academia, também e-mail e endereço (a nota fiscal).
+- `_shared/clienteAsaas.ts` troca o nome por "Pessoa anonimizada", apaga e-mail, telefones, e-mails adicionais, endereço, empresa e observações, e desliga os avisos do Asaas. Confere a resposta: campo que o Asaas manteve é falha.
+- **Fica o CPF**, e as cobranças e as notas não são tocadas. O CPF liga os pagamentos já feitos a quem pagou, e o Asaas, como instituição de pagamento, guarda o pagador pelo prazo legal. A nota emitida é documento fiscal.
+- **Na conta da ArkeFit** o cliente também é removido (`DELETE /customers`). O Asaas não apaga nada nisso: marca `deleted`, guarda as cobranças pagas e pode restaurar. Sem a remoção, quem voltasse com o mesmo CPF seria cobrado como "Pessoa anonimizada", porque a matrícula, o Método e a avulsa reaproveitam o cliente achado pelo CPF sem atualizar o cadastro. **Na conta da academia** o cliente só é anonimizado: as notas ficam onde estão, e a próxima nota atualiza o cadastro.
+- **Quem tem outro vínculo vivo:** a conta da ArkeFit fica intocada, porque o cliente dali é um só por CPF e pode ser o da assinatura da outra academia. Na conta da academia sai só o cliente com a referência deste aluno.
+- Cada busca confere o que voltou contra o filtro. Filtro que o Asaas não aplica devolve a conta inteira (`?cpfCnpj=` vazio já fez isso), e anonimizar "o que voltou" apagaria o cadastro de outras pessoas.
+- **Ligado em `anonimizar-aluno` e `excluir-aluno`** (`_shared/saidaAsaas.ts`), depois de encerrar as cobranças e antes do banco, enquanto o CPF ainda está no perfil. **A saída não espera o Asaas:** se ele falha, a anonimização segue, e a pendência fica em `asaas_saida_pendente` (migration `20261377`), sem CPF, nome nem e-mail. A rotina `arke-saida-asaas` (`retentar-saida-asaas`, de hora em hora) tenta de novo; já sem o CPF, ela acha o cliente pela referência com que ele foi criado, o id de cada matrícula da pessoa. A linha sai quando dá certo. O aviso ao gestor diz que o cadastro de lá sai na próxima tentativa.
+- `npm run sandbox:anonimizar` exercita o módulo contra o sandbox do Asaas, com uma cobrança paga. **Ainda não rodou:** é o que confirma que o Asaas limpa o campo com texto vazio.
+
+**O aviso do Asaas é guardado no mínimo** (migration `20261375`). O `asaas-webhook` gravava o aviso inteiro, e ele ficava 90 dias assim. O aviso de cobrança traz o `creditCardToken` (com ele a conta da ArkeFit cobra o cartão de novo), os links do boleto e do comprovante, o nosso número, o Pix e o split, e a Política diz que a plataforma guarda só a situação, os 4 últimos dígitos e a bandeira.
+- O gatilho `trg_minimizar_aviso_asaas` reduz o aviso, na gravação, ao que o webhook lê, mais os 4 dígitos e a bandeira. Vale para o webhook (que é de outra frente e não mudou) e para o aviso que a conferência diária reenvia.
+- O que já estava guardado foi reduzido na migration.
+- O resumo, que tira também o link da fatura, a descrição e as datas do pagamento, passou de 90 para 30 dias. O reprocessamento do Vigia reenvia o aviso guardado, mas só dos últimos 7 dias e só o não processado; o resumo só toca o processado.
+- `avisoAsaas.guarda` cobra que todo campo que o webhook lê sobreviva à redução: senão o aviso reprocessado chegaria sem ele, e o erro só apareceria no reprocessamento.
+
+**A simulação guarda o id da pessoa, e não o e-mail** (migration `20261376`). `impersonar-perfil` gravava o e-mail da pessoa simulada na trilha de auditoria (`detalhes.email_alvo`). A trilha não tem prazo, e a anonimização troca o e-mail de login justamente para desligar a conta do endereço da pessoa: o registro religava as duas coisas. A função deixou de mandar o e-mail (a pessoa já está no `entidade_id`). Um gatilho tira o `email_alvo` de todo registro de simulação, por qualquer caminho, inclusive da função antiga antes do deploy. Os registros que existiam perderam o e-mail.
+
+**O aluno baixa os próprios dados.** O acesso e a portabilidade (art. 18, II e V) dependiam de a academia montar o arquivo, e a exportação dela não levava anamnese, treinos nem mensagens.
+- Em Perfil → Privacidade, **Baixar os meus dados** gera um JSON com cadastro, anamnese, PAR-Q, avaliações, treinos e o registro deles, dietas e a adesão, presenças e check-ins, mensagens (equipe e mentor), autorizações (IA, digital, documentos, contrato, responsável) e pagamentos, de todas as academias em que a pessoa tem matrícula.
+- Tudo é lido com a sessão da própria pessoa, pelo RLS dela, sem service role, em páginas e em lotes de ids. O arquivo tem o que ela já pode ver, nem mais nem menos. O que o RLS não mostra a ela (cada passagem na catraca, o histórico de fases) fica de fora, e o arquivo diz como pedir.
+- Dos pagamentos sai a divisão entre a academia e a ArkeFit e a taxa do gateway: são do negócio delas, não dados do aluno.
+- Leitura que falha não entrega arquivo pela metade.
+- **Na sessão simulada não baixa.** A aba diz antes (`emPerfilSimulado`), e o banco confirma na hora (`sessao_simulada()`), porque a marca da aba pode faltar.
+
+**Defeitos do caminho.**
+- O primeiro desenho da anonimização no Asaas travava a saída (502) quando o Asaas falhava, como faz o encerramento das cobranças. A decisão do responsável foi a contrária: o direito da pessoa não espera o gateway. Com isso, a nova tentativa acontece depois de o banco apagar o CPF, e a busca passou a ir também pela referência de cada matrícula da pessoa.
+- Na nova tentativa de uma exclusão, o aluno já não existe, e `pessoa_tem_outro_vinculo` responderia "não" para quem tinha outro vínculo. A pendência guarda a resposta da hora da saída.
+- Em `jsdom`, o erro de prazo do `fetch` não é `instanceof Error`; a mensagem passou a usar só o nome do erro.
+
+**Pendências.** (1) O encerramento da academia (`eliminar_organizacao`) apaga os alunos sem passar pela anonimização no Asaas: fica para a próxima rodada, com a mesma função. (2) `npm run sandbox:anonimizar` precisa rodar uma vez com a chave do sandbox antes do deploy.

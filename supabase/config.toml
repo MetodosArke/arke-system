@@ -115,3 +115,8 @@ verify_jwt = false
 # dado: responde só se o banco, as rotinas e o alerta de rotinas estão de pé.
 [functions.saude]
 verify_jwt = false
+
+# A nova tentativa de anonimizar no Asaas o cliente do aluno que saiu: de hora
+# em hora, chamada pelo cron com o token do alerta de rotinas.
+[functions.retentar-saida-asaas]
+verify_jwt = false

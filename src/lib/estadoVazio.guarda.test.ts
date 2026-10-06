@@ -67,7 +67,7 @@ export function vaziosSemErro(codigo: string): string[] {
  * daqui. O motivo diz por que ainda não, ou por que não é um estado vazio.
  */
 const PENDENTES: Record<string, string> = {
-  "components/admin/AlunoPerfilSheet.tsx": "ficha do aluno: outra frente mexe nela nesta rodada",
+  "components/admin/AlunoPerfilSheet.tsx": "ficha do aluno: fica para a próxima rodada (outra frente mexia nela nesta)",
   "components/admin/CompeticoesPainel.tsx": "painel de competições da gestão",
   "components/admin/FuncionarioPerfilSheet.tsx": "horários do funcionário",
   "components/admin/onboarding/EtapaPlanos.tsx": "implantação: o passo some quando a leitura falha",
