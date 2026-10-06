@@ -38,6 +38,7 @@ Funções em Deno, publicadas no projeto `lzyxqjibkfblrrjboylp`. O repositório 
 - `responsavel.ts`: o aceite do responsável do aluno menor (`responsavel-pedido` e `responsavel-aceite`): o token do link e o hash dele, e a versão e o hash de cada texto, conferidos contra o app por `textosConsentimento.test.ts`.
 - `nascimento.ts`: a data de nascimento e a idade, espelho de `src/lib/menorDeIdade.ts`.
 - `encerrarCobrancas.ts`: a saída do aluno cancela o que está vivo no Asaas.
+- `clienteAsaas.ts`: a saída do aluno anonimiza o cliente dele no Asaas (na conta da ArkeFit, anonimiza e remove; na da academia, só anonimiza); o CPF e as cobranças ficam. Quem chama lê o CPF antes de `anonimizar_dados_do_aluno`.
 - `arquivosDoAluno.ts`: apaga a pasta do aluno nos buckets privados, depois do banco.
 - `verificacao.ts`, `alvoNaAcademia.ts`, `papelCobranca.ts`, `freio.ts`, `execucao.ts` e `vapid.ts`: um pedaço de regra cada.
 
