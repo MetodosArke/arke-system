@@ -283,3 +283,17 @@ Achados médios de conformidade da auditoria de prontidão de 05/10.
 (7) **A tela**, no celular: o arquivo de **Baixar os meus dados** (`meus-dados-arkefit-<data>.json`) chegou com as partes cadastro, saúde, avaliações, treinos, dietas, presenças, mensagens, autorizações e pagamentos, só da própria pessoa e sem a divisão do repasse.
 
 **Pendências.** (1) O encerramento da academia (`eliminar_organizacao`) apaga os alunos sem passar pela anonimização no Asaas: fica para a próxima rodada, com a mesma função. (2) ~~`npm run sandbox:anonimizar` antes do deploy~~: rodou em 06/10, e as 14 verificações passaram.
+
+## O Asaas como prestador dos serviços financeiros, nos Termos e no Contrato (06/10/2026)
+
+O Asaas respondeu que o modelo da ArkeFit já é BaaS, mesmo sem subcontas: a ArkeFit guarda as chaves das academias, emite cobrança em nome delas e divide por split. Pela Resolução Conjunta BCB/CMN nº 16/2025 (art. 14), o prestador tem de aparecer identificado nas telas e também nos termos e contratos. O responsável decidiu seguir com a homologação, no modelo "direto tomador", e aprovou no workspace a cláusula modelo do playbook do Asaas.
+
+- **Termos de Uso 2026-10-06.2** (seção 5) e **Contrato da Academia 2026-10-06.2** (seção 3) ganharam a cláusula "Prestação de serviços financeiros". Ela diz quatro coisas:
+  - os serviços financeiros e de pagamento são prestados pelo Asaas Gestão Financeira Instituição de Pagamento S.A., CNPJ 19.540.550/0001-21;
+  - a ArkeFit só integra a tecnologia e não é instituição financeira nem de pagamento;
+  - o usuário (nos Termos) ou a Academia (no Contrato) declara ciência disso;
+  - o suporte sobre as operações financeiras é do Asaas (0800 009 0037, contato@asaas.com.br).
+- Versão nova pede o aceite de novo. As linhas no banco (`20261386` e `20261387`) entram depois do deploy, como manda a regra.
+- O selo do Asaas nas telas e o resto do formato BaaS estão em [cobranca.md](cobranca.md), na frente que prepara a homologação.
+
+**Conferido:** `documentosLegais` com os dois hashes novos. Defeito plantado (o telefone do suporte trocado nos Termos sem o hash novo): o teste falhou.
