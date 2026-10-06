@@ -64,6 +64,12 @@ interface AuthContextType {
   anamneseCompleta: boolean | null;
   /** Termo de consentimento (dados de saúde) já aceito. `null` = desconhecido, como acima. */
   consentimentoLgpdAceito: boolean | null;
+  /**
+   * O próprio aluno retirou o consentimento de saúde pelo app (Perfil →
+   * Privacidade). O acolhimento não o prende: ele autoriza de novo quando
+   * quiser, e até lá usa o app sem a anamnese.
+   */
+  consentimentoSaudeRetirado: boolean;
   isAuthenticated: boolean;
   isLoading: boolean;
   rolesLoaded: boolean;
@@ -83,7 +89,10 @@ interface AuthContextType {
   trocarOrganizacao: (organizationId: string) => void;
   refreshProfile: () => Promise<void>;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
-  signUp: (email: string, password: string, fullName: string) => Promise<{ error: Error | null }>;
+  // Sem signUp de propósito (06/10/2026): nenhum fluxo do produto usa o
+  // cadastro aberto do Auth. A conta nasce na matrícula pública, no convite da
+  // academia ou da ArkeFit, e a conta criada pelo "Cadastre-se" ficava sem
+  // academia nenhuma. Ver docs/registro/seguranca-e-acesso.md.
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<{ error: Error | null }>;
   updatePassword: (password: string) => Promise<{ error: Error | null }>;
@@ -101,6 +110,7 @@ interface LeituraAluno {
   situacaoAcademiaDesde: string | null;
   anamneseCompleta: boolean | null;
   consentimentoLgpdAceito: boolean | null;
+  consentimentoSaudeRetirado: boolean;
 }
 
 type Vinculo = { organizationId: string; nome: string; role: AppRole };
@@ -154,7 +164,7 @@ async function lerAluno(userId: string, organizationId: string): Promise<Leitura
 
   const { data: anamnese, error: anamneseError } = await supabase
     .from("anamnese_acolhimento")
-    .select("concluida_em, consentimento_lgpd_aceito_em, consentimento_lgpd_versao")
+    .select("concluida_em, consentimento_lgpd_aceito_em, consentimento_lgpd_versao, consentimento_lgpd_revogado_em")
     .eq("aluno_id", aluno.id)
     .maybeSingle();
   if (anamneseError) {
@@ -179,6 +189,7 @@ async function lerAluno(userId: string, organizationId: string): Promise<Leitura
     consentimentoLgpdAceito: anamneseError
       ? null
       : !!anamnese?.consentimento_lgpd_aceito_em && anamnese?.consentimento_lgpd_versao === VERSAO_CONSENTIMENTO_SAUDE,
+    consentimentoSaudeRetirado: !anamneseError && !!anamnese?.consentimento_lgpd_revogado_em,
   };
 }
 
@@ -267,6 +278,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [situacaoAcademiaDesde, setSituacaoAcademiaDesde] = useState<string | null>(null);
   const [anamneseCompleta, setAnamneseCompleta] = useState<boolean | null>(false);
   const [consentimentoLgpdAceito, setConsentimentoLgpdAceito] = useState<boolean | null>(false);
+  const [consentimentoSaudeRetirado, setConsentimentoSaudeRetirado] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [rolesLoaded, setRolesLoaded] = useState(false);
   const [erroAcesso, setErroAcesso] = useState(false);
@@ -289,6 +301,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setSituacaoAcademiaDesde(aluno?.situacaoAcademiaDesde ?? null);
     setAnamneseCompleta(aluno ? aluno.anamneseCompleta : false);
     setConsentimentoLgpdAceito(aluno ? aluno.consentimentoLgpdAceito : false);
+    setConsentimentoSaudeRetirado(aluno?.consentimentoSaudeRetirado ?? false);
   };
 
   const aplicarAcesso = (leitura: LeituraAcesso) => {
@@ -506,18 +519,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { error: null };
   };
 
-  const signUp = async (email: string, password: string, fullName: string) => {
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: { full_name: fullName },
-        emailRedirectTo: window.location.origin,
-      },
-    });
-    return { error: error as Error | null };
-  };
-
   // O passo a passo e o porquê de cada passo estão em src/lib/sair.ts.
   // Enquanto sai, a árvore do app fica desmontada: nenhuma tela mostra dado
   // nem dispara consulta no meio da troca de sessão.
@@ -579,6 +580,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         situacaoAcademiaDesde,
         anamneseCompleta,
         consentimentoLgpdAceito,
+        consentimentoSaudeRetirado,
         isAuthenticated: !!session,
         isLoading,
         rolesLoaded,
@@ -591,7 +593,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         refreshOrganization,
         refreshProfile,
         signIn,
-        signUp,
         signOut,
         resetPassword,
         updatePassword,

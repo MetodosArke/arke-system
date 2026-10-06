@@ -221,13 +221,12 @@ export default function Login() {
                 </Button>
               </div>
             ) : (
-              <Button
-                variant="ghost"
-                className="mt-4 w-full"
-                onClick={() => navigate("/auth/register")}
-              >
-                Não tem conta? Cadastre-se
-              </Button>
+              // Sem cadastro aberto (06/10/2026): a conta nasce na matrícula da
+              // academia, no convite da equipe ou no da ArkeFit. A conta do
+              // antigo "Cadastre-se" ficava sem academia nenhuma.
+              <p className="mt-4 text-center text-xs text-muted-foreground">
+                Ainda não tem acesso? Peça à sua academia o link de matrícula ou de primeiro acesso.
+              </p>
             )}
             <LinksLegais className="mt-2 text-[11px] text-center text-muted-foreground space-x-3" />
           </CardContent>

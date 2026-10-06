@@ -30,22 +30,24 @@ test("login abre com os campos de acesso", async ({ page }) => {
   await semErros();
 });
 
-test("cadastro — página carregada sob demanda — renderiza", async ({ page }) => {
+// O cadastro aberto saiu em 06/10/2026: a conta nasce na matrícula, no convite
+// da academia ou no da ArkeFit. O endereço antigo cai no login, sem "Cadastre-se".
+test("o endereço antigo do cadastro cai no login, sem oferecer cadastro", async ({ page }) => {
   const semErros = vigiarErros(page);
   await page.goto("/#/auth/register");
-  await expect(page.getByRole("heading", { name: /criar conta/i })).toBeVisible();
+  await expect(page).toHaveURL(/#\/auth\/login/);
   await expect(page.getByRole("textbox", { name: /^senha/i })).toBeVisible();
+  await expect(page.getByRole("button", { name: /cadastre-se/i })).toHaveCount(0);
   await semErros();
 });
 
-test("navegar do login para o cadastro baixa a página nova sem quebrar", async ({ page }) => {
+test("navegar do login para a recuperação de senha baixa a página nova sem quebrar", async ({ page }) => {
   // O caminho que o code splitting mais arrisca: a navegação dentro do app,
   // que depende de o arquivo da próxima página chegar.
   const semErros = vigiarErros(page);
   await page.goto("/#/auth/login");
-  await page.getByRole("button", { name: /cadastre-se/i }).click();
-  await expect(page).toHaveURL(/#\/auth\/register/);
-  await expect(page.getByRole("heading", { name: /criar conta/i })).toBeVisible();
+  await page.getByRole("button", { name: /esqueceu a senha/i }).click();
+  await expect(page).toHaveURL(/#\/auth\/reset-password/);
   await semErros();
 });
 

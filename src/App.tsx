@@ -46,7 +46,6 @@ import NotFound from "./pages/NotFound";
 // NotFound ficam no pacote principal: o primeiro é a porta de entrada de
 // quase todo mundo, o segundo é mínimo. Ver src/lib/carregamentoPreguicoso.ts
 // para o que acontece quando um deploy troca os arquivos com a aba aberta.
-const Register = paginaPreguicosa(() => import("@/pages/auth/Register"));
 const ResetPassword = paginaPreguicosa(() => import("@/pages/auth/ResetPassword"));
 const DefinirSenha = paginaPreguicosa(() => import("@/pages/auth/DefinirSenha"));
 const PublicMatricula = paginaPreguicosa(() => import("@/pages/public/PublicMatricula"));
@@ -151,10 +150,14 @@ const SUPERADMIN_ROLES = ["superadmin"] as const;
 // direto pro app, com acesso básico (treino, dieta) funcionando do jeito
 // que a equipe publicar pra ele.
 function AlunoOnboardingGate({ children }: { children: React.ReactNode }) {
-  const { alunoId, metodoArkeAtivo, anamneseCompleta, consentimentoLgpdAceito, rolesLoaded } = useAuth();
+  const { alunoId, metodoArkeAtivo, anamneseCompleta, consentimentoLgpdAceito, consentimentoSaudeRetirado, rolesLoaded } =
+    useAuth();
   // Em perfil simulado, quem simula não preenche nem autoriza pelo aluno: vê o
   // app como ele, e as duas telas seguem abertas pelo endereço.
   if (emPerfilSimulado()) return <>{children}</>;
+  // Quem retirou o consentimento de saúde (Perfil → Privacidade) não é preso
+  // no acolhimento: autoriza de novo quando quiser, pelo mesmo lugar.
+  if (consentimentoSaudeRetirado) return <>{children}</>;
   // `=== false`, e não `!`: anamnese com leitura falha é desconhecida (null),
   // e mandar esse aluno de volta ao acolhimento era o caminho para ele
   // reenviar e sobrescrever a anamnese que já existia.
@@ -226,7 +229,8 @@ const App = () => (
 
               {/* Auth routes */}
               <Route path="/auth/login" element={<Login />} />
-              <Route path="/auth/register" element={<Register />} />
+              {/* O cadastro aberto saiu (06/10/2026): o link antigo cai no login. */}
+              <Route path="/auth/register" element={<Navigate to="/auth/login" replace />} />
               <Route path="/auth/reset-password" element={<ResetPassword />} />
               <Route path="/auth/definir-senha" element={<DefinirSenha />} />
 
