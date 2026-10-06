@@ -9,7 +9,7 @@ O diário do ArkeFit: o porquê de cada decisão, o defeito que apareceu no cami
 | [cobranca.md](cobranca.md) | Asaas, ciclo de vida da cobrança, repasse, bloqueio por pagamento, cobrança avulsa, nota fiscal, transições de status |
 | [fuso-e-datas.md](fuso-e-datas.md) | O banco e o app no fuso de Brasília |
 | [metodo-arke.md](metodo-arke.md) | Sensores, avanço de fases, fila e console do mentor, operação da célula, profissional autônomo |
-| [ia-e-lgpd.md](ia-e-lgpd.md) | Sentinela, consentimento de IA, documentos legais, IA no Brasil, dieta por PDF |
+| [ia-e-lgpd.md](ia-e-lgpd.md) | Sentinela, consentimento de IA, documentos legais, IA no Brasil, dieta por PDF, aluno menor de idade |
 | [agentes.md](agentes.md) | Letícia, Bruno, Lucas, Pipeline comercial, Vigia |
 | [catracas.md](catracas.md) | Gateway Local, marcas de catraca e cada versão do Gateway |
 | [seguranca-e-acesso.md](seguranca-e-acesso.md) | Senha, captcha, vínculos, RLS, rodada 360°, freio, perfil simulado, duas etapas |

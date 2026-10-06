@@ -9,6 +9,8 @@ Há dois caminhos, e os dois são do aluno:
 
 Uma autorização vale para a digital e para o rosto. Sem ela, o cadastro dos dois fica bloqueado. O cartão não depende dessa autorização.
 
+**Aluno menor de 18 anos:** a autorização só vale depois que o responsável legal autoriza pelo link enviado ao e-mail dele. O termo impresso do menor sai com o nome e a assinatura do responsável, e o bloco do termo tem **Enviar o link ao responsável**. Sem a data de nascimento, o registro espera a data, que a recepção informa em **Dados**. Veja [Aluno menor de idade e o responsável legal](ajuda:menores-de-idade).
+
 Quando o texto da autorização muda, a ficha avisa que o aluno autorizou sob um texto antigo. Para cadastrar digital ou rosto de novo, ele confirma no app ou assina o termo novo.
 
 ## Cadastrar digital e cartão

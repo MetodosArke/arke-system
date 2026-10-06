@@ -124,7 +124,7 @@ Ficam em Supabase → Project Settings → Edge Functions → Secrets. O Supabas
 ## Resend
 
 - **Domínio** `arkefit.com.br`: verificado, região `sa-east-1`, com envio e recebimento ligados e sem rastreamento de abertura nem de clique.
-- **Remetentes usados pelo código:** `alertas@`, `relatorios@`, `convites@`, `suporte@`, `site@`, `ola@`, `noreply@`, `contato@`, `comercial@`, `implantacao@` e `acesso@arkefit.com.br`. Três podem ser trocados sem mexer no código, por variável das funções (não são segredos, e hoje nenhuma está definida): `EMAIL_IMPLANTACAO_FROM` (Bruno e o aviso de painel pronto do profissional autônomo), `EMAIL_SUPORTE_FROM` (chamado do assistente da academia) e `EMAIL_ACESSO_FROM` (aviso de matrícula a quem já tinha conta).
+- **Remetentes usados pelo código:** `alertas@`, `relatorios@`, `convites@`, `suporte@`, `site@`, `ola@`, `noreply@`, `contato@`, `comercial@`, `implantacao@` e `acesso@arkefit.com.br`. Três podem ser trocados sem mexer no código, por variável das funções (não são segredos, e hoje nenhuma está definida): `EMAIL_IMPLANTACAO_FROM` (Bruno e o aviso de painel pronto do profissional autônomo), `EMAIL_SUPORTE_FROM` (chamado do assistente da academia) e `EMAIL_ACESSO_FROM` (aviso de matrícula a quem já tinha conta e o pedido de autorização ao responsável do aluno menor, `responsavel-pedido`).
 - **Onde entra a chave do Resend:** no segredo `RESEND_API_KEY` e na senha do SMTP do Auth.
 
 ## Amazon Web Services (Bedrock)

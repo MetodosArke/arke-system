@@ -295,6 +295,13 @@ export const ARTIGOS: ArtigoAjuda[] = [
     secao: "Academia e equipe",
     publicos: EQUIPE,
   },
+  {
+    slug: "menores-de-idade",
+    titulo: "Aluno menor de idade e o responsável legal",
+    resumo: "A data de nascimento, o link de autorização ao responsável, o termo da digital do menor e como retirar.",
+    secao: "Academia e equipe",
+    publicos: EQUIPE,
+  },
 
   // ——— App do aluno ———
   {
@@ -384,6 +391,13 @@ export const ARTIGOS: ArtigoAjuda[] = [
     slug: "app-privacidade",
     titulo: "Seus dados e a inteligência artificial",
     resumo: "Quem vê o quê, os dois interruptores de IA e como pedir cópia ou exclusão.",
+    secao: "Privacidade",
+    publicos: ["aluno"],
+  },
+  {
+    slug: "app-menor-de-idade",
+    titulo: "Menor de 18 anos: a autorização do seu responsável",
+    resumo: "O que depende do responsável, como pedir pelo app, quem liga cada autorização e como retirar.",
     secao: "Privacidade",
     publicos: ["aluno"],
   },

@@ -1,10 +1,14 @@
-Em [Alunos & Prescrições](/admin/alunos), clique em **Cadastrar Aluno** e preencha nome completo, e-mail, telefone e CPF. Cadastrar alunos é tarefa do gestor e da recepção; a importação em massa é só do gestor.
+Em [Alunos & Prescrições](/admin/alunos), clique em **Cadastrar Aluno** e preencha nome completo, e-mail, telefone, CPF e data de nascimento. Cadastrar alunos é tarefa do gestor e da recepção; a importação em massa é só do gestor.
 
 ![Alunos & Prescrições: o convite de primeiro acesso no topo e a lista com plano, situação e fase.](/ajuda/telas/alunos.jpg)
 
 ## Por que o CPF é obrigatório
 
 A matrícula gera cobrança, e o meio de pagamento não emite cobrança sem CPF. Por isso ele é exigido em todo cadastro de aluno, pela ficha, pela importação ou pelo link de matrícula. O sistema confere os dígitos na hora e avisa se o número estiver errado.
+
+## Por que a data de nascimento
+
+Ela diz quem é menor de 18 anos. O menor treina normalmente, mas os dados de saúde, a digital e o rosto e a inteligência artificial esperam a autorização do responsável legal. Veja [Aluno menor de idade e o responsável legal](ajuda:menores-de-idade).
 
 ## Depois de salvar
 

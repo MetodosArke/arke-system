@@ -4,7 +4,7 @@ Clique no nome de um aluno em [Alunos & Prescrições](/admin/alunos) para abrir
 
 ## Os blocos
 
-- **Dados**: contato, CPF, situação na academia e plano (Free ou Método ARKE).
+- **Dados**: contato, CPF, situação na academia e plano (Free ou Método ARKE). Também a data de nascimento (a gestão e a recepção preenchem a que falta e corrigem a errada) e, para o menor de 18 anos, o que o responsável legal autorizou. Veja [Aluno menor de idade e o responsável legal](ajuda:menores-de-idade).
 - **Metas do Aluno**: meta de água por dia e de dias de treino por semana. A constância é medida contra a meta do próprio aluno: quem tem meta de 2 treinos e faz os 2 está com 100%.
 - **Fase da Jornada**: M.A.P.A.®, B.A.S.E.®, R.O.T.A.®, A.P.E.X.® e L.E.G.A.D.O.®, só no Método. O aluno avança sozinho quando cumpre o critério da fase, e o mentor da ArkeFit pode adiantar, corrigir ou recuar. Quando o aluno não avança, a ficha diz por quê.
 - **Anamnese de Acolhimento**: o que o aluno do plano Free respondeu no acolhimento.

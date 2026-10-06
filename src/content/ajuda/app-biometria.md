@@ -17,6 +17,8 @@ Só para liberar a sua entrada e registrar a sua frequência na academia. Para n
 
 Ninguém da academia pode autorizar por você. Uma autorização vale para os dois, digital e rosto.
 
+Se você tem menos de 18 anos, o seu responsável legal autoriza antes, por um link no e-mail dele. Veja [Menor de 18 anos: a autorização do seu responsável](ajuda:app-menor-de-idade).
+
 ## O rosto: na recepção ou por foto no app
 
 Se a academia tem leitor de rosto, há dois jeitos de cadastrar:
