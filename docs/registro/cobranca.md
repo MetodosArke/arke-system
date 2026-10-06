@@ -501,7 +501,20 @@ A responsabilidade fiscal (item seguinte do contrato) pede um ajuste de uma pala
 ### Fica com o responsável
 
 1. ~~As três migrations em transação desfeita~~ (feito em 06/10, acima). Depois de aplicadas, `supabase gen types` para conferir que o `types.ts` editado à mão bate com o gerado.
-2. A publicação das funções, nesta ordem: `asaas-webhook` e `asaas-reconciliar` primeiro, depois as que criam e mexem em cobrança, e por fim `asaas-conta-academia`.
+2. ~~A publicação das funções~~ (feito em 06/10: as 14, nesta ordem, e nenhuma outra que depende dos módulos que mudaram ficou de fora).
 3. ~~Os cenários do sandbox~~ (feito em 06/10, acima).
-4. O print da tela de abertura da subconta, na academia de homologação (trial).
-5. A aprovação da proposta de texto do recebimento e da redação das taxas na tela.
+4. ~~O print da tela de abertura da subconta~~ (feito em 06/10, abaixo).
+5. A aprovação da proposta de texto do recebimento e da redação das taxas na tela. Ela espera a resposta do Asaas ao checklist, que decide entre ligar a cobrança na conta da academia ou manter a taxa como uso da plataforma.
+
+**Pela corrente real, depois do deploy** (06/10):
+- `asaas-webhook` recusa sem token (401), e o webhook da academia recusa token inventado (401), sem gravar nada.
+- Uma academia ativa, fora do trial, que tenta abrir a subconta com o interruptor desligado recebe 409, com a orientação da conta própria.
+- O interruptor está em 0, e nenhuma academia está no modo.
+- Os 60 avisos do Asaas que entraram desde o deploy foram processados sem erro.
+
+**A tela em produção** (06/10, contas temporárias na homologação, apagadas no fim):
+- **Abertura da conta:** no computador, nos dois temas, a tela da academia em trial mostra o selo oficial, quem abre e mantém a conta, e o aceite dos Termos do Asaas.
+- **Financeiro da gestão:** mostra o selo no topo.
+- **App do aluno, no celular, nos dois temas:** os pagamentos da academia mostram o selo e o suporte do Asaas.
+- **O selo certo em cada tema:** "Positivo" no claro, "Negativo-Branco" no escuro, carregado do endereço do Asaas com o id da ArkeFit.
+- Os prints dessas telas foram para a pergunta 06 do checklist.
