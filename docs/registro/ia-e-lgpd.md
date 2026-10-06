@@ -208,3 +208,13 @@ O que muda:
 O Contrato remete à lista de suboperadores da Política, então não muda. O novo aceite que a plataforma pede vale como o aviso que ele promete às academias.
 
 A versão entra no banco pela migration `20261354010000`, aplicada depois de o texto estar no ar.
+
+## Política 2026-10-06.2: o memorando do advogado
+
+Em 06/10/2026, o responsável enviou o memorando de adequação regulatória do advogado. Dois itens viraram texto da Política, na redação dele, como estava:
+- **Seção 6:** a transferência internacional se apoia no art. 33, II, com os DPAs dos provedores em conformidade com as Cláusulas-Padrão da ANPD. Para a frase ser verdadeira, os provedores precisam adotar as cláusulas. O pedido a Vercel, Sentry, Resend e AWS segue como pendência do responsável no workspace.
+- **Seção 7:** os registros de acesso ficam 6 meses (Marco Civil, art. 15) e são apagados depois, "inexistindo ordem judicial em contrário". A ordem judicial ganhou lugar no banco (`registros_acesso_preservacoes`, migration `20261381`), e a rotina não apaga os registros de quem tem ordem vigente.
+
+O terceiro item do memorando (CREF e CRN) não virou texto. Ele descreve a ArkeFit como só tecnologia, com a prescrição toda da academia. No Método ARKE é o contrário: a prescrição é da equipe da ArkeFit, por profissionais com CREF e CRN, como dizem o Contrato (cláusulas 2, 6.1 e 8) e a Política (seção 4). O ponto voltou ao responsável com os fatos, para o advogado reavaliar.
+
+**Conferido em transação desfeita:** com uma ordem vigente, a rotina apagou o registro antigo de quem não tinha ordem e guardou o de quem tinha. A equipe não lê as ordens.

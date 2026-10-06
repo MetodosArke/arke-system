@@ -89,8 +89,14 @@ export const DOCUMENTOS: Record<
     // Decisao do responsavel no workspace (D2, 06/10/2026): versao antes do
     // primeiro cliente. Texto aprovado pelo responsavel no workspace em
     // 06/10/2026, como estava.
-    versao: "2026-10-06",
-    sha256: "f0fba71e9b4cb201d3d51b5e664bc4b345346a6bd39aeeae05f4ba14724817ff",
+    // 2026-10-06.2: o memorando de adequação regulatória do advogado, enviado
+    // pelo responsável em 06/10/2026 -- a secao 6 passa a fundamentar a
+    // transferencia internacional no art. 33, II, com os DPAs dos provedores
+    // em conformidade com as Clausulas-Padrao da ANPD (Resolucao CD/ANPD
+    // 19/2024), e a secao 7 declara a guarda dos registros de acesso por 6
+    // meses (Marco Civil, art. 15). Redacao do advogado, como estava.
+    versao: "2026-10-06.2",
+    sha256: "82fa9b246d294daa2cffacc20510b8c0292dcbd66b02804dd3042e0a466cd550",
     texto: privacidade,
     revisadoJuridico: true,
   },

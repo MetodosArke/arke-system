@@ -18,7 +18,7 @@ Esta Política explica como os dados pessoais são tratados na plataforma ARKE, 
 - **Pagamento:** a cobrança é processada pelo Asaas. A plataforma guarda apenas situação das cobranças, os 4 últimos dígitos e a bandeira do cartão — nunca o número completo.
 - **Nota fiscal:** quando a Academia emite nota fiscal pela plataforma, a nota sai no CNPJ dela, pelo Asaas, com o seu nome, CPF, endereço e e-mail, o serviço e o valor; vai para a prefeitura da cidade da Academia e chega a você por e-mail. A plataforma guarda a situação, o número e o link da nota.
 - **Contato comercial com a ArkeFit:** quem pede uma demonstração na página de vendas informa nome, academia, WhatsApp, e-mail e cidade e, se quiser, o número de alunos, o sistema que usa hoje e uma mensagem. Quem fala com a ArkeFit pelo WhatsApp ou por telefone, ou é indicado por outra pessoa, tem anotados pela equipe comercial o nome, a academia, o telefone, o e-mail, a cidade e o que contou. Na prospecção, a ArkeFit anota o contato que a própria academia publicou na internet (no site dela, em redes sociais ou em mapas), com a fonte.
-- **Dados técnicos:** registros de acesso e de erro. O endereço IP usado para limitar tentativas de cadastro é guardado apenas em forma cifrada (hash) por até 24 horas; no pedido de contato feito pelo site, o hash fica junto do pedido, para barrar abuso, e sai com ele. Os relatórios de erro não incluem nome, e-mail, CPF nem dados de saúde: a pessoa e a academia aparecem neles só por um código interno.
+- **Dados técnicos:** registros de acesso (endereço IP, data e hora de uso, guardados por 6 meses: ver a seção 7) e de erro. O endereço IP usado para limitar tentativas de cadastro é guardado apenas em forma cifrada (hash) por até 24 horas; no pedido de contato feito pelo site, o hash fica junto do pedido, para barrar abuso, e sai com ele. Os relatórios de erro não incluem nome, e-mail, CPF nem dados de saúde: a pessoa e a academia aparecem neles só por um código interno.
 
 ## 3. Para que usamos e com qual base legal
 
@@ -83,7 +83,7 @@ Parte da infraestrutura — a hospedagem do aplicativo, o registro de erros, o e
 
 **A análise por inteligência artificial (seção 4) e a leitura do plano alimentar em PDF (seção 3) são processadas no Brasil**, em São Paulo, e por isso **não envolvem transferência internacional**. Os seus dados de saúde e as suas mensagens não saem do país para essas finalidades.
 
-As transferências da infraestrutura de apoio ocorrem com base nas garantias contratuais oferecidas por cada provedor (art. 33, II, da LGPD), com criptografia em trânsito e controles de acesso.
+A ArkeFit poderá realizar a transferência internacional dos seus dados pessoais para fins de hospedagem, processamento em nuvem e segurança da informação, utilizando-se de infraestrutura tecnológica de terceiros. Garantimos que tais transferências ocorrerão apenas para países ou organismos internacionais que proporcionem grau de proteção de dados adequado, ou mediante a adoção de garantias contratuais por parte dos provedores (Data Processing Agreements), em conformidade com as diretrizes e Cláusulas-Padrão Contratuais estabelecidas pela Autoridade Nacional de Proteção de Dados (ANPD) (art. 33, II, da LGPD), com criptografia em trânsito e controles de acesso.
 
 ## 7. Por quanto tempo
 
@@ -94,6 +94,7 @@ As transferências da infraestrutura de apoio ocorrem com base nas garantias con
 - O contato comercial que não virou cliente, qualquer que seja o canal por onde chegou, é apagado depois de 12 meses sem andamento.
 - A digital e o rosto ficam nos equipamentos da Academia enquanto a sua autorização valer e a matrícula estiver ativa. A foto do rosto enviada pelo aplicativo fica na plataforma só até chegar aos equipamentos, e no máximo 24 horas. O registro de que a autorização foi dada — e o termo assinado, quando houver — é guardado pelo prazo legal, como prova.
 - Rascunhos digitados na plataforma ficam só no navegador, durante a sessão, e somem ao fechar a aba.
+- Em estrito cumprimento ao disposto no artigo 15 da Lei Federal nº 12.965/2014 (Marco Civil da Internet), a ArkeFit coleta e armazena, em ambiente seguro e sigiloso, os registros de acesso a aplicações de internet (endereço IP, data e hora de uso) pelo prazo legal e inegociável de 6 (seis) meses. Transcorrido este período, e inexistindo ordem judicial em contrário, os dados são definitiva e automaticamente excluídos de nossas bases.
 
 ## 8. Seus direitos
 
