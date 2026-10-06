@@ -113,6 +113,7 @@ Cada linha é uma armadilha que já aconteceu aqui. Onde há trava, ela é um te
 - O token do Gateway só como hash (`tokenCatraca.guarda`). O receptor atende só os IPs dos equipamentos do config.
 - IA: região fixa e modelo sem roteamento (`iaNoBrasil.guarda`), e prazo em toda chamada (`prazoIA.guarda`).
 - Sentry: o módulo é uma lista do que não sai. Session Replay desligado, e a identificação vai só por UUID.
+- Log das funções leva `resumoDoErro(erro)`, nunca o objeto de erro nem a mensagem, que traz e-mail ou CPF (`logsSemDadoPessoal.guarda`).
 - Captcha só por `_shared/captcha.ts`. Senha vazada por k-anonimato (HIBP), com falha aberta.
 - A chave do Asaas só pelo `ambienteAsaas` (`ambienteAsaas.guarda`). O webhook confere cada gravação, e o aviso do sandbox só toca organização em trial, mesmo sem achar organização (`webhookAsaas.guarda`). O aviso do Asaas é gravado reduzido ao que o webhook lê, mais os 4 dígitos e a bandeira (`trg_minimizar_aviso_asaas`, `avisoAsaas.guarda`).
 - Na sessão simulada, as autorizações da pessoa são recusadas no banco (`perfilSimulado.guarda`).

@@ -2,6 +2,7 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import { hashDoTokenCatraca } from "../_shared/tokenCatraca.ts";
 import { todasAsLinhas } from "../_shared/paginar.ts";
 import { servir } from "../_shared/servir.ts";
+import { resumoDoErro } from "../_shared/resumoDoErro.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -62,7 +63,7 @@ servir("catraca-sincronizar-alunos", async (req: Request) => {
       .eq("device_token_hash", tokenHash)
       .maybeSingle();
     if (catracaError) {
-      console.error("Erro ao consultar catraca:", catracaError);
+      console.error("Erro ao consultar catraca:", resumoDoErro(catracaError));
       return jsonResponse({ error: "Falha ao validar dispositivo." }, 500);
     }
     if (!catraca) {
@@ -82,7 +83,7 @@ servir("catraca-sincronizar-alunos", async (req: Request) => {
       .update({ ultimo_heartbeat_em: new Date().toISOString() })
       .eq("id", catraca.id)
       .then(({ error }) => {
-        if (error) console.error("Falha ao registrar heartbeat da catraca", error);
+        if (error) console.error("Falha ao registrar heartbeat da catraca", resumoDoErro(error));
       });
 
     // Pedido de diferença: o Gateway manda o `sincronizado_em` da última
@@ -112,7 +113,7 @@ servir("catraca-sincronizar-alunos", async (req: Request) => {
           .range(de, ate)
       );
     } catch (e) {
-      console.error("Erro ao montar a sincronização:", e instanceof Error ? e.message : typeof e);
+      console.error("Erro ao montar a sincronização:", resumoDoErro(e));
       return jsonResponse({ error: "Falha ao listar alunos." }, 500);
     }
 
@@ -143,7 +144,7 @@ servir("catraca-sincronizar-alunos", async (req: Request) => {
       sincronizado_em: agora.toISOString(),
     });
   } catch (error) {
-    console.error("Erro inesperado em catraca-sincronizar-alunos:", error);
+    console.error("Erro inesperado em catraca-sincronizar-alunos:", resumoDoErro(error));
     return jsonResponse({ error: "Erro inesperado ao sincronizar alunos." }, 500);
   }
 });

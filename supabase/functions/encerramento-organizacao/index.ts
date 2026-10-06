@@ -4,6 +4,7 @@ import { ambienteAsaas } from "../_shared/asaas.ts";
 import { hojeBrasilia } from "../_shared/data.ts";
 import { encerrarCobrancasDoAluno } from "../_shared/encerrarCobrancas.ts";
 import { descreverErro, registrarExecucao } from "../_shared/execucao.ts";
+import { resumoDoErro } from "../_shared/resumoDoErro.ts";
 import { todasAsLinhas } from "../_shared/paginar.ts";
 import { pausarAssinatura } from "../asaas-assinatura-ciclo/fluxo.ts";
 import { servir } from "../_shared/servir.ts";
@@ -356,7 +357,7 @@ servir("encerramento-organizacao", async (req: Request) => {
           continue;
         }
         resultado.falhas++;
-        console.error("encerramento: falhou", enc.proxima, descreverErro(e));
+        console.error("encerramento: falhou", enc.proxima, resumoDoErro(e));
         await admin.rpc("registrar_falha_encerramento", { _encerramento_id: enc.id, _erro: descreverErro(e) });
       }
     }
@@ -395,7 +396,7 @@ servir("encerramento-organizacao", async (req: Request) => {
           break;
         }
         resultado.falhas++;
-        console.error("encerramento: aviso aos alunos falhou", descreverErro(e));
+        console.error("encerramento: aviso aos alunos falhou", resumoDoErro(e));
         await admin.rpc("registrar_falha_encerramento", { _encerramento_id: enc.id, _erro: `aviso aos alunos: ${descreverErro(e)}` });
       }
     }
@@ -405,7 +406,7 @@ servir("encerramento-organizacao", async (req: Request) => {
     await registrarExecucao(admin, NOME, true);
     return jsonResponse({ ok: true, ...resultado });
   } catch (e) {
-    console.error("encerramento: erro inesperado", descreverErro(e));
+    console.error("encerramento: erro inesperado", resumoDoErro(e));
     await registrarExecucao(admin, NOME, false, descreverErro(e));
     return jsonResponse({ error: "Erro inesperado." }, 500);
   }

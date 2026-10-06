@@ -2,6 +2,7 @@ import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2";
 import { verificada } from "../_shared/verificacao.ts";
 import { emailPainelPronto, type Especialidade } from "./email.ts";
 import { servir } from "../_shared/servir.ts";
+import { resumoDoErro } from "../_shared/resumoDoErro.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -290,7 +291,7 @@ servir("convidar-profissional-autonomo", async (req: Request) => {
     return jsonResponse({ user_id: r.user_id, organization_id: org.id, conta_existente: !!conta, aviso: r.aviso });
   } catch (error) {
     if (error instanceof Recusa) return jsonResponse({ error: error.message }, error.status);
-    console.error("Unexpected error in convidar-profissional-autonomo", error instanceof Error ? error.message : "desconhecido");
+    console.error("Unexpected error in convidar-profissional-autonomo", resumoDoErro(error));
     return jsonResponse({ error: "Erro inesperado ao cuidar do profissional." }, 500);
   }
 });

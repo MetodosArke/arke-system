@@ -10,6 +10,7 @@ import { ambienteAsaas } from "../_shared/asaas.ts";
 import { dentroDoFreio, MENSAGEM_FREIO, regrasAsaas } from "../_shared/freio.ts";
 import { MENSAGEM_SO_QUEM_COBRA, podeCobrarNaAcademia } from "../_shared/papelCobranca.ts";
 import { servir } from "../_shared/servir.ts";
+import { resumoDoErro } from "../_shared/resumoDoErro.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -212,7 +213,7 @@ servir("asaas-create-subscription", async (req: Request) => {
       _nivel_atacado: aluno.nivel_atacado,
     });
     if (repasseError) {
-      console.error("Falha ao calcular o repasse", repasseError);
+      console.error("Falha ao calcular o repasse", resumoDoErro(repasseError));
       return jsonResponse({ error: "Não foi possível calcular o repasse ARKE." }, 500);
     }
     // Nulo = repasse nao negociado com esta academia. Recusar e melhor que
@@ -297,7 +298,7 @@ servir("asaas-create-subscription", async (req: Request) => {
       .single();
 
     if (upsertError) {
-      console.error("Erro ao gravar assinatura", upsertError);
+      console.error("Erro ao gravar assinatura", resumoDoErro(upsertError));
       return jsonResponse(
         {
           error:
@@ -309,7 +310,7 @@ servir("asaas-create-subscription", async (req: Request) => {
 
     return jsonResponse({ assinatura, asaas_subscription_id: subscription.id });
   } catch (error) {
-    console.error("asaas-create-subscription error", error);
+    console.error("asaas-create-subscription error", resumoDoErro(error));
     return jsonResponse({ error: "Erro inesperado ao criar assinatura." }, 500);
   }
 });

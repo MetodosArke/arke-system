@@ -418,4 +418,10 @@ A tela acompanha a ordem (`useComandoGateway().acompanhar`) e só diz que libero
 - a ordem concluída não grava um segundo acesso (`liberado_remoto`);
 - a gestora com aplicativo autenticador e a sessão só de senha é recusada (42501).
 
-**Falta,** pela corrente real, uma catraca que aceita ordem remota abrindo pelo check-in, e uma sem gestão remota mostrando o aviso de liberar à mão.
+**Pela corrente real** (`catraca-checkin-parceiro-externo` publicada, academia e conta temporárias, apagadas no fim):
+- a catraca sem ordem remota registra e responde `manual`;
+- com o Gateway no ar, responde `enviada`, e a ordem `liberar_catraca` entra na fila com o parceiro;
+- os dois check-ins ficam registrados;
+- o parceiro não habilitado não registra nada.
+
+**Falta** a ponta do Gateway com uma catraca de verdade, que entra com a primeira catraca na bancada.

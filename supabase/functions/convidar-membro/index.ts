@@ -4,6 +4,7 @@ import { hojeBrasilia } from "../_shared/data.ts";
 import { dentroDoFreio, MENSAGEM_FREIO } from "../_shared/freio.ts";
 import { erroDataNascimento } from "../_shared/nascimento.ts";
 import { servir } from "../_shared/servir.ts";
+import { resumoDoErro } from "../_shared/resumoDoErro.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -363,7 +364,7 @@ servir("convidar-membro", async (req: Request) => {
         });
 
     if (inviteError || !invited.user) {
-      console.error("Error inviting user", inviteError);
+      console.error("Error inviting user", resumoDoErro(inviteError));
       // O limite de e-mails do login vale para o projeto inteiro, e não só
       // para esta academia: a importação para aqui e retoma depois.
       if (inviteError?.status === 429 || /rate limit/i.test(inviteError?.message ?? "")) {
@@ -390,7 +391,7 @@ servir("convidar-membro", async (req: Request) => {
 
     // rollback best-effort em qualquer etapa seguinte que falhar
     const rollback = async () => {
-      await adminClient.auth.admin.deleteUser(newUserId).catch((e) => console.error("rollback deleteUser", e));
+      await adminClient.auth.admin.deleteUser(newUserId).catch((e) => console.error("rollback deleteUser", resumoDoErro(e)));
     };
 
     const { error: profileError } = await adminClient
@@ -400,7 +401,7 @@ servir("convidar-membro", async (req: Request) => {
         { onConflict: "user_id" }
       );
     if (profileError) {
-      console.error("Error upserting profile", profileError);
+      console.error("Error upserting profile", resumoDoErro(profileError));
       await rollback();
       return jsonResponse({ error: "Erro ao preparar o perfil do usuário." }, 500);
     }
@@ -409,7 +410,7 @@ servir("convidar-membro", async (req: Request) => {
       .from("organization_members")
       .insert({ organization_id: organizationId, user_id: newUserId, role: papel, status: "active" });
     if (membershipError) {
-      console.error("Error inserting organization_members", membershipError);
+      console.error("Error inserting organization_members", resumoDoErro(membershipError));
       await rollback();
       return jsonResponse({ error: "Erro ao vincular o usuário à organização." }, 500);
     }
@@ -425,7 +426,7 @@ servir("convidar-membro", async (req: Request) => {
           data_nascimento: dataNascimento,
         });
       if (alunoError) {
-        console.error("Error inserting aluno", alunoError);
+        console.error("Error inserting aluno", resumoDoErro(alunoError));
         await adminClient.from("organization_members").delete().eq("user_id", newUserId);
         await rollback();
         return jsonResponse({ error: "Erro ao criar o cadastro do aluno." }, 500);
@@ -434,7 +435,7 @@ servir("convidar-membro", async (req: Request) => {
 
     return jsonResponse({ user_id: newUserId, sem_email: semEmail });
   } catch (error) {
-    console.error("Unexpected error in convidar-membro", error);
+    console.error("Unexpected error in convidar-membro", resumoDoErro(error));
     return jsonResponse({ error: "Erro inesperado ao processar o convite." }, 500);
   }
 });

@@ -3,6 +3,7 @@ import { verificarCaptcha } from "../_shared/captcha.ts";
 import { hojeBrasilia } from "../_shared/data.ts";
 import { erroDataNascimento } from "../_shared/nascimento.ts";
 import { servir } from "../_shared/servir.ts";
+import { resumoDoErro } from "../_shared/resumoDoErro.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -98,7 +99,7 @@ async function senhaEstaVazada(senha: string): Promise<{ vazada: boolean; ocorre
     // matricular. Isto é trava de qualidade de senha, não fronteira de
     // segurança — transformar indisponibilidade de terceiro em matrícula
     // bloqueada troca um risco pequeno por uma falha certa.
-    console.error("Falha ao consultar Pwned Passwords, seguindo sem checar:", erro);
+    console.error("Falha ao consultar Pwned Passwords, seguindo sem checar:", resumoDoErro(erro));
     return limpo;
   }
 }
@@ -198,7 +199,7 @@ servir("matricula-publica", async (req: Request) => {
       _ip_hash: await hashDoIp(ip, serviceRoleKey),
     });
     if (error) {
-      console.error("Limitador da matrícula indisponível, seguindo sem limite:", error);
+      console.error("Limitador da matrícula indisponível, seguindo sem limite:", resumoDoErro(error));
     } else if (data === null) {
       return jsonResponse({ error: MUITAS_TENTATIVAS }, 429);
     } else {
@@ -265,7 +266,7 @@ servir("matricula-publica", async (req: Request) => {
       .maybeSingle();
 
     if (orgError) {
-      console.error("Error loading organization", orgError);
+      console.error("Error loading organization", resumoDoErro(orgError));
       return jsonResponse({ error: "Erro ao buscar a academia." }, 500);
     }
     if (!org || !["ativo", "trial"].includes(org.status)) {
@@ -302,7 +303,7 @@ servir("matricula-publica", async (req: Request) => {
     });
 
     if (createError || !created.user) {
-      console.error("Error creating user", createError);
+      console.error("Error creating user", resumoDoErro(createError));
       const alreadyExists = createError?.message?.toLowerCase().includes("already been registered");
       return jsonResponse(
         {
@@ -316,14 +317,14 @@ servir("matricula-publica", async (req: Request) => {
 
     const newUserId = created.user.id;
     const rollback = async () => {
-      await admin.auth.admin.deleteUser(newUserId).catch((e) => console.error("rollback deleteUser", e));
+      await admin.auth.admin.deleteUser(newUserId).catch((e) => console.error("rollback deleteUser", resumoDoErro(e)));
     };
 
     const { error: profileError } = await admin
       .from("profiles")
       .upsert({ user_id: newUserId, full_name: fullName, phone: telefone, cpf, status: "active" }, { onConflict: "user_id" });
     if (profileError) {
-      console.error("Error upserting profile", profileError);
+      console.error("Error upserting profile", resumoDoErro(profileError));
       await rollback();
       return jsonResponse({ error: "Erro ao preparar o perfil do usuário." }, 500);
     }
@@ -332,7 +333,7 @@ servir("matricula-publica", async (req: Request) => {
       .from("organization_members")
       .insert({ organization_id: org.id, user_id: newUserId, role: "aluno", status: "active" });
     if (membershipError) {
-      console.error("Error inserting organization_members", membershipError);
+      console.error("Error inserting organization_members", resumoDoErro(membershipError));
       await rollback();
       return jsonResponse({ error: "Erro ao vincular o usuário à academia." }, 500);
     }
@@ -347,7 +348,7 @@ servir("matricula-publica", async (req: Request) => {
       data_nascimento: dataNascimento,
     });
     if (alunoError) {
-      console.error("Error inserting aluno", alunoError);
+      console.error("Error inserting aluno", resumoDoErro(alunoError));
       await admin.from("organization_members").delete().eq("user_id", newUserId);
       await rollback();
       return jsonResponse({ error: "Erro ao criar o cadastro de aluno." }, 500);
@@ -378,12 +379,12 @@ servir("matricula-publica", async (req: Request) => {
         _id: tentativaId,
         _organization_id: org.id,
       });
-      if (conclusaoError) console.error("Falha ao marcar tentativa concluída:", conclusaoError);
+      if (conclusaoError) console.error("Falha ao marcar tentativa concluída:", resumoDoErro(conclusaoError));
     }
 
     return jsonResponse({ user_id: newUserId });
   } catch (error) {
-    console.error("Unexpected error in matricula-publica", error);
+    console.error("Unexpected error in matricula-publica", resumoDoErro(error));
     return jsonResponse({ error: "Erro inesperado ao processar a matrícula." }, 500);
   }
 });

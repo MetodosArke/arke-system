@@ -2,6 +2,7 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import { verificada } from "../_shared/verificacao.ts";
 import { alvoSoNaAcademia, MENSAGEM_OUTRA_ACADEMIA } from "../_shared/alvoNaAcademia.ts";
 import { servir } from "../_shared/servir.ts";
+import { resumoDoErro } from "../_shared/resumoDoErro.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -168,7 +169,7 @@ servir("editar-membro-equipe", async (req: Request) => {
         email_confirm: true,
       });
       if (emailError) {
-        console.error("Error updating email", emailError);
+        console.error("Error updating email", resumoDoErro(emailError));
         const jaExiste = emailError.message?.toLowerCase().includes("already been registered");
         return jsonResponse(
           { error: jaExiste ? "Já existe um usuário cadastrado com esse e-mail." : emailError.message },
@@ -183,7 +184,7 @@ servir("editar-membro-equipe", async (req: Request) => {
         .update({ full_name: fullName })
         .eq("user_id", targetUserId);
       if (profileError) {
-        console.error("Error updating profile", profileError);
+        console.error("Error updating profile", resumoDoErro(profileError));
         return jsonResponse({ error: "Erro ao atualizar o nome." }, 500);
       }
     }
@@ -194,14 +195,14 @@ servir("editar-membro-equipe", async (req: Request) => {
         .update({ role })
         .eq("id", targetMembership.id);
       if (roleError) {
-        console.error("Error updating role", roleError);
+        console.error("Error updating role", resumoDoErro(roleError));
         return jsonResponse({ error: "Erro ao atualizar o papel." }, 500);
       }
     }
 
     return jsonResponse({ success: true });
   } catch (error) {
-    console.error("Unexpected error in editar-membro-equipe", error);
+    console.error("Unexpected error in editar-membro-equipe", resumoDoErro(error));
     return jsonResponse({ error: "Erro inesperado ao editar o membro." }, 500);
   }
 });

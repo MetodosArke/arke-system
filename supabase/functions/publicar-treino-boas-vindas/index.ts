@@ -1,5 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { servir } from "../_shared/servir.ts";
+import { resumoDoErro } from "../_shared/resumoDoErro.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -103,7 +104,7 @@ servir("publicar-treino-boas-vindas", async (req: Request) => {
         .eq("user_id", callerId)
         .maybeSingle();
       if (alunoError) {
-        console.error("Error loading aluno", alunoError);
+        console.error("Error loading aluno", resumoDoErro(alunoError));
         return jsonResponse({ error: "Erro ao carregar o cadastro do aluno." }, 500);
       }
       if (!alunoProprio) {
@@ -144,7 +145,7 @@ servir("publicar-treino-boas-vindas", async (req: Request) => {
       .eq("titulo", "Adaptação A")
       .maybeSingle();
     if (modeloError) {
-      console.error("Error loading modelo de boas-vindas", modeloError);
+      console.error("Error loading modelo de boas-vindas", resumoDoErro(modeloError));
       return jsonResponse({ error: "Erro ao carregar o modelo de treino." }, 500);
     }
     if (!modelo) {
@@ -159,13 +160,13 @@ servir("publicar-treino-boas-vindas", async (req: Request) => {
       _titulo: "Treino de Boas-vindas — Adaptação",
     });
     if (publicarError) {
-      console.error("Error publishing welcome treino", publicarError);
+      console.error("Error publishing welcome treino", resumoDoErro(publicarError));
       return jsonResponse({ error: "Erro ao publicar o treino de boas-vindas." }, 500);
     }
 
     return jsonResponse({ published: true, treino_id: treinoId });
   } catch (error) {
-    console.error("Unexpected error in publicar-treino-boas-vindas", error);
+    console.error("Unexpected error in publicar-treino-boas-vindas", resumoDoErro(error));
     return jsonResponse({ error: "Erro inesperado ao publicar o treino de boas-vindas." }, 500);
   }
 });

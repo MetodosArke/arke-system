@@ -10,6 +10,7 @@ import {
   type CobrancaAsaas,
 } from "./fluxo.ts";
 import { servir } from "../_shared/servir.ts";
+import { resumoDoErro } from "../_shared/resumoDoErro.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -310,7 +311,7 @@ servir("asaas-cobranca-avulsa", async (req: Request) => {
       valor_repasse_arke: repasse,
     });
   } catch (error) {
-    console.error("asaas-cobranca-avulsa error", error instanceof Error ? error.message : String(error));
+    console.error("asaas-cobranca-avulsa error", resumoDoErro(error));
     return jsonResponse({ error: "Erro inesperado ao processar a cobrança." }, 500);
   }
 });

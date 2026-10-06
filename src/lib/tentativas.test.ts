@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { comNovasTentativas, comPrazo, TentativasInterrompidas } from "./tentativas";
+import { comNovasTentativas, comPrazo, TentativasInterrompidas, tentarConsultaDeNovo } from "./tentativas";
 
 const semEsperar = () => {
   const esperas: number[] = [];
@@ -80,5 +80,13 @@ describe("comPrazo", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+});
+
+describe("tentarConsultaDeNovo", () => {
+  it("a consulta tenta de novo uma vez, e só: o supabase-js já repete por baixo", () => {
+    expect(tentarConsultaDeNovo(0)).toBe(true);
+    expect(tentarConsultaDeNovo(1)).toBe(false);
+    expect(tentarConsultaDeNovo(3)).toBe(false);
   });
 });

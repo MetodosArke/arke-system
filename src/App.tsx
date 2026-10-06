@@ -13,6 +13,7 @@ import { NetworkStatusBanner } from "@/components/NetworkStatusBanner";
 import { ImpersonationBanner } from "@/components/ImpersonationBanner";
 import { emPerfilSimulado } from "@/lib/impersonation";
 import { resolveHomePath } from "@/lib/authRouting";
+import { tentarConsultaDeNovo } from "@/lib/tentativas";
 import { Suspense, useState } from "react";
 import { paginaPreguicosa } from "@/lib/carregamentoPreguicoso";
 import { CarregandoPagina, CarregandoTela } from "@/components/CarregandoPagina";
@@ -116,7 +117,7 @@ const isNetworkError = (error: unknown) => {
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      retry: (failureCount, error) => failureCount < (isNetworkError(error) ? 4 : 1),
+      retry: tentarConsultaDeNovo,
       retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 15000),
       refetchOnReconnect: true,
       staleTime: 30_000,

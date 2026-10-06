@@ -1,6 +1,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { verificada } from "../_shared/verificacao.ts";
 import { servir } from "../_shared/servir.ts";
+import { resumoDoErro } from "../_shared/resumoDoErro.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -150,7 +151,7 @@ servir("criar-organizacao-superadmin", async (req: Request) => {
       .select("id")
       .single();
     if (orgError || !organizacao) {
-      console.error("Error creating organization", orgError);
+      console.error("Error creating organization", resumoDoErro(orgError));
       const slugDuplicado = orgError?.code === "23505";
       return jsonResponse(
         { error: slugDuplicado ? "Esse slug já está em uso por outra organização." : "Erro ao criar a organização." },
@@ -191,7 +192,7 @@ servir("criar-organizacao-superadmin", async (req: Request) => {
         _email: gestorEmail,
       });
       if (buscaError || !userIdExistente) {
-        console.error("Error looking up existing gestor by email", buscaError);
+        console.error("Error looking up existing gestor by email", resumoDoErro(buscaError));
         await rollbackOrganizacao();
         return jsonResponse(
           { error: "Já existe uma conta com esse e-mail, mas não foi possível localizá-la para vincular à organização." },
@@ -204,14 +205,14 @@ servir("criar-organizacao-superadmin", async (req: Request) => {
       // SMTP indisponível) — cria a conta sem depender do envio de e-mail
       // (generateLink nunca envia e-mail sozinho, só gera o link/token,
       // mesmo mecanismo já usado em gerar-link-ativacao) em vez de abortar.
-      console.error("Error inviting gestor, falling back to silent account creation", inviteError);
+      console.error("Error inviting gestor, falling back to silent account creation", resumoDoErro(inviteError));
       const { data: linkData, error: linkError } = await adminClient.auth.admin.generateLink({
         type: "invite",
         email: gestorEmail,
         options: { data: { full_name: gestorNome }, redirectTo: `${siteUrl}/#/auth/definir-senha` },
       });
       if (linkError || !linkData?.user) {
-        console.error("Error creating gestor account via generateLink fallback", linkError);
+        console.error("Error creating gestor account via generateLink fallback", resumoDoErro(linkError));
         await rollbackOrganizacao();
         return jsonResponse({ error: inviteError?.message ?? "Falha ao convidar o gestor." }, 400);
       }
@@ -221,7 +222,7 @@ servir("criar-organizacao-superadmin", async (req: Request) => {
 
     const rollback = async () => {
       if (!gestorJaExistia && gestorUserId) {
-        await adminClient.auth.admin.deleteUser(gestorUserId).catch((e) => console.error("rollback deleteUser", e));
+        await adminClient.auth.admin.deleteUser(gestorUserId).catch((e) => console.error("rollback deleteUser", resumoDoErro(e)));
       }
       await rollbackOrganizacao();
     };
@@ -234,7 +235,7 @@ servir("criar-organizacao-superadmin", async (req: Request) => {
         .from("profiles")
         .upsert({ user_id: gestorUserId, full_name: gestorNome, status: "active" }, { onConflict: "user_id" });
       if (profileError) {
-        console.error("Error upserting profile", profileError);
+        console.error("Error upserting profile", resumoDoErro(profileError));
         await rollback();
         return jsonResponse({ error: "Erro ao preparar o perfil do gestor." }, 500);
       }
@@ -285,7 +286,7 @@ servir("criar-organizacao-superadmin", async (req: Request) => {
       aviso,
     });
   } catch (error) {
-    console.error("Unexpected error in criar-organizacao-superadmin", error);
+    console.error("Unexpected error in criar-organizacao-superadmin", resumoDoErro(error));
     return jsonResponse({ error: "Erro inesperado ao criar a organização." }, 500);
   }
 });

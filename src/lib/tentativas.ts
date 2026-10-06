@@ -71,3 +71,15 @@ export async function comPrazo(promessa: Promise<unknown>, ms: number): Promise<
     clearTimeout(relogio);
   }
 }
+
+/**
+ * O `retry` das consultas do react-query (`App.tsx`): uma nova tentativa, e
+ * só. Pelo mesmo motivo de `comNovasTentativas`: o supabase-js já repete por
+ * baixo toda leitura que falha por rede (até 3 vezes, com 1, 2 e 4 segundos).
+ * Com quatro tentativas por cima, a lista de alunos sem resposta do banco
+ * ficava 53 segundos em "Carregando..." antes do aviso "Não foi possível
+ * carregar" (conferido em produção em 06/10/2026).
+ */
+export function tentarConsultaDeNovo(falhas: number): boolean {
+  return falhas < 1;
+}

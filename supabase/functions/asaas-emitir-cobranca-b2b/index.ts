@@ -3,6 +3,7 @@ import { verificada } from "../_shared/verificacao.ts";
 import { ambienteAsaas } from "../_shared/asaas.ts";
 import { hojeBrasilia } from "../_shared/data.ts";
 import { servir } from "../_shared/servir.ts";
+import { resumoDoErro } from "../_shared/resumoDoErro.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -59,7 +60,7 @@ async function chamarAsaas<T>(url: string, options: RequestInit): Promise<Chamad
   try {
     resp = await fetch(url, { ...options, signal: AbortSignal.timeout(20_000) });
   } catch (networkError) {
-    console.error("Falha de rede ao chamar o Asaas", networkError);
+    console.error("Falha de rede ao chamar o Asaas", resumoDoErro(networkError));
     return { ok: false, mensagem: "Falha de rede ao comunicar com o Asaas. Tente novamente.", corpo: String(networkError) };
   }
 
@@ -67,7 +68,7 @@ async function chamarAsaas<T>(url: string, options: RequestInit): Promise<Chamad
   try {
     corpo = await resp.json();
   } catch (parseError) {
-    console.error("Resposta do Asaas não é JSON válido", parseError);
+    console.error("Resposta do Asaas não é JSON válido", resumoDoErro(parseError));
   }
 
   if (!resp.ok) {
@@ -155,7 +156,7 @@ servir("asaas-emitir-cobranca-b2b", async (req: Request) => {
       .maybeSingle();
 
     if (orgError) {
-      console.error("Error loading organization", orgError);
+      console.error("Error loading organization", resumoDoErro(orgError));
       return errorResponse("Erro ao carregar a organização.");
     }
     if (!org) return errorResponse("Organização não encontrada.");
@@ -307,7 +308,7 @@ servir("asaas-emitir-cobranca-b2b", async (req: Request) => {
       .single();
 
     if (insertError) {
-      console.error("Erro ao gravar cobranca_b2b", insertError);
+      console.error("Erro ao gravar cobranca_b2b", resumoDoErro(insertError));
       return jsonResponse({
         error: "Cobrança criada no Asaas, mas falhou ao gravar no banco.",
         invoice_url: payment.invoiceUrl ?? null,
@@ -318,7 +319,7 @@ servir("asaas-emitir-cobranca-b2b", async (req: Request) => {
 
     return jsonResponse({ cobranca });
   } catch (error) {
-    console.error("asaas-emitir-cobranca-b2b error", error);
+    console.error("asaas-emitir-cobranca-b2b error", resumoDoErro(error));
     return errorResponse("Erro inesperado ao emitir a cobrança.");
   }
 });
