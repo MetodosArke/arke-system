@@ -14,7 +14,7 @@ const jsonResponse = (body: unknown, status = 200) =>
   });
 
 type Parceiro = "wellhub" | "totalpass";
-const PARCEIROS_VALIDOS = new Set<Parceiro>(["wellhub", "totalpass"]);
+const PARCEIROS_VALIDOS = new Set<string>(["wellhub", "totalpass"]);
 
 type CheckinPayload = {
   catraca_id: string;
@@ -22,15 +22,17 @@ type CheckinPayload = {
   nome_visitante?: string;
 };
 
-// Liberação de catraca para visitantes esporádicos de agregadores
-// (Wellhub/Gympass, TotalPass) que não são necessariamente `alunos`
-// cadastrados na academia. Sem integração automática com a API dos
-// parceiros ainda (credenciais/documentação pendentes) — a recepção
-// confere visualmente o código mostrado no app do visitante (ex.: no
-// próprio portal do parceiro) e confirma aqui, o que libera a catraca e
-// grava o log normalmente em acessos_catraca_logs. Chamada com o JWT do
-// funcionário logado (não device_token de catraca), diferente das demais
-// funções deste subsistema.
+// Check-in de visitante de agregador (Wellhub/Gympass, TotalPass), que não é
+// necessariamente aluno da academia. Sem integração automática com a API dos
+// parceiros ainda: a recepção confere o código no app do visitante e
+// confirma aqui.
+//
+// Até 06/10/2026 a função só gravava o registro e respondia "liberado": a
+// tela dizia "Catraca liberada!" e a catraca não abria. Agora a regra mora em
+// public.checkin_parceiro_externo() (20261373010000), chamada com a sessão de
+// quem confirma: registra o check-in e, se a catraca aceita ordem remota,
+// manda a liberação pelo canal de ordens do Gateway (a tela acompanha a
+// ordem até o fim); senão, a resposta diz o que fazer, sem prometer.
 servir("catraca-checkin-parceiro-externo", async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -46,18 +48,16 @@ servir("catraca-checkin-parceiro-externo", async (req: Request) => {
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
   const anonKey = Deno.env.get("SUPABASE_ANON_KEY");
-  const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-
-  if (!supabaseUrl || !anonKey || !serviceRoleKey) {
-    console.error("Missing required Supabase environment variables");
+  if (!supabaseUrl || !anonKey) {
+    console.error("catraca-checkin-parceiro-externo: configuração incompleta");
     return jsonResponse({ error: "Configuração do servidor incompleta." }, 500);
   }
 
   try {
-    const payload: Partial<CheckinPayload> = await req.json();
-    const catracaId = payload.catraca_id?.trim();
+    const payload: Partial<CheckinPayload> = await req.json().catch(() => ({}));
+    const catracaId = typeof payload.catraca_id === "string" ? payload.catraca_id.trim() : "";
     const parceiro = payload.parceiro;
-    const nomeVisitante = payload.nome_visitante?.trim() || null;
+    const nomeVisitante = typeof payload.nome_visitante === "string" ? payload.nome_visitante.trim() || null : null;
 
     if (!catracaId) return jsonResponse({ error: "catraca_id é obrigatório." }, 400);
     if (!parceiro || !PARCEIROS_VALIDOS.has(parceiro)) {
@@ -67,77 +67,28 @@ servir("catraca-checkin-parceiro-externo", async (req: Request) => {
     const asUser = createClient(supabaseUrl, anonKey, {
       global: { headers: { Authorization: authHeader } },
     });
-    const token = authHeader.replace("Bearer ", "");
-    const { data: claimsData, error: claimsError } = await asUser.auth.getClaims(token);
-    const callerId = typeof claimsData?.claims?.sub === "string" ? claimsData.claims.sub : null;
-    if (claimsError || !callerId) {
+    const { data: claimsData, error: claimsError } = await asUser.auth.getClaims(authHeader.replace("Bearer ", ""));
+    if (claimsError || typeof claimsData?.claims?.sub !== "string") {
       return jsonResponse({ error: "Sessão inválida. Faça login novamente." }, 401);
     }
 
-    const admin = createClient(supabaseUrl, serviceRoleKey);
-
-    const { data: catraca, error: catracaError } = await admin
-      .from("organizacao_catracas")
-      .select("id, organization_id, status")
-      .eq("id", catracaId)
-      .maybeSingle();
-    if (catracaError) {
-      console.error("Erro ao consultar catraca:", catracaError);
-      return jsonResponse({ error: "Falha ao validar dispositivo." }, 500);
-    }
-    if (!catraca) {
-      return jsonResponse({ error: "Catraca não encontrada." }, 404);
-    }
-
-    const { data: isStaff, error: staffError } = await admin.rpc("is_org_staff", {
-      _user_id: callerId,
-      _organization_id: catraca.organization_id,
+    // Com a sessão de quem confirma: o banco confere o papel pelo auth.uid().
+    const { data, error } = await asUser.rpc("checkin_parceiro_externo", {
+      _catraca_id: catracaId,
+      _parceiro: parceiro,
+      _nome_visitante: nomeVisitante,
     });
-    if (staffError) {
-      console.error("Erro ao validar permissões:", staffError);
-      return jsonResponse({ error: "Erro ao validar permissões." }, 500);
+    if (error) {
+      // As mensagens da função são nossas, em português: podem ir para a tela.
+      if (error.code === "42501") return jsonResponse({ error: error.message }, 403);
+      if (error.code === "P0002") return jsonResponse({ error: error.message }, 404);
+      if (error.code === "22023") return jsonResponse({ error: error.message }, 400);
+      console.error("catraca-checkin-parceiro-externo: falha no banco", error.code);
+      return jsonResponse({ error: "Falha ao registrar o check-in." }, 500);
     }
-    if (!isStaff) {
-      return jsonResponse({ error: "Você não tem permissão para liberar acessos nesta academia." }, 403);
-    }
-
-    if (catraca.status !== "ativo") {
-      return jsonResponse({ liberado: false, motivo: "Dispositivo inativo." });
-    }
-
-    const { data: credencial, error: credencialError } = await admin
-      .from("organizacao_credenciais_parceiro")
-      .select("id, ativo")
-      .eq("organization_id", catraca.organization_id)
-      .eq("parceiro", parceiro)
-      .maybeSingle();
-    if (credencialError) {
-      console.error("Erro ao consultar credencial de parceiro:", credencialError);
-      return jsonResponse({ error: "Falha ao validar parceiro." }, 500);
-    }
-    if (!credencial || !credencial.ativo) {
-      return jsonResponse({
-        liberado: false,
-        motivo: "Este parceiro não está habilitado para esta academia.",
-      });
-    }
-
-    const { error: insertError } = await admin.from("acessos_catraca_logs").insert({
-      organization_id: catraca.organization_id,
-      catraca_id: catraca.id,
-      resultado: "liberado_parceiro_externo",
-      parceiro_externo: parceiro,
-      nome_visitante_externo: nomeVisitante,
-      confirmado_por: callerId,
-    });
-    if (insertError) {
-      console.error("Erro ao gravar log de check-in:", insertError);
-      return jsonResponse({ error: "Falha ao registrar o acesso." }, 500);
-    }
-
-    return jsonResponse({ liberado: true, motivo: "Acesso liberado." });
+    return jsonResponse(data);
   } catch (error) {
-    console.error("Erro inesperado em catraca-checkin-parceiro-externo:", error);
-    return jsonResponse({ error: "Erro inesperado ao liberar o acesso." }, 500);
+    console.error("catraca-checkin-parceiro-externo: erro inesperado", error instanceof Error ? error.name : typeof error);
+    return jsonResponse({ error: "Erro inesperado ao registrar o check-in." }, 500);
   }
 });
