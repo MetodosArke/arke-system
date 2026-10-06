@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { CarregandoPagina } from "@/components/CarregandoPagina";
 import { Outlet, useNavigate } from "react-router-dom";
-import { Building2 } from "lucide-react";
+import { Building2, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 import { AdminSidebarDesktop } from "./AdminSidebar";
@@ -11,7 +11,7 @@ import { cn } from "@/lib/utils";
 
 function AdminLayoutInner() {
   const { collapsed } = useAdminSidebar();
-  const { organization, rolesLoaded, hasRole } = useAuth();
+  const { organization, rolesLoaded, hasRole, signOut } = useAuth();
   const navigate = useNavigate();
 
   // Antes, um admin_arke sem organização fazia o layout chamar
@@ -38,6 +38,9 @@ function AdminLayoutInner() {
             Ir para o painel Super Admin
           </Button>
         )}
+        <Button variant="ghost" size="sm" onClick={() => void signOut()}>
+          <LogOut className="mr-2 h-4 w-4" /> Sair
+        </Button>
       </div>
     );
   }

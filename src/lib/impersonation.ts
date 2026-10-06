@@ -1,5 +1,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import { mensagemDeErroEdge } from "@/lib/erroEdge";
+import { esquecerAvisosDesteAparelho } from "@/lib/avisosDoAparelho";
+import { comPrazo } from "@/lib/tentativas";
 
 const STORAGE_KEY = "arke_admin_session_backup";
 
@@ -84,9 +86,33 @@ export function emPerfilSimulado(): boolean {
 export const MENSAGEM_PERFIL_SIMULADO =
   "Em perfil simulado, só a própria pessoa autoriza, retira a autorização, aceita ou assina. Peça a ela para fazer isso no app dela.";
 
+/**
+ * Apaga da aba a cópia da sessão da ArkeFit. Sem ela a aba deixa de estar em
+ * perfil simulado: é o que o "Sair", o fim da sessão e uma entrada nova com
+ * senha fazem. Antes de 06/10/2026 a cópia sobrevivia a eles, e o próximo login
+ * na mesma aba pulava o aceite de documentos e as duas etapas, como se fosse
+ * simulação.
+ */
+export function descartarCopiaDaSimulacao(): void {
+  try {
+    sessionStorage.removeItem(STORAGE_KEY);
+  } catch {
+    // Sem armazenamento, não há cópia para apagar.
+  }
+}
+
 export async function stopImpersonation(): Promise<{ error: Error | null }> {
   const backup = getImpersonationBackup();
   if (!backup) return { error: null };
+
+  // Antes de 06/10/2026 a simulação registrava este aparelho para os avisos da
+  // pessoa simulada. A linha sai aqui, ainda com a sessão dela; a assinatura
+  // do navegador fica, porque é a mesma da conta da ArkeFit.
+  const { data: simulada } = await supabase.auth.getSession();
+  await comPrazo(
+    esquecerAvisosDesteAparelho(simulada.session?.user.id ?? null, { cancelarNoNavegador: false }),
+    4000,
+  );
 
   // Encerra a sessão simulada no servidor: sem isso ela seguiria válida,
   // esquecida, com a marca de simulada até expirar.

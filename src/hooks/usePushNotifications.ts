@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { mensagemDeErroEdge } from "@/lib/erroEdge";
 import { useAuth } from "@/contexts/AuthContext";
+import { emPerfilSimulado } from "@/lib/impersonation";
 
 function urlBase64ToUint8Array(base64String: string) {
   const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
@@ -128,10 +129,20 @@ export function usePushNotifications() {
     return () => document.removeEventListener("visibilitychange", handleVisibility);
   }, [isSupported, syncPermission]);
 
+  // Outra pessoa na sessão (depois de um "Sair", que cancela a assinatura
+  // deste aparelho): ela registra a dela. Vem antes do efeito abaixo, para
+  // valer na mesma renderização.
+  useEffect(() => {
+    registeredRef.current = false;
+  }, [user?.id]);
+
   // Se já concedido + autenticado, registra a subscription silenciosamente (uma vez)
   useEffect(() => {
     if (!isAuthenticated || !user || pushStatus !== "granted" || !isSupported) return;
     if (registeredRef.current) return;
+    // Na simulação, o aparelho é da ArkeFit: registrá-lo para a pessoa
+    // simulada fazia os avisos dela chegarem aqui (até 06/10/2026).
+    if (emPerfilSimulado()) return;
 
     const isInIframe = (() => {
       try {
@@ -148,7 +159,7 @@ export function usePushNotifications() {
 
   // Chamado a partir de um gesto do usuário (clique) — dispara o popup nativo de permissão
   const requestPushPermission = useCallback(async () => {
-    if (!isSupported || !user) return false;
+    if (!isSupported || !user || emPerfilSimulado()) return false;
     try {
       const permission = await Notification.requestPermission();
       setPushStatus(permission === "granted" ? "granted" : permission === "denied" ? "denied" : "idle");
