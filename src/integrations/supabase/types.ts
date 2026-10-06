@@ -1482,9 +1482,12 @@ export type Database = {
       asaas_saida_pendente: {
         Row: {
           aluno_id: string
+          ambiente: string | null
           atualizado_em: string
+          conta_da_academia: boolean
           criado_em: string
           organization_id: string
+          outras_matriculas: string[]
           outros_vinculos: boolean
           tentativas: number
           ultimo_erro: string | null
@@ -1492,9 +1495,12 @@ export type Database = {
         }
         Insert: {
           aluno_id: string
+          ambiente?: string | null
           atualizado_em?: string
+          conta_da_academia?: boolean
           criado_em?: string
           organization_id: string
+          outras_matriculas?: string[]
           outros_vinculos: boolean
           tentativas?: number
           ultimo_erro?: string | null
@@ -1502,9 +1508,12 @@ export type Database = {
         }
         Update: {
           aluno_id?: string
+          ambiente?: string | null
           atualizado_em?: string
+          conta_da_academia?: boolean
           criado_em?: string
           organization_id?: string
+          outras_matriculas?: string[]
           outros_vinculos?: boolean
           tentativas?: number
           ultimo_erro?: string | null
@@ -5144,6 +5153,10 @@ export type Database = {
           alunos_avisados: number
           alunos_avisados_push: number
           arquivos_apagados: number | null
+          asaas_anonimizados: number
+          asaas_concluido_em: string | null
+          asaas_cursor: string | null
+          asaas_pendentes: number
           cobrancas_canceladas: number | null
           contas_apagadas: number | null
           eliminacao_em: string
@@ -5177,6 +5190,10 @@ export type Database = {
           alunos_avisados?: number
           alunos_avisados_push?: number
           arquivos_apagados?: number | null
+          asaas_anonimizados?: number
+          asaas_concluido_em?: string | null
+          asaas_cursor?: string | null
+          asaas_pendentes?: number
           cobrancas_canceladas?: number | null
           contas_apagadas?: number | null
           eliminacao_em: string
@@ -5210,6 +5227,10 @@ export type Database = {
           alunos_avisados?: number
           alunos_avisados_push?: number
           arquivos_apagados?: number | null
+          asaas_anonimizados?: number
+          asaas_concluido_em?: string | null
+          asaas_cursor?: string | null
+          asaas_pendentes?: number
           cobrancas_canceladas?: number | null
           contas_apagadas?: number | null
           eliminacao_em?: string
@@ -7822,6 +7843,16 @@ export type Database = {
         Args: { _organization_id: string }
         Returns: string
       }
+      alunos_para_anonimizar_no_asaas: {
+        Args: { _depois_de: string; _encerramento_id: string; _limite?: number }
+        Returns: {
+          aluno_id: string
+          cpf: string
+          outras_matriculas: string[]
+          outros_vinculos: boolean
+          user_id: string
+        }[]
+      }
       anamnese_para_auditoria: { Args: { _aluno_id: string }; Returns: string }
       anonimizar_dados_do_aluno: {
         Args: { _aluno_id: string; _ator: string }
@@ -9419,8 +9450,11 @@ export type Database = {
       registrar_saida_asaas_pendente: {
         Args: {
           _aluno_id: string
+          _ambiente?: string
+          _conta_da_academia?: boolean
           _erro: string
           _organization_id: string
+          _outras_matriculas?: string[]
           _outros_vinculos: boolean
           _user_id: string
         }
