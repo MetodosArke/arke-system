@@ -3,6 +3,7 @@ import { useAuth, AppRole } from "@/contexts/AuthContext";
 import { VerificacaoDuasEtapas } from "@/components/VerificacaoDuasEtapas";
 import { emPerfilSimulado } from "@/lib/impersonation";
 import { ErroAoCarregarAcesso } from "@/components/acesso/TelasDeAcesso";
+import { CarregandoTela } from "@/components/CarregandoPagina";
 
 interface Props {
   children: React.ReactNode;
@@ -19,11 +20,7 @@ export function ProtectedRoute({ children, requiredRoles }: Props) {
   }
 
   if (isLoading || (requiredRoles && requiredRoles.length > 0 && !rolesLoaded)) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-background">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-      </div>
-    );
+    return <CarregandoTela />;
   }
 
   if (!isAuthenticated) {

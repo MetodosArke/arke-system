@@ -4,6 +4,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { inicioDoMesBrasilia } from "@/lib/dataBrasilia";
+import { todasAsLinhas } from "@/lib/paginar";
+import { ErroAoCarregar } from "@/components/ErroAoCarregar";
 
 const PARCEIRO: Record<string, string> = { wellhub: "Wellhub (Gympass)", totalpass: "TotalPass" };
 
@@ -28,21 +30,30 @@ export function ConferenciaParceiros({ organizationId }: { organizationId: strin
   const [inicio, setInicio] = useState(atual);
   const fim = deslocarMes(inicio, 1);
 
-  const { data: checkins = [], isLoading } = useQuery({
+  // Em páginas: a API para em mil linhas sem avisar, e o limite de 2.000 que
+  // havia aqui não passava disso — uma academia com muito Wellhub conferia o
+  // repasse do mês contra um número cortado.
+  const {
+    data: checkins = [],
+    isLoading,
+    error,
+    refetch,
+    isFetching,
+  } = useQuery({
     queryKey: ["conferencia-parceiros", organizationId, inicio],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("acessos_catraca_logs")
-        .select("id, parceiro_externo, nome_visitante_externo, created_at")
-        .eq("organization_id", organizationId)
-        .eq("resultado", "liberado_parceiro_externo")
-        .gte("created_at", `${inicio}T00:00:00-03:00`)
-        .lt("created_at", `${fim}T00:00:00-03:00`)
-        .order("created_at", { ascending: false })
-        .limit(2000);
-      if (error) throw error;
-      return data ?? [];
-    },
+    queryFn: () =>
+      todasAsLinhas((de, ate) =>
+        supabase
+          .from("acessos_catraca_logs")
+          .select("id, parceiro_externo, nome_visitante_externo, created_at")
+          .eq("organization_id", organizationId)
+          .eq("resultado", "liberado_parceiro_externo")
+          .gte("created_at", `${inicio}T00:00:00-03:00`)
+          .lt("created_at", `${fim}T00:00:00-03:00`)
+          .order("created_at", { ascending: false })
+          .order("id")
+          .range(de, ate)
+      ),
   });
 
   const porParceiro = useMemo(() => {
@@ -71,7 +82,9 @@ export function ConferenciaParceiros({ organizationId }: { organizationId: strin
           <ChevronRight className="h-4 w-4" />
         </Button>
       </div>
-      {isLoading ? null : porParceiro.length === 0 ? (
+      {isLoading ? null : error ? (
+        <ErroAoCarregar oQue="os check-ins de parceiro" onTentarDeNovo={() => void refetch()} tentando={isFetching} />
+      ) : porParceiro.length === 0 ? (
         <p className="text-muted-foreground">Nenhum check-in de parceiro neste mês.</p>
       ) : (
         <>

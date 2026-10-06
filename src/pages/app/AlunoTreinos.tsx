@@ -30,6 +30,7 @@ import { MidiaExercicio } from "@/components/acervo/MidiaExercicio";
 import { situacaoAtestado } from "@/lib/parq";
 import { divisoesDoTreino, rotuloTecnica, sequenciaDoTreino, seriesDoExercicio } from "@/lib/seriesTreino";
 import { hojeBrasilia, formatarDataBR } from "@/lib/dataBrasilia";
+import { ErroAoCarregar } from "@/components/ErroAoCarregar";
 
 interface ExercicioSnapshot {
   ordem: number;
@@ -112,10 +113,17 @@ export default function AlunoTreinos() {
   const [segundosRestantes, setSegundosRestantes] = useState(0);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const { data: treino, isLoading } = useQuery({
+  const {
+    data: treino,
+    isLoading,
+    error: erroTreino,
+    refetch: recarregarTreino,
+    isFetching: recarregandoTreino,
+  } = useQuery({
     queryKey: ["aluno-treino-atual", alunoId],
     queryFn: async () => {
-      const { data } = await supabase
+      // O erro sobe: engolido, virava "nenhum treino publicado".
+      const { data, error } = await supabase
         .from("treinos")
         .select("id, titulo, snapshot_conteudo, validade_inicio, validade_fim")
         .eq("aluno_id", alunoId!)
@@ -123,6 +131,7 @@ export default function AlunoTreinos() {
         .order("created_at", { ascending: false })
         .limit(1)
         .maybeSingle();
+      if (error) throw error;
       return data;
     },
     enabled: !!alunoId,
@@ -131,12 +140,13 @@ export default function AlunoTreinos() {
   const { data: registroHoje } = useQuery({
     queryKey: ["aluno-registro-hoje", alunoId],
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("registro_treino")
         .select("id, concluido, detalhes_execucao, divisao")
         .eq("aluno_id", alunoId!)
         .eq("data", HOJE)
         .maybeSingle();
+      if (error) throw error;
       return data;
     },
     enabled: !!alunoId,
@@ -293,7 +303,15 @@ export default function AlunoTreinos() {
         <TabsContent value="treino" className="space-y-4">
       {(isLoading || carregandoSequencia) && <p className="text-sm text-muted-foreground">Carregando...</p>}
 
-      {!isLoading && !treino && (
+      {/* Falha não é "nenhum treino": o aluno achava que a academia tinha
+          apagado o treino dele. */}
+      {erroTreino && !treino && (
+        <Card>
+          <ErroAoCarregar oQue="o seu treino" onTentarDeNovo={() => void recarregarTreino()} tentando={recarregandoTreino} />
+        </Card>
+      )}
+
+      {!isLoading && !erroTreino && !treino && (
         <Card>
           <CardContent className="py-8 text-center text-sm text-muted-foreground">
             Nenhum treino publicado ainda. Sua equipe vai te avisar assim que estiver pronto.
@@ -323,7 +341,7 @@ export default function AlunoTreinos() {
                   </div>
                 </div>
                 <div className="flex gap-1.5">
-                  <Button
+                  <Button aria-label="Recomeçar o descanso"
                     size="icon"
                     variant="outline"
                     onClick={() => {
@@ -333,7 +351,7 @@ export default function AlunoTreinos() {
                   >
                     <RotateCcw className="h-4 w-4" />
                   </Button>
-                  <Button size="icon" variant="outline" onClick={() => setDescansoOrdem(null)}>
+                  <Button aria-label="Encerrar o descanso" size="icon" variant="outline" onClick={() => setDescansoOrdem(null)}>
                     <Pause className="h-4 w-4" />
                   </Button>
                 </div>

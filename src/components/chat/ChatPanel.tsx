@@ -11,6 +11,7 @@ import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { sendChatPush } from "@/lib/sendChatPush";
 import { VideoChat } from "@/components/chat/VideoChat";
+import { ErroAoCarregar } from "@/components/ErroAoCarregar";
 
 interface MensagemTreino {
   id: string;
@@ -69,15 +70,21 @@ export function ChatPanel({ organizationId, alunoId, viewerType, type, dietaId, 
   const myType: "aluno" | "treinador" | "nutricionista" = type === "treino" ? myTypeTreino : myTypeNutri;
 
   // Nutri: se não veio dietaId explícito (caso do aluno), resolve a dieta ativa mais recente.
-  const { data: resolvedDietaId } = useQuery({
+  const {
+    data: resolvedDietaId,
+    error: erroDieta,
+    refetch: recarregarDieta,
+    isFetching: recarregandoDieta,
+  } = useQuery({
     queryKey: ["resolve-dieta-id-chat", alunoId],
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("dietas")
         .select("id")
         .eq("aluno_id", alunoId)
         .order("created_at", { ascending: false })
         .limit(1);
+      if (error) throw error;
       return data?.[0]?.id ?? null;
     },
     enabled: type === "nutri" && !dietaId,
@@ -85,7 +92,12 @@ export function ChatPanel({ organizationId, alunoId, viewerType, type, dietaId, 
 
   const activeDietaId = dietaId || resolvedDietaId;
 
-  const { data: mensagensTreino = [] } = useQuery({
+  const {
+    data: mensagensTreino = [],
+    error: erroTreino,
+    refetch: recarregarTreino,
+    isFetching: recarregandoTreino,
+  } = useQuery({
     queryKey: ["chat-treino-msgs", alunoId],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -99,7 +111,12 @@ export function ChatPanel({ organizationId, alunoId, viewerType, type, dietaId, 
     enabled: type === "treino",
   });
 
-  const { data: mensagensNutri = [] } = useQuery({
+  const {
+    data: mensagensNutri = [],
+    error: erroNutri,
+    refetch: recarregarNutri,
+    isFetching: recarregandoNutri,
+  } = useQuery({
     queryKey: ["chat-nutri-msgs", activeDietaId],
     queryFn: async () => {
       if (!activeDietaId) return [];
@@ -115,6 +132,11 @@ export function ChatPanel({ organizationId, alunoId, viewerType, type, dietaId, 
   });
 
   const mensagens: (MensagemTreino | MensagemDieta)[] = type === "treino" ? mensagensTreino : mensagensNutri;
+  // Falha na leitura não é conversa vazia nem "nenhuma dieta".
+  const erroConversa = type === "treino" ? erroTreino : erroDieta ?? erroNutri;
+  const recarregarConversa = () =>
+    void (type === "treino" ? recarregarTreino() : erroDieta ? recarregarDieta() : recarregarNutri());
+  const recarregandoConversa = type === "treino" ? recarregandoTreino : recarregandoDieta || recarregandoNutri;
 
   const invalidar = () => {
     void queryClient.invalidateQueries({ queryKey: type === "treino" ? ["chat-treino-msgs", alunoId] : ["chat-nutri-msgs", activeDietaId] });
@@ -265,7 +287,9 @@ export function ChatPanel({ organizationId, alunoId, viewerType, type, dietaId, 
   return (
     <div className={cn("flex flex-col", className)}>
       <div className="flex-1 overflow-y-auto space-y-2 rounded-lg bg-muted/20 p-3 min-h-[200px] max-h-[380px]">
-        {type === "nutri" && !activeDietaId ? (
+        {erroConversa && mensagens.length === 0 ? (
+          <ErroAoCarregar oQue="a conversa" onTentarDeNovo={recarregarConversa} tentando={recarregandoConversa} />
+        ) : type === "nutri" && !activeDietaId ? (
           <p className="text-sm text-muted-foreground text-center py-8">Nenhuma dieta cadastrada ainda.</p>
         ) : mensagens.length === 0 ? (
           <p className="text-sm text-muted-foreground text-center py-8">Nenhuma mensagem ainda.</p>
@@ -345,7 +369,7 @@ export function ChatPanel({ organizationId, alunoId, viewerType, type, dietaId, 
           className="flex-1"
           disabled={type === "nutri" && !activeDietaId}
         />
-        <Button type="submit" size="icon" disabled={!mensagemTexto.trim() || sendMsg.isPending}>
+        <Button aria-label="Enviar mensagem" type="submit" size="icon" disabled={!mensagemTexto.trim() || sendMsg.isPending}>
           <Send className="h-4 w-4" />
         </Button>
       </form>

@@ -20,7 +20,8 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Plus, Trash2, Pencil, Users } from "lucide-react";
 import { DESAFIO_TIPO_LABEL, type DesafioTipo } from "@/lib/desafioProgresso";
 import type { Tables } from "@/integrations/supabase/types";
-import { formatarDataBR } from "@/lib/dataBrasilia";
+import { formatarDataBR, hojeBrasilia } from "@/lib/dataBrasilia";
+import { ErroAoCarregar } from "@/components/ErroAoCarregar";
 
 type Desafio = Tables<"desafios">;
 
@@ -65,7 +66,13 @@ export function DesafiosPainel() {
   const [form, setForm] = useState<FormState>(FORM_INICIAL);
   const [excluir, setExcluir] = useState<Desafio | null>(null);
 
-  const { data: desafios = [], isLoading } = useQuery({
+  const {
+    data: desafios = [],
+    isLoading,
+    error: erroDesafios,
+    refetch: recarregarDesafios,
+    isFetching: recarregandoDesafios,
+  } = useQuery({
     queryKey: ["admin-desafios", organization?.id],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -265,7 +272,12 @@ export function DesafiosPainel() {
       </Tabs>
 
       {isLoading && <p className="text-sm text-muted-foreground">Carregando...</p>}
-      {!isLoading && desafiosFiltrados.length === 0 && (
+      {erroDesafios && desafios.length === 0 && (
+        <Card>
+          <ErroAoCarregar oQue="os desafios" onTentarDeNovo={() => void recarregarDesafios()} tentando={recarregandoDesafios} />
+        </Card>
+      )}
+      {!isLoading && !erroDesafios && desafiosFiltrados.length === 0 && (
         <Card>
           <CardContent className="py-8 text-center text-sm text-muted-foreground">Nenhum desafio ainda.</CardContent>
         </Card>
@@ -273,7 +285,11 @@ export function DesafiosPainel() {
 
       <div className="space-y-3">
         {desafiosFiltrados.map((d) => {
-          const ativo = new Date(d.data_fim) >= new Date();
+          // `data_fim` é data pura: comparada como texto com o hoje de
+          // Brasília, o desafio vale até o fim do último dia. Lida com
+          // `new Date(...)`, virava meia-noite em UTC e o desafio aparecia
+          // encerrado desde as 21h da véspera.
+          const ativo = d.data_fim >= hojeBrasilia();
           const participantes = d.para_todos ? alunos : alunos.filter((a) => (participantesPorDesafio[d.id] ?? []).includes(a.id));
           const progresso = progressoPorDesafio[d.id] ?? {};
           const concluidos = Object.values(progresso).filter(Boolean).length;
@@ -289,10 +305,10 @@ export function DesafiosPainel() {
                     {d.descricao && <p className="text-xs text-muted-foreground">{d.descricao}</p>}
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
-                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => abrirEdicao(d)}>
+                    <Button aria-label="Editar o desafio" variant="ghost" size="icon" className="h-7 w-7" onClick={() => abrirEdicao(d)}>
                       <Pencil className="h-3.5 w-3.5" />
                     </Button>
-                    <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => setExcluir(d)}>
+                    <Button aria-label="Excluir o desafio" variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => setExcluir(d)}>
                       <Trash2 className="h-3.5 w-3.5" />
                     </Button>
                   </div>

@@ -13,6 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Megaphone, Trash2 } from "lucide-react";
 import { formatarDataBR } from "@/lib/dataBrasilia";
+import { ErroAoCarregar } from "@/components/ErroAoCarregar";
 
 const PUBLICO: Record<string, string> = { alunos: "Alunos", equipe: "Equipe", todos: "Todos" };
 
@@ -31,7 +32,12 @@ export default function AdminComunicados() {
   const [expira, setExpira] = useState("");
   const podePublicar = organizationRole === "gestor" || organizationRole === "recepcao";
 
-  const { data: comunicados = [] } = useQuery({
+  const {
+    data: comunicados = [],
+    error: erroComunicados,
+    refetch: recarregarComunicados,
+    isFetching: recarregandoComunicados,
+  } = useQuery({
     queryKey: ["comunicados-admin", organization?.id],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -121,7 +127,15 @@ export default function AdminComunicados() {
       )}
 
       <div className="space-y-2">
-        {comunicados.length === 0 && <p className="text-sm text-muted-foreground">Nenhum comunicado ainda.</p>}
+        {erroComunicados && comunicados.length === 0 ? (
+          <ErroAoCarregar
+            oQue="os comunicados"
+            onTentarDeNovo={() => void recarregarComunicados()}
+            tentando={recarregandoComunicados}
+          />
+        ) : (
+          comunicados.length === 0 && <p className="text-sm text-muted-foreground">Nenhum comunicado ainda.</p>
+        )}
         {comunicados.map((c) => (
           <Card key={c.id}>
             <CardContent className="py-3 space-y-1">

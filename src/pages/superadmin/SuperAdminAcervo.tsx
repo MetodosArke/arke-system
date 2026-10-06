@@ -241,10 +241,10 @@ export default function SuperAdminAcervo() {
                 <div className="flex items-start justify-between gap-2">
                   <SheetTitle>{detalhe.nome}</SheetTitle>
                   <div className="flex items-center gap-1 shrink-0">
-                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => abrirEdicao(detalhe)}>
+                    <Button aria-label="Editar o item do acervo" variant="ghost" size="icon" className="h-8 w-8" onClick={() => abrirEdicao(detalhe)}>
                       <Pencil className="h-4 w-4" />
                     </Button>
-                    <Button
+                    <Button aria-label="Excluir do acervo"
                       variant="ghost"
                       size="icon"
                       className="h-8 w-8 text-destructive"

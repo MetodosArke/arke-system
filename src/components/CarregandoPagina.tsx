@@ -12,3 +12,20 @@ export function CarregandoPagina() {
     </div>
   );
 }
+
+/**
+ * A tela inteira esperando o acesso (a raiz, a rota protegida, o vínculo do
+ * aluno). O `role="status"` faz o leitor de tela dizer "Carregando" em vez de
+ * silêncio; até 06/10/2026 esses spinners não se anunciavam.
+ */
+export function CarregandoTela() {
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-background">
+      <div
+        role="status"
+        aria-label="Carregando"
+        className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent"
+      />
+    </div>
+  );
+}

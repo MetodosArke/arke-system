@@ -593,7 +593,7 @@ export default function AdminImportarAlunos() {
   return (
     <div className="space-y-4 max-w-3xl mx-auto">
       <div className="flex items-center gap-2">
-        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => navigate("/admin/alunos")}>
+        <Button aria-label="Voltar para os alunos" variant="ghost" size="icon" className="h-8 w-8" onClick={() => navigate("/admin/alunos")}>
           <ArrowLeft className="h-4 w-4" />
         </Button>
         <FileSpreadsheet className="h-5 w-5 text-primary" />

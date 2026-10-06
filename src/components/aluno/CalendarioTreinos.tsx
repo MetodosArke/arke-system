@@ -467,11 +467,11 @@ export default function CalendarioTreinos() {
       <Card className="border-0 shadow-sm">
         <CardContent className="p-4">
             <div className="flex items-center justify-between mb-4">
-              <Button variant="ghost" size="icon" onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}>
+              <Button aria-label="Mês anterior" variant="ghost" size="icon" onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}>
                 <ChevronLeft className="h-5 w-5" />
               </Button>
               <h3 className="text-lg font-bold capitalize">{format(currentMonth, "MMMM yyyy", { locale: ptBR })}</h3>
-              <Button variant="ghost" size="icon" onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}>
+              <Button aria-label="Próximo mês" variant="ghost" size="icon" onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}>
                 <ChevronRight className="h-5 w-5" />
               </Button>
             </div>
@@ -547,7 +547,7 @@ export default function CalendarioTreinos() {
                       <span className="text-sm">{entry.label}</span>
                     </div>
                     {entry.source === "manual" && (
-                      <Button
+                      <Button aria-label="Apagar o registro"
                         variant="ghost"
                         size="icon"
                         className="h-6 w-6 text-destructive hover:text-destructive"
@@ -688,7 +688,7 @@ export default function CalendarioTreinos() {
                         {formTipos.map((t) => (
                           <Badge key={t} variant="secondary" className="gap-1 pr-1">
                             {t}
-                            <button onClick={() => removeTipoTag(t)}>
+                            <button aria-label="Tirar a etiqueta" onClick={() => removeTipoTag(t)}>
                               <X className="h-3 w-3" />
                             </button>
                           </Badge>

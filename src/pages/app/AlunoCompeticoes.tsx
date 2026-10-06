@@ -1,4 +1,5 @@
 import { hojeBrasilia, formatarDataBR } from "@/lib/dataBrasilia";
+import { ErroAoCarregar } from "@/components/ErroAoCarregar";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -19,7 +20,13 @@ const METRICA_LABEL: Record<Competicao["metrica"], string> = {
 
 function RankingCompeticao({ competicaoId }: { competicaoId: string }) {
   const { alunoId } = useAuth();
-  const { data: ranking = [], isLoading } = useQuery({
+  const {
+    data: ranking = [],
+    isLoading,
+    error: erroRanking,
+    refetch: recarregarRanking,
+    isFetching: recarregandoRanking,
+  } = useQuery({
     queryKey: ["aluno-ranking-competicao", competicaoId],
     queryFn: async () => {
       const { data, error } = await supabase.rpc("obter_ranking_competicao", { p_competicao_id: competicaoId });
@@ -29,6 +36,11 @@ function RankingCompeticao({ competicaoId }: { competicaoId: string }) {
   });
 
   if (isLoading) return <p className="text-xs text-muted-foreground">Carregando ranking...</p>;
+  if (erroRanking && ranking.length === 0) {
+    return (
+      <ErroAoCarregar oQue="o ranking" onTentarDeNovo={() => void recarregarRanking()} tentando={recarregandoRanking} className="p-2" />
+    );
+  }
   if (ranking.length === 0) return <p className="text-xs text-muted-foreground">Ainda sem dados registrados.</p>;
 
   const minhaPosicao = ranking.findIndex((r) => r.aluno_id === alunoId);
@@ -76,7 +88,13 @@ export default function AlunoCompeticoes() {
   const { alunoId } = useAuth();
   // Sem filtro: a regra de acesso devolve as competições abertas da academia
   // e aquelas em que o aluno está inscrito. A chave leva o aluno.
-  const { data: competicoes = [], isLoading } = useQuery({
+  const {
+    data: competicoes = [],
+    isLoading,
+    error: erroCompeticoes,
+    refetch: recarregarCompeticoes,
+    isFetching: recarregandoCompeticoes,
+  } = useQuery({
     queryKey: ["aluno-competicoes", alunoId],
     enabled: !!alunoId,
     queryFn: async () => {
@@ -120,7 +138,16 @@ export default function AlunoCompeticoes() {
       </div>
 
       {isLoading && <p className="text-sm text-muted-foreground">Carregando...</p>}
-      {!isLoading && competicoes.length === 0 && (
+      {erroCompeticoes && competicoes.length === 0 && (
+        <Card>
+          <ErroAoCarregar
+            oQue="as competições"
+            onTentarDeNovo={() => void recarregarCompeticoes()}
+            tentando={recarregandoCompeticoes}
+          />
+        </Card>
+      )}
+      {!isLoading && !erroCompeticoes && competicoes.length === 0 && (
         <Card>
           <CardContent className="py-8 text-center text-sm text-muted-foreground">Nenhuma competição disponível no momento.</CardContent>
         </Card>

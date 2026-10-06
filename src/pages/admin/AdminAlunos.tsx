@@ -38,6 +38,7 @@ import { AlunoPerfilSheet } from "@/components/admin/AlunoPerfilSheet";
 import { ImprimirTreinoDialog, type ExercicioSnapshotImpressao, type TreinoImpressao } from "@/components/admin/ImprimirTreinoDialog";
 import { abrirWhatsAppAtivacao } from "@/lib/whatsappAtivacao";
 import { ConvitePrimeiroAcesso } from "@/components/admin/ConvitePrimeiroAcesso";
+import { ErroAoCarregar } from "@/components/ErroAoCarregar";
 import { SituacaoAluno } from "@/components/admin/SituacaoAluno";
 import { filtrarAlunos, LIMITE_NA_TELA, type FiltroSituacao } from "@/lib/buscaAlunos";
 import { planoDoAluno, ROTULO_PLANO, ROTULO_SITUACAO, type SituacaoAcademia } from "@/lib/planoAluno";
@@ -130,7 +131,13 @@ export default function AdminAlunos() {
   const [filtroSituacao, setFiltroSituacao] = useState<FiltroSituacao>("todas");
   const [mostrarTodos, setMostrarTodos] = useState(false);
 
-  const { data: alunos = EMPTY_ALUNOS, isLoading } = useQuery({
+  const {
+    data: alunos = EMPTY_ALUNOS,
+    isLoading,
+    error: erroAlunos,
+    refetch: recarregarAlunos,
+    isFetching: recarregandoAlunos,
+  } = useQuery({
     queryKey: ["admin-alunos", organization?.id],
     queryFn: async () => {
       const alunosData = await todasAsLinhas((de, ate) =>
@@ -459,7 +466,13 @@ export default function AdminAlunos() {
       <Card>
         <CardContent className="p-0">
           {isLoading && <p className="p-4 text-sm text-muted-foreground">Carregando...</p>}
-          {!isLoading && alunos.length === 0 && (
+          {/* Falha não é lista vazia: "nenhum aluno" num soluço de rede fazia o
+              gestor achar que perdeu a base e importar tudo de novo. Com a
+              lista já carregada, ela continua na tela. */}
+          {erroAlunos && alunos.length === 0 && (
+            <ErroAoCarregar oQue="os alunos" onTentarDeNovo={() => void recarregarAlunos()} tentando={recarregandoAlunos} />
+          )}
+          {!isLoading && !erroAlunos && alunos.length === 0 && (
             <p className="p-4 text-sm text-muted-foreground">Nenhum aluno cadastrado ainda.</p>
           )}
           {alunos.length > 0 && (

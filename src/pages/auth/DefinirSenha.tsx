@@ -158,8 +158,8 @@ export default function DefinirSenha() {
         <Card className="border-0 shadow-xl">
           <CardContent className="p-6">
             {status === "carregando" && (
-              <div className="flex flex-col items-center gap-3 py-6">
-                <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+              <div role="status" className="flex flex-col items-center gap-3 py-6">
+                <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" aria-hidden="true" />
                 <p className="text-sm text-muted-foreground">Validando seu convite...</p>
               </div>
             )}
@@ -231,8 +231,8 @@ export default function DefinirSenha() {
             )}
 
             {status === "concluido" && (
-              <div className="flex flex-col items-center gap-3 py-6">
-                <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+              <div role="status" className="flex flex-col items-center gap-3 py-6">
+                <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" aria-hidden="true" />
                 <p className="text-sm text-muted-foreground">Senha definida! Preparando seu acesso...</p>
               </div>
             )}

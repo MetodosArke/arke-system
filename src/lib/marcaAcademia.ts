@@ -88,6 +88,15 @@ export const FUNDOS = {
   escuro: [hslParaRgb(0, 0, 6), hslParaRgb(0, 0, 9)],
 } as const;
 
+/**
+ * Onde a cor aparece como TEXTO (`text-primary`): o fundo, o cartão e o
+ * `--muted` (abas, etiquetas), copiados de `src/index.css`.
+ */
+export const FUNDOS_DO_TEXTO = {
+  claro: [...FUNDOS.claro, hslParaRgb(40, 8, 93)],
+  escuro: [...FUNDOS.escuro, hslParaRgb(0, 0, 12)],
+} as const;
+
 export const CONTRASTE_MINIMO = 3;
 /** O texto sobre a cor (o do botão): o mínimo da WCAG para texto normal. */
 export const CONTRASTE_TEXTO = 4.5;
@@ -113,6 +122,24 @@ export function tomParaOTema(cor: Rgb, tema: "claro" | "escuro"): { cor: Rgb; aj
     if (serve(tentativa)) return { cor: tentativa, ajustado: true };
   }
   return { cor: alvo, ajustado: true };
+}
+
+/**
+ * O tom da cor para TEXTO no tema: 4,5:1 sobre o fundo, o cartão e o muted
+ * (WCAG AA no texto pequeno). A cor do botão só precisa de 3:1 (elemento de
+ * interface); usada como texto, ela ficava ilegível — o dourado da ArkeFit dava
+ * 2,06:1 sobre o fundo claro. O tom anda para o preto no claro e para o branco
+ * no escuro, como em `tomParaOTema`.
+ */
+export function tomParaTexto(cor: Rgb, tema: "claro" | "escuro"): Rgb {
+  const fundos = FUNDOS_DO_TEXTO[tema];
+  if (piorContraste(cor, fundos) >= CONTRASTE_TEXTO) return cor;
+  const alvo = tema === "claro" ? PRETO : BRANCO;
+  for (let t = 0.01; t <= 1; t += 0.01) {
+    const tentativa = misturar(cor, alvo, t);
+    if (piorContraste(tentativa, fundos) >= CONTRASTE_TEXTO) return tentativa;
+  }
+  return alvo;
 }
 
 /** Preto ou branco sobre a cor: o que der mais contraste. */
@@ -157,6 +184,8 @@ export interface TemaDaMarca {
   cor: string;
   /** O tom foi mexido para dar leitura? */
   ajustado: boolean;
+  /** O tom da cor como texto (link, título em destaque), com 4,5:1. */
+  corTexto: string;
   /** Os tokens do tema que a marca substitui. */
   tokens: Record<string, string>;
 }
@@ -168,12 +197,15 @@ function temaDaMarca(base: Rgb, tema: "claro" | "escuro"): TemaDaMarca {
   // dourado do sistema.
   const acento = misturar(cor, tema === "claro" ? PRETO : BRANCO, 0.12);
   const grafico2 = misturar(cor, tema === "claro" ? PRETO : BRANCO, 0.3);
+  const corTexto = tomParaTexto(cor, tema);
   return {
     cor: hexDe(cor),
     ajustado,
+    corTexto: hexDe(corTexto),
     tokens: {
       "--primary": hslDe(cor),
       "--primary-foreground": hslDe(texto),
+      "--primary-texto": hslDe(corTexto),
       "--ring": hslDe(cor),
       "--accent": hslDe(acento),
       "--accent-foreground": hslDe(textoSobre(acento)),

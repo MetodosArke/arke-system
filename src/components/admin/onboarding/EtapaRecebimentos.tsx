@@ -112,7 +112,7 @@ export function EtapaRecebimentos({ onSalvo }: { onSalvo: () => void }) {
               <Badge variant={status === "APPROVED" ? "default" : status === "REJECTED" ? "destructive" : "outline"}>
                 {ROTULO_SITUACAO_ASAAS[status] ?? status}
               </Badge>
-              <Button size="sm" variant="ghost" className="h-7 px-2" disabled={situacao.isPending} onClick={() => situacao.mutate()}>
+              <Button aria-label="Atualizar a situação da conta" size="sm" variant="ghost" className="h-7 px-2" disabled={situacao.isPending} onClick={() => situacao.mutate()}>
                 <RefreshCw className={cn("h-3.5 w-3.5", situacao.isPending && "animate-spin")} />
               </Button>
             </div>

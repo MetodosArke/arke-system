@@ -1,4 +1,5 @@
 import { dataBrasilia, hojeBrasilia } from "@/lib/dataBrasilia";
+import { ErroAoCarregar } from "@/components/ErroAoCarregar";
 import { useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -52,7 +53,12 @@ export default function AlunoAgenda() {
 
   const weekday = useMemo(() => weekdayISO(dataSelecionada), [dataSelecionada]);
 
-  const { data: turmas = [] } = useQuery({
+  const {
+    data: turmas = [],
+    error: erroTurmas,
+    refetch: recarregarTurmas,
+    isFetching: recarregandoTurmas,
+  } = useQuery({
     queryKey: ["aluno-agenda-turmas", organization?.id],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -84,7 +90,12 @@ export default function AlunoAgenda() {
     enabled: !!organization?.id,
   });
 
-  const { data: meusAgendamentos = [] } = useQuery({
+  const {
+    data: meusAgendamentos = [],
+    error: erroAgendamentos,
+    refetch: recarregarAgendamentos,
+    isFetching: recarregandoAgendamentos,
+  } = useQuery({
     queryKey: ["aluno-agenda-meus-agendamentos", alunoId],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -159,17 +170,21 @@ export default function AlunoAgenda() {
 
       <Card>
         <CardContent className="py-3 flex items-center justify-between">
-          <Button variant="ghost" size="icon" onClick={() => setDataSelecionada((d) => somarDias(d, -1))}>
+          <Button aria-label="Dia anterior" variant="ghost" size="icon" onClick={() => setDataSelecionada((d) => somarDias(d, -1))}>
             <ChevronLeft className="h-4 w-4" />
           </Button>
           <span className="text-sm font-medium capitalize">{formatarDataLabel(dataSelecionada)}</span>
-          <Button variant="ghost" size="icon" onClick={() => setDataSelecionada((d) => somarDias(d, 1))}>
+          <Button aria-label="Próximo dia" variant="ghost" size="icon" onClick={() => setDataSelecionada((d) => somarDias(d, 1))}>
             <ChevronRight className="h-4 w-4" />
           </Button>
         </CardContent>
       </Card>
 
-      {turmasDoDia.length === 0 ? (
+      {erroTurmas && turmas.length === 0 ? (
+        <Card>
+          <ErroAoCarregar oQue="as turmas" onTentarDeNovo={() => void recarregarTurmas()} tentando={recarregandoTurmas} />
+        </Card>
+      ) : turmasDoDia.length === 0 ? (
         <Card>
           <CardContent className="py-8 text-center text-sm text-muted-foreground">
             Nenhuma turma nesse dia.
@@ -210,7 +225,14 @@ export default function AlunoAgenda() {
           <CardTitle className="text-base">Meus próximos agendamentos</CardTitle>
         </CardHeader>
         <CardContent>
-          {meusAgendamentos.length === 0 ? (
+          {erroAgendamentos && meusAgendamentos.length === 0 ? (
+            <ErroAoCarregar
+              oQue="os seus agendamentos"
+              onTentarDeNovo={() => void recarregarAgendamentos()}
+              tentando={recarregandoAgendamentos}
+              className="p-2"
+            />
+          ) : meusAgendamentos.length === 0 ? (
             <p className="text-sm text-muted-foreground">Nenhum agendamento futuro.</p>
           ) : (
             <ul className="space-y-2">
@@ -226,7 +248,7 @@ export default function AlunoAgenda() {
                         {a.status === "lista_espera" && " · lista de espera"}
                       </span>
                     </div>
-                    <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive" onClick={() => cancelar.mutate(a.id)}>
+                    <Button aria-label="Cancelar o agendamento" size="icon" variant="ghost" className="h-7 w-7 text-destructive" onClick={() => cancelar.mutate(a.id)}>
                       <X className="h-3.5 w-3.5" />
                     </Button>
                   </li>

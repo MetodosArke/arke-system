@@ -23,6 +23,7 @@ import { EditorSeries } from "@/components/acervo/EditorSeries";
 import { MiniaturaExercicio } from "@/components/acervo/MidiaExercicio";
 import { DIVISOES, divisoesDoTreino, paraGravar, rotuloTecnica, seriesDoExercicio, type SerieDetalhe } from "@/lib/seriesTreino";
 import { formatarDataBR } from "@/lib/dataBrasilia";
+import { ErroAoCarregar } from "@/components/ErroAoCarregar";
 import { bibliotecaDoEscopo, type EscopoPrescricao } from "@/components/prescricao/escopo";
 
 const SERIES_PADRAO: SerieDetalhe[] = Array.from({ length: 3 }, () => ({ reps: "12", descanso_seg: 60, tecnica: null }));
@@ -178,7 +179,12 @@ export function PrescricaoTreino({
     aoCancelar?.();
   };
 
-  const { data: modelos = [] } = useQuery({
+  const {
+    data: modelos = [],
+    error: erroModelos,
+    refetch: recarregarModelos,
+    isFetching: recarregandoModelos,
+  } = useQuery({
     queryKey: ["modelos-treino", biblioteca.chave],
     queryFn: async () => {
       const consulta = supabase.from("modelos_treino").select("id, titulo").order("titulo");
@@ -190,7 +196,12 @@ export function PrescricaoTreino({
     },
   });
 
-  const { data: exercicios = [] } = useQuery({
+  const {
+    data: exercicios = [],
+    error: erroExercicios,
+    refetch: recarregarExercicios,
+    isFetching: recarregandoExercicios,
+  } = useQuery({
     queryKey: ["modelo-treino-exercicios", modeloSelecionado],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -228,7 +239,12 @@ export function PrescricaoTreino({
     enabled: escopo.tipo === "academia",
   });
 
-  const { data: historico = [] } = useQuery({
+  const {
+    data: historico = [],
+    error: erroHistorico,
+    refetch: recarregarHistorico,
+    isFetching: recarregandoHistorico,
+  } = useQuery({
     queryKey: ["treinos-historico", alunoPublicar],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -242,7 +258,12 @@ export function PrescricaoTreino({
     enabled: !!alunoPublicar,
   });
 
-  const { data: exerciciosModeloCarregado = [] } = useQuery({
+  const {
+    data: exerciciosModeloCarregado = [],
+    error: erroCarregado,
+    refetch: recarregarCarregado,
+    isFetching: recarregandoCarregado,
+  } = useQuery({
     queryKey: ["modelo-treino-exercicios-carregado", modeloCarregadoId],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -405,7 +426,15 @@ export function PrescricaoTreino({
                 <CardTitle className="text-base">Exercícios</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
-                {exercicios.length === 0 && <p className="text-sm text-muted-foreground">Nenhum exercício neste modelo ainda.</p>}
+                {erroExercicios && exercicios.length === 0 ? (
+                  <ErroAoCarregar
+                    oQue="os exercícios do modelo"
+                    onTentarDeNovo={() => void recarregarExercicios()}
+                    tentando={recarregandoExercicios}
+                  />
+                ) : (
+                  exercicios.length === 0 && <p className="text-sm text-muted-foreground">Nenhum exercício neste modelo ainda.</p>
+                )}
                 {divisoesDoTreino(exercicios).map((div) => (
                   <div key={div} className="space-y-1">
                     <p className="text-sm font-semibold">Treino {div}</p>
@@ -580,7 +609,10 @@ export function PrescricaoTreino({
                     Carregar Modelo
                   </Button>
                 </div>
-                {escopo.tipo === "metodo" && modelos.length === 0 && (
+                {erroModelos && modelos.length === 0 && (
+                  <ErroAoCarregar oQue="os modelos" onTentarDeNovo={() => void recarregarModelos()} tentando={recarregandoModelos} className="p-2" />
+                )}
+                {escopo.tipo === "metodo" && !erroModelos && modelos.length === 0 && (
                   <p className="text-xs text-muted-foreground">
                     A biblioteca do Método ainda está vazia. Monte o primeiro modelo na aba ao lado.
                   </p>
@@ -590,7 +622,14 @@ export function PrescricaoTreino({
               {modeloCarregadoId && (
                 <div className="space-y-1.5 pt-1 border-t border-border">
                   <p className="text-xs font-semibold text-muted-foreground pt-2">Ficha carregada</p>
-                  {exerciciosModeloCarregado.length === 0 ? (
+                  {erroCarregado && exerciciosModeloCarregado.length === 0 ? (
+                    <ErroAoCarregar
+                      oQue="a ficha do modelo"
+                      onTentarDeNovo={() => void recarregarCarregado()}
+                      tentando={recarregandoCarregado}
+                      className="p-2"
+                    />
+                  ) : exerciciosModeloCarregado.length === 0 ? (
                     <p className="text-sm text-muted-foreground">Este modelo ainda não tem exercícios cadastrados.</p>
                   ) : (
                     <Table>
@@ -642,7 +681,13 @@ export function PrescricaoTreino({
                 </p>
               </CardHeader>
               <CardContent>
-                {historico.length === 0 ? (
+                {erroHistorico && historico.length === 0 ? (
+                  <ErroAoCarregar
+                    oQue="os treinos publicados"
+                    onTentarDeNovo={() => void recarregarHistorico()}
+                    tentando={recarregandoHistorico}
+                  />
+                ) : historico.length === 0 ? (
                   <p className="text-sm text-muted-foreground">Nenhum treino publicado para este aluno ainda.</p>
                 ) : (
                   <Table>

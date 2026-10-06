@@ -1280,7 +1280,7 @@ export default function SuperAdminDashboard() {
                       <Label>PIX Copia e Cola</Label>
                       <div className="flex items-start gap-2">
                         <Textarea readOnly rows={3} value={cobrancaGerada.pix_copia_cola} className="text-xs font-mono" />
-                        <Button type="button" size="icon" variant="outline" className="shrink-0" onClick={() => void copiarPixCopiaCola()}>
+                        <Button aria-label="Copiar o Pix copia e cola" type="button" size="icon" variant="outline" className="shrink-0" onClick={() => void copiarPixCopiaCola()}>
                           <Copy className="h-3.5 w-3.5" />
                         </Button>
                       </div>

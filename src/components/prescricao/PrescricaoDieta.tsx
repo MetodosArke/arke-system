@@ -25,6 +25,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Plus, Trash2, FolderOpen, UserRound, FileUp, Loader2, TriangleAlert } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { formatarDataBR } from "@/lib/dataBrasilia";
+import { ErroAoCarregar } from "@/components/ErroAoCarregar";
 import type { Json } from "@/integrations/supabase/types";
 import { bibliotecaDoEscopo, type EscopoPrescricao } from "@/components/prescricao/escopo";
 
@@ -282,7 +283,12 @@ export function PrescricaoDieta({
     enabled: escopo.tipo === "academia",
   });
 
-  const { data: historico = [] } = useQuery({
+  const {
+    data: historico = [],
+    error: erroHistorico,
+    refetch: recarregarHistorico,
+    isFetching: recarregandoHistorico,
+  } = useQuery({
     queryKey: ["dietas-historico", alunoPublicar],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -296,7 +302,12 @@ export function PrescricaoDieta({
     enabled: !!alunoPublicar,
   });
 
-  const { data: refeicoesModeloCarregado = [] } = useQuery({
+  const {
+    data: refeicoesModeloCarregado = [],
+    error: erroCarregado,
+    refetch: recarregarCarregado,
+    isFetching: recarregandoCarregado,
+  } = useQuery({
     queryKey: ["modelo-dieta-refeicoes-carregado", modeloCarregadoId],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -609,7 +620,7 @@ export function PrescricaoDieta({
                           {!r.calorias_kcal && !r.proteinas_g && !r.carboidratos_g && !r.gorduras_g && "—"}
                         </TableCell>
                         <TableCell>
-                          <Button variant="ghost" size="icon" onClick={() => removerRefeicao.mutate(r.id)}>
+                          <Button aria-label="Remover a refeição" variant="ghost" size="icon" onClick={() => removerRefeicao.mutate(r.id)}>
                             <Trash2 className="h-4 w-4" />
                           </Button>
                         </TableCell>
@@ -779,7 +790,14 @@ export function PrescricaoDieta({
               {modeloCarregadoId && (
                 <div className="space-y-1.5 pt-1 border-t border-border">
                   <p className="text-xs font-semibold text-muted-foreground pt-2">Ficha carregada</p>
-                  {refeicoesModeloCarregado.length === 0 ? (
+                  {erroCarregado && refeicoesModeloCarregado.length === 0 ? (
+                    <ErroAoCarregar
+                      oQue="a ficha do modelo"
+                      onTentarDeNovo={() => void recarregarCarregado()}
+                      tentando={recarregandoCarregado}
+                      className="p-2"
+                    />
+                  ) : refeicoesModeloCarregado.length === 0 ? (
                     <p className="text-sm text-muted-foreground">Este modelo ainda não tem refeições cadastradas.</p>
                   ) : (
                     <Table>
@@ -825,7 +843,13 @@ export function PrescricaoDieta({
                 </p>
               </CardHeader>
               <CardContent>
-                {historico.length === 0 ? (
+                {erroHistorico && historico.length === 0 ? (
+                  <ErroAoCarregar
+                    oQue="as dietas publicadas"
+                    onTentarDeNovo={() => void recarregarHistorico()}
+                    tentando={recarregandoHistorico}
+                  />
+                ) : historico.length === 0 ? (
                   <p className="text-sm text-muted-foreground">Nenhuma dieta publicada para este aluno ainda.</p>
                 ) : (
                   <Table>

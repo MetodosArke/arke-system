@@ -4,13 +4,20 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { CobrancasAvulsas } from "./CobrancasAvulsas";
 
 const linhas = vi.fn();
+let erroDaLeitura: { message: string } | null = null;
 const invoke = vi.fn();
 let papel: string | null = "gestor";
 
 vi.mock("@/integrations/supabase/client", () => ({
   supabase: {
     from: () => ({
-      select: () => ({ eq: () => ({ order: () => ({ limit: () => Promise.resolve({ data: linhas(), error: null }) }) }) }),
+      select: () => ({
+        eq: () => ({
+          order: () => ({
+            limit: () => Promise.resolve(erroDaLeitura ? { data: null, error: erroDaLeitura } : { data: linhas(), error: null }),
+          }),
+        }),
+      }),
     }),
     rpc: () => Promise.resolve({ data: [{ percentual: 2.99, fixa: 0.49 }], error: null }),
     functions: { invoke: (...a: unknown[]) => invoke(...a) },
@@ -46,6 +53,15 @@ describe("CobrancasAvulsas", () => {
     linhas.mockReset();
     invoke.mockReset();
     papel = "gestor";
+    erroDaLeitura = null;
+  });
+
+  it("falha na leitura não vira \"Nenhuma cobrança avulsa\"", async () => {
+    erroDaLeitura = { message: "falha de rede" };
+    montar();
+    await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("Não foi possível carregar as cobranças avulsas."));
+    expect(screen.queryByText("Nenhuma cobrança avulsa.")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Tentar de novo" })).toBeInTheDocument();
   });
 
   it("mostra a cobrança com a situação e o link da fatura", async () => {

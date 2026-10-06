@@ -13,6 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { CheckCircle2, ExternalLink, FileText, RotateCcw } from "lucide-react";
 import { decimal, lerReais, reais } from "@/lib/numeros";
+import { ErroAoCarregar } from "@/components/ErroAoCarregar";
 import {
   ROTULO_AUTENTICACAO,
   ROTULO_ORIGEM_NOTA,
@@ -474,7 +475,12 @@ function ListaNotas({ orgId, podeReenviar }: { orgId: string; podeReenviar: bool
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const chave = ["notas-fiscais", orgId];
-  const { data: notas } = useQuery({
+  const {
+    data: notas,
+    error: erroNotas,
+    refetch: recarregarNotas,
+    isFetching: recarregandoNotas,
+  } = useQuery({
     queryKey: chave,
     queryFn: async () => {
       const { data, error } = await supabase
@@ -518,7 +524,9 @@ function ListaNotas({ orgId, podeReenviar }: { orgId: string; podeReenviar: bool
         </CardTitle>
       </CardHeader>
       <CardContent>
-        {!notas?.length ? (
+        {erroNotas && !notas ? (
+          <ErroAoCarregar oQue="as notas" onTentarDeNovo={() => void recarregarNotas()} tentando={recarregandoNotas} />
+        ) : !notas?.length ? (
           <p className="text-sm text-muted-foreground">Nenhuma nota ainda.</p>
         ) : (
           <ul className="divide-y">

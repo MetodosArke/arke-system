@@ -10,6 +10,7 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { mensagemDeErroEdge } from "@/lib/erroEdge";
+import { ErroAoCarregar } from "@/components/ErroAoCarregar";
 
 /**
  * Canal do aluno do Método ARKE com o mentor da ArkeFit.
@@ -60,7 +61,12 @@ export function ChatMentor({
 
   const meuTipo: "aluno" | "mentor" = viewerType;
 
-  const { data: mensagens = [] } = useQuery({
+  const {
+    data: mensagens = [],
+    error: erroMensagens,
+    refetch: recarregarMensagens,
+    isFetching: recarregandoMensagens,
+  } = useQuery({
     queryKey: ["chat-mentor", alunoId],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -168,7 +174,10 @@ export function ChatMentor({
   return (
     <div className={cn("flex flex-col", className)}>
       <div className="flex-1 space-y-2 overflow-y-auto max-h-[420px] pr-1">
-        {mensagens.length === 0 && (
+        {erroMensagens && mensagens.length === 0 && (
+          <ErroAoCarregar oQue="a conversa" onTentarDeNovo={() => void recarregarMensagens()} tentando={recarregandoMensagens} />
+        )}
+        {!erroMensagens && mensagens.length === 0 && (
           <p className="text-sm text-muted-foreground py-6 text-center">
             {viewerType === "aluno"
               ? "Seu mentor ARKE acompanha sua jornada por aqui. Mande a primeira mensagem."

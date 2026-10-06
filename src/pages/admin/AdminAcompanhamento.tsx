@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { HeartHandshake, Lock } from "lucide-react";
+import { ErroAoCarregar } from "@/components/ErroAoCarregar";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
@@ -63,7 +64,13 @@ export default function AdminAcompanhamento() {
   const { organization } = useAuth();
   const [dias, setDias] = useState(30);
 
-  const { data: valor, isLoading } = useQuery({
+  const {
+    data: valor,
+    isLoading,
+    error: erroValor,
+    refetch: recarregarValor,
+    isFetching: recarregandoValor,
+  } = useQuery({
     queryKey: ["valor-mentor", organization?.id, dias],
     queryFn: async () => {
       const { data, error } = await supabase.rpc("get_valor_mentor_organizacao", {
@@ -76,7 +83,12 @@ export default function AdminAcompanhamento() {
     enabled: !!organization?.id,
   });
 
-  const { data: atendimentos = [] } = useQuery({
+  const {
+    data: atendimentos = [],
+    error: erroAtendimentos,
+    refetch: recarregarAtendimentos,
+    isFetching: recarregandoAtendimentos,
+  } = useQuery({
     queryKey: ["atendimentos-mentor", organization?.id, dias],
     queryFn: async () => {
       const { data, error } = await supabase.rpc("get_atendimentos_mentor_organizacao", {
@@ -120,6 +132,10 @@ export default function AdminAcompanhamento() {
             className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent"
           />
         </div>
+      ) : erroValor && !valor ? (
+        <Card>
+          <ErroAoCarregar oQue="o acompanhamento" onTentarDeNovo={() => void recarregarValor()} tentando={recarregandoValor} />
+        </Card>
       ) : !valor || valor.alunos_no_metodo === 0 ? (
         <Card>
           <CardContent className="space-y-2 py-10 text-center">
@@ -182,7 +198,13 @@ export default function AdminAcompanhamento() {
               </p>
             </CardHeader>
             <CardContent>
-              {atendimentos.length === 0 ? (
+              {erroAtendimentos && atendimentos.length === 0 ? (
+                <ErroAoCarregar
+                  oQue="os atendimentos"
+                  onTentarDeNovo={() => void recarregarAtendimentos()}
+                  tentando={recarregandoAtendimentos}
+                />
+              ) : atendimentos.length === 0 ? (
                 <p className="py-4 text-sm text-muted-foreground">
                   Nenhum atendimento encerrado {periodo}.
                 </p>

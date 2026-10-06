@@ -12,6 +12,7 @@ import PontuacaoEngajamento from "@/components/aluno/PontuacaoEngajamento";
 import type { Tables } from "@/integrations/supabase/types";
 import { decimal } from "@/lib/numeros";
 import { formatarDataBR } from "@/lib/dataBrasilia";
+import { ErroAoCarregar } from "@/components/ErroAoCarregar";
 
 type Avaliacao = Tables<"avaliacoes_fisicas">;
 type MetricaCustomizada = Tables<"metricas_customizadas">;
@@ -56,7 +57,13 @@ export default function AlunoEvolucao() {
   // Pelo plano, não pelo nível gravado: nível em quem não está no Método é só intenção.
   const ehElite = planoAluno === "elite";
 
-  const { data: avaliacoes = [], isLoading } = useQuery({
+  const {
+    data: avaliacoes = [],
+    isLoading,
+    error: erroAvaliacoes,
+    refetch: recarregarAvaliacoes,
+    isFetching: recarregandoAvaliacoes,
+  } = useQuery({
     queryKey: ["aluno-evolucao", alunoId],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -163,7 +170,17 @@ export default function AlunoEvolucao() {
 
       {isLoading && <p className="text-sm text-muted-foreground">Carregando...</p>}
 
-      {!isLoading && avaliacoes.length === 0 && (
+      {erroAvaliacoes && avaliacoes.length === 0 && (
+        <Card>
+          <ErroAoCarregar
+            oQue="as suas avaliações"
+            onTentarDeNovo={() => void recarregarAvaliacoes()}
+            tentando={recarregandoAvaliacoes}
+          />
+        </Card>
+      )}
+
+      {!isLoading && !erroAvaliacoes && avaliacoes.length === 0 && (
         <Card>
           <CardContent className="py-8 text-center text-sm text-muted-foreground">
             Sua primeira avaliação física ainda não foi registrada. Sua equipe vai te avisar assim que tiver novidade.

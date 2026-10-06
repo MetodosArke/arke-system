@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Copy, ExternalLink, Plus, RotateCcw } from "lucide-react";
 import { hojeBrasilia } from "@/lib/dataBrasilia";
+import { ErroAoCarregar } from "@/components/ErroAoCarregar";
 import { lerReais, reais } from "@/lib/numeros";
 import { taxaProcessamento } from "@/lib/repasse";
 import { useTaxaProcessamento } from "@/hooks/useTaxaProcessamento";
@@ -73,7 +74,12 @@ export function CobrancasAvulsas({ alunoId }: { alunoId: string }) {
   const hoje = hojeBrasilia();
 
   const chave = ["cobrancas-avulsas", alunoId];
-  const { data: cobrancas } = useQuery({
+  const {
+    data: cobrancas,
+    error: erroCobrancas,
+    refetch: recarregarCobrancas,
+    isFetching: recarregandoCobrancas,
+  } = useQuery({
     queryKey: chave,
     queryFn: async () => {
       const { data, error } = await supabase
@@ -149,7 +155,14 @@ export function CobrancasAvulsas({ alunoId }: { alunoId: string }) {
 
   return (
     <div className="space-y-2">
-      {!cobrancas?.length ? (
+      {erroCobrancas && !cobrancas ? (
+        <ErroAoCarregar
+          oQue="as cobranças avulsas"
+          onTentarDeNovo={() => void recarregarCobrancas()}
+          tentando={recarregandoCobrancas}
+          className="p-2"
+        />
+      ) : !cobrancas?.length ? (
         <p className="text-sm text-muted-foreground">Nenhuma cobrança avulsa.</p>
       ) : (
         <ul className="space-y-1.5">

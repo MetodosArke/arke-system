@@ -18,6 +18,7 @@ import { X, Trophy, Plus } from "lucide-react";
 import type { Tables } from "@/integrations/supabase/types";
 import { calcularPontosTotais, calcularStatusMetas, type MetaDirecao, type StatusMeta } from "@/lib/evolucaoPontos";
 import { formatarDataBR } from "@/lib/dataBrasilia";
+import { ErroAoCarregar } from "@/components/ErroAoCarregar";
 
 type Avaliacao = Tables<"avaliacoes_fisicas">;
 type MetricaCustomizada = Tables<"metricas_customizadas">;
@@ -186,7 +187,13 @@ export function AvaliacaoFisicaDialog({ open, onOpenChange, alunoId, alunoNome }
   const [novaMetricaNome, setNovaMetricaNome] = useState("");
   const [valoresMetricas, setValoresMetricas] = useState<Record<string, string>>({});
 
-  const { data: historico = [], isLoading } = useQuery({
+  const {
+    data: historico = [],
+    isLoading,
+    error: erroHistorico,
+    refetch: recarregarHistorico,
+    isFetching: recarregandoHistorico,
+  } = useQuery({
     queryKey: ["avaliacoes-fisicas", alunoId],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -513,7 +520,7 @@ export function AvaliacaoFisicaDialog({ open, onOpenChange, alunoId, alunoNome }
                     <div key={m.id} className="flex items-center gap-2">
                       <Badge variant="secondary" className="gap-1 pr-1 shrink-0">
                         {m.nome}
-                        <button onClick={() => excluirMetrica.mutate(m.id)}>
+                        <button aria-label="Excluir a métrica" onClick={() => excluirMetrica.mutate(m.id)}>
                           <X className="h-3 w-3" />
                         </button>
                       </Badge>
@@ -573,7 +580,14 @@ export function AvaliacaoFisicaDialog({ open, onOpenChange, alunoId, alunoNome }
 
           <TabsContent value="historico" className="space-y-3 pt-2">
             {isLoading && <p className="text-sm text-muted-foreground text-center py-4">Carregando...</p>}
-            {!isLoading && historico.length === 0 && (
+            {erroHistorico && historico.length === 0 && (
+              <ErroAoCarregar
+                oQue="as avaliações"
+                onTentarDeNovo={() => void recarregarHistorico()}
+                tentando={recarregandoHistorico}
+              />
+            )}
+            {!isLoading && !erroHistorico && historico.length === 0 && (
               <p className="text-sm text-muted-foreground text-center py-4">Nenhuma avaliação registrada ainda.</p>
             )}
             {historico.map((av, idx) => {

@@ -15,7 +15,7 @@ import { emPerfilSimulado } from "@/lib/impersonation";
 import { resolveHomePath } from "@/lib/authRouting";
 import { Suspense, useState } from "react";
 import { paginaPreguicosa } from "@/lib/carregamentoPreguicoso";
-import { CarregandoPagina } from "@/components/CarregandoPagina";
+import { CarregandoPagina, CarregandoTela } from "@/components/CarregandoPagina";
 import { MarcaAcademiaProvider } from "@/components/marca/MarcaAcademia";
 import { slugDeEntrada } from "@/lib/marcaAcademia";
 
@@ -197,11 +197,7 @@ function RootRedirect() {
   if (isAuthenticated && erroAcesso) return <ErroAoCarregarAcesso />;
 
   if (isLoading || (isAuthenticated && !rolesLoaded)) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-background">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-      </div>
-    );
+    return <CarregandoTela />;
   }
 
   if (!isAuthenticated) {

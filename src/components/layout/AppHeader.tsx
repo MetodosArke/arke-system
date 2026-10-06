@@ -59,7 +59,13 @@ export function AppHeader({ title }: { title?: string }) {
       <div className="flex items-center gap-1">
         <SeletorOrganizacao />
         {(isAdmin || isApp) && <BotaoAjuda />}
-        <Button variant="ghost" size="icon" onClick={toggleTheme} className="h-8 w-8 sm:h-9 sm:w-9">
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={toggleTheme}
+          className="h-8 w-8 sm:h-9 sm:w-9"
+          aria-label={theme === "dark" ? "Usar o tema claro" : "Usar o tema escuro"}
+        >
           {theme === "dark" ? <Sun className="h-4 w-4 sm:h-5 sm:w-5" /> : <Moon className="h-4 w-4 sm:h-5 sm:w-5" />}
         </Button>
         <Button

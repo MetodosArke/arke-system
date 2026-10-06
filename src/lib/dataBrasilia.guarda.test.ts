@@ -54,6 +54,38 @@ const fontes = RAIZES.flatMap((raiz) => arquivos(join(RAIZ, raiz))).map((caminho
   codigo: readFileSync(caminho, "utf8"),
 }));
 
+/**
+ * As colunas `date` do banco, pelas migrations e pelo retrato fiel de como o
+ * banco foi construído. Um nome que é `date` numa tabela e `timestamptz` em
+ * outra fica de fora: aí a leitura com `new Date()` pode estar certa.
+ */
+function colunasDeData(): Set<string> {
+  const datas = new Set<string>();
+  const horas = new Set<string>();
+  for (const pasta of ["historico", "migrations"]) {
+    const dir = join(RAIZ, "supabase", pasta);
+    for (const arquivo of readdirSync(dir).filter((f) => f.endsWith(".sql"))) {
+      const sql = readFileSync(join(dir, arquivo), "utf8").toLowerCase();
+      const marcar = (nome: string, tipo: string) => (tipo === "date" ? datas : horas).add(nome);
+      for (const t of sql.matchAll(/create table (?:if not exists )?(?:public\.)?\w+\s*\(([\s\S]*?)\n\s*\);/g)) {
+        for (const c of t[1].matchAll(/^\s*"?(\w+)"?\s+(date|timestamptz|timestamp)\b/gm)) marcar(c[1], c[2]);
+      }
+      for (const c of sql.matchAll(/add column (?:if not exists )?"?(\w+)"?\s+(date|timestamptz|timestamp)\b/g)) marcar(c[1], c[2]);
+      for (const c of sql.matchAll(/alter column "?(\w+)"? (?:set data )?type (date|timestamptz|timestamp)\b/g)) marcar(c[1], c[2]);
+    }
+  }
+  return new Set([...datas].filter((c) => !horas.has(c)));
+}
+
+const COLUNAS_DE_DATA = colunasDeData();
+
+/** `new Date(x.coluna)` (ou `x?.coluna`, `x!.coluna`) com uma coluna `date`. */
+function leiturasDeDataPura(codigo: string) {
+  return [...codigo.matchAll(/new Date\(\s*[\w$]+(?:[?!]?\.[\w$]+)*[?!]?\.(\w+)\s*\)/g)]
+    .filter((m) => COLUNAS_DE_DATA.has(m[1]))
+    .map((m) => ({ trecho: m[0], linha: codigo.slice(0, m.index).split("\n").length }));
+}
+
 describe("a data do negócio é a de Brasília", () => {
   it("encontra os fontes", () => {
     expect(fontes.length).toBeGreaterThan(50);
@@ -88,6 +120,28 @@ describe("a data do negócio é a de Brasília", () => {
       .map((f) => f.nome);
 
     expect(culpados, 'Data pura lida como UTC aparece um dia antes em Brasília. Use formatarDataBR() de "@/lib/dataBrasilia".').toEqual([]);
+  });
+
+  it("ninguém lê coluna de data pura com new Date(...)", () => {
+    // Brecha fechada em 06/10/2026: a regra acima só pegava a data pura
+    // levada à tela com toLocaleDateString. Comparada, ela errava do mesmo
+    // jeito e sem aparecer: `new Date(d.data_fim) >= new Date()` dava o desafio
+    // como encerrado desde as 21h da véspera, e `new Date(a.data)` tirava o
+    // domingo do resumo da semana da dieta. As colunas `date` vêm do próprio
+    // banco (migrations), então coluna nova entra sozinha.
+    expect(COLUNAS_DE_DATA.size, "as colunas de data foram achadas").toBeGreaterThan(15);
+    expect(COLUNAS_DE_DATA.has("data_fim") && COLUNAS_DE_DATA.has("data")).toBe(true);
+    expect(COLUNAS_DE_DATA.has("created_at"), "timestamp não é data pura").toBe(false);
+    expect(leiturasDeDataPura("const ativo = new Date(d.data_fim) >= new Date();"), "o detector detecta").toHaveLength(1);
+    expect(leiturasDeDataPura("const d = new Date(a?.data);")).toHaveLength(1);
+    expect(leiturasDeDataPura("new Date(`${d.data_fim}T12:00:00-03:00`)")).toHaveLength(0);
+    expect(leiturasDeDataPura("new Date(m.created_at)")).toHaveLength(0);
+
+    const culpados = fontes
+      .filter((f) => !PERMITIDOS.has(f.nome) && !f.nome.includes(".test."))
+      .flatMap((f) => leiturasDeDataPura(f.codigo).map((l) => `${f.nome}:${l.linha} (${l.trecho})`));
+
+    expect(culpados, 'Coluna `date` lida com new Date() é meia-noite em UTC: 21h da véspera em Brasília. Compare o texto com hojeBrasilia()/semanaBrasilia(), ou leia ao meio-dia (`${data}T12:00:00-03:00`).').toEqual([]);
   });
 
   it("ninguém desconta três horas na mão", () => {

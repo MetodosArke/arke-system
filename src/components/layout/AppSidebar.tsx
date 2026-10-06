@@ -69,7 +69,14 @@ function SidebarNav({
           )
         )}
         {onCollapse && (
-          <Button variant="ghost" size="icon" onClick={onCollapse} className="h-8 w-8">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={onCollapse}
+            className="h-8 w-8"
+            aria-label={collapsed ? "Expandir o menu" : "Recolher o menu"}
+            aria-expanded={!collapsed}
+          >
             <ChevronLeft className={cn("h-4 w-4 transition-transform", collapsed && "rotate-180")} />
           </Button>
         )}
@@ -142,7 +149,7 @@ export function AppSidebarMobile() {
   return (
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger asChild>
-        <Button variant="ghost" size="icon" className="md:hidden h-9 w-9 shrink-0">
+        <Button aria-label="Abrir o menu" variant="ghost" size="icon" className="md:hidden h-9 w-9 shrink-0">
           <Menu className="h-5 w-5" />
         </Button>
       </SheetTrigger>

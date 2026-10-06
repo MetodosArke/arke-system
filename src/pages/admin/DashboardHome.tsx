@@ -20,6 +20,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
+import { ErroAoCarregar } from "@/components/ErroAoCarregar";
 import {
   Home,
   Users,
@@ -530,7 +531,12 @@ function NovaAvaliacaoDialog({ open, onOpenChange }: { open: boolean; onOpenChan
   const [alturaCm, setAlturaCm] = useState("");
   const [observacoes, setObservacoes] = useState("");
 
-  const { data: alunos = [] } = useQuery({
+  const {
+    data: alunos = [],
+    error: erroAlunos,
+    refetch: recarregarAlunos,
+    isFetching: recarregandoAlunos,
+  } = useQuery({
     queryKey: ["home-alunos-opcoes", organization?.id],
     queryFn: async () => {
       const alunosData = await todasAsLinhas((de, ate) =>
@@ -584,17 +590,21 @@ function NovaAvaliacaoDialog({ open, onOpenChange }: { open: boolean; onOpenChan
         <div className="space-y-3">
           <div className="space-y-1.5">
             <Label>Aluno</Label>
-            <Select value={alunoId} onValueChange={setAlunoId}>
-              <SelectTrigger><SelectValue placeholder="Selecione o aluno" /></SelectTrigger>
-              <SelectContent>
-                {alunos.length === 0 && (
-                  <div className="px-3 py-2 text-xs text-muted-foreground">Nenhum aluno cadastrado ainda.</div>
-                )}
-                {alunos.map((a) => (
-                  <SelectItem key={a.id} value={a.id}>{a.nome}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            {erroAlunos && alunos.length === 0 ? (
+              <ErroAoCarregar oQue="a lista de alunos" onTentarDeNovo={() => void recarregarAlunos()} tentando={recarregandoAlunos} className="p-2" />
+            ) : (
+              <Select value={alunoId} onValueChange={setAlunoId}>
+                <SelectTrigger><SelectValue placeholder="Selecione o aluno" /></SelectTrigger>
+                <SelectContent>
+                  {alunos.length === 0 && (
+                    <div className="px-3 py-2 text-xs text-muted-foreground">Nenhum aluno cadastrado ainda.</div>
+                  )}
+                  {alunos.map((a) => (
+                    <SelectItem key={a.id} value={a.id}>{a.nome}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
@@ -628,7 +638,12 @@ function AgendarRetornoDialog({ open, onOpenChange }: { open: boolean; onOpenCha
   const [alunoId, setAlunoId] = useState("");
   const [data, setData] = useState(hojeISO());
 
-  const { data: alunos = [] } = useQuery({
+  const {
+    data: alunos = [],
+    error: erroAlunos,
+    refetch: recarregarAlunos,
+    isFetching: recarregandoAlunos,
+  } = useQuery({
     queryKey: ["home-alunos-opcoes", organization?.id],
     queryFn: async () => {
       const alunosData = await todasAsLinhas((de, ate) =>
@@ -687,17 +702,21 @@ function AgendarRetornoDialog({ open, onOpenChange }: { open: boolean; onOpenCha
         <div className="space-y-3">
           <div className="space-y-1.5">
             <Label>Aluno</Label>
-            <Select value={alunoId} onValueChange={setAlunoId}>
-              <SelectTrigger><SelectValue placeholder="Selecione o aluno" /></SelectTrigger>
-              <SelectContent>
-                {alunos.length === 0 && (
-                  <div className="px-3 py-2 text-xs text-muted-foreground">Nenhum aluno cadastrado ainda.</div>
-                )}
-                {alunos.map((a) => (
-                  <SelectItem key={a.id} value={a.id}>{a.nome}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            {erroAlunos && alunos.length === 0 ? (
+              <ErroAoCarregar oQue="a lista de alunos" onTentarDeNovo={() => void recarregarAlunos()} tentando={recarregandoAlunos} className="p-2" />
+            ) : (
+              <Select value={alunoId} onValueChange={setAlunoId}>
+                <SelectTrigger><SelectValue placeholder="Selecione o aluno" /></SelectTrigger>
+                <SelectContent>
+                  {alunos.length === 0 && (
+                    <div className="px-3 py-2 text-xs text-muted-foreground">Nenhum aluno cadastrado ainda.</div>
+                  )}
+                  {alunos.map((a) => (
+                    <SelectItem key={a.id} value={a.id}>{a.nome}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="retorno-data">Data do retorno</Label>
