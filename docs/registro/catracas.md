@@ -410,4 +410,12 @@ Como grava no registro de acessos e na fila do Gateway por cima do RLS, a funç�
 
 A tela acompanha a ordem (`useComandoGateway().acompanhar`) e só diz que liberou quando o Gateway confirma; ordem que expira ou falha vira o mesmo aviso de liberar à mão. A ordem concluída de um check-in não grava um segundo acesso "liberado pela recepção", porque o check-in já está registrado (`concluir_comando_gateway`). Nos últimos acessos, o rótulo passou de "Liberado (parceiro)" para "Check-in (parceiro)", que é o que o registro prova.
 
-**Conferido:** os testes do aviso (`alertaCatracas`, 3 novos) e do check-in (`checkinParceiro`, 6). Defeito plantado: o envio do aviso sem a chave de idempotência derrubou `alertaCatracas`; o "Catraca liberada!" de volta na tela derrubou `checkinParceiro`. **Falta:** no banco, a cópia do "já avisei" para o gestor e a recusa do check-in sem a sessão verificada; pela corrente real, uma catraca que aceita ordem remota abrindo pelo check-in, e uma sem gestão remota mostrando o aviso de liberar à mão.
+**Conferido:** os testes do aviso (`alertaCatracas`, 3 novos) e do check-in (`checkinParceiro`, 6). Defeito plantado: o envio do aviso sem a chave de idempotência derrubou `alertaCatracas`; o "Catraca liberada!" de volta na tela derrubou `checkinParceiro`. No banco de produção, em transação desfeita:
+- o "já avisei" antigo virou dois (ArkeFit e gestor), e o gestor que recuperou não apagou o da ArkeFit;
+- o check-in da gestora numa catraca sem ordem remota volta `manual`, e numa com o Gateway no ar volta `enviada`;
+- o do professor volta `manual` mesmo com o Gateway no ar, porque abrir é da recepção ou da gestão;
+- com o Gateway sem sinal há 10 minutos, volta `manual`;
+- a ordem concluída não grava um segundo acesso (`liberado_remoto`);
+- a gestora com aplicativo autenticador e a sessão só de senha é recusada (42501).
+
+**Falta,** pela corrente real, uma catraca que aceita ordem remota abrindo pelo check-in, e uma sem gestão remota mostrando o aviso de liberar à mão.

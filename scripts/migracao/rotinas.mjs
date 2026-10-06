@@ -146,6 +146,17 @@ export function chamadasCron(sql, arquivo = "(sql)") {
   return chamadas;
 }
 
+/** O projeto do banco de produção: o endereço das funções que as rotinas chamam. */
+export const PROJETO = "lzyxqjibkfblrrjboylp";
+
+/**
+ * O comando com o endereço das funções no projeto atual. As rotinas mais
+ * antigas do histórico chamam o projeto anterior, e em produção foram
+ * apontadas para o atual na mudança de projeto; sem esta troca, a
+ * reconstrução recriaria duas delas chamando um projeto que não existe mais.
+ */
+export const noProjetoAtual = (comando) => comando.replace(/https:\/\/[a-z0-9]{20}\.supabase\.co\b/g, `https://${PROJETO}.supabase.co`);
+
 /** As rotinas que existem depois da reconstrução, por nome, na ordem em que nasceram. */
 export function rotinasDoRepositorio(raiz = RAIZ_PADRAO) {
   const rotinas = new Map();
@@ -153,7 +164,7 @@ export function rotinasDoRepositorio(raiz = RAIZ_PADRAO) {
     for (const c of chamadasCron(lerTexto(join(raiz, arquivo)), arquivo)) {
       if (c.tipo === "agendar") {
         rotinas.delete(c.nome);
-        rotinas.set(c.nome, { nome: c.nome, agendamento: c.agendamento, comando: c.comando, arquivo: c.arquivo });
+        rotinas.set(c.nome, { nome: c.nome, agendamento: c.agendamento, comando: noProjetoAtual(c.comando), arquivo: c.arquivo });
       } else if (c.tipo === "desagendar") {
         rotinas.delete(c.nome);
       } else {

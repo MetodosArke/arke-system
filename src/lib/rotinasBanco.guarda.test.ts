@@ -2,6 +2,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   MARCAS,
+  PROJETO,
   ROTEIRO,
   blocoNoRoteiro,
   blocoRotinas,
@@ -73,6 +74,17 @@ describe("rotinas do banco na reconstrução", () => {
     }
     // Saiu com a Letícia e o Bruno (20261315010000): não volta pela reconstrução.
     expect(nomes.has("arke-lembrete-onboarding")).toBe(false);
+  });
+
+  it("toda rotina chama as funções do projeto atual, nunca o anterior", () => {
+    // As duas mais antigas do histórico (reconciliação do Asaas e alerta de
+    // rotinas) chamavam o projeto anterior; em produção foram apontadas para
+    // o atual na mudança de projeto, e a reconstrução as recriava erradas.
+    const projetos = new Set(
+      rotinas.flatMap((r) => [...r.comando.matchAll(/https:\/\/([a-z0-9]+)\.supabase\.co/g)].map((m) => m[1])),
+    );
+    expect([...projetos]).toEqual([PROJETO]);
+    expect(roteiro).not.toMatch(new RegExp(`https://(?!${PROJETO})[a-z0-9]{20}\\.supabase\\.co`));
   });
 
   it("nenhuma rotina repete nome", () => {

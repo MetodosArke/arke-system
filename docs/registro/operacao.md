@@ -217,6 +217,7 @@ Defeitos do caminho:
 - **O Windows entrega os arquivos com `\r\n`,** e o bloco gerado ficaria diferente do conferido no CI. O leitor normaliza o fim de linha.
 - **`alertar-catracas` e `vigia` tinham o site de vendas como padrão** de `SITE_URL`, com links `/#/superadmin/...`. O de `alertar-catracas` passou a ser o app; os outros seguem valendo só com a variável definida, como hoje.
 - **No rebase sobre a main de 06/10,** a guarda acusou `arke-registros-de-acesso` (`20261380010000`, da frente do Marco Civil) fora do roteiro. O bloco foi gerado de novo: 31 rotinas e 3 tokens.
+- **Duas rotinas do roteiro gerado chamavam o projeto anterior.** A conferência do `cron.job` de produção com a lista gerada (31 e 31, os mesmos nomes) achou `arke-reconciliacao-asaas` e `arke-alerta-rotinas` com o endereço do projeto de antes da mudança, como estão no histórico; em produção elas foram apontadas para o atual na mudança de projeto. Numa reconstrução, as duas chamariam um projeto que não existe mais. O gerador passou a escrever toda rotina no projeto atual (`noProjetoAtual`), e `rotinasBanco.guarda` falha se sobrar endereço de outro projeto (defeito real, antes de gerar de novo: 3 testes falharam).
 - **Log com o objeto de erro inteiro** em `cadastrar-membro-equipe` e em `catraca-checkin-parceiro-externo` (a mensagem do Auth pode trazer o e-mail). Agora só status e código.
 
 **Conferido:**
@@ -227,4 +228,8 @@ Defeitos do caminho:
   - a academia pedida ignorada no cadastro: `cadastroEquipe`, 3 testes;
   - o link do resumo sem `#`: `linksDoApp.guarda`, 2 testes;
   - uma migration com rotina nova e o roteiro sem gerar: `rotinasBanco.guarda`, 2 testes.
-- **Falta conferir no banco,** em transação desfeita: quem tem vínculo inativo noutra academia fica fora das contas a apagar; o lote não confirmado volta igual, e ninguém é reservado duas vezes; o término conta os alunos com número na catraca; a eliminação guarda o placar antes da cascata. **E pela corrente real:** uma academia temporária encerrada de ponta a ponta, com o e-mail e o aviso no celular de um aluno, e o cadastro de um professor por uma gestora de duas unidades.
+- **No banco de produção, em transação desfeita** (as cinco migrations, `20261370` a `20261374`):
+  - contas a apagar na eliminação, com U1 (vínculo inativo noutra academia) e U2 (só nesta): antes, U1 e U2; depois, só U2;
+  - o término marca a etapa e confere a remoção; a eliminação apaga a academia e leva o placar à Auditoria;
+  - a reserva do aviso, duas vezes sem confirmar, devolve o mesmo lote e as mesmas 3 pessoas; depois de confirmar, lote novo, sem repetir ninguém, e `alunos_avisados` = 3;
+  - canal inválido recusado (22023); nenhum aluno sem conta no banco, o que a reserva exige.

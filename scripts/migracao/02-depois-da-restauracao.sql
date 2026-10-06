@@ -149,7 +149,7 @@ select cron.schedule('arke-engajamento-baixo', '0 8 * * 1', $cmd$select public.g
 -- supabase/migrations/20261201010000_reconciliacao_asaas.sql
 select cron.schedule('arke-reconciliacao-asaas', '30 4 * * *', $cmd$
     select net.http_post(
-      url := 'https://jbkrxrfdrmrkyldrrdpq.supabase.co/functions/v1/asaas-reconciliar',
+      url := 'https://lzyxqjibkfblrrjboylp.supabase.co/functions/v1/asaas-reconciliar',
       headers := jsonb_build_object(
         'Content-Type', 'application/json',
         'x-reconciliacao-token',
@@ -163,7 +163,7 @@ select cron.schedule('arke-reconciliacao-asaas', '30 4 * * *', $cmd$
 -- supabase/migrations/20261204010000_alerta_rotinas_email.sql
 select cron.schedule('arke-alerta-rotinas', '50 * * * *', $cmd$
     select net.http_post(
-      url := 'https://jbkrxrfdrmrkyldrrdpq.supabase.co/functions/v1/alertar-rotinas',
+      url := 'https://lzyxqjibkfblrrjboylp.supabase.co/functions/v1/alertar-rotinas',
       headers := jsonb_build_object(
         'Content-Type', 'application/json',
         'x-alerta-token',
