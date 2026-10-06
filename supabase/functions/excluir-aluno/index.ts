@@ -2,6 +2,7 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import { verificada } from "../_shared/verificacao.ts";
 import { ambienteAsaas } from "../_shared/asaas.ts";
 import { encerrarCobrancasDoAluno } from "../_shared/encerrarCobrancas.ts";
+import { abridorDaContaDaAcademia } from "../_shared/contaCobranca.ts";
 import { anonimizarClienteNaSaida } from "../_shared/saidaAsaas.ts";
 import { apagarArquivosDoAluno, apagarArquivosPorUrl } from "../_shared/arquivosDoAluno.ts";
 import { servir } from "../_shared/servir.ts";
@@ -153,6 +154,8 @@ servir("excluir-aluno", async (req: Request) => {
       { api: ambiente.api, chave: ambiente.chave },
       callerId,
       "Aluno excluido da academia.",
+      // A mensalidade e a avulsa que nasceram na conta da academia são canceladas lá.
+      abridorDaContaDaAcademia(adminClient, ambiente, aluno.organization_id),
     );
     if (!encerramento.ok) {
       return jsonResponse({ error: encerramento.erro }, 502);

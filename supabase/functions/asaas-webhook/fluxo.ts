@@ -54,3 +54,52 @@ export function ambienteDoAviso(
   // correspondência", que é o desfecho honesto.
   return statusDasOrganizacoes.some((s) => s === "trial") ? recusa : { ok: true };
 }
+
+/** Referência que a conta da academia pode trazer: a mensalidade e a avulsa do ARKE. */
+const REFERENCIA_DA_ACADEMIA = new RegExp(`^(plano|avulsa):${UUID}$`, "i");
+
+/** A referência é das que a conta da academia traz? O aviso que não é some antes de ser gravado. */
+export function referenciaDaContaDaAcademia(referencia: string | null | undefined): boolean {
+  return REFERENCIA_DA_ACADEMIA.test(referencia ?? "");
+}
+
+/**
+ * O aviso que chega pelo webhook da conta da academia (`?org=<id>`, com o
+ * token dela) só mexe em cobrança daquela academia que mora na conta dela.
+ *
+ * O token da academia vale menos que o da ArkeFit: ele mora no painel do
+ * Asaas da academia, e a academia é parte interessada no que o aviso diz.
+ * Por isso o aviso dela não alcança:
+ *   * cobrança de outra academia (`organizacoes` tem de ser só ela);
+ *   * o Método e a mensalidade B2B, que moram na conta da ArkeFit — um
+ *     PAYMENT_CONFIRMED forjado não libera o Método nem quita a academia com
+ *     a ArkeFit;
+ *   * a mensalidade ou a avulsa que nasceu na conta da ArkeFit (antes de
+ *     ligar o modo): `contasDasCobrancas` tem de ser toda "academia";
+ *   * referência que não é do ARKE (a cobrança que a academia fez à mão na
+ *     conta dela não é nossa, e nem é gravada).
+ */
+export function escopoDoAvisoDaAcademia(a: {
+  orgDoToken: string;
+  referencia: string | null | undefined;
+  organizacoes: string[];
+  tocaB2b: boolean;
+  tocaMetodo: boolean;
+  contasDasCobrancas: (string | null | undefined)[];
+}): { ok: true } | { ok: false; resultado: string } {
+  const fora = (motivo: string) => ({ ok: false as const, resultado: `fora_da_conta_da_academia:${motivo}` });
+  if (!referenciaDaContaDaAcademia(a.referencia)) return fora("referencia");
+  const org = a.orgDoToken.toLowerCase();
+  if (a.organizacoes.length === 0 || a.organizacoes.some((o) => o.toLowerCase() !== org)) return fora("organizacao");
+  if (a.tocaB2b) return fora("b2b");
+  if (a.tocaMetodo) return fora("metodo");
+  if (a.contasDasCobrancas.some((c) => c !== "academia")) return fora("conta");
+  return { ok: true };
+}
+
+/** O id da academia no endereço do webhook (`?org=`), ou nulo. Formato fora de UUID é recusa, não "sem org". */
+export function organizacaoDoEndereco(url: string): { org: string | null } | { invalido: true } {
+  const bruto = new URL(url).searchParams.get("org");
+  if (bruto === null || bruto === "") return { org: null };
+  return new RegExp(`^${UUID}$`, "i").test(bruto) ? { org: bruto.toLowerCase() } : { invalido: true };
+}

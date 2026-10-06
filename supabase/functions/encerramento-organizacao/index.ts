@@ -3,6 +3,7 @@ import { verificada } from "../_shared/verificacao.ts";
 import { ambienteAsaas } from "../_shared/asaas.ts";
 import { hojeBrasilia } from "../_shared/data.ts";
 import { encerrarCobrancasDoAluno } from "../_shared/encerrarCobrancas.ts";
+import { abridorDaContaDaAcademia } from "../_shared/contaCobranca.ts";
 import { descreverErro, registrarExecucao } from "../_shared/execucao.ts";
 import { resumoDoErro } from "../_shared/resumoDoErro.ts";
 import { todasAsLinhas } from "../_shared/paginar.ts";
@@ -101,10 +102,16 @@ async function executarTermino(admin: SupabaseClient, enc: Encerramento, inicio:
     for (const l of linhas) comCobranca.add(l.aluno_id);
   }
 
+  // A mensalidade e a avulsa que nasceram na conta da academia são canceladas
+  // lá; a conta abre uma vez só, na primeira que precisar.
+  const abrir = abridorDaContaDaAcademia(admin, ambiente, org.id as string);
+  let contaAberta: Promise<{ api: string; chave: string } | { erro: string }> | null = null;
+  const contaDaAcademia = () => (contaAberta ??= abrir());
+
   let canceladas = 0;
   for (const alunoId of comCobranca) {
     if (Date.now() - inicio > ORCAMENTO_MS) throw new SemTempo(`${comCobranca.size} alunos com cobrança; continua na próxima rodada`);
-    const r = await encerrarCobrancasDoAluno(admin, alunoId, ambiente, null, "Encerramento da academia");
+    const r = await encerrarCobrancasDoAluno(admin, alunoId, ambiente, null, "Encerramento da academia", contaDaAcademia);
     if (!r.ok) throw new Error(r.erro);
     canceladas += r.canceladas;
   }

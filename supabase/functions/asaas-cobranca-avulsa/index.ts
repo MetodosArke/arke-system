@@ -11,6 +11,13 @@ import {
 } from "./fluxo.ts";
 import { servir } from "../_shared/servir.ts";
 import { resumoDoErro } from "../_shared/resumoDoErro.ts";
+import {
+  contaDaCobranca,
+  contaDaLinha,
+  contaParaNovaCobranca,
+  divisaoDaCobranca,
+  lembrarClienteDaAcademia,
+} from "../_shared/contaCobranca.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -32,6 +39,12 @@ const jsonResponse = (body: unknown, status = 200) =>
 //
 // Só a gestão e a recepção da academia do aluno emitem e cancelam: é quem
 // lida com dinheiro na academia, a mesma regra da situação do aluno.
+//
+// A conta: com `organizations.cobranca_conta_academia` desligado (o padrão),
+// a cobrança sai da conta da ArkeFit com split para a academia, como sempre.
+// Ligado, a cobrança nova sai da conta Asaas da academia, sem split e sem a
+// taxa de processamento. Cancelar e reemitir vão à conta onde a linha nasceu
+// (`conta_asaas`), qualquer que seja o modo de hoje.
 
 const PAPEIS_QUE_COBRAM = ["gestor", "recepcao"];
 
@@ -45,6 +58,7 @@ type Linha = {
   status: string;
   valor_liquido_academia: number;
   asaas_payment_id: string | null;
+  conta_asaas: string | null;
 };
 
 async function papelNaOrganizacao(admin: SupabaseClient, userId: string, organizationId: string): Promise<string | null> {
@@ -130,7 +144,7 @@ servir("asaas-cobranca-avulsa", async (req: Request) => {
       if (!cobrancaId) return jsonResponse({ error: "Cobrança não informada." }, 400);
       const { data } = await admin
         .from("cobrancas_avulsas")
-        .select("id, organization_id, aluno_id, descricao, valor, vencimento, status, valor_liquido_academia, asaas_payment_id")
+        .select("id, organization_id, aluno_id, descricao, valor, vencimento, status, valor_liquido_academia, asaas_payment_id, conta_asaas")
         .eq("id", cobrancaId)
         .maybeSingle();
       if (!data) return jsonResponse({ error: "Cobrança não encontrada." }, 404);
@@ -153,7 +167,7 @@ servir("asaas-cobranca-avulsa", async (req: Request) => {
 
     const { data: org } = await admin
       .from("organizations")
-      .select("id, nome, status, asaas_wallet_id, onboarding_completed")
+      .select("id, nome, status, asaas_wallet_id, onboarding_completed, cobranca_conta_academia")
       .eq("id", organizationId)
       .single();
     if (!org) return jsonResponse({ error: "Organização não encontrada." }, 404);
@@ -167,17 +181,20 @@ servir("asaas-cobranca-avulsa", async (req: Request) => {
       if (l.status !== "pendente" && l.status !== "atrasado") {
         return jsonResponse({ error: "Só dá para cancelar cobrança em aberto." }, 409);
       }
+      // Na conta onde a cobrança nasceu, e não na do modo de hoje.
+      const conta = await contaDaCobranca(admin, ambiente, org, contaDaLinha(l.conta_asaas), { conferirCarteira: false });
+      if ("erro" in conta) return jsonResponse({ error: conta.erro }, conta.status);
       let paymentId = l.asaas_payment_id;
       if (!paymentId) {
         // Emissão não confirmada: pode existir lá mesmo assim.
         try {
-          paymentId = (await cobrancaPorReferencia(ambiente.api, ambiente.chave, `avulsa:${l.id}`))?.id ?? null;
+          paymentId = (await cobrancaPorReferencia(conta.api, conta.chave, `avulsa:${l.id}`))?.id ?? null;
         } catch {
           return jsonResponse({ error: "Não foi possível falar com o Asaas agora. Tente de novo em instantes." }, 502);
         }
       }
       if (paymentId) {
-        const r = await cancelarCobranca(ambiente.api, ambiente.chave, paymentId);
+        const r = await cancelarCobranca(conta.api, conta.chave, paymentId);
         if (!r.ok) return jsonResponse({ error: r.erro }, r.paga ? 409 : 502);
       }
       await admin
@@ -209,15 +226,19 @@ servir("asaas-cobranca-avulsa", async (req: Request) => {
       const aluno = await dadosDoAluno(admin, l.aluno_id);
       if (!aluno || aluno.anonimizado) return jsonResponse({ error: "Aluno não encontrado." }, 404);
       // Emissão que ficou para trás não pode sair com vencimento no passado.
+      // Na conta onde a linha nasceu: a referência é procurada lá antes de criar.
+      const contaGravada = contaDaLinha(l.conta_asaas);
+      const conta = await contaDaCobranca(admin, ambiente, org, contaGravada, { conferirCarteira: true });
+      if ("erro" in conta) return jsonResponse({ error: conta.erro }, conta.status);
       const vencimento = l.vencimento < hoje ? hoje : l.vencimento;
       if (vencimento !== l.vencimento) await admin.from("cobrancas_avulsas").update({ vencimento }).eq("id", l.id);
-      const r = await emitirCobrancaAvulsa(ambiente.api, ambiente.chave, {
+      const r = await emitirCobrancaAvulsa(conta.api, conta.chave, {
         referencia: `avulsa:${l.id}`,
         aluno,
         valor: Number(l.valor),
         vencimento,
         descricao: `${org.nome} — ${l.descricao}`,
-        walletAcademia: org.asaas_wallet_id as string,
+        walletAcademia: contaGravada === "academia" ? null : (org.asaas_wallet_id as string),
         valorLiquidoAcademia: Number(l.valor_liquido_academia),
       });
       if (!r.ok) {
@@ -225,6 +246,9 @@ servir("asaas-cobranca-avulsa", async (req: Request) => {
         return jsonResponse({ error: r.definitivo ? `${r.erro} A cobrança foi desfeita.` : r.erro }, r.definitivo ? 422 : 502);
       }
       await registrarEmissao(admin, l.id, r.cobranca);
+      if (conta.nome === "academia" && r.cobranca.customer) {
+        await lembrarClienteDaAcademia(admin, { alunoId: l.aluno_id, organizationId, ambiente: conta.ambiente, customerId: r.cobranca.customer });
+      }
       return jsonResponse({ ok: true, cobranca_id: l.id, invoice_url: r.cobranca.invoiceUrl ?? null, adotada: r.adotada });
     }
 
@@ -243,15 +267,34 @@ servir("asaas-cobranca-avulsa", async (req: Request) => {
       );
     }
 
-    // O mesmo split da mensalidade: a academia recebe o valor menos a taxa de
-    // processamento, que fica com a ArkeFit para cobrir a taxa do Asaas.
-    const { data: taxa, error: taxaError } = await admin.rpc("arke_taxa_processamento", { _valor: pedido.valor });
-    if (taxaError || taxa === null || taxa === undefined) {
-      console.error("Taxa de processamento indisponível", taxaError?.code);
-      return jsonResponse({ error: "Não foi possível calcular a taxa de processamento." }, 500);
+    // A conta da cobrança nova: a da ArkeFit, ou a da academia com o modo
+    // ligado. Aberta antes de gravar a linha, para a chave que falta ou é de
+    // outra conta parar aqui, e não numa linha que depois se desfaz.
+    const conta = await contaDaCobranca(
+      admin,
+      ambiente,
+      org,
+      contaParaNovaCobranca("avulsa", org.cobranca_conta_academia as boolean | null),
+      { conferirCarteira: true },
+    );
+    if ("erro" in conta) return jsonResponse({ error: conta.erro }, conta.status);
+
+    // Na conta da ArkeFit, o mesmo split da mensalidade: a academia recebe o
+    // valor menos a taxa de processamento, que fica com a ArkeFit para cobrir
+    // a taxa do Asaas. Na conta da academia, não há taxa nem split.
+    let taxaArke: number | null = null;
+    if (conta.nome === "arkefit") {
+      const { data: taxa, error: taxaError } = await admin.rpc("arke_taxa_processamento", { _valor: pedido.valor });
+      if (taxaError || taxa === null || taxa === undefined) {
+        console.error("Taxa de processamento indisponível", taxaError?.code);
+        return jsonResponse({ error: "Não foi possível calcular a taxa de processamento." }, 500);
+      }
+      taxaArke = Number(taxa);
     }
-    const repasse = Math.round(Number(taxa) * 100) / 100;
-    const liquido = Math.round((pedido.valor - repasse) * 100) / 100;
+    const divisao = divisaoDaCobranca(conta.nome, pedido.valor, taxaArke, org.asaas_wallet_id as string);
+    if ("erro" in divisao) return jsonResponse({ error: divisao.erro }, 500);
+    const repasse = divisao.repasse;
+    const liquido = divisao.liquido;
     if (liquido <= 0) {
       return jsonResponse({ error: `O valor não cobre a taxa de processamento (${repasse.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}).` }, 422);
     }
@@ -268,6 +311,7 @@ servir("asaas-cobranca-avulsa", async (req: Request) => {
         vencimento: pedido.vencimento,
         valor_repasse_arke: repasse,
         valor_liquido_academia: liquido,
+        conta_asaas: conta.nome,
         criada_por: callerId,
       })
       .select("id")
@@ -277,13 +321,13 @@ servir("asaas-cobranca-avulsa", async (req: Request) => {
       return jsonResponse({ error: "Não foi possível registrar a cobrança." }, 500);
     }
 
-    const r = await emitirCobrancaAvulsa(ambiente.api, ambiente.chave, {
+    const r = await emitirCobrancaAvulsa(conta.api, conta.chave, {
       referencia: `avulsa:${criada.id}`,
       aluno,
       valor: pedido.valor,
       vencimento: pedido.vencimento,
       descricao: `${org.nome} — ${pedido.descricao}`,
-      walletAcademia: org.asaas_wallet_id as string,
+      walletAcademia: divisao.split ? divisao.split[0].walletId : null,
       valorLiquidoAcademia: liquido,
     });
     if (!r.ok) {
@@ -303,8 +347,12 @@ servir("asaas-cobranca-avulsa", async (req: Request) => {
       );
     }
     await registrarEmissao(admin, criada.id, r.cobranca);
+    if (conta.nome === "academia" && r.cobranca.customer) {
+      await lembrarClienteDaAcademia(admin, { alunoId, organizationId, ambiente: conta.ambiente, customerId: r.cobranca.customer });
+    }
     return jsonResponse({
       ok: true,
+      conta: conta.nome,
       cobranca_id: criada.id,
       invoice_url: r.cobranca.invoiceUrl ?? null,
       valor_liquido_academia: liquido,
