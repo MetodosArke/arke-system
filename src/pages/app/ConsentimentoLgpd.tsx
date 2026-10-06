@@ -17,13 +17,14 @@ import {
 } from "@/lib/consentimentoSaude";
 import { emPerfilSimulado } from "@/lib/impersonation";
 import { AvisoPerfilSimulado } from "@/components/AvisoPerfilSimulado";
+import { PortaoConsentimento } from "@/components/responsavel/AutorizacaoResponsavel";
 
 // Tela de consentimento LGPD isolada: cobre o caso de alunos que já
 // concluíram a anamnese M.A.P.A.® antes deste termo existir. Diferente do
 // onboarding completo (src/pages/app/Onboarding.tsx), aqui não se refaz a
 // anamnese — só se grava o aceite do termo sobre o registro já existente.
 export default function ConsentimentoLgpd() {
-  const { alunoId, refreshAluno } = useAuth();
+  const { alunoId, organization, refreshAluno } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
   const [aceito, setAceito] = useState(false);
@@ -62,12 +63,17 @@ export default function ConsentimentoLgpd() {
         </CardHeader>
         <CardContent className="space-y-4">
           <p className="text-sm text-muted-foreground">{TEXTO_CONSENTIMENTO_SAUDE}</p>
-          <div className="flex items-start gap-2 rounded-lg border border-border bg-muted/40 p-3">
-            <Checkbox id="consentimento-lgpd-retro" checked={aceito} onCheckedChange={(c) => setAceito(c === true)} />
-            <Label htmlFor="consentimento-lgpd-retro" className="text-sm font-normal leading-snug">
-              {CAIXA_CONSENTIMENTO_SAUDE}
-            </Label>
-          </div>
+          {/* Menor de idade ou sem data de nascimento: a caixa espera a data ou o aceite do responsável. */}
+          {alunoId && organization && (
+            <PortaoConsentimento alunoId={alunoId} organizationId={organization.id} proposito="saude" noMetodo>
+              <div className="flex items-start gap-2 rounded-lg border border-border bg-muted/40 p-3">
+                <Checkbox id="consentimento-lgpd-retro" checked={aceito} onCheckedChange={(c) => setAceito(c === true)} />
+                <Label htmlFor="consentimento-lgpd-retro" className="text-sm font-normal leading-snug">
+                  {CAIXA_CONSENTIMENTO_SAUDE}
+                </Label>
+              </div>
+            </PortaoConsentimento>
+          )}
           {simulado && <AvisoPerfilSimulado />}
           <Button className="w-full" disabled={!aceito || confirmar.isPending || simulado} onClick={() => confirmar.mutate()}>
             {confirmar.isPending ? "Confirmando..." : "Confirmar e continuar"}

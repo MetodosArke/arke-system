@@ -35,13 +35,27 @@ const formatarCpf = (cpf: string | null | undefined) => {
   return d.length === 11 ? `${d.slice(0, 3)}.${d.slice(3, 6)}.${d.slice(6, 9)}-${d.slice(9)}` : "____________________";
 };
 
+/** Aluno menor de 18 anos: o termo leva também o nome e a assinatura do responsável legal. */
+export type ResponsavelNoTermo = { nome?: string | null };
+
 /**
  * O termo pronto para imprimir: a academia, o aluno com CPF, o texto, a
  * versão e o espaço de assinatura. Página HTML simples, sem nada externo —
  * a janela de impressão abre direto nela.
+ *
+ * Para o aluno menor (06/10/2026), com `responsavel`: o nome do responsável
+ * (o do aceite pelo link, quando já houver; senão, a linha em branco) e a
+ * linha de assinatura dele. O texto do termo não muda.
  */
-export function htmlTermoBiometria(dados: { academia: string; aluno: string; cpf?: string | null; data?: Date }): string {
+export function htmlTermoBiometria(dados: {
+  academia: string;
+  aluno: string;
+  cpf?: string | null;
+  data?: Date;
+  responsavel?: ResponsavelNoTermo | null;
+}): string {
   const data = (dados.data ?? new Date()).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" });
+  const nomeResponsavel = dados.responsavel?.nome?.trim();
   return `<!doctype html>
 <html lang="pt-BR">
 <head>
@@ -63,12 +77,20 @@ export function htmlTermoBiometria(dados: { academia: string; aluno: string; cpf
   <div class="meta">${escapar(dados.academia)} · versão do termo ${VERSAO_CONSENTIMENTO_BIOMETRIA}</div>
   <div class="dados">
     <div><strong>Aluno(a):</strong> ${escapar(dados.aluno)}</div>
-    <div><strong>CPF:</strong> ${formatarCpf(dados.cpf)}</div>
+    <div><strong>CPF:</strong> ${formatarCpf(dados.cpf)}</div>${
+      dados.responsavel
+        ? `\n    <div><strong>Responsável legal (aluno menor de 18 anos):</strong> ${
+            nomeResponsavel ? escapar(nomeResponsavel) : "________________________________________"
+          }</div>`
+        : ""
+    }
   </div>
   ${TEXTO_TERMO_BIOMETRIA.map((p) => `<p>${escapar(p)}</p>`).join("\n  ")}
   <p>Esta autorização é específica para este fim (Lei 13.709/2018, art. 11, I) e pode ser retirada a qualquer momento.</p>
   <div class="dados"><strong>Local e data:</strong> ______________________, ${escapar(data)}</div>
-  <div class="assinatura">Assinatura do(a) aluno(a)</div>
+  <div class="assinatura">Assinatura do(a) aluno(a)</div>${
+    dados.responsavel ? `\n  <div class="assinatura">Assinatura do(a) responsável legal</div>` : ""
+  }
   <div class="rodape">Depois de assinado, este termo é anexado ao cadastro do aluno no ARKE e guardado como prova da autorização.
   A política de privacidade da plataforma está em arkefit.com.br/#/privacidade.</div>
 </body>
@@ -79,7 +101,12 @@ export function htmlTermoBiometria(dados: { academia: string; aluno: string; cpf
  * Abre o termo numa janela e chama a impressão. Chamado no clique do botão,
  * para o navegador não tratar a janela como pop-up indesejado.
  */
-export function imprimirTermoBiometria(dados: { academia: string; aluno: string; cpf?: string | null }): boolean {
+export function imprimirTermoBiometria(dados: {
+  academia: string;
+  aluno: string;
+  cpf?: string | null;
+  responsavel?: ResponsavelNoTermo | null;
+}): boolean {
   const janela = window.open("", "_blank", "width=800,height=900");
   if (!janela) return false;
   janela.document.open();

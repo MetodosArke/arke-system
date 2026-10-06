@@ -5,6 +5,9 @@ import { Button } from "@/components/ui/button";
 import { FileSignature, Loader2, Printer } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { imprimirTermoBiometria } from "@/lib/termoBiometria";
+import { formatarDataBR } from "@/lib/dataBrasilia";
+import { useMenorDeIdade } from "@/components/responsavel/useMenorDeIdade";
+import { PedidoResponsavel } from "@/components/responsavel/PedidoResponsavel";
 
 const TIPOS = ["application/pdf", "image/jpeg", "image/png", "image/webp"];
 const LIMITE = 5 * 1024 * 1024;
@@ -15,8 +18,14 @@ const LIMITE = 5 * 1024 * 1024;
  * recepção anexa a foto ou o PDF do termo assinado. Quem consente é o aluno —
  * a assinatura é dele; a equipe só registra, e o arquivo fica como prova.
  *
+ * Aluno menor (06/10/2026): o termo sai com o nome e a assinatura do
+ * responsável legal, e o registro só vale depois do aceite dele pelo link do
+ * e-mail, que a recepção envia daqui. Sem data de nascimento, o registro
+ * espera a data (na ficha, em Dados).
+ *
  * O banco confere de novo tudo o que esta tela confere: papel (gestão ou
- * recepção), aluno em dia, e que o arquivo existe na pasta do aluno.
+ * recepção), aluno em dia, que o arquivo existe na pasta do aluno e, para o
+ * menor, o aceite vigente do responsável.
  */
 export function TermoImpressoBiometria({
   alunoId,
@@ -38,6 +47,9 @@ export function TermoImpressoBiometria({
   const { toast } = useToast();
   const [arquivo, setArquivo] = useState<File | null>(null);
   const entrada = useRef<HTMLInputElement>(null);
+  const menor = useMenorDeIdade(alunoId);
+  const liberacao = menor.liberacao("biometria");
+  const aceite = menor.aceiteVigente("biometria");
 
   const registrar = useMutation({
     mutationFn: async () => {
@@ -73,20 +85,47 @@ export function TermoImpressoBiometria({
     );
   }
 
+  const ehMenor = menor.situacao === "menor";
+  const podeRegistrar = liberacao === "livre";
+
   return (
     <div className="space-y-2 rounded-md border p-3">
       <p className="text-xs font-medium">Aluno sem app: termo impresso</p>
       <p className="text-xs text-muted-foreground">
-        Imprima, peça ao aluno para ler e assinar, e anexe o termo assinado (foto ou PDF). É ele quem autoriza — o
-        arquivo é a prova.
+        {ehMenor
+          ? "Imprima, peça ao aluno e ao responsável legal para ler e assinar, e anexe o termo assinado (foto ou PDF)."
+          : "Imprima, peça ao aluno para ler e assinar, e anexe o termo assinado (foto ou PDF). É ele quem autoriza — o arquivo é a prova."}
       </p>
+      {liberacao === "informar_data" && (
+        <p className="text-xs text-amber-700 dark:text-amber-400">
+          Sem a data de nascimento do aluno, não dá para saber se a autorização depende do responsável legal. Informe a
+          data em Dados, acima, antes de registrar.
+        </p>
+      )}
+      {ehMenor && aceite && (
+        <p className="text-xs text-muted-foreground">
+          Aluno menor de 18 anos: {aceite.responsavel_nome} autorizou como responsável legal em{" "}
+          {formatarDataBR(aceite.aceito_em)}, pelo link enviado ao e-mail.
+        </p>
+      )}
+      {liberacao === "pedir_responsavel" && (
+        <div className="space-y-2 rounded-md bg-amber-500/5 p-2">
+          <p className="text-xs text-amber-700 dark:text-amber-400">
+            Aluno menor de 18 anos: a autorização só vale depois do aceite do responsável legal, pelo link enviado ao
+            e-mail dele (LGPD, art. 14). Envie daqui:
+          </p>
+          <PedidoResponsavel alunoId={alunoId} propositos={["biometria"]} pedidoAberto={menor.pedidoAberto} pelaAcademia />
+        </div>
+      )}
       <div className="flex flex-wrap items-center gap-2">
         <Button
           size="sm"
           variant="outline"
           type="button"
+          disabled={liberacao === "carregando" || liberacao === "informar_data"}
           onClick={() => {
-            if (!imprimirTermoBiometria({ academia, aluno: alunoNome, cpf: alunoCpf })) {
+            const responsavel = ehMenor ? { nome: aceite?.responsavel_nome ?? null } : null;
+            if (!imprimirTermoBiometria({ academia, aluno: alunoNome, cpf: alunoCpf, responsavel })) {
               toast({ title: "O navegador bloqueou a janela de impressão", description: "Permita pop-ups para o ARKE e tente de novo.", variant: "destructive" });
             }
           }}
@@ -99,9 +138,10 @@ export function TermoImpressoBiometria({
           accept="application/pdf,image/jpeg,image/png,image/webp"
           aria-label="Termo assinado"
           className="max-w-full text-xs"
+          disabled={!podeRegistrar}
           onChange={(e) => setArquivo(e.target.files?.[0] ?? null)}
         />
-        <Button size="sm" type="button" disabled={!arquivo || registrar.isPending} onClick={() => registrar.mutate()}>
+        <Button size="sm" type="button" disabled={!arquivo || !podeRegistrar || registrar.isPending} onClick={() => registrar.mutate()}>
           {registrar.isPending ? (
             <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
           ) : (

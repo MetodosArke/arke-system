@@ -10,6 +10,14 @@ import { mensagemDeErroEdge } from "@/lib/erroEdge";
 import { formatarDataBR } from "@/lib/dataBrasilia";
 import { emPerfilSimulado } from "@/lib/impersonation";
 import { AvisoPerfilSimulado } from "@/components/AvisoPerfilSimulado";
+import {
+  AVISO_PROCESSAMENTO_IA,
+  PROPOSITOS_IA as PROPOSITOS,
+  VERSAO_CONSENTIMENTO_IA as VERSAO_TEXTO,
+  type PropositoIA as Proposito,
+} from "@/lib/consentimentoIA";
+import { useMenorDeIdade } from "@/components/responsavel/useMenorDeIdade";
+import { DicaLiberacao } from "@/components/responsavel/AutorizacaoResponsavel";
 
 type Resposta = {
   resumo?: string;
@@ -20,27 +28,8 @@ type Resposta = {
   motivo?: string;
 };
 
-/** Espelho de `public.versao_consentimento_ia()`. Mudou lá, muda aqui. */
-const VERSAO_TEXTO = "2026-09-23.4";
-
-type Proposito = "anamnese" | "chat";
-
-const PROPOSITOS: { chave: Proposito; titulo: string; texto: string }[] = [
-  {
-    chave: "anamnese",
-    titulo: "Resumo da minha anamnese para a equipe",
-    texto:
-      "Autorizo que a inteligência artificial do ARKE leia a minha anamnese para resumir, à equipe que me " +
-      "acompanha, o histórico que exige cuidado no treino.",
-  },
-  {
-    chave: "chat",
-    titulo: "Apoio à resposta do meu mentor",
-    texto:
-      "Autorizo que a inteligência artificial do ARKE leia as minhas últimas mensagens com o mentor para " +
-      "sugerir a ele um rascunho de resposta. Quem escreve e envia continua sendo o mentor.",
-  },
-];
+// Os textos e a versão moram em lib/consentimentoIA (06/10/2026): a página do
+// responsável do aluno menor mostra exatamente os mesmos.
 
 /**
  * O consentimento do aluno para a IA ler dado dele.
@@ -78,6 +67,9 @@ export function ConsentimentoSentinela({
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const simulado = emPerfilSimulado();
+  // Aluno menor ou sem data de nascimento: ligar espera o aceite do
+  // responsável ou a data (o banco recusa sem eles); desligar, nunca.
+  const menor = useMenorDeIdade(alunoId);
 
   const { data: consentimentos, isLoading } = useQuery({
     queryKey: ["consentimento-ia", alunoId],
@@ -143,6 +135,7 @@ export function ConsentimentoSentinela({
     <div className="space-y-3 rounded-md border p-3">
       {PROPOSITOS.map(({ chave, titulo, texto }) => {
         const atual = vigentes.find((c) => c.proposito === chave);
+        const liberacao = menor.liberacao(chave === "anamnese" ? "ia_anamnese" : "ia_chat");
         return (
           <div key={chave} className="flex items-start justify-between gap-3">
             <div>
@@ -155,11 +148,12 @@ export function ConsentimentoSentinela({
                   Autorizado em {formatarDataBR(atual.aceito_em)}.
                 </p>
               )}
+              {!atual && <DicaLiberacao liberacao={liberacao} />}
             </div>
             <Switch
               id={`consentimento-ia-${chave}`}
               checked={!!atual}
-              disabled={alternar.isPending || simulado}
+              disabled={alternar.isPending || simulado || (!atual && liberacao !== "livre")}
               onCheckedChange={(v) => alternar.mutate({ proposito: chave, autorizar: v })}
               aria-label={titulo}
             />
@@ -179,17 +173,7 @@ export function ConsentimentoSentinela({
       <div className="flex items-start gap-2 border-t pt-3">
         <Globe className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
         <p className="text-[11px] leading-snug text-muted-foreground">
-          O processamento é feito <strong>no Brasil</strong>, em servidores da Amazon Web Services em São
-          Paulo. O conteúdo não fica registrado na nossa conta do provedor, e não é utilizado para treinar
-          modelos. Não enviamos o seu
-          nome, CPF, e-mail nem telefone — mas{" "}
-          <strong>
-            as mensagens que você escreveu são enviadas como você as escreveu, inclusive qualquer dado
-            pessoal que você tenha digitado nelas
-          </strong>
-          . O que o ARKE guarda fica enquanto durar a sua matrícula.{" "}
-          <strong>Você pode retirar qualquer destas autorizações quando quiser</strong>, e o que tiver sido
-          gerado a partir do dado é apagado.
+          {AVISO_PROCESSAMENTO_IA.map((t, i) => (t.destaque ? <strong key={i}>{t.texto}</strong> : <span key={i}>{t.texto}</span>))}
         </p>
       </div>
     </div>

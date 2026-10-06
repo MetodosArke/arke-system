@@ -50,6 +50,7 @@ const DefinirSenha = paginaPreguicosa(() => import("@/pages/auth/DefinirSenha"))
 const PublicMatricula = paginaPreguicosa(() => import("@/pages/public/PublicMatricula"));
 const PrimeiroAcesso = paginaPreguicosa(() => import("@/pages/public/PrimeiroAcesso"));
 const PararContatoSite = paginaPreguicosa(() => import("@/pages/public/PararContatoSite"));
+const AceiteResponsavel = paginaPreguicosa(() => import("@/pages/public/AceiteResponsavel"));
 const DocumentoLegal = paginaPreguicosa(() => import("@/pages/public/DocumentoLegal"));
 const AlunoCheckin = paginaPreguicosa(() => import("@/pages/app/AlunoCheckin"));
 const AdminCheckinQr = paginaPreguicosa(() => import("@/pages/admin/AdminCheckinQr"));
@@ -230,6 +231,8 @@ const App = () => (
               <Route path="/p/:slug/entrar" element={<Login />} />
               {/* "Não quero mais receber" dos e-mails da resposta automática ao contato do site */}
               <Route path="/contato/parar" element={<PararContatoSite />} />
+              {/* O link que o responsável legal do aluno menor recebe por e-mail (sem login) */}
+              <Route path="/responsavel/:token" element={<AceiteResponsavel />} />
 
               {/* Documentos legais, públicos */}
               <Route path="/termos" element={<DocumentoLegal tipo="termos_uso" />} />

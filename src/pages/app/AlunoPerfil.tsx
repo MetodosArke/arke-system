@@ -6,6 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ConsentimentoSentinela } from "@/components/sentinela/SentinelaAnamnese";
 import { ConsentimentoBiometria } from "@/components/catraca/ConsentimentoBiometria";
+import { AutorizacaoResponsavel } from "@/components/responsavel/AutorizacaoResponsavel";
 import { FotoRostoCatraca } from "@/components/catraca/FotoRostoCatraca";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -134,6 +135,8 @@ export default function AlunoPerfil() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
+            {/* Menor de idade ou sem data de nascimento: o que falta antes de autorizar. */}
+            <AutorizacaoResponsavel alunoId={alunoId} organizationId={organization.id} noMetodo={metodoArkeAtivo} />
             <ConsentimentoSentinela alunoId={alunoId} organizationId={organization.id} noMetodo={metodoArkeAtivo} />
             <ConsentimentoBiometria alunoId={alunoId} organizationId={organization.id} />
             <FotoRostoCatraca alunoId={alunoId} />

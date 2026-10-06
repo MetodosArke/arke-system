@@ -8,6 +8,8 @@ import { TEXTO_TERMO_BIOMETRIA, VERSAO_CONSENTIMENTO_BIOMETRIA } from "@/lib/ter
 import { formatarDataBR } from "@/lib/dataBrasilia";
 import { emPerfilSimulado } from "@/lib/impersonation";
 import { AvisoPerfilSimulado } from "@/components/AvisoPerfilSimulado";
+import { useMenorDeIdade } from "@/components/responsavel/useMenorDeIdade";
+import { DicaLiberacao } from "@/components/responsavel/AutorizacaoResponsavel";
 
 const formatarData = (valor: string) => formatarDataBR(valor);
 
@@ -30,6 +32,9 @@ export function ConsentimentoBiometria({ alunoId, organizationId }: { alunoId: s
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const simulado = emPerfilSimulado();
+  // Aluno menor ou sem data de nascimento: ligar espera o aceite do
+  // responsável ou a data (o banco recusa sem eles); retirar, nunca.
+  const liberacao = useMenorDeIdade(alunoId).liberacao("biometria");
 
   const { data: temCatraca = false } = useQuery({
     queryKey: ["academia-tem-catraca", organizationId],
@@ -122,11 +127,12 @@ export function ConsentimentoBiometria({ alunoId, organizationId }: { alunoId: s
                 : "A academia está apagando a biometria das catracas."}
             </p>
           )}
+          {!vigente && <DicaLiberacao liberacao={liberacao} />}
         </div>
         <Switch
           id="consentimento-biometria"
           checked={!!vigente}
-          disabled={alternar.isPending || simulado}
+          disabled={alternar.isPending || simulado || (!vigente && liberacao !== "livre")}
           onCheckedChange={(v) => alternar.mutate(v)}
           aria-label="Uso da minha digital e do meu rosto na catraca"
         />

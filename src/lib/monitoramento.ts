@@ -70,11 +70,16 @@ function limpar(valor: unknown, profundidade = 0): unknown {
   return saida;
 }
 
-/** Corta a query string, onde vazam ids e termos digitados em busca. */
+/**
+ * Corta a query string, onde vazam ids e termos digitados em busca, e o token
+ * do link do responsável legal (`#/responsavel/<token>`): quem tem o endereço
+ * da página aceita pelo responsável.
+ */
 function semQueryString(url?: string): string | undefined {
   if (!url) return url;
-  const corte = url.indexOf("?");
-  return corte === -1 ? url : `${url.slice(0, corte)}?[removido]`;
+  const semToken = url.replace(/(#\/responsavel\/)[^?#/]+/, "$1[removido]");
+  const corte = semToken.indexOf("?");
+  return corte === -1 ? semToken : `${semToken.slice(0, corte)}?[removido]`;
 }
 
 export function iniciarMonitoramento(): void {

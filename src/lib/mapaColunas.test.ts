@@ -100,6 +100,8 @@ describe("endereço", () => {
     expect(detectarCampo("Número do cliente")).toBe("ignorar");
     expect(detectarCampo("Endereço do responsável")).toBe("ignorar");
     expect(detectarCampo("Cidade de nascimento")).toBe("ignorar");
+    expect(detectarCampo("Naturalidade")).toBe("ignorar");
+    expect(detectarCampo("Data de nascimento do responsável")).toBe("ignorar");
   });
 });
 
@@ -115,7 +117,7 @@ describe("exportações dos concorrentes", () => {
       ID_MEMBRO: "ignorar",
       NOME_COMPLETO: "full_name",
       CPF_ALUNO: "cpf",
-      DATA_NASC: "ignorar",
+      DATA_NASC: "data_nascimento",
       GENERO: "ignorar",
       EMAIL_CONTATO: "email",
       CELULAR: "telefone",
@@ -133,7 +135,7 @@ describe("exportações dos concorrentes", () => {
     ).toMatchObject({
       Aluno: "full_name",
       CPF: "cpf",
-      DataNascimento: "ignorar",
+      DataNascimento: "data_nascimento",
       Email: "email",
       DDD: "ddd",
       Telefone: "telefone",

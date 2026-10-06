@@ -44,6 +44,13 @@ const REGRAS: { campo: string; teste: (t: string) => boolean }[] = [
   { campo: "telefone", teste: (t) => /celular|whatsapp|\bmovel\b|mobile/.test(t) && !DE_OUTRO.test(t) },
   { campo: "telefone", teste: (t) => /telefone|\bfone\b|\bphone\b|\btel\b/.test(t) && !DE_OUTRO.test(t) && !/comercial|fixo/.test(t) },
   { campo: "cpf", teste: (t) => /\bcpf\b/.test(t) && !DE_OUTRO.test(t) },
+  // Data de nascimento (06/10/2026: diz quem é menor de idade). "Cidade de
+  // nascimento" e "naturalidade" são lugar, não data.
+  {
+    campo: "data_nascimento",
+    teste: (t) =>
+      /nascimento|\bnasc\b|aniversario|birth|\bdob\b/.test(t) && !DE_OUTRO.test(t) && !/cidade|naturalidade|local|\buf\b|estado|pais/.test(t),
+  },
 
   // Endereço: a prefeitura o exige na nota fiscal. "Endereço eletrônico" é
   // e-mail, "Estado civil" não é UF, e "Número" só conta sozinho — "Número

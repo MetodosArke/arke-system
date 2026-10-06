@@ -42,7 +42,8 @@ import { SituacaoAluno } from "@/components/admin/SituacaoAluno";
 import { filtrarAlunos, LIMITE_NA_TELA, type FiltroSituacao } from "@/lib/buscaAlunos";
 import { planoDoAluno, ROTULO_PLANO, ROTULO_SITUACAO, type SituacaoAcademia } from "@/lib/planoAluno";
 import { baixarPlanilha, dataBr } from "@/lib/exportarPlanilha";
-import { formatarDataBR } from "@/lib/dataBrasilia";
+import { formatarDataBR, hojeBrasilia } from "@/lib/dataBrasilia";
+import { erroDataNascimento } from "@/lib/menorDeIdade";
 
 type Nivel = Enums<"nivel_atacado">;
 
@@ -863,10 +864,11 @@ interface CadastroForm {
   email: string;
   telefone: string;
   cpf: string;
+  data_nascimento: string;
   nivel_atacado: Nivel | "";
 }
 
-const CADASTRO_INICIAL: CadastroForm = { full_name: "", email: "", telefone: "", cpf: "", nivel_atacado: "" };
+const CADASTRO_INICIAL: CadastroForm = { full_name: "", email: "", telefone: "", cpf: "", data_nascimento: "", nivel_atacado: "" };
 
 interface AlunoRecemCriado {
   user_id: string;
@@ -895,14 +897,21 @@ function CadastrarAlunoDialog({
   const problemaCpf = erroCpfObrigatorio(form.cpf);
 
   const cadastrar = useMutation({
-    mutationFn: async () => {
+    // O formulário chega pelo mutate, e não pelo fechamento (regra do CLAUDE.md).
+    mutationFn: async (form: CadastroForm) => {
+      const problemaCpf = erroCpfObrigatorio(form.cpf);
       if (problemaCpf) throw new Error(problemaCpf);
+      // A data de nascimento diz quem é menor de idade: para ele, saúde,
+      // biometria e IA esperam o aceite do responsável (06/10/2026).
+      const problemaNascimento = erroDataNascimento(form.data_nascimento, hojeBrasilia());
+      if (problemaNascimento) throw new Error(problemaNascimento);
       const { data, error } = await supabase.functions.invoke<{ user_id: string; conta_existente?: boolean; aviso?: string | null }>("convidar-membro", {
         body: {
           email: form.email,
           full_name: form.full_name,
           telefone: form.telefone,
           cpf: form.cpf,
+          data_nascimento: form.data_nascimento,
           papel: "aluno",
           nivel_atacado: form.nivel_atacado || undefined,
           // A unidade em que a pessoa está: quem tem duas não cadastra na errada.
@@ -910,9 +919,9 @@ function CadastrarAlunoDialog({
         },
       });
       if (error) throw new Error(await mensagemDeErroEdge(error, "Não foi possível cadastrar o aluno."));
-      return data;
+      return { data, form };
     },
-    onSuccess: (data) => {
+    onSuccess: ({ data, form }) => {
       if (data?.conta_existente) {
         // Quem já tinha conta entra com a senha que usa: não há convite a reenviar.
         toast({
@@ -993,7 +1002,7 @@ function CadastrarAlunoDialog({
           className="space-y-3"
           onSubmit={(e) => {
             e.preventDefault();
-            cadastrar.mutate();
+            cadastrar.mutate(form);
           }}
         >
           <div className="space-y-1.5">
@@ -1036,6 +1045,23 @@ function CadastrarAlunoDialog({
               />
               {problemaCpf && <p className="text-xs text-destructive">{problemaCpf}</p>}
             </div>
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="aluno-nascimento">Data de nascimento</Label>
+            <Input
+              id="aluno-nascimento"
+              type="date"
+              required
+              min="1900-01-01"
+              max={hojeBrasilia()}
+              value={form.data_nascimento}
+              onChange={(e) => setForm((f) => ({ ...f, data_nascimento: e.target.value }))}
+              className="w-44"
+            />
+            <p className="text-xs text-muted-foreground">
+              Menor de 18 anos treina normalmente; saúde, digital, rosto e inteligência artificial esperam a autorização
+              do responsável legal.
+            </p>
           </div>
           <p className="text-xs text-muted-foreground">
             O aluno entra no plano Free: treinos, calendário, rotina, diário de água e dieta, e chat com os professores.
