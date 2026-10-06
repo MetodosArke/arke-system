@@ -44,7 +44,8 @@ describe("a gestão só com o e-mail provado", () => {
     const ligar = f.slice(f.indexOf("async function ligarResponsavel"), f.indexOf("async function enviarAviso"));
     const existente = ligar.slice(0, ligar.indexOf("inviteUserByEmail"));
     expect(existente).toMatch(/role: "gestor", status: "pending"/);
-    expect(existente).not.toMatch(/status: "active"/);
+    // O perfil da pessoa nasce "active"; o vínculo de gestão, não.
+    expect(existente).not.toMatch(/role: "gestor", status: "active"/);
     expect(existente).toMatch(/criarSenha: true/);
   });
 

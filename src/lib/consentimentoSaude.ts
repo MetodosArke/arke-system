@@ -1,3 +1,5 @@
+import type { Tables } from "@/integrations/supabase/types";
+
 /**
  * Termo de consentimento de dados de saúde (LGPD, art. 11, I).
  *
@@ -47,11 +49,10 @@ export type SituacaoConsentimentoSaude =
 
 /** Em que pé está o consentimento de saúde da anamnese do aluno. */
 export function situacaoConsentimentoSaude(
-  anamnese: {
-    consentimento_lgpd_aceito_em: string | null;
-    consentimento_lgpd_versao: string | null;
-    consentimento_lgpd_revogado_em: string | null;
-  } | null
+  anamnese: Pick<
+    Tables<"anamnese_acolhimento">,
+    "consentimento_lgpd_aceito_em" | "consentimento_lgpd_versao" | "consentimento_lgpd_revogado_em"
+  > | null
 ): SituacaoConsentimentoSaude {
   if (!anamnese) return { tipo: "sem_anamnese" };
   if (anamnese.consentimento_lgpd_revogado_em) return { tipo: "retirado", em: anamnese.consentimento_lgpd_revogado_em };

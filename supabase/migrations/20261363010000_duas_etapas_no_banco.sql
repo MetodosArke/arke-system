@@ -6,7 +6,7 @@
 -- API respondia tudo. Só três ações sensíveis conferiam a sessão no banco
 -- (`sessao_verificada()`, 20261328).
 --
--- Onde pôr a conferência, medido antes de escolher (Postgres 17 em WASM, com
+-- Onde pôr a conferência, medido antes de escolher (Postgres 18 em WASM, com
 -- EXPLAIN (ANALYZE, BUFFERS) sobre 5.000 linhas de uma academia; as páginas
 -- lidas não variam de uma rodada para outra, o tempo em WASM varia demais):
 --   * dentro das funções de papel (`is_org_staff` e as outras), a conferência
