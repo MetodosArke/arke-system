@@ -202,6 +202,17 @@ export default function SuperAdminDashboard() {
     },
   });
 
+  // O teto do Growth vem da tabela de preços, como no site: mudar o limite em
+  // Configurações muda também a lista de planos da nova academia.
+  const { data: limiteGrowth = null } = useQuery({
+    queryKey: ["superadmin-limite-growth"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("planos_b2b_precos").select("limite_alunos").eq("plano", "growth").maybeSingle();
+      if (error) throw error;
+      return data?.limite_alunos ?? null;
+    },
+  });
+
   const {
     data: tenants = [],
     isLoading: isLoadingTenants,
@@ -977,8 +988,12 @@ export default function SuperAdminDashboard() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="growth">Growth · até 300 alunos</SelectItem>
-                    <SelectItem value="enterprise">Enterprise · 301 alunos ou mais</SelectItem>
+                    <SelectItem value="growth">
+                      {limiteGrowth ? `Growth · até ${decimal(limiteGrowth, 0)} alunos` : "Growth"}
+                    </SelectItem>
+                    <SelectItem value="enterprise">
+                      {limiteGrowth ? `Enterprise · ${decimal(limiteGrowth + 1, 0)} alunos ou mais` : "Enterprise"}
+                    </SelectItem>
                     <SelectItem value="redes">Redes · até 3 unidades</SelectItem>
                     <SelectItem value="custom">Custom · mais de 3 unidades</SelectItem>
                   </SelectContent>

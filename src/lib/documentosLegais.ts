@@ -129,8 +129,11 @@ export const DOCUMENTOS: Record<
     // 2026-10-01: secao 2 com a tabela B2B nova (Growth, Enterprise, Redes e
     // Custom), enviada pelo responsavel em 01/10/2026 com a ordem de alterar
     // o sistema todo.
-    versao: "2026-10-01",
-    sha256: "34813d2be0830ea0b2cd8f062bd3acb7b3e5021d7fdfba0a38908899b4399b68",
+    // 2026-10-06: na mesma tabela, o teto do Growth subiu de 300 para 500
+    // alunos (e o Enterprise passou a comecar em 501), por decisao do
+    // responsavel no chat em 06/10/2026. Nada mais mudou no texto.
+    versao: "2026-10-06",
+    sha256: "bd656f0f0c60c9b61bbbbfefa781235a870d402e3d06daaef63f84cd322f7844",
     texto: contratoAcademia,
     revisadoJuridico: true,
   },
