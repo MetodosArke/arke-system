@@ -168,11 +168,10 @@ export default function Onboarding() {
       };
 
       // Inclui, e nunca sobrescreve a anamnese concluída: ver src/lib/acolhimento.ts.
-      const resultado = await enviarAnamnese(linha, {
-        inserir: (l) => supabase.from("anamnese_acolhimento").insert(l),
-        completarSeAberta: (l) =>
-          supabase.from("anamnese_acolhimento").update(l).eq("aluno_id", alunoId).is("concluida_em", null).select("id"),
-      });
+      const inserir = (l: typeof linha) => supabase.from("anamnese_acolhimento").insert(l);
+      const completarSeAberta = (l: typeof linha) =>
+        supabase.from("anamnese_acolhimento").update(l).eq("aluno_id", alunoId).is("concluida_em", null).select("id");
+      const resultado = await enviarAnamnese(linha, { inserir, completarSeAberta });
       // O acolhimento já tinha sido enviado (e já está na fila do mentor).
       if (resultado === "ja_existia") return resultado;
 
