@@ -31,11 +31,16 @@ const esperaPadrao = (ms: number) => new Promise<void>((resolve) => setTimeout(r
 
 /**
  * Roda `acao` até dar certo ou acabarem as tentativas. Com os padrões são
- * quatro tentativas, com 1, 2 e 4 segundos entre elas: sete segundos ao todo
- * antes de desistir. Esgotadas, lança o último erro.
+ * duas tentativas, com 1 segundo entre elas. Esgotadas, lança o último erro.
+ *
+ * Duas, e não mais, porque o supabase-js já tenta de novo por baixo: toda
+ * consulta ao PostgREST que falha por rede é repetida até 3 vezes, com 1, 2 e
+ * 4 segundos de espera. Com quatro tentativas aqui por cima, a tela de erro
+ * levava 34 segundos para aparecer, com o formulário de entrar parado
+ * (conferido em produção em 06/10/2026). Com duas, uns 15.
  */
 export async function comNovasTentativas<T>(acao: () => Promise<T>, opcoes: OpcoesTentativas = {}): Promise<T> {
-  const { tentativas = 4, esperaInicialMs = 1000, continuar = () => true, esperar = esperaPadrao } = opcoes;
+  const { tentativas = 2, esperaInicialMs = 1000, continuar = () => true, esperar = esperaPadrao } = opcoes;
   let ultimoErro: unknown = new Error("Nenhuma tentativa feita");
   for (let i = 0; i < Math.max(1, tentativas); i++) {
     if (i > 0) await esperar(esperaInicialMs * 2 ** (i - 1));

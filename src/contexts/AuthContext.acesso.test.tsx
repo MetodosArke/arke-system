@@ -180,11 +180,11 @@ beforeEach(() => {
 
 describe("AuthContext: falha ao ler o acesso (A12)", () => {
   it("tenta de novo e, quando a leitura volta, carrega normalmente", async () => {
-    banco.falhasPapeis = 2;
+    banco.falhasPapeis = 1;
     montar();
     await waitFor(() => expect(contexto.rolesLoaded).toBe(true));
     expect(contexto.erroAcesso).toBe(false);
-    expect(banco.leiturasPapeis).toBe(3);
+    expect(banco.leiturasPapeis).toBe(2);
   });
 
   it("falha que não passa é erro de acesso, e não conta sem vínculo", async () => {

@@ -299,3 +299,9 @@ Os artigos da Central mudaram junto: `app-primeiro-acesso` (Sair e as duas telas
 - Seis defeitos plantados, os seis pegos, com 9 testes falhando: o erro da leitura dos papéis ignorado de novo, o "Sair" com o escopo global, o cache que não limpa na troca de pessoa, a anamnese concluída tratada como completada, a simulação registrando o aparelho para os avisos, e a rota da gestão sem a tela de erro.
 - `npm run check` sem erro: tipos, lint (0 erros, os 27 avisos de antes), o `deno check` das 53 funções e a auditoria das dependências (0 vulnerabilidades).
 - Falta conferir em produção: a tela no computador e no celular (o "Sair" com e sem simulação, o erro de acesso com a rede desligada, a conta sem academia e o rascunho do acolhimento), e o aviso que para de chegar no aparelho depois do "Sair".
+
+**Conferido pela tela em produção, depois do deploy (06/10/2026), e o defeito que ela mostrou.**
+- **No computador e no celular:** a conta sem academia viu "Nenhuma academia vinculada a esta conta", sem rolagem lateral, e o "Sair" apagou a sessão da aba.
+- **A falha de rede, com a leitura dos vínculos bloqueada,** chegou à tela "Não conseguimos carregar o seu acesso", mas levou 34 segundos. Nesse tempo, o formulário de entrar ficava parado, sem dizer nada.
+- **A causa:** o supabase-js já repete por baixo toda consulta ao PostgREST que falha por rede, até 3 vezes, com 1, 2 e 4 segundos de espera. As 4 tentativas do app por cima multiplicavam isso: foram 16 consultas bloqueadas, e não 4.
+- **A correção:** `comNovasTentativas` passou a tentar 2 vezes, e o "Entrar" mostra "Entrando..." até o acesso carregar ou falhar. Um teste novo trava o padrão de duas tentativas.

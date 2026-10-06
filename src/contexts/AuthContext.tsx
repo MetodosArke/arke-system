@@ -378,7 +378,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!userId || !organizationId) return;
     try {
       const aluno = await comNovasTentativas(() => lerAluno(userId, organizationId), {
-        tentativas: 3,
         continuar: () => usuarioCarregado.current === userId,
       });
       if (usuarioCarregado.current === userId) aplicarAluno(aluno);
