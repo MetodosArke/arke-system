@@ -191,3 +191,40 @@ Achado de 04/10: parte das migrations aplicadas no banco não tinha arquivo no r
 De passagem, os índices das três chaves estrangeiras que o conselheiro de desempenho do Supabase acusava sem índice (`chamados_suporte` e `equipe_arkefit`), em `20261337010000`.
 
 **Conferido:** o modo novo em ensaio (`--conferir`): 276 migrations, 1,5 MB de SQL, e a recusa sem destino e com a produção como destino. A guarda passou, e pegou um arquivo antigo plantado sem explicação. **Falta a prova de verdade:** reconstruir num projeto vazio e comparar com `03-conferencia.sql`. Ela entra no ensaio de restauração do backup, depois do Supabase Pro.
+
+## Auditoria de prontidão, rodada 3: funções do servidor, rotinas e operação (06/10/2026)
+
+Os achados médios de funções e rotinas da auditoria de 05/10. Os de catraca estão em [catracas.md](catracas.md) e o do Vigia em [agentes.md](agentes.md).
+
+**O encerramento de uma academia apagava a conta de quem tinha vínculo inativo em outra** (`20261370010000`). A eliminação devolvia para o Auth a conta de quem não tinha vínculo *ativo* noutra organização. O professor que saiu de outra academia, o ex-gestor e a parceria desfeita perdiam a conta, e a cascata levava, na outra academia, o histórico e as mensagens da pessoa. A regra agora é a de `excluir_aluno_da_academia` (`20261339010000`): a conta só sai sem vínculo nenhum noutra organização, mesmo inativo, sem matrícula noutra academia, sem papel global e fora da equipe da ArkeFit.
+
+**O aviso de encerramento chega aos alunos, e a remoção das digitais tem prova** (`20261371010000`).
+- **Antes:** o e-mail ia só à gestão e à ArkeFit. O aluno, inclusive o do Método (de quem a ArkeFit é controladora), descobria no dia do término, com o app travado.
+- **O aviso ao aluno:** e-mail e aviso no celular a cada aluno com matrícula viva ou Método ativo, com o prazo, o que acaba no término, até quando os dados ficam, que a conta sai se for a única academia e onde pedir uma cópia. O do Método ouve também do acompanhamento e de quem pedir os dados dele. O app mostra a data no alto da tela durante o aviso, e a tela de depois do término diz até quando os dados ficam.
+- **Idempotência:** o envio vai em lotes de até 100, e o banco reserva o lote antes de mandar (`reservar_aviso_encerramento_alunos`). O lote que não foi confirmado volta igual na rodada seguinte, com a mesma chave de idempotência no Resend (`encerramento-alunos/<encerramento>/<lote>`). A reserva tem o usuário e some com a organização na eliminação; o registro do encerramento guarda só a contagem (`alunos_avisados`, `alunos_avisados_push`). O e-mail à gestão ganhou chave também.
+- **A prova da remoção:** no término, a remoção nasce como ordem ao Gateway ou, na catraca sem gestão remota, como tarefa da academia. A tarefa não tinha como ser fechada com o painel travado, e a eliminação apagava ordens e tarefas. Agora `conferir_remocoes_encerramento` conta, sem dado pessoal, os alunos com número na catraca, as ordens agendadas e confirmadas e as tarefas abertas e fechadas com desfecho. Ela roda no término, a cada rodada da janela de exportação e uma última vez dentro de `eliminar_organizacao`, antes da cascata; o placar final vai também para a Auditoria.
+- **A tela travada da gestão** mostra **Falta apagar das catracas**, com **Apaguei do equipamento** e **Não estava no equipamento**, cada um com desfecho. A Visão Master mostra o placar e os alunos avisados.
+
+**O cadastro da equipe respeita a unidade escolhida.** `cadastrar-membro-equipe` usava o vínculo de gestor mais antigo: o gestor de duas unidades cadastrava um professor para a B, e ele nascia na A, vendo os alunos de A. Agora as três telas que cadastram (Equipe, a etapa Equipe da configuração e a Parceria do autônomo) mandam a academia aberta no seletor, e a função confere que quem chama é gestor ativo dela (`fluxo.ts`, `academiaDoCadastro`). Pedido sem academia, de uma tela antiga, só passa quando a pessoa é gestora de uma academia só.
+
+**O link do resumo semanal abre o relatório.** `briefing-semanal` montava `${APP_URL}/admin/relatorio-semanal`, sem o `#` do HashRouter, com o `APP_URL` fora de `docs/INFRAESTRUTURA.md` e o site de vendas como padrão. Agora usa `SITE_URL`, a mesma dos outros e-mails, por `_shared/linkDoApp.ts`, e o aviso no celular também abre `/#/admin/relatorio-semanal`. `linksDoApp.guarda` barra link de tela do app sem `#` em qualquer função e exige que toda variável lida pelas funções esteja documentada; com ela entraram no documento `ASAAS_API_URL`, `ASAAS_SANDBOX_URL` e quatro remetentes (`EMAIL_ALERTAS_FROM`, `EMAIL_COMERCIAL_FROM`, `EMAIL_SITE_FROM`, `EMAIL_FROM`).
+
+**O roteiro de reconstrução recria todas as rotinas.** `02-depois-da-restauracao.sql` desagendava tudo e recriava uma lista escrita à mão, com 14 rotinas. Ficavam de fora a retenção dos logs da catraca, os históricos, os leads, o Vigia, os encerramentos e outras: 18 das 31 (a lista tinha 14, uma delas já desagendada). A lista agora mora nas migrations que agendam. `scripts/migracao/rotinas.mjs` percorre a ordem da reconstrução (o retrato de `supabase/historico/` e as migrations depois dele), aplica cada `cron.schedule` e `cron.unschedule` e gera os blocos do roteiro (`--escrever`). `rotinasBanco.guarda` falha quando uma migration nova agenda uma rotina e o roteiro não foi gerado de novo, e o leitor recusa forma de `cron.*` que não entende, em vez de deixar a rotina sumir em silêncio.
+
+Defeitos do caminho:
+- **`snapshot-mrr-diario` não nasce de migration nenhuma.** A migration que rodou no banco (`supabase/historico/20260920055417`) não a agenda; ela existe porque o roteiro antigo a criou. `20261374010000` a agenda igual à de produção.
+- **O roteiro criava um token que não existe mais** (`lembrete_onboarding_token`, apagado com a Letícia e o Bruno) e **não criava o `briefing_semanal_token`**, que o resumo semanal lê. O bloco de tokens agora sai das rotinas.
+- **O Windows entrega os arquivos com `\r\n`,** e o bloco gerado ficaria diferente do conferido no CI. O leitor normaliza o fim de linha.
+- **`alertar-catracas` e `vigia` tinham o site de vendas como padrão** de `SITE_URL`, com links `/#/superadmin/...`. O de `alertar-catracas` passou a ser o app; os outros seguem valendo só com a variável definida, como hoje.
+- **No rebase sobre a main de 06/10,** a guarda acusou `arke-registros-de-acesso` (`20261380010000`, da frente do Marco Civil) fora do roteiro. O bloco foi gerado de novo: 31 rotinas e 3 tokens.
+- **Log com o objeto de erro inteiro** em `cadastrar-membro-equipe` e em `catraca-checkin-parceiro-externo` (a mensagem do Auth pode trazer o e-mail). Agora só status e código.
+
+**Conferido:**
+- `npm run check` sem erro, com as 55 funções no `deno check`; a suíte inteira, depois do rebase sobre a main: 151 arquivos e 1.129 testes, 50 deles novos nesta rodada. Numa máquina lenta, rodar com `--testTimeout=30000`: com o prazo de 5 s, testes de tela que não foram mexidos estouram o tempo, e passam sozinhos.
+- **Defeito plantado, um por achado, e o teste certo falhou:**
+  - a regra antiga (só vínculo ativo) na eliminação: `encerramentoAcademia`;
+  - o lote dos alunos sem chave de idempotência: `encerramentoAcademia`;
+  - a academia pedida ignorada no cadastro: `cadastroEquipe`, 3 testes;
+  - o link do resumo sem `#`: `linksDoApp.guarda`, 2 testes;
+  - uma migration com rotina nova e o roteiro sem gerar: `rotinasBanco.guarda`, 2 testes.
+- **Falta conferir no banco,** em transação desfeita: quem tem vínculo inativo noutra academia fica fora das contas a apagar; o lote não confirmado volta igual, e ninguém é reservado duas vezes; o término conta os alunos com número na catraca; a eliminação guarda o placar antes da cascata. **E pela corrente real:** uma academia temporária encerrada de ponta a ponta, com o e-mail e o aviso no celular de um aluno, e o cadastro de um professor por uma gestora de duas unidades.

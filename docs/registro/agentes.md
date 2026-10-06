@@ -217,3 +217,14 @@ As linhas saem em 13 meses, na limpeza diária. `usoIA.test.ts` falha se uma fun
 - Os testes do medidor e da recusa da Letícia.
 - A **corrente real**, com uma gestora temporária: o assistente e a leitura de dieta publicados gravaram modelo, academia, tokens (1.338 e 97; 599 e 286) e latência, e nenhum texto.
 - As funções que importam `_shared/ia.ts` foram publicadas, inclusive as duas do Sentinela, para o código publicado bater com o repositório. O comportamento do Sentinela não mudou: a porta só passou a devolver o uso, que ele ignora.
+
+## Vigia: ação aprovada sempre com desfecho (06/10/2026)
+
+Achado médio da auditoria de prontidão de 05/10. A aprovação reserva a decisão (`vigia_preparar_aprovacao`) e só depois executa; o desfecho chega por `vigia_concluir_acao`. Quando o Asaas ou o webhook estourava o prazo, o `fetch` lançava, o `catch` de `vigia-aprovar` só respondia 500, e a ação ficava em "executando" para sempre. A nova aprovação era recusada como "já decidida".
+
+- **Toda saída depois da reserva registra o desfecho** (`vigia-aprovar/fluxo.ts`, `executarComDesfecho`). A exceção vira "erro" com uma frase que não repete a mensagem crua, que pode trazer endereço, e diz para conferir antes de agir de novo. O registro é tentado duas vezes.
+- **O reenvio dos avisos ao webhook** conta como não processado o aviso que estoura o prazo, e segue para os outros.
+- **A função morta no meio** (limite de tempo do runtime) é o que o código não alcança. A cada passada do Vigia, a ação que passou de 15 minutos sem desfecho é fechada como erro, com a Auditoria de sempre (`vigia_fechar_acoes_sem_desfecho`, `20261374010000`). A rotina `arke-vigia` chama as duas, nessa ordem.
+- `asaas-assinatura-ciclo/fluxo.ts` não mudou: o `fetch` sem `try` lá é usado por outras funções, que têm o próprio tratamento, e a proteção ficou em quem reserva a decisão.
+
+**Conferido:** `vigiaAprovar` (6 testes): o prazo esgotado e a exceção qualquer registram erro, o resultado normal registra com o comando, o registro que falha é tentado de novo. Defeito plantado: o `catch` relançando a exceção derrubou 2 testes. **Falta:** no banco, a ação de 16 minutos em "executando" fechada como erro pela passada do Vigia, com a linha na Auditoria; pela corrente real, a aprovação de `cancelar_assinatura_orfa` com o Asaas fora do prazo (no sandbox) terminando como erro, e não presa.
