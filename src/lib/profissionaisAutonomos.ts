@@ -25,6 +25,8 @@ export type ProfissionalAutonomo = {
   onboarding_completed: boolean;
   etapa_implantacao: string | null;
   pode_excluir: boolean;
+  /** A conta já existia e ainda não entrou pelo link do e-mail: a gestão fica pendente (20261362010000). */
+  gestor_pendente?: boolean;
 };
 
 export const ESPECIALIDADE_ROTULO: Record<EspecialidadeAutonomo, string> = {
@@ -36,10 +38,13 @@ export type SituacaoAcesso = "sem_responsavel" | "convite_pendente" | "ativo";
 
 /**
  * Quem nunca entrou está com o convite pendente, mesmo com o perfil "ativo":
- * o perfil nasce assim no próprio convite. É o último acesso que diz.
+ * o perfil nasce assim no próprio convite. É o último acesso que diz. A conta
+ * que já existia (com último acesso de outro vínculo) fica pendente até entrar
+ * pelo link do e-mail: até lá o painel não é dela.
  */
-export function situacaoAcesso(p: Pick<ProfissionalAutonomo, "sem_gestor" | "ultimo_acesso">): SituacaoAcesso {
+export function situacaoAcesso(p: Pick<ProfissionalAutonomo, "sem_gestor" | "ultimo_acesso" | "gestor_pendente">): SituacaoAcesso {
   if (p.sem_gestor) return "sem_responsavel";
+  if (p.gestor_pendente) return "convite_pendente";
   return p.ultimo_acesso ? "ativo" : "convite_pendente";
 }
 
@@ -54,7 +59,7 @@ export const ROTULO_ACESSO: Record<SituacaoAcesso, string> = {
  * convite. Quem já usa o painel tem o negócio ali dentro, e a correção é o
  * e-mail de login dele, não outra pessoa no lugar.
  */
-export function podeTrocarResponsavel(p: Pick<ProfissionalAutonomo, "sem_gestor" | "ultimo_acesso">): boolean {
+export function podeTrocarResponsavel(p: Pick<ProfissionalAutonomo, "sem_gestor" | "ultimo_acesso" | "gestor_pendente">): boolean {
   return situacaoAcesso(p) !== "ativo";
 }
 

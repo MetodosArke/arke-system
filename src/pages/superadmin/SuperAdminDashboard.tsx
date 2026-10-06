@@ -324,7 +324,7 @@ export default function SuperAdminDashboard() {
       const descricao = data?.aviso
         ? `(Aviso: ${data.aviso})`
         : data?.gestor_ja_existia
-          ? "O gestor já tinha conta — ela foi vinculada à nova organização e avisada por e-mail."
+          ? "O e-mail já tinha conta: a gestão fica pendente até a pessoa definir a senha pelo link que foi para o e-mail dela."
           : "Convite de ativação enviado ao e-mail do gestor.";
       toast({ title: "Organização criada com sucesso!", description: descricao });
       setModalNovaOrgAberto(false);

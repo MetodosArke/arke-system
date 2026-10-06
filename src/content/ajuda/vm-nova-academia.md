@@ -8,6 +8,8 @@ Em [Visão Geral](/superadmin), **Nova Organização**:
 - e-mail e nome do gestor principal: ele recebe o convite para criar a senha;
 - o plano (Growth, Enterprise, Redes ou Custom) e a situação.
 
+Se o e-mail do gestor **já tem conta** no ArkeFit (gestor de outra unidade, aluno de uma academia), a conta entra como gestão **pendente** e a pessoa recebe no e-mail o link de definir a senha. A gestão só vale depois que ela define a senha por esse link, que é o que prova que o e-mail é dela: uma conta pode ter sido criada antes por outra pessoa com aquele e-mail. Ao definir, as outras sessões abertas da conta caem. Se o e-mail não sair, peça a ela para usar **Esqueci minha senha** na tela de entrar.
+
 Os planos:
 
 - **Growth**: uma unidade, até 300 alunos ativos;

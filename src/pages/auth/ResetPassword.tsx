@@ -10,6 +10,7 @@ import { Mail, ArrowLeft, Dumbbell, Lock, Eye, EyeOff } from "lucide-react";
 import { motion } from "framer-motion";
 import { useToast } from "@/hooks/use-toast";
 import { verificarSenhaVazada, senhaDeveSerRecusada, mensagemSenhaVazada } from "@/lib/senhaVazada";
+import { AVISO_GESTAO_PENDENTE, depoisDeDefinirASenha } from "@/lib/senhaDefinida";
 
 // Links de convite (novo aluno/equipe) e de ativação de cadastro chegam com
 // type=invite/signup, ou type=recovery redirecionado para /auth/definir-senha
@@ -156,7 +157,14 @@ export default function ResetPassword() {
       return;
     }
 
-    toast({ title: "Senha atualizada!", description: "Você já pode fazer login." });
+    // O link do e-mail prova o e-mail: as outras sessões caem e a gestão que
+    // esperava essa prova é ativada, antes de sair (src/lib/senhaDefinida.ts).
+    const depois = await depoisDeDefinirASenha(supabase);
+    if (depois.tipo === "sessoes_nao_encerradas") {
+      toast({ title: "Gestão ainda pendente", description: AVISO_GESTAO_PENDENTE, variant: "destructive" });
+    } else {
+      toast({ title: "Senha atualizada!", description: "Você já pode fazer login." });
+    }
     await supabase.auth.signOut();
     navigate("/auth/login");
   };

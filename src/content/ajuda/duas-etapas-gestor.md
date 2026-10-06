@@ -5,6 +5,8 @@ A verificação em duas etapas pede, além da senha, um código de 6 dígitos qu
 - **Exportar todos os dados**, **encerrar o contrato** e **trocar o e-mail de login** de alguém da equipe pedem o código sempre. Essas três ações entregam a academia inteira ou a conta de outra pessoa.
 - **Na entrada do painel**, só se você ligar a verificação no seu perfil.
 
+Ligada, ela vale também no servidor, e não só na tela: com só a senha, os dados dos alunos, da saúde e do dinheiro da academia não saem por nenhum caminho até o código ser digitado.
+
 ## Como ligar
 
 1. Instale no celular um aplicativo autenticador: Google Authenticator, Microsoft Authenticator ou outro.

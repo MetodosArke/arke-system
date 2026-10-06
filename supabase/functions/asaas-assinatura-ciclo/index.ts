@@ -3,6 +3,7 @@ import { verificada } from "../_shared/verificacao.ts";
 import { ambienteAsaas } from "../_shared/asaas.ts";
 import { hojeBrasilia } from "../_shared/data.ts";
 import { dentroDoFreio, MENSAGEM_FREIO, regrasAsaas } from "../_shared/freio.ts";
+import { MENSAGEM_PERFIL_SIMULADO, sessaoSimulada } from "../_shared/sessaoSimulada.ts";
 import {
   alterarValorAssinatura,
   cancelarAssinatura,
@@ -111,6 +112,18 @@ servir("asaas-assinatura-ciclo", async (req: Request) => {
       acao === "cancelar" && tipo === "metodo" ? equipe || arkefit || oProprioAluno : equipe || arkefit;
     if (!autorizado) {
       return jsonResponse({ error: "Você não tem permissão para alterar a cobrança deste aluno." }, 403);
+    }
+    // O aluno cancelando a própria assinatura: numa sessão simulada, quem
+    // clica é a ArkeFit, e a gravação é pela service role, que o banco não
+    // confere.
+    if (oProprioAluno && !equipe && !arkefit) {
+      let simulada: boolean;
+      try {
+        simulada = await sessaoSimulada(admin, claims?.claims);
+      } catch {
+        return jsonResponse({ error: "Não foi possível conferir a sessão. Tente de novo." }, 500);
+      }
+      if (simulada) return jsonResponse({ error: MENSAGEM_PERFIL_SIMULADO }, 403);
     }
     if (!(await dentroDoFreio(admin, regrasAsaas(callerId, aluno.organization_id)))) {
       return jsonResponse({ error: MENSAGEM_FREIO }, 429);

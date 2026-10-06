@@ -1,4 +1,5 @@
 import { hojeBrasilia } from "@/lib/dataBrasilia";
+import { ehGestao } from "@/lib/acessoPainel";
 import { useMemo, useState } from "react";
 import { useOnboardingAcademia } from "@/hooks/useOnboardingAcademia";
 import { useImplantacaoAcademia } from "@/hooks/useImplantacaoAcademia";
@@ -192,9 +193,10 @@ export default function DashboardHome() {
 // Gestor de Academia
 // ---------------------------------------------------------------------
 function VisaoGestorAcademia() {
-  const { organization } = useAuth();
+  const { organization, organizationRole, hasRole } = useAuth();
   const navigate = useNavigate();
   const hoje = hojeISO();
+  const contexto = { tipoOrganizacao: organization?.tipo, especialidade: null, papel: organizationRole, adminArke: hasRole("admin_arke") };
 
   const { data: presentesHoje } = useQuery({
     queryKey: ["home-presentes-hoje", organization?.id],
@@ -267,7 +269,10 @@ function VisaoGestorAcademia() {
         <CardContent className="grid grid-cols-1 sm:grid-cols-3 gap-2">
           <AtalhoButton icon={UserPlus} label="Novo Aluno" onClick={() => navigate("/admin/alunos")} />
           <AtalhoButton icon={KeyRound} label="Liberar Catraca" onClick={() => navigate("/admin/catracas")} />
-          <AtalhoButton icon={UsersRound} label="Convidar Equipe" onClick={() => navigate("/admin/equipe")} />
+          {/* A recepção também cai nesta Home; a equipe é da gestão (src/lib/acessoPainel.ts). */}
+          {ehGestao(contexto) && (
+            <AtalhoButton icon={UsersRound} label="Convidar Equipe" onClick={() => navigate("/admin/equipe")} />
+          )}
         </CardContent>
       </Card>
     </>

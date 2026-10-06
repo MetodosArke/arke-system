@@ -1251,6 +1251,7 @@ export type Database = {
           aluno_id: string
           concluida_em: string | null
           consentimento_lgpd_aceito_em: string | null
+          consentimento_lgpd_revogado_em: string | null
           consentimento_lgpd_versao: string | null
           created_at: string
           dores_lesoes: string | null
@@ -1275,6 +1276,7 @@ export type Database = {
           aluno_id: string
           concluida_em?: string | null
           consentimento_lgpd_aceito_em?: string | null
+          consentimento_lgpd_revogado_em?: string | null
           consentimento_lgpd_versao?: string | null
           created_at?: string
           dores_lesoes?: string | null
@@ -1299,6 +1301,7 @@ export type Database = {
           aluno_id?: string
           concluida_em?: string | null
           consentimento_lgpd_aceito_em?: string | null
+          consentimento_lgpd_revogado_em?: string | null
           consentimento_lgpd_versao?: string | null
           created_at?: string
           dores_lesoes?: string | null
@@ -7507,6 +7510,8 @@ export type Database = {
         }
         Returns: Json
       }
+      atende_saude: { Args: { _organization_id: string }; Returns: boolean }
+      ativar_gestao_pendente: { Args: never; Returns: number }
       atribuir_mentor_aluno: {
         Args: { _aluno_id: string; _mentor_id: string }
         Returns: undefined
@@ -7784,6 +7789,7 @@ export type Database = {
         }
         Returns: Json
       }
+      cuida_do_dinheiro: { Args: { _organization_id: string }; Returns: boolean }
       definir_agente_comercial: {
         Args: { _agenda_url: string; _ativo: boolean }
         Returns: undefined
@@ -8435,6 +8441,7 @@ export type Database = {
           especialidade: Database["public"]["Enums"]["app_role"]
           etapa_implantacao: string
           gestor_nome: string
+          gestor_pendente: boolean
           gestor_user_id: string
           nome: string
           onboarding_completed: boolean
@@ -9058,6 +9065,10 @@ export type Database = {
           organization_id: string
         }[]
       }
+      revogar_consentimento_saude: {
+        Args: { _aluno_id: string }
+        Returns: undefined
+      }
       rotinas_para_alertar: {
         Args: never
         Returns: {
@@ -9104,6 +9115,7 @@ export type Database = {
           sugeridas: number
         }[]
       }
+      sessao_cumpre_duas_etapas: { Args: never; Returns: boolean }
       sessao_simulada: { Args: never; Returns: boolean }
       sessao_verificada: { Args: never; Returns: boolean }
       sincronizar_situacao_por_mensalidade: {

@@ -1,0 +1,128 @@
+import { readdirSync, readFileSync, statSync } from "node:fs";
+import { join, relative } from "node:path";
+import { describe, expect, it } from "vitest";
+
+/**
+ * Trava da auditoria de 05/10/2026 (achados médios de identidade):
+ *
+ * - **Pré-sequestro de conta.** A matrícula pública cria a conta com o e-mail
+ *   já confirmado, sem prova de posse. Criar a academia na Visão Master e
+ *   convidar um profissional autônomo ligavam a conta existente como gestora só
+ *   pelo e-mail. Agora a conta que já existia entra pendente, e só vira gestão
+ *   quando o dono do e-mail define a senha pelo link (que encerra as outras
+ *   sessões antes).
+ * - **Cadastro aberto.** O "Cadastre-se" do login criava conta sem academia, e
+ *   nenhum fluxo do produto o usa.
+ * - **Link de acesso pela ArkeFit.** Gerava o link de qualquer pessoa, sem
+ *   trava e sem registro, e o link abre uma sessão de verdade como ela.
+ * - **Cobrança no perfil simulado.** As funções que deixam o aluno agir por si
+ *   gravam pela service role, que o banco não confere.
+ */
+const RAIZ = join(__dirname, "..", "..");
+const FUNCOES = join(RAIZ, "supabase", "functions");
+const ler = (...partes: string[]) => readFileSync(join(...partes), "utf8").replace(/\r\n/g, "\n");
+
+function arquivos(dir: string, achados: string[] = []): string[] {
+  for (const nome of readdirSync(dir)) {
+    const caminho = join(dir, nome);
+    if (statSync(caminho).isDirectory()) arquivos(caminho, achados);
+    else if (/\.(ts|tsx)$/.test(nome) && !/\.test\.tsx?$/.test(nome)) achados.push(caminho);
+  }
+  return achados;
+}
+
+describe("a gestão só com o e-mail provado", () => {
+  it("criar a academia liga a conta que já existia como gestão pendente, com o link de definir a senha", () => {
+    const f = ler(FUNCOES, "criar-organizacao-superadmin", "index.ts");
+    expect(f).toMatch(/status: gestorJaExistia \? "pending" : "active"/);
+    expect(f).toMatch(/resetPasswordForEmail\(gestorEmail, \{\s+redirectTo: `\$\{siteUrl\}\/#\/auth\/definir-senha`/);
+    expect(f).not.toMatch(/signInWithOtp/);
+  });
+
+  it("o profissional autônomo com conta existente entra pendente e recebe o link de definir a senha", () => {
+    const f = ler(FUNCOES, "convidar-profissional-autonomo", "index.ts");
+    const ligar = f.slice(f.indexOf("async function ligarResponsavel"), f.indexOf("async function enviarAviso"));
+    const existente = ligar.slice(0, ligar.indexOf("inviteUserByEmail"));
+    expect(existente).toMatch(/role: "gestor", status: "pending"/);
+    // O perfil da pessoa nasce "active"; o vínculo de gestão, não.
+    expect(existente).not.toMatch(/role: "gestor", status: "active"/);
+    expect(existente).toMatch(/criarSenha: true/);
+  });
+
+  it("a ativação pede a sessão aberta pelo link do e-mail e recusa o perfil simulado", () => {
+    const sql = readdirSync(join(RAIZ, "supabase", "migrations"))
+      .filter((n) => n.endsWith(".sql"))
+      .sort()
+      .map((n) => ler(RAIZ, "supabase", "migrations", n))
+      .join("\n");
+    const corpo = sql.match(/create or replace function public\.ativar_gestao_pendente\(\)[\s\S]*?\$\$;/g)?.at(-1) ?? "";
+    expect(corpo, "a função existe").not.toBe("");
+    expect(corpo).toMatch(/public\.sessao_simulada\(\)/);
+    expect(corpo).toMatch(/-> 'amr'/);
+    expect(corpo).not.toMatch(/'password'/);
+    expect(corpo).toMatch(/where m\.user_id = v_uid and m\.role = 'gestor' and m\.status = 'pending'/);
+    expect(corpo).toMatch(/registrar_auditoria/);
+  });
+
+  it("as duas telas de senha encerram as outras sessões e ativam, nessa ordem", () => {
+    for (const tela of ["DefinirSenha.tsx", "ResetPassword.tsx"]) {
+      const t = ler(RAIZ, "src", "pages", "auth", tela);
+      expect(t, tela).toMatch(/await depoisDeDefinirASenha\(supabase\)/);
+    }
+    const lib = ler(RAIZ, "src", "lib", "senhaDefinida.ts");
+    expect(lib.indexOf('signOut({ scope: "others" })')).toBeLessThan(lib.indexOf('rpc("ativar_gestao_pendente")'));
+  });
+
+  it("a gestão pendente conta como outra academia para a equipe que mexe na conta", () => {
+    const f = ler(FUNCOES, "_shared", "alvoNaAcademia.ts");
+    expect(f).toMatch(/\.in\("status", \["active", "pending"\]\)/);
+  });
+});
+
+describe("sem cadastro aberto", () => {
+  it("nenhuma tela chama o cadastro aberto do Auth, e o login não o oferece", () => {
+    const usam = arquivos(join(RAIZ, "src"))
+      .filter((c) => /auth\.signUp\(/.test(readFileSync(c, "utf8")))
+      .map((c) => relative(RAIZ, c));
+    expect(usam).toEqual([]);
+    const login = ler(RAIZ, "src", "pages", "auth", "Login.tsx");
+    expect(login).not.toMatch(/navigate\("\/auth\/register"\)/);
+    expect(ler(RAIZ, "src", "App.tsx")).toMatch(/path="\/auth\/register" element=\{<Navigate to="\/auth\/login" replace \/>\}/);
+    // Lê o src inteiro: com a máquina ocupada, passa do prazo padrão de 5 s.
+  }, 30_000);
+});
+
+describe("link de acesso", () => {
+  const f = ler(FUNCOES, "gerar-link-ativacao", "index.ts");
+  it("a ArkeFit é só o Super Admin verificado, e as travas valem para ela também", () => {
+    expect(f).toMatch(/const callerArkefit = verificada\(claimsData\?\.claims\) && \(callerRoles \?\? \[\]\)\.some\(\(r\) => r\.role === "superadmin"\)/);
+    expect(f).not.toMatch(/r\.role === "admin_arke"/);
+    // A trava de "nunca entrou" não está dentro de um `if` que a ArkeFit pula.
+    expect(f).toMatch(/\n {4}if \(targetUser\.user\.last_sign_in_at\) \{/);
+    expect(f).toMatch(/alvoSoNaAcademia\(adminClient, targetUserId, orgDoAlvo\)/);
+  });
+  it("todo link gerado fica na auditoria antes de sair", () => {
+    expect(f).toMatch(/rpc\("registrar_auditoria"/);
+    expect(f.indexOf('rpc("registrar_auditoria"')).toBeLessThan(f.lastIndexOf("action_link: `${siteUrl}/cadastro/${code}`"));
+  });
+});
+
+describe("cobrança no perfil simulado", () => {
+  it("toda função em que o aluno age por si confere a sessão simulada", () => {
+    const funcoes = readdirSync(FUNCOES).filter((d) => !d.startsWith("_") && statSync(join(FUNCOES, d)).isDirectory());
+    const doAluno = funcoes.filter((d) => /\.user_id (===|!==) callerId/.test(ler(FUNCOES, d, "index.ts")));
+    expect(doAluno.sort(), "o detector detecta").toEqual(["asaas-assinatura-ciclo", "asaas-cartao-assinatura"]);
+    for (const d of doAluno) {
+      const f = ler(FUNCOES, d, "index.ts");
+      expect(f, d).toMatch(/await sessaoSimulada\(admin, claims\?\.claims\)/);
+      expect(f, d).toMatch(/return jsonResponse\(\{ error: MENSAGEM_PERFIL_SIMULADO \}, 403\)/);
+    }
+  });
+
+  it("a frase é a mesma das outras autorizações", () => {
+    const funcao = ler(FUNCOES, "_shared", "sessaoSimulada.ts").match(/MENSAGEM_PERFIL_SIMULADO =\s+"([^"]+)"/)?.[1];
+    const tela = ler(RAIZ, "src", "lib", "impersonation.ts").match(/MENSAGEM_PERFIL_SIMULADO =\s+"([^"]+)"/)?.[1];
+    expect(funcao).toBeTruthy();
+    expect(funcao).toBe(tela);
+  });
+});

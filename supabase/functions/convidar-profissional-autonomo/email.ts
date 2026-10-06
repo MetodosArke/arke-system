@@ -40,11 +40,11 @@ export function emailPainelPronto(opcoes: {
   const paragrafos = [
     `A ArkeFit preparou o painel “${painel}” para você atender os seus alunos: cadastro, prescrição, financeiro e o app com a sua marca.`,
     criarSenha
-      ? "O seu e-mail já estava no ArkeFit, mas a senha ainda não foi criada. Crie pelo botão abaixo. Se o link vencer, peça um novo à ArkeFit."
+      ? "Para o painel ficar com você, defina a sua senha pelo botão abaixo: é o que confirma que este e-mail é seu. Se você já usava o ArkeFit com este e-mail, a senha nova vale para tudo, e as outras sessões abertas da conta são encerradas. Se o link vencer, peça um novo à ArkeFit."
       : "Entre com o mesmo e-mail e a senha que você já usa no ArkeFit. Se tiver mais de um acesso, escolha o painel no alto da tela.",
     "O próprio painel mostra o passo a passo da configuração até o primeiro aluno entrar.",
   ];
-  const botao = criarSenha ? "Criar minha senha" : "Entrar no painel";
+  const botao = criarSenha ? "Definir minha senha" : "Entrar no painel";
   const texto = [abertura, "", ...paragrafos, "", `${botao}: ${link}`, "", assinatura].join("\n");
   const html = `<div style="font-family:Arial,sans-serif;max-width:560px;margin:auto;color:#111;line-height:1.5">
   <p>${escapar(abertura)}</p>

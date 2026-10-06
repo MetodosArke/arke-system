@@ -2,6 +2,7 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import { ligarCartaoNaAssinatura } from "./fluxo.ts";
 import { ambienteAsaas } from "../_shared/asaas.ts";
 import { dentroDoFreio, MENSAGEM_FREIO, regrasAsaas } from "../_shared/freio.ts";
+import { MENSAGEM_PERFIL_SIMULADO, sessaoSimulada } from "../_shared/sessaoSimulada.ts";
 import { servir } from "../_shared/servir.ts";
 
 const corsHeaders = {
@@ -223,6 +224,16 @@ servir("asaas-cartao-assinatura", async (req: Request) => {
       if (!vinculo || !PAPEIS_EQUIPE.includes(vinculo.role)) {
         return jsonResponse({ error: "Só o próprio aluno, a gestão ou a recepção podem cadastrar o cartão." }, 403);
       }
+    } else {
+      // O próprio aluno: numa sessão simulada, quem digita o cartão é a
+      // ArkeFit, e a gravação é pela service role, que o banco não confere.
+      let simulada: boolean;
+      try {
+        simulada = await sessaoSimulada(admin, claims?.claims);
+      } catch {
+        return jsonResponse({ error: "Não foi possível conferir a sessão. Tente de novo." }, 500);
+      }
+      if (simulada) return jsonResponse({ error: MENSAGEM_PERFIL_SIMULADO }, 403);
     }
 
     // Cartão é onde se testa cartão roubado: muitas tentativas seguidas, cada

@@ -8,6 +8,7 @@ import { AdminSidebarDesktop } from "./AdminSidebar";
 import { AppHeader } from "./AppHeader";
 import { AdminSidebarProvider, useAdminSidebar } from "@/contexts/AdminSidebarContext";
 import { cn } from "@/lib/utils";
+import { PortaoDaRota } from "@/components/acesso/PortaoDaRota";
 
 function AdminLayoutInner() {
   const { collapsed } = useAdminSidebar();
@@ -57,7 +58,10 @@ function AdminLayoutInner() {
         <AppHeader />
         <main className="flex-1 p-3 sm:p-4 md:p-6 min-w-0 overflow-x-hidden">
           <Suspense fallback={<CarregandoPagina />}>
-            <Outlet />
+            {/* Cada página confere o papel, pela mesma tabela do menu. */}
+            <PortaoDaRota>
+              <Outlet />
+            </PortaoDaRota>
           </Suspense>
         </main>
       </div>

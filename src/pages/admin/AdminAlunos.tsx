@@ -512,7 +512,8 @@ export default function AdminAlunos() {
                   <TableHead>Nome</TableHead>
                   <TableHead>Plano</TableHead>
                   <TableHead>Situação</TableHead>
-                  <TableHead>Assinatura</TableHead>
+                  {/* A assinatura é cobrança: de quem cobra (o banco não a mostra a professor e nutricionista). */}
+                  {podeCadastrarAluno && <TableHead>Assinatura</TableHead>}
                   <TableHead>Fase</TableHead>
                   <TableHead>Desde</TableHead>
                   <TableHead>Descanso</TableHead>
@@ -567,6 +568,7 @@ export default function AdminAlunos() {
                         desabilitado={!!aluno.anonimizado_em}
                       />
                     </TableCell>
+                    {podeCadastrarAluno && (
                     <TableCell>
                       {aluno.assinatura_status ? (
                         <Badge variant={aluno.assinatura_status === "ativa" ? "default" : "outline"}>
@@ -588,6 +590,7 @@ export default function AdminAlunos() {
                         <span className="text-xs text-muted-foreground">—</span>
                       )}
                     </TableCell>
+                    )}
                     <TableCell>
                       {/* Fases da jornada são do Método; no Free não há fase. */}
                       {planoDoAluno(aluno) === "free" ? (

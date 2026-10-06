@@ -26,9 +26,11 @@ function arquivos(dir: string, achados: string[] = []): string[] {
 }
 
 // Desde 06/10/2026 (aluno menor), também a data de nascimento informada pelo
-// aluno, o pedido de aceite ao responsável e a retirada desse aceite.
+// aluno, o pedido de aceite ao responsável e a retirada desse aceite. E, da
+// rodada 3 da auditoria, a retirada do consentimento de saúde e o cartão que o
+// próprio aluno cadastra (a função grava pela service role).
 const GRAVA_AUTORIZACAO =
-  /rpc\("(consentir_biometria|revogar_consentimento_biometrico|assinar_contrato_matricula|enviar_foto_rosto|registrar_aceite|informar_data_nascimento|revogar_aceite_responsavel)"|from\("aluno_consentimento_ia"\)\s*\.\s*(insert|update)|consentimento_lgpd_aceito_em:|invoke\("responsavel-pedido"/;
+  /rpc\("(consentir_biometria|revogar_consentimento_biometrico|assinar_contrato_matricula|enviar_foto_rosto|registrar_aceite|informar_data_nascimento|revogar_aceite_responsavel|revogar_consentimento_saude)"|from\("aluno_consentimento_ia"\)\s*\.\s*(insert|update)|consentimento_lgpd_aceito_em:|invoke\("responsavel-pedido"|invoke(<[^>]*>)?\(\s*"asaas-cartao-assinatura"/;
 
 /** Telas que gravam autorização pela conta de quem está usando, e não do aluno. */
 const PELA_PROPRIA_CONTA: Record<string, string> = {

@@ -11,6 +11,7 @@ import { Dumbbell, Lock, Eye, EyeOff } from "lucide-react";
 import { motion } from "framer-motion";
 import { useToast } from "@/hooks/use-toast";
 import { verificarSenhaVazada, senhaDeveSerRecusada, mensagemSenhaVazada } from "@/lib/senhaVazada";
+import { AVISO_GESTAO_PENDENTE, depoisDeDefinirASenha } from "@/lib/senhaDefinida";
 
 type Status = "carregando" | "pronto" | "enviando" | "concluido" | "invalido";
 
@@ -119,6 +120,13 @@ export default function DefinirSenha() {
       setStatus("pronto");
       toast({ title: "Erro ao definir a senha", description: error.message, variant: "destructive" });
       return;
+    }
+
+    // Quem chegou pelo link provou o e-mail: as outras sessões da conta caem e
+    // a gestão que esperava essa prova é ativada (ver src/lib/senhaDefinida.ts).
+    const depois = await depoisDeDefinirASenha(supabase);
+    if (depois.tipo === "sessoes_nao_encerradas") {
+      toast({ title: "Gestão ainda pendente", description: AVISO_GESTAO_PENDENTE, variant: "destructive" });
     }
 
     // Garante que organização/papel/perfil (vinculados no convite) já

@@ -5,6 +5,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ConsentimentoSentinela } from "@/components/sentinela/SentinelaAnamnese";
+import { ConsentimentoSaude } from "@/components/privacidade/ConsentimentoSaude";
 import { ConsentimentoBiometria } from "@/components/catraca/ConsentimentoBiometria";
 import { AutorizacaoResponsavel } from "@/components/responsavel/AutorizacaoResponsavel";
 import { FotoRostoCatraca } from "@/components/catraca/FotoRostoCatraca";
@@ -137,6 +138,7 @@ export default function AlunoPerfil() {
           <CardContent className="space-y-3">
             {/* Menor de idade ou sem data de nascimento: o que falta antes de autorizar. */}
             <AutorizacaoResponsavel alunoId={alunoId} organizationId={organization.id} noMetodo={metodoArkeAtivo} />
+            <ConsentimentoSaude alunoId={alunoId} />
             <ConsentimentoSentinela alunoId={alunoId} organizationId={organization.id} noMetodo={metodoArkeAtivo} />
             <ConsentimentoBiometria alunoId={alunoId} organizationId={organization.id} />
             <FotoRostoCatraca alunoId={alunoId} />
@@ -181,6 +183,7 @@ export default function AlunoPerfil() {
           <CardContent>
             <CartaoAssinatura
               alunoId={alunoId!}
+              peloProprioAluno
               assinatura={pagamento.assinatura}
               titularPadrao={{
                 nome: profile?.full_name ?? "",

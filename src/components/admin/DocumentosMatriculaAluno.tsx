@@ -14,8 +14,20 @@ import { formatarDataBR } from "@/lib/dataBrasilia";
  * PAR-Q (quais perguntas tiveram "sim") e atestado — a equipe abre o arquivo e
  * registra até quando vale. A validade só a equipe grava (o banco recusa do
  * aluno), e o alerta de vencimento sai dela.
+ *
+ * A recepção vê a situação do PAR-Q e o atestado (ela recebe o atestado no
+ * balcão e registra a validade), mas não quais perguntas tiveram "sim": isso é
+ * de quem atende a saúde (decisão de 06/10/2026, migration 20261360010000).
  */
-export function DocumentosMatriculaAluno({ alunoId, organizationId }: { alunoId: string; organizationId: string }) {
+export function DocumentosMatriculaAluno({
+  alunoId,
+  organizationId,
+  mostrarRespostasParq = true,
+}: {
+  alunoId: string;
+  organizationId: string;
+  mostrarRespostasParq?: boolean;
+}) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [validade, setValidade] = useState("");
@@ -86,6 +98,8 @@ export function DocumentosMatriculaAluno({ alunoId, organizationId }: { alunoId:
           "não respondido"
         ) : sims.length === 0 ? (
           "sem nenhum sim"
+        ) : !mostrarRespostasParq ? (
+          "com resposta \"sim\": pede atestado"
         ) : (
           <>
             {sims.length} resposta(s) "sim"

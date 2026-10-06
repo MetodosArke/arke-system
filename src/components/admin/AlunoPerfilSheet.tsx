@@ -38,6 +38,7 @@ import { hojeBrasilia } from "@/lib/dataBrasilia";
 import { emitirCobrancaAvulsa } from "@/lib/cobrancaAvulsa";
 import { CobrancasAvulsas } from "@/components/pagamento/CobrancasAvulsas";
 import { EnderecoAluno } from "@/components/pagamento/EnderecoAluno";
+import { atendeSaude, cuidaDoDinheiro } from "@/lib/acessoPainel";
 
 const PERIODICIDADE_LABEL: Record<string, string> = {
   mensal: "Mensal",
@@ -68,6 +69,9 @@ const ASSINATURA_LABEL: Record<string, string> = {
   cancelada: "Cancelada",
   trial: "Trial",
 };
+
+/** Pendências cujo texto é da saúde do aluno: não aparecem para a recepção. */
+const TAREFAS_DE_SAUDE = new Set(["dor", "anamnese"]);
 
 const CHECKIN_LABEL: Record<string, string> = {
   funcionando_bem: "Funcionando bem",
@@ -104,6 +108,17 @@ export function AlunoPerfilSheet({
   const { organization, organizationRole, hasRole } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  // Quem vê a saúde e quem vê o dinheiro do aluno: a mesma regra do banco
+  // (`atende_saude` e `cuida_do_dinheiro`, migration 20261360010000). Para os
+  // outros papéis, o banco devolve vazio; a ficha não mostra o bloco.
+  const contextoPapel = {
+    tipoOrganizacao: organization?.tipo,
+    especialidade: organization?.especialidadeProfissional,
+    papel: organizationRole,
+    adminArke: hasRole("admin_arke"),
+  };
+  const veSaude = atendeSaude(contextoPapel);
+  const veDinheiro = cuidaDoDinheiro(contextoPapel);
   const [impressaoAberta, setImpressaoAberta] = useState(false);
   const [chatAberto, setChatAberto] = useState<"treino" | "nutri" | null>(null);
   const [matriculaAberta, setMatriculaAberta] = useState(false);
@@ -143,7 +158,7 @@ export function AlunoPerfilSheet({
           .maybeSingle(),
         supabase
           .from("anamnese_acolhimento")
-          .select("objetivo_principal, qualidade_sono, nivel_estresse, frequencia_semanal_desejada, dores_lesoes, concluida_em")
+          .select("objetivo_principal, qualidade_sono, nivel_estresse, frequencia_semanal_desejada, dores_lesoes, concluida_em, consentimento_lgpd_revogado_em")
           .eq("aluno_id", aluno.id)
           .maybeSingle(),
         supabase
@@ -320,6 +335,9 @@ export function AlunoPerfilSheet({
   const exerciciosTreinoAtivo =
     (perfil?.treinoAtivo?.snapshot_conteudo as unknown as ExercicioSnapshotImpressao[] | null) ?? [];
 
+  // O relato de dor e a anamnese pendente na fila são da saúde: a recepção vê as outras pendências.
+  const pendenciasVisiveis = (perfil?.tarefasAbertas ?? []).filter((t) => veSaude || !TAREFAS_DE_SAUDE.has(t.tipo));
+
   const irPrescrever = (destino: "treinos" | "dietas") => {
     if (!alunoId) return;
     onOpenChange(false);
@@ -452,7 +470,8 @@ export function AlunoPerfilSheet({
                 />
               </Bloco>
 
-              {perfil.avaliacao && (
+              {/* Saúde (avaliação, anamnese, dieta, resumo da IA): não é da recepção. */}
+              {veSaude && perfil.avaliacao && (
                 <Bloco titulo="Última Avaliação Física" icon={Ruler}>
                   <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 text-sm">
                     {perfil.avaliacao.peso_kg != null && <span>Peso: {perfil.avaliacao.peso_kg} kg</span>}
@@ -468,7 +487,16 @@ export function AlunoPerfilSheet({
                 </Bloco>
               )}
 
-              {perfil.anamnese && (
+              {veSaude && perfil.anamnese?.consentimento_lgpd_revogado_em && (
+                <Bloco titulo="Anamnese de Acolhimento" icon={Cake}>
+                  <p className="text-sm text-muted-foreground">
+                    O aluno retirou o consentimento de saúde em {formatarData(perfil.anamnese.consentimento_lgpd_revogado_em)}, e as
+                    respostas da anamnese foram apagadas. Ele autoriza de novo pelo app, preenchendo a anamnese outra vez.
+                  </p>
+                </Bloco>
+              )}
+
+              {veSaude && perfil.anamnese && !perfil.anamnese.consentimento_lgpd_revogado_em && (
                 <Bloco titulo="Anamnese de Acolhimento" icon={Cake}>
                   {perfil.anamnese.objetivo_principal && <p className="text-sm">{perfil.anamnese.objetivo_principal}</p>}
                   <p className="text-xs text-muted-foreground">
@@ -524,6 +552,7 @@ export function AlunoPerfilSheet({
                 )}
               </Bloco>
 
+              {veSaude && (
               <Bloco titulo="Dieta Ativa" icon={UtensilsCrossed}>
                 {doMetodo ? (
                   // A academia não lê a dieta do Método: é da nutricionista da ArkeFit.
@@ -548,6 +577,7 @@ export function AlunoPerfilSheet({
                   <p className="text-sm text-muted-foreground">nenhuma ativa</p>
                 )}
               </Bloco>
+              )}
 
               {/* Fases da jornada são do Método ARKE, e quem as conduz é o mentor. */}
               {doMetodo && (
@@ -556,7 +586,8 @@ export function AlunoPerfilSheet({
                 </Bloco>
               )}
 
-              {!ehAutonomo && (
+              {/* A assinatura do Método é cobrança: de quem cobra (gestão e recepção). */}
+              {!ehAutonomo && veDinheiro && (
               <Bloco titulo="Método ARKE" icon={FlaskConical}>
                 {/* Trial é atribuído só pelo Super Admin (Visão Master); aqui a academia só vê. */}
                 <TrialMetodoArke
@@ -584,14 +615,18 @@ export function AlunoPerfilSheet({
 
               {/* No Método o resumo é do mentor, como a anamnese de onde ele sai.
                   A recepção não atende saúde: a função recusa, e o bloco nem aparece. */}
-              {!doMetodo && organizationRole !== "recepcao" && (
+              {!doMetodo && veSaude && (
                 <Bloco titulo="Resumo da anamnese (Sentinela)" icon={Sparkles}>
                   <ResumoSentinela alunoId={perfil.aluno.id} />
                 </Bloco>
               )}
 
               <Bloco titulo="Documentos da Matrícula" icon={FileSignature}>
-                <DocumentosMatriculaAluno alunoId={perfil.aluno.id} organizationId={perfil.aluno.organization_id} />
+                <DocumentosMatriculaAluno
+                  alunoId={perfil.aluno.id}
+                  organizationId={perfil.aluno.organization_id}
+                  mostrarRespostasParq={veSaude}
+                />
               </Bloco>
 
               {/* Profissional autônomo não tem catraca. */}
@@ -608,6 +643,9 @@ export function AlunoPerfilSheet({
                 </Bloco>
               )}
 
+              {/* Plano, cobranças e endereço da nota: de quem cobra (gestão e recepção). */}
+              {veDinheiro && (
+              <>
               <Bloco titulo="Plano da Academia" icon={Wallet}>
                 {perfil.matricula && perfil.planoInfo ? (
                   <>
@@ -688,11 +726,13 @@ export function AlunoPerfilSheet({
               <Bloco titulo="Endereço (nota fiscal)" icon={MapPin}>
                 <EnderecoAluno alunoId={perfil.aluno.id} podeEditar={organizationRole === "gestor" || organizationRole === "recepcao"} />
               </Bloco>
+              </>
+              )}
 
-              {perfil.tarefasAbertas.length > 0 && (
+              {pendenciasVisiveis.length > 0 && (
                 <Bloco titulo="Pendências na Fila de Atendimento" icon={AlertTriangle}>
                   <ul className="space-y-1">
-                    {perfil.tarefasAbertas.map((t) => (
+                    {pendenciasVisiveis.map((t) => (
                       <li key={t.id} className="text-sm">
                         <Badge variant="outline" className="mr-1.5 text-[10px]">
                           {TAREFA_TIPO_LABEL[t.tipo] ?? t.tipo}
@@ -715,7 +755,8 @@ export function AlunoPerfilSheet({
                       <li key={i} className="text-sm">
                         <span className="font-medium">{CHECKIN_LABEL[c.status] ?? c.status}</span>
                         <span className="text-xs text-muted-foreground"> · {formatarData(c.created_at)}</span>
-                        {c.comentario && <p className="text-xs text-muted-foreground">{c.comentario}</p>}
+                        {/* O comentário do check-in costuma falar de dor e de dificuldade: é de quem atende a saúde. */}
+                        {veSaude && c.comentario && <p className="text-xs text-muted-foreground">{c.comentario}</p>}
                       </li>
                     ))}
                   </ul>

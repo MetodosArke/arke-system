@@ -5,11 +5,11 @@ Em [Equipe](/admin/equipe) o gestor cadastra quem trabalha na academia. Cada pes
 ## Os papéis
 
 - **Gestor**: tudo da academia, inclusive financeiro, relatórios, configurações e equipe. Cadastrar e importar alunos também é do gestor.
-- **Recepção**: situação dos alunos, cobranças, check-in, comunicados, funil, catraca e biometria. Não vê o financeiro nem as configurações.
-- **Personal (Professor)**: atendimento, alunos, prescrição de treino e avaliação física.
-- **Nutricionista**: atendimento, alunos, prescrição de dieta e avaliação física.
+- **Recepção**: situação dos alunos, cobranças, check-in, comunicados, funil, catraca e biometria, o PAR-Q e o atestado. Não vê o financeiro, as configurações nem a saúde do aluno (anamnese, dores, avaliação física, dieta).
+- **Personal (Professor)**: atendimento, alunos, prescrição de treino e avaliação física. Não vê mensalidades, cobranças nem a receita.
+- **Nutricionista**: atendimento, alunos, prescrição de dieta e avaliação física. Não vê mensalidades, cobranças nem a receita.
 
-Todos atendem a fila e as mensagens do seu assunto.
+Todos atendem a fila e as mensagens do seu assunto. Quem abre pelo endereço uma página que não é do seu papel vê **Esta página não faz parte do seu acesso**; o banco aplica a mesma regra.
 
 ## Cadastrar
 
