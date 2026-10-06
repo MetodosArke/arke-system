@@ -218,3 +218,13 @@ Em 06/10/2026, o responsável enviou o memorando de adequação regulatória do 
 O terceiro item do memorando (CREF e CRN) não virou texto. Ele descreve a ArkeFit como só tecnologia, com a prescrição toda da academia. No Método ARKE é o contrário: a prescrição é da equipe da ArkeFit, por profissionais com CREF e CRN, como dizem o Contrato (cláusulas 2, 6.1 e 8) e a Política (seção 4). O ponto voltou ao responsável com os fatos, para o advogado reavaliar.
 
 **Conferido em transação desfeita:** com uma ordem vigente, a rotina apagou o registro antigo de quem não tinha ordem e guardou o de quem tinha. A equipe não lê as ordens.
+
+## CREF e CRN: o modelo híbrido, e os Termos de 06/10/2026
+
+Com os fatos do Método em mãos, o advogado reviu o item 3 do memorando (registrado pelo responsável no workspace em 06/10/2026). A ArkeFit opera num modelo híbrido:
+- **Plano Free:** a ArkeFit só fornece o software. A prescrição e o acompanhamento são da academia e dos profissionais dela.
+- **Método ARKE (Integrado e Elite):** a ArkeFit presta o acompanhamento diretamente. A equipe de mentoria assume o aluno, e o sistema isola a anamnese e a dieta da visão da academia.
+- **Hoje,** a validade e a responsabilidade técnica das prescrições do Método vêm dos registros de pessoa física dos especialistas da equipe no CREF e no CRN. Por isso, "Exigir CREF e CRN para prescrever" fica ligado antes do primeiro aluno de verdade no Método.
+- **No médio prazo, depois da captação:** o CNPJ ganha as CNAEs secundárias de instrução esportiva e de nutrição, e a ArkeFit se registra como pessoa jurídica nos dois conselhos, com os especialistas como responsáveis técnicos.
+
+Os Termos de Uso diziam que a prescrição era "da equipe indicada" no Método, "não pela plataforma". A versão 2026-10-06 diz quem prescreve em cada plano e que a ArkeFit responde pelo que a sua equipe prescreve no Método, como já diziam o Contrato e a Política. A versão entra no banco pela migration `20261383`, depois de o texto estar no ar.

@@ -27,8 +27,13 @@ export const DOCUMENTOS: Record<
     caminho: "/termos",
     // Mudou em 23/09/2026: a clausula 3 passou a declarar a trava do PAR-Q,
     // por determinacao do parecer juridico (item 3.8).
-    versao: "2026-09-23",
-    sha256: "848e8dadb79ee19758769adb316e5d74598e18f537f475dddebcc98de05c219e",
+    // 2026-10-06: o parecer revisto do advogado sobre o item 3 do memorando
+    // (registrado pelo responsavel no workspace em 06/10/2026): modelo hibrido.
+    // No plano Free a prescricao e da academia; no Metodo ARKE, da equipe de
+    // mentoria da ArkeFit, por profissionais com CREF e CRN, e a ArkeFit
+    // responde por ela -- como ja diziam o Contrato e a Politica.
+    versao: "2026-10-06",
+    sha256: "7e1bba0f223a16a4c5e6315afa58edee86ed50d85f9c05790e076d0c83dc33bf",
     texto: termosUso,
     revisadoJuridico: true,
   },
