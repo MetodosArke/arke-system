@@ -162,6 +162,7 @@ export function PagamentosAcademia({ alunoId }: { alunoId: string }) {
           <div className="border-t pt-3">
             <CartaoAssinatura
               alunoId={alunoId}
+              peloProprioAluno
               tipo="plano"
               assinatura={matricula}
               titularPadrao={{ nome: profile?.full_name ?? "", email: user?.email ?? "" }}

@@ -12,12 +12,16 @@ import type { SupabaseClient } from "npm:@supabase/supabase-js@2";
 // também tem vínculo em outra academia, ou é da ArkeFit, fica com a ArkeFit
 // (com as duas etapas) ou com a própria pessoa.
 //
+// A gestão pendente (conta que já existia, esperando a pessoa provar o e-mail,
+// 20261362010000) conta como outra academia: o link de ativação gerado pela
+// equipe de uma academia abriria a sessão por link que ativa aquela gestão.
+//
 // Falha da consulta conta como "não": aqui o erro é deixar passar.
 
 export async function alvoSoNaAcademia(admin: SupabaseClient, alvoId: string, organizationId: string): Promise<boolean> {
   try {
     const [vinculos, matriculas, papeis] = await Promise.all([
-      admin.from("organization_members").select("organization_id").eq("user_id", alvoId).eq("status", "active"),
+      admin.from("organization_members").select("organization_id").eq("user_id", alvoId).in("status", ["active", "pending"]),
       admin.from("alunos").select("organization_id").eq("user_id", alvoId),
       admin.from("user_roles").select("role").eq("user_id", alvoId),
     ]);

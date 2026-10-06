@@ -15,6 +15,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { AlertTriangle, CreditCard, Lock } from "lucide-react";
+import { AvisoPerfilSimulado } from "@/components/AvisoPerfilSimulado";
+import { emPerfilSimulado } from "@/lib/impersonation";
 
 /**
  * Forma de pagamento de uma assinatura do aluno — a do Método ARKE ou a
@@ -58,6 +60,11 @@ interface Props {
   onSalvo?: () => void;
   onErro?: (mensagem: string) => void;
   onSucesso?: (mensagem: string) => void;
+  /**
+   * A tela é do próprio aluno (app). Em perfil simulado, quem digitaria o
+   * cartão é a ArkeFit: a função recusa, e a tela avisa antes.
+   */
+  peloProprioAluno?: boolean;
 }
 
 const CARTAO_VAZIO: DadosCartao = { titular: "", numero: "", mes: "", ano: "", cvv: "" };
@@ -67,7 +74,17 @@ function nomeBandeira(bandeira: string | null): string {
   return NOME_BANDEIRA[(bandeira ?? "outra") as Bandeira] ?? "Cartão";
 }
 
-export function CartaoAssinatura({ alunoId, tipo = "metodo", assinatura, titularPadrao, onSalvo, onErro, onSucesso }: Props) {
+export function CartaoAssinatura({
+  alunoId,
+  tipo = "metodo",
+  assinatura,
+  titularPadrao,
+  onSalvo,
+  onErro,
+  onSucesso,
+  peloProprioAluno = false,
+}: Props) {
+  const simulado = peloProprioAluno && emPerfilSimulado();
   const [aberto, setAberto] = useState(false);
   const [cartao, setCartao] = useState<DadosCartao>(CARTAO_VAZIO);
   const [titular, setTitular] = useState<DadosTitular>(TITULAR_VAZIO);
@@ -155,11 +172,12 @@ export function CartaoAssinatura({ alunoId, tipo = "metodo", assinatura, titular
       )}
 
       {cartaoRecorrenteLigado() && emitida && (
-        <Button size="sm" variant="outline" onClick={abrir}>
+        <Button size="sm" variant="outline" onClick={abrir} disabled={simulado}>
           <CreditCard className="mr-1.5 h-3.5 w-3.5" />
           {noCartao ? "Trocar cartão" : "Pagar automático no cartão"}
         </Button>
       )}
+      {cartaoRecorrenteLigado() && emitida && simulado && <AvisoPerfilSimulado />}
 
       <Dialog open={aberto} onOpenChange={(v) => (v ? setAberto(true) : fechar())}>
         <DialogContent className="max-w-md">

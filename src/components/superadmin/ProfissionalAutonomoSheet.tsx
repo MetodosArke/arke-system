@@ -252,7 +252,7 @@ function AcessoResponsavel({ p }: { p: ProfissionalAutonomo }) {
         description:
           data?.aviso ??
           (data?.conta_existente
-            ? "O e-mail já tinha conta no ArkeFit: a conta foi ligada ao painel e a pessoa recebeu o aviso."
+            ? "O e-mail já tinha conta no ArkeFit: o painel fica pendente até a pessoa definir a senha pelo link que foi para o e-mail dela."
             : "O convite para criar a senha foi enviado por e-mail."),
       });
       setFormAberto(null);
@@ -331,10 +331,20 @@ function AcessoResponsavel({ p }: { p: ProfissionalAutonomo }) {
           <Button size="sm" variant="outline" disabled={reenviar.isPending} onClick={() => reenviar.mutate()}>
             {reenviar.isPending ? "Enviando..." : "Reenviar acesso por e-mail"}
           </Button>
-          <Button size="sm" variant="outline" disabled={copiarLink.isPending} onClick={() => copiarLink.mutate()}>
-            Copiar link de ativação
-          </Button>
+          {/* O link copiado abre a conta para quem o tiver: só de quem nunca entrou. A conta que já
+              existia (pendente) recebe o link no e-mail dela, que é o que prova que o e-mail é seu. */}
+          {!p.ultimo_acesso && (
+            <Button size="sm" variant="outline" disabled={copiarLink.isPending} onClick={() => copiarLink.mutate()}>
+              Copiar link de ativação
+            </Button>
+          )}
         </div>
+      )}
+      {p.gestor_pendente && (
+        <p className="text-xs text-muted-foreground">
+          O e-mail já tinha conta no ArkeFit. O painel fica com a pessoa quando ela definir a senha pelo link que foi para o
+          e-mail dela.
+        </p>
       )}
 
       <div className="flex flex-wrap gap-2">

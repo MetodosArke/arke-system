@@ -18,6 +18,11 @@ describe("situação do acesso do responsável", () => {
   it("quem já entrou usa o painel", () => {
     expect(situacaoAcesso({ sem_gestor: false, ultimo_acesso: "2026-10-03T10:00:00Z" })).toBe("ativo");
   });
+  it("a conta que já existia fica pendente até entrar pelo link do e-mail, mesmo com último acesso", () => {
+    const pendente = { sem_gestor: false, ultimo_acesso: "2026-10-03T10:00:00Z", gestor_pendente: true };
+    expect(situacaoAcesso(pendente)).toBe("convite_pendente");
+    expect(podeTrocarResponsavel(pendente)).toBe(true);
+  });
   it("troca o responsável só enquanto ele nunca entrou", () => {
     expect(podeTrocarResponsavel({ sem_gestor: true, ultimo_acesso: null })).toBe(true);
     expect(podeTrocarResponsavel({ sem_gestor: false, ultimo_acesso: null })).toBe(true);
@@ -73,7 +78,8 @@ describe("e-mail de painel pronto para quem já tinha conta", () => {
   it("quem nunca criou a senha recebe o botão de criar", () => {
     const e = emailPainelPronto({ ...base, especialidade: "nutricionista", criarSenha: true });
     expect(e.assunto).toContain("Nutricionista");
-    expect(e.texto).toContain("Criar minha senha:");
+    expect(e.texto).toContain("Definir minha senha:");
+    expect(e.texto).toContain("confirma que este e-mail é seu");
   });
   it("o nome do painel não vira HTML", () => {
     const e = emailPainelPronto({ ...base, criarSenha: false });

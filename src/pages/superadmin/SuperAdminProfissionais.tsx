@@ -82,7 +82,7 @@ export default function SuperAdminProfissionais() {
         description:
           data?.aviso ??
           (data?.conta_existente
-            ? "O e-mail já tinha conta no ArkeFit: a conta foi ligada ao painel e a pessoa recebeu o aviso por e-mail."
+            ? "O e-mail já tinha conta no ArkeFit: o painel fica pendente até a pessoa definir a senha pelo link que foi para o e-mail dela."
             : "O convite para criar a senha foi enviado por e-mail."),
       });
       void queryClient.invalidateQueries({ queryKey: ["superadmin-profissionais-autonomos"] });

@@ -92,11 +92,13 @@ servir("gerar-link-ativacao", async (req: Request) => {
       console.error("Error loading caller roles", callerRolesError);
       return jsonResponse({ error: "Erro ao validar permissões." }, 500);
     }
-    // A ArkeFit gera para qualquer conta com vínculo: o papel antigo (Admin
-    // ARKE) e o Super Admin, que cuida dos profissionais autônomos na Visão
-    // Master. Os dois só valem com a verificação em duas etapas.
-    const callerIsAdminArke =
-      verificada(claimsData?.claims) && (callerRoles ?? []).some((r) => r.role === "admin_arke" || r.role === "superadmin");
+    // A ArkeFit gera o link de quem ela mesma cadastrou e ainda não entrou: o
+    // responsável do painel do profissional autônomo, na Visão Master. Só o
+    // Super Admin, com a verificação em duas etapas. O link abre uma sessão
+    // de verdade como a pessoa, fora do perfil simulado: por isso as travas
+    // de baixo valem também para a ArkeFit, e todo link gerado fica na
+    // auditoria.
+    const callerArkefit = verificada(claimsData?.claims) && (callerRoles ?? []).some((r) => r.role === "superadmin");
 
     // Listas, não .maybeSingle(): tanto o alvo quanto o chamador podem ter
     // vínculo ativo em mais de uma academia, e nesse caso a consulta
@@ -116,7 +118,7 @@ servir("gerar-link-ativacao", async (req: Request) => {
       return jsonResponse({ error: "Aluno não encontrado nesta organização." }, 404);
     }
 
-    let autorizado = callerIsAdminArke;
+    let autorizado = callerArkefit;
     let orgDoChamador: string | null = null;
     if (!autorizado) {
       const { data: vinculosChamador, error: callerMembershipError } = await adminClient
@@ -161,18 +163,18 @@ servir("gerar-link-ativacao", async (req: Request) => {
       return jsonResponse({ error: "Usuário de destino não encontrado." }, 404);
     }
 
-    // O link é de ATIVAÇÃO: para a equipe da academia, só de quem nunca
-    // entrou e está só nesta academia. Para quem já usa o app, o link de
-    // redefinição daria à equipe a conta da pessoa — e, com ela, entrar como o
-    // aluno, inclusive para autorizar o que só ele autoriza, ou numa outra
-    // academia em que ela esteja. Quem já entrou usa "Esqueci a senha".
-    if (!callerIsAdminArke) {
-      if (targetUser.user.last_sign_in_at) {
-        return jsonResponse({ error: "Esta pessoa já entra no app. Para trocar a senha, ela usa \"Esqueci a senha\" na tela de entrar." }, 409);
-      }
-      if (!orgDoChamador || !(await alvoSoNaAcademia(adminClient, targetUserId, orgDoChamador))) {
-        return jsonResponse({ error: MENSAGEM_OUTRA_ACADEMIA }, 403);
-      }
+    // O link é de ATIVAÇÃO: só de quem nunca entrou e está numa academia só
+    // (a do chamador, para a equipe; uma qualquer, para a ArkeFit, que não tem
+    // academia). Para quem já usa o app, o link de redefinição daria a quem o
+    // gera a conta da pessoa — e, com ela, entrar como o aluno, inclusive para
+    // autorizar o que só ele autoriza, ou numa outra academia em que ela
+    // esteja. Quem já entrou usa "Esqueci a senha".
+    if (targetUser.user.last_sign_in_at) {
+      return jsonResponse({ error: "Esta pessoa já entra no app. Para trocar a senha, ela usa \"Esqueci a senha\" na tela de entrar." }, 409);
+    }
+    const orgDoAlvo = callerArkefit ? (vinculosAlvo[0]?.organization_id as string | undefined) ?? null : orgDoChamador;
+    if (!orgDoAlvo || !(await alvoSoNaAcademia(adminClient, targetUserId, orgDoAlvo))) {
+      return jsonResponse({ error: MENSAGEM_OUTRA_ACADEMIA }, 403);
     }
 
     const { data: linkData, error: linkError } = await adminClient.auth.admin.generateLink({
@@ -209,6 +211,26 @@ servir("gerar-link-ativacao", async (req: Request) => {
         console.error("Could not generate a unique short code after 5 attempts");
         return jsonResponse({ error: "Erro ao gerar o link de ativação." }, 500);
       }
+    }
+
+    // O link abre a conta da pessoa para quem o tiver: fica registrado quem
+    // gerou, para quem e em qual academia. Sem o registro, o link não sai.
+    const { data: organizacao } = await adminClient.from("organizations").select("nome").eq("id", orgDoAlvo).maybeSingle();
+    const { error: auditoriaError } = await adminClient.rpc("registrar_auditoria", {
+      _ator_user_id: callerId,
+      _acao: "link_ativacao.gerado",
+      _entidade: "auth.users",
+      _entidade_id: targetUserId,
+      _organizacao_nome: organizacao?.nome ?? null,
+      _detalhes: {
+        pela_arkefit: callerArkefit,
+        papel_alvo: vinculosAlvo.find((v) => v.organization_id === orgDoAlvo)?.role ?? null,
+      },
+    });
+    if (auditoriaError) {
+      console.error("Error registering audit", auditoriaError.code);
+      await adminClient.from("links_ativacao").delete().eq("code", code);
+      return jsonResponse({ error: "Erro ao gerar o link de ativação." }, 500);
     }
 
     return jsonResponse({ action_link: `${siteUrl}/cadastro/${code}` });

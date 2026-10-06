@@ -58,11 +58,14 @@ class Recusa extends Error {
 // - criar: o painel novo e o responsável;
 // - responsavel: põe o responsável num painel que não tem, ou troca o que
 //   nunca entrou (e-mail errado no convite);
-// - reenviar: manda de novo o link de criar a senha a quem nunca entrou.
+// - reenviar: manda de novo o link de criar a senha a quem nunca entrou, ou a
+//   quem está pendente.
 //
 // Quem já tem conta no ArkeFit (aluno de uma academia, por exemplo) é ligado
-// ao painel e recebe um aviso: o Auth não convida quem existe, e até
-// 03/10/2026 isso derrubava o convite e deixava a organização vazia para trás.
+// ao painel como responsável PENDENTE e recebe o link de definir a senha: o
+// Auth não convida quem existe (até 03/10/2026 isso derrubava o convite e
+// deixava a organização vazia para trás), e desde 06/10/2026 o painel só fica
+// com a conta depois que o dono do e-mail entra por esse link.
 servir("convidar-profissional-autonomo", async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -209,23 +212,29 @@ servir("convidar-profissional-autonomo", async (req: Request) => {
     }
     const especialidade = (org.especialidade_profissional ?? "professor") as Especialidade;
 
+    // O responsável ativo vem antes do pendente (a conta que já existia,
+    // esperando a pessoa definir a senha pelo link do e-mail).
     const { data: gestores, error: gestoresError } = await admin
       .from("organization_members")
-      .select("user_id, created_at")
+      .select("user_id, status, created_at")
       .eq("organization_id", org.id)
       .eq("role", "gestor")
-      .eq("status", "active")
+      .in("status", ["active", "pending"])
       .order("created_at", { ascending: true });
     if (gestoresError) {
       console.error("Error loading gestores", gestoresError.code);
       return jsonResponse({ error: "Erro ao ler o responsável do painel." }, 500);
     }
-    const atual = gestores?.[0]?.user_id ?? null;
+    const responsavel = gestores?.find((g) => g.status === "active") ?? gestores?.[0] ?? null;
+    const atual = responsavel?.user_id ?? null;
+    const atualPendente = responsavel?.status === "pending";
     const atualUsuario = atual ? (await admin.auth.admin.getUserById(atual)).data.user : null;
 
     if (acao === "reenviar") {
       if (!atual || !atualUsuario?.email) return jsonResponse({ error: "O painel não tem responsável." }, 409);
-      if (atualUsuario.last_sign_in_at) {
+      // O pendente pode já entrar no app por outro vínculo: o link de definir
+      // a senha é o que liga o painel a ele, e vai para o e-mail dele.
+      if (atualUsuario.last_sign_in_at && !atualPendente) {
         return jsonResponse(
           { error: "O responsável já entra no painel. Se esqueceu a senha, é pelo “Esqueci minha senha” da tela de entrar." },
           409
@@ -248,7 +257,7 @@ servir("convidar-profissional-autonomo", async (req: Request) => {
     // responsavel: o painel sem responsável recebe um; o que tem um que nunca
     // entrou (e-mail errado no convite) troca. Quem já entra no painel não é
     // trocado por aqui: aí o caminho é corrigir o e-mail de login dele.
-    if (atual && atualUsuario?.last_sign_in_at) {
+    if (atual && atualUsuario?.last_sign_in_at && !atualPendente) {
       return jsonResponse(
         { error: "O responsável atual já entra no painel. Para corrigir o e-mail de login dele, use “Alterar e-mail de login”." },
         409
@@ -305,7 +314,7 @@ async function recusarSeJaResponsavel(admin: SupabaseClient, userId: string, exc
     .select("organization_id")
     .eq("user_id", userId)
     .eq("role", "gestor")
-    .eq("status", "active");
+    .in("status", ["active", "pending"]);
   if (error) throw new Recusa(500, "Erro ao conferir os painéis da pessoa.");
   const ids = (vinculos ?? []).map((v) => v.organization_id as string).filter((id) => id !== exceto);
   if (!ids.length) return;
@@ -358,9 +367,14 @@ async function ligarResponsavel(
         .eq("user_id", userId);
       if (error) console.error("Error completing profile", error.code);
     }
+    // Conta que já existia entra PENDENTE (20261362010000): nada nela prova
+    // que o dono do e-mail é quem a criou (a matrícula pública cria a conta
+    // com o e-mail já confirmado e a senha de quem se matriculou). O painel
+    // só fica com ela quando a pessoa entra pelo link de definir a senha, que
+    // vai para o e-mail dela; nessa hora as outras sessões da conta caem.
     const { error: membroError } = await admin
       .from("organization_members")
-      .upsert({ organization_id: o.organizationId, user_id: userId, role: "gestor", status: "active" }, { onConflict: "organization_id,user_id" });
+      .upsert({ organization_id: o.organizationId, user_id: userId, role: "gestor", status: "pending" }, { onConflict: "organization_id,user_id" });
     if (membroError) {
       console.error("Error linking existing account", membroError.code);
       throw new Recusa(500, "Erro ao ligar a conta ao painel.");
@@ -371,12 +385,14 @@ async function ligarResponsavel(
       painel: o.painel,
       especialidade: o.especialidade,
       siteUrl: o.siteUrl,
-      criarSenha: !o.conta.ultimo_acesso,
+      criarSenha: true,
     });
     return {
       user_id: userId,
       aviso_enviado: enviado.ok,
-      aviso: enviado.ok ? null : "O painel está pronto, mas o e-mail de aviso não saiu. Mande o link de ativação pela ficha do profissional.",
+      aviso: enviado.ok
+        ? null
+        : "O painel está pronto, mas o e-mail com o link de definir a senha não saiu, e o painel só fica com a pessoa depois dele. Use “Reenviar acesso” na ficha do profissional.",
     };
   }
 

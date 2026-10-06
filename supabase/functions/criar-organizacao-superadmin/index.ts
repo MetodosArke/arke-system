@@ -52,9 +52,10 @@ const mensagemIndicaEmailJaCadastrado = (mensagem: string | undefined | null) =>
 // o convite padrão de primeiro acesso, com senha temporária nunca
 // exposta) ou um e-mail que já tem conta no Supabase Auth (ex.: já é
 // gestor de outra organização) — nesse caso a conta existente é vinculada
-// à organização nova como gestor, sem tentar convidar de novo (o que
-// sempre falharia com "already registered"), e recebe um e-mail avisando
-// do novo vínculo em vez do e-mail de convite. Se o envio do e-mail (em
+// à organização nova como gestor PENDENTE, sem tentar convidar de novo (o
+// que sempre falharia com "already registered"), e recebe o link de definir
+// a senha; a gestão só vale depois que a pessoa entra por ele (desde
+// 06/10/2026, ver o comentário do vínculo). Se o envio do e-mail (em
 // qualquer um dos dois casos) falhar por qualquer motivo, a organização e
 // o vínculo do gestor são criados normalmente — só a UI é avisada de que
 // o e-mail não saiu, para o SuperAdmin repassar o acesso manualmente
@@ -239,30 +240,40 @@ servir("criar-organizacao-superadmin", async (req: Request) => {
       }
     }
 
+    // Conta que já existia entra na gestão PENDENTE (20261362010000). Nada
+    // nela prova que o dono do e-mail é quem a criou: a matrícula pública cria
+    // a conta com o e-mail já confirmado, e a senha é de quem se matriculou.
+    // A gestão só vale quando a pessoa entra pelo link do e-mail e define a
+    // senha ali (`ativar_gestao_pendente`); nessa hora as outras sessões da
+    // conta são encerradas.
     const { error: membershipError } = await adminClient
       .from("organization_members")
-      .insert({ organization_id: organizationId, user_id: gestorUserId, role: "gestor", status: "active" });
+      .insert({
+        organization_id: organizationId,
+        user_id: gestorUserId,
+        role: "gestor",
+        status: gestorJaExistia ? "pending" : "active",
+      });
     if (membershipError) {
-      console.error("Error inserting organization_members", membershipError);
+      console.error("Error inserting organization_members", membershipError.code);
       await rollback();
       return jsonResponse({ error: "Erro ao vincular o gestor à organização." }, 500);
     }
 
-    // Requisito 1 (fim): avisa por e-mail o gestor já existente sobre o
-    // novo vínculo — via magic link (única forma nativa do Supabase Auth
-    // de mandar e-mail para uma conta já confirmada). Em try/catch isolado:
-    // se falhar, o vínculo já foi criado, só marca o aviso (Requisito 3).
+    // O link de definir a senha vai para o e-mail da conta: só o dono do
+    // e-mail ativa a gestão. Em try/catch isolado: se o envio falhar, a
+    // organização e o vínculo pendente ficam, e a UI avisa.
     if (gestorJaExistia) {
       try {
         const publicClient = createClient(supabaseUrl, anonKey);
-        const { error: notifyError } = await publicClient.auth.signInWithOtp({
-          email: gestorEmail,
-          options: { shouldCreateUser: false, emailRedirectTo: siteUrl },
+        const { error: notifyError } = await publicClient.auth.resetPasswordForEmail(gestorEmail, {
+          redirectTo: `${siteUrl}/#/auth/definir-senha`,
         });
         if (notifyError) throw notifyError;
       } catch (notifyErr) {
-        console.error("Error notifying existing gestor about new organization", notifyErr);
-        aviso = "Não foi possível enviar o e-mail avisando o gestor sobre a nova organização.";
+        console.error("Error sending password link to existing gestor", notifyErr instanceof Error ? notifyErr.name : "erro");
+        aviso =
+          "A gestão fica pendente até a pessoa definir a senha pelo link do e-mail, e o e-mail não saiu. Peça a ela para usar “Esqueci minha senha” na tela de entrar.";
       }
     }
 
@@ -270,6 +281,7 @@ servir("criar-organizacao-superadmin", async (req: Request) => {
       organization_id: organizationId,
       gestor_user_id: gestorUserId,
       gestor_ja_existia: gestorJaExistia,
+      gestor_pendente: gestorJaExistia,
       aviso,
     });
   } catch (error) {
