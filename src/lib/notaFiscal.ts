@@ -66,7 +66,8 @@ export type ConfigFiscal = {
 };
 
 export type SituacaoFiscal =
-  | { conectada: false; possuiCarteira: boolean }
+  /** `reconectar`: havia chave, mas ela não é (ou não é mais) da conta que recebe os pagamentos. */
+  | { conectada: false; possuiCarteira: boolean; reconectar?: string }
   | {
       conectada: true;
       cidade: string | null;
@@ -75,6 +76,9 @@ export type SituacaoFiscal =
       cadastro: CadastroFiscal | null;
       config: ConfigFiscal | null;
       pronta: boolean;
+      /** Ao salvar com a emissão ligada, a conferência no Asaas a desligou: a configuração foi salva, e isto diz por quê. */
+      emissao_desligada?: boolean;
+      aviso?: string;
     };
 
 export type ServicoMunicipal = { id: string; descricao: string; iss: number | null };

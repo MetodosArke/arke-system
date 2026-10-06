@@ -10,9 +10,11 @@ import {
   cidadeDaConta,
   enviarCadastroFiscal,
   FalhaIndefinida,
+  impedimentoDaCarteira,
   opcoesMunicipais,
 } from "../nfse-emitir/fluxo.ts";
 import { servir } from "../_shared/servir.ts";
+import { decidirEmissao } from "./fluxo.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -156,6 +158,22 @@ servir("asaas-fiscal-academia", async (req: Request) => {
     }
     const k = chave as string;
 
+    // A chave guardada tem de ser da conta que recebe o split hoje. Se a
+    // carteira mudou depois (Recebimentos), a chave é da conta antiga: o
+    // cadastro fiscal iria para a empresa errada. A tela volta a pedir a
+    // chave, agora da conta nova; a emissão espera (nfse-emitir confere o
+    // mesmo antes de cada nota).
+    const carteira = await carteiraDaChave(ambiente.api, k);
+    const impedimento = impedimentoDaCarteira(carteira, (org.asaas_wallet_id as string | null) ?? null);
+    if (impedimento) {
+      const reconectar = carteira === null
+        ? "O Asaas não aceitou a chave guardada agora. Tente de novo em instantes; se continuar, conecte a chave de novo."
+        : `${impedimento[0].toUpperCase()}${impedimento.slice(1)}.`;
+      return acao === "situacao"
+        ? jsonResponse({ conectada: false, possuiCarteira: !!org.asaas_wallet_id, reconectar })
+        : jsonResponse({ error: reconectar }, 409);
+    }
+
     if (acao === "situacao") return jsonResponse(await situacao(admin, orgId, ambiente.api, k));
 
     if (acao === "servicos") {
@@ -184,6 +202,16 @@ servir("asaas-fiscal-academia", async (req: Request) => {
         return jsonResponse({ error: "Alíquota de ISS entre 0 e 10%." }, 400);
       }
       const ativar = corpo.emissao_ativa === true;
+      const { data: atual, error: erroAtual } = await admin
+        .from("organizacao_fiscal")
+        .select("emissao_ativa")
+        .eq("organization_id", orgId)
+        .maybeSingle();
+      if (erroAtual) return jsonResponse({ error: "Não foi possível ler a configuração agora. Tente de novo." }, 500);
+      const estavaAtiva = !!atual?.emissao_ativa;
+      // O interruptor não entra aqui: ele só muda depois da conferência
+      // (`decidirEmissao`). Gravar desligado antes de conferir perdia as notas
+      // dos pagamentos confirmados no meio do caminho.
       const linha = {
         organization_id: orgId,
         servico_municipal_id: corpo.servico_municipal_id ? String(corpo.servico_municipal_id) : null,
@@ -191,18 +219,32 @@ servir("asaas-fiscal-academia", async (req: Request) => {
         servico_municipal_nome: corpo.servico_municipal_nome ? String(corpo.servico_municipal_nome).slice(0, 300) : null,
         aliquota_iss: iss,
         observacoes: corpo.observacoes ? String(corpo.observacoes).slice(0, 400) : null,
-        emissao_ativa: false,
         atualizado_por: callerId,
       };
-      await admin.from("organizacao_fiscal").upsert(linha, { onConflict: "organization_id" });
-      const s = await situacao(admin, orgId, ambiente.api, k);
-      if (ativar) {
-        // Ligar exige o cadastro pronto de verdade, conferido no Asaas agora —
-        // não o retrato guardado.
-        if (!s.pronta) {
-          return jsonResponse({ ...s, error: "Complete o cadastro na prefeitura e o serviço antes de ligar a emissão." }, 422);
+      const { error: erroLinha } = await admin.from("organizacao_fiscal").upsert(linha, { onConflict: "organization_id" });
+      if (erroLinha) return jsonResponse({ error: "Não foi possível salvar a configuração. Tente de novo." }, 500);
+      // Ligar exige o cadastro pronto de verdade, conferido no Asaas agora —
+      // não o retrato guardado. Se o Asaas não responder, a conferência lança
+      // (502) e o interruptor fica como estava.
+      const s = ativar ? await situacao(admin, orgId, ambiente.api, k) : null;
+      const decisao = decidirEmissao({ pedido: ativar, estavaAtiva, pronta: !!s?.pronta });
+      if (decisao.acao === "desligar") {
+        if (estavaAtiva) {
+          const { error } = await admin.from("organizacao_fiscal").update({ emissao_ativa: false }).eq("organization_id", orgId);
+          if (error) return jsonResponse({ error: "Não foi possível desligar a emissão. Tente de novo." }, 500);
         }
-        await admin.from("organizacao_fiscal").update({ emissao_ativa: true }).eq("organization_id", orgId);
+        const depois = await situacao(admin, orgId, ambiente.api, k);
+        if (!decisao.erro) return jsonResponse(depois);
+        // Estava ligada e a conferência derrubou: a configuração foi salva, e
+        // a tela precisa dizer que a emissão parou. Estava desligada e não
+        // deu para ligar: é recusa, como antes.
+        return decisao.desligadaAgora
+          ? jsonResponse({ ...depois, emissao_desligada: true, aviso: decisao.erro })
+          : jsonResponse({ ...depois, error: decisao.erro }, 422);
+      }
+      if (decisao.acao === "ligar") {
+        const { error } = await admin.from("organizacao_fiscal").update({ emissao_ativa: true }).eq("organization_id", orgId);
+        if (error) return jsonResponse({ error: "Não foi possível ligar a emissão. Tente de novo." }, 500);
         // As notas que esperavam a configuração saem na próxima rodada.
         await admin
           .from("notas_fiscais")

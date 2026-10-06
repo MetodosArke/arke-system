@@ -158,3 +158,47 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 export function walletIdValido(valor: string): boolean {
   return UUID_RE.test(valor.trim());
 }
+
+// ## Troca da carteira
+//
+// A carteira é para onde o split manda a parte da academia em toda cobrança
+// futura. Uma sessão de gestor roubada que a troca desvia o dinheiro sem
+// barulho. Por isso a troca (não a primeira vinculação, do onboarding) pede
+// as duas etapas, fica na auditoria e avisa a ArkeFit por e-mail.
+
+/** É troca: já havia uma carteira, e a nova é outra. */
+export function ehTrocaDeCarteira(anterior: string | null | undefined, nova: string): boolean {
+  return !!anterior && anterior.trim().toLowerCase() !== nova.trim().toLowerCase();
+}
+
+/** Só o fim da carteira vai no e-mail; o id inteiro fica na auditoria, que só a ArkeFit lê. */
+export function finalDaCarteira(carteira: string | null | undefined): string {
+  const c = (carteira ?? "").trim();
+  return c ? `…${c.slice(-6)}` : "nenhuma";
+}
+
+/** O e-mail para a ArkeFit quando a carteira de uma academia muda. */
+export function avisoDeTrocaDeCarteira(a: {
+  academia: string;
+  papel: "gestor" | "arkefit";
+  anterior: string | null;
+  nova: string;
+  quando: string;
+  painel: string;
+}): { assunto: string; texto: string; html: string } {
+  const quem = a.papel === "gestor" ? "pela gestão da academia, com as duas etapas" : "pela equipe ArkeFit";
+  const linhas = [
+    `A carteira de recebimento de ${a.academia} foi trocada ${quem}, em ${a.quando}.`,
+    `Antes: ${finalDaCarteira(a.anterior)}. Agora: ${finalDaCarteira(a.nova)}.`,
+    "As cobranças criadas daqui em diante mandam a parte da academia para a carteira nova.",
+    "Se a academia emite nota fiscal pelo ARKE, as notas novas esperam até ela conectar a chave da conta nova em Financeiro → Notas fiscais.",
+    "Se ninguém da academia pediu esta troca, confira com o gestor antes da próxima cobrança. O registro completo está na auditoria da Visão Master.",
+    a.painel,
+  ];
+  const texto = linhas.join("\n\n");
+  const escapar = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const html = `<div style="font-family:system-ui,sans-serif;line-height:1.5;color:#111">${linhas
+    .map((l) => `<p style="margin:0 0 12px">${escapar(l)}</p>`)
+    .join("")}</div>`;
+  return { assunto: `ARKE: carteira de recebimento trocada — ${a.academia}`, texto, html };
+}
