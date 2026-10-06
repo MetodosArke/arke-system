@@ -67,6 +67,10 @@ const FICAM: Record<string, string> = {
   presencas: "com o aluno anonimizado, vira só contagem",
   tarefas: "registro do atendimento da equipe",
   gateway_comandos: "a ordem de tirar a digital do equipamento precisa rodar depois",
+  responsavel_aceites:
+    "prova do aceite do responsável legal do aluno menor (nome, e-mail, versão e hash do texto), guardada como o termo da digital",
+  responsavel_pedidos:
+    "registro do pedido ao responsável e da resposta dele, que prova o caminho do consentimento; com o aluno anonimizado, o link para de valer",
 };
 
 describe("saída do aluno", () => {
