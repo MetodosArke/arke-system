@@ -305,3 +305,32 @@ Os artigos da Central mudaram junto: `app-primeiro-acesso` (Sair e as duas telas
 - **A falha de rede, com a leitura dos vínculos bloqueada,** chegou à tela "Não conseguimos carregar o seu acesso", mas levou 34 segundos. Nesse tempo, o formulário de entrar ficava parado, sem dizer nada.
 - **A causa:** o supabase-js já repete por baixo toda consulta ao PostgREST que falha por rede, até 3 vezes, com 1, 2 e 4 segundos de espera. As 4 tentativas do app por cima multiplicavam isso: foram 16 consultas bloqueadas, e não 4.
 - **A correção:** `comNovasTentativas` passou a tentar 2 vezes, e o "Entrar" mostra "Entrando..." até o acesso carregar ou falhar. Um teste novo trava o padrão de duas tentativas.
+
+## Marco Civil, o IP do limite de tentativas e as cláusulas da ANPD (06/10/2026)
+
+Rodada 3 da auditoria: os três pontos que a auditoria deixou "a conferir fora do código".
+
+**Registros de acesso por 6 meses** (migration `20261380010000`).
+- **A obrigação:** a ArkeFit é provedor de aplicação de internet com fins econômicos. O art. 15 do Marco Civil manda guardar os registros de acesso (data e hora de uso a partir de um IP) por 6 meses, sob sigilo.
+- **Defeito:** nada cumpria isso. `auth.audit_log_entries` estava vazia, porque o Supabase guarda a auditoria do login só nos logs da plataforma, por poucos dias. `auth.sessions` tem o IP, mas a sessão some quando a pessoa sai.
+- **O que entrou:** um gatilho em `auth.sessions` anota, em `registros_acesso_aplicacao`, uma linha por pessoa, IP e dia, com a primeira e a última hora vistas, na entrada e a cada renovação do token.
+- **Leitura e prazo:** ninguém lê pela API (RLS sem regra, sem permissão para anon e authenticated). A rotina `arke-registros-de-acesso` apaga o que passou de 6 meses. O gatilho engole o próprio erro: o login nunca falha por causa do registro.
+- **Ordem judicial:** a leitura é da ArkeFit, por SQL, só diante de ordem judicial, e a consulta entra na auditoria (`registrar_auditoria`).
+- **Capacidade:** com 100 academias (30 mil alunos), a conta fica na casa de dezenas de milhões de linhas em 6 meses, cerca de 1 GB. Cabe no plano Pro e entra no painel de capacidade.
+
+**O limite por IP não se burla trocando o cabeçalho.** A suspeita era que as funções públicas usavam o primeiro item do `x-forwarded-for`, que o cliente poderia forjar. Teste em produção, com uma função descartável que só devolvia os cabeçalhos e foi apagada em seguida:
+- o `X-Forwarded-For` mandado pelo cliente foi substituído, e o primeiro item da lista sempre é o IP real;
+- o `CF-Connecting-IP` forjado é recusado pela borda.
+
+Suspeita descartada; o código fica como está.
+
+**Cláusulas-padrão da ANPD.** Desde 23/08/2025, a transferência internacional baseada em contrato só vale com as cláusulas-padrão da ANPD (Resolução CD/ANPD 19/2024), sem alteração, ou com cláusulas específicas aprovadas por ela. A Política se apoia nas "garantias contratuais de cada provedor". A pesquisa pública não mostrou se Vercel, Sentry, Resend e AWS assinam as cláusulas brasileiras. A pergunta foi a eles, e a base legal vai ao advogado, como pendência do responsável no workspace.
+
+**Conferido:**
+- **Em transação desfeita:**
+  - uma renovação de sessão criou o registro;
+  - a segunda, no mesmo dia e IP, só atualizou a hora;
+  - a rotina apagou uma linha de 200 dias;
+  - a equipe não lê.
+- **Em produção:** o gatilho no ar.
+- **O cabeçalho:** os dois testes de forja descritos acima.
