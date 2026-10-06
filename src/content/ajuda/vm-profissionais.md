@@ -9,7 +9,7 @@ O personal trainer e a nutricionista que usam o ArkeFit como negócio próprio t
 O que acontece depende do e-mail:
 
 - **E-mail sem conta no ArkeFit:** a pessoa recebe o convite para criar a senha.
-- **E-mail que já tem conta** (aluno de uma academia, por exemplo): a conta é ligada ao painel, e a pessoa recebe o aviso "Seu painel está pronto". Se ela já entra no ArkeFit, usa a mesma senha e escolhe o painel no alto da tela. Se a conta existe mas a senha nunca foi criada, o aviso traz o botão para criar.
+- **E-mail que já tem conta** (aluno de uma academia, por exemplo): a conta entra no painel como responsável **pendente**, e a pessoa recebe o aviso "Seu painel está pronto" com o botão **Definir minha senha**. O painel só fica com ela depois que ela define a senha por esse link: é o que prova que o e-mail é dela, porque uma conta pode ter sido criada por outra pessoa com aquele e-mail. Ao definir, as outras sessões abertas da conta são encerradas. Até lá, a ficha mostra **Convite pendente**.
 
 Cada pessoa é responsável por **um painel só**. Um segundo painel para o mesmo e-mail é recusado, e a tela diz qual é o primeiro.
 
@@ -20,7 +20,7 @@ Clique numa linha da lista para abrir a ficha.
 - **Painel e responsável:** o nome do painel, a especialidade, o nome e o telefone do responsável. O nome e o telefone são da pessoa e valem onde ela estiver. A especialidade não muda enquanto houver parceria ativa, porque o parceiro foi convidado para a outra parte; encerre a parceria antes.
 - **Acesso do responsável:**
   - **Sem responsável:** ninguém entra no painel. Preencha nome e e-mail em **Definir responsável**.
-  - **Convite pendente:** a pessoa ainda não entrou. Use **Reenviar acesso por e-mail** ou **Copiar link de ativação** (o link vale por 48 horas). Se o convite foi para o e-mail errado, **Trocar o responsável** põe a pessoa certa no lugar.
+  - **Convite pendente:** a pessoa ainda não entrou, ou a conta já existia e ela ainda não definiu a senha pelo link do e-mail. Use **Reenviar acesso por e-mail**. **Copiar link de ativação** (vale por 48 horas) aparece só para quem nunca entrou: o link abre a conta para quem o tiver, e cada link gerado fica na Auditoria. Se o convite foi para o e-mail errado, **Trocar o responsável** põe a pessoa certa no lugar.
   - **Entra no painel:** a pessoa já usa o painel e não é trocada por aqui. Se o e-mail de login mudou, use **Alterar e-mail de login**; a senha continua a mesma.
 - **Alunos e parceria:** quantos alunos o painel tem e quem é o parceiro, quando há. A parceria é feita pelo próprio profissional, na tela Organização dele.
 - **Implantação:** a etapa em que o painel está. O acompanhamento completo fica em [Implantação](/superadmin/implantacao).

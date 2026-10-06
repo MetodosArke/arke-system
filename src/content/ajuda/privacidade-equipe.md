@@ -2,7 +2,8 @@ O ARKE guarda dados que a lei protege de forma especial: saúde (anamnese, avali
 
 ## O que o sistema já faz
 
-- Cada pessoa vê só o que o papel dela exige: a recepção não vê a anamnese; o professor não vê o financeiro.
+- Cada pessoa vê só o que o papel dela exige: a recepção não vê a anamnese, as dores, a avaliação física, a dieta nem o resumo da anamnese; o professor e a nutricionista não veem mensalidades, cobranças nem a receita. A regra vale no banco, e não só na tela.
+- O consentimento de saúde é do aluno: só ele autoriza, pelo app, e pode retirar quando quiser. A equipe não autoriza em nome dele.
 - Tudo o que é sensível fica registrado com quem fez e quando.
 - Rascunho de avaliação física some quando a aba do navegador fecha, para não ficar esperando no computador da recepção.
 - Digital só com autorização do próprio aluno, e é apagada da catraca quando ele retira a autorização ou quando a matrícula termina. O display da catraca nunca mostra o nome nem o motivo de quem foi barrado.

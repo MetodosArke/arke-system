@@ -1,4 +1,4 @@
-Clique no nome de um aluno em [Alunos & Prescrições](/admin/alunos) para abrir a ficha. Ela reúne tudo o que a equipe precisa saber dele, em blocos. Cada papel vê os blocos do seu trabalho.
+Clique no nome de um aluno em [Alunos & Prescrições](/admin/alunos) para abrir a ficha. Ela reúne tudo o que a equipe precisa saber dele, em blocos. Cada papel vê os blocos do seu trabalho (veja **O que cada papel vê**, abaixo).
 
 ![A ficha do aluno, aberta a partir da lista.](/ajuda/telas/ficha.jpg)
 
@@ -17,6 +17,15 @@ Clique no nome de um aluno em [Alunos & Prescrições](/admin/alunos) para abrir
 - **Pendências na Fila de Atendimento**: tarefas abertas deste aluno.
 - **Histórico e Observações**: a linha do tempo do aluno, com atendimentos e o desfecho de cada um, check-ins, mudanças de fase, publicações e as observações da equipe.
 - **Check-ins Recentes** e o **chat** de treino e de nutrição.
+
+## O que cada papel vê
+
+- **A saúde do aluno** (anamnese, dores, avaliação física, dieta e o resumo da anamnese) é de quem atende: a gestão, o professor e a nutricionista. A recepção não vê esses blocos, nem o comentário dos check-ins e as pendências de dor e de anamnese.
+- **O PAR-Q e o atestado** ficam também com a recepção, que recebe o atestado no balcão e registra a validade. Ela vê se o PAR-Q pede atestado, mas não quais perguntas tiveram "sim".
+- **O dinheiro** (plano da academia, mensalidades, cobranças avulsas, endereço da nota e a cobrança do Método) é de quem cobra: a gestão e a recepção. O professor e a nutricionista não veem esses blocos.
+- Se o aluno retirou a autorização dos dados de saúde no app, o bloco da anamnese diz quando, e as respostas não aparecem mais: foram apagadas.
+
+Não é só a tela: o banco aplica a mesma regra, então o que um papel não vê aqui também não chega a ele por outro caminho.
 
 ## Aluno do Método ARKE
 

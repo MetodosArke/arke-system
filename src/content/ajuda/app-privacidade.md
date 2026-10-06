@@ -1,8 +1,20 @@
 ## Quem vê os seus dados
 
-- **A equipe da sua academia**, cada um no que atende: o professor vê o treino e a avaliação; a nutricionista, a dieta; a recepção, o cadastro e os pagamentos.
+- **A equipe da sua academia**, cada um no que atende: o professor vê o treino e a avaliação; a nutricionista, a dieta; a recepção, o cadastro, os pagamentos, o PAR-Q e o atestado. A recepção não vê a sua anamnese, a avaliação nem a dieta, e o professor e a nutricionista não veem os seus pagamentos.
 - **No Método ARKE**, também a equipe de mentoria da ArkeFit, que acompanha você.
 - Seus dados de saúde (anamnese, avaliação física, dor relatada, questionário de saúde, atestado, dieta) têm proteção reforçada e acesso restrito a quem atende você.
+
+## Dados de saúde: autorizar e retirar
+
+Quando você preenche a anamnese, autoriza o uso dos seus dados de saúde no seu acompanhamento. Só você autoriza, pelo app: a academia não autoriza por você.
+
+Em **Perfil → Privacidade**, no quadro **Dados de saúde**, você vê quando autorizou e pode **Retirar autorização** quando quiser. Ao retirar:
+
+- as respostas da sua anamnese (histórico de saúde, lesões, medicamentos, rotina e objetivos) são apagadas, e o resumo feito a partir delas também; a equipe deixa de vê-las;
+- quem acompanha você conhece menos do seu histórico, e no Método ARKE o mentor segue com o que você contar na conversa;
+- a avaliação física, o PAR-Q e o atestado continuam com a academia, que precisa deles para você treinar com segurança; para apagá-los, peça a exclusão dos seus dados na recepção.
+
+Você pode autorizar de novo quando quiser, preenchendo a anamnese outra vez.
 
 ## Inteligência artificial: dois interruptores
 

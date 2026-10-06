@@ -11,7 +11,7 @@ A academia escreve o próprio contrato em **Organização → Contrato de matrí
 
 ## O PAR-Q
 
-São 7 perguntas de sim ou não sobre a saúde, respondidas no app em cerca de um minuto. Só o aluno e a equipe da academia leem as respostas.
+São 7 perguntas de sim ou não sobre a saúde, respondidas no app em cerca de um minuto. Só o aluno e a equipe da academia leem as respostas. A recepção vê se o PAR-Q pede atestado e cuida do atestado, mas não quais perguntas tiveram "sim": isso fica com a gestão, o professor e a nutricionista.
 
 - **Nenhum "sim"**: o aluno está liberado. Em São Paulo, a Lei 16.724/2018 aceita o PAR-Q sem "sim" no lugar do atestado.
 - **Algum "sim"**: o app pede o atestado médico.
