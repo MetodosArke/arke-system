@@ -4,6 +4,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { AlertTriangle, ExternalLink, RefreshCw, LogOut } from "lucide-react";
+import { PrestadorPagamentos } from "@/components/pagamento/PrestadorPagamentos";
 
 // Gate de adimplência B2B: bloqueia a EQUIPE da academia (gestor, professor,
 // nutricionista) quando há cobrança da ARKE emitida e vencida sem
@@ -114,6 +115,8 @@ export function OrganizacaoBillingGate({ children }: { children: React.ReactNode
           <p className="text-xs text-muted-foreground">
             Já regularizou ou acredita que isto é um engano? Fale com o suporte ArkeFit.
           </p>
+
+          <PrestadorPagamentos className="text-left" />
 
           <div className="flex flex-col gap-2">
             <Button

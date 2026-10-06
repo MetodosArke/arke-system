@@ -45,6 +45,7 @@ import { planoDoAluno, ROTULO_PLANO, ROTULO_SITUACAO, type SituacaoAcademia } fr
 import { baixarPlanilha, dataBr } from "@/lib/exportarPlanilha";
 import { formatarDataBR, hojeBrasilia } from "@/lib/dataBrasilia";
 import { erroDataNascimento } from "@/lib/menorDeIdade";
+import { PrestadorPagamentos } from "@/components/pagamento/PrestadorPagamentos";
 
 type Nivel = Enums<"nivel_atacado">;
 
@@ -235,11 +236,11 @@ export default function AdminAlunos() {
     },
     onSuccess: (resultado) => {
       if (resultado.billingOk) {
-        toast({ title: "Adesão registrada", description: "Assinatura criada no Asaas com split automático." });
+        toast({ title: "Adesão registrada", description: "Assinatura criada no Asaas, com a divisão automática." });
       } else {
         toast({
           title: "Adesão registrada, mas a cobrança falhou",
-          description: resultado.billingMessage ?? "Configure a wallet do Asaas em Organização e tente novamente.",
+          description: resultado.billingMessage ?? "Configure a conta de recebimentos (Onboarding → Recebimentos) e tente novamente.",
           variant: "destructive",
         });
       }
@@ -266,7 +267,7 @@ export default function AdminAlunos() {
       if (data?.error) throw new Error(data.error);
     },
     onSuccess: () => {
-      toast({ title: "Assinatura criada!", description: "Cobrança do Método ARKE ativada com split automático." });
+      toast({ title: "Assinatura criada!", description: "Cobrança do Método ARKE ativada no Asaas, com a divisão automática." });
       void queryClient.invalidateQueries({ queryKey: ["admin-alunos", organization?.id] });
     },
     onError: (error: Error) => toast({ title: "Erro ao cobrar", description: error.message, variant: "destructive" }),
@@ -761,6 +762,7 @@ export default function AdminAlunos() {
               Pré-preenchido com o valor de varejo configurado em Planos da Academia — ajuste se for negociar diferente.
             </p>
           </div>
+          <PrestadorPagamentos />
           <DialogFooter>
             <Button variant="outline" onClick={() => setAlunoAdesao(null)}>
               Cancelar

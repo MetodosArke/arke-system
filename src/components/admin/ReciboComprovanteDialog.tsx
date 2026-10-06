@@ -3,6 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Button } from "@/components/ui/button";
 import { Printer } from "lucide-react";
 import { formatarDataBR } from "@/lib/dataBrasilia";
+import { PrestadorPagamentos } from "@/components/pagamento/PrestadorPagamentos";
 
 export interface ReciboData {
   organizacaoNome: string;
@@ -101,6 +102,9 @@ export function ReciboComprovanteDialog({
               Sem pendência de pagamento no momento.
             </p>
           )}
+
+          {/* No papel também: o recibo é documento relacionado ao pagamento. */}
+          <PrestadorPagamentos className="bg-transparent" />
 
           <p className="text-center text-[10px] text-muted-foreground pt-2">
             Documento gerado eletronicamente pela plataforma ArkeFit.

@@ -16,6 +16,7 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { AlertTriangle, CreditCard, Lock } from "lucide-react";
 import { AvisoPerfilSimulado } from "@/components/AvisoPerfilSimulado";
+import { PrestadorPagamentos } from "@/components/pagamento/PrestadorPagamentos";
 import { emPerfilSimulado } from "@/lib/impersonation";
 
 /**
@@ -280,8 +281,10 @@ export function CartaoAssinatura({
 
             <p className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
               <Lock className="h-3 w-3" />
-              O cartão vai direto ao Asaas, nosso processador de pagamento. O ARKE guarda só a bandeira e os 4 últimos dígitos.
+              O cartão vai direto ao Asaas, que processa o pagamento. O ARKE guarda só a bandeira e os 4 últimos dígitos.
             </p>
+
+            <PrestadorPagamentos />
 
             <DialogFooter>
               <Button type="button" variant="ghost" onClick={fechar} disabled={enviando}>

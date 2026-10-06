@@ -37,6 +37,8 @@ import { lerReais, reais } from "@/lib/numeros";
 import { hojeBrasilia } from "@/lib/dataBrasilia";
 import { emitirCobrancaAvulsa } from "@/lib/cobrancaAvulsa";
 import { CobrancasAvulsas } from "@/components/pagamento/CobrancasAvulsas";
+import { PrestadorPagamentos } from "@/components/pagamento/PrestadorPagamentos";
+import { useCobrancaNaContaDaAcademia } from "@/hooks/useContaDasCobrancas";
 import { EnderecoAluno } from "@/components/pagamento/EnderecoAluno";
 import { atendeSaude, cuidaDoDinheiro } from "@/lib/acessoPainel";
 
@@ -200,7 +202,7 @@ export function AlunoPerfilSheet({
       const matricula = (
         await supabase
           .from("aluno_matriculas_academia")
-          .select("id, valor_cobrado, dia_vencimento, status, asaas_subscription_id, forma_pagamento, cartao_final, cartao_bandeira, cartao_recusado_em, planos_academia(nome, periodicidade)")
+          .select("id, valor_cobrado, dia_vencimento, status, asaas_subscription_id, conta_asaas, forma_pagamento, cartao_final, cartao_bandeira, cartao_recusado_em, planos_academia(nome, periodicidade)")
           .eq("aluno_id", aluno.id)
           // A pausada também: é a matrícula do aluno, só que sem cobrar. Sem
           // ela na ficha, a tela ofereceria matricular de novo.
@@ -262,6 +264,9 @@ export function AlunoPerfilSheet({
     },
     enabled: !!organization?.id && matriculaAberta,
   });
+
+  // Com a cobrança na conta da academia, a prévia da matrícula diz isso.
+  const { data: cobrancaNaContaDaAcademia = false } = useCobrancaNaContaDaAcademia(organization?.id, matriculaAberta);
 
   const matricular = useMutation({
     mutationFn: async () => {
@@ -852,6 +857,13 @@ export function AlunoPerfilSheet({
                     A matrícula vale a partir de hoje: a primeira mensalidade vence hoje e as seguintes no dia{" "}
                     {Number(hojeBrasilia().slice(8, 10))} de cada mês. A taxa, se houver, sai numa fatura à parte, vencendo hoje.
                   </p>
+                  {cobrancaNaContaDaAcademia && (
+                    <p className="text-xs text-muted-foreground">
+                      A mensalidade sai da conta Asaas da academia, que recebe o valor inteiro. A tarifa do Asaas é cobrada pelo
+                      Asaas, direto da academia.
+                    </p>
+                  )}
+                  <PrestadorPagamentos />
                 </div>
                 <DialogFooter>
                   <Button variant="outline" onClick={() => setMatriculaAberta(false)}>

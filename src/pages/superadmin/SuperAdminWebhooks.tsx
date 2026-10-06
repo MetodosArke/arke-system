@@ -90,6 +90,13 @@ const RESULTADOS: Record<string, string> = {
   sem_correspondencia: "Nenhuma cobrança correspondente no banco",
   evento_ignorado: "Tipo de evento que não movimenta cobrança",
   sem_payment_id: "Evento sem payment.id",
+  // Aviso da conta da própria academia (cobrança na conta da academia) que
+  // tentou mexer no que não é dela: recusado sem efeito.
+  "fora_da_conta_da_academia:referencia": "Conta da academia: referência que não é do ARKE",
+  "fora_da_conta_da_academia:organizacao": "Conta da academia: cobrança de outra academia",
+  "fora_da_conta_da_academia:b2b": "Conta da academia: tentou mexer na mensalidade do ARKE",
+  "fora_da_conta_da_academia:metodo": "Conta da academia: tentou mexer no Método ARKE",
+  "fora_da_conta_da_academia:conta": "Conta da academia: cobrança que mora na conta da ArkeFit",
 };
 
 const formatarDataHora = (valor: string) =>

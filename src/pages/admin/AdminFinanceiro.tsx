@@ -23,6 +23,7 @@ import type { Enums, Tables } from "@/integrations/supabase/types";
 import { reais } from "@/lib/numeros";
 import { todasAsLinhas } from "@/lib/paginar";
 import { ErroAoCarregar } from "@/components/ErroAoCarregar";
+import { PrestadorPagamentos } from "@/components/pagamento/PrestadorPagamentos";
 
 type FolhaTipo = Enums<"folha_tipo">;
 type LancamentoTipo = Enums<"lancamento_financeiro_tipo">;
@@ -476,6 +477,8 @@ export default function AdminFinanceiro() {
         dentro disso: plano de contas, contas a pagar/receber com vencimento e recorrência, e lançamento automático
         do que o próprio ArkeFit já sabe (mensalidade paga, folha fechada).
       </p>
+      {/* Mensalidade e avulsa recebidas, notas fiscais e a conta Asaas conectada: o prestador aparece aqui, para todas as abas. */}
+      <PrestadorPagamentos />
 
       <Tabs defaultValue="lancamentos">
         <TabsList className="h-auto flex-wrap">

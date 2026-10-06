@@ -6,6 +6,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { AlertTriangle, ExternalLink, RefreshCw } from "lucide-react";
+import { PrestadorPagamentos } from "@/components/pagamento/PrestadorPagamentos";
 
 // Gate de adimplência do App do Aluno. Pergunta a `get_bloqueio_aluno`, que
 // une dois sinais: o status que o webhook do Asaas gravou **e** a cobrança
@@ -103,6 +104,7 @@ export function AlunoBillingGate({ children }: { children: React.ReactNode }) {
               {aviso}
             </p>
           )}
+          <PrestadorPagamentos className="text-left" />
         </CardContent>
       </Card>
     </div>

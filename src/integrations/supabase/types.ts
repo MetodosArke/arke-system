@@ -130,6 +130,45 @@ export type Database = {
           },
         ]
       }
+      aceites_termos_asaas: {
+        Row: {
+          aceito_em: string
+          aceito_por: string
+          id: string
+          organization_id: string
+          termos_url: string
+        }
+        Insert: {
+          aceito_em?: string
+          aceito_por: string
+          id?: string
+          organization_id: string
+          termos_url: string
+        }
+        Update: {
+          aceito_em?: string
+          aceito_por?: string
+          id?: string
+          organization_id?: string
+          termos_url?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "aceites_termos_asaas_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "org_churn_metrics"
+            referencedColumns: ["organization_id"]
+          },
+          {
+            foreignKeyName: "aceites_termos_asaas_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       acessos_catraca_logs: {
         Row: {
           aluno_id: string | null
@@ -748,6 +787,7 @@ export type Database = {
           cartao_bandeira: string | null
           cartao_final: string | null
           cartao_recusado_em: string | null
+          conta_asaas: string
           created_at: string
           data_inicio: string
           dia_vencimento: number
@@ -776,6 +816,7 @@ export type Database = {
           cartao_bandeira?: string | null
           cartao_final?: string | null
           cartao_recusado_em?: string | null
+          conta_asaas?: string
           created_at?: string
           data_inicio?: string
           dia_vencimento: number
@@ -804,6 +845,7 @@ export type Database = {
           cartao_bandeira?: string | null
           cartao_final?: string | null
           cartao_recusado_em?: string | null
+          conta_asaas?: string
           created_at?: string
           data_inicio?: string
           dia_vencimento?: number
@@ -1388,6 +1430,55 @@ export type Database = {
         }
         Relationships: []
       }
+      asaas_clientes_academia: {
+        Row: {
+          aluno_id: string
+          ambiente: string
+          asaas_customer_id: string
+          atualizado_em: string
+          criado_em: string
+          organization_id: string
+        }
+        Insert: {
+          aluno_id: string
+          ambiente: string
+          asaas_customer_id: string
+          atualizado_em?: string
+          criado_em?: string
+          organization_id: string
+        }
+        Update: {
+          aluno_id?: string
+          ambiente?: string
+          asaas_customer_id?: string
+          atualizado_em?: string
+          criado_em?: string
+          organization_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "asaas_clientes_academia_aluno_id_fkey"
+            columns: ["aluno_id"]
+            isOneToOne: false
+            referencedRelation: "alunos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "asaas_clientes_academia_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "org_churn_metrics"
+            referencedColumns: ["organization_id"]
+          },
+          {
+            foreignKeyName: "asaas_clientes_academia_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       asaas_saida_pendente: {
         Row: {
           aluno_id: string
@@ -1420,6 +1511,48 @@ export type Database = {
           user_id?: string | null
         }
         Relationships: []
+      }
+      asaas_webhook_academia: {
+        Row: {
+          ambiente: string
+          asaas_webhook_id: string | null
+          organization_id: string
+          registrado_em: string
+          registrado_por: string | null
+          token_hash: string
+        }
+        Insert: {
+          ambiente: string
+          asaas_webhook_id?: string | null
+          organization_id: string
+          registrado_em?: string
+          registrado_por?: string | null
+          token_hash: string
+        }
+        Update: {
+          ambiente?: string
+          asaas_webhook_id?: string | null
+          organization_id?: string
+          registrado_em?: string
+          registrado_por?: string | null
+          token_hash?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "asaas_webhook_academia_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: true
+            referencedRelation: "org_churn_metrics"
+            referencedColumns: ["organization_id"]
+          },
+          {
+            foreignKeyName: "asaas_webhook_academia_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: true
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       asaas_webhook_events: {
         Row: {
@@ -1543,6 +1676,58 @@ export type Database = {
           organizacao_nome?: string | null
         }
         Relationships: []
+      }
+      avaliacoes_atendimento: {
+        Row: {
+          chamado_id: string
+          comentario: string | null
+          created_at: string
+          id: string
+          nota: number
+          organization_id: string
+          user_id: string
+        }
+        Insert: {
+          chamado_id: string
+          comentario?: string | null
+          created_at?: string
+          id?: string
+          nota: number
+          organization_id: string
+          user_id: string
+        }
+        Update: {
+          chamado_id?: string
+          comentario?: string | null
+          created_at?: string
+          id?: string
+          nota?: number
+          organization_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "avaliacoes_atendimento_chamado_id_fkey"
+            columns: ["chamado_id"]
+            isOneToOne: true
+            referencedRelation: "chamados_suporte"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "avaliacoes_atendimento_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "org_churn_metrics"
+            referencedColumns: ["organization_id"]
+          },
+          {
+            foreignKeyName: "avaliacoes_atendimento_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       avaliacoes_fisicas: {
         Row: {
@@ -1873,6 +2058,7 @@ export type Database = {
           asaas_payment_id: string | null
           cancelada_em: string | null
           cancelada_por: string | null
+          conta_asaas: string
           created_at: string
           criada_por: string | null
           data_pagamento: string | null
@@ -1895,6 +2081,7 @@ export type Database = {
           asaas_payment_id?: string | null
           cancelada_em?: string | null
           cancelada_por?: string | null
+          conta_asaas?: string
           created_at?: string
           criada_por?: string | null
           data_pagamento?: string | null
@@ -1917,6 +2104,7 @@ export type Database = {
           asaas_payment_id?: string | null
           cancelada_em?: string | null
           cancelada_por?: string | null
+          conta_asaas?: string
           created_at?: string
           criada_por?: string | null
           data_pagamento?: string | null
@@ -5367,6 +5555,7 @@ export type Database = {
           cep: string | null
           cidade: string | null
           cnpj_cpf: string | null
+          cobranca_conta_academia: boolean
           complemento: string | null
           cor_marca: string | null
           created_at: string
@@ -5416,6 +5605,7 @@ export type Database = {
           cep?: string | null
           cidade?: string | null
           cnpj_cpf?: string | null
+          cobranca_conta_academia?: boolean
           complemento?: string | null
           cor_marca?: string | null
           created_at?: string
@@ -5465,6 +5655,7 @@ export type Database = {
           cep?: string | null
           cidade?: string | null
           cnpj_cpf?: string | null
+          cobranca_conta_academia?: boolean
           complemento?: string | null
           cor_marca?: string | null
           created_at?: string
@@ -7650,6 +7841,7 @@ export type Database = {
         }[]
       }
       arke_trial_dias: { Args: never; Returns: number }
+      asaas_subcontas_baas_ligadas: { Args: never; Returns: boolean }
       assinar_contrato_matricula: {
         Args: {
           _aluno_id: string
@@ -7702,6 +7894,10 @@ export type Database = {
           _responsavel_nome?: string
           _responsavel_telefone?: string
         }
+        Returns: undefined
+      }
+      avaliar_atendimento: {
+        Args: { _chamado_id: string; _comentario?: string; _nota: number }
         Returns: undefined
       }
       avaliar_capacidade: {
@@ -7995,6 +8191,17 @@ export type Database = {
       definir_agente_implantacao: {
         Args: { _ativo: boolean }
         Returns: undefined
+      }
+      definir_cobranca_conta_academia: {
+        Args: {
+          _ambiente: string
+          _asaas_webhook_id: string
+          _ator_user_id: string
+          _ligar: boolean
+          _organization_id: string
+          _token_hash: string
+        }
+        Returns: Json
       }
       definir_carteira_recebimento: {
         Args: {
@@ -8427,6 +8634,10 @@ export type Database = {
         }[]
       }
       get_superadmin_assistente_numeros: {
+        Args: { _dias?: number }
+        Returns: Json
+      }
+      get_superadmin_avaliacoes_atendimento: {
         Args: { _dias?: number }
         Returns: Json
       }
@@ -9348,6 +9559,10 @@ export type Database = {
           liberados: number
           marcados: number
         }[]
+      }
+      situacao_cobranca_conta_academia: {
+        Args: { _organization_id: string }
+        Returns: Json
       }
       situacao_gateway: {
         Args: { _estado: string; _heartbeat: string; _reportado: string }

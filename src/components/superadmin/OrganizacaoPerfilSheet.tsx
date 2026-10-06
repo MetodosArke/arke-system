@@ -27,6 +27,7 @@ import { Bloco } from "@/components/admin/perfilSheetHelpers";
 import { TrialAlunosOrganizacao } from "@/components/superadmin/TrialAlunosOrganizacao";
 import { MensalidadeB2bOrganizacao } from "@/components/superadmin/MensalidadeB2bOrganizacao";
 import { RepasseOrganizacao } from "@/components/superadmin/RepasseOrganizacao";
+import { CobrancaContaAcademiaOrganizacao } from "@/components/superadmin/CobrancaContaAcademiaOrganizacao";
 import { EncerramentoOrganizacao } from "@/components/superadmin/EncerramentoOrganizacao";
 import { TaxaImplantacaoOrganizacao } from "@/components/superadmin/TaxaImplantacaoOrganizacao";
 import type { Enums } from "@/integrations/supabase/types";
@@ -207,6 +208,10 @@ export function OrganizacaoPerfilSheet({
 
               <Bloco titulo="Repasse do Método" icon={Percent}>
                 <RepasseOrganizacao organizationId={tenant.organization_id} />
+              </Bloco>
+
+              <Bloco titulo="Conta das cobranças" icon={Receipt}>
+                <CobrancaContaAcademiaOrganizacao organizationId={tenant.organization_id} />
               </Bloco>
 
               <Bloco titulo="Trial do Método ARKE (testes)" icon={FlaskConical}>

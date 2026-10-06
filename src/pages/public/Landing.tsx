@@ -908,7 +908,7 @@ const PERGUNTAS: [string, string][] = [
   ["O aluno paga para usar o app?", "Não. Todo aluno matriculado e em dia usa o app. O Método ARKE é opcional, vendido pela própria academia, com o preço que ela define."],
   [
     "Como recebo as mensalidades?",
-    "Pelo Asaas, numa conta da própria academia. No momento do pagamento, a parte da academia cai direto na conta dela; o ArkeFit não segura o seu dinheiro.",
+    "Pelo Asaas, instituição de pagamento autorizada pelo Banco Central, numa conta da própria academia. É o Asaas que processa os pagamentos; no momento do pagamento, a parte da academia cai direto na conta dela, e o ArkeFit, que é a plataforma de tecnologia, não segura o seu dinheiro.",
   ],
   [
     "Onde ficam os dados dos alunos?",

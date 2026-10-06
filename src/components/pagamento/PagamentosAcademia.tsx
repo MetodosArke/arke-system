@@ -11,6 +11,7 @@ import type { Enums } from "@/integrations/supabase/types";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { CartaoAssinatura } from "@/components/pagamento/CartaoAssinatura";
+import { PrestadorPagamentos } from "@/components/pagamento/PrestadorPagamentos";
 
 type Status = Enums<"status_mensalidade">;
 
@@ -186,6 +187,7 @@ export function PagamentosAcademia({ alunoId }: { alunoId: string }) {
             />
           </div>
         )}
+        <PrestadorPagamentos />
       </CardContent>
     </Card>
   );

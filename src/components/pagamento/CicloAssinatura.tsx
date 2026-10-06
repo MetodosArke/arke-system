@@ -21,7 +21,13 @@ type Assinatura = {
   status: string;
   valor_cobrado: number | string | null;
   asaas_subscription_id: string | null;
+  /** Só a mensalidade: a conta Asaas onde a assinatura mora. */
+  conta_asaas?: string | null;
 } | null;
+
+/** Na conta da academia não há taxa da ArkeFit nem split: o valor novo vai inteiro para ela. */
+const DESCRICAO_VALOR_NA_CONTA_DA_ACADEMIA =
+  "A mensalidade mora na conta Asaas da academia, sem split: o valor novo vai inteiro para ela. Mensalidade já emitida e ainda não vencida passa a valer o novo valor; a já vencida fica como está.";
 
 type Acao = "cancelar" | "pausar" | "retomar" | "alterar_valor";
 
@@ -187,7 +193,9 @@ export function CicloAssinatura({
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{t.tituloValor}</DialogTitle>
-            <DialogDescription>{t.descricaoValor}</DialogDescription>
+            <DialogDescription>
+              {tipo === "plano" && assinatura?.conta_asaas === "academia" ? DESCRICAO_VALOR_NA_CONTA_DA_ACADEMIA : t.descricaoValor}
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-2">
             <Label htmlFor="novo-valor">Novo valor mensal (R$)</Label>
