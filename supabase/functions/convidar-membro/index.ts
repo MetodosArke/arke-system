@@ -1,6 +1,8 @@
 import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2";
 import { emailMatriculaNova } from "./email.ts";
+import { hojeBrasilia } from "../_shared/data.ts";
 import { dentroDoFreio, MENSAGEM_FREIO } from "../_shared/freio.ts";
+import { erroDataNascimento } from "../_shared/nascimento.ts";
 import { servir } from "../_shared/servir.ts";
 
 const corsHeaders = {
@@ -41,6 +43,11 @@ type ConvidarMembroPayload = {
   // projeto (500 por hora), que serve também à recuperação de senha de todas
   // as academias: uma importação de 400 alunos gastava 80% dele de uma vez.
   sem_email?: boolean;
+  // AAAA-MM-DD (decisão de 06/10/2026): diz quem é menor de idade. Obrigatória
+  // no cadastro pela academia; na importação, a planilha pode não trazer, e o
+  // aluno fica com idade desconhecida até informá-la no app ou na recepção.
+  data_nascimento?: string;
+  origem?: "importacao";
 };
 
 /**
@@ -161,6 +168,14 @@ servir("convidar-membro", async (req: Request) => {
     if (!papel || !PAPEIS_VALIDOS.has(papel)) {
       return jsonResponse({ error: "Papel inválido. Use aluno, professor, nutricionista ou recepcao." }, 400);
     }
+
+    // Data de nascimento: obrigatória no cadastro. Na importação, a data que
+    // falta ou que não dá para ler fica nula (idade desconhecida), e a linha
+    // segue: o aluno informa a data no app, ou a recepção na ficha.
+    const nascimentoInformado = typeof payload.data_nascimento === "string" ? payload.data_nascimento.trim() : "";
+    const nascimentoErro = erroDataNascimento(nascimentoInformado, hojeBrasilia());
+    if (nascimentoErro && payload.origem !== "importacao") return jsonResponse({ error: nascimentoErro }, 400);
+    const dataNascimento = nascimentoErro ? null : nascimentoInformado;
 
     // Cliente com o JWT do chamador: usado só para identificar quem está
     // chamando (via getClaims). As checagens de autorização abaixo usam o
@@ -307,6 +322,7 @@ servir("convidar-membro", async (req: Request) => {
         user_id: userId,
         nivel_atacado: nivelAtacado,
         situacao_academia: situacaoAcademia,
+        data_nascimento: dataNascimento,
       });
       if (alunoError) {
         console.error("Error inserting aluno for existing account", alunoError.code);
@@ -406,6 +422,7 @@ servir("convidar-membro", async (req: Request) => {
           user_id: newUserId,
           nivel_atacado: nivelAtacado,
           situacao_academia: situacaoAcademia,
+          data_nascimento: dataNascimento,
         });
       if (alunoError) {
         console.error("Error inserting aluno", alunoError);

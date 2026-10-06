@@ -26,6 +26,12 @@ verify_jwt = false
 [functions.lead-site]
 verify_jwt = false
 
+# Página do link que o responsável legal do aluno menor recebe por e-mail:
+# quem abre não tem conta. A trava é o token (só o hash fica no banco), com
+# freio por IP e por token.
+[functions.responsavel-aceite]
+verify_jwt = false
+
 # Letícia: a rotina autentica pelo token do Vault; o "não quero mais receber"
 # é público.
 [functions.agente-comercial]

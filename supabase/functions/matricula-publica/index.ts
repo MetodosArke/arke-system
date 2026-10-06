@@ -1,5 +1,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { verificarCaptcha } from "../_shared/captcha.ts";
+import { hojeBrasilia } from "../_shared/data.ts";
+import { erroDataNascimento } from "../_shared/nascimento.ts";
 import { servir } from "../_shared/servir.ts";
 
 const corsHeaders = {
@@ -149,6 +151,9 @@ type MatriculaPayload = {
   email: string;
   telefone?: string;
   cpf?: string;
+  // AAAA-MM-DD. Obrigatória desde 06/10/2026: diz quem é menor de idade, e
+  // para o menor saúde, biometria e IA esperam o aceite do responsável.
+  data_nascimento?: string;
   password: string;
   captcha_token?: string;
   aceite_termos?: boolean;
@@ -223,6 +228,9 @@ servir("matricula-publica", async (req: Request) => {
     // que a regra vale — a tela pode ser contornada, a função é o caminho.
     const cpfErro = erroCpfMatricula(cpf);
     if (cpfErro) return jsonResponse({ error: cpfErro }, 400);
+    const dataNascimento = typeof payload.data_nascimento === "string" ? payload.data_nascimento.trim() : "";
+    const nascimentoErro = erroDataNascimento(dataNascimento, hojeBrasilia());
+    if (nascimentoErro) return jsonResponse({ error: nascimentoErro }, 400);
     if (payload.aceite_termos !== true) {
       return jsonResponse({ error: "Aceite os Termos de Uso e a Política de Privacidade para continuar." }, 400);
     }
@@ -336,6 +344,7 @@ servir("matricula-publica", async (req: Request) => {
     const { error: alunoError } = await admin.from("alunos").insert({
       organization_id: org.id,
       user_id: newUserId,
+      data_nascimento: dataNascimento,
     });
     if (alunoError) {
       console.error("Error inserting aluno", alunoError);
