@@ -1,4 +1,10 @@
-import type { ICloudClient, LogOfflineCloud, OpcoesSincronizacao, OpcoesValidacao } from "../../src/cloud/client";
+import type {
+  ICloudClient,
+  LogOfflineCloud,
+  OpcoesSincronizacao,
+  OpcoesValidacao,
+  RespostaLogsOffline,
+} from "../../src/cloud/client";
 import type { Credencial, Giro, RespostaSincronizarAlunosCloud, RespostaValidarAcessoCloud } from "../../src/types";
 
 /**
@@ -54,9 +60,34 @@ export class FakeCloudClient implements ICloudClient {
     return { atualizado: 1 };
   }
 
-  async sincronizarLogsOffline(logs: LogOfflineCloud[]): Promise<{ inseridos: number }> {
+  /**
+   * Como a nuvem responde ao lote de acessos offline. `por_registro` é a
+   * nuvem de 06/10/2026 em diante (diz o que fez com cada `id_local`);
+   * `antiga` só conta os inseridos.
+   */
+  modoLogs: "por_registro" | "antiga" = "por_registro";
+  /** Registro que a nuvem recusa de vez, com o motivo (null: aceita). */
+  descartarLog: (log: LogOfflineCloud) => string | null = () => null;
+  /** Registro que a nuvem não chegou a tratar (fica fora das duas listas). */
+  deixarDeFora: (log: LogOfflineCloud) => boolean = () => false;
+
+  async sincronizarLogsOffline(logs: LogOfflineCloud[]): Promise<RespostaLogsOffline> {
     if (this.erroSincronizarLogs) throw this.erroSincronizarLogs;
-    this.logsRecebidos.push(...logs);
-    return { inseridos: logs.length };
+    if (this.modoLogs === "antiga") {
+      this.logsRecebidos.push(...logs);
+      return { inseridos: logs.length };
+    }
+    const aceitos: string[] = [];
+    const descartados: { id_local: string | null; motivo: string }[] = [];
+    for (const l of logs) {
+      if (this.deixarDeFora(l)) continue;
+      const motivo = this.descartarLog(l);
+      if (motivo) descartados.push({ id_local: l.id_local ?? null, motivo });
+      else {
+        this.logsRecebidos.push(l);
+        if (l.id_local) aceitos.push(l.id_local);
+      }
+    }
+    return { inseridos: aceitos.length, aceitos, descartados };
   }
 }

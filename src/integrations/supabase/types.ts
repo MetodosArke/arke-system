@@ -8647,6 +8647,7 @@ export type Database = {
         Returns: undefined
       }
       marcar_lancamentos_atrasados: { Args: never; Returns: undefined }
+      matricula_encerrada: { Args: { _aluno_id: string }; Returns: boolean }
       matricula_publica_org_permitida: {
         Args: { _organization_id: string }
         Returns: boolean
@@ -9194,6 +9195,10 @@ export type Database = {
       vigia_rodar_rotina: { Args: { _nome: string }; Returns: Json }
       vigia_rotina_repetivel: { Args: { _nome: string }; Returns: boolean }
       vigia_varrer: { Args: never; Returns: Json }
+      vincular_numero_catraca: {
+        Args: { _aluno_id: string; _credencial: string; _numero: string }
+        Returns: string
+      }
     }
     Enums: {
       agendamento_status: "agendado" | "presente" | "cancelado" | "lista_espera"

@@ -114,6 +114,7 @@ namespace Arke.PonteTopdata
         public const byte CATRACA_ENTRADA_LIBERADA = 7;
 
         // TipoLeitor
+        public const byte TIPO_LEITOR_WIEGAND = 3;
         public const byte TIPO_LEITOR_BARRAS_PROX_QRCODE = 7;
 
         // PadraoCartao

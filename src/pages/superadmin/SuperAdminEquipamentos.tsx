@@ -27,6 +27,7 @@ const RESULTADO: Record<string, string> = {
   liberado_remoto: "Liberado pela recepção",
   negado_inadimplente: "Inadimplente",
   negado_pausado: "Pausado",
+  negado_matricula_encerrada: "Matrícula encerrada",
   negado_nao_encontrado: "Não encontrado",
   negado_catraca_inativa: "Catraca inativa",
   negado_sem_agendamento: "Sem agendamento",

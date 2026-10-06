@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { exigirGravacao } from "@/lib/gravacao";
+import { mensagemDaRemocao } from "@/lib/remocaoCatraca";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -40,7 +40,8 @@ const umaTelemetria = (t: Telemetria | Telemetria[] | null | undefined): Telemet
  * oferece isso. Onde o Gateway não cadastra cartão (Toletus, Intelbras), o
  * número do cartão continua vinculado à mão, aqui mesmo. Sem gestão remota
  * (Topdata Inner, Control iD sem credencial no config), o cadastro continua
- * no equipamento e o número é vinculado à mão.
+ * no equipamento e o número é vinculado à mão, dizendo se é de cartão ou de
+ * digital/rosto: este último pede a autorização do aluno (desde 06/10/2026).
  *
  * O consentimento da digital é do ALUNO: no app, ou assinando o termo
  * impresso que a recepção anexa aqui (aluno sem app). A equipe nunca autoriza
@@ -185,11 +186,22 @@ export function AcessoCatraca({
 
   // O número vai no mutate(), montado no clique: lido pelo fechamento, o
   // botão logo depois de digitar mandaria o valor de antes.
+  //
+  // O vínculo passa por vincular_numero_catraca(), que pergunta o que o
+  // número identifica: digital ou rosto cadastrados no equipamento exigem a
+  // autorização do aluno (a gravação direta do número pela API é recusada no
+  // banco). Até 06/10/2026 o número ia direto para o aluno, e a digital
+  // cadastrada no próprio equipamento escapava da autorização.
   const vincularManual = useMutation({
-    mutationFn: async (numero: string) => {
+    mutationFn: async ({ numero, credencial }: { numero: string; credencial: "cartao" | "biometria" }) => {
       const valor = numero.trim();
       if (!valor) throw new Error("Informe o número do aluno no equipamento.");
-      await exigirGravacao(supabase.from("alunos").update({ identificador_catraca: valor }).eq("id", alunoId).select("id"));
+      const { error } = await supabase.rpc("vincular_numero_catraca", {
+        _aluno_id: alunoId,
+        _numero: valor,
+        _credencial: credencial,
+      });
+      if (error) throw error;
       return { trocou: !!identificadorAtual && identificadorAtual !== valor };
     },
     onSuccess: ({ trocou }) => {
@@ -208,18 +220,32 @@ export function AcessoCatraca({
 
   const revogar = useMutation({
     mutationFn: async () => {
-      const { error } = await supabase.rpc("revogar_consentimento_biometrico", { _aluno_id: alunoId });
+      const { data, error } = await supabase.rpc("revogar_consentimento_biometrico", { _aluno_id: alunoId });
       if (error) throw error;
+      const numero = data?.[0]?.identificador_catraca ?? null;
+      if (!numero) return { numero, ordens: 0, tarefas: 0 };
+      // O que o banco agendou de fato, para a tela não prometer o que não
+      // aconteceu: ordens ao Gateway e tarefas abertas para apagar.
+      const [ordens, tarefas] = await Promise.all([
+        supabase
+          .from("gateway_comandos")
+          .select("id", { count: "exact", head: true })
+          .eq("aluno_id", alunoId)
+          .eq("tipo", "apagar_usuario")
+          .in("status", ["pendente", "entregue"]),
+        supabase
+          .from("tarefas")
+          .select("id", { count: "exact", head: true })
+          .eq("aluno_id", alunoId)
+          .eq("tipo", "equipamento")
+          .in("status", ["aberta", "em_andamento", "aguardando"]),
+      ]);
+      return { numero, ordens: ordens.count ?? 0, tarefas: tarefas.count ?? 0 };
     },
-    onSuccess: () => {
+    onSuccess: (agendado) => {
       setIdentificador("");
       setConfirmarRevogacao(false);
-      toast({
-        title: "Autorização retirada",
-        description: comGestao.length
-          ? "O Gateway vai apagar o aluno das catracas. Acompanhe aqui a data da exclusão."
-          : "Abrimos uma tarefa na fila para apagar a biometria no equipamento.",
-      });
+      toast({ title: "Autorização retirada", description: mensagemDaRemocao(agendado) });
       atualizar();
     },
     onError: (error: Error) =>
@@ -418,7 +444,7 @@ export function AcessoCatraca({
                   size="sm"
                   variant="secondary"
                   disabled={vincularManual.isPending || !cartao.trim()}
-                  onClick={() => vincularManual.mutate(cartao)}
+                  onClick={() => vincularManual.mutate({ numero: cartao, credencial: "cartao" })}
                 >
                   {vincularManual.isPending ? (
                     <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
@@ -450,16 +476,35 @@ export function AcessoCatraca({
           <Label className="text-xs font-medium text-muted-foreground" htmlFor={`catraca-numero-${alunoId}`}>
             Número do usuário ou do cartão no equipamento
           </Label>
-          <div className="flex gap-2">
-            <Input
-              id={`catraca-numero-${alunoId}`}
-              value={identificador}
-              onChange={(e) => setIdentificador(e.target.value)}
-              placeholder="Ex.: 6"
-            />
-            <Button disabled={vincularManual.isPending} onClick={() => vincularManual.mutate(identificador)}>
-              {vincularManual.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Vincular
+          <Input
+            id={`catraca-numero-${alunoId}`}
+            value={identificador}
+            onChange={(e) => setIdentificador(e.target.value)}
+            placeholder="Ex.: 6"
+          />
+          {/* O que o número identifica: digital e rosto pedem a autorização do
+              aluno, e o banco confere (vincular_numero_catraca). */}
+          <div className="flex flex-wrap gap-2">
+            <Button
+              size="sm"
+              variant="secondary"
+              disabled={vincularManual.isPending || !identificador.trim()}
+              onClick={() => vincularManual.mutate({ numero: identificador, credencial: "cartao" })}
+            >
+              {vincularManual.isPending ? (
+                <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <CreditCard className="mr-1.5 h-3.5 w-3.5" />
+              )}
+              É de cartão
+            </Button>
+            <Button
+              size="sm"
+              disabled={vincularManual.isPending || !identificador.trim() || !vigente}
+              title={!vigente ? "O aluno precisa autorizar a digital e o rosto — no app ou pelo termo impresso" : undefined}
+              onClick={() => vincularManual.mutate({ numero: identificador, credencial: "biometria" })}
+            >
+              <Fingerprint className="mr-1.5 h-3.5 w-3.5" /> É de digital ou rosto
             </Button>
           </div>
           <p className="text-xs text-muted-foreground">
@@ -467,9 +512,10 @@ export function AcessoCatraca({
             número que o leitor informa; passe o cartão na catraca e ele aparece em Catracas → Últimos acessos.{" "}
             <strong>Intelbras com cartão:</strong> o número que o terminal informa, achado do mesmo jeito.{" "}
             <strong>Control iD</strong> (ou digital na Topdata e na Toletus): o número de usuário que o equipamento deu ao
-            aluno no cadastro. Digital e rosto só com a autorização do aluno (app ou termo impresso); cartão, a qualquer momento.
-            Com a Control iD, a Intelbras, os leitores faciais da Topdata ou o leitor de digital da Toletus configurados no
-            Gateway Local, o cadastro passa a ser feito daqui, sem digitar número.
+            aluno no cadastro. Digital e rosto cadastrados no equipamento só se vinculam com a autorização do aluno (app ou
+            termo impresso anexado); cartão, a qualquer momento. Com a Control iD, a Intelbras, os leitores faciais da Topdata
+            ou o leitor de digital da Toletus configurados no Gateway Local, o cadastro passa a ser feito daqui, sem digitar
+            número.
           </p>
         </div>
       )}

@@ -2,6 +2,8 @@ import type { FastifyInstance } from "fastify";
 import type { GatewayService } from "../core/gatewayService";
 import { logger } from "../logger";
 import type { Giro } from "../types";
+import { credencialDaLeitura, displayDaLeituraRecusada, type OrigemLeitura } from "../core/credencial";
+import { mensagemDoDisplay } from "../core/display";
 
 /**
  * Receptor Topdata — lado do gateway.
@@ -57,17 +59,54 @@ interface EventoTopdata {
   origem?: number | string;
   /** Conteúdo lido: número do cartão, dígitos do teclado ou id do usuário na biometria. */
   valor?: string;
+  /**
+   * O `tipo_leitor` do `ponte.config.json` (desde a ponte da 1.9): diz se os
+   * leitores 1 e 2 leem cartão ou código de barras. A origem sozinha não diz.
+   */
+  tipo_leitor?: number | string;
+}
+
+/**
+ * Tipos de leitor do SDK que leem código impresso (§ConfigurarTipoLeitor):
+ * 0 barras, 5 barras serial, 7 barras/proximidade/QR. No 7 a leitura de
+ * cartão e a de código chegam pela mesma origem, sem como separar; vale a
+ * regra mais segura.
+ */
+const TIPOS_LEITOR_DE_CODIGO = new Set([0, 5, 7]);
+
+/**
+ * A origem do evento no vocabulário comum das marcas (`core/credencial.ts`).
+ * Origem que o manual não lista para leitura não identifica ninguém.
+ */
+export function origemDaLeitura(origem: number, tipoLeitor?: number): OrigemLeitura | null {
+  switch (origem) {
+    case ORIGEM_TOPDATA.TECLADO:
+      return "teclado";
+    case ORIGEM_TOPDATA.SENSOR_BIOMETRICO:
+      return "biometria";
+    case ORIGEM_TOPDATA.QRCODE:
+      return "qrcode";
+    case ORIGEM_TOPDATA.LEITOR1:
+    case ORIGEM_TOPDATA.LEITOR2:
+      // Ponte anterior à 1.9 não manda o tipo: vale o padrão dela (Wiegand).
+      return tipoLeitor !== undefined && TIPOS_LEITOR_DE_CODIGO.has(tipoLeitor) ? "codigo_barras" : "cartao";
+    default:
+      return null;
+  }
 }
 
 /**
  * Resposta que a ponte traduz em chamada da DLL:
  * `liberar: true` vira `LiberarCatracaEntrada/Saida/DoisSentidos`,
  * `liberar: false` vira mensagem de negado no display.
+ *
+ * `motivo` é o texto do display, que é público: "Bem-vindo!" ou uma
+ * negativa curta que não fala de dinheiro (`mensagemDoDisplay`). O nome do
+ * aluno não vai: até a 1.8 ia, e a ponte o escrevia no display.
  */
 interface DecisaoTopdata {
   liberar: boolean;
   sentido?: SentidoCatraca;
-  nome?: string;
   motivo: string;
 }
 
@@ -168,22 +207,25 @@ export function registrarReceptorTopdata(
 
     if (!valor) {
       logger.warn({ inner, origem }, "Evento Topdata sem conteúdo lido");
-      return { liberar: false, motivo: "Leitura vazia." } satisfies DecisaoTopdata;
+      return { liberar: false, motivo: "Leitura vazia" } satisfies DecisaoTopdata;
     }
 
-    // Só os dígitos: o teclado devolve o que a pessoa digitou. No teclado vale
-    // só o CPF: os números do equipamento são pequenos e sequenciais, e quem
-    // digitasse "12" entraria como o aluno 12 — a catraca não tem senha para
-    // conferir. Cartão e biometria são o identificador do equipamento.
-    const somenteDigitos = valor.replace(/\D/g, "");
-    const ehCpf = origem === ORIGEM_TOPDATA.TECLADO && somenteDigitos.length === 11;
-    if (origem === ORIGEM_TOPDATA.TECLADO && !ehCpf) {
-      logger.info({ inner }, "Teclado sem CPF: negado sem consultar a nuvem");
-      return { liberar: false, motivo: "Digite o CPF." } satisfies DecisaoTopdata;
+    // A regra de todas as marcas (core/credencial.ts): no teclado só o CPF,
+    // porque os números do equipamento são pequenos e sequenciais e a catraca
+    // não tem senha para conferir; código de barras e QR não identificam
+    // ninguém, pela mesma razão; cartão e biometria são o número do equipamento.
+    const tipoLeitor = corpo.tipo_leitor === undefined || corpo.tipo_leitor === "" ? undefined : Number(corpo.tipo_leitor);
+    const deOnde = origemDaLeitura(origem, Number.isInteger(tipoLeitor) ? tipoLeitor : undefined);
+    const credencial = deOnde ? credencialDaLeitura(deOnde, valor) : null;
+    if (!credencial) {
+      logger.info(
+        { inner, origem, tipoLeitor },
+        deOnde === "teclado"
+          ? "Teclado sem CPF: negado sem consultar a nuvem"
+          : "Leitura que não identifica aluno (código de barras, QR ou origem desconhecida): negado sem consultar a nuvem"
+      );
+      return { liberar: false, motivo: displayDaLeituraRecusada(deOnde ?? "") } satisfies DecisaoTopdata;
     }
-    const credencial = ehCpf
-      ? ({ tipo: "cpf", valor: somenteDigitos } as const)
-      : ({ tipo: "identificador_catraca", valor } as const);
 
     // Leitura nova com um giro ainda aberto no mesmo Inner: o aviso do
     // anterior se perdeu. Fecha como sem confirmação (conta presença) antes
@@ -201,7 +243,7 @@ export function registrarReceptorTopdata(
     // pelo cache durante uma queda de internet se perdia — o mesmo defeito
     // que a Control iD tinha.
     const localId = await gateway.registrarAcessoOffline(
-      ehCpf ? somenteDigitos : `id:${valor}`,
+      credencial.tipo === "cpf" ? credencial.valor : `id:${credencial.valor}`,
       resultado,
       resultado.liberado ? "pendente" : undefined
     );
@@ -212,15 +254,16 @@ export function registrarReceptorTopdata(
       pendentes.set(inner, { logId: resultado.logId, localId, timer });
     }
 
+    // O display é público: a ponte escreve `motivo` nele, então vai a frase
+    // de todas as marcas, e não o texto da nuvem nem o nome do aluno.
     return (
       resultado.liberado
         ? {
             liberar: true,
             sentido: sentidoPorOrigem(origem, leitorDeEntrada),
-            nome: resultado.nomeAluno,
-            motivo: resultado.mensagem,
+            motivo: mensagemDoDisplay(true, resultado.mensagem),
           }
-        : { liberar: false, nome: resultado.nomeAluno, motivo: resultado.mensagem }
+        : { liberar: false, motivo: mensagemDoDisplay(false, resultado.mensagem) }
     ) satisfies DecisaoTopdata;
   });
 

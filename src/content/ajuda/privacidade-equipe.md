@@ -5,7 +5,7 @@ O ARKE guarda dados que a lei protege de forma especial: saúde (anamnese, avali
 - Cada pessoa vê só o que o papel dela exige: a recepção não vê a anamnese; o professor não vê o financeiro.
 - Tudo o que é sensível fica registrado com quem fez e quando.
 - Rascunho de avaliação física some quando a aba do navegador fecha, para não ficar esperando no computador da recepção.
-- Digital só com autorização do próprio aluno, e é apagada da catraca quando ele retira a autorização.
+- Digital só com autorização do próprio aluno, e é apagada da catraca quando ele retira a autorização ou quando a matrícula termina. O display da catraca nunca mostra o nome nem o motivo de quem foi barrado.
 - Inteligência artificial só com a autorização do aluno, por finalidade, processada no Brasil.
 
 ## O que depende de você

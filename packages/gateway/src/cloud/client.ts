@@ -12,11 +12,24 @@ import type {
 
 /** Um acesso decidido na contingência, do jeito que sobe para a nuvem. */
 export type LogOfflineCloud = {
+  /** O id na fila local: é por ele que a nuvem diz o que fez com cada registro. */
+  id_local?: string;
   aluno_id: string | null;
   cpf_consultado: string;
   resultado: string;
   ocorrido_em: string;
   giro?: Giro | "pendente";
+};
+
+/**
+ * O que a nuvem fez com o lote. `aceitos` e `descartados` vêm desde
+ * 06/10/2026; nuvem antiga manda só `inseridos`. O que não aparecer em
+ * nenhuma das listas fica na fila para a próxima tentativa.
+ */
+export type RespostaLogsOffline = {
+  inseridos: number;
+  aceitos?: string[];
+  descartados?: { id_local: string | null; motivo?: string }[];
 };
 
 export type OpcoesSincronizacao = {
@@ -43,9 +56,7 @@ export interface ICloudClient {
   /** Fecha o giro de um acesso liberado online. */
   confirmarGiro?(logId: string, giro: Giro): Promise<{ atualizado: number }>;
   sincronizarAlunos(opcoes?: OpcoesSincronizacao): Promise<RespostaSincronizarAlunosCloud>;
-  sincronizarLogsOffline(
-    logs: LogOfflineCloud[]
-  ): Promise<{ inseridos: number }>;
+  sincronizarLogsOffline(logs: LogOfflineCloud[]): Promise<RespostaLogsOffline>;
 }
 
 export type PedidoCanalComandos = {
@@ -145,15 +156,18 @@ export class CloudClient implements ICloudClient, ICanalComandos {
    * POST /catraca-sincronizar-logs-offline — envia em lote os acessos
    * decididos localmente enquanto a internet estava fora.
    */
-  async sincronizarLogsOffline(
-    logs: LogOfflineCloud[]
-  ): Promise<{ inseridos: number }> {
-    const { data } = await this.http.post<{ inseridos: number; error?: string }>(
+  async sincronizarLogsOffline(logs: LogOfflineCloud[]): Promise<RespostaLogsOffline> {
+    const { data } = await this.http.post<RespostaLogsOffline & { error?: string }>(
       "/catraca-sincronizar-logs-offline",
       { device_token: this.token, logs }
     );
     if (data.error) throw new Error(data.error);
-    return { inseridos: data.inseridos ?? 0 };
+    if (!Array.isArray(data.aceitos)) return { inseridos: data.inseridos ?? 0 };
+    return {
+      inseridos: data.inseridos ?? 0,
+      aceitos: data.aceitos,
+      descartados: Array.isArray(data.descartados) ? data.descartados : [],
+    };
   }
 
   /**

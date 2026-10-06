@@ -394,7 +394,8 @@ namespace Arke.PonteTopdata
             Log.Info("Inner " + Numero + ": leitura origem " + origem + " (" + Texto.ParaLog(origem, valor) + ")");
             int inner = Numero;
             byte c = complemento;
-            _decisao = _consultar(() => _gateway.Evento(inner, origem, c, valor));
+            int tipoLeitor = _cfg.TipoLeitor;
+            _decisao = _consultar(() => _gateway.Evento(inner, origem, c, valor, tipoLeitor));
             IrPara(EstadoInner.AguardandoDecisao);
         }
 
@@ -423,7 +424,7 @@ namespace Arke.PonteTopdata
                 if (_agora() - _inicioEstado > TimeSpan.FromMilliseconds(_ponte.TimeoutGatewayMs + 2000))
                 {
                     Log.Aviso("Inner " + Numero + ": gateway não respondeu a tempo — negando.");
-                    Negar("", "SEM SISTEMA");
+                    Negar("SEM SISTEMA");
                 }
                 return;
             }
@@ -434,7 +435,7 @@ namespace Arke.PonteTopdata
                 // não abre a catraca para quem não deveria passar.
                 string erro = _decisao.Exception != null ? _decisao.Exception.GetBaseException().Message : "resposta vazia";
                 Log.Aviso("Inner " + Numero + ": gateway indisponível (" + erro + ") — negando.");
-                Negar("", "SEM SISTEMA");
+                Negar("SEM SISTEMA");
                 return;
             }
 
@@ -447,15 +448,25 @@ namespace Arke.PonteTopdata
             else
             {
                 Log.Info("Inner " + Numero + ": negado — " + d.Motivo);
-                Negar(Texto.PrimeiroNome(d.Nome), d.Motivo);
+                Negar(d.Motivo);
             }
+        }
+
+        /// <summary>
+        /// O display é público: na liberação, "Bem-vindo!" (a frase que o
+        /// gateway manda) e o sentido; nunca o nome do aluno.
+        /// </summary>
+        public static string DisplayLiberado(Decisao d)
+        {
+            string sentido = d.Sentido ?? "ambos";
+            string rotulo = sentido == "entrada" ? "ENTRADA LIBERADA" : sentido == "saida" ? "SAIDA LIBERADA" : "LIBERADO";
+            return Texto.Linhas(string.IsNullOrEmpty(d.Motivo) ? "Bem-vindo!" : d.Motivo, rotulo);
         }
 
         private void PassoLiberar()
         {
             string sentido = _liberacao.Sentido ?? "ambos";
-            string rotulo = sentido == "entrada" ? "ENTRADA LIBERADA" : sentido == "saida" ? "SAIDA LIBERADA" : "LIBERADO";
-            _dll.EnviarMensagemPadraoOnLine(Numero, 0, Texto.Linhas(Texto.PrimeiroNome(_liberacao.Nome), rotulo));
+            _dll.EnviarMensagemPadraoOnLine(Numero, 0, DisplayLiberado(_liberacao));
 
             byte ret;
             if (sentido == "entrada")
@@ -517,14 +528,19 @@ namespace Arke.PonteTopdata
             int inner = Numero;
             _disparar(() =>
             {
-                try { _gateway.Evento(inner, origem, complemento, ""); }
+                try { _gateway.Evento(inner, origem, complemento, "", _cfg.TipoLeitor); }
                 catch (Exception e) { Log.Aviso("Inner " + inner + ": aviso de giro não chegou ao gateway (" + e.Message + ")."); }
             });
         }
 
-        private void Negar(string linha1, string motivo)
+        /// <summary>
+        /// "ACESSO NEGADO" e a frase curta do gateway, que não diz quem foi
+        /// barrado nem fala de dinheiro. O motivo completo fica nos Últimos
+        /// acessos, para a recepção.
+        /// </summary>
+        private void Negar(string motivo)
         {
-            _dll.EnviarMensagemPadraoOnLine(Numero, 0, Texto.Linhas(string.IsNullOrEmpty(linha1) ? "ACESSO NEGADO" : linha1, motivo));
+            _dll.EnviarMensagemPadraoOnLine(Numero, 0, Texto.Linhas("ACESSO NEGADO", motivo));
             _dll.AcionarBipLongo(Numero);
             IrPara(EstadoInner.AguardarMensagem);
         }

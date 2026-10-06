@@ -27,7 +27,7 @@ Se a digital não sair (o aluno demorou, as três leituras não bateram, ou o de
 
 **Cartão na Toletus e na Intelbras:** o número vem do próprio cartão. Passe o cartão na catraca, veja o número em **Catracas → Últimos acessos** e vincule no campo **Cartão** da ficha. Nessas marcas cada aluno tem um número só: o do cartão ou o da digital. Vincular o cartão a quem tinha digital troca o número, e a digital antiga sai dos leitores sozinha.
 
-Sem gestão remota (por exemplo, Topdata com cartão), o cadastro é feito no próprio equipamento, e a recepção informa na ficha o número que o equipamento deu ao aluno; na Topdata com cartão, o número do cartão.
+Sem gestão remota (por exemplo, Topdata com cartão), o cadastro é feito no próprio equipamento, e a recepção informa na ficha o número que o equipamento deu ao aluno; na Topdata com cartão, o número do cartão. Ao vincular, diga o que o número identifica: **É de cartão** ou **É de digital ou rosto**. Digital e rosto cadastrados no equipamento só se vinculam com a autorização do aluno registrada (app ou termo impresso anexado); sem ela, o ARKE recusa e explica.
 
 ## Cadastrar o rosto
 
@@ -40,9 +40,9 @@ Pelo app, o aluno cadastra o rosto **uma vez**. Para trocar depois, é com a rec
 
 ## Retirar a autorização
 
-O aluno retira pelo app, ou pede na recepção, e a recepção registra na ficha. Ao retirar, o ARKE **apaga a digital e o rosto de todos os equipamentos** sozinho. Onde não há gestão remota, abre uma tarefa **Apagar aluno da catraca (LGPD)** na fila, que só fecha com o desfecho.
+O aluno retira pelo app, ou pede na recepção, e a recepção registra na ficha. Ao retirar, o ARKE **apaga a digital e o rosto de todos os equipamentos** sozinho. Onde não há gestão remota, ou quando a academia não tem catraca cadastrada no ARKE, abre uma tarefa **Apagar aluno da catraca (LGPD)** na fila, que só fecha com o desfecho. A ficha diz o que foi agendado: as catracas que o Gateway vai apagar e a tarefa, quando ela existe.
 
-O mesmo acontece quando o aluno é excluído ou anonimizado.
+O mesmo acontece quando o aluno é excluído ou anonimizado, e quando a **matrícula termina** (a última matrícula do plano é cancelada). Numa troca de plano, cadastre a digital de novo depois da matrícula nova.
 
 > Apagar do equipamento não é opcional: é o que a lei exige quando a autorização acaba. O aluno vê no app a data em que a biometria foi apagada.
 

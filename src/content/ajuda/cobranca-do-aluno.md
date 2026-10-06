@@ -25,7 +25,7 @@ No bloco Plano da Academia, gestor e recepção têm:
 - **Pausar**: a mensalidade para de ser emitida. A do mês que o aluno não vai usar é retirada; a que já venceu continua valendo, porque é de um período usado.
 - **Retomar**: volta a cobrar.
 - **Alterar valor**: vale para a próxima mensalidade e para a que já foi emitida e ainda não venceu.
-- **Cancelar**: encerra a matrícula no plano, com o motivo registrado. As mensalidades em aberto deixam de ser cobráveis, então cobre antes o que houver para receber.
+- **Cancelar**: encerra a matrícula no plano, com o motivo registrado. As mensalidades em aberto deixam de ser cobráveis, então cobre antes o que houver para receber. Sem outra matrícula ativa ou pausada, a catraca deixa de liberar o aluno, e a digital e o rosto dele saem dos equipamentos; numa troca de plano, cadastre de novo depois da matrícula nova.
 
 Ao pausar o aluno (situação **pausado**), o ARKE pergunta se é para pausar também a mensalidade do plano. Desmarque se a academia cobra durante o trancamento.
 

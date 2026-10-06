@@ -34,8 +34,8 @@ export class MockDriver implements CatracaDriver {
     this.emissor.emit("leitura", leitura);
   }
 
-  async liberarAcesso(nomeAluno: string): Promise<void> {
-    logger.info({ driver: this.modelo, nomeAluno }, "Giro liberado (mock)");
+  async liberarAcesso(mensagem: string): Promise<void> {
+    logger.info({ driver: this.modelo, mensagem }, "Giro liberado (mock)");
   }
 
   async negarAcesso(motivo: string): Promise<void> {
