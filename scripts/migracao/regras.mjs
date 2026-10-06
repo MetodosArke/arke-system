@@ -61,6 +61,19 @@ function fimDoComando(mascarado, inicio) {
   return mascarado.length;
 }
 
+/**
+ * O nome como o Postgres guarda: identificador com mais de 63 bytes é
+ * cortado (sem partir um caractere). Uma regra antiga foi apagada pelo nome
+ * já cortado, e sem isto ela pareceria viva.
+ */
+function nomeNoBanco(nome) {
+  const bytes = Buffer.from(nome, "utf8");
+  if (bytes.length <= 63) return nome;
+  let fim = 63;
+  while (fim > 0 && (bytes[fim] & 0xc0) === 0x80) fim--;
+  return bytes.subarray(0, fim).toString("utf8");
+}
+
 const NOME = String.raw`("[^"]+"|[a-z_][a-z0-9_]*)`;
 const TABELA = String.raw`((?:[a-z_][a-z0-9_]*\.)?[a-z_][a-z0-9_]*)`;
 
@@ -79,7 +92,7 @@ export function comandosDeRegra(sql) {
     const fim = fimDoComando(mascarado, re.lastIndex);
     // O nome entre aspas guarda maiúsculas e acentos: lido do original.
     const inicioNome = m.index + m[0].indexOf(m[2]);
-    const nome = original.slice(inicioNome, inicioNome + m[2].length).replace(/^"|"$/g, "");
+    const nome = nomeNoBanco(original.slice(inicioNome, inicioNome + m[2].length).replace(/^"|"$/g, ""));
     const tabela = m[3].includes(".") ? m[3] : `public.${m[3]}`;
     const corpoMasc = minusculo.slice(re.lastIndex, fim);
     const deslocamento = re.lastIndex;

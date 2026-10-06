@@ -25,11 +25,13 @@ Clique no nome de um aluno em [Alunos & Prescrições](/admin/alunos) para abrir
 - **O dinheiro** (plano da academia, mensalidades, cobranças avulsas, endereço da nota e a cobrança do Método) é de quem cobra: a gestão e a recepção. O professor e a nutricionista não veem esses blocos.
 - Se o aluno retirou a autorização dos dados de saúde no app, o bloco da anamnese diz quando, e as respostas não aparecem mais: foram apagadas.
 
+- **O Histórico** segue a mesma regra: cada papel vê na linha do tempo só o que veria no bloco de origem. A recepção vê o check-in sem o comentário e não vê as pendências de dor e de anamnese nem a dieta publicada. Quando o autor de um registro é da ArkeFit, aparece **Equipe ArkeFit**; quando é alguém que saiu da equipe, **Equipe da academia**.
+
 Não é só a tela: o banco aplica a mesma regra, então o que um papel não vê aqui também não chega a ele por outro caminho.
 
 ## Aluno do Método ARKE
 
-No aluno do Método, a ficha mostra o aviso **Acompanhado pelo mentor da ArkeFit**. Treino, dieta, anamnese, metas e fase ficam com o mentor: a academia vê o treino e as metas, mas não os altera, e a dieta e a anamnese não aparecem. Os botões de prescrever somem. O resto da ficha continua com a academia: dados, matrícula, cobrança, catraca, documentos e avaliação física. Veja [Método ARKE](ajuda:metodo-arke-academia).
+No aluno do Método, a ficha mostra o aviso **Acompanhado pelo mentor da ArkeFit**. Treino, dieta, anamnese, metas e fase ficam com o mentor: a academia vê o treino e as metas, mas não os altera, e a dieta e a anamnese não aparecem. Os botões de prescrever somem. No Histórico, a academia não vê os atendimentos do mentor nem a nota que ele escreve ao mudar a fase; vê que a fase mudou. O resto da ficha continua com a academia: dados, matrícula, cobrança, catraca, documentos e avaliação física. Veja [Método ARKE](ajuda:metodo-arke-academia).
 
 ## Observações da equipe
 

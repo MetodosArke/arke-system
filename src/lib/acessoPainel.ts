@@ -37,6 +37,14 @@ export function atendeSaude(c: ContextoPainel): boolean {
   return ehGestao(c) || c.papel === "professor" || c.papel === "nutricionista";
 }
 
+/**
+ * Os tipos de tarefa que falam da saúde do aluno: a pendência de dor e a de
+ * anamnese. Quem não atende a saúde (a recepção) não as vê, nem na ficha nem
+ * no histórico. O histórico do banco (`get_historico_aluno`) usa a mesma
+ * lista, e `historicoDoAluno.guarda.test.ts` falha se as duas divergirem.
+ */
+export const TAREFAS_DE_SAUDE: ReadonlySet<string> = new Set(["dor", "anamnese"]);
+
 type Regra = (c: ContextoPainel) => boolean;
 
 const EQUIPE: Regra = () => true;
