@@ -7,6 +7,17 @@ import { descreverErro, registrarExecucao } from "../_shared/execucao.ts";
 import { todasAsLinhas } from "../_shared/paginar.ts";
 import { pausarAssinatura } from "../asaas-assinatura-ciclo/fluxo.ts";
 import { servir } from "../_shared/servir.ts";
+import { enviarAvisos } from "../_shared/push.ts";
+import { topicoDoId, VALIDADE_SEG } from "../_shared/avisoPush.ts";
+import {
+  chaveDoAviso,
+  chaveDoLote,
+  emailDeAviso,
+  loteDeEmails,
+  pushAoAluno,
+  type AvisoEncerramento,
+  type DestinatarioAluno,
+} from "./fluxo.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -20,10 +31,15 @@ const jsonResponse = (body: unknown, status = 200) =>
 // migration 20261281010000). De hora em hora pelo cron; a ArkeFit também pode
 // chamar "executar agora" pela Visão Master, para o que já venceu.
 //
-//   aviso      → e-mail à gestão da academia e à ArkeFit com as datas;
+//   aviso      → e-mail à gestão da academia e à ArkeFit com as datas; e a
+//                cada aluno (matrícula viva ou Método ativo), e-mail e aviso
+//                no celular com o prazo e o que acontece com os dados dele;
 //   término    → cobranças dos alunos canceladas no Asaas, mensalidade B2B
 //                pausada (a já vencida fica: é dívida, não cobrança futura),
-//                depois o banco marca a organização como encerrada;
+//                depois o banco marca a organização como encerrada e agenda
+//                a remoção das digitais;
+//   janela     → a cada rodada, o banco confere o que da remoção já foi
+//                confirmado (a prova fica no registro do encerramento);
 //   eliminação → arquivo fiscal da ArkeFit, arquivos do storage, contas que
 //                só existiam ali, e por fim a organização.
 //
@@ -139,22 +155,95 @@ async function executarEliminacao(admin: SupabaseClient, enc: Encerramento, inic
   if (erroEliminar) throw new Error(`eliminar: ${erroEliminar.message}`);
 }
 
-function emailDeAviso(e: { organizacao_nome: string; iniciativa: string; termino_em: string; eliminacao_em: string }, siteUrl: string) {
-  const data = (d: string) => `${d.slice(8, 10)}/${d.slice(5, 7)}/${d.slice(0, 4)}`;
-  const quem = e.iniciativa === "academia" ? "a pedido da academia" : "por decisão da ArkeFit";
-  const texto = [
-    `O contrato da ${e.organizacao_nome} com o ARKE termina em ${data(e.termino_em)}, ${quem}.`,
-    "",
-    `Até lá tudo segue funcionando. Em ${data(e.termino_em)}, as cobranças dos alunos pelo ARKE param, as digitais saem das catracas e o painel fica só para exportação.`,
-    `Até ${data(e.eliminacao_em)}, a gestão pode exportar todos os dados da academia em Organização → Exportar todos os dados. Depois disso, os dados são eliminados, como prevê o contrato.`,
-    "",
-    `Para retirar o aviso antes do término, ou tirar dúvidas: ${siteUrl}`,
-  ].join("\n");
-  const html = `<div style="font-family:system-ui,sans-serif;line-height:1.5;color:#111">${texto
-    .split("\n")
-    .map((l) => (l ? `<p style="margin:0 0 12px">${l.replace(/[<>&]/g, "")}</p>` : ""))
-    .join("")}</div>`;
-  return { assunto: `ARKE: encerramento do contrato em ${data(e.termino_em)}`, texto, html };
+type EmCurso = AvisoEncerramento & { id: string; organization_id: string; etapa: "aviso" | "encerrada" };
+
+/**
+ * O aviso a cada aluno, em lotes de até 100 que o banco reserva antes do
+ * envio. Lote que não foi confirmado volta igual na rodada seguinte, com a
+ * mesma chave de idempotência: o Resend devolve o envio anterior em vez de
+ * mandar de novo. O aviso no celular sai depois do e-mail, uma vez por aluno.
+ */
+async function avisarAlunos(
+  admin: SupabaseClient,
+  enc: EmCurso,
+  envio: { resendKey: string; de: string; siteUrl: string },
+  inicio: number,
+): Promise<{ emails: number; pushes: number }> {
+  let emails = 0;
+  let pushes = 0;
+  for (;;) {
+    if (Date.now() - inicio > ORCAMENTO_MS) throw new SemTempo("alunos a avisar; continua na próxima rodada");
+    const { data, error } = await admin.rpc("reservar_aviso_encerramento_alunos", { _encerramento_id: enc.id, _limite: 100 });
+    if (error) throw new Error(`reservar aviso: ${error.code}`);
+    const reservados = (data ?? []) as (DestinatarioAluno & { lote: string })[];
+    if (!reservados.length) return { emails, pushes };
+    const lote = reservados[0].lote;
+
+    const corpo = loteDeEmails(enc, reservados, envio.de, envio.siteUrl);
+    let enviados = corpo.length;
+    if (corpo.length) {
+      const r = await fetch("https://api.resend.com/emails/batch", {
+        signal: AbortSignal.timeout(30_000),
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${envio.resendKey}`,
+          "Idempotency-Key": chaveDoLote(enc.id, lote),
+        },
+        body: JSON.stringify(corpo),
+      });
+      // Só o status vai para log: a resposta do Resend ecoa os endereços.
+      if (r.status === 400 || r.status === 422) {
+        // Lote recusado pelo conteúdo: repetir daria o mesmo erro e travaria
+        // os lotes seguintes. Fica como tentado, sem contar como avisado.
+        console.error("encerramento: Resend recusou o lote de alunos", r.status);
+        enviados = 0;
+      } else if (!r.ok) {
+        throw new Error(`Resend recusou o lote HTTP ${r.status}`);
+      }
+    }
+    const { error: erroEmail } = await admin.rpc("confirmar_aviso_encerramento_alunos", {
+      _encerramento_id: enc.id,
+      _lote: lote,
+      _canal: "email",
+      _enviados: enviados,
+    });
+    if (erroEmail) throw new Error(`confirmar aviso: ${erroEmail.code}`);
+    emails += enviados;
+
+    const ids = reservados.map((d) => d.user_id);
+    const { data: inscricoes, error: erroInscricoes } = await admin
+      .from("push_subscriptions")
+      .select("user_id, endpoint, p256dh, auth")
+      .in("user_id", ids);
+    if (erroInscricoes) throw new Error(`inscrições: ${erroInscricoes.code}`);
+    const porUsuario = new Map<string, { endpoint: string; p256dh: string; auth: string }[]>();
+    for (const s of (inscricoes ?? []) as { user_id: string; endpoint: string; p256dh: string; auth: string }[]) {
+      porUsuario.set(s.user_id, [...(porUsuario.get(s.user_id) ?? []), s]);
+    }
+    const aviso = { ...pushAoAluno(enc), tag: `encerramento:${enc.organization_id}` };
+    const alcancados: string[] = [];
+    const usuarios = [...porUsuario];
+    // Dez alunos ao mesmo tempo; cada envio tem o próprio prazo (push.ts).
+    for (let i = 0; i < usuarios.length; i += 10) {
+      await Promise.all(
+        usuarios.slice(i, i + 10).map(async ([userId, lista]) => {
+          const res = await enviarAvisos(admin, lista, aviso, { validadeSeg: VALIDADE_SEG.encerramento, topico: topicoDoId(enc.id) });
+          if (res.enviados > 0) alcancados.push(userId);
+        }),
+      );
+    }
+    if (alcancados.length) {
+      const { error: erroPush } = await admin.rpc("confirmar_aviso_encerramento_alunos", {
+        _encerramento_id: enc.id,
+        _lote: lote,
+        _canal: "push",
+        _user_ids: alcancados,
+      });
+      if (erroPush) console.error("encerramento: push enviado, mas não registrado", erroPush.code);
+      pushes += alcancados.length;
+    }
+  }
 }
 
 servir("encerramento-organizacao", async (req: Request) => {
@@ -186,15 +275,25 @@ servir("encerramento-organizacao", async (req: Request) => {
   }
 
   const inicio = Date.now();
-  const resultado = { avisos: 0, terminos: 0, eliminacoes: 0, pendentes: 0, falhas: 0 };
+  const resultado = {
+    avisos: 0,
+    terminos: 0,
+    eliminacoes: 0,
+    pendentes: 0,
+    falhas: 0,
+    alunos_avisados: 0,
+    alunos_avisados_no_celular: 0,
+  };
   try {
-    // 1. Avisos ainda sem e-mail.
-    const { data: avisos } = await admin
+    // 1. Avisos ainda sem e-mail à gestão e à ArkeFit. A chave de
+    // idempotência segura o e-mail repetido quando o registro do envio falha.
+    const { data: avisos, error: erroAvisos } = await admin
       .from("organizacao_encerramentos")
       .select("id, organization_id, organizacao_nome, iniciativa, termino_em, eliminacao_em")
       .eq("etapa", "aviso")
       .is("email_enviado_em", null)
       .order("solicitado_em");
+    if (erroAvisos) throw new Error(`avisos: ${erroAvisos.code}`);
     for (const a of avisos ?? []) {
       if (!resendKey) break;
       const [{ data: gestores }, { data: arke }] = await Promise.all([
@@ -204,11 +303,11 @@ servir("encerramento-organizacao", async (req: Request) => {
       const emails = [...((gestores ?? []) as { email: string }[]), ...((arke ?? []) as { email: string }[])].map((d) => d.email);
       const para = [...new Set(emails)].filter(Boolean);
       if (!para.length) continue;
-      const m = emailDeAviso(a as never, siteUrl);
+      const m = emailDeAviso(a as AvisoEncerramento, siteUrl);
       const r = await fetch("https://api.resend.com/emails", {
         signal: AbortSignal.timeout(15_000),
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${resendKey}` },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${resendKey}`, "Idempotency-Key": chaveDoAviso(a.id) },
         body: JSON.stringify({
           from: Deno.env.get("EMAIL_ALERTAS_FROM") ?? "ArkeFit <alertas@arkefit.com.br>",
           to: para,
@@ -223,7 +322,15 @@ servir("encerramento-organizacao", async (req: Request) => {
         resultado.falhas++;
         continue;
       }
-      await admin.from("organizacao_encerramentos").update({ email_enviado_em: new Date().toISOString() }).eq("id", a.id);
+      const { error: erroMarca } = await admin
+        .from("organizacao_encerramentos")
+        .update({ email_enviado_em: new Date().toISOString() })
+        .eq("id", a.id);
+      if (erroMarca) {
+        console.error("encerramento: aviso enviado, mas não registrado", erroMarca.code);
+        resultado.falhas++;
+        continue;
+      }
       resultado.avisos++;
     }
 
@@ -251,6 +358,45 @@ servir("encerramento-organizacao", async (req: Request) => {
         resultado.falhas++;
         console.error("encerramento: falhou", enc.proxima, descreverErro(e));
         await admin.rpc("registrar_falha_encerramento", { _encerramento_id: enc.id, _erro: descreverErro(e) });
+      }
+    }
+
+    // 3. A prova da remoção das digitais, conferida a cada rodada enquanto a
+    // academia está na janela de exportação. Sem dado pessoal: só contagens.
+    const { error: erroConferir } = await admin.rpc("conferir_remocoes_encerramentos");
+    if (erroConferir) {
+      console.error("encerramento: conferência da remoção falhou", erroConferir.code);
+      resultado.falhas++;
+    }
+
+    // 4. O aviso aos alunos, com o tempo que sobrou: o aviso tem 30 dias, e
+    // uma academia grande termina nas rodadas seguintes.
+    const { data: emCurso, error: erroEmCurso } = await admin
+      .from("organizacao_encerramentos")
+      .select("id, organization_id, organizacao_nome, iniciativa, etapa, termino_em, eliminacao_em")
+      .in("etapa", ["aviso", "encerrada"])
+      .not("organization_id", "is", null)
+      .order("solicitado_em");
+    if (erroEmCurso) throw new Error(`encerramentos em curso: ${erroEmCurso.code}`);
+    for (const enc of (emCurso ?? []) as EmCurso[]) {
+      if (!resendKey) break;
+      try {
+        const r = await avisarAlunos(
+          admin,
+          enc,
+          { resendKey, de: Deno.env.get("EMAIL_ACESSO_FROM") ?? "ArkeFit <acesso@arkefit.com.br>", siteUrl },
+          inicio,
+        );
+        resultado.alunos_avisados += r.emails;
+        resultado.alunos_avisados_no_celular += r.pushes;
+      } catch (e) {
+        if (e instanceof SemTempo) {
+          resultado.pendentes++;
+          break;
+        }
+        resultado.falhas++;
+        console.error("encerramento: aviso aos alunos falhou", descreverErro(e));
+        await admin.rpc("registrar_falha_encerramento", { _encerramento_id: enc.id, _erro: `aviso aos alunos: ${descreverErro(e)}` });
       }
     }
 

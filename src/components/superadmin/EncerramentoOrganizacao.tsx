@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { avisarEncerramento, dataCurta, executarEncerramentosAgora, retirarEncerramento } from "@/lib/encerramento";
+import { avisarEncerramento, dataCurta, executarEncerramentosAgora, resumoRemocao, retirarEncerramento } from "@/lib/encerramento";
 import { hojeBrasilia } from "@/lib/dataBrasilia";
 
 const ETAPA: Record<string, string> = {
@@ -35,7 +35,9 @@ export function EncerramentoOrganizacao({ organizationId, status }: { organizati
     queryFn: async () => {
       const { data, error } = await supabase
         .from("organizacao_encerramentos")
-        .select("id, etapa, iniciativa, motivo, solicitado_em, termino_em, eliminacao_em, cobrancas_canceladas, remocoes_agendadas, erro, tentativas, email_enviado_em")
+        .select(
+          "id, etapa, iniciativa, motivo, solicitado_em, termino_em, eliminacao_em, cobrancas_canceladas, remocoes_agendadas, erro, tentativas, email_enviado_em, alunos_avisados, alunos_avisados_push, remocoes_alunos, remocoes_remotas_confirmadas, remocoes_manuais, remocoes_manuais_confirmadas, remocoes_conferidas_em"
+        )
         .eq("organization_id", organizationId)
         .order("solicitado_em", { ascending: false })
         .limit(10);
@@ -98,10 +100,22 @@ export function EncerramentoOrganizacao({ organizationId, status }: { organizati
           </p>
           <p className="text-xs">Motivo: {emCurso.motivo}</p>
           {emCurso.etapa === "encerrada" && (
+            <p className="text-xs text-muted-foreground">{emCurso.cobrancas_canceladas ?? 0} cobrança(s) cancelada(s)</p>
+          )}
+          {emCurso.etapa === "encerrada" && (
             <p className="text-xs text-muted-foreground">
-              {emCurso.cobrancas_canceladas ?? 0} cobrança(s) cancelada(s) · {emCurso.remocoes_agendadas ?? 0} remoção(ões) de digital agendada(s)
+              Remoção das digitais: {resumoRemocao(emCurso).texto}
+              {emCurso.remocoes_conferidas_em ? ` (conferido em ${dataCurta(emCurso.remocoes_conferidas_em)})` : ""}
             </p>
           )}
+          {emCurso.etapa === "encerrada" && resumoRemocao(emCurso).pendentes > 0 && (
+            <p className="text-xs text-amber-700 dark:text-amber-300">
+              {resumoRemocao(emCurso).pendentes} remoção(ões) à mão sem desfecho: a gestão fecha cada uma na tela do encerramento. Na eliminação, o placar fica neste registro.
+            </p>
+          )}
+          <p className="text-xs text-muted-foreground">
+            Alunos avisados: {emCurso.alunos_avisados ?? 0} por e-mail, {emCurso.alunos_avisados_push ?? 0} também no celular.
+          </p>
           {!emCurso.email_enviado_em && emCurso.etapa === "aviso" && <p className="text-xs text-muted-foreground">E-mail do aviso sai na próxima rodada.</p>}
           {emCurso.erro && (
             <p className="text-xs text-destructive">
