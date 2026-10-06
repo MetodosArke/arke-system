@@ -3,6 +3,7 @@ import { descreverErro, registrarExecucao } from "../_shared/execucao.ts";
 import { topicoDoId, VALIDADE_SEG } from "../_shared/avisoPush.ts";
 import { enviarAvisos } from "../_shared/push.ts";
 import { servir } from "../_shared/servir.ts";
+import { linkDoApp } from "../_shared/linkDoApp.ts";
 
 const NOME = "briefing-semanal";
 
@@ -102,8 +103,13 @@ servir("briefing-semanal", async (req: Request) => {
   try {
     const resendKey = Deno.env.get("RESEND_API_KEY");
     const vapidPrivateKey = Deno.env.get("VAPID_PRIVATE_KEY");
-    const appUrl = Deno.env.get("APP_URL") ?? "https://arkefit.com.br";
-    const urlRelatorio = `${appUrl}/admin/relatorio-semanal`;
+    // O endereço do app, o mesmo dos outros e-mails (SITE_URL, em
+    // docs/INFRAESTRUTURA.md), com o `#` do HashRouter: sem ele, o link
+    // caía na raiz do app em vez de abrir o relatório. Até 06/10/2026 a
+    // função lia um APP_URL que não estava documentado, e o padrão era o site
+    // de vendas.
+    const RELATORIO = "/#/admin/relatorio-semanal";
+    const urlRelatorio = linkDoApp(Deno.env.get("SITE_URL"), RELATORIO);
 
     const { data: alvos, error: erroAlvos } = await admin.rpc("organizacoes_para_briefing");
     if (erroAlvos) {
@@ -176,7 +182,7 @@ servir("briefing-semanal", async (req: Request) => {
             {
               title: "Seu resumo da semana saiu",
               body: `${b.alunos_ativos} alunos ativos · ${b.em_risco} em risco sendo tratados pelo Mentor`,
-              url: "/admin/relatorio-semanal",
+              url: RELATORIO,
               // Um por academia: quem é gestor de duas recebe os dois.
               tag: `resumo:${alvo.organization_id}`,
             },

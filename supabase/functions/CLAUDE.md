@@ -18,6 +18,7 @@ Funções em Deno, publicadas no projeto `lzyxqjibkfblrrjboylp`. O repositório 
 - **O supabase-js não lança erro: ele devolve o erro.** Confira o `error` de toda leitura e gravação. No webhook do Asaas, tudo passa por `exigir()`; gravação que falha deixa o aviso sem processar.
 - **Log leva só status HTTP e código de erro.** Nunca o corpo, que pode trazer número de cartão, dado de saúde, prompt ou resposta de IA.
 - Falha nossa e pedido inválido são respostas diferentes: com o banco fora do ar, a resposta não diz "link expirado".
+- **Link de tela do app** em e-mail ou aviso vai com o `#` do HashRouter: `linkDoApp(SITE_URL, rota)` (`_shared/linkDoApp.ts`). Variável de ambiente nova entra em `docs/INFRAESTRUTURA.md` no mesmo PR. `linksDoApp.guarda.test.ts` cobra as duas.
 
 ## Quem chama
 
@@ -43,4 +44,4 @@ Funções em Deno, publicadas no projeto `lzyxqjibkfblrrjboylp`. O repositório 
 ## Asaas e envios
 
 - **Idempotência:** confira o banco antes do gateway, e procure pela `externalReference` (`metodo:`, `plano:`, `b2b:`, `avulsa:`, `nfse:`) antes de criar. Mensagem e e-mail são reservados no banco antes do envio.
-- E-mail que uma rotina pode mandar de novo (os agentes) vai ao Resend com chave de idempotência. A função chamada por cron autentica com o token do Vault e registra o desfecho por `_shared/execucao.ts`; sem isso, o alerta de rotinas não vê a função que falha com o cron em dia.
+- E-mail que uma rotina pode mandar de novo (os agentes, os avisos) vai ao Resend com chave de idempotência. A função chamada por cron autentica com o token do Vault e registra o desfecho por `_shared/execucao.ts`; sem isso, o alerta de rotinas não vê a função que falha com o cron em dia.

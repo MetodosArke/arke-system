@@ -320,12 +320,14 @@ function CadastrarMembroDialog({
   onSuccess: () => void;
 }) {
   const { toast } = useToast();
+  const { organization } = useAuth();
   const [form, setForm] = useState<CadastroForm>(CADASTRO_INICIAL);
   const [credenciais, setCredenciais] = useState<CredenciaisGeradas | null>(null);
 
   const cadastrar = useMutation({
     mutationFn: async () => {
       if (!form.papel) throw new Error("Selecione o papel do funcionário.");
+      if (!organization) throw new Error("Nenhuma organização vinculada.");
       const { data, error } = await supabase.functions.invoke<{ user_id: string; senha_temporaria: string }>(
         "cadastrar-membro-equipe",
         {
@@ -335,6 +337,8 @@ function CadastrarMembroDialog({
             telefone: form.telefone,
             cpf: form.cpf,
             papel: form.papel,
+            // A unidade escolhida no seletor: o servidor confere que você é gestor dela.
+            organization_id: organization.id,
           },
         }
       );

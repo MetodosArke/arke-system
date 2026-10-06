@@ -1,5 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { servir } from "../_shared/servir.ts";
+import { academiaDoCadastro } from "./fluxo.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -22,6 +23,8 @@ type CadastrarMembroPayload = {
   telefone?: string;
   cpf?: string;
   papel: Papel;
+  /** A academia escolhida na tela (a unidade do seletor do cabeçalho). */
+  organization_id?: string;
 };
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -82,7 +85,7 @@ servir("cadastrar-membro-equipe", async (req: Request) => {
   const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 
   if (!supabaseUrl || !anonKey || !serviceRoleKey) {
-    console.error("Missing required Supabase environment variables");
+    console.error("cadastrar-membro-equipe: configuração incompleta");
     return jsonResponse({ error: "Configuração do servidor incompleta." }, 500);
   }
 
@@ -123,32 +126,27 @@ servir("cadastrar-membro-equipe", async (req: Request) => {
 
     const adminClient = createClient(supabaseUrl, serviceRoleKey);
 
-    // A organização do novo membro sai do vínculo do chamador, então com
-    // dois vínculos a escolha é genuinamente ambígua — diferente de
-    // anonimizar/excluir, onde a organização do alvo já é conhecida. Aqui
-    // vale a regra de desempate já estabelecida em escolherVinculo():
-    // vínculo de gestor mais antigo. Antes, um .maybeSingle() sobre todos
-    // os vínculos fazia a consulta falhar e devolver 403 a quem é gestor
-    // de uma academia e aluno de outra.
+    // A academia do novo membro é a que a tela manda (a unidade escolhida no
+    // seletor), e quem chama tem de ser gestor ativo dela. Antes valia o
+    // vínculo de gestor mais antigo, e o gestor de duas unidades cadastrava
+    // na unidade errada. Filtra por usuário e papel, sem .maybeSingle(): quem
+    // é gestor de uma academia e aluno de outra não quebra.
     const { data: vinculosGestor, error: callerMembershipError } = await adminClient
       .from("organization_members")
-      .select("organization_id, role, created_at")
+      .select("organization_id")
       .eq("user_id", callerId)
       .eq("status", "active")
-      .eq("role", "gestor")
-      .order("created_at", { ascending: true })
-      .limit(1);
-
-    const callerMembership = vinculosGestor?.[0] ?? null;
-
+      .eq("role", "gestor");
     if (callerMembershipError) {
-      console.error("Error loading caller membership", callerMembershipError);
+      console.error("cadastrar-membro-equipe: falha ao ler os vínculos", callerMembershipError.code);
       return jsonResponse({ error: "Erro ao validar permissões." }, 500);
     }
-    if (!callerMembership || callerMembership.role !== "gestor") {
-      return jsonResponse({ error: "Apenas o gestor da organização pode cadastrar a equipe." }, 403);
-    }
-    const organizationId = callerMembership.organization_id;
+    const escolha = academiaDoCadastro(
+      payload.organization_id,
+      (vinculosGestor ?? []).map((v) => v.organization_id as string),
+    );
+    if (!escolha.ok) return jsonResponse({ error: escolha.erro }, escolha.status);
+    const organizationId = escolha.organizationId;
 
     const senhaTemporaria = gerarSenhaTemporaria();
 
@@ -160,7 +158,8 @@ servir("cadastrar-membro-equipe", async (req: Request) => {
     });
 
     if (createError || !created.user) {
-      console.error("Error creating user", createError);
+      // Só o status e o código: a mensagem do Auth pode trazer o e-mail.
+      console.error("cadastrar-membro-equipe: falha ao criar a conta", createError?.status, createError?.code);
       const alreadyExists = createError?.message?.toLowerCase().includes("already been registered");
       return jsonResponse(
         {
@@ -175,7 +174,9 @@ servir("cadastrar-membro-equipe", async (req: Request) => {
     const newUserId = created.user.id;
 
     const rollback = async () => {
-      await adminClient.auth.admin.deleteUser(newUserId).catch((e) => console.error("rollback deleteUser", e));
+      await adminClient.auth.admin
+        .deleteUser(newUserId)
+        .catch((e) => console.error("cadastrar-membro-equipe: falha ao desfazer a conta", e instanceof Error ? e.name : typeof e));
     };
 
     const { error: profileError } = await adminClient
@@ -185,7 +186,7 @@ servir("cadastrar-membro-equipe", async (req: Request) => {
         { onConflict: "user_id" }
       );
     if (profileError) {
-      console.error("Error upserting profile", profileError);
+      console.error("cadastrar-membro-equipe: falha no perfil", profileError.code);
       await rollback();
       return jsonResponse({ error: "Erro ao preparar o perfil do usuário." }, 500);
     }
@@ -194,14 +195,14 @@ servir("cadastrar-membro-equipe", async (req: Request) => {
       .from("organization_members")
       .insert({ organization_id: organizationId, user_id: newUserId, role: papel, status: "active" });
     if (membershipError) {
-      console.error("Error inserting organization_members", membershipError);
+      console.error("cadastrar-membro-equipe: falha no vínculo", membershipError.code);
       await rollback();
       return jsonResponse({ error: "Erro ao vincular o usuário à organização." }, 500);
     }
 
     return jsonResponse({ user_id: newUserId, senha_temporaria: senhaTemporaria });
   } catch (error) {
-    console.error("Unexpected error in cadastrar-membro-equipe", error);
+    console.error("cadastrar-membro-equipe: erro inesperado", error instanceof Error ? error.name : typeof error);
     return jsonResponse({ error: "Erro inesperado ao cadastrar o funcionário." }, 500);
   }
 });
