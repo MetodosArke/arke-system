@@ -49,7 +49,8 @@ describe("a nota fiscal confere a carteira antes de emitir", () => {
   it("nfse-emitir confere a carteira, e só para nota nova", () => {
     const funcao = readFileSync(join(RAIZ, "supabase", "functions", "nfse-emitir", "index.ts"), "utf8");
     expect(funcao).toMatch(/impedimentoEmissao = impedimentoDaCarteira\(carteira, /);
-    expect(funcao).toMatch(/select\("status, asaas_wallet_id"\)/);
+    // A carteira de hoje (e, desde 06/10/2026, o modo da cobrança na conta da academia).
+    expect(funcao).toMatch(/select\("status, asaas_wallet_id[^"]*"\)/);
   });
 
   it("a tela fiscal também confere, e pede a chave da conta nova", () => {

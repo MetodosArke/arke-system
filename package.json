@@ -25,6 +25,7 @@
     "sandbox:implantacao": "node scripts/asaas-sandbox-implantacao.mjs",
     "sandbox:b2b-valor": "node scripts/asaas-sandbox-b2b-valor.mjs",
     "sandbox:anonimizar": "node scripts/asaas-sandbox-anonimizar.mjs",
+    "sandbox:conta-academia": "node scripts/asaas-sandbox-conta-academia.mjs",
     "simulado:vigia": "node scripts/vigia-simulado.mjs",
     "avaliar:ia": "node scripts/avaliar-ia.mjs",
     "demo:recriar": "node scripts/demonstracao/academia.mjs recriar",

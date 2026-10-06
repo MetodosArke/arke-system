@@ -44,12 +44,37 @@ describe("webhook do Asaas", () => {
     // A versão antiga pulava a trava quando não achava organização.
     expect(codigo).not.toMatch(/if \(statusOrg !== null\)/);
     // As consultas que descobrem a organização conferem o erro.
-    const consulta = codigo.slice(codigo.indexOf("const statusDasOrganizacoesDoAviso"), codigo.indexOf("  try {\n    // Sem payment.id"));
+    const consulta = codigo.slice(codigo.indexOf("const alcanceDoAviso"), codigo.indexOf("  try {\n    // Sem payment.id"));
+    expect(consulta.length).toBeGreaterThan(500);
     expect(consulta.match(/admin\.from\(/g)?.length).toBe(consulta.match(/exigir\(admin\.from\(/g)?.length);
     // E alcançam a cobrança que já existe no banco com aquele id de pagamento.
     for (const tabela of ["cobrancas_b2b", "cobrancas_avulsas", "mensalidades", "pagamentos"]) {
-      expect(consulta).toContain(`exigir(admin.from("${tabela}").select("organization_id").eq("asaas_payment_id", asaasPaymentId))`);
+      expect(consulta).toMatch(new RegExp(`exigir\\(admin\\.from\\("${tabela}"\\)\\.select\\("organization_id[^"]*"\\)\\.eq\\("asaas_payment_id", asaasPaymentId\\)\\)`));
     }
+  });
+
+  // Cobrança na conta da academia (06/10/2026): o aviso vem da conta dela, em
+  // `asaas-webhook?org=<id>`, com o token dela.
+  it("com ?org=, só vale o token daquela academia, conferido pelo hash, e não o segredo da ArkeFit", () => {
+    const ramoDaAcademia = codigo.slice(codigo.indexOf("  if (orgDoToken) {\n    if (tokenRecebido)"), codigo.indexOf("  } else {\n    origemEvento = !tokenRecebido"));
+    expect(ramoDaAcademia.length, "o ramo da academia existe").toBeGreaterThan(200);
+    expect(ramoDaAcademia).toMatch(/from\("asaas_webhook_academia"\)/);
+    expect(ramoDaAcademia).toMatch(/iguaisEmTempoConstante\(await hashDoTokenWebhook\(tokenRecebido\), String\(registro\.token_hash\)\)/);
+    expect(ramoDaAcademia, "o segredo da ArkeFit não abre o webhook da academia").not.toMatch(/webhookSecret/);
+    // `org` que não é UUID é recusa, e não "sem org" (que cairia nos segredos da ArkeFit).
+    expect(codigo).toMatch(/if \("invalido" in endereco\) \{\n\s+return jsonResponse\(\{ error: "Assinatura do webhook inválida." \}, 401\);/);
+  });
+
+  it("o aviso da conta da academia que não é do ARKE não é gravado, e o que é passa pelo escopo antes de tudo", () => {
+    const naoGrava = codigo.indexOf("if (orgDoToken && !referenciaDaContaDaAcademia(");
+    expect(naoGrava, "a cobrança que a academia fez por fora não entra").toBeGreaterThan(0);
+    expect(naoGrava).toBeLessThan(codigo.indexOf('.from("asaas_webhook_events")\n    .upsert('));
+    const escopo = processamento.indexOf("escopoDoAvisoDaAcademia({");
+    expect(escopo, "o escopo está no processamento").toBeGreaterThan(0);
+    expect(escopo).toBeLessThan(processamento.indexOf("ambienteDoAviso(origemEvento"));
+    expect(escopo).toBeLessThan(processamento.search(/\.(update|upsert|insert)\(/));
+    // O escopo sabe do Método, do B2B e da conta de cada cobrança.
+    expect(processamento).toMatch(/tocaB2b: alcance\.tocaB2b,\n\s+tocaMetodo: alcance\.tocaMetodo,\n\s+contasDasCobrancas: alcance\.contas,/);
   });
 
   it("a assinatura só muda de status a partir de ativa ou atrasada", () => {

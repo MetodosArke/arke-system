@@ -74,6 +74,8 @@ const FICAM: Record<string, string> = {
     "registro do pedido ao responsável e da resposta dele, que prova o caminho do consentimento; com o aluno anonimizado, o link para de valer",
   asaas_saida_pendente:
     "a pendência de anonimizar o cadastro no Asaas quando ele falhou na saída; sem dado pessoal, e sai quando a rotina conclui",
+  asaas_clientes_academia:
+    "só o id do cliente na conta Asaas da academia (cobrança na conta da academia), sem dado pessoal; liga as cobranças pagas a quem pagou, e o cadastro de lá é anonimizado pela saída no Asaas",
 };
 
 describe("saída do aluno", () => {
