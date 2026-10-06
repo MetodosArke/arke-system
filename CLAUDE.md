@@ -45,7 +45,7 @@ O ArkeFit (ARKE) é uma plataforma SaaS para academias, studios e profissionais 
   - Aluno inadimplente: 5 dias de tolerância. O pausado sai na hora. A catraca segue `situacao_permite_app()`.
   - A ArkeFit nunca é bloqueada.
 - **CPF obrigatório em toda matrícula** (gatilho em `alunos`). A equipe não precisa de CPF.
-- **Aluno menor de idade:** data de nascimento obrigatória na matrícula (na importação, sem ela a idade fica desconhecida). Para o menor, e para a idade desconhecida, saúde, biometria e IA só liberam com o aceite do responsável pelo link do e-mail, um por propósito; a trava é por gatilho (`exigir_liberacao_consentimento`), e o aceite libera o aluno a consentir, não consente por ele.
+- **Aluno menor de idade:** data de nascimento obrigatória na matrícula (na importação, sem ela a idade fica desconhecida). Para o menor, saúde, biometria e IA só liberam com o aceite do responsável pelo link do e-mail, um por propósito; sem a data, ficam travadas até ela ser informada. A trava é por gatilho (`exigir_liberacao_consentimento`), e o aceite libera o aluno a consentir, não consente por ele.
 - **A responsabilidade fiscal segue o split:** a nota da academia sai no CNPJ dela, pelo líquido dela.
 - **Resultado não é promessa:** no site, número de mercado só com fonte citada; número próprio só "observado", com período e método.
 - **WhatsApp fica fora do produto.** O aviso sai por push e e-mail.
