@@ -309,7 +309,6 @@ describe("a matrícula pública só com o e-mail provado (pré-sequestro de cont
       `u.raw_app_meta_data ->> 'origem' = 'matricula_publica'`,
       "u.email_confirmed_at is null",
       "u.last_sign_in_at is null",
-      "coalesce(u.encrypted_password, '') = ''",
       "u.created_at < now() - interval '7 days'",
       "a.identificador_catraca is null",
       "from storage.objects so",
@@ -317,6 +316,9 @@ describe("a matrícula pública só com o e-mail provado (pré-sequestro de cont
     ]) {
       expect(rotina, condicao).toContain(condicao);
     }
+    // O Auth grava o hash de uma senha aleatória na conta criada sem senha: a
+    // senha vazia nunca casa, e a rotina não apagaria nenhuma (20261404).
+    expect(rotina).not.toContain("encrypted_password");
     // Falta de permissão aparece como falha da rotina, e não como zero apagadas.
     expect(rotina).toMatch(/when insufficient_privilege then\s+raise;/);
     // O que aponta para o aluno vem do catálogo, e não de uma lista à mão.
