@@ -41,8 +41,8 @@ const corDoScore = (score: number) =>
   score < LIMITE_RISCO
     ? "text-destructive"
     : score < LIMITE_ATENCAO
-      ? "text-amber-600 dark:text-amber-400"
-      : "text-emerald-600 dark:text-emerald-400";
+      ? "text-warning"
+      : "text-success";
 
 function BarraPilar({
   label,

@@ -95,7 +95,7 @@ servir("editar-membro-equipe", async (req: Request) => {
       .select("role")
       .eq("user_id", callerId);
     if (callerRolesError) {
-      console.error("Error loading caller roles", callerRolesError);
+      console.error("Error loading caller roles", resumoDoErro(callerRolesError));
       return jsonResponse({ error: "Erro ao validar permissões." }, 500);
     }
     const callerIsAdminArke = verificada(claimsData?.claims) && (callerRoles ?? []).some((r) => r.role === "admin_arke");
@@ -116,7 +116,7 @@ servir("editar-membro-equipe", async (req: Request) => {
         .eq("status", "active")
         .maybeSingle();
       if (callerMembershipError) {
-        console.error("Error loading caller membership", callerMembershipError);
+        console.error("Error loading caller membership", resumoDoErro(callerMembershipError));
         return jsonResponse({ error: "Erro ao validar permissões." }, 500);
       }
       autorizado = callerMembership?.role === "gestor";
@@ -133,7 +133,7 @@ servir("editar-membro-equipe", async (req: Request) => {
       .eq("status", "active")
       .maybeSingle();
     if (targetMembershipError) {
-      console.error("Error loading target membership", targetMembershipError);
+      console.error("Error loading target membership", resumoDoErro(targetMembershipError));
       return jsonResponse({ error: "Erro ao validar o membro." }, 500);
     }
     if (!targetMembership) {
@@ -176,6 +176,32 @@ servir("editar-membro-equipe", async (req: Request) => {
           jaExiste ? 409 : 400
         );
       }
+
+      // A troca fica na auditoria: quem trocou, de quem, o papel e se foi a
+      // ArkeFit — sem o e-mail (nem o novo nem o antigo): a trilha não tem
+      // prazo, e o e-mail já mora na conta. O banco tira e-mail de todo
+      // registro de troca de e-mail, por qualquer caminho (20261401010000).
+      // Esta função roda com a service role, então nenhum gatilho saberia
+      // quem agiu: o registro sai daqui. Falha de auditoria não desfaz a troca
+      // já feita, mas não passa em silêncio.
+      const { data: organizacao } = await adminClient
+        .from("organizations")
+        .select("nome")
+        .eq("id", organizationId)
+        .maybeSingle();
+      const { error: auditoriaError } = await adminClient.rpc("registrar_auditoria", {
+        _ator_user_id: callerId,
+        _acao: "equipe.email_alterado",
+        _entidade: "auth.users",
+        _entidade_id: targetUserId,
+        _organizacao_nome: organizacao?.nome ?? null,
+        _detalhes: {
+          mudou: "e-mail de login",
+          papel_alvo: targetMembership.role,
+          pela_arkefit: callerIsAdminArke,
+        },
+      });
+      if (auditoriaError) console.error("Falha ao registrar auditoria", "equipe.email_alterado", resumoDoErro(auditoriaError));
     }
 
     if (fullName) {

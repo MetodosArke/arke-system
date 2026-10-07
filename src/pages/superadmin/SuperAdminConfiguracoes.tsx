@@ -15,6 +15,7 @@ import { Database, Settings } from "lucide-react";
 import { useCapacidadeBanco } from "@/lib/rotinas";
 import type { Tables } from "@/integrations/supabase/types";
 import { decimal, lerReais } from "@/lib/numeros";
+import { ErroAoCarregar } from "@/components/ErroAoCarregar";
 
 type ConfigRow = Tables<"plataforma_config">;
 
@@ -27,7 +28,13 @@ export default function SuperAdminConfiguracoes() {
   const [valores, setValores] = useState<Record<string, string>>({});
   const { data: capacidade } = useCapacidadeBanco();
 
-  const { data: config = [], isLoading } = useQuery({
+  const {
+    data: config = [],
+    isLoading,
+    error: erroConfig,
+    refetch: recarregarConfig,
+    isFetching: recarregandoConfig,
+  } = useQuery({
     queryKey: ["plataforma-config"],
     queryFn: async () => {
       const { data, error } = await supabase.from("plataforma_config").select("*").in("chave", CHAVES);
@@ -90,7 +97,11 @@ export default function SuperAdminConfiguracoes() {
         </CardHeader>
         <CardContent className="space-y-3">
           {isLoading && <p className="text-sm text-muted-foreground">Carregando...</p>}
-          {!isLoading && (
+          {/* Sem a leitura, os campos viriam vazios e o "Atual" diria "—": parece configuração zerada. */}
+          {erroConfig && (
+            <ErroAoCarregar oQue="a configuração" onTentarDeNovo={() => void recarregarConfig()} tentando={recarregandoConfig} />
+          )}
+          {!isLoading && !erroConfig && (
             <>
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">

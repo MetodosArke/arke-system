@@ -84,7 +84,7 @@ export function ResponsavelLegalAluno({ alunoId }: { alunoId: string }) {
             {idade !== null ? ` (${idade} anos)` : ""}
           </span>
         ) : (
-          <span className="text-amber-700 dark:text-amber-400">Data de nascimento não informada.</span>
+          <span className="text-warning">Data de nascimento não informada.</span>
         )}
         {menor.situacao === "menor" && <Badge variant="outline">Menor de idade</Badge>}
         {podeEditar && !editando && (

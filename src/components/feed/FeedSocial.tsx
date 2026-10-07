@@ -1,7 +1,8 @@
 import { useMemo, useRef, useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useInfiniteQuery, useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { todasAsLinhas } from "@/lib/paginar";
+import { porLotes, todasAsLinhas } from "@/lib/paginar";
+import { depoisDoCursor, proximoCursor, type CursorFeed } from "@/lib/cursorFeed";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent } from "@/components/ui/card";
@@ -48,30 +49,44 @@ export function FeedSocial({ podeModerarTudo }: { podeModerarTudo: boolean }) {
   const [imagemArquivo, setImagemArquivo] = useState<File | null>(null);
   const [imagemPreview, setImagemPreview] = useState<string | null>(null);
   const [enviandoPost, setEnviandoPost] = useState(false);
-  const [limite, setLimite] = useState(PAGE_SIZE);
   const [comentariosAbertos, setComentariosAbertos] = useState<Record<string, boolean>>({});
   const [novoComentario, setNovoComentario] = useState<Record<string, string>>({});
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Páginas de 15 por cursor (a data e o id do último post da página), e não
+  // um limite que cresce a cada "Carregar mais": o limite passava do teto de
+  // mil linhas da API, que corta sem avisar, e o feed parava em silêncio.
   const {
-    data: posts = [],
+    data: paginas,
     isLoading,
     error: erroPosts,
     refetch: recarregarPosts,
     isFetching: recarregandoPosts,
-  } = useQuery({
-    queryKey: ["feed-posts", organization?.id, limite],
-    queryFn: async () => {
-      const { data, error } = await supabase
+    fetchNextPage: carregarMais,
+    hasNextPage: temMais,
+    isFetchingNextPage: carregandoMais,
+    isFetchNextPageError: erroAoCarregarMais,
+  } = useInfiniteQuery({
+    queryKey: ["feed-posts", organization?.id],
+    initialPageParam: null as CursorFeed | null,
+    queryFn: async ({ pageParam }) => {
+      let consulta = supabase
         .from("feed_posts")
         .select("*")
+        .eq("organization_id", organization!.id);
+      if (pageParam) consulta = consulta.or(depoisDoCursor(pageParam));
+      const { data, error } = await consulta
         .order("created_at", { ascending: false })
-        .limit(limite);
+        .order("id", { ascending: false })
+        .limit(PAGE_SIZE);
       if (error) throw error;
       return data as FeedPost[];
     },
+    getNextPageParam: (ultima) => proximoCursor(ultima, PAGE_SIZE),
     enabled: !!organization?.id,
   });
+  const posts = useMemo(() => paginas?.pages.flat() ?? [], [paginas]);
+  const idsDosPosts = useMemo(() => posts.map((p) => p.id), [posts]);
 
   const { data: perfis = [] } = useQuery({
     queryKey: ["feed-perfis", organization?.id],
@@ -82,30 +97,34 @@ export function FeedSocial({ podeModerarTudo }: { podeModerarTudo: boolean }) {
   });
   const perfilPorUserId = useMemo(() => new Map(perfis.map((p) => [p.user_id, p as Perfil])), [perfis]);
 
+  // As curtidas e os comentários dos posts carregados: os ids em lotes de 200
+  // e cada lote em páginas de mil, porque os posts crescem a cada página.
   const { data: likes = [] } = useQuery({
-    queryKey: ["feed-likes", posts.map((p) => p.id).join(",")],
+    queryKey: ["feed-likes", idsDosPosts.join(",")],
     queryFn: async () => {
-      if (posts.length === 0) return [];
-      const { data, error } = await supabase.from("feed_likes").select("post_id, user_id").in("post_id", posts.map((p) => p.id));
-      if (error) throw error;
-      return data;
+      if (idsDosPosts.length === 0) return [];
+      return porLotes(idsDosPosts, (lote) =>
+        todasAsLinhas((de, ate) =>
+          supabase.from("feed_likes").select("post_id, user_id").in("post_id", lote).order("post_id").order("user_id").range(de, ate),
+        ),
+      );
     },
-    enabled: posts.length > 0,
+    enabled: idsDosPosts.length > 0,
   });
 
   const { data: comentarios = [] } = useQuery({
-    queryKey: ["feed-comments", posts.map((p) => p.id).join(",")],
+    queryKey: ["feed-comments", idsDosPosts.join(",")],
     queryFn: async () => {
-      if (posts.length === 0) return [];
-      const { data, error } = await supabase
-        .from("feed_comments")
-        .select("*")
-        .in("post_id", posts.map((p) => p.id))
-        .order("created_at", { ascending: true });
-      if (error) throw error;
-      return data as FeedComment[];
+      if (idsDosPosts.length === 0) return [];
+      const linhas = await porLotes(idsDosPosts, (lote) =>
+        todasAsLinhas((de, ate) =>
+          supabase.from("feed_comments").select("*").in("post_id", lote).order("created_at", { ascending: true }).order("id").range(de, ate),
+        ),
+      );
+      // Entre lotes a ordem se perde: o comentário mais antigo primeiro.
+      return (linhas as FeedComment[]).sort((a, b) => a.created_at.localeCompare(b.created_at));
     },
-    enabled: posts.length > 0,
+    enabled: idsDosPosts.length > 0,
   });
 
   const likesPorPost = useMemo(() => {
@@ -380,9 +399,14 @@ export function FeedSocial({ podeModerarTudo }: { podeModerarTudo: boolean }) {
         );
       })}
 
-      {posts.length >= limite && (
-        <Button variant="outline" className="w-full" onClick={() => setLimite((l) => l + PAGE_SIZE)}>
-          Carregar mais
+      {erroAoCarregarMais && (
+        <Card>
+          <ErroAoCarregar oQue="os posts mais antigos" onTentarDeNovo={() => void carregarMais()} tentando={carregandoMais} />
+        </Card>
+      )}
+      {temMais && !erroAoCarregarMais && (
+        <Button variant="outline" className="w-full" disabled={carregandoMais} onClick={() => void carregarMais()}>
+          {carregandoMais ? <Loader2 className="h-4 w-4 animate-spin" aria-label="Carregando" /> : "Carregar mais"}
         </Button>
       )}
     </div>

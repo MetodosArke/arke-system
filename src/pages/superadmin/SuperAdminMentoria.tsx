@@ -13,6 +13,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ROTULO_PLANO, type PlanoAluno } from "@/lib/planoAluno";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { ErroAoCarregar } from "@/components/ErroAoCarregar";
 
 /**
  * Fila de mentoria da ArkeFit — onde o mentor atende os alunos do Método.
@@ -41,7 +42,13 @@ export default function SuperAdminMentoria() {
   const [aberto, setAberto] = useState<ItemFila | null>(null);
 
   // A fila responde por quem pergunta: a chave leva a pessoa.
-  const { data: fila = [], isLoading } = useQuery({
+  const {
+    data: fila = [],
+    isLoading,
+    error: erroFila,
+    refetch: recarregarFila,
+    isFetching: recarregandoFila,
+  } = useQuery({
     queryKey: ["fila-mentor", user?.id ?? null],
     queryFn: async () => {
       const { data, error } = await supabase.rpc("get_superadmin_fila_mentor");
@@ -86,6 +93,10 @@ export default function SuperAdminMentoria() {
         <div className="flex justify-center py-10">
           <div role="status" aria-label="Carregando" className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
         </div>
+      ) : erroFila && fila.length === 0 ? (
+        <Card>
+          <ErroAoCarregar oQue="as conversas de mentoria" onTentarDeNovo={() => void recarregarFila()} tentando={recarregandoFila} />
+        </Card>
       ) : fila.length === 0 ? (
         <Card>
           <CardContent className="py-10 text-center space-y-2">
@@ -166,7 +177,12 @@ export default function SuperAdminMentoria() {
  * nome.
  */
 function ChatMentorDaFila({ item }: { item: ItemFila }) {
-  const { data: orgId } = useQuery({
+  const {
+    data: orgId,
+    error: erroOrg,
+    refetch: recarregarOrg,
+    isFetching: recarregandoOrg,
+  } = useQuery({
     queryKey: ["mentor-org-do-aluno", item.aluno_id],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -180,6 +196,9 @@ function ChatMentorDaFila({ item }: { item: ItemFila }) {
     },
   });
 
+  if (erroOrg && !orgId) {
+    return <ErroAoCarregar oQue="a conversa" onTentarDeNovo={() => void recarregarOrg()} tentando={recarregandoOrg} />;
+  }
   if (!orgId) {
     return <p className="text-sm text-muted-foreground py-10 text-center">Carregando conversa...</p>;
   }

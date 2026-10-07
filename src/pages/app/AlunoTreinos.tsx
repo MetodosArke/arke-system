@@ -322,7 +322,7 @@ export default function AlunoTreinos() {
       {treino && !carregandoSequencia && (
         <>
           {treinoConcluidoHoje && (
-            <div className="flex items-center gap-2 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-700 dark:text-emerald-400 px-3 py-2 text-sm font-medium">
+            <div className="flex items-center gap-2 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-success px-3 py-2 text-sm font-medium">
               <CheckCircle2 className="h-4 w-4" />
               Treino de hoje já concluído — bom trabalho!
             </div>

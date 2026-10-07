@@ -86,14 +86,14 @@ const MODALITY_EMOJI: Record<string, string> = { Natação: "🏊", Ciclismo: "�
 // sempre cai na mesma cor, então o aluno reconhece o padrão de olho no mês
 // inteiro (ex.: todo treino de Yoga sempre laranja).
 const MODALITY_CHIP_COLORS = [
-  "bg-blue-500/20 text-blue-700 dark:text-blue-300",
-  "bg-emerald-500/20 text-emerald-700 dark:text-emerald-300",
-  "bg-amber-500/20 text-amber-700 dark:text-amber-300",
-  "bg-purple-500/20 text-purple-700 dark:text-purple-300",
-  "bg-pink-500/20 text-pink-700 dark:text-pink-300",
-  "bg-cyan-500/20 text-cyan-700 dark:text-cyan-300",
-  "bg-orange-500/20 text-orange-700 dark:text-orange-300",
-  "bg-red-500/20 text-red-700 dark:text-red-300",
+  "bg-blue-500/20 text-foreground",
+  "bg-emerald-500/20 text-foreground",
+  "bg-amber-500/20 text-foreground",
+  "bg-purple-500/20 text-foreground",
+  "bg-pink-500/20 text-foreground",
+  "bg-cyan-500/20 text-foreground",
+  "bg-orange-500/20 text-foreground",
+  "bg-red-500/20 text-foreground",
 ];
 const MODALITY_DOT_COLORS = [
   "bg-blue-500",
@@ -420,7 +420,7 @@ export default function CalendarioTreinos() {
                 </>
               ) : (
                 <>
-                  <span className={cn("font-bold text-2xl tabular-nums", metaBatida ? "text-green-600" : "text-primary")}>
+                  <span className={cn("font-bold text-2xl tabular-nums", metaBatida ? "text-success" : "text-primary")}>
                     {weekDaysWithWorkouts}/{metaSemanalDias}
                   </span>
                   <span className="text-xs text-muted-foreground">dias</span>

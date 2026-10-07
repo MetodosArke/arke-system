@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AlertTriangle, Gauge, Timer, Users } from "lucide-react";
+import { ErroAoCarregar } from "@/components/ErroAoCarregar";
 
 /**
  * Como a célula de Mentor está indo — para quem responde por ela.
@@ -73,7 +74,13 @@ function Indicador({
 export function OperacaoMentor() {
   const [dias, setDias] = useState(30);
 
-  const { data: op, isLoading } = useQuery({
+  const {
+    data: op,
+    isLoading,
+    error: erroOp,
+    refetch: recarregarOp,
+    isFetching: recarregandoOp,
+  } = useQuery({
     queryKey: ["operacao-mentor", dias],
     queryFn: async () => {
       const { data, error } = await supabase.rpc("get_operacao_mentor", { _dias: dias });
@@ -82,7 +89,13 @@ export function OperacaoMentor() {
     },
   });
 
-  const { data: carga = [] } = useQuery({
+  const {
+    data: carga = [],
+    isLoading: carregandoCarga,
+    error: erroCarga,
+    refetch: recarregarCarga,
+    isFetching: recarregandoCarga,
+  } = useQuery({
     queryKey: ["carga-mentores", dias],
     queryFn: async () => {
       const { data, error } = await supabase.rpc("get_carga_mentores", { _dias: dias });
@@ -118,6 +131,10 @@ export function OperacaoMentor() {
             className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent"
           />
         </div>
+      ) : erroOp && !op ? (
+        <Card>
+          <ErroAoCarregar oQue="a operação da célula" onTentarDeNovo={() => void recarregarOp()} tentando={recarregandoOp} />
+        </Card>
       ) : !op ? (
         <Card>
           <CardContent className="py-8 text-center text-sm text-muted-foreground">
@@ -197,7 +214,11 @@ export function OperacaoMentor() {
               </p>
             </CardHeader>
             <CardContent>
-              {carga.length === 0 ? (
+              {erroCarga ? (
+                <ErroAoCarregar oQue="a carga por mentor" onTentarDeNovo={() => void recarregarCarga()} tentando={recarregandoCarga} />
+              ) : carregandoCarga ? (
+                <p className="py-4 text-sm text-muted-foreground">Carregando...</p>
+              ) : carga.length === 0 ? (
                 <p className="py-4 text-sm text-muted-foreground">
                   Nenhum chamado com responsável registrado ainda.
                 </p>

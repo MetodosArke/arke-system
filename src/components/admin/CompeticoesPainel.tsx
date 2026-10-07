@@ -20,6 +20,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Plus, Trash2, Pencil, Users, Crown } from "lucide-react";
 import type { Tables } from "@/integrations/supabase/types";
 import { decimal } from "@/lib/numeros";
+import { ErroAoCarregar } from "@/components/ErroAoCarregar";
 
 type Competicao = Tables<"competicoes">;
 type Metrica = Tables<"competicoes">["metrica"];
@@ -59,7 +60,13 @@ const FORM_INICIAL: FormState = {
 };
 
 function RankingCompeticao({ competicaoId }: { competicaoId: string }) {
-  const { data: ranking = [] } = useQuery({
+  const {
+    data: ranking = [],
+    isLoading,
+    error: erroRanking,
+    refetch: recarregarRanking,
+    isFetching: recarregandoRanking,
+  } = useQuery({
     queryKey: ["ranking-competicao", competicaoId],
     queryFn: async () => {
       const { data, error } = await supabase.rpc("obter_ranking_competicao", { p_competicao_id: competicaoId });
@@ -68,6 +75,12 @@ function RankingCompeticao({ competicaoId }: { competicaoId: string }) {
     },
   });
 
+  if (erroRanking) {
+    return (
+      <ErroAoCarregar oQue="o ranking" onTentarDeNovo={() => void recarregarRanking()} tentando={recarregandoRanking} className="p-3" />
+    );
+  }
+  if (isLoading) return <p className="text-xs text-muted-foreground">Carregando o ranking...</p>;
   if (ranking.length === 0) return <p className="text-xs text-muted-foreground">Sem dados ainda.</p>;
 
   return (
@@ -96,7 +109,13 @@ export function CompeticoesPainel() {
   const [form, setForm] = useState<FormState>(FORM_INICIAL);
   const [excluir, setExcluir] = useState<Competicao | null>(null);
 
-  const { data: competicoes = [], isLoading } = useQuery({
+  const {
+    data: competicoes = [],
+    isLoading,
+    error: erroCompeticoes,
+    refetch: recarregarCompeticoes,
+    isFetching: recarregandoCompeticoes,
+  } = useQuery({
     queryKey: ["admin-competicoes", organization?.id],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -244,7 +263,12 @@ export function CompeticoesPainel() {
       </div>
 
       {isLoading && <p className="text-sm text-muted-foreground">Carregando...</p>}
-      {!isLoading && competicoes.length === 0 && (
+      {erroCompeticoes && (
+        <Card>
+          <ErroAoCarregar oQue="as competições" onTentarDeNovo={() => void recarregarCompeticoes()} tentando={recarregandoCompeticoes} />
+        </Card>
+      )}
+      {!isLoading && !erroCompeticoes && competicoes.length === 0 && (
         <Card>
           <CardContent className="py-8 text-center text-sm text-muted-foreground">Nenhuma competição ainda.</CardContent>
         </Card>

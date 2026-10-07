@@ -7,6 +7,11 @@ import { useToast } from "@/hooks/use-toast";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
+import { ErroAoCarregar } from "@/components/ErroAoCarregar";
+
+// Fora do componente: o `= []` literal mudava a cada render e, como o efeito
+// abaixo depende da lista, carregar ou falhar virava um laço de renders.
+const SEM_PLANOS: never[] = [];
 
 const PERIODO: Record<string, string> = { mensal: "Mensal", trimestral: "Trimestral", semestral: "Semestral", anual: "Anual" };
 
@@ -21,7 +26,13 @@ export function EtapaPlanos({ onSalvo }: { onSalvo: () => void }) {
   const queryClient = useQueryClient();
   const [valores, setValores] = useState<Record<string, string>>({});
 
-  const { data: planos = [] } = useQuery({
+  const {
+    data: planos = SEM_PLANOS,
+    isLoading,
+    error: erroPlanos,
+    refetch: recarregarPlanos,
+    isFetching: recarregandoPlanos,
+  } = useQuery({
     queryKey: ["onboarding-planos", organization?.id],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -55,7 +66,12 @@ export function EtapaPlanos({ onSalvo }: { onSalvo: () => void }) {
   return (
     <div className="space-y-2">
       <p className="text-xs text-muted-foreground">Confira o valor e ligue os planos que a academia vende. Outros planos: Organização → Planos da Academia.</p>
-      {planos.length === 0 && <p className="text-sm text-muted-foreground">Nenhum plano ainda. Crie em Organização → Planos da Academia.</p>}
+      {erroPlanos && (
+        <ErroAoCarregar oQue="os planos" onTentarDeNovo={() => void recarregarPlanos()} tentando={recarregandoPlanos} className="p-3" />
+      )}
+      {!isLoading && !erroPlanos && planos.length === 0 && (
+        <p className="text-sm text-muted-foreground">Nenhum plano ainda. Crie em Organização → Planos da Academia.</p>
+      )}
       <ul className="divide-y rounded-md border">
         {planos.map((p) => (
           <li key={p.id} className="flex items-center gap-3 px-3 py-2">

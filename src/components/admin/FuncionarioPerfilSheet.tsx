@@ -16,6 +16,7 @@ import { Phone, ClipboardList, AlertTriangle, Dumbbell, UtensilsCrossed, Ruler, 
 import { Bloco, formatarData } from "@/components/admin/perfilSheetHelpers";
 import { AlunoPerfilSheet } from "@/components/admin/AlunoPerfilSheet";
 import { useToast } from "@/hooks/use-toast";
+import { ErroAoCarregar } from "@/components/ErroAoCarregar";
 
 const PAPEL_LABEL: Record<string, string> = {
   gestor: "Gestor",
@@ -105,21 +106,20 @@ export function FuncionarioPerfilSheet({
   const [novoInicio, setNovoInicio] = useState("08:00");
   const [novoFim, setNovoFim] = useState("17:00");
 
-  const { data: perfil, isLoading } = useQuery({
+  const {
+    data: perfil,
+    isLoading,
+    error: erroPerfil,
+    refetch: recarregarPerfil,
+    isFetching: recarregandoPerfil,
+  } = useQuery({
     queryKey: ["funcionario-perfil", membro?.user_id, organization?.id],
     queryFn: async () => {
       const userId = membro!.user_id;
       const organizationId = organization!.id;
       const ha30dias = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
 
-      const [
-        { data: profile },
-        { data: tarefasAbertas },
-        { data: treinosRecentes },
-        { data: dietasRecentes },
-        { data: avaliacoesRecentes },
-        { data: tarefasResolvidas },
-      ] = await Promise.all([
+      const partes = await Promise.all([
         supabase.from("profiles").select("phone, cpf").eq("user_id", userId).maybeSingle(),
         supabase
           .from("tarefas")
@@ -159,6 +159,18 @@ export function FuncionarioPerfilSheet({
           .order("updated_at", { ascending: false })
           .limit(8),
       ]);
+      // Uma parte que falha derruba a ficha: senão a falha virava "nenhuma
+      // pendência" ou "sem atividade". O que o RLS esconde volta vazio, sem erro.
+      const falhou = partes.find((p) => p.error)?.error;
+      if (falhou) throw falhou;
+      const [
+        { data: profile },
+        { data: tarefasAbertas },
+        { data: treinosRecentes },
+        { data: dietasRecentes },
+        { data: avaliacoesRecentes },
+        { data: tarefasResolvidas },
+      ] = partes;
 
       const alunoIds = Array.from(
         new Set(
@@ -217,7 +229,13 @@ export function FuncionarioPerfilSheet({
     enabled: !!membro && !!organization?.id,
   });
 
-  const { data: horarios = [] } = useQuery({
+  const {
+    data: horarios = [],
+    isLoading: carregandoHorarios,
+    error: erroHorarios,
+    refetch: recarregarHorarios,
+    isFetching: recarregandoHorarios,
+  } = useQuery({
     queryKey: ["staff-horarios", membro?.user_id, organization?.id],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -267,6 +285,9 @@ export function FuncionarioPerfilSheet({
     <Sheet open={!!membro} onOpenChange={onOpenChange}>
       <SheetContent className="w-full sm:max-w-md overflow-y-auto">
         {isLoading && <p className="text-sm text-muted-foreground">Carregando perfil...</p>}
+        {erroPerfil && !perfil && (
+          <ErroAoCarregar oQue="o perfil" onTentarDeNovo={() => void recarregarPerfil()} tentando={recarregandoPerfil} />
+        )}
         {membro && perfil && (
           <>
             <SheetHeader className="text-left space-y-2">
@@ -324,7 +345,16 @@ export function FuncionarioPerfilSheet({
               </Bloco>
 
               <Bloco titulo="Horários / Escala" icon={CalendarClock}>
-                {horarios.length === 0 ? (
+                {erroHorarios ? (
+                  <ErroAoCarregar
+                    oQue="os horários"
+                    onTentarDeNovo={() => void recarregarHorarios()}
+                    tentando={recarregandoHorarios}
+                    className="p-3"
+                  />
+                ) : carregandoHorarios ? (
+                  <p className="text-sm text-muted-foreground">Carregando...</p>
+                ) : horarios.length === 0 ? (
                   <p className="text-sm text-muted-foreground">Nenhum horário cadastrado.</p>
                 ) : (
                   <ul className="space-y-1">

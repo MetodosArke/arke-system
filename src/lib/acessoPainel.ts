@@ -40,8 +40,11 @@ export function atendeSaude(c: ContextoPainel): boolean {
 /**
  * Os tipos de tarefa que falam da saúde do aluno: a pendência de dor e a de
  * anamnese. Quem não atende a saúde (a recepção) não as vê, nem na ficha nem
- * no histórico. O histórico do banco (`get_historico_aluno`) usa a mesma
- * lista, e `historicoDoAluno.guarda.test.ts` falha se as duas divergirem.
+ * no histórico, nem pela API: o RLS de `tarefas` esconde as duas da recepção
+ * (`tarefa_de_saude()`, 20261398010000). O histórico do banco
+ * (`get_historico_aluno`) e o RLS usam a mesma lista, e
+ * `historicoDoAluno.guarda.test.ts` e `tarefasPorDono.guarda.test.ts` falham
+ * se divergirem.
  */
 export const TAREFAS_DE_SAUDE: ReadonlySet<string> = new Set(["dor", "anamnese"]);
 

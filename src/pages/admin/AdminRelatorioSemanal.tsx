@@ -196,7 +196,7 @@ function Indicador({
         {variacao !== null && variacao !== undefined && variacao !== 0 && (
           <span
             className={`flex items-center text-xs ${
-              variacao > 0 ? "text-emerald-600 dark:text-emerald-400" : "text-destructive"
+              variacao > 0 ? "text-success" : "text-destructive"
             }`}
           >
             {variacao > 0 ? <ArrowUpRight className="h-3.5 w-3.5" /> : <ArrowDownRight className="h-3.5 w-3.5" />}

@@ -673,7 +673,7 @@ export default function AdminImportarAlunos() {
               </div>
             ))}
             {!mapeamentoValido && (
-              <p className="text-xs text-amber-600 dark:text-amber-400">
+              <p className="text-xs text-warning">
                 Mapeie pelo menos Nome e E-mail para prosseguir.
               </p>
             )}
@@ -733,7 +733,7 @@ export default function AdminImportarAlunos() {
                         <Badge variant="default" className="gap-1"><CheckCircle2 className="h-3 w-3" /> OK</Badge>
                       )}
                       {r.status === "sucesso" && r.mensagem && (
-                        <Badge variant="outline" className="gap-1 text-amber-600 dark:text-amber-400" title={r.mensagem}>
+                        <Badge variant="outline" className="gap-1 text-warning" title={r.mensagem}>
                           <CheckCircle2 className="h-3 w-3" /> Importado, com aviso
                         </Badge>
                       )}

@@ -41,16 +41,16 @@ import { decimal } from "@/lib/numeros";
 import { formatarDataBR } from "@/lib/dataBrasilia";
 
 const TOM = {
-  ok: "text-emerald-700 dark:text-emerald-400",
-  atencao: "text-amber-700 dark:text-amber-400",
+  ok: "text-success",
+  atencao: "text-warning",
   problema: "text-destructive",
   neutro: "text-muted-foreground",
 } as const;
 
 const TOM_CLASSE: Record<string, string> = {
-  sozinho: "border-emerald-600/40 text-emerald-700 dark:text-emerald-400",
-  aprovacao: "border-amber-600/40 text-amber-700 dark:text-amber-400",
-  humano: "border-sky-600/40 text-sky-700 dark:text-sky-400",
+  sozinho: "border-emerald-600/40 text-success",
+  aprovacao: "border-amber-600/40 text-warning",
+  humano: "border-sky-600/40 text-foreground",
   recusada: "border-destructive/40 text-destructive",
 };
 

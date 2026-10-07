@@ -39,7 +39,7 @@ export default function PontuacaoEngajamento() {
       <CardContent className="space-y-3">
         <div className="flex items-center justify-between">
           <span className="text-2xl font-bold text-primary">{propria}/100</span>
-          <span className={`text-xs font-medium ${diferenca >= 0 ? "text-emerald-600" : "text-muted-foreground"}`}>
+          <span className={`text-xs font-medium ${diferenca >= 0 ? "text-success" : "text-muted-foreground"}`}>
             {diferenca >= 0 ? `+${diferenca}` : diferenca} vs. média da academia ({Math.round(media)})
           </span>
         </div>

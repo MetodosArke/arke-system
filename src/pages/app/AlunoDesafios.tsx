@@ -197,7 +197,7 @@ export default function AlunoDesafios() {
         </Card>
         <Card>
           <CardContent className="p-3 text-center">
-            <p className="text-lg font-bold text-emerald-600">{encerrados.length}</p>
+            <p className="text-lg font-bold text-success">{encerrados.length}</p>
             <p className="text-[10px] text-muted-foreground">Encerrados</p>
           </CardContent>
         </Card>

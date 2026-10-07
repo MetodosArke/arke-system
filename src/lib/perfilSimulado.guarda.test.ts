@@ -86,15 +86,46 @@ describe("perfil simulado", () => {
     const detalhes = registro.slice(0, registro.indexOf("});"));
     expect(detalhes, "o registro da troca foi achado").toMatch(/mudou: "e-mail de login"/);
     expect(detalhes).not.toMatch(/novo_?email|email_novo|novoEmail/i);
-    // E o banco tira o e-mail de todo registro dessa ação, por qualquer caminho.
+    // E o banco tira o e-mail de todo registro de troca de e-mail, por
+    // qualquer caminho: vale a definição VIGENTE do gatilho (a última).
     const pasta = join(__dirname, "..", "..", "supabase", "migrations");
-    const migrations = readdirSync(pasta)
+    const textos = readdirSync(pasta)
       .filter((f) => f.endsWith(".sql"))
-      .map((f) => readFileSync(join(pasta, f), "utf8"))
-      .join("\n");
+      .sort()
+      .map((f) => readFileSync(join(pasta, f), "utf8"));
+    const migrations = textos.join("\n");
     expect(migrations).toMatch(
       /create trigger trg_auditoria_troca_de_email_sem_email\s+before insert or update of detalhes on public\.auditoria_acoes_sensiveis/,
     );
-    expect(migrations).toMatch(/if new\.acao = 'gestor\.email_alterado' then[\s\S]*?where d\.chave not ilike '%email%'/);
+    const definicoes = [...migrations.matchAll(/create or replace function public\.auditoria_troca_de_email_sem_email\(\)[\s\S]*?\n\$\$;/g)];
+    const vigente = definicoes.at(-1)?.[0] ?? "";
+    expect(vigente, "a definição do gatilho foi achada").not.toBe("");
+    expect(vigente).toMatch(/where d\.chave not ilike '%email%'/);
+    // A condição alcança as duas ações de troca de e-mail de login.
+    const condicao = vigente.match(/if (new\.acao [^\n]*) then/)?.[1] ?? "";
+    const alcanca = (acao: string) =>
+      condicao === `new.acao = '${acao}'` ||
+      new RegExp(`'${acao.replace(".", "\\.")}'`).test(condicao) ||
+      (/like '%\.email\\_alterado'/.test(condicao) && acao.endsWith(".email_alterado"));
+    for (const acao of ["gestor.email_alterado", "equipe.email_alterado"]) expect(alcanca(acao), `${acao}: ${condicao}`).toBe(true);
+  });
+
+  it("a troca do e-mail de login de alguém da equipe pela gestão vai para a trilha, sem o e-mail", () => {
+    // Auditoria de prontidão, 06/10/2026 (20261401010000): `editar-membro-equipe`
+    // trocava o e-mail de login sem deixar registro.
+    const funcao = readFileSync(join(FUNCOES, "editar-membro-equipe", "index.ts"), "utf8");
+    const troca = funcao.indexOf("updateUserById(targetUserId");
+    expect(troca, "a troca do e-mail foi achada").toBeGreaterThan(0);
+    const depois = funcao.slice(troca);
+    const registro = depois.slice(depois.indexOf('"registrar_auditoria"'));
+    expect(depois.indexOf('"registrar_auditoria"'), "o registro sai depois da troca").toBeGreaterThan(0);
+    const chamada = registro.slice(0, registro.indexOf("});"));
+    expect(chamada).toMatch(/_acao: "equipe\.email_alterado"/);
+    expect(chamada).toMatch(/_ator_user_id: callerId/);
+    expect(chamada).toMatch(/_entidade_id: targetUserId/);
+    // Nem a variável `email` nem `novo_email`: `equipe.email_alterado` não casa (o `_` emenda a palavra).
+    expect(chamada, "o e-mail não vai para a trilha").not.toMatch(/\b(novo_?)?email\b/i);
+    // O registro fica dentro do `if (email)`, antes de o nome e o papel mudarem.
+    expect(depois.indexOf('"registrar_auditoria"')).toBeLessThan(depois.indexOf("if (fullName)"));
   });
 });

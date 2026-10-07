@@ -46,7 +46,7 @@ export function OrganizacaoBillingGate({ children }: { children: React.ReactNode
       limite.setDate(limite.getDate() + 8);
       return (
         <>
-          <div role="status" className="bg-amber-500/15 text-amber-900 dark:text-amber-200 text-xs text-center px-3 py-2">
+          <div role="status" className="bg-amber-500/15 text-warning text-xs text-center px-3 py-2">
             Mensalidade do ARKE em aberto. O painel da equipe é suspenso em {limite.toLocaleDateString("pt-BR")} se não houver
             pagamento.{" "}
             {bloqueio.invoice_url && (

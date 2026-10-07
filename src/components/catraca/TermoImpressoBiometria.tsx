@@ -97,7 +97,7 @@ export function TermoImpressoBiometria({
           : "Imprima, peça ao aluno para ler e assinar, e anexe o termo assinado (foto ou PDF). É ele quem autoriza — o arquivo é a prova."}
       </p>
       {liberacao === "informar_data" && (
-        <p className="text-xs text-amber-700 dark:text-amber-400">
+        <p className="text-xs text-warning">
           Sem a data de nascimento do aluno, não dá para saber se a autorização depende do responsável legal. Informe a
           data em Dados, acima, antes de registrar.
         </p>
@@ -110,7 +110,7 @@ export function TermoImpressoBiometria({
       )}
       {liberacao === "pedir_responsavel" && (
         <div className="space-y-2 rounded-md bg-amber-500/5 p-2">
-          <p className="text-xs text-amber-700 dark:text-amber-400">
+          <p className="text-xs text-warning">
             Aluno menor de 18 anos: a autorização só vale depois do aceite do responsável legal, pelo link enviado ao
             e-mail dele (LGPD, art. 14). Envie daqui:
           </p>

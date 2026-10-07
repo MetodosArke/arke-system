@@ -191,14 +191,14 @@ function SituacaoDoAvanco({ alunoId }: { alunoId: string }) {
 
   if (data.motivo) {
     return (
-      <p className="rounded-md border border-amber-500/40 bg-amber-500/5 p-2 text-xs text-amber-700 dark:text-amber-400">
+      <p className="rounded-md border border-amber-500/40 bg-amber-500/5 p-2 text-xs text-warning">
         {MOTIVO_ROTULO[data.motivo] ?? `Avanço suspenso (${data.motivo}).`}
       </p>
     );
   }
   if (data.elegivel) {
     return (
-      <p className="rounded-md border border-emerald-500/40 bg-emerald-500/5 p-2 text-xs text-emerald-700 dark:text-emerald-400">
+      <p className="rounded-md border border-emerald-500/40 bg-emerald-500/5 p-2 text-xs text-success">
         Critérios cumpridos para {rotuloFase(data.elegivel)} — a varredura da madrugada move sozinha.
       </p>
     );

@@ -54,7 +54,7 @@ function VariacaoBadge({ atual, anterior }: { atual: number; anterior: number | 
   }
   const variacao = ((atual - anterior) / anterior) * 100;
   const Icon = variacao > 0 ? TrendingUp : variacao < 0 ? TrendingDown : Minus;
-  const cor = variacao > 0 ? "text-emerald-600" : variacao < 0 ? "text-destructive" : "text-muted-foreground";
+  const cor = variacao > 0 ? "text-success" : variacao < 0 ? "text-destructive" : "text-muted-foreground";
   return (
     <span className={`text-xs font-medium flex items-center gap-1 ${cor}`}>
       <Icon className="h-3 w-3" />

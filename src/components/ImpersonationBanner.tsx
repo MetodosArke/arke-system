@@ -31,7 +31,7 @@ export function ImpersonationBanner() {
   };
 
   return (
-    <div className="sticky top-0 z-50 flex items-center justify-between gap-3 bg-amber-500 px-4 py-2 text-sm font-medium text-amber-950 no-print">
+    <div className="sticky top-0 z-50 flex items-center justify-between gap-3 bg-amber-500 px-4 py-2 text-sm font-medium text-black no-print">
       <span className="flex items-center gap-2">
         <UserCog className="h-4 w-4 shrink-0" />
         Modo simulação: visualizando como {backup.impersonating_email}
@@ -39,7 +39,7 @@ export function ImpersonationBanner() {
       <Button
         size="sm"
         variant="secondary"
-        className="h-7 shrink-0 bg-amber-950 text-amber-50 hover:bg-amber-900"
+        className="h-7 shrink-0 bg-amber-950 text-white hover:bg-amber-900"
         onClick={() => void handleVoltar()}
       >
         Voltar para Admin

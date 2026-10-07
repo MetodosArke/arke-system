@@ -66,7 +66,7 @@ export default function SuperAdminUsoIA() {
                       <div className="flex flex-wrap gap-1.5">
                         <Badge variant="secondary">{milhares(l.chamadas)} chamada(s)</Badge>
                         {l.recusadas_trava > 0 && (
-                          <Badge variant="outline" className={cn((taxa ?? 0) >= 20 && "text-amber-700 dark:text-amber-400")}>
+                          <Badge variant="outline" className={cn((taxa ?? 0) >= 20 && "text-warning")}>
                             {milhares(l.recusadas_trava)} recusada(s) pela trava ({taxa}%)
                           </Badge>
                         )}

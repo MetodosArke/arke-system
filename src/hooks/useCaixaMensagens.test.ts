@@ -7,9 +7,12 @@ describe("canais da caixa de mensagens por papel", () => {
     expect(canaisDoPapel("nutricionista")).toEqual(["dieta"]);
   });
 
-  it("gestor, recepção e sem papel veem os dois", () => {
+  it("a recepção vê só o de treino: a conversa da nutrição é saúde (20261399010000)", () => {
+    expect(canaisDoPapel("recepcao")).toEqual(["treino"]);
+  });
+
+  it("gestor e sem papel veem os dois (o banco decide o que cada um recebe)", () => {
     expect(canaisDoPapel("gestor")).toEqual(["treino", "dieta"]);
-    expect(canaisDoPapel("recepcao")).toEqual(["treino", "dieta"]);
     expect(canaisDoPapel(null)).toEqual(["treino", "dieta"]);
   });
 });

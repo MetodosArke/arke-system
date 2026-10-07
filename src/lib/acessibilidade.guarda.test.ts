@@ -139,6 +139,59 @@ export function spinnersMudos(codigo: string, arquivo = "x.tsx"): number[] {
   return linhas;
 }
 
+/**
+ * A paleta fixa do Tailwind com matiz (o vermelho, o âmbar, o verde...). Os
+ * cinzas, o branco e o preto ficam de fora: não fazem as vezes de um token de
+ * texto.
+ */
+const PALETA = "red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose";
+/** `text-amber-600`, `dark:text-red-400`, `hover:text-emerald-700/80`... */
+const COR_FIXA_DE_TEXTO = new RegExp(String.raw`(?<![\w-])(?:[\w\-\[\].]+:)*text-(?:${PALETA})-\d{2,3}(?:\/\d+)?(?![\w-])`, "g");
+
+/**
+ * Cor fixa da paleta usada como cor de TEXTO, num arquivo `.tsx`.
+ *
+ * `text-amber-600` como texto dá 3,2:1 sobre o fundo claro, e
+ * `text-red-500`, 3,8:1: a cor fixa não sabe em que tema está nem sobre que
+ * fundo. Os tokens `text-primary`, `text-destructive`, `text-success` e
+ * `text-warning` leem `--*-texto`, que a regra "o texto tem contraste AA"
+ * confere nos dois temas.
+ *
+ * Fica de fora o que não é texto: a classe de um ícone (o componente do
+ * `lucide-react`, o `<svg>` e o ícone passado por variável, `Icone`,
+ * `item.icon`), que é decoração ao lado de um texto que já diz o que é. O
+ * fundo e a borda (`bg-`, `border-`) nem entram na busca.
+ *
+ * Usa o compilador do TypeScript: a classe pode estar num mapa de cores fora
+ * do JSX (`const COR = { ok: "text-emerald-600" }`), e ali ela vale para o
+ * texto em que for usada.
+ */
+export function coresFixasDeTexto(codigo: string, arquivo = "x.tsx"): { linha: number; classe: string }[] {
+  const fonte = ts.createSourceFile(arquivo, codigo, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  const icones = new Set<string>();
+  for (const st of fonte.statements) {
+    if (!ts.isImportDeclaration(st) || !ts.isStringLiteral(st.moduleSpecifier) || st.moduleSpecifier.text !== "lucide-react") continue;
+    const nomes = st.importClause?.namedBindings;
+    if (nomes && ts.isNamedImports(nomes)) for (const e of nomes.elements) icones.add(e.name.text);
+  }
+  const ehIcone = (tag: string) => icones.has(tag) || tag === "svg" || /(^|\.)ic(on|one)\w*$/i.test(tag) || /Icon$/.test(tag);
+  const achados: { linha: number; classe: string }[] = [];
+  function visitar(n: ts.Node) {
+    if (ts.isJsxAttribute(n) && n.name.getText(fonte) === "className") {
+      const elemento = n.parent.parent;
+      if ((ts.isJsxSelfClosingElement(elemento) || ts.isJsxOpeningElement(elemento)) && ehIcone(elemento.tagName.getText(fonte))) return;
+    }
+    if (ts.isStringLiteralLike(n) || ts.isTemplateHead(n) || ts.isTemplateMiddle(n) || ts.isTemplateTail(n)) {
+      for (const m of n.text.matchAll(COR_FIXA_DE_TEXTO)) {
+        achados.push({ linha: fonte.getLineAndCharacterOfPosition(n.getStart(fonte)).line + 1, classe: m[0] });
+      }
+    }
+    ts.forEachChild(n, visitar);
+  }
+  visitar(fonte);
+  return achados;
+}
+
 /** "H S% L%" → contraste WCAG entre duas cores do tema. */
 function contrasteHsl(a: string, b: string): number {
   const rgb = (hsl: string) => {
@@ -193,6 +246,13 @@ const PARES_DE_TEXTO: [string, string[]][] = [
  */
 const SEM_ROTULO_PENDENTE: Record<string, string> = {};
 
+/**
+ * Telas com cor fixa de texto que ficam para depois, com o porquê. Vazia desde
+ * 06/10/2026 (as 49 telas da auditoria trocaram pelos tokens). A lista só
+ * diminui: tela nova não entra.
+ */
+const COR_FIXA_PENDENTE: Record<string, string> = {};
+
 function arquivos(dir: string, achados: string[] = []): string[] {
   for (const nome of readdirSync(dir)) {
     const caminho = join(dir, nome);
@@ -234,6 +294,32 @@ describe("acessibilidade", () => {
       return !tela || botoesSemRotulo(tela.codigo, nome).length === 0;
     });
     expect(consertadas, "tire de SEM_ROTULO_PENDENTE").toEqual([]);
+  }, PRAZO);
+
+  it("o texto usa o token de cor, e não a cor fixa da paleta", () => {
+    expect(coresFixasDeTexto('<p className="text-sm text-amber-600">Atenção</p>'), "o detector detecta").toHaveLength(1);
+    expect(coresFixasDeTexto('<p className="text-amber-700 dark:text-amber-400">x</p>'), "e a do tema escuro").toHaveLength(2);
+    expect(coresFixasDeTexto('const COR = { ok: "bg-emerald-500/10 text-emerald-700" };'), "no mapa de cores, fora do JSX").toHaveLength(1);
+    expect(coresFixasDeTexto("<span className={`font-bold ${ok ? \"text-green-600\" : \"\"}`}>1</span>"), "no texto montado").toHaveLength(1);
+    expect(coresFixasDeTexto('import { Check } from "lucide-react";\n<Check className="h-4 w-4 text-emerald-500" />'), "o ícone é decoração").toHaveLength(0);
+    expect(coresFixasDeTexto('<Icone className="h-4 w-4 text-amber-500" />'), "o ícone por variável").toHaveLength(0);
+    expect(coresFixasDeTexto('<p className="text-warning bg-amber-500/10 border-amber-500/40">x</p>'), "o token e o fundo fixo").toHaveLength(0);
+    expect(coresFixasDeTexto('<p className="text-white bg-amber-950">x</p>'), "o neutro não é token de matiz").toHaveLength(0);
+    const violacoes = telas
+      .filter((t) => !COR_FIXA_PENDENTE[t.nome])
+      .flatMap((t) => coresFixasDeTexto(t.codigo, t.nome).map((c) => `${t.nome}:${c.linha} ${c.classe}`));
+    expect(
+      violacoes,
+      "use text-destructive (vermelho), text-warning (âmbar, laranja), text-success (verde) ou text-primary; a cor de categoria fica no fundo e na borda, com o texto em text-foreground",
+    ).toEqual([]);
+  }, PRAZO);
+
+  it("toda pendência de cor fixa listada ainda existe", () => {
+    const consertadas = Object.keys(COR_FIXA_PENDENTE).filter((nome) => {
+      const tela = telas.find((t) => t.nome === nome);
+      return !tela || coresFixasDeTexto(tela.codigo, nome).length === 0;
+    });
+    expect(consertadas, "tire de COR_FIXA_PENDENTE").toEqual([]);
   }, PRAZO);
 
   it("o texto tem contraste AA nos dois temas", () => {

@@ -15,8 +15,8 @@ import { ordenarEquipamentos, useEquipamentosGlobais, type EquipamentoGlobal } f
 import { cn } from "@/lib/utils";
 
 const TOM = {
-  ok: "text-emerald-700 dark:text-emerald-400",
-  atencao: "text-amber-700 dark:text-amber-400",
+  ok: "text-success",
+  atencao: "text-warning",
   problema: "text-destructive",
   neutro: "text-muted-foreground",
 } as const;

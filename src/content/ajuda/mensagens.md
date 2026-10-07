@@ -6,7 +6,10 @@ Em [Mensagens](/admin/mensagens) ficam todas as conversas dos alunos com a equip
 
 - **Professor**: as conversas de treino.
 - **Nutricionista**: as conversas de nutrição.
-- **Gestor e recepção**: as duas.
+- **Gestor**: as duas.
+- **Recepção**: as conversas de treino. A conversa de nutrição fala da dieta e da saúde do aluno, e fica com quem atende a saúde: a gestão, o professor e a nutricionista. Na ficha, o **Chat Nutrição** fica desativado para a recepção.
+
+Não é só a tela: o banco aplica a mesma regra, então a conversa de nutrição não chega à recepção por outro caminho.
 
 ## A ordem da caixa
 

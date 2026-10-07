@@ -95,6 +95,25 @@ export function limitesAcimaDoTeto(codigo: string) {
     .filter((l): l is { valor: number; linha: number } => typeof l.valor === "number" && l.valor > TAMANHO_PAGINA);
 }
 
+/**
+ * Limite que vem de estado da tela: `.limit(x)` ou `.range(0, x)` com `x`
+ * tirado de um `useState` (ou de uma conta com ele). É o "Ver mais" que soma
+ * ao limite: cresce sem teto, passa de mil e a API corta sem avisar. O feed
+ * fazia isso até 06/10/2026. A saída é paginar de verdade, por cursor (a
+ * página seguinte começa depois do último item) ou por uma janela de tamanho
+ * fixo (`.range(pagina * N, pagina * N + N - 1)`).
+ */
+export function limitesQueCrescem(codigo: string) {
+  const estados = new Set([...codigo.matchAll(/const\s*\[\s*(\w+)\s*,\s*set\w*\s*\]\s*=\s*(?:React\.)?useState\b/g)].map((m) => m[1]));
+  const usaEstado = (expr: string) => (expr.match(/[A-Za-z_$][\w$]*/g) ?? []).some((nome) => estados.has(nome));
+  const achados: { linha: number; trecho: string }[] = [];
+  for (const m of codigo.matchAll(/\.limit\(\s*([^)]*?)\s*\)|\.range\(\s*0\s*,\s*([^)]*?)\s*\)/g)) {
+    const expr = m[1] ?? m[2] ?? "";
+    if (usaEstado(expr)) achados.push({ linha: codigo.slice(0, m.index).split("\n").length, trecho: m[0] });
+  }
+  return achados;
+}
+
 const codigos = arquivos(SRC).map((caminho) => ({
   nome: relative(SRC, caminho).replace(/\\/g, "/"),
   codigo: readFileSync(caminho, "utf8"),
@@ -146,6 +165,18 @@ describe("leituras que passam de mil linhas", () => {
       limitesAcimaDoTeto(codigo).map((l) => `${nome}:${l.linha} (.limit(${l.valor}))`),
     );
     expect(violacoes, `acima de ${TAMANHO_PAGINA} a API corta sem avisar: use todasAsLinhas() de @/lib/paginar`).toEqual([]);
+  });
+
+  it("nenhum limite cresce com a tela (o \"Ver mais\" que soma ao limite)", () => {
+    const feedAntigo = `const [limite, setLimite] = useState(PAGE_SIZE);
+      const { data } = useQuery({ queryFn: () => supabase.from("feed_posts").select("*").order("created_at").limit(limite) });
+      <Button onClick={() => setLimite((l) => l + PAGE_SIZE)}>Carregar mais</Button>`;
+    expect(limitesQueCrescem(feedAntigo), "o detector detecta o feed de antes").toHaveLength(1);
+    expect(limitesQueCrescem("const [n, setN] = useState(20);\nsupabase.from(\"x\").select(\"id\").range(0, n * 2 - 1);"), "e a faixa que cresce").toHaveLength(1);
+    expect(limitesQueCrescem("const [pagina, setPagina] = useState(0);\nsupabase.from(\"x\").select(\"id\").range(pagina * 20, pagina * 20 + 19);"), "a janela fixa passa").toHaveLength(0);
+    expect(limitesQueCrescem("const PAGE_SIZE = 15;\nsupabase.from(\"x\").select(\"id\").limit(PAGE_SIZE);"), "a constante passa").toHaveLength(0);
+    const violacoes = codigos.flatMap(({ nome, codigo }) => limitesQueCrescem(codigo).map((l) => `${nome}:${l.linha} ${l.trecho}`));
+    expect(violacoes, "pagine por cursor ou por janela fixa (veja src/lib/cursorFeed.ts)").toEqual([]);
   });
 
   it("toda exceção listada ainda existe", () => {

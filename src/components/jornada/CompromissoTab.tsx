@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { CheckCircle2, Heart, Target, Sparkles, X } from "lucide-react";
 import type { Tables } from "@/integrations/supabase/types";
+import { ErroAoCarregar } from "@/components/ErroAoCarregar";
 
 type CompromissoSemanal = Tables<"compromisso_semanal">;
 type CompromissoMeta = Tables<"compromisso_metas">;
@@ -69,7 +70,13 @@ export default function CompromissoTab() {
     enabled: !!alunoId,
   });
 
-  const { data: compromisso, isLoading } = useQuery({
+  const {
+    data: compromisso,
+    isLoading,
+    error: erroCompromisso,
+    refetch: recarregarCompromisso,
+    isFetching: recarregandoCompromisso,
+  } = useQuery({
     queryKey: ["compromisso-semanal", alunoId, weekKey],
     queryFn: async () => {
       const { data, error } = await supabase.from("compromisso_semanal").select("*").eq("aluno_id", alunoId!).eq("semana", weekKey).maybeSingle();
@@ -79,7 +86,13 @@ export default function CompromissoTab() {
     enabled: !!alunoId,
   });
 
-  const { data: metasSalvas = [] } = useQuery({
+  const {
+    data: metasSalvas = [],
+    isLoading: carregandoMetas,
+    error: erroMetas,
+    refetch: recarregarMetas,
+    isFetching: recarregandoMetas,
+  } = useQuery({
     queryKey: ["compromisso-metas", compromisso?.id],
     queryFn: async () => {
       const { data, error } = await supabase.from("compromisso_metas").select("*").eq("compromisso_id", compromisso!.id).order("created_at");
@@ -143,7 +156,21 @@ export default function CompromissoTab() {
 
   const removerMeta = (idx: number) => setMetas((prev) => prev.filter((_, i) => i !== idx));
 
-  if (isLoading) return <p className="text-sm text-muted-foreground">Carregando...</p>;
+  if (isLoading || (!!compromisso?.id && carregandoMetas)) return <p className="text-sm text-muted-foreground">Carregando...</p>;
+
+  // Sem saber se já há compromisso, a tela não oferece criar outro: salvar
+  // por cima apaga as metas da semana.
+  if (erroCompromisso || erroMetas) {
+    return (
+      <Card>
+        <ErroAoCarregar
+          oQue="o compromisso da semana"
+          onTentarDeNovo={() => void (erroCompromisso ? recarregarCompromisso() : recarregarMetas())}
+          tentando={recarregandoCompromisso || recarregandoMetas}
+        />
+      </Card>
+    );
+  }
 
   if (isCreating) {
     return (
@@ -245,7 +272,7 @@ export default function CompromissoTab() {
         <CardContent className="p-4 space-y-2">
           <div className="flex items-center justify-between">
             <p className="text-sm font-semibold">Progresso da Semana</p>
-            <span className="rounded-full bg-emerald-500/15 text-emerald-600 text-xs font-bold px-2.5 py-1">{pct}%</span>
+            <span className="rounded-full bg-emerald-500/15 text-success text-xs font-bold px-2.5 py-1">{pct}%</span>
           </div>
           <p className="text-xs text-muted-foreground">{mensagemProgresso(pct)}</p>
         </CardContent>

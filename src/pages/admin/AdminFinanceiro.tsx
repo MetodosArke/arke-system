@@ -515,7 +515,7 @@ export default function AdminFinanceiro() {
                   <Wallet className="h-4 w-4 text-primary" />
                   <p className="text-xs text-muted-foreground">Saldo do mês (pagos)</p>
                 </div>
-                <p className={`text-lg font-bold ${saldo < 0 ? "text-red-600" : ""}`}>{reais(saldo)}</p>
+                <p className={`text-lg font-bold ${saldo < 0 ? "text-destructive" : ""}`}>{reais(saldo)}</p>
                 <p className="text-[11px] text-muted-foreground">
                   recebido {reais(totalReceitasPagas)} · pago {reais(totalDespesasPagas)}
                 </p>

@@ -228,7 +228,7 @@ function CadastroPrefeitura({ orgId, situacao, aoSalvar }: { orgId: string; situ
         <CardDescription>
           {auth ? `A prefeitura da sua cidade exige ${ROTULO_AUTENTICACAO[auth]}.` : "Preencha o que a sua prefeitura pede."}{" "}
           {autenticado ? (
-            <span className="inline-flex items-center gap-1 text-emerald-600">
+            <span className="inline-flex items-center gap-1 text-success">
               <CheckCircle2 className="h-3.5 w-3.5" /> Autenticação já enviada.
             </span>
           ) : null}
@@ -541,7 +541,7 @@ function ListaNotas({ orgId, podeReenviar }: { orgId: string; podeReenviar: bool
                     {n.numero ? ` · nº ${n.numero}` : ""}
                   </p>
                   {n.erro && n.status !== "emitida" && <p className="text-xs text-destructive">{n.erro}</p>}
-                  {n.erro && n.status === "emitida" && <p className="text-xs text-amber-600">{n.erro}</p>}
+                  {n.erro && n.status === "emitida" && <p className="text-xs text-warning">{n.erro}</p>}
                 </div>
                 <div className="flex items-center gap-1">
                   <Badge variant={COR[n.status]} className="text-[10px]">

@@ -16,6 +16,7 @@ import { Dumbbell, UtensilsCrossed, Phone, Cake, Ruler, ClipboardList, AlertTria
 import { ImprimirTreinoDialog, type ExercicioSnapshotImpressao } from "@/components/admin/ImprimirTreinoDialog";
 import { Bloco, formatarData } from "@/components/admin/perfilSheetHelpers";
 import { ChatPanel } from "@/components/chat/ChatPanel";
+import { ErroAoCarregar } from "@/components/ErroAoCarregar";
 import { TrialMetodoArke } from "@/components/admin/TrialMetodoArke";
 import { FaseJornada } from "@/components/admin/FaseJornada";
 import { MetasAluno } from "@/components/admin/MetasAluno";
@@ -125,7 +126,13 @@ export function AlunoPerfilSheet({
   const [valorOverride, setValorOverride] = useState("");
   const [taxaMatricula, setTaxaMatricula] = useState("");
 
-  const { data: perfil, isLoading } = useQuery({
+  const {
+    data: perfil,
+    isLoading,
+    error: erroPerfil,
+    refetch: recarregarPerfil,
+    isFetching: recarregandoPerfil,
+  } = useQuery({
     queryKey: ["aluno-perfil", alunoId],
     queryFn: async () => {
       const { data: aluno, error: alunoError } = await supabase
@@ -137,16 +144,11 @@ export function AlunoPerfilSheet({
         .single();
       if (alunoError) throw alunoError;
 
-      const [
-        { data: profile },
-        { data: assinatura },
-        { data: anamnese },
-        { data: avaliacoes },
-        { data: treinoAtivo },
-        { data: dietaAtiva },
-        { data: tarefasAbertas },
-        { data: checkins },
-      ] = await Promise.all([
+      // Cada parte da ficha falha como a ficha: sem isso, uma leitura que caiu
+      // virava "sem treino", "sem pendência" ou, na matrícula, o convite para
+      // matricular de novo. O que o RLS esconde de um papel volta vazio, sem
+      // erro; o erro aqui é falha de verdade.
+      const partes = await Promise.all([
         supabase.from("profiles").select("full_name, phone, cpf").eq("user_id", aluno.user_id).maybeSingle(),
         supabase
           .from("aluno_assinaturas")
@@ -195,30 +197,41 @@ export function AlunoPerfilSheet({
           .order("created_at", { ascending: false })
           .limit(3),
       ]);
+      const falhou = partes.find((p) => p.error)?.error;
+      if (falhou) throw falhou;
+      const [
+        { data: profile },
+        { data: assinatura },
+        { data: anamnese },
+        { data: avaliacoes },
+        { data: treinoAtivo },
+        { data: dietaAtiva },
+        { data: tarefasAbertas },
+        { data: checkins },
+      ] = partes;
 
-      const matricula = (
-        await supabase
-          .from("aluno_matriculas_academia")
-          .select("id, valor_cobrado, dia_vencimento, status, asaas_subscription_id, conta_asaas, forma_pagamento, cartao_final, cartao_bandeira, cartao_recusado_em, planos_academia(nome, periodicidade)")
-          .eq("aluno_id", aluno.id)
-          // A pausada também: é a matrícula do aluno, só que sem cobrar. Sem
-          // ela na ficha, a tela ofereceria matricular de novo.
-          .in("status", ["ativa", "pausada"])
-          .order("created_at", { ascending: false })
-          .limit(1)
-          .maybeSingle()
-      ).data;
+      const { data: matricula, error: erroMatricula } = await supabase
+        .from("aluno_matriculas_academia")
+        .select("id, valor_cobrado, dia_vencimento, status, asaas_subscription_id, conta_asaas, forma_pagamento, cartao_final, cartao_bandeira, cartao_recusado_em, planos_academia(nome, periodicidade)")
+        .eq("aluno_id", aluno.id)
+        // A pausada também: é a matrícula do aluno, só que sem cobrar. Sem
+        // ela na ficha, a tela ofereceria matricular de novo.
+        .in("status", ["ativa", "pausada"])
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (erroMatricula) throw erroMatricula;
 
-      const mensalidades = matricula
-        ? (
-            await supabase
-              .from("mensalidades")
-              .select("id, competencia, valor, vencimento, status")
-              .eq("matricula_id", matricula.id)
-              .order("competencia", { ascending: false })
-              .limit(3)
-          ).data
-        : [];
+      const respostaMensalidades = matricula
+        ? await supabase
+            .from("mensalidades")
+            .select("id, competencia, valor, vencimento, status")
+            .eq("matricula_id", matricula.id)
+            .order("competencia", { ascending: false })
+            .limit(3)
+        : null;
+      if (respostaMensalidades?.error) throw respostaMensalidades.error;
+      const mensalidades = respostaMensalidades?.data ?? [];
 
       // A relação vem como objeto (belongs-to), mas normaliza pra array
       // aqui também por segurança — depende de como o PostgREST infere o
@@ -247,7 +260,13 @@ export function AlunoPerfilSheet({
     enabled: !!alunoId,
   });
 
-  const { data: planosAcademia = [] } = useQuery({
+  const {
+    data: planosAcademia = [],
+    isLoading: carregandoPlanos,
+    error: erroPlanos,
+    refetch: recarregarPlanos,
+    isFetching: recarregandoPlanos,
+  } = useQuery({
     queryKey: ["planos-academia-ativos", organization?.id],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -350,6 +369,9 @@ export function AlunoPerfilSheet({
     <Sheet open={!!alunoId} onOpenChange={onOpenChange}>
       <SheetContent className="w-full sm:max-w-md overflow-y-auto">
         {isLoading && <p className="text-sm text-muted-foreground">Carregando perfil...</p>}
+        {erroPerfil && !perfil && (
+          <ErroAoCarregar oQue="a ficha do aluno" onTentarDeNovo={() => void recarregarPerfil()} tentando={recarregandoPerfil} />
+        )}
         {perfil && (
           <>
             <SheetHeader className="text-left space-y-2">
@@ -432,13 +454,15 @@ export function AlunoPerfilSheet({
                 size="sm"
                 variant="outline"
                 className="flex-1"
-                disabled={doMetodo || (!temNutricaoNoPlano(plano) && !academiaTemNutri)}
+                disabled={doMetodo || !veSaude || (!temNutricaoNoPlano(plano) && !academiaTemNutri)}
                 title={
                   doMetodo
                     ? "No Método, o aluno fala da dieta com o mentor da ArkeFit"
-                    : academiaTemNutri
-                      ? undefined
-                      : "Sem nutricionista na equipe: o chat com a nutricionista é do Método ARKE"
+                    : !veSaude
+                      ? "A conversa da nutrição é de quem atende a saúde do aluno"
+                      : academiaTemNutri
+                        ? undefined
+                        : "Sem nutricionista na equipe: o chat com a nutricionista é do Método ARKE"
                 }
                 onClick={() => setChatAberto("nutri")}
               >
@@ -825,10 +849,20 @@ export function AlunoPerfilSheet({
                         ))}
                       </SelectContent>
                     </Select>
-                    {planosAcademia.length === 0 && (
-                      <p className="text-xs text-muted-foreground">
-                        Nenhum plano cadastrado ainda — crie um em Configurações &gt; Planos da Academia.
-                      </p>
+                    {erroPlanos ? (
+                      <ErroAoCarregar
+                        oQue="os planos da academia"
+                        onTentarDeNovo={() => void recarregarPlanos()}
+                        tentando={recarregandoPlanos}
+                        className="p-3"
+                      />
+                    ) : (
+                      !carregandoPlanos &&
+                      planosAcademia.length === 0 && (
+                        <p className="text-xs text-muted-foreground">
+                          Nenhum plano cadastrado ainda — crie um em Configurações &gt; Planos da Academia.
+                        </p>
+                      )
                     )}
                   </div>
                   <div className="space-y-1.5">

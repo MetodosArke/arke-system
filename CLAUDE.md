@@ -93,6 +93,7 @@ Cada linha é uma armadilha que já aconteceu aqui. Onde há trava, ela é um te
 - Gatilho do dinheiro que entrou (receita, nota fiscal) é `after insert or update`: a cobrança pode nascer confirmada (`cobrancaQueNascePaga.guarda`).
 - CPF fica só com os dígitos (`trg_cpf_sem_mascara`) e se compara sem máscara (`cpfSemMascara.guarda`).
 - Exclusão de tenant por fora do produto com `session_replication_role = 'replica'` deixa órfãos. Confira com `verificar_orfaos()`.
+- Leitura que junta tabelas para a tela é `security invoker` e segue o RLS de quem pede; `security definer` ali entrega o que o RLS esconde (`historicoDoAluno.guarda`, `caixaDeMensagens.guarda`).
 
 **App**
 - **Datas:** use `dataBrasilia`, `hojeBrasilia`, `semanaBrasilia` e `formatarDataBR` (`src/lib/dataBrasilia.ts`), nunca `toISOString().slice(0, 10)` nem `new Date()` sobre coluna `date`; compare data pura como texto (`dataBrasilia.guarda`).
@@ -109,6 +110,8 @@ Cada linha é uma armadilha que já aconteceu aqui. Onde há trava, ela é um te
 - **Rascunho:** digitação cara vai em `useRascunho`, no `sessionStorage`, e nunca restaura sozinha.
 - **Imagem:** sai reduzida do aparelho antes do upload (`reduzirImagem.guarda`). Arquivo de nome único ganha cache de 1 ano.
 - **Sorteio:** nunca `Math.random()` (`aleatorio.guarda`).
+- **Carregar mais:** pagina por cursor (`cursorFeed.ts`), nunca por um limite que cresce (`paginar.guarda`).
+- **Cor de texto:** só pelos tokens (`text-primary`, `text-destructive`, `text-success`, `text-warning`, que leem `--*-texto`), nunca cor fixa como `text-amber-600` (`acessibilidade.guarda`).
 - **Acessibilidade:** texto com 4,5:1 nos dois temas (a cor de texto lê `--*-texto`, não a do botão), zoom liberado, botão só de ícone com `aria-label` e o carregando com `role="status"` (`acessibilidade.guarda`).
 
 **Segurança e privacidade**
@@ -120,6 +123,7 @@ Cada linha é uma armadilha que já aconteceu aqui. Onde há trava, ela é um te
 - Captcha só por `_shared/captcha.ts`. Senha vazada por k-anonimato (HIBP), com falha aberta.
 - A chave do Asaas só pelo `ambienteAsaas` (`ambienteAsaas.guarda`). O webhook confere cada gravação, e o aviso do sandbox só toca organização em trial, mesmo sem achar organização (`webhookAsaas.guarda`). O aviso do Asaas é gravado reduzido ao que o webhook lê, mais os 4 dígitos e a bandeira (`trg_minimizar_aviso_asaas`, `avisoAsaas.guarda`).
 - Na sessão simulada, as autorizações da pessoa são recusadas no banco (`perfilSimulado.guarda`).
+- A recepção não vê saúde, nem pela API: tarefa de saúde por `tarefa_de_saude()`, e o chat da nutrição segue a regra da dieta (`tarefasPorDono.guarda`, `caixaDeMensagens.guarda`).
 
 ## Mapa
 

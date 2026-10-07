@@ -28,10 +28,10 @@ type FilaOrg = {
 // (src/lib/gateway.ts): a mesma catraca não pode estar "Online" aqui e
 // "Sem sinal" lá.
 const ICONE: Record<SituacaoGateway, { icon: typeof Wifi; classe: string }> = {
-  online: { icon: Wifi, classe: "text-emerald-600 dark:text-emerald-400" },
-  contingencia: { icon: Wifi, classe: "text-amber-600 dark:text-amber-400" },
+  online: { icon: Wifi, classe: "text-success" },
+  contingencia: { icon: Wifi, classe: "text-warning" },
   offline: { icon: WifiOff, classe: "text-destructive" },
-  nunca_conectou: { icon: PlugZap, classe: "text-amber-600 dark:text-amber-400" },
+  nunca_conectou: { icon: PlugZap, classe: "text-warning" },
   desativada: { icon: PowerOff, classe: "text-muted-foreground" },
 };
 
@@ -196,7 +196,7 @@ export function OperacaoGlobalCard() {
               <div className="grid grid-cols-3 gap-3">
                 <div>
                   <p className="text-xs text-muted-foreground">No ar</p>
-                  <p className="text-lg font-bold text-emerald-600 dark:text-emerald-400">
+                  <p className="text-lg font-bold text-success">
                     {resumoGateways.online}
                   </p>
                 </div>

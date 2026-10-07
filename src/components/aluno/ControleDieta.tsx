@@ -296,17 +296,17 @@ export default function ControleDieta({ dietaId, refeicoes = [] }: { dietaId: st
             <div className="flex flex-col items-center rounded-lg bg-muted/40 p-3">
               <Candy className="h-5 w-5 text-pink-500 mb-1" />
               <span className="text-xs text-muted-foreground">Doces</span>
-              <span className="text-lg font-bold text-pink-500">{weekDoces}x</span>
+              <span className="text-lg font-bold text-foreground">{weekDoces}x</span>
             </div>
             <div className="flex flex-col items-center rounded-lg bg-muted/40 p-3">
               <Wine className="h-5 w-5 text-purple-500 mb-1" />
               <span className="text-xs text-muted-foreground">Álcool</span>
-              <span className="text-lg font-bold text-purple-500">{weekAlcool}x</span>
+              <span className="text-lg font-bold text-foreground">{weekAlcool}x</span>
             </div>
             <div className="flex flex-col items-center rounded-lg bg-muted/40 p-3">
               <Droplets className="h-5 w-5 text-blue-500 mb-1" />
               <span className="text-xs text-muted-foreground">Água (média)</span>
-              <span className="text-lg font-bold text-blue-500">{weekAguaMedia > 0 ? `${weekAguaMedia}ml` : "—"}</span>
+              <span className="text-lg font-bold text-foreground">{weekAguaMedia > 0 ? `${weekAguaMedia}ml` : "—"}</span>
             </div>
           </div>
 
@@ -316,19 +316,19 @@ export default function ControleDieta({ dietaId, refeicoes = [] }: { dietaId: st
               <div className="grid grid-cols-2 gap-2">
                 <div className="flex items-center justify-between rounded-lg bg-emerald-500/10 px-3 py-2">
                   <span className="text-xs">😊 Saciado</span>
-                  <span className="text-sm font-bold text-emerald-600">{weekSaciedadeOk}d</span>
+                  <span className="text-sm font-bold text-success">{weekSaciedadeOk}d</span>
                 </div>
                 <div className="flex items-center justify-between rounded-lg bg-blue-500/10 px-3 py-2">
                   <span className="text-xs">😐 Fome leve</span>
-                  <span className="text-sm font-bold text-blue-600">{weekSaciedadeLeve}d</span>
+                  <span className="text-sm font-bold text-foreground">{weekSaciedadeLeve}d</span>
                 </div>
                 <div className="flex items-center justify-between rounded-lg bg-orange-500/10 px-3 py-2">
                   <span className="text-xs">😕 Moderada</span>
-                  <span className="text-sm font-bold text-orange-600">{weekSaciedadeModerada}d</span>
+                  <span className="text-sm font-bold text-warning">{weekSaciedadeModerada}d</span>
                 </div>
                 <div className="flex items-center justify-between rounded-lg bg-red-500/10 px-3 py-2">
                   <span className="text-xs">😫 Muita fome</span>
-                  <span className="text-sm font-bold text-red-600">{weekSaciedadeMuita}d</span>
+                  <span className="text-sm font-bold text-destructive">{weekSaciedadeMuita}d</span>
                 </div>
               </div>
             </div>
@@ -354,7 +354,7 @@ export default function ControleDieta({ dietaId, refeicoes = [] }: { dietaId: st
               <span className="text-xs text-muted-foreground">Dias Registrados</span>
             </div>
             <div className="flex flex-col items-center rounded-lg bg-muted/40 p-3">
-              <span className="text-2xl font-bold text-emerald-500">{monthDias100}</span>
+              <span className="text-2xl font-bold text-success">{monthDias100}</span>
               <span className="text-xs text-muted-foreground">Dias 100%</span>
             </div>
           </div>
@@ -362,17 +362,17 @@ export default function ControleDieta({ dietaId, refeicoes = [] }: { dietaId: st
             <div className="flex flex-col items-center rounded-lg bg-muted/40 p-3">
               <Candy className="h-5 w-5 text-pink-500 mb-1" />
               <span className="text-xs text-muted-foreground">Doces</span>
-              <span className="text-lg font-bold text-pink-500">{monthDoces}x</span>
+              <span className="text-lg font-bold text-foreground">{monthDoces}x</span>
             </div>
             <div className="flex flex-col items-center rounded-lg bg-muted/40 p-3">
               <Wine className="h-5 w-5 text-purple-500 mb-1" />
               <span className="text-xs text-muted-foreground">Álcool</span>
-              <span className="text-lg font-bold text-purple-500">{monthAlcool}x</span>
+              <span className="text-lg font-bold text-foreground">{monthAlcool}x</span>
             </div>
             <div className="flex flex-col items-center rounded-lg bg-muted/40 p-3">
               <Droplets className="h-5 w-5 text-blue-500 mb-1" />
               <span className="text-xs text-muted-foreground">Água (média)</span>
-              <span className="text-lg font-bold text-blue-500">{monthAguaMedia > 0 ? `${monthAguaMedia}ml` : "—"}</span>
+              <span className="text-lg font-bold text-foreground">{monthAguaMedia > 0 ? `${monthAguaMedia}ml` : "—"}</span>
             </div>
           </div>
         </CardContent>
@@ -392,7 +392,7 @@ export default function ControleDieta({ dietaId, refeicoes = [] }: { dietaId: st
                   <span
                     className={cn(
                       "text-lg font-bold",
-                      percentualCalculado >= 80 ? "text-emerald-500" : percentualCalculado >= 50 ? "text-primary" : "text-orange-500"
+                      percentualCalculado >= 80 ? "text-success" : percentualCalculado >= 50 ? "text-primary" : "text-warning"
                     )}
                   >
                     {percentualCalculado}%
@@ -446,7 +446,7 @@ export default function ControleDieta({ dietaId, refeicoes = [] }: { dietaId: st
                 <span
                   className={cn(
                     "text-lg font-bold min-w-[52px] text-right",
-                    adesaoPercentual >= 80 ? "text-emerald-500" : adesaoPercentual >= 50 ? "text-primary" : "text-orange-500"
+                    adesaoPercentual >= 80 ? "text-success" : adesaoPercentual >= 50 ? "text-primary" : "text-warning"
                   )}
                 >
                   {adesaoPercentual}%
@@ -469,13 +469,13 @@ export default function ControleDieta({ dietaId, refeicoes = [] }: { dietaId: st
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <Label>Consumo de Água</Label>
-                <span className="text-sm font-semibold text-blue-500">
+                <span className="text-sm font-semibold text-foreground">
                   {aguaMl}ml <span className="text-muted-foreground font-normal">/ {metaAguaMl}ml</span>
                 </span>
               </div>
               <Progress value={Math.min(100, (aguaMl / metaAguaMl) * 100)} className="h-2" />
               {aguaMl >= metaAguaMl ? (
-                <p className="flex items-center gap-1 text-xs font-medium text-emerald-600">
+                <p className="flex items-center gap-1 text-xs font-medium text-success">
                   <PartyPopper className="h-3.5 w-3.5" /> Meta batida! Ainda dá pra registrar um pouco mais, se beber.
                 </p>
               ) : (

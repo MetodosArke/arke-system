@@ -49,9 +49,9 @@ interface AlunoEngajamento {
 }
 
 function corPontuacao(pontuacao: number) {
-  if (pontuacao >= 70) return "text-emerald-600";
-  if (pontuacao >= 40) return "text-amber-500";
-  return "text-red-500";
+  if (pontuacao >= 70) return "text-success";
+  if (pontuacao >= 40) return "text-warning";
+  return "text-destructive";
 }
 
 export default function AdminRetencao() {

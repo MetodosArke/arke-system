@@ -16,9 +16,9 @@ import { mensagemDeErroEdge } from "@/lib/erroEdge";
 import { cn } from "@/lib/utils";
 
 const COR: Record<SituacaoAcademia, string> = {
-  em_dia: "border-emerald-500/40 text-emerald-700 dark:text-emerald-400",
+  em_dia: "border-emerald-500/40 text-success",
   inadimplente: "border-destructive/50 text-destructive",
-  pausado: "border-amber-500/50 text-amber-700 dark:text-amber-400",
+  pausado: "border-amber-500/50 text-warning",
 };
 
 // Motivos que o painel de retenção consegue agrupar; "Outro" abre texto livre.

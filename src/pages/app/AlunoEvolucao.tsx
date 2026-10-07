@@ -43,7 +43,7 @@ function Delta({ atual, anterior, quantoMenorMelhor }: { atual: number | null; a
   const melhorou = quantoMenorMelhor ? diff < 0 : diff > 0;
   const Icon = diff > 0 ? TrendingUp : TrendingDown;
   return (
-    <span className={`inline-flex items-center gap-0.5 text-xs font-medium ${melhorou ? "text-emerald-600" : "text-orange-500"}`}>
+    <span className={`inline-flex items-center gap-0.5 text-xs font-medium ${melhorou ? "text-success" : "text-warning"}`}>
       <Icon className="h-3 w-3" /> {diff > 0 ? "+" : ""}
       {decimal(diff, 1)}
     </span>

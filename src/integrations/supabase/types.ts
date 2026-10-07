@@ -9636,6 +9636,7 @@ export type Database = {
         Args: { _organization_id: string }
         Returns: number
       }
+      tarefa_de_saude: { Args: { _tipo: string }; Returns: boolean }
       texto_sem_acento: { Args: { _t: string }; Returns: string }
       valor_mensal_b2b: { Args: { _organization_id: string }; Returns: number }
       varrer_avanco_fases: {
