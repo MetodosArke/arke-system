@@ -34,7 +34,7 @@ Achados médios da auditoria de prontidão de 05/10, na parte do app.
 - Entrou em 42 lugares de 26 telas e componentes. **Gestão:** lista de alunos, painel inicial (os diálogos de avaliação e retorno), financeiro (lançamentos, equipe, comissões), retenção, equipe, catracas (dispositivos, parceiros, acessos), conferência dos parceiros, comunicados, acompanhamento ARKE, cobranças avulsas, notas fiscais, avaliação física, planos, desafios, prescrição de treino e de dieta (modelos, exercícios, a ficha carregada, o histórico). **Aluno:** treino, dieta, evolução, agenda, pagamentos, desafios, competições, o chat com a equipe e com o mentor, o feed.
 - Com a lista já carregada, um erro de atualização não troca a lista pelo aviso: o dado anterior é real.
 - O treino, a dieta e o chat engoliam o erro da própria leitura (`const { data } = await ...` sem conferir), e o erro virava "nenhum". Agora o erro sobe.
-- `estadoVazio.guarda.test.ts` lê cada `useQuery` com estado vazio e cobra que a desestruturação tome o `error` (ou `isError`) e o use. As 16 telas que ainda não tratam estão listadas com o motivo (a ficha do aluno, que outra frente mexia; a Visão Master; a implantação), e a lista só diminui: o teste falha se uma delas for consertada sem sair da lista.
+- `estadoVazio.guarda.test.ts` lê cada `useQuery` com estado vazio e cobra que a desestruturação tome o `error` (ou `isError`) e o use. As 16 telas que ainda não tratam estão listadas com o motivo (a ficha do aluno, que outra frente mexia; a Visão Master; a implantação), e a lista só diminui: o teste falha se uma delas for consertada sem sair da lista. *Superado em 06/10/2026: as 15 foram tratadas e a lista está vazia; a porta do aceite ficou como exceção declarada (ver "Rodada 3 do app, fechamento", abaixo).*
 
 **Três brechas que as guardas deixavam passar.**
 - `ConferenciaParceiros` pedia `.limit(2000)`: a API para em mil, com status 200, e o repasse do Wellhub e do TotalPass era conferido contra um número cortado. Passou a ler em páginas. `paginar.guarda` ganhou a regra 3: nenhum `.limit()` passa de mil, no app e nas funções, com a constante do arquivo resolvida.
@@ -71,3 +71,61 @@ Achados médios da auditoria de prontidão de 05/10, na parte do app.
 - no celular, a caixa de texto tem 16px, a página não trava a pinça, e o tema escuro e o claro estão legíveis.
 
 Dois defeitos apareceram no caminho e foram corrigidos no fechamento, abaixo: o aviso de erro levava 53 segundos para aparecer, e o e-mail longo passava da borda do Perfil no celular.
+
+## Rodada 3 do app, fechamento: as telas que faltavam, o feed e as cores fixas (06/10/2026)
+
+As três sobras da rodada 3 do app que ficaram listadas nas guardas. As de banco da mesma frente estão em `seguranca-e-acesso.md` ("as últimas sobras de banco").
+
+**1. Erro de consulta não é estado vazio, nas telas que faltavam.** As 16 da lista de `estadoVazio.guarda`: 15 tratadas, e a lista `PENDENTES` está vazia.
+- **Gestão:**
+  - a ficha do aluno (a ficha inteira, e os planos ao matricular);
+  - a ficha do funcionário (a ficha e os horários);
+  - as competições (a lista e o ranking de cada uma);
+  - a Fila de atendimento (a fila e a anamnese);
+  - as assinaturas da Organização;
+  - a implantação (os planos e a situação da conta Asaas).
+- **Aluno:** o compromisso da semana e os objetivos.
+- **Visão Master:** a fila de chamados e a operação do mentor (os números e a carga por mentor), a atividade da organização, a configuração da plataforma, a visão global e as conversas de mentoria.
+- **Onde "vazio" levava a uma ação errada, a tela agora não a oferece sem a leitura:**
+  - a situação da conta Asaas falhando parecia "sem conta" e convidava a abrir uma segunda;
+  - o compromisso da semana falhando dizia "você ainda não definiu" e, ao salvar por cima, apagava as metas da semana;
+  - os objetivos falhando ofereciam definir do zero;
+  - a fila caída dizia "Nenhuma pendência encontrada", e a equipe achava que estava em dia.
+- **A ficha do aluno e a do funcionário engoliam o erro de cada parte** (`const [{ data }] = await Promise.all(...)`): uma leitura que caía virava "sem treino", "sem pendência" ou, na matrícula, o convite para matricular de novo. Agora uma parte que falha derruba a ficha, com **Tentar de novo**; o que o RLS esconde de um papel continua voltando vazio, sem erro. As duas tabelas lidas com `maybeSingle` sem limite (`aluno_assinaturas` e `anamnese_acolhimento`) têm um registro por aluno (`unique (aluno_id)`), então o erro de "mais de uma linha" não aparece por aí.
+- **A porta do aceite dos documentos** (`AceiteDocumentosGate`) ficou fora, numa lista própria, `NAO_E_ESTADO_VAZIO`: não é uma lista, é a porta. Com a consulta falhando, ela deixa entrar de propósito (um soluço não tranca a academia inteira fora do app), registra o código do erro e pede o aceite de novo no próximo carregamento. A lista também só diminui.
+- De quebra: a etapa de planos da implantação tinha `= []` literal num dado que é dependência de efeito, e carregar ou falhar virava um laço de renders. O vazio passou a ser uma constante fora do componente.
+
+**2. O feed passa de mil posts.** O feed lia com `.limit(limite)`, e cada "Carregar mais" somava 15. Passando de mil, a API devolvia mil com status 200, e o feed parava sem aviso, com o botão na tela. As curtidas e os comentários iam num `.in()` com todos os ids carregados, que passa de 600 e volta 400.
+- Agora o feed pagina por cursor (`src/lib/cursorFeed.ts`): cada página traz 15 posts a partir do último da anterior (a data e, para os do mesmo instante, o id), e nenhuma consulta pede mais que 15. O valor vai entre aspas no filtro, porque a data tem `:`, `.` e `+`.
+- As curtidas e os comentários vão em lotes de 200 ids (`porLotes`) e em páginas de mil (`todasAsLinhas`).
+- O feed passou a filtrar pela academia aberta. Antes, quem está em duas academias via as duas misturadas, e o post novo ia só para a aberta.
+- A página seguinte que falha mostra o aviso no fim da lista, sem trocar os posts que já estão na tela.
+- `paginar.guarda` ganhou a regra 4: nenhum `.limit()` nem `.range(0, …)` com valor tirado de um `useState`. A janela fixa (`.range(pagina * N, pagina * N + N - 1)`) passa.
+
+**3. Cores fixas de texto pelos tokens de contraste.** `text-amber-600`, `text-red-500`, `text-emerald-600` e parecidas, como texto, não sabem o tema nem o fundo, e davam de 3:1 a 3,8:1. Os tokens `text-destructive`, `text-warning`, `text-success` e `text-primary` leem `--*-texto`, que a guarda confere em 4,5:1 nos dois temas.
+- **Em 49 telas:**
+  - o vermelho e o rosa viraram `text-destructive`;
+  - o âmbar, o laranja e o amarelo viraram `text-warning`;
+  - o verde virou `text-success`;
+  - o par `text-X-700 dark:text-X-400` virou uma classe só, porque o token muda com o tema.
+- **O fundo, a borda e o ícone decorativo ficaram com a cor.** A cor de categoria (as modalidades do calendário; doces, álcool e água no controle da dieta; o acolhimento Elite e a instrução presencial na fila; o "humano" do Vigia) manteve o fundo e a borda, e o texto passou a `text-foreground`. Fica a cor no fundo, que é o que distingue uma da outra.
+- **A faixa da simulação** tem fundo âmbar sólido, igual nos dois temas, e o texto passou a preto e branco neutros (9,8:1 e 15:1). O token, que muda com o tema, ficaria ruim sobre um fundo que não muda.
+- **A bolha do aluno no chat** mantém o fundo verde, e o texto passou a `text-foreground`.
+- `acessibilidade.guarda` ganhou `coresFixasDeTexto()`, com o compilador do TypeScript. A cor fixa de matiz em qualquer texto do arquivo conta, inclusive num mapa de cores fora do JSX. A classe de um ícone (o componente do `lucide-react`, o `<svg>`, o ícone por variável) não conta. A lista de exceções nasceu com as 49 telas e está vazia.
+
+**Defeitos do caminho.**
+- O detector de estado vazio contava `if (lista.length === 0) return {};` (dentro de uma consulta) como estado vazio: o `\b` depois de `{}` não casa. Não atrapalhou, porque tratar o erro da tela tira a acusação de qualquer jeito, e ficou como está.
+- O detector também não vê a lista filtrada: a Fila de atendimento testava `tarefasFiltradas.length === 0`, e não o dado da consulta, e passava sem tratar o erro. Foi tratada junto; a guarda segue sem pegar esse caso.
+**Travas:** `estadoVazio.guarda` (a lista vazia e a exceção da porta), `paginar.guarda` (a regra 4, com o feed de antes como caso) e `acessibilidade.guarda` (a cor fixa de texto, com 8 casos do detector). E `cursorFeed.test.ts`: três posts por segundo, para o desempate pelo id contar, e 1.234 posts lidos em páginas de 15, sem repetir nem pular nenhum.
+
+**Conferido:**
+- **3 defeitos plantados, os 3 pegos:**
+  - a conversa de mentoria sem tomar o erro (`estadoVazio.guarda`);
+  - o feed de antes, de volta como arquivo (`paginar.guarda`, na linha do `.limit(limite)`);
+  - `text-amber-700` de volta na etiqueta de anamnese da fila (`acessibilidade.guarda`).
+- **Testes:** `npx vitest run` com 1.298 testes em 173 arquivos, todos passando. Desta frente inteira (estas três e as de banco) são 16 novos:
+  - 5 em `caixaDeMensagens.guarda`, 3 em `tarefasPorDono.guarda`, 3 em `cursorFeed`, 2 em `acessibilidade.guarda`;
+  - 1 em `paginar.guarda`, 1 em `perfilSimulado.guarda` e 1 em `canaisDoPapel`.
+- `npm run check` sem erro: tipos, lint (0 erros, os 27 avisos de antes), o `deno check` das 56 funções e nenhuma vulnerabilidade.
+- As 43 telas da troca de cor mais simples foram feitas por um agente auxiliar, com as regras acima e a guarda como critério; as 6 que tinham também o estado vazio, e a conferência do conjunto, ficaram nesta frente.
+- **Falta, porque esta frente não toca produção:** a tela no computador e no celular. As telas com erro se provocam com o banco sem resposta, como na rodada 3. O feed com mais de mil posts se confere numa academia de homologação. As cores se conferem nos dois temas.

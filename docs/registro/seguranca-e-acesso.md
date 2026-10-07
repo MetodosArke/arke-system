@@ -383,7 +383,7 @@ Seis sobras da auditoria de prontidão, de banco e de funções. Migrations `202
 - Conferido antes de cortar: a fila, a operação, a ficha do Método, a instrução presencial e a liberação da progressão passam por funções `security definer`. A única gravação direta da ArkeFit é encerrar o chamado da fila, que é sempre `dono = 'arkefit'`.
 
 **2. O histórico do aluno mostra só o que quem pede pode ver** (`20261394`). `get_historico_aluno` rodava com a permissão da função e devolvia à recepção e ao professor o que o RLS das tabelas esconde deles: as tarefas do mentor, a dieta, o comentário de saúde do check-in e, no aluno do Método, o que é da ArkeFit. E o `admin_arke` abria o histórico de qualquer aluno do Free.
-- **A escolha:** a função passa a `security invoker`. Cada parte passa pelo RLS da tabela de origem, e a regra mora num lugar só: quando a regra de `tarefas`, `dietas` ou `checkins` mudar, o histórico muda junto, sem ninguém lembrar dele. A outra saída, repetir as condições do RLS dentro da função, deixaria duas cópias da regra para divergirem na primeira correção, que é como esta divergência nasceu. De quebra, a regra restritiva "duas etapas" passa a valer para o histórico, que era o próximo passo da rodada 3. A caixa de mensagens (`get_caixa_mensagens`) continua `security definer`.
+- **A escolha:** a função passa a `security invoker`. Cada parte passa pelo RLS da tabela de origem, e a regra mora num lugar só: quando a regra de `tarefas`, `dietas` ou `checkins` mudar, o histórico muda junto, sem ninguém lembrar dele. A outra saída, repetir as condições do RLS dentro da função, deixaria duas cópias da regra para divergirem na primeira correção, que é como esta divergência nasceu. De quebra, a regra restritiva "duas etapas" passa a valer para o histórico, que era o próximo passo da rodada 3. A caixa de mensagens (`get_caixa_mensagens`) continua `security definer`. *Superado em 06/10/2026: a caixa também passou a `security invoker` (ver "as últimas sobras de banco", abaixo).*
 - O que o RLS não diz, a função diz com a mesma função das regras, `atende_saude()`. A recepção não vê o comentário e o motivo do check-in nem as pendências de dor e de anamnese. A lista dos tipos de saúde mora em `TAREFAS_DE_SAUDE` (`src/lib/acessoPainel.ts`), usada pela ficha e conferida contra a função.
 - Quem pede: a equipe da academia, ou a ArkeFit só no aluno do Método. O suporte ao Free passa pelo perfil simulado, como na anamnese.
 - O autor que o RLS não deixa ler não some. Aparece como **Equipe ArkeFit** quando a linha é da ArkeFit (`dono = 'arkefit'`, ou a fase mudada por quem não é da academia). Aparece como **Equipe da academia** quando é de alguém que saiu da equipe: o perfil de quem foi inativado também deixa de ser lido, e sem essa distinção o ex-professor apareceria como ArkeFit.
@@ -420,7 +420,7 @@ O que muda, no molde da gestão:
 
 **Fica de fora, e por quê.**
 - **O aluno com conta que já existe** (`convidar-membro`). A matrícula liga a conta pelo CPF, sem a prova do e-mail (decisão de 03/10/2026). O pré-sequestro ainda é possível por aí: quem se matricula antes pela matrícula pública, com o e-mail e o CPF de outra pessoa, recebe depois a matrícula que outra academia fizer para ela. Pôr o aluno pendente não cabe no `organization_members`: o RLS do aluno, em mais de 40 tabelas, olha `alunos.user_id`, que é obrigatório e nasce na matrícula, e várias funções do app leem pela mesma coluna. As saídas são uma matrícula que só se liga à conta depois do link (a academia não veria o aluno até ele aceitar) ou a matrícula pública com e-mail confirmado. É decisão de produto do responsável.
-- **A troca do e-mail de um membro da equipe pela gestão** (`editar-membro-equipe`) não vai à auditoria. Ela já pede as duas etapas e só vale para quem está apenas naquela academia; registrar a troca (sem o e-mail, como aqui) é um passo a decidir, e não estava nesta lista.
+- **A troca do e-mail de um membro da equipe pela gestão** (`editar-membro-equipe`) não vai à auditoria. Ela já pede as duas etapas e só vale para quem está apenas naquela academia; registrar a troca (sem o e-mail, como aqui) é um passo a decidir, e não estava nesta lista. *Superado em 06/10/2026: a troca vai à auditoria como `equipe.email_alterado`, sem o e-mail (abaixo).*
 
 **Defeitos do caminho.**
 - O leitor de regras das guardas via viva a regra antiga de leitura de `profiles`. O Postgres corta o nome com mais de 63 bytes, e a regra foi apagada pelo nome cortado. O leitor passou a cortar igual e chegou à única regra de leitura que produção tem.
@@ -455,3 +455,65 @@ O que muda, no molde da gestão:
   - publicar as funções e a corrente real: o convite e o pendente com uma conta temporária, e um encerramento de homologação até a eliminação;
   - a tela no computador e no celular: a Equipe com o pendente, a Parceria, a ficha da recepção e do professor;
   - publicar `assistente-academia` com o índice novo.
+
+## Auditoria de prontidão: as últimas sobras de banco (06/10/2026)
+
+Três sobras que a frente anterior achou, e uma quarta que a prova desta achou. Migrations `20261398010000` a `20261401010000`.
+
+**1. A recepção não lê as tarefas de saúde** (`20261398`). A ficha e o histórico já escondiam da recepção as pendências de dor e de anamnese, mas pela tela. O RLS de `tarefas` dava à recepção toda tarefa `dono = 'academia'`, e a prova em produção mostrou a recepção lendo pela API a tarefa de dor ("Dor no joelho"), com o desfecho do professor.
+- **A escolha:** a regra mora no RLS, como a do dono (`20261393`). Na leitura, nas duas metades da alteração e na exclusão, o termo da equipe da academia ganha "a tarefa não é de saúde, ou quem pede atende a saúde" (`atende_saude()`). Uma regra por operação, como antes.
+- Os tipos de saúde moram numa função só, `tarefa_de_saude()`: `dor` e `anamnese`, a mesma lista de `TAREFAS_DE_SAUDE` da ficha. Ficam de fora o `atestado` (o documento que a recepção recebe no balcão, decisão de `20261360`), e também `ajuste` e `barreira`, que dizem que o plano precisa de ajuste ou que a rotina travou, sem o relato de saúde (o check-in com dor abre `dor`).
+- A inclusão fica como está: abrir uma tarefa não mostra outra, e a de saúde que a recepção abrisse pela API iria para quem atende, sem voltar para ela.
+- A Fila de atendimento lê pelo RLS: o professor, a nutricionista e a gestão seguem vendo a dor e a anamnese, sem responsável, na "Minha Fila". A pendência de saúde aberta que uma recepcionista já tinha assumido sumiria da fila dela e ficaria fora da "Minha Fila" dos outros, então a migration a devolve para a fila comum (sem responsável). A tela da fila também não tratava o erro da leitura: com o banco fora, dizia "Nenhuma pendência encontrada" (corrigido junto).
+- O histórico (`get_historico_aluno`) continua com o filtro dele, agora redundante; a lista dele e a do RLS são conferidas contra a mesma `TAREFAS_DE_SAUDE`.
+
+**2. A caixa de mensagens pelo RLS de quem pede** (`20261399`). `get_caixa_mensagens` rodava com a permissão da função, a mesma classe do histórico. Conferida contra o RLS de `mensagens_treino` e `mensagens_dieta`:
+- ela pulava a regra restritiva das duas etapas: a gestão com o fator cadastrado e a sessão só com a senha lia a caixa inteira, que a API recusa;
+- o resto ela entregava igual ao RLS, e era o RLS da conversa da nutrição que estava largo: `is_org_staff` (a recepção inclusive) e o `admin_arke` de qualquer academia. A conversa da nutrição é saúde (a dieta, a alergia, o refluxo), e a dieta já era só de quem atende e, no Free, não da ArkeFit (`20261360`, blocos 2 e 3). A recepção lia pela caixa e pela API a conversa da nutricionista com o aluno;
+- a conversa do mentor do Método mora em `mensagens_mentor`, que a academia não lê, e a caixa já tirava o aluno do Método: por aí não havia vazamento.
+
+**A escolha**, no molde do histórico: a conversa da nutrição segue a regra da dieta (o aluno; quem atende a saúde, inclusive a conversa antiga de quem entrou no Método, que `20261295` deixou legível; e a ArkeFit só no aluno do Método), e a caixa passa a `security invoker`, com cada canal lido pelo RLS da própria tabela, duas etapas inclusive. A conversa de treino fica como está, porque o treino é lido por toda a equipe. No app, a recepção deixa de ter o canal de nutrição na caixa (`canaisDoPapel`), e o **Chat Nutrição** da ficha fica desativado para ela, com o porquê; o artigo de Mensagens mudou junto.
+
+**3. A mensagem lida passa a gravar** (`20261400`, achado da prova do item 2). O chat de treino e o de nutrição tinham uma regra só, `for all`, e o `with check` dela exige que a linha seja de quem grava. Isso vale para a inclusão, que era o que ele queria, e também para a alteração: marcar como lida a mensagem do outro lado, que o chat faz ao abrir, era recusado com 42501. O app engolia o erro, e a contagem de não lidas da caixa e do menu nunca baixava.
+- Uma regra por operação, com o mesmo quem-lê de hoje: leitura (o aluno e quem atende o canal), inclusão (o `with check` de antes: cada um escreve só como ele mesmo), alteração (quem lê) e exclusão (como estava; nenhuma tela exclui mensagem).
+- A permissão de alterar a tabela sai, e volta só para a coluna `lida`: o texto, o remetente e a data de uma mensagem não mudam pela API.
+
+**4. A troca do e-mail de alguém da equipe vai para a auditoria** (`20261401`, `editar-membro-equipe`). A gestão (com as duas etapas) ou a ArkeFit troca o e-mail de login de um professor, nutricionista, recepcionista ou gestor, e não ficava registro. Trocar o e-mail entrega a conta a quem tem o e-mail novo, o mesmo peso de `gestor.email_alterado`.
+- A função registra `equipe.email_alterado`: quem trocou, de quem, o papel da pessoa e se foi a ArkeFit, sem o e-mail (nem o novo nem o antigo). A falha do registro não desfaz a troca já feita e vai ao log, como em `superadmin-suporte-tenant`.
+- O gatilho de `20261397` passa a valer para toda ação que termina em `.email_alterado`, por qualquer caminho. A Auditoria da Visão Master ganhou o rótulo.
+- Os três logs da função que levavam o objeto de erro passaram por `resumoDoErro()`.
+
+**Fica de fora, e por quê.**
+- **`get_atendimentos_mentor_organizacao`** (a tela Acompanhamento ARKE, da gestão) é `security definer` e entrega o motivo e o desfecho das tarefas do mentor a qualquer pessoa da equipe que chame a função, inclusive o da tarefa de dor. A tela existe de propósito, para mostrar à academia o resultado do mentor, e a rota é só da gestão. Mas a função confere `is_org_staff`, e não a gestão, e o motivo pode trazer saúde do aluno do Método. Decidir se a academia vê o motivo da tarefa de saúde do Método, e restringir a função à gestão, é decisão de produto.
+- **A ArkeFit lê a conversa de treino do aluno do Free**, como lê o treino (`treinos`). Foi mantido para o chat seguir a regra do treino; se o treino do Free sair do alcance da ArkeFit, o chat sai junto.
+- **A exclusão de mensagem** segue com quem lê a conversa: a equipe pode excluir a mensagem do aluno pela API. Nenhuma tela faz isso. Fechar a exclusão é um passo pequeno, mas muda o que o banco permite hoje, e não estava na lista.
+- **A troca de papel e de nome pela gestão** (`editar-membro-equipe`) também não vai à auditoria. Promover alguém a gestor dá acesso ao dinheiro: vale registrar, a decidir.
+
+**Defeitos do caminho.**
+- A prova da caixa voltava vazia em todos os papéis: o esqueleto deixava `metodo_arke_status` nulo no aluno do Free, e `<> 'ativo'` com nulo descarta a linha. Em produção a coluna é `not null default 'sem_adesao'`, e o esqueleto passou a seguir.
+- A prova esperava que a recepção, sem fator cadastrado, não lesse nada sem as duas etapas. A regra restritiva só pesa para quem tem o fator, e o caso passou a usar o professor com o fator.
+- O primeiro texto da migration das tarefas dizia que a recepção "registra a dor do balcão", mas nenhuma tela da equipe abre tarefa de dor. O comentário e o artigo da Fila dizem o que existe: o aluno registra pelo app.
+- A primeira rodada da suíte pegou o teste antigo de `canaisDoPapel`, que esperava a recepção com os dois canais. Ele mudou com a decisão.
+
+**Travas:**
+- `tarefasPorDono.guarda` ganhou "a saúde fica com quem atende": todo termo da equipe, nas quatro metades, pede a condição; a lista do banco é a da ficha; e o leitor acha a recepção lendo a dor.
+- `caixaDeMensagens.guarda` (nova): a caixa `security invoker`, lendo só tabela com regra de leitura; uma regra por operação nos dois chats; a nutrição sem `is_org_staff` nem o `admin_arke` solto; a alteração só da coluna `lida`; e a recepção sem o canal de nutrição no app.
+- `perfilSimulado.guarda` passou a ler a definição vigente do gatilho e ganhou o registro da troca da equipe.
+
+**Conferido:**
+- **O banco, em Postgres local (PGlite)**, no esqueleto da frente anterior com os chats acrescentados. As regras de acesso foram geradas pelo leitor das guardas no estado de antes desta entrega (até `20261397`). Cada migration rodou duas vezes seguidas, e **81 casos** passaram, cada um em transação desfeita:
+  - **tarefas de saúde, 25 casos.** Antes, a recepção lia a dor. Depois, a recepção não lê, não altera nem exclui dor e anamnese, não transforma tarefa dela em tarefa de saúde, abre a de dor sem lê-la de volta e segue lendo cobrança, atestado e barreira. Gestor, professor e nutricionista leem as 7 da academia, assumem a dor e a veem no histórico. A dor que estava com a recepção voltou para a fila comum, e a cobrança dela ficou com ela. O professor com o fator e sem as duas etapas não lê nada;
+  - **caixa, 27 casos.** Antes, a recepção e a ArkeFit recebiam a conversa da nutrição, e a gestão sem as duas etapas recebia a caixa. Depois, a recepção recebe só o treino e não lê, não responde nem marca a nutrição. Gestor, professor e nutricionista recebem os dois canais do Free e não o do Método, e leem a conversa antiga de quem entrou no Método. Sem as duas etapas, a caixa vem vazia. A ArkeFit não recebe a nutrição do Free. O aluno e a gestão de outra academia não abrem a caixa;
+  - **mensagem lida, 22 casos.** Antes, nem o professor nem o aluno marcavam a mensagem do outro lado. Depois, os dois marcam, e a contagem da caixa baixa. Ninguém altera o texto nem o remetente, e as inclusões seguem como eram. Pela API só `lida` se altera, e o servidor segue com tudo;
+  - **troca de e-mail da equipe, 7 casos:** o registro guarda quem, de quem, o papel e se foi a ArkeFit; o banco tira o e-mail de qualquer caminho, inclusive por alteração; o do gestor segue sem e-mail; e outra ação não é tocada (o `_` do `like` é literal).
+- **5 defeitos plantados, os 5 pegos:**
+  - a exclusão sem a condição de saúde;
+  - `barreira` na lista da ficha (pegam as duas guardas, a das tarefas e a do histórico);
+  - a recepção de volta ao canal de nutrição;
+  - a leitura da nutrição com `is_org_staff`;
+  - o `novo_email` de volta no registro da troca da equipe.
+- A suíte e o `npm run check` estão no fechamento da rodada 3 do app (`produto.md`), que entrou no mesmo PR.
+- **Falta, porque esta frente não toca produção:**
+  - aplicar as quatro migrations e provar em produção em transação desfeita;
+  - publicar `editar-membro-equipe` e `assistente-academia` (o índice da Central mudou);
+  - a corrente real: trocar o e-mail de uma conta temporária da equipe e conferir a Auditoria.
