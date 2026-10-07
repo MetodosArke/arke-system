@@ -129,3 +129,9 @@ As três sobras da rodada 3 do app que ficaram listadas nas guardas. As de banco
 - `npm run check` sem erro: tipos, lint (0 erros, os 27 avisos de antes), o `deno check` das 56 funções e nenhuma vulnerabilidade.
 - As 43 telas da troca de cor mais simples foram feitas por um agente auxiliar, com as regras acima e a guarda como critério; as 6 que tinham também o estado vazio, e a conferência do conjunto, ficaram nesta frente.
 - **Falta, porque esta frente não toca produção:** a tela no computador e no celular. As telas com erro se provocam com o banco sem resposta, como na rodada 3. O feed com mais de mil posts se confere numa academia de homologação. As cores se conferem nos dois temas.
+
+## O contador de não lidas baixa na hora (06/10/2026)
+
+Na tela em produção, depois da `20261400` (a mensagem lida passou a gravar), o professor abriu a conversa do aluno. A mensagem ficou lida no banco, mas o número do menu continuou em 1. O chat (`ChatPanel`) recarregava só as próprias mensagens depois de marcar como lida. O contador do menu e da caixa (`useCaixaMensagens`, chave `caixa-mensagens`) só baixava na próxima atualização, até 30 s depois, ou ao fechar a conversa pelo botão da tela de Mensagens. Agora o chat recarrega o contador também, onde quer que esteja aberto, inclusive na ficha do aluno.
+
+**Conferido:** a tela, de novo, depois do deploy (abaixo, no PR).
