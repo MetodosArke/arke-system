@@ -8,6 +8,7 @@ import {
   contaJaExiste,
   veioDaTelaAntiga,
 } from "../../supabase/functions/matricula-publica/fluxo";
+import { MATRICULA_ONLINE_NAO_CONFIRMADA, recusaDaMatriculaOnline } from "../../supabase/functions/convidar-membro/fluxo";
 
 /**
  * Trava da auditoria de 05/10/2026 (achados médios de identidade):
@@ -254,5 +255,79 @@ describe("a matrícula pública só com o e-mail provado (pré-sequestro de cont
     expect(t).not.toMatch(/\bsignIn\(/);
     expect(t).not.toMatch(/\bpassword\b/);
     expect(t).toMatch(/Enviamos para o seu e-mail um link para criar a sua senha\./);
+  });
+
+  // A conta que nunca confirma: não é usável, mas fica ligada à academia do
+  // link com o CPF que alguém digitou (migration 20261403010000).
+  const sql = readdirSync(join(RAIZ, "supabase", "migrations"))
+    .filter((n) => n.endsWith(".sql"))
+    .sort()
+    .map((n) => ler(RAIZ, "supabase", "migrations", n))
+    .join("\n");
+  const ultimaFuncao = (nome: string) =>
+    sql.match(new RegExp(String.raw`create or replace function public\.${nome}\([\s\S]*?\$\$;`, "g"))?.at(-1) ?? "";
+
+  it("a regra lê a marca que a função grava e a confirmação do e-mail", () => {
+    const regra = ultimaFuncao("conta_da_matricula_publica_nao_confirmada");
+    expect(regra, "a função existe").not.toBe("");
+    expect(regra).toContain(`u.raw_app_meta_data ->> 'origem' = '${ORIGEM_MATRICULA_PUBLICA}'`);
+    expect(regra).toMatch(/and u\.email_confirmed_at is null/);
+    expect(sql).toMatch(
+      /revoke execute on function public\.conta_da_matricula_publica_nao_confirmada\(uuid\) from public, anon, authenticated;/,
+    );
+  });
+
+  it("a conta não confirmada não recebe aluno de outra academia, por nenhum caminho", () => {
+    const gatilho = ultimaFuncao("matricula_publica_sem_outra_academia");
+    expect(gatilho).toMatch(/public\.conta_da_matricula_publica_nao_confirmada\(new\.user_id\)/);
+    expect(gatilho).toMatch(/a\.organization_id <> new\.organization_id/);
+    expect(sql).toMatch(
+      /create trigger trg_matricula_publica_sem_outra_academia\s+before insert or update of user_id on public\.alunos/,
+    );
+    expect(sql).toMatch(/revoke execute on function public\.matricula_publica_sem_outra_academia\(\) from public, anon, authenticated;/);
+    // A recusa do banco é reconhecida pela função, que diz o caminho.
+    const mensagemDoBanco = gatilho.match(/raise exception '([^']+)'/)?.[1] ?? "";
+    expect(recusaDaMatriculaOnline(mensagemDoBanco)).toBe(true);
+  });
+
+  it("a matrícula pela academia pergunta antes de ligar pelo CPF", () => {
+    const c = ler(FUNCOES, "convidar-membro", "index.ts");
+    const conferirCpf = c.indexOf("cpfDigitado !== cpfDaConta");
+    const perguntar = c.indexOf('"conta_da_matricula_publica_nao_confirmada"');
+    const ligar = c.indexOf(".from(\"organization_members\")", perguntar);
+    expect(conferirCpf).toBeGreaterThan(-1);
+    expect(perguntar).toBeGreaterThan(conferirCpf);
+    expect(ligar).toBeGreaterThan(perguntar);
+    expect(c).toMatch(/if \(naoConfirmada === true\) \{\s+return jsonResponse\(\{ error: MATRICULA_ONLINE_NAO_CONFIRMADA \}, 409\);/);
+    expect(c).toMatch(/if \(recusaDaMatriculaOnline\(alunoError\.message\)\) \{/);
+  });
+
+  it("a rotina apaga só a matrícula que ficou como nasceu, depois de 7 dias", () => {
+    const rotina = ultimaFuncao("apagar_matriculas_publicas_nao_confirmadas");
+    expect(rotina, "a função existe").not.toBe("");
+    for (const condicao of [
+      `u.raw_app_meta_data ->> 'origem' = 'matricula_publica'`,
+      "u.email_confirmed_at is null",
+      "u.last_sign_in_at is null",
+      "coalesce(u.encrypted_password, '') = ''",
+      "u.created_at < now() - interval '7 days'",
+      "a.identificador_catraca is null",
+      "from storage.objects so",
+      "and public.aluno_como_nasceu(a.id)",
+    ]) {
+      expect(rotina, condicao).toContain(condicao);
+    }
+    // Falta de permissão aparece como falha da rotina, e não como zero apagadas.
+    expect(rotina).toMatch(/when insufficient_privilege then\s+raise;/);
+    // O que aponta para o aluno vem do catálogo, e não de uma lista à mão.
+    expect(ultimaFuncao("aluno_como_nasceu")).toMatch(/c\.confrelid = 'public\.alunos'::regclass/);
+    expect(sql).toMatch(
+      /select cron\.schedule\('arke-matriculas-nao-confirmadas', '35 7 \* \* \*', 'select public\.apagar_matriculas_publicas_nao_confirmadas\(\)'\);/,
+    );
+  });
+
+  it("os 7 dias da rotina são os mesmos que a tela e a mensagem prometem", () => {
+    expect(ler(RAIZ, "src", "pages", "public", "PublicMatricula.tsx")).toMatch(/não for criada em 7 dias/);
+    expect(MATRICULA_ONLINE_NAO_CONFIRMADA).toMatch(/depois de 7 dias/);
   });
 });

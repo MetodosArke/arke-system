@@ -136,7 +136,7 @@ select vault.create_secret(encode(extensions.gen_random_bytes(32), 'hex'), 'reco
 -- ------------------------------------------------------------- Rotinas ------
 
 -- >>> rotinas (gerado por scripts/migracao/rotinas.mjs; não editar à mão)
--- 32 rotinas, as mesmas que as migrations deixam agendadas. Horários em UTC,
+-- 33 rotinas, as mesmas que as migrations deixam agendadas. Horários em UTC,
 -- como o pg_cron os guarda. Cada uma diz de que migration veio.
 select cron.unschedule(jobid) from cron.job;
 
@@ -353,6 +353,9 @@ select cron.schedule('arke-saida-asaas', '25 * * * *', $cmd$
 
 -- supabase/migrations/20261380010000_registros_de_acesso_marco_civil.sql
 select cron.schedule('arke-registros-de-acesso', '10 7 * * *', $cmd$select public.limpar_registros_acesso_aplicacao()$cmd$);
+
+-- supabase/migrations/20261403010000_matricula_publica_confirmada.sql
+select cron.schedule('arke-matriculas-nao-confirmadas', '35 7 * * *', $cmd$select public.apagar_matriculas_publicas_nao_confirmadas()$cmd$);
 
 -- <<< rotinas
 

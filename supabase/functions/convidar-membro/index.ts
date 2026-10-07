@@ -1,5 +1,6 @@
 import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2";
 import { emailMatriculaNova } from "./email.ts";
+import { MATRICULA_ONLINE_NAO_CONFIRMADA, recusaDaMatriculaOnline } from "./fluxo.ts";
 import { hojeBrasilia } from "../_shared/data.ts";
 import { dentroDoFreio, MENSAGEM_FREIO } from "../_shared/freio.ts";
 import { erroDataNascimento } from "../_shared/nascimento.ts";
@@ -237,6 +238,8 @@ servir("convidar-membro", async (req: Request) => {
     // matrícula quando o CPF digitado é o dela (decisão de 03/10/2026): é a
     // prova de que a academia conhece a pessoa. Sem isso, qualquer academia
     // que soubesse um e-mail veria o nome e o telefone de quem é dono dele.
+    // A exceção é a conta da matrícula pública que ainda não confirmou o
+    // e-mail (07/10/2026): o CPF dela não provou nada, e ela espera o link.
     const { data: contas, error: contaError } = await adminClient.rpc("conta_por_email", { _email: email });
     if (contaError) {
       console.error("conta_por_email", contaError.code);
@@ -295,6 +298,22 @@ servir("convidar-membro", async (req: Request) => {
         );
       }
 
+      // O CPF da conta que nasceu na matrícula pública e não confirmou o
+      // e-mail foi digitado sem prova nenhuma: ela só recebe esta matrícula
+      // depois que o dono do e-mail criar a senha pelo link (07/10/2026, ver
+      // ./fluxo.ts). Depois do CPF, para só quem já conhece a pessoa saber.
+      const { data: naoConfirmada, error: confirmacaoError } = await adminClient.rpc(
+        "conta_da_matricula_publica_nao_confirmada",
+        { _user_id: userId }
+      );
+      if (confirmacaoError) {
+        console.error("convidar-membro: conta_da_matricula_publica_nao_confirmada", resumoDoErro(confirmacaoError));
+        return jsonResponse({ error: "Erro ao conferir a conta." }, 500);
+      }
+      if (naoConfirmada === true) {
+        return jsonResponse({ error: MATRICULA_ONLINE_NAO_CONFIRMADA }, 409);
+      }
+
       // O perfil é da pessoa: completa só o que falta, sem trocar o que ela usa.
       const completar: Record<string, unknown> = {};
       if (!perfil?.phone && telefone) completar.phone = telefone;
@@ -333,6 +352,9 @@ servir("convidar-membro", async (req: Request) => {
           await adminClient.from("organization_members").update({ status: vinculo.status }).eq("organization_id", organizationId).eq("user_id", userId);
         } else {
           await adminClient.from("organization_members").delete().eq("organization_id", organizationId).eq("user_id", userId);
+        }
+        if (recusaDaMatriculaOnline(alunoError.message)) {
+          return jsonResponse({ error: MATRICULA_ONLINE_NAO_CONFIRMADA }, 409);
         }
         const limite = alunoError.message?.toLowerCase().includes("limite");
         return jsonResponse({ error: limite ? alunoError.message : "Erro ao criar o cadastro do aluno." }, limite ? 409 : 500);
