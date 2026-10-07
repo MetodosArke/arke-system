@@ -26,8 +26,8 @@ import {
 import { cn } from "@/lib/utils";
 
 const TOM_BADGE = {
-  ok: "border-emerald-600/40 text-emerald-700 dark:text-emerald-400",
-  atencao: "border-amber-500/50 text-amber-700 dark:text-amber-400",
+  ok: "border-emerald-600/40 text-success",
+  atencao: "border-amber-500/50 text-warning",
   problema: "border-destructive/50 text-destructive",
   neutro: "",
 } as const;
@@ -132,7 +132,7 @@ export function SaudeGateway({
       </div>
       {situacao !== "online" && <p className="text-xs text-muted-foreground">{info.descricao}</p>}
       {desatualizado && (
-        <p className="text-xs text-amber-700 dark:text-amber-400">
+        <p className="text-xs text-warning">
           Este Gateway está abaixo da versão mínima ({versaoMinima}). Ele continua funcionando, mas precisa ser atualizado:
           fale com o suporte da ArkeFit.
         </p>
@@ -142,7 +142,7 @@ export function SaudeGateway({
         <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs sm:grid-cols-4">
           <div>
             <dt className="text-muted-foreground">Acessos guardados</dt>
-            <dd className={cn("font-medium", tel.fila_offline > 0 && "text-amber-700 dark:text-amber-400")}>{tel.fila_offline}</dd>
+            <dd className={cn("font-medium", tel.fila_offline > 0 && "text-warning")}>{tel.fila_offline}</dd>
           </div>
           <div>
             <dt className="text-muted-foreground">Alunos no cadastro local</dt>

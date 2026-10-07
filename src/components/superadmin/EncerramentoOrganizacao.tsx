@@ -109,7 +109,7 @@ export function EncerramentoOrganizacao({ organizationId, status }: { organizati
             </p>
           )}
           {emCurso.etapa === "encerrada" && resumoRemocao(emCurso).pendentes > 0 && (
-            <p className="text-xs text-amber-700 dark:text-amber-300">
+            <p className="text-xs text-warning">
               {resumoRemocao(emCurso).pendentes} remoção(ões) à mão sem desfecho: a gestão fecha cada uma na tela do encerramento. Na eliminação, o placar fica neste registro.
             </p>
           )}

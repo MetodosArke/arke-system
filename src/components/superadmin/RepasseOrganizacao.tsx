@@ -114,7 +114,7 @@ export function RepasseOrganizacao({ organizationId }: { organizationId: string 
   return (
     <div className="space-y-3">
       {naoNegociado && (
-        <p className="rounded-md border border-amber-500/40 bg-amber-500/5 p-2 text-xs text-amber-700 dark:text-amber-400">
+        <p className="rounded-md border border-amber-500/40 bg-amber-500/5 p-2 text-xs text-warning">
           Sem repasse negociado: a cobrança do Método nesta academia é recusada até configurar aqui.
         </p>
       )}
@@ -125,7 +125,7 @@ export function RepasseOrganizacao({ organizationId }: { organizationId: string 
             Tabela de referência: {resumoReferencia} por aluno, mais a taxa. Definida em Configurações.
           </p>
           {confirmando && !naoNegociado && (
-            <p className="text-xs text-amber-700 dark:text-amber-400">
+            <p className="text-xs text-warning">
               Substitui o repasse e as exceções desta academia. Confirme para aplicar.
             </p>
           )}

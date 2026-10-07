@@ -231,7 +231,7 @@ export function ResumoSentinela({ alunoId }: { alunoId: string }) {
       {resumo ? (
         <div className={`rounded-md border p-3 ${atencao ? "border-amber-500/40 bg-amber-500/5" : ""}`}>
           {atencao && (
-            <p className="mb-1 flex items-center gap-1.5 text-xs font-medium text-amber-700 dark:text-amber-400">
+            <p className="mb-1 flex items-center gap-1.5 text-xs font-medium text-warning">
               <AlertTriangle className="h-3.5 w-3.5" />
               Histórico que exige cuidado
             </p>

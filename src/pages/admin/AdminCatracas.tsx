@@ -278,7 +278,7 @@ export default function AdminCatracas() {
           <DoorOpen className="h-5 w-5 text-primary" />
           <h1 className="text-xl font-bold">Catracas</h1>
           {realtimeAtivo && (
-            <Badge variant="outline" className="gap-1 text-emerald-600 dark:text-emerald-400 border-emerald-600/30">
+            <Badge variant="outline" className="gap-1 text-success border-emerald-600/30">
               <Radio className="h-3 w-3 animate-pulse" /> Ao vivo
             </Badge>
           )}

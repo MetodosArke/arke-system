@@ -15,7 +15,7 @@ export default function DocumentoLegal({ tipo }: { tipo: TipoDocumento }) {
     <div className="min-h-screen bg-background px-4 py-8">
       <article className="mx-auto max-w-3xl space-y-4">
         {!doc.revisadoJuridico && (
-          <p className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-800 dark:text-amber-300">
+          <p className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-warning">
             Minuta em revisão jurídica. O texto pode mudar; se mudar, a plataforma pede um novo aceite.
           </p>
         )}

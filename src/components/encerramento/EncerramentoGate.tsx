@@ -43,7 +43,7 @@ export function EncerramentoGate({ children, publico }: { children: ReactNode; p
     if (publico === "aluno") {
       return (
         <>
-          <div role="status" className="border-b border-amber-500/40 bg-amber-500/10 px-4 py-2 text-sm text-amber-900 dark:text-amber-200">
+          <div role="status" className="border-b border-amber-500/40 bg-amber-500/10 px-4 py-2 text-sm text-warning">
             {academia} vai encerrar o uso do ARKE em <strong>{dataCurta(encerramento.termino_em)}</strong>. Até lá tudo segue funcionando.
             Seus dados desta academia ficam até {dataCurta(encerramento.eliminacao_em)} e depois são eliminados; mandamos os detalhes
             por e-mail.
@@ -55,7 +55,7 @@ export function EncerramentoGate({ children, publico }: { children: ReactNode; p
     if (!gestao) return <>{children}</>;
     return (
       <>
-        <div role="status" className="border-b border-amber-500/40 bg-amber-500/10 px-4 py-2 text-sm text-amber-900 dark:text-amber-200">
+        <div role="status" className="border-b border-amber-500/40 bg-amber-500/10 px-4 py-2 text-sm text-warning">
           O contrato com o ARKE termina em <strong>{dataCurta(encerramento.termino_em)}</strong>. Até lá tudo segue funcionando;
           exporte os dados em{" "}
           <Link to="/admin/organizacao" className="underline">

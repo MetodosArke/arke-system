@@ -103,7 +103,7 @@ export function ConsentimentoBiometria({ alunoId, organizationId }: { alunoId: s
             </p>
           )}
           {!vigente && antigo && (
-            <p className="mt-1 text-[11px] text-amber-700 dark:text-amber-400">
+            <p className="mt-1 text-[11px] text-warning">
               O texto desta autorização mudou desde {formatarData(antigo.aceito_em)}. Confirme de novo para a catraca
               continuar usando a sua biometria, ou{" "}
               {/* Sem isto, quem não quer confirmar o texto novo ficaria sem

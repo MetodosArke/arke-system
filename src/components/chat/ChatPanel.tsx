@@ -299,7 +299,7 @@ export function ChatPanel({ organizationId, alunoId, viewerType, type, dietaId, 
             const isStaffMsg = msg.remetente_tipo !== "aluno";
             return (
               <div key={msg.id} className={cn("flex flex-col max-w-[80%]", isMine ? "ml-auto items-end" : "mr-auto items-start")}>
-                <span className={cn("text-[10px] font-semibold mb-0.5 px-1", isStaffMsg ? "text-primary" : "text-emerald-600")}>
+                <span className={cn("text-[10px] font-semibold mb-0.5 px-1", isStaffMsg ? "text-primary" : "text-success")}>
                   {isMine ? "Você" : isStaffMsg ? (type === "treino" ? "Treinador(a)" : "Nutricionista") : "Aluno"}
                 </span>
                 <div
@@ -307,7 +307,7 @@ export function ChatPanel({ organizationId, alunoId, viewerType, type, dietaId, 
                     "rounded-2xl px-3 py-2",
                     isMine
                       ? "bg-primary text-primary-foreground rounded-br-sm"
-                      : "bg-emerald-100 text-emerald-900 dark:bg-emerald-900/30 dark:text-emerald-100 rounded-bl-sm"
+                      : "bg-emerald-100 text-foreground dark:bg-emerald-900/30 rounded-bl-sm"
                   )}
                 >
                   {"video_url" in msg && msg.video_url ? (

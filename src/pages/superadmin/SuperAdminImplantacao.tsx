@@ -162,7 +162,7 @@ export default function SuperAdminImplantacao() {
                       {l.etapas_feitas} de {l.etapas_total}
                     </span>
                   </div>
-                  {l.chamado && <p className="text-xs text-amber-700 dark:text-amber-400">{l.chamado.motivo}</p>}
+                  {l.chamado && <p className="text-xs text-warning">{l.chamado.motivo}</p>}
                   <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
                     <span>Desde {formatarDataBR(l.iniciada_em)}</span>
                     <span>Evasão anterior: {l.evasao_meses} de 6 meses</span>
@@ -220,7 +220,7 @@ function Detalhe({ organizationId }: { organizationId: string }) {
       <ul className="space-y-1">
         {data.etapas.map((e) => (
           <li key={e.etapa} className={cn(!e.principal && "text-muted-foreground")}>
-            <span className={e.concluida ? "text-emerald-600" : ""}>{e.concluida ? "✓" : "○"}</span> {tituloEtapa(e.etapa)}
+            <span className={e.concluida ? "text-success" : ""}>{e.concluida ? "✓" : "○"}</span> {tituloEtapa(e.etapa)}
             {e.detalhe && <span className="text-muted-foreground"> — {e.detalhe}</span>}
           </li>
         ))}

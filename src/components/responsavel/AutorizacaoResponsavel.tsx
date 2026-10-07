@@ -148,11 +148,11 @@ export function PortaoConsentimento({
 /** A linha sob o interruptor de um consentimento que ainda não pode ser ligado. */
 export function DicaLiberacao({ liberacao }: { liberacao: Liberacao | "carregando" }) {
   if (liberacao === "informar_data") {
-    return <p className="mt-1 text-[11px] text-amber-700 dark:text-amber-400">Para ligar, informe antes a sua data de nascimento (acima).</p>;
+    return <p className="mt-1 text-[11px] text-warning">Para ligar, informe antes a sua data de nascimento (acima).</p>;
   }
   if (liberacao === "pedir_responsavel") {
     return (
-      <p className="mt-1 text-[11px] text-amber-700 dark:text-amber-400">
+      <p className="mt-1 text-[11px] text-warning">
         Para ligar, falta a autorização do seu responsável (acima).
       </p>
     );

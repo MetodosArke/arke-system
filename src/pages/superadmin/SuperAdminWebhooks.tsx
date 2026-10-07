@@ -48,7 +48,7 @@ const SITUACOES = {
   ok: {
     label: "Aplicado",
     icon: CheckCircle2,
-    classe: "text-emerald-600 dark:text-emerald-400",
+    classe: "text-success",
     ajuda: "O evento encontrou a cobrança correspondente e atualizou o registro.",
   },
   erro: {
@@ -60,13 +60,13 @@ const SITUACOES = {
   pendente: {
     label: "Não concluído",
     icon: Clock,
-    classe: "text-amber-600 dark:text-amber-400",
+    classe: "text-warning",
     ajuda: "Registrado mas nunca finalizado — a função morreu no meio (timeout, deploy durante a execução).",
   },
   sem_efeito: {
     label: "Sem efeito",
     icon: CircleSlash,
-    classe: "text-amber-600 dark:text-amber-400",
+    classe: "text-warning",
     ajuda:
       "Rodou até o fim sem casar com nenhuma cobrança do banco. É o sintoma de wallet ou assinatura apontando para outro ambiente do Asaas.",
   },
@@ -198,7 +198,7 @@ export default function SuperAdminWebhooks() {
                   <p className="text-xs text-muted-foreground">Sem efeito</p>
                   <p
                     className={`text-lg font-bold ${
-                      (resumo?.sem_efeito ?? 0) > 0 ? "text-amber-600 dark:text-amber-400" : ""
+                      (resumo?.sem_efeito ?? 0) > 0 ? "text-warning" : ""
                     }`}
                   >
                     {resumo?.sem_efeito ?? 0}

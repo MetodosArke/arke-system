@@ -58,7 +58,7 @@ export function BaixarMeusDados() {
         {gerando ? "Preparando o arquivo..." : "Baixar os meus dados"}
       </Button>
       {simulado && (
-        <p className="flex items-start gap-1.5 text-[11px] text-amber-700 dark:text-amber-400">
+        <p className="flex items-start gap-1.5 text-[11px] text-warning">
           <UserCog className="mt-px h-3.5 w-3.5 shrink-0" aria-hidden="true" />
           {RECUSA_SIMULADO}
         </p>

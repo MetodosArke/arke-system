@@ -491,15 +491,15 @@ export default function AdminGestao360() {
             <span>Receita bruta total</span>
             <span className="font-semibold">{formatarMoeda(receitaBrutaMes)}</span>
           </div>
-          <div className="flex items-center justify-between border-b border-border pb-2 text-red-600 dark:text-red-400">
+          <div className="flex items-center justify-between border-b border-border pb-2 text-destructive">
             <span>(–) Repasse ARKE (atacado + taxa de processamento)</span>
             <span className="font-semibold">{formatarMoeda(repasseArkeMes)}</span>
           </div>
-          <div className="flex items-center justify-between border-b border-border pb-2 text-red-600 dark:text-red-400">
+          <div className="flex items-center justify-between border-b border-border pb-2 text-destructive">
             <span>(–) Custo de equipe (folha + comissões)</span>
             <span className="font-semibold">{formatarMoeda(custoEquipeMes)}</span>
           </div>
-          <div className="flex items-center justify-between pt-1 text-base font-bold text-emerald-600 dark:text-emerald-400">
+          <div className="flex items-center justify-between pt-1 text-base font-bold text-success">
             <span>(=) Receita líquida da academia</span>
             <span>{formatarMoeda(receitaLiquidaMes)}</span>
           </div>

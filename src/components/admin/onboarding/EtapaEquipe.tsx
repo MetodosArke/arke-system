@@ -123,7 +123,7 @@ export function EtapaEquipe({ onSalvo }: { onSalvo: () => void }) {
         <ul className="rounded-md border divide-y text-xs">
           {resultados.map((r) => (
             <li key={`${r.email}-${r.nome}`} className="flex items-center gap-2 px-3 py-2">
-              <span className={r.ok ? "text-emerald-600" : "text-destructive"}>{r.ok ? "✓" : "✕"}</span>
+              <span className={r.ok ? "text-success" : "text-destructive"}>{r.ok ? "✓" : "✕"}</span>
               <span className="flex-1 min-w-0 truncate">
                 {r.nome} <span className="text-muted-foreground">{r.email}</span>
                 <span className={r.ok ? "block text-muted-foreground" : "block text-destructive"}>{r.mensagem}</span>

@@ -55,7 +55,7 @@ export function AlunoSituacaoGate({ children }: { children: React.ReactNode }) {
   if (acesso.liberado) {
     return (
       <>
-        <div role="status" className="bg-amber-500/15 text-amber-900 dark:text-amber-200 text-xs text-center px-3 py-2">
+        <div role="status" className="bg-amber-500/15 text-warning text-xs text-center px-3 py-2">
           A {organization?.nome ?? "academia"} registrou uma pendência na sua mensalidade. Seu acesso segue por mais{" "}
           {acesso.diasRestantes} dia(s) — fale com a recepção para regularizar.
         </div>

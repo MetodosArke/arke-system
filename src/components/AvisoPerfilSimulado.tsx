@@ -9,7 +9,7 @@ import { MENSAGEM_PERFIL_SIMULADO } from "@/lib/impersonation";
  */
 export function AvisoPerfilSimulado({ className }: { className?: string }) {
   return (
-    <p className={cn("flex items-start gap-1.5 text-[11px] text-amber-700 dark:text-amber-400", className)}>
+    <p className={cn("flex items-start gap-1.5 text-[11px] text-warning", className)}>
       <UserCog className="mt-px h-3.5 w-3.5 shrink-0" aria-hidden="true" />
       {MENSAGEM_PERFIL_SIMULADO}
     </p>

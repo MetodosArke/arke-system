@@ -99,7 +99,7 @@ export function CobrancaContaAcademiaOrganizacao({ organizationId }: { organizat
           ? "Mensalidade e cobrança avulsa novas saem da conta Asaas da academia, sem split e sem taxa da ArkeFit. O Método segue na conta da ArkeFit."
           : "Mensalidade e cobrança avulsa saem da conta da ArkeFit, com split para a carteira da academia. Ligar vale só para as cobranças novas."}
       </p>
-      {bloqueio && <p className="text-xs text-amber-700 dark:text-amber-300">{bloqueio}</p>}
+      {bloqueio && <p className="text-xs text-warning">{bloqueio}</p>}
       {confirmando ? (
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-xs">{ligar ? "Ligar e registrar o aviso de pagamento na conta da academia?" : "Voltar as cobranças novas para a conta da ArkeFit?"}</span>

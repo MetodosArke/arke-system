@@ -461,7 +461,7 @@ export default function AlunoDashboard() {
           <p className="text-sm font-semibold">Treino de Hoje</p>
           <p className="text-xs text-muted-foreground truncate">{treinoAtivo?.titulo ?? "Nenhum treino ativo"}</p>
           {treinoStreak > 0 && (
-            <p className="flex items-center gap-1 text-xs font-medium text-orange-500 mt-1">
+            <p className="flex items-center gap-1 text-xs font-medium text-warning mt-1">
               <Flame className="h-3.5 w-3.5" /> {treinoStreak} dia{treinoStreak > 1 ? "s" : ""} seguido{treinoStreak > 1 ? "s" : ""}
             </p>
           )}

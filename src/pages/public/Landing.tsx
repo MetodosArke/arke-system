@@ -164,7 +164,7 @@ const EVENTOS: Evento[] = [
 ];
 const TOM: Record<Evento["tom"], string> = {
   marca: "text-foreground/80 bg-white/[0.06] ring-white/10",
-  erro: "text-red-400 bg-red-500/10 ring-red-500/20",
+  erro: "text-destructive bg-red-500/10 ring-red-500/20",
   ok: "text-success bg-success/10 ring-success/25",
   alerta: "text-warning bg-warning/10 ring-warning/25",
 };
@@ -1084,7 +1084,7 @@ function Contato() {
                     </div>
                   )}
                   {erro && (
-                    <p className="text-sm text-rose-300 sm:col-span-2" role="alert">
+                    <p className="text-sm text-destructive sm:col-span-2" role="alert">
                       {erro}
                     </p>
                   )}
