@@ -161,7 +161,7 @@ export default function ResetPassword() {
     // esperava essa prova é ativada, antes de sair (src/lib/senhaDefinida.ts).
     const depois = await depoisDeDefinirASenha(supabase);
     if (depois.tipo === "sessoes_nao_encerradas") {
-      toast({ title: "Gestão ainda pendente", description: AVISO_GESTAO_PENDENTE, variant: "destructive" });
+      toast({ title: "Acesso ainda pendente", description: AVISO_GESTAO_PENDENTE, variant: "destructive" });
     } else {
       toast({ title: "Senha atualizada!", description: "Você já pode fazer login." });
     }

@@ -231,11 +231,12 @@ servir("superadmin-suporte-tenant", async (req: Request) => {
       return errorResponse(jaExiste ? "Já existe um usuário cadastrado com esse e-mail." : emailError.message);
     }
 
-    // Guarda o user_id do gestor e o e-mail novo. O antigo não é registrado:
-    // trocar o login já é a informação relevante, e repetir o e-mail anterior
-    // só espalharia mais um dado pessoal por outra tabela.
+    // Guarda o user_id do gestor e que o login mudou, sem o e-mail (nem o novo
+    // nem o antigo): a trilha não tem prazo, e o e-mail já mora na conta. O
+    // banco tira e-mail de todo registro desta ação, por qualquer caminho
+    // (20261397010000).
     await registrarAuditoria("gestor.email_alterado", "auth.users", gestorMembership.user_id, {
-      novo_email: novoEmail,
+      mudou: "e-mail de login",
     });
 
     return jsonResponse({ success: true });

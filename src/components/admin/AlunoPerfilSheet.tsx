@@ -40,7 +40,7 @@ import { CobrancasAvulsas } from "@/components/pagamento/CobrancasAvulsas";
 import { PrestadorPagamentos } from "@/components/pagamento/PrestadorPagamentos";
 import { useCobrancaNaContaDaAcademia } from "@/hooks/useContaDasCobrancas";
 import { EnderecoAluno } from "@/components/pagamento/EnderecoAluno";
-import { atendeSaude, cuidaDoDinheiro } from "@/lib/acessoPainel";
+import { TAREFAS_DE_SAUDE, atendeSaude, cuidaDoDinheiro } from "@/lib/acessoPainel";
 
 const PERIODICIDADE_LABEL: Record<string, string> = {
   mensal: "Mensal",
@@ -71,9 +71,6 @@ const ASSINATURA_LABEL: Record<string, string> = {
   cancelada: "Cancelada",
   trial: "Trial",
 };
-
-/** Pendências cujo texto é da saúde do aluno: não aparecem para a recepção. */
-const TAREFAS_DE_SAUDE = new Set(["dor", "anamnese"]);
 
 const CHECKIN_LABEL: Record<string, string> = {
   funcionando_bem: "Funcionando bem",

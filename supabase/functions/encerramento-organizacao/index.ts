@@ -8,6 +8,7 @@ import { descreverErro, registrarExecucao } from "../_shared/execucao.ts";
 import { resumoDoErro } from "../_shared/resumoDoErro.ts";
 import { todasAsLinhas } from "../_shared/paginar.ts";
 import { pausarAssinatura } from "../asaas-assinatura-ciclo/fluxo.ts";
+import { anonimizarClientesDaEliminacao, retentarPendentes } from "../_shared/saidaAsaas.ts";
 import { servir } from "../_shared/servir.ts";
 import { enviarAvisos } from "../_shared/push.ts";
 import { topicoDoId, VALIDADE_SEG } from "../_shared/avisoPush.ts";
@@ -42,8 +43,10 @@ const jsonResponse = (body: unknown, status = 200) =>
 //                a remoção das digitais;
 //   janela     → a cada rodada, o banco confere o que da remoção já foi
 //                confirmado (a prova fica no registro do encerramento);
-//   eliminação → arquivo fiscal da ArkeFit, arquivos do storage, contas que
-//                só existiam ali, e por fim a organização.
+//   eliminação → arquivo fiscal da ArkeFit, o cliente de cada aluno
+//                anonimizado na conta Asaas da ArkeFit (a da academia é dela),
+//                arquivos do storage, contas que só existiam ali, e por fim a
+//                organização.
 //
 // Cada passo que depende do Asaas ou do storage é retomável: se o tempo
 // acaba ou algo falha, a próxima rodada continua de onde parou, e a falha
@@ -51,6 +54,11 @@ const jsonResponse = (body: unknown, status = 200) =>
 
 const NOME = "encerramento-organizacao";
 const ORCAMENTO_MS = 110_000;
+// O passo do Asaas não começa lote novo depois disto: cada chamada tem prazo
+// de 20 s, e o resto da eliminação precisa de tempo na mesma rodada.
+const ORCAMENTO_ASAAS_MS = 60_000;
+// As pendências de saída da academia, antes: nenhuma começa depois disto.
+const ORCAMENTO_PENDENCIAS_MS = 20_000;
 // Buckets organizados por <organização>/...; e por <usuário>/... (contas apagadas).
 const BUCKETS_DA_ORGANIZACAO = ["atestados", "chat-videos", "termos-biometria", "exercicio-videos", "exercicio-imagens", "dietas"];
 const BUCKETS_DO_USUARIO = ["avatars", "feed-images"];
@@ -135,6 +143,21 @@ async function executarEliminacao(admin: SupabaseClient, enc: Encerramento, inic
   const contas = await todasAsLinhas<{ user_id: string }>((de, ate) =>
     admin.rpc("preparar_eliminacao_organizacao", { _encerramento_id: enc.id }).order("user_id").range(de, ate)
   );
+
+  // O cadastro dos alunos no Asaas, antes de as contas saírem (o CPF está no
+  // perfil) e de a organização sair (o ambiente vem do status dela). Primeiro
+  // a saída de quem saiu antes e ficou pendente, enquanto a chave da conta da
+  // academia ainda está no cofre; depois cada aluno, só na conta da ArkeFit
+  // (20261396010000). Em lotes, retomável pelo cursor.
+  const env = (n: string) => Deno.env.get(n);
+  try {
+    await retentarPendentes(admin, env, 20, { organizationId: enc.organization_id, ate: inicio + ORCAMENTO_PENDENCIAS_MS });
+  } catch (e) {
+    // A rotina de hora em hora tenta de novo; a eliminação não espera por ela.
+    console.error("encerramento: pendências do Asaas da academia", resumoDoErro(e));
+  }
+  const asaas = await anonimizarClientesDaEliminacao(admin, enc, env, { inicio, orcamentoMs: ORCAMENTO_ASAAS_MS });
+  if (!asaas.concluido) throw new SemTempo("clientes do Asaas a anonimizar; continua na próxima rodada");
 
   let arquivos = 0;
   for (const bucket of BUCKETS_DA_ORGANIZACAO) arquivos += await apagarPasta(admin, bucket, enc.organization_id);

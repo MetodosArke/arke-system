@@ -131,6 +131,35 @@ describe("saída do aluno", () => {
     expect(todas, "a rotina que tenta de novo").toMatch(/cron\.schedule\(\s*'arke-saida-asaas'[\s\S]*?functions\/v1\/retentar-saida-asaas/);
   });
 
+  it("a eliminação da academia anonimiza o cliente no Asaas antes das contas e da organização", () => {
+    // Auditoria de prontidão, 06/10/2026 (20261396010000): eliminar a academia
+    // apagava os alunos sem passar pelo Asaas.
+    const funcao = ler(FUNCOES, "encerramento-organizacao", "index.ts");
+    const eliminacao = funcao.slice(funcao.indexOf("async function executarEliminacao"), funcao.indexOf("type EmCurso"));
+    const passo = eliminacao.indexOf("anonimizarClientesDaEliminacao(admin, enc");
+    expect(passo, "o passo do Asaas está na eliminação").toBeGreaterThan(0);
+    expect(passo, "antes de apagar as contas (o CPF está no perfil)").toBeLessThan(eliminacao.indexOf("auth.admin.deleteUser("));
+    expect(passo, "antes de apagar a organização").toBeLessThan(eliminacao.indexOf('rpc("eliminar_organizacao"'));
+    expect(eliminacao).toMatch(/if \(!asaas\.concluido\) throw new SemTempo\(/);
+    // O banco recusa eliminar sem o passo, mesmo com uma versão antiga da função publicada.
+    expect(ultimaDefinicao("eliminar_organizacao")).toMatch(/if v_enc\.asaas_concluido_em is null then\s+raise exception/);
+    // Só a conta da ArkeFit: a conta Asaas da academia é dela.
+    expect(ler(FUNCOES, "_shared", "saidaAsaas.ts")).toMatch(/contaDaAcademia: false, cpf: a\.cpf/);
+  });
+
+  it("a pendência do Asaas sobrevive à eliminação da academia", () => {
+    const todas = [...historico, ...migrations].map((m) => m.sql).join("\n");
+    const tabela = todas.match(/create table if not exists public\.asaas_saida_pendente \(([\s\S]*?)\n\);/)?.[1] ?? "";
+    expect(tabela, "a tabela existe").not.toBe("");
+    // Sem chave estrangeira: nem a organização nem o aluno levam a pendência na cascata.
+    expect(tabela).not.toMatch(/references/);
+    expect(todas).not.toMatch(/alter table (?:only )?public\.asaas_saida_pendente\s+add (?:constraint \w+ )?foreign key/);
+    expect(todas).not.toMatch(/delete from public\.asaas_saida_pendente/);
+    // O que a nova tentativa precisa quando a organização já não existe.
+    expect(todas).toMatch(/add column if not exists ambiente text/);
+    expect(todas).toMatch(/add column if not exists conta_da_academia boolean not null default true/);
+  });
+
   it("nenhum usuário logado chama as funções de saída", () => {
     const todas = migrations.map((m) => m.sql).join("\n");
     for (const f of ["anonimizar_dados_do_aluno", "excluir_aluno_da_academia", "pessoa_tem_outro_vinculo"]) {

@@ -8,11 +8,12 @@ import { useToast } from "@/hooks/use-toast";
 import { mensagemDeErroEdge } from "@/lib/erroEdge";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Copy, Users } from "lucide-react";
+import { Users } from "lucide-react";
 
 type Papel = "professor" | "nutricionista" | "recepcao";
 type Linha = { nome: string; email: string; papel: Papel | null; bruta: string };
-type Resultado = { nome: string; email: string; ok: boolean; mensagem: string; senha?: string };
+type Resultado = { nome: string; email: string; ok: boolean; mensagem: string };
+type RespostaCadastro = { convite_enviado?: boolean; pendente?: boolean; aviso?: string | null };
 
 const PAPEIS: Record<string, Papel> = {
   professor: "professor",
@@ -62,13 +63,17 @@ export function EtapaEquipe({ onSalvo }: { onSalvo: () => void }) {
           saida.push({ nome: l.nome || l.bruta, email: l.email, ok: false, mensagem: "Use: Nome; e-mail; professor | nutricionista | recepção" });
           continue;
         }
-        const { data, error } = await supabase.functions.invoke<{ senha_temporaria?: string }>("cadastrar-membro-equipe", {
+        const { data, error } = await supabase.functions.invoke<RespostaCadastro>("cadastrar-membro-equipe", {
           body: { full_name: l.nome, email: l.email, papel: l.papel, organization_id: organization!.id },
         });
         if (error) {
           saida.push({ nome: l.nome, email: l.email, ok: false, mensagem: await mensagemDeErroEdge(error, "Não foi possível cadastrar.") });
         } else {
-          saida.push({ nome: l.nome, email: l.email, ok: true, mensagem: "Cadastrado", senha: data?.senha_temporaria });
+          // Ninguém recebe senha de outra pessoa: o convite e o link vão para o e-mail dela.
+          const mensagem = data?.pendente
+            ? data.aviso ?? "Já tinha conta: o acesso vale quando a pessoa definir a senha pelo link do e-mail"
+            : "Convite enviado para o e-mail";
+          saida.push({ nome: l.nome, email: l.email, ok: true, mensagem });
         }
       }
       return saida;
@@ -121,18 +126,8 @@ export function EtapaEquipe({ onSalvo }: { onSalvo: () => void }) {
               <span className={r.ok ? "text-emerald-600" : "text-destructive"}>{r.ok ? "✓" : "✕"}</span>
               <span className="flex-1 min-w-0 truncate">
                 {r.nome} <span className="text-muted-foreground">{r.email}</span>
-                {!r.ok && <span className="block text-destructive">{r.mensagem}</span>}
+                <span className={r.ok ? "block text-muted-foreground" : "block text-destructive"}>{r.mensagem}</span>
               </span>
-              {r.senha && (
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  className="h-7 text-xs"
-                  onClick={() => void navigator.clipboard.writeText(r.senha!).then(() => toast({ title: "Senha temporária copiada" }))}
-                >
-                  <Copy className="h-3 w-3 mr-1" /> Senha temporária
-                </Button>
-              )}
             </li>
           ))}
         </ul>

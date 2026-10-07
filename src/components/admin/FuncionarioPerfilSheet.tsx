@@ -274,7 +274,7 @@ export function FuncionarioPerfilSheet({
               <div className="flex flex-wrap gap-1.5">
                 <Badge variant="secondary">{PAPEL_LABEL[membro.role] ?? membro.role}</Badge>
                 <Badge variant={membro.status === "active" ? "default" : "outline"}>
-                  {membro.status === "active" ? "Ativo" : "Inativo"}
+                  {membro.status === "active" ? "Ativo" : membro.status === "pending" ? "Aguardando o e-mail" : "Inativo"}
                 </Badge>
               </div>
             </SheetHeader>
@@ -288,8 +288,15 @@ export function FuncionarioPerfilSheet({
                 size="sm"
                 variant="outline"
                 className="flex-1"
-                disabled={ehVoceMesmo}
-                title={ehVoceMesmo ? "Você não pode inativar seu próprio acesso" : undefined}
+                // O pendente só vira ativo pelo link do e-mail da pessoa (o banco recusa por fora).
+                disabled={ehVoceMesmo || membro.status === "pending"}
+                title={
+                  ehVoceMesmo
+                    ? "Você não pode inativar seu próprio acesso"
+                    : membro.status === "pending"
+                      ? "O acesso vale quando a pessoa definir a senha pelo link do e-mail"
+                      : undefined
+                }
                 onClick={() => onInativar(membro)}
               >
                 <Power className="h-3.5 w-3.5 mr-1.5" />

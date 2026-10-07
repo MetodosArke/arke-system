@@ -31,6 +31,6 @@ Se você trabalha com um parceiro que faz a outra metade, convide em **Meu negó
 - **cada um prescreve a sua parte**: o personal, o treino; a nutricionista, a dieta. O sistema não deixa um publicar a parte do outro;
 - o parceiro vê o seu painel no seletor do cabeçalho, ao lado do painel dele.
 
-Se a pessoa ainda não tem conta no ArkeFit, informe também o nome: ela é cadastrada com uma senha temporária, que aparece na tela para você passar a ela.
+Se a pessoa ainda não tem conta no ArkeFit, informe também o nome: ela recebe no e-mail o convite e cria a própria senha. Se ela já tem conta, a parceria aparece como **Aguardando o e-mail** e passa a valer quando ela definir a senha pelo link que foi para o e-mail dela: é o que confirma que o e-mail é dela. Ninguém recebe a senha de outra pessoa.
 
 Encerrar a parceria tira o acesso do parceiro aos seus alunos. O que ele já prescreveu continua valendo, porque toda prescrição publicada fica travada.
