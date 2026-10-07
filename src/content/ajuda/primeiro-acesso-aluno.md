@@ -12,6 +12,8 @@ O cartão **Convite de primeiro acesso ao app** fica no topo de [Alunos & Prescr
 
 A resposta na tela é sempre a mesma, exista ou não o cadastro. Assim ninguém consegue usar o link para descobrir quem é aluno da academia digitando e-mails. Se o aluno não receber nada, confira na ficha se o e-mail cadastrado está certo.
 
+Quem se matriculou sozinho pelo link de matrícula da academia também cria a senha pelo e-mail, e usa este mesmo caminho se o e-mail não chegar ou o link vencer. Veja [Cadastrar aluno](ajuda:cadastrar-aluno), em "Matrícula pelo link da academia".
+
 ## O que o cartão oferece
 
 - **Copiar link**, para colar onde quiser;

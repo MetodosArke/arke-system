@@ -131,7 +131,7 @@ servir("convidar-profissional-autonomo", async (req: Request) => {
       .select("role")
       .eq("user_id", callerId);
     if (callerRolesError) {
-      console.error("Error loading caller roles", callerRolesError);
+      console.error("Error loading caller roles", resumoDoErro(callerRolesError));
       return jsonResponse({ error: "Erro ao validar permissões." }, 500);
     }
     const callerIsSuperadmin = verificada(claimsData?.claims) && (callerRoles ?? []).some((r) => r.role === "superadmin");

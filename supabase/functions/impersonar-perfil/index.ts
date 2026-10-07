@@ -105,7 +105,7 @@ servir("impersonar-perfil", async (req: Request) => {
       .select("role")
       .eq("user_id", callerId);
     if (callerRolesError) {
-      console.error("Error loading caller roles", callerRolesError);
+      console.error("Error loading caller roles", resumoDoErro(callerRolesError));
       return errorResponse("Erro ao validar permissões.");
     }
     const callerIsAdminArke = verificada(claimsData?.claims) && (callerRoles ?? []).some((r) => r.role === "admin_arke");
@@ -131,7 +131,7 @@ servir("impersonar-perfil", async (req: Request) => {
       .eq("status", "active")
       .maybeSingle();
     if (targetMembershipError) {
-      console.error("Error loading target membership", targetMembershipError);
+      console.error("Error loading target membership", resumoDoErro(targetMembershipError));
       return errorResponse("Erro ao validar o perfil de destino.");
     }
     if (!targetMembership) {
@@ -140,7 +140,7 @@ servir("impersonar-perfil", async (req: Request) => {
 
     const { data: targetUser, error: targetUserError } = await adminClient.auth.admin.getUserById(targetUserId);
     if (targetUserError || !targetUser.user?.email) {
-      console.error("Error loading target user", targetUserError);
+      console.error("Error loading target user", resumoDoErro(targetUserError));
       return errorResponse("Usuário de destino não encontrado.");
     }
 

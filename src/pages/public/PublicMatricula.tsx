@@ -1,15 +1,13 @@
 import { useState } from "react";
-import { Link, useParams, useNavigate } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Dumbbell } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
+import { Dumbbell, MailCheck } from "lucide-react";
 import { mensagemDeErroEdge } from "@/lib/erroEdge";
 import { erroCpfObrigatorio } from "@/lib/cpf";
 import { erroDataNascimento } from "@/lib/menorDeIdade";
@@ -26,19 +24,40 @@ interface OrganizacaoPublica {
   nome: string;
 }
 
+type Formulario = {
+  full_name: string;
+  email: string;
+  telefone: string;
+  cpf: string;
+  data_nascimento: string;
+};
+
+type Pedido = Formulario & { aceiteTermos: boolean; captchaToken: string | null };
+
+type Resultado = { email: string; emailEnviado: boolean };
+
+const FORMULARIO_VAZIO: Formulario = { full_name: "", email: "", telefone: "", cpf: "", data_nascimento: "" };
+
+/**
+ * Matrícula pelo link da academia (`/p/:slug`).
+ *
+ * Desde 07/10/2026 o formulário não pede senha: a conta nasce sem senha, e a
+ * pessoa cria a dela pelo link que chega no e-mail (o mesmo do primeiro
+ * acesso). É o link que prova que o e-mail é de quem se matriculou; antes, a
+ * conta nascia usável com a senha de quem digitou, fosse o dono do e-mail ou
+ * não (ver supabase/functions/matricula-publica/fluxo.ts).
+ */
 export default function PublicMatricula() {
   const { slug } = useParams<{ slug: string }>();
   const marca = useMarcaAcademia();
-  const navigate = useNavigate();
-  const { toast } = useToast();
-  const { signIn } = useAuth();
 
   // Captcha só quando configurado (ver components/public/Turnstile). O token é
   // de uso único: a cada falha o widget é remontado para gerar outro.
   const [captchaToken, setCaptchaToken] = useState<string | null>(null);
   const [captchaVersao, setCaptchaVersao] = useState(0);
   const [aceiteTermos, setAceiteTermos] = useState(false);
-  const [form, setForm] = useState({ full_name: "", email: "", telefone: "", cpf: "", data_nascimento: "", password: "", confirmar: "" });
+  const [form, setForm] = useState<Formulario>(FORMULARIO_VAZIO);
+  const [resultado, setResultado] = useState<Resultado | null>(null);
 
   const { data: org, isLoading, isError, refetch, isFetching } = useQuery({
     queryKey: ["organizacao-publica", slug],
@@ -51,57 +70,53 @@ export default function PublicMatricula() {
   });
 
   const matricular = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (pedido: Pedido): Promise<Resultado> => {
       if (!slug) throw new Error("Academia inválida.");
       // CPF é obrigatório na matrícula: ela gera cobrança, e o gateway não
       // emite cobrança sem CPF. Conferido aqui para o aluno saber na hora, e
       // de novo no servidor, que é quem de fato garante.
-      const problemaCpf = erroCpfObrigatorio(form.cpf);
+      const problemaCpf = erroCpfObrigatorio(pedido.cpf);
       if (problemaCpf) throw new Error(problemaCpf);
       // A data de nascimento diz quem é menor de idade: para ele, saúde,
       // biometria e IA esperam o aceite do responsável (06/10/2026).
-      const problemaNascimento = erroDataNascimento(form.data_nascimento, hojeBrasilia());
+      const problemaNascimento = erroDataNascimento(pedido.data_nascimento, hojeBrasilia());
       if (problemaNascimento) throw new Error(problemaNascimento);
-      if (form.password.length < 6) throw new Error("A senha deve ter no mínimo 6 caracteres.");
-      if (form.password !== form.confirmar) throw new Error("As senhas não coincidem.");
-      if (!aceiteTermos) throw new Error("Aceite os Termos de Uso e a Política de Privacidade para continuar.");
-      if (TURNSTILE_SITE_KEY && !captchaToken) throw new Error("Aguarde a verificação de segurança terminar.");
+      if (!pedido.aceiteTermos) throw new Error("Aceite os Termos de Uso e a Política de Privacidade para continuar.");
+      if (TURNSTILE_SITE_KEY && !pedido.captchaToken) throw new Error("Aguarde a verificação de segurança terminar.");
 
-      const { data, error } = await supabase.functions.invoke<{ user_id: string; error?: string }>(
+      const { data, error } = await supabase.functions.invoke<{ ok?: boolean; email_enviado?: boolean; error?: string }>(
         "matricula-publica",
         {
           body: {
             slug,
-            full_name: form.full_name,
-            email: form.email,
-            telefone: form.telefone,
-            cpf: form.cpf,
-            data_nascimento: form.data_nascimento,
-            password: form.password,
-            captcha_token: captchaToken ?? undefined,
-            aceite_termos: aceiteTermos,
+            full_name: pedido.full_name,
+            email: pedido.email,
+            telefone: pedido.telefone,
+            cpf: pedido.cpf,
+            data_nascimento: pedido.data_nascimento,
+            captcha_token: pedido.captchaToken ?? undefined,
+            aceite_termos: pedido.aceiteTermos,
           },
         }
       );
       // Resposta de erro da função vem em error.context, não em data — sem
-      // isto, senha vazada, e-mail repetido e excesso de tentativas chegavam
-      // ao aluno como uma frase genérica em inglês.
+      // isto, o e-mail repetido e o excesso de tentativas chegavam ao aluno
+      // como uma frase genérica em inglês.
       if (error) throw new Error(await mensagemDeErroEdge(error, "Não foi possível concluir a matrícula."));
       if (data?.error) throw new Error(data.error);
-
-      const { error: signInError } = await signIn(form.email, form.password);
-      if (signInError) throw signInError;
+      return { email: pedido.email.trim(), emailEnviado: data?.email_enviado !== false };
     },
-    onSuccess: () => {
-      toast({ title: "Matrícula concluída!", description: "Bem-vindo! Seus treinos aparecem aqui assim que a academia publicar." });
-      navigate("/app", { replace: true });
+    onSuccess: (r) => {
+      setResultado(r);
+      setForm(FORMULARIO_VAZIO);
     },
-    onError: (error: Error) => {
+    // A mensagem fica na tela, logo acima do botão (`matricular.error`), e
+    // não num aviso que some: o "já existe uma conta" diz o que fazer.
+    onError: () => {
       if (TURNSTILE_SITE_KEY) {
         setCaptchaToken(null);
         setCaptchaVersao((v) => v + 1);
       }
-      toast({ title: "Não foi possível concluir a matrícula", description: error.message, variant: "destructive" });
     },
   });
 
@@ -151,6 +166,9 @@ export default function PublicMatricula() {
     );
   }
 
+  const linkPrimeiroAcesso = `/p/${slug}/primeiro-acesso`;
+  const linkEntrar = `/p/${slug}/entrar`;
+
   return (
     <div className="min-h-screen bg-background p-4 py-10">
       <div className="mx-auto max-w-lg space-y-4">
@@ -164,88 +182,141 @@ export default function PublicMatricula() {
             </div>
           )}
           <h1 className="text-2xl font-bold">{org.nome}</h1>
-          <p className="text-sm text-muted-foreground">Crie sua conta para acessar o app da academia.</p>
+          <p className="text-sm text-muted-foreground">
+            Faça a sua matrícula para usar o app da academia. A senha você cria pelo link que enviamos ao seu e-mail.
+          </p>
         </div>
 
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base">Seus dados</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <form
-              className="space-y-3"
-              onSubmit={(e) => {
-                e.preventDefault();
-                matricular.mutate();
-              }}
-            >
-              <div className="space-y-1.5">
-                <Label htmlFor="full_name">Nome completo</Label>
-                <Input id="full_name" required value={form.full_name} onChange={(e) => setForm((f) => ({ ...f, full_name: e.target.value }))} />
+        {resultado ? (
+          <Card>
+            <CardContent className="space-y-4 py-8 text-center">
+              <MailCheck className="mx-auto h-10 w-10 text-primary" aria-hidden="true" />
+              <div role="status" className="space-y-2">
+                <p className="text-lg font-semibold">Matrícula feita!</p>
+                {resultado.emailEnviado ? (
+                  <>
+                    <p className="text-sm">Enviamos para o seu e-mail um link para criar a sua senha.</p>
+                    <p className="text-sm text-muted-foreground [overflow-wrap:anywhere]">
+                      Abra o e-mail que mandamos para <strong>{resultado.email}</strong> e toque no link. Confira também a caixa de
+                      spam.
+                    </p>
+                  </>
+                ) : (
+                  <p className="text-sm">
+                    O e-mail com o link para criar a sua senha não saiu agora. Daqui a alguns minutos, peça o link de novo pelo
+                    primeiro acesso, com o mesmo e-mail.
+                  </p>
+                )}
+                <p className="text-xs text-muted-foreground">
+                  Você entra no app depois de criar a senha. Se ela não for criada em 7 dias, esta matrícula é apagada, e você pode
+                  fazê-la de novo.
+                </p>
               </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="email">E-mail</Label>
-                <Input id="email" type="email" required value={form.email} onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))} />
+              <div className="flex flex-col gap-2 sm:flex-row sm:justify-center">
+                <Button asChild variant="outline">
+                  <Link to={linkPrimeiroAcesso}>Não chegou? Pedir o link de novo</Link>
+                </Button>
+                <Button asChild variant="ghost">
+                  <Link to={linkEntrar}>Já criei a senha: entrar</Link>
+                </Button>
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <Label htmlFor="telefone">Telefone</Label>
-                  <Input id="telefone" value={form.telefone} onChange={(e) => setForm((f) => ({ ...f, telefone: e.target.value }))} placeholder="(11) 91234-5678" />
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="cpf">CPF</Label>
-                  <Input id="cpf" required inputMode="numeric" value={form.cpf} onChange={(e) => setForm((f) => ({ ...f, cpf: e.target.value }))} placeholder="000.000.000-00" />
-                </div>
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="data_nascimento">Data de nascimento</Label>
-                <Input
-                  id="data_nascimento"
-                  type="date"
-                  required
-                  min="1900-01-01"
-                  max={hojeBrasilia()}
-                  value={form.data_nascimento}
-                  onChange={(e) => setForm((f) => ({ ...f, data_nascimento: e.target.value }))}
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <Label htmlFor="password">Senha</Label>
-                  <Input id="password" type="password" required minLength={6} value={form.password} onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))} />
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="confirmar">Confirmar senha</Label>
-                  <Input id="confirmar" type="password" required minLength={6} value={form.confirmar} onChange={(e) => setForm((f) => ({ ...f, confirmar: e.target.value }))} />
-                </div>
-              </div>
-              <label className="flex items-start gap-2 text-xs text-muted-foreground">
-                <Checkbox checked={aceiteTermos} onCheckedChange={(v) => setAceiteTermos(v === true)} className="mt-0.5" />
-                <span>
-                  Li e aceito os{" "}
-                  <Link to="/termos" target="_blank" className="text-primary underline-offset-2 hover:underline">
-                    Termos de Uso
-                  </Link>{" "}
-                  e a{" "}
-                  <Link to="/privacidade" target="_blank" className="text-primary underline-offset-2 hover:underline">
-                    Política de Privacidade
-                  </Link>
-                  .
-                </span>
-              </label>
-              {TURNSTILE_SITE_KEY && (
-                <Turnstile key={captchaVersao} siteKey={TURNSTILE_SITE_KEY} onToken={setCaptchaToken} />
-              )}
-              <Button
-                type="submit"
-                className="w-full gradient-primary text-primary-foreground font-semibold"
-                disabled={matricular.isPending || !aceiteTermos || (!!TURNSTILE_SITE_KEY && !captchaToken)}
+            </CardContent>
+          </Card>
+        ) : (
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base">Seus dados</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <form
+                className="space-y-3"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  matricular.mutate({ ...form, aceiteTermos, captchaToken });
+                }}
               >
-                {matricular.isPending ? "Criando sua conta..." : "Confirmar matrícula"}
-              </Button>
-            </form>
-          </CardContent>
-        </Card>
+                <div className="space-y-1.5">
+                  <Label htmlFor="full_name">Nome completo</Label>
+                  <Input id="full_name" required value={form.full_name} onChange={(e) => setForm((f) => ({ ...f, full_name: e.target.value }))} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="email">E-mail</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    autoComplete="email"
+                    required
+                    value={form.email}
+                    onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
+                  />
+                  <p className="text-xs text-muted-foreground">O link para criar a sua senha chega neste e-mail.</p>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="telefone">Telefone</Label>
+                    <Input id="telefone" value={form.telefone} onChange={(e) => setForm((f) => ({ ...f, telefone: e.target.value }))} placeholder="(11) 91234-5678" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="cpf">CPF</Label>
+                    <Input id="cpf" required inputMode="numeric" value={form.cpf} onChange={(e) => setForm((f) => ({ ...f, cpf: e.target.value }))} placeholder="000.000.000-00" />
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="data_nascimento">Data de nascimento</Label>
+                  <Input
+                    id="data_nascimento"
+                    type="date"
+                    required
+                    min="1900-01-01"
+                    max={hojeBrasilia()}
+                    value={form.data_nascimento}
+                    onChange={(e) => setForm((f) => ({ ...f, data_nascimento: e.target.value }))}
+                  />
+                </div>
+                <label className="flex items-start gap-2 text-xs text-muted-foreground">
+                  <Checkbox checked={aceiteTermos} onCheckedChange={(v) => setAceiteTermos(v === true)} className="mt-0.5" />
+                  <span>
+                    Li e aceito os{" "}
+                    <Link to="/termos" target="_blank" className="text-primary underline-offset-2 hover:underline">
+                      Termos de Uso
+                    </Link>{" "}
+                    e a{" "}
+                    <Link to="/privacidade" target="_blank" className="text-primary underline-offset-2 hover:underline">
+                      Política de Privacidade
+                    </Link>
+                    .
+                  </span>
+                </label>
+                {TURNSTILE_SITE_KEY && (
+                  <Turnstile key={captchaVersao} siteKey={TURNSTILE_SITE_KEY} onToken={setCaptchaToken} />
+                )}
+                {matricular.error && (
+                  <p role="alert" className="text-sm text-destructive">
+                    {matricular.error.message}
+                  </p>
+                )}
+                <Button
+                  type="submit"
+                  className="w-full gradient-primary text-primary-foreground font-semibold"
+                  disabled={matricular.isPending || !aceiteTermos || (!!TURNSTILE_SITE_KEY && !captchaToken)}
+                >
+                  {matricular.isPending ? "Enviando..." : "Confirmar matrícula"}
+                </Button>
+              </form>
+            </CardContent>
+          </Card>
+        )}
+
+        <p className="text-xs text-center text-muted-foreground">
+          Já fez a matrícula e não recebeu o e-mail?{" "}
+          <Link to={linkPrimeiroAcesso} className="text-primary underline-offset-2 hover:underline">
+            Pedir o link de novo
+          </Link>{" "}
+          · Já criou a senha?{" "}
+          <Link to={linkEntrar} className="text-primary underline-offset-2 hover:underline">
+            Entrar
+          </Link>
+        </p>
       </div>
     </div>
   );

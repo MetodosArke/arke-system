@@ -68,15 +68,23 @@ function argumentosDeLog(codigo: string): { linha: number; argumento: string }[]
   return saida;
 }
 
+/**
+ * Nome que carrega um erro: os curtos de sempre e qualquer identificador que
+ * termine em `Error` ou `Erro`. Até 07/10/2026 a expressão era `[a-z]+Error`,
+ * que não casa com nome em camelCase com maiúscula no meio (`orgLimiteError`),
+ * e o objeto inteiro do erro passava pela trava em `matricula-publica`.
+ */
+const NOME_DE_ERRO = String.raw`(?:e|err|error|erro|ex|falha|[A-Za-z_$][\w$]*(?:Error|Erro))`;
+
 /** O argumento que leva o erro cru: o objeto (`error`, `e`, `xError`), a mensagem ou o objeto serializado. */
 function levaErroCru(argumento: string): boolean {
   return (
-    /^(e|err|error|erro|ex|falha|[a-z]+Error|[a-z]+Erro)$/.test(argumento) ||
+    new RegExp(`^${NOME_DE_ERRO}$`).test(argumento) ||
     /\.message\b/.test(argumento) ||
     // descreverErro leva a mensagem: serve ao registro da execução (tabela
     // com acesso controlado), não ao log.
     /\bdescreverErro\(/.test(argumento) ||
-    /JSON\.stringify\(\s*(e|err|error|erro|[a-z]+Error)\s*\)/.test(argumento)
+    new RegExp(String.raw`JSON\.stringify\(\s*${NOME_DE_ERRO}\s*\)`).test(argumento)
   );
 }
 
@@ -105,9 +113,15 @@ describe("log das funções sem dado pessoal", () => {
       'console.error("texto com error, e vírgula", resumoDoErro(error));',
       "console.warn(`modelo ${a}, b`, falha.status);",
       'console.error("w", descreverErro(e));',
+      // camelCase com maiúscula no meio: o que a expressão antiga deixava passar.
+      'console.error("Teto indisponível:", orgLimiteError);',
+      'console.error("v", JSON.stringify(callerMembershipError));',
+      'console.error("u", vinculoErro);',
+      // O resumo e o código de um nome desses continuam valendo.
+      'console.error("t", resumoDoErro(orgLimiteError), erroDoBanco.code, orgLimiteError?.status);',
     ].join("\n");
     const crus = argumentosDeLog(codigo).filter((x) => levaErroCru(x.argumento)).map((x) => x.linha);
-    expect(crus).toEqual([1, 2, 3, 4, 7]);
+    expect(crus).toEqual([1, 2, 3, 4, 7, 8, 9, 10]);
   });
 });
 

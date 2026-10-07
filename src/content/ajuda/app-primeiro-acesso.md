@@ -11,6 +11,14 @@ Você só precisa do e-mail ou do celular que deu na matrícula.
 
 Não chegou nada? Confira a caixa de spam. Se continuar sem chegar, peça à recepção para conferir o e-mail do seu cadastro.
 
+## Se você se matriculou pelo link da academia
+
+O formulário da matrícula não pede senha. Depois de confirmar a matrícula, chega no seu e-mail um link para **criar a sua senha**: toque nele, crie a senha e você já está dentro do app. É esse link que confirma que o e-mail é seu.
+
+- O link não chegou ou venceu? Peça outro pelo primeiro acesso da academia (os passos acima) ou em **Esqueceu a senha?**, na tela de entrada.
+- Se a senha não for criada em 7 dias, a matrícula pelo link é apagada, e você pode fazê-la de novo.
+- Recebeu o e-mail sem ter feito matrícula nenhuma? Alguém usou o seu e-mail. Ignore: sem o link, ninguém entra na conta.
+
 ## Instalar na tela de início
 
 Instale a partir do QR Code ou do link da sua academia (o de primeiro acesso ou o de entrada): assim o app fica com o nome e o ícone dela.

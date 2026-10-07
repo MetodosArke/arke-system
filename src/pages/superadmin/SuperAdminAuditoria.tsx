@@ -21,6 +21,8 @@ const ACOES: Record<string, { label: string; icon: typeof Pencil; destrutiva?: b
   "catraca.token_resetado": { label: "Token de catraca resetado", icon: KeyRound, destrutiva: true },
   "gestor.email_alterado": { label: "E-mail do gestor alterado", icon: Mail, destrutiva: true },
   "equipe.email_alterado": { label: "E-mail de alguém da equipe alterado", icon: Mail, destrutiva: true },
+  // A rotina diária (20261403010000): a matrícula pelo link que não confirmou o e-mail em 7 dias.
+  "matricula_publica.apagada_sem_confirmacao": { label: "Matrícula pelo link apagada (e-mail não confirmado)", icon: Trash2, destrutiva: true },
   "organizacao.reativada": { label: "Organização reativada", icon: ShieldAlert },
   "organizacao.status_alterado": { label: "Status alterado", icon: Pencil },
   "organizacao.alterada": { label: "Organização alterada", icon: Pencil },

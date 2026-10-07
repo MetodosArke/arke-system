@@ -9,6 +9,7 @@ import { RecoveryEmail } from './_templates/recovery.tsx'
 import { EmailChangeEmail } from './_templates/email-change.tsx'
 import { ReauthenticationEmail } from './_templates/reauthentication.tsx'
 import type { MarcaEmail } from './_templates/_components/brand.tsx'
+import { textoDaRecuperacao, varianteDaRecuperacao } from './recuperacao.ts'
 import { servir } from '../_shared/servir.ts'
 import { resumoDoErro } from '../_shared/resumoDoErro.ts'
 
@@ -74,6 +75,10 @@ type HookUser = {
   email: string
   new_email?: string
   user_metadata?: Record<string, unknown>
+  // O Auth manda o usuário inteiro; estes dois decidem o texto da recuperação
+  // (./recuperacao.ts). `email_confirmed_at` só vem quando o e-mail foi confirmado.
+  app_metadata?: Record<string, unknown>
+  email_confirmed_at?: string | null
 }
 
 // Auth Hook "Send Email": o Supabase Auth chama esta função (em vez do
@@ -144,10 +149,14 @@ servir("send-email", async (req: Request) => {
         subject = `Seu link de acesso ao ${siteName}`
         element = React.createElement(MagicLinkEmail, { siteName, confirmationUrl, marca })
         break
-      case 'recovery':
-        subject = `Redefinir sua senha do ${siteName}`
-        element = React.createElement(RecoveryEmail, { siteName, confirmationUrl, marca })
+      case 'recovery': {
+        // A conta da matrícula pública que ainda não criou a senha recebe o
+        // texto de criar a senha, com o "se não foi você, ignore".
+        const texto = textoDaRecuperacao(varianteDaRecuperacao(user), siteName)
+        subject = texto.assunto
+        element = React.createElement(RecoveryEmail, { confirmationUrl, marca, texto })
         break
+      }
       case 'email_change':
         subject = `Confirme a alteração de e-mail no ${siteName}`
         element = React.createElement(EmailChangeEmail, {

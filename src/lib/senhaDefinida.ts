@@ -2,10 +2,13 @@
  * O que vem depois de a pessoa definir a senha por um link do e-mail (o
  * convite, a ativação, o "Esqueci minha senha").
  *
- * A conta pode ter sido criada por outra pessoa: a matrícula pública cria a
- * conta com o e-mail já confirmado e a senha de quem se matriculou, sem prova
- * de que é o dono do e-mail. Quem chega por este link provou o e-mail. Então,
- * nesta ordem (auditoria de 05/10/2026, migration 20261362010000):
+ * A conta pode ter sido criada por outra pessoa: até 07/10/2026 a matrícula
+ * pública criava a conta com o e-mail já confirmado e a senha de quem se
+ * matriculou, sem prova de que era o dono do e-mail (as contas daquele tempo
+ * continuam aí). Desde então a conta da matrícula pública nasce sem senha, e
+ * a primeira senha nasce nesta tela. Quem chega por este link provou o
+ * e-mail. Então, nesta ordem (auditoria de 05/10/2026, migration
+ * 20261362010000):
  *
  * 1. as outras sessões da conta caem, e com elas quem tinha a senha antiga;
  * 2. a gestão que esperava a prova do e-mail (`pending`) é ativada, e desde

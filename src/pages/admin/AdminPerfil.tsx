@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { LogOut } from "lucide-react";
 import { DuasEtapasGestor } from "@/components/admin/DuasEtapasGestor";
 import { emPerfilSimulado } from "@/lib/impersonation";
+import { verificarSenhaVazada, senhaDeveSerRecusada, mensagemSenhaVazada } from "@/lib/senhaVazada";
 
 const PAPEL_LABEL: Record<string, string> = {
   admin_arke: "Admin ARKE",
@@ -81,6 +82,15 @@ export default function AdminPerfil() {
       return;
     }
     setSalvandoSenha(true);
+    // A mesma conferência de senha vazada das telas de definir e redefinir a
+    // senha (src/lib/senhaVazada.ts): só os 5 primeiros caracteres do hash
+    // saem do navegador, e o serviço fora do ar não impede a troca.
+    const vazamento = await verificarSenhaVazada(novaSenha);
+    if (senhaDeveSerRecusada(vazamento)) {
+      setSalvandoSenha(false);
+      toast({ title: "Escolha outra senha", description: mensagemSenhaVazada(vazamento.ocorrencias), variant: "destructive" });
+      return;
+    }
     const { error } = await updatePassword(novaSenha);
     setSalvandoSenha(false);
 
