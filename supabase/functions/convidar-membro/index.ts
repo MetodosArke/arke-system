@@ -212,7 +212,7 @@ servir("convidar-membro", async (req: Request) => {
     const { data: vinculosAutorizados, error: callerMembershipError } = await consulta.order("created_at", { ascending: true });
 
     if (callerMembershipError) {
-      console.error("Error loading caller membership", callerMembershipError);
+      console.error("Error loading caller membership", resumoDoErro(callerMembershipError));
       return jsonResponse({ error: "Erro ao validar permissões." }, 500);
     }
     const callerMembership =

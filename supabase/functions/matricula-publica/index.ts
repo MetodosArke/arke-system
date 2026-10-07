@@ -287,7 +287,7 @@ servir("matricula-publica", async (req: Request) => {
       _organization_id: org.id,
     });
     if (orgLimiteError) {
-      console.error("Teto por organização indisponível, seguindo sem ele:", orgLimiteError);
+      console.error("Teto por organização indisponível, seguindo sem ele:", resumoDoErro(orgLimiteError));
     } else if (orgPermitida === false) {
       return jsonResponse(
         { error: "Esta academia recebeu muitas matrículas na última hora. Tente de novo em alguns minutos." },

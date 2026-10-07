@@ -90,7 +90,7 @@ servir("gerar-link-ativacao", async (req: Request) => {
       .select("role")
       .eq("user_id", callerId);
     if (callerRolesError) {
-      console.error("Error loading caller roles", callerRolesError);
+      console.error("Error loading caller roles", resumoDoErro(callerRolesError));
       return jsonResponse({ error: "Erro ao validar permissões." }, 500);
     }
     // A ArkeFit gera o link de quem ela mesma cadastrou e ainda não entrou: o
@@ -112,7 +112,7 @@ servir("gerar-link-ativacao", async (req: Request) => {
       .eq("user_id", targetUserId)
       .eq("status", "active");
     if (targetMembershipError) {
-      console.error("Error loading target membership", targetMembershipError);
+      console.error("Error loading target membership", resumoDoErro(targetMembershipError));
       return jsonResponse({ error: "Erro ao validar o aluno." }, 500);
     }
     if (!vinculosAlvo?.length) {
@@ -128,7 +128,7 @@ servir("gerar-link-ativacao", async (req: Request) => {
         .eq("user_id", callerId)
         .eq("status", "active");
       if (callerMembershipError) {
-        console.error("Error loading caller membership", callerMembershipError);
+        console.error("Error loading caller membership", resumoDoErro(callerMembershipError));
         return jsonResponse({ error: "Erro ao validar permissões." }, 500);
       }
       // Professor/nutricionista só geram link de ativação para ALUNO — sem
@@ -160,7 +160,7 @@ servir("gerar-link-ativacao", async (req: Request) => {
 
     const { data: targetUser, error: targetUserError } = await adminClient.auth.admin.getUserById(targetUserId);
     if (targetUserError || !targetUser.user?.email) {
-      console.error("Error loading target user", targetUserError);
+      console.error("Error loading target user", resumoDoErro(targetUserError));
       return jsonResponse({ error: "Usuário de destino não encontrado." }, 404);
     }
 

@@ -141,7 +141,7 @@ servir("asaas-emitir-cobranca-b2b", async (req: Request) => {
       .select("role")
       .eq("user_id", callerId);
     if (callerRolesError) {
-      console.error("Error loading caller roles", callerRolesError);
+      console.error("Error loading caller roles", resumoDoErro(callerRolesError));
       return errorResponse("Erro ao validar permissões.");
     }
     const callerIsSuperadmin = verificada(claimsData?.claims) && (callerRoles ?? []).some((r) => r.role === "superadmin");

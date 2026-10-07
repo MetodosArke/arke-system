@@ -79,7 +79,7 @@ servir("publicar-treino-boas-vindas", async (req: Request) => {
         .eq("id", alunoIdAlvo)
         .maybeSingle();
       if (alunoAlvoError) {
-        console.error("Error loading aluno alvo", alunoAlvoError);
+        console.error("Error loading aluno alvo", resumoDoErro(alunoAlvoError));
         return jsonResponse({ error: "Erro ao carregar o cadastro do aluno." }, 500);
       }
       if (!alunoAlvo) {
@@ -131,7 +131,7 @@ servir("publicar-treino-boas-vindas", async (req: Request) => {
       .limit(1)
       .maybeSingle();
     if (treinoExistenteError) {
-      console.error("Error checking existing treino", treinoExistenteError);
+      console.error("Error checking existing treino", resumoDoErro(treinoExistenteError));
       return jsonResponse({ error: "Erro ao verificar treino existente." }, 500);
     }
     if (treinoExistente) {
