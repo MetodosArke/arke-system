@@ -22,8 +22,15 @@ Quem já é aluno de outra academia que usa o ArkeFit tem conta. Nesse caso, o c
 
 - **CPF igual ao da conta**: a matrícula é ligada à conta que a pessoa já tem, e ela recebe um e-mail avisando. Ela entra com a mesma senha e escolhe a academia no alto da tela. O nome e o telefone que ela já usa não mudam.
 - **CPF diferente, ou conta sem CPF**: o cadastro é recusado. Confira o e-mail e o CPF; se estiverem certos, fale com a ArkeFit.
+- **Matrícula online ainda não confirmada**: a pessoa fez a matrícula pelo link de outra academia e ainda não criou a senha pelo e-mail. O cadastro é recusado até ela confirmar, porque o CPF daquela conta foi digitado no link, sem prova de que é dela. Se a matrícula online foi dela, peça para criar a senha pelo link que chegou no e-mail (ou pelo **Esqueceu a senha?** na tela de entrar) e cadastre de novo. Se ela não reconhece essa matrícula, não precisa fazer nada: sem a confirmação, ela é apagada depois de 7 dias, e aí o cadastro passa.
 
 A conferência existe para nenhuma academia ligar a si a conta de outra pessoa só por saber o e-mail dela. Vale também para a importação, que só não manda o e-mail de aviso: na importação, ninguém recebe e-mail.
+
+## Matrícula pelo link da academia
+
+Quem se matricula sozinho pelo link da academia (`/p/<endereço>`) não cria a senha no formulário. A matrícula aparece na lista na hora, e a pessoa recebe no e-mail um link para criar a senha; só depois dele ela entra no app. É o link que prova que o e-mail é de quem se matriculou: sem ele, alguém poderia se matricular com o e-mail de outra pessoa e ficar com a conta dela.
+
+Se o e-mail não chegar, a pessoa pede o link de novo pelo primeiro acesso da academia (veja [Convite de primeiro acesso e guia do aluno](ajuda:primeiro-acesso-aluno)) ou pelo **Esqueceu a senha?**. Se a senha não for criada em 7 dias, a matrícula pelo link é apagada, com a conta, desde que nada tenha sido registrado nela: presença, número na catraca, cobrança, documento, conversa. O que a academia registrou segura a matrícula, e ela fica.
 
 ## A lista de alunos
 

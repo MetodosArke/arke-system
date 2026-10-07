@@ -61,7 +61,7 @@ export default function Login() {
       toast({
         title: "Erro ao entrar",
         description: error.message === "Invalid login credentials"
-          ? "Email ou senha incorretos."
+          ? "E-mail ou senha incorretos. Ainda não criou a senha? Use o link que chegou no seu e-mail ou “Esqueceu a senha?”."
           : error.message,
         variant: "destructive",
       });

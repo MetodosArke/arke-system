@@ -29,7 +29,10 @@ const getTokenParamsFromUrl = () => {
 };
 
 // Página que recebe quem foi convidado (aluno, personal ou nutricionista)
-// pelo cadastro em /admin/alunos ou /admin/equipe: estabelece a sessão a
+// pelo cadastro em /admin/alunos ou /admin/equipe, quem pediu o link no
+// primeiro acesso e, desde 07/10/2026, quem se matriculou pelo link da
+// academia (a conta nasce sem senha, e a primeira nasce aqui, com a
+// conferência de senha vazada): estabelece a sessão a
 // partir do link do e-mail, escuta SIGNED_IN/PASSWORD_RECOVERY para saber
 // quando ela está pronta, deixa a pessoa definir a própria senha e então
 // redireciona para a área correspondente ao papel dela.
@@ -150,7 +153,7 @@ export default function DefinirSenha() {
           <h1 className="text-2xl font-bold">Bem-vindo(a) à ArkeFit</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             {status === "invalido"
-              ? "Não foi possível validar seu convite"
+              ? "Não foi possível validar o seu link"
               : "Defina sua senha para concluir o cadastro"}
           </p>
         </div>
@@ -167,8 +170,9 @@ export default function DefinirSenha() {
             {status === "invalido" && (
               <div className="text-center">
                 <p className="mb-4 text-sm text-muted-foreground">
-                  Este link de convite é inválido ou já expirou. Peça para quem te convidou enviar um novo
-                  e-mail, ou entre com sua conta caso já tenha definido a senha.
+                  Este link é inválido ou já expirou. Para receber outro, use “Esqueceu a senha?” na tela de
+                  entrar, com o mesmo e-mail: vale também para quem ainda não criou a senha (convite ou matrícula
+                  pelo link da academia). Se você já definiu a senha, é só entrar.
                 </p>
                 <Button variant="outline" className="w-full" onClick={() => navigate("/auth/login")}>
                   Ir para o login
