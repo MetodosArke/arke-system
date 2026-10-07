@@ -432,13 +432,15 @@ export function AlunoPerfilSheet({
                 size="sm"
                 variant="outline"
                 className="flex-1"
-                disabled={doMetodo || (!temNutricaoNoPlano(plano) && !academiaTemNutri)}
+                disabled={doMetodo || !veSaude || (!temNutricaoNoPlano(plano) && !academiaTemNutri)}
                 title={
                   doMetodo
                     ? "No Método, o aluno fala da dieta com o mentor da ArkeFit"
-                    : academiaTemNutri
-                      ? undefined
-                      : "Sem nutricionista na equipe: o chat com a nutricionista é do Método ARKE"
+                    : !veSaude
+                      ? "A conversa da nutrição é de quem atende a saúde do aluno"
+                      : academiaTemNutri
+                        ? undefined
+                        : "Sem nutricionista na equipe: o chat com a nutricionista é do Método ARKE"
                 }
                 onClick={() => setChatAberto("nutri")}
               >

@@ -17,10 +17,12 @@ export type ConversaCaixa = {
 
 /**
  * Canais que cada papel atende: o professor responde o chat de treino, a
- * nutricionista o de dieta; gestor, recepção e ArkeFit veem os dois.
+ * nutricionista o de dieta; a gestão e a ArkeFit veem os dois. A recepção vê
+ * só o de treino: a conversa da nutrição é saúde, e o banco não a entrega a
+ * quem não atende a saúde (20261399010000).
  */
 export function canaisDoPapel(papel: string | null | undefined): Array<"treino" | "dieta"> {
-  if (papel === "professor") return ["treino"];
+  if (papel === "professor" || papel === "recepcao") return ["treino"];
   if (papel === "nutricionista") return ["dieta"];
   return ["treino", "dieta"];
 }
