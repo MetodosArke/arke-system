@@ -11,9 +11,9 @@
 -- A escolha: a regra mora no RLS, como a do dono (20261393010000). Na
 -- leitura, na alteração (as duas metades) e na exclusão, o termo da equipe
 -- da academia ganha uma condição: a tarefa não é de saúde, ou quem pede
--- atende a saúde. A inclusão fica como está: a recepção segue podendo
--- registrar a dor que o aluno contou no balcão (o app grava sem pedir a
--- linha de volta), e ela vai para quem atende.
+-- atende a saúde. A inclusão fica como está: abrir uma tarefa não mostra
+-- nenhuma outra, e a de saúde que a recepção abrisse pela API iria para quem
+-- atende, sem voltar para ela.
 --
 -- Os tipos de saúde moram numa função só, `tarefa_de_saude()`, com a mesma
 -- lista da ficha (`TAREFAS_DE_SAUDE`, em src/lib/acessoPainel.ts): a

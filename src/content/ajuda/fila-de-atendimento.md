@@ -16,6 +16,8 @@ A maioria nasce sozinha:
 
 A mesma situação não gera tarefa repetida. Pausar o aluno encerra as tarefas automáticas dele.
 
+**Dor / desconforto** e **Nova anamnese** falam da saúde do aluno e ficam com quem atende: a gestão, o professor e a nutricionista. A recepção não as vê na fila, nem por outro caminho, porque o banco aplica a mesma regra. Se o aluno contar uma dor no balcão, peça que ele registre pelo app (ou avise o professor): a pendência vai direto para quem atende.
+
 ## As duas abas
 
 - **Minha Fila**: as tarefas atribuídas a você e as que ainda estão sem responsável.
