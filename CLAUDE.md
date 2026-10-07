@@ -111,7 +111,7 @@ Cada linha é uma armadilha que já aconteceu aqui. Onde há trava, ela é um te
 - **Imagem:** sai reduzida do aparelho antes do upload (`reduzirImagem.guarda`). Arquivo de nome único ganha cache de 1 ano.
 - **Sorteio:** nunca `Math.random()` (`aleatorio.guarda`).
 - **Carregar mais:** pagina por cursor (`cursorFeed.ts`), nunca por um limite que cresce (`paginar.guarda`).
-- **Cor de texto:** só pelos tokens (`text-primary-texto` e os outros), nunca cor fixa (`acessibilidade.guarda`).
+- **Cor de texto:** só pelos tokens (`text-primary`, `text-destructive`, `text-success`, `text-warning`, que leem `--*-texto`), nunca cor fixa como `text-amber-600` (`acessibilidade.guarda`).
 - **Acessibilidade:** texto com 4,5:1 nos dois temas (a cor de texto lê `--*-texto`, não a do botão), zoom liberado, botão só de ícone com `aria-label` e o carregando com `role="status"` (`acessibilidade.guarda`).
 
 **Segurança e privacidade**
