@@ -99,7 +99,7 @@ Cada linha é uma armadilha que já aconteceu aqui. Onde há trava, ela é um te
 - **Datas:** use `dataBrasilia`, `hojeBrasilia`, `semanaBrasilia` e `formatarDataBR` (`src/lib/dataBrasilia.ts`), nunca `toISOString().slice(0, 10)` nem `new Date()` sobre coluna `date`; compare data pura como texto (`dataBrasilia.guarda`).
 - **Erro de edge function:** use `mensagemDeErroEdge()`. Em erro, o `data` vem nulo (`erroEdge.guarda`).
 - **Mil linhas:** a API corta sem avisar. Use `todasAsLinhas`, e ids em lotes de 200 com `porLotes`; `.limit()` nunca passa de mil (`paginar.guarda`).
-- **Erro não é vazio:** tela com estado vazio trata o erro da mesma consulta, com `<ErroAoCarregar>` (`estadoVazio.guarda`).
+- **Erro não é vazio:** tela com estado vazio trata o erro da mesma consulta, com `<ErroAoCarregar>`, também quando o vazio vem de uma lista filtrada dela (`estadoVazio.guarda`).
 - **Cache:** a mesma chave do react-query nunca serve a duas consultas diferentes (`chavesDeCache.guarda`).
 - **Formulário:** mutação que envia estado de formulário recebe os dados no `mutate`, não pelo fechamento.
 - **Efeitos:** valor padrão literal (`= []`, `= {}`) em dado que é dependência de efeito causa laço.
@@ -123,7 +123,9 @@ Cada linha é uma armadilha que já aconteceu aqui. Onde há trava, ela é um te
 - Captcha só por `_shared/captcha.ts`. Senha vazada por k-anonimato (HIBP), com falha aberta.
 - A chave do Asaas só pelo `ambienteAsaas` (`ambienteAsaas.guarda`). O webhook confere cada gravação, e o aviso do sandbox só toca organização em trial, mesmo sem achar organização (`webhookAsaas.guarda`). O aviso do Asaas é gravado reduzido ao que o webhook lê, mais os 4 dígitos e a bandeira (`trg_minimizar_aviso_asaas`, `avisoAsaas.guarda`).
 - Na sessão simulada, as autorizações da pessoa são recusadas no banco (`perfilSimulado.guarda`).
-- A recepção não vê saúde, nem pela API: tarefa de saúde por `tarefa_de_saude()`, e o chat da nutrição segue a regra da dieta (`tarefasPorDono.guarda`, `caixaDeMensagens.guarda`).
+- A recepção não vê saúde, nem pela API: tarefa de saúde por `tarefa_de_saude()`, e o chat da nutrição segue a regra da dieta (`tarefasPorDono.guarda`, `caixaDeMensagens.guarda`). O Acompanhamento ARKE troca o motivo de saúde por um texto neutro para a academia.
+- Mensagem de chat não se apaga pela API, nem a própria (`caixaDeMensagens.guarda`).
+- A troca de e-mail, nome e papel da equipe vai à auditoria, só com ids; a de papel também quando é feita direto pela API (`auditoriaDaEquipe.guarda`).
 
 ## Mapa
 

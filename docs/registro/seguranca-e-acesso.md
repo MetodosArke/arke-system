@@ -677,8 +677,17 @@ Quatro sobras pequenas de segurança e qualidade, três delas da lista "Fica de 
 - **Os scripts da prova em produção** (no relatório da entrega: um bloco por item, que monta os casos na academia de homologação, confere e termina sempre em exceção, para desfazer) **rodaram no mesmo esqueleto**, com a academia `homologacao` e as contas e2e: sem a migration, os três acusam o defeito; com a migration colada no começo, passam (6, 13 e 5 casos); e nada fica gravado depois.
 - **Testes:** 12 novos (1 em `estadoVazio.guarda`, 3 em `tarefasPorDono.guarda`, 2 em `caixaDeMensagens.guarda`, 7 em `auditoriaDaEquipe.guarda`, um deles vindo de `perfilSimulado.guarda`). Suíte inteira: **1.338 testes em 177 arquivos, todos passando**, em 9 lotes de 20 arquivos com um processo só. A prova do PGlite rodada junto com a suíte derrubou o Node por falta de memória, e foi repetida depois dela.
 - `npm run check` sem erro: tipos, lint (0 erros, os 27 avisos de antes, nenhum dos arquivos desta entrega), o `deno check` das 56 funções e a auditoria das dependências (0 vulnerabilidades).
+- **O banco de produção, em transação desfeita, antes de aplicar (07/10/2026).** Os três roteiros rodaram sem a migration e com ela:
+
+  | Item | Sem a migration (o defeito) | Com a migration |
+  |---|---|---|
+  | 1, Acompanhamento | 3 de 6 falham: a gestora recebe 2 linhas com saúde e 0 neutras, e a recepção 2 linhas de saúde | 6 casos ok |
+  | 2, conversas | 10 de 13 falham: há regra de exclusão, a API tem a permissão, e a gestora e a aluna apagam | 13 casos ok |
+  | 3, papel | 4 de 5 falham: a troca pela API não deixa registro, e não há função do gatilho | 5 casos ok |
+
+  Depois, nada ficou gravado: nenhuma tarefa de prova, a conta e2e da jornada seguiu como aluna, nenhum registro de papel na auditoria, e as duas regras de exclusão seguiam no ar até aplicar.
+  - **Defeito do caminho:** o roteiro do item 1 gravava as três tarefas de prova com a mesma `origem_evento`, que o índice único `(organization_id, origem_evento)` de produção recusa; o esqueleto do PGlite não tinha o índice. Cada tarefa ganhou a sua origem.
 - **Falta, porque esta frente não toca produção:**
-  - aplicar `20261405010000`, `20261406010000` e `20261407010000` e provar em produção em transação desfeita (os casos estão no relatório da entrega);
   - publicar `editar-membro-equipe` e `assistente-academia` (o índice da Central mudou), e o app;
   - a corrente real: editar o nome e o papel de uma conta temporária da equipe na homologação e conferir a Auditoria;
   - a tela no computador e no celular: o Acompanhamento com um atendimento de saúde, a Agenda e os Acervos com a consulta falhando (modo avião depois de abrir), a Simulação de perfil e a Auditoria.
