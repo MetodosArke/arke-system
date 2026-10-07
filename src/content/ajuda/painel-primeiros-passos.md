@@ -40,7 +40,7 @@ Se a conexão falhar na hora de abrir, o painel tenta de novo sozinho por alguns
 
 ## Quando uma lista não carrega
 
-Se a conexão falha no meio de uma tela (a lista de alunos, o financeiro, as catracas, o histórico de uma ficha), a tela mostra **Não foi possível carregar…**, com o botão **Tentar de novo**, e não "nenhum aluno" ou "nenhum lançamento". Os dados continuam guardados: não cadastre nem importe de novo. Confira a internet e toque em **Tentar de novo**.
+Se a conexão falha no meio de uma tela (a lista de alunos, o financeiro, as catracas, a agenda do dia, o acervo de exercícios, o histórico de uma ficha), a tela mostra **Não foi possível carregar…**, com o botão **Tentar de novo**, e não "nenhum aluno" ou "nenhum lançamento". Os dados continuam guardados: não cadastre nem importe de novo. Confira a internet e toque em **Tentar de novo**.
 
 ## Mais de uma unidade
 

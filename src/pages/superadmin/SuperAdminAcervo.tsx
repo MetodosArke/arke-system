@@ -19,6 +19,7 @@ import { useListasAcervo } from "@/hooks/useListasAcervo";
 import { SeletorGrupos } from "@/components/acervo/SeletorGrupos";
 import { CampoMidia } from "@/components/acervo/CampoMidia";
 import { MidiaExercicio, MiniaturaExercicio } from "@/components/acervo/MidiaExercicio";
+import { ErroAoCarregar } from "@/components/ErroAoCarregar";
 import type { Tables } from "@/integrations/supabase/types";
 
 type ExercicioBiblioteca = Tables<"exercicios_biblioteca">;
@@ -52,7 +53,13 @@ export default function SuperAdminAcervo() {
   const [excluir, setExcluir] = useState<ExercicioBiblioteca | null>(null);
   const [busca, setBusca] = useState("");
 
-  const { data: exercicios = [], isLoading } = useQuery({
+  const {
+    data: exercicios = [],
+    isLoading,
+    error: erroExercicios,
+    refetch: recarregarExercicios,
+    isFetching: recarregandoExercicios,
+  } = useQuery({
     queryKey: ["exercicios-biblioteca-global"],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -198,8 +205,19 @@ export default function SuperAdminAcervo() {
         </CardHeader>
         <CardContent>
           {isLoading && <p className="text-sm text-muted-foreground">Carregando...</p>}
-          {!isLoading && exerciciosFiltrados.length === 0 && (
-            <p className="text-sm text-muted-foreground py-4 text-center">Nenhum exercício encontrado.</p>
+          {/* A busca filtra a mesma consulta: com ela falhando, a lista filtrada
+              sairia vazia e diria "Nenhum exercício encontrado". */}
+          {!isLoading && erroExercicios && exercicios.length === 0 ? (
+            <ErroAoCarregar
+              oQue="os exercícios"
+              onTentarDeNovo={() => void recarregarExercicios()}
+              tentando={recarregandoExercicios}
+            />
+          ) : (
+            !isLoading &&
+            exerciciosFiltrados.length === 0 && (
+              <p className="text-sm text-muted-foreground py-4 text-center">Nenhum exercício encontrado.</p>
+            )
           )}
           {exerciciosFiltrados.length > 0 && (
             <Table>

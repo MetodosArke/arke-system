@@ -22,6 +22,7 @@ import { useListasAcervo } from "@/hooks/useListasAcervo";
 import { SeletorGrupos } from "@/components/acervo/SeletorGrupos";
 import { CampoMidia } from "@/components/acervo/CampoMidia";
 import { MidiaExercicio, MiniaturaExercicio } from "@/components/acervo/MidiaExercicio";
+import { ErroAoCarregar } from "@/components/ErroAoCarregar";
 import type { Tables } from "@/integrations/supabase/types";
 
 type ExercicioBiblioteca = Tables<"exercicios_biblioteca">;
@@ -57,7 +58,13 @@ export function AcervoPainel() {
   const [novoExercicioId, setNovoExercicioId] = useState("");
   const [aplicando, setAplicando] = useState(false);
 
-  const { data: exercicios = [], isLoading } = useQuery({
+  const {
+    data: exercicios = [],
+    isLoading,
+    error: erroExercicios,
+    refetch: recarregarExercicios,
+    isFetching: recarregandoExercicios,
+  } = useQuery({
     queryKey: ["exercicios-biblioteca-acervo", organization?.id],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -165,6 +172,9 @@ export function AcervoPainel() {
     (filtroEquipamento === "todos" || e.equipamento === filtroEquipamento);
   const exerciciosDaOrg = exercicios.filter((e) => e.organization_id === organization?.id && passaFiltro(e));
   const exerciciosPadrao = exercicios.filter((e) => e.organization_id === null && passaFiltro(e));
+  // As duas listas saem da mesma consulta: com ela falhando, as duas sairiam
+  // vazias e a tela diria "Nenhum exercício próprio cadastrado ainda".
+  const falhouExercicios = !!erroExercicios && exercicios.length === 0;
   const gruposDoExercicio = (e: ExercicioBiblioteca) => (e.grupos_musculares?.length ? e.grupos_musculares : [e.grupo_muscular]).join(", ");
   const detalhe = exercicios.find((e) => e.id === detalheId) ?? null;
   const detalheEhDaOrg = !!detalhe && detalhe.organization_id === organization?.id;
@@ -306,82 +316,94 @@ export function AcervoPainel() {
             </Button>
           </div>
 
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base">Exercícios da academia ({exerciciosDaOrg.length})</CardTitle>
-              <CardDescription>Só você gerencia estes — específicos da sua organização. Clique no nome para ver o detalhe completo.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {isLoading && <p className="text-sm text-muted-foreground">Carregando...</p>}
-              {!isLoading && exerciciosDaOrg.length === 0 && (
-                <p className="text-sm text-muted-foreground py-4 text-center">Nenhum exercício próprio cadastrado ainda.</p>
-              )}
-              {exerciciosDaOrg.length > 0 && (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="w-14" />
-                      <TableHead>Nome</TableHead>
-                      <TableHead>Grupo</TableHead>
-                      <TableHead>Equipamento</TableHead>
-                      <TableHead>Status</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {exerciciosDaOrg.map((ex) => (
-                      <TableRow key={ex.id} className="cursor-pointer" onClick={() => setDetalheId(ex.id)}>
-                        <TableCell>
-                          <MiniaturaExercicio imagemUrl={ex.gif_url} videoUrl={ex.video_url} nome={ex.nome} />
-                        </TableCell>
-                        <TableCell className="font-medium text-primary underline-offset-2 hover:underline">{ex.nome}</TableCell>
-                        <TableCell>{gruposDoExercicio(ex)}</TableCell>
-                        <TableCell>{ex.equipamento ?? "—"}</TableCell>
-                        <TableCell>
-                          <Badge variant={ex.ativo ? "default" : "secondary"}>{ex.ativo ? "Ativo" : "Inativo"}</Badge>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              )}
-            </CardContent>
-          </Card>
+          {falhouExercicios ? (
+            <Card>
+              <ErroAoCarregar
+                oQue="os exercícios"
+                onTentarDeNovo={() => void recarregarExercicios()}
+                tentando={recarregandoExercicios}
+              />
+            </Card>
+          ) : (
+            <>
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-base">Exercícios da academia ({exerciciosDaOrg.length})</CardTitle>
+                  <CardDescription>Só você gerencia estes — específicos da sua organização. Clique no nome para ver o detalhe completo.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {isLoading && <p className="text-sm text-muted-foreground">Carregando...</p>}
+                  {!isLoading && exerciciosDaOrg.length === 0 && (
+                    <p className="text-sm text-muted-foreground py-4 text-center">Nenhum exercício próprio cadastrado ainda.</p>
+                  )}
+                  {exerciciosDaOrg.length > 0 && (
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="w-14" />
+                          <TableHead>Nome</TableHead>
+                          <TableHead>Grupo</TableHead>
+                          <TableHead>Equipamento</TableHead>
+                          <TableHead>Status</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {exerciciosDaOrg.map((ex) => (
+                          <TableRow key={ex.id} className="cursor-pointer" onClick={() => setDetalheId(ex.id)}>
+                            <TableCell>
+                              <MiniaturaExercicio imagemUrl={ex.gif_url} videoUrl={ex.video_url} nome={ex.nome} />
+                            </TableCell>
+                            <TableCell className="font-medium text-primary underline-offset-2 hover:underline">{ex.nome}</TableCell>
+                            <TableCell>{gruposDoExercicio(ex)}</TableCell>
+                            <TableCell>{ex.equipamento ?? "—"}</TableCell>
+                            <TableCell>
+                              <Badge variant={ex.ativo ? "default" : "secondary"}>{ex.ativo ? "Ativo" : "Inativo"}</Badge>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  )}
+                </CardContent>
+              </Card>
 
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base flex items-center gap-1.5">
-                <Globe className="h-3.5 w-3.5" /> Padrão ArkeFit ({exerciciosPadrao.length})
-              </CardTitle>
-              <CardDescription>
-                Compartilhados com todas as academias. Clique para ver o detalhe — editar cria uma cópia só da sua
-                academia, sem afetar as outras.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-14" />
-                    <TableHead>Nome</TableHead>
-                    <TableHead>Grupo</TableHead>
-                    <TableHead>Equipamento</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {exerciciosPadrao.map((ex) => (
-                    <TableRow key={ex.id} className="cursor-pointer" onClick={() => setDetalheId(ex.id)}>
-                      <TableCell>
-                        <MiniaturaExercicio imagemUrl={ex.gif_url} videoUrl={ex.video_url} nome={ex.nome} />
-                      </TableCell>
-                      <TableCell className="font-medium text-primary underline-offset-2 hover:underline">{ex.nome}</TableCell>
-                      <TableCell>{gruposDoExercicio(ex)}</TableCell>
-                      <TableCell>{ex.equipamento ?? "—"}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-base flex items-center gap-1.5">
+                    <Globe className="h-3.5 w-3.5" /> Padrão ArkeFit ({exerciciosPadrao.length})
+                  </CardTitle>
+                  <CardDescription>
+                    Compartilhados com todas as academias. Clique para ver o detalhe — editar cria uma cópia só da sua
+                    academia, sem afetar as outras.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-14" />
+                        <TableHead>Nome</TableHead>
+                        <TableHead>Grupo</TableHead>
+                        <TableHead>Equipamento</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {exerciciosPadrao.map((ex) => (
+                        <TableRow key={ex.id} className="cursor-pointer" onClick={() => setDetalheId(ex.id)}>
+                          <TableCell>
+                            <MiniaturaExercicio imagemUrl={ex.gif_url} videoUrl={ex.video_url} nome={ex.nome} />
+                          </TableCell>
+                          <TableCell className="font-medium text-primary underline-offset-2 hover:underline">{ex.nome}</TableCell>
+                          <TableCell>{gruposDoExercicio(ex)}</TableCell>
+                          <TableCell>{ex.equipamento ?? "—"}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </CardContent>
+              </Card>
+            </>
+          )}
         </TabsContent>
 
         <TabsContent value="de-para" className="space-y-4 pt-3">

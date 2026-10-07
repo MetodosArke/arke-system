@@ -507,7 +507,12 @@ export default function SuperAdminDashboard() {
   const [vinculoSelecionado, setVinculoSelecionado] = useState<string | null>(null);
   const [simulando, setSimulando] = useState(false);
 
-  const { data: perfisSimulaveis = [] } = useQuery({
+  const {
+    data: perfisSimulaveis = [],
+    error: erroPerfisSimulaveis,
+    refetch: recarregarPerfisSimulaveis,
+    isFetching: recarregandoPerfisSimulaveis,
+  } = useQuery({
     queryKey: ["superadmin-perfis-simulaveis"],
     queryFn: async () => {
       const { data, error } = await supabase.rpc("get_superadmin_perfis_simulaveis");
@@ -581,7 +586,17 @@ export default function SuperAdminDashboard() {
             </p>
           )}
 
-          {categoriaAtiva && (
+          {/* As opções de cada categoria filtram a mesma consulta: com ela
+              falhando, a lista sairia vazia e diria "Nenhum usuário cadastrado". */}
+          {categoriaAtiva && erroPerfisSimulaveis && perfisSimulaveis.length === 0 && (
+            <ErroAoCarregar
+              oQue="os perfis para simular"
+              onTentarDeNovo={() => void recarregarPerfisSimulaveis()}
+              tentando={recarregandoPerfisSimulaveis}
+            />
+          )}
+
+          {categoriaAtiva && !(erroPerfisSimulaveis && perfisSimulaveis.length === 0) && (
             <div className="flex flex-col sm:flex-row gap-2">
               <Select value={vinculoSelecionado ?? undefined} onValueChange={setVinculoSelecionado}>
                 <SelectTrigger className="flex-1">
