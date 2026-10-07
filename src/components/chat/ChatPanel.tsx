@@ -140,6 +140,10 @@ export function ChatPanel({ organizationId, alunoId, viewerType, type, dietaId, 
 
   const invalidar = () => {
     void queryClient.invalidateQueries({ queryKey: type === "treino" ? ["chat-treino-msgs", alunoId] : ["chat-nutri-msgs", activeDietaId] });
+    // O contador de não lidas do menu e da caixa (useCaixaMensagens): sem
+    // isto, depois de marcar como lida ele só baixava na próxima atualização,
+    // até 30 s depois (conferido na tela em produção em 06/10/2026).
+    void queryClient.invalidateQueries({ queryKey: ["caixa-mensagens"] });
   };
 
   const resolvePushDestino = () => {
