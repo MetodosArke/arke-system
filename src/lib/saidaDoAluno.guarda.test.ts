@@ -2,6 +2,7 @@ import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { caminhoDaUrlPublica } from "../../supabase/functions/_shared/arquivosDoAluno";
+import { regrasVigentes, textosDaReconstrucao, ultimaPermissao } from "../../scripts/migracao/regras.mjs";
 
 /**
  * Trava da decisão de 06/10/2026 (auditoria de prontidão, D1): a saída do
@@ -36,6 +37,32 @@ function ultimaDefinicao(funcao: string): string {
   let ultima = "";
   for (const m of migrations) for (const achado of m.sql.match(re) ?? []) ultima = achado;
   return ultima;
+}
+
+/**
+ * Os métodos encadeados depois de cada `.from("<tabela>")` do código: em
+ * `.from("alunos").select("id").eq("id", x)`, `["select", "eq"]`. Segue a
+ * corrente pelos parênteses equilibrados, e não até o `;`, que o código sem
+ * ponto e vírgula não tem.
+ */
+function metodosDaCorrente(texto: string, tabela: string): string[][] {
+  const correntes: string[][] = [];
+  for (const m of texto.matchAll(new RegExp(String.raw`\.from\(\s*["'\`]${tabela}["'\`]\s*\)`, "g"))) {
+    const metodos: string[] = [];
+    let i = (m.index ?? 0) + m[0].length;
+    for (;;) {
+      const proximo = /^\s*\.\s*(\w+)\s*\(/.exec(texto.slice(i));
+      if (!proximo) break;
+      metodos.push(proximo[1]);
+      i += proximo[0].length;
+      for (let nivel = 1; i < texto.length && nivel > 0; i++) {
+        if (texto[i] === "(") nivel++;
+        else if (texto[i] === ")") nivel--;
+      }
+    }
+    correntes.push(metodos);
+  }
+  return correntes;
 }
 
 /** Tabelas com coluna `aluno_id`, pelas migrations (criadas e não apagadas). */
@@ -166,6 +193,50 @@ describe("saída do aluno", () => {
       expect(todas).toMatch(new RegExp(`revoke execute on function public\\.${f}\\([^)]*\\) from public, anon, authenticated`));
       expect(todas).not.toMatch(new RegExp(`grant execute on function public\\.${f}\\([^)]*\\) to [^;]*authenticated`));
     }
+  });
+
+  it("o aluno só sai pela saída: ninguém o exclui pela API (frente D, 07/10/2026)", () => {
+    // 20261408010000: a regra de exclusão era `is_org_staff`, e a recepção
+    // apagava o aluno com um DELETE; a cascata levava tudo sem o Asaas, os
+    // arquivos e a auditoria da saída.
+    const textos = textosDaReconstrucao();
+    const excluem = [...regrasVigentes(textos, "public.alunos")].filter(
+      ([, r]) => !r.restritiva && (r.comando === "delete" || r.comando === "all"),
+    );
+    expect(excluem.map(([nome]) => nome), "regra que deixa excluir o aluno").toEqual([]);
+    // Sem a permissão, o pedido é recusado (42501), e não respondido com 200 e zero linhas.
+    for (const papel of ["authenticated", "anon"]) {
+      expect(ultimaPermissao(textos, "alunos", "delete", papel), papel).toMatch(new RegExp(`^revoke\\b.*\\bfrom\\b.*\\b${papel}\\b`));
+    }
+  });
+
+  it("o leitor acha a exclusão do aluno devolvida (a trava trava)", () => {
+    const textos = textosDaReconstrucao();
+    expect(ultimaPermissao([...textos, "grant select, delete on public.alunos to authenticated;"], "alunos", "delete")).toMatch(/^grant\b/);
+    expect(ultimaPermissao([...textos, "grant all on table alunos to anon, authenticated;"], "alunos", "delete", "anon")).toMatch(/^grant all\b/);
+    // A tabela vizinha não conta.
+    expect(ultimaPermissao([...textos, "grant delete on public.alunos_x to authenticated;"], "alunos", "delete")).toMatch(/^revoke\b/);
+    const regra = regrasVigentes(
+      [...textos, `create policy "exclusão" on public.alunos for delete to authenticated using (true);`],
+      "public.alunos",
+    );
+    expect([...regra].filter(([, r]) => !r.restritiva && r.comando === "delete").map(([nome]) => nome)).toEqual(["exclusão"]);
+  });
+
+  it("nenhuma tela nem função apaga o aluno direto, fora da saída", () => {
+    const codigo = (dir: string): { arquivo: string; texto: string }[] =>
+      readdirSync(dir, { withFileTypes: true }).flatMap((d) => {
+        const caminho = join(dir, d.name);
+        if (d.isDirectory()) return d.name === "node_modules" ? [] : codigo(caminho);
+        return /\.(ts|tsx)$/.test(d.name) && !/\.test\.tsx?$/.test(d.name) ? [{ arquivo: caminho, texto: ler(caminho) }] : [];
+      });
+    const apagam = [...codigo(join(RAIZ, "src")), ...codigo(FUNCOES)]
+      .filter(({ texto }) => metodosDaCorrente(texto, "alunos").some((metodos) => metodos.includes("delete")))
+      .map(({ arquivo }) => arquivo.slice(RAIZ.length + 1).replace(/\\/g, "/"));
+    expect(apagam).toEqual([]);
+    // O detector detecta: a corrente em várias linhas, com filtro antes do delete.
+    const plantado = `await supabase\n  .from("alunos")\n  .select("id")\n  .eq("id", x);\nawait db.from('alunos').eq("organization_id", o).delete().eq("id", a)\nconst y = 1`;
+    expect(metodosDaCorrente(plantado, "alunos")).toEqual([["select", "eq"], ["eq", "delete", "eq"]]);
   });
 
   it("a URL pública do Storage vira bucket e caminho; o resto é ignorado", () => {

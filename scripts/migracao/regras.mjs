@@ -144,6 +144,31 @@ export function regrasVigentes(textos, tabela) {
   return regras;
 }
 
+/**
+ * O último `grant` ou `revoke` que dá ou tira de um papel um privilégio na
+ * tabela (pelo nome do privilégio ou por `all`), na ordem dos textos; vazio
+ * se nenhum. Sem nenhum, vale o padrão do Supabase, que dá o privilégio.
+ * Devolve o comando em minúsculas e numa linha só.
+ * @param {string[]} textos
+ * @param {string} tabela o nome sem o schema, ex.: "alunos"
+ * @param {string} privilegio ex.: "delete"
+ * @param {string} [papel]
+ */
+export function ultimaPermissao(textos, tabela, privilegio, papel = "authenticated") {
+  let ultimo = "";
+  const re = /\b(grant|revoke)\s+([^;]*?)\s+on\s+(?:table\s+)?([^;]*?)\s+(to|from)\s+([^;]*);/gi;
+  const alvo = new RegExp(String.raw`(?:^|[\s,])(?:public\.)?${tabela}(?![\w.])`);
+  for (const texto of textos) {
+    for (const m of semComentarios(texto).matchAll(re)) {
+      if (!new RegExp(String.raw`\b(${privilegio}|all)\b`).test(m[2].toLowerCase())) continue;
+      if (!alvo.test(m[3].toLowerCase())) continue;
+      if (!new RegExp(String.raw`\b${papel}\b`, "i").test(m[5])) continue;
+      ultimo = m[0].replace(/\s+/g, " ").toLowerCase();
+    }
+  }
+  return ultimo;
+}
+
 /** Os textos da reconstrução do banco, na ordem. */
 export function textosDaReconstrucao(raiz = RAIZ_PADRAO) {
   return arquivosDaReconstrucao(raiz).map((arquivo) => lerTexto(join(raiz, arquivo)));
