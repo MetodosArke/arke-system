@@ -265,3 +265,20 @@ A consulta agora tenta de novo uma vez (`tentarConsultaDeNovo`, em `src/lib/tent
 - `tentativas`: 9 testes.
 - **Em produção, depois do deploy:** o aviso de erro na lista de alunos apareceu em 17 segundos (eram 53), e **Tentar de novo** carregou a lista; as 23 funções publicadas, com o e-mail de troca de senha saindo pelo `send-email`, o webhook do Asaas recusando chamada sem token (401) e as rotinas sem erro 5xx.
 - **Falta:** o encerramento de ponta a ponta, com o e-mail chegando a um aluno; e a aprovação do Vigia com o Asaas fora do prazo, no sandbox.
+
+## A eliminação da academia travava no único gestor (06/10/2026)
+
+A prova de ponta a ponta do encerramento, que estava pendente na fila, encontrou um defeito.
+
+**Como foi feita.** Uma academia de teste foi encerrada pela função publicada e pela rotina do cron, nas três rodadas: aviso, término e eliminação. A rodada da eliminação parou com "Database error deleting user".
+
+**A causa.** `encerramento-organizacao` apaga as contas sem outro vínculo antes de `eliminar_organizacao` apagar a academia. A conta do gestor leva junto, em cascata, o vínculo dele, e `prevent_remover_ultimo_gestor` recusava remover o único gestor enquanto a academia existe. A eliminação de quase toda academia (uma com um gestor só) ficaria tentando de hora em hora, sem terminar.
+
+**A correção** (`20261402`): a regra do único gestor continua protegendo a academia que funciona e deixa de valer só na janela de eliminação, isto é, academia encerrada e passada a data. Ficou no banco, e não na ordem da função, para valer em qualquer caminho de eliminação. Guarda: `ultimoGestor.guarda`.
+
+**Conferido:**
+- **No banco de produção, em transação desfeita:**
+  - antes da migration, apagar a conta do gestor de uma academia encerrada e vencida é recusado (o defeito reproduzido);
+  - depois dela, passa;
+  - a academia que funciona, a encerrada antes da data e a em aviso continuam recusando.
+- **Defeito plantado** (a condição da data tirada): a guarda falhou.
