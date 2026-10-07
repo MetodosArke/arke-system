@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { dividir, regrasVigentes, textosDaReconstrucao } from "../../scripts/migracao/regras.mjs";
 import { TAREFAS_DE_SAUDE } from "./acessoPainel";
@@ -136,5 +138,68 @@ describe("tarefas: a saúde fica com quem atende", () => {
     );
     const t = termos(solta.get("leitura")!.using).find((x) => x.includes("is_org_staff"))!;
     expect(condicoes(t)).not.toContain(SAUDE_COM_QUEM_ATENDE);
+  });
+});
+
+/**
+ * Trava das sobras da frente B (07/10/2026, 20261405010000): o Acompanhamento
+ * ARKE (`get_atendimentos_mentor_organizacao`) entrega à academia os
+ * atendimentos do mentor com os alunos do Método, e entregava o tipo, o
+ * motivo e o desfecho da tarefa de dor e da de anamnese. No Método, a saúde
+ * do aluno é do mentor: a academia vê que o atendimento aconteceu, e não do
+ * que se tratou.
+ *
+ * Falha se o tipo, o motivo ou o desfecho saírem da função sem passar por
+ * `tarefa_de_saude()`, ou se a linha de saúde chegar a quem não atende a
+ * saúde (a recepção).
+ */
+const SAUDE_DA_TAREFA = String.raw`(?:public\.)?tarefa_de_saude\(t\.tipo(?:::text)?\)`;
+
+/** As colunas da tarefa que saem da função sem a troca da saúde (`case when tarefa_de_saude(...) then <sem t.> else t.x end`). */
+function colunasDeSaudeSoltas(funcao: string): string[] {
+  const corpo = funcao.replace(/--[^\n]*/g, "").replace(/\s+/g, " ").toLowerCase();
+  const semAsTrocas = corpo
+    .replace(
+      new RegExp(String.raw`case when ${SAUDE_DA_TAREFA} then (?:(?!\bt\.)[^;])*? else t\.(?:tipo|motivo|desfecho_acao) end`, "g"),
+      "",
+    )
+    .replace(new RegExp(SAUDE_DA_TAREFA, "g"), "");
+  return [...semAsTrocas.matchAll(/\bt\.(tipo|motivo|desfecho_acao)\b/g)].map((m) => m[1]);
+}
+
+/** O que decide se a linha de saúde sai: o termo depois de `not tarefa_de_saude(t.tipo) or`, aberto se for variável. */
+function quemVeASaude(funcao: string): string {
+  const corpo = funcao.replace(/--[^\n]*/g, "").replace(/\s+/g, " ").toLowerCase();
+  const termo = corpo.match(new RegExp(String.raw`not ${SAUDE_DA_TAREFA} or ([\w.]+(?:\([^)]*\))?)`))?.[1] ?? "";
+  if (!termo) return "";
+  return corpo.match(new RegExp(String.raw`\b${termo.replace(/[.()]/g, "\\$&")} := ([^;]*);`))?.[1] ?? termo;
+}
+
+describe("o Acompanhamento ARKE não entrega a saúde do aluno do Método à academia", () => {
+  const funcao = definicaoVigente("get_atendimentos_mentor_organizacao");
+
+  it("o tipo, o motivo e o desfecho passam por tarefa_de_saude()", () => {
+    expect(funcao, "a função existe").not.toBe("");
+    expect(colunasDeSaudeSoltas(funcao)).toEqual([]);
+    // A troca existe para as três colunas.
+    const corpo = funcao.replace(/\s+/g, " ").toLowerCase();
+    for (const coluna of ["tipo", "motivo", "desfecho_acao"]) {
+      expect(corpo, coluna).toMatch(new RegExp(String.raw`case when ${SAUDE_DA_TAREFA} then [^;]*? else t\.${coluna} end`));
+    }
+  });
+
+  it("a linha de saúde sai só para quem atende a saúde e para a ArkeFit, e não para a recepção", () => {
+    const quem = quemVeASaude(funcao);
+    expect(quem, "a condição foi achada").not.toBe("");
+    expect(quem).toMatch(/^(public\.)?atende_saude\(_organization_id\)/);
+    expect(quem, "toda a equipe veria").not.toMatch(/is_org_staff|is_org_member/);
+  });
+
+  it("o leitor acha a versão de antes, que entregava o motivo da dor (a trava trava)", () => {
+    const antes = readFileSync(join(__dirname, "..", "..", "supabase", "migrations", "20261230010000_operacao_mentor.sql"), "utf8");
+    const definicao = antes.match(/create or replace function public\.get_atendimentos_mentor_organizacao\([\s\S]*?\n\$\$;/)?.[0] ?? "";
+    expect(definicao).not.toBe("");
+    expect(colunasDeSaudeSoltas(definicao).sort()).toEqual(["desfecho_acao", "motivo", "tipo"]);
+    expect(quemVeASaude(definicao)).toBe("");
   });
 });
