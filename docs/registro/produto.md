@@ -76,7 +76,7 @@ Dois defeitos apareceram no caminho e foram corrigidos no fechamento, abaixo: o 
 
 As três sobras da rodada 3 do app que ficaram listadas nas guardas. As de banco da mesma frente estão em `seguranca-e-acesso.md` ("as últimas sobras de banco").
 
-**1. Erro de consulta não é estado vazio, nas telas que faltavam.** As 16 da lista de `estadoVazio.guarda`: 15 tratadas, e a lista `PENDENTES` está vazia.
+**1. Erro de consulta não é estado vazio, nas telas que faltavam.** As 16 da lista de `estadoVazio.guarda`: 15 tratadas, e a lista `PENDENTES` está vazia. *Ampliado em 07/10/2026: a guarda passou a pegar o vazio da lista filtrada, e achou mais 5 telas (ver "As sobras da frente B" em [seguranca-e-acesso.md](seguranca-e-acesso.md)).*
 - **Gestão:**
   - a ficha do aluno (a ficha inteira, e os planos ao matricular);
   - a ficha do funcionário (a ficha e os horários);
