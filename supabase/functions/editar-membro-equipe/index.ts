@@ -163,6 +163,34 @@ servir("editar-membro-equipe", async (req: Request) => {
       return jsonResponse({ error: "Trocar o e-mail de login pede a verificação em duas etapas." }, 403);
     }
 
+    // Cada troca fica na auditoria: quem trocou (`ator_user_id`), de quem
+    // (`entidade_id`), o que mudou e se foi a ArkeFit — sem o e-mail e sem o
+    // nome, nem o novo nem o antigo: a trilha não tem prazo, e os dois já
+    // moram na conta; as outras ações da trilha também guardam a pessoa só
+    // pelo id. Esta função roda com a service role, então nenhum gatilho
+    // saberia quem agiu: o registro sai daqui. Falha de auditoria não desfaz
+    // a troca já feita, mas não passa em silêncio.
+    let nomeOrganizacao: string | null | undefined;
+    const registrarAuditoria = async (acao: string, detalhes: Record<string, unknown>) => {
+      if (nomeOrganizacao === undefined) {
+        const { data: organizacao } = await adminClient
+          .from("organizations")
+          .select("nome")
+          .eq("id", organizationId)
+          .maybeSingle();
+        nomeOrganizacao = organizacao?.nome ?? null;
+      }
+      const { error: auditoriaError } = await adminClient.rpc("registrar_auditoria", {
+        _ator_user_id: callerId,
+        _acao: acao,
+        _entidade: "auth.users",
+        _entidade_id: targetUserId,
+        _organizacao_nome: nomeOrganizacao,
+        _detalhes: detalhes,
+      });
+      if (auditoriaError) console.error("Falha ao registrar auditoria", acao, resumoDoErro(auditoriaError));
+    };
+
     if (email) {
       const { error: emailError } = await adminClient.auth.admin.updateUserById(targetUserId, {
         email,
@@ -177,31 +205,13 @@ servir("editar-membro-equipe", async (req: Request) => {
         );
       }
 
-      // A troca fica na auditoria: quem trocou, de quem, o papel e se foi a
-      // ArkeFit — sem o e-mail (nem o novo nem o antigo): a trilha não tem
-      // prazo, e o e-mail já mora na conta. O banco tira e-mail de todo
-      // registro de troca de e-mail, por qualquer caminho (20261401010000).
-      // Esta função roda com a service role, então nenhum gatilho saberia
-      // quem agiu: o registro sai daqui. Falha de auditoria não desfaz a troca
-      // já feita, mas não passa em silêncio.
-      const { data: organizacao } = await adminClient
-        .from("organizations")
-        .select("nome")
-        .eq("id", organizationId)
-        .maybeSingle();
-      const { error: auditoriaError } = await adminClient.rpc("registrar_auditoria", {
-        _ator_user_id: callerId,
-        _acao: "equipe.email_alterado",
-        _entidade: "auth.users",
-        _entidade_id: targetUserId,
-        _organizacao_nome: organizacao?.nome ?? null,
-        _detalhes: {
-          mudou: "e-mail de login",
-          papel_alvo: targetMembership.role,
-          pela_arkefit: callerIsAdminArke,
-        },
+      // O banco também tira e-mail de todo registro de troca de e-mail, por
+      // qualquer caminho (20261401010000).
+      await registrarAuditoria("equipe.email_alterado", {
+        mudou: "e-mail de login",
+        papel_alvo: targetMembership.role,
+        pela_arkefit: callerIsAdminArke,
       });
-      if (auditoriaError) console.error("Falha ao registrar auditoria", "equipe.email_alterado", resumoDoErro(auditoriaError));
     }
 
     if (fullName) {
@@ -213,9 +223,15 @@ servir("editar-membro-equipe", async (req: Request) => {
         console.error("Error updating profile", resumoDoErro(profileError));
         return jsonResponse({ error: "Erro ao atualizar o nome." }, 500);
       }
+      await registrarAuditoria("equipe.nome_alterado", {
+        mudou: "nome",
+        papel_alvo: targetMembership.role,
+        pela_arkefit: callerIsAdminArke,
+      });
     }
 
-    if (role) {
+    // O mesmo papel de antes não é troca: nem grava, nem vai para a trilha.
+    if (role && role !== targetMembership.role) {
       const { error: roleError } = await adminClient
         .from("organization_members")
         .update({ role })
@@ -224,6 +240,12 @@ servir("editar-membro-equipe", async (req: Request) => {
         console.error("Error updating role", resumoDoErro(roleError));
         return jsonResponse({ error: "Erro ao atualizar o papel." }, 500);
       }
+      // `{de, para}` é o formato que a Auditoria da Visão Master lê como
+      // "papel: professor → gestor".
+      await registrarAuditoria("equipe.papel_alterado", {
+        papel: { de: targetMembership.role, para: role },
+        pela_arkefit: callerIsAdminArke,
+      });
     }
 
     return jsonResponse({ success: true });

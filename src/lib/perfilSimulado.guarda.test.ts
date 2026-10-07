@@ -110,22 +110,7 @@ describe("perfil simulado", () => {
     for (const acao of ["gestor.email_alterado", "equipe.email_alterado"]) expect(alcanca(acao), `${acao}: ${condicao}`).toBe(true);
   });
 
-  it("a troca do e-mail de login de alguém da equipe pela gestão vai para a trilha, sem o e-mail", () => {
-    // Auditoria de prontidão, 06/10/2026 (20261401010000): `editar-membro-equipe`
-    // trocava o e-mail de login sem deixar registro.
-    const funcao = readFileSync(join(FUNCOES, "editar-membro-equipe", "index.ts"), "utf8");
-    const troca = funcao.indexOf("updateUserById(targetUserId");
-    expect(troca, "a troca do e-mail foi achada").toBeGreaterThan(0);
-    const depois = funcao.slice(troca);
-    const registro = depois.slice(depois.indexOf('"registrar_auditoria"'));
-    expect(depois.indexOf('"registrar_auditoria"'), "o registro sai depois da troca").toBeGreaterThan(0);
-    const chamada = registro.slice(0, registro.indexOf("});"));
-    expect(chamada).toMatch(/_acao: "equipe\.email_alterado"/);
-    expect(chamada).toMatch(/_ator_user_id: callerId/);
-    expect(chamada).toMatch(/_entidade_id: targetUserId/);
-    // Nem a variável `email` nem `novo_email`: `equipe.email_alterado` não casa (o `_` emenda a palavra).
-    expect(chamada, "o e-mail não vai para a trilha").not.toMatch(/\b(novo_?)?email\b/i);
-    // O registro fica dentro do `if (email)`, antes de o nome e o papel mudarem.
-    expect(depois.indexOf('"registrar_auditoria"')).toBeLessThan(depois.indexOf("if (fullName)"));
-  });
+  // A troca do e-mail de login de alguém da equipe (20261401010000) mora
+  // desde 07/10/2026 em `auditoriaDaEquipe.guarda.test.ts`, junto da troca do
+  // nome e da do papel.
 });

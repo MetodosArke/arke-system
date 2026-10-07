@@ -39,3 +39,5 @@ A tela [Acompanhamento ARKE](/admin/acompanhamento) presta contas do serviço:
 - o **desfecho** de cada atendimento: o que o mentor fez e como ficou.
 
 O conteúdo da conversa entre o aluno e o mentor não aparece para a academia. É proposital: o aluno pode contar ao mentor o que talvez não dissesse na recepção. A academia vê que o atendimento aconteceu e como terminou.
+
+No atendimento de saúde (um relato de dor ou a anamnese), a academia vê só que ele aconteceu e quando: a linha diz **Atendimento de saúde com o mentor**, sem o motivo e sem o desfecho. No Método, a saúde do aluno fica com o mentor, como a dieta e a anamnese. Se o mentor precisar de algo no salão por causa disso, o pedido chega na sua fila como instrução presencial.

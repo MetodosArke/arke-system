@@ -25,6 +25,10 @@ O aluno pode mandar vídeo de um exercício para você corrigir a execução. O 
 
 > Responda como academia, não como pessoa física: sem número pessoal e sem combinar atendimento fora do app. O que fica no chat protege o aluno e protege você.
 
+## As mensagens não se apagam
+
+Nenhuma mensagem do chat se apaga, nem a do aluno nem a da equipe, nem pelo app nem por outro caminho: a conversa é o registro do atendimento, para o aluno e para a academia. Quando o aluno sai e os dados dele são excluídos ou anonimizados, a conversa sai junto.
+
 ## E a conversa com o Mentor ARKE?
 
 No Método ARKE, o aluno fala de treino e de dieta com o mentor da ArkeFit, e não com a academia. Por isso o aluno do Método não aparece nesta caixa, e o chat de treino e de nutrição dele fica desativado na ficha: a conversa antiga continua lá como histórico, mas não aceita mensagem nova. A conversa com o mentor é só entre o aluno e a ArkeFit. O resultado do acompanhamento aparece em [Acompanhamento ARKE](/admin/acompanhamento).

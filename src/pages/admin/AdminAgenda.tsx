@@ -17,6 +17,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import { CalendarDays, Plus, UserPlus, CheckCircle2, XCircle, Clock, Users, ChevronLeft, ChevronRight } from "lucide-react";
 import type { Enums } from "@/integrations/supabase/types";
+import { ErroAoCarregar } from "@/components/ErroAoCarregar";
 
 type AgendamentoStatus = Enums<"agendamento_status">;
 
@@ -135,7 +136,12 @@ export default function AdminAgenda() {
   });
   const nomeAlunoPorId = new Map(alunos.map((a) => [a.id, a.full_name]));
 
-  const { data: turmas = [] } = useQuery({
+  const {
+    data: turmas = [],
+    error: erroTurmas,
+    refetch: recarregarTurmas,
+    isFetching: recarregandoTurmas,
+  } = useQuery({
     queryKey: ["admin-agenda-turmas", organization?.id],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -151,7 +157,12 @@ export default function AdminAgenda() {
 
   const turmasDoDia = turmas.filter((t) => t.ativa && t.dias_semana.includes(weekday));
 
-  const { data: agendamentos = [] } = useQuery({
+  const {
+    data: agendamentos = [],
+    error: erroAgendamentos,
+    refetch: recarregarAgendamentos,
+    isFetching: recarregandoAgendamentos,
+  } = useQuery({
     queryKey: ["admin-agenda-agendamentos", organization?.id, dataSelecionada],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -164,6 +175,12 @@ export default function AdminAgenda() {
     },
     enabled: !!organization?.id,
   });
+
+  // As turmas do dia e os alunos de cada turma são listas filtradas destas
+  // duas consultas: com uma delas falhando, a lista sairia vazia e a tela
+  // diria "Nenhuma turma" ou "Nenhum aluno agendado".
+  const falhouTurmas = !!erroTurmas && turmas.length === 0;
+  const falhouAgendamentos = !!erroAgendamentos && agendamentos.length === 0;
 
   const invalidarAgendamentos = () =>
     queryClient.invalidateQueries({ queryKey: ["admin-agenda-agendamentos", organization?.id, dataSelecionada] });
@@ -281,15 +298,33 @@ export default function AdminAgenda() {
           )}
         </div>
       </div>
-      <p className="text-xs text-muted-foreground">
-        {DIAS_SEMANA.find((d) => d.valor === weekday)?.label} — {turmasDoDia.length} turma(s) neste dia.
-      </p>
+      {!falhouTurmas && (
+        <p className="text-xs text-muted-foreground">
+          {DIAS_SEMANA.find((d) => d.valor === weekday)?.label} — {turmasDoDia.length} turma(s) neste dia.
+        </p>
+      )}
 
-      {turmasDoDia.length === 0 && (
+      {falhouTurmas ? (
         <Card>
-          <CardContent className="p-6 text-center text-sm text-muted-foreground">
-            Nenhuma turma cadastrada para este dia da semana.
-          </CardContent>
+          <ErroAoCarregar oQue="as turmas" onTentarDeNovo={() => void recarregarTurmas()} tentando={recarregandoTurmas} />
+        </Card>
+      ) : (
+        turmasDoDia.length === 0 && (
+          <Card>
+            <CardContent className="p-6 text-center text-sm text-muted-foreground">
+              Nenhuma turma cadastrada para este dia da semana.
+            </CardContent>
+          </Card>
+        )
+      )}
+
+      {falhouAgendamentos && turmasDoDia.length > 0 && (
+        <Card>
+          <ErroAoCarregar
+            oQue="os agendamentos deste dia"
+            onTentarDeNovo={() => void recarregarAgendamentos()}
+            tentando={recarregandoAgendamentos}
+          />
         </Card>
       )}
 
@@ -311,7 +346,7 @@ export default function AdminAgenda() {
                 </CardTitle>
                 <div className="flex items-center gap-2">
                   <Badge variant={ativos.length >= turma.capacidade_maxima ? "destructive" : "secondary"} className="gap-1">
-                    <Users className="h-3 w-3" /> {ativos.length}/{turma.capacidade_maxima}
+                    <Users className="h-3 w-3" /> {falhouAgendamentos ? "—" : ativos.length}/{turma.capacidade_maxima}
                   </Badge>
                   <Button
                     size="sm"
@@ -325,7 +360,7 @@ export default function AdminAgenda() {
               {staffNome && <p className="text-xs text-muted-foreground">Responsável: {staffNome}</p>}
             </CardHeader>
             <CardContent className="space-y-2">
-              {ativos.length === 0 && (
+              {!falhouAgendamentos && ativos.length === 0 && (
                 <p className="text-xs text-muted-foreground">Nenhum aluno agendado ainda.</p>
               )}
               {ativos.map((ag) => (

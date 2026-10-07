@@ -24,6 +24,11 @@ import { ptBR } from "date-fns/locale";
  * o desfecho que o mentor teve de escrever para encerrar cada um. O conteúdo
  * da conversa entre aluno e mentor continua fora — o banco não o entrega nem
  * se a tela pedir.
+ *
+ * No atendimento de saúde (a dor e a anamnese, `tarefa_de_saude()`), o banco
+ * entrega a linha com o tipo `outro`, o motivo "Atendimento de saúde com o
+ * mentor" e sem o desfecho: no Método, a saúde do aluno fica com o mentor
+ * (20261405010000). Por isso a dor e a anamnese não estão em ROTULO_TIPO.
  */
 
 type Valor = {
@@ -50,11 +55,9 @@ const ROTULO_TIPO: Record<string, string> = {
   inercia: "Risco de evasão",
   ciclo_travado: "Ciclo travado",
   barreira: "Barreira de rotina",
-  dor: "Relato de dor",
   engajamento_baixo: "Engajamento baixo",
   acolhimento_elite: "Acolhimento Elite",
   ativacao: "Primeiro acesso",
-  anamnese: "Acolhimento",
   ajuste: "Ajuste de plano",
   instrucao_presencial: "Instrução presencial",
   outro: "Atendimento",
@@ -238,7 +241,8 @@ export default function AdminAcompanhamento() {
               O conteúdo da conversa entre o aluno e o mentor da ARKE não aparece aqui, por escolha de
               desenho: é o canal em que o aluno fala do que não contaria a quem o atende presencialmente,
               e é isso que faz o acompanhamento funcionar. O que chega até você é o resultado — e, quando
-              há algo a fazer no salão, uma instrução direta na Minha Fila.
+              há algo a fazer no salão, uma instrução direta na Minha Fila. No atendimento de saúde (dor
+              ou anamnese), aparece só que ele aconteceu: no Método, a saúde do aluno fica com o mentor.
             </p>
           </div>
         </>
