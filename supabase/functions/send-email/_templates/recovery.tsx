@@ -3,26 +3,24 @@
 import * as React from 'npm:react@18.3.1'
 import { Button, Heading, Text } from 'npm:@react-email/components@0.0.22'
 import { EmailLayout, colors, type MarcaEmail } from './_components/brand.tsx'
+import type { TextoRecuperacao } from '../recuperacao.ts'
 
 interface RecoveryEmailProps {
-  siteName: string
   confirmationUrl: string
   marca?: MarcaEmail | null
+  // O texto vem de ../recuperacao.ts: o de sempre, ou o da matrícula pública
+  // que ainda não criou a senha (07/10/2026).
+  texto: TextoRecuperacao
 }
 
-export const RecoveryEmail = ({ siteName, confirmationUrl, marca }: RecoveryEmailProps) => (
-  <EmailLayout preview={`Redefinir sua senha do ${siteName}`} marca={marca}>
-    <Heading style={h1}>Redefinir sua senha</Heading>
-    <Text style={text}>
-      Recebemos uma solicitação para redefinir sua senha no {siteName}. Clique no botão abaixo para escolher
-      uma nova senha.
-    </Text>
+export const RecoveryEmail = ({ confirmationUrl, marca, texto }: RecoveryEmailProps) => (
+  <EmailLayout preview={texto.assunto} marca={marca}>
+    <Heading style={h1}>{texto.titulo}</Heading>
+    <Text style={text}>{texto.corpo}</Text>
     <Button style={button} href={confirmationUrl}>
-      Redefinir senha
+      {texto.botao}
     </Button>
-    <Text style={footer}>
-      Se você não solicitou a redefinição, pode ignorar este e-mail. Sua senha permanecerá a mesma.
-    </Text>
+    <Text style={footer}>{texto.rodape}</Text>
   </EmailLayout>
 )
 
