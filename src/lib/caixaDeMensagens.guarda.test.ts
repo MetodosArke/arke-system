@@ -26,6 +26,28 @@ function definicaoVigente(nome: string): string {
 
 const permissivas = (tabela: string) => [...regrasVigentes(textos, `public.${tabela}`)].filter(([, r]) => !r.restritiva);
 
+const TABELAS_DE_CONVERSA = ["mensagens_treino", "mensagens_dieta", "mensagens_mentor"];
+
+/**
+ * O último `grant` ou `revoke` que dá ou tira de `authenticated` a exclusão
+ * na tabela (por `delete` ou por `all`), na ordem da reconstrução; vazio se
+ * nenhum. Sem nenhum, vale o padrão do Supabase, que dá a exclusão.
+ */
+function ultimaPermissaoDeExcluir(sqls: string[], tabela: string): string {
+  let ultimo = "";
+  const re = /\b(grant|revoke)\s+([^;]*?)\s+on\s+(?:table\s+)?([^;]*?)\s+(to|from)\s+([^;]*);/gi;
+  for (const t of sqls) {
+    for (const m of t.matchAll(re)) {
+      const privilegios = m[2].toLowerCase();
+      if (!/\b(delete|all)\b/.test(privilegios)) continue;
+      if (!new RegExp(`\\bpublic\\.${tabela}\\b`).test(m[3])) continue;
+      if (!/\bauthenticated\b/i.test(m[5])) continue;
+      ultimo = m[0].replace(/\s+/g, " ").toLowerCase();
+    }
+  }
+  return ultimo;
+}
+
 describe("caixa de mensagens pelo RLS", () => {
   it("a função roda com a permissão de quem chama e lê só tabelas com regra de leitura", () => {
     const funcao = definicaoVigente("get_caixa_mensagens");
@@ -41,15 +63,40 @@ describe("caixa de mensagens pelo RLS", () => {
     }
   });
 
-  it("uma regra por operação nos dois chats", () => {
+  it("uma regra por operação nos dois chats, e nenhuma de exclusão", () => {
     for (const tabela of ["mensagens_treino", "mensagens_dieta"]) {
       expect(permissivas(tabela).map(([nome, r]) => `${nome}:${r.comando}`).sort(), tabela).toEqual([
         "alteração:update",
-        "exclusão:delete",
         "inclusão:insert",
         "leitura:select",
       ]);
     }
+  });
+
+  it("nenhuma mensagem se apaga pela API, nos três chats (sobras da frente B, 07/10/2026)", () => {
+    // 20261406010000: quem lia a conversa apagava qualquer mensagem dela — a
+    // recepção a do aluno, o aluno a orientação do professor. Nenhuma tela
+    // exclui; a saída do aluno apaga pelo servidor. A conversa é o registro
+    // do atendimento, como o canal do Mentor sempre foi.
+    for (const tabela of TABELAS_DE_CONVERSA) {
+      const excluem = permissivas(tabela).filter(([, r]) => r.comando === "delete" || r.comando === "all");
+      expect(excluem.map(([nome]) => nome), `public.${tabela}: regra que deixa excluir`).toEqual([]);
+      // Sem a permissão, o pedido é recusado (42501), e não respondido com 200 e zero linhas.
+      expect(ultimaPermissaoDeExcluir(textos, tabela), `public.${tabela}`).toMatch(/^revoke\b.*\bfrom\b.*\bauthenticated\b/);
+    }
+  });
+
+  it("o leitor acha a permissão de excluir devolvida (a trava trava)", () => {
+    const devolvida = [...textos, "grant select, insert, delete on public.mensagens_dieta to authenticated;"];
+    expect(ultimaPermissaoDeExcluir(devolvida, "mensagens_dieta")).toMatch(/^grant\b/);
+    const tudo = [...textos, "grant all on public.mensagens_treino to anon, authenticated;"];
+    expect(ultimaPermissaoDeExcluir(tudo, "mensagens_treino")).toMatch(/^grant all\b/);
+    // A regra de exclusão de volta, por `create policy`.
+    const regra = regrasVigentes(
+      [...textos, `create policy "exclusão" on public.mensagens_mentor for delete to authenticated using (true);`],
+      "public.mensagens_mentor",
+    );
+    expect([...regra].filter(([, r]) => !r.restritiva && r.comando === "delete").map(([nome]) => nome)).toEqual(["exclusão"]);
   });
 
   it("a conversa da nutrição é de quem atende a saúde: nem a recepção, nem a ArkeFit no aluno do Free", () => {
