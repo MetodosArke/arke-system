@@ -20,6 +20,7 @@ const ACOES: Record<string, { label: string; icon: typeof Pencil; destrutiva?: b
   "perfil.simulado": { label: "Perfil simulado", icon: UserCog, destrutiva: true },
   "catraca.token_resetado": { label: "Token de catraca resetado", icon: KeyRound, destrutiva: true },
   "gestor.email_alterado": { label: "E-mail do gestor alterado", icon: Mail, destrutiva: true },
+  "equipe.email_alterado": { label: "E-mail de alguém da equipe alterado", icon: Mail, destrutiva: true },
   "organizacao.reativada": { label: "Organização reativada", icon: ShieldAlert },
   "organizacao.status_alterado": { label: "Status alterado", icon: Pencil },
   "organizacao.alterada": { label: "Organização alterada", icon: Pencil },
