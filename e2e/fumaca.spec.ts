@@ -74,7 +74,10 @@ test("matrícula pública da academia de homologação mostra o formulário", as
   const semErros = vigiarErros(page);
   await page.goto("/#/p/homologacao");
   await expect(page.getByText(/homologação/i).first()).toBeVisible();
-  await expect(page.getByLabel(/senha/i).first()).toBeVisible();
+  await expect(page.getByLabel("CPF")).toBeVisible();
+  await expect(page.getByRole("button", { name: /confirmar matrícula/i })).toBeVisible();
+  // Desde 07/10/2026 a senha nasce no link do e-mail, e não no formulário.
+  await expect(page.locator('input[type="password"]')).toHaveCount(0);
   await semErros();
 });
 

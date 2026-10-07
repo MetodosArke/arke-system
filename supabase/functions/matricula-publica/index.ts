@@ -1,9 +1,18 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { verificarCaptcha } from "../_shared/captcha.ts";
 import { hojeBrasilia } from "../_shared/data.ts";
+import { linkDoApp } from "../_shared/linkDoApp.ts";
 import { erroDataNascimento } from "../_shared/nascimento.ts";
 import { servir } from "../_shared/servir.ts";
 import { resumoDoErro } from "../_shared/resumoDoErro.ts";
+import {
+  CONTA_JA_EXISTE,
+  ORIGEM_MATRICULA_PUBLICA,
+  ROTA_DEFINIR_SENHA,
+  TELA_ANTIGA,
+  contaJaExiste,
+  veioDaTelaAntiga,
+} from "./fluxo.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -44,65 +53,10 @@ function erroCpfMatricula(valor: string | null): string | null {
   return null;
 }
 
-/**
- * Recusa senha que já aparece em vazamentos públicos, consultando o Pwned
- * Passwords do HaveIBeenPwned.
- *
- * O Supabase tem isso embutido a partir do plano pago; enquanto o projeto
- * está no free, esta é a substituta. A API não exige chave — diferente da
- * API de vazamento de contas do mesmo serviço.
- *
- * Esta é a única entrada de senha do sistema que passa por código nosso:
- * as outras telas falam direto com o GoTrue, e lá a checagem só pode ser
- * no cliente. Aqui ela é **autoritativa** — não dá para contornar
- * chamando a função na mão, porque a função é o caminho.
- *
- * A senha não trafega: manda-se só os 5 primeiros caracteres do SHA-1
- * (k-anonimato) e a comparação do sufixo acontece aqui.
- */
-async function senhaEstaVazada(senha: string): Promise<{ vazada: boolean; ocorrencias: number }> {
-  const limpo = { vazada: false, ocorrencias: 0 };
-  try {
-    const digest = await crypto.subtle.digest("SHA-1", new TextEncoder().encode(senha));
-    const hash = Array.from(new Uint8Array(digest))
-      .map((b) => b.toString(16).padStart(2, "0"))
-      .join("")
-      .toUpperCase();
-
-    const controlador = new AbortController();
-    const timer = setTimeout(() => controlador.abort(), 4000);
-    let corpo: string;
-    try {
-      const resposta = await fetch(`https://api.pwnedpasswords.com/range/${hash.slice(0, 5)}`, {
-        // Preenche a resposta com registros falsos para que o tamanho dela
-        // não entregue a faixa consultada.
-        headers: { "Add-Padding": "true" },
-        signal: controlador.signal,
-      });
-      if (!resposta.ok) return limpo;
-      corpo = await resposta.text();
-    } finally {
-      clearTimeout(timer);
-    }
-
-    const sufixo = hash.slice(5);
-    for (const linha of corpo.split("\n")) {
-      const [s, c] = linha.trim().split(":");
-      if (s?.toUpperCase() !== sufixo) continue;
-      const n = Number.parseInt(c ?? "0", 10);
-      // Contagem zero é registro de preenchimento, não senha vazada.
-      return Number.isFinite(n) && n > 0 ? { vazada: true, ocorrencias: n } : limpo;
-    }
-    return limpo;
-  } catch (erro) {
-    // Falha aberta: o HIBP fora do ar não pode impedir alguém de se
-    // matricular. Isto é trava de qualidade de senha, não fronteira de
-    // segurança — transformar indisponibilidade de terceiro em matrícula
-    // bloqueada troca um risco pequeno por uma falha certa.
-    console.error("Falha ao consultar Pwned Passwords, seguindo sem checar:", resumoDoErro(erro));
-    return limpo;
-  }
-}
+// A conferência de senha vazada (Pwned Passwords, k-anonimato, falha aberta)
+// morava aqui até 07/10/2026, porque era aqui que a senha nascia. A senha
+// passou a nascer nas telas de definir e redefinir senha, e a conferência foi
+// junto (`src/lib/senhaVazada.ts`, `senhaVazada.guarda.test.ts`).
 
 const MUITAS_TENTATIVAS =
   "Muitas tentativas de matrícula a partir desta rede. Aguarde alguns minutos e tente de novo — " +
@@ -155,16 +109,17 @@ type MatriculaPayload = {
   // AAAA-MM-DD. Obrigatória desde 06/10/2026: diz quem é menor de idade, e
   // para o menor saúde, biometria e IA esperam o aceite do responsável.
   data_nascimento?: string;
-  password: string;
   captcha_token?: string;
   aceite_termos?: boolean;
 };
 
-// Auto-matrícula pública (rota /p/:slug): qualquer visitante pode criar a
-// própria conta de aluno vinculada à organização do slug, sem precisar de
-// um convite de um gestor. Usa service_role para criar o usuário já com a
-// senha escolhida pelo próprio aluno (sem e-mail de convite — o fluxo é
-// self-service) e vinculá-lo como aluno da organização.
+// Auto-matrícula pública (rota /p/:slug): qualquer visitante pode se
+// matricular como aluno da organização do slug, sem convite da academia.
+//
+// A conta nasce SEM senha e sem o e-mail confirmado (07/10/2026, ver
+// ./fluxo.ts): a pessoa recebe no e-mail o link de criar a senha, o mesmo do
+// primeiro acesso, e só entra depois dele. Quem digita o e-mail de outra
+// pessoa não recebe o link e não tem como entrar na conta.
 servir("matricula-publica", async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -211,19 +166,19 @@ servir("matricula-publica", async (req: Request) => {
 
   try {
     const payload: Partial<MatriculaPayload> = await req.json();
+    // A tela de antes desta regra manda a senha e entra com ela em seguida:
+    // recusa antes de criar qualquer coisa (ver ./fluxo.ts).
+    if (veioDaTelaAntiga(payload)) return jsonResponse({ error: TELA_ANTIGA }, 400);
+
     const slug = payload.slug?.trim().toLowerCase();
     const fullName = payload.full_name?.trim();
     const email = payload.email?.trim().toLowerCase();
     const telefone = payload.telefone?.trim() || null;
     const cpf = payload.cpf?.trim() || null;
-    const password = payload.password;
 
     if (!slug) return jsonResponse({ error: "Academia inválida." }, 400);
     if (!fullName) return jsonResponse({ error: "Nome completo é obrigatório." }, 400);
     if (!email || !EMAIL_RE.test(email)) return jsonResponse({ error: "E-mail inválido." }, 400);
-    if (!password || password.length < 6) {
-      return jsonResponse({ error: "A senha deve ter no mínimo 6 caracteres." }, 400);
-    }
     // CPF é obrigatório na matrícula: ela é o cadastro que gera cobrança, e o
     // gateway não emite cobrança sem CPF. A tela também confere, mas é aqui
     // que a regra vale — a tela pode ser contornada, a função é o caminho.
@@ -243,20 +198,6 @@ servir("matricula-publica", async (req: Request) => {
         return jsonResponse({ error: "Não conseguimos confirmar a verificação de segurança. Recarregue a página e tente de novo." }, 400);
       }
       if (captcha === "indisponivel") console.error("Turnstile indisponível; seguindo sem captcha nesta matrícula.");
-    }
-
-    const vazamento = await senhaEstaVazada(password);
-    if (vazamento.vazada) {
-      const vezes = vazamento.ocorrencias.toLocaleString("pt-BR");
-      return jsonResponse(
-        {
-          error:
-            `Esta senha já apareceu ${vezes} ${vazamento.ocorrencias === 1 ? "vez" : "vezes"} em ` +
-            `vazamentos públicos de outros sites e é testada automaticamente por invasores. ` +
-            `Escolha outra — não precisa ser complicada, só precisa ser sua.`,
-        },
-        400
-      );
     }
 
     const { data: org, error: orgError } = await admin
@@ -295,24 +236,23 @@ servir("matricula-publica", async (req: Request) => {
       );
     }
 
+    // A conta nasce sem senha e sem o e-mail confirmado: ninguém entra nela
+    // antes de abrir o link do e-mail. A marca em `app_metadata` (que só o
+    // servidor grava) é o que o banco lê para não ligar a ela outra academia
+    // enquanto o e-mail não for confirmado, e para apagá-la se não for em 7
+    // dias (migration 20261403010000).
     const { data: created, error: createError } = await admin.auth.admin.createUser({
       email,
-      password,
-      email_confirm: true,
       user_metadata: { full_name: fullName },
+      app_metadata: { origem: ORIGEM_MATRICULA_PUBLICA },
     });
 
     if (createError || !created.user) {
-      console.error("Error creating user", resumoDoErro(createError));
-      const alreadyExists = createError?.message?.toLowerCase().includes("already been registered");
-      return jsonResponse(
-        {
-          error: alreadyExists
-            ? "Já existe uma conta cadastrada com esse e-mail. Faça login."
-            : createError?.message ?? "Falha ao criar a conta.",
-        },
-        alreadyExists ? 409 : 400
-      );
+      console.error("matricula-publica: falha ao criar a conta", resumoDoErro(createError));
+      // O e-mail que já tem conta: 409, como sempre foi.
+      if (contaJaExiste(createError)) return jsonResponse({ error: CONTA_JA_EXISTE }, 409);
+      // A mensagem do Auth não vai à tela: pode trazer o e-mail.
+      return jsonResponse({ error: "Não foi possível criar a conta com esse e-mail. Confira o endereço e tente de novo." }, 400);
     }
 
     const newUserId = created.user.id;
@@ -382,7 +322,18 @@ servir("matricula-publica", async (req: Request) => {
       if (conclusaoError) console.error("Falha ao marcar tentativa concluída:", resumoDoErro(conclusaoError));
     }
 
-    return jsonResponse({ user_id: newUserId });
+    // O link de criar a senha, pelo mesmo caminho do primeiro acesso: o
+    // e-mail de recuperação do Auth (template "recovery" do send-email), que
+    // leva a /auth/definir-senha. Abrir o link é o que confirma o e-mail.
+    // Se o envio falhar (o Auth limita um e-mail por minuto por endereço), a
+    // matrícula fica: a tela aponta o primeiro acesso, que pede o link de
+    // novo. Sem confirmação em 7 dias, a rotina apaga a conta.
+    const { error: envioError } = await admin.auth.resetPasswordForEmail(email, {
+      redirectTo: linkDoApp(Deno.env.get("SITE_URL"), ROTA_DEFINIR_SENHA),
+    });
+    if (envioError) console.error("matricula-publica: o link de criar a senha não saiu", resumoDoErro(envioError));
+
+    return jsonResponse({ ok: true, email_enviado: !envioError });
   } catch (error) {
     console.error("Unexpected error in matricula-publica", resumoDoErro(error));
     return jsonResponse({ error: "Erro inesperado ao processar a matrícula." }, 500);

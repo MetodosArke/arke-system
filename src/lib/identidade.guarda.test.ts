@@ -1,12 +1,21 @@
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
 import { describe, expect, it } from "vitest";
+import {
+  CONTA_JA_EXISTE,
+  ORIGEM_MATRICULA_PUBLICA,
+  ROTA_DEFINIR_SENHA,
+  contaJaExiste,
+  veioDaTelaAntiga,
+} from "../../supabase/functions/matricula-publica/fluxo";
 
 /**
  * Trava da auditoria de 05/10/2026 (achados médios de identidade):
  *
  * - **Pré-sequestro de conta.** A matrícula pública cria a conta com o e-mail
- *   já confirmado, sem prova de posse. Criar a academia na Visão Master e
+ *   já confirmado, sem prova de posse (superado em 07/10/2026: a conta nasce
+ *   sem senha e só fica usável pelo link do e-mail; ver o último bloco
+ *   deste arquivo). Criar a academia na Visão Master e
  *   convidar um profissional autônomo ligavam a conta existente como gestora só
  *   pelo e-mail. Agora a conta que já existia entra pendente, e só vira gestão
  *   quando o dono do e-mail define a senha pelo link (que encerra as outras
@@ -188,5 +197,62 @@ describe("cobrança no perfil simulado", () => {
     const tela = ler(RAIZ, "src", "lib", "impersonation.ts").match(/MENSAGEM_PERFIL_SIMULADO =\s+"([^"]+)"/)?.[1];
     expect(funcao).toBeTruthy();
     expect(funcao).toBe(tela);
+  });
+});
+
+// Decisão de 07/10/2026 ("matrícula pública confirmada"): o último caminho de
+// pré-sequestro. A matrícula pública criava a conta com a senha que o
+// visitante digitava e o e-mail já confirmado; quem usasse o e-mail e o CPF de
+// outra pessoa ficava com a conta, e a matrícula que outra academia fizesse
+// depois para a pessoa de verdade se ligava a ela pelo CPF.
+describe("a matrícula pública só com o e-mail provado (pré-sequestro de conta)", () => {
+  const f = ler(FUNCOES, "matricula-publica", "index.ts");
+  const criar = f.slice(f.indexOf("auth.admin.createUser("), f.indexOf("if (createError || !created.user)"));
+
+  it("a conta nasce sem senha, sem o e-mail confirmado e marcada como da matrícula pública", () => {
+    expect(criar, "a criação da conta foi achada").toMatch(/auth\.admin\.createUser\(\{/);
+    expect(criar).not.toMatch(/\bpassword\b/);
+    expect(criar).not.toMatch(/email_confirm/);
+    expect(criar).toMatch(/app_metadata: \{ origem: ORIGEM_MATRICULA_PUBLICA \}/);
+    expect(ORIGEM_MATRICULA_PUBLICA).toBe("matricula_publica");
+    // Nenhum outro jeito de dar senha ou confirmar o e-mail por conta própria.
+    expect(f).not.toMatch(/email_confirm\s*:\s*true/);
+    expect(f).not.toMatch(/updateUserById\(/);
+    expect(f).not.toMatch(/senhaEstaVazada|pwnedpasswords/);
+  });
+
+  it("o link de criar a senha sai pelo caminho do primeiro acesso, depois da matrícula gravada", () => {
+    expect(f).toMatch(
+      /auth\.resetPasswordForEmail\(email, \{\s+redirectTo: linkDoApp\(Deno\.env\.get\("SITE_URL"\), ROTA_DEFINIR_SENHA\),?\s+\}\)/,
+    );
+    expect(ROTA_DEFINIR_SENHA).toBe("/auth/definir-senha");
+    expect(f.indexOf('from("alunos").insert(')).toBeLessThan(f.indexOf("auth.resetPasswordForEmail("));
+    expect(f).toMatch(/return jsonResponse\(\{ ok: true, email_enviado: !envioError \}\)/);
+  });
+
+  it("a tela antiga, que manda a senha, é recusada antes de criar a conta", () => {
+    expect(f.indexOf("if (veioDaTelaAntiga(payload)) return jsonResponse({ error: TELA_ANTIGA }, 400);")).toBeGreaterThan(-1);
+    expect(f.indexOf("veioDaTelaAntiga(payload)")).toBeLessThan(f.indexOf("auth.admin.createUser("));
+    expect(veioDaTelaAntiga({ email: "a@b.c", password: "123456" })).toBe(true);
+    expect(veioDaTelaAntiga({ email: "a@b.c" })).toBe(false);
+    expect(veioDaTelaAntiga({ email: "a@b.c", password: "" })).toBe(false);
+    expect(veioDaTelaAntiga(null)).toBe(false);
+  });
+
+  it("o e-mail que já tem conta continua recusado com 409", () => {
+    expect(f).toMatch(/if \(contaJaExiste\(createError\)\) return jsonResponse\(\{ error: CONTA_JA_EXISTE \}, 409\);/);
+    expect(contaJaExiste({ code: "email_exists", message: "x" })).toBe(true);
+    expect(contaJaExiste({ message: "A user with this email address has already been registered" })).toBe(true);
+    expect(contaJaExiste({ code: "unexpected_failure", message: "Database error" })).toBe(false);
+    expect(contaJaExiste(null)).toBe(false);
+    expect(CONTA_JA_EXISTE).toMatch(/Faça login/);
+  });
+
+  it("a tela não pede senha nem entra com ela", () => {
+    const t = ler(RAIZ, "src", "pages", "public", "PublicMatricula.tsx");
+    expect(t).not.toMatch(/type="password"/);
+    expect(t).not.toMatch(/\bsignIn\(/);
+    expect(t).not.toMatch(/\bpassword\b/);
+    expect(t).toMatch(/Enviamos para o seu e-mail um link para criar a sua senha\./);
   });
 });
