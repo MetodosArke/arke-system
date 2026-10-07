@@ -10,6 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Target, CheckCircle2, Sparkles } from "lucide-react";
 import type { Tables } from "@/integrations/supabase/types";
+import { ErroAoCarregar } from "@/components/ErroAoCarregar";
 
 type AlunoObjetivos = Tables<"aluno_objetivos">;
 
@@ -45,7 +46,13 @@ export default function ObjetivosTab() {
   const [visao3Meses, setVisao3Meses] = useState("");
   const [visao3Anos, setVisao3Anos] = useState("");
 
-  const { data: atual, isLoading } = useQuery({
+  const {
+    data: atual,
+    isLoading,
+    error: erroObjetivos,
+    refetch: recarregarObjetivos,
+    isFetching: recarregandoObjetivos,
+  } = useQuery({
     queryKey: ["aluno-objetivos", alunoId],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -108,6 +115,16 @@ export default function ObjetivosTab() {
   };
 
   if (isLoading) return <p className="text-sm text-muted-foreground">Carregando...</p>;
+
+  // Sem a leitura, a tela não diz "você ainda não definiu" nem oferece definir
+  // do zero por cima do que o aluno já escreveu.
+  if (erroObjetivos && !atual) {
+    return (
+      <Card>
+        <ErroAoCarregar oQue="os seus objetivos" onTentarDeNovo={() => void recarregarObjetivos()} tentando={recarregandoObjetivos} />
+      </Card>
+    );
+  }
 
   if (isRevising) {
     return (
@@ -223,7 +240,7 @@ export default function ObjetivosTab() {
               </div>
             )}
             {atual.proxima_revisao && (
-              <div className="rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-700 dark:text-emerald-400 px-3 py-2 text-xs font-medium">
+              <div className="rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-success px-3 py-2 text-xs font-medium">
                 Próxima revisão agendada: {formatarDataBR(atual.proxima_revisao)}
               </div>
             )}

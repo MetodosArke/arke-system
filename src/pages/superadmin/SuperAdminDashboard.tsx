@@ -74,6 +74,7 @@ import { AdocaoMetodologiaCard } from "@/components/superadmin/AdocaoMetodologia
 import { OperacaoGlobalCard } from "@/components/superadmin/OperacaoGlobalCard";
 import { decimal } from "@/lib/numeros";
 import { formatarDataBR } from "@/lib/dataBrasilia";
+import { ErroAoCarregar } from "@/components/ErroAoCarregar";
 
 type CategoriaSimulacao = "aluno" | "academia" | "studio" | "personal" | "nutricionista";
 
@@ -193,7 +194,13 @@ export default function SuperAdminDashboard() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: overview, isLoading: isLoadingOverview } = useQuery({
+  const {
+    data: overview,
+    isLoading: isLoadingOverview,
+    error: erroOverview,
+    refetch: recarregarOverview,
+    isFetching: recarregandoOverview,
+  } = useQuery({
     queryKey: ["superadmin-overview"],
     queryFn: async () => {
       const { data, error } = await supabase.rpc("get_superadmin_overview");
@@ -1206,7 +1213,7 @@ export default function SuperAdminDashboard() {
 
             <TabsContent value="faturamento" className="space-y-3 mt-3">
               {(!edicao.cnpjCpf.trim() || !edicao.telefone.trim()) && (
-                <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-600 dark:text-amber-400">
+                <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-warning">
                   Cadastre o CNPJ/CPF e o telefone na aba "Informações" e salve antes de emitir uma cobrança — o
                   Asaas exige o documento fiscal e um telefone de contato do cliente.
                 </div>
@@ -1436,7 +1443,10 @@ export default function SuperAdminDashboard() {
         </DialogContent>
       </Dialog>
 
-      {!isLoadingOverview && !overview && (
+      {erroOverview && !overview && (
+        <ErroAoCarregar oQue="a visão global" onTentarDeNovo={() => void recarregarOverview()} tentando={recarregandoOverview} />
+      )}
+      {!isLoadingOverview && !erroOverview && !overview && (
         <p className="text-xs text-muted-foreground text-center">
           Não foi possível carregar a visão global. Verifique se este usuário possui o papel
           "superadmin".

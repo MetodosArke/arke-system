@@ -247,17 +247,11 @@ const PARES_DE_TEXTO: [string, string[]][] = [
 const SEM_ROTULO_PENDENTE: Record<string, string> = {};
 
 /**
- * Telas com cor fixa de texto que ficam para depois, com o porquê. A lista só
- * diminui: consertou, tire daqui (o teste cobra), e tela nova não entra.
+ * Telas com cor fixa de texto que ficam para depois, com o porquê. Vazia desde
+ * 06/10/2026 (as 49 telas da auditoria trocaram pelos tokens). A lista só
+ * diminui: tela nova não entra.
  */
-const COR_FIXA_PENDENTE: Record<string, string> = {
-  "components/jornada/CompromissoTab.tsx": "rodada de 06/10/2026",
-  "components/jornada/ObjetivosTab.tsx": "rodada de 06/10/2026",
-  "components/superadmin/FilaChamadosMentor.tsx": "rodada de 06/10/2026",
-  "pages/admin/AdminDashboard.tsx": "rodada de 06/10/2026",
-  "pages/admin/AdminOrganizacao.tsx": "rodada de 06/10/2026",
-  "pages/superadmin/SuperAdminDashboard.tsx": "rodada de 06/10/2026",
-};
+const COR_FIXA_PENDENTE: Record<string, string> = {};
 
 function arquivos(dir: string, achados: string[] = []): string[] {
   for (const nome of readdirSync(dir)) {

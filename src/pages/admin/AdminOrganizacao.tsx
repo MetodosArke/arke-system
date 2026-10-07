@@ -31,6 +31,7 @@ import { useTaxaProcessamento } from "@/hooks/useTaxaProcessamento";
 import { reais } from "@/lib/numeros";
 import { PrestadorPagamentos } from "@/components/pagamento/PrestadorPagamentos";
 import { extensaoDoTipo, reduzirImagem } from "@/lib/reduzirImagem";
+import { ErroAoCarregar } from "@/components/ErroAoCarregar";
 
 type TipoNegocio = Extract<Enums<"organization_tipo">, "academia" | "studio">;
 const SLUG_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
@@ -305,7 +306,13 @@ export default function AdminOrganizacao() {
     .slice(0, 2)
     .toUpperCase();
 
-  const { data: assinaturas = [] } = useQuery({
+  const {
+    data: assinaturas = [],
+    isLoading: carregandoAssinaturas,
+    error: erroAssinaturas,
+    refetch: recarregarAssinaturas,
+    isFetching: recarregandoAssinaturas,
+  } = useQuery({
     queryKey: ["organizacao-assinaturas", organization?.id],
     queryFn: async () => {
       const assinaturasData = await todasAsLinhas((de, ate) =>
@@ -403,7 +410,7 @@ export default function AdminOrganizacao() {
       </div>
 
       {!organization && !hasRole("admin_arke") && (
-        <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-600 dark:text-amber-400">
+        <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-warning">
           Nenhuma organização vinculada a este usuário. Esta tela edita a precificação e o split de
           pagamento de uma organização específica — entre com um usuário gestor/staff vinculado a
           uma academia para editar esses dados.
@@ -454,7 +461,7 @@ export default function AdminOrganizacao() {
                 // Divergência já aconteceu de verdade: a Tietê estava no
                 // Growth com o limite do Starter. Mostrar em vez de
                 // corrigir sozinho — pode ser acordo comercial legítimo.
-                <p className="text-xs text-amber-600">
+                <p className="text-xs text-warning">
                   O plano {cotaAlunos.plano} prevê {cotaAlunos.limite_padrao_do_plano} alunos, mas o
                   limite configurado é {cotaAlunos.limite}. Confirme com a ArkeFit se é intencional.
                 </p>
@@ -733,7 +740,15 @@ export default function AdminOrganizacao() {
           </p>
         </CardHeader>
         <CardContent className="p-0">
-          {assinaturas.length === 0 ? (
+          {erroAssinaturas ? (
+            <ErroAoCarregar
+              oQue="as assinaturas"
+              onTentarDeNovo={() => void recarregarAssinaturas()}
+              tentando={recarregandoAssinaturas}
+            />
+          ) : carregandoAssinaturas ? (
+            <p className="p-4 text-sm text-muted-foreground">Carregando...</p>
+          ) : assinaturas.length === 0 ? (
             <p className="p-4 text-sm text-muted-foreground">Nenhuma assinatura registrada ainda.</p>
           ) : (
             <Table>

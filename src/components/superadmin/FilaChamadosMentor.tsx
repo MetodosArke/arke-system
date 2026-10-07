@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/dialog";
 import { AlertTriangle, Handshake, HeartPulse, Loader2, TimerOff, UserMinus } from "lucide-react";
 import type { Enums } from "@/integrations/supabase/types";
+import { ErroAoCarregar } from "@/components/ErroAoCarregar";
 
 type Chamado = {
   tarefa_id: string;
@@ -100,7 +101,13 @@ export function FilaChamadosMentor() {
   const [resolvendo, setResolvendo] = useState<Chamado | null>(null);
   const [desfecho, setDesfecho] = useState("");
 
-  const { data: fila = [], isLoading } = useQuery({
+  const {
+    data: fila = [],
+    isLoading,
+    error: erroFila,
+    refetch: recarregarFila,
+    isFetching: recarregandoFila,
+  } = useQuery({
     // A fila responde por quem pergunta: a chave leva a pessoa.
     queryKey: ["fila-chamados-mentor", user?.id ?? null],
     queryFn: async () => {
@@ -188,6 +195,12 @@ export function FilaChamadosMentor() {
     );
   }
 
+  // A fila caída não é "nenhum chamado aberto": é o mentor achando que está
+  // tudo em dia com aluno esperando.
+  if (erroFila && fila.length === 0) {
+    return <ErroAoCarregar oQue="a fila de chamados" onTentarDeNovo={() => void recarregarFila()} tentando={recarregandoFila} />;
+  }
+
   return (
     <div className="space-y-3">
       {/* A carga da célula em números. É o instrumento que responde quantos
@@ -241,7 +254,7 @@ export function FilaChamadosMentor() {
                 {c.fase && <span>Fase {FASE_ROTULO[c.fase] ?? c.fase}</span>}
                 {c.nivel && <span>· {c.nivel}</span>}
                 {c.dias_inativo !== null && (
-                  <span className={c.dias_inativo >= 5 ? "text-orange-600 dark:text-orange-400" : ""}>
+                  <span className={c.dias_inativo >= 5 ? "text-warning" : ""}>
                     · {c.dias_inativo === 0 ? "ativo hoje" : `${c.dias_inativo}d sem sinal`}
                   </span>
                 )}

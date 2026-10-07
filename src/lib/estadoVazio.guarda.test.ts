@@ -64,26 +64,18 @@ export function vaziosSemErro(codigo: string): string[] {
 
 /**
  * Telas que ainda mostram "vazio" quando a consulta falha. Consertou, tire
- * daqui. O motivo diz por que ainda não, ou por que não é um estado vazio.
+ * daqui. Vazia desde 06/10/2026 (as 16 da auditoria foram tratadas), e tela
+ * nova não entra.
  */
-const PENDENTES: Record<string, string> = {
-  "components/admin/AlunoPerfilSheet.tsx": "ficha do aluno: fica para a próxima rodada (outra frente mexia nela nesta)",
-  "components/admin/CompeticoesPainel.tsx": "painel de competições da gestão",
-  "components/admin/FuncionarioPerfilSheet.tsx": "horários do funcionário",
-  "components/admin/onboarding/EtapaPlanos.tsx": "implantação: o passo some quando a leitura falha",
-  "components/admin/onboarding/EtapaRecebimentos.tsx": "implantação: situação da conta Asaas",
-  "components/jornada/CompromissoTab.tsx": "metas salvas do compromisso semanal",
-  "components/jornada/ObjetivosTab.tsx": "objetivo atual do aluno",
+const PENDENTES: Record<string, string> = {};
+
+/**
+ * O que o detector acha, mas não é estado vazio, com o porquê. Não é lista de
+ * espera: só entra o que é decisão, e a lista só diminui.
+ */
+const NAO_E_ESTADO_VAZIO: Record<string, string> = {
   "components/legal/AceiteDocumentosGate.tsx":
-    "não é estado vazio: com a leitura falhando, o aceite não tranca o app (falha aberta de propósito, com o erro no log)",
-  "components/superadmin/FilaChamadosMentor.tsx": "Visão Master",
-  "components/superadmin/OperacaoMentor.tsx": "Visão Master",
-  "components/superadmin/OrganizacaoPerfilSheet.tsx": "Visão Master",
-  "pages/admin/AdminDashboard.tsx": "anamnese no painel da equipe",
-  "pages/admin/AdminOrganizacao.tsx": "assinaturas da organização",
-  "pages/superadmin/SuperAdminConfiguracoes.tsx": "Visão Master",
-  "pages/superadmin/SuperAdminDashboard.tsx": "Visão Master",
-  "pages/superadmin/SuperAdminMentoria.tsx": "Visão Master",
+    "é a porta do aceite, e não uma lista: com a consulta dos aceites falhando, ela deixa entrar (falha aberta de propósito, para um soluço não trancar a academia inteira fora do app), registra o código do erro e pede o aceite de novo no próximo carregamento",
 };
 
 const telas = arquivos(SRC)
@@ -111,7 +103,7 @@ describe("erro de consulta não é estado vazio", () => {
   it("toda tela com estado vazio trata o erro da mesma consulta", () => {
     expect(telas.length).toBeGreaterThan(100);
     const violacoes = telas
-      .filter((t) => !PENDENTES[t.nome])
+      .filter((t) => !PENDENTES[t.nome] && !NAO_E_ESTADO_VAZIO[t.nome])
       .flatMap((t) => vaziosSemErro(t.codigo).map((dado) => `${t.nome} (${dado})`));
     expect(
       violacoes,
@@ -119,9 +111,9 @@ describe("erro de consulta não é estado vazio", () => {
     ).toEqual([]);
   });
 
-  it("toda pendência listada ainda existe", () => {
+  it("toda pendência e toda exceção listada ainda existe", () => {
     // Tela consertada sai da lista: senão ela vira passe livre para a próxima mudança.
-    const consertadas = Object.keys(PENDENTES).filter((nome) => {
+    const consertadas = [...Object.keys(PENDENTES), ...Object.keys(NAO_E_ESTADO_VAZIO)].filter((nome) => {
       const tela = telas.find((t) => t.nome === nome);
       return !tela || vaziosSemErro(tela.codigo).length === 0;
     });

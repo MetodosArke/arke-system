@@ -42,6 +42,7 @@ import {
 } from "lucide-react";
 import type { Tables, Enums } from "@/integrations/supabase/types";
 import { atendeSaude } from "@/lib/acessoPainel";
+import { ErroAoCarregar } from "@/components/ErroAoCarregar";
 
 type Tarefa = Tables<"tarefas">;
 type Anamnese = Tables<"anamnese_acolhimento">;
@@ -162,22 +163,22 @@ const TIPO_ICON: Record<Tipo, typeof HeartPulse> = {
 // anamnese, verde para pedidos de ajuste. Demais tipos ficam neutros.
 const TIPO_COLOR_CLASS: Record<Tipo, string> = {
   ativacao: "",
-  anamnese: "bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/40",
-  dor: "bg-red-500/15 text-red-700 dark:text-red-400 border-red-500/40",
+  anamnese: "bg-amber-500/15 text-warning border-amber-500/40",
+  dor: "bg-red-500/15 text-destructive border-red-500/40",
   barreira: "",
-  ajuste: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/40",
+  ajuste: "bg-emerald-500/15 text-success border-emerald-500/40",
   outro: "",
-  cobranca: "bg-red-500/15 text-red-700 dark:text-red-400 border-red-500/40",
-  acolhimento_elite: "bg-violet-500/15 text-violet-700 dark:text-violet-400 border-violet-500/40",
-  engajamento_baixo: "bg-orange-500/15 text-orange-700 dark:text-orange-400 border-orange-500/40",
-  atestado: "bg-rose-500/15 text-rose-700 dark:text-rose-400 border-rose-500/40",
-  inercia: "bg-orange-500/15 text-orange-700 dark:text-orange-400 border-orange-500/40",
+  cobranca: "bg-red-500/15 text-destructive border-red-500/40",
+  acolhimento_elite: "bg-violet-500/15 text-foreground border-violet-500/40",
+  engajamento_baixo: "bg-orange-500/15 text-warning border-orange-500/40",
+  atestado: "bg-rose-500/15 text-destructive border-rose-500/40",
+  inercia: "bg-orange-500/15 text-warning border-orange-500/40",
   ciclo_travado: "",
   // A instrucao vem do Mentor e e presencial: destaque para nao se perder na
   // lista, porque o aluno chega hoje.
-  instrucao_presencial: "bg-sky-500/15 text-sky-700 dark:text-sky-400 border-sky-500/40",
+  instrucao_presencial: "bg-sky-500/15 text-foreground border-sky-500/40",
   // Remoção de dado biométrico parada: obrigação legal, não pode sumir na fila.
-  equipamento: "bg-rose-500/15 text-rose-700 dark:text-rose-400 border-rose-500/40",
+  equipamento: "bg-rose-500/15 text-destructive border-rose-500/40",
 };
 
 const FILTRO_STATUS_OPCOES: Status[] = ["aberta", "em_andamento", "aguardando"];
@@ -202,7 +203,13 @@ export default function AdminDashboard() {
   const [escopo, setEscopo] = useState<"minha" | "organizacao">("minha");
   const [anamneseAlunoId, setAnamneseAlunoId] = useState<string | null>(null);
 
-  const { data: tarefas = [], isLoading } = useQuery({
+  const {
+    data: tarefas = [],
+    isLoading,
+    error: erroTarefas,
+    refetch: recarregarTarefas,
+    isFetching: recarregandoTarefas,
+  } = useQuery({
     queryKey: ["tarefas-fila", organization?.id],
     queryFn: async () => {
       return todasAsLinhas((de, ate) =>
@@ -218,7 +225,13 @@ export default function AdminDashboard() {
     enabled: !!organization?.id,
   });
 
-  const { data: anamnese, isLoading: isLoadingAnamnese } = useQuery({
+  const {
+    data: anamnese,
+    isLoading: isLoadingAnamnese,
+    error: erroAnamnese,
+    refetch: recarregarAnamnese,
+    isFetching: recarregandoAnamnese,
+  } = useQuery({
     queryKey: ["anamnese-aluno", anamneseAlunoId],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -357,7 +370,14 @@ export default function AdminDashboard() {
 
           {isLoading && <p className="text-sm text-muted-foreground">Carregando...</p>}
 
-          {!isLoading && tarefasFiltradas.length === 0 && (
+          {/* A fila caída não é "nenhuma pendência": é a equipe achando que está em dia. */}
+          {erroTarefas && (
+            <Card>
+              <ErroAoCarregar oQue="a fila" onTentarDeNovo={() => void recarregarTarefas()} tentando={recarregandoTarefas} />
+            </Card>
+          )}
+
+          {!isLoading && !erroTarefas && tarefasFiltradas.length === 0 && (
             <Card>
               <CardContent className="py-8 text-center text-sm text-muted-foreground">
                 Nenhuma pendência encontrada com esses filtros.
@@ -383,7 +403,7 @@ export default function AdminDashboard() {
                             {TIPO_LABEL[tarefa.tipo]}
                           </Badge>
                           {vencida && (
-                            <Badge variant="outline" className="gap-1 font-normal bg-red-500/15 text-red-700 dark:text-red-400 border-red-500/40">
+                            <Badge variant="outline" className="gap-1 font-normal bg-red-500/15 text-destructive border-red-500/40">
                               <Clock className="h-3 w-3" />
                               Vencido
                             </Badge>
@@ -392,7 +412,7 @@ export default function AdminDashboard() {
                       </div>
                       <div className="flex items-center gap-1.5 shrink-0">
                         {tarefa.escalada_em && (
-                          <Badge variant="outline" className="text-orange-600 dark:text-orange-400 border-orange-500/40">
+                          <Badge variant="outline" className="text-warning border-orange-500/40">
                             <ArrowUpCircle className="h-3 w-3 mr-1" /> Escalada
                           </Badge>
                         )}
@@ -553,7 +573,10 @@ export default function AdminDashboard() {
             <DialogTitle>Anamnese de Acolhimento (M.A.P.A.®)</DialogTitle>
           </DialogHeader>
           {isLoadingAnamnese && <p className="text-sm text-muted-foreground">Carregando...</p>}
-          {!isLoadingAnamnese && !anamnese && (
+          {erroAnamnese && (
+            <ErroAoCarregar oQue="a anamnese" onTentarDeNovo={() => void recarregarAnamnese()} tentando={recarregandoAnamnese} />
+          )}
+          {!isLoadingAnamnese && !erroAnamnese && !anamnese && (
             <p className="text-sm text-muted-foreground">Este aluno ainda não concluiu a anamnese de acolhimento.</p>
           )}
           {anamnese && (

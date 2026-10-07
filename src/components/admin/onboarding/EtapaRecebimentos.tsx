@@ -10,6 +10,7 @@ import { caminhosDaConta, grupoPendente, ROTULO_DOCUMENTO, subcontaDisponivelNaT
 import { TERMOS_ASAAS_URL } from "@/lib/prestadorPagamentos";
 import { useSubcontasBaasLigadas } from "@/hooks/useContaDasCobrancas";
 import { PrestadorPagamentos } from "@/components/pagamento/PrestadorPagamentos";
+import { ErroAoCarregar } from "@/components/ErroAoCarregar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -41,7 +42,13 @@ export function EtapaRecebimentos({ onSalvo }: { onSalvo: () => void }) {
   const [aceite, setAceite] = useState(false);
   const [erroAbertura, setErroAbertura] = useState<string | null>(null);
 
-  const { data: conta } = useQuery({
+  const {
+    data: conta,
+    isLoading: carregandoConta,
+    error: erroConta,
+    refetch: recarregarConta,
+    isFetching: recarregandoConta,
+  } = useQuery({
     queryKey: ["onboarding-recebimentos", organization?.id],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -119,6 +126,13 @@ export function EtapaRecebimentos({ onSalvo }: { onSalvo: () => void }) {
     onSuccess: () => atualizar(),
     onError: (e: Error) => toast({ title: "Não foi possível consultar", description: e.message, variant: "destructive" }),
   });
+
+  // Sem a situação da conta, a etapa não oferece abrir outra: com a leitura
+  // falhando, ela parecia "sem conta" e convidava a abrir uma segunda.
+  if (erroConta && !conta) {
+    return <ErroAoCarregar oQue="a situação da conta Asaas" onTentarDeNovo={() => void recarregarConta()} tentando={recarregandoConta} className="p-3" />;
+  }
+  if (carregandoConta) return <p className="text-sm text-muted-foreground">Carregando...</p>;
 
   if (conta?.asaas_wallet_id) {
     const criada = conta.asaas_conta_origem === "criada";

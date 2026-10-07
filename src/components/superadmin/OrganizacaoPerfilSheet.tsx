@@ -32,6 +32,7 @@ import { EncerramentoOrganizacao } from "@/components/superadmin/EncerramentoOrg
 import { TaxaImplantacaoOrganizacao } from "@/components/superadmin/TaxaImplantacaoOrganizacao";
 import type { Enums } from "@/integrations/supabase/types";
 import { formatarDataBR } from "@/lib/dataBrasilia";
+import { ErroAoCarregar } from "@/components/ErroAoCarregar";
 
 type AtividadeTipo = "treino" | "dieta" | "avaliacao" | "tarefa";
 
@@ -122,7 +123,13 @@ export function OrganizacaoPerfilSheet({
   onEditar: (tenant: OrganizacaoPerfil) => void;
   onFaturamento: (tenant: OrganizacaoPerfil) => void;
 }) {
-  const { data: atividade = [] } = useQuery({
+  const {
+    data: atividade = [],
+    isLoading: carregandoAtividade,
+    error: erroAtividade,
+    refetch: recarregarAtividade,
+    isFetching: recarregandoAtividade,
+  } = useQuery({
     queryKey: ["superadmin-organizacao-atividade", tenant?.organization_id],
     queryFn: async () => {
       const { data, error } = await supabase.rpc("get_superadmin_organizacao_atividade", {
@@ -223,7 +230,16 @@ export function OrganizacaoPerfilSheet({
               </Bloco>
 
               <Bloco titulo="Atividade Recente" icon={ClipboardList}>
-                {atividade.length === 0 ? (
+                {erroAtividade ? (
+                  <ErroAoCarregar
+                    oQue="a atividade recente"
+                    onTentarDeNovo={() => void recarregarAtividade()}
+                    tentando={recarregandoAtividade}
+                    className="p-3"
+                  />
+                ) : carregandoAtividade ? (
+                  <p className="text-sm text-muted-foreground">Carregando...</p>
+                ) : atividade.length === 0 ? (
                   <p className="text-sm text-muted-foreground">Sem atividade recente registrada.</p>
                 ) : (
                   <ul className="space-y-2">
