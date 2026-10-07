@@ -88,6 +88,13 @@ revoke execute on function public.matricula_publica_sem_outra_academia() from pu
 -- Nenhuma linha de outra tabela aponta para o aluno. Lido do catálogo, e não
 -- de uma lista escrita à mão: a tabela nova que apontar para `alunos` passa a
 -- segurar a matrícula sem ninguém lembrar desta função.
+--
+-- A exceção é a tarefa "Aluno sem 1º acesso após 48h", que a rotina
+-- `gerar_tarefas_ativacao_pendente` abre sozinha em todo aluno que não entrou:
+-- a matrícula não confirmada sempre chega ao sétimo dia com ela. Enquanto
+-- ninguém registrou ação nem desfecho, ela não é sinal de pessoa de verdade, e
+-- sai com o aluno (`tarefas.aluno_id` apaga em cascata). O escalonamento só
+-- troca o responsável, e não conta como ação.
 create or replace function public.aluno_como_nasceu(_aluno_id uuid)
 returns boolean
 language plpgsql
@@ -107,9 +114,20 @@ begin
        and c.confrelid = 'public.alunos'::regclass
        and array_length(c.conkey, 1) = 1
   loop
-    execute format('select exists (select 1 from %s where %I = $1)', v_fk.tabela, v_fk.coluna)
-      into v_tem
-      using _aluno_id;
+    if v_fk.tabela = 'public.tarefas'::regclass then
+      select exists (
+        select 1 from public.tarefas t
+         where t.aluno_id = _aluno_id
+           and not (t.origem_evento = 'ativacao_pendente:' || _aluno_id::text
+                    and t.status = 'aberta'
+                    and t.acao is null
+                    and t.desfecho_acao is null)
+      ) into v_tem;
+    else
+      execute format('select exists (select 1 from %s where %I = $1)', v_fk.tabela, v_fk.coluna)
+        into v_tem
+        using _aluno_id;
+    end if;
     if v_tem then
       return false;
     end if;

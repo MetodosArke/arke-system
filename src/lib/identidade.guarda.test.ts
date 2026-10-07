@@ -321,6 +321,12 @@ describe("a matrícula pública só com o e-mail provado (pré-sequestro de cont
     expect(rotina).toMatch(/when insufficient_privilege then\s+raise;/);
     // O que aponta para o aluno vem do catálogo, e não de uma lista à mão.
     expect(ultimaFuncao("aluno_como_nasceu")).toMatch(/c\.confrelid = 'public\.alunos'::regclass/);
+    // A tarefa de ativação que a rotina abre em todo aluno sem primeiro acesso
+    // não segura a matrícula enquanto ninguém agiu nela: sem essa exceção, a
+    // matrícula não confirmada chega ao sétimo dia com ela e nunca sai.
+    const nasceu = ultimaFuncao("aluno_como_nasceu");
+    expect(nasceu).toContain("t.origem_evento = 'ativacao_pendente:' || _aluno_id::text");
+    expect(nasceu).toMatch(/t\.status = 'aberta'\s+and t\.acao is null\s+and t\.desfecho_acao is null/);
     expect(sql).toMatch(
       /select cron\.schedule\('arke-matriculas-nao-confirmadas', '35 7 \* \* \*', 'select public\.apagar_matriculas_publicas_nao_confirmadas\(\)'\);/,
     );

@@ -567,6 +567,7 @@ O último caminho de pré-sequestro de conta, fechado pela decisão do responsá
 - O defeito "a rotina sem a confirmação na seleção" também passou: a segunda conferência, dentro do laço, não deixa apagar quem confirmou. Mas as confirmadas antigas tomariam a vez das novas, e a prova ganhou as 150 confirmadas, que o pegam.
 - A Auditoria da Visão Master mostraria a ação nova pelo nome técnico; ganhou o rótulo, e o artigo de Configurações diz que ela entra ali.
 - A guarda nova da senha vazada achou o **Meu perfil** trocando a senha sem conferir.
+- **A rotina não apagaria nenhuma matrícula** (achado na prova em produção, antes de aplicar). Depois de 48 horas, `gerar_tarefas_ativacao_pendente` abre a tarefa "Aluno sem 1º acesso" em todo aluno em dia que não entrou, e a tarefa aponta para o aluno: a matrícula não confirmada chega sempre ao sétimo dia com ela, e `aluno_como_nasceu` dava falso. O esqueleto do PGlite não tinha as rotinas da fila, e por isso a prova local não viu. `aluno_como_nasceu` passou a aceitar essa tarefa enquanto ninguém registrou ação nem desfecho (o escalonamento só troca o responsável e não conta como ação); ela sai com o aluno, porque `tarefas.aluno_id` apaga em cascata. A tarefa em que a recepção agiu segura a matrícula: é sinal de pessoa de verdade.
 - A máquina ficou sem memória para o PGlite (o processo do Node caiu ao compilar o WebAssembly) no meio da rodada dos defeitos plantados; as rodadas foram repetidas quando a memória voltou.
 
 **Travas:**
@@ -590,8 +591,15 @@ O último caminho de pré-sequestro de conta, fechado pela decisão do responsá
   - na migration, pela prova do PGlite: a regra sem a confirmação do e-mail (2 casos), o gatilho barrando a própria academia (1), a rotina sem o prazo de 7 dias (2), a rotina sem "como nasceu" na seleção (1) e a rotina sem a confirmação na seleção (1).
 - **Testes:** 25 novos (10 em `identidade.guarda`, 6 em `senhaVazada.guarda`, 5 em `emailRecuperacao.test`, 4 em `PublicMatricula.test`), e o caso camelCase na leitura de `logsSemDadoPessoal.guarda`. Suíte inteira: **1.326 testes em 176 arquivos, todos passando**, rodada em 9 lotes de 20 arquivos com um processo só, porque a suíte de uma vez derrubou o Node por falta de memória da máquina. Na primeira rodada falhou só o índice da Central, que acusou o artigo da Visão Master mudado depois do `npm run ajuda:indice`; gerado de novo, passou.
 - `npm run check` sem erro: tipos, lint (0 erros, os 27 avisos de antes), o `deno check` das 56 funções e a auditoria das dependências (0 vulnerabilidades).
+- **O banco de produção, em transação desfeita, antes de aplicar** (07/10/2026). Foram 3 contas criadas como a função cria, com 8 dias, na homologação. Depois rodaram as 10 rotinas que abrem tarefa ou mexem em aluno: ativação, barreira, atestado, inércia, acolhimento, engajamento, avanço de fases, situação por mensalidade, remoções de fim de matrícula e escalonamento.
+  - **A conta não confirmada:** fica só com a tarefa de ativação, já escalonada, e `aluno_como_nasceu` dá verdadeiro.
+  - **A conta em que a recepção registrou ação na tarefa:** dá falso e fica.
+  - **A outra academia:** é recusada com a mensagem da matrícula online, e a conta confirmada passa.
+  - **A rotina:** apagou 1. Sumiram a conta, o perfil, o vínculo, o aluno e a tarefa; as outras duas ficaram; a Auditoria tem 1 linha só com `dias_sem_confirmacao`; a segunda rodada apagou 0.
+  - **Permissões e agendamento:** as quatro funções ficam fechadas para anon e authenticated, e o agendamento é `35 7 * * *`.
+  - **Defeito plantado:** a migration sem a exceção da tarefa de ativação. Com ela, `aluno_como_nasceu` dá falso, a rotina apaga 0 e a conta fica.
 - **Falta, porque esta frente não toca produção:**
-  - aplicar `20261403010000` e provar em produção em transação desfeita;
+  - aplicar `20261403010000`;
   - publicar `matricula-publica`, `convidar-membro`, `send-email` e `assistente-academia` (o índice da Central mudou), e o app;
   - a corrente real na homologação, com e-mail temporário: a matrícula pelo link, o e-mail "Crie a sua senha", a senha e a entrada; o 409; a tela antiga recusada; e uma matrícula da academia sobre a conta não confirmada;
   - a tela no computador e no celular.
