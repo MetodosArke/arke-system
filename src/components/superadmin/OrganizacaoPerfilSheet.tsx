@@ -33,6 +33,7 @@ import { TaxaImplantacaoOrganizacao } from "@/components/superadmin/TaxaImplanta
 import type { Enums } from "@/integrations/supabase/types";
 import { formatarDataBR } from "@/lib/dataBrasilia";
 import { ErroAoCarregar } from "@/components/ErroAoCarregar";
+import { useAcessoArkefit } from "@/hooks/useAcessoArkefit";
 
 type AtividadeTipo = "treino" | "dieta" | "avaliacao" | "tarefa";
 
@@ -120,9 +121,18 @@ export function OrganizacaoPerfilSheet({
 }: {
   tenant: OrganizacaoPerfil | null;
   onOpenChange: (open: boolean) => void;
-  onEditar: (tenant: OrganizacaoPerfil) => void;
-  onFaturamento: (tenant: OrganizacaoPerfil) => void;
+  /** Sem a função, o botão não aparece (quem não abre o cadastro). */
+  onEditar?: (tenant: OrganizacaoPerfil) => void;
+  /** Sem a função, o botão não aparece (quem não abre o financeiro). */
+  onFaturamento?: (tenant: OrganizacaoPerfil) => void;
 }) {
+  // Os níveis da equipe ArkeFit: a ficha abre com a carteira (o cadastro e o
+  // contato); o dinheiro é do financeiro; o trial, o encerramento e a
+  // atividade (que traz o treino, a dieta e a avaliação de cada aluno) são do
+  // Sócio. O que a pessoa não abre não aparece e não vai ao banco.
+  const { pode } = useAcessoArkefit();
+  const socio = pode("socio");
+  const financeiro = pode("financeiro");
   const {
     data: atividade = [],
     isLoading: carregandoAtividade,
@@ -138,7 +148,7 @@ export function OrganizacaoPerfilSheet({
       if (error) throw error;
       return (data ?? []) as AtividadeItem[];
     },
-    enabled: !!tenant?.organization_id,
+    enabled: socio && !!tenant?.organization_id,
   });
 
   return (
@@ -158,16 +168,22 @@ export function OrganizacaoPerfilSheet({
               </div>
             </SheetHeader>
 
-            <div className="flex gap-2 mt-4">
-              <Button size="sm" className="flex-1" onClick={() => onEditar(tenant)}>
-                <Pencil className="h-3.5 w-3.5 mr-1.5" />
-                Editar Informações
-              </Button>
-              <Button size="sm" variant="outline" className="flex-1" onClick={() => onFaturamento(tenant)}>
-                <Receipt className="h-3.5 w-3.5 mr-1.5" />
-                Faturamento B2B
-              </Button>
-            </div>
+            {(onEditar || onFaturamento) && (
+              <div className="flex gap-2 mt-4">
+                {onEditar && (
+                  <Button size="sm" className="flex-1" onClick={() => onEditar(tenant)}>
+                    <Pencil className="h-3.5 w-3.5 mr-1.5" />
+                    Editar Informações
+                  </Button>
+                )}
+                {onFaturamento && (
+                  <Button size="sm" variant="outline" className="flex-1" onClick={() => onFaturamento(tenant)}>
+                    <Receipt className="h-3.5 w-3.5 mr-1.5" />
+                    Faturamento B2B
+                  </Button>
+                )}
+              </div>
+            )}
 
             <Separator className="my-4" />
 
@@ -177,9 +193,10 @@ export function OrganizacaoPerfilSheet({
                   <span className="flex items-center gap-1.5">
                     <Users className="h-3.5 w-3.5 text-muted-foreground" /> {tenant.alunos_total} alunos
                   </span>
-                  <span>MRR: {formatarMoeda(Number(tenant.mrr_organizacao))}</span>
+                  {/* Sem o financeiro, o banco devolve o MRR e as atrasadas nulos. */}
+                  {financeiro && <span>MRR: {formatarMoeda(Number(tenant.mrr_organizacao))}</span>}
                 </div>
-                {tenant.assinaturas_atrasadas > 0 && (
+                {financeiro && tenant.assinaturas_atrasadas > 0 && (
                   <p className="text-xs text-destructive flex items-center gap-1.5">
                     <AlertTriangle className="h-3.5 w-3.5" />
                     {tenant.assinaturas_atrasadas} assinatura(s) atrasada(s)
@@ -205,30 +222,39 @@ export function OrganizacaoPerfilSheet({
                 )}
               </Bloco>
 
-              <Bloco titulo="Mensalidade B2B" icon={Receipt}>
-                <MensalidadeB2bOrganizacao organizationId={tenant.organization_id} />
-              </Bloco>
+              {financeiro && (
+                <>
+                  <Bloco titulo="Mensalidade B2B" icon={Receipt}>
+                    <MensalidadeB2bOrganizacao organizationId={tenant.organization_id} />
+                  </Bloco>
 
-              <Bloco titulo="Taxa de implantação" icon={Receipt}>
-                <TaxaImplantacaoOrganizacao organizationId={tenant.organization_id} />
-              </Bloco>
+                  <Bloco titulo="Taxa de implantação" icon={Receipt}>
+                    <TaxaImplantacaoOrganizacao organizationId={tenant.organization_id} />
+                  </Bloco>
 
-              <Bloco titulo="Repasse do Método" icon={Percent}>
-                <RepasseOrganizacao organizationId={tenant.organization_id} />
-              </Bloco>
+                  <Bloco titulo="Repasse do Método" icon={Percent}>
+                    <RepasseOrganizacao organizationId={tenant.organization_id} />
+                  </Bloco>
 
-              <Bloco titulo="Conta das cobranças" icon={Receipt}>
-                <CobrancaContaAcademiaOrganizacao organizationId={tenant.organization_id} />
-              </Bloco>
+                  <Bloco titulo="Conta das cobranças" icon={Receipt}>
+                    <CobrancaContaAcademiaOrganizacao organizationId={tenant.organization_id} />
+                  </Bloco>
+                </>
+              )}
 
-              <Bloco titulo="Trial do Método ARKE (testes)" icon={FlaskConical}>
-                <TrialAlunosOrganizacao organizationId={tenant.organization_id} />
-              </Bloco>
+              {socio && (
+                <>
+                  <Bloco titulo="Trial do Método ARKE (testes)" icon={FlaskConical}>
+                    <TrialAlunosOrganizacao organizationId={tenant.organization_id} />
+                  </Bloco>
 
-              <Bloco titulo="Encerramento" icon={CalendarX}>
-                <EncerramentoOrganizacao organizationId={tenant.organization_id} status={tenant.status} />
-              </Bloco>
+                  <Bloco titulo="Encerramento" icon={CalendarX}>
+                    <EncerramentoOrganizacao organizationId={tenant.organization_id} status={tenant.status} />
+                  </Bloco>
+                </>
+              )}
 
+              {socio && (
               <Bloco titulo="Atividade Recente" icon={ClipboardList}>
                 {erroAtividade ? (
                   <ErroAoCarregar
@@ -267,6 +293,7 @@ export function OrganizacaoPerfilSheet({
                   </ul>
                 )}
               </Bloco>
+              )}
             </div>
           </>
         )}

@@ -22,11 +22,13 @@ import { useToast } from "@/hooks/use-toast";
 import { ProfissionalAutonomoSheet } from "@/components/superadmin/ProfissionalAutonomoSheet";
 import { UserCog, UserPlus, Dumbbell, Apple, Search, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useAcessoArkefit } from "@/hooks/useAcessoArkefit";
 
 const CADASTRO_INICIAL = { full_name: "", email: "", telefone: "", nome_painel: "" };
 
 export default function SuperAdminProfissionais() {
   const { toast } = useToast();
+  const cadastro = useAcessoArkefit().pode("cadastro");
   const queryClient = useQueryClient();
   const [novoAberto, setNovoAberto] = useState(false);
   const [especialidade, setEspecialidade] = useState<EspecialidadeAutonomo | null>(null);
@@ -104,9 +106,12 @@ export default function SuperAdminProfissionais() {
           <UserCog className="h-5 w-5 text-primary" />
           <h1 className="text-xl font-bold">Profissionais autônomos</h1>
         </div>
-        <Button size="sm" onClick={() => setNovoAberto(true)}>
-          <UserPlus className="h-4 w-4 mr-1" /> Novo profissional
-        </Button>
+        {/* Convidar profissional é do cadastro (o Comercial, na entrega 2, e o Sócio). */}
+        {cadastro && (
+          <Button size="sm" onClick={() => setNovoAberto(true)}>
+            <UserPlus className="h-4 w-4 mr-1" /> Novo profissional
+          </Button>
+        )}
       </div>
       <p className="text-xs text-muted-foreground">
         Personal Trainers e Nutricionistas que usam o ArkeFit como negócio próprio, cada um com o seu painel. Clique numa

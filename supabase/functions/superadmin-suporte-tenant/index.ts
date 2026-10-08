@@ -1,5 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { verificada } from "../_shared/verificacao.ts";
+import { acessoArkefit } from "../_shared/acessoArkefit.ts";
 import { servir } from "../_shared/servir.ts";
 import { resumoDoErro } from "../_shared/resumoDoErro.ts";
 import { respostaDoErroDoAuth } from "../_shared/erroDoAuth.ts";
@@ -44,7 +45,8 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 // trocar o e-mail de login do gestor principal (auth.users — por isso exige
 // Admin API/service_role, não dá para fazer via update direto do client) e
 // excluir permanentemente a organização. Todas ficam na mesma função por
-// reaproveitar a mesma checagem de autorização (superadmin).
+// reaproveitar a mesma checagem de autorização: a área da Visão Master
+// (`acesso_arkefit`), que é a operação para o token e o Sócio para o resto.
 servir("superadmin-suporte-tenant", async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -93,17 +95,22 @@ servir("superadmin-suporte-tenant", async (req: Request) => {
 
     const adminClient = createClient(supabaseUrl, serviceRoleKey);
 
-    const { data: callerRoles, error: callerRolesError } = await adminClient
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", callerId);
-    if (callerRolesError) {
-      console.error("Error loading caller roles", resumoDoErro(callerRolesError));
+    // Os níveis da equipe ArkeFit (08/10/2026): resetar o token do Gateway é
+    // da área `operacao` (o Suporte); trocar o e-mail do gestor e excluir a
+    // organização são do Sócio. A pergunta vai ao banco com a sessão de quem
+    // chama (`acesso_arkefit`), que exige as duas etapas.
+    const area = acao === "resetar_token_gateway" ? "operacao" : "socio";
+    const pode = verificada(claimsData?.claims) ? await acessoArkefit(asUser, claimsData?.claims, area) : false;
+    if (pode === null) {
+      console.error("superadmin-suporte-tenant: falha ao conferir o acesso");
       return errorResponse("Erro ao validar permissões.");
     }
-    const callerIsSuperadmin = verificada(claimsData?.claims) && (callerRoles ?? []).some((r) => r.role === "superadmin");
-    if (!callerIsSuperadmin) {
-      return errorResponse("Apenas o Super Admin ArkeFit pode executar ações de suporte.");
+    if (!pode) {
+      return errorResponse(
+        area === "operacao"
+          ? "Apenas a equipe da ArkeFit com acesso à operação reseta o token do Gateway."
+          : "Apenas um sócio da ArkeFit troca o e-mail do gestor ou exclui a organização.",
+      );
     }
 
     // Lido antes da exclusão: depois do cascade o nome já não existe mais, e

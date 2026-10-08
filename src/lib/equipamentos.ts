@@ -30,9 +30,11 @@ export interface EquipamentoGlobal {
   checkins_parceiro_mes: number;
 }
 
-export function useEquipamentosGlobais() {
+/** `ativo`: só quem abre a operação (o Suporte e o Sócio) dispara a consulta. */
+export function useEquipamentosGlobais(ativo = true) {
   return useQuery({
     queryKey: ["superadmin-equipamentos"],
+    enabled: ativo,
     queryFn: async () => {
       const { data, error } = await supabase.rpc("get_superadmin_equipamentos");
       if (error) throw error;

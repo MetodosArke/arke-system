@@ -3003,6 +3003,7 @@ export type Database = {
           cref: string | null
           crn: string | null
           mentor: boolean
+          niveis: string[]
           updated_at: string
           user_id: string
         }
@@ -3013,6 +3014,7 @@ export type Database = {
           cref?: string | null
           crn?: string | null
           mentor?: boolean
+          niveis?: string[]
           updated_at?: string
           user_id: string
         }
@@ -3023,6 +3025,7 @@ export type Database = {
           cref?: string | null
           crn?: string | null
           mentor?: boolean
+          niveis?: string[]
           updated_at?: string
           user_id?: string
         }
@@ -7955,6 +7958,7 @@ export type Database = {
         Args: { _aluno_id: string; _proposito: string }
         Returns: boolean
       }
+      acesso_arkefit: { Args: { _area: string }; Returns: boolean }
       acionar_agente_comercial: {
         Args: { _lead_id: string }
         Returns: undefined
@@ -9034,6 +9038,7 @@ export type Database = {
           email: string
           estado: string
           mentor: boolean
+          niveis: string[]
           nome: string
           papeis: string[]
           user_id: string
@@ -9282,6 +9287,9 @@ export type Database = {
         Args: {
           _acesso: string
           _ator: string
+          _cref?: string
+          _crn?: string
+          _niveis?: string[]
           _nome: string
           _papeis: Database["public"]["Enums"]["app_role"][]
           _user_id: string
@@ -9486,6 +9494,7 @@ export type Database = {
         Returns: Database["public"]["Enums"]["fase_jornada"]
       }
       navegador_da_requisicao: { Args: never; Returns: string }
+      niveis_arkefit_abertos: { Args: never; Returns: string[] }
       nomes_para_anonimizar: {
         Args: { _organization_id: string }
         Returns: string[]
@@ -9884,6 +9893,7 @@ export type Database = {
           _cref: string
           _crn: string
           _mentor: boolean
+          _niveis?: string[]
           _user_id: string
         }
         Returns: undefined

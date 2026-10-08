@@ -12,7 +12,7 @@ O Bruno é o agente que acompanha a implantação. Ele roda de hora em hora e, p
 
 Ele não usa IA: as mensagens são modelos fixos, assinados por "Equipe de implantação ArkeFit". Os e-mails saem só em dia útil, das 9h às 19h, no máximo dois por dia por academia. Academia em homologação (trial) fica de fora.
 
-O interruptor no alto da página liga e desliga o agente, e a mudança fica na Auditoria.
+O interruptor no alto da página liga e desliga o agente, e a mudança fica na Auditoria. Ele é do sócio: o nível **Suporte** da equipe da ArkeFit acompanha as academias e encerra os chamados, sem o interruptor.
 
 ## O chamado: a ArkeFit liga
 

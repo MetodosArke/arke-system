@@ -24,7 +24,9 @@ function arquivos(dir: string, achados: string[] = []): string[] {
 // Também quem confere o papel no banco passando o usuário (`_uid`) com a
 // service role: ali `has_role` não exige as duas etapas, porque a pergunta é
 // sobre outra pessoa. Foi assim que a aprovação do Vigia ficou sem a exigência.
-const PAPEL_ARKE = /role\s*===\s*"(superadmin|admin_arke)"|vigia_preparar_aprovacao|_uid\s*:\s*uid/;
+// E quem pergunta a área da Visão Master ao banco (`acessoArkefit`, os níveis
+// da equipe ArkeFit): o nível também só vale com as duas etapas.
+const PAPEL_ARKE = /role\s*===\s*"(superadmin|admin_arke)"|vigia_preparar_aprovacao|_uid\s*:\s*uid|acessoArkefit\(/;
 
 // Arquivos que olham o papel da ArkeFit de OUTRA pessoa, e não de quem chama:
 // ali o papel não dá poder a ninguém, só protege a conta do alvo.

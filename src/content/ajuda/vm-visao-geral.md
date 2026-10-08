@@ -22,6 +22,10 @@ O menu de cada academia tem:
 - **Suspender / Ativar acesso do tenant**.
 - **Excluir Organização**: só para organizações em **trial**, que são de homologação. Academia cliente sai pelo encerramento; veja [Encerrar uma academia](ajuda:vm-encerramento).
 
+### O que cada acesso vê aqui
+
+O **Suporte** abre a Visão Geral para atender: a lista das academias (sem o MRR e sem as atrasadas), a fila de pendências de cada uma e a ficha com o contato e os dados fiscais. No menu de cada academia, ele tem **Ver a ficha** e **Invalidar token do Gateway Local**. Os indicadores, a receita, o funil, a adoção, a simulação, a mensalidade, o repasse, o trial, o encerramento, a atividade recente, suspender e excluir ficam com o **sócio**. Veja [Equipe ArkeFit](ajuda:vm-equipe-arkefit).
+
 ## A ficha da organização
 
 Clique no nome da academia para abrir a ficha: métricas, contato, dados fiscais, **Mensalidade B2B**, **Taxa de implantação**, **Repasse do Método**, **Trial do Método ARKE**, **Encerramento** e a atividade recente. Veja [Implantar uma academia nova](ajuda:vm-nova-academia).

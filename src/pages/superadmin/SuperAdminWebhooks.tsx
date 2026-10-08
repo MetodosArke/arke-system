@@ -16,6 +16,7 @@ import {
   HelpCircle,
 } from "lucide-react";
 import { decimal } from "@/lib/numeros";
+import { useAcessoArkefit } from "@/hooks/useAcessoArkefit";
 
 // Nulos são reais aqui (evento sem payment_id, sem resultado, sem erro) e o
 // gerador de tipos do Supabase declara colunas de RPC como não-nulas.
@@ -118,9 +119,15 @@ const formatarSilencio = (horas: number | null) => {
 export default function SuperAdminWebhooks() {
   const [filtroSituacao, setFiltroSituacao] = useState<string>("todas");
   const [busca, setBusca] = useState("");
+  // Duas áreas numa tela (os níveis da equipe ArkeFit): as rotinas são da
+  // operação (o Suporte); os avisos e a reconciliação do Asaas, do financeiro.
+  const { pode } = useAcessoArkefit();
+  const operacao = pode("operacao");
+  const financeiro = pode("financeiro");
 
   const { data: eventos = [], error: erroEventos } = useQuery({
     queryKey: ["superadmin-webhooks-asaas"],
+    enabled: financeiro,
     queryFn: async () => {
       const { data, error } = await supabase.rpc("get_superadmin_webhooks_asaas", { _limite: 200 });
       if (error) throw error;
@@ -130,6 +137,7 @@ export default function SuperAdminWebhooks() {
 
   const { data: resumo, error: erroResumo } = useQuery({
     queryKey: ["superadmin-webhooks-asaas-resumo"],
+    enabled: financeiro,
     queryFn: async () => {
       const { data, error } = await supabase.rpc("get_superadmin_webhooks_asaas_resumo");
       if (error) throw error;
@@ -152,6 +160,19 @@ export default function SuperAdminWebhooks() {
     });
   }, [eventos, filtroSituacao, busca]);
 
+  // Sem o financeiro, a tela é só a saúde das rotinas.
+  if (!financeiro) {
+    return (
+      <div className="space-y-4">
+        <div>
+          <h1 className="text-xl font-bold">Rotinas</h1>
+          <p className="text-sm text-muted-foreground">As rotinas agendadas da plataforma e quando cada uma rodou.</p>
+        </div>
+        {operacao && <SaudeRotinas />}
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-4">
       <div>
@@ -161,7 +182,7 @@ export default function SuperAdminWebhooks() {
         </p>
       </div>
 
-      <SaudeRotinas />
+      {operacao && <SaudeRotinas />}
       <UltimaReconciliacao />
 
       {erro && (

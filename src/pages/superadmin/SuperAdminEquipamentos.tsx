@@ -13,6 +13,7 @@ import { SaudeGateway } from "@/components/catraca/SaudeGateway";
 import { SITUACAO_GATEWAY, tempoDesde, useVersaoMinimaGateway, versaoAbaixoDaMinima } from "@/lib/gateway";
 import { ordenarEquipamentos, useEquipamentosGlobais, type EquipamentoGlobal } from "@/lib/equipamentos";
 import { cn } from "@/lib/utils";
+import { useAcessoArkefit } from "@/hooks/useAcessoArkefit";
 
 const TOM = {
   ok: "text-success",
@@ -84,6 +85,10 @@ export default function SuperAdminEquipamentos() {
 function ListaEquipamentos() {
   const { data = [], isLoading, error } = useEquipamentosGlobais();
   const [aberto, setAberto] = useState<EquipamentoGlobal | null>(null);
+  // O resumo de cada catraca é da operação (o Suporte). O detalhe do Gateway
+  // (telemetria, eventos e ordens, lidos direto das tabelas) e as ordens
+  // remotas, como liberar o giro, ficam com o Sócio.
+  const detalhe = useAcessoArkefit().pode("socio");
   const lista = useMemo(() => ordenarEquipamentos(data), [data]);
   const { data: versaoMinima } = useVersaoMinimaGateway();
   const desatualizado = (e: EquipamentoGlobal) => e.situacao !== "nunca_conectou" && versaoAbaixoDaMinima(e.versao, versaoMinima);
@@ -117,7 +122,7 @@ function ListaEquipamentos() {
         </div>
         <p className="text-xs text-muted-foreground">
           "Sem sinal" é o Gateway Local 1.0 que não reporta há mais de 3 minutos; um e-mail sai depois de 15, no horário
-          configurado em Configurações. Toque numa linha para ver o histórico e agir remotamente.
+          configurado em Configurações.{detalhe && " Toque numa linha para ver o histórico e agir remotamente."}
           {versaoMinima && ` "Abaixo da ${versaoMinima}" é o Gateway mais velho que a versão mínima, também em Configurações.`}
         </p>
       </CardHeader>
@@ -132,8 +137,9 @@ function ListaEquipamentos() {
                 <button
                   key={e.catraca_id}
                   type="button"
-                  onClick={() => setAberto(e)}
-                  className="flex w-full flex-wrap items-start justify-between gap-2 py-2.5 text-left hover:bg-muted/40"
+                  disabled={!detalhe}
+                  onClick={() => detalhe && setAberto(e)}
+                  className="flex w-full flex-wrap items-start justify-between gap-2 py-2.5 text-left hover:bg-muted/40 disabled:cursor-default disabled:hover:bg-transparent"
                 >
                   <div className="min-w-0">
                     <p className="text-sm font-medium">
@@ -164,9 +170,9 @@ function ListaEquipamentos() {
           </div>
         )}
       </CardContent>
-      <Sheet open={!!aberto} onOpenChange={(v) => !v && setAberto(null)}>
+      <Sheet open={detalhe && !!aberto} onOpenChange={(v) => !v && setAberto(null)}>
         <SheetContent className="w-full overflow-y-auto sm:max-w-xl">
-          {aberto && (
+          {detalhe && aberto && (
             <>
               <SheetHeader>
                 <SheetTitle>

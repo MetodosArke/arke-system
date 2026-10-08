@@ -14,6 +14,13 @@ vi.mock("@/integrations/supabase/client", () => ({
   },
 }));
 
+// O acesso de quem abre: o Sócio age; o Suporte só lê (os níveis da equipe ArkeFit).
+const acesso = vi.hoisted(() => ({ atual: { socio: true, niveis: [] as string[] } }));
+vi.mock("@/hooks/useAcessoArkefit", async () => {
+  const { podeArea } = await vi.importActual<typeof import("@/lib/acessosArkefit")>("@/lib/acessosArkefit");
+  return { useAcessoArkefit: () => ({ acesso: acesso.atual, pode: (a: Parameters<typeof podeArea>[1]) => podeArea(acesso.atual, a) }) };
+});
+
 // Formato de public.get_superadmin_vigia().
 const base = (modo: "sombra" | "automatica"): ResumoVigia => ({
   ativo: true,
@@ -174,6 +181,21 @@ describe("Visão Master → Vigia", () => {
   beforeEach(() => {
     rpc.mockReset();
     invoke.mockReset();
+    acesso.atual = { socio: true, niveis: [] };
+  });
+
+  it("o Suporte lê o Vigia, sem aprovar, dispensar, ligar nem mudar o modo", async () => {
+    acesso.atual = { socio: false, niveis: ["suporte"] };
+    servir(base("automatica"));
+    montar();
+    expect(await screen.findByText("Aguardando aprovação")).toBeInTheDocument();
+    expect(screen.getByText("Cancelar assinatura órfã")).toBeInTheDocument();
+    expect(screen.getByText("Aprovar e dispensar é de um sócio da ArkeFit.")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Aprovar" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Dispensar" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("switch")).not.toBeInTheDocument();
+    expect(screen.queryByRole("combobox", { name: /Modo:/ })).not.toBeInTheDocument();
+    expect(screen.getByText("Ligado")).toBeInTheDocument();
   });
 
   it("em modo sombra: período, regras, análise e ocorrências", async () => {

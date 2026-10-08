@@ -1,5 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { verificada } from "../_shared/verificacao.ts";
+import { acessoArkefit } from "../_shared/acessoArkefit.ts";
 import { conversarComIA, fornecedorIA } from "../_shared/ia.ts";
 import { servir } from "../_shared/servir.ts";
 
@@ -66,17 +67,24 @@ servir("mentor-sugerir-resposta", async (req: Request) => {
     const callerId = typeof claims?.claims?.sub === "string" ? claims.claims.sub : null;
     if (claimsError || !callerId) return jsonResponse({ error: "Sessão inválida." }, 401);
 
-    const admin = createClient(supabaseUrl, serviceRoleKey);
-    const { data: papeis } = await admin.from("user_roles").select("role").eq("user_id", callerId);
-    const arkefit = verificada(claims?.claims) && (papeis ?? []).some((p) => p.role === "superadmin" || p.role === "admin_arke");
-    if (!arkefit) return jsonResponse({ error: "Apenas a equipe da ArkeFit usa o Sentinela." }, 403);
+    // Quem atende a mentoria: o Sócio, ou o Mentor da equipe contratada (o
+    // nível, com as duas etapas). A pergunta vai ao banco com a sessão de quem
+    // chama (`acesso_arkefit('mentoria')`).
+    const mentoria = verificada(claims?.claims) ? await acessoArkefit(asUser, claims?.claims, "mentoria") : false;
+    if (mentoria === null) return jsonResponse({ error: "Erro ao validar permissões." }, 500);
+    if (!mentoria) return jsonResponse({ error: "Apenas a equipe da ArkeFit usa o Sentinela." }, 403);
 
+    const admin = createClient(supabaseUrl, serviceRoleKey);
     const { data: aluno } = await admin
       .from("alunos")
-      .select("id, organization_id, fase_jornada, nivel_atacado, meta_semanal_dias, progressao_bloqueada_motivo")
+      .select("id, organization_id, metodo_arke_status, fase_jornada, nivel_atacado, meta_semanal_dias, progressao_bloqueada_motivo")
       .eq("id", alunoId)
       .maybeSingle();
     if (!aluno) return jsonResponse({ error: "Aluno não encontrado." }, 404);
+    // A conversa do mentor é do Método: o aluno do Free (ou o que saiu do
+    // Método) não entra, nem pela chamada direta. Antes, qualquer aluno com
+    // conversa passava (correção autorizada com o Sentinela congelado).
+    if (aluno.metodo_arke_status !== "ativo") return jsonResponse({ error: "Este aluno não está no Método ARKE." }, 403);
 
     // A conversa vem por `conversa_para_sugestao`, que RECUSA sem o
     // consentimento de propósito "chat". Ler `mensagens_mentor` direto aqui,

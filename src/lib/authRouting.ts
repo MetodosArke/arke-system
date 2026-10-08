@@ -1,21 +1,27 @@
 import type { AppRole } from "@/contexts/AuthContext";
 import type { Enums } from "@/integrations/supabase/types";
+import { lerNiveis, rotaInicial } from "@/lib/acessosArkefit";
 
 const STAFF_ROLES: AppRole[] = ["gestor", "professor", "nutricionista", "recepcao"];
 
 // Rota inicial após autenticação, 100% automática a partir do perfil —
 // ninguém precisa digitar a rota manualmente:
-//   1. superadmin (papel global) → /superadmin
-//   2. staff (admin_arke ou gestor/professor/nutricionista) → /admin/dashboard,
+//   1. superadmin (o Sócio da ArkeFit) → /superadmin
+//   2. a equipe contratada da ArkeFit (os níveis de `equipe_arkefit`) → a
+//      primeira tela da Visão Master que o nível abre (o Mentor vai para a
+//      Mentoria; o Suporte, para a Visão Geral). Ver src/lib/acessosArkefit.ts
+//   3. staff (admin_arke ou gestor/professor/nutricionista) → /admin/dashboard,
 //      a Home personalizada por papel (que já mostra a visão certa para
 //      Studio, Academia, Personal ou Nutricionista — ver DashboardHome.tsx)
-//   3. aluno → /app
+//   4. aluno → /app
 export function resolveHomePath(
   roles: AppRole[],
   organizationRole: AppRole | null,
-  organizationTipo?: Enums<"organization_tipo"> | null
+  organizationTipo?: Enums<"organization_tipo"> | null,
+  niveisArkefit: readonly string[] = [],
 ): string {
   if (roles.includes("superadmin")) return "/superadmin";
+  if (lerNiveis(niveisArkefit).length > 0) return rotaInicial({ socio: false, niveis: niveisArkefit });
 
   const isStaff = roles.includes("admin_arke") || STAFF_ROLES.includes(organizationRole as AppRole);
   if (!isStaff) return "/app";

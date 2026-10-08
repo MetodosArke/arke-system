@@ -10,6 +10,8 @@ import {
   useUltimaReconciliacao,
 } from "@/lib/rotinas";
 import { catracasSemSinal, useEquipamentosGlobais } from "@/lib/equipamentos";
+import { useAcessoArkefit } from "@/hooks/useAcessoArkefit";
+import { podeAbrirNaVisaoMaster } from "@/lib/acessosArkefit";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { AlertTriangle, Clock, Scale } from "lucide-react";
@@ -30,10 +32,15 @@ function quando(iso: string | null): string {
 
 /** Faixa no topo da Visão Master — é a tela que se abre todo dia. */
 export function AvisoRotinas() {
-  const { data } = useSaudeRotinas();
-  const { data: reconciliacao } = useUltimaReconciliacao();
-  const { data: capacidade } = useCapacidadeBanco();
-  const { data: equipamentos } = useEquipamentosGlobais();
+  // As rotinas, o banco e as catracas são da operação; a reconciliação com o
+  // Asaas, do financeiro. Quem não abre a área não dispara a consulta dela.
+  const { acesso: acessoArkefit, pode } = useAcessoArkefit();
+  const operacao = pode("operacao");
+  const financeiro = pode("financeiro");
+  const { data } = useSaudeRotinas(operacao);
+  const { data: reconciliacao } = useUltimaReconciliacao(financeiro);
+  const { data: capacidade } = useCapacidadeBanco(operacao);
+  const { data: equipamentos } = useEquipamentosGlobais(operacao);
   const navigate = useNavigate();
   const problemas = rotinasComProblema(data);
   const problemaFinanceiro = problemaReconciliacao(reconciliacao);
@@ -64,10 +71,13 @@ export function AvisoRotinas() {
   const extra = extras.length ? ` · e ${extras.join(" e ")}` : "";
   // Só o banco: o que resolve é o limite, em Configurações.
   // Só catraca: o que resolve está em Equipamentos.
+  // O limite do banco mora em Configurações, que é do Sócio: o Suporte vai
+  // para as rotinas (Webhooks), onde vê o resto.
+  const doBanco = podeAbrirNaVisaoMaster("/superadmin/configuracoes", acessoArkefit) ? "/superadmin/configuracoes" : "/superadmin/webhooks";
   const destino =
     !problemas.length && !problemaFinanceiro
       ? problemaBanco
-        ? "/superadmin/configuracoes"
+        ? doBanco
         : "/superadmin/equipamentos"
       : "/superadmin/webhooks";
 

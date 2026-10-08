@@ -35,7 +35,7 @@ const ACOES: Record<string, { label: string; icon: typeof Pencil; destrutiva?: b
   "equipe_arkefit.cadastro_exportado": { label: "Fichas da equipe ArkeFit baixadas", icon: Download, destrutiva: true },
   "equipe_arkefit.nome_alterado": { label: "Nome de alguém da equipe ArkeFit alterado", icon: Pencil },
   // O registro profissional e o "atende como mentor" (20261292010000), que não tinha rótulo.
-  equipe_arkefit_salva: { label: "Cadastro da equipe ArkeFit alterado", icon: Pencil },
+  equipe_arkefit_salva: { label: "Níveis e registro da equipe ArkeFit alterados", icon: Pencil },
   // A rotina diária (20261403010000): a matrícula pelo link que não confirmou o e-mail em 7 dias.
   "matricula_publica.apagada_sem_confirmacao": { label: "Matrícula pelo link apagada (e-mail não confirmado)", icon: Trash2, destrutiva: true },
   "organizacao.reativada": { label: "Organização reativada", icon: ShieldAlert },

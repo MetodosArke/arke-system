@@ -9,6 +9,7 @@ import { ThemeProvider } from "@/contexts/ThemeContext";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { PushNotificationManager } from "@/components/PushNotificationManager";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { PortaoVisaoMaster } from "@/components/acesso/PortaoVisaoMaster";
 import { NetworkStatusBanner } from "@/components/NetworkStatusBanner";
 import { ImpersonationBanner } from "@/components/ImpersonationBanner";
 import { emPerfilSimulado } from "@/lib/impersonation";
@@ -147,7 +148,6 @@ const queryClient = new QueryClient({
 });
 
 const STAFF_ROLES = ["admin_arke", "gestor", "professor", "nutricionista", "recepcao"] as const;
-const SUPERADMIN_ROLES = ["superadmin"] as const;
 
 // M.A.P.A.®/onboarding é a experiência do produto Método ARKE — um
 // adicional que a academia vende à parte, não o cadastro básico de aluno
@@ -182,7 +182,7 @@ function AlunoOnboardingGate({ children }: { children: React.ReactNode }) {
 // painel correspondente ao seu papel (admin_arke/gestor/professor/
 // nutricionista → /admin, aluno → /app).
 function RootRedirect() {
-  const { isAuthenticated, isLoading, roles, organizationRole, organization, rolesLoaded, erroAcesso } = useAuth();
+  const { isAuthenticated, isLoading, roles, niveisArkefit, organizationRole, organization, rolesLoaded, erroAcesso } = useAuth();
   // A raiz de arkefit.com.br é a página de vendas para quem chega de fora;
   // quem tem sessão ou abre o app instalado segue para o app. `?vendas`
   // força a página, para conferir em outro endereço.
@@ -210,7 +210,7 @@ function RootRedirect() {
     return <Navigate to="/auth/login" replace />;
   }
 
-  return <Navigate to={resolveHomePath(roles, organizationRole, organization?.tipo)} replace />;
+  return <Navigate to={resolveHomePath(roles, organizationRole, organization?.tipo, niveisArkefit)} replace />;
 }
 
 const App = () => (
@@ -354,13 +354,13 @@ const App = () => (
                 <Route path="ajuda/:slug" element={<CentralAjuda />} />
               </Route>
 
-              {/* Super Admin — Visão Master ArkeFit, restrita ao papel global 'superadmin' */}
+              {/* Visão Master ArkeFit: o Sócio (superadmin) e a equipe com nível, sempre com as duas etapas (src/lib/acessosArkefit.ts) */}
               <Route
                 path="/superadmin"
                 element={
-                  <ProtectedRoute requiredRoles={[...SUPERADMIN_ROLES]}>
+                  <PortaoVisaoMaster>
                     <SuperAdminLayout />
-                  </ProtectedRoute>
+                  </PortaoVisaoMaster>
                 }
               >
                 <Route index element={<SuperAdminDashboard />} />

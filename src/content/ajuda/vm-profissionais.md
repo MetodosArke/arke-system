@@ -31,3 +31,7 @@ Clique numa linha da lista para abrir a ficha.
 O painel que **nunca virou cliente** sai direto pela ficha, em **Excluir o painel**: sem contrato aceito, sem aluno, sem cobrança e sem conta de recebimento. É o caso do painel criado por engano. A conta do responsável continua existindo, e a exclusão fica na [Auditoria](/superadmin/auditoria).
 
 Painel com contrato aceito sai pelo **encerramento**, também na ficha: aviso de 30 dias, cobranças canceladas e exportação dos dados, como numa academia.
+
+## Quem vê o quê
+
+O nível **Suporte** da equipe da ArkeFit vê a lista e a ficha de cada profissional, para atender. Cadastrar um profissional novo, editar o painel e trocar o responsável chegam com o nível Comercial, na próxima entrega; o link de ativação, o e-mail de login, a mensalidade, excluir e encerrar ficam com o sócio.

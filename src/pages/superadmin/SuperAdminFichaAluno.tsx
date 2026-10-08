@@ -24,6 +24,7 @@ import { AGUA_MIN, AGUA_MAX } from "@/components/admin/MetasAluno";
 import { formatarDataBR } from "@/lib/dataBrasilia";
 import { decimal } from "@/lib/numeros";
 import type { Enums } from "@/integrations/supabase/types";
+import { useAcessoArkefit } from "@/hooks/useAcessoArkefit";
 
 type ExercicioSnapshot = { ordem: number; divisao?: string; nome_exercicio: string; series: number; repeticoes: string; descanso_seg: number };
 type RefeicaoSnapshot = { ordem: number; nome_refeicao: string; horario_sugerido: string | null; itens: string | null };
@@ -461,7 +462,7 @@ export default function SuperAdminFichaAluno() {
 
 // `estado` desde 20261421010000: quem ainda não criou a senha ou não tem as
 // duas etapas não entra na Visão Master, e por isso não recebe aluno.
-type MembroEquipe = { user_id: string; nome: string; ativo: boolean; cadastrado: boolean; estado?: string | null };
+type MembroEquipe = { user_id: string; nome: string; ativo: boolean; cadastrado: boolean; mentor: boolean; estado?: string | null };
 
 function MentorResponsavel({
   alunoId,
@@ -476,9 +477,13 @@ function MentorResponsavel({
 }) {
   const { user } = useAuth();
   const { toast } = useToast();
+  // Definir o mentor do aluno é do Sócio (20261423010000); o Mentor vê quem é.
+  const { pode } = useAcessoArkefit();
+  const socio = pode("socio");
 
   const { data: equipe = [] } = useQuery({
     queryKey: ["superadmin-equipe-arkefit"],
+    enabled: socio,
     queryFn: async () => {
       const { data, error } = await supabase.rpc("get_superadmin_equipe_arkefit");
       if (error) throw error;
@@ -498,19 +503,30 @@ function MentorResponsavel({
     onError: (e: Error) => toast({ title: "Não foi possível definir o mentor", description: e.message, variant: "destructive" }),
   });
 
-  // Quem está inativo na equipe, ou ainda não entra, não recebe aluno novo.
-  const disponiveis = equipe.filter((m) => (!m.cadastrado || m.ativo) && (m.estado ?? "ativo") === "ativo");
+  // Recebe aluno quem atende como mentor na equipe, ativo e com as duas
+  // etapas: o banco confere o mesmo em `equipe_arkefit` (ativo e mentor).
+  const disponiveis = equipe.filter((m) => m.cadastrado && m.ativo && m.mentor && (m.estado ?? "ativo") === "ativo");
+  const euAtendo = !!user && disponiveis.some((m) => m.user_id === user.id);
+
+  if (!socio) {
+    return (
+      <div className="flex flex-wrap items-center gap-2 text-sm">
+        <span className="text-muted-foreground">Mentor:</span>
+        <span className="font-medium">{mentorNome ?? "sem mentor"}</span>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-wrap items-center gap-2 text-sm">
       <span className="text-muted-foreground">Mentor:</span>
       <span className="font-medium">{mentorNome ?? "sem mentor"}</span>
-      {user && mentorId !== user.id && (
+      {user && euAtendo && mentorId !== user.id && (
         <Button size="sm" variant="outline" disabled={atribuir.isPending} onClick={() => atribuir.mutate(user.id)}>
           Assumir
         </Button>
       )}
-      {disponiveis.length > 1 && (
+      {disponiveis.filter((m) => m.user_id !== mentorId).length > 0 && (
         <Select value="" onValueChange={(v) => atribuir.mutate(v)}>
           <SelectTrigger className="h-8 w-[180px]" aria-label="Passar para outro mentor">
             <SelectValue placeholder="Passar para..." />

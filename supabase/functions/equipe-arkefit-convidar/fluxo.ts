@@ -30,10 +30,32 @@ export function acessoPorId(id: unknown): AcessoArkefit | null {
   return ACESSOS_ARKEFIT.find((a) => a.id === id) ?? null;
 }
 
-/** O nome do nível que tem exatamente estes papéis; os papéis, se nenhum tiver. */
-export function nomeDoAcesso(papeis: readonly string[]): string {
+/** Os níveis da equipe contratada (`equipe_arkefit.niveis`). */
+export type NivelArkefit = "suporte" | "mentor" | "comercial" | "financeiro";
+
+/**
+ * Espelho de `NIVEIS` (src/lib/acessosArkefit.ts), só com o que a função usa.
+ * `aberto`: o nível já pode ser dado, porque a área dele está no ar; o banco
+ * diz o mesmo em `niveis_arkefit_abertos()`. Nível nunca grava `user_roles`.
+ */
+export const NIVEIS: readonly { id: NivelArkefit; nome: string; aberto: boolean }[] = [
+  { id: "suporte", nome: "Suporte", aberto: true },
+  { id: "mentor", nome: "Mentor", aberto: true },
+  { id: "comercial", nome: "Comercial", aberto: false },
+  { id: "financeiro", nome: "Financeiro", aberto: false },
+];
+
+/** "Mentor e Suporte". */
+export function nomeDosNiveis(niveis: readonly string[]): string {
+  const nomes = NIVEIS.filter((n) => niveis.includes(n.id)).map((n) => n.nome);
+  return nomes.length <= 1 ? (nomes[0] ?? "") : `${nomes.slice(0, -1).join(", ")} e ${nomes[nomes.length - 1]}`;
+}
+
+/** O nome do acesso: o do Sócio pelos papéis, o da equipe pelos níveis; os papéis, se nada bater. */
+export function nomeDoAcesso(papeis: readonly string[], niveis: readonly string[] = []): string {
   const chave = (lista: readonly string[]) => [...new Set(lista)].sort().join(",");
-  return ACESSOS_ARKEFIT.find((a) => chave(a.papeis) === chave(papeis))?.nome ?? papeis.join(", ");
+  const socio = papeis.length ? ACESSOS_ARKEFIT.find((a) => chave(a.papeis) === chave(papeis))?.nome : undefined;
+  return socio ?? (nomeDosNiveis(niveis) || papeis.join(", "));
 }
 
 export const JA_TEM_CONTA =
@@ -46,11 +68,38 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export type Pedido =
+  // O Sócio: os papéis de `user_roles`.
   | { acao: "convidar"; nome: string; email: string; acesso: AcessoArkefit }
+  // A equipe contratada: os níveis, sem papel nenhum; o registro profissional é do Mentor.
+  | { acao: "convidar"; nome: string; email: string; niveis: NivelArkefit[]; cref: string | null; crn: string | null }
   | { acao: "reenviar"; userId: string }
   | { acao: "retirar"; userId: string };
 
 export type Leitura = { ok: true; pedido: Pedido } | { ok: false; erro: string };
+
+export const NIVEL_EM_BREVE = (nome: string) => `O nível ${nome} chega na próxima entrega. Por enquanto, convide com Mentor ou Suporte.`;
+
+/** Os níveis do pedido: os da lista, sem repetir, abertos; ou o erro, em texto. */
+function lerNiveisDoPedido(valor: unknown): NivelArkefit[] | string {
+  if (!Array.isArray(valor) || valor.length === 0) return "Escolha ao menos um nível.";
+  const niveis: NivelArkefit[] = [];
+  for (const v of valor) {
+    const nivel = NIVEIS.find((n) => n.id === v);
+    if (!nivel) return "Nível inválido.";
+    if (!nivel.aberto) return NIVEL_EM_BREVE(nivel.nome);
+    if (!niveis.includes(nivel.id)) niveis.push(nivel.id);
+  }
+  return niveis;
+}
+
+/** O registro profissional (CREF ou CRN), vazio vira nulo; os limites são os de `equipe_arkefit`. */
+function lerRegistro(valor: unknown, minimo: number): string | null | undefined {
+  if (valor === undefined || valor === null) return null;
+  if (typeof valor !== "string") return undefined;
+  const r = valor.trim().replace(/\s+/g, " ");
+  if (!r) return null;
+  return r.length >= minimo && r.length <= 30 ? r : undefined;
+}
 
 /** O corpo do pedido, conferido. Sem `acao`, é um convite (a tela manda sempre). */
 export function lerPedido(corpo: unknown): Leitura {
@@ -69,6 +118,19 @@ export function lerPedido(corpo: unknown): Leitura {
   if (nome.length < 2 || nome.length > 120) return { ok: false, erro: "Informe o nome de quem vai entrar (até 120 letras)." };
   const email = typeof c.email === "string" ? c.email.trim().toLowerCase() : "";
   if (!EMAIL_RE.test(email) || email.length > 254) return { ok: false, erro: "E-mail inválido." };
+
+  // Sócio ou equipe contratada, nunca os dois: o Sócio já abre tudo.
+  if (c.niveis !== undefined) {
+    if (c.acesso !== undefined) return { ok: false, erro: "Escolha Sócio ou os níveis, não os dois." };
+    const niveis = lerNiveisDoPedido(c.niveis);
+    if (typeof niveis === "string") return { ok: false, erro: niveis };
+    const mentor = niveis.includes("mentor");
+    const cref = mentor ? lerRegistro(c.cref, 4) : null;
+    const crn = mentor ? lerRegistro(c.crn, 3) : null;
+    if (cref === undefined) return { ok: false, erro: "CREF inválido (de 4 a 30 caracteres)." };
+    if (crn === undefined) return { ok: false, erro: "CRN inválido (de 3 a 30 caracteres)." };
+    return { ok: true, pedido: { acao, nome, email, niveis, cref, crn } };
+  }
   const acesso = acessoPorId(c.acesso);
   if (!acesso) return { ok: false, erro: "Escolha o acesso." };
   return { ok: true, pedido: { acao, nome, email, acesso } };

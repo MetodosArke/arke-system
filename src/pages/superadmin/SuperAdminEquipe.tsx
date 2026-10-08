@@ -7,14 +7,19 @@ import { mensagemDeErroEdge } from "@/lib/erroEdge";
 import {
   ACESSOS_ARKEFIT,
   EXPLICACAO_ESTADO,
+  NIVEIS,
   OUTROS_ACESSOS,
   ROTULO_ESTADO,
   acessoDosPapeis,
   estadoDaConta,
+  lerNiveis,
+  nomeDosNiveis,
+  type NivelArkefit,
 } from "@/lib/acessosArkefit";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
@@ -47,25 +52,45 @@ type MembroEquipe = {
   cadastrado: boolean;
   /** Desde 20261421010000; a função antiga não manda. */
   estado?: string | null;
+  /** Desde 20261422010000: os níveis da equipe contratada. */
+  niveis?: string[] | null;
 };
 
-type Edicao = { user_id: string; nome: string; mentor: boolean; cref: string; crn: string; ativo: boolean };
-type Convite = { nome: string; email: string; acesso: string };
+type Edicao = {
+  user_id: string;
+  nome: string;
+  /** Sócio (tem papel da ArkeFit): a chave "Atende como mentor"; sem papel: os níveis. */
+  socio: boolean;
+  mentor: boolean;
+  niveis: NivelArkefit[];
+  cref: string;
+  crn: string;
+  ativo: boolean;
+};
+type Convite = { nome: string; email: string; tipo: "socio" | "equipe"; niveis: NivelArkefit[]; cref: string; crn: string };
 
-const CONVITE_VAZIO: Convite = { nome: "", email: "", acesso: ACESSOS_ARKEFIT[0].id };
+// A equipe contratada é o caso comum; o Sócio é a escolha consciente.
+const CONVITE_VAZIO: Convite = { nome: "", email: "", tipo: "equipe", niveis: [], cref: "", crn: "" };
 const CHAVE_EQUIPE = ["superadmin-equipe-arkefit"];
 
+/** Liga ou desliga um nível na lista, na ordem de NIVEIS. */
+const alternarNivel = (lista: NivelArkefit[], nivel: NivelArkefit, ligado: boolean) =>
+  lerNiveis(ligado ? [...lista, nivel] : lista.filter((n) => n !== nivel));
+
 // Quem é da ArkeFit, com qual acesso, e quem atende o Método com qual
-// registro. O banco só deixa publicar treino de aluno do Método quem tem CREF
-// aqui, e dieta quem tem CRN: é esta tela que decide quem prescreve, por isso
-// cada mudança vai para a Auditoria. A lista traz toda conta com papel da
-// ArkeFit, cadastrada ou não.
+// registro. A lista traz o Sócio (os papéis `superadmin` e `admin_arke`) e a
+// equipe contratada (os níveis de `equipe_arkefit`: Suporte, Mentor e, na
+// entrega 2, Comercial e Financeiro). Nível nunca grava `user_roles`.
 //
 // Desde 08/10/2026 a equipe entra por convite de um sócio
 // (`equipe-arkefit-convidar`): a conta nasce sem senha, a senha nasce no link
 // do e-mail e a Visão Master pede as duas etapas antes de qualquer coisa. Tirar
-// o acesso tira os papéis e encerra as sessões, e nunca tira o próprio acesso
-// nem o último sócio (a regra mora no banco).
+// o acesso tira os papéis e os níveis e encerra as sessões, e nunca tira o
+// próprio acesso nem o último sócio (a regra mora no banco).
+//
+// O banco só deixa publicar treino de aluno do Método quem tem CREF aqui, e
+// dieta quem tem CRN; com a exigência desligada (fase de testes), a dispensa
+// vale só para o Sócio. Cada mudança vai para a Auditoria.
 export default function SuperAdminEquipe() {
   const { toast } = useToast();
   const { user } = useAuth();
@@ -100,6 +125,8 @@ export default function SuperAdminEquipe() {
         _cref: dados.cref.trim(),
         _crn: dados.crn.trim(),
         _ativo: dados.ativo,
+        // O Sócio não tem nível: o banco mantém os de hoje quando não vêm.
+        ...(dados.socio ? {} : { _niveis: dados.niveis }),
       });
       if (error) throw error;
     },
@@ -113,8 +140,18 @@ export default function SuperAdminEquipe() {
 
   const convidar = useMutation({
     mutationFn: async (dados: Convite) => {
+      const base = { acao: "convidar", nome: dados.nome.trim(), email: dados.email.trim() };
+      const corpo =
+        dados.tipo === "socio"
+          ? { ...base, acesso: "socio" }
+          : {
+              ...base,
+              niveis: dados.niveis,
+              // O registro profissional é do Mentor: a função ignora fora dele.
+              ...(dados.niveis.includes("mentor") ? { cref: dados.cref.trim(), crn: dados.crn.trim() } : {}),
+            };
       const { data, error } = await supabase.functions.invoke<{ socios_avisados?: boolean }>("equipe-arkefit-convidar", {
-        body: { acao: "convidar", nome: dados.nome.trim(), email: dados.email.trim(), acesso: dados.acesso },
+        body: corpo,
       });
       if (error) throw new Error(await mensagemDeErroEdge(error, "Não foi possível enviar o convite."));
       return data;
@@ -203,24 +240,33 @@ export default function SuperAdminEquipe() {
         title: ligar ? "Registro profissional exigido" : "Exigência desligada",
         description: ligar
           ? "A partir de agora só publica treino quem tem CREF, e dieta quem tem CRN."
-          : "Qualquer pessoa da equipe da ArkeFit publica treino e dieta do Método.",
+          : "Os sócios publicam treino e dieta do Método sem registro. O Mentor contratado segue precisando do CREF e do CRN.",
       });
       void queryClient.invalidateQueries({ queryKey: ["exigir-registro-metodo"] });
     },
     onError: (e: Error) => toast({ title: "Não foi possível mudar", description: e.message, variant: "destructive" }),
   });
 
-  const abrir = (m: MembroEquipe) =>
+  const abrir = (m: MembroEquipe) => {
+    const socio = (m.papeis ?? []).length > 0;
     setEdicao({
       user_id: m.user_id,
       nome: m.nome,
+      socio,
       mentor: m.cadastrado ? m.mentor : true,
+      niveis: lerNiveis(m.niveis),
       cref: m.cref ?? "",
       crn: m.crn ?? "",
       ativo: m.cadastrado ? m.ativo : true,
     });
+  };
 
-  const conviteValido = !!convite && convite.nome.trim().length >= 2 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(convite.email.trim());
+  const conviteValido =
+    !!convite &&
+    convite.nome.trim().length >= 2 &&
+    /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(convite.email.trim()) &&
+    (convite.tipo === "socio" || convite.niveis.length > 0);
+  const edicaoValida = !!edicao && (edicao.socio || edicao.niveis.length > 0);
 
   return (
     <div className="space-y-4 max-w-5xl mx-auto">
@@ -238,20 +284,21 @@ export default function SuperAdminEquipe() {
         </div>
       </div>
       <p className="text-xs text-muted-foreground">
-        Quem é da ArkeFit e com qual acesso. Para o Método ARKE: publicar treino de aluno do Método exige CREF, e
-        publicar dieta exige CRN. Quem não tem registro acompanha e conversa, mas não prescreve.
+        Quem é da ArkeFit e com qual acesso: Sócio (a Visão Master inteira) ou os níveis da equipe contratada (Suporte e
+        Mentor; Comercial e Financeiro chegam na próxima entrega). Para o Método ARKE: publicar treino de aluno do Método
+        exige CREF, e publicar dieta exige CRN. Quem não tem registro acompanha e conversa, mas não prescreve.
       </p>
 
       <Card>
         <CardContent className="flex flex-wrap items-center justify-between gap-3 py-4">
           <div className="space-y-0.5">
             <Label htmlFor="exigir-registro" className="text-sm font-medium">
-              Exigir CREF e CRN para prescrever
+              Exigir CREF e CRN dos sócios para prescrever
             </Label>
             <p className="text-xs text-muted-foreground">
               {exigeRegistro
                 ? "Ligado: só publica treino quem tem CREF cadastrado, e dieta quem tem CRN."
-                : "Desligado, para a fase de testes: qualquer pessoa da equipe da ArkeFit publica. O registro, quando cadastrado, fica gravado na prescrição."}
+                : "Desligado, para a fase de testes: os sócios publicam sem registro. O Mentor contratado prescreve sempre com o registro, mesmo desligado."}
             </p>
           </div>
           <Switch
@@ -278,6 +325,8 @@ export default function SuperAdminEquipe() {
             {equipe.map((m) => {
               const estado = estadoDaConta(m.estado);
               const acesso = acessoDosPapeis(m.papeis ?? []);
+              const niveis = lerNiveis(m.niveis);
+              const rotulo = acesso?.nome ?? (niveis.length ? nomeDosNiveis(niveis) : (m.papeis ?? []).join(", "));
               const euMesmo = m.user_id === user?.id;
               return (
                 <li key={m.user_id} className="flex flex-wrap items-center justify-between gap-3 p-3">
@@ -288,7 +337,7 @@ export default function SuperAdminEquipe() {
                     </p>
                     <p className="text-xs text-muted-foreground break-all">{m.email}</p>
                     <div className="flex flex-wrap gap-1.5">
-                      <Badge variant="outline">{acesso?.nome ?? (m.papeis ?? []).join(", ")}</Badge>
+                      <Badge variant="outline">{rotulo}</Badge>
                       {estado && (
                         <Badge variant={estado === "ativo" ? "secondary" : "outline"} title={EXPLICACAO_ESTADO[estado]}>
                           {ROTULO_ESTADO[estado]}
@@ -296,7 +345,7 @@ export default function SuperAdminEquipe() {
                       )}
                       {!m.cadastrado && <Badge variant="outline">Sem cadastro na equipe</Badge>}
                       {m.cadastrado && !m.ativo && <Badge variant="secondary">Inativo</Badge>}
-                      {m.cadastrado && m.ativo && m.mentor && <Badge>Mentor</Badge>}
+                      {m.cadastrado && m.ativo && m.mentor && acesso && <Badge>Atende como mentor</Badge>}
                       {m.cref && <Badge variant="secondary">CREF {m.cref}</Badge>}
                       {m.crn && <Badge variant="secondary">CRN {m.crn}</Badge>}
                     </div>
@@ -334,14 +383,14 @@ export default function SuperAdminEquipe() {
               );
             })}
             {!isLoading && !error && equipe.length === 0 && (
-              <li className="p-4 text-center text-sm text-muted-foreground">Nenhuma conta com papel da ArkeFit.</li>
+              <li className="p-4 text-center text-sm text-muted-foreground">Nenhuma conta com acesso da ArkeFit.</li>
             )}
           </ul>
         </CardContent>
       </Card>
 
       <Dialog open={!!convite} onOpenChange={(aberto) => !aberto && !convidar.isPending && setConvite(null)}>
-        <DialogContent>
+        <DialogContent className="max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Convidar para a equipe</DialogTitle>
             <DialogDescription>
@@ -382,7 +431,19 @@ export default function SuperAdminEquipe() {
               </div>
               <fieldset className="space-y-2">
                 <legend className="text-sm font-medium">Acesso</legend>
-                <RadioGroup value={convite.acesso} onValueChange={(v) => setConvite({ ...convite, acesso: v })}>
+                <RadioGroup
+                  value={convite.tipo}
+                  onValueChange={(v) => setConvite({ ...convite, tipo: v === "socio" ? "socio" : "equipe" })}
+                >
+                  <div className="flex items-start gap-2 rounded-md border p-3">
+                    <RadioGroupItem id="acesso-equipe" value="equipe" className="mt-0.5" />
+                    <Label htmlFor="acesso-equipe" className="space-y-0.5 font-normal">
+                      <span className="block text-sm font-medium">Equipe contratada</span>
+                      <span className="block text-xs text-muted-foreground">
+                        Os níveis abaixo: cada um abre só as áreas dele. Pode marcar mais de um.
+                      </span>
+                    </Label>
+                  </div>
                   {ACESSOS_ARKEFIT.map((a) => (
                     <div key={a.id} className="flex items-start gap-2 rounded-md border p-3">
                       <RadioGroupItem id={`acesso-${a.id}`} value={a.id} className="mt-0.5" />
@@ -393,8 +454,58 @@ export default function SuperAdminEquipe() {
                     </div>
                   ))}
                 </RadioGroup>
-                <p className="text-xs text-muted-foreground">{OUTROS_ACESSOS}</p>
               </fieldset>
+              {convite.tipo === "equipe" && (
+                <fieldset className="space-y-2">
+                  <legend className="text-sm font-medium">Níveis</legend>
+                  {NIVEIS.map((n) => (
+                    <div key={n.id} className="flex items-start gap-2 rounded-md border p-3">
+                      <Checkbox
+                        id={`nivel-${n.id}`}
+                        className="mt-0.5"
+                        disabled={!n.aberto}
+                        checked={convite.niveis.includes(n.id)}
+                        onCheckedChange={(v) => setConvite({ ...convite, niveis: alternarNivel(convite.niveis, n.id, v === true) })}
+                      />
+                      <Label htmlFor={`nivel-${n.id}`} className="space-y-0.5 font-normal">
+                        <span className="flex items-center gap-1.5 text-sm font-medium">
+                          {n.nome}
+                          {!n.aberto && <Badge variant="outline">Em breve</Badge>}
+                        </span>
+                        <span className="block text-xs text-muted-foreground">{n.descricao}</span>
+                        <span className="block text-xs text-muted-foreground">{n.nunca}</span>
+                      </Label>
+                    </div>
+                  ))}
+                  <p className="text-xs text-muted-foreground">{OUTROS_ACESSOS}</p>
+                </fieldset>
+              )}
+              {convite.tipo === "equipe" && convite.niveis.includes("mentor") && (
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="convite-cref">CREF (para prescrever treino)</Label>
+                    <Input
+                      id="convite-cref"
+                      placeholder="ex.: 012345-G/SP"
+                      value={convite.cref}
+                      onChange={(e) => setConvite({ ...convite, cref: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="convite-crn">CRN (para prescrever dieta)</Label>
+                    <Input
+                      id="convite-crn"
+                      placeholder="ex.: CRN-3 12345"
+                      value={convite.crn}
+                      onChange={(e) => setConvite({ ...convite, crn: e.target.value })}
+                    />
+                  </div>
+                  <p className="text-xs text-muted-foreground sm:col-span-2">
+                    Opcional agora, e editável depois. Sem o registro, o Mentor acompanha e conversa, mas não publica treino
+                    nem dieta.
+                  </p>
+                </div>
+              )}
             </form>
           )}
           <DialogFooter>
@@ -413,9 +524,9 @@ export default function SuperAdminEquipe() {
           <AlertDialogHeader>
             <AlertDialogTitle>Tirar o acesso de {retirando?.nome}?</AlertDialogTitle>
             <AlertDialogDescription>
-              A pessoa perde todo o acesso da ArkeFit agora, e as sessões abertas dela caem. A conta continua existindo,
-              sem acesso, e o que ela publicou continua valendo. Os outros sócios recebem um aviso por e-mail, e a
-              retirada fica na Auditoria.
+              A pessoa perde todo o acesso da ArkeFit agora (os papéis e os níveis), e as sessões abertas dela caem. A conta
+              continua existindo, sem acesso, e o que ela publicou continua valendo. Os outros sócios recebem um aviso por
+              e-mail, e a retirada fica na Auditoria.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -435,23 +546,49 @@ export default function SuperAdminEquipe() {
       </AlertDialog>
 
       <Dialog open={!!edicao} onOpenChange={(aberto) => !aberto && setEdicao(null)}>
-        <DialogContent>
+        <DialogContent className="max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{edicao?.nome}</DialogTitle>
             <DialogDescription>
-              O registro profissional é o que libera a prescrição para os alunos do Método.
+              {edicao?.socio
+                ? "O registro profissional é o que libera a prescrição para os alunos do Método."
+                : "Os níveis dizem o que a pessoa abre na Visão Master; o registro profissional libera a prescrição do Mentor."}
             </DialogDescription>
           </DialogHeader>
           {edicao && (
             <div className="space-y-4">
-              <div className="flex items-center justify-between gap-3">
-                <Label htmlFor="equipe-mentor">Atende como mentor</Label>
-                <Switch
-                  id="equipe-mentor"
-                  checked={edicao.mentor}
-                  onCheckedChange={(v) => setEdicao({ ...edicao, mentor: v })}
-                />
-              </div>
+              {edicao.socio ? (
+                <div className="flex items-center justify-between gap-3">
+                  <Label htmlFor="equipe-mentor">Atende como mentor</Label>
+                  <Switch
+                    id="equipe-mentor"
+                    checked={edicao.mentor}
+                    onCheckedChange={(v) => setEdicao({ ...edicao, mentor: v })}
+                  />
+                </div>
+              ) : (
+                <fieldset className="space-y-2">
+                  <legend className="text-sm font-medium">Níveis</legend>
+                  {NIVEIS.map((n) => (
+                    <div key={n.id} className="flex items-center gap-2">
+                      <Checkbox
+                        id={`editar-nivel-${n.id}`}
+                        disabled={!n.aberto && !edicao.niveis.includes(n.id)}
+                        checked={edicao.niveis.includes(n.id)}
+                        onCheckedChange={(v) => setEdicao({ ...edicao, niveis: alternarNivel(edicao.niveis, n.id, v === true) })}
+                      />
+                      <Label htmlFor={`editar-nivel-${n.id}`} className="flex items-center gap-1.5 font-normal">
+                        {n.nome}
+                        {!n.aberto && <Badge variant="outline">Em breve</Badge>}
+                      </Label>
+                    </div>
+                  ))}
+                  <p className="text-xs text-muted-foreground">
+                    Ao menos um nível. Para tirar todo o acesso, use “Tirar o acesso” na lista: as sessões caem e os sócios
+                    são avisados.
+                  </p>
+                </fieldset>
+              )}
               <div className="space-y-1.5">
                 <Label htmlFor="equipe-cref">CREF (para prescrever treino)</Label>
                 <Input
@@ -479,8 +616,8 @@ export default function SuperAdminEquipe() {
                 />
               </div>
               <p className="text-xs text-muted-foreground">
-                Inativo não prescreve para ninguém, mesmo com registro. O que já foi publicado continua valendo. Para
-                tirar todo o acesso da ArkeFit, use “Tirar o acesso” na lista.
+                Inativo não prescreve para ninguém, mesmo com registro, e o nível dele não abre nada. O que já foi publicado
+                continua valendo. Para tirar todo o acesso da ArkeFit, use “Tirar o acesso” na lista.
               </p>
             </div>
           )}
@@ -488,7 +625,7 @@ export default function SuperAdminEquipe() {
             <Button variant="outline" onClick={() => setEdicao(null)}>
               Cancelar
             </Button>
-            <Button onClick={() => edicao && salvar.mutate(edicao)} disabled={salvar.isPending}>
+            <Button onClick={() => edicao && salvar.mutate(edicao)} disabled={!edicaoValida || salvar.isPending}>
               {salvar.isPending ? "Salvando..." : "Salvar"}
             </Button>
           </DialogFooter>

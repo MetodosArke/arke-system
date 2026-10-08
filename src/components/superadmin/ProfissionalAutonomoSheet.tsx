@@ -38,6 +38,7 @@ import { MensalidadeB2bOrganizacao } from "@/components/superadmin/MensalidadeB2
 import { CobrancaContaAcademiaOrganizacao } from "@/components/superadmin/CobrancaContaAcademiaOrganizacao";
 import { EncerramentoOrganizacao } from "@/components/superadmin/EncerramentoOrganizacao";
 import { CalendarX, KeyRound, ListChecks, Pencil, Receipt, Trash2, UserRound, Users } from "lucide-react";
+import { useAcessoArkefit } from "@/hooks/useAcessoArkefit";
 
 const CHAVE_LISTA = ["superadmin-profissionais-autonomos"];
 
@@ -70,6 +71,13 @@ export function ProfissionalAutonomoSheet({
 
 function Ficha({ p, onExcluido }: { p: ProfissionalAutonomo; onExcluido: () => void }) {
   const acesso = situacaoAcesso(p);
+  // Os níveis da equipe ArkeFit: a ficha abre com a carteira; editar e
+  // convidar são do cadastro; o dinheiro, do financeiro; o link de ativação,
+  // o e-mail de login, excluir e encerrar, do Sócio.
+  const { pode } = useAcessoArkefit();
+  const cadastro = pode("cadastro");
+  const socio = pode("socio");
+  const financeiro = pode("financeiro");
   return (
     <>
       <SheetHeader className="text-left space-y-2">
@@ -87,12 +95,14 @@ function Ficha({ p, onExcluido }: { p: ProfissionalAutonomo; onExcluido: () => v
       <Separator className="my-4" />
 
       <div className="space-y-5">
-        <Bloco titulo="Painel e responsável" icon={Pencil}>
-          <EditarPainel p={p} />
-        </Bloco>
+        {cadastro && (
+          <Bloco titulo="Painel e responsável" icon={Pencil}>
+            <EditarPainel p={p} />
+          </Bloco>
+        )}
 
         <Bloco titulo="Acesso do responsável" icon={KeyRound}>
-          <AcessoResponsavel p={p} />
+          <AcessoResponsavel p={p} cadastro={cadastro} socio={socio} />
         </Bloco>
 
         <Bloco titulo="Alunos e parceria" icon={Users}>
@@ -123,19 +133,25 @@ function Ficha({ p, onExcluido }: { p: ProfissionalAutonomo; onExcluido: () => v
           </Link>
         </Bloco>
 
-        <Bloco titulo="Mensalidade do ArkeFit" icon={Receipt}>
-          <MensalidadeB2bOrganizacao organizationId={p.organization_id} />
-        </Bloco>
+        {financeiro && (
+          <>
+            <Bloco titulo="Mensalidade do ArkeFit" icon={Receipt}>
+              <MensalidadeB2bOrganizacao organizationId={p.organization_id} />
+            </Bloco>
 
-        <Bloco titulo="Conta das cobranças" icon={Receipt}>
-          <CobrancaContaAcademiaOrganizacao organizationId={p.organization_id} />
-        </Bloco>
+            <Bloco titulo="Conta das cobranças" icon={Receipt}>
+              <CobrancaContaAcademiaOrganizacao organizationId={p.organization_id} />
+            </Bloco>
+          </>
+        )}
 
-        <Bloco titulo={p.pode_excluir ? "Excluir o painel" : "Encerramento"} icon={p.pode_excluir ? Trash2 : CalendarX}>
-          {p.pode_excluir ? <ExcluirPainel p={p} onExcluido={onExcluido} /> : (
-            <EncerramentoOrganizacao organizationId={p.organization_id} status={p.status} />
-          )}
-        </Bloco>
+        {socio && (
+          <Bloco titulo={p.pode_excluir ? "Excluir o painel" : "Encerramento"} icon={p.pode_excluir ? Trash2 : CalendarX}>
+            {p.pode_excluir ? <ExcluirPainel p={p} onExcluido={onExcluido} /> : (
+              <EncerramentoOrganizacao organizationId={p.organization_id} status={p.status} />
+            )}
+          </Bloco>
+        )}
       </div>
     </>
   );
@@ -226,11 +242,13 @@ function EditarPainel({ p }: { p: ProfissionalAutonomo }) {
   );
 }
 
-function AcessoResponsavel({ p }: { p: ProfissionalAutonomo }) {
+function AcessoResponsavel({ p, cadastro, socio }: { p: ProfissionalAutonomo; cadastro: boolean; socio: boolean }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const acesso = situacaoAcesso(p);
-  const [formAberto, setFormAberto] = useState<"responsavel" | "email" | null>(acesso === "sem_responsavel" ? "responsavel" : null);
+  const [formAberto, setFormAberto] = useState<"responsavel" | "email" | null>(
+    cadastro && acesso === "sem_responsavel" ? "responsavel" : null,
+  );
   const [form, setForm] = useState({ full_name: "", email: "", telefone: "" });
   const [novoEmail, setNovoEmail] = useState("");
 
@@ -331,14 +349,16 @@ function AcessoResponsavel({ p }: { p: ProfissionalAutonomo }) {
         </div>
       )}
 
-      {acesso === "convite_pendente" && (
+      {acesso === "convite_pendente" && (cadastro || socio) && (
         <div className="flex flex-wrap gap-2">
-          <Button size="sm" variant="outline" disabled={reenviar.isPending} onClick={() => reenviar.mutate()}>
-            {reenviar.isPending ? "Enviando..." : "Reenviar acesso por e-mail"}
-          </Button>
+          {cadastro && (
+            <Button size="sm" variant="outline" disabled={reenviar.isPending} onClick={() => reenviar.mutate()}>
+              {reenviar.isPending ? "Enviando..." : "Reenviar acesso por e-mail"}
+            </Button>
+          )}
           {/* O link copiado abre a conta para quem o tiver: só de quem nunca entrou. A conta que já
               existia (pendente) recebe o link no e-mail dela, que é o que prova que o e-mail é seu. */}
-          {!p.ultimo_acesso && (
+          {socio && !p.ultimo_acesso && (
             <Button size="sm" variant="outline" disabled={copiarLink.isPending} onClick={() => copiarLink.mutate()}>
               Copiar link de ativação
             </Button>
@@ -353,12 +373,12 @@ function AcessoResponsavel({ p }: { p: ProfissionalAutonomo }) {
       )}
 
       <div className="flex flex-wrap gap-2">
-        {podeTrocarResponsavel(p) && acesso !== "sem_responsavel" && formAberto !== "responsavel" && (
+        {cadastro && podeTrocarResponsavel(p) && acesso !== "sem_responsavel" && formAberto !== "responsavel" && (
           <Button size="sm" variant="ghost" onClick={() => setFormAberto("responsavel")}>
             Trocar o responsável (e-mail errado)
           </Button>
         )}
-        {acesso === "ativo" && formAberto !== "email" && (
+        {socio && acesso === "ativo" && formAberto !== "email" && (
           <Button size="sm" variant="ghost" onClick={() => setFormAberto("email")}>
             Alterar e-mail de login
           </Button>

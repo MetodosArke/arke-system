@@ -1,3 +1,4 @@
+import { BotaoMeuCadastro } from "@/components/superadmin/CadastroEquipeArkefit";
 import { useState } from "react";
 import { ChevronLeft, CircleHelp, Cpu, Dumbbell, Kanban, LayoutDashboard, LifeBuoy, LogOut, Menu, MessageCircle, Radar, Rocket, ScrollText, Settings, Shield, Sparkles, UserCog, UsersRound, Webhook } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
@@ -7,6 +8,7 @@ import { useAdminSidebar } from "@/contexts/AdminSidebarContext";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { MarcaArkeFit } from "@/components/marca/MarcaArkeFit";
+import { podeAbrirNaVisaoMaster, type AcessoDaPessoa } from "@/lib/acessosArkefit";
 
 type MenuItem = { icon: typeof LayoutDashboard; label: string; path: string };
 
@@ -46,6 +48,13 @@ export const SECOES_SUPERADMIN: { label: string; items: MenuItem[] }[] = [
   },
 ];
 
+/** As seções do menu com os itens que o acesso abre (a seção vazia sai). */
+function menuDaVisaoMaster(acesso: AcessoDaPessoa) {
+  return SECOES_SUPERADMIN.map((s) => ({ ...s, items: s.items.filter((i) => podeAbrirNaVisaoMaster(i.path, acesso)) })).filter(
+    (s) => s.items.length > 0,
+  );
+}
+
 function SidebarNav({
   collapsed,
   onCollapse,
@@ -57,7 +66,10 @@ function SidebarNav({
 }) {
   const location = useLocation();
   const navigate = useNavigate();
-  const { signOut } = useAuth();
+  const { signOut, acessoArkefit } = useAuth();
+  // Cada um vê no menu só o que o nível dele abre (a mesma tabela do portão de
+  // cada rota); a seção sem item nenhum some.
+  const secoes = menuDaVisaoMaster(acessoArkefit);
 
   const handleNav = (path: string) => {
     navigate(path);
@@ -92,7 +104,7 @@ function SidebarNav({
       </div>
 
       <nav className="flex-1 space-y-4 p-2 overflow-y-auto">
-        {SECOES_SUPERADMIN.map((section) => (
+        {secoes.map((section) => (
           <div key={section.label} className="space-y-1">
             {!collapsed && (
               <p className="px-3 pt-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70">
@@ -127,6 +139,9 @@ function SidebarNav({
       </nav>
 
       <div className="border-t border-border p-2 space-y-1">
+        {/* O próprio cadastro, para qualquer nível: quem não é sócio não abre a
+            tela da Equipe, e este é o caminho até os próprios dados. */}
+        {!collapsed && <BotaoMeuCadastro className="w-full justify-start" />}
         <button
           onClick={() => handleNav("/superadmin/ajuda")}
           title={collapsed ? "Ajuda" : undefined}
