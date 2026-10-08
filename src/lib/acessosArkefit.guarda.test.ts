@@ -522,14 +522,16 @@ function equipeMetodoSolto(sqls: string[] = textos): string[] {
 }
 
 describe("equipe_metodo() uma vez por consulta", () => {
+  // Leem as regras vigentes de todas as migrations: no CI passam dos 5 s
+  // padrão, como as outras guardas que leem a reconstrução.
   it("nenhuma regra o chama linha a linha", () => {
     expect(equipeMetodoSolto()).toEqual([]);
-  });
+  }, 30_000);
 
   it("o leitor acha a regra nova que o chama solto (a trava trava)", () => {
     const solta = [...textos, `alter policy "leitura" on public.treinos using (public.equipe_metodo() and public.aluno_no_metodo(aluno_id));`];
     expect(equipeMetodoSolto(solta)).toEqual(['public.treinos "leitura" (using)']);
-  });
+  }, 30_000);
 });
 
 // ── O termo do Mentor nas regras ───────────────────────────────────────────
