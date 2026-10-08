@@ -431,7 +431,15 @@ export const ARTIGOS: ArtigoAjuda[] = [
     resumo: "A fila da célula, as três saídas de um chamado, o painel de SLA e quem da equipe pode prescrever.",
     secao: "Visão Master",
     publicos: ["arkefit"],
-    rotas: ["/superadmin/mentoria", "/superadmin/equipe"],
+    rotas: ["/superadmin/mentoria"],
+  },
+  {
+    slug: "vm-equipe-arkefit",
+    titulo: "Equipe ArkeFit: convidar e tirar o acesso",
+    resumo: "Convidar um sócio, o que a pessoa recebe, as duas etapas, o estado de cada conta e como tirar o acesso.",
+    secao: "Visão Master",
+    publicos: ["arkefit"],
+    rotas: ["/superadmin/equipe"],
   },
   {
     slug: "vm-equipamentos",

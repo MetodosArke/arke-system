@@ -2,7 +2,7 @@ A Visão Master enxerga todas as academias, e por isso exige **verificação em 
 
 ## O primeiro acesso
 
-1. Entre com e-mail e senha.
+1. Entre com e-mail e senha. Quem chegou por convite (veja [Equipe ArkeFit](ajuda:vm-equipe-arkefit)) cria a senha pelo link do e-mail e já cai aqui.
 2. A tela **Verificação em duas etapas** mostra um QR Code. Abra o aplicativo autenticador e escaneie. Sem câmera, digite no aplicativo o código mostrado abaixo do QR.
 3. Digite o código de 6 dígitos que o aplicativo mostra. Pronto.
 
