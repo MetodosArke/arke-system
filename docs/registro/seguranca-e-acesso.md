@@ -784,9 +784,12 @@ Oito achados "baixos" da auditoria de prontidão. Migrations `20261408010000` e 
     - sem a migration: as 3 sequências do Vigia sem o uso para a service role;
     - com a migration: 8 sequências, todas com o uso.
   - **Depois, nada gravado:** a aluna e2e seguiu lá, e a regra e a permissão de exclusão seguiam no ar até aplicar.
-- **Falta, porque esta frente não toca produção:**
-  - aplicar as duas migrations;
-  - publicar as 8 funções e `assistente-academia` (o índice da Central mudou), e o app;
-  - a corrente real: desativar uma catraca da homologação e conferir o 403 da sincronização e o sinal de vida; convidar com um e-mail inválido e conferir a mensagem nossa; e mandar um e-mail de recuperação de senha;
-  - a tela: o artigo das Catracas na Central;
-  - o item 7, para decidir.
+- **A publicação (07 e 08/10/2026):**
+  - as duas migrations;
+  - as 9 funções: `catraca-sincronizar-alunos` v28, `send-email` v26, `criar-organizacao-superadmin` v28, `convidar-membro` v31, `editar-membro-equipe` v32, `superadmin-suporte-tenant` v29, `vapid-public-key` v23, `vigia-aprovar` v13 e `assistente-academia` v32;
+  - o app (#357). Desta vez a Vercel publicou sozinha.
+- **A corrente real:**
+  - **O e-mail do login pela versão nova do `send-email`:** a recuperação de senha de uma conta temporária respondeu 200, e o Resend entregou "Redefinir sua senha do ArkeFit".
+  - **A catraca:** com um equipamento temporário na homologação, a inativa recebeu 403 "Dispositivo inativo.", sem a lista, e o sinal de vida foi gravado; ativada, a lista saiu (200). O equipamento foi apagado.
+  - **O convite com e-mail que o Auth recusa:** não foi pela corrente real, de propósito. Para o Auth recusar, o convite sairia para um endereço que não existe, e o e-mail devolvido pesa na reputação de envio do domínio. Ficam a guarda `respostaSemErroInterno` e os testes do tradutor.
+- **O item 7:** decidido em 08/10/2026, com a recepção em modo essencial (ver `docs/registro/cobranca.md`).
