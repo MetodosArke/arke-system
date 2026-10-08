@@ -1036,3 +1036,117 @@ O pedido do responsável: "Pode colocar botões de edição da equipe ArkeFit, c
 - **O "Meu cadastro" no menu** da Visão Master: o menu é do trabalho dos níveis. A peça está pronta (`BotaoMeuCadastro`, ou `<FichaCadastroEquipe userId={user.id} />` numa página).
 - **A troca do e-mail de login** da equipe ArkeFit, fora do pedido.
 - **O texto da Política de Privacidade**: documento legal tem a própria regra de versão e hash. A sugestão está em `docs/DECISOES_PENDENTES.md`.
+
+## Os níveis da equipe ArkeFit, entrega 1: a base, o Mentor e o Suporte (08/10/2026)
+
+A decisão do responsável de 08/10/2026: a equipe contratada pela ArkeFit ganha os níveis **Suporte**, **Comercial**, **Mentor** e **Financeiro**, além do **Sócio**, que já existia. Esta entrega junta os lotes 1 a 4 do mapa: a base, o app, o Mentor e o Suporte. Comercial e Financeiro ficam na lista, marcados "em breve", e chegam na entrega 2 (`docs/DECISOES_PENDENTES.md`). Migrations `20261422010000_niveis_arkefit_fundacao.sql` (lote 1), `20261423010000_niveis_arkefit_mentor.sql` (lote 3) e `20261424010000_niveis_arkefit_suporte.sql` (lote 4); o lote 2 é o app, sem migration. Funções: `equipe-arkefit-convidar`, `mentor-sugerir-resposta`, `sentinela-anamnese` e `superadmin-suporte-tenant`, com o módulo novo `_shared/acessoArkefit.ts`.
+
+**O desenho.**
+- **O nível mora em `equipe_arkefit.niveis`** (uma lista: a pessoa pode ter mais de um). **Nível nunca grava `user_roles`**: só o Sócio tem `superadmin` e `admin_arke`. Papel novo no enum `app_role` ficou de fora: as regras de RLS citam papéis pelo nome, o `admin_arke` é gestor de toda academia, valor de enum não se remove e `add value` não roda na mesma transação.
+- **Uma pergunta só no banco: `acesso_arkefit(área)`**, com oito áreas (`carteira`, `cadastro`, `comercial`, `suporte`, `operacao`, `mentoria`, `financeiro`, `socio`). O Sócio (`has_role` superadmin, que já exige as duas etapas) passa em todas. O nível passa só com a sessão verificada (aal2), ativo, fora de sessão simulada, e só nas áreas dele. Área desconhecida é erro 22023, e não "não". No RLS ela vai sempre como `(select public.acesso_arkefit('x'))`.
+- **O espelho no app** é `src/lib/acessosArkefit.ts`: `NIVEIS` (com `aberto`), `NIVEIS_DA_AREA` (o mesmo `case`), `podeArea`, `ROTAS_DA_VISAO_MASTER`, `CHAMADAS_DA_VISAO_MASTER` e `rotaInicial`. A função do convite tem o espelho dos níveis em `fluxo.ts`.
+- **Ninguém recebe nível antes de a área dele estar no ar.** `niveis_arkefit_abertos()` nasce vazia no lote 1; o lote 3 abre o Mentor e o lote 4, o Suporte. O salvar e o convite gravado recusam o nível fechado (22023), e a função do convite e a tela também.
+
+**O que mudou, lote por lote.**
+- **Lote 1, a base:**
+  - a coluna `niveis` (só os quatro valores), `acesso_arkefit()` e `niveis_arkefit_abertos()`;
+  - `equipe_metodo()` passou a ser o Mentor ou o Admin ARKE, `security definer` (a regra de leitura de `equipe_arkefit` a chama, e ela lê `equipe_arkefit`), e responde sem ler tabela na sessão só com a senha;
+  - **a própria linha**: cada um lê a sua linha de `equipe_arkefit`, mesmo antes das duas etapas, para o app saber que a conta é da equipe e pedir o aplicativo autenticador. A equipe do Método se enxerga como antes, e o Sócio lê tudo;
+  - a lista da equipe traz o Sócio e quem tem nível, com a coluna `niveis`; o salvar recebe `_niveis` (nulo mantém, para a tela publicada), recusa nível no Sócio, nível fechado e tirar todos os níveis (isso é a retirada, que derruba as sessões e avisa os sócios); o Mentor contratado é `mentor` exatamente quando tem o nível;
+  - o convite gravado recebe `_niveis`, `_cref` e `_crn`: papel (Sócio) ou nível (equipe contratada), nunca os dois; o registro profissional só no Mentor; a auditoria com os níveis;
+  - a retirada zera os níveis e inativa também quem só tem nível; o reenvio acha a conta só com nível.
+- **Lote 2, o app:**
+  - o `AuthContext` lê a própria linha (`niveis`, `ativo`) junto com `user_roles`;
+  - **o portão** (`PortaoVisaoMaster`): entra quem é Sócio ou tem nível ativo, sempre com as duas etapas, inclusive o cadastro do aplicativo na primeira entrada. Cada página passa pelo `PortaoDaRotaVisaoMaster`, pela mesma tabela do menu; rota fora da tabela não abre;
+  - a rota inicial: o Mentor vai para a Mentoria; o Suporte, para a Visão Geral (`resolveHomePath` recebe os níveis);
+  - o menu mostra só o que o nível abre, e o cabeçalho diz o acesso ("Sócio", "Mentor e Suporte");
+  - **as telas** escondem o que é de outra área e não disparam a consulta dela (`useAcessoArkefit`): na Visão Geral, a simulação, a adoção, suspender e excluir são do Sócio; os indicadores, a receita, o MRR, as atrasadas, o plano e o faturamento, do financeiro; o funil, do comercial; nova organização e editar, do cadastro; o token do Gateway, da operação. Na ficha da organização, a atividade, o trial e o encerramento são do Sócio, e o dinheiro, do financeiro. No Vigia, aprovar, dispensar, ligar e o modo das regras são do Sócio. Na Implantação, o interruptor do Bruno. Na Mentoria, a aba Operação. Na ficha do aluno, definir o mentor. Nos Profissionais, convidar e editar são do cadastro, e o link de ativação, o e-mail de login e excluir, do Sócio. Em Equipamentos, o detalhe do Gateway e as ordens remotas, do Sócio. Em Webhooks, os avisos do Asaas e a reconciliação, do financeiro (o Suporte vê só as rotinas). No layout, a faixa de aviso é da operação, e a reconciliação dentro dela, do financeiro;
+  - **a tela Equipe ArkeFit**: o convite escolhe Sócio ou equipe contratada, com os níveis (Comercial e Financeiro "Em breve", desabilitados) e o CREF e o CRN quando o Mentor é marcado; a lista mostra os níveis; a edição troca os níveis da equipe contratada (o Sócio segue com "Atende como mentor"); a chave do registro passou a dizer que a dispensa é só dos sócios.
+- **Lote 3, o Mentor** (só o aluno do Método; o Free é da academia, e quem sai do Método sai do Mentor):
+  - as regras de `tarefas` (4: só as da ArkeFit, com aluno do Método), `mensagens_mentor` (3; na inclusão, só como `mentor`), `sentinela_sugestoes` (2), `aluno_consentimento_ia` e `aluno_fase_historico` ganham o termo do Mentor. O resumo da anamnese (`sentinela_anamnese`) já tinha, desde `20261360`, `equipe_metodo() and aluno_no_metodo(...)`, e o Mentor entra por ali. Ele não ganha `admin_arke`, então nada do que a academia inteira vê pelo Admin ARKE chega a ele (dinheiro, organizações, papéis, a carteira);
+  - a fila de conversas (`get_superadmin_fila_mentor`), a de chamados (`get_fila_mentor`), a instrução presencial e a jornada perguntam pela área `mentoria`, e, para quem não é Sócio, só com o aluno do Método;
+  - a ficha (`get_ficha_mentor`) mostra ao Mentor só os chamados da ArkeFit e a instrução presencial (a cobrança e o atestado são da academia);
+  - **o registro sempre exigido de quem não é Sócio**: `pode_prescrever_*` e o gatilho `definir_dono_da_prescricao` dispensam o CREF e o CRN só para o Sócio, com `exigir_registro_metodo` em 0;
+  - **atribuir o mentor** passou a ser do Sócio, e o mentor atribuído é conferido em `equipe_arkefit` (ativo e `mentor`), e não em `user_roles`;
+  - as funções `mentor-sugerir-resposta` e `sentinela-anamnese` perguntam a área `mentoria` ao banco (`acessoArkefit`) e conferem o aluno do Método (correção autorizada com o Sentinela congelado).
+- **Lote 4, o Suporte:**
+  - `carteira`: a lista das academias (`get_superadmin_tenants` devolve o MRR e as atrasadas nulos para quem não abre `financeiro`), a fila global em contagens e os autônomos;
+  - `suporte`: os números do assistente, os chamados (e encerrar), as avaliações, a implantação (e encerrar o chamado do Bruno);
+  - `operacao`: os equipamentos, os acessos (com o aluno como código) e a biometria em contagem, o Vigia só para ler, as rotinas e a capacidade do banco;
+  - em `superadmin-suporte-tenant`, só o token do Gateway é `operacao`; o e-mail do gestor e excluir, `socio`;
+  - a atividade da academia continua do Sócio (traz o treino, a dieta e a avaliação de cada aluno), agora com 42501.
+
+**Decisões, e por quê.**
+- **Lote 1 nasce com os níveis fechados.** O `equipe_metodo()` do lote 1 já reconhece o nível Mentor; com só o lote 1, um Mentor moveria a fase e liberaria a progressão do aluno do Free, e prescreveria sem registro (a prova do lote 3 mostra isso sem a migration). Abrir o nível só no lote que põe a área no ar deixa cada migration segura sozinha.
+- **O Mentor vê todos os alunos do Método**, e não só os dele, e não define o mentor (a decisão da proposta).
+- **A dispensa do registro é só do Sócio**: o Mentor contratado prescreve sempre com o CREF e o CRN, com a chave ligada ou desligada.
+- **O mentor atribuído vem de `equipe_arkefit` (ativo e `mentor`).** No Sócio, `mentor` é a chave "Atende como mentor"; no Mentor contratado, o nível. Sócio sem essa chave deixa de aparecer em "Passar para..." e de poder ser atribuído (a tela e o banco dizem o mesmo).
+- **`aluno_consentimento_ia` teve a regra de leitura recriada** (`drop` e `create`), e não alterada: o retrato do histórico não tem a criação dela (veio de `20261229`, fora da ordem), e o leitor das regras das guardas recusa `alter` sem `create`. O texto é o de `20261229`, mais o Mentor; a prova de produção confere que ficou uma regra de leitura só.
+- **`superadmin-suporte-tenant` segue respondendo 200 com `{ error }`** na recusa, como todas as respostas dela (o motivo está no topo da função), em vez do 403 do mapa.
+- **O detalhe do Gateway fica com o Sócio** nesta entrega: a telemetria, os eventos e as ordens são lidos direto das tabelas, cujo RLS é da academia e do Sócio, e as ordens incluem liberar o giro. O Suporte vê o resumo de cada catraca, que vem de `get_superadmin_equipamentos`.
+- **As chamadas do mapa com motivo** (a lista em `CHAMADAS_DA_VISAO_MASTER`): as da entrega 2 (comercial, cadastro, financeiro), as que também são da academia (a fase, a progressão, a jornada, a implantação de uma academia, publicar treino e dieta) e as do Sócio que ainda aceitam o Admin ARKE (ninguém da equipe contratada tem `admin_arke`; sai na limpeza, lote 7).
+
+**Desempenho.** O `equipe_metodo()` roda linha a linha em cerca de 25 regras (as que o chamam sem o `(select ...)`). Medido no PGlite com 5.000 alunos numa academia, metade no Método, cada um com anamnese, `EXPLAIN (ANALYZE, BUFFERS)` na contagem da academia, páginas lidas (o tempo em WASM varia de uma rodada para outra):
+
+| Quem | Anamnese, antes | Anamnese, depois | Alunos, antes | Alunos, depois |
+|---|---|---|---|---|
+| Recepção só com a senha (aal1) | 35.074 | **25.070** (−29%) | 10.088 | 10.088 |
+| Recepção com as duas etapas (aal2) | 35.072 | 40.074 (+14%) | 10.087 | 10.087 |
+| Gestora (aal2) | 55.080 | 57.581 (+5%) | 10.087 | 10.087 |
+| Sócio (aal2) | 60.082 | 60.082 | 15.089 | 15.089 |
+| Mentor (aal2) | — | 82.591 | — | 22.592 |
+
+A primeira versão (`acesso_arkefit('mentoria') or has_role(admin_arke)`) não tinha o atalho da sessão: a recepção só com a senha ficava como antes, e a com as duas etapas pagava a leitura a mais. Com o atalho (sem aal2, nem o papel nem o nível valem), quem está só com a senha (o aluno, a gestão sem as duas etapas) lê 29% menos; quem está em aal2 fora da ArkeFit paga uma leitura de `equipe_arkefit` por linha que chega ao termo. O Mentor é o mais caro: as regras dele passam pelo `aluno_no_metodo`, que lê `alunos` com o RLS de quem pede. O ganho de verdade é envolver `equipe_metodo()` em `(select ...)` nas regras antigas (uma vez por consulta, e não por linha): fica para a entrega 2, porque restaurar o texto inteiro de 25 regras do retrato do histórico pede uma prova própria. **Em produção**, sobre a academia de demonstração, como dono (o SQL Editor), numa transação desfeita:
+
+```sql
+begin;
+set local role authenticated;
+select set_config('request.jwt.claims', json_build_object('sub', '<id da recepção da Ponto Alto>', 'role', 'authenticated', 'aal', 'aal1')::text, true);
+explain (analyze, buffers) select count(*) from public.anamnese_acolhimento where organization_id = '<id da Ponto Alto>';
+rollback;
+```
+antes e depois da migration, com `aal1` e `aal2`, a recepção, a gestão e uma conta temporária com o nível Mentor; comparar as páginas (`shared hit` mais `read`).
+
+**Defeitos do caminho.**
+- **A migration não era idempotente:** `drop function if exists` com a assinatura antiga e `create function` com a nova falham na segunda rodada (a nova já existe). Pego pela prova local, que roda cada migration duas vezes; `create or replace` na assinatura nova.
+- **O lote 1 sozinho abria o Free ao Mentor** (acima): virou a decisão de abrir os níveis só com a área.
+- **Os testes das telas não montam o `AuthProvider`**: a primeira versão lia o acesso por `useAuth()` dentro das telas, e cinco testes quebraram. As telas passaram a usar `useAcessoArkefit()`, que os testes simulam, e cada um ganhou o caso do nível.
+- **O `OperacaoGlobalCard` da Visão Geral (carteira) lia os equipamentos (operação)**: quem abre só a carteira levaria 42501; a consulta passou a depender da operação.
+- **A ficha do aluno mostrava ao Mentor a cobrança da academia** nos chamados abertos; filtrada.
+- A guarda nova, no primeiro desenho, procurava a conferência de quem chama antes da primeira recusa, e o trial recusa "aluno não encontrado" antes: passou a procurar o primeiro `if ... then raise` que pergunta por papel ou área.
+- **O lote 3 reescrevia a leitura de `sentinela_anamnese` com o texto velho** (`20261292`: `is_org_staff` e o Admin ARKE soltos), e não com o vigente (`20261360`: quem atende a saúde, e a ArkeFit só no Método). Aplicado, devolveria à recepção o resumo da anamnese do aluno do Free. A causa: o leitor das regras das guardas recusa essa tabela (o retrato do histórico não tem a criação dela), e o texto foi tirado à mão da migration errada. Pego pela `acessoPainel.guarda` na suíte inteira; a alteração saiu, porque o termo do Método já estava lá. O esqueleto do PGlite passou a montar a regra vigente.
+- O texto copiado de `get_superadmin_acessos_catraca` compara `cpf_consultado` com os marcadores `'remoto'` e `''`; a `cpfSemMascara.guarda` cobra que migration nova não compare CPF sem tirar a máscara. A expressão foi reescrita (`in (...)`), com o mesmo resultado.
+- A `saidaDoAluno.guarda` cobra o nome `arkefit` na conferência do Sentinela; o nome voltou.
+
+**Travas.**
+- `acessosArkefit.guarda` (nova, 25 testes): toda rota de /superadmin diz a área e passa pelo portão; toda chamada ao banco da Visão Master (as telas, as libs e os componentes que elas usam) está no mapa, e o mapa não guarda chamada morta; a última definição de cada função do mapa confere a área (sem o `admin_arke` como alternativa, salvo o motivo escrito); toda `get_superadmin_*` está no mapa; o `case` de `acesso_arkefit` é `NIVEIS_DA_AREA` e os níveis abertos do banco são os do app; as funções publicadas do mapa perguntam a área com a sessão verificada; o convite de nível não grava `user_roles`; e todo termo do Mentor nas regras pede o aluno do Método (e, nas tarefas, só as da ArkeFit). Cada detector é provado contra um defeito plantado no próprio teste.
+- `acessosArkefit.test.ts` (12 testes novos): o espelho dos níveis, as áreas de cada nível, as rotas por nível, a rota inicial, o pedido do convite com os níveis.
+- `equipeArkefit.guarda`: a auditoria do convite com os níveis. `verificacao.guarda`: quem chama `acessoArkefit(` também exige `verificada(`.
+- As telas: o Suporte no Vigia (lê, sem agir), em Webhooks (só as rotinas, sem consultar o Asaas), em Equipamentos (sem o detalhe), no aviso de rotinas (sem a reconciliação), e a carteira sem os equipamentos.
+
+**Conferido:**
+- **O banco, em Postgres local (PGlite)**, sobre um esqueleto com as tabelas que as funções tocam, as funções e as regras de antes com o texto do retrato e das migrations (as regras montadas pelo leitor das guardas), e cada migration rodada duas vezes:
+  - lote 1: **80 casos** (a matriz das 8 áreas para Mentor, Suporte e os dois; o Sócio em aal1 e aal2; aal1, inativo, área inválida e nula, sessão simulada e anon; `equipe_metodo`; a própria linha; a lista, o salvar e o convite com os níveis, fechados e abertos; a retirada; o reenvio; as permissões; a regressão);
+  - lote 3: **33 casos** (o Mentor com os alunos do Método e não o do Free; anamnese e dieta do Free com 0 linhas; a ficha do Free com 42501 e a do Método só com o chamado da ArkeFit; as tarefas, a conversa, as sugestões, o resumo, as autorizações e as fases; o registro sempre exigido, o Sócio dispensado; sem dinheiro, sem organização, sem papel, sem carteira; as filas, a instrução, a jornada, a fase, a progressão e as metas; atribuir o mentor; o Suporte fora da mentoria; o aluno que sai do Método; a gestora, a recepção e o Sócio como antes);
+  - lote 4: **17 casos** (as 14 funções das três áreas para o Suporte, e nenhuma para o Mentor, a sessão só com a senha, o inativo e a gestora; a carteira sem o MRR e o Sócio com ele; a atividade com 42501; o Vigia sem dispensar; encerrar os chamados; a implantação da gestora; o convite do Suporte; o Sócio com tudo).
+- **Os roteiros de produção**, um por lote (`begin`, a migration, um bloco que sempre termina em exceção, `rollback`; entregues com o PR, fora do repositório), conferidos no esqueleto com os lotes anteriores aplicados: sem a migration do lote, "FALHOU"; com ela, **63**, **35** e **57 casos ok**; e nada gravado depois (contas, sessões, papéis, equipe, auditoria, tarefas, alunos, conversas, treinos, as funções e as regras). Contas temporárias `@sim.invalid`; o lote 3 cria dois alunos temporários na `homologacao` (com CPF válido e adultos), e o 3 e o 4 leem a e2e-gestor sem alterar nada.
+- **Defeitos plantados, todos pegos:**
+  - lote 1: o nível sem a exigência de aal2, a leitura da própria linha removida, a área `operacao` aberta ao Mentor;
+  - lote 3: o Mentor nas tarefas da academia, a fila de chamados sem o filtro do Método, a fase do aluno do Free movida pelo Mentor;
+  - lote 4: o MRR para todos, a atividade aberta à carteira, o Vigia aberto ao Mentor;
+  - o convite de nível gravando `admin_arke` (pego pelo roteiro do lote 4);
+  - na guarda nova, cada detector com o defeito dele.
+- **Testes:** 42 novos (25 na guarda nova, 12 nos níveis, 5 nas telas). Suíte inteira, em lotes de 10 arquivos: **1.509 testes em 192 arquivos**, todos passando. A primeira rodada achou os três defeitos acima (a regra do resumo, o CPF e o nome no Sentinela).
+- `npm run check` sem erro: tipos, lint (0 erros, os 27 avisos de antes; um aviso novo, do menu, foi tirado), o `deno check` das 57 funções e a auditoria das dependências (0 vulnerabilidades).
+- `npm run ajuda:indice` rodou: `vm-equipe-arkefit` (os níveis, o que cada um vê e nunca vê, o "em breve"), `vm-mentoria`, `vm-visao-geral`, `vm-vigia`, `vm-equipamentos`, `vm-implantacao`, `vm-profissionais` e `vm-webhooks-rotinas`.
+- **Falta, porque esta entrega não toca produção:**
+  - os três roteiros no banco de produção, e aplicar as migrations, nesta ordem: lote 1, lote 3, lote 4;
+  - gerar os tipos de novo e conferir com os escritos à mão (`equipe_arkefit.niveis`, `acesso_arkefit`, `niveis_arkefit_abertos`, os argumentos novos do salvar e do convite, a coluna `niveis` da lista);
+  - publicar `equipe-arkefit-convidar`, `mentor-sugerir-resposta`, `sentinela-anamnese`, `superadmin-suporte-tenant` e `assistente-academia`;
+  - a corrente real com contas temporárias de cada nível, e a tela no computador e no celular.
+
+**Fica de fora, e por quê.**
+- **A entrega 2** (`docs/DECISOES_PENDENTES.md`): o Comercial (lote 5), o Financeiro (lote 6) e a limpeza (lote 7).
+- **`equipe_metodo()` em `(select ...)` nas regras antigas**, e o detalhe do Gateway para o Suporte (acima).
+- **O aviso de que o Mentor sem registro não publica** aparece só na recusa do banco ("o treino é prescrito ... por um profissional com CREF"); a ficha não avisa antes.
+- **Os e-mails de aviso por área** (`emails_da_area()`, lote 7): os avisos seguem indo aos sócios.
