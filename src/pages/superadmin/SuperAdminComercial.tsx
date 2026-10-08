@@ -8,6 +8,7 @@ import { todasAsLinhas } from "@/lib/paginar";
 import { cn } from "@/lib/utils";
 import { ETAPAS_ABERTAS, ORIGENS, combinaBusca, numerosDoPipeline, type DadosLead } from "@/lib/crmComercial";
 import { RespostaAutomatica } from "@/components/superadmin/RespostaAutomatica";
+import { useAcessoArkefit } from "@/hooks/useAcessoArkefit";
 import { QuadroPipeline } from "@/components/superadmin/comercial/QuadroPipeline";
 import { FormularioLead, type ModoFormulario } from "@/components/superadmin/comercial/FormularioLead";
 import { DialogoPerda } from "@/components/superadmin/comercial/DialogoPerda";
@@ -41,6 +42,7 @@ function Numero({ rotulo, valor, detalhe }: { rotulo: string; valor: string | nu
 export default function SuperAdminComercial() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const socio = useAcessoArkefit().pode("socio");
   const { data: cfgLeticia } = useConfigLeticia();
   const cfg = { ativo: cfgLeticia?.ativo ?? false, outrasOrigens: cfgLeticia?.outrasOrigens ?? false };
 
@@ -183,7 +185,8 @@ export default function SuperAdminComercial() {
         />
       </div>
 
-      <RespostaAutomatica />
+      {/* Ligar a resposta automática da Letícia é do Sócio (definir_agente_comercial). */}
+      {socio && <RespostaAutomatica />}
 
       <div className="flex flex-wrap items-center gap-2">
         <div className="relative w-full sm:w-64">

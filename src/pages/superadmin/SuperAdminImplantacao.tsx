@@ -15,6 +15,7 @@ import { Progress } from "@/components/ui/progress";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { useAcessoArkefit } from "@/hooks/useAcessoArkefit";
 
 type Linha = {
   organization_id: string;
@@ -66,8 +67,12 @@ export default function SuperAdminImplantacao() {
     },
   });
 
+  // Ligar e desligar o Bruno é do Sócio; o Suporte atende os chamados.
+  const { pode } = useAcessoArkefit();
+  const socio = pode("socio");
   const { data: ativo = false } = useQuery({
     queryKey: CHAVE_ATIVO,
+    enabled: socio,
     queryFn: async () => {
       const { data, error } = await supabase.from("plataforma_config").select("valor").eq("chave", "agente_implantacao_ativo").maybeSingle();
       if (error) throw error;
@@ -110,12 +115,14 @@ export default function SuperAdminImplantacao() {
               etapa, abre um chamado aqui para a ArkeFit ligar.
             </p>
           </div>
-          <div className="flex items-center gap-2 shrink-0">
-            <Label htmlFor="agente-implantacao" className="text-xs">
-              {ativo ? "Ligado" : "Desligado"}
-            </Label>
-            <Switch id="agente-implantacao" checked={ativo} disabled={ligar.isPending} onCheckedChange={(v) => ligar.mutate(v)} />
-          </div>
+          {socio && (
+            <div className="flex items-center gap-2 shrink-0">
+              <Label htmlFor="agente-implantacao" className="text-xs">
+                {ativo ? "Ligado" : "Desligado"}
+              </Label>
+              <Switch id="agente-implantacao" checked={ativo} disabled={ligar.isPending} onCheckedChange={(v) => ligar.mutate(v)} />
+            </div>
+          )}
         </CardContent>
       </Card>
 

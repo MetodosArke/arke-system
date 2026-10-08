@@ -8,6 +8,7 @@ import { MessageCircle, Users } from "lucide-react";
 import { ChatMentor } from "@/components/chat/ChatMentor";
 import { FilaChamadosMentor } from "@/components/superadmin/FilaChamadosMentor";
 import { OperacaoMentor } from "@/components/superadmin/OperacaoMentor";
+import { useAcessoArkefit } from "@/hooks/useAcessoArkefit";
 import { CarteiraMentor } from "@/components/superadmin/CarteiraMentor";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ROTULO_PLANO, type PlanoAluno } from "@/lib/planoAluno";
@@ -59,6 +60,9 @@ export default function SuperAdminMentoria() {
   });
 
   const esperando = fila.filter((f) => Number(f.nao_lidas) > 0).length;
+  // A operação dos mentores (a carga e o SLA de cada um) é do Sócio.
+  const { pode } = useAcessoArkefit();
+  const socio = pode("socio");
 
   return (
     <div className="space-y-4">
@@ -80,7 +84,7 @@ export default function SuperAdminMentoria() {
           <TabsTrigger value="alunos">Alunos</TabsTrigger>
           <TabsTrigger value="chamados">Chamados</TabsTrigger>
           <TabsTrigger value="conversas">Conversas</TabsTrigger>
-          <TabsTrigger value="operacao">Operação</TabsTrigger>
+          {socio && <TabsTrigger value="operacao">Operação</TabsTrigger>}
         </TabsList>
         <TabsContent value="alunos" className="mt-3">
           <CarteiraMentor />
@@ -162,9 +166,11 @@ export default function SuperAdminMentoria() {
         </div>
       )}
         </TabsContent>
-        <TabsContent value="operacao" className="mt-3">
-          <OperacaoMentor />
-        </TabsContent>
+        {socio && (
+          <TabsContent value="operacao" className="mt-3">
+            <OperacaoMentor />
+          </TabsContent>
+        )}
       </Tabs>
     </div>
   );

@@ -38,6 +38,7 @@ import {
 } from "@/lib/vigia";
 import { cn } from "@/lib/utils";
 import { decimal } from "@/lib/numeros";
+import { useAcessoArkefit } from "@/hooks/useAcessoArkefit";
 import { formatarDataBR } from "@/lib/dataBrasilia";
 
 const TOM = {
@@ -67,6 +68,10 @@ export default function SuperAdminVigia() {
   const [horas, setHoras] = useState<number>(24);
   const { data, isLoading, error } = useVigia(horas);
   const emExecucao = data ? executando(data.regras) : false;
+  // O Suporte lê o Vigia (área operação); aprovar, dispensar, ligar e mudar o
+  // modo das regras são do Sócio (o banco recusa os outros).
+  const { pode } = useAcessoArkefit();
+  const podeAgir = pode("socio");
 
   return (
     <div className="mx-auto max-w-6xl space-y-4">
@@ -82,10 +87,10 @@ export default function SuperAdminVigia() {
         <p className="text-sm text-muted-foreground">Carregando…</p>
       ) : (
         <>
-          <Situacao resumo={data} horas={horas} onHoras={setHoras} emExecucao={emExecucao} />
-          {emExecucao && <Pendentes pendentes={data.pendentes ?? []} />}
+          <Situacao resumo={data} horas={horas} onHoras={setHoras} emExecucao={emExecucao} podeAgir={podeAgir} />
+          {emExecucao && <Pendentes pendentes={data.pendentes ?? []} podeAgir={podeAgir} />}
           {emExecucao && <Executadas resumo={data} />}
-          <Regras resumo={data} />
+          <Regras resumo={data} podeAgir={podeAgir} />
           <Analises resumo={data} />
           <Ocorrencias resumo={data} />
         </>
@@ -99,11 +104,13 @@ function Situacao({
   horas,
   onHoras,
   emExecucao,
+  podeAgir,
 }: {
   resumo: ResumoVigia;
   horas: number;
   onHoras: (h: number) => void;
   emExecucao: boolean;
+  podeAgir: boolean;
 }) {
   const { toast } = useToast();
   const qc = useQueryClient();
@@ -140,15 +147,19 @@ function Situacao({
               </>
             )}
           </div>
-          <div className="flex items-center gap-2">
-            <Switch
-              id="vigia-ativo"
-              checked={resumo.ativo}
-              disabled={alternar.isPending}
-              onCheckedChange={(v) => alternar.mutate(v)}
-            />
-            <Label htmlFor="vigia-ativo">{resumo.ativo ? "Ligado" : "Desligado"}</Label>
-          </div>
+          {podeAgir ? (
+            <div className="flex items-center gap-2">
+              <Switch
+                id="vigia-ativo"
+                checked={resumo.ativo}
+                disabled={alternar.isPending}
+                onCheckedChange={(v) => alternar.mutate(v)}
+              />
+              <Label htmlFor="vigia-ativo">{resumo.ativo ? "Ligado" : "Desligado"}</Label>
+            </div>
+          ) : (
+            <Badge variant="outline">{resumo.ativo ? "Ligado" : "Desligado"}</Badge>
+          )}
         </div>
         <div className="flex flex-wrap items-center gap-3 text-sm">
           <Select value={String(horas)} onValueChange={(v) => onHoras(Number(v))}>
@@ -174,7 +185,7 @@ function Situacao({
   );
 }
 
-function Pendentes({ pendentes }: { pendentes: PendenteVigia[] }) {
+function Pendentes({ pendentes, podeAgir }: { pendentes: PendenteVigia[]; podeAgir: boolean }) {
   const { toast } = useToast();
   const qc = useQueryClient();
   const [dispensando, setDispensando] = useState<PendenteVigia | null>(null);
@@ -201,6 +212,7 @@ function Pendentes({ pendentes }: { pendentes: PendenteVigia[] }) {
     <Card>
       <CardHeader className="pb-2">
         <CardTitle className="text-base">Aguardando aprovação</CardTitle>
+        {!podeAgir && <p className="text-sm text-muted-foreground">Aprovar e dispensar é de um sócio da ArkeFit.</p>}
       </CardHeader>
       <CardContent>
         {pendentes.length === 0 ? (
@@ -224,14 +236,16 @@ function Pendentes({ pendentes }: { pendentes: PendenteVigia[] }) {
                       {p.origem === "regra" ? p.alvo_nome : p.descricao} · {tempoDesde(p.desde)}
                     </p>
                   </div>
-                  <div className="flex shrink-0 gap-2">
-                    <Button size="sm" disabled={ocupado} onClick={() => aprovar.mutate(p)}>
-                      Aprovar
-                    </Button>
-                    <Button size="sm" variant="outline" disabled={ocupado} onClick={() => setDispensando(p)}>
-                      Dispensar
-                    </Button>
-                  </div>
+                  {podeAgir && (
+                    <div className="flex shrink-0 gap-2">
+                      <Button size="sm" disabled={ocupado} onClick={() => aprovar.mutate(p)}>
+                        Aprovar
+                      </Button>
+                      <Button size="sm" variant="outline" disabled={ocupado} onClick={() => setDispensando(p)}>
+                        Dispensar
+                      </Button>
+                    </div>
+                  )}
                 </li>
               );
             })}
@@ -330,7 +344,7 @@ function Executadas({ resumo }: { resumo: ResumoVigia }) {
   );
 }
 
-function Regras({ resumo }: { resumo: ResumoVigia }) {
+function Regras({ resumo, podeAgir }: { resumo: ResumoVigia; podeAgir: boolean }) {
   const { toast } = useToast();
   const qc = useQueryClient();
   const mudar = useMutation({
@@ -373,22 +387,26 @@ function Regras({ resumo }: { resumo: ResumoVigia }) {
                   <p className="text-xs text-muted-foreground">{r.acao}</p>
                 </TableCell>
                 <TableCell>
-                  <Select
-                    value={r.modo}
-                    disabled={mudar.isPending}
-                    onValueChange={(v) => mudar.mutate({ codigo: r.codigo, modo: v as ModoRegra })}
-                  >
-                    <SelectTrigger className="h-8 w-36" aria-label={`Modo: ${r.titulo}`}>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {modosDaRegra(r.nivel).map((m) => (
-                        <SelectItem key={m} value={m}>
-                          {ROTULO_MODO[m]}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  {podeAgir ? (
+                    <Select
+                      value={r.modo}
+                      disabled={mudar.isPending}
+                      onValueChange={(v) => mudar.mutate({ codigo: r.codigo, modo: v as ModoRegra })}
+                    >
+                      <SelectTrigger className="h-8 w-36" aria-label={`Modo: ${r.titulo}`}>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {modosDaRegra(r.nivel).map((m) => (
+                          <SelectItem key={m} value={m}>
+                            {ROTULO_MODO[m]}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <span className="text-sm">{ROTULO_MODO[r.modo]}</span>
+                  )}
                 </TableCell>
                 <TableCell className="text-right">{r.deteccoes}</TableCell>
                 <TableCell className="text-right">{r.teria_agido}</TableCell>
