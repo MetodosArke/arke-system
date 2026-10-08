@@ -3,6 +3,7 @@ import { ambienteAsaas } from "../_shared/asaas.ts";
 import { cancelarAssinatura } from "../asaas-assinatura-ciclo/fluxo.ts";
 import { verificada } from "../_shared/verificacao.ts";
 import { servir } from "../_shared/servir.ts";
+import { resumoDoErro } from "../_shared/resumoDoErro.ts";
 import { executarComDesfecho, type Preparo, type Resultado } from "./fluxo.ts";
 
 const corsHeaders = {
@@ -70,8 +71,13 @@ servir("vigia-aprovar", async (req: Request) => {
       _indice: indice,
     });
     if (erroPrep || !prep) {
-      // As mensagens são nossas, em português: podem ir para a tela.
-      return jsonResponse({ error: erroPrep?.message ?? "Não foi possível aprovar." }, erroPrep?.code === "42501" ? 403 : 409);
+      // As recusas da função são nossas, em português (`raise exception`:
+      // P0001, e 42501 para quem não é da ArkeFit): podem ir para a tela. A
+      // mensagem crua de outra falha do banco, não (frente D, 07/10/2026).
+      if (erroPrep?.code === "42501") return jsonResponse({ error: erroPrep.message }, 403);
+      if (erroPrep?.code === "P0001") return jsonResponse({ error: erroPrep.message }, 409);
+      if (erroPrep) console.error("vigia-aprovar: preparar", resumoDoErro(erroPrep));
+      return jsonResponse({ error: "Não foi possível aprovar agora. Tente de novo." }, erroPrep ? 500 : 409);
     }
 
     // Daqui em diante a decisão está reservada: toda saída registra o

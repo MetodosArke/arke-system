@@ -655,7 +655,7 @@ Quatro sobras pequenas de segurança e qualidade, três delas da lista "Fica de 
 - A busca pelas tabelas de mensagens achou também que **a equipe exclui o aluno pela API** (abaixo).
 
 **Fica de fora, e por quê.**
-- **A equipe inteira, a recepção inclusive, exclui o aluno pela API** (regra de exclusão de `alunos`: `is_org_staff` ou `admin_arke`). A exclusão em cascata leva as conversas, as tarefas e o resto, sem passar pela saída do aluno (`excluir-aluno`: o Asaas, os arquivos, a auditoria). Os gatilhos `before delete` seguram a cobrança viva e mandam tirar a biometria, mas o resto da saída não roda. Nenhuma tela faz isso. Fechar é restringir a regra (ou tirar a permissão, como aqui) e conferir que nenhum caminho do app exclui aluno direto; é mudança do que o banco permite hoje, e fica para decidir.
+- **A equipe inteira, a recepção inclusive, exclui o aluno pela API** (regra de exclusão de `alunos`: `is_org_staff` ou `admin_arke`). A exclusão em cascata leva as conversas, as tarefas e o resto, sem passar pela saída do aluno (`excluir-aluno`: o Asaas, os arquivos, a auditoria). Os gatilhos `before delete` seguram a cobrança viva e mandam tirar a biometria, mas o resto da saída não roda. Nenhuma tela faz isso. Fechar é restringir a regra (ou tirar a permissão, como aqui) e conferir que nenhum caminho do app exclui aluno direto; é mudança do que o banco permite hoje, e fica para decidir. *Resolvido em 07/10/2026: ninguém exclui o aluno pela API (ver "Auditoria de prontidão, frente D", abaixo).*
 - **`get_valor_mentor_organizacao`** segue com `is_org_staff`: entrega só contagens, sem aluno nem motivo.
 - **A troca de papel pelo cadastro de membro** (`cadastrar-membro-equipe`, o upsert do vínculo pendente) roda com a service role e não passa pelo gatilho; ele recusa quem já está ativo, e a pessoa pendente ainda não acessa nada.
 - **A Auditoria da Visão Master mostra pelo nome técnico** cerca de trinta ações sem rótulo (`equipe.ativada_pelo_email`, `aluno.excluido`, as do Vigia e dos agentes...). Esta entrega rotulou as dela; as outras ficam para uma passada só.
@@ -687,7 +687,105 @@ Quatro sobras pequenas de segurança e qualidade, três delas da lista "Fica de 
 
   Depois, nada ficou gravado: nenhuma tarefa de prova, a conta e2e da jornada seguiu como aluna, nenhum registro de papel na auditoria, e as duas regras de exclusão seguiam no ar até aplicar.
   - **Defeito do caminho:** o roteiro do item 1 gravava as três tarefas de prova com a mesma `origem_evento`, que o índice único `(organization_id, origem_evento)` de produção recusa; o esqueleto do PGlite não tinha o índice. Cada tarefa ganhou a sua origem.
+- **A publicação (07/10/2026):**
+  - as três migrations;
+  - `editar-membro-equipe` (v31) e `assistente-academia` (v31);
+  - o app (#356). A Vercel não recebeu o aviso do merge e não publicou; o deploy de produção do mesmo commit foi pedido direto à Vercel.
+- **A corrente real**, com academia e contas temporárias (apagadas no fim, 0 e 0), 4 casos:
+  - pela função, o nome e o papel mudam, e cada troca entra uma vez na Auditoria pela gestora, sem o nome da pessoa;
+  - pela API, a troca de papel entra com `pela_api: true`;
+  - a gestora e a aluna recebem 403 ao apagar a mensagem do aluno, e marcar como lida segue (200).
+- **A tela, no computador e no celular:**
+  - a Agenda, com a consulta das turmas falhando de verdade (pedido abortado no navegador), mostra "Não foi possível carregar as turmas." com "Tentar de novo", e não "nenhuma turma".
+  - O Acompanhamento não mostra a lista em produção: nenhuma academia tem aluno no Método ainda, e a tela diz "Nenhum aluno seu está no Método ARKE ainda". A resposta da função foi provada no banco; a tela foi conferida com a resposta simulada no navegador, no formato novo. A linha de saúde sai com o selo "Atendimento" e o texto neutro, sem desfecho, sem rolagem lateral e com o rodapé novo.
+
+## Auditoria de prontidão, frente D: os achados baixos de banco e de funções (07/10/2026)
+
+Oito achados "baixos" da auditoria de prontidão. Migrations `20261408010000` e `20261409010000`; funções `catraca-sincronizar-alunos`, `send-email`, `criar-organizacao-superadmin`, `convidar-membro`, `editar-membro-equipe`, `superadmin-suporte-tenant`, `vapid-public-key` e `vigia-aprovar`; artigo das Catracas. O item 7 (o bloqueio B2B) ficou mapeado, sem implementação, para decisão do responsável.
+
+**1. O aluno só sai pela saída** (`20261408`). A regra de exclusão de `alunos` (`20261205`) era `is_org_staff` ou `admin_arke`: pela API, a equipe inteira, a recepção inclusive, apagava o aluno com um DELETE, e a cascata levava as conversas, as tarefas, os treinos, a dieta e a anamnese sem passar pela saída (`excluir-aluno`, `anonimizar-aluno`): o cliente no Asaas ficava com nome e e-mail, os arquivos ficavam nos buckets, e nada ia para a auditoria. Era a sobra da frente B (acima).
+- **Conferido antes de cortar:** nenhuma tela nem função apaga `alunos` direto. As telas chamam as duas funções da saída, que apagam pelo banco em `excluir_aluno_da_academia` e `anonimizar_dados_do_aluno`, com a permissão do dono. O único outro `delete from public.alunos` é a limpeza da matrícula pública não confirmada, também do dono.
+- **A escolha, no molde das conversas** (`20261406`): a regra de exclusão sai (leitura, inclusão e alteração ficam), e a permissão de excluir sai de `anon` e `authenticated`. Sem a permissão, o pedido é recusado com 42501, e não respondido com 200 e zero linhas.
+- **O que continua apagando:** a saída do aluno, a limpeza da matrícula pública, a service role e as cascatas (a da academia, a da conta), que o Postgres faz como dono da tabela. A trava da cobrança viva (`trg_impedir_exclusao_com_cobranca_viva`) e a da biometria seguem valendo para todos.
+
+**2. As tabelas com o RLS ligado e sem regra.** São 18, todas de propósito: cada uma é só do servidor (a service role das edge functions ou funções `security definer`), e o motivo está no texto da migration que a criou. Entre elas, o token do webhook da conta da academia, o freio, o contador do número na catraca, o segredo do QR do check-in, os registros do Marco Civil e a sessão simulada. Nenhuma tela lê uma delas. Nenhuma mudança no banco.
+- A trava é nova: `rlsSemRegra.guarda` guarda a lista com o motivo de cada uma, e falha com a tabela nova que liga o RLS sem regra e não entra na lista. É o defeito silencioso que ela pega: a tela que lê uma tabela dessas não recebe erro, recebe vazio. A guarda também cobra que toda tabela do `public` nasça com o RLS ligado (as 134 estão) e que nenhuma tela leia uma tabela da lista.
+- `scripts/migracao/tabelas.mjs` lê as tabelas na ordem da reconstrução, como `regras.mjs` lê as regras, e segue a regra quando a tabela troca de nome.
+
+**3. As sequências da service role** (`20261409`). Das 8 colunas que se numeram sozinhas, as 5 com `bigserial` tinham o `grant usage`. As 3 do Vigia (`vigia_ocorrencias`, `vigia_analises`, `vigia_acoes`), apontadas pela auditoria, numeram por `generated always as identity`, e o Postgres não confere a permissão da sequência de uma coluna identity: a prova local insere com a service role sem o grant, e o `bigserial` sem o grant é recusado com 42501. O grant entra mesmo assim, só para a service role, para a regra ser uma só, sem exceção por tipo de coluna. A trava nova, `sequencias.guarda`, pega a tabela nova com `serial`, `bigserial` ou identity sem o grant, também a coluna acrescentada por `alter table` e o grant tirado depois.
+
+**4. A catraca desativada não recebe a lista de alunos** (`catraca-sincronizar-alunos`). A sincronização lia o `status` da catraca e não o usava: a catraca desativada pela gestão seguia recebendo o CPF e a situação de cada aluno a cada 5 minutos. A validação (`catraca-validar-acesso`) já a recusava com "Dispositivo inativo.", e o canal de ordens (`catraca-comandos`) já não lhe dava ordem.
+- Agora a sincronização responde **403 "Dispositivo inativo."**, a mesma mensagem da validação, antes de montar a lista e o hash. O token desconhecido segue com 401.
+- O sinal de vida (`ultimo_heartbeat_em`) continua gravado antes da recusa, como a telemetria do canal de ordens: a tela mostra que o computador está ligado.
+- O artigo das Catracas diz o que a catraca desativada deixa de fazer, e que, ativada de novo, o cadastro chega na próxima rodada.
+
+**5. A resposta sem a mensagem crua do erro.** `criar-organizacao-superadmin` devolvia a mensagem do Auth quando a conta do gestor não nascia. A busca pelo mesmo padrão achou mais 7 respostas em 5 funções: a troca de e-mail (`editar-membro-equipe` e `superadmin-suporte-tenant`), o convite do aluno (`convidar-membro`), a exclusão da organização (a mensagem crua do banco), a chave das notificações (`vapid-public-key`) e a aprovação do Vigia (`vigia-aprovar`, que repassava qualquer erro do banco). A mensagem crua pode trazer o e-mail digitado ("Email address \"x@y\" is invalid"), fala em inglês e descreve o servidor.
+- O erro do Auth passa por `respostaDoErroDoAuth()` (`_shared/erroDoAuth.ts`): e-mail já cadastrado é 409, e-mail inválido 400, limite 429, outra recusa do Auth 400 e falha do Auth 502, sempre com mensagem nossa. "Já cadastrado" passou a ler também o código novo do Auth (`email_exists`), e não só a mensagem antiga.
+- **A recusa nossa segue para a tela**, porque diz o que fazer: o `raise exception` das funções do banco (P0001, 42501), o limite de alunos do plano (o gatilho, `23514`) e a cobrança viva que segura a exclusão da organização (`23001`). Ela se declara pelo código na mesma linha da resposta; a outra falha do banco vira mensagem nossa, com `resumoDoErro()` no log.
+- A trava nova, `respostaSemErroInterno.guarda`, lê as mais de 500 respostas das funções (`jsonResponse`, `errorResponse`, `new Response`) e falha na que leva `.message` ou `String(erro)` sem declarar o código. Ela também testa `respostaDoErroDoAuth()`.
+
+**6. O e-mail do login com prazo** (`send-email`). As 16 chamadas ao Resend por `fetch` já tinham prazo, desde a regra de 05/10 (`prazoChamadas.guarda`). O envio sem prazo era o do e-mail do login (o convite, a confirmação, a recuperação de senha), que ia pelo SDK do Resend: o SDK não aceita prazo, e a guarda, que procura `fetch(`, não o via. Um Resend lento segurava a função até o limite da plataforma, e o Auth desistia do hook antes. Agora vai pela API, com `AbortSignal.timeout` de 4 segundos por tentativa e as mesmas novas tentativas no 429. A guarda passou a cobrar todo envio ao Resend com prazo e nenhum uso do SDK.
+
+**7. O bloqueio B2B: mapeado, e não implementado.** A regra é que a academia inadimplente no plano B2B tem a equipe bloqueada depois de 7 dias de tolerância, a ArkeFit nunca é bloqueada, e o aluno não é bloqueado por isso.
+- **Como é calculado:** `organizacao_inadimplente_b2b(org)` (`20261213`, só a service role executa) diz se há cobrança B2B `pendente` ou `atrasado` vencida há mais de 7 dias. `get_bloqueio_organizacao()` responde por quem chama: as academias em que a pessoa é gestor, professor ou nutricionista, fora a ArkeFit e a academia em trial.
+- **O que a tela barra:** `OrganizacaoBillingGate` envolve as rotas `/admin` e troca o painel inteiro pela tela "Acesso suspenso", com o link da fatura e o "Já paguei, verificar novamente". Antes do prazo, o painel avisa no topo. O app do aluno não passa por ele. O desenho de 20/09 diz que o gate é de experiência, e não fronteira de segurança.
+- **O que a equipe bloqueada ainda grava pela API:** tudo o que o RLS dá à equipe, cerca de 46 tabelas com regra de inclusão, alteração ou exclusão para ela (alunos, tarefas, treinos, dietas, agendamentos, turmas, comunicados, planos, a folha da equipe...), as funções `security definer` que a equipe chama e as edge functions que gravam com a service role depois de conferir o papel (o convite do aluno, a matrícula, a cobrança avulsa, o cadastro da equipe, o comunicado). Nenhuma confere o bloqueio. O banco não bloqueia nada.
+- **Um buraco na própria tela:** a recepção não é bloqueada. O papel nasceu em 24/09, e a lista de `get_bloqueio_organizacao` (gestor, professor, nutricionista) é de 20/09. A recepção de uma academia bloqueada segue com o painel.
+- **Por que não foi implementado.** O caminho contido seria uma função, `equipe_bloqueada_b2b(org)` (quem chama é equipe ativa da academia, ela não está em trial, há inadimplência, e quem chama não é da ArkeFit), e uma regra restritiva de escrita por tabela operacional. Ele não fecha o que promete, e o risco é real:
+  - as edge functions gravam com a service role, que pula o RLS, e as funções `security definer` também. Cada uma teria de conferir o bloqueio, e é aí que mora boa parte da escrita da equipe;
+  - as regras restritivas de alteração respondem 200 com zero linhas, a armadilha do CLAUDE.md;
+  - `tarefas`, `presencas` e `checkins` também nascem de gatilhos de ações do aluno, que rodam com a sessão dele. A pessoa que é aluna e equipe da mesma academia teria o próprio check-in recusado;
+  - cobrar a recepção no banco e não na tela deixaria a recepção com o painel aberto e toda gravação recusada. Antes, é preciso decidir se a recepção entra no bloqueio;
+  - pôr o bloqueio dentro de `is_org_staff()` seria uma função só, mas mudaria o RLS de todas as tabelas da equipe (a leitura junto), e o que a academia ainda precisa com a mensalidade vencida (a exportação de dados depois do encerramento, por exemplo) teria de ser conferido caminho por caminho.
+- **O caminho do pagamento não depende de nada disso:** a fatura abre na página do Asaas, e o webhook grava com a service role. Qualquer proposta o mantém.
+- **A proposta, para decidir:** (a) pôr a recepção no gate da tela: uma linha em `get_bloqueio_organizacao`, decisão de produto; (b) se o bloqueio tiver de valer no servidor, começar pelas edge functions que gravam em nome da equipe (o convite do aluno, a matrícula, a cobrança avulsa, o cadastro da equipe), com uma conferência só em `_shared`, e só depois as regras restritivas, nas tabelas que só a equipe grava (treinos, dietas, modelos, turmas, comunicados, planos), deixando de fora as que nascem de ação do aluno. O risco hoje é comercial, e não de dado: quem precisa da API para trabalhar de graça teria de saber usá-la.
+
+**8. Os índices sem uso e o `pg_net` no `public`: ficam, com o motivo.**
+- **Os índices sem uso ficam até depois do lançamento.** O advisor marca como sem uso o índice que não foi lido desde que as estatísticas começaram, e o banco ainda não tem uso real: nenhuma academia em operação, só a homologação e a demonstração. Com volume, são esses índices que sustentam as chaves estrangeiras, as regras de acesso e as telas. Remover agora seria adivinhar. A revisão fica para 30 a 60 dias de uso real, com `pg_stat_user_indexes`, e mantém o índice de chave estrangeira e o de restrição única.
+- **O `pg_net` fica no `public`, aceito.** O que o advisor vê é só o registro da extensão: as funções e as tabelas dela já moram no schema `net`, e as rotinas chamam `net.http_post`. O `pg_net` não se muda com `alter extension ... set schema`; o caminho é apagar a extensão e criá-la de novo em `extensions`. Isso apaga a fila e as respostas das chamadas em curso, depende de o Supabase devolver as permissões do schema `net`, e pede uma janela sem rotina rodando. O ganho seria só o aviso do advisor. O roteiro de reconstrução (`01-antes-da-restauracao.sql`) cria a extensão como produção a tem.
+
+**Defeitos do caminho.**
+- **A primeira contagem do item 2 deu 19**, e não 18: `leads_comerciais_mensagens` aparecia sem regra. A regra de leitura dela nasceu como `leads_site_mensagens` (`20261298`) e foi junto na troca de nome (`20261301`), como o Postgres faz. O leitor de regras das guardas (`regras.mjs`) não segue troca de nome; o leitor novo de tabelas segue, e a guarda prova com uma troca plantada.
+- **As 3 sequências do Vigia não quebravam nada.** A prova local mostrou que a coluna identity insere sem o grant. O achado da auditoria era só de forma, e o grant entrou para a regra ficar uma só.
+- **O Resend sem prazo não estava onde a busca procurava.** As 16 chamadas com `api.resend.com` tinham prazo. O que não tinha era o SDK, que não tem `fetch(` nem o endereço no código.
+- **O texto genérico teria escondido a recusa útil.** A exclusão da organização pela Visão Master (`superadmin-suporte-tenant`) é recusada pelo gatilho da cobrança viva de um aluno, e a mensagem dele diz o que fazer. A troca cega pela mensagem genérica a apagaria; a recusa dos nossos gatilhos ficou.
+- **O roteiro de produção do item 1** tratava só a recusa esperada. Outra falha (uma chave estrangeira sem cascata, por exemplo) sairia como o erro cru do banco, e não como "FALHOU". Cada tentativa passou a anotar o código de qualquer outra falha.
+- **Achado no mapa do item 7:** a recepção fora do gate B2B (acima).
+
+**Fica de fora, e por quê.**
+- **O cadastro guardado no computador da catraca desativada.** A nuvem para de mandar a lista, mas o Gateway fica com a que já tinha, e sem internet decide por ela. Apagar o cadastro ao receber o 403 é mudança do Gateway (versão nova), e a catraca desativada não libera ninguém pela nuvem.
+- **O corpo do erro do Asaas na emissão da cobrança B2B** (`asaas-emitir-cobranca-b2b`) vai como `detalhe` para a Visão Master. É a mensagem do Asaas, e não do Auth nem do banco, e só a ArkeFit a vê.
+- **As tabelas sem regra seguem com a permissão padrão** de `authenticated`: o RLS recusa tudo, e tirar a permissão trocaria a resposta vazia por 42501 sem fechar nada. Fica para uma passada só.
+- **O item 7**, para decisão.
+
+**Travas:**
+- `saidaDoAluno.guarda` (3 casos novos): nenhuma regra de exclusão em `alunos`, e a última permissão de excluir para `authenticated` e para `anon` é um `revoke`; o leitor acha a permissão e a regra devolvidas; e nenhuma tela nem função apaga o aluno direto, por um leitor da corrente do `.from("alunos")` que segue os parênteses (o código sem ponto e vírgula também).
+- `ultimaPermissao()` foi para `regras.mjs`, e `caixaDeMensagens.guarda` passou a usá-la.
+- `rlsSemRegra.guarda` (nova, 5 casos), `sequencias.guarda` (nova, 3 casos) e `scripts/migracao/tabelas.mjs`.
+- `tokenCatraca.guarda` (1 caso novo): a validação, a sincronização e o canal de ordens conferem o status antes de entregar dado de aluno, e só a sincronização entrega a lista.
+- `respostaSemErroInterno.guarda` (nova, 6 casos).
+- `prazoChamadas.guarda` (1 caso novo): o Resend só por `fetch` com prazo, e nenhum uso do SDK.
+
+**Conferido:**
+- **O banco, em Postgres local (PGlite)**, no esqueleto das frentes anteriores, com o gatilho da cobrança viva e `excluir_aluno_da_academia` com o texto de produção. As regras de acesso foram geradas pelo leitor das guardas no estado de antes desta entrega (até `20261407`). Cada migration rodou duas vezes seguidas:
+  - **item 1, 30 casos.** Antes, 16 falham: o gestor, a recepção, o professor, a nutricionista e o `admin_arke` apagam o aluno, e o Super Admin, o próprio aluno, o gestor de outra academia e o `anon` recebem zero linhas sem erro. Depois, os nove são recusados com 42501 e o aluno fica; a recepção segue lendo, incluindo e alterando; a saída do aluno apaga, com a biometria, a cascata e a auditoria; a cobrança viva segura a saída; a service role apaga; a exclusão da academia pela ArkeFit leva o aluno em cascata; e o banco fica sem regra nem permissão de excluir pela API, com a service role e o resto da equipe intactos;
+  - **item 3, 17 casos:** antes da migration, a identity insere sem o grant e o `bigserial` sem o grant é recusado (42501); depois, as 3 do Vigia têm o uso, a service role segue inserindo, e `authenticated` não ganhou nada.
+- **Os roteiros da prova em produção rodaram no mesmo esqueleto**, com a academia `homologacao` e as contas e2e: o do item 1 acusa 6 de 7 sem a migration (a gestora apaga a aluna) e dá 7 casos ok com ela, também com a cobrança viva da aluna (o dono é recusado pelo gatilho); o do item 2, contra um catálogo de 18 tabelas sem regra, dá 3 casos ok, e acusa a tabela plantada; o do item 3 acusa as 3 sequências do Vigia e dá 2 casos ok com a migration. Nada fica gravado depois.
+- **Defeitos plantados: 10, os 10 pegos:** a migration do item 1 tirada; o `revoke` só do `anon`; uma tela apagando o aluno; uma tabela nova sem regra; uma tela lendo `freio_chamadas`; a migration do item 3 tirada; a sincronização sem a conferência do status; a conferência depois de montar a lista; as 6 funções do item 5 como eram (as 8 respostas cruas apontadas); e `send-email` de volta ao SDK.
+- **Testes:** 19 novos (3 em `saidaDoAluno.guarda`, 5 em `rlsSemRegra.guarda`, 3 em `sequencias.guarda`, 1 em `tokenCatraca.guarda`, 6 em `respostaSemErroInterno.guarda` e 1 em `prazoChamadas.guarda`). Suíte inteira: **1.357 testes em 180 arquivos, todos passando**, em 18 lotes de 10 arquivos, um por vez. Na primeira rodada, um caso novo de `saidaDoAluno.guarda` estourou os 5 segundos (6,1 s) com a máquina carregada: ele relia todos os textos da reconstrução três vezes. Os textos passaram a ser lidos uma vez por arquivo, `ultimaPermissao()` pula o texto que não cita a tabela, e os casos que leem a reconstrução inteira ganharam 30 segundos, como os de `cpfSemMascara` e `identidade`. O lote rodou de novo e passou.
+- `npm run check` sem erro: tipos, lint (0 erros, os 27 avisos de antes), o `deno check` das 56 funções e a auditoria das dependências (0 vulnerabilidades).
+- **O banco de produção, em transação desfeita, antes de aplicar (07/10/2026):**
+  - **item 1:**
+    - sem a migration: "FALHOU 6 de 7", com a gestora apagando a aluna e2e pela API (1 linha), a regra de exclusão e a permissão no ar;
+    - com a migration: 7 casos ok, e o dono das tabelas apaga.
+  - **item 2:** 18 tabelas sem regra, as mesmas da lista.
+  - **item 3:**
+    - sem a migration: as 3 sequências do Vigia sem o uso para a service role;
+    - com a migration: 8 sequências, todas com o uso.
+  - **Depois, nada gravado:** a aluna e2e seguiu lá, e a regra e a permissão de exclusão seguiam no ar até aplicar.
 - **Falta, porque esta frente não toca produção:**
-  - publicar `editar-membro-equipe` e `assistente-academia` (o índice da Central mudou), e o app;
-  - a corrente real: editar o nome e o papel de uma conta temporária da equipe na homologação e conferir a Auditoria;
-  - a tela no computador e no celular: o Acompanhamento com um atendimento de saúde, a Agenda e os Acervos com a consulta falhando (modo avião depois de abrir), a Simulação de perfil e a Auditoria.
+  - aplicar as duas migrations;
+  - publicar as 8 funções e `assistente-academia` (o índice da Central mudou), e o app;
+  - a corrente real: desativar uma catraca da homologação e conferir o 403 da sincronização e o sinal de vida; convidar com um e-mail inválido e conferir a mensagem nossa; e mandar um e-mail de recuperação de senha;
+  - a tela: o artigo das Catracas na Central;
+  - o item 7, para decidir.

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { regrasVigentes, textosDaReconstrucao } from "../../scripts/migracao/regras.mjs";
+import { regrasVigentes, textosDaReconstrucao, ultimaPermissao } from "../../scripts/migracao/regras.mjs";
 import { canaisDoPapel } from "@/hooks/useCaixaMensagens";
 
 /**
@@ -33,20 +33,7 @@ const TABELAS_DE_CONVERSA = ["mensagens_treino", "mensagens_dieta", "mensagens_m
  * na tabela (por `delete` ou por `all`), na ordem da reconstrução; vazio se
  * nenhum. Sem nenhum, vale o padrão do Supabase, que dá a exclusão.
  */
-function ultimaPermissaoDeExcluir(sqls: string[], tabela: string): string {
-  let ultimo = "";
-  const re = /\b(grant|revoke)\s+([^;]*?)\s+on\s+(?:table\s+)?([^;]*?)\s+(to|from)\s+([^;]*);/gi;
-  for (const t of sqls) {
-    for (const m of t.matchAll(re)) {
-      const privilegios = m[2].toLowerCase();
-      if (!/\b(delete|all)\b/.test(privilegios)) continue;
-      if (!new RegExp(`\\bpublic\\.${tabela}\\b`).test(m[3])) continue;
-      if (!/\bauthenticated\b/i.test(m[5])) continue;
-      ultimo = m[0].replace(/\s+/g, " ").toLowerCase();
-    }
-  }
-  return ultimo;
-}
+const ultimaPermissaoDeExcluir = (sqls: string[], tabela: string): string => ultimaPermissao(sqls, tabela, "delete");
 
 describe("caixa de mensagens pelo RLS", () => {
   it("a função roda com a permissão de quem chama e lê só tabelas com regra de leitura", () => {

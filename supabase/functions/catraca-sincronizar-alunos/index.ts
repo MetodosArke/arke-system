@@ -73,8 +73,8 @@ servir("catraca-sincronizar-alunos", async (req: Request) => {
     // Heartbeat do Gateway Local. O gateway chama esta função num
     // setInterval de 5 minutos, independente de ter movimento na catraca,
     // então este carimbo é o único sinal de vida confiável do dispositivo:
-    // organizacao_catracas.status é cadastro manual e continua 'ativo'
-    // mesmo com a unidade desligada há semanas.
+    // organizacao_catracas.status é cadastro manual (ativar e desativar pela
+    // gestão) e continua 'ativo' mesmo com a unidade desligada há semanas.
     //
     // Sem await e sem bloquear a resposta: se o carimbo falhar, a catraca
     // não pode parar de sincronizar alunos por causa de telemetria.
@@ -85,6 +85,17 @@ servir("catraca-sincronizar-alunos", async (req: Request) => {
       .then(({ error }) => {
         if (error) console.error("Falha ao registrar heartbeat da catraca", resumoDoErro(error));
       });
+
+    // Catraca desativada no ARKE não recebe a lista de alunos (frente D,
+    // 07/10/2026). Antes, a sincronização lia o `status` e não o usava: a
+    // catraca desativada seguia recebendo o CPF e a situação de cada aluno a
+    // cada 5 minutos, enquanto a validação (`catraca-validar-acesso`) já a
+    // recusava e o canal de ordens (`catraca-comandos`) já não lhe dava ordem.
+    // O sinal de vida acima continua valendo, como a telemetria do canal de
+    // ordens: o painel mostra que o equipamento está ligado.
+    if (catraca.status !== "ativo") {
+      return jsonResponse({ error: "Dispositivo inativo." }, 403);
+    }
 
     // Pedido de diferença: o Gateway manda o `sincronizado_em` da última
     // sincronização. Sem ele, ou se for velho demais, vai a lista inteira —

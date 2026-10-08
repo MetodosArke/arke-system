@@ -183,6 +183,8 @@ Tabelas com `bigserial` precisam de `grant usage` na sequência para a `service_
 
 > Os dois gates são de experiência, não fronteiras de segurança — o que protege os dados continua sendo o RLS de cada tabela.
 
+*07/10/2026: a recepção ficou fora do gate B2B (o papel nasceu em 24/09, depois da lista de `get_bloqueio_organizacao`), e a equipe bloqueada segue gravando pela API. O mapa, o risco e a proposta de levar o bloqueio ao servidor estão em "Auditoria de prontidão, frente D" ([seguranca-e-acesso.md](seguranca-e-acesso.md)), para decisão do responsável.*
+
 ### Assinatura exige adesão ao Método
 Criar assinatura do Método para aluno sem adesão ativa é recusado em dois pontos: na Edge Function `asaas-create-subscription`, **antes** de qualquer chamada ao gateway (senão a assinatura nasceria no Asaas e só depois seria rejeitada, deixando órfão), e no banco pelo trigger `trg_assinatura_exige_adesao`, que cobre qualquer caminho de escrita — inclusive `service_role`, que ignora RLS. `nivel_atacado` fica preenchido mesmo em aluno `sem_adesao`, então ele sozinho nunca autoriza cobrança.
 

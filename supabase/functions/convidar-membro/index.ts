@@ -6,6 +6,7 @@ import { dentroDoFreio, MENSAGEM_FREIO } from "../_shared/freio.ts";
 import { erroDataNascimento } from "../_shared/nascimento.ts";
 import { servir } from "../_shared/servir.ts";
 import { resumoDoErro } from "../_shared/resumoDoErro.ts";
+import { respostaDoErroDoAuth } from "../_shared/erroDoAuth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -356,8 +357,10 @@ servir("convidar-membro", async (req: Request) => {
         if (recusaDaMatriculaOnline(alunoError.message)) {
           return jsonResponse({ error: MATRICULA_ONLINE_NAO_CONFIRMADA }, 409);
         }
-        const limite = alunoError.message?.toLowerCase().includes("limite");
-        return jsonResponse({ error: limite ? alunoError.message : "Erro ao criar o cadastro do aluno." }, limite ? 409 : 500);
+        // O limite de alunos do plano: a mensagem é a nossa, do gatilho
+        // `trg_alunos_limite` (check_violation), e diz o que fazer.
+        if (alunoError.code === "23514" && /limite/i.test(alunoError.message ?? "")) return jsonResponse({ error: alunoError.message }, 409);
+        return jsonResponse({ error: "Erro ao criar o cadastro do aluno." }, 500);
       }
 
       const aviso = semEmail
@@ -398,15 +401,10 @@ servir("convidar-membro", async (req: Request) => {
           429
         );
       }
-      const alreadyExists = inviteError?.message?.toLowerCase().includes("already been registered");
-      return jsonResponse(
-        {
-          error: alreadyExists
-            ? "Já existe um usuário cadastrado com esse e-mail."
-            : inviteError?.message ?? "Falha ao convidar o usuário.",
-        },
-        alreadyExists ? 409 : 400
-      );
+      // A mensagem do Auth não vai para a tela: pode trazer o e-mail digitado
+      // e descreve o servidor (frente D, 07/10/2026).
+      const r = respostaDoErroDoAuth(inviteError, "Falha ao convidar o usuário. Tente de novo.");
+      return jsonResponse({ error: r.mensagem }, r.status);
     }
 
     const newUserId = invited.user.id;

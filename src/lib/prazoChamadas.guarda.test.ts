@@ -54,4 +54,18 @@ describe("chamadas das edge functions com prazo", () => {
     const sem = todas.filter((c) => !/signal:\s*(AbortSignal\.timeout\(|\w+\.signal)/.test(c.texto)).map((c) => `${c.arquivo}: ${c.texto.slice(0, 80)}`);
     expect(sem).toEqual([]);
   });
+
+  // Frente D, 07/10/2026: o e-mail do login (`send-email`) ia pelo SDK do
+  // Resend, que não aceita prazo e escapava da regra acima, porque não há
+  // `fetch(` no código de quem chama. Todo envio ao Resend vai pela API.
+  it("todo envio ao Resend é um fetch com prazo, e nenhuma função usa o SDK dele", () => {
+    const resend = todas.filter((c) => /api\.resend\.com/.test(c.texto));
+    expect(resend.length).toBeGreaterThanOrEqual(17);
+    expect(resend.map((c) => c.arquivo)).toContain("send-email/index.ts");
+    expect(resend.filter((c) => !/signal:\s*AbortSignal\.timeout\(/.test(c.texto)).map((c) => c.arquivo)).toEqual([]);
+    const sdk = arquivos(FUNCOES)
+      .filter((arquivo) => /from\s+["']npm:resend\b|\bnew Resend\(/.test(readFileSync(arquivo, "utf8")))
+      .map((arquivo) => relative(FUNCOES, arquivo).replace(/\\/g, "/"));
+    expect(sdk).toEqual([]);
+  });
 });

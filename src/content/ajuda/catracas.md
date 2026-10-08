@@ -16,6 +16,8 @@ Se o token se perdeu ou pode ter vazado, o gestor clica em **Gerar token novo** 
 
 Cadastrar, gerar token, ativar e desativar são da gestão. A recepção acompanha a tela e usa as ações abaixo.
 
+A catraca **desativada** fica desligada do ARKE: ela não libera ninguém pelo ARKE, não recebe ordens (nem a de **Sincronizar agora**) e deixa de receber o cadastro dos alunos. O Gateway continua mandando sinal de vida, e a tela mostra se o computador está ligado. Para voltar a usar, é só ativar de novo; o cadastro chega na próxima rodada automática.
+
 ## Os estados do Gateway
 
 - **No ar**: tudo normal.

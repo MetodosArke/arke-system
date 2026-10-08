@@ -1,6 +1,5 @@
 import * as React from 'npm:react@18.3.1'
 import { Webhook } from 'npm:standardwebhooks@1.0.0'
-import { Resend } from 'npm:resend@4.0.0'
 import { renderAsync } from 'npm:@react-email/components@0.0.22'
 import { InviteEmail } from './_templates/invite.tsx'
 import { SignupEmail } from './_templates/signup.tsx'
@@ -13,7 +12,7 @@ import { textoDaRecuperacao, varianteDaRecuperacao } from './recuperacao.ts'
 import { servir } from '../_shared/servir.ts'
 import { resumoDoErro } from '../_shared/resumoDoErro.ts'
 
-const resend = new Resend(Deno.env.get('RESEND_API_KEY') as string)
+const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY') ?? ''
 // O Supabase mostra o secret como "v1,whsec_<base64>" — o Webhook (padrão
 // standardwebhooks/Svix) espera só a parte depois do "v1,".
 const hookSecret = (Deno.env.get('SEND_EMAIL_HOOK_SECRET') as string).replace('v1,whsec_', '')
@@ -25,13 +24,26 @@ const FROM = Deno.env.get('EMAIL_FROM') ?? 'ArkeFit <convites@arkefit.com.br>'
 // tentativa, o aluno ficava sem o link. Espera curta, porque o Auth dá
 // poucos segundos para o hook responder.
 const ESPERAS_MS = [400, 800, 1200]
+// Prazo de cada envio (frente D, 07/10/2026). Era pelo SDK do Resend, que não
+// aceita prazo: um Resend lento segurava a função até o limite da
+// plataforma, e o Auth desistia do hook antes. Agora vai pela API, como os
+// outros envios, com `AbortSignal.timeout` (`prazoChamadas.guarda`).
+const PRAZO_ENVIO_MS = 4_000
 async function enviarComNovaTentativa(email: { from: string; to: string[]; subject: string; html: string }) {
   for (let tentativa = 0; ; tentativa++) {
-    const { error } = await resend.emails.send(email)
-    if (!error) return
-    const limite = (error as { statusCode?: number; name?: string }).statusCode === 429 || error.name === 'rate_limit_exceeded'
-    if (!limite || tentativa >= ESPERAS_MS.length) throw error
-    await new Promise((r) => setTimeout(r, ESPERAS_MS[tentativa]))
+    const r = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${RESEND_API_KEY}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(email),
+      signal: AbortSignal.timeout(PRAZO_ENVIO_MS),
+    })
+    // O corpo não interessa (o da recusa pode citar o destinatário): só o status.
+    await r.body?.cancel()
+    if (r.ok) return
+    if (r.status !== 429 || tentativa >= ESPERAS_MS.length) {
+      throw Object.assign(new Error('Resend recusou o envio'), { name: 'ResendError', status: r.status })
+    }
+    await new Promise((espera) => setTimeout(espera, ESPERAS_MS[tentativa]))
   }
 }
 
