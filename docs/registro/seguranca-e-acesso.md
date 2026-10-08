@@ -739,6 +739,7 @@ Oito achados "baixos" da auditoria de prontidão. Migrations `20261408010000` e 
   - pôr o bloqueio dentro de `is_org_staff()` seria uma função só, mas mudaria o RLS de todas as tabelas da equipe (a leitura junto), e o que a academia ainda precisa com a mensalidade vencida (a exportação de dados depois do encerramento, por exemplo) teria de ser conferido caminho por caminho.
 - **O caminho do pagamento não depende de nada disso:** a fatura abre na página do Asaas, e o webhook grava com a service role. Qualquer proposta o mantém.
 - **A proposta, para decidir:** (a) pôr a recepção no gate da tela: uma linha em `get_bloqueio_organizacao`, decisão de produto; (b) se o bloqueio tiver de valer no servidor, começar pelas edge functions que gravam em nome da equipe (o convite do aluno, a matrícula, a cobrança avulsa, o cadastro da equipe), com uma conferência só em `_shared`, e só depois as regras restritivas, nas tabelas que só a equipe grava (treinos, dietas, modelos, turmas, comunicados, planos), deixando de fora as que nascem de ação do aluno. O risco hoje é comercial, e não de dado: quem precisa da API para trabalhar de graça teria de saber usá-la.
+- *Decidido em 08/10/2026: (a), com a recepção em modo essencial, e não na tela de suspensão (migration `20261420010000`; ver "A recepção em modo essencial no bloqueio B2B" em [cobranca.md](cobranca.md)). O (b) fica para depois do primeiro cliente pagante (`docs/DECISOES_PENDENTES.md`) e, quando vier, barra só a gestão, e não o que a recepção usa no modo essencial.*
 
 **8. Os índices sem uso e o `pg_net` no `public`: ficam, com o motivo.**
 - **Os índices sem uso ficam até depois do lançamento.** O advisor marca como sem uso o índice que não foi lido desde que as estatísticas começaram, e o banco ainda não tem uso real: nenhuma academia em operação, só a homologação e a demonstração. Com volume, são esses índices que sustentam as chaves estrangeiras, as regras de acesso e as telas. Remover agora seria adivinhar. A revisão fica para 30 a 60 dias de uso real, com `pg_stat_user_indexes`, e mantém o índice de chave estrangeira e o de restrição única.
@@ -756,7 +757,7 @@ Oito achados "baixos" da auditoria de prontidão. Migrations `20261408010000` e 
 - **O cadastro guardado no computador da catraca desativada.** A nuvem para de mandar a lista, mas o Gateway fica com a que já tinha, e sem internet decide por ela. Apagar o cadastro ao receber o 403 é mudança do Gateway (versão nova), e a catraca desativada não libera ninguém pela nuvem.
 - **O corpo do erro do Asaas na emissão da cobrança B2B** (`asaas-emitir-cobranca-b2b`) vai como `detalhe` para a Visão Master. É a mensagem do Asaas, e não do Auth nem do banco, e só a ArkeFit a vê.
 - **As tabelas sem regra seguem com a permissão padrão** de `authenticated`: o RLS recusa tudo, e tirar a permissão trocaria a resposta vazia por 42501 sem fechar nada. Fica para uma passada só.
-- **O item 7**, para decisão.
+- **O item 7**, para decisão. *Decidido em 08/10/2026 (acima).*
 
 **Travas:**
 - `saidaDoAluno.guarda` (3 casos novos): nenhuma regra de exclusão em `alunos`, e a última permissão de excluir para `authenticated` e para `anon` é um `revoke`; o leitor acha a permissão e a regra devolvidas; e nenhuma tela nem função apaga o aluno direto, por um leitor da corrente do `.from("alunos")` que segue os parênteses (o código sem ponto e vírgula também).
@@ -783,9 +784,12 @@ Oito achados "baixos" da auditoria de prontidão. Migrations `20261408010000` e 
     - sem a migration: as 3 sequências do Vigia sem o uso para a service role;
     - com a migration: 8 sequências, todas com o uso.
   - **Depois, nada gravado:** a aluna e2e seguiu lá, e a regra e a permissão de exclusão seguiam no ar até aplicar.
-- **Falta, porque esta frente não toca produção:**
-  - aplicar as duas migrations;
-  - publicar as 8 funções e `assistente-academia` (o índice da Central mudou), e o app;
-  - a corrente real: desativar uma catraca da homologação e conferir o 403 da sincronização e o sinal de vida; convidar com um e-mail inválido e conferir a mensagem nossa; e mandar um e-mail de recuperação de senha;
-  - a tela: o artigo das Catracas na Central;
-  - o item 7, para decidir.
+- **A publicação (07 e 08/10/2026):**
+  - as duas migrations;
+  - as 9 funções: `catraca-sincronizar-alunos` v28, `send-email` v26, `criar-organizacao-superadmin` v28, `convidar-membro` v31, `editar-membro-equipe` v32, `superadmin-suporte-tenant` v29, `vapid-public-key` v23, `vigia-aprovar` v13 e `assistente-academia` v32;
+  - o app (#357). Desta vez a Vercel publicou sozinha.
+- **A corrente real:**
+  - **O e-mail do login pela versão nova do `send-email`:** a recuperação de senha de uma conta temporária respondeu 200, e o Resend entregou "Redefinir sua senha do ArkeFit".
+  - **A catraca:** com um equipamento temporário na homologação, a inativa recebeu 403 "Dispositivo inativo.", sem a lista, e o sinal de vida foi gravado; ativada, a lista saiu (200). O equipamento foi apagado.
+  - **O convite com e-mail que o Auth recusa:** não foi pela corrente real, de propósito. Para o Auth recusar, o convite sairia para um endereço que não existe, e o e-mail devolvido pesa na reputação de envio do domínio. Ficam a guarda `respostaSemErroInterno` e os testes do tradutor.
+- **O item 7:** decidido em 08/10/2026, com a recepção em modo essencial (ver `docs/registro/cobranca.md`).
