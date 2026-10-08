@@ -496,8 +496,6 @@ export function nomeDoArquivoDaFicha(quem: string | null, hoje: string): string 
 
 // ── Os documentos anexos ─────────────────────────────────────────────────────
 
-export const BUCKET_DOCUMENTOS = "equipe-arkefit-documentos";
-
 export const TIPOS_DE_DOCUMENTO: Opcao[] = [
   { id: "rg_cnh", nome: "RG ou CNH" },
   { id: "cpf", nome: "CPF" },

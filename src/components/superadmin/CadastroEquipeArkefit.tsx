@@ -10,7 +10,6 @@ import { decimal, reais } from "@/lib/numeros";
 import { baixarPlanilha } from "@/lib/exportarPlanilha";
 import { extensaoDoTipo, reduzirImagem } from "@/lib/reduzirImagem";
 import {
-  BUCKET_DOCUMENTOS,
   CAMPOS_PESSOAIS,
   ESTADOS_CIVIS,
   REGIMES_DE_BENS,
@@ -533,7 +532,7 @@ function AnexosDoCadastro({ userId, podeEnviar, podeApagar }: { userId: string; 
     queryKey: CHAVE_DOCUMENTOS(userId),
     queryFn: async () => {
       const { data, error } = await supabase.storage
-        .from(BUCKET_DOCUMENTOS)
+        .from("equipe-arkefit-documentos")
         .list(userId, { limit: 100, sortBy: { column: "name", order: "asc" } });
       if (error) throw error;
       return (data ?? []).filter((d) => d.name && !d.name.startsWith(".")) as Documento[];
@@ -552,7 +551,7 @@ function AnexosDoCadastro({ userId, podeEnviar, podeApagar }: { userId: string; 
       const extensao = tipoMime === "application/pdf" ? "pdf" : extensaoDoTipo(tipoMime);
       const caminho = caminhoDoDocumento(userId, dados.tipo, extensao, hojeBrasilia(), crypto.randomUUID());
       const { error } = await supabase.storage
-        .from(BUCKET_DOCUMENTOS)
+        .from("equipe-arkefit-documentos")
         .upload(caminho, conteudo, { contentType: tipoMime, upsert: false, cacheControl: "31536000" });
       if (error) throw new Error(error.message);
     },
@@ -567,7 +566,7 @@ function AnexosDoCadastro({ userId, podeEnviar, podeApagar }: { userId: string; 
 
   const apagar = useMutation({
     mutationFn: async (doc: Documento) => {
-      const { data, error } = await supabase.storage.from(BUCKET_DOCUMENTOS).remove([`${userId}/${doc.name}`]);
+      const { data, error } = await supabase.storage.from("equipe-arkefit-documentos").remove([`${userId}/${doc.name}`]);
       if (error) throw new Error(error.message);
       // A regra que não deixa responde sem erro e sem nada apagado.
       if (!data?.length) throw new Error("Só um sócio apaga documentos.");
@@ -585,7 +584,7 @@ function AnexosDoCadastro({ userId, podeEnviar, podeApagar }: { userId: string; 
 
   // Link de um minuto: o bucket é privado, e o documento não vira endereço público.
   const abrir = async (doc: Documento) => {
-    const { data, error } = await supabase.storage.from(BUCKET_DOCUMENTOS).createSignedUrl(`${userId}/${doc.name}`, 60);
+    const { data, error } = await supabase.storage.from("equipe-arkefit-documentos").createSignedUrl(`${userId}/${doc.name}`, 60);
     if (error || !data?.signedUrl) {
       toast({ title: "Não foi possível abrir o documento", description: error?.message, variant: "destructive" });
       return;
