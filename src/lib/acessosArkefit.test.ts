@@ -1,8 +1,27 @@
 import { describe, expect, it } from "vitest";
-import { ACESSOS_ARKEFIT, PAPEIS_ARKEFIT, acessoDosPapeis, acessoPorId, estadoDaConta } from "./acessosArkefit";
+import {
+  ACESSOS_ARKEFIT,
+  NIVEIS,
+  NIVEIS_ABERTOS,
+  NIVEIS_DA_AREA,
+  PAPEIS_ARKEFIT,
+  acessoDosPapeis,
+  acessoPorId,
+  estadoDaConta,
+  lerNiveis,
+  nomeDoAcessoDaPessoa,
+  nomeDosNiveis,
+  podeAbrirNaVisaoMaster,
+  podeArea,
+  rotaInicial,
+  temAcessoArkefit,
+  type AreaArkefit,
+} from "./acessosArkefit";
+import { resolveHomePath } from "./authRouting";
 import {
   ACESSOS_ARKEFIT as ACESSOS_DA_FUNCAO,
   JA_TEM_CONTA,
+  NIVEIS as NIVEIS_DA_FUNCAO,
   avisoAosSocios,
   emailDeNovoConvite,
   lerPedido,
@@ -36,10 +55,113 @@ describe("os níveis de acesso da equipe da ArkeFit", () => {
     expect(acessoDosPapeis(["superadmin", "admin_arke"])?.id).toBe("socio");
     expect(acessoDosPapeis(["admin_arke", "superadmin", "admin_arke"])?.id).toBe("socio");
     expect(acessoDosPapeis(["admin_arke"])).toBeNull();
+    expect(acessoDosPapeis([])).toBeNull();
     expect(nomeDoAcesso(["admin_arke", "superadmin"])).toBe("Sócio");
     expect(nomeDoAcesso(["admin_arke"])).toBe("admin_arke");
+    // A equipe contratada: sem papel, pelos níveis.
+    expect(nomeDoAcesso([], ["suporte", "mentor"])).toBe("Suporte e Mentor");
+    expect(nomeDoAcesso(["admin_arke", "superadmin"], ["mentor"])).toBe("Sócio");
+  });
+});
+
+describe("os níveis da equipe contratada", () => {
+  it("o espelho da função tem os mesmos níveis, com os mesmos nomes e o mesmo 'aberto'", () => {
+    expect(NIVEIS_DA_FUNCAO.map(({ id, nome, aberto }) => ({ id, nome, aberto }))).toEqual(
+      NIVEIS.map(({ id, nome, aberto }) => ({ id, nome, aberto })),
+    );
   });
 
+  it("nesta entrega, Mentor e Suporte estão no ar; Comercial e Financeiro, em breve", () => {
+    expect([...NIVEIS_ABERTOS].sort()).toEqual(["mentor", "suporte"]);
+    expect(NIVEIS.filter((n) => !n.aberto).map((n) => n.id).sort()).toEqual(["comercial", "financeiro"]);
+    for (const n of NIVEIS) {
+      expect(n.descricao.length, n.id).toBeGreaterThan(20);
+      expect(n.nunca.length, n.id).toBeGreaterThan(20);
+    }
+  });
+
+  it("cada nível abre as áreas do mapa, e o Sócio abre todas", () => {
+    const areas = Object.keys(NIVEIS_DA_AREA) as AreaArkefit[];
+    const abre = (niveis: string[]) => areas.filter((a) => podeArea({ socio: false, niveis }, a)).sort();
+    expect(abre(["suporte"])).toEqual(["carteira", "operacao", "suporte"]);
+    expect(abre(["mentor"])).toEqual(["mentoria"]);
+    expect(abre(["comercial"])).toEqual(["cadastro", "carteira", "comercial"]);
+    expect(abre(["financeiro"])).toEqual(["carteira", "financeiro"]);
+    expect(abre(["mentor", "suporte"])).toEqual(["carteira", "mentoria", "operacao", "suporte"]);
+    expect(abre([])).toEqual([]);
+    expect(abre(["superadmin"])).toEqual([]);
+    expect(areas.every((a) => podeArea({ socio: true, niveis: [] }, a))).toBe(true);
+    // Ninguém além do Sócio abre a área do Sócio.
+    expect(NIVEIS_DA_AREA.socio).toEqual([]);
+  });
+
+  it("lê os níveis do banco sem repetir, na ordem da lista, e sem o desconhecido", () => {
+    expect(lerNiveis(["mentor", "suporte", "mentor", "dono"])).toEqual(["suporte", "mentor"]);
+    expect(lerNiveis(null)).toEqual([]);
+    expect(lerNiveis("mentor")).toEqual([]);
+    expect(nomeDosNiveis(["financeiro", "suporte", "mentor"])).toBe("Suporte, Mentor e Financeiro");
+    expect(nomeDosNiveis([])).toBe("");
+  });
+
+  it("entra na Visão Master o Sócio, ou quem tem nível; o nome no cabeçalho diz qual", () => {
+    expect(temAcessoArkefit({ socio: true, niveis: [] })).toBe(true);
+    expect(temAcessoArkefit({ socio: false, niveis: ["mentor"] })).toBe(true);
+    expect(temAcessoArkefit({ socio: false, niveis: [] })).toBe(false);
+    expect(temAcessoArkefit({ socio: false, niveis: ["gestor"] })).toBe(false);
+    expect(nomeDoAcessoDaPessoa({ socio: true, niveis: [] })).toBe("Sócio");
+    expect(nomeDoAcessoDaPessoa({ socio: false, niveis: ["suporte"] })).toBe("Suporte");
+  });
+});
+
+describe("as rotas da Visão Master por nível", () => {
+  const mentor = { socio: false, niveis: ["mentor"] };
+  const suporte = { socio: false, niveis: ["suporte"] };
+  const socio = { socio: true, niveis: [] };
+  const ninguem = { socio: false, niveis: [] };
+
+  it("o Mentor abre a Mentoria e a ficha do aluno, e não a Visão Geral, a Equipe ou os Equipamentos", () => {
+    expect(podeAbrirNaVisaoMaster("/superadmin/mentoria", mentor)).toBe(true);
+    expect(podeAbrirNaVisaoMaster("/superadmin/mentoria/aluno/abc", mentor)).toBe(true);
+    expect(podeAbrirNaVisaoMaster("/superadmin/ajuda/vm-mentoria", mentor)).toBe(true);
+    for (const r of ["/superadmin", "/superadmin/equipe", "/superadmin/equipamentos", "/superadmin/suporte", "/superadmin/configuracoes"]) {
+      expect(podeAbrirNaVisaoMaster(r, mentor), r).toBe(false);
+    }
+  });
+
+  it("o Suporte abre a Visão Geral, o Suporte, a Implantação, os Equipamentos, o Vigia e as rotinas; não a Mentoria nem a Equipe", () => {
+    for (const r of ["/superadmin", "/superadmin/suporte", "/superadmin/implantacao", "/superadmin/equipamentos", "/superadmin/vigia", "/superadmin/webhooks", "/superadmin/profissionais"]) {
+      expect(podeAbrirNaVisaoMaster(r, suporte), r).toBe(true);
+    }
+    for (const r of ["/superadmin/mentoria", "/superadmin/equipe", "/superadmin/auditoria", "/superadmin/comercial", "/superadmin/ia", "/superadmin/acervo"]) {
+      expect(podeAbrirNaVisaoMaster(r, suporte), r).toBe(false);
+    }
+  });
+
+  it("rota fora da tabela não abre (falha fechada), nem para o Sócio; quem não tem acesso não abre nada", () => {
+    expect(podeAbrirNaVisaoMaster("/superadmin/nova-tela", socio)).toBe(false);
+    expect(podeAbrirNaVisaoMaster("/superadmin/ajuda", ninguem)).toBe(false);
+    expect(podeAbrirNaVisaoMaster("/superadmin/equipe", socio)).toBe(true);
+  });
+
+  it("a rota inicial: o Mentor vai para a Mentoria; o Suporte e o Sócio, para a Visão Geral", () => {
+    expect(rotaInicial(mentor)).toBe("/superadmin/mentoria");
+    expect(rotaInicial(suporte)).toBe("/superadmin");
+    expect(rotaInicial(socio)).toBe("/superadmin");
+    expect(rotaInicial({ socio: false, niveis: ["mentor", "suporte"] })).toBe("/superadmin");
+  });
+
+  it("depois do login: o Sócio e a equipe com nível vão à Visão Master; a gestão e o aluno, como antes", () => {
+    expect(resolveHomePath(["superadmin", "admin_arke"], null)).toBe("/superadmin");
+    expect(resolveHomePath([], null, null, ["mentor"])).toBe("/superadmin/mentoria");
+    expect(resolveHomePath([], null, null, ["suporte"])).toBe("/superadmin");
+    expect(resolveHomePath([], "gestor", "academia", [])).toBe("/admin/dashboard");
+    expect(resolveHomePath([], "aluno", "academia")).toBe("/app");
+    // Nível desconhecido não é acesso.
+    expect(resolveHomePath([], "aluno", "academia", ["dono"])).toBe("/app");
+  });
+});
+
+describe("o acesso e o estado da conta", () => {
   it("acesso que não está na lista é recusado", () => {
     expect(acessoPorId("admin")).toBeNull();
     expect(acessoPorId(undefined)).toBeNull();
@@ -60,6 +182,35 @@ describe("o pedido do convite", () => {
     expect(lerPedido({ nome: " ", email: "ana@exemplo.com", acesso: "socio" }).ok).toBe(false);
     expect(lerPedido(null).ok).toBe(false);
     expect(lerPedido({ acao: "apagar", user_id: "x" }).ok).toBe(false);
+  });
+
+  it("convite da equipe: os níveis abertos, sem repetir, e o registro só do Mentor", () => {
+    const r = lerPedido({
+      acao: "convidar",
+      nome: "Bia",
+      email: "bia@exemplo.com",
+      niveis: ["mentor", "suporte", "mentor"],
+      cref: " 012345-G/SP ",
+      crn: "",
+    });
+    expect(r).toEqual({
+      ok: true,
+      pedido: { acao: "convidar", nome: "Bia", email: "bia@exemplo.com", niveis: ["mentor", "suporte"], cref: "012345-G/SP", crn: null },
+    });
+    const soSuporte = lerPedido({ nome: "Bia", email: "bia@exemplo.com", niveis: ["suporte"], cref: "012345-G/SP" });
+    expect(soSuporte.ok && "niveis" in soSuporte.pedido && soSuporte.pedido.cref).toBe(null);
+  });
+
+  it("o convite da equipe recusa o nível em breve, o desconhecido, a lista vazia, o registro inválido e os dois acessos juntos", () => {
+    const comercial = lerPedido({ nome: "Bia", email: "bia@exemplo.com", niveis: ["comercial"] });
+    expect(comercial).toEqual({ ok: false, erro: expect.stringMatching(/Comercial chega na próxima entrega/) });
+    expect(lerPedido({ nome: "Bia", email: "bia@exemplo.com", niveis: ["financeiro"] }).ok).toBe(false);
+    expect(lerPedido({ nome: "Bia", email: "bia@exemplo.com", niveis: ["superadmin"] }).ok).toBe(false);
+    expect(lerPedido({ nome: "Bia", email: "bia@exemplo.com", niveis: [] }).ok).toBe(false);
+    expect(lerPedido({ nome: "Bia", email: "bia@exemplo.com", niveis: "mentor" }).ok).toBe(false);
+    expect(lerPedido({ nome: "Bia", email: "bia@exemplo.com", niveis: ["mentor"], cref: "12" }).ok).toBe(false);
+    expect(lerPedido({ nome: "Bia", email: "bia@exemplo.com", niveis: ["mentor"], crn: "x".repeat(31) }).ok).toBe(false);
+    expect(lerPedido({ nome: "Bia", email: "bia@exemplo.com", niveis: ["mentor"], acesso: "socio" }).ok).toBe(false);
   });
 
   it("reenviar e retirar pedem o id da conta", () => {

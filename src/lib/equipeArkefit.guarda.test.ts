@@ -149,7 +149,10 @@ describe("a equipe ArkeFit entra por convite de um sócio verificado", () => {
     const gravar = definicaoVigente(textos, "gravar_convite_equipe_arkefit");
     expect(gravar, "a definição foi achada").not.toBe("");
     const registro = gravar.slice(gravar.indexOf("registrar_auditoria("));
-    expect(registro).toMatch(/'equipe_arkefit\.convidada', 'auth\.users', _user_id, null,\s*jsonb_build_object\('acesso', _acesso, 'papeis', to_jsonb\(_papeis\)\)/);
+    // Desde os níveis (20261422010000): o acesso, os papéis do Sócio e os níveis da equipe contratada.
+    expect(registro).toMatch(
+      /'equipe_arkefit\.convidada', 'auth\.users', _user_id, null,\s*jsonb_build_object\('acesso', _acesso, 'papeis', to_jsonb\(v_papeis\), 'niveis', to_jsonb\(v_niveis\)\)/,
+    );
     expect(registro).not.toMatch(/email|_nome|full_name/i);
     expect(gravar).toMatch(/_papeis <@ public\.papeis_da_arkefit\(\)/);
     expect(gravar).toMatch(/estado_conta_arkefit\(_user_id\) is distinct from 'convite_enviado'/);
