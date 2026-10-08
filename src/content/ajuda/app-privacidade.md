@@ -29,6 +29,10 @@ Desligar um interruptor apaga o que a IA tinha gerado para aquele uso.
 
 Se você tem menos de 18 anos, o seu responsável legal autoriza antes. Veja [Menor de 18 anos: a autorização do seu responsável](ajuda:app-menor-de-idade).
 
+## O registro de cada autorização
+
+Cada autorização sua (dados de saúde, inteligência artificial, digital e rosto, documentos aceitos e contrato) fica registrada com a data e a hora do sistema, a versão do texto que você leu, um código que identifica esse texto exato e o navegador ou aparelho de onde ela veio. É o que prova que foi você quem autorizou, e o quê. O endereço de internet (IP) não entra nesse registro. Retirar uma autorização também fica registrado, com a data e a hora.
+
 ## Sem o Método
 
 No plano Free, nenhum dado seu passa por inteligência artificial.

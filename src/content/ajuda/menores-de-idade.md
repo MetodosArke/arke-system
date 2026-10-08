@@ -14,7 +14,7 @@ O aluno com menos de 18 anos se matricula e treina normalmente. O que muda são 
 3. Pelo link, sem precisar de conta, ele lê o texto de cada item, que é o mesmo que o aluno lê no app, e marca o que autoriza. Pode autorizar todos, alguns ou nenhum.
 4. Com o item autorizado, **quem liga a autorização no app é o aluno**. A autorização do responsável libera; ela não autoriza no lugar do aluno.
 
-O ARKE guarda, para cada item, o nome e o e-mail de quem autorizou, a versão e a impressão digital (hash) do texto, a data e a hora. Se o texto de um item mudar, o responsável autoriza de novo.
+O ARKE guarda, para cada item, o nome e o e-mail de quem autorizou, a versão e a impressão digital (hash) do texto, a data e a hora, e o navegador de onde o link foi aberto (sem o endereço IP). Se o texto de um item mudar, o responsável autoriza de novo.
 
 ## Na ficha do aluno
 
