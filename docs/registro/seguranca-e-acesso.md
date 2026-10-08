@@ -774,8 +774,17 @@ Oito achados "baixos" da auditoria de prontidão. Migrations `20261408010000` e 
 - **Defeitos plantados: 10, os 10 pegos:** a migration do item 1 tirada; o `revoke` só do `anon`; uma tela apagando o aluno; uma tabela nova sem regra; uma tela lendo `freio_chamadas`; a migration do item 3 tirada; a sincronização sem a conferência do status; a conferência depois de montar a lista; as 6 funções do item 5 como eram (as 8 respostas cruas apontadas); e `send-email` de volta ao SDK.
 - **Testes:** 19 novos (3 em `saidaDoAluno.guarda`, 5 em `rlsSemRegra.guarda`, 3 em `sequencias.guarda`, 1 em `tokenCatraca.guarda`, 6 em `respostaSemErroInterno.guarda` e 1 em `prazoChamadas.guarda`). Suíte inteira: **1.357 testes em 180 arquivos, todos passando**, em 18 lotes de 10 arquivos, um por vez. Na primeira rodada, um caso novo de `saidaDoAluno.guarda` estourou os 5 segundos (6,1 s) com a máquina carregada: ele relia todos os textos da reconstrução três vezes. Os textos passaram a ser lidos uma vez por arquivo, `ultimaPermissao()` pula o texto que não cita a tabela, e os casos que leem a reconstrução inteira ganharam 30 segundos, como os de `cpfSemMascara` e `identidade`. O lote rodou de novo e passou.
 - `npm run check` sem erro: tipos, lint (0 erros, os 27 avisos de antes), o `deno check` das 56 funções e a auditoria das dependências (0 vulnerabilidades).
+- **O banco de produção, em transação desfeita, antes de aplicar (07/10/2026):**
+  - **item 1:**
+    - sem a migration: "FALHOU 6 de 7", com a gestora apagando a aluna e2e pela API (1 linha), a regra de exclusão e a permissão no ar;
+    - com a migration: 7 casos ok, e o dono das tabelas apaga.
+  - **item 2:** 18 tabelas sem regra, as mesmas da lista.
+  - **item 3:**
+    - sem a migration: as 3 sequências do Vigia sem o uso para a service role;
+    - com a migration: 8 sequências, todas com o uso.
+  - **Depois, nada gravado:** a aluna e2e seguiu lá, e a regra e a permissão de exclusão seguiam no ar até aplicar.
 - **Falta, porque esta frente não toca produção:**
-  - aplicar as duas migrations e rodar os roteiros em transação desfeita;
+  - aplicar as duas migrations;
   - publicar as 8 funções e `assistente-academia` (o índice da Central mudou), e o app;
   - a corrente real: desativar uma catraca da homologação e conferir o 403 da sincronização e o sinal de vida; convidar com um e-mail inválido e conferir a mensagem nossa; e mandar um e-mail de recuperação de senha;
   - a tela: o artigo das Catracas na Central;
