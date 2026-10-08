@@ -94,9 +94,10 @@ describe("caixa de mensagens pelo RLS", () => {
         expect(e, `${nome} (${metade}): toda a equipe`).not.toMatch(/is_org_staff/);
         expect(e, `${nome} (${metade}): o admin_arke solto`).not.toMatch(/admin_arke/);
         expect(e, `${nome} (${metade}): quem atende`).toMatch(/atende_saude\(organization_id\)/);
-        // A ArkeFit entra só junto do aluno do Método.
+        // A ArkeFit entra só junto do aluno do Método (com ou sem o `(select ...)`
+        // em volta de equipe_metodo(), que o roda uma vez por consulta: 20261434).
         expect(e, `${nome} (${metade}): a ArkeFit sem o aluno do Método`).not.toMatch(
-          /equipe_metodo\(\)(?!\s+and\s+(public\.)?aluno_no_metodo\(aluno_id\))/,
+          /equipe_metodo\(\)(?!\)?\s+and\s+(public\.)?aluno_no_metodo\(aluno_id\))/,
         );
       }
     }
