@@ -14,6 +14,7 @@ import {
   formatarPis,
   formatarTelefone,
   lerNomeDoDocumento,
+  mascararCpf,
   nomeDoArquivoDaFicha,
   rotuloRemuneracao,
   valorNaFicha,
@@ -184,7 +185,10 @@ describe("o formulário", () => {
 });
 
 describe("as máscaras", () => {
-  it("telefone, PIS e CNPJ alfanumérico", () => {
+  it("CPF, telefone, PIS e CNPJ alfanumérico", () => {
+    expect(mascararCpf("529")).toBe("529");
+    expect(mascararCpf("5299822")).toBe("529.982.2");
+    expect(mascararCpf("529.982.247-25 9")).toBe("529.982.247-25");
     expect(formatarTelefone("11987654321")).toBe("(11) 98765-4321");
     expect(formatarTelefone("1133334444")).toBe("(11) 3333-4444");
     expect(formatarPis("12012345678")).toBe("120.12345.67-8");

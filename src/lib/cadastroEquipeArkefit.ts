@@ -149,6 +149,15 @@ export function formatarTelefone(valor: string): string {
   return `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}`;
 }
 
+/** 000.000.000-00, enquanto digita. */
+export function mascararCpf(valor: string): string {
+  const d = somenteDigitos(valor).slice(0, 11);
+  if (d.length <= 3) return d;
+  if (d.length <= 6) return `${d.slice(0, 3)}.${d.slice(3)}`;
+  if (d.length <= 9) return `${d.slice(0, 3)}.${d.slice(3, 6)}.${d.slice(6)}`;
+  return `${d.slice(0, 3)}.${d.slice(3, 6)}.${d.slice(6, 9)}-${d.slice(9)}`;
+}
+
 /** 000.00000.00-0, o PIS, o PASEP e o NIT. */
 export function formatarPis(valor: string): string {
   const d = somenteDigitos(valor).slice(0, 11);

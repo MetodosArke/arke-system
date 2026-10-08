@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ScrollText, Search, ShieldAlert, UserCog, Trash2, KeyRound, Mail, Pencil } from "lucide-react";
+import { ScrollText, Search, ShieldAlert, UserCog, Trash2, KeyRound, Mail, Pencil, Download } from "lucide-react";
 import type { Tables } from "@/integrations/supabase/types";
 
 type Registro = Tables<"auditoria_acoes_sensiveis">;
@@ -29,6 +29,11 @@ const ACOES: Record<string, { label: string; icon: typeof Pencil; destrutiva?: b
   // acesso. O registro guarda o nível e os papéis, nunca o e-mail nem o nome.
   "equipe_arkefit.convidada": { label: "Convite para a equipe ArkeFit", icon: UserCog, destrutiva: true },
   "equipe_arkefit.acesso_retirado": { label: "Acesso à equipe ArkeFit retirado", icon: ShieldAlert, destrutiva: true },
+  // O cadastro completo da equipe ArkeFit (20261430010000): a trilha guarda os
+  // nomes dos campos que mudaram e quem exportou de quem, nunca os valores.
+  "equipe_arkefit.cadastro_alterado": { label: "Dados cadastrais da equipe ArkeFit alterados", icon: Pencil },
+  "equipe_arkefit.cadastro_exportado": { label: "Fichas da equipe ArkeFit baixadas", icon: Download, destrutiva: true },
+  "equipe_arkefit.nome_alterado": { label: "Nome de alguém da equipe ArkeFit alterado", icon: Pencil },
   // O registro profissional e o "atende como mentor" (20261292010000), que não tinha rótulo.
   equipe_arkefit_salva: { label: "Cadastro da equipe ArkeFit alterado", icon: Pencil },
   // A rotina diária (20261403010000): a matrícula pelo link que não confirmou o e-mail em 7 dias.
