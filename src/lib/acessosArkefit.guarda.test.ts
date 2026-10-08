@@ -363,8 +363,9 @@ describe("nível nunca grava user_roles: só o Sócio ganha papel", () => {
   });
 
   it("a função manda papéis só no convite do Sócio, e não escreve em user_roles", () => {
-    expect(funcao).toMatch(/_papeis: socio \? \[\.\.\.pedido\.acesso\.papeis\] : \[\],/);
-    expect(funcao).toMatch(/_niveis: socio \? \[\] : pedido\.niveis,/);
+    expect(funcao).toMatch(/const conviteDeSocio = "acesso" in pedido;/);
+    expect(funcao).toMatch(/_papeis: conviteDeSocio \? \[\.\.\.pedido\.acesso\.papeis\] : \[\],/);
+    expect(funcao).toMatch(/_niveis: conviteDeSocio \? \[\] : pedido\.niveis,/);
     expect(funcao).not.toMatch(/from\("user_roles"\)\s*\.(insert|upsert|update|delete)\(/);
   });
 

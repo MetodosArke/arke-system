@@ -126,16 +126,16 @@ servir("equipe-arkefit-convidar", async (req: Request) => {
 
     // O Sócio ganha os papéis; a equipe contratada, só os níveis. Nível nunca
     // grava `user_roles`: o banco recusa os dois juntos, e o nível fechado.
-    const socio = "acesso" in pedido;
+    const conviteDeSocio = "acesso" in pedido;
     const { error: gravarError } = await admin.rpc("gravar_convite_equipe_arkefit", {
       _ator: callerId,
       _user_id: novoId,
       _nome: pedido.nome,
-      _papeis: socio ? [...pedido.acesso.papeis] : [],
-      _acesso: socio ? pedido.acesso.id : "equipe",
-      _niveis: socio ? [] : pedido.niveis,
-      _cref: socio ? null : pedido.cref,
-      _crn: socio ? null : pedido.crn,
+      _papeis: conviteDeSocio ? [...pedido.acesso.papeis] : [],
+      _acesso: conviteDeSocio ? pedido.acesso.id : "equipe",
+      _niveis: conviteDeSocio ? [] : pedido.niveis,
+      _cref: conviteDeSocio ? null : pedido.cref,
+      _crn: conviteDeSocio ? null : pedido.crn,
     });
     if (gravarError) {
       console.error("equipe-arkefit-convidar: falha ao gravar o convite", resumoDoErro(gravarError));
@@ -151,7 +151,7 @@ servir("equipe-arkefit-convidar", async (req: Request) => {
       evento: "convidada",
       ator: await nomeDe(callerId),
       pessoa: pedido.nome,
-      acesso: socio ? pedido.acesso.nome : nomeDosNiveis(pedido.niveis),
+      acesso: conviteDeSocio ? pedido.acesso.nome : nomeDosNiveis(pedido.niveis),
       painel,
     });
     return jsonResponse({ user_id: novoId, convite_enviado: true, socios_avisados: avisados });

@@ -38,13 +38,16 @@ As Fases 1 a 3 estão no ar. O que vem depois é upgrade, e só se decide com o 
 - **Autonomia da análise por IA.** As ações que ela propõe pedem aprovação, mesmo as que o catálogo classifica como "sozinho". Rever com casos reais suficientes para medir o acerto fora do simulado.
 - **Ao medir, desconsiderar as 22 ocorrências de 24/09/2026 entre 10:35 e 12:30** ("rotina falhou" nas rotinas do próprio Vigia e no alerta de catracas). Eram o painel de rotinas lendo uma execução ainda em andamento como falha, corrigido na mesma data; não houve incidente.
 
-## Equipe da ArkeFit: os acessos da equipe contratada (08/10/2026)
+## Equipe da ArkeFit: a entrega 2 dos níveis (08/10/2026)
 
-A equipe da ArkeFit entra por convite de um sócio (Visão Master → Equipe ArkeFit), e hoje o único acesso é **Sócio** (`superadmin` e `admin_arke`, como as contas dos sócios). O que fica para a primeira contratação:
+A entrega 1 pôs no ar a base (`equipe_arkefit.niveis` e `acesso_arkefit(área)`), o **Mentor** e o **Suporte** (ver `docs/registro/seguranca-e-acesso.md`, "Os níveis da equipe ArkeFit, entrega 1"). Nenhum nível grava `user_roles`, e o `admin_arke` continua só dos sócios. Fica para a entrega 2, nesta ordem:
 
-- **Os níveis da equipe contratada** (por exemplo suporte, comercial, mentoria e financeiro), cada um com as áreas que abre. Eles entram como uma entrada a mais em `ACESSOS_ARKEFIT` (`src/lib/acessosArkefit.ts`, com o espelho em `supabase/functions/equipe-arkefit-convidar/fluxo.ts`); papel novo no enum `app_role` entra também em `papeis_da_arkefit()` e em `has_role()` (só com as duas etapas).
-- **O `admin_arke` age como gestor em toda academia**, com os alunos, a saúde, o dinheiro e a entrada como qualquer perfil. É amplo demais para uma contratação: nenhum nível da equipe contratada deve nascer com ele. Cada área pede o próprio papel, com o RLS e as funções olhando para ele.
-- **Devolver o acesso a quem saiu.** A conta retirada continua existindo, sem papel, e o convite recusa e-mail que já tem conta. Decidir entre reativar a conta antiga pelo link de definir a senha (como a gestão pendente) ou pedir outro e-mail.
+- **Comercial (lote 5):** a área `cadastro` (nova organização só como `ativo`, a edge `criar-organizacao-superadmin` recusando trial sem `socio`; nome, tipo, CNPJ e telefone pela RPC nova `atualizar_cadastro_organizacao`; convidar e editar autônomo) e a área `comercial` (o Pipeline, a Letícia por contato, o funil). Abrir o nível em `niveis_arkefit_abertos()`, `NIVEIS` (`aberto`) e o espelho da função do convite.
+- **Financeiro (lote 6):** as três RPCs de escrita (`definir_mensalidade_b2b`, `definir_repasse_organizacao`, `definir_repasse_por_nivel`), os gatilhos de proteção de status, colunas e repasse, a divisão de `plataforma_config` por chave, as quatro edges do Asaas (`asaas-emitir-cobranca-b2b`, `asaas-assinatura-b2b`, `asaas-taxa-implantacao`, `asaas-conta-academia`), os indicadores, a receita e os webhooks; o sandbox.
+- **Limpeza (lote 7):** `impersonar-perfil` só para o Sócio; `emails_da_area()` para os avisos por área; tirar o `admin_arke` das funções que hoje aceitam Sócio ou Admin ARKE (a lista com o motivo está em `CHAMADAS_DA_VISAO_MASTER`); a coluna `equipe_arkefit.mentor` sai depois do deploy (o Mentor contratado já é `mentor` pelo nível; no Sócio ela é a chave "Atende como mentor").
+- **Desempenho:** envolver `equipe_metodo()` em `(select ...)` nas cerca de 25 regras que o chamam linha a linha (a medição está no registro).
+- **O detalhe do Gateway para o Suporte:** a telemetria, os eventos e as ordens de cada catraca são lidos direto das tabelas, cujo RLS é da academia e do Sócio; hoje o Suporte vê o resumo de cada catraca. Decidir se a operação lê também o detalhe, e se manda ordem remota (liberar o giro).
+- **Devolver o acesso a quem saiu.** A conta retirada continua existindo, sem papel nem nível, e o convite recusa e-mail que já tem conta. Decidir entre reativar a conta antiga pelo link de definir a senha (como a gestão pendente) ou pedir outro e-mail.
 
 ## O cadastro da equipe da ArkeFit (08/10/2026)
 

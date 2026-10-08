@@ -79,17 +79,17 @@ export type Leitura = { ok: true; pedido: Pedido } | { ok: false; erro: string }
 
 export const NIVEL_EM_BREVE = (nome: string) => `O nível ${nome} chega na próxima entrega. Por enquanto, convide com Mentor ou Suporte.`;
 
-/** Os níveis do pedido: os da lista, sem repetir, abertos. */
-function lerNiveisDoPedido(valor: unknown): { ok: true; niveis: NivelArkefit[] } | { ok: false; erro: string } {
-  if (!Array.isArray(valor) || valor.length === 0) return { ok: false, erro: "Escolha ao menos um nível." };
+/** Os níveis do pedido: os da lista, sem repetir, abertos; ou o erro, em texto. */
+function lerNiveisDoPedido(valor: unknown): NivelArkefit[] | string {
+  if (!Array.isArray(valor) || valor.length === 0) return "Escolha ao menos um nível.";
   const niveis: NivelArkefit[] = [];
   for (const v of valor) {
     const nivel = NIVEIS.find((n) => n.id === v);
-    if (!nivel) return { ok: false, erro: "Nível inválido." };
-    if (!nivel.aberto) return { ok: false, erro: NIVEL_EM_BREVE(nivel.nome) };
+    if (!nivel) return "Nível inválido.";
+    if (!nivel.aberto) return NIVEL_EM_BREVE(nivel.nome);
     if (!niveis.includes(nivel.id)) niveis.push(nivel.id);
   }
-  return { ok: true, niveis };
+  return niveis;
 }
 
 /** O registro profissional (CREF ou CRN), vazio vira nulo; os limites são os de `equipe_arkefit`. */
@@ -122,14 +122,14 @@ export function lerPedido(corpo: unknown): Leitura {
   // Sócio ou equipe contratada, nunca os dois: o Sócio já abre tudo.
   if (c.niveis !== undefined) {
     if (c.acesso !== undefined) return { ok: false, erro: "Escolha Sócio ou os níveis, não os dois." };
-    const lidos = lerNiveisDoPedido(c.niveis);
-    if (!lidos.ok) return lidos;
-    const mentor = lidos.niveis.includes("mentor");
+    const niveis = lerNiveisDoPedido(c.niveis);
+    if (typeof niveis === "string") return { ok: false, erro: niveis };
+    const mentor = niveis.includes("mentor");
     const cref = mentor ? lerRegistro(c.cref, 4) : null;
     const crn = mentor ? lerRegistro(c.crn, 3) : null;
     if (cref === undefined) return { ok: false, erro: "CREF inválido (de 4 a 30 caracteres)." };
     if (crn === undefined) return { ok: false, erro: "CRN inválido (de 3 a 30 caracteres)." };
-    return { ok: true, pedido: { acao, nome, email, niveis: lidos.niveis, cref, crn } };
+    return { ok: true, pedido: { acao, nome, email, niveis, cref, crn } };
   }
   const acesso = acessoPorId(c.acesso);
   if (!acesso) return { ok: false, erro: "Escolha o acesso." };
