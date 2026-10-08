@@ -16,12 +16,19 @@
 // Papéis de equipe vêm antes de `aluno`: quem trabalha numa academia e treina
 // em outra entra no contexto de trabalho, onde tem responsabilidade sobre
 // outras pessoas.
-const PRIORIDADE: Record<string, number> = {
+//
+// A recepção faltava aqui até 07/10/2026 e caía no "papel desconhecido", depois
+// do aluno: quem era recepção numa academia e aluno em outra entrava como
+// aluno, e só achava o balcão pelo seletor (auditoria de prontidão).
+// `vinculos.guarda.test.ts` falha se um papel de academia novo ficar de fora.
+export const PRIORIDADE_DO_PAPEL: Record<string, number> = {
   gestor: 0,
   professor: 1,
   nutricionista: 2,
-  aluno: 3,
+  recepcao: 3,
+  aluno: 4,
 };
+const PRIORIDADE = PRIORIDADE_DO_PAPEL;
 
 export function escolherVinculo<T extends { role: string; created_at: string; organization_id?: string }>(
   vinculos: T[],

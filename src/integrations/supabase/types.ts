@@ -87,24 +87,30 @@ export type Database = {
           documento_id: string
           id: string
           organization_id: string | null
+          texto_sha256: string | null
           user_agent: string | null
           user_id: string
+          versao: string | null
         }
         Insert: {
           aceito_em?: string
           documento_id: string
           id?: string
           organization_id?: string | null
+          texto_sha256?: string | null
           user_agent?: string | null
           user_id: string
+          versao?: string | null
         }
         Update: {
           aceito_em?: string
           documento_id?: string
           id?: string
           organization_id?: string | null
+          texto_sha256?: string | null
           user_agent?: string | null
           user_id?: string
+          versao?: string | null
         }
         Relationships: [
           {
@@ -589,6 +595,8 @@ export type Database = {
           revogado_por: string | null
           template_no_servidor: boolean
           termo_arquivo: string | null
+          texto_sha256: string | null
+          user_agent: string | null
           versao_texto: string | null
         }
         Insert: {
@@ -606,6 +614,8 @@ export type Database = {
           revogado_por?: string | null
           template_no_servidor?: boolean
           termo_arquivo?: string | null
+          texto_sha256?: string | null
+          user_agent?: string | null
           versao_texto?: string | null
         }
         Update: {
@@ -623,6 +633,8 @@ export type Database = {
           revogado_por?: string | null
           template_no_servidor?: boolean
           termo_arquivo?: string | null
+          texto_sha256?: string | null
+          user_agent?: string | null
           versao_texto?: string | null
         }
         Relationships: [
@@ -662,6 +674,8 @@ export type Database = {
           retencao_descricao: string
           revogado_em: string | null
           revogado_por: string | null
+          texto_sha256: string | null
+          user_agent: string | null
           versao_texto: string
         }
         Insert: {
@@ -676,6 +690,8 @@ export type Database = {
           retencao_descricao?: string
           revogado_em?: string | null
           revogado_por?: string | null
+          texto_sha256?: string | null
+          user_agent?: string | null
           versao_texto?: string
         }
         Update: {
@@ -690,6 +706,8 @@ export type Database = {
           retencao_descricao?: string
           revogado_em?: string | null
           revogado_por?: string | null
+          texto_sha256?: string | null
+          user_agent?: string | null
           versao_texto?: string
         }
         Relationships: [
@@ -1297,6 +1315,8 @@ export type Database = {
           concluida_em: string | null
           consentimento_lgpd_aceito_em: string | null
           consentimento_lgpd_revogado_em: string | null
+          consentimento_lgpd_sha256: string | null
+          consentimento_lgpd_user_agent: string | null
           consentimento_lgpd_versao: string | null
           created_at: string
           dores_lesoes: string | null
@@ -1322,6 +1342,8 @@ export type Database = {
           concluida_em?: string | null
           consentimento_lgpd_aceito_em?: string | null
           consentimento_lgpd_revogado_em?: string | null
+          consentimento_lgpd_sha256?: string | null
+          consentimento_lgpd_user_agent?: string | null
           consentimento_lgpd_versao?: string | null
           created_at?: string
           dores_lesoes?: string | null
@@ -1347,6 +1369,8 @@ export type Database = {
           concluida_em?: string | null
           consentimento_lgpd_aceito_em?: string | null
           consentimento_lgpd_revogado_em?: string | null
+          consentimento_lgpd_sha256?: string | null
+          consentimento_lgpd_user_agent?: string | null
           consentimento_lgpd_versao?: string | null
           created_at?: string
           dores_lesoes?: string | null
@@ -6482,6 +6506,7 @@ export type Database = {
           revogado_em: string | null
           revogado_por: string | null
           texto_sha256: string
+          user_agent: string | null
           versao_texto: string
         }
         Insert: {
@@ -6496,6 +6521,7 @@ export type Database = {
           revogado_em?: string | null
           revogado_por?: string | null
           texto_sha256: string
+          user_agent?: string | null
           versao_texto: string
         }
         Update: {
@@ -6510,6 +6536,7 @@ export type Database = {
           revogado_em?: string | null
           revogado_por?: string | null
           texto_sha256?: string
+          user_agent?: string | null
           versao_texto?: string
         }
         Relationships: [
@@ -9031,6 +9058,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      hash_texto_consentimento: {
+        Args: { _proposito: string; _versao: string }
+        Returns: string
+      }
       hash_token_catraca: { Args: { _token: string }; Returns: string }
       horas_uteis_entre: {
         Args: { _ate: string; _de: string }
@@ -9205,6 +9236,7 @@ export type Database = {
         }
         Returns: Database["public"]["Enums"]["fase_jornada"]
       }
+      navegador_da_requisicao: { Args: never; Returns: string }
       nomes_para_anonimizar: {
         Args: { _organization_id: string }
         Returns: string[]
@@ -9402,6 +9434,7 @@ export type Database = {
           _propositos: string[]
           _sessao: string
           _token_hash: string
+          _user_agent?: string
           _versoes: Json
         }
         Returns: number

@@ -13,6 +13,7 @@ Sem rastreamento, um erro de JavaScript numa tela deixa o aluno travado e ningu�
 - **Query string é cortada** de URLs e breadcrumbs — é onde vazam ids e o que a pessoa digitou em busca. **Corpo, cookies e cabeçalhos de requisição nunca são anexados.**
 - **`sendDefaultPii: false` é explícito**, mesmo sendo o padrão: é o tipo de coisa que não pode mudar por descuido numa atualização de SDK.
 - Uma limpeza em profundidade troca por `[removido]` o valor de qualquer chave que pareça sensível, **mantendo a chave** — saber que havia um campo `cpf` ajuda a entender o erro; saber qual CPF não ajuda e é o problema.
+- *Ampliado em 07/10/2026: o texto também é limpo (a mensagem, o `exception.value`, as migalhas, os extras e o endereço da página nos quadros perdem e-mail, CPF, telefone e token), e o `#access_token` do link de senha sai do endereço, que não tem `?` e passava pelo corte. Ver "A frente E" em [seguranca-e-acesso.md](seguranca-e-acesso.md) e `monitoramento.guarda`.*
 
 **O que é enviado de identificação:** `organization_id` e `user_id`, ambos UUID. São pseudônimos, e sem eles não dá para responder "esse erro atinge uma academia ou todas", que é a pergunta que justifica ter monitoramento. Nome, e-mail e CPF não vão nunca.
 

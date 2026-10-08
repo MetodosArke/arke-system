@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { DOCUMENTOS } from "./documentosLegais";
+import { TEXTO_DOCUMENTO } from "./documentosLegaisTexto";
 import { blocosMarkdown } from "./markdownSimples";
 
 const ARQUIVO: Record<string, string> = {
@@ -20,8 +21,8 @@ describe("documentos legais", () => {
   });
 
   it("cada documento começa com um título", () => {
-    for (const doc of Object.values(DOCUMENTOS)) {
-      expect(blocosMarkdown(doc.texto)[0]).toMatchObject({ tipo: "h1" });
+    for (const texto of Object.values(TEXTO_DOCUMENTO)) {
+      expect(blocosMarkdown(texto)[0]).toMatchObject({ tipo: "h1" });
     }
   });
 });

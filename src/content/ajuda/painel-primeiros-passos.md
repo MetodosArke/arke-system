@@ -58,6 +58,6 @@ Assim que o pagamento é confirmado, o painel volta ao normal para todos. Se a t
 
 ## Mais de uma unidade
 
-Quem trabalha em mais de uma academia ou unidade da mesma rede vê um seletor de unidade no alto da tela. Ao trocar, o painel recarrega com os dados da outra unidade, e a escolha fica guardada naquele aparelho.
+Quem trabalha em mais de uma academia ou unidade da mesma rede vê um seletor de unidade no alto da tela. Ao trocar, o painel recarrega com os dados da outra unidade, e a escolha fica guardada naquele aparelho. Quem é da equipe numa academia e aluno em outra entra primeiro no painel da equipe, e chega ao app de aluno pelo mesmo seletor. Cada tela mostra só o que é da unidade aberta.
 
 > Cada pessoa deve ter o próprio acesso. Compartilhar a senha da recepção entre várias pessoas apaga o registro de quem fez o quê, e esse registro é o que protege a equipe quando algo precisa ser explicado depois.

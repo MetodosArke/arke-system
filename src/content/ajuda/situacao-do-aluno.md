@@ -21,6 +21,10 @@ Pausar também:
 
 Voltar para **em dia** retoma tudo e limpa o motivo.
 
+## Quando a mudança chega ao app
+
+A catraca e o check-in pelo QR seguem a situação na hora. O app do aluno que já estava aberto confere a situação de novo quando ele volta para o app, e a cada 15 minutos com o app na tela: ele não precisa sair e entrar de novo para a pausa, a pendência ou a volta para **em dia** valerem.
+
 ## Quem pode mudar
 
 Gestor e recepção. O professor e a nutricionista veem a situação, mas não alteram. Cada mudança guarda quem fez e quando.

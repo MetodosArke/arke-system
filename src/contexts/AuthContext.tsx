@@ -12,6 +12,7 @@ import { apagarSessaoGuardada, sair } from "@/lib/sair";
 import { descartarCopiaDaSimulacao, emPerfilSimulado, stopImpersonation } from "@/lib/impersonation";
 import { esquecerAvisosDesteAparelho } from "@/lib/avisosDoAparelho";
 import { armazenamentoPadrao, descartarTodosOsRascunhos, type ArmazenamentoListavel } from "@/lib/rascunho";
+import { vigiarSituacao } from "@/lib/releituraSituacao";
 
 export type AppRole = Enums<"app_role">;
 
@@ -191,6 +192,21 @@ async function lerAluno(userId: string, organizationId: string): Promise<Leitura
       : !!anamnese?.consentimento_lgpd_aceito_em && anamnese?.consentimento_lgpd_versao === VERSAO_CONSENTIMENTO_SAUDE,
     consentimentoSaudeRetirado: !anamneseError && !!anamnese?.consentimento_lgpd_revogado_em,
   };
+}
+
+/**
+ * Só a situação do aluno, para a releitura com o app aberto
+ * (`src/lib/releituraSituacao.ts`). Sem os registros de acesso e de
+ * atividade de `lerAluno`: é uma consulta leve, que não conta como abrir o app.
+ */
+async function lerSituacao(alunoId: string) {
+  const { data, error } = await supabase
+    .from("alunos")
+    .select("situacao_academia, situacao_academia_em")
+    .eq("id", alunoId)
+    .maybeSingle();
+  if (error) throw error;
+  return data;
 }
 
 async function lerAcesso(userId: string): Promise<LeituraAcesso> {
@@ -479,6 +495,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => subscription.unsubscribe();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // A academia pausa o aluno, ou o marca inadimplente, com o app aberto: a
+  // situação é relida ao voltar para o app e de 15 em 15 minutos, e o
+  // AlunoSituacaoGate passa a valer sem o aluno sair e entrar de novo. Ver
+  // src/lib/releituraSituacao.ts.
+  useEffect(() => {
+    if (!alunoId || !currentUserId) return;
+    const userId = currentUserId;
+    return vigiarSituacao(() => {
+      lerSituacao(alunoId)
+        .then((situacao) => {
+          if (!situacao || usuarioCarregado.current !== userId) return;
+          setSituacaoAcademia(situacao.situacao_academia);
+          setSituacaoAcademiaDesde(situacao.situacao_academia_em);
+        })
+        // Falhou: fica a situação que já estava, e a próxima volta lê de novo.
+        .catch((erro) => console.error("Não foi possível reler a situação do aluno", erro));
+    });
+  }, [alunoId, currentUserId]);
 
   // Carimba os erros com a academia e a pessoa da sessão. Sem isso não dá
   // para separar "quebrou para uma academia" de "quebrou para todo mundo",

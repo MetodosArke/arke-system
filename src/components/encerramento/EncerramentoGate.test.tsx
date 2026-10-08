@@ -109,8 +109,9 @@ describe("EncerramentoGate", () => {
     montar(<EncerramentoGate publico="equipe"><p>painel</p></EncerramentoGate>);
     expect(await screen.findByText("Contrato encerrado")).toBeInTheDocument();
     expect(screen.queryByText("painel")).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Exportar todos os dados/ })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Exportar para o contador" })).toBeInTheDocument();
+    // Os exportadores são baixados quando aparecem (07/10/2026): chegam depois do cartão.
+    expect(await screen.findByRole("button", { name: /Exportar todos os dados/ })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "Exportar para o contador" })).toBeInTheDocument();
     expect(document.body.textContent).toContain("24/10/2026");
   });
 

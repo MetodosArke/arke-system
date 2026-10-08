@@ -55,11 +55,12 @@ O ArkeFit (ARKE) é uma plataforma SaaS para academias, studios e profissionais 
 - **Avanço de fases automático** (`avancar_fase_automatico`, um passo por vez, nunca para trás). A passagem manual vale por cima.
 - **Mentor Centralizado:** a fila do mentor é a mesma `tarefas`, com `dono`. Cobrança e atestado ficam com a academia. A separação mora no RLS.
 - **Agentes:**
-  - Letícia (comercial) e Bruno (implantação) rodam em rotina, com interruptor em `plataforma_config`, e assinam como equipe, nunca como pessoa.
+  - Letícia (comercial) e Bruno (implantação) rodam em rotina, com interruptor em `plataforma_config`, e assinam como equipe, nunca como pessoa (`assinaturaDeEquipe`). A mensagem do contato vai ao modelo sem a assinatura e sem o nome de quem escreveu (`assinaturaDosAgentes.guarda`).
   - Lucas (o assistente) responde na Central de Ajuda.
   - O Vigia cuida da saúde técnica e não lê dado de aluno.
   - O Sentinela está congelado, salvo correção aprovada.
 - **IA:** a IA com dado de aluno roda no Amazon Bedrock em São Paulo, com o Claude 3 Haiku e a região fixa no código. As únicas exceções fora do país são o Vigia e o assistente, com entrada sem identificação. O consentimento é por propósito e versionado.
+- **Prova do consentimento:** quem, quando, a versão e o hash do texto (`hash_texto_consentimento`) e o navegador, carimbados pelo banco; pela API o aluno manda só o aluno e o propósito. Sem IP: ele fica só nos registros de acesso, por 6 meses (`provaDoConsentimento.guarda`). Texto novo de consentimento ganha a linha do hash na migration da versão.
 - **Perfil simulado:** só a ArkeFit simula, com as duas etapas. Na sessão simulada, só a própria pessoa autoriza IA, biometria, documentos e contrato.
 - **Duas etapas:**
   - as contas da ArkeFit sempre;
@@ -106,8 +107,9 @@ Cada linha é uma armadilha que já aconteceu aqui. Onde há trava, ela é um te
 - **Efeitos:** valor padrão literal (`= []`, `= {}`) em dado que é dependência de efeito causa laço.
 - **Números na tela:** `reais()` e `decimal()`, nunca `toFixed` (`numeros.guarda`).
 - **Colunas:** as colunas de cada consulta são conferidas com `types.ts`, que é **gerado** (`supabase gen types`) (`colunasConsultas.guarda`).
-- **Vínculo:** use `escolherVinculo()`. Nunca use `.maybeSingle()` em `organization_members` filtrando só por `user_id`, porque quem está em duas academias quebra.
-- **Sessão:** evento de sessão da mesma pessoa não recarrega o `AuthContext`; recarregar desmontava o painel inteiro.
+- **Vínculo:** use `escolherVinculo()`. Nunca use `.maybeSingle()` em `organization_members` filtrando só por `user_id`, porque quem está em duas academias quebra. O que é da academia inteira (desafios, competições, feed, comunicados) se lê com a academia fixa: o RLS devolve o de todas as academias da pessoa (`vinculos.guarda`).
+- **Sessão:** evento de sessão da mesma pessoa não recarrega o `AuthContext`; recarregar desmontava o painel inteiro. A situação do aluno é relida ao voltar para o app e de 15 em 15 minutos (`releituraSituacao.guarda`), sem consulta a cada tela.
+- **Pacote inicial:** páginas e layouts são `paginaPreguicosa`; biblioteca nova no pacote inicial é decisão, com o motivo na lista de `pacoteInicial.guarda`. As bibliotecas de todo mundo ficam em arquivos próprios (`manualChunks`, `vite.config.ts`).
 - **Rascunho:** digitação cara vai em `useRascunho`, no `sessionStorage`, e nunca restaura sozinha.
 - **Imagem:** sai reduzida do aparelho antes do upload (`reduzirImagem.guarda`). Arquivo de nome único ganha cache de 1 ano.
 - **Sorteio:** nunca `Math.random()` (`aleatorio.guarda`).
@@ -119,7 +121,7 @@ Cada linha é uma armadilha que já aconteceu aqui. Onde há trava, ela é um te
 - Papel da ArkeFit só vale com as duas etapas: `has_role` no banco e `verificada(claims)` nas funções (`verificacao.guarda`). Na gestão, `sessao_verificada()`.
 - O token do Gateway só como hash, e a catraca desativada não recebe dado de aluno (`tokenCatraca.guarda`). O receptor atende só os IPs dos equipamentos do config.
 - IA: região fixa e modelo sem roteamento (`iaNoBrasil.guarda`), e prazo em toda chamada (`prazoIA.guarda`).
-- Sentry: o módulo é uma lista do que não sai. Session Replay desligado, e a identificação vai só por UUID.
+- Sentry: o módulo é uma lista do que não sai. Session Replay desligado, e a identificação vai só por UUID. O texto também é limpo (a mensagem, o `exception.value`, as migalhas, os extras): e-mail, CPF, telefone, token e o `#access_token` do link (`monitoramento.guarda`).
 - Log das funções leva `resumoDoErro(erro)`, nunca o objeto de erro nem a mensagem, que traz e-mail ou CPF (`logsSemDadoPessoal.guarda`). A resposta também não leva a mensagem crua do Auth nem do banco: o erro do Auth passa por `respostaDoErroDoAuth()`, e a recusa nossa se declara pelo código na mesma linha (`respostaSemErroInterno.guarda`).
 - Captcha só por `_shared/captcha.ts`. Senha vazada por k-anonimato (HIBP), com falha aberta.
 - A chave do Asaas só pelo `ambienteAsaas` (`ambienteAsaas.guarda`). O webhook confere cada gravação, e o aviso do sandbox só toca organização em trial, mesmo sem achar organização (`webhookAsaas.guarda`). O aviso do Asaas é gravado reduzido ao que o webhook lê, mais os 4 dígitos e a bandeira (`trg_minimizar_aviso_asaas`, `avisoAsaas.guarda`).

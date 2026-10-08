@@ -10,6 +10,8 @@
  * sai sem ele. Nenhum número chega ao e-mail pela IA.
  */
 
+import { tirarNomes } from "../_shared/assistenteEntrada.ts";
+
 export const CATEGORIAS = ["evasao", "inadimplencia", "catraca", "atendimento", "migracao", "outro"] as const;
 export type Categoria = (typeof CATEGORIAS)[number];
 export type Etapa = "primeira" | "retorno_1" | "retorno_2";
@@ -62,6 +64,28 @@ export function tirarContatos(mensagem: string): string {
     .replace(/\+?\d[\d\s().-]{7,}\d/g, "[telefone]");
 }
 
+// Linha de despedida, curta, como quem fecha um e-mail: "Att,", "Abraços!",
+// "Obrigada". A assinatura vem dela para baixo.
+const DESPEDIDA =
+  /^(?:(?:att|atte|atenciosamente|cordialmente|abs|abraco|abracos|um abraco|grande abraco|obrigad[oa]|muito obrigad[oa]|grat[oa]|saudacoes|ate mais)\b|--)[\s,.!-]*$/;
+
+/**
+ * Tira a assinatura do fim da mensagem: da linha de despedida ("Att,",
+ * "Abraços") para baixo, se ela está entre as últimas linhas. É ali que vem o
+ * nome de quem escreveu, o cargo e o telefone; o problema da academia vem
+ * antes (auditoria de prontidão, 07/10/2026: a mensagem ia ao modelo com a
+ * assinatura e o nome).
+ */
+export function tirarAssinatura(mensagem: string): string {
+  const linhas = mensagem.replace(/\r\n/g, "\n").split("\n");
+  const ultimas = Math.max(0, linhas.length - 5);
+  for (let i = ultimas; i < linhas.length; i++) {
+    const linha = normalizar(linhas[i].trim());
+    if (linha.length <= 30 && DESPEDIDA.test(linha)) return linhas.slice(0, i).join("\n").trimEnd();
+  }
+  return mensagem;
+}
+
 export const SISTEMA_ESPELHO = `Você ajuda a equipe comercial da ArkeFit, um sistema de gestão e retenção de alunos para academias, a responder quem entrou em contato para conhecer o sistema, pelo site, pelo WhatsApp ou por telefone.
 
 Você recebe o que a academia contou: escrito por ela no formulário do site, ou anotado pela nossa equipe depois de uma conversa. Devolva SOMENTE um JSON, sem nenhum texto antes ou depois, no formato:
@@ -77,8 +101,20 @@ Regras do espelho, sem exceção:
 - não cumprimente, não se despeça, não use o nome da pessoa e não faça perguntas;
 - se a mensagem não contar um problema da academia (por exemplo, se só pedir preço, proposta ou mais informações), devolva "espelho": "".`;
 
-export function entradaDoModelo(dados: { mensagem: string; alunos_faixa: string | null; sistema_atual: string | null }): string {
-  const linhas = [`Mensagem da academia:\n"""\n${tirarContatos(dados.mensagem).slice(0, 2000)}\n"""`];
+/**
+ * O que vai ao modelo: a mensagem sem contatos, sem a assinatura e sem o nome
+ * de quem escreveu (o do cadastro do contato, trocado por "[nome]" onde
+ * aparecer), mais a faixa de alunos e o sistema atual. O modelo não precisa
+ * saber quem é a pessoa para espelhar o problema da academia.
+ */
+export function entradaDoModelo(dados: {
+  mensagem: string;
+  alunos_faixa: string | null;
+  sistema_atual: string | null;
+  nome?: string | null;
+}): string {
+  const mensagem = tirarNomes(tirarAssinatura(tirarContatos(dados.mensagem)), dados.nome ? [dados.nome] : []);
+  const linhas = [`Mensagem da academia:\n"""\n${mensagem.slice(0, 2000)}\n"""`];
   if (dados.alunos_faixa) linhas.push(`Tamanho da academia: ${ROTULO_FAIXA[dados.alunos_faixa] ?? dados.alunos_faixa}.`);
   if (dados.sistema_atual) linhas.push(`Sistema usado hoje: ${dados.sistema_atual.slice(0, 80)}.`);
   return linhas.join("\n");
@@ -94,13 +130,23 @@ const ROTULO_FAIXA: Record<string, string> = {
 const PROIBIDO =
   /\b(preco|precos|valor|valores|custo|custos|custa|desconto|descontos|promocao|gratis|gratuito|gratuita|plano|planos|contrato|oferta|investimento|garant\w*|promet\w*|certeza|resolve\w*|solucion\w*|solucao|solucoes|ferramenta\w*|arkefit|podemos|nossa|nossas|nosso|nossos|precisa\w*|aumentar|reduzir|dobrar)\b/;
 
-/** O espelho só entra no e-mail se passar por aqui. */
-export function espelhoAceito(espelho: string): boolean {
+// Os agentes assinam como equipe, nunca como pessoa (CLAUDE.md): o espelho não
+// traz o nome de ninguém da ArkeFit, nem despedida ou assinatura.
+const ASSINATURA_DE_PESSOA =
+  /\b(leticia|bruno|jean|lucas|atenciosamente|cordialmente|abraco|abracos|att|assinado|assina)\b/;
+
+/**
+ * O espelho só entra no e-mail se passar por aqui. `nomes`: o nome de quem
+ * escreveu; o espelho não o usa (o "Olá, Maria!" é nosso, e vem antes).
+ */
+export function espelhoAceito(espelho: string, nomes: string[] = []): boolean {
   const t = espelho.trim();
   if (t.length < 20 || t.length > 350) return false;
   if (/\d/.test(t)) return false;
-  if (/r\$|%|https?:|www\.|@|\?/i.test(t)) return false;
-  if (PROIBIDO.test(normalizar(t))) return false;
+  if (/r\$|%|https?:|www\.|@|\?|\[nome\]/i.test(t)) return false;
+  const n = normalizar(t);
+  if (PROIBIDO.test(n) || ASSINATURA_DE_PESSOA.test(n)) return false;
+  if (tirarNomes(t, nomes) !== t) return false;
   const frases = t.split(/[.!]+/).filter((f) => f.trim().length > 0);
   return frases.length <= 3;
 }
@@ -111,20 +157,20 @@ export function espelhoAceito(espelho: string): boolean {
  * vazio não é recusa: é o modelo dizendo que não havia o que espelhar. Serve
  * ao medidor de uso das IAs.
  */
-export function espelhoRecusado(texto: string): boolean {
+export function espelhoRecusado(texto: string, nomes: string[] = []): boolean {
   const inicio = texto.indexOf("{");
   const fim = texto.lastIndexOf("}");
   if (inicio < 0 || fim <= inicio) return false;
   try {
     const o = (JSON.parse(texto.slice(inicio, fim + 1)) ?? {}) as Record<string, unknown>;
     const bruto = typeof o.espelho === "string" ? o.espelho.replace(/\s+/g, " ").trim() : "";
-    return !!bruto && !espelhoAceito(bruto);
+    return !!bruto && !espelhoAceito(bruto, nomes);
   } catch {
     return false;
   }
 }
 
-export function lerRespostaModelo(texto: string): { categoria: Categoria | null; espelho: string | null } {
+export function lerRespostaModelo(texto: string, nomes: string[] = []): { categoria: Categoria | null; espelho: string | null } {
   const inicio = texto.indexOf("{");
   const fim = texto.lastIndexOf("}");
   if (inicio < 0 || fim <= inicio) return { categoria: null, espelho: null };
@@ -137,7 +183,7 @@ export function lerRespostaModelo(texto: string): { categoria: Categoria | null;
   const o = (obj ?? {}) as Record<string, unknown>;
   const categoria = (CATEGORIAS as readonly string[]).includes(String(o.categoria)) ? (o.categoria as Categoria) : null;
   const bruto = typeof o.espelho === "string" ? o.espelho.replace(/\s+/g, " ").trim() : "";
-  return { categoria, espelho: bruto && espelhoAceito(bruto) ? bruto : null };
+  return { categoria, espelho: bruto && espelhoAceito(bruto, nomes) ? bruto : null };
 }
 
 // ── O que a ArkeFit faz, por assunto: texto nosso, sem número ─────────────

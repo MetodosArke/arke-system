@@ -24,7 +24,7 @@ import { MiniaturaExercicio } from "@/components/acervo/MidiaExercicio";
 import { DIVISOES, divisoesDoTreino, paraGravar, rotuloTecnica, seriesDoExercicio, type SerieDetalhe } from "@/lib/seriesTreino";
 import { formatarDataBR } from "@/lib/dataBrasilia";
 import { ErroAoCarregar } from "@/components/ErroAoCarregar";
-import { bibliotecaDoEscopo, type EscopoPrescricao } from "@/components/prescricao/escopo";
+import { bibliotecaDoEscopo, exercicioDoEscopo, type EscopoPrescricao } from "@/components/prescricao/escopo";
 
 const SERIES_PADRAO: SerieDetalhe[] = Array.from({ length: 3 }, () => ({ reps: "12", descanso_seg: 60, tecnica: null }));
 
@@ -106,10 +106,11 @@ export function PrescricaoTreino({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [exercicioSalvo]);
 
-  // Sem filtro: quem decide o que vem é a regra de acesso (o acervo global e
-  // os exercícios próprios das academias da pessoa). Por isso a chave leva a
-  // pessoa: a lista de uma academia não pode servir a quem entra depois.
-  const { data: bibliotecaExercicios = [] } = useQuery({
+  // A consulta não filtra: a regra de acesso devolve o acervo global e os
+  // exercícios próprios das academias da pessoa. Por isso a chave leva a
+  // pessoa: a lista de uma academia não pode servir a quem entra depois. O
+  // seletor mostra só o global e o da academia do aluno (`exercicioDoEscopo`).
+  const { data: todosOsExercicios = [] } = useQuery({
     queryKey: ["exercicios-biblioteca", user?.id ?? null],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -123,6 +124,10 @@ export function PrescricaoTreino({
       return data;
     },
   });
+  const bibliotecaExercicios = useMemo(
+    () => todosOsExercicios.filter((e) => exercicioDoEscopo(escopo, e.organization_id)),
+    [todosOsExercicios, escopo],
+  );
 
   const aplicarExercicioBiblioteca = (id: string) => {
     setExercicioBibliotecaId(id);

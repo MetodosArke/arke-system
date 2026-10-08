@@ -116,6 +116,9 @@ servir("responsavel-aceite", async (req: Request) => {
     _hashes: hashes,
     _ator: ator,
     _sessao: sessao,
+    // O navegador de quem aceitou, do cabeçalho, e não do corpo: parte da
+    // prova do aceite (20261410010000). O IP não vai, de propósito.
+    _user_agent: req.headers.get("user-agent")?.slice(0, 300) ?? null,
   });
   if (error) {
     if (error.code === "P0001") return jsonResponse({ error: error.message }, 400);

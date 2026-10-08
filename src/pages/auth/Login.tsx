@@ -9,7 +9,6 @@ import { LinksLegais } from "@/components/legal/LinksLegais";
 import { Card, CardContent } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Mail, Lock, Eye, EyeOff, Moon, Sun, Download, X } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
 import { useToast } from "@/hooks/use-toast";
 import { useInstallPrompt } from "@/hooks/useInstallPrompt";
 import { resolveHomePath } from "@/lib/authRouting";
@@ -72,39 +71,35 @@ export default function Login() {
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4">
-      <AnimatePresence>
-        {canInstall && showInstallBanner && (
-          <motion.div
-            initial={{ opacity: 0, y: -40 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -40 }}
-            transition={{ duration: 0.3 }}
-            className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between gap-3 bg-primary px-4 py-3 text-primary-foreground shadow-lg"
-          >
-            <div className="flex items-center gap-2">
-              <Download className="h-5 w-5 shrink-0" />
-              <span className="text-sm font-medium">Instale o app para uma experiência melhor!</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <Button
-                size="sm"
-                variant="secondary"
-                className="h-8 text-xs font-semibold"
-                onClick={promptInstall}
-              >
-                Instalar
-              </Button>
-              <button
-                aria-label="Fechar o aviso de instalação"
-                onClick={() => setShowInstallBanner(false)}
-                className="text-primary-foreground/70 hover:text-primary-foreground"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {/* Animação por CSS, e não pelo framer-motion: ele pesava uns 100 kB no
+          pacote principal, só para estas duas entradas (07/10/2026). */}
+      {canInstall && showInstallBanner && (
+        <div
+          className="motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-top-10 motion-safe:duration-300 fixed top-0 left-0 right-0 z-50 flex items-center justify-between gap-3 bg-primary px-4 py-3 text-primary-foreground shadow-lg"
+        >
+          <div className="flex items-center gap-2">
+            <Download className="h-5 w-5 shrink-0" />
+            <span className="text-sm font-medium">Instale o app para uma experiência melhor!</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              variant="secondary"
+              className="h-8 text-xs font-semibold"
+              onClick={promptInstall}
+            >
+              Instalar
+            </Button>
+            <button
+              aria-label="Fechar o aviso de instalação"
+              onClick={() => setShowInstallBanner(false)}
+              className="text-primary-foreground/70 hover:text-primary-foreground"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+      )}
 
       <Button
         variant="ghost"
@@ -116,12 +111,7 @@ export default function Login() {
         {theme === "dark" ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
       </Button>
 
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-        className="w-full max-w-sm"
-      >
+      <div className="w-full max-w-sm motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-5 motion-safe:duration-500">
         <div className="mb-8 flex flex-col items-center text-center">
           {marca ? (
             <>
@@ -237,7 +227,7 @@ export default function Login() {
           </CardContent>
         </Card>
         {marca && <ComTecnologiaArkeFit className="mt-6" />}
-      </motion.div>
+      </div>
     </div>
   );
 }

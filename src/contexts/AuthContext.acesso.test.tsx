@@ -222,6 +222,26 @@ describe("AuthContext: falha ao ler o acesso (A12)", () => {
   });
 });
 
+describe("AuthContext: a situação relida com o app aberto (07/10/2026)", () => {
+  it("a academia pausa o aluno com o app aberto: ao voltar para o app, a situação muda sem sair e entrar", async () => {
+    banco.vinculos = [VINCULO_ALUNO];
+    banco.aluno = { ...ALUNO_DO_METODO, metodo_arke_status: "sem_adesao" };
+    montar();
+    await waitFor(() => expect(contexto.rolesLoaded).toBe(true));
+    expect(contexto.situacaoAcademia).toBe("em_dia");
+
+    banco.aluno = { ...ALUNO_DO_METODO, metodo_arke_status: "sem_adesao", situacao_academia: "pausado", situacao_academia_em: "2026-10-07T12:00:00Z" };
+    const real = Date.now();
+    const relogio = vi.spyOn(Date, "now").mockReturnValue(real + 5 * 60 * 1000);
+    act(() => {
+      document.dispatchEvent(new Event("visibilitychange"));
+    });
+    await waitFor(() => expect(contexto.situacaoAcademia).toBe("pausado"));
+    expect(contexto.situacaoAcademiaDesde).toBe("2026-10-07T12:00:00Z");
+    relogio.mockRestore();
+  });
+});
+
 describe("AuthContext: Sair (A11)", () => {
   it("apaga os avisos ainda conectado, sai só deste aparelho e limpa cache e rascunhos", async () => {
     const queryClient = montar();

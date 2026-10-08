@@ -47,6 +47,9 @@ const FICAM: Record<string, string> = {
   updated_at: "o gatilho de sempre",
   consentimento_lgpd_aceito_em: "a data do aceite fica como prova de quando foi dado",
   consentimento_lgpd_revogado_em: "a data da retirada",
+  // 07/10/2026 (20261410010000): a prova do aceite fica com a data dele.
+  consentimento_lgpd_sha256: "o hash do texto aceito fica como prova do que foi aceito",
+  consentimento_lgpd_user_agent: "o navegador do aceite fica como prova de onde foi dado",
 };
 
 describe("consentimento de saúde: só o titular concede", () => {

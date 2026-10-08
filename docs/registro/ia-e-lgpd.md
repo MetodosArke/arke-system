@@ -297,3 +297,7 @@ O Asaas respondeu que o modelo da ArkeFit já é BaaS, mesmo sem subcontas: a Ar
 - O selo do Asaas nas telas e o resto do formato BaaS estão em [cobranca.md](cobranca.md), na frente que prepara a homologação.
 
 **Conferido:** `documentosLegais` com os dois hashes novos. Defeito plantado (o telefone do suporte trocado nos Termos sem o hash novo): o teste falhou.
+
+## A prova do consentimento (07/10/2026)
+
+Achado baixo da auditoria de prontidão: o próprio aluno gravava os campos que provam o consentimento dele (a finalidade, a versão, a data e a origem), e nenhum consentimento guardava o hash do texto nem de onde veio. Migration `20261410010000`. Desde ela, cada consentimento (saúde, IA, biometria), o aceite dos documentos e o do responsável guardam quem, quando (a hora do banco), a versão e o hash do texto (`hash_texto_consentimento`) e o navegador, lido do cabeçalho; pela API, o aluno manda só o aluno e o propósito. **Sem IP**, porque a Política só promete o IP nos registros de acesso, por 6 meses. **Texto novo de consentimento ganha a linha do hash na migration da versão** (`provaDoConsentimento.guarda` cobra). O porquê de cada escolha e o conferido estão em "A frente E", em [seguranca-e-acesso.md](seguranca-e-acesso.md).
