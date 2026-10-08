@@ -119,6 +119,7 @@ Cada linha é uma armadilha que já aconteceu aqui. Onde há trava, ela é um te
 
 **Segurança e privacidade**
 - Papel da ArkeFit só vale com as duas etapas: `has_role` no banco e `verificada(claims)` nas funções (`verificacao.guarda`). Na gestão, `sessao_verificada()`.
+- A equipe ArkeFit entra por convite de um sócio verificado; a conta nasce sem senha; tirar o acesso nunca tira o último sócio, e ninguém escreve em `user_roles` pela API (`equipeArkefit.guarda`). Os níveis de acesso moram em `src/lib/acessosArkefit.ts`, com o espelho na função `equipe-arkefit-convidar`.
 - O token do Gateway só como hash, e a catraca desativada não recebe dado de aluno (`tokenCatraca.guarda`). O receptor atende só os IPs dos equipamentos do config.
 - IA: região fixa e modelo sem roteamento (`iaNoBrasil.guarda`), e prazo em toda chamada (`prazoIA.guarda`).
 - Sentry: o módulo é uma lista do que não sai. Session Replay desligado, e a identificação vai só por UUID. O texto também é limpo (a mensagem, o `exception.value`, as migalhas, os extras): e-mail, CPF, telefone, token e o `#access_token` do link (`monitoramento.guarda`).
