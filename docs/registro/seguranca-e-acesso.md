@@ -960,7 +960,7 @@ O pedido do responsável: "Não temos como cadastrar novos membros da equipe Ark
   - na guarda, nos arquivos de verdade: a função sem `verificada` (pegou também `verificacao.guarda`); a retirada sem a recusa do próprio acesso; o `revoke` sem o `insert`;
   - na prova local: o último sócio sem o "com as duas etapas"; a retirada sem a recusa do próprio acesso; o estado só pela senha vazia; a gravação sem conferir que a conta é um convite novo;
   - no roteiro de produção: a retirada sem a recusa do próprio acesso, o `revoke` sem o `insert` e o gatilho do piso desligado.
-- **Testes:** 26 novos (14 na guarda, 12 nos níveis). Suíte inteira: SUITE_TOTAL.
+- **Testes:** 26 novos (14 na guarda, 12 nos níveis). Suíte inteira, em lotes de 10 arquivos: **1.467 testes em 191 arquivos**, todos passando. Três passaram do prazo de 5 segundos com a máquina sem memória (`CartaoAssinatura`, dois, e `historicoDoAluno.guarda`, um) e passaram rodados de novo sozinhos.
 - `npm run check` sem erro: tipos, lint (0 erros, os 27 avisos de antes), o `deno check` das 57 funções e a auditoria das dependências (0 vulnerabilidades).
 - `npm run ajuda:indice` rodou: o artigo novo `vm-equipe-arkefit` e os links em `vm-mentoria` e `vm-duas-etapas` entram no índice do assistente.
 - **Falta, porque esta entrega não toca produção:**
