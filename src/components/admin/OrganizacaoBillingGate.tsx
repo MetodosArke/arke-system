@@ -5,10 +5,18 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { AlertTriangle, ExternalLink, RefreshCw, LogOut } from "lucide-react";
 import { PrestadorPagamentos } from "@/components/pagamento/PrestadorPagamentos";
+import { ModoEssencialContext } from "@/contexts/ModoEssencialContext";
+import { decidirAcessoDoPainel, type LinhaBloqueio } from "@/lib/modoEssencial";
 
 // Gate de adimplência B2B: bloqueia a EQUIPE da academia (gestor, professor,
 // nutricionista) quando há cobrança da ARKE emitida e vencida sem
-// confirmação de pagamento.
+// confirmação de pagamento, passados os 7 dias de tolerância.
+//
+// A recepção da academia bloqueada não cai na tela de suspensão: fica em modo
+// essencial (decisão de 08/10/2026, `src/lib/modoEssencial.ts`). O atendimento
+// individual do aluno no balcão continua, a gestão e a operação em massa
+// pausam, e uma faixa no topo avisa, sem valor nem link da fatura: quem paga é
+// o gestor. Aqui só se liga o modo; o menu, o portão das rotas e a faixa o leem.
 //
 // O que este gate deliberadamente NÃO faz:
 //   - não bloqueia os alunos da academia. O contrato B2B é com a academia, e
@@ -27,41 +35,52 @@ export function OrganizacaoBillingGate({ children }: { children: React.ReactNode
   const queryClient = useQueryClient();
   // A função responde por quem chama: a chave leva a pessoa e a academia,
   // para o resultado de uma nunca servir à outra na mesma aba.
-  const { data: bloqueio, isFetching } = useQuery({
+  const { data: linhas, isFetching } = useQuery({
     queryKey: ["bloqueio-organizacao", user?.id ?? null, organization?.id ?? null],
-    queryFn: async () => {
+    queryFn: async (): Promise<LinhaBloqueio[]> => {
       const { data, error } = await supabase.rpc("get_bloqueio_organizacao");
       if (error) throw error;
-      // Sem linha = isento (ARKE, ou quem não é equipe de nenhuma academia).
-      return (data ?? [])[0] ?? null;
+      // Uma linha por academia em que a pessoa é equipe. Nenhuma = isento
+      // (ArkeFit, ou quem não é equipe de nenhuma academia).
+      return data ?? [];
     },
     enabled: rolesLoaded,
   });
 
-  // Tolerância de 7 dias do contrato: com cobrança vencida mas ainda dentro do
-  // prazo, o painel segue aberto e avisa no topo.
-  if (!bloqueio?.bloqueada) {
-    if (bloqueio && Number(bloqueio.cobrancas_vencidas) > 0 && bloqueio.vencimento_mais_antigo) {
-      const limite = new Date(`${bloqueio.vencimento_mais_antigo}T12:00:00`);
+  const acesso = decidirAcessoDoPainel(linhas ?? [], organization?.id);
+
+  if (acesso.tipo !== "bloqueio") {
+    // Tolerância de 7 dias do contrato: com cobrança vencida mas ainda dentro
+    // do prazo, o painel segue aberto e avisa no topo. A recepção não vê esta
+    // faixa (a linha dela vem sem número); a do modo essencial fica no layout.
+    const tolerancia = acesso.tipo === "normal" ? acesso.tolerancia : null;
+    let faixaTolerancia: React.ReactNode = null;
+    if (tolerancia?.vencimento_mais_antigo) {
+      const limite = new Date(`${tolerancia.vencimento_mais_antigo}T12:00:00`);
       limite.setDate(limite.getDate() + 8);
-      return (
-        <>
-          <div role="status" className="bg-amber-500/15 text-warning text-xs text-center px-3 py-2">
-            Mensalidade do ARKE em aberto. O painel da equipe é suspenso em {limite.toLocaleDateString("pt-BR")} se não houver
-            pagamento.{" "}
-            {bloqueio.invoice_url && (
-              <a href={bloqueio.invoice_url} target="_blank" rel="noreferrer" className="underline font-medium">
-                Pagar agora
-              </a>
-            )}
-          </div>
-          {children}
-        </>
+      faixaTolerancia = (
+        <div role="status" className="bg-amber-500/15 text-warning text-xs text-center px-3 py-2">
+          Mensalidade do ARKE em aberto. O painel da equipe é suspenso em {limite.toLocaleDateString("pt-BR")} se não houver
+          pagamento.{" "}
+          {tolerancia.invoice_url && (
+            <a href={tolerancia.invoice_url} target="_blank" rel="noreferrer" className="underline font-medium">
+              Pagar agora
+            </a>
+          )}
+        </div>
       );
     }
-    return <>{children}</>;
+    // O painel fica sempre na mesma posição da árvore: ligar ou desligar o modo
+    // (a consulta chegando, o pagamento confirmado) não remonta a tela aberta.
+    return (
+      <ModoEssencialContext.Provider value={acesso.tipo === "essencial"}>
+        {faixaTolerancia}
+        {children}
+      </ModoEssencialContext.Provider>
+    );
   }
 
+  const bloqueio = acesso.linha;
   const valor = Number(bloqueio.valor_em_aberto).toLocaleString("pt-BR", {
     style: "currency",
     currency: "BRL",

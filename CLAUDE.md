@@ -44,7 +44,7 @@ O ArkeFit (ARKE) é uma plataforma SaaS para academias, studios e profissionais 
   - Cobrança na conta da academia, por academia (`cobranca_conta_academia`, desligada, só a ArkeFit liga): a mensalidade e a avulsa novas saem da conta dela, sem split e sem taxa; o Método segue na da ArkeFit. A conta de cada cobrança mora em `conta_asaas` e não muda.
 - **Trial é homologação, nunca oferta.** Matrícula e plano B2B valem desde o primeiro dia e vencem no dia.
 - **Bloqueio por pagamento.** É dívida só a cobrança emitida e vencida sem confirmação (lista de inclusão: `pendente`, `atrasado`).
-  - B2B: bloqueia só a equipe, com 7 dias de tolerância.
+  - B2B: bloqueia só a equipe, com 7 dias de tolerância. A recepção fica em modo essencial: o atendimento do aluno no balcão continua, e a gestão e a massa pausam (`src/lib/modoEssencial.ts`, `modoEssencial.guarda`).
   - Aluno inadimplente: 5 dias de tolerância. O pausado sai na hora. A catraca segue `situacao_permite_app()`.
   - A ArkeFit nunca é bloqueada.
 - **CPF obrigatório em toda matrícula** (gatilho em `alunos`). A equipe não precisa de CPF.

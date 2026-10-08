@@ -42,6 +42,20 @@ Se a conexão falhar na hora de abrir, o painel tenta de novo sozinho por alguns
 
 Se a conexão falha no meio de uma tela (a lista de alunos, o financeiro, as catracas, a agenda do dia, o acervo de exercícios, o histórico de uma ficha), a tela mostra **Não foi possível carregar…**, com o botão **Tentar de novo**, e não "nenhum aluno" ou "nenhum lançamento". Os dados continuam guardados: não cadastre nem importe de novo. Confira a internet e toque em **Tentar de novo**.
 
+## Quando a assinatura da academia está pendente
+
+A academia paga ao ArkeFit uma mensalidade pelo sistema. Se ela vence sem pagamento, há **7 dias de tolerância**: o painel segue igual, e o gestor, o professor e a nutricionista veem no topo um aviso com a data da suspensão e o link para pagar.
+
+Passados os 7 dias, o painel muda conforme o papel:
+
+- **Gestor, professor e nutricionista** veem a tela **Acesso suspenso**, com o valor, o vencimento e o botão para regularizar. Depois de pagar, toque em **Já paguei, verificar novamente**.
+- **A recepção** continua trabalhando, em **modo essencial**. No topo aparece o aviso "A assinatura da academia está pendente. Algumas funções estão pausadas; fale com o gestor." A recepção não vê valor nem link da fatura: quem paga é o gestor.
+  - **Continua:** buscar o aluno e ver a situação dele; o check-in manual e pelo QR Code; o check-in de visitante do Wellhub e do TotalPass, em **Catracas**; a matrícula de quem está no balcão; a mensalidade e a cobrança avulsa do aluno; o atestado e o PAR-Q; o cadastro da digital e do rosto pela ficha; a **Fila de atendimento**; as **Mensagens**; a **Agenda** do studio; o seu perfil e esta Central de Ajuda.
+  - **Fica pausado:** o que é gestão ou operação em massa. Para a recepção, são o **Funil de Vendas**, os **Comunicados** e o **Engajamento**: eles saem do menu, que lista o que está pausado. Quem abre um deles pelo endereço vê a explicação no lugar da tela.
+- **Os alunos** seguem com o app e a catraca normais. A suspensão vale só para o painel da equipe, e nada disso aparece para o aluno.
+
+Assim que o pagamento é confirmado, o painel volta ao normal para todos. Se a tela ainda mostrar o aviso, recarregue a página.
+
 ## Mais de uma unidade
 
 Quem trabalha em mais de uma academia ou unidade da mesma rede vê um seletor de unidade no alto da tela. Ao trocar, o painel recarrega com os dados da outra unidade, e a escolha fica guardada naquele aparelho.

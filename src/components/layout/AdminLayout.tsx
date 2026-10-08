@@ -9,10 +9,13 @@ import { AppHeader } from "./AppHeader";
 import { AdminSidebarProvider, useAdminSidebar } from "@/contexts/AdminSidebarContext";
 import { cn } from "@/lib/utils";
 import { PortaoDaRota } from "@/components/acesso/PortaoDaRota";
+import { FaixaModoEssencial } from "@/components/acesso/ModoEssencial";
+import { useModoEssencial } from "@/contexts/ModoEssencialContext";
 
 function AdminLayoutInner() {
   const { collapsed } = useAdminSidebar();
   const { organization, rolesLoaded, hasRole, signOut } = useAuth();
+  const modoEssencial = useModoEssencial();
   const navigate = useNavigate();
 
   // Antes, um admin_arke sem organização fazia o layout chamar
@@ -55,6 +58,8 @@ function AdminLayoutInner() {
           collapsed ? "md:ml-16" : "md:ml-64"
         )}
       >
+        {/* Na coluna do conteúdo, e não acima do layout: o menu fixo do computador cobriria o começo da faixa. */}
+        {modoEssencial && <FaixaModoEssencial />}
         <AppHeader />
         <main className="flex-1 p-3 sm:p-4 md:p-6 min-w-0 overflow-x-hidden">
           <Suspense fallback={<CarregandoPagina />}>

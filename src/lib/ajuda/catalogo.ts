@@ -30,7 +30,7 @@ export const ARTIGOS: ArtigoAjuda[] = [
   {
     slug: "painel-primeiros-passos",
     titulo: "Primeiros passos no painel",
-    resumo: "O menu, o que cada papel enxerga, a tela inicial e como trocar de unidade.",
+    resumo: "O menu, o que cada papel enxerga, a tela inicial, como trocar de unidade e o que muda com a assinatura da academia pendente.",
     secao: "Primeiros passos",
     publicos: EQUIPE,
     rotas: ["/admin/dashboard", "/admin/perfil"],

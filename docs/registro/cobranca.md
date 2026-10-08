@@ -177,13 +177,13 @@ A rede de segurança acima fecha o `PAYMENT_OVERDUE` perdido, mas abre o lado op
 Tabelas com `bigserial` precisam de `grant usage` na sequência para a `service_role`: os privilégios padrão do projeto cobrem tabela, não sequência, e todas as tabelas antigas usam uuid. Foi assim que a primeira varredura respondeu 200 sem gravar o registro (403 no insert).
 
 ### Quem é bloqueado
-- **B2B (`OrganizacaoBillingGate`, rotas `/admin`):** apenas a **equipe** da academia — gestor, professor, nutricionista. Os alunos dela **seguem treinando**: o contrato B2B é com a academia, e o aluno que pagou a mensalidade não deu causa ao atraso.
+- **B2B (`OrganizacaoBillingGate`, rotas `/admin`):** apenas a **equipe** da academia — gestor, professor, nutricionista. Os alunos dela **seguem treinando**: o contrato B2B é com a academia, e o aluno que pagou a mensalidade não deu causa ao atraso. *Desde 08/10/2026 a recepção também entra, em modo essencial (ver "A recepção em modo essencial no bloqueio B2B", abaixo).*
 - **B2C (`AlunoBillingGate`, rotas `/app`):** o aluno cuja assinatura do Método ARKE está `atrasada` **ou** que tem cobrança emitida e vencida sem confirmação. Assinatura em `trial` ou `cancelada` nunca bloqueia.
 - **Nunca bloqueados:** Super Admin e Admin ARKE (são eles que resolvem a cobrança; trancá-los tornaria o problema insolúvel pelo produto) e organizações em `trial`.
 
 > Os dois gates são de experiência, não fronteiras de segurança — o que protege os dados continua sendo o RLS de cada tabela.
 
-*07/10/2026: a recepção ficou fora do gate B2B (o papel nasceu em 24/09, depois da lista de `get_bloqueio_organizacao`), e a equipe bloqueada segue gravando pela API. O mapa, o risco e a proposta de levar o bloqueio ao servidor estão em "Auditoria de prontidão, frente D" ([seguranca-e-acesso.md](seguranca-e-acesso.md)), para decisão do responsável.*
+*07/10/2026: a recepção ficou fora do gate B2B (o papel nasceu em 24/09, depois da lista de `get_bloqueio_organizacao`), e a equipe bloqueada segue gravando pela API. O mapa, o risco e a proposta de levar o bloqueio ao servidor estão em "Auditoria de prontidão, frente D" ([seguranca-e-acesso.md](seguranca-e-acesso.md)), para decisão do responsável. Superado em 08/10/2026: a recepção entra em modo essencial, e o bloqueio no servidor fica para depois do primeiro cliente pagante.*
 
 ### Assinatura exige adesão ao Método
 Criar assinatura do Método para aluno sem adesão ativa é recusado em dois pontos: na Edge Function `asaas-create-subscription`, **antes** de qualquer chamada ao gateway (senão a assinatura nasceria no Asaas e só depois seria rejeitada, deixando órfão), e no banco pelo trigger `trg_assinatura_exige_adesao`, que cobre qualquer caminho de escrita — inclusive `service_role`, que ignora RLS. `nivel_atacado` fica preenchido mesmo em aluno `sem_adesao`, então ele sozinho nunca autoriza cobrança.
@@ -520,3 +520,97 @@ A responsabilidade fiscal (item seguinte do contrato) pede um ajuste de uma pala
 - **App do aluno, no celular, nos dois temas:** os pagamentos da academia mostram o selo e o suporte do Asaas.
 - **O selo certo em cada tema:** "Positivo" no claro, "Negativo-Branco" no escuro, carregado do endereço do Asaas com o id da ArkeFit.
 - Os prints dessas telas foram para a pergunta 06 do checklist.
+
+## A recepção em modo essencial no bloqueio B2B (08/10/2026)
+
+**A decisão do responsável.** A recepção entra no bloqueio por mensalidade B2B, mas em **modo essencial**, e não na tela de suspensão. O princípio é um só: o atendimento individual do aluno no balcão continua; a gestão e a operação em massa pausam. Gestor, professor e nutricionista seguem na tela de suspensão, como antes. Os alunos, a ArkeFit e a academia em trial seguem fora do bloqueio. O bloqueio no servidor fica para depois do primeiro cliente pagante (`docs/DECISOES_PENDENTES.md`). Migration `20261420010000`.
+
+Até aqui a recepção não era bloqueada: o papel nasceu em 24/09, depois da lista de `get_bloqueio_organizacao` (20/09), e a frente D (07/10) achou o buraco. Mandá-la para a suspensão pararia o balcão: a matrícula, o check-in manual e a cobrança da mensalidade do aluno, que não deu causa ao atraso e cujo pagamento é o dinheiro com que a academia paga a ArkeFit. A pressão do bloqueio fica onde está a gestão.
+
+### O banco
+
+- `get_bloqueio_organizacao()` diz o modo de quem chama, numa coluna nova, `modo`: `bloqueio` (gestor, professor e nutricionista da academia bloqueada), `essencial` (a recepção dela) ou `normal`.
+- **Compatível com a tela publicada**, porque a migration entra antes do app:
+  - nenhuma coluna saiu, e `modo` entrou no fim;
+  - a linha da recepção vem com `bloqueada = false`, sem contagem, sem valor, sem vencimento e sem link. A tela publicada lê a primeira linha e não conhece `modo`: para ela, a recepção segue com o painel inteiro e sem faixa, como hoje;
+  - a ordem é a de antes (a bloqueada primeiro, depois o vencimento mais antigo), e a primeira linha diz à tela publicada o mesmo que ela já recebia.
+- **Uma linha por academia** em que a pessoa é equipe, e não mais `limit 1`: a tela nova lê o modo da linha da academia ativa.
+- A recepção não recebe o valor nem a fatura da ArkeFit, nem pela API: quem paga é o gestor.
+- O tipo de retorno mudou, e `create or replace` não muda o tipo de retorno de uma função: ela sai (`drop function`) e volta na mesma migration, com a concessão refeita (sem EXECUTE para o PUBLIC e para `anon`). A função não recebe academia nem pessoa: responde só pelos vínculos de `auth.uid()`.
+
+**Dois vínculos: qual papel vale.** `organization_members` tem `unique (organization_id, user_id)`: ninguém é recepção e professor na mesma academia, e o papel ativo é o único que a pessoa tem ali. Dois vínculos só existem em academias diferentes, e a tela já usa o vínculo ativo (`escolherVinculo` e o seletor de unidade). Por isso:
+- o bloqueio total continua valendo em qualquer academia ("a bloqueada manda", de 20/09), como antes. Senão o gestor de uma unidade bloqueada abriria o painel trocando de unidade;
+- o modo essencial vale só na academia ativa, onde o papel ativo é a recepção. A gestora de uma academia em dia que também é recepção de outra, bloqueada, trabalha na dela com o painel inteiro. Nem o mais restrito nem o mais amplo: vale o papel de quem está trabalhando ali.
+
+### O app
+
+- **Um lugar só:** `src/lib/modoEssencial.ts`. `NO_MODO_ESSENCIAL` classifica toda rota de `/admin` como "continua" ou "pausada", e a rota fora da lista fica pausada (falha fechada). `decidirAcessoDoPainel()` escolhe entre a suspensão, o modo essencial e o painel.
+- O `OrganizacaoBillingGate` liga o modo (`ModoEssencialContext`), e o painel fica sempre na mesma posição da árvore: a consulta chegando não remonta a tela aberta.
+- O portão das rotas (`PortaoDaRota`) mostra a explicação no lugar da rota pausada aberta pelo endereço. O que o papel já não abria segue com a explicação do papel.
+- **O menu:** o item pausado some, e uma nota no fim do menu diz o que está pausado ("Pausados enquanto a assinatura da academia estiver pendente: Funil de Vendas, Engajamento e Comunicados."). Some, em vez de aparecer desativado, porque o botão desativado não recebe foco, e o leitor de tela não chegaria ao motivo. A nota é texto, na ordem da leitura.
+- **A faixa:** "A assinatura da academia está pendente. Algumas funções estão pausadas; fale com o gestor.", com `role="status"`, sem valor e sem link da fatura. Ela fica no topo da coluna do conteúdo, e não acima do layout, porque o menu fixo do computador cobriria o começo dela.
+- Nada disso chega ao aluno nem à catraca: o app do aluno e o display não passam pelo gate.
+
+**A classificação das rotas.**
+
+| Rota | No modo essencial | Por quê |
+| --- | --- | --- |
+| Atendimento (Fila), `/admin` | continua | a fila dela: a cobrança e o atestado do aluno |
+| Home, `dashboard` | continua | a porta de entrada e o "Voltar ao início", com os atalhos do balcão (novo aluno, liberar a catraca) |
+| Alunos, `alunos` | continua | buscar, a situação, a matrícula de quem está no balcão, a mensalidade e a avulsa, o atestado, o PAR-Q, a digital e o rosto, pela lista e pela ficha |
+| Check-in QR, `checkin-qr` | continua | o check-in pelo QR Code |
+| Catracas, `catracas` | continua | liberar a catraca e o check-in do visitante do Wellhub e do TotalPass |
+| Mensagens, `mensagens` | continua | as conversas com o aluno |
+| Agenda, `agenda` (studio) | continua | no studio, a presença na aula é o check-in do balcão |
+| Meu perfil, `perfil` | continua | a própria conta: a senha e as duas etapas |
+| Ajuda, `ajuda` e `ajuda/:slug` | continua | a Central, que explica o modo essencial |
+| Funil de Vendas, `funil` | pausada | vendas |
+| Comunicados, `comunicados` | pausada | mensagem para todos os alunos |
+| Engajamento, `engajamento` | pausada | desafios, competições e feed, para todos |
+| Implantação, `onboarding` | pausada | gestão (o cartão da Home leva até ela) |
+| `alunos/importar`, `gestao-360`, `relatorio-semanal`, `acompanhamento`, `retencao`, `financeiro`, `equipe`, `organizacao`, `configuracoes/integracoes` | pausada | gestão e massa; a recepção já não abria pelo papel |
+| `treinos`, `dietas` | pausada | a prescrição é do professor e da nutricionista, que estão na suspensão; a recepção já não abria |
+
+**A guarda:** `modoEssencial.guarda` falha:
+- se uma rota de `/admin` do App.tsx não estiver em `NO_MODO_ESSENCIAL` (a rota nova da recepção entra como "continua" ou fica pausada), ou se a lista tiver rota que saiu;
+- se a lista do que continua mudar sem passar pela guarda, ou uma rota que continua não abrir para a recepção pelo papel;
+- se o menu da recepção no modo essencial oferecer item pausado;
+- se o portão, o menu ou a faixa deixarem de ler o modo, ou o gate ligar o modo em mais de um lugar;
+- se a última definição de `get_bloqueio_organizacao` perder uma coluna da tela publicada, deixar de mandar gestor, professor e nutricionista para a suspensão, mandar a recepção, der número à recepção, voltar à lista de exclusão nos números, ou nascer sem a concessão refeita;
+- se o aviso da recepção falar de dinheiro.
+
+A Central de Ajuda não tinha artigo sobre o bloqueio B2B: os "bloque" dos artigos falam do aluno. A explicação entrou em "Primeiros passos no painel" ("Quando a assinatura da academia está pendente"), o artigo de toda a equipe sobre o que cada papel vê, e a página pausada leva até ele.
+
+### Defeitos do caminho
+
+- **A fatura cancelada no botão "Regularizar pagamento".** Os números da tela de suspensão e da faixa da tolerância contavam toda cobrança vencida que não estivesse `confirmado` (lista de exclusão), e o link era o da vencida mais antiga. Uma cobrança cancelada pelo Asaas (o `PAYMENT_DELETED` da pausa do encerramento, por exemplo) somava no valor e virava o link do botão: o gestor era mandado pagar uma fatura cancelada. A decisão de bloquear sempre usou a lista de inclusão (`pendente`, `atrasado`), então ninguém foi bloqueado por isso; mas a faixa da tolerância ficava no ar por uma cobrança que não era dívida. A prova local mostrou o defeito antes (valor 797 em vez de 297, link da cancelada) e a correção depois. Os números agora usam a mesma lista de inclusão.
+- **A ordem da resposta.** A primeira versão punha a linha do modo essencial antes do vencimento mais antigo. Para quem é gestora de uma academia na tolerância e recepção de outra, bloqueada, a tela publicada, que lê a primeira linha, perderia a faixa da tolerância. A ordem voltou a ser a de antes, e a prova local tem o caso.
+- **O painel remontava.** O gate trocava o Fragment pelo Provider do modo quando a consulta chegava, e a tela aberta montava de novo. O Provider fica sempre no mesmo lugar.
+
+### Conferido
+
+**Conferido no repositório:**
+- **1.388 testes do app, em 183 arquivos, todos passando.** 31 são novos:
+  - a guarda `modoEssencial` (10);
+  - a regra `modoEssencial` (9);
+  - o portão das rotas no modo essencial (5);
+  - sete casos do gate: a suspensão, o modo essencial e o painel; o modo só na academia ativa; a bloqueada manda; a resposta sem `modo`; e a faixa da tolerância, que não tinha teste.
+- Dois casos de `CobrancasAvulsas` estouraram o prazo de 5 s com a máquina carregada e passaram sozinhos com prazo maior. Dois lotes caíram por falta de memória e passaram rodados de novo. Nenhum é desta frente.
+- `npm run check` sem erro, com as 56 funções no `deno check`.
+- **A migration num Postgres local (PGlite)**, sobre um esqueleto com as funções de antes copiadas das migrations (`get_bloqueio_organizacao` de `20261113`, a inadimplência de `20261213`, a concessão de `20261215`), aplicada duas vezes:
+  - 25 casos com ela; sem ela, 15 acusam o defeito (a recepção sem linha, a cancelada contada e no link);
+  - os casos: o modo de cada papel na academia bloqueada, a recepção sem número, a tela publicada lendo a primeira linha, a tolerância, o trial, o vínculo inativo, o aluno, a ArkeFit, três combinações de dois vínculos e a concessão.
+- **O roteiro de produção** (entregue à parte), rodado no mesmo esqueleto com uma "homologação" em trial e uma cobrança atrasada de verdade: sem a migration, "FALHOU 13 de 17"; com ela, "17 casos ok"; e nada gravado depois.
+- **Defeitos plantados**, e o teste certo falhou em todos:
+  - uma rota nova no App.tsx, classificada só pelo papel: a `modoEssencial.guarda` falhou ("rota sem classificação"), e a guarda do papel, não;
+  - a recepção mandada para a suspensão, na regra do app e na migration: 4 testes falharam (a guarda, na tela e no banco; o gate; a regra);
+  - na prova local, a recepção com `bloqueada`: 2 casos; sem a recepção na lista de papéis: 7 casos.
+
+**Fica com o responsável:** o roteiro de prova em produção, a migration, o deploy do app, a publicação de `assistente-academia` (o índice da Central mudou), o `supabase gen types` para conferir o `types.ts` editado à mão e a tela no computador e no celular.
+
+### Fica de fora, e por quê
+
+- **O bloqueio no servidor**, para depois do primeiro cliente pagante (`docs/DECISOES_PENDENTES.md`). Quando vier, barra só a gestão, e não o que a recepção usa no modo essencial.
+- **A recepção na tolerância** não vê aviso: a decisão fala da recepção da academia bloqueada, e quem paga é o gestor, que vê a faixa desde o primeiro dia.
+- **`escolherVinculo` não conhece a recepção.** A prioridade (gestor, professor, nutricionista, aluno) não lista `recepcao`, que fica depois do aluno: quem é recepção de uma academia e aluno de outra, sem unidade escolhida no seletor, entra pelo app do aluno, ao contrário do que o comentário dela promete ("quem trabalha numa academia e treina em outra entra no contexto de trabalho"). Não mexe no modo essencial, que lê a academia ativa; fica para uma correção à parte.
+- **A tela de suspensão sem o seletor de unidade.** Quem é gestor de uma unidade bloqueada e trabalha em outra em dia fica preso na suspensão ("a bloqueada manda"), como antes. Decidir se ele troca de unidade por ali é outra conversa.

@@ -10,6 +10,8 @@ import { useCaixaMensagens } from "@/hooks/useCaixaMensagens";
 import { MarcaArkeFit } from "@/components/marca/MarcaArkeFit";
 import { podePrescrever } from "@/lib/prescricaoPermitida";
 import { buildSections, buildSectionsProfissionalAutonomo } from "@/lib/menuPainel";
+import { menuNoModoEssencial } from "@/lib/modoEssencial";
+import { useModoEssencial } from "@/contexts/ModoEssencialContext";
 
 function SidebarNav({
   collapsed,
@@ -36,7 +38,7 @@ function SidebarNav({
   };
   const podePrescreverTreino = podePrescrever("treino", contextoPrescricao);
   const podePrescreverDieta = podePrescrever("dieta", contextoPrescricao);
-  const sections = ehProfissionalAutonomo
+  const menuCompleto = ehProfissionalAutonomo
     ? buildSectionsProfissionalAutonomo({ podePrescreverTreino, podePrescreverDieta, ehDono: organizationRole === "gestor" })
     : buildSections({
         ehStudio,
@@ -45,6 +47,12 @@ function SidebarNav({
         podePrescreverDieta,
         alunosLabel: "Alunos & Prescrições",
       });
+  // Modo essencial (a recepção da academia com a mensalidade B2B bloqueada):
+  // o item pausado sai do menu, e o nome dele vai para a nota no fim.
+  const modoEssencial = useModoEssencial();
+  const { secoes: sections, pausados } = modoEssencial
+    ? menuNoModoEssencial(menuCompleto)
+    : { secoes: menuCompleto, pausados: [] as string[] };
 
   const handleNav = (path: string) => {
     navigate(path);
@@ -115,6 +123,12 @@ function SidebarNav({
             })}
           </div>
         ))}
+        {!collapsed && pausados.length > 0 && (
+          <p className="px-3 pt-1 text-xs text-muted-foreground">
+            Pausados enquanto a assinatura da academia estiver pendente:{" "}
+            {pausados.length === 1 ? pausados[0] : `${pausados.slice(0, -1).join(", ")} e ${pausados[pausados.length - 1]}`}.
+          </p>
+        )}
       </nav>
 
       <div className="border-t border-border p-2 space-y-1">

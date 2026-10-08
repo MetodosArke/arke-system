@@ -8453,6 +8453,7 @@ export type Database = {
           bloqueada: boolean
           cobrancas_vencidas: number
           invoice_url: string
+          modo: string
           organizacao_nome: string
           organization_id: string
           valor_em_aberto: number

@@ -38,6 +38,10 @@ As Fases 1 a 3 estão no ar. O que vem depois é upgrade, e só se decide com o 
 - **Autonomia da análise por IA.** As ações que ela propõe pedem aprovação, mesmo as que o catálogo classifica como "sozinho". Rever com casos reais suficientes para medir o acerto fora do simulado.
 - **Ao medir, desconsiderar as 22 ocorrências de 24/09/2026 entre 10:35 e 12:30** ("rotina falhou" nas rotinas do próprio Vigia e no alerta de catracas). Eram o painel de rotinas lendo uma execução ainda em andamento como falha, corrigido na mesma data; não houve incidente.
 
+## Depois do primeiro cliente pagante (decisão de 08/10/2026)
+
+- **O bloqueio B2B no servidor.** Hoje o bloqueio por mensalidade B2B vencida é só da tela (`OrganizacaoBillingGate`): a equipe bloqueada ainda grava pela API. Quando vier, ele **barra só as funções de gestão e de operação em massa**, e não o que a recepção usa no modo essencial (`src/lib/modoEssencial.ts`, `NO_MODO_ESSENCIAL`): a matrícula de quem está no balcão, a mensalidade e a cobrança avulsa do aluno, o check-in manual, pelo QR Code e do visitante do Wellhub e do TotalPass, o atestado, o PAR-Q, a digital e o rosto, a fila de atendimento e as mensagens. Gestor, professor e nutricionista da academia bloqueada continuam fora da tela inteira, e o servidor pode barrar a escrita deles. O mapa do que a equipe grava pela API, os riscos (a service role e as funções `security definer` pulam o RLS; a regra restritiva de alteração responde 200 com zero linhas; `tarefas`, `presencas` e `checkins` também nascem de ações do aluno) e o caminho proposto (primeiro as edge functions que gravam em nome da equipe, com uma conferência só em `_shared`; depois as regras restritivas nas tabelas que só a gestão grava) estão em `docs/registro/seguranca-e-acesso.md`, "Auditoria de prontidão, frente D", item 7. O pagamento não depende disso: a fatura abre no Asaas, e o webhook grava com a service role.
+
 ## Depois do lançamento
 
 - **Preço do profissional autônomo.** O plano Custom segue negociado caso a caso.
