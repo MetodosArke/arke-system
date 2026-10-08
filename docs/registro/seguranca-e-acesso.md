@@ -687,10 +687,17 @@ Quatro sobras pequenas de segurança e qualidade, três delas da lista "Fica de 
 
   Depois, nada ficou gravado: nenhuma tarefa de prova, a conta e2e da jornada seguiu como aluna, nenhum registro de papel na auditoria, e as duas regras de exclusão seguiam no ar até aplicar.
   - **Defeito do caminho:** o roteiro do item 1 gravava as três tarefas de prova com a mesma `origem_evento`, que o índice único `(organization_id, origem_evento)` de produção recusa; o esqueleto do PGlite não tinha o índice. Cada tarefa ganhou a sua origem.
-- **Falta, porque esta frente não toca produção:**
-  - publicar `editar-membro-equipe` e `assistente-academia` (o índice da Central mudou), e o app;
-  - a corrente real: editar o nome e o papel de uma conta temporária da equipe na homologação e conferir a Auditoria;
-  - a tela no computador e no celular: o Acompanhamento com um atendimento de saúde, a Agenda e os Acervos com a consulta falhando (modo avião depois de abrir), a Simulação de perfil e a Auditoria.
+- **A publicação (07/10/2026):**
+  - as três migrations;
+  - `editar-membro-equipe` (v31) e `assistente-academia` (v31);
+  - o app (#356). A Vercel não recebeu o aviso do merge e não publicou; o deploy de produção do mesmo commit foi pedido direto à Vercel.
+- **A corrente real**, com academia e contas temporárias (apagadas no fim, 0 e 0), 4 casos:
+  - pela função, o nome e o papel mudam, e cada troca entra uma vez na Auditoria pela gestora, sem o nome da pessoa;
+  - pela API, a troca de papel entra com `pela_api: true`;
+  - a gestora e a aluna recebem 403 ao apagar a mensagem do aluno, e marcar como lida segue (200).
+- **A tela, no computador e no celular:**
+  - a Agenda, com a consulta das turmas falhando de verdade (pedido abortado no navegador), mostra "Não foi possível carregar as turmas." com "Tentar de novo", e não "nenhuma turma".
+  - O Acompanhamento não mostra a lista em produção: nenhuma academia tem aluno no Método ainda, e a tela diz "Nenhum aluno seu está no Método ARKE ainda". A resposta da função foi provada no banco; a tela foi conferida com a resposta simulada no navegador, no formato novo. A linha de saúde sai com o selo "Atendimento" e o texto neutro, sem desfecho, sem rolagem lateral e com o rodapé novo.
 
 ## Auditoria de prontidão, frente D: os achados baixos de banco e de funções (07/10/2026)
 
