@@ -6,6 +6,8 @@ Cada Gateway, com a situação (no ar, contingência, sem sinal, nunca conectou)
 
 No detalhe, as mesmas ações remotas que a academia tem: **Sincronizar agora**, **Enviar acessos guardados**, **Diagnóstico** e **Liberar catraca** (com motivo, registrado na Auditoria). O suporte e a recepção olham para os mesmos números.
 
+O nível **Suporte** da equipe da ArkeFit vê a lista, os acessos e a biometria. O detalhe de cada Gateway e as ações remotas ficam com o sócio.
+
 **Catraca sem sinal** por mais de 10 minutos no horário da academia gera e-mail para a ArkeFit e para o gestor daquela academia, e outro quando volta.
 
 ## Acessos

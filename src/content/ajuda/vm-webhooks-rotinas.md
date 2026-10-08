@@ -24,3 +24,7 @@ Cada rotina (ativação, escalonamento de prazos, avanço de fases, lembretes, c
 - **Parou de rodar** é a mais traiçoeira: não dá erro, só silêncio. O ARKE compara a última execução com o intervalo prometido pelo agendamento.
 - Rotina que falhou ou parou gera e-mail para os Super Admins, com lembrete a cada 24 horas e aviso quando volta ao normal.
 - **Nunca rodou** é o estado de toda rotina nova até a primeira janela, e não gera alarme.
+
+## Quem vê o quê
+
+O nível **Suporte** da equipe da ArkeFit abre esta tela pelas **rotinas**: ele vê a saúde de cada uma e recebe a faixa de aviso no alto da Visão Master. Os eventos e a conferência com o Asaas são do dinheiro, e ficam com o sócio.

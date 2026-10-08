@@ -428,16 +428,16 @@ export const ARTIGOS: ArtigoAjuda[] = [
   {
     slug: "vm-mentoria",
     titulo: "Mentoria: chamados, conversas, operação e equipe",
-    resumo: "A fila da célula, as três saídas de um chamado, o painel de SLA e quem da equipe pode prescrever.",
+    resumo: "A fila da célula, as três saídas de um chamado, o painel de SLA, o que o Mentor contratado vê e quem da equipe pode prescrever.",
     secao: "Visão Master",
     publicos: ["arkefit"],
     rotas: ["/superadmin/mentoria"],
   },
   {
     slug: "vm-equipe-arkefit",
-    titulo: "Equipe ArkeFit: convidar, cadastrar e tirar o acesso",
+    titulo: "Equipe ArkeFit: níveis, convite, cadastro e retirada do acesso",
     resumo:
-      "Convidar um sócio, as duas etapas, o estado de cada conta, o cadastro completo (quem vê, os anexos, Meu cadastro), as fichas para a contabilidade e como tirar o acesso.",
+      "Sócio e os níveis da equipe contratada (Suporte, Mentor; Comercial e Financeiro em breve): o que cada um vê e nunca vê, o convite, as duas etapas, o cadastro completo (quem vê, os anexos, Meu cadastro), as fichas para a contabilidade e como tirar o acesso.",
     secao: "Visão Master",
     publicos: ["arkefit"],
     rotas: ["/superadmin/equipe"],

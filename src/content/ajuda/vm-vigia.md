@@ -27,3 +27,7 @@ Quando o quadro de problemas muda, uma IA olha o conjunto e sugere a causa prov�
 ## Regras e interruptor
 
 A tabela **Regras** mostra cada regra, o modo, quantas vezes detectou, agiu, sumiu antes e foi para uma pessoa. O modo de cada regra muda pela tela, com uma trava: nível 1 nunca pede aprovação e nível 2 nunca age sozinho sem mudança de código. O Vigia inteiro pode ser desligado pelo interruptor, e isso fica registrado.
+
+## Quem decide
+
+O nível **Suporte** da equipe da ArkeFit lê o Vigia inteiro, para acompanhar a saúde da plataforma. **Aprovar**, **Dispensar**, mudar o modo das regras e ligar ou desligar o Vigia são do sócio: para o Suporte, os botões não aparecem, e o banco recusa se alguém tentar por outro caminho.

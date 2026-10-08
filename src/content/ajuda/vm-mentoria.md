@@ -21,7 +21,7 @@ Clique num aluno da carteira, ou no nome dele num chamado, para abrir a ficha. E
 - **Evolução**: check-ins, treinos registrados nas últimas 4 semanas, adesão à dieta e avaliações físicas.
 - **Conversa**: o chat do aluno com o mentor.
 
-No alto da ficha fica o **mentor responsável**: **Assumir** passa o aluno para você, e **Passar para...** o entrega a outra pessoa da equipe.
+No alto da ficha fica o **mentor responsável**. O sócio define quem é: **Assumir** passa o aluno para ele, e **Passar para...** o entrega a outra pessoa da equipe que **atende como mentor** (o Mentor contratado, ou o sócio com a chave ligada em Equipe ArkeFit). O Mentor contratado vê quem é o responsável, mas não troca.
 
 ## A biblioteca do Método
 
@@ -45,6 +45,16 @@ O chat de cada aluno do Método com o mentor. As não lidas vêm primeiro. Se o 
 
 A academia não lê essas conversas.
 
+## Quem entra na Mentoria
+
+O sócio e quem tem o nível **Mentor** na equipe da ArkeFit (veja [Equipe ArkeFit](ajuda:vm-equipe-arkefit)). O Mentor contratado entra direto aqui, e vê só o que é do Método:
+
+- os alunos do Método, de todas as academias; o aluno do plano Free não aparece, e quem sai do Método some da Mentoria;
+- só os chamados da ArkeFit (a cobrança e o atestado são da academia), e a instrução presencial que ele mandou;
+- nada de dinheiro, das academias ou da equipe.
+
+A aba **Operação** é só do sócio.
+
 ## Operação: a célula está cumprindo o prometido?
 
 - **Cumprimento do prazo** e chamados vencidos agora. O prazo conta em horas de expediente (segunda a sexta das 8h às 20h, sábado das 8h às 12h).
@@ -57,10 +67,12 @@ O tempo até a resposta é **latência**, não esforço: um chamado resolvido em
 
 Em [Equipe ArkeFit](/superadmin/equipe) ficam as contas da ArkeFit e o registro profissional de cada uma: **CREF** para treino e **CRN** para dieta. A mesma pessoa pode ter os dois. Cada mudança fica na Auditoria, e desativar alguém não apaga o que essa pessoa já publicou. Convidar alguém para a equipe e tirar o acesso estão em [Equipe ArkeFit: convidar e tirar o acesso](ajuda:vm-equipe-arkefit).
 
-O interruptor **Exigir CREF e CRN para prescrever** decide se o registro é obrigatório:
+O **Mentor contratado** publica treino só com o **CREF** cadastrado e ativo, e dieta só com o **CRN**, sempre. Sem o registro, ele acompanha, conversa e encaminha, mas a publicação é recusada.
 
-- **ligado**: só publica treino quem tem CREF cadastrado e está ativo, e dieta quem tem CRN;
-- **desligado**, como está na fase de testes: qualquer pessoa da equipe da ArkeFit publica. O registro, quando cadastrado, fica gravado na prescrição mesmo assim.
+O interruptor **Exigir CREF e CRN dos sócios para prescrever** vale para os sócios:
+
+- **ligado**: o sócio também só publica com o registro;
+- **desligado**, como está na fase de testes: o sócio publica sem registro. O registro, quando cadastrado, fica gravado na prescrição mesmo assim.
 
 A academia deixa de prescrever para o aluno no dia em que ele entra no Método: ela vê o treino, para orientar no salão, e não vê a dieta nem a anamnese.
 
