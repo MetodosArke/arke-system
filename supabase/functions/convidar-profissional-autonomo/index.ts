@@ -1,5 +1,6 @@
 import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2";
 import { verificada } from "../_shared/verificacao.ts";
+import { acessoArkefit } from "../_shared/acessoArkefit.ts";
 import { emailPainelPronto, type Especialidade } from "./email.ts";
 import { servir } from "../_shared/servir.ts";
 import { resumoDoErro } from "../_shared/resumoDoErro.ts";
@@ -126,17 +127,17 @@ servir("convidar-profissional-autonomo", async (req: Request) => {
 
     const admin = createClient(supabaseUrl, serviceRoleKey);
 
-    const { data: callerRoles, error: callerRolesError } = await admin
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", callerId);
-    if (callerRolesError) {
-      console.error("Error loading caller roles", resumoDoErro(callerRolesError));
+    // Os níveis da equipe ArkeFit (08/10/2026): convidar o profissional, pôr
+    // ou trocar o responsável e reenviar o link são da área `cadastro` (o
+    // Comercial e o Sócio). A pergunta vai ao banco com a sessão de quem chama
+    // (`acesso_arkefit`), que exige as duas etapas. O painel nasce `ativo`.
+    const pode = verificada(claimsData?.claims) ? await acessoArkefit(asUser, claimsData?.claims, "cadastro") : false;
+    if (pode === null) {
+      console.error("convidar-profissional-autonomo: falha ao conferir o acesso");
       return jsonResponse({ error: "Erro ao validar permissões." }, 500);
     }
-    const callerIsSuperadmin = verificada(claimsData?.claims) && (callerRoles ?? []).some((r) => r.role === "superadmin");
-    if (!callerIsSuperadmin) {
-      return jsonResponse({ error: "Apenas o Super Admin ArkeFit pode cuidar dos profissionais autônomos." }, 403);
+    if (!pode) {
+      return jsonResponse({ error: "Apenas a equipe da ArkeFit com acesso ao cadastro cuida dos profissionais autônomos." }, 403);
     }
 
     const auditar = async (acaoLog: string, orgId: string, painel: string, detalhes: Record<string, unknown>) => {

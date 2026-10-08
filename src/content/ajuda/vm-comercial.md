@@ -61,4 +61,4 @@ O formulário da página pede nome, academia, WhatsApp, e-mail, cidade, UF, faix
 
 ## Privacidade
 
-Só a equipe da ArkeFit vê o quadro, e com a verificação em duas etapas. O contato que não virou cliente é apagado sozinho depois de 12 meses sem andamento, com os e-mails que a Letícia mandou para ele. O ganho fica.
+Só a equipe da ArkeFit vê o quadro, e com a verificação em duas etapas: os sócios e o nível **Comercial**. O Comercial trabalha o quadro inteiro e aciona a Letícia nos cartões; **ligar e desligar a Letícia** (e o link da agenda) é dos sócios: o painel da resposta automática não aparece para ele. O contato que não virou cliente é apagado sozinho depois de 12 meses sem andamento, com os e-mails que a Letícia mandou para ele. O ganho fica.

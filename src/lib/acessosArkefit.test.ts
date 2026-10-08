@@ -71,9 +71,9 @@ describe("os níveis da equipe contratada", () => {
     );
   });
 
-  it("nesta entrega, Mentor e Suporte estão no ar; Comercial e Financeiro, em breve", () => {
-    expect([...NIVEIS_ABERTOS].sort()).toEqual(["mentor", "suporte"]);
-    expect(NIVEIS.filter((n) => !n.aberto).map((n) => n.id).sort()).toEqual(["comercial", "financeiro"]);
+  it("com a entrega 2, os quatro níveis estão no ar", () => {
+    expect([...NIVEIS_ABERTOS].sort()).toEqual(["comercial", "financeiro", "mentor", "suporte"]);
+    expect(NIVEIS.filter((n) => !n.aberto)).toEqual([]);
     for (const n of NIVEIS) {
       expect(n.descricao.length, n.id).toBeGreaterThan(20);
       expect(n.nunca.length, n.id).toBeGreaterThan(20);
@@ -201,10 +201,14 @@ describe("o pedido do convite", () => {
     expect(soSuporte.ok && "niveis" in soSuporte.pedido && soSuporte.pedido.cref).toBe(null);
   });
 
-  it("o convite da equipe recusa o nível em breve, o desconhecido, a lista vazia, o registro inválido e os dois acessos juntos", () => {
-    const comercial = lerPedido({ nome: "Bia", email: "bia@exemplo.com", niveis: ["comercial"] });
-    expect(comercial).toEqual({ ok: false, erro: expect.stringMatching(/Comercial chega na próxima entrega/) });
-    expect(lerPedido({ nome: "Bia", email: "bia@exemplo.com", niveis: ["financeiro"] }).ok).toBe(false);
+  it("o convite da equipe aceita o Comercial e o Financeiro, sem o registro profissional", () => {
+    expect(lerPedido({ nome: "Bia", email: "bia@exemplo.com", niveis: ["financeiro", "comercial"], cref: "012345-G/SP" })).toEqual({
+      ok: true,
+      pedido: { acao: "convidar", nome: "Bia", email: "bia@exemplo.com", niveis: ["financeiro", "comercial"], cref: null, crn: null },
+    });
+  });
+
+  it("o convite da equipe recusa o desconhecido, a lista vazia, o registro inválido e os dois acessos juntos", () => {
     expect(lerPedido({ nome: "Bia", email: "bia@exemplo.com", niveis: ["superadmin"] }).ok).toBe(false);
     expect(lerPedido({ nome: "Bia", email: "bia@exemplo.com", niveis: [] }).ok).toBe(false);
     expect(lerPedido({ nome: "Bia", email: "bia@exemplo.com", niveis: "mentor" }).ok).toBe(false);

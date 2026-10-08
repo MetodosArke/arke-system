@@ -8088,6 +8088,16 @@ export type Database = {
         Args: { _aluno_id: string; _mentor_id: string }
         Returns: undefined
       }
+      atualizar_cadastro_organizacao: {
+        Args: {
+          _cnpj_cpf: string
+          _nome: string
+          _organization_id: string
+          _telefone: string
+          _tipo: Database["public"]["Enums"]["organization_tipo"]
+        }
+        Returns: undefined
+      }
       atualizar_endereco_aluno: {
         Args: {
           _aluno_id: string
@@ -8449,6 +8459,15 @@ export type Database = {
         }
         Returns: Json
       }
+      definir_mensalidade_b2b: {
+        Args: {
+          _mudar_valor?: boolean
+          _organization_id: string
+          _plano?: Database["public"]["Enums"]["plano_b2b"]
+          _valor_mensal?: number
+        }
+        Returns: undefined
+      }
       definir_metas_aluno_metodo: {
         Args: {
           _aluno_id: string
@@ -8460,6 +8479,19 @@ export type Database = {
       }
       definir_modo_regra_vigia: {
         Args: { _codigo: string; _modo: string }
+        Returns: undefined
+      }
+      definir_repasse_organizacao: {
+        Args: { _organization_id: string; _tipo: string; _valor: number }
+        Returns: undefined
+      }
+      definir_repasse_por_nivel: {
+        Args: {
+          _nivel: Database["public"]["Enums"]["nivel_atacado"]
+          _organization_id: string
+          _tipo?: string
+          _valor?: number
+        }
         Returns: undefined
       }
       definir_vigia_ativo: { Args: { _ativo: boolean }; Returns: undefined }
@@ -8486,6 +8518,12 @@ export type Database = {
         Args: { _organization_id: string }
         Returns: {
           aluno_id: string
+          email: string
+        }[]
+      }
+      emails_da_area: {
+        Args: { _area: string }
+        Returns: {
           email: string
         }[]
       }

@@ -12,9 +12,11 @@ import { supabase } from "@/integrations/supabase/client";
  */
 export const TRIAL_DIAS_FALLBACK = 15;
 
-export function useTrialDias() {
+/** `ativo` falso não vai ao banco (na Visão Master, só o Sócio dá trial). */
+export function useTrialDias(ativo = true) {
   const { data } = useQuery({
     queryKey: ["arke-trial-dias"],
+    enabled: ativo,
     queryFn: async () => {
       const { data, error } = await supabase.rpc("arke_trial_dias");
       if (error) throw error;

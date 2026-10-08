@@ -167,6 +167,17 @@ describe("AvisoRotinas com a reconciliação", () => {
     expect(ultimaReconciliacao).not.toHaveBeenCalled();
     expect(screen.queryByText(/há divergência na reconciliação/)).not.toBeInTheDocument();
   });
+
+  it("o Financeiro vê a divergência da reconciliação, sem consultar as rotinas, o banco e as catracas (da operação)", async () => {
+    acesso.atual = { socio: false, niveis: ["financeiro"] };
+    ultimaReconciliacao.mockResolvedValue({
+      data: { ...RECONCILIACAO_OK, executada_em: new Date().toISOString(), assinaturas_orfas: 1 },
+      error: null,
+    });
+    montar(<AvisoRotinas />);
+    expect(await screen.findByText(/1 assinatura ativa no Asaas sem registro/)).toBeInTheDocument();
+    expect(rpc).not.toHaveBeenCalled();
+  });
 });
 
 describe("capacidade do banco", () => {

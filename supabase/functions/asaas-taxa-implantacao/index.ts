@@ -1,5 +1,6 @@
 import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2";
 import { verificada } from "../_shared/verificacao.ts";
+import { acessoArkefit } from "../_shared/acessoArkefit.ts";
 import { ambienteAsaas } from "../_shared/asaas.ts";
 import { hojeBrasilia } from "../_shared/data.ts";
 import { garantirClienteB2b } from "../asaas-assinatura-b2b/fluxo.ts";
@@ -56,9 +57,12 @@ servir("asaas-taxa-implantacao", async (req: Request) => {
     const callerId = typeof claims?.claims?.sub === "string" ? claims.claims.sub : null;
     if (!callerId) return jsonResponse({ error: "Sessão inválida. Faça login novamente." }, 401);
     const admin = createClient(supabaseUrl, serviceRoleKey);
-    const { data: papeis } = await admin.from("user_roles").select("role").eq("user_id", callerId);
-    const arkefit = verificada(claims?.claims) && (papeis ?? []).some((p) => p.role === "superadmin" || p.role === "admin_arke");
-    if (!arkefit) return jsonResponse({ error: "Só a ArkeFit emite a taxa de implantação." }, 403);
+    // Os níveis da equipe ArkeFit (08/10/2026): a taxa de implantação é da
+    // área `financeiro` (o Financeiro e o Sócio), perguntada ao banco com a
+    // sessão de quem chama (`acesso_arkefit`), que exige as duas etapas.
+    const arkefit = verificada(claims?.claims) ? await acessoArkefit(asUser, claims?.claims, "financeiro") : false;
+    if (arkefit === null) return jsonResponse({ error: "Não foi possível conferir o acesso agora. Tente de novo." }, 500);
+    if (!arkefit) return jsonResponse({ error: "Só a equipe da ArkeFit com acesso ao financeiro emite a taxa de implantação." }, 403);
 
     const corpo = (await req.json().catch(() => ({}))) as Record<string, unknown>;
     const orgId = String(corpo.organization_id ?? "");

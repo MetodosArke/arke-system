@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { exigirGravacao } from "@/lib/gravacao";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,9 +24,11 @@ const SEM_LINHAS: LinhaNivel[] = [];
  * R$ 85), o que não permitia contrato a contrato — e o modelo comercial novo
  * negocia cada academia pelo porte e pelo ticket médio dela.
  *
- * Só a ArkeFit configura: `trg_proteger_colunas_organizacao` recusa a
- * alteração vinda do gestor, que de outro modo se daria retenção zero pela
- * política de UPDATE da própria organização.
+ * Só a ArkeFit configura (o Financeiro e o Sócio), pelas funções do banco
+ * `definir_repasse_organizacao` e `definir_repasse_por_nivel`, que conferem a
+ * área e deixam a trilha na Auditoria. `trg_proteger_colunas_organizacao`
+ * recusa a alteração vinda do gestor, que de outro modo se daria retenção
+ * zero pela política de UPDATE da própria organização.
  *
  * **O valor é o líquido desejado.** A taxa do gateway é somada por cima, na
  * parte da academia, porque ela recebe valor fixo no split e o que o Asaas
@@ -73,12 +74,15 @@ export function RepasseOrganizacao({ organizationId }: { organizationId: string 
     taxa ?? { percentual: 0, fixa: 0 }
   );
 
+  // Pelo banco, que confere a área financeiro e deixa a troca na Auditoria.
   const salvar = useMutation({
-    mutationFn: async () => {
-      await exigirGravacao(supabase
-        .from("organizations")
-        .update({ repasse_tipo: tipo, repasse_valor: numero })
-        .eq("id", organizationId).select("id"));
+    mutationFn: async (pedido: { tipo: RepasseConfig["tipo"]; valor: number }) => {
+      const { error } = await supabase.rpc("definir_repasse_organizacao", {
+        _organization_id: organizationId,
+        _tipo: pedido.tipo,
+        _valor: pedido.valor,
+      });
+      if (error) throw new Error(error.message);
     },
     onSuccess: () => {
       toast({
@@ -190,7 +194,7 @@ export function RepasseOrganizacao({ organizationId }: { organizationId: string 
               ))} + taxa ${reais(previa.taxaEstimada)}) · academia recebe ${reais(previa.liquidoAcademia!)}`}
       </p>
 
-      <Button size="sm" disabled={!valido || salvar.isPending} onClick={() => salvar.mutate()}>
+      <Button size="sm" disabled={!valido || salvar.isPending} onClick={() => salvar.mutate({ tipo, valor: numero })}>
         Salvar repasse
       </Button>
 
@@ -257,19 +261,21 @@ function ExcecoesPorNivel({
     setRascunho(inicial);
   }, [linhas, niveis]);
 
+  // Pelo banco, que confere a área financeiro e deixa a troca na Auditoria.
+  // Em branco tira a exceção (vale o repasse da academia).
   const salvar = useMutation({
-    mutationFn: async (nivel: string) => {
-      const r = rascunho[nivel];
-      const vazio = !r || r.valor.trim() === "";
-      const n = Number((r?.valor ?? "").replace(",", "."));
-      if (!vazio && (!Number.isFinite(n) || n < 0 || (r.tipo === "percentual" && n > 100))) {
+    mutationFn: async (pedido: { nivel: NivelAtacado["id"]; tipo: RepasseConfig["tipo"]; valor: string }) => {
+      const vazio = pedido.valor.trim() === "";
+      const n = Number(pedido.valor.replace(",", "."));
+      if (!vazio && (!Number.isFinite(n) || n < 0 || (pedido.tipo === "percentual" && n > 100))) {
         throw new Error("Valor inválido para este tipo de repasse.");
       }
-      await exigirGravacao(supabase
-        .from("organization_planos_precificacao")
-        .update({ repasse_tipo: vazio ? null : r.tipo, repasse_valor: vazio ? null : n })
-        .eq("organization_id", organizationId)
-        .eq("nivel_atacado", nivel as never).select("id"));
+      const { error } = await supabase.rpc("definir_repasse_por_nivel", {
+        _organization_id: organizationId,
+        _nivel: pedido.nivel,
+        ...(vazio ? {} : { _tipo: pedido.tipo, _valor: n }),
+      });
+      if (error) throw new Error(error.message);
     },
     onSuccess: () => {
       toast({ title: "Exceção atualizada", description: "Vale para assinaturas novas desse nível." });
@@ -313,7 +319,7 @@ function ExcecoesPorNivel({
                 value={r.valor}
                 onChange={(e) => setRascunho((s) => ({ ...s, [n.id]: { ...r, valor: e.target.value } }))}
               />
-              <Button size="sm" variant="outline" disabled={salvar.isPending} onClick={() => salvar.mutate(n.id)}>
+              <Button size="sm" variant="outline" disabled={salvar.isPending} onClick={() => salvar.mutate({ nivel: n.id, tipo: r.tipo, valor: r.valor })}>
                 Salvar
               </Button>
             </div>

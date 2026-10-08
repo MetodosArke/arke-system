@@ -75,9 +75,10 @@ servir("alertar-catracas", async (req: Request) => {
     let enviados = 0;
     for (const envio of separarEnvios(lista)) {
       try {
+        // O aviso à ArkeFit é técnico: vai aos sócios e ao Suporte (`emails_da_area`, 08/10/2026).
         const { data: dest, error: erroDest } =
           envio.destinatario === "arkefit"
-            ? await admin.rpc("emails_superadmin")
+            ? await admin.rpc("emails_da_area", { _area: "operacao" })
             : await admin.rpc("emails_gestores_organizacao", { _organization_id: envio.organization_id });
         if (erroDest) throw new Error(`destinatários: ${erroDest.code}`);
         const emails = ((dest ?? []) as { email: string }[]).map((d) => d.email).filter(Boolean);

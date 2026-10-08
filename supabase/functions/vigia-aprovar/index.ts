@@ -2,6 +2,7 @@ import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2";
 import { ambienteAsaas } from "../_shared/asaas.ts";
 import { cancelarAssinatura } from "../asaas-assinatura-ciclo/fluxo.ts";
 import { verificada } from "../_shared/verificacao.ts";
+import { acessoArkefit } from "../_shared/acessoArkefit.ts";
 import { servir } from "../_shared/servir.ts";
 import { resumoDoErro } from "../_shared/resumoDoErro.ts";
 import { executarComDesfecho, type Preparo, type Resultado } from "./fluxo.ts";
@@ -62,6 +63,12 @@ servir("vigia-aprovar", async (req: Request) => {
     if (!verificada(claims?.claims)) {
       return jsonResponse({ error: "Aprovar ação do Vigia exige a verificação em duas etapas. Entre de novo com o código do aplicativo." }, 403);
     }
+    // Aprovar é do Sócio (os níveis da equipe ArkeFit, 08/10/2026: o Suporte
+    // lê o Vigia, mas não decide). A pergunta vai ao banco com a sessão de
+    // quem chama; `vigia_preparar_aprovacao` confere de novo, pelo papel.
+    const socio = await acessoArkefit(asUser, claims?.claims, "socio");
+    if (socio === null) return jsonResponse({ error: "Não foi possível conferir o acesso agora. Tente de novo." }, 500);
+    if (!socio) return jsonResponse({ error: "Só um sócio da ArkeFit aprova as ações do Vigia." }, 403);
 
     const admin = createClient(supabaseUrl, serviceRoleKey);
     const { data: prep, error: erroPrep } = await admin.rpc("vigia_preparar_aprovacao", {

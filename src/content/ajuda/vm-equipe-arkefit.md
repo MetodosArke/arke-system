@@ -29,10 +29,30 @@ O Suporte nunca vê: dinheiro, dado de aluno ou de saúde, a atividade detalhada
 
 O Mentor nunca vê: aluno do plano Free (é da academia), dinheiro (mensalidades, pagamentos), as academias, a equipe e a operação dos mentores. E não define o mentor de cada aluno: isso é do Sócio. Quando o aluno sai do Método, ele some da Mentoria.
 
-**Comercial** e **Financeiro** chegam na próxima entrega. Até lá, eles aparecem no convite marcados como **Em breve** e não podem ser escolhidos: ninguém recebe um nível antes de a área dele estar pronta.
+**Comercial** cuida de quem ainda vai ser cliente e do cadastro das academias:
 
-- **Comercial**: o Pipeline, a Letícia por contato, o funil e o cadastro de academias novas.
-- **Financeiro**: os indicadores, a receita, a mensalidade B2B, o repasse, a taxa de implantação, as cobranças e a conta de cada academia.
+- o [Pipeline comercial](ajuda:vm-comercial): os contatos de todos os canais, mover, editar e excluir, e o que a Letícia mandou a cada um;
+- **acionar a Letícia** num contato de WhatsApp, telefone, indicação ou prospecção;
+- o **funil de conversão** na Visão Geral;
+- a **Visão Geral**, com a lista das academias e dos autônomos, sem os valores;
+- a **academia nova**, sempre **ativa** (veja [Cadastrar uma academia nova](ajuda:vm-nova-academia));
+- o **cadastro da academia**: nome, tipo, CNPJ e telefone, em **Editar Informações**;
+- os **profissionais autônomos**: convidar, editar e reenviar o convite.
+
+O Comercial nunca vê: dinheiro (indicadores, receita, MRR, mensalidade, repasse, cobranças), dado de aluno ou de saúde, a Mentoria e a equipe. E não faz o que é do Sócio: **ligar ou desligar a Letícia**, dar trial, mudar o status, suspender, excluir ou encerrar academia, converter uma academia em profissional autônomo, simular perfil.
+
+**Financeiro** cuida do dinheiro da plataforma:
+
+- na **Visão Geral**, os **indicadores** (MRR, ARR, inadimplência, retenção), a **receita** mês a mês e, na lista das academias, o **MRR** e as **assinaturas atrasadas** de cada uma;
+- o **plano** de cada academia (o limite de alunos vai junto);
+- na ficha da academia: a **mensalidade B2B** (o valor negociado e a assinatura no Asaas), a **taxa de implantação**, o **repasse do Método** (o da academia e a exceção por nível) e a **conta das cobranças**;
+- o **Faturamento**: emitir uma cobrança B2B avulsa;
+- em [Webhooks e rotinas](ajuda:vm-webhooks-rotinas), os **avisos do Asaas** e a **reconciliação**;
+- o aviso por e-mail quando a carteira de recebimento de uma academia é trocada.
+
+O Financeiro nunca vê: dado de aluno ou de saúde, o Pipeline, a Mentoria e a equipe. E não faz o que é do Sócio: mudar o **status** da academia, **suspender**, cancelar, excluir ou encerrar, dar **trial**, marcar academia fictícia, simular perfil. A mensalidade e o repasse se gravam pela ficha, e cada troca fica na [Auditoria](/superadmin/auditoria), com o antes e o depois.
+
+A pessoa pode ter mais de um nível: o Comercial e o Financeiro juntos veem as duas áreas.
 
 ## Convidar alguém para a equipe
 
@@ -52,7 +72,7 @@ Os outros sócios recebem um e-mail com quem convidou, o nome de quem entrou, o 
 
 1. Um e-mail **Você foi convidado**, com o botão **Aceitar convite**. O link leva à tela de criar a senha.
 2. Depois da senha, a Visão Master pede a **verificação em duas etapas**: ela escaneia um QR Code com um aplicativo autenticador no celular e digita o código (veja [Entrar com verificação em duas etapas](ajuda:vm-duas-etapas)). Isso vale para todos os níveis, sempre.
-3. Ela entra direto na tela do nível dela: o Mentor, na Mentoria; o Suporte, na Visão Geral. O menu mostra só o que ela abre.
+3. Ela entra direto na tela do nível dela: o Mentor, na Mentoria; o Suporte, o Comercial e o Financeiro, na Visão Geral. O menu mostra só o que ela abre.
 
 Até configurar as duas etapas, a conta **não tem nenhum acesso da ArkeFit**: o banco só aceita o sócio e o nível numa sessão verificada.
 
@@ -128,6 +148,15 @@ No fim do cadastro, em **Anexos**, escolha o documento (RG ou CNH, CPF, comprova
 - **Baixar fichas da equipe**, no alto da tela Equipe ArkeFit, gera a planilha de todos: uma linha por pessoa, nas mesmas colunas, e a ficha de cada um numa aba. Só os sócios baixam. Quem ainda não tem cadastro fica de fora.
 
 Cada download vai para a [Auditoria](/superadmin/auditoria) como **Fichas da equipe ArkeFit baixadas**, com quem baixou e de quem. A planilha tem CPF, endereço e conta bancária: mande à contabilidade por um canal seguro e apague a cópia do computador depois.
+
+## Os avisos por e-mail
+
+Os avisos que a plataforma manda à ArkeFit vão sempre aos sócios. Dois vão também a quem cuida da área, se a conta estiver ativa (senha e duas etapas):
+
+- **as rotinas e as catracas fora do ar** vão também ao **Suporte**;
+- **a troca da carteira de recebimento** de uma academia vai também ao **Financeiro**.
+
+Os outros (o contato novo do site, os chamados, o Vigia, o encerramento) seguem só para os sócios.
 
 ## Auditoria
 

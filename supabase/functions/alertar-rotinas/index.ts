@@ -8,7 +8,7 @@ const jsonResponse = (body: unknown, status = 200) =>
 
 const NOME = "alertar-rotinas";
 
-// Avisa por e-mail os Super Admins quando uma rotina do pg_cron entra em
+// Avisa por e-mail os sócios e o Suporte quando uma rotina do pg_cron entra em
 // problema, continua nele (lembrete a cada 24 h) ou se recupera. A faixa
 // vermelha da Visão Master só avisa quem abre a tela; isto avisa no fim de
 // semana também.
@@ -63,11 +63,13 @@ servir("alertar-rotinas", async (req: Request) => {
       return jsonResponse({ ok: true, enviados: 0 });
     }
 
-    const { data: destinatarios } = await admin.rpc("emails_superadmin");
+    // O aviso técnico vai aos sócios e ao Suporte, que cuida da operação
+    // (`emails_da_area`, 08/10/2026).
+    const { data: destinatarios } = await admin.rpc("emails_da_area", { _area: "operacao" });
     const emails = (destinatarios ?? []).map((d: { email: string }) => d.email).filter(Boolean);
     if (!emails.length) {
-      console.error("alertar-rotinas: nenhum Super Admin com e-mail");
-      return await falha(500, "Nenhum destinatário.", "nenhum Super Admin com e-mail");
+      console.error("alertar-rotinas: nenhum destinatário com e-mail");
+      return await falha(500, "Nenhum destinatário.", "nenhum sócio nem Suporte com e-mail");
     }
 
     const { assunto, html, texto } = montarEmail(itens as Item[], `${siteUrl}/#/superadmin`);

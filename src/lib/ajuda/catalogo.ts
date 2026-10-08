@@ -437,7 +437,7 @@ export const ARTIGOS: ArtigoAjuda[] = [
     slug: "vm-equipe-arkefit",
     titulo: "Equipe ArkeFit: níveis, convite, cadastro e retirada do acesso",
     resumo:
-      "Sócio e os níveis da equipe contratada (Suporte, Mentor; Comercial e Financeiro em breve): o que cada um vê e nunca vê, o convite, as duas etapas, o cadastro completo (quem vê, os anexos, Meu cadastro), as fichas para a contabilidade e como tirar o acesso.",
+      "Sócio e os níveis da equipe contratada (Suporte, Mentor, Comercial e Financeiro): o que cada um vê e nunca vê, os avisos por e-mail, o convite, as duas etapas, o cadastro completo (quem vê, os anexos, Meu cadastro), as fichas para a contabilidade e como tirar o acesso.",
     secao: "Visão Master",
     publicos: ["arkefit"],
     rotas: ["/superadmin/equipe"],

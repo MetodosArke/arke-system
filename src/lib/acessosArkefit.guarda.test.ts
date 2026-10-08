@@ -1,7 +1,7 @@
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
 import { describe, expect, it } from "vitest";
-import { dividir, regrasVigentes, textosDaReconstrucao } from "../../scripts/migracao/regras.mjs";
+import { comandosDeRegra, dividir, regrasVigentes, textosDaReconstrucao } from "../../scripts/migracao/regras.mjs";
 import {
   CHAMADAS_DA_VISAO_MASTER,
   NIVEIS_ABERTOS,
@@ -12,8 +12,9 @@ import {
 } from "./acessosArkefit";
 
 /**
- * Os níveis da equipe da ArkeFit (08/10/2026, entrega 1: a base, o Mentor e o
- * Suporte). A equipe contratada entra na Visão Master com um nível
+ * Os níveis da equipe da ArkeFit (08/10/2026; entrega 1: a base, o Mentor e o
+ * Suporte; entrega 2: o Comercial, o Financeiro e a limpeza). A equipe
+ * contratada entra na Visão Master com um nível
  * (`equipe_arkefit.niveis`), e cada nível abre áreas; o Sócio abre todas. A
  * pergunta mora no banco, `acesso_arkefit(área)`, e o app tem o espelho em
  * `src/lib/acessosArkefit.ts`.
@@ -33,7 +34,13 @@ import {
  *   6. uma função publicada do mapa (sem motivo) não perguntar a área ao banco
  *      (`acessoArkefit(`) com a sessão verificada (`verificada(`);
  *   7. o convite de nível gravar `user_roles` (só o Sócio ganha papel).
- * E cobra o termo do Mentor nas regras: sempre com o aluno do Método.
+ * E cobra o termo do Mentor nas regras: sempre com o aluno do Método. Na
+ * entrega 2: o `case` de `emails_da_area` é o mesmo; `plataforma_config` tem
+ * uma regra por operação, e o Financeiro e o Comercial leem só as chaves
+ * deles; a escrita de `organizations` continua do Sócio (e do gestor), e as
+ * travas das colunas aceitam o Financeiro só no dinheiro, depois de deixar
+ * passar quem não tem usuário (o aviso do Asaas, as rotinas); e nenhuma regra
+ * chama `equipe_metodo()` linha a linha.
  */
 const RAIZ = join(__dirname, "..", "..");
 const SRC = join(RAIZ, "src");
@@ -296,6 +303,17 @@ describe("o banco e o app dizem o mesmo sobre as áreas e os níveis", () => {
     expect([...abertos.matchAll(/'(\w+)'/g)].map((m) => m[1]).sort()).toEqual([...NIVEIS_ABERTOS].sort());
   });
 
+  it("o case de emails_da_area (os avisos por área) também é NIVEIS_DA_AREA", () => {
+    const emails = ultimaDefinicao("emails_da_area");
+    expect(emails, "a definição foi achada").not.toBe("");
+    const doApp = Object.fromEntries(Object.entries(NIVEIS_DA_AREA).map(([a, n]) => [a, [...n].sort()]));
+    expect(casoDoBanco(emails)).toEqual(doApp);
+    const d = emails.replace(/--[^\n]*/g, "").replace(/\s+/g, " ").toLowerCase();
+    // A equipe contratada só com a conta pronta (senha e duas etapas) e ativa.
+    expect(d).toMatch(/e\.ativo and e\.niveis && v_niveis/);
+    expect(d).toMatch(/estado_conta_arkefit\(u\.id\) = 'ativo'/);
+  });
+
   it("o leitor acha o case que diverge (a trava trava)", () => {
     const divergente = acesso.replace("when 'operacao'   then array['suporte']", "when 'operacao'   then array['suporte', 'mentor']");
     expect(casoDoBanco(divergente).operacao).toEqual(["mentor", "suporte"]);
@@ -334,6 +352,21 @@ describe("as funções publicadas do mapa perguntam a área ao banco, com a sess
     const c = codigo("superadmin-suporte-tenant");
     expect(c).toMatch(/const area = acao === "resetar_token_gateway" \? "operacao" : "socio";/);
     expect(c).toMatch(/verificada\(claimsData\?\.claims\) \? await acessoArkefit\(asUser, claimsData\?\.claims, area\) : false/);
+  });
+
+  it("criar a academia: o cadastro cria só ativa; o trial pede o Sócio", () => {
+    const c = codigo("criar-organizacao-superadmin");
+    expect(c).toMatch(/if \(status === "trial"\) \{\s*const socio = await acessoArkefit\(asUser, claimsData\?\.claims, "socio"\);/);
+    expect(c.indexOf('acessoArkefit(asUser, claimsData?.claims, "socio")')).toBeLessThan(c.indexOf('.from("organizations")'));
+  });
+
+  it("a conta das cobranças e a mensalidade B2B: o ramo da ArkeFit é o financeiro; o do gestor não muda", () => {
+    for (const nome of ["asaas-conta-academia", "asaas-assinatura-b2b"]) {
+      const c = codigo(nome);
+      expect(c, nome).toMatch(/acessoArkefit\(asUser, claims\?\.claims, "financeiro"\)/);
+      expect(c, nome).toMatch(/if \(!arkefit && vinculo\?\.role !== "gestor"\)/);
+      expect(c, nome).not.toMatch(/role === "admin_arke"/);
+    }
   });
 
   it("a conversa e o Sentinela conferem o aluno do Método", () => {
@@ -384,6 +417,121 @@ describe("nível nunca grava user_roles: só o Sócio ganha papel", () => {
       "aceita papel e nível juntos, ou nenhum dos dois",
     );
   });
+});
+
+// ── O dinheiro e a configuração (entrega 2) ────────────────────────────────
+
+const CHAVES_DO_FINANCEIRO = ["taxa_implantacao_referencia", "taxa_processamento_fixa", "taxa_processamento_minima", "taxa_processamento_percentual"];
+const CHAVES_DO_COMERCIAL = ["agente_comercial_ativo", "agente_comercial_ia", "agente_comercial_outras_origens"];
+
+/** Os problemas das regras de `plataforma_config`. */
+function problemasDaConfiguracao(sqls: string[] = textos): string[] {
+  const problemas: string[] = [];
+  const regras = [...regrasVigentes(sqls, "public.plataforma_config")].filter(([, r]) => !r.restritiva);
+  const comandos = regras.map(([, r]) => r.comando).sort();
+  if (comandos.join() !== "delete,insert,select,update") problemas.push(`uma regra por operação, sem FOR ALL: ${comandos.join()}`);
+  for (const [nome, r] of regras) {
+    for (const [metade, expr] of [["using", r.using], ["with check", r.withCheck]] as const) {
+      if (!expr) continue;
+      for (const termo of dividir(expr, "or")) {
+        if (/acesso_arkefit\('socio'\)/.test(termo) && !/acesso_arkefit\('(?!socio)/.test(termo)) continue;
+        const area = /acesso_arkefit\('(\w+)'\)/.exec(termo)?.[1];
+        const chaves = [...(/chave in \(([^)]*)\)/.exec(termo)?.[1] ?? "").matchAll(/'(\w+)'/g)].map((m) => m[1]).sort();
+        const esperadas = area === "financeiro" ? CHAVES_DO_FINANCEIRO : area === "comercial" ? CHAVES_DO_COMERCIAL : null;
+        if (r.comando !== "select" || !esperadas || chaves.join() !== esperadas.join()) {
+          problemas.push(`"${nome}" (${metade}): ${termo}`);
+        }
+      }
+    }
+  }
+  return problemas;
+}
+
+/** O corpo de uma função sem comentários, numa linha, em minúsculas. */
+const corpo = (nome: string) => ultimaDefinicao(nome).replace(/--[^\n]*/g, "").replace(/\s+/g, " ").toLowerCase();
+
+describe("o dinheiro: o Financeiro lê e grava pelas funções; a escrita direta segue do Sócio", () => {
+  it("plataforma_config: uma regra por operação; o Financeiro lê só as chaves de dinheiro, o Comercial só as da Letícia, e gravar é do Sócio", () => {
+    expect(problemasDaConfiguracao()).toEqual([]);
+  });
+
+  it("a escrita de organizations continua do Sócio (e do gestor): nenhuma área entra nas regras de gravação", () => {
+    const gravacao = [...regrasVigentes(textos, "public.organizations")].filter(([, r]) => !r.restritiva && r.comando !== "select");
+    expect(gravacao.length, "o detector detecta").toBeGreaterThan(0);
+    const comArea = gravacao.filter(([, r]) => /acesso_arkefit/.test(`${r.using ?? ""} ${r.withCheck ?? ""}`)).map(([n]) => n);
+    expect(comArea).toEqual([]);
+  });
+
+  it("a trava das colunas da academia: sem usuário passa primeiro; o Financeiro só no dinheiro", () => {
+    const d = corpo("proteger_colunas_organizacao");
+    expect(d.indexOf("if v_uid is null then return new; end if;"), "sem usuário passa primeiro").toBeGreaterThan(0);
+    expect(d.indexOf("if v_uid is null then return new; end if;")).toBeLessThan(d.indexOf("acesso_arkefit"));
+    const financeiro = [...d.matchAll(/if ([^;]*?) then raise exception/g)].filter((m) => m[1].includes("acesso_arkefit('financeiro')"));
+    expect(financeiro).toHaveLength(1);
+    const colunas = [...financeiro[0][1].matchAll(/new\.(\w+) is distinct from/g)].map((m) => m[1]).sort();
+    expect(colunas).toEqual(["limite_alunos", "plano_b2b", "repasse_tipo", "repasse_valor", "valor_mensal_b2b"]);
+    // A marca de fictícia, a assinatura B2B no Asaas e a conta seguem fora do alcance do Financeiro.
+    expect(d).toMatch(/if new\.ficticia is distinct from old\.ficticia[^;]*then raise exception/);
+  });
+
+  it("a trava da exceção de repasse por nível: sem usuário passa primeiro; o Financeiro passa", () => {
+    const d = corpo("proteger_repasse_por_nivel");
+    expect(d).toMatch(/if v_uid is null or public\.has_role\(v_uid, 'superadmin'\)/);
+    expect(d).toMatch(/if not public\.acesso_arkefit\('financeiro'\) then raise exception/);
+  });
+
+  it("as três funções do dinheiro deixam a trilha na Auditoria", () => {
+    expect(corpo("definir_mensalidade_b2b")).toMatch(/registrar_auditoria\([^;]*'organizacao\.mensalidade_b2b_definida'/);
+    expect(corpo("definir_repasse_organizacao")).toMatch(/registrar_auditoria\([^;]*'repasse_metodo\.definido'/);
+    expect(corpo("definir_repasse_por_nivel")).toMatch(/registrar_auditoria\([^;]*'repasse_metodo\.excecao_definida'/);
+  });
+
+  it("o leitor acha a configuração aberta demais (a trava trava)", () => {
+    const aberta = [...textos, `alter policy "leitura" on public.plataforma_config using ((select public.acesso_arkefit('socio')) or (select public.acesso_arkefit('financeiro')));`];
+    expect(problemasDaConfiguracao(aberta).length).toBe(1);
+    const outraChave = [
+      ...textos,
+      `alter policy "leitura" on public.plataforma_config using ((select public.acesso_arkefit('socio')) or (chave in ('taxa_implantacao_referencia', 'taxa_processamento_fixa', 'taxa_processamento_minima', 'taxa_processamento_percentual', 'exigir_registro_metodo') and (select public.acesso_arkefit('financeiro'))));`,
+    ];
+    expect(problemasDaConfiguracao(outraChave).length).toBe(1);
+    const gravaFinanceiro = [...textos, `alter policy "alteração" on public.plataforma_config using ((select public.acesso_arkefit('financeiro')));`];
+    expect(problemasDaConfiguracao(gravaFinanceiro).length).toBe(1);
+  });
+});
+
+/** As expressões das regras vigentes que chamam equipe_metodo() linha a linha (sem o `(select ...)`). */
+function equipeMetodoSolto(sqls: string[] = textos): string[] {
+  const tabelas = new Set<string>();
+  for (const t of sqls) for (const c of comandosDeRegra(t)) tabelas.add(c.tabela);
+  const soltos: string[] = [];
+  for (const tabela of tabelas) {
+    let regras;
+    try {
+      regras = regrasVigentes(sqls, tabela);
+    } catch {
+      continue; // a tabela criada fora do retrato (o resumo da anamnese): o roteiro de produção confere
+    }
+    for (const [nome, r] of regras) {
+      for (const [metade, expr] of [["using", r.using], ["with check", r.withCheck]] as const) {
+        const sem = String(expr ?? "").replace(/\(\s*select\s+(?:public\.)?equipe_metodo\(\)\s*\)/gi, "");
+        if (/equipe_metodo\(\)/.test(sem)) soltos.push(`${tabela} "${nome}" (${metade})`);
+      }
+    }
+  }
+  return soltos;
+}
+
+describe("equipe_metodo() uma vez por consulta", () => {
+  // Leem as regras vigentes de todas as migrations: no CI passam dos 5 s
+  // padrão, como as outras guardas que leem a reconstrução.
+  it("nenhuma regra o chama linha a linha", () => {
+    expect(equipeMetodoSolto()).toEqual([]);
+  }, 30_000);
+
+  it("o leitor acha a regra nova que o chama solto (a trava trava)", () => {
+    const solta = [...textos, `alter policy "leitura" on public.treinos using (public.equipe_metodo() and public.aluno_no_metodo(aluno_id));`];
+    expect(equipeMetodoSolto(solta)).toEqual(['public.treinos "leitura" (using)']);
+  }, 30_000);
 });
 
 // ── O termo do Mentor nas regras ───────────────────────────────────────────
