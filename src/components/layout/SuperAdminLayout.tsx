@@ -70,8 +70,10 @@ function SuperAdminLayoutInner() {
             </Button>
           </div>
         </header>
-        {/* As rotinas, o banco e as catracas são da operação (o Suporte e o Sócio). */}
-        {podeArea(acessoArkefit, "operacao") && <AvisoRotinas />}
+        {/* As rotinas, o banco e as catracas são da operação (o Suporte); a
+            divergência da reconciliação com o Asaas, do financeiro. A faixa
+            consulta só o que cada um abre. */}
+        {(podeArea(acessoArkefit, "operacao") || podeArea(acessoArkefit, "financeiro")) && <AvisoRotinas />}
         <main className={cn("mx-auto w-full flex-1 min-w-0 p-3 sm:p-4 md:p-6", TELAS_LARGAS.includes(location.pathname) ? "max-w-none" : "max-w-6xl")}>
           <Suspense fallback={<CarregandoPagina />}>
             <PortaoDaRotaVisaoMaster>

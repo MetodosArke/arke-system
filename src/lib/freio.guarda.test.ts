@@ -74,10 +74,11 @@ describe("quem matricula e quem mexe na conta de outra pessoa", () => {
     }
   });
 
-  it("só a ArkeFit simula perfil, e recusa antes de olhar o perfil de destino", () => {
+  it("só o Sócio simula perfil (o admin_arke sozinho, não), e recusa antes de olhar o perfil de destino", () => {
     const codigo = ler("impersonar-perfil");
     expect(codigo).not.toMatch(/role === "gestor"/);
-    const recusa = codigo.indexOf("if (!callerIsAdminArke && !callerIsSuperadmin)");
+    expect(codigo).not.toMatch(/role === "admin_arke"/);
+    const recusa = codigo.indexOf("if (!callerIsSuperadmin)");
     expect(recusa).toBeGreaterThan(0);
     expect(recusa).toBeLessThan(codigo.indexOf(".eq(\"user_id\", targetUserId)"));
   });

@@ -4,10 +4,23 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import SuperAdminWebhooks from "./SuperAdminWebhooks";
 
 const rpc = vi.fn();
+const tabelas = vi.fn();
+
+// A última reconciliação (do financeiro) é lida direto da tabela.
+const consulta = () => {
+  const q: Record<string, unknown> = {};
+  for (const m of ["select", "eq", "order", "limit"]) q[m] = () => q;
+  q.maybeSingle = () => Promise.resolve({ data: null, error: null });
+  return q;
+};
 
 vi.mock("@/integrations/supabase/client", () => ({
   supabase: {
     rpc: (...args: unknown[]) => rpc(...args),
+    from: (tabela: string) => {
+      tabelas(tabela);
+      return consulta();
+    },
   },
 }));
 
@@ -65,7 +78,31 @@ const renderizar = () => {
 describe("SuperAdminWebhooks", () => {
   beforeEach(() => {
     rpc.mockReset();
+    tabelas.mockReset();
     acesso.atual = { socio: true, niveis: [] };
+  });
+
+  it("o Financeiro vê os avisos do Asaas e a reconciliação, sem as rotinas (da operação)", async () => {
+    acesso.atual = { socio: false, niveis: ["financeiro"] };
+    mockarRpc([EVENTO_BASE], RESUMO_BASE);
+    renderizar();
+    expect(await screen.findByText("Webhooks do Asaas")).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByText("Aplicado")).toBeInTheDocument());
+    await waitFor(() => expect(tabelas).toHaveBeenCalledWith("reconciliacoes_asaas"));
+    expect(screen.queryByText("Rotinas agendadas")).not.toBeInTheDocument();
+    expect(rpc.mock.calls.map((c) => c[0])).not.toContain("get_superadmin_rotinas");
+  });
+
+  it("o Comercial e o Mentor não abrem nada desta tela (nem vão ao banco)", async () => {
+    for (const niveis of [["comercial"], ["mentor"]]) {
+      acesso.atual = { socio: false, niveis };
+      const { unmount } = renderizar();
+      expect(await screen.findByRole("heading", { name: "Rotinas" })).toBeInTheDocument();
+      expect(screen.queryByText("Rotinas agendadas")).not.toBeInTheDocument();
+      unmount();
+    }
+    expect(rpc).not.toHaveBeenCalled();
+    expect(tabelas).not.toHaveBeenCalled();
   });
 
   it("o Suporte vê só as rotinas: os avisos do Asaas não aparecem nem vão ao banco", async () => {

@@ -354,6 +354,21 @@ describe("as funções publicadas do mapa perguntam a área ao banco, com a sess
     expect(c).toMatch(/verificada\(claimsData\?\.claims\) \? await acessoArkefit\(asUser, claimsData\?\.claims, area\) : false/);
   });
 
+  it("criar a academia: o cadastro cria só ativa; o trial pede o Sócio", () => {
+    const c = codigo("criar-organizacao-superadmin");
+    expect(c).toMatch(/if \(status === "trial"\) \{\s*const socio = await acessoArkefit\(asUser, claimsData\?\.claims, "socio"\);/);
+    expect(c.indexOf('acessoArkefit(asUser, claimsData?.claims, "socio")')).toBeLessThan(c.indexOf('.from("organizations")'));
+  });
+
+  it("a conta das cobranças e a mensalidade B2B: o ramo da ArkeFit é o financeiro; o do gestor não muda", () => {
+    for (const nome of ["asaas-conta-academia", "asaas-assinatura-b2b"]) {
+      const c = codigo(nome);
+      expect(c, nome).toMatch(/acessoArkefit\(asUser, claims\?\.claims, "financeiro"\)/);
+      expect(c, nome).toMatch(/if \(!arkefit && vinculo\?\.role !== "gestor"\)/);
+      expect(c, nome).not.toMatch(/role === "admin_arke"/);
+    }
+  });
+
   it("a conversa e o Sentinela conferem o aluno do Método", () => {
     expect(codigo("mentor-sugerir-resposta")).toMatch(/if \(aluno\.metodo_arke_status !== "ativo"\) return jsonResponse\(/);
     expect(codigo("sentinela-anamnese")).toMatch(/if \(noMetodo \? !arkefit : !equipe\)/);
