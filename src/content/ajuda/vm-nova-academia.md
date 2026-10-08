@@ -21,7 +21,9 @@ O limite de alunos acompanha o plano: trocar de Growth para Enterprise tira o te
 
 **Rede com até 3 unidades:** cada unidade é uma organização. A principal fica no Redes e paga a mensalidade da rede. As outras também ficam no Redes, com o valor negociado **R$ 0,00** na Mensalidade B2B (passo 3): assim não nasce cobrança nelas, e a ficha mostra "Unidade de rede".
 
-A organização nasce **ativa**. **Trial** é só para homologação: organização em trial não é cobrada, fala com o sandbox do Asaas e não pode ser usada por cliente.
+A organização nasce **ativa**. **Trial** é só para homologação: organização em trial não é cobrada, fala com o sandbox do Asaas e não pode ser usada por cliente. Só um sócio cria organização em trial; o nível **Comercial** cria a academia já ativa.
+
+Quem cuida de cada passo: o **Comercial** (ou um sócio) cria a organização; o **Financeiro** (ou um sócio) define o repasse, a mensalidade e a taxa (os passos 2 e 3). Veja [Equipe ArkeFit](ajuda:vm-equipe-arkefit).
 
 ## 2. Repasse do Método
 

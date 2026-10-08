@@ -8,7 +8,6 @@ import {
   ACESSOS_ARKEFIT,
   EXPLICACAO_ESTADO,
   NIVEIS,
-  OUTROS_ACESSOS,
   ROTULO_ESTADO,
   acessoDosPapeis,
   estadoDaConta,
@@ -477,7 +476,6 @@ export default function SuperAdminEquipe() {
                       </Label>
                     </div>
                   ))}
-                  <p className="text-xs text-muted-foreground">{OUTROS_ACESSOS}</p>
                 </fieldset>
               )}
               {convite.tipo === "equipe" && convite.niveis.includes("mentor") && (

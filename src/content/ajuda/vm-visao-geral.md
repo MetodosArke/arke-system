@@ -16,7 +16,7 @@ A lista de academias, com busca e filtros por tipo e situação, separada em **A
 
 O menu de cada academia tem:
 
-- **Editar Informações**: nome, tipo, plano, CNPJ, contato, prazo do trial.
+- **Editar Informações**: nome, tipo, CNPJ e telefone (o cadastro); o plano; a situação e o prazo do trial.
 - **Faturamento / Cobranças B2B**: as cobranças da ArkeFit à academia.
 - **Invalidar token do Gateway Local**: o token de todas as catracas da academia para de valer na hora. As catracas param até a gestão gerar um token novo em Catracas e atualizar o `config.json` no computador da academia: use só em vazamento.
 - **Suspender / Ativar acesso do tenant**.
@@ -24,11 +24,19 @@ O menu de cada academia tem:
 
 ### O que cada acesso vê aqui
 
-O **Suporte** abre a Visão Geral para atender: a lista das academias (sem o MRR e sem as atrasadas), a fila de pendências de cada uma e a ficha com o contato e os dados fiscais. No menu de cada academia, ele tem **Ver a ficha** e **Invalidar token do Gateway Local**. Os indicadores, a receita, o funil, a adoção, a simulação, a mensalidade, o repasse, o trial, o encerramento, a atividade recente, suspender e excluir ficam com o **sócio**. Veja [Equipe ArkeFit](ajuda:vm-equipe-arkefit).
+Cada nível da equipe da ArkeFit vê a lista das academias, a fila de pendências de cada uma e a ficha com o contato e os dados fiscais. O resto depende do nível:
+
+- **Suporte**: no menu de cada academia, **Ver a ficha** e **Invalidar token do Gateway Local**. Não vê o MRR nem as atrasadas.
+- **Comercial**: o **funil de conversão**, a **Nova Organização** (sempre ativa: o trial é só do sócio) e, em **Editar Informações**, o nome, o tipo, o CNPJ e o telefone. Não vê o MRR nem as atrasadas.
+- **Financeiro**: os **indicadores**, a **receita**, o **MRR** e as **atrasadas** na lista, o **plano** de cada academia e o **Faturamento / Cobranças B2B**. Na ficha, a **Mensalidade B2B**, a **Taxa de implantação**, o **Repasse do Método** e a **Conta das cobranças**.
+
+A adoção, a simulação, o trial, a situação (suspender e ativar), o encerramento, a atividade recente, converter em profissional autônomo e excluir ficam com o **sócio**. Veja [Equipe ArkeFit](ajuda:vm-equipe-arkefit).
 
 ## A ficha da organização
 
 Clique no nome da academia para abrir a ficha: métricas, contato, dados fiscais, **Mensalidade B2B**, **Taxa de implantação**, **Repasse do Método**, **Trial do Método ARKE**, **Encerramento** e a atividade recente. Veja [Implantar uma academia nova](ajuda:vm-nova-academia).
+
+A mudança da mensalidade e do repasse vai para a [Auditoria](/superadmin/auditoria) com o antes e o depois (**Mensalidade B2B alterada**, **Repasse do Método alterado**, **Exceção de repasse por nível alterada**), e a troca do plano, como **Organização alterada**.
 
 ## Simulação de Visão de Perfil
 

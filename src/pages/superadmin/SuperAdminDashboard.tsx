@@ -246,29 +246,94 @@ export default function SuperAdminDashboard() {
     },
   });
 
+  // O status e o trial da academia são do Sócio, pela regra de alteração de
+  // `organizations` (só dele). O cadastro (nome, tipo, CNPJ e telefone) e o
+  // plano vão pelas funções do banco, que conferem a área de quem chama:
+  // `atualizar_cadastro_organizacao` (cadastro) e `definir_mensalidade_b2b`
+  // (financeiro).
   const atualizarOrganizacao = useMutation({
     mutationFn: async (payload: {
       organizationId: string;
       status?: Enums<"org_status">;
-      plano_b2b?: Enums<"plano_b2b">;
-      nome?: string;
-      tipo?: Enums<"organization_tipo">;
-      cnpj_cpf?: string | null;
-      telefone?: string | null;
       trial_vencimento?: string | null;
     }) => {
       const update: Partial<Tables<"organizations">> = {};
       if (payload.status) update.status = payload.status;
-      if (payload.plano_b2b) update.plano_b2b = payload.plano_b2b;
-      if (payload.nome) update.nome = payload.nome;
-      if (payload.tipo) update.tipo = payload.tipo;
-      if (payload.cnpj_cpf !== undefined) update.cnpj_cpf = payload.cnpj_cpf;
-      if (payload.telefone !== undefined) update.telefone = payload.telefone;
       if (payload.trial_vencimento !== undefined) update.trial_vencimento = payload.trial_vencimento;
       await exigirGravacao(supabase
         .from("organizations")
         .update(update)
         .eq("id", payload.organizationId).select("id"));
+    },
+    onSuccess: () => {
+      toast({ title: "Academia atualizada." });
+      void queryClient.invalidateQueries({ queryKey: ["superadmin-tenants"] });
+    },
+    onError: (error: Error) =>
+      toast({ title: "Erro ao atualizar", description: error.message, variant: "destructive" }),
+  });
+
+  const definirPlano = useMutation({
+    mutationFn: async (payload: { organizationId: string; plano: Enums<"plano_b2b"> }) => {
+      const { error } = await supabase.rpc("definir_mensalidade_b2b", {
+        _organization_id: payload.organizationId,
+        _plano: payload.plano,
+      });
+      if (error) throw new Error(error.message);
+    },
+    onSuccess: () => {
+      toast({ title: "Plano atualizado.", description: "O limite de alunos acompanha o plano." });
+      void queryClient.invalidateQueries({ queryKey: ["superadmin-tenants"] });
+    },
+    onError: (error: Error) =>
+      toast({ title: "Erro ao trocar o plano", description: error.message, variant: "destructive" }),
+  });
+
+  // "Salvar Informações": cada parte vai a quem é dona dela, e só o que mudou.
+  const salvarInformacoes = useMutation({
+    mutationFn: async (payload: {
+      tenant: Tenant;
+      nome: string;
+      tipo: Enums<"organization_tipo">;
+      cnpjCpf: string;
+      telefone: string;
+      plano: Enums<"plano_b2b">;
+      status: Enums<"org_status">;
+      trialVencimento: string;
+    }) => {
+      const { tenant } = payload;
+      const cadastroMudou =
+        payload.nome.trim() !== tenant.nome ||
+        payload.tipo !== tenant.tipo ||
+        payload.cnpjCpf.trim() !== (tenant.cnpj_cpf ?? "") ||
+        payload.telefone.trim() !== (tenant.telefone ?? "");
+      if (cadastro && cadastroMudou) {
+        const { error } = await supabase.rpc("atualizar_cadastro_organizacao", {
+          _organization_id: tenant.organization_id,
+          _nome: payload.nome,
+          _tipo: payload.tipo,
+          _cnpj_cpf: payload.cnpjCpf,
+          _telefone: payload.telefone,
+        });
+        if (error) throw new Error(error.message);
+      }
+      if (financeiro && payload.plano !== tenant.plano_b2b) {
+        const { error } = await supabase.rpc("definir_mensalidade_b2b", {
+          _organization_id: tenant.organization_id,
+          _plano: payload.plano,
+        });
+        if (error) throw new Error(error.message);
+      }
+      const trial = payload.trialVencimento || null;
+      if (socio && (payload.status !== tenant.status || trial !== (tenant.trial_vencimento ?? null))) {
+        await exigirGravacao(
+          supabase
+            .from("organizations")
+            .update({ status: payload.status, trial_vencimento: trial })
+            .eq("id", tenant.organization_id)
+            .select("id"),
+        );
+      }
     },
     onSuccess: () => {
       toast({ title: "Academia atualizada." });
@@ -315,7 +380,7 @@ export default function SuperAdminDashboard() {
 
   // ---- Onboarding Assistido: "+ Nova Organização" ----
   const [modalNovaOrgAberto, setModalNovaOrgAberto] = useState(false);
-  const trialDias = useTrialDias();
+  const trialDias = useTrialDias(socio);
   const [novaOrg, setNovaOrg] = useState({
     tipo: "academia" as TipoOnboarding,
     nome: "",
@@ -407,15 +472,15 @@ export default function SuperAdminDashboard() {
 
   const salvarEdicao = () => {
     if (!tenantEditando) return;
-    atualizarOrganizacao.mutate({
-      organizationId: tenantEditando.organization_id,
+    salvarInformacoes.mutate({
+      tenant: tenantEditando,
       nome: edicao.nome,
       tipo: edicao.tipo,
-      plano_b2b: edicao.plano_b2b,
+      cnpjCpf: edicao.cnpjCpf,
+      telefone: edicao.telefone,
+      plano: edicao.plano_b2b,
       status: edicao.status,
-      cnpj_cpf: edicao.cnpjCpf.trim() || null,
-      telefone: edicao.telefone.trim() || null,
-      trial_vencimento: edicao.trialVencimento || null,
+      trialVencimento: edicao.trialVencimento,
     });
   };
 
@@ -849,14 +914,11 @@ export default function SuperAdminDashboard() {
                       ) : (
                       <Select
                         value={tenant.plano_b2b}
-                        disabled={
-                          atualizarOrganizacao.isPending &&
-                          atualizarOrganizacao.variables?.organizationId === tenant.organization_id
-                        }
+                        disabled={definirPlano.isPending && definirPlano.variables?.organizationId === tenant.organization_id}
                         onValueChange={(value) =>
-                          atualizarOrganizacao.mutate({
+                          definirPlano.mutate({
                             organizationId: tenant.organization_id,
-                            plano_b2b: value as Enums<"plano_b2b">,
+                            plano: value as Enums<"plano_b2b">,
                           })
                         }
                       >
@@ -1066,23 +1128,30 @@ export default function SuperAdminDashboard() {
               </div>
               <div className="space-y-1">
                 <Label>Status</Label>
-                <Select
-                  value={novaOrg.status}
-                  onValueChange={(value) => setNovaOrg((s) => ({ ...s, status: value as "trial" | "ativo" }))}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="ativo">Ativo</SelectItem>
-                    <SelectItem value="trial">Trial (só para testes)</SelectItem>
-                  </SelectContent>
-                </Select>
-                {novaOrg.status === "trial" && (
-                  <p className="text-[11px] text-muted-foreground">
-                    O prazo é preenchido automaticamente com {trialDias} dias a partir de hoje; dá para alterar
-                    depois no perfil da organização.
-                  </p>
+                {/* O trial é homologação: só o Sócio o dá. A função recusa trial de quem não é. */}
+                {socio ? (
+                  <>
+                    <Select
+                      value={novaOrg.status}
+                      onValueChange={(value) => setNovaOrg((s) => ({ ...s, status: value as "trial" | "ativo" }))}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="ativo">Ativo</SelectItem>
+                        <SelectItem value="trial">Trial (só para testes)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    {novaOrg.status === "trial" && (
+                      <p className="text-[11px] text-muted-foreground">
+                        O prazo é preenchido automaticamente com {trialDias} dias a partir de hoje; dá para alterar
+                        depois no perfil da organização.
+                      </p>
+                    )}
+                  </>
+                ) : (
+                  <p className="text-sm text-muted-foreground">Ativa: o plano vale desde o primeiro dia.</p>
                 )}
               </div>
             </div>
@@ -1115,9 +1184,12 @@ export default function SuperAdminDashboard() {
           </DialogHeader>
 
           <Tabs value={abaEdicaoAtiva} onValueChange={(v) => setAbaEdicaoAtiva(v as typeof abaEdicaoAtiva)}>
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="informacoes">Informações</TabsTrigger>
-              <TabsTrigger value="faturamento">Faturamento / Cobranças</TabsTrigger>
+            {/* Os níveis da equipe ArkeFit: o cadastro é da área cadastro; o plano e
+                o faturamento, do financeiro; o status, o trial e o e-mail do gestor,
+                do Sócio. Cada parte aparece só para quem a abre. */}
+            <TabsList className={cn("grid w-full", cadastro && financeiro ? "grid-cols-2" : "grid-cols-1")}>
+              {cadastro && <TabsTrigger value="informacoes">Informações</TabsTrigger>}
+              {financeiro && <TabsTrigger value="faturamento">Faturamento / Cobranças</TabsTrigger>}
             </TabsList>
 
             <TabsContent value="informacoes" className="space-y-3 mt-3">
@@ -1148,6 +1220,7 @@ export default function SuperAdminDashboard() {
                     </SelectContent>
                   </Select>
                 </div>
+                {financeiro && (
                 <div className="space-y-1">
                   <Label>Plano master</Label>
                   <Select
@@ -1166,8 +1239,10 @@ export default function SuperAdminDashboard() {
                     </SelectContent>
                   </Select>
                 </div>
+                )}
               </div>
 
+              {socio && (
               <div className="space-y-1">
                 <Label>Status do Tenant</Label>
                 <Select
@@ -1186,6 +1261,7 @@ export default function SuperAdminDashboard() {
                   </SelectContent>
                 </Select>
               </div>
+              )}
 
               <div className="grid grid-cols-2 gap-2">
                 <div className="space-y-1">
@@ -1208,6 +1284,7 @@ export default function SuperAdminDashboard() {
                 </div>
               </div>
 
+              {socio && (
               <div className="grid grid-cols-2 gap-2">
                 <div className="space-y-1">
                   <Label htmlFor="edicao-trial">Data Limite do Trial / Vencimento</Label>
@@ -1221,6 +1298,7 @@ export default function SuperAdminDashboard() {
                   />
                 </div>
               </div>
+              )}
 
               {/* Trocar o e-mail de login do gestor é do Sócio (superadmin-suporte-tenant). */}
               {socio && (
@@ -1266,8 +1344,8 @@ export default function SuperAdminDashboard() {
                 <Button variant="outline" onClick={() => fecharEdicao(false)}>
                   Fechar
                 </Button>
-                <Button disabled={atualizarOrganizacao.isPending || !edicao.nome.trim()} onClick={salvarEdicao}>
-                  {atualizarOrganizacao.isPending ? "Salvando..." : "Salvar Informações"}
+                <Button disabled={salvarInformacoes.isPending || !edicao.nome.trim()} onClick={salvarEdicao}>
+                  {salvarInformacoes.isPending ? "Salvando..." : "Salvar Informações"}
                 </Button>
               </DialogFooter>
             </TabsContent>
@@ -1275,8 +1353,9 @@ export default function SuperAdminDashboard() {
             <TabsContent value="faturamento" className="space-y-3 mt-3">
               {(!edicao.cnpjCpf.trim() || !edicao.telefone.trim()) && (
                 <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-warning">
-                  Cadastre o CNPJ/CPF e o telefone na aba "Informações" e salve antes de emitir uma cobrança — o
-                  Asaas exige o documento fiscal e um telefone de contato do cliente.
+                  {cadastro
+                    ? 'Cadastre o CNPJ/CPF e o telefone na aba "Informações" e salve antes de emitir uma cobrança — o Asaas exige o documento fiscal e um telefone de contato do cliente.'
+                    : "Falta o CNPJ/CPF ou o telefone da academia, que o Asaas exige para cobrar. Peça a quem cuida do cadastro (o Comercial ou um sócio)."}
                 </div>
               )}
 

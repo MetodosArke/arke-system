@@ -638,14 +638,15 @@ revoke execute on function public.definir_repasse_organizacao(uuid, text, numeri
 grant execute on function public.definir_repasse_organizacao(uuid, text, numeric) to authenticated;
 
 -- A exceção de repasse por nível do Método, dentro da academia. Tipo e valor
--- nulos tiram a exceção (vale o repasse da academia). A linha do nível é a do
--- preço de varejo da academia: se ainda não existe, nasce com o varejo
--- sugerido da tabela de referência, como em `aplicar_repasse_referencia`.
+-- nulos (ou omitidos) tiram a exceção (vale o repasse da academia). A linha
+-- do nível é a do preço de varejo da academia: se ainda não existe, nasce com
+-- o varejo sugerido da tabela de referência, como em
+-- `aplicar_repasse_referencia`.
 create or replace function public.definir_repasse_por_nivel(
   _organization_id uuid,
   _nivel public.nivel_atacado,
-  _tipo text,
-  _valor numeric
+  _tipo text default null,
+  _valor numeric default null
 )
 returns void
 language plpgsql

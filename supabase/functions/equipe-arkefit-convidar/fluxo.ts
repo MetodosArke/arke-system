@@ -41,8 +41,8 @@ export type NivelArkefit = "suporte" | "mentor" | "comercial" | "financeiro";
 export const NIVEIS: readonly { id: NivelArkefit; nome: string; aberto: boolean }[] = [
   { id: "suporte", nome: "Suporte", aberto: true },
   { id: "mentor", nome: "Mentor", aberto: true },
-  { id: "comercial", nome: "Comercial", aberto: false },
-  { id: "financeiro", nome: "Financeiro", aberto: false },
+  { id: "comercial", nome: "Comercial", aberto: true },
+  { id: "financeiro", nome: "Financeiro", aberto: true },
 ];
 
 /** "Mentor e Suporte". */
@@ -77,7 +77,7 @@ export type Pedido =
 
 export type Leitura = { ok: true; pedido: Pedido } | { ok: false; erro: string };
 
-export const NIVEL_EM_BREVE = (nome: string) => `O nível ${nome} chega na próxima entrega. Por enquanto, convide com Mentor ou Suporte.`;
+export const NIVEL_EM_BREVE = (nome: string) => `O nível ${nome} ainda não está no ar. Convide com outro nível.`;
 
 /** Os níveis do pedido: os da lista, sem repetir, abertos; ou o erro, em texto. */
 function lerNiveisDoPedido(valor: unknown): NivelArkefit[] | string {

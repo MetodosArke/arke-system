@@ -34,4 +34,4 @@ Painel com contrato aceito sai pelo **encerramento**, também na ficha: aviso de
 
 ## Quem vê o quê
 
-O nível **Suporte** da equipe da ArkeFit vê a lista e a ficha de cada profissional, para atender. Cadastrar um profissional novo, editar o painel e trocar o responsável chegam com o nível Comercial, na próxima entrega; o link de ativação, o e-mail de login, a mensalidade, excluir e encerrar ficam com o sócio.
+Os níveis **Suporte**, **Comercial** e **Financeiro** da equipe da ArkeFit veem a lista e a ficha de cada profissional. Cadastrar um profissional novo, editar o painel, trocar o responsável e reenviar o convite são do **Comercial**; o link de ativação, o e-mail de login, excluir e encerrar ficam com o sócio.

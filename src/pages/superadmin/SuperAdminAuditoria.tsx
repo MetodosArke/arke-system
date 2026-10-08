@@ -41,6 +41,12 @@ const ACOES: Record<string, { label: string; icon: typeof Pencil; destrutiva?: b
   "organizacao.reativada": { label: "Organização reativada", icon: ShieldAlert },
   "organizacao.status_alterado": { label: "Status alterado", icon: Pencil },
   "organizacao.alterada": { label: "Organização alterada", icon: Pencil },
+  // O dinheiro da academia pelas funções do Financeiro (20261433010000): o
+  // valor da mensalidade B2B e o repasse do Método, com o antes e o depois.
+  "organizacao.mensalidade_b2b_definida": { label: "Mensalidade B2B alterada", icon: Pencil },
+  "repasse_metodo.definido": { label: "Repasse do Método alterado", icon: Pencil },
+  "repasse_metodo.excecao_definida": { label: "Exceção de repasse por nível alterada", icon: Pencil },
+  "repasse_metodo.referencia_aplicada": { label: "Tabela de referência do repasse aplicada", icon: Pencil },
 };
 
 const descreverAcao = (acao: string) => ACOES[acao] ?? { label: acao, icon: Pencil };

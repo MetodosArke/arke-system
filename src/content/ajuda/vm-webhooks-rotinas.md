@@ -27,4 +27,4 @@ Cada rotina (ativação, escalonamento de prazos, avanço de fases, lembretes, c
 
 ## Quem vê o quê
 
-O nível **Suporte** da equipe da ArkeFit abre esta tela pelas **rotinas**: ele vê a saúde de cada uma e recebe a faixa de aviso no alto da Visão Master. Os eventos e a conferência com o Asaas são do dinheiro, e ficam com o sócio.
+O nível **Suporte** da equipe da ArkeFit abre esta tela pelas **rotinas**: ele vê a saúde de cada uma, recebe a faixa de aviso no alto da Visão Master e o e-mail quando uma rotina falha. Os avisos do Asaas e a conferência com o Asaas (a reconciliação) são do dinheiro: o nível **Financeiro** abre esta tela por eles, sem as rotinas. O sócio vê tudo.

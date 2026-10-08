@@ -18,8 +18,10 @@
  * O convite (`equipe-arkefit-convidar`) tem o espelho dos níveis em
  * `supabase/functions/equipe-arkefit-convidar/fluxo.ts`, e o banco a lista dos
  * que já podem ser dados em `niveis_arkefit_abertos()`. Ninguém recebe nível
- * antes de a área dele estar no ar: Comercial e Financeiro chegam na entrega 2.
- * `acessosArkefit.test.ts` e `acessosArkefit.guarda.test.ts` conferem os três.
+ * antes de a área dele estar no ar: o Mentor e o Suporte vieram na entrega 1,
+ * o Comercial e o Financeiro na entrega 2 (migrations 20261432010000 e
+ * 20261433010000). `acessosArkefit.test.ts` e `acessosArkefit.guarda.test.ts`
+ * conferem os três.
  */
 
 export type PapelArkefit = "superadmin" | "admin_arke";
@@ -44,10 +46,6 @@ export const ACESSOS_ARKEFIT: readonly AcessoArkefit[] = [
     papeis: ["superadmin", "admin_arke"],
   },
 ];
-
-/** A frase da tela sobre os níveis que ainda não chegaram. */
-export const OUTROS_ACESSOS =
-  "Comercial e Financeiro chegam na próxima entrega: até lá, o convite não os oferece.";
 
 /** Todos os papéis que algum acesso dá: os que a ArkeFit concede e tira. */
 export const PAPEIS_ARKEFIT: readonly PapelArkefit[] = [...new Set(ACESSOS_ARKEFIT.flatMap((a) => a.papeis))];
@@ -100,17 +98,18 @@ export const NIVEIS: readonly Nivel[] = [
   {
     id: "comercial",
     nome: "Comercial",
-    descricao: "O Pipeline, a Letícia por contato, o funil de conversão e o cadastro de academias novas.",
-    nunca: "Não vê dinheiro de academia nem dado de aluno.",
-    aberto: false,
+    descricao:
+      "O Pipeline (os contatos e a Letícia em cada um), o funil de conversão, a carteira de academias (sem valores), a academia nova e o cadastro dela (nome, tipo, CNPJ e telefone) e o profissional autônomo.",
+    nunca: "Não vê dinheiro nem dado de aluno, não liga nem desliga a Letícia e não dá trial: a academia nova nasce ativa.",
+    aberto: true,
   },
   {
     id: "financeiro",
     nome: "Financeiro",
     descricao:
-      "Os indicadores, a receita, a mensalidade B2B, o repasse, a taxa de implantação, as cobranças e a conta de cada academia.",
-    nunca: "Não vê dado de aluno nem de saúde.",
-    aberto: false,
+      "Os indicadores e a receita, o MRR de cada academia, a mensalidade B2B (plano e valor), o repasse do Método, a taxa de implantação, as cobranças B2B, a conta das cobranças, os avisos do Asaas e a reconciliação.",
+    nunca: "Não vê dado de aluno nem de saúde, e não muda o status da academia, nem a cancela, exclui ou dá trial (é do Sócio).",
+    aberto: true,
   },
 ];
 
@@ -247,8 +246,6 @@ export type Chamada = {
   motivo?: string;
 };
 
-const ENTREGA_2 = "entrega 2: continua do Sócio até a área entrar no ar";
-const SOCIO_OU_ADMIN = "do Sócio (superadmin ou admin_arke): nenhum nível tem admin_arke; o admin_arke sai na limpeza (lote 7)";
 const DA_ACADEMIA = "também é da academia (a equipe dela e o Admin ARKE, gestor de toda academia); o nível entra pela área";
 const TABELA = "leitura ou gravação direta: quem decide é o RLS da tabela";
 const CADASTRO_PROPRIO =
@@ -270,17 +267,23 @@ export const CHAMADAS_DA_VISAO_MASTER: Record<string, Chamada> = {
   // Visão Geral
   "rpc:get_superadmin_tenants": { area: "carteira" },
   "rpc:get_superadmin_fila_global": { area: "carteira" },
-  "rpc:get_superadmin_overview": { area: "financeiro", motivo: ENTREGA_2 },
-  "rpc:get_superadmin_receita_historica": { area: "financeiro", motivo: ENTREGA_2 },
-  "rpc:get_superadmin_funil_conversao": { area: "comercial", motivo: ENTREGA_2 },
-  "rpc:get_superadmin_funil_sinais": { area: "comercial", motivo: ENTREGA_2 },
+  "rpc:get_superadmin_overview": { area: "financeiro" },
+  "rpc:get_superadmin_receita_historica": { area: "financeiro" },
+  "rpc:get_superadmin_funil_conversao": { area: "comercial" },
+  "rpc:get_superadmin_funil_sinais": { area: "comercial" },
   "rpc:get_superadmin_adocao_metodologia": { area: "socio" },
   "rpc:get_superadmin_perfis_simulaveis": { area: "socio" },
-  "fn:impersonar-perfil": { area: "socio", motivo: SOCIO_OU_ADMIN },
-  "fn:criar-organizacao-superadmin": { area: "cadastro", motivo: ENTREGA_2 },
+  "fn:impersonar-perfil": { area: "socio" },
+  "fn:criar-organizacao-superadmin": { area: "cadastro" },
   "fn:superadmin-suporte-tenant": { area: "operacao" },
-  "fn:asaas-emitir-cobranca-b2b": { area: "financeiro", motivo: ENTREGA_2 },
-  "from:organizations": { area: "cadastro", motivo: TABELA },
+  "fn:asaas-emitir-cobranca-b2b": { area: "financeiro" },
+  "rpc:atualizar_cadastro_organizacao": { area: "cadastro" },
+  "rpc:definir_mensalidade_b2b": { area: "financeiro" },
+  "from:organizations": {
+    area: "financeiro",
+    motivo:
+      "leitura direta: o RLS abre a academia ao Financeiro (20261433); a escrita direta que sobrou na tela é o status e o trial, do Sócio",
+  },
   "from:planos_b2b_precos": { area: "cadastro", motivo: TABELA },
   // Ficha da organização
   "rpc:get_superadmin_organizacao_atividade": { area: "socio" },
@@ -288,23 +291,29 @@ export const CHAMADAS_DA_VISAO_MASTER: Record<string, Chamada> = {
   "rpc:iniciar_trial_metodo_arke": { area: "socio" },
   "rpc:encerrar_trial_metodo_arke": { area: "socio" },
   "rpc:arke_trial_dias": { area: "socio", motivo: "a duração do trial, um número da plataforma" },
-  "rpc:valor_mensal_b2b": { area: "financeiro", motivo: ENTREGA_2 },
-  "fn:asaas-assinatura-b2b": { area: "financeiro", motivo: ENTREGA_2 },
+  "rpc:valor_mensal_b2b": { area: "financeiro" },
+  "fn:asaas-assinatura-b2b": { area: "financeiro" },
   "from:taxas_implantacao": { area: "financeiro", motivo: TABELA },
   "from:cobrancas_b2b": { area: "financeiro", motivo: TABELA },
-  "fn:asaas-taxa-implantacao": { area: "financeiro", motivo: ENTREGA_2 },
-  "rpc:aplicar_repasse_referencia": { area: "financeiro", motivo: ENTREGA_2 },
+  "fn:asaas-taxa-implantacao": { area: "financeiro" },
+  "rpc:aplicar_repasse_referencia": { area: "financeiro" },
+  "rpc:definir_repasse_organizacao": { area: "financeiro" },
+  "rpc:definir_repasse_por_nivel": { area: "financeiro" },
   "from:organization_planos_precificacao": { area: "financeiro", motivo: TABELA },
   "rpc:arke_taxa_processamento_config": { area: "financeiro", motivo: "a taxa do gateway, um número da plataforma" },
   "from:planos_atacado": { area: "financeiro", motivo: TABELA },
-  "rpc:situacao_cobranca_conta_academia": { area: "financeiro", motivo: ENTREGA_2 },
-  "fn:asaas-conta-academia": { area: "financeiro", motivo: ENTREGA_2 },
+  "rpc:situacao_cobranca_conta_academia": { area: "financeiro" },
+  "fn:asaas-conta-academia": { area: "financeiro" },
   "from:organizacao_encerramentos": { area: "socio", motivo: TABELA },
   "rpc:get_encerramento_organizacao": { area: "socio", motivo: "também é da gestão da academia, que avisa o próprio encerramento" },
   "rpc:avisar_encerramento_organizacao": { area: "socio", motivo: "também é da gestão da academia, que avisa o próprio encerramento" },
   "rpc:retirar_encerramento_organizacao": { area: "socio", motivo: "também é da gestão da academia, que avisa o próprio encerramento" },
-  "fn:encerramento-organizacao": { area: "socio", motivo: SOCIO_OU_ADMIN },
-  "from:plataforma_config": { area: "socio", motivo: TABELA },
+  "fn:encerramento-organizacao": { area: "socio" },
+  "from:plataforma_config": {
+    area: "socio",
+    motivo:
+      "leitura e gravação direta: o RLS (20261433) é do Sócio, e abre a leitura das chaves de dinheiro ao Financeiro e a dos interruptores da Letícia ao Comercial",
+  },
   "from:plataforma_textos": { area: "socio", motivo: TABELA },
   // Mentoria
   "rpc:get_superadmin_fila_mentor": { area: "mentoria" },
@@ -323,8 +332,8 @@ export const CHAMADAS_DA_VISAO_MASTER: Record<string, Chamada> = {
   "fn:sentinela-anamnese": { area: "mentoria" },
   "rpc:atribuir_mentor_aluno": { area: "socio" },
   "rpc:get_superadmin_equipe_arkefit": { area: "socio" },
-  "rpc:get_operacao_mentor": { area: "socio", motivo: SOCIO_OU_ADMIN },
-  "rpc:get_carga_mentores": { area: "socio", motivo: SOCIO_OU_ADMIN },
+  "rpc:get_operacao_mentor": { area: "socio" },
+  "rpc:get_carga_mentores": { area: "socio" },
   "from:mensagens_mentor": { area: "mentoria", motivo: TABELA },
   "from:sentinela_sugestoes": { area: "mentoria", motivo: TABELA },
   "from:sentinela_anamnese": { area: "mentoria", motivo: TABELA },
@@ -353,8 +362,8 @@ export const CHAMADAS_DA_VISAO_MASTER: Record<string, Chamada> = {
   "fn:equipe-arkefit-convidar": { area: "socio" },
   // Comercial
   "from:leads_comerciais": { area: "comercial", motivo: TABELA },
-  "rpc:acionar_agente_comercial": { area: "comercial", motivo: ENTREGA_2 },
-  "rpc:definir_agente_comercial": { area: "socio", motivo: SOCIO_OU_ADMIN },
+  "rpc:acionar_agente_comercial": { area: "comercial" },
+  "rpc:definir_agente_comercial": { area: "socio" },
   // Suporte e implantação
   "rpc:get_superadmin_assistente_numeros": { area: "suporte" },
   "rpc:get_superadmin_chamados_suporte": { area: "suporte" },
@@ -363,11 +372,11 @@ export const CHAMADAS_DA_VISAO_MASTER: Record<string, Chamada> = {
   "rpc:get_superadmin_implantacoes": { area: "suporte" },
   "rpc:get_implantacao_organizacao": { area: "suporte", motivo: DA_ACADEMIA },
   "rpc:concluir_chamado_implantacao": { area: "suporte" },
-  "rpc:definir_agente_implantacao": { area: "socio", motivo: SOCIO_OU_ADMIN },
+  "rpc:definir_agente_implantacao": { area: "socio" },
   // Profissionais
   "rpc:get_superadmin_profissionais_autonomos": { area: "carteira" },
-  "rpc:atualizar_profissional_autonomo": { area: "cadastro", motivo: ENTREGA_2 },
-  "fn:convidar-profissional-autonomo": { area: "cadastro", motivo: ENTREGA_2 },
+  "rpc:atualizar_profissional_autonomo": { area: "cadastro" },
+  "fn:convidar-profissional-autonomo": { area: "cadastro" },
   "fn:gerar-link-ativacao": { area: "socio", motivo: "do Sócio: confere o papel superadmin, com as duas etapas" },
   // Operação
   "rpc:get_superadmin_equipamentos": { area: "operacao" },
@@ -376,19 +385,19 @@ export const CHAMADAS_DA_VISAO_MASTER: Record<string, Chamada> = {
   "rpc:get_superadmin_vigia": { area: "operacao" },
   "rpc:get_superadmin_rotinas": { area: "operacao" },
   "rpc:get_superadmin_capacidade": { area: "operacao" },
-  "rpc:vigia_dispensar": { area: "socio", motivo: SOCIO_OU_ADMIN },
-  "rpc:definir_modo_regra_vigia": { area: "socio", motivo: SOCIO_OU_ADMIN },
-  "rpc:definir_vigia_ativo": { area: "socio", motivo: SOCIO_OU_ADMIN },
-  "fn:vigia-aprovar": { area: "socio", motivo: SOCIO_OU_ADMIN },
+  "rpc:vigia_dispensar": { area: "socio" },
+  "rpc:definir_modo_regra_vigia": { area: "socio" },
+  "rpc:definir_vigia_ativo": { area: "socio" },
+  "fn:vigia-aprovar": { area: "socio" },
   "rpc:solicitar_comando_gateway": { area: "socio", motivo: "também é da academia (a gestão e a recepção comandam a própria catraca)" },
   "from:gateway_telemetria": { area: "socio", motivo: TABELA },
   "from:gateway_eventos": { area: "socio", motivo: TABELA },
   "from:gateway_comandos": { area: "socio", motivo: TABELA },
   "from:reconciliacoes_asaas": { area: "financeiro", motivo: TABELA },
-  "rpc:get_superadmin_webhooks_asaas": { area: "financeiro", motivo: ENTREGA_2 },
-  "rpc:get_superadmin_webhooks_asaas_resumo": { area: "financeiro", motivo: ENTREGA_2 },
+  "rpc:get_superadmin_webhooks_asaas": { area: "financeiro" },
+  "rpc:get_superadmin_webhooks_asaas_resumo": { area: "financeiro" },
   // Sócio
-  "rpc:get_superadmin_uso_ia": { area: "socio", motivo: SOCIO_OU_ADMIN },
+  "rpc:get_superadmin_uso_ia": { area: "socio" },
   "from:auditoria_acoes_sensiveis": { area: "socio", motivo: TABELA },
   // A sessão de qualquer um
   "from:push_subscriptions": { area: "todos", motivo: "sair: esquece os avisos deste aparelho" },
