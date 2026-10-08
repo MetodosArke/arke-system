@@ -83,9 +83,17 @@ function usePermissoes(userId: string) {
   return { socio, propria, editaPessoais: socio || propria, editaVinculo: socio, apagaDocumentos: socio };
 }
 
-/** A mensagem do banco, com o caso "ainda não há cadastro" dito em português. */
-const mensagemDoBanco = (e: { message?: string; code?: string }, padrao: string) =>
-  e.code === "P0002" ? "Salve o cadastro antes de baixar a ficha." : e.message || padrao;
+/**
+ * A mensagem para a tela. As recusas da função já vêm em português; a da
+ * conferência do banco (`check`) e a da data mal escrita vêm em inglês, com o
+ * nome da regra, e viram uma frase nossa.
+ */
+function mensagemDoBanco(e: { message?: string; code?: string }, padrao: string): string {
+  if (e.code === "P0002") return "Salve o cadastro antes de baixar a ficha.";
+  if (e.code === "23514") return "Algum campo não passou na conferência do banco. Confira o CPF, as datas, as UFs e os dados do vínculo.";
+  if (e.code === "22007" || e.code === "22008") return "Alguma data está mal escrita. Confira as datas.";
+  return e.message || padrao;
+}
 
 // ── Peças do formulário ──────────────────────────────────────────────────────
 
@@ -189,6 +197,12 @@ export function FichaCadastroEquipe({ userId, nomeDaConta = "" }: { userId: stri
       if (error) throw error;
       return (data ?? null) as CadastroEquipe | null;
     },
+    // Lido ao abrir e de novo depois de salvar, e só: a releitura ao voltar
+    // para a aba reiniciaria o formulário no meio da digitação.
+    staleTime: Infinity,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
   });
 
   // O formulário nasce do que está gravado, e renasce depois de salvar.
@@ -497,6 +511,11 @@ export function FichaCadastroEquipe({ userId, nomeDaConta = "" }: { userId: stri
       <AnexosDoCadastro userId={userId} podeEnviar={permissoes.editaPessoais} podeApagar={permissoes.apagaDocumentos} />
 
       <div className="sticky bottom-0 -mx-6 flex flex-wrap items-center justify-end gap-2 border-t bg-background px-6 py-3">
+        {temErro && alterado && (
+          <p role="alert" className="mr-auto text-xs text-destructive">
+            Corrija os campos marcados para salvar.
+          </p>
+        )}
         <Button type="button" variant="outline" size="sm" disabled={!salvo || baixar.isPending} onClick={() => baixar.mutate()}>
           <Download className="mr-1.5 h-4 w-4" aria-hidden="true" />
           {baixar.isPending ? "Gerando..." : "Baixar ficha"}
@@ -507,11 +526,6 @@ export function FichaCadastroEquipe({ userId, nomeDaConta = "" }: { userId: stri
           </Button>
         )}
       </div>
-      {temErro && alterado && (
-        <p role="alert" className="text-xs text-destructive">
-          Corrija os campos marcados para salvar.
-        </p>
-      )}
     </div>
   );
 }
