@@ -3028,6 +3028,162 @@ export type Database = {
         }
         Relationships: []
       }
+      equipe_arkefit_cadastro: {
+        Row: {
+          agencia: string | null
+          atualizado_por: string | null
+          banco: string | null
+          cargo: string | null
+          conta: string | null
+          conta_tipo: string | null
+          cpf: string | null
+          created_at: string
+          ctps_numero: string | null
+          ctps_serie: string | null
+          data_entrada: string | null
+          data_nascimento: string | null
+          data_saida: string | null
+          email_contato: string | null
+          endereco_bairro: string | null
+          endereco_cep: string | null
+          endereco_cidade: string | null
+          endereco_complemento: string | null
+          endereco_logradouro: string | null
+          endereco_numero: string | null
+          endereco_uf: string | null
+          estado_civil: string | null
+          nacionalidade: string | null
+          naturalidade_cidade: string | null
+          naturalidade_uf: string | null
+          nome_completo: string
+          nome_mae: string | null
+          nome_pai: string | null
+          nome_social: string | null
+          observacoes: string | null
+          participacao_capital: number | null
+          pis_pasep_nit: string | null
+          pix_chave: string | null
+          pix_tipo: string | null
+          pj_cnpj: string | null
+          pj_razao_social: string | null
+          profissao: string | null
+          regime_bens: string | null
+          remuneracao_mensal: number | null
+          rg_data_emissao: string | null
+          rg_numero: string | null
+          rg_orgao_emissor: string | null
+          rg_uf: string | null
+          socio_administrador: boolean | null
+          telefone: string | null
+          titulo_eleitor: string | null
+          updated_at: string
+          user_id: string
+          vinculo_tipo: string | null
+        }
+        Insert: {
+          agencia?: string | null
+          atualizado_por?: string | null
+          banco?: string | null
+          cargo?: string | null
+          conta?: string | null
+          conta_tipo?: string | null
+          cpf?: string | null
+          created_at?: string
+          ctps_numero?: string | null
+          ctps_serie?: string | null
+          data_entrada?: string | null
+          data_nascimento?: string | null
+          data_saida?: string | null
+          email_contato?: string | null
+          endereco_bairro?: string | null
+          endereco_cep?: string | null
+          endereco_cidade?: string | null
+          endereco_complemento?: string | null
+          endereco_logradouro?: string | null
+          endereco_numero?: string | null
+          endereco_uf?: string | null
+          estado_civil?: string | null
+          nacionalidade?: string | null
+          naturalidade_cidade?: string | null
+          naturalidade_uf?: string | null
+          nome_completo: string
+          nome_mae?: string | null
+          nome_pai?: string | null
+          nome_social?: string | null
+          observacoes?: string | null
+          participacao_capital?: number | null
+          pis_pasep_nit?: string | null
+          pix_chave?: string | null
+          pix_tipo?: string | null
+          pj_cnpj?: string | null
+          pj_razao_social?: string | null
+          profissao?: string | null
+          regime_bens?: string | null
+          remuneracao_mensal?: number | null
+          rg_data_emissao?: string | null
+          rg_numero?: string | null
+          rg_orgao_emissor?: string | null
+          rg_uf?: string | null
+          socio_administrador?: boolean | null
+          telefone?: string | null
+          titulo_eleitor?: string | null
+          updated_at?: string
+          user_id: string
+          vinculo_tipo?: string | null
+        }
+        Update: {
+          agencia?: string | null
+          atualizado_por?: string | null
+          banco?: string | null
+          cargo?: string | null
+          conta?: string | null
+          conta_tipo?: string | null
+          cpf?: string | null
+          created_at?: string
+          ctps_numero?: string | null
+          ctps_serie?: string | null
+          data_entrada?: string | null
+          data_nascimento?: string | null
+          data_saida?: string | null
+          email_contato?: string | null
+          endereco_bairro?: string | null
+          endereco_cep?: string | null
+          endereco_cidade?: string | null
+          endereco_complemento?: string | null
+          endereco_logradouro?: string | null
+          endereco_numero?: string | null
+          endereco_uf?: string | null
+          estado_civil?: string | null
+          nacionalidade?: string | null
+          naturalidade_cidade?: string | null
+          naturalidade_uf?: string | null
+          nome_completo?: string
+          nome_mae?: string | null
+          nome_pai?: string | null
+          nome_social?: string | null
+          observacoes?: string | null
+          participacao_capital?: number | null
+          pis_pasep_nit?: string | null
+          pix_chave?: string | null
+          pix_tipo?: string | null
+          pj_cnpj?: string | null
+          pj_razao_social?: string | null
+          profissao?: string | null
+          regime_bens?: string | null
+          remuneracao_mensal?: number | null
+          rg_data_emissao?: string | null
+          rg_numero?: string | null
+          rg_orgao_emissor?: string | null
+          rg_uf?: string | null
+          socio_administrador?: boolean | null
+          telefone?: string | null
+          titulo_eleitor?: string | null
+          updated_at?: string
+          user_id?: string
+          vinculo_tipo?: string | null
+        }
+        Relationships: []
+      }
       execucoes_agendadas: {
         Row: {
           nome: string
@@ -8045,6 +8201,8 @@ export type Database = {
           treinos_concluidos: number
         }[]
       }
+      campos_cadastro_equipe_do_socio: { Args: never; Returns: string[] }
+      campos_cadastro_equipe_pessoais: { Args: never; Returns: string[] }
       capturar_snapshot_mrr: { Args: never; Returns: undefined }
       catracas_a_avisar: {
         Args: never
@@ -8397,6 +8555,11 @@ export type Database = {
         Args: { _bucket: string; _nome: string }
         Returns: boolean
       }
+      equipe_arkefit_alguma_vez: {
+        Args: { _user_id: string }
+        Returns: boolean
+      }
+      equipe_arkefit_atual: { Args: { _user_id: string }; Returns: boolean }
       equipe_metodo: { Args: never; Returns: boolean }
       escalar_tarefas_vencidas: { Args: never; Returns: undefined }
       estado_conta_arkefit: { Args: { _user_id: string }; Returns: string }
@@ -8412,6 +8575,66 @@ export type Database = {
       expirar_comandos_gateway: {
         Args: { _catraca_id?: string }
         Returns: number
+      }
+      exportar_cadastros_equipe_arkefit: {
+        Args: { _user_ids?: string[] }
+        Returns: {
+          agencia: string | null
+          atualizado_por: string | null
+          banco: string | null
+          cargo: string | null
+          conta: string | null
+          conta_tipo: string | null
+          cpf: string | null
+          created_at: string
+          ctps_numero: string | null
+          ctps_serie: string | null
+          data_entrada: string | null
+          data_nascimento: string | null
+          data_saida: string | null
+          email_contato: string | null
+          endereco_bairro: string | null
+          endereco_cep: string | null
+          endereco_cidade: string | null
+          endereco_complemento: string | null
+          endereco_logradouro: string | null
+          endereco_numero: string | null
+          endereco_uf: string | null
+          estado_civil: string | null
+          nacionalidade: string | null
+          naturalidade_cidade: string | null
+          naturalidade_uf: string | null
+          nome_completo: string
+          nome_mae: string | null
+          nome_pai: string | null
+          nome_social: string | null
+          observacoes: string | null
+          participacao_capital: number | null
+          pis_pasep_nit: string | null
+          pix_chave: string | null
+          pix_tipo: string | null
+          pj_cnpj: string | null
+          pj_razao_social: string | null
+          profissao: string | null
+          regime_bens: string | null
+          remuneracao_mensal: number | null
+          rg_data_emissao: string | null
+          rg_numero: string | null
+          rg_orgao_emissor: string | null
+          rg_uf: string | null
+          socio_administrador: boolean | null
+          telefone: string | null
+          titulo_eleitor: string | null
+          updated_at: string
+          user_id: string
+          vinculo_tipo: string | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "equipe_arkefit_cadastro"
+          isOneToOne: false
+          isSetofReturn: true
+        }
       }
       faixa_plataforma_config: {
         Args: { _chave: string }
@@ -9412,6 +9635,10 @@ export type Database = {
       }
       planos_b2b_site: { Args: never; Returns: Json }
       pode_acessar_atestado: { Args: { _caminho: string }; Returns: boolean }
+      pode_apagar_documento_equipe_arkefit: {
+        Args: { _caminho: string }
+        Returns: boolean
+      }
       pode_gravar_midia_exercicio: {
         Args: { _pasta: string }
         Returns: boolean
@@ -9422,6 +9649,14 @@ export type Database = {
       }
       pode_prescrever_dieta_metodo: { Args: never; Returns: boolean }
       pode_prescrever_treino_metodo: { Args: never; Returns: boolean }
+      pode_ver_cadastro_equipe_arkefit: {
+        Args: { _user_id: string }
+        Returns: boolean
+      }
+      pode_ver_documento_equipe_arkefit: {
+        Args: { _caminho: string }
+        Returns: boolean
+      }
       prazo_util: { Args: { _horas: number; _inicio: string }; Returns: string }
       preparar_eliminacao_organizacao: {
         Args: { _encerramento_id: string }
@@ -9542,6 +9777,10 @@ export type Database = {
         Returns: number
       }
       registro_metodo_exigido: { Args: never; Returns: boolean }
+      renomear_equipe_arkefit: {
+        Args: { _nome: string; _user_id: string }
+        Returns: undefined
+      }
       repasse_arke: {
         Args: {
           _nivel_atacado?: string
@@ -9624,6 +9863,10 @@ export type Database = {
           ultima_execucao: string
           ultimo_erro: string
         }[]
+      }
+      salvar_cadastro_equipe_arkefit: {
+        Args: { _dados: Json; _user_id: string }
+        Returns: Json
       }
       salvar_credencial_parceiro: {
         Args: {
@@ -9715,6 +9958,7 @@ export type Database = {
       }
       tarefa_de_saude: { Args: { _tipo: string }; Returns: boolean }
       texto_sem_acento: { Args: { _t: string }; Returns: string }
+      uf_brasileira: { Args: { _uf: string }; Returns: boolean }
       valor_mensal_b2b: { Args: { _organization_id: string }; Returns: number }
       varrer_avanco_fases: {
         Args: never
