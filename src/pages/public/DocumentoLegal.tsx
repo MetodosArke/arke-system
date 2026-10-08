@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { Link } from "react-router-dom";
 import { DOCUMENTOS, type TipoDocumento } from "@/lib/documentosLegais";
+import { TEXTO_DOCUMENTO } from "@/lib/documentosLegaisTexto";
 import { MarkdownSimples } from "@/lib/markdownSimples";
 
 /** Página pública de um documento legal (/termos, /privacidade, /contrato-academia). */
@@ -19,7 +20,7 @@ export default function DocumentoLegal({ tipo }: { tipo: TipoDocumento }) {
             Minuta em revisão jurídica. O texto pode mudar; se mudar, a plataforma pede um novo aceite.
           </p>
         )}
-        <MarkdownSimples texto={doc.texto} />
+        <MarkdownSimples texto={TEXTO_DOCUMENTO[tipo]} />
         <p className="text-xs text-muted-foreground pt-4 border-t">Versão de {new Date(`${doc.versao.slice(0, 10)}T12:00:00`).toLocaleDateString("pt-BR")}.</p>
         <nav className="flex flex-wrap gap-4 text-xs">
           {Object.entries(DOCUMENTOS)

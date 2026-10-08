@@ -23,10 +23,6 @@ import { slugDeEntrada } from "@/lib/marcaAcademia";
 // Auth pages
 import Login from "@/pages/auth/Login";
 
-// Layouts
-import { AppLayout } from "@/components/layout/AppLayout";
-import { AdminLayout } from "@/components/layout/AdminLayout";
-import { SuperAdminLayout } from "@/components/layout/SuperAdminLayout";
 import { AlunoBillingGate } from "@/components/app/AlunoBillingGate";
 import { AlunoSituacaoGate } from "@/components/app/AlunoSituacaoGate";
 import { AlunoVinculoGate } from "@/components/app/AlunoVinculoGate";
@@ -47,6 +43,15 @@ import NotFound from "./pages/NotFound";
 // NotFound ficam no pacote principal: o primeiro é a porta de entrada de
 // quase todo mundo, o segundo é mínimo. Ver src/lib/carregamentoPreguicoso.ts
 // para o que acontece quando um deploy troca os arquivos com a aba aberta.
+//
+// Os três layouts também (07/10/2026, auditoria de prontidão): o pacote
+// principal levava o menu e o cabeçalho do painel e da Visão Master para o
+// aluno, e o do app do aluno para a recepção. Cada um baixa o seu.
+const AppLayout = paginaPreguicosa(() => import("@/components/layout/AppLayout").then((m) => ({ default: m.AppLayout })));
+const AdminLayout = paginaPreguicosa(() => import("@/components/layout/AdminLayout").then((m) => ({ default: m.AdminLayout })));
+const SuperAdminLayout = paginaPreguicosa(() =>
+  import("@/components/layout/SuperAdminLayout").then((m) => ({ default: m.SuperAdminLayout })),
+);
 const ResetPassword = paginaPreguicosa(() => import("@/pages/auth/ResetPassword"));
 const DefinirSenha = paginaPreguicosa(() => import("@/pages/auth/DefinirSenha"));
 const PublicMatricula = paginaPreguicosa(() => import("@/pages/public/PublicMatricula"));

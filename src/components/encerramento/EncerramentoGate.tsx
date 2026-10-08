@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { Suspense, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
@@ -8,9 +8,17 @@ import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { CalendarX, LogOut } from "lucide-react";
-import { ExportarDadosAcademia } from "@/components/admin/ExportarDadosAcademia";
-import { ExportarContador } from "@/components/admin/ExportarContador";
 import { DESFECHO_REMOCAO, dataCurta, encerramentoDaAcademia, remocoesPendentes } from "@/lib/encerramento";
+import { paginaPreguicosa } from "@/lib/carregamentoPreguicoso";
+
+// A exportação só aparece depois do término do contrato: baixada quando
+// aparece, e não no pacote principal de todo mundo (07/10/2026).
+const ExportarDadosAcademia = paginaPreguicosa(() =>
+  import("@/components/admin/ExportarDadosAcademia").then((m) => ({ default: m.ExportarDadosAcademia })),
+);
+const ExportarContador = paginaPreguicosa(() =>
+  import("@/components/admin/ExportarContador").then((m) => ({ default: m.ExportarContador })),
+);
 
 /**
  * Encerramento do contrato da academia, do lado de quem usa o sistema.
@@ -105,8 +113,10 @@ export function EncerramentoGate({ children, publico }: { children: ReactNode; p
                 são eliminados, como prevê o contrato.
               </p>
               <div className="flex flex-wrap gap-2">
-                <ExportarDadosAcademia variante="default" />
-                <ExportarContador />
+                <Suspense fallback={<span role="status" className="text-xs text-muted-foreground">Carregando a exportação...</span>}>
+                  <ExportarDadosAcademia variante="default" />
+                  <ExportarContador />
+                </Suspense>
               </div>
               {orgId && <RemocaoNasCatracas organizationId={orgId} />}
             </>

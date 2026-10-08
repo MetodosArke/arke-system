@@ -1,7 +1,3 @@
-import termosUso from "@/content/legal/termos-uso.md?raw";
-import privacidade from "@/content/legal/privacidade.md?raw";
-import contratoAcademia from "@/content/legal/contrato-academia.md?raw";
-
 /**
  * Documentos legais da plataforma (Rodada 5). O texto mora no repositório,
  * versionado pelo git; o banco guarda versão e hash SHA-256 em
@@ -14,13 +10,17 @@ import contratoAcademia from "@/content/legal/contrato-academia.md?raw";
  *
  * Enquanto `revisadoJuridico` for falso, as páginas mostram que o texto é
  * minuta em revisão.
+ *
+ * O texto em si mora em `documentosLegaisTexto.ts` (07/10/2026): este módulo
+ * entra no pacote principal (o aceite e os links do login o usam), e os três
+ * textos, uns 38 kB, iam junto para todo mundo, a cada abertura do app.
  */
 
 export type TipoDocumento = "termos_uso" | "privacidade" | "contrato_academia";
 
 export const DOCUMENTOS: Record<
   TipoDocumento,
-  { titulo: string; caminho: string; versao: string; sha256: string; texto: string; revisadoJuridico: boolean }
+  { titulo: string; caminho: string; versao: string; sha256: string; revisadoJuridico: boolean }
 > = {
   termos_uso: {
     titulo: "Termos de Uso",
@@ -39,7 +39,6 @@ export const DOCUMENTOS: Record<
     // modelo do Asaas, aprovada pelo responsavel no workspace em 06/10/2026.
     versao: "2026-10-06.2",
     sha256: "69076e2b5668289147efb9faaef3adbcea7f12dfc15d55e4e6a97e5138be011d",
-    texto: termosUso,
     revisadoJuridico: true,
   },
   privacidade: {
@@ -107,7 +106,6 @@ export const DOCUMENTOS: Record<
     // meses (Marco Civil, art. 15). Redacao do advogado, como estava.
     versao: "2026-10-06.2",
     sha256: "82fa9b246d294daa2cffacc20510b8c0292dcbd66b02804dd3042e0a466cd550",
-    texto: privacidade,
     revisadoJuridico: true,
   },
   contrato_academia: {
@@ -142,7 +140,6 @@ export const DOCUMENTOS: Record<
     // responsavel no workspace em 06/10/2026.
     versao: "2026-10-06.2",
     sha256: "f01f9fdc896c954ab39d982bef003cf6c246b424fe06a8eb806c3dcf48dc833f",
-    texto: contratoAcademia,
     revisadoJuridico: true,
   },
 };
