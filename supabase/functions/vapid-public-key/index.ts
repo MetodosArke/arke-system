@@ -30,7 +30,7 @@ servir("vapid-public-key", async (req: Request) => {
     console.error("Error in vapid-public-key:", resumoDoErro(error));
 
     return new Response(
-      JSON.stringify({ error: error instanceof Error ? error.message : "Unknown error" }),
+      JSON.stringify({ error: "Não foi possível ler a chave das notificações." }),
       {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },

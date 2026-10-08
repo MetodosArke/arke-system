@@ -2,6 +2,7 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import { verificada } from "../_shared/verificacao.ts";
 import { servir } from "../_shared/servir.ts";
 import { resumoDoErro } from "../_shared/resumoDoErro.ts";
+import { respostaDoErroDoAuth } from "../_shared/erroDoAuth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -191,7 +192,11 @@ servir("superadmin-suporte-tenant", async (req: Request) => {
         .maybeSingle();
       if (deleteError) {
         console.error("Error deleting organization", resumoDoErro(deleteError));
-        return errorResponse(deleteError.message || "Erro ao excluir a organização.");
+        // A recusa dos nossos gatilhos (a cobrança viva de um aluno, por
+        // exemplo) diz o que fazer, e vai para a tela. A mensagem crua do
+        // banco, não (frente D, 07/10/2026).
+        if (deleteError.code === "P0001" || deleteError.code === "23001") return errorResponse(deleteError.message);
+        return errorResponse("Erro ao excluir a organização.");
       }
       if (!deletada) {
         return errorResponse("Organização não encontrada.");
@@ -227,8 +232,8 @@ servir("superadmin-suporte-tenant", async (req: Request) => {
     });
     if (emailError) {
       console.error("Error updating gestor email", resumoDoErro(emailError));
-      const jaExiste = emailError.message?.toLowerCase().includes("already been registered");
-      return errorResponse(jaExiste ? "Já existe um usuário cadastrado com esse e-mail." : emailError.message);
+      // A mensagem do Auth não vai para a tela (frente D, 07/10/2026).
+      return errorResponse(respostaDoErroDoAuth(emailError, "Não foi possível trocar o e-mail do gestor. Tente de novo.").mensagem);
     }
 
     // Guarda o user_id do gestor e que o login mudou, sem o e-mail (nem o novo

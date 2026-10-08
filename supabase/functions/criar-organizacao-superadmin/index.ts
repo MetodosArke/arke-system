@@ -2,6 +2,7 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import { verificada } from "../_shared/verificacao.ts";
 import { servir } from "../_shared/servir.ts";
 import { resumoDoErro } from "../_shared/resumoDoErro.ts";
+import { emailJaCadastrado, respostaDoErroDoAuth } from "../_shared/erroDoAuth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -42,11 +43,6 @@ const slugify = (valor: string) =>
     .replace(/[^a-z0-9\s-]/g, "")
     .replace(/\s+/g, "-")
     .replace(/-+/g, "-");
-
-const mensagemIndicaEmailJaCadastrado = (mensagem: string | undefined | null) => {
-  const texto = (mensagem ?? "").toLowerCase();
-  return texto.includes("already been registered") || texto.includes("already registered") || texto.includes("already exists");
-};
 
 // Onboarding Assistido de Tenants: SuperAdmin cadastra uma nova academia
 // ou studio. O gestor principal pode ser um e-mail totalmente novo (recebe
@@ -184,7 +180,7 @@ servir("criar-organizacao-superadmin", async (req: Request) => {
 
     if (!inviteError && invited?.user) {
       gestorUserId = invited.user.id;
-    } else if (mensagemIndicaEmailJaCadastrado(inviteError?.message)) {
+    } else if (emailJaCadastrado(inviteError)) {
       // Requisito 1: e-mail já tem conta — não tenta inviteUserByEmail de
       // novo (sempre falharia), só localiza o user_id e vincula.
       gestorJaExistia = true;
@@ -214,7 +210,10 @@ servir("criar-organizacao-superadmin", async (req: Request) => {
       if (linkError || !linkData?.user) {
         console.error("Error creating gestor account via generateLink fallback", resumoDoErro(linkError));
         await rollbackOrganizacao();
-        return jsonResponse({ error: inviteError?.message ?? "Falha ao convidar o gestor." }, 400);
+        // A mensagem do Auth não vai para a tela: pode trazer o e-mail
+        // digitado e descreve o servidor (frente D, 07/10/2026).
+        const r = respostaDoErroDoAuth(linkError ?? inviteError, "Não foi possível criar a conta do gestor. Tente de novo.");
+        return jsonResponse({ error: r.mensagem }, r.status);
       }
       gestorUserId = linkData.user.id;
       aviso = "Não foi possível enviar o e-mail de convite automático.";

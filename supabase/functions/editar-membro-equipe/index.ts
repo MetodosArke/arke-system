@@ -3,6 +3,7 @@ import { verificada } from "../_shared/verificacao.ts";
 import { alvoSoNaAcademia, MENSAGEM_OUTRA_ACADEMIA } from "../_shared/alvoNaAcademia.ts";
 import { servir } from "../_shared/servir.ts";
 import { resumoDoErro } from "../_shared/resumoDoErro.ts";
+import { respostaDoErroDoAuth } from "../_shared/erroDoAuth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -198,11 +199,10 @@ servir("editar-membro-equipe", async (req: Request) => {
       });
       if (emailError) {
         console.error("Error updating email", resumoDoErro(emailError));
-        const jaExiste = emailError.message?.toLowerCase().includes("already been registered");
-        return jsonResponse(
-          { error: jaExiste ? "Já existe um usuário cadastrado com esse e-mail." : emailError.message },
-          jaExiste ? 409 : 400
-        );
+        // A mensagem do Auth não vai para a tela: pode trazer o e-mail
+        // digitado e descreve o servidor (frente D, 07/10/2026).
+        const r = respostaDoErroDoAuth(emailError, "Não foi possível trocar o e-mail. Tente de novo.");
+        return jsonResponse({ error: r.mensagem }, r.status);
       }
 
       // O banco também tira e-mail de todo registro de troca de e-mail, por
