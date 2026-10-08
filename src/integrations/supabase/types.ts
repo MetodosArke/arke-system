@@ -7795,6 +7795,7 @@ export type Database = {
         Args: { _aluno_id: string; _dias?: number; _minimo_pct?: number }
         Returns: boolean
       }
+      aluno_como_nasceu: { Args: { _aluno_id: string }; Returns: boolean }
       aluno_consentiu_biometria: {
         Args: { _aluno_id: string }
         Returns: boolean
@@ -7857,6 +7858,10 @@ export type Database = {
       anonimizar_dados_do_aluno: {
         Args: { _aluno_id: string; _ator: string }
         Returns: Json
+      }
+      apagar_matriculas_publicas_nao_confirmadas: {
+        Args: never
+        Returns: number
       }
       aplicar_repasse_referencia: {
         Args: { _organization_id: string }
@@ -8171,6 +8176,10 @@ export type Database = {
       consultar_pedido_responsavel: {
         Args: { _token_hash: string }
         Returns: Json
+      }
+      conta_da_matricula_publica_nao_confirmada: {
+        Args: { _user_id: string }
+        Returns: boolean
       }
       conta_por_email: {
         Args: { _email: string }
