@@ -15,10 +15,11 @@
 --      exigido de quem não é Sócio, mesmo com `exigir_registro_metodo` em 0:
 --      a dispensa da fase de testes vale só para o Sócio;
 --   3. as regras de `tarefas` (4), `mensagens_mentor` (3),
---      `sentinela_sugestoes` (2), `aluno_consentimento_ia`,
---      `aluno_fase_historico` e `sentinela_anamnese` ganham o termo do Mentor:
+--      `sentinela_sugestoes` (2), `aluno_consentimento_ia` e
+--      `aluno_fase_historico` ganham o termo do Mentor:
 --      `(select acesso_arkefit('mentoria'))` mais o aluno do Método. Nas
---      tarefas, só as da ArkeFit (`dono = 'arkefit'`), com aluno;
+--      tarefas, só as da ArkeFit (`dono = 'arkefit'`), com aluno. O resumo da
+--      anamnese já tinha o termo do Método (`equipe_metodo()`, 20261360);
 --   4. as funções da fila (`get_superadmin_fila_mentor`, `get_fila_mentor`),
 --      da instrução presencial e da jornada passam a perguntar pela área
 --      `mentoria`, e para quem não é Sócio, só com o aluno do Método;
@@ -294,16 +295,9 @@ alter policy "staff da org vê o histórico de fases dos seus alunos" on public.
     or ((select public.acesso_arkefit('mentoria')) and public.aluno_no_metodo(aluno_id))
   );
 
--- O resumo da anamnese (o Sentinela) acompanha a anamnese, que o Mentor já
--- lê no aluno do Método (20261292010000).
-alter policy "leitura" on public.sentinela_anamnese
-  using (
-    exists (select 1 from public.alunos a where a.id = sentinela_anamnese.aluno_id and a.user_id = (select auth.uid()))
-    or (public.is_org_staff((select auth.uid()), organization_id) and not public.aluno_no_metodo(aluno_id))
-    or public.has_role((select auth.uid()), 'admin_arke')
-    or public.has_role((select auth.uid()), 'superadmin')
-    or ((select public.acesso_arkefit('mentoria')) and public.aluno_no_metodo(aluno_id))
-  );
+-- O resumo da anamnese (`sentinela_anamnese`) não muda aqui: desde
+-- 20261360010000 a leitura dele é `equipe_metodo() and aluno_no_metodo(...)`,
+-- e o Mentor entra por ali com o `equipe_metodo()` do lote 1.
 
 -- ---------------------------------------------------------------------------
 -- 4. As funções da fila, da instrução presencial e da jornada

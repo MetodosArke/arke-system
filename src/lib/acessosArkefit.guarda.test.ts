@@ -338,7 +338,7 @@ describe("as funções publicadas do mapa perguntam a área ao banco, com a sess
 
   it("a conversa e o Sentinela conferem o aluno do Método", () => {
     expect(codigo("mentor-sugerir-resposta")).toMatch(/if \(aluno\.metodo_arke_status !== "ativo"\) return jsonResponse\(/);
-    expect(codigo("sentinela-anamnese")).toMatch(/if \(noMetodo \? !mentoria : !equipe\)/);
+    expect(codigo("sentinela-anamnese")).toMatch(/if \(noMetodo \? !arkefit : !equipe\)/);
   });
 
   it("o leitor acha a função que perdeu a pergunta (a trava trava)", () => {

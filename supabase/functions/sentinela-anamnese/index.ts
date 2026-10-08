@@ -82,7 +82,7 @@ servir("sentinela-anamnese", async (req: Request) => {
     // Quem atende o aluno: a célula da ArkeFit (o Sócio, ou o Mentor da
     // equipe contratada, pela área `mentoria`, com as duas etapas) ou a
     // equipe da academia.
-    const [mentoria, { data: vinculo }] = await Promise.all([
+    const [arkefit, { data: vinculo }] = await Promise.all([
       noMetodo && verificada(claims?.claims) ? acessoArkefit(asUser, claims?.claims, "mentoria") : Promise.resolve(false),
       admin
         .from("organization_members")
@@ -92,7 +92,7 @@ servir("sentinela-anamnese", async (req: Request) => {
         .eq("status", "active")
         .maybeSingle(),
     ]);
-    if (mentoria === null) return jsonResponse({ error: "Erro ao validar permissões." }, 500);
+    if (arkefit === null) return jsonResponse({ error: "Erro ao validar permissões." }, 500);
     // A mesma separação do RLS (Mentor Centralizado): o aluno do Método é da
     // ArkeFit, e a academia não lê a anamnese dele; o aluno do plano Free é da
     // academia, e a ArkeFit não lê. A recepção não atende saúde. Antes, toda a
@@ -100,7 +100,7 @@ servir("sentinela-anamnese", async (req: Request) => {
     // botão, mas a chamada direta devolvia o resumo (auditoria de 05/10/2026,
     // correção autorizada pelo responsável com o Sentinela congelado).
     const equipe = ["gestor", "professor", "nutricionista"].includes(vinculo?.role ?? "");
-    if (noMetodo ? !mentoria : !equipe) {
+    if (noMetodo ? !arkefit : !equipe) {
       return jsonResponse({ error: "Você não atende este aluno." }, 403);
     }
 

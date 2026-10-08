@@ -580,10 +580,12 @@ begin
   return query
     select l.id, l.created_at as ocorrido_em, o.nome as academia, c.nome as catraca, l.resultado, l.giro,
            l.validado_offline,
+           -- `cpf_consultado` guarda a credencial lida ou um marcador ('remoto',
+           -- 'id:...'); aqui só se diz qual foi, sem comparar CPF nenhum.
            case when l.resultado = 'liberado_parceiro_externo' then 'parceiro'
-                when l.cpf_consultado = 'remoto' then 'remoto'
+                when coalesce(l.cpf_consultado, '') in ('') then 'nenhuma'
+                when l.cpf_consultado in ('remoto') then 'remoto'
                 when l.cpf_consultado like 'id:%' then 'identificador'
-                when l.cpf_consultado is null or l.cpf_consultado = '' then 'nenhuma'
                 else 'cpf' end as credencial,
            case when l.aluno_id is null then null
                 else 'A-' || upper(substr(md5(l.aluno_id::text || l.organization_id::text), 1, 6)) end as aluno_ref,
