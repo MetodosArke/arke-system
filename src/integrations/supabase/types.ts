@@ -8514,16 +8514,16 @@ export type Database = {
         Args: { _arquivos: number; _contas: number; _encerramento_id: string }
         Returns: undefined
       }
-      emails_da_area: {
-        Args: { _area: string }
-        Returns: {
-          email: string
-        }[]
-      }
       emails_alunos_organizacao: {
         Args: { _organization_id: string }
         Returns: {
           aluno_id: string
+          email: string
+        }[]
+      }
+      emails_da_area: {
+        Args: { _area: string }
+        Returns: {
           email: string
         }[]
       }
