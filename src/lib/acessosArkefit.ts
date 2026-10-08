@@ -251,6 +251,8 @@ const ENTREGA_2 = "entrega 2: continua do Sócio até a área entrar no ar";
 const SOCIO_OU_ADMIN = "do Sócio (superadmin ou admin_arke): nenhum nível tem admin_arke; o admin_arke sai na limpeza (lote 7)";
 const DA_ACADEMIA = "também é da academia (a equipe dela e o Admin ARKE, gestor de toda academia); o nível entra pela área";
 const TABELA = "leitura ou gravação direta: quem decide é o RLS da tabela";
+const CADASTRO_PROPRIO =
+  "o cadastro da equipe (20261430): o sócio vê e grava o de todos, e cada um, em qualquer nível, o próprio; quem decide é o banco (pode_ver_cadastro_equipe_arkefit e as RPCs), com as duas etapas";
 
 /**
  * Toda chamada ao banco das telas da Visão Master, e das libs e componentes
@@ -259,6 +261,12 @@ const TABELA = "leitura ou gravação direta: quem decide é o RLS da tabela";
  * quem a escreve diz de que área ela é, e a tela a esconde de quem não a abre.
  */
 export const CHAMADAS_DA_VISAO_MASTER: Record<string, Chamada> = {
+  // O cadastro completo da equipe (Meu cadastro, no rodapé do menu, e o botão Cadastro da Equipe)
+  "from:equipe_arkefit_cadastro": { area: "todos", motivo: CADASTRO_PROPRIO },
+  "rpc:salvar_cadastro_equipe_arkefit": { area: "todos", motivo: CADASTRO_PROPRIO },
+  "rpc:exportar_cadastros_equipe_arkefit": { area: "todos", motivo: CADASTRO_PROPRIO },
+  "storage:equipe-arkefit-documentos": { area: "todos", motivo: CADASTRO_PROPRIO },
+  "rpc:renomear_equipe_arkefit": { area: "socio", motivo: "do Sócio: confere has_role(v_ator, 'superadmin') (20261430 e 20261431)" },
   // Visão Geral
   "rpc:get_superadmin_tenants": { area: "carteira" },
   "rpc:get_superadmin_fila_global": { area: "carteira" },

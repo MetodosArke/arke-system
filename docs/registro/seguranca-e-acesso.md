@@ -1150,3 +1150,9 @@ antes e depois da migration, com `aal1` e `aal2`, a recepção, a gestão e uma 
 - **`equipe_metodo()` em `(select ...)` nas regras antigas**, e o detalhe do Gateway para o Suporte (acima).
 - **O aviso de que o Mentor sem registro não publica** aparece só na recusa do banco ("o treino é prescrito ... por um profissional com CREF"); a ficha não avisa antes.
 - **Os e-mails de aviso por área** (`emails_da_area()`, lote 7): os avisos seguem indo aos sócios.
+
+**O encontro com o cadastro completo (#362), no rebase.**
+- **O "Meu cadastro" no menu.** Quem tem nível não abre a tela da Equipe, que é do Sócio. O rodapé do menu da Visão Master ganhou o "Meu cadastro" para qualquer nível.
+- **O mapa de chamadas.** As chamadas do cadastro entraram em `CHAMADAS_DA_VISAO_MASTER` com o motivo: quem decide é o banco, para o sócio ou a própria pessoa. A guarda dos níveis acusou as cinco chamadas assim que o menu passou a importar o cadastro.
+- **"Editar nome".** `renomear_equipe_arkefit` só aceitava a conta com papel em `user_roles`, e o nível nunca grava papel. `20261431010000` aceita também a conta com linha em `equipe_arkefit`; quem chama continua sendo só o sócio verificado.
+- **O rótulo da Auditoria.** `equipe_arkefit_salva` dizia "Cadastro da equipe ArkeFit alterado", ao lado de "Dados cadastrais da equipe ArkeFit alterados" (o cadastro completo). Passou a "Níveis e registro da equipe ArkeFit alterados".

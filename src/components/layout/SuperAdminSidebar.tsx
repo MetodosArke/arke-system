@@ -1,3 +1,4 @@
+import { BotaoMeuCadastro } from "@/components/superadmin/CadastroEquipeArkefit";
 import { useState } from "react";
 import { ChevronLeft, CircleHelp, Cpu, Dumbbell, Kanban, LayoutDashboard, LifeBuoy, LogOut, Menu, MessageCircle, Radar, Rocket, ScrollText, Settings, Shield, Sparkles, UserCog, UsersRound, Webhook } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
@@ -138,6 +139,9 @@ function SidebarNav({
       </nav>
 
       <div className="border-t border-border p-2 space-y-1">
+        {/* O próprio cadastro, para qualquer nível: quem não é sócio não abre a
+            tela da Equipe, e este é o caminho até os próprios dados. */}
+        {!collapsed && <BotaoMeuCadastro className="w-full justify-start" />}
         <button
           onClick={() => handleNav("/superadmin/ajuda")}
           title={collapsed ? "Ajuda" : undefined}
