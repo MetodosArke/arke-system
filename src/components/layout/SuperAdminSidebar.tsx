@@ -48,7 +48,7 @@ export const SECOES_SUPERADMIN: { label: string; items: MenuItem[] }[] = [
 ];
 
 /** As seções do menu com os itens que o acesso abre (a seção vazia sai). */
-export function menuDaVisaoMaster(acesso: AcessoDaPessoa) {
+function menuDaVisaoMaster(acesso: AcessoDaPessoa) {
   return SECOES_SUPERADMIN.map((s) => ({ ...s, items: s.items.filter((i) => podeAbrirNaVisaoMaster(i.path, acesso)) })).filter(
     (s) => s.items.length > 0,
   );
