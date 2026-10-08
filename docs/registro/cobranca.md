@@ -606,7 +606,18 @@ A Central de Ajuda não tinha artigo sobre o bloqueio B2B: os "bloque" dos artig
   - a recepção mandada para a suspensão, na regra do app e na migration: 4 testes falharam (a guarda, na tela e no banco; o gate; a regra);
   - na prova local, a recepção com `bloqueada`: 2 casos; sem a recepção na lista de papéis: 7 casos.
 
-**Fica com o responsável:** o roteiro de prova em produção, a migration, o deploy do app, a publicação de `assistente-academia` (o índice da Central mudou), o `supabase gen types` para conferir o `types.ts` editado à mão e a tela no computador e no celular.
+**Em produção (08/10/2026):**
+- **O roteiro em transação desfeita:** sem a migration, "FALHOU 13 de 17"; com ela, "17 casos ok". A homologação seguiu em trial, e nada ficou gravado.
+- **A publicação:**
+  - `20261420010000` aplicada;
+  - os tipos gerados de novo: a coluna `modo` bateu com a edição à mão, e entraram também as três funções da `20261403`, que ainda não estavam nos tipos;
+  - `assistente-academia` publicada;
+  - o app (#358).
+- **A tela, no computador e no celular.** Foi usada uma academia temporária `ativo`, com `valor_mensal_b2b = 0` e uma cobrança vencida sem `asaas_payment_id`, que o Asaas não conhece; ninguém foi cobrado, e tudo foi apagado no fim.
+  - A recepção vê a faixa do modo essencial, sem valor nem link.
+  - O menu tem Início, Fila, Mensagens, Alunos e Check-in QR, com a nota do que está pausado.
+  - O funil aberto pelo endereço diz "Esta função está pausada", e Alunos abre, sem rolagem lateral.
+  - O gestor, depois do aceite do contrato da academia, cai na tela de suspensão.
 
 ### Fica de fora, e por quê
 
