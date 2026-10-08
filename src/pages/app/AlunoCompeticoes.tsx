@@ -85,9 +85,11 @@ function RankingCompeticao({ competicaoId }: { competicaoId: string }) {
 }
 
 export default function AlunoCompeticoes() {
-  const { alunoId } = useAuth();
-  // Sem filtro: a regra de acesso devolve as competições abertas da academia
-  // e aquelas em que o aluno está inscrito. A chave leva o aluno.
+  const { alunoId, organization } = useAuth();
+  // A regra de acesso devolve as competições abertas da academia e aquelas em
+  // que o aluno está inscrito, mas também as de outra academia em que a pessoa
+  // trabalha (aluno numa, recepção na outra): o filtro fica na academia da
+  // matrícula (07/10/2026, `vinculos.guarda`). A chave leva o aluno.
   const {
     data: competicoes = [],
     isLoading,
@@ -96,9 +98,13 @@ export default function AlunoCompeticoes() {
     isFetching: recarregandoCompeticoes,
   } = useQuery({
     queryKey: ["aluno-competicoes", alunoId],
-    enabled: !!alunoId,
+    enabled: !!alunoId && !!organization?.id,
     queryFn: async () => {
-      const { data, error } = await supabase.from("competicoes").select("*").order("data_inicio", { ascending: false });
+      const { data, error } = await supabase
+        .from("competicoes")
+        .select("*")
+        .eq("organization_id", organization!.id)
+        .order("data_inicio", { ascending: false });
       if (error) throw error;
       return data as Competicao[];
     },

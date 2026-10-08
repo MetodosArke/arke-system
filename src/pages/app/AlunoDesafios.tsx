@@ -27,8 +27,11 @@ const STATUS_STYLE: Record<string, { label: string; badge: "default" | "secondar
 };
 
 export default function AlunoDesafios() {
-  const { alunoId } = useAuth();
+  const { alunoId, organization } = useAuth();
 
+  // Filtro na academia da matrícula: a regra de acesso também devolve os
+  // desafios de outra academia em que a pessoa trabalha (aluno numa, recepção
+  // na outra), e eles apareciam misturados (07/10/2026, `vinculos.guarda`).
   const {
     data: desafios = [],
     isLoading,
@@ -38,11 +41,15 @@ export default function AlunoDesafios() {
   } = useQuery({
     queryKey: ["aluno-desafios", alunoId],
     queryFn: async () => {
-      const { data, error } = await supabase.from("desafios").select("*").order("data_inicio", { ascending: false });
+      const { data, error } = await supabase
+        .from("desafios")
+        .select("*")
+        .eq("organization_id", organization!.id)
+        .order("data_inicio", { ascending: false });
       if (error) throw error;
       return data as Desafio[];
     },
-    enabled: !!alunoId,
+    enabled: !!alunoId && !!organization?.id,
   });
 
   const { data: progressoManual = {} } = useQuery({

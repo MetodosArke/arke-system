@@ -10,6 +10,19 @@ export type EscopoPrescricao =
   | { tipo: "academia"; organizationId: string }
   | { tipo: "metodo"; aluno: { id: string; nome: string; organizationId: string } };
 
+/**
+ * O exercício do acervo entra no seletor da prescrição? O acervo padrão
+ * (`organization_id` nulo) sempre; o próprio de uma academia, só o da academia
+ * do aluno. A regra de acesso devolve os exercícios próprios de todas as
+ * academias da pessoa (e de todas, para a ArkeFit), e o professor de duas
+ * academias via os das duas misturados (07/10/2026, `vinculos.guarda`).
+ */
+export function exercicioDoEscopo(escopo: EscopoPrescricao, organizationIdDoExercicio: string | null): boolean {
+  if (organizationIdDoExercicio === null) return true;
+  const academia = escopo.tipo === "academia" ? escopo.organizationId : escopo.aluno.organizationId;
+  return organizationIdDoExercicio === academia;
+}
+
 /** Filtro e valores de gravação dos modelos, conforme a biblioteca. */
 export function bibliotecaDoEscopo(escopo: EscopoPrescricao) {
   return escopo.tipo === "academia"
