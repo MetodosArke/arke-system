@@ -908,3 +908,71 @@ Seis achados "baixos" da auditoria de prontidão (05/10), do grupo de app e conf
 - **Ficaram sem conferência na tela:**
   - a animação do login, o "Carregando" do painel e da Visão Master e o seletor de exercícios. O e2e cobre a abertura do painel;
   - o link do responsável, que pede um menor com e-mail de responsável. A guarda e a prova do banco cobrem.
+
+## A equipe da ArkeFit por convite (08/10/2026)
+
+O pedido do responsável: "Não temos como cadastrar novos membros da equipe ArkeFit. Chegou o terceiro sócio e preciso cadastrar ele. Futuramente vamos ter que contratar equipe e definir os acessos." As duas contas da ArkeFit nasceram direto no banco, com `superadmin` e `admin_arke`, e a tela **Equipe ArkeFit** só editava o registro profissional. Migration `20261421010000_equipe_arkefit_por_convite.sql`; função nova `equipe-arkefit-convidar`; a tela Equipe ArkeFit, o mentor da ficha do aluno, a Auditoria e a Central de Ajuda.
+
+**O achado grave: o Admin ARKE se dava `superadmin` pela API.** As regras de inclusão, alteração e exclusão de `user_roles` (`20261205010000`) eram `has_role(admin_arke)`. O Admin ARKE com as duas etapas se dava `superadmin` (a Visão Master inteira, o dinheiro e a equipe) com um POST, e tirava o papel dos sócios. Ninguém subiu de nível porque as duas contas de hoje têm os dois papéis; a primeira contratação como Admin ARKE subiria. Quem não é da ArkeFit já era recusado (42501). Agora as três regras saíram e a permissão de escrever saiu de `anon` e `authenticated`, no molde da exclusão de alunos (`20261408`): o pedido é recusado com 42501, em vez de responder 200 sem gravar. A leitura ficou (o app decide a rota pelos papéis de quem entra). Quem escreve: a service role (o convite) e as funções da migration. Nenhuma tela escrevia em `user_roles` (conferido no código do app e das funções).
+
+**O que mudou.**
+- **Os níveis num lugar só** (`src/lib/acessosArkefit.ts`, com o espelho em `equipe-arkefit-convidar/fluxo.ts`, que o Deno lê; `acessosArkefit.test.ts` confere os dois). Hoje há um: **Sócio**, os dois papéis, como as contas de hoje. Nível novo é uma entrada a mais; papel novo no enum entra também em `papeis_da_arkefit()` (o que o convite dá e a retirada tira) e em `has_role()`.
+- **O convite** (a função, só para o sócio com as duas etapas, o papel lido do banco):
+  - e-mail que já tem conta é recusado: "Esse e-mail já tem conta no ArkeFit. Para a equipe da ArkeFit, use um e-mail que ainda não tenha conta." Também quando a conta nasce entre a conferência e o convite (`emailJaCadastrado`);
+  - e-mail novo recebe o convite do Auth (`inviteUserByEmail`), sem senha, com o link para `/auth/definir-senha`, como a equipe da academia;
+  - `gravar_convite_equipe_arkefit()` grava o perfil, os papéis, a linha da equipe (`mentor = false`, `ativo`, `atualizado_por` = quem convidou) e a auditoria numa transação, só pela service role. Ela confere de novo quem convida (sócio), os papéis (da ArkeFit) e a conta (convite novo: sem senha, sem papel, sem vínculo, sem matrícula). Se falha, a função apaga a conta;
+  - `equipe_arkefit.convidada` na auditoria só com ids, o nível e os papéis.
+- **O estado de cada conta** (`estado_conta_arkefit()`, a coluna nova `estado` de `get_superadmin_equipe_arkefit()`): **Convite enviado** (não criou a senha), **Sem as duas etapas** (criou a senha e não cadastrou o aplicativo) e **Ativo**. As colunas de antes ficaram; a assinatura mudou, então a função é recriada na mesma transação.
+- **Reenviar convite** só para quem ainda não criou a senha: o link de definir a senha (`generateLink` de recuperação), num e-mail nosso pelo remetente de acesso. O mesmo link serve a quem nunca abriu o primeiro e a quem abriu e não criou a senha.
+- **Tirar o acesso** (`retirar_acesso_equipe_arkefit()`, chamada pela função com a sessão de quem pede): tira os papéis da ArkeFit, marca a equipe como inativa, apaga as sessões da pessoa (os tokens de renovação vão junto) e registra `equipe_arkefit.acesso_retirado` com os papéis e o número de sessões. Recusa o próprio acesso, o último sócio com as duas etapas, quem não é sócio verificado e o perfil simulado. A conta continua existindo.
+- **O piso:** o gatilho `trg_user_roles_sempre_um_socio` recusa apagar ou trocar o último `superadmin`, por qualquer caminho: a API, a service role, o SQL e a exclusão da conta.
+- **O aviso aos outros sócios** pelo remetente de alertas, como a troca da carteira de recebimento: quem convidou ou tirou, o nome de quem entrou ou saiu, o acesso e a data, e o que fazer se não reconhecer. Vai a cada `superadmin` ativo (senha e duas etapas), não banido, menos quem pediu e a pessoa (`emails_socios_para_aviso()`). Sem e-mail de ninguém no texto.
+- **A tela:** o botão **Convidar para a equipe** (nome, e-mail e o acesso, com a frase dos acessos que virão), o nível e o estado em cada conta, **Reenviar convite** e **Tirar o acesso** com confirmação (escondido na própria conta). O erro da lista passou a `<ErroAoCarregar>`.
+- **O mentor da ficha do aluno** deixou de oferecer, em **Passar para...**, quem ainda não entra (convite enviado ou sem as duas etapas).
+- **A Auditoria** ganhou os rótulos do convite e da retirada, e o de `equipe_arkefit_salva` (o registro profissional), que não tinha.
+- `config.toml` declara `verify_jwt = true` para a função, de propósito: ela dá o papel de sócio.
+
+**Decisões, e por quê.**
+- **Conta que existe é recusada, sem caminho pendente.** A gestão e a equipe da academia têm o vínculo pendente que espera o link; `user_roles` não tem, e criar esse estado para o papel mais poderoso do sistema não vale para três sócios. Pedir outro e-mail resolve.
+- **A retirada passa pelo banco com a sessão de quem pede** (`asUser.rpc`), e não pela service role: a regra (sócio verificado, nunca o próprio, nunca o último) mora na função do banco e vale para a API direta também. Pela API direta, a retirada vale e fica na auditoria, sem o e-mail aos sócios.
+- **O convite grava pela service role**, numa função só dela: a conta é criada pelo Auth, fora do banco, e só a função do convite sabe que ela acabou de nascer.
+- **O "último sócio" tem dois andares.** Na função, o último sócio com as duas etapas. Na vida real quem pede é sócio verificado e não é o alvo, então a função nunca chega lá sozinha; o que segura de verdade é o gatilho, que vale para todo caminho. A regra da função fica pelo caso em que um caminho novo (uma rotina, a service role) chamar a retirada.
+- **O estado não confia só na senha vazia.** O convite do Auth cria a conta com `encrypted_password` vazio, mas a lição de `20261404` é que outro caminho do Auth grava o hash de uma senha aleatória. Convite em aberto é senha vazia, ou e-mail não confirmado, ou nenhuma entrada.
+- **O gatilho do piso é `security definer`:** a exclusão da conta pelo Auth roda como o papel do Auth, que não lê `user_roles`; sem isso, apagar a conta de qualquer sócio quebraria.
+- **As sessões saem pelo banco**, na mesma transação dos papéis: o Auth não tem "encerrar as sessões de outra pessoa" pela chave de serviço. O token de acesso que ainda não venceu não serve para nada da ArkeFit, porque `has_role` e as funções leem `user_roles` a cada pedido.
+- **Quem saiu some da lista** (a lista é de quem tem papel da ArkeFit); o registro fica na auditoria e em `equipe_arkefit` (inativo).
+- **Freio de 30 pedidos por hora por sócio**, com falha aberta: cada pedido manda e-mail.
+
+**Defeitos do caminho.**
+- O achado de `user_roles`, acima. Ele não estava no pedido como defeito, e a prova local mostrou a escalada antes de corrigir: a Admin ARKE com as duas etapas termina com `admin_arke,superadmin` depois de um POST.
+- `create or replace function` não muda as colunas de uma função que devolve tabela: o estado na lista pede `drop` e `create` na mesma migration, com o `grant` de novo.
+- A guarda nova passou com os arquivos em LF e falhou com o checkout do Windows (CRLF, `autocrlf`): o teste do defeito plantado procurava uma linha com `\n`. A guarda passou a ler os arquivos sem o `\r`.
+- O seletor **Passar para...** da ficha oferecia o aluno a quem ainda não entra; corrigido junto.
+
+**Travas:** `equipeArkefit.guarda` (nova, 14 testes): a função confere o sócio do banco com `verificada` antes de qualquer conta, link ou retirada; a conta que existe é recusada antes do convite; a conta nasce pelo convite, sem senha e sem papel gravado fora do banco; a gravação falha e a conta é apagada; o reenvio só para quem não criou a senha; o aviso aos sócios sem quem pediu e sem a pessoa; a auditoria sem e-mail; a retirada no banco, com as duas recusas; o gatilho do piso; e nenhuma regra nem permissão de escrita em `user_roles`. Os quatro detectores são provados contra defeitos plantados no próprio teste. `acessosArkefit.test.ts` (novo, 12 testes): o espelho dos níveis, o pedido e os e-mails. `verificacao.guarda` já cobria a função nova.
+
+**Conferido:**
+- **O banco, em Postgres local (PGlite)**, sobre um esqueleto com `user_roles`, `equipe_arkefit`, a auditoria e as funções de antes com o texto das migrations. A migration rodou duas vezes seguidas, e **81 casos** passaram, cada um em transação desfeita:
+  - **sem a migration:** a Admin ARKE se dá `superadmin`, vira `superadmin` pela alteração e tira o papel de um sócio; um sócio dá e tira papel pela API. A gestora e a aluna já eram recusadas;
+  - **com a migration:** as sete escritas pela API e a do anon recusadas com 42501; a leitura de cada um e a da ArkeFit verificada continuam; só a regra de leitura; o estado de seis contas (convite sem abrir, aberto sem senha, com o hash de uma senha aleatória, sem fator, com o fator começado, ativo); a gravação recusa sete pedidos errados (quem não é sócio, papel de academia, papéis vazios, conta com senha, conta da gestora, acesso fora do formato, nome vazio) e não deixa nada; grava os papéis, a equipe, o perfil e a auditoria sem e-mail nem nome; a lista com as colunas de antes e o estado, recusada à sócia só com a senha, à Admin ARKE e à gestora; a retirada tira os papéis, as duas sessões e o token de renovação, deixa a conta e a sessão do outro sócio, registra, e recusa o próprio acesso, a conta sem papel, a sessão só com a senha, a Admin ARKE, a gestora, o perfil simulado, o anon e o último sócio com as duas etapas; o piso recusa apagar todos, trocar o papel do último e apagar a conta dele, inclusive pela service role, e deixa apagar a conta comum; o aviso só aos sócios ativos, sem quem pediu, sem a pessoa e sem a conta banida; e as funções do servidor fora do alcance da API.
+- **O roteiro de produção** (`begin`, a migration, um bloco que sempre termina em exceção, `rollback`), conferido no esqueleto: sem a migration, "FALHOU" com 17 falhas, a primeira "a Admin ARKE se deu superadmin pela API (gravou)"; com ela, **18 casos ok**; e nada gravado depois. Cria três contas temporárias (`@sim.invalid`) e não depende de conta real.
+- **Defeitos plantados, todos pegos:**
+  - na guarda, nos arquivos de verdade: a função sem `verificada` (pegou também `verificacao.guarda`); a retirada sem a recusa do próprio acesso; o `revoke` sem o `insert`;
+  - na prova local: o último sócio sem o "com as duas etapas"; a retirada sem a recusa do próprio acesso; o estado só pela senha vazia; a gravação sem conferir que a conta é um convite novo;
+  - no roteiro de produção: a retirada sem a recusa do próprio acesso, o `revoke` sem o `insert` e o gatilho do piso desligado.
+- **Testes:** 26 novos (14 na guarda, 12 nos níveis). Suíte inteira: SUITE_TOTAL.
+- `npm run check` sem erro: tipos, lint (0 erros, os 27 avisos de antes), o `deno check` das 57 funções e a auditoria das dependências (0 vulnerabilidades).
+- `npm run ajuda:indice` rodou: o artigo novo `vm-equipe-arkefit` e os links em `vm-mentoria` e `vm-duas-etapas` entram no índice do assistente.
+- **Falta, porque esta entrega não toca produção:**
+  - o roteiro de prova no banco de produção, e aplicar a migration;
+  - gerar os tipos de novo (`supabase gen types`) e conferir com os escritos à mão;
+  - publicar `equipe-arkefit-convidar` e `assistente-academia`;
+  - a corrente real com uma conta temporária: o convite, o aviso ao outro sócio, o reenvio, o link até o QR das duas etapas, a recusa do mesmo e-mail, a retirada e a sessão caindo, e apagar a conta no fim;
+  - a tela no computador e no celular.
+
+**Fica de fora, e por quê.**
+- **Os níveis Suporte, Comercial, Mentor e Financeiro**, que outro trabalho está mapeando: entram como entradas novas da lista, cada um com o próprio papel (`docs/DECISOES_PENDENTES.md`). O `admin_arke` age como gestor em toda academia, e é amplo demais para uma contratação.
+- **Devolver o acesso a quem saiu:** a conta continua, e o convite recusa o e-mail. Decidir entre reativar pelo link (como a gestão pendente) ou pedir outro e-mail.
+- **O e-mail aos sócios na retirada pela API direta:** a retirada fica na auditoria; o e-mail sai só pela função.
+- **Os alunos do Método de um mentor que saiu** continuam com ele como responsável; passar a carteira é da Mentoria. Hoje não há mentor contratado.
+- **Perder o celular** continua pelo SQL (`vm-duas-etapas`).
