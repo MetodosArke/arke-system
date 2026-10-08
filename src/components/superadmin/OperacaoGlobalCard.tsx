@@ -9,6 +9,7 @@ import { Activity, Wifi, WifiOff, PlugZap, ListChecks, AlertTriangle, ArrowUpRig
 import type { Enums } from "@/integrations/supabase/types";
 import { SITUACAO_GATEWAY, tempoDesde, type SituacaoGateway } from "@/lib/gateway";
 import { ordenarEquipamentos, useEquipamentosGlobais } from "@/lib/equipamentos";
+import { useAcessoArkefit } from "@/hooks/useAcessoArkefit";
 import { decimal } from "@/lib/numeros";
 
 type FilaOrg = {
@@ -36,7 +37,9 @@ const ICONE: Record<SituacaoGateway, { icon: typeof Wifi; classe: string }> = {
 };
 
 export function OperacaoGlobalCard() {
-  const { data: equipamentos = [], error: erroGateways } = useEquipamentosGlobais();
+  // As catracas são da operação: quem abre só a carteira vê a fila em contagens.
+  const { pode } = useAcessoArkefit();
+  const { data: equipamentos = [], error: erroGateways } = useEquipamentosGlobais(pode("operacao"));
   const gateways = useMemo(() => ordenarEquipamentos(equipamentos), [equipamentos]);
 
   const { data: fila = [], error: erroFila } = useQuery({

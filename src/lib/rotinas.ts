@@ -30,9 +30,11 @@ export const ROTULO: Record<Rotina["situacao"], string> = {
   desativada: "desativada",
 };
 
-export function useSaudeRotinas() {
+/** `ativo`: quem não abre a área da consulta não a dispara (os níveis da equipe ArkeFit). */
+export function useSaudeRotinas(ativo = true) {
   return useQuery({
     queryKey: ["superadmin-rotinas"],
+    enabled: ativo,
     queryFn: async () => {
       const { data, error } = await supabase.rpc("get_superadmin_rotinas");
       if (error) throw error;
@@ -64,9 +66,10 @@ export interface Capacidade {
   detalhe: string;
 }
 
-export function useCapacidadeBanco() {
+export function useCapacidadeBanco(ativo = true) {
   return useQuery({
     queryKey: ["superadmin-capacidade"],
+    enabled: ativo,
     queryFn: async () => {
       const { data, error } = await supabase.rpc("get_superadmin_capacidade");
       if (error) throw error;
@@ -96,9 +99,10 @@ export interface Reconciliacao {
 }
 
 /** Última varredura diária (o modo "aluno" não conta: é pontual). */
-export function useUltimaReconciliacao() {
+export function useUltimaReconciliacao(ativo = true) {
   return useQuery({
     queryKey: ["superadmin-ultima-reconciliacao"],
+    enabled: ativo,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("reconciliacoes_asaas")

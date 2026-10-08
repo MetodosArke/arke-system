@@ -11,6 +11,8 @@ import { BotaoAjuda } from "@/components/ajuda/BotaoAjuda";
 import { MarcaArkeFit } from "@/components/marca/MarcaArkeFit";
 import { AdminSidebarProvider, useAdminSidebar } from "@/contexts/AdminSidebarContext";
 import { SECOES_SUPERADMIN, SuperAdminSidebarDesktop, SuperAdminSidebarMobile } from "./SuperAdminSidebar";
+import { PortaoDaRotaVisaoMaster } from "@/components/acesso/PortaoVisaoMaster";
+import { nomeDoAcessoDaPessoa, podeArea } from "@/lib/acessosArkefit";
 
 // Telas que usam a largura toda. O quadro do Pipeline tem seis colunas e,
 // preso à coluna central das outras telas, mostrava três e meia.
@@ -25,7 +27,7 @@ function tituloDaTela(pathname: string): string {
 }
 
 function SuperAdminLayoutInner() {
-  const { signOut } = useAuth();
+  const { signOut, acessoArkefit } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const { collapsed } = useAdminSidebar();
   const location = useLocation();
@@ -45,7 +47,7 @@ function SuperAdminLayoutInner() {
             {/* No celular o menu fica recolhido, então a marca sobe para o cabeçalho. */}
             <MarcaArkeFit className="h-5 w-auto md:hidden" />
             <span className="hidden md:flex items-center gap-1 rounded-full border border-primary/30 px-2 py-0.5 text-xs font-medium text-primary shrink-0">
-              <Shield className="h-3 w-3" aria-hidden /> Super Admin
+              <Shield className="h-3 w-3" aria-hidden /> {nomeDoAcessoDaPessoa(acessoArkefit)}
             </span>
             <p className="hidden sm:block text-sm font-semibold truncate" data-titulo-tela>
               {tituloDaTela(location.pathname)}
@@ -68,10 +70,13 @@ function SuperAdminLayoutInner() {
             </Button>
           </div>
         </header>
-        <AvisoRotinas />
+        {/* As rotinas, o banco e as catracas são da operação (o Suporte e o Sócio). */}
+        {podeArea(acessoArkefit, "operacao") && <AvisoRotinas />}
         <main className={cn("mx-auto w-full flex-1 min-w-0 p-3 sm:p-4 md:p-6", TELAS_LARGAS.includes(location.pathname) ? "max-w-none" : "max-w-6xl")}>
           <Suspense fallback={<CarregandoPagina />}>
-            <Outlet />
+            <PortaoDaRotaVisaoMaster>
+              <Outlet />
+            </PortaoDaRotaVisaoMaster>
           </Suspense>
         </main>
       </div>

@@ -7,6 +7,7 @@ import { useAdminSidebar } from "@/contexts/AdminSidebarContext";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { MarcaArkeFit } from "@/components/marca/MarcaArkeFit";
+import { podeAbrirNaVisaoMaster, type AcessoDaPessoa } from "@/lib/acessosArkefit";
 
 type MenuItem = { icon: typeof LayoutDashboard; label: string; path: string };
 
@@ -46,6 +47,13 @@ export const SECOES_SUPERADMIN: { label: string; items: MenuItem[] }[] = [
   },
 ];
 
+/** As seções do menu com os itens que o acesso abre (a seção vazia sai). */
+export function menuDaVisaoMaster(acesso: AcessoDaPessoa) {
+  return SECOES_SUPERADMIN.map((s) => ({ ...s, items: s.items.filter((i) => podeAbrirNaVisaoMaster(i.path, acesso)) })).filter(
+    (s) => s.items.length > 0,
+  );
+}
+
 function SidebarNav({
   collapsed,
   onCollapse,
@@ -57,7 +65,10 @@ function SidebarNav({
 }) {
   const location = useLocation();
   const navigate = useNavigate();
-  const { signOut } = useAuth();
+  const { signOut, acessoArkefit } = useAuth();
+  // Cada um vê no menu só o que o nível dele abre (a mesma tabela do portão de
+  // cada rota); a seção sem item nenhum some.
+  const secoes = menuDaVisaoMaster(acessoArkefit);
 
   const handleNav = (path: string) => {
     navigate(path);
@@ -92,7 +103,7 @@ function SidebarNav({
       </div>
 
       <nav className="flex-1 space-y-4 p-2 overflow-y-auto">
-        {SECOES_SUPERADMIN.map((section) => (
+        {secoes.map((section) => (
           <div key={section.label} className="space-y-1">
             {!collapsed && (
               <p className="px-3 pt-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70">

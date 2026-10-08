@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, useRef, ReactNode } from "react";
+import { createContext, useContext, useState, useEffect, useMemo, useRef, ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { escolherVinculo, gravarOrganizacaoPreferida, lerOrganizacaoPreferida } from "@/lib/vinculos";
@@ -13,6 +13,7 @@ import { descartarCopiaDaSimulacao, emPerfilSimulado, stopImpersonation } from "
 import { esquecerAvisosDesteAparelho } from "@/lib/avisosDoAparelho";
 import { armazenamentoPadrao, descartarTodosOsRascunhos, type ArmazenamentoListavel } from "@/lib/rascunho";
 import { vigiarSituacao } from "@/lib/releituraSituacao";
+import { lerNiveis, type AcessoDaPessoa, type NivelArkefit } from "@/lib/acessosArkefit";
 
 export type AppRole = Enums<"app_role">;
 
@@ -49,6 +50,14 @@ interface AuthContextType {
   session: Session | null;
   profile: Profile | null;
   roles: AppRole[]; // papéis globais de plataforma (ex.: admin_arke)
+  /**
+   * Os níveis da equipe contratada da ArkeFit (Suporte, Mentor...), da
+   * própria linha de `equipe_arkefit`, só se ativa. Nível nunca é papel de
+   * `user_roles`: quem diz o que cada um abre é `acesso_arkefit()` no banco.
+   */
+  niveisArkefit: NivelArkefit[];
+  /** O acesso à Visão Master: Sócio (`superadmin`) e os níveis. Ver src/lib/acessosArkefit.ts. */
+  acessoArkefit: AcessoDaPessoa;
   organization: Organization | null;
   organizationRole: AppRole | null; // papel do usuário dentro da organização atual
   alunoId: string | null; // id em `alunos`, quando o papel na org é "aluno"
@@ -119,13 +128,14 @@ type Vinculo = { organizationId: string; nome: string; role: AppRole };
 /** O acesso inteiro de uma pessoa: lido de uma vez, aplicado de uma vez. */
 interface LeituraAcesso {
   roles: AppRole[];
+  niveisArkefit: NivelArkefit[];
   vinculos: Vinculo[];
   organizationRole: AppRole | null;
   organization: Organization | null;
   aluno: LeituraAluno | null;
 }
 
-const ACESSO_VAZIO: LeituraAcesso = { roles: [], vinculos: [], organizationRole: null, organization: null, aluno: null };
+const ACESSO_VAZIO: LeituraAcesso = { roles: [], niveisArkefit: [], vinculos: [], organizationRole: null, organization: null, aluno: null };
 
 async function lerAluno(userId: string, organizationId: string): Promise<LeituraAluno | null> {
   const { data: aluno, error } = await supabase
@@ -214,22 +224,29 @@ async function lerAcesso(userId: string): Promise<LeituraAcesso> {
   // — gestor de uma academia e aluno de outra, professor em duas unidades —
   // fazia a consulta falhar, e o app ficava sem organização nenhuma para
   // essa pessoa. Cenário legítimo tratado como impossível.
-  const [{ data: globalRoles, error: erroPapeis }, { data: vinculos, error: erroVinculos }] = await Promise.all([
-    supabase.from("user_roles").select("role").eq("user_id", userId),
-    supabase
-      .from("organization_members")
-      .select("role, organization_id, created_at, organizations ( id, nome, slug, tipo, especialidade_profissional, onboarding_completed, status, logo_url, cor_marca, icone_app_192_url, icone_app_512_url )")
-      .eq("user_id", userId)
-      .eq("status", "active"),
-  ]);
+  const [{ data: globalRoles, error: erroPapeis }, { data: equipe, error: erroEquipe }, { data: vinculos, error: erroVinculos }] =
+    await Promise.all([
+      supabase.from("user_roles").select("role").eq("user_id", userId),
+      // A própria linha da equipe da ArkeFit (o RLS deixa cada um ler a sua,
+      // mesmo antes das duas etapas): é por ela que o app sabe que a conta
+      // tem nível e pede o aplicativo autenticador na entrada.
+      supabase.from("equipe_arkefit").select("niveis, ativo").eq("user_id", userId).maybeSingle(),
+      supabase
+        .from("organization_members")
+        .select("role, organization_id, created_at, organizations ( id, nome, slug, tipo, especialidade_profissional, onboarding_completed, status, logo_url, cor_marca, icone_app_192_url, icone_app_512_url )")
+        .eq("user_id", userId)
+        .eq("status", "active"),
+    ]);
   // Até 06/10/2026 estes erros eram ignorados: uma falha de rede virava "sem
   // vínculo", e a gestão era mandada para o app do aluno.
   if (erroPapeis) throw erroPapeis;
+  if (erroEquipe) throw erroEquipe;
   if (erroVinculos) throw erroVinculos;
 
   const membership = escolherVinculo(vinculos ?? [], lerOrganizacaoPreferida(userId));
   const leitura: LeituraAcesso = {
     roles: (globalRoles || []).map((r) => r.role),
+    niveisArkefit: equipe?.ativo ? lerNiveis(equipe.niveis) : [],
     vinculos: (vinculos ?? [])
       .map((v) => ({
         organizationId: v.organization_id,
@@ -284,6 +301,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [roles, setRoles] = useState<AppRole[]>([]);
+  const [niveisArkefit, setNiveisArkefit] = useState<NivelArkefit[]>([]);
   const [organization, setOrganization] = useState<Organization | null>(null);
   const [organizationRole, setOrganizationRole] = useState<AppRole | null>(null);
   const [alunoId, setAlunoId] = useState<string | null>(null);
@@ -322,6 +340,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const aplicarAcesso = (leitura: LeituraAcesso) => {
     setRoles(leitura.roles);
+    setNiveisArkefit(leitura.niveisArkefit);
     setVinculosDisponiveis(leitura.vinculos);
     setOrganizationRole(leitura.organizationRole);
     setOrganization(leitura.organization);
@@ -529,6 +548,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const hasRole = (role: AppRole) => roles.includes(role) || organizationRole === role;
 
+  // O mesmo objeto enquanto o acesso não muda: as telas o usam em efeitos e em `enabled`.
+  const ehSocio = roles.includes("superadmin");
+  const acessoArkefit = useMemo<AcessoDaPessoa>(() => ({ socio: ehSocio, niveis: niveisArkefit }), [ehSocio, niveisArkefit]);
+
   const signIn = async (email: string, password: string) => {
     // Entrada com senha nunca é simulação: uma cópia esquecida da sessão da
     // ArkeFit faria esta entrada pular o aceite de documentos e as duas etapas.
@@ -605,6 +628,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         session,
         profile,
         roles,
+        niveisArkefit,
+        acessoArkefit,
         organization,
         organizationRole,
         alunoId,

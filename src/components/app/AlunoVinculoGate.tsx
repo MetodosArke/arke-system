@@ -13,7 +13,7 @@ import { CarregandoTela } from "@/components/CarregandoPagina";
  * dela, e quem não tem academia vê o motivo e pode sair.
  */
 export function AlunoVinculoGate({ children }: { children: React.ReactNode }) {
-  const { rolesLoaded, alunoId, roles, organizationRole, organization } = useAuth();
+  const { rolesLoaded, alunoId, roles, niveisArkefit, organizationRole, organization } = useAuth();
 
   if (!rolesLoaded) {
     return <CarregandoTela />;
@@ -21,7 +21,7 @@ export function AlunoVinculoGate({ children }: { children: React.ReactNode }) {
 
   if (alunoId) return <>{children}</>;
 
-  const destino = resolveHomePath(roles, organizationRole, organization?.tipo);
+  const destino = resolveHomePath(roles, organizationRole, organization?.tipo, niveisArkefit);
   if (destino !== "/app") return <Navigate to={destino} replace />;
 
   return <SemAcademiaVinculada />;

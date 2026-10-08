@@ -35,6 +35,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useToast } from "@/hooks/use-toast";
+import { useAcessoArkefit } from "@/hooks/useAcessoArkefit";
 import { startImpersonation } from "@/lib/impersonation";
 import { cn } from "@/lib/utils";
 import {
@@ -193,6 +194,16 @@ const FORMA_PAGAMENTO_LABEL: Record<"PIX" | "CREDIT_CARD", string> = {
 export default function SuperAdminDashboard() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  // A Visão Geral junta áreas (os níveis da equipe ArkeFit, src/lib/acessosArkefit.ts):
+  // a carteira abre a tela; os indicadores e a receita são do financeiro; o
+  // funil, do comercial; a simulação, a adoção, o status e excluir, do Sócio;
+  // o token do Gateway, da operação. O que a pessoa não abre não aparece e
+  // não vai ao banco.
+  const { pode } = useAcessoArkefit();
+  const socio = pode("socio");
+  const financeiro = pode("financeiro");
+  const cadastro = pode("cadastro");
+  const operacao = pode("operacao");
 
   const {
     data: overview,
@@ -202,6 +213,7 @@ export default function SuperAdminDashboard() {
     isFetching: recarregandoOverview,
   } = useQuery({
     queryKey: ["superadmin-overview"],
+    enabled: financeiro,
     queryFn: async () => {
       const { data, error } = await supabase.rpc("get_superadmin_overview");
       if (error) throw error;
@@ -213,6 +225,7 @@ export default function SuperAdminDashboard() {
   // Configurações muda também a lista de planos da nova academia.
   const { data: limiteGrowth = null } = useQuery({
     queryKey: ["superadmin-limite-growth"],
+    enabled: cadastro,
     queryFn: async () => {
       const { data, error } = await supabase.from("planos_b2b_precos").select("limite_alunos").eq("plano", "growth").maybeSingle();
       if (error) throw error;
@@ -514,6 +527,7 @@ export default function SuperAdminDashboard() {
     isFetching: recarregandoPerfisSimulaveis,
   } = useQuery({
     queryKey: ["superadmin-perfis-simulaveis"],
+    enabled: socio,
     queryFn: async () => {
       const { data, error } = await supabase.rpc("get_superadmin_perfis_simulaveis");
       if (error) throw error;
@@ -548,9 +562,10 @@ export default function SuperAdminDashboard() {
     <div className="space-y-4 max-w-6xl mx-auto">
       <div className="flex items-center gap-2">
         <Shield className="h-5 w-5 text-primary" />
-        <h1 className="text-xl font-bold">Super Admin — Visão Master ArkeFit</h1>
+        <h1 className="text-xl font-bold">Visão Master ArkeFit</h1>
       </div>
 
+      {socio && (
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-base flex items-center gap-2">
@@ -622,7 +637,9 @@ export default function SuperAdminDashboard() {
           )}
         </CardContent>
       </Card>
+      )}
 
+      {financeiro && (
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
         <StatTile
           icon={TrendingUp}
@@ -676,12 +693,13 @@ export default function SuperAdminDashboard() {
           sublabel="Total processado"
         />
       </div>
+      )}
 
-      <ReceitaHistoricoCard />
+      {financeiro && <ReceitaHistoricoCard />}
 
-      <FunilConversaoCard />
+      {pode("comercial") && <FunilConversaoCard />}
 
-      <AdocaoMetodologiaCard />
+      {socio && <AdocaoMetodologiaCard />}
 
       <OperacaoGlobalCard />
 
@@ -694,9 +712,11 @@ export default function SuperAdminDashboard() {
                 Onboarding, busca, suporte e bloqueio manual das academias e studios parceiros.
               </p>
             </div>
-            <Button size="sm" onClick={() => setModalNovaOrgAberto(true)} className="shrink-0 gap-1.5">
-              <Plus className="h-4 w-4" /> Nova Organização
-            </Button>
+            {cadastro && (
+              <Button size="sm" onClick={() => setModalNovaOrgAberto(true)} className="shrink-0 gap-1.5">
+                <Plus className="h-4 w-4" /> Nova Organização
+              </Button>
+            )}
           </div>
 
           <Tabs
@@ -770,8 +790,8 @@ export default function SuperAdminDashboard() {
                   <th className="p-3">Academia</th>
                   <th className="p-3">Tipo</th>
                   <th className="p-3">Alunos</th>
-                  <th className="p-3">MRR</th>
-                  <th className="p-3">Atrasadas</th>
+                  {financeiro && <th className="p-3">MRR</th>}
+                  {financeiro && <th className="p-3">Atrasadas</th>}
                   <th className="p-3">Plano master</th>
                   <th className="p-3">Status</th>
                   <th className="p-3">Última Atividade</th>
@@ -811,15 +831,22 @@ export default function SuperAdminDashboard() {
                       <Badge variant="outline">{TIPO_LABEL[tenant.tipo]}</Badge>
                     </td>
                     <td className="p-3">{tenant.alunos_total}</td>
-                    <td className="p-3">{formatarMoeda(Number(tenant.mrr_organizacao))}</td>
+                    {/* Sem o financeiro, o banco devolve o MRR e as atrasadas nulos. */}
+                    {financeiro && <td className="p-3">{formatarMoeda(Number(tenant.mrr_organizacao))}</td>}
+                    {financeiro && (
+                      <td className="p-3">
+                        {tenant.assinaturas_atrasadas > 0 ? (
+                          <Badge variant="destructive">{tenant.assinaturas_atrasadas}</Badge>
+                        ) : (
+                          <span className="text-muted-foreground">0</span>
+                        )}
+                      </td>
+                    )}
                     <td className="p-3">
-                      {tenant.assinaturas_atrasadas > 0 ? (
-                        <Badge variant="destructive">{tenant.assinaturas_atrasadas}</Badge>
+                      {/* O plano é do Financeiro (e do Sócio); os outros só leem. */}
+                      {!financeiro ? (
+                        <Badge variant="outline">{PLANO_LABEL[tenant.plano_b2b]}</Badge>
                       ) : (
-                        <span className="text-muted-foreground">0</span>
-                      )}
-                    </td>
-                    <td className="p-3">
                       <Select
                         value={tenant.plano_b2b}
                         disabled={
@@ -844,6 +871,7 @@ export default function SuperAdminDashboard() {
                           ))}
                         </SelectContent>
                       </Select>
+                      )}
                     </td>
                     <td className="p-3">
                       <Badge variant={tenant.status === "ativo" ? "default" : "secondary"}>
@@ -862,24 +890,35 @@ export default function SuperAdminDashboard() {
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                           <DropdownMenuLabel>Ações do Tenant</DropdownMenuLabel>
-                          <DropdownMenuItem onClick={() => abrirEdicao(tenant)}>
-                            <Pencil className="h-3.5 w-3.5 mr-2" /> Editar Informações
+                          <DropdownMenuItem onClick={() => setTenantPerfil(tenant)}>
+                            <Building2 className="h-3.5 w-3.5 mr-2" /> Ver a ficha
                           </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => abrirEdicao(tenant, "faturamento")}>
-                            <Receipt className="h-3.5 w-3.5 mr-2" /> Faturamento / Cobranças B2B
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem
-                            disabled={
-                              acaoSuporte.isPending &&
-                              acaoSuporte.variables?.organization_id === tenant.organization_id
-                            }
-                            onClick={() => setTenantResetandoToken(tenant)}
-                          >
-                            <KeyRound className="h-3.5 w-3.5 mr-2" /> Invalidar token do Gateway Local
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          {tenant.status === "suspenso" ? (
+                          {cadastro && (
+                            <DropdownMenuItem onClick={() => abrirEdicao(tenant)}>
+                              <Pencil className="h-3.5 w-3.5 mr-2" /> Editar Informações
+                            </DropdownMenuItem>
+                          )}
+                          {financeiro && (
+                            <DropdownMenuItem onClick={() => abrirEdicao(tenant, "faturamento")}>
+                              <Receipt className="h-3.5 w-3.5 mr-2" /> Faturamento / Cobranças B2B
+                            </DropdownMenuItem>
+                          )}
+                          {operacao && (
+                            <>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                disabled={
+                                  acaoSuporte.isPending &&
+                                  acaoSuporte.variables?.organization_id === tenant.organization_id
+                                }
+                                onClick={() => setTenantResetandoToken(tenant)}
+                              >
+                                <KeyRound className="h-3.5 w-3.5 mr-2" /> Invalidar token do Gateway Local
+                              </DropdownMenuItem>
+                            </>
+                          )}
+                          {socio && <DropdownMenuSeparator />}
+                          {!socio ? null : tenant.status === "suspenso" ? (
                             <DropdownMenuItem
                               disabled={
                                 atualizarOrganizacao.isPending &&
@@ -906,20 +945,24 @@ export default function SuperAdminDashboard() {
                               <Lock className="h-3.5 w-3.5 mr-2" /> Suspender acesso do tenant
                             </DropdownMenuItem>
                           )}
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem
-                            className="text-destructive focus:text-destructive"
-                            disabled={
-                              acaoSuporte.isPending &&
-                              acaoSuporte.variables?.organization_id === tenant.organization_id
-                            }
-                            onClick={() => {
-                              setConfirmacaoExclusao("");
-                              setTenantExcluindo(tenant);
-                            }}
-                          >
-                            <Trash2 className="h-3.5 w-3.5 mr-2" /> Excluir Organização
-                          </DropdownMenuItem>
+                          {socio && (
+                            <>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                className="text-destructive focus:text-destructive"
+                                disabled={
+                                  acaoSuporte.isPending &&
+                                  acaoSuporte.variables?.organization_id === tenant.organization_id
+                                }
+                                onClick={() => {
+                                  setConfirmacaoExclusao("");
+                                  setTenantExcluindo(tenant);
+                                }}
+                              >
+                                <Trash2 className="h-3.5 w-3.5 mr-2" /> Excluir Organização
+                              </DropdownMenuItem>
+                            </>
+                          )}
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </td>
@@ -1179,6 +1222,8 @@ export default function SuperAdminDashboard() {
                 </div>
               </div>
 
+              {/* Trocar o e-mail de login do gestor é do Sócio (superadmin-suporte-tenant). */}
+              {socio && (
               <div className="space-y-1">
                 <Label htmlFor="edicao-email-gestor">E-mail do Gestor Master</Label>
                 <div className="flex items-center gap-2">
@@ -1215,6 +1260,7 @@ export default function SuperAdminDashboard() {
                   <p className="text-[11px] text-muted-foreground">Nenhum gestor ativo encontrado nesta organização.</p>
                 )}
               </div>
+              )}
 
               <DialogFooter className="!mt-4">
                 <Button variant="outline" onClick={() => fecharEdicao(false)}>
@@ -1458,10 +1504,10 @@ export default function SuperAdminDashboard() {
         </DialogContent>
       </Dialog>
 
-      {erroOverview && !overview && (
+      {financeiro && erroOverview && !overview && (
         <ErroAoCarregar oQue="a visão global" onTentarDeNovo={() => void recarregarOverview()} tentando={recarregandoOverview} />
       )}
-      {!isLoadingOverview && !erroOverview && !overview && (
+      {financeiro && !isLoadingOverview && !erroOverview && !overview && (
         <p className="text-xs text-muted-foreground text-center">
           Não foi possível carregar a visão global. Verifique se este usuário possui o papel
           "superadmin".
@@ -1471,14 +1517,22 @@ export default function SuperAdminDashboard() {
       <OrganizacaoPerfilSheet
         tenant={tenantPerfil}
         onOpenChange={(open) => !open && setTenantPerfil(null)}
-        onEditar={(tenant) => {
-          setTenantPerfil(null);
-          abrirEdicao(tenant);
-        }}
-        onFaturamento={(tenant) => {
-          setTenantPerfil(null);
-          abrirEdicao(tenant, "faturamento");
-        }}
+        onEditar={
+          cadastro
+            ? (tenant) => {
+                setTenantPerfil(null);
+                abrirEdicao(tenant);
+              }
+            : undefined
+        }
+        onFaturamento={
+          financeiro
+            ? (tenant) => {
+                setTenantPerfil(null);
+                abrirEdicao(tenant, "faturamento");
+              }
+            : undefined
+        }
       />
     </div>
   );
