@@ -36,6 +36,31 @@ describe("token do Gateway Local só como hash", () => {
     expect(semHash).toEqual([]);
   });
 
+  // Frente D, 07/10/2026: a sincronização lia o `status` da catraca e não o
+  // usava, e a catraca desativada seguia recebendo a lista de alunos (CPF e
+  // situação) a cada 5 minutos. A validação e o canal de ordens já recusavam.
+  it("a catraca desativada não recebe dado de aluno: o status é conferido antes", () => {
+    const ENTREGA: Record<string, string[]> = {
+      "catraca-validar-acesso": ['.from("alunos")', 'rpc("aluno_barrado_na_catraca"'],
+      "catraca-sincronizar-alunos": ['rpc("alunos_catraca_hash"', 'rpc("alunos_catraca"'],
+      "catraca-comandos": ['rpc("entregar_comandos_gateway"'],
+    };
+    for (const [nome, entregas] of Object.entries(ENTREGA)) {
+      // A corrente em várias linhas (`admin\n  .from(...)`) vira uma linha só.
+      const codigo = (funcoes.find((f) => f.nome === nome)?.codigo ?? "").replace(/\s+\./g, ".");
+      const recusa = codigo.search(/if \(catraca\.status !== "ativo"\) \{?\s*(?:await [^;]*;\s*)*return /);
+      expect(recusa, `${nome}: confere o status e sai`).toBeGreaterThan(0);
+      for (const entrega of entregas) {
+        const onde = codigo.indexOf(entrega);
+        expect(onde, `${nome}: ${entrega} existe`).toBeGreaterThan(0);
+        expect(recusa, `${nome}: o status antes de ${entrega}`).toBeLessThan(onde);
+      }
+    }
+    // Quem entrega a lista de alunos ao Gateway: só a sincronização.
+    const listam = funcoes.filter((f) => /rpc\("alunos_catraca"/.test(f.codigo)).map((f) => f.nome);
+    expect(listam).toEqual(["catraca-sincronizar-alunos"]);
+  });
+
   it("a tela não lê nem grava o token", () => {
     const tela = readFileSync(join(RAIZ, "src", "pages", "admin", "AdminCatracas.tsx"), "utf8");
     expect(tela).not.toMatch(/device_token/);
