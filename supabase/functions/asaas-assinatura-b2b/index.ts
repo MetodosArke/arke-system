@@ -1,5 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { verificada } from "../_shared/verificacao.ts";
+import { acessoArkefit } from "../_shared/acessoArkefit.ts";
 import {
   alterarValorAssinaturaB2b,
   consultarAssinaturaB2b,
@@ -63,7 +64,10 @@ servir("asaas-assinatura-b2b", async (req: Request) => {
     if (claimsError || !callerId) return jsonResponse({ error: "Sessão inválida. Faça login novamente." }, 401);
 
     const admin = createClient(supabaseUrl, serviceRoleKey);
-    const [{ data: vinculo }, { data: papeis }] = await Promise.all([
+    // Os níveis da equipe ArkeFit (08/10/2026): pela ArkeFit, a mensalidade
+    // B2B é da área `financeiro` (o Financeiro e o Sócio), perguntada ao banco
+    // com a sessão de quem chama (`acesso_arkefit`), que exige as duas etapas.
+    const [{ data: vinculo }, arkefitNoBanco] = await Promise.all([
       admin
         .from("organization_members")
         .select("role")
@@ -71,9 +75,13 @@ servir("asaas-assinatura-b2b", async (req: Request) => {
         .eq("user_id", callerId)
         .eq("status", "active")
         .maybeSingle(),
-      admin.from("user_roles").select("role").eq("user_id", callerId),
+      verificada(claims?.claims) ? acessoArkefit(asUser, claims?.claims, "financeiro") : Promise.resolve(false),
     ]);
-    const arkefit = verificada(claims?.claims) && (papeis ?? []).some((p) => p.role === "superadmin" || p.role === "admin_arke");
+    // Sem a resposta do banco, o gestor segue como gestor; quem não é, recebe erro nosso.
+    if (arkefitNoBanco === null && vinculo?.role !== "gestor") {
+      return jsonResponse({ error: "Não foi possível conferir o acesso agora. Tente de novo." }, 500);
+    }
+    const arkefit = arkefitNoBanco === true;
     if (!arkefit && vinculo?.role !== "gestor") {
       return jsonResponse({ error: "Só o gestor da academia ou a ArkeFit criam a mensalidade B2B." }, 403);
     }

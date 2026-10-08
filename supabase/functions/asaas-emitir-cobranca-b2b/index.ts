@@ -1,5 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { verificada } from "../_shared/verificacao.ts";
+import { acessoArkefit } from "../_shared/acessoArkefit.ts";
 import { ambienteAsaas } from "../_shared/asaas.ts";
 import { hojeBrasilia } from "../_shared/data.ts";
 import { servir } from "../_shared/servir.ts";
@@ -136,17 +137,16 @@ servir("asaas-emitir-cobranca-b2b", async (req: Request) => {
 
     const adminClient = createClient(supabaseUrl, serviceRoleKey);
 
-    const { data: callerRoles, error: callerRolesError } = await adminClient
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", callerId);
-    if (callerRolesError) {
-      console.error("Error loading caller roles", resumoDoErro(callerRolesError));
+    // Os níveis da equipe ArkeFit (08/10/2026): a cobrança B2B é da área
+    // `financeiro` (o Financeiro e o Sócio). A pergunta vai ao banco com a
+    // sessão de quem chama (`acesso_arkefit`), que exige as duas etapas.
+    const pode = verificada(claimsData?.claims) ? await acessoArkefit(asUser, claimsData?.claims, "financeiro") : false;
+    if (pode === null) {
+      console.error("asaas-emitir-cobranca-b2b: falha ao conferir o acesso");
       return errorResponse("Erro ao validar permissões.");
     }
-    const callerIsSuperadmin = verificada(claimsData?.claims) && (callerRoles ?? []).some((r) => r.role === "superadmin");
-    if (!callerIsSuperadmin) {
-      return errorResponse("Apenas o Super Admin ArkeFit pode emitir cobranças B2B.");
+    if (!pode) {
+      return errorResponse("Apenas a equipe da ArkeFit com acesso ao financeiro emite cobranças B2B.");
     }
 
     const { data: org, error: orgError } = await adminClient

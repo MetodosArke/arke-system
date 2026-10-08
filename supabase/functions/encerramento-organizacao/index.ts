@@ -300,8 +300,10 @@ servir("encerramento-organizacao", async (req: Request) => {
     const uid = typeof claims?.claims?.sub === "string" ? claims.claims.sub : null;
     if (!uid) return jsonResponse({ error: "Não autorizado." }, 401);
     const { data: papeis } = await admin.from("user_roles").select("role").eq("user_id", uid);
-    if (!verificada(claims?.claims) || !(papeis ?? []).some((p) => p.role === "superadmin" || p.role === "admin_arke")) {
-      return jsonResponse({ error: "Só a ArkeFit executa o encerramento." }, 403);
+    // Só o Sócio (os níveis da equipe ArkeFit, 08/10/2026: o Admin ARKE
+    // sozinho deixou de bastar; só os sócios o têm, junto do superadmin).
+    if (!verificada(claims?.claims) || !(papeis ?? []).some((p) => p.role === "superadmin")) {
+      return jsonResponse({ error: "Só um sócio da ArkeFit executa o encerramento." }, 403);
     }
   }
 

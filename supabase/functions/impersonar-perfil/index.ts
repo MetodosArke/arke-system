@@ -108,12 +108,13 @@ servir("impersonar-perfil", async (req: Request) => {
       console.error("Error loading caller roles", resumoDoErro(callerRolesError));
       return errorResponse("Erro ao validar permissões.");
     }
-    const callerIsAdminArke = verificada(claimsData?.claims) && (callerRoles ?? []).some((r) => r.role === "admin_arke");
+    // Só o Sócio simula (os níveis da equipe ArkeFit, 08/10/2026: o Admin ARKE
+    // sozinho deixou de bastar; só os sócios o têm, junto do superadmin).
     const callerIsSuperadmin = verificada(claimsData?.claims) && (callerRoles ?? []).some((r) => r.role === "superadmin");
     // Antes de olhar o perfil de destino: quem não é da ArkeFit não fica sabendo
     // se a pessoa é desta academia.
-    if (!callerIsAdminArke && !callerIsSuperadmin) {
-      return errorResponse("Só a ArkeFit simula perfil, com a verificação em duas etapas.");
+    if (!callerIsSuperadmin) {
+      return errorResponse("Só um sócio da ArkeFit simula perfil, com a verificação em duas etapas.");
     }
 
     // organization_members tem unique(organization_id, user_id) — filtrar
@@ -197,7 +198,6 @@ servir("impersonar-perfil", async (req: Request) => {
       // anonimização desligou dele, e a trilha não tem prazo (06/10/2026).
       _detalhes: {
         papel_alvo: targetMembership.role,
-        ator_admin_arke: callerIsAdminArke,
         ator_superadmin: callerIsSuperadmin,
       },
     });

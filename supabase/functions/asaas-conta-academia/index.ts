@@ -1,5 +1,6 @@
 import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2";
 import { verificada } from "../_shared/verificacao.ts";
+import { acessoArkefit } from "../_shared/acessoArkefit.ts";
 import {
   aceiteDosTermos,
   avisoDeTrocaDeCarteira,
@@ -40,7 +41,7 @@ type Acao = "criar" | "existente" | "situacao" | "documentos" | "modo_cobranca";
 
 /**
  * Avisa a ArkeFit pelo canal dos alertas: e-mail do remetente de alertas para
- * os Super Admins, como o alerta de rotinas e o Vigia. A troca já está gravada
+ * os sócios e o Financeiro (`emails_da_area`), como o alerta de rotinas. A troca já está gravada
  * e na auditoria; o e-mail que falha fica no log só com o status, e não desfaz
  * nada.
  */
@@ -50,7 +51,8 @@ async function avisarArkefit(admin: SupabaseClient, m: { assunto: string; texto:
     console.error("asaas-conta-academia: RESEND_API_KEY ausente, troca de carteira sem aviso por e-mail");
     return false;
   }
-  const { data: destinatarios, error } = await admin.rpc("emails_superadmin");
+  // O aviso de dinheiro vai aos sócios e ao Financeiro (`emails_da_area`, 08/10/2026).
+  const { data: destinatarios, error } = await admin.rpc("emails_da_area", { _area: "financeiro" });
   if (error) {
     console.error("asaas-conta-academia: falhou ao ler os destinatários", error.code);
     return false;
@@ -131,7 +133,11 @@ servir("asaas-conta-academia", async (req: Request) => {
 
     // Papel conferido com a organização fixada (unique(organization_id, user_id)),
     // não com "o vínculo de gestor" do chamador — a armadilha do vínculo duplo.
-    const [{ data: vinculo }, { data: papeis }] = await Promise.all([
+    // O ramo da ArkeFit (08/10/2026, os níveis da equipe): a conta das
+    // cobranças da academia é da área `financeiro` (o Financeiro e o Sócio),
+    // perguntada ao banco com a sessão de quem chama (`acesso_arkefit`), que
+    // exige as duas etapas. O ramo do gestor não muda.
+    const [{ data: vinculo }, arkefitNoBanco] = await Promise.all([
       admin
         .from("organization_members")
         .select("role")
@@ -139,9 +145,13 @@ servir("asaas-conta-academia", async (req: Request) => {
         .eq("user_id", callerId)
         .eq("status", "active")
         .maybeSingle(),
-      admin.from("user_roles").select("role").eq("user_id", callerId),
+      verificada(claims?.claims) ? acessoArkefit(asUser, claims?.claims, "financeiro") : Promise.resolve(false),
     ]);
-    const arkefit = verificada(claims?.claims) && (papeis ?? []).some((p) => p.role === "superadmin" || p.role === "admin_arke");
+    // Sem a resposta do banco, o gestor segue como gestor; quem não é, recebe erro nosso.
+    if (arkefitNoBanco === null && vinculo?.role !== "gestor") {
+      return jsonResponse({ error: "Não foi possível conferir o acesso agora. Tente de novo." }, 500);
+    }
+    const arkefit = arkefitNoBanco === true;
     if (!arkefit && vinculo?.role !== "gestor") {
       return jsonResponse({ error: "Só o gestor da academia configura a conta de recebimentos." }, 403);
     }
