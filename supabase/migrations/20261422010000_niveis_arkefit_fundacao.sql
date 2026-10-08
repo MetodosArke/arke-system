@@ -131,6 +131,12 @@ grant execute on function public.acesso_arkefit(text) to authenticated, service_
 -- Mentor passa pela área `mentoria`; as regras que usam esta função já pedem
 -- o aluno do Método (`aluno_no_metodo`) ou a biblioteca do Método, e as
 -- funções que a usavam sozinha passam a pedir o aluno do Método no lote 3.
+--
+-- Cerca de vinte regras a chamam linha a linha (sem o `(select ...)`). A
+-- sessão vem primeiro: sem as duas etapas, nem o papel da ArkeFit nem o
+-- nível valem (`has_role` e `acesso_arkefit` exigem aal2), e a resposta sai
+-- sem ler tabela nenhuma. Antes, a sessão só com a senha (o aluno, a gestão
+-- sem as duas etapas) fazia duas leituras de `user_roles` por linha.
 create or replace function public.equipe_metodo()
 returns boolean
 language sql
@@ -138,7 +144,8 @@ stable
 security definer
 set search_path = public
 as $$
-  select public.has_role(auth.uid(), 'admin_arke') or public.acesso_arkefit('mentoria');
+  select coalesce((select auth.jwt()) ->> 'aal', '') = 'aal2'
+     and (public.has_role(auth.uid(), 'admin_arke') or public.acesso_arkefit('mentoria'));
 $$;
 
 revoke execute on function public.equipe_metodo() from public, anon;
