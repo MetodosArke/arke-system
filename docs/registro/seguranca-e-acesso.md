@@ -878,8 +878,23 @@ Seis achados "baixos" da auditoria de prontidão (05/10), do grupo de app e conf
 - **Testes:** 53 novos (8 em `monitoramento.guarda`, 5 em `vinculos.guarda`, 6 em `releituraSituacao.guarda` e 1 em `AuthContext.acesso.test.tsx`, 12 em `provaDoConsentimento.guarda`, 18 em `assinaturaDosAgentes.guarda`, 3 em `pacoteInicial.guarda`). Suíte inteira: **1.391 testes em 183 arquivos, todos passando**, em 19 lotes de 10 arquivos, um processo por lote. O teste do portão do encerramento passou a esperar os exportadores, que chegam depois do cartão.
 - `npm run check` sem erro: tipos, lint (0 erros, os 27 avisos de antes, nenhum dos arquivos desta entrega), o `deno check` das 56 funções e a auditoria das dependências (0 vulnerabilidades). `npm run ajuda:indice` rodado depois dos artigos.
 - **O build:** o `vite build` passou, com e sem as variáveis de ambiente, e o `index.html` final carrega o pacote do app e as quatro bibliotecas (`modulepreload`).
+- **O banco de produção, em transação desfeita, antes de aplicar (08/10/2026):**
+  - **sem a migration:** "FALHOU 10 de 12". A aluna gravava a finalidade e a data do próprio consentimento de IA e mudava a data depois; não havia hash nem navegador; e a retirada ficava com a data que a tela mandava.
+  - **com a migration:** 14 casos ok, e nada ficou gravado.
+- **A avaliação da Letícia (08/10/2026), três rodadas:**
+
+  | Código | Resultado | Caso que errou |
+  |---|---|---|
+  | desta entrega, rodada 1 | 6 de 7 | migração |
+  | desta entrega, rodada 2 | 5 de 7 | catraca e migração |
+  | do `main`, para comparar | 7 de 7 | nenhum |
+
+  - **A entrada não mudou nesses casos.** Ela foi comparada caso a caso nas duas versões e saiu idêntica: as mensagens da avaliação não têm nome nem assinatura. A diferença é do modelo, e não desta entrega.
+  - **As três recusas têm o mesmo motivo:** o modelo escreveu "precisa" ("a transição precisa ser feita com cuidado", "você precisa que tudo funcione"), palavra proibida no espelho desde 28/09.
+  - **A recusa é a falha segura:** o e-mail sai sem a frase de espelho, com a proposta padrão do assunto.
+  - **Fica para depois:** pedir ao roteiro que evite "precisa", o que muda a assinatura e pede avaliação nova. O registro da rodada 2 está em `docs/avaliacoes-ia/2026-10-08.json`.
 - **Falta, porque esta frente não toca produção:**
-  - os roteiros da prova no banco de produção em transação desfeita (`prod-item5.sql`) e, depois, aplicar `20261410010000` e gerar os tipos de novo (`supabase gen types`), para conferir as colunas que entraram à mão em `types.ts`;
+  - aplicar `20261410010000` e gerar os tipos de novo (`supabase gen types`), para conferir as colunas que entraram à mão em `types.ts`;
   - publicar `responsavel-aceite` (depois da migration), `agente-comercial`, `agente-implantacao` e `assistente-academia` (o índice da Central mudou), e o app;
   - rodar `npm run avaliar:ia -- --so leticia` antes de publicar a Letícia: o roteiro não mudou, mas a entrada do modelo, sim;
   - a corrente real: um consentimento de IA e um aceite de documento pela tela, e conferir no banco a hora, o hash e o navegador; e o link do responsável, numa conta temporária;
