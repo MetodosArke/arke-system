@@ -159,6 +159,8 @@ export function ultimaPermissao(textos, tabela, privilegio, papel = "authenticat
   const re = /\b(grant|revoke)\s+([^;]*?)\s+on\s+(?:table\s+)?([^;]*?)\s+(to|from)\s+([^;]*);/gi;
   const alvo = new RegExp(String.raw`(?:^|[\s,])(?:public\.)?${tabela}(?![\w.])`);
   for (const texto of textos) {
+    // Atalho: tirar os comentários de todos os textos é a parte cara.
+    if (!/\b(grant|revoke)\b/i.test(texto) || !texto.toLowerCase().includes(tabela)) continue;
     for (const m of semComentarios(texto).matchAll(re)) {
       if (!new RegExp(String.raw`\b(${privilegio}|all)\b`).test(m[2].toLowerCase())) continue;
       if (!alvo.test(m[3].toLowerCase())) continue;

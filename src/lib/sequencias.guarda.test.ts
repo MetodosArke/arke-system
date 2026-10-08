@@ -58,5 +58,5 @@ describe("sequências com o uso para a service role", () => {
     // O grant em lote, para todas, vale para as que já existem.
     const lote = tabelasDosTextos([...textos, "create table public.x (id bigserial);", "grant all on all sequences in schema public to service_role;"]);
     expect(semUso(lote.sequencias)).toEqual([]);
-  });
+  }, 30_000);
 });

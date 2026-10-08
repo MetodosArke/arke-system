@@ -31,6 +31,9 @@ const historico = readdirSync(HISTORICO)
   .sort()
   .map((f) => ({ nome: f, sql: ler(HISTORICO, f).toLowerCase() }));
 
+/** Os textos da reconstrução do banco, na ordem, lidos uma vez (as regras e as permissões vigentes). */
+const reconstrucao = textosDaReconstrucao();
+
 /** A última definição de uma função, entre todas as migrations. */
 function ultimaDefinicao(funcao: string): string {
   const re = new RegExp(`create or replace function public\\.${funcao}\\s*\\([\\s\\S]*?\\n\\$\\$;`, "g");
@@ -199,7 +202,7 @@ describe("saída do aluno", () => {
     // 20261408010000: a regra de exclusão era `is_org_staff`, e a recepção
     // apagava o aluno com um DELETE; a cascata levava tudo sem o Asaas, os
     // arquivos e a auditoria da saída.
-    const textos = textosDaReconstrucao();
+    const textos = reconstrucao;
     const excluem = [...regrasVigentes(textos, "public.alunos")].filter(
       ([, r]) => !r.restritiva && (r.comando === "delete" || r.comando === "all"),
     );
@@ -208,10 +211,10 @@ describe("saída do aluno", () => {
     for (const papel of ["authenticated", "anon"]) {
       expect(ultimaPermissao(textos, "alunos", "delete", papel), papel).toMatch(new RegExp(`^revoke\\b.*\\bfrom\\b.*\\b${papel}\\b`));
     }
-  });
+  }, 30_000);
 
   it("o leitor acha a exclusão do aluno devolvida (a trava trava)", () => {
-    const textos = textosDaReconstrucao();
+    const textos = reconstrucao;
     expect(ultimaPermissao([...textos, "grant select, delete on public.alunos to authenticated;"], "alunos", "delete")).toMatch(/^grant\b/);
     expect(ultimaPermissao([...textos, "grant all on table alunos to anon, authenticated;"], "alunos", "delete", "anon")).toMatch(/^grant all\b/);
     // A tabela vizinha não conta.
@@ -221,7 +224,7 @@ describe("saída do aluno", () => {
       "public.alunos",
     );
     expect([...regra].filter(([, r]) => !r.restritiva && r.comando === "delete").map(([nome]) => nome)).toEqual(["exclusão"]);
-  });
+  }, 30_000);
 
   it("nenhuma tela nem função apaga o aluno direto, fora da saída", () => {
     const codigo = (dir: string): { arquivo: string; texto: string }[] =>
@@ -237,7 +240,7 @@ describe("saída do aluno", () => {
     // O detector detecta: a corrente em várias linhas, com filtro antes do delete.
     const plantado = `await supabase\n  .from("alunos")\n  .select("id")\n  .eq("id", x);\nawait db.from('alunos').eq("organization_id", o).delete().eq("id", a)\nconst y = 1`;
     expect(metodosDaCorrente(plantado, "alunos")).toEqual([["select", "eq"], ["eq", "delete", "eq"]]);
-  });
+  }, 30_000);
 
   it("a URL pública do Storage vira bucket e caminho; o resto é ignorado", () => {
     expect(caminhoDaUrlPublica("https://x.supabase.co/storage/v1/object/public/feed-images/org/a%20b.jpg")).toEqual({

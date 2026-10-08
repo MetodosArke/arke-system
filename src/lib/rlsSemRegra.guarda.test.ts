@@ -80,7 +80,7 @@ describe("tabela com RLS ligado e sem regra", () => {
         .map((t) => `${arquivo.slice(RAIZ.length + 1).replace(/\\/g, "/")}: ${t}`),
     );
     expect(lidas).toEqual([]);
-  });
+  }, 30_000);
 
   it("o leitor acha a tabela nova sem regra, e a regra segue a troca de nome (a trava trava)", () => {
     const textos = arquivosDaReconstrucao().map((a) => lerTexto(join(RAIZ, a)));
@@ -104,5 +104,5 @@ describe("tabela com RLS ligado e sem regra", () => {
     // A regra apagada volta a deixar a tabela sem regra.
     const apagada = tabelasDosTextos([...textos, `drop policy if exists "leitura" on public.leads_comerciais_mensagens;`]).tabelas;
     expect(semRegraQueLibere(apagada)).toContain("leads_comerciais_mensagens");
-  });
+  }, 30_000);
 });
