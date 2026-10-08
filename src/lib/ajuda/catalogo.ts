@@ -435,8 +435,9 @@ export const ARTIGOS: ArtigoAjuda[] = [
   },
   {
     slug: "vm-equipe-arkefit",
-    titulo: "Equipe ArkeFit: convidar e tirar o acesso",
-    resumo: "Convidar um sócio, o que a pessoa recebe, as duas etapas, o estado de cada conta e como tirar o acesso.",
+    titulo: "Equipe ArkeFit: convidar, cadastrar e tirar o acesso",
+    resumo:
+      "Convidar um sócio, as duas etapas, o estado de cada conta, o cadastro completo (quem vê, os anexos, Meu cadastro), as fichas para a contabilidade e como tirar o acesso.",
     secao: "Visão Master",
     publicos: ["arkefit"],
     rotas: ["/superadmin/equipe"],
