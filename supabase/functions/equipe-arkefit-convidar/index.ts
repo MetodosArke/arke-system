@@ -14,6 +14,7 @@ import {
   emailDeNovoConvite,
   lerPedido,
   nomeDoAcesso,
+  nomeDosNiveis,
   quandoEmBrasilia,
 } from "./fluxo.ts";
 
@@ -30,8 +31,9 @@ const jsonResponse = (body: unknown, status = 200) =>
 // acesso (08/10/2026). Três ações, todas só para o sócio com as duas etapas:
 //   * convidar: e-mail sem conta recebe o convite do Auth, sem senha, e a
 //     senha nasce no link do e-mail. E-mail que já tem conta é recusado (o
-//     pré-sequestro; ver fluxo.ts). O perfil, os papéis do nível, a linha da
-//     equipe e a auditoria gravam juntos no banco; se falharem, a conta é
+//     pré-sequestro; ver fluxo.ts). O perfil, os papéis (só do Sócio) ou os
+//     níveis (da equipe contratada, que nunca gravam `user_roles`), a linha
+//     da equipe e a auditoria gravam juntos no banco; se falharem, a conta é
 //     apagada. Os outros sócios recebem o aviso;
 //   * reenviar: o link de definir a senha de novo, a quem ainda não a criou;
 //   * retirar: pelo banco, com a sessão de quem pede (a regra mora em
@@ -122,12 +124,18 @@ servir("equipe-arkefit-convidar", async (req: Request) => {
     }
     const novoId = convite.user.id;
 
+    // O Sócio ganha os papéis; a equipe contratada, só os níveis. Nível nunca
+    // grava `user_roles`: o banco recusa os dois juntos, e o nível fechado.
+    const socio = "acesso" in pedido;
     const { error: gravarError } = await admin.rpc("gravar_convite_equipe_arkefit", {
       _ator: callerId,
       _user_id: novoId,
       _nome: pedido.nome,
-      _papeis: [...pedido.acesso.papeis],
-      _acesso: pedido.acesso.id,
+      _papeis: socio ? [...pedido.acesso.papeis] : [],
+      _acesso: socio ? pedido.acesso.id : "equipe",
+      _niveis: socio ? [] : pedido.niveis,
+      _cref: socio ? null : pedido.cref,
+      _crn: socio ? null : pedido.crn,
     });
     if (gravarError) {
       console.error("equipe-arkefit-convidar: falha ao gravar o convite", resumoDoErro(gravarError));
@@ -143,7 +151,7 @@ servir("equipe-arkefit-convidar", async (req: Request) => {
       evento: "convidada",
       ator: await nomeDe(callerId),
       pessoa: pedido.nome,
-      acesso: pedido.acesso.nome,
+      acesso: socio ? pedido.acesso.nome : nomeDosNiveis(pedido.niveis),
       painel,
     });
     return jsonResponse({ user_id: novoId, convite_enviado: true, socios_avisados: avisados });
@@ -211,13 +219,14 @@ servir("equipe-arkefit-convidar", async (req: Request) => {
     console.error("equipe-arkefit-convidar: falha ao tirar o acesso", resumoDoErro(retirarError));
     return jsonResponse({ error: "Não foi possível tirar o acesso agora." }, 500);
   }
-  const papeisRetirados = ((retirada as { papeis?: string[] } | null)?.papeis ?? []).filter((p) => typeof p === "string");
+  const lista = (valor: unknown) => (Array.isArray(valor) ? valor.filter((p): p is string => typeof p === "string") : []);
+  const retirado = (retirada ?? {}) as { papeis?: unknown; niveis?: unknown };
   const avisados = await avisarSocios(admin, {
     exceto: [callerId, pedido.userId],
     evento: "acesso_retirado",
     ator: await nomeDe(callerId),
     pessoa,
-    acesso: nomeDoAcesso(papeisRetirados),
+    acesso: nomeDoAcesso(lista(retirado.papeis), lista(retirado.niveis)),
     painel,
   });
   return jsonResponse({ retirado: true, socios_avisados: avisados });
