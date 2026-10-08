@@ -1,6 +1,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { conversarComIA } from "../_shared/ia.ts";
 import { descreverErro, registrarExecucao } from "../_shared/execucao.ts";
+import { assinaturaDeEquipe } from "../_shared/assinaturaDeEquipe.ts";
 import {
   categoriaPorPalavras,
   entradaDoModelo,
@@ -96,7 +97,7 @@ servir("agente-comercial", async (req: Request) => {
     const texto = (chave: string) => (textos ?? []).find((t) => t.chave === chave)?.valor?.trim() || null;
     const agenda = texto("agenda_demonstracao_url");
     if (!agenda) return await falha(500, "Sem link da agenda.", "agenda_demonstracao_url vazia com o agente ligado");
-    const assinatura = texto("agente_comercial_assinatura") ?? "Equipe comercial ArkeFit";
+    const assinatura = assinaturaDeEquipe(texto("agente_comercial_assinatura"), "Equipe comercial ArkeFit");
     const responderPara = texto("comercial_email");
 
     const { data: cfgIa } = await admin.from("plataforma_config").select("valor").eq("chave", "agente_comercial_ia").maybeSingle();
@@ -140,14 +141,16 @@ servir("agente-comercial", async (req: Request) => {
       let espelho: string | null = null;
       let origem: "ia" | "modelo" = "modelo";
       if (d.etapa === "primeira" && usarIa && usaEspelho(d.origem) && d.mensagem?.trim()) {
+        // Sem o nome de quem escreveu: nem na entrada, nem no espelho.
+        const nomes = d.nome ? [d.nome] : [];
         const resposta = await conversarComIA((n) => Deno.env.get(n), {
           sistema: SISTEMA_ESPELHO,
-          usuario: entradaDoModelo({ mensagem: d.mensagem, alunos_faixa: d.alunos_faixa, sistema_atual: d.sistema_atual }),
+          usuario: entradaDoModelo({ mensagem: d.mensagem, alunos_faixa: d.alunos_faixa, sistema_atual: d.sistema_atual, nome: d.nome }),
           maxTokens: 300,
           temperatura: 0.3,
         });
         if (resposta.ok) {
-          const lido = lerRespostaModelo(resposta.texto);
+          const lido = lerRespostaModelo(resposta.texto, nomes);
           if (lido.categoria && !escolhida) categoria = lido.categoria;
           if (lido.espelho) {
             espelho = lido.espelho;
@@ -158,7 +161,7 @@ servir("agente-comercial", async (req: Request) => {
           await registrarUsoIA(admin, {
             agente: "leticia",
             ...resposta.uso,
-            resultado: !resposta.ok ? "indisponivel" : espelhoRecusado(resposta.texto) ? "recusada_trava" : "ok",
+            resultado: !resposta.ok ? "indisponivel" : espelhoRecusado(resposta.texto, nomes) ? "recusada_trava" : "ok",
           });
         }
       }

@@ -10,7 +10,8 @@
 // Mora em `_shared` porque a porta do modelo (`consultarAssistente`, em
 // `ia.ts`) monta a entrada por aqui: não existe caminho até o modelo que pule
 // a limpeza. Sem Deno e sem Supabase, para o teste do app exercitar o código
-// real.
+// real. `tirarNomes` também tira o nome do contato da mensagem que vai ao
+// modelo da Letícia (`agente-comercial/fluxo.ts`, 07/10/2026).
 
 function normalizar(t: string): string {
   return t.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();

@@ -12,6 +12,7 @@ import {
   type Implantacao,
 } from "./fluxo.ts";
 import { servir } from "../_shared/servir.ts";
+import { assinaturaDeEquipe } from "../_shared/assinaturaDeEquipe.ts";
 
 const jsonResponse = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
@@ -70,7 +71,7 @@ servir("agente-implantacao", async (req: Request) => {
     const de = Deno.env.get("EMAIL_IMPLANTACAO_FROM") ?? "ArkeFit <implantacao@arkefit.com.br>";
     const { data: textos } = await admin.from("plataforma_textos").select("chave, valor").in("chave", ["agente_implantacao_assinatura", "suporte_email"]);
     const texto = (chave: string) => (textos ?? []).find((t) => t.chave === chave)?.valor?.trim() || null;
-    const assinatura = texto("agente_implantacao_assinatura") ?? "Equipe de implantação ArkeFit";
+    const assinatura = assinaturaDeEquipe(texto("agente_implantacao_assinatura"), "Equipe de implantação ArkeFit");
     const responderPara = texto("suporte_email");
 
     const enviar = async (para: string[], idempotencia: string, email: { assunto: string; html: string; texto: string }) => {
