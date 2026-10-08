@@ -87,7 +87,8 @@ Cada linha é uma armadilha que já aconteceu aqui. Onde há trava, ela é um te
   - documento legal entra no banco só depois de o texto estar no ar;
   - rotina do pg_cron nasce (e sai) só por migration, e o roteiro de reconstrução é gerado de novo com `node scripts/migracao/rotinas.mjs --escrever` (`rotinasBanco.guarda`).
 - Os gatilhos `before insert` de `tarefas` disparam em ordem alfabética, e o do SLA é o último (`trg_ultimo_`, `ordemGatilhosTarefas.guarda`).
-- Tabela com `bigserial` precisa de `grant usage` na sequência para a `service_role`.
+- Tabela com `bigserial` (ou identity) precisa de `grant usage` na sequência para a `service_role` (`sequencias.guarda`).
+- Tabela com RLS ligado e sem regra é só do servidor: a tela que a lê recebe vazio, sem erro. Ela entra na lista de `rlsSemRegra.guarda`, com o motivo.
 - `plataforma_config` tem faixa por chave (`faixa_plataforma_config()`). Chave nova nasce com faixa.
 - O status de cobrança só anda pelas transições permitidas (`trg_transicao_cobranca`): o pago não volta a dever.
 - Gatilho do dinheiro que entrou (receita, nota fiscal) é `after insert or update`: a cobrança pode nascer confirmada (`cobrancaQueNascePaga.guarda`).
@@ -116,15 +117,15 @@ Cada linha é uma armadilha que já aconteceu aqui. Onde há trava, ela é um te
 
 **Segurança e privacidade**
 - Papel da ArkeFit só vale com as duas etapas: `has_role` no banco e `verificada(claims)` nas funções (`verificacao.guarda`). Na gestão, `sessao_verificada()`.
-- O token do Gateway só como hash (`tokenCatraca.guarda`). O receptor atende só os IPs dos equipamentos do config.
+- O token do Gateway só como hash, e a catraca desativada não recebe dado de aluno (`tokenCatraca.guarda`). O receptor atende só os IPs dos equipamentos do config.
 - IA: região fixa e modelo sem roteamento (`iaNoBrasil.guarda`), e prazo em toda chamada (`prazoIA.guarda`).
 - Sentry: o módulo é uma lista do que não sai. Session Replay desligado, e a identificação vai só por UUID.
-- Log das funções leva `resumoDoErro(erro)`, nunca o objeto de erro nem a mensagem, que traz e-mail ou CPF (`logsSemDadoPessoal.guarda`).
+- Log das funções leva `resumoDoErro(erro)`, nunca o objeto de erro nem a mensagem, que traz e-mail ou CPF (`logsSemDadoPessoal.guarda`). A resposta também não leva a mensagem crua do Auth nem do banco: o erro do Auth passa por `respostaDoErroDoAuth()`, e a recusa nossa se declara pelo código na mesma linha (`respostaSemErroInterno.guarda`).
 - Captcha só por `_shared/captcha.ts`. Senha vazada por k-anonimato (HIBP), com falha aberta.
 - A chave do Asaas só pelo `ambienteAsaas` (`ambienteAsaas.guarda`). O webhook confere cada gravação, e o aviso do sandbox só toca organização em trial, mesmo sem achar organização (`webhookAsaas.guarda`). O aviso do Asaas é gravado reduzido ao que o webhook lê, mais os 4 dígitos e a bandeira (`trg_minimizar_aviso_asaas`, `avisoAsaas.guarda`).
 - Na sessão simulada, as autorizações da pessoa são recusadas no banco (`perfilSimulado.guarda`).
 - A recepção não vê saúde, nem pela API: tarefa de saúde por `tarefa_de_saude()`, e o chat da nutrição segue a regra da dieta (`tarefasPorDono.guarda`, `caixaDeMensagens.guarda`). O Acompanhamento ARKE troca o motivo de saúde por um texto neutro para a academia.
-- Mensagem de chat não se apaga pela API, nem a própria (`caixaDeMensagens.guarda`).
+- Mensagem de chat não se apaga pela API, nem a própria (`caixaDeMensagens.guarda`). O aluno também não: ele só sai pela saída (`excluir-aluno`, `anonimizar-aluno`), que passa pelo Asaas, pelos arquivos e pela auditoria (`saidaDoAluno.guarda`).
 - A troca de e-mail, nome e papel da equipe vai à auditoria, só com ids; a de papel também quando é feita direto pela API (`auditoriaDaEquipe.guarda`).
 
 ## Mapa

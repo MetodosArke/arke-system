@@ -6,7 +6,7 @@ Funções em Deno, publicadas no projeto `lzyxqjibkfblrrjboylp`. O repositório 
 
 - **O `verify_jwt` de cada função mora em `supabase/config.toml`.** Função pública (webhook, matrícula, primeiro acesso, cron) é declarada lá. Sem a declaração, o Supabase exige JWT, e o cron leva 401.
 - **Deploy não é prova.** O empacotador não faz análise de escopo: uma variável fora do bloco passa no deploy e quebra na primeira chamada. O `deno check` de todas as funções roda no `npm run check` (`npm run check:funcoes`); depois do deploy, faça uma chamada autenticada de verdade.
-- **Toda chamada externa tem prazo:** `signal: AbortSignal.timeout(...)` em cada `fetch`. `prazoChamadas.guarda.test.ts` cobra.
+- **Toda chamada externa tem prazo:** `signal: AbortSignal.timeout(...)` em cada `fetch`. SDK que não aceita prazo fica de fora: o e-mail do login ia pelo do Resend e escapava da regra. `prazoChamadas.guarda.test.ts` cobra.
 - **Tipos:** `SupabaseClient` de `npm:@supabase/supabase-js@2`, e não `ReturnType<typeof createClient>`, que o `deno check` recusa.
 - **Função que chama o modelo registra o uso** (`registrarUsoIA`, `_shared/usoIA.ts`), sem texto nenhum: `usoIA.test.ts` cobra. O Sentinela fica de fora enquanto estiver congelado.
 - Código testável fica num `fluxo.ts` sem Deno nem Supabase, para o teste do app e o sandbox exercitarem o código real, e não uma cópia.
@@ -17,6 +17,7 @@ Funções em Deno, publicadas no projeto `lzyxqjibkfblrrjboylp`. O repositório 
 
 - **O supabase-js não lança erro: ele devolve o erro.** Confira o `error` de toda leitura e gravação. No webhook do Asaas, tudo passa por `exigir()`; gravação que falha deixa o aviso sem processar.
 - **Log leva só status HTTP e código de erro.** Nunca o corpo, que pode trazer número de cartão, dado de saúde, prompt ou resposta de IA. O erro entra por `resumoDoErro(erro)` (`_shared/resumoDoErro.ts`: nome, código e status), nunca o objeto nem a mensagem, que pode trazer e-mail ou CPF; `descreverErro` leva a mensagem e serve só ao registro da execução. `logsSemDadoPessoal.guarda.test.ts` cobra.
+- **A resposta não leva a mensagem crua do Auth nem do banco**, que pode trazer o e-mail digitado. O erro do Auth passa por `respostaDoErroDoAuth()` (`_shared/erroDoAuth.ts`). A recusa nossa (`raise exception`, o limite de alunos) pode ir para a tela, e se declara pelo código na mesma linha: `if (error.code === "P0001") return jsonResponse({ error: error.message }, 409)`. `respostaSemErroInterno.guarda.test.ts` cobra.
 - Falha nossa e pedido inválido são respostas diferentes: com o banco fora do ar, a resposta não diz "link expirado".
 - **Link de tela do app** em e-mail ou aviso vai com o `#` do HashRouter: `linkDoApp(SITE_URL, rota)` (`_shared/linkDoApp.ts`). Variável de ambiente nova entra em `docs/INFRAESTRUTURA.md` no mesmo PR. `linksDoApp.guarda.test.ts` cobra as duas.
 
@@ -44,6 +45,7 @@ Funções em Deno, publicadas no projeto `lzyxqjibkfblrrjboylp`. O repositório 
 - `contaCobranca.ts` (puro) e `contaDaAcademia.ts`: em qual conta Asaas a cobrança mora. O Método, sempre na da ArkeFit; a mensalidade e a avulsa novas, na da academia quando `cobranca_conta_academia` está ligado (sem split, sem taxa). A cobrança que já existe vai à conta gravada em `conta_asaas`; nunca à do modo de hoje.
 - `webhookAcademia.ts`: o webhook que a ArkeFit registra na conta da academia (`asaas-webhook?org=<id>`), o token dentro das regras do Asaas e o hash dele, que é o que o banco guarda.
 - `prestadorPagamentos.ts`: o selo e o texto do Asaas como prestador, para os e-mails que falam de cobrança (espelho de `src/lib/prestadorPagamentos.ts`).
+- `erroDoAuth.ts`: a resposta para um erro do Auth (já cadastrado, e-mail inválido, limite, recusa ou falha dele), sem a mensagem dele.
 - `verificacao.ts`, `alvoNaAcademia.ts`, `papelCobranca.ts`, `freio.ts`, `execucao.ts` e `vapid.ts`: um pedaço de regra cada.
 
 ## Asaas e envios
