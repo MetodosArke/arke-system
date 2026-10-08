@@ -16,7 +16,7 @@ import { join } from "node:path";
 import { arquivosDaReconstrucao, lerTexto, RAIZ_PADRAO, semComentarios } from "./rotinas.mjs";
 
 /** O texto com o conteúdo entre aspas simples trocado por espaços (mesmo comprimento). */
-function mascararAspas(sql) {
+export function mascararAspas(sql) {
   let saida = "";
   let aspas = false;
   for (let i = 0; i < sql.length; i++) {
@@ -66,7 +66,7 @@ function fimDoComando(mascarado, inicio) {
  * cortado (sem partir um caractere). Uma regra antiga foi apagada pelo nome
  * já cortado, e sem isto ela pareceria viva.
  */
-function nomeNoBanco(nome) {
+export function nomeNoBanco(nome) {
   const bytes = Buffer.from(nome, "utf8");
   if (bytes.length <= 63) return nome;
   let fim = 63;
