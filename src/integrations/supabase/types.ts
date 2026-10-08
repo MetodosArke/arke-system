@@ -8204,6 +8204,14 @@ export type Database = {
         Args: { _token_hash: string }
         Returns: Json
       }
+      conta_da_equipe_arkefit: {
+        Args: { _user_id: string }
+        Returns: {
+          email: string
+          estado: string
+          nome: string
+        }[]
+      }
       conta_da_matricula_publica_nao_confirmada: {
         Args: { _user_id: string }
         Returns: boolean
@@ -8325,6 +8333,12 @@ export type Database = {
           email: string
         }[]
       }
+      emails_socios_para_aviso: {
+        Args: { _exceto: string[] }
+        Returns: {
+          email: string
+        }[]
+      }
       emails_superadmin: {
         Args: never
         Returns: {
@@ -8385,6 +8399,7 @@ export type Database = {
       }
       equipe_metodo: { Args: never; Returns: boolean }
       escalar_tarefas_vencidas: { Args: never; Returns: undefined }
+      estado_conta_arkefit: { Args: { _user_id: string }; Returns: string }
       excluir_aluno_da_academia: {
         Args: { _aluno_id: string; _ator: string }
         Returns: Json
@@ -8794,6 +8809,7 @@ export type Database = {
           cref: string
           crn: string
           email: string
+          estado: string
           mentor: boolean
           nome: string
           papeis: string[]
@@ -9039,6 +9055,16 @@ export type Database = {
         }[]
       }
       girar_token_catraca: { Args: { _catraca_id: string }; Returns: string }
+      gravar_convite_equipe_arkefit: {
+        Args: {
+          _acesso: string
+          _ator: string
+          _nome: string
+          _papeis: Database["public"]["Enums"]["app_role"][]
+          _user_id: string
+        }
+        Returns: undefined
+      }
       guardar_chave_subconta_asaas: {
         Args: { _chave: string; _organization_id: string }
         Returns: undefined
@@ -9364,6 +9390,10 @@ export type Database = {
           semana: string
         }[]
       }
+      papeis_da_arkefit: {
+        Args: never
+        Returns: Database["public"]["Enums"]["app_role"][]
+      }
       papel_prescreve_no_autonomo: {
         Args: { _o_que: string; _organization_id: string; _user_id: string }
         Returns: boolean
@@ -9561,6 +9591,10 @@ export type Database = {
           situacao: string
           taxa_id: string
         }[]
+      }
+      retirar_acesso_equipe_arkefit: {
+        Args: { _user_id: string }
+        Returns: Json
       }
       retirar_encerramento_organizacao: {
         Args: { _organization_id: string }

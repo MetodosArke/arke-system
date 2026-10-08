@@ -459,7 +459,9 @@ export default function SuperAdminFichaAluno() {
   );
 }
 
-type MembroEquipe = { user_id: string; nome: string; ativo: boolean; cadastrado: boolean };
+// `estado` desde 20261421010000: quem ainda não criou a senha ou não tem as
+// duas etapas não entra na Visão Master, e por isso não recebe aluno.
+type MembroEquipe = { user_id: string; nome: string; ativo: boolean; cadastrado: boolean; estado?: string | null };
 
 function MentorResponsavel({
   alunoId,
@@ -496,8 +498,8 @@ function MentorResponsavel({
     onError: (e: Error) => toast({ title: "Não foi possível definir o mentor", description: e.message, variant: "destructive" }),
   });
 
-  // Quem está inativo na equipe não recebe aluno novo.
-  const disponiveis = equipe.filter((m) => !m.cadastrado || m.ativo);
+  // Quem está inativo na equipe, ou ainda não entra, não recebe aluno novo.
+  const disponiveis = equipe.filter((m) => (!m.cadastrado || m.ativo) && (m.estado ?? "ativo") === "ativo");
 
   return (
     <div className="flex flex-wrap items-center gap-2 text-sm">

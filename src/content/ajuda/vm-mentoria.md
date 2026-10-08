@@ -55,7 +55,7 @@ O tempo até a resposta é **latência**, não esforço: um chamado resolvido em
 
 ## Equipe ArkeFit: quem pode prescrever
 
-Em [Equipe ArkeFit](/superadmin/equipe) ficam as contas da ArkeFit e o registro profissional de cada uma: **CREF** para treino e **CRN** para dieta. A mesma pessoa pode ter os dois. Cada mudança fica na Auditoria, e desativar alguém não apaga o que essa pessoa já publicou.
+Em [Equipe ArkeFit](/superadmin/equipe) ficam as contas da ArkeFit e o registro profissional de cada uma: **CREF** para treino e **CRN** para dieta. A mesma pessoa pode ter os dois. Cada mudança fica na Auditoria, e desativar alguém não apaga o que essa pessoa já publicou. Convidar alguém para a equipe e tirar o acesso estão em [Equipe ArkeFit: convidar e tirar o acesso](ajuda:vm-equipe-arkefit).
 
 O interruptor **Exigir CREF e CRN para prescrever** decide se o registro é obrigatório:
 

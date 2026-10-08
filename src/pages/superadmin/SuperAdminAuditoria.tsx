@@ -25,6 +25,12 @@ const ACOES: Record<string, { label: string; icon: typeof Pencil; destrutiva?: b
   // ou, o papel, direto pela API (`pela_api`). O nome não fica no registro.
   "equipe.papel_alterado": { label: "Papel de alguém da equipe alterado", icon: UserCog },
   "equipe.nome_alterado": { label: "Nome de alguém da equipe alterado", icon: Pencil },
+  // A equipe da ArkeFit (20261421010000): o convite de um sócio e a retirada do
+  // acesso. O registro guarda o nível e os papéis, nunca o e-mail nem o nome.
+  "equipe_arkefit.convidada": { label: "Convite para a equipe ArkeFit", icon: UserCog, destrutiva: true },
+  "equipe_arkefit.acesso_retirado": { label: "Acesso à equipe ArkeFit retirado", icon: ShieldAlert, destrutiva: true },
+  // O registro profissional e o "atende como mentor" (20261292010000), que não tinha rótulo.
+  equipe_arkefit_salva: { label: "Cadastro da equipe ArkeFit alterado", icon: Pencil },
   // A rotina diária (20261403010000): a matrícula pelo link que não confirmou o e-mail em 7 dias.
   "matricula_publica.apagada_sem_confirmacao": { label: "Matrícula pelo link apagada (e-mail não confirmado)", icon: Trash2, destrutiva: true },
   "organizacao.reativada": { label: "Organização reativada", icon: ShieldAlert },
@@ -106,8 +112,8 @@ export default function SuperAdminAuditoria() {
       </div>
       <p className="text-sm text-muted-foreground">
         Registro de quem suspendeu ou excluiu organizações, resetou token de catraca, trocou o e-mail de login de um
-        gestor, trocou o e-mail, o nome ou o papel de alguém da equipe ou simulou o perfil de outra pessoa. O log é
-        somente leitura: nem o Super Admin apaga linhas por aqui.
+        gestor, trocou o e-mail, o nome ou o papel de alguém da equipe, convidou alguém para a equipe ArkeFit ou tirou
+        o acesso, ou simulou o perfil de outra pessoa. O log é somente leitura: nem o Super Admin apaga linhas por aqui.
       </p>
 
       <Card>

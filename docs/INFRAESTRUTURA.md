@@ -38,7 +38,7 @@ Os upgrades pagos (Supabase, Vercel e Resend) vêm antes do primeiro cliente pag
   - Privados: `atestados`, `chat-videos`, `dietas`, `termos-biometria`.
   - Públicos: `avatars`, `email-assets`, `exercicio-imagens`, `exercicio-videos`, `feed-images`.
 - **Funções do servidor (Edge Functions):**
-  - são 56, com o código em `supabase/functions/`;
+  - são 57, com o código em `supabase/functions/`;
   - quais respondem sem login está em `supabase/config.toml`;
   - cada Gateway de catraca faz ~100 mil chamadas por mês (escuta longa de ordens). Com 50 academias com catraca, passa das 2 milhões incluídas no Pro, e o excedente custa poucos dólares por mês;
   - publicar: `supabase functions deploy <nome> --project-ref lzyxqjibkfblrrjboylp`.
@@ -128,7 +128,7 @@ Ficam em Supabase → Project Settings → Edge Functions → Secrets. O Supabas
 ## Resend
 
 - **Domínio** `arkefit.com.br`: verificado, região `sa-east-1`, com envio e recebimento ligados e sem rastreamento de abertura nem de clique.
-- **Remetentes usados pelo código:** `alertas@`, `relatorios@`, `convites@`, `suporte@`, `site@`, `ola@`, `noreply@`, `contato@`, `comercial@`, `implantacao@` e `acesso@arkefit.com.br`. Podem ser trocados sem mexer no código, por variável das funções (não são segredos; sem a variável, vale o remetente escrito no código): `EMAIL_IMPLANTACAO_FROM` (Bruno e o aviso de painel pronto do profissional autônomo), `EMAIL_SUPORTE_FROM` (chamado do assistente da academia), `EMAIL_ACESSO_FROM` (aviso de matrícula a quem já tinha conta, o pedido de autorização ao responsável do aluno menor, `responsavel-pedido`, e o aviso de encerramento da academia aos alunos), `EMAIL_ALERTAS_FROM` (alerta de rotinas e de catraca parada, o Vigia e o aviso de encerramento à gestão), `EMAIL_COMERCIAL_FROM` (Letícia), `EMAIL_SITE_FROM` (contato do site) e `EMAIL_FROM` (os e-mails do Auth, `send-email`).
+- **Remetentes usados pelo código:** `alertas@`, `relatorios@`, `convites@`, `suporte@`, `site@`, `ola@`, `noreply@`, `contato@`, `comercial@`, `implantacao@` e `acesso@arkefit.com.br`. Podem ser trocados sem mexer no código, por variável das funções (não são segredos; sem a variável, vale o remetente escrito no código): `EMAIL_IMPLANTACAO_FROM` (Bruno e o aviso de painel pronto do profissional autônomo), `EMAIL_SUPORTE_FROM` (chamado do assistente da academia), `EMAIL_ACESSO_FROM` (aviso de matrícula a quem já tinha conta, o pedido de autorização ao responsável do aluno menor, `responsavel-pedido`, o aviso de encerramento da academia aos alunos e o convite reenviado da equipe ArkeFit, `equipe-arkefit-convidar`), `EMAIL_ALERTAS_FROM` (alerta de rotinas e de catraca parada, o Vigia, o aviso de encerramento à gestão e o aviso aos sócios de quem entrou ou saiu da equipe ArkeFit), `EMAIL_COMERCIAL_FROM` (Letícia), `EMAIL_SITE_FROM` (contato do site) e `EMAIL_FROM` (os e-mails do Auth, `send-email`).
 - **Onde entra a chave do Resend:** no segredo `RESEND_API_KEY` e na senha do SMTP do Auth.
 
 ## Amazon Web Services (Bedrock)
