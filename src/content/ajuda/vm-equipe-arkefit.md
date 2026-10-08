@@ -1,4 +1,4 @@
-Em [Equipe ArkeFit](/superadmin/equipe) ficam as contas da ArkeFit: quem tem acesso, com qual nível, e em que ponto cada conta está. É também onde se cadastra o registro profissional de quem atende o Método (veja [Mentoria](ajuda:vm-mentoria)).
+Em [Equipe ArkeFit](/superadmin/equipe) ficam as contas da ArkeFit: quem tem acesso, com qual nível, e em que ponto cada conta está. É também onde se cadastra o registro profissional de quem atende o Método (veja [Mentoria](ajuda:vm-mentoria)) e o cadastro completo de cada pessoa, para o contrato social, a contabilidade e o pagamento.
 
 ## Convidar alguém para a equipe
 
@@ -43,6 +43,49 @@ Duas recusas, que valem também fora da tela:
 
 > Devolver o acesso a uma conta que já foi retirada ainda não é possível pela tela, porque o e-mail dela já tem conta. Fale com o responsável técnico.
 
+## Editar o nome
+
+Clique em **Editar nome** na pessoa. É o nome que aparece na equipe e em todo o sistema. Só um sócio, com a verificação em duas etapas, muda o nome de alguém (o próprio inclusive). O nome completo dos documentos fica no cadastro, abaixo.
+
+## O cadastro de cada pessoa
+
+Clique em **Cadastro** na pessoa. O painel traz os dados que o contrato social, a contabilidade e o pagamento pedem, em seções:
+
+- **Identificação:** nome completo, nome social, CPF, RG (número, órgão, UF e emissão), nascimento, nacionalidade, naturalidade, estado civil, regime de bens (para quem é casado ou vive em união estável), profissão e o nome da mãe e do pai;
+- **Contato:** telefone e um e-mail de contato. Ele não muda o e-mail de entrada no sistema;
+- **Endereço:** digite o CEP e o endereço se completa;
+- **Documentos:** PIS, PASEP ou NIT, a CTPS e o título de eleitor;
+- **Vínculo com a ArkeFit:** sócio, CLT, PJ, autônomo (RPA) ou estágio, o cargo, a entrada e a saída. Para PJ, o CNPJ e a razão social; para sócio, a participação no capital e se é sócio administrador;
+- **Pagamento:** a remuneração combinada (pró-labore, salário ou valor do contrato), o banco, a agência, a conta e a chave PIX.
+
+Só o nome completo é obrigatório: preencha o que tiver em mãos e salve. Se a página fechar no meio, ao abrir de novo o painel oferece **Restaurar** a edição que não foi salva.
+
+### Quem vê e quem muda
+
+- **Os sócios**, com a verificação em duas etapas, veem e mudam o cadastro de qualquer pessoa da equipe, inclusive de quem já saiu.
+- **A própria pessoa** vê o próprio cadastro inteiro e muda os dados dela: identificação, contato, endereço, documentos e onde recebe. O vínculo, a remuneração, a participação e as observações ela só lê; para mudar, fala com um sócio.
+- **Mais ninguém**: nem a equipe contratada de outro nível, nem as academias. Em perfil simulado, o cadastro não abre.
+
+Cada gravação vai para a [Auditoria](/superadmin/auditoria) como **Dados cadastrais da equipe ArkeFit alterados**, com quem mudou, de quem e **quais campos**, nunca os valores.
+
+## Meu cadastro
+
+Na sua própria conta, o botão se chama **Meu cadastro**. Mantenha seus dados em dia, principalmente a conta e a chave PIX onde você recebe.
+
+## Anexos
+
+No fim do cadastro, em **Anexos**, escolha o documento (RG ou CNH, CPF, comprovante de residência, contrato ou outro), escolha o arquivo e clique em **Anexar**. Vale PDF, JPG ou PNG, até 10 MB. A foto do celular é reduzida antes de enviar, sem perder a leitura.
+
+- **Abrir** gera um link que vale por um minuto: o documento nunca fica num endereço público.
+- A própria pessoa anexa e abre os documentos dela. **Apagar** é só dos sócios: para trocar um documento, anexe o novo e peça a um sócio para apagar o antigo.
+
+## Exportar para a contabilidade
+
+- **Baixar ficha**, no cadastro, gera a planilha de uma pessoa, de cima para baixo: a identificação, a filiação, o endereço e o contato, os documentos, o vínculo e o pagamento. A própria pessoa baixa a dela.
+- **Baixar fichas da equipe**, no alto da tela Equipe ArkeFit, gera a planilha de todos: uma linha por pessoa, nas mesmas colunas, e a ficha de cada um numa aba. Só os sócios baixam. Quem ainda não tem cadastro fica de fora.
+
+Cada download vai para a [Auditoria](/superadmin/auditoria) como **Fichas da equipe ArkeFit baixadas**, com quem baixou e de quem. A planilha tem CPF, endereço e conta bancária: mande à contabilidade por um canal seguro e apague a cópia do computador depois.
+
 ## Auditoria
 
-O convite (**Convite para a equipe ArkeFit**) e a retirada (**Acesso à equipe ArkeFit retirado**) vão para a [Auditoria](/superadmin/auditoria) com quem fez, em quem e o nível, sem o e-mail.
+O convite (**Convite para a equipe ArkeFit**) e a retirada (**Acesso à equipe ArkeFit retirado**) vão para a [Auditoria](/superadmin/auditoria) com quem fez, em quem e o nível, sem o e-mail. A troca do nome, o cadastro e os downloads das fichas também, sempre sem os dados da pessoa.

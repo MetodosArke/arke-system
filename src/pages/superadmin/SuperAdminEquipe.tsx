@@ -31,6 +31,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { ErroAoCarregar } from "@/components/ErroAoCarregar";
+import { BaixarFichasDaEquipe, BotoesDaContaArkefit } from "@/components/superadmin/CadastroEquipeArkefit";
 import { useToast } from "@/hooks/use-toast";
 import { UserPlus, UsersRound } from "lucide-react";
 
@@ -228,10 +229,13 @@ export default function SuperAdminEquipe() {
           <UsersRound className="h-5 w-5 text-primary" aria-hidden="true" />
           <h1 className="text-xl font-bold">Equipe ArkeFit</h1>
         </div>
-        <Button size="sm" onClick={() => setConvite(CONVITE_VAZIO)}>
-          <UserPlus className="mr-1.5 h-4 w-4" aria-hidden="true" />
-          Convidar para a equipe
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <BaixarFichasDaEquipe />
+          <Button size="sm" onClick={() => setConvite(CONVITE_VAZIO)}>
+            <UserPlus className="mr-1.5 h-4 w-4" aria-hidden="true" />
+            Convidar para a equipe
+          </Button>
+        </div>
       </div>
       <p className="text-xs text-muted-foreground">
         Quem é da ArkeFit e com qual acesso. Para o Método ARKE: publicar treino de aluno do Método exige CREF, e
@@ -314,6 +318,7 @@ export default function SuperAdminEquipe() {
                     <Button size="sm" variant="outline" onClick={() => abrir(m)}>
                       {m.cadastrado ? "Editar" : "Cadastrar"}
                     </Button>
+                    <BotoesDaContaArkefit membro={m} />
                     {!euMesmo && (
                       <Button
                         size="sm"

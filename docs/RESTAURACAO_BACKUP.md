@@ -15,7 +15,7 @@ Backup que nunca foi restaurado é hipótese. Este ensaio prova que a volta func
 
 ## O que o ensaio não cobre
 
-- **Storage (atestados, vídeos, termos, mídia do acervo):** o backup do banco não inclui os arquivos. Eles ficam no storage do projeto, que sobrevive a uma restauração do banco no mesmo projeto, mas não vão para um projeto novo.
+- **Storage (atestados, vídeos, termos, mídia do acervo, documentos da equipe da ArkeFit):** o backup do banco não inclui os arquivos. Eles ficam no storage do projeto, que sobrevive a uma restauração do banco no mesmo projeto, mas não vão para um projeto novo. Os buckets e as regras deles nascem de novo pelo roteiro `scripts/migracao/02-depois-da-restauracao.sql` (os dez, inclusive `equipe-arkefit-documentos`, de 20261430010000); os arquivos, não.
 - **Segredos do Vault e das edge functions:** a chave do Vault é do projeto. Um projeto restaurado precisa dos tokens refeitos (ver `docs/MIGRACAO_SUPABASE.md`, que passou por isso na migração para São Paulo).
 
 ## Registro

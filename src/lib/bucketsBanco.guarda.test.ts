@@ -26,13 +26,17 @@ const roteiro = lerTexto(join(RAIZ, ROTEIRO));
 const doRoteiro = bucketsDoRoteiro(roteiro);
 const doRepositorio = bucketsDoRepositorio(RAIZ);
 
-/** O retrato de produção lido em 06/10/2026: nome e se é público. */
+/**
+ * O retrato de produção lido em 06/10/2026: nome e se é público. Bucket novo
+ * de migration entra aqui junto (`equipe-arkefit-documentos`, 20261430010000).
+ */
 const PRODUCAO: Record<string, boolean> = {
   atestados: false,
   avatars: true,
   "chat-videos": false,
   dietas: false,
   "email-assets": true,
+  "equipe-arkefit-documentos": false,
   "exercicio-imagens": true,
   "exercicio-videos": true,
   "feed-images": true,
@@ -48,7 +52,7 @@ function arquivos(dir: string): string[] {
 }
 
 describe("buckets na reconstrução", () => {
-  it("o roteiro cria os 9 buckets de produção, com o público e o privado de cada um", () => {
+  it("o roteiro cria os buckets de produção, com o público e o privado de cada um", () => {
     expect([...doRoteiro.keys()].sort()).toEqual(Object.keys(PRODUCAO).sort());
     for (const [id, publico] of Object.entries(PRODUCAO)) {
       expect(doRoteiro.get(id)?.campos.public, id).toBe(publico);

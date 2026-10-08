@@ -34,8 +34,8 @@ Os upgrades pagos (Supabase, Vercel e Resend) vêm antes do primeiro cliente pag
   - SMTP de reserva: `smtp.resend.com`;
   - verificação em duas etapas por aplicativo autenticador, obrigatória nas contas da ArkeFit;
   - **limite de e-mails do login: 500 por hora** no projeto inteiro. O padrão com SMTP próprio é 30, que uma importação de 400 alunos esgotava. Fica em Authentication → Rate Limits.
-- **Arquivos (Storage):** nove espaços.
-  - Privados: `atestados`, `chat-videos`, `dietas`, `termos-biometria`.
+- **Arquivos (Storage):** dez espaços.
+  - Privados: `atestados`, `chat-videos`, `dietas`, `equipe-arkefit-documentos` (os documentos da equipe da ArkeFit: só os sócios e a própria pessoa), `termos-biometria`.
   - Públicos: `avatars`, `email-assets`, `exercicio-imagens`, `exercicio-videos`, `feed-images`.
 - **Funções do servidor (Edge Functions):**
   - são 57, com o código em `supabase/functions/`;

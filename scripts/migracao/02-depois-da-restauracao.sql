@@ -30,7 +30,8 @@
 
 -- ---------------------------------------------------------------- Storage ---
 
--- Os 9 buckets de produção (retrato de 06/10/2026). Os que uma migration cria
+-- Os 10 buckets de produção (retrato de 06/10/2026, e `equipe-arkefit-documentos`,
+-- de 20261430010000). Os que uma migration cria
 -- ou altera têm aqui os mesmos valores dela, e `src/lib/bucketsBanco.guarda.test.ts`
 -- falha se um bucket novo de migration ficar fora desta lista (como ficou
 -- `termos-biometria`, de 20261250010000, até 06/10/2026). Avatars, dietas,
@@ -43,6 +44,7 @@ values
   ('chat-videos',       'chat-videos',       false, 10485760, array['video/mp4','video/webm','video/quicktime']),
   ('dietas',            'dietas',            false,  3145728, array['image/png','image/jpeg','image/webp','application/pdf']),
   ('email-assets',      'email-assets',      true,   2097152, null),
+  ('equipe-arkefit-documentos', 'equipe-arkefit-documentos', false, 10485760, array['application/pdf','image/jpeg','image/png']),
   ('exercicio-imagens', 'exercicio-imagens', true,   5242880, array['image/png','image/jpeg','image/webp','image/gif']),
   ('exercicio-videos',  'exercicio-videos',  true,  15728640, array['video/mp4','video/webm','video/quicktime']),
   ('feed-images',       'feed-images',       true,   5242880, array['image/png','image/jpeg','image/webp','image/gif']),
@@ -54,9 +56,10 @@ on conflict (id) do update
 
 -- As regras são as vigentes nas migrations: uma por operação para
 -- `authenticated`, mais a leitura pública para `anon` (20261214010000), com
--- o termo da digital na leitura e na inclusão (20261250010000) e o teto
--- diário de envio na inclusão (20261322010000). `bucketsBanco.guarda` confere
--- cada uma contra a última versão das migrations.
+-- o termo da digital na leitura e na inclusão (20261250010000), o teto
+-- diário de envio na inclusão (20261322010000) e os documentos da equipe
+-- ArkeFit na leitura, na inclusão e na exclusão (20261430010000).
+-- `bucketsBanco.guarda` confere cada uma contra a última versão das migrations.
 drop policy if exists "objetos: leitura pública" on storage.objects;
 drop policy if exists "objetos: leitura" on storage.objects;
 drop policy if exists "objetos: inclusão" on storage.objects;
@@ -74,6 +77,7 @@ create policy "objetos: leitura"
   using (
     (bucket_id = any (array['avatars', 'email-assets', 'exercicio-videos', 'exercicio-imagens', 'feed-images']))
     or ((bucket_id = any (array['atestados', 'chat-videos', 'termos-biometria'])) and public.pode_acessar_atestado(name))
+    or (bucket_id = 'equipe-arkefit-documentos' and public.pode_ver_documento_equipe_arkefit(name))
   );
 
 create policy "objetos: inclusão"
@@ -85,6 +89,7 @@ create policy "objetos: inclusão"
       or (bucket_id = any (array['exercicio-videos', 'exercicio-imagens']) and public.pode_gravar_midia_exercicio((storage.foldername(name))[1]))
       or (bucket_id = any (array['atestados', 'chat-videos']) and public.pode_acessar_atestado(name))
       or (bucket_id = 'termos-biometria' and public.pode_gravar_termo_biometria(name))
+      or (bucket_id = 'equipe-arkefit-documentos' and public.pode_ver_documento_equipe_arkefit(name))
     )
     and public.envio_dentro_do_teto(bucket_id, name)
   );
@@ -112,12 +117,15 @@ create policy "objetos: exclusão"
     or (bucket_id = any (array['exercicio-videos','exercicio-imagens'])
         and public.pode_gravar_midia_exercicio((storage.foldername(name))[1]))
     or (bucket_id = any (array['atestados','chat-videos']) and public.pode_acessar_atestado(name))
+    or (bucket_id = 'equipe-arkefit-documentos' and public.pode_apagar_documento_equipe_arkefit(name))
   );
 
 grant execute on function public.pode_acessar_atestado(text) to authenticated;
 grant execute on function public.pode_gravar_midia_exercicio(text) to authenticated;
 grant execute on function public.pode_gravar_termo_biometria(text) to authenticated;
 grant execute on function public.envio_dentro_do_teto(text, text) to authenticated;
+grant execute on function public.pode_ver_documento_equipe_arkefit(text) to authenticated;
+grant execute on function public.pode_apagar_documento_equipe_arkefit(text) to authenticated;
 
 
 -- ------------------------------------------------------ Tokens do Vault -----
