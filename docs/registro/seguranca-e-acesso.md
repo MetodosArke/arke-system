@@ -893,9 +893,18 @@ Seis achados "baixos" da auditoria de prontidão (05/10), do grupo de app e conf
   - **As três recusas têm o mesmo motivo:** o modelo escreveu "precisa" ("a transição precisa ser feita com cuidado", "você precisa que tudo funcione"), palavra proibida no espelho desde 28/09.
   - **A recusa é a falha segura:** o e-mail sai sem a frase de espelho, com a proposta padrão do assunto.
   - **Fica para depois:** pedir ao roteiro que evite "precisa", o que muda a assinatura e pede avaliação nova. O registro da rodada 2 está em `docs/avaliacoes-ia/2026-10-08.json`.
-- **Falta, porque esta frente não toca produção:**
-  - aplicar `20261410010000` e gerar os tipos de novo (`supabase gen types`), para conferir as colunas que entraram à mão em `types.ts`;
-  - publicar `responsavel-aceite` (depois da migration), `agente-comercial`, `agente-implantacao` e `assistente-academia` (o índice da Central mudou), e o app;
-  - rodar `npm run avaliar:ia -- --so leticia` antes de publicar a Letícia: o roteiro não mudou, mas a entrada do modelo, sim;
-  - a corrente real: um consentimento de IA e um aceite de documento pela tela, e conferir no banco a hora, o hash e o navegador; e o link do responsável, numa conta temporária;
-  - a tela no computador e no celular: o login (a animação nova e o aviso de instalar), a abertura do app do aluno, do painel e da Visão Master (o "Carregando" do layout), a academia pausando a aluna com o app aberto e a volta para a aba, os desafios e as competições de quem é aluno numa academia e recepção em outra, o seletor de exercícios da prescrição e o portão do encerramento com a exportação.
+- **A publicação (08/10/2026):**
+  - `20261410010000` aplicada;
+  - os tipos gerados de novo, idênticos aos escritos à mão;
+  - as funções `responsavel-aceite` (v2), `agente-comercial` (v10), `agente-implantacao` (v11) e `assistente-academia` (v34);
+  - o app (#359).
+- **O e2e de produção** rodou depois do deploy e passou: a fumaça, a jornada do aluno e o painel do gestor carregam com o pacote dividido.
+- **A corrente real**, com uma aluna temporária na homologação, apagada no fim:
+  - a autorização de IA gravada como o app grava (o aluno, a academia e o propósito) respondeu 201. O banco carimbou a versão (`2026-09-23.4`), o hash do texto, o navegador do cabeçalho e a hora dele;
+  - a mesma gravação com a data escolhida pela aluna foi recusada (403);
+  - a retirada ficou com a hora do banco, e não com a data mandada, e a tentativa de desfazer a retirada foi recusada (400).
+- **A tela, no celular:** com o app aberto, a academia pausou a aluna; passado mais de 1 minuto, ao voltar para a tela, ela viu "Sua matrícula está pausada", que não aparecia antes.
+- **Defeito do caminho:** a primeira rodada da corrente real usou o propósito `ia_chat`, que é o nome do aceite do responsável, e não o da autorização (`chat`). O banco recusou pela regra do propósito, e o roteiro foi corrigido.
+- **Ficaram sem conferência na tela:**
+  - a animação do login, o "Carregando" do painel e da Visão Master e o seletor de exercícios. O e2e cobre a abertura do painel;
+  - o link do responsável, que pede um menor com e-mail de responsável. A guarda e a prova do banco cobrem.
