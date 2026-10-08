@@ -1,5 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { verificada } from "../_shared/verificacao.ts";
+import { acessoArkefit } from "../_shared/acessoArkefit.ts";
 import { servir } from "../_shared/servir.ts";
 import { resumoDoErro } from "../_shared/resumoDoErro.ts";
 import { emailJaCadastrado, respostaDoErroDoAuth } from "../_shared/erroDoAuth.ts";
@@ -122,17 +123,29 @@ servir("criar-organizacao-superadmin", async (req: Request) => {
 
     const adminClient = createClient(supabaseUrl, serviceRoleKey);
 
-    const { data: callerRoles, error: callerRolesError } = await adminClient
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", callerId);
-    if (callerRolesError) {
-      console.error("Error loading caller roles", resumoDoErro(callerRolesError));
+    // Os níveis da equipe ArkeFit (08/10/2026): cadastrar a academia é da área
+    // `cadastro` (o Comercial e o Sócio). O trial é homologação, e dar trial é
+    // só do Sócio: o Comercial cria a academia como `ativo`. A pergunta vai ao
+    // banco com a sessão de quem chama (`acesso_arkefit`), que exige as duas
+    // etapas. A organização é gravada pela service role, que os gatilhos não
+    // conferem: a regra mora aqui.
+    const podeCadastrar = verificada(claimsData?.claims) ? await acessoArkefit(asUser, claimsData?.claims, "cadastro") : false;
+    if (podeCadastrar === null) {
+      console.error("criar-organizacao-superadmin: falha ao conferir o acesso");
       return jsonResponse({ error: "Erro ao validar permissões." }, 500);
     }
-    const callerIsSuperadmin = verificada(claimsData?.claims) && (callerRoles ?? []).some((r) => r.role === "superadmin");
-    if (!callerIsSuperadmin) {
-      return jsonResponse({ error: "Apenas o Super Admin ArkeFit pode cadastrar organizações." }, 403);
+    if (!podeCadastrar) {
+      return jsonResponse({ error: "Apenas a equipe da ArkeFit com acesso ao cadastro cadastra organizações." }, 403);
+    }
+    if (status === "trial") {
+      const socio = await acessoArkefit(asUser, claimsData?.claims, "socio");
+      if (socio === null) {
+        console.error("criar-organizacao-superadmin: falha ao conferir o acesso");
+        return jsonResponse({ error: "Erro ao validar permissões." }, 500);
+      }
+      if (!socio) {
+        return jsonResponse({ error: "O trial é homologação e só um sócio da ArkeFit o dá. Cadastre a academia como ativa." }, 403);
+      }
     }
 
     const { data: organizacao, error: orgError } = await adminClient

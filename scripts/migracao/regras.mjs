@@ -7,8 +7,9 @@
 // regra de hoje é a soma do que cada migration mudou. Ler a migration mais
 // recente que cita a tabela já enganou (a metade `with check` ficava velha).
 //
-// Lê `create policy`, `alter policy` e `drop policy` escritos por extenso,
-// inclusive dentro de bloco `do $$ ... $$`. A regra montada por `format(...)`
+// Lê `create policy`, `alter policy` (inclusive o `rename to`) e `drop
+// policy` escritos por extenso, inclusive dentro de bloco `do $$ ... $$`.
+// A regra montada por `format(...)`
 // dentro de um texto entre aspas (a "duas etapas") fica de fora: o texto dela
 // não é a regra, é um molde.
 
@@ -79,7 +80,7 @@ const TABELA = String.raw`((?:[a-z_][a-z0-9_]*\.)?[a-z_][a-z0-9_]*)`;
 
 /**
  * Os comandos de regra de um texto SQL, na ordem.
- * @returns {{tipo: "create"|"alter"|"drop", nome: string, tabela: string, restritiva: boolean, comando: string|null, using: string|null, withCheck: string|null}[]}
+ * @returns {{tipo: "create"|"alter"|"drop"|"rename", nome: string, novoNome?: string, tabela: string, restritiva: boolean, comando: string|null, using: string|null, withCheck: string|null}[]}
  */
 export function comandosDeRegra(sql) {
   const original = semComentarios(sql);
@@ -105,6 +106,16 @@ export function comandosDeRegra(sql) {
       using: null,
       withCheck: null,
     };
+    // `alter policy ... rename to "outro"`: a regra segue, com o nome novo.
+    const renomeia = new RegExp(String.raw`^\s*rename\s+to\s+${NOME}`).exec(corpoMasc);
+    if (m[1] === "alter" && renomeia) {
+      const inicioNovo = deslocamento + renomeia.index + renomeia[0].length - renomeia[1].length;
+      regra.tipo = "rename";
+      regra.novoNome = nomeNoBanco(original.slice(inicioNovo, inicioNovo + renomeia[1].length).replace(/^"|"$/g, ""));
+      achados.push(regra);
+      re.lastIndex = fim;
+      continue;
+    }
     const using = /\busing\s*\(/.exec(corpoMasc);
     if (using) regra.using = parenteses(original, mascarado, deslocamento + using.index + using[0].length - 1)?.texto ?? null;
     const check = /\bwith\s+check\s*\(/.exec(corpoMasc);
@@ -129,6 +140,13 @@ export function regrasVigentes(textos, tabela) {
       if (c.tabela !== tabela) continue;
       if (c.tipo === "drop") {
         regras.delete(c.nome);
+        continue;
+      }
+      if (c.tipo === "rename") {
+        const atual = regras.get(c.nome);
+        if (!atual) throw new Error(`alter policy "${c.nome}" on ${tabela} rename sem a regra criada antes`);
+        regras.delete(c.nome);
+        regras.set(c.novoNome, atual);
         continue;
       }
       if (c.tipo === "create") {
