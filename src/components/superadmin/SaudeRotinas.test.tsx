@@ -23,6 +23,14 @@ vi.mock("@/integrations/supabase/client", () => ({
   supabase: { rpc: (...args: unknown[]) => rpc(...args), from: () => consulta() },
 }));
 
+// O acesso de quem abre (os níveis da equipe ArkeFit): as rotinas, o banco e
+// as catracas são da operação; a reconciliação com o Asaas, do financeiro.
+const acesso = vi.hoisted(() => ({ atual: { socio: true, niveis: [] as string[] } }));
+vi.mock("@/hooks/useAcessoArkefit", async () => {
+  const { podeArea } = await vi.importActual<typeof import("@/lib/acessosArkefit")>("@/lib/acessosArkefit");
+  return { useAcessoArkefit: () => ({ acesso: acesso.atual, pode: (a: Parameters<typeof podeArea>[1]) => podeArea(acesso.atual, a) }) };
+});
+
 function rotina(parcial: Partial<Rotina>): Rotina {
   return {
     nome: "arke-ativacao-pendente",
@@ -50,6 +58,7 @@ beforeEach(() => {
   rpc.mockReset();
   ultimaReconciliacao.mockReset();
   ultimaReconciliacao.mockResolvedValue({ data: null, error: null });
+  acesso.atual = { socio: true, niveis: [] };
 });
 
 describe("rotinasComProblema", () => {
@@ -144,6 +153,19 @@ describe("AvisoRotinas com a reconciliação", () => {
     });
     montar(<AvisoRotinas />);
     expect(await screen.findByText(/1 assinatura ativa no Asaas sem registro/)).toBeInTheDocument();
+  });
+
+  it("o Suporte não lê a reconciliação (é do financeiro): a faixa fica com as rotinas", async () => {
+    acesso.atual = { socio: false, niveis: ["suporte"] };
+    rpc.mockResolvedValue({ data: [rotina({ situacao: "falhou", nome: "arke-sla" })], error: null });
+    ultimaReconciliacao.mockResolvedValue({
+      data: { ...RECONCILIACAO_OK, executada_em: new Date().toISOString(), assinaturas_orfas: 1 },
+      error: null,
+    });
+    montar(<AvisoRotinas />);
+    expect(await screen.findByText(/A rotina "arke-sla" falhou/)).toBeInTheDocument();
+    expect(ultimaReconciliacao).not.toHaveBeenCalled();
+    expect(screen.queryByText(/há divergência na reconciliação/)).not.toBeInTheDocument();
   });
 });
 

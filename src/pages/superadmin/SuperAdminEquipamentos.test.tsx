@@ -15,6 +15,14 @@ vi.mock("@/integrations/supabase/client", () => ({
   },
 }));
 
+// O acesso de quem abre (os níveis da equipe ArkeFit): o Suporte vê o resumo
+// de cada catraca; o detalhe do Gateway e as ordens remotas, só o Sócio.
+const acesso = vi.hoisted(() => ({ atual: { socio: true, niveis: [] as string[] } }));
+vi.mock("@/hooks/useAcessoArkefit", async () => {
+  const { podeArea } = await vi.importActual<typeof import("@/lib/acessosArkefit")>("@/lib/acessosArkefit");
+  return { useAcessoArkefit: () => ({ acesso: acesso.atual, pode: (a: Parameters<typeof podeArea>[1]) => podeArea(acesso.atual, a) }) };
+});
+
 const EQUIPAMENTO = {
   catraca_id: "c1",
   organization_id: "o1",
@@ -57,7 +65,24 @@ const montar = () => {
 const abrirAba = (nome: RegExp) => fireEvent.mouseDown(screen.getByRole("tab", { name: nome }), { button: 0 });
 
 describe("Visão Master → Equipamentos", () => {
-  beforeEach(() => rpc.mockReset());
+  beforeEach(() => {
+    rpc.mockReset();
+    acesso.atual = { socio: true, niveis: [] };
+  });
+
+  it("o Suporte vê a catraca, mas a linha não abre o detalhe do Gateway", async () => {
+    acesso.atual = { socio: false, niveis: ["suporte"] };
+    rpc.mockImplementation((nome: string) =>
+      Promise.resolve({ data: nome === "get_superadmin_equipamentos" ? [EQUIPAMENTO] : [], error: null })
+    );
+    montar();
+    expect(await screen.findByText(/há 20 min/, {}, { timeout: 5000 })).toBeInTheDocument();
+    const linha = screen.getByRole("button", { name: /Tietê Fitness/ });
+    expect(linha).toBeDisabled();
+    fireEvent.click(linha);
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(document.body.textContent).not.toContain("Toque numa linha");
+  });
 
   it("lista a catraca sem sinal com o que precisa de ação", async () => {
     rpc.mockImplementation((nome: string) =>

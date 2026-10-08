@@ -12,6 +12,13 @@ vi.mock("@/integrations/supabase/client", () => ({
   },
 }));
 
+// O acesso de quem abre (os níveis da equipe ArkeFit): as catracas são da operação.
+const acesso = vi.hoisted(() => ({ atual: { socio: true, niveis: [] as string[] } }));
+vi.mock("@/hooks/useAcessoArkefit", async () => {
+  const { podeArea } = await vi.importActual<typeof import("@/lib/acessosArkefit")>("@/lib/acessosArkefit");
+  return { useAcessoArkefit: () => ({ acesso: acesso.atual, pode: (a: Parameters<typeof podeArea>[1]) => podeArea(acesso.atual, a) }) };
+});
+
 // Formato de public.get_superadmin_equipamentos() — a mesma fonte da página
 // Equipamentos, para as duas telas não discordarem sobre a mesma catraca.
 const GATEWAY_BASE = {
@@ -72,6 +79,15 @@ const abrirAba = (nome: RegExp) => {
 describe("OperacaoGlobalCard", () => {
   beforeEach(() => {
     rpc.mockReset();
+    acesso.atual = { socio: true, niveis: [] };
+  });
+
+  it("quem abre só a carteira vê a fila e não pede as catracas ao banco", async () => {
+    acesso.atual = { socio: false, niveis: ["comercial"] };
+    mockarRpc([], [FILA_BASE]);
+    renderizar();
+    await waitFor(() => expect(rpc).toHaveBeenCalledWith("get_superadmin_fila_global"));
+    expect(rpc.mock.calls.map((c) => c[0])).not.toContain("get_superadmin_equipamentos");
   });
 
   it("soma a fila de todas as academias", async () => {

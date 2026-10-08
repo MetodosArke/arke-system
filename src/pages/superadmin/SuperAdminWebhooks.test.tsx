@@ -11,6 +11,14 @@ vi.mock("@/integrations/supabase/client", () => ({
   },
 }));
 
+// O acesso de quem abre (os níveis da equipe ArkeFit): o Sócio vê tudo; o
+// Suporte, só as rotinas; os avisos do Asaas são do financeiro.
+const acesso = vi.hoisted(() => ({ atual: { socio: true, niveis: [] as string[] } }));
+vi.mock("@/hooks/useAcessoArkefit", async () => {
+  const { podeArea } = await vi.importActual<typeof import("@/lib/acessosArkefit")>("@/lib/acessosArkefit");
+  return { useAcessoArkefit: () => ({ acesso: acesso.atual, pode: (a: Parameters<typeof podeArea>[1]) => podeArea(acesso.atual, a) }) };
+});
+
 const EVENTO_BASE = {
   id: "e1",
   created_at: "2026-09-20T10:00:00Z",
@@ -57,6 +65,22 @@ const renderizar = () => {
 describe("SuperAdminWebhooks", () => {
   beforeEach(() => {
     rpc.mockReset();
+    acesso.atual = { socio: true, niveis: [] };
+  });
+
+  it("o Suporte vê só as rotinas: os avisos do Asaas não aparecem nem vão ao banco", async () => {
+    acesso.atual = { socio: false, niveis: ["suporte"] };
+    rpc.mockImplementation((nome: string) =>
+      Promise.resolve(nome === "get_superadmin_rotinas" ? { data: [], error: null } : { data: null, error: new Error(`RPC inesperada: ${nome}`) }),
+    );
+    renderizar();
+    expect(await screen.findByRole("heading", { name: "Rotinas" })).toBeInTheDocument();
+    expect(screen.getByText("Rotinas agendadas")).toBeInTheDocument();
+    expect(screen.queryByText("Webhooks do Asaas")).not.toBeInTheDocument();
+    expect(screen.queryByText("Reconciliação com o Asaas")).not.toBeInTheDocument();
+    await waitFor(() => expect(rpc).toHaveBeenCalledWith("get_superadmin_rotinas"));
+    expect(rpc.mock.calls.map((c) => c[0])).not.toContain("get_superadmin_webhooks_asaas");
+    expect(rpc.mock.calls.map((c) => c[0])).not.toContain("get_superadmin_webhooks_asaas_resumo");
   });
 
   it("separa evento que teve efeito de evento que não casou com nada", async () => {
