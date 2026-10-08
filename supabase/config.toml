@@ -9,7 +9,9 @@ project_id = "lzyxqjibkfblrrjboylp"
 #
 # Regra para acrescentar função nova: só entra aqui o que *precisa* ser
 # alcançável sem sessão, e cada uma carrega a própria trava (token, assinatura
-# do gateway, limite por IP). O padrão é exigir JWT.
+# do gateway, limite por IP). O padrão é exigir JWT. A exceção é a função que
+# dá papel da ArkeFit, declarada com `verify_jwt = true` para ninguém
+# publicá-la aberta por engano (ver a última).
 
 # Webhook do gateway de pagamento: quem chama é o Asaas, que não tem sessão.
 # Valida o header `asaas-access-token` contra o secret.
@@ -120,3 +122,9 @@ verify_jwt = false
 # em hora, chamada pelo cron com o token do alerta de rotinas.
 [functions.retentar-saida-asaas]
 verify_jwt = false
+
+# O convite e a retirada da equipe da ArkeFit: dá e tira o papel de sócio.
+# Exige a sessão (o padrão), declarado de propósito; a função ainda confere o
+# sócio com as duas etapas.
+[functions.equipe-arkefit-convidar]
+verify_jwt = true
