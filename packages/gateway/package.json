@@ -16,7 +16,8 @@
     "emular:toletus": "node scripts/emulador-toletus.mjs",
     "emular:litenet3": "node scripts/emulador-litenet3.mjs",
     "emular:facial-topdata": "node scripts/emulador-facial-topdata.mjs",
-    "emular:intelbras": "node scripts/emulador-intelbras.mjs"
+    "emular:intelbras": "node scripts/emulador-intelbras.mjs",
+    "emular:hikvision": "node scripts/emulador-hikvision.mjs"
   },
   "dependencies": {
     "axios": "^1.7.9",
