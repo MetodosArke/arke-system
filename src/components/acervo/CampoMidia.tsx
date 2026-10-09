@@ -17,6 +17,10 @@ import { nomeComExtensao, passaSemReduzir, reduzirImagem } from "@/lib/reduzirIm
  *
  * `pasta` é o dono do arquivo: o id da organização, ou "global" no acervo da
  * ArkeFit — o banco só aceita o envio na pasta de quem pode gravar nela.
+ *
+ * `apenasImagem` serve aos GIFs por modelo (masculino e feminino, 09/10/2026):
+ * só a imagem, e a mudança sai como `gif_url` para quem chama pôr na coluna
+ * certa. `idBase` separa os campos de link quando há mais de um na tela.
  */
 export function CampoMidia({
   pasta,
@@ -24,12 +28,16 @@ export function CampoMidia({
   imagemUrl,
   nome,
   onChange,
+  apenasImagem = false,
+  idBase = "midia",
 }: {
   pasta: string;
   videoUrl: string;
   imagemUrl: string;
   nome: string;
   onChange: (mudanca: { video_url?: string; gif_url?: string }) => void;
+  apenasImagem?: boolean;
+  idBase?: string;
 }) {
   const { toast } = useToast();
   const refVideo = useRef<HTMLInputElement>(null);
@@ -112,10 +120,12 @@ export function CampoMidia({
             if (f) void enviar(f, "imagem");
           }}
         />
-        <Button type="button" size="sm" variant="outline" disabled={!!enviando} onClick={() => refVideo.current?.click()}>
-          {enviando === "video" ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <Upload className="h-3.5 w-3.5 mr-1.5" />}
-          {videoUrl ? "Trocar vídeo" : "Enviar vídeo"}
-        </Button>
+        {!apenasImagem && (
+          <Button type="button" size="sm" variant="outline" disabled={!!enviando} onClick={() => refVideo.current?.click()}>
+            {enviando === "video" ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <Upload className="h-3.5 w-3.5 mr-1.5" />}
+            {videoUrl ? "Trocar vídeo" : "Enviar vídeo"}
+          </Button>
+        )}
         <Button type="button" size="sm" variant="outline" disabled={!!enviando} onClick={() => refImagem.current?.click()}>
           {enviando === "imagem" ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <Upload className="h-3.5 w-3.5 mr-1.5" />}
           {imagemUrl ? "Trocar imagem/GIF" : "Enviar imagem/GIF"}
@@ -124,28 +134,90 @@ export function CampoMidia({
           <Link2 className="h-3.5 w-3.5 mr-1.5" /> Usar link
         </Button>
         {(videoUrl || imagemUrl) && (
-          <Button type="button" size="sm" variant="ghost" className="text-muted-foreground" onClick={() => onChange({ video_url: "", gif_url: "" })}>
-            <X className="h-3.5 w-3.5 mr-1.5" /> Remover mídia
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            className="text-muted-foreground"
+            onClick={() => onChange(apenasImagem ? { gif_url: "" } : { video_url: "", gif_url: "" })}
+          >
+            <X className="h-3.5 w-3.5 mr-1.5" /> {apenasImagem ? "Remover imagem" : "Remover mídia"}
           </Button>
         )}
       </div>
-      {etapa && <p className="text-xs text-muted-foreground">{etapa}</p>}
+      {etapa && (
+        <p role="status" className="text-xs text-muted-foreground">
+          {etapa}
+        </p>
+      )}
       <p className="text-[11px] text-muted-foreground">
-        Vídeo até 15 MB (MP4, WebM ou MOV), sem som; imagem ou GIF até 5 MB. Tudo roda dentro do app.
+        {apenasImagem
+          ? "Imagem ou GIF até 5 MB. O GIF sobe como veio, para não perder a animação."
+          : "Vídeo até 15 MB (MP4, WebM ou MOV), sem som; imagem ou GIF até 5 MB. Tudo roda dentro do app."}
       </p>
 
       {modoLink && (
         <div className="grid gap-2">
+          {!apenasImagem && (
+            <div className="space-y-1">
+              <Label htmlFor={`${idBase}-link-video`} className="text-xs">Link do vídeo (YouTube ou arquivo)</Label>
+              <Input id={`${idBase}-link-video`} value={videoUrl} onChange={(e) => onChange({ video_url: e.target.value })} placeholder="https://..." />
+            </div>
+          )}
           <div className="space-y-1">
-            <Label htmlFor="midia-link-video" className="text-xs">Link do vídeo (YouTube ou arquivo)</Label>
-            <Input id="midia-link-video" value={videoUrl} onChange={(e) => onChange({ video_url: e.target.value })} placeholder="https://..." />
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor="midia-link-imagem" className="text-xs">Link da imagem ou GIF</Label>
-            <Input id="midia-link-imagem" value={imagemUrl} onChange={(e) => onChange({ gif_url: e.target.value })} placeholder="https://..." />
+            <Label htmlFor={`${idBase}-link-imagem`} className="text-xs">Link da imagem ou GIF</Label>
+            <Input id={`${idBase}-link-imagem`} value={imagemUrl} onChange={(e) => onChange({ gif_url: e.target.value })} placeholder="https://..." />
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+/**
+ * Os dois GIFs por modelo (masculino e feminino) do exercício. O app mostra o
+ * do modelo que cada pessoa escolheu ver (`escolherMidiaExercicio`); sem eles,
+ * vale a imagem única acima.
+ */
+export function CamposGifPorModelo({
+  pasta,
+  nome,
+  masculino,
+  feminino,
+  onChange,
+}: {
+  pasta: string;
+  nome: string;
+  masculino: string;
+  feminino: string;
+  onChange: (mudanca: { gif_masculino_url?: string; gif_feminino_url?: string }) => void;
+}) {
+  return (
+    <div className="space-y-3">
+      <div className="space-y-1.5">
+        <p className="text-xs font-medium">GIF com modelo masculino</p>
+        <CampoMidia
+          apenasImagem
+          idBase="midia-masculino"
+          pasta={pasta}
+          videoUrl=""
+          imagemUrl={masculino}
+          nome={`${nome || "exercício"} (modelo masculino)`}
+          onChange={(m) => m.gif_url !== undefined && onChange({ gif_masculino_url: m.gif_url })}
+        />
+      </div>
+      <div className="space-y-1.5">
+        <p className="text-xs font-medium">GIF com modelo feminino</p>
+        <CampoMidia
+          apenasImagem
+          idBase="midia-feminino"
+          pasta={pasta}
+          videoUrl=""
+          imagemUrl={feminino}
+          nome={`${nome || "exercício"} (modelo feminino)`}
+          onChange={(m) => m.gif_url !== undefined && onChange({ gif_feminino_url: m.gif_url })}
+        />
+      </div>
     </div>
   );
 }

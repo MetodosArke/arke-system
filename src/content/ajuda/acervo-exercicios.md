@@ -26,6 +26,10 @@ Cada exercício pode ter um vídeo e uma imagem ou GIF:
 
 O aluno vê a execução pelo botão ao lado do exercício, no treino do dia.
 
+## GIF com modelo masculino ou feminino
+
+Os exercícios do Acervo ARKE podem ter dois GIFs, um com modelo masculino e outro com modelo feminino. Cada pessoa vê o do modelo que escolheu: o aluno escolhe no treino, e a equipe troca nos botões **Modelo masculino** e **Modelo feminino**, no detalhe do exercício ou na busca da prescrição. Sem escolha, aparece o masculino; sem os dois GIFs, aparece a imagem única do exercício. Ao criar a cópia da academia, os dois GIFs vão junto, e o exercício da academia também aceita os dois, em **GIFs por modelo**.
+
 ## Trocar os nomes antigos (De-Para)
 
 Quem veio de outro sistema pode ter fichas com nomes diferentes dos do acervo. A aba **De-Para** liga o nome antigo ao exercício do acervo, para padronizar sem refazer cada ficha à mão.
