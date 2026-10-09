@@ -347,8 +347,6 @@ function corpoEvento(dados, quando = new Date()) {
     dateTime: quando.toISOString(),
     activePostCount: 1,
     eventType: "AccessControllerEvent",
-    eventState: "active",
-    eventDescription: "Access Controller Event",
     AccessControllerEvent: { deviceName: modelo, majorEventType: 5, cardReaderNo: 1, doorNo: 1, serialNo: ++serial, currentEvent: true, ...dados },
   });
   const f = "MIME_boundary";

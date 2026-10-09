@@ -370,8 +370,6 @@ export class AparelhoHikvisionFalso {
       dateTime: quando.toISOString(),
       activePostCount: 1,
       eventType: "AccessControllerEvent",
-      eventState: "active",
-      eventDescription: "Access Controller Event",
       AccessControllerEvent: { deviceName: "Falso", majorEventType: 5, currentEvent: true, cardReaderNo: 1, ...dados },
     });
     const fronteira = "MIME_boundary";

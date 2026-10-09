@@ -67,14 +67,15 @@ describe("Hikvision: protocolo", () => {
     expect(assinar("MD5")).toContain('response="8ca523f5e9506fed4657c9700eebdbec"');
     expect(assinar("SHA-256")).toContain('response="753927fa0e85d155564e2e272a28d1802ca10daf4496794697cf8db5856cb6c1"');
     // "nonce" não se confunde com outro campo, e o aviso de nonce vencido é lido.
-    expect(lerDesafio('Digest qop="auth", realm="IP Camera(C2183)", nonce="4e54", stale="TRUE"')).toMatchObject({ realm: "IP Camera(C2183)", nonce: "4e54", stale: true });
+    expect(lerDesafio('Digest qop="auth", realm="Terminal da Entrada (Bloco 2)", nonce="a1b2", stale="TRUE"')).toMatchObject({ realm: "Terminal da Entrada (Bloco 2)", nonce: "a1b2", stale: true });
   });
 
   it("o aluno no aparelho: nome 'Aluno', o número da catraca, e o barrado fora da validade", () => {
-    const u = usuarioDoAluno(42, false, 1).UserInfo as Record<string, any>;
+    type Pessoa = { name: string; Valid: { enable: boolean; endTime: string } };
+    const u = usuarioDoAluno(42, false, 1).UserInfo as Pessoa;
     expect(u).toMatchObject({ employeeNo: "42", name: "Aluno", userType: "normal", doorRight: "1" });
     expect(u.Valid.endTime > "2037").toBe(true);
-    const b = usuarioDoAluno(42, true).UserInfo as Record<string, any>;
+    const b = usuarioDoAluno(42, true).UserInfo as Pessoa;
     expect(b.name).toBe("Aluno");
     // Fora da validade hoje: o aparelho recusa sozinho, também sem o Gateway.
     expect(b.Valid.enable).toBe(true);
