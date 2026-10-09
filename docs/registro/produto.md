@@ -169,6 +169,22 @@ O acervo global (105 exercícios, `organization_id` nulo) vai ganhar os GIFs de 
 - `npm run check` sem erro: tipos, lint (0 erros, os 27 avisos de antes), o `deno check` das 57 funções e nenhuma vulnerabilidade.
 - **Falta, porque esta frente não toca produção:** aplicar a migration, renovar o `supabase/historico/` e conferir a tela no computador e no celular (o treino da Ponto Alto com GIF).
 
+## "Mensagem" direto do cartão da fila de atendimento (09/10/2026)
+
+**O pedido**, tirado de um vídeo de uso: abrir a conversa com o aluno a partir da fila, sem dar a volta pela ficha. Até aqui, o cartão da tarefa tinha Assumir, Ver Anamnese, Prescrever e o desfecho; para escrever ao aluno, era abrir Alunos, achar a ficha e clicar no chat.
+
+**A decisão: o botão não dá acesso novo.** Ele aparece só para quem a ficha já deixava conversar com aquele aluno, e abre o canal que essa pessoa já via. A regra, que estava espalhada entre a ficha (Método sem chat, nutrição só para quem atende a saúde e com nutricionista na equipe) e a caixa de Mensagens (o canal pelo papel, `canaisDoPapel`), foi para um lugar só: `canaisDaConversaComAluno()` em `src/lib/conversaComAluno.ts`. A caixa passou a ler `canaisDoPapel` de lá. Nada mudou no banco: as regras de `mensagens_treino`, `mensagens_dieta` e `mensagens_mentor` continuam as de `20261400010000` e `20261423010000`.
+
+- **Fila da academia (`AdminDashboard`, a tela Atendimento):** cada cartão com aluno ganha **Mensagem** (rótulo acessível "Mensagem para <nome>"), que abre o mesmo `ChatPanel` da ficha num diálogo. O professor e a recepção abrem o chat de treino; a nutricionista, o da nutrição; a gestão, os dois, com a troca no próprio diálogo (a nutrição só quando a academia tem nutricionista). Aluno do Método fica sem botão: a conversa dele é com o mentor da ArkeFit. O plano e o nome de cada aluno da fila vêm numa leitura em lotes de 200 (`porLotes`), com o `planoDoAluno()` de sempre; enquanto ela não volta, o botão não aparece, em vez de aparecer errado.
+- **Fila do Mentor (Mentoria → Chamados):** cada chamado ganha **Mensagem**, que abre o `ChatMentor` da aba Conversa da ficha. O Mentor contratado só recebe chamado de aluno do Método (`get_fila_mentor`), e o RLS de `mensagens_mentor` diz o mesmo.
+- **A trava (`conversaDaFila.guarda`):** a lista fechada das telas que montam o chat do lado da equipe (`viewerType="staff"` ou `"mentor"`), cada uma com o motivo; a fila decide o botão por `canaisDaConversaComAluno()`; e a `get_fila_mentor` vigente filtra o aluno do Método para quem não é sócio.
+
+**Conferido:**
+- **Testes:** `npx vitest run` com 1.625 testes em 203 arquivos, 15 novos: 6 da regra (`conversaComAluno.test`: o professor só no treino, a recepção nunca na nutrição, a nutricionista na nutrição, a gestão nos dois, sem nutricionista sem nutrição, o Método sem conversa para nenhum papel), 5 do diálogo (`ConversaDaFila.test`: o rótulo acessível, o canal único, a troca de canal com `aria-pressed`) e 4 na trava.
+- **1 defeito plantado, pego:** a regra sem conferir a saúde e sem barrar o Método (2 testes falharam).
+- `npm run check` sem erro: tipos, lint (0 erros, os 27 avisos de antes), o `deno check` das 57 funções e nenhuma vulnerabilidade.
+- **Falta, porque esta frente não toca produção:** conferir a tela no computador e no celular, na academia de demonstração, com o gestor, o professor e a recepção, e no Mentor.
+
 ## O contador de não lidas baixa na hora (06/10/2026)
 
 Na tela em produção, depois da `20261400` (a mensagem lida passou a gravar), o professor abriu a conversa do aluno. A mensagem ficou lida no banco, mas o número do menu continuou em 1. O chat (`ChatPanel`) recarregava só as próprias mensagens depois de marcar como lida. O contador do menu e da caixa (`useCaixaMensagens`, chave `caixa-mensagens`) só baixava na próxima atualização, até 30 s depois, ou ao fechar a conversa pelo botão da tela de Mensagens. Agora o chat recarrega o contador também, onde quer que esteja aberto, inclusive na ficha do aluno.

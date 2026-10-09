@@ -31,6 +31,8 @@ A ordem é pela urgência: prioridade crítica primeiro, depois o prazo. Tarefa 
 2. Faça o que precisa ser feito: ligue, ajuste o treino, marque uma conversa. Se combinar uma data com o aluno, registre-a: ela aparece no app dele como **Próximo evento de acompanhamento**.
 3. Encerre com **Registrar desfecho e encerrar**, escrevendo o que foi feito e como ficou.
 
+Para falar com o aluno, o botão **Mensagem** do cartão abre a conversa com ele ali mesmo, sem passar pela ficha. É o mesmo chat da ficha e de [Mensagens](ajuda:mensagens), com a mesma regra: o professor e a recepção conversam no chat de treino, a nutricionista no da nutrição, e a gestão escolhe entre os dois (o da nutrição, quando a academia tem nutricionista). O aluno do Método ARKE conversa com o mentor da ArkeFit, e o cartão dele fica sem o botão.
+
 ## Por que o desfecho é obrigatório
 
 Uma pendência só termina quando alguém escreve o que aconteceu. "Resolvido" não conta. O desfecho vai para o histórico do aluno, e é ele que responde, meses depois, "o que fizeram quando ele disse que estava com dor?".

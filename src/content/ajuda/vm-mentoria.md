@@ -33,6 +33,8 @@ Os chamados nascem sozinhos dos sensores do Método: aluno sem sinal há 5 dias 
 
 A ordem é a de pegar: vencidos primeiro, depois a prioridade, depois o prazo.
 
+Para falar com o aluno, o botão **Mensagem** do chamado abre a conversa ali mesmo, sem passar pela ficha: é o mesmo chat da aba **Conversa**.
+
 As três saídas de um chamado, na mesma tela:
 
 - **Encerrar com desfecho**: o que foi feito e como ficou. É o texto que a academia lê em Acompanhamento ARKE, então escreva para ela entender.
