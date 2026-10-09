@@ -113,7 +113,8 @@ servir("vigia", async (req: Request) => {
       // trava funcionando; o modelo fora do ar é indisponível.
       await registrarUsoIA(admin, {
         agente: "vigia",
-        modelo: MODELO_VIGIA,
+        // O modelo que respondeu: o da API da Anthropic ou o do Bedrock.
+        modelo: r.ok ? r.modelo : MODELO_VIGIA,
         resultado: registro._status === "ok" ? "ok" : registro._status === "indisponivel" ? "indisponivel" : "recusada_trava",
         tokensEntrada: r.ok ? r.tokensEntrada : null,
         tokensSaida: r.ok ? r.tokensSaida : null,
@@ -123,7 +124,7 @@ servir("vigia", async (req: Request) => {
         _assinatura: quadro.assinatura,
         _quadro: quadro.enviar,
         _mapa: quadro.mapa,
-        _modelo: MODELO_VIGIA,
+        _modelo: r.ok ? r.modelo : MODELO_VIGIA,
         _latencia_ms: null,
         _tokens_entrada: null,
         _tokens_saida: null,
