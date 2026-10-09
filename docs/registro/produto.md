@@ -130,6 +130,63 @@ As três sobras da rodada 3 do app que ficaram listadas nas guardas. As de banco
 - As 43 telas da troca de cor mais simples foram feitas por um agente auxiliar, com as regras acima e a guarda como critério; as 6 que tinham também o estado vazio, e a conferência do conjunto, ficaram nesta frente.
 - **Falta, porque esta frente não toca produção:** a tela no computador e no celular. As telas com erro se provocam com o banco sem resposta, como na rodada 3. O feed com mais de mil posts se confere numa academia de homologação. As cores se conferem nos dois temas.
 
+## O treino publicado do zero, sem modelo (09/10/2026)
+
+**O pedido**, tirado de um vídeo de uso: o treinador monta e publica o treino do aluno sem escolher antes um modelo da biblioteca. Até aqui, `publicar_treino` só publicava a partir de um modelo. Para um treino sob medida, o professor criava um modelo, montava, publicava e deixava na biblioteca da academia um modelo de um aluno só. O artigo da Central já dizia "monte do zero", e a tela não deixava.
+
+**A decisão: uma função que publica a partir dos itens, e não um modelo escondido por baixo.** Um modelo "do aluno" criado em silêncio pediria coluna nova, filtro em toda leitura da biblioteca e limpeza. A função nova recebe a lista e grava o mesmo snapshot.
+
+- **Banco (`20261440010000`):** `publicar_treino_do_zero(_aluno_id, _titulo, _itens jsonb, _validade_inicio, _validade_fim)`, com o treino gravado com `modelo_id` nulo.
+  - **O snapshot** tem as mesmas chaves, na mesma ordem, do `publicar_treino`, e continua imutável (`trg_treinos_imutavel`).
+  - **Cada item vem do acervo**, global ou da academia do aluno, pelo `exercicio_id`, e o banco recusa item sem ele. Nome, grupos, equipamento, vídeo e GIF o banco copia do acervo. Assim o nome e o vínculo nunca divergem, e o app acha os GIFs por modelo pelo id (`useGifsDoAcervo`). Da tela vêm só a divisão (A a J), as séries (1 a 10, com o detalhe série a série), a descrição de execução (vazia: a do acervo) e a observação.
+  - **Por que exigir o acervo.** O editor de modelos aceita nome livre, mas o pedido era o treino com GIF. Exercício que ainda não está no acervo se cadastra antes, na aba ao lado.
+- **Quem publica.** A função roda com a permissão de quem chama, como `publicar_treino`. O RLS de `treinos` e o gatilho do dono (`definir_dono_da_prescricao`) valem do mesmo jeito. Por cima, ela confere quem chama, mais estrito que o RLS, que deixa qualquer pessoa da equipe incluir:
+  - aluno fora do Método: o gestor ou o professor da academia do aluno, ou a ArkeFit com as duas etapas;
+  - aluno do Método: `pode_prescrever_treino_metodo()`, a regra de hoje (o Mentor com CREF; o sócio sem CREF só com a exigência desligada).
+
+  A função não tem EXECUTE para `anon` nem para o PUBLIC.
+- **Tela (`PrescricaoTreino`, aba Publicar para Aluno):** **Como montar o treino** tem **Usar um modelo** (o caminho de antes, sem mudança) e **Começar do zero**.
+  - **`TreinoDoZero`:** divisão, seletor do acervo, séries, como executar e observação, com a lista por divisão e a miniatura pelo GIF escolhido.
+  - **A regra pura (`src/lib/treinoDoZero.ts`):** o formato do banco e a conferência antes de mandar.
+  - **Rascunho:** a lista fica na sessão (`useRascunho`), e a tela oferece restaurar, nunca sozinha.
+  - **O mentor da ArkeFit** tem o mesmo caminho na ficha do aluno do Método, e a chamada está em `CHAMADAS_DA_VISAO_MASTER`.
+- **A trava (`treinoDoZero.guarda`)** confere na definição vigente:
+  - sem `security definer`;
+  - a conferência de quem chama;
+  - o acervo só global ou da academia;
+  - as chaves do snapshot iguais às de `publicar_treino`;
+  - o `revoke` do PUBLIC e do `anon`;
+  - que a tela continua chamando os dois caminhos.
+
+**Conferido:**
+- **Banco, em transação desfeita, em produção (Ponto Alto):** a função criada e 24 casos, depois desfeitos (a função não ficou, nem treino, exercício ou membro de prova).
+  - **O gestor publicou:** `modelo_id` nulo, dono `academia`, título sem espaços, 2 itens na ordem A, B, os 2 com o `exercicio_id`, o nome do acervo, as 14 chaves de `publicar_treino`, o detalhe série a série, a descrição da tela num item e a do acervo no outro.
+  - **O snapshot recusou alteração.** O professor publicou.
+  - **A recepção e a nutricionista receberam 42501.**
+  - **Itens errados, todos 22023:** exercício de outra academia, id que não é id, sem exercício, divisão Z, 0 séries, 2,5 séries, repetições vazias, lista vazia, objeto em vez de lista, item que não é objeto e título vazio.
+  - **Exercício próprio da academia:** publicou.
+  - **Aluno do Método:**
+    - o gestor recebeu 42501;
+    - o sócio sem as duas etapas não achou o aluno;
+    - o sócio com as duas etapas publicou (dono `arkefit`);
+    - o Mentor contratado sem CREF recebeu 42501;
+    - com CREF, publicou com o registro gravado.
+  - **O `anon` não tem EXECUTE**, e `publicar_treino` pelo modelo seguiu igual (6 itens).
+  - **Depois de subir o limite das repetições para 200 caracteres:** 10 séries de "8 a 12" (69 caracteres) publicaram, e 201 caracteres foram recusados.
+- **3 defeitos plantados, os 3 pegos pela trava:** a função como `security definer`, a conferência sem o professor e as chaves do snapshot fora de ordem.
+- **Testes:** `npx vitest run` com 1.639 testes em 206 arquivos, 14 novos:
+  - 5 da regra (`treinoDoZero.test`);
+  - 2 da tela (`TreinoDoZero.test`: o item entra pelo acervo com o `exercicio_id` e as séries padrão, e sai pelo botão com o nome);
+  - 7 na trava.
+
+  Com o `npm run check` rodando ao mesmo tempo, 1 teste alheio (`SuperAdminEquipamentos`) passou do prazo de 5 s; rodado de novo, passou.
+- `npm run check` sem erro: tipos, lint (0 erros, os 27 avisos de antes), o `deno check` das 57 funções e nenhuma vulnerabilidade.
+- **Falta, porque esta frente não toca produção:**
+  - aplicar a migration;
+  - gerar o `types.ts` de novo (a função foi escrita à mão, na ordem do gerador);
+  - renovar o `supabase/historico/`;
+  - conferir a tela no computador e no celular.
+
 ## O GIF do exercício com modelo masculino ou feminino (09/10/2026)
 
 O acervo global (105 exercícios, `organization_id` nulo) vai ganhar os GIFs de um pacote que traz cada exercício com um modelo masculino e um feminino. Até aqui cada exercício tinha uma mídia só (`gif_url`, `video_url`), e o app não guarda o sexo de ninguém.

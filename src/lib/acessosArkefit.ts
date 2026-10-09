@@ -326,6 +326,7 @@ export const CHAMADAS_DA_VISAO_MASTER: Record<string, Chamada> = {
   "rpc:mover_fase_jornada": { area: "mentoria", motivo: DA_ACADEMIA },
   "rpc:get_jornada_aluno": { area: "mentoria", motivo: DA_ACADEMIA },
   "rpc:publicar_treino": { area: "mentoria", motivo: "também é da academia: o RLS de treinos e o gatilho do dono decidem (CREF sempre exigido de quem não é Sócio)" },
+  "rpc:publicar_treino_do_zero": { area: "mentoria", motivo: "também é da academia: confere pode_prescrever_treino_metodo() no aluno do Método, e o RLS de treinos e o gatilho do dono decidem (CREF sempre exigido de quem não é Sócio)" },
   "rpc:publicar_dieta": { area: "mentoria", motivo: "também é da academia: o RLS de dietas e o gatilho do dono decidem (CRN sempre exigido de quem não é Sócio)" },
   "fn:importar-dieta-pdf": { area: "mentoria", motivo: "também é da academia: a função pergunta equipe_metodo() ao banco com a sessão de quem chama" },
   "fn:mentor-sugerir-resposta": { area: "mentoria" },

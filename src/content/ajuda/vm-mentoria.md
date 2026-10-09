@@ -16,7 +16,7 @@ Clique num aluno da carteira, ou no nome dele num chamado, para abrir a ficha. E
 
 - **Visão geral**: dias sem sinal e constância, **metas e objetivo** (dias de treino por semana e água por dia), **fase da jornada** (mover, com o motivo) e **liberar a progressão** depois de um relato de dor. Em **Pedir à academia** vai o que só acontece no presencial, como a avaliação física; o pedido cai na fila da academia com prazo. No fim, os chamados abertos do aluno.
 - **Acolhimento**: tudo o que o aluno respondeu no M.A.P.A.®, com dores e lesões em destaque, e o resumo do Sentinela quando o aluno autorizou.
-- **Treino**: o treino ativo e, logo abaixo, a **biblioteca do Método** e a publicação para o aluno.
+- **Treino**: o treino ativo e, logo abaixo, a **biblioteca do Método** e a publicação para o aluno, a partir de um modelo ou **do zero**, só para ele.
 - **Dieta**: a dieta ativa, a biblioteca do Método e a publicação, inclusive a **importação de PDF**.
 - **Evolução**: check-ins, treinos registrados nas últimas 4 semanas, adesão à dieta e avaliações físicas.
 - **Conversa**: o chat do aluno com o mentor.
