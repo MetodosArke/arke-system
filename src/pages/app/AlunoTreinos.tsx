@@ -27,6 +27,9 @@ import { CanalMentor, PrescritoPor } from "@/components/aluno/MeuMentor";
 import CalendarioTreinos from "@/components/aluno/CalendarioTreinos";
 import type { Json } from "@/integrations/supabase/types";
 import { MidiaExercicio } from "@/components/acervo/MidiaExercicio";
+import { MidiaComModelo, PerguntaModelo } from "@/components/acervo/ModeloExercicio";
+import { useGifsDoAcervo, useModeloExercicio } from "@/hooks/useModeloExercicio";
+import { escolherMidiaExercicio } from "@/lib/modeloExercicio";
 import { situacaoAtestado } from "@/lib/parq";
 import { divisoesDoTreino, rotuloTecnica, sequenciaDoTreino, seriesDoExercicio } from "@/lib/seriesTreino";
 import { hojeBrasilia, formatarDataBR } from "@/lib/dataBrasilia";
@@ -47,6 +50,7 @@ interface ExercicioSnapshot {
   divisao?: string | null;
   series_detalhe?: unknown;
   equipamento?: string | null;
+  exercicio_id?: string | null;
 }
 
 interface DetalheExecucao {
@@ -184,6 +188,10 @@ export default function AlunoTreinos() {
     divisaoEscolhida ??
     (registroHoje?.divisao && divisoes.includes(registroHoje.divisao) ? registroHoje.divisao : sequencia.proximo ?? "A");
   const exercicios = todosExercicios.filter((e) => (e.divisao || "A") === divisaoHoje);
+  // Os GIFs por modelo vêm do acervo, pelo exercicio_id do snapshot (fichas
+  // antigas, sem ele, seguem com o gif_url do snapshot).
+  const comGifsDoAcervo = useGifsDoAcervo(todosExercicios.map((e) => e.exercicio_id));
+  const { preferencia: modeloPreferido } = useModeloExercicio();
   const detalhes = ((registroHoje?.detalhes_execucao as unknown as DetalheExecucao[] | null) ?? []);
 
   const [progresso, setProgresso] = useState<Record<number, DetalheExecucao>>({});
@@ -406,6 +414,7 @@ export default function AlunoTreinos() {
               </Button>
             </CardHeader>
             <CardContent className="space-y-4">
+              <PerguntaModelo exercicios={exercicios.map(comGifsDoAcervo)} />
               {exercicios.map((ex) => {
                 const estado = progresso[ex.ordem] ?? { ordem: ex.ordem, concluido: false, carga_kg: "" };
                 return (
@@ -439,8 +448,8 @@ export default function AlunoTreinos() {
                         {ex.descricao_execucao && (
                           <p className="text-xs text-muted-foreground mt-1 whitespace-pre-wrap">{ex.descricao_execucao}</p>
                         )}
-                        {ex.gif_url && !ex.video_url && (
-                          <MidiaExercicio imagemUrl={ex.gif_url} nome={ex.nome_exercicio} className="max-w-xs mt-2" />
+                        {!ex.video_url && (
+                          <MidiaComModelo midias={comGifsDoAcervo(ex)} nome={ex.nome_exercicio} comVideo={false} className="max-w-xs mt-2" />
                         )}
 
                         <div className="flex items-center gap-2 mt-2">
@@ -458,7 +467,13 @@ export default function AlunoTreinos() {
                               size="sm"
                               variant="ghost"
                               className="h-8 px-2"
-                              onClick={() => setVideoAberto({ url: ex.video_url!, imagem: ex.gif_url, nome: ex.nome_exercicio })}
+                              onClick={() =>
+                                setVideoAberto({
+                                  url: ex.video_url!,
+                                  imagem: escolherMidiaExercicio(comGifsDoAcervo(ex), modeloPreferido).imagemUrl,
+                                  nome: ex.nome_exercicio,
+                                })
+                              }
                             >
                               <PlayCircle className="h-3.5 w-3.5 mr-1" />
                               Ver execução

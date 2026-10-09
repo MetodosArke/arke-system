@@ -21,6 +21,8 @@ import { AcervoPainel } from "@/components/admin/AcervoPainel";
 import { SeletorExercicio } from "@/components/acervo/SeletorExercicio";
 import { EditorSeries } from "@/components/acervo/EditorSeries";
 import { MiniaturaExercicio } from "@/components/acervo/MidiaExercicio";
+import { useModeloExercicio } from "@/hooks/useModeloExercicio";
+import { escolherMidiaExercicio } from "@/lib/modeloExercicio";
 import { DIVISOES, divisoesDoTreino, paraGravar, rotuloTecnica, seriesDoExercicio, type SerieDetalhe } from "@/lib/seriesTreino";
 import { formatarDataBR } from "@/lib/dataBrasilia";
 import { ErroAoCarregar } from "@/components/ErroAoCarregar";
@@ -116,7 +118,7 @@ export function PrescricaoTreino({
       const { data, error } = await supabase
         .from("exercicios_biblioteca")
         .select(
-          "id, nome, grupo_muscular, grupos_musculares, equipamento, organization_id, ativo, series_padrao, repeticoes_padrao, descanso_padrao_seg, video_url, descricao_execucao, gif_url"
+          "id, nome, grupo_muscular, grupos_musculares, equipamento, organization_id, ativo, series_padrao, repeticoes_padrao, descanso_padrao_seg, video_url, descricao_execucao, gif_url, gif_masculino_url, gif_feminino_url"
         )
         .order("grupo_muscular")
         .order("nome");
@@ -124,6 +126,10 @@ export function PrescricaoTreino({
       return data;
     },
   });
+  // A miniatura da ficha segue o modelo que a pessoa escolheu: os GIFs por
+  // modelo vêm do acervo, pelo exercicio_id do item; sem ele, o gif_url do item.
+  const { preferencia: modeloPreferido } = useModeloExercicio();
+  const acervoPorId = useMemo(() => new Map(todosOsExercicios.map((e) => [e.id, e])), [todosOsExercicios]);
   const bibliotecaExercicios = useMemo(
     () => todosOsExercicios.filter((e) => exercicioDoEscopo(escopo, e.organization_id)),
     [todosOsExercicios, escopo],
@@ -461,7 +467,20 @@ export function PrescricaoTreino({
                               <TableRow key={ex.id}>
                                 <TableCell>
                                   <div className="flex items-center gap-2">
-                                    <MiniaturaExercicio imagemUrl={ex.gif_url} videoUrl={ex.video_url} nome={ex.nome_exercicio} />
+                                    <MiniaturaExercicio
+                                      imagemUrl={
+                                        escolherMidiaExercicio(
+                                          {
+                                            ...ex,
+                                            gif_masculino_url: ex.exercicio_id ? acervoPorId.get(ex.exercicio_id)?.gif_masculino_url : null,
+                                            gif_feminino_url: ex.exercicio_id ? acervoPorId.get(ex.exercicio_id)?.gif_feminino_url : null,
+                                          },
+                                          modeloPreferido,
+                                        ).imagemUrl
+                                      }
+                                      videoUrl={ex.video_url}
+                                      nome={ex.nome_exercicio}
+                                    />
                                     <span>{ex.nome_exercicio}</span>
                                   </div>
                                 </TableCell>

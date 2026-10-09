@@ -20,8 +20,11 @@ import { useToast } from "@/hooks/use-toast";
 import { Plus, Pencil, Trash2, ArrowLeftRight, Globe, Copy } from "lucide-react";
 import { useListasAcervo } from "@/hooks/useListasAcervo";
 import { SeletorGrupos } from "@/components/acervo/SeletorGrupos";
-import { CampoMidia } from "@/components/acervo/CampoMidia";
-import { MidiaExercicio, MiniaturaExercicio } from "@/components/acervo/MidiaExercicio";
+import { CampoMidia, CamposGifPorModelo } from "@/components/acervo/CampoMidia";
+import { MiniaturaExercicio } from "@/components/acervo/MidiaExercicio";
+import { MidiaComModelo } from "@/components/acervo/ModeloExercicio";
+import { useModeloExercicio } from "@/hooks/useModeloExercicio";
+import { escolherMidiaExercicio } from "@/lib/modeloExercicio";
 import { ErroAoCarregar } from "@/components/ErroAoCarregar";
 import type { Tables } from "@/integrations/supabase/types";
 
@@ -39,11 +42,14 @@ const FORM_VAZIO = {
   video_url: "",
   descricao_execucao: "",
   gif_url: "",
+  gif_masculino_url: "",
+  gif_feminino_url: "",
 };
 
 export function AcervoPainel() {
   const { organization } = useAuth();
   const { toast } = useToast();
+  const { preferencia: modeloPreferido } = useModeloExercicio();
   const { grupos: gruposDisponiveis, equipamentos } = useListasAcervo();
   const [busca, setBusca] = useState("");
   const [filtroGrupo, setFiltroGrupo] = useState("todos");
@@ -95,6 +101,9 @@ export function AcervoPainel() {
         video_url: form.video_url.trim() || null,
         descricao_execucao: form.descricao_execucao.trim() || null,
         gif_url: form.gif_url.trim() || null,
+        // A cópia da academia leva junto os GIFs por modelo do padrão.
+        gif_masculino_url: form.gif_masculino_url.trim() || null,
+        gif_feminino_url: form.gif_feminino_url.trim() || null,
       };
       // Editando um exercício próprio da academia: atualiza no lugar.
       // Editando (ou clonando) um Padrão ArkeFit: nunca altera a linha
@@ -161,6 +170,8 @@ export function AcervoPainel() {
       video_url: ex.video_url ?? "",
       descricao_execucao: ex.descricao_execucao ?? "",
       gif_url: ex.gif_url ?? "",
+      gif_masculino_url: ex.gif_masculino_url ?? "",
+      gif_feminino_url: ex.gif_feminino_url ?? "",
     });
     setDialogAberto(true);
   };
@@ -351,7 +362,7 @@ export function AcervoPainel() {
                         {exerciciosDaOrg.map((ex) => (
                           <TableRow key={ex.id} className="cursor-pointer" onClick={() => setDetalheId(ex.id)}>
                             <TableCell>
-                              <MiniaturaExercicio imagemUrl={ex.gif_url} videoUrl={ex.video_url} nome={ex.nome} />
+                              <MiniaturaExercicio imagemUrl={escolherMidiaExercicio(ex, modeloPreferido).imagemUrl} videoUrl={ex.video_url} nome={ex.nome} />
                             </TableCell>
                             <TableCell className="font-medium text-primary underline-offset-2 hover:underline">{ex.nome}</TableCell>
                             <TableCell>{gruposDoExercicio(ex)}</TableCell>
@@ -391,7 +402,7 @@ export function AcervoPainel() {
                       {exerciciosPadrao.map((ex) => (
                         <TableRow key={ex.id} className="cursor-pointer" onClick={() => setDetalheId(ex.id)}>
                           <TableCell>
-                            <MiniaturaExercicio imagemUrl={ex.gif_url} videoUrl={ex.video_url} nome={ex.nome} />
+                            <MiniaturaExercicio imagemUrl={escolherMidiaExercicio(ex, modeloPreferido).imagemUrl} videoUrl={ex.video_url} nome={ex.nome} />
                           </TableCell>
                           <TableCell className="font-medium text-primary underline-offset-2 hover:underline">{ex.nome}</TableCell>
                           <TableCell>{gruposDoExercicio(ex)}</TableCell>
@@ -512,7 +523,7 @@ export function AcervoPainel() {
                   </div>
                 )}
 
-                <MidiaExercicio videoUrl={detalhe.video_url} imagemUrl={detalhe.gif_url} nome={detalhe.nome} />
+                <MidiaComModelo midias={detalhe} nome={detalhe.nome} />
 
                 {!detalheEhDaOrg && (
                   <p className="text-xs text-muted-foreground">
@@ -578,6 +589,21 @@ export function AcervoPainel() {
                   videoUrl={form.video_url}
                   imagemUrl={form.gif_url}
                   nome={form.nome}
+                  onChange={(m) => setForm((f) => ({ ...f, ...m }))}
+                />
+              )}
+            </div>
+            <div className="space-y-1.5">
+              <Label>GIFs por modelo (masculino e feminino)</Label>
+              <p className="text-[11px] text-muted-foreground">
+                Cada pessoa vê o do modelo que escolheu; sem eles, vale a imagem acima.
+              </p>
+              {organization && (
+                <CamposGifPorModelo
+                  pasta={organization.id}
+                  nome={form.nome}
+                  masculino={form.gif_masculino_url}
+                  feminino={form.gif_feminino_url}
                   onChange={(m) => setForm((f) => ({ ...f, ...m }))}
                 />
               )}

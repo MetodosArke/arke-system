@@ -2,11 +2,14 @@ import { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { MiniaturaExercicio } from "@/components/acervo/MidiaExercicio";
+import { AlternarModelo } from "@/components/acervo/ModeloExercicio";
+import { useModeloExercicio } from "@/hooks/useModeloExercicio";
+import { escolherMidiaExercicio, type MidiasDoExercicio } from "@/lib/modeloExercicio";
 import { useListasAcervo } from "@/hooks/useListasAcervo";
 import { filtrarExercicios, gruposDe, type ExercicioBusca } from "@/lib/buscaExercicios";
 import { cn } from "@/lib/utils";
 
-export type ExercicioSelecionavel = ExercicioBusca & { gif_url?: string | null; video_url?: string | null };
+export type ExercicioSelecionavel = ExercicioBusca & MidiasDoExercicio;
 
 const LIMITE = 60;
 
@@ -31,6 +34,8 @@ export function SeletorExercicio<T extends ExercicioSelecionavel>({
   const [equipamento, setEquipamento] = useState<string | null>(null);
 
   const encontrados = filtrarExercicios(exercicios, { texto, grupo, equipamento });
+  const { preferencia: modeloPreferido } = useModeloExercicio();
+  const temModelos = exercicios.some((ex) => escolherMidiaExercicio(ex, null).temOsDois);
 
   return (
     <div className="space-y-2">
@@ -64,6 +69,13 @@ export function SeletorExercicio<T extends ExercicioSelecionavel>({
         </Select>
       </div>
 
+      {temModelos && (
+        <div className="flex items-center justify-end gap-2">
+          <span className="text-xs text-muted-foreground">Ver GIFs com</span>
+          <AlternarModelo />
+        </div>
+      )}
+
       <ul className="max-h-72 overflow-y-auto rounded-lg border border-border divide-y divide-border" aria-label="Exercícios encontrados">
         {encontrados.length === 0 && <li className="p-3 text-sm text-muted-foreground">Nenhum exercício com esses filtros.</li>}
         {encontrados.slice(0, LIMITE).map((ex) => (
@@ -77,7 +89,7 @@ export function SeletorExercicio<T extends ExercicioSelecionavel>({
                 selecionadoId === ex.id && "bg-primary/10"
               )}
             >
-              <MiniaturaExercicio imagemUrl={ex.gif_url} videoUrl={ex.video_url} nome={ex.nome} />
+              <MiniaturaExercicio imagemUrl={escolherMidiaExercicio(ex, modeloPreferido).imagemUrl} videoUrl={ex.video_url} nome={ex.nome} />
               <div className="min-w-0">
                 <p className="text-sm font-medium truncate">{ex.nome}</p>
                 <p className="text-xs text-muted-foreground truncate">

@@ -3215,6 +3215,8 @@ export type Database = {
           descanso_padrao_seg: number
           descricao_execucao: string | null
           equipamento: string | null
+          gif_feminino_url: string | null
+          gif_masculino_url: string | null
           gif_url: string | null
           grupo_muscular: string
           grupos_musculares: string[]
@@ -3233,6 +3235,8 @@ export type Database = {
           descanso_padrao_seg?: number
           descricao_execucao?: string | null
           equipamento?: string | null
+          gif_feminino_url?: string | null
+          gif_masculino_url?: string | null
           gif_url?: string | null
           grupo_muscular: string
           grupos_musculares?: string[]
@@ -3251,6 +3255,8 @@ export type Database = {
           descanso_padrao_seg?: number
           descricao_execucao?: string | null
           equipamento?: string | null
+          gif_feminino_url?: string | null
+          gif_masculino_url?: string | null
           gif_url?: string | null
           grupo_muscular?: string
           grupos_musculares?: string[]
@@ -6239,6 +6245,7 @@ export type Database = {
           full_name: string
           id: string
           logradouro: string | null
+          modelo_exercicio: string | null
           phone: string | null
           status: string
           uf: string | null
@@ -6257,6 +6264,7 @@ export type Database = {
           full_name?: string
           id?: string
           logradouro?: string | null
+          modelo_exercicio?: string | null
           phone?: string | null
           status?: string
           uf?: string | null
@@ -6275,6 +6283,7 @@ export type Database = {
           full_name?: string
           id?: string
           logradouro?: string | null
+          modelo_exercicio?: string | null
           phone?: string | null
           status?: string
           uf?: string | null

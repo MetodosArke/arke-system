@@ -11,7 +11,8 @@ import { Progress } from "@/components/ui/progress";
 import { ArrowLeft, Check, Clock, Dumbbell, History } from "lucide-react";
 import { seriesDoExercicio, rotuloTecnica, type SerieDetalhe } from "@/lib/seriesTreino";
 import { AvaliacaoTreinoDialog } from "@/components/aluno/AvaliacaoTreinoDialog";
-import { MidiaExercicio } from "@/components/acervo/MidiaExercicio";
+import { MidiaComModelo, PerguntaModelo } from "@/components/acervo/ModeloExercicio";
+import { useGifsDoAcervo } from "@/hooks/useModeloExercicio";
 import { hojeBrasilia } from "@/lib/dataBrasilia";
 import type { Json } from "@/integrations/supabase/types";
 
@@ -117,6 +118,8 @@ export default function TreinoExecucao() {
     const todos = (treino?.snapshot_conteudo as unknown as ExercicioSnapshot[] | null) ?? [];
     return todos.filter((e) => (e.divisao || "A") === divisaoAtual).sort((a, b) => a.ordem - b.ordem);
   }, [treino, divisaoAtual]);
+  // Os GIFs por modelo vêm do acervo, pelo exercicio_id do snapshot.
+  const comGifsDoAcervo = useGifsDoAcervo(exercicios.map((e) => e.exercicio_id));
 
   // O registro da sessão. Criado na entrada da tela, não no fim: sem ele não
   // há onde pendurar as séries, e o aluno começa a treinar antes de concluir.
@@ -336,6 +339,8 @@ export default function TreinoExecucao() {
         </p>
       </div>
 
+      <PerguntaModelo exercicios={exercicios.map(comGifsDoAcervo)} />
+
       {exercicios.map((ex) => {
         const series = seriesDoExercicio(ex);
         return (
@@ -345,7 +350,7 @@ export default function TreinoExecucao() {
                 <Dumbbell className="h-4 w-4 text-primary" /> {ex.nome_exercicio}
               </CardTitle>
               {ex.equipamento && <p className="text-xs text-muted-foreground">{ex.equipamento}</p>}
-              <MidiaExercicio imagemUrl={ex.gif_url} nome={ex.nome_exercicio} className="max-w-xs mt-1" />
+              <MidiaComModelo midias={comGifsDoAcervo(ex)} nome={ex.nome_exercicio} comVideo={false} className="max-w-xs mt-1" />
             </CardHeader>
             <CardContent className="space-y-2">
               {series.map((serie, i) => {

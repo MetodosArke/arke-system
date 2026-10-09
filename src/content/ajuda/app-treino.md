@@ -16,6 +16,7 @@ São só sugestões. Você pode fazer qualquer divisão, na ordem que quiser. Tr
 Cada exercício mostra as séries, as repetições, o descanso e, quando houver, a técnica (drop-set, rest-pause, isometria…). Quando as séries são diferentes entre si, cada uma aparece separada.
 
 - **Ver execução** mostra o vídeo ou a imagem do exercício.
+- **Modelo masculino ou feminino:** quando o exercício tem os dois GIFs, o app pergunta, na primeira vez, com qual modelo você quer ver os exercícios. Dá para responder **Agora não** (aí aparece o masculino) e trocar quando quiser, nos botões **Modelo masculino** e **Modelo feminino** embaixo do GIF. É só a pessoa que aparece no GIF: o app não pergunta o seu sexo.
 - **Iniciar treino** abre o treino série a série: você anota a carga e as repetições de cada série, o descanso é contado sozinho e aparece a carga que você usou da última vez. No fim, o app pergunta como foi.
 - Se preferir só marcar, marque cada exercício feito na própria lista. As duas formas ficam registradas no mesmo treino do dia.
 
