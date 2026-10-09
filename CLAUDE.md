@@ -166,7 +166,7 @@ Cada linha é uma armadilha que já aconteceu aqui. Onde há trava, ela é um te
 - **Como provar uma entrega**, em camadas:
   1. o banco, em transação desfeita;
   2. a corrente real, pelas funções publicadas, com contas e academia temporárias apagadas no fim;
-  3. a tela, no computador e no celular;
+  3. a tela, no computador e no celular, na academia de demonstração (Ponto Alto) sempre que ela tiver o cenário; o que a prova gera ali fica como histórico, e academia temporária só para estado que a demonstração não tem (bloqueio, menor, inadimplência), para o que apaga e para o Asaas;
   4. um defeito plantado de propósito, para ver o teste falhar.
 
   Deploy de edge function não é prova: `npm run check` (que roda o `deno check` das funções) e uma chamada autenticada de verdade.

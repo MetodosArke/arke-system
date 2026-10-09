@@ -187,6 +187,10 @@ As três sobras da rodada 3 do app que ficaram listadas nas guardas. As de banco
   - renovar o `supabase/historico/`;
   - conferir a tela no computador e no celular.
 
+
+**Em produção, em 09/10:** a migration `20261440010000` foi aplicada antes do merge, porque a tela nova chama a função; o `types.ts` gerado de novo não teve diferença. Na academia de demonstração (Ponto Alto), no computador e no celular, o professor Diego vê "Usar um modelo" e "Começar do zero" em Treinos → Publicar para Aluno. Pela função, ele publicou dois treinos do zero, para a Isabela e para a Marina, com as divisões A e B e 4 exercícios, todos com o `exercicio_id`. No app da Marina, o "Treino do zero — Marina" aparece com os GIFs. Os dois treinos ficaram como histórico da demonstração.
+
+**O texto de Publicar (09/10):** o alto da aba Publicar, no treino e na dieta, dizia "cria uma cópia congelada (snapshot) do modelo", o que não vale para o treino do zero e usa um termo técnico. Passou a dizer que o aluno recebe o treino (ou a dieta) como está na hora de publicar, e que mudar o modelo depois não muda o que ele já recebeu.
 ## O GIF do exercício com modelo masculino ou feminino (09/10/2026)
 
 O acervo global (105 exercícios, `organization_id` nulo) vai ganhar os GIFs de um pacote que traz cada exercício com um modelo masculino e um feminino. Até aqui cada exercício tinha uma mídia só (`gif_url`, `video_url`), e o app não guarda o sexo de ninguém.
@@ -205,6 +209,13 @@ O acervo global (105 exercícios, `organization_id` nulo) vai ganhar os GIFs de 
 - `npm run check` sem erro: tipos, lint (0 erros, os 27 avisos de antes), o `deno check` das 57 funções e nenhuma vulnerabilidade.
 - **Falta, porque esta frente não toca produção:** aplicar a migration, gerar o `types.ts` de novo (as colunas foram escritas à mão, na ordem do gerador), subir os GIFs e conferir a tela no computador e no celular.
 
+
+**Em produção, em 09/10:**
+- **De onde vieram os GIFs:** de um pacote de livre uso com 6.304 GIFs (masculino e feminino), numa pasta pública do Google Drive. Um script fez o índice da pasta e baixou só os escolhidos, sem passar pelo disco de ninguém.
+- **A associação:** pelo nome em inglês, revisada caso a caso. São 69 exercícios com os dois modelos, 22 só com o masculino e 14 só com o feminino; quando falta um, a tela mostra o outro, em vez de trocar o exercício por uma variação.
+- **O arquivo:** cada GIF virou WebP animado de 480 px (de 463 MB para 31 MB no total, média de 182 KB), no bucket público `exercicio-imagens`, em `acervo-global/<exercício>-<m|f>-<hash>.webp`, com cache de um ano.
+- **A ordem:** a migration `20261438010000` foi aplicada antes do merge, porque a tela nova lê as colunas; depois, as colunas dos 105 exercícios globais foram preenchidas. O `types.ts` gerado de novo não teve diferença.
+- **Conferido** com uma aluna e uma academia temporárias, apagadas no fim, no computador e no celular: a pergunta apareceu, a escolha gravou `feminino`, e o supino (dois modelos) mostrou o feminino, a flexão (só o feminino) o feminino e o voador (só o masculino) o masculino. Os 174 GIFs abrem pelo endereço público.
 ## Os modelos de treino com vínculo ao acervo, e o GIF nos treinos já publicados (09/10/2026)
 
 **O defeito.** Com os GIFs no acervo, o responsável ainda via exercícios sem GIF. O acervo global estava completo (os 105 exercícios com pelo menos um dos dois modelos); faltava o caminho até ele. Os modelos de treino que toda academia recebe (Adaptação A/B, Hipertrofia A/B, Metabólico) tinham **93 dos 102 itens sem `exercicio_id`**, 31 em cada academia (Ponto Alto, ARKE Homologação e Methodos Vitae). O `publicar_treino` leva o `exercicio_id` do item para o snapshot, e o app lê os GIFs por modelo pelo id: o treino publicado de um modelo sem vínculo ficava sem GIF. Na Ponto Alto, os **1.048 itens dos treinos ativos** estavam assim.
@@ -226,6 +237,8 @@ O acervo global (105 exercícios, `organization_id` nulo) vai ganhar os GIFs de 
 - `npm run check` sem erro: tipos, lint (0 erros, os 27 avisos de antes), o `deno check` das 57 funções e nenhuma vulnerabilidade.
 - **Falta, porque esta frente não toca produção:** aplicar a migration, renovar o `supabase/historico/` e conferir a tela no computador e no celular (o treino da Ponto Alto com GIF).
 
+
+**Em produção, em 09/10:** a migration `20261439010000` foi aplicada antes do merge, e os 102 itens de modelo ficaram com vínculo (0 sem). Na Ponto Alto, o treino da Marina mostrou os GIFs dos 6 exercícios no computador e no celular; antes, nenhum. A imagem só carrega quando chega à tela (`loading="lazy"`), o que poupa dados no celular.
 ## "Mensagem" direto do cartão da fila de atendimento (09/10/2026)
 
 **O pedido**, tirado de um vídeo de uso: abrir a conversa com o aluno a partir da fila, sem dar a volta pela ficha. Até aqui, o cartão da tarefa tinha Assumir, Ver Anamnese, Prescrever e o desfecho; para escrever ao aluno, era abrir Alunos, achar a ficha e clicar no chat.
@@ -242,6 +255,8 @@ O acervo global (105 exercícios, `organization_id` nulo) vai ganhar os GIFs de 
 - `npm run check` sem erro: tipos, lint (0 erros, os 27 avisos de antes), o `deno check` das 57 funções e nenhuma vulnerabilidade.
 - **Falta, porque esta frente não toca produção:** conferir a tela no computador e no celular, na academia de demonstração, com o gestor, o professor e a recepção, e no Mentor.
 
+
+**Em produção, em 09/10:** na Ponto Alto, como a gestora Renata e o professor Diego, no computador e no celular, o botão nos 163 cartões da fila abriu a conversa do aluno. A gestora vê o chat de treino e o da nutrição; o professor, só o de treino (a "Minha Fila" dele está vazia, e os cartões estão na "Fila da Organização"). As duas mensagens "Teste" ficaram em `mensagens_treino`, com `remetente_tipo` `treinador` e não lidas, como histórico da demonstração. **Observação:** na conversa de treino, a mensagem de qualquer pessoa da equipe aparece como "Você"; o banco guarda quem enviou, mas a tela não mostra o nome.
 ## O contador de não lidas baixa na hora (06/10/2026)
 
 Na tela em produção, depois da `20261400` (a mensagem lida passou a gravar), o professor abriu a conversa do aluno. A mensagem ficou lida no banco, mas o número do menu continuou em 1. O chat (`ChatPanel`) recarregava só as próprias mensagens depois de marcar como lida. O contador do menu e da caixa (`useCaixaMensagens`, chave `caixa-mensagens`) só baixava na próxima atualização, até 30 s depois, ou ao fechar a conversa pelo botão da tela de Mensagens. Agora o chat recarrega o contador também, onde quer que esteja aberto, inclusive na ficha do aluno.

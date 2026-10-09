@@ -625,7 +625,7 @@ export function PrescricaoTreino({
             <CardHeader className="pb-2">
               <CardTitle className="text-base">Publicar treino</CardTitle>
               <p className="text-xs text-muted-foreground">
-                Cria uma cópia congelada (snapshot) do modelo para o aluno. Alterar o modelo depois não afeta o que já foi publicado.
+                O aluno recebe o treino como ele está na hora de publicar. Mudar um modelo da biblioteca depois não muda o que ele já recebeu.
               </p>
             </CardHeader>
             <CardContent className="space-y-3">

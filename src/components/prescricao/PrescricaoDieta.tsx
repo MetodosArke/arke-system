@@ -707,7 +707,7 @@ export function PrescricaoDieta({
             <CardHeader className="pb-2">
               <CardTitle className="text-base">Publicar dieta</CardTitle>
               <p className="text-xs text-muted-foreground">
-                Cria uma cópia congelada (snapshot) do modelo para o aluno. Alunos do Método ARKE aparecem desabilitados:
+                O aluno recebe a dieta como ela está na hora de publicar. Mudar o modelo depois não muda o que ele já recebeu. Alunos do Método ARKE aparecem desabilitados:
                 a dieta deles é da nutricionista da ArkeFit.
               </p>
             </CardHeader>
