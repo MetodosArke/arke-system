@@ -104,8 +104,16 @@ export const DOCUMENTOS: Record<
     // em conformidade com as Clausulas-Padrao da ANPD (Resolucao CD/ANPD
     // 19/2024), e a secao 7 declara a guarda dos registros de acesso por 6
     // meses (Marco Civil, art. 15). Redacao do advogado, como estava.
-    versao: "2026-10-06.2",
-    sha256: "82fa9b246d294daa2cffacc20510b8c0292dcbd66b02804dd3042e0a466cd550",
+    // 2026-10-09: o assistente da equipe da academia passa a rodar pela API
+    // da Anthropic, nos EUA, com a AWS (infraestrutura global) de reserva --
+    // a secao 5 nomeia a Anthropic e diz o que ela faz com o conteudo (nao
+    // treina modelos; apaga em ate 30 dias, salvo violacao das regras de uso
+    // ou obrigacao legal), a secao 6 diz que o assistente e processado fora
+    // do Brasil, e a secao 4 deixa claro que, nas finalidades dela, a
+    // Anthropic nao recebe o texto. Texto aprovado pelo responsavel no
+    // workspace em 09/10/2026 (politica-anthropic-assistente), como estava.
+    versao: "2026-10-09",
+    sha256: "0c12c29a9cefee7818f324fbeb395d9c192fad42779aa359246dcf016afa4d46",
     revisadoJuridico: true,
   },
   contrato_academia: {
