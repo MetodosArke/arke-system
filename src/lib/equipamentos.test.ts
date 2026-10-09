@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { catracasSemSinal, ordenarEquipamentos, type EquipamentoGlobal } from "./equipamentos";
+import { catracasSemSinal, marcaDoModelo, ordenarEquipamentos, type EquipamentoGlobal } from "./equipamentos";
 
 const base: EquipamentoGlobal = {
   catraca_id: "c",
@@ -50,5 +50,16 @@ describe("equipamentos da Visão Master", () => {
       { ...base, catraca_id: "ok-falhas", academia: "Z", comandos_falhos_7d: 2 },
     ];
     expect(ordenarEquipamentos(lista).map((e) => e.catraca_id)).toEqual(["off", "cont", "nunca", "ok-falhas", "ok"]);
+  });
+});
+
+describe("marca do equipamento", () => {
+  it("o modelo do Gateway vira o nome da marca, e o desconhecido aparece como veio", () => {
+    expect(marcaDoModelo("hikvision")).toBe("Hikvision");
+    expect(marcaDoModelo("controlid")).toBe("Control iD");
+    expect(marcaDoModelo("topdata_facial")).toBe("Topdata facial");
+    expect(marcaDoModelo("marca_nova")).toBe("marca_nova");
+    expect(marcaDoModelo(null)).toBeNull();
+    expect(marcaDoModelo(" ")).toBeNull();
   });
 });

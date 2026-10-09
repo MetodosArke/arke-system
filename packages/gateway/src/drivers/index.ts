@@ -42,6 +42,12 @@ export function criarDriver(config: Pick<GatewayConfig, "modelo_catraca" | "catr
     case "intelbras":
       return new ReceptorDriver("intelbras", "Intelbras: os terminais chamam o Gateway no Modo Online");
 
+    // Hikvision (ISAPI): o aparelho manda cada acesso ao receptor, na mesma
+    // porta de escuta, e espera a decisão na resposta (verificação remota).
+    // A decisão mora em src/conectores/hikvision/receptor.ts; o driver fica inerte.
+    case "hikvision":
+      return new ReceptorDriver("hikvision", "Hikvision: os aparelhos mandam cada acesso ao Gateway");
+
     // Henry e Dimep: sem driver até a implantação do primeiro cliente de
     // cada marca. config.ts já recusa antes de chegar aqui; isto é só a
     // segunda trava, para quem montar o gateway por outro caminho.

@@ -11,7 +11,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { Cpu, Fingerprint, ScrollText, ShieldAlert } from "lucide-react";
 import { SaudeGateway } from "@/components/catraca/SaudeGateway";
 import { SITUACAO_GATEWAY, tempoDesde, useVersaoMinimaGateway, versaoAbaixoDaMinima } from "@/lib/gateway";
-import { ordenarEquipamentos, useEquipamentosGlobais, type EquipamentoGlobal } from "@/lib/equipamentos";
+import { marcaDoModelo, ordenarEquipamentos, useEquipamentosGlobais, type EquipamentoGlobal } from "@/lib/equipamentos";
 import { cn } from "@/lib/utils";
 import { useAcessoArkefit } from "@/hooks/useAcessoArkefit";
 
@@ -149,7 +149,7 @@ function ListaEquipamentos() {
                       <span className={TOM[info.tom]}>{info.rotulo}</span>
                       {e.situacao !== "nunca_conectou" && ` · sinal ${tempoDesde(e.reportado_em ?? e.ultimo_heartbeat_em)}`}
                       {e.versao ? ` · Gateway ${e.versao}` : e.situacao !== "nunca_conectou" ? " · Gateway anterior à 1.0" : ""}
-                      {e.modelo ? ` · ${e.modelo}` : ""}
+                      {e.modelo ? ` · ${marcaDoModelo(e.modelo)}` : ""}
                     </p>
                   </div>
                   <div className="flex flex-wrap gap-1.5">

@@ -14,7 +14,6 @@
  * Este módulo é só tradução, sem rede.
  */
 
-import { createHash, randomBytes } from "node:crypto";
 import { mensagemDoDisplay } from "../toletus/protocolo";
 
 export const PORTA_HTTP_INTELBRAS = 80;
@@ -278,63 +277,8 @@ export function horaDoTerminal(agora: Date = new Date()): string {
     .replace("T", " ");
 }
 
-// ——— Autenticação Digest (RFC 2617) ———
+// ——— Autenticação Digest ———
 
-export interface DesafioDigest {
-  realm: string;
-  nonce: string;
-  qop: string | null;
-  opaque: string | null;
-  algorithm: string | null;
-}
-
-/** Lê o cabeçalho `WWW-Authenticate: Digest ...` do 401. null se não for Digest. */
-export function lerDesafio(cabecalho: string | null | undefined): DesafioDigest | null {
-  const s = String(cabecalho ?? "");
-  if (!/^\s*digest\s/i.test(s)) return null;
-  const campo = (nome: string) => new RegExp(`${nome}="?([^",]+)"?`, "i").exec(s)?.[1] ?? null;
-  const realm = campo("realm");
-  const nonce = campo("nonce");
-  if (!realm || !nonce) return null;
-  const qop = campo("qop");
-  return {
-    realm,
-    nonce,
-    // "auth,auth-int": usamos "auth".
-    qop: qop ? (qop.split(",").map((q) => q.trim()).includes("auth") ? "auth" : qop.split(",")[0].trim()) : null,
-    opaque: campo("opaque"),
-    algorithm: campo("algorithm"),
-  };
-}
-
-const md5 = (s: string) => createHash("md5").update(s).digest("hex");
-
-/** O cabeçalho `Authorization: Digest ...` de um pedido. */
-export function autorizacaoDigest(p: {
-  usuario: string;
-  senha: string;
-  metodo: string;
-  uri: string;
-  desafio: DesafioDigest;
-  nc: number;
-  cnonce?: string;
-}): string {
-  const cnonce = p.cnonce ?? randomBytes(8).toString("hex");
-  const nc = p.nc.toString(16).padStart(8, "0");
-  const ha1 = md5(`${p.usuario}:${p.desafio.realm}:${p.senha}`);
-  const ha2 = md5(`${p.metodo.toUpperCase()}:${p.uri}`);
-  const resposta = p.desafio.qop
-    ? md5(`${ha1}:${p.desafio.nonce}:${nc}:${cnonce}:${p.desafio.qop}:${ha2}`)
-    : md5(`${ha1}:${p.desafio.nonce}:${ha2}`);
-  const partes = [
-    `username="${p.usuario}"`,
-    `realm="${p.desafio.realm}"`,
-    `nonce="${p.desafio.nonce}"`,
-    `uri="${p.uri}"`,
-    `response="${resposta}"`,
-  ];
-  if (p.desafio.algorithm) partes.push(`algorithm=${p.desafio.algorithm}`);
-  if (p.desafio.opaque) partes.push(`opaque="${p.desafio.opaque}"`);
-  if (p.desafio.qop) partes.push(`qop=${p.desafio.qop}`, `nc=${nc}`, `cnonce="${cnonce}"`);
-  return `Digest ${partes.join(", ")}`;
-}
+// O Digest mora em core/digest.ts, junto com o da Hikvision; os nomes
+// continuam saindo daqui para quem já os importava.
+export { autorizacaoDigest, lerDesafio, type DesafioDigest } from "../../core/digest";

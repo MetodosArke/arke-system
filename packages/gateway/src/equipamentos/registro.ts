@@ -10,7 +10,8 @@ import type { TelemetriaGateway } from "../types";
  * Control iD: o equipamento se identifica pelo `device_id` em cada
  * chamada. Topdata: quem fala é a ponte, que conta quais Inners estão
  * conectados. Toletus: quem disca é o Gateway, então o estado de cada
- * placa vem do próprio conector, na hora da telemetria.
+ * placa vem do próprio conector, na hora da telemetria. Hikvision: o
+ * conector confere cada aparelho a cada minuto, e o receptor marca cada evento.
  */
 
 /** O que a telemetria precisa saber de uma placa Toletus. */
@@ -20,6 +21,17 @@ export interface EstadoPlacaToletus {
   firmware: string | null;
   vistaEm: Date | null;
   desconectadaEm: Date | null;
+}
+
+/** O que a telemetria precisa saber de um aparelho Hikvision. */
+export interface EstadoAparelhoHikvision {
+  nome: string;
+  alcancavel: boolean;
+  modelo: string | null;
+  firmware: string | null;
+  verificacaoRemota: boolean;
+  vistoEm: Date | null;
+  erro: string | null;
 }
 
 /** O que a telemetria precisa saber de um leitor facial da Topdata. */
@@ -39,6 +51,9 @@ export class RegistroEquipamentos {
   private leitoresFaciais: () => EstadoLeitorFacial[] = () => [];
   /** Terminais Intelbras: quem chamou (keepalive ou acesso), pelo nome do config ou pelo IP. */
   private readonly intelbras = new Map<string, Date>();
+  /** Aparelhos Hikvision: quem mandou evento, pelo nome do config ou pelo IP. */
+  private readonly hikvision = new Map<string, Date>();
+  private aparelhosHikvision: () => EstadoAparelhoHikvision[] = () => [];
 
   constructor(private readonly agora: () => Date = () => new Date()) {}
 
@@ -62,6 +77,16 @@ export class RegistroEquipamentos {
   /** Keepalive ou acesso de um terminal Intelbras. */
   intelbrasVisto(nome: string): void {
     this.intelbras.set(nome, this.agora());
+  }
+
+  /** Um evento de um aparelho Hikvision. */
+  hikvisionVisto(nome: string): void {
+    this.hikvision.set(nome, this.agora());
+  }
+
+  /** O conector Hikvision se apresenta aqui ao subir: ele confere cada aparelho a cada minuto. */
+  fonteHikvision(estados: () => EstadoAparelhoHikvision[]): void {
+    this.aparelhosHikvision = estados;
   }
 
   ponteViva(inners: number[], conectados: number[]): void {
@@ -124,6 +149,26 @@ export class RegistroEquipamentos {
     // que ele está chegando ao Gateway.
     for (const [nome, visto] of this.intelbras) {
       equipamentos.push({ nome, tipo: "intelbras", visto_em: visto.toISOString() });
+    }
+    // Hikvision: o Gateway confere cada aparelho a cada minuto (no servidor de
+    // escuta o aparelho não manda batimento), e cada evento também vale como sinal.
+    const conhecidos = new Set<string>();
+    for (const a of this.aparelhosHikvision()) {
+      conhecidos.add(a.nome);
+      const evento = this.hikvision.get(a.nome) ?? null;
+      const visto = [evento, a.vistoEm].filter((d): d is Date => !!d).sort((x, y) => y.getTime() - x.getTime())[0] ?? null;
+      const sobre = [a.modelo, a.firmware ? `firmware ${a.firmware}` : null].filter(Boolean).join(", ");
+      equipamentos.push({
+        nome: `Hikvision ${a.nome}`,
+        tipo: "hikvision",
+        visto_em: a.alcancavel && visto ? visto.toISOString() : null,
+        detalhe: a.alcancavel
+          ? `${sobre ? `${sobre}, ` : ""}${a.verificacaoRemota ? "pergunta ao Gateway a cada acesso" : "decide pela lista do Gateway"}`
+          : `sem resposta do aparelho${a.erro ? `: ${a.erro}` : ""}`,
+      });
+    }
+    for (const [nome, visto] of this.hikvision) {
+      if (!conhecidos.has(nome)) equipamentos.push({ nome, tipo: "hikvision", visto_em: visto.toISOString() });
     }
     return {
       equipamentos,

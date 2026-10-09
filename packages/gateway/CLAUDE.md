@@ -5,7 +5,7 @@ O Gateway Local é o programa que roda no computador da recepção, entre as cat
 ## Como ele conversa
 
 - **Leia o manual do fabricante antes de escrever o driver: quem disca muda de marca para marca.**
-  - Control iD e Intelbras chamam o receptor HTTP (porta 4571).
+  - Control iD, Intelbras e Hikvision chamam o receptor HTTP (porta 4571). A Hikvision pelo servidor de escuta, com a decisão na resposta do mesmo POST (verificação remota síncrona).
   - A Topdata (linha Inner) chama pela ponte .NET (`packages/ponte-topdata`).
   - Os leitores faciais da Topdata e a Toletus LiteNet3 discam por WebSocket.
   - Na Toletus LiteNet2, quem disca é o Gateway.
@@ -15,6 +15,8 @@ O Gateway Local é o programa que roda no computador da recepção, entre as cat
 - **A fila offline anda:** cada registro sobe com o `id_local`, e a nuvem diz o que aceitou e o que recusou de vez; os dois saem da fila. O que já subiu sai do computador em 30 dias (`limparAntigos`).
 - **O computador da recepção guarda o mínimo:** o cache só tem os alunos atuais e não guarda o nome, e todo arquivo do NeDB é reescrito (`compactarArquivo`) depois de apagar, senão a linha apagada continua no disco.
 - **Leitura que vale como aluno** (`core/credencial.ts`): no teclado só o CPF; código de barras e QR não valem nada; cartão e biometria são o número do equipamento.
+- **Equipamento que guarda a lista** (Intelbras, Hikvision) decide sozinho sem o Gateway: o barrado vai bloqueado ou fora da validade, a cada sincronização (o espelho), e o nome gravado nele é "Aluno".
+- **Digest num lugar só** (`core/digest.ts`), para as marcas que administram o equipamento por HTTP com Digest.
 - **Liberado não é entrou.** O giro fica `pendente`, depois `confirmado`, `desistencia` ou `sem_confirmacao`. Desistência não vira presença; a presença nasce no banco, por gatilho.
 - **Canal de comandos** (`catraca-comandos`, escuta longa):
   - a nuvem só pede o que o Gateway anuncia em `capacidades`;
@@ -29,7 +31,7 @@ O Gateway Local é o programa que roda no computador da recepção, entre as cat
 
 ## Quem fala com ele
 
-- O receptor atende só os IPs de `controlid_equipamentos`, `intelbras_equipamentos` e `equipamentos_permitidos`, além da própria máquina (`src/server/origemEquipamento.ts`). Sem lista nenhuma, atende qualquer aparelho e avisa no log.
+- O receptor atende só os IPs de `controlid_equipamentos`, `intelbras_equipamentos`, `hikvision_equipamentos` e `equipamentos_permitidos`, além da própria máquina (`src/server/origemEquipamento.ts`). Sem lista nenhuma, atende qualquer aparelho e avisa no log.
 - As rotas `/topdata/*` atendem só a própria máquina.
 - O token do Gateway é um UUID no `config.json`; a nuvem guarda só o hash dele.
 - Henry e Dimep: o Gateway se recusa a subir. Marca nova entra com documentação ou com equipamento de bancada.

@@ -3,6 +3,7 @@ import type { GatewayService } from "../core/gatewayService";
 import { registrarReceptorControlId, type OpcoesReceptorControlId } from "../receptores/controlid";
 import { registrarReceptorTopdata, type OpcoesReceptorTopdata } from "../receptores/topdata";
 import { registrarReceptorIntelbras, type OpcoesReceptorIntelbras } from "../conectores/intelbras/receptor";
+import { registrarReceptorHikvision, type OpcoesReceptorHikvision } from "../conectores/hikvision/receptor";
 import { logger } from "../logger";
 import { origemPermitida, rotaSemFiltro } from "./origemEquipamento";
 import { VERSAO_GATEWAY } from "../versao";
@@ -55,6 +56,7 @@ export function criarServidorReceptor(
     porta?: number;
     modelo?: string;
     intelbras?: OpcoesReceptorIntelbras;
+    hikvision?: OpcoesReceptorHikvision;
     /** IPs dos equipamentos (ver origemEquipamento.ts). Ausente: sem filtro. */
     ipsPermitidos?: ReadonlySet<string>;
   } & OpcoesReceptorControlId &
@@ -92,6 +94,8 @@ export function criarServidorReceptor(
   registrarReceptorTopdata(app, gateway, opcoes);
   // Intelbras (Modo Online): /keepalive e /notification, na mesma porta.
   if (opcoes.intelbras) registrarReceptorIntelbras(app, gateway, opcoes.intelbras);
+  // Hikvision (servidor de escuta e verificação remota): /hikvision/evento, na mesma porta.
+  if (opcoes.hikvision) registrarReceptorHikvision(app, gateway, opcoes.hikvision);
 
   // Sonda de vida da própria porta do receptor: o técnico de instalação
   // precisa confirmar da rede que o gateway está alcançável, sem depender

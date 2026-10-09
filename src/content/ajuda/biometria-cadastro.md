@@ -15,11 +15,11 @@ Quando o texto da autorização muda, a ficha avisa que o aluno autorizou sob um
 
 ## Cadastrar digital e cartão
 
-Com o Gateway e a catraca Control iD, ou a Toletus com leitor de digital, configurados para gestão remota:
+Com o Gateway e a catraca Control iD, a Toletus com leitor de digital ou os aparelhos Hikvision, configurados para gestão remota:
 
 1. Na ficha, escolha o **leitor** em que o aluno vai pôr o dedo ou o cartão.
-2. Clique em **Cadastrar digital** (ou **Cadastrar cartão**, na Control iD) e peça ao aluno para encostar no leitor quando o equipamento pedir. Na Toletus, ele põe o mesmo dedo três vezes, e o visor da catraca diz quando pôr e quando tirar.
-3. O ARKE copia a digital para as outras catracas da academia.
+2. Clique em **Cadastrar digital** (ou **Cadastrar cartão**, na Control iD e na Hikvision) e peça ao aluno para encostar no leitor quando o equipamento pedir. Na Toletus, ele põe o mesmo dedo três vezes, e o visor da catraca diz quando pôr e quando tirar.
+3. O ARKE copia a digital (e, na Hikvision, o cartão) para as outras catracas da academia. Na Hikvision, um cartão novo substitui o anterior do aluno: o cartão perdido para de abrir a catraca.
 
 Se o aluno ainda não existe no equipamento, o ARKE cria antes, sozinho. O visor da catraca mostra "Aluno", e não o nome, para quem está na fila não ver o nome de ninguém.
 
@@ -31,7 +31,7 @@ Sem gestão remota (por exemplo, Topdata com cartão), o cadastro é feito no pr
 
 ## Cadastrar o rosto
 
-Vale para a Control iD com reconhecimento de rosto e para os leitores faciais da Topdata, quando o Gateway está configurado para eles.
+Vale para a Control iD com reconhecimento de rosto, para os leitores faciais da Topdata e para os terminais faciais da Hikvision, quando o Gateway está configurado para eles.
 
 - **Pela câmera do equipamento**: na ficha, escolha o **leitor para o rosto** (quando há mais de um) e clique em **Cadastrar rosto**. Peça ao aluno para olhar para a câmera quando o leitor pedir. O ARKE copia o rosto para os outros leitores da academia.
 - **Pela foto do aluno no app**: o aluno manda uma foto em **Perfil → Privacidade → Meu rosto na catraca**. Ela vai para os leitores da academia e é apagada do ARKE assim que eles a recebem. A ficha mostra a situação.

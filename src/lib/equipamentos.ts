@@ -65,3 +65,24 @@ export function ordenarEquipamentos(lista: EquipamentoGlobal[]): EquipamentoGlob
       a.catraca.localeCompare(b.catraca)
   );
 }
+
+/**
+ * A marca, pelo modelo que o Gateway reporta (o `modelo_catraca` do config
+ * dele). A lista acompanha as marcas do Gateway; modelo que ela não conhece
+ * aparece como veio, para o suporte ver o que o Gateway mandou.
+ */
+const MARCAS: Record<string, string> = {
+  controlid: "Control iD",
+  topdata: "Topdata",
+  topdata_facial: "Topdata facial",
+  toletus: "Toletus",
+  intelbras: "Intelbras",
+  hikvision: "Hikvision",
+  mock: "teste, sem catraca",
+};
+
+export function marcaDoModelo(modelo: string | null | undefined): string | null {
+  const m = modelo?.trim();
+  if (!m) return null;
+  return MARCAS[m] ?? m;
+}

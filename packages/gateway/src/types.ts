@@ -2,7 +2,16 @@
  * `topdata` é a linha Inner, pela ponte .NET. `topdata_facial` é a linha
  * Easy, em que o leitor facial decide com a nossa resposta, sem placa Inner.
  */
-export type ModeloCatraca = "controlid" | "henry" | "topdata" | "topdata_facial" | "toletus" | "intelbras" | "dimep" | "mock";
+export type ModeloCatraca =
+  | "controlid"
+  | "henry"
+  | "topdata"
+  | "topdata_facial"
+  | "toletus"
+  | "intelbras"
+  | "hikvision"
+  | "dimep"
+  | "mock";
 
 export interface GatewayConfig {
   organization_id: string;
@@ -60,10 +69,10 @@ export interface GatewayConfig {
    */
   controlid_liberacao?: "catraca" | "rele" | "secbox";
   /**
-   * IPs de equipamento fora de `controlid_equipamentos` e de
-   * `intelbras_equipamentos` (a Control iD única, sem gestão remota). Com
-   * qualquer uma das três listas, o receptor só atende os IPs delas e a
-   * própria máquina; sem nenhuma, atende qualquer aparelho da rede.
+   * IPs de equipamento fora de `controlid_equipamentos`,
+   * `intelbras_equipamentos` e `hikvision_equipamentos` (a Control iD única,
+   * sem gestão remota). Com qualquer uma das listas, o receptor só atende os
+   * IPs delas e a própria máquina; sem nenhuma, atende qualquer aparelho da rede.
    */
   equipamentos_permitidos?: string[];
   /** Sentido de entrada da catraca Control iD fora de `controlid_equipamentos`. */
@@ -113,6 +122,39 @@ export interface GatewayConfig {
   intelbras_endereco?: string;
   /** O Gateway configura o Modo Online em cada terminal ao subir (padrão: sim). */
   intelbras_configurar?: boolean;
+  /**
+   * Terminais faciais e controladoras da Hikvision (ISAPI). O aparelho manda
+   * cada acesso ao receptor do Gateway e, com a verificação remota, espera a
+   * decisão na resposta. Com a lista, o Gateway configura cada aparelho ao
+   * subir, cadastra e apaga o aluno, o rosto, o cartão e a digital, abre a
+   * porta a pedido da recepção e põe fora da validade quem a academia barrou.
+   */
+  hikvision_equipamentos?: EquipamentoHikvision[];
+  /** Endereço deste computador que os aparelhos devem chamar. Vazio: o Gateway descobre. */
+  hikvision_endereco?: string;
+  /** O Gateway configura o envio dos eventos e a verificação remota ao subir (padrão: sim). */
+  hikvision_configurar?: boolean;
+}
+
+export interface EquipamentoHikvision {
+  /** Como a recepção reconhece o aparelho ("Catraca da entrada"). */
+  nome: string;
+  ip: string;
+  /** A porta HTTP do aparelho (80). */
+  porta: number;
+  usuario: string;
+  senha: string;
+  /** A porta de acesso (door) que libera a catraca: a 1 no terminal; na controladora, a que a catraca está ligada. */
+  porta_acesso: number;
+  /**
+   * Leitores que são de saída: a saída passa sem consulta. Sem a lista, o
+   * Gateway usa o padrão do tipo de aparelho: nenhum no terminal, e os
+   * leitores pares (2, 4, 6, 8) na controladora, que tem um leitor de
+   * entrada e um de saída por porta.
+   */
+  leitores_saida?: number[];
+  /** Módulos de digital que recebem a digital (o `enableCardReader` da API): o 1 no terminal. */
+  leitores_digital: number[];
 }
 
 export interface EquipamentoIntelbras {

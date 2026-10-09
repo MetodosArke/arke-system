@@ -48,6 +48,15 @@ describe("catraca: o display é público", () => {
     expect(comNome).toEqual([]);
   });
 
+  it("o nome gravado nos equipamentos que mostram o nome na tela é \"Aluno\"", () => {
+    // Intelbras e Hikvision guardam a pessoa no terminal, e a tela dele mostra o nome.
+    expect(semComentarios(ler("packages", "gateway", "src", "conectores", "intelbras", "protocolo.ts"))).toMatch(/UserName: "Aluno"/);
+    const hikvision = semComentarios(ler("packages", "gateway", "src", "conectores", "hikvision", "protocolo.ts"));
+    expect(hikvision).toMatch(/name: "Aluno"/);
+    // A frase da decisão que o aparelho mostra sai da frase de todas as marcas.
+    expect(hikvision).toMatch(/info: mensagemDoDisplay\(liberado, motivo\)/);
+  });
+
   it("a ponte da Topdata não tem onde guardar o nome, e o display sai da frase do Gateway", () => {
     const ponte = ["Gateway.cs", "MaquinaInner.cs", "Utilitarios.cs"]
       .map((a) => semComentarios(ler("packages", "ponte-topdata", "src", a)))
@@ -70,6 +79,7 @@ describe("catraca: código de barras e QR não identificam aluno", () => {
     for (const usa of [
       ["receptores", "topdata.ts"],
       ["conectores", "toletus", "conector.ts"],
+      ["conectores", "hikvision", "receptor.ts"],
     ]) {
       expect(ler("packages", "gateway", "src", ...usa), usa.join("/")).toMatch(/from "\.\.\/(\.\.\/)?core\/credencial"/);
     }

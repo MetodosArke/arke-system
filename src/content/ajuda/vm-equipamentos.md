@@ -2,7 +2,7 @@
 
 ## Gateways e catracas
 
-Cada Gateway, com a situação (no ar, contingência, sem sinal, nunca conectou), a versão, os acessos guardados e a última sincronização. A lista vem ordenada pelo que precisa de ação.
+Cada Gateway, com a situação (no ar, contingência, sem sinal, nunca conectou), a versão, a marca da catraca que ele atende (Control iD, Topdata, Toletus, Intelbras ou Hikvision), os acessos guardados e a última sincronização. A lista vem ordenada pelo que precisa de ação.
 
 No detalhe, as mesmas ações remotas que a academia tem: **Sincronizar agora**, **Enviar acessos guardados**, **Diagnóstico** e **Liberar catraca** (com motivo, registrado na Auditoria). O suporte e a recepção olham para os mesmos números.
 

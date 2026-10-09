@@ -222,6 +222,33 @@ describe("carregarConfig", () => {
     ).toThrow(/nomes de equipamento repetidos/);
   });
 
+  it("Hikvision: a lista com defaults por aparelho, sem nome nem IP repetidos", () => {
+    const base = {
+      organization_id: "11111111-1111-1111-1111-111111111111",
+      token_api_local: "token-valido-1234567890",
+      supabase_url: "https://exemplo.supabase.co",
+      catraca_ip: "192.168.0.10",
+      catraca_porta: 80,
+      modelo_catraca: "hikvision",
+    };
+    const config = carregarConfig(
+      escreverConfig({
+        ...base,
+        hikvision_equipamentos: [
+          { nome: "Terminal", ip: "192.168.0.30", senha: "x" },
+          { nome: "Controladora", ip: "192.168.0.31", senha: "x", porta_acesso: 2, leitores_saida: [2], leitores_digital: [1, 3] },
+        ],
+      })
+    );
+    expect(config.modelo_catraca).toBe("hikvision");
+    expect(config.hikvision_configurar).toBe(true);
+    expect(config.hikvision_equipamentos?.[0]).toEqual({ nome: "Terminal", ip: "192.168.0.30", porta: 80, usuario: "admin", senha: "x", porta_acesso: 1, leitores_digital: [1] });
+    expect(config.hikvision_equipamentos?.[1]).toMatchObject({ porta_acesso: 2, leitores_saida: [2], leitores_digital: [1, 3] });
+    const repetido = { nome: "A", ip: "192.168.0.30", senha: "x" };
+    expect(() => carregarConfig(escreverConfig({ ...base, hikvision_equipamentos: [repetido, { ...repetido, nome: "B" }] }))).toThrow(/mesmo IP/);
+    expect(() => carregarConfig(escreverConfig({ ...base, hikvision_equipamentos: [repetido, { ...repetido, ip: "192.168.0.32" }] }))).toThrow(/repetidos/);
+  });
+
   it("lança ConfigError quando o arquivo não existe", () => {
     expect(() => carregarConfig("/caminho/que/nao/existe.json")).toThrow(ConfigError);
   });

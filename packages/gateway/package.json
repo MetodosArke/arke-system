@@ -1,6 +1,6 @@
 {
   "name": "@arkefit/gateway-local",
-  "version": "1.9.0",
+  "version": "1.10.0",
   "description": "ARKE® Gateway Local — middleware Node.js/TypeScript que faz a ponte de baixa latência entre catracas físicas da academia e a nuvem da ArkeFit (Supabase).",
   "private": true,
   "type": "commonjs",
@@ -16,7 +16,8 @@
     "emular:toletus": "node scripts/emulador-toletus.mjs",
     "emular:litenet3": "node scripts/emulador-litenet3.mjs",
     "emular:facial-topdata": "node scripts/emulador-facial-topdata.mjs",
-    "emular:intelbras": "node scripts/emulador-intelbras.mjs"
+    "emular:intelbras": "node scripts/emulador-intelbras.mjs",
+    "emular:hikvision": "node scripts/emulador-hikvision.mjs"
   },
   "dependencies": {
     "axios": "^1.7.9",
