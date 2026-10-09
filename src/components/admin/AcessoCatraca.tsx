@@ -36,8 +36,8 @@ const umaTelemetria = (t: Telemetria | Telemetria[] | null | undefined): Telemet
  * Versão 1.0: com a Control iD configurada no Gateway, a recepção cadastra o
  * aluno, a digital e o cartão daqui, com o aluno na frente do leitor, em vez
  * de digitar o número no equipamento e depois no ARKE. Cada marca anuncia o
- * que cadastra (a digital da Toletus desde o Gateway 1.6), e a tela só
- * oferece isso. Onde o Gateway não cadastra cartão (Toletus, Intelbras), o
+ * que cadastra (a digital da Toletus desde o Gateway 1.6; na Hikvision, desde
+ * a 1.10, o que cada aparelho declara), e a tela só oferece isso. Onde o Gateway não cadastra cartão (Toletus, Intelbras), o
  * número do cartão continua vinculado à mão, aqui mesmo. Sem gestão remota
  * (Topdata Inner, Control iD sem credencial no config), o cadastro continua
  * no equipamento e o número é vinculado à mão, dizendo se é de cartão ou de
@@ -513,9 +513,9 @@ export function AcessoCatraca({
             <strong>Intelbras com cartão:</strong> o número que o terminal informa, achado do mesmo jeito.{" "}
             <strong>Control iD</strong> (ou digital na Topdata e na Toletus): o número de usuário que o equipamento deu ao
             aluno no cadastro. Digital e rosto cadastrados no equipamento só se vinculam com a autorização do aluno (app ou
-            termo impresso anexado); cartão, a qualquer momento. Com a Control iD, a Intelbras, os leitores faciais da Topdata
-            ou o leitor de digital da Toletus configurados no Gateway Local, o cadastro passa a ser feito daqui, sem digitar
-            número.
+            termo impresso anexado); cartão, a qualquer momento. Com a Control iD, a Intelbras, a Hikvision, os leitores
+            faciais da Topdata ou o leitor de digital da Toletus configurados no Gateway Local, o cadastro passa a ser feito
+            daqui, sem digitar número.
           </p>
         </div>
       )}

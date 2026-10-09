@@ -18,11 +18,23 @@ Cadastrar, gerar token, ativar e desativar são da gestão. A recepção acompan
 
 A catraca **desativada** fica desligada do ARKE: ela não libera ninguém pelo ARKE, não recebe ordens (nem a de **Sincronizar agora**) e deixa de receber o cadastro dos alunos. O Gateway continua mandando sinal de vida, e a tela mostra se o computador está ligado. Para voltar a usar, é só ativar de novo; o cadastro chega na próxima rodada automática.
 
+## As marcas
+
+O Gateway fala com **Control iD**, **Topdata**, **Toletus**, **Intelbras** e **Hikvision**. O que cada aparelho faz pela ficha do aluno (cadastrar o aluno, a digital, o cartão, o rosto) aparece sozinho na ficha, conforme o equipamento.
+
+**Hikvision** (desde o Gateway 1.10):
+
+- **Terminais faciais DS-K1T671** (séries Pro e Ultra) **e DS-K1T341** (série Value): reconhecem o rosto e o cartão, e os modelos com leitor de digital, a digital. Com o firmware que tem a verificação remota, o terminal pergunta ao ARKE a cada rosto ou cartão; a digital é decidida no próprio terminal, pelo cadastro que o Gateway mantém nele.
+- **Controladora DS-K2604**, que comanda a catraca: cartão e digital pelos leitores ligados a ela; rosto só com um terminal facial ligado. Ela decide pelo cadastro que o Gateway mantém nela.
+- Pela ficha: cadastrar e apagar o aluno, a digital, o cartão e o rosto (pela câmera ou pela foto do app), e liberar a catraca.
+
+A Hikvision foi conferida no **emulador** do Gateway; o teste no aparelho de verdade é feito na implantação da primeira academia que tiver um.
+
 ## Os estados do Gateway
 
 - **No ar**: tudo normal.
 - **Contingência**: a internet da academia está falhando. A catraca continua funcionando, decidindo pelo cadastro guardado no computador, e os acessos sobem quando a conexão voltar. Nenhuma entrada se perde.
-- **Sem sinal**: o ARKE parou de receber notícias do Gateway. Se o **computador está desligado ou o programa parado**, a catraca não libera ninguém (os terminais Intelbras liberam só quem está cadastrado e ativo neles). Se o computador está ligado e **só falta internet**, a catraca segue funcionando pelo cadastro guardado, e os acessos sobem quando a internet voltar. Confira primeiro se o computador está ligado e com o programa aberto. Se passar de 10 minutos no horário de funcionamento, o gestor recebe um e-mail avisando.
+- **Sem sinal**: o ARKE parou de receber notícias do Gateway. Se o **computador está desligado ou o programa parado**, a catraca não libera ninguém (os terminais Intelbras e os aparelhos Hikvision decidem pelo cadastro guardado neles: liberam só quem está cadastrado e ativo, e quem a academia barrou continua barrado). Se o computador está ligado e **só falta internet**, a catraca segue funcionando pelo cadastro guardado, e os acessos sobem quando a internet voltar. Confira primeiro se o computador está ligado e com o programa aberto. Se passar de 10 minutos no horário de funcionamento, o gestor recebe um e-mail avisando.
 - **Nunca conectou**: o Gateway ainda não foi instalado ou configurado.
 
 ## Ações pela tela

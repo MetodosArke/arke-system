@@ -158,7 +158,7 @@ Cada linha é uma armadilha que já aconteceu aqui. Onde há trava, ela é um te
 - `npm run check`: tipos, lint, o `deno check` das funções e a auditoria das dependências de produção (alto e crítico); só erro reprova. `npx vitest run`: os testes do app, guardas incluídas.
 - Gateway: `cd packages/gateway && npm test && npm run check`. Versão nova muda `src/versao.ts` e o `package.json` juntos.
 - Sandbox do Asaas, que só aceita chave `$aact_hmlg_`: `npm run sandbox:cartao|ciclo|avulsa|conta|nfse|reconciliacao|implantacao|b2b-valor|assinatura|anonimizar|conta-academia`.
-- Emuladores das catracas: `cd packages/gateway && npm run emular:controlid|toletus|litenet3|facial-topdata|intelbras`.
+- Emuladores das catracas: `cd packages/gateway && npm run emular:controlid|toletus|litenet3|facial-topdata|intelbras|hikvision`.
 - Artigo da Central mudou: `npm run ajuda:indice`, e depois publicar `assistente-academia`.
 - Vigia: `npm run simulado:vigia`.
 - Academia de demonstração (Ponto Alto Academia, fictícia): `npm run demo:recriar` na véspera de uma apresentação; os logins e a senha ficam fora do repositório, em `~/arkefit-demonstracao.txt`.

@@ -1,4 +1,4 @@
-# ARKE® Gateway Local 1.6
+# ARKE® Gateway Local 1.10
 
 Programa Node.js/TypeScript que roda **no computador da recepção da academia**
 e liga a catraca física à plataforma ArkeFit no Supabase. Decide o acesso em
@@ -15,6 +15,7 @@ Leitor de digital SM25 ◀── TCP 7879 ── (o Gateway disca, só no cadast
 Placa Toletus LiteNet3 ──WebSocket──▶ porta 7880 (o Gateway anuncia o endereço por UDP)
 Leitor facial Topdata ──WebSocket──▶ porta 7792
 Terminal Intelbras ──HTTP (Modo Online)──▶ porta 4571 (/notification, /keepalive)
+Aparelho Hikvision ──HTTP (servidor de escuta)──▶ porta 4571 (/hikvision/evento)
                                      │
                                      ├──▶ catraca-validar-acesso       (cada leitura)
                                      ├──▶ catraca-confirmar-giro       (girou / desistiu)
@@ -40,13 +41,14 @@ passagem ou o tempo esgotado.
 
 ## Equipamentos
 
-| Marca | Situação na 1.6 |
+| Marca | Situação na 1.10 |
 |---|---|
 | **Control iD** (modo Pro) | Decisão de acesso, confirmação de giro pelo Monitor (iDBlock), contingência, **gestão remota**: cadastro do aluno, da digital e do cartão pelo ARKE, cópia entre as catracas da academia, remoção e liberação remota. Desde a 1.4, **leitor numa catraca de outra marca**: cada equipamento libera do seu jeito (`liberacao`: catraca, relé ou SecBox), reconhecido pelo IP, e o leitor não espera giro. |
 | **Topdata** (Inner, via EasyInner.dll) | Decisão de acesso, giro, contingência e bilhetes, pela ponte `packages/ponte-topdata` — ver `docs/PONTE_TOPDATA.md`. Sem gestão remota: o cadastro no equipamento é feito nele. |
 | **Topdata facial** (leitores F4/T4; catracas Fit Easy, Revolution Easy e Box Easy; Fit 4 Facial) | Linha Easy (modelo `topdata_facial`): o leitor pergunta ao Gateway a cada rosto e libera com a resposta; o Gateway o põe em "só online" a cada conexão, então sem o Gateway ele nega. Sem confirmação de giro: a presença conta pela liberação. Fit 4 Facial (modelo `topdata`, com a ponte): o leitor só identifica e passa o número à placa Inner. Nos dois, cadastro e remoção do aluno em todos os leitores pelo ARKE, e abertura remota pela API HTTP do leitor. |
 | **Toletus** (placas LiteNet2 e LiteNet3) | Decisão de acesso, giro (passagem e tempo esgotado avisados pela placa), contingência e liberação remota, pelo protocolo aberto do fabricante. Sem a ArkeFit, a entrada controlada fica travada: a placa não guarda alunos. Desde a 1.6, com `leitor_digital`, a digital é cadastrada pela ficha no leitor SM25 da LiteNet2 (porta 7879), copiada para as outras catracas e apagada quando o aluno sai. A LiteNet3 com leitor de digital manda a imagem do dedo para o servidor comparar, o que o ARKE não faz: ali vale cartão, código ou teclado. |
 | **Intelbras** (linha Bio-T, Modo Online) | Desde a 1.5. O terminal pergunta ao Gateway a cada acesso (`POST /notification`, na porta de escuta) e o Gateway responde com a decisão; a foto que vem junto é descartada na leitura; a saída passa sem consulta. O Gateway configura o Modo Online em cada terminal ao subir, acerta a hora, cadastra e apaga o aluno, abre a porta e entrega a foto do rosto do app, pela API CGI com Digest. **Sem o Gateway o terminal libera quem está cadastrado**, então o Gateway desativa no terminal quem a academia barrou e reativa quem volta, a cada sincronização. Sem giro: presença pela liberação. Ver `src/conectores/intelbras/`. |
+| **Hikvision** (terminais faciais DS-K1T671 e DS-K1T341, controladora DS-K2604) | Desde a 1.10, pela ISAPI. O aparelho manda cada acesso ao receptor (servidor de escuta, `/hikvision/evento`) e, com a verificação remota síncrona, espera a decisão na resposta; a digital é decidida no aparelho e a presença conta pelo evento. O Gateway lê de cada aparelho o modelo e as capacidades e oferece na ficha só o que ele declara: aluno, rosto (foto do app ou câmera), cartão e digital lidos no aparelho e copiados aos outros, remoção completa e abertura da porta. **Sem o Gateway o aparelho decide pela lista**, então o aluno barrado vai com a validade vencida, a cada sincronização. Conferida no emulador (`npm run emular:hikvision`); falta o aparelho de verdade. Ver `src/conectores/hikvision/`. |
 | **Henry, Dimep** | Sem integração. Os fabricantes não publicam documentação e não há equipamento para bancada: a conexão é feita na implantação do primeiro cliente de cada marca. O Gateway **se recusa a subir** com elas, com mensagem explicando. |
 | `mock` | Driver de desenvolvimento, sem hardware. |
 

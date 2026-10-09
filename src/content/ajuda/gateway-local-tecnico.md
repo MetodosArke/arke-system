@@ -15,7 +15,7 @@ Quem conecta é sempre o Gateway e a catraca: **não é preciso abrir porta na i
 - Computador Windows 10 ou 11, ligado o dia todo, com IP fixo na rede das catracas.
 - O **token do dispositivo**: o gestor cadastra a catraca em **Catracas → Novo dispositivo** e copia o token na hora. **Ele aparece uma vez só**; se perder, o gestor gera outro em **Gerar token novo**.
 - O modelo, o IP e a senha de administrador de cada catraca.
-- Marcas atendidas hoje: **Control iD** (modo online, também como leitor numa catraca de outra marca), **Topdata** (linha Inner com a ponte `ArkeInnerBridge`, e leitores faciais da linha Easy e da Fit 4 Facial), **Toletus** (placas LiteNet2 e LiteNet3) e **Intelbras** (terminais da linha Bio-T, no Modo Online). Henry e Dimep são integradas na implantação do primeiro cliente de cada marca; o Gateway se recusa a subir com elas configuradas.
+- Marcas atendidas hoje: **Control iD** (modo online, também como leitor numa catraca de outra marca), **Topdata** (linha Inner com a ponte `ArkeInnerBridge`, e leitores faciais da linha Easy e da Fit 4 Facial), **Toletus** (placas LiteNet2 e LiteNet3), **Intelbras** (terminais da linha Bio-T, no Modo Online) e **Hikvision** (terminais faciais DS-K1T671 e DS-K1T341 e a controladora DS-K2604, conferidos no emulador; o primeiro aparelho de verdade é testado na implantação). Henry e Dimep são integradas na implantação do primeiro cliente de cada marca; o Gateway se recusa a subir com elas configuradas.
 
 ## Instalação
 
@@ -47,11 +47,11 @@ Quem conecta é sempre o Gateway e a catraca: **não é preciso abrir porta na i
 ```
 
 - `token_api_local`: o token do dispositivo, copiado em Catracas quando foi gerado.
-- `modelo_catraca`: `controlid`, `topdata`, `topdata_facial` (linha Easy) ou `toletus`.
+- `modelo_catraca`: `controlid`, `topdata`, `topdata_facial` (linha Easy), `toletus`, `intelbras` ou `hikvision`.
 - `tempo_timeout_ms`: deixe `1000`. Abaixo de 500 o Gateway cai em contingência quase sempre.
 - `controlid_equipamentos`: uma linha por Control iD. Com ela, a recepção cadastra aluno, digital e cartão pelo ARKE. O `nome` é o que a recepção vê para escolher o leitor. `sentido_entrada` é o lado da borboleta que é a entrada; confira girando. `liberacao` diz como ele libera (abaixo). O Gateway reconhece cada equipamento pelo `ip`, então o IP tem de ser fixo.
 - `confirmacao_giro`: deixe `decisao`. Só use `catra_event` na iDBlock com o Monitor configurado (abaixo).
-- `equipamentos_permitidos`: os IPs dos equipamentos que não estão em `controlid_equipamentos` nem em `intelbras_equipamentos`, como a Control iD única sem gestão remota. **Com qualquer uma dessas listas, o Gateway só atende os IPs delas** (e o próprio computador): um aparelho qualquer da rede da academia não consegue se passar pela catraca. Sem lista nenhuma, o Gateway atende qualquer aparelho e avisa isso no log ao subir.
+- `equipamentos_permitidos`: os IPs dos equipamentos que não estão em `controlid_equipamentos`, `intelbras_equipamentos` nem `hikvision_equipamentos`, como a Control iD única sem gestão remota. **Com qualquer uma dessas listas, o Gateway só atende os IPs delas** (e o próprio computador): um aparelho qualquer da rede da academia não consegue se passar pela catraca. Sem lista nenhuma, o Gateway atende qualquer aparelho e avisa isso no log ao subir.
 
 **A senha do equipamento fica só neste arquivo**, no computador da academia. Para a nuvem vai apenas o nome de cada catraca.
 
@@ -176,6 +176,32 @@ Ao subir, o Gateway acerta a hora do terminal, aponta o servidor de eventos para
 
 **Sem o Gateway, o terminal decide sozinho e libera quem está cadastrado nele.** Por isso o Gateway bloqueia no terminal quem a academia barrou e desbloqueia quem volta: a Intelbras confirmou que o terminal não libera o usuário bloqueado, nem sem o Gateway. Use a versão 1.8.1 ou mais nova. A saída passa sempre, sem consulta. A recepção cadastra e apaga o aluno pela ficha, e o rosto entra pela foto que o aluno manda no app; digital e cartão continuam no próprio terminal.
 
+## Hikvision
+
+Os terminais faciais **DS-K1T671** (séries Pro e Ultra) e **DS-K1T341** (série Value) e a controladora **DS-K2604** mandam cada acesso ao Gateway pela rede, na mesma porta **4571** da Control iD. O Gateway lê de cada aparelho o modelo e o que ele faz (rosto, cartão, digital) e a ficha só oferece o que o aparelho declara: a DS-K2604 não tem câmera, e o rosto só aparece com um terminal facial ligado a ela.
+
+1. Ative o aparelho (a senha de administrador, na tela dele ou pelo SADP) e deixe o IP fixo.
+2. Libere a porta 4571 no firewall do Windows (entrada, rede privada).
+3. No `config.json`, `"modelo_catraca": "hikvision"` e a lista dos aparelhos:
+
+```
+"hikvision_equipamentos": [
+  { "nome": "Catraca da entrada", "ip": "192.168.0.80", "senha": "SENHA DO APARELHO" },
+  { "nome": "Controladora", "ip": "192.168.0.81", "senha": "SENHA DO APARELHO", "porta_acesso": 1 }
+]
+```
+
+- `porta_acesso`: a porta (door) que abre a catraca. No terminal é a 1; na controladora, a que a catraca está ligada.
+- `leitores_saida`: os leitores de saída, que passam sem consulta. Sem a lista, a controladora usa os leitores pares (2, 4, 6, 8), e o terminal não tem leitor de saída. Confira na instalação qual leitor é de qual lado.
+- `leitores_digital`: os leitores que recebem a digital. No terminal é o 1; na controladora, os leitores com digital.
+- `hikvision_endereco`: o IP deste computador, só se ele tiver mais de uma rede e o aparelho não alcançar a que o Gateway escolhe sozinho.
+
+Ao subir, e a cada minuto enquanto o aparelho estiver fora, o Gateway acerta a hora no fuso de Brasília, aponta o envio de eventos para este computador e, no firmware que tem a **verificação remota**, faz o aparelho perguntar ao Gateway a cada rosto ou cartão. Ele também desliga no aparelho a foto de cada acesso e a foto guardada no cadastro do rosto. A digital não pergunta: é decidida no aparelho, pelo cadastro que o Gateway mantém nele, e a presença conta pelo aviso que o aparelho manda depois.
+
+**Sem o Gateway, o aparelho decide pelo cadastro guardado nele.** Por isso o Gateway põe fora da validade quem a academia barrou e devolve a validade a quem volta, a cada sincronização. Quando o Gateway volta, o aparelho reenvia o que decidiu sozinho, e as entradas viram presença na hora em que aconteceram. A tela do aparelho mostra "Aluno" no lugar do nome, e o número no aparelho é o da catraca, nunca o CPF.
+
+Senha errada aparece em **Diagnóstico**, e o Gateway para de tentar naquele aparelho por 30 minutos: a Hikvision bloqueia o usuário depois de algumas senhas erradas seguidas.
+
 ## Conferir antes de ir embora
 
 - Em **Catracas**, o Gateway aparece **No ar**, com a versão.
@@ -189,6 +215,6 @@ Ao subir, o Gateway acerta a hora do terminal, aponta o servidor de eventos para
 - `http://127.0.0.1:4570/status` mostra o estado, a versão, os acessos guardados e o último erro.
 - O ícone na bandeja: verde (no ar), amarelo (contingência), vermelho (sem nuvem e sem cadastro local).
 
-Ensaio sem catraca: `npm run emular:controlid` faz o papel da Control iD, `npm run emular:toletus` o da placa Toletus e `npm run emular:intelbras` o do terminal Intelbras, para testar rede, cadastro e liberação antes de o equipamento chegar.
+Ensaio sem catraca: `npm run emular:controlid` faz o papel da Control iD, `npm run emular:toletus` o da placa Toletus, `npm run emular:intelbras` o do terminal Intelbras e `npm run emular:hikvision` o do terminal facial ou da controladora Hikvision (`-- --tipo controladora`), para testar rede, cadastro e liberação antes de o equipamento chegar.
 
 > Dúvida na instalação: fale com o suporte da ArkeFit antes de mexer na rede da academia.

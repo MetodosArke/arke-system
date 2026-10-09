@@ -67,6 +67,24 @@ O cadastro completo de cada pessoa da equipe (identificação, documentos, ender
 - **Venda de produtos e estoque.**
 - **Colunas de repasse visíveis ao próprio aluno.** A regra de leitura de `mensalidades` deixa o aluno ler as linhas dele inteiras, inclusive quanto a ArkeFit retém e quanto a academia recebe. Não expõe outro aluno nem outra academia; fechar pede uma consulta própria para a equipe, porque privilégio de coluna não distingue equipe de aluno.
 
+## Hikvision: o aparelho de verdade e o site (08/10/2026)
+
+O Gateway 1.10 fala com os terminais faciais DS-K1T671 e DS-K1T341 e com a controladora DS-K2604 pela ISAPI, conferido no emulador (`docs/registro/catracas.md`, "Gateway 1.10.0"). Nenhum aparelho de verdade foi testado.
+
+- **O site.** A página de vendas anuncia Control iD, Topdata, Toletus e Intelbras, e a Hikvision ficou de fora até o responsável decidir. Recomendação: anunciar depois do primeiro aparelho testado numa academia, ou já, com a mesma ressalva das outras marcas ("o modelo exato é conferido na implantação"), como foi feito com a Intelbras em 05/10 antes da bancada. A Letícia (agente comercial) reconhece o assunto "catraca" por algumas marcas (Control iD, Topdata, Henry, Dimep): incluir Toletus, Intelbras e Hikvision na lista é da mesma decisão, porque muda o que ela responde.
+- **O teste na primeira academia com Hikvision**, com o suporte da ArkeFit. O que só o aparelho responde:
+  1. se o firmware tem a **verificação remota** pelo servidor de escuta, com a resposta no mesmo POST (a documentação diz que parte disso só existe no firmware de 2024 em diante), e se a tela mostra o texto que o Gateway devolve;
+  2. o que o aparelho faz **sem o Gateway** (conexão recusada ou demora acima de 5 s), e se o aluno fora da validade é recusado antes de perguntar ao Gateway (nesse caso, quem volta a ficar em dia espera a sincronização seguinte, até 5 minutos, como na Intelbras);
+  3. o que a tela mostra ao aluno **fora da validade**: não pode falar de dinheiro nem dizer quem foi barrado;
+  4. o nome das partes do envio do rosto (`FaceDataRecord` e `img`), a biblioteca 1 e o tamanho de foto que o aparelho aceita;
+  5. o fuso `CST+3:00:00` na hora acertada pelo Gateway;
+  6. a digital: se ela decide no aparelho mesmo com a verificação remota ligada, e o recadastro (o dedo 1 apagado e gravado de novo);
+  7. o reenvio do que o aparelho guardou (`httpBroken`): se chega como registro antigo (`currentEvent` falso) e com o mesmo número de evento;
+  8. na DS-K2604: o número da porta da catraca, quais leitores são de saída (o Gateway supõe os pares) e o terminal facial ligado a ela;
+  9. se, com a foto do cadastro desligada (`saveFacePic`), o reconhecimento continua depois de uma atualização de firmware, ou se o aluno precisa mandar a foto de novo;
+  10. o bloqueio por senha errada (quantas tentativas e por quanto tempo);
+  11. o aparelho aceita um servidor de escuta só: se a academia usa outro sistema Hikvision nele (HikCentral), esse sistema deixa de receber os eventos. Combinar com a academia antes.
+
 ## Na implantação de cada cliente com catraca
 
 - **Bancada de cada marca, com o equipamento de verdade:** sentido de giro da borboleta montada, tempo real de acionamento e do cadastro remoto da digital, mensagens de erro do firmware e, na Control iD, se o `uuid` do aviso de giro é o mesmo da identificação. O ensaio com o emulador prova a conversa; a primeira instalação prova o equipamento. Roteiro em `docs/MANUAL_GATEWAY_LOCAL.md` e `docs/PONTE_TOPDATA.md`.
