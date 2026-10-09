@@ -7,6 +7,8 @@ A tela [Uso das IAs](/superadmin/ia) mostra, para cada IA da plataforma, quanto 
 - **Leitura de dieta em PDF:** a transcrição do plano alimentar para as refeições.
 - **Vigia (análise):** o diagnóstico do quadro de problemas.
 
+O Vigia e o assistente respondem pela API da Anthropic, quando estão ligados nela (o interruptor é por agente), e pela AWS quando ela falha, na mesma chamada. A Letícia e a leitura de dieta rodam na AWS, em São Paulo.
+
 O Sentinela (resumo da anamnese e sugestão de resposta do mentor) segue congelado e não entra no medidor.
 
 ## Recusada pela trava
@@ -22,7 +24,7 @@ A resposta recusada não aparece para ninguém: o e-mail sai sem a frase, o assi
 
 ## Custo
 
-O custo é **estimado**, em dólar, pelos tokens de cada chamada e pela tabela pública de preços da AWS. A tabela mora no banco (`ia_precos`). Quando a AWS muda o preço, ou uma IA passa a usar outro modelo, a linha precisa ser atualizada; até lá, a tela avisa "modelo sem preço na tabela".
+O custo é **estimado**, em dólar, pelos tokens de cada chamada e pela tabela pública de preços da AWS ou da API da Anthropic, conforme quem respondeu. A tabela mora no banco (`ia_precos`), com uma linha por modelo: o mesmo Claude Sonnet 4.6 aparece como `global.anthropic.claude-sonnet-4-6` quando a AWS respondeu e como `claude-sonnet-4-6` quando foi a API da Anthropic. Pela API, o custo sai do crédito mensal enquanto houver, mas a tela mostra o valor cheio, para o número valer quando o crédito acabar. Quando um provedor muda o preço, ou uma IA passa a usar outro modelo, a linha precisa ser atualizada; até lá, a tela avisa "modelo sem preço na tabela".
 
 ## O que não fica guardado
 
