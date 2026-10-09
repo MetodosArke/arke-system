@@ -188,9 +188,9 @@ export default function AlunoTreinos() {
     divisaoEscolhida ??
     (registroHoje?.divisao && divisoes.includes(registroHoje.divisao) ? registroHoje.divisao : sequencia.proximo ?? "A");
   const exercicios = todosExercicios.filter((e) => (e.divisao || "A") === divisaoHoje);
-  // Os GIFs por modelo vêm do acervo, pelo exercicio_id do snapshot (fichas
-  // antigas, sem ele, seguem com o gif_url do snapshot).
-  const comGifsDoAcervo = useGifsDoAcervo(todosExercicios.map((e) => e.exercicio_id));
+  // Os GIFs por modelo vêm do acervo, pelo exercicio_id do snapshot; sem ele,
+  // pelo exercício global de nome exato (sem par, segue o gif_url do snapshot).
+  const comGifsDoAcervo = useGifsDoAcervo(todosExercicios);
   const { preferencia: modeloPreferido } = useModeloExercicio();
   const detalhes = ((registroHoje?.detalhes_execucao as unknown as DetalheExecucao[] | null) ?? []);
 

@@ -22,7 +22,7 @@ import { SeletorExercicio } from "@/components/acervo/SeletorExercicio";
 import { EditorSeries } from "@/components/acervo/EditorSeries";
 import { MiniaturaExercicio } from "@/components/acervo/MidiaExercicio";
 import { useModeloExercicio } from "@/hooks/useModeloExercicio";
-import { escolherMidiaExercicio } from "@/lib/modeloExercicio";
+import { escolherMidiaExercicio, exercicioDoAcervo, globaisPorNome } from "@/lib/modeloExercicio";
 import { DIVISOES, divisoesDoTreino, paraGravar, rotuloTecnica, seriesDoExercicio, type SerieDetalhe } from "@/lib/seriesTreino";
 import { formatarDataBR } from "@/lib/dataBrasilia";
 import { ErroAoCarregar } from "@/components/ErroAoCarregar";
@@ -127,9 +127,11 @@ export function PrescricaoTreino({
     },
   });
   // A miniatura da ficha segue o modelo que a pessoa escolheu: os GIFs por
-  // modelo vêm do acervo, pelo exercicio_id do item; sem ele, o gif_url do item.
+  // modelo vêm do acervo, pelo exercicio_id do item; sem ele, pelo exercício
+  // global de nome exato; sem par, o gif_url do item.
   const { preferencia: modeloPreferido } = useModeloExercicio();
   const acervoPorId = useMemo(() => new Map(todosOsExercicios.map((e) => [e.id, e])), [todosOsExercicios]);
+  const acervoGlobalPorNome = useMemo(() => globaisPorNome(todosOsExercicios), [todosOsExercicios]);
   const bibliotecaExercicios = useMemo(
     () => todosOsExercicios.filter((e) => exercicioDoEscopo(escopo, e.organization_id)),
     [todosOsExercicios, escopo],
@@ -472,8 +474,8 @@ export function PrescricaoTreino({
                                         escolherMidiaExercicio(
                                           {
                                             ...ex,
-                                            gif_masculino_url: ex.exercicio_id ? acervoPorId.get(ex.exercicio_id)?.gif_masculino_url : null,
-                                            gif_feminino_url: ex.exercicio_id ? acervoPorId.get(ex.exercicio_id)?.gif_feminino_url : null,
+                                            gif_masculino_url: exercicioDoAcervo(ex, acervoPorId, acervoGlobalPorNome)?.gif_masculino_url,
+                                            gif_feminino_url: exercicioDoAcervo(ex, acervoPorId, acervoGlobalPorNome)?.gif_feminino_url,
                                           },
                                           modeloPreferido,
                                         ).imagemUrl

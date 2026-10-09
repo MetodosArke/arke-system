@@ -73,3 +73,48 @@ export function devePerguntarModelo(
   if (!carregada || pulou || preferencia) return false;
   return exercicios.some((ex) => escolherMidiaExercicio(ex, null).temOsDois);
 }
+
+/** O exercício do acervo com o que basta para casar o item e mostrar os GIFs por modelo. */
+export type GifsDoAcervo = {
+  id: string;
+  nome: string;
+  organization_id: string | null;
+  gif_masculino_url: string | null;
+  gif_feminino_url: string | null;
+};
+
+/** O que o item da ficha ou do snapshot traz para achar o exercício no acervo. */
+export type ItemDoAcervo = { exercicio_id?: string | null; nome_exercicio?: string | null };
+
+/**
+ * Os exercícios globais do acervo pelo nome exato, só os de nome único entre
+ * os globais. O exercício próprio de uma academia nunca entra: o nome não é
+ * dela, e o item de outra ficha não pode ganhar a mídia de uma academia.
+ */
+export function globaisPorNome<T extends Pick<GifsDoAcervo, "nome" | "organization_id">>(acervo: T[]): Map<string, T> {
+  const porNome = new Map<string, T | null>();
+  for (const e of acervo) {
+    if (e.organization_id !== null) continue;
+    porNome.set(e.nome, porNome.has(e.nome) ? null : e);
+  }
+  const unicos = new Map<string, T>();
+  for (const [nome, e] of porNome) if (e) unicos.set(nome, e);
+  return unicos;
+}
+
+/**
+ * O exercício do acervo de um item: pelo `exercicio_id`; sem ele, o global de
+ * nome exato (`globaisPorNome`). Os modelos de treino das academias nasceram
+ * sem o vínculo até 09/10/2026, e o snapshot publicado não muda: o casamento
+ * pelo nome é o que leva o GIF a esses treinos. O item com vínculo nunca casa
+ * pelo nome; o nome sem par exato fica com a mídia que já tem (`gif_url`).
+ */
+export function exercicioDoAcervo<T>(item: ItemDoAcervo, porId: Map<string, T>, porNome: Map<string, T>): T | undefined {
+  if (item.exercicio_id) return porId.get(item.exercicio_id);
+  return item.nome_exercicio ? porNome.get(item.nome_exercicio) : undefined;
+}
+
+/** Os nomes dos itens sem vínculo, para a leitura do acervo pelo nome. */
+export function nomesSemVinculo(itens: ItemDoAcervo[]): string[] {
+  return [...new Set(itens.filter((i) => !i.exercicio_id && i.nome_exercicio).map((i) => i.nome_exercicio as string))].sort();
+}

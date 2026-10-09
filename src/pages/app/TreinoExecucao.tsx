@@ -118,8 +118,9 @@ export default function TreinoExecucao() {
     const todos = (treino?.snapshot_conteudo as unknown as ExercicioSnapshot[] | null) ?? [];
     return todos.filter((e) => (e.divisao || "A") === divisaoAtual).sort((a, b) => a.ordem - b.ordem);
   }, [treino, divisaoAtual]);
-  // Os GIFs por modelo vêm do acervo, pelo exercicio_id do snapshot.
-  const comGifsDoAcervo = useGifsDoAcervo(exercicios.map((e) => e.exercicio_id));
+  // Os GIFs por modelo vêm do acervo, pelo exercicio_id do snapshot; sem ele,
+  // pelo exercício global de nome exato.
+  const comGifsDoAcervo = useGifsDoAcervo(exercicios);
 
   // O registro da sessão. Criado na entrada da tela, não no fim: sem ele não
   // há onde pendurar as séries, e o aluno começa a treinar antes de concluir.

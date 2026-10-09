@@ -5,7 +5,16 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { exigirGravacao } from "@/lib/gravacao";
 import { porLotes } from "@/lib/paginar";
-import { lerModelo, type MidiasDoExercicio, type ModeloExercicio } from "@/lib/modeloExercicio";
+import {
+  exercicioDoAcervo,
+  globaisPorNome,
+  lerModelo,
+  nomesSemVinculo,
+  type GifsDoAcervo,
+  type ItemDoAcervo,
+  type MidiasDoExercicio,
+  type ModeloExercicio,
+} from "@/lib/modeloExercicio";
 
 const chavePulo = (userId: string) => `arke:modelo-exercicio-pulou:${userId}`;
 
@@ -89,34 +98,43 @@ export function useModeloExercicio() {
   };
 }
 
-type GifsDoAcervo = { id: string; gif_masculino_url: string | null; gif_feminino_url: string | null };
+const COLUNAS_GIFS = "id, nome, organization_id, gif_masculino_url, gif_feminino_url";
 
 /**
  * Os GIFs por modelo dos exercícios de um treino publicado, lidos do acervo
  * pelo `exercicio_id` do snapshot. O snapshot congela a prescrição; a mídia
- * vem do acervo, para o GIF novo aparecer sem republicar a ficha. Se a leitura
+ * vem do acervo, para o GIF novo aparecer sem republicar a ficha. O item sem
+ * `exercicio_id` (os modelos das academias nasceram sem ele até 09/10/2026)
+ * usa o exercício global de nome exato (`exercicioDoAcervo`). Se a leitura
  * falhar, o treino segue com a mídia do snapshot (`gif_url`).
  */
-export function useGifsDoAcervo(ids: (string | null | undefined)[]) {
-  const unicos = useMemo(() => [...new Set(ids.filter((i): i is string => !!i))].sort(), [ids]);
+export function useGifsDoAcervo(itens: ItemDoAcervo[]) {
+  const ids = useMemo(() => [...new Set(itens.map((i) => i.exercicio_id).filter((i): i is string => !!i))].sort(), [itens]);
+  const nomes = useMemo(() => nomesSemVinculo(itens), [itens]);
   const consulta = useQuery({
-    queryKey: ["acervo-gifs-por-modelo", unicos.join(",")],
+    queryKey: ["acervo-gifs-por-modelo", ids.join(","), nomes.join("\n")],
     queryFn: async () => {
-      const linhas = await porLotes(unicos, (lote) =>
-        supabase.from("exercicios_biblioteca").select("id, gif_masculino_url, gif_feminino_url").in("id", lote),
-      );
-      return new Map((linhas as GifsDoAcervo[]).map((l) => [l.id, l]));
+      const [porIdLinhas, porNomeLinhas] = await Promise.all([
+        porLotes(ids, (lote) => supabase.from("exercicios_biblioteca").select(COLUNAS_GIFS).in("id", lote)),
+        porLotes(nomes, (lote) =>
+          supabase.from("exercicios_biblioteca").select(COLUNAS_GIFS).is("organization_id", null).in("nome", lote),
+        ),
+      ]);
+      return {
+        porId: new Map((porIdLinhas as GifsDoAcervo[]).map((l) => [l.id, l])),
+        porNome: globaisPorNome(porNomeLinhas as GifsDoAcervo[]),
+      };
     },
-    enabled: unicos.length > 0,
+    enabled: ids.length + nomes.length > 0,
     staleTime: 10 * 60_000,
   });
-  const mapa = consulta.data;
+  const mapas = consulta.data;
   return useCallback(
-    <T extends MidiasDoExercicio & { exercicio_id?: string | null }>(ex: T): T => {
-      const doAcervo = ex.exercicio_id ? mapa?.get(ex.exercicio_id) : undefined;
+    <T extends MidiasDoExercicio & ItemDoAcervo>(ex: T): T => {
+      const doAcervo = mapas ? exercicioDoAcervo(ex, mapas.porId, mapas.porNome) : undefined;
       if (!doAcervo) return ex;
       return { ...ex, gif_masculino_url: doAcervo.gif_masculino_url, gif_feminino_url: doAcervo.gif_feminino_url };
     },
-    [mapa],
+    [mapas],
   );
 }
