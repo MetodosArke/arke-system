@@ -963,12 +963,20 @@ O pedido do responsável: "Não temos como cadastrar novos membros da equipe Ark
 - **Testes:** 26 novos (14 na guarda, 12 nos níveis). Suíte inteira, em lotes de 10 arquivos: **1.467 testes em 191 arquivos**, todos passando. Três passaram do prazo de 5 segundos com a máquina sem memória (`CartaoAssinatura`, dois, e `historicoDoAluno.guarda`, um) e passaram rodados de novo sozinhos.
 - `npm run check` sem erro: tipos, lint (0 erros, os 27 avisos de antes), o `deno check` das 57 funções e a auditoria das dependências (0 vulnerabilidades).
 - `npm run ajuda:indice` rodou: o artigo novo `vm-equipe-arkefit` e os links em `vm-mentoria` e `vm-duas-etapas` entram no índice do assistente.
-- **Falta, porque esta entrega não toca produção:**
-  - o roteiro de prova no banco de produção, e aplicar a migration;
-  - gerar os tipos de novo (`supabase gen types`) e conferir com os escritos à mão;
-  - publicar `equipe-arkefit-convidar` e `assistente-academia`;
-  - a corrente real com uma conta temporária: o convite, o aviso ao outro sócio, o reenvio, o link até o QR das duas etapas, a recusa do mesmo e-mail, a retirada e a sessão caindo, e apagar a conta no fim;
-  - a tela no computador e no celular.
+- **Em produção (08/10/2026):**
+  - **O roteiro em transação desfeita.** Sem a migration, a escalada aconteceu no banco de produção: "a Admin ARKE se deu superadmin pela API (gravou)" e "tirou o papel da sócia pela API (apagou 1)". Com a migration, 18 casos ok. Nada ficou gravado: 2 sócios e 0 contas temporárias.
+  - **A publicação:**
+    - `20261421010000` aplicada;
+    - os tipos gerados de novo, idênticos aos escritos à mão;
+    - `equipe-arkefit-convidar` (v1) e `assistente-academia` (v35);
+    - o app (#361), com o e2e de produção passando.
+  - **A corrente real, com uma conta comum temporária** (apagada no fim, 0 contas):
+    - a função recusa quem não está logado (401) e a conta comum (403), sem criar conta nenhuma;
+    - ninguém se dá papel pela API (403, nada gravado);
+    - a lista da equipe é recusada (403);
+    - os dois sócios seguem como estavam.
+    - Defeito do caminho: o primeiro pedido usou um campo errado e voltou 400. A função valida o pedido antes de conferir a sessão; nada é criado antes de conferir o sócio.
+  - **Falta, e é do responsável:** o convite completo, que pede uma sessão de sócio com as duas etapas. Não se cria sócio temporário em produção, então o convite do terceiro sócio é a prova. Depois dele, conferir o aviso ao outro sócio e a Auditoria.
 
 **Fica de fora, e por quê.**
 - **Os níveis Suporte, Comercial, Mentor e Financeiro**, que outro trabalho está mapeando: entram como entradas novas da lista, cada um com o próprio papel (`docs/DECISOES_PENDENTES.md`). O `admin_arke` age como gestor em toda academia, e é amplo demais para uma contratação.
@@ -1024,12 +1032,21 @@ O pedido do responsável: "Pode colocar botões de edição da equipe ArkeFit, c
 - `npm run check` sem erro: tipos, lint (0 erros, os 27 avisos de antes), o `deno check` das 57 funções e a auditoria das dependências (0 vulnerabilidades).
 - **O roteiro de reconstrução novo**, rodado no esqueleto depois da migration: o bloco do Storage cria o bucket e deixa as regras de `storage.objects` iguais às que a migration deixou.
 - `npm run ajuda:indice` rodou: o artigo `vm-equipe-arkefit` (o nome, o cadastro, quem vê, Meu cadastro, os anexos e a exportação) entrou no índice do assistente.
-- **Falta, porque esta entrega não toca produção:**
-  - o roteiro de prova no banco de produção, e aplicar a migration;
-  - gerar os tipos de novo (`supabase gen types`) e conferir com os escritos à mão;
-  - publicar `assistente-academia`;
-  - a corrente real com uma conta temporária: o cadastro pelo sócio e pela pessoa, o anexo, o link de um minuto, a ficha baixada e a Auditoria;
-  - a tela no computador e no celular.
+- **Em produção (08/10/2026):**
+  - **O roteiro em transação desfeita.** Sem a migration, 21 de 24 casos falham; com ela, 24 ok, e nada ficou gravado (nem a tabela, nem o bucket, nem as contas).
+    - Defeito do caminho, no roteiro: a exclusão direta em `storage.objects` é barrada pela trava por comando do Supabase (`protect_objects_delete`), antes da regra, e o caso "a pessoa não apaga" dava erro 42501 em vez de 0 linhas. A prova passou a ler a condição da regra (`pode_apagar_documento_equipe_arkefit`) com a sessão da pessoa.
+  - **A publicação:**
+    - `20261430010000` aplicada;
+    - os tipos gerados de novo, idênticos aos escritos à mão;
+    - `assistente-academia` publicada;
+    - o app (#362), com o e2e de produção passando.
+  - **A corrente real, com uma conta comum temporária** (apagada no fim):
+    - não lê nenhum cadastro (200, lista vazia);
+    - não grava pela função (403);
+    - a escrita direta é recusada (403);
+    - não envia anexo ao bucket da equipe (recusa do RLS);
+    - nada foi gravado.
+  - **Falta, e é do responsável:** a tela no primeiro uso, preenchendo o próprio cadastro no computador e no celular.
 
 **Fica de fora, e por quê.**
 - **O nível Financeiro e os dados bancários**, a guarda do cadastro de quem saiu, o aviso de privacidade ao colaborador e um código novo na troca da conta bancária: decisões em `docs/DECISOES_PENDENTES.md`.
@@ -1139,11 +1156,22 @@ antes e depois da migration, com `aal1` e `aal2`, a recepção, a gestão e uma 
 - **Testes:** 42 novos (25 na guarda nova, 12 nos níveis, 5 nas telas). Suíte inteira, em lotes de 10 arquivos: **1.509 testes em 192 arquivos**, todos passando. A primeira rodada achou os três defeitos acima (a regra do resumo, o CPF e o nome no Sentinela).
 - `npm run check` sem erro: tipos, lint (0 erros, os 27 avisos de antes; um aviso novo, do menu, foi tirado), o `deno check` das 57 funções e a auditoria das dependências (0 vulnerabilidades).
 - `npm run ajuda:indice` rodou: `vm-equipe-arkefit` (os níveis, o que cada um vê e nunca vê, o "em breve"), `vm-mentoria`, `vm-visao-geral`, `vm-vigia`, `vm-equipamentos`, `vm-implantacao`, `vm-profissionais` e `vm-webhooks-rotinas`.
-- **Falta, porque esta entrega não toca produção:**
-  - os três roteiros no banco de produção, e aplicar as migrations, nesta ordem: lote 1, lote 3, lote 4;
-  - gerar os tipos de novo e conferir com os escritos à mão (`equipe_arkefit.niveis`, `acesso_arkefit`, `niveis_arkefit_abertos`, os argumentos novos do salvar e do convite, a coluna `niveis` da lista);
-  - publicar `equipe-arkefit-convidar`, `mentor-sugerir-resposta`, `sentinela-anamnese`, `superadmin-suporte-tenant` e `assistente-academia`;
-  - a corrente real com contas temporárias de cada nível, e a tela no computador e no celular.
+- **Em produção (08/10/2026), lote por lote, em transação desfeita:**
+  - **Lote 1:** 63 casos ok. Sem a migration, `acesso_arkefit` não existe.
+  - **Lote 3:** 35 casos ok. Sem a migration, entre outros, "o Mentor sem registro prescreveu (exigência desligada)".
+    - Defeito do caminho: o preparo do roteiro não montava em produção, porque `tarefas.sla_prazo` é obrigatório e o esqueleto local não tinha a obrigação. O roteiro passou a mandar o prazo.
+  - **Lote 4:** 57 casos ok.
+  - **A 1431:**
+    - sem ela, o sócio não renomeia quem tem só nível (22023);
+    - com ela, renomeia;
+    - a conta fora da equipe continua recusada;
+    - quem tem nível não renomeia nem a si mesmo (42501).
+  - **A publicação:**
+    - as migrations 1422, 1423, 1424 e 1431, cada uma depois da sua prova;
+    - os tipos gerados de novo, idênticos;
+    - `equipe-arkefit-convidar` (v2), `mentor-sugerir-resposta` (v18), `sentinela-anamnese` (v18), `superadmin-suporte-tenant` (v30) e `assistente-academia` (v37);
+    - o app (#363), com o e2e de produção passando.
+  - **Falta, e é do responsável (opcional):** a tela com contas de cada nível, porque ela pede as duas etapas.
 
 **Fica de fora, e por quê.**
 - **A entrega 2** (`docs/DECISOES_PENDENTES.md`): o Comercial (lote 5), o Financeiro (lote 6) e a limpeza (lote 7). Superado em 08/10/2026: veja "Os níveis da equipe ArkeFit, entrega 2", abaixo.
@@ -1230,10 +1258,19 @@ O custo que a recepção com as duas etapas passou a pagar na entrega 1 (+14%) s
 - **Testes:** 20 novos (11 na guarda dos níveis, 1 nos níveis, 8 nas telas) e 4 ajustados (`freio.guarda`, `carteiraRecebimento`, `caixaDeMensagens.guarda` e o dos níveis abertos). Suíte inteira, em lotes de 10 arquivos: **1.557 testes em 196 arquivos**, todos passando (a primeira rodada achou os dois da lista acima).
 - `npm run check` sem erro: tipos, lint (0 erros, os 27 avisos de antes), o `deno check` das 57 funções e a auditoria das dependências (0 vulnerabilidades).
 - `npm run ajuda:indice` rodou: `vm-equipe-arkefit` (o Comercial e o Financeiro, o que veem e nunca veem, os avisos por e-mail), `vm-visao-geral`, `vm-nova-academia`, `vm-profissionais`, `vm-webhooks-rotinas` e `vm-comercial`.
-- **Falta, porque esta entrega não toca produção:**
-  - os três roteiros no banco de produção, e aplicar as migrations, nesta ordem: lote 5, lote 6, lote 7;
-  - gerar os tipos de novo e conferir com os escritos à mão (`atualizar_cadastro_organizacao`, `definir_mensalidade_b2b`, `definir_repasse_organizacao`, `definir_repasse_por_nivel`, `emails_da_area`);
-  - publicar as funções (`criar-organizacao-superadmin`, `convidar-profissional-autonomo`, `asaas-emitir-cobranca-b2b`, `asaas-taxa-implantacao`, `asaas-assinatura-b2b`, `asaas-conta-academia`, `impersonar-perfil`, `encerramento-organizacao`, `vigia-aprovar`, `alertar-rotinas`, `alertar-catracas`, `equipe-arkefit-convidar` e `assistente-academia`), depois o app;
-  - o sandbox do Asaas (`sandbox:b2b-valor` e `sandbox:conta-academia`), a corrente real com contas temporárias do Comercial e do Financeiro, a tela no computador e no celular, e a medição em produção do lote 7.
+- **Em produção (08/10/2026), lote por lote, em transação desfeita:**
+  - **Lote 5:** 24 casos ok.
+  - **Lote 6:** 29 casos ok.
+  - **Lote 7:** 18 casos ok. A prova também conferiu que, das 20 regras mudadas, só o `(select ...)` mudou, e que cada pessoa vê as mesmas linhas.
+  - **A publicação:**
+    - as migrations 1432, 1433 e 1434;
+    - os tipos gerados de novo (só a ordem de `emails_da_area` mudou);
+    - as 13 funções;
+    - o app (#364), com o e2e de produção passando.
+  - **O sandbox do Asaas:** `b2b-valor` com 11 ok e `conta-academia` com 29 ok.
+  - **Defeito do caminho:** o CI reprovou dois testes da guarda dos níveis, que levam uns 8 s lendo as regras vigentes contra o limite de 5 s. Passaram a 30 s, como as outras guardas que leem a reconstrução.
+  - **Falta:**
+    - a tela com contas do Comercial e do Financeiro (do responsável, opcional);
+    - a medição do lote 7 em produção (o `EXPLAIN` na Ponto Alto).
 
 **Fica de fora, e por quê.** Ver `docs/DECISOES_PENDENTES.md`, "Equipe da ArkeFit: o que sobrou dos níveis": a saída da coluna `mentor`, os outros avisos por área, o detalhe do Gateway para o Suporte, devolver o acesso a quem saiu e o limite de alunos negociado.
