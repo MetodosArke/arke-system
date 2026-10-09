@@ -5,7 +5,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { todasAsLinhas } from "@/lib/paginar";
 import { perfisDosUsuarios } from "@/lib/perfis";
 import { useRascunho } from "@/hooks/useRascunho";
-import { chaveRascunho } from "@/lib/rascunho";
+import { chaveRascunho, descreverQuandoSalvou } from "@/lib/rascunho";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,6 +27,8 @@ import { DIVISOES, divisoesDoTreino, paraGravar, rotuloTecnica, seriesDoExercici
 import { formatarDataBR } from "@/lib/dataBrasilia";
 import { ErroAoCarregar } from "@/components/ErroAoCarregar";
 import { bibliotecaDoEscopo, exercicioDoEscopo, type EscopoPrescricao } from "@/components/prescricao/escopo";
+import { TreinoDoZero } from "@/components/prescricao/TreinoDoZero";
+import { itensParaPublicar, problemaDoTreinoDoZero, type ItemDoZero } from "@/lib/treinoDoZero";
 
 const SERIES_PADRAO: SerieDetalhe[] = Array.from({ length: 3 }, () => ({ reps: "12", descanso_seg: 60, tecnica: null }));
 
@@ -165,6 +167,19 @@ export function PrescricaoTreino({
   const [validadeFim, setValidadeFim] = useState("");
   const [modeloCarregadoId, setModeloCarregadoId] = useState<string | null>(null);
   const [perfilAberto, setPerfilAberto] = useState(false);
+  // Publicar a partir de um modelo da biblioteca ou montar o treino do zero,
+  // só para este aluno (09/10/2026).
+  const [origem, setOrigem] = useState<"modelo" | "zero">("modelo");
+  const [itensDoZero, setItensDoZero] = useState<ItemDoZero[]>([]);
+
+  // O treino do zero só existe na tela até ser publicado: uma lista inteira
+  // de exercícios é a digitação cara que o rascunho protege. A chave é a do
+  // aluno fixo (ficha do Método) ou a da biblioteca; nunca restaura sozinho.
+  const { rascunhoDisponivel: treinoDoZeroSalvo, descartar: descartarTreinoDoZero } = useRascunho(
+    chaveRascunho("treino-do-zero", alunoFixo?.id ?? biblioteca.chave),
+    itensDoZero,
+    { ativo: itensDoZero.length > 0 }
+  );
 
   useEffect(() => {
     if (alunoInicial) {
@@ -180,8 +195,9 @@ export function PrescricaoTreino({
       novoModeloTitulo.trim() !== "" ||
       novoExercicio.nome_exercicio.trim() !== "" ||
       tituloPublicar.trim() !== "" ||
-      validadeFim !== "",
-    [novoModeloTitulo, novoExercicio.nome_exercicio, tituloPublicar, validadeFim]
+      validadeFim !== "" ||
+      itensDoZero.length > 0,
+    [novoModeloTitulo, novoExercicio.nome_exercicio, tituloPublicar, validadeFim, itensDoZero.length]
   );
 
   const cancelar = () => {
@@ -363,7 +379,25 @@ export function PrescricaoTreino({
   });
 
   const publicar = useMutation({
-    mutationFn: async (dados: { aluno: string; modelo: string; titulo: string; validadeFim: string }) => {
+    mutationFn: async (
+      dados: { aluno: string; titulo: string; validadeFim: string } & (
+        | { origem: "modelo"; modelo: string }
+        | { origem: "zero"; itens: ItemDoZero[] }
+      )
+    ) => {
+      if (dados.origem === "zero") {
+        if (!dados.aluno || !dados.titulo) throw new Error("Preencha aluno e título");
+        const problema = problemaDoTreinoDoZero(dados.itens);
+        if (problema) throw new Error(problema);
+        const { error } = await supabase.rpc("publicar_treino_do_zero", {
+          _aluno_id: dados.aluno,
+          _titulo: dados.titulo,
+          _itens: itensParaPublicar(dados.itens),
+          _validade_fim: dados.validadeFim || undefined,
+        });
+        if (error) throw error;
+        return;
+      }
       if (!dados.aluno || !dados.modelo || !dados.titulo) throw new Error("Preencha aluno, modelo e título");
       const { error } = await supabase.rpc("publicar_treino", {
         _aluno_id: dados.aluno,
@@ -373,19 +407,32 @@ export function PrescricaoTreino({
       });
       if (error) throw error;
     },
-    onSuccess: () => {
+    onSuccess: (_, dados) => {
       toast({ title: "Treino publicado!", description: "O snapshot foi congelado e já está disponível para o aluno." });
       setTituloPublicar("");
       setValidadeFim("");
+      if (dados.origem === "zero") {
+        setItensDoZero([]);
+        descartarTreinoDoZero();
+      }
       void queryClient.invalidateQueries({ queryKey: ["treinos-historico", alunoPublicar] });
       aoPublicar?.();
     },
     onError: (error: Error) => toast({ title: "Erro ao publicar", description: error.message, variant: "destructive" }),
   });
 
-  const podePublicar = !!alunoPublicar && !!modeloPublicar && !!tituloPublicar && !publicar.isPending;
+  const problemaDoZero = origem === "zero" ? problemaDoTreinoDoZero(itensDoZero) : null;
+  const podePublicar =
+    !!alunoPublicar &&
+    !!tituloPublicar &&
+    (origem === "modelo" ? !!modeloPublicar : !problemaDoZero) &&
+    !publicar.isPending;
   const publicarAgora = () =>
-    publicar.mutate({ aluno: alunoPublicar, modelo: modeloPublicar, titulo: tituloPublicar, validadeFim });
+    publicar.mutate(
+      origem === "zero"
+        ? { origem, aluno: alunoPublicar, itens: itensDoZero, titulo: tituloPublicar, validadeFim }
+        : { origem, aluno: alunoPublicar, modelo: modeloPublicar, titulo: tituloPublicar, validadeFim }
+    );
 
   return (
     <div className="space-y-4">
@@ -609,6 +656,67 @@ export function PrescricaoTreino({
                 )}
               </div>
               <div className="space-y-1.5">
+                <Label>Como montar o treino</Label>
+                <div className="flex flex-wrap gap-2" role="group" aria-label="Como montar o treino">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={origem === "modelo" ? "default" : "outline"}
+                    aria-pressed={origem === "modelo"}
+                    onClick={() => setOrigem("modelo")}
+                  >
+                    Usar um modelo
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={origem === "zero" ? "default" : "outline"}
+                    aria-pressed={origem === "zero"}
+                    onClick={() => setOrigem("zero")}
+                  >
+                    Começar do zero
+                  </Button>
+                </div>
+              </div>
+              {origem === "zero" ? (
+                <div className="space-y-2">
+                  {treinoDoZeroSalvo && itensDoZero.length === 0 && (
+                    // Oferece, não restaura sozinho: a lista pode ser de outro aluno.
+                    <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-amber-500/40 bg-amber-500/5 p-3">
+                      <p className="text-xs">
+                        Há um treino montado e não publicado desta sessão ({descreverQuandoSalvou(treinoDoZeroSalvo.salvoEm)}).
+                      </p>
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            setItensDoZero(treinoDoZeroSalvo.dados);
+                            descartarTreinoDoZero();
+                          }}
+                        >
+                          Restaurar
+                        </Button>
+                        <Button size="sm" variant="ghost" onClick={descartarTreinoDoZero}>
+                          Descartar
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                  <TreinoDoZero
+                    itens={itensDoZero}
+                    onChange={setItensDoZero}
+                    exercicios={bibliotecaExercicios}
+                    modeloPreferido={modeloPreferido}
+                  />
+                  {problemaDoZero && itensDoZero.length > 0 && (
+                    <p className="text-xs text-destructive" role="alert">
+                      {problemaDoZero}
+                    </p>
+                  )}
+                </div>
+              ) : (
+              <div className="space-y-1.5">
                 <Label>Modelo</Label>
                 <div className="flex gap-2">
                   <Select
@@ -640,12 +748,13 @@ export function PrescricaoTreino({
                 )}
                 {escopo.tipo === "metodo" && !erroModelos && modelos.length === 0 && (
                   <p className="text-xs text-muted-foreground">
-                    A biblioteca do Método ainda está vazia. Monte o primeiro modelo na aba ao lado.
+                    A biblioteca do Método ainda está vazia. Monte o primeiro modelo na aba ao lado, ou comece do zero.
                   </p>
                 )}
               </div>
+              )}
 
-              {modeloCarregadoId && (
+              {origem === "modelo" && modeloCarregadoId && (
                 <div className="space-y-1.5 pt-1 border-t border-border">
                   <p className="text-xs font-semibold text-muted-foreground pt-2">Ficha carregada</p>
                   {erroCarregado && exerciciosModeloCarregado.length === 0 ? (

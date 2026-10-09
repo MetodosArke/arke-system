@@ -9739,6 +9739,16 @@ export type Database = {
         }
         Returns: string
       }
+      publicar_treino_do_zero: {
+        Args: {
+          _aluno_id: string
+          _itens: Json
+          _titulo: string
+          _validade_fim?: string
+          _validade_inicio?: string
+        }
+        Returns: string
+      }
       registrar_aceite: {
         Args: {
           _organization_id?: string

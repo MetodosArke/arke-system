@@ -21,8 +21,14 @@ Para cada exercício:
 Na aba **Publicar para Aluno**:
 
 1. Escolha o aluno. O **Perfil Rápido** mostra objetivo, lesões e restrições e a ficha ativa, para você não prescrever às cegas.
-2. Carregue um modelo ou monte do zero, e ajuste para ele.
+2. Em **Como montar o treino**, escolha **Usar um modelo** (e **Carregar Modelo** para conferir a ficha) ou **Começar do zero**.
 3. Dê um título, defina a validade se quiser e clique em **Publicar treino**.
+
+## Começar do zero
+
+Para um treino feito só para um aluno, não precisa criar modelo. Em **Começar do zero**, monte os exercícios ali mesmo, como num modelo: a divisão, o exercício do acervo, as séries, como executar e a observação para o aluno. Depois publique. O treino não vira modelo e não entra na biblioteca.
+
+Cada exercício vem do acervo, para o aluno ver o GIF. Se o exercício ainda não está lá, cadastre antes em **Acervo de Exercícios**. Se você sair da tela antes de publicar, a lista fica guardada nesta sessão, e a tela oferece restaurar.
 
 ## A ficha publicada não muda sozinha
 
