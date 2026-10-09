@@ -152,7 +152,7 @@ Ficam em Supabase → Project Settings → Edge Functions → Secrets. O Supabas
 - **Interruptor por agente, sem deploy:** o segredo `IA_ANTHROPIC_AGENTES`. Sem `ANTHROPIC_API_KEY`, ou com o agente fora da lista, o agente chama o Bedrock como antes. O assistente só entra na lista depois que a Política de Privacidade que cita a Anthropic estiver no ar.
 - **Reserva na AWS:** qualquer falha da API (crédito esgotado, chave recusada, limite, sobrecarga, erro do servidor, rede, prazo, resposta vazia) faz o agente chamar o Bedrock na mesma execução. O log leva só o agente e o status HTTP.
 - **Prazos:** o assistente é interativo e mantém os 20 s de antes no total: 8 s para a API e o resto para a AWS. O Vigia é rotina: 20 s para a API e os 30 s de sempre para a AWS.
-- **Medidor de uso:** a chamada que a API responde fica em `ia_chamadas` com o modelo `claude-sonnet-4-6`, e a da AWS com `global.anthropic.claude-sonnet-4-6`. O primeiro ainda não tem linha em `ia_precos`, e a tela avisa "sem preço" até ela entrar por migration.
+- **Medidor de uso:** a chamada que a API responde fica em `ia_chamadas` com o modelo `claude-sonnet-4-6`, e a da AWS com `global.anthropic.claude-sonnet-4-6`. Os dois têm linha em `ia_precos`, com o mesmo preço público (US$ 3 de entrada e US$ 15 de saída por milhão de tokens); a da API entrou na migration `20261435010000`. Dentro do crédito mensal, o custo mostrado sai do crédito, e não do cartão.
 
 ## Cloudflare (Turnstile)
 
