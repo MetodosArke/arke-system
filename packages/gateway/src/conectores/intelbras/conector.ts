@@ -1,5 +1,5 @@
-import dgram from "node:dgram";
 import type { GatewayService } from "../../core/gatewayService";
+import { enderecoLocalPara } from "../../core/rede";
 import type { GestaoEquipamentos, ReplicacaoEquipamentos } from "../../equipamentos/controlidGestao";
 import { logger } from "../../logger";
 import { ipDoEquipamento } from "../../receptores/controlid";
@@ -7,21 +7,8 @@ import type { EquipamentoIntelbras, TipoComando } from "../../types";
 import { ClienteIntelbras } from "./cliente";
 import { FOTO_MAXIMA_BYTES, caminhos, horaDoTerminal, respostaOk, usuarioDoAluno } from "./protocolo";
 
-/** O endereço deste computador que alcança o terminal (o mesmo truque da LiteNet3: UDP "conectado" não manda nada). */
-export function enderecoLocalPara(ip: string, porta = 80): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const s = dgram.createSocket(ip.includes(":") ? "udp6" : "udp4");
-    s.once("error", (e) => {
-      s.close();
-      reject(e);
-    });
-    s.connect(porta, ip, () => {
-      const a = s.address().address;
-      s.close();
-      resolve(a);
-    });
-  });
-}
+// O endereço que alcança o terminal mora em core/rede.ts, junto com o da Hikvision.
+export { enderecoLocalPara } from "../../core/rede";
 
 const LOTE = 20;
 const ACERTAR_HORA_MS = 6 * 60 * 60_000;

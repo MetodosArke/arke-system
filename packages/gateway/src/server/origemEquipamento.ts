@@ -11,8 +11,8 @@ import { ipDoEquipamento } from "../receptores/controlid";
  * fechava giro alheio pelo aviso do Monitor e mandava acesso "histórico" da
  * Intelbras, que vira presença na hora em que diz ter acontecido.
  *
- * A lista são os IPs dos equipamentos que o config já tem (Control iD e
- * Intelbras, reconhecidos pelo IP) mais `equipamentos_permitidos`, para o
+ * A lista são os IPs dos equipamentos que o config já tem (Control iD,
+ * Intelbras e Hikvision, reconhecidos pelo IP) mais `equipamentos_permitidos`, para o
  * equipamento que não está em lista nenhuma (a Control iD única, sem gestão
  * remota). A própria máquina sempre passa: é ela que roda o emulador na
  * instalação, e quem já está nela não precisa do receptor para nada.
@@ -22,11 +22,12 @@ import { ipDoEquipamento } from "../receptores/controlid";
  * catraca de quem atualizou sem mexer no config.
  */
 export function ipsPermitidos(
-  config: Pick<GatewayConfig, "controlid_equipamentos" | "intelbras_equipamentos" | "equipamentos_permitidos">
+  config: Pick<GatewayConfig, "controlid_equipamentos" | "intelbras_equipamentos" | "hikvision_equipamentos" | "equipamentos_permitidos">
 ): Set<string> {
   const ips = [
     ...(config.controlid_equipamentos ?? []).map((e) => e.ip),
     ...(config.intelbras_equipamentos ?? []).map((e) => e.ip),
+    ...(config.hikvision_equipamentos ?? []).map((e) => e.ip),
     ...(config.equipamentos_permitidos ?? []),
   ];
   return new Set(ips.map(ipDoEquipamento).filter((ip) => ip.length > 0));

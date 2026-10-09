@@ -15,6 +15,7 @@ import { GestaoControlId, type GestaoEquipamentos } from "./equipamentos/control
 import { ConectorToletus, GestaoToletus } from "./conectores/toletus/conector";
 import { ConectorFacialTopdata, GestaoTopdataFacial } from "./conectores/topdataFacial/conector";
 import { ConectorIntelbras, GestaoIntelbras } from "./conectores/intelbras/conector";
+import { ConectorHikvision, GestaoHikvision } from "./conectores/hikvision/conector";
 import { VERSAO_GATEWAY } from "./versao";
 
 async function main() {
@@ -61,11 +62,22 @@ async function main() {
           configurar: config.intelbras_configurar ?? true,
         })
       : null;
-  const MODELOS_RECEPTOR = ["controlid", "topdata", "intelbras"];
+  // Hikvision: o aparelho manda cada acesso ao receptor (servidor de escuta)
+  // e espera a decisão na resposta. O conector existe antes do receptor pelo
+  // mesmo motivo da Intelbras, e diz quais leitores de cada aparelho são de saída.
+  const conectorHikvision =
+    config.modelo_catraca === "hikvision"
+      ? new ConectorHikvision(gateway, config.hikvision_equipamentos ?? [], {
+          porta: config.escuta_porta,
+          endereco: config.hikvision_endereco ?? null,
+          configurar: config.hikvision_configurar ?? true,
+        })
+      : null;
+  const MODELOS_RECEPTOR = ["controlid", "topdata", "intelbras", "hikvision"];
   // Só os equipamentos do config falam com o receptor (ver
   // origemEquipamento.ts). Na Topdata quem chama é a ponte, na própria máquina.
   const permitidos = ipsPermitidos(config);
-  if (["controlid", "intelbras"].includes(config.modelo_catraca) && permitidos.size === 0) {
+  if (["controlid", "intelbras", "hikvision"].includes(config.modelo_catraca) && permitidos.size === 0) {
     logger.warn(
       "Nenhum equipamento listado no config: o receptor atende qualquer aparelho da rede. " +
         "Ponha o IP da catraca em equipamentos_permitidos (ou nas listas de equipamentos)."
@@ -84,6 +96,14 @@ async function main() {
       // horário, mesmo com outra entrada configurada.
       comoLiberar: resolverComoLiberar(config),
       ...(conectorIntelbras ? { intelbras: { nomePorIp: (ip: string) => conectorIntelbras.nomePorIp(ip) } } : {}),
+      ...(conectorHikvision
+        ? {
+            hikvision: {
+              nomePorIp: (ip: string) => conectorHikvision.nomePorIp(ip),
+              leitoresDeSaida: (ip: string) => conectorHikvision.leitoresDeSaidaPorIp(ip),
+            },
+          }
+        : {}),
       ipsPermitidos: permitidos,
     });
     await receptor.iniciar();
@@ -91,6 +111,11 @@ async function main() {
 
   await gateway.iniciar();
   if (conectorIntelbras) await conectorIntelbras.iniciar();
+  if (conectorHikvision) {
+    const conector = conectorHikvision;
+    gateway.equipamentos.fonteHikvision(() => conector.estados());
+    await conector.iniciar();
+  }
 
   // Toletus: na LiteNet2 a placa escuta na porta 7878 e quem disca é o
   // Gateway; na LiteNet3 o Gateway anuncia o endereço e a placa disca.
@@ -138,11 +163,13 @@ async function main() {
     ? new GestaoControlId(config.controlid_equipamentos)
     : conectorIntelbras?.nomes().length
       ? new GestaoIntelbras(conectorIntelbras)
-      : conectorFacial
-        ? new GestaoTopdataFacial(conectorFacial)
-        : conectorToletus
-          ? new GestaoToletus(conectorToletus)
-          : null;
+      : conectorHikvision?.nomes().length
+        ? new GestaoHikvision(conectorHikvision)
+        : conectorFacial
+          ? new GestaoTopdataFacial(conectorFacial)
+          : conectorToletus
+            ? new GestaoToletus(conectorToletus)
+            : null;
   const executor = new ExecutorComandos(cloud, gateway, gestao, { modelo: config.modelo_catraca });
   executor.iniciar();
 
@@ -175,6 +202,7 @@ async function main() {
     conectorToletus?.parar();
     conectorFacial?.parar();
     conectorIntelbras?.parar();
+    conectorHikvision?.parar();
     await gateway.parar();
     process.exit(0);
   };

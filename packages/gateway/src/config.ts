@@ -9,7 +9,7 @@ const configSchema = z.object({
   supabase_url: z.string().url("supabase_url deve ser uma URL válida"),
   catraca_ip: z.string().min(1, "catraca_ip é obrigatório"),
   catraca_porta: z.number().int().positive(),
-  modelo_catraca: z.enum(["controlid", "henry", "topdata", "topdata_facial", "toletus", "intelbras", "dimep", "mock"]),
+  modelo_catraca: z.enum(["controlid", "henry", "topdata", "topdata_facial", "toletus", "intelbras", "hikvision", "dimep", "mock"]),
   // 1000 ms, e não os 300 que o código prometia sem nunca ter medido. Medido
   // em 23/09/2026 contra catraca-validar-acesso em sa-east-1: mediana 405 ms,
   // p90 437 ms, 0 de 12 chamadas abaixo de 300 ms (só a ida e volta de rede
@@ -141,6 +141,27 @@ const configSchema = z.object({
     .refine((l) => new Set(l.map((e) => e.ip)).size === l.length, "dois terminais com o mesmo IP"),
   intelbras_endereco: z.string().trim().min(1).optional(),
   intelbras_configurar: z.boolean().default(true),
+  // Terminais faciais e controladoras da Hikvision (ISAPI). O login é o do
+  // próprio aparelho e fica só neste arquivo, como o da Control iD. O
+  // aparelho é reconhecido pelo IP, então o IP tem de ser fixo.
+  hikvision_equipamentos: z
+    .array(
+      z.object({
+        nome: z.string().min(1, "cada aparelho precisa de um nome"),
+        ip: z.string().min(1, "ip do aparelho é obrigatório"),
+        porta: z.number().int().positive().default(80),
+        usuario: z.string().min(1).default("admin"),
+        senha: z.string().min(1, "senha do aparelho é obrigatória"),
+        porta_acesso: z.number().int().positive().default(1),
+        leitores_saida: z.array(z.number().int().positive()).optional(),
+        leitores_digital: z.array(z.number().int().positive()).min(1).default([1]),
+      })
+    )
+    .default([])
+    .refine((l) => new Set(l.map((e) => e.nome)).size === l.length, "nomes de aparelho repetidos")
+    .refine((l) => new Set(l.map((e) => e.ip)).size === l.length, "dois aparelhos com o mesmo IP"),
+  hikvision_endereco: z.string().trim().min(1).optional(),
+  hikvision_configurar: z.boolean().default(true),
 });
 
 /**
