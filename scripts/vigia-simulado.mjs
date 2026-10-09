@@ -376,6 +376,7 @@ for (const c of lista) {
       confianca: i.analise.confianca,
       diagnostico: trocar(i.analise.diagnostico),
       acoes: i.analise.acoes.map((a) => ({ ...a, alvo_nome: nomes[a.alvo]?.nome ?? a.alvo, justificativa: trocar(a.justificativa) })),
+      modelo: resp.modelo,
       latencia_ms: resp.latenciaMs,
       tokens: [resp.tokensEntrada, resp.tokensSaida],
     });

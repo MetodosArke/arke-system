@@ -60,6 +60,13 @@ describe("a busca", () => {
     expect(buscarTrechos(indice, "o aluno não recebeu o e-mail para criar a senha", gestor).map((a) => a.slug)).toContain("primeiro-acesso-aluno");
     // Achado da avaliação de 05/10/2026: o verbo conjugado não achava o artigo.
     expect(buscarTrechos(indice, "Um aluno vai viajar um mês. Como pauso ele?", gestor).map((a) => a.slug)).toContain("situacao-do-aluno");
+    // Achados da avaliação de 09/10/2026: o artigo dos comunicados não dizia "aviso" nem
+    // "fechar", e a seção que ensina a encerrar a tarefa se chamava só "Como atender".
+    expect(buscarTrechos(indice, "Como aviso todos os alunos que vamos fechar no feriado?", gestor)[0]?.slug).toBe("comunicados");
+    expect(buscarTrechos(indice, "Como encerro um atendimento da fila?", gestor)[0]).toMatchObject({
+      slug: "fila-de-atendimento",
+      secao: "Como atender e encerrar",
+    });
   });
 
   it("só devolve artigos que quem pergunta pode ler, no máximo dois por artigo", () => {

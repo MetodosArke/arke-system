@@ -1,4 +1,4 @@
-Em [Comunicados](/admin/comunicados) o gestor e a recepção avisam todo mundo de uma vez: feriado, horário especial, evento, manutenção.
+Em [Comunicados](/admin/comunicados) o gestor e a recepção mandam um aviso para todos de uma vez, alunos, equipe ou os dois: a academia vai fechar no feriado, o horário mudou, vai ter evento ou manutenção.
 
 ![Comunicados publicados e quantas pessoas leram.](/ajuda/telas/comunicados.jpg)
 

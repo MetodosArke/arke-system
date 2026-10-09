@@ -25,7 +25,7 @@ A mesma situação não gera tarefa repetida. Pausar o aluno encerra as tarefas 
 
 A ordem é pela urgência: prioridade crítica primeiro, depois o prazo. Tarefa com prazo estourado ganha a marca **Vencido**; se ninguém agir, ela é **escalada** para o gestor.
 
-## Como atender
+## Como atender e encerrar
 
 1. Clique em **Assumir**: a tarefa passa a ser sua.
 2. Faça o que precisa ser feito: ligue, ajuste o treino, marque uma conversa. Se combinar uma data com o aluno, registre-a: ela aparece no app dele como **Próximo evento de acompanhamento**.

@@ -1,0 +1,130 @@
+{
+  "data": "2026-10-09",
+  "resultados": {
+    "assistente": {
+      "assinatura": "6a7e143f3b9ac6ba753bab8d140d94d542179de0ca7910ed8191358e3226f5a1",
+      "modelo": "global.anthropic.claude-sonnet-4-6",
+      "acertos": 13,
+      "total": 13,
+      "casos": [
+        {
+          "id": "digital",
+          "ok": true,
+          "motivo": null,
+          "modelo": "claude-sonnet-4-6",
+          "latencia_ms": 5593,
+          "tokens_entrada": 1364,
+          "tokens_saida": 173
+        },
+        {
+          "id": "sem-sinal",
+          "ok": true,
+          "motivo": null,
+          "modelo": "claude-sonnet-4-6",
+          "latencia_ms": 3114,
+          "tokens_entrada": 1691,
+          "tokens_saida": 110
+        },
+        {
+          "id": "importar",
+          "ok": true,
+          "motivo": null,
+          "modelo": "claude-sonnet-4-6",
+          "latencia_ms": 5010,
+          "tokens_entrada": 1308,
+          "tokens_saida": 96
+        },
+        {
+          "id": "pausar",
+          "ok": true,
+          "motivo": null,
+          "modelo": "claude-sonnet-4-6",
+          "latencia_ms": 3127,
+          "tokens_entrada": 1292,
+          "tokens_saida": 87
+        },
+        {
+          "id": "avulsa",
+          "ok": true,
+          "motivo": null,
+          "modelo": "claude-sonnet-4-6",
+          "latencia_ms": 2455,
+          "tokens_entrada": 952,
+          "tokens_saida": 82
+        },
+        {
+          "id": "nota",
+          "ok": true,
+          "motivo": null,
+          "modelo": "claude-sonnet-4-6",
+          "latencia_ms": 2966,
+          "tokens_entrada": 1428,
+          "tokens_saida": 114
+        },
+        {
+          "id": "comunicado",
+          "ok": true,
+          "motivo": null,
+          "modelo": "claude-sonnet-4-6",
+          "latencia_ms": 3554,
+          "tokens_entrada": 961,
+          "tokens_saida": 89
+        },
+        {
+          "id": "qr-primeiro-acesso",
+          "ok": true,
+          "motivo": null,
+          "modelo": "claude-sonnet-4-6",
+          "latencia_ms": 3030,
+          "tokens_entrada": 1391,
+          "tokens_saida": 114
+        },
+        {
+          "id": "desfecho",
+          "ok": true,
+          "motivo": null,
+          "modelo": "claude-sonnet-4-6",
+          "latencia_ms": 2952,
+          "tokens_entrada": 1583,
+          "tokens_saida": 74
+        },
+        {
+          "id": "publicar-treino",
+          "ok": true,
+          "motivo": null,
+          "modelo": "claude-sonnet-4-6",
+          "latencia_ms": 2600,
+          "tokens_entrada": 943,
+          "tokens_saida": 91
+        },
+        {
+          "id": "mercado-pago",
+          "ok": true,
+          "motivo": null,
+          "modelo": "claude-sonnet-4-6",
+          "latencia_ms": 2295,
+          "tokens_entrada": 1197,
+          "tokens_saida": 58
+        },
+        {
+          "id": "imposto-renda",
+          "ok": true,
+          "motivo": null,
+          "modelo": "claude-sonnet-4-6",
+          "latencia_ms": 2716,
+          "tokens_entrada": 1080,
+          "tokens_saida": 92
+        },
+        {
+          "id": "wifi",
+          "ok": true,
+          "motivo": null,
+          "modelo": "claude-sonnet-4-6",
+          "latencia_ms": 3219,
+          "tokens_entrada": 1700,
+          "tokens_saida": 86
+        }
+      ]
+    }
+  }
+}
