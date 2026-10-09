@@ -74,7 +74,10 @@ async function comNovaTentativa(chamar) {
 /** O começo da resposta do modelo, guardado só no caso que errou, para entender o erro. Os casos são inventados. */
 const trecho = (texto) => String(texto ?? "").replace(/\s+/g, " ").slice(0, 400);
 
-const NAO_ENCONTREI = /n[aã]o (encontrei|achei|h[aá]|tem|consta|est[aá] n|cobre|trata|aparece)|fora d[oa]s? (artigos?|central|trechos?)|n[aã]o sei/i;
+// "Não é algo que a Central cobre" também é dizer que não encontrou: em 09/10/2026
+// o Sonnet 4.6 recusou o imposto de renda assim, e a regra antiga contou como erro.
+const NAO_ENCONTREI =
+  /n[aã]o (encontrei|achei|h[aá]|tem|consta|est[aá] n|cobre|trata|aparece)|n[aã]o [eé] (algo|assunto|um assunto|tema|um tema) que a central|fora d[oa]s? (artigos?|central|trechos?)|n[aã]o sei/i;
 
 async function avaliarLeticia() {
   const casos = [];
@@ -196,13 +199,22 @@ function avaliarVigia() {
       id: cenario.id ?? cenario.cenario,
       ok: !x.falhou && x.causa_ok && x.acao_ok && !(x.erradas ?? []).length,
       motivo: x.falhou ? `rodada falhou: ${x.falhou}` : [!x.causa_ok && "causa errada", !x.acao_ok && "ação esperada faltando", (x.erradas ?? []).length && "ação fora de lugar"].filter(Boolean).join("; ") || null,
+      modelo: x.modelo ?? null,
       latencia_ms: x.latencia_ms ?? null,
+      tokens_entrada: x.tokens?.[0] ?? null,
+      tokens_saida: x.tokens?.[1] ?? null,
     })),
   );
 }
 
+/** O uso de cada caso, com o modelo que de fato respondeu (a API da Anthropic ou a reserva na AWS). */
 function uso(r) {
-  return { latencia_ms: r.uso?.latenciaMs ?? null, tokens_entrada: r.uso?.tokensEntrada ?? null, tokens_saida: r.uso?.tokensSaida ?? null };
+  return {
+    modelo: r.uso?.modelo ?? null,
+    latencia_ms: r.uso?.latenciaMs ?? null,
+    tokens_entrada: r.uso?.tokensEntrada ?? null,
+    tokens_saida: r.uso?.tokensSaida ?? null,
+  };
 }
 
 const AVALIACOES = { leticia: avaliarLeticia, assistente: avaliarAssistente, dieta_pdf: avaliarDieta };

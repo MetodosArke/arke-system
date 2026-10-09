@@ -189,7 +189,7 @@ export const ARTIGOS: ArtigoAjuda[] = [
   },
   {
     slug: "comunicados",
-    titulo: "Comunicados",
+    titulo: "Comunicados: avisos para alunos e equipe",
     resumo: "Avisar alunos e equipe de feriado, horário especial ou evento.",
     secao: "Recepção e frequência",
     publicos: ["gestor", "recepcao", "autonomo"],

@@ -203,7 +203,7 @@ As linhas saem em 13 meses, na limpeza diária. `usoIA.test.ts` falha se uma fun
 
 **A primeira avaliação, de 05/10/2026:**
 - Letícia: 7 de 7. Numa rodada anterior, a trava recusou um espelho; a temperatura de 0,3 dá essa variação.
-- Assistente: 12 de 13. Respondeu "não encontrei" nas três dúvidas de fora. O erro foi "como aviso todos os alunos que vamos fechar no feriado", em que a busca não liga "aviso" a "comunicado".
+- Assistente: 12 de 13. Respondeu "não encontrei" nas três dúvidas de fora. O erro foi "como aviso todos os alunos que vamos fechar no feriado", em que a busca não liga "aviso" a "comunicado". *Corrigido em 09/10/2026, no artigo (ver "Lucas: a busca acha o comunicado e o desfecho").*
 - Dieta: 3 de 3, inclusive recusar um contrato de locação.
 - Vigia: 12 de 13. O erro foi a falha de cadastro no equipamento lida como nuvem, o mesmo de setembro.
 
@@ -228,3 +228,20 @@ Achado médio da auditoria de prontidão de 05/10. A aprovação reserva a decis
 - `asaas-assinatura-ciclo/fluxo.ts` não mudou: o `fetch` sem `try` lá é usado por outras funções, que têm o próprio tratamento, e a proteção ficou em quem reserva a decisão.
 
 **Conferido:** `vigiaAprovar` (6 testes): o prazo esgotado e a exceção qualquer registram erro, o resultado normal registra com o comando, o registro que falha é tentado de novo. Defeito plantado: o `catch` relançando a exceção derrubou 2 testes. No banco de produção, em transação desfeita: das duas ações em "executando", a de 16 minutos fechou como erro e a de 5 seguiu executando, e a rotina `arke-vigia` passou a fechar as presas antes de varrer. **Falta,** pela corrente real, a aprovação de `cancelar_assinatura_orfa` com o Asaas fora do prazo (no sandbox) terminando como erro, e não presa.
+
+## Lucas: a busca acha o comunicado e o desfecho (09/10/2026)
+
+A avaliação de 09/10 com o Claude Sonnet 5.5, que não foi adotado, mostrou dois casos em que a busca do assistente não entregava ao modelo o trecho certo da Central de Ajuda. O Sonnet 4.6 completava um deles por conta própria; o outro errava nos dois modelos. Os dois eram defeito do artigo, e não do modelo nem da conta da busca.
+
+- **"Como encerro um atendimento da fila?"** O artigo vinha, mas com a introdução e "De onde vêm as tarefas", e sem a seção que ensina a registrar o desfecho. A busca põe o título do artigo em todas as seções dele, e a seção se chamava só "Como atender": a palavra "atender" já estava no título do artigo ("Atendimento: a fila e o desfecho") e não somava nada, e "encerrar" só aparecia no corpo. Na escolha dos dois trechos do artigo, ela ficava em terceiro. **Conserto:** a seção passou a "Como atender e encerrar", que é o que ela ensina.
+- **"Como aviso todos os alunos que vamos fechar no feriado?"** O artigo não vinha. Ele se chamava só "Comunicados" e dizia "avisam todo mundo de uma vez: feriado", sem "aviso" nem "fechar". O "fechar" da pergunta bate com "Financeiro e fechamento do mês", no título, e o título pesa em toda seção: o financeiro ocupava as primeiras posições. **Conserto:** o título passou a "Comunicados: avisos para alunos e equipe", e a introdução diz "mandam um aviso para todos de uma vez, alunos, equipe ou os dois: a academia vai fechar no feriado, o horário mudou, vai ter evento ou manutenção". O artigo fala do jeito que a gestão pergunta.
+- **A conta da busca ficou como estava.** Antes do artigo, foi tentado dar peso ao título da seção na escolha dos trechos de cada artigo, sem mexer na ordem dos artigos. O desfecho passava, mas a escolha das seções mudou em 26 de 55 perguntas, e "Como registro o desfecho de uma tarefa?" perdeu a seção que responde. Foi desfeito.
+- **Conjunto de 55 perguntas da gestão** (as 10 da avaliação com artigo e 45 do dia a dia, uma ou mais por artigo): o artigo certo é achado em 55, eram 53, e vem em primeiro em 52, eram 50. Nenhuma outra pergunta mudou de artigo. A única mudança fora dos dois artigos é o terceiro trecho de "Como encerro o contrato com a ArkeFit?", que agora é a seção da fila; o artigo do encerramento segue em primeiro. `assistenteAcademia.test.ts` ganhou as duas perguntas.
+- **A regra do "não encontrei" da avaliação contava um acerto como erro.** Na primeira rodada, o imposto de renda saiu como erro com a resposta "Isso não é algo que a Central de Ajuda do ArkeFit cobre", que é dizer que não encontrou. A busca entrega a esse caso os mesmos trechos de antes, e a variação é do modelo, com a temperatura de 0,2. A regra passou a aceitar "não é algo que a Central…", e a avaliação rodou de novo, inteira.
+- **A avaliação grava quem respondeu.** Cada caso leva o modelo que de fato respondeu (a API da Anthropic, `claude-sonnet-4-6`, ou a reserva na AWS, `global.anthropic.claude-sonnet-4-6`), e o Vigia leva também os tokens, além da latência. Só os scripts mudaram; nada da troca de modelo do ramo do Sonnet 5.5 entrou.
+
+**Conferido:**
+- A avaliação do assistente pelo caminho de produção (a API da Anthropic, `IA_ANTHROPIC_AGENTES` com o assistente): **13 de 13**, eram 12, e os 13 casos respondidos por `claude-sonnet-4-6`. Latência máxima de 5,6 s; em média, 1.299 tokens de entrada e 97 de saída. A primeira rodada deu 12 de 13, pelo imposto de renda acima.
+- Dois defeitos plantados: com o artigo antigo dos comunicados, o teste falhou (o financeiro em primeiro); com a seção antiga da fila, também.
+- `npm run check`: 0 erros, 57 funções no `deno check`. `npx vitest run`: 198 arquivos e 1.584 testes; um deles (`provaDoConsentimento.guarda`) passou do prazo de 5 s com a máquina carregada e passou sozinho.
+- **Depois do merge,** publicar `assistente-academia`, que leva o índice novo.
