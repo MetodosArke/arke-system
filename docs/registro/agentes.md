@@ -246,6 +246,8 @@ A avaliação de 09/10 com o Claude Sonnet 5.5, que não foi adotado, mostrou do
 - `npm run check`: 0 erros, 57 funções no `deno check`. `npx vitest run`: 198 arquivos e 1.584 testes; um deles (`provaDoConsentimento.guarda`) passou do prazo de 5 s com a máquina carregada e passou sozinho.
 - **Depois do merge,** publicar `assistente-academia`, que leva o índice novo.
 
+
+**Em produção, em 09/10:** o `assistente-academia` foi publicado com o índice novo. Na prova com uma academia e uma gestora temporárias (apagadas no fim), a pergunta "Como encerro um atendimento da fila?", que falhava, teve resposta escrita; a resposta saiu pela API da Anthropic e, com a chave trocada por uma inválida, pela AWS, sem erro para quem perguntou.
 ## Letícia: as marcas de catraca do site (09/10/2026)
 
 A Letícia reconhecia o assunto "catraca" por Control iD, Topdata, Henry e Dimep, e não por Toletus, Intelbras nem Hikvision, que estão integradas e que o site anuncia desde 08/10 (#367: Control iD, Topdata, Toletus, Intelbras e Hikvision, com "o modelo exato é conferido na implantação"). E o texto fixo do assunto prometia demais: "O ArkeFit se liga à catraca da academia" saía também para quem tem Henry ou Dimep, que não estão integradas. Era a parte da Letícia na decisão da Hikvision no site, que tinha ficado para depois.
@@ -262,3 +264,5 @@ A Letícia reconhecia o assunto "catraca" por Control iD, Topdata, Henry e Dimep
 - Dois defeitos plantados: a Henry na lista do texto fixo (2 testes falharam) e a Intelbras fora da lista de palavras (1 falhou).
 - `npm run check`: 0 erros, 57 funções no `deno check`. `npx vitest run`: 198 arquivos e 1.591 testes; 8 guardas que leem o repositório inteiro passaram do prazo com a máquina carregada e passaram de novo, os 8 arquivos juntos, com prazo maior.
 - **Depois do merge,** publicar `agente-comercial`.
+
+**Em produção, em 09/10:** o `agente-comercial` foi publicado. Chamado como a rotina chama: sem token e com token inventado, 401; com o token do cofre e o interruptor desligado, 200 com 0 envios. A Letícia segue desligada até o link da agenda do Jean.
