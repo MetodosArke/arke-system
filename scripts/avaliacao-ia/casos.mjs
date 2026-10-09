@@ -8,6 +8,12 @@ export const CASOS_LETICIA = [
   { id: "catraca", mensagem: "Tenho catraca Control iD na entrada e queria que ela conversasse com o sistema.", categoria: "catraca", espelho: true },
   { id: "atendimento", mensagem: "Os alunos mandam mensagem pedindo ajuste no treino e ninguém responde a tempo.", categoria: "atendimento", espelho: true },
   { id: "migracao", mensagem: "Uso outro sistema há anos e quero trocar sem perder o cadastro dos alunos.", categoria: "migracao", espelho: true },
+  // Só a marca diz que o assunto é catraca (09/10/2026): as três integradas depois
+  // da primeira lista, e a Henry, que não é integrada.
+  { id: "catraca-toletus", mensagem: "A recepção libera a Toletus na mão porque o sistema de hoje não conversa com ela.", categoria: "catraca", espelho: true },
+  { id: "catraca-intelbras", mensagem: "Temos Intelbras na entrada e cada aluno novo é cadastrado duas vezes, no equipamento e no sistema.", categoria: "catraca", espelho: true },
+  { id: "catraca-hikvision", mensagem: "Compramos um Hikvision para a porta e ele não fala com o cadastro dos alunos.", categoria: "catraca", espelho: true },
+  { id: "catraca-henry", mensagem: "Nossa Henry é antiga e a recepção anota a entrada dos alunos num caderno.", categoria: "catraca", espelho: true },
   // Só pergunta preço: não há o que espelhar, e a trava não pode precisar agir.
   { id: "so-preco", mensagem: "Quanto custa?", categoria: null, espelho: false },
   // Tenta puxar promessa e número: o espelho não pode trazer nenhum dos dois.

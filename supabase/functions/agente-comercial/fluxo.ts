@@ -44,7 +44,7 @@ const PALAVRAS: [Categoria, RegExp][] = [
     /evasao|evadi|cancelam|cancelando|cancela[mr]?\b|desist|retenc|reter|churn|rotatividade|perd\w* (de |os |muitos )?alunos?|(alunos?|gente|pessoas?) (some|somem|sumindo|sumir|param|parando|deixa\w* de vir)|nao volta/,
   ],
   ["inadimplencia", /inadimpl|calote|devedor|cobranc|boleto|pagament|nao paga|mensalidades? (atrasad|em atraso|vencid)/],
-  ["catraca", /catraca|biometri|leitor|reconhecimento facial|controle de acesso|control ?id|topdata|henry|dimep/],
+  ["catraca", /catraca|biometri|leitor|reconhecimento facial|controle de acesso|control ?id|topdata|toletus|intelbras|hik ?vision|henry|dimep/],
   ["migracao", /\bevo\b|tecnofit|next ?fit|\bpacto\b|cloud ?gym|\bw12\b|(trocar|mudar)( de| o)? sistema|migra/],
   ["atendimento", /atendimento|acompanha|engajament|comunica|app (para|pro|dos|de) alunos?|aplicativo/],
 ];
@@ -91,13 +91,13 @@ export const SISTEMA_ESPELHO = `Você ajuda a equipe comercial da ArkeFit, um si
 Você recebe o que a academia contou: escrito por ela no formulário do site, ou anotado pela nossa equipe depois de uma conversa. Devolva SOMENTE um JSON, sem nenhum texto antes ou depois, no formato:
 {"categoria": "...", "espelho": "..."}
 
-- "categoria": o problema principal que a mensagem conta, uma destas palavras: evasao (alunos cancelando, sumindo, rotatividade), inadimplencia (mensalidade atrasada, cobrança), catraca (controle de acesso, biometria), atendimento (acompanhar alunos, comunicação, aplicativo), migracao (trocar de sistema), outro.
+- "categoria": o problema principal que a mensagem conta, uma destas palavras: evasao (alunos cancelando, sumindo, rotatividade), inadimplencia (mensalidade atrasada, cobrança), catraca (controle de acesso, biometria, ou a marca do equipamento da entrada, como Control iD, Topdata, Toletus, Intelbras, Hikvision, Henry ou Dimep), atendimento (acompanhar alunos, comunicação, aplicativo), migracao (trocar de sistema), outro.
 - "espelho": uma ou duas frases curtas, em português do Brasil, falando diretamente com a pessoa ("você", "sua academia"), que repetem com outras palavras o problema que ela contou e mostram que entendemos, com empatia e sem exagero. Exemplo do tom: "Perder alunos nos primeiros meses, sem a recepção perceber a tempo, é das coisas mais frustrantes para quem cuida de uma academia."
 
 Regras do espelho, sem exceção:
 - não escreva nenhum número, valor, percentual, quantidade ou prazo;
 - não fale de preço, plano, desconto, contrato ou condição comercial;
-- não prometa resultado, não diga o que a academia precisa e não fale de solução, ferramenta ou da ArkeFit;
+- não prometa resultado, não diga o que a academia precisa (nem use a palavra "precisa") e não fale de solução, ferramenta, integração com uma marca de equipamento ou da ArkeFit;
 - não cumprimente, não se despeça, não use o nome da pessoa e não faça perguntas;
 - se a mensagem não contar um problema da academia (por exemplo, se só pedir preço, proposta ou mais informações), devolva "espelho": "".`;
 
@@ -193,7 +193,7 @@ export const PROPOSTA: Record<Categoria, string> = {
   inadimplencia:
     "No ArkeFit a mensalidade é cobrada pelo próprio sistema, com cartão automático, e a situação de cada aluno fica à vista da recepção.",
   catraca:
-    "O ArkeFit se liga à catraca da academia, e cada entrada vira a frequência do aluno: é assim que a recepção vê quem está deixando de vir.",
+    "O ArkeFit funciona com as catracas Control iD, Topdata, Toletus, Intelbras e Hikvision, e cada entrada vira a frequência do aluno: é assim que a recepção vê quem está deixando de vir. O modelo exato é conferido na implantação, e outras marcas são avaliadas conforme o equipamento.",
   atendimento:
     "No ArkeFit cada pedido de ajuda do aluno vira uma tarefa com responsável e prazo, e o aluno acompanha o treino e a rotina pelo app da academia.",
   migracao:
@@ -204,7 +204,7 @@ export const PROPOSTA: Record<Categoria, string> = {
 const TEMA: Record<Categoria, string> = {
   evasao: "a evasão dos alunos",
   inadimplencia: "a inadimplência",
-  catraca: "a integração com a catraca",
+  catraca: "o controle de acesso",
   atendimento: "o acompanhamento dos alunos",
   migracao: "a troca de sistema",
   outro: "o dia a dia da academia",
