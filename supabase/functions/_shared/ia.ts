@@ -1,4 +1,5 @@
 import { montarEntrada, type TrechoEntrada } from "./assistenteEntrada.ts";
+import { tentarAnthropic, type PedidoConverse, type RespostaConverse } from "./iaAnthropic.ts";
 import { montarPedido, validarQuadro } from "./vigiaAnalise.ts";
 
 /**
@@ -192,24 +193,58 @@ export async function conversarComIA(
 // liberada para esta conta em 24/09/2026; o Sonnet 4.6 estava.
 export const MODELO_VIGIA = "global.anthropic.claude-sonnet-4-6";
 
+// ── A API da Anthropic, com a AWS de reserva (09/10/2026) ─────────────────
+//
+// Desde 09/10/2026 (decisão do responsável), o Vigia e o assistente podem ir
+// primeiro à API da Anthropic, pelo crédito mensal dela, com o MESMO modelo
+// (o id da API é o do Bedrock sem o perfil `global.anthropic.`). Cada agente
+// liga no segredo `IA_ANTHROPIC_AGENTES`; sem ele, ou sem a chave, nada muda.
+// Se a API falha, o agente chama o Bedrock como antes, sem parar. A chamada
+// sai depois da validação do quadro e da limpeza da pergunta, com o mesmo
+// pedido que iria à AWS (`_shared/iaAnthropic.ts`, `iaAnthropic.guarda`).
+export const MODELO_VIGIA_API = "claude-sonnet-4-6";
+
+// Prazos. O Vigia é rotina: a API tem 20 s e a reserva, os 30 s de sempre
+// (no pior caso, 50 s, longe do limite da plataforma). O assistente é
+// interativo: o prazo total segue o de antes (20 s), a API tem 8 s (a
+// avaliação de 05/10/2026 deu no máximo 2,9 s) e a reserva fica com o resto.
+export const PRAZO_VIGIA_MS = 30_000;
+export const PRAZO_VIGIA_API_MS = 20_000;
+export const PRAZO_ASSISTENTE_MS = 20_000;
+export const PRAZO_ASSISTENTE_API_MS = 8_000;
+
 export type RespostaVigia =
-  | { ok: true; resposta: unknown; latenciaMs: number; tokensEntrada: number | null; tokensSaida: number | null }
+  | { ok: true; resposta: unknown; modelo: string; latenciaMs: number; tokensEntrada: number | null; tokensSaida: number | null }
   | { ok: false; motivo: "recusada_validacao" | "indisponivel"; detalhe: string };
 
 export async function consultarVigia(env: Env, quadroBruto: unknown): Promise<RespostaVigia> {
   const validado = validarQuadro(quadroBruto);
   if (validado.ok === false) return { ok: false, motivo: "recusada_validacao", detalhe: validado.motivo };
 
+  const pedido = montarPedido(validado.quadro);
+  const inicio = Date.now();
+  const viaApi = await tentarAnthropic(env, "vigia", MODELO_VIGIA_API, pedido, PRAZO_VIGIA_API_MS);
+  if (viaApi.tentou && viaApi.ok) {
+    return {
+      ok: true,
+      resposta: viaApi.resposta,
+      modelo: MODELO_VIGIA_API,
+      latenciaMs: Date.now() - inicio,
+      tokensEntrada: viaApi.resposta.usage.inputTokens,
+      tokensSaida: viaApi.resposta.usage.outputTokens,
+    };
+  }
+
+  // A AWS: o caminho de sempre, e a reserva quando a API falha.
   const chaveId = env("BEDROCK_ACCESS_KEY_ID");
   const segredo = env("BEDROCK_SECRET_ACCESS_KEY");
   if (!chaveId || !segredo) return { ok: false, motivo: "indisponivel", detalhe: "sem credencial de IA configurada" };
 
-  const corpo = JSON.stringify(montarPedido(validado.quadro));
-  const inicio = Date.now();
+  const corpo = JSON.stringify(pedido);
   let resposta: Response;
   try {
     const { url, headers } = await assinar(["model", MODELO_VIGIA, "converse"], corpo, chaveId, segredo);
-    resposta = await fetch(url, { method: "POST", headers, body: corpo, signal: AbortSignal.timeout(30_000) });
+    resposta = await fetch(url, { method: "POST", headers, body: corpo, signal: AbortSignal.timeout(PRAZO_VIGIA_MS) });
   } catch (erro) {
     return { ok: false, motivo: "indisponivel", detalhe: erro instanceof Error ? erro.name : "falha de rede" };
   }
@@ -224,6 +259,7 @@ export async function consultarVigia(env: Env, quadroBruto: unknown): Promise<Re
   return {
     ok: true,
     resposta: r,
+    modelo: MODELO_VIGIA,
     latenciaMs: Date.now() - inicio,
     tokensEntrada: uso?.inputTokens ?? null,
     tokensSaida: uso?.outputTokens ?? null,
@@ -243,6 +279,12 @@ export async function consultarVigia(env: Env, quadroBruto: unknown): Promise<Re
 // a limpeza, e só a edge function do assistente usa esta porta. O Sentinela,
 // a leitura da dieta em PDF e a Letícia continuam em São Paulo.
 export const MODELO_ASSISTENTE = MODELO_VIGIA;
+export const MODELO_ASSISTENTE_API = MODELO_VIGIA_API;
+
+function textoDa(r: RespostaConverse | null): string | null {
+  const bloco = r?.output?.message?.content?.find((c) => "text" in c) as { text?: unknown } | undefined;
+  return typeof bloco?.text === "string" && bloco.text.trim() ? bloco.text.trim() : null;
+}
 
 export type RespostaAssistente =
   | { ok: true; texto: string; entrada: string; uso: UsoModelo }
@@ -254,20 +296,31 @@ export async function consultarAssistente(
 ): Promise<RespostaAssistente> {
   const entrada = montarEntrada(dados.pergunta, dados.trechos, dados.situacao, dados.nomes);
 
+  const pedido: PedidoConverse = {
+    system: [{ text: dados.sistema }],
+    messages: [{ role: "user", content: [{ text: entrada }] }],
+    inferenceConfig: { maxTokens: 400, temperature: 0.2 },
+  };
+  const inicio = Date.now();
+  const viaApi = await tentarAnthropic(env, "assistente", MODELO_ASSISTENTE_API, pedido, PRAZO_ASSISTENTE_API_MS);
+  if (viaApi.tentou && viaApi.ok) {
+    const texto = textoDa(viaApi.resposta);
+    if (texto) return { ok: true, texto, entrada, uso: usoDa(viaApi.resposta, MODELO_ASSISTENTE_API, inicio) };
+    console.error("assistente: a API respondeu vazio, reserva na AWS");
+  }
+
+  // A AWS: o caminho de sempre, e a reserva quando a API falha, com o que
+  // sobrou do prazo total. Sem tentativa na API, o prazo é o de sempre.
   const chaveId = env("BEDROCK_ACCESS_KEY_ID");
   const segredo = env("BEDROCK_SECRET_ACCESS_KEY");
   if (!chaveId || !segredo) return { ok: false, indisponivel: true, motivo: "sem credencial de IA configurada" };
 
-  const corpo = JSON.stringify({
-    system: [{ text: dados.sistema }],
-    messages: [{ role: "user", content: [{ text: entrada }] }],
-    inferenceConfig: { maxTokens: 400, temperature: 0.2 },
-  });
-  const inicio = Date.now();
+  const prazoReserva = viaApi.tentou ? Math.max(1_000, PRAZO_ASSISTENTE_MS - (Date.now() - inicio)) : PRAZO_ASSISTENTE_MS;
+  const corpo = JSON.stringify(pedido);
   let resposta: Response;
   try {
     const { url, headers } = await assinar(["model", MODELO_ASSISTENTE, "converse"], corpo, chaveId, segredo);
-    resposta = await fetch(url, { method: "POST", headers, body: corpo, signal: AbortSignal.timeout(20_000) });
+    resposta = await fetch(url, { method: "POST", headers, body: corpo, signal: AbortSignal.timeout(prazoReserva) });
   } catch {
     return { ok: false, indisponivel: true, motivo: "falha de rede", uso: usoDa(null, MODELO_ASSISTENTE, inicio) };
   }

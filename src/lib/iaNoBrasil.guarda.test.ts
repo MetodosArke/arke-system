@@ -67,7 +67,12 @@ describe("IA processada no Brasil", () => {
     // O Google entrou na lista em 24/09/2026: a importação de dieta por PDF
     // mandava o arquivo ao Gemini, e esta trava não pegava porque só
     // conhecia OpenAI, Azure e Anthropic. Provedor novo entra aqui.
-    const fora = arquivosTs(join(RAIZ, "supabase/functions")).filter((p) =>
+    //
+    // A exceção declarada (09/10/2026): `_shared/iaAnthropic.ts`, a API da
+    // Anthropic, só do Vigia e do assistente, sem dado de aluno. As travas
+    // dela moram em `iaAnthropic.guarda.test.ts`.
+    const EXCECAO = /_shared[\\/]iaAnthropic\.ts$/;
+    const fora = arquivosTs(join(RAIZ, "supabase/functions")).filter((p) => !EXCECAO.test(p)).filter((p) =>
       /api\.openai\.com|openai\.azure\.com|api\.anthropic\.com|generativelanguage\.googleapis\.com|aiplatform\.googleapis\.com|api\.mistral\.ai|api\.cohere|api-inference\.huggingface|api\.groq\.com|api\.deepseek\.com/.test(
         readFileSync(p, "utf8"),
       ),

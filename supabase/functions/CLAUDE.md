@@ -32,6 +32,7 @@ Funções em Deno, publicadas no projeto `lzyxqjibkfblrrjboylp`. O repositório 
 
 - `asaas.ts` (`ambienteAsaas`): o único que lê a chave do Asaas. Organização em `trial` vai ao sandbox, e chave de produção no lugar do sandbox é recusada.
 - `ia.ts`: o Bedrock em São Paulo, com a região fixa e o prazo em toda chamada. Ver `iaNoBrasil.guarda.test.ts`.
+- `iaAnthropic.ts`: a API da Anthropic, só para o Vigia e o assistente, chamada de dentro das portas deles em `ia.ts`, com o interruptor `IA_ANTHROPIC_AGENTES` e a AWS de reserva. Nenhuma outra função importa o módulo (`iaAnthropic.guarda.test.ts`).
 - `data.ts`: a data de Brasília, espelho de `src/lib/dataBrasilia.ts`.
 - `paginar.ts`: espelho de `src/lib/paginar.ts`.
 - `captcha.ts`: o Turnstile. Token recusado é recusado com qualquer status HTTP.

@@ -59,7 +59,7 @@ O ArkeFit (ARKE) é uma plataforma SaaS para academias, studios e profissionais 
   - Lucas (o assistente) responde na Central de Ajuda.
   - O Vigia cuida da saúde técnica e não lê dado de aluno.
   - O Sentinela está congelado, salvo correção aprovada.
-- **IA:** a IA com dado de aluno roda no Amazon Bedrock em São Paulo, com o Claude 3 Haiku e a região fixa no código. As únicas exceções fora do país são o Vigia e o assistente, com entrada sem identificação. O consentimento é por propósito e versionado.
+- **IA:** a IA com dado de aluno roda no Amazon Bedrock em São Paulo, com o Claude 3 Haiku e a região fixa no código. As únicas exceções fora do país são o Vigia e o assistente, com entrada sem identificação. Os dois podem rodar pela API da Anthropic, com a AWS de reserva, ligados por agente em `IA_ANTHROPIC_AGENTES`; nenhuma outra função toca a API (`iaAnthropic.guarda`), e o assistente só entra na lista depois da Política que cita a Anthropic. O consentimento é por propósito e versionado.
 - **Prova do consentimento:** quem, quando, a versão e o hash do texto (`hash_texto_consentimento`) e o navegador, carimbados pelo banco; pela API o aluno manda só o aluno e o propósito. Sem IP: ele fica só nos registros de acesso, por 6 meses (`provaDoConsentimento.guarda`). Texto novo de consentimento ganha a linha do hash na migration da versão.
 - **Perfil simulado:** só a ArkeFit simula, com as duas etapas. Na sessão simulada, só a própria pessoa autoriza IA, biometria, documentos e contrato.
 - **Duas etapas:**

@@ -15,6 +15,7 @@ Todos os serviços de que o ArkeFit depende, para que servem e onde fica a confi
 | **Asaas** | Cobrança (cartão, PIX, boleto), divisão do pagamento entre ArkeFit e academia, nota fiscal da academia | Por transação | Ninguém paga; a conferência diária recupera o que se perder |
 | **Resend** | Todos os e-mails: convite, senha, alertas, resumo semanal e a resposta automática ao contato do site | Gratuito | E-mails param; o app segue |
 | **Amazon Web Services** (Bedrock) | IA: leitura de dieta em PDF, Sentinela e Vigia | Por uso | Os recursos de IA ficam "indisponível"; nada trava |
+| **API da Anthropic** | IA do Vigia e do assistente da academia, quando ligados por agente; a AWS é a reserva | Crédito mensal da API | O agente volta sozinho para a AWS |
 | **Cloudflare** (Turnstile) | Captcha dos formulários públicos | Gratuito | Os formulários seguem funcionando, sem captcha |
 | **Sentry** | Avisa quando uma tela quebra no navegador de alguém e quando uma função do servidor dá erro | Gratuito | Nada para; perde-se o aviso |
 | **UptimeRobot** | Avisa, de fora, quando o site, o app ou a plataforma saem do ar | Gratuito | Nada para; perde-se o aviso |
@@ -60,6 +61,9 @@ Ficam em Supabase → Project Settings → Edge Functions → Secrets. O Supabas
 | `ASAAS_SANDBOX_WEBHOOK_SECRET` | Conferir os avisos do sandbox | Painel de webhooks do sandbox |
 | `BEDROCK_ACCESS_KEY_ID`, `BEDROCK_SECRET_ACCESS_KEY` | Chamar a IA na AWS | Usuário IAM na AWS |
 | `BEDROCK_MODEL_ID` | Modelo do Sentinela e da leitura de dieta (Claude 3 Haiku, em São Paulo) | Catálogo do Bedrock |
+| `ANTHROPIC_API_KEY` | Chamar a API da Anthropic, só pelo Vigia e pelo assistente | Console da Anthropic → API Keys (chave do workspace da ArkeFit) |
+| `IA_ANTHROPIC_AGENTES` | O interruptor por agente: a lista, separada por vírgula, de quem vai à API (`vigia`, `assistente`). Vazio ou ausente, todos ficam na AWS | Definido pela ArkeFit; não é segredo de terceiro |
+| `ANTHROPIC_WORKSPACE_ID` | Opcional: vai no cabeçalho `anthropic-workspace-id` quando definido | Console da Anthropic |
 | `RESEND_API_KEY` | Enviar e-mail | Resend → API Keys |
 | `SEND_EMAIL_HOOK_SECRET` | Conferir que o pedido de e-mail veio do Auth | Tem de ser o mesmo nas configurações do Auth e aqui |
 | `TURNSTILE_SECRET_KEY` | Conferir o captcha no servidor. Apagar este segredo desliga o captcha sem publicar nada | Cloudflare → Turnstile |
@@ -139,6 +143,16 @@ Ficam em Supabase → Project Settings → Edge Functions → Secrets. O Supabas
 - **Assistente da academia (Lucas):** desde 03/10/2026 usa o mesmo modelo do Vigia (`MODELO_ASSISTENTE = MODELO_VIGIA`, perfil `global.`, fora do Brasil), com as mesmas credenciais. A pergunta sai sem CPF, e-mail, telefone e sem os nomes da academia (`nomes_para_anonimizar`). O interruptor é `plataforma_config.assistente_ia`; desligado, o assistente não chama a AWS.
 - **Registro de invocações** na conta: desligado.
 - **Acesso:** por um usuário IAM com as chaves `BEDROCK_*`. Em 23/09/2026 a conta ainda estava em verificação na AWS.
+- **Reserva da API da Anthropic:** desde 09/10/2026, o Vigia e o assistente voltam para cá sozinhos quando a API falha (seção abaixo).
+
+## API da Anthropic
+
+- **Para quê:** usar o crédito mensal da API no Vigia e no assistente da academia, os dois agentes que já rodavam fora do Brasil sem dado de aluno (decisão de 09/10/2026). O modelo é o mesmo do Bedrock, Claude Sonnet 4.6 (`claude-sonnet-4-6` na API), com o mesmo roteiro e a mesma entrada.
+- **Código:** `supabase/functions/_shared/iaAnthropic.ts`, chamado só pelas portas do Vigia e do assistente em `_shared/ia.ts`, depois da validação do quadro e da limpeza da pergunta. `iaAnthropic.guarda.test.ts` falha se outra função importar o módulo, ler a chave ou chamar a API. A IA com dado de aluno (Sentinela, dieta em PDF, Letícia) não passa por aqui.
+- **Interruptor por agente, sem deploy:** o segredo `IA_ANTHROPIC_AGENTES`. Sem `ANTHROPIC_API_KEY`, ou com o agente fora da lista, o agente chama o Bedrock como antes. O assistente só entra na lista depois que a Política de Privacidade que cita a Anthropic estiver no ar.
+- **Reserva na AWS:** qualquer falha da API (crédito esgotado, chave recusada, limite, sobrecarga, erro do servidor, rede, prazo, resposta vazia) faz o agente chamar o Bedrock na mesma execução. O log leva só o agente e o status HTTP.
+- **Prazos:** o assistente é interativo e mantém os 20 s de antes no total: 8 s para a API e o resto para a AWS. O Vigia é rotina: 20 s para a API e os 30 s de sempre para a AWS.
+- **Medidor de uso:** a chamada que a API responde fica em `ia_chamadas` com o modelo `claude-sonnet-4-6`, e a da AWS com `global.anthropic.claude-sonnet-4-6`. Os dois têm linha em `ia_precos`, com o mesmo preço público (US$ 3 de entrada e US$ 15 de saída por milhão de tokens); a da API entrou na migration `20261435010000`. Dentro do crédito mensal, o custo mostrado sai do crédito, e não do cartão.
 
 ## Cloudflare (Turnstile)
 
