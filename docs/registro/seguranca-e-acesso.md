@@ -1274,3 +1274,9 @@ O custo que a recepção com as duas etapas passou a pagar na entrega 1 (+14%) s
     - a medição do lote 7 em produção (o `EXPLAIN` na Ponto Alto).
 
 **Fica de fora, e por quê.** Ver `docs/DECISOES_PENDENTES.md`, "Equipe da ArkeFit: o que sobrou dos níveis": a saída da coluna `mentor`, os outros avisos por área, o detalhe do Gateway para o Suporte, devolver o acesso a quem saiu e o limite de alunos negociado.
+
+## Sentry: a chave do projeto do app trocada (09/10/2026)
+
+O projeto do app no Sentry (`javascript-react`) recebia, semanas antes, erros do protótipo antigo do ArkeFit, que usava a mesma chave pública (DSN). O responsável criou uma chave nova; o `VITE_SENTRY_DSN` foi trocado na Vercel e o app foi publicado de novo. Só depois disso a chave antiga foi desligada, para nenhum erro de produção se perder no meio.
+
+**Conferido:** o código publicado em `app.arkefit.com.br` leva só a chave nova (nenhum arquivo com a antiga); um evento de teste pela chave nova chegou ao projeto (`JAVASCRIPT-REACT-C`, resolvido em seguida); e, com a antiga desligada, um evento mandado por ela não entrou, mesmo minutos depois.
