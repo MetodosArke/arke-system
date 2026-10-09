@@ -199,6 +199,8 @@ export function AcervoPainel() {
       const nomeAntigoNormalizado = nomeAntigo.trim().toLowerCase();
 
       // 1) Fichas-modelo (modelos_treino) da organização — atualização direta.
+      // O nome e o vínculo andam juntos: sem o exercicio_id, o item novo fica
+      // sem os GIFs do acervo (modelosComVinculo.guarda).
       const { data: modelos } = await supabase.from("modelos_treino").select("id").eq("organization_id", organization.id);
       const modeloIds = (modelos ?? []).map((m) => m.id);
       let fichasAtualizadas = 0;
@@ -215,7 +217,7 @@ export function AcervoPainel() {
           const gravadas = await porLotes(idsParaAtualizar, (lote) =>
             supabase
               .from("modelo_treino_exercicios")
-              .update({ nome_exercicio: novo.nome, grupo_muscular: [novo.grupo_muscular] })
+              .update({ nome_exercicio: novo.nome, grupo_muscular: [novo.grupo_muscular], exercicio_id: novo.id })
               .in("id", lote)
               .select("id")
           );
