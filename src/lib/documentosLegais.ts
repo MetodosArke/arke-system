@@ -112,8 +112,14 @@ export const DOCUMENTOS: Record<
     // do Brasil, e a secao 4 deixa claro que, nas finalidades dela, a
     // Anthropic nao recebe o texto. Texto aprovado pelo responsavel no
     // workspace em 09/10/2026 (politica-anthropic-assistente), como estava.
-    versao: "2026-10-09",
-    sha256: "0c12c29a9cefee7818f324fbeb395d9c192fad42779aa359246dcf016afa4d46",
+    // 2026-10-09.2: os e-mails do servico. O Resend nao aceita as clausulas-
+    // padrao da ANPD (resposta de 09/10), entao a secao 6 passa a dizer que o
+    // nome e o e-mail dos e-mails transacionais (senha, acesso, cobranca)
+    // podem ser processados fora do Brasil, com base no art. 33, IX, da LGPD
+    // (execucao do contrato), e a frase das clausulas da ANPD passa a valer
+    // "nos demais casos". Texto trazido pelo responsavel em 09/10/2026.
+    versao: "2026-10-09.2",
+    sha256: "223eb6f4d3f9a766747b944573f59e688f8034378bb4b54f76d430dc881cfab4",
     revisadoJuridico: true,
   },
   contrato_academia: {

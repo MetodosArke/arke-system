@@ -258,6 +258,8 @@ O acervo global (105 exercícios, `organization_id` nulo) vai ganhar os GIFs de 
 - A Central de Ajuda (`mensagens.md`, seção "Quem escreveu cada mensagem") e o índice do assistente (`npm run ajuda:indice`) foram atualizados; falta publicar `assistente-academia`.
 - **Falta, porque esta frente não toca produção:** na Ponto Alto, a conversa da Isabela aberta pelo Diego (a dele como "Você", a da Renata com o nome) e pela Renata (o contrário), no computador e no celular, e o app da Isabela com as duas como "Treinador(a)".
 
+
+**Em produção, em 09/10:** na Ponto Alto, na conversa de treino da Isabela, a gestora Renata vê o próprio "Teste" como "Você" e o do professor Diego com o nome dele, e o Diego vê o contrário, no computador (tema claro e escuro) e no celular. A mensagem de outra pessoa da equipe fica num balão cinza com o nome em cima.
 ## "Mensagem" direto do cartão da fila de atendimento (09/10/2026)
 
 **O pedido**, tirado de um vídeo de uso: abrir a conversa com o aluno a partir da fila, sem dar a volta pela ficha. Até aqui, o cartão da tarefa tinha Assumir, Ver Anamnese, Prescrever e o desfecho; para escrever ao aluno, era abrir Alunos, achar a ficha e clicar no chat.

@@ -345,3 +345,18 @@ O plano Max do responsável vem com um crédito mensal da API da Anthropic, e el
 - na avaliação pela API, acertou 11 de 13 no assistente e 11 de 13 no Vigia, contra 12 de 13 do 4.6 em 05/10.
 
 Decisão de 09/10: manter o Sonnet 4.6. O ramo da troca não foi enviado; dele ficou só a melhoria da avaliação (o modelo de cada caso e os tokens do Vigia), que entrou no #371.
+
+## As cláusulas da ANPD com os provedores, e os e-mails do serviço (09/10/2026)
+
+O e-mail sobre as cláusulas-padrão da ANPD (Resolução CD/ANPD 19/2024) saiu em 09/10 para a Vercel, o Sentry, o Resend, a AWS (o encarregado de dados no Brasil) e a Anthropic. As respostas:
+
+- **Anthropic:** as cláusulas da ANPD estão incorporadas ao contrato de dados (DPA) dela, que vale para a API pelos Termos Comerciais, sem assinatura à parte. O DPA público só cita as cláusulas europeias, do Reino Unido e da Suíça; a resposta por escrito fica como registro.
+- **AWS:** só a resposta automática do canal do encarregado no Brasil, que atende pedidos de titulares. A AWS diz publicamente que o DPA dela cumpre o art. 33, II, da LGPD, e os dados de aluno ficam em São Paulo; fora do país vai só a reserva do assistente e do Vigia, sem identificação.
+- **Resend:** não assina nem anexa as cláusulas da ANPD, em nenhum plano; o DPA dele traz só as cláusulas europeias.
+- **Vercel e Sentry:** sem resposta até o fechamento desta seção.
+
+**Os e-mails do serviço.** Para os e-mails transacionais e as notificações operacionais (senha, acesso, cobrança), o e-mail é a ferramenta da prestação do serviço, e a transferência se apoia no art. 33, IX, combinado com o art. 7º, V (execução do contrato), sem depender das cláusulas-padrão. Por isso a Política de Privacidade ganhou a versão `2026-10-09.2`: a seção 6 diz isso com o Resend como exemplo, e a frase das cláusulas da ANPD passa a valer "nos demais casos". Texto trazido pelo responsável.
+
+**O que essa base não cobre:** e-mail de marketing ou de prospecção, que não é execução de contrato. A resposta da Letícia a quem pediu contato pelo site é procedimento preliminar a pedido do titular (art. 7º, V); a prospecção ativa de contatos de outras origens não é, e precisa de outra base antes de a Letícia ligar esse tipo de envio.
+
+**Conferido:** o hash do texto novo é o de `documentosLegais.ts` e o da migration `20261441010000`, e `documentosLegais.test.ts` passa com ele. A versão entra no banco só depois de o texto estar no ar.
