@@ -125,6 +125,114 @@
           "tokens_saida": 86
         }
       ]
+    },
+    "leticia": {
+      "assinatura": "1ebea4f7c777751c539d00329ffac029b77b71bfa437b8499c17c7420c81c7ce",
+      "modelo": "anthropic.claude-3-haiku-20240307-v1:0",
+      "acertos": 10,
+      "total": 11,
+      "casos": [
+        {
+          "id": "evasao",
+          "ok": true,
+          "motivo": null,
+          "modelo": "anthropic.claude-3-haiku-20240307-v1:0",
+          "latencia_ms": 1492,
+          "tokens_entrada": 606,
+          "tokens_saida": 49
+        },
+        {
+          "id": "inadimplencia",
+          "ok": true,
+          "motivo": null,
+          "modelo": "anthropic.claude-3-haiku-20240307-v1:0",
+          "latencia_ms": 953,
+          "tokens_entrada": 611,
+          "tokens_saida": 50
+        },
+        {
+          "id": "catraca",
+          "ok": true,
+          "motivo": null,
+          "modelo": "anthropic.claude-3-haiku-20240307-v1:0",
+          "latencia_ms": 951,
+          "tokens_entrada": 605,
+          "tokens_saida": 50
+        },
+        {
+          "id": "atendimento",
+          "ok": false,
+          "motivo": "a trava recusou o espelho; sem espelho",
+          "resposta": "{\"categoria\": \"atendimento\", \"espelho\": \"Quando os alunos precisam de atenção e não conseguem a resposta que esperam, isso pode gerar muita frustração e desmotivação.\"}",
+          "modelo": "anthropic.claude-3-haiku-20240307-v1:0",
+          "latencia_ms": 1001,
+          "tokens_entrada": 607,
+          "tokens_saida": 55
+        },
+        {
+          "id": "migracao",
+          "ok": true,
+          "motivo": null,
+          "modelo": "anthropic.claude-3-haiku-20240307-v1:0",
+          "latencia_ms": 1065,
+          "tokens_entrada": 605,
+          "tokens_saida": 62
+        },
+        {
+          "id": "catraca-toletus",
+          "ok": true,
+          "motivo": null,
+          "modelo": "anthropic.claude-3-haiku-20240307-v1:0",
+          "latencia_ms": 989,
+          "tokens_entrada": 607,
+          "tokens_saida": 57
+        },
+        {
+          "id": "catraca-intelbras",
+          "ok": true,
+          "motivo": null,
+          "modelo": "anthropic.claude-3-haiku-20240307-v1:0",
+          "latencia_ms": 2051,
+          "tokens_entrada": 611,
+          "tokens_saida": 55
+        },
+        {
+          "id": "catraca-hikvision",
+          "ok": true,
+          "motivo": null,
+          "modelo": "anthropic.claude-3-haiku-20240307-v1:0",
+          "latencia_ms": 981,
+          "tokens_entrada": 608,
+          "tokens_saida": 58
+        },
+        {
+          "id": "catraca-henry",
+          "ok": true,
+          "motivo": null,
+          "modelo": "anthropic.claude-3-haiku-20240307-v1:0",
+          "latencia_ms": 935,
+          "tokens_entrada": 604,
+          "tokens_saida": 53
+        },
+        {
+          "id": "so-preco",
+          "ok": true,
+          "motivo": null,
+          "modelo": "anthropic.claude-3-haiku-20240307-v1:0",
+          "latencia_ms": 889,
+          "tokens_entrada": 588,
+          "tokens_saida": 15
+        },
+        {
+          "id": "pede-promessa",
+          "ok": true,
+          "motivo": null,
+          "modelo": "anthropic.claude-3-haiku-20240307-v1:0",
+          "latencia_ms": 1994,
+          "tokens_entrada": 607,
+          "tokens_saida": 57
+        }
+      ]
     }
   }
 }

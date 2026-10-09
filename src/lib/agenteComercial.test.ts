@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import {
   categoriaPorPalavras,
   entradaDoModelo,
@@ -24,6 +26,11 @@ describe("categoriaPorPalavras", () => {
     ["O cancelamento está alto e a retenção caiu", "evasao"],
     ["Temos muita inadimplência, boleto atrasado todo mês", "inadimplencia"],
     ["Queremos integrar a catraca Control iD com biometria", "catraca"],
+    ["A recepção libera a Toletus na mão", "catraca"],
+    ["Temos Intelbras na entrada", "catraca"],
+    ["O equipamento da porta é Hikvision", "catraca"],
+    ["Nossa Henry é antiga", "catraca"],
+    ["Temos Dimep nas duas unidades", "catraca"],
     ["Hoje usamos o Tecnofit e queremos trocar de sistema", "migracao"],
     ["Quero melhorar o acompanhamento e o app para os alunos", "atendimento"],
     ["Gostaria de uma demonstração", "outro"],
@@ -34,6 +41,43 @@ describe("categoriaPorPalavras", () => {
 
   it("dá prioridade à evasão quando a mensagem também cita o sistema atual", () => {
     expect(categoriaPorPalavras("Usamos o EVO e os alunos desistem cedo")).toBe("evasao");
+  });
+});
+
+// O que a Letícia diz da catraca não promete mais que a página de vendas: as
+// marcas integradas, com a ressalva do modelo conferido na implantação. A
+// Henry e a Dimep não estão integradas e não aparecem como integradas.
+describe("a catraca no e-mail", () => {
+  const MARCAS = ["Control iD", "Topdata", "Toletus", "Intelbras", "Hikvision"];
+  const site = readFileSync(join(__dirname, "..", "pages", "public", "Landing.tsx"), "utf8");
+  const perguntaDoSite = site.split("\n").find((l) => l.includes("Preciso trocar de catraca?")) ?? "";
+
+  it("cita as marcas que o site anuncia, com a ressalva do modelo, e nenhuma outra", () => {
+    expect(perguntaDoSite).not.toBe("");
+    for (const marca of MARCAS) {
+      expect(PROPOSTA.catraca).toContain(marca);
+      expect(perguntaDoSite).toContain(marca);
+    }
+    expect(PROPOSTA.catraca).toContain("O modelo exato é conferido na implantação");
+    expect(PROPOSTA.catraca).not.toMatch(/henry|dimep/i);
+  });
+
+  it("nenhum e-mail de catraca promete integração com a catraca que a academia tem", () => {
+    for (const etapa of ["primeira", "retorno_1", "retorno_2"] as const) {
+      const { texto } = montarEmail({
+        etapa,
+        nome: "Mariana",
+        academia: "Academia Forte",
+        categoria: "catraca",
+        espelho: null,
+        origem: "site",
+        origemDetalhe: null,
+        agenda: "https://calendly.com/arkefit/demonstracao",
+        linkParar: "https://app.arkefit.com.br/#/contato/parar?t=abc",
+        assinatura: "Equipe comercial ArkeFit",
+      });
+      expect(texto).not.toMatch(/se liga à catraca da academia|integração com a catraca|henry|dimep/i);
+    }
   });
 });
 

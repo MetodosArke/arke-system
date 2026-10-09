@@ -892,7 +892,7 @@ Seis achados "baixos" da auditoria de prontidão (05/10), do grupo de app e conf
   - **A entrada não mudou nesses casos.** Ela foi comparada caso a caso nas duas versões e saiu idêntica: as mensagens da avaliação não têm nome nem assinatura. A diferença é do modelo, e não desta entrega.
   - **As três recusas têm o mesmo motivo:** o modelo escreveu "precisa" ("a transição precisa ser feita com cuidado", "você precisa que tudo funcione"), palavra proibida no espelho desde 28/09.
   - **A recusa é a falha segura:** o e-mail sai sem a frase de espelho, com a proposta padrão do assunto.
-  - **Fica para depois:** pedir ao roteiro que evite "precisa", o que muda a assinatura e pede avaliação nova. O registro da rodada 2 está em `docs/avaliacoes-ia/2026-10-08.json`.
+  - **Fica para depois:** pedir ao roteiro que evite "precisa", o que muda a assinatura e pede avaliação nova. *Feito em 09/10/2026, junto das marcas de catraca (ver "Letícia: as marcas de catraca do site" em [agentes.md](agentes.md)).* O registro da rodada 2 está em `docs/avaliacoes-ia/2026-10-08.json`.
 - **A publicação (08/10/2026):**
   - `20261410010000` aplicada;
   - os tipos gerados de novo, idênticos aos escritos à mão;
