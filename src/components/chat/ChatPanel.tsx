@@ -12,10 +12,16 @@ import { cn } from "@/lib/utils";
 import { sendChatPush } from "@/lib/sendChatPush";
 import { VideoChat } from "@/components/chat/VideoChat";
 import { ErroAoCarregar } from "@/components/ErroAoCarregar";
+import { nomesDosUsuarios } from "@/lib/perfis";
+import { colegasNaConversa, remetenteDaMensagem } from "@/lib/remetenteDoChat";
+
+/** Mapa vazio fixo: sem nome carregado, todo colega cai no rótulo neutro. */
+const SEM_NOMES: ReadonlyMap<string, string> = new Map();
 
 interface MensagemTreino {
   id: string;
   remetente_tipo: "aluno" | "treinador";
+  remetente_id: string;
   mensagem: string;
   video_url: string | null;
   lida: boolean;
@@ -25,6 +31,7 @@ interface MensagemTreino {
 interface MensagemDieta {
   id: string;
   remetente_tipo: "aluno" | "nutricionista";
+  remetente_id: string;
   mensagem: string;
   lida: boolean;
   created_at: string;
@@ -63,11 +70,12 @@ export function ChatPanel({ organizationId, alunoId, viewerType, type, dietaId, 
 
   // Tipado por chat: cada um só aceita os remetentes válidos da própria
   // tabela (mensagens_treino: aluno/treinador; mensagens_dieta:
-  // aluno/nutricionista) — evita misturar os dois em `myType`, que faria o
+  // aluno/nutricionista) — evita misturar os dois num tipo só, que faria o
   // TS aceitar "nutricionista" num insert de mensagens_treino e vice-versa.
+  // Quem escreveu cada mensagem, para a tela, não sai daqui: sai do
+  // `remetente_id` (remetenteDoChat.ts).
   const myTypeTreino: "aluno" | "treinador" = viewerType === "aluno" ? "aluno" : "treinador";
   const myTypeNutri: "aluno" | "nutricionista" = viewerType === "aluno" ? "aluno" : "nutricionista";
-  const myType: "aluno" | "treinador" | "nutricionista" = type === "treino" ? myTypeTreino : myTypeNutri;
 
   // Nutri: se não veio dietaId explícito (caso do aluno), resolve a dieta ativa mais recente.
   const {
@@ -102,7 +110,7 @@ export function ChatPanel({ organizationId, alunoId, viewerType, type, dietaId, 
     queryFn: async () => {
       const { data, error } = await supabase
         .from("mensagens_treino")
-        .select("id, remetente_tipo, mensagem, video_url, lida, created_at")
+        .select("id, remetente_tipo, remetente_id, mensagem, video_url, lida, created_at")
         .eq("aluno_id", alunoId)
         .order("created_at", { ascending: true });
       if (error) throw error;
@@ -122,7 +130,7 @@ export function ChatPanel({ organizationId, alunoId, viewerType, type, dietaId, 
       if (!activeDietaId) return [];
       const { data, error } = await supabase
         .from("mensagens_dieta")
-        .select("id, remetente_tipo, mensagem, lida, created_at")
+        .select("id, remetente_tipo, remetente_id, mensagem, lida, created_at")
         .eq("dieta_id", activeDietaId)
         .order("created_at", { ascending: true });
       if (error) throw error;
@@ -137,6 +145,19 @@ export function ChatPanel({ organizationId, alunoId, viewerType, type, dietaId, 
   const recarregarConversa = () =>
     void (type === "treino" ? recarregarTreino() : erroDieta ? recarregarDieta() : recarregarNutri());
   const recarregandoConversa = type === "treino" ? recarregandoTreino : recarregandoDieta || recarregandoNutri;
+
+  // Quem da equipe escreveu cada mensagem (remetenteDoChat.ts). Só do lado da
+  // equipe: o aluno não lê o perfil da equipe. O nome que não volta (a pessoa
+  // saiu da academia, a leitura falhou) vira "Equipe da academia" e a conversa
+  // continua; a consulta tenta de novo sozinha.
+  const colegas = colegasNaConversa(mensagens, viewerType, user?.id);
+  const { data: nomesDaEquipe } = useQuery({
+    queryKey: ["chat-nomes-da-equipe", colegas],
+    queryFn: () => nomesDosUsuarios(colegas),
+    enabled: colegas.length > 0,
+    staleTime: 5 * 60_000,
+  });
+  const nomes = nomesDaEquipe ?? SEM_NOMES;
 
   const invalidar = () => {
     void queryClient.invalidateQueries({ queryKey: type === "treino" ? ["chat-treino-msgs", alunoId] : ["chat-nutri-msgs", activeDietaId] });
@@ -299,19 +320,24 @@ export function ChatPanel({ organizationId, alunoId, viewerType, type, dietaId, 
           <p className="text-sm text-muted-foreground text-center py-8">Nenhuma mensagem ainda.</p>
         ) : (
           mensagens.map((msg) => {
-            const isMine = msg.remetente_tipo === myType;
-            const isStaffMsg = msg.remetente_tipo !== "aluno";
+            const remetente = remetenteDaMensagem(msg, { lado: viewerType, canal: type, meuUserId: user?.id, nomes });
             return (
-              <div key={msg.id} className={cn("flex flex-col max-w-[80%]", isMine ? "ml-auto items-end" : "mr-auto items-start")}>
-                <span className={cn("text-[10px] font-semibold mb-0.5 px-1", isStaffMsg ? "text-primary" : "text-success")}>
-                  {isMine ? "Você" : isStaffMsg ? (type === "treino" ? "Treinador(a)" : "Nutricionista") : "Aluno"}
+              <div
+                key={msg.id}
+                className={cn("flex flex-col max-w-[80%]", remetente.doMeuLado ? "ml-auto items-end" : "mr-auto items-start")}
+              >
+                <span className={cn("text-[10px] font-semibold mb-0.5 px-1", remetente.daEquipe ? "text-primary" : "text-success")}>
+                  {remetente.rotulo}
                 </span>
                 <div
                   className={cn(
                     "rounded-2xl px-3 py-2",
-                    isMine
+                    remetente.minha
                       ? "bg-primary text-primary-foreground rounded-br-sm"
-                      : "bg-emerald-100 text-foreground dark:bg-emerald-900/30 rounded-bl-sm"
+                      : remetente.doMeuLado
+                        ? // Outra pessoa da equipe: do mesmo lado, mas sem a cor de quem lê.
+                          "bg-muted text-foreground border border-border rounded-br-sm"
+                        : "bg-emerald-100 text-foreground dark:bg-emerald-900/30 rounded-bl-sm"
                   )}
                 >
                   {"video_url" in msg && msg.video_url ? (

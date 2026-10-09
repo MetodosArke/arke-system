@@ -239,6 +239,25 @@ O acervo global (105 exercícios, `organization_id` nulo) vai ganhar os GIFs de 
 
 
 **Em produção, em 09/10:** a migration `20261439010000` foi aplicada antes do merge, e os 102 itens de modelo ficaram com vínculo (0 sem). Na Ponto Alto, o treino da Marina mostrou os GIFs dos 6 exercícios no computador e no celular; antes, nenhum. A imagem só carrega quando chega à tela (`loading="lazy"`), o que poupa dados no celular.
+
+## Quem da equipe escreveu cada mensagem do chat (09/10/2026)
+
+**O defeito**, visto na prova da fila em produção: na Ponto Alto, a gestora Renata e o professor Diego mandaram "Teste" para a aluna Isabela, e o Diego via as duas mensagens como "Você". O `ChatPanel` decidia "Você" pelo `remetente_tipo`: do lado da equipe, toda mensagem `treinador` (ou `nutricionista`) era "minha". O banco já guardava quem enviou (`remetente_id`); a tela não lia.
+
+**A decisão:** a regra foi para `remetenteDaMensagem()` em `src/lib/remetenteDoChat.ts`, que lê o `remetente_id`.
+- **Equipe (ficha, diálogo da fila, caixa de Mensagens):** a própria mensagem continua "Você", à direita, na cor primária. A de outra pessoa da equipe fica do mesmo lado (é a academia falando), num balão cinza com borda, e leva o nome completo em cima ("Renata Albuquerque"). O nome sem o papel: o nome já identifica a pessoa, e o papel junto não cabe no rótulo de 10 px sem cortar no celular. A do aluno continua "Aluno".
+- **Os nomes** saem de `profiles` por `nomesDosUsuarios()` (`src/lib/perfis.ts`): só `user_id` e `full_name`, em lotes de 200 (`porLotes`), pelo RLS de quem pede, sem `security definer` e sem função nova. Só os ids das outras pessoas da equipe que escreveram são pedidos (`colegasNaConversa()`), numa chave de cache própria (`chat-nomes-da-equipe`).
+- **O nome que não volta** (a leitura falhou, ou a pessoa saiu da academia e o RLS não entrega mais o perfil) vira "Equipe da academia", e a conversa segue: o erro dos nomes não troca a conversa por `<ErroAoCarregar>`, porque as mensagens carregaram. A conversa sem carregar continua com o `<ErroAoCarregar>` de antes.
+- **Aluno: nada muda.** Ele continua vendo "Treinador(a)" no treino e "Nutricionista" na nutrição. A regra de leitura de `profiles` só entrega o perfil de quem é da equipe a quem é da equipe da mesma academia (`is_org_staff`) ou à ArkeFit; o aluno não é equipe, e o app do aluno não mostra o nome de ninguém da academia (o `PrescritoPor` só nomeia o prescritor da ArkeFit, pelo `useMeuAcompanhamento`). Mostrar o nome ao aluno pediria acesso novo, e esta frente não abre nenhum.
+- **Fora desta frente:** a prévia da caixa de Mensagens continua "Você/equipe:" na última mensagem, porque a `get_caixa_mensagens` devolve só o tipo de quem escreveu; trocar pediria migration. O chat do mentor (`ChatMentor`, `mensagens_mentor`) é outro componente e ficou como estava: do lado da ArkeFit, toda mensagem de mentor é "minha" e leva "Mentor ARKE ·".
+
+**Conferido:**
+- **Testes:** `npx vitest run` com 1.653 testes em 208 arquivos, 14 novos: 8 da regra (`remetenteDoChat.test`: a própria como "Você", a do colega com o nome, o nome ausente ou em branco no rótulo neutro, sem saber quem lê nada vira "Você", o aluno com a função por canal, e os colegas sem repetir e nunca do lado do aluno) e 6 da tela (`ChatPanel.test`: a conversa da Ponto Alto vista pelo Diego e pela Renata, a leitura dos nomes com erro e vazia, a nutrição, e o aluno sem nenhuma leitura de `profiles`).
+- **1 defeito plantado, pego:** a regra de antes (toda mensagem da equipe como "minha") de volta; 8 testes falharam.
+- `npm run check` sem erro: tipos, lint (0 erros, os 27 avisos de antes), o `deno check` das 57 funções e nenhuma vulnerabilidade.
+- A Central de Ajuda (`mensagens.md`, seção "Quem escreveu cada mensagem") e o índice do assistente (`npm run ajuda:indice`) foram atualizados; falta publicar `assistente-academia`.
+- **Falta, porque esta frente não toca produção:** na Ponto Alto, a conversa da Isabela aberta pelo Diego (a dele como "Você", a da Renata com o nome) e pela Renata (o contrário), no computador e no celular, e o app da Isabela com as duas como "Treinador(a)".
+
 ## "Mensagem" direto do cartão da fila de atendimento (09/10/2026)
 
 **O pedido**, tirado de um vídeo de uso: abrir a conversa com o aluno a partir da fila, sem dar a volta pela ficha. Até aqui, o cartão da tarefa tinha Assumir, Ver Anamnese, Prescrever e o desfecho; para escrever ao aluno, era abrir Alunos, achar a ficha e clicar no chat.

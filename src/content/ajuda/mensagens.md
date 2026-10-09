@@ -19,6 +19,12 @@ Primeiro vêm as conversas que esperam resposta, depois as mais recentes.
 
 Clique na conversa para abrir o chat e responda ali mesmo. O mesmo chat aparece na ficha do aluno. Se o aluno ativou as notificações, ele recebe um aviso no celular.
 
+## Quem escreveu cada mensagem
+
+No chat, a sua mensagem aparece como **Você**, à direita. A de outra pessoa da equipe fica do mesmo lado, num balão cinza, com o nome dela em cima (por exemplo, **Renata Albuquerque**). Assim dá para ver quem já respondeu o aluno antes de responder de novo. Se o nome não puder ser mostrado, por exemplo porque a pessoa já saiu da academia, aparece **Equipe da academia**.
+
+O aluno não vê o nome de quem respondeu: para ele, a mensagem da equipe aparece como **Treinador(a)** no chat de treino e **Nutricionista** no de nutrição.
+
 ## Vídeos
 
 O aluno pode mandar vídeo de um exercício para você corrigir a execução. O vídeo fica guardado de forma privada: abre só para o aluno e para a equipe da academia.
