@@ -3,7 +3,12 @@ import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { exigirGravacao } from "@/lib/gravacao";
-import { todasAsLinhas } from "@/lib/paginar";
+import { porLotes, todasAsLinhas } from "@/lib/paginar";
+import { perfisDosUsuarios } from "@/lib/perfis";
+import { planoDoAluno } from "@/lib/planoAluno";
+import { canaisDaConversaComAluno, type CanalConversa } from "@/lib/conversaComAluno";
+import { useNutricionistaDaAcademia } from "@/hooks/useNutricionistaDaAcademia";
+import { BotaoMensagem, ConversaDaFilaDialog, type ConversaDaFila } from "@/components/admin/ConversaDaFila";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -202,6 +207,8 @@ export default function AdminDashboard() {
   const [filtroStatus, setFiltroStatus] = useState<Status | "todas">("todas");
   const [escopo, setEscopo] = useState<"minha" | "organizacao">("minha");
   const [anamneseAlunoId, setAnamneseAlunoId] = useState<string | null>(null);
+  const [conversa, setConversa] = useState<ConversaDaFila | null>(null);
+  const academiaTemNutri = useNutricionistaDaAcademia(organization?.id);
 
   const {
     data: tarefas = [],
@@ -244,6 +251,40 @@ export default function AdminDashboard() {
     },
     enabled: !!anamneseAlunoId,
   });
+
+  // O plano e o nome de cada aluno da fila: é o que decide se o botão
+  // "Mensagem" aparece e em que canal a conversa abre (a mesma regra da ficha).
+  const alunoIdsDaFila = useMemo(
+    () => [...new Set(tarefas.map((t) => t.aluno_id).filter((id): id is string => !!id))].sort(),
+    [tarefas]
+  );
+  const { data: alunosDaFila } = useQuery({
+    queryKey: ["fila-alunos-da-conversa", organization?.id, alunoIdsDaFila],
+    queryFn: async () => {
+      const alunos = await porLotes(alunoIdsDaFila, (lote) =>
+        supabase.from("alunos").select("id, user_id, metodo_arke_status, nivel_atacado").in("id", lote)
+      );
+      const perfis = await perfisDosUsuarios([...new Set(alunos.map((a) => a.user_id))]);
+      return new Map(
+        alunos.map((a) => [a.id, { nome: perfis.get(a.user_id)?.full_name ?? "Aluno", plano: planoDoAluno(a) }])
+      );
+    },
+    enabled: !!organization?.id && alunoIdsDaFila.length > 0,
+  });
+
+  // Sem canal (aluno do Método, ou o plano ainda não chegou), sem botão: a
+  // fila não oferece conversa que a ficha não abriria.
+  const conversaCom = (alunoId: string): ConversaDaFila | null => {
+    const aluno = alunosDaFila?.get(alunoId);
+    if (!aluno) return null;
+    const canais: CanalConversa[] = canaisDaConversaComAluno({
+      papel: organizationRole,
+      veSaude,
+      plano: aluno.plano,
+      academiaTemNutri,
+    });
+    return canais.length > 0 ? { alunoId, nome: aluno.nome, canais } : null;
+  };
 
   const prescrever = (tipo: "treino" | "dieta", alunoId: string) => {
     navigate(tipo === "treino" ? "/admin/treinos" : "/admin/dietas", { state: { alunoId } });
@@ -391,6 +432,7 @@ export default function AdminDashboard() {
               const semResponsavel = !tarefa.responsavel_id;
               const souResponsavel = tarefa.responsavel_id === user?.id;
               const vencida = new Date(tarefa.sla_prazo).getTime() < Date.now();
+              const conversaDoCartao = tarefa.aluno_id ? conversaCom(tarefa.aluno_id) : null;
               return (
                 <Card key={tarefa.id}>
                   <CardHeader className="pb-2">
@@ -467,6 +509,9 @@ export default function AdminDashboard() {
                           <UserCheck className="h-3.5 w-3.5 mr-1" />
                           Assumir
                         </Button>
+                      )}
+                      {conversaDoCartao && (
+                        <BotaoMensagem nome={conversaDoCartao.nome} onClick={() => setConversa(conversaDoCartao)} />
                       )}
                       {/* A anamnese é de quem atende a saúde: a recepção não abre (o banco também recusa). */}
                       {tarefa.aluno_id && veSaude && (
@@ -566,6 +611,8 @@ export default function AdminDashboard() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <ConversaDaFilaDialog conversa={conversa} organizationId={organization?.id} onFechar={() => setConversa(null)} />
 
       <Dialog open={!!anamneseAlunoId} onOpenChange={(open) => !open && setAnamneseAlunoId(null)}>
         <DialogContent className="max-h-[85vh] overflow-y-auto">

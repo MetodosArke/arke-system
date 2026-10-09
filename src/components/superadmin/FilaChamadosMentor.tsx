@@ -17,7 +17,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { AlertTriangle, Handshake, HeartPulse, Loader2, TimerOff, UserMinus } from "lucide-react";
+import { AlertTriangle, Handshake, HeartPulse, Loader2, MessageCircle, TimerOff, UserMinus } from "lucide-react";
+import { ChatMentor } from "@/components/chat/ChatMentor";
 import type { Enums } from "@/integrations/supabase/types";
 import { ErroAoCarregar } from "@/components/ErroAoCarregar";
 
@@ -100,6 +101,8 @@ export function FilaChamadosMentor() {
   const [instrucao, setInstrucao] = useState("");
   const [resolvendo, setResolvendo] = useState<Chamado | null>(null);
   const [desfecho, setDesfecho] = useState("");
+  // A conversa com o aluno aberta direto do chamado, sem passar pela ficha.
+  const [conversaCom, setConversaCom] = useState<Chamado | null>(null);
 
   const {
     data: fila = [],
@@ -265,6 +268,18 @@ export function FilaChamadosMentor() {
               </div>
 
               <div className="mt-2.5 flex flex-wrap gap-2">
+                {/* O mesmo chat da aba Conversa da ficha. A fila só traz aluno do
+                    Método para o Mentor (get_fila_mentor), e o RLS de
+                    mensagens_mentor diz o mesmo. */}
+                <Button
+                  size="sm"
+                  variant="outline"
+                  aria-label={`Mensagem para ${c.aluno_nome}`}
+                  onClick={() => setConversaCom(c)}
+                >
+                  <MessageCircle className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
+                  Mensagem
+                </Button>
                 <Button size="sm" variant="outline" onClick={() => setResolvendo(c)}>
                   Encerrar com desfecho
                 </Button>
@@ -282,6 +297,33 @@ export function FilaChamadosMentor() {
           );
         })
       )}
+
+      <Dialog
+        open={!!conversaCom}
+        onOpenChange={(a) => {
+          if (a) return;
+          setConversaCom(null);
+          // Ler a conversa marca as mensagens como lidas: as contagens baixam.
+          invalidar();
+          void queryClient.invalidateQueries({ queryKey: ["fila-mentor"] });
+        }}
+      >
+        <DialogContent className="max-w-md max-h-[80vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle>Conversa — {conversaCom?.aluno_nome}</DialogTitle>
+            <DialogDescription>{conversaCom?.organizacao_nome}</DialogDescription>
+          </DialogHeader>
+          {conversaCom && (
+            <ChatMentor
+              key={conversaCom.aluno_id}
+              organizationId={conversaCom.organizacao_id}
+              alunoId={conversaCom.aluno_id}
+              viewerType="mentor"
+              className="flex-1 min-h-0"
+            />
+          )}
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={!!resolvendo} onOpenChange={(a) => !a && setResolvendo(null)}>
         <DialogContent>

@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { canaisDoPapel } from "@/lib/conversaComAluno";
 
 export type ConversaCaixa = {
   aluno_id: string;
@@ -15,17 +16,9 @@ export type ConversaCaixa = {
   plano: string;
 };
 
-/**
- * Canais que cada papel atende: o professor responde o chat de treino, a
- * nutricionista o de dieta; a gestão e a ArkeFit veem os dois. A recepção vê
- * só o de treino: a conversa da nutrição é saúde, e o banco não a entrega a
- * quem não atende a saúde (20261399010000).
- */
-export function canaisDoPapel(papel: string | null | undefined): Array<"treino" | "dieta"> {
-  if (papel === "professor" || papel === "recepcao") return ["treino"];
-  if (papel === "nutricionista") return ["dieta"];
-  return ["treino", "dieta"];
-}
+// A regra dos canais por papel mora em `@/lib/conversaComAluno`, junto com a
+// da fila de atendimento; continua exportada daqui para quem já a lia.
+export { canaisDoPapel };
 
 /**
  * Conversas dos alunos com a equipe, com o número de mensagens do aluno ainda
