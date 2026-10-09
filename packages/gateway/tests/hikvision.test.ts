@@ -299,6 +299,17 @@ describe("Hikvision: receptor", () => {
     expect(amb.cloud.credenciaisRecebidas).toEqual([]);
   });
 
+  it("o pedido já decidido, reenviado depois como registro guardado, não vira presença", async () => {
+    amb.cloud.respostaValidarAcesso = { liberado: false, motivo: "Procure a recepção." };
+    const quando = new Date();
+    const r = await evento({ subEventType: 0x4b, employeeNoString: "43", serialNo: 900, remoteCheck: true }, IP_TERMINAL, quando);
+    expect(r.json().RemoteCheck.checkResult).toBe("failed");
+    // O mesmo evento volta mais tarde pelo reenvio, já sem ninguém esperando.
+    await evento({ subEventType: 0x4b, employeeNoString: "43", serialNo: 900, currentEvent: false }, IP_TERMINAL, quando);
+    await esperar();
+    expect(amb.cloud.logsRecebidos).toEqual([]);
+  });
+
   it("negado no aparelho, saída e pedido antigo de QR não viram presença", async () => {
     await evento({ subEventType: 0x08, employeeNoString: "43", serialNo: 20 }, IP_TERMINAL, minutosAtras(30));
     await evento({ subEventType: 0x01, employeeNoString: "44", cardReaderNo: 2, serialNo: 21 }, IP_CONTROLADORA, minutosAtras(30));

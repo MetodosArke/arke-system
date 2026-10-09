@@ -4,7 +4,7 @@
  * Gateway desatualizado — então precisa bater com o package.json, e o teste
  * `versao.test.ts` confere isso.
  */
-export const VERSAO_GATEWAY = "1.9.0";
+export const VERSAO_GATEWAY = "1.10.0";
 
 function partes(versao: string): number[] | null {
   const m = /^(\d+)\.(\d+)\.(\d+)$/.exec(versao.trim());
