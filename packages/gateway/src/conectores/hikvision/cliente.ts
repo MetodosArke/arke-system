@@ -107,7 +107,7 @@ export class ClienteHikvision {
         res.on("error", reject);
       });
       req.on("timeout", () => {
-        const e = new Error(`${this.eq.nome}: o aparelho não respondeu em ${Math.round(timeoutMs / 1000)} s`) as NodeJS.ErrnoException;
+        const e = new Error(`${this.eq.nome}: o aparelho não respondeu em ${(timeoutMs / 1000).toLocaleString("pt-BR")} s`) as NodeJS.ErrnoException;
         e.code = "ETIMEDOUT";
         req.destroy(e);
       });
