@@ -37,3 +37,50 @@ export function percentualAdesao(refeicoes: RefeicaoPlano[], marcacoes: Marcacoe
 export function respondidas(refeicoes: RefeicaoPlano[], marcacoes: Marcacoes | null | undefined): number {
   return Object.keys(marcacoesDoPlano(refeicoes, marcacoes)).length;
 }
+
+/**
+ * Faixa do dia no calendário de adesão. A cor de cada faixa é decidida na tela,
+ * só com tokens; aqui fica o corte, para o calendário e a legenda não
+ * divergirem.
+ */
+export type FaixaAdesao = "otima" | "boa" | "atencao" | "baixa";
+
+export function faixaDeAdesao(percentual: number): FaixaAdesao {
+  if (percentual >= 80) return "otima";
+  if (percentual >= 50) return "boa";
+  if (percentual >= 30) return "atencao";
+  return "baixa";
+}
+
+/**
+ * O guia de alimentos da tela de dieta pode ser recolhido pelo aluno, e a
+ * escolha fica no aparelho (`localStorage`). É conveniência de quem vê: sem
+ * armazenamento (aba privada, dado apagado), o guia abre. O padrão é aberto,
+ * para o check das refeições continuar a um toque, como antes.
+ */
+export const CHAVE_GUIA_DIETA = "arke:dieta:guia-aberto";
+
+/** O `localStorage`, ou null quando o navegador recusa o acesso (até o getter lança). */
+export function armazemDoAparelho(): Storage | null {
+  try {
+    return typeof window === "undefined" ? null : window.localStorage;
+  } catch {
+    return null;
+  }
+}
+
+export function guiaDietaAberto(armazem: Pick<Storage, "getItem"> | null | undefined): boolean {
+  try {
+    return armazem?.getItem(CHAVE_GUIA_DIETA) !== "0";
+  } catch {
+    return true;
+  }
+}
+
+export function gravarGuiaDietaAberto(armazem: Pick<Storage, "setItem"> | null | undefined, aberto: boolean): void {
+  try {
+    armazem?.setItem(CHAVE_GUIA_DIETA, aberto ? "1" : "0");
+  } catch {
+    // Sem armazenamento: a escolha vale só até sair da tela.
+  }
+}
