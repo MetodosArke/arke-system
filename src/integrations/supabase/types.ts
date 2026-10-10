@@ -6558,6 +6558,52 @@ export type Database = {
           },
         ]
       }
+      registro_treino_bem_estar: {
+        Row: {
+          created_at: string
+          energia: number | null
+          organization_id: string
+          registro_treino_id: string
+          sono: number | null
+        }
+        Insert: {
+          created_at?: string
+          energia?: number | null
+          organization_id: string
+          registro_treino_id: string
+          sono?: number | null
+        }
+        Update: {
+          created_at?: string
+          energia?: number | null
+          organization_id?: string
+          registro_treino_id?: string
+          sono?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "registro_treino_bem_estar_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "org_churn_metrics"
+            referencedColumns: ["organization_id"]
+          },
+          {
+            foreignKeyName: "registro_treino_bem_estar_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "registro_treino_bem_estar_registro_treino_id_fkey"
+            columns: ["registro_treino_id"]
+            isOneToOne: true
+            referencedRelation: "registro_treino"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       registros_acesso_aplicacao: {
         Row: {
           dia: string

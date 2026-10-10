@@ -8,6 +8,7 @@ No alto da tela ficam os gráficos dos seus **hábitos nas últimas 8 semanas**,
 
 - **Dias de treino por semana**, com a linha da sua meta semanal e em quantas semanas você chegou nela. Contam os treinos concluídos no app e os que você lança no calendário.
 - **Esforço percebido**: a média da nota de 1 a 10 que você dá no fim de cada treino.
+- **Sono** e **Energia**: a média, de 1 (ruim) a 5 (ótimo), do que você responde no fim de cada treino.
 - **Adesão à dieta**: a média dos dias em que você marcou as refeições na tela da Dieta.
 - **Água por dia**: a média dos dias com água registrada, com a linha da sua meta.
 

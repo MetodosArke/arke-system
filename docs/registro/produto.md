@@ -411,7 +411,7 @@ Sem migration. A única publicação é a do `assistente-academia`, pelo índice
 - A regra (semana de Brasília, de domingo a sábado; médias; semanas na meta) mora em `src/lib/evolucaoHabitos.ts`, com teste ao lado. Uma consulta só, com as cinco leituras em paralelo e `<ErroAoCarregar>` no erro; até 8 semanas por aluno é no máximo um registro por dia, longe do corte de mil linhas.
 
 **O que ficou de fora:**
-- **Sono, energia, humor e estresse por dia:** precisam de coleta nova (por exemplo, duas perguntas de 1 a 5 no check-in ou no fim do treino, numa coluna com data). É decisão do responsável: o que perguntar, com que frequência, se é dado de saúde para o consentimento e quem da equipe vê.
+- **Sono, energia, humor e estresse por dia** (superado em 10/10/2026 para sono e energia, na seção seguinte): precisam de coleta nova (por exemplo, duas perguntas de 1 a 5 no check-in ou no fim do treino, numa coluna com data). É decisão do responsável: o que perguntar, com que frequência, se é dado de saúde para o consentimento e quem da equipe vê.
 - Saciedade, doce e álcool: já têm o resumo da semana e do mês na tela da Dieta; repetir aqui só alongaria a Evolução.
 - Sensação do treino e check-ins: são categorias, e a "dor" e o "preciso de ajuda" não devem virar curva de desempenho (dor não tira ponto).
 - A imagem da Central (`app-evolucao.jpg`) mostra a tela antiga; trocar na próxima captura.
@@ -424,3 +424,37 @@ Sem migration. A única publicação é a do `assistente-academia`, pelo índice
 - `npm run check` sem erro: tipos, lint (0 erros, os 27 avisos de antes), o `deno check` das 57 funções e nenhuma vulnerabilidade.
 - A Central de Ajuda (`app-evolucao-e-desafios.md`) e o índice do assistente (`npm run ajuda:indice`) foram atualizados; falta publicar `assistente-academia`.
 - **Falta, porque esta frente não toca produção:** conferir a tela no computador e no celular, nos dois temas, na Ponto Alto com a aluna Marina Costa Ribeiro (o roteiro da demonstração dá a ela 8 semanas de treino com esforço de 5 a 9, meta de 3 dias, e duas semanas de dieta e água).
+
+## Sono e energia no fim do treino, com as curvas na Evolução (10/10/2026)
+
+**A decisão do responsável** (10/10): sono e energia passam a ser perguntados com **duas perguntas de 1 a 5 no fim do treino**, junto do esforço percebido: um toque a mais, sem tela nova. As curvas entram na Evolução por semana, como as outras. A equipe da academia vê; a recepção não.
+
+**Por quê no fim do treino:** é a única tela que o aluno já responde a cada treino, de pé, ainda na academia. Um check-in diário separado seria tela nova e pergunta a mais todo dia; no fim do treino a resposta vem com a data do treino e entra na semana certa.
+
+**O levantamento:**
+- O fim do treino é o `AvaliacaoTreinoDialog`, aberto pela `TreinoExecucao`: um `update` direto em `registro_treino` (esforço, sensação, duração, observação), sem RPC, conferido por `exigirGravacao`.
+- A leitura de `registro_treino` é do aluno, de `is_org_staff` (gestão, professor, nutricionista **e recepção**), da ArkeFit (`admin_arke`) e da mentoria no Método. Ou seja: a recepção lê o registro do treino.
+- A saúde do aluno, desde 06/10 (`20261360010000`), é lida por `atende_saude()` (gestão, professor e nutricionista, sem a recepção), e a ArkeFit a lê só no Método (`equipe_metodo()` e `aluno_no_metodo()`); `acessoPainel.guarda` trava a lista.
+
+**As decisões:**
+- **Sono e energia autorrelatados são tratados como dado de saúde para quem vê**, como o relato de dor e a adesão à dieta: dizem do corpo e do descanso da pessoa, e não servem ao balcão.
+- **Tabela própria, `registro_treino_bem_estar`, e não duas colunas em `registro_treino`.** Coluna não tem regra própria no RLS, e o GRANT por coluna não separa a recepção do aluno (os dois são `authenticated`). A tabela é a mais simples que cumpre a regra: uma linha por treino, chave `registro_treino_id` (como `registro_serie`), `sono` e `energia` `smallint` de 1 a 5, opcionais, com `check`. Sem `aluno_id`: sai em cascata com o treino na exclusão e na anonimização do aluno, sem mexer nas funções de saída.
+- **Quem lê:** o aluno, a equipe que atende a saúde (`atende_saude`) e a mentoria no Método (`(select equipe_metodo())` com `aluno_no_metodo`), como `dieta_adesao`. **Quem grava:** só o aluno, sobre o próprio treino e com a academia do treino (o `with check` confere as duas coisas); sem exclusão pela API. A regra restritiva "duas etapas" vale aqui também. `registro_treino_bem_estar` entrou na lista da saúde de `acessoPainel.guarda`.
+- **A tela:** duas escalas de 1 a 5 entre o esforço e a sensação, "Como você dormiu esta noite?" e "Como está sua energia hoje?", com "Ruim" e "Ótimo" nos extremos; cada uma é um `radiogroup` com rótulo, cada número um `radio` com o extremo no nome; cor só por token. Opcionais, tocar de novo desmarca, e a linha só é gravada se houver ao menos uma resposta (`upsert` pelo treino). A mutação passou a receber as respostas no `mutate`, não pelo fechamento. Quem retirou o consentimento de saúde não recebe as duas perguntas.
+- **A Evolução:** dois gráficos de linha, "Sono" e "Energia", média semanal de 1 a 5; semana sem resposta fica **em branco** (sem ligar os pontos por cima dela). Vale também o treino encerrado pela metade: a resposta conta pela data do treino. Estado vazio próprio: "Ao concluir um treino, diga como dormiu, de 1 a 5…". A regra continua em `evolucaoHabitos.ts`, com teste ao lado.
+- **Meus dados:** a exportação do aluno leva o sono e a energia junto de cada treino.
+
+**O que ficou de fora:**
+- Nenhuma tela da equipe mostra sono e energia ainda (como o esforço percebido, que também não aparece na ficha da academia); o RLS já deixa a gestão, o professor e a nutricionista lerem.
+- **A Política de Privacidade ganhou a versão de 10/10, no mesmo PR.** Decisão do responsável em 10/10/2026: sono e energia são dado de saúde, e a lista de "Dados de saúde (dados sensíveis)" da seção 2 passa a citar "como você dormiu e a sua energia, que você marca no fim do treino", ao lado de "relatos de dor ou dificuldade". A versão entra no banco depois do deploy (`20261443010000`), e todo usuário aceita de novo na próxima entrada.
+- Sono e energia não pedem o consentimento de saúde para serem coletados, como o relato de dor de hoje; só somem para quem o retirou. Decisão do responsável em 10/10/2026: igual ao relato de dor, e as respostas são opcionais.
+
+**Antes do merge:** aplicar a migration `20261442010000_sono_e_energia_no_fim_do_treino.sql`. A Evolução lê a tabela nova e cai em "Não foi possível carregar" sem ela, e o fim do treino com resposta falha ao gravar. Depois, gerar o `types.ts` de novo e publicar `assistente-academia` (índice dos artigos).
+
+**Conferido:**
+- **O banco, em transação desfeita** (a migration inteira num bloco que termina em exceção): a aluna gravou e regravou pelo `upsert` (1 linha, com o valor novo); a recepção da mesma academia leu **0** linhas; o professor leu **1**; trocar a academia da linha foi recusado (42501); sono 6 foi recusado pelo `check`.
+- **Testes:** `npx vitest run` com 1.680 testes em 211 arquivos, todos verdes; `evolucaoHabitos.test` cobre a média semanal do sono e da energia e a semana sem resposta nula.
+- **Defeitos plantados, pegos:** o sono lendo a lista da energia fez "agrupa cada registro na sua semana" falhar (`sonoMedio` null em vez de 3,5); a leitura por `is_org_staff` em vez de `atende_saude` fez `acessoPainel.guarda` falhar.
+- `npm run check` sem erro: tipos, lint (0 erros, os 27 avisos de antes), o `deno check` das 57 funções e nenhuma vulnerabilidade.
+- A Central (`app-treino.md`, `app-evolucao-e-desafios.md`) e o índice do assistente (`npm run ajuda:indice`) foram atualizados.
+- **Falta, porque esta frente não toca produção:** depois de aplicar a migration, concluir um treino na Ponto Alto com a aluna Marina Costa Ribeiro respondendo sono e energia, ver os dois gráficos na Evolução (computador e celular, nos dois temas), e confirmar com um login da recepção que a tabela volta vazia.

@@ -118,8 +118,11 @@ export const DOCUMENTOS: Record<
     // podem ser processados fora do Brasil, com base no art. 33, IX, da LGPD
     // (execucao do contrato), e a frase das clausulas da ANPD passa a valer
     // "nos demais casos". Texto trazido pelo responsavel em 09/10/2026.
-    versao: "2026-10-09.2",
-    sha256: "223eb6f4d3f9a766747b944573f59e688f8034378bb4b54f76d430dc881cfab4",
+    // 2026-10-10: sono e energia, que o aluno marca no fim do treino, entram
+    // na lista de dados de saude da secao 2. Decisao do responsavel em
+    // 10/10/2026, junto com as perguntas.
+    versao: "2026-10-10",
+    sha256: "34f4a1020177d1d822f0b07ecc10ce3064b400c7524a1c831db4fe030e884954",
     revisadoJuridico: true,
   },
   contrato_academia: {
