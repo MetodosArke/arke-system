@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 import { exigirGravacao } from "@/lib/gravacao";
 import type { Json } from "@/integrations/supabase/types";
 import { useToast } from "@/hooks/use-toast";
@@ -21,6 +22,12 @@ import { Label } from "@/components/ui/label";
  * positiva do projeto diz que relato de dor nunca pune. Ela é um sinal para a
  * equipe, não uma falta.
  *
+ * Sono e energia (10/10/2026, decisão do responsável): duas perguntas de 1 a 5,
+ * um toque a mais, para as curvas da Evolução. Moram em
+ * `registro_treino_bem_estar`, fora de `registro_treino`, porque a recepção lê
+ * o registro do treino e não lê saúde. Quem retirou o consentimento de saúde
+ * não recebe as duas perguntas.
+ *
  * Nada aqui é obrigatório: o aluno pode fechar e o treino continua registrado.
  * Exigir resposta faria o registro depender de paciência no fim do treino, que
  * é exatamente quando ela acabou.
@@ -33,6 +40,50 @@ const SENSACOES = [
   { valor: "dificil", rotulo: "Difícil", emoji: "😮‍💨" },
   { valor: "dor", rotulo: "Senti dor", emoji: "⚠️" },
 ] as const;
+
+/** Escala de 1 a 5, com os extremos escritos: um grupo de opções para o leitor de tela. */
+function Escala({
+  id,
+  pergunta,
+  nome,
+  valor,
+  onChange,
+}: {
+  id: string;
+  pergunta: string;
+  nome: string;
+  valor: number | null;
+  onChange: (v: number | null) => void;
+}) {
+  return (
+    <div className="space-y-1.5">
+      <Label id={id} className="text-xs">
+        {pergunta} (1 ruim — 5 ótimo)
+      </Label>
+      <div role="radiogroup" aria-labelledby={id} className="grid grid-cols-5 gap-1">
+        {[1, 2, 3, 4, 5].map((n) => (
+          <button
+            key={n}
+            type="button"
+            role="radio"
+            aria-checked={valor === n}
+            aria-label={`${nome} ${n}${n === 1 ? ", ruim" : n === 5 ? ", ótimo" : ""}`}
+            onClick={() => onChange(valor === n ? null : n)}
+            className={`h-9 rounded-md border text-sm font-medium transition-colors ${
+              valor === n ? "bg-primary text-primary-foreground border-primary" : "border-border hover:bg-muted"
+            }`}
+          >
+            {n}
+          </button>
+        ))}
+      </div>
+      <div className="flex justify-between text-xs text-muted-foreground" aria-hidden="true">
+        <span>Ruim</span>
+        <span>Ótimo</span>
+      </div>
+    </div>
+  );
+}
 
 export function AvaliacaoTreinoDialog({
   aberto,
@@ -53,12 +104,15 @@ export function AvaliacaoTreinoDialog({
   onConcluido: () => void;
 }) {
   const { toast } = useToast();
+  const { organization, consentimentoSaudeRetirado } = useAuth();
   const [esforco, setEsforco] = useState<number | null>(null);
   const [sensacao, setSensacao] = useState<string | null>(null);
   const [observacao, setObservacao] = useState("");
+  const [sono, setSono] = useState<number | null>(null);
+  const [energia, setEnergia] = useState<number | null>(null);
 
   const concluir = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (r: { esforco: number | null; sensacao: string | null; observacao: string; sono: number | null; energia: number | null }) => {
       await exigirGravacao(supabase
         .from("registro_treino")
         .update({
@@ -66,13 +120,19 @@ export function AvaliacaoTreinoDialog({
           // das séries é um treino parcial, e marcá-lo como completo estragaria
           // a constância — a métrica que a academia usa para falar com o aluno.
           concluido: todasFeitas,
-          esforco_percebido: esforco,
-          sensacao,
+          esforco_percebido: r.esforco,
+          sensacao: r.sensacao,
           duracao_min: duracaoMin,
-          observacao: observacao.trim() || null,
+          observacao: r.observacao.trim() || null,
           ...(detalhesExecucao !== undefined ? { detalhes_execucao: detalhesExecucao } : {}),
         })
         .eq("id", registroId).select("id"));
+      if ((r.sono != null || r.energia != null) && organization) {
+        await exigirGravacao(supabase
+          .from("registro_treino_bem_estar")
+          .upsert({ registro_treino_id: registroId, organization_id: organization.id, sono: r.sono, energia: r.energia })
+          .select("registro_treino_id"));
+      }
     },
     onSuccess: () => {
       toast({
@@ -113,6 +173,13 @@ export function AvaliacaoTreinoDialog({
               ))}
             </div>
           </div>
+
+          {!consentimentoSaudeRetirado && (
+            <>
+              <Escala id="pergunta-sono" pergunta="Como você dormiu esta noite?" nome="Sono" valor={sono} onChange={setSono} />
+              <Escala id="pergunta-energia" pergunta="Como está sua energia hoje?" nome="Energia" valor={energia} onChange={setEnergia} />
+            </>
+          )}
 
           <div className="space-y-1.5">
             <Label className="text-xs">Como você se sentiu?</Label>
@@ -158,7 +225,7 @@ export function AvaliacaoTreinoDialog({
           <Button variant="ghost" onClick={() => onOpenChange(false)}>
             Voltar ao treino
           </Button>
-          <Button disabled={concluir.isPending} onClick={() => concluir.mutate()}>
+          <Button disabled={concluir.isPending} onClick={() => concluir.mutate({ esforco, sensacao, observacao, sono, energia })}>
             {concluir.isPending ? "Salvando..." : "Encerrar"}
           </Button>
         </DialogFooter>

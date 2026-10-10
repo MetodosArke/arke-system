@@ -171,7 +171,7 @@ export async function lerMeusDados(userId: string, email: string | null): Promis
     doAluno(ids, (lote, de, ate) =>
       supabase
         .from("registro_treino")
-        .select("aluno_id, data, divisao, concluido, duracao_min, esforco_percebido, sensacao, observacao, detalhes_execucao, created_at")
+        .select("aluno_id, data, divisao, concluido, duracao_min, esforco_percebido, sensacao, observacao, detalhes_execucao, created_at, registro_treino_bem_estar(sono, energia)")
         .in("aluno_id", lote)
         .order("data")
         .order("id")

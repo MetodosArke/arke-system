@@ -5,8 +5,9 @@ import { semanaBrasilia } from "@/lib/dataBrasilia";
  *
  * Só entra o que o app já coleta com data: os dias de treino (registro_treino
  * concluído e o calendário de treinos), o esforço percebido no fim do treino
- * (1 a 10), a adesão à dieta do dia (0 a 100%) e a água do dia. Sono e energia
- * não são coletados por dia, e por isso não têm gráfico (sem dado inventado).
+ * (1 a 10), o sono e a energia que o aluno marca no fim do treino (1 a 5, desde
+ * 10/10/2026), a adesão à dieta do dia (0 a 100%) e a água do dia. Semana sem
+ * resposta fica nula, em branco no gráfico (sem dado inventado).
  *
  * As semanas são as de Brasília, de domingo a sábado, como no calendário de
  * treinos e no resumo da dieta, e as datas se comparam como texto.
@@ -21,6 +22,10 @@ export type SemanaDeHabitos = {
   diasDeTreino: number;
   /** Média do esforço percebido dos treinos da semana, ou null sem registro. */
   esforcoMedio: number | null;
+  /** Média do sono (1 a 5) marcado no fim dos treinos da semana, ou null. */
+  sonoMedio: number | null;
+  /** Média da energia (1 a 5) marcada no fim dos treinos da semana, ou null. */
+  energiaMedia: number | null;
   /** Média da adesão à dieta dos dias registrados, ou null sem registro. */
   adesaoMedia: number | null;
   /** Média da água dos dias com água registrada, em ml, ou null. */
@@ -57,6 +62,8 @@ export function habitosPorSemana({
   semanas,
   diasDeTreino,
   esforcos,
+  sonos,
+  energias,
   adesoes,
   aguas,
 }: {
@@ -64,11 +71,15 @@ export function habitosPorSemana({
   /** Datas com treino; a mesma data repetida (ficha e calendário) conta uma vez. */
   diasDeTreino: string[];
   esforcos: ValorDoDia[];
+  sonos: ValorDoDia[];
+  energias: ValorDoDia[];
   adesoes: ValorDoDia[];
   aguas: ValorDoDia[];
 }): SemanaDeHabitos[] {
   const treinos = porSemana([...new Set(diasDeTreino)].map((data) => ({ data, valor: 1 })));
   const esforco = porSemana(esforcos);
+  const sono = porSemana(sonos);
+  const energia = porSemana(energias);
   const adesao = porSemana(adesoes);
   // Dia com 0 ml é o registro do dia sem água marcada (só as refeições), não um dia sem beber.
   const agua = porSemana(aguas.filter((a) => a.valor > 0));
@@ -76,6 +87,8 @@ export function habitosPorSemana({
     inicio,
     diasDeTreino: treinos.get(inicio)?.length ?? 0,
     esforcoMedio: media(esforco.get(inicio) ?? []),
+    sonoMedio: media(sono.get(inicio) ?? []),
+    energiaMedia: media(energia.get(inicio) ?? []),
     adesaoMedia: media(adesao.get(inicio) ?? []),
     aguaMedia: media(agua.get(inicio) ?? []),
   }));

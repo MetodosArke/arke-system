@@ -20,15 +20,20 @@ describe("hábitos por semana", () => {
         { data: "2026-09-28", valor: 6 },
         { data: "2026-10-03", valor: 9 },
       ],
+      sonos: [
+        { data: "2026-09-28", valor: 2 },
+        { data: "2026-10-03", valor: 5 },
+      ],
+      energias: [{ data: "2026-10-05", valor: 4 }],
       adesoes: [{ data: "2026-10-05", valor: 80 }],
       aguas: [{ data: "2026-10-05", valor: 2000 }],
     });
-    expect(anterior).toEqual({ inicio: "2026-09-27", diasDeTreino: 2, esforcoMedio: 7.5, adesaoMedia: null, aguaMedia: null });
-    expect(atual).toEqual({ inicio: "2026-10-04", diasDeTreino: 1, esforcoMedio: null, adesaoMedia: 80, aguaMedia: 2000 });
+    expect(anterior).toEqual({ inicio: "2026-09-27", diasDeTreino: 2, esforcoMedio: 7.5, sonoMedio: 3.5, energiaMedia: null, adesaoMedia: null, aguaMedia: null });
+    expect(atual).toEqual({ inicio: "2026-10-04", diasDeTreino: 1, esforcoMedio: null, sonoMedio: null, energiaMedia: 4, adesaoMedia: 80, aguaMedia: 2000 });
   });
 
   it("o mesmo dia na ficha e no calendário conta uma vez", () => {
-    const [s] = habitosPorSemana({ semanas: ["2026-10-04"], diasDeTreino: ["2026-10-05", "2026-10-05"], esforcos: [], adesoes: [], aguas: [] });
+    const [s] = habitosPorSemana({ semanas: ["2026-10-04"], diasDeTreino: ["2026-10-05", "2026-10-05"], esforcos: [], sonos: [], energias: [], adesoes: [], aguas: [] });
     expect(s.diasDeTreino).toBe(1);
   });
 
@@ -37,6 +42,8 @@ describe("hábitos por semana", () => {
       semanas: ["2026-10-04"],
       diasDeTreino: [],
       esforcos: [],
+      sonos: [],
+      energias: [],
       adesoes: [],
       aguas: [
         { data: "2026-10-05", valor: 0 },
@@ -51,6 +58,8 @@ describe("hábitos por semana", () => {
       semanas: ["2026-09-20", "2026-09-27", "2026-10-04"],
       diasDeTreino: ["2026-09-21", "2026-09-22", "2026-09-28", "2026-10-05", "2026-10-06"],
       esforcos: [],
+      sonos: [],
+      energias: [],
       adesoes: [],
       aguas: [],
     });

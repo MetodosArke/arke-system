@@ -25,8 +25,11 @@ Cada exercício mostra as séries, as repetições, o descanso e, quando houver,
 Conte como foi:
 
 - o **esforço**, de 1 (leve) a 10 (máximo);
+- **como você dormiu esta noite** e **como está a sua energia hoje**, de 1 (ruim) a 5 (ótimo);
 - **como você se sentiu**: ótimo, bom, regular, difícil ou **senti dor**;
 - se quiser, uma observação.
+
+Nada disso é obrigatório: dá para encerrar sem responder. O sono e a energia viram curvas na sua **Evolução**, e quem vê as respostas é você e a equipe que cuida do seu treino e da sua saúde (no Método ARKE, também a mentoria); a recepção não vê.
 
 Relatar dor **não tira ponto** de ninguém. Pelo contrário: a equipe recebe um alerta e revê o seu treino antes do próximo. É assim que se evita lesão.
 
