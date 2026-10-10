@@ -18,6 +18,7 @@
 
 export type ChaveAcao =
   | "carregando"
+  | "mensagem_nova"
   | "aguardando_ficha"
   | "treinar_hoje"
   | "check_in"
@@ -52,6 +53,47 @@ export type EstadoAluno = {
   aguaMl: number;
   metaAguaMl: number;
   tituloTreino?: string | null;
+  /**
+   * A conversa com mensagem da equipe (ou do mentor) que o aluno ainda não
+   * leu, ou null. Ausente enquanto a consulta não respondeu: não segura a
+   * Próxima Ação, que segue pelo resto até a resposta chegar.
+   */
+  mensagemNova?: CanalMensagemNova | null;
+};
+
+export type CanalMensagemNova = "mentor" | "treino" | "dieta";
+
+/**
+ * A conversa que a home aponta, pelas não lidas de cada uma. O mentor vem
+ * primeiro: no Método é ele quem conduz, e as conversas da academia viram
+ * histórico; depois o treino, e por fim a nutrição.
+ */
+export function canalDaMensagemNova(naoLidas: { mentor: number; treino: number; dieta: number }): CanalMensagemNova | null {
+  if (naoLidas.mentor > 0) return "mentor";
+  if (naoLidas.treino > 0) return "treino";
+  if (naoLidas.dieta > 0) return "dieta";
+  return null;
+}
+
+const MENSAGEM_NOVA: Record<CanalMensagemNova, Omit<ProximaAcao, "chave">> = {
+  mentor: {
+    titulo: "Nova mensagem do seu mentor ARKE",
+    descricao: "Seu mentor escreveu para você. A conversa fica na tela de treino.",
+    acao: "Ler mensagem",
+    destino: "/app/treinos",
+  },
+  treino: {
+    titulo: "Nova mensagem do seu treinador",
+    descricao: "A equipe da academia respondeu você. A conversa fica no fim da tela de treino.",
+    acao: "Ler mensagem",
+    destino: "/app/treinos",
+  },
+  dieta: {
+    titulo: "Nova mensagem da nutrição",
+    descricao: "A nutrição respondeu você. A conversa fica no fim da tela de dieta.",
+    acao: "Ler mensagem",
+    destino: "/app/dieta",
+  },
 };
 
 export function definirProximaAcao(estado: EstadoAluno): ProximaAcao {
@@ -63,6 +105,14 @@ export function definirProximaAcao(estado: EstadoAluno): ProximaAcao {
       titulo: "",
       descricao: "",
     };
+  }
+
+  // Mensagem da equipe não lida vem antes de tudo: é a Próxima Ação, e não um
+  // cartão a mais, para a home continuar com uma ação só. Ler leva um toque, e
+  // a resposta costuma mudar o resto (o ajuste do treino de hoje, a dúvida da
+  // dieta). Aberta a conversa, ela fica lida e a home volta ao treino.
+  if (estado.mensagemNova) {
+    return { chave: "mensagem_nova", ...MENSAGEM_NOVA[estado.mensagemNova] };
   }
 
   // A academia ainda não publicou a prescrição. O aluno não tem o que fazer, e

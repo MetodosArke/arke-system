@@ -21,7 +21,8 @@ describe("aviso no celular: agrupamento, validade e lotes", () => {
   });
 
   it("conversa fora do formato não agrupa", () => {
-    for (const c of [undefined, "", "mentor:" + ALUNO, "treino:123", `treino:${ALUNO} `.repeat(2), 42]) {
+    expect(agrupamentoDaConversa(`mentor:${ALUNO}`)?.etiqueta).toBe("mentor:0a1b2c3d4e5f4a6b8c7d9e0f1a2b3c4d");
+    for (const c of [undefined, "", "outro:" + ALUNO, "treino:123", `treino:${ALUNO} `.repeat(2), 42]) {
       expect(agrupamentoDaConversa(c)).toBeNull();
     }
     expect(topicoDoId(ALUNO)).toBe("0a1b2c3d4e5f4a6b8c7d9e0f1a2b3c4d");

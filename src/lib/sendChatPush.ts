@@ -23,3 +23,16 @@ export async function sendChatPush(params: {
     console.warn("sendChatPush failed (ignored):", err);
   }
 }
+
+/**
+ * Aviso no celular da conversa com o mentor ARKE: só o aluno vai; o servidor
+ * confere a mensagem recém-gravada e decide quem recebe e o texto, sem trecho
+ * (send-chat-push/regras.ts). Falha silenciosa, como o de cima.
+ */
+export async function avisarConversaComMentor(alunoId: string) {
+  try {
+    await supabase.functions.invoke("send-chat-push", { body: { canal: "mentor", alunoId } });
+  } catch (err) {
+    console.warn("avisarConversaComMentor failed (ignored):", err);
+  }
+}

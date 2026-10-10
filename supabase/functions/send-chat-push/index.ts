@@ -2,8 +2,19 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import { agrupamentoDaConversa, VALIDADE_SEG } from "../_shared/avisoPush.ts";
 import { enviarAvisos } from "../_shared/push.ts";
 import { dentroDoFreio, MENSAGEM_FREIO } from "../_shared/freio.ts";
-import { caminhoDoApp, papeisDaEquipe, podeAvisarPessoa, TEXTO_MAXIMO, textoDoAviso, TITULO_MAXIMO } from "./regras.ts";
+import {
+  AVISO_DO_MENTOR,
+  caminhoDoApp,
+  destinoNoCanalMentor,
+  mensagemRecente,
+  papeisDaEquipe,
+  podeAvisarPessoa,
+  TEXTO_MAXIMO,
+  textoDoAviso,
+  TITULO_MAXIMO,
+} from "./regras.ts";
 import { servir } from "../_shared/servir.ts";
+import type { SupabaseClient } from "npm:@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -26,6 +37,83 @@ interface Payload {
   url?: string;
   /** `treino:<aluno>` ou `dieta:<dieta>`: agrupa os avisos da mesma conversa no aparelho. */
   conversa?: string;
+  /**
+   * `mentor`: a conversa do aluno do Método com o mentor da ArkeFit. Só vai o
+   * `alunoId`; o servidor decide o resto (avisarCanalMentor).
+   */
+  canal?: "mentor";
+  alunoId?: string;
+}
+
+const json = (corpo: unknown, status = 200) =>
+  new Response(JSON.stringify(corpo), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+
+/**
+ * O aviso da conversa com o mentor (10/10/2026). A prova de que quem chama
+ * fala nessa conversa é a mensagem que ele acabou de gravar, lida com o RLS
+ * dele: `mensagens_mentor` só deixa o próprio aluno e a equipe da Mentoria
+ * (com as duas etapas, e o Mentor só com o aluno do Método) ler e escrever.
+ */
+async function avisarCanalMentor(
+  asUser: SupabaseClient,
+  supabase: SupabaseClient,
+  callerId: string,
+  alunoId: unknown,
+): Promise<Response> {
+  if (typeof alunoId !== "string" || !/^[0-9a-f-]{36}$/i.test(alunoId)) return json({ error: "missing fields" }, 400);
+
+  const { data: ultima, error: erroUltima } = await asUser
+    .from("mensagens_mentor")
+    .select("remetente_tipo, created_at")
+    .eq("aluno_id", alunoId)
+    .eq("remetente_id", callerId)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (erroUltima) {
+    console.error("send-chat-push: conversa do mentor indisponível", erroUltima.code);
+    return json({ error: "Não foi possível avisar agora." }, 502);
+  }
+  if (!ultima || !mensagemRecente(ultima.created_at)) {
+    return json({ error: "Você não tem permissão para notificar este destinatário." }, 403);
+  }
+
+  const [aluno, noMetodo, socios, mentores] = await Promise.all([
+    supabase.from("alunos").select("user_id, mentor_id").eq("id", alunoId).maybeSingle(),
+    supabase.rpc("aluno_no_metodo", { _aluno_id: alunoId }),
+    supabase.from("user_roles").select("user_id").eq("role", "superadmin"),
+    supabase.from("equipe_arkefit").select("user_id").eq("ativo", true).contains("niveis", ["mentor"]),
+  ]);
+  const erro = aluno.error ?? noMetodo.error ?? socios.error ?? mentores.error;
+  if (erro || !aluno.data) {
+    console.error("send-chat-push: canal do mentor sem dados", erro?.code ?? "sem aluno");
+    return json({ error: "Não foi possível avisar agora." }, 502);
+  }
+
+  const equipe = [...(socios.data ?? []), ...(mentores.data ?? [])].map((r: { user_id: string }) => r.user_id);
+  const destino = destinoNoCanalMentor(ultima.remetente_tipo, aluno.data, equipe, noMetodo.data === true)
+    .filter((id) => id !== callerId);
+  if (destino.length === 0) return json({ skipped: true, reason: "no recipients" });
+
+  const { data: inscricoes, error: erroInscricoes } = await supabase
+    .from("push_subscriptions")
+    .select("user_id, endpoint, p256dh, auth")
+    .in("user_id", destino);
+  if (erroInscricoes) {
+    console.error("send-chat-push: inscrições indisponíveis", erroInscricoes.code);
+    return json({ error: "Não foi possível avisar agora." }, 502);
+  }
+  if (!inscricoes?.length) return json({ sent: 0, reason: "no subscriptions" });
+
+  const aviso = ultima.remetente_tipo === "mentor" ? AVISO_DO_MENTOR.paraAluno : AVISO_DO_MENTOR.paraMentor;
+  const grupo = agrupamentoDaConversa(`mentor:${alunoId}`);
+  const { enviados } = await enviarAvisos(
+    supabase,
+    inscricoes,
+    { ...aviso, tag: grupo?.etiqueta },
+    { validadeSeg: VALIDADE_SEG.chat, topico: grupo?.topico, urgencia: "high" },
+  );
+  return json({ success: true, sent: enviados });
 }
 
 servir("send-chat-push", async (req: Request) => {
@@ -63,7 +151,8 @@ servir("send-chat-push", async (req: Request) => {
     const msgBody = textoDoAviso(body?.body, TEXTO_MAXIMO);
     const url = caminhoDoApp(body?.url);
 
-    if ((!recipientUserId && !(recipientOrgId && recipientOrgRoles?.length)) || !title || !msgBody) {
+    const canalMentor = body?.canal === "mentor";
+    if (!canalMentor && ((!recipientUserId && !(recipientOrgId && recipientOrgRoles?.length)) || !title || !msgBody)) {
       return new Response(JSON.stringify({ error: "missing fields" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -92,6 +181,8 @@ servir("send-chat-push", async (req: Request) => {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+
+    if (canalMentor) return await avisarCanalMentor(asUser, supabase, callerId, body?.alunoId);
 
     // Quem manda o push precisa pertencer à MESMA organização do(s)
     // destinatário(s) — mensagens de chat são sempre dentro de uma
