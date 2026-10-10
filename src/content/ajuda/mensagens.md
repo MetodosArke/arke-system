@@ -17,7 +17,9 @@ Primeiro vêm as conversas que esperam resposta, depois as mais recentes.
 
 ## Responder
 
-Clique na conversa para abrir o chat e responda ali mesmo. O mesmo chat aparece na ficha do aluno. Se o aluno ativou as notificações, ele recebe um aviso no celular.
+Clique na conversa para abrir o chat e responda ali mesmo. O mesmo chat aparece na ficha do aluno. Se o aluno ativou as notificações, ele recebe um aviso no celular, e a tela inicial do app dele mostra **Nova mensagem do seu treinador** (ou da nutrição) até ele abrir a conversa.
+
+Do mesmo jeito, quando o aluno escreve, quem atende a conversa recebe o aviso no celular: o treino vai ao professor e à gestão; a nutrição, à nutricionista e à gestão. Para receber, toque em **Ativar avisos**, embaixo da conversa, uma vez em cada aparelho.
 
 ## Quem escreveu cada mensagem
 

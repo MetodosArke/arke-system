@@ -22,10 +22,10 @@ export const VALIDADE_SEG = {
 export type Urgencia = "very-low" | "low" | "normal" | "high";
 export type OpcoesAviso = { validadeSeg: number; topico?: string | null; urgencia?: Urgencia };
 
-const CONVERSA = /^(treino|dieta):([0-9a-f]{8})-([0-9a-f]{4})-([0-9a-f]{4})-([0-9a-f]{4})-([0-9a-f]{12})$/i;
+const CONVERSA = /^(treino|dieta|mentor):([0-9a-f]{8})-([0-9a-f]{4})-([0-9a-f]{4})-([0-9a-f]{4})-([0-9a-f]{12})$/i;
 
 /**
- * O agrupamento de uma conversa (`treino:<aluno>` ou `dieta:<dieta>`).
+ * O agrupamento de uma conversa (`treino:<aluno>`, `dieta:<dieta>` ou `mentor:<aluno>`).
  *   - A etiqueta vai no aviso: no aparelho, o aviso novo da mesma conversa
  *     substitui o anterior, em vez de empilhar dez avisos de dez mensagens.
  *   - O tópico vai no cabeçalho do push: com o aparelho desligado, o serviço

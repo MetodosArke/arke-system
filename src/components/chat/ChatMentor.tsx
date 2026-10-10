@@ -11,6 +11,8 @@ import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { mensagemDeErroEdge } from "@/lib/erroEdge";
 import { ErroAoCarregar } from "@/components/ErroAoCarregar";
+import { avisarConversaComMentor } from "@/lib/sendChatPush";
+import { AtivarAvisosCelular } from "@/components/chat/AtivarAvisosCelular";
 
 /**
  * Canal do aluno do Método ARKE com o mentor da ArkeFit.
@@ -146,6 +148,9 @@ export function ChatMentor({
         mensagem: texto.trim(),
       });
       if (error) throw error;
+      // O aviso no celular do outro lado: o servidor confere a mensagem e
+      // escolhe quem recebe (o aluno, ou o mentor dele / a equipe da Mentoria).
+      void avisarConversaComMentor(alunoId);
 
       // O desfecho da sugestao e a medida de valor do Sentinela: se o mentor
       // reescreve tudo, o recurso atrapalha mais do que ajuda. "Editada"
@@ -248,6 +253,7 @@ export function ChatMentor({
           <Send className="h-4 w-4" />
         </Button>
       </form>
+      <AtivarAvisosCelular />
     </div>
   );
 }

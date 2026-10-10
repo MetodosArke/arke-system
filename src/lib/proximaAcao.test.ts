@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { definirProximaAcao, type EstadoAluno } from "./proximaAcao";
+import { canalDaMensagemNova, definirProximaAcao, type EstadoAluno } from "./proximaAcao";
 
 const BASE: EstadoAluno = {
   temTreinoAtivo: true,
@@ -96,5 +96,35 @@ describe("definirProximaAcao", () => {
     for (const punicao of ["falhou", "perdeu", "atrasado", "faltou", "pendência"]) {
       expect(texto).not.toContain(punicao);
     }
+  });
+});
+
+describe("mensagem nova da equipe na home (10/10/2026)", () => {
+  it("vira a Próxima Ação, antes do treino de hoje, com o atalho para a conversa", () => {
+    const acao = definirProximaAcao({ ...BASE, mensagemNova: "treino" });
+    expect(acao.chave).toBe("mensagem_nova");
+    expect(acao.titulo).toBe("Nova mensagem do seu treinador");
+    expect(acao.destino).toBe("/app/treinos");
+    expect(definirProximaAcao({ ...BASE, mensagemNova: "dieta" }).destino).toBe("/app/dieta");
+    expect(definirProximaAcao({ ...BASE, mensagemNova: "mentor" }).titulo).toContain("mentor");
+  });
+
+  it("vale também para quem ainda espera a ficha ou já está em dia", () => {
+    expect(definirProximaAcao({ ...BASE, temTreinoAtivo: false, mensagemNova: "treino" }).chave).toBe("mensagem_nova");
+    const emDia = { ...BASE, treinoDeHojeConcluido: true, respondeuCheckinHoje: true, aguaMl: 2000 };
+    expect(definirProximaAcao({ ...emDia, mensagemNova: "dieta" }).chave).toBe("mensagem_nova");
+  });
+
+  it("sem mensagem, ou sem saber ainda, a home segue como antes", () => {
+    expect(definirProximaAcao({ ...BASE, mensagemNova: null }).chave).toBe("treinar_hoje");
+    expect(definirProximaAcao({ ...BASE, mensagemNova: undefined }).chave).toBe("treinar_hoje");
+    expect(definirProximaAcao({ ...BASE, temTreinoAtivo: undefined, mensagemNova: "treino" }).chave).toBe("carregando");
+  });
+
+  it("o mentor vem primeiro, depois o treino, depois a nutrição", () => {
+    expect(canalDaMensagemNova({ mentor: 1, treino: 3, dieta: 2 })).toBe("mentor");
+    expect(canalDaMensagemNova({ mentor: 0, treino: 1, dieta: 2 })).toBe("treino");
+    expect(canalDaMensagemNova({ mentor: 0, treino: 0, dieta: 1 })).toBe("dieta");
+    expect(canalDaMensagemNova({ mentor: 0, treino: 0, dieta: 0 })).toBeNull();
   });
 });

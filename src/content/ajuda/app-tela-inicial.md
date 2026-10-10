@@ -6,11 +6,18 @@ A tela inicial mostra primeiro o que importa hoje, e deixa o resto para baixo.
 
 O primeiro cartão diz a próxima coisa a fazer, uma só:
 
+- **nova mensagem**: o seu treinador, a nutrição ou o seu mentor ARKE escreveu para você. O botão **Ler mensagem** abre a tela onde está a conversa (a de treino, ou a de dieta para a nutrição). Depois de ler, o cartão volta ao que vinha antes;
 - **seu treino ainda não saiu**: a equipe está preparando, e o app avisa quando ficar pronto. Não há nada para você procurar;
 - **treinar hoje**, com o atalho para o treino do dia;
 - **fazer o check-in do dia**;
 - **beber água** até a meta;
 - **em dia**: está tudo feito. Aproveite.
+
+## Aviso no celular
+
+Embaixo de cada conversa, o botão **Ativar avisos** pede ao celular a permissão para avisar quando chegar mensagem nova. É só uma vez por aparelho. O aviso do seu mentor ARKE diz só que chegou mensagem, sem o texto, porque a tela bloqueada do celular qualquer um vê. Ao tocar em **Sair**, este aparelho para de receber os seus avisos.
+
+> No iPhone, o aviso só funciona com o app adicionado à tela de início. Se você negou a permissão, libere nas configurações do navegador ou do celular.
 
 ## Progresso Semanal
 

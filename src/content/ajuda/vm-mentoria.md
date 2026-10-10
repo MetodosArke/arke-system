@@ -47,6 +47,8 @@ O chat de cada aluno do Método com o mentor. As não lidas vêm primeiro. Se o 
 
 A academia não lê essas conversas.
 
+**Aviso no celular.** Quando o aluno escreve, o mentor atribuído a ele recebe um aviso no celular; aluno sem mentor avisa toda a equipe da Mentoria (os sócios e quem tem o nível Mentor). Quando o mentor escreve, o aluno recebe o aviso, e a tela inicial do app dele mostra **Nova mensagem do seu mentor ARKE** até ele ler. O aviso diz só que chegou mensagem, sem o texto: é a conversa em que o aluno fala de dor e de saúde. Para receber, toque em **Ativar avisos**, embaixo da conversa, uma vez em cada aparelho.
+
 ## Quem entra na Mentoria
 
 O sócio e quem tem o nível **Mentor** na equipe da ArkeFit (veja [Equipe ArkeFit](ajuda:vm-equipe-arkefit)). O Mentor contratado entra direto aqui, e vê só o que é do Método:

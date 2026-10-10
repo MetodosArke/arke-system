@@ -11,6 +11,7 @@ import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { sendChatPush } from "@/lib/sendChatPush";
 import { VideoChat } from "@/components/chat/VideoChat";
+import { AtivarAvisosCelular } from "@/components/chat/AtivarAvisosCelular";
 import { ErroAoCarregar } from "@/components/ErroAoCarregar";
 import { nomesDosUsuarios } from "@/lib/perfis";
 import { colegasNaConversa, remetenteDaMensagem } from "@/lib/remetenteDoChat";
@@ -404,6 +405,7 @@ export function ChatPanel({ organizationId, alunoId, viewerType, type, dietaId, 
         </Button>
       </form>
       )}
+      {!somenteLeitura && <AtivarAvisosCelular />}
     </div>
   );
 }

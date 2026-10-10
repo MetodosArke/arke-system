@@ -401,7 +401,13 @@ export const CHAMADAS_DA_VISAO_MASTER: Record<string, Chamada> = {
   "rpc:get_superadmin_uso_ia": { area: "socio" },
   "from:auditoria_acoes_sensiveis": { area: "socio", motivo: TABELA },
   // A sessão de qualquer um
-  "from:push_subscriptions": { area: "todos", motivo: "sair: esquece os avisos deste aparelho" },
+  "from:push_subscriptions": { area: "todos", motivo: "sair: esquece os avisos deste aparelho; e ligar os avisos do aparelho, embaixo da conversa" },
+  "fn:vapid-public-key": { area: "todos", motivo: "a chave pública dos avisos no celular, de qualquer sessão" },
+  "fn:send-chat-push": {
+    area: "mentoria",
+    motivo:
+      "também é do aluno e da academia: no canal do mentor, a prova é a mensagem recém-gravada, lida com o RLS de quem chama (que pergunta acesso_arkefit('mentoria') no banco)",
+  },
   "from:profiles": { area: "todos", motivo: TABELA },
 };
 
