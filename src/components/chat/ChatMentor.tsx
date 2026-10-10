@@ -96,7 +96,10 @@ export function ChatMentor({
       .from("mensagens_mentor")
       .update({ lida: true })
       .in("id", doOutro)
-      .then(() => queryClient.invalidateQueries({ queryKey: ["fila-mentor"] }));
+      .then(() => {
+        void queryClient.invalidateQueries({ queryKey: ["fila-mentor"] });
+        void queryClient.invalidateQueries({ queryKey: ["aluno-mensagem-nova"] });
+      });
   }, [mensagens, meuTipo, queryClient]);
 
   const sugerir = useMutation({
