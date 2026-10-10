@@ -9,6 +9,7 @@ import { TrendingUp, TrendingDown, Minus, Trophy, CalendarClock, Activity, Crown
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { calcularStatusMetas, type StatusMeta } from "@/lib/evolucaoPontos";
 import PontuacaoEngajamento from "@/components/aluno/PontuacaoEngajamento";
+import EvolucaoHabitos from "@/components/aluno/EvolucaoHabitos";
 import type { Tables } from "@/integrations/supabase/types";
 import { decimal } from "@/lib/numeros";
 import { formatarDataBR } from "@/lib/dataBrasilia";
@@ -167,6 +168,10 @@ export default function AlunoEvolucao() {
           </CardContent>
         </Card>
       )}
+
+      <EvolucaoHabitos />
+
+      <h2 className="text-sm font-semibold text-muted-foreground pt-2">Avaliação física</h2>
 
       {isLoading && <p className="text-sm text-muted-foreground">Carregando...</p>}
 
