@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -24,6 +24,7 @@ import { useToast } from "@/hooks/use-toast";
 import { RegistrarAlertaCard } from "@/components/aluno/RegistrarAlertaCard";
 import { ChatPanel } from "@/components/chat/ChatPanel";
 import { CanalMentor, PrescritoPor } from "@/components/aluno/MeuMentor";
+import { CONVERSA_COM_A_ACADEMIA, CONVERSA_COM_O_MENTOR } from "@/lib/eventoAcompanhamento";
 import CalendarioTreinos from "@/components/aluno/CalendarioTreinos";
 import type { Json } from "@/integrations/supabase/types";
 import { MidiaExercicio } from "@/components/acervo/MidiaExercicio";
@@ -177,7 +178,16 @@ export default function AlunoTreinos() {
     enabled: !!alunoId,
   });
 
-  const todosExercicios = (treino?.snapshot_conteudo as unknown as ExercicioSnapshot[] | null) ?? [];
+  // Atalho da home (cartão de evento): desce até a conversa pedida. Espera o
+  // treino carregar, senão o bloco de cima cresce depois e empurra a conversa.
+  const rolarPara = (useLocation().state as { rolarPara?: string } | null)?.rolarPara;
+  useEffect(() => {
+    if (rolarPara && !isLoading && !carregandoSequencia) {
+      document.getElementById(rolarPara)?.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [rolarPara, isLoading, carregandoSequencia]);
+
+  const todosExercicios =(treino?.snapshot_conteudo as unknown as ExercicioSnapshot[] | null) ?? [];
   // Divisões A, B, C... O aluno escolhe a do dia. Se já treinou hoje, abre na
   // que registrou; senão, na sugerida pela sequência. A sugestão não trava
   // nada: qualquer divisão continua a um toque.
@@ -498,9 +508,13 @@ export default function AlunoTreinos() {
 
       {/* No Método, a conversa de treino é com o mentor, e ela vem primeiro.
           A academia não lê esta conversa — nem aqui nem no banco. */}
-      {temMentor && <CanalMentor />}
+      {temMentor && (
+        <div id={CONVERSA_COM_O_MENTOR} className="scroll-mt-4">
+          <CanalMentor />
+        </div>
+      )}
 
-      <Card>
+      <Card id={CONVERSA_COM_A_ACADEMIA} className="scroll-mt-4">
         <CardHeader className="pb-2">
           <CardTitle className="flex items-center gap-2 text-base">
             <MessageCircle className="h-4 w-4 text-primary" /> {temMentor ? "Histórico com a academia" : "Chat com o Treinador"}

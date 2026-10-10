@@ -17,6 +17,8 @@ import {
   CheckCircle2,
   Flame,
   Target,
+  ChevronRight,
+  MessageCircle,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { RegistrarAlertaCard } from "@/components/aluno/RegistrarAlertaCard";
@@ -26,6 +28,7 @@ import { DocumentosMatricula } from "@/components/aluno/DocumentosMatricula";
 import { ComunicadosAluno } from "@/components/aluno/ComunicadosAluno";
 import { CHAVE_CHECKIN_PENDENTE } from "@/lib/checkin";
 import { canalDaMensagemNova, definirProximaAcao } from "@/lib/proximaAcao";
+import { atalhoDeConversa, destinoDoEvento, type DestinoNoApp } from "@/lib/eventoAcompanhamento";
 import type { Enums } from "@/integrations/supabase/types";
 import { dataBrasilia, diaBrasilia, hojeBrasilia, formatarDataBR } from "@/lib/dataBrasilia";
 
@@ -351,6 +354,9 @@ export default function AlunoDashboard() {
     }
   };
 
+  const conversa = atalhoDeConversa(planoAluno);
+  const irPara = (d: DestinoNoApp) => navigate(d.rota, { state: d.rolarPara ? { rolarPara: d.rolarPara } : undefined });
+
   return (
     <div className="space-y-4 max-w-2xl mx-auto">
       {/* Fases da jornada são do Método ARKE; no Free não há fase a mostrar. */}
@@ -418,22 +424,39 @@ export default function AlunoDashboard() {
               <CalendarClock className="h-4 w-4 text-primary" /> Próximo Evento de Acompanhamento
             </CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-3">
             {proximoEvento?.data_agendada ? (
-              <>
-                <p className="text-sm font-medium">{proximoEvento.motivo}</p>
-                <p className="text-sm text-primary">
-                  {new Date(proximoEvento.data_agendada).toLocaleString("pt-BR", {
-                    weekday: "long",
-                    day: "2-digit",
-                    month: "2-digit",
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })}
-                </p>
-              </>
+              <button
+                type="button"
+                onClick={() => irPara(destinoDoEvento(planoAluno))}
+                className="flex w-full items-center justify-between gap-2 rounded-lg -m-1 p-1 text-left hover:bg-accent/50 transition-colors"
+              >
+                <span className="space-y-0.5">
+                  <span className="block text-sm font-medium">{proximoEvento.motivo}</span>
+                  <span className="block text-sm text-primary">
+                    {formatarDataBR(proximoEvento.data_agendada, {
+                      weekday: "long",
+                      day: "2-digit",
+                      month: "2-digit",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
+                  </span>
+                </span>
+                <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
+              </button>
             ) : (
-              <p className="text-sm text-muted-foreground">Em breve — sua equipe vai agendar os próximos passos.</p>
+              <p className="text-sm text-muted-foreground">
+                {planoAluno === "free"
+                  ? "Nenhum encontro marcado. Quando a equipe marcar, a data aparece aqui."
+                  : "Em breve — sua equipe vai agendar os próximos passos."}
+              </p>
+            )}
+            {/* Atalho do cartão, não uma segunda Próxima Ação: só no Método (eventoAcompanhamento.ts). */}
+            {conversa && (
+              <Button variant="outline" size="sm" onClick={() => irPara(conversa)}>
+                <MessageCircle className="mr-2 h-4 w-4" /> Falar com o mentor
+              </Button>
             )}
           </CardContent>
         </Card>

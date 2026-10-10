@@ -15,6 +15,6 @@ Se a dificuldade for **desconforto ou dor**, a equipe recebe um alerta com prior
 
 ## E depois?
 
-Quando a equipe responder ou marcar algo com você, aparece no chat ou no cartão **Próximo Evento de Acompanhamento**, na tela inicial.
+Quando a equipe responder, a resposta aparece no chat e na Próxima Ação da tela inicial. A data do seu encontro de acolhimento aparece no cartão **Próximo Evento de Acompanhamento**.
 
 > Numa emergência, não espere pelo app: procure atendimento médico.

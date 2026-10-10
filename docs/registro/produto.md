@@ -308,3 +308,34 @@ Na tela em produção, depois da `20261400` (a mensagem lida passou a gravar), o
 - `npm run check` sem erro: tipos, lint (0 erros, os 27 avisos de antes), o `deno check` das 57 funções e nenhuma vulnerabilidade.
 - A Central de Ajuda (`app-tela-inicial.md`, `mensagens.md`, `vm-mentoria.md`) e o índice do assistente (`npm run ajuda:indice`) foram atualizados; falta publicar `assistente-academia`.
 - **Falta, porque esta frente não toca produção:** publicar `send-chat-push` e conferir na Ponto Alto: o aluno vê "Nova mensagem do seu treinador" na home depois de o professor escrever, e o aviso chega ao celular nos dois sentidos, também na conversa do mentor.
+
+## O cartão "Próximo Evento de Acompanhamento" leva a algum lugar, e o atalho para o mentor (10/10/2026)
+
+**O pedido** (Jean, 10/10): o cartão de evento da tela inicial do aluno não levava a lugar nenhum. Que ele abra a tela onde o aluno vê ou faz aquilo, e que tenha um atalho direto para falar com o mentor.
+
+**O que existia:** o cartão mostra **um tipo de evento só**, o encontro de Acolhimento M.A.P.A.®. Ele vem de `obter_proximo_evento_aluno()` (`20261010020000`), que devolve a última tarefa `anamnese` aberta do próprio aluno (motivo, `data_agendada`, prazo). Essa tarefa nasce no acolhimento do Método (`Onboarding.tsx`, `agendar_acolhimento:<aluno>`), e a data entra pelo **Agendar** da fila (`AdminDashboard`), o único lugar que grava `data_agendada`. Não há avaliação, consulta ou aula no cartão. A conversa com o mentor (`CanalMentor`/`ChatMentor`) fica nas telas de treino e de dieta; a da academia, no fim da tela de treino.
+
+**A decisão: o destino** (`destinoDoEvento()`, `src/lib/eventoAcompanhamento.ts`):
+- o acolhimento não tem tela própria e não aparece em calendário nenhum do app: a **Agenda** é a das aulas da academia (e só existe quando ela tem turmas), e o **Calendário** do treino é o dos treinos feitos. Mandar o aluno para lá seria mandá-lo procurar o que não existe;
+- **no Método**, o cartão abre a **Jornada**, que começa no M.A.P.A.®: lá ficam os objetivos de que o encontro trata;
+- **no Free**, a Jornada é só o convite do Método; o cartão abre a conversa com a academia, que é quem marcou e com quem se remarca. Quase não acontece: a tarefa nasce do acolhimento do Método, então o Free só tem evento se saiu do Método com ela aberta.
+
+**A decisão: o atalho** (`atalhoDeConversa()`): **Falar com o mentor**, só no Método, abre a tela de treino e desce até a conversa com o mentor. **No Free, nenhum**: o chat da academia já está a um toque (o atalho Treino de Hoje), a resposta nova da equipe vira a Próxima Ação, e um botão de conversa num cartão que no Free quase sempre está vazio seria uma segunda chamada disputando com a Próxima Ação. O atalho é do cartão (um botão secundário, `outline`), não uma segunda Próxima Ação.
+
+**Como desce até a conversa:** a navegação é por `HashRouter`, então a âncora não cabe na URL; ela vai no estado da rota (`rolarPara`), e a tela de treino rola até o bloco (`conversa-mentor` ou `conversa-academia`) depois que o treino carregou, senão o bloco de cima cresce e empurra a conversa.
+
+**De passagem:** a data do cartão saía pelo fuso do aparelho (`new Date().toLocaleString`); passou a sair por `formatarDataBR`, no fuso de Brasília. E o texto do cartão vazio no Free dizia "Em breve — sua equipe vai agendar os próximos passos", promessa que no Free não existe (não há acolhimento); agora diz "Nenhum encontro marcado. Quando a equipe marcar, a data aparece aqui." No Método o texto ficou.
+
+**O que ficou de fora:**
+- o motivo que o cartão mostra é o texto da tarefa, escrito para a equipe ("Acolhimento M.A.P.A.®: ler a anamnese e prescrever o primeiro treino"); trocar por um texto para o aluno pede mexer na RPC, numa migration — fica para quando houver outro tipo de evento;
+- outros tipos de evento (avaliação, consulta): não existem no banco; a regra por tipo nasce com o primeiro deles;
+- a Próxima Ação "mensagem nova" do mentor continua abrindo a tela de treino no topo; dá para usar o mesmo `rolarPara` depois.
+
+Sem migration e sem função: nada a aplicar nem publicar.
+
+**Conferido:**
+- **Testes:** `npx vitest run` com 1.669 testes em 210 arquivos, todos verdes; 4 novos (`eventoAcompanhamento.test`: o Método vai à Jornada, o Free não, o atalho do mentor só no Método).
+- **1 defeito plantado, pego:** as duas regras sem o ramo do Free (o Free ia à Jornada e ganhava o atalho do mentor); 2 testes falharam.
+- `npm run check` sem erro: tipos, lint (0 erros, os 27 avisos de antes), o `deno check` das funções e nenhuma vulnerabilidade.
+- A Central de Ajuda (`app-tela-inicial.md`, `app-checkin-do-dia.md`, `fila-de-atendimento.md`) e o índice do assistente (`npm run ajuda:indice`) foram atualizados; falta publicar `assistente-academia`.
+- **Falta, porque esta frente não toca produção:** conferir a tela no computador e no celular, na Ponto Alto: a aluna do Free sem evento vê o texto novo e nenhum botão; com o Método, o atalho abre a conversa do mentor e o cartão com data abre a Jornada.

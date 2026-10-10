@@ -25,7 +25,12 @@ Quantos treinos você fez na semana, contra a sua meta. A meta é sua: quem comb
 
 ## Próximo Evento de Acompanhamento
 
-Quando a equipe marca algo com você (uma avaliação, uma conversa), a data aparece aqui.
+Quando a equipe marca o seu encontro de acolhimento, a data aparece aqui. Toque no cartão para ir ao que é dele:
+
+- no Método ARKE, abre a sua **Jornada**, onde ficam os objetivos de que vocês vão falar;
+- sem o Método, abre a conversa com a academia, no fim da tela de treino, para combinar ou remarcar.
+
+No Método ARKE, o botão **Falar com o mentor** abre direto a conversa com o seu mentor, na tela de treino. Sem o Método não há esse botão: a conversa com a academia fica na tela de treino, e quando a equipe responde, a resposta aparece na Próxima Ação.
 
 ## Como está sendo seguir seu plano?
 
