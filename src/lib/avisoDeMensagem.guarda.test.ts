@@ -34,4 +34,9 @@ describe("aviso de mensagem nova", () => {
     expect(chatPanel).toContain("{!somenteLeitura && <AtivarAvisosCelular />}");
     expect(chatMentor).toContain("<AtivarAvisosCelular />");
   });
+
+  it("lida a mensagem, o cartão da home sai na hora", () => {
+    expect(chatPanel).toMatch(/const invalidar = [\s\S]*?queryKey: \["aluno-mensagem-nova"\]/);
+    expect(chatMentor).toMatch(/update\(\{ lida: true \}\)[\s\S]*?queryKey: \["aluno-mensagem-nova"\]/);
+  });
 });

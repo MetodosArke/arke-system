@@ -166,6 +166,9 @@ export function ChatPanel({ organizationId, alunoId, viewerType, type, dietaId, 
     // isto, depois de marcar como lida ele só baixava na próxima atualização,
     // até 30 s depois (conferido na tela em produção em 06/10/2026).
     void queryClient.invalidateQueries({ queryKey: ["caixa-mensagens"] });
+    // E o cartão de mensagem nova da home do aluno, que sem isto ficava até um
+    // minuto depois de lida (conferido na tela em produção em 10/10/2026).
+    void queryClient.invalidateQueries({ queryKey: ["aluno-mensagem-nova"] });
   };
 
   const resolvePushDestino = () => {

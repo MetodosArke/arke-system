@@ -307,6 +307,15 @@ Na tela em produção, depois da `20261400` (a mensagem lida passou a gravar), o
 - **1 defeito plantado, pego:** a regra da mensagem desligada em `definirProximaAcao`; 2 testes falharam.
 - `npm run check` sem erro: tipos, lint (0 erros, os 27 avisos de antes), o `deno check` das 57 funções e nenhuma vulnerabilidade.
 - A Central de Ajuda (`app-tela-inicial.md`, `mensagens.md`, `vm-mentoria.md`) e o índice do assistente (`npm run ajuda:indice`) foram atualizados; falta publicar `assistente-academia`.
+- **Publicado em 10/10:** `send-chat-push` (v35) e `assistente-academia` (v56).
+- **Na Ponto Alto, no computador e no celular:**
+  - O professor Diego grava "Teste" no chat de treino da Marina com a sessão dele (201), e `send-chat-push` aceita o aviso (200, sem aparelho inscrito).
+  - A home da Marina mostra "Nova mensagem do seu treinador", e "Ler mensagem" abre `/app/treinos`.
+  - A conversa mostra "Ativar avisos", e a mensagem fica lida.
+  - O canal do mentor chamado por aluna fora do Método é recusado (403).
+  - A Marina aceitou antes, pela tela, a Política de 09/10.2.
+- **Defeito que a prova achou:** lida a mensagem, a home continuava com o cartão. O chat atualizava o próprio cache e o contador do menu, mas não o do cartão, que fica guardado por 30 s e é relido a cada minuto. Agora os dois chats atualizam `aluno-mensagem-nova` ao marcar como lida, e a trava ganhou o quarto caso. O defeito plantado (a linha tirada do `ChatMentor`) fez 1 teste falhar.
+- **Ainda falta:** o push chegando de verdade num celular com os avisos ligados, nos dois sentidos, e a conversa do mentor com um aluno do Método. A Ponto Alto não tem aluno do Método com a senha da demonstração.
 - **Falta, porque esta frente não toca produção:** publicar `send-chat-push` e conferir na Ponto Alto: o aluno vê "Nova mensagem do seu treinador" na home depois de o professor escrever, e o aviso chega ao celular nos dois sentidos, também na conversa do mentor.
 
 ## O cartão "Próximo Evento de Acompanhamento" leva a algum lugar, e o atalho para o mentor (10/10/2026)
@@ -331,7 +340,7 @@ Na tela em produção, depois da `20261400` (a mensagem lida passou a gravar), o
 - outros tipos de evento (avaliação, consulta): não existem no banco; a regra por tipo nasce com o primeiro deles;
 - a Próxima Ação "mensagem nova" do mentor continua abrindo a tela de treino no topo; dá para usar o mesmo `rolarPara` depois.
 
-Sem migration e sem função: nada a aplicar nem publicar.
+Sem migration. A única publicação é a do `assistente-academia`, pelo índice dos artigos da Central.
 
 **Conferido:**
 - **Testes:** `npx vitest run` com 1.669 testes em 210 arquivos, todos verdes; 4 novos (`eventoAcompanhamento.test`: o Método vai à Jornada, o Free não, o atalho do mentor só no Método).
