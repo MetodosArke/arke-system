@@ -375,3 +375,52 @@ Sem migration. A única publicação é a do `assistente-academia`, pelo índice
 - `npm run check` sem erro: tipos, lint (0 erros, os 27 avisos de antes), o `deno check` das 57 funções e nenhuma vulnerabilidade.
 - A Central de Ajuda (`app-dieta-e-agua.md`) e o índice do assistente (`npm run ajuda:indice`) foram atualizados; falta publicar `assistente-academia`.
 - **Falta, porque esta frente não toca produção:** conferir a tela no computador e no celular, nos dois temas, na Ponto Alto com a aluna Marina Costa Ribeiro (o roteiro da demonstração dá a ela dieta e duas semanas de adesão): o calendário no topo, o guia recolhendo e abrindo, a escolha lembrada ao voltar, e as caixas marcando como antes.
+
+## Evolução do aluno: os gráficos dos hábitos das últimas 8 semanas (10/10/2026)
+
+**O pedido** (Jean, 10/10): na tela Evolução do aluno (`/app/evolucao`), mais gráficos: sono, energia etc.
+
+**O levantamento, antes de desenhar** (princípio "sem dado inventado": só entra gráfico de dado que existe e é coletado de verdade):
+
+| Dado | Tabela e coluna | Escala | Quem grava, quando |
+|---|---|---|---|
+| Treino concluído | `registro_treino.concluido`, `data` | um por dia | o aluno, ao concluir o treino da ficha |
+| Esforço percebido | `registro_treino.esforco_percebido` | 1 a 10, opcional | o aluno, no fim do treino (`AvaliacaoTreinoDialog`) |
+| Sensação do treino | `registro_treino.sensacao` | ótimo, bom, regular, difícil, dor | idem |
+| Duração do treino | `registro_treino.duracao_min` | minutos | o app, pelo cronômetro |
+| Treino lançado à mão | `treino_calendario` (`tipos`, `duracao_min`, `distancia_km`, `intensidade`) | livre | o aluno, no calendário |
+| Adesão à dieta | `dieta_adesao.adesao_percentual` | 0 a 100%, por dia | o aluno, ao marcar as refeições do dia |
+| Saciedade, fome | `dieta_adesao.nivel_saciedade`, `fome_manha/tarde/noite` | 4 níveis; sim/não | idem |
+| Doce, álcool | `dieta_adesao.consumiu_doce`, `consumiu_alcool` | sim/não | idem |
+| Água | `registro_habito.agua_ml` (a fonte das métricas; `dieta_adesao.agua_ml` é cópia) | ml por dia | o aluno |
+| Check-in | `checkins.status`, `motivo_dificuldade` | 4 estados | o aluno, quando quer |
+| Presença | `presencas` | um por dia | catraca ou QR |
+| Avaliação física | `avaliacoes_fisicas`, `metrica_valores` | kg, %, cm; métrica livre de 0 a 10 | a equipe, na avaliação |
+| Sono, estresse | `anamnese_acolhimento.qualidade_sono`, `nivel_estresse` | **texto livre, uma vez**, no acolhimento | o aluno, no Método |
+
+**Sono e energia não são coletados por dia.** O que existe é a resposta de texto livre do acolhimento, uma vez só, e só de quem está no Método: não dá curva. Energia e humor não existem em tabela nenhuma. Esta frente não criou coleta nova; fica a decisão para o responsável (abaixo).
+
+**O que a Evolução mostrava:** as avaliações físicas (peso, gordura e músculo em gráfico; perímetros e métricas da avaliação no histórico) e, no Elite, a pontuação de engajamento do mês.
+
+**As decisões:**
+- **Quatro gráficos, um por dado que já se coleta com data**, numa seção "Seus hábitos nas últimas 8 semanas", acima da avaliação física (`src/components/aluno/EvolucaoHabitos.tsx`): dias de treino por semana, esforço percebido médio, adesão média à dieta e água média por dia. Com recharts, que a tela já usava (a página é preguiçosa; nada novo no pacote inicial).
+- **Constância contra a meta do próprio aluno:** o gráfico de treino tem a linha da `meta_semanal_dias` e diz em quantas semanas fechadas ele chegou nela; a semana atual, que ainda corre, fica fora da conta. A água tem a linha da `meta_agua_ml`.
+- **Dias de treino somam a ficha e o calendário**, como o "esta semana" do calendário de treinos: o mesmo dia nos dois conta uma vez.
+- **Semana sem registro fica em branco**, nunca zero inventado: média de nada é `null`. O dia com 0 ml de água é o registro de quem só marcou refeição, e não entra na média.
+- **Para todo aluno, não só o Elite:** treino, dieta e água são do plano Free. É a evolução privada dele; não há comparação com ninguém.
+- A regra (semana de Brasília, de domingo a sábado; médias; semanas na meta) mora em `src/lib/evolucaoHabitos.ts`, com teste ao lado. Uma consulta só, com as cinco leituras em paralelo e `<ErroAoCarregar>` no erro; até 8 semanas por aluno é no máximo um registro por dia, longe do corte de mil linhas.
+
+**O que ficou de fora:**
+- **Sono, energia, humor e estresse por dia:** precisam de coleta nova (por exemplo, duas perguntas de 1 a 5 no check-in ou no fim do treino, numa coluna com data). É decisão do responsável: o que perguntar, com que frequência, se é dado de saúde para o consentimento e quem da equipe vê.
+- Saciedade, doce e álcool: já têm o resumo da semana e do mês na tela da Dieta; repetir aqui só alongaria a Evolução.
+- Sensação do treino e check-ins: são categorias, e a "dor" e o "preciso de ajuda" não devem virar curva de desempenho (dor não tira ponto).
+- A imagem da Central (`app-evolucao.jpg`) mostra a tela antiga; trocar na próxima captura.
+
+Sem migration. A única publicação é a do `assistente-academia`, pelo índice dos artigos da Central.
+
+**Conferido:**
+- **Testes:** `npx vitest run` com 1.680 testes em 211 arquivos, todos verdes; 6 novos em `evolucaoHabitos.test` (a semana de domingo a sábado; as semanas atravessando o mês; a média por semana; o dia repetido conta uma vez; o 0 ml fora da média; as semanas na meta só entre as fechadas).
+- **Defeito plantado, pego:** sem tirar a repetição dos dias de treino, o teste "o mesmo dia na ficha e no calendário conta uma vez" falhou.
+- `npm run check` sem erro: tipos, lint (0 erros, os 27 avisos de antes), o `deno check` das 57 funções e nenhuma vulnerabilidade.
+- A Central de Ajuda (`app-evolucao-e-desafios.md`) e o índice do assistente (`npm run ajuda:indice`) foram atualizados; falta publicar `assistente-academia`.
+- **Falta, porque esta frente não toca produção:** conferir a tela no computador e no celular, nos dois temas, na Ponto Alto com a aluna Marina Costa Ribeiro (o roteiro da demonstração dá a ela 8 semanas de treino com esforço de 5 a 9, meta de 3 dias, e duas semanas de dieta e água).
