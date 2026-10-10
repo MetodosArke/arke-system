@@ -348,3 +348,30 @@ Sem migration. A única publicação é a do `assistente-academia`, pelo índice
 - `npm run check` sem erro: tipos, lint (0 erros, os 27 avisos de antes), o `deno check` das funções e nenhuma vulnerabilidade.
 - A Central de Ajuda (`app-tela-inicial.md`, `app-checkin-do-dia.md`, `fila-de-atendimento.md`) e o índice do assistente (`npm run ajuda:indice`) foram atualizados; falta publicar `assistente-academia`.
 - **Falta, porque esta frente não toca produção:** conferir a tela no computador e no celular, na Ponto Alto: a aluna do Free sem evento vê o texto novo e nenhum botão; com o Método, o atalho abre a conversa do mentor e o cartão com data abre a Jornada.
+
+## Dieta do aluno: o calendário de adesão no topo e o guia de alimentos recolhível (10/10/2026)
+
+**O pedido** (Jean, 10/10): na tela de dieta do aluno (`/app/dieta`), o guia de alimentos fica recolhível, para a tela não ficar comprida demais; o calendário de adesão ganha destaque; e o check dos alimentos e das refeições continua, porque é engajamento no objetivo.
+
+**O que existia:** `AlunoDieta.tsx` mostrava, nesta ordem, os macros do dia, o guia de alimentos (cada refeição e cada alimento com a sua caixa, gravadas em `registro_habito.refeicoes_concluidas` e `itens_consumidos`) e, no fim, o "Controle da Dieta" (`ControleDieta.tsx`): o calendário de adesão (`dieta_adesao`, o Sim/Não por refeição de cada dia), o resumo da semana e o do mês. O calendário ficava abaixo da lista inteira, com branco sobre verde, laranja e vermelho fixos (`bg-emerald-500`, `bg-orange-400`, `bg-red-400`), abaixo de 3:1 no número de 10px. Não havia preferência salva de nada na tela.
+
+**As decisões:**
+- **O calendário sobe e vira o destaque.** `ControleDieta` ganhou o encaixe `depoisDoCalendario`: a tela fica calendário → macros e guia → resumos da semana e do mês, sem duplicar o estado do diálogo de registro. O cartão tem a borda da marca (`border-primary/50`), título maior e uma linha com os dias registrados no mês e a média.
+- **Só tokens no calendário.** O dia registrado tem o fundo claro da faixa (`bg-success/15`, `bg-primary/15`, `bg-warning/15`, `bg-destructive/15`), um contorno da mesma cor e o número no `--*-texto`, que tem 4,5:1 nos dois temas. O corte das faixas (80, 50, 30) saiu para `faixaDeAdesao()` em `src/lib/adesaoDieta.ts`, e a legenda lê o mesmo mapa, para não divergir.
+- **O guia recolhe com o `Collapsible` do shadcn**, o mesmo das substituições logo abaixo: o botão "Recolher"/"Ver alimentos" no título do cartão, com `aria-expanded` e `aria-controls` dados pelo Radix. Recolhido, o título ainda diz "N de M refeições marcadas hoje", para o engajamento continuar à vista.
+- **Abre por padrão e lembra a escolha no aparelho** (`localStorage`, chave `arke:dieta:guia-aberto`, leitura e gravação com try/catch em `guiaDietaAberto()` e `gravarGuiaDietaAberto()`). Lembrar porque quem recolhe uma vez quer a tela curta toda vez; no aparelho e não no banco porque é conveniência de quem vê, não dado do aluno. Sem armazenamento (aba privada), o guia abre: o check continua a um toque, como antes. Nenhum check foi tirado.
+- **De passagem:** o "hoje" e o "futuro" do calendário saíam de `isToday` e `day > new Date()`, no fuso do aparelho; agora o dia é comparado como texto com `hojeBrasilia()`. A consulta do calendário tratava erro como mês vazio; agora mostra `<ErroAoCarregar>`. Cada dia ganhou `aria-label` ("10 de outubro: 80% de adesão") e `aria-current="date"`, e as caixas do guia, rótulo ("Fiz a refeição: Almoço", "Comi: Arroz").
+
+**O que ficou de fora:**
+- as cores fixas do diálogo de registro (o Sim em `bg-emerald-600`, o Não em `bg-orange-500`) e os ícones coloridos dos resumos (doce, álcool, água): fora do pedido, ficam para uma passada de tokens na tela inteira;
+- o mês do calendário ainda parte de `new Date()` do aparelho (só na virada do mês, perto da meia-noite, pode abrir no mês vizinho);
+- a imagem da Central (`app-dieta.jpg`) mostra a ordem antiga; trocar na próxima captura.
+
+Sem migration. A única publicação é a do `assistente-academia`, pelo índice dos artigos da Central.
+
+**Conferido:**
+- **Testes:** `npx vitest run` com 1.674 testes em 210 arquivos, todos verdes; 4 novos em `adesaoDieta.test` (os cortes da faixa; o guia abre por padrão; lembra a escolha; sem armazenamento não quebra e abre).
+- **2 defeitos plantados, pegos:** o corte de 80 virou `> 80` e o guia passou a abrir só com "1" gravado (fechado por padrão); 2 testes falharam.
+- `npm run check` sem erro: tipos, lint (0 erros, os 27 avisos de antes), o `deno check` das 57 funções e nenhuma vulnerabilidade.
+- A Central de Ajuda (`app-dieta-e-agua.md`) e o índice do assistente (`npm run ajuda:indice`) foram atualizados; falta publicar `assistente-academia`.
+- **Falta, porque esta frente não toca produção:** conferir a tela no computador e no celular, nos dois temas, na Ponto Alto com a aluna Marina Costa Ribeiro (o roteiro da demonstração dá a ela dieta e duas semanas de adesão): o calendário no topo, o guia recolhendo e abrindo, a escolha lembrada ao voltar, e as caixas marcando como antes.

@@ -1,11 +1,14 @@
+import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { UtensilsCrossed, Flame, MessageCircle, CalendarDays, ChevronDown, Repeat } from "lucide-react";
+import { UtensilsCrossed, Flame, MessageCircle, ChevronDown, Repeat } from "lucide-react";
+import { armazemDoAparelho, gravarGuiaDietaAberto, guiaDietaAberto } from "@/lib/adesaoDieta";
 import { MetodoArke } from "@/components/aluno/MetodoArke";
 import { temNutricaoNoPlano } from "@/lib/planoAluno";
 import { hojeBrasilia } from "@/lib/dataBrasilia";
@@ -147,6 +150,13 @@ export default function AlunoDieta() {
     { kcal: 0, proteina: 0, carbo: 0, gordura: 0 }
   );
   const temMacros = refeicoes.some((r) => r.calorias_kcal || r.proteinas_g || r.carboidratos_g || r.gorduras_g);
+  const marcadasHoje = refeicoes.filter((r) => refeicoesConcluidas.includes(r.ordem)).length;
+
+  const [guiaAberto, setGuiaAberto] = useState(() => guiaDietaAberto(armazemDoAparelho()));
+  const alternarGuia = (aberto: boolean) => {
+    setGuiaAberto(aberto);
+    gravarGuiaDietaAberto(armazemDoAparelho(), aberto);
+  };
 
   // A dieta é do plano Free: vem da nutricionista da academia. Antes a tela
   // inteira ficava trancada fora do Integrado e do Elite; do Método é só o
@@ -178,7 +188,13 @@ export default function AlunoDieta() {
         </Card>
       )}
 
+      {/* O calendário de adesão vem primeiro, em destaque; depois os macros e
+          o guia de alimentos; por fim os resumos da semana e do mês. */}
       {dieta && (
+        <ControleDieta
+          dietaId={dieta.id}
+          refeicoes={refeicoes.map((r) => ({ ordem: r.ordem, nome: r.nome_refeicao, horario: r.horario_sugerido }))}
+          depoisDoCalendario={
         <>
           {temMacros && (
             <Card>
@@ -208,11 +224,36 @@ export default function AlunoDieta() {
             </Card>
           )}
 
+          {/* O guia de alimentos recolhe, para a tela não ficar comprida
+              demais (pedido de 10/10/2026). Abre por padrão e lembra a
+              escolha no aparelho: o check das refeições, que é engajamento,
+              continua a um toque. Recolhido, o título ainda diz quantas
+              refeições foram marcadas hoje. */}
+          <Collapsible open={guiaAberto} onOpenChange={alternarGuia} asChild>
           <Card>
             <CardHeader>
-              <CardTitle>{dieta.titulo}</CardTitle>
-              <PrescritoPor o_que="dieta" />
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <CardTitle>{dieta.titulo}</CardTitle>
+                  <PrescritoPor o_que="dieta" />
+                  {refeicoes.length > 0 && (
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {marcadasHoje} de {refeicoes.length} {refeicoes.length === 1 ? "refeição marcada" : "refeições marcadas"} hoje
+                    </p>
+                  )}
+                </div>
+                <CollapsibleTrigger asChild>
+                  <Button variant="outline" size="sm" className="shrink-0 gap-1">
+                    {guiaAberto ? "Recolher" : "Ver alimentos"}
+                    <ChevronDown
+                      className={`h-4 w-4 transition-transform ${guiaAberto ? "rotate-180" : ""}`}
+                      aria-hidden="true"
+                    />
+                  </Button>
+                </CollapsibleTrigger>
+              </div>
             </CardHeader>
+            <CollapsibleContent>
             <CardContent className="space-y-3">
               {refeicoes.map((r) => {
                 const marcada = refeicoesConcluidas.includes(r.ordem);
@@ -222,6 +263,7 @@ export default function AlunoDieta() {
                       <Checkbox
                         checked={marcada}
                         onCheckedChange={() => marcarRefeicao.mutate(r.ordem)}
+                        aria-label={`Fiz a refeição: ${r.nome_refeicao}`}
                         className="mt-1"
                       />
                       <div className="flex-1 min-w-0">
@@ -240,6 +282,7 @@ export default function AlunoDieta() {
                                   <Checkbox
                                     checked={consumido}
                                     onCheckedChange={() => marcarItem.mutate({ ordem: r.ordem, indiceItem: i })}
+                                    aria-label={`Comi: ${item.alimento}`}
                                     className="mt-0.5"
                                   />
                                   <div className="flex-1 min-w-0">
@@ -285,19 +328,12 @@ export default function AlunoDieta() {
                 );
               })}
             </CardContent>
+            </CollapsibleContent>
           </Card>
-
-          <div className="pt-2">
-            <div className="flex items-center gap-2 mb-3">
-              <CalendarDays className="h-4 w-4 text-primary" />
-              <h2 className="text-base font-bold">Controle da Dieta</h2>
-            </div>
-            <ControleDieta
-              dietaId={dieta.id}
-              refeicoes={refeicoes.map((r) => ({ ordem: r.ordem, nome: r.nome_refeicao, horario: r.horario_sugerido }))}
-            />
-          </div>
+          </Collapsible>
         </>
+          }
+        />
       )}
 
       {/* No Método, é com o mentor que se fala da dieta: o canal dele aparece

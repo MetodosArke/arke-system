@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
@@ -21,12 +21,20 @@ import {
   getDay,
   addMonths,
   subMonths,
-  isToday,
 } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
-import { semanaBrasilia } from "@/lib/dataBrasilia";
-import { marcacoesDoPlano, percentualAdesao, respondidas, type Marcacoes, type RefeicaoPlano } from "@/lib/adesaoDieta";
+import { hojeBrasilia, semanaBrasilia } from "@/lib/dataBrasilia";
+import { ErroAoCarregar } from "@/components/ErroAoCarregar";
+import {
+  faixaDeAdesao,
+  marcacoesDoPlano,
+  percentualAdesao,
+  respondidas,
+  type FaixaAdesao,
+  type Marcacoes,
+  type RefeicaoPlano,
+} from "@/lib/adesaoDieta";
 
 const INCREMENTOS_AGUA_ML = [200, 300, 500];
 
@@ -52,14 +60,26 @@ const SACIEDADE_OPTIONS = [
   { value: "muita_fome", label: "Muita fome", emoji: "😫" },
 ];
 
-function getColorForAdesao(pct: number) {
-  if (pct >= 80) return "bg-emerald-500 text-white";
-  if (pct >= 50) return "bg-primary/80 text-primary-foreground";
-  if (pct >= 30) return "bg-orange-400 text-white";
-  return "bg-red-400 text-white";
-}
+// Só tokens: o fundo é a cor clara da faixa e o número lê o `--*-texto`, que
+// tem 4,5:1 nos dois temas. Antes era branco sobre verde, laranja e vermelho
+// fixos (abaixo de 3:1 no texto de 10px).
+const CORES_DA_FAIXA: Record<FaixaAdesao, { dia: string; legenda: string; rotulo: string }> = {
+  otima: { dia: "bg-success/15 text-success ring-1 ring-inset ring-success/50", legenda: "bg-success", rotulo: "≥80%" },
+  boa: { dia: "bg-primary/15 text-primary ring-1 ring-inset ring-primary/50", legenda: "bg-primary", rotulo: "≥50%" },
+  atencao: { dia: "bg-warning/15 text-warning ring-1 ring-inset ring-warning/50", legenda: "bg-warning", rotulo: "≥30%" },
+  baixa: { dia: "bg-destructive/15 text-destructive ring-1 ring-inset ring-destructive/50", legenda: "bg-destructive", rotulo: "<30%" },
+};
 
-export default function ControleDieta({ dietaId, refeicoes = [] }: { dietaId: string; refeicoes?: RefeicaoPlano[] }) {
+export default function ControleDieta({
+  dietaId,
+  refeicoes = [],
+  depoisDoCalendario,
+}: {
+  dietaId: string;
+  refeicoes?: RefeicaoPlano[];
+  /** O que vai entre o calendário (no topo, em destaque) e os resumos da semana e do mês. */
+  depoisDoCalendario?: ReactNode;
+}) {
   const { alunoId, organization } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -95,7 +115,12 @@ export default function ControleDieta({ dietaId, refeicoes = [] }: { dietaId: st
     enabled: !!alunoId,
   });
 
-  const { data: adesoes = [] } = useQuery({
+  const {
+    data: adesoes = [],
+    error: erroAdesoes,
+    refetch: recarregarAdesoes,
+    isFetching: recarregandoAdesoes,
+  } = useQuery({
     queryKey: ["dieta-adesao", alunoId, monthStart, monthEnd],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -114,6 +139,7 @@ export default function ControleDieta({ dietaId, refeicoes = [] }: { dietaId: st
   // como Date, virava meia-noite em UTC (21h da véspera) e o domingo saía do
   // resumo.
   const semana = semanaBrasilia();
+  const hoje = hojeBrasilia();
   const weekAdesoes = adesoes.filter((a) => a.data >= semana.inicio && a.data <= semana.fim);
 
   const weekDoces = weekAdesoes.filter((a) => a.consumiu_doce).length;
@@ -215,13 +241,22 @@ export default function ControleDieta({ dietaId, refeicoes = [] }: { dietaId: st
 
   return (
     <div className="space-y-4">
-      <Card className="border-0 shadow-sm">
+      {/* O calendário é o destaque da tela (pedido de 10/10/2026): vem
+          primeiro, com borda da marca, e diz no título como vai o mês. */}
+      <Card className="border-2 border-primary/50 shadow-md">
         <CardHeader className="pb-2">
-          <div className="flex items-center justify-between">
-            <CardTitle className="flex items-center gap-2 text-base">
-              <CalendarDays className="h-5 w-5 text-primary" />
-              Calendário de Adesão
-            </CardTitle>
+          <div className="flex items-center justify-between gap-2">
+            <div className="min-w-0">
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <CalendarDays className="h-5 w-5 text-primary" aria-hidden="true" />
+                Calendário de Adesão
+              </CardTitle>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                {monthDiasRegistrados > 0
+                  ? `${monthDiasRegistrados} ${monthDiasRegistrados === 1 ? "dia registrado" : "dias registrados"} no mês, média de ${monthMedia}%`
+                  : "Toque num dia para contar como foi."}
+              </p>
+            </div>
             <div className="flex items-center gap-1">
               <Button aria-label="Mês anterior" variant="ghost" size="icon" className="h-8 w-8" onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}>
                 <ChevronLeft className="h-4 w-4" />
@@ -234,6 +269,14 @@ export default function ControleDieta({ dietaId, refeicoes = [] }: { dietaId: st
           </div>
         </CardHeader>
         <CardContent>
+          {erroAdesoes && (
+            <ErroAoCarregar
+              oQue="os dias registrados"
+              onTentarDeNovo={() => void recarregarAdesoes()}
+              tentando={recarregandoAdesoes}
+              className="p-3"
+            />
+          )}
           <div className="grid grid-cols-7 gap-1 mb-1">
             {["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"].map((d) => (
               <div key={d} className="text-center text-xs font-medium text-muted-foreground py-1">
@@ -247,42 +290,49 @@ export default function ControleDieta({ dietaId, refeicoes = [] }: { dietaId: st
             ))}
             {calendarDays.days.map((day) => {
               const adesao = getAdesaoForDate(day);
-              const today = isToday(day);
-              const future = day > new Date();
+              // Data pura comparada como texto com o hoje de Brasília.
+              const dia = format(day, "yyyy-MM-dd");
+              const today = dia === hoje;
+              const future = dia > hoje;
+              const rotuloDia = format(day, "d 'de' MMMM", { locale: ptBR });
               return (
                 <button
-                  key={day.toISOString()}
+                  key={dia}
+                  type="button"
                   onClick={() => !future && openAdesaoDialog(day)}
                   disabled={future}
+                  aria-current={today ? "date" : undefined}
+                  aria-label={
+                    adesao
+                      ? `${rotuloDia}: ${adesao.adesao_percentual}% de adesão`
+                      : future
+                        ? rotuloDia
+                        : `${rotuloDia}: registrar adesão`
+                  }
                   className={cn(
                     "relative flex flex-col items-center justify-center rounded-lg p-1 min-h-[44px] text-xs transition-all",
-                    today && !adesao && "ring-2 ring-primary/50",
+                    today && "ring-2 ring-primary",
                     future ? "opacity-30 cursor-default" : "hover:bg-muted/50 cursor-pointer",
-                    adesao && getColorForAdesao(adesao.adesao_percentual)
+                    adesao && CORES_DA_FAIXA[faixaDeAdesao(adesao.adesao_percentual)].dia
                   )}
                 >
-                  <span className={cn("font-medium", adesao && "text-inherit")}>{format(day, "d")}</span>
+                  <span className="font-medium">{format(day, "d")}</span>
                   {adesao && <span className="text-[10px] leading-none font-bold">{adesao.adesao_percentual}%</span>}
                 </button>
               );
             })}
           </div>
           <div className="flex items-center gap-3 mt-3 text-xs text-muted-foreground justify-center flex-wrap">
-            <div className="flex items-center gap-1">
-              <div className="h-3 w-3 rounded bg-emerald-500" /> <span>≥80%</span>
-            </div>
-            <div className="flex items-center gap-1">
-              <div className="h-3 w-3 rounded bg-primary/80" /> <span>≥50%</span>
-            </div>
-            <div className="flex items-center gap-1">
-              <div className="h-3 w-3 rounded bg-orange-400" /> <span>≥30%</span>
-            </div>
-            <div className="flex items-center gap-1">
-              <div className="h-3 w-3 rounded bg-red-400" /> <span>&lt;30%</span>
-            </div>
+            {Object.values(CORES_DA_FAIXA).map((f) => (
+              <div key={f.rotulo} className="flex items-center gap-1">
+                <div className={cn("h-3 w-3 rounded", f.legenda)} aria-hidden="true" /> <span>{f.rotulo}</span>
+              </div>
+            ))}
           </div>
         </CardContent>
       </Card>
+
+      {depoisDoCalendario}
 
       <Card className="border-0 shadow-sm">
         <CardHeader className="pb-2">
