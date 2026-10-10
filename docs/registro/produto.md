@@ -446,8 +446,8 @@ Sem migration. A única publicação é a do `assistente-academia`, pelo índice
 
 **O que ficou de fora:**
 - Nenhuma tela da equipe mostra sono e energia ainda (como o esforço percebido, que também não aparece na ficha da academia); o RLS já deixa a gestão, o professor e a nutricionista lerem.
-- **A Política de Privacidade não cita sono nem energia.** O texto não mudou nesta frente: a lista de "Dados de saúde (dados sensíveis)" precisa ganhar "como você dormiu e a sua energia, que você marca no fim do treino", ao lado de "relatos de dor ou dificuldade". Fica para o responsável, com a próxima versão da Política.
-- Sono e energia não pedem o consentimento de saúde para serem coletados, como o relato de dor de hoje; só somem para quem o retirou. Se for preciso exigir o aceite (e, no menor de idade, a liberação do responsável), é decisão do responsável.
+- **A Política de Privacidade ganhou a versão de 10/10, no mesmo PR.** Decisão do responsável em 10/10/2026: sono e energia são dado de saúde, e a lista de "Dados de saúde (dados sensíveis)" da seção 2 passa a citar "como você dormiu e a sua energia, que você marca no fim do treino", ao lado de "relatos de dor ou dificuldade". A versão entra no banco depois do deploy (`20261443010000`), e todo usuário aceita de novo na próxima entrada.
+- Sono e energia não pedem o consentimento de saúde para serem coletados, como o relato de dor de hoje; só somem para quem o retirou. Decisão do responsável em 10/10/2026: igual ao relato de dor, e as respostas são opcionais.
 
 **Antes do merge:** aplicar a migration `20261442010000_sono_e_energia_no_fim_do_treino.sql`. A Evolução lê a tabela nova e cai em "Não foi possível carregar" sem ela, e o fim do treino com resposta falha ao gravar. Depois, gerar o `types.ts` de novo e publicar `assistente-academia` (índice dos artigos).
 
