@@ -44,11 +44,12 @@ Se a emissão não se confirmar por falha de conexão, a cobrança aparece com *
 
 ## Cobrança na conta da academia
 
-Por padrão, a mensalidade e a avulsa saem da conta Asaas da ArkeFit, com a divisão automática: a parte da academia vai para a conta dela, e a taxa de processamento fica com a ArkeFit. Quando a equipe da ArkeFit liga, na ficha da academia, a **cobrança na conta da academia**, a mensalidade e a avulsa **novas** saem da conta Asaas da própria academia, sem divisão e sem a taxa de processamento: a academia recebe o valor inteiro, e a tarifa do Asaas é cobrada pelo Asaas, direto da academia. A prévia na tela diz isso antes de emitir.
+A mensalidade e a avulsa saem da conta Asaas da própria academia, pelo valor inteiro, sem divisão e sem taxa da ArkeFit. A tarifa do Asaas é cobrada pelo Asaas, direto da academia. A prévia na tela diz isso antes de emitir.
 
+- Para isso, a conta própria precisa estar conectada na [Configuração da academia](/admin/onboarding), etapa Recebimentos: a carteira e a **chave de API** da conta. Ao conectar a chave, as cobranças novas passam a sair da conta da academia sozinhas. A mesma chave serve à nota fiscal.
+- O Método ARKE sai da conta da ArkeFit, porque é um serviço da ArkeFit, e o Asaas transfere a parte da academia para a conta dela.
 - O que já existia continua onde nasceu: uma mensalidade criada antes continua sendo cobrada, pausada e cancelada na conta de antes.
-- O Método ARKE continua saindo da conta da ArkeFit, porque é um serviço da ArkeFit.
-- Para isso, a chave da conta Asaas da academia precisa estar conectada em **Financeiro → Notas fiscais**. Sem ela, a cobrança não sai, e a tela diz o que falta.
+- A academia que já tinha mensalidades pela conta da ArkeFit, com a divisão e a taxa de processamento, continua assim até a passagem para a conta própria, combinada com a equipe da ArkeFit.
 - A receita, o bloqueio e a inadimplência funcionam do mesmo jeito.
 
 ## Mensalidade atrasada

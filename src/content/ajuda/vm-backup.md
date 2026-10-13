@@ -1,4 +1,4 @@
-O banco do ARKE tem backup diário no plano Pro do Supabase. Este artigo diz quando restaurar, o que se perde e como fazer.
+O backup diário do banco do ARKE vem com o plano Pro do Supabase, contratado antes do primeiro cliente. Este artigo diz quando restaurar, o que se perde e como fazer.
 
 ## Quando restaurar
 

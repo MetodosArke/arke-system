@@ -92,6 +92,17 @@ export function conferirAtacado(referencia: number, varejoSugerido: number, taxa
   return null;
 }
 
+/**
+ * A prévia do Método para a gestão (13/10/2026). O Método é serviço da
+ * ArkeFit ao aluno, cobrado na conta dela: o que fica com a ArkeFit aparece
+ * como preço do acompanhamento e da operação da cobrança, e não como taxa
+ * sobre o pagamento, que é serviço do Asaas.
+ */
+export function previaDoMetodo(valor: number, divisao: ReturnType<typeof dividirCobranca>): string {
+  if (divisao.semRepasseNegociado) return "Repasse do Método ainda não definido no contrato desta academia.";
+  return `Aluno paga ${reais(valor)} pelo Método ARKE, serviço da ArkeFit · a academia recebe ${reais(divisao.liquidoAcademia)} pela entrega presencial · a ArkeFit fica com ${reais(divisao.repasseArke)} pelo acompanhamento e pela operação da cobrança`;
+}
+
 export function dividirCobranca(valor: number, config: RepasseConfig, taxa: TaxaProcessamento) {
   const taxaEstimada = taxaProcessamento(valor, taxa);
   const repasse = repasseArke(valor, config, taxa);

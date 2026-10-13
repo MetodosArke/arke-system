@@ -12,6 +12,7 @@ import { TERMOS_ASAAS_URL, TEXTO_PRESTADOR } from "@/lib/prestadorPagamentos";
  */
 let conta: Record<string, unknown> = {};
 let subcontasLigadas = false;
+let cobranca: Record<string, unknown> = {};
 const invoke = vi.fn();
 
 vi.mock("@/integrations/supabase/client", () => ({
@@ -20,7 +21,8 @@ vi.mock("@/integrations/supabase/client", () => ({
       select: () => ({ eq: () => ({ single: () => Promise.resolve({ data: conta, error: null }) }) }),
       update: () => ({ eq: () => ({ select: () => Promise.resolve({ data: [{ id: "org-1" }], error: null }) }) }),
     }),
-    rpc: () => Promise.resolve({ data: subcontasLigadas, error: null }),
+    rpc: (nome: string) =>
+      Promise.resolve({ data: nome === "situacao_cobranca_conta_academia" ? cobranca : subcontasLigadas, error: null }),
     functions: { invoke: (...a: unknown[]) => invoke(...a) },
   },
 }));
@@ -40,7 +42,38 @@ describe("EtapaRecebimentos", () => {
   beforeEach(() => {
     conta = { ...SEM_CONTA };
     subcontasLigadas = false;
+    cobranca = { ligado: false, chave_conectada: false, plano_vivas_arkefit: 0 };
     invoke.mockReset();
+  });
+
+  it("com a carteira vinculada, pede a chave da mesma conta, que liga a cobrança na conta da academia (13/10/2026)", async () => {
+    conta = { ...SEM_CONTA, asaas_wallet_id: "w-1", asaas_conta_origem: "existente" };
+    invoke.mockResolvedValue({ data: { conectada: false, possuiCarteira: true, cobranca_na_conta: { ligado: true } }, error: null });
+    montar();
+    const campo = await screen.findByLabelText("Chave de API da conta Asaas");
+    expect(screen.getByText(/as mensalidades e as cobranças avulsas saem desta conta, pelo valor inteiro/)).toBeInTheDocument();
+    fireEvent.change(campo, { target: { value: "$aact_hmlg_0000000000000000000000" } });
+    fireEvent.click(screen.getByRole("button", { name: "Conectar" }));
+    await waitFor(() =>
+      expect(invoke).toHaveBeenCalledWith("asaas-fiscal-academia", {
+        body: { acao: "chave", organization_id: "org-1", chave: "$aact_hmlg_0000000000000000000000" },
+      }),
+    );
+  });
+
+  it("com a cobrança já na conta da academia, diz que ela recebe o valor inteiro, sem pedir a chave", async () => {
+    conta = { ...SEM_CONTA, asaas_wallet_id: "w-1", asaas_conta_origem: "existente" };
+    cobranca = { ligado: true, chave_conectada: true, plano_vivas_arkefit: 0 };
+    montar();
+    expect(await screen.findByText(/saem desta conta, pelo valor inteiro. A tarifa do Asaas é cobrada pelo Asaas/)).toBeInTheDocument();
+    expect(screen.queryByLabelText("Chave de API da conta Asaas")).toBeNull();
+  });
+
+  it("a academia com mensalidade pela conta da ArkeFit fica como está: a passagem é combinada com a ArkeFit", async () => {
+    conta = { ...SEM_CONTA, asaas_wallet_id: "w-1", asaas_conta_origem: "existente" };
+    cobranca = { ligado: false, chave_conectada: true, plano_vivas_arkefit: 3 };
+    montar();
+    expect(await screen.findByText(/A passagem para a conta da academia é combinada com a equipe da ArkeFit/)).toBeInTheDocument();
   });
 
   it("com o interruptor desligado, a conta própria é o único caminho, e o prestador aparece", async () => {

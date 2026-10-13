@@ -8,6 +8,7 @@ import { mensagemDeErroEdge } from "@/lib/erroEdge";
 import { ROTULO_SITUACAO_ASAAS } from "@/lib/onboardingAcademia";
 import { caminhosDaConta, grupoPendente, ROTULO_DOCUMENTO, subcontaDisponivelNaTela, type CaminhoConta, type GrupoDeDocumentos } from "@/lib/contaAsaas";
 import { TERMOS_ASAAS_URL } from "@/lib/prestadorPagamentos";
+import { avisoDaConexao, conectarConta } from "@/lib/notaFiscal";
 import { useSubcontasBaasLigadas } from "@/hooks/useContaDasCobrancas";
 import { PrestadorPagamentos } from "@/components/pagamento/PrestadorPagamentos";
 import { ErroAoCarregar } from "@/components/ErroAoCarregar";
@@ -23,7 +24,9 @@ import { cn } from "@/lib/utils";
  * Conta Asaas da academia (decisão D6), na etapa Recebimentos.
  *
  * O caminho de sempre é a conta própria: a academia abre no site do Asaas e
- * informa a carteira. A conta aberta pela ArkeFit é BaaS (resposta do Asaas
+ * informa a carteira e, depois, a chave de API; com as duas, a mensalidade e
+ * a avulsa saem da conta dela, pelo valor inteiro (13/10/2026, a ArkeFit não
+ * abre subcontas). A conta aberta pela ArkeFit é BaaS (resposta do Asaas
  * de 06/10/2026) e só aparece com o interruptor `asaas_subcontas_baas` ligado
  * — ou na organização em trial, que fala com o sandbox (`caminhosDaConta`).
  * Antes de abrir, a tela diz que a conta é aberta e mantida pelo Asaas, em
@@ -115,7 +118,7 @@ export function EtapaRecebimentos({ onSalvo }: { onSalvo: () => void }) {
   const informar = useMutation({
     mutationFn: (carteira: string) => chamar({ acao: "existente", wallet_id: carteira }),
     onSuccess: () => {
-      toast({ title: "Carteira vinculada", description: "As mensalidades dos alunos passam a cair nessa conta." });
+      toast({ title: "Carteira vinculada", description: "Agora conecte a chave de API da conta, logo abaixo." });
       atualizar();
     },
     onError: (e: Error) => toast({ title: "Carteira não aceita", description: e.message, variant: "destructive" }),
@@ -174,6 +177,7 @@ export function EtapaRecebimentos({ onSalvo }: { onSalvo: () => void }) {
               ))}
           </>
         )}
+        {!criada && ehGestor && <ChaveDaContaPropria organizationId={organization!.id} />}
         <PrestadorPagamentos />
       </div>
     );
@@ -276,7 +280,8 @@ export function EtapaRecebimentos({ onSalvo }: { onSalvo: () => void }) {
               <a href="https://www.asaas.com" target="_blank" rel="noopener noreferrer" className="underline">
                 asaas.com
               </a>
-              , com o CNPJ da academia. A conta é da academia, no Asaas, e é para ela que vai o que os alunos pagam.
+              , com o CNPJ da academia. A conta é da academia, no Asaas, e é para ela que vai o que os alunos pagam. Depois da
+              carteira, a etapa pede a chave de API da mesma conta.
             </p>
           </div>
           <Button onClick={() => informar.mutate(walletId)} disabled={informar.isPending || !walletId}>
@@ -286,6 +291,87 @@ export function EtapaRecebimentos({ onSalvo }: { onSalvo: () => void }) {
       )}
 
       <PrestadorPagamentos />
+    </div>
+  );
+}
+
+type SituacaoCobranca = { ligado: boolean; chave_conectada: boolean; plano_vivas_arkefit: number };
+
+/**
+ * A chave de API da conta própria, logo depois da carteira (13/10/2026).
+ * Carteira e chave conectadas, a mensalidade e a avulsa novas saem da conta
+ * Asaas da academia, pelo valor inteiro, sem split e sem taxa da ArkeFit: a
+ * função que guarda a chave (`asaas-fiscal-academia`) liga a cobrança na
+ * conta da academia, e é a mesma chave da nota fiscal. A academia que ainda
+ * tem mensalidade pela conta da ArkeFit fica como está: a passagem é
+ * combinada com a ArkeFit.
+ */
+function ChaveDaContaPropria({ organizationId }: { organizationId: string }) {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [chave, setChave] = useState("");
+  const situacao = useQuery({
+    queryKey: ["situacao-cobranca-conta-academia", organizationId],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("situacao_cobranca_conta_academia", { _organization_id: organizationId });
+      if (error) throw error;
+      return data as unknown as SituacaoCobranca;
+    },
+  });
+  const conectar = useMutation({
+    mutationFn: (valor: string) => conectarConta(organizationId, valor),
+    onSuccess: (r) => {
+      setChave("");
+      for (const k of ["situacao-cobranca-conta-academia", "cobranca-conta-academia", "situacao-fiscal"]) {
+        void queryClient.invalidateQueries({ queryKey: [k, organizationId] });
+      }
+      toast(avisoDaConexao(r.cobranca_na_conta));
+    },
+    onError: (e: Error) => toast({ title: "Chave não aceita", description: e.message, variant: "destructive" }),
+  });
+
+  if (situacao.error && !situacao.data) {
+    return (
+      <ErroAoCarregar oQue="a conta das cobranças" onTentarDeNovo={() => void situacao.refetch()} tentando={situacao.isFetching} className="p-3" />
+    );
+  }
+  const s = situacao.data;
+  if (!s) return <p className="text-xs text-muted-foreground">Carregando...</p>;
+
+  if (s.ligado) {
+    return (
+      <p className="text-sm flex items-center gap-2">
+        <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+        As mensalidades e as cobranças avulsas saem desta conta, pelo valor inteiro. A tarifa do Asaas é cobrada pelo Asaas, direto da
+        academia.
+      </p>
+    );
+  }
+  return (
+    <div className="rounded-md border p-3 space-y-2">
+      <Label htmlFor="onb-chave-asaas" className="text-xs">
+        Chave de API da conta Asaas
+      </Label>
+      <p className="text-[11px] text-muted-foreground">
+        {s.plano_vivas_arkefit > 0
+          ? "As mensalidades de hoje saem pela conta da ArkeFit e continuam lá. A passagem para a conta da academia é combinada com a equipe da ArkeFit; a chave já serve à nota fiscal."
+          : s.chave_conectada
+            ? "A chave está conectada, mas as cobranças ainda não passaram para a conta da academia. Conecte a chave de novo para tentar."
+            : "No Asaas: Integrações → Chave de API. Com a chave, as mensalidades e as cobranças avulsas saem desta conta, pelo valor inteiro, e a nota fiscal pode sair nela. A chave fica no cofre, e o ARKE confere que é da mesma conta da carteira."}
+      </p>
+      <div className="flex gap-2">
+        <Input
+          id="onb-chave-asaas"
+          type="password"
+          autoComplete="off"
+          placeholder="$aact_..."
+          value={chave}
+          onChange={(e) => setChave(e.target.value)}
+        />
+        <Button disabled={conectar.isPending || chave.trim().length < 20} onClick={() => conectar.mutate(chave.trim())}>
+          {conectar.isPending ? "Conferindo..." : "Conectar"}
+        </Button>
+      </div>
     </div>
   );
 }

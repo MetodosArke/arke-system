@@ -26,7 +26,7 @@ import { PlanosAcademiaPainel } from "@/components/admin/PlanosAcademiaPainel";
 import { ContratoMatriculaPainel } from "@/components/admin/ContratoMatriculaPainel";
 import { ParceriaAutonomo } from "@/components/admin/ParceriaAutonomo";
 import { MarcaAppAluno } from "@/components/admin/MarcaAppAluno";
-import { dividirCobranca, excecaoDoNivel, resolverRepasse, type RepasseConfig } from "@/lib/repasse";
+import { dividirCobranca, excecaoDoNivel, previaDoMetodo, resolverRepasse, type RepasseConfig } from "@/lib/repasse";
 import { useTaxaProcessamento } from "@/hooks/useTaxaProcessamento";
 import { reais } from "@/lib/numeros";
 import { PrestadorPagamentos } from "@/components/pagamento/PrestadorPagamentos";
@@ -374,7 +374,7 @@ export default function AdminOrganizacao() {
       }
       if (!divisao.cobreORepasse) {
         throw new Error(
-          `O valor precisa cobrir o repasse ARKE de ${reais(divisao.repasseArke!)} (repasse do contrato + taxa de processamento).`
+          `O valor precisa cobrir a parte da ArkeFit, de ${reais(divisao.repasseArke!)} (o repasse do contrato e a operação da cobrança).`
         );
       }
       // Markup sobre o que a academia de fato entrega à ArkeFit.
@@ -669,8 +669,9 @@ export default function AdminOrganizacao() {
             <Wallet className="h-4 w-4" /> Conta de recebimentos (Asaas)
           </CardTitle>
           <p className="text-xs text-muted-foreground">
-            Wallet ID da conta Asaas da academia. O Asaas, que processa os pagamentos, divide cada cobrança na
-            hora: a parte da academia cai direto nesta conta, e a parte da ArkeFit (a plataforma e o Método) vai para a ArkeFit.
+            Wallet ID da conta Asaas da academia. As mensalidades e as cobranças avulsas saem desta conta, pelo valor inteiro,
+            e a tarifa do Asaas, que processa os pagamentos, é cobrada pelo Asaas direto da academia. No Método ARKE, a parte da
+            academia cai aqui também.
           </p>
         </CardHeader>
         {/* A carteira é configurada no onboarding (Recebimentos), que confere no Asaas
@@ -695,31 +696,19 @@ export default function AdminOrganizacao() {
         <CardHeader>
           <CardTitle className="text-base">Divisão do Método por nível</CardTitle>
           <p className="text-xs text-muted-foreground">
-            A cada cobrança do Método confirmada no Asaas, a divisão é feita pelo Asaas: a parte da ArkeFit (o repasse
-            do Método mais a taxa de processamento do pagamento) vai para a ArkeFit, e o restante cai direto na conta da
-            academia configurada acima. A taxa acompanha o valor cobrado.
+            O Método ARKE é serviço da ArkeFit ao aluno, cobrado na conta Asaas da ArkeFit. A cada pagamento confirmado, o
+            Asaas transfere para a conta da academia configurada acima a parte dela, pela entrega presencial; a ArkeFit fica
+            com o restante, pelo acompanhamento (mentor, nutricionista, jornada) e pela operação da cobrança.
           </p>
         </CardHeader>
         <CardContent className="space-y-3">
           {NIVEIS.map(({ value, label }) => {
             const valorVarejo = parseMoeda(valores[value] || "0");
-            const { taxaEstimada, repasseArke, liquidoAcademia, semRepasseNegociado } = dividirCobranca(
-              valorVarejo,
-              repasseDoNivel(value),
-              taxaConfig ?? { percentual: 0, fixa: 0 }
-            );
-            const pctAcademia =
-              valorVarejo > 0 && liquidoAcademia !== null ? Math.round((liquidoAcademia / valorVarejo) * 100) : 0;
+            const divisao = dividirCobranca(valorVarejo, repasseDoNivel(value), taxaConfig ?? { percentual: 0, fixa: 0 });
             return (
               <div key={value} className="flex items-center justify-between text-sm border-b border-border pb-2 last:border-0 last:pb-0">
                 <span className="font-medium">{label}</span>
-                <span className="text-xs text-muted-foreground text-right">
-                  {semRepasseNegociado
-                    ? "Repasse do Método ainda não definido no contrato desta academia."
-                    : `Aluno paga ${reais(valorVarejo)} · parte da ArkeFit ${reais(repasseArke!)} (repasse ${reais((
-                        repasseArke! - taxaEstimada
-                      ))} + taxa ${reais(taxaEstimada)}) · Academia recebe ${reais(liquidoAcademia!)}${valorVarejo > 0 ? ` (${pctAcademia}%)` : ""}`}
-                </span>
+                <span className="text-xs text-muted-foreground text-right">{previaDoMetodo(valorVarejo, divisao)}</span>
               </div>
             );
           })}

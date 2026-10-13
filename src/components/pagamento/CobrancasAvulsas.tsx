@@ -57,9 +57,10 @@ const FORM_VAZIO = { tipo: "taxa_matricula" as TipoCobrancaAvulsa, descricao: ""
 
 /**
  * Cobranças avulsas do aluno na ficha: taxa de matrícula, avaliação, personal,
- * diária, produto. A academia recebe o valor menos a taxa de processamento,
- * e a prévia mostra isso antes de emitir — sem ela, a equipe descobriria a
- * divisão no extrato.
+ * diária, produto. Na conta da academia (o padrão desde 13/10/2026), ela
+ * recebe o valor inteiro; na academia que ainda cobra pela conta da ArkeFit,
+ * o valor menos a taxa de processamento. A prévia mostra isso antes de
+ * emitir — sem ela, a equipe descobriria a divisão no extrato.
  *
  * Emitir e cancelar é da gestão e da recepção (o servidor confere de novo);
  * o resto da equipe vê a lista.

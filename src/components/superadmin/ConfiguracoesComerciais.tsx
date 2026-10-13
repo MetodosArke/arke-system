@@ -210,7 +210,7 @@ export function AtacadoMetodo() {
               </div>
               <p className={`text-[11px] ${problema ? "text-destructive" : "text-muted-foreground"}`}>
                 {problema ??
-                  `A ${reais(varejo)}: ArkeFit fica com ${reais(divisao.repasseArke)} (${reais(referencia)} + taxa ${reais(
+                  `A ${reais(varejo)}: ArkeFit fica com ${reais(divisao.repasseArke)} (${reais(referencia)} + operação da cobrança ${reais(
                     divisao.taxaEstimada
                   )}) · academia recebe ${reais(divisao.liquidoAcademia)}`}
               </p>

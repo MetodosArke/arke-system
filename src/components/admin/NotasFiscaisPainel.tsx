@@ -19,6 +19,7 @@ import {
   ROTULO_ORIGEM_NOTA,
   ROTULO_STATUS_NOTA,
   autenticacaoOk,
+  avisoDaConexao,
   buscarServicosMunicipais,
   conectarConta,
   enviarCadastroFiscal,
@@ -127,13 +128,17 @@ function ConectarConta({
   aoConectar: (s: SituacaoFiscal) => void;
 }) {
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [chave, setChave] = useState("");
   const conectar = useMutation({
     mutationFn: (valor: string) => conectarConta(orgId, valor),
     onSuccess: (s) => {
       setChave("");
       aoConectar(s);
-      toast({ title: "Conta conectada" });
+      // Conectar a chave liga a cobrança na conta da academia: a prévia das cobranças muda.
+      void queryClient.invalidateQueries({ queryKey: ["cobranca-conta-academia", orgId] });
+      void queryClient.invalidateQueries({ queryKey: ["situacao-cobranca-conta-academia", orgId] });
+      toast(avisoDaConexao(s.cobranca_na_conta));
     },
     onError: (e: Error) => toast({ title: "Não foi possível conectar", description: e.message, variant: "destructive" }),
   });
@@ -144,7 +149,7 @@ function ConectarConta({
         {reconectar && <p className="text-sm text-destructive">{reconectar}</p>}
         <CardDescription>
           {possuiCarteira
-            ? "A academia informou uma conta Asaas que já tinha. Para emitir a nota nela, cole a chave de API dessa conta (no Asaas: Integrações → Chave de API). Ela fica no cofre, e o ARKE confere que é da mesma conta que recebe os pagamentos."
+            ? "Cole a chave de API da conta Asaas da academia (no Asaas: Integrações → Chave de API). Com ela, a nota sai nessa conta, e as mensalidades e as cobranças avulsas novas também, pelo valor inteiro. A chave fica no cofre, e o ARKE confere que é da mesma conta que recebe os pagamentos."
             : "Configure primeiro a conta de recebimentos no Onboarding (etapa Recebimentos)."}
         </CardDescription>
       </CardHeader>

@@ -88,11 +88,13 @@ export default function SuperAdminConfiguracoes() {
 
       <Card>
         <CardHeader className="pb-2">
-          <CardTitle className="text-base">Taxa de processamento — mensalidade da academia</CardTitle>
+          <CardTitle className="text-base">Operação da cobrança — compõe o preço do Método ARKE</CardTitle>
           <CardDescription>
-            Retida automaticamente via split no Asaas sobre cada mensalidade de plano próprio cobrada pela academia
-            (independente do Método ARKE), cobrindo o custo de processamento do Asaas. Alterar aqui só vale para
-            matrículas novas — assinaturas já criadas mantêm o split definido na hora da matrícula.
+            Parte do preço do Método ARKE, que é serviço da ArkeFit: somada ao repasse negociado, cobre a operação da
+            cobrança na conta da ArkeFit, onde o Asaas cobra a tarifa dele. Não é tarifa sobre o pagamento do aluno, que é
+            serviço do Asaas. A mensalidade e a avulsa da academia saem da conta dela, pelo valor inteiro, sem esta parcela;
+            só a academia que ainda cobra mensalidade pela conta da ArkeFit (com split) a tem na mensalidade, até a passagem.
+            Alterar aqui vale para cobranças novas: assinaturas já criadas mantêm a divisão do dia em que nasceram.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
@@ -130,7 +132,7 @@ export default function SuperAdminConfiguracoes() {
                 </div>
               </div>
               <p className="text-xs text-muted-foreground">
-                Fórmula aplicada: repasse ARKE = (valor cobrado × percentual) + valor fixo, nunca menos que o mínimo. Atual:{" "}
+                Fórmula: operação da cobrança = (valor cobrado × percentual) + valor fixo, nunca menos que o mínimo. Atual:{" "}
                 {taxaPercentual ? decimal(Number(taxaPercentual.valor), 2) : "—"}% + R${" "}
                 {taxaFixa ? decimal(Number(taxaFixa.valor), 2) : "—"}, mínimo de R${" "}
                 {taxaMinima ? decimal(Number(taxaMinima.valor), 2) : "—"}.

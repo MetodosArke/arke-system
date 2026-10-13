@@ -21,12 +21,14 @@ type Situacao = {
 /**
  * Cobrança na conta da academia, na ficha da organização (Visão Master).
  *
- * Desligado (o padrão), a mensalidade e a avulsa saem da conta da ArkeFit,
- * com split para a carteira da academia e a taxa de processamento. Ligado, a
- * cobrança nova sai da conta Asaas da própria academia, sem split e sem a
- * taxa: o Asaas cobra a tarifa direto dela. O Método segue na conta da
- * ArkeFit. Ligar registra o aviso de pagamento (webhook) na conta da
- * academia; só a ArkeFit, com as duas etapas, liga, e fica na auditoria.
+ * Ligado, a cobrança nova sai da conta Asaas da própria academia, sem split
+ * e sem a taxa: o Asaas cobra a tarifa direto dela. O Método segue na conta
+ * da ArkeFit. Desde 13/10/2026 é o padrão: liga sozinho quando a gestão
+ * conecta a chave da conta própria. Desligado, a mensalidade e a avulsa saem
+ * da conta da ArkeFit, com split para a carteira da academia e a taxa de
+ * processamento (a academia que ainda tem assinatura de plano lá). Ligar
+ * registra o aviso de pagamento (webhook) na conta da academia; aqui, só a
+ * ArkeFit, com as duas etapas, liga de novo ou desliga, e fica na auditoria.
  *
  * A tela diz o que recusa: assinatura de plano viva na conta da ArkeFit (para
  * ligar) ou na conta da academia (para desligar) — não se migra assinatura.
@@ -80,7 +82,7 @@ export function CobrancaContaAcademiaOrganizacao({ organizationId }: { organizat
     ? s.plano_vivas_arkefit > 0
       ? `${s.plano_vivas_arkefit} assinatura(s) de plano viva(s) na conta da ArkeFit: o modo não migra assinatura.`
       : !s.chave_conectada
-        ? "A chave da conta Asaas da academia não está conectada (a gestão conecta em Financeiro → Notas fiscais)."
+        ? "A chave da conta Asaas da academia não está conectada (a gestão conecta na Configuração, etapa Recebimentos, ou em Financeiro → Notas fiscais)."
         : null
     : s.plano_vivas_academia + s.avulsas_abertas_academia > 0
       ? `${s.plano_vivas_academia} assinatura(s) de plano e ${s.avulsas_abertas_academia} cobrança(s) avulsa(s) em aberto na conta da academia.`
@@ -97,7 +99,7 @@ export function CobrancaContaAcademiaOrganizacao({ organizationId }: { organizat
       <p className="text-xs text-muted-foreground">
         {s.ligado
           ? "Mensalidade e cobrança avulsa novas saem da conta Asaas da academia, sem split e sem taxa da ArkeFit. O Método segue na conta da ArkeFit."
-          : "Mensalidade e cobrança avulsa saem da conta da ArkeFit, com split para a carteira da academia. Ligar vale só para as cobranças novas."}
+          : "Mensalidade e cobrança avulsa saem da conta da ArkeFit, com split para a carteira da academia. O padrão é a conta da academia: liga sozinho quando a gestão conecta a chave da conta própria, sem assinatura de plano viva na conta da ArkeFit. Ligar vale só para as cobranças novas."}
       </p>
       {bloqueio && <p className="text-xs text-warning">{bloqueio}</p>}
       {confirmando ? (

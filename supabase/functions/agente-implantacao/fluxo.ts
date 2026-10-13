@@ -238,7 +238,7 @@ export const PASSOS: Record<string, Passo> = {
   recebimentos: {
     titulo: "Conta de recebimentos",
     texto:
-      "Abra a conta da academia no site do Asaas, que é gratuita, ou use a que ela já tem, e informe a carteira no ArkeFit. É nela que cai a parte da academia em cada mensalidade.",
+      "Abra a conta da academia no site do Asaas, que é gratuita, ou use a que ela já tem, e informe no ArkeFit a carteira e a chave de API dessa conta. As mensalidades e as cobranças avulsas dos alunos saem dela, pelo valor inteiro.",
     links: [{ rotulo: "Abrir a configuração", rota: "/admin/onboarding" }],
     artigos: [{ slug: "onboarding-academia", titulo: "Configuração inicial da academia" }],
   },
