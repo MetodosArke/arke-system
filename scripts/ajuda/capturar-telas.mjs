@@ -116,8 +116,10 @@ const TELAS = [
   { nome: "app-home", papel: "pedro", rota: "/app", tela: CELULAR },
   { nome: "app-acolhimento", papel: "marina", rota: "/app", tela: CELULAR },
   { nome: "app-treino", papel: "pedro", rota: "/app/treinos", tela: CELULAR },
-  { nome: "app-dieta", papel: "pedro", rota: "/app/dieta", tela: CELULAR },
-  { nome: "app-evolucao", papel: "pedro", rota: "/app/evolucao", tela: CELULAR },
+  // A dieta desce até o fim sozinha (o chat rola para a última mensagem), e a
+  // Evolução demora mais que a espera padrão: as duas voltam ao topo com a tela pronta.
+  { nome: "app-dieta", papel: "pedro", rota: "/app/dieta", tela: CELULAR, depois: async (p) => { await p.getByText("Calendário de Adesão").first().waitFor({ timeout: 20000 }).catch(() => {}); await p.waitForTimeout(1500); await p.evaluate(() => window.scrollTo(0, 0)); await p.waitForTimeout(500); } },
+  { nome: "app-evolucao", papel: "pedro", rota: "/app/evolucao", tela: CELULAR, depois: async (p) => { await p.getByText("Minha Evolução").first().waitFor({ timeout: 20000 }).catch(() => {}); await p.waitForTimeout(2500); await p.evaluate(() => window.scrollTo(0, 0)); await p.waitForTimeout(500); } },
   { nome: "app-pagamentos", papel: "pedro", rota: "/app/perfil", tela: CELULAR, depois: async (p) => { await p.getByText("Pagamentos da academia").first().scrollIntoViewIfNeeded().catch(() => {}); await p.waitForTimeout(800); } },
   { nome: "vm-visao-geral", papel: "superadmin", rota: "/superadmin" },
   { nome: "vm-vigia", papel: "superadmin", rota: "/superadmin/vigia" },

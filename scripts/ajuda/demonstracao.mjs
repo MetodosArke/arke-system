@@ -153,7 +153,7 @@ async function semear() {
         ultima_atividade_em, nivel_atacado, metodo_arke_status, metodo_arke_ativado_em, meta_agua_ml, provedor_nutricao)
       values (${q(ORG)}, ${q(ids[a.chave])}, ${q(a.objetivo)}, ${a.meta}, ${q(a.fase)}, current_date - ${40 + i * 23},
         ${a.semAcesso ? "null" : "now() - interval '20 days'"}, ${a.semAcesso ? "null" : "now() - interval '3 hours'"},
-        ${a.metodo ? q(a.metodo) : "null"}, ${a.metodo ? "'ativo'" : "'sem_adesao'"}, ${a.metodo ? "now() - interval '30 days'" : "null"}, 2500,
+        ${a.metodo ? q(a.metodo) : "null"}, 'sem_adesao', null, 2500,
         'nutricionista_academia')
       returning id`);
     alunoId[a.chave] = r.id;
@@ -182,6 +182,21 @@ async function semear() {
     await sql(`insert into public.dietas (organization_id, aluno_id, titulo, snapshot_conteudo, publicado_por, status)
       values (${q(ORG)}, ${q(alunoId[chave])}, 'Plano alimentar — reeducação', ${q(JSON.stringify(refeicoes))}::jsonb, ${q(ids.nutricionista)}, 'ativo')`);
   }
+
+  // Uma semana e pouco de adesão do Pedro, para o calendário da dieta ter cor.
+  await sql(`insert into public.dieta_adesao (organization_id, aluno_id, dieta_id, data, adesao_percentual, agua_ml, consumiu_doce, nivel_saciedade)
+    select d.organization_id, d.aluno_id, d.id, current_date - x.dia, x.pct, x.agua, x.doce, x.sac
+      from public.dietas d,
+           (values (1, 100, 2500, false, 'sem_fome'), (2, 75, 2000, false, 'fome_leve'), (3, 100, 2750, false, 'sem_fome'),
+                   (4, 50, 1500, true, 'fome_moderada'), (6, 75, 2250, false, 'sem_fome'), (8, 25, 1250, true, 'muita_fome'),
+                   (9, 100, 2500, false, 'sem_fome')) as x(dia, pct, agua, doce, sac)
+     where d.aluno_id = ${q(alunoId.pedro)}`);
+
+  // O Método entra depois do treino e da dieta: com ele ativo, só a equipe da
+  // ArkeFit com registro prescreve (`definir_dono_da_prescricao`), e aqui não
+  // há pessoa na sessão.
+  await sql(`update public.alunos set metodo_arke_status = 'ativo', metodo_arke_ativado_em = now() - interval '30 days'
+    where id in (${ALUNOS.filter((a) => a.metodo).map((a) => q(alunoId[a.chave])).join(", ")})`);
 
   // Treinos registrados e presenças da semana, para calendário e progresso.
   const treinoDe = async (chave) => (await sql(`select id from public.treinos where aluno_id = ${q(alunoId[chave])} limit 1`))[0]?.id;

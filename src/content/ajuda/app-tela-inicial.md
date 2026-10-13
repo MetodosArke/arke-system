@@ -25,7 +25,7 @@ Quantos treinos você fez na semana, contra a sua meta. A meta é sua: quem comb
 
 ## Próximo Evento de Acompanhamento
 
-Quando a equipe marca o seu encontro de acolhimento, a data aparece aqui. Toque no cartão para ir ao que é dele:
+Quando a equipe marca o seu encontro de acolhimento, o cartão mostra "Seu encontro de acolhimento M.A.P.A.®" e a data. Toque no cartão para ir ao que é dele:
 
 - no Método ARKE, abre a sua **Jornada**, onde ficam os objetivos de que vocês vão falar;
 - sem o Método, abre a conversa com a academia, no fim da tela de treino, para combinar ou remarcar.

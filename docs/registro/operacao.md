@@ -334,6 +334,5 @@ Os dois achados baixos que seguiam abertos na auditoria de prontidão de 05/10/2
   - sem a chave no `vigia-resumo`, caiu a guarda;
   - com a regra da parte aceitando qualquer texto, caiu "recusa e-mail, nome com espaço, barra e parte vazia".
 - `npm run check`: 0 erros, e o `deno check` das 57 funções passou. `npx vitest run`: 214 arquivos e 1.694 testes passando. O teste da troca de carteira (`carteiraRecebimento`) mudou junto, porque o aviso passou a receber a academia.
-- **Falta, em produção, depois do deploy das 12 funções:**
-  - forçar o erro numa tela e ver o menu continuar e a troca de rota limpar o erro;
-  - mandar duas vezes o mesmo e-mail com a mesma chave e ver um só chegar.
+- **Em produção, 13/10:** as 12 funções publicadas; o comando da rotina do resumo do Vigia executado duas vezes no banco: as duas respostas 200 "enviado", e no Resend só a primeira virou e-mail (a segunda foi barrada pela chave do dia). O resumo das 8h, de antes da publicação, saiu sem chave, então o dia teve dois.
+- **Falta, em produção:** forçar o erro numa tela e ver o menu continuar e a troca de rota limpar o erro.

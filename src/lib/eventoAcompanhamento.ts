@@ -17,6 +17,14 @@ import type { PlanoAluno } from "@/lib/planoAluno";
  * `rolarPara` é o id do bloco na tela de destino (a navegação é por
  * HashRouter, então a âncora vai no estado da rota, e não na URL).
  */
+/**
+ * O que o cartão diz ao aluno. O `motivo` da tarefa é escrito para a equipe
+ * ("Acolhimento M.A.P.A.®: ler a anamnese e prescrever o primeiro treino") e
+ * não vai para a tela: como a RPC só devolve a tarefa `anamnese`, o texto do
+ * aluno é um só. Quando nascer outro tipo de evento, o título passa a ser por tipo.
+ */
+export const TITULO_DO_EVENTO = "Seu encontro de acolhimento M.A.P.A.®";
+
 export type DestinoNoApp = { rota: string; rolarPara?: string };
 
 export const CONVERSA_COM_O_MENTOR = "conversa-mentor";
