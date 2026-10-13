@@ -21,6 +21,7 @@ import {
   getDay,
   addMonths,
   subMonths,
+  parseISO,
 } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
@@ -83,7 +84,7 @@ export default function ControleDieta({
   const { alunoId, organization } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [currentMonth, setCurrentMonth] = useState(new Date());
+  const [currentMonth, setCurrentMonth] = useState(() => parseISO(hojeBrasilia()));
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
 
@@ -344,17 +345,17 @@ export default function ControleDieta({
         <CardContent className="space-y-3">
           <div className="grid grid-cols-3 gap-3">
             <div className="flex flex-col items-center rounded-lg bg-muted/40 p-3">
-              <Candy className="h-5 w-5 text-pink-500 mb-1" />
+              <Candy className="h-5 w-5 text-warning mb-1" />
               <span className="text-xs text-muted-foreground">Doces</span>
               <span className="text-lg font-bold text-foreground">{weekDoces}x</span>
             </div>
             <div className="flex flex-col items-center rounded-lg bg-muted/40 p-3">
-              <Wine className="h-5 w-5 text-purple-500 mb-1" />
+              <Wine className="h-5 w-5 text-destructive mb-1" />
               <span className="text-xs text-muted-foreground">Álcool</span>
               <span className="text-lg font-bold text-foreground">{weekAlcool}x</span>
             </div>
             <div className="flex flex-col items-center rounded-lg bg-muted/40 p-3">
-              <Droplets className="h-5 w-5 text-blue-500 mb-1" />
+              <Droplets className="h-5 w-5 text-info mb-1" />
               <span className="text-xs text-muted-foreground">Água (média)</span>
               <span className="text-lg font-bold text-foreground">{weekAguaMedia > 0 ? `${weekAguaMedia}ml` : "—"}</span>
             </div>
@@ -364,19 +365,19 @@ export default function ControleDieta({
             <div className="space-y-2">
               <p className="text-xs font-medium text-muted-foreground">Saciedade</p>
               <div className="grid grid-cols-2 gap-2">
-                <div className="flex items-center justify-between rounded-lg bg-emerald-500/10 px-3 py-2">
+                <div className="flex items-center justify-between rounded-lg bg-success/10 px-3 py-2">
                   <span className="text-xs">😊 Saciado</span>
                   <span className="text-sm font-bold text-success">{weekSaciedadeOk}d</span>
                 </div>
-                <div className="flex items-center justify-between rounded-lg bg-blue-500/10 px-3 py-2">
+                <div className="flex items-center justify-between rounded-lg bg-info/10 px-3 py-2">
                   <span className="text-xs">😐 Fome leve</span>
                   <span className="text-sm font-bold text-foreground">{weekSaciedadeLeve}d</span>
                 </div>
-                <div className="flex items-center justify-between rounded-lg bg-orange-500/10 px-3 py-2">
+                <div className="flex items-center justify-between rounded-lg bg-warning/10 px-3 py-2">
                   <span className="text-xs">😕 Moderada</span>
                   <span className="text-sm font-bold text-warning">{weekSaciedadeModerada}d</span>
                 </div>
-                <div className="flex items-center justify-between rounded-lg bg-red-500/10 px-3 py-2">
+                <div className="flex items-center justify-between rounded-lg bg-destructive/10 px-3 py-2">
                   <span className="text-xs">😫 Muita fome</span>
                   <span className="text-sm font-bold text-destructive">{weekSaciedadeMuita}d</span>
                 </div>
@@ -389,7 +390,7 @@ export default function ControleDieta({
       <Card className="border-0 shadow-sm">
         <CardHeader className="pb-2">
           <CardTitle className="flex items-center gap-2 text-base">
-            <TrendingUp className="h-5 w-5 text-emerald-500" />
+            <TrendingUp className="h-5 w-5 text-success" />
             Este Mês
           </CardTitle>
         </CardHeader>
@@ -410,17 +411,17 @@ export default function ControleDieta({
           </div>
           <div className="grid grid-cols-3 gap-3">
             <div className="flex flex-col items-center rounded-lg bg-muted/40 p-3">
-              <Candy className="h-5 w-5 text-pink-500 mb-1" />
+              <Candy className="h-5 w-5 text-warning mb-1" />
               <span className="text-xs text-muted-foreground">Doces</span>
               <span className="text-lg font-bold text-foreground">{monthDoces}x</span>
             </div>
             <div className="flex flex-col items-center rounded-lg bg-muted/40 p-3">
-              <Wine className="h-5 w-5 text-purple-500 mb-1" />
+              <Wine className="h-5 w-5 text-destructive mb-1" />
               <span className="text-xs text-muted-foreground">Álcool</span>
               <span className="text-lg font-bold text-foreground">{monthAlcool}x</span>
             </div>
             <div className="flex flex-col items-center rounded-lg bg-muted/40 p-3">
-              <Droplets className="h-5 w-5 text-blue-500 mb-1" />
+              <Droplets className="h-5 w-5 text-info mb-1" />
               <span className="text-xs text-muted-foreground">Água (média)</span>
               <span className="text-lg font-bold text-foreground">{monthAguaMedia > 0 ? `${monthAguaMedia}ml` : "—"}</span>
             </div>
@@ -462,8 +463,8 @@ export default function ControleDieta({
                           <Button
                             type="button"
                             size="sm"
-                            variant={valor === true ? "default" : "outline"}
-                            className={cn("h-8 px-3", valor === true && "bg-emerald-600 hover:bg-emerald-600")}
+                            variant="outline"
+                            className={cn("h-8 px-3", valor === true && "border-success bg-success/15 text-success hover:bg-success/15 hover:text-success")}
                             aria-pressed={valor === true}
                             onClick={() => setMarcacoes((m) => ({ ...m, [chave]: true }))}
                           >
@@ -472,8 +473,8 @@ export default function ControleDieta({
                           <Button
                             type="button"
                             size="sm"
-                            variant={valor === false ? "default" : "outline"}
-                            className={cn("h-8 px-3", valor === false && "bg-orange-500 hover:bg-orange-500")}
+                            variant="outline"
+                            className={cn("h-8 px-3", valor === false && "border-warning bg-warning/15 text-warning hover:bg-warning/15 hover:text-warning")}
                             aria-pressed={valor === false}
                             onClick={() => setMarcacoes((m) => ({ ...m, [chave]: false }))}
                           >
@@ -532,7 +533,7 @@ export default function ControleDieta({
                 <p className="text-xs text-muted-foreground">💡 Meta de hoje: {metaAguaMl}ml — ajuste em Perfil.</p>
               )}
               <div className="flex flex-wrap items-center gap-2">
-                <Droplets className="h-5 w-5 text-blue-500 shrink-0" />
+                <Droplets className="h-5 w-5 text-info shrink-0" />
                 {INCREMENTOS_AGUA_ML.map((incremento) => {
                   // Limite de incremento: além de 150% da meta, os botões somem —
                   // evita um contador sem sentido (e qualquer futuro uso em

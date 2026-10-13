@@ -28,7 +28,7 @@ import { DocumentosMatricula } from "@/components/aluno/DocumentosMatricula";
 import { ComunicadosAluno } from "@/components/aluno/ComunicadosAluno";
 import { CHAVE_CHECKIN_PENDENTE } from "@/lib/checkin";
 import { canalDaMensagemNova, definirProximaAcao } from "@/lib/proximaAcao";
-import { atalhoDeConversa, destinoDoEvento, type DestinoNoApp } from "@/lib/eventoAcompanhamento";
+import { atalhoDeConversa, destinoDoEvento, TITULO_DO_EVENTO, type DestinoNoApp } from "@/lib/eventoAcompanhamento";
 import type { Enums } from "@/integrations/supabase/types";
 import { dataBrasilia, diaBrasilia, hojeBrasilia, formatarDataBR } from "@/lib/dataBrasilia";
 
@@ -432,7 +432,7 @@ export default function AlunoDashboard() {
                 className="flex w-full items-center justify-between gap-2 rounded-lg -m-1 p-1 text-left hover:bg-accent/50 transition-colors"
               >
                 <span className="space-y-0.5">
-                  <span className="block text-sm font-medium">{proximoEvento.motivo}</span>
+                  <span className="block text-sm font-medium">{TITULO_DO_EVENTO}</span>
                   <span className="block text-sm text-primary">
                     {formatarDataBR(proximoEvento.data_agendada, {
                       weekday: "long",

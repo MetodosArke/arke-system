@@ -336,7 +336,7 @@ Na tela em produção, depois da `20261400` (a mensagem lida passou a gravar), o
 **De passagem:** a data do cartão saía pelo fuso do aparelho (`new Date().toLocaleString`); passou a sair por `formatarDataBR`, no fuso de Brasília. E o texto do cartão vazio no Free dizia "Em breve — sua equipe vai agendar os próximos passos", promessa que no Free não existe (não há acolhimento); agora diz "Nenhum encontro marcado. Quando a equipe marcar, a data aparece aqui." No Método o texto ficou.
 
 **O que ficou de fora:**
-- o motivo que o cartão mostra é o texto da tarefa, escrito para a equipe ("Acolhimento M.A.P.A.®: ler a anamnese e prescrever o primeiro treino"); trocar por um texto para o aluno pede mexer na RPC, numa migration — fica para quando houver outro tipo de evento;
+- (superado em 13/10/2026: o cartão mostra um texto para o aluno) o motivo que o cartão mostra é o texto da tarefa, escrito para a equipe ("Acolhimento M.A.P.A.®: ler a anamnese e prescrever o primeiro treino"); trocar por um texto para o aluno pede mexer na RPC, numa migration — fica para quando houver outro tipo de evento;
 - outros tipos de evento (avaliação, consulta): não existem no banco; a regra por tipo nasce com o primeiro deles;
 - a Próxima Ação "mensagem nova" do mentor continua abrindo a tela de treino no topo; dá para usar o mesmo `rolarPara` depois.
 
@@ -363,9 +363,9 @@ Sem migration. A única publicação é a do `assistente-academia`, pelo índice
 - **De passagem:** o "hoje" e o "futuro" do calendário saíam de `isToday` e `day > new Date()`, no fuso do aparelho; agora o dia é comparado como texto com `hojeBrasilia()`. A consulta do calendário tratava erro como mês vazio; agora mostra `<ErroAoCarregar>`. Cada dia ganhou `aria-label` ("10 de outubro: 80% de adesão") e `aria-current="date"`, e as caixas do guia, rótulo ("Fiz a refeição: Almoço", "Comi: Arroz").
 
 **O que ficou de fora:**
-- as cores fixas do diálogo de registro (o Sim em `bg-emerald-600`, o Não em `bg-orange-500`) e os ícones coloridos dos resumos (doce, álcool, água): fora do pedido, ficam para uma passada de tokens na tela inteira;
-- o mês do calendário ainda parte de `new Date()` do aparelho (só na virada do mês, perto da meia-noite, pode abrir no mês vizinho);
-- a imagem da Central (`app-dieta.jpg`) mostra a ordem antiga; trocar na próxima captura.
+- (superado em 13/10/2026) as cores fixas do diálogo de registro (o Sim em `bg-emerald-600`, o Não em `bg-orange-500`) e os ícones coloridos dos resumos (doce, álcool, água): fora do pedido, ficam para uma passada de tokens na tela inteira;
+- (superado em 13/10/2026) o mês do calendário ainda parte de `new Date()` do aparelho (só na virada do mês, perto da meia-noite, pode abrir no mês vizinho);
+- (superado em 13/10/2026) a imagem da Central (`app-dieta.jpg`) mostra a ordem antiga; trocar na próxima captura.
 
 Sem migration. A única publicação é a do `assistente-academia`, pelo índice dos artigos da Central.
 
@@ -458,3 +458,26 @@ Sem migration. A única publicação é a do `assistente-academia`, pelo índice
 - `npm run check` sem erro: tipos, lint (0 erros, os 27 avisos de antes), o `deno check` das 57 funções e nenhuma vulnerabilidade.
 - A Central (`app-treino.md`, `app-evolucao-e-desafios.md`) e o índice do assistente (`npm run ajuda:indice`) foram atualizados.
 - **Falta, porque esta frente não toca produção:** depois de aplicar a migration, concluir um treino na Ponto Alto com a aluna Marina Costa Ribeiro respondendo sono e energia, ver os dois gráficos na Evolução (computador e celular, nos dois temas), e confirmar com um login da recepção que a tabela volta vazia.
+
+## As sobras de 10/10: as cores da dieta, o texto do cartão de evento e as imagens da Central (13/10/2026)
+
+**O que sobrou** das entregas de 10/10 (seções acima): o diálogo de registro da dieta e os ícones dos resumos com cor fixa; o mês inicial do calendário pelo relógio do aparelho; o cartão "Próximo Evento de Acompanhamento" mostrando ao aluno o motivo da tarefa, escrito para a equipe; e as imagens `app-dieta.jpg` e `app-evolucao.jpg` da Central com as telas antigas.
+
+**As decisões:**
+- **O Sim e o Não do registro seguem o calendário.** Marcados, eram branco sobre `bg-emerald-600` (3,8:1) e sobre `bg-orange-500` (2,8:1), abaixo de 4,5:1. Agora o botão fica no contorno, com o fundo claro da cor (`bg-success/15`, `bg-warning/15`), a borda e o texto no `--*-texto`: 5,2:1 e 5,8:1 no claro, 7,0:1 e 6,9:1 no escuro. O `aria-pressed` continua dizendo qual está marcado.
+- **Os ícones dos resumos vão pelos tokens:** doce em `text-warning`, álcool em `text-destructive`, água em `text-info`, o "Este Mês" em `text-success`, e os fundos da saciedade em `bg-success/10`, `bg-info/10`, `bg-warning/10` e `bg-destructive/10`. Ícone é decoração ao lado do texto, então a cor só precisa acompanhar o tema.
+- **O mês inicial do calendário sai de `hojeBrasilia()`** (`parseISO(hojeBrasilia())`), como o "hoje" e o "futuro" já saíam. Antes, perto da meia-noite da virada do mês, o aparelho noutro fuso abria o mês vizinho.
+- **O cartão de evento diz "Seu encontro de acolhimento M.A.P.A.®"** (`TITULO_DO_EVENTO`, `src/lib/eventoAcompanhamento.ts`), e não o `motivo` da tarefa. O texto vem do app, sem mexer no banco, porque `obter_proximo_evento_aluno()` só devolve a tarefa `anamnese`: o evento é sempre o mesmo, e um texto por tipo no banco seria regra para tipos que não existem. Quando nascer outro tipo de evento, o título passa a ser por tipo, e aí vale levar o texto para a RPC. A RPC continua devolvendo o `motivo` (ela é de 10/10 e já o tratava como seguro de mostrar); a tela só deixou de usá-lo. Sem migration.
+- **As imagens da Central foram tiradas de novo** com `scripts/ajuda/capturar-telas.mjs`: `app-dieta` (o calendário no topo), `app-evolucao` (os gráficos dos hábitos) e `app-home` (o cartão de evento com o texto do Free). O roteiro estava quebrado em dois pontos, consertados aqui:
+  - `demonstracao.mjs semear` parava em `publicar_treino`, porque com o Método ativo só a equipe da ArkeFit com registro prescreve (`definir_dono_da_prescricao`), e o roteiro não tem pessoa na sessão. As alunas do Método nascem sem adesão e o Método liga depois do treino e da dieta. O Pedro ganhou uma semana de adesão à dieta, para o calendário ter cor;
+  - a dieta saía rolada até o fim (o chat desce até a última mensagem) e a Evolução, carregando. As duas esperam o título da tela e voltam ao topo antes da foto.
+  As imagens são do app publicado: os ícones dos resumos ficam com a cor de antes até o deploy deste PR, e estão abaixo da dobra da foto da dieta.
+
+**Conferido:**
+- **Testes:** `npx vitest run` com 1.696 testes em 214 arquivos, todos verdes. `eventoAcompanhamento.test` ganhou 1 teste: o título não fala de anamnese nem de prescrição, e a home usa o título e não lê `proximoEvento.motivo`.
+- **1 defeito plantado, pego:** o cartão voltou a mostrar `{proximoEvento.motivo}`; o teste novo falhou.
+- **Contraste**, pela mesma conta de `acessibilidade.guarda`, nos dois temas: os números acima.
+- `npm run check` sem erro: tipos, lint (0 erros, os 27 avisos de antes), o `deno check` das funções e nenhuma vulnerabilidade.
+- A Central (`app-tela-inicial.md`) e o índice do assistente (`npm run ajuda:indice`) foram atualizados; falta publicar `assistente-academia`.
+- **Roteiro das imagens, em produção:** `semear` com a academia fictícia "Academia Horizonte" (trial), as capturas e `limpar` no fim, sem linha órfã. A primeira tentativa parou no `publicar_treino` e foi limpa na hora (`limpar`: organização e 12 contas apagadas, nenhuma linha órfã).
+- **Falta, porque esta frente não publica:** depois do deploy, na Ponto Alto com a aluna Marina Costa Ribeiro, no celular e no computador, nos dois temas: o registro de um dia com Sim e Não legíveis, os ícones dos resumos e, com o acolhimento agendado pela fila, o cartão dizendo "Seu encontro de acolhimento M.A.P.A.®".
