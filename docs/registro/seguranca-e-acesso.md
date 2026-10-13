@@ -1280,3 +1280,34 @@ O custo que a recepção com as duas etapas passou a pagar na entrega 1 (+14%) s
 O projeto do app no Sentry (`javascript-react`) recebia, semanas antes, erros do protótipo antigo do ArkeFit, que usava a mesma chave pública (DSN). O responsável criou uma chave nova; o `VITE_SENTRY_DSN` foi trocado na Vercel e o app foi publicado de novo. Só depois disso a chave antiga foi desligada, para nenhum erro de produção se perder no meio.
 
 **Conferido:** o código publicado em `app.arkefit.com.br` leva só a chave nova (nenhum arquivo com a antiga); um evento de teste pela chave nova chegou ao projeto (`JAVASCRIPT-REACT-C`, resolvido em seguida); e, com a antiga desligada, um evento mandado por ela não entrou, mesmo minutos depois.
+
+## Os processos de segurança por escrito, para o contrato BaaS com o Asaas (13/10/2026)
+
+**Por quê.** A ArkeFit vai assinar com o Asaas o contrato de Banking as a Service (Resolução Conjunta BCB/CMN nº 16/2025). O Anexo I do contrato lista os controles de segurança que a ArkeFit tem de manter (itens 3 a 13), e a cláusula 9.2 pede, até 30 dias depois da assinatura, a resposta a um check-list baseado nele; o que faltar tem no máximo 180 dias para ser corrigido, e o atraso rescinde o contrato. A cláusula 10.2 pune a informação inexata. Os controles existiam espalhados pelo registro, pelas travas e pelo `INFRAESTRUTURA.md`, mas os processos que o Anexo pede (incidentes, vulnerabilidades, revisão de acessos, terceiros, backup) não estavam escritos em lugar nenhum.
+
+**O que entrou.** [`docs/SEGURANCA.md`](../SEGURANCA.md), na ordem do Anexo I. Para cada item, o controle que existe, com o arquivo, a trava ou a rotina que o comprova, e o procedimento: quem faz, quando e onde fica o registro. Traz:
+- os papéis (os sócios decidem, o responsável técnico opera, o agente de desenvolvimento trabalha sob o `CLAUDE.md`);
+- a revisão de acessos trimestral, na saída de alguém e depois de incidente, com a tabela dos sistemas e de como revogar em cada um;
+- a troca de chave comprometida, com o aviso ao Asaas;
+- os ambientes e como as mudanças entram;
+- o que se registra, onde, por quanto tempo e como é protegido;
+- o plano de resposta a incidentes: detecção, classificação, contenção, decisão dos sócios, comunicação (Asaas, academia, ANPD, titulares), registro e lições;
+- o processo de vulnerabilidades, com fontes, classificação e prazos;
+- o inventário de terceiros, com o que cada um trata, onde processa e o contrato de dados;
+- a política de backup para quando o Supabase Pro estiver ativo, com RPO e RTO propostos;
+- o desenvolvimento seguro, e o agente de IA declarado com os controles que o cercam.
+
+**Decisões, e por quê.**
+- **O arquivo público não tem lacuna.** O repositório é público: o documento descreve controles e procedimentos, e as vulnerabilidades abertas, os incidentes e a resposta ao check-list ficam com os sócios, fora do repositório. O que é corrigido continua vindo para cá, como sempre, sem detalhe explorável.
+- **Os prazos da ANPD conferidos no texto da Resolução CD/ANPD nº 15/2024:** 3 dias úteis para a ANPD (art. 6º) e para os titulares (art. 9º), contados do conhecimento de que o incidente afetou dados pessoais; complemento em 20 dias úteis; o registro do incidente guardado por no mínimo 5 anos (art. 10). **A ArkeFit não usa a dobra do agente de pequeno porte** (art. 6º, § 8º): dado de saúde, biometria e menor de idade podem caracterizar tratamento de alto risco, que tira o benefício (Resolução CD/ANPD nº 2/2022, arts. 3º e 4º).
+- **O aviso ao Asaas segue o contrato, e não um recorte nosso:** todo incidente que possa afetar os serviços, os dados, os sistemas ou a operação regulada, e todo indício de fraude ou uso indevido, imediatamente e no máximo em 24 horas (cláusula 8.2.1 e Anexo I, item 8.2). À academia, em 48 horas, como o Contrato da Academia já dizia (cláusula 6, item 5).
+- **O RTO é proposta:** 4 horas para restaurar no próprio projeto e 24 horas para um projeto novo; o número de verdade sai do ensaio de restauração, e `RESTAURACAO_BACKUP.md` passou a dizer isso e a periodicidade do ensaio (a cada 6 meses).
+- **A cópia fora do Supabase roda na AWS em São Paulo**, e não no GitHub Actions: o dado de saúde não sai do país, e um repositório público não guarda artefato de banco.
+- **`INFRAESTRUTURA.md` dizia que os logins e o arquivo de chaves ficavam no gerenciador de senhas.** Passou a dizer "fora do repositório, sob a guarda dos sócios", que é o que vale hoje.
+- O `CLAUDE.md` ganhou o documento no mapa.
+
+**Conferido:**
+- Cada controle citado foi conferido no código, nas migrations ou no registro: as 69 travas `*.guarda.test.ts`, as 57 funções, a trilha `auditoria_acoes_sensiveis` sem regra de escrita pela API e sem rotina que apague, os prazos de retenção da limpeza diária (`limpar_historicos_antigos`), nenhuma chamada de saque ou transferência ao Asaas nas funções.
+- No GitHub, pela API: a varredura de segredos e o bloqueio no envio ligados.
+- Os artigos 5º, 6º, 9º e 10 da Resolução CD/ANPD nº 15/2024 lidos no texto publicado.
+- `npm run check` na máquina e no CI: 0 erros (os 27 avisos de antes), o `deno check` das 57 funções e 0 vulnerabilidades. `npx vitest run` no CI: 214 arquivos e 1.696 testes passando. Só documentação mudou.

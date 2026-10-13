@@ -2,7 +2,7 @@
 
 Backup que nunca foi restaurado é hipótese. Este ensaio prova que a volta funciona e mede quanto tempo ela leva, antes de o primeiro cliente depender disso.
 
-**Quando:** logo depois de contratar o Supabase Pro, antes do primeiro cliente pagante implantado. No plano gratuito não há backup para restaurar; por isso o ensaio espera o upgrade (decisão dos sócios de 24/09/2026: fica o backup diário do Pro, sem o adicional de volta a qualquer momento do dia).
+**Quando:** logo depois de contratar o Supabase Pro, antes do primeiro cliente pagante implantado. No plano gratuito não há backup para restaurar; por isso o ensaio espera o upgrade (decisão dos sócios de 24/09/2026: fica o backup diário do Pro, sem o adicional de volta a qualquer momento do dia). Depois, a cada 6 meses e depois de toda mudança grande de infraestrutura. A política de backup, o RPO e o RTO estão em [SEGURANCA.md](SEGURANCA.md), seção 12; o tempo medido aqui substitui o RTO proposto lá.
 
 ## Passos
 
