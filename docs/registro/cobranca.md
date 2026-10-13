@@ -730,7 +730,7 @@ O teste da etapa Recebimentos ganhou três casos: pede a chave, mostra a conta j
 
 - `npm run check` sem erro, com as 57 funções no `deno check`.
 - **A guarda nova e as vizinhas:** `contaPropriaPadrao.guarda` (9 casos), a etapa Recebimentos (9, com 3 novos), os acessos da Visão Master, a subconta, o prestador, as chaves de cache e os documentos legais: 78 testes em 7 arquivos, todos passando. `cobrancaNaContaDaAcademia.test` segue com os 18.
-- **A suíte inteira** roda no CI deste PR (os três jobs).
+- **A suíte inteira, no CI do PR:** 1.708 testes em 215 arquivos, todos passando, e os 347 do Gateway. Na máquina local, carregada, `ChatPanel` e `VerificacaoDuasEtapas` estouraram o prazo de 5 s; no CI, os dois passaram.
 - **Quatro defeitos plantados**, e o teste certo falhou em cada um:
   1. a conexão da chave sem ligar o modo;
   2. a divisão na conta da academia com a taxa (falharam a guarda e `cobrancaNaContaDaAcademia.test`);
