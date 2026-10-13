@@ -147,6 +147,7 @@ Cada linha é uma armadilha que já aconteceu aqui. Onde há trava, ela é um te
 - `docs/`:
   - `registro/` (o diário, por assunto);
   - `INFRAESTRUTURA.md`;
+  - `SEGURANCA.md` (os controles e processos de segurança pelos itens do Anexo I do contrato BaaS com o Asaas: acessos, chaves, incidentes, vulnerabilidades, terceiros, backup), que muda no mesmo PR de qualquer troca de processo, terceiro ou acesso;
   - `LANCAMENTO_1_0.md`;
   - `RESTAURACAO_BACKUP.md`;
   - `DECISOES_PENDENTES.md`;

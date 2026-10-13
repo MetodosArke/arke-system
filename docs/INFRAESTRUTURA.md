@@ -2,7 +2,7 @@
 
 Todos os serviços de que o ArkeFit depende, para que servem e onde fica a configuração de cada um. Atualizado em 25/09/2026, conferido nas contas e no DNS nesse dia.
 
-**Este arquivo não tem segredo nenhum, e não pode ter.** O repositório é público. Aqui ficam os **nomes** das chaves e onde cada uma mora, nunca os valores. Logins, senhas, códigos de recuperação da verificação em duas etapas e o arquivo de chaves usado pelos scripts (variável `ARKE_CHAVES`) ficam no gerenciador de senhas. Veja [Como não depender de um lugar só](#como-não-depender-de-um-lugar-só).
+**Este arquivo não tem segredo nenhum, e não pode ter.** O repositório é público. Aqui ficam os **nomes** das chaves e onde cada uma mora, nunca os valores. Logins, senhas, códigos de recuperação da verificação em duas etapas e o arquivo de chaves usado pelos scripts (variável `ARKE_CHAVES`) ficam fora do repositório, sob a guarda dos sócios. Veja [Como não depender de um lugar só](#como-não-depender-de-um-lugar-só) e [SEGURANCA.md](SEGURANCA.md), seção 4.
 
 ## Mapa rápido
 
