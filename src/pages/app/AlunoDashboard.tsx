@@ -429,7 +429,7 @@ export default function AlunoDashboard() {
               <button
                 type="button"
                 onClick={() => irPara(destinoDoEvento(planoAluno))}
-                className="flex w-full items-center justify-between gap-2 rounded-lg -m-1 p-1 text-left hover:bg-accent/50 transition-colors"
+                className="flex w-full items-center justify-between gap-2 rounded-lg -mx-2 px-2 py-1.5 text-left hover:bg-muted transition-colors"
               >
                 <span className="space-y-0.5">
                   <span className="block text-sm font-medium">{TITULO_DO_EVENTO}</span>
@@ -530,7 +530,7 @@ export default function AlunoDashboard() {
       <div className="grid grid-cols-2 gap-2 sm:gap-3">
         <button
           onClick={() => navigate("/app/treinos")}
-          className="text-left rounded-xl border border-border bg-card p-3 sm:p-4 hover:bg-accent/50 transition-colors"
+          className="text-left rounded-xl border border-border bg-card p-3 sm:p-4 hover:bg-muted transition-colors"
         >
           <div className="flex items-center justify-between mb-1.5">
             <Dumbbell className="h-5 w-5 text-primary" />
@@ -547,7 +547,7 @@ export default function AlunoDashboard() {
 
         <button
           onClick={() => navigate("/app/dieta")}
-          className="text-left rounded-xl border border-border bg-card p-3 sm:p-4 hover:bg-accent/50 transition-colors"
+          className="text-left rounded-xl border border-border bg-card p-3 sm:p-4 hover:bg-muted transition-colors"
         >
           <UtensilsCrossed className="h-5 w-5 text-primary mb-1.5" />
           <p className="text-sm font-semibold">Minha Dieta</p>
@@ -556,7 +556,7 @@ export default function AlunoDashboard() {
 
         <button
           onClick={() => document.getElementById("meu-progresso")?.scrollIntoView({ behavior: "smooth" })}
-          className="text-left rounded-xl border border-border bg-card p-3 sm:p-4 hover:bg-accent/50 transition-colors"
+          className="text-left rounded-xl border border-border bg-card p-3 sm:p-4 hover:bg-muted transition-colors"
         >
           <TrendingUp className="h-5 w-5 text-primary mb-1.5" />
           <p className="text-sm font-semibold">Meu Progresso</p>
@@ -565,7 +565,7 @@ export default function AlunoDashboard() {
 
         <button
           onClick={() => document.getElementById("registrar-alerta")?.scrollIntoView({ behavior: "smooth" })}
-          className="text-left rounded-xl border border-border bg-card p-3 sm:p-4 hover:bg-accent/50 transition-colors"
+          className="text-left rounded-xl border border-border bg-card p-3 sm:p-4 hover:bg-muted transition-colors"
         >
           <AlertTriangle className="h-5 w-5 text-primary mb-1.5" />
           <p className="text-sm font-semibold">Registrar Alerta</p>

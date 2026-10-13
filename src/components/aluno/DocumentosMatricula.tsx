@@ -137,12 +137,12 @@ export function DocumentosMatricula() {
       </CardHeader>
       <CardContent className="space-y-2">
         {faltaContrato && (
-          <Button variant="outline" className="w-full justify-start" onClick={() => { setNome(profile?.full_name ?? ""); setConcordo(false); setAbrir("contrato"); }}>
+          <Button variant="outline" className="w-full justify-start h-auto min-h-10 whitespace-normal py-2 text-left" onClick={() => { setNome(profile?.full_name ?? ""); setConcordo(false); setAbrir("contrato"); }}>
             <FileSignature className="h-4 w-4 mr-2" /> Assinar o contrato da {organization?.nome}
           </Button>
         )}
         {faltaParq && (
-          <Button variant="outline" className="w-full justify-start" onClick={() => setAbrir("parq")}>
+          <Button variant="outline" className="w-full justify-start h-auto min-h-10 whitespace-normal py-2 text-left" onClick={() => setAbrir("parq")}>
             <HeartPulse className="h-4 w-4 mr-2" /> Responder o questionário de saúde (1 min)
           </Button>
         )}

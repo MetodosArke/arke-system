@@ -508,3 +508,11 @@ Os dois já eram alunos da Ponto Alto, em dia, com treino, dieta, duas avaliaç�
 - Antes de rodar em produção, a ligação do Método foi provada em transação desfeita.
 - Uma primeira versão marcava o encontro numa tarefa própria (`demo:acolhimento:`), que duplicaria a do acolhimento; as duas linhas foram apagadas antes da versão final.
 - `npm run check` sem erro (tipos, lint com 0 erros e os 27 avisos de antes, o `deno check` das 57 funções e nenhuma vulnerabilidade) e `npx vitest run` com 1.696 testes em 214 arquivos, todos verdes.
+
+## O realce da home do aluno e o botão do questionário de saúde (13/10/2026)
+
+As capturas dos dois alunos do Método (#389) mostraram dois defeitos de tela:
+- **O realce ao passar o mouse era o azul da academia.** O cartão do próximo evento (#382) e os quatro atalhos da home usavam `hover:bg-accent/50`, e o tema da academia troca o `--accent` pela cor da marca. Com o mouse em cima, a data em `text-primary` ficava azul sobre azul. Os cinco passam a `hover:bg-muted`, neutro em qualquer tema, e o cartão de evento ganhou o respiro lateral que faltava.
+- **O texto do botão saía da borda no celular.** "Responder o questionário de saúde (1 min)" não cabia em 390 px, e o botão não quebrava a linha. Os botões de documentos da matrícula passam a quebrar a linha.
+
+**Conferido:** na tela, depois do deploy (abaixo, no PR).
