@@ -429,7 +429,7 @@ export default function AlunoDashboard() {
               <button
                 type="button"
                 onClick={() => irPara(destinoDoEvento(planoAluno))}
-                className="flex w-full items-center justify-between gap-2 rounded-lg -mx-2 px-2 py-1.5 text-left hover:bg-muted transition-colors"
+                className="flex w-full items-center justify-between gap-2 rounded-lg -mx-2 px-2 py-1.5 text-left hover:bg-muted/60 transition-colors"
               >
                 <span className="space-y-0.5">
                   <span className="block text-sm font-medium">{TITULO_DO_EVENTO}</span>
