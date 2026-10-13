@@ -1310,3 +1310,4 @@ O projeto do app no Sentry (`javascript-react`) recebia, semanas antes, erros do
 - Cada controle citado foi conferido no código, nas migrations ou no registro: as 69 travas `*.guarda.test.ts`, as 57 funções, a trilha `auditoria_acoes_sensiveis` sem regra de escrita pela API e sem rotina que apague, os prazos de retenção da limpeza diária (`limpar_historicos_antigos`), nenhuma chamada de saque ou transferência ao Asaas nas funções.
 - No GitHub, pela API: a varredura de segredos e o bloqueio no envio ligados.
 - Os artigos 5º, 6º, 9º e 10 da Resolução CD/ANPD nº 15/2024 lidos no texto publicado.
+- `npm run check` na máquina e no CI: 0 erros (os 27 avisos de antes), o `deno check` das 57 funções e 0 vulnerabilidades. `npx vitest run` no CI: 214 arquivos e 1.696 testes passando. Só documentação mudou.
