@@ -35,12 +35,12 @@ Sem repasse configurado, a academia não consegue vender o Método: a cobrança 
 
 ### Conta das cobranças
 
-Na ficha, **Conta das cobranças**: por padrão, a mensalidade e a avulsa saem da conta Asaas da ArkeFit, com a divisão para a carteira da academia e a taxa de processamento. **Cobrar na conta da academia** faz a mensalidade e a avulsa **novas** saírem da conta Asaas da própria academia, sem divisão e sem taxa (a tarifa do Asaas é cobrada direto dela). O Método continua na conta da ArkeFit.
+Na ficha, **Conta das cobranças**: a mensalidade e a avulsa **novas** saem da conta Asaas da própria academia, sem divisão e sem taxa (a tarifa do Asaas é cobrada direto dela). O Método continua na conta da ArkeFit, com a parte da academia por divisão. A ArkeFit não abre subcontas: toda academia usa a conta própria no Asaas.
 
-- Pede a chave da conta da academia conectada (a gestão conecta em Financeiro → Notas fiscais), conferida contra a carteira.
-- Ligar registra o aviso de pagamento (webhook) na conta da academia, com um token só dela.
-- É recusado enquanto houver assinatura de plano viva na conta da ArkeFit para a academia (a ficha diz quantas): o modo não migra assinatura. Voltar para a conta da ArkeFit é recusado com assinatura ou avulsa em aberto na conta da academia.
-- Só a ArkeFit, com as duas etapas, muda; fica na Auditoria.
+- **É o padrão desde 13/10/2026:** liga sozinho quando a gestão conecta a chave da conta própria (na etapa Recebimentos da configuração, ou em Financeiro → Notas fiscais), conferida contra a carteira. Não há o que fazer na ficha para a academia nova.
+- Ligar registra o aviso de pagamento (webhook) na conta da academia, com um token só dela, e fica na Auditoria (quem conectou a chave, ou quem ligou pela ficha).
+- É recusado enquanto houver assinatura de plano viva na conta da ArkeFit para a academia (a ficha diz quantas): o modo não migra assinatura. Essa academia continua com a divisão e a taxa de processamento na mensalidade até a passagem, feita à mão: a conta própria aberta e conectada, as assinaturas antigas encerradas, e a ficha liga.
+- Na ficha, a ArkeFit, com as duas etapas, liga de novo (registra o aviso outra vez) ou volta para a conta da ArkeFit, que é recusado com assinatura ou avulsa em aberto na conta da academia.
 
 ## 3. Mensalidade B2B
 

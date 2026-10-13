@@ -9,7 +9,7 @@ Todo aviso que o Asaas entrega, com o que ele **efetivamente fez no banco**: pag
 
 A situação das chaves (`ASAAS_API_KEY`, `ASAAS_WEBHOOK_SECRET`) aparece no topo.
 
-Com a **cobrança na conta da academia** ligada para uma academia, os avisos da conta Asaas dela chegam por um webhook próprio, registrado pela ficha da organização, com um token só dela (o banco guarda só o hash). Esse aviso só mexe na mensalidade e na avulsa daquela academia que nasceram na conta dela; o que tentar mexer em outra coisa aparece como **Conta da academia: …**, sem efeito. A cobrança que a academia faz por fora do ARKE, na conta dela, nem é gravada.
+Com a **cobrança na conta da academia** ligada para uma academia, os avisos da conta Asaas dela chegam por um webhook próprio, registrado quando a gestão conecta a chave da conta (ou pela ficha da organização), com um token só dela (o banco guarda só o hash). Esse aviso só mexe na mensalidade e na avulsa daquela academia que nasceram na conta dela; o que tentar mexer em outra coisa aparece como **Conta da academia: …**, sem efeito. A cobrança que a academia faz por fora do ARKE, na conta dela, nem é gravada.
 
 ## Conferência diária com o Asaas
 

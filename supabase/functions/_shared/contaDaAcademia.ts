@@ -8,6 +8,8 @@ import type { SupabaseClient } from "npm:@supabase/supabase-js@2";
 import type { AmbienteAsaas } from "./asaas.ts";
 import { carteiraDaChave, chaveCombinaComAmbiente, FalhaIndefinida } from "../nfse-emitir/fluxo.ts";
 import type { NomeConta } from "./contaCobranca.ts";
+import { resumoDoErro } from "./resumoDoErro.ts";
+import { gerarTokenWebhook, hashDoTokenWebhook, registrarWebhookNaConta, urlDoWebhookDaAcademia } from "./webhookAcademia.ts";
 
 export type ContaCobranca = {
   nome: NomeConta;
@@ -77,6 +79,78 @@ export function abridorDaContaDaAcademia(
     const r = await contaDaCobranca(admin, ambiente, { id: organizationId }, "academia", { conferirCarteira: false });
     return "erro" in r ? { erro: r.erro } : { api: r.api, chave: r.chave };
   };
+}
+
+export type ModoLigado = { ok: true; webhook: "registrado" | "atualizado" };
+
+/**
+ * Liga a cobrança na conta da academia (`organizations.cobranca_conta_academia`):
+ * confere a chave do cofre contra a carteira de hoje, registra o aviso de
+ * pagamento (webhook) na conta dela e grava o modo, o hash do token e a
+ * auditoria juntos (`definir_cobranca_conta_academia`).
+ *
+ * É o caminho único de ligar (13/10/2026: o modo é o padrão): a gestão, ao
+ * conectar a chave da conta própria (`asaas-fiscal-academia`), e a ArkeFit,
+ * pela ficha da organização (`asaas-conta-academia`). Repetir é seguro: o
+ * webhook da mesma URL é atualizado, e o token e o hash trocam juntos.
+ *
+ * Com assinatura de plano viva na conta da ArkeFit, recusa antes de tocar o
+ * Asaas (`vivas`), e o banco recusa de novo na mesma transação que liga: o
+ * modo vale para a cobrança nova e não migra assinatura.
+ */
+export async function ligarCobrancaNaContaDaAcademia(
+  admin: SupabaseClient,
+  ambiente: AmbienteAsaas,
+  org: { id: string; asaas_wallet_id?: string | null },
+  dados: { supabaseUrl: string; atorId: string },
+): Promise<ModoLigado | (FalhaConta & { vivas?: number })> {
+  if (!org.asaas_wallet_id) {
+    return { erro: "A academia ainda não configurou a conta de recebimentos (Onboarding → Recebimentos).", status: 422 };
+  }
+  const { count: vivas, error: erroVivas } = await admin
+    .from("aluno_matriculas_academia")
+    .select("id", { count: "exact", head: true })
+    .eq("organization_id", org.id)
+    .eq("conta_asaas", "arkefit")
+    .in("status", ["ativa", "pausada"])
+    .not("asaas_subscription_id", "is", null);
+  if (erroVivas) return { erro: "Não foi possível conferir as assinaturas agora. Tente de novo.", status: 500 };
+  if (vivas) {
+    return {
+      erro: `Há ${vivas} assinatura(s) de plano viva(s) na conta da ArkeFit para esta academia. O modo vale só para cobrança nova e não migra assinatura: cancele ou deixe terminar essas antes de ligar.`,
+      status: 409,
+      vivas,
+    };
+  }
+  // A chave da conta da academia (a do cofre, da nota fiscal), conferida
+  // contra a carteira que recebe hoje.
+  const conta = await contaDaCobranca(admin, ambiente, org, "academia", { conferirCarteira: true });
+  if ("erro" in conta) return conta;
+
+  const token = gerarTokenWebhook();
+  const registro = await registrarWebhookNaConta(conta.api, conta.chave, {
+    url: urlDoWebhookDaAcademia(dados.supabaseUrl, org.id),
+    token,
+  });
+  if (!registro.ok) {
+    console.error("contaDaAcademia: o Asaas não registrou o webhook da academia");
+    return { erro: `O Asaas não registrou o aviso de pagamento na conta da academia: ${registro.erro}`, status: 502 };
+  }
+  const { error } = await admin.rpc("definir_cobranca_conta_academia", {
+    _organization_id: org.id,
+    _ligar: true,
+    _ator_user_id: dados.atorId,
+    _ambiente: conta.ambiente,
+    _token_hash: await hashDoTokenWebhook(token),
+    _asaas_webhook_id: registro.id,
+  });
+  if (error) {
+    // P0001: a recusa nossa, com a contagem (assinatura viva na outra conta).
+    if (error.code === "P0001") return { erro: error.message, status: 409, vivas: Number(error.details ?? 0) || undefined };
+    console.error("contaDaAcademia: falhou ao gravar o modo", resumoDoErro(error));
+    return { erro: "Não foi possível gravar a mudança. Tente de novo.", status: 500 };
+  }
+  return { ok: true, webhook: registro.atualizado ? "atualizado" : "registrado" };
 }
 
 /** Lembra o cliente do aluno na conta da academia (separado do cliente na conta da ArkeFit). Falhar não perde nada: a próxima busca acha pela referência. */

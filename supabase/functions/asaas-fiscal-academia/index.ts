@@ -14,6 +14,7 @@ import {
   opcoesMunicipais,
 } from "../nfse-emitir/fluxo.ts";
 import { servir } from "../_shared/servir.ts";
+import { ligarCobrancaNaContaDaAcademia } from "../_shared/contaDaAcademia.ts";
 import { decidirEmissao } from "./fluxo.ts";
 
 const corsHeaders = {
@@ -28,7 +29,8 @@ const jsonResponse = (body: unknown, status = 200) =>
 // fiscais). A academia preenche; o ARKE só transmite ao Asaas, na conta dela.
 //
 //   situacao  → o que a prefeitura da cidade exige, o que já foi enviado e a configuração local;
-//   chave     → conecta a conta Asaas de quem informou uma carteira que já tinha;
+//   chave     → conecta a conta Asaas de quem informou uma carteira que já tinha,
+//               e liga a cobrança na conta da academia (o padrão, 13/10/2026);
 //   servicos  → busca o serviço municipal ("ginástica");
 //   cadastro  → envia o cadastro fiscal ao Asaas (multipart: pode levar o certificado);
 //   config    → serviço, ISS, observação e o interruptor da emissão.
@@ -148,7 +150,20 @@ servir("asaas-fiscal-academia", async (req: Request) => {
         console.error("asaas-fiscal-academia: cofre recusou a chave", erroCofre.code);
         return jsonResponse({ error: "Não foi possível guardar a chave. Tente de novo." }, 500);
       }
-      return jsonResponse(await situacao(admin, orgId, ambiente.api, chave));
+      // A conta própria conectada (carteira e chave): a mensalidade e a avulsa
+      // novas passam a sair da conta da academia, pelo valor inteiro (13/10/2026,
+      // o modo é o padrão), pelo mesmo caminho da ficha da ArkeFit. A academia
+      // com assinatura de plano viva na conta da ArkeFit não muda (`vivas`): a
+      // troca dela é manual. A falha não desfaz a chave: a resposta diz o que
+      // faltou, e conectar de novo tenta de novo.
+      const modo = await ligarCobrancaNaContaDaAcademia(admin, ambiente, org, { supabaseUrl, atorId: callerId });
+      const cobrancaNaConta =
+        "erro" in modo
+          ? modo.vivas
+            ? { ligado: false, assinaturas_na_conta_arkefit: modo.vivas }
+            : { ligado: false, aviso: modo.erro }
+          : { ligado: true };
+      return jsonResponse({ ...(await situacao(admin, orgId, ambiente.api, chave)), cobranca_na_conta: cobrancaNaConta });
     }
 
     const { data: chave } = await admin.rpc("ler_chave_subconta_asaas", { _organization_id: orgId });

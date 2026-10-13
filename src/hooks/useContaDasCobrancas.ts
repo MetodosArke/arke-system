@@ -2,11 +2,13 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
 /**
- * Em qual conta Asaas a cobrança nova da academia nasce: a da ArkeFit (com
- * split e a taxa de processamento) ou a da própria academia
- * (`organizations.cobranca_conta_academia`, ligado só pela ArkeFit). A prévia
- * da cobrança muda: na conta da academia não há taxa da ArkeFit, e a tarifa
- * do Asaas é cobrada pelo Asaas direto da academia.
+ * Em qual conta Asaas a cobrança nova da academia nasce: a da própria
+ * academia (`organizations.cobranca_conta_academia`, o padrão desde
+ * 13/10/2026: liga ao conectar a chave da conta própria) ou, na academia que
+ * ainda tem assinatura de plano na conta da ArkeFit, a da ArkeFit (com split
+ * e a taxa de processamento). A prévia da cobrança muda: na conta da academia
+ * não há taxa da ArkeFit, e a tarifa do Asaas é cobrada pelo Asaas direto da
+ * academia.
  *
  * O Método não passa por aqui: ele mora sempre na conta da ArkeFit.
  */

@@ -259,7 +259,7 @@ export default function AdminGestao360() {
   // O que a ArkeFit retém de cada trilha: no Método, atacado + taxa de
   // processamento (travado na assinatura; as anteriores a esse registro caem
   // no custo do nível); no plano próprio, só a taxa de processamento,
-  // travada na matrícula.
+  // travada na matrícula, e zero na matrícula da conta da academia.
   const custoArkeMrr =
     assinaturasAtivas.reduce(
       // Toda assinatura trava o repasse na criacao desde 21/09/2026, entao o
@@ -324,7 +324,7 @@ export default function AdminGestao360() {
       ["Receita bruta — Método ARKE", formatarMoeda(receitaArkeMes)],
       ["Receita bruta — Planos e cobranças avulsas da Academia", formatarMoeda(receitaAcademiaMes)],
       ["Receita bruta total", formatarMoeda(receitaBrutaMes)],
-      ["(–) Repasse ARKE (atacado + taxa de processamento)", formatarMoeda(repasseArkeMes)],
+      ["(–) Parte da ArkeFit (Método e cobranças pela conta da ArkeFit)", formatarMoeda(repasseArkeMes)],
       ["(–) Custo de equipe (folha + comissões)", formatarMoeda(custoEquipeMes)],
       ["(=) Receita líquida da academia", formatarMoeda(receitaLiquidaMes)],
       [],
@@ -449,7 +449,7 @@ export default function AdminGestao360() {
           value={formatarMoeda(mrrBruto)}
           sublabel={`ARKE ${formatarMoeda(mrrArke)} + Academia ${formatarMoeda(mrrAcademia)}`}
         />
-        <StatTile icon={TrendingUp} label="MRR líquido" value={formatarMoeda(mrrLiquido)} sublabel="Após repasse ARKE (atacado + taxa de processamento)" />
+        <StatTile icon={TrendingUp} label="MRR líquido" value={formatarMoeda(mrrLiquido)} sublabel="Após a parte da ArkeFit (Método e cobranças pela conta da ArkeFit)" />
         <StatTile icon={Users} label="ARPU líquido" value={formatarMoeda(arpu)} sublabel="Por aluno ativo/mês" />
         <StatTile icon={TrendingUp} label="LTV estimado" value={ltv != null ? formatarMoeda(ltv) : "N/D"} sublabel="Baseado no churn do mês" />
         <StatTile icon={TrendingDown} label="Churn do mês" value={`${decimal(churnPct, 1)}%`} sublabel={`${cancelamentosMes} cancelamento(s)`} />
@@ -492,7 +492,7 @@ export default function AdminGestao360() {
             <span className="font-semibold">{formatarMoeda(receitaBrutaMes)}</span>
           </div>
           <div className="flex items-center justify-between border-b border-border pb-2 text-destructive">
-            <span>(–) Repasse ARKE (atacado + taxa de processamento)</span>
+            <span>(–) Parte da ArkeFit (Método e cobranças pela conta da ArkeFit)</span>
             <span className="font-semibold">{formatarMoeda(repasseArkeMes)}</span>
           </div>
           <div className="flex items-center justify-between border-b border-border pb-2 text-destructive">

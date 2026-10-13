@@ -17,7 +17,7 @@ export const ETAPAS: { etapa: EtapaOnboarding; titulo: string; minutos: number; 
     etapa: "recebimentos",
     titulo: "Conta de recebimentos",
     minutos: 3,
-    resumo: "Conta Asaas para receber as mensalidades dos alunos, com a parte da academia caindo direto nela.",
+    resumo: "A conta Asaas da academia, com a carteira e a chave de API: as mensalidades dos alunos caem nela pelo valor inteiro.",
   },
   { etapa: "planos", titulo: "Planos e preços", minutos: 2, resumo: "Mensal, trimestral e anual já vêm prontos para ajustar." },
   { etapa: "equipe", titulo: "Equipe", minutos: 3, resumo: "Professores, nutricionista e recepção — ou siga sozinho." },

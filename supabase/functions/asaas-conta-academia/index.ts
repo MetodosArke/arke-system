@@ -21,13 +21,7 @@ import { servir } from "../_shared/servir.ts";
 import { cabecalhosDoResend, chaveDeIdempotencia, envioAceito, resumoParaChave } from "../_shared/idempotenciaEmail.ts";
 import { resumoDoErro } from "../_shared/resumoDoErro.ts";
 import { MENSAGEM_PERFIL_SIMULADO, sessaoSimulada } from "../_shared/sessaoSimulada.ts";
-import { contaDaCobranca } from "../_shared/contaDaAcademia.ts";
-import {
-  gerarTokenWebhook,
-  hashDoTokenWebhook,
-  registrarWebhookNaConta,
-  urlDoWebhookDaAcademia,
-} from "../_shared/webhookAcademia.ts";
+import { ligarCobrancaNaContaDaAcademia } from "../_shared/contaDaAcademia.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -94,7 +88,8 @@ async function avisarArkefit(
 //   existente → a academia que já tem conta informa a carteira (walletId);
 //   situacao  → consulta a aprovação da subconta criada pelo ARKE.
 //   modo_cobranca → liga ou desliga a cobrança na conta da academia (só a
-//               ArkeFit, verificada): registra o webhook na conta dela.
+//               ArkeFit, verificada): registra o webhook na conta dela. A
+//               gestão liga sem pedir, ao conectar a chave (13/10/2026).
 //
 // `criar` é BaaS (resposta do Asaas de 06/10/2026): só com o interruptor
 // `asaas_subcontas_baas` ligado e com o aceite dos Termos do Asaas pela
@@ -190,74 +185,39 @@ servir("asaas-conta-academia", async (req: Request) => {
     // `asaas-webhook?org=<id>`), com um token novo cujo hash vai ao banco
     // junto com o modo e a auditoria. O modo vale para cobrança nova: com
     // assinatura de plano viva na conta da ArkeFit, ligar é recusado.
+    // Desde 13/10/2026 o modo é o padrão: ele liga sozinho quando a gestão
+    // conecta a chave da conta própria (`asaas-fiscal-academia`), pelo mesmo
+    // `ligarCobrancaNaContaDaAcademia`. Aqui fica a ArkeFit, para ligar de
+    // novo ou desligar.
     if (acao === "modo_cobranca") {
       if (!arkefit) {
         return jsonResponse({ error: "Só a equipe ArkeFit, com a verificação em duas etapas, muda a conta das cobranças." }, 403);
       }
       if (typeof corpo.ligar !== "boolean") return jsonResponse({ error: "Pedido inválido." }, 400);
 
-      const definir = async (ligar: boolean, extras: { ambiente: string | null; hash: string | null; webhook: string | null }) => {
-        const { data, error } = await admin.rpc("definir_cobranca_conta_academia", {
-          _organization_id: org.id,
-          _ligar: ligar,
-          _ator_user_id: callerId,
-          _ambiente: extras.ambiente,
-          _token_hash: extras.hash,
-          _asaas_webhook_id: extras.webhook,
-        });
-        if (error) {
-          // P0001: a recusa com a contagem (assinatura viva na outra conta).
-          if (error.code === "P0001") return jsonResponse({ error: error.message, cobrancas_vivas: Number(error.details ?? 0) || null }, 409);
-          console.error("asaas-conta-academia: falhou ao gravar o modo", resumoDoErro(error));
-          return jsonResponse({ error: "Não foi possível gravar a mudança. Tente de novo." }, 500);
-        }
-        return null as Response | null;
-      };
-
-      if (!corpo.ligar) {
-        const falha = await definir(false, { ambiente: null, hash: null, webhook: null });
-        // O webhook fica registrado: estorno de cobrança antiga ainda chega por ele.
-        return falha ?? jsonResponse({ ok: true, ligado: false });
+      if (corpo.ligar) {
+        // O mesmo caminho da conexão da chave pela gestão (13/10/2026).
+        const r = await ligarCobrancaNaContaDaAcademia(admin, ambiente, org, { supabaseUrl, atorId: callerId });
+        if ("erro" in r) return jsonResponse({ error: r.erro, cobrancas_vivas: r.vivas ?? null }, r.status);
+        return jsonResponse({ ok: true, ligado: true, webhook: r.webhook });
       }
 
-      if (!org.asaas_wallet_id) {
-        return jsonResponse({ error: "A academia ainda não configurou a conta de recebimentos (Onboarding → Recebimentos)." }, 422);
-      }
-      // A recusa antes de mexer no Asaas: o banco recusa de novo, na mesma
-      // transação que liga o modo.
-      const { count: vivas, error: erroVivas } = await admin
-        .from("aluno_matriculas_academia")
-        .select("id", { count: "exact", head: true })
-        .eq("organization_id", org.id)
-        .eq("conta_asaas", "arkefit")
-        .in("status", ["ativa", "pausada"])
-        .not("asaas_subscription_id", "is", null);
-      if (erroVivas) return jsonResponse({ error: "Não foi possível conferir as assinaturas agora. Tente de novo." }, 500);
-      if (vivas) {
-        return jsonResponse(
-          {
-            error: `Há ${vivas} assinatura(s) de plano viva(s) na conta da ArkeFit para esta academia. O modo vale só para cobrança nova e não migra assinatura: cancele ou deixe terminar essas antes de ligar.`,
-            cobrancas_vivas: vivas,
-          },
-          409,
-        );
-      }
-      // A chave da conta da academia (a do cofre, da nota fiscal), conferida
-      // contra a carteira que recebe hoje.
-      const conta = await contaDaCobranca(admin, ambiente, org, "academia", { conferirCarteira: true });
-      if ("erro" in conta) return jsonResponse({ error: conta.erro }, conta.status);
-
-      const token = gerarTokenWebhook();
-      const registro = await registrarWebhookNaConta(conta.api, conta.chave, {
-        url: urlDoWebhookDaAcademia(supabaseUrl, org.id as string),
-        token,
+      const { error } = await admin.rpc("definir_cobranca_conta_academia", {
+        _organization_id: org.id,
+        _ligar: false,
+        _ator_user_id: callerId,
+        _ambiente: null,
+        _token_hash: null,
+        _asaas_webhook_id: null,
       });
-      if (!registro.ok) {
-        console.error("asaas-conta-academia: o Asaas não registrou o webhook da academia");
-        return jsonResponse({ error: `O Asaas não registrou o aviso de pagamento na conta da academia: ${registro.erro}` }, 502);
+      if (error) {
+        // P0001: a recusa com a contagem (assinatura viva na conta da academia).
+        if (error.code === "P0001") return jsonResponse({ error: error.message, cobrancas_vivas: Number(error.details ?? 0) || null }, 409);
+        console.error("asaas-conta-academia: falhou ao gravar o modo", resumoDoErro(error));
+        return jsonResponse({ error: "Não foi possível gravar a mudança. Tente de novo." }, 500);
       }
-      const falha = await definir(true, { ambiente: conta.ambiente, hash: await hashDoTokenWebhook(token), webhook: registro.id });
-      return falha ?? jsonResponse({ ok: true, ligado: true, webhook: registro.atualizado ? "atualizado" : "registrado" });
+      // O webhook fica registrado: estorno de cobrança antiga ainda chega por ele.
+      return jsonResponse({ ok: true, ligado: false });
     }
 
     // ── Academia que já tem conta Asaas ─────────────────────────────────

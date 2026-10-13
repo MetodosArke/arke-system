@@ -348,6 +348,8 @@ A página de vendas não mostra cobrança e por isso fica sem o selo. A pergunta
 
 ### 3. Cobrança na conta da academia, por academia, desligada
 
+> **Superado em 13/10/2026:** o modo é o padrão e liga sozinho quando a gestão conecta a chave da conta própria. Veja "A conta própria como padrão" no fim deste arquivo.
+
 `organizations.cobranca_conta_academia`. Só a ArkeFit, com as duas etapas, liga e desliga, pela ficha da organização ("Conta das cobranças"), e a mudança fica na auditoria. Nem a ArkeFit muda a coluna direto pela API: `proteger_colunas_organizacao` recusa fora de `definir_cobranca_conta_academia()`.
 
 - **Com o modo ligado:**
@@ -444,6 +446,8 @@ A cláusula de hoje que mais esbarra nisso é a da retenção ("Do valor de cada
 
 A responsabilidade fiscal (item seguinte do contrato) pede um ajuste de uma palavra: "a ArkeFit, pelo que recebe" no lugar de "pelo repasse que retém".
 
+> **13/10/2026:** o texto entrou como proposta na versão `2026-10-13` do Contrato da Academia, sem o item (d), porque a ArkeFit não abre subcontas. Veja "A conta própria como padrão" no fim deste arquivo.
+
 **Enquanto o modo estiver desligado,** a mensalidade e a avulsa da academia passam pela conta da ArkeFit, com a taxa de processamento retida no split. É exatamente o que o art. 8 tira da tomadora. O caminho de adequação é ligar a cobrança na conta da academia, academia a academia, antes do fim da homologação. A outra saída depende do que o Asaas aceitar no fluxo de homologação, que avalia a remuneração da tecnologia: renomear a taxa como remuneração da plataforma.
 
 **As taxas na tela, como pagamento por tecnologia e serviço (proposta).** O Asaas disse que a remuneração da tecnologia e eventual margem sobre o serviço financeiro se avaliam na homologação. O Playbook permite cobrar pelo produto, desde que fique claro que a operação financeira é do Asaas.
@@ -506,7 +510,7 @@ A responsabilidade fiscal (item seguinte do contrato) pede um ajuste de uma pala
 2. ~~A publicação das funções~~ (feito em 06/10: as 14, nesta ordem, e nenhuma outra que depende dos módulos que mudaram ficou de fora).
 3. ~~Os cenários do sandbox~~ (feito em 06/10, acima).
 4. ~~O print da tela de abertura da subconta~~ (feito em 06/10, abaixo).
-5. A aprovação da proposta de texto do recebimento e da redação das taxas na tela. Ela espera a resposta do Asaas ao checklist, que decide entre ligar a cobrança na conta da academia ou manter a taxa como uso da plataforma.
+5. A aprovação da proposta de texto do recebimento e da redação das taxas na tela. Ela espera a resposta do Asaas ao checklist, que decide entre ligar a cobrança na conta da academia ou manter a taxa como uso da plataforma. (13/10/2026: o Asaas decidiu pela conta da academia; a redação das telas entrou, e o texto do contrato espera a aprovação. Veja "A conta própria como padrão".)
 
 **Pela corrente real, depois do deploy** (06/10):
 - `asaas-webhook` recusa sem token (401), e o webhook da academia recusa token inventado (401), sem gravar nada.
@@ -625,3 +629,113 @@ A Central de Ajuda não tinha artigo sobre o bloqueio B2B: os "bloque" dos artig
 - **A recepção na tolerância** não vê aviso: a decisão fala da recepção da academia bloqueada, e quem paga é o gestor, que vê a faixa desde o primeiro dia.
 - **`escolherVinculo` não conhece a recepção.** A prioridade (gestor, professor, nutricionista, aluno) não lista `recepcao`, que fica depois do aluno: quem é recepção de uma academia e aluno de outra, sem unidade escolhida no seletor, entra pelo app do aluno, ao contrário do que o comentário dela promete ("quem trabalha numa academia e treina em outra entra no contexto de trabalho"). Não mexe no modo essencial, que lê a academia ativa; fica para uma correção à parte.
 - **A tela de suspensão sem o seletor de unidade.** Quem é gestor de uma unidade bloqueada e trabalha em outra em dia fica preso na suspensão ("a bloqueada manda"), como antes. Decidir se ele troca de unidade por ali é outra conversa.
+
+## A conta própria como padrão (13/10/2026)
+
+**A decisão.** O André e o Jean decidiram que a ArkeFit não abre subcontas no Asaas. Toda academia usa a **conta própria** no Asaas, integrada pela carteira e pela chave de API, e o interruptor `asaas_subcontas_baas` fica desligado. O Asaas confirmou o desenho por escrito em 13/10:
+
+- a mensalidade e a avulsa da academia saem da conta dela, pelo valor integral, sem split e sem taxa da ArkeFit;
+- o Método ARKE é cobrado na conta da ArkeFit, com split de valor fixo para a academia;
+- estorno e chargeback ficam com o titular da conta da cobrança.
+
+Até aqui, a cobrança na conta da academia (seção 3 de 06/10) era desligada por padrão, e só a ArkeFit ligava, academia a academia. Desligada, a mensalidade passava pela conta da ArkeFit com a taxa de processamento retida no split, que é o que o art. 8 da Resolução Conjunta nº 16/2025 tira da tomadora.
+
+### 1. O modo liga ao conectar a conta própria
+
+- **Conta própria é a carteira mais a chave.** A carteira entra na etapa Recebimentos (`asaas-conta-academia`, `existente`). A chave entra por `asaas-fiscal-academia` (`chave`), que confere o ambiente e a carteira e a guarda no cofre. A chave só entra depois da carteira, então é ali que o modo liga.
+- **Por que na chave, e não na carteira:** sem a chave, ninguém registra o webhook na conta da academia. Ligar sem ele seria a academia cobrando e ninguém ouvindo o pagamento.
+- **O mesmo caminho da ficha da ArkeFit.** `ligarCobrancaNaContaDaAcademia` (`_shared/contaDaAcademia.ts`) saiu de dentro de `asaas-conta-academia` e virou o caminho único. Ele:
+  - conta as assinaturas de plano vivas na conta da ArkeFit;
+  - confere a chave do cofre contra a carteira de hoje;
+  - registra o webhook na conta da academia;
+  - grava o modo, o hash do token e a auditoria juntos (`definir_cobranca_conta_academia`).
+
+  A conexão da chave e a ficha da Visão Master chamam a mesma função. Na auditoria fica quem conectou a chave. A trava `proteger_colunas_organizacao` não mudou: a coluna continua mudando só pela função do banco.
+- **Repetir é seguro.** Conectar a chave de novo registra o aviso de novo: o mesmo webhook, com token e hash novos. Isso também cobre a academia que troca de conta com o modo ligado, porque a chave da conta nova registra o aviso nela. Antes, a ficha com o modo ligado só oferecia desligar.
+- **A academia com assinatura de plano viva na conta da ArkeFit não muda.** A função recusa, como já recusava na ficha. A chave fica guardada para a nota fiscal, e a tela diz que a passagem é combinada com a ArkeFit. Hoje esse é o caso só da Methodos Vitae.
+- **A falha não desfaz a chave.** Se o Asaas não registra o webhook, a resposta leva o aviso, e conectar de novo tenta de novo. A ficha da Visão Master mostra o modo de cada academia.
+- **A etapa Recebimentos pede a chave logo depois da carteira.** Antes, a chave só aparecia em Financeiro → Notas fiscais, e a academia que não usasse a nota ficaria cobrando pela conta da ArkeFit. As duas telas dão o mesmo aviso (`avisoDaConexao`, `src/lib/notaFiscal.ts`): passou, ficou na ArkeFit por assinatura viva, ou o que faltou.
+- O roteiro do Bruno, no passo Recebimentos, passou a pedir a carteira e a chave.
+- **Sem migration.** A função do banco e a trava já serviam; mudou só quem chama.
+
+### 2. As telas sem "taxa de processamento" na cobrança da academia
+
+- **Prévia da mensalidade e da avulsa:** com o modo ligado, ela já dizia que a academia recebe o valor inteiro e que o Asaas cobra a tarifa dela. O texto ficou, e agora a guarda cobra.
+- **Prévia do Método** (Organização → Precificação): ganhou o texto proposto em 06/10, por `previaDoMetodo()` (`src/lib/repasse.ts`): "Aluno paga R$ 119,00 pelo Método ARKE, serviço da ArkeFit · a academia recebe R$ 69,95 pela entrega presencial · a ArkeFit fica com R$ 49,05 pelo acompanhamento e pela operação da cobrança".
+- **Organização → Pagamentos:** a mensalidade e a avulsa saem da conta da academia, pelo valor inteiro. A divisão do Método explica que ele é serviço da ArkeFit, cobrado na conta dela, e que a academia recebe a parte dela pela entrega presencial. A recusa do preço que não cobre a parte da ArkeFit fala em "operação da cobrança", e não em taxa.
+- **Visão Master:**
+  - Em Configurações, o cartão virou "Operação da cobrança — compõe o preço do Método ARKE". Ele diz que não é tarifa sobre o pagamento do aluno e que a mensalidade da academia sai sem ela.
+  - As prévias do atacado de referência e do repasse trocaram "taxa" por "operação da cobrança".
+  - A ficha "Conta das cobranças" diz que o padrão é a conta da academia.
+- **Gestão 360:** "(–) Repasse ARKE (atacado + taxa de processamento)" virou "(–) Parte da ArkeFit (Método e cobranças pela conta da ArkeFit)".
+- **O que ficou como estava:**
+  - Na academia que ainda cobra pela conta da ArkeFit, a prévia segue mostrando a taxa de processamento, porque é o que acontece com ela.
+  - A exportação ao contador mantém as colunas da taxa e do repasse, que conferem com o extrato.
+  - Os campos e a função do banco seguem com o nome `taxa_processamento`.
+
+### 3. O Contrato da Academia, versão 2026-10-13 (proposta)
+
+- **Seção 3:**
+  - o item da retenção ("Do valor de cada cobrança é retido... o repasse da ArkeFit") virou o texto "Recebimentos" proposto em 06/10, com os itens (a), (b) e (c), sem o (d), porque não há conta aberta pela plataforma;
+  - na prestação de serviços financeiros, entram os [Termos de Uso do Asaas](https://central.ajuda.asaas.com/hc/pt-br/articles/32096847160859-Termos-e-Condi%C3%A7%C3%B5es-de-Uso), que a Academia declara conhecer e se obriga a cumprir. O contrato BaaS, na cláusula 8.2.4, pede essa menção nos contratos com os clientes finais. O endereço é o conferido em 06/10;
+  - na responsabilidade fiscal, "a ArkeFit, pelo repasse que retém" virou "a ArkeFit, pelo que recebe".
+- **Na versão:** `documentosLegais.ts` tem a versão `2026-10-13` e o hash do texto com LF. `revisadoJuridico` fica `false` até a aprovação: a página mostra a marca de minuta, que não muda o hash.
+- **A migration** é a `20261444010000`, a aplicar depois de o deploy com o texto estar no ar.
+- **Ponto para a aprovação:** o item (a) descreve o desenho novo, mas a Methodos Vitae segue com mensalidade pela conta da ArkeFit até a passagem. Publicar depois dela, ou aceitar a diferença no período de transição.
+
+### 4. A Central de Ajuda
+
+- **Da gestão:**
+  - `cobranca-do-aluno` e `onboarding-academia`: a carteira e a chave na etapa Recebimentos, e a conta da academia como padrão;
+  - `notas-fiscais`: a chave é a mesma, conectada lá ou aqui;
+  - `academia-organizacao` e `metodo-arke-academia`: o Método como serviço da ArkeFit e a parte da academia pela entrega presencial;
+  - `financeiro`: a receita pelo que entrou na conta.
+- **Da Visão Master:**
+  - `vm-nova-academia`: a conta das cobranças como padrão, e a passagem manual de quem tem assinatura viva;
+  - `vm-configuracoes`: a operação da cobrança, e as subcontas que a ArkeFit não abre;
+  - `vm-webhooks-rotinas`: o aviso registrado ao conectar a chave.
+- **`vm-backup`** dizia no presente que o banco tem backup diário no plano Pro, mas hoje o projeto está no plano gratuito. Passou a dizer que o backup diário vem com o Pro, contratado antes do primeiro cliente.
+- Rodei `npm run ajuda:indice`: `assistente-academia/artigos.json` mudou, e a função precisa ser publicada.
+
+### A trava
+
+`contaPropriaPadrao.guarda` falha:
+
+- se guardar a chave no cofre deixar de ligar o modo, ou se a resposta deixar de dizer o que aconteceu;
+- se a ficha ligar por outro caminho, ou se outra função registrar o webhook ou ligar o modo fora de `contaDaAcademia.ts`;
+- se o caminho perder a ordem: conferir as assinaturas vivas, conferir a chave contra a carteira, registrar o aviso, e só então gravar o modo;
+- se a etapa Recebimentos deixar de pedir a chave;
+- se a divisão na conta da academia tiver taxa ou split, qualquer que seja o valor;
+- se a mensalidade ou a avulsa pedirem a taxa ao banco fora do ramo da conta da ArkeFit;
+- se a prévia na conta da academia falar de taxa, ou se a do Método deixar o texto proposto.
+
+O teste da etapa Recebimentos ganhou três casos: pede a chave, mostra a conta já ligada e mostra a academia com assinatura viva.
+
+### Defeito do caminho
+
+- **O hook compartilhado da situação** levaria chamadas da gestão para o mapa da Visão Master. A guarda dos acessos segue os imports das telas da Visão Master, e o arquivo de hooks da gestão traria a chamada das subcontas. A consulta ficou em cada tela, com a mesma chave e a mesma assinatura, o que `chavesDeCache.guarda` aceita.
+
+### Fica de fora
+
+- **A passagem da Methodos Vitae**, manual, depois que o Jean abrir a conta própria:
+  1. conectar a carteira e a chave;
+  2. encerrar as assinaturas da conta da ArkeFit, ou deixar que terminem;
+  3. ligar pela ficha (ou conectar a chave de novo).
+- **A academia que já tinha a chave conectada sem o modo** não liga sozinha: liga ao conectar a chave de novo, ou pela ficha.
+- **A subconta aberta pela ArkeFit** (BaaS, só em trial) não liga o modo sozinha, porque não há subconta nova.
+- **Trocar de conta com o modo ligado** troca o token do aviso. O banco guarda um hash por academia, então o aviso da conta antiga deixa de valer, e um estorno de cobrança antiga nessa conta não chega. É raro; fica para quando aparecer.
+- **O sandbox do Asaas:** não havia chave de sandbox nesta sessão. As chamadas ao Asaas não mudaram: o registro do webhook é o mesmo `registrarWebhookNaConta`, que o `sandbox:conta-academia` exercitou em 06/10.
+
+### Conferido
+
+- `npm run check` sem erro, com as 57 funções no `deno check`.
+- **A guarda nova e as vizinhas:** `contaPropriaPadrao.guarda` (9 casos), a etapa Recebimentos (9, com 3 novos), os acessos da Visão Master, a subconta, o prestador, as chaves de cache e os documentos legais: 78 testes em 7 arquivos, todos passando. `cobrancaNaContaDaAcademia.test` segue com os 18.
+- **A suíte inteira** roda no CI deste PR (os três jobs).
+- **Quatro defeitos plantados**, e o teste certo falhou em cada um:
+  1. a conexão da chave sem ligar o modo;
+  2. a divisão na conta da academia com a taxa (falharam a guarda e `cobrancaNaContaDaAcademia.test`);
+  3. "menos a taxa" na prévia da avulsa na conta da academia;
+  4. a ficha ligando por outro caminho.
+- **O hash do contrato:** o do texto de antes, com LF, bate com o publicado (`f01f9fdc…`); o novo (`8f3f2aa5…`) passa em `documentosLegais.test`.
+- `npm run ajuda:indice` regerou o índice do assistente (18 testes).
+- Não rodou: o banco (não há função nova nem migration de estrutura; a do contrato é um `insert` em `documentos_legais`), a corrente real (as funções não foram publicadas) e o sandbox (sem chave de sandbox nesta sessão).

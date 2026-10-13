@@ -109,8 +109,41 @@ async function chamar<T>(corpo: Record<string, unknown> | FormData, padrao: stri
 export const situacaoFiscal = (organizationId: string) =>
   chamar<SituacaoFiscal>({ acao: "situacao", organization_id: organizationId }, "Não foi possível consultar a nota fiscal.");
 
+/**
+ * O que a conexão da chave fez com a conta das cobranças (13/10/2026: com a
+ * conta própria conectada, a mensalidade e a avulsa novas saem da conta da
+ * academia). `assinaturas_na_conta_arkefit`: a academia ainda tem assinatura
+ * de plano na conta da ArkeFit, e a troca é combinada com a ArkeFit.
+ */
+export type CobrancaNaConta = { ligado: boolean; assinaturas_na_conta_arkefit?: number; aviso?: string };
+
 export const conectarConta = (organizationId: string, chave: string) =>
-  chamar<SituacaoFiscal>({ acao: "chave", organization_id: organizationId, chave }, "Não foi possível conectar a conta.");
+  chamar<SituacaoFiscal & { cobranca_na_conta?: CobrancaNaConta }>(
+    { acao: "chave", organization_id: organizationId, chave },
+    "Não foi possível conectar a conta.",
+  );
+
+/** O aviso da tela depois de conectar a chave, o mesmo na etapa Recebimentos e nas Notas fiscais. */
+export function avisoDaConexao(c: CobrancaNaConta | undefined): { title: string; description?: string; variant?: "destructive" } {
+  if (!c) return { title: "Conta conectada" };
+  if (c.ligado) {
+    return {
+      title: "Conta conectada",
+      description: "As mensalidades e as cobranças avulsas novas saem da conta Asaas da academia, pelo valor inteiro.",
+    };
+  }
+  if (c.assinaturas_na_conta_arkefit) {
+    return {
+      title: "Chave conectada",
+      description: `A academia tem ${c.assinaturas_na_conta_arkefit} mensalidade(s) pela conta da ArkeFit, que continuam lá. A passagem para a conta da academia é combinada com a equipe da ArkeFit.`,
+    };
+  }
+  return {
+    title: "Chave conectada, mas as cobranças ainda não passaram para a conta da academia",
+    description: `${c.aviso ?? "O Asaas não respondeu."} Conecte a chave de novo para tentar.`,
+    variant: "destructive",
+  };
+}
 
 export const buscarServicosMunicipais = async (organizationId: string, termo: string) =>
   (await chamar<{ servicos: ServicoMunicipal[] }>({ acao: "servicos", organization_id: organizationId, termo }, "Não foi possível buscar os serviços.")).servicos;

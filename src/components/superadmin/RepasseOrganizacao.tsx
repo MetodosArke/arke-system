@@ -191,7 +191,7 @@ export function RepasseOrganizacao({ organizationId }: { organizationId: string 
             ? `Este varejo não cobre o repasse de ${reais(previa.repasseArke!)} — a cobrança seria recusada.`
             : `ArkeFit fica com ${reais(previa.repasseArke!)} (negociado ${reais((
                 previa.repasseArke! - previa.taxaEstimada
-              ))} + taxa ${reais(previa.taxaEstimada)}) · academia recebe ${reais(previa.liquidoAcademia!)}`}
+              ))} + operação da cobrança ${reais(previa.taxaEstimada)}) · academia recebe ${reais(previa.liquidoAcademia!)}`}
       </p>
 
       <Button size="sm" disabled={!valido || salvar.isPending} onClick={() => salvar.mutate({ tipo, valor: numero })}>
