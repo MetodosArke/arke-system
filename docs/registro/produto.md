@@ -517,5 +517,5 @@ As capturas dos dois alunos do Método (#389) mostraram dois defeitos de tela:
 
 **Conferido** na Ponto Alto, com a Juliana (computador, temas claro e escuro) e o Hugo (celular), medindo o contraste com o mouse em cima do cartão:
 - **Título:** 13,3 a 15,0:1.
-- **Data:** 4,53:1 no tema claro. No escuro deu 4,48:1 com o `hover:bg-muted` cheio, e o realce do cartão de evento passou a `hover:bg-muted/60` (medido de novo abaixo).
+- **Data:** 4,53:1 no tema claro. No escuro deu 4,48:1 com o `hover:bg-muted` cheio, e o realce do cartão de evento passou a `hover:bg-muted/60` (#391). Medido de novo depois do deploy: 4,81:1 no claro e 4,64:1 no escuro.
 - **O texto do questionário de saúde** cabe no botão nos três.
