@@ -2,6 +2,7 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import { verificarCaptcha } from "../_shared/captcha.ts";
 import { emailDoLead, validarLead } from "./validar.ts";
 import { servir } from "../_shared/servir.ts";
+import { cabecalhosDoResend, chaveDeIdempotencia, envioAceito } from "../_shared/idempotenciaEmail.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -103,7 +104,8 @@ servir("lead-site", async (req: Request) => {
         try {
           const envio = await fetch("https://api.resend.com/emails", {
             method: "POST",
-            headers: { "Content-Type": "application/json", Authorization: `Bearer ${resendKey}` },
+            // Um aviso por contato.
+            headers: cabecalhosDoResend(resendKey, chaveDeIdempotencia("lead-site", lead.id)),
             body: JSON.stringify({
               from: Deno.env.get("EMAIL_SITE_FROM") ?? "ARKE <site@arkefit.com.br>",
               to: destino,
@@ -113,7 +115,7 @@ servir("lead-site", async (req: Request) => {
             }),
             signal: AbortSignal.timeout(10_000),
           });
-          if (envio.ok) await admin.from("leads_comerciais").update({ email_enviado_em: new Date().toISOString() }).eq("id", lead.id);
+          if (envioAceito(envio.status)) await admin.from("leads_comerciais").update({ email_enviado_em: new Date().toISOString() }).eq("id", lead.id);
           else console.error("lead-site: Resend respondeu", envio.status);
         } catch (e) {
           console.error("lead-site: falha no envio do e-mail", e instanceof Error ? e.name : typeof e);

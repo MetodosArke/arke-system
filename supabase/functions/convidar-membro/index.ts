@@ -5,6 +5,7 @@ import { hojeBrasilia } from "../_shared/data.ts";
 import { dentroDoFreio, MENSAGEM_FREIO } from "../_shared/freio.ts";
 import { erroDataNascimento } from "../_shared/nascimento.ts";
 import { servir } from "../_shared/servir.ts";
+import { cabecalhosDoResend, chaveDeIdempotencia, envioAceito, resumoParaChave } from "../_shared/idempotenciaEmail.ts";
 import { resumoDoErro } from "../_shared/resumoDoErro.ts";
 import { respostaDoErroDoAuth } from "../_shared/erroDoAuth.ts";
 
@@ -483,10 +484,18 @@ async function avisarMatricula(
     link = data.properties.action_link;
   }
   const conteudo = emailMatriculaNova({ nome: o.nome, academia, link, criarSenha: o.criarSenha });
+  // O link de criar a senha é novo a cada pedido: a chave leva o resumo do
+  // conteúdo, para o mesmo e-mail não sair duas vezes e o link novo sair.
+  const chave = chaveDeIdempotencia(
+    "matricula-nova",
+    o.organizationId,
+    o.userId,
+    await resumoParaChave(conteudo.assunto, conteudo.html),
+  );
   try {
     const r = await fetch("https://api.resend.com/emails", {
       method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${resendKey}` },
+      headers: cabecalhosDoResend(resendKey, chave),
       body: JSON.stringify({
         from: Deno.env.get("EMAIL_ACESSO_FROM") ?? "ArkeFit <acesso@arkefit.com.br>",
         to: [o.email],
@@ -496,7 +505,7 @@ async function avisarMatricula(
       }),
       signal: AbortSignal.timeout(15_000),
     });
-    if (!r.ok) {
+    if (!envioAceito(r.status)) {
       console.error("convidar-membro: Resend", r.status);
       return falhou;
     }

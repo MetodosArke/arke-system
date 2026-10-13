@@ -18,6 +18,7 @@ import {
 import { ambienteAsaas } from "../_shared/asaas.ts";
 import { dentroDoFreio, MENSAGEM_FREIO, regrasAsaas } from "../_shared/freio.ts";
 import { servir } from "../_shared/servir.ts";
+import { cabecalhosDoResend, chaveDeIdempotencia, envioAceito, resumoParaChave } from "../_shared/idempotenciaEmail.ts";
 import { resumoDoErro } from "../_shared/resumoDoErro.ts";
 import { MENSAGEM_PERFIL_SIMULADO, sessaoSimulada } from "../_shared/sessaoSimulada.ts";
 import { contaDaCobranca } from "../_shared/contaDaAcademia.ts";
@@ -45,7 +46,11 @@ type Acao = "criar" | "existente" | "situacao" | "documentos" | "modo_cobranca";
  * e na auditoria; o e-mail que falha fica no log só com o status, e não desfaz
  * nada.
  */
-async function avisarArkefit(admin: SupabaseClient, m: { assunto: string; texto: string; html: string }): Promise<boolean> {
+async function avisarArkefit(
+  admin: SupabaseClient,
+  organizationId: string,
+  m: { assunto: string; texto: string; html: string },
+): Promise<boolean> {
   const resendKey = Deno.env.get("RESEND_API_KEY");
   if (!resendKey) {
     console.error("asaas-conta-academia: RESEND_API_KEY ausente, troca de carteira sem aviso por e-mail");
@@ -59,11 +64,14 @@ async function avisarArkefit(admin: SupabaseClient, m: { assunto: string; texto:
   }
   const para = [...new Set(((destinatarios ?? []) as { email: string }[]).map((d) => d.email).filter(Boolean))];
   if (!para.length) return false;
+  // O pedido repetido com o mesmo aviso (a mesma troca, no mesmo minuto) não
+  // manda o e-mail de novo.
+  const chave = chaveDeIdempotencia("troca-carteira", organizationId, await resumoParaChave(m.assunto, m.texto));
   try {
     const r = await fetch("https://api.resend.com/emails", {
       signal: AbortSignal.timeout(15_000),
       method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${resendKey}` },
+      headers: cabecalhosDoResend(resendKey, chave),
       body: JSON.stringify({
         from: Deno.env.get("EMAIL_ALERTAS_FROM") ?? "ArkeFit Alertas <alertas@arkefit.com.br>",
         to: para,
@@ -73,8 +81,8 @@ async function avisarArkefit(admin: SupabaseClient, m: { assunto: string; texto:
       }),
     });
     // Só o status vai para log: a resposta do Resend ecoa os endereços.
-    if (!r.ok) console.error("asaas-conta-academia: Resend recusou o aviso da troca", r.status);
-    return r.ok;
+    if (!envioAceito(r.status)) console.error("asaas-conta-academia: Resend recusou o aviso da troca", r.status);
+    return envioAceito(r.status);
   } catch (e) {
     console.error("asaas-conta-academia: aviso da troca não saiu", e instanceof Error ? e.name : typeof e);
     return false;
@@ -319,7 +327,7 @@ servir("asaas-conta-academia", async (req: Request) => {
           quando: new Intl.DateTimeFormat("pt-BR", { timeZone: "America/Sao_Paulo", dateStyle: "short", timeStyle: "short" }).format(new Date()),
           painel: `${Deno.env.get("SITE_URL") ?? "https://app.arkefit.com.br"}/#/superadmin`,
         });
-        await avisarArkefit(admin, aviso);
+        await avisarArkefit(admin, org.id as string, aviso);
       }
       return jsonResponse({
         ok: true,

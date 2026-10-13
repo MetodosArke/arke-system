@@ -2,6 +2,8 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import { montarEmail, type Item } from "./email.ts";
 import { descreverErro, registrarExecucao } from "../_shared/execucao.ts";
 import { servir } from "../_shared/servir.ts";
+import { hojeBrasilia } from "../_shared/data.ts";
+import { cabecalhosDoResend, chaveDeIdempotencia, envioAceito, resumoParaChave } from "../_shared/idempotenciaEmail.ts";
 
 const jsonResponse = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
@@ -73,10 +75,17 @@ servir("alertar-rotinas", async (req: Request) => {
     }
 
     const { assunto, html, texto } = montarEmail(itens as Item[], `${siteUrl}/#/superadmin`);
+    // Se o registro do aviso falha depois do envio, a hora seguinte manda o
+    // mesmo aviso com a mesma chave, e o Resend não entrega de novo.
+    const chave = chaveDeIdempotencia(
+      "alerta-rotinas",
+      hojeBrasilia(),
+      await resumoParaChave(...(itens as Item[]).map((i) => `${i.tipo}:${i.nome}:${i.situacao}:${i.ultima_execucao ?? ""}`).sort()),
+    );
     const envio = await fetch("https://api.resend.com/emails", {
       signal: AbortSignal.timeout(15_000),
       method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${resendKey}` },
+      headers: cabecalhosDoResend(resendKey, chave),
       body: JSON.stringify({
         from: Deno.env.get("EMAIL_ALERTAS_FROM") ?? "ArkeFit Alertas <alertas@arkefit.com.br>",
         to: emails,
@@ -85,7 +94,7 @@ servir("alertar-rotinas", async (req: Request) => {
         text: texto,
       }),
     });
-    if (!envio.ok) {
+    if (!envioAceito(envio.status)) {
       // Não marca como avisado: sai de novo na próxima hora.
       console.error("alertar-rotinas: Resend recusou", envio.status);
       return await falha(502, "Falha ao enviar o e-mail.", `Resend recusou HTTP ${envio.status}`);

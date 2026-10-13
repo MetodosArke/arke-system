@@ -13,6 +13,7 @@ import {
   type Contexto,
 } from "./fluxo.ts";
 import { servir } from "../_shared/servir.ts";
+import { cabecalhosDoResend, chaveDeIdempotencia, envioAceito } from "../_shared/idempotenciaEmail.ts";
 import { registrarUsoIA } from "../_shared/usoIA.ts";
 
 const corsHeaders = {
@@ -224,11 +225,11 @@ servir("assistente-academia", async (req: Request) => {
         return jsonResponse({ error: "Não foi possível abrir o chamado. Tente de novo." }, 500);
       }
 
-      const aviso = await avisarArkefit(chamado.prazo as string, resposta, artigos, situacao);
+      const aviso = await avisarArkefit(chamado.id as string, chamado.prazo as string, resposta, artigos, situacao);
       return jsonResponse({ chamado_id: chamado.id, prazo: chamado.prazo, aviso });
     }
 
-    async function avisarArkefit(prazo: string, resposta: string | null, artigos: string[], situacao: string | null): Promise<string | null> {
+    async function avisarArkefit(chamadoId: string, prazo: string, resposta: string | null, artigos: string[], situacao: string | null): Promise<string | null> {
       const resendKey = Deno.env.get("RESEND_API_KEY");
       if (!resendKey) return "O chamado foi registrado, mas o aviso por e-mail não está configurado.";
       const { data: usuario } = await admin.auth.admin.getUserById(userId!);
@@ -258,7 +259,8 @@ servir("assistente-academia", async (req: Request) => {
       try {
         const r = await fetch("https://api.resend.com/emails", {
           method: "POST",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${resendKey}` },
+          // Um aviso por chamado.
+          headers: cabecalhosDoResend(resendKey, chaveDeIdempotencia("chamado-suporte", chamadoId)),
           body: JSON.stringify({
             from: Deno.env.get("EMAIL_SUPORTE_FROM") ?? "ArkeFit <suporte@arkefit.com.br>",
             to: para,
@@ -269,7 +271,7 @@ servir("assistente-academia", async (req: Request) => {
           }),
           signal: AbortSignal.timeout(15_000),
         });
-        if (!r.ok) {
+        if (!envioAceito(r.status)) {
           console.error("assistente: Resend", r.status);
           return "O chamado foi registrado, e a ArkeFit vê na fila dela; o aviso por e-mail falhou.";
         }

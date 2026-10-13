@@ -18,6 +18,7 @@ import { tentarConsultaDeNovo } from "@/lib/tentativas";
 import { Suspense, useState } from "react";
 import { paginaPreguicosa } from "@/lib/carregamentoPreguicoso";
 import { CarregandoPagina, CarregandoTela } from "@/components/CarregandoPagina";
+import { FronteiraDaTela } from "@/components/ErrorBoundary";
 import { MarcaAcademiaProvider } from "@/components/marca/MarcaAcademia";
 import { slugDeEntrada } from "@/lib/marcaAcademia";
 
@@ -225,6 +226,9 @@ const App = () => (
           <ImpersonationBanner />
           <HashRouter>
             <MarcaAcademiaProvider>
+            {/* As páginas públicas (vendas, matrícula, login) não têm layout:
+                a fronteira delas é esta. As áreas têm a sua dentro do layout. */}
+            <FronteiraDaTela>
             <Suspense fallback={<CarregandoPagina />}>
             <Routes>
               <Route path="/" element={<RootRedirect />} />
@@ -387,6 +391,7 @@ const App = () => (
               <Route path="*" element={<NotFound />} />
             </Routes>
             </Suspense>
+            </FronteiraDaTela>
             </MarcaAcademiaProvider>
           </HashRouter>
         </TooltipProvider>

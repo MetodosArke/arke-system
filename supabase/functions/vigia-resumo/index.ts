@@ -2,6 +2,8 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import { montarEmailResumo, type Resumo } from "./email.ts";
 import { descreverErro, registrarExecucao } from "../_shared/execucao.ts";
 import { servir } from "../_shared/servir.ts";
+import { hojeBrasilia } from "../_shared/data.ts";
+import { cabecalhosDoResend, chaveDeIdempotencia, envioAceito } from "../_shared/idempotenciaEmail.ts";
 
 const jsonResponse = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
@@ -57,11 +59,12 @@ servir("vigia-resumo", async (req: Request) => {
     const r = await fetch("https://api.resend.com/emails", {
       signal: AbortSignal.timeout(15_000),
       method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${resendKey}` },
+      // Um resumo por dia: a rotina que roda de novo não manda o segundo.
+      headers: cabecalhosDoResend(resendKey, chaveDeIdempotencia("vigia-resumo", hojeBrasilia())),
       body: JSON.stringify({ from: de, to: emails, subject: m.assunto, html: m.html, text: m.texto }),
     });
     // Só o status vai para log: a resposta do Resend ecoa os endereços.
-    if (!r.ok) {
+    if (!envioAceito(r.status)) {
       console.error("vigia-resumo: Resend recusou", r.status);
       await registrarExecucao(admin, NOME, false, `Resend recusou HTTP ${r.status}`);
       return jsonResponse({ error: "Falha no envio." }, 502);

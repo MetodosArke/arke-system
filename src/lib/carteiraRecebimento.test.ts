@@ -81,7 +81,7 @@ describe("asaas-conta-academia: a troca", () => {
   });
 
   it("avisa a ArkeFit pelo canal dos alertas", () => {
-    expect(existente).toMatch(/if \(troca\) \{[\s\S]*await avisarArkefit\(admin, aviso\)/);
+    expect(existente).toMatch(/if \(troca\) \{[\s\S]*await avisarArkefit\(admin, org\.id as string, aviso\)/);
     expect(funcao).toMatch(/admin\.rpc\("emails_da_area", \{ _area: "financeiro" \}\)/);
   });
 });
