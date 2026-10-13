@@ -241,7 +241,7 @@ As telas da academia de demonstração foram abertas uma a uma, pela gestora e p
 - **A nota conta só o que o aluno tem** (`20261336010000`). Ela tem quatro pilares, treino (40), check-in (20), dieta (20) e água (20), e nasceu para o Método. O aluno do Free sem dieta da academia não passava de 80, e quem fica abaixo de 40 conta como risco no Gestão 360 e na Retenção. Sem dieta ativa, os outros três valem os 100. O aluno do Método segue com os quatro.
 - **A conta própria no Asaas é a recomendada.** No período de teste do Asaas, cada subconta aberta pela ArkeFit tem um teto de cobranças. A tela de recebimentos passou a recomendar que a academia abra a conta dela, grátis, no site do Asaas, e informe a carteira. "Abrir pela ArkeFit" continua, para quando a equipe combinar. O agente de implantação e o artigo da Central acompanharam.
 - **A Intelbras está no site**, depois da resposta dela sobre o terminal sem o Gateway (ver [catracas.md](catracas.md)).
-- **A CSP passa a valer** depois de 7 dias sem aviso de bloqueio de uso real, a partir de 12/10.
+- **A CSP passa a valer** depois de 7 dias sem aviso de bloqueio de uso real, a partir de 12/10. **Superado em 13/10/2026:** os relatos de 09 a 13/10 foram descartados (ver [operacao.md](operacao.md)); a CSP passa a valer em 16/10, completando 7 dias de observação com a chave certa.
 - **O React Router 7** entra numa rodada própria antes do primeiro cliente. Vite, Vitest e Tailwind esperam o lançamento.
 
 **Fora do código:** o monitor de fora ficou no UptimeRobot (ver [operacao.md](operacao.md)), e o DMARC de `arkefit.com.br` passou a mandar relatório a `dmarc@arkefit.com.br`, ainda em `p=none`.

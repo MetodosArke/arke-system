@@ -168,7 +168,7 @@ Ficam em Supabase → Project Settings → Edge Functions → Secrets. O Supabas
   - `javascript-react`: o app no navegador, e os relatos da CSP (cabeçalho `report-uri` no `vercel.json`, pela chave pública dele);
   - `edge-functions` (desde 05/10/2026): o erro 500, 502 ou 504 das funções do servidor, mandado por `_shared/sentry.ts` com só o nome da função, o status, o tipo e o código do erro.
 - **Monitor de disponibilidade:** fica no UptimeRobot, e não no Sentry (decisão do responsável, 05/10/2026). Detalhes na seção *Monitor de fora*. O monitor do Sentry na função `saude` foi criado e está desligado, porque o plano gratuito pede saldo de uso avulso para ligá-lo.
-- **A chave pública (DSN)** fica na Vercel (`VITE_SENTRY_DSN`). É pública por desenho, porque vai no código do navegador.
+- **A chave pública (DSN)** fica na Vercel (`VITE_SENTRY_DSN`). É pública por desenho, porque vai no código do navegador. **Trocou o DSN, troca também a `sentry_key` da CSP no `vercel.json`** (no `report-uri` e no `Reporting-Endpoints`): com a chave antiga desligada, o Sentry responde 200 e descarta os relatos. Foi o que aconteceu de 09 a 13/10/2026.
 - **Configuração:** está em `src/lib/monitoramento.ts` e não manda nome, e-mail, CPF nem gravação de tela.
 - **Plano:** fica no gratuito, sem upgrade (decisão de 28/09/2026). As ocorrências de rotas `/api/trpc` que aparecem lá são de outro sistema que usa a mesma chave.
 

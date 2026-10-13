@@ -284,6 +284,19 @@ A prova de ponta a ponta do encerramento, que estava pendente na fila, encontrou
   - a academia que funciona, a encerrada antes da data e a em aviso continuam recusando.
 - **Defeito plantado** (a condição da data tirada): a guarda falhou.
 
+## A CSP mandava os relatos para a chave antiga do Sentry (13/10/2026)
+
+**O defeito.** Na troca do DSN do Sentry, em 09/10, a chave nova foi para a Vercel (`VITE_SENTRY_DSN`), mas a `sentry_key` da CSP, no `report-uri` e no `Reporting-Endpoints` do `vercel.json`, ficou com a antiga. Desligada a chave antiga, o Sentry seguiu respondendo 200 aos relatos e os descartou sem aviso. Por isso "nenhum relato de bloqueio", conferido em 13/10 para a CSP passar a valer, não provava nada para 09 a 13/10.
+
+**A correção.** As duas `sentry_key` passam a ser a pública do DSN novo. A trava `cabecalhos.guarda` ganhou o caso "os dois endereços dos relatos usam a mesma chave", e o `INFRAESTRUTURA.md` diz que trocar o DSN troca também a chave da CSP. A trava não consegue comparar com o DSN, que fica fora do repositório.
+
+**A nova data.** De 05 a 09/10, com a chave valendo, não chegou nenhum relato. Com a chave certa a partir de 13/10, mais 3 dias completam os 7 da decisão de 05/10: a CSP passa a valer em 16/10, se nenhum relato de uso real chegar.
+
+**Conferido:**
+- Um relato de teste com cada chave, mandado direto ao Sentry: os dois receberam 200, e só o da chave nova virou ocorrência (`JAVASCRIPT-REACT-D`, resolvida depois).
+- Nenhuma ocorrência "Blocked" no Sentry de 30/09 a 13/10.
+- A trava: com só uma das chaves trocada, 1 teste falhou.
+
 ## Uma fronteira de erro por área, e o e-mail que não sai duas vezes (13/10/2026)
 
 Os dois achados baixos que seguiam abertos na auditoria de prontidão de 05/10/2026.
