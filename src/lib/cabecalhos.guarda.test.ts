@@ -37,6 +37,15 @@ describe("cabeçalhos de segurança", () => {
     expect(csp).toMatch(/report-uri https:\/\/[^ ;]+ingest\.us\.sentry\.io\/api\/\d+\/security\//);
   });
 
+  it("os dois endereços dos relatos usam a mesma chave do Sentry", () => {
+    // A chave da CSP é a pública do DSN (VITE_SENTRY_DSN). Na troca do DSN de
+    // 09/10/2026 ela ficou para trás, e os relatos de 09 a 13/10 foram
+    // descartados pelo Sentry sem erro. Trocou o DSN, troca as duas aqui.
+    const chaves = [csp, valor("Reporting-Endpoints")].map((v) => v.match(/sentry_key=([0-9a-f]{32})/)?.[1]);
+    expect(chaves[0]).toBeTruthy();
+    expect(chaves[1]).toBe(chaves[0]);
+  });
+
   it("os outros cabeçalhos estão lá", () => {
     expect(valor("X-Content-Type-Options")).toBe("nosniff");
     expect(valor("X-Frame-Options")).toBe("DENY");
