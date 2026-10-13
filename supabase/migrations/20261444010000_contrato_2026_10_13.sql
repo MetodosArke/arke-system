@@ -1,5 +1,5 @@
--- Contrato da Academia, versão 2026-10-13 (PROPOSTA: só entra com a aprovação
--- do responsável). A ArkeFit não abre subcontas, e a cobrança da academia sai
+-- Contrato da Academia, versão 2026-10-13 (aprovada pelo responsável no chat
+-- em 13/10/2026). A ArkeFit não abre subcontas, e a cobrança da academia sai
 -- da conta Asaas dela, pelo valor integral; o Método ARKE sai da conta da
 -- ArkeFit, com a parte da academia por split (desenho confirmado pelo Asaas em
 -- 13/10/2026). A seção 3 troca a retenção do repasse pelo item "Recebimentos",

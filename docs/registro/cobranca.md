@@ -673,15 +673,15 @@ Até aqui, a cobrança na conta da academia (seção 3 de 06/10) era desligada p
   - A exportação ao contador mantém as colunas da taxa e do repasse, que conferem com o extrato.
   - Os campos e a função do banco seguem com o nome `taxa_processamento`.
 
-### 3. O Contrato da Academia, versão 2026-10-13 (proposta)
+### 3. O Contrato da Academia, versão 2026-10-13
 
 - **Seção 3:**
   - o item da retenção ("Do valor de cada cobrança é retido... o repasse da ArkeFit") virou o texto "Recebimentos" proposto em 06/10, com os itens (a), (b) e (c), sem o (d), porque não há conta aberta pela plataforma;
   - na prestação de serviços financeiros, entram os [Termos de Uso do Asaas](https://central.ajuda.asaas.com/hc/pt-br/articles/32096847160859-Termos-e-Condi%C3%A7%C3%B5es-de-Uso), que a Academia declara conhecer e se obriga a cumprir. O contrato BaaS, na cláusula 8.2.4, pede essa menção nos contratos com os clientes finais. O endereço é o conferido em 06/10;
   - na responsabilidade fiscal, "a ArkeFit, pelo repasse que retém" virou "a ArkeFit, pelo que recebe".
-- **Na versão:** `documentosLegais.ts` tem a versão `2026-10-13` e o hash do texto com LF. `revisadoJuridico` fica `false` até a aprovação: a página mostra a marca de minuta, que não muda o hash.
+- **Na versão:** `documentosLegais.ts` tem a versão `2026-10-13` e o hash do texto com LF. **Aprovado pelo responsável no chat em 13/10/2026**, com a publicação já, aceitando a diferença da Methodos Vitae durante a transição: `revisadoJuridico` passou a `true` (a marca de minuta sai; o hash não muda).
 - **A migration** é a `20261444010000`, a aplicar depois de o deploy com o texto estar no ar.
-- **Ponto para a aprovação:** o item (a) descreve o desenho novo, mas a Methodos Vitae segue com mensalidade pela conta da ArkeFit até a passagem. Publicar depois dela, ou aceitar a diferença no período de transição.
+- **A transição:** o item (a) descreve o desenho novo, e a Methodos Vitae segue com a mensalidade pela conta da ArkeFit até a passagem dela para a conta própria, até 31/12/2026.
 
 ### 4. A Central de Ajuda
 
