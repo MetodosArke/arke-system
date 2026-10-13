@@ -3,6 +3,7 @@
 //   ARKE_CHAVES=... node scripts/demonstracao/academia.mjs semear
 //   ARKE_CHAVES=... node scripts/demonstracao/academia.mjs recriar   (apaga e semeia de novo, com as datas de hoje)
 //   ARKE_CHAVES=... node scripts/demonstracao/academia.mjs limpar
+//   ARKE_CHAVES=... node scripts/demonstracao/academia.mjs metodo    (só liga o Método nos dois alunos abaixo, sem recriar)
 //
 // Cria a "Ponto Alto Academia", inteira e em uso: gestão, recepção, quatro
 // professores e nutricionista; 180 alunos com até um ano e meio de casa,
@@ -23,9 +24,19 @@
 // do repositório, no arquivo de ARKE_DEMO_ACESSOS (padrão:
 // ~/arkefit-demonstracao.txt). `recriar` reaproveita a senha do arquivo.
 //
+// Dois alunos estão no Método ARKE com valor R$ 0,00 (13/10/2026), para mostrar
+// o app de quem tem mentor: Juliana Marques Santana (Integrado,
+// aluno180@demonstracao.arkefit.com.br) e Hugo Souza (Elite,
+// aluno152@demonstracao.arkefit.com.br), com a senha da apresentação. A
+// Marina e o Pedro seguem no Free. O valor zero é o caminho que o produto já
+// tem para isso, o trial do Método que o Super Admin dá
+// (`iniciar_trial_metodo_arke`): assinatura `trial` com valor 0, sem Asaas,
+// aqui com o fim no vencimento do trial da academia. Sem mentor atribuído: a
+// conversa vai à equipe da Mentoria.
+//
 // As datas são relativas ao dia em que se semeia: para a academia parecer
 // viva numa apresentação, rode `recriar` na véspera.
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { appendFileSync, existsSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { randomBytes } from "node:crypto";
@@ -128,17 +139,25 @@ const PERSONAS = [
   { chave: "aluna", nome: "Marina Costa Ribeiro", objetivo: "Emagrecimento", meta: 3, perfil: "assidua" },
   { chave: "aluno", nome: "Pedro Henrique Almeida", objetivo: "Hipertrofia", meta: 4, perfil: "irregular" },
 ];
+// Os dois alunos do Método (ver o cabeçalho). São alunos sorteados como os
+// outros, com treino, dieta e avaliações; aqui só o nome fica fixo, para o
+// login ser sempre o mesmo, e ganham a senha da apresentação.
+const NO_METODO = [
+  { chave: "aluno180", nome: "Juliana Marques Santana", nivel: "integrado", modelo: "feminino" },
+  { chave: "aluno152", nome: "Hugo Souza", nivel: "elite", modelo: "masculino" },
+];
 
+function senhaDoArquivo() {
+  if (!existsSync(ARQUIVO_ACESSOS)) return null;
+  const linha = readFileSync(ARQUIVO_ACESSOS, "utf8").split(/\r?\n/).find((l) => l.startsWith("Senha:"));
+  return linha ? linha.slice("Senha:".length).trim() : null;
+}
 function senhaDaApresentacao() {
-  if (existsSync(ARQUIVO_ACESSOS)) {
-    const linha = readFileSync(ARQUIVO_ACESSOS, "utf8").split(/\r?\n/).find((l) => l.startsWith("Senha:"));
-    if (linha) return linha.slice("Senha:".length).trim();
-  }
-  return `Demo-${randomBytes(6).toString("base64url")}-${entre(10, 99)}`;
+  return senhaDoArquivo() ?? `Demo-${randomBytes(6).toString("base64url")}-${entre(10, 99)}`;
 }
 
 function gravarAcessos(senha) {
-  const logins = [...EQUIPE.filter((p) => p.login), ...PERSONAS].map((p) => `  ${p.nome.padEnd(26)} ${p.chave}@${DOMINIO}`);
+  const logins = [...EQUIPE.filter((p) => p.login), ...PERSONAS, ...NO_METODO].map((p) => `  ${p.nome.padEnd(26)} ${p.chave}@${DOMINIO}`);
   writeFileSync(
     ARQUIVO_ACESSOS,
     [
@@ -208,9 +227,11 @@ async function semear() {
   for (let i = 0; i < TOTAL_ALUNOS; i++) {
     const feminino = chance(0.55);
     const nome = `${um(feminino ? NOMES_F : NOMES_M)} ${um(SOBRENOMES)}${chance(0.45) ? ` ${um(SOBRENOMES)}` : ""}`;
-    alunos.push({ chave: `aluno${String(i + 1).padStart(3, "0")}`, nome, indice: i });
+    const chave = `aluno${String(i + 1).padStart(3, "0")}`;
+    // O sorteio do nome corre igual para todos, para o resto da academia não mudar.
+    alunos.push({ chave, nome: NO_METODO.find((m) => m.chave === chave)?.nome ?? nome, indice: i });
   }
-  const contas = await emLotes(alunos, 8, (a) => criarConta(a.nome, `${a.chave}@${DOMINIO}`, null));
+  const contas = await emLotes(alunos, 8, (a) => criarConta(a.nome, `${a.chave}@${DOMINIO}`, NO_METODO.some((m) => m.chave === a.chave) ? senha : null));
   alunos.forEach((a, i) => (ids[a.chave] = contas[i]));
   console.log(`${Object.keys(ids).length} contas`);
 
@@ -582,7 +603,7 @@ async function semear() {
   // ── Aceite dos documentos, para os logins abrirem direto ────────────────
   const docs = await sql(`select distinct on (tipo) id, tipo from public.documentos_legais order by tipo, versao desc`);
   const aceites = [];
-  for (const p of [...EQUIPE, ...PERSONAS]) {
+  for (const p of [...EQUIPE, ...PERSONAS, ...NO_METODO]) {
     for (const d of docs) {
       if (d.tipo === "contrato_academia" && p.papel !== "gestor") continue;
       aceites.push(`(${q(d.id)}, ${q(ids[p.chave])}, ${d.tipo === "contrato_academia" ? q(ORG) : "null"}, 'academia de demonstração')`);
@@ -590,8 +611,145 @@ async function semear() {
   }
   await sql(`insert into public.aceites_documentos (documento_id, user_id, organization_id, user_agent) values ${aceites.join(",")}`);
 
+  // O Método entra por último, depois do treino e da dieta: com ele ativo, só a
+  // equipe da ArkeFit prescreve (`definir_dono_da_prescricao`).
+  await ligarMetodo(ORG, senha);
+
   gravarAcessos(senha);
   console.log(`\npronto: ${EQUIPE.length} na equipe, ${todosAlunos.length} alunos. Logins e senha em ${ARQUIVO_ACESSOS}`);
+}
+
+// O Método ARKE com valor R$ 0,00 nos alunos de NO_METODO: o mesmo estado que
+// `iniciar_trial_metodo_arke` deixa (aluno ativo no nível, assinatura `trial`
+// com valor 0 e sem Asaas), que aqui roda sem pessoa na sessão. Os gatilhos de
+// `alunos` fazem o resto: o chamado de boas-vindas da ArkeFit, a dieta e a
+// anamnese fora da vista da academia.
+//
+// Aluno novo no Método cai no acolhimento M.A.P.A.® até mandar a anamnese. Para
+// a home abrir direto, cada um entra com a própria conta e faz o que a tela do
+// acolhimento faz (`Onboarding.tsx`): a anamnese com o consentimento de saúde,
+// que só o titular dá e o banco carimba, e a tarefa para o mentor. O encontro
+// de acolhimento fica marcado para daqui a três dias, como o mentor marcaria,
+// para o cartão de evento da home ter data. Pode rodar de novo: só remarca.
+const ANAMNESE = {
+  aluno180: {
+    objetivo_principal: "Emagrecer e ganhar disposição",
+    expectativas: "Criar constância e chegar ao fim do ano 6 kg mais leve",
+    rotina_diaria: "Trabalho no escritório das 9h às 18h",
+    tempo_disponivel: "5 vezes por semana, 1 hora",
+    frequencia_semanal_desejada: 5,
+    qualidade_sono: "Durmo bem, umas 7 horas",
+    nivel_estresse: "Moderado",
+    experiencias_exercicio: "Já fiz musculação e corrida, parei algumas vezes",
+    estilo_treino: "Musculação com um pouco de cardio",
+    alimentacao_rotina: "Quatro refeições, belisco à tarde",
+    alimentos_gosta: "Frango, ovos, frutas",
+    alimentos_nao_gosta: "Fígado",
+  },
+  aluno152: {
+    objetivo_principal: "Saúde e disposição",
+    expectativas: "Ter mais energia no dia a dia e melhorar os exames",
+    rotina_diaria: "Comerciante, trabalho em pé o dia todo",
+    tempo_disponivel: "5 vezes por semana, 50 minutos, de manhã cedo",
+    frequencia_semanal_desejada: 5,
+    qualidade_sono: "Acordo cansado às vezes",
+    nivel_estresse: "Alto",
+    experiencias_exercicio: "Treino há um ano aqui na academia",
+    estilo_treino: "Musculação",
+    alimentacao_rotina: "Almoço fora, janto tarde",
+    alimentos_gosta: "Carne, arroz e feijão",
+    alimentos_nao_gosta: "",
+  },
+};
+const VERSAO_CONSENTIMENTO_SAUDE = "2026-09-23"; // src/lib/consentimentoSaude.ts
+
+async function acolhimentoPeloAluno(email, senha, aluno) {
+  const ANON = chaves.find((k) => k.name === "anon").api_key;
+  const r = await fetch(`${URL_PROJETO}/auth/v1/token?grant_type=password`, {
+    method: "POST",
+    headers: { apikey: ANON, "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password: senha }),
+  });
+  const sessao = await r.json();
+  if (!sessao.access_token) throw new Error(`entrada de ${email}: HTTP ${r.status}`);
+  const comoAluno = (tabela, corpo) =>
+    fetch(`${URL_PROJETO}/rest/v1/${tabela}`, {
+      method: "POST",
+      headers: {
+        apikey: ANON, Authorization: `Bearer ${sessao.access_token}`, "Content-Type": "application/json",
+        Prefer: "return=minimal", "User-Agent": "ArkeFit academia de demonstracao",
+      },
+      body: JSON.stringify(corpo),
+    });
+  const agora = new Date().toISOString();
+  const a = await comoAluno("anamnese_acolhimento", {
+    organization_id: aluno.organization_id, aluno_id: aluno.id, ...ANAMNESE[email.split("@")[0]],
+    concluida_em: agora, consentimento_lgpd_aceito_em: agora, consentimento_lgpd_versao: VERSAO_CONSENTIMENTO_SAUDE,
+  });
+  if (!a.ok) throw new Error(`anamnese de ${email}: HTTP ${a.status} ${(await a.text()).slice(0, 200)}`);
+  const t = await comoAluno("tarefas", {
+    organization_id: aluno.organization_id, aluno_id: aluno.id, tipo: "anamnese", prioridade: "media",
+    motivo: "Acolhimento M.A.P.A.®: ler a anamnese e prescrever o primeiro treino",
+    sla_prazo: new Date(Date.now() + 48 * 3600 * 1000).toISOString(), origem_evento: `agendar_acolhimento:${aluno.id}`,
+  });
+  if (!t.ok && t.status !== 409) throw new Error(`tarefa de ${email}: HTTP ${t.status} ${(await t.text()).slice(0, 200)}`);
+}
+
+async function ligarMetodo(ORG, senha) {
+  const v = `(values ${NO_METODO.map((m) => `(${q(`${m.chave}@${DOMINIO}`)}, ${q(m.nivel)}, ${q(m.modelo)})`).join(", ")}) as v(email, nivel, modelo)`;
+  const doAluno = (junta = "") => `public.alunos a join auth.users u on u.id = a.user_id join ${v} on v.email = u.email ${junta} where a.organization_id = ${q(ORG)}`;
+  await sql(`update public.profiles p set modelo_exercicio = v.modelo from auth.users u, ${v} where u.email = v.email and p.user_id = u.id;
+    update public.alunos a set metodo_arke_status = 'ativo', nivel_atacado = v.nivel::public.nivel_atacado,
+           metodo_arke_ativado_em = case when a.metodo_arke_status = 'ativo' then a.metodo_arke_ativado_em else now() end
+      from auth.users u, ${v}
+     where u.id = a.user_id and u.email = v.email and a.organization_id = ${q(ORG)}
+       and (a.metodo_arke_status is distinct from 'ativo' or a.nivel_atacado is distinct from v.nivel::public.nivel_atacado);
+    insert into public.aluno_assinaturas (organization_id, aluno_id, nivel_atacado, valor_cobrado, valor_repasse_arke, status, trial_fim)
+      select a.organization_id, a.id, a.nivel_atacado, 0, 0, 'trial', o.trial_vencimento
+        from ${doAluno("join public.organizations o on o.id = a.organization_id")}
+    on conflict (aluno_id) do update set nivel_atacado = excluded.nivel_atacado, valor_cobrado = 0, valor_repasse_arke = 0, status = 'trial',
+      trial_fim = excluded.trial_fim, asaas_subscription_id = null, proxima_cobranca = null, fatura_pendente_url = null;`);
+  const semAnamnese = await sql(`select u.email, a.id, a.organization_id from ${doAluno()}
+    and not exists (select 1 from public.anamnese_acolhimento n where n.aluno_id = a.id and n.concluida_em is not null)`);
+  for (const a of semAnamnese) await acolhimentoPeloAluno(a.email, senha, a);
+  await sql(`update public.tarefas t set data_agendada = (current_date + 3) + time '10:00', sla_prazo = greatest(t.sla_prazo, now() + interval '3 days')
+    from ${doAluno()} and t.aluno_id = a.id and t.tipo = 'anamnese' and t.origem_evento = 'agendar_acolhimento:' || a.id
+     and t.status in ('aberta', 'em_andamento', 'aguardando')`);
+  const ligados = await sql(`select u.email, public.plano_do_aluno(a.metodo_arke_status, a.nivel_atacado) as plano, s.status, s.valor_cobrado
+    from ${doAluno("join public.aluno_assinaturas s on s.aluno_id = a.id")}`);
+  for (const l of ligados) console.log(`${l.email}: plano ${l.plano}, assinatura ${l.status}, R$ ${l.valor_cobrado}`);
+  if (ligados.length !== NO_METODO.length || ligados.some((l) => l.plano === "free" || Number(l.valor_cobrado) !== 0)) {
+    throw new Error("O Método não ficou ligado nos dois alunos.");
+  }
+}
+
+// `metodo`: liga o Método nos dois alunos da academia que já existe, sem
+// recriar (o histórico das provas fica). Dá a eles a senha da apresentação e o
+// aceite dos documentos, e acrescenta os logins ao arquivo de acessos.
+async function metodo() {
+  const ORG = await orgDemo();
+  if (!ORG) throw new Error("A academia de demonstração não existe: rode `semear`.");
+  const senha = senhaDoArquivo();
+  if (!senha) throw new Error(`Sem a linha "Senha:" em ${ARQUIVO_ACESSOS}.`);
+  const contas = await sql(`select u.id, u.email from auth.users u join public.alunos a on a.user_id = u.id
+    where a.organization_id = ${q(ORG)} and u.email in (${NO_METODO.map((m) => q(`${m.chave}@${DOMINIO}`)).join(", ")})`);
+  if (contas.length !== NO_METODO.length) throw new Error("Os alunos do Método não estão na academia de demonstração.");
+  for (const c of contas) {
+    const r = await admin(`/admin/users/${c.id}`, { method: "PUT", body: JSON.stringify({ password: senha }) });
+    if (!r.ok) throw new Error(`senha de ${c.email}: HTTP ${r.status}`);
+  }
+  await sql(`insert into public.aceites_documentos (documento_id, user_id, organization_id, user_agent)
+    select d.id, c.id, null, 'academia de demonstração'
+      from (select distinct on (tipo) id, tipo from public.documentos_legais order by tipo, versao desc) d,
+           (values ${contas.map((c) => `(${q(c.id)}::uuid)`).join(", ")}) as c(id)
+     where d.tipo <> 'contrato_academia'
+       and not exists (select 1 from public.aceites_documentos x where x.documento_id = d.id and x.user_id = c.id)`);
+  await ligarMetodo(ORG, senha);
+  if (existsSync(ARQUIVO_ACESSOS)) {
+    const texto = readFileSync(ARQUIVO_ACESSOS, "utf8");
+    const faltam = NO_METODO.filter((m) => !texto.includes(`${m.chave}@${DOMINIO}`));
+    if (faltam.length) appendFileSync(ARQUIVO_ACESSOS, faltam.map((m) => `  ${m.nome.padEnd(26)} ${m.chave}@${DOMINIO}\n`).join(""));
+  }
 }
 
 async function limpar() {
@@ -611,7 +769,8 @@ async function limpar() {
 const comando = process.argv[2];
 if (comando === "semear") await semear();
 else if (comando === "limpar") await limpar();
+else if (comando === "metodo") await metodo();
 else if (comando === "recriar") {
   await limpar();
   await semear();
-} else console.log("uso: node scripts/demonstracao/academia.mjs semear|recriar|limpar");
+} else console.log("uso: node scripts/demonstracao/academia.mjs semear|recriar|limpar|metodo");

@@ -481,3 +481,30 @@ Sem migration. A única publicação é a do `assistente-academia`, pelo índice
 - A Central (`app-tela-inicial.md`) e o índice do assistente (`npm run ajuda:indice`) foram atualizados; falta publicar `assistente-academia`.
 - **Roteiro das imagens, em produção:** `semear` com a academia fictícia "Academia Horizonte" (trial), as capturas e `limpar` no fim, sem linha órfã. A primeira tentativa parou no `publicar_treino` e foi limpa na hora (`limpar`: organização e 12 contas apagadas, nenhuma linha órfã).
 - **Falta, porque esta frente não publica:** depois do deploy, na Ponto Alto com a aluna Marina Costa Ribeiro, no celular e no computador, nos dois temas: o registro de um dia com Sim e Não legíveis, os ícones dos resumos e, com o acolhimento agendado pela fila, o cartão dizendo "Seu encontro de acolhimento M.A.P.A.®".
+
+## Dois alunos da Ponto Alto no Método, com valor R$ 0,00 (13/10/2026)
+
+**O pedido:** dois alunos da academia de demonstração no Método, um masculino e uma feminina, com valor R$ 0,00, para servirem de exemplo nas demonstrações e nos testes. A Marina Costa Ribeiro e o Pedro Henrique Almeida continuam no Free.
+
+**Os dois** (logins de `scripts/demonstracao/academia.mjs`, com a senha da apresentação, que fica fora do repositório):
+- **Juliana Marques Santana**, `aluno180@demonstracao.arkefit.com.br`: Método **Integrado**, modelo dos exercícios feminino.
+- **Hugo Souza**, `aluno152@demonstracao.arkefit.com.br`: Método **Elite**, modelo dos exercícios masculino.
+
+Os dois já eram alunos da Ponto Alto, em dia, com treino, dieta, duas avaliações físicas e treinos registrados; foram escolhidos por isso, e não criados.
+
+**As decisões:**
+- **O valor zero é o caminho que o produto já tem:** o trial do Método que o Super Admin dá (`iniciar_trial_metodo_arke`). Ele deixa o aluno `ativo` no nível e a assinatura `trial` com `valor_cobrado = 0`, sem Asaas. O roteiro faz o mesmo pelo SQL, porque a função confere o Sócio na sessão e o roteiro não tem pessoa. O `valor_repasse_arke` fica 0 e o fim do trial acompanha o da academia (`trial_vencimento`, 31/12/2030): com os 15 dias padrão, a ficha diria "vencido" daqui a duas semanas. A academia já é de homologação (trial), então o trial do aluno não é oferta. Sem `metodo_arke_ativado_por`, nenhuma comissão de adesão nasce.
+- **Os gatilhos de `alunos` fazem a passagem:** o chamado de boas-vindas da ArkeFit (`passar_bastao_do_metodo`), a dieta e a anamnese fora da vista da academia (`aluno_no_metodo` no RLS), e o treino ainda visível para ela. O treino e a dieta que a academia publicou seguem valendo até o mentor publicar os dele.
+- **Sem mentor atribuído** (`mentor_id` nulo): nenhuma pessoa da equipe ArkeFit está marcada como mentor hoje, então a conversa vai à equipe da Mentoria.
+- **O acolhimento M.A.P.A.® feito pelo próprio aluno.** Aluno novo no Método cai no acolhimento até mandar a anamnese, e o consentimento de saúde só o titular dá (`consentimento_saude_so_do_titular`). O roteiro entra com a conta de cada um e faz o que a tela faz (`Onboarding.tsx`): a anamnese com o consentimento (o banco carimba a data, o hash e o navegador) e a tarefa `anamnese` para o mentor. Depois marca o encontro para daqui a três dias, como o mentor marcaria, para o cartão "Próximo Evento de Acompanhamento" ter data.
+- **No roteiro:** `NO_METODO` fixa os dois nomes (o sorteio corre igual, para o resto da academia não mudar), e `semear`/`recriar` ligam o Método neles no fim, depois do treino e da dieta. O subcomando novo `metodo` faz só isso na academia que já existe, sem recriar: dá a senha da apresentação, o aceite dos documentos, liga o Método e acrescenta os dois logins ao arquivo de acessos. Rodar de novo só remarca o encontro.
+
+**O defeito do caminho:** a gravação da anamnese pela API voltava 500 "Something went wrong" com o `User-Agent` "academia de demonstração": cabeçalho com acento não passa pelo gateway. Ficou "ArkeFit academia de demonstracao".
+
+**Conferido:**
+- **Em produção, só na Ponto Alto:** `academia.mjs metodo` rodou e os dois ficaram com `plano_do_aluno()` = `integrado` e `elite`, a assinatura `trial` com R$ 0,00, repasse 0 e sem id do Asaas, e `mentor_id` nulo. Nenhuma mensalidade nem cobrança avulsa nova para os dois. A anamnese está concluída, com a versão `2026-09-23` do consentimento e o hash carimbado, e cada um tem duas tarefas abertas da ArkeFit: a de boas-vindas e a do acolhimento, marcada para 16/10 às 10h.
+- **O RLS pelo lado da academia**, em transação desfeita com a sessão da gestão, da nutricionista e da recepção: o treino dos dois aparece (1 cada), a dieta, a anamnese e a tarefa de acolhimento não (0). A dieta da Marina, no Free, continua aparecendo para a gestão e a nutricionista.
+- **A tela**, no app publicado, no computador e no celular, entrando como cada um: a home abre direto, com o cartão "Seu encontro de acolhimento M.A.P.A.®" de sexta-feira, 16/10, 10:00, e o botão "Falar com o mentor"; o toque leva ao Treino com a conversa "Meu Mentor ARKE" aberta.
+- Antes de rodar em produção, a ligação do Método foi provada em transação desfeita.
+- Uma primeira versão marcava o encontro numa tarefa própria (`demo:acolhimento:`), que duplicaria a do acolhimento; as duas linhas foram apagadas antes da versão final.
+- `npm run check` sem erro (tipos, lint com 0 erros e os 27 avisos de antes, o `deno check` das 57 funções e nenhuma vulnerabilidade) e `npx vitest run` com 1.696 testes em 214 arquivos, todos verdes.
