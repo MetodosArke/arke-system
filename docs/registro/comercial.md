@@ -74,3 +74,9 @@ Decisões do responsável, depois dos testes do Jean:
 
 - **Minha Jornada só no Método ARKE.** O item sai do menu do aluno do Free (`AppSidebar`, pelo `planoAluno` do `AuthContext`), e a rota, aberta por link antigo, mostra o convite do Método em vez da tela. A Jornada leva junto a aba **Compromisso** (a rotina da semana), que mora nela desde 23/09; no Free fica o calendário com a meta semanal e os treinos registrados.
 - **Sem preço no app.** O cartão do Método e o aviso de recurso do Método (`MetodoArke`) dizem o que o Método traz e mandam à recepção, sem valor: o preço de cara barrava a venda antes da conversa. A regra de só oferecer quando a academia de fato vende (`metodo_ofertas_academia()`) continua; o preço de varejo segue definido pela academia em Precificação e usado na cobrança.
+
+## As demonstrações do site saem do nome do Jean (13/10/2026)
+
+**Decisão do responsável.** O Jean segue em atividade em outra empresa até a ArkeFit decolar, então as demonstrações de quem vem pelo site passam para a agenda do André. Os e-mails da Letícia diziam "uma conversa rápida com o Jean Ramos" e "Um horário com o Jean?". Agora falam de "um dos fundadores da ArkeFit", e o assunto do primeiro lembrete virou "Um horário para ver o ArkeFit?". Assim, trocar de quem é a agenda volta a ser só trocar o link em Visão Master → Pipeline comercial, sem mudar o código. O artigo da Central (`vm-comercial.md`) acompanhou.
+
+**Conferido:** os testes da Letícia (`agenteComercial.test`), com o assunto novo, e o índice da Central refeito.
