@@ -3,6 +3,7 @@ import { verificada } from "../_shared/verificacao.ts";
 import { acessoArkefit } from "../_shared/acessoArkefit.ts";
 import { emailPainelPronto, type Especialidade } from "./email.ts";
 import { servir } from "../_shared/servir.ts";
+import { cabecalhosDoResend, chaveDeIdempotencia, envioAceito, resumoParaChave } from "../_shared/idempotenciaEmail.ts";
 import { resumoDoErro } from "../_shared/resumoDoErro.ts";
 
 const corsHeaders = {
@@ -461,10 +462,13 @@ async function enviarAviso(
     link,
     criarSenha: o.criarSenha,
   });
+  // Sem id à mão: a chave é o resumo do conteúdo, que leva o link (novo a
+  // cada pedido de criar a senha). O mesmo e-mail não sai duas vezes.
+  const chave = chaveDeIdempotencia("painel-pronto", await resumoParaChave(conteudo.assunto, conteudo.html));
   try {
     const r = await fetch("https://api.resend.com/emails", {
       method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${resendKey}` },
+      headers: cabecalhosDoResend(resendKey, chave),
       body: JSON.stringify({
         from: de,
         to: [o.email],
@@ -475,7 +479,7 @@ async function enviarAviso(
       }),
       signal: AbortSignal.timeout(15_000),
     });
-    if (!r.ok) {
+    if (!envioAceito(r.status)) {
       console.error("Resend", r.status);
       return { ok: false, erro: "O e-mail não saiu. Tente de novo em alguns minutos." };
     }

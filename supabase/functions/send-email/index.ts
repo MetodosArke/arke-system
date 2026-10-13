@@ -11,6 +11,7 @@ import type { MarcaEmail } from './_templates/_components/brand.tsx'
 import { textoDaRecuperacao, varianteDaRecuperacao } from './recuperacao.ts'
 import { servir } from '../_shared/servir.ts'
 import { resumoDoErro } from '../_shared/resumoDoErro.ts'
+import { cabecalhosDoResend, chaveDeIdempotencia, envioAceito, resumoParaChave } from '../_shared/idempotenciaEmail.ts'
 
 const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY') ?? ''
 // O Supabase mostra o secret como "v1,whsec_<base64>" — o Webhook (padrão
@@ -29,17 +30,20 @@ const ESPERAS_MS = [400, 800, 1200]
 // plataforma, e o Auth desistia do hook antes. Agora vai pela API, como os
 // outros envios, com `AbortSignal.timeout` (`prazoChamadas.guarda`).
 const PRAZO_ENVIO_MS = 4_000
-async function enviarComNovaTentativa(email: { from: string; to: string[]; subject: string; html: string }) {
+// A chave de idempotência (13/10/2026): o Auth que repete o mesmo pedido (o
+// mesmo token) não manda o e-mail duas vezes, e a nova tentativa do 429 vai
+// com a mesma chave.
+async function enviarComNovaTentativa(email: { from: string; to: string[]; subject: string; html: string }, chave: string) {
   for (let tentativa = 0; ; tentativa++) {
     const r = await fetch('https://api.resend.com/emails', {
       method: 'POST',
-      headers: { Authorization: `Bearer ${RESEND_API_KEY}`, 'Content-Type': 'application/json' },
+      headers: cabecalhosDoResend(RESEND_API_KEY, chave),
       body: JSON.stringify(email),
       signal: AbortSignal.timeout(PRAZO_ENVIO_MS),
     })
     // O corpo não interessa (o da recusa pode citar o destinatário): só o status.
     await r.body?.cancel()
-    if (r.ok) return
+    if (envioAceito(r.status)) return
     if (r.status !== 429 || tentativa >= ESPERAS_MS.length) {
       throw Object.assign(new Error('Resend recusou o envio'), { name: 'ResendError', status: r.status })
     }
@@ -193,7 +197,21 @@ servir("send-email", async (req: Request) => {
 
     const html = await renderAsync(element)
 
-    await enviarComNovaTentativa({ from: FROM, to: [user.email], subject, html })
+    // O token é o evento: o mesmo token é o mesmo e-mail, e o código novo (a
+    // reautenticação só tem o código) é outro e-mail. Na chave vai só o
+    // resumo, que não se desfaz em token.
+    const chave = chaveDeIdempotencia(
+      'auth',
+      emailData.email_action_type,
+      user.id,
+      await resumoParaChave(
+        emailData.token ?? '',
+        emailData.token_hash ?? '',
+        emailData.token_new ?? '',
+        emailData.token_hash_new ?? '',
+      ),
+    )
+    await enviarComNovaTentativa({ from: FROM, to: [user.email], subject, html }, chave)
   } catch (error) {
     console.error('Error sending auth email via send-email hook', resumoDoErro(error))
     return new Response(JSON.stringify({ error: { http_code: 500, message: 'Falha ao enviar e-mail.' } }), {

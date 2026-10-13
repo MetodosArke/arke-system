@@ -4,6 +4,7 @@ import { interpretarResposta, validarQuadro } from "../_shared/vigiaAnalise.ts";
 import { descreverErro, registrarExecucao } from "../_shared/execucao.ts";
 import { montarEmailAvisos, type Aviso } from "./email.ts";
 import { servir } from "../_shared/servir.ts";
+import { cabecalhosDoResend, chaveDeIdempotencia, envioAceito, resumoParaChave } from "../_shared/idempotenciaEmail.ts";
 import { registrarUsoIA } from "../_shared/usoIA.ts";
 
 const jsonResponse = (body: unknown, status = 200) =>
@@ -68,14 +69,17 @@ servir("vigia", async (req: Request) => {
       } else if (emails.length) {
         const m = montarEmailAvisos(lista, siteUrl);
         const de = Deno.env.get("EMAIL_ALERTAS_FROM") ?? "ArkeFit Alertas <alertas@arkefit.com.br>";
+        // Se a marca de "avisado" falha depois do envio, a passada seguinte
+        // manda os mesmos avisos com a mesma chave, e o Resend não entrega de novo.
+        const chave = chaveDeIdempotencia("vigia-avisos", await resumoParaChave(...lista.map((a) => String(a.id)).sort()));
         const r = await fetch("https://api.resend.com/emails", {
           signal: AbortSignal.timeout(15_000),
           method: "POST",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${resendKey}` },
+          headers: cabecalhosDoResend(resendKey, chave),
           body: JSON.stringify({ from: de, to: emails, subject: m.assunto, html: m.html, text: m.texto }),
         });
         // Só o status vai para log: a resposta do Resend ecoa os endereços.
-        if (r.ok) {
+        if (envioAceito(r.status)) {
           const { error: erroMarca } = await admin.rpc("vigia_marcar_avisadas", { _ids: lista.map((a) => a.id) });
           if (erroMarca) console.error("vigia: aviso enviado, mas falhou ao registrar", erroMarca.code);
           avisos = lista.length;

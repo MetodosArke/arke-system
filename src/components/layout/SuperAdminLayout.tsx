@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import { CarregandoPagina } from "@/components/CarregandoPagina";
+import { FronteiraDaTela } from "@/components/ErrorBoundary";
 import { AvisoRotinas } from "@/components/superadmin/SaudeRotinas";
 import { Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
@@ -75,11 +76,13 @@ function SuperAdminLayoutInner() {
             consulta só o que cada um abre. */}
         {(podeArea(acessoArkefit, "operacao") || podeArea(acessoArkefit, "financeiro")) && <AvisoRotinas />}
         <main className={cn("mx-auto w-full flex-1 min-w-0 p-3 sm:p-4 md:p-6", TELAS_LARGAS.includes(location.pathname) ? "max-w-none" : "max-w-6xl")}>
-          <Suspense fallback={<CarregandoPagina />}>
-            <PortaoDaRotaVisaoMaster>
-              <Outlet />
-            </PortaoDaRotaVisaoMaster>
-          </Suspense>
+          <FronteiraDaTela>
+            <Suspense fallback={<CarregandoPagina />}>
+              <PortaoDaRotaVisaoMaster>
+                <Outlet />
+              </PortaoDaRotaVisaoMaster>
+            </Suspense>
+          </FronteiraDaTela>
         </main>
       </div>
     </div>

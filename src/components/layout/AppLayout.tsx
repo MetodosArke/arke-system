@@ -1,4 +1,5 @@
 import { CarregandoPagina } from "@/components/CarregandoPagina";
+import { FronteiraDaTela } from "@/components/ErrorBoundary";
 import { Suspense, useState, createContext, useContext, useCallback } from "react";
 import { Outlet } from "react-router-dom";
 import { AppSidebarDesktop } from "./AppSidebar";
@@ -30,9 +31,11 @@ export function AppLayout() {
         >
           <AppHeader />
           <main className="flex-1 p-3 sm:p-4 md:p-6 min-w-0 overflow-x-hidden">
-            <Suspense fallback={<CarregandoPagina />}>
-              <Outlet />
-            </Suspense>
+            <FronteiraDaTela>
+              <Suspense fallback={<CarregandoPagina />}>
+                <Outlet />
+              </Suspense>
+            </FronteiraDaTela>
           </main>
         </div>
       </div>

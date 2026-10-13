@@ -1,5 +1,6 @@
 import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2";
 import { servir } from "../_shared/servir.ts";
+import { cabecalhosDoResend, chaveDeIdempotencia, envioAceito, resumoParaChave } from "../_shared/idempotenciaEmail.ts";
 import { dentroDoFreio, MENSAGEM_FREIO } from "../_shared/freio.ts";
 import { linkDoApp } from "../_shared/linkDoApp.ts";
 import { resumoDoErro } from "../_shared/resumoDoErro.ts";
@@ -309,10 +310,18 @@ async function avisarPendente(
     papel: o.papel,
     link: data.properties.action_link,
   });
+  // O link é novo a cada pedido e invalida o anterior: a chave leva o resumo
+  // dele, para o mesmo link não sair duas vezes e o novo sair.
+  const chave = chaveDeIdempotencia(
+    "equipe-pendente",
+    o.organizationId,
+    o.userId,
+    await resumoParaChave(conteudo.assunto, conteudo.html),
+  );
   try {
     const r = await fetch("https://api.resend.com/emails", {
       method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${resendKey}` },
+      headers: cabecalhosDoResend(resendKey, chave),
       body: JSON.stringify({
         from: Deno.env.get("EMAIL_ACESSO_FROM") ?? "ArkeFit <acesso@arkefit.com.br>",
         to: [o.email],
@@ -323,7 +332,7 @@ async function avisarPendente(
       signal: AbortSignal.timeout(15_000),
     });
     // Só o status vai para log: a resposta do Resend ecoa o endereço.
-    if (!r.ok) {
+    if (!envioAceito(r.status)) {
       console.error("cadastrar-membro-equipe: Resend", r.status);
       return falhou;
     }

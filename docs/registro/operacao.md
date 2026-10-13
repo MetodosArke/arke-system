@@ -283,3 +283,44 @@ A prova de ponta a ponta do encerramento, que estava pendente na fila, encontrou
   - depois dela, passa;
   - a academia que funciona, a encerrada antes da data e a em aviso continuam recusando.
 - **Defeito plantado** (a condição da data tirada): a guarda falhou.
+
+## Uma fronteira de erro por área, e o e-mail que não sai duas vezes (13/10/2026)
+
+Os dois achados baixos que seguiam abertos na auditoria de prontidão de 05/10/2026.
+
+**Uma fronteira de erro por área.** Havia um `ErrorBoundary` só, na raiz (`main.tsx`): o erro de render de qualquer tela trocava o app inteiro, menu junto, por "Algo deu errado ao carregar o aplicativo", e só recarregar saía dali. O componente ganhou duas propriedades, `naArea` (a mensagem ocupa só o lugar da tela) e `chaveReset` (quando muda, o erro é esquecido), e `FronteiraDaTela` o usa com a rota atual como chave. Ela fica em volta do conteúdo de cada layout, fora do `Suspense`: o do aluno (`AppLayout`), o da academia (`AdminLayout`) e o da Visão Master (`SuperAdminLayout`); e em volta das rotas no `App.tsx`, para as páginas sem layout (vendas, matrícula, login, onboarding). O erro mostra "Esta tela teve um problema" dentro do layout, com `role="alert"` e as cores por token, e oferece **Tentar de novo** e **Recarregar**; ir para outra rota pelo menu limpa o erro. O envio ao Sentry (`reportarErro`) e a fronteira da raiz continuam iguais, para o que escapa (os providers, o próprio layout).
+
+**O e-mail sem idempotência.** Não havia um envio central: cada função chama a API do Resend com o próprio `fetch`. Das 19 chamadas, 6 já levavam `Idempotency-Key` (os agentes, o alerta de catracas, o encerramento e o pedido ao responsável). As outras 13 não: uma rotina do pg_cron que rodava de novo, o Auth que repetia o pedido ao `send-email` ou o registro que falhava depois do envio mandavam o mesmo e-mail duas vezes. Agora todo envio leva a chave, montada por `chaveDeIdempotencia()` (`_shared/idempotenciaEmail.ts`).
+
+- **O formato** é `<tipo>/<ids ou datas>`, com até 256 caracteres (o limite do Resend). A regra recusa `@`, espaço e barra dentro da parte: na chave vão só ids, datas e resumos, nunca e-mail ou nome.
+- **A mesma chave com outro conteúdo é recusada pelo Resend (409).** Por isso o e-mail cujo corpo muda a cada pedido leva o resumo do conteúdo na chave (`resumoParaChave`, SHA-256 cortado em 40 dígitos). É o caso do convite: cada pedido gera um link novo e invalida o anterior, então o link novo **tem** de sair. A chave fixa seguraria justamente o único link que funciona. E o 409 conta como enviado (`envioAceito`): ele só acontece quando a mesma chave já saiu ou está saindo.
+- **As chaves:**
+  - `alerta-rotinas/<dia>/<resumo dos itens>`;
+  - `briefing-semanal/<academia>/<semana>`;
+  - `vigia-resumo/<dia>`;
+  - `vigia-avisos/<resumo dos ids>`;
+  - `lead-site/<contato>`;
+  - `chamado-suporte/<chamado>`;
+  - `auth/<tipo>/<usuário>/<resumo do token>` no `send-email`, que repete a mesma chave na nova tentativa do 429;
+  - `troca-carteira/<academia>/<resumo>`;
+  - `aviso-socios/<evento>/<resumo>`;
+  - `equipe-pendente`, `matricula-nova`, `convite-equipe-arkefit` e `painel-pronto`, com o resumo do conteúdo.
+- **Guarda:** `emailIdempotente.guarda` acha todo `fetch` à API de e-mails do Resend e cobra o cabeçalho, e também que a chave não seja montada com o endereço de ninguém.
+
+**Ficou de fora:**
+- As 6 chamadas que já tinham chave não mudaram. Elas montam a própria (`chaveDoEnvio`, `chaveDoLote`), e a guarda vale para elas também.
+- O clique duplo no convite manda dois e-mails, porque cada pedido gera um link novo. Segurar o segundo deixaria a pessoa com um link que não funciona mais.
+- Repetir o mesmo aviso depois de 24 horas manda de novo, porque a chave expira no Resend. Não muda nada para as rotinas: o lembrete delas já é de 24 em 24 horas.
+- Nenhum texto de e-mail mudou.
+
+**Conferido:**
+- `ErrorBoundary.test` (4 testes): o erro aparece dentro do layout, com o menu de pé, e vai ao Sentry; ir para outra rota pelo menu limpa o erro; voltar à tela que quebrou mostra o erro de novo sem derrubar o app; o erro fora de uma área cai na fronteira da raiz.
+- `idempotenciaEmail.test` (7 testes, sobre o arquivo publicado) e `emailIdempotente.guarda` (3 testes, 19 envios achados).
+- **Defeitos plantados**, cada um derrubando o teste certo:
+  - sem o reset por rota, caiu "ir para outra rota pelo menu limpa o erro";
+  - sem a chave no `vigia-resumo`, caiu a guarda;
+  - com a regra da parte aceitando qualquer texto, caiu "recusa e-mail, nome com espaço, barra e parte vazia".
+- `npm run check`: 0 erros, e o `deno check` das 57 funções passou. `npx vitest run`: 214 arquivos e 1.694 testes passando. O teste da troca de carteira (`carteiraRecebimento`) mudou junto, porque o aviso passou a receber a academia.
+- **Falta, em produção, depois do deploy das 12 funções:**
+  - forçar o erro numa tela e ver o menu continuar e a troca de rota limpar o erro;
+  - mandar duas vezes o mesmo e-mail com a mesma chave e ver um só chegar.

@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import { CarregandoPagina } from "@/components/CarregandoPagina";
+import { FronteiraDaTela } from "@/components/ErrorBoundary";
 import { Outlet, useNavigate } from "react-router-dom";
 import { Building2, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -62,12 +63,14 @@ function AdminLayoutInner() {
         {modoEssencial && <FaixaModoEssencial />}
         <AppHeader />
         <main className="flex-1 p-3 sm:p-4 md:p-6 min-w-0 overflow-x-hidden">
-          <Suspense fallback={<CarregandoPagina />}>
-            {/* Cada página confere o papel, pela mesma tabela do menu. */}
-            <PortaoDaRota>
-              <Outlet />
-            </PortaoDaRota>
-          </Suspense>
+          <FronteiraDaTela>
+            <Suspense fallback={<CarregandoPagina />}>
+              {/* Cada página confere o papel, pela mesma tabela do menu. */}
+              <PortaoDaRota>
+                <Outlet />
+              </PortaoDaRota>
+            </Suspense>
+          </FronteiraDaTela>
         </main>
       </div>
     </div>

@@ -3,6 +3,7 @@ import { descreverErro, registrarExecucao } from "../_shared/execucao.ts";
 import { topicoDoId, VALIDADE_SEG } from "../_shared/avisoPush.ts";
 import { enviarAvisos } from "../_shared/push.ts";
 import { servir } from "../_shared/servir.ts";
+import { cabecalhosDoResend, chaveDeIdempotencia, envioAceito } from "../_shared/idempotenciaEmail.ts";
 import { linkDoApp } from "../_shared/linkDoApp.ts";
 
 const NOME = "briefing-semanal";
@@ -157,7 +158,9 @@ servir("briefing-semanal", async (req: Request) => {
           const envio = await fetch("https://api.resend.com/emails", {
             signal: AbortSignal.timeout(15_000),
             method: "POST",
-            headers: { "Content-Type": "application/json", Authorization: `Bearer ${resendKey}` },
+            // Um resumo por academia e semana: a rotina que roda de novo não
+            // manda o segundo.
+            headers: cabecalhosDoResend(resendKey, chaveDeIdempotencia("briefing-semanal", alvo.organization_id, alvo.semana)),
             body: JSON.stringify({
               from: "ArkeFit <relatorios@arkefit.com.br>",
               to: [b.gestor_email],
@@ -165,7 +168,7 @@ servir("briefing-semanal", async (req: Request) => {
               html: corpoEmail(b, urlRelatorio),
             }),
           });
-          if (envio.ok) emails++;
+          if (envioAceito(envio.status)) emails++;
           // Só o status vai para log: a resposta do Resend ecoa o endereço.
           else console.error("briefing-semanal: Resend recusou", envio.status);
         }

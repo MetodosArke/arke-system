@@ -1,5 +1,6 @@
 import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2";
 import { servir } from "../_shared/servir.ts";
+import { cabecalhosDoResend, chaveDeIdempotencia, envioAceito, resumoParaChave } from "../_shared/idempotenciaEmail.ts";
 import { verificada } from "../_shared/verificacao.ts";
 import { dentroDoFreio, MENSAGEM_FREIO } from "../_shared/freio.ts";
 import { linkDoApp } from "../_shared/linkDoApp.ts";
@@ -185,10 +186,17 @@ servir("equipe-arkefit-convidar", async (req: Request) => {
       return jsonResponse({ error: r.mensagem }, r.status);
     }
     const conteudo = emailDeNovoConvite({ nome: conta.nome, ator: await nomeDe(callerId), link: link.properties.action_link });
+    // O link é novo a cada reenvio e invalida o anterior: a chave leva o
+    // resumo do conteúdo, para o mesmo link não sair duas vezes e o novo sair.
+    const chave = chaveDeIdempotencia(
+      "convite-equipe-arkefit",
+      pedido.userId,
+      await resumoParaChave(conteudo.assunto, conteudo.html),
+    );
     try {
       const r = await fetch("https://api.resend.com/emails", {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${resendKey}` },
+        headers: cabecalhosDoResend(resendKey, chave),
         body: JSON.stringify({
           from: Deno.env.get("EMAIL_ACESSO_FROM") ?? "ArkeFit <acesso@arkefit.com.br>",
           to: [conta.email],
@@ -199,7 +207,7 @@ servir("equipe-arkefit-convidar", async (req: Request) => {
         signal: AbortSignal.timeout(15_000),
       });
       // Só o status vai para log: a resposta do Resend ecoa o endereço.
-      if (!r.ok) {
+      if (!envioAceito(r.status)) {
         console.error("equipe-arkefit-convidar: Resend recusou o convite de novo", r.status);
         return jsonResponse({ error: "O e-mail não saiu. Tente de novo em instantes." }, 502);
       }
@@ -270,10 +278,13 @@ async function avisarSocios(
     quando: quandoEmBrasilia(new Date()),
     painel: a.painel,
   });
+  // O mesmo aviso (o mesmo evento, a mesma pessoa, no mesmo minuto) não sai
+  // duas vezes.
+  const chave = chaveDeIdempotencia("aviso-socios", a.evento, await resumoParaChave(aviso.assunto, aviso.texto));
   try {
     const r = await fetch("https://api.resend.com/emails", {
       method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${resendKey}` },
+      headers: cabecalhosDoResend(resendKey, chave),
       body: JSON.stringify({
         from: Deno.env.get("EMAIL_ALERTAS_FROM") ?? "ArkeFit Alertas <alertas@arkefit.com.br>",
         to: para,
@@ -284,8 +295,8 @@ async function avisarSocios(
       signal: AbortSignal.timeout(15_000),
     });
     // Só o status vai para log: a resposta do Resend ecoa os endereços.
-    if (!r.ok) console.error("equipe-arkefit-convidar: Resend recusou o aviso aos sócios", r.status);
-    return r.ok;
+    if (!envioAceito(r.status)) console.error("equipe-arkefit-convidar: Resend recusou o aviso aos sócios", r.status);
+    return envioAceito(r.status);
   } catch (e) {
     console.error("equipe-arkefit-convidar: o aviso aos sócios não saiu", resumoDoErro(e));
     return false;

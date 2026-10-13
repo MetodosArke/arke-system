@@ -46,10 +46,11 @@ Funções em Deno, publicadas no projeto `lzyxqjibkfblrrjboylp`. O repositório 
 - `contaCobranca.ts` (puro) e `contaDaAcademia.ts`: em qual conta Asaas a cobrança mora. O Método, sempre na da ArkeFit; a mensalidade e a avulsa novas, na da academia quando `cobranca_conta_academia` está ligado (sem split, sem taxa). A cobrança que já existe vai à conta gravada em `conta_asaas`; nunca à do modo de hoje.
 - `webhookAcademia.ts`: o webhook que a ArkeFit registra na conta da academia (`asaas-webhook?org=<id>`), o token dentro das regras do Asaas e o hash dele, que é o que o banco guarda.
 - `prestadorPagamentos.ts`: o selo e o texto do Asaas como prestador, para os e-mails que falam de cobrança (espelho de `src/lib/prestadorPagamentos.ts`).
+- `idempotenciaEmail.ts`: a chave de idempotência do e-mail no Resend, os cabeçalhos do envio e o 409 como enviado.
 - `erroDoAuth.ts`: a resposta para um erro do Auth (já cadastrado, e-mail inválido, limite, recusa ou falha dele), sem a mensagem dele.
 - `verificacao.ts`, `alvoNaAcademia.ts`, `papelCobranca.ts`, `freio.ts`, `execucao.ts` e `vapid.ts`: um pedaço de regra cada.
 
 ## Asaas e envios
 
 - **Idempotência:** confira o banco antes do gateway, e procure pela `externalReference` (`metodo:`, `plano:`, `b2b:`, `avulsa:`, `nfse:`) antes de criar. Mensagem e e-mail são reservados no banco antes do envio.
-- E-mail que uma rotina pode mandar de novo (os agentes, os avisos) vai ao Resend com chave de idempotência. A função chamada por cron autentica com o token do Vault e registra o desfecho por `_shared/execucao.ts`; sem isso, o alerta de rotinas não vê a função que falha com o cron em dia.
+- **Todo e-mail vai ao Resend com chave de idempotência** (`Idempotency-Key`, vale 24 h), montada por `chaveDeIdempotencia()` (`_shared/idempotenciaEmail.ts`): o tipo e ids ou datas do evento, nunca e-mail nem nome. O Resend recusa a mesma chave com outro conteúdo (409): o e-mail cujo corpo muda a cada pedido (convite com link novo) leva o resumo do conteúdo na chave (`resumoParaChave`), e o 409 conta como enviado (`envioAceito`). `emailIdempotente.guarda.test.ts` cobra. A função chamada por cron autentica com o token do Vault e registra o desfecho por `_shared/execucao.ts`; sem isso, o alerta de rotinas não vê a função que falha com o cron em dia.
