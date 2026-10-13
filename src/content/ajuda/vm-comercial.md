@@ -6,7 +6,7 @@ Cada academia é um cartão, numa de seis etapas:
 
 - **Novos**: ainda sem conversa com a equipe;
 - **Em qualificação**: a equipe está entendendo se faz sentido;
-- **Demo agendada**: a demonstração com o Jean está marcada;
+- **Demo agendada**: a demonstração está marcada;
 - **Negociação**: proposta na mesa;
 - **Ganho**: fechou. Crie a organização em **Visão Geral → Nova organização**;
 - **Perdido**: não fechou. O quadro pede o motivo, porque é o motivo que ensina.
@@ -44,7 +44,7 @@ No contato do site, o que a academia escreveu no formulário aparece como ela es
 
 ## Letícia, a resposta automática
 
-O painel **Letícia, a resposta automática**, acima do quadro, mostra numa linha se ela está ligada e abre para configurar. Ligada, ela manda o convite para a demonstração com o Jean, com o link da agenda dele. Sem resposta, manda até dois lembretes, no 2º e no 5º dia, só em dia útil, das 9h às 19h.
+O painel **Letícia, a resposta automática**, acima do quadro, mostra numa linha se ela está ligada e abre para configurar. Ligada, ela manda o convite para a demonstração com um dos fundadores, com o link da agenda cadastrado no painel. Sem resposta, manda até dois lembretes, no 2º e no 5º dia, só em dia útil, das 9h às 19h.
 
 - **Site**: ela responde sozinha, em minutos, de dia ou de noite.
 - **WhatsApp, telefone, indicação e prospecção**: só quando alguém aciona. Use o botão **Acionar Letícia** no cartão. A primeira mensagem sai no próximo horário útil. O botão aparece no cartão em Novos que tem e-mail. Se ela não puder ser acionada, o cartão diz por quê.

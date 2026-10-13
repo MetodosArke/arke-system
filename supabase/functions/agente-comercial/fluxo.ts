@@ -294,19 +294,19 @@ export function montarEmail(d: DadosEmail): { assunto: string; html: string; tex
     paragrafos = [
       espelho ?? abertura(d.origem, academia, fonte),
       PROPOSTA[d.categoria],
-      `O melhor jeito de ver se faz sentido para vocês é uma conversa rápida com o Jean Ramos, um dos fundadores da ArkeFit, com o sistema aberto na tela. Escolha o horário que ficar melhor para você:`,
+      `O melhor jeito de ver se faz sentido para vocês é uma conversa rápida com um dos fundadores da ArkeFit, com o sistema aberto na tela. Escolha o horário que ficar melhor para você:`,
     ];
     fecho = "Se preferir, é só responder este e-mail.";
   } else if (d.etapa === "retorno_1") {
-    assunto = nome ? `Um horário com o Jean, ${nome}?` : "Um horário com o Jean?";
+    assunto = nome ? `Um horário para ver o ArkeFit, ${nome}?` : "Um horário para ver o ArkeFit?";
     paragrafos = [
-      `Passando para lembrar do convite: uma conversa curta com o Jean, com o sistema aberto na tela, ajuda a ver como o ArkeFit trata ${tema} no dia a dia de vocês.`,
+      `Passando para lembrar do convite: uma conversa curta com um dos fundadores, com o sistema aberto na tela, ajuda a ver como o ArkeFit trata ${tema} no dia a dia de vocês.`,
     ];
     fecho = "Se o momento não for bom, é só responder dizendo quando fica melhor.";
   } else {
     assunto = "Último lembrete sobre a demonstração do ArkeFit";
     paragrafos = [
-      `Este é o nosso último lembrete. Se um dia fizer sentido conversar sobre ${tema}, a agenda do Jean continua aberta:`,
+      `Este é o nosso último lembrete. Se um dia fizer sentido conversar sobre ${tema}, a agenda continua aberta:`,
     ];
     fecho = "E, se preferir, é só responder este e-mail quando quiser.";
   }

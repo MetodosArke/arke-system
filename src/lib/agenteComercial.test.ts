@@ -246,8 +246,8 @@ describe("montarEmail", () => {
   });
 
   it("os lembretes têm assunto próprio e o último avisa que é o último", () => {
-    expect(montarEmail({ ...base, etapa: "retorno_1" }).assunto).toBe("Um horário com o Jean, Mariana?");
-    expect(montarEmail({ ...base, etapa: "retorno_1", nome: "" }).assunto).toBe("Um horário com o Jean?");
+    expect(montarEmail({ ...base, etapa: "retorno_1" }).assunto).toBe("Um horário para ver o ArkeFit, Mariana?");
+    expect(montarEmail({ ...base, etapa: "retorno_1", nome: "" }).assunto).toBe("Um horário para ver o ArkeFit?");
     const r2 = montarEmail({ ...base, etapa: "retorno_2" });
     expect(r2.assunto).toBe("Último lembrete sobre a demonstração do ArkeFit");
     expect(r2.texto).toContain("último lembrete");
