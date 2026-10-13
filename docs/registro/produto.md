@@ -515,4 +515,7 @@ As capturas dos dois alunos do Método (#389) mostraram dois defeitos de tela:
 - **O realce ao passar o mouse era o azul da academia.** O cartão do próximo evento (#382) e os quatro atalhos da home usavam `hover:bg-accent/50`, e o tema da academia troca o `--accent` pela cor da marca. Com o mouse em cima, a data em `text-primary` ficava azul sobre azul. Os cinco passam a `hover:bg-muted`, neutro em qualquer tema, e o cartão de evento ganhou o respiro lateral que faltava.
 - **O texto do botão saía da borda no celular.** "Responder o questionário de saúde (1 min)" não cabia em 390 px, e o botão não quebrava a linha. Os botões de documentos da matrícula passam a quebrar a linha.
 
-**Conferido:** na tela, depois do deploy (abaixo, no PR).
+**Conferido** na Ponto Alto, com a Juliana (computador, temas claro e escuro) e o Hugo (celular), medindo o contraste com o mouse em cima do cartão:
+- **Título:** 13,3 a 15,0:1.
+- **Data:** 4,53:1 no tema claro. No escuro deu 4,48:1 com o `hover:bg-muted` cheio, e o realce do cartão de evento passou a `hover:bg-muted/60` (medido de novo abaixo).
+- **O texto do questionário de saúde** cabe no botão nos três.
