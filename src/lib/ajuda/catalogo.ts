@@ -500,7 +500,7 @@ export const ARTIGOS: ArtigoAjuda[] = [
   {
     slug: "vm-configuracoes",
     titulo: "Configurações, acervo e auditoria",
-    resumo: "Taxas, preços B2B, textos da plataforma, acervo global e o registro de ações sensíveis.",
+    resumo: "Taxas, preços B2B, textos da plataforma, acervo global, o registro de ações sensíveis e a exportação do período para uma auditoria.",
     secao: "Visão Master",
     publicos: ["arkefit"],
     rotas: ["/superadmin/configuracoes", "/superadmin/acervo", "/superadmin/auditoria"],

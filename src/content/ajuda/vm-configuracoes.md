@@ -22,3 +22,15 @@ Em [Profissionais](/superadmin/profissionais), os personal trainers e nutricioni
 ## Auditoria
 
 A [Auditoria](/superadmin/auditoria) registra as ações sensíveis: quem fez, quando, sobre o quê e o motivo. Entram ali exclusões, liberações remotas de catraca, consultas de acessos, mudanças no Vigia, emissões de taxa de implantação, trocas da carteira de recebimento de uma academia, trocas do e-mail, do nome e do papel de alguém da equipe (a do papel também quando é feita direto pela API, marcada `pela_api`), encerramentos e aprovações. A rotina que apaga a matrícula pelo link que não confirmou o e-mail em 7 dias também registra cada exclusão ali, só com a academia, sem dado da pessoa. A troca de carteira também chega por e-mail aos Super Admins, porque muda para onde vai o dinheiro da academia. É a resposta para "quem fez isso?" meses depois.
+
+**Toda mudança nesta página fica lá também**, como **Configuração da plataforma alterada**: a chave, o valor de antes e o de depois, e quem mudou. Quando a mudança não veio de uma pessoa (uma rotina ou uma atualização do sistema), aparece **servidor** no lugar do e-mail.
+
+### Exportar o período
+
+Para atender a um pedido de auditoria (o do Asaas, por exemplo), use **Exportar o período** no alto da [Auditoria](/superadmin/auditoria): escolha as datas (até 366 dias) e baixe um CSV com três tipos de registro, marcados na coluna `registro`:
+
+- `acao_sensivel`: as ações da trilha, com quem fez, quando, o quê e os detalhes;
+- `acesso`: os registros de acesso do Marco Civil, por pessoa e por dia, com o IP e a primeira e a última hora (guardados por 6 meses);
+- `entrada_que_falhou`: as tentativas de entrar que deram erro (senha errada, e-mail não confirmado), com a conta quando o e-mail é de alguém, e o IP só cifrado; nunca a senha. Também ficam 6 meses.
+
+Só o sócio exporta, com as duas etapas, e cada exportação entra na própria Auditoria como **Trilha de auditoria exportada**. O arquivo tem dado pessoal: mande só o que o pedido inclui, pelo meio combinado com o auditor, e apague a cópia do computador depois.

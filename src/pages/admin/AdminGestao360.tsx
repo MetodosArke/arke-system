@@ -9,6 +9,7 @@ import { BarChart3, Download, FileText, FileSpreadsheet, TrendingUp, TrendingDow
 import { useToast } from "@/hooks/use-toast";
 import { hojeBrasilia, inicioDoMesBrasilia } from "@/lib/dataBrasilia";
 import { decimal } from "@/lib/numeros";
+import { baixarCsv } from "@/lib/exportarPlanilha";
 
 function StatTile({
   icon: Icon,
@@ -39,21 +40,6 @@ function StatTile({
 
 const formatarMoeda = (valor: number) =>
   valor.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
-
-function baixarCsv(nomeArquivo: string, linhas: (string | number)[][]) {
-  const csv = linhas
-    .map((linha) => linha.map((valor) => `"${String(valor).replace(/"/g, '""')}"`).join(";"))
-    .join("\n");
-  const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8;" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = nomeArquivo;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-}
 
 export default function AdminGestao360() {
   const { organization } = useAuth();

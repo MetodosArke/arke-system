@@ -7428,6 +7428,33 @@ export type Database = {
           },
         ]
       }
+      tentativas_login_falhas: {
+        Row: {
+          em: string
+          email_hash: string | null
+          id: string
+          ip_hash: string | null
+          motivo: string
+          user_id: string | null
+        }
+        Insert: {
+          em?: string
+          email_hash?: string | null
+          id?: string
+          ip_hash?: string | null
+          motivo: string
+          user_id?: string | null
+        }
+        Update: {
+          em?: string
+          email_hash?: string | null
+          id?: string
+          ip_hash?: string | null
+          motivo?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       treino_calendario: {
         Row: {
           aluno_id: string
@@ -8733,6 +8760,25 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      exportar_trilha_auditoria: {
+        Args: { _ate: string; _de: string }
+        Returns: {
+          acao: string
+          chave: string
+          detalhes: Json
+          email_de_quem_fez: string
+          email_hash: string
+          entidade: string
+          entidade_id: string
+          ip: string
+          ip_hash: string
+          organizacao: string
+          pessoa_id: string
+          quando: string
+          registro: string
+          ultimo_em: string
+        }[]
+      }
       faixa_plataforma_config: {
         Args: { _chave: string }
         Returns: {
@@ -9856,6 +9902,15 @@ export type Database = {
       }
       registrar_falha_encerramento: {
         Args: { _encerramento_id: string; _erro: string }
+        Returns: undefined
+      }
+      registrar_falha_login: {
+        Args: {
+          _email: string
+          _email_hash: string
+          _ip_hash: string
+          _motivo: string
+        }
         Returns: undefined
       }
       registrar_presenca_qr: {

@@ -557,7 +557,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // ArkeFit faria esta entrada pular o aceite de documentos e as duas etapas.
     descartarCopiaDaSimulacao();
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) return { error: error as Error };
+    if (error) {
+      // A tentativa que o Auth recusou vai para a trilha de 6 meses (a senha
+      // não vai). Em segundo plano: a resposta não segura a mensagem de erro.
+      if (error.code) void supabase.functions.invoke("registrar-falha-login", { body: { email, motivo: error.code } });
+      return { error: error as Error };
+    }
 
     if (data.user) {
       const { data: prof } = await supabase

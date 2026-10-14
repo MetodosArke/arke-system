@@ -34,6 +34,11 @@ verify_jwt = false
 [functions.responsavel-aceite]
 verify_jwt = false
 
+# A tentativa de entrar que falhou, para a trilha de 6 meses: quem chama é a
+# tela de entrar, sem sessão, depois do erro. Freio por IP e no total.
+[functions.registrar-falha-login]
+verify_jwt = false
+
 # Letícia: a rotina autentica pelo token do Vault; o "não quero mais receber"
 # é público.
 [functions.agente-comercial]

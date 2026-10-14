@@ -90,7 +90,7 @@ Cada linha é uma armadilha que já aconteceu aqui. Onde há trava, ela é um te
 - Os gatilhos `before insert` de `tarefas` disparam em ordem alfabética, e o do SLA é o último (`trg_ultimo_`, `ordemGatilhosTarefas.guarda`).
 - Tabela com `bigserial` (ou identity) precisa de `grant usage` na sequência para a `service_role` (`sequencias.guarda`).
 - Tabela com RLS ligado e sem regra é só do servidor: a tela que a lê recebe vazio, sem erro. Ela entra na lista de `rlsSemRegra.guarda`, com o motivo.
-- `plataforma_config` tem faixa por chave (`faixa_plataforma_config()`). Chave nova nasce com faixa.
+- `plataforma_config` tem faixa por chave (`faixa_plataforma_config()`). Chave nova nasce com faixa. Toda mudança nela e em `plataforma_textos` vai à auditoria pelo gatilho, sem lista de chaves; nenhuma das duas guarda segredo (`trilhaDeAuditoria.guarda`).
 - O status de cobrança só anda pelas transições permitidas (`trg_transicao_cobranca`): o pago não volta a dever.
 - Gatilho do dinheiro que entrou (receita, nota fiscal) é `after insert or update`: a cobrança pode nascer confirmada (`cobrancaQueNascePaga.guarda`).
 - CPF fica só com os dígitos (`trg_cpf_sem_mascara`) e se compara sem máscara (`cpfSemMascara.guarda`).
