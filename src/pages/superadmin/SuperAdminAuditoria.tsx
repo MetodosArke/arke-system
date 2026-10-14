@@ -3,12 +3,58 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ScrollText, Search, ShieldAlert, UserCog, Trash2, KeyRound, Mail, Pencil, Download } from "lucide-react";
-import type { Tables } from "@/integrations/supabase/types";
+import { ScrollText, Search, ShieldAlert, UserCog, Trash2, KeyRound, Mail, Pencil, Download, Settings } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { hojeBrasilia, inicioDoMesBrasilia } from "@/lib/dataBrasilia";
+import { baixarCsv, type Celula } from "@/lib/exportarPlanilha";
+import { todasAsLinhas } from "@/lib/paginar";
+import type { Database, Tables } from "@/integrations/supabase/types";
 
 type Registro = Tables<"auditoria_acoes_sensiveis">;
+type LinhaDaTrilha = Database["public"]["Functions"]["exportar_trilha_auditoria"]["Returns"][number];
+
+/**
+ * O CSV do "Exportar o período" (migration 20261445010000): as ações
+ * sensíveis, os registros de acesso (IP, primeira e última hora do dia) e as
+ * tentativas de entrar que falharam (só os hashes), numa tabela só. É o que vai
+ * a uma auditoria do Asaas: o contrato BaaS multa a evidência entregue atrasada.
+ */
+const CABECALHO_DA_TRILHA: Celula[] = [
+  "registro",
+  "quando",
+  "ultimo_em",
+  "pessoa_id",
+  "quem_fez",
+  "ip",
+  "ip_hash",
+  "email_hash",
+  "acao",
+  "entidade",
+  "entidade_id",
+  "organizacao",
+  "detalhes",
+];
+
+const linhaDoCsv = (r: LinhaDaTrilha): Celula[] => [
+  r.registro,
+  r.quando,
+  r.ultimo_em,
+  r.pessoa_id,
+  // Ação sem pessoa é do servidor: a service role ou uma migration.
+  r.registro === "acao_sensivel" ? (r.email_de_quem_fez ?? (r.pessoa_id ? "" : "servidor")) : "",
+  r.ip,
+  r.ip_hash,
+  r.email_hash,
+  r.acao,
+  r.entidade,
+  r.entidade_id,
+  r.organizacao,
+  r.detalhes === null ? "" : JSON.stringify(r.detalhes),
+];
 
 // Cada ação ganha rótulo legível, ícone e peso visual. `destrutiva` marca o
 // que não tem volta (exclusão, suspensão) ou dá acesso à conta de outra
@@ -47,6 +93,10 @@ const ACOES: Record<string, { label: string; icon: typeof Pencil; destrutiva?: b
   "repasse_metodo.definido": { label: "Repasse do Método alterado", icon: Pencil },
   "repasse_metodo.excecao_definida": { label: "Exceção de repasse por nível alterada", icon: Pencil },
   "repasse_metodo.referencia_aplicada": { label: "Tabela de referência do repasse aplicada", icon: Pencil },
+  // Toda mudança em plataforma_config e plataforma_textos, pelo gatilho
+  // (20261445010000): a chave, o valor de antes e o de depois.
+  "configuracao.alterada": { label: "Configuração da plataforma alterada", icon: Settings },
+  "auditoria.exportada": { label: "Trilha de auditoria exportada", icon: Download, destrutiva: true },
 };
 
 const descreverAcao = (acao: string) => ACOES[acao] ?? { label: acao, icon: Pencil };
@@ -77,11 +127,15 @@ function resumirDetalhes(detalhes: Registro["detalhes"]): string[] {
 export default function SuperAdminAuditoria() {
   const [filtroAcao, setFiltroAcao] = useState<string>("todas");
   const [busca, setBusca] = useState("");
+  const [periodo, setPeriodo] = useState(() => ({ de: inicioDoMesBrasilia(), ate: hojeBrasilia() }));
+  const [exportando, setExportando] = useState(false);
+  const { toast } = useToast();
 
   const {
     data: registros = [],
     isLoading,
     error,
+    refetch,
   } = useQuery({
     queryKey: ["superadmin-auditoria"],
     queryFn: async () => {
@@ -108,6 +162,30 @@ export default function SuperAdminAuditoria() {
     });
   }, [registros, filtroAcao, busca]);
 
+  const exportarPeriodo = async () => {
+    setExportando(true);
+    try {
+      const linhas = await todasAsLinhas((de, ate) =>
+        supabase
+          .rpc("exportar_trilha_auditoria", { _de: periodo.de, _ate: periodo.ate })
+          .order("quando")
+          .order("registro")
+          .order("chave")
+          .range(de, ate),
+      );
+      baixarCsv(`trilha-de-auditoria_${periodo.de}_a_${periodo.ate}.csv`, [CABECALHO_DA_TRILHA, ...linhas.map(linhaDoCsv)]);
+      toast({
+        title: "Trilha exportada",
+        description: `${linhas.length} ${linhas.length === 1 ? "registro" : "registros"}. A exportação ficou registrada aqui.`,
+      });
+      void refetch();
+    } catch (e) {
+      toast({ title: "Não foi possível exportar", description: (e as Error).message, variant: "destructive" });
+    } finally {
+      setExportando(false);
+    }
+  };
+
   // Só oferece no filtro as ações que de fato aparecem no log — uma lista
   // fixa com opções que nunca retornam nada só atrapalha.
   const acoesPresentes = useMemo(
@@ -124,8 +202,55 @@ export default function SuperAdminAuditoria() {
       <p className="text-sm text-muted-foreground">
         Registro de quem suspendeu ou excluiu organizações, resetou token de catraca, trocou o e-mail de login de um
         gestor, trocou o e-mail, o nome ou o papel de alguém da equipe, convidou alguém para a equipe ArkeFit ou tirou
-        o acesso, ou simulou o perfil de outra pessoa. O log é somente leitura: nem o Super Admin apaga linhas por aqui.
+        o acesso, mudou uma configuração da plataforma, ou simulou o perfil de outra pessoa. O log é somente leitura:
+        nem o Super Admin apaga linhas por aqui.
       </p>
+
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base">Exportar o período</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <p className="text-xs text-muted-foreground">
+            Um CSV com as ações sensíveis, os registros de acesso (IP, data e hora, guardados por 6 meses) e as
+            tentativas de entrar que falharam (o IP e o e-mail só cifrados). É o que se entrega a uma auditoria do Asaas.
+            Os registros de acesso são dado pessoal: mande só pelo meio combinado com o auditor. A exportação também fica
+            registrada aqui.
+          </p>
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
+            <div className="space-y-1">
+              <Label htmlFor="auditoria-de" className="text-xs">
+                De
+              </Label>
+              <Input
+                id="auditoria-de"
+                type="date"
+                value={periodo.de}
+                max={periodo.ate}
+                onChange={(e) => setPeriodo((p) => ({ ...p, de: e.target.value }))}
+                className="h-8 text-xs sm:w-40"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="auditoria-ate" className="text-xs">
+                Até
+              </Label>
+              <Input
+                id="auditoria-ate"
+                type="date"
+                value={periodo.ate}
+                min={periodo.de}
+                onChange={(e) => setPeriodo((p) => ({ ...p, ate: e.target.value }))}
+                className="h-8 text-xs sm:w-40"
+              />
+            </div>
+            <Button size="sm" onClick={exportarPeriodo} disabled={exportando || !periodo.de || !periodo.ate}>
+              <Download className="h-3.5 w-3.5 mr-1.5" />
+              {exportando ? "Exportando..." : "Exportar o período (CSV)"}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader className="pb-2">
@@ -206,8 +331,8 @@ export default function SuperAdminAuditoria() {
                         {r.organizacao_nome && <Badge variant="outline">{r.organizacao_nome}</Badge>}
                       </div>
                       <p className="text-xs text-muted-foreground mt-0.5">
-                        {/* Ator nulo = escrita por serviço, sem sessão de usuário. */}
-                        {r.ator_email ?? "sistema"} · {formatarDataHora(r.created_at)}
+                        {/* Ator nulo = escrita sem sessão de usuário: a service role ou uma migration. */}
+                        {r.ator_email ?? "servidor"} · {formatarDataHora(r.created_at)}
                       </p>
                       {detalhes.length > 0 && (
                         <ul className="mt-1 space-y-0.5">

@@ -100,7 +100,7 @@ Os controles de segurança da ArkeFit (METODOS ARKE LTDA) e os processos que os 
 
 - **Em trânsito:** tudo por HTTPS: o app (a Vercel manda o HSTS), o Supabase, o Asaas, os provedores de IA e de e-mail, e o Gateway da academia falando com a nuvem.
 - **Em repouso:** o banco e os arquivos do Supabase são cifrados pelo provedor (AES-256); os segredos ficam no Vault e nos segredos das funções, cifrados.
-- **O que nem é guardado em claro:** a senha (bcrypt, no Auth); o IP do limite de tentativas (SHA-256 com pimenta); os tokens dos Gateways e do webhook da academia (hash); o cartão (só os 4 últimos dígitos e a bandeira; o aviso do Asaas é reduzido ao que o webhook lê, `avisoAsaas.guarda`); a biometria (fica só nos equipamentos da academia).
+- **O que nem é guardado em claro:** a senha (bcrypt, no Auth); o IP do limite de tentativas e o das tentativas de entrar que falham, e o e-mail digitado quando não é de nenhuma conta (SHA-256 com pimenta); os tokens dos Gateways e do webhook da academia (hash); o cartão (só os 4 últimos dígitos e a bandeira; o aviso do Asaas é reduzido ao que o webhook lê, `avisoAsaas.guarda`); a biometria (fica só nos equipamentos da academia).
 - **Gestão de chaves:** as chaves de criptografia em repouso são do provedor. As chaves de aplicação seguem a seção 4.
 - **Segregação lógica entre clientes:**
   - toda tabela tem `organization_id` e RLS ligado (`rlsSemRegra.guarda` cobra o RLS de toda tabela do `public`);
@@ -114,8 +114,9 @@ Os controles de segurança da ArkeFit (METODOS ARKE LTDA) e os processos que os 
 
 | Registro | O que guarda | Onde | Por quanto tempo |
 |---|---|---|---|
-| Trilha de auditoria | Ações sensíveis: perfil simulado, saída de aluno, troca de e-mail, papel ou nome, convite e retirada da equipe ArkeFit, troca da carteira, mudança de preço e repasse, link de acesso, encerramento, leitura dos registros de acesso. Quem, sobre quem, quando e o quê, sem e-mail nos detalhes | `auditoria_acoes_sensiveis` | Sem apagamento |
+| Trilha de auditoria | Ações sensíveis: perfil simulado, saída de aluno, troca de e-mail, papel ou nome, convite e retirada da equipe ArkeFit, troca da carteira, mudança de preço e repasse, link de acesso, encerramento, leitura e exportação da trilha e dos registros de acesso, e toda mudança de configuração da plataforma (`plataforma_config` e `plataforma_textos`, por gatilho: a chave, o valor de antes e o de depois). Quem (a conta, ou "servidor" quando a mudança vem da service role ou de uma migration), sobre quem, quando e o quê, sem e-mail nos detalhes | `auditoria_acoes_sensiveis` | Sem apagamento |
 | Registros de acesso (Marco Civil, art. 15) | IP, data e hora, por pessoa e por dia | `registros_acesso_aplicacao` | 6 meses (rotina `arke-registros-de-acesso`) |
+| Tentativas de entrar que falham | Quando, o código do erro do Auth, a conta (ou, se o e-mail digitado não é de ninguém, só o hash dele) e o hash do IP. Nunca a senha, nem o IP ou o e-mail em claro | `tentativas_login_falhas` | 6 meses (a mesma rotina) |
 | Prova dos consentimentos | Quem, quando, a versão e o hash do texto, o navegador | As tabelas de consentimento e de aceite | Enquanto for preciso provar |
 | Avisos do Asaas | Reduzidos ao que o webhook lê | `asaas_webhook_events` | 13 meses |
 | Rotinas agendadas | Cada execução e o desfecho | `cron.job_run_details`, `execucoes_agendadas` | 30 dias no cron |
@@ -124,7 +125,11 @@ Os controles de segurança da ArkeFit (METODOS ARKE LTDA) e os processos que os 
 | Plataforma | Logs do Supabase e da Vercel | Os provedores | O do plano do provedor |
 | Código e banco | Cada mudança, quem fez e quando | git, `supabase/historico/`, `docs/registro/` | Sem apagamento |
 
-**Proteção contra alteração e exclusão.** A trilha de auditoria e os registros de acesso não têm regra de escrita pela API: só as funções do servidor gravam, e ninguém altera nem apaga pela aplicação. A auditoria é lida só pelos sócios. Os registros de acesso não são lidos pela API, e a consulta, só diante de ordem judicial, vai ela mesma para a auditoria.
+**Proteção contra alteração e exclusão.** A trilha de auditoria, os registros de acesso e as tentativas que falham não têm regra de escrita pela API: só as funções do servidor gravam, e ninguém altera nem apaga pela aplicação. A auditoria é lida só pelos sócios. Os registros de acesso e as tentativas não são lidos pela API, salvo pela exportação abaixo, que vai ela mesma para a auditoria.
+
+**De onde vem cada registro.** A mudança de configuração entra pelo gatilho das duas tabelas, qualquer que seja o caminho (a tela, uma função, a service role ou uma migration), e a guarda `trilhaDeAuditoria.guarda` falha se uma chave deixar de cair na trilha. A tentativa que falha é registrada pela tela de entrar, logo depois do erro do Auth, pela função `registrar-falha-login` (freio por IP e no total). A tentativa feita direto na API do Auth, por fora do app, fica só nos logs do Supabase: fechar isso pede o gancho de verificação de senha do Auth, que é do plano Team.
+
+**Exportar para uma auditoria.** Visão Master → Auditoria → **Exportar o período**: um CSV com as ações sensíveis, os registros de acesso e as tentativas que falharam do período (até 366 dias), numa tabela só, com a coluna `registro` dizendo de qual fonte é cada linha. Só o Sócio, com as duas etapas (`exportar_trilha_auditoria()`, que confere o papel no banco), e a exportação fica na trilha como **Trilha de auditoria exportada**, com o período. Os registros de acesso são dado pessoal sob sigilo (Marco Civil, art. 10): vão ao auditor só quando o pedido os inclui, pelo meio combinado com ele, e o arquivo é apagado do computador depois do envio.
 
 **Quem vigia, e como avisa**
 
@@ -180,7 +185,7 @@ A ArkeFit conta esses prazos sem a dobra do agente de pequeno porte (art. 6º, �
 
 **Fontes**
 
-- **A cada PR, no CI:** a auditoria das dependências de produção do app e do Gateway (`npm run auditar`, dentro do `npm run check`, reprova aviso alto ou crítico); os tipos, o lint e o `deno check` das funções; e as travas `*.guarda.test.ts`, que falham se uma armadilha conhecida voltar (69 em 13/10/2026).
+- **A cada PR, no CI:** a auditoria das dependências de produção do app e do Gateway (`npm run auditar`, dentro do `npm run check`, reprova aviso alto ou crítico); os tipos, o lint e o `deno check` das funções; e as travas `*.guarda.test.ts`, que falham se uma armadilha conhecida voltar (71 em 14/10/2026).
 - **A cada envio ao GitHub:** a varredura de segredos, com bloqueio no envio.
 - **Os avisos de segurança do Supabase** (*Security Advisor*), conferidos a cada semana e depois de cada migration que cria tabela ou função.
 - **O Sentry:** erro novo é lido no dia, e o que sugerir falha de acesso vai para a triagem.
@@ -203,7 +208,7 @@ A ArkeFit conta esses prazos sem a dobra do agente de pequeno porte (art. 6º, �
 ## 10. Auditoria
 
 - A ArkeFit coopera com as auditorias do Asaas e de quem ele indicar, e responde ao pedido de evidência em até 10 dias úteis.
-- **As evidências disponíveis:** esta página; o histórico do git e dos PRs, com o resultado do CI de cada um; o registro das entregas (`docs/registro/`); o retrato do banco (`supabase/historico/`); a trilha de auditoria, lida pelos sócios na Visão Master; os registros de acesso, consultados por SQL com a consulta registrada na auditoria; as revisões de acesso, os registros de incidente e de vulnerabilidade; os ensaios de restauração ([RESTAURACAO_BACKUP.md](RESTAURACAO_BACKUP.md)).
+- **As evidências disponíveis:** esta página; o histórico do git e dos PRs, com o resultado do CI de cada um; o registro das entregas (`docs/registro/`); o retrato do banco (`supabase/historico/`); a trilha de auditoria, os registros de acesso e as tentativas de entrar que falharam, exportados do período pelo Sócio na Visão Master (seção 7), com a exportação registrada na própria trilha; as revisões de acesso, os registros de incidente e de vulnerabilidade; os ensaios de restauração ([RESTAURACAO_BACKUP.md](RESTAURACAO_BACKUP.md)).
 - **Quem atende:** os sócios. Dado pessoal só vai ao auditor quando for indispensável e pelo meio combinado com ele.
 
 ## 11. Gestão de terceiros

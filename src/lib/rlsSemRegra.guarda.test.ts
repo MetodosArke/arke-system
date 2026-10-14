@@ -37,6 +37,8 @@ const SEM_REGRA: Record<string, string> = {
   registros_acesso_aplicacao: "os registros de acesso do Marco Civil; só o gatilho do login e a limpeza (20261380)",
   registros_acesso_preservacoes: "a ordem judicial de preservação, registrada pela ArkeFit por SQL (20261381)",
   sessoes_simuladas: "o id da sessão do perfil simulado; impersonar-perfil grava, e sessao_simulada() lê (20261323)",
+  tentativas_login_falhas:
+    "as tentativas de entrar que falharam, por 6 meses; só registrar-falha-login grava, e exportar_trilha_auditoria() lê para o Sócio (20261445)",
   vigia_varreduras_dia: "a contagem diária de varreduras do Vigia; só as funções dele (20261272)",
 };
 
