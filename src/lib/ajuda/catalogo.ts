@@ -492,10 +492,10 @@ export const ARTIGOS: ArtigoAjuda[] = [
   {
     slug: "vm-comercial",
     titulo: "Pipeline comercial",
-    resumo: "O CRM da ArkeFit: contatos do site e dos outros canais, as etapas, o cadastro à mão e a Letícia.",
+    resumo: "O CRM da ArkeFit: contatos do site e dos outros canais, as etapas, o cadastro à mão, a Letícia e a pesquisa de mercado.",
     secao: "Visão Master",
     publicos: ["arkefit"],
-    rotas: ["/superadmin/comercial"],
+    rotas: ["/superadmin/comercial", "/superadmin/pesquisa"],
   },
   {
     slug: "vm-configuracoes",

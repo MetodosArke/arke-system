@@ -5984,6 +5984,48 @@ export type Database = {
           },
         ]
       }
+      pesquisa_mercado_emails: {
+        Row: {
+          conhecer_autorizado_em: string | null
+          email: string
+          id: string
+          resultado_autorizado_em: string | null
+        }
+        Insert: {
+          conhecer_autorizado_em?: string | null
+          email: string
+          id?: string
+          resultado_autorizado_em?: string | null
+        }
+        Update: {
+          conhecer_autorizado_em?: string | null
+          email?: string
+          id?: string
+          resultado_autorizado_em?: string | null
+        }
+        Relationships: []
+      }
+      pesquisa_mercado_respostas: {
+        Row: {
+          id: string
+          respondida_em: string
+          respostas: Json
+          versao: number
+        }
+        Insert: {
+          id?: string
+          respondida_em?: string
+          respostas: Json
+          versao: number
+        }
+        Update: {
+          id?: string
+          respondida_em?: string
+          respostas?: Json
+          versao?: number
+        }
+        Relationships: []
+      }
       plano_contas: {
         Row: {
           ativo: boolean
@@ -8773,6 +8815,7 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      exportar_emails_pesquisa_mercado: { Args: never; Returns: Json }
       exportar_trilha_auditoria: {
         Args: { _ate: string; _de: string }
         Returns: {
@@ -9305,6 +9348,15 @@ export type Database = {
           user_id: string
         }[]
       }
+      get_superadmin_pesquisa_mercado: {
+        Args: never
+        Returns: {
+          id: string
+          respondida_em: string
+          respostas: Json
+          versao: number
+        }[]
+      }
       get_superadmin_profissionais_autonomos: {
         Args: never
         Returns: {
@@ -9609,6 +9661,7 @@ export type Database = {
       limpar_fotos_rosto_sem_uso: { Args: never; Returns: number }
       limpar_historicos_antigos: { Args: never; Returns: Json }
       limpar_leads_comerciais_antigos: { Args: never; Returns: number }
+      limpar_pesquisa_mercado_emails: { Args: never; Returns: number }
       limpar_registros_acesso_aplicacao: { Args: never; Returns: number }
       listar_parceiros_externos_ativos: {
         Args: { _organization_id: string }
@@ -9943,6 +9996,19 @@ export type Database = {
           _motivo: string
         }
         Returns: undefined
+      }
+      registrar_pesquisa_mercado: {
+        Args: {
+          _academia?: string
+          _conhecer?: boolean
+          _email?: string
+          _ip_hash?: string
+          _nome?: string
+          _respostas: Json
+          _resultado?: boolean
+          _versao: number
+        }
+        Returns: string
       }
       registrar_presenca_qr: {
         Args: { _codigo: string; _organization_id: string }
