@@ -26,6 +26,7 @@ import PontuacaoEngajamento from "@/components/aluno/PontuacaoEngajamento";
 import { MetodoArke } from "@/components/aluno/MetodoArke";
 import { DocumentosMatricula } from "@/components/aluno/DocumentosMatricula";
 import { ComunicadosAluno } from "@/components/aluno/ComunicadosAluno";
+import { PesquisaSatisfacao } from "@/components/aluno/PesquisaSatisfacao";
 import { PrestadorPagamentos } from "@/components/pagamento/PrestadorPagamentos";
 import { CHAVE_CHECKIN_PENDENTE } from "@/lib/checkin";
 import { canalDaMensagemNova, definirProximaAcao } from "@/lib/proximaAcao";
@@ -426,6 +427,9 @@ export default function AlunoDashboard() {
           {proximaAcao.link && <PrestadorPagamentos />}
         </CardContent>
       </Card>
+
+      {/* A pesquisa de satisfação: abaixo da Próxima Ação, nunca no lugar dela. Some quando não é a hora. */}
+      <PesquisaSatisfacao />
 
       <div id="meu-progresso" className="space-y-4 scroll-mt-4">
         <Card>

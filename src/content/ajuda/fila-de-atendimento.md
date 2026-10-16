@@ -13,17 +13,20 @@ A maioria nasce sozinha:
 - **Pedido de ajuste**: o aluno disse que o plano precisa de ajuste.
 - **Mensalidade atrasada**, **Atestado médico** e **Apagar aluno da catraca**: cobrança, documento e equipamento.
 - **Acolhimento presencial pedido pelo Mentor**: no Método ARKE, a ArkeFit pede à academia uma conversa ao vivo com o aluno.
+- **Avaliação baixa do aluno**: o aluno deu nota de 0 a 6 na pesquisa de satisfação do app ("quanto você recomendaria a academia a um amigo?"). A tarefa mostra a nota e o comentário dele, tem prazo de 2 dias úteis e é da academia mesmo quando o aluno está no Método ARKE. O NPS da academia fica no [Gestão 360°](ajuda:relatorios-gestao).
 
 A mesma situação não gera tarefa repetida. Pausar o aluno encerra as tarefas automáticas dele. A tarefa de **Mensalidade atrasada** (e a de cartão recusado) fecha sozinha quando o pagamento entra, com o desfecho "Pago" ou "Pago depois do aviso automático ao aluno". Veja [Cobrança do aluno](ajuda:cobranca-do-aluno).
 
 **Dor / desconforto** e **Nova anamnese** falam da saúde do aluno e ficam com quem atende: a gestão, o professor e a nutricionista. A recepção não as vê na fila, nem por outro caminho, porque o banco aplica a mesma regra. Se o aluno contar uma dor no balcão, peça que ele registre pelo app (ou avise o professor): a pendência vai direto para quem atende.
+
+**Avaliação baixa do aluno** fica só com a gestão: o comentário é texto livre e pode falar de alguém da equipe. A recepção, o professor e a nutricionista não a veem.
 
 ## As duas abas
 
 - **Minha Fila**: as tarefas atribuídas a você e as que ainda estão sem responsável.
 - **Fila da Organização**: tudo o que está aberto na academia.
 
-A ordem é pela urgência: prioridade crítica primeiro, depois o prazo. Tarefa com prazo estourado ganha a marca **Vencido**; se ninguém agir, ela é **escalada** para o gestor.
+Cada cartão traz o nome do aluno ao lado do prazo. A ordem é pela urgência: prioridade crítica primeiro, depois o prazo. Tarefa com prazo estourado ganha a marca **Vencido**; se ninguém agir, ela é **escalada** para o gestor.
 
 ## Como atender e encerrar
 

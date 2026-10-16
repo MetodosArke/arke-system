@@ -142,6 +142,40 @@ describe("tarefas: a saúde fica com quem atende", () => {
 });
 
 /**
+ * Trava da pesquisa de satisfação (16/10/2026, 20261450010000): a tarefa da
+ * nota baixa ("Avaliação baixa do aluno") é só da gestão. Ela mostra o
+ * comentário do aluno, texto livre que pode falar de alguém da equipe: a
+ * recepção, o professor e a nutricionista não a leem, nem pela API.
+ *
+ * Falha se algum termo da equipe da academia deixar de pedir "não é da gestão,
+ * ou quem pede é a gestão", ou se a avaliação baixa sair da lista do banco.
+ */
+const SO_DA_GESTAO = "not tarefa_da_gestao(tipo) or has_org_role((select auth.uid()), organization_id, 'gestor')";
+
+describe("tarefas: a avaliação baixa fica com a gestão", () => {
+  it("todo termo da equipe da academia esconde a tarefa da gestão de quem não é gestão", () => {
+    const metades: [string, string | null][] = [
+      ["leitura (using)", regras.get("leitura")!.using],
+      ["alteração (using)", regras.get("alteração")!.using],
+      ["alteração (with check)", regras.get("alteração")!.withCheck],
+      ["exclusão (using)", regras.get("exclusão")!.using],
+    ];
+    for (const [metade, expr] of metades) {
+      const daEquipe = termos(expr).filter((t) => t.includes("is_org_staff"));
+      expect(daEquipe.length, metade).toBeGreaterThan(0);
+      for (const t of daEquipe) expect(condicoes(t), `${metade}: ${t}`).toContain(SO_DA_GESTAO);
+    }
+  });
+
+  it("a avaliação baixa está na lista do banco, e é da academia mesmo com o aluno no Método", () => {
+    const lista = definicaoVigente("tarefa_da_gestao").match(/any\s*\(\s*array\[([^\]]*)\]/i)?.[1] ?? "";
+    expect([...lista.matchAll(/'(\w+)'/g)].map((m) => m[1])).toContain("avaliacao_baixa");
+    const dono = definicaoVigente("dono_da_tarefa").match(/when _tipo in \(([^)]*)\) then 'academia'/i)?.[1] ?? "";
+    expect(dono).toContain("'avaliacao_baixa'");
+  });
+});
+
+/**
  * Trava das sobras da frente B (07/10/2026, 20261405010000): o Acompanhamento
  * ARKE (`get_atendimentos_mentor_organizacao`) entrega à academia os
  * atendimentos do mentor com os alunos do Método, e entregava o tipo, o
