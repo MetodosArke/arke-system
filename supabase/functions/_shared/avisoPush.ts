@@ -17,6 +17,8 @@ export const VALIDADE_SEG = {
   comunicadoMaximo: 7 * 86400,
   /** O aviso de que a academia vai encerrar o ARKE: o detalhe vai por e-mail. */
   encerramento: 3 * 86400,
+  /** A mensalidade em aberto (aviso-cobranca-atrasada): sai às 10h e não chega de madrugada. */
+  cobranca: 8 * 3600,
 };
 
 export type Urgencia = "very-low" | "low" | "normal" | "high";

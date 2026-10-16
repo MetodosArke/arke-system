@@ -128,3 +128,37 @@ describe("mensagem nova da equipe na home (10/10/2026)", () => {
     expect(canalDaMensagemNova({ mentor: 0, treino: 0, dieta: 0 })).toBeNull();
   });
 });
+
+describe("mensalidade em aberto na home (15/10/2026)", () => {
+  const vencida = { vencimento: "2026-10-14", faturaUrl: "https://www.asaas.com/i/abc" };
+
+  it("vira a Próxima Ação, com o botão que abre a fatura", () => {
+    const acao = definirProximaAcao({ ...BASE, mensalidadeEmAberto: vencida });
+    expect(acao.chave).toBe("mensalidade_em_aberto");
+    expect(acao.acao).toBe("Pagar mensalidade");
+    expect(acao.link).toBe(vencida.faturaUrl);
+    expect(acao.descricao).toContain("14/10/2026");
+    expect(acao.destino).toBeUndefined();
+  });
+
+  it("vem antes da mensagem nova e do treino, porque o acesso tem prazo", () => {
+    expect(definirProximaAcao({ ...BASE, mensagemNova: "treino", mensalidadeEmAberto: vencida }).chave).toBe("mensalidade_em_aberto");
+  });
+
+  it("sem fatura ainda, leva aos pagamentos em vez de um botão sem destino", () => {
+    const acao = definirProximaAcao({ ...BASE, mensalidadeEmAberto: { ...vencida, faturaUrl: null } });
+    expect(acao.link).toBeUndefined();
+    expect(acao.destino).toBe("/app/perfil");
+  });
+
+  it("sem mensalidade vencida, ou sem resposta ainda, segue o resto", () => {
+    expect(definirProximaAcao({ ...BASE, mensalidadeEmAberto: null }).chave).toBe("treinar_hoje");
+    expect(definirProximaAcao({ ...BASE, mensalidadeEmAberto: undefined }).chave).toBe("treinar_hoje");
+    expect(definirProximaAcao({ ...BASE, temTreinoAtivo: undefined, mensalidadeEmAberto: vencida }).chave).toBe("carregando");
+  });
+
+  it("o texto informa, sem valor e sem ameaça", () => {
+    const { titulo, descricao } = definirProximaAcao({ ...BASE, mensalidadeEmAberto: vencida });
+    expect(`${titulo} ${descricao}`).not.toMatch(/R\$|bloque|suspens/i);
+  });
+});

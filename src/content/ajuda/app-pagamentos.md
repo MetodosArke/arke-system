@@ -23,7 +23,9 @@ Para não precisar pagar a fatura todo mês, cadastre um cartão: a mensalidade 
 
 ## Pagamento atrasado
 
-Com a mensalidade vencida, o app continua funcionando por **5 dias**, com um aviso no topo. Depois disso, ele pede para você falar com a recepção. Pagou? A liberação é automática.
+Com a mensalidade vencida, o app continua funcionando por **5 dias**, com um aviso no topo, e a tela inicial mostra a mensalidade em aberto com o botão **Pagar mensalidade**. Depois disso, ele pede para você falar com a recepção. Pagou? A liberação é automática.
+
+Se você ativou os avisos no celular, chega um aviso no 1º e no 3º dia depois do vencimento: "Sua mensalidade está em aberto. Toque para pagar." Ele não mostra valor e abre o app, nunca um link de fora: desconfie de mensagem que mande pagar por outro endereço. O Asaas também manda a fatura por e-mail e SMS.
 
 Se você pagou e o app ainda mostra bloqueio, espere alguns minutos: a confirmação do pagamento pode demorar. Na tela de bloqueio do Método ARKE, **Já paguei, verificar novamente** confere direto com o meio de pagamento. Se continuar, fale com a recepção.
 

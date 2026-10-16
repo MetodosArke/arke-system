@@ -6,7 +6,7 @@ O diário do ArkeFit: o porquê de cada decisão, o defeito que apareceu no cami
 |---|---|
 | [produto.md](produto.md) | Visão do sistema, stack e princípios, como estavam no CLAUDE.md |
 | [comercial.md](comercial.md) | Planos B2B, atacado, o que o site promete, ajustes comerciais no app |
-| [cobranca.md](cobranca.md) | Asaas, ciclo de vida da cobrança, repasse, bloqueio por pagamento, cobrança avulsa, nota fiscal, transições de status |
+| [cobranca.md](cobranca.md) | Asaas, ciclo de vida da cobrança, repasse, bloqueio por pagamento, cobrança avulsa, nota fiscal, transições de status, recuperação da mensalidade vencida |
 | [fuso-e-datas.md](fuso-e-datas.md) | O banco e o app no fuso de Brasília |
 | [metodo-arke.md](metodo-arke.md) | Sensores, avanço de fases, fila e console do mentor, operação da célula, profissional autônomo |
 | [ia-e-lgpd.md](ia-e-lgpd.md) | Sentinela, consentimento de IA, documentos legais, IA no Brasil, dieta por PDF, aluno menor de idade |

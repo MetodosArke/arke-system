@@ -739,3 +739,81 @@ O teste da etapa Recebimentos ganhou três casos: pede a chave, mostra a conta j
 - **O hash do contrato:** o do texto de antes, com LF, bate com o publicado (`f01f9fdc…`); o novo (`8f3f2aa5…`) passa em `documentosLegais.test`.
 - `npm run ajuda:indice` regerou o índice do assistente (18 testes).
 - Não rodou: o banco (não há função nova nem migration de estrutura; a do contrato é um `insert` em `documentos_legais`), a corrente real (as funções não foram publicadas) e o sandbox (sem chave de sandbox nesta sessão).
+
+## Recuperação automática da mensalidade (15/10/2026)
+
+**A decisão.** Depois de comparar com o concorrente, o responsável escolheu como primeiro recurso para nivelar o ArkeFit a recuperação automática da cobrança do aluno atrasado. O concorrente chama isso de "Inteligência de cobranças": novas tentativas no cartão, link de pagamento automático e aviso no celular. O objetivo é reduzir a inadimplência sem trabalho da recepção. Nada muda nas regras de antes: é dívida só a cobrança emitida e vencida sem confirmação (`pendente`, `atrasado`), o aluno tem 5 dias de tolerância, a cobrança da academia sai da conta dela e a do Método da conta da ArkeFit, o status só anda pelas transições permitidas, e o aviso sai por push (sem WhatsApp). Migration `20261447010000`, edge function `aviso-cobranca-atrasada`.
+
+### O que já existia
+
+**No Asaas** (documentação pública, lida em 15/10/2026):
+
+- **Os avisos dele.** Todo cliente novo nasce com as notificações padrão ligadas, por e-mail e SMS: cobrança criada, aviso 10 dias antes e no vencimento, a linha digitável no dia, **cobrança vencida** (`PAYMENT_OVERDUE`, quando vence sem pagamento, também com ligação de voz) e **de novo a cada 7 dias** enquanto não for paga, e o recebimento ("Notificações padrões"). O ARKE cria os clientes com os avisos ligados (a nota fiscal na conta da academia deixa ligados desde 06/10). Então a fatura vencida já chega por e-mail e SMS, e o ARKE **não** manda e-mail de cobrança: seria o mesmo aviso duas vezes.
+- **O cartão da assinatura.** "O Asaas gera a cobrança e realiza a tentativa de pagamento no vencimento" (FAQ de Assinaturas). Sobre a recusa, o evento é só "Falha na captura do pagamento com cartão de crédito" (`PAYMENT_CREDIT_CARD_CAPTURE_REFUSED`), e a documentação não fala de nova tentativa automática. A cobrança fica em aberto, e a fatura aceita outro cartão, PIX ou boleto.
+- **Cobrar de novo uma cobrança existente.** É `POST /v3/payments/{id}/payWithCreditCard`, que exige o cartão inteiro (`creditCard` e `creditCardHolderInfo`) ou um `creditCardToken` do mesmo cliente, e avisa "não trate esta operação como idempotente". O token vem da tokenização, que em produção "depende de habilitação e está sujeita à análise da operação", conta por conta: a da ArkeFit e a de cada academia. A troca do cartão da assinatura (`PUT /subscriptions/{id}/creditCard`) atualiza as cobranças pendentes "sem realizar a cobrança imediata". **Não há chamada que cobre de novo o cartão guardado na assinatura.**
+
+**No ArkeFit:**
+
+- O bloqueio do Método (`AlunoBillingGate`) mostra a fatura e o "Já paguei", que confere com o Asaas. O da mensalidade (`AlunoSituacaoGate`) dá os 5 dias com a faixa no topo, e depois a suspensão.
+- **Perfil → Pagamentos da academia** mostra a fatura em aberto com o botão Pagar.
+- A fila abre a tarefa da mensalidade atrasada (`abrir_tarefa_mensalidade_atrasada`, no `PAYMENT_OVERDUE`) e a do cartão recusado (`abrir_tarefa_cartao_recusado_mensalidade`). **Nenhuma das duas fechava com o pagamento**: quem pagou seguia na fila até alguém fechar à mão.
+- O push: o aluno ativa os avisos no chat (`push_subscriptions`), e `_shared/push.ts` manda em lotes, com validade e tópico, para o chat, o comunicado, o resumo semanal e o encerramento. Nenhum aviso de cobrança. Em produção há 0 inscrições hoje.
+- O Financeiro mostrava o saldo, o a receber e o a pagar, e nada sobre recuperação.
+
+### O que foi construído
+
+1. **O aviso no celular, no D+1 e no D+3.** A rotina `arke-aviso-cobranca` chama `aviso-cobranca-atrasada` todo dia às 13h GMT (10h de Brasília). A função:
+   - confere o horário comercial de Brasília (das 9h às 18h, de segunda a sábado; no domingo só registra a rodada);
+   - lê as candidatas em `mensalidades_para_aviso_de_cobranca()` (só o servidor): a mesma dívida do bloqueio (lista de inclusão, matrícula ativa), vencida há 1 a 5 dias, de aluno com o app liberado pela situação (`situacao_permite_app`: o pausado e o já bloqueado ficam de fora) e com aparelho inscrito;
+   - decide a etapa de cada uma pela regra pura (`aviso-cobranca-atrasada/regras.ts`, com o teste ao lado): o aviso do D+1 sai no D+1 ou no D+2, o do D+3 do D+3 ao D+5. A janela cobre o domingo e a rodada que falhou, e as duas nunca caem no mesmo dia;
+   - **reserva antes de mandar**, com uma atualização condicional: a coluna da etapa (`aviso_cobranca_d1_em` ou `aviso_cobranca_d3_em`) vazia e a mensalidade ainda em aberto. Duas rodadas ao mesmo tempo não mandam o mesmo aviso, e quem acabou de pagar não recebe;
+   - manda um aviso por pessoa, mesmo com duas mensalidades vencidas: "Mensalidade em aberto / Sua mensalidade está em aberto. Toque para pagar.", com validade de 8 horas, etiqueta e tópico próprios (o segundo substitui o primeiro no aparelho);
+   - registra o desfecho para o alerta de rotinas (`execucoes_agendadas`).
+2. **A Próxima Ação.** A mensalidade vencida e em aberto (a mais antiga) vira a Próxima Ação da home, antes da mensagem nova e do treino, porque o acesso tem prazo: "Sua mensalidade está em aberto · Venceu em 14/10/2026. Na fatura você paga por PIX, boleto ou cartão.", com o botão **Pagar mensalidade**, que abre a fatura do Asaas em outra aba. Sem fatura ainda, o botão leva aos pagamentos do Perfil. Paga, a home volta ao que vinha antes. A ação continua única: é um caso a mais em `definirProximaAcao()`.
+3. **A tarefa fecha quando o pagamento entra.** `trg_fechar_tarefa_da_mensalidade_paga` (`after insert or update of status` em `mensalidades`, porque a mensalidade pode nascer paga) fecha a tarefa da mensalidade atrasada e a do cartão recusado, com o desfecho "Pago depois do aviso automático ao aluno (confirmado pelo Asaas)." ou "Pago (confirmado pelo Asaas).".
+4. **O recuperado no Financeiro.** O cartão **Recuperado pelo aviso no mês** (aba Lançamentos, no mês escolhido) mostra quantas mensalidades vencidas foram pagas depois do aviso, e o valor. Vem de `cobranca_recuperada_no_mes()`, `security invoker`: segue o RLS de quem pede.
+
+### Por que assim
+
+- **O toque abre o app, e não a fatura.** O pedido falava em "push com o link de pagamento da própria cobrança". Só que o aviso no celular sai com o nome do app, e um aviso "pague aqui" com link de fora é o golpe perfeito: é por isso que `send-chat-push/regras.ts` já prende o endereço do aviso ao app. O link da fatura fica um toque depois, na Próxima Ação. E o aluno aprende uma regra simples, que a Central diz: o aviso do ArkeFit nunca leva a um endereço de fora.
+- **A tela bloqueada é pública:** o aviso não leva valor, data nem o nome da academia.
+- **Menos um aviso é melhor que dois.** A reserva vem antes do envio. O aviso reservado que não chega (o serviço de push falhou) não sai de novo; sem a chave VAPID, a rodada para antes de reservar.
+- **O que é "recuperado"** mora num lugar só, no banco (`paga_depois_do_aviso`): avisada e paga, pela data do Asaas (a do aluno, e não a da confirmação), no dia do primeiro aviso ou depois. O boleto pago antes do aviso e compensado depois não conta. O mesmo dia conta: o aviso sai às 10h, e o PIX pelo toque cai no mesmo dia.
+- **Só a mensalidade da academia.** É o contrato, e é ela que tem a tolerância de 5 dias. O Método bloqueia no D+1, e a tela de bloqueio já mostra a fatura; a cobrança avulsa não bloqueia ninguém. Os dois ficam para quando houver caso.
+
+### A nova tentativa no cartão: fica de fora
+
+A API não permite com segurança. Para cobrar de novo, o Asaas pede o cartão inteiro ou um token, e o ArkeFit não guarda nenhum dos dois: o número do cartão nunca, por regra, e o token por decisão de 21/09 (ver *Cobrança automática no cartão*). Guardar o token mudaria essa decisão e ainda dependeria da tokenização aprovada pelo Asaas em cada conta (a da ArkeFit e a de cada academia), sem o que a chamada é recusada. O Asaas já tenta o cartão no vencimento. Depois da recusa, o caminho é o que já existia, agora mais rápido: a tarefa de cartão recusado, o aviso no celular, a fatura (que aceita outro cartão) e a troca do cartão pelo aluno em Perfil → Pagamentos. Se um dia a tokenização for aprovada e a decisão de guardar o token mudar, a tentativa entra nesta mesma rotina, pela conta da cobrança (`conta_asaas`).
+
+### Defeitos do caminho
+
+- **A coluna que eu ia usar não existe.** O nome natural para "desde quando a situação vale" seria `situacao_academia_desde`, que é como o `AuthContext` chama o campo; no banco a coluna é `situacao_academia_em`. A consulta ao banco antes de escrever pegou isso, e a lista da rotina usa a mesma regra de acesso do app e da catraca.
+- **A lista longa no `.in()`.** As inscrições dos alunos avisados iam numa consulta só; com algumas centenas de alunos, o endereço não cabe (800 ids já voltam 400). Vão em lotes de 200, cada lote paginado.
+
+### Fica de fora
+
+- A nova tentativa no cartão (acima), o Método e a cobrança avulsa.
+- O e-mail do ArkeFit: o Asaas já manda.
+- **A equipe consegue gravar as colunas do aviso pela API**, porque a regra de alteração de `mensalidades` é da gestão e da recepção. Gravar só suprime o aviso ou infla o número da própria academia; uma trava no banco entra quando houver o caso.
+- O aluno sem os avisos ativados não recebe nada do ArkeFit: segue com o e-mail e o SMS do Asaas, e com a Próxima Ação quando abrir o app.
+
+### Conferido
+
+- **O banco de produção, em transação desfeita**, com a migration (sem a rotina) e 14 casos num bloco só: "OK: 14 casos". Os casos:
+  - sem aparelho não é candidata, com aparelho é;
+  - vencendo hoje não; vencida há 6 dias não, há 5 sim;
+  - inadimplente na tolerância sim; já bloqueado e pausado não; matrícula pausada não;
+  - a primeira reserva pega, e a segunda não;
+  - as duas tarefas (mensalidade atrasada e cartão recusado) fecham com o desfecho do aviso e com `concluida_em`;
+  - a mensalidade paga não reserva aviso; sem aviso, o desfecho é só "Pago";
+  - a regra do "depois do aviso": mesmo dia, antes, só o D+3, sem aviso, sem data, e o aviso das 23h30 de Brasília no dia certo;
+  - o recuperado do mês; a gestora da academia vê o número pelo RLS, e outra pessoa vê zero;
+  - as concessões.
+
+  Conferido depois: a coluna e as funções não existem no banco, e nenhuma linha de teste ficou.
+- **Defeito plantado no banco:** a lista da rotina sem a regra de acesso. O caso 5 acusou ("aluno já bloqueado virou candidato").
+- **Defeitos plantados no código**, e o teste certo falhou nos três: a janela do primeiro aviso começando no dia do vencimento; a reserva sem a condição da coluna vazia; a rotina às 10h GMT (7h em Brasília).
+- Os testes novos: a regra do aviso (11), a guarda (3) e a Próxima Ação (5 casos novos).
+- `npm run check` sem erro, com as 59 funções no `deno check`. `npm run ajuda:indice` regerou o índice do assistente, e `assistente-academia` precisa ser publicada.
+- `node scripts/migracao/rotinas.mjs --escrever`: 34 rotinas no roteiro de reconstrução.
+- **Não rodou:** o sandbox do Asaas, porque nenhum cenário cobre isto (a rotina não chama o Asaas) e não havia chave de sandbox nesta sessão; a corrente real e a tela, que dependem da migration e da função publicadas.

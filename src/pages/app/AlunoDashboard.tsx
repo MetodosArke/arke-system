@@ -245,6 +245,28 @@ export default function AlunoDashboard() {
     refetchInterval: 60_000,
   });
 
+  // A mensalidade da academia vencida e em aberto, a mais antiga: vira a
+  // Próxima Ação com o botão da fatura. É para onde o aviso no celular do D+1
+  // e do D+3 leva (aviso-cobranca-atrasada). Mesma dívida do bloqueio: só
+  // pendente ou atrasado, vencida antes de hoje.
+  const { data: mensalidadeEmAberto } = useQuery({
+    queryKey: ["aluno-mensalidade-em-aberto", alunoId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("mensalidades")
+        .select("vencimento, invoice_url")
+        .eq("aluno_id", alunoId!)
+        .in("status", ["pendente", "atrasado"])
+        .lt("vencimento", HOJE)
+        .order("vencimento", { ascending: true })
+        .limit(1)
+        .maybeSingle();
+      if (error) throw error;
+      return data ? { vencimento: data.vencimento, faturaUrl: data.invoice_url } : null;
+    },
+    enabled: !!alunoId,
+  });
+
   const { data: checkins = [], isLoading: carregandoCheckins } = useQuery({
     queryKey: ["aluno-checkins-semana", alunoId],
     queryFn: async () => {
@@ -341,6 +363,7 @@ export default function AlunoDashboard() {
     metaAguaMl,
     tituloTreino: treinoAtivo?.titulo,
     mensagemNova,
+    mensalidadeEmAberto,
   });
 
   const irParaProximaAcao = () => {
@@ -385,10 +408,18 @@ export default function AlunoDashboard() {
               <p className="text-sm text-muted-foreground">{proximaAcao.descricao}</p>
             </div>
           )}
-          {proximaAcao.acao && (
-            <Button className="w-full" size="lg" onClick={irParaProximaAcao}>
-              {proximaAcao.acao}
+          {proximaAcao.acao && proximaAcao.link ? (
+            <Button className="w-full" size="lg" asChild>
+              <a href={proximaAcao.link} target="_blank" rel="noopener noreferrer">
+                {proximaAcao.acao}
+              </a>
             </Button>
+          ) : (
+            proximaAcao.acao && (
+              <Button className="w-full" size="lg" onClick={irParaProximaAcao}>
+                {proximaAcao.acao}
+              </Button>
+            )
           )}
         </CardContent>
       </Card>

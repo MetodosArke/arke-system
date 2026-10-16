@@ -4618,6 +4618,8 @@ export type Database = {
         Row: {
           aluno_id: string
           asaas_payment_id: string | null
+          aviso_cobranca_d1_em: string | null
+          aviso_cobranca_d3_em: string | null
           competencia: string
           created_at: string
           data_pagamento: string | null
@@ -4640,6 +4642,8 @@ export type Database = {
         Insert: {
           aluno_id: string
           asaas_payment_id?: string | null
+          aviso_cobranca_d1_em?: string | null
+          aviso_cobranca_d3_em?: string | null
           competencia: string
           created_at?: string
           data_pagamento?: string | null
@@ -4662,6 +4666,8 @@ export type Database = {
         Update: {
           aluno_id?: string
           asaas_payment_id?: string | null
+          aviso_cobranca_d1_em?: string | null
+          aviso_cobranca_d3_em?: string | null
           competencia?: string
           created_at?: string
           data_pagamento?: string | null
@@ -8336,6 +8342,13 @@ export type Database = {
         }
         Returns: Json
       }
+      cobranca_recuperada_no_mes: {
+        Args: { _fim: string; _inicio: string; _organization_id: string }
+        Returns: {
+          quantidade: number
+          valor: number
+        }[]
+      }
       cobrancas_esperando_aviso: {
         Args: never
         Returns: {
@@ -9615,6 +9628,16 @@ export type Database = {
         Args: { _organization_id: string }
         Returns: boolean
       }
+      mensalidades_para_aviso_de_cobranca: {
+        Args: never
+        Returns: {
+          aviso_cobranca_d1_em: string
+          aviso_cobranca_d3_em: string
+          mensalidade_id: string
+          user_id: string
+          vencimento: string
+        }[]
+      }
       metodo_ofertas_academia: {
         Args: { _organization_id: string }
         Returns: {
@@ -9760,6 +9783,14 @@ export type Database = {
           organization_id: string
           semana: string
         }[]
+      }
+      paga_depois_do_aviso: {
+        Args: {
+          _aviso_d1_em: string
+          _aviso_d3_em: string
+          _data_pagamento: string
+        }
+        Returns: boolean
       }
       papeis_da_arkefit: {
         Args: never

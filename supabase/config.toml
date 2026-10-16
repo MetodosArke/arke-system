@@ -128,6 +128,11 @@ verify_jwt = false
 [functions.retentar-saida-asaas]
 verify_jwt = false
 
+# O aviso no celular da mensalidade vencida (D+1 e D+3): todo dia às 10h de
+# Brasília, chamada pelo cron com o token do alerta de rotinas.
+[functions.aviso-cobranca-atrasada]
+verify_jwt = false
+
 # O convite e a retirada da equipe da ArkeFit: dá e tira o papel de sócio.
 # Exige a sessão (o padrão), declarado de propósito; a função ainda confere o
 # sócio com as duas etapas.
