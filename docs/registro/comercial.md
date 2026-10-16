@@ -98,3 +98,11 @@ Decisões do responsável, depois dos testes do Jean:
 **Política.** O texto legal não mudou nesta entrega. O parágrafo que descreve a pesquisa (anônima, o e-mail só com autorização, a guarda de 12 meses) foi proposto ao responsável e entra numa versão nova da Política, pelo caminho de sempre (texto no ar, depois a migration com o hash).
 
 **Conferido:** `npm run check` limpo (tipos, lint, o `deno check` das 59 funções e a auditoria das dependências) e `npx vitest run` com 218 arquivos e 1.736 testes. `pesquisaMercado.test` (14) cobra a lista fechada, a pergunta 6 só com sistema, o limite das de várias escolhas, o e-mail só com autorização, a versão, a contagem, a ordem do "essencial", o CSV sem e-mail e a guarda das duas tabelas (sem IP; a resposta sem e-mail e sem a hora); `SuperAdminPesquisaMercado.test` (3) cobra a tela de resultados, o CSV e os e-mails só para o Sócio. Quatro defeitos plantados de uma vez (a escala aceitando qualquer valor, a tabela fora de `rlsSemRegra`, a leitura na área errada e um `ip_hash` na tabela das respostas): 5 testes falharam, em 3 arquivos. A tela pública, pelo Playwright contra o servidor local, no computador (1280 px) e no celular (390 px), nos dois temas: a escala em duas colunas no celular, e o envio incompleto leva até a pergunta que falta. **Ficou para depois do merge:** a migration em transação desfeita (o acesso ao banco foi recusado nesta sessão) e a corrente real, com a função publicada, a Letícia e o aviso ao comercial.
+
+## A pesquisa de mercado no ar (16/10/2026)
+
+A Política de 16/10 entrou antes (#412, versão no banco depois do texto no ar), como o responsável decidiu, e a pesquisa foi ao ar em seguida (#403): a migration `20261446010000`, testada antes no banco em transação desfeita, e as funções `pesquisa-mercado`, `lead-site` e `assistente-academia`.
+
+**O link para divulgar é `arkefit.com.br/pesquisa`.** O app usa rotas com `#`, e o endereço limpo caía na página de vendas; o `vercel.json` ganhou o redirecionamento de `/pesquisa` para `app.arkefit.com.br/#/pesquisa`.
+
+**Conferido em produção, no celular:** `arkefit.com.br/#/pesquisa` e `app.arkefit.com.br/#/pesquisa` abrem a pesquisa, com o captcha carregado e sem bloqueio da CSP. O envio de ponta a ponta pede o captcha de verdade, então fica para a primeira resposta real.

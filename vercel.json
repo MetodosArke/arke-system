@@ -1,4 +1,11 @@
 {
+  "redirects": [
+    {
+      "source": "/pesquisa",
+      "destination": "https://app.arkefit.com.br/#/pesquisa",
+      "permanent": false
+    }
+  ],
   "rewrites": [
     {
       "source": "/cadastro/:code",
