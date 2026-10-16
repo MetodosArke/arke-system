@@ -43,6 +43,7 @@ describe("mudança do app para o endereço próprio", () => {
   it("a raiz e os documentos legais ficam no endereço de vendas", () => {
     expect(destinoNoApp(url(""), "app.arkefit.com.br")).toBeNull();
     expect(destinoNoApp(url("#/privacidade"), "app.arkefit.com.br")).toBeNull();
+    expect(destinoNoApp(url("#/pesquisa"), "app.arkefit.com.br")).toBeNull();
   });
 
   it("no próprio endereço do app, não redireciona", () => {

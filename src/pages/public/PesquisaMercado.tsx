@@ -235,7 +235,7 @@ export default function PesquisaMercado() {
     <div className="min-h-screen bg-background text-foreground">
       <header className="border-b border-border">
         <div className="mx-auto flex max-w-2xl items-center px-4 py-4">
-          <a href="#/" aria-label="ArkeFit, página inicial" className="rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+          <a href="https://www.arkefit.com.br/" aria-label="ArkeFit, site" className="rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
             <MarcaArkeFit decorativo className="h-7 w-auto" />
           </a>
         </div>
