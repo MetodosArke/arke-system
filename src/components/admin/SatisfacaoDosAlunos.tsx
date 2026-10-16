@@ -89,7 +89,7 @@ export function SatisfacaoDosAlunos({ organizationId }: { organizationId: string
               <tbody>
                 {meses.map((m) => (
                   <tr key={m.mes} className="border-b border-border last:border-0">
-                    <td className="py-1.5 capitalize">{formatarDataBR(`${m.mes}-01`, { month: "long", year: "numeric" })}</td>
+                    <td className="py-1.5 first-letter:uppercase">{formatarDataBR(`${m.mes}-01`, { month: "long", year: "numeric" })}</td>
                     <td className="py-1.5 text-right">{m.respostas}</td>
                     <td className="py-1.5 text-right font-semibold">{notaNps(m.nps)}</td>
                   </tr>
