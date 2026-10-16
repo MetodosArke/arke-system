@@ -23,10 +23,14 @@ import { Label } from "@/components/ui/label";
  * equipe, não uma falta.
  *
  * Sono e energia (10/10/2026, decisão do responsável): duas perguntas de 1 a 5,
- * um toque a mais, para as curvas da Evolução. Moram em
+ * um toque a mais, para as curvas da Evolução. Quem retirou o consentimento de
+ * saúde não recebe as duas perguntas.
+ *
+ * As respostas (esforço, sensação, sono e energia) moram em
  * `registro_treino_bem_estar`, fora de `registro_treino`, porque a recepção lê
- * o registro do treino e não lê saúde. Quem retirou o consentimento de saúde
- * não recebe as duas perguntas.
+ * o registro do treino e não lê saúde. O esforço e a sensação vieram para lá
+ * em 16/10/2026 (20261452010000); o "Senti dor" que abre a tarefa crítica é o
+ * gatilho de lá. `registro_treino` fica com o que não é saúde.
  *
  * Nada aqui é obrigatório: o aluno pode fechar e o treino continua registrado.
  * Exigir resposta faria o registro depender de paciência no fim do treino, que
@@ -120,17 +124,22 @@ export function AvaliacaoTreinoDialog({
           // das séries é um treino parcial, e marcá-lo como completo estragaria
           // a constância — a métrica que a academia usa para falar com o aluno.
           concluido: todasFeitas,
-          esforco_percebido: r.esforco,
-          sensacao: r.sensacao,
           duracao_min: duracaoMin,
           observacao: r.observacao.trim() || null,
           ...(detalhesExecucao !== undefined ? { detalhes_execucao: detalhesExecucao } : {}),
         })
         .eq("id", registroId).select("id"));
-      if ((r.sono != null || r.energia != null) && organization) {
+      if ((r.esforco != null || r.sensacao != null || r.sono != null || r.energia != null) && organization) {
         await exigirGravacao(supabase
           .from("registro_treino_bem_estar")
-          .upsert({ registro_treino_id: registroId, organization_id: organization.id, sono: r.sono, energia: r.energia })
+          .upsert({
+            registro_treino_id: registroId,
+            organization_id: organization.id,
+            esforco_percebido: r.esforco,
+            sensacao: r.sensacao,
+            sono: r.sono,
+            energia: r.energia,
+          })
           .select("registro_treino_id"));
       }
     },

@@ -35,7 +35,7 @@ const series = (carga: number) =>
   [1, 2, 3].map((n) => ({ exercicio_id: "ex-supino", exercicio_ordem: 0, serie_numero: n, carga_kg: carga, repeticoes: 12, concluida: true }));
 
 /** Um aluno do Free com dois treinos no topo da faixa, com folga: o caso de subir. */
-function alunoNoTopo(o: { metodo?: boolean; sensacao?: string } = {}) {
+function alunoNoTopo(o: { metodo?: boolean; sensacao?: string; suspensa?: boolean } = {}) {
   tabelas = {
     treinos: {
       id: "treino-1",
@@ -45,10 +45,17 @@ function alunoNoTopo(o: { metodo?: boolean; sensacao?: string } = {}) {
       ],
     },
     registro_treino: [
-      { data: diaBrasilia(-6), treino_id: "treino-1", esforco_percebido: 6, sensacao: "bom", registro_serie: series(40), registro_treino_bem_estar: { sono: 4, energia: 4 } },
-      { data: diaBrasilia(-2), treino_id: "treino-1", esforco_percebido: 6, sensacao: o.sensacao ?? "bom", registro_serie: series(40), registro_treino_bem_estar: null },
+      // As respostas do fim do treino vêm do bem-estar, embutido (20261452010000).
+      { data: diaBrasilia(-6), treino_id: "treino-1", registro_serie: series(40), registro_treino_bem_estar: { esforco_percebido: 6, sensacao: "bom", sono: 4, energia: 4 } },
+      {
+        data: diaBrasilia(-2),
+        treino_id: "treino-1",
+        registro_serie: series(40),
+        registro_treino_bem_estar: { esforco_percebido: 6, sensacao: o.sensacao ?? "bom", sono: null, energia: null },
+      },
     ],
-    alunos: { metodo_arke_status: o.metodo ? "ativo" : "inativo", progressao_bloqueada_em: null },
+    alunos: { metodo_arke_status: o.metodo ? "ativo" : "inativo" },
+    aluno_progressao_bloqueada: o.suspensa ? { bloqueada_em: "2026-10-01T12:00:00Z" } : null,
     anamnese_acolhimento: { consentimento_lgpd_revogado_em: null },
     checkins: [],
   };
@@ -114,6 +121,14 @@ describe("SugestaoProgressao", () => {
     expect(await screen.findByText("Segurar e conversar com o aluno sobre a dor.")).toBeInTheDocument();
     expect(screen.getByText(/O aluno relatou dor em .* Converse com ele antes de mexer na carga\./)).toBeInTheDocument();
     expect(screen.queryByText(/Pode subir/)).toBeNull();
+  });
+
+  it("a progressão suspensa vem da tabela própria, e não de alunos: segura e avisa", async () => {
+    alunoNoTopo({ suspensa: true });
+    montar();
+    expect(await screen.findByText("Segurar e conversar com o aluno sobre a dor.")).toBeInTheDocument();
+    expect(screen.getByText(/A progressão está suspensa por relato de dor\./)).toBeInTheDocument();
+    expect(consultadas).toContain("aluno_progressao_bloqueada");
   });
 
   it("a consulta falhou: diz que falhou, e não que não há dados", async () => {

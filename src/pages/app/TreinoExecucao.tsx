@@ -139,7 +139,7 @@ export default function TreinoExecucao() {
           },
           { onConflict: "aluno_id,data" },
         )
-        .select("id, concluido, esforco_percebido, detalhes_execucao")
+        .select("id, concluido, detalhes_execucao")
         .single();
       if (error) throw error;
       return data;

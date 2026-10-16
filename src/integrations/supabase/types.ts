@@ -1082,6 +1082,49 @@ export type Database = {
           },
         ]
       }
+      aluno_progressao_bloqueada: {
+        Row: {
+          aluno_id: string
+          bloqueada_em: string
+          motivo: string
+          organization_id: string
+        }
+        Insert: {
+          aluno_id: string
+          bloqueada_em?: string
+          motivo: string
+          organization_id: string
+        }
+        Update: {
+          aluno_id?: string
+          bloqueada_em?: string
+          motivo?: string
+          organization_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "aluno_progressao_bloqueada_aluno_id_fkey"
+            columns: ["aluno_id"]
+            isOneToOne: true
+            referencedRelation: "alunos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "aluno_progressao_bloqueada_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "org_churn_metrics"
+            referencedColumns: ["organization_id"]
+          },
+          {
+            foreignKeyName: "aluno_progressao_bloqueada_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       aluno_rotina_semanal: {
         Row: {
           aluno_id: string
@@ -1204,7 +1247,6 @@ export type Database = {
           organization_id: string
           peso_kg: number | null
           primeiro_acesso_em: string | null
-          progressao_bloqueada_em: string | null
           progressao_bloqueada_motivo: string | null
           provedor_nutricao: Database["public"]["Enums"]["provedor_nutricao"]
           provedor_treino: Database["public"]["Enums"]["provedor_treino"]
@@ -1240,7 +1282,6 @@ export type Database = {
           organization_id: string
           peso_kg?: number | null
           primeiro_acesso_em?: string | null
-          progressao_bloqueada_em?: string | null
           progressao_bloqueada_motivo?: string | null
           provedor_nutricao?: Database["public"]["Enums"]["provedor_nutricao"]
           provedor_treino?: Database["public"]["Enums"]["provedor_treino"]
@@ -1276,7 +1317,6 @@ export type Database = {
           organization_id?: string
           peso_kg?: number | null
           primeiro_acesso_em?: string | null
-          progressao_bloqueada_em?: string | null
           progressao_bloqueada_motivo?: string | null
           provedor_nutricao?: Database["public"]["Enums"]["provedor_nutricao"]
           provedor_treino?: Database["public"]["Enums"]["provedor_treino"]
@@ -6587,11 +6627,9 @@ export type Database = {
           detalhes_execucao: Json
           divisao: string | null
           duracao_min: number | null
-          esforco_percebido: number | null
           id: string
           observacao: string | null
           organization_id: string
-          sensacao: string | null
           treino_id: string | null
         }
         Insert: {
@@ -6602,11 +6640,9 @@ export type Database = {
           detalhes_execucao?: Json
           divisao?: string | null
           duracao_min?: number | null
-          esforco_percebido?: number | null
           id?: string
           observacao?: string | null
           organization_id: string
-          sensacao?: string | null
           treino_id?: string | null
         }
         Update: {
@@ -6617,11 +6653,9 @@ export type Database = {
           detalhes_execucao?: Json
           divisao?: string | null
           duracao_min?: number | null
-          esforco_percebido?: number | null
           id?: string
           observacao?: string | null
           organization_id?: string
-          sensacao?: string | null
           treino_id?: string | null
         }
         Relationships: [
@@ -6659,22 +6693,28 @@ export type Database = {
         Row: {
           created_at: string
           energia: number | null
+          esforco_percebido: number | null
           organization_id: string
           registro_treino_id: string
+          sensacao: string | null
           sono: number | null
         }
         Insert: {
           created_at?: string
           energia?: number | null
+          esforco_percebido?: number | null
           organization_id: string
           registro_treino_id: string
+          sensacao?: string | null
           sono?: number | null
         }
         Update: {
           created_at?: string
           energia?: number | null
+          esforco_percebido?: number | null
           organization_id?: string
           registro_treino_id?: string
+          sensacao?: string | null
           sono?: number | null
         }
         Relationships: [

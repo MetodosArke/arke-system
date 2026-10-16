@@ -398,7 +398,10 @@ export type SerieDoRegistro = {
   concluida: boolean;
 };
 
-/** Um treino feito (`registro_treino`), com o sono e a energia daquele dia e as séries. */
+/**
+ * Um treino feito (`registro_treino`), com as séries e as respostas do fim do
+ * treino (esforço, sensação, sono e energia, de `registro_treino_bem_estar`).
+ */
 export type RegistroDoTreino = {
   data: string;
   treino_id: string | null;
@@ -434,7 +437,7 @@ export type SugestaoDoExercicio = { ordem: number; divisao: string; nome: string
 export type SinalDeDor = {
   /** Dor nos últimos 7 dias, ou a progressão suspensa: segura todos os exercícios. */
   recente: boolean;
-  /** A progressão está suspensa por dor (`alunos.progressao_bloqueada_em`) e ninguém liberou ainda. */
+  /** A progressão está suspensa por dor (`aluno_progressao_bloqueada`) e ninguém liberou ainda. */
   suspensa: boolean;
   /** O relato de dor mais recente dos últimos 7 dias (fim do treino ou check-in). */
   ultimaData: string | null;
