@@ -115,7 +115,7 @@ export const ARTIGOS: ArtigoAjuda[] = [
   {
     slug: "prescrever-treino",
     titulo: "Prescrever um treino",
-    resumo: "Divisões A a J, séries diferentes entre si, técnicas e publicação.",
+    resumo: "Divisões A a J, séries diferentes entre si, técnicas, publicação e a sugestão de progressão da carga.",
     secao: "Treino e dieta",
     publicos: ["gestor", "professor", "autonomo"],
     rotas: ["/admin/treinos"],

@@ -24,6 +24,22 @@ Na aba **Publicar para Aluno**:
 2. Em **Como montar o treino**, escolha **Usar um modelo** (e **Carregar Modelo** para conferir a ficha) ou **Começar do zero**.
 3. Dê um título, defina a validade se quiser e clique em **Publicar treino**.
 
+## Sugestão de progressão da carga
+
+Ao escolher o aluno em **Publicar para Aluno**, logo abaixo dele aparece a **Sugestão de progressão da carga**, exercício por exercício: **pode subir**, **manter**, **segurar** ou **rever a carga**. Ela sai por uma regra fixa, sem inteligência artificial, dos treinos que o aluno anotou na execução do treino nas últimas 3 semanas: as séries feitas (carga e repetições), o esforço, o sono, a energia e a dor.
+
+É só uma sugestão. A decisão é sua, e nada muda no treino do aluno sozinho: ele só muda quando você publica uma versão nova. O aluno não vê a sugestão.
+
+Como ela decide, nesta ordem:
+
+- **Ainda sem dados para sugerir:** o aluno anotou carga e repetições do exercício em menos de 2 treinos das últimas 3 semanas, ou a série não tem as repetições em número (por exemplo, "30-45s" ou "até a falha").
+- **Segurar**, que vem antes de tudo: dor relatada nos últimos 7 dias (no fim do treino ou no check-in) ou a progressão suspensa por dor; sono ou energia 1 ou 2 no último treino; ou mais de 14 dias sem o exercício (aí, retomar com a mesma carga).
+- **Rever a carga:** nos 2 últimos treinos, séries sem concluir ou abaixo do mínimo da faixa, ou esforço 9 ou 10 nos dois. Se for reduzir, a referência é de 5 a 10%.
+- **Pode subir:** nos 2 últimos treinos, com a mesma carga, todas as séries feitas no topo da faixa (12 numa faixa de 8 a 12) e esforço até 7. A referência é o menor incremento: cerca de 2 a 5%, de 1 em 1 kg em halter e cabo e de 2,5 em 2,5 kg em barra e máquina.
+- **Manter:** todo o resto.
+
+O esforço é o do treino inteiro, que o aluno responde no fim, e não o de cada exercício. A sugestão aparece para a gestão e o professor; a recepção e a nutricionista não a veem. No aluno do Método ARKE, ela é do mentor da ArkeFit.
+
 ## Começar do zero
 
 Para um treino feito só para um aluno, não precisa criar modelo. Em **Começar do zero**, monte os exercícios ali mesmo, como num modelo: a divisão, o exercício do acervo, as séries, como executar e a observação para o aluno. Depois publique. O treino não vira modelo e não entra na biblioteca.
