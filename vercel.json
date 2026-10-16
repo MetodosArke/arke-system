@@ -2,7 +2,7 @@
   "redirects": [
     {
       "source": "/pesquisa",
-      "destination": "https://app.arkefit.com.br/#/pesquisa",
+      "destination": "https://www.arkefit.com.br/#/pesquisa",
       "permanent": false
     }
   ],
