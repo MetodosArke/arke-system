@@ -203,8 +203,13 @@ async function semear() {
   for (const [chave, dias] of [["marina", [1, 3, 6, 8, 10]], ["pedro", [1, 2, 4, 5]], ["lucas", [2, 6]], ["fernanda", [1, 4]]]) {
     const t = await treinoDe(chave);
     for (const d of dias) {
-      await sql(`insert into public.registro_treino (organization_id, aluno_id, treino_id, data, concluido, divisao, esforco_percebido, sensacao, duracao_min)
-        values (${q(ORG)}, ${q(alunoId[chave])}, ${q(t)}, current_date - ${d}, true, 'A', ${6 + (d % 3)}, ${q(d % 4 === 0 ? "bom" : "otimo")}, ${45 + d})`);
+      // O esforço e a sensação moram ao lado do treino, onde a recepção não lê (20261452010000).
+      await sql(`with r as (
+          insert into public.registro_treino (organization_id, aluno_id, treino_id, data, concluido, divisao, duracao_min)
+          values (${q(ORG)}, ${q(alunoId[chave])}, ${q(t)}, current_date - ${d}, true, 'A', ${45 + d})
+          returning id, organization_id)
+        insert into public.registro_treino_bem_estar (registro_treino_id, organization_id, esforco_percebido, sensacao)
+        select id, organization_id, ${6 + (d % 3)}, ${q(d % 4 === 0 ? "bom" : "otimo")} from r`);
       await sql(`insert into public.presencas (organization_id, aluno_id, dia, origem) values (${q(ORG)}, ${q(alunoId[chave])}, current_date - ${d}, 'qr') on conflict do nothing`);
     }
   }

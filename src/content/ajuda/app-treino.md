@@ -29,7 +29,7 @@ Conte como foi:
 - **como você se sentiu**: ótimo, bom, regular, difícil ou **senti dor**;
 - se quiser, uma observação.
 
-Nada disso é obrigatório: dá para encerrar sem responder. O sono e a energia viram curvas na sua **Evolução**, e quem vê as respostas é você e a equipe que cuida do seu treino e da sua saúde (no Método ARKE, também a mentoria); a recepção não vê.
+Nada disso é obrigatório: dá para encerrar sem responder. O esforço, o sono e a energia viram curvas na sua **Evolução**, e quem vê as respostas, inclusive a dor, é você e a equipe que cuida do seu treino e da sua saúde (no Método ARKE, também a mentoria); a recepção não vê.
 
 Relatar dor **não tira ponto** de ninguém. Pelo contrário: a equipe recebe um alerta e revê o seu treino antes do próximo. É assim que se evita lesão.
 

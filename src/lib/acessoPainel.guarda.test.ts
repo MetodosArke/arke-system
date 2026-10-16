@@ -198,6 +198,8 @@ describe("regras do banco: o dinheiro com quem cobra, a saúde com quem atende",
     ["dieta_adesao", ["leitura"]],
     // 10/10/2026: sono e energia do fim do treino, fora de registro_treino (que a recepção lê).
     ["registro_treino_bem_estar", ["leitura"]],
+    // 16/10/2026: a progressão suspensa por dor, fora de alunos (que a recepção lê).
+    ["aluno_progressao_bloqueada", ["leitura"]],
   ];
   it("a saúde do aluno não passa por is_org_staff, e a ArkeFit só a lê no Método", () => {
     for (const [tabela, regras] of SAUDE) {

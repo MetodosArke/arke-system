@@ -29,12 +29,13 @@ export default function EvolucaoHabitos() {
     queryFn: async () => {
       const [aluno, treinos, calendario, bemEstar, adesoes, habitos] = await Promise.all([
         supabase.from("alunos").select("meta_semanal_dias, meta_agua_ml").eq("id", alunoId!).maybeSingle(),
-        supabase.from("registro_treino").select("data, esforco_percebido").eq("aluno_id", alunoId!).eq("concluido", true).gte("data", desde),
+        supabase.from("registro_treino").select("data").eq("aluno_id", alunoId!).eq("concluido", true).gte("data", desde),
         supabase.from("treino_calendario").select("data").eq("aluno_id", alunoId!).gte("data", desde),
-        // Sono e energia do fim do treino, com a data do treino; vale também o treino encerrado pela metade.
+        // As respostas do fim do treino, com a data do treino. O esforço conta só
+        // do treino concluído; o sono e a energia, também do encerrado pela metade.
         supabase
           .from("registro_treino_bem_estar")
-          .select("sono, energia, registro_treino!inner(data)")
+          .select("esforco_percebido, sono, energia, registro_treino!inner(data, concluido)")
           .eq("registro_treino.aluno_id", alunoId!)
           .gte("registro_treino.data", desde),
         supabase.from("dieta_adesao").select("data, adesao_percentual").eq("aluno_id", alunoId!).gte("data", desde),
@@ -48,7 +49,9 @@ export default function EvolucaoHabitos() {
         semanas: habitosPorSemana({
           semanas,
           diasDeTreino: [...(treinos.data ?? []), ...(calendario.data ?? [])].map((t) => t.data),
-          esforcos: (treinos.data ?? []).filter((t) => t.esforco_percebido != null).map((t) => ({ data: t.data, valor: t.esforco_percebido! })),
+          esforcos: respostas
+            .filter((b) => b.registro_treino.concluido && b.esforco_percebido != null)
+            .map((b) => ({ data: b.registro_treino.data, valor: b.esforco_percebido! })),
           sonos: respostas.filter((b) => b.sono != null).map((b) => ({ data: b.registro_treino.data, valor: b.sono! })),
           energias: respostas.filter((b) => b.energia != null).map((b) => ({ data: b.registro_treino.data, valor: b.energia! })),
           adesoes: (adesoes.data ?? []).map((a) => ({ data: a.data, valor: a.adesao_percentual })),

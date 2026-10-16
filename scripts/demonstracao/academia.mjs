@@ -378,6 +378,7 @@ async function semear() {
   // ── Frequência das últimas oito semanas ─────────────────────────────────
   const treinoDoAluno = new Map((await sql(`select aluno_id, id from public.treinos where organization_id = ${q(ORG)} and status = 'ativo'`)).map((t) => [t.aluno_id, t.id]));
   const registros = [];
+  const bemEstar = [];
   const presencas = [];
   for (const a of comTreino) {
     const adesao = a.perfil === "assidua" ? 0.95 : a.perfil === "irregular" ? 0.55 : 0.2;
@@ -400,11 +401,16 @@ async function semear() {
       // Sem "dor" no sorteio: cada relato de dor abre um caso crítico na fila,
       // e os da demonstração são os escritos à mão, mais abaixo.
       const sensacao = um(["otimo", "otimo", "bom", "bom", "regular", "dificil"]);
-      registros.push(`(${q(ORG)}, ${q(a.id)}, ${q(treinoDoAluno.get(a.id) ?? null)}, current_date - ${dia}, true, ${q(divisao)}, ${entre(5, 9)}, ${q(sensacao)}, ${entre(40, 75)})`);
+      const esforco = entre(5, 9);
+      registros.push(`(${q(ORG)}, ${q(a.id)}, ${q(treinoDoAluno.get(a.id) ?? null)}, current_date - ${dia}, true, ${q(divisao)}, ${entre(40, 75)})`);
+      // O esforço e a sensação moram ao lado do treino, onde a recepção não lê
+      // (20261452010000); o treino é achado pelo aluno e pelo dia, que são únicos.
+      bemEstar.push(`((select r.id from public.registro_treino r where r.aluno_id = ${q(a.id)} and r.data = current_date - ${dia}), ${q(ORG)}, ${esforco}, ${q(sensacao)})`);
       presencas.push(`(${q(ORG)}, ${q(a.id)}, current_date - ${dia}, 'qr', (current_date - ${dia}) + time '06:00' + make_interval(mins => ${entre(0, 900)}))`);
     }
   }
-  await inserirEmLotes("insert into public.registro_treino (organization_id, aluno_id, treino_id, data, concluido, divisao, esforco_percebido, sensacao, duracao_min)", registros);
+  await inserirEmLotes("insert into public.registro_treino (organization_id, aluno_id, treino_id, data, concluido, divisao, duracao_min)", registros);
+  await inserirEmLotes("insert into public.registro_treino_bem_estar (registro_treino_id, organization_id, esforco_percebido, sensacao)", bemEstar);
   await inserirEmLotes("insert into public.presencas (organization_id, aluno_id, dia, origem, registrada_em)", presencas.map((p) => p));
   // Cada treino registrado fica numa divisão que existe na ficha do aluno, com
   // todos os exercícios dela feitos e uma carga: é o que o app grava quando o

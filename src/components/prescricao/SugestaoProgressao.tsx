@@ -26,8 +26,9 @@ import {
  * aluno do Método), e cada um vê a sugestão do aluno de quem é dono do treino.
  *
  * A sugestão é calculada na leitura e não é gravada, como o plano do aluno.
- * Tudo é lido pelo RLS de quem olha: o sono e a energia só voltam para quem
- * atende a saúde (`atende_saude()`, sem a recepção) e para o mentor no Método.
+ * Tudo é lido pelo RLS de quem olha: as respostas do fim do treino (esforço,
+ * sensação, sono e energia) e a progressão suspensa só voltam para quem atende
+ * a saúde (`atende_saude()`, sem a recepção) e para o mentor no Método.
  * A regra é a de `src/lib/sugestaoProgressao.ts`. Esta tela só lê: nada aqui
  * muda o treino do aluno, e o aluno não vê esta sugestão.
  */
@@ -40,7 +41,7 @@ const COR_DO_TIPO: Record<TipoSugestao, string> = {
   sem_dados: "text-muted-foreground",
 };
 
-type BemEstar = { sono: number | null; energia: number | null };
+type BemEstar = { esforco_percebido: number | null; sensacao: string | null; sono: number | null; energia: number | null };
 
 /** O embutido de uma tabela um para um vem como objeto; por garantia, aceita a lista. */
 function umSo<T>(v: T | T[] | null | undefined): T | null {
@@ -66,7 +67,7 @@ export function SugestaoProgressao({ alunoId, escopo }: { alunoId: string; escop
     queryKey: ["sugestao-progressao", user?.id ?? null, alunoId],
     queryFn: async () => {
       const hoje = hojeBrasilia();
-      const [treino, registros, aluno, anamnese, checkins] = await Promise.all([
+      const [treino, registros, aluno, suspensa, anamnese, checkins] = await Promise.all([
         supabase
           .from("treinos")
           .select("id, snapshot_conteudo")
@@ -79,12 +80,13 @@ export function SugestaoProgressao({ alunoId, escopo }: { alunoId: string; escop
         supabase
           .from("registro_treino")
           .select(
-            "data, treino_id, esforco_percebido, sensacao, registro_serie(exercicio_id, exercicio_ordem, serie_numero, carga_kg, repeticoes, concluida), registro_treino_bem_estar(sono, energia)",
+            "data, treino_id, registro_serie(exercicio_id, exercicio_ordem, serie_numero, carga_kg, repeticoes, concluida), registro_treino_bem_estar(esforco_percebido, sensacao, sono, energia)",
           )
           .eq("aluno_id", alunoId)
           .gte("data", diaBrasilia(-LIMIARES.janelaDias))
           .order("data"),
-        supabase.from("alunos").select("metodo_arke_status, progressao_bloqueada_em").eq("id", alunoId).maybeSingle(),
+        supabase.from("alunos").select("metodo_arke_status").eq("id", alunoId).maybeSingle(),
+        supabase.from("aluno_progressao_bloqueada").select("bloqueada_em").eq("aluno_id", alunoId).maybeSingle(),
         supabase.from("anamnese_acolhimento").select("consentimento_lgpd_revogado_em").eq("aluno_id", alunoId).maybeSingle(),
         supabase
           .from("checkins")
@@ -93,15 +95,15 @@ export function SugestaoProgressao({ alunoId, escopo }: { alunoId: string; escop
           .eq("motivo_dificuldade", "desconforto_dor")
           .gte("data", diaBrasilia(-LIMIARES.dorDias)),
       ]);
-      for (const r of [treino, registros, aluno, anamnese, checkins]) if (r.error) throw r.error;
+      for (const r of [treino, registros, aluno, suspensa, anamnese, checkins]) if (r.error) throw r.error;
 
       const lidos: RegistroDoTreino[] = (registros.data ?? []).map((r) => {
         const bemEstar = umSo(r.registro_treino_bem_estar as unknown as BemEstar | BemEstar[] | null);
         return {
           data: r.data,
           treino_id: r.treino_id,
-          esforco_percebido: r.esforco_percebido,
-          sensacao: r.sensacao,
+          esforco_percebido: bemEstar?.esforco_percebido ?? null,
+          sensacao: bemEstar?.sensacao ?? null,
           sono: bemEstar?.sono ?? null,
           energia: bemEstar?.energia ?? null,
           series: r.registro_serie ?? [],
@@ -116,7 +118,7 @@ export function SugestaoProgressao({ alunoId, escopo }: { alunoId: string; escop
             : null,
           registros: lidos,
           datasComDorNoCheckin: (checkins.data ?? []).map((c) => c.data),
-          progressaoSuspensa: !!aluno.data?.progressao_bloqueada_em,
+          progressaoSuspensa: !!suspensa.data?.bloqueada_em,
           consentimentoSaudeRetirado: !!anamnese.data?.consentimento_lgpd_revogado_em,
         }),
       };
