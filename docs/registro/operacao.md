@@ -346,3 +346,11 @@ Os dois achados baixos que seguiam abertos na auditoria de prontidão de 05/10/2
 **A troca:** o cabeçalho `Content-Security-Policy-Report-Only` virou `Content-Security-Policy`, com o mesmo texto e os mesmos relatos ao Sentry. A trava `cabecalhos.guarda` ganhou o caso "a CSP vale, não só observa": voltar a só observar passa a ser decisão, não esquecimento.
 
 **Conferido:** a trava com 5 casos; com o cabeçalho de volta a só observar, 1 falhou. Depois do deploy: o cabeçalho em produção e as mesmas telas sem bloqueio (abaixo, no PR).
+
+## O Dependabot só com as correções de segurança (16/10/2026)
+
+**O que aconteceu.** Ligado em 13/10, o Dependabot abriu pedidos para subir o Vite (5 → 8), o Vitest (3 → 4) e o esbuild do app de versão grande. Os cinco falharam no job `check`: versão grande do Vite e do Vitest muda o build e quebra os testes. Pela decisão de 05/10, Vite, Vitest e Tailwind esperam uma rodada própria antes do primeiro cliente.
+
+**A configuração (`.github/dependabot.yml`):** as atualizações de rotina ficam desligadas (`open-pull-requests-limit: 0`), o que não afeta as de segurança; e as versões grandes do Vite, do Vitest, do esbuild (que, na versão 0.x, quebra também na menor) e do Tailwind ficam ignoradas. As correções de segurança dentro da versão atual continuam chegando, para o app e para o Gateway. Os cinco PRs (#407 a #411) foram fechados, com o motivo.
+
+**O que isso deixa de fora:** uma falha que só tenha correção na versão grande espera a rodada de atualização. São ferramentas de desenvolvimento e de build (o servidor de desenvolvimento do Vite, o executor de testes): não vão no pacote que o aluno baixa, e a auditoria do `npm run check` olha só as dependências de produção.

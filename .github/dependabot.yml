@@ -1,0 +1,32 @@
+# Dependabot: só as correções de segurança (as atualizações de rotina ficam
+# desligadas com open-pull-requests-limit: 0, que não afeta as de segurança).
+#
+# As versões grandes do Vite, do Vitest, do esbuild e do Tailwind esperam a
+# rodada própria de atualização antes do primeiro cliente (decisão de
+# 05/10/2026): elas quebram os testes do app e mudam o build. As correções
+# dentro da versão atual continuam chegando normalmente.
+version: 2
+updates:
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 0
+    ignore:
+      - dependency-name: "vite"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@vitejs/*"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "vitest"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@vitest/*"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "esbuild"
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
+      - dependency-name: "tailwindcss"
+        update-types: ["version-update:semver-major"]
+  - package-ecosystem: "npm"
+    directory: "/packages/gateway"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 0
