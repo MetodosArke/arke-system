@@ -18,7 +18,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
-import { DollarSign, TrendingUp, TrendingDown, Plus, Wallet, Repeat, Sparkles, BookOpen, Percent } from "lucide-react";
+import { BellRing, DollarSign, TrendingUp, TrendingDown, Plus, Wallet, Repeat, Sparkles, BookOpen, Percent } from "lucide-react";
 import type { Enums, Tables } from "@/integrations/supabase/types";
 import { reais } from "@/lib/numeros";
 import { todasAsLinhas } from "@/lib/paginar";
@@ -301,6 +301,29 @@ export default function AdminFinanceiro() {
     enabled: !!organization?.id,
   });
 
+  // A mensalidade vencida paga depois do aviso no celular do aluno
+  // (aviso-cobranca-atrasada): o que a recuperação trouxe de volta no mês, sem
+  // trabalho da recepção. A regra mora no banco (`paga_depois_do_aviso`).
+  const {
+    data: recuperado,
+    error: erroRecuperado,
+    refetch: recarregarRecuperado,
+    isFetching: recarregandoRecuperado,
+  } = useQuery({
+    queryKey: ["financeiro-recuperado-pelo-aviso", organization?.id, mesLancamentos],
+    queryFn: async () => {
+      const [inicio, fim] = limitesDoMes(mesLancamentos);
+      const { data, error } = await supabase.rpc("cobranca_recuperada_no_mes", {
+        _organization_id: organization!.id,
+        _inicio: inicio,
+        _fim: fim,
+      });
+      if (error) throw error;
+      return { quantidade: Number(data?.[0]?.quantidade ?? 0), valor: Number(data?.[0]?.valor ?? 0) };
+    },
+    enabled: !!organization?.id,
+  });
+
   // O que está em aberto, de qualquer mês: é o a receber e o a pagar de hoje.
   const { data: emAberto = [] } = useQuery({
     queryKey: ["lancamentos-financeiros-em-aberto", organization?.id],
@@ -508,7 +531,7 @@ export default function AdminFinanceiro() {
               </SelectContent>
             </Select>
           </div>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <Card>
               <CardContent className="pt-4">
                 <div className="flex items-center gap-2">
@@ -537,6 +560,29 @@ export default function AdminFinanceiro() {
                   <p className="text-xs text-muted-foreground">A pagar (em aberto)</p>
                 </div>
                 <p className="text-lg font-bold">{reais(aPagar)}</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="pt-4">
+                <div className="flex items-center gap-2">
+                  <BellRing className="h-4 w-4 text-primary" />
+                  <p className="text-xs text-muted-foreground">Recuperado pelo aviso no mês</p>
+                </div>
+                {erroRecuperado ? (
+                  <ErroAoCarregar
+                    oQue="o recuperado do mês"
+                    onTentarDeNovo={() => void recarregarRecuperado()}
+                    tentando={recarregandoRecuperado}
+                    className="p-2"
+                  />
+                ) : (
+                  <>
+                    <p className="text-lg font-bold">{recuperado ? reais(recuperado.valor) : "—"}</p>
+                    <p className="text-[11px] text-muted-foreground">
+                      {recuperado?.quantidade ?? 0} mensalidade(s) vencida(s) paga(s) depois do aviso no celular do aluno
+                    </p>
+                  </>
+                )}
               </CardContent>
             </Card>
           </div>

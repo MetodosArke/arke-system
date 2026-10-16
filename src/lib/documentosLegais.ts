@@ -121,8 +121,13 @@ export const DOCUMENTOS: Record<
     // 2026-10-10: sono e energia, que o aluno marca no fim do treino, entram
     // na lista de dados de saude da secao 2. Decisao do responsavel em
     // 10/10/2026, junto com as perguntas.
-    versao: "2026-10-10",
-    sha256: "34f4a1020177d1d822f0b07ecc10ce3064b400c7524a1c831db4fe030e884954",
+    // 2026-10-16: a pesquisa de mercado da ArkeFit (secoes 2, 3 e 7: respostas
+    // anonimas, o e-mail a parte e so com autorizacao, 12 meses) e a tentativa
+    // de entrar que falha (dados tecnicos, a base de seguranca e 6 meses).
+    // Decisao do responsavel no workspace em 16/10/2026
+    // (pesquisa-mercado-publicar: a Politica antes da pesquisa).
+    versao: "2026-10-16",
+    sha256: "8b6a18a1ddf1c6179fb3822617c70d73c59e3521fd695fa01cbe34b08b102ae4",
     revisadoJuridico: true,
   },
   contrato_academia: {

@@ -4,7 +4,7 @@ O [Financeiro](/admin/financeiro) é o caixa da academia dentro do ARKE. É do g
 
 ## As abas
 
-- **Lançamentos**: receitas e despesas. As mensalidades e cobranças avulsas pagas pelo ARKE entram **sozinhas** como receita, pelo que entrou na conta da academia: o valor inteiro na conta da própria academia (a tarifa do Asaas aparece no extrato dela), ou o valor menos a taxa de processamento nas mensalidades antigas pela conta da ArkeFit. O que acontece fora do ARKE (aluguel, luz, uma venda no dinheiro) entra em **Novo lançamento**.
+- **Lançamentos**: receitas e despesas. As mensalidades e cobranças avulsas pagas pelo ARKE entram **sozinhas** como receita, pelo que entrou na conta da academia: o valor inteiro na conta da própria academia (a tarifa do Asaas aparece no extrato dela), ou o valor menos a taxa de processamento nas mensalidades antigas pela conta da ArkeFit. O que acontece fora do ARKE (aluguel, luz, uma venda no dinheiro) entra em **Novo lançamento**. O cartão **Recuperado pelo aviso no mês** mostra as mensalidades vencidas que o aluno pagou depois do aviso automático no celular, e quanto (veja [Cobrança do aluno](ajuda:cobranca-do-aluno)).
 - **Folha**: a remuneração da equipe, que vira despesa no mês.
 - **Comissões**: regras de comissão por profissional.
 - **Plano de Contas**: as categorias dos lançamentos. Ajuste para ficar igual ao que a contabilidade usa.

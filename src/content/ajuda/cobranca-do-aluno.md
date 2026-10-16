@@ -56,4 +56,15 @@ A mensalidade e a avulsa saem da conta Asaas da própria academia, pelo valor in
 
 Mensalidade vencida sem pagamento marca o aluno como **inadimplente**, com os 5 dias de tolerância, e abre tarefa de cobrança para a recepção. O pagamento libera sozinho. Cobrança avulsa atrasada abre tarefa, mas não bloqueia o aluno.
 
+### A recuperação automática
+
+Antes de a recepção precisar ligar, o Asaas e o ARKE avisam o aluno sozinhos:
+
+- **O Asaas** manda e-mail e SMS com a fatura quando a mensalidade vence sem pagamento, e de novo a cada 7 dias. No cartão automático, ele tenta a cobrança no dia do vencimento.
+- **O ARKE** manda um aviso no celular do aluno no **1º** e no **3º dia** depois do vencimento, às 10h de Brasília, de segunda a sábado (o do domingo sai na segunda), sempre dentro dos 5 dias de tolerância. Cada aviso sai uma vez, e só para quem ativou os avisos no celular. O texto é só "Sua mensalidade está em aberto. Toque para pagar.", sem valor, porque a tela bloqueada do celular é pública. O toque abre o app, onde a mensalidade em aberto é a **Próxima Ação**, com o botão da fatura.
+- **Quando o pagamento entra**, a tarefa da mensalidade atrasada (e a do cartão recusado) fecha sozinha na fila, com o desfecho "Pago depois do aviso automático ao aluno" ou "Pago".
+- **No Financeiro**, o cartão **Recuperado pelo aviso no mês** mostra quantas mensalidades vencidas foram pagas depois do aviso no celular, e quanto.
+
+O ARKE não tenta cobrar o cartão de novo: o Asaas só faz isso com o número do cartão, e o ARKE não guarda o número. O aluno paga pela fatura, com outro cartão, PIX ou boleto, ou cadastra um cartão novo em Perfil → Pagamentos.
+
 > Segunda via: o aluno encontra a fatura em aberto no app, com o botão **Pagar**. Na ficha, **Copiar link** manda a mesma fatura pelo WhatsApp.

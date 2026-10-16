@@ -18,6 +18,7 @@
 
 export type ChaveAcao =
   | "carregando"
+  | "mensalidade_em_aberto"
   | "mensagem_nova"
   | "aguardando_ficha"
   | "treinar_hoje"
@@ -34,6 +35,8 @@ export type ProximaAcao = {
   /** Rota para onde o botão leva, ou âncora na própria home. */
   destino?: string;
   ancora?: string;
+  /** Endereço de fora do app que o botão abre em outra aba: a fatura do Asaas. */
+  link?: string;
 };
 
 export type EstadoAluno = {
@@ -59,6 +62,11 @@ export type EstadoAluno = {
    * Próxima Ação, que segue pelo resto até a resposta chegar.
    */
   mensagemNova?: CanalMensagemNova | null;
+  /**
+   * A mensalidade da academia vencida e ainda em aberto (a mais antiga), ou
+   * null. Ausente enquanto a consulta não respondeu, como a mensagem nova.
+   */
+  mensalidadeEmAberto?: { vencimento: string; faturaUrl: string | null } | null;
 };
 
 export type CanalMensagemNova = "mentor" | "treino" | "dieta";
@@ -107,7 +115,30 @@ export function definirProximaAcao(estado: EstadoAluno): ProximaAcao {
     };
   }
 
-  // Mensagem da equipe não lida vem antes de tudo: é a Próxima Ação, e não um
+  // A mensalidade vencida vem primeiro: é o que o aviso no celular do D+1 e do
+  // D+3 promete ("Toque para pagar"), e o acesso tem prazo (5 dias de
+  // tolerância). O texto informa e abre a fatura, sem cobrar nem ameaçar.
+  if (estado.mensalidadeEmAberto) {
+    const { vencimento, faturaUrl } = estado.mensalidadeEmAberto;
+    const data = `${vencimento.slice(8, 10)}/${vencimento.slice(5, 7)}/${vencimento.slice(0, 4)}`;
+    return faturaUrl
+      ? {
+          chave: "mensalidade_em_aberto",
+          titulo: "Sua mensalidade está em aberto",
+          descricao: `Venceu em ${data}. Na fatura você paga por PIX, boleto ou cartão.`,
+          acao: "Pagar mensalidade",
+          link: faturaUrl,
+        }
+      : {
+          chave: "mensalidade_em_aberto",
+          titulo: "Sua mensalidade está em aberto",
+          descricao: `Venceu em ${data}. A fatura aparece nos seus pagamentos assim que for gerada.`,
+          acao: "Ver pagamentos",
+          destino: "/app/perfil",
+        };
+  }
+
+  // Mensagem da equipe não lida vem antes do resto: é a Próxima Ação, e não um
   // cartão a mais, para a home continuar com uma ação só. Ler leva um toque, e
   // a resposta costuma mudar o resto (o ajuste do treino de hoje, a dúvida da
   // dieta). Aberta a conversa, ela fica lida e a home volta ao treino.

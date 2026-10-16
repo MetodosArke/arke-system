@@ -14,7 +14,7 @@ A maioria nasce sozinha:
 - **Mensalidade atrasada**, **Atestado médico** e **Apagar aluno da catraca**: cobrança, documento e equipamento.
 - **Acolhimento presencial pedido pelo Mentor**: no Método ARKE, a ArkeFit pede à academia uma conversa ao vivo com o aluno.
 
-A mesma situação não gera tarefa repetida. Pausar o aluno encerra as tarefas automáticas dele.
+A mesma situação não gera tarefa repetida. Pausar o aluno encerra as tarefas automáticas dele. A tarefa de **Mensalidade atrasada** (e a de cartão recusado) fecha sozinha quando o pagamento entra, com o desfecho "Pago" ou "Pago depois do aviso automático ao aluno". Veja [Cobrança do aluno](ajuda:cobranca-do-aluno).
 
 **Dor / desconforto** e **Nova anamnese** falam da saúde do aluno e ficam com quem atende: a gestão, o professor e a nutricionista. A recepção não as vê na fila, nem por outro caminho, porque o banco aplica a mesma regra. Se o aluno contar uma dor no balcão, peça que ele registre pelo app (ou avise o professor): a pendência vai direto para quem atende.
 
