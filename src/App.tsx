@@ -59,6 +59,7 @@ const DefinirSenha = paginaPreguicosa(() => import("@/pages/auth/DefinirSenha"))
 const PublicMatricula = paginaPreguicosa(() => import("@/pages/public/PublicMatricula"));
 const PrimeiroAcesso = paginaPreguicosa(() => import("@/pages/public/PrimeiroAcesso"));
 const PararContatoSite = paginaPreguicosa(() => import("@/pages/public/PararContatoSite"));
+const PesquisaMercado = paginaPreguicosa(() => import("@/pages/public/PesquisaMercado"));
 const AceiteResponsavel = paginaPreguicosa(() => import("@/pages/public/AceiteResponsavel"));
 const DocumentoLegal = paginaPreguicosa(() => import("@/pages/public/DocumentoLegal"));
 const AlunoCheckin = paginaPreguicosa(() => import("@/pages/app/AlunoCheckin"));
@@ -113,6 +114,7 @@ const Landing = paginaPreguicosa(() => import("@/pages/public/Landing"));
 const SuperAdminComercial = paginaPreguicosa(() => import("@/pages/superadmin/SuperAdminComercial"));
 const SuperAdminImplantacao = paginaPreguicosa(() => import("@/pages/superadmin/SuperAdminImplantacao"));
 const SuperAdminSuporte = paginaPreguicosa(() => import("@/pages/superadmin/SuperAdminSuporte"));
+const SuperAdminPesquisaMercado = paginaPreguicosa(() => import("@/pages/superadmin/SuperAdminPesquisaMercado"));
 const SuperAdminEquipe = paginaPreguicosa(() => import("@/pages/superadmin/SuperAdminEquipe"));
 const SuperAdminFichaAluno = paginaPreguicosa(() => import("@/pages/superadmin/SuperAdminFichaAluno"));
 
@@ -248,6 +250,8 @@ const App = () => (
               <Route path="/p/:slug/entrar" element={<Login />} />
               {/* "Não quero mais receber" dos e-mails da resposta automática ao contato do site */}
               <Route path="/contato/parar" element={<PararContatoSite />} />
+              {/* Pesquisa de mercado com donos e gestores de academia (sem login, anônima) */}
+              <Route path="/pesquisa" element={<PesquisaMercado />} />
               {/* O link que o responsável legal do aluno menor recebe por e-mail (sem login) */}
               <Route path="/responsavel/:token" element={<AceiteResponsavel />} />
 
@@ -379,6 +383,7 @@ const App = () => (
                 <Route path="ia" element={<SuperAdminUsoIA />} />
                 <Route path="configuracoes" element={<SuperAdminConfiguracoes />} />
                 <Route path="comercial" element={<SuperAdminComercial />} />
+                <Route path="pesquisa" element={<SuperAdminPesquisaMercado />} />
                 <Route path="implantacao" element={<SuperAdminImplantacao />} />
                 <Route path="suporte" element={<SuperAdminSuporte />} />
                 {/* Endereço antigo, dos e-mails de aviso enviados antes do Pipeline comercial. */}

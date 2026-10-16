@@ -1,6 +1,6 @@
 import { BotaoMeuCadastro } from "@/components/superadmin/CadastroEquipeArkefit";
 import { useState } from "react";
-import { ChevronLeft, CircleHelp, Cpu, Dumbbell, Kanban, LayoutDashboard, LifeBuoy, LogOut, Menu, MessageCircle, Radar, Rocket, ScrollText, Settings, Shield, Sparkles, UserCog, UsersRound, Webhook } from "lucide-react";
+import { ChevronLeft, CircleHelp, ClipboardList, Cpu, Dumbbell, Kanban, LayoutDashboard, LifeBuoy, LogOut, Menu, MessageCircle, Radar, Rocket, ScrollText, Settings, Shield, Sparkles, UserCog, UsersRound, Webhook } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
@@ -24,6 +24,7 @@ export const SECOES_SUPERADMIN: { label: string; items: MenuItem[] }[] = [
       { icon: MessageCircle, label: "Mentoria", path: "/superadmin/mentoria" },
       { icon: UsersRound, label: "Equipe ArkeFit", path: "/superadmin/equipe" },
       { icon: Kanban, label: "Pipeline comercial", path: "/superadmin/comercial" },
+      { icon: ClipboardList, label: "Pesquisa de mercado", path: "/superadmin/pesquisa" },
       { icon: Rocket, label: "Implantação", path: "/superadmin/implantacao" },
       { icon: LifeBuoy, label: "Suporte", path: "/superadmin/suporte" },
       { icon: UserCog, label: "Profissionais", path: "/superadmin/profissionais" },

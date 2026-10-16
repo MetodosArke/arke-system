@@ -59,6 +59,23 @@ Na ficha de cada contato aparece o que a Letícia mandou e quando. **Ver o que f
 
 O formulário da página pede nome, academia, WhatsApp, e-mail, cidade, UF, faixa de alunos, o sistema que a academia usa hoje e uma mensagem. Antes de gravar, ele confere a verificação contra robôs e limita os envios por rede. O que chegou também vai por e-mail para o endereço configurado em **Configurações → Contatos da página de vendas**. Sem endereço, vai para os Super Admins. Responder ao e-mail responde para o contato.
 
+## Pesquisa de mercado
+
+A [Pesquisa de mercado](/superadmin/pesquisa) mostra o resultado da pesquisa pública do site, em **arkefit.com.br/#/pesquisa**: uma pesquisa rápida, de uns 5 minutos, que pergunta a donos e gestores de academia quais recursos de um sistema de gestão fazem diferença no dia a dia deles. É neutra: não fala de nenhum outro sistema e não vende o ArkeFit. Divulgue o link onde quiser.
+
+A pesquisa tem quatro partes: quem responde (papel, tipo de negócio, alunos, unidades, se usa sistema e quanto paga), o que mais tira o sono, os 18 recursos e o valor. Cada recurso é respondido numa escala: uso e é essencial, uso mas vivo sem, não uso mas teria interesse, não uso e não faz falta, ou não sei o que é.
+
+Na tela:
+
+- **O total de respostas**, com a data da primeira e da última;
+- **cada pergunta**, com quantos responderam e, para cada opção, a contagem e o percentual sobre quem respondeu. Nas perguntas de várias escolhas, a soma passa de 100%;
+- **os recursos, do mais essencial ao menos**: a barra é o "uso e é essencial", e embaixo estão as cinco respostas;
+- **o que as pessoas escreveram**: o sistema que usam, o recurso que pagam e quase não usam e o recurso que as faria trocar de sistema.
+
+**Respostas (CSV)** baixa uma linha por resposta, sem e-mail. **E-mails para o resultado (CSV)** aparece só para os sócios: são os e-mails de quem autorizou, para mandar o resultado quando a pesquisa fechar. A exportação fica registrada na Auditoria.
+
+As respostas são anônimas: a pesquisa não pede nome, guarda só a data (sem a hora) e não guarda o endereço de internet. O e-mail é opcional e fica separado das respostas, com a data de cada autorização, e sai sozinho 12 meses depois. Quem marca **Quero também conhecer o ArkeFit** informa o nome e o da academia e entra no quadro como contato do **site**, com "Pesquisa de mercado" em Veio de: a Letícia responde e o e-mail de aviso chega ao comercial, como num pedido de demonstração. As respostas dessa pessoa não vão para o contato.
+
 ## Privacidade
 
 Só a equipe da ArkeFit vê o quadro, e com a verificação em duas etapas: os sócios e o nível **Comercial**. O Comercial trabalha o quadro inteiro e aciona a Letícia nos cartões; **ligar e desligar a Letícia** (e o link da agenda) é dos sócios: o painel da resposta automática não aparece para ele. O contato que não virou cliente é apagado sozinho depois de 12 meses sem andamento, com os e-mails que a Letícia mandou para ele. O ganho fica.

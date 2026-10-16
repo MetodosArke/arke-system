@@ -34,6 +34,10 @@ const SEM_REGRA: Record<string, string> = {
   organizacao_encerramento_avisos: "a reserva do aviso a cada aluno no encerramento; só a service role (20261371)",
   organizacao_numeracao_catraca: "o contador do número do aluno nos equipamentos; só proximo_identificador_catraca (20261314)",
   organizacao_segredo_checkin: "o segredo do QR do check-in; se o aluno lesse, calcularia o código de casa (20261212)",
+  pesquisa_mercado_emails:
+    "o e-mail de quem autorizou, na pesquisa de mercado do site; só registrar_pesquisa_mercado() grava, e exportar_emails_pesquisa_mercado() lê para o Sócio (20261446)",
+  pesquisa_mercado_respostas:
+    "as respostas anônimas da pesquisa de mercado do site; só registrar_pesquisa_mercado() grava, e get_superadmin_pesquisa_mercado() lê para a área comercial (20261446)",
   registros_acesso_aplicacao: "os registros de acesso do Marco Civil; só o gatilho do login e a limpeza (20261380)",
   registros_acesso_preservacoes: "a ordem judicial de preservação, registrada pela ArkeFit por SQL (20261381)",
   sessoes_simuladas: "o id da sessão do perfil simulado; impersonar-perfil grava, e sessao_simulada() lê (20261323)",

@@ -11,7 +11,8 @@ export type Lead = {
   academia: string;
   cidade: string | null;
   uf: string | null;
-  telefone: string;
+  /** O formulário exige; a pesquisa de mercado não pede. */
+  telefone: string | null;
   email: string;
   alunos_faixa: (typeof FAIXAS_ALUNOS)[number] | null;
   sistema_atual: string | null;

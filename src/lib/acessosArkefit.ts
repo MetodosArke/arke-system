@@ -188,6 +188,7 @@ export const ROTAS_DA_VISAO_MASTER: Record<string, readonly AreaArkefit[] | "tod
   equipe: ["socio"],
   comercial: ["comercial"],
   contatos: ["comercial"], // endereço antigo do Pipeline
+  pesquisa: ["comercial"], // a pesquisa de mercado do site; os e-mails, só o Sócio
   implantacao: ["suporte"],
   suporte: ["suporte"],
   profissionais: ["carteira"],
@@ -365,6 +366,8 @@ export const CHAMADAS_DA_VISAO_MASTER: Record<string, Chamada> = {
   "from:leads_comerciais": { area: "comercial", motivo: TABELA },
   "rpc:acionar_agente_comercial": { area: "comercial" },
   "rpc:definir_agente_comercial": { area: "socio" },
+  "rpc:get_superadmin_pesquisa_mercado": { area: "comercial" },
+  "rpc:exportar_emails_pesquisa_mercado": { area: "socio" },
   // Suporte e implantação
   "rpc:get_superadmin_assistente_numeros": { area: "suporte" },
   "rpc:get_superadmin_chamados_suporte": { area: "suporte" },

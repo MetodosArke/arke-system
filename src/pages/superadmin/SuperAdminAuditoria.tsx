@@ -97,6 +97,8 @@ const ACOES: Record<string, { label: string; icon: typeof Pencil; destrutiva?: b
   // (20261445010000): a chave, o valor de antes e o de depois.
   "configuracao.alterada": { label: "Configuração da plataforma alterada", icon: Settings },
   "auditoria.exportada": { label: "Trilha de auditoria exportada", icon: Download, destrutiva: true },
+  // A pesquisa de mercado (20261446010000): o total de e-mails, nunca os endereços.
+  "pesquisa_mercado.emails_exportados": { label: "E-mails da pesquisa de mercado exportados", icon: Download, destrutiva: true },
 };
 
 const descreverAcao = (acao: string) => ACOES[acao] ?? { label: acao, icon: Pencil };

@@ -1,8 +1,8 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { verificarCaptcha } from "../_shared/captcha.ts";
-import { emailDoLead, validarLead } from "./validar.ts";
+import { validarLead } from "./validar.ts";
 import { servir } from "../_shared/servir.ts";
-import { cabecalhosDoResend, chaveDeIdempotencia, envioAceito } from "../_shared/idempotenciaEmail.ts";
+import { avisarComercial } from "./avisarComercial.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -16,8 +16,8 @@ const jsonResponse = (body: unknown, status = 200) =>
 // (verify_jwt = false) com as travas da matrícula pública: limite por IP
 // (as funções de matricula_publica_tentativas), captcha Turnstile quando
 // TURNSTILE_SECRET_KEY existe, e um campo-isca que robô preenche e gente não
-// vê. Grava em `leads_comerciais` (canal "site") e avisa o e-mail do comercial (plataforma_textos
-// `comercial_email`; sem ele, os Super Admins).
+// vê. Grava em `leads_comerciais` (canal "site") e avisa o e-mail do comercial
+// (`avisarComercial`, o mesmo aviso da pesquisa de mercado).
 const MUITAS_TENTATIVAS = "Muitas tentativas a partir desta rede. Aguarde alguns minutos e tente de novo.";
 const POR_IP_POR_DIA = 5;
 
@@ -41,7 +41,6 @@ servir("lead-site", async (req: Request) => {
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
   const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-  const siteUrl = Deno.env.get("SITE_URL") ?? "https://www.arkefit.com.br";
   if (!supabaseUrl || !serviceRoleKey) return jsonResponse({ error: "Configuração do servidor incompleta." }, 500);
   const admin = createClient(supabaseUrl, serviceRoleKey);
 
@@ -89,39 +88,7 @@ servir("lead-site", async (req: Request) => {
       return jsonResponse({ error: "Não foi possível enviar agora. Tente de novo em instantes." }, 500);
     }
 
-    // O aviso por e-mail é complemento: o contato já está salvo e aparece na
-    // Visão Master mesmo que o envio falhe.
-    const resendKey = Deno.env.get("RESEND_API_KEY");
-    if (resendKey) {
-      const { data: config } = await admin.from("plataforma_textos").select("valor").eq("chave", "comercial_email").maybeSingle();
-      let destino = (config?.valor ?? "").trim() ? [String(config!.valor).trim()] : [];
-      if (!destino.length) {
-        const { data: sa } = await admin.rpc("emails_superadmin");
-        destino = ((sa ?? []) as unknown[]).map((l) => (typeof l === "string" ? l : (l as { email?: string }).email ?? "")).filter(Boolean);
-      }
-      if (destino.length) {
-        const { assunto, html } = emailDoLead(validacao.lead, `${siteUrl}/#/superadmin/comercial`);
-        try {
-          const envio = await fetch("https://api.resend.com/emails", {
-            method: "POST",
-            // Um aviso por contato.
-            headers: cabecalhosDoResend(resendKey, chaveDeIdempotencia("lead-site", lead.id)),
-            body: JSON.stringify({
-              from: Deno.env.get("EMAIL_SITE_FROM") ?? "ARKE <site@arkefit.com.br>",
-              to: destino,
-              reply_to: validacao.lead.email,
-              subject: assunto,
-              html,
-            }),
-            signal: AbortSignal.timeout(10_000),
-          });
-          if (envioAceito(envio.status)) await admin.from("leads_comerciais").update({ email_enviado_em: new Date().toISOString() }).eq("id", lead.id);
-          else console.error("lead-site: Resend respondeu", envio.status);
-        } catch (e) {
-          console.error("lead-site: falha no envio do e-mail", e instanceof Error ? e.name : typeof e);
-        }
-      }
-    }
+    await avisarComercial(admin, validacao.lead, lead.id);
 
     return jsonResponse({ ok: true });
   } catch (erro) {
