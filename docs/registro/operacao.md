@@ -290,7 +290,7 @@ A prova de ponta a ponta do encerramento, que estava pendente na fila, encontrou
 
 **A correção.** As duas `sentry_key` passam a ser a pública do DSN novo. A trava `cabecalhos.guarda` ganhou o caso "os dois endereços dos relatos usam a mesma chave", e o `INFRAESTRUTURA.md` diz que trocar o DSN troca também a chave da CSP. A trava não consegue comparar com o DSN, que fica fora do repositório.
 
-**A nova data.** De 05 a 09/10, com a chave valendo, não chegou nenhum relato. Com a chave certa a partir de 13/10, mais 3 dias completam os 7 da decisão de 05/10: a CSP passa a valer em 16/10, se nenhum relato de uso real chegar.
+**A nova data.** De 05 a 09/10, com a chave valendo, não chegou nenhum relato. Com a chave certa a partir de 13/10, mais 3 dias completam os 7 da decisão de 05/10: a CSP passa a valer em 16/10, se nenhum relato de uso real chegar. **Feito em 16/10/2026** (seção abaixo).
 
 **Conferido:**
 - Um relato de teste com cada chave, mandado direto ao Sentry: os dois receberam 200, e só o da chave nova virou ocorrência (`JAVASCRIPT-REACT-D`, resolvida depois).
@@ -336,3 +336,13 @@ Os dois achados baixos que seguiam abertos na auditoria de prontidão de 05/10/2
 - `npm run check`: 0 erros, e o `deno check` das 57 funções passou. `npx vitest run`: 214 arquivos e 1.694 testes passando. O teste da troca de carteira (`carteiraRecebimento`) mudou junto, porque o aviso passou a receber a academia.
 - **Em produção, 13/10:** as 12 funções publicadas; o comando da rotina do resumo do Vigia executado duas vezes no banco: as duas respostas 200 "enviado", e no Resend só a primeira virou e-mail (a segunda foi barrada pela chave do dia). O resumo das 8h, de antes da publicação, saiu sem chave, então o dia teve dois.
 - **Falta, em produção:** forçar o erro numa tela e ver o menu continuar e a troca de rota limpar o erro.
+
+## A CSP passa a valer (16/10/2026)
+
+**A decisão de 05/10** pedia 7 dias sem relato de bloqueio de uso real. De 05 a 09/10 e de 13 a 16/10, com a chave certa do Sentry, não chegou nenhum: o único relato no Sentry é o de teste mandado em 13/10. Nesse período as provas de tela passaram pelo login, pela home, pelo treino, pela dieta, pela evolução e pelo painel da academia.
+
+**A conferência de hoje,** no navegador, com a CSP ainda só observando: a página de vendas, a matrícula pública da Ponto Alto (com o captcha da Cloudflare) e, como aluna, a home, os pagamentos (com o selo do Asaas), o treino e o perfil. Nenhum aviso da nossa CSP. Os três avisos que apareceram vêm de dentro do quadro do captcha e são da política da própria Cloudflare (a lista dela de endereços `*.challenges.cloudflare.com`), não da nossa.
+
+**A troca:** o cabeçalho `Content-Security-Policy-Report-Only` virou `Content-Security-Policy`, com o mesmo texto e os mesmos relatos ao Sentry. A trava `cabecalhos.guarda` ganhou o caso "a CSP vale, não só observa": voltar a só observar passa a ser decisão, não esquecimento.
+
+**Conferido:** a trava com 5 casos; com o cabeçalho de volta a só observar, 1 falhou. Depois do deploy: o cabeçalho em produção e as mesmas telas sem bloqueio (abaixo, no PR).
