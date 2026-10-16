@@ -46,6 +46,13 @@ describe("cabeçalhos de segurança", () => {
     expect(chaves[1]).toBe(chaves[0]);
   });
 
+  it("a CSP vale, não só observa (desde 16/10/2026)", () => {
+    // Passou a valer depois de 7 dias sem relato de uso real no Sentry. Voltar
+    // a só observar é decisão, não um esquecimento: esta trava cobra a troca.
+    expect(valor("Content-Security-Policy")).toBeTruthy();
+    expect(valor("Content-Security-Policy-Report-Only")).toBe("");
+  });
+
   it("os outros cabeçalhos estão lá", () => {
     expect(valor("X-Content-Type-Options")).toBe("nosniff");
     expect(valor("X-Frame-Options")).toBe("DENY");
