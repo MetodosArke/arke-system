@@ -2,7 +2,7 @@
 -- segunda parte (16/10/2026).
 --
 -- Rodar só depois do deploy do app que lê e grava no lugar novo, e da
--- conferência na Ponto Alto (a ordem está em docs/registro/ia-e-lgpd.md). Antes
+-- conferência na Ponto Alto (a ordem está em docs/registro/seguranca-e-acesso.md). Antes
 -- disso, o app publicado ainda lê `registro_treino.esforco_percebido`,
 -- `registro_treino.sensacao` e `alunos.progressao_bloqueada_em`, e a tela
 -- daria erro.
