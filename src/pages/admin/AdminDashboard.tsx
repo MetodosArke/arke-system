@@ -44,6 +44,7 @@ import {
   TimerOff,
   Handshake,
   Fingerprint,
+  ThumbsDown,
 } from "lucide-react";
 import type { Tables, Enums } from "@/integrations/supabase/types";
 import { atendeSaude } from "@/lib/acessoPainel";
@@ -74,6 +75,7 @@ const ACOES_RAPIDAS: Record<Tipo, ("treino" | "dieta")[]> = {
   ciclo_travado: [],
   instrucao_presencial: [],
   equipamento: [],
+  avaliacao_baixa: [],
 };
 
 const ANAMNESE_CAMPOS: { key: keyof Anamnese; label: string }[] = [
@@ -145,6 +147,7 @@ const TIPO_LABEL: Record<Tipo, string> = {
   ciclo_travado: "Ciclo travado sem constância",
   instrucao_presencial: "Acolhimento presencial pedido pelo Mentor",
   equipamento: "Apagar aluno da catraca (LGPD)",
+  avaliacao_baixa: "Avaliação baixa do aluno",
 };
 
 const TIPO_ICON: Record<Tipo, typeof HeartPulse> = {
@@ -162,6 +165,7 @@ const TIPO_ICON: Record<Tipo, typeof HeartPulse> = {
   ciclo_travado: TimerOff,
   instrucao_presencial: Handshake,
   equipamento: Fingerprint,
+  avaliacao_baixa: ThumbsDown,
 };
 
 // Indicadores visuais de SLA: vermelho para dor/vencido, amarelo para
@@ -184,6 +188,8 @@ const TIPO_COLOR_CLASS: Record<Tipo, string> = {
   instrucao_presencial: "bg-sky-500/15 text-foreground border-sky-500/40",
   // Remoção de dado biométrico parada: obrigação legal, não pode sumir na fila.
   equipamento: "bg-rose-500/15 text-destructive border-rose-500/40",
+  // A nota de 0 a 6 da pesquisa de satisfação: risco de evasão, como a inércia.
+  avaliacao_baixa: "bg-orange-500/15 text-warning border-orange-500/40",
 };
 
 const FILTRO_STATUS_OPCOES: Status[] = ["aberta", "em_andamento", "aguardando"];
@@ -466,7 +472,9 @@ export default function AdminDashboard() {
                     </div>
                   </CardHeader>
                   <CardContent className="space-y-2">
+                    {tarefa.tipo === "avaliacao_baixa" && <ComentarioDaAvaliacao origemEvento={tarefa.origem_evento} />}
                     <p className="text-xs text-muted-foreground">
+                      {tarefa.aluno_id && alunosDaFila?.get(tarefa.aluno_id) && `Aluno: ${alunosDaFila.get(tarefa.aluno_id)!.nome} · `}
                       Prazo: {new Date(tarefa.sla_prazo).toLocaleString("pt-BR")} · Status: {STATUS_LABEL[tarefa.status]}
                       {!semResponsavel && !souResponsavel && " · Responsável: outro membro da equipe"}
                       {souResponsavel && " · Responsável: você"}
@@ -641,5 +649,33 @@ export default function AdminDashboard() {
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+/**
+ * O comentário da nota baixa (pesquisa de satisfação). Ele mora na resposta, e
+ * não no motivo da tarefa, para a saída do aluno apagá-lo de um lugar só; a
+ * tarefa aponta para a resposta pela origem (`avaliacao_baixa:<id>`). Só a
+ * gestão vê a tarefa e lê a resposta (20261449010000).
+ */
+function ComentarioDaAvaliacao({ origemEvento }: { origemEvento: string }) {
+  const respostaId = origemEvento.slice("avaliacao_baixa:".length);
+  const { data: resposta, isLoading, error, refetch, isFetching } = useQuery({
+    queryKey: ["fila-comentario-avaliacao", respostaId],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("pesquisa_satisfacao").select("comentario").eq("id", respostaId).maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  if (isLoading) return null;
+  if (error) {
+    return <ErroAoCarregar className="p-2" oQue="o comentário do aluno" onTentarDeNovo={() => void refetch()} tentando={isFetching} />;
+  }
+  return resposta?.comentario ? (
+    <blockquote className="border-l-2 border-border pl-3 text-sm whitespace-pre-wrap">“{resposta.comentario}”</blockquote>
+  ) : (
+    <p className="text-sm text-muted-foreground">O aluno não deixou comentário.</p>
   );
 }

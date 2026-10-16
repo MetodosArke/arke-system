@@ -5984,6 +5984,55 @@ export type Database = {
           },
         ]
       }
+      pesquisa_satisfacao: {
+        Row: {
+          aluno_id: string
+          comentario: string | null
+          created_at: string
+          id: string
+          nota: number | null
+          organization_id: string
+        }
+        Insert: {
+          aluno_id: string
+          comentario?: string | null
+          created_at?: string
+          id?: string
+          nota?: number | null
+          organization_id: string
+        }
+        Update: {
+          aluno_id?: string
+          comentario?: string | null
+          created_at?: string
+          id?: string
+          nota?: number | null
+          organization_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pesquisa_satisfacao_aluno_id_fkey"
+            columns: ["aluno_id"]
+            isOneToOne: false
+            referencedRelation: "alunos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pesquisa_satisfacao_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "org_churn_metrics"
+            referencedColumns: ["organization_id"]
+          },
+          {
+            foreignKeyName: "pesquisa_satisfacao_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       plano_contas: {
         Row: {
           ativo: boolean
@@ -8051,6 +8100,10 @@ export type Database = {
         Args: { _lead_id: string }
         Returns: undefined
       }
+      adiar_pesquisa_satisfacao: {
+        Args: { _aluno_id: string }
+        Returns: undefined
+      }
       agendar_remocao_equipamento: {
         Args: {
           _aluno_id: string
@@ -9801,6 +9854,15 @@ export type Database = {
         Returns: boolean
       }
       parar_agente_comercial: { Args: { _token: string }; Returns: undefined }
+      pesquisa_satisfacao_do_aluno: {
+        Args: { _aluno_id: string }
+        Returns: {
+          data_matricula: string
+          liberado: boolean
+          ultima_resposta: string
+          ultimo_adiamento: string
+        }[]
+      }
       pessoa_tem_outro_vinculo: {
         Args: { _aluno_id: string }
         Returns: boolean
@@ -10029,6 +10091,10 @@ export type Database = {
           taxa_id: string
         }[]
       }
+      responder_pesquisa_satisfacao: {
+        Args: { _aluno_id: string; _comentario?: string; _nota: number }
+        Returns: undefined
+      }
       retirar_acesso_equipe_arkefit: {
         Args: { _user_id: string }
         Returns: Json
@@ -10155,6 +10221,7 @@ export type Database = {
         Args: { _organization_id: string }
         Returns: number
       }
+      tarefa_da_gestao: { Args: { _tipo: string }; Returns: boolean }
       tarefa_de_saude: { Args: { _tipo: string }; Returns: boolean }
       texto_sem_acento: { Args: { _t: string }; Returns: string }
       uf_brasileira: { Args: { _uf: string }; Returns: boolean }
@@ -10421,6 +10488,7 @@ export type Database = {
         | "ciclo_travado"
         | "instrucao_presencial"
         | "equipamento"
+        | "avaliacao_baixa"
       tipo_documento_legal: "termos_uso" | "privacidade" | "contrato_academia"
     }
     CompositeTypes: {
@@ -10677,6 +10745,7 @@ export const Constants = {
         "ciclo_travado",
         "instrucao_presencial",
         "equipamento",
+        "avaliacao_baixa",
       ],
       tipo_documento_legal: ["termos_uso", "privacidade", "contrato_academia"],
     },

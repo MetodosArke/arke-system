@@ -27,6 +27,7 @@ O [Gestão 360°](/admin/gestao-360) é o painel do dono:
 - **DRE simplificado** do mês: receita do Método ARKE, receita dos planos e cobranças avulsas, receita bruta, taxas e o resultado. A receita é líquida das taxas do meio de pagamento e da parte da ArkeFit.
 - **LTV estimado**: quanto um aluno deixa, em média, enquanto fica, com base na saída de alunos do mês. Sem saída no período, aparece N/D.
 - **Funil de conversão**: dos matriculados aos que entraram no Método, fizeram o acolhimento e avançaram na jornada.
+- **Satisfação dos alunos (NPS)**: no app, o aluno responde de 0 a 10 quanto recomendaria a academia a um amigo (a primeira vez 30 dias depois da matrícula, depois a cada 90 dias). Quem dá 9 ou 10 é promotor, 7 ou 8 é neutro, e de 0 a 6 é detrator. O NPS é a % de promotores menos a % de detratores, de −100 a 100. O quadro mostra o NPS dos últimos 90 dias, com o número de respostas e a parte de cada grupo, e a evolução mês a mês. Cada nota de 0 a 6 abre a tarefa **Avaliação baixa do aluno** na [fila](ajuda:fila-de-atendimento). Sem resposta ainda, o quadro diz isso, e não mostra zero.
 - **Ocupação de turmas**, no studio.
 
 Exporte em **CSV**, **PDF** ou **Excel** para reunião de sócios ou prestação de contas.

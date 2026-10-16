@@ -14,6 +14,15 @@ O primeiro cartão diz a próxima coisa a fazer, uma só:
 - **beber água** até a meta;
 - **em dia**: está tudo feito. Aproveite.
 
+## Pesquisa de satisfação
+
+De vez em quando, logo abaixo da Próxima Ação, aparece a pergunta: **"De 0 a 10, quanto você recomendaria a academia a um amigo?"**. Toque na nota (0 é nada provável, 10 é muito provável) e, se quiser, conte o porquê. Depois, **Enviar**.
+
+- A primeira vez é 30 dias depois da matrícula; depois, a cada 90 dias. Uma resposta por vez.
+- **Agora não** esconde a pergunta por 7 dias.
+- A nota e o comentário vão para a gestão da academia, e só para ela: a recepção e os professores não leem. Nota de 0 a 6 vira uma pendência da gestão, que entra em contato para entender o que aconteceu.
+- Com a matrícula pausada ou o acesso suspenso, a pergunta não aparece.
+
 ## Aviso no celular
 
 Embaixo de cada conversa, o botão **Ativar avisos** pede ao celular a permissão para avisar quando chegar mensagem nova. É só uma vez por aparelho. O aviso do seu mentor ARKE diz só que chegou mensagem, sem o texto, porque a tela bloqueada do celular qualquer um vê. Com os avisos ativados, o app também avisa quando a mensalidade fica em aberto, sem valor; o toque abre a tela inicial, com o botão da fatura. Ao tocar em **Sair**, este aparelho para de receber os seus avisos.

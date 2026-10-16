@@ -91,6 +91,7 @@ const TAREFA_TIPO_LABEL: Record<string, string> = {
   acolhimento_elite: "Acolhimento Elite",
   engajamento_baixo: "Engajamento baixo",
   atestado: "Atestado médico",
+  avaliacao_baixa: "Avaliação baixa do aluno",
 };
 
 // Painel lateral com o perfil completo do aluno — aberto clicando no nome

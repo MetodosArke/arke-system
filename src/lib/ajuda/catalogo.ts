@@ -314,7 +314,7 @@ export const ARTIGOS: ArtigoAjuda[] = [
   {
     slug: "app-tela-inicial",
     titulo: "A tela inicial",
-    resumo: "A próxima ação, o progresso da semana e o botão de ajuda.",
+    resumo: "A próxima ação, a pesquisa de satisfação, o progresso da semana e o botão de ajuda.",
     secao: "Começando",
     publicos: ["aluno"],
     rotas: ["/app"],

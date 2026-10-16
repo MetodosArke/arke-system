@@ -10,6 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import { hojeBrasilia, inicioDoMesBrasilia } from "@/lib/dataBrasilia";
 import { decimal } from "@/lib/numeros";
 import { baixarCsv } from "@/lib/exportarPlanilha";
+import { SatisfacaoDosAlunos } from "@/components/admin/SatisfacaoDosAlunos";
 
 function StatTile({
   icon: Icon,
@@ -518,6 +519,8 @@ export default function AdminGestao360() {
           </div>
         </CardContent>
       </Card>
+
+      {organization?.id && <SatisfacaoDosAlunos organizationId={organization.id} />}
 
       {ehStudio && (
         <Card>
