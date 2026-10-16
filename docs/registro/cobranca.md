@@ -769,7 +769,7 @@ O teste da etapa Recebimentos ganhou três casos: pede a chave, mostra a conta j
    - **reserva antes de mandar**, com uma atualização condicional: a coluna da etapa (`aviso_cobranca_d1_em` ou `aviso_cobranca_d3_em`) vazia e a mensalidade ainda em aberto. Duas rodadas ao mesmo tempo não mandam o mesmo aviso, e quem acabou de pagar não recebe;
    - manda um aviso por pessoa, mesmo com duas mensalidades vencidas: "Mensalidade em aberto / Sua mensalidade está em aberto. Toque para pagar.", com validade de 8 horas, etiqueta e tópico próprios (o segundo substitui o primeiro no aparelho);
    - registra o desfecho para o alerta de rotinas (`execucoes_agendadas`).
-2. **A Próxima Ação.** A mensalidade vencida e em aberto (a mais antiga) vira a Próxima Ação da home, antes da mensagem nova e do treino, porque o acesso tem prazo: "Sua mensalidade está em aberto · Venceu em 14/10/2026. Na fatura você paga por PIX, boleto ou cartão.", com o botão **Pagar mensalidade**, que abre a fatura do Asaas em outra aba. Sem fatura ainda, o botão leva aos pagamentos do Perfil. Paga, a home volta ao que vinha antes. A ação continua única: é um caso a mais em `definirProximaAcao()`.
+2. **A Próxima Ação.** A mensalidade vencida e em aberto (a mais antiga) vira a Próxima Ação da home, antes da mensagem nova e do treino, porque o acesso tem prazo: "Sua mensalidade está em aberto · Venceu em 14/10/2026. Na fatura você paga por PIX, boleto ou cartão.", com o botão **Pagar mensalidade**, que abre a fatura do Asaas em outra aba, e o selo do Asaas embaixo. Sem fatura ainda, o botão leva aos pagamentos do Perfil. Paga, a home volta ao que vinha antes. A ação continua única: é um caso a mais em `definirProximaAcao()`.
 3. **A tarefa fecha quando o pagamento entra.** `trg_fechar_tarefa_da_mensalidade_paga` (`after insert or update of status` em `mensalidades`, porque a mensalidade pode nascer paga) fecha a tarefa da mensalidade atrasada e a do cartão recusado, com o desfecho "Pago depois do aviso automático ao aluno (confirmado pelo Asaas)." ou "Pago (confirmado pelo Asaas).".
 4. **O recuperado no Financeiro.** O cartão **Recuperado pelo aviso no mês** (aba Lançamentos, no mês escolhido) mostra quantas mensalidades vencidas foram pagas depois do aviso, e o valor. Vem de `cobranca_recuperada_no_mes()`, `security invoker`: segue o RLS de quem pede.
 
@@ -789,6 +789,7 @@ A API não permite com segurança. Para cobrar de novo, o Asaas pede o cartão i
 
 - **A coluna que eu ia usar não existe.** O nome natural para "desde quando a situação vale" seria `situacao_academia_desde`, que é como o `AuthContext` chama o campo; no banco a coluna é `situacao_academia_em`. A consulta ao banco antes de escrever pegou isso, e a lista da rotina usa a mesma regra de acesso do app e da catraca.
 - **A lista longa no `.in()`.** As inscrições dos alunos avisados iam numa consulta só; com algumas centenas de alunos, o endereço não cabe (800 ids já voltam 400). Vão em lotes de 200, cada lote paginado.
+- **A home sem o selo do Asaas.** Com o botão da fatura, a home passou a mostrar cobrança, e a `prestadorPagamentos.guarda` acusou a tela sem o prestador. O selo e o texto do Asaas aparecem na Próxima Ação quando ela abre a fatura.
 
 ### Fica de fora
 
@@ -813,7 +814,7 @@ A API não permite com segurança. Para cobrar de novo, o Asaas pede o cartão i
   Conferido depois: a coluna e as funções não existem no banco, e nenhuma linha de teste ficou.
 - **Defeito plantado no banco:** a lista da rotina sem a regra de acesso. O caso 5 acusou ("aluno já bloqueado virou candidato").
 - **Defeitos plantados no código**, e o teste certo falhou nos três: a janela do primeiro aviso começando no dia do vencimento; a reserva sem a condição da coluna vazia; a rotina às 10h GMT (7h em Brasília).
-- Os testes novos: a regra do aviso (11), a guarda (3) e a Próxima Ação (5 casos novos).
+- Os testes novos: a regra do aviso (11), a guarda (3) e a Próxima Ação (5 casos novos). A suíte inteira na máquina local: 1.738 testes em 218 arquivos; o único que falhou foi a guarda do prestador, pelo defeito acima, e passou depois da correção.
 - `npm run check` sem erro, com as 59 funções no `deno check`. `npm run ajuda:indice` regerou o índice do assistente, e `assistente-academia` precisa ser publicada.
 - `node scripts/migracao/rotinas.mjs --escrever`: 34 rotinas no roteiro de reconstrução.
 - **Não rodou:** o sandbox do Asaas, porque nenhum cenário cobre isto (a rotina não chama o Asaas) e não havia chave de sandbox nesta sessão; a corrente real e a tela, que dependem da migration e da função publicadas.

@@ -26,6 +26,7 @@ import PontuacaoEngajamento from "@/components/aluno/PontuacaoEngajamento";
 import { MetodoArke } from "@/components/aluno/MetodoArke";
 import { DocumentosMatricula } from "@/components/aluno/DocumentosMatricula";
 import { ComunicadosAluno } from "@/components/aluno/ComunicadosAluno";
+import { PrestadorPagamentos } from "@/components/pagamento/PrestadorPagamentos";
 import { CHAVE_CHECKIN_PENDENTE } from "@/lib/checkin";
 import { canalDaMensagemNova, definirProximaAcao } from "@/lib/proximaAcao";
 import { atalhoDeConversa, destinoDoEvento, TITULO_DO_EVENTO, type DestinoNoApp } from "@/lib/eventoAcompanhamento";
@@ -421,6 +422,8 @@ export default function AlunoDashboard() {
               </Button>
             )
           )}
+          {/* O botão abre a fatura: o prestador vai junto (Resolução Conjunta nº 16/2025). */}
+          {proximaAcao.link && <PrestadorPagamentos />}
         </CardContent>
       </Card>
 
