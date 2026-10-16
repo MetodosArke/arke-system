@@ -65,9 +65,13 @@
     select a.org, a.aid, current_date - d, (current_date - d) + time '18:00', 'catraca'
       from sim_alunos a cross join generate_series(14, 29) d
      where (a.p < 0.7 and random() < 0.4) or (a.p >= 0.7 and a.p < 0.9 and d > a.sumiu and random() < 0.4);
-  insert into public.registro_treino (organization_id, aluno_id, data, concluido, divisao, sensacao, duracao_min)
-    select organization_id, aluno_id, dia, true, 'A', case when random() < 0.01 then 'dor' else 'bom' end, 55
+  insert into public.registro_treino (organization_id, aluno_id, data, concluido, divisao, duracao_min)
+    select organization_id, aluno_id, dia, true, 'A', 55
       from public.presencas pr where pr.organization_id in (select id from sim_orgs) and random() < 0.7;
+  -- a sensação mora ao lado do treino (20261452010000); a dor abre a tarefa pelo gatilho de lá
+  insert into public.registro_treino_bem_estar (registro_treino_id, organization_id, sensacao)
+    select r.id, r.organization_id, case when random() < 0.01 then 'dor' else 'bom' end
+      from public.registro_treino r where r.organization_id in (select id from sim_orgs);
   insert into public.checkins (organization_id, aluno_id, status, data)
     select organization_id, aluno_id, (array['funcionando_bem','funcionando_bem','preciso_ajuste','com_dificuldade'])[1 + floor(random() * 4)]::public.checkin_status, dia
       from public.presencas pr where pr.organization_id in (select id from sim_orgs) and random() < 0.2;
