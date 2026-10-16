@@ -360,3 +360,15 @@ O e-mail sobre as cláusulas-padrão da ANPD (Resolução CD/ANPD 19/2024) saiu 
 **O que essa base não cobre:** e-mail de marketing ou de prospecção, que não é execução de contrato. A resposta da Letícia a quem pediu contato pelo site é procedimento preliminar a pedido do titular (art. 7º, V); a prospecção ativa de contatos de outras origens não é, e precisa de outra base antes de a Letícia ligar esse tipo de envio.
 
 **Conferido:** o hash do texto novo é o de `documentosLegais.ts` e o da migration `20261441010000`, e `documentosLegais.test.ts` passa com ele. A versão entra no banco só depois de o texto estar no ar.
+
+## Política de 16/10: a pesquisa de mercado e a tentativa de entrar que falha (16/10/2026)
+
+**Decisão do responsável** (workspace, 16/10/2026): a Política primeiro, e a pesquisa de mercado no ar logo depois. Sem cliente ainda, o novo aceite custa pouco, e a mesma versão leva a tentativa de entrar que falha, registrada desde 14/10 (#402).
+
+- **Seção 2, dados:** a pesquisa de mercado da ArkeFit (o que se pergunta; respostas anônimas, só com a data, sem o IP; o e-mail opcional, à parte e só para o que a pessoa autorizar) e, nos dados técnicos, a tentativa de entrar que falha (o momento, o motivo, a conta por código interno ou o e-mail cifrado, e o IP cifrado; a senha nunca).
+- **Seção 3, finalidade e base:** a pesquisa orienta o produto; o e-mail do resultado é por consentimento (art. 7º, I); quem pede para conhecer o ArkeFit é pedido de contato pelo site (art. 7º, V). O registro das tentativas entra na segurança da plataforma (art. 7º, IX).
+- **Seção 7, prazos:** o e-mail da pesquisa, 12 meses depois da última autorização; as tentativas, 6 meses, como os registros de acesso.
+
+**Ordem:** o texto vai ao ar, a versão `2026-10-16` entra no banco (`20261449010000`) e só então a pesquisa (#403) vai ao ar.
+
+**Conferido:** `documentosLegais.test` com o hash novo; a página pública depois do deploy (abaixo, no PR).

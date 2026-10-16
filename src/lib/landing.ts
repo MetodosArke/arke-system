@@ -16,8 +16,8 @@
 
 export const HOSTS_DE_VENDAS = ["arkefit.com.br", "www.arkefit.com.br"];
 
-/** Rotas públicas que ficam no endereço de vendas (os documentos legais). */
-const ROTAS_DO_SITE = ["/termos", "/privacidade", "/contrato-academia"];
+/** Rotas públicas que ficam no endereço de vendas: os documentos legais e a pesquisa de mercado, de quem ainda não é cliente. */
+const ROTAS_DO_SITE = ["/termos", "/privacidade", "/contrato-academia", "/pesquisa"];
 
 export function ehHostDeVendas(host: string, extras: string[] = []): boolean {
   return [...HOSTS_DE_VENDAS, ...extras].includes(host.toLowerCase());

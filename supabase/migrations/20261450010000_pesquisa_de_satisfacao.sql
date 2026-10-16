@@ -377,7 +377,7 @@ begin
   update public.sentinela_sugestoes
      set sugestao = '[removido a pedido do aluno]'
    where aluno_id = _aluno_id and sugestao <> '[removido a pedido do aluno]';
-  -- A nota da pesquisa de satisfação fica no NPS, sem o comentário (20261449010000).
+  -- A nota da pesquisa de satisfação fica no NPS, sem o comentário (20261450010000).
   update public.pesquisa_satisfacao
      set comentario = null
    where aluno_id = _aluno_id and comentario is not null;

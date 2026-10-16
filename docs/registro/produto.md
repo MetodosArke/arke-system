@@ -538,13 +538,13 @@ As capturas dos dois alunos do Método (#389) mostraram dois defeitos de tela:
 - **Privacidade:** a resposta é dado pessoal comum, não sensível. A Política não muda agora; a frase para a próxima versão está abaixo.
 
 **Os defeitos do caminho:**
-- **O tipo novo de tarefa não pode ser usado na transação em que nasce** (55P04, "unsafe use of new value"). Por isso o tipo mora numa migration própria (20261448010000), como o `equipamento`, e a 20261449010000 roda depois dela. Na prova em transação desfeita, nem a tarefa da dor podia ser aberta depois da `dono_da_tarefa` nova: a função SQL cita o tipo novo e é lida ao rodar. A prova roda a migration com o tipo `outro` no lugar do `avaliacao_baixa` antes de a 20261448010000 ir ao ar; depois dela, o mesmo roteiro usa o tipo de verdade.
+- **O tipo novo de tarefa não pode ser usado na transação em que nasce** (55P04, "unsafe use of new value"). Por isso o tipo mora numa migration própria (20261448010000), como o `equipamento`, e a 20261450010000 roda depois dela. Na prova em transação desfeita, nem a tarefa da dor podia ser aberta depois da `dono_da_tarefa` nova: a função SQL cita o tipo novo e é lida ao rodar. A prova roda a migration com o tipo `outro` no lugar do `avaliacao_baixa` antes de a 20261448010000 ir ao ar; depois dela, o mesmo roteiro usa o tipo de verdade.
 - **A primeira versão perguntava só a quem estava "em dia".** A Marina Costa Ribeiro, da Ponto Alto, está inadimplente desde 11/10 e bloqueada; o critério passou a ser o bloqueio da plataforma (`situacao_permite_app`), que é o que o pedido diz ("nunca para aluno pausado, bloqueado ou com a matrícula encerrada").
 - **A primeira tentativa da prova parou no `lock_timeout` de 5 s** (as regras de `tarefas` pedem a trava da tabela, e o app estava em uso). A segunda rodou.
 
 **A frase proposta para a próxima versão da Política** (na parte do que a academia recebe do aluno): "Pesquisa de satisfação: de tempos em tempos, o app pergunta de 0 a 10 quanto você recomendaria a academia e, se quiser, o porquê. A nota e o comentário vão só para a gestão da academia, que os usa para melhorar o atendimento; uma nota baixa pode levar a academia a falar com você. Na exclusão dos seus dados, o comentário é apagado e a nota fica só como número, sem identificar você."
 
-**Ordem para ir ao ar:** a migration 20261448010000 (o tipo novo), depois a 20261449010000, depois o deploy do app. Nenhuma edge function nova nem alterada; o índice da Central mudou, então publicar `assistente-academia`.
+**Ordem para ir ao ar:** a migration 20261448010000 (o tipo novo), depois a 20261450010000, depois o deploy do app. Nenhuma edge function nova nem alterada; o índice da Central mudou, então publicar `assistente-academia`.
 
 **Conferido:**
 - **O banco, em transação desfeita** (as duas migrations e os casos num bloco que termina com erro de propósito, com as contas da Ponto Alto; antes da 20261448010000, com o tipo `outro` no lugar do novo). Depois, a tabela, as funções e o tipo não existiam, e a saída do aluno era a de antes. Os casos:

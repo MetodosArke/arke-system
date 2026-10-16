@@ -142,7 +142,7 @@ describe("tarefas: a saúde fica com quem atende", () => {
 });
 
 /**
- * Trava da pesquisa de satisfação (16/10/2026, 20261449010000): a tarefa da
+ * Trava da pesquisa de satisfação (16/10/2026, 20261450010000): a tarefa da
  * nota baixa ("Avaliação baixa do aluno") é só da gestão. Ela mostra o
  * comentário do aluno, texto livre que pode falar de alguém da equipe: a
  * recepção, o professor e a nutricionista não a leem, nem pela API.
