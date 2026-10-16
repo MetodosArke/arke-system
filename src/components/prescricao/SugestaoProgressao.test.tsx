@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { diaBrasilia } from "@/lib/dataBrasilia";
 import { SugestaoProgressao } from "./SugestaoProgressao";
@@ -8,9 +8,14 @@ let papel: string | null = "professor";
 let tabelas: Record<string, unknown> = {};
 let falhar = false;
 let consultadas: string[] = [];
+let funcoes: unknown[][] = [];
 
 vi.mock("@/integrations/supabase/client", () => ({
   supabase: {
+    rpc: (...args: unknown[]) => {
+      funcoes.push(args);
+      return Promise.resolve({ data: null, error: null });
+    },
     from: (tabela: string) => {
       consultadas.push(tabela);
       const resposta = () => (falhar ? { data: null, error: { message: "falhou" } } : { data: tabelas[tabela] ?? null, error: null });
@@ -73,6 +78,7 @@ describe("SugestaoProgressao", () => {
     papel = "professor";
     falhar = false;
     consultadas = [];
+    funcoes = [];
     alunoNoTopo();
   });
 
@@ -129,6 +135,28 @@ describe("SugestaoProgressao", () => {
     expect(await screen.findByText("Segurar e conversar com o aluno sobre a dor.")).toBeInTheDocument();
     expect(screen.getByText(/A progressão está suspensa por relato de dor\./)).toBeInTheDocument();
     expect(consultadas).toContain("aluno_progressao_bloqueada");
+  });
+
+  it("na academia, com a progressão suspensa, o professor libera ali mesmo", async () => {
+    alunoNoTopo({ suspensa: true });
+    montar();
+    fireEvent.click(await screen.findByRole("button", { name: "Já conversei: liberar a progressão" }));
+    await vi.waitFor(() => expect(funcoes).toEqual([["liberar_progressao_aluno", { _aluno_id: "aluno-1" }]]));
+  });
+
+  it("sem suspensão (só a dor da semana), ou no Método, não há o botão de liberar", async () => {
+    alunoNoTopo({ sensacao: "dor" });
+    const academia = montar();
+    expect(await screen.findByText("Segurar e conversar com o aluno sobre a dor.")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /liberar a progressão/ })).toBeNull();
+    academia.unmount();
+
+    // O mentor libera na Visão Master, não aqui.
+    alunoNoTopo({ metodo: true, suspensa: true });
+    papel = null;
+    montar("metodo");
+    expect(await screen.findByText(/A progressão está suspensa por relato de dor\./)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /liberar a progressão/ })).toBeNull();
   });
 
   it("a consulta falhou: diz que falhou, e não que não há dados", async () => {

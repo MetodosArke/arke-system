@@ -1396,16 +1396,24 @@ O projeto do app no Sentry (`javascript-react`) recebia, semanas antes, erros do
 - `npm run check` sem erro: tipos, lint (0 erros, os 27 avisos de antes), o `deno check` das 60 funções e nenhuma vulnerabilidade.
 - `npx vitest run`: 1.845 testes em 225 arquivos, em 21 minutos nesta máquina. Um falhou só por prazo: `provaDoConsentimento.guarda` ("os gatilhos carimbam a data..."), de outra frente, que passou dos 5 s. Rodado de novo com `--testTimeout=60000`, junto com os 11 arquivos que esta frente toca (as guardas do banco, a da sugestão, a do mapa da Visão Master, a das colunas, a tela da sugestão e Meus dados), depois do último acerto da jornada: 113 testes em 12 arquivos, todos verdes.
 
-**Falta, porque esta frente não aplica migration nem publica:**
-1. Rodar em produção o roteiro de prova (`prova_20261452010000.sql`, no SQL Editor, o arquivo inteiro de uma vez, sem `BEGIN`/`COMMIT`; ele aplica as duas migrations numa transação desfeita e termina em `RESULTADO`). Esperado: o de cima, com os números da Ponto Alto; a anonimização "sem erro; progressão suspensa que sobrou 0"; e, se a Ponto Alto tiver aluno sem conta, a jornada dele lida pelo aluno do Free com um motivo antes e erro 42501 depois. Se parar em "lock timeout", rodar de novo.
-2. Aplicar a `20261452010000`.
-3. Fazer o merge e o deploy do app. **A migration vem antes:** o app novo grava o esforço e a sensação no bem-estar e lê `aluno_progressao_bloqueada`, que só existem depois dela. Publicar `assistente-academia` (o índice da Central mudou).
-4. Conferir na Ponto Alto, no computador e no celular:
-   - **a recepção:** na ficha de um aluno do Método com a progressão suspensa, a Fase da Jornada diz "Em evolução dentro da fase", e não "Progressão suspensa por relato de dor"; a fila não mostra a tarefa da dor; pela API, `registro_treino_bem_estar` e `aluno_progressao_bloqueada` voltam vazias;
-   - **o professor:** com um aluno do Free que relatou dor, a tarefa crítica "Aluno relatou dor ao registrar o treino — progressão suspensa" na fila; com um aluno do Método, a Fase da Jornada com a dor (a tarefa dele é do mentor);
-   - **o aluno:** encerrar um treino com esforço 7 e "Senti dor"; a Evolução mostra o esforço na curva da semana; Meus dados traz o esforço e a sensação;
-   - **a tarefa da dor:** aberta uma vez, com prazo de 12 horas;
-   - **a sugestão de progressão** (Prescrever Treinos → Publicar para Aluno, com o professor; e a aba Treino da ficha do Método, com o mentor): com o aluno que relatou dor, "Segurar e conversar com o aluno sobre a dor" e "A progressão está suspensa por relato de dor", lidas do lugar novo; o mentor libera na ficha, e o aviso da suspensão some (a dor dos últimos 7 dias segue segurando).
-5. Aplicar a `20261453010000` (pós-deploy) e, pela API, conferir que a recepção recebe erro ao pedir `registro_treino.sensacao` (a coluna não existe).
-6. Gerar `types.ts` de novo (`supabase gen types`) e conferir que bate com o escrito à mão.
-7. Para decidir: a correção de uma linha no Sentinela (e a saída de `alunos.progressao_bloqueada_motivo`), e a observação do fim do treino.
+**Em produção (16/10/2026):**
+1. **O roteiro de prova, em produção, numa transação desfeita.** Antes, uma consulta descartável confirmou que vários comandos na mesma chamada da API se desfazem juntos com o erro do fim; sem isso, a pós-deploy do roteiro tiraria as colunas antes do deploy. Os números:
+   - recepção: o treino de teste do Free 1 → 0, o do Método 1 → 0, a Ponto Alto inteira 2.600 → 0, a suspensão do aluno do Método 1 → 0, a jornada "dor" → (nenhum); na janela, ela ainda lia as 2.600 linhas das colunas antigas; depois da pós-deploy, 0 respostas;
+   - professor: 1, 1, 2.600, 1 e "dor", antes e depois; o aluno do Free lê 25 e o do Método 17, os próprios; o Mentor temporário (com as duas etapas) lê 37 (a Ponto Alto no Método), 1 → 1 no Método e 0 no Free;
+   - a cópia: 2.602 treinos com esforço ou sensação antes, 2.602 linhas no bem-estar depois; a única progressão suspensa (a do teste) foi para a tabela nova, e 0 carimbos ficaram em `alunos`;
+   - a janela gravou "8/dor" e a cópia chegou; a janela e o caminho novo abriram as 2 tarefas críticas e suspenderam; a recepção não vê a tarefa nem a suspensão; a recepção não libera (42501) e o professor libera (0);
+   - depois da pós-deploy: 0 colunas antigas; o motivo vazio continua para o Sentinela; a dor abre a tarefa e suspende de novo; a ficha do mentor traz os 6 treinos com esforço ou sensação de 6, e a carteira marca a dor; o SQL dos roteiros de demonstração grava as 2 respostas; a anonimização roda sem erro e não deixa a suspensão; uma regra de leitura em cada tabela;
+   - a Ponto Alto não tem aluno sem conta, então o defeito da jornada (P0002) ficou só no Postgres local.
+2. **A `20261452010000` aplicada:** 2.600 respostas copiadas, nenhuma progressão suspensa de verdade (só havia a do teste), o gatilho da dor no bem-estar e o da janela no lugar.
+3. **O merge e o deploy (#420), e `assistente-academia` publicado.**
+4. **Na Ponto Alto, com o app novo:**
+   - o Pedro Henrique Almeida (Free), no celular, iniciou o treino, fez uma série e encerrou com esforço 7 e "Senti dor". O banco tem o treino com esforço 7 e dor no bem-estar e as colunas antigas vazias; a progressão suspensa; a tarefa crítica aberta uma vez, com prazo de 12 horas;
+   - o professor vê a tarefa "Aluno relatou dor ao registrar o treino — progressão suspensa", e a sugestão do Pedro avisa "A progressão está suspensa por relato de dor. Converse com ele antes de mexer na carga.";
+   - a recepção abre a mesma fila e não vê a tarefa;
+   - a Evolução do Pedro mostra a curva do esforço, lida do lugar novo (o treino de hoje, parcial, não entra: a curva conta o treino concluído, como antes).
+5. **A `20261453010000` (pós-deploy) aplicada:** as colunas antigas e a cópia da janela saíram; 2.601 respostas no bem-estar (as 2.600 copiadas e a do Pedro).
+6. **`types.ts` gerado de novo:** igual ao escrito à mão, fora a linha da versão do PostgREST, que não entra.
+
+**O que a prova achou depois:** na academia, ninguém liberava a progressão. O botão só existe na Visão Master, para o mentor, e o aluno do Free que marcasse "Senti dor" uma vez ficava suspenso para sempre, com a sugestão de progressão (#418) segurando todos os exercícios. A correção está em `docs/registro/produto.md`, na seção da sugestão.
+
+**Para decidir:** a correção de uma linha no Sentinela (e a saída de `alunos.progressao_bloqueada_motivo`), e a observação livre do fim do treino ("Ombro incomodou na terceira série"), que também é saúde e continua em `registro_treino`.
