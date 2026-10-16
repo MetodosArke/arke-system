@@ -255,7 +255,7 @@ $$;
 --     ficha mostra a ela "Em evolução dentro da fase";
 --   * o aluno sem conta (`user_id` nulo) fazia `v_user = auth.uid()` dar
 --     nulo, e `not (... or null)` não recusava ninguém: qualquer pessoa logada
---     lia a jornada dele. O `coalesce` fecha.
+--     lia a jornada dele. O `coalesce` em volta da conta toda fecha.
 create or replace function public.get_jornada_aluno(_aluno_id uuid)
 returns table (motivo text, elegivel public.fase_jornada, constancia numeric)
 language plpgsql
@@ -275,11 +275,11 @@ begin
   if v_org is null then
     raise exception 'Aluno não encontrado.' using errcode = 'P0002';
   end if;
-  v_ve_saude := public.atende_saude(v_org)
-                or public.acesso_arkefit('socio')
-                or public.has_role(auth.uid(), 'admin_arke')
-                or (v_metodo and public.acesso_arkefit('mentoria'))
-                or coalesce(v_user = auth.uid(), false);
+  v_ve_saude := coalesce(public.atende_saude(v_org)
+                         or public.acesso_arkefit('socio')
+                         or public.has_role(auth.uid(), 'admin_arke')
+                         or (v_metodo and public.acesso_arkefit('mentoria'))
+                         or v_user = auth.uid(), false);
   if not (v_ve_saude or public.is_org_staff(auth.uid(), v_org)) then
     raise exception 'Acesso restrito à equipe da academia.' using errcode = '42501';
   end if;
