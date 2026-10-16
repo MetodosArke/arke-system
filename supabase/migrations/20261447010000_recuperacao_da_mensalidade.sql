@@ -16,7 +16,8 @@ set lock_timeout = '5s';
 --   2. a tarefa de cobrança que fecha sozinha quando o pagamento entra, com o
 --      desfecho dizendo se foi depois do aviso;
 --   3. o número do que foi recuperado no mês, para a academia ver no
---      Financeiro.
+--      Financeiro;
+--   4. a trava: só a rotina grava quando o aviso saiu, nunca a equipe pela API.
 --
 -- A nova tentativa no cartão fica de fora: a API do Asaas só cobra de novo
 -- uma cobrança existente com o cartão inteiro ou com um token, e o ArkeFit
@@ -167,7 +168,42 @@ comment on function public.cobranca_recuperada_no_mes(uuid, date, date) is
 revoke execute on function public.cobranca_recuperada_no_mes(uuid, date, date) from public, anon;
 grant execute on function public.cobranca_recuperada_no_mes(uuid, date, date) to authenticated;
 
--- ── 6. A rotina ────────────────────────────────────────────────────────────
+-- ── 6. Só a rotina grava quando o aviso saiu ───────────────────────────────
+--
+-- A regra de alteração de `mensalidades` é da gestão e da recepção (cuidam do
+-- dinheiro). Sem esta trava, quem tem sessão gravaria as colunas do aviso pela
+-- API: suprimiria o aviso do aluno ou inflaria o recuperado do Financeiro. Só
+-- a service role, sem sessão (a rotina `aviso-cobranca-atrasada`), grava. É o
+-- mesmo critério de `conta_asaas_fixa` (20261391010000).
+create or replace function public.aviso_de_cobranca_so_da_rotina()
+returns trigger
+language plpgsql
+set search_path to 'public'
+as $$
+begin
+  if auth.uid() is null then
+    return new;
+  end if;
+  if tg_op = 'INSERT' then
+    if new.aviso_cobranca_d1_em is not null or new.aviso_cobranca_d3_em is not null then
+      raise exception 'Só a rotina do aviso no celular grava quando o aviso saiu.' using errcode = '42501';
+    end if;
+  elsif new.aviso_cobranca_d1_em is distinct from old.aviso_cobranca_d1_em
+     or new.aviso_cobranca_d3_em is distinct from old.aviso_cobranca_d3_em then
+    raise exception 'Só a rotina do aviso no celular grava quando o aviso saiu.' using errcode = '42501';
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists trg_aviso_de_cobranca_so_da_rotina on public.mensalidades;
+create trigger trg_aviso_de_cobranca_so_da_rotina
+  before insert or update of aviso_cobranca_d1_em, aviso_cobranca_d3_em on public.mensalidades
+  for each row execute function public.aviso_de_cobranca_so_da_rotina();
+
+revoke execute on function public.aviso_de_cobranca_so_da_rotina() from public, anon, authenticated;
+
+-- ── 7. A rotina ────────────────────────────────────────────────────────────
 --
 -- O alerta de rotinas passa a esperar o desfecho da função (20261248010000).
 insert into public.execucoes_agendadas (nome, ultima_ok) values ('aviso-cobranca-atrasada', now())

@@ -772,6 +772,7 @@ O teste da etapa Recebimentos ganhou três casos: pede a chave, mostra a conta j
 2. **A Próxima Ação.** A mensalidade vencida e em aberto (a mais antiga) vira a Próxima Ação da home, antes da mensagem nova e do treino, porque o acesso tem prazo: "Sua mensalidade está em aberto · Venceu em 14/10/2026. Na fatura você paga por PIX, boleto ou cartão.", com o botão **Pagar mensalidade**, que abre a fatura do Asaas em outra aba, e o selo do Asaas embaixo. Sem fatura ainda, o botão leva aos pagamentos do Perfil. Paga, a home volta ao que vinha antes. A ação continua única: é um caso a mais em `definirProximaAcao()`.
 3. **A tarefa fecha quando o pagamento entra.** `trg_fechar_tarefa_da_mensalidade_paga` (`after insert or update of status` em `mensalidades`, porque a mensalidade pode nascer paga) fecha a tarefa da mensalidade atrasada e a do cartão recusado, com o desfecho "Pago depois do aviso automático ao aluno (confirmado pelo Asaas)." ou "Pago (confirmado pelo Asaas).".
 4. **O recuperado no Financeiro.** O cartão **Recuperado pelo aviso no mês** (aba Lançamentos, no mês escolhido) mostra quantas mensalidades vencidas foram pagas depois do aviso, e o valor. Vem de `cobranca_recuperada_no_mes()`, `security invoker`: segue o RLS de quem pede.
+5. **Só a rotina grava quando o aviso saiu.** A regra de alteração de `mensalidades` é da gestão e da recepção, e sem trava elas gravariam as colunas do aviso pela API: suprimiriam o aviso do aluno ou inflariam o recuperado do Financeiro. `trg_aviso_de_cobranca_so_da_rotina` (`before insert or update of aviso_cobranca_d1_em, aviso_cobranca_d3_em`) recusa com 42501 quem tem sessão; passa só a service role, sem sessão, que é a rotina. É o critério de `conta_asaas_fixa` (06/10). A função do gatilho nasce sem EXECUTE para o PUBLIC, `anon` e `authenticated`, e o resto da mensalidade segue alterável pela equipe.
 
 ### Por que assim
 
@@ -795,12 +796,11 @@ A API não permite com segurança. Para cobrar de novo, o Asaas pede o cartão i
 
 - A nova tentativa no cartão (acima), o Método e a cobrança avulsa.
 - O e-mail do ArkeFit: o Asaas já manda.
-- **A equipe consegue gravar as colunas do aviso pela API**, porque a regra de alteração de `mensalidades` é da gestão e da recepção. Gravar só suprime o aviso ou infla o número da própria academia; uma trava no banco entra quando houver o caso.
 - O aluno sem os avisos ativados não recebe nada do ArkeFit: segue com o e-mail e o SMS do Asaas, e com a Próxima Ação quando abrir o app.
 
 ### Conferido
 
-- **O banco de produção, em transação desfeita**, com a migration (sem a rotina) e 14 casos num bloco só: "OK: 14 casos". Os casos:
+- **O banco de produção, em transação desfeita**, com a migration (sem a rotina) e 15 casos num bloco só: "OK: 15 casos". Os casos:
   - sem aparelho não é candidata, com aparelho é;
   - vencendo hoje não; vencida há 6 dias não, há 5 sim;
   - inadimplente na tolerância sim; já bloqueado e pausado não; matrícula pausada não;
@@ -809,12 +809,13 @@ A API não permite com segurança. Para cobrar de novo, o Asaas pede o cartão i
   - a mensalidade paga não reserva aviso; sem aviso, o desfecho é só "Pago";
   - a regra do "depois do aviso": mesmo dia, antes, só o D+3, sem aviso, sem data, e o aviso das 23h30 de Brasília no dia certo;
   - o recuperado do mês; a gestora da academia vê o número pelo RLS, e outra pessoa vê zero;
-  - as concessões.
+  - as concessões;
+  - a trava do aviso: a gestora, com sessão, é recusada ao gravar a coluna do aviso numa alteração e numa inclusão (a recusa tem de vir da trava, e não do RLS), segue alterando o resto da mensalidade, e a rotina, pela service role, grava.
 
-  Conferido depois: a coluna e as funções não existem no banco, e nenhuma linha de teste ficou.
-- **Defeito plantado no banco:** a lista da rotina sem a regra de acesso. O caso 5 acusou ("aluno já bloqueado virou candidato").
-- **Defeitos plantados no código**, e o teste certo falhou nos três: a janela do primeiro aviso começando no dia do vencimento; a reserva sem a condição da coluna vazia; a rotina às 10h GMT (7h em Brasília).
-- Os testes novos: a regra do aviso (11), a guarda (3) e a Próxima Ação (5 casos novos). A suíte inteira na máquina local: 1.738 testes em 218 arquivos; o único que falhou foi a guarda do prestador, pelo defeito acima, e passou depois da correção.
+  Conferido depois: as colunas, as funções e os gatilhos não existem no banco, e nenhuma linha de teste ficou.
+- **Defeitos plantados no banco:** a lista da rotina sem a regra de acesso, e o caso 5 acusou ("aluno já bloqueado virou candidato"); a trava sem conferir nada, e o caso 15 acusou ("a gestora gravou a coluna do aviso pela API"). O segundo prova também que a brecha era real: sem a trava, a gravação da gestora passa pelo RLS.
+- **Defeitos plantados no código**, e o teste certo falhou nos quatro: a janela do primeiro aviso começando no dia do vencimento; a reserva sem a condição da coluna vazia; a rotina às 10h GMT (7h em Brasília); a trava do aviso que deixa passar quem tem sessão.
+- Os testes novos: a regra do aviso (11), a guarda (4) e a Próxima Ação (5 casos novos). A suíte inteira na máquina local: 1.738 testes em 218 arquivos; o único que falhou foi a guarda do prestador, pelo defeito acima, e passou depois da correção.
 - `npm run check` sem erro, com as 59 funções no `deno check`. `npm run ajuda:indice` regerou o índice do assistente, e `assistente-academia` precisa ser publicada.
 - `node scripts/migracao/rotinas.mjs --escrever`: 34 rotinas no roteiro de reconstrução.
 - **Não rodou:** o sandbox do Asaas, porque nenhum cenário cobre isto (a rotina não chama o Asaas) e não havia chave de sandbox nesta sessão; a corrente real e a tela, que dependem da migration e da função publicadas.
