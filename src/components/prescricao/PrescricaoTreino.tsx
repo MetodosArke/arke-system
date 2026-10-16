@@ -28,6 +28,7 @@ import { formatarDataBR } from "@/lib/dataBrasilia";
 import { ErroAoCarregar } from "@/components/ErroAoCarregar";
 import { bibliotecaDoEscopo, exercicioDoEscopo, type EscopoPrescricao } from "@/components/prescricao/escopo";
 import { TreinoDoZero } from "@/components/prescricao/TreinoDoZero";
+import { SugestaoProgressao } from "@/components/prescricao/SugestaoProgressao";
 import { itensParaPublicar, problemaDoTreinoDoZero, type ItemDoZero } from "@/lib/treinoDoZero";
 
 const SERIES_PADRAO: SerieDetalhe[] = Array.from({ length: 3 }, () => ({ reps: "12", descanso_seg: 60, tecnica: null }));
@@ -655,6 +656,8 @@ export function PrescricaoTreino({
                   </Select>
                 )}
               </div>
+              {/* A sugestão de progressão do aluno escolhido: só lê, e a decisão é de quem publica logo abaixo. */}
+              {alunoPublicar && <SugestaoProgressao alunoId={alunoPublicar} escopo={escopo.tipo} />}
               <div className="space-y-1.5">
                 <Label>Como montar o treino</Label>
                 <div className="flex flex-wrap gap-2" role="group" aria-label="Como montar o treino">

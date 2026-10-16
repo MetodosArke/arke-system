@@ -356,6 +356,9 @@ export const CHAMADAS_DA_VISAO_MASTER: Record<string, Chamada> = {
   "from:equipamentos": { area: "mentoria", motivo: TABELA },
   "from:responsavel_aceites": { area: "mentoria", motivo: TABELA },
   "from:responsavel_pedidos": { area: "mentoria", motivo: TABELA },
+  // A sugestão de progressão da carga, na publicação do treino (16/10/2026).
+  "from:registro_treino": { area: "mentoria", motivo: TABELA },
+  "from:checkins": { area: "mentoria", motivo: TABELA },
   "rpc:informar_data_nascimento": { area: "mentoria", motivo: "do aluno menor: quem informa é a academia; a Visão Master só mostra" },
   "rpc:academia_tem_catraca": { area: "mentoria", motivo: "do aluno menor: diz se a academia tem catraca; também é da academia" },
   "fn:responsavel-pedido": { area: "mentoria", motivo: "do aluno menor: o pedido ao responsável é da academia" },
