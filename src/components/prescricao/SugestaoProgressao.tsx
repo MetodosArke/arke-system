@@ -3,6 +3,7 @@ import { TrendingUp } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { ErroAoCarregar } from "@/components/ErroAoCarregar";
+import { LiberarProgressao } from "@/components/prescricao/LiberarProgressao";
 import { diaBrasilia, formatarDataBR, hojeBrasilia } from "@/lib/dataBrasilia";
 import {
   LIMIARES,
@@ -160,12 +161,20 @@ export function SugestaoProgressao({ alunoId, escopo }: { alunoId: string; escop
         </p>
       )}
       {resultado.estado === "sem_treino" && <p className="text-sm">Sem sugestão: o aluno ainda não tem um treino ativo.</p>}
-      {resultado.estado === "pronto" && <ListaDeSugestoes resultado={resultado} />}
+      {resultado.estado === "pronto" && <ListaDeSugestoes resultado={resultado} alunoId={alunoId} escopo={escopo} />}
     </section>
   );
 }
 
-function ListaDeSugestoes({ resultado }: { resultado: Extract<ReturnType<typeof sugestoesDoTreino>, { estado: "pronto" }> }) {
+function ListaDeSugestoes({
+  resultado,
+  alunoId,
+  escopo,
+}: {
+  resultado: Extract<ReturnType<typeof sugestoesDoTreino>, { estado: "pronto" }>;
+  alunoId: string;
+  escopo: "academia" | "metodo";
+}) {
   const porTipo = (tipo: TipoSugestao) => resultado.exercicios.filter((e) => e.sugestao.tipo === tipo);
   // Segurar, rever e subir pedem a atenção do professor, um a um; manter e sem dados vão numa linha cada.
   const destacados = ORDEM_DOS_TIPOS.filter((t) => t !== "manter" && t !== "sem_dados").flatMap(porTipo);
@@ -183,6 +192,8 @@ function ListaDeSugestoes({ resultado }: { resultado: Extract<ReturnType<typeof 
           Converse com ele antes de mexer na carga.
         </p>
       )}
+      {/* Na academia, quem conversou libera aqui; no Método, o mentor libera na Visão Master. */}
+      {dor.suspensa && escopo === "academia" && <LiberarProgressao alunoId={alunoId} />}
 
       {destacados.length > 0 && (
         <ul className="space-y-1.5">

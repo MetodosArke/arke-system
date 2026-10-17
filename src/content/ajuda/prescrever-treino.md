@@ -40,6 +40,8 @@ Como ela decide, nesta ordem:
 
 O esforço é o do treino inteiro, que o aluno responde no fim, e não o de cada exercício. A sugestão aparece para a gestão e o professor; a recepção e a nutricionista não a veem. No aluno do Método ARKE, ela é do mentor da ArkeFit.
 
+Quando o aluno marca "Senti dor" no fim do treino, a progressão fica suspensa até alguém liberar, e a sugestão segura todos os exercícios. Depois de conversar com ele, use **Já conversei: liberar a progressão**, no aviso da dor da própria sugestão. A liberação fica registrada nas observações do aluno. A dor dos últimos 7 dias continua segurando até passar a semana. No aluno do Método ARKE, quem libera é o mentor.
+
 ## Começar do zero
 
 Para um treino feito só para um aluno, não precisa criar modelo. Em **Começar do zero**, monte os exercícios ali mesmo, como num modelo: a divisão, o exercício do acervo, as séries, como executar e a observação para o aluno. Depois publique. O treino não vira modelo e não entra na biblioteca.
