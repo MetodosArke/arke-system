@@ -17,6 +17,8 @@ Envie o atestado pelo app, em PDF ou foto (até 5 MB). Ele fica guardado de form
 
 Enquanto o atestado não for conferido, **o registro do treino fica bloqueado**. O resto do app funciona normalmente. Assim que a academia conferir, o treino é liberado.
 
+Quando faltam 15 dias para o atestado vencer, o cartão mostra a data, e o app avisa você no celular e por e-mail: leve o atestado novo à recepção antes dela. Na tela bloqueada do celular o aviso diz só que há um recado sobre a sua matrícula.
+
 ## Termos e política de privacidade
 
 Na primeira vez, e sempre que eles mudarem, o app pede o seu aceite. Os textos ficam sempre disponíveis nos links da tela de entrada.

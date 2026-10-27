@@ -91,6 +91,7 @@ const FICAM: Record<string, string> = {
   aluno_assinaturas: "registro financeiro do Método, guardado pelo prazo legal",
   aluno_matriculas_academia: "registro financeiro do plano da academia",
   mensalidades: "registro financeiro",
+  avisos_ao_aluno: "só o tipo do aviso automático, a data de referência e os canais, sem texto nem contato; a exclusão apaga pela cascata",
   cobrancas_avulsas: "registro financeiro",
   notas_fiscais: "registro fiscal",
   staff_comissoes_lancamentos: "comissão da equipe, registro contábil",

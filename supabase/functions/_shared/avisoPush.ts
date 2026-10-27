@@ -19,6 +19,8 @@ export const VALIDADE_SEG = {
   encerramento: 3 * 86400,
   /** A mensalidade em aberto (aviso-cobranca-atrasada): sai às 10h e não chega de madrugada. */
   cobranca: 8 * 3600,
+  /** Os lembretes de retenção (aviso-retencao-aluno): saem às 10h30 e valem até a noite. */
+  retencao: 10 * 3600,
 };
 
 export type Urgencia = "very-low" | "low" | "normal" | "high";

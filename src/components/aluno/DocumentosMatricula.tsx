@@ -15,6 +15,7 @@ import { MarkdownSimples } from "@/lib/markdownSimples";
 import { PERGUNTAS_PARQ, situacaoAtestado } from "@/lib/parq";
 import { emPerfilSimulado } from "@/lib/impersonation";
 import { AvisoPerfilSimulado } from "@/components/AvisoPerfilSimulado";
+import { formatarDataBR } from "@/lib/dataBrasilia";
 
 /**
  * Documentos da matrícula que dependem do aluno: assinar o contrato da
@@ -128,7 +129,10 @@ export function DocumentosMatricula() {
   const atestado = situacaoAtestado(data.parq ?? null);
   const faltaAtestado = !faltaParq && (atestado === "falta" || atestado === "vencido") && !(atestado === "falta" && data.parq?.atestado_caminho);
   const aguardandoConferencia = atestado === "falta" && !!data.parq?.atestado_caminho;
-  if (!faltaContrato && !faltaParq && !faltaAtestado && !aguardandoConferencia) return null;
+  // O atestado vencendo em 15 dias: o detalhe do aviso automático, que na tela
+  // bloqueada diz só "Tem um recado sobre a sua matrícula" (aviso-retencao-aluno).
+  const atestadoVenceLogo = !faltaParq && atestado === "vence_logo";
+  if (!faltaContrato && !faltaParq && !faltaAtestado && !aguardandoConferencia && !atestadoVenceLogo) return null;
 
   return (
     <Card>
@@ -166,6 +170,12 @@ export function DocumentosMatricula() {
               onChange={(e) => e.target.files?.[0] && void enviarAtestado(e.target.files[0])}
             />
           </div>
+        )}
+        {atestadoVenceLogo && (
+          <p className="text-xs text-muted-foreground">
+            Seu atestado médico vence em {formatarDataBR(data.parq?.atestado_validade)}. Leve o atestado novo à recepção antes
+            dessa data, para continuar registrando os treinos sem interrupção.
+          </p>
         )}
         {aguardandoConferencia && (
           <p className="text-xs text-muted-foreground">Atestado enviado. Assim que a academia conferir, o registro dos treinos é liberado.</p>
