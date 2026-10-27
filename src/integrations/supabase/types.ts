@@ -1941,6 +1941,58 @@ export type Database = {
           },
         ]
       }
+      avisos_ao_aluno: {
+        Row: {
+          aluno_id: string
+          canais: string[]
+          enviado_em: string
+          id: string
+          organization_id: string
+          referencia: string
+          tipo: string
+        }
+        Insert: {
+          aluno_id: string
+          canais: string[]
+          enviado_em?: string
+          id?: string
+          organization_id: string
+          referencia: string
+          tipo: string
+        }
+        Update: {
+          aluno_id?: string
+          canais?: string[]
+          enviado_em?: string
+          id?: string
+          organization_id?: string
+          referencia?: string
+          tipo?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "avisos_ao_aluno_aluno_id_fkey"
+            columns: ["aluno_id"]
+            isOneToOne: false
+            referencedRelation: "alunos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "avisos_ao_aluno_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "org_churn_metrics"
+            referencedColumns: ["organization_id"]
+          },
+          {
+            foreignKeyName: "avisos_ao_aluno_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       briefings_enviados: {
         Row: {
           canal: string
@@ -6381,6 +6433,7 @@ export type Database = {
           endereco_numero: string | null
           full_name: string
           id: string
+          lembretes_de_treino: boolean
           logradouro: string | null
           modelo_exercicio: string | null
           phone: string | null
@@ -6400,6 +6453,7 @@ export type Database = {
           endereco_numero?: string | null
           full_name?: string
           id?: string
+          lembretes_de_treino?: boolean
           logradouro?: string | null
           modelo_exercicio?: string | null
           phone?: string | null
@@ -6419,6 +6473,7 @@ export type Database = {
           endereco_numero?: string | null
           full_name?: string
           id?: string
+          lembretes_de_treino?: boolean
           logradouro?: string | null
           modelo_exercicio?: string | null
           phone?: string | null
@@ -7427,6 +7482,7 @@ export type Database = {
         Row: {
           acao: string | null
           aluno_id: string | null
+          aviso_automatico_em: string | null
           concluida_em: string | null
           created_at: string
           data_agendada: string | null
@@ -7448,6 +7504,7 @@ export type Database = {
         Insert: {
           acao?: string | null
           aluno_id?: string | null
+          aviso_automatico_em?: string | null
           concluida_em?: string | null
           created_at?: string
           data_agendada?: string | null
@@ -7469,6 +7526,7 @@ export type Database = {
         Update: {
           acao?: string | null
           aluno_id?: string | null
+          aviso_automatico_em?: string | null
           concluida_em?: string | null
           created_at?: string
           data_agendada?: string | null
@@ -8261,6 +8319,25 @@ export type Database = {
           cpf: string
           outras_matriculas: string[]
           outros_vinculos: boolean
+          user_id: string
+        }[]
+      }
+      alunos_para_avisos_de_retencao: {
+        Args: never
+        Returns: {
+          academia: string
+          aluno_id: string
+          atestado_validade: string
+          avisos: Json
+          convite_permitido: boolean
+          email: string
+          ficticia: boolean
+          lembretes_de_treino: boolean
+          matriculado_em: string
+          nome: string
+          parado_desde: string
+          primeiro_acesso: boolean
+          tem_push: boolean
           user_id: string
         }[]
       }
@@ -10158,6 +10235,15 @@ export type Database = {
       reprocessar_nota_fiscal: {
         Args: { _nota_id: string }
         Returns: undefined
+      }
+      reservar_aviso_ao_aluno: {
+        Args: {
+          _aluno_id: string
+          _canais: string[]
+          _referencia: string
+          _tipo: string
+        }
+        Returns: string
       }
       reservar_aviso_encerramento_alunos: {
         Args: { _encerramento_id: string; _limite?: number }

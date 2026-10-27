@@ -138,6 +138,10 @@ verify_jwt = false
 [functions.aviso-cobranca-atrasada]
 verify_jwt = false
 
+# Os avisos de retenção ao aluno (convite, dias sem treinar, atestado): só o cron chama, com o token do alerta de rotinas.
+[functions.aviso-retencao-aluno]
+verify_jwt = false
+
 # O convite e a retirada da equipe da ArkeFit: dá e tira o papel de sócio.
 # Exige a sessão (o padrão), declarado de propósito; a função ainda confere o
 # sócio com as duas etapas.
