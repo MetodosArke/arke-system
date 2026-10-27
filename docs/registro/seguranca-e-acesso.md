@@ -1417,3 +1417,11 @@ O projeto do app no Sentry (`javascript-react`) recebia, semanas antes, erros do
 **O que a prova achou depois:** na academia, ninguém liberava a progressão. O botão só existe na Visão Master, para o mentor, e o aluno do Free que marcasse "Senti dor" uma vez ficava suspenso para sempre, com a sugestão de progressão (#418) segurando todos os exercícios. A correção está em `docs/registro/produto.md`, na seção da sugestão.
 
 **Para decidir:** a correção de uma linha no Sentinela (e a saída de `alunos.progressao_bloqueada_motivo`), e a observação livre do fim do treino ("Ombro incomodou na terceira série"), que também é saúde e continua em `registro_treino`.
+
+## Duas dependências com alerta de segurança (26/10/2026)
+
+A auditoria do `npm run check` passou a reprovar a `main` com dois alertas novos, achados ao abrir o #425:
+- **`dompurify` (crítico, três alertas até a 3.4.16):** é dependência do `jspdf`, que gera os PDFs. O `npm audit fix` levou à 3.4.17, dentro da mesma versão maior.
+- **`zod` (alto, consumo de memória até a 4.6.5):** a correção era a versão 4, que quebra compatibilidade. Só que nenhum arquivo do app, das funções ou dos roteiros importa o `zod`, e nenhuma biblioteca depende dele (`npm ls zod`): era sobra do modelo inicial. Saiu do `package.json`, em vez de subir de versão.
+
+**Conferido:** `npm audit --omit=dev` sem nenhuma vulnerabilidade; o CI do PR roda o `npm run check` inteiro (tipos, lint, `deno check` e auditoria).
