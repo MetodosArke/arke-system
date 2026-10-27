@@ -9,6 +9,7 @@ import {
   type Candidato,
 } from "../../supabase/functions/aviso-retencao-aluno/regras";
 import { caminhoDoApp } from "../../supabase/functions/send-chat-push/regras";
+import { dataBrasilia } from "./dataBrasilia";
 
 const HOJE = "2026-10-26";
 
@@ -26,7 +27,7 @@ const aluno = (mudar: Partial<Candidato> = {}): Candidato => ({
 });
 
 /** O dia `dias` antes de hoje. */
-const ha = (dias: number) => new Date(Date.parse(`${HOJE}T12:00:00Z`) - dias * 86_400_000).toISOString().slice(0, 10);
+const ha = (dias: number) => dataBrasilia(new Date(Date.parse(`${HOJE}T12:00:00Z`) - dias * 86_400_000));
 
 describe("aviso de retenção: os dias sem treinar", () => {
   it("o 1º aviso sai no 3º dia sem treinar, no celular", () => {
