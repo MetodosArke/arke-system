@@ -4,7 +4,7 @@ import { z } from "zod";
 import type { GatewayConfig } from "./types";
 
 const configSchema = z.object({
-  organization_id: z.string().uuid("organization_id deve ser um UUID válido"),
+  organization_id: z.guid("organization_id deve ser um UUID válido"),
   token_api_local: z.string().min(10, "token_api_local (device_token da catraca) é obrigatório"),
   supabase_url: z.string().url("supabase_url deve ser uma URL válida"),
   catraca_ip: z.string().min(1, "catraca_ip é obrigatório"),
