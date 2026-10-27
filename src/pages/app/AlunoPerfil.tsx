@@ -13,8 +13,9 @@ import { BaixarMeusDados } from "@/components/aluno/BaixarMeusDados";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { LogOut, Ruler, Droplets, Wallet, Sparkles, ShieldCheck, MapPin } from "lucide-react";
+import { LogOut, Ruler, Droplets, Wallet, Sparkles, ShieldCheck, MapPin, BellRing } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { Tables } from "@/integrations/supabase/types";
 import { CartaoAssinatura } from "@/components/pagamento/CartaoAssinatura";
@@ -22,6 +23,7 @@ import { PagamentosAcademia } from "@/components/pagamento/PagamentosAcademia";
 import { PrestadorPagamentos } from "@/components/pagamento/PrestadorPagamentos";
 import { EnderecoAluno } from "@/components/pagamento/EnderecoAluno";
 import { formatarDataBR } from "@/lib/dataBrasilia";
+import { exigirGravacao } from "@/lib/gravacao";
 
 export default function AlunoPerfil() {
   const { user, profile, organization, alunoId, signOut, planoAluno, metodoArkeAtivo } = useAuth();
@@ -62,6 +64,30 @@ export default function AlunoPerfil() {
       void queryClient.invalidateQueries({ queryKey: ["aluno-meta-agua", alunoId] });
     },
     onError: (error: Error) => toast({ title: "Erro ao salvar meta", description: error.message, variant: "destructive" }),
+  });
+
+  // Os lembretes automáticos de 3 e 5 dias sem treinar (aviso-retencao-aluno).
+  // A preferência é da pessoa, em `profiles`, e vale para todas as academias.
+  const { data: lembretesDeTreino } = useQuery({
+    queryKey: ["aluno-lembretes-de-treino", user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("profiles").select("lembretes_de_treino").eq("user_id", user!.id).single();
+      if (error) throw error;
+      return data.lembretes_de_treino;
+    },
+    enabled: !!user?.id,
+  });
+
+  const salvarLembretes = useMutation({
+    mutationFn: async (ligado: boolean) => {
+      await exigirGravacao(supabase.from("profiles").update({ lembretes_de_treino: ligado }).eq("user_id", user!.id).select("id"));
+      return ligado;
+    },
+    onSuccess: (ligado) => {
+      toast({ title: ligado ? "Lembretes de treino ligados" : "Lembretes de treino desligados" });
+      void queryClient.invalidateQueries({ queryKey: ["aluno-lembretes-de-treino", user?.id] });
+    },
+    onError: (error: Error) => toast({ title: "Erro ao salvar", description: error.message, variant: "destructive" }),
   });
 
   // Forma de pagamento da assinatura do Método. O RLS de aluno_assinaturas
@@ -239,6 +265,28 @@ export default function AlunoPerfil() {
           </CardContent>
         )}
       </Card>
+
+      {lembretesDeTreino != null && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base flex items-center gap-2">
+              <BellRing className="h-4 w-4 text-primary" /> Lembretes de treino
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="flex items-start justify-between gap-3">
+            <Label htmlFor="lembretes-de-treino" className="text-sm font-normal text-muted-foreground">
+              Um lembrete quando você fica 3 e 5 dias sem treinar, no celular ou por e-mail. Os avisos da sua
+              matrícula, como o do atestado, continuam chegando.
+            </Label>
+            <Switch
+              id="lembretes-de-treino"
+              checked={lembretesDeTreino}
+              disabled={salvarLembretes.isPending}
+              onCheckedChange={(ligado) => salvarLembretes.mutate(ligado)}
+            />
+          </CardContent>
+        </Card>
+      )}
 
       {avaliacoes.length > 0 && (
         <Card>

@@ -20,6 +20,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import { formatarDataBR } from "@/lib/dataBrasilia";
 import { Input } from "@/components/ui/input";
 import {
   ClipboardList,
@@ -36,6 +37,7 @@ import {
   FileText,
   Clock,
   CalendarClock,
+  BellRing,
   Wallet,
   Sparkles,
   TrendingDown,
@@ -479,6 +481,12 @@ export default function AdminDashboard() {
                       {!semResponsavel && !souResponsavel && " · Responsável: outro membro da equipe"}
                       {souResponsavel && " · Responsável: você"}
                     </p>
+                    {tarefa.aviso_automatico_em && (
+                      <p className="text-xs text-primary flex items-center gap-1">
+                        <BellRing className="h-3.5 w-3.5" />
+                        Aviso automático enviado ao aluno em {formatarDataBR(tarefa.aviso_automatico_em)}
+                      </p>
+                    )}
                     {tarefa.acao && <p className="text-sm">{tarefa.acao}</p>}
                     {tarefa.data_agendada && (
                       <p className="text-xs text-primary flex items-center gap-1">

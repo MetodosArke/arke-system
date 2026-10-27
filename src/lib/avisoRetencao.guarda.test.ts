@@ -3,7 +3,6 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { rotinasDoRepositorio } from "../../scripts/migracao/rotinas.mjs";
 import { dentroDoHorario } from "../../supabase/functions/aviso-retencao-aluno/regras";
-import { horaEmBrasilia } from "./avisoCobranca.guarda.test";
 
 /**
  * Trava dos avisos de retenção ao aluno (26/10/2026).
@@ -25,6 +24,12 @@ const migrations = readdirSync(join(RAIZ, "supabase", "migrations"))
   .sort()
   .map((f) => readFileSync(join(RAIZ, "supabase", "migrations", f), "utf8").toLowerCase().replace(/\r\n/g, "\n"));
 const todas = migrations.join("\n");
+
+/** A hora em Brasília (UTC-3, sem horário de verão desde 2019) de um agendamento diário do pg_cron. */
+function horaEmBrasilia(agendamento: string): number | null {
+  const m = /^(\d+) (\d+) \* \* \*$/.exec(agendamento.trim());
+  return m ? (Number(m[2]) - 3 + 24) % 24 : null;
+}
 
 /** A última versão de uma função do banco nas migrations. */
 function ultimaVersao(nome: string): string {
@@ -59,9 +64,8 @@ describe("os avisos de retenção ao aluno", () => {
   it("a rotina roda entre 8h e 20h de Brasília, todo dia", () => {
     const rotina = rotinasDoRepositorio(RAIZ).find((r) => r.nome === "arke-aviso-retencao");
     expect(rotina?.comando).toContain("/functions/v1/aviso-retencao-aluno");
-    const m = /^(\d+) (\d+) \* \* \*$/.exec(rotina?.agendamento ?? "");
-    expect(m, rotina?.agendamento).not.toBeNull();
-    const hora = horaEmBrasilia(rotina!.agendamento);
+    const hora = horaEmBrasilia(rotina?.agendamento ?? "");
+    expect(hora, rotina?.agendamento).not.toBeNull();
     expect(dentroDoHorario(hora!), `${rotina?.agendamento} é ${hora}h em Brasília`).toBe(true);
     expect(dentroDoHorario(horaEmBrasilia("30 10 * * *")!), "o detector detecta").toBe(false);
   }, 30_000);
