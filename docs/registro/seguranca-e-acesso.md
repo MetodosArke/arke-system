@@ -1417,3 +1417,13 @@ O projeto do app no Sentry (`javascript-react`) recebia, semanas antes, erros do
 **O que a prova achou depois:** na academia, ninguém liberava a progressão. O botão só existe na Visão Master, para o mentor, e o aluno do Free que marcasse "Senti dor" uma vez ficava suspenso para sempre, com a sugestão de progressão (#418) segurando todos os exercícios. A correção está em `docs/registro/produto.md`, na seção da sugestão.
 
 **Para decidir:** a correção de uma linha no Sentinela (e a saída de `alunos.progressao_bloqueada_motivo`), e a observação livre do fim do treino ("Ombro incomodou na terceira série"), que também é saúde e continua em `registro_treino`.
+
+## Duas dependências com alerta de segurança (26/10/2026)
+
+A auditoria do `npm run check` passou a reprovar a `main` com dois alertas novos, achados ao abrir o #425:
+- **`dompurify` (crítico, três alertas até a 3.4.16):** é dependência do `jspdf`, que gera os PDFs. O `npm audit fix` levou à 3.4.17, dentro da mesma versão maior.
+- **`zod` (alto, consumo de memória até a 4.6.5):** a correção era a versão 4, que quebra compatibilidade. Só que nenhum arquivo do app, das funções ou dos roteiros importa o `zod`, e nenhuma biblioteca depende dele (`npm ls zod`): era sobra do modelo inicial. Saiu do `package.json`, em vez de subir de versão.
+
+- **O Gateway Local (`packages/gateway`, que a auditoria do check também roda):** `fastify`, `follow-redirects` e `fast-uri` corrigidos pelo `npm audit fix`; e o `zod`, que lá valida o `config.json`, subiu para a versão 4. A 4 confere o formato do UUID com mais rigor (a variante da RFC 9562), e o `organization_id` passou de `z.string().uuid()` para `z.guid()`, que mantém a conferência de antes: nenhum config que já sobe passa a ser recusado. O resto do esquema (objetos, enums, defaults, `issues`) é igual na 4. Versão nova do Gateway: 1.10.1 (`package.json` e `versao.ts`).
+
+**Conferido:** `npm audit --omit=dev` sem nenhuma vulnerabilidade na raiz e no Gateway; o Gateway com os 347 testes em 23 arquivos verdes e o `npm run check` dele sem erro. O primeiro CI do PR reprovou na auditoria do Gateway, que eu não tinha rodado; com ela corrigida, o CI roda o `npm run check` inteiro.
