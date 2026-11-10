@@ -1,6 +1,7 @@
 import { hojeBrasilia } from "@/lib/dataBrasilia";
 import { useState } from "react";
 import { ExportarContador } from "@/components/admin/ExportarContador";
+import { ExportarRelatorios } from "@/components/admin/ExportarRelatorios";
 import { NotasFiscaisPainel } from "@/components/admin/NotasFiscaisPainel";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -493,7 +494,10 @@ export default function AdminFinanceiro() {
           <DollarSign className="h-5 w-5 text-primary" />
           <h1 className="text-xl font-bold">Financeiro</h1>
         </div>
-        <ExportarContador />
+        <div className="flex flex-wrap items-center gap-2">
+          <ExportarRelatorios />
+          <ExportarContador />
+        </div>
       </div>
       <p className="text-sm text-muted-foreground">
         Controle interno — não substitui a contabilidade externa da academia, mas fica o mais completo possível

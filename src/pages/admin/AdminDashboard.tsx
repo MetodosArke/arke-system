@@ -51,6 +51,8 @@ import {
 import type { Tables, Enums } from "@/integrations/supabase/types";
 import { atendeSaude } from "@/lib/acessoPainel";
 import { ErroAoCarregar } from "@/components/ErroAoCarregar";
+import { PRIORIDADE_LABEL, STATUS_LABEL, TIPO_LABEL } from "@/lib/rotulosTarefa";
+import { DetalheDaTarefa } from "@/components/admin/DetalheDaTarefa";
 
 type Tarefa = Tables<"tarefas">;
 type Anamnese = Tables<"anamnese_acolhimento">;
@@ -101,12 +103,6 @@ const PRIORIDADE_VARIANT: Record<Prioridade, "default" | "secondary" | "destruct
   critica: "destructive",
 };
 
-const PRIORIDADE_LABEL: Record<Prioridade, string> = {
-  baixa: "Baixa",
-  media: "Média",
-  alta: "Alta",
-  critica: "Crítica",
-};
 
 // Cores em gradiente de severidade — usadas na bolinha de cada aba de
 // prioridade, para o gestor identificar a urgência de relance, sem
@@ -126,31 +122,7 @@ const PRIORIDADE_PESO: Record<Prioridade, number> = {
   baixa: 3,
 };
 
-const STATUS_LABEL: Record<Status, string> = {
-  aberta: "Aberta",
-  em_andamento: "Em andamento",
-  aguardando: "Aguardando",
-  concluida: "Concluída",
-  cancelada: "Cancelada",
-};
 
-const TIPO_LABEL: Record<Tipo, string> = {
-  ativacao: "Ativação pendente",
-  anamnese: "Nova anamnese (M.A.P.A.®)",
-  dor: "Dor / desconforto",
-  barreira: "Barreira de rotina",
-  ajuste: "Pedido de ajuste",
-  outro: "Outro",
-  cobranca: "Mensalidade atrasada",
-  acolhimento_elite: "Acolhimento expandido (Elite)",
-  engajamento_baixo: "Engajamento baixo no mês",
-  atestado: "Atestado médico",
-  inercia: "Risco de evasão (sem sinal de vida)",
-  ciclo_travado: "Ciclo travado sem constância",
-  instrucao_presencial: "Acolhimento presencial pedido pelo Mentor",
-  equipamento: "Apagar aluno da catraca (LGPD)",
-  avaliacao_baixa: "Avaliação baixa do aluno",
-};
 
 const TIPO_ICON: Record<Tipo, typeof HeartPulse> = {
   ativacao: LogIn,
@@ -740,15 +712,6 @@ function HistoricoDaFila({ organizationId, userId }: { organizationId: string; u
       .sort((a, b) => quando(b).localeCompare(quando(a)));
   }, [data, situacao, responsavel, userId]);
 
-  const linha = (rotulo: string, valor: string | null | undefined) =>
-    valor ? (
-      <>
-        <dt className="text-muted-foreground">{rotulo}</dt>
-        <dd className="whitespace-pre-wrap min-w-0">{valor}</dd>
-      </>
-    ) : null;
-  const quando = (v: string | null) => (v ? new Date(v).toLocaleString("pt-BR") : null);
-
   return (
     <>
       <div className="flex flex-wrap items-center gap-2">
@@ -823,21 +786,11 @@ function HistoricoDaFila({ organizationId, userId }: { organizationId: string; u
             <DialogTitle>{aberta?.motivo}</DialogTitle>
           </DialogHeader>
           {aberta && (
-            <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-2 text-sm">
-              {linha("Tipo", TIPO_LABEL[aberta.tipo])}
-              {linha("Aluno", aberta.aluno_id ? data?.nomeAluno.get(aberta.aluno_id) ?? "Aluno" : null)}
-              {linha("Situação", STATUS_LABEL[aberta.status])}
-              {linha("Prioridade", PRIORIDADE_LABEL[aberta.prioridade])}
-              {linha("Aberta em", quando(aberta.created_at))}
-              {linha("Prazo", quando(aberta.sla_prazo))}
-              {linha("Escalada em", quando(aberta.escalada_em))}
-              {linha("Aviso ao aluno", quando(aberta.aviso_automatico_em))}
-              {linha("Agendada para", quando(aberta.data_agendada))}
-              {linha("Encerrada em", quando(aberta.concluida_em ?? aberta.updated_at))}
-              {linha("Responsável", data?.nomePessoa(aberta.responsavel_id))}
-              {linha("Ação", aberta.acao)}
-              {linha("Desfecho", aberta.desfecho_acao || "Sem desfecho registrado")}
-            </dl>
+            <DetalheDaTarefa
+              tarefa={aberta}
+              aluno={aberta.aluno_id ? data?.nomeAluno.get(aberta.aluno_id) ?? "Aluno" : null}
+              responsavel={data?.nomePessoa(aberta.responsavel_id) ?? null}
+            />
           )}
         </DialogContent>
       </Dialog>

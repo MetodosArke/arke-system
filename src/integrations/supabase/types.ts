@@ -9196,6 +9196,7 @@ export type Database = {
           autor: string
           detalhe: string
           ocorrido_em: string
+          ref_id: string
           tipo: string
           titulo: string
         }[]

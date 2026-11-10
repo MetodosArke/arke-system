@@ -757,3 +757,20 @@ Da reunião de 10/11, os cinco itens pequenos. Os lotes 2 a 4 (editar treino, av
 **A tela, na Ponto Alto** (no computador e no celular): a gestora abriu **Editar** no "Treino do zero — Marina"; o editor veio com os 4 exercícios e o título, e o aviso da edição apareceu. Publicada com o título "(ajustado)", o aviso foi "Treino atualizado!", e no banco a versão nova ficou ativa, com os mesmos 4 exercícios, e a anterior, inativa. A versão nova fica como histórico da demonstração. A "Adaptação A — Marina", de 05/10, continua ativa, de antes, quando cada publicação deixava a anterior ativa.
 
 **Sem prova de tela:** a **Nova avaliação** na ficha e os filtros da carteira, que são da Visão Master e pedem a conta da ArkeFit com as duas etapas. A regra da avaliação pela mentoria está provada no banco, acima.
+
+## Lote 3 da reunião com o Jean: relatórios do financeiro, histórico do aluno clicável e o quadro das fases (10/11/2026)
+
+- **Relatórios de gestão do financeiro, em planilha.** O fechamento do contador segue a competência; o gestor pedia outra pergunta. O botão **Relatórios de gestão** gera, para o mês, o resumo (recebido, a receber, em atraso, e o recebido por forma de pagamento), as recebidas pela data do pagamento, o que está a receber, a inadimplência com os dias de atraso (do mais atrasado ao mais recente) e as mensalidades do mês por plano. A montagem é pura (`montarRelatorios`, com teste); dívida é a lista de inclusão do bloqueio (pendente ou atrasado, vencido antes de hoje), e pago é pago ou confirmado. A tela lê as cobranças da competência, as pagas no mês e todas as em aberto, em páginas, sem repetir a que vem de duas consultas.
+- **O histórico do aluno com eventos clicáveis** (`20261457010000`). A função do histórico não dizia de que linha vinha cada evento. Agora devolve o `ref_id`, e o atendimento (aberto ou resolvido) abre o chamado inteiro: tipo, prioridade, abertura, prazo, escalada, aviso ao aluno, agendamento, responsável, encerramento, ação e desfecho. O resto da função não mudou (security invoker, cada parte pelo RLS, a saúde com `atende_saude()`); mudar as colunas de saída pede `drop` antes do `create`. O chamado é lido de `tarefas` pelo RLS de quem pede. O detalhe virou um componente só (`DetalheDaTarefa`), o mesmo do histórico da fila, e os nomes das tarefas saíram da tela da fila para `rotulosTarefa.ts`.
+- **O quadro das fases do Método**, na carteira do mentor (**Quadro das fases**, ao lado de Lista): uma coluna por fase, com os mesmos filtros. Arrastar o cartão para outra coluna, ou **Mover fase** (para o celular e o teclado), pede a fase e o motivo e chama `mover_fase_jornada`, a mesma função da ficha, que grava quem moveu, quando e o motivo no histórico de fases: a passagem manual vale por cima do avanço automático e fica registrada. Sem biblioteca nova: o arrastar é o do navegador.
+
+**Defeitos no caminho:**
+- O primeiro teste do relatório por plano esperava 3 mensalidades do plano Mensal; eram 4, com a cancelada de novembro, e havia a do plano Anual. O código estava certo; o esperado foi corrigido.
+- A guarda da paginação não enxergava as consultas montadas por uma função auxiliar e acusou as duas tabelas; as cinco consultas foram escritas por inteiro dentro de `todasAsLinhas`.
+
+**Conferido:**
+- **O banco, em transação desfeita:** com a migration, na sessão da gestora da Ponto Alto, os 12 eventos do Pedro vieram com o `ref_id`, e os 10 de atendimento apontam para uma tarefa; a gestora vê os 4 de dor, e a recepção, nenhum (como antes).
+- `npx tsc --noEmit -p tsconfig.app.json`: sem erro. `eslint` nos arquivos alterados: sem aviso.
+- `npx vitest run` nos arquivos que tocam o que mudou (os relatórios, a carteira, a guarda do histórico do aluno, as guardas de acesso, chaves, estado vazio, paginação, colunas, migrations, datas, acessibilidade, números, pacote inicial e a Central): 118 testes passando, depois da correção da paginação.
+- **O defeito plantado:** "a receber" a partir de amanhã, e não de hoje, fez falhar 2 dos 6 testes dos relatórios; desfeito.
+- `npm run ajuda:indice` regerou o índice (`financeiro`, `ficha-do-aluno`, `vm-mentoria`).

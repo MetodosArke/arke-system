@@ -14,6 +14,18 @@ O [Financeiro](/admin/financeiro) é o caixa da academia dentro do ARKE. É do g
 
 O resumo do mês mostra entradas, saídas e o resultado. Lançamento vencido e não pago aparece como atrasado.
 
+## Relatórios de gestão
+
+O botão **Relatórios de gestão** gera, para o mês escolhido, uma planilha com o que o gestor acompanha, das mensalidades e das cobranças avulsas:
+
+- **Resumo**: o recebido no mês, o que está a receber e o que está em atraso, com a quantidade e o valor de cada um, e o recebido por forma de pagamento;
+- **Recebidas**: o que foi pago no mês, pela data do pagamento;
+- **A receber**: o que está em aberto e vence de hoje em diante;
+- **Inadimplência**: o que venceu e não foi pago, do mais atrasado para o mais recente, com os dias de atraso;
+- **Por plano**: as mensalidades do mês por plano, com o total, o recebido e o que está em aberto.
+
+É diferente do fechamento do contador, abaixo, que segue a competência e traz a taxa e o líquido de cada cobrança.
+
 ## Exportar para o contador
 
 O botão **Exportar para o contador** gera o fechamento do mês em planilha, uma aba por assunto: lançamentos, mensalidades dos planos, cobranças avulsas, Método ARKE e folha. Cada cobrança vem com o valor cobrado, a taxa do meio de pagamento, a parte da ArkeFit e o líquido da academia, que é o que se confere com o extrato do Asaas. Com a cobrança na conta da academia, a mensalidade e a avulsa vêm sem parte da ArkeFit: o líquido é o valor inteiro, e a tarifa do Asaas aparece no extrato da conta da academia.

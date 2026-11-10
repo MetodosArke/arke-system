@@ -1,5 +1,9 @@
 import { useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
+import { useToast } from "@/hooks/use-toast";
+import type { Enums } from "@/integrations/supabase/types";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -14,6 +18,8 @@ import { hojeBrasilia } from "@/lib/dataBrasilia";
 import { ROTULO_FILTRO_TREINO, situacaoDoTreino, type FiltroTreino } from "@/lib/situacaoTreino";
 import { ROTULO_PLANO, type PlanoAluno } from "@/lib/planoAluno";
 import {
+  agruparPorFase,
+  FASES_EM_ORDEM,
   filtrarCarteira,
   ROTULO_FASE,
   ROTULO_FILTRO_AVALIACAO,
@@ -63,6 +69,11 @@ export function CarteiraMentor() {
   const [filtroTreino, setFiltroTreino] = useState<FiltroTreino>("todos");
   const [filtroDieta, setFiltroDieta] = useState<"todos" | SituacaoDieta>("todos");
   const [filtroAvaliacao, setFiltroAvaliacao] = useState<"todos" | SituacaoAvaliacao>("todos");
+  const [visao, setVisao] = useState<"lista" | "quadro">("lista");
+  const [movimento, setMovimento] = useState<{ aluno: AlunoDaCarteira; para: string } | null>(null);
+  const [motivo, setMotivo] = useState("");
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   const { data: carteira = [], isLoading, error } = useQuery({
     // A carteira responde por quem pergunta (o papel na equipe da ArkeFit).
@@ -113,6 +124,74 @@ export function CarteiraMentor() {
   });
   const contagem = (f: FiltroCarteira) => filtrarCarteira(carteira, f, user?.id ?? null).length;
 
+  // A mudança de fase pelo quadro: a mesma função da ficha (mover_fase_jornada),
+  // que grava quem moveu, quando e o motivo no histórico de fases.
+  const abrirMovimento = (aluno: AlunoDaCarteira, para: string) => {
+    setMotivo("");
+    setMovimento({ aluno, para });
+  };
+  const mover = useMutation({
+    mutationFn: async ({ alunoId, fase, motivo }: { alunoId: string; fase: string; motivo: string }) => {
+      const { error } = await supabase.rpc("mover_fase_jornada", {
+        _aluno_id: alunoId,
+        _fase: fase as Enums<"fase_jornada">,
+        _observacao: motivo,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast({ title: "Fase atualizada", description: "O movimento ficou no histórico de fases do aluno." });
+      setMovimento(null);
+      void queryClient.invalidateQueries({ queryKey: ["carteira-mentor"] });
+    },
+    onError: (e: Error) => toast({ title: "Não foi possível mover a fase", description: e.message, variant: "destructive" }),
+  });
+
+  const cartao = (a: AlunoDaCarteira) => {
+    const sinais = a.atencao ?? [];
+    const m = modulos ? situacoes(a.aluno_id) : null;
+    const pendencias = m
+      ? [
+          m.treino === "vencido" && "Treino vencido",
+          m.treino === "sem_treino" && "Sem treino",
+          m.dieta === "sem_dieta" && "Sem dieta",
+          m.avaliacao === "atrasada" && "Avaliação atrasada",
+          m.avaliacao === "sem_avaliacao" && "Sem avaliação",
+        ].filter((p): p is string => !!p)
+      : [];
+    return (
+      <button
+        key={a.aluno_id}
+        onClick={() => navigate(`/superadmin/mentoria/aluno/${a.aluno_id}`)}
+        className="w-full rounded-md border border-border bg-card p-3 text-left transition-colors hover:bg-muted/50"
+      >
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-sm font-semibold truncate">{a.aluno_nome}</span>
+          {Number(a.nao_lidas) > 0 && <Badge variant="destructive">{a.nao_lidas}</Badge>}
+        </div>
+        <p className="text-[11px] text-muted-foreground truncate">
+          {a.organizacao_nome} · {ROTULO_PLANO[a.plano as PlanoAluno] ?? a.plano} · {ROTULO_FASE[a.fase] ?? a.fase}
+        </p>
+        <p className="text-[11px] text-muted-foreground mt-0.5">
+          {a.mentor_nome ? `Mentor: ${a.mentor_nome}` : "Sem mentor"}
+          {" · "}
+          {a.dias_inativo == null ? "sem sinal ainda" : `${a.dias_inativo} dia(s) sem sinal`}
+          {a.constancia != null && ` · constância ${decimal(Number(a.constancia), 0)}%`}
+        </p>
+        {pendencias.length > 0 && <p className="mt-1 text-[11px] text-warning">{pendencias.join(" · ")}</p>}
+        {sinais.length > 0 && (
+          <div className="mt-1.5 flex flex-wrap gap-1">
+            {sinais.map((s) => (
+              <Badge key={s} variant={travaOAluno(s) ? "destructive" : "outline"} className="text-[10px]">
+                {rotuloAtencao(s)}
+              </Badge>
+            ))}
+          </div>
+        )}
+      </button>
+    );
+  };
+
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center gap-2">
@@ -140,6 +219,14 @@ export function CarteiraMentor() {
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
+        <div className="flex gap-1" role="group" aria-label="Como ver a carteira">
+          <Button size="sm" variant={visao === "lista" ? "default" : "outline"} aria-pressed={visao === "lista"} onClick={() => setVisao("lista")}>
+            Lista
+          </Button>
+          <Button size="sm" variant={visao === "quadro" ? "default" : "outline"} aria-pressed={visao === "quadro"} onClick={() => setVisao("quadro")}>
+            Quadro das fases
+          </Button>
+        </div>
         <Select value={filtroTreino} onValueChange={(v) => setFiltroTreino(v as FiltroTreino)}>
           <SelectTrigger className="w-48" aria-label="Filtrar por treino"><SelectValue /></SelectTrigger>
           <SelectContent>
@@ -194,56 +281,85 @@ export function CarteiraMentor() {
             </p>
           </CardContent>
         </Card>
+      ) : visao === "lista" ? (
+        <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">{visiveis.map((a) => cartao(a))}</div>
       ) : (
-        <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
-          {visiveis.map((a) => {
-            const sinais = a.atencao ?? [];
-            const m = modulos ? situacoes(a.aluno_id) : null;
-            const pendencias = m
-              ? [
-                  m.treino === "vencido" && "Treino vencido",
-                  m.treino === "sem_treino" && "Sem treino",
-                  m.dieta === "sem_dieta" && "Sem dieta",
-                  m.avaliacao === "atrasada" && "Avaliação atrasada",
-                  m.avaliacao === "sem_avaliacao" && "Sem avaliação",
-                ].filter((p): p is string => !!p)
-              : [];
-            return (
-              <button
-                key={a.aluno_id}
-                onClick={() => navigate(`/superadmin/mentoria/aluno/${a.aluno_id}`)}
-                className="rounded-md border border-border p-3 text-left transition-colors hover:bg-muted/50"
+        // O quadro das fases: uma coluna por fase, que rola de lado no celular.
+        <div className="overflow-x-auto pb-2">
+          <div className="grid grid-cols-[repeat(5,minmax(15rem,1fr))] gap-2">
+            {agruparPorFase(visiveis).map((coluna) => (
+              <section
+                key={coluna.fase}
+                aria-label={`Fase ${ROTULO_FASE[coluna.fase]}`}
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  const aluno = visiveis.find((a) => a.aluno_id === e.dataTransfer.getData("text/plain"));
+                  if (aluno && aluno.fase !== coluna.fase) abrirMovimento(aluno, coluna.fase);
+                }}
+                className="rounded-lg border border-border bg-muted/30 p-2 space-y-2 min-h-[8rem]"
               >
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-sm font-semibold truncate">{a.aluno_nome}</span>
-                  {Number(a.nao_lidas) > 0 && <Badge variant="destructive">{a.nao_lidas}</Badge>}
-                </div>
-                <p className="text-[11px] text-muted-foreground truncate">
-                  {a.organizacao_nome} · {ROTULO_PLANO[a.plano as PlanoAluno] ?? a.plano} · {ROTULO_FASE[a.fase] ?? a.fase}
-                </p>
-                <p className="text-[11px] text-muted-foreground mt-0.5">
-                  {a.mentor_nome ? `Mentor: ${a.mentor_nome}` : "Sem mentor"}
-                  {" · "}
-                  {a.dias_inativo == null ? "sem sinal ainda" : `${a.dias_inativo} dia(s) sem sinal`}
-                  {a.constancia != null && ` · constância ${decimal(Number(a.constancia), 0)}%`}
-                </p>
-                {pendencias.length > 0 && (
-                  <p className="mt-1 text-[11px] text-warning">{pendencias.join(" · ")}</p>
-                )}
-                {sinais.length > 0 && (
-                  <div className="mt-1.5 flex flex-wrap gap-1">
-                    {sinais.map((s) => (
-                      <Badge key={s} variant={travaOAluno(s) ? "destructive" : "outline"} className="text-[10px]">
-                        {rotuloAtencao(s)}
-                      </Badge>
-                    ))}
+                <h3 className="text-xs font-semibold px-1 flex justify-between">
+                  {ROTULO_FASE[coluna.fase]} <span className="text-muted-foreground">{coluna.alunos.length}</span>
+                </h3>
+                {coluna.alunos.map((a) => (
+                  <div
+                    key={a.aluno_id}
+                    draggable
+                    onDragStart={(e) => e.dataTransfer.setData("text/plain", a.aluno_id)}
+                    className="space-y-1"
+                  >
+                    {cartao(a)}
+                    <Button size="sm" variant="ghost" className="h-7 w-full text-xs" onClick={() => abrirMovimento(a, a.fase)}>
+                      Mover fase
+                    </Button>
                   </div>
-                )}
-              </button>
-            );
-          })}
+                ))}
+              </section>
+            ))}
+          </div>
         </div>
       )}
+
+      <Dialog open={!!movimento} onOpenChange={(o) => !o && setMovimento(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Mover {movimento?.aluno.aluno_nome} de fase</DialogTitle>
+          </DialogHeader>
+          {movimento && (
+            <div className="space-y-3">
+              <p className="text-sm text-muted-foreground">
+                Hoje em {ROTULO_FASE[movimento.aluno.fase] ?? movimento.aluno.fase}. A passagem manual vale por cima do avanço
+                automático e fica no histórico de fases do aluno, com quem moveu, quando e o motivo.
+              </p>
+              <Select value={movimento.para} onValueChange={(v) => setMovimento({ ...movimento, para: v })}>
+                <SelectTrigger aria-label="Nova fase"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {FASES_EM_ORDEM.map((f) => (
+                    <SelectItem key={f} value={f}>{ROTULO_FASE[f]}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Textarea
+                value={motivo}
+                onChange={(e) => setMotivo(e.target.value)}
+                placeholder="Motivo da mudança (fica no histórico)"
+                aria-label="Motivo da mudança de fase"
+                maxLength={1000}
+              />
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={() => setMovimento(null)}>Cancelar</Button>
+                <Button
+                  disabled={!motivo.trim() || movimento.para === movimento.aluno.fase || mover.isPending}
+                  onClick={() => mover.mutate({ alunoId: movimento.aluno.aluno_id, fase: movimento.para, motivo: motivo.trim() })}
+                >
+                  {mover.isPending ? "Movendo..." : "Mover"}
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
