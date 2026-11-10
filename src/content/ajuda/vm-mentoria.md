@@ -4,7 +4,7 @@
 
 ## Alunos: a carteira
 
-Todos os alunos do Método, de todas as academias. Cada aluno tem um **mentor responsável**, e os filtros separam **Pedem atenção**, **Meus alunos**, **Sem mentor** e **Todos**. A busca procura pelo nome do aluno ou da academia.
+Todos os alunos do Método, de todas as academias. Cada aluno tem um **mentor responsável**, e os filtros separam **Pedem atenção**, **Meus alunos**, **Sem mentor** e **Todos**. A busca procura pelo nome do aluno ou da academia. Três filtros por módulo recortam a carteira, somados aos de cima: **treino** (em dia, vencido ou sem treino), **dieta** (com ou sem) e **avaliação física** (em dia, atrasada ou sem avaliação; atrasada é a data da próxima, marcada na última, que já passou). Cada cartão diz em amarelo o que está pendente, como "Treino vencido · Sem dieta".
 
 Quando um aluno entra no Método, chega um chamado **Novo aluno no Método ARKE** para dar as boas-vindas pelo chat e acompanhar o acolhimento. Quando ele sai, o mentor deixa de ser o responsável, os chamados abertos dele se encerram com o desfecho "saiu do Método", e a academia recebe a tarefa de assumir.
 
@@ -14,11 +14,11 @@ Os sinais em vermelho travam o aluno e vêm primeiro: **acolhimento pendente**, 
 
 Clique num aluno da carteira, ou no nome dele num chamado, para abrir a ficha. Ela tem seis abas:
 
-- **Visão geral**: dias sem sinal e constância, **metas e objetivo** (dias de treino por semana e água por dia), **fase da jornada** (mover, com o motivo) e **liberar a progressão** depois de um relato de dor. Em **Pedir à academia** vai o que só acontece no presencial, como a avaliação física; o pedido cai na fila da academia com prazo. No fim, os chamados abertos do aluno.
+- **Visão geral**: dias sem sinal e constância, **metas e objetivo** (dias de treino por semana e água por dia), **fase da jornada** (mover, com o motivo) e **liberar a progressão** depois de um relato de dor. Em **Pedir à academia** vai o que só acontece no presencial; o pedido cai na fila da academia com prazo. No fim, os chamados abertos do aluno.
 - **Acolhimento**: tudo o que o aluno respondeu no M.A.P.A.®, com dores e lesões em destaque, e o resumo do Sentinela quando o aluno autorizou.
 - **Treino**: o treino ativo e, logo abaixo, a **biblioteca do Método** e a publicação para o aluno, a partir de um modelo ou **do zero**, só para ele. Na publicação aparece a **sugestão de progressão da carga** de cada exercício (pode subir, manter, segurar ou rever a carga), por uma regra fixa e sem inteligência artificial, dos treinos que o aluno anotou nas últimas 3 semanas: séries feitas, esforço, sono, energia e dor. A dor e o cansaço seguram antes de tudo, e subir pede 2 treinos seguidos no topo da faixa, com a mesma carga e esforço até 7. A decisão é do mentor: nada muda no treino até ele publicar uma versão nova, e o aluno não vê a sugestão.
 - **Dieta**: a dieta ativa, a biblioteca do Método e a publicação, inclusive a **importação de PDF**.
-- **Evolução**: check-ins, treinos registrados nas últimas 4 semanas, adesão à dieta e avaliações físicas.
+- **Evolução**: check-ins, treinos registrados nas últimas 4 semanas, adesão à dieta e avaliações físicas. Em **Nova avaliação**, o mentor registra a avaliação pela mentoria, com as mesmas medidas da academia (as métricas personalizadas são da academia e ficam de fora); a academia vê a avaliação na ficha dela.
 - **Conversa**: o chat do aluno com o mentor.
 
 No alto da ficha fica o **mentor responsável**. O sócio define quem é: **Assumir** passa o aluno para ele, e **Passar para...** o entrega a outra pessoa da equipe que **atende como mentor** (o Mentor contratado, ou o sócio com a chave ligada em Equipe ArkeFit). O Mentor contratado vê quem é o responsável, mas não troca.

@@ -76,3 +76,32 @@ export function filtrarCarteira<T extends AlunoCarteira>(
     return normalizar(a.aluno_nome).includes(termo) || normalizar(a.organizacao_nome).includes(termo);
   });
 }
+
+/**
+ * Os filtros da carteira por módulo (reunião de 10/11/2026): treino, dieta e
+ * avaliação física, cada um com quem tem em dia, quem está atrasado e quem não
+ * tem. O treino segue `situacaoDoTreino` (vencido é a validade antes de hoje).
+ * A dieta não tem validade: é com ou sem. A avaliação está atrasada quando a
+ * data da próxima, marcada na última, já passou. Datas como texto, de Brasília.
+ */
+export type SituacaoDieta = "com_dieta" | "sem_dieta";
+export type SituacaoAvaliacao = "em_dia" | "atrasada" | "sem_avaliacao";
+
+export const ROTULO_FILTRO_DIETA: Record<"todos" | SituacaoDieta, string> = {
+  todos: "Todas as dietas",
+  com_dieta: "Com dieta",
+  sem_dieta: "Sem dieta",
+};
+
+export const ROTULO_FILTRO_AVALIACAO: Record<"todos" | SituacaoAvaliacao, string> = {
+  todos: "Todas as avaliações",
+  em_dia: "Avaliação em dia",
+  atrasada: "Avaliação atrasada",
+  sem_avaliacao: "Sem avaliação",
+};
+
+export function situacaoDaAvaliacao(ultima: { data_proxima_avaliacao: string | null } | undefined, hoje: string): SituacaoAvaliacao {
+  if (!ultima) return "sem_avaliacao";
+  if (ultima.data_proxima_avaliacao && ultima.data_proxima_avaliacao < hoje) return "atrasada";
+  return "em_dia";
+}

@@ -345,6 +345,12 @@ export const CHAMADAS_DA_VISAO_MASTER: Record<string, Chamada> = {
   "from:alunos": { area: "mentoria", motivo: TABELA },
   "from:dietas": { area: "mentoria", motivo: TABELA },
   "from:treinos": { area: "mentoria", motivo: TABELA },
+  // A avaliação física do aluno do Método, pela mentoria (20261456010000).
+  "from:avaliacoes_fisicas": { area: "mentoria", motivo: TABELA },
+  // No formulário da avaliação, as métricas personalizadas são da academia:
+  // pela mentoria a consulta fica desligada e a tela as esconde.
+  "from:metricas_customizadas": { area: "mentoria", motivo: "da academia; pela mentoria a consulta fica desligada e a tela esconde" },
+  "from:metrica_valores": { area: "mentoria", motivo: "da academia; pela mentoria a gravação não acontece (sem métricas na tela)" },
   "from:anamnese_acolhimento": { area: "mentoria", motivo: TABELA },
   "from:modelos_treino": { area: "mentoria", motivo: TABELA },
   "from:modelo_treino_exercicios": { area: "mentoria", motivo: TABELA },

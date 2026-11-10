@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { filtrarCarteira, rotuloAtencao, travaOAluno } from "./carteiraMentor";
+import { filtrarCarteira, rotuloAtencao, situacaoDaAvaliacao, travaOAluno } from "./carteiraMentor";
 
 const alunos = [
   { aluno_id: "1", aluno_nome: "Ana Júlia", organizacao_nome: "Academia Horizonte", mentor_id: "m1", atencao: ["mensagem"] },
@@ -43,5 +43,15 @@ describe("sinais de atenção", () => {
   it("separa o que trava o aluno do que só pede atenção", () => {
     expect(travaOAluno("dor")).toBe(true);
     expect(travaOAluno("mensagem")).toBe(false);
+  });
+});
+
+describe("situacaoDaAvaliacao", () => {
+  const hoje = "2026-11-10";
+  it("sem avaliação, em dia e atrasada pela data da próxima", () => {
+    expect(situacaoDaAvaliacao(undefined, hoje)).toBe("sem_avaliacao");
+    expect(situacaoDaAvaliacao({ data_proxima_avaliacao: null }, hoje)).toBe("em_dia");
+    expect(situacaoDaAvaliacao({ data_proxima_avaliacao: "2026-11-10" }, hoje)).toBe("em_dia");
+    expect(situacaoDaAvaliacao({ data_proxima_avaliacao: "2026-11-09" }, hoje)).toBe("atrasada");
   });
 });

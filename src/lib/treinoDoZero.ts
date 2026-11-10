@@ -1,4 +1,4 @@
-import { DIVISOES, paraGravar, type SerieDetalhe } from "@/lib/seriesTreino";
+import { DIVISOES, paraGravar, seriesDoExercicio, type SerieDetalhe } from "@/lib/seriesTreino";
 
 /**
  * O treino montado do zero, sem modelo da biblioteca (09/10/2026).
@@ -70,4 +70,30 @@ export function problemaDoTreinoDoZero(itens: ItemDoZero[]): string | null {
   if (itens.some((i) => i.series_lista.some((s) => !s.reps.trim()))) return "Preencha as repetições de todas as séries.";
   if (itens.some((i) => i.series_lista.some((s) => s.descanso_seg > 3600))) return "O descanso vai até 1 hora (3600 s).";
   return null;
+}
+
+/**
+ * O treino publicado de volta para o editor, para editar (10/11/2026). O
+ * publicado não muda: a edição publica uma versão nova, e a anterior fica
+ * inativa no histórico. O item sem `exercicio_id` (treino antigo, de modelo)
+ * entra com ele vazio, e a tela pede a troca pelo exercício do acervo.
+ */
+export function itensDoSnapshot(snapshot: unknown): ItemDoZero[] {
+  if (!Array.isArray(snapshot)) return [];
+  return snapshot
+    .filter((x): x is Record<string, unknown> => !!x && typeof x === "object")
+    .map((x, i) => ({
+      chave: i + 1,
+      exercicio_id: typeof x.exercicio_id === "string" ? x.exercicio_id : "",
+      nome_exercicio: typeof x.nome_exercicio === "string" ? x.nome_exercicio : "",
+      divisao: typeof x.divisao === "string" && x.divisao ? x.divisao : "A",
+      series_lista: seriesDoExercicio({
+        series: typeof x.series === "number" ? x.series : Number(x.series) || 1,
+        repeticoes: typeof x.repeticoes === "string" ? x.repeticoes : String(x.repeticoes ?? ""),
+        descanso_seg: typeof x.descanso_seg === "number" ? x.descanso_seg : Number(x.descanso_seg) || 0,
+        series_detalhe: x.series_detalhe,
+      }),
+      descricao_execucao: typeof x.descricao_execucao === "string" ? x.descricao_execucao : "",
+      observacoes: typeof x.observacoes === "string" ? x.observacoes : "",
+    }));
 }

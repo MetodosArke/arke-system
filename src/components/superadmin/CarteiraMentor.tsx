@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -8,8 +8,23 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Search, Users } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { porLotes } from "@/lib/paginar";
+import { hojeBrasilia } from "@/lib/dataBrasilia";
+import { ROTULO_FILTRO_TREINO, situacaoDoTreino, type FiltroTreino } from "@/lib/situacaoTreino";
 import { ROTULO_PLANO, type PlanoAluno } from "@/lib/planoAluno";
-import { filtrarCarteira, ROTULO_FASE, rotuloAtencao, travaOAluno, type FiltroCarteira } from "@/lib/carteiraMentor";
+import {
+  filtrarCarteira,
+  ROTULO_FASE,
+  ROTULO_FILTRO_AVALIACAO,
+  ROTULO_FILTRO_DIETA,
+  rotuloAtencao,
+  situacaoDaAvaliacao,
+  travaOAluno,
+  type FiltroCarteira,
+  type SituacaoAvaliacao,
+  type SituacaoDieta,
+} from "@/lib/carteiraMentor";
 import { decimal } from "@/lib/numeros";
 
 type AlunoDaCarteira = {
@@ -45,6 +60,9 @@ export function CarteiraMentor() {
   const { user } = useAuth();
   const [filtro, setFiltro] = useState<FiltroCarteira>("atencao");
   const [busca, setBusca] = useState("");
+  const [filtroTreino, setFiltroTreino] = useState<FiltroTreino>("todos");
+  const [filtroDieta, setFiltroDieta] = useState<"todos" | SituacaoDieta>("todos");
+  const [filtroAvaliacao, setFiltroAvaliacao] = useState<"todos" | SituacaoAvaliacao>("todos");
 
   const { data: carteira = [], isLoading, error } = useQuery({
     // A carteira responde por quem pergunta (o papel na equipe da ArkeFit).
@@ -57,7 +75,42 @@ export function CarteiraMentor() {
     refetchInterval: 60_000,
   });
 
-  const visiveis = filtrarCarteira(carteira, filtro, user?.id ?? null, busca);
+  // Treino, dieta e avaliação de cada aluno, para os filtros por módulo: o
+  // ativo mais recente e a última avaliação. A mentoria lê os três pelo RLS
+  // (equipe_metodo e aluno no Método).
+  const ids = useMemo(() => carteira.map((a) => a.aluno_id).sort(), [carteira]);
+  const { data: modulos, error: erroModulos } = useQuery({
+    queryKey: ["carteira-mentor-modulos", ids],
+    queryFn: async () => {
+      const [treinos, dietas, avaliacoes] = await Promise.all([
+        porLotes(ids, (lote) => supabase.from("treinos").select("aluno_id, validade_fim, created_at").eq("status", "ativo").in("aluno_id", lote)),
+        porLotes(ids, (lote) => supabase.from("dietas").select("aluno_id").eq("status", "ativo").in("aluno_id", lote)),
+        porLotes(ids, (lote) => supabase.from("avaliacoes_fisicas").select("aluno_id, data_avaliacao, data_proxima_avaliacao").in("aluno_id", lote)),
+      ]);
+      const treino = new Map<string, { validade_fim: string | null }>();
+      for (const t of [...treinos].sort((a, b) => a.created_at.localeCompare(b.created_at))) treino.set(t.aluno_id, t);
+      const avaliacao = new Map<string, { data_proxima_avaliacao: string | null }>();
+      for (const v of [...avaliacoes].sort((a, b) => a.data_avaliacao.localeCompare(b.data_avaliacao))) avaliacao.set(v.aluno_id, v);
+      return { treino, dieta: new Set(dietas.map((d) => d.aluno_id)), avaliacao };
+    },
+    enabled: ids.length > 0,
+  });
+  const hoje = hojeBrasilia();
+  const situacoes = (alunoId: string) => ({
+    treino: situacaoDoTreino(modulos?.treino.get(alunoId), hoje),
+    dieta: (modulos?.dieta.has(alunoId) ? "com_dieta" : "sem_dieta") as SituacaoDieta,
+    avaliacao: situacaoDaAvaliacao(modulos?.avaliacao.get(alunoId), hoje),
+  });
+  const filtrandoModulos = filtroTreino !== "todos" || filtroDieta !== "todos" || filtroAvaliacao !== "todos";
+  const visiveis = filtrarCarteira(carteira, filtro, user?.id ?? null, busca).filter((a) => {
+    if (!filtrandoModulos || !modulos) return true;
+    const m = situacoes(a.aluno_id);
+    return (
+      (filtroTreino === "todos" || m.treino === filtroTreino) &&
+      (filtroDieta === "todos" || m.dieta === filtroDieta) &&
+      (filtroAvaliacao === "todos" || m.avaliacao === filtroAvaliacao)
+    );
+  });
   const contagem = (f: FiltroCarteira) => filtrarCarteira(carteira, f, user?.id ?? null).length;
 
   return (
@@ -86,6 +139,39 @@ export function CarteiraMentor() {
         </div>
       </div>
 
+      <div className="flex flex-wrap items-center gap-2">
+        <Select value={filtroTreino} onValueChange={(v) => setFiltroTreino(v as FiltroTreino)}>
+          <SelectTrigger className="w-48" aria-label="Filtrar por treino"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            {(Object.keys(ROTULO_FILTRO_TREINO) as FiltroTreino[]).map((f) => (
+              <SelectItem key={f} value={f}>{ROTULO_FILTRO_TREINO[f]}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select value={filtroDieta} onValueChange={(v) => setFiltroDieta(v as "todos" | SituacaoDieta)}>
+          <SelectTrigger className="w-44" aria-label="Filtrar por dieta"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            {(Object.keys(ROTULO_FILTRO_DIETA) as ("todos" | SituacaoDieta)[]).map((f) => (
+              <SelectItem key={f} value={f}>{ROTULO_FILTRO_DIETA[f]}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select value={filtroAvaliacao} onValueChange={(v) => setFiltroAvaliacao(v as "todos" | SituacaoAvaliacao)}>
+          <SelectTrigger className="w-52" aria-label="Filtrar por avaliação física"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            {(Object.keys(ROTULO_FILTRO_AVALIACAO) as ("todos" | SituacaoAvaliacao)[]).map((f) => (
+              <SelectItem key={f} value={f}>{ROTULO_FILTRO_AVALIACAO[f]}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      {erroModulos && (
+        <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+          Não foi possível carregar o treino, a dieta e a avaliação dos alunos: os filtros por módulo estão sem efeito.
+        </div>
+      )}
+
       {error && (
         <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
           Não foi possível carregar a carteira: {(error as Error).message}
@@ -112,6 +198,16 @@ export function CarteiraMentor() {
         <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
           {visiveis.map((a) => {
             const sinais = a.atencao ?? [];
+            const m = modulos ? situacoes(a.aluno_id) : null;
+            const pendencias = m
+              ? [
+                  m.treino === "vencido" && "Treino vencido",
+                  m.treino === "sem_treino" && "Sem treino",
+                  m.dieta === "sem_dieta" && "Sem dieta",
+                  m.avaliacao === "atrasada" && "Avaliação atrasada",
+                  m.avaliacao === "sem_avaliacao" && "Sem avaliação",
+                ].filter((p): p is string => !!p)
+              : [];
             return (
               <button
                 key={a.aluno_id}
@@ -131,6 +227,9 @@ export function CarteiraMentor() {
                   {a.dias_inativo == null ? "sem sinal ainda" : `${a.dias_inativo} dia(s) sem sinal`}
                   {a.constancia != null && ` · constância ${decimal(Number(a.constancia), 0)}%`}
                 </p>
+                {pendencias.length > 0 && (
+                  <p className="mt-1 text-[11px] text-warning">{pendencias.join(" · ")}</p>
+                )}
                 {sinais.length > 0 && (
                   <div className="mt-1.5 flex flex-wrap gap-1">
                     {sinais.map((s) => (

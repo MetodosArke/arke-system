@@ -28,6 +28,12 @@ interface Props {
   onOpenChange: (open: boolean) => void;
   alunoId: string | null;
   alunoNome?: string;
+  /**
+   * A academia do aluno, quando quem avalia não está nela: o mentor da ArkeFit,
+   * pela Visão Master (10/11/2026). Ali as métricas personalizadas, que são da
+   * academia, ficam de fora.
+   */
+  organizationId?: string;
 }
 
 type Campo =
@@ -169,8 +175,10 @@ function MetaField({
   );
 }
 
-export function AvaliacaoFisicaDialog({ open, onOpenChange, alunoId, alunoNome }: Props) {
-  const { organization, user } = useAuth();
+export function AvaliacaoFisicaDialog({ open, onOpenChange, alunoId, alunoNome, organizationId }: Props) {
+  const { organization: organizacaoDaSessao, user } = useAuth();
+  const pelaMentoria = !!organizationId;
+  const organization = organizationId ? { id: organizationId } : organizacaoDaSessao;
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [form, setForm] = useState<Record<Campo, string>>(FORM_INICIAL);
@@ -218,7 +226,7 @@ export function AvaliacaoFisicaDialog({ open, onOpenChange, alunoId, alunoNome }
       if (error) throw error;
       return data as MetricaCustomizada[];
     },
-    enabled: open && !!alunoId,
+    enabled: open && !!alunoId && !pelaMentoria,
   });
 
   const ultimaAvaliacao = historico[0] ?? null;
@@ -512,6 +520,7 @@ export function AvaliacaoFisicaDialog({ open, onOpenChange, alunoId, alunoNome }
 
             <Separator />
 
+            {!pelaMentoria && (
             <div className="space-y-2">
               <p className="text-xs font-semibold text-muted-foreground">Métricas Personalizadas</p>
               {metricas.length > 0 && (
@@ -550,6 +559,7 @@ export function AvaliacaoFisicaDialog({ open, onOpenChange, alunoId, alunoNome }
                 </Button>
               </div>
             </div>
+            )}
 
             <div className="space-y-2">
               <Label htmlFor="avf-dores" className="text-xs">

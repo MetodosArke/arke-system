@@ -1,5 +1,7 @@
 A avaliação física registra as medidas do aluno ao longo do tempo. Abra pelo botão **Avaliação Física** na linha do aluno, em [Alunos & Prescrições](/admin/alunos), ou pelo atalho **Nova Avaliação** na Home do professor.
 
+No aluno do Método ARKE, a avaliação também pode ser feita pela mentoria da ArkeFit, sem depender da academia. A academia continua lançando e vendo todas, porque o aluno treina nela.
+
 ## O que se registra
 
 - **Antropometria**: peso, altura e percentual de gordura. O IMC é calculado.
