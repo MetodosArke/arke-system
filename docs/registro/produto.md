@@ -728,3 +728,10 @@ Da reunião de 10/11, os cinco itens pequenos. Os lotes 2 a 4 (editar treino, av
 - `npx vitest run` nos 13 arquivos que tocam o que mudou (a regra nova, o aviso de mensagem, as chaves de cache, o estado vazio, a paginação, as datas, a acessibilidade, as colunas, as migrations, os planos do site, a caixa de mensagens, a Próxima Ação e a Central): 72 testes passando. A suíte inteira roda no CI.
 - **O defeito plantado:** `<=` no lugar de `<` na validade fez falhar 1 dos 3 testes de `situacaoDoTreino`; desfeito.
 - `npm run ajuda:indice` regerou o índice (artigos `fila-de-atendimento`, `mensagens`, `cadastrar-aluno` e `app-tela-inicial`).
+
+**No ar (10/11/2026):** #429 com os três jobs verdes; a migration `20261455010000` aplicada (o site lê `implantacao = 350`); `assistente-academia` publicado; o deploy de produção da Vercel com sucesso.
+
+**A tela, na Ponto Alto** (no computador e no celular; as duas mensagens de treino ao Pedro ficam como histórico da demonstração):
+- **O histórico da fila:** 57 tarefas encerradas nos últimos 30 dias; o detalhe da dor do Pedro mostra o tipo, a prioridade, a abertura, o prazo, o encerramento e o desfecho. O rótulo "Concluídas e canceladas" saía cortado no filtro: a caixa passou de 200 para 230 px.
+- **O filtro de treino** recorta a lista (60 com o treino vencido e 13 sem treino, entre os 100 na tela), e o cabeçalho fica parado no alto da caixa depois de rolar 600 px (distância 0).
+- **O sinal de mensagem:** no celular da gestora, o botão do menu diz "Abrir menu, 9 mensagens não lidas". No app do Pedro, com uma mensagem do treinador, o menu do computador mostra **1** em Treino, ao lado da Próxima Ação "Nova mensagem do seu treinador", e o botão do menu do celular diz "há mensagem nova". Aberta a tela de treino, o sinal some (0). Na primeira tentativa no celular, a conferência foi feita antes de a home terminar de carregar e não viu o sinal; esperando o carregamento, ele estava lá.
