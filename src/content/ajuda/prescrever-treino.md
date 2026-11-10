@@ -52,6 +52,8 @@ Cada exercício vem do acervo, para o aluno ver o GIF. Se o exercício ainda nã
 
 Ao publicar, o ARKE guarda uma cópia travada da ficha. Mudar o modelo ou um exercício do acervo depois **não altera** o que o aluno está fazendo. Para mudar a ficha dele, publique uma versão nova: o **Histórico de versões** guarda todas.
 
+Para ajustar o treino que o aluno já está fazendo, use **Editar** na linha do treino ativo, no **Histórico de versões**. O treino abre no editor de **Começar do zero**, com os exercícios, as séries, o título e a validade; mude o que precisar e publique. A versão nova vai para o aluno, e a anterior fica no histórico como **Inativa**, sem mudar. Treino antigo, publicado de um modelo antes do acervo, pode pedir que cada exercício seja escolhido de novo no acervo. Para desistir, toque em **Cancelar edição**.
+
 ## Imprimir
 
 Na ficha do aluno há a opção de imprimir o treino, por divisão e por série, na impressora de recibo da recepção.

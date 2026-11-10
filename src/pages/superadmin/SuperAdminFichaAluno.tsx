@@ -25,6 +25,7 @@ import { formatarDataBR } from "@/lib/dataBrasilia";
 import { decimal } from "@/lib/numeros";
 import type { Enums } from "@/integrations/supabase/types";
 import { useAcessoArkefit } from "@/hooks/useAcessoArkefit";
+import { AvaliacaoFisicaDialog } from "@/components/admin/AvaliacaoFisicaDialog";
 
 type ExercicioSnapshot = { ordem: number; divisao?: string; nome_exercicio: string; series: number; repeticoes: string; descanso_seg: number };
 type RefeicaoSnapshot = { ordem: number; nome_refeicao: string; horario_sugerido: string | null; itens: string | null };
@@ -116,6 +117,7 @@ export default function SuperAdminFichaAluno() {
   const { alunoId } = useParams<{ alunoId: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const [avaliacaoAberta, setAvaliacaoAberta] = useState(false);
 
   const { data: ficha, isLoading, error } = useQuery({
     queryKey: ["ficha-mentor", alunoId],
@@ -424,12 +426,17 @@ export default function SuperAdminFichaAluno() {
 
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-base">Avaliações físicas</CardTitle>
+              <div className="flex items-center justify-between gap-2">
+                <CardTitle className="text-base">Avaliações físicas</CardTitle>
+                <Button size="sm" variant="outline" onClick={() => setAvaliacaoAberta(true)}>
+                  Nova avaliação
+                </Button>
+              </div>
             </CardHeader>
             <CardContent>
               {ficha.avaliacoes.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
-                  Nenhuma avaliação registrada. Peça à academia em Visão geral → Pedir à academia.
+                  Nenhuma avaliação registrada. Faça pela mentoria, em Nova avaliação, ou peça à academia em Visão geral → Pedir à academia.
                 </p>
               ) : (
                 <ul className="space-y-1">
@@ -447,6 +454,18 @@ export default function SuperAdminFichaAluno() {
             </CardContent>
           </Card>
         </TabsContent>
+
+        {/* A avaliação do aluno do Método, feita pela mentoria; a academia continua vendo. */}
+        <AvaliacaoFisicaDialog
+          open={avaliacaoAberta}
+          onOpenChange={(aberto) => {
+            setAvaliacaoAberta(aberto);
+            if (!aberto) recarregar();
+          }}
+          alunoId={aluno.id}
+          alunoNome={aluno.nome}
+          organizationId={aluno.organization_id}
+        />
 
         <TabsContent value="conversa" className="mt-3">
           <Card className="min-h-[24rem]">

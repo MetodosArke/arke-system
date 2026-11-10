@@ -15,7 +15,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { Plus, Trash2, FolderOpen, UserRound } from "lucide-react";
+import { Plus, Trash2, FolderOpen, UserRound, Pencil } from "lucide-react";
+import { exigirGravacao } from "@/lib/gravacao";
 import { useToast } from "@/hooks/use-toast";
 import { AcervoPainel } from "@/components/admin/AcervoPainel";
 import { SeletorExercicio } from "@/components/acervo/SeletorExercicio";
@@ -29,7 +30,7 @@ import { ErroAoCarregar } from "@/components/ErroAoCarregar";
 import { bibliotecaDoEscopo, exercicioDoEscopo, type EscopoPrescricao } from "@/components/prescricao/escopo";
 import { TreinoDoZero } from "@/components/prescricao/TreinoDoZero";
 import { SugestaoProgressao } from "@/components/prescricao/SugestaoProgressao";
-import { itensParaPublicar, problemaDoTreinoDoZero, type ItemDoZero } from "@/lib/treinoDoZero";
+import { itensDoSnapshot, itensParaPublicar, problemaDoTreinoDoZero, type ItemDoZero } from "@/lib/treinoDoZero";
 
 const SERIES_PADRAO: SerieDetalhe[] = Array.from({ length: 3 }, () => ({ reps: "12", descanso_seg: 60, tecnica: null }));
 
@@ -172,6 +173,9 @@ export function PrescricaoTreino({
   // só para este aluno (09/10/2026).
   const [origem, setOrigem] = useState<"modelo" | "zero">("modelo");
   const [itensDoZero, setItensDoZero] = useState<ItemDoZero[]>([]);
+  // Editar o treino já publicado (10/11/2026): o conteúdo vai para o editor do
+  // zero, e publicar gera uma versão nova; a anterior fica inativa no histórico.
+  const [editando, setEditando] = useState<{ id: string; titulo: string } | null>(null);
 
   // O treino do zero só existe na tela até ser publicado: uma lista inteira
   // de exercícios é a digitação cara que o rascunho protege. A chave é a do
@@ -381,7 +385,7 @@ export function PrescricaoTreino({
 
   const publicar = useMutation({
     mutationFn: async (
-      dados: { aluno: string; titulo: string; validadeFim: string } & (
+      dados: { aluno: string; titulo: string; validadeFim: string; substitui?: string } & (
         | { origem: "modelo"; modelo: string }
         | { origem: "zero"; itens: ItemDoZero[] }
       )
@@ -397,6 +401,10 @@ export function PrescricaoTreino({
           _validade_fim: dados.validadeFim || undefined,
         });
         if (error) throw error;
+        // ponytail: duas chamadas, não uma transação. Se esta falhar, ficam dois ativos e o app abre o mais recente, que é o novo.
+        if (dados.substitui) {
+          await exigirGravacao(supabase.from("treinos").update({ status: "inativo" }).eq("id", dados.substitui).select("id"));
+        }
         return;
       }
       if (!dados.aluno || !dados.modelo || !dados.titulo) throw new Error("Preencha aluno, modelo e título");
@@ -409,7 +417,13 @@ export function PrescricaoTreino({
       if (error) throw error;
     },
     onSuccess: (_, dados) => {
-      toast({ title: "Treino publicado!", description: "O snapshot foi congelado e já está disponível para o aluno." });
+      toast({
+        title: dados.substitui ? "Treino atualizado!" : "Treino publicado!",
+        description: dados.substitui
+          ? "A versão nova já está com o aluno; a anterior ficou no histórico, como inativa."
+          : "O snapshot foi congelado e já está disponível para o aluno.",
+      });
+      setEditando(null);
       setTituloPublicar("");
       setValidadeFim("");
       if (dados.origem === "zero") {
@@ -431,9 +445,34 @@ export function PrescricaoTreino({
   const publicarAgora = () =>
     publicar.mutate(
       origem === "zero"
-        ? { origem, aluno: alunoPublicar, itens: itensDoZero, titulo: tituloPublicar, validadeFim }
+        ? { origem, aluno: alunoPublicar, itens: itensDoZero, titulo: tituloPublicar, validadeFim, substitui: editando?.id }
         : { origem, aluno: alunoPublicar, modelo: modeloPublicar, titulo: tituloPublicar, validadeFim }
     );
+
+  const editarTreino = async (id: string) => {
+    const { data, error } = await supabase
+      .from("treinos")
+      .select("id, titulo, validade_fim, snapshot_conteudo")
+      .eq("id", id)
+      .single();
+    if (error) {
+      toast({ title: "Não foi possível abrir o treino", description: error.message, variant: "destructive" });
+      return;
+    }
+    setOrigem("zero");
+    setItensDoZero(itensDoSnapshot(data.snapshot_conteudo));
+    setTituloPublicar(data.titulo);
+    setValidadeFim(data.validade_fim ?? "");
+    setEditando({ id: data.id, titulo: data.titulo });
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const cancelarEdicao = () => {
+    setEditando(null);
+    setItensDoZero([]);
+    setTituloPublicar("");
+    setValidadeFim("");
+  };
 
   return (
     <div className="space-y-4">
@@ -658,6 +697,16 @@ export function PrescricaoTreino({
               </div>
               {/* A sugestão de progressão do aluno escolhido: só lê, e a decisão é de quem publica logo abaixo. */}
               {alunoPublicar && <SugestaoProgressao alunoId={alunoPublicar} escopo={escopo.tipo} />}
+              {editando && (
+                <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-primary/40 bg-primary/5 p-3" role="status">
+                  <p className="text-xs">
+                    Editando <b>{editando.titulo}</b>. Ao publicar, a versão nova vai para o aluno e esta fica no histórico, como inativa.
+                  </p>
+                  <Button size="sm" variant="ghost" onClick={cancelarEdicao}>
+                    Cancelar edição
+                  </Button>
+                </div>
+              )}
               <div className="space-y-1.5">
                 <Label>Como montar o treino</Label>
                 <div className="flex flex-wrap gap-2" role="group" aria-label="Como montar o treino">
@@ -814,8 +863,8 @@ export function PrescricaoTreino({
               <CardHeader className="pb-2">
                 <CardTitle className="text-base">Histórico de versões</CardTitle>
                 <p className="text-xs text-muted-foreground">
-                  Cada publicação gera uma versão travada (snapshot imutável) — o histórico abaixo é só
-                  para consulta e rastreabilidade; versões antigas não podem ser editadas.
+                  Cada publicação gera uma versão travada (snapshot imutável). Para mudar o treino ativo, use
+                  Editar: ele abre no editor e, ao publicar, vira uma versão nova; a anterior fica aqui, como inativa.
                 </p>
               </CardHeader>
               <CardContent>
@@ -836,6 +885,7 @@ export function PrescricaoTreino({
                         <TableHead>Publicado em</TableHead>
                         <TableHead>Validade</TableHead>
                         <TableHead>Versão</TableHead>
+                        <TableHead><span className="sr-only">Ações</span></TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -859,6 +909,14 @@ export function PrescricaoTreino({
                           </TableCell>
                           <TableCell className="font-mono text-xs text-muted-foreground">
                             {h.versao_id.slice(0, 8)}
+                          </TableCell>
+                          <TableCell>
+                            {h.status === "ativo" && (
+                              <Button size="sm" variant="outline" onClick={() => void editarTreino(h.id)} aria-label={`Editar o treino ${h.titulo}`}>
+                                <Pencil className="h-3.5 w-3.5 mr-1" />
+                                Editar
+                              </Button>
+                            )}
                           </TableCell>
                         </TableRow>
                       ))}

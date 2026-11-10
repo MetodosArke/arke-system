@@ -19,7 +19,8 @@ O app só oferece o Método quando a academia de fato vende: com o preço defini
 Quando o aluno entra no Método, o acompanhamento dele passa para a **ArkeFit**:
 
 - **com o mentor da ArkeFit**: treino, dieta, anamnese, metas e fases da jornada. Treino é prescrito por profissional com CREF e dieta por profissional com CRN;
-- **com a academia**: cadastro e dados pessoais, matrícula e mensalidade, catraca e biometria, atestado e PAR-Q, e a avaliação física quando o mentor pedir.
+- **com a academia**: cadastro e dados pessoais, matrícula e mensalidade, catraca e biometria, atestado e PAR-Q;
+- **com os dois**: a avaliação física. O mentor da ArkeFit pode fazer pela mentoria, a academia continua lançando quando ele pedir ou quando fizer no salão, e as duas veem todas.
 
 A equipe da academia continua **vendo o treino** do aluno do Método, porque é ela quem orienta no salão, mas não o altera. A dieta e a anamnese ficam só com a ArkeFit. Na ficha do aluno, o aviso **Acompanhado pelo mentor da ArkeFit** mostra isso, e nas telas de treino e dieta ele aparece desabilitado.
 
