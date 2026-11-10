@@ -751,3 +751,9 @@ Da reunião de 10/11, os cinco itens pequenos. Os lotes 2 a 4 (editar treino, av
 - `npx vitest run` nos 15 arquivos que tocam o que mudou (a conversão do treino, a carteira, a situação do treino, as guardas de acesso do painel e da Visão Master, das chaves, do estado vazio, da paginação, das colunas, das migrations, das datas e da acessibilidade, a Central e a prescrição): 119 testes passando, depois de a guarda da Visão Master pegar o mapa.
 - **O defeito plantado:** a divisão padrão "B" no lugar de "A" fez falhar 1 dos 9 testes da conversão; desfeito.
 - `npm run ajuda:indice` regerou o índice (`prescrever-treino`, `avaliacao-fisica`, `metodo-arke-academia`, `vm-mentoria`).
+
+**No ar (10/11/2026):** #431 com os três jobs verdes; a migration `20261456010000` aplicada (a inclusão e a alteração da avaliação com `equipe_metodo()`); `assistente-academia` publicado; o deploy de produção da Vercel com sucesso. O merge, a migration e a publicação foram um passo por vez, depois de a checagem automática barrar os três juntos num comando só.
+
+**A tela, na Ponto Alto** (no computador e no celular): a gestora abriu **Editar** no "Treino do zero — Marina"; o editor veio com os 4 exercícios e o título, e o aviso da edição apareceu. Publicada com o título "(ajustado)", o aviso foi "Treino atualizado!", e no banco a versão nova ficou ativa, com os mesmos 4 exercícios, e a anterior, inativa. A versão nova fica como histórico da demonstração. A "Adaptação A — Marina", de 05/10, continua ativa, de antes, quando cada publicação deixava a anterior ativa.
+
+**Sem prova de tela:** a **Nova avaliação** na ficha e os filtros da carteira, que são da Visão Master e pedem a conta da ArkeFit com as duas etapas. A regra da avaliação pela mentoria está provada no banco, acima.
