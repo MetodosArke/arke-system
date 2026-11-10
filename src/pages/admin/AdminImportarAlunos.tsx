@@ -711,7 +711,7 @@ export default function AdminImportarAlunos() {
             )}
           </CardHeader>
           <CardContent>
-            <Table>
+            <Table cabecalhoFixo>
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-12">#</TableHead>

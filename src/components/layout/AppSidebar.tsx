@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { MarcaArkeFit } from "@/components/marca/MarcaArkeFit";
 import { ComTecnologiaArkeFit, LogoAcademia, useMarcaAcademia } from "@/components/marca/MarcaAcademia";
+import { naoLidasDoMenu, useMensagensNaoLidasAluno } from "@/hooks/useMensagensNaoLidasAluno";
 
 // A Jornada (objetivos, valores, meta pessoal e rotina) é do Método ARKE:
 // decisão comercial do responsável, 28/09/2026. No Free ela sai do menu.
@@ -47,6 +48,8 @@ function SidebarNav({
   const marca = useMarcaAcademia();
   const isAdminArke = hasRole("admin_arke");
   const menuItems = buildMenuItems(organization?.tipo === "studio", planoAluno !== "free");
+  const { data: naoLidas } = useMensagensNaoLidasAluno();
+  const sinal = naoLidasDoMenu(naoLidas);
 
   const handleNav = (path: string) => {
     navigate(path);
@@ -96,8 +99,21 @@ function SidebarNav({
                   : "text-muted-foreground hover:bg-muted hover:text-foreground"
               )}
             >
-              <item.icon className="h-5 w-5 shrink-0" />
-              {!collapsed && <span>{item.label}</span>}
+              <span className="relative shrink-0">
+                <item.icon className="h-5 w-5" />
+                {collapsed && (sinal[item.path] ?? 0) > 0 && (
+                  <span className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-destructive" aria-hidden />
+                )}
+              </span>
+              {!collapsed && <span className="flex-1 text-left">{item.label}</span>}
+              {!collapsed && (sinal[item.path] ?? 0) > 0 && (
+                <span
+                  className="rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold px-1.5 min-w-[1.25rem] text-center"
+                  aria-label={`${sinal[item.path]} mensagens não lidas`}
+                >
+                  {sinal[item.path] > 99 ? "99+" : sinal[item.path]}
+                </span>
+              )}
             </button>
           );
         })}
@@ -145,12 +161,16 @@ export function AppSidebarDesktop() {
 
 export function AppSidebarMobile() {
   const [open, setOpen] = useState(false);
+  // No celular o menu fica fechado: o sinal vai no botão que o abre.
+  const { data: n } = useMensagensNaoLidasAluno();
+  const temNova = !!n && n.mentor + n.treino + n.dieta > 0;
 
   return (
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger asChild>
-        <Button aria-label="Abrir o menu" variant="ghost" size="icon" className="md:hidden h-9 w-9 shrink-0">
+        <Button aria-label={temNova ? "Abrir o menu, há mensagem nova" : "Abrir o menu"} variant="ghost" size="icon" className="md:hidden h-9 w-9 shrink-0 relative">
           <Menu className="h-5 w-5" />
+          {temNova && <span className="absolute top-1.5 right-1.5 h-2.5 w-2.5 rounded-full bg-destructive" aria-hidden />}
         </Button>
       </SheetTrigger>
       <SheetContent side="left" className="p-0 w-72 flex flex-col">

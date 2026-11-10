@@ -30,6 +30,7 @@ import { PesquisaSatisfacao } from "@/components/aluno/PesquisaSatisfacao";
 import { PrestadorPagamentos } from "@/components/pagamento/PrestadorPagamentos";
 import { CHAVE_CHECKIN_PENDENTE } from "@/lib/checkin";
 import { canalDaMensagemNova, definirProximaAcao } from "@/lib/proximaAcao";
+import { useMensagensNaoLidasAluno } from "@/hooks/useMensagensNaoLidasAluno";
 import { atalhoDeConversa, destinoDoEvento, TITULO_DO_EVENTO, type DestinoNoApp } from "@/lib/eventoAcompanhamento";
 import type { Enums } from "@/integrations/supabase/types";
 import { dataBrasilia, diaBrasilia, hojeBrasilia, formatarDataBR } from "@/lib/dataBrasilia";
@@ -194,58 +195,9 @@ export default function AlunoDashboard() {
   });
 
   // Mensagem da equipe ou do mentor que o aluno ainda não leu: vira a Próxima
-  // Ação (proximaAcao.ts). A nutrição conta só a conversa da dieta mais
-  // recente, a mesma que o chat abre e marca como lida; as das dietas antigas
-  // ficariam "não lidas" para sempre. Relida a cada minuto com a home aberta.
-  const { data: mensagemNova } = useQuery({
-    queryKey: ["aluno-mensagem-nova", alunoId],
-    queryFn: async () => {
-      const contar = async (q: PromiseLike<{ count: number | null; error: unknown }>) => {
-        const { count, error } = await q;
-        if (error) throw error;
-        return count ?? 0;
-      };
-      const { data: dietas, error: erroDieta } = await supabase
-        .from("dietas")
-        .select("id")
-        .eq("aluno_id", alunoId!)
-        .order("created_at", { ascending: false })
-        .limit(1);
-      if (erroDieta) throw erroDieta;
-      const dietaId = dietas?.[0]?.id;
-      const [mentor, treino, dieta] = await Promise.all([
-        contar(
-          supabase
-            .from("mensagens_mentor")
-            .select("id", { count: "exact", head: true })
-            .eq("aluno_id", alunoId!)
-            .eq("remetente_tipo", "mentor")
-            .eq("lida", false),
-        ),
-        contar(
-          supabase
-            .from("mensagens_treino")
-            .select("id", { count: "exact", head: true })
-            .eq("aluno_id", alunoId!)
-            .eq("remetente_tipo", "treinador")
-            .eq("lida", false),
-        ),
-        dietaId
-          ? contar(
-              supabase
-                .from("mensagens_dieta")
-                .select("id", { count: "exact", head: true })
-                .eq("dieta_id", dietaId)
-                .eq("remetente_tipo", "nutricionista")
-                .eq("lida", false),
-            )
-          : 0,
-      ]);
-      return canalDaMensagemNova({ mentor, treino, dieta });
-    },
-    enabled: !!alunoId,
-    refetchInterval: 60_000,
-  });
+  // Ação (proximaAcao.ts). A mesma consulta acende o sinal do menu.
+  const { data: naoLidas } = useMensagensNaoLidasAluno();
+  const mensagemNova = naoLidas ? canalDaMensagemNova(naoLidas) : undefined;
 
   // A mensalidade da academia vencida e em aberto, a mais antiga: vira a
   // Próxima Ação com o botão da fatura. É para onde o aviso no celular do D+1

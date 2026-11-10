@@ -20,7 +20,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
-import { formatarDataBR } from "@/lib/dataBrasilia";
+import { diaBrasilia, formatarDataBR } from "@/lib/dataBrasilia";
 import { Input } from "@/components/ui/input";
 import {
   ClipboardList,
@@ -213,7 +213,7 @@ export default function AdminDashboard() {
   const [dataAgendadaInput, setDataAgendadaInput] = useState("");
   const [filtroPrioridade, setFiltroPrioridade] = useState<Prioridade | "todas">("todas");
   const [filtroStatus, setFiltroStatus] = useState<Status | "todas">("todas");
-  const [escopo, setEscopo] = useState<"minha" | "organizacao">("minha");
+  const [escopo, setEscopo] = useState<"minha" | "organizacao" | "historico">("minha");
   const [anamneseAlunoId, setAnamneseAlunoId] = useState<string | null>(null);
   const [conversa, setConversa] = useState<ConversaDaFila | null>(null);
   const academiaTemNutri = useNutricionistaDaAcademia(organization?.id);
@@ -386,13 +386,18 @@ export default function AdminDashboard() {
         <h1 className="text-xl font-bold">Minha Fila</h1>
       </div>
 
-      <Tabs value={escopo} onValueChange={(v) => setEscopo(v as "minha" | "organizacao")}>
-        <TabsList>
+      <Tabs value={escopo} onValueChange={(v) => setEscopo(v as "minha" | "organizacao" | "historico")}>
+        <TabsList className="h-auto flex-wrap">
           <TabsTrigger value="minha">Minha Fila</TabsTrigger>
           <TabsTrigger value="organizacao">Fila da Organização</TabsTrigger>
+          <TabsTrigger value="historico">Histórico</TabsTrigger>
         </TabsList>
 
-        <TabsContent value={escopo} className="space-y-4 mt-4">
+        <TabsContent value="historico" className="space-y-4 mt-4">
+          {organization && <HistoricoDaFila organizationId={organization.id} userId={user?.id} />}
+        </TabsContent>
+
+        <TabsContent value={escopo === "historico" ? "minha" : escopo} className="space-y-4 mt-4">
           <div className="flex flex-wrap items-center gap-2">
             <Tabs value={filtroPrioridade} onValueChange={(v) => setFiltroPrioridade(v as Prioridade | "todas")}>
               <TabsList className="h-auto flex-wrap">
@@ -685,5 +690,157 @@ function ComentarioDaAvaliacao({ origemEvento }: { origemEvento: string }) {
     <blockquote className="border-l-2 border-border pl-3 text-sm whitespace-pre-wrap">“{resposta.comentario}”</blockquote>
   ) : (
     <p className="text-sm text-muted-foreground">O aluno não deixou comentário.</p>
+  );
+}
+
+type PeriodoHistorico = "7" | "30" | "90" | "365";
+
+/**
+ * O histórico da fila: o que foi concluído ou cancelado no período, com o
+ * desfecho registrado, quem tratou e quando. Cada linha abre o detalhe. Só
+ * leitura: a pendência encerrada não volta a ser trabalhada daqui. A consulta
+ * é própria, com chave própria, separada da fila aberta.
+ */
+function HistoricoDaFila({ organizationId, userId }: { organizationId: string; userId?: string }) {
+  const [periodo, setPeriodo] = useState<PeriodoHistorico>("30");
+  const [situacao, setSituacao] = useState<"concluida" | "cancelada" | "todas">("todas");
+  const [responsavel, setResponsavel] = useState<"todos" | "eu">("todos");
+  const [aberta, setAberta] = useState<Tarefa | null>(null);
+
+  const { data, isLoading, error, refetch, isFetching } = useQuery({
+    queryKey: ["tarefas-historico", organizationId, periodo],
+    queryFn: async () => {
+      const desde = `${diaBrasilia(-Number(periodo))}T00:00:00-03:00`;
+      const tarefas = await todasAsLinhas((de, ate) =>
+        supabase
+          .from("tarefas")
+          .select("*")
+          .eq("organization_id", organizationId)
+          .in("status", ["concluida", "cancelada"])
+          .gte("updated_at", desde)
+          .order("id")
+          .range(de, ate)
+      );
+      const alunos = await porLotes([...new Set(tarefas.map((t) => t.aluno_id).filter((id): id is string => !!id))], (lote) =>
+        supabase.from("alunos").select("id, user_id").in("id", lote)
+      );
+      const responsaveis = tarefas.map((t) => t.responsavel_id).filter((id): id is string => !!id);
+      const perfis = await perfisDosUsuarios([...new Set([...responsaveis, ...alunos.map((a) => a.user_id)])]);
+      const nomeAluno = new Map(alunos.map((a) => [a.id, perfis.get(a.user_id)?.full_name ?? "Aluno"]));
+      const nomePessoa = (id: string | null) => (id ? perfis.get(id)?.full_name ?? "Membro da equipe" : "Sem responsável");
+      return { tarefas, nomeAluno, nomePessoa };
+    },
+  });
+
+  const lista = useMemo(() => {
+    const quando = (t: Tarefa) => t.concluida_em ?? t.updated_at;
+    return (data?.tarefas ?? [])
+      .filter((t) => situacao === "todas" || t.status === situacao)
+      .filter((t) => responsavel === "todos" || t.responsavel_id === userId)
+      .sort((a, b) => quando(b).localeCompare(quando(a)));
+  }, [data, situacao, responsavel, userId]);
+
+  const linha = (rotulo: string, valor: string | null | undefined) =>
+    valor ? (
+      <>
+        <dt className="text-muted-foreground">{rotulo}</dt>
+        <dd className="whitespace-pre-wrap min-w-0">{valor}</dd>
+      </>
+    ) : null;
+  const quando = (v: string | null) => (v ? new Date(v).toLocaleString("pt-BR") : null);
+
+  return (
+    <>
+      <div className="flex flex-wrap items-center gap-2">
+        <Select value={periodo} onValueChange={(v) => setPeriodo(v as PeriodoHistorico)}>
+          <SelectTrigger className="w-[170px]" aria-label="Período"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="7">Últimos 7 dias</SelectItem>
+            <SelectItem value="30">Últimos 30 dias</SelectItem>
+            <SelectItem value="90">Últimos 90 dias</SelectItem>
+            <SelectItem value="365">Último ano</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select value={situacao} onValueChange={(v) => setSituacao(v as "concluida" | "cancelada" | "todas")}>
+          <SelectTrigger className="w-[200px]" aria-label="Situação"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="todas">Concluídas e canceladas</SelectItem>
+            <SelectItem value="concluida">Só concluídas</SelectItem>
+            <SelectItem value="cancelada">Só canceladas</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select value={responsavel} onValueChange={(v) => setResponsavel(v as "todos" | "eu")}>
+          <SelectTrigger className="w-[170px]" aria-label="Responsável"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="todos">Toda a equipe</SelectItem>
+            <SelectItem value="eu">Tratadas por mim</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      {isLoading && <p className="text-sm text-muted-foreground" role="status">Carregando...</p>}
+      {error && (
+        <Card>
+          <ErroAoCarregar oQue="o histórico da fila" onTentarDeNovo={() => void refetch()} tentando={isFetching} />
+        </Card>
+      )}
+      {!isLoading && !error && lista.length === 0 && (
+        <Card>
+          <CardContent className="py-8 text-center text-sm text-muted-foreground">
+            Nenhuma pendência encerrada nesse período com esses filtros.
+          </CardContent>
+        </Card>
+      )}
+
+      <div className="space-y-2">
+        {lista.map((t) => {
+          const TipoIcon = TIPO_ICON[t.tipo];
+          return (
+            <button
+              key={t.id}
+              type="button"
+              onClick={() => setAberta(t)}
+              className="w-full text-left rounded-lg border bg-card p-3 hover:border-primary transition-colors"
+            >
+              <div className="flex items-start justify-between gap-2">
+                <p className="text-sm font-medium min-w-0">{t.motivo}</p>
+                <Badge variant={t.status === "concluida" ? "secondary" : "outline"} className="shrink-0">{STATUS_LABEL[t.status]}</Badge>
+              </div>
+              <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1 flex-wrap">
+                <TipoIcon className="h-3 w-3" /> {TIPO_LABEL[t.tipo]}
+                {t.aluno_id && data?.nomeAluno.get(t.aluno_id) && <> · {data.nomeAluno.get(t.aluno_id)}</>}
+                {" · "}
+                {formatarDataBR(t.concluida_em ?? t.updated_at)} · {data?.nomePessoa(t.responsavel_id)}
+              </p>
+            </button>
+          );
+        })}
+      </div>
+
+      <Dialog open={!!aberta} onOpenChange={(o) => !o && setAberta(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{aberta?.motivo}</DialogTitle>
+          </DialogHeader>
+          {aberta && (
+            <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-2 text-sm">
+              {linha("Tipo", TIPO_LABEL[aberta.tipo])}
+              {linha("Aluno", aberta.aluno_id ? data?.nomeAluno.get(aberta.aluno_id) ?? "Aluno" : null)}
+              {linha("Situação", STATUS_LABEL[aberta.status])}
+              {linha("Prioridade", PRIORIDADE_LABEL[aberta.prioridade])}
+              {linha("Aberta em", quando(aberta.created_at))}
+              {linha("Prazo", quando(aberta.sla_prazo))}
+              {linha("Escalada em", quando(aberta.escalada_em))}
+              {linha("Aviso ao aluno", quando(aberta.aviso_automatico_em))}
+              {linha("Agendada para", quando(aberta.data_agendada))}
+              {linha("Encerrada em", quando(aberta.concluida_em ?? aberta.updated_at))}
+              {linha("Responsável", data?.nomePessoa(aberta.responsavel_id))}
+              {linha("Ação", aberta.acao)}
+              {linha("Desfecho", aberta.desfecho_acao || "Sem desfecho registrado")}
+            </dl>
+          )}
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }

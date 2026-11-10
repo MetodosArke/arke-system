@@ -1,4 +1,4 @@
-Em [Mensagens](/admin/mensagens) ficam todas as conversas dos alunos com a equipe, de treino e de nutrição. As conversas com mensagem não lida vêm primeiro, e o número no menu mostra quantas estão esperando.
+Em [Mensagens](/admin/mensagens) ficam todas as conversas dos alunos com a equipe, de treino e de nutrição. As conversas com mensagem não lida vêm primeiro, e o número no menu mostra quantas estão esperando. No celular, com o menu fechado, um ponto vermelho no botão do menu avisa que há mensagem nova.
 
 ![A caixa de mensagens com uma conversa aberta.](/ajuda/telas/mensagens.jpg)
 

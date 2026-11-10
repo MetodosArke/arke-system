@@ -685,7 +685,7 @@ export default function AdminFinanceiro() {
               ) : lancamentos.length === 0 ? (
                 <p className="text-sm text-muted-foreground text-center py-6">Nenhum lançamento em {mesLabel(mesLancamentos)}.</p>
               ) : (
-                <Table>
+                <Table cabecalhoFixo>
                   <TableHeader>
                     <TableRow>
                       <TableHead>Data</TableHead>
@@ -805,7 +805,7 @@ export default function AdminFinanceiro() {
               </Select>
             </CardHeader>
             <CardContent>
-              <Table>
+              <Table cabecalhoFixo>
                 <TableHeader>
                   <TableRow>
                     <TableHead>Profissional</TableHead>
@@ -925,7 +925,7 @@ export default function AdminFinanceiro() {
               ) : comissoesLancamentos.length === 0 ? (
                 <p className="text-sm text-muted-foreground py-6 text-center">Nenhuma comissão gerada ainda.</p>
               ) : (
-                <Table>
+                <Table cabecalhoFixo>
                   <TableHeader>
                     <TableRow>
                       <TableHead>Profissional</TableHead>

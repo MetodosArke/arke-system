@@ -36,6 +36,8 @@ Se o e-mail não chegar, a pessoa pede o link de novo pelo primeiro acesso da ac
 
 A lista mostra, para cada aluno, o plano (Free ou Método ARKE), a situação na academia, a assinatura, a fase da jornada e desde quando é aluno. Clique no nome para abrir a ficha completa. Em **Exportar** você baixa a lista em planilha.
 
+Acima da lista, a busca acha o aluno pelo nome, telefone ou CPF, e dois filtros recortam a lista: a **situação** (em dia, inadimplente ou pausado) e o **treino** (com treino em dia, treino vencido ou sem treino). Vencido é o treino ativo com a validade já passada; sem treino é quem não tem nenhum treino ativo. Os filtros se somam: "inadimplente" com "sem treino" mostra só quem está nas duas. Com muitos alunos, a lista rola dentro da própria caixa e o cabeçalho das colunas fica parado no alto.
+
 Na coluna **Situação** você muda o aluno entre em dia, inadimplente e pausado. Veja [Situação do aluno](ajuda:situacao-do-aluno).
 
 ## Matricular num plano

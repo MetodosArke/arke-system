@@ -174,12 +174,20 @@ export function AdminSidebarDesktop() {
 
 export function AdminSidebarMobile() {
   const [open, setOpen] = useState(false);
+  // No celular o menu fica fechado: o sinal das mensagens vai no botão que o abre.
+  const { naoLidas } = useCaixaMensagens();
 
   return (
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger asChild>
-        <Button variant="ghost" size="icon" className="md:hidden h-9 w-9 shrink-0" aria-label="Abrir menu">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="md:hidden h-9 w-9 shrink-0 relative"
+          aria-label={naoLidas > 0 ? `Abrir menu, ${naoLidas} mensagens não lidas` : "Abrir menu"}
+        >
           <Menu className="h-5 w-5" />
+          {naoLidas > 0 && <span className="absolute top-1.5 right-1.5 h-2.5 w-2.5 rounded-full bg-destructive" aria-hidden />}
         </Button>
       </SheetTrigger>
       <SheetContent side="left" className="p-0 w-72 flex flex-col">
