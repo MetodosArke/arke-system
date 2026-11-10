@@ -173,6 +173,14 @@ export const ARTIGOS: ArtigoAjuda[] = [
     rotas: ["/admin/financeiro"],
   },
   {
+    slug: "loja",
+    titulo: "Loja: produtos e vendas",
+    resumo: "Cadastrar produtos com preço e estoque, vender no balcão ou por cobrança ao aluno, e cancelar.",
+    secao: "Cobrança e financeiro",
+    publicos: ["gestor", "recepcao"],
+    rotas: ["/admin/loja"],
+  },
+  {
     slug: "notas-fiscais",
     titulo: "Nota fiscal automática",
     resumo: "Ligar a emissão pela conta Asaas da academia, cadastro na prefeitura e notas emitidas.",

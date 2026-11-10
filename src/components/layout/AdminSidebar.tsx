@@ -10,6 +10,7 @@ import { useCaixaMensagens } from "@/hooks/useCaixaMensagens";
 import { MarcaArkeFit } from "@/components/marca/MarcaArkeFit";
 import { podePrescrever } from "@/lib/prescricaoPermitida";
 import { buildSections, buildSectionsProfissionalAutonomo } from "@/lib/menuPainel";
+import { cuidaDoDinheiro } from "@/lib/acessoPainel";
 import { menuNoModoEssencial } from "@/lib/modoEssencial";
 import { useModoEssencial } from "@/contexts/ModoEssencialContext";
 
@@ -46,6 +47,7 @@ function SidebarNav({
         podePrescreverTreino,
         podePrescreverDieta,
         alunosLabel: "Alunos & Prescrições",
+        cuidaDoDinheiro: cuidaDoDinheiro(contextoPrescricao),
       });
   // Modo essencial (a recepção da academia com a mensalidade B2B bloqueada):
   // o item pausado sai do menu, e o nome dele vai para a nota no fim.

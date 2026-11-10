@@ -6421,6 +6421,50 @@ export type Database = {
           },
         ]
       }
+      produtos_loja: {
+        Row: {
+          ativo: boolean
+          created_at: string
+          descricao: string | null
+          estoque: number | null
+          id: string
+          nome: string
+          organization_id: string
+          preco: number
+          updated_at: string
+        }
+        Insert: {
+          ativo?: boolean
+          created_at?: string
+          descricao?: string | null
+          estoque?: number | null
+          id?: string
+          nome: string
+          organization_id: string
+          preco: number
+          updated_at?: string
+        }
+        Update: {
+          ativo?: boolean
+          created_at?: string
+          descricao?: string | null
+          estoque?: number | null
+          id?: string
+          nome?: string
+          organization_id?: string
+          preco?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "produtos_loja_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -8172,6 +8216,62 @@ export type Database = {
           varreduras?: number
         }
         Relationships: []
+      }
+      vendas_loja: {
+        Row: {
+          aluno_id: string | null
+          cancelada_em: string | null
+          cobranca_avulsa_id: string | null
+          created_at: string
+          forma_pagamento: string
+          id: string
+          organization_id: string
+          produto_id: string
+          quantidade: number
+          status: string
+          valor_total: number
+          valor_unitario: number
+          vendido_por: string | null
+        }
+        Insert: {
+          aluno_id?: string | null
+          cancelada_em?: string | null
+          cobranca_avulsa_id?: string | null
+          created_at?: string
+          forma_pagamento: string
+          id?: string
+          organization_id: string
+          produto_id: string
+          quantidade: number
+          status: string
+          valor_total: number
+          valor_unitario: number
+          vendido_por?: string | null
+        }
+        Update: {
+          aluno_id?: string | null
+          cancelada_em?: string | null
+          cobranca_avulsa_id?: string | null
+          created_at?: string
+          forma_pagamento?: string
+          id?: string
+          organization_id?: string
+          produto_id?: string
+          quantidade?: number
+          status?: string
+          valor_total?: number
+          valor_unitario?: number
+          vendido_por?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vendas_loja_produto_id_fkey"
+            columns: ["produto_id"]
+            isOneToOne: false
+            referencedRelation: "produtos_loja"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
@@ -10237,6 +10337,15 @@ export type Database = {
         Args: { _nota_id: string }
         Returns: undefined
       }
+      registrar_venda_loja: {
+        Args: { _aluno_id?: string; _forma: string; _produto_id: string; _quantidade: number }
+        Returns: string
+      }
+      vincular_cobranca_venda_loja: {
+        Args: { _cobranca_id: string; _venda_id: string }
+        Returns: undefined
+      }
+      cancelar_venda_loja: { Args: { _venda_id: string }; Returns: undefined }
       reservar_aviso_ao_aluno: {
         Args: {
           _aluno_id: string

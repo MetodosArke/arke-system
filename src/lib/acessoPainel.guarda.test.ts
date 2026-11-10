@@ -59,6 +59,7 @@ function menuDe(c: ContextoPainel, tipo: "academia" | "studio" | "profissional_a
           podePrescreverTreino,
           podePrescreverDieta,
           alunosLabel: "Alunos",
+          cuidaDoDinheiro: cuidaDoDinheiro(c),
         });
   return secoes.flatMap((s) => s.items.map((i) => i.path));
 }
