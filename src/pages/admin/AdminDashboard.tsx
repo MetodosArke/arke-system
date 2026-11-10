@@ -762,7 +762,7 @@ function HistoricoDaFila({ organizationId, userId }: { organizationId: string; u
           </SelectContent>
         </Select>
         <Select value={situacao} onValueChange={(v) => setSituacao(v as "concluida" | "cancelada" | "todas")}>
-          <SelectTrigger className="w-[200px]" aria-label="Situação"><SelectValue /></SelectTrigger>
+          <SelectTrigger className="w-[230px]" aria-label="Situação"><SelectValue /></SelectTrigger>
           <SelectContent>
             <SelectItem value="todas">Concluídas e canceladas</SelectItem>
             <SelectItem value="concluida">Só concluídas</SelectItem>
