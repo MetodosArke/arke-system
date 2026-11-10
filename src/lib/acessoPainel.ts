@@ -78,6 +78,7 @@ export const ROTAS_DO_PAINEL: Record<string, Regra> = {
   "relatorio-semanal": GESTAO,
   acompanhamento: GESTAO,
   catracas: GESTAO_E_RECEPCAO,
+  loja: GESTAO_E_RECEPCAO,
   "configuracoes/integracoes": GESTAO,
   organizacao: GESTAO,
   perfil: EQUIPE,

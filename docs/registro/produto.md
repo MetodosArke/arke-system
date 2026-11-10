@@ -782,3 +782,27 @@ Da reunião de 10/11, os cinco itens pequenos. Os lotes 2 a 4 (editar treino, av
 - **Os relatórios de gestão:** o botão baixou `relatorios-ponto-alto-2026-11.xlsx`, com as abas Resumo, Recebidas, A receber, Inadimplência (53 cobranças vencidas, com os dias de atraso) e Por plano.
 
 **Sem prova de tela:** o quadro das fases, que é da Visão Master e pede a conta da ArkeFit com as duas etapas; ele chama a mesma `mover_fase_jornada` da ficha.
+
+## Lote 4 da reunião com o Jean: a loja da academia (10/11/2026)
+
+Decidido em 10/11: a estrutura para cadastrar e vender produtos, sem nota fiscal por enquanto.
+
+- **O banco** (`20261458010000`). `produtos_loja` (nome, preço, estoque opcional, ativo; sem exclusão, para as vendas não perderem o produto) e `vendas_loja` (só pelas funções). Quem cuida do dinheiro (gestão e recepção, `cuida_do_dinheiro`) cadastra e vende; a equipe vê o catálogo; as duas tabelas têm a regra restritiva das duas etapas.
+  - `registrar_venda_loja` confere quem chama, trava a linha do produto (`for update`) para o estoque não vender o que não tem, e grava a venda. A do balcão (dinheiro, PIX, cartão) nasce paga e lança a receita em **Loja (automático)**; a de cobrança nasce pendente e exige o aluno.
+  - A cobrança sai pela edge function da cobrança avulsa, de tipo "produto"; `vincular_cobranca_venda_loja` liga as duas, conferindo academia, aluno e tipo. Se a emissão falha, a tela cancela a venda e o estoque volta.
+  - `venda_loja_segue_cobranca` (`after insert or update` em `cobrancas_avulsas`): paga no Asaas, a venda fica paga (a receita entra pelo gatilho da avulsa, como já era); cancelada, a venda cancela e devolve o estoque.
+  - `cancelar_venda_loja` devolve o estoque e, no balcão, cancela a receita; a de cobrança paga não cancela aqui (o estorno é pelo Asaas).
+- **Produto fora da fila da nota de serviço.** `enfileirar_nota_fiscal` não enfileira a avulsa de tipo "produto", da loja ou lançada à mão: mercadoria pede NF-e, e a NFS-e de um produto sairia errada. A conferência é um `if` aninhado, porque a função roda também em mensalidades e pagamentos, que não têm `tipo`, e o plpgsql não garante parar no primeiro lado do `and`.
+- **A tela** `/admin/loja` (**Loja** no menu de quem cuida do dinheiro): Vender (produto, quantidade, forma, aluno e o total), Produtos (cadastro e edição) e Vendas do mês (com a fatura da cobrança aberta e o cancelar). Pausada no modo essencial, como as vendas; com o selo do Asaas, porque a venda por cobrança é pagamento. O artigo **Loja: produtos e vendas** entrou na Central, e o da nota fiscal diz que produto fica de fora.
+
+**Defeitos no caminho:**
+- A primeira versão da conferência do produto na função da nota usava `and`, e quebraria a nota de toda mensalidade; virou `if` aninhado antes da prova.
+- Os tipos das tabelas novas caíram no bloco `graphql_public` do `types.ts`; refeitos no `public`.
+- A guarda do prestador dos pagamentos pegou a tela sem o selo do Asaas.
+
+**Conferido:**
+- **O banco, em transação desfeita, com as sessões da gestora e do professor da Ponto Alto:** a gestora cadastrou; o balcão de 2 unidades baixou o estoque de 3 para 1 e lançou a receita paga; vender 5 com 1 em estoque e cobrança sem aluno foram recusados; cancelar o balcão devolveu o estoque (3) e cancelou a receita; a venda por cobrança, com a cobrança confirmada e a nota ligada na academia, ficou paga e não pôs nota na fila; o professor não vendeu nem cadastrou (42501). E a mensalidade confirmada continuou indo para a fila da nota (1).
+- **O defeito plantado:** sem a trava do estoque na função, vender além do estoque foi recusado pela regra da tabela (`estoque >= 0`, 23514): duas camadas.
+- `npx tsc --noEmit -p tsconfig.app.json`: sem erro. `eslint` nos arquivos alterados: sem aviso.
+- `npx vitest run` nas 75 guardas e nos testes do menu, do modo essencial, do acesso e da Central: 526 testes, com 1 falha (o selo do prestador), corrigida; a guarda de novo, 8 passando.
+- `npm run ajuda:indice` regerou o índice (`loja`, `notas-fiscais`).

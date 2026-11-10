@@ -56,6 +56,7 @@ export const NO_MODO_ESSENCIAL: Record<string, SituacaoNoModoEssencial> = {
 
   // Vendas e comunicação com todos os alunos.
   funil: "pausada",
+  loja: "pausada",
   comunicados: "pausada",
   engajamento: "pausada",
   // Operação em massa.

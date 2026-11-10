@@ -1,4 +1,4 @@
-import { Home, Users, UsersRound, Building2, ClipboardList, BarChart3, DoorOpen, CalendarDays, Dumbbell, UtensilsCrossed, Sparkles, DollarSign, Plug, MessageCircle, Megaphone, QrCode, Filter, CalendarCheck, HeartHandshake } from "lucide-react";
+import { Home, Users, UsersRound, Building2, ClipboardList, BarChart3, DoorOpen, CalendarDays, Dumbbell, UtensilsCrossed, Sparkles, DollarSign, Plug, MessageCircle, Megaphone, QrCode, Filter, CalendarCheck, HeartHandshake, ShoppingBag } from "lucide-react";
 
 /**
  * O menu do painel da academia. Mora fora do componente para o teste conferir,
@@ -22,12 +22,15 @@ export function buildSections({
   podePrescreverTreino,
   podePrescreverDieta,
   alunosLabel,
+  cuidaDoDinheiro = false,
 }: {
   ehStudio: boolean;
   podeGerenciarEquipe: boolean;
   podePrescreverTreino: boolean;
   podePrescreverDieta: boolean;
   alunosLabel: string;
+  /** Gestão e recepção: a loja vende. */
+  cuidaDoDinheiro?: boolean;
 }): MenuSection[] {
   const operacao: MenuItem[] = [
     { icon: Home, label: "Home (Início)", path: "/admin/dashboard" },
@@ -50,6 +53,9 @@ export function buildSections({
   operacao.push({ icon: Sparkles, label: "Engajamento", path: "/admin/engajamento" });
   operacao.push({ icon: Megaphone, label: "Comunicados", path: "/admin/comunicados" });
   operacao.push({ icon: QrCode, label: "Check-in QR", path: "/admin/checkin-qr" });
+  if (cuidaDoDinheiro) {
+    operacao.push({ icon: ShoppingBag, label: "Loja", path: "/admin/loja" });
+  }
 
   const sections: MenuSection[] = [{ label: "Operação", items: operacao }];
 

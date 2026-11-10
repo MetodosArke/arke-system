@@ -1,4 +1,4 @@
-Com a emissão automática ligada, cada pagamento confirmado vira nota fiscal de serviço no CNPJ da academia: mensalidade, cobrança avulsa ou a parte da academia no Método ARKE. A nota sai pelo valor que entrou no caixa da academia, e o aluno recebe por e-mail. Fica em **Financeiro → Notas fiscais**.
+Com a emissão automática ligada, cada pagamento confirmado vira nota fiscal de serviço no CNPJ da academia: mensalidade, cobrança avulsa ou a parte da academia no Método ARKE. A nota sai pelo valor que entrou no caixa da academia, e o aluno recebe por e-mail. A cobrança avulsa de **produto** (da [Loja](ajuda:loja) ou lançada à mão) fica de fora: produto pede nota de mercadoria (NF-e), que o ArkeFit não emite. Fica em **Financeiro → Notas fiscais**.
 
 Com a **cobrança na conta da academia**, que liga ao conectar a chave da conta própria, a mensalidade e a avulsa saem da própria conta Asaas da academia, sem divisão: a nota delas sai pelo valor inteiro que o aluno pagou, porque é o que entrou na conta dela. A tarifa do Asaas é despesa da academia, cobrada pelo Asaas. O Método continua com a nota pela parte da academia.
 
