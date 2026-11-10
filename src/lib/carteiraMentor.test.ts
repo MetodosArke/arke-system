@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { filtrarCarteira, rotuloAtencao, situacaoDaAvaliacao, travaOAluno } from "./carteiraMentor";
+import { agruparPorFase, filtrarCarteira, rotuloAtencao, situacaoDaAvaliacao, travaOAluno } from "./carteiraMentor";
 
 const alunos = [
   { aluno_id: "1", aluno_nome: "Ana Júlia", organizacao_nome: "Academia Horizonte", mentor_id: "m1", atencao: ["mensagem"] },
@@ -53,5 +53,18 @@ describe("situacaoDaAvaliacao", () => {
     expect(situacaoDaAvaliacao({ data_proxima_avaliacao: null }, hoje)).toBe("em_dia");
     expect(situacaoDaAvaliacao({ data_proxima_avaliacao: "2026-11-10" }, hoje)).toBe("em_dia");
     expect(situacaoDaAvaliacao({ data_proxima_avaliacao: "2026-11-09" }, hoje)).toBe("atrasada");
+  });
+});
+
+describe("agruparPorFase (o quadro da carteira)", () => {
+  it("uma coluna por fase, na ordem da jornada, e a fase desconhecida vai para a primeira", () => {
+    const colunas = agruparPorFase([
+      { id: "a", fase: "rota" },
+      { id: "b", fase: "mapa" },
+      { id: "c", fase: "outra" },
+    ]);
+    expect(colunas.map((c) => c.fase)).toEqual(["mapa", "base", "rota", "apex", "legado"]);
+    expect(colunas[0].alunos.map((a) => a.id)).toEqual(["b", "c"]);
+    expect(colunas[2].alunos.map((a) => a.id)).toEqual(["a"]);
   });
 });

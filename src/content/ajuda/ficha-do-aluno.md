@@ -15,7 +15,7 @@ Clique no nome de um aluno em [Alunos & Prescrições](/admin/alunos) para abrir
 - **Plano da Academia**, **Cobranças avulsas** e **Endereço**: matrícula, mensalidades, cartão e cobranças à parte. Veja [Cobrança do aluno](ajuda:cobranca-do-aluno).
 - **Método ARKE**: nível, cobrança e o que a ArkeFit está fazendo por ele.
 - **Pendências na Fila de Atendimento**: tarefas abertas deste aluno.
-- **Histórico e Observações**: a linha do tempo do aluno, com atendimentos e o desfecho de cada um, check-ins, mudanças de fase, publicações e as observações da equipe.
+- **Histórico e Observações**: a linha do tempo do aluno, com atendimentos e o desfecho de cada um, check-ins, mudanças de fase, publicações e as observações da equipe. Cada atendimento (pendência aberta ou resolvida) é clicável e abre o chamado inteiro: o tipo, a prioridade, quando abriu, o prazo, se foi escalado, o aviso automático ao aluno, o agendamento, quem tratou, quando encerrou, a ação e o desfecho.
 - **Check-ins Recentes** e o **chat** de treino e de nutrição.
 
 ## O que cada papel vê

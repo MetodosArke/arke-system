@@ -105,3 +105,13 @@ export function situacaoDaAvaliacao(ultima: { data_proxima_avaliacao: string | n
   if (ultima.data_proxima_avaliacao && ultima.data_proxima_avaliacao < hoje) return "atrasada";
   return "em_dia";
 }
+
+/** As fases do Método, na ordem da jornada: as colunas do quadro da carteira. */
+export const FASES_EM_ORDEM = ["mapa", "base", "rota", "apex", "legado"] as const;
+
+/** Os alunos por fase, na ordem da jornada; fase desconhecida não some, vai para a primeira. */
+export function agruparPorFase<T extends { fase: string }>(alunos: T[]): { fase: string; alunos: T[] }[] {
+  const colunas = FASES_EM_ORDEM.map((fase) => ({ fase: fase as string, alunos: [] as T[] }));
+  for (const a of alunos) (colunas.find((c) => c.fase === a.fase) ?? colunas[0]).alunos.push(a);
+  return colunas;
+}

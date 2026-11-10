@@ -6,6 +6,8 @@
 
 Todos os alunos do Método, de todas as academias. Cada aluno tem um **mentor responsável**, e os filtros separam **Pedem atenção**, **Meus alunos**, **Sem mentor** e **Todos**. A busca procura pelo nome do aluno ou da academia. Três filtros por módulo recortam a carteira, somados aos de cima: **treino** (em dia, vencido ou sem treino), **dieta** (com ou sem) e **avaliação física** (em dia, atrasada ou sem avaliação; atrasada é a data da próxima, marcada na última, que já passou). Cada cartão diz em amarelo o que está pendente, como "Treino vencido · Sem dieta".
 
+Em **Quadro das fases**, a carteira vira um quadro com uma coluna por fase do Método (M.A.P.A.®, B.A.S.E.®, R.O.T.A.®, A.P.E.X.® e L.E.G.A.D.O.®), com os mesmos filtros. Para mudar a fase, arraste o cartão para outra coluna ou toque em **Mover fase**; nos dois casos, escolha a fase e escreva o motivo. A passagem manual vale por cima do avanço automático e fica no histórico de fases do aluno, com quem moveu, quando e o motivo, o mesmo registro da ficha.
+
 Quando um aluno entra no Método, chega um chamado **Novo aluno no Método ARKE** para dar as boas-vindas pelo chat e acompanhar o acolhimento. Quando ele sai, o mentor deixa de ser o responsável, os chamados abertos dele se encerram com o desfecho "saiu do Método", e a academia recebe a tarefa de assumir.
 
 Os sinais em vermelho travam o aluno e vêm primeiro: **acolhimento pendente**, **sem treino**, **relato de dor** e **chamado atrasado**. Os outros pedem atenção: sem dieta, mensagem sem resposta, treino vencendo nos próximos 7 dias e sem mentor.

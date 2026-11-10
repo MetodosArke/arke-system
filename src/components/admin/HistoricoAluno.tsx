@@ -8,8 +8,15 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import { perfisDosUsuarios } from "@/lib/perfis";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { DetalheDaTarefa } from "@/components/admin/DetalheDaTarefa";
+import { ChevronRight } from "lucide-react";
 
-type Evento = { ocorrido_em: string; tipo: string; titulo: string; detalhe: string | null; autor: string | null };
+type Evento = { ocorrido_em: string; tipo: string; titulo: string; detalhe: string | null; autor: string | null; ref_id: string | null };
+
+// O evento que abre o detalhe: o chamado da fila, aberto ou encerrado.
+const ABRE_O_CHAMADO = ["atendimento_aberto", "atendimento_resolvido"];
 
 // Cor do marcador por tipo de evento, para a linha do tempo ser lida de
 // relance: vermelho é o que pediu atenção, verde o que foi resolvido.
@@ -38,6 +45,20 @@ export function HistoricoAluno({ alunoId, organizationId }: { alunoId: string; o
   const queryClient = useQueryClient();
   const [texto, setTexto] = useState("");
   const [mostrarTudo, setMostrarTudo] = useState(false);
+  const [chamadoId, setChamadoId] = useState<string | null>(null);
+
+  // O chamado inteiro, pelo RLS de quem pede (a mesma regra da fila).
+  const { data: chamado, isLoading: carregandoChamado, error: erroChamado } = useQuery({
+    queryKey: ["historico-aluno-chamado", chamadoId],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("tarefas").select("*").eq("id", chamadoId!).maybeSingle();
+      if (error) throw error;
+      if (!data) return null;
+      const perfis = data.responsavel_id ? await perfisDosUsuarios([data.responsavel_id]) : new Map();
+      return { tarefa: data, responsavel: data.responsavel_id ? perfis.get(data.responsavel_id)?.full_name ?? "Membro da equipe" : null };
+    },
+    enabled: !!chamadoId,
+  });
 
   const { data: eventos = [], isLoading, error } = useQuery({
     queryKey: ["historico-aluno", alunoId],
@@ -94,7 +115,18 @@ export function HistoricoAluno({ alunoId, organizationId }: { alunoId: string; o
         {visiveis.map((e, i) => (
           <li key={`${e.tipo}-${e.ocorrido_em}-${i}`} className="relative pl-4">
             <span className={cn("absolute -left-[5px] top-1.5 h-2.5 w-2.5 rounded-full", COR[e.tipo] ?? "bg-slate-400")} aria-hidden />
-            <p className="text-sm font-medium leading-snug">{e.titulo}</p>
+            {e.ref_id && ABRE_O_CHAMADO.includes(e.tipo) ? (
+              <button
+                type="button"
+                onClick={() => setChamadoId(e.ref_id)}
+                className="text-sm font-medium leading-snug text-left hover:underline underline-offset-2 inline-flex items-start gap-1"
+              >
+                {e.titulo}
+                <ChevronRight className="h-3.5 w-3.5 mt-0.5 shrink-0 text-muted-foreground" aria-hidden />
+              </button>
+            ) : (
+              <p className="text-sm font-medium leading-snug">{e.titulo}</p>
+            )}
             {e.detalhe && <p className="text-xs text-muted-foreground whitespace-pre-line">{e.detalhe}</p>}
             <p className="text-[11px] text-muted-foreground">
               {format(new Date(e.ocorrido_em), "dd/MM/yyyy HH:mm", { locale: ptBR })}
@@ -103,6 +135,20 @@ export function HistoricoAluno({ alunoId, organizationId }: { alunoId: string; o
           </li>
         ))}
       </ol>
+
+      <Dialog open={!!chamadoId} onOpenChange={(o) => !o && setChamadoId(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{chamado?.tarefa.motivo ?? "Chamado"}</DialogTitle>
+          </DialogHeader>
+          {carregandoChamado && <p className="text-sm text-muted-foreground" role="status">Carregando…</p>}
+          {erroChamado && <p className="text-sm text-destructive">Não foi possível abrir o chamado.</p>}
+          {!carregandoChamado && !erroChamado && chamado === null && (
+            <p className="text-sm text-muted-foreground">Este chamado não está mais disponível para você.</p>
+          )}
+          {chamado && <DetalheDaTarefa tarefa={chamado.tarefa} responsavel={chamado.responsavel} />}
+        </DialogContent>
+      </Dialog>
 
       {eventos.length > INICIAL && (
         <Button variant="ghost" size="sm" onClick={() => setMostrarTudo((v) => !v)}>
