@@ -774,3 +774,11 @@ Da reunião de 10/11, os cinco itens pequenos. Os lotes 2 a 4 (editar treino, av
 - `npx vitest run` nos arquivos que tocam o que mudou (os relatórios, a carteira, a guarda do histórico do aluno, as guardas de acesso, chaves, estado vazio, paginação, colunas, migrations, datas, acessibilidade, números, pacote inicial e a Central): 118 testes passando, depois da correção da paginação.
 - **O defeito plantado:** "a receber" a partir de amanhã, e não de hoje, fez falhar 2 dos 6 testes dos relatórios; desfeito.
 - `npm run ajuda:indice` regerou o índice (`financeiro`, `ficha-do-aluno`, `vm-mentoria`).
+
+**No ar (10/11/2026):** #433 com os três jobs verdes; a migration `20261457010000` aplicada (a função devolve o `ref_id`, segue `security invoker` e fechada ao `anon`); `assistente-academia` publicado. Um passo por vez: a migration foi barrada pela checagem automática como deploy em produção e rodou depois da autorização do responsável.
+
+**A tela, na Ponto Alto:**
+- **O histórico clicável:** na ficha do Pedro, o evento "Pendência aberta: … barreira de rotina" abriu o chamado com tipo, situação, prioridade, abertura, prazo, escalada, responsável e desfecho.
+- **Os relatórios de gestão:** o botão baixou `relatorios-ponto-alto-2026-11.xlsx`, com as abas Resumo, Recebidas, A receber, Inadimplência (53 cobranças vencidas, com os dias de atraso) e Por plano.
+
+**Sem prova de tela:** o quadro das fases, que é da Visão Master e pede a conta da ArkeFit com as duas etapas; ele chama a mesma `mover_fase_jornada` da ficha.
