@@ -34,10 +34,11 @@ A tarefa continua na fila, com a linha **Aviso automático enviado ao aluno em**
 
 **Avaliação baixa do aluno** fica só com a gestão: o comentário é texto livre e pode falar de alguém da equipe. A recepção, o professor e a nutricionista não a veem.
 
-## As duas abas
+## As abas
 
 - **Minha Fila**: as tarefas atribuídas a você e as que ainda estão sem responsável.
 - **Fila da Organização**: tudo o que está aberto na academia.
+- **Histórico**: o que já foi concluído ou cancelado, do mais recente para o mais antigo. Filtre pelo período (7, 30 ou 90 dias, ou o último ano), pela situação (concluídas, canceladas ou as duas) e por quem tratou (toda a equipe ou só você). Clique numa tarefa para ver tudo dela: quando foi aberta, o prazo, se foi escalada, o aviso automático ao aluno, o agendamento, quem tratou, quando foi encerrada, a ação e o desfecho. O histórico é só para consulta: tarefa encerrada não volta para a fila por ele.
 
 Cada cartão traz o nome do aluno ao lado do prazo. A ordem é pela urgência: prioridade crítica primeiro, depois o prazo. Tarefa com prazo estourado ganha a marca **Vencido**; se ninguém agir, ela é **escalada** para o gestor.
 

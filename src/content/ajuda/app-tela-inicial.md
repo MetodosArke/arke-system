@@ -25,6 +25,8 @@ De vez em quando, logo abaixo da Próxima Ação, aparece a pergunta: **"De 0 a 
 
 ## Aviso no celular
 
+Mesmo sem os avisos ativados, o app mostra a mensagem que você ainda não leu: no menu, um número vermelho em **Treino** (o seu treinador ou o seu mentor ARKE) e em **Dieta** (a nutrição), e no celular um ponto vermelho no botão que abre o menu. O sinal some quando você abre a conversa.
+
 Embaixo de cada conversa, o botão **Ativar avisos** pede ao celular a permissão para avisar quando chegar mensagem nova. É só uma vez por aparelho. O aviso do seu mentor ARKE diz só que chegou mensagem, sem o texto, porque a tela bloqueada do celular qualquer um vê. Com os avisos ativados, o app também avisa quando a mensalidade fica em aberto, sem valor; o toque abre a tela inicial, com o botão da fatura. Ao tocar em **Sair**, este aparelho para de receber os seus avisos.
 
 Se você fica 3 dias sem treinar, o app manda um lembrete ("Como está sendo seguir seu plano?"), e com 5 dias manda outro, que abre o treino do dia. Conta o treino registrado no app e a passagem pela catraca. Sem os avisos ativados, o lembrete vai por e-mail. Para não receber estes lembretes, desligue **Lembretes de treino** no seu Perfil.

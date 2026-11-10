@@ -707,3 +707,24 @@ As capturas dos dois alunos do Método (#389) mostraram dois defeitos de tela:
 - `npx vitest run`: 1.874 testes em 227 arquivos, numa rodada de 22 minutos. Falharam 3: as duas guardas acima (corrigidas) e `provaDoConsentimento.guarda` só por prazo (5 s). Os 4 arquivos de novo, com `--testTimeout=60000`: 52 testes passando.
 - `node scripts/migracao/rotinas.mjs --escrever`: 36 rotinas no roteiro de reconstrução. `npm run ajuda:indice` regerou o índice (artigos `fila-de-atendimento`, `app-documentos` e `app-tela-inicial`).
 - **Não rodou:** o roteiro de prova, a corrente real e a tela, que dependem da migration e da função publicadas. Na Ponto Alto, depois de ir ao ar: a Marina ou o Pedro (Free, com login) sem treinar há 3 dias e com os avisos ativados num aparelho; o cartão da fila com "Aviso automático enviado ao aluno em"; o interruptor no Perfil, no computador e no celular; o cartão do atestado vencendo; e, no Resend, que nenhum e-mail saiu para o domínio da demonstração.
+
+## Lote 1 da reunião com o Jean: implantação a R$ 350, aviso de mensagem, histórico da fila, filtro de treino e cabeçalho fixo (10/11/2026)
+
+Da reunião de 10/11, os cinco itens pequenos. Os lotes 2 a 4 (editar treino, avaliação física pela Visão Master, filtros da mentoria, relatórios do financeiro, histórico clicável e kanban das fases, loja) ficam na fila do workspace; aulas avulsas e gamificação viraram decisões com o Jean.
+
+- **Implantação oficial de R$ 350** (`20261455010000`). Muda só a referência em `plataforma_config`, que o site lê por `planos_b2b_site()` e a Visão Master sugere ao emitir. O valor de cada academia continua livre (`TaxaImplantacaoOrganizacao`), para desconto ou abono, como o responsável pediu.
+- **O sinal de mensagem nova no app do aluno e no celular da equipe.** O painel já mostrava o número no menu, mas no celular o menu fica fechado, e o botão que o abre não avisava nada. No app do aluno não havia sinal fora da Próxima Ação da home. Agora há um número em **Treino** (treinador e mentor, cuja conversa fica na tela de treino) e em **Dieta**, e um ponto no botão do menu do celular, nos dois lados. A consulta das não lidas do aluno saiu da home para `useMensagensNaoLidasAluno`, na mesma chave (`aluno-mensagem-nova`) que os chats já invalidam ao marcar como lida: a home e o menu leem a mesma consulta, e o sinal some na hora.
+- **O histórico da fila.** A fila lia só o aberto. A aba nova **Histórico** lê o concluído e o cancelado, em consulta e chave próprias (`tarefas-historico`), com período, situação e quem tratou; cada linha abre o detalhe (aberta, prazo, escalada, aviso ao aluno, agendamento, responsável, encerramento, ação e desfecho). O período conta pelo `updated_at`, porque a cancelada não tem `concluida_em`. Só leitura.
+- **O filtro de treino na lista de alunos:** com treino em dia, vencido ou sem treino, pela regra pura `situacaoDoTreino` (o ativo mais recente; vencido é a validade antes de hoje, comparada como texto com a data de Brasília). Soma-se ao filtro de situação.
+- **O cabeçalho fixo.** O `sticky` não pegava porque a caixa da tabela rola só na horizontal e quem rola na vertical é a página (e o `main` tem `overflow-x-hidden`). A tabela ganhou `cabecalhoFixo`: rola dentro da própria caixa, da altura da tela, com o cabeçalho parado. Ligado na lista de alunos, nas três tabelas do financeiro e na importação. A barra lateral o responsável confere depois de pronto.
+
+**Defeitos no caminho:**
+- O primeiro script de edição quebrou nas aspas do terminal e não aplicou nada; o segundo foi escrito em arquivo.
+- O tipo da linha de aluno (`AlunoRow`) não tinha o treino ativo; o `tsc` acusou e ele entrou no tipo.
+
+**Conferido:**
+- **O banco, em transação desfeita:** com a migration, `planos_b2b_site()` devolveu `implantacao = 350`; depois do desfazer, a referência seguia em 500.
+- `npx tsc --noEmit -p tsconfig.app.json`: sem erro.
+- `npx vitest run` nos 13 arquivos que tocam o que mudou (a regra nova, o aviso de mensagem, as chaves de cache, o estado vazio, a paginação, as datas, a acessibilidade, as colunas, as migrations, os planos do site, a caixa de mensagens, a Próxima Ação e a Central): 72 testes passando. A suíte inteira roda no CI.
+- **O defeito plantado:** `<=` no lugar de `<` na validade fez falhar 1 dos 3 testes de `situacaoDoTreino`; desfeito.
+- `npm run ajuda:indice` regerou o índice (artigos `fila-de-atendimento`, `mensagens`, `cadastrar-aluno` e `app-tela-inicial`).

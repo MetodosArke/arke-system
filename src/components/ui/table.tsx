@@ -2,10 +2,22 @@ import * as React from "react";
 
 import { cn } from "@/lib/utils";
 
-const Table = React.forwardRef<HTMLTableElement, React.HTMLAttributes<HTMLTableElement>>(
-  ({ className, ...props }, ref) => (
-    <div className="relative w-full overflow-auto">
-      <table ref={ref} className={cn("w-full caption-bottom text-sm", className)} {...props} />
+// `cabecalhoFixo`, nas listas compridas: a tabela rola dentro da própria
+// caixa, da altura da tela, e o cabeçalho fica parado no alto. Sem isso o
+// `sticky` não pega, porque a caixa rola só na horizontal e a página inteira
+// é que rola na vertical.
+const Table = React.forwardRef<HTMLTableElement, React.HTMLAttributes<HTMLTableElement> & { cabecalhoFixo?: boolean }>(
+  ({ className, cabecalhoFixo, ...props }, ref) => (
+    <div className={cn("relative w-full overflow-auto", cabecalhoFixo && "max-h-[calc(100dvh-12rem)]")}>
+      <table
+        ref={ref}
+        className={cn(
+          "w-full caption-bottom text-sm",
+          cabecalhoFixo && "[&_thead_th]:sticky [&_thead_th]:top-0 [&_thead_th]:z-10 [&_thead_th]:bg-card",
+          className,
+        )}
+        {...props}
+      />
     </div>
   ),
 );

@@ -44,6 +44,7 @@ import { filtrarAlunos, LIMITE_NA_TELA, type FiltroSituacao } from "@/lib/buscaA
 import { planoDoAluno, ROTULO_PLANO, ROTULO_SITUACAO, type SituacaoAcademia } from "@/lib/planoAluno";
 import { baixarPlanilha, dataBr } from "@/lib/exportarPlanilha";
 import { formatarDataBR, hojeBrasilia } from "@/lib/dataBrasilia";
+import { ROTULO_FILTRO_TREINO, situacaoDoTreino, type FiltroTreino } from "@/lib/situacaoTreino";
 import { erroDataNascimento } from "@/lib/menorDeIdade";
 import { PrestadorPagamentos } from "@/components/pagamento/PrestadorPagamentos";
 
@@ -99,6 +100,8 @@ interface AlunoRow {
   assinatura_valor: number | null;
   assinatura_fatura_url: string | null;
   assinatura_atualizada_em: string | null;
+  /** O treino ativo mais recente; sem ele, o aluno está sem treino. */
+  treino_ativo?: { validade_fim: string | null };
 }
 
 const EMPTY_ALUNOS: AlunoRow[] = [];
@@ -130,6 +133,7 @@ export default function AdminAlunos() {
   const [carregandoImpressao, setCarregandoImpressao] = useState<string | null>(null);
   const [busca, setBusca] = useState("");
   const [filtroSituacao, setFiltroSituacao] = useState<FiltroSituacao>("todas");
+  const [filtroTreino, setFiltroTreino] = useState<FiltroTreino>("todos");
   const [mostrarTodos, setMostrarTodos] = useState(false);
 
   const {
@@ -153,7 +157,7 @@ export default function AdminAlunos() {
           .range(de, ate)
       );
 
-      const [profiles, assinaturas] = await Promise.all([
+      const [profiles, assinaturas, treinosAtivos] = await Promise.all([
         porLotes(
           alunosData.map((a) => a.user_id),
           (lote) => supabase.from("profiles").select("user_id, full_name, phone, cpf").in("user_id", lote)
@@ -166,10 +170,21 @@ export default function AdminAlunos() {
               .select("aluno_id, status, valor_cobrado, fatura_pendente_url, updated_at")
               .in("aluno_id", lote)
         ),
+        // O treino ativo de cada aluno, para o filtro com treino, sem treino e vencido.
+        porLotes(
+          alunosData.map((a) => a.id),
+          (lote) =>
+            supabase.from("treinos").select("aluno_id, validade_fim, created_at").eq("status", "ativo").in("aluno_id", lote)
+        ),
       ]);
 
       const profileByUserId = new Map(profiles.map((p) => [p.user_id, p]));
       const assinaturaByAlunoId = new Map(assinaturas.map((a) => [a.aluno_id, a]));
+      // Mais de um ativo: vale o mais recente, o mesmo que o app do aluno abre.
+      const treinoByAlunoId = new Map<string, { validade_fim: string | null }>();
+      for (const t of [...treinosAtivos].sort((a, b) => a.created_at.localeCompare(b.created_at))) {
+        treinoByAlunoId.set(t.aluno_id, { validade_fim: t.validade_fim });
+      }
       return alunosData.map((a) => {
         const profile = profileByUserId.get(a.user_id);
         const assinatura = assinaturaByAlunoId.get(a.id);
@@ -182,6 +197,7 @@ export default function AdminAlunos() {
           assinatura_valor: assinatura?.valor_cobrado ?? null,
           assinatura_fatura_url: assinatura?.fatura_pendente_url ?? null,
           assinatura_atualizada_em: assinatura?.updated_at ?? null,
+          treino_ativo: treinoByAlunoId.get(a.id),
         };
       });
     },
@@ -189,9 +205,14 @@ export default function AdminAlunos() {
   });
 
   // A busca filtra na tela: a lista já vem inteira do banco.
-  const filtrados = useMemo(() => filtrarAlunos(alunos, busca, filtroSituacao), [alunos, busca, filtroSituacao]);
+  const filtrados = useMemo(() => {
+    const hoje = hojeBrasilia();
+    return filtrarAlunos(alunos, busca, filtroSituacao).filter(
+      (a) => filtroTreino === "todos" || situacaoDoTreino(a.treino_ativo, hoje) === filtroTreino
+    );
+  }, [alunos, busca, filtroSituacao, filtroTreino]);
   const visiveis = mostrarTodos ? filtrados : filtrados.slice(0, LIMITE_NA_TELA);
-  const buscando = busca.trim() !== "" || filtroSituacao !== "todas";
+  const buscando = busca.trim() !== "" || filtroSituacao !== "todas" || filtroTreino !== "todos";
 
   const { data: precificacaoAtacado = [] } = useQuery({
     queryKey: ["org-precificacao-atacado", organization?.id],
@@ -515,6 +536,22 @@ export default function AdminAlunos() {
                   <SelectItem value="pausado">{ROTULO_SITUACAO.pausado}</SelectItem>
                 </SelectContent>
               </Select>
+              <Select
+                value={filtroTreino}
+                onValueChange={(v) => {
+                  setFiltroTreino(v as FiltroTreino);
+                  setMostrarTodos(false);
+                }}
+              >
+                <SelectTrigger className="w-48" aria-label="Filtrar por treino">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {(Object.keys(ROTULO_FILTRO_TREINO) as FiltroTreino[]).map((f) => (
+                    <SelectItem key={f} value={f}>{ROTULO_FILTRO_TREINO[f]}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               <p className="w-full text-xs text-muted-foreground sm:w-auto" aria-live="polite">
                 {buscando ? `${filtrados.length} de ${alunos.length} aluno(s)` : `${alunos.length} aluno(s)`}
               </p>
@@ -526,7 +563,7 @@ export default function AdminAlunos() {
             </p>
           )}
           {filtrados.length > 0 && (
-            <Table>
+            <Table cabecalhoFixo>
               <TableHeader>
                 <TableRow>
                   <TableHead>Nome</TableHead>
