@@ -130,6 +130,7 @@ Cada linha é uma armadilha que já aconteceu aqui. Onde há trava, ela é um te
 - A chave do Asaas só pelo `ambienteAsaas` (`ambienteAsaas.guarda`). O webhook confere cada gravação, e o aviso do sandbox só toca organização em trial, mesmo sem achar organização (`webhookAsaas.guarda`). O aviso do Asaas é gravado reduzido ao que o webhook lê, mais os 4 dígitos e a bandeira (`trg_minimizar_aviso_asaas`, `avisoAsaas.guarda`).
 - Na sessão simulada, as autorizações da pessoa são recusadas no banco (`perfilSimulado.guarda`).
 - A recepção não vê saúde, nem pela API: tarefa de saúde por `tarefa_de_saude()`, e o chat da nutrição segue a regra da dieta (`tarefasPorDono.guarda`, `caixaDeMensagens.guarda`). O Acompanhamento ARKE troca o motivo de saúde por um texto neutro para a academia.
+- Dado de saúde que o aluno informa (dor, esforço, sensação, a observação do fim do treino) nunca mora no registro do treino nem no cadastro do aluno, que a recepção lê: vai para `registro_treino_bem_estar` e `aluno_progressao_bloqueada`, de quem atende a saúde (`saudeDoFimDoTreino.guarda`).
 - Mensagem de chat não se apaga pela API, nem a própria (`caixaDeMensagens.guarda`). O aluno também não: ele só sai pela saída (`excluir-aluno`, `anonimizar-aluno`), que passa pelo Asaas, pelos arquivos e pela auditoria (`saidaDoAluno.guarda`).
 - A troca de e-mail, nome e papel da equipe vai à auditoria, só com ids; a de papel também quando é feita direto pela API (`auditoriaDaEquipe.guarda`).
 

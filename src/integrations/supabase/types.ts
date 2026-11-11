@@ -1247,7 +1247,6 @@ export type Database = {
           organization_id: string
           peso_kg: number | null
           primeiro_acesso_em: string | null
-          progressao_bloqueada_motivo: string | null
           provedor_nutricao: Database["public"]["Enums"]["provedor_nutricao"]
           provedor_treino: Database["public"]["Enums"]["provedor_treino"]
           situacao_academia: Database["public"]["Enums"]["situacao_aluno_academia"]
@@ -1282,7 +1281,6 @@ export type Database = {
           organization_id: string
           peso_kg?: number | null
           primeiro_acesso_em?: string | null
-          progressao_bloqueada_motivo?: string | null
           provedor_nutricao?: Database["public"]["Enums"]["provedor_nutricao"]
           provedor_treino?: Database["public"]["Enums"]["provedor_treino"]
           situacao_academia?: Database["public"]["Enums"]["situacao_aluno_academia"]
@@ -1317,7 +1315,6 @@ export type Database = {
           organization_id?: string
           peso_kg?: number | null
           primeiro_acesso_em?: string | null
-          progressao_bloqueada_motivo?: string | null
           provedor_nutricao?: Database["public"]["Enums"]["provedor_nutricao"]
           provedor_treino?: Database["public"]["Enums"]["provedor_treino"]
           situacao_academia?: Database["public"]["Enums"]["situacao_aluno_academia"]
@@ -6730,7 +6727,6 @@ export type Database = {
           divisao: string | null
           duracao_min: number | null
           id: string
-          observacao: string | null
           organization_id: string
           treino_id: string | null
         }
@@ -6743,7 +6739,6 @@ export type Database = {
           divisao?: string | null
           duracao_min?: number | null
           id?: string
-          observacao?: string | null
           organization_id: string
           treino_id?: string | null
         }
@@ -6756,7 +6751,6 @@ export type Database = {
           divisao?: string | null
           duracao_min?: number | null
           id?: string
-          observacao?: string | null
           organization_id?: string
           treino_id?: string | null
         }
@@ -6796,6 +6790,7 @@ export type Database = {
           created_at: string
           energia: number | null
           esforco_percebido: number | null
+          observacao: string | null
           organization_id: string
           registro_treino_id: string
           sensacao: string | null
@@ -6805,6 +6800,7 @@ export type Database = {
           created_at?: string
           energia?: number | null
           esforco_percebido?: number | null
+          observacao?: string | null
           organization_id: string
           registro_treino_id: string
           sensacao?: string | null
@@ -6814,6 +6810,7 @@ export type Database = {
           created_at?: string
           energia?: number | null
           esforco_percebido?: number | null
+          observacao?: string | null
           organization_id?: string
           registro_treino_id?: string
           sensacao?: string | null

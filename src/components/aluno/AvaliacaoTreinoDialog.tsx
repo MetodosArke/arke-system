@@ -125,11 +125,14 @@ export function AvaliacaoTreinoDialog({
           // a constância — a métrica que a academia usa para falar com o aluno.
           concluido: todasFeitas,
           duracao_min: duracaoMin,
-          observacao: r.observacao.trim() || null,
           ...(detalhesExecucao !== undefined ? { detalhes_execucao: detalhesExecucao } : {}),
         })
         .eq("id", registroId).select("id"));
-      if ((r.esforco != null || r.sensacao != null || r.sono != null || r.energia != null) && organization) {
+      // A observação ("ombro incomodou na terceira série") é saúde, como o
+      // esforço e a sensação: mora no bem-estar, que só quem atende a saúde lê,
+      // e não no registro do treino, que a recepção vê (11/11/2026).
+      const observacao = r.observacao.trim() || null;
+      if ((r.esforco != null || r.sensacao != null || r.sono != null || r.energia != null || observacao) && organization) {
         await exigirGravacao(supabase
           .from("registro_treino_bem_estar")
           .upsert({
@@ -139,6 +142,7 @@ export function AvaliacaoTreinoDialog({
             sensacao: r.sensacao,
             sono: r.sono,
             energia: r.energia,
+            observacao,
           })
           .select("registro_treino_id"));
       }
