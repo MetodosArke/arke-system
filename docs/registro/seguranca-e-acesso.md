@@ -1427,3 +1427,16 @@ A auditoria do `npm run check` passou a reprovar a `main` com dois alertas novos
 - **O Gateway Local (`packages/gateway`, que a auditoria do check também roda):** `fastify`, `follow-redirects` e `fast-uri` corrigidos pelo `npm audit fix`; e o `zod`, que lá valida o `config.json`, subiu para a versão 4. A 4 confere o formato do UUID com mais rigor (a variante da RFC 9562), e o `organization_id` passou de `z.string().uuid()` para `z.guid()`, que mantém a conferência de antes: nenhum config que já sobe passa a ser recusado. O resto do esquema (objetos, enums, defaults, `issues`) é igual na 4. Versão nova do Gateway: 1.10.1 (`package.json` e `versao.ts`).
 
 **Conferido:** `npm audit --omit=dev` sem nenhuma vulnerabilidade na raiz e no Gateway; o Gateway com os 347 testes em 23 arquivos verdes e o `npm run check` dele sem erro. O primeiro CI do PR reprovou na auditoria do Gateway, que eu não tinha rodado; com ela corrigida, o CI roda o `npm run check` inteiro.
+
+## O que sobrou da dor fora da recepção: o Sentinela, a observação do treino e a regra (11/11/2026)
+
+Decidido em 10/11 ("os três"), fechando o que o #420 deixou.
+
+- **O Sentinela** (correção aprovada, congelado no resto) lê a progressão suspensa de `aluno_progressao_bloqueada`, e não mais da coluna vazia de `alunos`. Volta a linha "Atenção: progressão suspensa" no contexto do mentor.
+- **A observação livre do fim do treino** ("ombro incomodou na terceira série") é saúde e saiu de `registro_treino`, que a recepção lê, para `registro_treino_bem_estar`, de quem atende a saúde. Antes do deploy (`20261460010000`): a coluna nova, a cópia do que havia, e a ficha do mentor lendo do lugar novo. O app grava só lá, e a exportação dos dados do aluno lê de lá. Depois do deploy (`20261461010000`): copia o que o app antigo gravou no intervalo e apaga `registro_treino.observacao` e `alunos.progressao_bloqueada_motivo`.
+- **A regra** no CLAUDE.md: dado de saúde que o aluno informa nunca mora no registro do treino nem no cadastro do aluno. `saudeDoFimDoTreino.guarda` passou a cobrar a observação (o código não lê nem grava `observacao` em `registro_treino`, e depois da reconstrução a coluna existe no bem-estar e não no registro) e a saída do motivo de `alunos`; a lista de quem lia o motivo vazio ficou sem ninguém.
+
+**Conferido:**
+- **O banco, em transação desfeita, com as duas migrations:** produção não tinha nenhuma observação gravada (0); com uma plantada no treino recente de um aluno do Método, a cópia levou 1 para o bem-estar, as duas colunas antigas saíram sem dependência quebrada, e a ficha do mentor, na sessão de um Sócio, trouxe a observação.
+- **O defeito plantado:** o app gravando `observacao` em `registro_treino` de novo fez a guarda falhar, apontando o arquivo; desfeito.
+- `npx tsc --noEmit -p tsconfig.app.json` e o `deno check` do Sentinela: sem erro. `npx vitest run` nas 75 guardas, na exportação, na Central e nos componentes do aluno: 513 testes passando.

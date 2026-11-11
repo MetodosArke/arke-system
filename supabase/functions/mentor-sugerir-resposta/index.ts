@@ -77,10 +77,18 @@ servir("mentor-sugerir-resposta", async (req: Request) => {
     const admin = createClient(supabaseUrl, serviceRoleKey);
     const { data: aluno } = await admin
       .from("alunos")
-      .select("id, organization_id, metodo_arke_status, fase_jornada, nivel_atacado, meta_semanal_dias, progressao_bloqueada_motivo")
+      .select("id, organization_id, metodo_arke_status, fase_jornada, nivel_atacado, meta_semanal_dias")
       .eq("id", alunoId)
       .maybeSingle();
     if (!aluno) return jsonResponse({ error: "Aluno não encontrado." }, 404);
+    // A progressão suspensa por dor mora em `aluno_progressao_bloqueada` desde
+    // o #420, longe da recepção; a coluna antiga de `alunos` ficou vazia
+    // (correção aprovada em 10/11/2026, com o Sentinela congelado no resto).
+    const { data: suspensa } = await admin
+      .from("aluno_progressao_bloqueada")
+      .select("motivo")
+      .eq("aluno_id", alunoId)
+      .maybeSingle();
     // A conversa do mentor é do Método: o aluno do Free (ou o que saiu do
     // Método) não entra, nem pela chamada direta. Antes, qualquer aluno com
     // conversa passava (correção autorizada com o Sentinela congelado).
@@ -130,7 +138,7 @@ servir("mentor-sugerir-resposta", async (req: Request) => {
       dias === null || dias === undefined ? null : `Dias sem sinal de vida no app: ${dias}`,
       constancia === null || constancia === undefined ? null : `Constância nas últimas 4 semanas: ${constancia}%`,
       aluno.meta_semanal_dias ? `Meta do aluno: ${aluno.meta_semanal_dias} treinos por semana` : null,
-      aluno.progressao_bloqueada_motivo ? `Atenção: progressão suspensa (${aluno.progressao_bloqueada_motivo})` : null,
+      suspensa?.motivo ? `Atenção: progressão suspensa (${suspensa.motivo})` : null,
     ]
       .filter(Boolean)
       .join("\n");
