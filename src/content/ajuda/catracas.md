@@ -52,6 +52,12 @@ Os **Últimos acessos** mostram cada tentativa e o motivo: pausado, inadimplente
 
 Quando a matrícula termina, a catraca deixa de liberar o aluno na hora. Depois de 48 horas, a digital e o rosto dele saem dos equipamentos e o número dele sai do ARKE. Numa troca de plano (cancelar e matricular de novo), a matrícula nova feita nesse prazo mantém a digital e o número.
 
+## Visitante avulso
+
+Para a aula avulsa ou experimental de quem não é aluno, use o cartão **Visitante avulso**: o nome do visitante, a aula (opcional) e o valor recebido no balcão, com a forma de pagamento (dinheiro, PIX ou cartão na maquininha). Na cortesia, deixe o valor em branco. **Registrar e liberar** não cadastra aluno: fica só o registro do acesso, como **Visitante avulso** na lista de acessos, e o valor entra no [Financeiro](ajuda:financeiro) como receita paga, na categoria **Aulas avulsas (automático)**.
+
+A catraca abre pelo mesmo caminho do check-in dos parceiros: se ela aceita a ordem pelo ARKE e o computador da catraca está com sinal, a tela acompanha até liberar; senão, ela diz para liberar pelo botão da recepção ou no próprio equipamento. Registram a recepção e a gestão.
+
 ## Visitantes de Wellhub e TotalPass
 
 Com um parceiro ligado em [Integrações](/admin/configuracoes/integracoes), a tela mostra o **Check-in de visitante**, e a **Conferência de parceiros** conta os check-ins do mês para conferir com o repasse de cada parceiro.

@@ -837,6 +837,21 @@ Pedido do Jean, decidido no mesmo dia: os dois caminhos. O aluno direto não tem
 
 **A corrente real, pelas funções publicadas, sem criar nada:** sem sessão, a assinatura deu 401; com a sessão da gestora da Ponto Alto, o aluno inexistente deu 404 e o Pedro, sem adesão, 422 (a gestora passa pela autorização como antes, e a regra do Método segue); no cadastro, o e-mail inválido deu 400. A venda pela Visão Master, que pede a conta da ArkeFit com as duas etapas, fica para a primeira venda de verdade; a sugestão é começar por um aluno da Ponto Alto, que está em homologação e cobra no sandbox.
 
+## Aulas avulsas: o visitante sem cadastro (11/11/2026)
+
+Decidido em 10/11: também para visitante, num sistema simples. A recepção lança a aula avulsa e libera a catraca à mão, sem cadastrar aluno; fica só o registro do acesso.
+
+- **O banco** (`20261462010000`). O registro de acessos ganhou o resultado `liberado_avulso`. `registrar_visitante_avulso(catraca, nome, aula, valor, forma)` confere quem pede (quem cuida do dinheiro, a gestão e a recepção, ou a ArkeFit), com as duas etapas, e a catraca ativa; grava o acesso com o nome do visitante e sem aluno; com valor, lança a receita paga em **Aulas avulsas (automático)** (sem valor, a cortesia, só o acesso). É o caminho do check-in de parceiro: se a catraca aceita ordem pelo ARKE e o Gateway tem sinal, manda a ordem de liberar com a marca `checkin: avulso` (a conclusão não grava um segundo acesso); senão, diz para liberar no botão ou no equipamento.
+- **A tela:** o cartão **Visitante avulso** na página de Catracas, para a gestão e a recepção, com o nome, a aula, o valor e a forma, e o acompanhamento da liberação (o mesmo do parceiro). O acesso aparece como **Visitante avulso** na lista, no painel e na Visão Master. O artigo de catracas conta.
+
+**Conferido:**
+- **O banco, em transação desfeita, com uma catraca criada na Ponto Alto** (não há catraca ativa em produção): a recepção registrou a "Carla Visitante" (acesso `liberado_avulso`, sem aluno, e a receita paga de R$ 40 por PIX); a cortesia não gerou receita; sem nome, valor sem forma e o professor foram recusados; com o Gateway simulado com sinal, a ordem saiu com a marca `avulso`.
+- **O defeito plantado:** sem a trava de quem pode registrar, o professor registrou; desfeito.
+- `npx tsc --noEmit -p tsconfig.app.json`: sem erro. `npx vitest run` nas 75 guardas, na Central e nos testes do painel e da catraca: 499 passando e 2 que estouraram o prazo de 10 s com o notebook carregado (`acessosArkefit.guarda`); rodada sozinha, 36 de 36.
+
+## A dor no ar (11/11/2026)
+
+Com a autorização do responsável, um passo por vez: `20261460010000` aplicada; #439 com os três jobs verdes; `mentor-sugerir-resposta` e `assistente-academia` publicados (o CLI do Supabase passou a pedir `--yes` para publicar em modo agente); o deploy da Vercel com sucesso; `20261461010000` aplicada depois do deploy: `registro_treino.observacao` e `alunos.progressao_bloqueada_motivo` saíram, e o bem-estar tem a observação.
 ## Gamificação: a Pontuação ARKE (11/11/2026)
 
 Decidido em 10/11: pontos pela constância contra a meta do próprio aluno, pelo check-in e pelos desafios cumpridos; ranking da academia só por pontos, nunca por corpo; dor, pedido de ajuda e falta justificada nunca tiram ponto.

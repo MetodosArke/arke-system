@@ -10354,6 +10354,10 @@ export type Database = {
         Args: never
         Returns: { ficticia: boolean; id: string; metodo_direto: boolean; nome: string; repasse_negociado: boolean }[]
       }
+      registrar_visitante_avulso: {
+        Args: { _aula?: string; _catraca_id: string; _forma?: string; _nome: string; _valor?: number }
+        Returns: Json
+      }
       pontos_arke: {
         Args: { _aluno_id: string; _ate: string; _de: string }
         Returns: { checkins: number; constancia: number; desafios: number; total: number }[]
