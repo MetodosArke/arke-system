@@ -26,13 +26,14 @@ type Competicao = Tables<"competicoes">;
 type Metrica = Tables<"competicoes">["metrica"];
 
 const METRICA_LABEL: Record<Metrica, string> = {
+  pontos_arke: "Pontuação ARKE (constância, check-ins e desafios)",
   pontos_desafios: "Pontos em Desafios",
   treinos_concluidos: "Treinos Concluídos",
   km_total: "Quilometragem Total",
   dieta_adesao_media: "Média de Adesão à Dieta",
 };
 
-const METRICAS: Metrica[] = ["pontos_desafios", "treinos_concluidos", "km_total", "dieta_adesao_media"];
+const METRICAS: Metrica[] = ["pontos_arke", "pontos_desafios", "treinos_concluidos", "km_total", "dieta_adesao_media"];
 
 interface AlunoOpcao {
   id: string;

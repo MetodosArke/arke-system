@@ -16,6 +16,7 @@ import {
   type DadosPeriodoAluno,
 } from "@/lib/desafioProgresso";
 import type { Tables } from "@/integrations/supabase/types";
+import { PontosArke } from "@/components/aluno/PontosArke";
 
 type Desafio = Tables<"desafios">;
 
@@ -194,6 +195,8 @@ export default function AlunoDesafios() {
         <Trophy className="h-5 w-5 text-primary" />
         <h1 className="text-xl font-bold">Desafios</h1>
       </div>
+
+      {alunoId && <PontosArke alunoId={alunoId} />}
 
       <div className="grid grid-cols-3 gap-2">
         <Card>

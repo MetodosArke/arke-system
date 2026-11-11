@@ -12,6 +12,7 @@ import { decimal } from "@/lib/numeros";
 type Competicao = Tables<"competicoes">;
 
 const METRICA_LABEL: Record<Competicao["metrica"], string> = {
+  pontos_arke: "Pontuação ARKE",
   pontos_desafios: "Pontos em Desafios",
   treinos_concluidos: "Treinos Concluídos",
   km_total: "Quilometragem Total",

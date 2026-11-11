@@ -10354,6 +10354,10 @@ export type Database = {
         Args: never
         Returns: { ficticia: boolean; id: string; metodo_direto: boolean; nome: string; repasse_negociado: boolean }[]
       }
+      pontos_arke: {
+        Args: { _aluno_id: string; _ate: string; _de: string }
+        Returns: { checkins: number; constancia: number; desafios: number; total: number }[]
+      }
       reservar_aviso_ao_aluno: {
         Args: {
           _aluno_id: string
@@ -10710,6 +10714,7 @@ export type Database = {
       comissao_status: "pendente" | "pago"
       comissao_tipo_evento: "matricula_academia" | "adesao_metodo_arke"
       competicao_metrica:
+        | "pontos_arke"
         | "pontos_desafios"
         | "treinos_concluidos"
         | "km_total"
@@ -10958,6 +10963,7 @@ export const Constants = {
       comissao_status: ["pendente", "pago"],
       comissao_tipo_evento: ["matricula_academia", "adesao_metodo_arke"],
       competicao_metrica: [
+        "pontos_arke",
         "pontos_desafios",
         "treinos_concluidos",
         "km_total",
