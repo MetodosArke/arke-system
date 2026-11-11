@@ -140,6 +140,13 @@ describe("a dor e o esforço do fim do treino, no banco", () => {
     expect(tabelasComColuna(textos, "bloqueada_em")).toEqual(["aluno_progressao_bloqueada"]);
   });
 
+  it("a observação livre do fim do treino mora no bem-estar, e o motivo antigo saiu de alunos (11/11/2026)", () => {
+    const comObservacao = tabelasComColuna(textos, "observacao");
+    expect(comObservacao).toContain("registro_treino_bem_estar");
+    expect(comObservacao).not.toContain("registro_treino");
+    expect(tabelasComColuna(textos, "progressao_bloqueada_motivo")).toEqual([]);
+  });
+
   it("quem lê é quem atende a saúde, e não a recepção", () => {
     expect(leiturasComRecepcao(textos)).toEqual([]);
   });
@@ -221,6 +228,8 @@ export function usosNoLugarAntigo(codigo: string): string[] {
     // O embutido do bem-estar é o lugar certo.
     const fora = c.replace(/registro_treino_bem_estar(?:!\w+)?\([^()]*\)/g, "");
     for (const campo of CAMPOS) if (new RegExp(String.raw`\b${campo}\b`).test(fora)) usos.push(`registro_treino.${campo}`);
+    // A observação livre do fim do treino também é saúde (11/11/2026): mora no bem-estar.
+    if (/\bobservacao\b/.test(fora)) usos.push("registro_treino.observacao");
   }
   for (const c of correntes(codigo, "alunos")) {
     if (/\bprogressao_bloqueada_em\b/.test(c)) usos.push("alunos.progressao_bloqueada_em");
@@ -229,18 +238,17 @@ export function usosNoLugarAntigo(codigo: string): string[] {
   // Os roteiros escrevem SQL: a lista de colunas do insert.
   for (const m of codigo.matchAll(/insert into (?:public\.)?registro_treino\s*\(([^)]*)\)/gi)) {
     for (const campo of CAMPOS) if (new RegExp(String.raw`\b${campo}\b`).test(m[1])) usos.push(`insert em registro_treino.${campo}`);
+    if (/\bobservacao\b/.test(m[1])) usos.push("insert em registro_treino.observacao");
   }
   return usos;
 }
 
 /**
- * Quem ainda lê `alunos.progressao_bloqueada_motivo`, e por quê. A coluna
- * está vazia desde 20261452010000 e ninguém grava (a guarda do banco confere).
+ * Quem ainda lê `alunos.progressao_bloqueada_motivo`, e por quê. Ninguém:
+ * o Sentinela passou a ler `aluno_progressao_bloqueada` (correção aprovada em
+ * 10/11/2026), e a coluna saiu em 20261461010000.
  */
-const LEEM_O_MOTIVO_VAZIO: Record<string, string> = {
-  "supabase/functions/mentor-sugerir-resposta/index.ts":
-    "o Sentinela está congelado; pede a coluna, que fica vazia até a correção dele (e sem ela a consulta daria erro)",
-};
+const LEEM_O_MOTIVO_VAZIO: Record<string, string> = {};
 
 describe("a dor e o esforço do fim do treino, no código", () => {
   it("o app, as edge functions e os roteiros não usam o lugar antigo", () => {
@@ -277,5 +285,9 @@ describe("a dor e o esforço do fim do treino, no código", () => {
     expect(usosNoLugarAntigo(`supabase.from("registro_treino").select("data, registro_treino_bem_estar(esforco_percebido, sensacao)")`)).toEqual([]);
     expect(usosNoLugarAntigo(`supabase.from("alunos").select("id, progressao_bloqueada_em")`)).toEqual(["alunos.progressao_bloqueada_em"]);
     expect(usosNoLugarAntigo("insert into public.registro_treino (aluno_id, data, sensacao) values")).toEqual(["insert em registro_treino.sensacao"]);
+    expect(usosNoLugarAntigo(`supabase.from("registro_treino").update({ concluido: true, observacao: r.observacao }).eq("id", x)`)).toEqual([
+      "registro_treino.observacao",
+    ]);
+    expect(usosNoLugarAntigo(`supabase.from("registro_treino").select("data, registro_treino_bem_estar(sono, observacao)")`)).toEqual([]);
   });
 });
