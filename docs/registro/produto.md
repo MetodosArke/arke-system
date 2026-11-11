@@ -832,3 +832,7 @@ Pedido do Jean, decidido no mesmo dia: os dois caminhos. O aluno direto não tem
 - `npx tsc --noEmit -p tsconfig.app.json` e o `deno check` das duas funções: sem erro. `eslint` nos arquivos alterados: sem aviso.
 - `npx vitest run` nas 75 guardas, no repasse e na Central: 517 testes, com 2 falhas (o CPF e a verificação), corrigidas; as duas guardas de novo, 6 passando.
 - **Sem prova de tela:** o cartão é da Visão Master, que pede a conta da ArkeFit com as duas etapas.
+
+**No ar (11/11/2026)**, um passo por vez, com a autorização do responsável: a migration `20261459010000` aplicada antes do merge ("ArkeFit — Método online" ativa, mensalidade 0, repasse de 150 em 150; as funções novas fechadas ao `anon`); #437 com os três jobs verdes (o primeiro CI reprovou no teste da página Comercial, que conferia nenhuma chamada do nível Comercial: o cartão novo entrou simulado nele, como os outros cartões); `asaas-create-subscription`, `convidar-membro` e `assistente-academia` publicados.
+
+**A corrente real, pelas funções publicadas, sem criar nada:** sem sessão, a assinatura deu 401; com a sessão da gestora da Ponto Alto, o aluno inexistente deu 404 e o Pedro, sem adesão, 422 (a gestora passa pela autorização como antes, e a regra do Método segue); no cadastro, o e-mail inválido deu 400. A venda pela Visão Master, que pede a conta da ArkeFit com as duas etapas, fica para a primeira venda de verdade; a sugestão é começar por um aluno da Ponto Alto, que está em homologação e cobra no sandbox.
