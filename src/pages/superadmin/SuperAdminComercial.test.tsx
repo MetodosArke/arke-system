@@ -50,6 +50,8 @@ vi.mock("@/components/superadmin/comercial/QuadroPipeline", () => ({
 }));
 vi.mock("@/components/superadmin/comercial/FormularioLead", () => ({ FormularioLead: () => null }));
 vi.mock("@/components/superadmin/comercial/DialogoPerda", () => ({ DialogoPerda: () => null }));
+// A venda do Método (11/11/2026) tem as chamadas dela, da área Comercial; aqui só importa que aparece.
+vi.mock("@/components/superadmin/VenderMetodo", () => ({ VenderMetodo: () => <p>vender-o-metodo</p> }));
 
 const renderizar = () => {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -73,6 +75,7 @@ describe("o Pipeline por nível", () => {
     expect(await screen.findByText("quadro: Academia do WhatsApp")).toBeInTheDocument();
     await waitFor(() => expect(screen.getByText("letícia ligada")).toBeInTheDocument());
     expect(screen.queryByText("painel-da-leticia")).not.toBeInTheDocument();
+    expect(screen.getByText("vender-o-metodo")).toBeInTheDocument();
     expect(tabelas.mock.calls.map((c) => c[0]).sort()).toEqual(["leads_comerciais", "plataforma_config", "plataforma_textos"]);
     expect(rpc).not.toHaveBeenCalled();
   });
