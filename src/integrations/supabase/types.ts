@@ -10357,6 +10357,10 @@ export type Database = {
         Args: never
         Returns: { ficticia: boolean; id: string; metodo_direto: boolean; nome: string; repasse_negociado: boolean }[]
       }
+      registrar_visitante_avulso: {
+        Args: { _aula?: string; _catraca_id: string; _forma?: string; _nome: string; _valor?: number }
+        Returns: Json
+      }
       reservar_aviso_ao_aluno: {
         Args: {
           _aluno_id: string

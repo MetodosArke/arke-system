@@ -44,6 +44,7 @@ import { ErroAoCarregar } from "@/components/ErroAoCarregar";
 import { numeroNaoCadastrado } from "@/lib/gateway";
 import { useComandoGateway } from "@/hooks/useComandoGateway";
 import { ProgressoComando } from "@/components/catraca/ProgressoComando";
+import { VisitanteAvulso } from "@/components/catraca/VisitanteAvulso";
 import { passoDoCheckin, type RespostaCheckin } from "@/lib/checkinParceiro";
 
 type Parceiro = "wellhub" | "totalpass";
@@ -261,6 +262,7 @@ export default function AdminCatracas() {
   const RESULTADO_LABEL: Record<string, { label: string; variant: "default" | "destructive" | "secondary" }> = {
     liberado: { label: "Liberado", variant: "default" },
     liberado_parceiro_externo: { label: "Check-in (parceiro)", variant: "default" },
+    liberado_avulso: { label: "Visitante avulso", variant: "default" },
     liberado_remoto: { label: "Liberado pela recepção", variant: "secondary" },
     negado_inadimplente: { label: "Inadimplente", variant: "destructive" },
     negado_pausado: { label: "Matrícula pausada", variant: "secondary" },
@@ -551,6 +553,9 @@ export default function AdminCatracas() {
           )}
         </CardContent>
       </Card>
+
+      {/* A aula avulsa do visitante (10/11/2026): da recepção e da gestão, que liberam a catraca. */}
+      {podeComandar && organization?.id && <VisitanteAvulso organizationId={organization.id} catracas={catracas} />}
 
       {parceirosAtivos.length > 0 && organization?.id && (
         <Card>

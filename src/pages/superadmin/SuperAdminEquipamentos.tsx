@@ -25,6 +25,7 @@ const TOM = {
 const RESULTADO: Record<string, string> = {
   liberado: "Liberado",
   liberado_parceiro_externo: "Check-in (parceiro)",
+  liberado_avulso: "Visitante avulso",
   liberado_remoto: "Liberado pela recepção",
   negado_inadimplente: "Inadimplente",
   negado_pausado: "Pausado",
