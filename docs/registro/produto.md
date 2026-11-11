@@ -852,3 +852,15 @@ Decidido em 10/11: também para visitante, num sistema simples. A recepção lan
 ## A dor no ar (11/11/2026)
 
 Com a autorização do responsável, um passo por vez: `20261460010000` aplicada; #439 com os três jobs verdes; `mentor-sugerir-resposta` e `assistente-academia` publicados (o CLI do Supabase passou a pedir `--yes` para publicar em modo agente); o deploy da Vercel com sucesso; `20261461010000` aplicada depois do deploy: `registro_treino.observacao` e `alunos.progressao_bloqueada_motivo` saíram, e o bem-estar tem a observação.
+## Gamificação: a Pontuação ARKE (11/11/2026)
+
+Decidido em 10/11: pontos pela constância contra a meta do próprio aluno, pelo check-in e pelos desafios cumpridos; ranking da academia só por pontos, nunca por corpo; dor, pedido de ajuda e falta justificada nunca tiram ponto.
+
+- **A conta, num lugar só** (`20261463010000`, `pontos_arke_calcular`, sem EXECUTE para a API): em cada semana (domingo a sábado) que toca o período, os dias distintos com treino (o registro concluído no app ou a presença na catraca e no QR) valem até 20 pontos, na proporção da meta semanal do aluno (o teto é a meta: quem treina 2 com meta de 2 pontua igual a quem treina 5 com meta de 5); cada dia com check-in respondido vale 2, seja qual for a resposta; cada desafio concluído vale os pontos dele. Só soma.
+- **Para o app,** `pontos_arke(aluno, de, até)` confere quem pede (o próprio aluno ou a equipe da academia) e limita o período a um ano. O cartão **Seus pontos ARKE no mês** fica no alto de Desafios, com a constância, os check-ins e os desafios.
+- **Nas competições,** a métrica nova **Pontuação ARKE** (`competicao_metrica` ganhou `pontos_arke`, e o ranking compara a métrica como texto, porque o valor novo do enum não se usa na mesma transação que o cria).
+
+**Conferido:**
+- **O banco, em transação desfeita, num período sem dado (março de 2025), com o Pedro de meta 2:** a semana com 3 dias (o treino e a presença no mesmo dia contam um) deu 20, a de 1 dia deu 10, os 2 check-ins (um deles "com dificuldade") deram 4 e o desafio deu 15: total 49, o esperado. O aluno leu os dele, a gestora também, outro aluno e a conta interna pela API foram recusados (42501).
+- **O defeito plantado:** sem o teto da meta, a constância deu 40 em vez de 30; desfeito.
+- `npx tsc --noEmit -p tsconfig.app.json`: sem erro. `npx vitest run` nas 75 guardas, na Central e nos testes do app, do painel e do aluno: 557 passando.

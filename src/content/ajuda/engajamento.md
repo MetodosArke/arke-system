@@ -8,6 +8,8 @@ Metas com prazo para a turma toda ou para quem quiser participar: "12 treinos em
 
 Disputas entre alunos ou equipes, sempre por **constância e participação**: treinos feitos, presença, desafios concluídos.
 
+A métrica **Pontuação ARKE** junta tudo numa conta só, no período da competição: cada semana vale até **20 pontos** pela constância contra a meta do próprio aluno (os dias com treino no app, na catraca ou no QR), cada dia com check-in respondido vale **2**, e cada desafio concluído vale os pontos dele. O ranking é só por pontos, nunca por peso ou medida do corpo. O aluno vê os pontos do mês dele em **Desafios**, no app.
+
 ## Feed
 
 Um mural da academia: fotos de evento, conquistas, recados. O aluno vê no app e pode postar também.

@@ -24,6 +24,8 @@ No Método ARKE, **Jornada** mostra em que fase você está (M.A.P.A.®, B.A.S.E
 
 Desafios da academia, como "12 treinos em 30 dias". Contam **constância**, medida contra a sua meta: quem combinou 2 treinos por semana e fez os 2 está com 100%.
 
+No alto da tela de **Desafios**, **Seus pontos ARKE no mês** somam a constância (até 20 pontos por semana, contra a sua meta de treinos), os check-ins (2 por dia respondido) e os desafios concluídos. É a mesma conta das competições pela Pontuação ARKE.
+
 Nada disso tira ponto por você avisar que está com dor, pedir ajuda ou justificar uma falta de viagem ou trabalho.
 
 ## Feed
