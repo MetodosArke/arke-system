@@ -76,6 +76,18 @@ Na tela:
 
 As respostas são anônimas: a pesquisa não pede nome, guarda só a data (sem a hora) e não guarda o endereço de internet. O e-mail é opcional e fica separado das respostas, com a data de cada autorização, e sai sozinho 12 meses depois. Quem marca **Quero também conhecer o ArkeFit** informa o nome e o da academia e entra no quadro como contato do **site**, com "Pesquisa de mercado" em Veio de: a Letícia responde e o e-mail de aviso chega ao comercial, como num pedido de demonstração. As respostas dessa pessoa não vão para o contato.
 
+
+## Vender o Método ARKE
+
+No cartão **Vender o Método ARKE**, a ArkeFit vende o Método ela mesma, sem esperar a academia. Escolha para onde vai o aluno:
+
+- **ArkeFit — Método online (sem academia)**: o aluno não tem vínculo com academia e treina onde quiser. A assinatura sai na conta Asaas da ArkeFit, sem divisão: a ArkeFit fica com o valor inteiro.
+- **Uma academia parceira**: o aluno é dela, e o repasse negociado com a academia vale como sempre. Academia sem repasse negociado aparece desabilitada, porque não cobra o Método.
+
+Digite o CPF, o nível (Integrado ou Elite) e o valor mensal, que por enquanto não tem tabela. O aluno que já está na academia é achado pelo CPF. Quem ainda não está precisa também do nome, do e-mail e da data de nascimento: ele é cadastrado e recebe o convite para criar a senha. Ao vender, a adesão é registrada, a assinatura é criada com a primeira cobrança vencendo no dia, e o aluno entra na [carteira do mentor](ajuda:vm-mentoria). Se a assinatura falhar (o Asaas fora do ar, por exemplo), a adesão já vale: venda de novo com os mesmos dados, e nada duplica.
+
+Vendem os sócios e o nível **Comercial**, com a verificação em duas etapas. Os termos do aluno são os mesmos de sempre. A venda direta ainda não gera nota fiscal no CNPJ da ArkeFit.
+
 ## Privacidade
 
 Só a equipe da ArkeFit vê o quadro, e com a verificação em duas etapas: os sócios e o nível **Comercial**. O Comercial trabalha o quadro inteiro e aciona a Letícia nos cartões; **ligar e desligar a Letícia** (e o link da agenda) é dos sócios: o painel da resposta automática não aparece para ele. O contato que não virou cliente é apagado sozinho depois de 12 meses sem andamento, com os e-mails que a Letícia mandou para ele. O ganho fica.

@@ -278,6 +278,12 @@ export const CHAMADAS_DA_VISAO_MASTER: Record<string, Chamada> = {
   "fn:criar-organizacao-superadmin": { area: "cadastro" },
   "fn:superadmin-suporte-tenant": { area: "operacao" },
   "fn:asaas-emitir-cobranca-b2b": { area: "financeiro" },
+  // A venda do Método pela Visão Master (20261459010000): a área Comercial cadastra
+  // o aluno, registra a adesão e cria a assinatura.
+  "rpc:organizacoes_para_venda_metodo": { area: "comercial" },
+  "rpc:aderir_metodo_pela_arkefit": { area: "comercial" },
+  "fn:convidar-membro": { area: "comercial", motivo: "também é da academia (a gestão e a recepção cadastram o aluno); pela ArkeFit, só aluno, com a unidade dita e a área no banco" },
+  "fn:asaas-create-subscription": { area: "comercial", motivo: "também é da academia (quem cobra nela); pela ArkeFit, a área no banco" },
   "rpc:atualizar_cadastro_organizacao": { area: "cadastro" },
   "rpc:definir_mensalidade_b2b": { area: "financeiro" },
   "from:organizations": {

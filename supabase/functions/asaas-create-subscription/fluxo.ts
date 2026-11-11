@@ -144,7 +144,8 @@ export async function criarOuAdotarAssinatura(
     valorCobrado: number;
     primeiroVencimento: string;
     descricao: string;
-    walletIdAcademia: string;
+    /** Nula no Método direto: sem academia, sem split. */
+    walletIdAcademia: string | null;
     valorLiquidoAcademia: number;
   },
 ): Promise<{ assinatura: AssinaturaAsaas; adotada: boolean } | { erro: string }> {
@@ -162,7 +163,9 @@ export async function criarOuAdotarAssinatura(
       nextDueDate: dados.primeiroVencimento,
       description: dados.descricao,
       externalReference: dados.referencia,
-      split: [{ walletId: dados.walletIdAcademia, fixedValue: dados.valorLiquidoAcademia }],
+      ...(dados.walletIdAcademia && dados.valorLiquidoAcademia > 0
+        ? { split: [{ walletId: dados.walletIdAcademia, fixedValue: dados.valorLiquidoAcademia }] }
+        : {}),
     }),
   });
   if (!criada.ok) {

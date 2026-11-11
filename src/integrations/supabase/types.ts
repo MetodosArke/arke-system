@@ -5881,6 +5881,7 @@ export type Database = {
           logo_url: string | null
           logradouro: string | null
           markup_padrao_pct: number
+          metodo_direto: boolean
           nome: string
           numero: string | null
           onboarding_completed: boolean
@@ -5931,6 +5932,7 @@ export type Database = {
           logo_url?: string | null
           logradouro?: string | null
           markup_padrao_pct?: number
+          metodo_direto?: boolean
           nome: string
           numero?: string | null
           onboarding_completed?: boolean
@@ -5981,6 +5983,7 @@ export type Database = {
           logo_url?: string | null
           logradouro?: string | null
           markup_padrao_pct?: number
+          metodo_direto?: boolean
           nome?: string
           numero?: string | null
           onboarding_completed?: boolean
@@ -10346,6 +10349,14 @@ export type Database = {
         Returns: undefined
       }
       cancelar_venda_loja: { Args: { _venda_id: string }; Returns: undefined }
+      aderir_metodo_pela_arkefit: {
+        Args: { _cpf: string; _nivel: Database["public"]["Enums"]["nivel_atacado"]; _organization_id: string }
+        Returns: string
+      }
+      organizacoes_para_venda_metodo: {
+        Args: never
+        Returns: { ficticia: boolean; id: string; metodo_direto: boolean; nome: string; repasse_negociado: boolean }[]
+      }
       reservar_aviso_ao_aluno: {
         Args: {
           _aluno_id: string

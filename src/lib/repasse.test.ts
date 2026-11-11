@@ -131,3 +131,18 @@ describe("tabela de atacado de referência", () => {
     expect(erro).toContain("46,84");
   });
 });
+
+describe("o Método direto, sem academia (11/11/2026)", () => {
+  const taxa = { percentual: 2.99, fixa: 0.49, minima: 1.99 };
+  it("a ArkeFit fica com o valor inteiro, sem taxa somada, e a academia com zero", () => {
+    const direto: RepasseConfig = { tipo: "fixo", valor: null, direto: true };
+    expect(repasseArke(200, direto, taxa)).toBe(200);
+    const divisao = dividirCobranca(200, direto, taxa);
+    expect(divisao.liquidoAcademia).toBe(0);
+    expect(divisao.cobreORepasse).toBe(true);
+  });
+  it("a exceção de nível não vale no direto", () => {
+    const direto: RepasseConfig = { tipo: "fixo", valor: null, direto: true };
+    expect(resolverRepasse(direto, { tipo: "fixo", valor: 50 })).toBe(direto);
+  });
+});
