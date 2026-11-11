@@ -10,7 +10,7 @@ Todo aluno matriculado e em dia usa o app da academia no plano **Free**. O **Mé
 
 1. Defina o preço de cada nível em **Organização → Precificação**. A tela mostra quanto a academia recebe pela entrega presencial e quanto fica com a ArkeFit, pelo acompanhamento e pela operação da cobrança.
 2. O aluno vê a oferta no app, **sem o preço**, e é orientado a falar com a recepção. O valor é apresentado por vocês, na conversa: preço de cara no app tendia a encerrar a venda antes dela começar.
-3. Na lista de alunos, o botão **Método**, ao lado do plano Free, registra a adesão no nível escolhido, e a cobrança começa. O Método é serviço da ArkeFit e sai da conta Asaas dela; a cada pagamento, o Asaas transfere a parte da academia direto para a conta dela.
+3. Na lista de alunos, o botão **Método**, ao lado do plano Free, registra a adesão no nível escolhido, e a cobrança começa. O Método é serviço da ArkeFit e sai da conta Asaas dela; a cada pagamento, o Asaas transfere a parte da academia direto para a conta dela. A ArkeFit também pode vender o Método a um aluno da academia, pela Visão Master: a adesão fica registrada do mesmo jeito, e o repasse da academia vale igual.
 
 O app só oferece o Método quando a academia de fato vende: com o preço definido e o acordo com a ArkeFit fechado.
 

@@ -10,6 +10,8 @@ import { ambienteAsaas } from "../_shared/asaas.ts";
 import { dentroDoFreio, MENSAGEM_FREIO, regrasAsaas } from "../_shared/freio.ts";
 import { MENSAGEM_SO_QUEM_COBRA, podeCobrarNaAcademia } from "../_shared/papelCobranca.ts";
 import { servir } from "../_shared/servir.ts";
+import { acessoArkefit } from "../_shared/acessoArkefit.ts";
+import { verificada } from "../_shared/verificacao.ts";
 import { resumoDoErro } from "../_shared/resumoDoErro.ts";
 
 const corsHeaders = {
@@ -84,19 +86,27 @@ servir("asaas-create-subscription", async (req: Request) => {
       return jsonResponse({ error: "Sessão inválida. Faça login novamente." }, 401);
     }
 
-    const { data: aluno, error: alunoError } = await asUser
+    // O aluno é lido com a service role só para saber a academia dele, e quem
+    // pode cobrar é conferido logo em seguida: a gestão e a recepção dela, o
+    // Sócio, ou a área Comercial da ArkeFit, que vende o Método pela Visão
+    // Master (11/11/2026). Pela regra de leitura, o nível Comercial não lê o
+    // aluno que ainda não é do Método.
+    const admin = createClient(supabaseUrl, serviceRoleKey);
+    const { data: aluno, error: alunoError } = await admin
       .from("alunos")
       .select("id, organization_id, nivel_atacado, user_id, metodo_arke_status")
       .eq("id", aluno_id)
-      .single();
+      .maybeSingle();
 
     if (alunoError || !aluno) {
       return jsonResponse({ error: "Aluno não encontrado ou sem permissão de acesso." }, 404);
     }
 
-    const admin = createClient(supabaseUrl, serviceRoleKey);
     if (!(await podeCobrarNaAcademia(admin, callerId, aluno.organization_id, claimsData?.claims))) {
-      return jsonResponse({ error: MENSAGEM_SO_QUEM_COBRA }, 403);
+      // O nível só vale com as duas etapas: conferido aqui e de novo no banco.
+      const comercial = verificada(claimsData?.claims) ? await acessoArkefit(asUser, claimsData?.claims, "comercial") : false;
+      if (comercial === null) return jsonResponse({ error: "Não foi possível conferir o acesso." }, 500);
+      if (!comercial) return jsonResponse({ error: MENSAGEM_SO_QUEM_COBRA }, 403);
     }
     if (!(await dentroDoFreio(admin, regrasAsaas(callerId, aluno.organization_id)))) {
       return jsonResponse({ error: MENSAGEM_FREIO }, 429);
@@ -140,16 +150,19 @@ servir("asaas-create-subscription", async (req: Request) => {
       );
     }
 
-    const { data: org, error: orgError } = await asUser
+    const { data: org, error: orgError } = await admin
       .from("organizations")
-      .select("id, nome, asaas_wallet_id, onboarding_completed, status")
+      .select("id, nome, asaas_wallet_id, onboarding_completed, status, metodo_direto")
       .eq("id", aluno.organization_id)
       .single();
 
     if (orgError || !org) {
       return jsonResponse({ error: "Organização não encontrada." }, 404);
     }
-    if (!org.asaas_wallet_id) {
+    // O aluno do Método direto (sem academia) mora na organização da ArkeFit:
+    // sem carteira de academia e sem split; a assinatura fica inteira com a ArkeFit.
+    const direto = org.metodo_direto === true;
+    if (!direto && !org.asaas_wallet_id) {
       return jsonResponse(
         { error: "A academia ainda não configurou a conta de recebimentos no Asaas (Onboarding → Recebimentos)." },
         422
@@ -157,7 +170,7 @@ servir("asaas-create-subscription", async (req: Request) => {
     }
     // D5: cobrança de aluno só com o onboarding da academia concluído
     // (organização em trial é homologação e passa).
-    if (!org.onboarding_completed && org.status !== "trial") {
+    if (!direto && !org.onboarding_completed && org.status !== "trial") {
       return jsonResponse(
         { error: "Conclua o onboarding da academia (Painel → Onboarding) antes de cobrar alunos pelo ARKE." },
         422
@@ -175,7 +188,7 @@ servir("asaas-create-subscription", async (req: Request) => {
     const asaasApiUrl = ambiente.api;
     const asaasApiKey = ambiente.chave;
 
-    const { data: profile } = await asUser
+    const { data: profile } = await admin
       .from("profiles")
       .select("full_name, cpf, phone")
       .eq("user_id", aluno.user_id)
@@ -263,8 +276,8 @@ servir("asaas-create-subscription", async (req: Request) => {
       referencia,
       valorCobrado: valor_cobrado,
       primeiroVencimento,
-      descricao: `ARKE — ${org.nome} — nível ${aluno.nivel_atacado}`,
-      walletIdAcademia: org.asaas_wallet_id,
+      descricao: direto ? `ARKE — Método online — nível ${aluno.nivel_atacado}` : `ARKE — ${org.nome} — nível ${aluno.nivel_atacado}`,
+      walletIdAcademia: direto ? null : org.asaas_wallet_id,
       valorLiquidoAcademia,
     });
     if ("erro" in resultado) {

@@ -15,6 +15,7 @@ import { DialogoPerda } from "@/components/superadmin/comercial/DialogoPerda";
 import { useConfigLeticia } from "@/components/superadmin/comercial/useConfigLeticia";
 import { COLUNAS_LEAD, type LeadComercial } from "@/components/superadmin/comercial/tipos";
 import { Button } from "@/components/ui/button";
+import { VenderMetodo } from "@/components/superadmin/VenderMetodo";
 import { Input } from "@/components/ui/input";
 
 const CHAVE = ["leads-comerciais"];
@@ -184,6 +185,9 @@ export default function SuperAdminComercial() {
           detalhe={n.conversao90 === null ? "nenhum fechamento em 90 dias" : `${n.conversao90}% de conversão em 90 dias`}
         />
       </div>
+
+      {/* A venda do Método pela Visão Master (11/11/2026), da área Comercial. */}
+      <VenderMetodo />
 
       {/* Ligar a resposta automática da Letícia é do Sócio (definir_agente_comercial). */}
       {socio && <RespostaAutomatica />}

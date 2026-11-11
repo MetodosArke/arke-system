@@ -25,8 +25,12 @@ import { reais } from "./numeros";
  */
 export type TaxaProcessamento = { percentual: number; fixa: number; minima?: number };
 
-/** O que foi negociado com a academia. `valor` nulo = ainda não negociado. */
-export type RepasseConfig = { tipo: "fixo" | "percentual"; valor: number | null };
+/**
+ * O que foi negociado com a academia. `valor` nulo = ainda não negociado.
+ * `direto`: a organização da ArkeFit para o aluno do Método sem academia
+ * (`organizations.metodo_direto`, 11/11/2026), onde a ArkeFit fica com o valor inteiro.
+ */
+export type RepasseConfig = { tipo: "fixo" | "percentual"; valor: number | null; direto?: boolean };
 
 const centavos = (v: number) => Math.round(v * 100) / 100;
 
@@ -41,6 +45,8 @@ export function taxaProcessamento(valor: number, taxa: TaxaProcessamento): numbe
  * padrão cobraria o aluno com uma divisão que ninguém acordou.
  */
 export function repasseArke(valor: number, config: RepasseConfig, taxa: TaxaProcessamento): number | null {
+  // Sem academia, sem split: a ArkeFit fica com tudo, e a taxa do Asaas sai da parte dela.
+  if (config.direto) return centavos(valor);
   if (config.valor === null || config.valor === undefined) return null;
   const base = config.tipo === "percentual" ? centavos((valor * config.valor) / 100) : centavos(config.valor);
   return centavos(base + taxaProcessamento(valor, taxa));
@@ -59,6 +65,7 @@ export function repasseArke(valor: number, config: RepasseConfig, taxa: TaxaProc
  * Espelha `public.repasse_arke`. Exceção sem valor não suprime o padrão.
  */
 export function resolverRepasse(padrao: RepasseConfig, excecao?: RepasseConfig | null): RepasseConfig {
+  if (padrao.direto) return padrao;
   if (excecao && excecao.valor !== null && excecao.valor !== undefined) return excecao;
   return padrao;
 }

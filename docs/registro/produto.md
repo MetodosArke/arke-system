@@ -810,3 +810,25 @@ Decidido em 10/11: a estrutura para cadastrar e vender produtos, sem nota fiscal
 **No ar (10/11/2026):** a migration `20261458010000` aplicada antes do merge, para a tela nova já achar as tabelas (6 regras nas duas tabelas; `registrar_venda_loja` fechada ao `anon`; o gatilho sem EXECUTE para a API; a nota sem produto); #435 com os três jobs verdes; `assistente-academia` publicado; o deploy de produção da Vercel com sucesso. A migration esperou a autorização do responsável, depois de a checagem automática barrar como deploy em produção.
 
 **A tela, na Ponto Alto** (no computador e no celular): a gestora cadastrou a "Garrafa ArkeFit 750 ml" (R$ 39,90, 10 em estoque) e vendeu 2 no balcão, em dinheiro; a tela mostrou o total de R$ 79,80, e a venda apareceu paga em Vendas, como Balcão. No banco, o estoque ficou em 8 e a receita de R$ 79,80 entrou paga no financeiro. O produto e a venda ficam como histórico da demonstração. A venda por cobrança não foi feita na tela, porque gera uma cobrança de verdade no Asaas; ela está provada no banco, acima.
+
+## A venda do Método ARKE pela Visão Master (11/11/2026)
+
+Pedido do Jean, decidido no mesmo dia: os dois caminhos. O aluno direto não tem vínculo com academia (treina onde quiser) e fica sem repasse; o aluno com academia segue com o repasse dela. O preço não tem tabela por enquanto: o valor mensal é digitado na venda. Os termos são os mesmos já aplicados (os primeiros alunos devem vir com academia); a nota fiscal no CNPJ da ArkeFit continua pendente, com o cadastro fiscal dela no Asaas.
+
+- **A organização do Método direto** (`20261459010000`). Todo aluno mora numa organização (multitenancy): o direto mora na "ArkeFit — Método online", marcada com `organizations.metodo_direto` (uma só, índice parcial único), sem mensalidade B2B (valor 0) e sem catraca.
+- **O repasse.** Nos três lugares que mudam juntos: `repasse_arke()` devolve o valor inteiro quando a organização é a do Método direto; `src/lib/repasse.ts` ganhou `direto` (a exceção de nível não vale nele); e `asaas-create-subscription`, nessa organização, dispensa a carteira e o onboarding da academia e cria a assinatura sem split (`criarOuAdotarAssinatura` só manda o split com carteira e líquido maior que zero). A taxa do Asaas sai da parte da ArkeFit.
+- **A adesão pela ArkeFit.** `aderir_metodo_pela_arkefit(organização, CPF, nível)` confere a área Comercial (`acesso_arkefit('comercial')`: o Sócio, ou o nível Comercial com as duas etapas), acha o aluno pelo CPF na organização, recusa a academia sem repasse negociado e o Essencial, e registra a adesão; quem já está no Método volta igual, para a assinatura ser tentada de novo. `organizacoes_para_venda_metodo()` entrega à área Comercial só o nome, o direto e o repasse negociado (ela não lê `organizations` pelo RLS).
+- **As funções.** `convidar-membro` aceita a área Comercial cadastrando aluno, com a unidade dita; `asaas-create-subscription` lê o aluno com a service role só para achar a academia e confere quem cobra logo depois (a academia, o Sócio, ou a área Comercial). As duas conferem a sessão verificada e perguntam a área ao banco.
+- **A tela:** o cartão **Vender o Método ARKE** na página Comercial da Visão Master: para onde vai o aluno (o Método online ou a academia, com a sem repasse desabilitada), CPF, nível e valor, e os dados de cadastro de quem ainda não está na academia; com o selo do Asaas. Os artigos `vm-comercial` e `metodo-arke-academia` contam.
+
+**Defeitos no caminho:**
+- A guarda do CPF pegou a comparação do CPF sem `cpf_sem_mascara` na função nova, e a da verificação pegou as duas funções sem `verificada(claims)` escrito nelas (estava só dentro de `acessoArkefit`). As duas foram corrigidas.
+- O roteiro do sandbox da assinatura para no primeiro passo, porque o sandbox não abre mais subconta (403), o esperado desde a decisão de não usar subcontas. O Método direto não precisa de subconta e ganhou roteiro próprio, `npm run sandbox:metodo-direto`.
+
+**Conferido:**
+- **O banco, em transação desfeita, com as sessões de um Sócio e do professor da Ponto Alto:** a organização do direto existe e o repasse dela é o valor inteiro (200 de 200); o repasse da parceira não mudou; a parceira sem repasse foi recusada; com o repasse, o Sócio registrou a adesão do Pedro pelo CPF (Integrado, ativo), e de novo voltou igual; CPF de fora e o direto sem o aluno deram "não encontrado"; o Essencial, o professor e o Sócio sem as duas etapas foram recusados.
+- **O sandbox do Asaas**, com o código real de `fluxo.ts`: a assinatura do direto nasceu sem split e com os R$ 180 inteiros, e a segunda chamada adotou a mesma.
+- **O defeito plantado:** sem o caso direto na conta do app, 1 dos 16 testes do repasse falhou; desfeito.
+- `npx tsc --noEmit -p tsconfig.app.json` e o `deno check` das duas funções: sem erro. `eslint` nos arquivos alterados: sem aviso.
+- `npx vitest run` nas 75 guardas, no repasse e na Central: 517 testes, com 2 falhas (o CPF e a verificação), corrigidas; as duas guardas de novo, 6 passando.
+- **Sem prova de tela:** o cartão é da Visão Master, que pede a conta da ArkeFit com as duas etapas.

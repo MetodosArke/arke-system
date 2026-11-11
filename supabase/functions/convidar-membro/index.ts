@@ -8,6 +8,8 @@ import { servir } from "../_shared/servir.ts";
 import { cabecalhosDoResend, chaveDeIdempotencia, envioAceito, resumoParaChave } from "../_shared/idempotenciaEmail.ts";
 import { resumoDoErro } from "../_shared/resumoDoErro.ts";
 import { respostaDoErroDoAuth } from "../_shared/erroDoAuth.ts";
+import { acessoArkefit } from "../_shared/acessoArkefit.ts";
+import { verificada } from "../_shared/verificacao.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -218,8 +220,21 @@ servir("convidar-membro", async (req: Request) => {
       console.error("Error loading caller membership", resumoDoErro(callerMembershipError));
       return jsonResponse({ error: "Erro ao validar permissões." }, 500);
     }
-    const callerMembership =
+    let callerMembership =
       (vinculosAutorizados ?? []).find((v) => v.role === "gestor") ?? (vinculosAutorizados ?? [])[0] ?? null;
+    // A área Comercial da ArkeFit cadastra o aluno do Método vendido pela Visão
+    // Master (11/11/2026), na academia escolhida ou na organização do Método
+    // direto. Só aluno, só com a unidade dita e a área conferida no banco, com as
+    // duas etapas.
+    if (!callerMembership && orgPedida && papel === "aluno") {
+      // O nível só vale com as duas etapas: conferido aqui e de novo no banco.
+      const comercial = verificada(claimsData?.claims) ? await acessoArkefit(asUser, claimsData?.claims, "comercial") : false;
+      if (comercial === null) return jsonResponse({ error: "Erro ao validar permissões." }, 500);
+      if (comercial) {
+        const { data: org } = await adminClient.from("organizations").select("id").eq("id", orgPedida).maybeSingle();
+        if (org) callerMembership = { organization_id: orgPedida, role: "arkefit", created_at: "" };
+      }
+    }
     if (!callerMembership) {
       return jsonResponse({ error: "Só o gestor ou a recepção desta academia podem cadastrar alunos." }, 403);
     }

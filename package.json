@@ -30,7 +30,8 @@
     "avaliar:ia": "node scripts/avaliar-ia.mjs",
     "demo:recriar": "node scripts/demonstracao/academia.mjs recriar",
     "demo:limpar": "node scripts/demonstracao/academia.mjs limpar",
-    "ajuda:indice": "node scripts/ajuda/indice-assistente.mjs"
+    "ajuda:indice": "node scripts/ajuda/indice-assistente.mjs",
+    "sandbox:metodo-direto": "node scripts/asaas-sandbox-metodo-direto.mjs"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
