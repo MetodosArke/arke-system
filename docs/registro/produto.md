@@ -806,3 +806,7 @@ Decidido em 10/11: a estrutura para cadastrar e vender produtos, sem nota fiscal
 - `npx tsc --noEmit -p tsconfig.app.json`: sem erro. `eslint` nos arquivos alterados: sem aviso.
 - `npx vitest run` nas 75 guardas e nos testes do menu, do modo essencial, do acesso e da Central: 526 testes, com 1 falha (o selo do prestador), corrigida; a guarda de novo, 8 passando.
 - `npm run ajuda:indice` regerou o índice (`loja`, `notas-fiscais`).
+
+**No ar (10/11/2026):** a migration `20261458010000` aplicada antes do merge, para a tela nova já achar as tabelas (6 regras nas duas tabelas; `registrar_venda_loja` fechada ao `anon`; o gatilho sem EXECUTE para a API; a nota sem produto); #435 com os três jobs verdes; `assistente-academia` publicado; o deploy de produção da Vercel com sucesso. A migration esperou a autorização do responsável, depois de a checagem automática barrar como deploy em produção.
+
+**A tela, na Ponto Alto** (no computador e no celular): a gestora cadastrou a "Garrafa ArkeFit 750 ml" (R$ 39,90, 10 em estoque) e vendeu 2 no balcão, em dinheiro; a tela mostrou o total de R$ 79,80, e a venda apareceu paga em Vendas, como Balcão. No banco, o estoque ficou em 8 e a receita de R$ 79,80 entrou paga no financeiro. O produto e a venda ficam como histórico da demonstração. A venda por cobrança não foi feita na tela, porque gera uma cobrança de verdade no Asaas; ela está provada no banco, acima.
