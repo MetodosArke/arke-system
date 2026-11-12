@@ -868,3 +868,22 @@ Decidido em 10/11: pontos pela constância contra a meta do próprio aluno, pelo
 **Aulas avulsas e gamificação no ar (11/11/2026)**, com a autorização do responsável, um passo por vez em cada uma: a migration aplicada (`20261462010000`: o resultado novo e a função fechada ao `anon`; `20261463010000`: a métrica `pontos_arke` e a conta interna sem EXECUTE para a API); o merge (#440 e #441, os dois com os três jobs verdes, depois de trazer a `main`: o índice da Central em conflito nos dois, regerado; o registro e os tipos com acréscimos dos dois lados, mantidos, e uma chave que faltou nos tipos, recolocada); `assistente-academia` publicado; o deploy da Vercel com sucesso.
 
 **A tela, na Ponto Alto:** no app do Pedro (celular e computador), o cartão "Seus pontos ARKE no mês" mostra 0, o certo: ele não treinou nem respondeu check-in em novembro (a conta com dados está provada no banco, 49 do esperado). No painel da gestora, o cartão "Visitante avulso" aparece em Catracas; a Ponto Alto não tem catraca ativa, e o cartão diz que o visitante passa pela catraca da academia. O registro e a liberação estão provados no banco, com a catraca criada na transação.
+
+## O engajamento na Visão Master (12/11/2026)
+
+O Jean pediu para acompanhar pela Visão Master o engajamento e a Pontuação ARKE das academias.
+
+- **Os números de cada academia** (`20261464010000`, `get_superadmin_engajamento(de, até)`): os alunos, quantos treinaram, quantos fizeram check-in, os desafios concluídos, os pontos no total e a média de pontos por aluno, que ordena a lista. A função usa a mesma conta das competições e do app (`pontos_arke_calcular`). São números sem nome de aluno, então ficam na **carteira**, como a lista de academias.
+- **O ranking dos alunos de uma academia** (`get_superadmin_pontos_alunos`) mostra o nome do aluno, que é dado de aluno, então é **só do Sócio** (`has_role … 'superadmin'`, com as duas etapas).
+- **O pausado fica fora da conta**, porque não treina por combinação com a academia; contá-lo derrubaria a média sem motivo. O anonimizado também fica fora. O período vai até um ano, como em `pontos_arke`.
+- **A conta roda aluno por aluno.** Com os alunos de hoje isso basta (as cinco academias responderam na hora); com dezenas de milhares, a conta passa a ser em lote ou num resumo diário (`ponytail:` na função).
+- A tela [Engajamento](/superadmin/engajamento) fica no menu Operação, com o artigo `vm-engajamento` na Central.
+
+**Conferido:**
+- **O banco, em transação desfeita:**
+  - o Sócio, com as duas etapas, leu as 5 academias; nos últimos 90 dias, a Ponto Alto ficou em primeiro, com 84,9 pontos por aluno (169 alunos), e o ranking dela trouxe os 169 alunos, com 147 pontos no topo;
+  - o período de mais de um ano foi recusado;
+  - o ranking foi recusado ao Sócio sem as duas etapas;
+  - as duas funções foram recusadas ao aluno (42501).
+- **O defeito plantado:** com o ranking marcado como da área carteira, `acessosArkefit.guarda` falhou ("não confere a área carteira"); desfeito.
+- **Os testes:** `npx tsc --noEmit -p tsconfig.app.json` sem erro; as 75 guardas, com 492 testes, passando; os testes da Visão Master e da Central, 150 passando. Na rodada completa, que levou 41 minutos com a máquina carregada, 5 testes de tela esgotaram o tempo; a Auditoria, que estava entre eles, passou sozinha.

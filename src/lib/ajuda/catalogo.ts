@@ -467,6 +467,14 @@ export const ARTIGOS: ArtigoAjuda[] = [
     rotas: ["/superadmin/vigia"],
   },
   {
+    slug: "vm-engajamento",
+    titulo: "Engajamento: a Pontuação ARKE de cada academia",
+    resumo: "Quem treinou, fez check-in e cumpriu desafios, os pontos por aluno e, para o Sócio, o ranking dos alunos.",
+    secao: "Visão Master",
+    publicos: ["arkefit"],
+    rotas: ["/superadmin/engajamento"],
+  },
+  {
     slug: "vm-uso-ia",
     titulo: "Uso das IAs: chamadas, trava e custo",
     resumo: "Quanto cada IA foi chamada, quanto a trava recusou e quanto custou.",
