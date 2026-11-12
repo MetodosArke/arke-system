@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { exigirGravacao } from "@/lib/gravacao";
 import { mensagemDeErroEdge } from "@/lib/erroEdge";
@@ -96,19 +97,28 @@ const CATEGORIAS_SIMULACAO: { categoria: CategoriaSimulacao; label: string; icon
   { categoria: "nutricionista", label: "Visão do Nutricionista", icon: Apple, destino: "/#/admin" },
 ];
 
+/**
+ * O cartão de indicador. Com `para`, ele é clicável: uma rota da Visão Master
+ * (`/superadmin/engajamento`) ou uma seção desta tela (`#carteira`), que se
+ * abre rolando até ela, porque o app usa HashRouter e a âncora no endereço
+ * trocaria de rota.
+ */
 function StatTile({
   icon: Icon,
   label,
   value,
   sublabel,
+  para,
 }: {
   icon: typeof Users;
   label: string;
   value: string;
   sublabel?: string;
+  para?: string;
 }) {
-  return (
-    <Card>
+  const navigate = useNavigate();
+  const cartao = (
+    <Card className={para ? "h-full transition-colors group-hover:border-primary/50" : undefined}>
       <CardContent className="p-4 flex items-center gap-3">
         <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
           <Icon className="h-4.5 w-4.5 text-primary" />
@@ -120,6 +130,20 @@ function StatTile({
         </div>
       </CardContent>
     </Card>
+  );
+  if (!para) return cartao;
+  const abrir = () =>
+    para.startsWith("#")
+      ? document.getElementById(para.slice(1))?.scrollIntoView({ behavior: "smooth", block: "start" })
+      : navigate(para);
+  return (
+    <button
+      type="button"
+      onClick={abrir}
+      className="group rounded-xl text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+    >
+      {cartao}
+    </button>
   );
 }
 
@@ -709,66 +733,83 @@ export default function SuperAdminDashboard() {
         <StatTile
           icon={TrendingUp}
           label="MRR Global"
+          para="#receita"
           value={overview ? formatarMoeda(Number(overview.mrr_global)) : "—"}
         />
         <StatTile
           icon={TrendingUp}
           label="ARR Global"
+          para="#receita"
           value={overview ? formatarMoeda(Number(overview.arr_global)) : "—"}
         />
         <StatTile
           icon={Percent}
           label="Take Rate"
+          para="#receita"
           value={overview ? `${decimal(Number(overview.take_rate_pct), 1)}%` : "—"}
           sublabel="Repasse ARKE líquido de taxa / receita bruta"
         />
         <StatTile
           icon={AlertTriangle}
           label="Inadimplência Geral"
+          para="#carteira"
           value={overview ? `${decimal(Number(overview.inadimplencia_pct), 1)}%` : "—"}
           sublabel="Assinaturas atrasadas"
         />
         <StatTile
           icon={HeartPulse}
           label="Retenção de tenants"
+          para="#carteira"
           value={overview ? `${decimal(Number(overview.retencao_tenants_pct), 1)}%` : "—"}
           sublabel="Health Score B2B"
         />
         <StatTile
           icon={Building2}
           label="Academias ativas"
+          para="#carteira"
           value={overview ? `${overview.academias_ativas}` : "—"}
           sublabel={overview ? `${overview.academias_total} academias no total` : undefined}
         />
         <StatTile
           icon={Users}
           label="Alunos ativos (global)"
+          para="/superadmin/engajamento"
           value={overview ? `${overview.alunos_ativos_global}` : "—"}
         />
         <StatTile
           icon={Dumbbell}
           label="Prescrições B.A.S.E.®"
+          para={socio ? "#adocao" : "/superadmin/engajamento"}
           value={overview ? `${overview.prescricoes_base_total}` : "—"}
           sublabel="Treinos + dietas ativos"
         />
         <StatTile
           icon={Activity}
           label="Check-ins M.A.P.A.®"
+          para="/superadmin/engajamento"
           value={overview ? `${overview.checkins_mapa_total}` : "—"}
           sublabel="Total processado"
         />
       </div>
       )}
 
-      {financeiro && <ReceitaHistoricoCard />}
+      {financeiro && (
+        <div id="receita" className="scroll-mt-4">
+          <ReceitaHistoricoCard />
+        </div>
+      )}
 
       {pode("comercial") && <FunilConversaoCard />}
 
-      {socio && <AdocaoMetodologiaCard />}
+      {socio && (
+        <div id="adocao" className="scroll-mt-4">
+          <AdocaoMetodologiaCard />
+        </div>
+      )}
 
       <OperacaoGlobalCard />
 
-      <Card>
+      <Card id="carteira" className="scroll-mt-4">
         <CardHeader className="pb-2">
           <div className="flex items-start justify-between gap-2">
             <div>

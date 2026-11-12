@@ -10,6 +10,13 @@ No topo, uma faixa vermelha aparece quando algo precisa de ação: rotina agenda
 
 Receita da plataforma no mês, repasse ARKE líquido (já sem a taxa do Asaas), take rate, inadimplência das academias e a carteira de academias por situação.
 
+Cada cartão de número abre o detalhe dele:
+
+- **MRR, ARR e take rate** descem até a **Evolução de Receita e MRR**;
+- **inadimplência, retenção e academias ativas** descem até a lista de academias, que mostra as cobranças atrasadas de cada uma;
+- **alunos ativos e check-ins** abrem o [Engajamento](ajuda:vm-engajamento);
+- **prescrições** descem até a **Adoção da Metodologia**, para o sócio, e abrem o Engajamento para as outras áreas.
+
 ## Gestão de Tenants
 
 A lista de academias, com busca e filtros por tipo e situação, separada em **Ativos / Trial**, **Inativos / Cancelados** e **Todos**. Cada linha mostra alunos, cobranças atrasadas, plano, situação e a **última atividade** (o check-in ou treino mais recente): academia parada há dias é o primeiro sinal de cancelamento.
