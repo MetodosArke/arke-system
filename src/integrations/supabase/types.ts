@@ -9465,6 +9465,19 @@ export type Database = {
           tipo_organizacao: string
         }[]
       }
+      get_superadmin_engajamento: {
+        Args: { _ate: string; _de: string }
+        Returns: {
+          alunos: number
+          com_checkin: number
+          desafios_concluidos: number
+          nome: string
+          organization_id: string
+          pontos_media: number
+          pontos_total: number
+          treinaram: number
+        }[]
+      }
       get_superadmin_equipamentos: {
         Args: never
         Returns: {
@@ -9626,6 +9639,17 @@ export type Database = {
           respondida_em: string
           respostas: Json
           versao: number
+        }[]
+      }
+      get_superadmin_pontos_alunos: {
+        Args: { _ate: string; _de: string; _organization_id: string }
+        Returns: {
+          aluno_id: string
+          checkins: number
+          constancia: number
+          desafios: number
+          nome: string
+          total: number
         }[]
       }
       get_superadmin_profissionais_autonomos: {

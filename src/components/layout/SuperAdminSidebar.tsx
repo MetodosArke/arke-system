@@ -1,6 +1,6 @@
 import { BotaoMeuCadastro } from "@/components/superadmin/CadastroEquipeArkefit";
 import { useState } from "react";
-import { ChevronLeft, CircleHelp, ClipboardList, Cpu, Dumbbell, Kanban, LayoutDashboard, LifeBuoy, LogOut, Menu, MessageCircle, Radar, Rocket, ScrollText, Settings, Shield, Sparkles, UserCog, UsersRound, Webhook } from "lucide-react";
+import { ChevronLeft, CircleHelp, ClipboardList, Cpu, Dumbbell, Kanban, LayoutDashboard, LifeBuoy, LogOut, Menu, MessageCircle, Radar, Rocket, ScrollText, Settings, Shield, Sparkles, Trophy, UserCog, UsersRound, Webhook } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
@@ -28,6 +28,7 @@ export const SECOES_SUPERADMIN: { label: string; items: MenuItem[] }[] = [
       { icon: Rocket, label: "Implantação", path: "/superadmin/implantacao" },
       { icon: LifeBuoy, label: "Suporte", path: "/superadmin/suporte" },
       { icon: UserCog, label: "Profissionais", path: "/superadmin/profissionais" },
+      { icon: Trophy, label: "Engajamento", path: "/superadmin/engajamento" },
     ],
   },
   {

@@ -192,6 +192,7 @@ export const ROTAS_DA_VISAO_MASTER: Record<string, readonly AreaArkefit[] | "tod
   implantacao: ["suporte"],
   suporte: ["suporte"],
   profissionais: ["carteira"],
+  engajamento: ["carteira"], // os números por academia; o ranking com o nome dos alunos, só o Sócio
   vigia: ["operacao"],
   ia: ["socio"],
   equipamentos: ["operacao"],
@@ -395,6 +396,9 @@ export const CHAMADAS_DA_VISAO_MASTER: Record<string, Chamada> = {
   "rpc:concluir_chamado_implantacao": { area: "suporte" },
   "rpc:definir_agente_implantacao": { area: "socio" },
   // Profissionais
+  // Engajamento (20261464010000)
+  "rpc:get_superadmin_engajamento": { area: "carteira" },
+  "rpc:get_superadmin_pontos_alunos": { area: "socio" },
   "rpc:get_superadmin_profissionais_autonomos": { area: "carteira" },
   "rpc:atualizar_profissional_autonomo": { area: "cadastro" },
   "fn:convidar-profissional-autonomo": { area: "cadastro" },
